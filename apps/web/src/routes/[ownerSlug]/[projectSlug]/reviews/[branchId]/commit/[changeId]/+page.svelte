@@ -1,19 +1,28 @@
 <script lang="ts">
 	import ChatComponent from '$lib/components/ChatComponent.svelte';
+	import ChangeStatus from '$lib/components/changes/ChangeStatus.svelte';
 	import Section from '$lib/components/review/Section.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { getPatch, getPatchSections } from '@gitbutler/shared/branches/patchesPreview.svelte';
+	import {
+		getPatchContributorsWithAvatars,
+		getPatchReviewersWithAvatars
+	} from '@gitbutler/shared/branches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { dig, isFound } from '@gitbutler/shared/network/loadable';
+	import { compose, dig, isFound } from '@gitbutler/shared/network/loadable';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import type { ProjectReviewCommitParameters } from '$lib/routing';
 
+	const BRANCH_TITLE_PLACE_HOLDER = 'No branch title provided';
 	const DESCRIPTION_PLACE_HOLDER = 'No description provided';
+	const NO_REVIEWERS = 'Not reviewd yet';
+	const NO_CONTRIBUTORS = 'No contributors';
 
 	interface Props {
 		data: ProjectReviewCommitParameters;
@@ -38,6 +47,7 @@
 
 	const patchIds = $derived(dig(branch?.current, (b) => b.patchIds));
 	const branchUuid = $derived(dig(branch?.current, (b) => b.uuid));
+	const branchName = $derived(dig(branch?.current, (b) => b.title) ?? BRANCH_TITLE_PLACE_HOLDER);
 
 	const patch = $derived(
 		branchUuid !== undefined
@@ -50,14 +60,31 @@
 			? getPatchSections(appState, patchService, branchUuid, data.changeId)
 			: undefined
 	);
+
+	const contributors = $derived(
+		isFound(patch?.current)
+			? getPatchContributorsWithAvatars(patch.current.value)
+			: Promise.resolve([])
+	);
+
+	const reviewers = $derived(
+		isFound(patch?.current)
+			? getPatchReviewersWithAvatars(patch.current.value)
+			: Promise.resolve([])
+	);
 </script>
 
 <div class="review-page">
-	<Loading loadable={patch?.current}>
-		{#snippet children(patch)}
+	<Loading loadable={compose(patch?.current, repositoryId.current)}>
+		{#snippet children([patch, repositoryId])}
 			<div class="review-main-content">
-				<h3 class="review-main-content-title">{patch.title}</h3>
-				<div>
+				<div class="review-main__header">
+					<p class="review-main__branch-title-line">
+						Branch: <span class="review-main__branch-title">{branchName}</span>
+					</p>
+
+					<h3 class="review-main-content-title">{patch.title}</h3>
+
 					<p>{patchIds?.length}</p>
 				</div>
 
@@ -66,11 +93,43 @@
 				</p>
 
 				<div class="review-main-content-info">
-					<p>Contributors: {patch.contributors.join(', ')}</p>
-					<p>Created: {patch.createdAt}</p>
-					<pre>{JSON.stringify(patch.review)}</pre>
-					<pre>{JSON.stringify(patch.statistics)}</pre>
+					<div class="review-main-content-info__entry">
+						<p class="review-main-content-info__header">Status:</p>
+						<ChangeStatus {patch} />
+					</div>
+
+					<div class="review-main-content-info__entry">
+						<p class="review-main-content-info__header">Reviewed by:</p>
+						<div>
+							{#await reviewers then reviewers}
+								{#if reviewers.length === 0}
+									<p class="review-main-content-info__value">{NO_REVIEWERS}</p>
+								{:else}
+									<AvatarGroup avatars={reviewers}></AvatarGroup>
+								{/if}
+							{/await}
+						</div>
+					</div>
+
+					<div class="review-main-content-info__entry">
+						<p class="review-main-content-info__header">Commented by:</p>
+					</div>
+
+					<div class="review-main-content-info__entry">
+						<p class="review-main-content-info__header">Authors:</p>
+						<div>
+							{#await contributors then contributors}
+								{#if contributors.length === 0}
+									<p class="review-main-content-info__value">{NO_CONTRIBUTORS}</p>
+								{:else}
+									<AvatarGroup avatars={contributors}></AvatarGroup>
+								{/if}
+							{/await}
+						</div>
+					</div>
 				</div>
+
+				<pre>{JSON.stringify(patch.statistics)}</pre>
 
 				{#if patchSections?.current !== undefined}
 					{#each patchSections.current as section}
@@ -78,11 +137,7 @@
 					{/each}
 				{/if}
 			</div>
-		{/snippet}
-	</Loading>
 
-	<Loading loadable={repositoryId.current}>
-		{#snippet children(repositoryId)}
 			<div class="review-chat">
 				<ChatComponent projectId={repositoryId} branchId={data.branchId} changeId={data.changeId} />
 			</div>
