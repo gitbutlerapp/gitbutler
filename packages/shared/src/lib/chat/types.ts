@@ -1,32 +1,50 @@
 import type { LoadableData } from '$lib/network/types';
 import type { BrandedId } from '$lib/utils/branding';
 
+export type ApiChatMessageUser = {
+	id: number;
+	avatar_url: string | null;
+	email: string | null;
+	login: string | null;
+	name: string | null;
+};
+
 export type ApiChatMessage = {
-	comment: unknown;
-	data: unknown;
+	comment: string;
+	diff_patch_array: string[] | null;
+	diff_path: string | null;
+	diff_sha: string | null;
 	issue: boolean;
 	outdated: boolean;
 	resolved: boolean;
 	uuid: string;
 	created_at: string;
 	updated_at: string;
-	chattable_id: string;
-	thread_id: string;
-	user_id: number;
+	thread_id: string | null;
+	user: ApiChatMessageUser;
+};
+
+export type ChatMessageUser = {
+	id: number;
+	avatarUrl: string | undefined;
+	email: string | undefined;
+	login: string | undefined;
+	name: string | undefined;
 };
 
 export type ChatMessage = {
-	comment: unknown;
-	data: unknown;
+	comment: string;
+	diffPatchArray: string[] | undefined;
+	diffPath: string | undefined;
+	diffSha: string | undefined;
 	issue: boolean;
 	outdated: boolean;
 	resolved: boolean;
 	uuid: string;
 	createdAt: string;
 	updatedAt: string;
-	chattableId: string;
-	threadId: string;
-	userId: number;
+	threadId: string | undefined;
+	user: ChatMessageUser;
 };
 
 type ChatChannelId = BrandedId<'ChatChannelId'>;
@@ -52,19 +70,30 @@ export function createChannelKey(projectId: string, changeId: string | undefined
 
 export type LoadableChatChannel = LoadableData<ChatChannel, ChatChannel['id']>;
 
+function apiToChatMessageUser(apiChatMessageUser: ApiChatMessageUser): ChatMessageUser {
+	return {
+		id: apiChatMessageUser.id,
+		avatarUrl: apiChatMessageUser.avatar_url ?? undefined,
+		email: apiChatMessageUser.email ?? undefined,
+		login: apiChatMessageUser.login ?? undefined,
+		name: apiChatMessageUser.name ?? undefined
+	};
+}
+
 export function apiToChatMessage(apiChatMessage: ApiChatMessage): ChatMessage {
 	return {
 		comment: apiChatMessage.comment,
-		data: apiChatMessage.data,
+		diffPatchArray: apiChatMessage.diff_patch_array ?? undefined,
+		diffPath: apiChatMessage.diff_path ?? undefined,
+		diffSha: apiChatMessage.diff_sha ?? undefined,
 		issue: apiChatMessage.issue,
 		outdated: apiChatMessage.outdated,
 		resolved: apiChatMessage.resolved,
 		uuid: apiChatMessage.uuid,
 		createdAt: apiChatMessage.created_at,
 		updatedAt: apiChatMessage.updated_at,
-		chattableId: apiChatMessage.chattable_id,
-		threadId: apiChatMessage.thread_id,
-		userId: apiChatMessage.user_id
+		threadId: apiChatMessage.thread_id ?? undefined,
+		user: apiToChatMessageUser(apiChatMessage.user)
 	};
 }
 
