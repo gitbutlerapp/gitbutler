@@ -1,5 +1,5 @@
 import { HunkSection, type ContentSection } from './fileSections';
-import type { AnyFile } from '$lib/vbranches/types';
+import type { AnyFile } from '$lib/files/file';
 
 export function computeAddedRemovedByFiles(...files: AnyFile[]) {
 	return files

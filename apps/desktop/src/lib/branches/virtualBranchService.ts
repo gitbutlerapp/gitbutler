@@ -1,6 +1,6 @@
 import { BranchStack, VirtualBranches } from './branch';
 import { PatchSeries } from './branch';
-import { DependencyError } from '../vbranches/types';
+import { DependencyError } from './branch';
 import { invoke, listen } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { plainToInstance } from 'class-transformer';

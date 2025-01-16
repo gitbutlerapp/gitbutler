@@ -1,5 +1,7 @@
 import { get, type Readable } from 'svelte/store';
-import type { AnyCommit, AnyFile, DetailedCommit, Hunk, HunkLock } from '../vbranches/types';
+import type { AnyCommit, DetailedCommit } from '$lib/commits/commit';
+import type { AnyFile } from '$lib/files/file';
+import type { Hunk, HunkLock } from '$lib/hunks/hunk';
 
 export const NON_DRAGGABLE = {
 	disabled: true

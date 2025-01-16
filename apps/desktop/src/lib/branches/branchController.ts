@@ -4,9 +4,10 @@ import * as toasts from '$lib/utils/toasts';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import type { BranchListingService } from '$lib/branches/branchListing';
+import type { LocalFile } from '$lib/files/file';
+import type { Hunk } from '$lib/hunks/hunk';
 import type { StackOrder } from './branch';
 import type { VirtualBranchService } from './virtualBranchService';
-import type { BranchPushResult, Hunk, LocalFile } from '../vbranches/types';
 
 export type CommitIdOrChangeId = { CommitId: string } | { ChangeId: string };
 export type SeriesIntegrationStrategy = 'merge' | 'rebase' | 'hardreset';
@@ -530,4 +531,8 @@ export class BranchController {
 			showError('Failed to move commit', err);
 		}
 	}
+}
+export interface BranchPushResult {
+	refname: string;
+	remote: string;
 }

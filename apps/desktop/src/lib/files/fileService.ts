@@ -1,4 +1,4 @@
-import { RemoteFile } from '$lib/vbranches/types';
+import { RemoteFile } from './file';
 import { plainToInstance } from 'class-transformer';
 import type { Tauri } from '$lib/backend/tauri';
 import type { FileInfo } from './file';

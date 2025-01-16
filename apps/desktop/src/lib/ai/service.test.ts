@@ -24,8 +24,8 @@ import {
 } from '$lib/ai/types';
 import { Tauri } from '$lib/backend/tauri';
 import { type GbConfig, GitConfigService } from '$lib/config/gitConfigService';
+import { Hunk } from '$lib/hunks/hunk';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
-import { Hunk } from '$lib/vbranches/types';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
 import { plainToInstance } from 'class-transformer';
 import { get } from 'svelte/store';

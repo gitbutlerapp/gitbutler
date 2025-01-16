@@ -6,11 +6,12 @@
 	import { getCommitStore } from '$lib/commits/contexts';
 	import { draggableChips, type DraggableConfig } from '$lib/dragging/draggable';
 	import { FileDropData } from '$lib/dragging/draggables';
+	import { LocalFile } from '$lib/files/file';
+	import { type AnyFile } from '$lib/files/file';
 	import { getLockText } from '$lib/files/lock';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { itemsSatisfy } from '$lib/utils/array';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
-	import { type AnyFile, LocalFile } from '$lib/vbranches/types';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import type { Writable } from 'svelte/store';

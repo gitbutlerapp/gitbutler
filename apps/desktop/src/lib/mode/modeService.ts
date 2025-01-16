@@ -1,5 +1,5 @@
 import { invoke, listen } from '$lib/backend/ipc';
-import { RemoteFile } from '$lib/vbranches/types';
+import { RemoteFile } from '$lib/files/file';
 import { plainToInstance } from 'class-transformer';
 import { derived, writable } from 'svelte/store';
 import type { ConflictEntryPresence } from '$lib/conflictEntryPresence';

@@ -5,10 +5,10 @@
 	import { BranchStack } from '$lib/branches/branch';
 	import { SelectedOwnership } from '$lib/branches/ownership';
 	import { projectLaneCollapsed } from '$lib/config/config';
+	import { RemoteFile } from '$lib/files/file';
 	import { Project } from '$lib/project/project';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { RemoteFile } from '$lib/vbranches/types';
 	import {
 		getContext,
 		getContextStoreBySymbol,

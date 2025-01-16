@@ -3,12 +3,13 @@
 	import ContextMenuItem from '$components/ContextMenuItem.svelte';
 	import ContextMenuSection from '$components/ContextMenuSection.svelte';
 	import { BranchController } from '$lib/branches/branchController';
+	import { LocalFile } from '$lib/files/file';
+	import { isAnyFile } from '$lib/files/file';
 	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import * as toasts from '$lib/utils/toasts';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { isAnyFile, LocalFile } from '$lib/vbranches/types';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';

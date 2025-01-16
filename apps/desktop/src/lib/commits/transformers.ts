@@ -1,4 +1,4 @@
-import type { AnyCommit } from '$lib/vbranches/types';
+import type { AnyCommit } from './commit';
 import type { CommitData, Author } from '@gitbutler/ui/commitLines/types';
 
 export function transformAnyCommit(anyCommit: AnyCommit): CommitData {

@@ -6,13 +6,13 @@
 	import SettingsPage from '$components/SettingsPage.svelte';
 	import ThemeSelector from '$components/ThemeSelector.svelte';
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
+	import { type Hunk } from '$lib/hunks/hunk';
 	import {
 		SETTINGS,
 		type Settings,
 		type ScrollbarVisilitySettings,
 		type CodeEditorSettings
 	} from '$lib/settings/userSettings';
-	import { type Hunk } from '$lib/vbranches/types';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';

@@ -7,6 +7,7 @@
 	import { AIService, type DiffInput } from '$lib/ai/service';
 	import { BranchStack } from '$lib/branches/branch';
 	import { SelectedOwnership } from '$lib/branches/ownership';
+	import { DetailedCommit, Commit } from '$lib/commits/commit';
 	import {
 		projectAiGenEnabled,
 		projectCommitGenerationExtraConcise,
@@ -20,7 +21,6 @@
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import * as toasts from '$lib/utils/toasts';
-	import { DetailedCommit, Commit } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';

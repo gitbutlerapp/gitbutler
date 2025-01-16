@@ -1,14 +1,9 @@
-import {
-	SkippedFile,
-	DependencyError,
-	LocalFile,
-	transformResultToType,
-	type Author,
-	Commit,
-	DetailedCommit
-} from '$lib/vbranches/types';
-import { Type, Transform } from 'class-transformer';
+import { type Author, Commit, DetailedCommit } from '$lib/commits/commit';
+import { SkippedFile } from '$lib/files/file';
+import { LocalFile } from '$lib/files/file';
+import { Type, Transform, plainToInstance } from 'class-transformer';
 import type { PullRequest } from '$lib/forge/interface/types';
+import 'reflect-metadata';
 
 export class VirtualBranches {
 	@Type(() => BranchStack)
@@ -183,4 +178,27 @@ export class StackOrder {
 export class SeriesOrder {
 	name!: string;
 	commitIds!: string[];
+}
+/**
+ * Represents an error that occurred when calculating dependencies for a given file change.
+ */
+
+export class DependencyError {
+	errorMessage!: string;
+	stackId!: string;
+	commitId!: string;
+	path!: string;
+}
+export function transformResultToType(type: any, value: any) {
+	if (!Array.isArray(value)) return plainToInstance(type, value);
+
+	return value.map((item) => {
+		if ('Ok' in item) {
+			return plainToInstance(type, item.Ok);
+		}
+		if ('Err' in item) {
+			return new Error(item.Err.description);
+		}
+		return plainToInstance(type, item);
+	});
 }

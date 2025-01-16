@@ -1,5 +1,5 @@
+import { Commit } from './commit';
 import { invoke } from '$lib/backend/ipc';
-import { Commit } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 
 export class CommitService {
