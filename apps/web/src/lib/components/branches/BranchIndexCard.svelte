@@ -19,18 +19,18 @@
 
 	type Props = {
 		repositoryId: string;
-		branchId: string;
+		uuid: string;
 		linkParams: ProjectParameters;
 		roundedTop: boolean;
 		roundedBottom: boolean;
 	};
 
-	const { branchId, repositoryId, linkParams, roundedTop, roundedBottom }: Props = $props();
+	const { uuid, repositoryId, linkParams, roundedTop, roundedBottom }: Props = $props();
 
 	const appState = getContext(AppState);
 	const branchService = getContext(BranchService);
 
-	const branch = $derived(getBranchReview(appState, branchService, repositoryId, branchId));
+	const branch = $derived(getBranchReview(appState, branchService, repositoryId, uuid));
 
 	const contributors = $derived(
 		isFound(branch.current) ? getContributorsWithAvatars(branch.current.value) : Promise.resolve([])
@@ -55,7 +55,7 @@
 			<td><div>{branch.stackOrder}</div></td>
 			<td>
 				<div>
-					<a href={projectReviewBranchPath({ ...linkParams, branchId })}>
+					<a href={projectReviewBranchPath({ ...linkParams, branchId: branch.branchId })}>
 						{branch.title}
 					</a>
 				</div>

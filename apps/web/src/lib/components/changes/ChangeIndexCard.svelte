@@ -39,13 +39,13 @@
 
 {#snippet status(status: 'approved' | 'changes-requested' | 'unreviewed' | 'in-discussion')}
 	{#if status === 'approved'}
-		<Badge>Approved</Badge>
+		<Badge style="success">Approved</Badge>
 	{:else if status === 'changes-requested'}
-		<Badge>Changes Requested</Badge>
+		<Badge style="error">Changes Requested</Badge>
 	{:else if status === 'unreviewed'}
-		<Badge>Unreviewed</Badge>
+		<Badge style="neuteral" kind="soft">Unreviewed</Badge>
 	{:else if status === 'in-discussion'}
-		<Badge>In Discussion</Badge>
+		<Badge style="warning" kind="soft">In Discussion</Badge>
 	{/if}
 {/snippet}
 

@@ -1,4 +1,5 @@
 import { branchesReducer } from '$lib/branches/branchesSlice';
+import { latestBranchLookupsReducer } from '$lib/branches/latestBranchLookupSlice';
 import { patchSectionsReducer } from '$lib/branches/patchSectionsSlice';
 import { patchesReducer } from '$lib/branches/patchesSlice';
 import { chatChannelsReducer } from '$lib/chat/chatChannelsSlice';
@@ -59,6 +60,10 @@ export interface AppRepositoryIdLookupsState {
 	readonly repositoryIdLookups: ReturnType<typeof repositoryIdLookupsReducer>;
 }
 
+export interface AppLatestBranchLookupsState {
+	readonly latestBranchLookups: ReturnType<typeof latestBranchLookupsReducer>;
+}
+
 export class AppDispatch {
 	constructor(readonly dispatch: typeof AppState.prototype._store.dispatch) {}
 }
@@ -75,7 +80,8 @@ export class AppState
 		AppBranchesState,
 		AppPatchSectionsState,
 		AppChatChannelsState,
-		AppRepositoryIdLookupsState
+		AppRepositoryIdLookupsState,
+		AppLatestBranchLookupsState
 {
 	/**
 	 * The base store.
@@ -95,7 +101,8 @@ export class AppState
 			branches: branchesReducer,
 			patchSections: patchSectionsReducer,
 			chatChannels: chatChannelsReducer,
-			repositoryIdLookups: repositoryIdLookupsReducer
+			repositoryIdLookups: repositoryIdLookupsReducer,
+			latestBranchLookups: latestBranchLookupsReducer
 		}
 	});
 
@@ -145,6 +152,10 @@ export class AppState
 		[this.selectSelf],
 		(rootState) => rootState.repositoryIdLookups
 	);
+	private readonly selectLatestBranchLookups = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.latestBranchLookups
+	);
 
 	readonly example = $derived(this.selectExample(this.rootState));
 	readonly posts = $derived(this.selectPosts(this.rootState));
@@ -157,6 +168,7 @@ export class AppState
 	readonly patchSections = $derived(this.selectPatchSections(this.rootState));
 	readonly chatChannels = $derived(this.selectChatChannels(this.rootState));
 	readonly repositoryIdLookups = $derived(this.selectRepositoryIdLookups(this.rootState));
+	readonly latestBranchLookups = $derived(this.selectLatestBranchLookups(this.rootState));
 
 	constructor() {
 		$effect(() => {

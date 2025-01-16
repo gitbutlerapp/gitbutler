@@ -26,7 +26,7 @@ export class BranchService {
 		repositoryId: string;
 		branchStatus: BranchStatus;
 	}>(POLLING_GLACIALLY);
-	private readonly branchInterests = new InterestStore<{ branchId: string }>(POLLING_REGULAR);
+	private readonly branchInterests = new InterestStore<{ uuid: string }>(POLLING_REGULAR);
 
 	constructor(
 		private readonly httpClient: HttpClient,
@@ -43,10 +43,11 @@ export class BranchService {
 					const apiBranches = await this.httpClient.get<ApiBranch[]>(
 						`patch_stack/${repositoryId}?status=${branchStatus}`
 					);
+
 					const branches = apiBranches.map(
 						(api): LoadableBranch => ({
 							status: 'found',
-							id: api.branch_id,
+							id: api.uuid,
 							value: apiToBranch(api)
 						})
 					);
@@ -70,17 +71,17 @@ export class BranchService {
 			.createInterest();
 	}
 
-	getBranchInterest(repositoryId: string, branchId: string): Interest {
+	getBranchInterest(repositoryId: string, uuid: string): Interest {
 		return this.branchInterests
-			.findOrCreateSubscribable({ branchId }, async () => {
-				this.appDispatch.dispatch(addBranch({ status: 'loading', id: branchId }));
+			.findOrCreateSubscribable({ uuid }, async () => {
+				this.appDispatch.dispatch(addBranch({ status: 'loading', id: uuid }));
 				try {
 					const apiBranch = await this.httpClient.get<ApiBranch>(
-						`patch_stack/${repositoryId}/${branchId}`
+						`patch_stack/uuid/${repositoryId}/${uuid}`
 					);
 					const branch: LoadableBranch = {
 						status: 'found',
-						id: apiBranch.branch_id,
+						id: apiBranch.uuid,
 						value: apiToBranch(apiBranch)
 					};
 
@@ -95,36 +96,14 @@ export class BranchService {
 					this.appDispatch.dispatch(upsertBranch(branch));
 					this.appDispatch.dispatch(upsertPatches(patches));
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(upsertBranch(errorToLoadable(error, branchId)));
+					this.appDispatch.dispatch(upsertBranch(errorToLoadable(error, uuid)));
 				}
 			})
 			.createInterest();
 	}
 
-	async createBranch(repositoryId: string, branchId: string, oplogSha: string): Promise<Branch> {
-		const apiBranch = await this.httpClient.post<ApiBranch>(`patch_stack`, {
-			body: { branch_id: branchId, oplog_sha: oplogSha, project_id: repositoryId }
-		});
-		const branch = apiToBranch(apiBranch);
-
-		const patches = apiBranch.patches.map(
-			(api): LoadablePatch => ({ status: 'found', id: api.change_id, value: apiToPatch(api) })
-		);
-
-		this.appDispatch.dispatch(
-			upsertBranch({
-				status: 'found',
-				id: branch.branchId,
-				value: branch
-			})
-		);
-		this.appDispatch.dispatch(upsertPatches(patches));
-
-		return branch;
-	}
-
-	async updateBranch(branchId: string, params: BranchUpdateParams): Promise<Branch> {
-		const apiBranch = await this.httpClient.put<ApiBranch>(`patch_stack/${branchId}`, {
+	async updateBranch(uuid: string, params: BranchUpdateParams): Promise<Branch> {
+		const apiBranch = await this.httpClient.put<ApiBranch>(`patch_stack/${uuid}`, {
 			body: params
 		});
 		const branch = apiToBranch(apiBranch);
@@ -136,7 +115,7 @@ export class BranchService {
 		this.appDispatch.dispatch(
 			upsertBranch({
 				status: 'found',
-				id: branch.branchId,
+				id: branch.uuid,
 				value: branch
 			})
 		);

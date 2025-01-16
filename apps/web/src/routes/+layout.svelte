@@ -4,6 +4,7 @@
 	import Navigation from '$lib/components/Navigation.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
+	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
@@ -57,6 +58,8 @@
 	setContext(ChatChannelsService, chatChannelService);
 	const repositoryIdLookupService = new RepositoryIdLookupService(httpClient, appState.appDispatch);
 	setContext(RepositoryIdLookupService, repositoryIdLookupService);
+	const latestBranchLookupService = new LatestBranchLookupService(httpClient, appState.appDispatch);
+	setContext(LatestBranchLookupService, latestBranchLookupService);
 
 	$effect(() => {
 		const token = get(authService.token) || $page.url.searchParams.get('gb_access_token');
