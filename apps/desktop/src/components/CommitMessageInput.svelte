@@ -1,7 +1,4 @@
 <script lang="ts">
-	import ContextMenuItem from '$components/ContextMenuItem.svelte';
-	import ContextMenuSection from '$components/ContextMenuSection.svelte';
-	import DropDownButton from '$components/DropDownButton.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService, type DiffInput } from '$lib/ai/service';
 	import { BranchStack } from '$lib/branches/branch';
@@ -22,6 +19,9 @@
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';

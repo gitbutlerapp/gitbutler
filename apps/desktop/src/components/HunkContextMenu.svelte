@@ -8,14 +8,14 @@
 </script>
 
 <script lang="ts">
-	import ContextMenu from '$components/ContextMenu.svelte';
-	import ContextMenuItem from '$components/ContextMenuItem.svelte';
-	import ContextMenuSection from '$components/ContextMenuSection.svelte';
 	import { BranchController } from '$lib/branches/branchController';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import type { Hunk } from '$lib/hunks/hunk';
 	import type { ContentSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';

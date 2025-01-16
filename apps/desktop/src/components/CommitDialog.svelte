@@ -1,8 +1,5 @@
 <script lang="ts">
 	import CommitMessageInput from '$components/CommitMessageInput.svelte';
-	import ContextMenuItem from '$components/ContextMenuItem.svelte';
-	import ContextMenuSection from '$components/ContextMenuSection.svelte';
-	import DropDownButton from '$components/DropDownButton.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
@@ -16,6 +13,9 @@
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
 	import { slideFade } from '@gitbutler/ui/utils/transitions';
 	import { tick } from 'svelte';
 	import type { Writable } from 'svelte/store';

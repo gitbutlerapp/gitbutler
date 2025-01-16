@@ -2,7 +2,6 @@
 	import CommitContextMenu from './CommitContextMenu.svelte';
 	import BranchFilesList from '$components/BranchFilesList.svelte';
 	import CommitMessageInput from '$components/CommitMessageInput.svelte';
-	import ContextMenu from '$components/ContextMenu.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BranchStack } from '$lib/branches/branch';
 	import { PatchSeries } from '$lib/branches/branch';
@@ -22,6 +21,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, getContextStore, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
