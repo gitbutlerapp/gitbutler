@@ -1,7 +1,10 @@
 <script lang="ts">
 	import ChatComponent from '$lib/components/ChatComponent.svelte';
 	import ChangeStatus from '$lib/components/changes/ChangeStatus.svelte';
+	import ChangeActionButton from '$lib/components/review/ChangeActionButton.svelte';
+	import ChangeNavigator from '$lib/components/review/ChangeNavigator.svelte';
 	import Section from '$lib/components/review/Section.svelte';
+	import { projectReviewBranchCommitPath, type ProjectReviewCommitParameters } from '$lib/routing';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
@@ -17,12 +20,12 @@
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
-	import type { ProjectReviewCommitParameters } from '$lib/routing';
 
 	const BRANCH_TITLE_PLACE_HOLDER = 'No branch title provided';
 	const DESCRIPTION_PLACE_HOLDER = 'No description provided';
-	const NO_REVIEWERS = 'Not reviewd yet';
+	const NO_REVIEWERS = 'Not reviewed yet';
 	const NO_CONTRIBUTORS = 'No contributors';
+	const NO_COMMENTS = 'No comments yet';
 
 	interface Props {
 		data: ProjectReviewCommitParameters;
@@ -72,6 +75,17 @@
 			? getPatchReviewersWithAvatars(patch.current.value)
 			: Promise.resolve([])
 	);
+
+	function goToPatch(changeId: string) {
+		const url = projectReviewBranchCommitPath({
+			ownerSlug: data.ownerSlug,
+			projectSlug: data.projectSlug,
+			branchId: data.branchId,
+			changeId
+		});
+
+		window.location.href = url;
+	}
 </script>
 
 <div class="review-page">
@@ -85,7 +99,15 @@
 
 					<h3 class="review-main-content-title">{patch.title}</h3>
 
-					<p>{patchIds?.length}</p>
+					<div class="review-main-content__patch-navigator">
+						{#if patchIds !== undefined}
+							<ChangeNavigator {goToPatch} currentPatchId={patch.changeId} {patchIds} />
+						{/if}
+
+						{#if branchUuid !== undefined}
+							<ChangeActionButton {branchUuid} {patch} />
+						{/if}
+					</div>
 				</div>
 
 				<p class="review-main-content-description">
@@ -113,6 +135,7 @@
 
 					<div class="review-main-content-info__entry">
 						<p class="review-main-content-info__header">Commented by:</p>
+						<p class="review-main-content-info__value">{NO_COMMENTS}</p>
 					</div>
 
 					<div class="review-main-content-info__entry">
@@ -154,8 +177,39 @@
 	}
 
 	.review-main-content {
+		display: flex;
+		flex-direction: column;
+		gap: 24px;
 		width: 100%;
 		max-width: 50%;
+	}
+
+	.review-main__header {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.review-main__branch-title-line {
+		color: var(--text-3, #b4afac);
+
+		/* base/12 */
+		font-family: var(--font-family-default, Inter);
+		font-size: 12px;
+		font-style: normal;
+		font-weight: var(--weight-regular, 400);
+		line-height: 120%; /* 14.4px */
+	}
+
+	.review-main__branch-title {
+		color: var(--text-1, #1a1614);
+
+		/* base/12 */
+		font-family: var(--font-family-default, Inter);
+		font-size: 12px;
+		font-style: normal;
+		font-weight: var(--weight-regular, 400);
+		line-height: 120%;
 	}
 
 	.review-main-content-title {
@@ -168,6 +222,11 @@
 		line-height: 120%; /* 21.6px */
 	}
 
+	.review-main-content__patch-navigator {
+		display: flex;
+		gap: 6px;
+	}
+
 	.review-main-content-description {
 		color: var(--text-1, #1a1614);
 		font-family: var(--font-family-mono, 'Geist Mono');
@@ -175,6 +234,43 @@
 		font-style: normal;
 		font-weight: var(--weight-regular, 400);
 		line-height: 160%; /* 19.2px */
+	}
+
+	.review-main-content-info {
+		display: flex;
+		gap: 30px;
+	}
+
+	.review-main-content-info__entry {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.review-main-content-info__header {
+		overflow: hidden;
+		color: var(--text-2, #867e79);
+		text-overflow: ellipsis;
+
+		/* base/12 */
+		font-family: var(--font-family-default, Inter);
+		font-size: 12px;
+		font-style: normal;
+		font-weight: var(--weight-regular, 400);
+		line-height: 120%; /* 14.4px */
+	}
+
+	.review-main-content-info__value {
+		overflow: hidden;
+		color: var(--text-3, #b4afac);
+		text-overflow: ellipsis;
+
+		/* base/12 */
+		font-family: var(--font-family-default, Inter);
+		font-size: 12px;
+		font-style: normal;
+		font-weight: var(--weight-regular, 400);
+		line-height: 120%; /* 14.4px */
 	}
 
 	.review-chat {

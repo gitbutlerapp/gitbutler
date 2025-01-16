@@ -15,7 +15,6 @@ export interface ProjectReviewCommitParameters extends ProjectReviewParameters {
 }
 
 export function projectsPath() {
-	console.log('hi');
 	return `/repositories`;
 }
 
