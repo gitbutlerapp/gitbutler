@@ -21,9 +21,10 @@
 		changeId: string;
 		params: ProjectReviewParameters;
 		branchUuid: string;
+		last: boolean;
 	};
 
-	const { changeId, params, branchUuid }: Props = $props();
+	const { changeId, params, branchUuid, last }: Props = $props();
 
 	const appState = getContext(AppState);
 	const patchService = getContext(PatchService);
@@ -50,12 +51,14 @@
 
 <Loading loadable={change.current}>
 	{#snippet children(patch)}
-		<tr class="row">
+		<tr class="row" class:rounded-bottom={last}>
 			<td><div>{@render status(getPatchStatus(patch))}</div></td>
 			<td
-				><a href={projectReviewBranchCommitPath({ ...params, changeId: patch.changeId })}
-					>{patch.title}</a
-				></td
+				><div>
+					<a href={projectReviewBranchCommitPath({ ...params, changeId: patch.changeId })}
+						>{patch.title}</a
+					>
+				</div></td
 			>
 			<td><div>{dayjs(patch.updatedAt).fromNow()}</div></td>
 			<td><div>+{patch.statistics.lines} -{patch.statistics.deletions}</div></td>
@@ -74,25 +77,45 @@
 
 <style lang="postcss">
 	.row {
-		background-color: var(--clr-bg-1);
-		overflow: hidden;
+		/*
+			This is a magical incantation that lets the divs take up the full
+			height of the cell. Nobody knows why this makes any difference
+			because it's completly ingnored, but it does!
+		*/
+		height: 1px;
 
 		> td {
-			padding: 16px;
+			padding: 0;
+			/* This is also part of the magical spell. */
+			height: 1px;
 
-			border-top: 1px solid var(--clr-border-2);
-			border-bottom: 1px solid var(--clr-border-2);
+			> div {
+				height: 100%;
 
-			&:first-child {
+				background-color: var(--clr-bg-1);
+				padding: 16px;
+
+				border-top: none;
+				border-bottom: 1px solid var(--clr-border-2);
+			}
+
+			&:first-child > div {
 				border-left: 1px solid var(--clr-border-2);
 			}
 
-			&:last-child {
+			&:last-child > div {
 				border-right: 1px solid var(--clr-border-2);
 			}
-			> div {
-				display: block;
-			}
+		}
+	}
+
+	.rounded-bottom > td {
+		&:first-child > div {
+			border-bottom-left-radius: var(--radius-m);
+		}
+
+		&:last-child > div {
+			border-bottom-right-radius: var(--radius-m);
 		}
 	}
 </style>

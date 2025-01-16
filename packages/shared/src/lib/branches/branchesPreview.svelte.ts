@@ -7,23 +7,35 @@ import type { BranchService } from '$lib/branches/branchService';
 import type { AppBranchesState } from '$lib/redux/store.svelte';
 import type { Reactive } from '$lib/storeUtils';
 
-export function getBranchReviews(
+export function getBranchReviewsForRepository(
 	appState: AppBranchesState,
 	branchService: BranchService,
 	repositoryId: string,
 	status: BranchStatus = BranchStatus.All,
 	inView?: InView
-): Reactive<LoadableBranch[]> {
+): Reactive<Branch[][]> {
 	const branchReviewsInterest = branchService.getBranchesInterest(repositoryId, status);
 	registerInterest(branchReviewsInterest, inView);
 
-	const branchReviews = $derived(
-		branchesSelectors
-			.selectAll(appState.branches)
-			.filter((branch) => isFound(branch) && branch.value.repositoryId === repositoryId)
-	);
+	const branchReviews = $derived.by(() => {
+		const groupedBranches = new Map<string, Branch[]>();
 
-	console.log(branchReviews);
+		branchesSelectors.selectAll(appState.branches).forEach((loadableBranch) => {
+			if (!isFound(loadableBranch) || loadableBranch.value.repositoryId !== repositoryId) {
+				return;
+			}
+			const branch = loadableBranch.value;
+
+			const previouslyFoundBranches = groupedBranches.get(branch.stackId) || [];
+			previouslyFoundBranches.push(branch);
+			previouslyFoundBranches.sort((a, b) => b.stackOrder - a.stackOrder);
+			groupedBranches.set(branch.stackId, previouslyFoundBranches);
+		});
+
+		return [...groupedBranches.values()].sort((a, b) => {
+			return new Date(b[0]!.updatedAt).getTime() - new Date(a[0]!.updatedAt).getTime();
+		});
+	});
 
 	return {
 		get current() {

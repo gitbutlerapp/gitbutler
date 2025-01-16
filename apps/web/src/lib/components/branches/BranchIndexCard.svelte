@@ -51,50 +51,92 @@
 
 <Loading loadable={branch.current}>
 	{#snippet children(branch)}
-		<tr class:roundedTop class:roundedBottom class="row">
-			<td>1</td>
+		<tr class:rounded-top={roundedTop} class:rounded-bottom={roundedBottom} class="row">
+			<td><div>{branch.stackOrder}</div></td>
 			<td>
-				<a href={projectReviewBranchPath({ ...linkParams, branchId })}>
-					{branch.title}
-				</a>
+				<div>
+					<a href={projectReviewBranchPath({ ...linkParams, branchId })}>
+						{branch.title}
+					</a>
+				</div>
 			</td>
-			<td>{branch.branchId.slice(0, 7)}</td>
-			<td>{branch.stackSize}</td>
+			<td><div>{branch.branchId.slice(0, 7)}</div></td>
+			<td><div>{branch.stackSize}</div></td>
 			<td>
-				{@render status(branch.status || BranchStatus.Active)}
+				<div>
+					{@render status(branch.status || BranchStatus.Active)}
+				</div>
 			</td>
-			<td>{dayjs(branch.updatedAt).fromNow()}</td>
+			<td><div>{dayjs(branch.updatedAt).fromNow()}</div></td>
 			<td>
-				{#await contributors then contributors}
-					<AvatarGroup avatars={contributors}></AvatarGroup>
-				{/await}
+				<div>
+					{#await contributors then contributors}
+						<AvatarGroup avatars={contributors}></AvatarGroup>
+					{/await}
+				</div>
 			</td>
-			<td>{branch.version || 0}</td>
+			<td><div>{branch.version || 0}</div></td>
 		</tr>
 	{/snippet}
 </Loading>
 
 <style lang="postcss">
 	.row {
-		background-color: var(--clr-bg-1);
-		overflow: hidden;
-		border-radius: 16px;
+		/*
+			This is a magical incantation that lets the divs take up the full
+			height of the cell. Nobody knows why this makes any difference
+			because it's completly ingnored, but it does!
+		*/
+		height: 1px;
 
 		> td {
-			padding: 16px;
+			padding: 0;
+			/* This is also part of the magical spell. */
+			height: 1px;
 
-			border-top: 1px solid var(--clr-border-2);
-			border-bottom: 1px solid var(--clr-border-2);
+			> div {
+				height: 100%;
 
-			&:first-child {
+				background-color: var(--clr-bg-1);
+				padding: 16px;
+
+				border-top: none;
+				border-bottom: 1px solid var(--clr-border-2);
+			}
+
+			&:first-child > div {
 				border-left: 1px solid var(--clr-border-2);
-				border-top-left-radius: var(--radius-m);
 			}
 
-			&:last-child {
+			&:last-child > div {
 				border-right: 1px solid var(--clr-border-2);
-				border-top-right-radius: var(--radius-m);
 			}
+		}
+	}
+
+	.rounded-top > td {
+		padding-top: 8px;
+
+		> div {
+			border-top: 1px solid var(--clr-border-2);
+		}
+
+		&:first-child > div {
+			border-top-left-radius: var(--radius-m);
+		}
+
+		&:last-child > div {
+			border-top-right-radius: var(--radius-m);
+		}
+	}
+
+	.rounded-bottom > td {
+		&:first-child > div {
+			border-bottom-left-radius: var(--radius-m);
+		}
+
+		&:last-child > div {
+			border-bottom-right-radius: var(--radius-m);
 		}
 	}
 </style>
