@@ -104,9 +104,9 @@ pub fn compute_updated_branch_head(
 /// Given a new head for a branch, this comptues how the tree should be
 /// rebased on top of the new head. If the rebased tree is conflicted, then
 /// the function will return a new head commit which is the conflicted
-/// tree commit, and the the tree oid will be the auto-resolved tree.
+/// tree commit, and the tree oid will be the auto-resolved tree.
 ///
-/// If you have access to a [`Branch`] object, it's probably preferable to
+/// If you have access to a [`Stack`] object, it's probably preferable to
 /// use [`compute_updated_branch_head`] instead to prevent programmer error.
 ///
 /// This does not mutate the branch, or update the virtual_branches.toml.

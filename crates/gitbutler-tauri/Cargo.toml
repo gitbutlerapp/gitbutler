@@ -21,6 +21,7 @@ tauri-build = { version = "2.0.3", features = [] }
 pretty_assertions = "1.4"
 tempfile = "3.14"
 gitbutler-testsupport.workspace = true
+insta.workspace = true
 
 [dependencies]
 anyhow = "1.0.95"
@@ -85,6 +86,7 @@ gitbutler-forge.workspace = true
 gitbutler-settings.workspace = true
 gitbutler-serde.workspace = true
 but-workspace.workspace = true
+but-core.workspace = true
 open = "5"
 url = "2.5.4"
 itertools = "0.14"

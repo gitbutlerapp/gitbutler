@@ -50,8 +50,10 @@ impl ReflogCommits {
 /// Then in the reflog entry logs/refs/heads/gitbutler/target we pretend that the ref originally pointed to the
 /// oplog head commit like so:
 ///
+/// ```text
 /// 0000000000000000000000000000000000000000 <target branch head>
 /// <target branch head>                     <oplog head>
+/// ```
 ///
 /// The reflog entry is continuously updated to refer to the current target and oplog head commits.
 pub fn set_reference_to_oplog(worktree_dir: &Path, reflog_commits: ReflogCommits) -> Result<()> {

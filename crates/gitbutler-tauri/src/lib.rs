@@ -42,3 +42,4 @@ pub mod stack;
 pub mod zip;
 
 pub mod workspace;
+pub mod worktree;

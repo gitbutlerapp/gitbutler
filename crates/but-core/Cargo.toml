@@ -12,6 +12,8 @@ doctest = false
 serde = { workspace = true, features = ["std"] }
 bstr.workspace = true
 anyhow = "1.0.95"
-gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
-walkdir = "2.5.0"
-toml.workspace = true
+gix = { workspace = true, features = ["dirwalk", "credentials", "parallel", "serde", "status"] }
+
+[dev-dependencies]
+gix-testtools.workspace = true
+insta.workspace = true
