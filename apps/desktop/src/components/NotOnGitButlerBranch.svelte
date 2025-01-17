@@ -5,10 +5,11 @@
 	import Link from '$components/Link.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
 	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
-	import { ProjectsService, Project } from '$lib/backend/projects';
+	import { BranchController } from '$lib/branches/branchController';
 	import { showError } from '$lib/notifications/toasts';
+	import { Project } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import * as toasts from '$lib/utils/toasts';
-	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';

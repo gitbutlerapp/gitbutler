@@ -1,6 +1,6 @@
 <script lang="ts">
-	import ContextMenu from '$components/ContextMenu.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { ComponentColorType, ComponentKindType } from '@gitbutler/ui/utils/colorTypes';
@@ -25,7 +25,7 @@
 	const {
 		icon,
 		style = 'neutral',
-		kind = 'outline',
+		kind = 'solid',
 		disabled = false,
 		loading = false,
 		wide = false,

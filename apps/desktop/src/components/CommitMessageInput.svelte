@@ -1,27 +1,27 @@
 <script lang="ts">
-	import ContextMenuItem from '$components/ContextMenuItem.svelte';
-	import ContextMenuSection from '$components/ContextMenuSection.svelte';
-	import DropDownButton from '$components/DropDownButton.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService, type DiffInput } from '$lib/ai/service';
-	import { Project } from '$lib/backend/projects';
+	import { BranchStack } from '$lib/branches/branch';
+	import { SelectedOwnership } from '$lib/branches/ownership';
+	import { DetailedCommit, Commit } from '$lib/commits/commit';
 	import {
 		projectAiGenEnabled,
 		projectCommitGenerationExtraConcise,
 		projectCommitGenerationUseEmojis,
 		projectRunCommitHooks
 	} from '$lib/config/config';
+	import { FileService } from '$lib/files/fileService';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { showError } from '$lib/notifications/toasts';
-	import { isFailure } from '$lib/result';
+	import { Project } from '$lib/project/project';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import * as toasts from '$lib/utils/toasts';
-	import { SelectedOwnership } from '$lib/vbranches/ownership';
-	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
-	import { BranchStack, DetailedCommit, Commit } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
@@ -52,6 +52,7 @@
 	const project = getContext(Project);
 	const promptService = getContext(PromptService);
 	const hooksService = getContext(HooksService);
+	const fileService = getContext(FileService);
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(project.id);
@@ -89,7 +90,7 @@
 			);
 		}
 
-		const files = await listCommitFiles(project.id, existingCommit.id);
+		const files = await fileService.listCommitFiles(project.id, existingCommit.id);
 		return files.flatMap((file) =>
 			file.hunks.map((hunk) => ({
 				filePath: file.path,
@@ -99,46 +100,35 @@
 	}
 
 	async function generateCommitMessage() {
-		const diffInput = await getDiffInput();
-
 		aiLoading = true;
+		try {
+			const diffInput = await getDiffInput();
 
-		const prompt = promptService.selectedCommitPrompt(project.id);
+			const prompt = promptService.selectedCommitPrompt(project.id);
 
-		let firstToken = true;
+			let firstToken = true;
 
-		const generatedMessageResult = await aiService.summarizeCommit({
-			diffInput,
-			useEmojiStyle: $commitGenerationUseEmojis,
-			useBriefStyle: $commitGenerationExtraConcise,
-			commitTemplate: prompt,
-			branchName: $stack.series[0]?.name,
-			onToken: (t) => {
-				if (firstToken) {
-					commitMessage = '';
-					firstToken = false;
+			const output = await aiService.summarizeCommit({
+				diffInput,
+				useEmojiStyle: $commitGenerationUseEmojis,
+				useBriefStyle: $commitGenerationExtraConcise,
+				commitTemplate: prompt,
+				branchName: $stack.series[0]?.name,
+				onToken: (t) => {
+					if (firstToken) {
+						commitMessage = '';
+						firstToken = false;
+					}
+					commitMessage += t;
 				}
-				commitMessage += t;
+			});
+
+			if (output) {
+				commitMessage = output;
 			}
-		});
-
-		if (isFailure(generatedMessageResult)) {
-			showError('Failed to generate commit message', generatedMessageResult.failure);
+		} finally {
 			aiLoading = false;
-			return;
 		}
-
-		const generatedMessage = generatedMessageResult.value;
-
-		if (generatedMessage) {
-			commitMessage = generatedMessage;
-		} else {
-			showError('Failed to generate commit message', 'Prompt returned no response');
-			aiLoading = false;
-			return;
-		}
-
-		aiLoading = false;
 	}
 
 	async function runMessageHook() {

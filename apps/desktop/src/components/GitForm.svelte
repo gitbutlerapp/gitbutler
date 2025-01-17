@@ -2,8 +2,9 @@
 	import CommitSigningForm from './CommitSigningForm.svelte';
 	import KeysForm from '$components/KeysForm.svelte';
 	import Section from '$components/Section.svelte';
-	import { Project, ProjectsService } from '$lib/backend/projects';
 	import { platformName } from '$lib/platform/platform';
+	import { Project } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';

@@ -1,19 +1,19 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
-	import { Project } from '$lib/backend/projects';
+	import { BranchController } from '$lib/branches/branchController';
 	import { getForge } from '$lib/forge/interface/forge';
-	import { ModeService } from '$lib/modes/service';
+	import { ModeService } from '$lib/mode/modeService';
+	import { Project } from '$lib/project/project';
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import type { BranchData } from '$lib/branches/branch';
 	import type { PullRequest } from '$lib/forge/interface/types';
-	import type { BranchData } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
 	interface Props {

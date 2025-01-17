@@ -5,10 +5,13 @@
 		createIntegratedCommitsContextStore,
 		createLocalCommitsContextStore,
 		createLocalAndRemoteCommitsContextStore
-	} from '$lib/vbranches/contexts';
-	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
+	} from '$lib/commits/contexts';
+	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { getContext } from '@gitbutler/shared/context';
-	import type { DetailedCommit, LocalFile, PatchSeries, RemoteFile } from '$lib/vbranches/types';
+	import type { PatchSeries } from '$lib/branches/branch';
+	import type { DetailedCommit } from '$lib/commits/commit';
+	import type { RemoteFile } from '$lib/files/file';
+	import type { LocalFile } from '$lib/files/file';
 	import type { Writable } from 'svelte/store';
 
 	interface Props {

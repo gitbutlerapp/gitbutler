@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Project } from '$lib/backend/projects';
-	import { UserService } from '$lib/stores/user';
+	import { Project } from '$lib/project/project';
+	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import type { PullRequest } from '$lib/forge/interface/types';

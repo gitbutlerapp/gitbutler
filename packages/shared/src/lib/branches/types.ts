@@ -1,3 +1,5 @@
+import { deduplicate } from '$lib/utils/array';
+import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 import type { LoadableData } from '$lib/network/types';
 
 export type ApiDiffSection = {
@@ -166,6 +168,8 @@ export type ApiPatch = {
 	review: ApiPatchReview;
 	review_all: ApiPatchReview;
 	sections?: ApiSection[];
+	created_at: string;
+	updated_at: string;
 };
 
 export type Patch = {
@@ -181,7 +185,42 @@ export type Patch = {
 	review: PatchReview;
 	reviewAll: PatchReview;
 	sectionIds?: number[];
+	createdAt: string;
+	updatedAt: string;
 };
+
+export function getPatchStatus(
+	patch: Patch
+): 'approved' | 'changes-requested' | 'unreviewed' | 'in-discussion' {
+	if (patch.review.rejected.length > 0) return 'changes-requested';
+	if (patch.review.signedOff.length > 0) return 'approved';
+	if (patch.review.viewed.length > 0) return 'in-discussion';
+	return 'unreviewed';
+}
+
+async function getUsersWithAvatars(userEmails: string[]) {
+	return await Promise.all(
+		userEmails.map(async (user) => {
+			return {
+				srcUrl: await gravatarUrlFromEmail(user),
+				name: user
+			};
+		})
+	);
+}
+
+export async function getPatchContributorsWithAvatars(patch: Patch) {
+	return await getUsersWithAvatars(patch.contributors);
+}
+
+export async function getPatchReviewersWithAvatars(patch: Patch) {
+	const reviewers = deduplicate([...patch.review.rejected, ...patch.review.signedOff]);
+	return await getUsersWithAvatars(reviewers);
+}
+
+export async function getPatchViewersWithAvatars(patch: Patch) {
+	return await getUsersWithAvatars(patch.review.viewed);
+}
 
 export type LoadablePatch = LoadableData<Patch, Patch['changeId']>;
 
@@ -197,16 +236,19 @@ export function apiToPatch(api: ApiPatch): Patch {
 		statistics: apiToPatchStatistics(api.statistics),
 		review: apiToPatchReview(api.review),
 		reviewAll: apiToPatchReview(api.review_all),
-		sectionIds: api.sections?.map((section) => section.id)
+		sectionIds: api.sections?.map((section) => section.id),
+		createdAt: api.created_at,
+		updatedAt: api.updated_at
 	};
 }
 
-export const enum BranchStatus {
+export enum BranchStatus {
 	Active = 'active',
 	Inactive = 'inactive',
 	Closed = 'closed',
 	Loading = 'loading',
-	All = 'all'
+	All = 'all',
+	Previous = 'previous'
 }
 
 export type ApiBranch = {
@@ -218,9 +260,13 @@ export type ApiBranch = {
 	status?: BranchStatus;
 	version?: number;
 	created_at: string;
+	updated_at: string;
 	stack_size?: number;
 	contributors: string[];
 	patches: ApiPatch[];
+	repository_id: string;
+	branch_stack_id?: string;
+	branch_stack_order?: number;
 };
 
 export type Branch = {
@@ -231,13 +277,17 @@ export type Branch = {
 	description?: string;
 	status?: BranchStatus;
 	version?: number;
-	created_at: string;
+	createdAt: string;
+	updatedAt: string;
 	stackSize?: number;
 	contributors: string[];
-	patch_ids: string[];
+	patchIds: string[];
+	repositoryId: string;
+	stackId: string;
+	stackOrder: number;
 };
 
-export type LoadableBranch = LoadableData<Branch, Branch['branchId']>;
+export type LoadableBranch = LoadableData<Branch, Branch['uuid']>;
 
 export function apiToBranch(api: ApiBranch): Branch {
 	return {
@@ -248,9 +298,16 @@ export function apiToBranch(api: ApiBranch): Branch {
 		description: api.description,
 		status: api.status,
 		version: api.version,
-		created_at: api.created_at,
+		createdAt: api.created_at,
+		updatedAt: api.updated_at,
 		stackSize: api.stack_size,
 		contributors: api.contributors,
-		patch_ids: api.patches.map((patch) => patch.change_id)
+		patchIds: api.patches.map((patch) => patch.change_id),
+		repositoryId: api.repository_id,
+		// Its good enough
+		stackId: api.branch_stack_id || String(Math.random()),
+		stackOrder: api.branch_stack_order || 1
 	};
 }
+
+export type LoadableBranchUuid = LoadableData<string, string>;

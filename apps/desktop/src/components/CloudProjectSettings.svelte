@@ -2,8 +2,9 @@
 	import Link from '$components/Link.svelte';
 	import ProjectConnectModal from '$components/ProjectConnectModal.svelte';
 	import Section from '$components/Section.svelte';
-	import { ProjectsService, ProjectService } from '$lib/backend/projects';
-	import { User } from '$lib/stores/user';
+	import { ProjectService } from '$lib/project/projectService';
+	import { ProjectsService } from '$lib/project/projectsService';
+	import { User } from '$lib/user/user';
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';

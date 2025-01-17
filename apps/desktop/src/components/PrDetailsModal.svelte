@@ -9,15 +9,14 @@
 <script lang="ts">
 	import PrDetailsModalHeader from './PrDetailsModalHeader.svelte';
 	import PrTemplateSection from './PrTemplateSection.svelte';
-	import ContextMenuItem from '$components/ContextMenuItem.svelte';
-	import ContextMenuSection from '$components/ContextMenuSection.svelte';
-	import DropDownButton from '$components/DropDownButton.svelte';
 	import Markdown from '$components/Markdown.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { AIService } from '$lib/ai/service';
-	import { Project } from '$lib/backend/projects';
-	import { TemplateService } from '$lib/backend/templateService';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { BranchStack } from '$lib/branches/branch';
+	import { PatchSeries } from '$lib/branches/branch';
+	import { BranchController } from '$lib/branches/branchController';
+	import { parentBranch } from '$lib/branches/virtualBranchService';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { getForge } from '$lib/forge/interface/forge';
@@ -27,18 +26,19 @@
 	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ReactivePRBody, ReactivePRTitle } from '$lib/pr/prContent.svelte';
-	import { isFailure } from '$lib/result';
+	import { TemplateService } from '$lib/pr/templateService';
+	import { Project } from '$lib/project/project';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
 	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BranchController } from '$lib/vbranches/branchController';
-	import { PatchSeries, BranchStack } from '$lib/vbranches/types';
-	import { parentBranch } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
@@ -256,31 +256,30 @@
 
 		let firstToken = true;
 
-		const descriptionResult = await aiService?.describePR({
-			title: prTitle.value,
-			body: prBody.value,
-			directive: aiDescriptionDirective,
-			commitMessages: commits.map((c) => c.description),
-			prBodyTemplate: templateBody,
-			onToken: (token) => {
-				if (firstToken) {
-					prBody.reset();
-					firstToken = false;
+		try {
+			const description = await aiService?.describePR({
+				title: prTitle.value,
+				body: prBody.value,
+				directive: aiDescriptionDirective,
+				commitMessages: commits.map((c) => c.description),
+				prBodyTemplate: templateBody,
+				onToken: (token) => {
+					if (firstToken) {
+						prBody.reset();
+						firstToken = false;
+					}
+					prBody.append(token);
 				}
-				prBody.append(token);
+			});
+
+			if (description) {
+				prBody.set(description);
 			}
-		});
-
-		if (isFailure(descriptionResult)) {
-			showError('Failed to generate commit message', descriptionResult.failure);
+		} finally {
 			aiIsLoading = false;
-			return;
+			aiDescriptionDirective = undefined;
+			await tick();
 		}
-
-		prBody.set(descriptionResult.value);
-		aiIsLoading = false;
-		aiDescriptionDirective = undefined;
-		await tick();
 	}
 
 	function handleModalKeydown(e: KeyboardEvent) {

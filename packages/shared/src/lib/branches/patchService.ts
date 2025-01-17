@@ -20,13 +20,13 @@ export class PatchService {
 		private readonly appDispatch: AppDispatch
 	) {}
 
-	getPatchWithSectionsInterest(branchId: string, changeId: string): Interest {
+	getPatchWithSectionsInterest(branchUuid: string, changeId: string): Interest {
 		return this.patchInterests
 			.findOrCreateSubscribable({ changeId }, async () => {
 				this.appDispatch.dispatch(addPatch({ status: 'loading', id: changeId }));
 				try {
 					const apiPatch = await this.httpClient.get<ApiPatch>(
-						`patch_stack/${branchId}/patch/${changeId}`
+						`patch_stack/${branchUuid}/patch/${changeId}`
 					);
 
 					const patch = apiToPatch(apiPatch);
@@ -46,9 +46,13 @@ export class PatchService {
 			.createInterest();
 	}
 
-	async updatePatch(branchId: string, changeId: string, params: PatchUpdateParams): Promise<Patch> {
+	async updatePatch(
+		branchUuid: string,
+		changeId: string,
+		params: PatchUpdateParams
+	): Promise<Patch> {
 		const apiPatch = await this.httpClient.patch<ApiPatch>(
-			`patch_stack/${branchId}/patch/${changeId}`,
+			`patch_stack/${branchUuid}/patch/${changeId}`,
 			{
 				body: {
 					sign_off: params.signOff,

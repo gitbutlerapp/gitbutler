@@ -4,7 +4,6 @@ import {
 	SHORT_DEFAULT_PR_TEMPLATE
 } from '$lib/ai/prompts';
 import { MessageRole, type PromptMessage, type AIClient, type Prompt } from '$lib/ai/types';
-import { andThen, buildFailureFromAny, ok, wrap, wrapAsync, type Result } from '$lib/result';
 import { isNonEmptyObject } from '@gitbutler/ui/utils/typeguards';
 import { fetch } from '@tauri-apps/plugin-http';
 
@@ -87,22 +86,18 @@ export class OllamaClient implements AIClient {
 		private modelName: string
 	) {}
 
-	async evaluate(prompt: Prompt): Promise<Result<string, Error>> {
+	async evaluate(prompt: Prompt): Promise<string> {
 		const messages = this.formatPrompt(prompt);
 
-		const responseResult = await this.chat(messages);
+		const response = await this.chat(messages);
 
-		return andThen(responseResult, (response) => {
-			const rawResponseResult = wrap<unknown, Error>(() => JSON.parse(response.message.content));
+		const rawResponse = JSON.parse(response.message.content);
 
-			return andThen(rawResponseResult, (rawResponse) => {
-				if (!isOllamaChatMessageFormat(rawResponse)) {
-					return buildFailureFromAny('Invalid response: ' + response.message.content);
-				}
+		if (!isOllamaChatMessageFormat(rawResponse)) {
+			throw new Error('Invalid response: ' + response.message.content);
+		}
 
-				return ok(rawResponse.result);
-			});
-		});
+		return rawResponse.result;
 	}
 
 	/**
@@ -137,19 +132,17 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 	 * @param request - The OllamaChatRequest object containing the request details.
 	 * @returns A Promise that resolves to the Response object.
 	 */
-	private async fetchChat(request: OllamaChatRequest): Promise<Result<any, Error>> {
+	private async fetchChat(request: OllamaChatRequest): Promise<unknown> {
 		const url = new URL(OllamaAPEndpoint.Chat, this.endpoint);
 		const body = JSON.stringify(request);
-		return await wrapAsync(
-			async () =>
-				await fetch(url.toString(), {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body
-				}).then(async (response) => await response.json())
-		);
+
+		return await fetch(url.toString(), {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body
+		}).then(async (response) => await response.json());
 	}
 
 	/**
@@ -162,7 +155,7 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 	private async chat(
 		messages: Prompt,
 		options?: OllamaRequestOptions
-	): Promise<Result<OllamaChatResponse, Error>> {
+	): Promise<OllamaChatResponse> {
 		const result = await this.fetchChat({
 			model: this.modelName,
 			stream: false,
@@ -171,12 +164,10 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 			format: 'json'
 		});
 
-		return andThen(result, (result) => {
-			if (!isOllamaChatResponse(result)) {
-				return buildFailureFromAny('Invalid response\n' + JSON.stringify(result.data));
-			}
+		if (!isOllamaChatResponse(result)) {
+			throw new Error('Invalid response\n' + JSON.stringify(result));
+		}
 
-			return ok(result);
-		});
+		return result;
 	}
 }

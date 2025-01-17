@@ -15,10 +15,9 @@ import {
 	OllamaClient
 } from '$lib/ai/ollamaClient';
 import { OpenAIClient } from '$lib/ai/openAIClient';
-import { buildFailureFromAny, isFailure, ok, type Result } from '$lib/result';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { get } from 'svelte/store';
-import type { GitConfigService } from '$lib/backend/gitConfigService';
+import type { GitConfigService } from '$lib/config/gitConfigService';
 import type { SecretsService } from '$lib/secrets/secretsService';
 import type { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
@@ -217,25 +216,23 @@ export class AIService {
 	// This optionally returns a summarizer. There are a few conditions for how this may occur
 	// Firstly, if the user has opted to use the GB API and isn't logged in, it will return undefined
 	// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
-	async buildClient(): Promise<Result<AIClient, Error>> {
+	async buildClient(): Promise<AIClient | undefined> {
 		const modelKind = await this.getModelKind();
 
 		if (await this.usingGitButlerAPI()) {
 			// TODO(CTO): Once @estib has landed the new auth, it would be good to
 			// about a good way of checking whether the user is authenticated.
 			if (!get(this.tokenMemoryService.token)) {
-				return buildFailureFromAny(
-					"When using GitButler's API to summarize code, you must be logged in"
-				);
+				throw new Error("When using GitButler's API to summarize code, you must be logged in");
 			}
 
-			return ok(new ButlerAIClient(this.cloud, modelKind));
+			return new ButlerAIClient(this.cloud, modelKind);
 		}
 
 		if (modelKind === ModelKind.Ollama) {
 			const ollamaEndpoint = await this.getOllamaEndpoint();
 			const ollamaModelName = await this.getOllamaModelName();
-			return ok(new OllamaClient(ollamaEndpoint, ollamaModelName));
+			return new OllamaClient(ollamaEndpoint, ollamaModelName);
 		}
 
 		if (modelKind === ModelKind.OpenAI) {
@@ -243,12 +240,12 @@ export class AIService {
 			const openAIKey = await this.getOpenAIKey();
 
 			if (!openAIKey) {
-				return buildFailureFromAny(
+				throw new Error(
 					'When using OpenAI in a bring your own key configuration, you must provide a valid token'
 				);
 			}
 
-			return ok(new OpenAIClient(openAIKey, openAIModelName));
+			return new OpenAIClient(openAIKey, openAIModelName);
 		}
 
 		if (modelKind === ModelKind.Anthropic) {
@@ -256,15 +253,15 @@ export class AIService {
 			const anthropicKey = await this.getAnthropicKey();
 
 			if (!anthropicKey) {
-				return buildFailureFromAny(
+				throw new Error(
 					'When using Anthropic in a bring your own key configuration, you must provide a valid token'
 				);
 			}
 
-			return ok(new AnthropicAIClient(anthropicKey, anthropicModelName));
+			return new AnthropicAIClient(anthropicKey, anthropicModelName);
 		}
 
-		return buildFailureFromAny('Failed to build ai client');
+		return undefined;
 	}
 
 	async summarizeCommit({
@@ -274,10 +271,10 @@ export class AIService {
 		commitTemplate,
 		onToken,
 		branchName
-	}: SummarizeCommitOpts): Promise<Result<string, Error>> {
-		const aiClientResult = await this.buildClient();
-		if (isFailure(aiClientResult)) return aiClientResult;
-		const aiClient = aiClientResult.value;
+	}: SummarizeCommitOpts): Promise<string | undefined> {
+		const aiClient = await this.buildClient();
+
+		if (!aiClient) return;
 
 		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
 		const defaultedCommitTemplate = commitTemplate || aiClient.defaultCommitTemplate;
@@ -312,26 +309,24 @@ export class AIService {
 			};
 		});
 
-		const messageResult = await aiClient.evaluate(prompt, { onToken });
-		if (isFailure(messageResult)) return messageResult;
-		let message = messageResult.value;
+		let message = (await aiClient.evaluate(prompt, { onToken })).trim();
 
 		if (useBriefStyle) {
 			message = message.split('\n')[0] ?? message;
 		}
 
 		const { title, description } = splitMessage(message);
-		return ok(description ? `${title}\n\n${description}` : title);
+		return description ? `${title}\n\n${description}` : title;
 	}
 
 	async summarizeBranch({
 		hunks,
 		branchTemplate,
 		onToken
-	}: SummarizeBranchOpts): Promise<Result<string, Error>> {
-		const aiClientResult = await this.buildClient();
-		if (isFailure(aiClientResult)) return aiClientResult;
-		const aiClient = aiClientResult.value;
+	}: SummarizeBranchOpts): Promise<string | undefined> {
+		const aiClient = await this.buildClient();
+
+		if (!aiClient) return;
 
 		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
 		const defaultedBranchTemplate = branchTemplate || aiClient.defaultBranchTemplate;
@@ -346,12 +341,9 @@ export class AIService {
 			};
 		});
 
-		const messageResult = await aiClient.evaluate(prompt, { onToken });
-		if (isFailure(messageResult)) return messageResult;
+		const message = (await aiClient.evaluate(prompt, { onToken })).trim();
 
-		const message = messageResult.value;
-
-		return ok(message?.replaceAll(' ', '-').replaceAll('\n', '-') ?? '');
+		return message?.replaceAll(' ', '-').replaceAll('\n', '-') ?? '';
 	}
 
 	async describePR({
@@ -362,10 +354,11 @@ export class AIService {
 		prTemplate,
 		prBodyTemplate,
 		onToken
-	}: SummarizePROpts): Promise<Result<string, Error>> {
-		const aiClientResult = await this.buildClient();
-		if (isFailure(aiClientResult)) return aiClientResult;
-		const aiClient = aiClientResult.value;
+	}: SummarizePROpts): Promise<string | undefined> {
+		const aiClient = await this.buildClient();
+
+		if (!aiClient) return;
+
 		const defaultPRTemplate = prTemplate ?? aiClient.defaultPRTemplate;
 
 		const mainDirective = (directive ?? this.prSummaryMainDirective) + '\n';
@@ -387,17 +380,16 @@ export class AIService {
 			};
 		});
 
-		const messageResult = await aiClient.evaluate(prompt, {
-			onToken,
-			maxTokens: prDescriptionTokenLimit
-		});
-		if (isFailure(messageResult)) return messageResult;
-
-		let message = messageResult.value.trim();
+		let message = (
+			await aiClient.evaluate(prompt, {
+				onToken,
+				maxTokens: prDescriptionTokenLimit
+			})
+		).trim();
 		if (message.startsWith('```\n') && message.endsWith('\n```')) {
 			message = message.slice(4, -4);
 		}
 
-		return ok(message);
+		return message;
 	}
 }

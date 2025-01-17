@@ -14,17 +14,14 @@
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
-	import { AuthService } from '$lib/backend/auth';
-	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { CommandService, invoke } from '$lib/backend/ipc';
-	import { ProjectsService } from '$lib/backend/projects';
-	import { PromptService } from '$lib/backend/prompt';
-	import { UpdaterService } from '$lib/backend/updater';
 	import {
 		IpcNameNormalizationService,
 		setNameNormalizationServiceContext
 	} from '$lib/branches/nameNormalizationService';
 	import { AppSettings } from '$lib/config/appSettings';
+	import { SettingsService } from '$lib/config/appSettingsV2';
+	import { GitConfigService } from '$lib/config/gitConfigService';
 	import {
 		createGitHubUserServiceStore as createGitHubUserServiceStore,
 		GitHubUserService
@@ -32,19 +29,25 @@
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { platformName } from '$lib/platform/platform';
+	import { ProjectsService } from '$lib/project/projectsService';
+	import { PromptService } from '$lib/prompt/promptService';
 	import { DesktopDispatch, DesktopState } from '$lib/redux/store.svelte';
-	import { RemotesService } from '$lib/remotes/service';
+	import { RemotesService } from '$lib/remotes/remotesService';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
-	import { User, UserService } from '$lib/stores/user';
+	import { UpdaterService } from '$lib/updater/updater';
+	import { User } from '$lib/user/user';
+	import { UserService } from '$lib/user/userService';
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
+	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { PatchService as CloudPatchService } from '@gitbutler/shared/branches/patchService';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
+	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		DesktopRoutesService,
@@ -75,6 +78,8 @@
 	const cloudProjectService = new CloudProjectService(data.cloud, appState.appDispatch);
 	const cloudBranchService = new CloudBranchService(data.cloud, appState.appDispatch);
 	const cloudPatchService = new CloudPatchService(data.cloud, appState.appDispatch);
+	const repositoryIdLookupService = new RepositoryIdLookupService(data.cloud, appState.appDispatch);
+	const latestBranchLookupService = new LatestBranchLookupService(data.cloud, appState.appDispatch);
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
@@ -86,7 +91,10 @@
 	setContext(CloudProjectService, cloudProjectService);
 	setContext(CloudBranchService, cloudBranchService);
 	setContext(CloudPatchService, cloudPatchService);
+	setContext(RepositoryIdLookupService, repositoryIdLookupService);
+	setContext(LatestBranchLookupService, latestBranchLookupService);
 	setContext(HooksService, data.hooksService);
+	setContext(SettingsService, data.settingsService);
 
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
@@ -98,7 +106,6 @@
 	setContext(GitConfigService, data.gitConfig);
 	setContext(AIService, data.aiService);
 	setContext(PromptService, data.promptService);
-	setContext(AuthService, data.authService);
 	setContext(HttpClient, data.cloud);
 	setContext(User, data.userService.user);
 	setContext(RemotesService, data.remotesService);
@@ -126,7 +133,9 @@
 	// This store is literally only used once, on GitHub oauth, to set the
 	// gh username on the user object. Furthermore, it isn't used anywhere.
 	// TODO: Remove the gh username completely?
-	const githubUserService = $derived(octokit ? new GitHubUserService(octokit) : undefined);
+	const githubUserService = $derived(
+		octokit ? new GitHubUserService(data.tauri, octokit) : undefined
+	);
 	const ghUserServiceStore = createGitHubUserServiceStore(undefined);
 	$effect(() => {
 		ghUserServiceStore.set(githubUserService);

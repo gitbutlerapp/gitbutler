@@ -2,20 +2,20 @@ import { PromptService as AIPromptService } from '$lib/ai/promptService';
 import { AIService } from '$lib/ai/service';
 import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 import { PostHogWrapper } from '$lib/analytics/posthog';
-import { AuthService } from '$lib/backend/auth';
-import { GitConfigService } from '$lib/backend/gitConfigService';
 import { CommandService } from '$lib/backend/ipc';
-import { ProjectsService } from '$lib/backend/projects';
-import { PromptService } from '$lib/backend/prompt';
 import { Tauri } from '$lib/backend/tauri';
-import { UpdaterService } from '$lib/backend/updater';
 import { loadAppSettings } from '$lib/config/appSettings';
+import { SettingsService } from '$lib/config/appSettingsV2';
+import { GitConfigService } from '$lib/config/gitConfigService';
 import { FileService } from '$lib/files/fileService';
 import { HooksService } from '$lib/hooks/hooksService';
-import { RemotesService } from '$lib/remotes/service';
+import { ProjectsService } from '$lib/project/projectsService';
+import { PromptService } from '$lib/prompt/promptService';
+import { RemotesService } from '$lib/remotes/remotesService';
 import { RustSecretService } from '$lib/secrets/secretsService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
-import { UserService } from '$lib/stores/user';
+import { UpdaterService } from '$lib/updater/updater';
+import { UserService } from '$lib/user/userService';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
 import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
@@ -46,7 +46,6 @@ export const load: LayoutLoad = async () => {
 
 	const tokenMemoryService = new TokenMemoryService();
 	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL, tokenMemoryService.token);
-	const authService = new AuthService();
 	const tauri = new Tauri();
 	const updaterService = new UpdaterService(tauri, posthog);
 	const promptService = new PromptService();
@@ -55,7 +54,7 @@ export const load: LayoutLoad = async () => {
 
 	const projectsService = new ProjectsService(defaultPath, httpClient);
 
-	const gitConfig = new GitConfigService();
+	const gitConfig = new GitConfigService(tauri);
 	const secretsService = new RustSecretService(gitConfig);
 	const aiService = new AIService(gitConfig, secretsService, httpClient, tokenMemoryService);
 	const remotesService = new RemotesService();
@@ -64,12 +63,12 @@ export const load: LayoutLoad = async () => {
 	const stackingLineManagerFactory = new StackingLineManagerFactory();
 	const fileService = new FileService(tauri);
 	const hooksService = new HooksService(tauri);
+	const settingsService = new SettingsService(tauri);
 
 	return {
 		commandService,
 		tokenMemoryService,
 		appSettings,
-		authService,
 		cloud: httpClient,
 		projectsService,
 		updaterService,
@@ -85,6 +84,7 @@ export const load: LayoutLoad = async () => {
 		posthog,
 		tauri,
 		fileService,
-		hooksService
+		hooksService,
+		settingsService
 	};
 };

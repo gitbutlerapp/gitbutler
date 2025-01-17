@@ -3,7 +3,7 @@
 	import Section from '$components/Section.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { invoke } from '$lib/backend/ipc';
-	import { ProjectsService } from '$lib/backend/projects';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';

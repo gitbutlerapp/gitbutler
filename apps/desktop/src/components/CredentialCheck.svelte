@@ -2,7 +2,7 @@
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import Link from '$components/Link.svelte';
 	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
-	import { AuthService } from '$lib/backend/auth';
+	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -16,7 +16,7 @@
 
 	const { projectId, remoteName, branchName }: Props = $props();
 
-	const authService = getContext(AuthService);
+	const gitConfig = getContext(GitConfigService);
 
 	type Check = { name: string; promise: Promise<any> };
 	let checks = $state<Check[]>();
@@ -32,10 +32,10 @@
 		checks = [];
 
 		try {
-			const fetchCheck = authService.checkGitFetch(projectId, remoteName);
+			const fetchCheck = gitConfig.checkGitFetch(projectId, remoteName);
 			checks = [{ name: 'Fetch', promise: fetchCheck }];
 			await fetchCheck;
-			const pushCheck = authService.checkGitPush(projectId, remoteName, branchName);
+			const pushCheck = gitConfig.checkGitPush(projectId, remoteName, branchName);
 			checks = [...checks, { name: 'Push', promise: pushCheck }];
 			await pushCheck;
 		} catch {

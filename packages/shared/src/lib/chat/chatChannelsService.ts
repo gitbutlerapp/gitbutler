@@ -52,6 +52,10 @@ export class ChatChannelsService {
 			.createInterest();
 	}
 
+	async refetchChatChannel(projectId: string, changeId?: string): Promise<void> {
+		await this.chatMessagesInterests.invalidate({ projectId, changeId });
+	}
+
 	async sendChatMessage(params: SendChatMessageParams): Promise<void> {
 		try {
 			await this.httpClient.post(`chat_messages/${params.projectId}/branch/${params.branchId}`, {

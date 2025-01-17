@@ -2,12 +2,6 @@
 import 'reflect-metadata';
 
 import { Code, invoke } from '$lib/backend/ipc';
-import {
-	getEntryName,
-	getEntryUpdatedDate,
-	getEntryWorkspaceStatus,
-	type SidebarEntrySubject
-} from '$lib/navigation/types';
 import { debouncedDerive } from '$lib/utils/debounce';
 import { msSinceDaysAgo } from '$lib/utils/time';
 import { persisted, type Persisted } from '@gitbutler/shared/persisted';
@@ -450,4 +444,26 @@ export class BranchListingDetails {
 	 */
 	@Type(() => Author)
 	authors!: Author[];
+}
+
+export type SidebarEntrySubject =
+	| {
+			type: 'pullRequest';
+			subject: PullRequest;
+	  }
+	| {
+			type: 'branchListing';
+			subject: BranchListing;
+	  };
+
+export function getEntryUpdatedDate(entry: SidebarEntrySubject) {
+	return entry.type === 'branchListing' ? entry.subject.updatedAt : entry.subject.modifiedAt;
+}
+
+export function getEntryName(entry: SidebarEntrySubject) {
+	return entry.type === 'branchListing' ? entry.subject.name : entry.subject.title;
+}
+
+export function getEntryWorkspaceStatus(entry: SidebarEntrySubject) {
+	return entry.type === 'branchListing' ? entry.subject.virtualBranch?.inWorkspace : undefined;
 }

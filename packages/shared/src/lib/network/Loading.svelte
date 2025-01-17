@@ -1,10 +1,10 @@
 <script lang="ts" generics="A">
 	import LoadingState from './LoadingState.svelte';
-	import type { LoadableData } from '$lib/network/types';
+	import type { Loadable } from '$lib/network/types';
 	import type { Snippet } from 'svelte';
 
 	type Props<A> = {
-		loadable?: LoadableData<A, unknown>;
+		loadable?: Loadable<A>;
 		children: Snippet<[A]>;
 	};
 

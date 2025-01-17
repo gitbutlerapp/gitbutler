@@ -1,7 +1,8 @@
 <script lang="ts">
 	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
-	import { Project, ProjectsService } from '$lib/backend/projects';
 	import { showError } from '$lib/notifications/toasts';
+	import { Project } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';

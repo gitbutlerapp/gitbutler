@@ -5,17 +5,15 @@
 	import CommitsAccordion from './CommitsAccordion.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import LineOverlay from '$components/LineOverlay.svelte';
+	import { BranchStack } from '$lib/branches/branch';
+	import { PatchSeries } from '$lib/branches/branch';
+	import { BranchController, type SeriesIntegrationStrategy } from '$lib/branches/branchController';
 	import { findLastDivergentCommit } from '$lib/commits/utils';
 	import {
 		StackingReorderDropzoneManager,
 		type StackingReorderDropzone
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { getForge } from '$lib/forge/interface/forge';
-	import {
-		BranchController,
-		type SeriesIntegrationStrategy
-	} from '$lib/vbranches/branchController';
-	import { PatchSeries, BranchStack } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FileContextMenu from '$components/FileContextMenu.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
-	import { Project } from '$lib/backend/projects';
+	import { Commit } from '$lib/commits/commit';
 	import { CommitService } from '$lib/commits/service';
 	import {
 		conflictEntryHint,
@@ -10,13 +10,14 @@
 		type ConflictEntryPresence,
 		type ConflictState
 	} from '$lib/conflictEntryPresence';
-	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
+	import { type RemoteFile } from '$lib/files/file';
+	import { UncommitedFilesWatcher } from '$lib/files/watcher';
+	import { ModeService, type EditModeMetadata } from '$lib/mode/modeService';
+	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { UserService } from '$lib/stores/user';
-	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
+	import { UserService } from '$lib/user/userService';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { Commit, type RemoteFile } from '$lib/vbranches/types';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';

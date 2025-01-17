@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { OwnerParameters } from '$lib/project/types';
+	import type { OwnerParameters } from '$lib/routing';
 
 	interface Props {
 		data: OwnerParameters;

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { listen } from '$lib/backend/ipc';
-	import { Project } from '$lib/backend/projects';
 	import { showHistoryView } from '$lib/config/config';
+	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';

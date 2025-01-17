@@ -2,21 +2,22 @@
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
 	import FileListItemSmart from './FileListItemWrapper.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
+	import { SelectedOwnership, updateOwnership } from '$lib/branches/ownership';
+	import { getCommitStore } from '$lib/commits/contexts';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
+	import { sortLikeFileTree } from '$lib/files/filetree';
+	import { FileIdSelection, stringifyKey } from '$lib/selection/fileIdSelection';
 	import { chunk } from '$lib/utils/array';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { updateSelection } from '$lib/utils/selection';
-	import { getCommitStore } from '$lib/vbranches/contexts';
-	import { FileIdSelection, stringifyKey } from '$lib/vbranches/fileIdSelection';
-	import { sortLikeFileTree } from '$lib/vbranches/filetree';
-	import { SelectedOwnership, updateOwnership } from '$lib/vbranches/ownership';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
-	import type { AnyFile, ConflictEntries } from '$lib/vbranches/types';
+	import type { ConflictEntries } from '$lib/files/conflicts';
+	import type { AnyFile } from '$lib/files/file';
 	import type { Writable } from 'svelte/store';
 
 	const MERGE_DIFF_COMMAND = 'git diff-tree --cc ';

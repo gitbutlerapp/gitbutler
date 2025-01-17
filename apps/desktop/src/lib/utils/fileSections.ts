@@ -1,6 +1,8 @@
-import { LocalFile } from '$lib/vbranches/types';
+import { LocalFile } from '$lib/files/file';
 import { plainToInstance } from 'class-transformer';
-import type { AnyFile, Hunk, RemoteHunk } from '$lib/vbranches/types';
+import type { AnyFile } from '$lib/files/file';
+import type { RemoteHunk } from '$lib/hunks/hunk';
+import type { Hunk } from '$lib/hunks/hunk';
 
 export type Line = {
 	beforeLineNumber: number | undefined;

@@ -6,7 +6,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
 	import { splitFilePath } from '@gitbutler/ui/utils/filePath';
-	import type { AnyFile } from '$lib/vbranches/types';
+	import type { AnyFile } from '$lib/files/file';
 
 	interface Props {
 		file: AnyFile;

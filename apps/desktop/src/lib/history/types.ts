@@ -1,4 +1,4 @@
-import { RemoteHunk } from '$lib/vbranches/types';
+import { RemoteHunk } from '$lib/hunks/hunk';
 import { Transform, Type } from 'class-transformer';
 
 export type Operation =

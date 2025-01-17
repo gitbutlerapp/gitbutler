@@ -9,9 +9,9 @@
 	import SettingsPage from '$components/SettingsPage.svelte';
 	import { AISecretHandle, AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
-	import { GitConfigService } from '$lib/backend/gitConfigService';
+	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { getSecretsService } from '$lib/secrets/secretsService';
-	import { UserService } from '$lib/stores/user';
+	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';

@@ -1,5 +1,7 @@
 import { shallowCompare } from '$lib/shallowCompare';
 
+type UpsertFunction = () => Promise<void> | void;
+
 export interface Interest {
 	_subscribe: () => () => void;
 }
@@ -11,7 +13,7 @@ class Subscription<Arguments> {
 
 	constructor(
 		readonly args: Arguments,
-		private readonly upsert: () => void,
+		private readonly upsert: UpsertFunction,
 		private readonly frequency: number
 	) {}
 
@@ -51,8 +53,8 @@ class Subscription<Arguments> {
 		};
 	}
 
-	refetch(): void {
-		this.upsert();
+	async refetch(): Promise<void> {
+		await this.upsert();
 	}
 }
 
@@ -61,7 +63,7 @@ export class InterestStore<Arguments> {
 
 	constructor(private readonly frequency: number) {}
 
-	findOrCreateSubscribable(args: Arguments, upsert: () => void): Subscription<Arguments> {
+	findOrCreateSubscribable(args: Arguments, upsert: UpsertFunction): Subscription<Arguments> {
 		let subscription = this.subscriptions.find((subscription) =>
 			shallowCompare(subscription.args, args)
 		);
@@ -73,12 +75,12 @@ export class InterestStore<Arguments> {
 		return subscription;
 	}
 
-	invalidate(args: Arguments): void {
+	async invalidate(args: Arguments): Promise<void> {
 		const subscription = this.subscriptions.find((subscription) =>
 			shallowCompare(subscription.args, args)
 		);
 		if (subscription) {
-			subscription.refetch();
+			await subscription.refetch();
 		}
 	}
 }

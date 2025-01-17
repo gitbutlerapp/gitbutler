@@ -5,31 +5,31 @@
 	import Dropzones from './Dropzones.svelte';
 	import SeriesDescription from './SeriesDescription.svelte';
 	import SeriesHeaderStatusIcon from './SeriesHeaderStatusIcon.svelte';
-	import ContextMenu from '$components/ContextMenu.svelte';
 	import PrDetailsModal from '$components/PrDetailsModal.svelte';
 	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
-	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { projectAiGenEnabled } from '$lib/config/config';
-	import { getForge } from '$lib/forge/interface/forge';
-	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
-	import { getForgePrService } from '$lib/forge/interface/forgePrService';
-	import { showError } from '$lib/notifications/toasts';
-	import { isFailure } from '$lib/result';
-	import { openExternalUrl } from '$lib/utils/url';
-	import { BranchController } from '$lib/vbranches/branchController';
-	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
-	import { PatchSeries, BranchStack, type CommitStatus } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/branches/branch';
+	import { PatchSeries } from '$lib/branches/branch';
+	import { BranchController } from '$lib/branches/branchController';
 	import {
 		allPreviousSeriesHavePrNumber,
 		childBranch,
 		parentBranch
-	} from '$lib/vbranches/virtualBranch';
+	} from '$lib/branches/virtualBranchService';
+	import { type CommitStatus } from '$lib/commits/commit';
+	import { projectAiGenEnabled } from '$lib/config/config';
+	import { FileService } from '$lib/files/fileService';
+	import { getForge } from '$lib/forge/interface/forge';
+	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
+	import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	import { Project } from '$lib/project/project';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
@@ -49,6 +49,7 @@
 	const project = getContext(Project);
 	const aiService = getContext(AIService);
 	const promptService = getContext(PromptService);
+	const fileService = getContext(FileService);
 	const stackStore = getContextStore(BranchStack);
 	const stack = $derived($stackStore);
 
@@ -209,7 +210,7 @@
 		if (!aiGenEnabled || !branch) return;
 
 		let hunk_promises = branch.patches.flatMap(async (p) => {
-			let files = await listCommitFiles(project.id, p.id);
+			let files = await fileService.listCommitFiles(project.id, p.id);
 			return files.flatMap((f) =>
 				f.hunks.map((h) => {
 					return { filePath: f.path, diff: h.diff };
@@ -219,18 +220,10 @@
 		let hunks = (await Promise.all(hunk_promises)).flat();
 
 		const prompt = promptService.selectedBranchPrompt(project.id);
-		const messageResult = await aiService.summarizeBranch({
+		const message = await aiService.summarizeBranch({
 			hunks,
 			branchTemplate: prompt
 		});
-
-		if (isFailure(messageResult)) {
-			showError('Failed to generate branch name', messageResult.failure);
-
-			return;
-		}
-
-		const message = messageResult.value;
 
 		if (message && message !== branch.name) {
 			branchController.updateSeriesName(stack.id, branch.name, message);

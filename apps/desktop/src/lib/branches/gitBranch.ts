@@ -1,5 +1,5 @@
+import { BranchData } from './branch';
 import { invoke } from '$lib/backend/ipc';
-import { BranchData } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 
 export class GitBranchService {

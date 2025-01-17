@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PromptService } from '$lib/backend/prompt';
+	import { PromptService } from '$lib/prompt/promptService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';

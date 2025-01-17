@@ -2,9 +2,9 @@
 	import AiPromptSelect from '$components/AIPromptSelect.svelte';
 	import Section from '$components/Section.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { UserService } from '$lib/stores/user';
+	import { Project } from '$lib/project/project';
+	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';

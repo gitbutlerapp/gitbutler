@@ -9,14 +9,14 @@ import type { Reactive } from '$lib/storeUtils';
 export function getPatch(
 	appState: AppPatchesState,
 	patchService: PatchService,
-	branchId: string,
+	branchUuid: string,
 	changeId: string,
 	inView?: InView
 ): Reactive<LoadablePatch | undefined> {
-	const patchInterest = patchService.getPatchWithSectionsInterest(branchId, changeId);
+	const patchInterest = patchService.getPatchWithSectionsInterest(branchUuid, changeId);
 	registerInterest(patchInterest, inView);
 
-	const patch = $derived(patchesSelectors.selectById(appState.patches, branchId));
+	const patch = $derived(patchesSelectors.selectById(appState.patches, changeId));
 
 	return {
 		get current() {
@@ -28,14 +28,14 @@ export function getPatch(
 export function getPatchSections(
 	appState: AppPatchesState & AppPatchSectionsState,
 	patchService: PatchService,
-	branchId: string,
+	branchUuid: string,
 	changeId: string,
 	inView?: InView
 ): Reactive<Section[] | undefined> {
-	const patchInterest = patchService.getPatchWithSectionsInterest(branchId, changeId);
+	const patchInterest = patchService.getPatchWithSectionsInterest(branchUuid, changeId);
 	registerInterest(patchInterest, inView);
 
-	const patch = $derived(patchesSelectors.selectById(appState.patches, branchId));
+	const patch = $derived(patchesSelectors.selectById(appState.patches, changeId));
 	const sections = $derived.by(() => {
 		if (patch?.status !== 'found') return;
 

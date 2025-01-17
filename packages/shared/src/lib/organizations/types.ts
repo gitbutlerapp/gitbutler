@@ -101,3 +101,9 @@ export function apiToOrganization(
 			'members' in apiOrganization ? apiOrganization.members.map(({ login }) => login) : undefined
 	};
 }
+
+export function stringifyProjectIdentity(owner: string, slug: string): string {
+	return `${owner}/${slug}`;
+}
+
+export type LoadableRepositoryId = LoadableData<string, string>;

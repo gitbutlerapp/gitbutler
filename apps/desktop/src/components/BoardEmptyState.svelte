@@ -1,11 +1,11 @@
 <script lang="ts">
 	import zenSvg from '$lib/assets/dzen-pc.svg?raw';
-	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { BranchController } from '$lib/branches/branchController';
 	import { getForge } from '$lib/forge/interface/forge';
+	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { Writable } from 'svelte/store';

@@ -1,4 +1,4 @@
-import type { ProjectReviewCommitParameters } from '$lib/project/types';
+import type { ProjectReviewCommitParameters } from '$lib/routing';
 import type { PageLoad } from './$types';
 
 // eslint-disable-next-line func-style

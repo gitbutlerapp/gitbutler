@@ -1,20 +1,16 @@
 <script lang="ts">
-	import Branches from './Branches.svelte';
-	import Footer from './Footer.svelte';
-	import ProjectSelector from './ProjectSelector.svelte';
-	import TargetCard from './TargetCard.svelte';
-	import WorkspaceButton from './WorkspaceButton.svelte';
-	import CloudSeriesButton from '$components/CloudSeriesButton.svelte';
+	import Branches from '$components/Branches.svelte';
 	import EditButton from '$components/EditButton.svelte';
 	import FeedButton from '$components/FeedButton.svelte';
+	import Footer from '$components/Footer.svelte';
+	import ProjectSelector from '$components/ProjectSelector.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import { ProjectService } from '$lib/backend/projects';
-	import {
-		cloudCommunicationFunctionality,
-		cloudReviewFunctionality
-	} from '$lib/config/uiFeatureFlags';
-	import { ModeService } from '$lib/modes/service';
+	import TargetCard from '$components/TargetCard.svelte';
+	import WorkspaceButton from '$components/WorkspaceButton.svelte';
+	import { cloudCommunicationFunctionality } from '$lib/config/uiFeatureFlags';
+	import { ModeService } from '$lib/mode/modeService';
 	import { platformName } from '$lib/platform/platform';
+	import { ProjectService } from '$lib/project/projectService';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
@@ -126,10 +122,6 @@
 						<WorkspaceButton href={`/${projectId}/board`} isNavCollapsed={$isNavCollapsed} />
 					{:else if $mode?.type === 'Edit'}
 						<EditButton href={`/${projectId}/edit`} isNavCollapsed={$isNavCollapsed} />
-					{/if}
-
-					{#if $cloudReviewFunctionality}
-						<CloudSeriesButton href={`/${projectId}/series`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 					{#if $cloudCommunicationFunctionality}
 						<FeedButton href={`/${projectId}/feed`} isNavCollapsed={$isNavCollapsed} />

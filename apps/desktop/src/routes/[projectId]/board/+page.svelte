@@ -2,12 +2,12 @@
 	import Board from '$components/Board.svelte';
 	import MetricsReporter from '$components/MetricsReporter.svelte';
 	import Scrollbar from '$components/Scrollbar.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import { getForge } from '$lib/forge/interface/forge';
-	import { ModeService } from '$lib/modes/service';
+	import { ModeService } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
+	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';

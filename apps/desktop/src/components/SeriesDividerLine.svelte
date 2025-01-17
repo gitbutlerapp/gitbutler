@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
-	import type { CommitStatus } from '$lib/vbranches/types';
+	import type { CommitStatus } from '$lib/commits/commit';
 
 	type SeriesStatus = CommitStatus | 'error';
 

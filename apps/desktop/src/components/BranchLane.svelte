@@ -2,12 +2,13 @@
 	import FileCard from '$components/FileCard.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import Stack from '$components/Stack.svelte';
-	import { Project } from '$lib/backend/projects';
+	import { BranchStack } from '$lib/branches/branch';
+	import { SelectedOwnership } from '$lib/branches/ownership';
 	import { projectLaneCollapsed } from '$lib/config/config';
+	import { RemoteFile } from '$lib/files/file';
+	import { Project } from '$lib/project/project';
+	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { SelectedOwnership } from '$lib/vbranches/ownership';
-	import { RemoteFile, BranchStack } from '$lib/vbranches/types';
 	import {
 		getContext,
 		getContextStoreBySymbol,

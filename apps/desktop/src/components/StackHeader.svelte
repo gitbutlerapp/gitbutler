@@ -1,10 +1,10 @@
 <script lang="ts">
 	import HeaderControlSection from './HeaderControlSection.svelte';
 	import HeaderMetaSection from './HeaderMetaSection.svelte';
+	import { BranchStack } from '$lib/branches/branch';
+	import { BranchController } from '$lib/branches/branchController';
 	import { cloudReviewFunctionality } from '$lib/config/uiFeatureFlags';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
-	import { BranchController } from '$lib/vbranches/branchController';
-	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { isError } from '@gitbutler/ui/utils/typeguards';

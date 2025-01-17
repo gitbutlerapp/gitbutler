@@ -1,4 +1,4 @@
-import { type AnyFile } from '$lib/vbranches/types';
+import { type AnyFile } from '$lib/files/file';
 
 export type FileStatus = 'A' | 'M' | 'D';
 

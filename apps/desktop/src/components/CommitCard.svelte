@@ -2,29 +2,26 @@
 	import CommitContextMenu from './CommitContextMenu.svelte';
 	import BranchFilesList from '$components/BranchFilesList.svelte';
 	import CommitMessageInput from '$components/CommitMessageInput.svelte';
-	import ContextMenu from '$components/ContextMenu.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { BranchStack } from '$lib/branches/branch';
+	import { PatchSeries } from '$lib/branches/branch';
+	import { BranchController } from '$lib/branches/branchController';
+	import { Commit, DetailedCommit } from '$lib/commits/commit';
+	import { type CommitStatus } from '$lib/commits/commit';
+	import { createCommitStore } from '$lib/commits/contexts';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { CommitDropData, NON_DRAGGABLE } from '$lib/dragging/draggables';
-	import { ModeService } from '$lib/modes/service';
-	import { UserService } from '$lib/stores/user';
+	import { RemoteFile } from '$lib/files/file';
+	import { FileService } from '$lib/files/fileService';
+	import { ModeService } from '$lib/mode/modeService';
+	import { Project } from '$lib/project/project';
+	import { UserService } from '$lib/user/userService';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BranchController } from '$lib/vbranches/branchController';
-	import { createCommitStore } from '$lib/vbranches/contexts';
-	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
-	import {
-		Commit,
-		DetailedCommit,
-		PatchSeries,
-		RemoteFile,
-		BranchStack,
-		type CommitStatus
-	} from '$lib/vbranches/types';
 	import { getContext, getContextStore, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
@@ -70,6 +67,7 @@
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 	const modeService = maybeGetContext(ModeService);
+	const fileService = getContext(FileService);
 
 	const commitStore = createCommitStore(commit);
 
@@ -96,7 +94,7 @@
 	);
 
 	async function loadFiles() {
-		files = await listCommitFiles(project.id, commit.id);
+		files = await fileService.listCommitFiles(project.id, commit.id);
 	}
 
 	function toggleFiles() {

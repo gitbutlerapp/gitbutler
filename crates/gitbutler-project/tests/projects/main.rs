@@ -159,6 +159,5 @@ mod delete {
         assert!(controller.delete(project.id).is_ok()); // idempotent
         assert!(controller.get(project.id).is_err());
         assert!(!project.gb_dir().exists());
-        assert!(!project.path.join(".gitbutler.json").exists());
     }
 }

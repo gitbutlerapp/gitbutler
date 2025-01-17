@@ -1,23 +1,24 @@
 import { getUserErrorCode, invoke } from '$lib/backend/ipc';
-import { ProjectService, type Project } from '$lib/backend/projects';
-import { TemplateService } from '$lib/backend/templateService';
 import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+import { BranchController } from '$lib/branches/branchController';
 import { BranchListingService } from '$lib/branches/branchListing';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { GitBranchService } from '$lib/branches/gitBranch';
+import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
 import { CommitService } from '$lib/commits/service';
 import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
+import { UncommitedFilesWatcher } from '$lib/files/watcher';
 import { HistoryService } from '$lib/history/history';
 import { StackPublishingService } from '$lib/history/stackPublishingService';
 import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
-import { ModeService } from '$lib/modes/service';
-import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
-import { BranchController } from '$lib/vbranches/branchController';
-import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
-import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+import { ModeService } from '$lib/mode/modeService';
+import { TemplateService } from '$lib/pr/templateService';
+import { type Project } from '$lib/project/project';
+import { ProjectService } from '$lib/project/projectService';
+import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
 
@@ -25,7 +26,7 @@ export const prerender = false;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async ({ params, parent }) => {
-	const { authService, projectsService, commandService, userService, posthog } = await parent();
+	const { projectsService, commandService, userService, posthog } = await parent();
 
 	const projectId = params.projectId;
 	projectsService.setLastOpenedProject(projectId);
@@ -97,7 +98,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	);
 
 	return {
-		authService,
 		baseBranchService,
 		commitService,
 		templateService,

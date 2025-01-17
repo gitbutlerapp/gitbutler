@@ -1,9 +1,9 @@
 <script lang="ts">
 	import CommitMessageInput from '$components/CommitMessageInput.svelte';
-	import ContextMenuItem from '$components/ContextMenuItem.svelte';
-	import ContextMenuSection from '$components/ContextMenuSection.svelte';
-	import DropDownButton from '$components/DropDownButton.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
+	import { BranchStack } from '$lib/branches/branch';
+	import { BranchController } from '$lib/branches/branchController';
+	import { SelectedOwnership } from '$lib/branches/ownership';
 	import { persistedCommitMessage, projectRunCommitHooks } from '$lib/config/config';
 	import { cloudCommunicationFunctionality } from '$lib/config/uiFeatureFlags';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
@@ -11,11 +11,11 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import * as toasts from '$lib/utils/toasts';
-	import { BranchController } from '$lib/vbranches/branchController';
-	import { SelectedOwnership } from '$lib/vbranches/ownership';
-	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
 	import { slideFade } from '@gitbutler/ui/utils/transitions';
 	import { tick } from 'svelte';
 	import type { Writable } from 'svelte/store';
@@ -137,7 +137,7 @@
 	<div class="actions" class:commit-box__actions-expanded={$expanded}>
 		{#if $expanded && !isCommitting}
 			<div class="cancel-btn-wrapper" transition:slideFade={{ duration: 200, axis: 'x' }}>
-				<Button style="neutral" id="commit-to-branch" onclick={close}>Cancel</Button>
+				<Button style="neutral" kind="outline" id="commit-to-branch" onclick={close}>Cancel</Button>
 			</div>
 		{/if}
 		{#if $expanded && canShowCommitAndPublish}

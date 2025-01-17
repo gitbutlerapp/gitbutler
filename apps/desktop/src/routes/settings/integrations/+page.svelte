@@ -2,7 +2,7 @@
 	import AuthorizationBanner from '$components/AuthorizationBanner.svelte';
 	import GithubIntegration from '$components/GithubIntegration.svelte';
 	import SettingsPage from '$components/SettingsPage.svelte';
-	import { UserService } from '$lib/stores/user';
+	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 

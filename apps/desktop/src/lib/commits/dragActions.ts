@@ -1,14 +1,11 @@
+import { Commit, type DetailedCommit } from './commit';
+import { type BranchStack } from '$lib/branches/branch';
+import { filesToOwnership, filesToSimpleOwnership } from '$lib/branches/ownership';
 import { CommitDropData, FileDropData, HunkDropData } from '$lib/dragging/draggables';
-import { filesToOwnership, filesToSimpleOwnership } from '$lib/vbranches/ownership';
-import {
-	LocalFile,
-	Commit,
-	RemoteFile,
-	type BranchStack,
-	type DetailedCommit
-} from '$lib/vbranches/types';
-import type { Project } from '$lib/backend/projects';
-import type { BranchController } from '$lib/vbranches/branchController';
+import { RemoteFile } from '$lib/files/file';
+import { LocalFile } from '$lib/files/file';
+import type { BranchController } from '$lib/branches/branchController';
+import type { Project } from '$lib/project/project';
 
 export class CommitDragActions {
 	constructor(

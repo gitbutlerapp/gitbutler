@@ -2,11 +2,11 @@
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import Select from '$components/Select.svelte';
 	import SelectItem from '$components/SelectItem.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { getRemoteBranches } from '$lib/baseBranch/baseBranchService';
-	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import { BranchController } from '$lib/branches/branchController';
+	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
+	import { Project } from '$lib/project/project';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';

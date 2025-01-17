@@ -5,10 +5,11 @@
 	import Select from '$components/Select.svelte';
 	import SelectItem from '$components/SelectItem.svelte';
 	import SetupFeature from '$components/SetupFeature.svelte';
-	import { ProjectsService, Project } from '$lib/backend/projects';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { platformName } from '$lib/platform/platform';
-	import { UserService } from '$lib/stores/user';
+	import { Project } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
+	import { UserService } from '$lib/user/userService';
 	import { unique } from '$lib/utils/array';
 	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from '$lib/utils/branch';
 	import { getContext } from '@gitbutler/shared/context';

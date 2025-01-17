@@ -1,13 +1,14 @@
 <script lang="ts">
-	import ContextMenu from '$components/ContextMenu.svelte';
-	import ContextMenuItem from '$components/ContextMenuItem.svelte';
-	import ContextMenuSection from '$components/ContextMenuSection.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { BranchStack } from '$lib/branches/branch';
+	import { BranchController } from '$lib/branches/branchController';
+	import { type Commit, type DetailedCommit } from '$lib/commits/commit';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BranchController } from '$lib/vbranches/branchController';
-	import { BranchStack, type Commit, type DetailedCommit } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 
 	interface Props {
 		menu: ReturnType<typeof ContextMenu> | undefined;

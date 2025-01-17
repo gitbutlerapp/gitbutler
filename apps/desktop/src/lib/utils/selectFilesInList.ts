@@ -1,7 +1,8 @@
 import { getSelectionDirection } from './getSelectionDirection';
-import { type FileIdSelection } from '$lib/vbranches/fileIdSelection';
+import { type FileIdSelection } from '$lib/selection/fileIdSelection';
 import { get } from 'svelte/store';
-import type { AnyCommit, AnyFile } from '$lib/vbranches/types';
+import type { AnyCommit } from '$lib/commits/commit';
+import type { AnyFile } from '$lib/files/file';
 
 export function selectFilesInList(
 	e: MouseEvent,

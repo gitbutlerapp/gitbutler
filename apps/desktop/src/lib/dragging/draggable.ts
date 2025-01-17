@@ -1,6 +1,6 @@
 import { FileDropData, type DropData } from './draggables';
 import { dropzoneRegistry } from './dropzone';
-import { type CommitStatus } from '$lib/vbranches/types';
+import { type CommitStatus } from '$lib/commits/commit';
 import { getFileIcon } from '@gitbutler/ui/file/getFileIcon';
 import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 
@@ -47,7 +47,12 @@ function setupDragHandlers(
 	} = {
 		handlerWidth: false
 	}
-) {
+):
+	| {
+			update: (opts: DraggableConfig) => void;
+			destroy: () => void;
+	  }
+	| undefined {
 	if (opts.disabled) return;
 	let dragHandle: HTMLElement | null;
 	let clone: HTMLElement | undefined;

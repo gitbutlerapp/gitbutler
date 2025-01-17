@@ -1,26 +1,26 @@
 <script lang="ts">
-	import ContextMenu from '$components/ContextMenu.svelte';
-	import ContextMenuItem from '$components/ContextMenuItem.svelte';
-	import ContextMenuSection from '$components/ContextMenuSection.svelte';
 	import MergeButton from '$components/MergeButton.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { type ForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { getForgeRepoService } from '$lib/forge/interface/forgeRepoService';
 	import { showError } from '$lib/notifications/toasts';
+	import { Project } from '$lib/project/project';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import type { MessageStyle } from '$components/InfoMessage.svelte';
+	import type { PatchSeries } from '$lib/branches/branch';
 	import type { ForgePrMonitor } from '$lib/forge/interface/forgePrMonitor';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
-	import type { PatchSeries } from '$lib/vbranches/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
 

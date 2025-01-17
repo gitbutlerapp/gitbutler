@@ -2,12 +2,12 @@
 	// This is always displayed in the context of not having a cooresponding vbranch or remote
 	import Link from '$components/Link.svelte';
 	import Markdown from '$components/Markdown.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BranchController } from '$lib/branches/branchController';
+	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { showError } from '$lib/notifications/toasts';
-	import { RemotesService } from '$lib/remotes/service';
-	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import { Project } from '$lib/project/project';
+	import { RemotesService } from '$lib/remotes/remotesService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';

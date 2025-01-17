@@ -1,5 +1,4 @@
 import { isStr } from '@gitbutler/ui/utils/string';
-import type { Result } from '$lib/result';
 import type { Persisted } from '@gitbutler/shared/persisted';
 
 export enum ModelKind {
@@ -50,7 +49,7 @@ export interface AIEvalOptions {
 }
 
 export interface AIClient {
-	evaluate(prompt: Prompt, options?: AIEvalOptions): Promise<Result<string, Error>>;
+	evaluate(prompt: Prompt, options?: AIEvalOptions): Promise<string>;
 
 	defaultBranchTemplate: Prompt;
 	defaultCommitTemplate: Prompt;

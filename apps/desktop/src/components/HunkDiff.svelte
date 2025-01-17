@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
-	import { type Row, Operation, type DiffRows } from '$lib/hunk/types';
+	import { SelectedOwnership } from '$lib/branches/ownership';
+	import { type Hunk } from '$lib/hunks/hunk';
 	import { create } from '$lib/utils/codeHighlight';
 	import {
 		type ContentSection,
@@ -8,8 +9,6 @@
 		type Line,
 		CountColumnSide
 	} from '$lib/utils/fileSections';
-	import { SelectedOwnership } from '$lib/vbranches/ownership';
-	import { type Hunk } from '$lib/vbranches/types';
 	import { maybeGetContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -315,6 +314,24 @@
 	}
 
 	const hunkLineInfo = $derived(getHunkLineInfo(subsections));
+
+	interface Row {
+		beforeLineNumber?: number;
+		afterLineNumber?: number;
+		tokens: string[];
+		type: SectionType;
+		size: number;
+		isLast: boolean;
+	}
+
+	enum Operation {
+		Equal = 0,
+		Insert = 1,
+		Delete = -1,
+		Edit = 2
+	}
+
+	type DiffRows = { prevRows: Row[]; nextRows: Row[] };
 </script>
 
 {#snippet countColumn(row: Row, side: CountColumnSide)}

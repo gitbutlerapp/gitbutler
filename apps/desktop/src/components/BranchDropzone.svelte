@@ -6,9 +6,9 @@
 	import middleSheetSvg from '$lib/assets/new-branch/middle-sheet.svg?raw';
 	import topSheetSvg from '$lib/assets/new-branch/top-sheet.svg?raw';
 	// import components
+	import { BranchController } from '$lib/branches/branchController';
+	import { filesToOwnership } from '$lib/branches/ownership';
 	import { FileDropData, HunkDropData } from '$lib/dragging/draggables';
-	import { BranchController } from '$lib/vbranches/branchController';
-	import { filesToOwnership } from '$lib/vbranches/ownership';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 

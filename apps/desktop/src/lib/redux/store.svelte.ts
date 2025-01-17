@@ -1,4 +1,5 @@
 import { branchesReducer } from '@gitbutler/shared/branches/branchesSlice';
+import { latestBranchLookupsReducer } from '@gitbutler/shared/branches/latestBranchLookupSlice';
 import { patchSectionsReducer } from '@gitbutler/shared/branches/patchSectionsSlice';
 import { patchesReducer } from '@gitbutler/shared/branches/patchesSlice';
 import { chatChannelsReducer } from '@gitbutler/shared/chat/chatChannelsSlice';
@@ -6,6 +7,7 @@ import { feedsReducer } from '@gitbutler/shared/feeds/feedsSlice';
 import { postsReducer } from '@gitbutler/shared/feeds/postsSlice';
 import { organizationsReducer } from '@gitbutler/shared/organizations/organizationsSlice';
 import { projectsReducer } from '@gitbutler/shared/organizations/projectsSlice';
+import { repositoryIdLookupsReducer } from '@gitbutler/shared/organizations/repositoryIdLookupsSlice';
 import { exampleReducer } from '@gitbutler/shared/redux/example';
 import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 import { usersReducer } from '@gitbutler/shared/users/usersSlice';
@@ -63,6 +65,8 @@ export class DesktopState extends AppState implements AppDesktopOnlyState {
 			patches: patchesReducer,
 			patchSections: patchSectionsReducer,
 			chatChannels: chatChannelsReducer,
+			repositoryIdLookups: repositoryIdLookupsReducer,
+			latestBranchLookups: latestBranchLookupsReducer,
 			desktopOnly: desktopOnly.reducer
 		}
 	});

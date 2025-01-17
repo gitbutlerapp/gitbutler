@@ -1,4 +1,4 @@
-import { Commit } from '$lib/vbranches/types';
+import { Commit } from '$lib/commits/commit';
 import { Type } from 'class-transformer';
 
 export class NoDefaultTarget extends Error {}

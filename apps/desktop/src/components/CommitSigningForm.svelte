@@ -5,9 +5,9 @@
 	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
 	import Select from '$components/Select.svelte';
 	import SelectItem from '$components/SelectItem.svelte';
-	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { invoke } from '$lib/backend/ipc';
-	import { Project } from '$lib/backend/projects';
+	import { GitConfigService } from '$lib/config/gitConfigService';
+	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
