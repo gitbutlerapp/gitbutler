@@ -21,7 +21,11 @@ export function getBranchReviewsForRepository(
 		const groupedBranches = new Map<string, Branch[]>();
 
 		branchesSelectors.selectAll(appState.branches).forEach((loadableBranch) => {
-			if (!isFound(loadableBranch) || loadableBranch.value.repositoryId !== repositoryId) {
+			if (
+				!isFound(loadableBranch) ||
+				loadableBranch.value.repositoryId !== repositoryId ||
+				loadableBranch.value.status === BranchStatus.Previous
+			) {
 				return;
 			}
 			const branch = loadableBranch.value;
@@ -48,13 +52,13 @@ export function getBranchReview(
 	appState: AppBranchesState,
 	branchService: BranchService,
 	repositoryId: string,
-	branchId: string,
+	uuid: string,
 	inView?: InView
 ): Reactive<LoadableBranch | undefined> {
-	const branchReviewInterest = branchService.getBranchInterest(repositoryId, branchId);
+	const branchReviewInterest = branchService.getBranchInterest(repositoryId, uuid);
 	registerInterest(branchReviewInterest, inView);
 
-	const branchReview = $derived(branchesSelectors.selectById(appState.branches, branchId));
+	const branchReview = $derived(branchesSelectors.selectById(appState.branches, uuid));
 
 	return {
 		get current() {

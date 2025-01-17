@@ -7,6 +7,8 @@
 	import { projectReviewBranchCommitPath, type ProjectReviewCommitParameters } from '$lib/routing';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
+	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
+	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { getPatch, getPatchSections } from '@gitbutler/shared/branches/patchesPreview.svelte';
 	import {
@@ -34,6 +36,7 @@
 	let { data }: Props = $props();
 
 	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
+	const latestBranchLookupService = getContext(LatestBranchLookupService);
 	const branchService = getContext(BranchService);
 	const patchService = getContext(PatchService);
 	const appState = getContext(AppState);
@@ -42,26 +45,36 @@
 		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
 	);
 
+	const branchUuid = $derived(
+		dig(repositoryId.current, (repositoryId) => {
+			return lookupLatestBranchUuid(
+				appState,
+				latestBranchLookupService,
+				repositoryId,
+				data.branchId
+			);
+		})
+	);
+
 	const branch = $derived(
-		isFound(repositoryId.current)
-			? getBranchReview(appState, branchService, repositoryId.current.value, data.branchId)
-			: undefined
+		dig(compose(repositoryId.current, branchUuid?.current), ([repositoryId, branchUuid]) => {
+			return getBranchReview(appState, branchService, repositoryId, branchUuid);
+		})
 	);
 
 	const patchIds = $derived(dig(branch?.current, (b) => b.patchIds));
-	const branchUuid = $derived(dig(branch?.current, (b) => b.uuid));
 	const branchName = $derived(dig(branch?.current, (b) => b.title) ?? BRANCH_TITLE_PLACE_HOLDER);
 
 	const patch = $derived(
-		branchUuid !== undefined
-			? getPatch(appState, patchService, branchUuid, data.changeId)
-			: undefined
+		dig(branchUuid?.current, (branchUuid) => {
+			return getPatch(appState, patchService, branchUuid, data.changeId);
+		})
 	);
 
 	const patchSections = $derived(
-		branchUuid !== undefined
-			? getPatchSections(appState, patchService, branchUuid, data.changeId)
-			: undefined
+		dig(branchUuid?.current, (branchUuid) => {
+			return getPatchSections(appState, patchService, branchUuid, data.changeId);
+		})
 	);
 
 	const contributors = $derived(
@@ -89,8 +102,8 @@
 </script>
 
 <div class="review-page">
-	<Loading loadable={compose(patch?.current, repositoryId.current)}>
-		{#snippet children([patch, repositoryId])}
+	<Loading loadable={compose(patch?.current, compose(repositoryId.current, branchUuid?.current))}>
+		{#snippet children([patch, [repositoryId, branchUuid]])}
 			<div class="review-main-content">
 				<div class="review-main__header">
 					<p class="review-main__branch-title-line">

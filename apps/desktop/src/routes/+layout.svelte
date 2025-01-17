@@ -41,6 +41,7 @@
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
+	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { PatchService as CloudPatchService } from '@gitbutler/shared/branches/patchService';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
@@ -78,6 +79,7 @@
 	const cloudBranchService = new CloudBranchService(data.cloud, appState.appDispatch);
 	const cloudPatchService = new CloudPatchService(data.cloud, appState.appDispatch);
 	const repositoryIdLookupService = new RepositoryIdLookupService(data.cloud, appState.appDispatch);
+	const latestBranchLookupService = new LatestBranchLookupService(data.cloud, appState.appDispatch);
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
@@ -90,6 +92,7 @@
 	setContext(CloudBranchService, cloudBranchService);
 	setContext(CloudPatchService, cloudPatchService);
 	setContext(RepositoryIdLookupService, repositoryIdLookupService);
+	setContext(LatestBranchLookupService, latestBranchLookupService);
 	setContext(HooksService, data.hooksService);
 	setContext(SettingsService, data.settingsService);
 

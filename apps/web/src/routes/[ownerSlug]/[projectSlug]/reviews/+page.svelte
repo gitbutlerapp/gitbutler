@@ -56,7 +56,7 @@
 						<BranchIndexCard
 							{repositoryId}
 							linkParams={data}
-							branchId={branch.branchId}
+							uuid={branch.uuid}
 							roundedTop={j === 0 && i !== 0}
 							roundedBottom={j === branches.length - 1}
 						/>

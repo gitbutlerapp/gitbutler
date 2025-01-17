@@ -247,7 +247,8 @@ export enum BranchStatus {
 	Inactive = 'inactive',
 	Closed = 'closed',
 	Loading = 'loading',
-	All = 'all'
+	All = 'all',
+	Previous = 'previous'
 }
 
 export type ApiBranch = {
@@ -286,7 +287,7 @@ export type Branch = {
 	stackOrder: number;
 };
 
-export type LoadableBranch = LoadableData<Branch, Branch['branchId']>;
+export type LoadableBranch = LoadableData<Branch, Branch['uuid']>;
 
 export function apiToBranch(api: ApiBranch): Branch {
 	return {
@@ -308,3 +309,5 @@ export function apiToBranch(api: ApiBranch): Branch {
 		stackOrder: api.branch_stack_order || 1
 	};
 }
+
+export type LoadableBranchUuid = LoadableData<string, string>;
