@@ -288,5 +288,11 @@
 
 	.review-chat {
 		width: 100%;
+		--top-nav-offset: 84px;
+		--bottom-margin: 10px;
+		top: var(--top-nav-offset);
+		display: flex;
+		height: calc(100vh - var(--top-nav-offset) - var(--bottom-margin));
+		position: sticky;
 	}
 </style>
