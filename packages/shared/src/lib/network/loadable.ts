@@ -69,8 +69,6 @@ export function loadableUpsertMany<T, Id extends EntityId>(
 				merged = payload.value;
 			} else {
 				merged = { ...entity.value };
-				console.log({ ...entity.value });
-				console.log({ ...payload.value });
 
 				for (const [key, value] of Object.entries(payload.value as object)) {
 					if (value !== undefined && value !== null) {
@@ -94,17 +92,22 @@ export function loadableUpsertMany<T, Id extends EntityId>(
 }
 
 export function and<T>(
-	a: Loadable<unknown> | undefined,
-	b: Loadable<T> | undefined
+	loadables: [...(Loadable<unknown> | undefined)[], Loadable<T> | undefined]
 ): Loadable<T> | undefined {
-	if (isFound(a)) {
-		return b;
+	if (loadables.length <= 1) {
+		return loadables[0] as Loadable<T> | undefined;
+	}
+
+	if (isFound(loadables[0])) {
+		return and(
+			loadables.slice(1) as [...(Loadable<unknown> | undefined)[], Loadable<T> | undefined]
+		);
 	} else {
-		return a;
+		return loadables[0];
 	}
 }
 
-export function dig<T, R>(
+export function map<T, R>(
 	loadable: Loadable<T> | undefined,
 	digger: (current: T) => R
 ): R | undefined {
@@ -114,21 +117,23 @@ export function dig<T, R>(
 	return undefined;
 }
 
-export function compose<A, B>(
-	a: Loadable<A> | undefined,
-	b: Loadable<B> | undefined
-): Loadable<[A, B]> {
-	if (isFound(a) && isFound(b)) {
-		return { status: 'found', value: [a.value, b.value] };
+export function combine<A extends [...unknown[]]>(loadables: {
+	[K in keyof A]: Loadable<A[K]> | undefined;
+}): Loadable<A> {
+	if (loadables.every((loadable) => isFound(loadable))) {
+		return {
+			status: 'found',
+			// @ts-expect-error I'm sure this could be typed propperly, but this is fine
+			value: loadables.map((loadable) => loadable.value)
+		};
 	}
 
 	const failureStates = [isError, isNotFound];
 	for (const state of failureStates) {
-		if (state(a)) {
-			return a;
-		}
-		if (state(b)) {
-			return b;
+		for (const loadable of loadables) {
+			if (state(loadable)) {
+				return loadable;
+			}
 		}
 	}
 

@@ -11,7 +11,7 @@
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { isFound, and, dig, compose } from '@gitbutler/shared/network/loadable';
+	import { isFound, and, map, combine } from '@gitbutler/shared/network/loadable';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
@@ -42,7 +42,7 @@
 	);
 
 	const branchUuid = $derived(
-		dig(repositoryId.current, (repositoryId) => {
+		map(repositoryId.current, (repositoryId) => {
 			return lookupLatestBranchUuid(
 				appState,
 				latestBranchLookupService,
@@ -53,7 +53,7 @@
 	);
 
 	const branch = $derived(
-		dig(compose(repositoryId.current, branchUuid?.current), ([repositoryId, branchUuid]) => {
+		map(combine([repositoryId.current, branchUuid?.current]), ([repositoryId, branchUuid]) => {
 			return getBranchReview(appState, branchService, repositoryId, branchUuid);
 		})
 	);
@@ -79,7 +79,7 @@
 
 <h2>Review page: {data.ownerSlug}/{data.projectSlug} {data.branchId}</h2>
 
-<Loading loadable={and(repositoryId.current, and(branchUuid?.current, branch?.current))}>
+<Loading loadable={and([repositoryId.current, branchUuid?.current, branch?.current])}>
 	{#snippet children(branch)}
 		<div class="layout">
 			<div class="information">

@@ -1,3 +1,4 @@
+import { isFound, isNotFound } from '@gitbutler/shared/network/loadable';
 import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 import { readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import type { ProjectsService } from '$lib/project/projectsService';
@@ -23,12 +24,13 @@ export function projectCloudSync(
 	);
 
 	$effect(() => {
-		if (
-			!project.current?.api ||
-			!loadableCloudProject?.current ||
-			loadableCloudProject?.current.status !== 'found'
-		)
+		if (!project.current?.api || !isFound(loadableCloudProject?.current)) {
+			if (isNotFound(loadableCloudProject?.current)) {
+				/* empty */
+			}
+
 			return;
+		}
 
 		const cloudProject = loadableCloudProject.current.value;
 		const persistedProjectUpdatedAt = new Date(project.current.api.updated_at).getTime();

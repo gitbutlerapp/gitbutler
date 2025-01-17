@@ -13,7 +13,7 @@
 	import { getPatch, getPatchSections } from '@gitbutler/shared/branches/patchesPreview.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { compose, dig } from '@gitbutler/shared/network/loadable';
+	import { combine, map } from '@gitbutler/shared/network/loadable';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
@@ -38,7 +38,7 @@
 	);
 
 	const branchUuid = $derived(
-		dig(repositoryId.current, (repositoryId) => {
+		map(repositoryId.current, (repositoryId) => {
 			return lookupLatestBranchUuid(
 				appState,
 				latestBranchLookupService,
@@ -49,22 +49,22 @@
 	);
 
 	const branch = $derived(
-		dig(compose(repositoryId.current, branchUuid?.current), ([repositoryId, branchUuid]) => {
+		map(combine([repositoryId.current, branchUuid?.current]), ([repositoryId, branchUuid]) => {
 			return getBranchReview(appState, branchService, repositoryId, branchUuid);
 		})
 	);
 
-	const patchIds = $derived(dig(branch?.current, (b) => b.patchIds));
-	const branchName = $derived(dig(branch?.current, (b) => b.title) ?? BRANCH_TITLE_PLACE_HOLDER);
+	const patchIds = $derived(map(branch?.current, (b) => b.patchIds));
+	const branchName = $derived(map(branch?.current, (b) => b.title) ?? BRANCH_TITLE_PLACE_HOLDER);
 
 	const patch = $derived(
-		dig(branchUuid?.current, (branchUuid) => {
+		map(branchUuid?.current, (branchUuid) => {
 			return getPatch(appState, patchService, branchUuid, data.changeId);
 		})
 	);
 
 	const patchSections = $derived(
-		dig(branchUuid?.current, (branchUuid) => {
+		map(branchUuid?.current, (branchUuid) => {
 			return getPatchSections(appState, patchService, branchUuid, data.changeId);
 		})
 	);
@@ -82,8 +82,8 @@
 </script>
 
 <div class="review-page">
-	<Loading loadable={compose(patch?.current, compose(repositoryId.current, branchUuid?.current))}>
-		{#snippet children([patch, [repositoryId, branchUuid]])}
+	<Loading loadable={combine([patch?.current, repositoryId.current, branchUuid?.current])}>
+		{#snippet children([patch, repositoryId, branchUuid])}
 			<div class="review-main-content">
 				<div class="review-main__header">
 					<p class="review-main__branch-title-line">
