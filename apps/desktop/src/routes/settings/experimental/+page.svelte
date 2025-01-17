@@ -90,10 +90,10 @@
 
 			<SectionCard orientation="row" centerAlign>
 				{#snippet title()}
-					V3 Design
+					v3 Design
 				{/snippet}
 				{#snippet caption()}
-					The number of lines that trigger a snapshot when saving.
+					Enable the new v3 User Interface.
 				{/snippet}
 
 				{#snippet actions()}
