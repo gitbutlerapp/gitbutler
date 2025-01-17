@@ -59,6 +59,7 @@
 
 <style lang="postcss">
 	.chat-input {
+		flex-shrink: 0;
 		display: flex;
 		justify-content: space-between;
 		padding: 16px;

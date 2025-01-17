@@ -64,5 +64,10 @@
 
 	.chat-messages {
 		flex-grow: 1;
+		overflow-y: scroll;
+		scrollbar-width: none;
+		&::-webkit-scrollbar {
+			display: none;
+		}
 	}
 </style>
