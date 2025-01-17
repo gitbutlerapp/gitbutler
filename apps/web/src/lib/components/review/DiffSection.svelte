@@ -33,12 +33,14 @@
 						.newLength} @@
 				</p>
 			</div>
-			<div class="diff-content">
-				{#each hunk.lines as line}
-					<div class={lineTypeToClass(line.type)}>
-						<pre><code>{line.line}</code></pre>
-					</div>
-				{/each}
+			<div class="diff-content-wrapper">
+				<div class="diff-content">
+					{#each hunk.lines as line}
+						<div class={lineTypeToClass(line.type)}>
+							<pre><code>{line.line}</code></pre>
+						</div>
+					{/each}
+				</div>
 			</div>
 		</div>
 	{/each}
@@ -73,7 +75,6 @@
 
 		border-radius: var(--m, 6px);
 		border: 1px solid var(--diff-count-border, #d4d0ce);
-		overflow-x: scroll;
 
 		& pre {
 			color: var(--text-1, #1a1614);
@@ -83,6 +84,9 @@
 			font-weight: 400;
 			line-height: 120%; /* 14.4px */
 			padding: 2px 6px;
+
+			width: fit-content;
+			background: none;
 		}
 	}
 
@@ -93,7 +97,6 @@
 		gap: 10px;
 		flex: 1 0 0;
 		align-self: stretch;
-		border-bottom: 1px solid var(--diff-count-border, #d4d0ce);
 		background: var(--bg-1, #fff);
 	}
 
@@ -106,11 +109,24 @@
 		line-height: 120%; /* 14.4px */
 	}
 
-	.diff-content {
+	.diff-content-wrapper {
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
 		align-self: stretch;
+
+		width: 100%;
+		overflow-x: scroll;
+
+		scrollbar-width: none;
+		&::-webkit-scrollbar {
+			display: none;
+		}
+	}
+
+	.diff-content {
+		min-width: 100%;
+		border-top: 1px solid var(--diff-count-border, #d4d0ce);
 	}
 
 	.diff-line-added {
@@ -121,5 +137,9 @@
 	.diff-line-removed {
 		width: 100%;
 		background: var(--clr-diff-deletion-count-bg);
+	}
+
+	.diff-line-unchanged {
+		width: 100%;
 	}
 </style>
