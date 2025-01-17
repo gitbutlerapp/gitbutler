@@ -1,6 +1,11 @@
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
-import { addProject, upsertProject, upsertProjects } from '$lib/organizations/projectsSlice';
+import {
+	addProject,
+	removeProject,
+	upsertProject,
+	upsertProjects
+} from '$lib/organizations/projectsSlice';
 import { type ApiProject, apiToProject, type LoadableProject } from '$lib/organizations/types';
 import { POLLING_GLACIALLY, POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/network/httpClient';
@@ -84,5 +89,11 @@ export class ProjectService {
 		);
 
 		return project;
+	}
+
+	async deleteProject(repositoryId: string) {
+		await this.httpClient.delete(`projects/${repositoryId}`);
+
+		this.appDispatch.dispatch(removeProject(repositoryId));
 	}
 }
