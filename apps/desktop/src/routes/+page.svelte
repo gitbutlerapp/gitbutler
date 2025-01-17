@@ -30,10 +30,10 @@
 			if (!projects) return { type: 'loading' };
 			const projectId = projects.find((p) => p.id === persistedId)?.id;
 			if (projectId) {
-				return { type: 'redirect', subject: `/${projectId}/` };
+				return { type: 'redirect', subject: `/${projectId}` };
 			}
 			if (projects.length > 0) {
-				const subject = v3 ? `/project/${projects[0]?.id}/` : `/${projects[0]?.id}/`;
+				const subject = v3 ? `/project/${projects[0]?.id}` : `/${projects[0]?.id}`;
 				return { type: 'redirect', subject };
 			}
 			return { type: 'no-projects' };

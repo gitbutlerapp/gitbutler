@@ -156,16 +156,15 @@
 	// Redirect user if v3 design feature flag does not match current url.
 	function maybeRedirect(v3Enabled: boolean, path: string) {
 		const projectRegex =
-			/^\/(?<isV3>project\/)?(?<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?<rest>\/.*)/;
+			/^\/(?<isV3>project\/)?(?<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/;
 		const match = projectRegex.exec(path);
 		if (match?.groups) {
 			const isV3 = match.groups['isV3'];
 			const uuid = match.groups['uuid'];
-			const rest = match.groups['rest'] ?? '';
 			if (!isV3 && v3Enabled) {
-				window.location.href = `/project/${uuid}${rest}`;
+				window.location.href = `/project/${uuid}`;
 			} else if (isV3 && !v3Enabled) {
-				window.location.href = `/${uuid}${rest}`;
+				window.location.href = `/${uuid}`;
 			}
 		}
 	}
