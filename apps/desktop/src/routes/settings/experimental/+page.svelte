@@ -3,7 +3,8 @@
 	import {
 		cloudFunctionality,
 		cloudCommunicationFunctionality,
-		cloudReviewFunctionality
+		cloudReviewFunctionality,
+		v3
 	} from '$lib/config/uiFeatureFlags';
 	import { User } from '$lib/user/user';
 	import { getContextStore } from '@gitbutler/shared/context';
@@ -86,6 +87,19 @@
 					{/snippet}
 				</SectionCard>
 			</div>
+
+			<SectionCard orientation="row" centerAlign>
+				{#snippet title()}
+					V3 Design
+				{/snippet}
+				{#snippet caption()}
+					The number of lines that trigger a snapshot when saving.
+				{/snippet}
+
+				{#snippet actions()}
+					<Toggle id="v3Design" checked={$v3} onclick={() => ($v3 = !$v3)} />
+				{/snippet}
+			</SectionCard>
 		</div>
 	{/if}
 </SettingsPage>
@@ -94,5 +108,11 @@
 	.experimental-settings__text {
 		color: var(--clr-text-2);
 		margin-bottom: 10px;
+	}
+
+	.experimental-settings__toggles {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
 	}
 </style>

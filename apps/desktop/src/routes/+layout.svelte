@@ -22,6 +22,7 @@
 	import { AppSettings } from '$lib/config/appSettings';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { GitConfigService } from '$lib/config/gitConfigService';
+	import { v3 } from '$lib/config/uiFeatureFlags';
 	import {
 		createGitHubUserServiceStore as createGitHubUserServiceStore,
 		GitHubUserService
@@ -39,6 +40,7 @@
 	import { User } from '$lib/user/user';
 	import { UserService } from '$lib/user/userService';
 	import * as events from '$lib/utils/events';
+	import { createKeybind } from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
@@ -64,6 +66,7 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
+	import { page } from '$app/state';
 	import { env } from '$env/dynamic/public';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
@@ -142,15 +145,48 @@
 	});
 
 	let shareIssueModal: ShareIssueModal;
+
 	onMount(() => {
 		return unsubscribe(
 			events.on('goto', async (path: string) => await goto(path)),
 			events.on('openSendIssueModal', () => shareIssueModal?.show())
 		);
 	});
+
+	// Redirect user if v3 design feature flag does not match current url.
+	function maybeRedirect(v3Enabled: boolean, path: string) {
+		const projectRegex =
+			/^\/(?<isV3>project\/)?(?<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?<rest>\/.*)/;
+		const match = projectRegex.exec(path);
+		if (match?.groups) {
+			const isV3 = match.groups['isV3'];
+			const uuid = match.groups['uuid'];
+			const rest = match.groups['rest'] ?? '';
+			if (!isV3 && v3Enabled) {
+				window.location.href = `/project/${uuid}${rest}`;
+			} else if (isV3 && !v3Enabled) {
+				window.location.href = `/${uuid}${rest}`;
+			}
+		}
+	}
+
+	$effect(() => {
+		maybeRedirect($v3, page.url.pathname);
+	});
+
+	const handleKeyDown = createKeybind({
+		// Toggle v3 design on/off
+		'v 3': () => {
+			$v3 = !$v3;
+		}
+	});
 </script>
 
-<svelte:window ondrop={(e) => e.preventDefault()} ondragover={(e) => e.preventDefault()} />
+<svelte:window
+	ondrop={(e) => e.preventDefault()}
+	ondragover={(e) => e.preventDefault()}
+	onkeydown={handleKeyDown}
+/>
 
 <div class="app-root" role="application" oncontextmenu={(e) => !dev && e.preventDefault()}>
 	{#if platformName === 'macos'}
