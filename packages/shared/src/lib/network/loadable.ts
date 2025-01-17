@@ -68,7 +68,14 @@ export function loadableUpsertMany<T, Id extends EntityId>(
 			} else if (Array.isArray(entity.value) || Array.isArray(payload.value)) {
 				merged = payload.value;
 			} else {
-				merged = { ...entity.value, ...payload.value };
+				merged = { ...entity.value };
+
+				for (const [key, value] of Object.entries(payload.value as object)) {
+					if (value !== undefined || value !== null) {
+						// @ts-expect-error This is fine
+						merged[key] = value;
+					}
+				}
 			}
 
 			const newValue: LoadableData<T, Id> = {
