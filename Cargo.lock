@@ -2426,6 +2426,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-diff",
  "gitbutler-oplog",
+ "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-stack",

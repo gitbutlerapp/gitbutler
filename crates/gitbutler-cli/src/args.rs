@@ -71,6 +71,11 @@ pub mod vbranch {
             /// The name of the remote branch to integrate with, like `origin/main`.
             short_tracking_branch_name: String,
         },
+        /// List all changes of a commit, along with their patches.
+        ListCommitFiles {
+            /// The hex-id of the commit to produce information for.
+            commit_id: String,
+        },
         /// Make the named branch the default so all worktree or index changes are associated with it automatically.
         SetDefault {
             /// The name of the new default virtual branch.

@@ -32,6 +32,9 @@ fn main() -> Result<()> {
         args::Subcommands::Branch(vbranch::Platform { cmd }) => {
             let project = command::prepare::project_from_path(args.current_dir)?;
             match cmd {
+                Some(vbranch::SubCommands::ListCommitFiles { commit_id }) => {
+                    command::vbranch::list_commit_files(project, commit_id)
+                }
                 Some(vbranch::SubCommands::SetBase {
                     short_tracking_branch_name,
                 }) => command::vbranch::set_base(project, short_tracking_branch_name),
