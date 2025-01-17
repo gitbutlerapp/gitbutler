@@ -6,6 +6,7 @@ import type { ProjectService } from './projectService';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 import type { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 import type { AppProjectsState } from '@gitbutler/shared/redux/store.svelte';
+import type { Project } from '$lib/project/project';
 
 export function projectCloudSync(
 	appState: AppProjectsState,
@@ -25,8 +26,14 @@ export function projectCloudSync(
 
 	$effect(() => {
 		if (!project.current?.api || !isFound(loadableCloudProject?.current)) {
-			if (isNotFound(loadableCloudProject?.current)) {
-				/* empty */
+			// If the project is 404 from the server, but recorded on the
+			// client, assume it has been deleted on the server and we should
+			// clean it up.
+			if (isNotFound(loadableCloudProject?.current) && project.current?.api) {
+				const mutableProject: Project & { unset_api?: boolean } = structuredClone(project.current);
+				mutableProject.api = undefined;
+				mutableProject.unset_api = true;
+				projectsService.updateProject(mutableProject);
 			}
 
 			return;

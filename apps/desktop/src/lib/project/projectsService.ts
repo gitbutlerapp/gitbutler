@@ -56,7 +56,7 @@ export class ProjectsService {
 		return store;
 	}
 
-	async updateProject(project: Project) {
+	async updateProject(project: Project & { unset_bool?: boolean }) {
 		plainToInstance(Project, await invoke('update_project', { project: project }));
 		this.reload();
 	}

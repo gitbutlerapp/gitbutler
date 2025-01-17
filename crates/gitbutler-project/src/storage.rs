@@ -19,6 +19,8 @@ pub struct UpdateRequest {
     pub description: Option<String>,
     pub path: Option<PathBuf>,
     pub api: Option<ApiProject>,
+    #[serde(default = "default_false")]
+    pub unset_api: bool,
     pub gitbutler_data_last_fetched: Option<FetchResult>,
     pub preferred_key: Option<AuthKey>,
     pub ok_with_force_push: Option<bool>,
@@ -27,6 +29,10 @@ pub struct UpdateRequest {
     pub omit_certificate_check: Option<bool>,
     pub use_diff_context: Option<bool>,
     pub snapshot_lines_threshold: Option<usize>,
+}
+
+fn default_false() -> bool {
+    false
 }
 
 impl Storage {
@@ -91,6 +97,10 @@ impl Storage {
 
         if let Some(api) = &update_request.api {
             project.api = Some(api.clone());
+        }
+
+        if update_request.unset_api {
+            project.api = None;
         }
 
         if let Some(preferred_key) = &update_request.preferred_key {
