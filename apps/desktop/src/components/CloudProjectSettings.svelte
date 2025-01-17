@@ -4,9 +4,7 @@
 	import Section from '$components/Section.svelte';
 	import { ProjectService } from '$lib/project/projectService';
 	import { ProjectsService } from '$lib/project/projectsService';
-	import { User } from '$lib/user/user';
-	import * as toasts from '$lib/utils/toasts';
-	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
@@ -20,7 +18,6 @@
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	const appState = getContext(AppState);
-	const user = getContextStore(User);
 	const projectsService = getContext(ProjectsService);
 	const projectService = getContext(ProjectService);
 	const cloudProjectService = getContext(CloudProjectService);
@@ -64,29 +61,19 @@
 	}
 
 	async function onSyncChange(sync: boolean) {
-		if (!$user) return;
 		if (!$project?.api) return;
-		try {
-			const mutableProject = structuredClone($project);
-			mutableProject!.api!.sync = sync;
-			projectsService.updateProject(mutableProject);
-		} catch (error) {
-			console.error(`Failed to update project sync status: ${error}`);
-			toasts.error('Failed to update project sync status');
-		}
+
+		const mutableProject = structuredClone($project);
+		mutableProject.api!.sync = sync;
+		projectsService.updateProject(mutableProject);
 	}
-	// These functions are disgusting
+
 	async function onSyncCodeChange(sync_code: boolean) {
-		if (!$user) return;
 		if (!$project?.api) return;
-		try {
-			const mutableProject = structuredClone($project);
-			mutableProject!.api!.sync_code = sync_code;
-			projectsService.updateProject(mutableProject);
-		} catch (error) {
-			console.error(`Failed to update project sync status: ${error}`);
-			toasts.error('Failed to update project sync status');
-		}
+
+		const mutableProject = structuredClone($project);
+		mutableProject.api!.sync_code = sync_code;
+		projectsService.updateProject(mutableProject);
 	}
 </script>
 
