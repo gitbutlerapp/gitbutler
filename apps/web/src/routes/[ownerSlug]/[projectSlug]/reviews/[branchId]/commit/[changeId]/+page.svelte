@@ -1,9 +1,9 @@
 <script lang="ts">
 	import ChatComponent from '$lib/components/ChatComponent.svelte';
-	import ChangeStatus from '$lib/components/changes/ChangeStatus.svelte';
 	import ChangeActionButton from '$lib/components/review/ChangeActionButton.svelte';
 	import ChangeNavigator from '$lib/components/review/ChangeNavigator.svelte';
-	import Section from '$lib/components/review/Section.svelte';
+	import ReviewInfo from '$lib/components/review/ReviewInfo.svelte';
+	import ReviewSections from '$lib/components/review/ReviewSections.svelte';
 	import { projectReviewBranchCommitPath, type ProjectReviewCommitParameters } from '$lib/routing';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
@@ -11,23 +11,15 @@
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { getPatch, getPatchSections } from '@gitbutler/shared/branches/patchesPreview.svelte';
-	import {
-		getPatchContributorsWithAvatars,
-		getPatchReviewersWithAvatars
-	} from '@gitbutler/shared/branches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { compose, dig, isFound } from '@gitbutler/shared/network/loadable';
+	import { compose, dig } from '@gitbutler/shared/network/loadable';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 
 	const BRANCH_TITLE_PLACE_HOLDER = 'No branch title provided';
 	const DESCRIPTION_PLACE_HOLDER = 'No description provided';
-	const NO_REVIEWERS = 'Not reviewed yet';
-	const NO_CONTRIBUTORS = 'No contributors';
-	const NO_COMMENTS = 'No comments yet';
 
 	interface Props {
 		data: ProjectReviewCommitParameters;
@@ -77,18 +69,6 @@
 		})
 	);
 
-	const contributors = $derived(
-		isFound(patch?.current)
-			? getPatchContributorsWithAvatars(patch.current.value)
-			: Promise.resolve([])
-	);
-
-	const reviewers = $derived(
-		isFound(patch?.current)
-			? getPatchReviewersWithAvatars(patch.current.value)
-			: Promise.resolve([])
-	);
-
 	function goToPatch(changeId: string) {
 		const url = projectReviewBranchCommitPath({
 			ownerSlug: data.ownerSlug,
@@ -127,51 +107,8 @@
 					{patch.description?.trim() || DESCRIPTION_PLACE_HOLDER}
 				</p>
 
-				<div class="review-main-content-info">
-					<div class="review-main-content-info__entry">
-						<p class="review-main-content-info__header">Status:</p>
-						<ChangeStatus {patch} />
-					</div>
-
-					<div class="review-main-content-info__entry">
-						<p class="review-main-content-info__header">Reviewed by:</p>
-						<div>
-							{#await reviewers then reviewers}
-								{#if reviewers.length === 0}
-									<p class="review-main-content-info__value">{NO_REVIEWERS}</p>
-								{:else}
-									<AvatarGroup avatars={reviewers}></AvatarGroup>
-								{/if}
-							{/await}
-						</div>
-					</div>
-
-					<div class="review-main-content-info__entry">
-						<p class="review-main-content-info__header">Commented by:</p>
-						<p class="review-main-content-info__value">{NO_COMMENTS}</p>
-					</div>
-
-					<div class="review-main-content-info__entry">
-						<p class="review-main-content-info__header">Authors:</p>
-						<div>
-							{#await contributors then contributors}
-								{#if contributors.length === 0}
-									<p class="review-main-content-info__value">{NO_CONTRIBUTORS}</p>
-								{:else}
-									<AvatarGroup avatars={contributors}></AvatarGroup>
-								{/if}
-							{/await}
-						</div>
-					</div>
-				</div>
-
-				<pre>{JSON.stringify(patch.statistics)}</pre>
-
-				{#if patchSections?.current !== undefined}
-					{#each patchSections.current as section}
-						<Section {section} />
-					{/each}
-				{/if}
+				<ReviewInfo {patch} />
+				<ReviewSections {patch} patchSections={patchSections?.current} />
 			</div>
 
 			<div class="review-chat">
@@ -247,43 +184,6 @@
 		font-style: normal;
 		font-weight: var(--weight-regular, 400);
 		line-height: 160%; /* 19.2px */
-	}
-
-	.review-main-content-info {
-		display: flex;
-		gap: 30px;
-	}
-
-	.review-main-content-info__entry {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-
-	.review-main-content-info__header {
-		overflow: hidden;
-		color: var(--text-2, #867e79);
-		text-overflow: ellipsis;
-
-		/* base/12 */
-		font-family: var(--font-family-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--weight-regular, 400);
-		line-height: 120%; /* 14.4px */
-	}
-
-	.review-main-content-info__value {
-		overflow: hidden;
-		color: var(--text-3, #b4afac);
-		text-overflow: ellipsis;
-
-		/* base/12 */
-		font-family: var(--font-family-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--weight-regular, 400);
-		line-height: 120%; /* 14.4px */
 	}
 
 	.review-chat {
