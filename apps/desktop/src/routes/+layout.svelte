@@ -25,6 +25,7 @@
 	import { v3 } from '$lib/config/uiFeatureFlags';
 	import {
 		createGitHubUserServiceStore as createGitHubUserServiceStore,
+		GitHubAuthenticationService,
 		GitHubUserService
 	} from '$lib/forge/github/githubUserService';
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
@@ -116,6 +117,7 @@
 	setContext(LineManagerFactory, data.lineManagerFactory);
 	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
 	setContext(AppSettings, data.appSettings);
+	setContext(GitHubAuthenticationService, data.githubAuthenticationService);
 
 	const webRoutesService = new WebRoutesService(true, env.PUBLIC_CLOUD_BASE_URL);
 	const desktopRoutesService = new DesktopRoutesService(webRoutesService);
@@ -136,9 +138,7 @@
 	// This store is literally only used once, on GitHub oauth, to set the
 	// gh username on the user object. Furthermore, it isn't used anywhere.
 	// TODO: Remove the gh username completely?
-	const githubUserService = $derived(
-		octokit ? new GitHubUserService(data.tauri, octokit) : undefined
-	);
+	const githubUserService = $derived(octokit ? new GitHubUserService(octokit) : undefined);
 	const ghUserServiceStore = createGitHubUserServiceStore(undefined);
 	$effect(() => {
 		ghUserServiceStore.set(githubUserService);

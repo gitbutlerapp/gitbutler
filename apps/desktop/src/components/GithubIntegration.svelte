@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { getGitHubUserServiceStore } from '$lib/forge/github/githubUserService';
+	import {
+		getGitHubUserServiceStore,
+		GitHubAuthenticationService
+	} from '$lib/forge/github/githubUserService';
 	import { UserService } from '$lib/user/userService';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import * as toasts from '$lib/utils/toasts';
@@ -19,6 +22,7 @@
 	const { minimal = false, disabled = false }: Props = $props();
 
 	const githubUserService = getGitHubUserServiceStore();
+	const githubAuthenticationService = getContext(GitHubAuthenticationService);
 	const userService = getContext(UserService);
 	const user = userService.user;
 
@@ -33,7 +37,7 @@
 	let gitHubOauthModal: ReturnType<typeof Modal> | undefined = $state();
 
 	function gitHubStartOauth() {
-		$githubUserService?.initDeviceOauth().then((verification) => {
+		githubAuthenticationService.initDeviceOauth().then((verification) => {
 			userCode = verification.user_code;
 			deviceCode = verification.device_code;
 			gitHubOauthModal?.show();
@@ -42,14 +46,19 @@
 
 	async function gitHubOauthCheckStatus(deviceCode: string) {
 		loading = true;
-		if (!$user || !$githubUserService) return;
+		if (!$user) return;
 		try {
-			const accessToken = await $githubUserService.checkAuthStatus({ deviceCode });
-			$user.github_access_token = accessToken;
-			await userService.setUser($user);
+			const accessToken = await githubAuthenticationService.checkAuthStatus({ deviceCode });
+			// We don't want to directly modify $user because who knows what state that puts you in
+			let mutableUser = structuredClone($user);
+			mutableUser.github_access_token = accessToken;
+			await userService.setUser(mutableUser);
+
+			// After we call setUser, we want to re-clone the user store, as the userService itself sets the user store
+			mutableUser = structuredClone($user);
 			// TODO: Remove setting of gh username since it isn't used anywhere.
-			$user.github_username = await $githubUserService?.fetchGitHubLogin();
-			userService.setUser($user);
+			mutableUser.github_username = await $githubUserService?.fetchGitHubLogin();
+			userService.setUser(mutableUser);
 			toasts.success('GitHub authenticated');
 		} catch (err: any) {
 			console.error(err);
