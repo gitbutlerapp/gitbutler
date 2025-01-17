@@ -69,8 +69,6 @@ export function loadableUpsertMany<T, Id extends EntityId>(
 				merged = payload.value;
 			} else {
 				merged = { ...entity.value };
-				console.log({ ...entity.value });
-				console.log({ ...payload.value });
 
 				for (const [key, value] of Object.entries(payload.value as object)) {
 					if (value !== undefined && value !== null) {
