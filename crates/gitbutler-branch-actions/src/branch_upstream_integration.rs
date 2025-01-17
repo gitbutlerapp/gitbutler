@@ -66,7 +66,6 @@ pub fn integrate_upstream_commits_for_series(
         remote_head: remote_head.id(),
         remote_branch_name: &subject_branch.remote_reference(&remote),
         strategy,
-        use_new_branch_integration_algorithm: ctx.project().use_new_branch_integration_algorithm,
     };
 
     let (BranchHeadAndTree { head, tree }, new_series_head) =
@@ -131,7 +130,6 @@ pub fn integrate_upstream_commits(
         remote_head: upstream_branch_head,
         remote_branch_name: upstream_branch.name()?.unwrap_or("Unknown"),
         strategy: integration_strategy,
-        use_new_branch_integration_algorithm: project.use_new_branch_integration_algorithm,
     };
 
     let BranchHeadAndTree { head, tree } =
@@ -175,8 +173,6 @@ struct IntegrateUpstreamContext<'a, 'b> {
 
     /// Strategy to use when integrating the upstream commits
     strategy: IntegrationStrategy,
-    /// Whether to use the new branch integration algorithm
-    use_new_branch_integration_algorithm: Option<bool>,
 }
 
 impl IntegrateUpstreamContext<'_, '_> {
@@ -209,7 +205,6 @@ impl IntegrateUpstreamContext<'_, '_> {
                     merge_base,
                     ordered_commits,
                 } = order_commits_for_rebasing(
-                    self.use_new_branch_integration_algorithm,
                     self.repository,
                     self.target_branch_head,
                     series_head,
@@ -282,7 +277,6 @@ impl IntegrateUpstreamContext<'_, '_> {
                     merge_base,
                     ordered_commits,
                 } = order_commits_for_rebasing(
-                    self.use_new_branch_integration_algorithm,
                     self.repository,
                     self.target_branch_head,
                     self.branch_head,
@@ -309,61 +303,6 @@ struct OrderCommitsResult {
     ordered_commits: Vec<git2::Oid>,
 }
 
-fn order_commits_for_rebasing(
-    use_new_branch_integration_algorithm: Option<bool>,
-    repository: &git2::Repository,
-    target_branch_head: git2::Oid,
-    branch_head: git2::Oid,
-    remote_head: git2::Oid,
-) -> Result<OrderCommitsResult> {
-    let use_zipping = use_new_branch_integration_algorithm.unwrap_or(false);
-    if use_zipping {
-        order_commits_for_zipping_rebase(repository, target_branch_head, branch_head, remote_head)
-    } else {
-        order_commits_for_stacked_rebase(repository, target_branch_head, branch_head, remote_head)
-    }
-}
-
-fn order_commits_for_stacked_rebase(
-    repository: &git2::Repository,
-    target_branch_head: git2::Oid,
-    branch_head: git2::Oid,
-    remote_head: git2::Oid,
-) -> Result<OrderCommitsResult> {
-    let merge_base =
-        repository.merge_base_octopussy(&[target_branch_head, branch_head, remote_head])?;
-
-    let target_branch_commits =
-        repository.l(target_branch_head, LogUntil::Commit(merge_base), false)?;
-    let local_branch_commits = repository.l(branch_head, LogUntil::Commit(merge_base), false)?;
-
-    let remote_local_merge_base = repository.merge_base(branch_head, remote_head)?;
-    let remote_commits = repository.l(
-        remote_head,
-        LogUntil::Commit(remote_local_merge_base),
-        false,
-    )?;
-
-    let (integrated_commits, filtered_remote_commits) =
-        remote_commits.into_iter().partition(|remote_commit| {
-            target_branch_commits
-                .iter()
-                .any(|target_commit| target_commit == remote_commit)
-        });
-
-    let commits_to_rebase = [
-        filtered_remote_commits,
-        local_branch_commits,
-        integrated_commits,
-    ]
-    .concat();
-
-    Ok(OrderCommitsResult {
-        merge_base,
-        ordered_commits: commits_to_rebase,
-    })
-}
-
 /// Interweave the local and remote commits in the correct order.
 ///
 /// The order is determined in the following way:
@@ -371,7 +310,7 @@ fn order_commits_for_stacked_rebase(
 /// 2. Match the commits by their change id.
 /// 3. If a remote commit does not match the any local commits, insert it in the order it came.
 /// 4. Insert the unmatched local commits above its parents.
-fn order_commits_for_zipping_rebase(
+fn order_commits_for_rebasing(
     repository: &git2::Repository,
     target_branch_head: git2::Oid,
     local_head: git2::Oid,
@@ -586,10 +525,7 @@ fn build_change_id_map(
 
 #[cfg(test)]
 mod test {
-    use crate::branch_upstream_integration::{
-        order_commits_for_stacked_rebase, order_commits_for_zipping_rebase,
-        IntegrateUpstreamContext,
-    };
+    use crate::branch_upstream_integration::IntegrateUpstreamContext;
     use gitbutler_testsupport::testing_repository::{
         assert_commit_tree_matches, TestingRepository,
     };
@@ -628,7 +564,6 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
-                use_new_branch_integration_algorithm: None,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -684,7 +619,6 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
-                use_new_branch_integration_algorithm: None,
             };
 
             let (BranchHeadAndTree { head, tree: _tree }, new_series_head) = ctx
@@ -754,7 +688,6 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
-                use_new_branch_integration_algorithm: None,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -871,7 +804,6 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
-                use_new_branch_integration_algorithm: None,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -1013,7 +945,6 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
-                use_new_branch_integration_algorithm: None,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -1112,7 +1043,6 @@ mod test {
                 remote_head: remote_b.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::HardReset,
-                use_new_branch_integration_algorithm: None,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -1179,7 +1109,6 @@ mod test {
                 remote_head: remote_c.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::HardReset,
-                use_new_branch_integration_algorithm: None,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -1247,7 +1176,6 @@ mod test {
                 remote_head: remote_b.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::HardReset,
-                use_new_branch_integration_algorithm: None,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -1277,124 +1205,9 @@ mod test {
         }
     }
 
-    mod order_commits_for_stacked_rebase {
-        use super::*;
+    mod order_commits_for_rebasing {
+        use crate::branch_upstream_integration::order_commits_for_rebasing;
 
-        /// Local:  Base -> A -> B
-        /// Remote: Base -> A -> B -> X -> Y
-        /// Trunk:  Base
-        /// Result: Base -> A -> B -> X -> Y
-        #[test]
-        fn other_added_remote_changes() {
-            let test_repository = TestingRepository::open();
-
-            let base_commit = test_repository.commit_tree(None, &[]);
-            let local_a = test_repository.commit_tree(Some(&base_commit), &[]);
-            let local_b = test_repository.commit_tree(Some(&local_a), &[]);
-
-            let remote_x = test_repository.commit_tree(Some(&local_b), &[]);
-            let remote_y = test_repository.commit_tree(Some(&remote_x), &[]);
-
-            let commits = order_commits_for_stacked_rebase(
-                &test_repository.repository,
-                base_commit.id(),
-                local_b.id(),
-                remote_y.id(),
-            )
-            .unwrap();
-
-            assert_eq!(
-                commits.ordered_commits,
-                vec![remote_y.id(), remote_x.id(), local_b.id(), local_a.id()],
-            );
-        }
-
-        /// Local:  Base -> A -> B
-        /// Remote: Base -> A -> B' -> Y
-        /// Trunk:  Base
-        /// Result: Base -> A -> B -> B' -> Y
-        #[test]
-        fn modified_local_commit() {
-            let test_repository = TestingRepository::open();
-
-            let base_commit = test_repository.commit_tree(None, &[]);
-            let local_a = test_repository.commit_tree(Some(&base_commit), &[]);
-            let local_b = test_repository.commit_tree(Some(&local_a), &[]);
-
-            // imagine someone on the remote rebased local_b
-            let remote_b = test_repository.commit_tree(Some(&local_a), &[]);
-            let remote_y = test_repository.commit_tree(Some(&remote_b), &[]);
-
-            let commits = order_commits_for_stacked_rebase(
-                &test_repository.repository,
-                base_commit.id(),
-                local_b.id(),
-                remote_y.id(),
-            )
-            .unwrap();
-
-            assert_eq!(
-                commits.ordered_commits,
-                vec![remote_y.id(), remote_b.id(), local_b.id(), local_a.id()],
-            );
-        }
-
-        /// Local:  Base -> A -> B
-        /// Remote: Base -> M -> N -> A -> B' -> Y
-        /// Trunk:  Base -> M -> N
-        /// Result: Base -> M -> N -> A -> B -> A' -> B' -> Y
-        #[test]
-        fn remote_includes_integrated_commits() {
-            let test_repository = TestingRepository::open();
-
-            // Setup:
-            // (z)
-            //  |
-            //  y
-            //  |
-            //  x
-            //  |
-            // (n) (b)
-            //  |   |
-            //  m   a
-            //  \   /
-            //   base_commit
-            let base_commit = test_repository.commit_tree(None, &[]);
-            let trunk_m = test_repository.commit_tree(Some(&base_commit), &[]);
-            let trunk_n = test_repository.commit_tree(Some(&trunk_m), &[]);
-
-            let local_a = test_repository.commit_tree(Some(&base_commit), &[]);
-            let local_b = test_repository.commit_tree(Some(&local_a), &[]);
-
-            // imagine someone on the remote rebased local_a
-            let remote_x = test_repository.commit_tree(Some(&trunk_n), &[]);
-            let remote_y = test_repository.commit_tree(Some(&remote_x), &[]);
-            let remote_z = test_repository.commit_tree(Some(&remote_y), &[]);
-
-            let commits = order_commits_for_stacked_rebase(
-                &test_repository.repository,
-                trunk_n.id(),
-                local_b.id(),
-                remote_z.id(),
-            )
-            .unwrap();
-
-            assert_eq!(
-                commits.ordered_commits,
-                vec![
-                    remote_z.id(),
-                    remote_y.id(),
-                    remote_x.id(),
-                    local_b.id(),
-                    local_a.id(),
-                    trunk_n.id(),
-                    trunk_m.id()
-                ],
-            );
-        }
-    }
-
-    mod order_commits_for_zipping_rebase {
         use super::*;
 
         /// Local:  Base -> A -> B
@@ -1412,7 +1225,7 @@ mod test {
             let remote_x = test_repository.commit_tree_with_change_id(Some(&local_b), "x", &[]);
             let remote_y = test_repository.commit_tree_with_change_id(Some(&remote_x), "y", &[]);
 
-            let commits = order_commits_for_zipping_rebase(
+            let commits = order_commits_for_rebasing(
                 &test_repository.repository,
                 base_commit.id(),
                 local_b.id(),
@@ -1442,7 +1255,7 @@ mod test {
             let remote_b = test_repository.commit_tree_with_change_id(Some(&local_a), "b", &[]);
             let remote_y = test_repository.commit_tree_with_change_id(Some(&remote_b), "y", &[]);
 
-            let commits = order_commits_for_zipping_rebase(
+            let commits = order_commits_for_rebasing(
                 &test_repository.repository,
                 base_commit.id(),
                 local_b.id(),
@@ -1488,7 +1301,7 @@ mod test {
             let remote_y = test_repository.commit_tree_with_change_id(Some(&remote_x), "b", &[]);
             let remote_z = test_repository.commit_tree_with_change_id(Some(&remote_y), "y", &[]);
 
-            let commits = order_commits_for_zipping_rebase(
+            let commits = order_commits_for_rebasing(
                 &test_repository.repository,
                 trunk_n.id(),
                 local_b.id(),

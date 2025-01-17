@@ -95,8 +95,6 @@ pub struct Project {
     pub omit_certificate_check: Option<bool>,
     // The number of changed lines that will trigger a snapshot
     pub snapshot_lines_threshold: Option<usize>,
-    #[serde(default)]
-    pub use_new_branch_integration_algorithm: Option<bool>,
 }
 
 /// Instantiation
