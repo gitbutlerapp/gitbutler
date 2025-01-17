@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { projectReviewPath, projectsPath, type ProjectParameters } from '$lib/routing';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import { goto } from '$app/navigation';
-	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
+	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
+	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import { goto } from '$app/navigation';
 
 	interface Props {
 		data: ProjectParameters;

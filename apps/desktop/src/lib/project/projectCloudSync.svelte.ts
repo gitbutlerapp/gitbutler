@@ -1,12 +1,13 @@
 import { isFound, isNotFound } from '@gitbutler/shared/network/loadable';
 import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 import { readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
+import { shallowCompare } from '@gitbutler/shared/shallowCompare';
+import type { Project } from '$lib/project/project';
 import type { ProjectsService } from '$lib/project/projectsService';
 import type { ProjectService } from './projectService';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 import type { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 import type { AppProjectsState } from '@gitbutler/shared/redux/store.svelte';
-import type { Project } from '$lib/project/project';
 
 export function projectCloudSync(
 	appState: AppProjectsState,
@@ -40,22 +41,25 @@ export function projectCloudSync(
 		}
 
 		const cloudProject = loadableCloudProject.current.value;
-		const persistedProjectUpdatedAt = new Date(project.current.api.updated_at).getTime();
-		const cloudProjectUpdatedAt = new Date(cloudProject.updatedAt).getTime();
-		if (persistedProjectUpdatedAt >= cloudProjectUpdatedAt) return;
-
 		const mutableProject = structuredClone(project.current);
-		mutableProject.api = {
+
+		const newDetails = {
 			name: cloudProject.name,
 			description: cloudProject.description,
 			repository_id: cloudProject.repositoryId,
 			git_url: cloudProject.gitUrl,
-			git_code_url: cloudProject.codeGitUrl,
+			code_git_url: cloudProject.codeGitUrl,
 			created_at: cloudProject.createdAt,
 			updated_at: cloudProject.updatedAt,
 			sync: mutableProject.api?.sync ?? false,
 			sync_code: mutableProject.api?.sync_code ?? false
 		};
+
+		if (shallowCompare(newDetails, mutableProject.api)) {
+			return;
+		}
+
+		mutableProject.api = newDetails;
 
 		projectsService.updateProject(mutableProject);
 	});
