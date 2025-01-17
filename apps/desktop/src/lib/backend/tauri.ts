@@ -5,6 +5,6 @@ import { check } from '@tauri-apps/plugin-updater';
 export class Tauri {
 	invoke = invokeIpc;
 	listen = listenIpc;
-	checkUpdate = check;
+	checkUpdate = import.meta.env.FLATPAK_ID ? () => null : check;
 	currentVersion = getVersion;
 }
