@@ -726,7 +726,7 @@ fn modified_in_index_and_workingtree() -> Result<()> {
     Ok(())
 }
 
-fn repo(fixture_name: &str) -> anyhow::Result<gix::Repository> {
+pub fn repo(fixture_name: &str) -> anyhow::Result<gix::Repository> {
     let root = gix_testtools::scripted_fixture_read_only("worktree-changes.sh")
         .map_err(anyhow::Error::from_boxed)?;
     let worktree_root = root.join(fixture_name);

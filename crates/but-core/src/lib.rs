@@ -36,6 +36,34 @@ use bstr::BString;
 /// Functions related to a Git worktree, i.e. the files checked out from a repository.
 pub mod worktree;
 
+///
+pub mod unified_diff;
+
+/// A patch in unified diff format to show how a resource changed or now looks like (in case it was newly added),
+/// or how it previously looked like in case of a deletion.
+pub enum UnifiedDiff {
+    /// The resource was a binary and couldn't be diffed.
+    Binary,
+    /// The file was too large and couldn't be diffed.
+    TooLarge {
+        /// The size of the file on disk that made it too large.
+        size_in_bytes: u64,
+    },
+    /// A patch that if applied to the previous state of the resource would yield the current state.
+    Patch {
+        /// All non-overlapping hunks, including their context lines.
+        hunks: Vec<unified_diff::DiffHunk>,
+    },
+}
+
+/// The patch that turns the previous version of a resource into the current one.
+pub struct BlobDiff {
+    /// The worktree-relative path at which the diffed blob lives, in the working tree and/or in the repository.
+    pub path: BString,
+    /// All patches along with their context lines, or `None` if the patch could not be created as the content
+    pub hunks: Option<Vec<()>>,
+}
+
 /// An entry in the worktree that changed and thus is eligible to being committed.
 ///
 /// It either lives (or lived) in the in `.git/index`, or in the `worktree`.
