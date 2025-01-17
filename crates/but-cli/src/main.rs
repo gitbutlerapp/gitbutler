@@ -15,7 +15,7 @@ fn main() -> Result<()> {
     let _op_span = tracing::info_span!("cli-op").entered();
 
     match args.cmd {
-        args::Subcommands::Status => command::status::doit(),
+        args::Subcommands::Status => command::status::doit(args.current_dir),
         args::Subcommands::Stacks => command::stacks::list(args.current_dir),
     }
 }
