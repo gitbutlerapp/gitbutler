@@ -16,9 +16,10 @@
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import type { Project as BackendProject } from '$lib/project/project';
 	import type { Project } from '@gitbutler/shared/organizations/types';
 
 	const appState = getContext(AppState);
@@ -91,6 +92,17 @@
 			sync: false,
 			sync_code: false
 		};
+		await projectsService.updateProject(mutableProject);
+	}
+
+	async function detachProject() {
+		if (!$project) {
+			return;
+		}
+
+		const mutableProject: BackendProject & { unset_api?: boolean } = structuredClone($project);
+		mutableProject.api = undefined;
+		mutableProject.unset_api = true;
 		await projectsService.updateProject(mutableProject);
 	}
 
@@ -199,9 +211,13 @@
 			{/if}
 		{/snippet}
 	</Loading>
+
+	<div>
+		<AsyncButton kind="outline" action={detachProject}>Disable cloud functionality</AsyncButton>
+	</div>
 {:else if !$project?.api?.repository_id}
 	<Section>
-		<Button onclick={createProject}>Enable cloud functionality</Button>
+		<AsyncButton action={createProject}>Enable cloud functionality</AsyncButton>
 	</Section>
 {:else}
 	<p>Loading...</p>
