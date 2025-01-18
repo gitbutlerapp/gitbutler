@@ -1,9 +1,14 @@
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { isFound } from '$lib/network/loadable';
+import {
+	getOrganizationProjects,
+	getOrganizations
+} from '$lib/organizations/organizationsPreview.svelte';
 import { projectsSelectors } from '$lib/organizations/projectsSlice';
 import type { Loadable } from '$lib/network/types';
+import type { OrganizationService } from '$lib/organizations/organizationService';
 import type { ProjectService } from '$lib/organizations/projectService';
-import type { LoadableProject } from '$lib/organizations/types';
+import type { LoadableOrganization, LoadableProject } from '$lib/organizations/types';
 import type { AppOrganizationsState, AppProjectsState } from '$lib/redux/store.svelte';
 import type { Reactive } from '$lib/storeUtils';
 
@@ -29,7 +34,7 @@ export function getAllUserProjects(
 	projectService: ProjectService,
 	inView?: InView
 ): Reactive<LoadableProject[]> {
-	registerInterest(projectService.getAllProjectsInterest(user), inView);
+	registerInterest(projectService.getAllProjectsInterest(), inView);
 	const current = $derived.by(() => {
 		const allProjects = projectsSelectors.selectAll(appState.projects);
 		return allProjects.filter((project) => isFound(project) && project.value.owner === user);
@@ -38,6 +43,52 @@ export function getAllUserProjects(
 	return {
 		get current() {
 			return current;
+		}
+	};
+}
+
+export function getAllUserRelatedProjects(
+	appState: AppProjectsState & AppOrganizationsState,
+	projectService: ProjectService,
+	organizationService: OrganizationService,
+	user: string,
+	inView?: InView
+): Reactive<LoadableProject[]> {
+	registerInterest(projectService.getAllProjectsInterest(), inView);
+	const userProjects = $derived.by(() => {
+		const allProjects = projectsSelectors.selectAll(appState.projects);
+		return allProjects.filter(
+			(project) => isFound(project) && project.value.owner === user
+		) as LoadableProject[];
+	});
+
+	const organizations = $derived(getOrganizations(appState, organizationService));
+	const reactiveOrganizationProjects = $derived.by(() => {
+		if (!organizations.current) return [];
+
+		const foundOrganizations = organizations.current.filter((organization) =>
+			isFound(organization)
+		) as (LoadableOrganization & { status: 'found' })[];
+
+		return foundOrganizations.flatMap((organization) => {
+			return getOrganizationProjects(
+				appState,
+				organizationService,
+				organization.value.slug,
+				inView
+			);
+		});
+	});
+	const organizationProjects = $derived(
+		reactiveOrganizationProjects
+			.map((a) => a.current)
+			.filter((a) => a !== undefined)
+			.flat() as LoadableProject[]
+	);
+
+	return {
+		get current() {
+			return [...userProjects, ...organizationProjects];
 		}
 	};
 }

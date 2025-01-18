@@ -156,6 +156,10 @@
 		if (verticalAlign === 'top') return horizontalAlign === 'left' ? 'bottom left' : 'bottom right';
 		return horizontalAlign === 'left' ? 'top left' : 'top right';
 	}
+
+	export function isOpen() {
+		return isVisible;
+	}
 </script>
 
 {#snippet contextMenu()}
