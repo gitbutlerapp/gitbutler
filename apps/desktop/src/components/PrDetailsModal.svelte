@@ -31,7 +31,6 @@
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
 	import { sleep } from '$lib/utils/sleep';
-	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
@@ -43,6 +42,7 @@
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import ToggleButton from '@gitbutler/ui/ToggleButton.svelte';
+	import { error } from '@gitbutler/ui/toasts';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { tick } from 'svelte';
 

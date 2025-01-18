@@ -3,9 +3,9 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
-	import * as toasts from '$lib/utils/toasts';
 	import { getContext } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
+	import * as toasts from '@gitbutler/ui/toasts';
 	import { goto } from '$app/navigation';
 
 	const projectsService = getContext(ProjectsService);

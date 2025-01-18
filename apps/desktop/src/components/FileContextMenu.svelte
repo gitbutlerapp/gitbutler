@@ -5,7 +5,6 @@
 	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
-	import * as toasts from '$lib/utils/toasts';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
@@ -15,6 +14,7 @@
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+	import * as toasts from '@gitbutler/ui/toasts';
 	import { join } from '@tauri-apps/api/path';
 	import type { Writable } from 'svelte/store';
 

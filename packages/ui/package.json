@@ -61,7 +61,8 @@
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
 		"vite": "catalog:",
-		"vitest": "catalog:"
+		"vitest": "catalog:",
+		"svelte-french-toast": "^1.2.0"
 	},
 	"peerDependencies": {
 		"svelte": "^4.0.0 || ^5.0.0-0"

@@ -8,6 +8,7 @@
 	} from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound, and, map, combine } from '@gitbutler/shared/network/loadable';
@@ -21,7 +22,9 @@
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
+	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
+	import toasts from '@gitbutler/ui/toasts';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
 	import type { Branch } from '@gitbutler/shared/branches/types';
@@ -73,6 +76,47 @@
 
 		goto(routes.projectReviewBranchCommitPath({ ...data, changeId: branch.patchIds[0] }));
 	}
+
+	let editingSummary = $state(false);
+	let summary = $state('');
+
+	function editSummary() {
+		if (!isFound(branch?.current)) return;
+		// Make sure we're not dealing with a reference to the origional
+		summary = structuredClone(branch.current.value.description || '');
+		editingSummary = true;
+	}
+
+	function abortEditingSummary() {
+		if (!confirm('Canceling will loose any changes made')) {
+			return;
+		}
+
+		editingSummary = false;
+	}
+
+	let savingSummary = $state<'inert' | 'loading' | 'complete'>('inert');
+
+	async function saveSummary() {
+		if (!isFound(branch?.current)) return;
+
+		savingSummary = 'loading';
+
+		try {
+			await branchService.updateBranch(branch.current.value.uuid, {
+				description: summary
+			});
+			toasts.success('Saved review summary');
+		} finally {
+			editingSummary = false;
+			savingSummary = 'complete';
+		}
+	}
+
+	function copyLocation() {
+		console.log('hi');
+		copyToClipboard(location.href);
+	}
 </script>
 
 {#snippet startReview(branch: Branch)}
@@ -90,8 +134,10 @@
 				<div class="heading">
 					<p class="text-15 text-bold">{branch.title}</p>
 					<div class="actions">
-						<Button icon="plus" kind="outline">Add summary</Button>
-						<Button icon="chain-link" kind="outline">Share link</Button>
+						{#if !branch.description}
+							<Button icon="plus" kind="outline" onclick={editSummary}>Add summary</Button>
+						{/if}
+						<Button icon="chain-link" kind="outline" onclick={copyLocation}>Share link</Button>
 						{@render startReview(branch)}
 					</div>
 				</div>
@@ -102,9 +148,9 @@
 					<Factoid title="Commits:">
 						<p>{branch.stackSize}</p>
 					</Factoid>
-					<Factoid title="Branch:">
+					<!-- <Factoid title="Branch:">
 						<LinkButton onclick={() => {}}>Perfect</LinkButton>
-					</Factoid>
+					</Factoid> -->
 					<Factoid title="Authors:">
 						{#await contributors then contributors}
 							<AvatarGroup avatars={contributors}></AvatarGroup>
@@ -118,14 +164,29 @@
 					</Factoid>
 				</div>
 				<div class="summary">
-					{#if branch.description}
+					{#if editingSummary}
+						<Textarea minRows={6} bind:value={summary}></Textarea>
+						<div class="summary-actions">
+							<Button
+								kind="outline"
+								onclick={abortEditingSummary}
+								loading={savingSummary === 'loading'}>Cancel</Button
+							>
+							<Button style="pop" onclick={saveSummary} loading={savingSummary === 'loading'}
+								>Save</Button
+							>
+						</div>
+					{:else if branch.description}
 						<p class="text-13">{branch.description}</p>
+						<div>
+							<Button kind="outline" onclick={editSummary}>Change summary</Button>
+						</div>
 					{:else}
 						<p class="text-13 text-clr-2">No summary provided.</p>
 						<p class="text-13 text-clr-2">
 							<em>
 								Summaries provide context on the branch's purpose and helps team members understand
-								it's changes. <LinkButton onclick={() => {}}>Add summary</LinkButton>
+								it's changes. <LinkButton onclick={editSummary}>Add summary</LinkButton>
 							</em>
 						</p>
 					{/if}

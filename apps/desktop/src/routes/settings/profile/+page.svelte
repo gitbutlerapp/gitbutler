@@ -5,13 +5,13 @@
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
 	import { UserService } from '$lib/user/userService';
-	import * as toasts from '$lib/utils/toasts';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import * as toasts from '@gitbutler/ui/toasts';
 	import type { User } from '$lib/user/user';
 	import { goto } from '$app/navigation';
 

@@ -1,4 +1,4 @@
-import * as toasts from '$lib/utils/toasts';
+import * as toasts from '@gitbutler/ui/toasts';
 
 export function copyToClipboard(text: string) {
 	if (!navigator.clipboard) {

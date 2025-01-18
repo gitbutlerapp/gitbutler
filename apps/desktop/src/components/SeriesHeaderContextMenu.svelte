@@ -5,8 +5,8 @@
 	import { type CommitStatus } from '$lib/commits/commit';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { Project } from '$lib/project/project';
-	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';

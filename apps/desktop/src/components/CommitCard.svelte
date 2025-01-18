@@ -17,8 +17,8 @@
 	import { ModeService } from '$lib/mode/modeService';
 	import { Project } from '$lib/project/project';
 	import { UserService } from '$lib/user/userService';
-	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext, getContextStore, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';

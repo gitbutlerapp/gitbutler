@@ -18,8 +18,8 @@
 		stackFullyIntegrated,
 		type BranchStatus
 	} from '$lib/upstream/upstreamIntegrationService';
-	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';

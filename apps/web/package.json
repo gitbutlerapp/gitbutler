@@ -25,7 +25,8 @@
 		"@types/node": "^22.3.0",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
-		"vite": "catalog:"
+		"vite": "catalog:",
+		"svelte-french-toast": "^1.2.0"
 	},
 	"dependencies": {
 		"@fontsource-variable/spline-sans-mono": "^5.1.0",

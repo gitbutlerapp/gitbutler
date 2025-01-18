@@ -16,9 +16,9 @@ import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
 type BranchUpdateParams = {
-	status: BranchStatus.Active | BranchStatus.Closed;
-	title: string;
-	description: string;
+	status?: BranchStatus.Active | BranchStatus.Closed;
+	title?: string;
+	description?: string;
 };
 
 export class BranchService {
@@ -103,7 +103,7 @@ export class BranchService {
 	}
 
 	async updateBranch(uuid: string, params: BranchUpdateParams): Promise<Branch> {
-		const apiBranch = await this.httpClient.put<ApiBranch>(`patch_stack/${uuid}`, {
+		const apiBranch = await this.httpClient.patch<ApiBranch>(`patch_stack/${uuid}`, {
 			body: params
 		});
 		const branch = apiToBranch(apiBranch);

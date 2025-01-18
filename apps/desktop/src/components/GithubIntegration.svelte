@@ -4,14 +4,14 @@
 		GitHubAuthenticationService
 	} from '$lib/forge/github/githubUserService';
 	import { UserService } from '$lib/user/userService';
-	import { copyToClipboard } from '$lib/utils/clipboard';
-	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
+	import * as toasts from '@gitbutler/ui/toasts';
 	import { fade } from 'svelte/transition';
 
 	interface Props {

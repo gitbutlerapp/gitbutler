@@ -9,8 +9,8 @@
 	import { getForgeRepoService } from '$lib/forge/interface/forgeRepoService';
 	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
-	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';

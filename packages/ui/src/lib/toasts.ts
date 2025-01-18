@@ -23,3 +23,6 @@ export async function promise(
 ) {
 	return await toast.promise(promise, opts, defaultOptions);
 }
+
+const toasts = { error, success };
+export default toasts;

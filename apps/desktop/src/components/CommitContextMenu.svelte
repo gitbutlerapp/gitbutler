@@ -3,8 +3,8 @@
 	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import { type Commit, type DetailedCommit } from '$lib/commits/commit';
-	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';

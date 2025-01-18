@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
-	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import { error } from '@gitbutler/ui/toasts';
 	import { slugify } from '@gitbutler/ui/utils/string';
 
 	interface Props {
