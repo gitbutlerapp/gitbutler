@@ -29,7 +29,7 @@ export type CloudProject = {
 	description: string | null;
 	repository_id: string;
 	git_url: string;
-	git_code_url: string;
+	code_git_url: string;
 	created_at: string;
 	updated_at: string;
 };

@@ -54,7 +54,7 @@
 			description: fetchedCloudProject.description,
 			repository_id: fetchedCloudProject.repositoryId,
 			git_url: fetchedCloudProject.gitUrl,
-			git_code_url: fetchedCloudProject.codeGitUrl,
+			code_git_url: fetchedCloudProject.codeGitUrl,
 			created_at: fetchedCloudProject.createdAt,
 			updated_at: fetchedCloudProject.updatedAt,
 			sync: false,
