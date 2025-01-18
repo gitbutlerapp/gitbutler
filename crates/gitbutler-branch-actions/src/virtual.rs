@@ -106,6 +106,7 @@ pub struct PatchSeries {
     /// Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
     /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
     pub archived: bool,
+    pub review_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

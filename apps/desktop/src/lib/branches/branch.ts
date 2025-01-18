@@ -128,6 +128,8 @@ export class PatchSeries {
 	 */
 	archived!: boolean;
 
+	reviewId?: string;
+
 	get localCommits() {
 		return this.patches.filter((c) => c.status === 'local');
 	}

@@ -30,11 +30,8 @@ pub struct StackBranch {
     #[serde(default)]
     pub archived: bool,
 
-    #[serde(default = "random_uuid")]
-    pub review_id: String,
-}
-fn random_uuid() -> String {
-    uuid::Uuid::new_v4().to_string()
+    #[serde(default)]
+    pub review_id: Option<String>,
 }
 
 /// A patch identifier which is either `CommitId` or a `ChangeId`.

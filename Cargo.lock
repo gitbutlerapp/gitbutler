@@ -2851,6 +2851,7 @@ dependencies = [
  "gix",
  "itertools 0.14.0",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

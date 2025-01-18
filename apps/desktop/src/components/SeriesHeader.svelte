@@ -5,6 +5,7 @@
 	import Dropzones from './Dropzones.svelte';
 	import SeriesDescription from './SeriesDescription.svelte';
 	import SeriesHeaderStatusIcon from './SeriesHeaderStatusIcon.svelte';
+	import Link from '$components/Link.svelte';
 	import PrDetailsModal from '$components/PrDetailsModal.svelte';
 	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
@@ -21,13 +22,24 @@
 	} from '$lib/branches/virtualBranchService';
 	import { type CommitStatus } from '$lib/commits/commit';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { cloudReviewFunctionality } from '$lib/config/uiFeatureFlags';
 	import { FileService } from '$lib/files/fileService';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
-	import { Project } from '$lib/project/project';
+	import { ProjectService } from '$lib/project/projectService';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
+	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
+	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
+	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import Loading from '@gitbutler/shared/network/Loading.svelte';
+	import { and, combine, map } from '@gitbutler/shared/network/loadable';
+	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
+	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
+	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -46,12 +58,13 @@
 
 	let descriptionVisible = $state(!!branch.description);
 
-	const project = getContext(Project);
 	const aiService = getContext(AIService);
 	const promptService = getContext(PromptService);
 	const fileService = getContext(FileService);
 	const stackStore = getContextStore(BranchStack);
+	const projectService = getContext(ProjectService);
 	const stack = $derived($stackStore);
+	const project = projectService.project;
 
 	const parent = $derived(
 		parentBranch(
@@ -66,7 +79,7 @@
 		)
 	);
 
-	const aiGenEnabled = projectAiGenEnabled(project.id);
+	const aiGenEnabled = $derived(!!$project && projectAiGenEnabled($project.id));
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const prService = getForgePrService();
@@ -207,10 +220,10 @@
 	}
 
 	async function generateBranchName() {
-		if (!aiGenEnabled || !branch) return;
+		if (!aiGenEnabled || !branch || !$project) return;
 
 		let hunk_promises = branch.patches.flatMap(async (p) => {
-			let files = await fileService.listCommitFiles(project.id, p.id);
+			let files = await fileService.listCommitFiles($project.id, p.id);
 			return files.flatMap((f) =>
 				f.hunks.map((h) => {
 					return { filePath: f.path, diff: h.diff };
@@ -219,7 +232,7 @@
 		});
 		let hunks = (await Promise.all(hunk_promises)).flat();
 
-		const prompt = promptService.selectedBranchPrompt(project.id);
+		const prompt = promptService.selectedBranchPrompt($project.id);
 		const message = await aiService.summarizeBranch({
 			hunks,
 			branchTemplate: prompt
@@ -250,6 +263,42 @@
 		// that these two things are not happening at the same time.
 		setTimeout(() => handleOpenPR(), 250);
 	}
+
+	const appState = getContext(AppState);
+	const cloudBranchService = getContext(CloudBranchService);
+	const cloudProjectService = getContext(CloudProjectService);
+	const latestBranchLookupService = getContext(LatestBranchLookupService);
+	const webRoutes = getContext(WebRoutesService);
+	const hasReview = $derived(
+		$cloudReviewFunctionality && branch.reviewId && $project?.api?.repository_id
+	);
+	const cloudBranchUuid = $derived(
+		hasReview
+			? lookupLatestBranchUuid(
+					appState,
+					latestBranchLookupService,
+					$project!.api!.repository_id,
+					branch!.reviewId!
+				)
+			: undefined
+	);
+
+	const cloudBranch = $derived(
+		map(cloudBranchUuid?.current, (cloudBranchUuid) => {
+			return getBranchReview(
+				appState,
+				cloudBranchService,
+				$project!.api!.repository_id,
+				cloudBranchUuid
+			);
+		})
+	);
+
+	const cloudProject = $derived(
+		$project?.api?.repository_id
+			? getProjectByRepositoryId(appState, cloudProjectService, $project.api.repository_id)
+			: undefined
+	);
 </script>
 
 <AddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={branch.name} />
@@ -363,6 +412,33 @@
 				{/if}
 			</div>
 		</div>
+		{#if hasReview}
+			<div class="branch-action">
+				<div class="branch-action__line" style:--bg-color={lineColor}></div>
+				<div class="branch-action__body">
+					<Loading
+						loadable={and([
+							cloudBranchUuid?.current,
+							combine([cloudBranch?.current, cloudProject?.current])
+						])}
+					>
+						{#snippet children([cloudBranch, cloudProject])}
+							<Link
+								target="_blank"
+								rel="noreferrer"
+								href={webRoutes.projectReviewBranchUrl({
+									ownerSlug: cloudProject.owner,
+									projectSlug: cloudProject.slug,
+									branchId: cloudBranch.branchId
+								})}
+							>
+								Open review</Link
+							>
+						{/snippet}
+					</Loading>
+				</div>
+			</div>
+		{/if}
 		{#if $prService && !hasNoCommits}
 			<div class="branch-action">
 				<div class="branch-action__line" style:--bg-color={lineColor}></div>
