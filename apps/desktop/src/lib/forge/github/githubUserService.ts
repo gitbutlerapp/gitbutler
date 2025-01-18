@@ -8,10 +8,7 @@ type Verification = {
 };
 
 export class GitHubUserService {
-	constructor(
-		private tauri: Tauri,
-		private octokit: Octokit
-	) {}
+	constructor(private octokit: Octokit) {}
 
 	async fetchGitHubLogin(): Promise<string> {
 		try {
@@ -22,6 +19,10 @@ export class GitHubUserService {
 			throw e;
 		}
 	}
+}
+
+export class GitHubAuthenticationService {
+	constructor(private readonly tauri: Tauri) {}
 
 	async initDeviceOauth() {
 		return await this.tauri.invoke<Verification>('init_device_oauth');
