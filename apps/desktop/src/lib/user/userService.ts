@@ -7,9 +7,10 @@ import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
 import { type HttpClient } from '@gitbutler/shared/network/httpClient';
 import { plainToInstance } from 'class-transformer';
-import { derived, writable } from 'svelte/store';
+import { derived, writable, type Readable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { TokenMemoryService } from '$lib/stores/tokenMemoryService';
+import type { ApiUser } from '@gitbutler/shared/users/types';
 
 export type LoginToken = {
 	token: string;
@@ -23,6 +24,16 @@ export class UserService {
 	readonly user = writable<User | undefined>(undefined, () => {
 		this.refresh();
 	});
+	readonly userLogin = derived<Readable<User | undefined>, string | undefined>(
+		this.user,
+		(user, set) => {
+			if (user) {
+				this.getUser().then((user) => set(user.login));
+			} else {
+				set(undefined);
+			}
+		}
+	);
 	readonly error = writable();
 
 	async refresh() {
@@ -130,7 +141,7 @@ export class UserService {
 		return await this.httpClient.get(`login/user/${token}.json`);
 	}
 
-	async getUser(): Promise<User> {
+	async getUser(): Promise<ApiUser> {
 		return await this.httpClient.get('user.json');
 	}
 

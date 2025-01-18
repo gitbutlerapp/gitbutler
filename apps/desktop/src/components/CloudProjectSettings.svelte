@@ -4,16 +4,21 @@
 	import Section from '$components/Section.svelte';
 	import { ProjectService } from '$lib/project/projectService';
 	import { ProjectsService } from '$lib/project/projectsService';
+	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
+	import { isFound, map } from '@gitbutler/shared/network/loadable';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { getOrganizations } from '@gitbutler/shared/organizations/organizationsPreview.svelte';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
+	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
+	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import type { Project } from '@gitbutler/shared/organizations/types';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	const appState = getContext(AppState);
@@ -21,8 +26,11 @@
 	const projectService = getContext(ProjectService);
 	const cloudProjectService = getContext(CloudProjectService);
 	const organizationService = getContext(OrganizationService);
+	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
+	const userService = getContext(UserService);
 
 	const project = projectService.project;
+	const userLogin = userService.userLogin;
 
 	const cloudProject = $derived(
 		$project?.api?.repository_id
@@ -35,13 +43,40 @@
 		getOrganizations(appState, organizationService, { element: organizationsList })
 	);
 
+	const existingProjectRepositoryId = $derived(
+		$userLogin && $project?.title
+			? lookupProject(appState, repositoryIdLookupService, $userLogin, $project.title)
+			: undefined
+	);
+	const existingProject = $derived(
+		map(existingProjectRepositoryId?.current, (repositoryId) =>
+			getProjectByRepositoryId(appState, cloudProjectService, repositoryId)
+		)
+	);
+
+	$effect(() => {
+		// We want to make use of this value in the `createProject` function
+		// and nowhere else, as such, by default svelte doesn't ever subscribe
+		// to it. We just need to explicity tell svelte that we care about
+		// this value, and we want it to be subscribed for the duration of the
+		// component
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+		existingProject;
+	});
+
 	async function createProject() {
 		if (!$project) return;
 
-		const fetchedCloudProject = await cloudProjectService.createProject(
-			$project.title,
-			$project.description
-		);
+		let fetchedCloudProject: Project;
+
+		if (isFound(existingProject?.current)) {
+			fetchedCloudProject = existingProject.current.value;
+		} else {
+			fetchedCloudProject = await cloudProjectService.createProject(
+				$project.title,
+				$project.description
+			);
+		}
 
 		const mutableProject = structuredClone($project);
 		mutableProject.api = {

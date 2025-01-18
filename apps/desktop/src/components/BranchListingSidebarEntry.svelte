@@ -100,11 +100,11 @@
 			const name = (await gitConfigService.get('user.name')) || unknownName;
 			const email = (await gitConfigService.get('user.email')) || unknownEmail;
 			const srcUrl =
-				email.toLowerCase() === $user?.email?.toLowerCase()
+				email.toLowerCase() === $user?.email?.toLowerCase() && $user?.picture
 					? $user?.picture
 					: await gravatarUrlFromEmail(email);
 
-			avatars = [{ name, srcUrl }];
+			avatars = [{ name, srcUrl: srcUrl }];
 		} else if (branchListingDetails) {
 			avatars = await Promise.all(
 				branchListingDetails.authors.map(async (author) => {

@@ -4,7 +4,7 @@ export class User {
 	given_name: string | undefined;
 	family_name: string | undefined;
 	email!: string | undefined;
-	picture!: string;
+	picture?: string;
 	locale!: string | undefined;
 	created_at!: string;
 	updated_at!: string;
