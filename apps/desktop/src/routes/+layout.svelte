@@ -52,11 +52,7 @@
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
-	import {
-		DesktopRoutesService,
-		setRoutesService,
-		WebRoutesService
-	} from '@gitbutler/shared/sharedRoutes';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes';
 	import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
@@ -84,6 +80,7 @@
 	const cloudPatchService = new CloudPatchService(data.cloud, appState.appDispatch);
 	const repositoryIdLookupService = new RepositoryIdLookupService(data.cloud, appState.appDispatch);
 	const latestBranchLookupService = new LatestBranchLookupService(data.cloud, appState.appDispatch);
+	const webRoutesService = new WebRoutesService(env.PUBLIC_CLOUD_BASE_URL);
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
@@ -97,6 +94,7 @@
 	setContext(CloudPatchService, cloudPatchService);
 	setContext(RepositoryIdLookupService, repositoryIdLookupService);
 	setContext(LatestBranchLookupService, latestBranchLookupService);
+	setContext(WebRoutesService, webRoutesService);
 	setContext(HooksService, data.hooksService);
 	setContext(SettingsService, data.settingsService);
 
@@ -118,10 +116,6 @@
 	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
 	setContext(AppSettings, data.appSettings);
 	setContext(GitHubAuthenticationService, data.githubAuthenticationService);
-
-	const webRoutesService = new WebRoutesService(true, env.PUBLIC_CLOUD_BASE_URL);
-	const desktopRoutesService = new DesktopRoutesService(webRoutesService);
-	setRoutesService(desktopRoutesService);
 
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 

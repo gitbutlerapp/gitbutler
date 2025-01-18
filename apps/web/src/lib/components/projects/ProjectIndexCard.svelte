@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { projectPath } from '$lib/routing';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes';
 
 	type Props = {
 		projectId: string;
@@ -14,6 +14,7 @@
 
 	const appState = getContext(AppState);
 	const projectService = getContext(ProjectService);
+	const routes = getContext(WebRoutesService);
 
 	const project = getProjectByRepositoryId(appState, projectService, projectId);
 </script>
@@ -26,7 +27,7 @@
 			</td>
 			<td>
 				<div>
-					<a href={projectPath({ ownerSlug: project.owner, projectSlug: project.slug })}>
+					<a href={routes.projectPath({ ownerSlug: project.owner, projectSlug: project.slug })}>
 						<p>{project.slug}</p>
 					</a>
 				</div>
@@ -72,32 +73,6 @@
 			&:last-child > div {
 				border-right: 1px solid var(--clr-border-2);
 			}
-		}
-	}
-
-	.rounded-top > td {
-		padding-top: 8px;
-
-		> div {
-			border-top: 1px solid var(--clr-border-2);
-		}
-
-		&:first-child > div {
-			border-top-left-radius: var(--radius-m);
-		}
-
-		&:last-child > div {
-			border-top-right-radius: var(--radius-m);
-		}
-	}
-
-	.rounded-bottom > td {
-		&:first-child > div {
-			border-bottom-left-radius: var(--radius-m);
-		}
-
-		&:last-child > div {
-			border-bottom-right-radius: var(--radius-m);
 		}
 	}
 </style>

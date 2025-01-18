@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { OwnerParameters } from '$lib/routing';
+	import type { OwnerParameters } from '@gitbutler/shared/routing/webRoutes';
 
 	interface Props {
 		data: OwnerParameters;

@@ -4,7 +4,6 @@
 	import ChangeNavigator from '$lib/components/review/ChangeNavigator.svelte';
 	import ReviewInfo from '$lib/components/review/ReviewInfo.svelte';
 	import ReviewSections from '$lib/components/review/ReviewSections.svelte';
-	import { projectReviewBranchCommitPath, type ProjectReviewCommitParameters } from '$lib/routing';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
@@ -17,6 +16,10 @@
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import {
+		WebRoutesService,
+		type ProjectReviewCommitParameters
+	} from '@gitbutler/shared/routing/webRoutes';
 
 	const BRANCH_TITLE_PLACE_HOLDER = 'No branch title provided';
 	const DESCRIPTION_PLACE_HOLDER = 'No description provided';
@@ -32,6 +35,7 @@
 	const branchService = getContext(BranchService);
 	const patchService = getContext(PatchService);
 	const appState = getContext(AppState);
+	const routes = getContext(WebRoutesService);
 
 	const repositoryId = $derived(
 		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
@@ -70,7 +74,7 @@
 	);
 
 	function goToPatch(changeId: string) {
-		const url = projectReviewBranchCommitPath({
+		const url = routes.projectReviewBranchCommitPath({
 			ownerSlug: data.ownerSlug,
 			projectSlug: data.projectSlug,
 			branchId: data.branchId,

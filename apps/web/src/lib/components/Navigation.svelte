@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { AuthService } from '$lib/auth/authService';
-	import { projectsPath } from '$lib/routing';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes';
 	import { env } from '$env/dynamic/public';
+
+	const routes = getContext(WebRoutesService);
 
 	const authService = getContext(AuthService);
 	const token = $derived(authService.token);
@@ -42,7 +44,9 @@
 				</a>
 			</div>
 			<div class="link">
-				<a class="nav-link nav-button" href={projectsPath()} aria-label="projects">Projects</a>
+				<a class="nav-link nav-button" href={routes.projectsPath()} aria-label="projects"
+					>Projects</a
+				>
 			</div>
 		{/if}
 		<div class="link">
