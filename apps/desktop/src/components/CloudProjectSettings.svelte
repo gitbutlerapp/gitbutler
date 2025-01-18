@@ -4,15 +4,12 @@
 	import Section from '$components/Section.svelte';
 	import { ProjectService } from '$lib/project/projectService';
 	import { ProjectsService } from '$lib/project/projectsService';
-	import { User } from '$lib/user/user';
-	import * as toasts from '$lib/utils/toasts';
-	import { getContext, getContextStore } from '@gitbutler/shared/context';
-	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
+	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
-	import { organizationsSelectors } from '@gitbutler/shared/organizations/organizationsSlice';
+	import { getOrganizations } from '@gitbutler/shared/organizations/organizationsPreview.svelte';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
-	import { projectsSelectors } from '@gitbutler/shared/organizations/projectsSlice';
+	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
@@ -20,7 +17,6 @@
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	const appState = getContext(AppState);
-	const user = getContextStore(User);
 	const projectsService = getContext(ProjectsService);
 	const projectService = getContext(ProjectService);
 	const cloudProjectService = getContext(CloudProjectService);
@@ -29,16 +25,15 @@
 	const project = projectService.project;
 
 	const cloudProject = $derived(
-		$project?.api
-			? projectsSelectors.selectById(appState.projects, $project.api.repository_id)
+		$project?.api?.repository_id
+			? getProjectByRepositoryId(appState, cloudProjectService, $project.api.repository_id)
 			: undefined
 	);
-	const cloudProjectInterest = $derived(
-		$project?.api ? cloudProjectService.getProjectInterest($project.api.repository_id) : undefined
-	);
 
-	const usersOrganizations = $derived(organizationsSelectors.selectAll(appState.organizations));
-	const usersOrganizationsInterest = organizationService.getOrganizationListingInterest();
+	let organizationsList = $state<HTMLElement>();
+	const usersOrganizations = $derived(
+		getOrganizations(appState, organizationService, { element: organizationsList })
+	);
 
 	async function createProject() {
 		if (!$project) return;
@@ -64,35 +59,21 @@
 	}
 
 	async function onSyncChange(sync: boolean) {
-		if (!$user) return;
 		if (!$project?.api) return;
-		try {
-			const mutableProject = structuredClone($project);
-			mutableProject!.api!.sync = sync;
-			projectsService.updateProject(mutableProject);
-		} catch (error) {
-			console.error(`Failed to update project sync status: ${error}`);
-			toasts.error('Failed to update project sync status');
-		}
+
+		const mutableProject = structuredClone($project);
+		mutableProject.api!.sync = sync;
+		projectsService.updateProject(mutableProject);
 	}
-	// These functions are disgusting
+
 	async function onSyncCodeChange(sync_code: boolean) {
-		if (!$user) return;
 		if (!$project?.api) return;
-		try {
-			const mutableProject = structuredClone($project);
-			mutableProject!.api!.sync_code = sync_code;
-			projectsService.updateProject(mutableProject);
-		} catch (error) {
-			console.error(`Failed to update project sync status: ${error}`);
-			toasts.error('Failed to update project sync status');
-		}
+
+		const mutableProject = structuredClone($project);
+		mutableProject.api!.sync_code = sync_code;
+		projectsService.updateProject(mutableProject);
 	}
 </script>
-
-{#if cloudProjectInterest}
-	<RegisterInterest interest={cloudProjectInterest} />
-{/if}
 
 {#if cloudProject}
 	<Section>
@@ -140,7 +121,7 @@
 		{/snippet}
 	</Section>
 
-	<Loading loadable={cloudProject}>
+	<Loading loadable={cloudProject.current}>
 		{#snippet children(cloudProject)}
 			{#if !cloudProject.parentProjectRepositoryId}
 				<Section>
@@ -148,12 +129,10 @@
 						Link your project with an organization
 					{/snippet}
 
-					<RegisterInterest interest={usersOrganizationsInterest} />
-
-					<div>
-						{#each usersOrganizations as loadableOrganization, index}
+					<div bind:this={organizationsList}>
+						{#each usersOrganizations.current as loadableOrganization, index}
 							<SectionCard
-								roundedBottom={index === usersOrganizations.length - 1}
+								roundedBottom={index === usersOrganizations.current.length - 1}
 								roundedTop={index === 0}
 								orientation="row"
 								centerAlign
@@ -182,7 +161,7 @@
 	</Loading>
 {:else if !$project?.api?.repository_id}
 	<Section>
-		<Button onclick={createProject}>Create Gitbutler Project</Button>
+		<Button onclick={createProject}>Enable cloud functionality</Button>
 	</Section>
 {:else}
 	<p>Loading...</p>
