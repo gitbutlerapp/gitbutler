@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { AuthService } from '$lib/auth/authService';
+	import { cleanBreadcrumbs } from '$lib/components/breadcrumbs/breadcrumbsContext.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 
@@ -8,6 +9,8 @@
 
 	const user = $derived(userService.user);
 	const token = $derived(authService.token);
+
+	$effect(cleanBreadcrumbs);
 </script>
 
 <svelte:head>

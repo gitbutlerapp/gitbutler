@@ -2,6 +2,7 @@
 	import '$lib/styles/global.css';
 	import { AuthService } from '$lib/auth/authService';
 	import Navigation from '$lib/components/Navigation.svelte';
+	import { initializeBreadcrumbsContext } from '$lib/components/breadcrumbs/breadcrumbsContext.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
@@ -27,6 +28,8 @@
 	}
 
 	const { children }: Props = $props();
+
+	initializeBreadcrumbsContext();
 
 	const authService = new AuthService();
 	setContext(AuthService, authService);

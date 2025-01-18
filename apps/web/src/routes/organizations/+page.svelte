@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { cleanBreadcrumbs } from '$lib/components/breadcrumbs/breadcrumbsContext.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
@@ -16,6 +17,8 @@
 	const appState = getContext(AppState);
 	const httpClient = getContext(HttpClient);
 	const authenticated = httpClient.authenticationAvailable;
+
+	$effect(cleanBreadcrumbs);
 
 	const organizationsInterest = organizationService.getOrganizationListingInterest();
 	const organizations = $derived(organizationsSelectors.selectAll(appState.organizations));

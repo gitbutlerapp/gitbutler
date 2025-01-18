@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { AuthService } from '$lib/auth/authService';
+	import Breadcrumbs from '$lib/components/breadcrumbs/Breadcrumbs.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes';
@@ -37,6 +38,12 @@
 				</svg>
 			</a>
 		</div>
+		<div class="link">
+			<Breadcrumbs />
+		</div>
+	</div>
+
+	<div class="account-links">
 		{#if $token}
 			<div class="link">
 				<a class="nav-link nav-button" href="/organizations" aria-label="organizations">
@@ -54,9 +61,7 @@
 				Downloads
 			</a>
 		</div>
-	</div>
 
-	<div class="account-links">
 		{#if $user}
 			<div>
 				<a href="/profile" class="nav-link nav-button" aria-label="profile">

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { cleanBreadcrumbs } from '$lib/components/breadcrumbs/breadcrumbsContext.svelte';
 	import { marked } from 'marked';
 	import type { Build, Release } from '$lib/types/releases';
 
@@ -14,6 +15,8 @@
 	const { data }: Props = $props();
 
 	const { nightlies, releases, latestRelease, latestReleaseBuilds } = data;
+
+	$effect(cleanBreadcrumbs);
 </script>
 
 <svelte:head>

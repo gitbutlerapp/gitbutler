@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getBreadcrumbsContext } from '$lib/components/breadcrumbs/breadcrumbsContext.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
@@ -14,6 +15,12 @@
 	}
 
 	let { data }: Props = $props();
+
+	const breadcrumbsContext = getBreadcrumbsContext();
+	$effect(() => {
+		console.log('Hi');
+		breadcrumbsContext.current = data;
+	});
 
 	const projectService = getContext(ProjectService);
 	const repositoryIdLookupService = getContext(RepositoryIdLookupService);

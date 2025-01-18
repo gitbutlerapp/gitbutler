@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ChatComponent from '$lib/components/ChatComponent.svelte';
+	import { getBreadcrumbsContext } from '$lib/components/breadcrumbs/breadcrumbsContext.svelte';
 	import ChangeActionButton from '$lib/components/review/ChangeActionButton.svelte';
 	import ChangeNavigator from '$lib/components/review/ChangeNavigator.svelte';
 	import ReviewInfo from '$lib/components/review/ReviewInfo.svelte';
@@ -29,6 +30,11 @@
 	}
 
 	let { data }: Props = $props();
+
+	const breadcrumbsContext = getBreadcrumbsContext();
+	$effect(() => {
+		breadcrumbsContext.current = data;
+	});
 
 	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
 	const latestBranchLookupService = getContext(LatestBranchLookupService);

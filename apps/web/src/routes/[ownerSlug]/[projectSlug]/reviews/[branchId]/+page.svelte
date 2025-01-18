@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Factoid from '$lib/components/Factoid.svelte';
+	import { getBreadcrumbsContext } from '$lib/components/breadcrumbs/breadcrumbsContext.svelte';
 	import ChangeIndexCard from '$lib/components/changes/ChangeIndexCard.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import {
@@ -37,6 +38,11 @@
 	}
 
 	let { data }: Props = $props();
+
+	const breadcrumbsContext = getBreadcrumbsContext();
+	$effect(() => {
+		breadcrumbsContext.current = data;
+	});
 
 	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
 	const latestBranchLookupService = getContext(LatestBranchLookupService);
