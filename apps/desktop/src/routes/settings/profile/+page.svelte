@@ -12,6 +12,7 @@
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import type { User } from '$lib/user/user';
 	import { goto } from '$app/navigation';
 
 	const userService = getContext(UserService);
@@ -33,9 +34,22 @@
 		if ($user && !loaded) {
 			loaded = true;
 			userService.getUser().then((cloudUser) => {
-				cloudUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
-				userPicture = cloudUser.picture;
-				userService.setUser(cloudUser);
+				const userData: User = {
+					...cloudUser,
+					name: cloudUser.name || 'unkown',
+					given_name: cloudUser.given_name || 'unkown',
+					family_name: cloudUser.family_name || 'unkown',
+					email: cloudUser.email || 'unkown@example.com',
+					picture: cloudUser.picture || '#',
+					locale: cloudUser.locale || 'en',
+					access_token: cloudUser.access_token || 'impossible-situation',
+					role: cloudUser.role || 'user',
+					supporter: cloudUser.supporter || false,
+					github_access_token: $user?.github_access_token,
+					github_username: $user?.github_username
+				};
+				userPicture = userData.picture;
+				userService.setUser(userData);
 			});
 			newName = $user?.name || '';
 		}

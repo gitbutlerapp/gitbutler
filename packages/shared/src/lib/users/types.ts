@@ -6,6 +6,15 @@ export type ApiUser = {
 	name?: string;
 	email?: string;
 	avatar_url?: string;
+	given_name?: string;
+	family_name?: string;
+	picture?: string;
+	locale?: string;
+	access_token?: string;
+	updated_at: string;
+	created_at: string;
+	supporter?: boolean;
+	role?: string;
 };
 
 export type User = {
