@@ -25,7 +25,7 @@ export class StackPublishingService {
 		});
 
 		this.canPublish = derived(this.#joinedUserAndProject, ({ user, project }) => {
-			return this.canTakeSnapshotGivenUserAndProject(user, project);
+			return this.canPublishStack(user, project);
 		});
 	}
 
@@ -34,7 +34,7 @@ export class StackPublishingService {
 		const { user, project } = get(this.#joinedUserAndProject);
 
 		// Project and user are now defined
-		if (!this.canTakeSnapshotGivenUserAndProject(user, project)) {
+		if (!this.canPublishStack(user, project)) {
 			throw new Error('Cannot publish branch');
 		}
 
@@ -45,7 +45,7 @@ export class StackPublishingService {
 		});
 	}
 
-	private canTakeSnapshotGivenUserAndProject(user: User | undefined, project: Project | undefined) {
-		return user !== undefined && !!project?.api?.sync;
+	private canPublishStack(user: User | undefined, project: Project | undefined) {
+		return user !== undefined && !!project?.api;
 	}
 }
