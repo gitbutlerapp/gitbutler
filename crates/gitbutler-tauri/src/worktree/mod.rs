@@ -1,7 +1,6 @@
 use crate::error::Error;
 use gitbutler_project::ProjectId;
 use gitbutler_serde::BStringForFrontend;
-use gix::bstr::BString;
 use serde::Serialize;
 use std::path::PathBuf;
 use tracing::instrument;
@@ -76,7 +75,7 @@ pub enum Status {
     },
     Rename {
         #[serde(rename = "previousPath")]
-        previous_path: BString,
+        previous_path: BStringForFrontend,
         #[serde(rename = "previousState")]
         previous_state: ChangeState,
         state: ChangeState,
@@ -119,7 +118,7 @@ impl From<but_core::worktree::Status> for Status {
                 state,
             } => Status::Rename {
                 flags: Flags::calculate(&previous_state, &state),
-                previous_path,
+                previous_path: previous_path.into(),
                 previous_state: previous_state.into(),
                 state: state.into(),
             },
