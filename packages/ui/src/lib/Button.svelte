@@ -237,7 +237,6 @@
 		&.ghost {
 			--label-clr: var(--clr-btn-ntrl-outline-text);
 			--btn-bg: var(--clr-btn-ntrl-outline-bg);
-			--btn-border-clr: var(--clr-theme-ntrl-soft-outline);
 
 			/* if button */
 			&:not(&:disabled):hover,
@@ -266,7 +265,6 @@
 		&.ghost {
 			--label-clr: var(--clr-btn-pop-outline-text);
 			--btn-bg: var(--clr-btn-pop-outline-bg);
-			--btn-border-clr: var(--clr-theme-pop-soft-outline);
 
 			/* if button */
 			&:not(&:disabled):hover,
@@ -296,7 +294,6 @@
 		&.ghost {
 			--label-clr: var(--clr-btn-succ-outline-text);
 			--btn-bg: var(--clr-btn-succ-outline-bg);
-			--btn-border-clr: var(--clr-theme-succ-soft-outline);
 
 			/* if button */
 			&:not(&:disabled):hover,
@@ -326,7 +323,6 @@
 		&.ghost {
 			--label-clr: var(--clr-btn-err-outline-text);
 			--btn-bg: var(--clr-btn-err-outline-bg);
-			--btn-border-clr: var(--clr-theme-err-soft-outline);
 
 			/* if button */
 			&:not(&:disabled):hover,
@@ -356,7 +352,6 @@
 		&.ghost {
 			--label-clr: var(--clr-btn-warn-outline-text);
 			--btn-bg: var(--clr-btn-warn-outline-bg);
-			--btn-border-clr: var(--clr-theme-warn-soft-outline);
 
 			/* if button */
 			&:not(&:disabled):hover,
@@ -386,7 +381,6 @@
 		&.ghost {
 			--label-clr: var(--clr-btn-purp-outline-text);
 			--btn-bg: var(--clr-btn-purp-outline-bg);
-			--btn-border-clr: var(--clr-theme-purp-soft-outline);
 
 			/* if button */
 			&:not(&:disabled):hover,
