@@ -7,6 +7,8 @@ export type ApiProject = {
 	name: string;
 	description: string;
 
+	active_reviews_count: number;
+
 	repository_id: string;
 	code_repository_id: string;
 	git_url: string;
@@ -23,6 +25,7 @@ export type Project = {
 	slug: string;
 	owner: string;
 	parentProjectRepositoryId?: string;
+	activeReviewsCount?: number;
 	name: string;
 	description: string;
 
@@ -42,6 +45,7 @@ export function apiToProject(apiProject: ApiProject): Project {
 		slug: apiProject.slug,
 		owner: apiProject.owner,
 		parentProjectRepositoryId: apiProject.parent_project?.repository_id,
+		activeReviewsCount: apiProject.active_reviews_count,
 		name: apiProject.name,
 		description: apiProject.description,
 		codeRepositoryId: apiProject.code_repository_id,

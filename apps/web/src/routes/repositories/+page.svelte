@@ -28,22 +28,61 @@
 
 <h2>My Projects:</h2>
 
-{#if userProjects === undefined || userProjects.current.length === 0}
-	<LoadingState />
-{:else}
-	{#each userProjects.current as project (project.id)}
-		<ProjectIndexCard projectId={project.id} />
-	{/each}
-{/if}
+<table class="projects-table">
+	<thead>
+		<tr>
+			<th><div>Active Reviews</div></th>
+			<th><div>Project</div></th>
+			<th><div>Created</div></th>
+			<th><div>Updated</div></th>
+		</tr>
+	</thead>
+	<tbody>
+		{#if userProjects === undefined || userProjects.current.length === 0}
+			<LoadingState />
+		{:else}
+			{#each userProjects.current as project (project.id)}
+				<ProjectIndexCard projectId={project.id} />
+			{/each}
+		{/if}
 
-{#each organizations.current as organization (organization.id)}
-	<Loading loadable={organization}>
-		{#snippet children(organization)}
-			<h2>{organization.slug}:</h2>
-			<OrganizationProjects slug={organization.slug} />
-		{/snippet}
-	</Loading>
-{/each}
+		{#each organizations.current as organization (organization.id)}
+			<Loading loadable={organization}>
+				{#snippet children(organization)}
+					<h2>{organization.slug}:</h2>
+					<OrganizationProjects slug={organization.slug} />
+				{/snippet}
+			</Loading>
+		{/each}
+	</tbody>
+</table>
 
-<style>
+<style lang="postcss">
+	.projects-table {
+		th {
+			padding: 0;
+			> div {
+				text-align: left;
+				padding: 16px;
+
+				border-top: 1px solid var(--clr-border-2);
+				border-bottom: 1px solid var(--clr-border-2);
+				overflow: hidden;
+			}
+
+			&:first-child {
+				> div {
+					border-left: 1px solid var(--clr-border-2);
+					border-top-left-radius: var(--radius-m);
+				}
+			}
+
+			&:last-child {
+				> div {
+					border-right: 1px solid var(--clr-border-2);
+					border-top-right-radius: var(--radius-m);
+				}
+			}
+		}
+	}
 </style>
