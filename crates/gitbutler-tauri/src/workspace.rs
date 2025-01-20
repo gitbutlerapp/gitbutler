@@ -20,6 +20,7 @@ pub fn stacks(
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StackEntry {
     id: Id<Stack>,
     branch_names: Vec<BStringForFrontend>,
