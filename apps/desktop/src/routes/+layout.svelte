@@ -52,7 +52,7 @@
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';

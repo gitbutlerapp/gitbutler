@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { cleanBreadcrumbs } from '$lib/components/breadcrumbs/breadcrumbsContext.svelte';
 	import OrganizationProjects from '$lib/components/projects/OrganizationProjects.svelte';
 	import ProjectIndexCard from '$lib/components/projects/ProjectIndexCard.svelte';
 	import { UserService } from '$lib/user/userService';
@@ -16,8 +15,6 @@
 	const projectService = getContext(ProjectService);
 	const organizationService = getContext(OrganizationService);
 	const userService = getContext(UserService);
-
-	$effect(cleanBreadcrumbs);
 
 	const user = $derived(userService.user);
 	const username = $derived($user?.login);

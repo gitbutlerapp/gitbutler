@@ -1,5 +1,5 @@
 import type { PageLoad } from './$types';
-import type { ProjectReviewCommitParameters } from '@gitbutler/shared/routing/webRoutes';
+import type { ProjectReviewCommitParameters } from '@gitbutler/shared/routing/webRoutes.svelte';
 
 // eslint-disable-next-line func-style
 export const load: PageLoad<ProjectReviewCommitParameters> = async ({ params }) => {

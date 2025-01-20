@@ -2,7 +2,6 @@
 	import '$lib/styles/global.css';
 	import { AuthService } from '$lib/auth/authService';
 	import Navigation from '$lib/components/Navigation.svelte';
-	import { initializeBreadcrumbsContext } from '$lib/components/breadcrumbs/breadcrumbsContext.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
@@ -14,7 +13,7 @@
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
 	import { setContext, type Snippet } from 'svelte';
 	import { get } from 'svelte/store';
@@ -28,8 +27,6 @@
 	}
 
 	const { children }: Props = $props();
-
-	initializeBreadcrumbsContext();
 
 	const authService = new AuthService();
 	setContext(AuthService, authService);
@@ -61,7 +58,7 @@
 	setContext(RepositoryIdLookupService, repositoryIdLookupService);
 	const latestBranchLookupService = new LatestBranchLookupService(httpClient, appState.appDispatch);
 	setContext(LatestBranchLookupService, latestBranchLookupService);
-	const routesService = new WebRoutesService(location.protocol + '//' + location.host);
+	const routesService = new WebRoutesService(location.protocol + '//' + location.host, true);
 	setContext(WebRoutesService, routesService);
 
 	$effect(() => {

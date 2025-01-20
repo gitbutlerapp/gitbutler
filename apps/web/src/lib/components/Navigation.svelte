@@ -3,7 +3,7 @@
 	import Breadcrumbs from '$lib/components/breadcrumbs/Breadcrumbs.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { env } from '$env/dynamic/public';
 
 	const routes = getContext(WebRoutesService);

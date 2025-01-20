@@ -12,7 +12,7 @@
 	import {
 		WebRoutesService,
 		type ProjectReviewParameters
-	} from '@gitbutler/shared/routing/webRoutes';
+	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import dayjs from 'dayjs';

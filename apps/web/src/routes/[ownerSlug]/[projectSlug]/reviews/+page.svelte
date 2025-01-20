@@ -1,6 +1,5 @@
 <script lang="ts">
 	import BranchIndexCard from '$lib/components/branches/BranchIndexCard.svelte';
-	import { getBreadcrumbsContext } from '$lib/components/breadcrumbs/breadcrumbsContext.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReviewsForRepository } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -10,18 +9,13 @@
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Badge from '@gitbutler/ui/Badge.svelte';
-	import type { ProjectParameters } from '@gitbutler/shared/routing/webRoutes';
+	import type { ProjectParameters } from '@gitbutler/shared/routing/webRoutes.svelte';
 
 	interface Props {
 		data: ProjectParameters;
 	}
 
 	let { data }: Props = $props();
-
-	const breadcrumbsContext = getBreadcrumbsContext();
-	$effect(() => {
-		breadcrumbsContext.current = data;
-	});
 
 	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
 	const branchService = getContext(BranchService);

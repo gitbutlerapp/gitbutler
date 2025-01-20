@@ -4,7 +4,7 @@
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 
 	type Props = {
 		projectId: string;

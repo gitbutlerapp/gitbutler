@@ -1,12 +1,14 @@
 <script lang="ts">
-	import { getBreadcrumbsContext } from '$lib/components/breadcrumbs/breadcrumbsContext.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { WebRoutesService, type ProjectParameters } from '@gitbutler/shared/routing/webRoutes';
+	import {
+		WebRoutesService,
+		type ProjectParameters
+	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 
@@ -15,12 +17,6 @@
 	}
 
 	let { data }: Props = $props();
-
-	const breadcrumbsContext = getBreadcrumbsContext();
-	$effect(() => {
-		console.log('Hi');
-		breadcrumbsContext.current = data;
-	});
 
 	const projectService = getContext(ProjectService);
 	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
