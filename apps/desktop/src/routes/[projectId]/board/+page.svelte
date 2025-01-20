@@ -4,6 +4,7 @@
 	import Scrollbar from '$components/Scrollbar.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
+	import { v3 } from '$lib/config/uiFeatureFlags';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { ModeService } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
@@ -53,6 +54,13 @@
 		if ($mode?.type === 'Edit') {
 			// That was causing an incorrect linting error when project.id was accessed inside the reactive block
 			gotoEdit();
+		}
+	});
+
+	// Redirect to workspace if we have enabled V3 feature.
+	$effect(() => {
+		if ($v3) {
+			goto(`/${project.id}/workspace`);
 		}
 	});
 </script>
