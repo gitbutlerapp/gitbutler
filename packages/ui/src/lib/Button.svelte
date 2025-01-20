@@ -11,6 +11,7 @@
 		// Layout props
 		shrinkable?: boolean;
 		reversedDirection?: boolean;
+		height?: number | string | undefined;
 		width?: number | undefined;
 		maxWidth?: number | undefined;
 		size?: 'tag' | 'button' | 'cta';
@@ -57,6 +58,7 @@
 		type = 'button',
 		shrinkable = false,
 		reversedDirection = false,
+		height,
 		width,
 		maxWidth,
 		size = 'button',
@@ -102,6 +104,11 @@
 		class:fixed-width={!children && !wide}
 		class:activated
 		style:align-self={align}
+		style:height={height !== undefined
+			? typeof height === 'number'
+				? pxToRem(height)
+				: height
+			: undefined}
 		style:width={width !== undefined ? pxToRem(width) : undefined}
 		style:max-width={maxWidth !== undefined ? pxToRem(maxWidth) : undefined}
 		disabled={disabled || loading}
@@ -141,6 +148,7 @@
 		user-select: none;
 		position: relative;
 		display: inline-flex;
+		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
