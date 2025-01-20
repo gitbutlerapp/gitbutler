@@ -17,6 +17,7 @@
 	import { CommitService } from '$lib/commits/service';
 	import { showHistoryView } from '$lib/config/config';
 	import { cloudFunctionality } from '$lib/config/uiFeatureFlags';
+	import { v3 } from '$lib/config/uiFeatureFlags';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { UncommitedFilesWatcher } from '$lib/files/watcher';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory';
@@ -43,6 +44,7 @@
 	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import type { LayoutData } from './$types';
 	import { goto } from '$app/navigation';
+	import Chrome from '$components/Chrome.svelte';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -228,11 +230,17 @@
 	{:else if $baseBranch}
 		{#if $mode?.type === 'OpenWorkspace' || $mode?.type === 'Edit'}
 			<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
-				<Navigation />
-				{#if $showHistoryView}
-					<History onHide={() => ($showHistoryView = false)} />
+				{#if $v3}
+					<Chrome {projectId}>
+						{@render children()}
+					</Chrome>
+				{:else}
+					<Navigation />
+					{#if $showHistoryView}
+						<History onHide={() => ($showHistoryView = false)} />
+					{/if}
+					{@render children()}
 				{/if}
-				{@render children()}
 			</div>
 		{:else if $mode?.type === 'OutsideWorkspace'}
 			<NotOnGitButlerBranch baseBranch={$baseBranch} />
