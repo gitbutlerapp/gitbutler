@@ -129,3 +129,17 @@ cp -Rv case-folding-worktree-changes case-folding-worktree-and-index-changes
 100644 $empty_oid	FILE
 EOF
 )
+
+git init conflicting
+(cd conflicting
+  touch unrelated && git add . && git commit -m "init"
+
+  empty=$(git hash-object -w --stdin </dev/null)
+  a=$(echo "a" | git hash-object -w --stdin)
+  b=$(echo "b" | git hash-object -w --stdin)
+  git update-index --index-info <<EOF
+100644 $empty 1	conflicting
+100644 $a 2	conflicting
+100644 $b 3	conflicting
+EOF
+)

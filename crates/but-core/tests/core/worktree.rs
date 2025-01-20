@@ -425,6 +425,23 @@ fn file_to_symlink_in_worktree() -> Result<()> {
 }
 
 #[test]
+fn conflict() -> Result<()> {
+    let repo = repo("conflicting")?;
+    let actual = changes(&repo)?;
+    insta::assert_debug_snapshot!(actual, @r#"
+    [
+        TreeChange {
+            path: "conflicting",
+            status: Conflict(
+                BothModified,
+            ),
+        },
+    ]
+    "#);
+    Ok(())
+}
+
+#[test]
 #[cfg(unix)]
 fn file_to_symlink_in_index() -> Result<()> {
     let repo = repo_unix("file-to-symlink-in-index")?;
