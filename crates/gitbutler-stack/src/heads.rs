@@ -150,7 +150,7 @@ mod test {
             description: None,
             pr_number: None,
             archived: true,
-            review_id: "asdf".into(),
+            review_id: None,
         };
         let head_2 = StackBranch {
             head: CommitOrChangeId::ChangeId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
@@ -158,7 +158,7 @@ mod test {
             description: None,
             pr_number: None,
             archived: false,
-            review_id: "asdf".into(),
+            review_id: None,
         };
         let existing_heads = vec![head_1_archived.clone(), head_2.clone()];
         let new_head = StackBranch {
@@ -167,7 +167,7 @@ mod test {
             description: None,
             pr_number: None,
             archived: false,
-            review_id: "asdf".into(),
+            review_id: None,
         };
         let patches = vec![
             CommitOrChangeId::ChangeId("92a89ae608d77ff75c1ce52ea9dccc0bccd577e9".to_string()),

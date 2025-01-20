@@ -51,7 +51,7 @@ pub fn create_series(project: &Project, stack_id: StackId, req: CreateSeriesRequ
                 description: req.description,
                 pr_number: Default::default(),
                 archived: Default::default(),
-                review_id: uuid::Uuid::new_v4().to_string(),
+                review_id: None,
             },
             req.preceding_head,
         )
@@ -431,6 +431,7 @@ fn stack_branch_to_api_branch(
             upstream_patches,
             pr_number: stack_branch.pr_number,
             archived: stack_branch.archived,
+            review_id: stack_branch.review_id,
         },
         requires_force,
     ))

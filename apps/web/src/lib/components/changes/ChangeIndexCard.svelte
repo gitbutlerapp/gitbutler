@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { projectReviewBranchCommitPath, type ProjectReviewParameters } from '$lib/routing';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { getPatch } from '@gitbutler/shared/branches/patchesPreview.svelte';
 	import {
@@ -10,6 +9,10 @@
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import {
+		WebRoutesService,
+		type ProjectReviewParameters
+	} from '@gitbutler/shared/routing/webRoutes';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import dayjs from 'dayjs';
@@ -28,6 +31,7 @@
 
 	const appState = getContext(AppState);
 	const patchService = getContext(PatchService);
+	const routes = getContext(WebRoutesService);
 
 	const change = $derived(getPatch(appState, patchService, branchUuid, changeId));
 	const contributors = $derived(
@@ -55,7 +59,7 @@
 			<td><div>{@render status(getPatchStatus(patch))}</div></td>
 			<td
 				><div>
-					<a href={projectReviewBranchCommitPath({ ...params, changeId: patch.changeId })}
+					<a href={routes.projectReviewBranchCommitPath({ ...params, changeId: patch.changeId })}
 						>{patch.title}</a
 					>
 				</div></td

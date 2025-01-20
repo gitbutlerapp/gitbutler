@@ -1,5 +1,5 @@
-import type { ProjectReviewParameters } from '$lib/routing';
 import type { PageLoad } from './$types';
+import type { ProjectReviewParameters } from '@gitbutler/shared/routing/webRoutes';
 
 // eslint-disable-next-line func-style
 export const load: PageLoad<ProjectReviewParameters> = async ({ params }) => {

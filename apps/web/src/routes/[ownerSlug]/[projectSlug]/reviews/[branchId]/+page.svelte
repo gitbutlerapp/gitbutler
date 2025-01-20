@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Factoid from '$lib/components/Factoid.svelte';
 	import ChangeIndexCard from '$lib/components/changes/ChangeIndexCard.svelte';
-	import { projectReviewBranchCommitPath, type ProjectReviewParameters } from '$lib/routing';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import {
 		getBranchReview,
@@ -15,6 +14,10 @@
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import {
+		WebRoutesService,
+		type ProjectReviewParameters
+	} from '@gitbutler/shared/routing/webRoutes';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
@@ -36,6 +39,7 @@
 	const latestBranchLookupService = getContext(LatestBranchLookupService);
 	const branchService = getContext(BranchService);
 	const appState = getContext(AppState);
+	const routes = getContext(WebRoutesService);
 
 	const repositoryId = $derived(
 		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
@@ -67,7 +71,7 @@
 	function visitFirstCommit(branch: Branch) {
 		if ((branch.patchIds?.length || 0) === 0) return;
 
-		goto(projectReviewBranchCommitPath({ ...data, changeId: branch.patchIds[0] }));
+		goto(routes.projectReviewBranchCommitPath({ ...data, changeId: branch.patchIds[0] }));
 	}
 </script>
 

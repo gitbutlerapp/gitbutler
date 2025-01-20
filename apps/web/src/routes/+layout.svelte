@@ -13,7 +13,7 @@
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { WebRoutesService, setRoutesService } from '@gitbutler/shared/sharedRoutes';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
 	import { setContext, type Snippet } from 'svelte';
 	import { get } from 'svelte/store';
@@ -26,9 +26,6 @@
 	}
 
 	const { children }: Props = $props();
-
-	const webRoutesService = new WebRoutesService();
-	setRoutesService(webRoutesService);
 
 	const authService = new AuthService();
 	setContext(AuthService, authService);
@@ -60,6 +57,8 @@
 	setContext(RepositoryIdLookupService, repositoryIdLookupService);
 	const latestBranchLookupService = new LatestBranchLookupService(httpClient, appState.appDispatch);
 	setContext(LatestBranchLookupService, latestBranchLookupService);
+	const routesService = new WebRoutesService(location.protocol + '//' + location.host);
+	setContext(WebRoutesService, routesService);
 
 	$effect(() => {
 		const token = get(authService.token) || $page.url.searchParams.get('gb_access_token');

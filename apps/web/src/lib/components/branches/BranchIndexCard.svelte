@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { projectReviewBranchPath, type ProjectParameters } from '$lib/routing';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import {
 		getBranchReview,
@@ -10,6 +9,7 @@
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { WebRoutesService, type ProjectParameters } from '@gitbutler/shared/routing/webRoutes';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import dayjs from 'dayjs';
@@ -29,6 +29,7 @@
 
 	const appState = getContext(AppState);
 	const branchService = getContext(BranchService);
+	const routes = getContext(WebRoutesService);
 
 	const branch = $derived(getBranchReview(appState, branchService, repositoryId, uuid));
 
@@ -55,7 +56,7 @@
 			<td><div>{branch.stackOrder}</div></td>
 			<td>
 				<div>
-					<a href={projectReviewBranchPath({ ...linkParams, branchId: branch.branchId })}>
+					<a href={routes.projectReviewBranchPath({ ...linkParams, branchId: branch.branchId })}>
 						{branch.title}
 					</a>
 				</div>

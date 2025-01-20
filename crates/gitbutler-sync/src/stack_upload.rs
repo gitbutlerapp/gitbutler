@@ -19,7 +19,7 @@ use crate::cloud::{push_to_gitbutler_server, remote, RemoteKind};
 
 pub fn push_stack_to_review(ctx: &CommandContext, user: &User, stack_id: StackId) -> Result<()> {
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let stack = vb_state.get_stack(stack_id)?;
+    let mut stack = vb_state.get_stack(stack_id)?;
     let repository = ctx.gix_repository()?;
     // We set the stack immediatly after because it might be an old stack that
     // dosn't yet have review_ids assigned. When reading they will have been
@@ -27,7 +27,7 @@ pub fn push_stack_to_review(ctx: &CommandContext, user: &User, stack_id: StackId
     vb_state.set_stack(stack.clone())?;
     let stack_context = ctx.to_stack_context()?;
 
-    let branch_heads = branch_heads(&stack, &stack_context)?;
+    let branch_heads = branch_heads(&vb_state, &mut stack, &stack_context)?;
     let Some(review_base_id) = vb_state.upsert_last_pushed_base(&repository)? else {
         bail!("This is impossible. If you got here, I'm sorry.");
     };
@@ -64,17 +64,32 @@ struct BranchHead {
     id: gix::ObjectId,
 }
 
-/// Fetch the stack heads in order
-fn branch_heads(stack: &Stack, stack_context: &StackContext<'_>) -> Result<Vec<BranchHead>> {
+/// Fetch the stack heads in order and attach a review_id if not already present.
+fn branch_heads(
+    vb_state: &VirtualBranchesHandle,
+    stack: &mut Stack,
+    stack_context: &StackContext<'_>,
+) -> Result<Vec<BranchHead>> {
     let mut heads = vec![];
-    for head in &stack.heads {
-        let head_oid = head.head_oid(stack_context, stack)?.to_gix();
+
+    let stack_clone = stack.clone();
+
+    for head in stack.heads.iter_mut() {
+        let head_oid = head.head_oid(stack_context, &stack_clone)?.to_gix();
+        let review_id = head
+            .review_id
+            .clone()
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        head.review_id = Some(review_id.clone());
+
         heads.push(BranchHead {
             id: head_oid,
-            review_id: head.review_id.clone(),
+            review_id: review_id.clone(),
             name: head.name.to_owned(),
         })
     }
+
+    vb_state.set_stack(stack.clone())?;
 
     Ok(heads)
 }

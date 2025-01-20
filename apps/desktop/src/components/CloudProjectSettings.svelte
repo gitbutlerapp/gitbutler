@@ -15,11 +15,11 @@
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import type { Project } from '@gitbutler/shared/organizations/types';
-	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	const appState = getContext(AppState);
 	const projectsService = getContext(ProjectsService);
@@ -28,6 +28,7 @@
 	const organizationService = getContext(OrganizationService);
 	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
 	const userService = getContext(UserService);
+	const webRoutes = getContext(WebRoutesService);
 
 	const project = projectService.project;
 	const userLogin = userService.userLogin;
@@ -143,16 +144,20 @@
 				{/snippet}
 			</SectionCard>
 
-			{#if $project?.api}
-				<div class="api-link text-12">
-					<Link
-						target="_blank"
-						rel="noreferrer"
-						href="{PUBLIC_API_BASE_URL}projects/{$project.api?.repository_id}"
-						>Go to GitButler Cloud Project</Link
-					>
-				</div>
-			{/if}
+			<Loading loadable={cloudProject.current}>
+				{#snippet children(cloudProject)}
+					<div class="api-link text-12">
+						<Link
+							target="_blank"
+							rel="noreferrer"
+							href={webRoutes.projectUrl({
+								ownerSlug: cloudProject.owner,
+								projectSlug: cloudProject.slug
+							})}>Go to GitButler Cloud Project</Link
+						>
+					</div>
+				{/snippet}
+			</Loading>
 		{/snippet}
 	</Section>
 
