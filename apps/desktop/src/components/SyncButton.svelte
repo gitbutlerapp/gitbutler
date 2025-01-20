@@ -6,6 +6,12 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
 
+	interface Props {
+		size: string;
+	}
+
+	const { size = 'tag' }: Props = $props();
+
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 	const branchListingService = getContext(BranchListingService);
@@ -16,7 +22,7 @@
 </script>
 
 <Button
-	size="tag"
+	{size}
 	reversedDirection
 	kind="outline"
 	icon="update"
