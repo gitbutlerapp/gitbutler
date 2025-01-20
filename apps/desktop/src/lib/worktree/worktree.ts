@@ -40,12 +40,12 @@ export type Status =
 	/** Something was deleted.*/
 	| { type: 'Deletion' }
 	/** A tracked entry was modified, i.e. content change, type change (eg. it is now a symlink), executable bit change.*/
-	| { type: 'Modification'; subject: { flags: Flags | undefined } }
+	| { type: 'Modification'; subject: { flags: Flags | null } }
 	/**
 	An entry was renamed from `previous_path` to its current location.
 	Note that this may include a content change, as well as a change of the executable bit.
 	*/
-	| { type: 'Rename'; subject: { previousPath: string; flags: Flags | undefined } };
+	| { type: 'Rename'; subject: { previousPath: string; flags: Flags | null } };
 
 /** A way to indicate that a path in the index isn't suitable for committing and needs to be dealt with.*/
 export class IgnoredChange {
