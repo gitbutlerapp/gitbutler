@@ -4,14 +4,13 @@
 	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import { env } from '$env/dynamic/public';
 
 	const project = getContext(Project);
 </script>
 
 <nav>
 	<div class="left">
-		{#if platformName === 'macos' || env.PUBLIC_TESTING}
+		{#if platformName === 'macos'}
 			<div class="traffic-lights-placeholder" data-tauri-drag-region></div>
 		{/if}
 		<SyncButton size="button" />
