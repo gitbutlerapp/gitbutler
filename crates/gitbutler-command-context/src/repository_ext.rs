@@ -8,12 +8,16 @@ use tracing::instrument;
 pub trait RepositoryExtLite {
     /// Exclude files that are larger than `limit_in_bytes` (eg. database.sql which may never be intended to be committed)
     /// so they don't show up in the next diff.
+    /// If `0` this method will have no effect.
     fn ignore_large_files_in_diffs(&self, limit_in_bytes: u64) -> Result<()>;
 }
 
 impl RepositoryExtLite for git2::Repository {
     #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]
     fn ignore_large_files_in_diffs(&self, limit_in_bytes: u64) -> Result<()> {
+        if limit_in_bytes == 0 {
+            return Ok(());
+        }
         use gix::bstr::ByteSlice;
         let repo = gix::open(self.path())?;
         let worktree_dir = repo
