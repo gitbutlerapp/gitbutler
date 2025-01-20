@@ -119,10 +119,10 @@
 	.wrapper {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
+		align-items: flex-start;
 		justify-content: space-between;
 		height: 100%;
-		width: 66px;
+		width: 50px;
 		padding: 16px;
 	}
 
