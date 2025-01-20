@@ -18,7 +18,7 @@
 	import {
 		WebRoutesService,
 		type ProjectReviewParameters
-	} from '@gitbutler/shared/routing/webRoutes';
+	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import LinkButton from '@gitbutler/ui/LinkButton.svelte';

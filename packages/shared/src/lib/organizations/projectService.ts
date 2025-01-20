@@ -13,7 +13,9 @@ import type { AppDispatch } from '$lib/redux/store.svelte';
 
 export class ProjectService {
 	private readonly projectInterests = new InterestStore<{ repositoryId: string }>(POLLING_REGULAR);
-	private readonly userProjectsInterests = new InterestStore<{ user: string }>(POLLING_GLACIALLY);
+	private readonly userProjectsInterests = new InterestStore<{ unused: 'unused' }>(
+		POLLING_GLACIALLY
+	);
 
 	constructor(
 		private readonly httpClient: HttpClient,
@@ -38,22 +40,18 @@ export class ProjectService {
 			.createInterest();
 	}
 
-	getAllProjectsInterest(user: string): Interest {
+	getAllProjectsInterest(): Interest {
 		return this.userProjectsInterests
-			.findOrCreateSubscribable({ user }, async () => {
-				try {
-					const apiProjects = await this.httpClient.get<ApiProject[]>('projects');
+			.findOrCreateSubscribable({ unused: 'unused' }, async () => {
+				const apiProjects = await this.httpClient.get<ApiProject[]>('projects');
 
-					const projects: LoadableProject[] = apiProjects.map((apiProject) => ({
-						status: 'found',
-						id: apiProject.repository_id,
-						value: apiToProject(apiProject)
-					}));
+				const projects: LoadableProject[] = apiProjects.map((apiProject) => ({
+					status: 'found',
+					id: apiProject.repository_id,
+					value: apiToProject(apiProject)
+				}));
 
-					this.appDispatch.dispatch(upsertProjects(projects));
-				} catch (error: unknown) {
-					this.appDispatch.dispatch(upsertProject(errorToLoadable(error, user)));
-				}
+				this.appDispatch.dispatch(upsertProjects(projects));
 			})
 			.createInterest();
 	}

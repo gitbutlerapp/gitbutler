@@ -5,7 +5,10 @@
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { WebRoutesService, type ProjectParameters } from '@gitbutler/shared/routing/webRoutes';
+	import {
+		WebRoutesService,
+		type ProjectParameters
+	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 

@@ -19,7 +19,7 @@
 	import {
 		WebRoutesService,
 		type ProjectReviewCommitParameters
-	} from '@gitbutler/shared/routing/webRoutes';
+	} from '@gitbutler/shared/routing/webRoutes.svelte';
 
 	const BRANCH_TITLE_PLACE_HOLDER = 'No branch title provided';
 	const DESCRIPTION_PLACE_HOLDER = 'No description provided';

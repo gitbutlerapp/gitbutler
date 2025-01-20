@@ -39,7 +39,7 @@
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';

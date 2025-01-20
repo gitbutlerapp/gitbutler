@@ -9,7 +9,10 @@
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { WebRoutesService, type ProjectParameters } from '@gitbutler/shared/routing/webRoutes';
+	import {
+		WebRoutesService,
+		type ProjectParameters
+	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import dayjs from 'dayjs';

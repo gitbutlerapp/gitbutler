@@ -15,7 +15,7 @@
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
