@@ -390,6 +390,9 @@ importers:
       svelte-check:
         specifier: catalog:svelte
         version: 4.1.2(svelte@5.18.0)(typescript@5.4.5)
+      svelte-french-toast:
+        specifier: ^1.2.0
+        version: 1.2.0(svelte@5.18.0)
       vite:
         specifier: 'catalog:'
         version: 5.4.11(@types/node@22.3.0)(sass-embedded@1.82.0)
@@ -574,6 +577,9 @@ importers:
       svelte-check:
         specifier: catalog:svelte
         version: 4.1.2(svelte@5.18.0)(typescript@5.4.5)
+      svelte-french-toast:
+        specifier: ^1.2.0
+        version: 1.2.0(svelte@5.18.0)
       vite:
         specifier: 'catalog:'
         version: 5.4.11(@types/node@22.3.0)(sass-embedded@1.82.0)

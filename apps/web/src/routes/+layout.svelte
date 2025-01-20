@@ -17,6 +17,7 @@
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
 	import { setContext, type Snippet } from 'svelte';
 	import { get } from 'svelte/store';
+	import { Toaster } from 'svelte-french-toast';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { env } from '$env/dynamic/public';
@@ -72,6 +73,8 @@
 		}
 	});
 </script>
+
+<Toaster />
 
 {#if (!$token && $page.url.pathname === '/') || $page.url.pathname === '/home'}
 	<section class="page-wrapper">

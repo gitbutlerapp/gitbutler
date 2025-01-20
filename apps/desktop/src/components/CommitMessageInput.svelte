@@ -16,7 +16,6 @@
 	import { Project } from '$lib/project/project';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { KeyName } from '$lib/utils/hotkeys';
-	import * as toasts from '$lib/utils/toasts';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -25,6 +24,7 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import * as toasts from '@gitbutler/ui/toasts';
 	import { isWhiteSpaceString } from '@gitbutler/ui/utils/string';
 	import { onMount, tick } from 'svelte';
 

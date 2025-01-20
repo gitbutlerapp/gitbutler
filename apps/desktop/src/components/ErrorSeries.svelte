@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
 

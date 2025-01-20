@@ -22,7 +22,7 @@
 	// import { showError } from '$lib/notifications/toasts';
 	// import MergeButton from '$components/MergeButton.svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
-	// import * as toasts from '$lib/utils/toasts';
+	// import * as toasts from '@gitbutler/ui/toasts';
 	// import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';

@@ -2,7 +2,6 @@
 	import { invoke, listen } from '$lib/backend/ipc';
 	import * as zip from '$lib/support/dataSharing';
 	import { User } from '$lib/user/user';
-	import * as toasts from '$lib/utils/toasts';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -10,6 +9,7 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import * as toasts from '@gitbutler/ui/toasts';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
