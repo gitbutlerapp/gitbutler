@@ -1,26 +1,20 @@
 <script lang="ts">
+	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { User } from '$lib/user/user';
 	import { getContextStore } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { goto } from '$app/navigation';
 
-	interface Props {
-		projectId: string;
-	}
-
-	const { projectId }: Props = $props();
-
-	function navigateInProject(target: string) {
-		goto(`/${projectId}/${target}`);
-	}
+	const routes = getContext(DesktopRoutesService);
 
 	const user = getContextStore(User);
 </script>
 
 <nav class="wrapper">
 	<div class="top">
-		<Button kind="outline" onclick={() => navigateInProject('workspace')} width={34} height={34}>
+		<Button kind="outline" onclick={() => goto(routes.workspacePath)} width={34} height={34}>
 			<svg viewBox="0 0 16 13" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<g opacity="0.7">
 					<path
@@ -34,7 +28,7 @@
 				</g>
 			</svg>
 		</Button>
-		<Button kind="outline" onclick={() => navigateInProject('branches')} width={34} height={34}>
+		<Button kind="outline" onclick={() => goto(routes.branchesPath)} width={34} height={34}>
 			<svg viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<g opacity="0.7">
 					<path d="M5 3L11 3" stroke-width="1.5" />
@@ -48,7 +42,7 @@
 				</g>
 			</svg>
 		</Button>
-		<Button kind="outline" onclick={() => navigateInProject('target')} width={34} height={34}>
+		<Button kind="outline" onclick={() => goto(routes.targetPath)} width={34} height={34}>
 			<svg viewBox="0 0 18 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<g opacity="0.7">
 					<path
@@ -61,7 +55,7 @@
 				</g>
 			</svg>
 		</Button>
-		<Button kind="outline" onclick={() => navigateInProject('history')} width={34} height={34}>
+		<Button kind="outline" onclick={() => goto(routes.historyPath)} width={34} height={34}>
 			<svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<g opacity="0.7">
 					<path d="M8 5V10H13" stroke-width="1.5" />
@@ -74,7 +68,7 @@
 		<Button
 			icon="settings"
 			kind="outline"
-			onclick={() => navigateInProject('settings')}
+			onclick={() => goto(routes.settingsPath)}
 			width={34}
 			height={34}
 		/>
