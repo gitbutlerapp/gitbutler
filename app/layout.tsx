@@ -33,16 +33,16 @@ export default function Layout({ children }: { children: ReactNode }) {
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | GitButler",
-    default: "GitButler"
+    template: "%s | GitButler Docs",
+    default: "GitButler Docs"
   },
   description:
     "GitButler is a new Source Code Management system designed to manage your branches, record and backup your work, be your Git client, help with your code and much more",
   openGraph: {
     images: "/cover.png",
     title: {
-      template: "%s | GitButler",
-      default: "GitButler"
+      template: "%s | GitButler Docs",
+      default: "GitButler Docs"
     },
     url: "https://docs.gitbutler.com",
     siteName: "GitButler Docs",
@@ -52,13 +52,13 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     creator: "@gitbutler",
-    title: "GitButler",
+    title: "GitButler Docs",
     description:
       "GitButler is a new Source Code Management system designed to manage your branches, record and backup your work, be your Git client, help with your code and much more",
     images: "/cover.png"
   },
   metadataBase: baseUrl,
-  applicationName: "GitButler",
+  applicationName: "GitButler Docs",
   robots: {
     index: true,
     follow: true
