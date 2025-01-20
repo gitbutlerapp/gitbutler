@@ -1,5 +1,5 @@
 # will have compiled rust files and executables
-target/
+/target/
 release/
 generated-archives/
 generated-do-not-edit/
