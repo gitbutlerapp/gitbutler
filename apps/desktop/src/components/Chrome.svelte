@@ -3,13 +3,13 @@
 	import Sidebar from '$components/ChromeSidebar.svelte';
 	import type { Snippet } from 'svelte';
 
-	const { children, projectId }: { children: Snippet; projectId: string } = $props();
+	const { children }: { children: Snippet } = $props();
 </script>
 
 <div class="chrome">
 	<Header />
 	<div class="wrapper">
-		<Sidebar {projectId} />
+		<Sidebar />
 		<div class="content">
 			{@render children()}
 		</div>
