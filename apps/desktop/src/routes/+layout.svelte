@@ -23,6 +23,7 @@
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { v3 } from '$lib/config/uiFeatureFlags';
+	import { FileService } from '$lib/files/fileService';
 	import {
 		createGitHubUserServiceStore as createGitHubUserServiceStore,
 		GitHubAuthenticationService,
@@ -63,7 +64,6 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
-	import { page } from '$app/state';
 	import { env } from '$env/dynamic/public';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
@@ -97,6 +97,7 @@
 	setContext(WebRoutesService, webRoutesService);
 	setContext(HooksService, data.hooksService);
 	setContext(SettingsService, data.settingsService);
+	setContext(FileService, data.fileService);
 
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
@@ -145,26 +146,6 @@
 			events.on('goto', async (path: string) => await goto(path)),
 			events.on('openSendIssueModal', () => shareIssueModal?.show())
 		);
-	});
-
-	// Redirect user if v3 design feature flag does not match current url.
-	function maybeRedirect(v3Enabled: boolean, path: string) {
-		const projectRegex =
-			/^\/(?<isV3>project\/)?(?<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/;
-		const match = projectRegex.exec(path);
-		if (match?.groups) {
-			const isV3 = match.groups['isV3'];
-			const uuid = match.groups['uuid'];
-			if (!isV3 && v3Enabled) {
-				window.location.href = `/project/${uuid}`;
-			} else if (isV3 && !v3Enabled) {
-				window.location.href = `/${uuid}`;
-			}
-		}
-	}
-
-	$effect(() => {
-		maybeRedirect($v3, page.url.pathname);
 	});
 
 	const handleKeyDown = createKeybind({

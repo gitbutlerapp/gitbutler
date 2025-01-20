@@ -18,7 +18,6 @@
 	import { showHistoryView } from '$lib/config/config';
 	import { cloudFunctionality } from '$lib/config/uiFeatureFlags';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
-	import { FileService } from '$lib/files/fileService';
 	import { UncommitedFilesWatcher } from '$lib/files/watcher';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory';
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
@@ -92,7 +91,6 @@
 		// Cloud related services
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
 		setContext(StackPublishingService, data.stackPublishingService);
-		setContext(FileService, data.fileService);
 	});
 
 	let intervalId: any;

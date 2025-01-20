@@ -1,6 +1,5 @@
 <script lang="ts">
 	import FullviewLoading from '$components/FullviewLoading.svelte';
-	import { v3 } from '$lib/config/uiFeatureFlags';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { derived as derivedStore } from 'svelte/store';
@@ -33,8 +32,7 @@
 				return { type: 'redirect', subject: `/${projectId}` };
 			}
 			if (projects.length > 0) {
-				const subject = v3 ? `/project/${projects[0]?.id}` : `/${projects[0]?.id}`;
-				return { type: 'redirect', subject };
+				return { type: 'redirect', subject: `/${projects[0]?.id}` };
 			}
 			return { type: 'no-projects' };
 		},
