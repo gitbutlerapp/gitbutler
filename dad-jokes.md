@@ -17,6 +17,13 @@
   <b>They don't CI to eye</b>
 </details>
 
+<br>
+
+<details>
+  <summary>Tequila is not the solution to all problems...</summary>
+  <b>But it is worth a shot</b>
+</details>
+
 ### Community dad jokes
 
 <details>
