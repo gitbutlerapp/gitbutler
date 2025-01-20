@@ -248,7 +248,7 @@ fn main() {
                     settings::update_onboarding_complete,
                     settings::update_telemetry,
                     workspace::stacks,
-                    worktree::changes
+                    worktree::worktree_changes
                 ])
                 .menu(menu::build)
                 .on_window_event(|window, event| match event {

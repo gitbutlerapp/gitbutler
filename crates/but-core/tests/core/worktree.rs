@@ -21,7 +21,7 @@ fn executable_bit_added_in_worktree() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "exe",
             status: Modification {
                 origin: IndexWorktree,
@@ -47,7 +47,7 @@ fn executable_bit_removed_in_worktree() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "exe",
             status: Modification {
                 origin: IndexWorktree,
@@ -73,7 +73,7 @@ fn executable_bit_removed_in_index() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "exe",
             status: Modification {
                 origin: TreeIndex,
@@ -99,7 +99,7 @@ fn executable_bit_added_in_index() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "exe",
             status: Modification {
                 origin: TreeIndex,
@@ -124,7 +124,7 @@ fn untracked_in_unborn() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "untracked",
             status: Untracked {
                 state: ChangeState {
@@ -144,7 +144,7 @@ fn added_in_unborn() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "untracked",
             status: Addition {
                 origin: TreeIndex,
@@ -165,7 +165,7 @@ fn submodule_added_in_unborn() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: ".gitmodules",
             status: Addition {
                 origin: TreeIndex,
@@ -175,7 +175,7 @@ fn submodule_added_in_unborn() -> Result<()> {
                 },
             },
         },
-        WorktreeChange {
+        TreeChange {
             path: "submodule",
             status: Addition {
                 origin: TreeIndex,
@@ -196,7 +196,7 @@ fn submodule_changed_head() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "submodule",
             status: Modification {
                 origin: IndexWorktree,
@@ -226,7 +226,7 @@ fn case_folding_worktree_changes() -> Result<()> {
     // to `file` that is actually checked out on disk.
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "FILE",
             status: Modification {
                 origin: IndexWorktree,
@@ -252,12 +252,12 @@ fn case_folding_worktree_and_index_changes() -> Result<()> {
         return Ok(());
     }
     let actual = changes(&repo)?;
-    // Here we change `FILE` to be empty, and add that change to the index. This shows up as expected.
+    // Here we TreeChange `FILE` to be empty, and add that TreeChange to the index. This shows up as expected.
     // This also means that now `FILE` is compared against `file` on disk which happens to be empty too,
-    // so no worktree change shows up.
+    // so no worktree TreeChange shows up.
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "FILE",
             status: Modification {
                 origin: TreeIndex,
@@ -282,7 +282,7 @@ fn file_to_dir_in_worktree() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "file-then-dir",
             status: Deletion {
                 origin: IndexWorktree,
@@ -292,7 +292,7 @@ fn file_to_dir_in_worktree() -> Result<()> {
                 },
             },
         },
-        WorktreeChange {
+        TreeChange {
             path: "file-then-dir/new-file",
             status: Untracked {
                 state: ChangeState {
@@ -312,7 +312,7 @@ fn file_to_dir_in_index() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "file-then-dir",
             status: Deletion {
                 origin: TreeIndex,
@@ -322,7 +322,7 @@ fn file_to_dir_in_index() -> Result<()> {
                 },
             },
         },
-        WorktreeChange {
+        TreeChange {
             path: "file-then-dir/new-file",
             status: Addition {
                 origin: TreeIndex,
@@ -343,7 +343,7 @@ fn dir_to_file_in_worktree() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "dir-soon-file",
             status: Untracked {
                 state: ChangeState {
@@ -352,7 +352,7 @@ fn dir_to_file_in_worktree() -> Result<()> {
                 },
             },
         },
-        WorktreeChange {
+        TreeChange {
             path: "dir-soon-file/file",
             status: Deletion {
                 origin: IndexWorktree,
@@ -373,7 +373,7 @@ fn dir_to_file_in_index() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "dir-soon-file",
             status: Addition {
                 origin: TreeIndex,
@@ -383,7 +383,7 @@ fn dir_to_file_in_index() -> Result<()> {
                 },
             },
         },
-        WorktreeChange {
+        TreeChange {
             path: "dir-soon-file/file",
             status: Deletion {
                 origin: TreeIndex,
@@ -405,7 +405,7 @@ fn file_to_symlink_in_worktree() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "file-soon-symlink",
             status: Modification {
                 origin: IndexWorktree,
@@ -431,7 +431,7 @@ fn file_to_symlink_in_index() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "file-soon-symlink",
             status: Modification {
                 origin: TreeIndex,
@@ -457,7 +457,7 @@ fn symlink_to_file_in_worktree() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "symlink-soon-file",
             status: Modification {
                 origin: IndexWorktree,
@@ -483,7 +483,7 @@ fn symlink_to_file_in_index() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "symlink-soon-file",
             status: Modification {
                 origin: TreeIndex,
@@ -508,7 +508,7 @@ fn added_modified_in_worktree() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "added",
             status: Addition {
                 origin: TreeIndex,
@@ -518,7 +518,7 @@ fn added_modified_in_worktree() -> Result<()> {
                 },
             },
         },
-        WorktreeChange {
+        TreeChange {
             path: "intent-to-add",
             status: Modification {
                 origin: IndexWorktree,
@@ -532,7 +532,7 @@ fn added_modified_in_worktree() -> Result<()> {
                 },
             },
         },
-        WorktreeChange {
+        TreeChange {
             path: "modified",
             status: Modification {
                 origin: IndexWorktree,
@@ -557,7 +557,7 @@ fn modified_in_index() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "modified",
             status: Modification {
                 origin: TreeIndex,
@@ -582,7 +582,7 @@ fn deleted_in_worktree() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "deleted",
             status: Deletion {
                 origin: IndexWorktree,
@@ -603,7 +603,7 @@ fn deleted_in_index() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "deleted",
             status: Deletion {
                 origin: TreeIndex,
@@ -624,7 +624,7 @@ fn renamed_in_index() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "new-name",
             status: Rename {
                 origin: TreeIndex,
@@ -650,7 +650,7 @@ fn renamed_in_worktree() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "new-name",
             status: Rename {
                 origin: IndexWorktree,
@@ -676,7 +676,7 @@ fn modified_in_index_and_workingtree() -> Result<()> {
     let actual = changes(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        WorktreeChange {
+        TreeChange {
             path: "dual-modified",
             status: Modification {
                 origin: IndexWorktree,
@@ -690,7 +690,7 @@ fn modified_in_index_and_workingtree() -> Result<()> {
                 },
             },
         },
-        WorktreeChange {
+        TreeChange {
             path: "dual-modified",
             status: Modification {
                 origin: TreeIndex,

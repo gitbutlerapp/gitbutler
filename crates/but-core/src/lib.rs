@@ -45,7 +45,7 @@ pub mod worktree;
 /// For simplicity, copy-tracking is not representable right now, but `copy: bool` could be added
 /// if needed.
 #[derive(Debug, Clone)]
-pub struct WorktreeChange {
+pub struct TreeChange {
     /// The *relative* path in the worktree where the entry can be found.
     pub path: BString,
     /// The specific information about this change.
