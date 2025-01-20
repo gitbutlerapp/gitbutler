@@ -49,7 +49,7 @@ mod flags {
 #[test]
 fn worktree_change_json_sample() {
     let actual = serde_json::to_string_pretty(&WorktreeChange {
-        path: BString::from("some/file").into(),
+        path: "some/file".into(),
         status: Status::Modification {
             flags: Some(Flags::ExecutableBitAdded),
             previous_state: ChangeState {
@@ -240,15 +240,11 @@ fn worktree_changes_example() -> anyhow::Result<()> {
       "ignoredChanges": [
         {
           "path": "conflicting",
-          "status": {
-            "type": "Conflict"
-          }
+          "status": "Conflict"
         },
         {
           "path": "removed-in-index-changed-in-worktree",
-          "status": {
-            "type": "TreeIndex"
-          }
+          "status": "TreeIndex"
         }
       ]
     }
