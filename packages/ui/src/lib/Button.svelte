@@ -12,7 +12,7 @@
 		shrinkable?: boolean;
 		reversedDirection?: boolean;
 		height?: number | string | undefined;
-		width?: number | undefined;
+		width?: number | string | undefined;
 		maxWidth?: number | undefined;
 		size?: 'tag' | 'button' | 'cta';
 		wide?: boolean;
@@ -109,7 +109,11 @@
 				? pxToRem(height)
 				: height
 			: undefined}
-		style:width={width !== undefined ? pxToRem(width) : undefined}
+		style:width={width !== undefined
+			? typeof width === 'number'
+				? pxToRem(width)
+				: width
+			: undefined}
 		style:max-width={maxWidth !== undefined ? pxToRem(maxWidth) : undefined}
 		disabled={disabled || loading}
 		onclick={handleAction}
