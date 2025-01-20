@@ -6,36 +6,35 @@
 	const { children, projectId }: { children: Snippet; projectId: string } = $props();
 </script>
 
-<div class="container">
+<div class="chrome">
 	<Header />
-	<div class="content">
+	<div class="wrapper">
 		<Sidebar {projectId} />
-		<div class="chrome">
+		<div class="content">
 			{@render children()}
 		</div>
 	</div>
 </div>
 
 <style>
-	.container {
+	.chrome {
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
-		height: 100%;
+		max-height: 100vh;
 
-		.content {
+		.wrapper {
 			display: flex;
 			flex-grow: 1;
 			height: 100%;
+			overflow-y: scroll;
 
-			.chrome {
+			.content {
 				display: flex;
 				flex-grow: 1;
-				height: calc(100% - 32px);
-				margin: 16px;
+				padding: 16px 0 0 16px;
 				align-items: self-start;
 				user-select: none;
-				position: relative;
 				background-color: var(--clr-bg-2);
 			}
 		}

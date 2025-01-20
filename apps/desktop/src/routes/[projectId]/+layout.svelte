@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Chrome from '$components/Chrome.svelte';
 	import FileMenuAction from '$components/FileMenuAction.svelte';
 	import History from '$components/History.svelte';
 	import Navigation from '$components/Navigation.svelte';
@@ -44,7 +45,6 @@
 	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import type { LayoutData } from './$types';
 	import { goto } from '$app/navigation';
-	import Chrome from '$components/Chrome.svelte';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
