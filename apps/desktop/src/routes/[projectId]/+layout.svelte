@@ -236,10 +236,10 @@
 					</Chrome>
 				{:else}
 					<Navigation />
-					{#if $showHistoryView}
-						<History onHide={() => ($showHistoryView = false)} />
-					{/if}
 					{@render children()}
+				{/if}
+				{#if $showHistoryView}
+					<History onHide={() => ($showHistoryView = false)} />
 				{/if}
 			</div>
 		{:else if $mode?.type === 'OutsideWorkspace'}
