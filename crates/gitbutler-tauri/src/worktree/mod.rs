@@ -126,16 +126,16 @@ impl From<but_core::worktree::Status> for Status {
     }
 }
 
-/// For documentation, see [`but_core::WorktreeChange`].
+/// For documentation, see [`but_core::Change`].
 #[derive(Debug, Clone, Serialize)]
-pub struct WorktreeChange {
+pub struct TreeChange {
     path: BStringForFrontend,
     status: Status,
 }
 
-impl From<but_core::WorktreeChange> for WorktreeChange {
-    fn from(but_core::WorktreeChange { path, status }: but_core::WorktreeChange) -> Self {
-        WorktreeChange {
+impl From<but_core::TreeChange> for TreeChange {
+    fn from(but_core::TreeChange { path, status }: but_core::TreeChange) -> Self {
+        TreeChange {
             path: path.into(),
             status: status.into(),
         }
@@ -159,12 +159,12 @@ pub struct IgnoredChange {
     status: IgnoredChangeStatus,
 }
 
-/// Keeps simplified [`WorktreeChanges`] along with changes that were applied to the index that we chose to ignore.
+/// Keeps simplified [`Changes`] along with changes that were applied to the index that we chose to ignore.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorktreeChanges {
     /// Changes that could be committed.
-    pub changes: Vec<WorktreeChange>,
+    pub changes: Vec<TreeChange>,
     /// Changes that were in the index that we can't handle. The user can see them and interact with them to clear them out before a commit can be made.
     pub ignored_changes: Vec<IgnoredChange>,
 }

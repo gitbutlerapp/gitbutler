@@ -1,4 +1,4 @@
-use crate::WorktreeChange;
+use crate::TreeChange;
 use anyhow::Context;
 use bstr::BString;
 use gix::dir::entry;
@@ -11,7 +11,7 @@ use gix::status::plumbing::index_as_worktree::{self, EntryStatus};
 use gix::status::tree_index::TrackRenames;
 use serde::Serialize;
 
-/// Identify where a [`WorktreeChange`] is from.
+/// Identify where a [`TreeChange`] is from.
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, Serialize)]
 pub enum Origin {
     /// The change was detected when doing a diff between a tree (`HEAD^{tree}`) and an index (`.git/index`).
@@ -20,7 +20,7 @@ pub enum Origin {
     IndexWorktree,
 }
 
-/// Specifically defines a [`WorktreeChange`].
+/// Specifically defines a [`TreeChange`].
 #[derive(Debug, Clone)]
 pub enum Status {
     /// The *index entry* is in a conflicting state, which means the *worktree* can be in one of many states,
@@ -96,7 +96,7 @@ impl Status {
     }
 }
 
-/// Something that fully identifies the state of a [`WorktreeChange`].
+/// Something that fully identifies the state of a [`TreeChange`].
 #[derive(Debug, Clone, Copy)]
 pub struct ChangeState {
     /// The content of the committable.
@@ -108,7 +108,7 @@ pub struct ChangeState {
     pub kind: gix::object::tree::EntryKind,
 }
 
-/// Return a list of [`WorktreeChange`] that live in the worktree of `repo` that changed and thus can become part of a commit.
+/// Return a list of [`TreeChange`] that live in the worktree of `repo` that changed and thus can become part of a commit.
 /// Note that the changes are returned by path, and such that [tree-index](Origin::TreeIndex) changes are happening *after*
 /// [index-worktree](Origin::IndexWorktree) changes.
 ///
@@ -117,8 +117,8 @@ pub struct ChangeState {
 /// We return entries of different [kinds](Origin), and a path could be changed in the worktree,
 /// but it could also have been staged with a different change in the index.
 ///
-/// The [`Origin`] determines which diff was performed to learn about the [`WorktreeChange`].
-pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<WorktreeChange>> {
+/// The [`Origin`] determines which diff was performed to learn about the [`TreeChange`].
+pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
     let rewrites = Default::default(); /* standard Git rewrite handling for everything */
     let status_changes = repo
         .status(gix::progress::Discard)?
@@ -152,7 +152,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<WorktreeChange>> {
                 id,
                 entry_mode,
                 ..
-            }) => WorktreeChange {
+            }) => TreeChange {
                 status: Status::Deletion {
                     origin: Origin::TreeIndex,
                     previous_state: ChangeState {
@@ -167,7 +167,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<WorktreeChange>> {
                 entry_mode,
                 id,
                 ..
-            }) => WorktreeChange {
+            }) => TreeChange {
                 path: location.into_owned(),
                 status: Status::Addition {
                     origin: Origin::TreeIndex,
@@ -184,7 +184,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<WorktreeChange>> {
                 previous_id,
                 id,
                 ..
-            }) => WorktreeChange {
+            }) => TreeChange {
                 path: location.into_owned(),
                 status: Status::Modification {
                     origin: Origin::TreeIndex,
@@ -203,7 +203,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<WorktreeChange>> {
                 entry,
                 status: EntryStatus::Change(index_as_worktree::Change::Removed),
                 ..
-            }) => WorktreeChange {
+            }) => TreeChange {
                 path: rela_path,
                 status: Status::Deletion {
                     origin: Origin::IndexWorktree,
@@ -218,7 +218,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<WorktreeChange>> {
                 entry,
                 status: EntryStatus::Change(index_as_worktree::Change::Type { worktree_mode }),
                 ..
-            }) => WorktreeChange {
+            }) => TreeChange {
                 path: rela_path,
                 status: Status::Modification {
                     origin: Origin::IndexWorktree,
@@ -244,7 +244,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<WorktreeChange>> {
                 ..
             }) => {
                 let kind = into_tree_entry_kind(entry.mode)?;
-                WorktreeChange {
+                TreeChange {
                     path: rela_path,
                     status: Status::Modification {
                         origin: Origin::IndexWorktree,
@@ -269,7 +269,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<WorktreeChange>> {
                 entry,
                 status: EntryStatus::IntentToAdd,
                 ..
-            }) => WorktreeChange {
+            }) => TreeChange {
                 path: rela_path,
                 // Because `IntentToAdd` stores an empty blob in the index, it's exactly the same diff-result
                 // as if the whole file was added to the index.
@@ -291,7 +291,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<WorktreeChange>> {
                         ..
                     },
                 ..
-            }) => WorktreeChange {
+            }) => TreeChange {
                 path: rela_path,
                 status: Status::Untracked {
                     state: match disk_kind_to_entry_kind(disk_kind, index_kind)? {
@@ -313,7 +313,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<WorktreeChange>> {
                 let Some(checked_out_head_id) = change.checked_out_head_id else {
                     continue;
                 };
-                WorktreeChange {
+                TreeChange {
                     path: rela_path,
                     status: Status::Modification {
                         origin: Origin::IndexWorktree,
@@ -333,7 +333,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<WorktreeChange>> {
                 dirwalk_entry,
                 dirwalk_entry_id,
                 ..
-            }) => WorktreeChange {
+            }) => TreeChange {
                 path: dirwalk_entry.rela_path,
                 status: Status::Rename {
                     origin: Origin::IndexWorktree,
@@ -378,7 +378,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<WorktreeChange>> {
                 entry_mode,
                 id,
                 ..
-            }) => WorktreeChange {
+            }) => TreeChange {
                 path: location.into_owned(),
                 status: Status::Rename {
                     origin: Origin::TreeIndex,
@@ -397,7 +397,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<WorktreeChange>> {
                 rela_path,
                 status: EntryStatus::Conflict(conflict),
                 ..
-            }) => WorktreeChange {
+            }) => TreeChange {
                 path: rela_path,
                 status: Status::Conflict(conflict),
             },

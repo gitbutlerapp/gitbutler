@@ -8,7 +8,7 @@ export async function worktree_changes(projectId: string): Promise<WorktreeChang
 /** Contains the changes that are in the worktree */
 export class WorktreeChanges {
 	/** Changes that could be committed. */
-	changes!: [WorktreeChange];
+	changes!: [TreeChange];
 	/**
 	Changes that were in the index that we can't handle.
 	The user can see them and interact with them to clear them out before a commit can be made.
@@ -20,7 +20,7 @@ export class WorktreeChanges {
 An entry in the worktree that changed and thus is eligible to being committed.
 It either lives (or lived) in the in `.git/index`, or in the `worktree`.
 */
-export class WorktreeChange {
+export class TreeChange {
 	/** The *relative* path in the worktree where the entry can be found.*/
 	path!: string;
 	/** The specific information about this change.*/
