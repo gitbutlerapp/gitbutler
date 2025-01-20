@@ -180,7 +180,7 @@ pub struct WorktreeChanges {
 /// All ignored status changes are also provided so they can be displayed separately.
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
-pub fn changes(
+pub fn worktree_changes(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     project_id: ProjectId,
 ) -> anyhow::Result<WorktreeChanges, Error> {

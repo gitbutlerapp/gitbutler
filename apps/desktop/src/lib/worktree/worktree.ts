@@ -2,7 +2,7 @@ import { invoke } from '$lib/backend/ipc';
 
 /** Gets the current status of the worktree */
 export async function worktree_changes(projectId: string): Promise<WorktreeChanges> {
-	return await invoke<WorktreeChanges>('changes', { projectId });
+	return await invoke<WorktreeChanges>('worktree_changes', { projectId });
 }
 
 /** Contains the changes that are in the worktree */
