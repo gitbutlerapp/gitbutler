@@ -13,4 +13,4 @@
 	});
 </script>
 
-<div>This is a V3 placeholder</div>
+<div>Workspace Page</div>
