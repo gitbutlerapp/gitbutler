@@ -144,7 +144,6 @@ impl From<but_core::WorktreeChange> for WorktreeChange {
 
 /// The status we can't handle.
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type", content = "subject")]
 pub enum IgnoredChangeStatus {
     /// A conflicting entry in the index. The worktree state of the entry is unclear.
     Conflict,

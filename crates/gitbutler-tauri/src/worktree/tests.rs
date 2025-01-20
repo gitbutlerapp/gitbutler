@@ -240,15 +240,11 @@ fn worktree_changes_example() -> anyhow::Result<()> {
       "ignoredChanges": [
         {
           "path": "conflicting",
-          "status": {
-            "type": "Conflict"
-          }
+          "status": "Conflict"
         },
         {
           "path": "removed-in-index-changed-in-worktree",
-          "status": {
-            "type": "TreeIndex"
-          }
+          "status": "TreeIndex"
         }
       ]
     }

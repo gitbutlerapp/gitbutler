@@ -58,6 +58,6 @@ export class IgnoredChange {
 /** The status we can't handle.*/
 export type IgnoredChangeStatus =
 	/** A conflicting entry in the index. The worktree state of the entry is unclear.*/
-	| { type: 'Conflict' }
+	| 'Conflict'
 	/** A change in the `.git/index` that was overruled by a change to the same path in the *worktree*.*/
-	| { type: 'TreeIndex' };
+	| 'TreeIndex';
