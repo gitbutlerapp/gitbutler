@@ -12,8 +12,8 @@ pub struct ChangeState {
     kind: gix::object::tree::EntryKind,
 }
 
-impl From<but_core::worktree::ChangeState> for ChangeState {
-    fn from(but_core::worktree::ChangeState { id, kind }: but_core::worktree::ChangeState) -> Self {
+impl From<but_core::worktree::State> for ChangeState {
+    fn from(but_core::worktree::State { id, kind }: but_core::worktree::State) -> Self {
         ChangeState { id, kind }
     }
 }
@@ -31,10 +31,7 @@ pub enum Flags {
 }
 
 impl Flags {
-    fn calculate(
-        old: &but_core::worktree::ChangeState,
-        new: &but_core::worktree::ChangeState,
-    ) -> Option<Self> {
+    fn calculate(old: &but_core::worktree::State, new: &but_core::worktree::State) -> Option<Self> {
         Self::calculate_inner(old.kind, new.kind)
     }
 

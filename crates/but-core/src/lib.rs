@@ -36,11 +36,12 @@ use bstr::BString;
 /// Functions related to a Git worktree, i.e. the files checked out from a repository.
 pub mod worktree;
 
-///
+/// utility types
 pub mod unified_diff;
 
 /// A patch in unified diff format to show how a resource changed or now looks like (in case it was newly added),
 /// or how it previously looked like in case of a deletion.
+#[derive(Debug, Clone)]
 pub enum UnifiedDiff {
     /// The resource was a binary and couldn't be diffed.
     Binary,

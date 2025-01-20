@@ -143,3 +143,40 @@ git init conflicting
 100644 $b 3	conflicting
 EOF
 )
+
+git init big-file-20-unborn
+(cd big-file-20-unborn
+  seq 10 >big
+)
+
+git init binary-file-unborn
+(cd binary-file-unborn
+  printf '\0hi\0' >with-null-bytes
+)
+
+git init diff-binary-to-text-unborn
+(cd diff-binary-to-text-unborn
+  printf '\0hi\0' >file.binary
+  echo "*.binary diff=say-hi" >.gitattributes
+
+cat <<EOF >>.git/config
+[diff "say-hi"]
+	textconv = "shift; echo hi"
+EOF
+)
+
+git init diff-binary-to-text-renamed-in-worktree
+(cd diff-binary-to-text-renamed-in-worktree
+  printf '\0hi\0' >before-rename.binary
+  echo "before-rename.binary diff=say-hi" >.gitattributes
+  echo "after-rename.binary diff=say-ho" >>.gitattributes
+  git add .
+  mv before-rename.binary after-rename.binary
+
+cat <<EOF >>.git/config
+[diff "say-hi"]
+	textconv = "shift; echo hi"
+[diff "say-ho"]
+	textconv = "shift; echo ho"
+EOF
+)
