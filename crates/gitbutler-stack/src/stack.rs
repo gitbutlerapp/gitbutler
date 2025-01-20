@@ -542,6 +542,11 @@ impl Stack {
         }
 
         if self.heads.iter().all(|branch| branch.archived) {
+            // Remove previous PR information so it looks like we started a new stack
+            for head in self.heads.iter_mut() {
+                head.pr_number = None;
+            }
+
             let new_head = self.make_new_empty_reference(ctx, false)?;
             self.heads.push(new_head);
         }
