@@ -106,13 +106,13 @@ fn main() {
 
                     app_handle.manage(WindowState::new(app_handle.clone()));
 
-                    let mut app_settings = AppSettingsWithDiskSync::new(config_dir, {
+                    let mut app_settings = AppSettingsWithDiskSync::new(config_dir)?;
+                    app_settings.watch_in_background({
                         let app_handle = app_handle.clone();
                         move |app_settings| {
                             gitbutler_tauri::ChangeForFrontend::from(app_settings).send(&app_handle)
                         }
                     })?;
-                    app_settings.watch_in_background()?;
                     app_handle.manage(app_settings);
                     let app = App {
                         app_data_dir: app_data_dir.clone(),
