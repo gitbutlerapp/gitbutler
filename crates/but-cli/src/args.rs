@@ -17,7 +17,11 @@ pub struct Args {
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
     /// Update the local workspace against an updated remote or target branch.
-    Status,
+    Status {
+        /// Also compute unified diffs for each tree-change.
+        #[clap(long, short = 'd')]
+        unified_diff: bool,
+    },
     /// Returns the list of stacks that are currently part of the GitButler workspace.
     Stacks,
 }
