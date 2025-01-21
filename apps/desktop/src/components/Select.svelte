@@ -33,7 +33,7 @@
 		maxHeight?: number;
 		searchable?: boolean;
 		customWidth?: number;
-		popupAlign?: 'left' | 'right';
+		popupAlign?: 'left' | 'right' | 'center';
 		customSelectButton?: Snippet;
 		itemSnippet: Snippet<[{ item: SelectItem<T>; highlighted: boolean; idx: number }]>;
 		children?: Snippet;
@@ -219,7 +219,9 @@
 					: undefined}
 				style:right={inputBoundingRect?.right && popupAlign === 'right'
 					? `${window.innerWidth - inputBoundingRect.right}px`
-					: undefined}
+					: inputBoundingRect && popupAlign === 'center'
+						? `${window.innerWidth - inputBoundingRect.right - inputBoundingRect.width / 2}px`
+						: undefined}
 				style:max-height={maxHeightState && `${maxHeightState}px`}
 			>
 				<ScrollableContainer initiallyVisible>
