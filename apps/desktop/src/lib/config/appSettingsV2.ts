@@ -35,6 +35,10 @@ export class SettingsService {
 		await invoke('update_telemetry', { update });
 	}
 
+	async updateFeatureFlags(update: FeatureFlagsUpdate) {
+		await invoke('update_feature_flags', { update });
+	}
+
 	/**
 	 * For all projects this call deletes the following:
 	 * - project meta data directory
@@ -50,6 +54,8 @@ export type AppSettings = {
 	onboardingComplete: boolean;
 	/** Telemetry settings */
 	telemetry: TelemetrySettings;
+	/** Feature flags that both the UI and the backend can see */
+	featureFlags: FeatureFlags;
 };
 
 export type TelemetrySettings = {
@@ -69,4 +75,13 @@ export type TelemetryUpdate = {
 	appErrorReportingEnabled: boolean | undefined;
 	/** Whether non-anonymous metrics are enabled. */
 	appNonAnonMetricsEnabled: boolean | undefined;
+};
+
+export type FeatureFlags = {
+	/** Enables the v3 design, as well as the purgatory mode (no uncommitted diff ownership assignments). */
+	v3: boolean;
+};
+
+export type FeatureFlagsUpdate = {
+	v3: boolean | undefined;
 };
