@@ -36,16 +36,37 @@ export type Flags =
 
 export type Status =
 	/** Something was added or scheduled to be added.*/
-	| { type: 'Addition'; subject: { isUntracked: boolean } }
+	| { type: 'Addition'; subject: { state: ChangeState; isUntracked: boolean } }
 	/** Something was deleted.*/
-	| { type: 'Deletion' }
+	| { type: 'Deletion'; subject: { previousState: ChangeState } }
 	/** A tracked entry was modified, i.e. content change, type change (eg. it is now a symlink), executable bit change.*/
-	| { type: 'Modification'; subject: { flags: Flags | null } }
+	| {
+			type: 'Modification';
+			subject: { previousState: ChangeState; state: ChangeState; flags: Flags | null };
+	  }
 	/**
 	An entry was renamed from `previous_path` to its current location.
 	Note that this may include a content change, as well as a change of the executable bit.
 	*/
-	| { type: 'Rename'; subject: { previousPath: string; flags: Flags | null } };
+	| {
+			type: 'Rename';
+			subject: {
+				previousPath: string;
+				previousState: ChangeState;
+				state: ChangeState;
+				flags: Flags | null;
+			};
+	  };
+
+/**
+Something that fully identifies the state of a [`TreeChange`] in the backend.
+The fontend does not need to interact with this, but when requesting the UniDiff of a TreeChange,
+this information allows for efficient retrieval of the content.
+*/
+class ChangeState {
+	id!: string;
+	kind!: string;
+}
 
 /** A way to indicate that a path in the index isn't suitable for committing and needs to be dealt with.*/
 export class IgnoredChange {
