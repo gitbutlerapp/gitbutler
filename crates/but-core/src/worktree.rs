@@ -1,6 +1,6 @@
-use crate::TreeChange;
-use anyhow::Context;
-use bstr::BString;
+use crate::{TreeChange, UnifiedDiff};
+use anyhow::{bail, Context};
+use bstr::{BString, ByteSlice};
 use gix::dir::entry;
 use gix::dir::walk::EmissionMode;
 use gix::object::tree::EntryKind;
@@ -461,4 +461,59 @@ fn disk_kind_to_entry_kind(
             entry::Kind::Symlink => EntryKind::Link,
         },
     ))
+}
+
+impl TreeChange {
+    /// Obtain a unified diff by comparing the previous and current state of this change, using `repo` to retrieve objects or
+    /// for obtaining a working tree to read files from disk.
+    pub fn unified_diff(
+        &self,
+        repo: &gix::Repository,
+        context_lines: u32,
+    ) -> anyhow::Result<UnifiedDiff> {
+        match &self.status {
+            Status::Conflict(_) => {
+                bail!("'{}' is conflicted and can't be diffed", self.path)
+            }
+            Status::Untracked { state } | Status::Addition { state, origin: _ } => {
+                UnifiedDiff::compute(repo, self.path.as_bstr(), None, *state, None, context_lines)
+            }
+            Status::Deletion {
+                previous_state,
+                origin: _,
+            } => UnifiedDiff::compute(
+                repo,
+                self.path.as_bstr(),
+                None,
+                None,
+                *previous_state,
+                context_lines,
+            ),
+            Status::Modification {
+                state,
+                previous_state,
+                origin: _,
+            } => UnifiedDiff::compute(
+                repo,
+                self.path.as_bstr(),
+                None,
+                *state,
+                *previous_state,
+                context_lines,
+            ),
+            Status::Rename {
+                previous_path,
+                previous_state,
+                state,
+                origin: _,
+            } => UnifiedDiff::compute(
+                repo,
+                self.path.as_bstr(),
+                Some(previous_path.as_bstr()),
+                *state,
+                *previous_state,
+                context_lines,
+            ),
+        }
+    }
 }

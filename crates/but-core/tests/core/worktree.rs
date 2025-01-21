@@ -1,5 +1,6 @@
 use anyhow::Result;
 use but_core::worktree::changes;
+use but_core::{TreeChange, UnifiedDiff};
 
 #[test]
 #[cfg(unix)]
@@ -37,6 +38,13 @@ fn executable_bit_added_in_worktree() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    [
+        Patch {
+            hunks: [],
+        },
+    ]
+    ");
     Ok(())
 }
 
@@ -63,6 +71,13 @@ fn executable_bit_removed_in_worktree() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    [
+        Patch {
+            hunks: [],
+        },
+    ]
+    ");
     Ok(())
 }
 
@@ -89,6 +104,13 @@ fn executable_bit_removed_in_index() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    [
+        Patch {
+            hunks: [],
+        },
+    ]
+    ");
     Ok(())
 }
 
@@ -115,6 +137,13 @@ fn executable_bit_added_in_index() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    [
+        Patch {
+            hunks: [],
+        },
+    ]
+    ");
     Ok(())
 }
 
@@ -135,6 +164,13 @@ fn untracked_in_unborn() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    [
+        Patch {
+            hunks: [],
+        },
+    ]
+    ");
     Ok(())
 }
 
@@ -156,6 +192,13 @@ fn added_in_unborn() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    [
+        Patch {
+            hunks: [],
+        },
+    ]
+    ");
     Ok(())
 }
 
@@ -187,6 +230,10 @@ fn submodule_added_in_unborn() -> Result<()> {
         },
     ]
     "#);
+    assert_eq!(
+        unified_diffs(actual, &repo).unwrap_err().to_string(),
+        "Can only diff blobs and links, not Commit"
+    );
     Ok(())
 }
 
@@ -212,6 +259,10 @@ fn submodule_changed_head() -> Result<()> {
         },
     ]
     "#);
+    assert_eq!(
+        unified_diffs(actual, &repo).unwrap_err().to_string(),
+        "Can only diff blobs and links, not Commit"
+    );
     Ok(())
 }
 
@@ -239,6 +290,21 @@ fn case_folding_worktree_changes() -> Result<()> {
                     kind: Blob,
                 },
             },
+        },
+    ]
+    "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 1,
+                    new_start: 1,
+                    new_lines: 0,
+                    diff: "@@ -1,1 +1,0 @@\n-content\n\n",
+                },
+            ],
         },
     ]
     "#);
@@ -273,6 +339,21 @@ fn case_folding_worktree_and_index_changes() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 1,
+                    new_start: 1,
+                    new_lines: 0,
+                    diff: "@@ -1,1 +1,0 @@\n-content\n\n",
+                },
+            ],
+        },
+    ]
+    "#);
     Ok(())
 }
 
@@ -300,6 +381,24 @@ fn file_to_dir_in_worktree() -> Result<()> {
                     kind: Blob,
                 },
             },
+        },
+    ]
+    "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [],
+        },
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 0,
+                    new_start: 1,
+                    new_lines: 1,
+                    diff: "@@ -1,0 +1,1 @@\n+content\n\n",
+                },
+            ],
         },
     ]
     "#);
@@ -334,6 +433,24 @@ fn file_to_dir_in_index() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [],
+        },
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 0,
+                    new_start: 1,
+                    new_lines: 1,
+                    diff: "@@ -1,0 +1,1 @@\n+content\n\n",
+                },
+            ],
+        },
+    ]
+    "#);
     Ok(())
 }
 
@@ -361,6 +478,24 @@ fn dir_to_file_in_worktree() -> Result<()> {
                     kind: Blob,
                 },
             },
+        },
+    ]
+    "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 0,
+                    new_start: 1,
+                    new_lines: 1,
+                    diff: "@@ -1,0 +1,1 @@\n+content\n\n",
+                },
+            ],
+        },
+        Patch {
+            hunks: [],
         },
     ]
     "#);
@@ -395,6 +530,24 @@ fn dir_to_file_in_index() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 0,
+                    new_start: 1,
+                    new_lines: 1,
+                    diff: "@@ -1,0 +1,1 @@\n+content\n\n",
+                },
+            ],
+        },
+        Patch {
+            hunks: [],
+        },
+    ]
+    "#);
     Ok(())
 }
 
@@ -421,6 +574,21 @@ fn file_to_symlink_in_worktree() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 1,
+                    new_start: 1,
+                    new_lines: 1,
+                    diff: "@@ -1,1 +1,1 @@\n-content\n\n+does-not-exist\n",
+                },
+            ],
+        },
+    ]
+    "#);
     Ok(())
 }
 
@@ -438,6 +606,11 @@ fn conflict() -> Result<()> {
         },
     ]
     "#);
+    assert_eq!(
+        actual[0].unified_diff(&repo, 3).unwrap_err().to_string(),
+        "'conflicting' is conflicted and can't be diffed",
+        "It indicates the problem, the client wouldn't usually try to do that."
+    );
     Ok(())
 }
 
@@ -461,6 +634,21 @@ fn file_to_symlink_in_index() -> Result<()> {
                     kind: Link,
                 },
             },
+        },
+    ]
+    "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 1,
+                    new_start: 1,
+                    new_lines: 1,
+                    diff: "@@ -1,1 +1,1 @@\n-content\n\n+does-not-exist\n",
+                },
+            ],
         },
     ]
     "#);
@@ -490,6 +678,21 @@ fn symlink_to_file_in_worktree() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 1,
+                    new_start: 1,
+                    new_lines: 1,
+                    diff: "@@ -1,1 +1,1 @@\n-target\n+content\n\n",
+                },
+            ],
+        },
+    ]
+    "#);
     Ok(())
 }
 
@@ -513,6 +716,21 @@ fn symlink_to_file_in_index() -> Result<()> {
                     kind: Blob,
                 },
             },
+        },
+    ]
+    "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 1,
+                    new_start: 1,
+                    new_lines: 1,
+                    diff: "@@ -1,1 +1,1 @@\n-target\n+content\n\n",
+                },
+            ],
         },
     ]
     "#);
@@ -565,6 +783,35 @@ fn added_modified_in_worktree() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [],
+        },
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 0,
+                    new_start: 1,
+                    new_lines: 1,
+                    diff: "@@ -1,0 +1,1 @@\n+content\n\n",
+                },
+            ],
+        },
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 1,
+                    new_start: 1,
+                    new_lines: 1,
+                    diff: "@@ -1,1 +1,1 @@\n-something\n\n+change\n\n",
+                },
+            ],
+        },
+    ]
+    "#);
     Ok(())
 }
 
@@ -590,6 +837,21 @@ fn modified_in_index() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 1,
+                    new_start: 1,
+                    new_lines: 1,
+                    diff: "@@ -1,1 +1,1 @@\n-something\n\n+change\n\n",
+                },
+            ],
+        },
+    ]
+    "#);
     Ok(())
 }
 
@@ -611,6 +873,21 @@ fn deleted_in_worktree() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 1,
+                    new_start: 1,
+                    new_lines: 0,
+                    diff: "@@ -1,1 +1,0 @@\n-something\n\n",
+                },
+            ],
+        },
+    ]
+    "#);
     Ok(())
 }
 
@@ -629,6 +906,21 @@ fn deleted_in_index() -> Result<()> {
                     kind: Blob,
                 },
             },
+        },
+    ]
+    "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 1,
+                    new_start: 1,
+                    new_lines: 0,
+                    diff: "@@ -1,1 +1,0 @@\n-something\n\n",
+                },
+            ],
         },
     ]
     "#);
@@ -658,6 +950,13 @@ fn renamed_in_index() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    [
+        Patch {
+            hunks: [],
+        },
+    ]
+    ");
     Ok(())
 }
 
@@ -684,6 +983,13 @@ fn renamed_in_worktree() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    [
+        Patch {
+            hunks: [],
+        },
+    ]
+    ");
     Ok(())
 }
 
@@ -723,7 +1029,43 @@ fn modified_in_index_and_workingtree() -> Result<()> {
         },
     ]
     "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 2,
+                    new_start: 1,
+                    new_lines: 3,
+                    diff: "@@ -1,2 +1,3 @@\n initial\n\n change\n\n+second-change\n\n",
+                },
+            ],
+        },
+        Patch {
+            hunks: [
+                DiffHunk {
+                    old_start: 1,
+                    old_lines: 1,
+                    new_start: 1,
+                    new_lines: 2,
+                    diff: "@@ -1,1 +1,2 @@\n initial\n\n+change\n\n",
+                },
+            ],
+        },
+    ]
+    "#);
     Ok(())
+}
+
+fn unified_diffs(
+    changes: Vec<TreeChange>,
+    repo: &gix::Repository,
+) -> anyhow::Result<Vec<UnifiedDiff>> {
+    changes
+        .into_iter()
+        .map(|c| c.unified_diff(repo, 3))
+        .collect()
 }
 
 pub fn repo(fixture_name: &str) -> anyhow::Result<gix::Repository> {
