@@ -79,6 +79,7 @@ export class CommitDragActions {
 		if (dropData.branchId !== this.stack.id) return false;
 
 		if (this.commit.conflicted || dropData.commit.conflicted) return false;
+		if (this.commit.id === dropData.commit.id) return false;
 
 		return true;
 	}
