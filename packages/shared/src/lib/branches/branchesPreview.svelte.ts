@@ -1,31 +1,42 @@
+import { branchReviewListingsSelectors } from '$lib/branches/branchReviewListingsSlice';
 import { branchesSelectors } from '$lib/branches/branchesSlice';
-import { BranchStatus, type Branch, type LoadableBranch } from '$lib/branches/types';
+import { BranchStatus, toCombineSlug, type Branch, type LoadableBranch } from '$lib/branches/types';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { isFound } from '$lib/network/loadable';
 import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 import type { BranchService } from '$lib/branches/branchService';
-import type { AppBranchesState } from '$lib/redux/store.svelte';
+import type { Loadable } from '$lib/network/types';
+import type { AppBranchesState, AppBranchReviewListingsState } from '$lib/redux/store.svelte';
 import type { Reactive } from '$lib/storeUtils';
 
+/** Returns a 2D List of branches. Branches grouped in a sub-array are stack*/
 export function getBranchReviewsForRepository(
-	appState: AppBranchesState,
+	appState: AppBranchesState & AppBranchReviewListingsState,
 	branchService: BranchService,
-	repositoryId: string,
+	ownerSlug: string,
+	projectSlug: string,
 	status: BranchStatus = BranchStatus.All,
 	inView?: InView
-): Reactive<Branch[][]> {
-	const branchReviewsInterest = branchService.getBranchesInterest(repositoryId, status);
+): Reactive<Loadable<Branch[][]>> {
+	const branchReviewsInterest = branchService.getBranchesInterest(ownerSlug, projectSlug, status);
 	registerInterest(branchReviewsInterest, inView);
 
+	const branchListing = $derived(
+		branchReviewListingsSelectors.selectById(
+			appState.branchReviewListings,
+			toCombineSlug(ownerSlug, projectSlug)
+		)
+	);
+
 	const branchReviews = $derived.by(() => {
+		if (!isFound(branchListing)) return branchListing as Loadable<Branch[][]>;
+
 		const groupedBranches = new Map<string, Branch[]>();
 
-		branchesSelectors.selectAll(appState.branches).forEach((loadableBranch) => {
-			if (
-				!isFound(loadableBranch) ||
-				loadableBranch.value.repositoryId !== repositoryId ||
-				loadableBranch.value.status === BranchStatus.Previous
-			) {
+		branchListing.value.forEach((branchId) => {
+			const loadableBranch = branchesSelectors.selectById(appState.branches, branchId);
+
+			if (!isFound(loadableBranch) || loadableBranch.value.status === BranchStatus.Previous) {
 				return;
 			}
 			const branch = loadableBranch.value;
@@ -36,9 +47,12 @@ export function getBranchReviewsForRepository(
 			groupedBranches.set(branch.stackId, previouslyFoundBranches);
 		});
 
-		return [...groupedBranches.values()].sort((a, b) => {
-			return new Date(b[0]!.updatedAt).getTime() - new Date(a[0]!.updatedAt).getTime();
-		});
+		return {
+			value: [...groupedBranches.values()].sort((a, b) => {
+				return new Date(b[0]!.updatedAt).getTime() - new Date(a[0]!.updatedAt).getTime();
+			}),
+			status: 'found'
+		} as Loadable<Branch[][]>;
 	});
 
 	return {
@@ -51,11 +65,10 @@ export function getBranchReviewsForRepository(
 export function getBranchReview(
 	appState: AppBranchesState,
 	branchService: BranchService,
-	repositoryId: string,
 	uuid: string,
 	inView?: InView
 ): Reactive<LoadableBranch | undefined> {
-	const branchReviewInterest = branchService.getBranchInterest(repositoryId, uuid);
+	const branchReviewInterest = branchService.getBranchInterest(uuid);
 	registerInterest(branchReviewInterest, inView);
 
 	const branchReview = $derived(branchesSelectors.selectById(appState.branches, uuid));

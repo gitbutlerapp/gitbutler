@@ -14,14 +14,14 @@ export class LatestBranchLookupService {
 		private readonly appDispatch: AppDispatch
 	) {}
 
-	getBranchUuidInterest(repositoryId: string, branchId: string): Interest {
+	getBranchUuidInterest(ownerSlug: string, projectSlug: string, branchId: string): Interest {
 		return this.branchLookupInterests
 			.findOrCreateSubscribable({ branchId }, async () => {
 				this.appDispatch.dispatch(addBranchUuid({ status: 'loading', id: branchId }));
 
 				try {
 					const branch = await this.httpClient.get<ApiBranch>(
-						`patch_stack/${repositoryId}/${branchId}`
+						`patch_stack/${ownerSlug}/${projectSlug}/branch/${branchId}`
 					);
 
 					this.appDispatch.dispatch(

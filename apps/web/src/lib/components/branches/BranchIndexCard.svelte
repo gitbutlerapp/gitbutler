@@ -21,20 +21,19 @@
 	dayjs.extend(relativeTime);
 
 	type Props = {
-		repositoryId: string;
 		uuid: string;
 		linkParams: ProjectParameters;
 		roundedTop: boolean;
 		roundedBottom: boolean;
 	};
 
-	const { uuid, repositoryId, linkParams, roundedTop, roundedBottom }: Props = $props();
+	const { uuid, linkParams, roundedTop, roundedBottom }: Props = $props();
 
 	const appState = getContext(AppState);
 	const branchService = getContext(BranchService);
 	const routes = getContext(WebRoutesService);
 
-	const branch = $derived(getBranchReview(appState, branchService, repositoryId, uuid));
+	const branch = $derived(getBranchReview(appState, branchService, uuid));
 
 	const contributors = $derived(
 		isFound(branch.current) ? getContributorsWithAvatars(branch.current.value) : Promise.resolve([])

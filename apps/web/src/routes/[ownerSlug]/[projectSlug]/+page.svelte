@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
+	import { map } from '@gitbutler/shared/network/loadable';
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
+	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
@@ -9,6 +11,7 @@
 		WebRoutesService,
 		type ProjectParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 
@@ -27,21 +30,19 @@
 		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
 	);
 
-	let deletingState = $state<'inert' | 'loading' | 'complete'>('inert');
+	const project = $derived(
+		map(repositoryId.current, (repositoryId) =>
+			getProjectByRepositoryId(appState, projectService, repositoryId)
+		)
+	);
 
 	async function deleteProject(repositoryId: string) {
 		if (!confirm('Are you sure you want to delete this project?')) {
 			return;
 		}
 
-		deletingState = 'loading';
-
-		try {
-			await projectService.deleteProject(repositoryId);
-		} finally {
-			goto(routes.projectsPath());
-			deletingState = 'complete';
-		}
+		await projectService.deleteProject(repositoryId);
+		goto(routes.projectsPath());
 	}
 </script>
 
@@ -53,10 +54,14 @@
 	<p data-info="https://youtu.be/siwpn14IE7E">The danger zone</p>
 	<Loading loadable={repositoryId.current}>
 		{#snippet children(repositoryId)}
-			<Button
-				style="error"
-				onclick={() => deleteProject(repositoryId)}
-				loading={deletingState === 'loading'}>Delete</Button
+			<Loading loadable={project?.current}>
+				{#snippet children(project)}
+					{#if project}{/if}
+				{/snippet}
+			</Loading>
+
+			<AsyncButton style="error" action={async () => await deleteProject(repositoryId)}
+				>Delete</AsyncButton
 			>
 		{/snippet}
 	</Loading>

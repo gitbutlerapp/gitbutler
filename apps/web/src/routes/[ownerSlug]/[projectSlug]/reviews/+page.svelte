@@ -4,9 +4,6 @@
 	import { getBranchReviewsForRepository } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { isFound } from '@gitbutler/shared/network/loadable';
-	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
-	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import type { ProjectParameters } from '@gitbutler/shared/routing/webRoutes.svelte';
@@ -17,25 +14,19 @@
 
 	let { data }: Props = $props();
 
-	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
 	const branchService = getContext(BranchService);
 	const appState = getContext(AppState);
 
-	const repositoryId = $derived(
-		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
-	);
 	const brancheses = $derived(
-		isFound(repositoryId.current)
-			? getBranchReviewsForRepository(appState, branchService, repositoryId.current.value)
-			: undefined
+		getBranchReviewsForRepository(appState, branchService, data.ownerSlug, data.projectSlug)
 	);
 </script>
 
 <h2>{data.ownerSlug}/{data.projectSlug}</h2>
 
-<Loading loadable={repositoryId.current}>
-	{#snippet children(repositoryId)}
-		<h3>Branches shared for review <Badge>{brancheses?.current?.length || 0}</Badge></h3>
+<Loading loadable={brancheses?.current}>
+	{#snippet children(brancheses)}
+		<h3>Branches shared for review <Badge>{brancheses.length || 0}</Badge></h3>
 
 		<table class="branches-table">
 			<thead>
@@ -51,10 +42,9 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each brancheses?.current || [] as branches, i}
+				{#each brancheses as branches, i}
 					{#each branches as branch, j}
 						<BranchIndexCard
-							{repositoryId}
 							linkParams={data}
 							uuid={branch.uuid}
 							roundedTop={j === 0 && i !== 0}

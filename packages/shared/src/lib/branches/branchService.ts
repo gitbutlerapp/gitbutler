@@ -1,9 +1,14 @@
+import {
+	addBranchReviewListing,
+	upsertBranchReviewListing
+} from '$lib/branches/branchReviewListingsSlice';
 import { addBranch, upsertBranch, upsertBranches } from '$lib/branches/branchesSlice';
 import { upsertPatches } from '$lib/branches/patchesSlice';
 import {
 	apiToBranch,
 	apiToPatch,
 	BranchStatus,
+	toCombineSlug,
 	type ApiBranch,
 	type Branch,
 	type LoadableBranch,
@@ -23,7 +28,8 @@ type BranchUpdateParams = {
 
 export class BranchService {
 	private readonly branchesInterests = new InterestStore<{
-		repositoryId: string;
+		ownerSlug: string;
+		projectSlug: string;
 		branchStatus: BranchStatus;
 	}>(POLLING_GLACIALLY);
 	private readonly branchInterests = new InterestStore<{ uuid: string }>(POLLING_REGULAR);
@@ -34,14 +40,18 @@ export class BranchService {
 	) {}
 
 	getBranchesInterest(
-		repositoryId: string,
+		ownerSlug: string,
+		projectSlug: string,
 		branchStatus: BranchStatus = BranchStatus.All
 	): Interest {
 		return this.branchesInterests
-			.findOrCreateSubscribable({ repositoryId, branchStatus }, async () => {
+			.findOrCreateSubscribable({ ownerSlug, projectSlug, branchStatus }, async () => {
+				this.appDispatch.dispatch(
+					addBranchReviewListing({ id: toCombineSlug(ownerSlug, projectSlug), status: 'loading' })
+				);
 				try {
 					const apiBranches = await this.httpClient.get<ApiBranch[]>(
-						`patch_stack/${repositoryId}?status=${branchStatus}`
+						`patch_stack/${ownerSlug}/${projectSlug}?status=${branchStatus}`
 					);
 
 					const branches = apiBranches.map(
@@ -62,23 +72,30 @@ export class BranchService {
 							})
 						);
 
-					this.appDispatch.dispatch(upsertBranches(branches));
 					this.appDispatch.dispatch(upsertPatches(patches));
-				} catch (_error: unknown) {
-					/* empty */
+					this.appDispatch.dispatch(upsertBranches(branches));
+					this.appDispatch.dispatch(
+						upsertBranchReviewListing({
+							id: toCombineSlug(ownerSlug, projectSlug),
+							status: 'found',
+							value: apiBranches.map((branch) => branch.uuid)
+						})
+					);
+				} catch (error: unknown) {
+					this.appDispatch.dispatch(
+						upsertBranchReviewListing(errorToLoadable(error, toCombineSlug(ownerSlug, projectSlug)))
+					);
 				}
 			})
 			.createInterest();
 	}
 
-	getBranchInterest(repositoryId: string, uuid: string): Interest {
+	getBranchInterest(uuid: string): Interest {
 		return this.branchInterests
 			.findOrCreateSubscribable({ uuid }, async () => {
 				this.appDispatch.dispatch(addBranch({ status: 'loading', id: uuid }));
 				try {
-					const apiBranch = await this.httpClient.get<ApiBranch>(
-						`patch_stack/uuid/${repositoryId}/${uuid}`
-					);
+					const apiBranch = await this.httpClient.get<ApiBranch>(`patch_stack/${uuid}`);
 					const branch: LoadableBranch = {
 						status: 'found',
 						id: apiBranch.uuid,

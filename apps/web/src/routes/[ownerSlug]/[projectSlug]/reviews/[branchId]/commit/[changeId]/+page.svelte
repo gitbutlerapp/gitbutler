@@ -42,19 +42,18 @@
 	);
 
 	const branchUuid = $derived(
-		map(repositoryId.current, (repositoryId) => {
-			return lookupLatestBranchUuid(
-				appState,
-				latestBranchLookupService,
-				repositoryId,
-				data.branchId
-			);
-		})
+		lookupLatestBranchUuid(
+			appState,
+			latestBranchLookupService,
+			data.ownerSlug,
+			data.projectSlug,
+			data.branchId
+		)
 	);
 
 	const branch = $derived(
-		map(combine([repositoryId.current, branchUuid?.current]), ([repositoryId, branchUuid]) => {
-			return getBranchReview(appState, branchService, repositoryId, branchUuid);
+		map(branchUuid?.current, (branchUuid) => {
+			return getBranchReview(appState, branchService, branchUuid);
 		})
 	);
 
