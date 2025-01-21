@@ -450,13 +450,13 @@ impl RepositoryExt for git2::Repository {
                 }
 
                 let args = format!(
-                    "{} -U {}",
+                    "'{}' -U '{}'",
                     key_storage.path().to_string_lossy(),
                     buffer_file_to_sign_path_str,
                 );
                 cmd_string += &args;
             } else {
-                let args = format!("{} {}", signing_key, buffer_file_to_sign_path_str);
+                let args = format!("'{}' '{}'", signing_key, buffer_file_to_sign_path_str);
                 cmd_string += &args;
             };
             let mut signing_cmd: std::process::Command = command_with_login_shell(cmd_string);
@@ -581,11 +581,13 @@ impl RepositoryExt for git2::Repository {
 }
 
 pub fn command_with_login_shell(shell_cmd: impl Into<OsString>) -> std::process::Command {
-    gix::command::prepare(shell_cmd)
+    let cmd: std::process::Command = gix::command::prepare(shell_cmd)
         .with_shell_disallow_manual_argument_splitting()
         // On Windows, this yields the Git-bundled `sh.exe`, on Linux it uses `/bin/sh`.
         .with_shell_program(gix::path::env::shell())
-        .into()
+        .into();
+    tracing::debug!(?cmd, "command to produce commit signature");
+    cmd
 }
 
 /// Signs the buffer with the configured gpg key, returning the signature.
