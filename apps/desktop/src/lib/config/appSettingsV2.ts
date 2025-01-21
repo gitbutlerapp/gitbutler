@@ -31,11 +31,11 @@ export class SettingsService {
 		await invoke('update_onboarding_complete', { update });
 	}
 
-	async updateTelemetry(update: TelemetryUpdate) {
+	async updateTelemetry(update: Partial<TelemetrySettings>) {
 		await invoke('update_telemetry', { update });
 	}
 
-	async updateFeatureFlags(update: FeatureFlagsUpdate) {
+	async updateFeatureFlags(update: Partial<FeatureFlags>) {
 		await invoke('update_feature_flags', { update });
 	}
 
@@ -67,21 +67,7 @@ export type TelemetrySettings = {
 	appNonAnonMetricsEnabled: boolean;
 };
 
-/** Request updating the TelemetrySettings. Only the fields that are set are updated */
-export type TelemetryUpdate = {
-	/** Whether the anonymous metrics are enabled. */
-	appMetricsEnabled: boolean | undefined;
-	/** Whether anonymous error reporting is enabled. */
-	appErrorReportingEnabled: boolean | undefined;
-	/** Whether non-anonymous metrics are enabled. */
-	appNonAnonMetricsEnabled: boolean | undefined;
-};
-
 export type FeatureFlags = {
 	/** Enables the v3 design, as well as the purgatory mode (no uncommitted diff ownership assignments). */
 	v3: boolean;
-};
-
-export type FeatureFlagsUpdate = {
-	v3: boolean | undefined;
 };
