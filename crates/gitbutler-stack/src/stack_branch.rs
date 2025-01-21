@@ -112,6 +112,7 @@ impl StackBranch {
             return Ok(BranchCommits {
                 local_commits: vec![],
                 remote_commits: vec![],
+                upstream_only: vec![],
             });
         }
         let head_commit = head_commit?.head.id();
@@ -155,9 +156,23 @@ impl StackBranch {
                 });
         }
 
+        // refs/remotes/origin/my-branch..^refs/heads/my-branch
+        let mut upstream_only_patches: Vec<Commit<'_>> = vec![];
+        if self.pushed(&remote, repository) {
+            let upstream_head = repository
+                .find_reference(self.remote_reference(&remote).as_str())?
+                .peel_to_commit()?;
+            repository
+                .log(upstream_head.id(), LogUntil::Commit(head_commit), false)?
+                .into_iter()
+                .rev()
+                .for_each(|c| upstream_only_patches.push(c));
+        }
+
         Ok(BranchCommits {
             local_commits: local_patches,
             remote_commits: remote_patches,
+            upstream_only: upstream_only_patches,
         })
     }
 }
@@ -173,6 +188,11 @@ pub struct BranchCommits<'a> {
     /// If the branch/series have never been pushed, this list will be empty.
     /// Topologically ordered, the first entry is the newest in the series.
     pub remote_commits: Vec<Commit<'a>>,
+    /// List of commits that exist **only** on the upstream branch. Ordered from newest to oldest.
+    /// Created from the tip of the local tracking branch eg. refs/remotes/origin/my-branch -> refs/heads/my-branch
+    /// This does **not** include the commits that are in the commits list (local)
+    /// This is effectively the list of commits that are on the remote branch but are not in the working copy.
+    pub upstream_only: Vec<Commit<'a>>,
 }
 
 impl BranchCommits<'_> {
