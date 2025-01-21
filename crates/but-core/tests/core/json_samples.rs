@@ -43,9 +43,7 @@ fn worktree_change_json_sample() {
 
 #[test]
 fn worktree_changes_example() -> anyhow::Result<()> {
-    let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
-        .map_err(anyhow::Error::from_boxed)?;
-    let repo = gix::open_opts(root, gix::open::Options::isolated())?;
+    let repo = repo("many-in-worktree")?;
     let actual = serde_json::to_string_pretty(&but_core::worktree_changes(&repo)?)?;
     insta::assert_snapshot!(actual, @r#"
     {
@@ -212,9 +210,7 @@ fn worktree_changes_example() -> anyhow::Result<()> {
 
 #[test]
 fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
-    let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
-        .map_err(anyhow::Error::from_boxed)?;
-    let repo = gix::open_opts(&root, gix::open::Options::isolated())?;
+    let repo = repo("many-in-worktree")?;
     let diffs: Vec<UnifiedDiff> = but_core::worktree_changes(&repo)?
         .changes
         .iter()
@@ -334,4 +330,13 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
     ]
     "#);
     Ok(())
+}
+
+pub fn repo(name: &str) -> anyhow::Result<gix::Repository> {
+    let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
+        .map_err(anyhow::Error::from_boxed)?;
+    Ok(gix::open_opts(
+        root.join(name),
+        gix::open::Options::isolated(),
+    )?)
 }

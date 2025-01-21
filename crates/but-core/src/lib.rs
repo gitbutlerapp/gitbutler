@@ -39,6 +39,9 @@ use serde::{Deserialize, Serialize};
 mod worktree;
 pub use worktree::changes as worktree_changes;
 
+mod commit;
+pub use commit::changes as commit_changes;
+
 /// utility types
 pub mod unified_diff;
 
