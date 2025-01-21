@@ -53,3 +53,4 @@ storybook-static
 
 # Rust analyzer
 .rust-analyzer/
+.aider*
