@@ -13,6 +13,8 @@ pub struct AppSettings {
     pub telemetry: app_settings::TelemetrySettings,
     /// Client ID for the GitHub OAuth application.
     pub github_oauth_app: app_settings::GitHubOAuthAppSettings,
+    /// Application feature flags.
+    pub feature_flags: app_settings::FeatureFlags,
 }
 
 pub mod app_settings;

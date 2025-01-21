@@ -17,3 +17,10 @@ pub struct GitHubOAuthAppSettings {
     /// Client ID for the GitHub OAuth application. Set this to use custom (non-GitButler) OAuth application.
     pub oauth_client_id: String,
 }
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FeatureFlags {
+    /// Enables the v3 design, as well as the purgatory mode (no uncommitted diff ownership assignments).
+    pub v3: bool,
+}
