@@ -152,7 +152,6 @@
 		user-select: none;
 		position: relative;
 		display: inline-flex;
-		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
