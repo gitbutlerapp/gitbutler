@@ -5,9 +5,10 @@ use gitbutler_serde::BStringForFrontend;
 use serde::Serialize;
 use tracing::instrument;
 
+/// The array of unified diffs matches `changes`, so that `result[n] = unified_diff_of(changes[n])`.
 #[tauri::command(async)]
 #[instrument(skip(projects, changes), err(Debug))]
-pub fn unified_diffs(
+pub fn tree_change_diffs(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     project_id: ProjectId,
     changes: Vec<TreeChange>,

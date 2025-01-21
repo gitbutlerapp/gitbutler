@@ -46,8 +46,8 @@ impl UnifiedDiff {
         repo: &gix::Repository,
         path: &BStr,
         previous_path: Option<&BStr>,
-        current_state: impl Into<Option<worktree::State>>,
-        previous_state: impl Into<Option<worktree::State>>,
+        current_state: impl Into<Option<worktree::ChangeState>>,
+        previous_state: impl Into<Option<worktree::ChangeState>>,
         context_lines: u32,
     ) -> anyhow::Result<Self> {
         let current_state = current_state.into();

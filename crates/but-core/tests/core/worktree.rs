@@ -26,11 +26,11 @@ fn executable_bit_added_in_worktree() -> Result<()> {
             path: "exe",
             status: Modification {
                 origin: IndexWorktree,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
                     kind: Blob,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(0000000000000000000000000000000000000000),
                     kind: BlobExecutable,
                 },
@@ -59,11 +59,11 @@ fn executable_bit_removed_in_worktree() -> Result<()> {
             path: "exe",
             status: Modification {
                 origin: IndexWorktree,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
                     kind: BlobExecutable,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(0000000000000000000000000000000000000000),
                     kind: Blob,
                 },
@@ -92,11 +92,11 @@ fn executable_bit_removed_in_index() -> Result<()> {
             path: "exe",
             status: Modification {
                 origin: TreeIndex,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
                     kind: BlobExecutable,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
                     kind: Blob,
                 },
@@ -125,11 +125,11 @@ fn executable_bit_added_in_index() -> Result<()> {
             path: "exe",
             status: Modification {
                 origin: TreeIndex,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
                     kind: Blob,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
                     kind: BlobExecutable,
                 },
@@ -156,7 +156,7 @@ fn untracked_in_unborn() -> Result<()> {
         TreeChange {
             path: "untracked",
             status: Untracked {
-                state: State {
+                state: ChangeState {
                     id: Sha1(0000000000000000000000000000000000000000),
                     kind: Blob,
                 },
@@ -184,7 +184,7 @@ fn added_in_unborn() -> Result<()> {
             path: "untracked",
             status: Addition {
                 origin: TreeIndex,
-                state: State {
+                state: ChangeState {
                     id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
                     kind: Blob,
                 },
@@ -212,7 +212,7 @@ fn submodule_added_in_unborn() -> Result<()> {
             path: ".gitmodules",
             status: Addition {
                 origin: TreeIndex,
-                state: State {
+                state: ChangeState {
                     id: Sha1(46f8c8b821d79a888a1ea0b30ec9f5d7e90821b0),
                     kind: Blob,
                 },
@@ -222,7 +222,7 @@ fn submodule_added_in_unborn() -> Result<()> {
             path: "submodule",
             status: Addition {
                 origin: TreeIndex,
-                state: State {
+                state: ChangeState {
                     id: Sha1(e95516bd2f49a83a6cdb98cfec40b2717fbc2c1b),
                     kind: Commit,
                 },
@@ -247,11 +247,11 @@ fn submodule_changed_head() -> Result<()> {
             path: "submodule",
             status: Modification {
                 origin: IndexWorktree,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(e95516bd2f49a83a6cdb98cfec40b2717fbc2c1b),
                     kind: Commit,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(800a5398d76f28db44bc976b561d8885687fd1b6),
                     kind: Commit,
                 },
@@ -281,11 +281,11 @@ fn case_folding_worktree_changes() -> Result<()> {
             path: "FILE",
             status: Modification {
                 origin: IndexWorktree,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
                     kind: Blob,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(0000000000000000000000000000000000000000),
                     kind: Blob,
                 },
@@ -327,11 +327,11 @@ fn case_folding_worktree_and_index_changes() -> Result<()> {
             path: "FILE",
             status: Modification {
                 origin: TreeIndex,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
                     kind: Blob,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
                     kind: Blob,
                 },
@@ -367,7 +367,7 @@ fn file_to_dir_in_worktree() -> Result<()> {
             path: "file-then-dir",
             status: Deletion {
                 origin: IndexWorktree,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
                     kind: Blob,
                 },
@@ -376,7 +376,7 @@ fn file_to_dir_in_worktree() -> Result<()> {
         TreeChange {
             path: "file-then-dir/new-file",
             status: Untracked {
-                state: State {
+                state: ChangeState {
                     id: Sha1(0000000000000000000000000000000000000000),
                     kind: Blob,
                 },
@@ -415,7 +415,7 @@ fn file_to_dir_in_index() -> Result<()> {
             path: "file-then-dir",
             status: Deletion {
                 origin: TreeIndex,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
                     kind: Blob,
                 },
@@ -425,7 +425,7 @@ fn file_to_dir_in_index() -> Result<()> {
             path: "file-then-dir/new-file",
             status: Addition {
                 origin: TreeIndex,
-                state: State {
+                state: ChangeState {
                     id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
                     kind: Blob,
                 },
@@ -463,7 +463,7 @@ fn dir_to_file_in_worktree() -> Result<()> {
         TreeChange {
             path: "dir-soon-file",
             status: Untracked {
-                state: State {
+                state: ChangeState {
                     id: Sha1(0000000000000000000000000000000000000000),
                     kind: Blob,
                 },
@@ -473,7 +473,7 @@ fn dir_to_file_in_worktree() -> Result<()> {
             path: "dir-soon-file/file",
             status: Deletion {
                 origin: IndexWorktree,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
                     kind: Blob,
                 },
@@ -512,7 +512,7 @@ fn dir_to_file_in_index() -> Result<()> {
             path: "dir-soon-file",
             status: Addition {
                 origin: TreeIndex,
-                state: State {
+                state: ChangeState {
                     id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
                     kind: Blob,
                 },
@@ -522,7 +522,7 @@ fn dir_to_file_in_index() -> Result<()> {
             path: "dir-soon-file/file",
             status: Deletion {
                 origin: TreeIndex,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
                     kind: Blob,
                 },
@@ -562,11 +562,11 @@ fn file_to_symlink_in_worktree() -> Result<()> {
             path: "file-soon-symlink",
             status: Modification {
                 origin: IndexWorktree,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
                     kind: Blob,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(0000000000000000000000000000000000000000),
                     kind: Link,
                 },
@@ -625,11 +625,11 @@ fn file_to_symlink_in_index() -> Result<()> {
             path: "file-soon-symlink",
             status: Modification {
                 origin: TreeIndex,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
                     kind: Blob,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(cfa0a46515b5e7117875427e7bb0480066d2e380),
                     kind: Link,
                 },
@@ -666,11 +666,11 @@ fn symlink_to_file_in_worktree() -> Result<()> {
             path: "symlink-soon-file",
             status: Modification {
                 origin: IndexWorktree,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(1de565933b05f74c75ff9a6520af5f9f8a5a2f1d),
                     kind: Link,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(0000000000000000000000000000000000000000),
                     kind: Blob,
                 },
@@ -707,11 +707,11 @@ fn symlink_to_file_in_index() -> Result<()> {
             path: "symlink-soon-file",
             status: Modification {
                 origin: TreeIndex,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(1de565933b05f74c75ff9a6520af5f9f8a5a2f1d),
                     kind: Link,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
                     kind: Blob,
                 },
@@ -747,7 +747,7 @@ fn added_modified_in_worktree() -> Result<()> {
             path: "added",
             status: Addition {
                 origin: TreeIndex,
-                state: State {
+                state: ChangeState {
                     id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
                     kind: Blob,
                 },
@@ -757,11 +757,11 @@ fn added_modified_in_worktree() -> Result<()> {
             path: "intent-to-add",
             status: Modification {
                 origin: IndexWorktree,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
                     kind: Blob,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(0000000000000000000000000000000000000000),
                     kind: Blob,
                 },
@@ -771,11 +771,11 @@ fn added_modified_in_worktree() -> Result<()> {
             path: "modified",
             status: Modification {
                 origin: IndexWorktree,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(deba01fc8d98200761c46eb139f11ac244cf6eb5),
                     kind: Blob,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(0000000000000000000000000000000000000000),
                     kind: Blob,
                 },
@@ -825,11 +825,11 @@ fn modified_in_index() -> Result<()> {
             path: "modified",
             status: Modification {
                 origin: TreeIndex,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(deba01fc8d98200761c46eb139f11ac244cf6eb5),
                     kind: Blob,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(0835e4f9714005ed591f68d306eea0d6d2ae8fd7),
                     kind: Blob,
                 },
@@ -865,7 +865,7 @@ fn deleted_in_worktree() -> Result<()> {
             path: "deleted",
             status: Deletion {
                 origin: IndexWorktree,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(deba01fc8d98200761c46eb139f11ac244cf6eb5),
                     kind: Blob,
                 },
@@ -901,7 +901,7 @@ fn deleted_in_index() -> Result<()> {
             path: "deleted",
             status: Deletion {
                 origin: TreeIndex,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(deba01fc8d98200761c46eb139f11ac244cf6eb5),
                     kind: Blob,
                 },
@@ -938,11 +938,11 @@ fn renamed_in_index() -> Result<()> {
             status: Rename {
                 origin: TreeIndex,
                 previous_path: "to-be-renamed",
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
                     kind: Blob,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
                     kind: Blob,
                 },
@@ -971,11 +971,11 @@ fn renamed_in_worktree() -> Result<()> {
             status: Rename {
                 origin: IndexWorktree,
                 previous_path: "to-be-renamed",
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
                     kind: Blob,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
                     kind: Blob,
                 },
@@ -1003,11 +1003,11 @@ fn modified_in_index_and_workingtree() -> Result<()> {
             path: "dual-modified",
             status: Modification {
                 origin: IndexWorktree,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(8ea0713f9d637081cc0098035465c365c0c32949),
                     kind: Blob,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(0000000000000000000000000000000000000000),
                     kind: Blob,
                 },
@@ -1017,11 +1017,11 @@ fn modified_in_index_and_workingtree() -> Result<()> {
             path: "dual-modified",
             status: Modification {
                 origin: TreeIndex,
-                previous_state: State {
+                previous_state: ChangeState {
                     id: Sha1(e79c5e8f964493290a409888d5413a737e8e5dd5),
                     kind: Blob,
                 },
-                state: State {
+                state: ChangeState {
                     id: Sha1(8ea0713f9d637081cc0098035465c365c0c32949),
                     kind: Blob,
                 },

@@ -12,15 +12,15 @@ pub struct ChangeState {
     kind: gix::object::tree::EntryKind,
 }
 
-impl From<but_core::worktree::State> for ChangeState {
-    fn from(but_core::worktree::State { id, kind }: but_core::worktree::State) -> Self {
+impl From<but_core::worktree::ChangeState> for ChangeState {
+    fn from(but_core::worktree::ChangeState { id, kind }: but_core::worktree::ChangeState) -> Self {
         ChangeState { id, kind }
     }
 }
 
-impl From<ChangeState> for but_core::worktree::State {
+impl From<ChangeState> for but_core::worktree::ChangeState {
     fn from(value: ChangeState) -> Self {
-        but_core::worktree::State {
+        but_core::worktree::ChangeState {
             id: value.id,
             kind: value.kind,
         }
@@ -40,7 +40,10 @@ pub enum Flags {
 }
 
 impl Flags {
-    fn calculate(old: &but_core::worktree::State, new: &but_core::worktree::State) -> Option<Self> {
+    fn calculate(
+        old: &but_core::worktree::ChangeState,
+        new: &but_core::worktree::ChangeState,
+    ) -> Option<Self> {
         Self::calculate_inner(old.kind, new.kind)
     }
 
@@ -151,9 +154,12 @@ impl From<but_core::TreeChange> for TreeChange {
 impl TreeChange {
     /// Obtain a unified diff by comparing the previous and current state of this change,
     /// using `repo` to retrieve objects or for obtaining a working tree to read files from disk.
+    ///
+    /// Note that the amount of lines of context is currently hardcoded to 3 as context *may* be needed
+    /// when applying patches to commits.
     pub fn unified_diff(&self, repo: &gix::Repository) -> anyhow::Result<crate::diff::UnifiedDiff> {
         use gix::bstr::ByteSlice;
-        let context_lines = 3;
+        const CONTEXT_LINES: u32 = 3;
         let diff = match &self.status {
             Status::Addition {
                 state,
@@ -164,7 +170,7 @@ impl TreeChange {
                 None,
                 Some((*state).into()),
                 None,
-                context_lines,
+                CONTEXT_LINES,
             ),
             Status::Deletion { previous_state } => but_core::UnifiedDiff::compute(
                 repo,
@@ -172,7 +178,7 @@ impl TreeChange {
                 None,
                 None,
                 Some((*previous_state).into()),
-                context_lines,
+                CONTEXT_LINES,
             ),
             Status::Modification {
                 state,
@@ -184,7 +190,7 @@ impl TreeChange {
                 None,
                 Some((*state).into()),
                 Some((*previous_state).into()),
-                context_lines,
+                CONTEXT_LINES,
             ),
             Status::Rename {
                 previous_path,
@@ -197,7 +203,7 @@ impl TreeChange {
                 Some(previous_path.as_bstr()),
                 Some((*state).into()),
                 Some((*previous_state).into()),
-                context_lines,
+                CONTEXT_LINES,
             ),
         }?
         .into();

@@ -8,7 +8,7 @@ fn file_added_in_worktree() -> anyhow::Result<()> {
         &repo,
         "modified".into(),
         None,
-        worktree::State {
+        worktree::ChangeState {
             id: repo.object_hash().null(),
             kind: EntryKind::Blob,
         },
@@ -37,7 +37,7 @@ fn binary_text_in_unborn() -> anyhow::Result<()> {
         &repo,
         "file.binary".into(),
         None,
-        worktree::State {
+        worktree::ChangeState {
             id: repo.object_hash().null(),
             kind: EntryKind::Blob,
         },
@@ -67,11 +67,11 @@ fn binary_text_renamed_unborn() -> anyhow::Result<()> {
         &repo,
         "after-rename.binary".into(),
         Some("before-rename.binary".into()),
-        worktree::State {
+        worktree::ChangeState {
             id: repo.object_hash().null(),
             kind: EntryKind::Blob,
         },
-        worktree::State {
+        worktree::ChangeState {
             id: repo.rev_parse_single(":before-rename.binary")?.into(),
             kind: EntryKind::Blob,
         },
@@ -96,7 +96,7 @@ fn binary_text_renamed_unborn() -> anyhow::Result<()> {
 fn file_deleted_in_worktree() -> anyhow::Result<()> {
     let repo = crate::worktree::repo("added-modified-in-worktree")?;
     // Pretending there is no current version does the trick.
-    let previous_state = worktree::State {
+    let previous_state = worktree::ChangeState {
         id: repo.rev_parse_single("@:modified")?.into(),
         kind: EntryKind::Blob,
     };
@@ -133,7 +133,7 @@ fn big_file_20_in_worktree() -> anyhow::Result<()> {
         &repo,
         "big".into(),
         None,
-        worktree::State {
+        worktree::ChangeState {
             id: repo.object_hash().null(),
             kind: EntryKind::Blob,
         },
@@ -161,7 +161,7 @@ fn binary_file_in_worktree() -> anyhow::Result<()> {
         &repo,
         "with-null-bytes".into(),
         None,
-        worktree::State {
+        worktree::ChangeState {
             id: repo.object_hash().null(),
             kind: EntryKind::Blob,
         },
@@ -187,11 +187,11 @@ fn symlink_modified_in_worktree() -> anyhow::Result<()> {
         &repo,
         "symlink".into(),
         None,
-        worktree::State {
+        worktree::ChangeState {
             id: repo.object_hash().null(),
             kind: EntryKind::Link,
         },
-        worktree::State {
+        worktree::ChangeState {
             id: repo.rev_parse_single("@:symlink")?.into(),
             kind: EntryKind::Link,
         },

@@ -249,7 +249,7 @@ fn main() {
                     settings::update_telemetry,
                     workspace::stacks,
                     worktree::worktree_changes,
-                    diff::unified_diffs
+                    diff::tree_change_diffs
                 ])
                 .menu(menu::build)
                 .on_window_event(|window, event| match event {

@@ -29,7 +29,7 @@ pub enum Status {
     /// A file that was never tracked by Git.
     Untracked {
         /// The kind of file if it was tracked, with unknown content.
-        state: State,
+        state: ChangeState,
     },
     /// Something was added or scheduled to be added.
     Addition {
@@ -39,7 +39,7 @@ pub enum Status {
         /// * If [`Origin::TreeIndex`], then `state` is what has been added to the index and what should be in the next commit.
         origin: Origin,
         /// The current state of what was added or will be added
-        state: State,
+        state: ChangeState,
     },
     /// Something was deleted.
     Deletion {
@@ -49,7 +49,7 @@ pub enum Status {
         /// * If [`Origin::TreeIndex`], then `previous_state` is what was recorded in `HEAD^{tree}` and the entry from the index was deleted.
         origin: Origin,
         /// The that Git stored before the deletion.
-        previous_state: State,
+        previous_state: ChangeState,
     },
     /// A tracked entry was modified, which might mean:
     ///
@@ -64,9 +64,9 @@ pub enum Status {
         /// Where the modification was registered.
         origin: Origin,
         /// The that Git stored before the modification.
-        previous_state: State,
+        previous_state: ChangeState,
         /// The current state, i.e. the modification itself.
-        state: State,
+        state: ChangeState,
     },
     /// An entry was renamed from `previous_path` to its current location.
     ///
@@ -77,9 +77,9 @@ pub enum Status {
         /// The path relative to the repository at which the entry was previously located.
         previous_path: BString,
         /// The that Git stored before the modification.
-        previous_state: State,
+        previous_state: ChangeState,
         /// The current state, i.e. the modification itself.
-        state: State,
+        state: ChangeState,
     },
 }
 
@@ -98,7 +98,7 @@ impl Status {
 
 /// Something that fully identifies the state of a [`TreeChange`].
 #[derive(Debug, Clone, Copy)]
-pub struct State {
+pub struct ChangeState {
     /// The content of the committable.
     ///
     /// If [`null`](gix::ObjectId::is_null), the current state isn't known which can happen
@@ -155,7 +155,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
             }) => TreeChange {
                 status: Status::Deletion {
                     origin: Origin::TreeIndex,
-                    previous_state: State {
+                    previous_state: ChangeState {
                         id: id.into_owned(),
                         kind: into_tree_entry_kind(entry_mode)?,
                     },
@@ -171,7 +171,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
                 path: location.into_owned(),
                 status: Status::Addition {
                     origin: Origin::TreeIndex,
-                    state: State {
+                    state: ChangeState {
                         id: id.into_owned(),
                         kind: into_tree_entry_kind(entry_mode)?,
                     },
@@ -188,11 +188,11 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
                 path: location.into_owned(),
                 status: Status::Modification {
                     origin: Origin::TreeIndex,
-                    previous_state: State {
+                    previous_state: ChangeState {
                         id: previous_id.into_owned(),
                         kind: into_tree_entry_kind(previous_entry_mode)?,
                     },
-                    state: State {
+                    state: ChangeState {
                         id: id.into_owned(),
                         kind: into_tree_entry_kind(entry_mode)?,
                     },
@@ -207,7 +207,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
                 path: rela_path,
                 status: Status::Deletion {
                     origin: Origin::IndexWorktree,
-                    previous_state: State {
+                    previous_state: ChangeState {
                         id: entry.id,
                         kind: into_tree_entry_kind(entry.mode)?,
                     },
@@ -222,11 +222,11 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
                 path: rela_path,
                 status: Status::Modification {
                     origin: Origin::IndexWorktree,
-                    previous_state: State {
+                    previous_state: ChangeState {
                         id: entry.id,
                         kind: into_tree_entry_kind(entry.mode)?,
                     },
-                    state: State {
+                    state: ChangeState {
                         // actual state unclear, type changed to something potentially unhashable
                         id: repo.object_hash().null(),
                         kind: into_tree_entry_kind(worktree_mode)?,
@@ -248,8 +248,8 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
                     path: rela_path,
                     status: Status::Modification {
                         origin: Origin::IndexWorktree,
-                        previous_state: State { id: entry.id, kind },
-                        state: State {
+                        previous_state: ChangeState { id: entry.id, kind },
+                        state: ChangeState {
                             id: repo.object_hash().null(),
                             kind: if executable_bit_changed {
                                 if kind == EntryKind::BlobExecutable {
@@ -275,7 +275,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
                 // as if the whole file was added to the index.
                 status: Status::Addition {
                     origin: Origin::IndexWorktree,
-                    state: State {
+                    state: ChangeState {
                         id: repo.object_hash().null(), /* hash unclear for working tree file */
                         kind: into_tree_entry_kind(entry.mode)?,
                     },
@@ -296,7 +296,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
                 status: Status::Untracked {
                     state: match disk_kind_to_entry_kind(disk_kind, index_kind)? {
                         None => continue,
-                        Some(kind) => State {
+                        Some(kind) => ChangeState {
                             id: repo.object_hash().null(),
                             kind,
                         },
@@ -317,11 +317,11 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
                     path: rela_path,
                     status: Status::Modification {
                         origin: Origin::IndexWorktree,
-                        previous_state: State {
+                        previous_state: ChangeState {
                             id: entry.id,
                             kind: into_tree_entry_kind(entry.mode)?,
                         },
-                        state: State {
+                        state: ChangeState {
                             id: checked_out_head_id,
                             kind: into_tree_entry_kind(entry.mode)?,
                         },
@@ -339,7 +339,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
                     origin: Origin::IndexWorktree,
                     previous_path: source.rela_path().into(),
                     previous_state: match source {
-                        RewriteSource::RewriteFromIndex { source_entry, .. } => State {
+                        RewriteSource::RewriteFromIndex { source_entry, .. } => ChangeState {
                             id: source_entry.id,
                             kind: into_tree_entry_kind(source_entry.mode)?,
                         },
@@ -347,7 +347,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
                             source_dirwalk_entry,
                             source_dirwalk_entry_id,
                             ..
-                        } => State {
+                        } => ChangeState {
                             id: source_dirwalk_entry_id,
                             kind: match disk_kind_to_entry_kind(
                                 source_dirwalk_entry.disk_kind,
@@ -358,7 +358,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
                             },
                         },
                     },
-                    state: State {
+                    state: ChangeState {
                         id: dirwalk_entry_id,
                         kind: match disk_kind_to_entry_kind(
                             dirwalk_entry.disk_kind,
@@ -383,11 +383,11 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
                 status: Status::Rename {
                     origin: Origin::TreeIndex,
                     previous_path: source_location.into_owned(),
-                    previous_state: State {
+                    previous_state: ChangeState {
                         id: source_id.into_owned(),
                         kind: into_tree_entry_kind(source_entry_mode)?,
                     },
-                    state: State {
+                    state: ChangeState {
                         id: id.into_owned(),
                         kind: into_tree_entry_kind(entry_mode)?,
                     },
