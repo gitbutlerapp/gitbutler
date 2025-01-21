@@ -1,10 +1,14 @@
 <script lang="ts">
+	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import { Project } from '$lib/project/project';
 	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { User } from '$lib/user/user';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { slide } from 'svelte/transition';
 	import { goto } from '$app/navigation';
@@ -12,6 +16,10 @@
 	const routes = getContext(DesktopRoutesService);
 	const project = getContext(Project);
 	const user = getContextStore(User);
+
+	let contextTriggerButton = $state<HTMLDivElement>();
+	let contextMenuEl = $state<ContextMenu>();
+	let shareIssueModal = $state<ShareIssueModal>();
 </script>
 
 <nav class="sidebar">
@@ -24,7 +32,7 @@
 				kind="outline"
 				onclick={() => goto(routes.workspacePath(project.id))}
 				width={34}
-				class="btn-square"
+				class={['btn-square', routes.isWorkspacePath && 'btn-active']}
 			>
 				<svg
 					viewBox="0 0 16 13"
@@ -51,7 +59,7 @@
 				kind="outline"
 				onclick={() => goto(routes.branchesPath(project.id))}
 				width={34}
-				class="btn-square"
+				class={['btn-square', routes.isBranchesPath && 'btn-active']}
 			>
 				<svg
 					viewBox="0 0 16 14"
@@ -102,7 +110,7 @@
 				kind="outline"
 				onclick={() => goto(routes.targetPath(project.id))}
 				width={34}
-				class="btn-square"
+				class={['btn-square', routes.isTargetPath && 'btn-active']}
 			>
 				<svg
 					viewBox="0 0 18 16"
@@ -137,7 +145,7 @@
 				kind="outline"
 				onclick={() => goto(routes.historyPath(project.id))}
 				width={34}
-				class="btn-square"
+				class={['btn-square', routes.isHistoryPath && 'btn-active']}
 			>
 				<svg
 					viewBox="0 0 18 18"
@@ -156,15 +164,27 @@
 			</Button>
 		</div>
 	</div>
-	<div class="bottom">
+	<div class="bottom" bind:this={contextTriggerButton}>
+		<div class="">
+			{#if routes.isSettingsPath}
+				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+			{/if}
+			<Button
+				icon="settings"
+				kind="outline"
+				onclick={() => goto(routes.settingsPath(project.id))}
+				width={34}
+				class="btn-square"
+			/>
+		</div>
 		<Button
-			icon="settings"
 			kind="outline"
-			onclick={() => goto(routes.settingsPath(project.id))}
 			width={34}
-			class="btn-square"
-		/>
-		<Button kind="outline" width={34} class="btn-height-auto">
+			class="btn-height-auto"
+			onclick={() => {
+				contextMenuEl?.toggle();
+			}}
+		>
 			<div class="user-button">
 				{#if $user?.picture}
 					<img
@@ -181,6 +201,7 @@
 				<Icon name="select-chevron" />
 			</div>
 		</Button>
+
 		<Button
 			icon="keyboard"
 			kind="ghost"
@@ -189,6 +210,7 @@
 			tooltipPosition="top"
 			tooltipAlign="start"
 			width={34}
+			class="fill-text-2"
 		/>
 		<Button
 			icon="mail"
@@ -197,9 +219,59 @@
 			tooltipPosition="top"
 			tooltipAlign="start"
 			width={34}
+			class="fill-text-2"
+			onclick={() => {
+				shareIssueModal.show();
+			}}
 		/>
 	</div>
 </nav>
+
+<ContextMenu
+	bind:this={contextMenuEl}
+	leftClickTrigger={contextTriggerButton}
+	verticalAlign="bottom"
+	horizontalAlign="left"
+>
+	<ContextMenuSection>
+		<ContextMenuItem
+			label="Preferences"
+			onclick={() => {
+				contextMenuEl?.close();
+			}}
+		/>
+	</ContextMenuSection>
+	<ContextMenuSection title="Theme (⌘K)">
+		<ContextMenuItem
+			label="Dark"
+			onclick={async () => {
+				contextMenuEl?.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="Light"
+			onclick={async () => {
+				contextMenuEl?.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="System"
+			onclick={async () => {
+				contextMenuEl?.close();
+			}}
+		/>
+	</ContextMenuSection>
+	<ContextMenuSection>
+		<ContextMenuItem
+			label="Logout"
+			onclick={async () => {
+				contextMenuEl?.close();
+			}}
+		/>
+	</ContextMenuSection>
+</ContextMenu>
+
+<ShareIssueModal bind:this={shareIssueModal} />
 
 <style>
 	.sidebar {
@@ -273,12 +345,22 @@
 		stroke: #000 !important;
 	}
 
+	:global(.fill-text-2) {
+		fill: var(--clr-text-2) !important;
+		opacity: 0.5;
+	}
+
 	:global(.btn-height-auto) {
 		height: auto !important;
+		opacity: 0.7;
 	}
 
 	:global(.btn-square) {
 		aspect-ratio: 1 / 1;
 		height: unset !important;
+		opacity: 0.7;
+	}
+	:global(.btn-square.btn-active) {
+		opacity: 1 !important;
 	}
 </style>
