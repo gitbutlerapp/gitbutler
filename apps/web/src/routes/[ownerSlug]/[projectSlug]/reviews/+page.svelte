@@ -26,7 +26,7 @@
 	);
 	const brancheses = $derived(
 		isFound(repositoryId.current)
-			? getBranchReviewsForRepository(appState, branchService, repositoryId.current.value)
+			? getBranchReviewsForRepository(appState, branchService, data.ownerSlug, data.projectSlug)
 			: undefined
 	);
 </script>

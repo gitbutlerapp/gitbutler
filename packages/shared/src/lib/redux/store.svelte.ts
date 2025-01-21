@@ -1,3 +1,4 @@
+import { branchReviewListingsReducer } from '$lib/branches/branchReviewListingsSlice';
 import { branchesReducer } from '$lib/branches/branchesSlice';
 import { latestBranchLookupsReducer } from '$lib/branches/latestBranchLookupSlice';
 import { patchSectionsReducer } from '$lib/branches/patchSectionsSlice';
@@ -64,6 +65,10 @@ export interface AppLatestBranchLookupsState {
 	readonly latestBranchLookups: ReturnType<typeof latestBranchLookupsReducer>;
 }
 
+export interface AppBranchReviewListingsState {
+	readonly branchReviewListings: ReturnType<typeof branchReviewListingsReducer>;
+}
+
 export class AppDispatch {
 	constructor(readonly dispatch: typeof AppState.prototype._store.dispatch) {}
 }
@@ -81,7 +86,8 @@ export class AppState
 		AppPatchSectionsState,
 		AppChatChannelsState,
 		AppRepositoryIdLookupsState,
-		AppLatestBranchLookupsState
+		AppLatestBranchLookupsState,
+		AppBranchReviewListingsState
 {
 	/**
 	 * The base store.
@@ -102,7 +108,8 @@ export class AppState
 			patchSections: patchSectionsReducer,
 			chatChannels: chatChannelsReducer,
 			repositoryIdLookups: repositoryIdLookupsReducer,
-			latestBranchLookups: latestBranchLookupsReducer
+			latestBranchLookups: latestBranchLookupsReducer,
+			branchReviewListings: branchReviewListingsReducer
 		}
 	});
 
@@ -156,6 +163,10 @@ export class AppState
 		[this.selectSelf],
 		(rootState) => rootState.latestBranchLookups
 	);
+	private readonly selectBranchReviewListings = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.branchReviewListings
+	);
 
 	readonly example = $derived(this.selectExample(this.rootState));
 	readonly posts = $derived(this.selectPosts(this.rootState));
@@ -169,6 +180,7 @@ export class AppState
 	readonly chatChannels = $derived(this.selectChatChannels(this.rootState));
 	readonly repositoryIdLookups = $derived(this.selectRepositoryIdLookups(this.rootState));
 	readonly latestBranchLookups = $derived(this.selectLatestBranchLookups(this.rootState));
+	readonly branchReviewListings = $derived(this.selectBranchReviewListings(this.rootState));
 
 	constructor() {
 		$effect(() => {

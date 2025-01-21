@@ -311,3 +311,8 @@ export function apiToBranch(api: ApiBranch): Branch {
 }
 
 export type LoadableBranchUuid = LoadableData<string, string>;
+export type LoadableBranchReviewListing = LoadableData<string[], string>;
+
+export function toCombineSlug(ownerSlug: string, projectSlug: string) {
+	return `${ownerSlug}/${projectSlug}`;
+}
