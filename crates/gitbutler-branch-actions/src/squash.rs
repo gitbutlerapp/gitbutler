@@ -192,6 +192,13 @@ fn validate(
     source_commits: &[git2::Commit<'_>],
     destination_commit: &git2::Commit<'_>,
 ) -> Result<()> {
+    if source_commits
+        .iter()
+        .any(|s| s.id() == destination_commit.id())
+    {
+        bail!("cannot squash commit into itself")
+    }
+
     for source_commit in source_commits {
         if !branch_commit_oids.contains(&source_commit.id()) {
             bail!("commit {} not in the stack", source_commit.id());
