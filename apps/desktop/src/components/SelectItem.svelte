@@ -59,6 +59,7 @@
 		justify-content: space-between;
 		border-radius: var(--radius-m);
 		width: 100%;
+		gap: 16px;
 		white-space: nowrap;
 		&:not(.selected):hover:enabled,
 		&:not(.selected):focus:enabled {
