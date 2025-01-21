@@ -23,6 +23,7 @@
 		style?: ComponentColorType;
 		kind?: ComponentKindType;
 		solidBackground?: boolean;
+		class?: string;
 		// Additional elements
 		icon?: keyof typeof iconsJson | undefined;
 		tooltip?: string;
@@ -69,6 +70,7 @@
 		style = 'neutral',
 		kind = 'solid',
 		solidBackground = false,
+		class: className = '',
 		testId,
 		icon,
 		tooltip,
@@ -94,15 +96,21 @@
 <Tooltip text={tooltip} align={tooltipAlign} position={tooltipPosition}>
 	<button
 		bind:this={el}
-		class="btn focus-state {style} {kind} {size}-size"
-		class:solidBackground
-		class:reversed-direction={reversedDirection}
-		class:shrinkable
-		class:wide
-		class:grow
-		class:is-dropdown={dropdownChild}
-		class:fixed-width={!children && !wide}
-		class:activated
+		class={[
+			'btn focus-state',
+			style,
+			kind,
+			size && `${size}-size`,
+			activated,
+			grow,
+			wide,
+			shrinkable,
+			solidBackground,
+			reversedDirection && 'reversed-direction',
+			dropdownChild && 'is-dropdown',
+			!children && !wide && 'fixed-width',
+			className
+		]}
 		style:align-self={align}
 		style:height={height !== undefined
 			? typeof height === 'number'
