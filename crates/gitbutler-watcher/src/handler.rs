@@ -55,7 +55,7 @@ impl Handler {
     pub(super) fn handle(&self, event: events::InternalEvent) -> Result<()> {
         match event {
             events::InternalEvent::ProjectFilesChange(project_id, paths) => {
-                self.recalculate_everything(paths, project_id)
+                self.project_files_change(paths, project_id)
             }
 
             events::InternalEvent::GitFilesChange(project_id, paths) => self
@@ -132,7 +132,7 @@ impl Handler {
     }
 
     #[instrument(skip(self, paths, project_id), fields(paths = paths.len()))]
-    fn recalculate_everything(&self, paths: Vec<PathBuf>, project_id: ProjectId) -> Result<()> {
+    fn project_files_change(&self, paths: Vec<PathBuf>, project_id: ProjectId) -> Result<()> {
         let ctx = self.open_command_context(project_id)?;
 
         let worktree_changes = self.emit_uncommited_files(ctx.project()).ok();
