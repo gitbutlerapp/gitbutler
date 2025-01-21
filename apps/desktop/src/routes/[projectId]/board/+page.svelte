@@ -3,8 +3,8 @@
 	import MetricsReporter from '$components/MetricsReporter.svelte';
 	import Scrollbar from '$components/Scrollbar.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
-	import { v3 } from '$lib/config/uiFeatureFlags';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { ModeService } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
@@ -20,6 +20,9 @@
 	const forge = getForge();
 	const baseBranchService = getContext(BaseBranchService);
 	const baseRepo = $derived(baseBranchService.repo);
+
+	const settingsService = getContext(SettingsService);
+	const settingsStore = settingsService.appSettings;
 
 	let viewport: HTMLDivElement | undefined = $state();
 	let contents: HTMLDivElement | undefined = $state();
@@ -59,7 +62,7 @@
 
 	// Redirect to workspace if we have enabled V3 feature.
 	$effect(() => {
-		if ($v3) {
+		if ($settingsStore?.featureFlags.v3) {
 			goto(`/${project.id}/workspace`);
 		}
 	});

@@ -247,6 +247,7 @@ fn main() {
                     settings::get_app_settings,
                     settings::update_onboarding_complete,
                     settings::update_telemetry,
+                    settings::update_feature_flags,
                     workspace::stacks,
                     worktree::worktree_changes,
                     diff::tree_change_diffs

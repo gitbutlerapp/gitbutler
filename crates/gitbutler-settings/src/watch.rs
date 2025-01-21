@@ -132,11 +132,9 @@ impl AppSettingsWithDiskSync {
                             continue;
                         };
                         if let Ok(update) = AppSettings::load(&config_path) {
-                            if *last_seen_settings != update {
-                                tracing::info!("settings.json modified; refreshing settings");
-                                *last_seen_settings = update.clone();
-                                send_event(update)?;
-                            }
+                            tracing::info!("settings.json modified; refreshing settings");
+                            *last_seen_settings = update.clone();
+                            send_event(update)?;
                         }
                     }
 

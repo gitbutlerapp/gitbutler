@@ -16,9 +16,9 @@
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
 	import { CommitService } from '$lib/commits/service';
+	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showHistoryView } from '$lib/config/config';
 	import { cloudFunctionality } from '$lib/config/uiFeatureFlags';
-	import { v3 } from '$lib/config/uiFeatureFlags';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { UncommitedFilesWatcher } from '$lib/files/watcher';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory';
@@ -195,6 +195,9 @@
 	const cloudProjectService = getContext(CloudProjectService);
 	const httpClient = getContext(HttpClient);
 
+	const settingsService = getContext(SettingsService);
+	const settingsStore = settingsService.appSettings;
+
 	$effect(() => {
 		if (!$cloudFunctionality) return;
 
@@ -230,7 +233,7 @@
 	{:else if $baseBranch}
 		{#if $mode?.type === 'OpenWorkspace' || $mode?.type === 'Edit'}
 			<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
-				{#if $v3}
+				{#if $settingsStore?.featureFlags.v3}
 					<Chrome>
 						{@render children()}
 					</Chrome>
