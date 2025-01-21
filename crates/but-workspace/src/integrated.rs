@@ -1,7 +1,6 @@
 //! ### Detecting if a commit is integrated
 //!
-//! This code is a fork of the [`gitbutler_branch_actions::virtual::IsCommitIntegrated`] in crate gitbutler-branch-actions
-//! This code is a fork of the [`gitbutler_branch_actions::r#virtual::list_virtual_branches`] in crate gitbutler-branch-actions
+//! This code is a fork of the [`gitbutler_branch_actions::virtual::IsCommitIntegrated`]
 
 use anyhow::anyhow;
 use anyhow::{Context, Result};

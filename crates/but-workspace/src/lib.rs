@@ -24,7 +24,6 @@ use gitbutler_id::id::Id;
 use gitbutler_oxidize::OidExt;
 use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::{stack_context::StackContext, Stack, Target, VirtualBranchesHandle};
-use gix::ObjectId;
 use integrated::IsCommitIntegrated;
 use itertools::Itertools;
 use std::path::Path;
@@ -107,16 +106,6 @@ pub struct UpstreamCommit {
     pub message: BString,
 }
 
-impl Commit {
-    fn matches(&self, id: ObjectId) -> bool {
-        self.id == id
-            || match self.state {
-                CommitState::LocalAndRemote(remote_commit_id) => remote_commit_id == id,
-                _ => false,
-            }
-    }
-}
-
 /// Replesents a branch in a [`gitbutler_stack::Stack`]. It contains commits derived from the local pseudo branch and it's respective remote
 #[derive(Debug, Clone)]
 pub struct Branch {
@@ -124,14 +113,6 @@ pub struct Branch {
     pub name: BString,
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
     pub remote_tracking_branch: Option<BString>,
-    /// List of commits beloning to this branch. Ordered from newest to oldest.
-    /// Created from the local pseudo branch (head currently stored in the TOML file)
-    /// This includes the commits from the tip of the stack to the merge base with the trunk / target branch (not including the merge base).
-    pub commits: Vec<Commit>,
-    /// List of commits that exist **only** on the upstream branch. Ordered from newest to oldest.
-    /// Created from the tip of the local tracking branch eg. refs/remotes/origin/my-branch -> refs/heads/my-branch
-    /// This does **not** include the commits that are in the commits list (local)
-    pub upstream_commits: Vec<UpstreamCommit>,
     /// Description of the branch.
     /// Can include arbitrary utf8 data, eg. markdown etc.
     pub description: Option<String>,
@@ -139,9 +120,34 @@ pub struct Branch {
     pub pr_number: Option<usize>,
     /// A unique identifier for the GitButler review associated with the branch, if any.
     pub review_id: Option<String>,
-    /// Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
+    /// A stack branch can be either in the stack or archived, which is what this field represents.
+    /// Only branches that are currently in the stacked state will provide lists of commits.
+    pub state: State,
+}
+
+/// List of commits beloning to this branch. Ordered from newest to oldest (child-most to parent-most).
+#[derive(Debug, Clone)]
+pub struct Commits {
+    /// Created from the local pseudo branch (head currently stored in the TOML file)
+    /// This includes the commits from the tip of the stack to the merge base with the trunk / target branch (not including the merge base).
+    /// This is effectively the list of commits that in the working copy which may or may not have been pushed to the remote.
+    pub local_and_remote: Vec<Commit>,
+    /// List of commits that exist **only** on the upstream branch. Ordered from newest to oldest.
+    /// Created from the tip of the local tracking branch eg. refs/remotes/origin/my-branch -> refs/heads/my-branch
+    /// This does **not** include the commits that are in the commits list (local)
+    /// This is effectively the list of commits that are on the remote branch but are not in the working copy.
+    pub upstream_only: Vec<UpstreamCommit>,
+}
+
+/// Represents the state of a branch in a stack.
+#[derive(Debug, Clone)]
+pub enum State {
+    /// Indicates that the branch is considered to be part of a stack
+    Stacked(Commits),
+    /// Indicates that the branch was previously part of a stack but it has since been integrated.
+    /// In other words, the merge base of the stack is now above this branch.
     /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
-    pub archived: bool,
+    Archived,
 }
 
 /// Provides the relevant details of a particular [`gitbutler_stack::Stack`]
@@ -167,7 +173,6 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
             &stack,
             &default_target,
             &mut check_commit,
-            stack_branches.clone(),
         )?;
         stack_branches.push(result);
     }
@@ -181,7 +186,6 @@ fn convert(
     stack: &Stack,
     default_target: &Target,
     check_commit: &mut IsCommitIntegrated<'_, '_, '_>,
-    parent_series: Vec<Branch>,
 ) -> Result<Branch> {
     let branch_commits = stack_branch.commits(ctx, stack)?;
     let remote = default_target.push_remote_name();
@@ -205,26 +209,7 @@ fn convert(
     patches.dedup_by(|a, b| a.id == b.id);
 
     let mut upstream_patches = vec![];
-    for commit in branch_commits.remote_commits.iter().rev() {
-        if patches.iter().any(|p| p.matches(commit.id().to_gix())) {
-            // Skip if we already have this commit in the list
-            continue;
-        }
-
-        if parent_series.iter().any(|series| {
-            if series.archived {
-                return false;
-            };
-
-            series
-                .commits
-                .iter()
-                .any(|p| p.matches(commit.id().to_gix()))
-        }) {
-            // Skip if we already have this commit in the list
-            continue;
-        }
-
+    for commit in branch_commits.upstream_only.iter() {
         let upstream_commit = UpstreamCommit {
             id: commit.id().to_gix(),
             message: commit.message_bstr().into(),
@@ -243,12 +228,17 @@ fn convert(
     Ok(Branch {
         name: stack_branch.name.into(),
         remote_tracking_branch: upstream_reference.map(Into::into),
-        commits: patches,
-        upstream_commits: upstream_patches,
         description: stack_branch.description.map(Into::into),
         pr_number: stack_branch.pr_number,
         review_id: stack_branch.review_id,
-        archived: stack_branch.archived,
+        state: if stack_branch.archived {
+            State::Archived
+        } else {
+            State::Stacked(Commits {
+                local_and_remote: patches,
+                upstream_only: upstream_patches,
+            })
+        },
     })
 }
 
