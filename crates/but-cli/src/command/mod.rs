@@ -19,8 +19,23 @@ pub mod status {
     use crate::command::{debug_print, project_repo};
     use std::path::PathBuf;
 
-    pub fn doit(current_dir: PathBuf) -> anyhow::Result<()> {
-        debug_print(but_core::worktree::changes(&project_repo(current_dir)?)?)
+    pub fn doit(current_dir: PathBuf, unified_diff: bool) -> anyhow::Result<()> {
+        let repo = project_repo(current_dir)?;
+        let changes = but_core::worktree::changes(&repo)?;
+        if unified_diff {
+            debug_print(
+                changes
+                    .into_iter()
+                    .map(|tree_change| {
+                        tree_change
+                            .unified_diff(&repo, 3)
+                            .map(|diff| (tree_change, diff))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+        } else {
+            debug_print(changes)
+        }
     }
 }
 

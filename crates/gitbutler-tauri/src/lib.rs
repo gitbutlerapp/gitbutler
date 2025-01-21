@@ -41,5 +41,6 @@ pub mod settings;
 pub mod stack;
 pub mod zip;
 
+pub mod diff;
 pub mod workspace;
 pub mod worktree;

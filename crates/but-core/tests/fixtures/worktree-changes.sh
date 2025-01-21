@@ -129,3 +129,54 @@ cp -Rv case-folding-worktree-changes case-folding-worktree-and-index-changes
 100644 $empty_oid	FILE
 EOF
 )
+
+git init conflicting
+(cd conflicting
+  touch unrelated && git add . && git commit -m "init"
+
+  empty=$(git hash-object -w --stdin </dev/null)
+  a=$(echo "a" | git hash-object -w --stdin)
+  b=$(echo "b" | git hash-object -w --stdin)
+  git update-index --index-info <<EOF
+100644 $empty 1	conflicting
+100644 $a 2	conflicting
+100644 $b 3	conflicting
+EOF
+)
+
+git init big-file-20-unborn
+(cd big-file-20-unborn
+  seq 10 >big
+)
+
+git init binary-file-unborn
+(cd binary-file-unborn
+  printf '\0hi\0' >with-null-bytes
+)
+
+git init diff-binary-to-text-unborn
+(cd diff-binary-to-text-unborn
+  printf '\0hi\0' >file.binary
+  echo "*.binary diff=say-hi" >.gitattributes
+
+cat <<EOF >>.git/config
+[diff "say-hi"]
+	textconv = "shift; echo hi"
+EOF
+)
+
+git init diff-binary-to-text-renamed-in-worktree
+(cd diff-binary-to-text-renamed-in-worktree
+  printf '\0hi\0' >before-rename.binary
+  echo "before-rename.binary diff=say-hi" >.gitattributes
+  echo "after-rename.binary diff=say-ho" >>.gitattributes
+  git add .
+  mv before-rename.binary after-rename.binary
+
+cat <<EOF >>.git/config
+[diff "say-hi"]
+	textconv = "shift; echo hi"
+[diff "say-ho"]
+	textconv = "shift; echo ho"
+EOF
+)

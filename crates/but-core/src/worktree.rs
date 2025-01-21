@@ -1,6 +1,6 @@
-use crate::TreeChange;
-use anyhow::Context;
-use bstr::BString;
+use crate::{TreeChange, UnifiedDiff};
+use anyhow::{bail, Context};
+use bstr::{BString, ByteSlice};
 use gix::dir::entry;
 use gix::dir::walk::EmissionMode;
 use gix::object::tree::EntryKind;
@@ -105,7 +105,7 @@ pub struct ChangeState {
     /// if this state is living in the worktree and has never been hashed.
     pub id: gix::ObjectId,
     /// The kind of the committable.
-    pub kind: gix::object::tree::EntryKind,
+    pub kind: EntryKind,
 }
 
 /// Return a list of [`TreeChange`] that live in the worktree of `repo` that changed and thus can become part of a commit.
@@ -252,10 +252,10 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
                         state: ChangeState {
                             id: repo.object_hash().null(),
                             kind: if executable_bit_changed {
-                                if kind == gix::object::tree::EntryKind::BlobExecutable {
-                                    gix::object::tree::EntryKind::Blob
+                                if kind == EntryKind::BlobExecutable {
+                                    EntryKind::Blob
                                 } else {
-                                    gix::object::tree::EntryKind::BlobExecutable
+                                    EntryKind::BlobExecutable
                                 }
                             } else {
                                 kind
@@ -435,9 +435,7 @@ pub fn changes(repo: &gix::Repository) -> anyhow::Result<Vec<TreeChange>> {
     Ok(out)
 }
 
-fn into_tree_entry_kind(
-    mode: gix::index::entry::Mode,
-) -> anyhow::Result<gix::object::tree::EntryKind> {
+fn into_tree_entry_kind(mode: gix::index::entry::Mode) -> anyhow::Result<EntryKind> {
     Ok(mode
         .to_tree_entry_mode()
         .with_context(|| format!("Entry contained invalid entry mode: {mode:?}"))?
@@ -448,7 +446,7 @@ fn into_tree_entry_kind(
 fn disk_kind_to_entry_kind(
     disk_kind: Option<gix::dir::entry::Kind>,
     index_kind: Option<gix::dir::entry::Kind>,
-) -> anyhow::Result<Option<gix::object::tree::EntryKind>> {
+) -> anyhow::Result<Option<EntryKind>> {
     Ok(Some(
         match disk_kind
             .or(index_kind)
@@ -463,4 +461,59 @@ fn disk_kind_to_entry_kind(
             entry::Kind::Symlink => EntryKind::Link,
         },
     ))
+}
+
+impl TreeChange {
+    /// Obtain a unified diff by comparing the previous and current state of this change, using `repo` to retrieve objects or
+    /// for obtaining a working tree to read files from disk.
+    pub fn unified_diff(
+        &self,
+        repo: &gix::Repository,
+        context_lines: u32,
+    ) -> anyhow::Result<UnifiedDiff> {
+        match &self.status {
+            Status::Conflict(_) => {
+                bail!("'{}' is conflicted and can't be diffed", self.path)
+            }
+            Status::Untracked { state } | Status::Addition { state, origin: _ } => {
+                UnifiedDiff::compute(repo, self.path.as_bstr(), None, *state, None, context_lines)
+            }
+            Status::Deletion {
+                previous_state,
+                origin: _,
+            } => UnifiedDiff::compute(
+                repo,
+                self.path.as_bstr(),
+                None,
+                None,
+                *previous_state,
+                context_lines,
+            ),
+            Status::Modification {
+                state,
+                previous_state,
+                origin: _,
+            } => UnifiedDiff::compute(
+                repo,
+                self.path.as_bstr(),
+                None,
+                *state,
+                *previous_state,
+                context_lines,
+            ),
+            Status::Rename {
+                previous_path,
+                previous_state,
+                state,
+                origin: _,
+            } => UnifiedDiff::compute(
+                repo,
+                self.path.as_bstr(),
+                Some(previous_path.as_bstr()),
+                *state,
+                *previous_state,
+                context_lines,
+            ),
+        }
+    }
 }

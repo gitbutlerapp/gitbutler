@@ -59,3 +59,10 @@ cp -Rv file-to-symlink-in-worktree file-to-symlink-in-index
 (cd file-to-symlink-in-index
   git add .
 )
+
+git init symlink-change-in-worktree
+(cd symlink-change-in-worktree
+  ln -s target-to-be-changed symlink
+  git add . && git commit -m "init"
+  rm symlink && ln -s changed-target symlink
+)

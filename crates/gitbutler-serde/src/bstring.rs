@@ -1,5 +1,5 @@
 use bstr::{BStr, BString, ByteSlice};
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::ops::{Deref, DerefMut};
 
 /// A form of `BString` for use in structures that are going to be serialized for the frontend as string.
@@ -18,6 +18,15 @@ impl Serialize for BStringForFrontend {
         S: Serializer,
     {
         self.0.to_str_lossy().serialize(s)
+    }
+}
+
+impl<'de> Deserialize<'de> for BStringForFrontend {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        String::deserialize(deserializer).map(Into::into)
     }
 }
 

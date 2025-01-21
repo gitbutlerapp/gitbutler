@@ -1,11 +1,11 @@
 use crate::error::Error;
 use gitbutler_project::ProjectId;
 use gitbutler_serde::BStringForFrontend;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::instrument;
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ChangeState {
     #[serde(with = "gitbutler_serde::object_id")]
     id: gix::ObjectId,
@@ -18,10 +18,19 @@ impl From<but_core::worktree::ChangeState> for ChangeState {
     }
 }
 
+impl From<ChangeState> for but_core::worktree::ChangeState {
+    fn from(value: ChangeState) -> Self {
+        but_core::worktree::ChangeState {
+            id: value.id,
+            kind: value.kind,
+        }
+    }
+}
+
 /// Computed using the file kinds/modes of two [`ChangeState`] instances to represent
 /// the *dominant* change to display. Note that it can stack with a content change,
 /// but *should not only in case of a `TypeChange*`*.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Flags {
     ExecutableBitAdded,
     ExecutableBitRemoved,
@@ -55,7 +64,7 @@ impl Flags {
 }
 
 /// For docs, see [`but_core::worktree::Status`].
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "subject")]
 pub enum Status {
     Addition {
@@ -127,7 +136,7 @@ impl From<but_core::worktree::Status> for Status {
 }
 
 /// For documentation, see [`but_core::Change`].
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TreeChange {
     path: BStringForFrontend,
     status: Status,
@@ -139,6 +148,66 @@ impl From<but_core::TreeChange> for TreeChange {
             path: path.into(),
             status: status.into(),
         }
+    }
+}
+
+impl TreeChange {
+    /// Obtain a unified diff by comparing the previous and current state of this change,
+    /// using `repo` to retrieve objects or for obtaining a working tree to read files from disk.
+    ///
+    /// Note that the amount of lines of context is currently hardcoded to 3 as context *may* be needed
+    /// when applying patches to commits.
+    pub fn unified_diff(&self, repo: &gix::Repository) -> anyhow::Result<crate::diff::UnifiedDiff> {
+        use gix::bstr::ByteSlice;
+        const CONTEXT_LINES: u32 = 3;
+        let diff = match &self.status {
+            Status::Addition {
+                state,
+                is_untracked: _,
+            } => but_core::UnifiedDiff::compute(
+                repo,
+                self.path.as_bstr(),
+                None,
+                Some((*state).into()),
+                None,
+                CONTEXT_LINES,
+            ),
+            Status::Deletion { previous_state } => but_core::UnifiedDiff::compute(
+                repo,
+                self.path.as_bstr(),
+                None,
+                None,
+                Some((*previous_state).into()),
+                CONTEXT_LINES,
+            ),
+            Status::Modification {
+                state,
+                previous_state,
+                flags: _,
+            } => but_core::UnifiedDiff::compute(
+                repo,
+                self.path.as_bstr(),
+                None,
+                Some((*state).into()),
+                Some((*previous_state).into()),
+                CONTEXT_LINES,
+            ),
+            Status::Rename {
+                previous_path,
+                previous_state,
+                state,
+                flags: _,
+            } => but_core::UnifiedDiff::compute(
+                repo,
+                self.path.as_bstr(),
+                Some(previous_path.as_bstr()),
+                Some((*state).into()),
+                Some((*previous_state).into()),
+                CONTEXT_LINES,
+            ),
+        }?
+        .into();
+        Ok(diff)
     }
 }
 

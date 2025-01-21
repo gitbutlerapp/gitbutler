@@ -5,7 +5,7 @@ resolver = "2"
 [workspace.dependencies]
 bstr = "1.11.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
-gix = { git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [
+gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "1a69c4080bc38ef9151bc8ebfb9d5f87f19b5755", default-features = false, features = [
 ] }
 gix-testtools = "0.15.0"
 insta = "1.41.1"

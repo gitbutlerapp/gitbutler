@@ -16,4 +16,5 @@ gix = { workspace = true, features = ["dirwalk", "credentials", "parallel", "ser
 
 [dev-dependencies]
 gix-testtools.workspace = true
+gix = { workspace = true, features = ["revision"] }
 insta.workspace = true

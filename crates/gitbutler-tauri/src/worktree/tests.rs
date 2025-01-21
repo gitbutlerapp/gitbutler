@@ -251,3 +251,129 @@ fn worktree_changes_example() -> anyhow::Result<()> {
     "#);
     Ok(())
 }
+
+#[test]
+fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
+    let root = gitbutler_testsupport::gix_testtools::scripted_fixture_read_only("status_repo.sh")
+        .map_err(anyhow::Error::from_boxed)?;
+    let repo = gix::open(&root)?;
+    let diffs: Vec<crate::diff::UnifiedDiff> = changes_in_worktree(root)?
+        .changes
+        .iter()
+        .map(|tree_change| tree_change.unified_diff(&repo))
+        .collect::<Result<_, _>>()?;
+    let actual = serde_json::to_string_pretty(&diffs)?;
+    insta::assert_snapshot!(actual, @r#"
+    [
+      {
+        "type": "patch",
+        "subject": {
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 0,
+              "newStart": 1,
+              "newLines": 1,
+              "diff": "@@ -1,0 +1,1 @@\n+content\n\n"
+            }
+          ]
+        }
+      },
+      {
+        "type": "patch",
+        "subject": {
+          "hunks": []
+        }
+      },
+      {
+        "type": "patch",
+        "subject": {
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 0,
+              "newStart": 1,
+              "newLines": 1,
+              "diff": "@@ -1,0 +1,1 @@\n+link-target\n"
+            }
+          ]
+        }
+      },
+      {
+        "type": "patch",
+        "subject": {
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 0,
+              "newStart": 1,
+              "newLines": 1,
+              "diff": "@@ -1,0 +1,1 @@\n+content not to add to the index\n\n"
+            }
+          ]
+        }
+      },
+      {
+        "type": "patch",
+        "subject": {
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 0,
+              "newStart": 1,
+              "newLines": 1,
+              "diff": "@@ -1,0 +1,1 @@\n+change-in-index\n\n"
+            }
+          ]
+        }
+      },
+      {
+        "type": "patch",
+        "subject": {
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 0,
+              "newStart": 1,
+              "newLines": 1,
+              "diff": "@@ -1,0 +1,1 @@\n+change-in-worktree\n\n"
+            }
+          ]
+        }
+      },
+      {
+        "type": "patch",
+        "subject": {
+          "hunks": []
+        }
+      },
+      {
+        "type": "patch",
+        "subject": {
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 0,
+              "newStart": 1,
+              "newLines": 1,
+              "diff": "@@ -1,0 +1,1 @@\n+worktree-change\n\n"
+            }
+          ]
+        }
+      },
+      {
+        "type": "patch",
+        "subject": {
+          "hunks": []
+        }
+      },
+      {
+        "type": "patch",
+        "subject": {
+          "hunks": []
+        }
+      }
+    ]
+    "#);
+    Ok(())
+}

@@ -2,11 +2,20 @@ use anyhow::{bail, Context, Result};
 use gitbutler_branch::{BranchCreateRequest, BranchIdentity, BranchUpdateRequest};
 use gitbutler_branch_actions::{get_branch_listing_details, list_branches, BranchManagerExt};
 use gitbutler_command_context::CommandContext;
+use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::Project;
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 
 use crate::command::debug_print;
+
+pub fn list_commit_files(project: Project, commit_id_hex: String) -> Result<()> {
+    let commit_id = gix::ObjectId::from_hex(commit_id_hex.as_bytes())?;
+    debug_print(gitbutler_branch_actions::list_commit_files(
+        &project,
+        commit_id.to_git2(),
+    )?)
+}
 
 pub fn set_base(project: Project, short_tracking_branch_name: String) -> Result<()> {
     let branch_name = format!("refs/remotes/{}", short_tracking_branch_name)

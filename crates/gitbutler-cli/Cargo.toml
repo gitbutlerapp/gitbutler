@@ -19,6 +19,7 @@ gitbutler-command-context.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-stack.workspace = true
+gitbutler-oxidize.workspace = true
 gix = { workspace = true, features = ["max-performance", "tracing"] }
 dirs-next = "2.0.0"
 clap = { version = "4.5.23", features = ["derive", "env"] }
