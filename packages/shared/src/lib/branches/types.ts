@@ -1,3 +1,4 @@
+import { apiToPermissions, type ApiPermissions, type Permissions } from '$lib/permissions';
 import { deduplicate } from '$lib/utils/array';
 import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 import type { LoadableData } from '$lib/network/types';
@@ -267,6 +268,7 @@ export type ApiBranch = {
 	repository_id: string;
 	branch_stack_id?: string;
 	branch_stack_order?: number;
+	permissions: ApiPermissions;
 };
 
 export type Branch = {
@@ -285,6 +287,7 @@ export type Branch = {
 	repositoryId: string;
 	stackId: string;
 	stackOrder: number;
+	permissions: Permissions;
 };
 
 export type LoadableBranch = LoadableData<Branch, Branch['uuid']>;
@@ -306,7 +309,8 @@ export function apiToBranch(api: ApiBranch): Branch {
 		repositoryId: api.repository_id,
 		// Its good enough
 		stackId: api.branch_stack_id || String(Math.random()),
-		stackOrder: api.branch_stack_order || 1
+		stackOrder: api.branch_stack_order || 1,
+		permissions: apiToPermissions(api.permissions)
 	};
 }
 

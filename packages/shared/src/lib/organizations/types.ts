@@ -1,3 +1,4 @@
+import { apiToPermissions, type ApiPermissions, type Permissions } from '$lib/permissions';
 import type { LoadableData } from '$lib/network/types';
 
 export type ApiProject = {
@@ -13,6 +14,8 @@ export type ApiProject = {
 	code_repository_id: string;
 	git_url: string;
 	code_git_url: string;
+
+	permissions: ApiPermissions;
 
 	created_at: string;
 	updated_at: string;
@@ -33,6 +36,8 @@ export type Project = {
 	gitUrl: string;
 	codeGitUrl: string;
 
+	permissions: Permissions;
+
 	createdAt: string;
 	updatedAt: string;
 };
@@ -51,6 +56,7 @@ export function apiToProject(apiProject: ApiProject): Project {
 		codeRepositoryId: apiProject.code_repository_id,
 		gitUrl: apiProject.git_url,
 		codeGitUrl: apiProject.code_git_url,
+		permissions: apiToPermissions(apiProject.permissions),
 		createdAt: apiProject.created_at,
 		updatedAt: apiProject.updated_at
 	};
