@@ -64,6 +64,7 @@
 	}: SelectProps = $props();
 
 	let selectWrapperEl: HTMLElement;
+	let optionsGroupEl = $state<HTMLElement>();
 
 	let highlightedIndex: number | undefined = $state(undefined);
 	let searchValue = $state('');
@@ -73,6 +74,7 @@
 	let maxHeightState = $state(maxHeight);
 	let listOpen = $state(false);
 	let inputBoundingRect = $state<DOMRect>();
+	let optionsGroupBoundingRect = $state<DOMRect>();
 
 	const maxBottomPadding = 20;
 
@@ -100,6 +102,9 @@
 	function getInputBoundingRect() {
 		if (selectWrapperEl) {
 			inputBoundingRect = selectWrapperEl.getBoundingClientRect();
+		}
+		if (optionsGroupEl) {
+			optionsGroupBoundingRect = optionsGroupEl.getBoundingClientRect();
 		}
 	}
 
@@ -209,23 +214,24 @@
 		>
 			<div
 				class="options card"
-				style:width={customWidth ? 'fit-content' : `${inputBoundingRect?.width}px`}
+				bind:this={optionsGroupEl}
+				style:width={customWidth ? '100%' : `${inputBoundingRect?.width}px`}
 				style:max-width={customWidth && pxToRem(customWidth)}
 				style:top={inputBoundingRect?.top
 					? `${inputBoundingRect.top + inputBoundingRect.height}px`
 					: undefined}
 				style:left={inputBoundingRect?.left && popupAlign === 'left'
 					? `${inputBoundingRect.left}px`
-					: undefined}
+					: optionsGroupBoundingRect && inputBoundingRect && popupAlign === 'center'
+						? `${window.innerWidth / 2 - (optionsGroupBoundingRect.width - inputBoundingRect.width / 2) / 2}px`
+						: undefined}
 				style:right={inputBoundingRect?.right && popupAlign === 'right'
 					? `${window.innerWidth - inputBoundingRect.right}px`
-					: inputBoundingRect && popupAlign === 'center'
-						? `${window.innerWidth - inputBoundingRect.right - inputBoundingRect.width / 2}px`
-						: undefined}
+					: undefined}
 				style:max-height={maxHeightState && `${maxHeightState}px`}
 			>
 				<ScrollableContainer initiallyVisible>
-					{#if searchable && options.length > 5}
+					{#if searchable && options.length >= 3}
 						<SearchItem bind:searchValue />
 					{/if}
 					<OptionsGroup>
@@ -285,6 +291,7 @@
 		box-shadow: var(--fx-shadow-s);
 		overflow: hidden;
 		transform-origin: top;
+		width: 100%;
 
 		animation: fadeIn 0.16s ease-out forwards;
 	}
