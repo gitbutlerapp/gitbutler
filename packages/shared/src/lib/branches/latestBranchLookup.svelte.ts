@@ -8,11 +8,15 @@ import type { Reactive } from '$lib/storeUtils';
 export function lookupLatestBranchUuid(
 	appState: AppLatestBranchLookupsState,
 	latestBranchLookupService: LatestBranchLookupService,
-	repositoryId: string,
+	ownerSlug: string,
+	projectSlug: string,
 	branchId: string,
 	inView?: InView
 ): Reactive<LoadableBranchUuid | undefined> {
-	registerInterest(latestBranchLookupService.getBranchUuidInterest(repositoryId, branchId), inView);
+	registerInterest(
+		latestBranchLookupService.getBranchUuidInterest(ownerSlug, projectSlug, branchId),
+		inView
+	);
 	const branchUuid = $derived(
 		latestBranchLookupsSelectors.selectById(appState.latestBranchLookups, branchId)
 	);

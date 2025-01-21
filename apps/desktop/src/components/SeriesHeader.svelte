@@ -272,15 +272,23 @@
 	const hasReview = $derived(
 		$cloudReviewFunctionality && branch.reviewId && $project?.api?.repository_id
 	);
-	const cloudBranchUuid = $derived(
-		hasReview
-			? lookupLatestBranchUuid(
-					appState,
-					latestBranchLookupService,
-					$project!.api!.repository_id,
-					branch!.reviewId!
-				)
+
+	const cloudProject = $derived(
+		$project?.api?.repository_id
+			? getProjectByRepositoryId(appState, cloudProjectService, $project.api.repository_id)
 			: undefined
+	);
+
+	const cloudBranchUuid = $derived(
+		map(cloudProject?.current, (cloudProject) => {
+			return lookupLatestBranchUuid(
+				appState,
+				latestBranchLookupService,
+				cloudProject.owner,
+				cloudProject.slug,
+				branch!.reviewId!
+			);
+		})
 	);
 
 	const cloudBranch = $derived(
@@ -292,12 +300,6 @@
 				cloudBranchUuid
 			);
 		})
-	);
-
-	const cloudProject = $derived(
-		$project?.api?.repository_id
-			? getProjectByRepositoryId(appState, cloudProjectService, $project.api.repository_id)
-			: undefined
 	);
 </script>
 
