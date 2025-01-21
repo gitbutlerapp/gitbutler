@@ -11,7 +11,6 @@
 		// Layout props
 		shrinkable?: boolean;
 		reversedDirection?: boolean;
-		height?: number | string | undefined;
 		width?: number | string | undefined;
 		maxWidth?: number | undefined;
 		size?: 'tag' | 'button' | 'cta';
@@ -23,7 +22,7 @@
 		style?: ComponentColorType;
 		kind?: ComponentKindType;
 		solidBackground?: boolean;
-		class?: string;
+		class?: string | (string | undefined)[] | Record<string, string>;
 		// Additional elements
 		icon?: keyof typeof iconsJson | undefined;
 		tooltip?: string;
@@ -59,7 +58,6 @@
 		type = 'button',
 		shrinkable = false,
 		reversedDirection = false,
-		height,
 		width,
 		maxWidth,
 		size = 'button',
@@ -112,11 +110,6 @@
 			className
 		]}
 		style:align-self={align}
-		style:height={height !== undefined
-			? typeof height === 'number'
-				? pxToRem(height)
-				: height
-			: undefined}
 		style:width={width !== undefined
 			? typeof width === 'number'
 				? pxToRem(width)
