@@ -1,8 +1,18 @@
-import { invoke } from '$lib/backend/ipc';
+import { listen, invoke } from '$lib/backend/ipc';
 
 /** Gets the current status of the worktree */
 export async function worktree_changes(projectId: string): Promise<WorktreeChanges> {
 	return await invoke<WorktreeChanges>('worktree_changes', { projectId });
+}
+
+/** Subscibes for worktree_changes updates */
+export function subscribe<WorktreeChanges>(
+	projectId: string,
+	callback: (changes: WorktreeChanges) => void
+) {
+	return listen<WorktreeChanges>(`project://${projectId}/worktree_changes`, (event) =>
+		callback(event.payload)
+	);
 }
 
 /** Contains the changes that are in the worktree */
