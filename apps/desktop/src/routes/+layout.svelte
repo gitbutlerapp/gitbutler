@@ -22,7 +22,6 @@
 	import { AppSettings } from '$lib/config/appSettings';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { GitConfigService } from '$lib/config/gitConfigService';
-	import { v3 } from '$lib/config/uiFeatureFlags';
 	import { FileService } from '$lib/files/fileService';
 	import {
 		createGitHubUserServiceStore as createGitHubUserServiceStore,
@@ -123,6 +122,9 @@
 
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 
+	const settingsService = data.settingsService;
+	const settingsStore = settingsService.appSettings;
+
 	const user = data.userService.user;
 	const accessToken = $derived($user?.github_access_token);
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
@@ -154,7 +156,7 @@
 	const handleKeyDown = createKeybind({
 		// Toggle v3 design on/off
 		'v 3': () => {
-			$v3 = !$v3;
+			settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 });
 		}
 	});
 </script>

@@ -1,15 +1,18 @@
 <script lang="ts">
 	import SettingsPage from '$components/SettingsPage.svelte';
+	import { SettingsService } from '$lib/config/appSettingsV2';
 	import {
 		cloudFunctionality,
 		cloudCommunicationFunctionality,
-		cloudReviewFunctionality,
-		v3
+		cloudReviewFunctionality
 	} from '$lib/config/uiFeatureFlags';
 	import { User } from '$lib/user/user';
-	import { getContextStore } from '@gitbutler/shared/context';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
+
+	const settingsService = getContext(SettingsService);
+	const settingsStore = settingsService.appSettings;
 
 	const user = getContextStore(User);
 
@@ -97,7 +100,12 @@
 				{/snippet}
 
 				{#snippet actions()}
-					<Toggle id="v3Design" checked={$v3} onclick={() => ($v3 = !$v3)} />
+					<Toggle
+						id="v3Design"
+						checked={$settingsStore?.featureFlags.v3}
+						onclick={() =>
+							settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 })}
+					/>
 				{/snippet}
 			</SectionCard>
 		</div>
