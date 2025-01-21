@@ -191,7 +191,10 @@ pub fn worktree_changes(
 fn changes_in_worktree(worktree_dir: PathBuf) -> anyhow::Result<WorktreeChanges> {
     let repo = gix::open(worktree_dir).map_err(anyhow::Error::new)?;
     let detailed_changes = but_core::worktree::changes(&repo)?;
+    Ok(to_worktree_changes(detailed_changes))
+}
 
+pub(crate) fn to_worktree_changes(detailed_changes: Vec<but_core::TreeChange>) -> WorktreeChanges {
     let (mut changes, mut ignored_changes) = (Vec::new(), Vec::new());
     let mut last_path = None;
     for change in detailed_changes {
@@ -217,10 +220,10 @@ fn changes_in_worktree(worktree_dir: PathBuf) -> anyhow::Result<WorktreeChanges>
         last_path = Some(change.path.clone());
         changes.push(change.into());
     }
-    Ok(WorktreeChanges {
+    WorktreeChanges {
         changes,
         ignored_changes,
-    })
+    }
 }
 
 #[cfg(test)]

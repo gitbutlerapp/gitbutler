@@ -1,5 +1,6 @@
 use std::{fmt::Display, path::PathBuf};
 
+use but_core::TreeChange;
 use gitbutler_branch_actions::{RemoteBranchFile, VirtualBranches};
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_project::ProjectId;
@@ -104,5 +105,9 @@ pub enum Change {
     UncommitedFiles {
         project_id: ProjectId,
         files: Vec<RemoteBranchFile>,
+    },
+    WorktreeChanges {
+        project_id: ProjectId,
+        changes: Vec<TreeChange>,
     },
 }

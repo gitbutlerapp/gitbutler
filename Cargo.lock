@@ -2995,6 +2995,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backoff",
+ "but-core",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
  "gitbutler-diff",
