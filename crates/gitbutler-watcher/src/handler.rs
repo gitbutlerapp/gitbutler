@@ -141,7 +141,18 @@ impl Handler {
             self.maybe_create_snapshot(project_id).ok();
             self.calculate_virtual_branches(project_id, worktree_changes)?;
         }
+        // This is part of the v3 APIs set and in the future this fully replaces the list virtual branches flow
+        let _ = self.emit_worktree_changes(ctx.gix_repository()?, project_id);
 
+        Ok(())
+    }
+
+    fn emit_worktree_changes(&self, repo: gix::Repository, project_id: ProjectId) -> Result<()> {
+        let detailed_changes = but_core::worktree::changes(&repo)?;
+        let _ = self.emit_app_event(Change::WorktreeChanges {
+            project_id,
+            changes: detailed_changes,
+        });
         Ok(())
     }
 
@@ -194,6 +205,10 @@ impl Handler {
                 }
                 "logs/HEAD" => {
                     self.emit_app_event(Change::GitActivity(project.id))?;
+                }
+                "index" => {
+                    let repo = gix::open(project.path.clone())?;
+                    let _ = self.emit_worktree_changes(repo, project_id);
                 }
                 "HEAD" => {
                     let ctx = CommandContext::open(&project)
