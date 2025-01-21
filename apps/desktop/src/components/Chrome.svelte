@@ -22,6 +22,7 @@
 		flex-grow: 1;
 		flex-direction: column;
 		max-height: 100vh;
+		background-color: var(--clr-bg-2);
 	}
 
 	.wrapper {
@@ -37,6 +38,5 @@
 		padding: 16px 0 0 16px;
 		align-items: self-start;
 		user-select: none;
-		background-color: var(--clr-bg-2);
 	}
 </style>
