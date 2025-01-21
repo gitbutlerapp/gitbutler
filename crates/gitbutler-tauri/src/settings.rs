@@ -1,5 +1,6 @@
 #![allow(deprecated)]
 use anyhow::Result;
+use gitbutler_settings::api::FeatureFlagsUpdate;
 use gitbutler_settings::api::TelemetryUpdate;
 use gitbutler_settings::AppSettings;
 use gitbutler_settings::AppSettingsWithDiskSync;
@@ -68,4 +69,13 @@ pub fn update_telemetry(
     update: TelemetryUpdate,
 ) -> Result<(), Error> {
     handle.update_telemetry(update).map_err(|e| e.into())
+}
+
+#[tauri::command(async)]
+#[instrument(skip(handle), err(Debug))]
+pub fn update_feature_flags(
+    handle: State<'_, AppSettingsWithDiskSync>,
+    update: FeatureFlagsUpdate,
+) -> Result<(), Error> {
+    handle.update_feature_flags(update).map_err(|e| e.into())
 }
