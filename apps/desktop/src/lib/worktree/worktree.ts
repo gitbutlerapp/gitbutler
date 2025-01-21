@@ -15,6 +15,59 @@ export function subscribe<WorktreeChanges>(
 	);
 }
 
+/**
+Gets the unified diff for a given TreeChange.
+This probably does not belong in a package called "worktree" since this also operates on commit-to-commit changes and not only worktree changes
+*/
+export async function tree_change_diffs(projectId: string, changes: [TreeChange]) {
+	return await invoke<[UnifiedDiff]>('tree_change_diffs', { projectId, changes });
+}
+
+/**
+ A patch in unified diff format to show how a resource changed or now looks like (in case it was newly added),
+ or how it previously looked like in case of a deletion.
+ */
+export type UnifiedDiff =
+	/** The resource was a binary and couldn't be diffed. */
+	| { type: 'Binary' }
+	/** The file was too large and couldn't be diffed. */
+	| { type: 'TooLarge'; subject: { sizeInBytes: number } }
+	/**
+	A patch that if applied to the previous state of the resource would yield the current state.
+	Includes all non-overlapping hunks, including their context lines.
+  */
+	| { type: 'Patch'; subject: { hunks: [DiffHunk] } };
+
+/**
+ A hunk as used in UnifiedDiff.
+ */
+export class DiffHunk {
+	/** The 1-based line number at which the previous version of the file started.*/
+	old_start!: number;
+	/** The non-zero amount of lines included in the previous version of the file.*/
+	old_lines!: number;
+	/** The 1-based line number at which the new version of the file started.*/
+	new_start!: number;
+	/** The non-zero amount of lines included in the new version of the file.*/
+	new_lines!: number;
+	/**
+   A unified-diff formatted patch like:
+
+   ```diff
+   @@ -1,6 +1,8 @@
+   This is the first line of the original text.
+   -Line to be removed.
+   +Line that has been replaced.
+    This is another line in the file.
+   +This is a new line added at the end.
+   ```
+
+   The line separator is the one used in the original file and may be `LF` or `CRLF`.
+   Note that the file-portion of the header isn't used here.
+  */
+	diff!: string;
+}
+
 /** Contains the changes that are in the worktree */
 export class WorktreeChanges {
 	/** Changes that could be committed. */
