@@ -9,7 +9,31 @@ import {
 import { type ApiProject, apiToProject, type LoadableProject } from '$lib/organizations/types';
 import { POLLING_GLACIALLY, POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/network/httpClient';
+import type { ShareLevel } from '$lib/permissions';
 import type { AppDispatch } from '$lib/redux/store.svelte';
+
+type UpdateParams = {
+	slug?: string;
+	name?: string;
+	description?: string;
+	shareLevel?: ShareLevel.Public | ShareLevel.Private;
+};
+
+type ApiUpdateParams = {
+	slug?: string;
+	name?: string;
+	description?: string;
+	share_level?: ShareLevel.Public | ShareLevel.Private;
+};
+
+function toApiUpdateParams(real: UpdateParams): ApiUpdateParams {
+	return {
+		slug: real.slug,
+		name: real.name,
+		description: real.description,
+		share_level: real.shareLevel
+	};
+}
 
 export class ProjectService {
 	private readonly projectInterests = new InterestStore<{ repositoryId: string }>(POLLING_REGULAR);
@@ -93,5 +117,17 @@ export class ProjectService {
 		await this.httpClient.delete(`projects/${repositoryId}`);
 
 		this.appDispatch.dispatch(removeProject(repositoryId));
+	}
+
+	async updateProject(repositoryId: string, params: UpdateParams) {
+		const apiProject = await this.httpClient.patch<ApiProject>(`projects/${repositoryId}`, {
+			body: toApiUpdateParams(params)
+		});
+		const project = apiToProject(apiProject);
+
+		this.appDispatch.dispatch(
+			upsertProject({ status: 'found', id: project.repositoryId, value: project })
+		);
+		return project;
 	}
 }

@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { map } from '@gitbutler/shared/network/loadable';
+	import { combine, map } from '@gitbutler/shared/network/loadable';
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
+	import { ShareLevel } from '@gitbutler/shared/permissions';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		WebRoutesService,
@@ -44,25 +45,45 @@
 		await projectService.deleteProject(repositoryId);
 		goto(routes.projectsPath());
 	}
+
+	async function updatePermission(
+		repositoryId: string,
+		shareLevel: ShareLevel.Public | ShareLevel.Private
+	) {
+		await projectService.updateProject(repositoryId, { shareLevel });
+	}
 </script>
 
 <h2>Project page: {data.ownerSlug}/{data.projectSlug}</h2>
 
 <div class="flow">
 	<Button style="pop" onclick={() => goto(routes.projectReviewPath(data))}>Project Reviews</Button>
-	<hr />
-	<p data-info="https://youtu.be/siwpn14IE7E">The danger zone</p>
-	<Loading loadable={repositoryId.current}>
-		{#snippet children(repositoryId)}
-			<Loading loadable={project?.current}>
-				{#snippet children(project)}
-					{#if project}{/if}
-				{/snippet}
-			</Loading>
+	<Loading loadable={combine([repositoryId.current, project?.current])}>
+		{#snippet children([repositoryId, project])}
+			{#if project.permissions.canWrite}
+				<hr />
+				<p data-info="https://youtu.be/siwpn14IE7E">The danger zone</p>
 
-			<AsyncButton style="error" action={async () => await deleteProject(repositoryId)}
-				>Delete</AsyncButton
-			>
+				<div>
+					<p>This project is <b>{project.permissions.shareLevel}</b></p>
+
+					{#if project.permissions.shareLevel === 'public'}
+						<AsyncButton
+							action={async () => await updatePermission(repositoryId, ShareLevel.Private)}
+							>Make private</AsyncButton
+						>
+					{:else}
+						<AsyncButton
+							action={async () => await updatePermission(repositoryId, ShareLevel.Public)}
+							>Make public</AsyncButton
+						>
+					{/if}
+				</div>
+
+				<AsyncButton style="error" action={async () => await deleteProject(repositoryId)}
+					>Delete</AsyncButton
+				>
+			{/if}
 		{/snippet}
 	</Loading>
 </div>
