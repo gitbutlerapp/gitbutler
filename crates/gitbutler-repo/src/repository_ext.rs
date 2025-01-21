@@ -432,10 +432,12 @@ impl RepositoryExt for git2::Repository {
                 .ok_or_else(|| anyhow::anyhow!("Failed to convert path to string"))?
                 .to_string();
 
+            // Write the key to a temp file. This is needs to be created in the
+            // same scope where its used; IE: in the command, otherwise the
+            // tmpfile will get garbage collected
+            let mut key_storage = tempfile::NamedTempFile::new()?;
             // support literal ssh key
             if let (true, signing_key) = is_literal_ssh_key(signing_key) {
-                // write the key to a temp file
-                let mut key_storage = tempfile::NamedTempFile::new()?;
                 key_storage.write_all(signing_key.as_bytes())?;
 
                 // if on unix
@@ -447,10 +449,9 @@ impl RepositoryExt for git2::Repository {
                     key_storage.as_file().set_permissions(permissions)?;
                 }
 
-                let key_file_path = key_storage.into_temp_path();
                 let args = format!(
                     "{} -U {}",
-                    key_file_path.to_string_lossy(),
+                    key_storage.path().to_string_lossy(),
                     buffer_file_to_sign_path_str,
                 );
                 cmd_string += &args;
