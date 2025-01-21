@@ -221,7 +221,7 @@
 			width={34}
 			class="fill-text-2"
 			onclick={() => {
-				shareIssueModal.show();
+				shareIssueModal?.show();
 			}}
 		/>
 	</div>

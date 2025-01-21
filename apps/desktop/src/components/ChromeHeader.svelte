@@ -55,7 +55,7 @@
 		>
 			{#snippet customSelectButton()}
 				<div class="selector-series-select">
-					<span class="text-13 text-bold">{project.title}</span>
+					<span class="text-13 text-bold">{project?.title}</span>
 					<div class="selector-series-select__icon"><Icon name="select-chevron" /></div>
 				</div>
 			{/snippet}
