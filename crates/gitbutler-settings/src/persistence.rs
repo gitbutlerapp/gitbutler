@@ -4,6 +4,7 @@ use crate::json::{json_difference, merge_non_null_json_value};
 use crate::AppSettings;
 use anyhow::Result;
 use serde_json::json;
+use serde_json_lenient::to_string_pretty;
 
 static DEFAULTS: &str = include_str!("../assets/defaults.jsonc");
 
@@ -45,7 +46,7 @@ impl AppSettings {
         // Merge the new customizations into the existing ones
         // TODO: This will nuke any comments in the file
         merge_non_null_json_value(diff, &mut customizations);
-        gitbutler_fs::write(config_path, customizations.to_string())?;
+        gitbutler_fs::write(config_path, to_string_pretty(&customizations)?)?;
         Ok(())
     }
 }
