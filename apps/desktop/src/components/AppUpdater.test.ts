@@ -18,6 +18,13 @@ describe('AppUpdater', () => {
 		updater = new UpdaterService(tauri, posthog);
 		context = new Map([[UpdaterService, updater]]);
 		vi.spyOn(tauri, 'listen').mockReturnValue(async () => {});
+		vi.mock('$env/dynamic/public', () => {
+			return {
+				env: {
+					PUBLIC_FLATPAK_ID: undefined
+				}
+			};
+		});
 	});
 
 	afterEach(() => {

@@ -4,6 +4,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { fade } from 'svelte/transition';
+	import { env } from '$env/dynamic/public';
 
 	const updaterService = getContext(UpdaterService);
 	const update = updaterService.update;
@@ -20,6 +21,8 @@
 	function handleDismiss() {
 		updaterService.dismiss();
 	}
+
+	const inFlatpak = $derived(!!env.PUBLIC_FLATPAK_ID);
 </script>
 
 {#if version || status === 'Up-to-date'}
@@ -130,45 +133,47 @@
 					Release notes
 				</Button>
 			{/if}
-			<div class="status-section">
-				{#if status !== 'Error' && status !== 'Up-to-date'}
-					<div class="sliding-gradient"></div>
-				{/if}
-				<div class="cta-btn" transition:fade={{ duration: 100 }}>
-					{#if !status}
-						<Button
-							wide
-							style="pop"
-							testId="download-update"
-							onmousedown={async () => {
-								await updaterService.downloadAndInstall();
-							}}
-						>
-							Update to {version}
-						</Button>
-					{:else if status === 'Up-to-date'}
-						<Button
-							wide
-							style="pop"
-							testId="got-it"
-							onmousedown={async () => {
-								updaterService.dismiss();
-							}}
-						>
-							Got it!
-						</Button>
-					{:else if status === 'Done'}
-						<Button
-							style="pop"
-							wide
-							testId="restart-app"
-							onclick={async () => await updaterService.relaunchApp()}
-						>
-							Restart
-						</Button>
+			{#if !inFlatpak}
+				<div class="status-section">
+					{#if status !== 'Error' && status !== 'Up-to-date'}
+						<div class="sliding-gradient"></div>
 					{/if}
+					<div class="cta-btn" transition:fade={{ duration: 100 }}>
+						{#if !status}
+							<Button
+								wide
+								style="pop"
+								testId="download-update"
+								onmousedown={async () => {
+									await updaterService.downloadAndInstall();
+								}}
+							>
+								Update to {version}
+							</Button>
+						{:else if status === 'Up-to-date'}
+							<Button
+								wide
+								style="pop"
+								testId="got-it"
+								onmousedown={async () => {
+									updaterService.dismiss();
+								}}
+							>
+								Got it!
+							</Button>
+						{:else if status === 'Done'}
+							<Button
+								style="pop"
+								wide
+								testId="restart-app"
+								onclick={async () => await updaterService.relaunchApp()}
+							>
+								Restart
+							</Button>
+						{/if}
+					</div>
 				</div>
-			</div>
+			{/if}
 		</div>
 	</div>
 {/if}
