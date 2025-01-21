@@ -19,7 +19,7 @@
 			kind="outline"
 			onclick={() => goto(routes.workspacePath(project.id))}
 			width={34}
-			height={34}
+			class="btn-square"
 		>
 			<svg viewBox="0 0 16 13" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<g opacity="0.7">
@@ -38,7 +38,7 @@
 			kind="outline"
 			onclick={() => goto(routes.branchesPath(project.id))}
 			width={34}
-			height={34}
+			class="btn-square"
 		>
 			<svg viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<g opacity="0.7">
@@ -57,7 +57,7 @@
 			kind="outline"
 			onclick={() => goto(routes.targetPath(project.id))}
 			width={34}
-			height={34}
+			class="btn-square"
 		>
 			<svg viewBox="0 0 18 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<g opacity="0.7">
@@ -75,7 +75,7 @@
 			kind="outline"
 			onclick={() => goto(routes.historyPath(project.id))}
 			width={34}
-			height={34}
+			class="btn-square"
 		>
 			<svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<g opacity="0.7">
@@ -91,9 +91,9 @@
 			kind="outline"
 			onclick={() => goto(routes.settingsPath(project.id))}
 			width={34}
-			height={34}
+			class="btn-square"
 		/>
-		<Button kind="outline" width={34} height="100%">
+		<Button kind="outline" width={34} class="btn-height-auto">
 			<div class="user-button">
 				{#if $user?.picture}
 					<img
@@ -160,5 +160,14 @@
 		width: 16px;
 		height: 16px;
 		stroke: var(--clr-btn-ntrl-outline-text);
+	}
+
+	:global(.btn-height-auto) {
+		height: auto !important;
+	}
+
+	:global(.btn-square) {
+		aspect-ratio: 1 / 1;
+		height: unset !important;
 	}
 </style>
