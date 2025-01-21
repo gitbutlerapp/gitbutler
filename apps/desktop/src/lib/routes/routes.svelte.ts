@@ -39,4 +39,12 @@ export class DesktopRoutesService {
 		return `/${projectId}/history`;
 	}
 	isHistoryPath = $derived(isUrl<{ projectId: string }>('/[projectId]/history'));
+
+	changeProjectPath(targetProjectId: string) {
+		if (!page.route.id) {
+			return '/';
+		}
+		const targetRestPath = page.route.id?.replace('/[projectId]/', '');
+		return `/${targetProjectId}/${targetRestPath}`;
+	}
 }
