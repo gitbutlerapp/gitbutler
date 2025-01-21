@@ -11,9 +11,7 @@
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { isFound, and, map, combine } from '@gitbutler/shared/network/loadable';
-	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
-	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
+	import { isFound, and, map } from '@gitbutler/shared/network/loadable';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		WebRoutesService,
@@ -38,15 +36,10 @@
 
 	let { data }: Props = $props();
 
-	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
 	const latestBranchLookupService = getContext(LatestBranchLookupService);
 	const branchService = getContext(BranchService);
 	const appState = getContext(AppState);
 	const routes = getContext(WebRoutesService);
-
-	const repositoryId = $derived(
-		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
-	);
 
 	const branchUuid = $derived(
 		lookupLatestBranchUuid(
@@ -59,8 +52,8 @@
 	);
 
 	const branch = $derived(
-		map(combine([repositoryId.current, branchUuid?.current]), ([repositoryId, branchUuid]) => {
-			return getBranchReview(appState, branchService, repositoryId, branchUuid);
+		map(branchUuid?.current, (branchUuid) => {
+			return getBranchReview(appState, branchService, branchUuid);
 		})
 	);
 
@@ -126,7 +119,7 @@
 
 <h2>Review page: {data.ownerSlug}/{data.projectSlug} {data.branchId}</h2>
 
-<Loading loadable={and([repositoryId.current, branchUuid?.current, branch?.current])}>
+<Loading loadable={and([branchUuid?.current, branch?.current])}>
 	{#snippet children(branch)}
 		<div class="layout">
 			<div class="information">

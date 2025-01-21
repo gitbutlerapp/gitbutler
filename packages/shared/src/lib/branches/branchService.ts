@@ -90,14 +90,12 @@ export class BranchService {
 			.createInterest();
 	}
 
-	getBranchInterest(repositoryId: string, uuid: string): Interest {
+	getBranchInterest(uuid: string): Interest {
 		return this.branchInterests
 			.findOrCreateSubscribable({ uuid }, async () => {
 				this.appDispatch.dispatch(addBranch({ status: 'loading', id: uuid }));
 				try {
-					const apiBranch = await this.httpClient.get<ApiBranch>(
-						`patch_stack/uuid/${repositoryId}/${uuid}`
-					);
+					const apiBranch = await this.httpClient.get<ApiBranch>(`patch_stack/${uuid}`);
 					const branch: LoadableBranch = {
 						status: 'found',
 						id: apiBranch.uuid,

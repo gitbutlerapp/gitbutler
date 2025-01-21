@@ -65,11 +65,10 @@ export function getBranchReviewsForRepository(
 export function getBranchReview(
 	appState: AppBranchesState,
 	branchService: BranchService,
-	repositoryId: string,
 	uuid: string,
 	inView?: InView
 ): Reactive<LoadableBranch | undefined> {
-	const branchReviewInterest = branchService.getBranchInterest(repositoryId, uuid);
+	const branchReviewInterest = branchService.getBranchInterest(uuid);
 	registerInterest(branchReviewInterest, inView);
 
 	const branchReview = $derived(branchesSelectors.selectById(appState.branches, uuid));

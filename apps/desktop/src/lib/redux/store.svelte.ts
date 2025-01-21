@@ -1,3 +1,4 @@
+import { branchReviewListingsReducer } from '@gitbutler/shared/branches/branchReviewListingsSlice';
 import { branchesReducer } from '@gitbutler/shared/branches/branchesSlice';
 import { latestBranchLookupsReducer } from '@gitbutler/shared/branches/latestBranchLookupSlice';
 import { patchSectionsReducer } from '@gitbutler/shared/branches/patchSectionsSlice';
@@ -67,6 +68,7 @@ export class DesktopState extends AppState implements AppDesktopOnlyState {
 			chatChannels: chatChannelsReducer,
 			repositoryIdLookups: repositoryIdLookupsReducer,
 			latestBranchLookups: latestBranchLookupsReducer,
+			branchReviewListings: branchReviewListingsReducer,
 			desktopOnly: desktopOnly.reducer
 		}
 	});

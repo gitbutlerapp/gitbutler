@@ -52,8 +52,8 @@
 	);
 
 	const branch = $derived(
-		map(combine([repositoryId.current, branchUuid?.current]), ([repositoryId, branchUuid]) => {
-			return getBranchReview(appState, branchService, repositoryId, branchUuid);
+		map(branchUuid?.current, (branchUuid) => {
+			return getBranchReview(appState, branchService, branchUuid);
 		})
 	);
 

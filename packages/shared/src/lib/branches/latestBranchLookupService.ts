@@ -21,7 +21,7 @@ export class LatestBranchLookupService {
 
 				try {
 					const branch = await this.httpClient.get<ApiBranch>(
-						`patch_stack/${ownerSlug}/{projectSlug}/${branchId}`
+						`patch_stack/${ownerSlug}/${projectSlug}/branch/${branchId}`
 					);
 
 					this.appDispatch.dispatch(

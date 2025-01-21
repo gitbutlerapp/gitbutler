@@ -293,12 +293,7 @@
 
 	const cloudBranch = $derived(
 		map(cloudBranchUuid?.current, (cloudBranchUuid) => {
-			return getBranchReview(
-				appState,
-				cloudBranchService,
-				$project!.api!.repository_id,
-				cloudBranchUuid
-			);
+			return getBranchReview(appState, cloudBranchService, cloudBranchUuid);
 		})
 	);
 </script>
