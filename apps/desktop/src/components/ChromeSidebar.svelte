@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Project } from '$lib/project/project';
 	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { User } from '$lib/user/user';
 	import { getContextStore } from '@gitbutler/shared/context';
@@ -8,13 +9,18 @@
 	import { goto } from '$app/navigation';
 
 	const routes = getContext(DesktopRoutesService);
-
+	const project = getContext(Project);
 	const user = getContextStore(User);
 </script>
 
 <nav class="wrapper">
 	<div class="top">
-		<Button kind="outline" onclick={() => goto(routes.workspacePath)} width={34} height={34}>
+		<Button
+			kind="outline"
+			onclick={() => goto(routes.workspacePath(project.id))}
+			width={34}
+			height={34}
+		>
 			<svg viewBox="0 0 16 13" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<g opacity="0.7">
 					<path
@@ -28,7 +34,12 @@
 				</g>
 			</svg>
 		</Button>
-		<Button kind="outline" onclick={() => goto(routes.branchesPath)} width={34} height={34}>
+		<Button
+			kind="outline"
+			onclick={() => goto(routes.branchesPath(project.id))}
+			width={34}
+			height={34}
+		>
 			<svg viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<g opacity="0.7">
 					<path d="M5 3L11 3" stroke-width="1.5" />
@@ -42,7 +53,12 @@
 				</g>
 			</svg>
 		</Button>
-		<Button kind="outline" onclick={() => goto(routes.targetPath)} width={34} height={34}>
+		<Button
+			kind="outline"
+			onclick={() => goto(routes.targetPath(project.id))}
+			width={34}
+			height={34}
+		>
 			<svg viewBox="0 0 18 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<g opacity="0.7">
 					<path
@@ -55,7 +71,12 @@
 				</g>
 			</svg>
 		</Button>
-		<Button kind="outline" onclick={() => goto(routes.historyPath)} width={34} height={34}>
+		<Button
+			kind="outline"
+			onclick={() => goto(routes.historyPath(project.id))}
+			width={34}
+			height={34}
+		>
 			<svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<g opacity="0.7">
 					<path d="M8 5V10H13" stroke-width="1.5" />
@@ -68,7 +89,7 @@
 		<Button
 			icon="settings"
 			kind="outline"
-			onclick={() => goto(routes.settingsPath)}
+			onclick={() => goto(routes.settingsPath(project.id))}
 			width={34}
 			height={34}
 		/>

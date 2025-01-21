@@ -1,22 +1,22 @@
 export class DesktopRoutesService {
-	constructor(private readonly projectId: string) {}
+	constructor() {}
 
-	get projectPath() {
-		return `/${this.projectId}`;
+	projectPath(projectId: string) {
+		return `/${projectId}`;
 	}
-	get settingsPath() {
-		return `/${this.projectId}/settings`;
+	settingsPath(projectId: string) {
+		return `/${projectId}/settings`;
 	}
-	get workspacePath() {
-		return `/${this.projectId}/workspace`;
+	workspacePath(projectId: string) {
+		return `/${projectId}/workspace`;
 	}
-	get branchesPath() {
-		return `/${this.projectId}/branches`;
+	branchesPath(projectId: string) {
+		return `/${projectId}/branches`;
 	}
-	get targetPath() {
-		return `/${this.projectId}/target`;
+	targetPath(projectId: string) {
+		return `/${projectId}/target`;
 	}
-	get historyPath() {
-		return `/${this.projectId}/history`;
+	historyPath(projectId: string) {
+		return `/${projectId}/history`;
 	}
 }
