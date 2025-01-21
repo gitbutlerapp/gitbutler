@@ -35,7 +35,6 @@
 	import { Project } from '$lib/project/project';
 	import { projectCloudSync } from '$lib/project/projectCloudSync.svelte';
 	import { ProjectService } from '$lib/project/projectService';
-	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
 	import { debounce } from '$lib/utils/debounce';
 	import { getContext } from '@gitbutler/shared/context';
@@ -94,7 +93,6 @@
 		// Cloud related services
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
 		setContext(StackPublishingService, data.stackPublishingService);
-		setContext(DesktopRoutesService, new DesktopRoutesService(projectId));
 	});
 
 	let intervalId: any;

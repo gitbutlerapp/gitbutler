@@ -36,6 +36,7 @@
 	import { PromptService } from '$lib/prompt/promptService';
 	import { DesktopDispatch, DesktopState } from '$lib/redux/store.svelte';
 	import { RemotesService } from '$lib/remotes/remotesService';
+	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { UpdaterService } from '$lib/updater/updater';
@@ -81,6 +82,7 @@
 	const repositoryIdLookupService = new RepositoryIdLookupService(data.cloud, appState.appDispatch);
 	const latestBranchLookupService = new LatestBranchLookupService(data.cloud, appState.appDispatch);
 	const webRoutesService = new WebRoutesService(env.PUBLIC_CLOUD_BASE_URL);
+	const desktopRouteService = new DesktopRoutesService();
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
@@ -95,6 +97,7 @@
 	setContext(RepositoryIdLookupService, repositoryIdLookupService);
 	setContext(LatestBranchLookupService, latestBranchLookupService);
 	setContext(WebRoutesService, webRoutesService);
+	setContext(DesktopRoutesService, desktopRouteService);
 	setContext(HooksService, data.hooksService);
 	setContext(SettingsService, data.settingsService);
 	setContext(FileService, data.fileService);
