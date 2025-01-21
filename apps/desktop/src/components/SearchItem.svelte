@@ -27,7 +27,7 @@
 		</i>
 	{:else}
 		<button type="button" class="icon" onclick={resetFilter}>
-			<Icon name="clear-input" />
+			<Icon name="cross-in-circle" />
 		</button>
 	{/if}
 
