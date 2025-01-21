@@ -3006,6 +3006,7 @@ dependencies = [
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
+ "gitbutler-settings",
  "gitbutler-sync",
  "gitbutler-user",
  "gix",

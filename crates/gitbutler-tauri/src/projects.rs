@@ -5,6 +5,7 @@ pub mod commands {
 
     use anyhow::Context;
     use gitbutler_project::{self as projects, Controller, ProjectId};
+    use gitbutler_settings::AppSettingsWithDiskSync;
     use tauri::{State, Window};
     use tracing::instrument;
 
@@ -64,15 +65,20 @@ pub mod commands {
     ///
     /// We use it to start watching for filesystem events.
     #[tauri::command(async)]
-    #[instrument(skip(projects, window_state, window), err(Debug))]
+    #[instrument(skip(projects, window_state, window, app_settings), err(Debug))]
     pub fn set_project_active(
         projects: State<'_, Controller>,
         window_state: State<'_, WindowState>,
+        app_settings: State<'_, AppSettingsWithDiskSync>,
         window: Window,
         id: ProjectId,
     ) -> Result<(), Error> {
         let project = projects.get_validated(id).context("project not found")?;
-        Ok(window_state.set_project_to_window(window.label(), &project)?)
+        Ok(window_state.set_project_to_window(
+            window.label(),
+            &project,
+            app_settings.inner().clone(),
+        )?)
     }
 
     /// Open the project with the given ID in a new Window, or focus an existing one.

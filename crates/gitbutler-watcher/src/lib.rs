@@ -9,6 +9,7 @@ use anyhow::{Context, Result};
 use events::InternalEvent;
 pub use events::{Action, Change};
 use gitbutler_project::ProjectId;
+use gitbutler_settings::AppSettingsWithDiskSync;
 pub use handler::Handler;
 use tokio::{
     sync::mpsc::{unbounded_channel, UnboundedSender},
@@ -75,6 +76,7 @@ pub fn watch_in_background(
     handler: handler::Handler,
     worktree_path: impl AsRef<Path>,
     project_id: ProjectId,
+    app_settings: AppSettingsWithDiskSync,
 ) -> Result<WatcherHandle, anyhow::Error> {
     let (events_out, mut events_in) = unbounded_channel();
     let (flush_tx, mut flush_rx) = unbounded_channel();
@@ -88,22 +90,23 @@ pub fn watch_in_background(
         signal_flush: flush_tx,
         cancellation_token: cancellation_token.clone(),
     };
-    let handle_event = move |event: InternalEvent| -> Result<()> {
-        let handler = handler.clone();
-        // NOTE: Traditional parallelization (blocking) is required as `tokio::spawn()` on
-        //       the `handler.handle()` future isn't `Send` as it keeps non-Send things
-        //       across await points. Further, there is a fair share of `sync` IO happening
-        //       as well, so nothing can really be done here.
-        task::spawn_blocking(move || {
-            handler.handle(event).ok();
-        });
-        Ok(())
-    };
+    let handle_event =
+        move |event: InternalEvent, app_settings: AppSettingsWithDiskSync| -> Result<()> {
+            let handler = handler.clone();
+            // NOTE: Traditional parallelization (blocking) is required as `tokio::spawn()` on
+            //       the `handler.handle()` future isn't `Send` as it keeps non-Send things
+            //       across await points. Further, there is a fair share of `sync` IO happening
+            //       as well, so nothing can really be done here.
+            task::spawn_blocking(move || {
+                handler.handle(event, app_settings).ok();
+            });
+            Ok(())
+        };
 
     tokio::spawn(async move {
         loop {
             tokio::select! {
-                Some(event) = events_in.recv() => handle_event(event)?,
+                Some(event) = events_in.recv() => handle_event(event, app_settings.clone())?,
                 Some(_signal_flush) = flush_rx.recv() => {
                     debounce.flush_nonblocking();
                 }

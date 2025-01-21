@@ -26,6 +26,7 @@ gitbutler-reference.workspace = true
 gitbutler-error.workspace = true
 gitbutler-operating-modes.workspace = true
 but-core.workspace = true
+gitbutler-settings.workspace = true
 
 backoff = "0.4.0"
 notify = { version = "6.0.1" }

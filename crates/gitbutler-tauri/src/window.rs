@@ -4,6 +4,7 @@ pub(crate) mod state {
     use anyhow::{Context, Result};
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
+    use gitbutler_settings::AppSettingsWithDiskSync;
     use gitbutler_user as users;
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
@@ -146,11 +147,12 @@ pub(crate) mod state {
         /// uniquely identified by `window`.
         ///
         /// Previous state will be removed and its resources cleaned up.
-        #[instrument(skip(self, project), err(Debug))]
+        #[instrument(skip(self, project, app_settings), err(Debug))]
         pub fn set_project_to_window(
             &self,
             window: &WindowLabelRef,
             project: &projects::Project,
+            app_settings: AppSettingsWithDiskSync,
         ) -> Result<()> {
             let mut state_by_label = self.state.lock();
             if let Some(state) = state_by_label.get(window) {
@@ -162,8 +164,12 @@ pub(crate) mod state {
             let handler = handler_from_app(&self.app_handle)?;
             let worktree_dir = project.path.clone();
             let project_id = project.id;
-            let watcher =
-                gitbutler_watcher::watch_in_background(handler, worktree_dir, project_id)?;
+            let watcher = gitbutler_watcher::watch_in_background(
+                handler,
+                worktree_dir,
+                project_id,
+                app_settings,
+            )?;
             state_by_label.insert(
                 window.to_owned(),
                 State {
