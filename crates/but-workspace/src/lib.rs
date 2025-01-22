@@ -13,6 +13,7 @@ use anyhow::Result;
 use bstr::BString;
 use gitbutler_id::id::Id;
 use gitbutler_stack::VirtualBranchesHandle;
+use itertools::Itertools;
 use std::path::Path;
 
 /// Represents a lightweight version of a [`gitbutler_stack::Stack`] for listing.
@@ -36,6 +37,7 @@ pub fn stacks(gb_dir: &Path) -> Result<Vec<StackEntry>> {
     Ok(state
         .list_stacks_in_workspace()?
         .into_iter()
+        .sorted_by_key(|s| s.order)
         .map(|stack| StackEntry {
             id: stack.id,
             branch_names: stack.heads().into_iter().map(Into::into).collect(),

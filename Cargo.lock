@@ -694,6 +694,7 @@ dependencies = [
  "bstr",
  "gitbutler-id",
  "gitbutler-stack",
+ "itertools 0.14.0",
 ]
 
 [[package]]
