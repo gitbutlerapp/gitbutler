@@ -33,7 +33,7 @@
 	import { platformName } from '$lib/platform/platform';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { PromptService } from '$lib/prompt/promptService';
-	import { DesktopDispatch, DesktopState } from '$lib/redux/store.svelte';
+	import { DesktopRedux } from '$lib/redux/store.svelte';
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { setSecretsService } from '$lib/secrets/secretsService';
@@ -71,7 +71,8 @@
 	const userSettings = loadUserSettings();
 	setContext(SETTINGS, userSettings);
 
-	const appState = new DesktopState();
+	const appState = new AppState();
+	const desktopState = new DesktopRedux(data.tauri);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
 	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
 	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
@@ -85,8 +86,7 @@
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
-	setContext(DesktopState, appState);
-	setContext(DesktopDispatch, appState.appDispatch);
+	setContext(DesktopRedux, desktopState);
 	setContext(FeedService, feedService);
 	setContext(OrganizationService, organizationService);
 	setContext(CloudUserService, cloudUserService);
