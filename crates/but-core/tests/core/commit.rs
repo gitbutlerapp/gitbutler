@@ -1,13 +1,66 @@
-use crate::json_samples::repo;
+#[test]
+fn instantiation() -> anyhow::Result<()> {
+    let repo = conflict_repo("normal-and-artificial")?;
+    let normal = but_core::Commit::from_id(repo.rev_parse_single("normal")?)?;
+    assert!(!normal.is_conflicted());
+
+    let conflicted = but_core::Commit::from_id(repo.rev_parse_single("conflicted")?)?;
+    assert!(conflicted.is_conflicted());
+    Ok(())
+}
 
 #[test]
-fn many_changes() -> anyhow::Result<()> {
-    let repo = repo("many-in-tree")?;
-    let previous_tree_id = repo.rev_parse_single("@~1^{tree}")?;
-    let current_tree_id = repo.rev_parse_single("@^{tree}")?;
-    let changes =
-        but_core::commit_changes(&repo, Some(previous_tree_id.into()), current_tree_id.into())?;
+fn changes() -> anyhow::Result<()> {
+    let repo = conflict_repo("normal-and-artificial")?;
+    let changes = but_core::commit_changes(
+        &repo,
+        Some(repo.rev_parse_single("normal")?.into()),
+        repo.rev_parse_single("conflicted")?.into(),
+    )?;
     insta::assert_debug_snapshot!(changes, @r#"
+        [
+            TreeChange {
+                path: "file",
+                status: Modification {
+                    previous_state: ChangeState {
+                        id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
+                        kind: Blob,
+                    },
+                    state: ChangeState {
+                        id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
+                        kind: Blob,
+                    },
+                    flags: None,
+                },
+            },
+        ]
+        "#);
+    Ok(())
+}
+
+fn conflict_repo(name: &str) -> anyhow::Result<gix::Repository> {
+    let root = gix_testtools::scripted_fixture_read_only("conflict-commits.sh")
+        .map_err(anyhow::Error::from_boxed)?;
+    Ok(gix::open_opts(
+        root.join(name),
+        gix::open::Options::isolated(),
+    )?)
+}
+
+mod commit_changes {
+    use crate::json_samples::repo;
+
+    #[test]
+    fn many_changes() -> anyhow::Result<()> {
+        let repo = repo("many-in-tree")?;
+        let previous_commit_id = repo.rev_parse_single("@~1")?;
+        let current_commit_id = repo.rev_parse_single("@")?;
+        let changes = but_core::commit_changes(
+            &repo,
+            Some(previous_commit_id.into()),
+            current_commit_id.into(),
+        )?;
+        insta::assert_debug_snapshot!(changes, @r#"
     [
         TreeChange {
             path: "aa-renamed-new-name",
@@ -81,15 +134,15 @@ fn many_changes() -> anyhow::Result<()> {
         },
     ]
     "#);
-    Ok(())
-}
+        Ok(())
+    }
 
-#[test]
-fn without_previous_tree() -> anyhow::Result<()> {
-    let repo = repo("many-in-tree")?;
-    let current_tree_id = repo.rev_parse_single("@^1^{tree}")?;
-    let changes = but_core::commit_changes(&repo, None, current_tree_id.into())?;
-    insta::assert_debug_snapshot!(changes, @r#"
+    #[test]
+    fn without_previous_tree() -> anyhow::Result<()> {
+        let repo = repo("many-in-tree")?;
+        let current_tree_id = repo.rev_parse_single("@^1")?;
+        let changes = but_core::commit_changes(&repo, None, current_tree_id.into())?;
+        insta::assert_debug_snapshot!(changes, @r#"
     [
         TreeChange {
             path: "aa-renamed-old-name",
@@ -143,5 +196,6 @@ fn without_previous_tree() -> anyhow::Result<()> {
         },
     ]
     "#);
-    Ok(())
+        Ok(())
+    }
 }

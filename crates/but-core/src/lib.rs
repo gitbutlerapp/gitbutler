@@ -39,11 +39,19 @@ use serde::Serialize;
 mod worktree;
 pub use worktree::changes as worktree_changes;
 
-mod commit;
-pub use commit::changes as commit_changes;
+/// Commit related utility types.
+pub mod commit;
+pub use commit::changes::function as commit_changes;
 
 /// utility types
 pub mod unified_diff;
+
+/// A decoded commit object with easy access to additional GitButler information.
+pub struct Commit<'repo> {
+    /// The id of the commit itself.
+    pub id: gix::Id<'repo>,
+    inner: gix::objs::Commit,
+}
 
 /// A patch in unified diff format to show how a resource changed or now looks like (in case it was newly added),
 /// or how it previously looked like in case of a deletion.

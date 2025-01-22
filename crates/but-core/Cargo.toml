@@ -11,6 +11,7 @@ doctest = false
 [dependencies]
 serde = { workspace = true, features = ["std"] }
 bstr.workspace = true
+tracing.workspace = true
 anyhow = "1.0.95"
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel", "serde", "status"] }
 gitbutler-serde.workspace = true
