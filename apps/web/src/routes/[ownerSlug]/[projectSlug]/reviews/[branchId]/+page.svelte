@@ -2,6 +2,7 @@
 	import Factoid from '$lib/components/Factoid.svelte';
 	import ChangeIndexCard from '$lib/components/changes/ChangeIndexCard.svelte';
 	import BranchStatusBadge from '$lib/components/review/BranchStatusBadge.svelte';
+	import CommitsGraph from '$lib/components/review/CommitsGraph.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import {
 		getBranchReview,
@@ -27,8 +28,7 @@
 	import relativeTime from 'dayjs/plugin/relativeTime';
 	import type { Branch } from '@gitbutler/shared/branches/types';
 	import { goto } from '$app/navigation';
-	import { PUBLIC_APP_HOST } from '$env/static/public';
-	import CommitsGraph from '$lib/components/review/CommitsGraph.svelte';
+	import { PUBLIC_CLOUD_HOST } from '$env/static/public';
 
 	dayjs.extend(relativeTime);
 
@@ -124,7 +124,7 @@
 	<meta property="og:description" content="GitButler code review" />
 	<meta
 		property="og:image"
-		content="{PUBLIC_APP_HOST}/{data.ownerSlug}/{data.projectSlug}/reviews/{data.branchId}/og"
+		content="{PUBLIC_CLOUD_HOST}{data.ownerSlug}/{data.projectSlug}/reviews/{data.branchId}/og"
 	/>
 </svelte:head>
 
