@@ -2,9 +2,11 @@ use std::{fs, path, path::PathBuf, str::FromStr};
 
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::GITBUTLER_WORKSPACE_COMMIT_TITLE;
+use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
 use gitbutler_project::{self as projects, Project, ProjectId};
 use gitbutler_reference::Refname;
+use gitbutler_settings::AppSettings;
 use gitbutler_testsupport::{paths, TestProject, VAR_NO_CLEANUP};
 use tempfile::TempDir;
 
@@ -14,6 +16,7 @@ struct Test {
     project: Project,
     projects: projects::Controller,
     data_dir: Option<TempDir>,
+    ctx: CommandContext,
 }
 
 impl Drop for Test {
@@ -33,6 +36,7 @@ impl Default for Test {
         let project = projects
             .add(test_project.path())
             .expect("failed to add project");
+        let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
 
         Self {
             repository: test_project,
@@ -40,6 +44,7 @@ impl Default for Test {
             projects,
             project,
             data_dir: Some(data_dir),
+            ctx,
         }
     }
 }

@@ -877,7 +877,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
         1,
         "test.txt is commited inside this commit"
     );
-    let commit1_files = list_commit_files(project, branch1.series[0].clone()?.patches[0].id)?;
+    let commit1_files = list_commit_files(ctx, branch1.series[0].clone()?.patches[0].id)?;
     assert_eq!(commit1_files.len(), 1);
     assert_eq!(commit1_files[0].path.to_str().unwrap(), "test.txt");
     assert_eq!(
@@ -1577,7 +1577,7 @@ fn commit_same_hunk_twice() -> Result<()> {
         "file should have been commited"
     );
 
-    let commit1_files = list_commit_files(project, branch.series[0].clone()?.patches[0].id)?;
+    let commit1_files = list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?;
     assert_eq!(commit1_files.len(), 1, "hunks expected");
     assert_eq!(
         commit1_files[0].hunks.len(),
@@ -1615,8 +1615,8 @@ fn commit_same_hunk_twice() -> Result<()> {
         "all changes should have been commited"
     );
 
-    let commit1_files = list_commit_files(project, branch.series[0].clone()?.patches[0].id)?;
-    let commit2_files = list_commit_files(project, branch.series[0].clone()?.patches[1].id)?;
+    let commit1_files = list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?;
+    let commit2_files = list_commit_files(ctx, branch.series[0].clone()?.patches[1].id)?;
     assert_eq!(
         branch.series[0].clone()?.patches.len(),
         2,
@@ -1673,7 +1673,7 @@ fn commit_same_file_twice() -> Result<()> {
 
     assert_eq!(branch.files.len(), 0, "no files expected");
 
-    let commit1_files = list_commit_files(project, branch.series[0].clone()?.patches[0].id)?;
+    let commit1_files = list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?;
     assert_eq!(
         branch.series[0].clone()?.patches.len(),
         1,
@@ -1716,8 +1716,8 @@ fn commit_same_file_twice() -> Result<()> {
         "all changes should have been commited"
     );
 
-    let commit1_files = list_commit_files(project, branch.series[0].clone()?.patches[0].id)?;
-    let commit2_files = list_commit_files(project, branch.series[0].clone()?.patches[1].id)?;
+    let commit1_files = list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?;
+    let commit2_files = list_commit_files(ctx, branch.series[0].clone()?.patches[1].id)?;
     assert_eq!(
         branch.series[0].clone()?.patches.len(),
         2,
@@ -1776,7 +1776,7 @@ fn commit_partial_by_hunk() -> Result<()> {
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
-    let commit1_files = list_commit_files(project, branch.series[0].clone()?.patches[0].id)?;
+    let commit1_files = list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?;
 
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.files[0].hunks.len(), 1);
@@ -1794,8 +1794,8 @@ fn commit_partial_by_hunk() -> Result<()> {
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
-    let commit1_files = list_commit_files(project, branch.series[0].clone()?.patches[0].id)?;
-    let commit2_files = list_commit_files(project, branch.series[0].clone()?.patches[1].id)?;
+    let commit1_files = list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?;
+    let commit2_files = list_commit_files(ctx, branch.series[0].clone()?.patches[1].id)?;
 
     assert_eq!(branch.files.len(), 0);
     assert_eq!(branch.series[0].clone()?.patches.len(), 2);

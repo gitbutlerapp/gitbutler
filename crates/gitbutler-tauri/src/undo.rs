@@ -1,10 +1,12 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Context;
+use gitbutler_command_context::CommandContext;
 use gitbutler_diff::FileDiff;
 use gitbutler_oplog::{entry::Snapshot, OplogExt};
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
+use gitbutler_settings::AppSettingsWithDiskSync;
 use gitbutler_stack::StackId;
 use gitbutler_user::User;
 use tauri::State;
@@ -58,14 +60,16 @@ pub fn snapshot_diff(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(projects), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn take_synced_snapshot(
     projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     user: User,
     stack_id: Option<StackId>,
 ) -> Result<String, Error> {
     let project = projects.get(project_id).context("failed to get project")?;
-    let snapshot_oid = gitbutler_sync::cloud::take_synced_snapshot(&project, &user, stack_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let snapshot_oid = gitbutler_sync::cloud::take_synced_snapshot(&ctx, &user, stack_id)?;
     Ok(snapshot_oid.to_string())
 }

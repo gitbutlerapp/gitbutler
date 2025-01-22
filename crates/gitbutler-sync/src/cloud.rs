@@ -20,10 +20,11 @@ use gitbutler_user as users;
 use itertools::Itertools;
 
 pub fn take_synced_snapshot(
-    project: &Project,
+    ctx: &CommandContext,
     user: &users::User,
     stack_id: Option<StackId>,
 ) -> Result<git2::Oid> {
+    let project = ctx.project();
     let mut guard = project.exclusive_worktree_access();
 
     let virtual_branches_handle = VirtualBranchesHandle::new(project.gb_dir());
@@ -33,12 +34,11 @@ pub fn take_synced_snapshot(
         virtual_branches_handle.set_stack(stack)?;
     }
 
-    let command_context = CommandContext::open(project)?;
     let snapshot = project.create_snapshot(
         SnapshotDetails::new(OperationKind::SyncWorkspace),
         guard.write_permission(),
     )?;
-    push_oplog(&command_context, user)?;
+    push_oplog(ctx, user)?;
 
     if let Some(stack_id) = stack_id {
         let mut stack = virtual_branches_handle.get_stack_in_workspace(stack_id)?;

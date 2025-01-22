@@ -8,43 +8,38 @@ use super::Test;
 #[test]
 fn no_diffs() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, source_branch_id, "commit", None).unwrap();
 
     let target_branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
-    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
+    gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id)
         .unwrap();
 
-    let destination_branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let destination_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
         .find(|b| b.id == target_branch_id)
         .unwrap();
 
-    let source_branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let source_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -63,42 +58,37 @@ fn no_diffs() {
 #[test]
 fn multiple_commits() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     std::fs::write(repository.path().join("a.txt"), "This is a").unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
     // Create a commit on the source branch
-    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add a", None).unwrap();
+    gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Add a", None).unwrap();
 
     std::fs::write(repository.path().join("b.txt"), "This is b").unwrap();
 
     // Create a second commit on the source branch, to be moved
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "Add b", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Add b", None).unwrap();
 
     std::fs::write(repository.path().join("c.txt"), "This is c").unwrap();
 
     // Create a third commit on the source branch
 
-    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add c", None).unwrap();
+    gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Add c", None).unwrap();
 
     let target_branch_id = gitbutler_branch_actions::create_virtual_branch(
-        project,
+        ctx,
         &BranchCreateRequest {
             selected_for_changes: Some(true),
             ..Default::default()
@@ -109,13 +99,13 @@ fn multiple_commits() {
     std::fs::write(repository.path().join("d.txt"), "This is d").unwrap();
 
     // Create a commit on the destination branch
-    gitbutler_branch_actions::create_commit(project, target_branch_id, "Add d", None).unwrap();
+    gitbutler_branch_actions::create_commit(ctx, target_branch_id, "Add d", None).unwrap();
 
     // Move the top commit from the source branch to the destination branch
-    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
+    gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id)
         .unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     let source_branch = branches.iter().find(|b| b.id == source_branch_id).unwrap();
     let destination_branch = branches.iter().find(|b| b.id == target_branch_id).unwrap();
@@ -155,38 +145,33 @@ fn multiple_commits() {
 #[test]
 fn multiple_commits_with_diffs() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     std::fs::write(repository.path().join("a.txt"), "This is a").unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
     // Create a commit on the source branch
-    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add a", None).unwrap();
+    gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Add a", None).unwrap();
 
     std::fs::write(repository.path().join("b.txt"), "This is b").unwrap();
 
     // Create as second commit on the source branch, to be moved
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "Add b", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Add b", None).unwrap();
 
     // Uncommitted changes on the source branch
     std::fs::write(repository.path().join("c.txt"), "This is c").unwrap();
 
-    let source_branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let source_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -198,7 +183,7 @@ fn multiple_commits_with_diffs() {
     assert_eq!(source_branch.files.len(), 1);
 
     let target_branch_id = gitbutler_branch_actions::create_virtual_branch(
-        project,
+        ctx,
         &BranchCreateRequest {
             selected_for_changes: Some(true),
             ..Default::default()
@@ -209,12 +194,12 @@ fn multiple_commits_with_diffs() {
     std::fs::write(repository.path().join("d.txt"), "This is d").unwrap();
 
     // Create a commit on the destination branch
-    gitbutler_branch_actions::create_commit(project, target_branch_id, "Add d", None).unwrap();
+    gitbutler_branch_actions::create_commit(ctx, target_branch_id, "Add d", None).unwrap();
 
     // Uncommitted changes on the destination branch
     std::fs::write(repository.path().join("e.txt"), "This is e").unwrap();
 
-    let destination_branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let destination_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -229,10 +214,10 @@ fn multiple_commits_with_diffs() {
     assert_eq!(destination_branch.files.len(), 1);
 
     // Move the top commit from the source branch to the destination branch
-    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
+    gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id)
         .unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     let source_branch = branches.iter().find(|b| b.id == source_branch_id).unwrap();
     let destination_branch = branches.iter().find(|b| b.id == target_branch_id).unwrap();
@@ -285,27 +270,22 @@ fn multiple_commits_with_diffs() {
 #[test]
 fn diffs_on_source_branch() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, source_branch_id, "commit", None).unwrap();
 
     std::fs::write(
         repository.path().join("another file.txt"),
@@ -314,23 +294,23 @@ fn diffs_on_source_branch() {
     .unwrap();
 
     // needed in order to resolve the claims of the just-created file
-    _ = gitbutler_branch_actions::list_virtual_branches(project);
+    _ = gitbutler_branch_actions::list_virtual_branches(ctx);
 
     let target_branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
-    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
+    gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id)
         .unwrap();
 
-    let destination_branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let destination_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
         .find(|b| b.id == target_branch_id)
         .unwrap();
 
-    let source_branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let source_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -358,30 +338,25 @@ fn diffs_on_source_branch() {
 #[test]
 fn diffs_on_target_branch() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, source_branch_id, "commit", None).unwrap();
 
     let target_branch_id = gitbutler_branch_actions::create_virtual_branch(
-        project,
+        ctx,
         &BranchCreateRequest {
             selected_for_changes: Some(true),
             ..Default::default()
@@ -396,19 +371,19 @@ fn diffs_on_target_branch() {
     .unwrap();
 
     // needed in order to resolve the claims of the just-created file
-    _ = gitbutler_branch_actions::list_virtual_branches(project);
+    _ = gitbutler_branch_actions::list_virtual_branches(ctx);
 
-    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
+    gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id)
         .unwrap();
 
-    let destination_branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let destination_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
         .find(|b| b.id == target_branch_id)
         .unwrap();
 
-    let source_branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let source_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -436,27 +411,22 @@ fn diffs_on_target_branch() {
 #[test]
 fn diffs_on_both_branches() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, source_branch_id, "commit", None).unwrap();
 
     // Uncommitted changes on the source branch
     std::fs::write(
@@ -466,7 +436,7 @@ fn diffs_on_both_branches() {
     .unwrap();
 
     // Note: Calling `list_virtual_branches` actually is *needed* to correctly update the state of the virtual branches.
-    let source_branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let source_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -487,7 +457,7 @@ fn diffs_on_both_branches() {
     );
 
     let target_branch_id = gitbutler_branch_actions::create_virtual_branch(
-        project,
+        ctx,
         &BranchCreateRequest {
             selected_for_changes: Some(true),
             ..Default::default()
@@ -502,7 +472,7 @@ fn diffs_on_both_branches() {
     )
     .unwrap();
 
-    let destination_branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let destination_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -525,10 +495,10 @@ fn diffs_on_both_branches() {
         "@@ -0,0 +1 @@\n+yet another content\n\\ No newline at end of file\n"
     );
 
-    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
+    gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id)
         .unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     let source_branch = branches.iter().find(|b| b.id == source_branch_id).unwrap();
     let destination_branch = branches.iter().find(|b| b.id == target_branch_id).unwrap();
@@ -564,48 +534,35 @@ fn diffs_on_both_branches() {
 #[test]
 fn target_commit_locked_to_ancestors() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     std::fs::write(repository.path().join("a.txt"), "This is a").unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
-    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add a", None).unwrap();
+    gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Add a", None).unwrap();
 
     std::fs::write(repository.path().join("a.txt"), "This is a \n\n Updated").unwrap();
     std::fs::write(repository.path().join("b.txt"), "This is b").unwrap();
 
-    let commit_oid = gitbutler_branch_actions::create_commit(
-        project,
-        source_branch_id,
-        "Add b and update b",
-        None,
-    )
-    .unwrap();
-
-    let target_branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+    let commit_oid =
+        gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Add b and update b", None)
             .unwrap();
 
-    let result = gitbutler_branch_actions::move_commit(
-        project,
-        target_branch_id,
-        commit_oid,
-        source_branch_id,
-    );
+    let target_branch_id =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
+            .unwrap();
+
+    let result =
+        gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id);
 
     assert_eq!(
         result.unwrap_err().to_string(),
@@ -616,51 +573,38 @@ fn target_commit_locked_to_ancestors() {
 #[test]
 fn target_commit_locked_to_descendants() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     std::fs::write(repository.path().join("a.txt"), "This is a").unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
-    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add a", None).unwrap();
+    gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Add a", None).unwrap();
 
     std::fs::write(repository.path().join("b.txt"), "This is b").unwrap();
 
-    let commit_oid = gitbutler_branch_actions::create_commit(
-        project,
-        source_branch_id,
-        "Add b and update b",
-        None,
-    )
-    .unwrap();
+    let commit_oid =
+        gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Add b and update b", None)
+            .unwrap();
 
     std::fs::write(repository.path().join("b.txt"), "This is b and an update").unwrap();
 
-    gitbutler_branch_actions::create_commit(project, source_branch_id, "Update b", None).unwrap();
+    gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Update b", None).unwrap();
 
     let target_branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
-    let result = gitbutler_branch_actions::move_commit(
-        project,
-        target_branch_id,
-        commit_oid,
-        source_branch_id,
-    );
+    let result =
+        gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id);
 
     assert_eq!(
         result.unwrap_err().to_string(),
@@ -671,45 +615,35 @@ fn target_commit_locked_to_descendants() {
 #[test]
 fn locked_hunks_on_source_branch() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, source_branch_id, "commit", None).unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "locked content").unwrap();
 
-    _ = gitbutler_branch_actions::list_virtual_branches(project);
+    _ = gitbutler_branch_actions::list_virtual_branches(ctx);
 
     let target_branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     assert_eq!(
-        gitbutler_branch_actions::move_commit(
-            project,
-            target_branch_id,
-            commit_oid,
-            source_branch_id
-        )
-        .unwrap_err()
-        .to_string(),
+        gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id)
+            .unwrap_err()
+            .to_string(),
         "Commit has dependent uncommitted changes"
     );
 }
@@ -717,35 +651,30 @@ fn locked_hunks_on_source_branch() {
 #[test]
 fn no_commit() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
-    gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None).unwrap();
+    gitbutler_branch_actions::create_commit(ctx, source_branch_id, "commit", None).unwrap();
 
     let target_branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     let commit_id_hex = "a99c95cca7a60f1a2180c2f86fb18af97333c192";
     assert_eq!(
         gitbutler_branch_actions::move_commit(
-            project,
+            ctx,
             target_branch_id,
             git2::Oid::from_str(commit_id_hex).unwrap(),
             source_branch_id,
@@ -759,31 +688,26 @@ fn no_commit() {
 #[test]
 fn no_branch() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, source_branch_id, "commit", None).unwrap();
 
     let id = StackId::generate();
     assert_eq!(
-        gitbutler_branch_actions::move_commit(project, id, commit_oid, source_branch_id)
+        gitbutler_branch_actions::move_commit(ctx, id, commit_oid, source_branch_id)
             .unwrap_err()
             .to_string(),
         "Destination branch not found"

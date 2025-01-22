@@ -72,6 +72,7 @@ pub mod writable {
     use crate::DRIVER;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project::{Project, ProjectId};
+    use gitbutler_settings::AppSettings;
     use tempfile::TempDir;
 
     pub fn fixture(
@@ -79,7 +80,8 @@ pub mod writable {
         project_directory: &str,
     ) -> anyhow::Result<(CommandContext, TempDir)> {
         let (project, tempdir) = fixture_project(script_name, project_directory)?;
-        let ctx = CommandContext::open(&project)?;
+        let open = CommandContext::open(&project, AppSettings::default());
+        let ctx = open?;
         Ok((ctx, tempdir))
     }
     pub fn fixture_project(
@@ -164,6 +166,7 @@ pub mod read_only {
     use crate::DRIVER;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project::{Project, ProjectId};
+    use gitbutler_settings::AppSettings;
     use once_cell::sync::Lazy;
     use parking_lot::Mutex;
     use std::collections::BTreeSet;
@@ -177,7 +180,7 @@ pub mod read_only {
     /// Returns the project that is strictly for read-only use.
     pub fn fixture(script_name: &str, project_directory: &str) -> anyhow::Result<CommandContext> {
         let project = fixture_project(script_name, project_directory)?;
-        CommandContext::open(&project)
+        CommandContext::open(&project, AppSettings::default())
     }
 
     /// Like [`fixture()`], but will return only the `Project` at `project_directory` after executing `script_name`.

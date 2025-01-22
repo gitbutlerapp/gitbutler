@@ -44,6 +44,7 @@ pub mod stacks {
 
     use but_workspace::stack_branches;
     use gitbutler_command_context::CommandContext;
+    use gitbutler_settings::AppSettings;
 
     use crate::command::{debug_print, project_from_path};
 
@@ -54,7 +55,7 @@ pub mod stacks {
 
     pub fn branches(id: String, current_dir: PathBuf) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
-        let ctx = CommandContext::open(&project)?;
+        let ctx = CommandContext::open(&project, AppSettings::default())?;
         debug_print(stack_branches(id, &ctx))
     }
 }

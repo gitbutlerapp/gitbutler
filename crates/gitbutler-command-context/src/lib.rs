@@ -1,5 +1,6 @@
 use anyhow::Result;
 use gitbutler_project::Project;
+use gitbutler_settings::AppSettings;
 use std::path::Path;
 
 pub struct CommandContext {
@@ -7,15 +8,18 @@ pub struct CommandContext {
     git_repository: git2::Repository,
     /// Metadata about the project, typically stored with GitButler application data.
     project: Project,
+    /// A snapshot of the app settings obtained at the beginnig of each command.
+    app_settings: AppSettings,
 }
 
 impl CommandContext {
     /// Open the repository identified by `project` and perform some checks.
-    pub fn open(project: &Project) -> Result<Self> {
+    pub fn open(project: &Project, app_settings: AppSettings) -> Result<Self> {
         let repo = git2::Repository::open(&project.path)?;
         Ok(Self {
             git_repository: repo,
             project: project.clone(),
+            app_settings,
         })
     }
 
@@ -70,6 +74,10 @@ impl CommandContext {
             self.repo().path(),
             gix::open::Options::isolated(),
         )?)
+    }
+
+    pub fn app_settings(&self) -> &AppSettings {
+        &self.app_settings
     }
 }
 

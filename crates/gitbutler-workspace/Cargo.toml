@@ -26,5 +26,6 @@ path = "tests/mod.rs"
 [dev-dependencies]
 gitbutler-testsupport.workspace = true
 gitbutler-branch.workspace = true
+gitbutler-settings.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-workspace.workspace = true

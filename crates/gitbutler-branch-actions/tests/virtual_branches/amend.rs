@@ -9,8 +9,9 @@ fn forcepush_allowed() -> anyhow::Result<()> {
     let Test {
         repository,
         project_id,
-        project,
+
         projects,
+        ctx,
         ..
     } = &Test::default();
 
@@ -21,11 +22,8 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         })
         .unwrap();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     projects
         .update(&projects::UpdateRequest {
@@ -35,24 +33,24 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap();
 
     #[allow(deprecated)]
-    gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
+    gitbutler_branch_actions::push_virtual_branch(ctx, branch_id, false, None).unwrap();
 
     {
         // amend another hunk
         fs::write(repository.path().join("file2.txt"), "content2").unwrap();
         let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
-        gitbutler_branch_actions::amend(project, branch_id, commit_id, &to_amend).unwrap();
+        gitbutler_branch_actions::amend(ctx, branch_id, commit_id, &to_amend).unwrap();
 
-        let branch = gitbutler_branch_actions::list_virtual_branches(project)
+        let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
             .unwrap()
             .branches
             .into_iter()
@@ -62,7 +60,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         assert_eq!(branch.series[0].clone()?.patches.len(), 1);
         assert_eq!(branch.files.len(), 0);
         assert_eq!(
-            list_commit_files(project, branch.series[0].clone()?.patches[0].id)?.len(),
+            list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?.len(),
             2
         );
     }
@@ -72,23 +70,18 @@ fn forcepush_allowed() -> anyhow::Result<()> {
 #[test]
 fn forcepush_forbidden() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     gitbutler_branch_actions::update_virtual_branch(
-        project,
+        ctx,
         BranchUpdateRequest {
             id: branch_id,
             allow_rebasing: Some(false),
@@ -100,16 +93,16 @@ fn forcepush_forbidden() {
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap();
 
     #[allow(deprecated)]
-    gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
+    gitbutler_branch_actions::push_virtual_branch(ctx, branch_id, false, None).unwrap();
 
     {
         fs::write(repository.path().join("file2.txt"), "content2").unwrap();
         let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         assert_eq!(
-            gitbutler_branch_actions::amend(project, branch_id, commit_oid, &to_amend)
+            gitbutler_branch_actions::amend(ctx, branch_id, commit_oid, &to_amend)
                 .unwrap_err()
                 .to_string(),
             "force-push is not allowed"
@@ -120,27 +113,22 @@ fn forcepush_forbidden() {
 #[test]
 fn non_locked_hunk() -> anyhow::Result<()> {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -153,9 +141,9 @@ fn non_locked_hunk() -> anyhow::Result<()> {
         // amend another hunk
         fs::write(repository.path().join("file2.txt"), "content2").unwrap();
         let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
-        gitbutler_branch_actions::amend(project, branch_id, commit_oid, &to_amend).unwrap();
+        gitbutler_branch_actions::amend(ctx, branch_id, commit_oid, &to_amend).unwrap();
 
-        let branch = gitbutler_branch_actions::list_virtual_branches(project)
+        let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
             .unwrap()
             .branches
             .into_iter()
@@ -164,7 +152,7 @@ fn non_locked_hunk() -> anyhow::Result<()> {
         assert_eq!(branch.series[0].clone()?.patches.len(), 1);
         assert_eq!(branch.files.len(), 0);
         assert_eq!(
-            list_commit_files(project, branch.series[0].clone()?.patches[0].id)?.len(),
+            list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?.len(),
             2
         );
     }
@@ -174,27 +162,22 @@ fn non_locked_hunk() -> anyhow::Result<()> {
 #[test]
 fn locked_hunk() -> anyhow::Result<()> {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -203,7 +186,7 @@ fn locked_hunk() -> anyhow::Result<()> {
     assert_eq!(branch.series[0].clone()?.patches.len(), 1);
     assert_eq!(branch.files.len(), 0);
     assert_eq!(
-        list_commit_files(project, branch.series[0].clone()?.patches[0].id)?[0].hunks[0].diff_lines,
+        list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?[0].hunks[0].diff_lines,
         "@@ -0,0 +1 @@\n+content\n\\ No newline at end of file\n"
     );
 
@@ -211,9 +194,9 @@ fn locked_hunk() -> anyhow::Result<()> {
         // amend another hunk
         fs::write(repository.path().join("file.txt"), "more content").unwrap();
         let to_amend: BranchOwnershipClaims = "file.txt:1-2".parse().unwrap();
-        gitbutler_branch_actions::amend(project, branch_id, commit_oid, &to_amend).unwrap();
+        gitbutler_branch_actions::amend(ctx, branch_id, commit_oid, &to_amend).unwrap();
 
-        let branch = gitbutler_branch_actions::list_virtual_branches(project)
+        let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
             .unwrap()
             .branches
             .into_iter()
@@ -223,8 +206,7 @@ fn locked_hunk() -> anyhow::Result<()> {
         assert_eq!(branch.series[0].clone()?.patches.len(), 1);
         assert_eq!(branch.files.len(), 0);
         assert_eq!(
-            list_commit_files(project, branch.series[0].clone()?.patches[0].id)?[0].hunks[0]
-                .diff_lines,
+            list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?[0].hunks[0].diff_lines,
             "@@ -0,0 +1 @@\n+more content\n\\ No newline at end of file\n"
         );
     }
@@ -234,27 +216,22 @@ fn locked_hunk() -> anyhow::Result<()> {
 #[test]
 fn non_existing_ownership() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -267,7 +244,7 @@ fn non_existing_ownership() {
         // amend non existing hunk
         let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         assert_eq!(
-            gitbutler_branch_actions::amend(project, branch_id, commit_oid, &to_amend)
+            gitbutler_branch_actions::amend(ctx, branch_id, commit_oid, &to_amend)
                 .unwrap_err()
                 .to_string(),
             "target ownership not found"

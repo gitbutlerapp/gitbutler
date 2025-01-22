@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
+use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
-use gitbutler_project::Project;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::stack_context::{CommandContextExt, StackContext};
@@ -12,9 +12,9 @@ use gitbutler_stack::{CommitOrChangeId, PatchReferenceUpdate, StackBranch};
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
 
+use crate::actions::Verify;
 use crate::dependencies::{commit_dependencies_from_stack, StackDependencies};
 use crate::{
-    actions::open_with_verify,
     commit::{commit_to_vbranch_commit, VirtualBranchCommit},
     r#virtual::{CommitData, IsCommitIntegrated, PatchSeries},
     VirtualBranchesExt,
@@ -32,9 +32,13 @@ use gitbutler_operating_modes::assure_open_workspace_mode;
 /// If there are multiple heads pointing to the same patch and `preceding_head` is not specified,
 /// that means the new head will be first in order for that patch.
 /// The argument `preceding_head` is only used if there are multiple heads that point to the same patch, otherwise it is ignored.
-pub fn create_series(project: &Project, stack_id: StackId, req: CreateSeriesRequest) -> Result<()> {
-    let ctx = &open_with_verify(project)?;
-    let mut guard = project.exclusive_worktree_access();
+pub fn create_series(
+    ctx: &CommandContext,
+    stack_id: StackId,
+    req: CreateSeriesRequest,
+) -> Result<()> {
+    ctx.verify()?;
+    let mut guard = ctx.project().exclusive_worktree_access();
     let _ = ctx
         .project()
         .snapshot_create_dependent_branch(&req.name, guard.write_permission());
@@ -78,9 +82,9 @@ pub struct CreateSeriesRequest {
 /// The very last branch (reference) cannot be removed (A Stack must always contain at least one reference)
 /// If there were commits/changes that were *only* referenced by the removed branch,
 /// those commits are moved to the branch underneath it (or more accurately, the preceding it)
-pub fn remove_series(project: &Project, stack_id: StackId, head_name: String) -> Result<()> {
-    let ctx = &open_with_verify(project)?;
-    let mut guard = project.exclusive_worktree_access();
+pub fn remove_series(ctx: &CommandContext, stack_id: StackId, head_name: String) -> Result<()> {
+    ctx.verify()?;
+    let mut guard = ctx.project().exclusive_worktree_access();
     let _ = ctx
         .project()
         .snapshot_remove_dependent_branch(&head_name, guard.write_permission());
@@ -93,13 +97,13 @@ pub fn remove_series(project: &Project, stack_id: StackId, head_name: String) ->
 /// Same invariants as `create_series` apply.
 /// If the series have been pushed to a remote, the name can not be changed as it corresponds to a remote ref.
 pub fn update_series_name(
-    project: &Project,
+    ctx: &CommandContext,
     stack_id: StackId,
     head_name: String,
     new_head_name: String,
 ) -> Result<()> {
-    let ctx = &open_with_verify(project)?;
-    let mut guard = project.exclusive_worktree_access();
+    ctx.verify()?;
+    let mut guard = ctx.project().exclusive_worktree_access();
     let _ = ctx
         .project()
         .snapshot_update_dependent_branch_name(&head_name, guard.write_permission());
@@ -119,13 +123,13 @@ pub fn update_series_name(
 /// Updates the description of an existing series in the stack.
 /// The description can be set to `None` to remove it.
 pub fn update_series_description(
-    project: &Project,
+    ctx: &CommandContext,
     stack_id: StackId,
     head_name: String,
     description: Option<String>,
 ) -> Result<()> {
-    let ctx = &open_with_verify(project)?;
-    let mut guard = project.exclusive_worktree_access();
+    ctx.verify()?;
+    let mut guard = ctx.project().exclusive_worktree_access();
     let _ = ctx.project().create_snapshot(
         SnapshotDetails::new(OperationKind::UpdateDependentBranchDescription),
         guard.write_permission(),
@@ -152,13 +156,13 @@ pub fn update_series_description(
 ///  - The project is not in workspace mode
 ///  - Persisting the changes failed
 pub fn update_series_pr_number(
-    project: &Project,
+    ctx: &CommandContext,
     stack_id: StackId,
     head_name: String,
     pr_number: Option<usize>,
 ) -> Result<()> {
-    let ctx = &open_with_verify(project)?;
-    let mut guard = project.exclusive_worktree_access();
+    ctx.verify()?;
+    let mut guard = ctx.project().exclusive_worktree_access();
     let _ = ctx.project().create_snapshot(
         SnapshotDetails::new(OperationKind::UpdateDependentBranchPrNumber),
         guard.write_permission(),
@@ -170,8 +174,8 @@ pub fn update_series_pr_number(
 
 /// Pushes all series in the stack to the remote.
 /// This operation will error out if the target has no push remote configured.
-pub fn push_stack(project: &Project, stack_id: StackId, with_force: bool) -> Result<()> {
-    let ctx = &open_with_verify(project)?;
+pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> Result<()> {
+    ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let state = ctx.project().virtual_branches();
     let stack = state.get_stack(stack_id)?;

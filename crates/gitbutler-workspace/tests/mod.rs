@@ -8,6 +8,7 @@ mod checkout_branch_trees {
     use gitbutler_command_context::CommandContext;
     use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
     use gitbutler_repo::RepositoryExt as _;
+    use gitbutler_settings::AppSettings;
     use gitbutler_testsupport::{paths, testing_repository::assert_tree_matches, TestProject};
     use gitbutler_workspace::checkout_branch_trees;
 
@@ -22,24 +23,24 @@ mod checkout_branch_trees {
             .add(test_project.path())
             .expect("failed to add project");
 
-        branch_actions::set_base_branch(&project, &"refs/remotes/origin/master".parse().unwrap())
+        let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
+
+        branch_actions::set_base_branch(&ctx, &"refs/remotes/origin/master".parse().unwrap())
             .unwrap();
 
         let branch_1 =
-            branch_actions::create_virtual_branch(&project, &BranchCreateRequest::default())
-                .unwrap();
+            branch_actions::create_virtual_branch(&ctx, &BranchCreateRequest::default()).unwrap();
 
         fs::write(test_project.path().join("foo.txt"), "content").unwrap();
 
-        branch_actions::create_commit(&project, branch_1, "commit one", None).unwrap();
+        branch_actions::create_commit(&ctx, branch_1, "commit one", None).unwrap();
 
         let branch_2 =
-            branch_actions::create_virtual_branch(&project, &BranchCreateRequest::default())
-                .unwrap();
+            branch_actions::create_virtual_branch(&ctx, &BranchCreateRequest::default()).unwrap();
 
         fs::write(test_project.path().join("bar.txt"), "content").unwrap();
 
-        branch_actions::create_commit(&project, branch_2, "commit two", None).unwrap();
+        branch_actions::create_commit(&ctx, branch_2, "commit two", None).unwrap();
 
         let tree = test_project
             .local_repository
@@ -87,7 +88,6 @@ mod checkout_branch_trees {
             );
         }
 
-        let ctx = CommandContext::open(&project).unwrap();
         let mut guard = project.exclusive_worktree_access();
 
         checkout_branch_trees(&ctx, guard.write_permission()).unwrap();

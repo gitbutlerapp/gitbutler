@@ -5,8 +5,6 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_reference::ReferenceName;
 use serde::{Deserialize, Serialize};
 
-pub mod commands;
-
 /// The reference the app will checkout when the workspace is open
 pub const WORKSPACE_BRANCH_REF: &str = "refs/heads/gitbutler/workspace";
 

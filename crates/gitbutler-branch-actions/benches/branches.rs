@@ -2,6 +2,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughpu
 use gitbutler_branch_actions::{get_branch_listing_details, list_branches};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
+use gitbutler_settings::AppSettings;
 
 pub fn fixture_project(name: &str, script: &str) -> Project {
     gitbutler_testsupport::read_only::fixture_project(script, name).unwrap()
@@ -38,7 +39,7 @@ pub fn benchmark_list_branches(c: &mut Criterion) {
     ] {
         let mut group = c.benchmark_group(bench_name);
         let project = fixture_project(repo_name, script_name);
-        let ctx = CommandContext::open(&project).unwrap();
+        let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
         group.throughput(Throughput::Elements(num_references));
         group
             .bench_function("no filter", |b| {
@@ -91,7 +92,7 @@ pub fn benchmark_branch_details(c: &mut Criterion) {
         }
         group.bench_function("list details of known branch", |b| {
             b.iter(|| {
-                let ctx = CommandContext::open(&project).unwrap();
+                let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
                 let details =
                     get_branch_listing_details(black_box(&ctx), Some(branch_name)).unwrap();
                 assert_eq!(details.len(), 1, "{script_name}:{repo_name}:{branch_name}");
@@ -108,7 +109,7 @@ pub fn benchmark_branch_details(c: &mut Criterion) {
     group.throughput(Throughput::Elements(100 + 15 + 50));
     group.bench_function("count commits/collect authors", |b| {
         b.iter(|| {
-            let ctx = CommandContext::open(&project).unwrap();
+            let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
             let details = get_branch_listing_details(
                 black_box(&ctx),
                 ["feature", "main", "non-virtual-feature"],

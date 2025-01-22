@@ -4,6 +4,7 @@ use gitbutler_id::id::Id;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_serde::BStringForFrontend;
+use gitbutler_settings::AppSettingsWithDiskSync;
 use gitbutler_stack::Stack;
 use serde::Serialize;
 use tauri::State;
@@ -21,14 +22,15 @@ pub fn stacks(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(projects), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn stack_branches(
     projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     stack_id: String,
 ) -> anyhow::Result<Vec<but_workspace::Branch>, Error> {
     let project = projects.get(project_id)?;
-    let ctx = CommandContext::open(&project)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     but_workspace::stack_branches(stack_id, &ctx).map_err(Into::into)
 }
 

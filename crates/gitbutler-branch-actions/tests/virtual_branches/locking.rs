@@ -12,27 +12,25 @@ use gitbutler_branch_actions::{
 #[tokio::test]
 async fn hunk_locking_confused_by_line_number_shift() -> anyhow::Result<()> {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
     let mut lines = repository.gen_file("file.txt", 9);
     repository.commit_all("initial commit");
     repository.push();
 
-    set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap()).unwrap();
+    set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap()).unwrap();
 
     // Introduce a change that should lock the last change to the first branch.
     lines[8] = "modification 1 to line 8".to_string();
     repository.write_file("file.txt", &lines);
 
     // We're forced to call this before making a second commit.
-    let list_result = list_virtual_branches(project).unwrap();
+    let list_result = list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
 
-    create_commit(project, branches[0].id, "first commit", None)?;
+    create_commit(ctx, branches[0].id, "first commit", None)?;
 
-    let list_result = list_virtual_branches(project).unwrap();
+    let list_result = list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches[0].files.len(), 0);
     assert_eq!(branches[0].series[0].clone()?.patches.len(), 1);
@@ -40,7 +38,7 @@ async fn hunk_locking_confused_by_line_number_shift() -> anyhow::Result<()> {
     // Commit some changes to the second branch that will push the first
     // changes down when diffing workspace head against the default target.
     create_virtual_branch(
-        project,
+        ctx,
         &BranchCreateRequest {
             selected_for_changes: Some(true),
             ..Default::default()
@@ -55,12 +53,12 @@ async fn hunk_locking_confused_by_line_number_shift() -> anyhow::Result<()> {
     repository.write_file("file.txt", &lines);
 
     // We're forced to call this before making a second commit.
-    let list_result = list_virtual_branches(project).unwrap();
+    let list_result = list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
-    create_commit(project, branches[1].id, "second commit", None)?;
+    create_commit(ctx, branches[1].id, "second commit", None)?;
 
     // At this point we expect no uncommitted files, and one commit per branch.
-    let list_result = list_virtual_branches(project).unwrap();
+    let list_result = list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches[0].series[0].clone()?.patches.len(), 1);
     assert_eq!(branches[0].files.len(), 0);
@@ -73,7 +71,7 @@ async fn hunk_locking_confused_by_line_number_shift() -> anyhow::Result<()> {
 
     // And ensure that the new change is assigned to the first branch, despite the second
     // branch being default for new changes.
-    let list_result = list_virtual_branches(project).unwrap();
+    let list_result = list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches[0].files.len(), 1);
 
@@ -93,15 +91,13 @@ async fn hunk_locking_confused_by_line_number_shift() -> anyhow::Result<()> {
 #[tokio::test]
 async fn hunk_locking_with_deleted_lines_only() -> anyhow::Result<()> {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
     repository.gen_file("file.txt", 3);
     repository.commit_all("initial commit");
     repository.push();
 
-    set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap()).unwrap();
+    set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap()).unwrap();
 
     // Introduce a change that should lock the last change to the first branch.
     let mut lines = repository.gen_file("file.txt", 2);
@@ -109,11 +105,11 @@ async fn hunk_locking_with_deleted_lines_only() -> anyhow::Result<()> {
     repository.write_file("file.txt", &lines);
 
     // We have to do this before creating a commit.
-    let list_result = list_virtual_branches(project).unwrap();
+    let list_result = list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
-    create_commit(project, branches[0].id, "first commit", None)?;
+    create_commit(ctx, branches[0].id, "first commit", None)?;
 
-    let list_result = list_virtual_branches(project).unwrap();
+    let list_result = list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches[0].series[0].clone()?.patches.len(), 1);
     assert_eq!(branches[0].files.len(), 0);
@@ -121,7 +117,7 @@ async fn hunk_locking_with_deleted_lines_only() -> anyhow::Result<()> {
     // Commit some changes to the second branch that will push the first changes
     // down when diffing workspace head against the default target.
     let second_branch_id = create_virtual_branch(
-        project,
+        ctx,
         &BranchCreateRequest {
             selected_for_changes: Some(true),
             ..Default::default()
@@ -132,7 +128,7 @@ async fn hunk_locking_with_deleted_lines_only() -> anyhow::Result<()> {
     lines[1] = "modified line 2".to_string();
     repository.write_file("file.txt", &lines);
 
-    let list_result = list_virtual_branches(project)?;
+    let list_result = list_virtual_branches(ctx)?;
     let branches = list_result.branches;
     assert_eq!(branches.len(), 2);
     let first_branch = branches.iter().find(|b| b.id != second_branch_id).unwrap();
