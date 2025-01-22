@@ -110,12 +110,12 @@
 	nav {
 		display: flex;
 		justify-content: space-between;
-		margin: 16px 16px 0 16px;
+		margin: 14px 14px 0 14px;
 	}
 
 	.left {
 		display: flex;
-		gap: 16px;
+		gap: 14px;
 	}
 
 	.left-buttons {
