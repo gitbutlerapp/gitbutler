@@ -54,4 +54,4 @@
 	}
 </script>
 
-<Button onclick={performAction} {...rest}></Button>
+<Button onclick={performAction} loading={state === 'loading'} {...rest}></Button>
