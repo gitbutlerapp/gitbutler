@@ -13,13 +13,11 @@ use std::{
 /// what's on disk.
 ///
 /// It will also distribute the latest version of the application settings.
+#[derive(Clone)]
 pub struct AppSettingsWithDiskSync {
     config_path: PathBuf,
     /// The source of truth for the application settings, as previously read from disk.
     snapshot: Arc<RwLock<AppSettings>>,
-    /// A function to receive the most recent app settings as read from disk.
-    #[allow(clippy::type_complexity)]
-    subscriber: Option<Box<dyn Fn(AppSettings) -> Result<()> + Send + Sync + 'static>>,
 }
 
 /// Allow changes to the most recent [`AppSettings`] and force them to be saved.
@@ -68,10 +66,7 @@ impl AppSettingsWithDiskSync {
     ///
     /// * `config_dir` contains the application settings file.
     /// * `subscriber` receives any change to it.
-    pub fn new(
-        config_dir: impl AsRef<Path>,
-        subscriber: impl Fn(AppSettings) -> Result<()> + Send + Sync + 'static,
-    ) -> Result<Self> {
+    pub fn new(config_dir: impl AsRef<Path>) -> Result<Self> {
         let config_path = config_dir.as_ref().join(SETTINGS_FILE);
         let app_settings = AppSettings::load(&config_path)?;
         let app_settings = Arc::new(RwLock::new(app_settings));
@@ -79,7 +74,6 @@ impl AppSettingsWithDiskSync {
         Ok(Self {
             config_path,
             snapshot: app_settings,
-            subscriber: Some(Box::new(subscriber)),
         })
     }
 
@@ -108,14 +102,13 @@ impl AppSettingsWithDiskSync {
     }
 
     /// Start watching [`Self::config_path()`] for changes and inform
-    pub fn watch_in_background(&mut self) -> Result<()> {
+    pub fn watch_in_background(
+        &mut self,
+        send_event: impl Fn(AppSettings) -> Result<()> + Send + Sync + 'static,
+    ) -> Result<()> {
         let (tx, rx) = mpsc::channel();
         let snapshot = self.snapshot.clone();
         let config_path = self.config_path.to_owned();
-        let send_event = self
-            .subscriber
-            .take()
-            .expect("BUG: must not call this more than once");
         let watcher_config = Config::default()
             .with_compare_contents(true)
             .with_poll_interval(Duration::from_secs(2));
