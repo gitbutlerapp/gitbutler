@@ -19,6 +19,7 @@ fn main() -> Result<()> {
             command::status::doit(args.current_dir, unified_diff)
         }
         args::Subcommands::Stacks => command::stacks::list(args.current_dir),
+        args::Subcommands::StackBranches { id } => command::stacks::branches(id, args.current_dir),
     }
 }
 

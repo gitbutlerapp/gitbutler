@@ -1,4 +1,5 @@
 use crate::error::Error;
+use gitbutler_command_context::CommandContext;
 use gitbutler_id::id::Id;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
@@ -17,6 +18,18 @@ pub fn stacks(
     let project = projects.get(project_id)?;
     let stacks = but_workspace::stacks(&project.gb_dir())?;
     Ok(stacks.into_iter().map(Into::into).collect())
+}
+
+#[tauri::command(async)]
+#[instrument(skip(projects), err(Debug))]
+pub fn stack_branches(
+    projects: State<'_, projects::Controller>,
+    project_id: ProjectId,
+    stack_id: String,
+) -> anyhow::Result<Vec<but_workspace::Branch>, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project)?;
+    but_workspace::stack_branches(stack_id, &ctx).map_err(Into::into)
 }
 
 #[derive(Debug, Clone, Serialize)]

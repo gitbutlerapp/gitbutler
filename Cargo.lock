@@ -667,6 +667,7 @@ dependencies = [
  "but-core",
  "but-workspace",
  "clap",
+ "gitbutler-command-context",
  "gitbutler-project",
  "gix",
  "tracing",
@@ -692,9 +693,16 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "git2",
+ "gitbutler-command-context",
+ "gitbutler-commit",
  "gitbutler-id",
+ "gitbutler-oxidize",
+ "gitbutler-repo",
  "gitbutler-stack",
+ "gix",
  "itertools 0.14.0",
+ "serde",
 ]
 
 [[package]]
