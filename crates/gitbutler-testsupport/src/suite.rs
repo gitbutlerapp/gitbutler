@@ -6,6 +6,7 @@ use std::{
 
 use gitbutler_command_context::CommandContext;
 use gitbutler_repo::RepositoryExt;
+use gitbutler_settings::AppSettings;
 use tempfile::{tempdir, TempDir};
 
 use crate::test_project::setup_config;
@@ -108,7 +109,8 @@ impl Drop for Case {
 
 impl Case {
     fn new(project: gitbutler_project::Project, project_tmp: TempDir) -> Case {
-        let ctx = CommandContext::open(&project).expect("failed to create project repository");
+        let ctx = CommandContext::open(&project, AppSettings::default())
+            .expect("failed to create project repository");
         Case {
             project,
             ctx,
@@ -121,7 +123,8 @@ impl Case {
             .projects
             .get(self.project.id)
             .expect("failed to get project");
-        let ctx = CommandContext::open(&project).expect("failed to create project repository");
+        let ctx = CommandContext::open(&project, AppSettings::default())
+            .expect("failed to create project repository");
         Self {
             ctx,
             project,

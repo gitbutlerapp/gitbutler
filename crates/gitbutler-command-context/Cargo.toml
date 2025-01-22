@@ -11,5 +11,6 @@ git2.workspace = true
 gix.workspace = true
 tracing.workspace = true
 gitbutler-project.workspace = true
+gitbutler-settings.workspace = true
 itertools = "0.14"
 bstr = "1.11.1"

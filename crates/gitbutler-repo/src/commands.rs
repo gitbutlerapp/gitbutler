@@ -2,7 +2,6 @@ use crate::{remote::GitRemote, Config, RepositoryExt};
 use anyhow::{bail, Result};
 use base64::engine::Engine as _;
 use git2::Oid;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use infer::MatcherType;
 use itertools::Itertools;

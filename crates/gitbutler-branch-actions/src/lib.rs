@@ -5,10 +5,10 @@ mod actions;
 pub use actions::{
     amend, can_apply_remote_branch, create_commit, create_virtual_branch,
     create_virtual_branch_from_branch, delete_local_branch, fetch_from_remotes, find_commit,
-    find_git_branches, get_base_branch_data, get_uncommited_files, get_uncommited_files_reusable,
-    insert_blank_commit, integrate_upstream, integrate_upstream_commits, list_commit_files,
-    list_virtual_branches, list_virtual_branches_cached, move_commit, move_commit_file,
-    push_base_branch, push_virtual_branch, reorder_stack, reset_files, reset_virtual_branch,
+    find_git_branches, get_uncommited_files, get_uncommited_files_reusable, insert_blank_commit,
+    integrate_upstream, integrate_upstream_commits, list_commit_files, list_virtual_branches,
+    list_virtual_branches_cached, move_commit, move_commit_file, push_base_branch,
+    push_virtual_branch, reorder_stack, reset_files, reset_virtual_branch,
     resolve_upstream_integration, save_and_unapply_virutal_branch, set_base_branch,
     set_target_push_remote, squash_commits, unapply_lines, unapply_ownership,
     unapply_without_saving_virtual_branch, undo_commit, update_branch_order, update_commit_message,
@@ -29,7 +29,7 @@ pub mod internal {
 mod branch_manager;
 pub use branch_manager::{BranchManager, BranchManagerExt};
 
-mod base;
+pub mod base;
 pub use base::BaseBranch;
 
 mod dependencies;

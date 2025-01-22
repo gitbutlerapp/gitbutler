@@ -5,45 +5,40 @@ use super::*;
 #[test]
 fn detect_upstream_commits() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch1_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     let oid1 = {
         // create first commit
         fs::write(repository.path().join("file.txt"), "content").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch1_id, "commit", None).unwrap()
     };
 
     let oid2 = {
         // create second commit
         fs::write(repository.path().join("file.txt"), "content2").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch1_id, "commit", None).unwrap()
     };
 
     // push
-    gitbutler_branch_actions::stack::push_stack(project, branch1_id, false).unwrap();
+    gitbutler_branch_actions::stack::push_stack(ctx, branch1_id, false).unwrap();
 
     let oid3 = {
         // create third commit
         fs::write(repository.path().join("file.txt"), "content3").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch1_id, "commit", None).unwrap()
     };
 
     {
         // should correctly detect pushed commits
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
@@ -60,40 +55,35 @@ fn detect_upstream_commits() {
 #[test]
 fn detect_integrated_commits() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch1_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     let oid1 = {
         // create first commit
         fs::write(repository.path().join("file.txt"), "content").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch1_id, "commit", None).unwrap()
     };
 
     let oid2 = {
         // create second commit
         fs::write(repository.path().join("file.txt"), "content2").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch1_id, "commit", None).unwrap()
     };
 
     // push
     #[allow(deprecated)]
-    gitbutler_branch_actions::push_virtual_branch(project, branch1_id, false, None).unwrap();
+    gitbutler_branch_actions::push_virtual_branch(ctx, branch1_id, false, None).unwrap();
 
     {
         // merge branch upstream
-        let branch = gitbutler_branch_actions::list_virtual_branches(project)
+        let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
             .unwrap()
             .branches
             .into_iter()
@@ -108,12 +98,12 @@ fn detect_integrated_commits() {
     let oid3 = {
         // create third commit
         fs::write(repository.path().join("file.txt"), "content3").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch1_id, "commit", None).unwrap()
     };
 
     {
         // should correctly detect pushed commits
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
 
         assert_eq!(branches.len(), 1);

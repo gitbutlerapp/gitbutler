@@ -5,34 +5,24 @@ use super::*;
 #[test]
 fn should_unapply_diff() {
     let Test {
-        project,
-        repository,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     // write some
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let list_details = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_details = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_details.branches;
-    let c = gitbutler_branch_actions::create_commit(
-        project,
-        branches.first().unwrap().id,
-        "asdf",
-        None,
-    );
+    let c =
+        gitbutler_branch_actions::create_commit(ctx, branches.first().unwrap().id, "asdf", None);
     assert!(c.is_ok());
 
-    gitbutler_branch_actions::unapply_without_saving_virtual_branch(project, branches[0].id)
-        .unwrap();
+    gitbutler_branch_actions::unapply_without_saving_virtual_branch(ctx, branches[0].id).unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches.len(), 0);
     assert!(!repository.path().join("file.txt").exists());
@@ -56,19 +46,14 @@ fn should_unapply_diff() {
 #[test]
 fn should_remove_reference() {
     let Test {
-        project,
-        repository,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let id = gitbutler_branch_actions::create_virtual_branch(
-        project,
+        ctx,
         &BranchCreateRequest {
             name: Some("name".to_string()),
             ..Default::default()
@@ -76,9 +61,9 @@ fn should_remove_reference() {
     )
     .unwrap();
 
-    gitbutler_branch_actions::unapply_without_saving_virtual_branch(project, id).unwrap();
+    gitbutler_branch_actions::unapply_without_saving_virtual_branch(ctx, id).unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
 
     assert_eq!(branches.len(), 0);

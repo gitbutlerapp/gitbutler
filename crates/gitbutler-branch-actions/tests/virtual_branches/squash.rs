@@ -5,39 +5,34 @@ use super::*;
 #[test]
 fn head() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit two", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit three", None).unwrap()
     };
 
     let commit_four_oid = {
         fs::write(repository.path().join("file four.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit four", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit four", None).unwrap()
     };
 
     let commit_four_parent_oid = repository
@@ -48,14 +43,14 @@ fn head() {
         .id();
 
     gitbutler_branch_actions::squash_commits(
-        project,
+        ctx,
         branch_id,
         vec![commit_four_oid],
         commit_four_parent_oid,
     )
     .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -78,39 +73,34 @@ fn head() {
 #[test]
 fn middle() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap()
     };
 
     let commit_two_oid = {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit two", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit three", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file four.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit four", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit four", None).unwrap()
     };
 
     let commit_two_parent_oid = repository
@@ -121,14 +111,14 @@ fn middle() {
         .id();
 
     gitbutler_branch_actions::squash_commits(
-        project,
+        ctx,
         branch_id,
         vec![commit_two_oid],
         commit_two_parent_oid,
     )
     .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -153,8 +143,9 @@ fn forcepush_allowed() {
     let Test {
         repository,
         project_id,
-        project,
+
         projects,
+        ctx,
         ..
     } = &Test::default();
 
@@ -165,37 +156,34 @@ fn forcepush_allowed() {
         })
         .unwrap();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap()
     };
 
     let commit_two_oid = {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit two", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit three", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file four.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit four", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit four", None).unwrap()
     };
 
-    gitbutler_branch_actions::stack::push_stack(project, branch_id, false).unwrap();
+    gitbutler_branch_actions::stack::push_stack(ctx, branch_id, false).unwrap();
 
     let commit_two_parent_oid = repository
         .find_commit(commit_two_oid)
@@ -205,14 +193,14 @@ fn forcepush_allowed() {
         .id();
 
     gitbutler_branch_actions::squash_commits(
-        project,
+        ctx,
         branch_id,
         vec![commit_two_oid],
         commit_two_parent_oid,
     )
     .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -236,23 +224,18 @@ fn forcepush_allowed() {
 #[test]
 fn forcepush_forbidden() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     gitbutler_branch_actions::update_virtual_branch(
-        project,
+        ctx,
         BranchUpdateRequest {
             id: branch_id,
             allow_rebasing: Some(false),
@@ -263,26 +246,26 @@ fn forcepush_forbidden() {
 
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap()
     };
 
     let commit_two_oid = {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit two", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit three", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file four.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit four", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit four", None).unwrap()
     };
 
     // TODO: flag the old one as deprecated
-    gitbutler_branch_actions::stack::push_stack(project, branch_id, false).unwrap();
+    gitbutler_branch_actions::stack::push_stack(ctx, branch_id, false).unwrap();
 
     let commit_two_parent_oid = repository
         .find_commit(commit_two_oid)
@@ -293,7 +276,7 @@ fn forcepush_forbidden() {
 
     assert_eq!(
         gitbutler_branch_actions::squash_commits(
-            project,
+            ctx,
             branch_id,
             vec![commit_two_oid],
             commit_two_parent_oid,

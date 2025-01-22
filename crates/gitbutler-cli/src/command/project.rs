@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
+use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use gitbutler_reference::RemoteRefname;
+use gitbutler_settings::AppSettings;
 
 use crate::command::debug_print;
 
@@ -29,14 +31,14 @@ pub fn add(
         .to_owned()
         .canonicalize()?;
     let project = ctrl.add(path)?;
+    let ctx = CommandContext::open(&project, AppSettings::default())?;
     if let Some(refname) = refname {
-        gitbutler_branch_actions::set_base_branch(&project, &refname)?;
+        gitbutler_branch_actions::set_base_branch(&ctx, &refname)?;
     };
     debug_print(project)
 }
 
 pub fn switch_to_workspace(project: Project, refname: RemoteRefname) -> Result<()> {
-    debug_print(gitbutler_branch_actions::set_base_branch(
-        &project, &refname,
-    )?)
+    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    debug_print(gitbutler_branch_actions::set_base_branch(&ctx, &refname)?)
 }

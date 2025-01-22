@@ -15,14 +15,12 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
         repository,
 
         project,
+        ctx,
         ..
     } = &test;
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let worktree_dir = repository.path();
     for round in 0..3 {
@@ -32,18 +30,13 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
             make_lines(line_count),
         )?;
         let branch_id = gitbutler_branch_actions::create_virtual_branch(
-            project,
+            ctx,
             &BranchCreateRequest {
                 name: Some(round.to_string()),
                 ..Default::default()
             },
         )?;
-        gitbutler_branch_actions::create_commit(
-            project,
-            branch_id,
-            &format!("commit {round}"),
-            None,
-        )?;
+        gitbutler_branch_actions::create_commit(ctx, branch_id, &format!("commit {round}"), None)?;
         assert_eq!(
             wd_file_count(&worktree_dir)?,
             round + 1,
@@ -54,7 +47,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
             line_count > 20
         );
     }
-    let _empty = gitbutler_branch_actions::create_virtual_branch(project, &Default::default())?;
+    let _empty = gitbutler_branch_actions::create_virtual_branch(ctx, &Default::default())?;
 
     let snapshots = project.list_snapshots(10, None)?;
     assert_eq!(
@@ -102,18 +95,18 @@ fn basic_oplog() -> anyhow::Result<()> {
         repository,
 
         project,
+        ctx,
         ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(project, &"refs/remotes/origin/master".parse()?)?;
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse()?)?;
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())?;
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())?;
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
-    let _commit1_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None)?;
+    let _commit1_id = gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None)?;
 
     // dont store large files
     let file_path = repository.path().join("large.txt");
@@ -127,8 +120,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     // create commit with large file
     fs::write(repository.path().join("file2.txt"), "content2")?;
     fs::write(repository.path().join("file3.txt"), "content3")?;
-    let commit2_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None)?;
+    let commit2_id = gitbutler_branch_actions::create_commit(ctx, branch_id, "commit two", None)?;
 
     // Create conflict state
     let conflicts_path = repository.path().join(".git").join("conflicts");
@@ -138,31 +130,31 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     // create state with conflict state
     let _empty_branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())?;
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())?;
 
     std::fs::remove_file(&base_merge_parent_path)?;
     std::fs::remove_file(&conflicts_path)?;
 
     fs::write(repository.path().join("file4.txt"), "content4")?;
     let _commit3_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None)?;
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit three", None)?;
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)?
+    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)?
         .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    let branches = gitbutler_branch_actions::list_virtual_branches(project)?;
+    let branches = gitbutler_branch_actions::list_virtual_branches(ctx)?;
     assert_eq!(branches.branches.len(), 2);
 
     assert_eq!(branch.series[0].clone()?.patches.len(), 3);
     assert_eq!(
-        list_commit_files(project, branch.series[0].clone()?.patches[0].id)?.len(),
+        list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?.len(),
         1
     );
     assert_eq!(
-        list_commit_files(project, branch.series[0].clone()?.patches[1].id)?.len(),
+        list_commit_files(ctx, branch.series[0].clone()?.patches[1].id)?.len(),
         3
     );
 
@@ -204,7 +196,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     }
 
     // the restore removed our new branch
-    let branches = gitbutler_branch_actions::list_virtual_branches(project)?;
+    let branches = gitbutler_branch_actions::list_virtual_branches(ctx)?;
     assert_eq!(branches.branches.len(), 1);
 
     // assert that the conflicts file was removed
@@ -257,10 +249,11 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         repository,
 
         project,
+        ctx,
         ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(project, &"refs/remotes/origin/master".parse()?)?;
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse()?)?;
 
     assert_eq!(
         VirtualBranchesHandle::new(project.gb_dir())
@@ -269,7 +262,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         0
     );
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())?;
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())?;
     assert_eq!(
         VirtualBranchesHandle::new(project.gb_dir())
             .list_stacks_in_workspace()?
@@ -279,8 +272,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
-    let _commit1_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None)?;
+    let _commit1_id = gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None)?;
 
     let repo = git2::Repository::open(&project.path)?;
 
@@ -293,8 +285,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 
     // create second commit
     fs::write(repository.path().join("file.txt"), "changed content")?;
-    let _commit2_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None)?;
+    let _commit2_id = gitbutler_branch_actions::create_commit(ctx, branch_id, "commit two", None)?;
 
     // check the workspace commit changed
     let head = repo.head().expect("never unborn");
@@ -376,19 +367,14 @@ fn head_corrupt_is_recreated_automatically() {
         repository,
 
         project,
+        ctx,
         ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let snapshots = project.list_snapshots(10, None).unwrap();
     assert_eq!(
@@ -405,11 +391,8 @@ fn head_corrupt_is_recreated_automatically() {
     )
     .unwrap();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .expect("the snapshot doesn't fail despite the corrupt head");
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .expect("the snapshot doesn't fail despite the corrupt head");
 
     let snapshots = project.list_snapshots(10, None).unwrap();
     assert_eq!(

@@ -11,7 +11,7 @@ use gitbutler_oplog::{
     OplogExt,
 };
 use gitbutler_project::{self as projects, Project, ProjectId};
-use gitbutler_settings::AppSettingsWithDiskSync;
+use gitbutler_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_sync::cloud::{push_oplog, push_repo};
 use gitbutler_user as users;
 use tracing::instrument;
@@ -60,21 +60,29 @@ impl Handler {
     ) -> Result<()> {
         match event {
             events::InternalEvent::ProjectFilesChange(project_id, paths) => {
-                self.project_files_change(paths, project_id, app_settings)
+                let ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
+                self.project_files_change(paths, &ctx)
             }
 
-            events::InternalEvent::GitFilesChange(project_id, paths) => self
-                .git_files_change(paths, project_id, app_settings)
-                .context("failed to handle git file change event"),
-
-            events::InternalEvent::GitButlerOplogChange(project_id) => self
-                .gitbutler_oplog_change(project_id)
-                .context("failed to handle gitbutler oplog change event"),
+            events::InternalEvent::GitFilesChange(project_id, paths) => {
+                let ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
+                self.git_files_change(paths, &ctx)
+                    .context("failed to handle git file change event")
+            }
+            events::InternalEvent::GitButlerOplogChange(project_id) => {
+                let ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
+                self
+                .gitbutler_oplog_change(&ctx)
+                .context("failed to handle gitbutler oplog change event")
+            }
+            ,
 
             // This is only produced at the end of mutating Tauri commands to trigger a fresh state being served to the UI.
-            events::InternalEvent::CalculateVirtualBranches(project_id) => self
-                .calculate_virtual_branches(project_id, None)
-                .context("failed to handle virtual branch event"),
+            events::InternalEvent::CalculateVirtualBranches(project_id) => {
+                let ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
+                self.calculate_virtual_branches(&ctx, None)
+                    .context("failed to handle virtual branch event")
+            }
         }
     }
 
@@ -82,34 +90,33 @@ impl Handler {
         (self.send_event)(event).context("failed to send event")
     }
 
-    fn open_command_context(&self, project_id: ProjectId) -> Result<CommandContext> {
+    fn open_command_context(
+        &self,
+        project_id: ProjectId,
+        app_settings: AppSettings,
+    ) -> Result<CommandContext> {
         let project = self
             .projects
             .get(project_id)
             .context("failed to get project")?;
-        CommandContext::open(&project).context("Failed to create a command context")
+        CommandContext::open(&project, app_settings).context("Failed to create a command context")
     }
 
-    #[instrument(skip(self, project_id, worktree_changes))]
+    #[instrument(skip(self, ctx, worktree_changes))]
     fn calculate_virtual_branches(
         &self,
-        project_id: ProjectId,
+        ctx: &CommandContext,
         worktree_changes: Option<DiffByPathMap>,
     ) -> Result<()> {
-        let ctx = self.open_command_context(project_id)?;
         // Skip if we're not on the open workspace mode
-        if !in_open_workspace_mode(&ctx) {
+        if !in_open_workspace_mode(ctx) {
             return Ok(());
         }
 
-        let project = self
-            .projects
-            .get(project_id)
-            .context("failed to get project")?;
         let virtual_branches = if let Some(changes) = worktree_changes {
-            gitbutler_branch_actions::list_virtual_branches_cached(&project, changes)
+            gitbutler_branch_actions::list_virtual_branches_cached(ctx, changes)
         } else {
-            gitbutler_branch_actions::list_virtual_branches(&project)
+            gitbutler_branch_actions::list_virtual_branches(ctx)
         };
         match virtual_branches {
             Ok(StackListResult {
@@ -117,7 +124,7 @@ impl Handler {
                 skipped_files,
                 dependency_errors,
             }) => self.emit_app_event(Change::VirtualBranches {
-                project_id: project.id,
+                project_id: ctx.project().id,
                 virtual_branches: VirtualBranches {
                     branches,
                     skipped_files,
@@ -136,23 +143,16 @@ impl Handler {
         }
     }
 
-    #[instrument(skip(self, paths, project_id, app_settings), fields(paths = paths.len()))]
-    fn project_files_change(
-        &self,
-        paths: Vec<PathBuf>,
-        project_id: ProjectId,
-        app_settings: AppSettingsWithDiskSync,
-    ) -> Result<()> {
-        let ctx = self.open_command_context(project_id)?;
+    #[instrument(skip(self, paths, ctx), fields(paths = paths.len()))]
+    fn project_files_change(&self, paths: Vec<PathBuf>, ctx: &CommandContext) -> Result<()> {
+        let worktree_changes = self.emit_uncommited_files(ctx).ok();
 
-        let worktree_changes = self.emit_uncommited_files(ctx.project()).ok();
-
-        if app_settings.get()?.feature_flags.v3 {
+        if ctx.app_settings().feature_flags.v3 {
             // This is part of the v3 APIs set and in the future this fully replaces the list virtual branches flow
-            let _ = self.emit_worktree_changes(ctx.gix_repository()?, project_id);
-        } else if in_open_workspace_mode(&ctx) {
-            self.maybe_create_snapshot(project_id).ok();
-            self.calculate_virtual_branches(project_id, worktree_changes)?;
+            let _ = self.emit_worktree_changes(ctx.gix_repository()?, ctx.project().id);
+        } else if in_open_workspace_mode(ctx) {
+            self.maybe_create_snapshot(ctx.project()).ok();
+            self.calculate_virtual_branches(ctx, worktree_changes)?;
         }
 
         Ok(())
@@ -168,11 +168,11 @@ impl Handler {
     }
 
     /// Try to emit uncommited files. Swollow errors if they arrise.
-    fn emit_uncommited_files(&self, project: &Project) -> Result<DiffByPathMap> {
-        let files = gitbutler_branch_actions::get_uncommited_files_reusable(project)?;
+    fn emit_uncommited_files(&self, ctx: &CommandContext) -> Result<DiffByPathMap> {
+        let files = gitbutler_branch_actions::get_uncommited_files_reusable(ctx)?;
 
         let _ = self.emit_app_event(Change::UncommitedFiles {
-            project_id: project.id,
+            project_id: ctx.project().id,
             files: files
                 .clone()
                 .into_values()
@@ -182,11 +182,7 @@ impl Handler {
         Ok(files)
     }
 
-    fn maybe_create_snapshot(&self, project_id: ProjectId) -> anyhow::Result<()> {
-        let project = self
-            .projects
-            .get(project_id)
-            .context("failed to get project")?;
+    fn maybe_create_snapshot(&self, project: &Project) -> anyhow::Result<()> {
         if project
             .should_auto_snapshot(std::time::Duration::from_secs(300))
             .unwrap_or_default()
@@ -200,44 +196,31 @@ impl Handler {
         Ok(())
     }
 
-    pub fn git_files_change(
-        &self,
-        paths: Vec<PathBuf>,
-        project_id: ProjectId,
-        app_settings: AppSettingsWithDiskSync,
-    ) -> Result<()> {
-        let project = self
-            .projects
-            .get(project_id)
-            .context("failed to get project")?;
-
+    pub fn git_files_change(&self, paths: Vec<PathBuf>, ctx: &CommandContext) -> Result<()> {
         for path in paths {
             let Some(file_name) = path.to_str() else {
                 continue;
             };
             match file_name {
                 "FETCH_HEAD" => {
-                    self.emit_app_event(Change::GitFetch(project_id))?;
+                    self.emit_app_event(Change::GitFetch(ctx.project().id))?;
                 }
                 "logs/HEAD" => {
-                    self.emit_app_event(Change::GitActivity(project.id))?;
+                    self.emit_app_event(Change::GitActivity(ctx.project().id))?;
                 }
                 "index" => {
-                    if app_settings.get()?.feature_flags.v3 {
-                        let repo = gix::open(project.path.clone())?;
-                        let _ = self.emit_worktree_changes(repo, project_id);
+                    if ctx.app_settings().feature_flags.v3 {
+                        let repo = gix::open(ctx.project().path.clone())?;
+                        let _ = self.emit_worktree_changes(repo, ctx.project().id);
                     }
                 }
                 "HEAD" => {
-                    let ctx = CommandContext::open(&project)
-                        .context("Failed to create a command context")?;
-
                     let head_ref = ctx.repo().head().context("failed to get head")?;
                     if let Some(head) = head_ref.name() {
                         self.emit_app_event(Change::GitHead {
-                            project_id,
+                            project_id: ctx.project().id,
                             head: head.to_string(),
-                            operating_mode: operating_mode(&ctx),
+                            operating_mode: operating_mode(ctx),
                         })?;
                     }
                 }
@@ -249,19 +232,13 @@ impl Handler {
 
     /// Invoked whenever there's a new oplog entry.
     /// If synchronizing with GitButler's servers is enabled it will push Oplog refs
-    fn gitbutler_oplog_change(&self, project_id: ProjectId) -> Result<()> {
-        let project = self
-            .projects
-            .get(project_id)
-            .context("failed to get project")?;
-
+    fn gitbutler_oplog_change(&self, ctx: &CommandContext) -> Result<()> {
         if let Some(user) = self.users.get_user()? {
-            let ctx = CommandContext::open(&project)?;
-            if project.oplog_sync_enabled() {
-                push_oplog(&ctx, &user)?;
+            if ctx.project().oplog_sync_enabled() {
+                push_oplog(ctx, &user)?;
             }
-            if project.code_sync_enabled() {
-                push_repo(&ctx, &user, &self.projects)?;
+            if ctx.project().code_sync_enabled() {
+                push_repo(ctx, &user, &self.projects)?;
             }
         }
         Ok(())

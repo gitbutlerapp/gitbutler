@@ -25,7 +25,7 @@ fn noop_reorder_errors() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    let result = reorder_stack(ctx.project(), test_ctx.stack.id, order);
+    let result = reorder_stack(&ctx, test_ctx.stack.id, order);
     assert_eq!(
         result.unwrap_err().to_string(),
         "The new order is the same as the current order"
@@ -49,7 +49,7 @@ fn reorder_in_top_series() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -80,7 +80,7 @@ fn reorder_in_top_series_head() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -111,7 +111,7 @@ fn reorder_between_series() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -146,7 +146,7 @@ fn reorder_series_head_to_another_series() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -181,7 +181,7 @@ fn reorder_stack_head_to_another_series() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -218,7 +218,7 @@ fn reorder_shift_last_in_series_to_previous() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -245,7 +245,7 @@ fn reorder_stack_making_top_empty_series() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -269,7 +269,7 @@ fn reorder_stack_making_bottom_empty_series() -> Result<()> {
         ],
         vec![],
     ]);
-    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -293,7 +293,7 @@ fn reorder_stack_into_empty_top() -> Result<()> {
         ],
         vec![],
     ]);
-    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -342,7 +342,7 @@ fn conflicting_reorder_stack() -> Result<()> {
             test.bottom_commits["commit 2"],
         ],
     ]);
-    reorder_stack(ctx.project(), test.stack.id, new_order.clone())?;
+    reorder_stack(&ctx, test.stack.id, new_order.clone())?;
     let test = test_ctx(&ctx)?;
     let commits = vb_commits(&ctx);
 
@@ -376,7 +376,7 @@ fn conflicting_reorder_stack() -> Result<()> {
         ],
     ]);
 
-    reorder_stack(ctx.project(), test.stack.id, new_order.clone())?;
+    reorder_stack(&ctx, test.stack.id, new_order.clone())?;
     let test = test_ctx(&ctx)?;
     let commits = vb_commits(&ctx);
 
@@ -436,7 +436,7 @@ impl CommitHelpers for Vec<(Oid, String, bool, u128)> {
 
 /// Commits from list_virtual_branches
 fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool, u128)>> {
-    let list_result = list_virtual_branches(ctx.project()).unwrap();
+    let list_result = list_virtual_branches(ctx).unwrap();
     let vbranch = list_result
         .branches
         .iter()

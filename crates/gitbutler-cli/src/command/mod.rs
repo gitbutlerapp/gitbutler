@@ -37,8 +37,10 @@ fn debug_print(this: impl std::fmt::Debug) -> anyhow::Result<()> {
 }
 
 pub mod ownership {
+    use gitbutler_command_context::CommandContext;
     use gitbutler_diff::Hunk;
     use gitbutler_project::Project;
+    use gitbutler_settings::AppSettings;
     use gitbutler_stack::{BranchOwnershipClaims, OwnershipClaim};
     use std::path::PathBuf;
 
@@ -58,14 +60,18 @@ pub mod ownership {
                 }],
             }],
         };
-        gitbutler_branch_actions::unapply_ownership(&project, &claims)
+
+        let ctx = CommandContext::open(&project, AppSettings::default())?;
+        gitbutler_branch_actions::unapply_ownership(&ctx, &claims)
     }
 }
 
 pub mod workspace {
     use crate::args::UpdateMode;
     use gitbutler_branch_actions::upstream_integration;
+    use gitbutler_command_context::CommandContext;
     use gitbutler_project::Project;
+    use gitbutler_settings::AppSettings;
 
     pub fn update(project: Project, mode: UpdateMode) -> anyhow::Result<()> {
         let approach = match mode {
@@ -74,7 +80,8 @@ pub mod workspace {
             UpdateMode::Unapply => upstream_integration::ResolutionApproach::Unapply,
             UpdateMode::Delete => upstream_integration::ResolutionApproach::Delete,
         };
-        let resolutions: Vec<_> = gitbutler_branch_actions::list_virtual_branches(&project)?
+        let ctx = CommandContext::open(&project, AppSettings::default())?;
+        let resolutions: Vec<_> = gitbutler_branch_actions::list_virtual_branches(&ctx)?
             .branches
             .into_iter()
             .map(|b| upstream_integration::Resolution {
@@ -83,6 +90,6 @@ pub mod workspace {
                 approach,
             })
             .collect();
-        gitbutler_branch_actions::integrate_upstream(&project, &resolutions, None)
+        gitbutler_branch_actions::integrate_upstream(&ctx, &resolutions, None)
     }
 }

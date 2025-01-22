@@ -2,10 +2,12 @@ pub mod commands {
     use crate::error::{Error, UnmarkedError};
     use anyhow::Result;
     use gitbutler_branch_actions::{hooks, RemoteBranchFile};
+    use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use gitbutler_repo::hooks::{HookResult, MessageHookResult};
     use gitbutler_repo::{FileInfo, RepoCommands};
+    use gitbutler_settings::AppSettingsWithDiskSync;
     use gitbutler_stack::BranchOwnershipClaims;
     use std::path::Path;
     use std::sync::atomic::AtomicBool;
@@ -61,14 +63,16 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects))]
+    #[instrument(skip(projects, settings))]
     pub fn get_uncommited_files(
         projects: State<'_, projects::Controller>,
+        settings: State<'_, AppSettingsWithDiskSync>,
         id: ProjectId,
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = projects.get(id)?;
 
-        Ok(gitbutler_branch_actions::get_uncommited_files(&project)?)
+        let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+        Ok(gitbutler_branch_actions::get_uncommited_files(&ctx)?)
     }
 
     #[tauri::command(async)]
@@ -96,34 +100,40 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects))]
+    #[instrument(skip(projects, settings))]
     pub fn pre_commit_hook(
         projects: State<'_, projects::Controller>,
+        settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         ownership: BranchOwnershipClaims,
     ) -> Result<HookResult, Error> {
         let project = projects.get(project_id)?;
-        Ok(hooks::pre_commit(&project, &ownership)?)
+        let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+        Ok(hooks::pre_commit(&ctx, &ownership)?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects))]
+    #[instrument(skip(projects, settings))]
     pub fn post_commit_hook(
         projects: State<'_, projects::Controller>,
+        settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
     ) -> Result<HookResult, Error> {
         let project = projects.get(project_id)?;
-        Ok(hooks::post_commit(&project)?)
+        let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+        Ok(gitbutler_repo::hooks::post_commit(&ctx)?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects))]
+    #[instrument(skip(projects, settings))]
     pub fn message_hook(
         projects: State<'_, projects::Controller>,
+        settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         message: String,
     ) -> Result<MessageHookResult, Error> {
         let project = projects.get(project_id)?;
-        Ok(hooks::commit_msg(&project, message)?)
+        let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+        Ok(gitbutler_repo::hooks::commit_msg(&ctx, message)?)
     }
 }

@@ -8,25 +8,20 @@ mod create_virtual_branch {
     #[test]
     fn simple() {
         let Test {
-            project,
-
-            repository,
-            ..
+            repository, ctx, ..
         } = &Test::default();
 
         gitbutler_branch_actions::set_base_branch(
-            project,
+            ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
         )
         .unwrap();
 
-        let branch_id = gitbutler_branch_actions::create_virtual_branch(
-            project,
-            &BranchCreateRequest::default(),
-        )
-        .unwrap();
+        let branch_id =
+            gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
+                .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch_id);
@@ -43,20 +38,17 @@ mod create_virtual_branch {
     #[test]
     fn duplicate_name() {
         let Test {
-            project,
-
-            repository,
-            ..
+            repository, ctx, ..
         } = &Test::default();
 
         gitbutler_branch_actions::set_base_branch(
-            project,
+            ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
         )
         .unwrap();
 
         let branch1_id = gitbutler_branch_actions::create_virtual_branch(
-            project,
+            ctx,
             &BranchCreateRequest {
                 name: Some("name".to_string()),
                 ..Default::default()
@@ -65,7 +57,7 @@ mod create_virtual_branch {
         .unwrap();
 
         let branch2_id = gitbutler_branch_actions::create_virtual_branch(
-            project,
+            ctx,
             &BranchCreateRequest {
                 name: Some("name".to_string()),
                 ..Default::default()
@@ -73,7 +65,7 @@ mod create_virtual_branch {
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 2);
         assert_eq!(branches[0].id, branch1_id);
@@ -99,20 +91,17 @@ mod update_virtual_branch {
     #[test]
     fn simple() {
         let Test {
-            project,
-
-            repository,
-            ..
+            repository, ctx, ..
         } = &Test::default();
 
         gitbutler_branch_actions::set_base_branch(
-            project,
+            ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
         )
         .unwrap();
 
         let branch_id = gitbutler_branch_actions::create_virtual_branch(
-            project,
+            ctx,
             &BranchCreateRequest {
                 name: Some("name".to_string()),
                 ..Default::default()
@@ -121,7 +110,7 @@ mod update_virtual_branch {
         .unwrap();
 
         gitbutler_branch_actions::update_virtual_branch(
-            project,
+            ctx,
             BranchUpdateRequest {
                 id: branch_id,
                 name: Some("new name".to_string()),
@@ -130,7 +119,7 @@ mod update_virtual_branch {
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch_id);
@@ -148,20 +137,17 @@ mod update_virtual_branch {
     #[test]
     fn duplicate_name() {
         let Test {
-            project,
-
-            repository,
-            ..
+            repository, ctx, ..
         } = &Test::default();
 
         gitbutler_branch_actions::set_base_branch(
-            project,
+            ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
         )
         .unwrap();
 
         let branch1_id = gitbutler_branch_actions::create_virtual_branch(
-            project,
+            ctx,
             &BranchCreateRequest {
                 name: Some("name".to_string()),
                 ..Default::default()
@@ -170,7 +156,7 @@ mod update_virtual_branch {
         .unwrap();
 
         let branch2_id = gitbutler_branch_actions::create_virtual_branch(
-            project,
+            ctx,
             &BranchCreateRequest {
                 ..Default::default()
             },
@@ -178,7 +164,7 @@ mod update_virtual_branch {
         .unwrap();
 
         gitbutler_branch_actions::update_virtual_branch(
-            project,
+            ctx,
             BranchUpdateRequest {
                 id: branch2_id,
                 name: Some("name".to_string()),
@@ -187,7 +173,7 @@ mod update_virtual_branch {
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 2);
         assert_eq!(branches[0].id, branch1_id);
@@ -213,20 +199,17 @@ mod push_virtual_branch {
     #[test]
     fn simple() {
         let Test {
-            project,
-
-            repository,
-            ..
+            repository, ctx, ..
         } = &Test::default();
 
         gitbutler_branch_actions::set_base_branch(
-            project,
+            ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
         )
         .unwrap();
 
         let branch1_id = gitbutler_branch_actions::create_virtual_branch(
-            project,
+            ctx,
             &BranchCreateRequest {
                 name: Some("name".to_string()),
                 ..Default::default()
@@ -236,11 +219,11 @@ mod push_virtual_branch {
 
         fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-        gitbutler_branch_actions::create_commit(project, branch1_id, "test", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, branch1_id, "test", None).unwrap();
         #[allow(deprecated)]
-        gitbutler_branch_actions::push_virtual_branch(project, branch1_id, false, None).unwrap();
+        gitbutler_branch_actions::push_virtual_branch(ctx, branch1_id, false, None).unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
@@ -261,14 +244,11 @@ mod push_virtual_branch {
     #[test]
     fn duplicate_names() {
         let Test {
-            project,
-
-            repository,
-            ..
+            repository, ctx, ..
         } = &Test::default();
 
         gitbutler_branch_actions::set_base_branch(
-            project,
+            ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
         )
         .unwrap();
@@ -276,7 +256,7 @@ mod push_virtual_branch {
         let branch1_id = {
             // create and push branch with some work
             let branch1_id = gitbutler_branch_actions::create_virtual_branch(
-                project,
+                ctx,
                 &BranchCreateRequest {
                     name: Some("name".to_string()),
                     ..Default::default()
@@ -284,16 +264,15 @@ mod push_virtual_branch {
             )
             .unwrap();
             fs::write(repository.path().join("file.txt"), "content").unwrap();
-            gitbutler_branch_actions::create_commit(project, branch1_id, "test", None).unwrap();
+            gitbutler_branch_actions::create_commit(ctx, branch1_id, "test", None).unwrap();
             #[allow(deprecated)]
-            gitbutler_branch_actions::push_virtual_branch(project, branch1_id, false, None)
-                .unwrap();
+            gitbutler_branch_actions::push_virtual_branch(ctx, branch1_id, false, None).unwrap();
             branch1_id
         };
 
         // rename first branch
         gitbutler_branch_actions::update_virtual_branch(
-            project,
+            ctx,
             BranchUpdateRequest {
                 id: branch1_id,
                 name: Some("updated name".to_string()),
@@ -305,7 +284,7 @@ mod push_virtual_branch {
         let branch2_id = {
             // create another branch with first branch's old name and push it
             let branch2_id = gitbutler_branch_actions::create_virtual_branch(
-                project,
+                ctx,
                 &BranchCreateRequest {
                     name: Some("name".to_string()),
                     ..Default::default()
@@ -313,14 +292,13 @@ mod push_virtual_branch {
             )
             .unwrap();
             fs::write(repository.path().join("file.txt"), "updated content").unwrap();
-            gitbutler_branch_actions::create_commit(project, branch2_id, "test", None).unwrap();
+            gitbutler_branch_actions::create_commit(ctx, branch2_id, "test", None).unwrap();
             #[allow(deprecated)]
-            gitbutler_branch_actions::push_virtual_branch(project, branch2_id, false, None)
-                .unwrap();
+            gitbutler_branch_actions::push_virtual_branch(ctx, branch2_id, false, None).unwrap();
             branch2_id
         };
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 2);
         // first branch is pushing to old ref remotely

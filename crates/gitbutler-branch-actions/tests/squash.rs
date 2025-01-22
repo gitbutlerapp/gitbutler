@@ -2,7 +2,6 @@ use anyhow::Result;
 use bstr::ByteSlice;
 use gitbutler_branch_actions::{internal::PatchSeries, list_virtual_branches, squash_commits};
 use gitbutler_command_context::CommandContext;
-use gitbutler_project::Project;
 use gitbutler_stack::{
     stack_context::{CommandContextExt, StackContext},
     StackBranch, VirtualBranchesHandle,
@@ -29,13 +28,13 @@ fn squash_without_affecting_stack() -> Result<()> {
     let stack_ctx = ctx.to_stack_context()?;
     let test = test_ctx(&ctx, &stack_ctx)?;
     squash_commits(
-        ctx.project(),
+        &ctx,
         test.stack.id,
         vec![test.commit_3.id()],
         test.commit_2.id(),
     )?;
 
-    let branches = list_branches(ctx.project())?;
+    let branches = list_branches(&ctx)?;
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
     assert_eq!(branches.b1.patches[0].description, "commit 1");
@@ -75,13 +74,13 @@ fn squash_below() -> Result<()> {
     let stack_ctx = ctx.to_stack_context()?;
     let test = test_ctx(&ctx, &stack_ctx)?;
     squash_commits(
-        ctx.project(),
+        &ctx,
         test.stack.id,
         vec![test.commit_4.id()],
         test.commit_2.id(),
     )?;
 
-    let branches = list_branches(ctx.project())?;
+    let branches = list_branches(&ctx)?;
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
     assert_eq!(branches.b1.patches[0].description, "commit 1");
@@ -127,13 +126,13 @@ fn squash_above() -> Result<()> {
     let stack_ctx = ctx.to_stack_context()?;
     let test = test_ctx(&ctx, &stack_ctx)?;
     squash_commits(
-        ctx.project(),
+        &ctx,
         test.stack.id,
         vec![test.commit_1.id()],
         test.commit_3.id(),
     )?;
 
-    let branches = list_branches(ctx.project())?;
+    let branches = list_branches(&ctx)?;
     // branch 1
     assert_eq!(branches.b1.patches.len(), 0);
 
@@ -174,7 +173,7 @@ fn squash_producting_conflict_errors_out() -> Result<()> {
     let stack_ctx = ctx.to_stack_context()?;
     let test = test_ctx(&ctx, &stack_ctx)?;
     let result = squash_commits(
-        ctx.project(),
+        &ctx,
         test.stack.id,
         vec![test.commit_2.id()],
         test.commit_3.id(),
@@ -185,7 +184,7 @@ fn squash_producting_conflict_errors_out() -> Result<()> {
     );
 
     // After a failed squash, the stack should be unchanged (i.e. the reordering that takes place is reversed)
-    let branches = list_branches(ctx.project())?;
+    let branches = list_branches(&ctx)?;
     // branch 3
     assert_eq!(branches.b3.patches[0].description, "commit 5");
     // branch 2
@@ -220,12 +219,12 @@ fn squash_down_with_overlap_ok() -> Result<()> {
     let stack_ctx = ctx.to_stack_context()?;
     let test = test_ctx(&ctx, &stack_ctx)?;
     squash_commits(
-        ctx.project(),
+        &ctx,
         test.stack.id,
         vec![test.commit_3.id()],
         test.commit_2.id(),
     )?;
-    let branches = list_branches(ctx.project())?;
+    let branches = list_branches(&ctx)?;
 
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
@@ -265,12 +264,12 @@ fn squash_below_into_stack_head() -> Result<()> {
     let stack_ctx = ctx.to_stack_context()?;
     let test = test_ctx(&ctx, &stack_ctx)?;
     squash_commits(
-        ctx.project(),
+        &ctx,
         test.stack.id,
         vec![test.commit_4.id()],
         test.commit_1.id(),
     )?;
-    let branches = list_branches(ctx.project())?;
+    let branches = list_branches(&ctx)?;
 
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
@@ -314,12 +313,12 @@ fn squash_multiple() -> Result<()> {
     let stack_ctx = ctx.to_stack_context()?;
     let test = test_ctx(&ctx, &stack_ctx)?;
     squash_commits(
-        ctx.project(),
+        &ctx,
         test.stack.id,
         vec![test.commit_4.id(), test.commit_2.id()],
         test.commit_1.id(),
     )?;
-    let branches = list_branches(ctx.project())?;
+    let branches = list_branches(&ctx)?;
 
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
@@ -369,12 +368,12 @@ fn squash_multiple_from_heads() -> Result<()> {
     let stack_ctx = ctx.to_stack_context()?;
     let test = test_ctx(&ctx, &stack_ctx)?;
     squash_commits(
-        ctx.project(),
+        &ctx,
         test.stack.id,
         vec![test.commit_5.id(), test.commit_4.id()],
         test.commit_2.id(),
     )?;
-    let branches = list_branches(ctx.project())?;
+    let branches = list_branches(&ctx)?;
 
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
@@ -425,12 +424,12 @@ fn squash_multiple_above_and_below() -> Result<()> {
     let stack_ctx = ctx.to_stack_context()?;
     let test = test_ctx(&ctx, &stack_ctx)?;
     squash_commits(
-        ctx.project(),
+        &ctx,
         test.stack.id,
         vec![test.commit_5.id(), test.commit_1.id()],
         test.commit_3.id(),
     )?;
-    let branches = list_branches(ctx.project())?;
+    let branches = list_branches(&ctx)?;
 
     // branch 1
     assert_eq!(branches.b1.patches.len(), 0);
@@ -519,8 +518,8 @@ struct TestBranchListing {
 }
 
 /// Stack branches from the API
-fn list_branches(project: &Project) -> Result<TestBranchListing> {
-    let branches = list_virtual_branches(project)?
+fn list_branches(ctx: &CommandContext) -> Result<TestBranchListing> {
+    let branches = list_virtual_branches(ctx)?
         .branches
         .first()
         .unwrap()

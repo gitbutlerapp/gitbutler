@@ -2,13 +2,10 @@ use super::*;
 
 #[test]
 fn success() {
-    let Test { project, .. } = &Test::default();
+    let Test { ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 }
 
 mod error {
@@ -18,11 +15,11 @@ mod error {
 
     #[test]
     fn missing() {
-        let Test { project, .. } = &Test::default();
+        let Test { ctx, .. } = &Test::default();
 
         assert_eq!(
             gitbutler_branch_actions::set_base_branch(
-                project,
+                ctx,
                 &RemoteRefname::from_str("refs/remotes/origin/missing").unwrap(),
             )
             .unwrap_err()
@@ -41,9 +38,7 @@ mod go_back_to_workspace {
     #[test]
     fn should_preserve_applied_vbranches() {
         let Test {
-            repository,
-            project,
-            ..
+            repository, ctx, ..
         } = &Test::default();
 
         std::fs::write(repository.path().join("file.txt"), "one").unwrap();
@@ -53,21 +48,19 @@ mod go_back_to_workspace {
         repository.push();
 
         gitbutler_branch_actions::set_base_branch(
-            project,
+            ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
         )
         .unwrap();
 
-        let vbranch_id = gitbutler_branch_actions::create_virtual_branch(
-            project,
-            &BranchCreateRequest::default(),
-        )
-        .unwrap();
+        let vbranch_id =
+            gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
+                .unwrap();
 
         std::fs::write(repository.path().join("another file.txt"), "content").unwrap();
-        gitbutler_branch_actions::create_commit(project, vbranch_id, "one", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, vbranch_id, "one", None).unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
 
         assert_eq!(branches.len(), 1);
@@ -75,12 +68,12 @@ mod go_back_to_workspace {
         repository.checkout_commit(oid_one);
 
         gitbutler_branch_actions::set_base_branch(
-            project,
+            ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, vbranch_id);
@@ -90,9 +83,7 @@ mod go_back_to_workspace {
     #[test]
     fn from_target_branch_index_conflicts() {
         let Test {
-            repository,
-            project,
-            ..
+            repository, ctx, ..
         } = &Test::default();
 
         std::fs::write(repository.path().join("file.txt"), "one").unwrap();
@@ -102,12 +93,12 @@ mod go_back_to_workspace {
         repository.push();
 
         gitbutler_branch_actions::set_base_branch(
-            project,
+            ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
 
         assert!(branches.is_empty());
@@ -117,7 +108,7 @@ mod go_back_to_workspace {
 
         assert!(matches!(
             gitbutler_branch_actions::set_base_branch(
-                project,
+                ctx,
                 &"refs/remotes/origin/master".parse().unwrap()
             )
             .unwrap_err()
@@ -129,9 +120,7 @@ mod go_back_to_workspace {
     #[test]
     fn from_target_branch_with_uncommited() {
         let Test {
-            repository,
-            project,
-            ..
+            repository, ctx, ..
         } = &Test::default();
 
         std::fs::write(repository.path().join("file.txt"), "one").unwrap();
@@ -141,12 +130,12 @@ mod go_back_to_workspace {
         repository.push();
 
         gitbutler_branch_actions::set_base_branch(
-            project,
+            ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert!(branches.is_empty());
 
@@ -155,7 +144,7 @@ mod go_back_to_workspace {
 
         assert!(matches!(
             gitbutler_branch_actions::set_base_branch(
-                project,
+                ctx,
                 &"refs/remotes/origin/master".parse().unwrap()
             )
             .unwrap_err()
@@ -167,9 +156,7 @@ mod go_back_to_workspace {
     #[test]
     fn from_target_branch_with_commit() {
         let Test {
-            repository,
-            project,
-            ..
+            repository, ctx, ..
         } = &Test::default();
 
         std::fs::write(repository.path().join("file.txt"), "one").unwrap();
@@ -179,12 +166,12 @@ mod go_back_to_workspace {
         repository.push();
 
         let base = gitbutler_branch_actions::set_base_branch(
-            project,
+            ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert!(branches.is_empty());
 
@@ -193,12 +180,12 @@ mod go_back_to_workspace {
         repository.commit_all("three");
 
         let base_two = gitbutler_branch_actions::set_base_branch(
-            project,
+            ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 0);
         assert_eq!(base_two, base);
@@ -207,9 +194,7 @@ mod go_back_to_workspace {
     #[test]
     fn from_target_branch_without_any_changes() {
         let Test {
-            repository,
-            project,
-            ..
+            repository, ctx, ..
         } = &Test::default();
 
         std::fs::write(repository.path().join("file.txt"), "one").unwrap();
@@ -219,24 +204,24 @@ mod go_back_to_workspace {
         repository.push();
 
         let base = gitbutler_branch_actions::set_base_branch(
-            project,
+            ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert!(branches.is_empty());
 
         repository.checkout_commit(oid_one);
 
         let base_two = gitbutler_branch_actions::set_base_branch(
-            project,
+            ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 0);
         assert_eq!(base_two, base);

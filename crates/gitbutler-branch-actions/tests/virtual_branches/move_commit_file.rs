@@ -8,42 +8,35 @@ use super::*;
 #[test]
 fn move_file_down() -> anyhow::Result<()> {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit1_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap();
     let commit1 = repository.find_commit(commit1_id).unwrap();
 
     // create commit
     fs::write(repository.path().join("file2.txt"), "content2").unwrap();
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
     let commit2_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit two", None).unwrap();
     let commit2 = repository.find_commit(commit2_id).unwrap();
 
     // amend another hunk
     let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
-    gitbutler_branch_actions::move_commit_file(
-        project, branch_id, commit2_id, commit1_id, &to_amend,
-    )
-    .unwrap();
+    gitbutler_branch_actions::move_commit_file(ctx, branch_id, commit2_id, commit1_id, &to_amend)
+        .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -64,11 +57,11 @@ fn move_file_down() -> anyhow::Result<()> {
 
     assert_eq!(branch.series[0].clone()?.patches.len(), 2);
     assert_eq!(
-        list_commit_files(project, branch.series[0].clone()?.patches[0].id)?.len(),
+        list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?.len(),
         1
     );
     assert_eq!(
-        list_commit_files(project, branch.series[0].clone()?.patches[1].id)?.len(),
+        list_commit_files(ctx, branch.series[0].clone()?.patches[1].id)?.len(),
         2
     ); // this now has both file changes
     Ok(())
@@ -77,40 +70,33 @@ fn move_file_down() -> anyhow::Result<()> {
 #[test]
 fn move_file_up() -> anyhow::Result<()> {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     fs::write(repository.path().join("file2.txt"), "content2").unwrap();
     let commit1_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap();
 
     // create commit
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
     let commit2_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit two", None).unwrap();
 
     // amend another hunk
     let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
-    gitbutler_branch_actions::move_commit_file(
-        project, branch_id, commit1_id, commit2_id, &to_amend,
-    )
-    .unwrap();
+    gitbutler_branch_actions::move_commit_file(ctx, branch_id, commit1_id, commit2_id, &to_amend)
+        .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -119,11 +105,11 @@ fn move_file_up() -> anyhow::Result<()> {
 
     assert_eq!(branch.series[0].clone()?.patches.len(), 2);
     assert_eq!(
-        list_commit_files(project, branch.series[0].clone()?.patches[0].id)?.len(),
+        list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?.len(),
         2
     ); // this now has both file changes
     assert_eq!(
-        list_commit_files(project, branch.series[0].clone()?.patches[1].id)?.len(),
+        list_commit_files(ctx, branch.series[0].clone()?.patches[1].id)?.len(),
         1
     );
     Ok(())

@@ -6,47 +6,42 @@ use super::*;
 #[test]
 fn head() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit two", None).unwrap()
     };
 
     let commit_three_oid = {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit three", None).unwrap()
     };
     let commit_three = repository.find_commit(commit_three_oid).unwrap();
     let before_change_id = &commit_three.change_id();
 
     gitbutler_branch_actions::update_commit_message(
-        project,
+        ctx,
         branch_id,
         commit_three_oid,
         "commit three updated",
     )
     .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -77,45 +72,40 @@ fn head() {
 #[test]
 fn middle() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap()
     };
 
     let commit_two_oid = {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit two", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit three", None).unwrap()
     };
 
     gitbutler_branch_actions::update_commit_message(
-        project,
+        ctx,
         branch_id,
         commit_two_oid,
         "commit two updated",
     )
     .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -140,16 +130,14 @@ fn forcepush_allowed() {
     let Test {
         repository,
         project_id,
-        project,
+
         projects,
+        ctx,
         ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     projects
         .update(&projects::UpdateRequest {
@@ -159,26 +147,26 @@ fn forcepush_allowed() {
         .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap()
     };
 
     #[allow(deprecated)]
-    gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
+    gitbutler_branch_actions::push_virtual_branch(ctx, branch_id, false, None).unwrap();
 
     gitbutler_branch_actions::update_commit_message(
-        project,
+        ctx,
         branch_id,
         commit_one_oid,
         "commit one updated",
     )
     .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -199,23 +187,18 @@ fn forcepush_allowed() {
 #[test]
 fn forcepush_forbidden() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     gitbutler_branch_actions::update_virtual_branch(
-        project,
+        ctx,
         BranchUpdateRequest {
             id: branch_id,
             allow_rebasing: Some(false),
@@ -226,15 +209,15 @@ fn forcepush_forbidden() {
 
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap()
     };
 
     #[allow(deprecated)]
-    gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
+    gitbutler_branch_actions::push_virtual_branch(ctx, branch_id, false, None).unwrap();
 
     assert_eq!(
         gitbutler_branch_actions::update_commit_message(
-            project,
+            ctx,
             branch_id,
             commit_one_oid,
             "commit one updated",
@@ -248,45 +231,40 @@ fn forcepush_forbidden() {
 #[test]
 fn root() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit two", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit three", None).unwrap()
     };
 
     gitbutler_branch_actions::update_commit_message(
-        project,
+        ctx,
         branch_id,
         commit_one_oid,
         "commit one updated",
     )
     .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
@@ -309,28 +287,23 @@ fn root() {
 #[test]
 fn empty() {
     let Test {
-        repository,
-        project,
-        ..
+        repository, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(
-        project,
-        &"refs/remotes/origin/master".parse().unwrap(),
-    )
-    .unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
+        .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap()
     };
 
     assert_eq!(
-        gitbutler_branch_actions::update_commit_message(project, branch_id, commit_one_oid, "",)
+        gitbutler_branch_actions::update_commit_message(ctx, branch_id, commit_one_oid, "",)
             .unwrap_err()
             .to_string(),
         "commit message can not be empty"

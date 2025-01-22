@@ -21,6 +21,7 @@ use gitbutler_repo::{
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, Target, VirtualBranchesHandle};
 use serde::Serialize;
+use tracing::instrument;
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -46,7 +47,8 @@ pub struct BaseBranch {
     pub diverged_behind: Vec<git2::Oid>,
 }
 
-pub(crate) fn get_base_branch_data(ctx: &CommandContext) -> Result<BaseBranch> {
+#[instrument(skip(ctx), err(Debug))]
+pub fn get_base_branch_data(ctx: &CommandContext) -> Result<BaseBranch> {
     let target = default_target(&ctx.project().gb_dir())?;
     let base = target_to_base_branch(ctx, &target)?;
     Ok(base)

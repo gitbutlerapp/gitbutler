@@ -15,7 +15,7 @@ mod tests {
     #[test]
     fn pre_commit_hook_success() -> anyhow::Result<()> {
         let suite = Suite::default();
-        let Case { project, ctx, .. } = &suite.new_case();
+        let Case { ctx, .. } = &suite.new_case();
 
         let selected_hunks = BranchOwnershipClaims { claims: vec![] };
         let hook = b"
@@ -24,7 +24,7 @@ mod tests {
 ";
         git2_hooks::create_hook(ctx.repo(), git2_hooks::HOOK_PRE_COMMIT, hook);
         assert_eq!(
-            hooks::pre_commit(project, &selected_hunks)?,
+            hooks::pre_commit(ctx, &selected_hunks)?,
             HookResult::Success
         );
         Ok(())
@@ -33,11 +33,11 @@ mod tests {
     #[test]
     fn pre_commit_hook_not_found() -> anyhow::Result<()> {
         let suite = Suite::default();
-        let Case { project, .. } = &suite.new_case();
+        let Case { ctx, .. } = &suite.new_case();
 
         let selected_hunks = BranchOwnershipClaims { claims: vec![] };
         assert_eq!(
-            hooks::pre_commit(project, &selected_hunks)?,
+            hooks::pre_commit(ctx, &selected_hunks)?,
             HookResult::NotConfigured
         );
         Ok(())
@@ -65,10 +65,7 @@ fi
         // fail if we pass no ownership claims. These claims are used to select what hunks
         // get committed.
         let ownership1 = BranchOwnershipClaims { claims: vec![] };
-        assert_eq!(
-            hooks::pre_commit(project, &ownership1)?,
-            HookResult::Success
-        );
+        assert_eq!(hooks::pre_commit(ctx, &ownership1)?, HookResult::Success);
 
         // But when including the change in the ownerships the change will be staged, and
         // the hook therefore fails.
@@ -85,7 +82,7 @@ fi
 
         assert!(!is_file_staged(ctx.repo(), "test.txt")?);
         assert_eq!(
-            hooks::pre_commit(project, &ownership2)?,
+            hooks::pre_commit(ctx, &ownership2)?,
             HookResult::Failure(ErrorData {
                 error: "rejected\n".to_owned()
             })
@@ -97,7 +94,7 @@ fi
     #[test]
     fn post_commit_hook_rejection() -> anyhow::Result<()> {
         let suite = Suite::default();
-        let Case { ctx, project, .. } = &suite.new_case();
+        let Case { ctx, .. } = &suite.new_case();
 
         let hook = b"
 #!/bin/sh
@@ -107,7 +104,7 @@ exit 1
         git2_hooks::create_hook(ctx.repo(), git2_hooks::HOOK_POST_COMMIT, hook);
 
         assert_eq!(
-            hooks::post_commit(project)?,
+            gitbutler_repo::hooks::post_commit(ctx)?,
             HookResult::Failure(ErrorData {
                 error: "rejected\n".to_owned()
             })
@@ -118,7 +115,7 @@ exit 1
     #[test]
     fn message_hook_rejection() -> anyhow::Result<()> {
         let suite = Suite::default();
-        let Case { project, ctx, .. } = &suite.new_case();
+        let Case { ctx, .. } = &suite.new_case();
 
         let hook = b"
 #!/bin/sh
@@ -129,7 +126,7 @@ exit 1
 
         let message = "commit message".to_owned();
         assert_eq!(
-            hooks::commit_msg(project, message)?,
+            gitbutler_repo::hooks::commit_msg(ctx, message)?,
             MessageHookResult::Failure(ErrorData {
                 error: "rejected\n".to_owned()
             })
@@ -140,7 +137,7 @@ exit 1
     #[test]
     fn rewrite_message() -> anyhow::Result<()> {
         let suite = Suite::default();
-        let Case { project, ctx, .. } = &suite.new_case();
+        let Case { ctx, .. } = &suite.new_case();
 
         let hook = b"
 #!/bin/sh
@@ -150,7 +147,7 @@ echo 'rewritten message' > $1
 
         let message = "commit message".to_owned();
         assert_eq!(
-            hooks::commit_msg(project, message)?,
+            gitbutler_repo::hooks::commit_msg(ctx, message)?,
             MessageHookResult::Message(MessageData {
                 message: "rewritten message\n".to_owned()
             })
@@ -161,7 +158,7 @@ echo 'rewritten message' > $1
     #[test]
     fn keep_message() -> anyhow::Result<()> {
         let suite = Suite::default();
-        let Case { project, ctx, .. } = &suite.new_case();
+        let Case { ctx, .. } = &suite.new_case();
 
         let hook = b"
 #!/bin/sh
@@ -171,7 +168,7 @@ echo 'commit message' > $1
 
         let message = "commit message\n".to_owned();
         assert_eq!(
-            hooks::commit_msg(project, message)?,
+            gitbutler_repo::hooks::commit_msg(ctx, message)?,
             MessageHookResult::Success
         );
         Ok(())
