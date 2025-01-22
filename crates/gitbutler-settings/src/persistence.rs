@@ -6,7 +6,7 @@ use anyhow::Result;
 use serde_json::json;
 use serde_json_lenient::to_string_pretty;
 
-static DEFAULTS: &str = include_str!("../assets/defaults.jsonc");
+pub(crate) static DEFAULTS: &str = include_str!("../assets/defaults.jsonc");
 
 impl AppSettings {
     /// Load the settings from the configuration directory, or initialize the file with an empty JSON object at `config_path`.

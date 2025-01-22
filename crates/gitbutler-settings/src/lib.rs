@@ -17,6 +17,16 @@ pub struct AppSettings {
     pub feature_flags: app_settings::FeatureFlags,
 }
 
+impl Default for AppSettings {
+    fn default() -> Self {
+        // this is safe because we know the default settings are a static assets file that is always valid
+        let settings: serde_json::Value = serde_json_lenient::from_str(persistence::DEFAULTS)
+            .expect("BUG: default settings are always a valid JSON");
+        serde_json::from_value(settings)
+            .expect("BUG: default settings structure always matches the type")
+    }
+}
+
 pub mod app_settings;
 mod json;
 mod persistence;
