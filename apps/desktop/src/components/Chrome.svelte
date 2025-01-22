@@ -27,9 +27,9 @@
 
 	.wrapper {
 		display: flex;
+		overflow: hidden;
 		flex-grow: 1;
 		height: 100%;
-		overflow-y: scroll;
 	}
 
 	.content {
