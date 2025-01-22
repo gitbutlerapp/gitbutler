@@ -174,7 +174,7 @@
 				kind="outline"
 				onclick={() => goto(routes.settingsPath(project.id))}
 				width={34}
-				class="btn-square"
+				class={['btn-square', routes.isSettingsPath && 'btn-active']}
 			/>
 		</div>
 		<Button
@@ -202,35 +202,37 @@
 			</div>
 		</Button>
 
-		<Button
-			icon="keyboard"
-			kind="ghost"
-			style="neutral"
-			tooltip="Keyboard Shortcuts"
-			tooltipPosition="top"
-			tooltipAlign="start"
-			width={34}
-			class="fill-text-2"
-		/>
-		<Button
-			icon="mail"
-			kind="ghost"
-			tooltip="Share feedback"
-			tooltipPosition="top"
-			tooltipAlign="start"
-			width={34}
-			class="fill-text-2"
-			onclick={() => {
-				shareIssueModal?.show();
-			}}
-		/>
+		<div>
+			<Button
+				icon="keyboard"
+				kind="ghost"
+				style="neutral"
+				tooltip="Keyboard Shortcuts"
+				tooltipPosition="top"
+				tooltipAlign="start"
+				width={34}
+				class="fill-text-2"
+			/>
+			<Button
+				icon="mail"
+				kind="ghost"
+				tooltip="Share feedback"
+				tooltipPosition="top"
+				tooltipAlign="start"
+				width={34}
+				class="fill-text-2"
+				onclick={() => {
+					shareIssueModal?.show();
+				}}
+			/>
+		</div>
 	</div>
 </nav>
 
 <ContextMenu
 	bind:this={contextMenuEl}
 	leftClickTrigger={contextTriggerButton}
-	verticalAlign="bottom"
+	verticalAlign="top"
 	horizontalAlign="left"
 >
 	<ContextMenuSection>
@@ -288,7 +290,12 @@
 	.bottom {
 		display: flex;
 		flex-direction: column;
+	}
+	.top {
 		gap: 4px;
+	}
+	.bottom {
+		gap: 8px;
 	}
 
 	.user-button {
@@ -297,6 +304,15 @@
 		justify-content: center;
 		align-items: center;
 		width: 34px;
+		padding: 4px;
+		gap: 4px;
+	}
+	.user-button img {
+		border-radius: var(--radius-m);
+	}
+
+	.profile-picture {
+		border-radius: var(--radius-m);
 	}
 
 	.active-page-indicator {
@@ -352,15 +368,19 @@
 
 	:global(.btn-height-auto) {
 		height: auto !important;
+		border-radius: var(--radius-ml) !important;
 		opacity: 0.7;
+		padding: 0 !important;
 	}
 
 	:global(.btn-square) {
 		aspect-ratio: 1 / 1;
 		height: unset !important;
 		opacity: 0.7;
+		border-radius: var(--radius-ml) !important;
 	}
 	:global(.btn-square.btn-active) {
 		opacity: 1 !important;
+		background-color: var(--clr-scale-ntrl-100);
 	}
 </style>

@@ -36,7 +36,10 @@
 		{#if platformName === 'macos'}
 			<div class="traffic-lights-placeholder" data-tauri-drag-region></div>
 		{/if}
-		<SyncButton size="button" />
+		<div class="left-buttons">
+			<SyncButton size="button" />
+			<Button style="pop">3 upstream commits</Button>
+		</div>
 	</div>
 	<div class="center">
 		<Select
@@ -108,6 +111,16 @@
 		display: flex;
 		justify-content: space-between;
 		margin: 16px 16px 0 16px;
+	}
+
+	.left {
+		display: flex;
+		gap: 16px;
+	}
+
+	.left-buttons {
+		display: flex;
+		gap: 8px;
 	}
 
 	.selector-series-select {

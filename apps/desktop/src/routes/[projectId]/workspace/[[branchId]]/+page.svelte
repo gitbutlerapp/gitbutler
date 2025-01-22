@@ -12,7 +12,7 @@
 
 	// Redirect to board if we have switched away from V3 feature.
 	$effect(() => {
-		if (!$settingsStore?.featureFlags.v3) {
+		if ($settingsStore && !$settingsStore.featureFlags.v3) {
 			goto(`/${data.projectId}/board`);
 		}
 	});
@@ -94,7 +94,7 @@
 		width: 290px;
 		background-color: var(--clr-bg-1);
 		border-radius: var(--radius-ml);
-		padding: 8px;
+		border: 1px solid var(--clr-border-2);
 	}
 
 	.sidebar-header {
@@ -102,6 +102,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		padding: 10px 8px 10px 14px;
 	}
 
 	.sidebar-body {
@@ -115,6 +116,7 @@
 	.content {
 		flex: 1;
 		padding: 8px;
+		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 
 		background-color: #f3f3f2;
