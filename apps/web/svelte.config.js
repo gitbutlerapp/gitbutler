@@ -8,6 +8,9 @@ const config = {
 		adapter: adapter(),
 		alias: {
 			$home: 'src/routes/home'
+		},
+		files: {
+			assets: 'static'
 		}
 	}
 };

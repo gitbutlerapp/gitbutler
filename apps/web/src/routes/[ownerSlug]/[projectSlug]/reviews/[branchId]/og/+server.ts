@@ -14,8 +14,8 @@ import type { ApiUser } from '@gitbutler/shared/users/types';
 import { env } from '$env/dynamic/public';
 
 // Load the font data
-const fontFilePath = path.resolve('static/fonts/NotoSans-Regular.ttf');
-const fontData = readFileSync(fontFilePath);
+const fontPath = path.join(process.cwd(), 'static/fonts/NotoSans-Regular.ttf');
+const fontData = readFileSync(fontPath);
 
 // eslint-disable-next-line func-style
 export const GET: RequestHandler = async ({ params }) => {
