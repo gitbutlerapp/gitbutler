@@ -137,5 +137,6 @@
 	.badge__label {
 		display: flex;
 		padding: 0 2px;
+		white-space: nowrap;
 	}
 </style>

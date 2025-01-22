@@ -285,6 +285,7 @@ export type Branch = {
 	stackSize?: number;
 	contributors: string[];
 	patchIds: string[];
+	patches: Patch[];
 	repositoryId: string;
 	stackId: string;
 	stackOrder: number;
@@ -307,6 +308,7 @@ export function apiToBranch(api: ApiBranch): Branch {
 		stackSize: api.stack_size,
 		contributors: api.contributors,
 		patchIds: api.patches.map((patch) => patch.change_id),
+		patches: api.patches.map(apiToPatch),
 		repositoryId: api.repository_id,
 		// Its good enough
 		stackId: api.branch_stack_id || String(Math.random()),

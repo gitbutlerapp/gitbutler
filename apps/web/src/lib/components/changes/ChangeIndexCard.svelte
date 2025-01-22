@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PatchReviewersGroup from '../review/PatchReviewersGroup.svelte';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { getPatch } from '@gitbutler/shared/branches/patchesPreview.svelte';
 	import {
@@ -47,7 +48,7 @@
 	{:else if status === 'changes-requested'}
 		<Badge style="error">Changes Requested</Badge>
 	{:else if status === 'unreviewed'}
-		<Badge style="neuteral" kind="soft">Unreviewed</Badge>
+		<Badge style="neutral" kind="soft">Unreviewed</Badge>
 	{:else if status === 'in-discussion'}
 		<Badge style="warning" kind="soft">In Discussion</Badge>
 	{/if}
@@ -58,14 +59,14 @@
 		<tr class="row" class:rounded-bottom={last}>
 			<td><div>{@render status(getPatchStatus(patch))}</div></td>
 			<td
-				><div>
+				><div class="name">
 					<a href={routes.projectReviewBranchCommitPath({ ...params, changeId: patch.changeId })}
 						>{patch.title}</a
 					>
 				</div></td
 			>
-			<td><div>{dayjs(patch.updatedAt).fromNow()}</div></td>
 			<td><div>+{patch.statistics.lines} -{patch.statistics.deletions}</div></td>
+			<td><div class="updated">{dayjs(patch.updatedAt).fromNow()}</div></td>
 			<td>
 				<div>
 					{#await contributors then contributors}
@@ -73,7 +74,7 @@
 					{/await}
 				</div>
 			</td>
-			<td><div></div></td>
+			<td><div><PatchReviewersGroup {patch} /></div></td>
 			<td><div></div></td>
 		</tr>
 	{/snippet}
@@ -121,5 +122,14 @@
 		&:last-child > div {
 			border-bottom-right-radius: var(--radius-m);
 		}
+	}
+
+	.name {
+		font-weight: bold;
+	}
+
+	.updated {
+		color: var(--clr-text-2);
+		font-size: 0.8rem;
 	}
 </style>

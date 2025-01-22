@@ -22,16 +22,21 @@
 	);
 </script>
 
-<h2>{data.ownerSlug}/{data.projectSlug}</h2>
+<svelte:head>
+	<title>Review: {data.ownerSlug}/{data.projectSlug}</title>
+</svelte:head>
 
 <Loading loadable={brancheses?.current}>
 	{#snippet children(brancheses)}
-		<h3>Branches shared for review <Badge>{brancheses.length || 0}</Badge></h3>
+		<div class="title">
+			<div class="text">Branches shared for review</div>
+			<div><Badge>{brancheses.length || 0}</Badge></div>
+		</div>
 
-		<table class="branches-table">
+		<table class="commits-table">
 			<thead>
 				<tr>
-					<th><div>Seq.</div></th>
+					<th><div>Status</div></th>
 					<th><div>Name</div></th>
 					<th><div>UUID</div></th>
 					<th><div>Branch commits</div></th>
@@ -41,7 +46,7 @@
 					<th><div>Version</div></th>
 				</tr>
 			</thead>
-			<tbody>
+			<tbody class="pretty">
 				{#each brancheses as branches, i}
 					{#each branches as branch, j}
 						<BranchIndexCard
@@ -57,32 +62,14 @@
 	{/snippet}
 </Loading>
 
-<style lang="postcss">
-	.branches-table {
-		th {
-			padding: 0;
-			> div {
-				text-align: left;
-				padding: 16px;
-
-				border-top: 1px solid var(--clr-border-2);
-				border-bottom: 1px solid var(--clr-border-2);
-				overflow: hidden;
-			}
-
-			&:first-child {
-				> div {
-					border-left: 1px solid var(--clr-border-2);
-					border-top-left-radius: var(--radius-m);
-				}
-			}
-
-			&:last-child {
-				> div {
-					border-right: 1px solid var(--clr-border-2);
-					border-top-right-radius: var(--radius-m);
-				}
-			}
-		}
+<style>
+	.title {
+		display: flex;
+		align-items: center;
+		margin-bottom: 1.5rem;
+		gap: 10px;
+	}
+	.title > .text {
+		font-weight: bold;
 	}
 </style>

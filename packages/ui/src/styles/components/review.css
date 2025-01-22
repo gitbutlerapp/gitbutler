@@ -1,0 +1,56 @@
+.commits-table {
+	width: 100%;
+	color: var(--clr-text-1);
+	font-size: 0.9rem;
+
+	tbody.pretty > tr:first-child > td {
+		padding-top: 10px; /* Simulates a top margin */
+		> div {
+			border-top: 1px solid var(--clr-border-2);
+		}
+
+		&:first-child {
+			> div {
+				border-top-left-radius: var(--radius-m);
+			}
+		}
+		&:last-child {
+			> div {
+				border-top-right-radius: var(--radius-m);
+			}
+		}
+	}
+
+	th {
+		padding: 0;
+		color: var(--clr-text-2);
+
+		> div {
+			font-weight: 100;
+			font-size: 0.8em;
+			text-align: left;
+			padding: 16px;
+			white-space: nowrap;
+
+			border-top: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--clr-border-2);
+			overflow: hidden;
+		}
+
+		&:first-child {
+			> div {
+				border-left: 1px solid var(--clr-border-2);
+				border-top-left-radius: var(--radius-m);
+				border-bottom-left-radius: var(--radius-m);
+			}
+		}
+
+		&:last-child {
+			> div {
+				border-right: 1px solid var(--clr-border-2);
+				border-top-right-radius: var(--radius-m);
+				border-bottom-right-radius: var(--radius-m);
+			}
+		}
+	}
+}
