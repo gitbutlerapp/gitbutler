@@ -1,14 +1,18 @@
 <script lang="ts">
+	import StackTabs from '$components/StackTabs.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import type { LayoutData } from '../../$types';
+	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 
 	const settingsService = getContext(SettingsService);
 	const settingsStore = settingsService.appSettings;
 
-	const { data }: { data: LayoutData } = $props();
+	const { data }: { data: PageData } = $props();
+	const projectId = $derived(data.projectId);
+	const stackId = $derived(page.params.stackId);
 
 	// Redirect to board if we have switched away from V3 feature.
 	$effect(() => {
@@ -18,14 +22,14 @@
 	});
 </script>
 
-<section>
-	<div class="sidebar">
-		<div class="sidebar-header">
+<div class="workspace">
+	<div class="left">
+		<div class="left-header">
 			<div class="text-14 text-semibold">Uncommitted changes</div>
 			<Button kind="ghost" icon="sidebar-unfold" />
 		</div>
 
-		<div class="sidebar-body">
+		<div class="left-body">
 			<svg
 				width="120"
 				height="100"
@@ -72,11 +76,14 @@
 			</div>
 		</div>
 	</div>
-	<div class="content">Tab Area</div>
-</section>
+	<div class="right">
+		<StackTabs {projectId} selectedId={stackId} />
+		<div class="branch"></div>
+	</div>
+</div>
 
 <style>
-	section {
+	.workspace {
 		display: flex;
 		flex: 1;
 		align-items: stretch;
@@ -86,7 +93,7 @@
 		gap: 14px;
 	}
 
-	.sidebar {
+	.left {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -97,7 +104,7 @@
 		border: 1px solid var(--clr-border-2);
 	}
 
-	.sidebar-header {
+	.left-header {
 		width: 100%;
 		display: flex;
 		align-items: center;
@@ -105,7 +112,7 @@
 		padding: 10px 8px 10px 14px;
 	}
 
-	.sidebar-body {
+	.left-body {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
@@ -113,16 +120,16 @@
 		justify-content: center;
 	}
 
-	.content {
+	.right {
+		display: flex;
 		flex: 1;
-		padding: 8px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
+		flex-direction: column;
+	}
 
-		background-color: #f3f3f2;
-		opacity: 0.4;
-		background-image: radial-gradient(#867e79 0.35000000000000003px, #f3f3f2 0.35000000000000003px);
-		background-size: 7px 7px;
+	.branch {
+		border: 1px solid var(--clr-border-2);
+		flex: 1;
+		border-radius: 0 var(--radius-ml) var(--radius-ml);
 	}
 
 	.helper-text {

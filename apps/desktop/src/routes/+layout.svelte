@@ -38,6 +38,7 @@
 	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UpdaterService } from '$lib/updater/updater';
 	import { User } from '$lib/user/user';
 	import { UserService } from '$lib/user/userService';
@@ -73,6 +74,7 @@
 
 	const appState = new AppState();
 	const desktopState = new DesktopRedux(data.tauri);
+	const stackService = new StackService(desktopState);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
 	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
 	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
@@ -119,6 +121,7 @@
 	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
 	setContext(AppSettings, data.appSettings);
 	setContext(GitHubAuthenticationService, data.githubAuthenticationService);
+	setContext(StackService, stackService);
 
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 
