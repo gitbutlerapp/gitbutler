@@ -78,6 +78,10 @@ but-core.workspace = true
 open = "5"
 url = "2.5.4"
 
+[dev-dependencies]
+gix-testtools.workspace = true
+insta.workspace = true
+
 [lints.clippy]
 all = "deny"
 perf = "deny"

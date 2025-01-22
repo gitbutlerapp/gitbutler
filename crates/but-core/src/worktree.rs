@@ -12,10 +12,9 @@ use gix::status::index_worktree;
 use gix::status::index_worktree::RewriteSource;
 use gix::status::plumbing::index_as_worktree::{self, EntryStatus};
 use gix::status::tree_index::TrackRenames;
-use serde::Serialize;
 
 /// Identify where a [`TreeChange`] is from.
-#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
 enum Origin {
     /// The change was detected when doing a diff between a tree (`HEAD^{tree}`) and an index (`.git/index`).
     TreeIndex,

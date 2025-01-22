@@ -30,7 +30,7 @@ pub struct DiffHunk {
     ///
     /// The line separator is the one used in the original file and may be `LF` or `CRLF`.
     /// Note that the file-portion of the header isn't used here.
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    #[serde(serialize_with = "gitbutler_serde::bstring_lossy::serialize")]
     pub diff: BString,
 }
 

@@ -33,7 +33,7 @@
 
 use bstr::BString;
 use gix::object::tree::EntryKind;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 /// Functions related to a Git worktree, i.e. the files checked out from a repository.
 mod worktree;
@@ -73,31 +73,27 @@ pub enum UnifiedDiff {
 ///
 /// For simplicity, copy-tracking is not representable right now, but `copy: bool` could be added
 /// if needed.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct TreeChange {
     /// The *relative* path in the worktree where the entry can be found.
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
     pub path: BString,
     /// The specific information about this change.
     pub status: TreeStatus,
 }
 
 /// Specifically defines a [`TreeChange`].
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", content = "subject")]
+#[derive(Debug, Clone)]
 pub enum TreeStatus {
     /// Something was added or scheduled to be added.
     Addition {
         /// The current state of what was added or will be added
         state: ChangeState,
         /// If `true`, this is a future addition from an untracked file, a file that wasn't yet added to the index (`.git/index`).
-        #[serde(rename = "isUntracked")]
         is_untracked: bool,
     },
     /// Something was deleted.
     Deletion {
         /// The that Git stored before the deletion.
-        #[serde(rename = "previousState")]
         previous_state: ChangeState,
     },
     /// A tracked entry was modified, which might mean:
@@ -107,7 +103,6 @@ pub enum TreeStatus {
     /// * the executable bit changed, so a file is now executable, or isn't anymore.
     Modification {
         /// The that Git stored before the modification.
-        #[serde(rename = "previousState")]
         previous_state: ChangeState,
         /// The current state, i.e. the modification itself.
         state: ChangeState,
@@ -119,10 +114,8 @@ pub enum TreeStatus {
     /// Note that this may include any change already documented in [`Modification`](TreeStatus::Modification)
     Rename {
         /// The path relative to the repository at which the entry was previously located.
-        #[serde(rename = "previousPath", with = "gitbutler_serde::bstring_lossy")]
         previous_path: BString,
         /// The that Git stored before the modification.
-        #[serde(rename = "previousState")]
         previous_state: ChangeState,
         /// The current state, i.e. the modification itself.
         state: ChangeState,
@@ -132,13 +125,12 @@ pub enum TreeStatus {
 }
 
 /// Something that fully identifies the state of a [`TreeChange`].
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy)]
 pub struct ChangeState {
     /// The content of the committable.
     ///
     /// If [`null`](gix::ObjectId::is_null), the current state isn't known which can happen
     /// if this state is living in the worktree and has never been hashed.
-    #[serde(with = "gitbutler_serde::object_id")]
     pub id: gix::ObjectId,
     /// The kind of the committable.
     pub kind: EntryKind,
@@ -157,15 +149,14 @@ pub enum IgnoredWorktreeTreeChangeStatus {
 #[derive(Debug, Clone, Serialize)]
 pub struct IgnoredWorktreeChange {
     /// The worktree-relative path to the change.
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    #[serde(serialize_with = "gitbutler_serde::bstring_lossy::serialize")]
     path: BString,
     /// The status that caused this change to be ignored.
     status: IgnoredWorktreeTreeChangeStatus,
 }
 
 /// The type returned by [`worktree_changes()`].
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone)]
 pub struct WorktreeChanges {
     /// Changes that could be committed.
     pub changes: Vec<TreeChange>,
@@ -176,7 +167,7 @@ pub struct WorktreeChanges {
 /// Computed using the file kinds/modes of two [`ChangeState`] instances to represent
 /// the *dominant* change to display. Note that it can stack with a content change,
 /// but *should not only in case of a `TypeChange*`*.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub enum ModeFlags {
     ExecutableBitAdded,

@@ -2915,6 +2915,8 @@ dependencies = [
  "gitbutler-user",
  "gitbutler-watcher",
  "gix",
+ "gix-testtools",
+ "insta",
  "log",
  "open",
  "parking_lot",

@@ -85,5 +85,63 @@ fn many_changes() -> anyhow::Result<()> {
 }
 
 #[test]
-#[ignore = "TBD"]
-fn without_previous_tree() {}
+fn without_previous_tree() -> anyhow::Result<()> {
+    let repo = repo("many-in-tree")?;
+    let current_tree_id = repo.rev_parse_single("@^1^{tree}")?;
+    let changes = but_core::commit_changes(&repo, None, current_tree_id.into())?;
+    insta::assert_debug_snapshot!(changes, @r#"
+    [
+        TreeChange {
+            path: "aa-renamed-old-name",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
+                    kind: Blob,
+                },
+                is_untracked: false,
+            },
+        },
+        TreeChange {
+            path: "executable-bit-added",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
+                    kind: Blob,
+                },
+                is_untracked: false,
+            },
+        },
+        TreeChange {
+            path: "file-to-link",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
+                    kind: Blob,
+                },
+                is_untracked: false,
+            },
+        },
+        TreeChange {
+            path: "modified",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
+                    kind: Blob,
+                },
+                is_untracked: false,
+            },
+        },
+        TreeChange {
+            path: "removed",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
+                    kind: Blob,
+                },
+                is_untracked: false,
+            },
+        },
+    ]
+    "#);
+    Ok(())
+}

@@ -8,19 +8,15 @@ use gix::prelude::ObjectIdExt;
 /// there was no tree to compare `lhs_tree` to (e.g. in case of the first commit).
 ///
 /// They are sorted by their current path.
-///
-/// Note that the [`TreeChange`] instances returned *are not* ever [conflicts](TreeStatus::Conflict)
-/// or [untracked](TreeStatus::Untracked) files.
-/// Their origin is always [`TreeIndex`](worktree::Origin::TreeIndex) (even though it doesn't make much sense);
 pub fn changes(
     repo: &gix::Repository,
     lhs_tree: Option<gix::ObjectId>,
     rhs_tree: gix::ObjectId,
 ) -> anyhow::Result<Vec<TreeChange>> {
     let lhs_tree = lhs_tree
-        .map(|id| id.attach(&repo).object().map(|obj| obj.into_tree()))
+        .map(|id| id.attach(repo).object().map(|obj| obj.into_tree()))
         .transpose()?;
-    let rhs_tree = rhs_tree.attach(&repo).object().map(|obj| obj.into_tree())?;
+    let rhs_tree = rhs_tree.attach(repo).object().map(|obj| obj.into_tree())?;
 
     let changes = repo.diff_tree_to_tree(lhs_tree.as_ref(), &rhs_tree, None)?;
     let mut out: Vec<TreeChange> = changes.into_iter().map(Into::into).collect();
