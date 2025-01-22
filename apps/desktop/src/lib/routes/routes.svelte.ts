@@ -22,7 +22,7 @@ export class DesktopRoutesService {
 		return `/${projectId}/workspace`;
 	}
 	isWorkspacePath = $derived(
-		isUrl<{ projectId: string; branchId?: string }>('/[projectId]/workspace/[[branchId]]')
+		isUrl<{ projectId: string; branchId?: string }>('/[projectId]/workspace/[[stackId]]')
 	);
 
 	branchesPath(projectId: string) {
