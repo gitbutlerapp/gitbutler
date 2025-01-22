@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PatchReviewersGroup from '../review/PatchReviewersGroup.svelte';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { getPatch } from '@gitbutler/shared/branches/patchesPreview.svelte';
 	import {
@@ -73,7 +74,7 @@
 					{/await}
 				</div>
 			</td>
-			<td><div></div></td>
+			<td><div><PatchReviewersGroup {patch} /></div></td>
 			<td><div></div></td>
 		</tr>
 	{/snippet}

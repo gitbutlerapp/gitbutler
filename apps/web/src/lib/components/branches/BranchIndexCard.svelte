@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BranchStatusBadge from '../review/BranchStatusBadge.svelte';
 	import CommitsGraph from '../review/CommitsGraph.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import {
@@ -18,7 +19,6 @@
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
-	import BranchStatusBadge from '../review/BranchStatusBadge.svelte';
 
 	dayjs.extend(relativeTime);
 
