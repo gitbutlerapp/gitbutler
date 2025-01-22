@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Factoid from '$lib/components/Factoid.svelte';
 	import ChangeIndexCard from '$lib/components/changes/ChangeIndexCard.svelte';
+	import BranchStatusBadge from '$lib/components/review/BranchStatusBadge.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import {
 		getBranchReview,
@@ -17,7 +18,6 @@
 		WebRoutesService,
 		type ProjectReviewParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
-	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
@@ -28,6 +28,7 @@
 	import type { Branch } from '@gitbutler/shared/branches/types';
 	import { goto } from '$app/navigation';
 	import { PUBLIC_APP_HOST } from '$env/static/public';
+	import CommitsGraph from '$lib/components/review/CommitsGraph.svelte';
 
 	dayjs.extend(relativeTime);
 
@@ -113,7 +114,7 @@
 
 {#snippet startReview(branch: Branch)}
 	{#if (branch.stackSize || 0) > 0}
-		<Button style="pop" onclick={() => visitFirstCommit(branch)}>Start review</Button>
+		<Button style="pop" icon="play" onclick={() => visitFirstCommit(branch)}>Start review</Button>
 	{/if}
 {/snippet}
 
@@ -129,38 +130,34 @@
 
 <Loading loadable={and([branchUuid?.current, branch?.current])}>
 	{#snippet children(branch)}
+		{console.log(branch)}
 		<div class="layout">
 			<div class="information">
 				<div class="heading">
 					<p class="text-15 text-bold">{branch.title}</p>
 					<div class="actions">
 						{#if !branch.description}
-							<Button icon="plus" kind="outline" onclick={editSummary}>Add summary</Button>
+							<Button icon="plus-small" kind="outline" onclick={editSummary}>Add summary</Button>
 						{/if}
 						<Button icon="chain-link" kind="outline" onclick={copyLocation}>Share link</Button>
 						{@render startReview(branch)}
 					</div>
 				</div>
 				<div class="stats">
-					<Factoid title="Status:">
-						<Badge>Perfect</Badge>
-					</Factoid>
 					<Factoid title="Commits:">
-						<p>{branch.stackSize}</p>
+						<CommitsGraph {branch} />
 					</Factoid>
-					<!-- <Factoid title="Branch:">
-						<LinkButton onclick={() => {}}>Perfect</LinkButton>
-					</Factoid> -->
+					<Factoid title="Status:"><BranchStatusBadge {branch} /></Factoid>
 					<Factoid title="Authors:">
 						{#await contributors then contributors}
 							<AvatarGroup avatars={contributors}></AvatarGroup>
 						{/await}
 					</Factoid>
 					<Factoid title="Updated:">
-						<p>{dayjs(branch.updatedAt).fromNow()}</p>
+						<p class="fact">{dayjs(branch.updatedAt).fromNow()}</p>
 					</Factoid>
 					<Factoid title="Version:">
-						<p>{branch.version}</p>
+						<p class="fact">{branch.version}</p>
 					</Factoid>
 				</div>
 				<div class="summary">
@@ -186,7 +183,9 @@
 						<p class="text-13 text-clr-2">
 							<em>
 								Summaries provide context on the branch's purpose and helps team members understand
-								it's changes. <LinkButton onclick={editSummary}>Add summary</LinkButton>
+								it's changes. <LinkButton onclick={editSummary} icon="plus-small"
+									>Add summary</LinkButton
+								>
 							</em>
 						</p>
 					{/if}
@@ -206,7 +205,7 @@
 							<th><div>Comments</div></th>
 						</tr>
 					</thead>
-					<tbody>
+					<tbody class="pretty">
 						{#each branch.patchIds || [] as changeId, index}
 							<ChangeIndexCard
 								{changeId}
@@ -254,6 +253,11 @@
 	}
 
 	.text-clr-2 {
+		color: var(--clr-text-2);
+	}
+
+	.fact {
+		font-size: 0.8em;
 		color: var(--clr-text-2);
 	}
 </style>

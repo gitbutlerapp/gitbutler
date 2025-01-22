@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CommitsGraph from '../review/CommitsGraph.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import {
 		getBranchReview,
@@ -17,6 +18,7 @@
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
+	import BranchStatusBadge from '../review/BranchStatusBadge.svelte';
 
 	dayjs.extend(relativeTime);
 
@@ -55,22 +57,22 @@
 <Loading loadable={branch.current}>
 	{#snippet children(branch)}
 		<tr class:rounded-top={roundedTop} class:rounded-bottom={roundedBottom} class="row">
-			<td><div>{branch.stackOrder}</div></td>
+			<td><div><BranchStatusBadge {branch} /></div></td>
 			<td>
-				<div>
+				<div class="title">
 					<a href={routes.projectReviewBranchPath({ ...linkParams, branchId: branch.branchId })}>
 						{branch.title}
 					</a>
 				</div>
 			</td>
-			<td><div>{branch.branchId.slice(0, 7)}</div></td>
-			<td><div>{branch.stackSize}</div></td>
+			<td><div class="uuid">{branch.branchId.slice(0, 7)}</div></td>
+			<td><div><CommitsGraph {branch} /></div></td>
 			<td>
 				<div>
 					{@render status(branch.status || BranchStatus.Active)}
 				</div>
 			</td>
-			<td><div>{dayjs(branch.updatedAt).fromNow()}</div></td>
+			<td><div class="norm">{dayjs(branch.updatedAt).fromNow()}</div></td>
 			<td>
 				<div>
 					{#await contributors then contributors}
@@ -78,12 +80,25 @@
 					{/await}
 				</div>
 			</td>
-			<td><div>{branch.version || 0}</div></td>
+			<td><div class="norm">{branch.version || 0}</div></td>
 		</tr>
 	{/snippet}
 </Loading>
 
 <style lang="postcss">
+	.title {
+		font-weight: bold;
+	}
+	.uuid {
+		font-size: 0.8em;
+		color: var(--clr-text-2);
+		font-family: var(--font-mono);
+	}
+
+	.norm {
+		font-size: 0.8em;
+		color: var(--clr-text-2);
+	}
 	.row {
 		/*
 			This is a magical incantation that lets the divs take up the full

@@ -47,7 +47,7 @@
 	{:else if status === 'changes-requested'}
 		<Badge style="error">Changes Requested</Badge>
 	{:else if status === 'unreviewed'}
-		<Badge style="neuteral" kind="soft">Unreviewed</Badge>
+		<Badge style="neutral" kind="soft">Unreviewed</Badge>
 	{:else if status === 'in-discussion'}
 		<Badge style="warning" kind="soft">In Discussion</Badge>
 	{/if}

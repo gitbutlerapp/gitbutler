@@ -3,7 +3,7 @@
 	color: var(--clr-text-1);
 	font-size: 0.9rem;
 
-	tbody tr:first-child td {
+	tbody.pretty > tr:first-child > td {
 		padding-top: 10px; /* Simulates a top margin */
 		> div {
 			border-top: 1px solid var(--clr-border-2);
