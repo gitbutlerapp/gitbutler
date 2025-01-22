@@ -32,10 +32,12 @@
 //!
 
 use bstr::BString;
+use gix::object::tree::EntryKind;
 use serde::{Deserialize, Serialize};
 
 /// Functions related to a Git worktree, i.e. the files checked out from a repository.
-pub mod worktree;
+mod worktree;
+pub use worktree::changes as worktree_changes;
 
 /// utility types
 pub mod unified_diff;
@@ -74,7 +76,69 @@ pub struct TreeChange {
     #[serde(with = "gitbutler_serde::bstring_lossy")]
     pub path: BString,
     /// The specific information about this change.
-    pub status: worktree::TreeStatus,
+    pub status: TreeStatus,
+}
+
+/// Specifically defines a [`TreeChange`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "subject")]
+pub enum TreeStatus {
+    /// Something was added or scheduled to be added.
+    Addition {
+        /// The current state of what was added or will be added
+        state: ChangeState,
+        /// If `true`, this is a future addition from an untracked file, a file that wasn't yet added to the index (`.git/index`).
+        #[serde(rename = "isUntracked")]
+        is_untracked: bool,
+    },
+    /// Something was deleted.
+    Deletion {
+        /// The that Git stored before the deletion.
+        #[serde(rename = "previousState")]
+        previous_state: ChangeState,
+    },
+    /// A tracked entry was modified, which might mean:
+    ///
+    /// * the content change, i.e. a file was changed
+    /// * the type changed, a file is now a symlink or something else
+    /// * the executable bit changed, so a file is now executable, or isn't anymore.
+    Modification {
+        /// The that Git stored before the modification.
+        #[serde(rename = "previousState")]
+        previous_state: ChangeState,
+        /// The current state, i.e. the modification itself.
+        state: ChangeState,
+        /// Derived information based on the mode of both states.
+        flags: Option<ModeFlags>,
+    },
+    /// An entry was renamed from `previous_path` to its current location.
+    ///
+    /// Note that this may include any change already documented in [`Modification`](TreeStatus::Modification)
+    Rename {
+        /// The path relative to the repository at which the entry was previously located.
+        #[serde(rename = "previousPath", with = "gitbutler_serde::bstring_lossy")]
+        previous_path: BString,
+        /// The that Git stored before the modification.
+        #[serde(rename = "previousState")]
+        previous_state: ChangeState,
+        /// The current state, i.e. the modification itself.
+        state: ChangeState,
+        /// Derived information based on the mode of both states.
+        flags: Option<ModeFlags>,
+    },
+}
+
+/// Something that fully identifies the state of a [`TreeChange`].
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct ChangeState {
+    /// The content of the committable.
+    ///
+    /// If [`null`](gix::ObjectId::is_null), the current state isn't known which can happen
+    /// if this state is living in the worktree and has never been hashed.
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub id: gix::ObjectId,
+    /// The kind of the committable.
+    pub kind: EntryKind,
 }
 
 /// The status we can't handle, which always originated in the worktree.
@@ -96,7 +160,7 @@ pub struct IgnoredWorktreeChange {
     status: IgnoredWorktreeTreeChangeStatus,
 }
 
-/// Keeps simplified [`TreeChange`]s along with changes that were applied to the index that we chose to ignore.
+/// The type returned by [`worktree_changes()`].
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorktreeChanges {
@@ -106,7 +170,7 @@ pub struct WorktreeChanges {
     pub ignored_changes: Vec<IgnoredWorktreeChange>,
 }
 
-/// Computed using the file kinds/modes of two [`worktree::ChangeState`] instances to represent
+/// Computed using the file kinds/modes of two [`ChangeState`] instances to represent
 /// the *dominant* change to display. Note that it can stack with a content change,
 /// but *should not only in case of a `TypeChange*`*.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -120,7 +184,7 @@ pub enum ModeFlags {
 }
 
 impl ModeFlags {
-    fn calculate(old: &worktree::ChangeState, new: &worktree::ChangeState) -> Option<Self> {
+    fn calculate(old: &ChangeState, new: &ChangeState) -> Option<Self> {
         Self::calculate_inner(old.kind, new.kind)
     }
 

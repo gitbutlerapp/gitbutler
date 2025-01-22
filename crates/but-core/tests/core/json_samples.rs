@@ -1,7 +1,7 @@
 //! Assure our JSON serialization doesn't break unknowingly - after all downstream may depend on it.
 //!
-use but_core::worktree::{ChangeState, TreeStatus};
-use but_core::{worktree, ModeFlags, TreeChange, UnifiedDiff};
+use but_core::{ChangeState, TreeStatus};
+use but_core::{ModeFlags, TreeChange, UnifiedDiff};
 
 #[test]
 fn worktree_change_json_sample() {
@@ -46,7 +46,7 @@ fn worktree_changes_example() -> anyhow::Result<()> {
     let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
         .map_err(anyhow::Error::from_boxed)?;
     let repo = gix::open_opts(root, gix::open::Options::isolated())?;
-    let actual = serde_json::to_string_pretty(&worktree::changes(&repo)?)?;
+    let actual = serde_json::to_string_pretty(&but_core::worktree_changes(&repo)?)?;
     insta::assert_snapshot!(actual, @r#"
     {
       "changes": [
@@ -215,7 +215,7 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
     let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
         .map_err(anyhow::Error::from_boxed)?;
     let repo = gix::open_opts(&root, gix::open::Options::isolated())?;
-    let diffs: Vec<UnifiedDiff> = worktree::changes(&repo)?
+    let diffs: Vec<UnifiedDiff> = but_core::worktree_changes(&repo)?
         .changes
         .iter()
         .map(|tree_change| tree_change.unified_diff(&repo))

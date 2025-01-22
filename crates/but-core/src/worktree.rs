@@ -1,9 +1,9 @@
 use crate::{
-    IgnoredWorktreeChange, IgnoredWorktreeTreeChangeStatus, ModeFlags, TreeChange, UnifiedDiff,
-    WorktreeChanges,
+    ChangeState, IgnoredWorktreeChange, IgnoredWorktreeTreeChangeStatus, ModeFlags, TreeChange,
+    TreeStatus, UnifiedDiff, WorktreeChanges,
 };
 use anyhow::Context;
-use bstr::{BString, ByteSlice};
+use bstr::ByteSlice;
 use gix::dir::entry;
 use gix::dir::walk::EmissionMode;
 use gix::object::tree::EntryKind;
@@ -12,7 +12,7 @@ use gix::status::index_worktree;
 use gix::status::index_worktree::RewriteSource;
 use gix::status::plumbing::index_as_worktree::{self, EntryStatus};
 use gix::status::tree_index::TrackRenames;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 /// Identify where a [`TreeChange`] is from.
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, Serialize)]
@@ -21,72 +21,6 @@ enum Origin {
     TreeIndex,
     /// The change was detected when doing a diff between an index (`.git/index`) and a worktree (working tree, working copy or current checkout).
     IndexWorktree,
-}
-
-/// Specifically defines a [`TreeChange`].
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", content = "subject")]
-pub enum TreeStatus {
-    /// Something was added or scheduled to be added.
-    Addition {
-        /// The current state of what was added or will be added
-        state: ChangeState,
-        /// If `true`, this is a future addition from an untracked file, a file that wasn't yet added to the index (`.git/index`).
-        #[serde(rename = "isUntracked")]
-        is_untracked: bool,
-    },
-    /// Something was deleted.
-    Deletion {
-        /// The that Git stored before the deletion.
-        #[serde(rename = "previousState")]
-        previous_state: ChangeState,
-    },
-    /// A tracked entry was modified, which might mean:
-    ///
-    /// * the content change, i.e. a file was changed
-    /// * the type changed, a file is now a symlink or something else
-    /// * the executable bit changed, so a file is now executable, or isn't anymore.
-    ///
-    /// This change may sit in the index if `origin` is [`Origin::TreeIndex`] or in the worktree if `origin` is [`Origin::IndexWorktree`].
-    ///
-    /// Note that a modification may be applied in both `origin`s, along with other possible combinations of *two* status changes to the same path.
-    Modification {
-        /// The that Git stored before the modification.
-        #[serde(rename = "previousState")]
-        previous_state: ChangeState,
-        /// The current state, i.e. the modification itself.
-        state: ChangeState,
-        /// Derived information based on the mode of both states.
-        flags: Option<ModeFlags>,
-    },
-    /// An entry was renamed from `previous_path` to its current location.
-    ///
-    /// Note that this may include a content change, as well as a change of the executable bit.
-    Rename {
-        /// The path relative to the repository at which the entry was previously located.
-        #[serde(rename = "previousPath", with = "gitbutler_serde::bstring_lossy")]
-        previous_path: BString,
-        /// The that Git stored before the modification.
-        #[serde(rename = "previousState")]
-        previous_state: ChangeState,
-        /// The current state, i.e. the modification itself.
-        state: ChangeState,
-        /// Derived information based on the mode of both states.
-        flags: Option<ModeFlags>,
-    },
-}
-
-/// Something that fully identifies the state of a [`TreeChange`].
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct ChangeState {
-    /// The content of the committable.
-    ///
-    /// If [`null`](gix::ObjectId::is_null), the current state isn't known which can happen
-    /// if this state is living in the worktree and has never been hashed.
-    #[serde(with = "gitbutler_serde::object_id")]
-    pub id: gix::ObjectId,
-    /// The kind of the committable.
-    pub kind: EntryKind,
 }
 
 /// Return [`WorktreeChanges`] that live in the worktree of `repo` that changed and thus can become part of a commit.

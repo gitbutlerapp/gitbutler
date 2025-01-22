@@ -21,7 +21,7 @@ pub mod status {
 
     pub fn doit(current_dir: PathBuf, unified_diff: bool) -> anyhow::Result<()> {
         let repo = project_repo(current_dir)?;
-        let worktree = but_core::worktree::changes(&repo)?;
+        let worktree = but_core::worktree_changes(&repo)?;
         if unified_diff {
             debug_print((
                 worktree

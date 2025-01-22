@@ -3,7 +3,7 @@ use gitbutler_project::ProjectId;
 use std::path::PathBuf;
 use tracing::instrument;
 
-/// This UI-version of [`but_core::worktree::changes()`] simplifies the `git status` information for display in
+/// This UI-version of [`but_core::worktree_changes()`] simplifies the `git status` information for display in
 /// the user interface as it is right now. From here, it's always possible to add more information as the need arises.
 ///
 /// ### Notable Transformations
@@ -19,10 +19,7 @@ pub fn worktree_changes(
     project_id: ProjectId,
 ) -> anyhow::Result<but_core::WorktreeChanges, Error> {
     let project = projects.get(project_id)?;
-    Ok(changes_in_worktree(project.path)?)
-}
-
-fn changes_in_worktree(worktree_dir: PathBuf) -> anyhow::Result<but_core::WorktreeChanges> {
+    let worktree_dir = project.path;
     let repo = gix::open(worktree_dir).map_err(anyhow::Error::new)?;
-    but_core::worktree::changes(&repo)
+    Ok(but_core::worktree_changes(&repo)?)
 }
