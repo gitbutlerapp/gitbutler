@@ -13,9 +13,17 @@
 		opacity?: number | undefined;
 		spinnerRadius?: number | undefined;
 		size?: number;
+		verticalAlign?: string;
 	}
 
-	const { name, color = undefined, opacity = 1, spinnerRadius = 5, size = 16 }: Props = $props();
+	const {
+		name,
+		color = undefined,
+		opacity = 1,
+		spinnerRadius = 5,
+		size = 16,
+		verticalAlign
+	}: Props = $props();
 </script>
 
 <svg
@@ -30,6 +38,7 @@
 	style:fill-opacity={opacity}
 	style:width={pxToRem(size)}
 	style:height={pxToRem(size)}
+	style:vertical-align={verticalAlign}
 	style="--spinner-radius: {spinnerRadius}"
 >
 	{#if name === 'spinner'}

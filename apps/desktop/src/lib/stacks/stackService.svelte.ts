@@ -9,7 +9,6 @@ enum Tags {
 export class StackService {
 	private stacksApi = reduxApi.injectEndpoints({
 		endpoints: (build) => ({
-			/** Fetches all stacks. */
 			get: build.query<Stack[], { projectId: string }>({
 				query: ({ projectId }) => ({ command: 'stacks', params: { projectId } }),
 				providesTags: [Tags.Stacks]
@@ -38,7 +37,7 @@ export class StackService {
 	}
 
 	select(projectId: string) {
-		return this.stacksApi.endpoints.get.select({ projectId });
+		return this.stacksApi.endpoints.get.select({ projectId })(this.state.rootState$);
 	}
 
 	// eslint-disable-next-line @typescript-eslint/promise-function-async
