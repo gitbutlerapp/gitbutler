@@ -25,16 +25,20 @@
 		"@types/node": "^22.3.0",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
-		"vite": "catalog:",
-		"svelte-french-toast": "^1.2.0"
+		"svelte-french-toast": "^1.2.0",
+		"vite": "catalog:"
 	},
 	"dependencies": {
+		"@ethercorps/sveltekit-og": "^3.0.0",
 		"@fontsource-variable/spline-sans-mono": "^5.1.0",
+		"@resvg/resvg-js": "^2.6.2",
 		"@sentry/sveltekit": "^8.48.0",
 		"@tryghost/content-api": "^1.11.21",
 		"@types/tryghost__content-api": "^1.3.17",
 		"dayjs": "^1.11.13",
 		"highlight.js": "^11.10.0",
-		"marked": "^10.0.0"
+		"marked": "^10.0.0",
+		"satori": "^0.12.1",
+		"satori-html": "^0.3.2"
 	}
 }

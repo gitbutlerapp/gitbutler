@@ -27,6 +27,7 @@
 	import relativeTime from 'dayjs/plugin/relativeTime';
 	import type { Branch } from '@gitbutler/shared/branches/types';
 	import { goto } from '$app/navigation';
+	import { PUBLIC_APP_HOST } from '$env/static/public';
 
 	dayjs.extend(relativeTime);
 
@@ -106,7 +107,6 @@
 	}
 
 	function copyLocation() {
-		console.log('hi');
 		copyToClipboard(location.href);
 	}
 </script>
@@ -116,6 +116,16 @@
 		<Button style="pop" onclick={() => visitFirstCommit(branch)}>Start review</Button>
 	{/if}
 {/snippet}
+
+<svelte:head>
+	<title>Review: {data.ownerSlug}/{data.projectSlug}</title>
+	<meta property="og:title" content="GitButler Review: {data.ownerSlug}/{data.projectSlug}" />
+	<meta property="og:description" content="GitButler code review" />
+	<meta
+		property="og:image"
+		content="{PUBLIC_APP_HOST}/{data.ownerSlug}/{data.projectSlug}/reviews/{data.branchId}/og"
+	/>
+</svelte:head>
 
 <h2>Review page: {data.ownerSlug}/{data.projectSlug} {data.branchId}</h2>
 

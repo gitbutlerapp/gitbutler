@@ -269,6 +269,7 @@ export type ApiBranch = {
 	branch_stack_id?: string;
 	branch_stack_order?: number;
 	permissions: ApiPermissions;
+	owner_login?: string;
 };
 
 export type Branch = {
