@@ -1,57 +1,14 @@
-use super::*;
-
-mod flags {
-    use crate::worktree::Flags;
-    use gix::objs::tree::EntryKind;
-
-    #[test]
-    fn calculate() {
-        for ((old, new), expected) in [
-            ((EntryKind::Blob, EntryKind::Blob), None),
-            (
-                (EntryKind::Blob, EntryKind::BlobExecutable),
-                Some(Flags::ExecutableBitAdded),
-            ),
-            (
-                (EntryKind::BlobExecutable, EntryKind::Blob),
-                Some(Flags::ExecutableBitRemoved),
-            ),
-            (
-                (EntryKind::BlobExecutable, EntryKind::Link),
-                Some(Flags::TypeChangeFileToLink),
-            ),
-            (
-                (EntryKind::Blob, EntryKind::Link),
-                Some(Flags::TypeChangeFileToLink),
-            ),
-            (
-                (EntryKind::Link, EntryKind::BlobExecutable),
-                Some(Flags::TypeChangeLinkToFile),
-            ),
-            (
-                (EntryKind::Link, EntryKind::Blob),
-                Some(Flags::TypeChangeLinkToFile),
-            ),
-            (
-                (EntryKind::Commit, EntryKind::Blob),
-                Some(Flags::TypeChange),
-            ),
-            (
-                (EntryKind::Blob, EntryKind::Commit),
-                Some(Flags::TypeChange),
-            ),
-        ] {
-            assert_eq!(Flags::calculate_inner(old, new), expected);
-        }
-    }
-}
+//! Assure our JSON serialization doesn't break unknowingly - after all downstream may depend on it.
+//!
+use but_core::worktree::{ChangeState, TreeStatus};
+use but_core::{worktree, ModeFlags, TreeChange, UnifiedDiff};
 
 #[test]
 fn worktree_change_json_sample() {
     let actual = serde_json::to_string_pretty(&TreeChange {
         path: "some/file".into(),
-        status: Status::Modification {
-            flags: Some(Flags::ExecutableBitAdded),
+        status: TreeStatus::Modification {
+            flags: Some(ModeFlags::ExecutableBitAdded),
             previous_state: ChangeState {
                 id: gix::hash::Kind::Sha1.null(),
                 kind: gix::object::tree::EntryKind::Blob,
@@ -86,9 +43,10 @@ fn worktree_change_json_sample() {
 
 #[test]
 fn worktree_changes_example() -> anyhow::Result<()> {
-    let root = gitbutler_testsupport::gix_testtools::scripted_fixture_read_only("status_repo.sh")
+    let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
         .map_err(anyhow::Error::from_boxed)?;
-    let actual = serde_json::to_string_pretty(&changes_in_worktree(root)?)?;
+    let repo = gix::open_opts(root, gix::open::Options::isolated())?;
+    let actual = serde_json::to_string_pretty(&worktree::changes(&repo)?)?;
     insta::assert_snapshot!(actual, @r#"
     {
       "changes": [
@@ -254,19 +212,19 @@ fn worktree_changes_example() -> anyhow::Result<()> {
 
 #[test]
 fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
-    let root = gitbutler_testsupport::gix_testtools::scripted_fixture_read_only("status_repo.sh")
+    let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
         .map_err(anyhow::Error::from_boxed)?;
-    let repo = gix::open(&root)?;
-    let diffs: Vec<crate::diff::UnifiedDiff> = changes_in_worktree(root)?
+    let repo = gix::open_opts(&root, gix::open::Options::isolated())?;
+    let diffs: Vec<UnifiedDiff> = worktree::changes(&repo)?
         .changes
         .iter()
         .map(|tree_change| tree_change.unified_diff(&repo))
-        .collect::<Result<_, _>>()?;
+        .collect::<std::result::Result<_, _>>()?;
     let actual = serde_json::to_string_pretty(&diffs)?;
     insta::assert_snapshot!(actual, @r#"
     [
       {
-        "type": "patch",
+        "type": "Patch",
         "subject": {
           "hunks": [
             {
@@ -280,13 +238,13 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
         }
       },
       {
-        "type": "patch",
+        "type": "Patch",
         "subject": {
           "hunks": []
         }
       },
       {
-        "type": "patch",
+        "type": "Patch",
         "subject": {
           "hunks": [
             {
@@ -300,7 +258,7 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
         }
       },
       {
-        "type": "patch",
+        "type": "Patch",
         "subject": {
           "hunks": [
             {
@@ -314,7 +272,7 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
         }
       },
       {
-        "type": "patch",
+        "type": "Patch",
         "subject": {
           "hunks": [
             {
@@ -328,7 +286,7 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
         }
       },
       {
-        "type": "patch",
+        "type": "Patch",
         "subject": {
           "hunks": [
             {
@@ -342,13 +300,13 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
         }
       },
       {
-        "type": "patch",
+        "type": "Patch",
         "subject": {
           "hunks": []
         }
       },
       {
-        "type": "patch",
+        "type": "Patch",
         "subject": {
           "hunks": [
             {
@@ -362,13 +320,13 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
         }
       },
       {
-        "type": "patch",
+        "type": "Patch",
         "subject": {
           "hunks": []
         }
       },
       {
-        "type": "patch",
+        "type": "Patch",
         "subject": {
           "hunks": []
         }
