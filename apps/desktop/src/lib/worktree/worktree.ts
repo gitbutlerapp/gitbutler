@@ -28,14 +28,14 @@ export async function treeChangeDiffs(projectId: string, change: TreeChange) {
  * or how it previously looked like in case of a deletion.
  */
 export type UnifiedDiff =
-	| { type: 'Binary' } // A binary file that can't be diffed.
-	| { type: 'TooLarge'; subject: TooLarge }
-	| { type: 'Patch'; subject: Patch };
+	| { readonly type: 'Binary' } // A binary file that can't be diffed.
+	| { readonly type: 'TooLarge'; readonly subject: TooLarge }
+	| { readonly type: 'Patch'; readonly subject: Patch };
 
 /** The file was too large and couldn't be diffed. */
 export type TooLarge = {
 	/** The size of the file on disk that made it too large. */
-	sizeInBytes: number;
+	readonly sizeInBytes: number;
 };
 
 /**
@@ -44,19 +44,19 @@ export type TooLarge = {
  */
 export type Patch = {
 	/** All non-overlapping hunks, including their context lines. */
-	hunks: DiffHunk[];
+	readonly hunks: DiffHunk[];
 };
 
 /** A hunk as used in UnifiedDiff. */
 export type DiffHunk = {
 	/** The 1-based line number at which the previous version of the file started.*/
-	oldStart: number;
+	readonly oldStart: number;
 	/** The non-zero amount of lines included in the previous version of the file.*/
-	oldLines: number;
+	readonly oldLines: number;
 	/** The 1-based line number at which the new version of the file started.*/
-	newStart: number;
+	readonly newStart: number;
 	/** The non-zero amount of lines included in the new version of the file.*/
-	newLines: number;
+	readonly newLines: number;
 	/**
 	 * A unified-diff formatted patch like:
 	 *
@@ -72,18 +72,18 @@ export type DiffHunk = {
 	 * The line separator is the one used in the original file and may be `LF` or `CRLF`.
 	 * Note that the file-portion of the header isn't used here.
 	 */
-	diff: string;
+	readonly diff: string;
 };
 
 /** Contains the changes that are in the worktree */
 export type WorktreeChanges = {
 	/** Changes that could be committed. */
-	changes: TreeChange[];
+	readonly changes: TreeChange[];
 	/**
 	 * Changes that were in the index that we can't handle.
 	 * The user can see them and interact with them to clear them out before a commit can be made.
 	 */
-	ignoredChanges: IgnoredChange[];
+	readonly ignoredChanges: IgnoredChange[];
 };
 
 /**
@@ -92,9 +92,9 @@ export type WorktreeChanges = {
  */
 export type TreeChange = {
 	/** The *relative* path in the worktree where the entry can be found.*/
-	path: string;
+	readonly path: string;
 	/** The specific information about this change.*/
-	status: Status;
+	readonly status: Status;
 };
 
 export type Flags =
@@ -105,27 +105,27 @@ export type Flags =
 	| 'TypeChange';
 
 export type Status =
-	| { type: 'Addition'; subject: Addition }
-	| { type: 'Deletion'; subject: Deletion }
-	| { type: 'Modification'; subject: Modification }
-	| { type: 'Rename'; subject: Rename };
+	| { readonly type: 'Addition'; readonly subject: Addition }
+	| { readonly type: 'Deletion'; readonly subject: Deletion }
+	| { readonly type: 'Modification'; readonly subject: Modification }
+	| { readonly type: 'Rename'; readonly subject: Rename };
 
 /** Something was added or scheduled to be added.*/
 export type Addition = {
-	state: ChangeState;
-	isUntracked: boolean;
+	readonly state: ChangeState;
+	readonly isUntracked: boolean;
 };
 
 /** Something was deleted.*/
 export type Deletion = {
-	previousState: ChangeState;
+	readonly previousState: ChangeState;
 };
 
 /** A tracked entry was modified, i.e. content change, type change (eg. it is now a symlink), executable bit change.*/
 export type Modification = {
-	previousState: ChangeState;
-	state: ChangeState;
-	flags: Flags | null;
+	readonly previousState: ChangeState;
+	readonly state: ChangeState;
+	readonly flags: Flags | null;
 };
 
 /**
@@ -133,10 +133,10 @@ export type Modification = {
  * Note that this may include a content change, as well as a change of the executable bit.
  */
 export type Rename = {
-	previousPath: string;
-	previousState: ChangeState;
-	state: ChangeState;
-	flags: Flags | null;
+	readonly previousPath: string;
+	readonly previousState: ChangeState;
+	readonly state: ChangeState;
+	readonly flags: Flags | null;
 };
 
 /**
@@ -145,16 +145,16 @@ export type Rename = {
  * this information allows for efficient retrieval of the content.
  */
 type ChangeState = {
-	id: string;
-	kind: string;
+	readonly id: string;
+	readonly kind: string;
 };
 
 /** A way to indicate that a path in the index isn't suitable for committing and needs to be dealt with.*/
 export type IgnoredChange = {
 	/** The worktree-relative path to the change.*/
-	path: string;
+	readonly path: string;
 	/** The reason for the change being ignored.*/
-	status: IgnoredChangeStatus;
+	readonly status: IgnoredChangeStatus;
 };
 
 /** The status we can't handle.*/
