@@ -189,9 +189,10 @@ fn convert(
 ) -> Result<Branch> {
     let branch_commits = stack_branch.commits(ctx, stack)?;
     let remote = default_target.push_remote_name();
-    let mut patches: Vec<Commit> = vec![];
+    let mut local_and_remote: Vec<Commit> = vec![];
     let mut is_integrated = false;
 
+    // Local and remote
     // Reverse first instead of later, so that we catch the first integrated commit
     for commit in branch_commits.clone().local_commits.iter().rev() {
         if !is_integrated {
@@ -201,24 +202,21 @@ fn convert(
             id: commit.id().to_gix(),
             message: commit.message_bstr().into(),
             has_conflicts: commit.is_conflicted(),
-            state: CommitState::LocalOnly, // TODO: implement this
+            state: CommitState::LocalOnly,
         };
-        patches.push(api_commit);
+        local_and_remote.push(api_commit);
     }
-    // There should be no duplicates, but dedup just in case
-    patches.dedup_by(|a, b| a.id == b.id);
 
-    let mut upstream_patches = vec![];
+    // Upstream only
+    let mut upstream_only = vec![];
     for commit in branch_commits.upstream_only.iter() {
         let upstream_commit = UpstreamCommit {
             id: commit.id().to_gix(),
             message: commit.message_bstr().into(),
         };
-        upstream_patches.push(upstream_commit);
+        upstream_only.push(upstream_commit);
     }
-    upstream_patches.reverse();
-    // There should be no duplicates, but dedup just in case
-    upstream_patches.dedup_by(|a, b| a.id == b.id);
+    upstream_only.reverse();
 
     let upstream_reference = ctx
         .repository()
@@ -235,8 +233,8 @@ fn convert(
             State::Archived
         } else {
             State::Stacked(Commits {
-                local_and_remote: patches,
-                upstream_only: upstream_patches,
+                local_and_remote,
+                upstream_only,
             })
         },
     })
