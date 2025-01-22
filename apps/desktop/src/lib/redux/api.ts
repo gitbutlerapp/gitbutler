@@ -1,4 +1,5 @@
 import { Tauri } from '$lib/backend/tauri';
+import { isBackendError } from '$lib/error/typeguards';
 import { createApi, type BaseQueryApi, type BaseQueryFn } from '@reduxjs/toolkit/query';
 
 export const reduxApi = createApi({
@@ -15,12 +16,15 @@ function tauriBaseQuery<T>(
 	api: BaseQueryApi
 ): ReturnType<BaseQueryFn<ApiArgs, Promise<T>, TauriCommandError, object, object>> {
 	if (!hasTauriExtra(api.extra)) {
-		return { error: 'Redux dependency Tauri not found!' };
+		return { error: { message: 'Redux dependency Tauri not found!' } };
 	}
 	try {
 		return { data: api.extra.tauri.invoke(args.command, args.params) };
 	} catch (error: unknown) {
-		return { error };
+		if (isBackendError(error)) {
+			return { error: { message: error.message, code: error.code } };
+		}
+		return { error: { message: String(error) } };
 	}
 }
 
@@ -29,7 +33,7 @@ type ApiArgs = {
 	params: Record<string, unknown>;
 };
 
-type TauriCommandError = unknown;
+type TauriCommandError = { message: string; code?: string };
 
 /**
  *  Typeguard that makes `tauriBaseQuery` more concise.

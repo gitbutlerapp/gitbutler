@@ -48,3 +48,7 @@ export class DesktopRoutesService {
 		return `/${targetProjectId}/${targetRestPath}`;
 	}
 }
+
+export function stackPath(projectId: string, stackId: string) {
+	return `/${projectId}/workspace/${stackId}`;
+}
