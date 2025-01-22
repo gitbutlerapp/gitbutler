@@ -3,6 +3,43 @@ use serde::Serialize;
 mod bstring;
 pub use bstring::BStringForFrontend;
 
+pub mod bstring_lossy {
+    use bstr::{BString, ByteSlice};
+    use serde::Serialize;
+
+    pub fn serialize<S>(v: &BString, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        v.to_str_lossy().serialize(s)
+    }
+}
+
+pub mod bstring_vec_lossy {
+    use bstr::{BString, ByteSlice};
+    use serde::Serialize;
+
+    pub fn serialize<S>(v: &[BString], s: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let vec: Vec<String> = v.iter().map(|v| v.to_str_lossy().into()).collect();
+        vec.serialize(s)
+    }
+}
+
+pub mod bstring_opt_lossy {
+    use bstr::{BString, ByteSlice};
+    use serde::Serialize;
+
+    pub fn serialize<S>(v: &Option<BString>, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        v.as_ref().map(|v| v.to_str_lossy()).serialize(s)
+    }
+}
+
 pub fn as_string_lossy_vec_remote_name<S>(
     v: &[gix::remote::Name<'static>],
     s: S,
