@@ -47,7 +47,7 @@
 	{#if loading}
 		<div class="sync-btn__busy-label">busy…</div>
 	{:else if $baseBranch?.lastFetched}
-		<TimeAgo date={$baseBranch?.lastFetched} />
+		<TimeAgo date={$baseBranch?.lastFetched} addSuffix={true} />
 	{/if}
 </Button>
 
