@@ -112,17 +112,20 @@ export type Status =
 
 /** Something was added or scheduled to be added.*/
 export type Addition = {
+	/** @private */
 	readonly state: ChangeState;
 	readonly isUntracked: boolean;
 };
 
 /** Something was deleted.*/
 export type Deletion = {
+	/** @private */
 	readonly previousState: ChangeState;
 };
 
 /** A tracked entry was modified, i.e. content change, type change (eg. it is now a symlink), executable bit change.*/
 export type Modification = {
+	/** @private */
 	readonly previousState: ChangeState;
 	readonly state: ChangeState;
 	readonly flags: Flags | null;
@@ -134,7 +137,9 @@ export type Modification = {
  */
 export type Rename = {
 	readonly previousPath: string;
+	/** @private */
 	readonly previousState: ChangeState;
+	/** @private */
 	readonly state: ChangeState;
 	readonly flags: Flags | null;
 };
