@@ -1,93 +1,39 @@
-import { branchReviewListingsReducer } from '@gitbutler/shared/branches/branchReviewListingsSlice';
-import { branchesReducer } from '@gitbutler/shared/branches/branchesSlice';
-import { latestBranchLookupsReducer } from '@gitbutler/shared/branches/latestBranchLookupSlice';
-import { patchSectionsReducer } from '@gitbutler/shared/branches/patchSectionsSlice';
-import { patchesReducer } from '@gitbutler/shared/branches/patchesSlice';
-import { chatChannelsReducer } from '@gitbutler/shared/chat/chatChannelsSlice';
-import { feedsReducer } from '@gitbutler/shared/feeds/feedsSlice';
-import { postsReducer } from '@gitbutler/shared/feeds/postsSlice';
-import { organizationsReducer } from '@gitbutler/shared/organizations/organizationsSlice';
-import { projectsReducer } from '@gitbutler/shared/organizations/projectsSlice';
-import { repositoryIdLookupsReducer } from '@gitbutler/shared/organizations/repositoryIdLookupsSlice';
-import { exampleReducer } from '@gitbutler/shared/redux/example';
-import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
-import { usersReducer } from '@gitbutler/shared/users/usersSlice';
-import { configureStore, createSelector, createSlice } from '@reduxjs/toolkit';
+import { reduxApi } from './api';
+import { configureStore } from '@reduxjs/toolkit';
+import type { Tauri } from '$lib/backend/tauri';
 
-type DesktopOnly = {
-	value: number;
-};
+export class DesktopRedux {
+	readonly store: ReturnType<typeof createStore>;
+	readonly dispatch: typeof DesktopRedux.prototype.store.dispatch;
 
-const desktopOnly = createSlice({
-	name: 'desktopOnly',
-	initialState: { value: 69 } as DesktopOnly,
-	reducers: {
-		increment: (state) => {
-			state.value += 1;
-		},
-		decrement: (state) => {
-			state.value -= 1;
-		}
+	constructor(readonly tauri: Tauri) {
+		this.store = createStore(tauri);
+		this.dispatch = this.store.dispatch;
+		this.rootState$ = this.store.getState();
+
+		$effect(() =>
+			this.store.subscribe(() => {
+				this.rootState$ = this.store.getState();
+			})
+		);
 	}
-});
 
-export const { increment: desktopIncrement, decrement: desktopDecrement } = desktopOnly.actions;
-
-export class DesktopDispatch extends AppDispatch {
-	constructor(readonly dispatch: typeof DesktopState.prototype._store.dispatch) {
-		super(dispatch);
-	}
+	rootState$ = $state({} as ReturnType<typeof this.store.getState>);
 }
 
-interface AppDesktopOnlyState {
-	readonly desktopOnly: ReturnType<typeof desktopOnly.reducer>;
-}
-
-// There is some minor duplication in terms of what is declared, but we do get
-// type errors if you are missing a base reducer in the configureStore call.
-// As such, there shouldn't be any concern about the two getting out of sync.
-// This is due to limitations in typescript.
-export class DesktopState extends AppState implements AppDesktopOnlyState {
-	/**
-	 * The base store.
-	 *
-	 * This is a low level API and should not be used directly.
-	 * @private
-	 */
-	readonly _store = configureStore({
+/**
+ * We need this function in order to declare the store type in `DesktopState`
+ * and then assign the value in the constructor.
+ */
+function createStore(tauri: Tauri) {
+	return configureStore({
 		reducer: {
-			examples: exampleReducer,
-			posts: postsReducer,
-			feeds: feedsReducer,
-			orgnaizations: organizationsReducer,
-			users: usersReducer,
-			projects: projectsReducer,
-			branches: branchesReducer,
-			patches: patchesReducer,
-			patchSections: patchSectionsReducer,
-			chatChannels: chatChannelsReducer,
-			repositoryIdLookups: repositoryIdLookupsReducer,
-			latestBranchLookups: latestBranchLookupsReducer,
-			branchReviewListings: branchReviewListingsReducer,
-			desktopOnly: desktopOnly.reducer
+			api: reduxApi.reducer
+		},
+		middleware: (getDefaultMiddleware) => {
+			return getDefaultMiddleware({
+				thunk: { extraArgument: { tauri } }
+			}).concat(reduxApi.middleware);
 		}
 	});
-
-	readonly appDispatch = new DesktopDispatch(this._store.dispatch);
-
-	/**
-	 * Used to access the store directly. It is recommended to access state via
-	 * selectors as they are more efficient.
-	 */
-	rootState = $state<ReturnType<typeof this._store.getState>>(this._store.getState());
-
-	protected selectSelf(state: ReturnType<typeof this._store.getState>) {
-		return state;
-	}
-
-	private readonly selectDesktopOnly = createSelector(
-		[this.selectSelf],
-		(rootState) => rootState.desktopOnly
-	);
-	readonly desktopOnly = $derived(this.selectDesktopOnly(this.rootState));
 }
