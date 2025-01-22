@@ -13,3 +13,4 @@ anyhow.workspace = true
 bstr.workspace = true
 gitbutler-id.workspace = true
 gitbutler-stack.workspace = true
+itertools = "0.14"
