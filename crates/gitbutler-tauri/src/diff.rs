@@ -7,19 +7,15 @@ use tracing::instrument;
 
 /// The array of unified diffs matches `changes`, so that `result[n] = unified_diff_of(changes[n])`.
 #[tauri::command(async)]
-#[instrument(skip(projects, changes), err(Debug))]
+#[instrument(skip(projects, change), err(Debug))]
 pub fn tree_change_diffs(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     project_id: ProjectId,
-    changes: Vec<TreeChange>,
-) -> anyhow::Result<Vec<UnifiedDiff>, Error> {
+    change: TreeChange,
+) -> anyhow::Result<UnifiedDiff, Error> {
     let project = projects.get(project_id)?;
     let repo = gix::open(project.path).map_err(anyhow::Error::from)?;
-
-    Ok(changes
-        .into_iter()
-        .map(|tree_change| tree_change.unified_diff(&repo))
-        .collect::<Result<Vec<_>, _>>()?)
+    change.unified_diff(&repo).map_err(Into::into)
 }
 
 /// A frontend version of [`but_core::unified_diff::DiffHunk`].

@@ -19,8 +19,8 @@ export function subscribe<WorktreeChanges>(
  * Gets the unified diff for a given TreeChange.
  * This probably does not belong in a package called "worktree" since this also operates on commit-to-commit changes and not only worktree changes
  */
-export async function treeChangeDiffs(projectId: string, changes: TreeChange[]) {
-	return await invoke<UnifiedDiff[]>('tree_change_diffs', { projectId, changes });
+export async function treeChangeDiffs(projectId: string, change: TreeChange) {
+	return await invoke<UnifiedDiff>('tree_change_diffs', { projectId, change });
 }
 
 /**
