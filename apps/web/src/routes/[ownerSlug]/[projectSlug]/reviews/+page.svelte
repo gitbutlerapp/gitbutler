@@ -28,7 +28,7 @@
 	{#snippet children(brancheses)}
 		<h3>Branches shared for review <Badge>{brancheses.length || 0}</Badge></h3>
 
-		<table class="branches-table">
+		<table class="commits-table">
 			<thead>
 				<tr>
 					<th><div>Seq.</div></th>
@@ -56,34 +56,3 @@
 		</table>
 	{/snippet}
 </Loading>
-
-<style lang="postcss">
-	.branches-table {
-		th {
-			padding: 0;
-			> div {
-				text-align: left;
-				padding: 16px;
-				white-space: nowrap;
-
-				border-top: 1px solid var(--clr-border-2);
-				border-bottom: 1px solid var(--clr-border-2);
-				overflow: hidden;
-			}
-
-			&:first-child {
-				> div {
-					border-left: 1px solid var(--clr-border-2);
-					border-top-left-radius: var(--radius-m);
-				}
-			}
-
-			&:last-child {
-				> div {
-					border-right: 1px solid var(--clr-border-2);
-					border-top-right-radius: var(--radius-m);
-				}
-			}
-		}
-	}
-</style>

@@ -58,14 +58,14 @@
 		<tr class="row" class:rounded-bottom={last}>
 			<td><div>{@render status(getPatchStatus(patch))}</div></td>
 			<td
-				><div>
+				><div class="name">
 					<a href={routes.projectReviewBranchCommitPath({ ...params, changeId: patch.changeId })}
 						>{patch.title}</a
 					>
 				</div></td
 			>
-			<td><div>{dayjs(patch.updatedAt).fromNow()}</div></td>
 			<td><div>+{patch.statistics.lines} -{patch.statistics.deletions}</div></td>
+			<td><div class="updated">{dayjs(patch.updatedAt).fromNow()}</div></td>
 			<td>
 				<div>
 					{#await contributors then contributors}
@@ -121,5 +121,14 @@
 		&:last-child > div {
 			border-bottom-right-radius: var(--radius-m);
 		}
+	}
+
+	.name {
+		font-weight: bold;
+	}
+
+	.updated {
+		color: var(--clr-text-2);
+		font-size: 0.8rem;
 	}
 </style>
