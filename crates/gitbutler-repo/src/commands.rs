@@ -124,20 +124,20 @@ pub trait RepoCommands {
 
 impl RepoCommands for Project {
     fn get_local_config(&self, key: &str) -> Result<Option<String>> {
-        let ctx = CommandContext::open(self)?;
-        let config: Config = ctx.repo().into();
+        let repo = &git2::Repository::open(&self.path)?;
+        let config: Config = repo.into();
         config.get_local(key)
     }
 
     fn set_local_config(&self, key: &str, value: &str) -> Result<()> {
-        let ctx = CommandContext::open(self)?;
-        let config: Config = ctx.repo().into();
+        let repo = &git2::Repository::open(&self.path)?;
+        let config: Config = repo.into();
         config.set_local(key, value)
     }
 
     fn check_signing_settings(&self) -> Result<bool> {
-        let ctx = CommandContext::open(self)?;
-        let signed = ctx.repo().sign_buffer(b"test");
+        let repo = &git2::Repository::open(&self.path)?;
+        let signed = repo.sign_buffer(b"test");
         match signed {
             Ok(_) => Ok(true),
             Err(e) => Err(e),
@@ -145,8 +145,7 @@ impl RepoCommands for Project {
     }
 
     fn remotes(&self) -> anyhow::Result<Vec<GitRemote>> {
-        let ctx = CommandContext::open(self)?;
-        let repo = ctx.repo();
+        let repo = &git2::Repository::open(&self.path)?;
         let remotes = repo
             .remotes_as_string()?
             .iter()
@@ -159,8 +158,7 @@ impl RepoCommands for Project {
     }
 
     fn add_remote(&self, name: &str, url: &str) -> Result<()> {
-        let ctx = CommandContext::open(self)?;
-        let repo = ctx.repo();
+        let repo = &git2::Repository::open(&self.path)?;
 
         // Bail if remote with given name already exists.
         if repo.find_remote(name).is_ok() {
@@ -190,8 +188,7 @@ impl RepoCommands for Project {
             );
         }
 
-        let ctx = CommandContext::open(self)?;
-        let repo = ctx.repo();
+        let repo = &git2::Repository::open(&self.path)?;
         let tree = repo.find_commit(commit_id)?.tree()?;
 
         Ok(match tree.get_path(relative_path) {
@@ -205,8 +202,7 @@ impl RepoCommands for Project {
     }
 
     fn read_file_from_workspace(&self, probably_relative_path: &Path) -> Result<FileInfo> {
-        let ctx = CommandContext::open(self)?;
-        let repo = ctx.repo();
+        let repo = &git2::Repository::open(&self.path)?;
 
         let (path_in_worktree, relative_path) = if probably_relative_path.is_relative() {
             (
