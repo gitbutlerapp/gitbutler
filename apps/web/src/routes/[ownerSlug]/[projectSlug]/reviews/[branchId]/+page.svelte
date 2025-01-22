@@ -127,8 +127,6 @@
 	/>
 </svelte:head>
 
-<h2>Review page: {data.ownerSlug}/{data.projectSlug} {data.branchId}</h2>
-
 <Loading loadable={and([branchUuid?.current, branch?.current])}>
 	{#snippet children(branch)}
 		<div class="layout">
@@ -257,33 +255,5 @@
 
 	.text-clr-2 {
 		color: var(--clr-text-2);
-	}
-
-	.commits-table {
-		th {
-			padding: 0;
-			> div {
-				text-align: left;
-				padding: 16px;
-
-				border-top: 1px solid var(--clr-border-2);
-				border-bottom: 1px solid var(--clr-border-2);
-				overflow: hidden;
-			}
-
-			&:first-child {
-				> div {
-					border-left: 1px solid var(--clr-border-2);
-					border-top-left-radius: var(--radius-m);
-				}
-			}
-
-			&:last-child {
-				> div {
-					border-right: 1px solid var(--clr-border-2);
-					border-top-right-radius: var(--radius-m);
-				}
-			}
-		}
 	}
 </style>

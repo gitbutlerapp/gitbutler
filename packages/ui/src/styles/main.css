@@ -17,6 +17,7 @@
 @import './components/commit-lines.css';
 @import './components/draggable.css';
 @import './components/segment.css';
+@import './components/review.css';
 
 /* LAYERS PRIORITY */
 @layer reset, sharable;

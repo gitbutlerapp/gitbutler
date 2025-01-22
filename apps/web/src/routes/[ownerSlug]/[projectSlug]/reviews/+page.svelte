@@ -64,6 +64,7 @@
 			> div {
 				text-align: left;
 				padding: 16px;
+				white-space: nowrap;
 
 				border-top: 1px solid var(--clr-border-2);
 				border-bottom: 1px solid var(--clr-border-2);
