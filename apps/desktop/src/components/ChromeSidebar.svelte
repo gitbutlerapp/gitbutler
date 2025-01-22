@@ -307,8 +307,13 @@
 		padding: 4px;
 		gap: 4px;
 	}
+
 	.user-button img {
 		border-radius: var(--radius-m);
+	}
+
+	:global(.user-button svg) {
+		opacity: 0.7;
 	}
 
 	.profile-picture {
@@ -369,7 +374,6 @@
 	:global(.btn-height-auto) {
 		height: auto !important;
 		border-radius: var(--radius-ml) !important;
-		opacity: 0.7;
 		padding: 0 !important;
 	}
 
