@@ -1,10 +1,11 @@
+import { ReduxTag } from './tags';
 import { Tauri } from '$lib/backend/tauri';
 import { isBackendError } from '$lib/error/typeguards';
 import { createApi, type BaseQueryApi, type BaseQueryFn } from '@reduxjs/toolkit/query';
 
 export const reduxApi = createApi({
 	reducerPath: 'api',
-	tagTypes: ['Stacks'],
+	tagTypes: Object.values(ReduxTag),
 	baseQuery: tauriBaseQuery,
 	endpoints: (_) => {
 		return {};
@@ -38,7 +39,7 @@ type TauriCommandError = { message: string; code?: string };
 /**
  *  Typeguard that makes `tauriBaseQuery` more concise.
  */
-function hasTauriExtra(extra: unknown): extra is {
+export function hasTauriExtra(extra: unknown): extra is {
 	tauri: Tauri;
 } {
 	return (
