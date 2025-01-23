@@ -1,28 +1,3 @@
-import { listen, invoke } from '$lib/backend/ipc';
-
-/** Gets the current status of the worktree */
-export async function worktreeChanges(projectId: string): Promise<WorktreeChanges> {
-	return await invoke<WorktreeChanges>('worktree_changes', { projectId });
-}
-
-/** Subscibes for worktree_changes updates */
-export function subscribe<WorktreeChanges>(
-	projectId: string,
-	callback: (changes: WorktreeChanges) => void
-) {
-	return listen<WorktreeChanges>(`project://${projectId}/worktree_changes`, (event) =>
-		callback(event.payload)
-	);
-}
-
-/**
- * Gets the unified diff for a given TreeChange.
- * This probably does not belong in a package called "worktree" since this also operates on commit-to-commit changes and not only worktree changes
- */
-export async function treeChangeDiffs(projectId: string, change: TreeChange) {
-	return await invoke<UnifiedDiff>('tree_change_diffs', { projectId, change });
-}
-
 /**
  * A patch in unified diff format to show how a resource changed or now looks like (in case it was newly added),
  * or how it previously looked like in case of a deletion.
@@ -78,12 +53,12 @@ export type DiffHunk = {
 /** Contains the changes that are in the worktree */
 export type WorktreeChanges = {
 	/** Changes that could be committed. */
-	readonly changes: TreeChange[];
+	changes: TreeChange[];
 	/**
 	 * Changes that were in the index that we can't handle.
 	 * The user can see them and interact with them to clear them out before a commit can be made.
 	 */
-	readonly ignoredChanges: IgnoredChange[];
+	ignoredChanges: IgnoredChange[];
 };
 
 /**
