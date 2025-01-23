@@ -231,7 +231,7 @@
 				style:max-height={maxHeightState && `${maxHeightState}px`}
 			>
 				<ScrollableContainer initiallyVisible>
-					{#if searchable && options.length >= 3}
+					{#if searchable && options.length > 5}
 						<SearchItem bind:searchValue />
 					{/if}
 					<OptionsGroup>
