@@ -425,19 +425,15 @@ impl RepositoryExt for git2::Repository {
                     |program| Cow::Owned(program.into_owned().into()),
                 );
 
-            let mut cmd_string = format!("{} -Y sign -n git -f ", gpg_program.display());
-
-            let buffer_file_to_sign_path_str = buffer_file_to_sign_path
-                .to_str()
-                .ok_or_else(|| anyhow::anyhow!("Failed to convert path to string"))?
-                .to_string();
+            let cmd = prepare_with_shell(gpg_program.into_owned())
+                .args(["-Y", "sign", "-n", "git", "-f"]);
 
             // Write the key to a temp file. This is needs to be created in the
             // same scope where its used; IE: in the command, otherwise the
             // tmpfile will get garbage collected
             let mut key_storage = tempfile::NamedTempFile::new()?;
             // support literal ssh key
-            if let (true, signing_key) = is_literal_ssh_key(signing_key) {
+            let signing_cmd = if let (true, signing_key) = is_literal_ssh_key(signing_key) {
                 key_storage.write_all(signing_key.as_bytes())?;
 
                 // if on unix
@@ -449,18 +445,14 @@ impl RepositoryExt for git2::Repository {
                     key_storage.as_file().set_permissions(permissions)?;
                 }
 
-                let args = format!(
-                    "'{}' -U '{}'",
-                    key_storage.path().to_string_lossy(),
-                    buffer_file_to_sign_path_str,
-                );
-                cmd_string += &args;
+                cmd.arg(key_storage.path())
+                    .arg("-U")
+                    .arg(buffer_file_to_sign_path.to_path_buf())
             } else {
-                let args = format!("'{}' '{}'", signing_key, buffer_file_to_sign_path_str);
-                cmd_string += &args;
+                cmd.arg(signing_key)
+                    .arg(buffer_file_to_sign_path.to_path_buf())
             };
-            let mut signing_cmd: std::process::Command = command_with_login_shell(cmd_string);
-            let output = signing_cmd
+            let output = into_command(signing_cmd)
                 .stderr(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stdin(Stdio::null())
@@ -487,11 +479,12 @@ impl RepositoryExt for git2::Repository {
                     |program| Cow::Owned(program.into_owned().into()),
                 );
 
-            let mut cmd = command_with_login_shell(format!(
-                "{gpg_program} --status-fd=2 -bsau {signing_key} -",
-                gpg_program = gpg_program.display(),
-            ));
-
+            let mut cmd = into_command(prepare_with_shell(gpg_program.as_ref()).args([
+                "--status-fd=2",
+                "-bsau",
+                signing_key,
+                "-",
+            ]));
             cmd.stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .stdin(Stdio::piped());
@@ -580,12 +573,22 @@ impl RepositoryExt for git2::Repository {
     }
 }
 
-pub fn command_with_login_shell(shell_cmd: impl Into<OsString>) -> std::process::Command {
-    let cmd: std::process::Command = gix::command::prepare(shell_cmd)
-        .with_shell_disallow_manual_argument_splitting()
-        // On Windows, this yields the Git-bundled `sh.exe`, on Linux it uses `/bin/sh`.
-        .with_shell_program(gix::path::env::shell())
-        .into();
+fn prepare_with_shell(program: impl Into<OsString>) -> gix::command::Prepare {
+    let prepare = gix::command::prepare(program);
+    if cfg!(windows) {
+        prepare
+            .command_may_be_shell_script_disallow_manual_argument_splitting()
+            // On Windows, this yields the Git-bundled `sh.exe`, which is what we want.
+            .with_shell_program(gix::path::env::shell())
+            // force using a shell, we want access to additional programs here
+            .with_shell()
+    } else {
+        prepare
+    }
+}
+
+fn into_command(prepare: gix::command::Prepare) -> std::process::Command {
+    let cmd: std::process::Command = prepare.into();
     tracing::debug!(?cmd, "command to produce commit signature");
     cmd
 }
