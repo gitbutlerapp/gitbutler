@@ -43,7 +43,6 @@
 	</div>
 	<div class="center">
 		<Select
-			wide
 			searchable
 			value={selectedProjectId}
 			options={mappedProjects}
@@ -121,6 +120,14 @@
 	.left-buttons {
 		display: flex;
 		gap: 8px;
+	}
+
+	.center {
+		position: absolute;
+		left: 0;
+		width: 100%;
+		display: flex;
+		justify-content: center;
 	}
 
 	.selector-series-select {
