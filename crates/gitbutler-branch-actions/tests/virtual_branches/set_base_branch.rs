@@ -53,12 +53,12 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let vbranch_id =
+        let stack_entry =
             gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
                 .unwrap();
 
         std::fs::write(repository.path().join("another file.txt"), "content").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, vbranch_id, "one", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "one", None).unwrap();
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
@@ -76,7 +76,7 @@ mod go_back_to_workspace {
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
-        assert_eq!(branches[0].id, vbranch_id);
+        assert_eq!(branches[0].id, stack_entry.id);
         assert!(branches[0].active);
     }
 

@@ -2364,6 +2364,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-workspace",
  "criterion",
  "diffy",
  "git2",

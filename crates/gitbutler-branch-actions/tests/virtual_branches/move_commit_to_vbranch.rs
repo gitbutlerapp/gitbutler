@@ -25,18 +25,18 @@ fn no_diffs() {
     let commit_oid =
         gitbutler_branch_actions::create_commit(ctx, source_branch_id, "commit", None).unwrap();
 
-    let target_branch_id =
+    let target_stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
-    gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id)
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
         .unwrap();
 
     let destination_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == target_branch_id)
+        .find(|b| b.id == target_stack_entry.id)
         .unwrap();
 
     let source_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
@@ -87,7 +87,7 @@ fn multiple_commits() {
 
     gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Add c", None).unwrap();
 
-    let target_branch_id = gitbutler_branch_actions::create_virtual_branch(
+    let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest {
             selected_for_changes: Some(true),
@@ -99,16 +99,19 @@ fn multiple_commits() {
     std::fs::write(repository.path().join("d.txt"), "This is d").unwrap();
 
     // Create a commit on the destination branch
-    gitbutler_branch_actions::create_commit(ctx, target_branch_id, "Add d", None).unwrap();
+    gitbutler_branch_actions::create_commit(ctx, target_stack_entry.id, "Add d", None).unwrap();
 
     // Move the top commit from the source branch to the destination branch
-    gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id)
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
         .unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     let source_branch = branches.iter().find(|b| b.id == source_branch_id).unwrap();
-    let destination_branch = branches.iter().find(|b| b.id == target_branch_id).unwrap();
+    let destination_branch = branches
+        .iter()
+        .find(|b| b.id == target_stack_entry.id)
+        .unwrap();
 
     assert_eq!(
         destination_branch.series[0].clone().unwrap().patches.len(),
@@ -182,7 +185,7 @@ fn multiple_commits_with_diffs() {
     assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 2);
     assert_eq!(source_branch.files.len(), 1);
 
-    let target_branch_id = gitbutler_branch_actions::create_virtual_branch(
+    let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest {
             selected_for_changes: Some(true),
@@ -194,7 +197,7 @@ fn multiple_commits_with_diffs() {
     std::fs::write(repository.path().join("d.txt"), "This is d").unwrap();
 
     // Create a commit on the destination branch
-    gitbutler_branch_actions::create_commit(ctx, target_branch_id, "Add d", None).unwrap();
+    gitbutler_branch_actions::create_commit(ctx, target_stack_entry.id, "Add d", None).unwrap();
 
     // Uncommitted changes on the destination branch
     std::fs::write(repository.path().join("e.txt"), "This is e").unwrap();
@@ -203,7 +206,7 @@ fn multiple_commits_with_diffs() {
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == target_branch_id)
+        .find(|b| b.id == target_stack_entry.id)
         .unwrap();
 
     // State of destination branch before the commit is moved
@@ -214,13 +217,16 @@ fn multiple_commits_with_diffs() {
     assert_eq!(destination_branch.files.len(), 1);
 
     // Move the top commit from the source branch to the destination branch
-    gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id)
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
         .unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     let source_branch = branches.iter().find(|b| b.id == source_branch_id).unwrap();
-    let destination_branch = branches.iter().find(|b| b.id == target_branch_id).unwrap();
+    let destination_branch = branches
+        .iter()
+        .find(|b| b.id == target_stack_entry.id)
+        .unwrap();
 
     assert_eq!(
         destination_branch.series[0].clone().unwrap().patches.len(),
@@ -296,18 +302,18 @@ fn diffs_on_source_branch() {
     // needed in order to resolve the claims of the just-created file
     _ = gitbutler_branch_actions::list_virtual_branches(ctx);
 
-    let target_branch_id =
+    let target_stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
-    gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id)
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
         .unwrap();
 
     let destination_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == target_branch_id)
+        .find(|b| b.id == target_stack_entry.id)
         .unwrap();
 
     let source_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
@@ -355,7 +361,7 @@ fn diffs_on_target_branch() {
     let commit_oid =
         gitbutler_branch_actions::create_commit(ctx, source_branch_id, "commit", None).unwrap();
 
-    let target_branch_id = gitbutler_branch_actions::create_virtual_branch(
+    let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest {
             selected_for_changes: Some(true),
@@ -373,14 +379,14 @@ fn diffs_on_target_branch() {
     // needed in order to resolve the claims of the just-created file
     _ = gitbutler_branch_actions::list_virtual_branches(ctx);
 
-    gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id)
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
         .unwrap();
 
     let destination_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == target_branch_id)
+        .find(|b| b.id == target_stack_entry.id)
         .unwrap();
 
     let source_branch = gitbutler_branch_actions::list_virtual_branches(ctx)
@@ -456,7 +462,7 @@ fn diffs_on_both_branches() {
         "@@ -0,0 +1 @@\n+another content\n\\ No newline at end of file\n"
     );
 
-    let target_branch_id = gitbutler_branch_actions::create_virtual_branch(
+    let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest {
             selected_for_changes: Some(true),
@@ -476,7 +482,7 @@ fn diffs_on_both_branches() {
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == target_branch_id)
+        .find(|b| b.id == target_stack_entry.id)
         .unwrap();
 
     // State of the destination branch before the commit is moved
@@ -495,13 +501,16 @@ fn diffs_on_both_branches() {
         "@@ -0,0 +1 @@\n+yet another content\n\\ No newline at end of file\n"
     );
 
-    gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id)
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
         .unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     let source_branch = branches.iter().find(|b| b.id == source_branch_id).unwrap();
-    let destination_branch = branches.iter().find(|b| b.id == target_branch_id).unwrap();
+    let destination_branch = branches
+        .iter()
+        .find(|b| b.id == target_stack_entry.id)
+        .unwrap();
 
     assert_eq!(
         destination_branch.series[0].clone().unwrap().patches.len(),
@@ -557,12 +566,16 @@ fn target_commit_locked_to_ancestors() {
         gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Add b and update b", None)
             .unwrap();
 
-    let target_branch_id =
+    let target_stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
-    let result =
-        gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id);
+    let result = gitbutler_branch_actions::move_commit(
+        ctx,
+        target_stack_entry.id,
+        commit_oid,
+        source_branch_id,
+    );
 
     assert_eq!(
         result.unwrap_err().to_string(),
@@ -599,12 +612,16 @@ fn target_commit_locked_to_descendants() {
 
     gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Update b", None).unwrap();
 
-    let target_branch_id =
+    let target_stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
-    let result =
-        gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id);
+    let result = gitbutler_branch_actions::move_commit(
+        ctx,
+        target_stack_entry.id,
+        commit_oid,
+        source_branch_id,
+    );
 
     assert_eq!(
         result.unwrap_err().to_string(),
@@ -636,14 +653,19 @@ fn locked_hunks_on_source_branch() {
 
     _ = gitbutler_branch_actions::list_virtual_branches(ctx);
 
-    let target_branch_id =
+    let target_stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     assert_eq!(
-        gitbutler_branch_actions::move_commit(ctx, target_branch_id, commit_oid, source_branch_id)
-            .unwrap_err()
-            .to_string(),
+        gitbutler_branch_actions::move_commit(
+            ctx,
+            target_stack_entry.id,
+            commit_oid,
+            source_branch_id
+        )
+        .unwrap_err()
+        .to_string(),
         "Commit has dependent uncommitted changes"
     );
 }
@@ -667,7 +689,7 @@ fn no_commit() {
 
     gitbutler_branch_actions::create_commit(ctx, source_branch_id, "commit", None).unwrap();
 
-    let target_branch_id =
+    let target_stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
@@ -675,7 +697,7 @@ fn no_commit() {
     assert_eq!(
         gitbutler_branch_actions::move_commit(
             ctx,
-            target_branch_id,
+            target_stack_entry.id,
             git2::Oid::from_str(commit_id_hex).unwrap(),
             source_branch_id,
         )

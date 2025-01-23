@@ -116,7 +116,7 @@ async fn hunk_locking_with_deleted_lines_only() -> anyhow::Result<()> {
 
     // Commit some changes to the second branch that will push the first changes
     // down when diffing workspace head against the default target.
-    let second_branch_id = create_virtual_branch(
+    let second_stack_entry = create_virtual_branch(
         ctx,
         &BranchCreateRequest {
             selected_for_changes: Some(true),
@@ -131,8 +131,14 @@ async fn hunk_locking_with_deleted_lines_only() -> anyhow::Result<()> {
     let list_result = list_virtual_branches(ctx)?;
     let branches = list_result.branches;
     assert_eq!(branches.len(), 2);
-    let first_branch = branches.iter().find(|b| b.id != second_branch_id).unwrap();
-    let second_branch = branches.iter().find(|b| b.id == second_branch_id).unwrap();
+    let first_branch = branches
+        .iter()
+        .find(|b| b.id != second_stack_entry.id)
+        .unwrap();
+    let second_branch = branches
+        .iter()
+        .find(|b| b.id == second_stack_entry.id)
+        .unwrap();
     assert_eq!(first_branch.files.len(), 1);
     assert_eq!(second_branch.files.len(), 0);
     Ok(())

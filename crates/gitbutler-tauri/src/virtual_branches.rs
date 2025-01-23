@@ -1,5 +1,6 @@
 pub mod commands {
     use anyhow::{anyhow, Context};
+    use but_workspace::StackEntry;
     use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
     use gitbutler_branch_actions::branch_upstream_integration::IntegrationStrategy;
     use gitbutler_branch_actions::internal::StackListResult;
@@ -79,12 +80,12 @@ pub mod commands {
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         branch: BranchCreateRequest,
-    ) -> Result<StackId, Error> {
+    ) -> Result<StackEntry, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let branch_id = gitbutler_branch_actions::create_virtual_branch(&ctx, &branch)?;
+        let stack_entry = gitbutler_branch_actions::create_virtual_branch(&ctx, &branch)?;
         emit_vbranches(&windows, project_id);
-        Ok(branch_id)
+        Ok(stack_entry)
     }
 
     #[tauri::command(async)]

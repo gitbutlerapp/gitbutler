@@ -14,26 +14,26 @@ fn unapplying_selected_branch_selects_anther() {
     std::fs::write(repository.path().join("file one.txt"), "").unwrap();
 
     // first branch should be created as default
-    let b_id =
+    let stack_entry_1 =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     // if default branch exists, new branch should not be created as default
-    let b2_id =
+    let stack_entry_2 =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
 
-    let b = branches.iter().find(|b| b.id == b_id).unwrap();
+    let b = branches.iter().find(|b| b.id == stack_entry_1.id).unwrap();
 
-    let b2 = branches.iter().find(|b| b.id == b2_id).unwrap();
+    let b2 = branches.iter().find(|b| b.id == stack_entry_2.id).unwrap();
 
     assert!(b.selected_for_changes);
     assert!(!b2.selected_for_changes);
 
-    gitbutler_branch_actions::save_and_unapply_virutal_branch(ctx, b_id).unwrap();
+    gitbutler_branch_actions::save_and_unapply_virutal_branch(ctx, stack_entry_1.id).unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
@@ -52,26 +52,26 @@ fn deleting_selected_branch_selects_anther() {
         .unwrap();
 
     // first branch should be created as default
-    let b_id =
+    let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     // if default branch exists, new branch should not be created as default
-    let b2_id =
+    let stack_entry_2 =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
 
-    let b = branches.iter().find(|b| b.id == b_id).unwrap();
+    let b = branches.iter().find(|b| b.id == stack_entry.id).unwrap();
 
-    let b2 = branches.iter().find(|b| b.id == b2_id).unwrap();
+    let b2 = branches.iter().find(|b| b.id == stack_entry_2.id).unwrap();
 
     assert!(b.selected_for_changes);
     assert!(!b2.selected_for_changes);
 
-    gitbutler_branch_actions::unapply_without_saving_virtual_branch(ctx, b_id).unwrap();
+    gitbutler_branch_actions::unapply_without_saving_virtual_branch(ctx, stack_entry.id).unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
@@ -89,31 +89,31 @@ fn create_virtual_branch_should_set_selected_for_changes() {
         .unwrap();
 
     // first branch should be created as default
-    let b_id =
+    let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
     let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == b_id)
+        .find(|b| b.id == stack_entry.id)
         .unwrap();
     assert!(branch.selected_for_changes);
 
     // if default branch exists, new branch should not be created as default
-    let b_id =
+    let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
     let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == b_id)
+        .find(|b| b.id == stack_entry.id)
         .unwrap();
     assert!(!branch.selected_for_changes);
 
     // explicitly don't make this one default
-    let b_id = gitbutler_branch_actions::create_virtual_branch(
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest {
             selected_for_changes: Some(false),
@@ -125,12 +125,12 @@ fn create_virtual_branch_should_set_selected_for_changes() {
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == b_id)
+        .find(|b| b.id == stack_entry.id)
         .unwrap();
     assert!(!branch.selected_for_changes);
 
     // explicitly make this one default
-    let b_id = gitbutler_branch_actions::create_virtual_branch(
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest {
             selected_for_changes: Some(true),
@@ -142,7 +142,7 @@ fn create_virtual_branch_should_set_selected_for_changes() {
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == b_id)
+        .find(|b| b.id == stack_entry.id)
         .unwrap();
     assert!(branch.selected_for_changes);
 }
@@ -154,32 +154,32 @@ fn update_virtual_branch_should_reset_selected_for_changes() {
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
 
-    let b1_id =
+    let stack_entry_1 =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
     let b1 = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == b1_id)
+        .find(|b| b.id == stack_entry_1.id)
         .unwrap();
     assert!(b1.selected_for_changes);
 
-    let b2_id =
+    let stack_entry_2 =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
     let b2 = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == b2_id)
+        .find(|b| b.id == stack_entry_2.id)
         .unwrap();
     assert!(!b2.selected_for_changes);
 
     gitbutler_branch_actions::update_virtual_branch(
         ctx,
         BranchUpdateRequest {
-            id: b2_id,
+            id: stack_entry_2.id,
             selected_for_changes: Some(true),
             ..Default::default()
         },
@@ -190,7 +190,7 @@ fn update_virtual_branch_should_reset_selected_for_changes() {
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == b1_id)
+        .find(|b| b.id == stack_entry_1.id)
         .unwrap();
     assert!(!b1.selected_for_changes);
 
@@ -198,7 +198,7 @@ fn update_virtual_branch_should_reset_selected_for_changes() {
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == b2_id)
+        .find(|b| b.id == stack_entry_2.id)
         .unwrap();
     assert!(b2.selected_for_changes);
 }
@@ -212,7 +212,7 @@ fn unapply_virtual_branch_should_reset_selected_for_changes() {
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
 
-    let b1_id =
+    let stack_entry_1 =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
@@ -221,11 +221,11 @@ fn unapply_virtual_branch_should_reset_selected_for_changes() {
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == b1_id)
+        .find(|b| b.id == stack_entry_1.id)
         .unwrap();
     assert!(b1.selected_for_changes);
 
-    let b2_id =
+    let stack_entry_2 =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
@@ -233,17 +233,17 @@ fn unapply_virtual_branch_should_reset_selected_for_changes() {
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == b2_id)
+        .find(|b| b.id == stack_entry_2.id)
         .unwrap();
     assert!(!b2.selected_for_changes);
 
-    gitbutler_branch_actions::save_and_unapply_virutal_branch(ctx, b1_id).unwrap();
+    gitbutler_branch_actions::save_and_unapply_virutal_branch(ctx, stack_entry_1.id).unwrap();
 
     assert!(gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
-        .any(|b| b.selected_for_changes && b.id != b1_id))
+        .any(|b| b.selected_for_changes && b.id != stack_entry_1.id))
 }
 
 #[test]

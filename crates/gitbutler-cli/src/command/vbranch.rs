@@ -118,7 +118,7 @@ fn apply_from_branch(project: Project, branch_name: String) -> Result<()> {
 
 pub fn create(project: Project, branch_name: String, set_default: bool) -> Result<()> {
     let ctx = CommandContext::open(&project, AppSettings::default())?;
-    let new = gitbutler_branch_actions::create_virtual_branch(
+    let new_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         &ctx,
         &BranchCreateRequest {
             name: Some(branch_name),
@@ -126,10 +126,10 @@ pub fn create(project: Project, branch_name: String, set_default: bool) -> Resul
         },
     )?;
     if set_default {
-        let new = VirtualBranchesHandle::new(project.gb_dir()).get_stack(new)?;
+        let new = VirtualBranchesHandle::new(project.gb_dir()).get_stack(new_stack_entry.id)?;
         set_default_branch(&project, &new)?;
     }
-    debug_print(new)
+    debug_print(new_stack_entry)
 }
 
 pub fn set_default(project: Project, branch_name: String) -> Result<()> {

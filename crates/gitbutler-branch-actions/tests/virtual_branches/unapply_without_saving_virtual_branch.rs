@@ -52,7 +52,7 @@ fn should_remove_reference() {
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
 
-    let id = gitbutler_branch_actions::create_virtual_branch(
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest {
             name: Some("name".to_string()),
@@ -61,7 +61,7 @@ fn should_remove_reference() {
     )
     .unwrap();
 
-    gitbutler_branch_actions::unapply_without_saving_virtual_branch(ctx, id).unwrap();
+    gitbutler_branch_actions::unapply_without_saving_virtual_branch(ctx, stack_entry.id).unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;

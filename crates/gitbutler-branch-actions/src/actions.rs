@@ -19,6 +19,7 @@ use crate::{
     VirtualBranchesExt,
 };
 use anyhow::{Context, Result};
+use but_workspace::StackEntry;
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
@@ -99,15 +100,16 @@ pub fn list_virtual_branches_cached(
 pub fn create_virtual_branch(
     ctx: &CommandContext,
     create: &BranchCreateRequest,
-) -> Result<StackId> {
+) -> Result<StackEntry> {
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Creating a branch requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
     let branch_manager = ctx.branch_manager();
-    let stack_id = branch_manager
-        .create_virtual_branch(create, guard.write_permission())?
-        .id;
-    Ok(stack_id)
+    let stack = branch_manager.create_virtual_branch(create, guard.write_permission())?;
+    Ok(StackEntry {
+        id: stack.id,
+        branch_names: stack.heads().into_iter().map(Into::into).collect(),
+    })
 }
 
 /// Deletes a local branch reference and it's associated virtual branch.

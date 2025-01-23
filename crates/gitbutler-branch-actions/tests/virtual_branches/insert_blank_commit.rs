@@ -12,33 +12,33 @@ fn insert_blank_commit_down() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
 
-    let branch_id =
+    let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let _commit1_id =
-        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap();
 
     // create commit
     fs::write(repository.path().join("file2.txt"), "content2").unwrap();
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
     let commit2_id =
-        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit two", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two", None).unwrap();
 
     // create commit
     fs::write(repository.path().join("file4.txt"), "content4").unwrap();
     let _commit3_id =
-        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit three", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None).unwrap();
 
-    gitbutler_branch_actions::insert_blank_commit(ctx, branch_id, commit2_id, 1).unwrap();
+    gitbutler_branch_actions::insert_blank_commit(ctx, stack_entry.id, commit2_id, 1).unwrap();
 
     let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == branch_id)
+        .find(|b| b.id == stack_entry.id)
         .unwrap();
 
     assert_eq!(branch.series[0].clone()?.patches.len(), 4);
@@ -79,33 +79,33 @@ fn insert_blank_commit_up() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
 
-    let branch_id =
+    let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let _commit1_id =
-        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap();
 
     // create commit
     fs::write(repository.path().join("file2.txt"), "content2").unwrap();
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
     let commit2_id =
-        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit two", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two", None).unwrap();
 
     // create commit
     fs::write(repository.path().join("file4.txt"), "content4").unwrap();
     let _commit3_id =
-        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit three", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None).unwrap();
 
-    gitbutler_branch_actions::insert_blank_commit(ctx, branch_id, commit2_id, -1).unwrap();
+    gitbutler_branch_actions::insert_blank_commit(ctx, stack_entry.id, commit2_id, -1).unwrap();
 
     let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
         .branches
         .into_iter()
-        .find(|b| b.id == branch_id)
+        .find(|b| b.id == stack_entry.id)
         .unwrap();
 
     assert_eq!(branch.series[0].clone()?.patches.len(), 4);

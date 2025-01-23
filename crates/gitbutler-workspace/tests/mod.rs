@@ -28,19 +28,19 @@ mod checkout_branch_trees {
         branch_actions::set_base_branch(&ctx, &"refs/remotes/origin/master".parse().unwrap())
             .unwrap();
 
-        let branch_1 =
+        let stach_entry_1 =
             branch_actions::create_virtual_branch(&ctx, &BranchCreateRequest::default()).unwrap();
 
         fs::write(test_project.path().join("foo.txt"), "content").unwrap();
 
-        branch_actions::create_commit(&ctx, branch_1, "commit one", None).unwrap();
+        branch_actions::create_commit(&ctx, stach_entry_1.id, "commit one", None).unwrap();
 
-        let branch_2 =
+        let stack_entry_2 =
             branch_actions::create_virtual_branch(&ctx, &BranchCreateRequest::default()).unwrap();
 
         fs::write(test_project.path().join("bar.txt"), "content").unwrap();
 
-        branch_actions::create_commit(&ctx, branch_2, "commit two", None).unwrap();
+        branch_actions::create_commit(&ctx, stack_entry_2.id, "commit two", None).unwrap();
 
         let tree = test_project
             .local_repository
