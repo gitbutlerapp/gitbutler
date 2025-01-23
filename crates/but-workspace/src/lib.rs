@@ -13,7 +13,7 @@
 //!   - GitButler implements the concept of a branch stack. This is essentially a collection of "heads"
 //!     (pseudo branches) that contain each other.
 //!   - Always contains at least one branch.
-//!   - High level documentation here: https://docs.gitbutler.com/features/stacked-branches
+//!   - High level documentation here: <https://docs.gitbutler.com/features/stacked-branches>
 //!
 
 use anyhow::{Context, Result};
@@ -81,7 +81,7 @@ pub enum CommitState {
     Integrated,
 }
 
-/// Commit that is a part of a [`StackBranch`] and, as such, containing state derived in relation to the specific branch.
+/// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
 #[derive(Debug, Clone)]
 pub struct Commit {
     /// The OID of the commit.
@@ -109,7 +109,7 @@ pub struct UpstreamCommit {
     pub message: BString,
 }
 
-/// Replesents a branch in a [`gitbutler_stack::Stack`]. It contains commits derived from the local pseudo branch and it's respective remote
+/// Represents a branch in a [`Stack`]. It contains commits derived from the local pseudo branch and it's respective remote
 #[derive(Debug, Clone)]
 pub struct Branch {
     /// The name of the branch.

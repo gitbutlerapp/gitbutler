@@ -159,7 +159,7 @@ impl Handler {
     }
 
     fn emit_worktree_changes(&self, repo: gix::Repository, project_id: ProjectId) -> Result<()> {
-        let detailed_changes = but_core::worktree::changes(&repo)?;
+        let detailed_changes = but_core::diff::worktree_changes(&repo)?;
         let _ = self.emit_app_event(Change::WorktreeChanges {
             project_id,
             changes: detailed_changes,

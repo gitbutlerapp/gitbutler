@@ -1,11 +1,13 @@
-use super::{worktree, UnifiedDiff};
+use super::{ChangeState, UnifiedDiff};
 use bstr::{BStr, BString, ByteSlice};
 use gix::diff::blob::platform::prepare_diff::Operation;
 use gix::diff::blob::unified_diff::ContextSize;
 use gix::diff::blob::ResourceKind;
+use serde::Serialize;
 
-/// A hunk as used in a [UnifiedDiff].
-#[derive(Debug, Clone)]
+/// A hunk as used in a [UnifiedDiff], which also contains all added and removed lines.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DiffHunk {
     /// The 1-based line number at which the previous version of the file started.
     pub old_start: u32,
@@ -28,6 +30,7 @@ pub struct DiffHunk {
     ///
     /// The line separator is the one used in the original file and may be `LF` or `CRLF`.
     /// Note that the file-portion of the header isn't used here.
+    #[serde(serialize_with = "gitbutler_serde::bstring_lossy::serialize")]
     pub diff: BString,
 }
 
@@ -46,8 +49,8 @@ impl UnifiedDiff {
         repo: &gix::Repository,
         path: &BStr,
         previous_path: Option<&BStr>,
-        current_state: impl Into<Option<worktree::ChangeState>>,
-        previous_state: impl Into<Option<worktree::ChangeState>>,
+        current_state: impl Into<Option<ChangeState>>,
+        previous_state: impl Into<Option<ChangeState>>,
         context_lines: u32,
     ) -> anyhow::Result<Self> {
         let current_state = current_state.into();

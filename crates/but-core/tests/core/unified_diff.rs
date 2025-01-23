@@ -1,14 +1,14 @@
-use but_core::{unified_diff, worktree, UnifiedDiff};
+use but_core::{unified_diff, ChangeState, UnifiedDiff};
 use gix::object::tree::EntryKind;
 
 #[test]
 fn file_added_in_worktree() -> anyhow::Result<()> {
-    let repo = crate::worktree::repo("added-modified-in-worktree")?;
+    let repo = crate::diff::worktree_changes::repo("added-modified-in-worktree")?;
     let actual = extract_patch(UnifiedDiff::compute(
         &repo,
         "modified".into(),
         None,
-        worktree::ChangeState {
+        ChangeState {
             id: repo.object_hash().null(),
             kind: EntryKind::Blob,
         },
@@ -32,12 +32,12 @@ fn file_added_in_worktree() -> anyhow::Result<()> {
 
 #[test]
 fn binary_text_in_unborn() -> anyhow::Result<()> {
-    let repo = crate::worktree::repo("diff-binary-to-text-unborn")?;
+    let repo = crate::diff::worktree_changes::repo("diff-binary-to-text-unborn")?;
     let actual = extract_patch(UnifiedDiff::compute(
         &repo,
         "file.binary".into(),
         None,
-        worktree::ChangeState {
+        ChangeState {
             id: repo.object_hash().null(),
             kind: EntryKind::Blob,
         },
@@ -61,17 +61,17 @@ fn binary_text_in_unborn() -> anyhow::Result<()> {
 
 #[test]
 fn binary_text_renamed_unborn() -> anyhow::Result<()> {
-    let repo = crate::worktree::repo("diff-binary-to-text-renamed-in-worktree")?;
+    let repo = crate::diff::worktree_changes::repo("diff-binary-to-text-renamed-in-worktree")?;
     // In case of renames, it uses the name of the previous file for attribute lookups.
     let actual = extract_patch(UnifiedDiff::compute(
         &repo,
         "after-rename.binary".into(),
         Some("before-rename.binary".into()),
-        worktree::ChangeState {
+        ChangeState {
             id: repo.object_hash().null(),
             kind: EntryKind::Blob,
         },
-        worktree::ChangeState {
+        ChangeState {
             id: repo.rev_parse_single(":before-rename.binary")?.into(),
             kind: EntryKind::Blob,
         },
@@ -94,9 +94,9 @@ fn binary_text_renamed_unborn() -> anyhow::Result<()> {
 
 #[test]
 fn file_deleted_in_worktree() -> anyhow::Result<()> {
-    let repo = crate::worktree::repo("added-modified-in-worktree")?;
+    let repo = crate::diff::worktree_changes::repo("added-modified-in-worktree")?;
     // Pretending there is no current version does the trick.
-    let previous_state = worktree::ChangeState {
+    let previous_state = ChangeState {
         id: repo.rev_parse_single("@:modified")?.into(),
         kind: EntryKind::Blob,
     };
@@ -126,14 +126,14 @@ fn file_deleted_in_worktree() -> anyhow::Result<()> {
 
 #[test]
 fn big_file_20_in_worktree() -> anyhow::Result<()> {
-    let mut repo = crate::worktree::repo("big-file-20-unborn")?;
+    let mut repo = crate::diff::worktree_changes::repo("big-file-20-unborn")?;
     repo.config_snapshot_mut()
         .set_value(&gix::config::tree::Core::BIG_FILE_THRESHOLD, "20")?;
     let actual = UnifiedDiff::compute(
         &repo,
         "big".into(),
         None,
-        worktree::ChangeState {
+        ChangeState {
             id: repo.object_hash().null(),
             kind: EntryKind::Blob,
         },
@@ -156,12 +156,12 @@ fn big_file_20_in_worktree() -> anyhow::Result<()> {
 
 #[test]
 fn binary_file_in_worktree() -> anyhow::Result<()> {
-    let repo = crate::worktree::repo("binary-file-unborn")?;
+    let repo = crate::diff::worktree_changes::repo("binary-file-unborn")?;
     let actual = UnifiedDiff::compute(
         &repo,
         "with-null-bytes".into(),
         None,
-        worktree::ChangeState {
+        ChangeState {
             id: repo.object_hash().null(),
             kind: EntryKind::Blob,
         },
@@ -182,16 +182,16 @@ fn binary_file_in_worktree() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn symlink_modified_in_worktree() -> anyhow::Result<()> {
-    let repo = crate::worktree::repo_unix("symlink-change-in-worktree")?;
+    let repo = crate::diff::worktree_changes::repo_unix("symlink-change-in-worktree")?;
     let actual = extract_patch(UnifiedDiff::compute(
         &repo,
         "symlink".into(),
         None,
-        worktree::ChangeState {
+        ChangeState {
             id: repo.object_hash().null(),
             kind: EntryKind::Link,
         },
-        worktree::ChangeState {
+        ChangeState {
             id: repo.rev_parse_single("@:symlink")?.into(),
             kind: EntryKind::Link,
         },
