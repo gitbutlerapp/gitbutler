@@ -16,8 +16,18 @@ fn main() -> Result<()> {
 
     match args.cmd {
         args::Subcommands::Status { unified_diff } => {
-            command::status::doit(args.current_dir, unified_diff)
+            command::diff::status(args.current_dir, unified_diff)
         }
+        args::Subcommands::CommitChanges {
+            unified_diff,
+            current_commit,
+            previous_commit,
+        } => command::diff::commit_changes(
+            args.current_dir,
+            current_commit,
+            previous_commit,
+            unified_diff,
+        ),
         args::Subcommands::Stacks => command::stacks::list(args.current_dir),
         args::Subcommands::StackBranches { id } => command::stacks::branches(id, args.current_dir),
     }

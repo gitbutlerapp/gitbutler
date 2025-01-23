@@ -22,6 +22,16 @@ pub enum Subcommands {
         #[clap(long, short = 'd')]
         unified_diff: bool,
     },
+    /// Calculate the changes between
+    CommitChanges {
+        /// Also compute unified diffs for each tree-change.
+        #[clap(long, short = 'd')]
+        unified_diff: bool,
+        /// The revspec to the commit that the returned changes turn the previous commit into.
+        current_commit: String,
+        /// The revspec to the previous commit that the changes transform into current commit.
+        previous_commit: Option<String>,
+    },
     /// Returns the list of stacks that are currently part of the GitButler workspace.
     Stacks,
     StackBranches {

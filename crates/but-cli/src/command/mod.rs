@@ -15,29 +15,59 @@ fn debug_print(this: impl std::fmt::Debug) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub mod status {
+pub mod diff {
     use crate::command::{debug_print, project_repo};
     use std::path::PathBuf;
 
-    pub fn doit(current_dir: PathBuf, unified_diff: bool) -> anyhow::Result<()> {
+    pub fn commit_changes(
+        current_dir: PathBuf,
+        current_commit: String,
+        previous_commit: Option<String>,
+        unified_diff: bool,
+    ) -> anyhow::Result<()> {
+        let repo = project_repo(current_dir)?;
+        let previous_commit = previous_commit
+            .map(|revspec| repo.rev_parse_single(revspec.as_str()))
+            .transpose()?;
+        let commit = repo.rev_parse_single(current_commit.as_str())?;
+        let changes = but_core::diff::commit_to_commit(
+            &repo,
+            previous_commit.map(Into::into),
+            commit.into(),
+        )?;
+
+        if unified_diff {
+            debug_print(unified_diff_for_changes(&repo, changes)?)
+        } else {
+            debug_print(changes)
+        }
+    }
+
+    pub fn status(current_dir: PathBuf, unified_diff: bool) -> anyhow::Result<()> {
         let repo = project_repo(current_dir)?;
         let worktree = but_core::diff::worktree_status(&repo)?;
         if unified_diff {
             debug_print((
-                worktree
-                    .changes
-                    .into_iter()
-                    .map(|tree_change| {
-                        tree_change
-                            .unified_diff(&repo)
-                            .map(|diff| (tree_change, diff))
-                    })
-                    .collect::<Result<Vec<_>, _>>()?,
+                unified_diff_for_changes(&repo, worktree.changes)?,
                 worktree.ignored_changes,
             ))
         } else {
             debug_print(worktree)
         }
+    }
+
+    fn unified_diff_for_changes(
+        repo: &gix::Repository,
+        changes: Vec<but_core::TreeChange>,
+    ) -> anyhow::Result<Vec<(but_core::TreeChange, but_core::UnifiedDiff)>> {
+        changes
+            .into_iter()
+            .map(|tree_change| {
+                tree_change
+                    .unified_diff(repo)
+                    .map(|diff| (tree_change, diff))
+            })
+            .collect::<Result<Vec<_>, _>>()
     }
 }
 

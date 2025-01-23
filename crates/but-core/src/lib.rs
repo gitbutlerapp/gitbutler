@@ -167,7 +167,7 @@ pub struct IgnoredWorktreeChange {
     status: IgnoredWorktreeTreeChangeStatus,
 }
 
-/// The type returned by [`worktree_changes()`].
+/// The type returned by [`worktree_changes()`](diff::worktree_status).
 #[derive(Debug, Clone)]
 pub struct WorktreeChanges {
     /// Changes that could be committed.

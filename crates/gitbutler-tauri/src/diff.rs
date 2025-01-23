@@ -50,7 +50,7 @@ pub fn commit_to_commit_by_worktree_dir(
         .map(|c| c.into_iter().map(Into::into).collect())
 }
 
-/// This UI-version of [`but_core::worktree_changes()`] simplifies the `git status` information for display in
+/// This UI-version of [`but_core::diff::worktree_status()`] simplifies the `git status` information for display in
 /// the user interface as it is right now. From here, it's always possible to add more information as the need arises.
 ///
 /// ### Notable Transformations
@@ -74,7 +74,7 @@ pub fn worktree_status_by_worktree_dir(worktree_dir: PathBuf) -> anyhow::Result<
     Ok(but_core::diff::worktree_status(&repo)?.into())
 }
 
-/// The type returned by [`but_core::worktree_changes()`].
+/// The type returned by [`but_core::diff::worktree_status()`].
 #[derive(Debug, Clone, Serialize)]
 pub struct WorktreeChanges {
     /// Changes that could be committed.
