@@ -45,8 +45,6 @@
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/package": "^2.3.2",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
-		"@terrazzo/cli": "^0.0.11",
-		"@terrazzo/plugin-css": "^0.0.9",
 		"@types/lscache": "^1.3.4",
 		"@types/postcss-pxtorem": "^6.0.3",
 		"autoprefixer": "^10.4.19",

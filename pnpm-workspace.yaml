@@ -4,14 +4,15 @@ packages:
   - 'crates/*'
 
 catalog:
-  vite: 5.4.11
-  vitest: 2.1.8
+  vite: '5.4.14'
+  vitest: '3.0.3'
 catalogs:
   svelte:
-    svelte: 5.18.0
-    '@sveltejs/kit': 2.15.2
-    svelte-check: 4.1.2
-    '@sveltejs/vite-plugin-svelte': 4.0.4
-    '@sveltejs/adapter-static': 3.0.8
+    svelte: '5.19.2'
+    '@sveltejs/kit': '2.16.1'
+    'svelte-check': '4.1.4'
+    '@sveltejs/vite-plugin-svelte': '4.0.4'
+    '@sveltejs/adapter-static': '3.0.8'
+    '@sentry/sveltekit': '8.51.0'
   redux:
-    '@reduxjs/toolkit': '^2.3.0'
+    '@reduxjs/toolkit': '^2.5.0'
