@@ -10,7 +10,7 @@ use gix::prelude::ObjectIdExt;
 /// Note that we deal with conflicted commits correctly by resolving to the actual tree, not the one with meta-data.
 ///
 /// They are sorted by their current path.
-pub fn to_commit(
+pub fn commit_changes(
     repo: &gix::Repository,
     lhs_commit: Option<gix::ObjectId>,
     rhs_commit: gix::ObjectId,

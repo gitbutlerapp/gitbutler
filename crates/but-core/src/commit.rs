@@ -3,25 +3,27 @@ use anyhow::Context;
 use bstr::ByteSlice;
 use gix::prelude::ObjectIdExt;
 
-/// A collection of all the extra information we keep in a commit.
+/// A collection of all the extra information we keep in the headers of a commit.
 #[derive(Debug, Clone)]
 pub struct HeadersV2 {
     /// A property we can use to determine if two different commits are
     /// actually the same "patch" at different points in time. We carry it
     /// forwards when you rebase a commit in GitButler.
+    /// Note that these don't have to be unique within a branch even,
+    /// and it's possible that different commits with the same change-id
+    /// have different content.
     pub change_id: String,
     /// A property used to indicate that we've written a conflicted tree to a
-    /// commit. This is only written if the property is present. Conflicted
-    /// commits should never make it into the main trunk.
+    /// commit, and `Some(num_files)` is the amount of conflicted files.
+    ///
+    /// Conflicted commits should never make it into the main trunk.
+    /// If `None`, the commit is a normal commit without a special tree.
     pub conflicted: Option<u64>,
 }
 
-/// Used to represent the old commit headers layout. This should not be used in new code
+/// Used to represent the old commit headers layout, here just for backwards compatibility.
 #[derive(Debug)]
 struct HeadersV1 {
-    /// A property we can use to determine if two different commits are
-    /// actually the same "patch" at different points in time. We carry it
-    /// forwards when you rebase a commit in GitButler.
     change_id: String,
 }
 

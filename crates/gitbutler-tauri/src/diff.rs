@@ -25,14 +25,14 @@ pub fn tree_change_diffs(
 
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
-pub fn commit_to_commit(
+pub fn commit_changes(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     project_id: ProjectId,
     old_commit_id: Option<HexHash>,
     new_commit_id: HexHash,
 ) -> anyhow::Result<Vec<TreeChange>, Error> {
     let project = projects.get(project_id)?;
-    commit_to_commit_by_worktree_dir(
+    commit_changes_by_worktree_dir(
         project.path,
         old_commit_id.map(Into::into),
         new_commit_id.into(),
@@ -40,13 +40,13 @@ pub fn commit_to_commit(
     .map_err(Into::into)
 }
 
-pub fn commit_to_commit_by_worktree_dir(
+pub fn commit_changes_by_worktree_dir(
     worktree_dir: PathBuf,
     old_commit_id: Option<gix::ObjectId>,
     new_commit_id: gix::ObjectId,
 ) -> anyhow::Result<Vec<TreeChange>> {
     let repo = gix::open(worktree_dir).map_err(anyhow::Error::from)?;
-    but_core::diff::commit_to_commit(&repo, old_commit_id, new_commit_id)
+    but_core::diff::commit_changes(&repo, old_commit_id, new_commit_id)
         .map(|c| c.into_iter().map(Into::into).collect())
 }
 
@@ -61,17 +61,17 @@ pub fn commit_to_commit_by_worktree_dir(
 /// All ignored status changes are also provided so they can be displayed separately.
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
-pub fn worktree_status(
+pub fn worktree_changes(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     project_id: ProjectId,
 ) -> anyhow::Result<WorktreeChanges, Error> {
     let project = projects.get(project_id)?;
-    Ok(worktree_status_by_worktree_dir(project.path)?)
+    Ok(worktree_changes_by_worktree_dir(project.path)?)
 }
 
-pub fn worktree_status_by_worktree_dir(worktree_dir: PathBuf) -> anyhow::Result<WorktreeChanges> {
+pub fn worktree_changes_by_worktree_dir(worktree_dir: PathBuf) -> anyhow::Result<WorktreeChanges> {
     let repo = gix::open(worktree_dir)?;
-    Ok(but_core::diff::worktree_status(&repo)?.into())
+    Ok(but_core::diff::worktree_changes(&repo)?.into())
 }
 
 /// The type returned by [`but_core::diff::worktree_status()`].

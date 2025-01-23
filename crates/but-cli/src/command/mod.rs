@@ -30,11 +30,8 @@ pub mod diff {
             .map(|revspec| repo.rev_parse_single(revspec.as_str()))
             .transpose()?;
         let commit = repo.rev_parse_single(current_commit.as_str())?;
-        let changes = but_core::diff::commit_to_commit(
-            &repo,
-            previous_commit.map(Into::into),
-            commit.into(),
-        )?;
+        let changes =
+            but_core::diff::commit_changes(&repo, previous_commit.map(Into::into), commit.into())?;
 
         if unified_diff {
             debug_print(unified_diff_for_changes(&repo, changes)?)
@@ -45,7 +42,7 @@ pub mod diff {
 
     pub fn status(current_dir: PathBuf, unified_diff: bool) -> anyhow::Result<()> {
         let repo = project_repo(current_dir)?;
-        let worktree = but_core::diff::worktree_status(&repo)?;
+        let worktree = but_core::diff::worktree_changes(&repo)?;
         if unified_diff {
             debug_print((
                 unified_diff_for_changes(&repo, worktree.changes)?,

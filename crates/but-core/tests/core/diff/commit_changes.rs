@@ -1,18 +1,17 @@
-mod to_commit {
-    use crate::commit::conflict_repo;
-    use crate::json_samples::repo;
+use crate::commit::conflict_repo;
+use crate::json_samples::repo;
 
-    #[test]
-    fn many_changes() -> anyhow::Result<()> {
-        let repo = repo("many-in-tree")?;
-        let previous_commit_id = repo.rev_parse_single("@~1")?;
-        let current_commit_id = repo.rev_parse_single("@")?;
-        let changes = but_core::diff::commit_to_commit(
-            &repo,
-            Some(previous_commit_id.into()),
-            current_commit_id.into(),
-        )?;
-        insta::assert_debug_snapshot!(changes, @r#"
+#[test]
+fn many_changes() -> anyhow::Result<()> {
+    let repo = repo("many-in-tree")?;
+    let previous_commit_id = repo.rev_parse_single("@~1")?;
+    let current_commit_id = repo.rev_parse_single("@")?;
+    let changes = but_core::diff::commit_changes(
+        &repo,
+        Some(previous_commit_id.into()),
+        current_commit_id.into(),
+    )?;
+    insta::assert_debug_snapshot!(changes, @r#"
     [
         TreeChange {
             path: "aa-renamed-new-name",
@@ -86,15 +85,15 @@ mod to_commit {
         },
     ]
     "#);
-        Ok(())
-    }
+    Ok(())
+}
 
-    #[test]
-    fn without_previous_tree() -> anyhow::Result<()> {
-        let repo = repo("many-in-tree")?;
-        let current_tree_id = repo.rev_parse_single("@^1")?;
-        let changes = but_core::diff::commit_to_commit(&repo, None, current_tree_id.into())?;
-        insta::assert_debug_snapshot!(changes, @r#"
+#[test]
+fn without_previous_tree() -> anyhow::Result<()> {
+    let repo = repo("many-in-tree")?;
+    let current_tree_id = repo.rev_parse_single("@^1")?;
+    let changes = but_core::diff::commit_changes(&repo, None, current_tree_id.into())?;
+    insta::assert_debug_snapshot!(changes, @r#"
     [
         TreeChange {
             path: "aa-renamed-old-name",
@@ -148,18 +147,18 @@ mod to_commit {
         },
     ]
     "#);
-        Ok(())
-    }
+    Ok(())
+}
 
-    #[test]
-    fn changes_between_conflicted_and_normal_commit() -> anyhow::Result<()> {
-        let repo = conflict_repo("normal-and-artificial")?;
-        let changes = but_core::diff::commit_to_commit(
-            &repo,
-            Some(repo.rev_parse_single("normal")?.into()),
-            repo.rev_parse_single("conflicted")?.into(),
-        )?;
-        insta::assert_debug_snapshot!(changes, @r#"
+#[test]
+fn changes_between_conflicted_and_normal_commit() -> anyhow::Result<()> {
+    let repo = conflict_repo("normal-and-artificial")?;
+    let changes = but_core::diff::commit_changes(
+        &repo,
+        Some(repo.rev_parse_single("normal")?.into()),
+        repo.rev_parse_single("conflicted")?.into(),
+    )?;
+    insta::assert_debug_snapshot!(changes, @r#"
         [
             TreeChange {
                 path: "file",
@@ -177,18 +176,17 @@ mod to_commit {
             },
         ]
         "#);
-        Ok(())
-    }
-    #[test]
+    Ok(())
+}
+#[test]
 
-    fn changes_between_conflicted_and_conflicted_commit() -> anyhow::Result<()> {
-        let repo = conflict_repo("normal-and-artificial")?;
-        let changes = but_core::diff::commit_to_commit(
-            &repo,
-            Some(repo.rev_parse_single("conflicted")?.into()),
-            repo.rev_parse_single("conflicted")?.into(),
-        )?;
-        insta::assert_debug_snapshot!(changes, @"[]");
-        Ok(())
-    }
+fn changes_between_conflicted_and_conflicted_commit() -> anyhow::Result<()> {
+    let repo = conflict_repo("normal-and-artificial")?;
+    let changes = but_core::diff::commit_changes(
+        &repo,
+        Some(repo.rev_parse_single("conflicted")?.into()),
+        repo.rev_parse_single("conflicted")?.into(),
+    )?;
+    insta::assert_debug_snapshot!(changes, @"[]");
+    Ok(())
 }

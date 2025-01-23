@@ -29,7 +29,7 @@ pub enum Subcommands {
         unified_diff: bool,
         /// The revspec to the commit that the returned changes turn the previous commit into.
         current_commit: String,
-        /// The revspec to the previous commit that the changes transform into current commit.
+        /// The revspec to the previous commit that the returned changes transform into current commit.
         previous_commit: Option<String>,
     },
     /// Returns the list of stacks that are currently part of the GitButler workspace.

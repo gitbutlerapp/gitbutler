@@ -31,10 +31,10 @@
 //!       multiple branches to be perceived in one worktree, by merging multiple branches together.
 //! * **TreeChange**
 //!     - A change to a path contained in a Git tree.
-//!     - The change may have various sources, like an actual Git tree, or the workspace.
-//!     - It's tuned to contain only information we are interested in, which includes if an addition is untracked.
+//!     - The change may have various sources, like an actual Git tree, or the worktree.
+//!     - It's tuned to contain only information we are interested in, which includes if an addition is implied by an untracked file.
 //! * **UnifiedDiff**
-//!     - A list of patches in unified diff format, with easily accessible line number information (which isn't baked into the patch string itself).
+//!     - A list of patches in unified diff format, with easily accessible line number information. It isn't baked into the patch string itself.
 //!
 
 use bstr::BString;

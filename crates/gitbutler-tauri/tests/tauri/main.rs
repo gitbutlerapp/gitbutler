@@ -4,7 +4,9 @@ mod diff {
         let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
             .map_err(anyhow::Error::from_boxed)?;
         let actual = serde_json::to_string_pretty(
-            &gitbutler_tauri::diff::worktree_status_by_worktree_dir(root.join("many-in-worktree"))?,
+            &gitbutler_tauri::diff::worktree_changes_by_worktree_dir(
+                root.join("many-in-worktree"),
+            )?,
         )?;
         insta::assert_snapshot!(actual, @r#"
         {
@@ -371,13 +373,12 @@ mod diff {
             .map_err(anyhow::Error::from_boxed)?;
         let worktree_dir = root.join("many-in-tree");
         let repo = gix::open_opts(&worktree_dir, gix::open::Options::isolated())?;
-        let actual = serde_json::to_string_pretty(
-            &gitbutler_tauri::diff::commit_to_commit_by_worktree_dir(
+        let actual =
+            serde_json::to_string_pretty(&gitbutler_tauri::diff::commit_changes_by_worktree_dir(
                 worktree_dir,
                 Some(repo.rev_parse_single("@~1")?.into()),
                 repo.rev_parse_single("@")?.into(),
-            )?,
-        )?;
+            )?)?;
         insta::assert_snapshot!(actual, @r#"
         [
           {

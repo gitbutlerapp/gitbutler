@@ -248,7 +248,8 @@ fn main() {
                     settings::update_telemetry,
                     settings::update_feature_flags,
                     workspace::stacks,
-                    diff::worktree_status,
+                    diff::worktree_changes,
+                    diff::commit_changes,
                     diff::tree_change_diffs
                 ])
                 .menu(menu::build)
