@@ -223,7 +223,7 @@
 				style:left={inputBoundingRect?.left && popupAlign === 'left'
 					? `${inputBoundingRect.left}px`
 					: optionsGroupBoundingRect && inputBoundingRect && popupAlign === 'center'
-						? `${window.innerWidth / 2 - (optionsGroupBoundingRect.width - inputBoundingRect.width / 2) / 2}px`
+						? `${window.innerWidth / 2 - optionsGroupBoundingRect.width / 2}px`
 						: undefined}
 				style:right={inputBoundingRect?.right && popupAlign === 'right'
 					? `${window.innerWidth - inputBoundingRect.right}px`
