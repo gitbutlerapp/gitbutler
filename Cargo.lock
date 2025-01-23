@@ -700,6 +700,7 @@ dependencies = [
  "gitbutler-id",
  "gitbutler-oxidize",
  "gitbutler-repo",
+ "gitbutler-serde",
  "gitbutler-stack",
  "gix",
  "itertools 0.14.0",
@@ -2363,6 +2364,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-workspace",
  "criterion",
  "diffy",
  "git2",

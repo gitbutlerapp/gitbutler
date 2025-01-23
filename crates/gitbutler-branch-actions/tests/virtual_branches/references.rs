@@ -17,14 +17,14 @@ mod create_virtual_branch {
         )
         .unwrap();
 
-        let branch_id =
+        let stack_entry =
             gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
                 .unwrap();
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
-        assert_eq!(branches[0].id, branch_id);
+        assert_eq!(branches[0].id, stack_entry.id);
         assert_eq!(branches[0].name, "Lane");
 
         let refnames = repository
@@ -47,7 +47,7 @@ mod create_virtual_branch {
         )
         .unwrap();
 
-        let branch1_id = gitbutler_branch_actions::create_virtual_branch(
+        let stack_entry_1 = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some("name".to_string()),
@@ -56,7 +56,7 @@ mod create_virtual_branch {
         )
         .unwrap();
 
-        let branch2_id = gitbutler_branch_actions::create_virtual_branch(
+        let stack_entry_2 = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some("name".to_string()),
@@ -68,9 +68,9 @@ mod create_virtual_branch {
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 2);
-        assert_eq!(branches[0].id, branch1_id);
+        assert_eq!(branches[0].id, stack_entry_1.id);
         assert_eq!(branches[0].name, "name");
-        assert_eq!(branches[1].id, branch2_id);
+        assert_eq!(branches[1].id, stack_entry_2.id);
         assert_eq!(branches[1].name, "name 1");
 
         let refnames = repository
@@ -100,7 +100,7 @@ mod update_virtual_branch {
         )
         .unwrap();
 
-        let branch_id = gitbutler_branch_actions::create_virtual_branch(
+        let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some("name".to_string()),
@@ -112,7 +112,7 @@ mod update_virtual_branch {
         gitbutler_branch_actions::update_virtual_branch(
             ctx,
             BranchUpdateRequest {
-                id: branch_id,
+                id: stack_entry.id,
                 name: Some("new name".to_string()),
                 ..Default::default()
             },
@@ -122,7 +122,7 @@ mod update_virtual_branch {
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
-        assert_eq!(branches[0].id, branch_id);
+        assert_eq!(branches[0].id, stack_entry.id);
         assert_eq!(branches[0].name, "new name");
 
         let refnames = repository
@@ -146,7 +146,7 @@ mod update_virtual_branch {
         )
         .unwrap();
 
-        let branch1_id = gitbutler_branch_actions::create_virtual_branch(
+        let stack_entry_1 = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some("name".to_string()),
@@ -155,7 +155,7 @@ mod update_virtual_branch {
         )
         .unwrap();
 
-        let branch2_id = gitbutler_branch_actions::create_virtual_branch(
+        let stack_entry_2 = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 ..Default::default()
@@ -166,7 +166,7 @@ mod update_virtual_branch {
         gitbutler_branch_actions::update_virtual_branch(
             ctx,
             BranchUpdateRequest {
-                id: branch2_id,
+                id: stack_entry_2.id,
                 name: Some("name".to_string()),
                 ..Default::default()
             },
@@ -176,9 +176,9 @@ mod update_virtual_branch {
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 2);
-        assert_eq!(branches[0].id, branch1_id);
+        assert_eq!(branches[0].id, stack_entry_1.id);
         assert_eq!(branches[0].name, "name");
-        assert_eq!(branches[1].id, branch2_id);
+        assert_eq!(branches[1].id, stack_entry_2.id);
         assert_eq!(branches[1].name, "name 1");
 
         let refnames = repository
@@ -208,7 +208,7 @@ mod push_virtual_branch {
         )
         .unwrap();
 
-        let branch1_id = gitbutler_branch_actions::create_virtual_branch(
+        let stack_entry_1 = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some("name".to_string()),
@@ -219,14 +219,14 @@ mod push_virtual_branch {
 
         fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-        gitbutler_branch_actions::create_commit(ctx, branch1_id, "test", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "test", None).unwrap();
         #[allow(deprecated)]
-        gitbutler_branch_actions::push_virtual_branch(ctx, branch1_id, false, None).unwrap();
+        gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry_1.id, false, None).unwrap();
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
-        assert_eq!(branches[0].id, branch1_id);
+        assert_eq!(branches[0].id, stack_entry_1.id);
         assert_eq!(branches[0].name, "name");
         assert_eq!(
             branches[0].upstream.as_ref().unwrap().name.to_string(),
@@ -253,9 +253,9 @@ mod push_virtual_branch {
         )
         .unwrap();
 
-        let branch1_id = {
+        let stack_entry = {
             // create and push branch with some work
-            let branch1_id = gitbutler_branch_actions::create_virtual_branch(
+            let stack_entry_1 = gitbutler_branch_actions::create_virtual_branch(
                 ctx,
                 &BranchCreateRequest {
                     name: Some("name".to_string()),
@@ -264,26 +264,27 @@ mod push_virtual_branch {
             )
             .unwrap();
             fs::write(repository.path().join("file.txt"), "content").unwrap();
-            gitbutler_branch_actions::create_commit(ctx, branch1_id, "test", None).unwrap();
+            gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "test", None).unwrap();
             #[allow(deprecated)]
-            gitbutler_branch_actions::push_virtual_branch(ctx, branch1_id, false, None).unwrap();
-            branch1_id
+            gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry_1.id, false, None)
+                .unwrap();
+            stack_entry_1
         };
 
         // rename first branch
         gitbutler_branch_actions::update_virtual_branch(
             ctx,
             BranchUpdateRequest {
-                id: branch1_id,
+                id: stack_entry.id,
                 name: Some("updated name".to_string()),
                 ..Default::default()
             },
         )
         .unwrap();
 
-        let branch2_id = {
+        let stack_entry_2 = {
             // create another branch with first branch's old name and push it
-            let branch2_id = gitbutler_branch_actions::create_virtual_branch(
+            let stack_entry_2 = gitbutler_branch_actions::create_virtual_branch(
                 ctx,
                 &BranchCreateRequest {
                     name: Some("name".to_string()),
@@ -292,24 +293,25 @@ mod push_virtual_branch {
             )
             .unwrap();
             fs::write(repository.path().join("file.txt"), "updated content").unwrap();
-            gitbutler_branch_actions::create_commit(ctx, branch2_id, "test", None).unwrap();
+            gitbutler_branch_actions::create_commit(ctx, stack_entry_2.id, "test", None).unwrap();
             #[allow(deprecated)]
-            gitbutler_branch_actions::push_virtual_branch(ctx, branch2_id, false, None).unwrap();
-            branch2_id
+            gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry_2.id, false, None)
+                .unwrap();
+            stack_entry_2
         };
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 2);
         // first branch is pushing to old ref remotely
-        assert_eq!(branches[0].id, branch1_id);
+        assert_eq!(branches[0].id, stack_entry.id);
         assert_eq!(branches[0].name, "updated name");
         assert_eq!(
             branches[0].upstream.as_ref().unwrap().name,
             "refs/remotes/origin/name".parse().unwrap()
         );
         // new branch is pushing to new ref remotely
-        assert_eq!(branches[1].id, branch2_id);
+        assert_eq!(branches[1].id, stack_entry_2.id);
         assert_eq!(branches[1].name, "name");
         assert_eq!(
             branches[1].upstream.as_ref().unwrap().name,

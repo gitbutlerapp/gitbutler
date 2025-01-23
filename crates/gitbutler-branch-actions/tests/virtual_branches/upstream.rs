@@ -11,29 +11,29 @@ fn detect_upstream_commits() {
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
 
-    let branch1_id =
+    let stack_entry_1 =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     let oid1 = {
         // create first commit
         fs::write(repository.path().join("file.txt"), "content").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, branch1_id, "commit", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "commit", None).unwrap()
     };
 
     let oid2 = {
         // create second commit
         fs::write(repository.path().join("file.txt"), "content2").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, branch1_id, "commit", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "commit", None).unwrap()
     };
 
     // push
-    gitbutler_branch_actions::stack::push_stack(ctx, branch1_id, false).unwrap();
+    gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_1.id, false).unwrap();
 
     let oid3 = {
         // create third commit
         fs::write(repository.path().join("file.txt"), "content3").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, branch1_id, "commit", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "commit", None).unwrap()
     };
 
     {
@@ -41,7 +41,7 @@ fn detect_upstream_commits() {
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
-        assert_eq!(branches[0].id, branch1_id);
+        assert_eq!(branches[0].id, stack_entry_1.id);
         assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 3);
         assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid3);
         assert!(!branches[0].series[0].clone().unwrap().patches[0].is_local_and_remote);
@@ -61,25 +61,25 @@ fn detect_integrated_commits() {
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
 
-    let branch1_id =
+    let stack_entry_1 =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
 
     let oid1 = {
         // create first commit
         fs::write(repository.path().join("file.txt"), "content").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, branch1_id, "commit", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "commit", None).unwrap()
     };
 
     let oid2 = {
         // create second commit
         fs::write(repository.path().join("file.txt"), "content2").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, branch1_id, "commit", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "commit", None).unwrap()
     };
 
     // push
     #[allow(deprecated)]
-    gitbutler_branch_actions::push_virtual_branch(ctx, branch1_id, false, None).unwrap();
+    gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry_1.id, false, None).unwrap();
 
     {
         // merge branch upstream
@@ -87,7 +87,7 @@ fn detect_integrated_commits() {
             .unwrap()
             .branches
             .into_iter()
-            .find(|b| b.id == branch1_id)
+            .find(|b| b.id == stack_entry_1.id)
             .unwrap();
         repository
             .merge(&branch.upstream.as_ref().unwrap().name)
@@ -98,7 +98,7 @@ fn detect_integrated_commits() {
     let oid3 = {
         // create third commit
         fs::write(repository.path().join("file.txt"), "content3").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, branch1_id, "commit", None).unwrap()
+        gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "commit", None).unwrap()
     };
 
     {
@@ -107,7 +107,7 @@ fn detect_integrated_commits() {
         let branches = list_result.branches;
 
         assert_eq!(branches.len(), 1);
-        assert_eq!(branches[0].id, branch1_id);
+        assert_eq!(branches[0].id, stack_entry_1.id);
         assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 3);
         assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid3);
         assert!(!branches[0].series[0].clone().unwrap().patches[0].is_integrated);

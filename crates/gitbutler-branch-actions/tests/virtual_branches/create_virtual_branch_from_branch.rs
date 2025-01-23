@@ -15,25 +15,26 @@ fn integration() {
     let branch_name = {
         // make a remote branch
 
-        let branch_id =
+        let stack_entry =
             gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
                 .unwrap();
 
         std::fs::write(repository.path().join("file.txt"), "first\n").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, branch_id, "first", None).unwrap();
+        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "first", None).unwrap();
         #[allow(deprecated)]
-        gitbutler_branch_actions::push_virtual_branch(ctx, branch_id, false, None).unwrap();
+        gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry.id, false, None).unwrap();
 
         let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
             .unwrap()
             .branches
             .into_iter()
-            .find(|branch| branch.id == branch_id)
+            .find(|branch| branch.id == stack_entry.id)
             .unwrap();
 
         let name = branch.upstream.unwrap().name;
 
-        gitbutler_branch_actions::unapply_without_saving_virtual_branch(ctx, branch_id).unwrap();
+        gitbutler_branch_actions::unapply_without_saving_virtual_branch(ctx, stack_entry.id)
+            .unwrap();
 
         name
     };

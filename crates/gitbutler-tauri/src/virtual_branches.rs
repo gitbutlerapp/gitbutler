@@ -82,9 +82,9 @@ pub mod commands {
     ) -> Result<StackId, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let branch_id = gitbutler_branch_actions::create_virtual_branch(&ctx, &branch)?;
+        let stack_entry = gitbutler_branch_actions::create_virtual_branch(&ctx, &branch)?;
         emit_vbranches(&windows, project_id);
-        Ok(branch_id)
+        Ok(stack_entry.id)
     }
 
     #[tauri::command(async)]

@@ -29,14 +29,19 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
             worktree_dir.join(format!("file{round}.txt")),
             make_lines(line_count),
         )?;
-        let branch_id = gitbutler_branch_actions::create_virtual_branch(
+        let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some(round.to_string()),
                 ..Default::default()
             },
         )?;
-        gitbutler_branch_actions::create_commit(ctx, branch_id, &format!("commit {round}"), None)?;
+        gitbutler_branch_actions::create_commit(
+            ctx,
+            stack_entry.id,
+            &format!("commit {round}"),
+            None,
+        )?;
         assert_eq!(
             wd_file_count(&worktree_dir)?,
             round + 1,
@@ -101,12 +106,13 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse()?)?;
 
-    let branch_id =
+    let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())?;
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
-    let _commit1_id = gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None)?;
+    let _commit1_id =
+        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None)?;
 
     // dont store large files
     let file_path = repository.path().join("large.txt");
@@ -120,7 +126,8 @@ fn basic_oplog() -> anyhow::Result<()> {
     // create commit with large file
     fs::write(repository.path().join("file2.txt"), "content2")?;
     fs::write(repository.path().join("file3.txt"), "content3")?;
-    let commit2_id = gitbutler_branch_actions::create_commit(ctx, branch_id, "commit two", None)?;
+    let commit2_id =
+        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two", None)?;
 
     // Create conflict state
     let conflicts_path = repository.path().join(".git").join("conflicts");
@@ -137,12 +144,12 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     fs::write(repository.path().join("file4.txt"), "content4")?;
     let _commit3_id =
-        gitbutler_branch_actions::create_commit(ctx, branch_id, "commit three", None)?;
+        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None)?;
 
     let branch = gitbutler_branch_actions::list_virtual_branches(ctx)?
         .branches
         .into_iter()
-        .find(|b| b.id == branch_id)
+        .find(|b| b.id == stack_entry.id)
         .unwrap();
 
     let branches = gitbutler_branch_actions::list_virtual_branches(ctx)?;
@@ -261,7 +268,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
             .len(),
         0
     );
-    let branch_id =
+    let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())?;
     assert_eq!(
         VirtualBranchesHandle::new(project.gb_dir())
@@ -272,7 +279,8 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
-    let _commit1_id = gitbutler_branch_actions::create_commit(ctx, branch_id, "commit one", None)?;
+    let _commit1_id =
+        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None)?;
 
     let repo = git2::Repository::open(&project.path)?;
 
@@ -285,7 +293,8 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 
     // create second commit
     fs::write(repository.path().join("file.txt"), "changed content")?;
-    let _commit2_id = gitbutler_branch_actions::create_commit(ctx, branch_id, "commit two", None)?;
+    let _commit2_id =
+        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two", None)?;
 
     // check the workspace commit changed
     let head = repo.head().expect("never unborn");
