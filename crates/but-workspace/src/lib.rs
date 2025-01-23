@@ -26,19 +26,22 @@ use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::{stack_context::StackContext, Stack, Target, VirtualBranchesHandle};
 use integrated::IsCommitIntegrated;
 use itertools::Itertools;
+use serde::Serialize;
 use std::path::Path;
 use std::str::FromStr;
 
 mod integrated;
 
 /// Represents a lightweight version of a [`gitbutler_stack::Stack`] for listing.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StackEntry {
     /// The ID of the stack.
     pub id: Id<gitbutler_stack::Stack>,
     /// The list of the branch names that are part of the stack.
     /// The list is never empty.
     /// The first entry in the list is always the most recent branch on top the stack.
+    #[serde(with = "gitbutler_serde::bstring_vec_lossy")]
     pub branch_names: Vec<BString>,
 }
 

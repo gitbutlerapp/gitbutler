@@ -700,6 +700,7 @@ dependencies = [
  "gitbutler-id",
  "gitbutler-oxidize",
  "gitbutler-repo",
+ "gitbutler-serde",
  "gitbutler-stack",
  "gix",
  "itertools 0.14.0",
