@@ -12,7 +12,7 @@ use tracing::instrument;
 pub fn stacks(
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
-) -> anyhow::Result<Vec<StackEntry>, Error> {
+) -> Result<Vec<StackEntry>, Error> {
     let project = projects.get(project_id)?;
     but_workspace::stacks(&project.gb_dir()).map_err(Into::into)
 }
@@ -24,7 +24,7 @@ pub fn stack_branches(
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     stack_id: String,
-) -> anyhow::Result<Vec<but_workspace::Branch>, Error> {
+) -> Result<Vec<but_workspace::Branch>, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     but_workspace::stack_branches(stack_id, &ctx).map_err(Into::into)
