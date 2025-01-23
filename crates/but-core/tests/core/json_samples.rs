@@ -5,7 +5,7 @@ use but_core::UnifiedDiff;
 #[test]
 fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
     let repo = repo("many-in-worktree")?;
-    let diffs: Vec<UnifiedDiff> = but_core::worktree_changes(&repo)?
+    let diffs: Vec<UnifiedDiff> = but_core::diff::worktree_status(&repo)?
         .changes
         .iter()
         .map(|tree_change| tree_change.unified_diff(&repo))

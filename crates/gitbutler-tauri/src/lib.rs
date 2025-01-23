@@ -43,4 +43,3 @@ pub mod zip;
 
 pub mod diff;
 pub mod workspace;
-pub mod worktree;

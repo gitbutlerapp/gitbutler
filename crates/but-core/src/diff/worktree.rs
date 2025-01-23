@@ -23,7 +23,7 @@ enum Origin {
 }
 
 /// Return [`WorktreeChanges`] that live in the worktree of `repo` that changed and thus can become part of a commit.
-pub fn changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChanges> {
+pub fn status(repo: &gix::Repository) -> anyhow::Result<WorktreeChanges> {
     let rewrites = Default::default(); /* standard Git rewrite handling for everything */
     let status_changes = repo
         .status(gix::progress::Discard)?

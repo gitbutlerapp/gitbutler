@@ -1,12 +1,12 @@
 use anyhow::Result;
-use but_core::worktree_changes;
+use but_core::diff;
 use but_core::{UnifiedDiff, WorktreeChanges};
 
 #[test]
 #[cfg(unix)]
 fn non_files_are_ignored() -> Result<()> {
     let repo = repo_unix("untracked-fifo")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     assert_eq!(
         actual.changes.len(),
         0,
@@ -24,7 +24,7 @@ fn non_files_are_ignored() -> Result<()> {
 #[cfg(unix)]
 fn executable_bit_added_in_worktree() -> Result<()> {
     let repo = repo_unix("add-executable-bit-in-worktree")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -62,7 +62,7 @@ fn executable_bit_added_in_worktree() -> Result<()> {
 #[cfg(unix)]
 fn executable_bit_removed_in_worktree() -> Result<()> {
     let repo = repo_unix("remove-executable-bit-in-worktree")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -100,7 +100,7 @@ fn executable_bit_removed_in_worktree() -> Result<()> {
 #[cfg(unix)]
 fn executable_bit_removed_in_index() -> Result<()> {
     let repo = repo_unix("remove-executable-bit-in-index")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -138,7 +138,7 @@ fn executable_bit_removed_in_index() -> Result<()> {
 #[cfg(unix)]
 fn executable_bit_added_in_index() -> Result<()> {
     let repo = repo_unix("add-executable-bit-in-index")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -175,7 +175,7 @@ fn executable_bit_added_in_index() -> Result<()> {
 #[test]
 fn untracked_in_unborn() -> Result<()> {
     let repo = repo("untracked-unborn")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -206,7 +206,7 @@ fn untracked_in_unborn() -> Result<()> {
 #[test]
 fn added_in_unborn() -> Result<()> {
     let repo = repo("added-unborn")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -237,7 +237,7 @@ fn added_in_unborn() -> Result<()> {
 #[test]
 fn submodule_added_in_unborn() -> Result<()> {
     let repo = repo("submodule-added-unborn")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -275,7 +275,7 @@ fn submodule_added_in_unborn() -> Result<()> {
 #[test]
 fn submodule_changed_head() -> Result<()> {
     let repo = repo("submodule-changed-head")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -310,7 +310,7 @@ fn case_folding_worktree_changes() -> Result<()> {
     if !gix::fs::Capabilities::probe(repo.git_dir()).ignore_case {
         return Ok(());
     }
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     // This gives the strange situation that the file seems to have changed because it compares `FILE`
     // to `file` that is actually checked out on disk.
     insta::assert_debug_snapshot!(actual, @r#"
@@ -358,7 +358,7 @@ fn case_folding_worktree_and_index_changes() -> Result<()> {
     if !gix::fs::Capabilities::probe(repo.git_dir()).ignore_case {
         return Ok(());
     }
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     // Here we TreeChange `FILE` to be empty, and add that TreeChange to the index. This shows up as expected.
     // This also means that now `FILE` is compared against `file` on disk which happens to be empty too,
     // so no worktree TreeChange shows up.
@@ -404,7 +404,7 @@ fn case_folding_worktree_and_index_changes() -> Result<()> {
 #[test]
 fn file_to_dir_in_worktree() -> Result<()> {
     let repo = repo("file-to-dir-in-worktree")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -455,7 +455,7 @@ fn file_to_dir_in_worktree() -> Result<()> {
 #[test]
 fn file_to_dir_in_index() -> Result<()> {
     let repo = repo("file-to-dir-in-index")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -506,7 +506,7 @@ fn file_to_dir_in_index() -> Result<()> {
 #[test]
 fn dir_to_file_in_worktree() -> Result<()> {
     let repo = repo("dir-to-file-in-worktree")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -557,7 +557,7 @@ fn dir_to_file_in_worktree() -> Result<()> {
 #[test]
 fn dir_to_file_in_index() -> Result<()> {
     let repo = repo("dir-to-file-in-index")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -609,7 +609,7 @@ fn dir_to_file_in_index() -> Result<()> {
 #[cfg(unix)]
 fn file_to_symlink_in_worktree() -> Result<()> {
     let repo = repo_unix("file-to-symlink-in-worktree")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -654,7 +654,7 @@ fn file_to_symlink_in_worktree() -> Result<()> {
 #[test]
 fn conflict() -> Result<()> {
     let repo = repo("conflicting")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [],
@@ -673,7 +673,7 @@ fn conflict() -> Result<()> {
 #[cfg(unix)]
 fn file_to_symlink_in_index() -> Result<()> {
     let repo = repo_unix("file-to-symlink-in-index")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -719,7 +719,7 @@ fn file_to_symlink_in_index() -> Result<()> {
 #[cfg(unix)]
 fn symlink_to_file_in_worktree() -> Result<()> {
     let repo = repo_unix("symlink-to-file-in-worktree")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -765,7 +765,7 @@ fn symlink_to_file_in_worktree() -> Result<()> {
 #[cfg(unix)]
 fn symlink_to_file_in_index() -> Result<()> {
     let repo = repo_unix("symlink-to-file-in-index")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -810,7 +810,7 @@ fn symlink_to_file_in_index() -> Result<()> {
 #[test]
 fn added_modified_in_worktree() -> Result<()> {
     let repo = repo("added-modified-in-worktree")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -891,7 +891,7 @@ fn added_modified_in_worktree() -> Result<()> {
 #[test]
 fn modified_in_index() -> Result<()> {
     let repo = repo("modified-in-index")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -934,7 +934,7 @@ fn modified_in_index() -> Result<()> {
 #[test]
 fn deleted_in_worktree() -> Result<()> {
     let repo = repo("deleted-in-worktree")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -972,7 +972,7 @@ fn deleted_in_worktree() -> Result<()> {
 #[test]
 fn deleted_in_index() -> Result<()> {
     let repo = repo("deleted-in-index")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -1010,7 +1010,7 @@ fn deleted_in_index() -> Result<()> {
 #[test]
 fn renamed_in_index() -> Result<()> {
     let repo = repo("renamed-in-index")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -1046,7 +1046,7 @@ fn renamed_in_index() -> Result<()> {
 #[test]
 fn renamed_in_worktree() -> Result<()> {
     let repo = repo("renamed-in-worktree")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [
@@ -1082,7 +1082,7 @@ fn renamed_in_worktree() -> Result<()> {
 #[test]
 fn modified_in_index_and_workingtree() -> Result<()> {
     let repo = repo("modified-in-index-and-worktree")?;
-    let actual = worktree_changes(&repo)?;
+    let actual = diff::worktree_status(&repo)?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorktreeChanges {
         changes: [

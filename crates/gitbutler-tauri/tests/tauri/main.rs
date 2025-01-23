@@ -4,7 +4,7 @@ mod worktree {
         let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
             .map_err(anyhow::Error::from_boxed)?;
         let actual = serde_json::to_string_pretty(
-            &gitbutler_tauri::worktree::worktree_changes_by_worktree_dir(root)?,
+            &gitbutler_tauri::diff::worktree_status_by_worktree_dir(root)?,
         )?;
         insta::assert_snapshot!(actual, @r#"
         {

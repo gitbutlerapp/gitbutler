@@ -15,8 +15,7 @@ use gitbutler_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
     askpass, commands, config, diff, forge, github, logs, menu, modes, open, projects, remotes,
-    repo, secret, settings, stack, undo, users, virtual_branches, workspace, worktree, zip, App,
-    WindowState,
+    repo, secret, settings, stack, undo, users, virtual_branches, workspace, zip, App, WindowState,
 };
 use tauri::Emitter;
 use tauri::{generate_context, Manager};
@@ -249,7 +248,7 @@ fn main() {
                     settings::update_telemetry,
                     settings::update_feature_flags,
                     workspace::stacks,
-                    worktree::worktree_changes,
+                    diff::worktree_status,
                     diff::tree_change_diffs
                 ])
                 .menu(menu::build)

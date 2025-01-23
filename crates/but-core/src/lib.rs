@@ -29,19 +29,23 @@
 //! * **Workspace**
 //!     - A GitButler concept of the combination of one or more branches into one worktree. This allows
 //!       multiple branches to be perceived in one worktree, by merging multiple branches together.
+//! * **TreeChange**
+//!     - A change to a path contained in a Git tree.
+//!     - The change may have various sources, like an actual Git tree, or the workspace.
+//!     - It's tuned to contain only information we are interested in, which includes if an addition is untracked.
+//! * **UnifiedDiff**
+//!     - A list of patches in unified diff format, with easily accessible line number information (which isn't baked into the patch string itself).
 //!
 
 use bstr::BString;
 use gix::object::tree::EntryKind;
 use serde::Serialize;
 
-/// Functions related to a Git worktree, i.e. the files checked out from a repository.
-mod worktree;
-pub use worktree::changes as worktree_changes;
+/// Functions to obtain changes between various items.
+pub mod diff;
 
 /// Commit related utility types.
 pub mod commit;
-pub use commit::changes::function as commit_changes;
 
 /// utility types
 pub mod unified_diff;
