@@ -1,4 +1,5 @@
 use crate::error::Error;
+use crate::from_json::HexHash;
 use but_core::IgnoredWorktreeChange;
 use gitbutler_project::ProjectId;
 use gitbutler_serde::BStringForFrontend;
@@ -20,6 +21,33 @@ pub fn tree_change_diffs(
     let project = projects.get(project_id)?;
     let repo = gix::open(project.path).map_err(anyhow::Error::from)?;
     change.unified_diff(&repo).map_err(Into::into)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(projects), err(Debug))]
+pub fn commit_to_commit(
+    projects: tauri::State<'_, gitbutler_project::Controller>,
+    project_id: ProjectId,
+    old_commit_id: Option<HexHash>,
+    new_commit_id: HexHash,
+) -> anyhow::Result<Vec<TreeChange>, Error> {
+    let project = projects.get(project_id)?;
+    commit_to_commit_by_worktree_dir(
+        project.path,
+        old_commit_id.map(Into::into),
+        new_commit_id.into(),
+    )
+    .map_err(Into::into)
+}
+
+pub fn commit_to_commit_by_worktree_dir(
+    worktree_dir: PathBuf,
+    old_commit_id: Option<gix::ObjectId>,
+    new_commit_id: gix::ObjectId,
+) -> anyhow::Result<Vec<TreeChange>> {
+    let repo = gix::open(worktree_dir).map_err(anyhow::Error::from)?;
+    but_core::diff::commit_to_commit(&repo, old_commit_id, new_commit_id)
+        .map(|c| c.into_iter().map(Into::into).collect())
 }
 
 /// This UI-version of [`but_core::worktree_changes()`] simplifies the `git status` information for display in
@@ -50,7 +78,7 @@ pub fn worktree_status_by_worktree_dir(worktree_dir: PathBuf) -> anyhow::Result<
 #[derive(Debug, Clone, Serialize)]
 pub struct WorktreeChanges {
     /// Changes that could be committed.
-    pub changes: Vec<crate::diff::TreeChange>,
+    pub changes: Vec<TreeChange>,
     /// Changes that were in the index that we can't handle. The user can see them and interact with them to clear them out before a commit can be made.
     pub ignored_changes: Vec<IgnoredWorktreeChange>,
 }
