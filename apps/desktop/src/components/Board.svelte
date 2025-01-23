@@ -77,9 +77,6 @@
 	const handleKeyDown = createKeybind({
 		'$mod+Shift+H': () => {
 			$showHistoryView = !$showHistoryView;
-		},
-		'$mod+z': () => {
-			$showHistoryView = !$showHistoryView;
 		}
 	});
 
