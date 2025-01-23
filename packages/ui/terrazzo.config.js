@@ -1,4 +1,5 @@
 import { defineConfig } from '@terrazzo/cli';
+import * as _ from '@terrazzo/parser';
 import css from '@terrazzo/plugin-css';
 
 function pxToRem(token) {
