@@ -582,6 +582,7 @@ fn prepare_with_shell(program: impl Into<OsString>) -> gix::command::Prepare {
             .with_shell_program(gix::path::env::shell())
             // force using a shell, we want access to additional programs here
             .with_shell()
+            .with_quoted_command()
     } else {
         prepare
     }
