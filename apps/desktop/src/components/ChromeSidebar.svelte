@@ -164,8 +164,8 @@
 			</Button>
 		</div>
 	</div>
-	<div class="bottom" bind:this={contextTriggerButton}>
-		<div class="">
+	<div class="bottom">
+		<div>
 			{#if routes.isSettingsPath}
 				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 			{/if}
@@ -177,6 +177,7 @@
 				class={['btn-square', routes.isSettingsPath && 'btn-active']}
 			/>
 		</div>
+
 		<Button
 			kind="outline"
 			width={34}
@@ -185,7 +186,7 @@
 				contextMenuEl?.toggle();
 			}}
 		>
-			<div class="user-button">
+			<div class="user-button" bind:this={contextTriggerButton}>
 				{#if $user?.picture}
 					<img
 						class="profile-picture"
@@ -363,28 +364,30 @@
 	}
 
 	.stroke-black {
-		stroke: #000 !important;
+		stroke: #000;
 	}
 
-	:global(.fill-text-2) {
-		fill: var(--clr-text-2) !important;
+	/* OVERRIDE BUTTON STYLES */
+
+	:global(.btn.fill-text-2) {
+		fill: var(--clr-text-2);
 		opacity: 0.5;
 	}
 
-	:global(.btn-height-auto) {
-		height: auto !important;
-		border-radius: var(--radius-ml) !important;
-		padding: 0 !important;
+	:global(.btn.btn-height-auto) {
+		height: auto;
+		border-radius: var(--radius-ml);
+		padding: 0;
 	}
 
-	:global(.btn-square) {
+	:global(.btn.btn-square) {
 		aspect-ratio: 1 / 1;
-		height: unset !important;
+		height: unset;
 		opacity: 0.7;
-		border-radius: var(--radius-ml) !important;
+		border-radius: var(--radius-ml);
 	}
-	:global(.btn-square.btn-active) {
-		opacity: 1 !important;
+	:global(.btn.btn-square.btn-active) {
+		opacity: 1;
 		background-color: var(--clr-scale-ntrl-100);
 	}
 </style>
