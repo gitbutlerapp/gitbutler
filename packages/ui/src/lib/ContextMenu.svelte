@@ -7,7 +7,10 @@
 	interface Props {
 		leftClickTrigger?: HTMLElement;
 		rightClickTrigger?: HTMLElement;
+		side?: 'top' | 'bottom' | 'left' | 'right';
+		/** Only valid if side = 'left' | 'right' */
 		verticalAlign?: 'top' | 'bottom';
+		/** Only valid if side = 'top' | 'bottom' */
 		horizontalAlign?: 'left' | 'right';
 		children: Snippet<[item: any]>;
 		onclose?: () => void;
@@ -18,6 +21,7 @@
 	let {
 		leftClickTrigger,
 		rightClickTrigger,
+		side = 'right',
 		verticalAlign = 'bottom',
 		horizontalAlign = 'right',
 		children,
@@ -35,20 +39,46 @@
 	let savedMouseEvent: MouseEvent | undefined = $state();
 
 	function setVerticalAlign(targetBoundingRect: DOMRect) {
-		return verticalAlign === 'top'
-			? targetBoundingRect?.top
-				? targetBoundingRect.top - contextMenuHeight
-				: 0
-			: targetBoundingRect?.top
-				? targetBoundingRect.top + targetBoundingRect.height
-				: 0;
+		if (['top', 'bottom'].includes(side)) {
+			return side === 'top'
+				? targetBoundingRect?.top
+					? targetBoundingRect.top - contextMenuHeight
+					: 0
+				: targetBoundingRect?.top
+					? targetBoundingRect.top + targetBoundingRect.height
+					: 0;
+		} else if (['left', 'right'].includes(side)) {
+			if (verticalAlign === 'top') {
+				console.log('right/top');
+				return targetBoundingRect?.bottom + targetBoundingRect?.height;
+			} else if (verticalAlign === 'bottom') {
+				console.log('right/bottom');
+				return targetBoundingRect?.bottom + targetBoundingRect?.height;
+			}
+			// return side === 'left'
+			// 	? targetBoundingRect?.top
+			// 		? targetBoundingRect.top - contextMenuHeight
+			// 		: 0
+			// 	: targetBoundingRect?.top
+			// 		? targetBoundingRect.top + targetBoundingRect.height
+			// 		: 0;
+		}
 	}
 
 	function setHorizontalAlign(targetBoundingRect: DOMRect) {
 		const correction = 2;
-		return horizontalAlign === 'left'
-			? targetBoundingRect?.left
-			: targetBoundingRect?.left + targetBoundingRect.width - contextMenuWidth - correction;
+		// Context Menu should appear above or below the target element
+		if (['top', 'bottom'].includes(side)) {
+			return horizontalAlign === 'left'
+				? targetBoundingRect?.left
+				: targetBoundingRect?.left + targetBoundingRect.width - contextMenuWidth - correction;
+		} else if (['left', 'right'].includes(side)) {
+			console.log('targetBoundingRect', targetBoundingRect);
+			// Context Menu should appear left or right of the target element
+			return verticalAlign === 'top'
+				? targetBoundingRect?.left
+				: targetBoundingRect?.left + targetBoundingRect.width + correction;
+		}
 	}
 
 	function executeByTrigger(callback: (isOpened: boolean, isLeftClick: boolean) => void) {
@@ -87,6 +117,7 @@
 			x: setHorizontalAlign(targetBoundingRect),
 			y: setVerticalAlign(targetBoundingRect)
 		};
+		console.log('newMenuPosition', newMenuPosition);
 
 		// Adjust alignment to stay within the window
 		if (newMenuPosition.x + contextMenuWidth > window.innerWidth) {
@@ -98,11 +129,11 @@
 			newMenuPosition.x = setHorizontalAlign(targetBoundingRect);
 		}
 		if (newMenuPosition.y + contextMenuHeight > window.innerHeight) {
-			verticalAlign = verticalAlign === 'bottom' ? 'top' : 'bottom';
+			side = side === 'bottom' ? 'top' : 'bottom';
 			newMenuPosition.y = setVerticalAlign(targetBoundingRect);
 		}
 		if (newMenuPosition.y < 0) {
-			verticalAlign = 'bottom';
+			side = 'bottom';
 			newMenuPosition.y = setVerticalAlign(targetBoundingRect);
 		}
 
@@ -153,7 +184,7 @@
 
 	function setTransformOrigin() {
 		if (savedMouseEvent) return 'top left';
-		if (verticalAlign === 'top') return horizontalAlign === 'left' ? 'bottom left' : 'bottom right';
+		if (side === 'top') return horizontalAlign === 'left' ? 'bottom left' : 'bottom right';
 		return horizontalAlign === 'left' ? 'top left' : 'top right';
 	}
 
@@ -174,12 +205,12 @@
 		bind:clientHeight={contextMenuHeight}
 		bind:clientWidth={contextMenuWidth}
 		class="context-menu"
-		class:top-oriented={verticalAlign === 'top'}
-		class:bottom-oriented={verticalAlign === 'bottom'}
+		class:top-oriented={side === 'top'}
+		class:bottom-oriented={side === 'bottom'}
 		style:top="{menuPosition.y}px"
 		style:left="{menuPosition.x}px"
 		style:transform-origin={setTransformOrigin()}
-		style:--animation-transform-shift={verticalAlign === 'top' ? '6px' : '-6px'}
+		style:--animation-transform-shift={side === 'top' ? '6px' : '-6px'}
 	>
 		{@render children(item)}
 	</div>

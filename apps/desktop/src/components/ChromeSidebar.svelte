@@ -164,7 +164,7 @@
 			</Button>
 		</div>
 	</div>
-	<div class="bottom" bind:this={contextTriggerButton}>
+	<div class="bottom">
 		<div class="">
 			{#if routes.isSettingsPath}
 				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
@@ -177,30 +177,32 @@
 				class={['btn-square', routes.isSettingsPath && 'btn-active']}
 			/>
 		</div>
-		<Button
-			kind="outline"
-			width={34}
-			class="btn-height-auto"
-			onclick={() => {
-				contextMenuEl?.toggle();
-			}}
-		>
-			<div class="user-button">
-				{#if $user?.picture}
-					<img
-						class="profile-picture"
-						src={$user.picture}
-						alt="Avatar"
-						referrerpolicy="no-referrer"
-					/>
-				{:else}
-					<div class="anon-icon">
-						<Icon name="profile" />
-					</div>
-				{/if}
-				<Icon name="select-chevron" />
-			</div>
-		</Button>
+		<div bind:this={contextTriggerButton}>
+			<Button
+				kind="outline"
+				width={34}
+				class="btn-height-auto"
+				onclick={() => {
+					contextMenuEl?.toggle();
+				}}
+			>
+				<div class="user-button">
+					{#if $user?.picture}
+						<img
+							class="profile-picture"
+							src={$user.picture}
+							alt="Avatar"
+							referrerpolicy="no-referrer"
+						/>
+					{:else}
+						<div class="anon-icon">
+							<Icon name="profile" />
+						</div>
+					{/if}
+					<Icon name="select-chevron" />
+				</div>
+			</Button>
+		</div>
 
 		<div>
 			<Button
@@ -232,8 +234,8 @@
 <ContextMenu
 	bind:this={contextMenuEl}
 	leftClickTrigger={contextTriggerButton}
-	verticalAlign="top"
-	horizontalAlign="left"
+	side="right"
+	verticalAlign="bottom"
 >
 	<ContextMenuSection>
 		<ContextMenuItem
