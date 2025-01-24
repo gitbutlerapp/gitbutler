@@ -229,6 +229,7 @@ export class CombinedBranchListingService {
 					'subject.name',
 					'subject.lastCommiter.email',
 					'subject.lastCommiter.name',
+					'subject.virtualBranch.stackBranches',
 					// Subject is pull request
 					'subject.title',
 					'subject.author.email',
