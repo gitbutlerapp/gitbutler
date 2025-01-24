@@ -696,6 +696,17 @@ name = "but-debugging"
 version = "0.0.0"
 
 [[package]]
+name = "but-hunk-dependency"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-core",
+ "gix",
+ "gix-testtools",
+ "insta",
+]
+
+[[package]]
 name = "but-workspace"
 version = "0.0.0"
 dependencies = [

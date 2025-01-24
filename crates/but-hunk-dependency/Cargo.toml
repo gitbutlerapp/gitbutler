@@ -1,0 +1,18 @@
+[package]
+name = "but-hunk-dependency"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = "1.0.95"
+gix = { workspace = true, features = [] }
+but-core.workspace = true
+
+[dev-dependencies]
+gix-testtools.workspace = true
+insta.workspace = true
