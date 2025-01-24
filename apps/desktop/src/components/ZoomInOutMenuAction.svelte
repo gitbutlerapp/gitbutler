@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { listen } from '$lib/backend/ipc';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { createKeybind } from '$lib/utils/hotkeys';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';
@@ -25,13 +24,6 @@
 		userSettings.update((s) => ({ ...s, zoom }));
 	}
 
-	const handleKeyDown = createKeybind({
-		'$mod++': () => updateZoom(zoom + ZOOM_STEP),
-		'$mod+=': () => updateZoom(zoom + ZOOM_STEP),
-		'$mod+-': () => updateZoom(zoom - ZOOM_STEP),
-		'$mod+0': () => updateZoom(DEFAULT_ZOOM)
-	});
-
 	onMount(() => {
 		if (zoom !== DEFAULT_ZOOM) {
 			setDomZoom(zoom);
@@ -54,5 +46,3 @@
 		};
 	});
 </script>
-
-<svelte:window onkeydown={handleKeyDown} />
