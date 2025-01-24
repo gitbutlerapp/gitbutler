@@ -444,6 +444,9 @@ export class BranchListingDetails {
 	 */
 	@Type(() => Author)
 	authors!: Author[];
+	/** The branch may or may not have a virtual branch associated with it */
+	@Type(() => VirtualBranchReference)
+	virtualBranch?: VirtualBranchReference | undefined;
 }
 
 export type SidebarEntrySubject =
