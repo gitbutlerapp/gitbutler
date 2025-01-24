@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Button from '$lib/Button.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import { focusTrap } from '$lib/utils/focusTrap';
 	import { portal } from '$lib/utils/portal';
@@ -10,6 +11,7 @@
 		width?: 'medium' | 'large' | 'small' | 'xsmall' | number;
 		type?: 'info' | 'warning' | 'error' | 'success';
 		title?: string;
+		closeButton?: boolean;
 		noPadding?: boolean;
 		/**
 		 * Callback to be called when the modal is closed.
@@ -32,6 +34,7 @@
 		width = 'medium',
 		title,
 		type = 'info',
+		closeButton,
 		onClose,
 		onClickOutside,
 		children,
@@ -138,6 +141,12 @@
 						<h2 class="text-14 text-bold">
 							{title}
 						</h2>
+
+						{#if closeButton}
+							<div class="close-btn">
+								<Button type="button" kind="ghost" icon="cross" onclick={close}></Button>
+							</div>
+						{/if}
 					</div>
 				{/if}
 
@@ -187,6 +196,12 @@
 		& .modal-content {
 			animation: dialog-zoom-out 0.1s cubic-bezier(0.34, 1.35, 0.7, 1) forwards;
 		}
+	}
+
+	.close-btn {
+		position: absolute;
+		top: 10px;
+		right: 10px;
 	}
 
 	.modal-content {
