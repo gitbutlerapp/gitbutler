@@ -91,7 +91,7 @@
 		color: var(--text-1, #1a1614);
 
 		/* base/12-semibold */
-		font-family: var(--font-family-default, Inter);
+		font-family: var(--fontfamily-default, Inter);
 		font-size: 12px;
 		font-style: normal;
 		font-weight: 500;

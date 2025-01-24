@@ -1,4 +1,5 @@
 <script lang="ts">
+	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import { Project } from '$lib/project/project';
 	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
@@ -20,6 +21,7 @@
 	let contextTriggerButton = $state<HTMLDivElement>();
 	let contextMenuEl = $state<ContextMenu>();
 	let shareIssueModal = $state<ShareIssueModal>();
+	let keyboardShortcutsModal = $state<KeyboardShortcutsModal>();
 </script>
 
 <nav class="sidebar">
@@ -212,6 +214,9 @@
 				tooltipAlign="start"
 				width={34}
 				class="fill-text-2"
+				onclick={() => {
+					keyboardShortcutsModal?.show();
+				}}
 			/>
 			<Button
 				icon="mail"
@@ -273,6 +278,7 @@
 	</ContextMenuSection>
 </ContextMenu>
 
+<KeyboardShortcutsModal bind:this={keyboardShortcutsModal} />
 <ShareIssueModal bind:this={shareIssueModal} />
 
 <style>

@@ -77,7 +77,7 @@
 		text-overflow: ellipsis;
 
 		/* base/12 */
-		font-family: var(--font-family-default, Inter);
+		font-family: var(--fontfamily-default, Inter);
 		font-size: 12px;
 		font-style: normal;
 		font-weight: var(--weight-regular, 400);
@@ -90,7 +90,7 @@
 		text-overflow: ellipsis;
 
 		/* base/12 */
-		font-family: var(--font-family-default, Inter);
+		font-family: var(--fontfamily-default, Inter);
 		font-size: 12px;
 		font-style: normal;
 		font-weight: var(--weight-regular, 400);

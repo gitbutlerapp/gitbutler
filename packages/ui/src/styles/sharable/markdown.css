@@ -69,7 +69,7 @@
 	}
 
 	.markdown code {
-		font-family: var(--font-family-mono);
+		font-family: var(--fontfamily-mono);
 		background-color: var(--clr-scale-ntrl-90);
 		border: 1px solid var(--clr-scale-ntrl-70);
 		padding: 1px 3px;
