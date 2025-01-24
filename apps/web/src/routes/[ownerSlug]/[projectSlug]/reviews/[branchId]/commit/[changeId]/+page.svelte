@@ -20,6 +20,7 @@
 		WebRoutesService,
 		type ProjectReviewCommitParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { goto } from '$app/navigation';
 
 	const BRANCH_TITLE_PLACE_HOLDER = 'No branch title provided';
 	const DESCRIPTION_PLACE_HOLDER = 'No description provided';
@@ -80,7 +81,7 @@
 			changeId
 		});
 
-		window.location.href = url;
+		goto(url);
 	}
 </script>
 
