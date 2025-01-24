@@ -5292,7 +5292,7 @@
 	},
 	"radius": {
 		"s": {
-			"$type": "string",
+			"$type": "dimension",
 			"$value": "4px",
 			"$description": "",
 			"$extensions": {
@@ -5309,7 +5309,7 @@
 			}
 		},
 		"m": {
-			"$type": "string",
+			"$type": "dimension",
 			"$value": "6px",
 			"$description": "",
 			"$extensions": {
@@ -5326,7 +5326,7 @@
 			}
 		},
 		"l": {
-			"$type": "string",
+			"$type": "dimension",
 			"$value": "12px",
 			"$description": "",
 			"$extensions": {
@@ -5343,7 +5343,7 @@
 			}
 		},
 		"ml": {
-			"$type": "string",
+			"$type": "dimension",
 			"$value": "10px",
 			"$description": "",
 			"$extensions": {
@@ -5414,7 +5414,7 @@
 				}
 			}
 		},
-		"line-height": {
+		"lineheight": {
 			"body": {
 				"$type": "string",
 				"$value": "160%",
@@ -5450,7 +5450,7 @@
 				}
 			}
 		},
-		"font-family": {
+		"fontfamily": {
 			"default": {
 				"$type": "string",
 				"$value": "Inter",
@@ -5509,7 +5509,7 @@
 			"icon": {
 				"outline": {
 					"$type": "number",
-					"$value": 0.8,
+					"$value": 0.7,
 					"$description": "",
 					"$extensions": {
 						"mode": {},
@@ -5526,7 +5526,7 @@
 				},
 				"outline-hover": {
 					"$type": "number",
-					"$value": 0.9,
+					"$value": 0.8,
 					"$description": "",
 					"$extensions": {
 						"mode": {},
@@ -5660,7 +5660,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius", "text", "opacity"],
-			"createdAt": "2025-01-12T22:53:22.648Z"
+			"createdAt": "2025-01-24T16:02:09.087Z"
 		}
 	}
 }

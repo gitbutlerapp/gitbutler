@@ -8,46 +8,45 @@ export const shortcuts = {
 	global: {
 		open_repository: {
 			title: 'Add local repository…',
-			description: 'Create a new project by adding a local repository',
-			keys: '$mod+O'
+			keys: '$mod+O',
+			description: null
 		},
 		clone_repository: {
 			title: 'Clone repository',
-			description: 'Clone a remote repository to your local machine',
-			keys: '$mod+Shift+O'
+			keys: '$mod+Shift+O',
+			description: null
 		}
 	},
 	view: {
-		zoom_in: {
-			title: 'Zoom in',
-			description: 'Zoom in UI',
-			keys: '$mod++',
-			altkeys: '$mod+='
-		},
-		zoom_out: {
-			title: 'Zoom out',
-			description: 'Zoom out UI',
-			keys: '$mod+-'
-		},
-		reset_zoom: {
-			title: 'Reset zoom',
-			description: 'Reset zoom level',
-			keys: '$mod+0'
-		},
 		switch_theme: {
 			title: 'Switch theme',
-			description: 'Switch between light and dark themes',
-			keys: '$mod+T'
+			keys: '$mod+T',
+			description: null
 		},
 		toggle_sidebar: {
 			title: 'Toggle sidebar',
-			description: 'Show or hide the sidebar',
-			keys: '$mod+\\'
+			keys: '$mod+\\',
+			description: null
+		},
+		zoom_in: {
+			title: 'Zoom in',
+			keys: '$mod+=',
+			description: null
+		},
+		zoom_out: {
+			title: 'Zoom out',
+			keys: '$mod+-',
+			description: null
+		},
+		reset_zoom: {
+			title: 'Reset zoom',
+			keys: '$mod+0',
+			description: null
 		},
 		reload_view: {
 			title: 'Reload view',
-			description: 'Reload the current view',
-			keys: '$mod+R'
+			keys: '$mod+R',
+			description: null
 		}
 	},
 	project: {

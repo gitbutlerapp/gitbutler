@@ -149,7 +149,7 @@
 		color: var(--text-3, #b4afac);
 
 		/* base/12 */
-		font-family: var(--font-family-default, Inter);
+		font-family: var(--fontfamily-default, Inter);
 		font-size: 12px;
 		font-style: normal;
 		font-weight: var(--weight-regular, 400);
@@ -160,7 +160,7 @@
 		color: var(--text-1, #1a1614);
 
 		/* base/12 */
-		font-family: var(--font-family-default, Inter);
+		font-family: var(--fontfamily-default, Inter);
 		font-size: 12px;
 		font-style: normal;
 		font-weight: var(--weight-regular, 400);
@@ -170,7 +170,7 @@
 	.review-main-content-title {
 		color: var(--text-1, #1a1614);
 
-		font-family: var(--font-family-default, Inter);
+		font-family: var(--fontfamily-default, Inter);
 		font-size: 18px;
 		font-style: normal;
 		font-weight: var(--weight-bold, 600);
@@ -184,7 +184,7 @@
 
 	.review-main-content-description {
 		color: var(--text-1, #1a1614);
-		font-family: var(--font-family-mono, 'Geist Mono');
+		font-family: var(--fontfamily-mono, 'Geist Mono');
 		font-size: 12px;
 		font-style: normal;
 		font-weight: var(--weight-regular, 400);

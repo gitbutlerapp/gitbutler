@@ -94,7 +94,7 @@
 	style:--padding-right={pxToRem(padding.right)}
 	style:--padding-bottom={pxToRem(padding.bottom)}
 	style:--padding-left={pxToRem(padding.left)}
-	style:--line-height-ratio={1.6}
+	style:--lineheight-ratio={1.6}
 	style:flex
 >
 	{#if label}
@@ -170,7 +170,7 @@
 	.textarea-measure-el,
 	.textarea {
 		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);
-		line-height: var(--line-height-ratio);
+		line-height: var(--lineheight-ratio);
 		width: 100%;
 		word-wrap: break-word;
 		white-space: pre-wrap;
@@ -188,7 +188,7 @@
 	}
 
 	.textarea {
-		font-family: var(--font-family-default);
+		font-family: var(--fontfamily-default);
 		cursor: text;
 		resize: none;
 		overflow-y: auto; /* Enable scrolling when max height is reached */

@@ -49,7 +49,7 @@
 		color: var(--text-1, #1a1614);
 
 		/* base/12-bold */
-		font-family: var(--font-family-default, Inter);
+		font-family: var(--fontfamily-default, Inter);
 		font-size: 12px;
 		font-style: normal;
 		font-weight: var(--weight-bold, 600);
@@ -60,7 +60,7 @@
 		color: var(--succ-30, #287b55);
 
 		/* base/12 */
-		font-family: var(--font-family-default, Inter);
+		font-family: var(--fontfamily-default, Inter);
 		font-size: 12px;
 		font-style: normal;
 		font-weight: var(--weight-regular, 400);
@@ -71,7 +71,7 @@
 		color: var(--err-30, #95323c);
 
 		/* base/12 */
-		font-family: var(--font-family-default, Inter);
+		font-family: var(--fontfamily-default, Inter);
 		font-size: 12px;
 		font-style: normal;
 		font-weight: var(--weight-regular, 400);

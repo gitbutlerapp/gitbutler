@@ -188,6 +188,12 @@ pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Me
         .text("help/github", "Source Code")
         .text("help/release-notes", "Release Notes")
         .separator()
+        .item(
+            &MenuItemBuilder::with_id("help/keyboard-shortcuts", "Keyboard Shortcuts")
+                .accelerator("CmdOrCtrl+/")
+                .build(handle)?,
+        )
+        .separator()
         .text("help/share-debug-info", "Share Debug Info…")
         .text("help/report-issue", "Report an Issue…")
         .separator()
@@ -298,6 +304,11 @@ pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
 
     if event.id() == "global/update" {
         emit(webview, "menu://global/update/clicked");
+        return;
+    }
+
+    if event.id() == "help/keyboard-shortcuts" {
+        emit(webview, "menu://help/keyboard-shortcuts/clicked");
         return;
     }
 
