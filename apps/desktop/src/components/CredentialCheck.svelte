@@ -1,11 +1,11 @@
 <script lang="ts">
 	import InfoMessage from '$components/InfoMessage.svelte';
-	import Link from '$components/Link.svelte';
 	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { slide } from 'svelte/transition';
 
 	interface Props {

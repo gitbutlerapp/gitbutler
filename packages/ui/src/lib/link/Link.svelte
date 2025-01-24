@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { openExternalUrl } from '$lib/utils/url';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Icon from '$lib/Icon.svelte';
+	import { getExternalLinkService } from '$lib/link/externalLinkService';
 	import { onMount, type Snippet } from 'svelte';
 
 	interface Props {
@@ -25,6 +25,8 @@
 
 	let element = $state<HTMLAnchorElement | HTMLButtonElement>();
 
+	const externalLinkService = getExternalLinkService();
+
 	onMount(() => {
 		if (element) {
 			element.ariaLabel = element.innerText?.trim();
@@ -45,7 +47,7 @@
 		if (href && isExternal) {
 			e.preventDefault();
 			e.stopPropagation();
-			openExternalUrl(href);
+			externalLinkService.open(href);
 		}
 	}}
 >

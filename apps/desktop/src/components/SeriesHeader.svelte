@@ -5,7 +5,6 @@
 	import Dropzones from './Dropzones.svelte';
 	import SeriesDescription from './SeriesDescription.svelte';
 	import SeriesHeaderStatusIcon from './SeriesHeaderStatusIcon.svelte';
-	import Link from '$components/Link.svelte';
 	import PrDetailsModal from '$components/PrDetailsModal.svelte';
 	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
@@ -43,6 +42,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Link from '@gitbutler/ui/link/Link.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';

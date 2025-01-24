@@ -45,6 +45,7 @@
 	import * as events from '$lib/utils/events';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { PatchService as CloudPatchService } from '@gitbutler/shared/branches/patchService';
@@ -58,6 +59,7 @@
 	import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
+	import { setExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
 	import { onMount, setContext, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
@@ -85,6 +87,8 @@
 	const latestBranchLookupService = new LatestBranchLookupService(data.cloud, appState.appDispatch);
 	const webRoutesService = new WebRoutesService(env.PUBLIC_CLOUD_BASE_URL);
 	const desktopRouteService = new DesktopRoutesService();
+
+	setExternalLinkService({ open: openExternalUrl });
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);

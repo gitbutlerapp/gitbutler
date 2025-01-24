@@ -1,7 +1,5 @@
 <script lang="ts">
 	// This is always displayed in the context of not having a cooresponding vbranch or remote
-	import Link from '$components/Link.svelte';
-	import Markdown from '$components/Markdown.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { BranchController } from '$lib/branches/branchController';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
@@ -13,6 +11,8 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import Link from '@gitbutler/ui/link/Link.svelte';
+	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import type { PullRequest } from '$lib/forge/interface/types';
 	import { goto } from '$app/navigation';
 

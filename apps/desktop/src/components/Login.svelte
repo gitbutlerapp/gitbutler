@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Link from '$components/Link.svelte';
 	import { UserService, type LoginToken } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Link from '@gitbutler/ui/link/Link.svelte';
 
 	const userService = getContext(UserService);
 	const loading = userService.loading;

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Link from '$components/Link.svelte';
 	import ProjectConnectModal from '$components/ProjectConnectModal.svelte';
 	import Section from '$components/Section.svelte';
 	import { ProjectService } from '$lib/project/projectService';
@@ -19,6 +18,7 @@
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import Link from '@gitbutler/ui/link/Link.svelte';
 	import type { Project as BackendProject } from '$lib/project/project';
 	import type { Project } from '@gitbutler/shared/organizations/types';
 
