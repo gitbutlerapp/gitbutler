@@ -4,6 +4,61 @@ interface KeybindDefinitions {
 	[combo: string]: (event: KeyboardEvent) => void;
 }
 
+export const shortcuts = {
+	global: {
+		open_repository: {
+			title: 'Add local repository…',
+			description: 'Create a new project by adding a local repository',
+			keys: '$mod+O'
+		},
+		clone_repository: {
+			title: 'Clone repository',
+			description: 'Clone a remote repository to your local machine',
+			keys: '$mod+Shift+O'
+		}
+	},
+	view: {
+		zoom_in: {
+			title: 'Zoom in',
+			description: 'Zoom in UI',
+			keys: '$mod++',
+			altkeys: '$mod+='
+		},
+		zoom_out: {
+			title: 'Zoom out',
+			description: 'Zoom out UI',
+			keys: '$mod+-'
+		},
+		reset_zoom: {
+			title: 'Reset zoom',
+			description: 'Reset zoom level',
+			keys: '$mod+0'
+		},
+		switch_theme: {
+			title: 'Switch theme',
+			description: 'Switch between light and dark themes',
+			keys: '$mod+T'
+		},
+		toggle_sidebar: {
+			title: 'Toggle sidebar',
+			description: 'Show or hide the sidebar',
+			keys: '$mod+/'
+		},
+		reload_view: {
+			title: 'Reload view',
+			description: 'Reload the current view',
+			keys: '$mod+R'
+		}
+	},
+	project: {
+		project_history: {
+			title: 'Project history',
+			description: 'Opens the project history view. Revert changes, view commits, and more.',
+			keys: '$mod+Shift+H'
+		}
+	}
+};
+
 export enum KeyName {
 	Space = ' ',
 	Meta = 'Meta',

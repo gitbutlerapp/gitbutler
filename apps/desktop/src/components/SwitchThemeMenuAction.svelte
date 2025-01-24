@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { listen } from '$lib/backend/ipc';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { createKeybind } from '$lib/utils/hotkeys';
 	import { initTheme } from '$lib/utils/theme';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
@@ -24,10 +23,4 @@
 			unsubscribeTheme();
 		};
 	});
-
-	const handleKeyDown = createKeybind({
-		'$mod+T': updateTheme
-	});
 </script>
-
-<svelte:window onkeydown={handleKeyDown} />

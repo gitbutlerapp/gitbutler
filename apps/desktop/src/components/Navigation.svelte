@@ -12,7 +12,6 @@
 	import { platformName } from '$lib/platform/platform';
 	import { ProjectService } from '$lib/project/projectService';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { createKeybind } from '$lib/utils/hotkeys';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { env } from '$env/dynamic/public';
@@ -37,17 +36,9 @@
 		$isNavCollapsed = !$isNavCollapsed;
 	}
 
-	const handleKeyDown = createKeybind({
-		'$mod+/': () => {
-			toggleNavCollapse();
-		}
-	});
-
 	const modeService = getContext(ModeService);
 	const mode = modeService.mode;
 </script>
-
-<svelte:window onkeydown={handleKeyDown} />
 
 <aside class="navigation-wrapper">
 	<div
