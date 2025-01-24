@@ -249,6 +249,7 @@ fn main() {
                     settings::update_telemetry,
                     settings::update_feature_flags,
                     workspace::stacks,
+                    workspace::stack_branches,
                     diff::worktree_changes,
                     diff::commit_changes,
                     diff::tree_change_diffs,
