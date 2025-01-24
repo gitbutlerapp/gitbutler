@@ -1,5 +1,7 @@
 /**
  * Shared helper functions for manipulating selected files with keyboard.
+ *
+ * TODO: Remove this file once V3 has shipped.
  */
 import { getSelectionDirection } from './getSelectionDirection';
 import { KeyName } from './hotkeys';

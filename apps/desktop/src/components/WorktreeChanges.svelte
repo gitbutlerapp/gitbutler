@@ -1,9 +1,13 @@
 <script lang="ts">
+	import ChangeList from './ChangeList.svelte';
 	import ReduxResult from './ReduxResult.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
+	import { createCommitStore } from '$lib/commits/contexts';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import { setContext } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -12,6 +16,10 @@
 	const { projectId }: Props = $props();
 
 	const worktreeService = getContext(WorktreeService);
+	const idSelection = new IdSelection(worktreeService);
+	setContext(IdSelection, idSelection);
+	createCommitStore(undefined);
+
 	const { data, status, error } = $derived(worktreeService.getChanges(projectId));
 </script>
 
@@ -20,12 +28,10 @@
 	<Button kind="ghost" icon="sidebar-unfold" />
 </div>
 
-<div class="worktree-body">
+<div class="file-list">
 	<ReduxResult data={data?.changes} {status} {error}>
 		{#snippet children(changes)}
-			{#each changes || [] as change}
-				<p>{change.path}</p>
-			{/each}
+			<ChangeList {projectId} {changes} />
 		{/snippet}
 		{#snippet empty()}
 			<div class="text-12 text-body helper-text">
@@ -46,12 +52,16 @@
 		padding: 10px 8px 10px 14px;
 	}
 
-	.worktree-body {
-		flex: 1;
+	.file-list {
 		display: flex;
+		flex: 1;
+		width: 100%;
+		display: flex;
+		justify-items: top;
 		flex-direction: column;
-		align-items: center;
-		justify-content: center;
+		align-items: top;
+		justify-content: top;
+		overflow: hidden;
 	}
 
 	.helper-text {

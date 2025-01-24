@@ -151,7 +151,6 @@
 
 <style lang="postcss">
 	.file-list-item {
-		flex: 1;
 		display: flex;
 		align-items: center;
 		padding: 6px 14px;

@@ -1,4 +1,4 @@
-import { FileDropData, type DropData } from './draggables';
+import { FileDropData, ChangeDropData, type DropData } from './draggables';
 import { dropzoneRegistry } from './dropzone';
 import { type CommitStatus } from '$lib/commits/commit';
 import { getFileIcon } from '@gitbutler/ui/file/getFileIcon';
@@ -77,6 +77,7 @@ function setupDragHandlers(
 			return;
 		}
 
+		// This should be deleted once V3 design has shipped.
 		if (opts.data instanceof FileDropData) {
 			selectedElements = [];
 			for (const file of opts.data.files) {
@@ -92,6 +93,17 @@ function setupDragHandlers(
 							{ once: true }
 						);
 					}
+					selectedElements.push(element);
+				}
+			}
+		}
+
+		if (opts.data instanceof ChangeDropData) {
+			selectedElements = [];
+			for (const path of opts.data.changedPaths()) {
+				// Path is sufficient as a key since we query the parent container.
+				const element = parentNode.querySelector(`[data-file-id="${path}"]`);
+				if (element) {
 					selectedElements.push(element);
 				}
 			}

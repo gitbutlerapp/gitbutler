@@ -3,7 +3,7 @@ import { hasTauriExtra, reduxApi } from '$lib/redux/api';
 import { DesktopRedux } from '$lib/redux/store.svelte';
 import { ReduxTag } from '$lib/redux/tags';
 import { createSelector } from '@reduxjs/toolkit';
-import type { WorktreeChanges, TreeChange, UnifiedDiff } from './worktreeTypes';
+import type { WorktreeChanges, TreeChange, UnifiedDiff } from '$lib/hunks/change';
 
 export class WorktreeService {
 	private worktreeApi = reduxApi.injectEndpoints({
