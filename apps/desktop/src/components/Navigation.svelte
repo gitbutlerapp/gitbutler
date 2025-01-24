@@ -7,6 +7,7 @@
 	import Resizer from '$components/Resizer.svelte';
 	import TargetCard from '$components/TargetCard.svelte';
 	import WorkspaceButton from '$components/WorkspaceButton.svelte';
+	import { listen } from '$lib/backend/ipc';
 	import { cloudCommunicationFunctionality } from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/mode/modeService';
 	import { platformName } from '$lib/platform/platform';
@@ -14,6 +15,7 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
+	import { onMount } from 'svelte';
 	import { env } from '$env/dynamic/public';
 
 	const minResizerWidth = 280;
@@ -35,6 +37,17 @@
 	function toggleNavCollapse() {
 		$isNavCollapsed = !$isNavCollapsed;
 	}
+
+	onMount(() => {
+		const unsubscribeTheme = listen<string>(
+			'menu://view/toggle-sidebar/clicked',
+			toggleNavCollapse
+		);
+
+		return async () => {
+			unsubscribeTheme();
+		};
+	});
 
 	const modeService = getContext(ModeService);
 	const mode = modeService.mode;

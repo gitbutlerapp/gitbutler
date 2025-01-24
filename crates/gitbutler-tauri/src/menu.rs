@@ -138,6 +138,9 @@ pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Me
         &MenuItemBuilder::with_id("view/switch-theme", "Switch Theme")
             .accelerator("CmdOrCtrl+T")
             .build(handle)?,
+        &MenuItemBuilder::with_id("view/toggle-sidebar", "Toggle Sidebar")
+            .accelerator("CmdOrCtrl+/")
+            .build(handle)?,
         &PredefinedMenuItem::separator(handle)?,
         &MenuItemBuilder::with_id("view/zoom-in", "Zoom In")
             .accelerator("CmdOrCtrl+=")
@@ -240,6 +243,11 @@ pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
 
     if event.id() == "view/switch-theme" {
         emit(webview, "menu://view/switch-theme/clicked");
+        return;
+    }
+
+    if event.id() == "view/toggle-sidebar" {
+        emit(webview, "menu://view/toggle-sidebar/clicked");
         return;
     }
 
