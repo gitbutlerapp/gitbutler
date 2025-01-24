@@ -26,7 +26,6 @@
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
 	import { goto } from '$app/navigation';
-	import { PUBLIC_APP_HOST } from '$env/static/public';
 
 	dayjs.extend(relativeTime);
 
@@ -120,10 +119,6 @@
 	<title>Review: {data.ownerSlug}/{data.projectSlug}</title>
 	<meta property="og:title" content="GitButler Review: {data.ownerSlug}/{data.projectSlug}" />
 	<meta property="og:description" content="GitButler code review" />
-	<meta
-		property="og:image"
-		content="{PUBLIC_APP_HOST}og/review/{data.ownerSlug}/{data.projectSlug}/{data.branchId}"
-	/>
 </svelte:head>
 
 <Loading loadable={and([branchUuid?.current, branch?.current])}>
