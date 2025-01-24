@@ -36,6 +36,8 @@
 		"src/**/*.svelte",
 		"e2e/tests/**/*.js",
 		"e2e/tests/**/*.ts",
-		"e2e/tests/**/*.svelte"
+		"e2e/tests/**/*.svelte",
+		"../../packages/shared/src/lib/codeHighlight.ts",
+		"../../packages/shared/src/lib/codeHighlight.ts"
 	]
 }

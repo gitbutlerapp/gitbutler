@@ -1,80 +1,36 @@
 <script lang="ts">
-	import ScrollableContainer from '$components/ScrollableContainer.svelte';
-	import { SelectedOwnership } from '$lib/branches/ownership';
-	import { type Hunk } from '$lib/hunks/hunk';
-	import {
-		type ContentSection,
-		SectionType,
-		type Line,
-		CountColumnSide
-	} from '$lib/utils/fileSections';
+	import { CountColumnSide, SectionType, type ContentSection, type Line } from '$lib/diffParsing';
 	import { create } from '@gitbutler/shared/codeHighlight';
-	import { maybeGetContextStore } from '@gitbutler/shared/context';
-	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import diff_match_patch from 'diff-match-patch';
-	import type { Writable } from 'svelte/store';
-
-	interface ContextMenuParams {
-		event: MouseEvent;
-		beforeLineNumber: number | undefined;
-		afterLineNumber: number | undefined;
-		hunk: Hunk;
-		subsection: ContentSection;
-	}
 
 	interface Props {
-		hunk: Hunk;
-		readonly: boolean;
 		filePath: string;
-		selectable: boolean;
 		subsections: ContentSection[];
-		tabSize: number;
-		wrapText: boolean;
-		diffFont: string;
-		diffLigatures: boolean;
-		inlineUnifiedDiffs: boolean;
-		diffContrast: 'light' | 'medium' | 'strong';
-		minWidth: number;
-		draggingDisabled: boolean;
-		onclick: () => void;
-		handleSelected: (hunk: Hunk, isSelected: boolean) => void;
-		handleLineContextMenu: (params: ContextMenuParams) => void;
+		tabSize?: number;
+		wrapText?: boolean;
+		diffFont?: string;
+		diffLigatures?: boolean;
+		inlineUnifiedDiffs?: boolean;
+		diffContrast?: 'light' | 'medium' | 'strong';
 	}
 
 	const {
-		hunk,
-		readonly = false,
 		filePath,
-		selectable,
 		subsections,
-		tabSize,
-		wrapText,
+		tabSize = 4,
+		wrapText = true,
 		diffFont,
-		diffLigatures,
-		diffContrast,
-		inlineUnifiedDiffs,
-		minWidth,
-		draggingDisabled = false,
-		onclick,
-		handleSelected,
-		handleLineContextMenu
+		diffLigatures = true,
+		diffContrast = 'medium',
+		inlineUnifiedDiffs = false
 	}: Props = $props();
 
 	const WHITESPACE_REGEX = /\s/;
-	const NUMBER_COLUMN_WIDTH_PX = minWidth * 20;
 	const BORDER_WIDTH = 1;
-
-	const selectedOwnership: Writable<SelectedOwnership> | undefined =
-		maybeGetContextStore(SelectedOwnership);
 
 	let tableWidth = $state<number>(0);
 	let tableHeight = $state<number>(0);
 	let numberHeaderWidth = $state<number>(0);
-
-	const selected = $derived($selectedOwnership?.isSelected(hunk.filePath, hunk.id) ?? false);
-	const isSelected = $derived(selectable && selected);
 
 	function charDiff(text1: string, text2: string): { 0: number; 1: string }[] {
 		const differ = new diff_match_patch();
@@ -94,10 +50,10 @@
 
 	function createRowData(section: ContentSection): Row[] {
 		return section.lines.map((line) => {
-			if (line.content === '') {
-				// Add extra \n for empty lines for correct copy/pasting output
-				line.content = '\n';
-			}
+			// if (line.content === '') {
+			// 	// Add extra \n for empty lines for correct copy/pasting output
+			// 	line.content = '\n';
+			// }
 
 			return {
 				beforeLineNumber: line.beforeLineNumber,
@@ -340,16 +296,9 @@
 		data-no-drag
 		class:diff-line-deletion={row.type === SectionType.RemovedLines}
 		class:diff-line-addition={row.type === SectionType.AddedLines}
-		style="--number-col-width: {pxToRem(NUMBER_COLUMN_WIDTH_PX + 2)};"
 		align="center"
 		class:is-last={row.isLast}
 		class:is-before={side === CountColumnSide.Before}
-		class:selected={isSelected}
-		onclick={() => {
-			if (selectable) {
-				handleSelected(hunk, !isSelected);
-			}
-		}}
 	>
 		{side === CountColumnSide.Before ? row.beforeLineNumber : row.afterLineNumber}
 	</td>
@@ -362,113 +311,56 @@
 	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
 	style:font-variant-ligatures={diffLigatures ? 'common-ligatures' : 'none'}
 >
-	<ScrollableContainer horz padding={{ left: NUMBER_COLUMN_WIDTH_PX * 2 + 2 }}>
-		<table data-hunk-id={hunk.id} class="table__section">
-			<thead class="table__title" class:draggable={!draggingDisabled}>
-				<tr
-					onclick={() => {
-						if (selectable) {
-							handleSelected(hunk, !isSelected);
-						}
-					}}
+	<table class="table__section">
+		<thead class="table__title">
+			<tr>
+				<th
+					bind:clientWidth={numberHeaderWidth}
+					class="table__checkbox-container"
+					style="--border-width: {BORDER_WIDTH}px;"
+					colspan={2}
 				>
-					<th
-						bind:clientWidth={numberHeaderWidth}
-						class="table__checkbox-container"
-						style="--border-width: {BORDER_WIDTH}px;"
-						class:selected={isSelected}
-						colspan={2}
+					<div
+						class="table__title-content"
+						style="--number-col-width: {numberHeaderWidth}px; --table-width: {tableWidth}px; --border-width: {BORDER_WIDTH}px; --top: -{BORDER_WIDTH}px"
 					>
-						<div class="table__checkbox">
-							{#if selectable}
-								<Checkbox
-									checked={isSelected}
-									small
-									onclick={() => {
-										if (selectable) {
-											handleSelected(hunk, !isSelected);
-										}
-									}}
-								/>
-							{/if}
-						</div>
-						<div
-							class="table__title-content"
-							style="--number-col-width: {numberHeaderWidth}px; --table-width: {tableWidth}px; --border-width: {BORDER_WIDTH}px; --top: -{BORDER_WIDTH}px"
-						>
-							<span>
-								{`@@ -${hunkLineInfo.beforLineStart},${hunkLineInfo.beforeLineCount} +${hunkLineInfo.afterLineStart},${hunkLineInfo.afterLineCount} @@`}
-							</span>
-							{#if hunk.locked}
-								<div class="table__lock">
-									<Icon name="locked-small" color="warning" />
-								</div>
-							{/if}
-							{#if !draggingDisabled}
-								<div class="table__drag-handle">
-									<Icon name="draggable" />
-								</div>
-							{/if}
-						</div>
-					</th>
-				</tr>
-			</thead>
+						<span>
+							{`@@ -${hunkLineInfo.beforLineStart},${hunkLineInfo.beforeLineCount} +${hunkLineInfo.afterLineStart},${hunkLineInfo.afterLineCount} @@`}
+						</span>
+					</div>
+				</th>
+			</tr>
+		</thead>
 
-			<tbody>
-				<tr>
-					<td>
-						<div
-							class="table__right-box"
-							style="--number-col-width: {numberHeaderWidth}px; --table-width: {tableWidth}px; --table-height: {tableHeight}px;"
-						></div>
+		<tbody>
+			{#each renderRows as row}
+				<tr data-no-drag>
+					{@render countColumn(row, CountColumnSide.Before)}
+					{@render countColumn(row, CountColumnSide.After)}
+					<td
+						class="table__textContent"
+						style="--tab-size: {tabSize}; --wrap: {wrapText ? 'wrap' : 'nowrap'}"
+						class:readonly={true}
+						data-no-drag
+						class:diff-line-deletion={row.type === SectionType.RemovedLines}
+						class:diff-line-addition={row.type === SectionType.AddedLines}
+						class:is-last={row.isLast}
+					>
+						{@html row.tokens.join('')}
 					</td>
 				</tr>
-				{#each renderRows as row}
-					<tr data-no-drag>
-						{@render countColumn(row, CountColumnSide.Before)}
-						{@render countColumn(row, CountColumnSide.After)}
-						<td
-							{onclick}
-							class="table__textContent"
-							style="--tab-size: {tabSize}; --wrap: {wrapText ? 'wrap' : 'nowrap'}"
-							class:readonly
-							data-no-drag
-							class:diff-line-deletion={row.type === SectionType.RemovedLines}
-							class:diff-line-addition={row.type === SectionType.AddedLines}
-							class:is-last={row.isLast}
-							oncontextmenu={(event) => {
-								handleLineContextMenu({
-									event,
-									hunk,
-									beforeLineNumber: row.beforeLineNumber,
-									afterLineNumber: row.afterLineNumber,
-									subsection: subsections[0] as ContentSection
-								});
-							}}
-						>
-							{@html row.tokens.join('')}
-						</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</ScrollableContainer>
+			{/each}
+		</tbody>
+	</table>
 </div>
 
 <style lang="postcss">
 	.table__wrapper {
 		border-radius: var(--radius-s);
 		background-color: var(--clr-diff-line-bg);
+		border: 1px solid var(--clr-border-2);
 		overflow-x: auto;
-
-		&:hover .table__drag-handle {
-			transform: scale(1);
-			opacity: 1;
-		}
-
-		&:hover .table__lock {
-			transform: translateX(-20px);
-		}
+		width: 100%;
 	}
 
 	table,
@@ -505,9 +397,8 @@
 	.table__checkbox-container {
 		z-index: var(--z-lifted);
 
-		border-width: var(--border-width);
-		border-style: solid;
-		border-color: var(--clr-border-2);
+		border-right: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-diff-count-bg);
 		border-top-left-radius: var(--radius-s);
 		box-sizing: border-box;
@@ -568,18 +459,6 @@
 		transition: transform var(--transition-medium);
 	}
 
-	.table__right-box {
-		pointer-events: none;
-		position: absolute;
-		top: 0;
-		left: var(--number-col-width);
-		width: calc(var(--table-width) - var(--number-col-width));
-		height: var(--table-height);
-		border-bottom: 1px solid var(--clr-border-2);
-		border-right: 1px solid var(--clr-border-2);
-		border-bottom-right-radius: var(--radius-s);
-	}
-
 	.table__title-content {
 		position: absolute;
 		top: var(--top);
@@ -595,8 +474,6 @@
 		display: flex;
 		align-items: center;
 		border-bottom: 1px solid var(--clr-border-2);
-		border-right: 1px solid var(--clr-border-2);
-		border-top: 1px solid var(--clr-border-2);
 		border-top-right-radius: var(--radius-m);
 	}
 
@@ -616,8 +493,6 @@
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
 
-		border-right: 1px solid var(--clr-border-2);
-
 		&.diff-line-addition {
 			background-color: var(--clr-diff-addition-count-bg);
 			color: var(--clr-diff-addition-count-text);
@@ -634,14 +509,6 @@
 			background-color: var(--clr-diff-selected-count-bg);
 			color: var(--clr-diff-selected-count-text);
 			border-color: var(--clr-diff-selected-count-border);
-		}
-
-		&.is-last {
-			border-bottom-width: 1px;
-		}
-
-		&.is-before {
-			border-left-width: 1px;
 		}
 
 		&.is-before.is-last {
@@ -666,6 +533,7 @@
 		user-select: text;
 		cursor: text;
 		text-wrap: var(--wrap);
+		border-left: 1px solid var(--clr-border-2);
 	}
 
 	/* DIFF LINE */
