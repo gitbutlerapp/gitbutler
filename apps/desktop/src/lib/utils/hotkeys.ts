@@ -42,7 +42,7 @@ export const shortcuts = {
 		toggle_sidebar: {
 			title: 'Toggle sidebar',
 			description: 'Show or hide the sidebar',
-			keys: '$mod+/'
+			keys: '$mod+\\'
 		},
 		reload_view: {
 			title: 'Reload view',
