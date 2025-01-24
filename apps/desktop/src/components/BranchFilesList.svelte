@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
-	import FileListItemSmart from './FileListItemWrapper.svelte';
+	import FileListItemWrapper from './FileListItemWrapper.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
 	import { SelectedOwnership, updateOwnership } from '$lib/branches/ownership';
 	import { getCommitStore } from '$lib/commits/contexts';
@@ -145,7 +145,7 @@
 		onkeydown={handleKeyDown}
 	>
 		{#each displayedFiles as file (file.id)}
-			<FileListItemSmart
+			<FileListItemWrapper
 				{file}
 				{readonly}
 				{isUnapplied}
