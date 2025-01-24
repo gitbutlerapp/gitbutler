@@ -1,6 +1,5 @@
 <script lang="ts">
 	import CreatePost from '$components/CreatePost.svelte';
-	import Markdown from '$components/Markdown.svelte';
 	import Post from '$components/Post.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -14,6 +13,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
+	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { page } from '$app/stores';
 
 	const feedService = getContext(FeedService);

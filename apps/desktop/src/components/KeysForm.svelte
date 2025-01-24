@@ -1,6 +1,5 @@
 <script lang="ts">
 	import CredentialCheck from '$components/CredentialCheck.svelte';
-	import Link from '$components/Link.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
 	import RadioButton from '$components/RadioButton.svelte';
 	import Section from '$components/Section.svelte';
@@ -11,6 +10,7 @@
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { onMount } from 'svelte';
 
 	const project = $state(getContext(Project));

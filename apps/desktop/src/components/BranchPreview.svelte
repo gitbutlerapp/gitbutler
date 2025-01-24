@@ -2,7 +2,6 @@
 	import BranchPreviewHeader from '$components/BranchPreviewHeader.svelte';
 	import CommitCard from '$components/CommitCard.svelte';
 	import FileCard from '$components/FileCard.svelte';
-	import Markdown from '$components/Markdown.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { BranchData } from '$lib/branches/branch';
@@ -13,6 +12,7 @@
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import Line from '@gitbutler/ui/commitLines/Line.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
+	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';
 	import type { PullRequest } from '$lib/forge/interface/types';

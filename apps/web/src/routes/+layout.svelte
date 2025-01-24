@@ -15,6 +15,7 @@
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
+	import { setExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
 	import { setContext, type Snippet } from 'svelte';
 	import { get } from 'svelte/store';
 	import { Toaster } from 'svelte-french-toast';
@@ -60,6 +61,11 @@
 	setContext(LatestBranchLookupService, latestBranchLookupService);
 	const routesService = new WebRoutesService(location.protocol + '//' + location.host, true);
 	setContext(WebRoutesService, routesService);
+	setExternalLinkService({
+		open: (href) => {
+			location.href = href;
+		}
+	});
 
 	$effect(() => {
 		const token = get(authService.token) || $page.url.searchParams.get('gb_access_token');

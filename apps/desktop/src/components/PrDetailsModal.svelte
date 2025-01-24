@@ -9,7 +9,6 @@
 <script lang="ts">
 	import PrDetailsModalHeader from './PrDetailsModalHeader.svelte';
 	import PrTemplateSection from './PrTemplateSection.svelte';
-	import Markdown from '$components/Markdown.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
@@ -42,6 +41,7 @@
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import ToggleButton from '@gitbutler/ui/ToggleButton.svelte';
+	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { error } from '@gitbutler/ui/toasts';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { tick } from 'svelte';

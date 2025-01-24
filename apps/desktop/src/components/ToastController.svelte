@@ -1,7 +1,7 @@
 <script lang="ts">
 	import InfoMessage from '$components/InfoMessage.svelte';
-	import Markdown from '$components/Markdown.svelte';
 	import { dismissToast, toastStore } from '$lib/notifications/toasts';
+	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { slide } from 'svelte/transition';
 </script>
 

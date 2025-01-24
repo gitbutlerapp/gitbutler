@@ -20,6 +20,7 @@
 		WebRoutesService,
 		type ProjectReviewCommitParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
+	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { goto } from '$app/navigation';
 
 	const BRANCH_TITLE_PLACE_HOLDER = 'No branch title provided';
@@ -108,7 +109,7 @@
 				</div>
 
 				<p class="review-main-content-description">
-					{patch.description?.trim() || DESCRIPTION_PLACE_HOLDER}
+					<Markdown content={patch.description?.trim() || DESCRIPTION_PLACE_HOLDER} />
 				</p>
 
 				<ReviewInfo {patch} />

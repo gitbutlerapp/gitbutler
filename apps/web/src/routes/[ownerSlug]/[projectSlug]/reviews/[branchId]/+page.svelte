@@ -23,6 +23,7 @@
 	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
+	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import toasts from '@gitbutler/ui/toasts';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
@@ -174,7 +175,7 @@
 							>
 						</div>
 					{:else if branch.description}
-						<p class="text-13">{branch.description}</p>
+						<Markdown content={branch.description} />
 						<div>
 							<Button kind="outline" onclick={editSummary}>Change summary</Button>
 						</div>

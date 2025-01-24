@@ -1,9 +1,9 @@
 <script lang="ts">
-	import Link from '$components/Link.svelte';
 	import { AppSettings } from '$lib/config/appSettings';
 	import { getContext } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import Link from '@gitbutler/ui/link/Link.svelte';
 
 	const appSettings = getContext(AppSettings);
 	const errorReportingEnabled = appSettings.appErrorReportingEnabled;

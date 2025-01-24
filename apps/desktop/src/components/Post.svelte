@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Markdown from '$components/Markdown.svelte';
 	import { ProjectService } from '$lib/project/projectService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getPostAuthor } from '@gitbutler/shared/feeds/feedsPreview.svelte';
@@ -12,6 +11,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
+	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { goto } from '$app/navigation';
 
 	type Props = {

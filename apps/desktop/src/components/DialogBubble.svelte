@@ -1,9 +1,9 @@
 <script lang="ts">
-	import Markdown from '$components/Markdown.svelte';
 	import { MessageRole } from '$lib/ai/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
+	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 
 	interface Props {
 		role: MessageRole;

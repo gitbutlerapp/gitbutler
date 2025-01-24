@@ -1,6 +1,5 @@
 <script lang="ts">
 	import InfoMessage from '$components/InfoMessage.svelte';
-	import Link from '$components/Link.svelte';
 	import Section from '$components/Section.svelte';
 	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
 	import Select from '$components/Select.svelte';
@@ -13,6 +12,7 @@
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { onMount } from 'svelte';
 
 	const project = getContext(Project);

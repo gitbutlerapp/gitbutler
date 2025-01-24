@@ -2,7 +2,6 @@
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
-	import Link from '$components/Link.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
 	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import { BranchController } from '$lib/branches/branchController';
@@ -12,6 +11,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
+	import Link from '@gitbutler/ui/link/Link.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { goto } from '$app/navigation';
