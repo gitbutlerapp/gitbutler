@@ -93,6 +93,12 @@ export type WorktreeChanges = {
 export type TreeChange = {
 	/** The *relative* path in the worktree where the entry can be found.*/
 	readonly path: string;
+	/**
+	 * Something silently carried back and forth between the frontend and the backend.
+	 * This is neccessary because the path string conversion is lossy.
+	 * @private
+	 */
+	readonly pathBytes: number[];
 	/** The specific information about this change.*/
 	readonly status: Status;
 };
