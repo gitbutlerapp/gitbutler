@@ -238,7 +238,6 @@
 	iframe,
 	img,
 	object,
-	svg,
 	video {
 		display: block;
 		vertical-align: middle;
