@@ -139,7 +139,7 @@ pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Me
             .accelerator("CmdOrCtrl+T")
             .build(handle)?,
         &MenuItemBuilder::with_id("view/toggle-sidebar", "Toggle Sidebar")
-            .accelerator("CmdOrCtrl+/")
+            .accelerator("CmdOrCtrl+\\")
             .build(handle)?,
         &PredefinedMenuItem::separator(handle)?,
         &MenuItemBuilder::with_id("view/zoom-in", "Zoom In")
