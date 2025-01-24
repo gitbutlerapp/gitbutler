@@ -5,6 +5,7 @@
 	import Br from '$lib/markdown/markdownRenderers/Br.svelte';
 	import Code from '$lib/markdown/markdownRenderers/Code.svelte';
 	import Codespan from '$lib/markdown/markdownRenderers/Codespan.svelte';
+	import Em from '$lib/markdown/markdownRenderers/Em.svelte';
 	import Heading from '$lib/markdown/markdownRenderers/Heading.svelte';
 	import Html from '$lib/markdown/markdownRenderers/Html.svelte';
 	import Image from '$lib/markdown/markdownRenderers/Image.svelte';
@@ -32,7 +33,8 @@
 		paragraph: Paragraph,
 		init: null,
 		br: Br,
-		strong: Strong
+		strong: Strong,
+		em: Em
 	};
 
 	const { type, ...rest }: Props = $props();
