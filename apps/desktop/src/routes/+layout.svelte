@@ -160,6 +160,13 @@
 		// Toggle v3 design on/off
 		'v 3': () => {
 			settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 });
+		},
+		// This is a debug tool to learn about environment variables actually present - only available if the backend is in debug mode.
+		'e n v': async () => {
+			let env = await invoke('env_vars');
+			console.log(env);
+			(window as any).tauriEnv = env;
+			console.log('Also written to window.tauriEnv');
 		}
 	});
 </script>

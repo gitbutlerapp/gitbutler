@@ -42,6 +42,7 @@ pub mod stack;
 pub mod zip;
 
 pub mod diff;
+pub mod env;
 pub mod workspace;
 
 /// Utility types that make it easier to transform data from the frontend to the backend.
