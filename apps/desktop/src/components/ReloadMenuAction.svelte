@@ -1,14 +1,10 @@
 <script lang="ts">
-	import { listen } from '$lib/backend/ipc';
-	import { onMount } from 'svelte';
+	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
+	import { getContext } from '@gitbutler/shared/context';
 
-	onMount(() => {
-		const unsubscribe = listen<string>('menu://view/reload/clicked', () => {
-			location.reload();
-		});
+	const shortcutService = getContext(ShortcutService);
 
-		return async () => {
-			unsubscribe();
-		};
+	shortcutService.on('reload', () => {
+		location.reload();
 	});
 </script>
