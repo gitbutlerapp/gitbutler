@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { listen } from '$lib/backend/ipc';
 	import { showHistoryView } from '$lib/config/config';
 	import { Project } from '$lib/project/project';
+	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
@@ -14,38 +15,34 @@
 
 	const project = getContext(Project);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+	const shortcutService = getContext(ShortcutService);
+	const routes = getContext(DesktopRoutesService);
+
+	shortcutService.on('project-settings', () => {
+		goto(routes.projectSettingsPath(project.id));
+	});
+
+	shortcutService.on('open-in-vscode', () => {
+		const path = getEditorUri({
+			schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+			path: [project.vscodePath],
+			searchParams: { windowId: '_blank' }
+		});
+		openExternalUrl(path);
+	});
+
+	shortcutService.on('history', () => {
+		$showHistoryView = !$showHistoryView;
+	});
+
+	const unsubscribeHistoryButton = unsubscribe(
+		events.on('openHistory', () => {
+			$showHistoryView = true;
+		})
+	);
 
 	onMount(() => {
-		const unsubscribeSettings = listen<string>('menu://project/settings/clicked', () => {
-			goto(`/${project.id}/settings/`);
-		});
-
-		const unsubscribeopenInEditor = listen<string>(
-			'menu://project/open-in-vscode/clicked',
-			async () => {
-				const path = getEditorUri({
-					schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-					path: [project.vscodePath],
-					searchParams: { windowId: '_blank' }
-				});
-				openExternalUrl(path);
-			}
-		);
-
-		const unsubscribeHistory = listen<string>('menu://project/history/clicked', () => {
-			$showHistoryView = true;
-		});
-
-		const unsubscribeHistoryButton = unsubscribe(
-			events.on('openHistory', () => {
-				$showHistoryView = true;
-			})
-		);
-
 		return () => {
-			unsubscribeSettings();
-			unsubscribeopenInEditor();
-			unsubscribeHistory();
 			unsubscribeHistoryButton();
 		};
 	});

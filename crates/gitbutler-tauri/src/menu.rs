@@ -2,7 +2,6 @@ use std::{env, fs};
 
 use anyhow::Context;
 use gitbutler_error::error::{self, Code};
-use serde_json::json;
 #[cfg(target_os = "macos")]
 use tauri::menu::AboutMetadata;
 use tauri::Emitter;
@@ -13,6 +12,8 @@ use tauri::{
 use tracing::instrument;
 
 use crate::error::Error;
+
+static SHORTCUT_EVENT: &str = "menu://shortcut";
 
 #[tauri::command(async)]
 #[instrument(skip(handle), err(Debug))]
@@ -230,12 +231,12 @@ pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Me
 
 pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
     if event.id() == "file/add-local-repo" {
-        emit(webview, "menu://file/add-local-repo/clicked");
+        emit(webview, "menu://shortcut", "add-local-repo");
         return;
     }
 
     if event.id() == "file/clone-repo" {
-        emit(webview, "menu://file/clone-repo/clicked");
+        emit(webview, SHORTCUT_EVENT, "clone-repo");
         return;
     }
 
@@ -248,67 +249,67 @@ pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
     }
 
     if event.id() == "view/switch-theme" {
-        emit(webview, "menu://view/switch-theme/clicked");
+        emit(webview, SHORTCUT_EVENT, "switch-theme");
         return;
     }
 
     if event.id() == "view/toggle-sidebar" {
-        emit(webview, "menu://view/toggle-sidebar/clicked");
+        emit(webview, SHORTCUT_EVENT, "toggle-sidebar");
         return;
     }
 
     if event.id() == "view/reload" {
-        emit(webview, "menu://view/reload/clicked");
+        emit(webview, SHORTCUT_EVENT, "reload");
         return;
     }
 
     if event.id() == "view/zoom-in" {
-        emit(webview, "menu://view/zoom-in/clicked");
+        emit(webview, SHORTCUT_EVENT, "zoom-in");
         return;
     }
 
     if event.id() == "view/zoom-out" {
-        emit(webview, "menu://view/zoom-out/clicked");
+        emit(webview, SHORTCUT_EVENT, "zoom-out");
         return;
     }
 
     if event.id() == "view/zoom-reset" {
-        emit(webview, "menu://view/zoom-reset/clicked");
+        emit(webview, SHORTCUT_EVENT, "zoom-reset");
         return;
     }
 
     if event.id() == "help/share-debug-info" {
-        emit(webview, "menu://help/share-debug-info/clicked");
+        emit(webview, SHORTCUT_EVENT, "share-debug");
         return;
     }
 
     if event.id() == "project/history" {
-        emit(webview, "menu://project/history/clicked");
+        emit(webview, SHORTCUT_EVENT, "history");
         return;
     }
 
     if event.id() == "project/open-in-vscode" {
-        emit(webview, "menu://project/open-in-vscode/clicked");
+        emit(webview, SHORTCUT_EVENT, "open-in-vscode");
         return;
     }
 
     if event.id() == "project/settings" {
-        emit(webview, "menu://project/settings/clicked");
+        emit(webview, SHORTCUT_EVENT, "project-settings");
         return;
     }
 
     if event.id() == "global/settings" {
-        emit(webview, "menu://global/settings/clicked");
+        emit(webview, SHORTCUT_EVENT, "global-settings");
         return;
     }
 
     if event.id() == "global/update" {
-        emit(webview, "menu://global/update/clicked");
+        emit(webview, SHORTCUT_EVENT, "update");
         return;
     }
 
     if event.id() == "help/keyboard-shortcuts" {
-        emit(webview, "menu://help/keyboard-shortcuts/clicked");
+        emit(webview, SHORTCUT_EVENT, "keyboard-shortcuts");
         return;
     }
 
@@ -338,8 +339,8 @@ pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
     tracing::error!("unhandled 'help' menu event: {}", event.id().0);
 }
 
-fn emit<R: Runtime>(window: &tauri::WebviewWindow<R>, event: &str) {
-    if let Err(err) = window.emit(event, json!({})) {
+fn emit<R: Runtime>(window: &tauri::WebviewWindow<R>, event: &str, shortcut: &str) {
+    if let Err(err) = window.emit(event, shortcut) {
         tracing::error!(error = ?err, "failed to emit event");
     }
 }

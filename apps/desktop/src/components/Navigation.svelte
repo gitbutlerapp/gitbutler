@@ -7,15 +7,14 @@
 	import Resizer from '$components/Resizer.svelte';
 	import TargetCard from '$components/TargetCard.svelte';
 	import WorkspaceButton from '$components/WorkspaceButton.svelte';
-	import { listen } from '$lib/backend/ipc';
 	import { cloudCommunicationFunctionality } from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/mode/modeService';
 	import { platformName } from '$lib/platform/platform';
 	import { ProjectService } from '$lib/project/projectService';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { onMount } from 'svelte';
 	import { env } from '$env/dynamic/public';
 
 	const minResizerWidth = 280;
@@ -34,23 +33,17 @@
 
 	const isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + projectId);
 
+	const shortcutService = getContext(ShortcutService);
+	const modeService = getContext(ModeService);
+	const mode = $derived(modeService.mode);
+
+	shortcutService.on('toggle-sidebar', () => {
+		toggleNavCollapse();
+	});
+
 	function toggleNavCollapse() {
 		$isNavCollapsed = !$isNavCollapsed;
 	}
-
-	onMount(() => {
-		const unsubscribeTheme = listen<string>(
-			'menu://view/toggle-sidebar/clicked',
-			toggleNavCollapse
-		);
-
-		return async () => {
-			unsubscribeTheme();
-		};
-	});
-
-	const modeService = getContext(ModeService);
-	const mode = modeService.mode;
 </script>
 
 <aside class="navigation-wrapper">

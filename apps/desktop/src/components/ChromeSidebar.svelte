@@ -168,15 +168,15 @@
 	</div>
 	<div class="bottom" bind:this={contextTriggerButton}>
 		<div class="">
-			{#if routes.isSettingsPath}
+			{#if routes.isProjectSettingsPath}
 				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 			{/if}
 			<Button
 				icon="settings"
 				kind="outline"
-				onclick={() => goto(routes.settingsPath(project.id))}
+				onclick={() => goto(routes.projectSettingsPath(project.id))}
 				width={34}
-				class={['btn-square', routes.isSettingsPath && 'btn-active']}
+				class={['btn-square', routes.isProjectSettingsPath && 'btn-active']}
 			/>
 		</div>
 		<Button

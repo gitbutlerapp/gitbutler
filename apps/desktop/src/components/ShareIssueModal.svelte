@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { invoke, listen } from '$lib/backend/ipc';
+	import { invoke } from '$lib/backend/ipc';
+	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import * as zip from '$lib/support/dataSharing';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
@@ -11,7 +12,6 @@
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import { getVersion } from '@tauri-apps/api/app';
-	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 
 	type Feedback = {
@@ -23,6 +23,7 @@
 		updated_at: string;
 	};
 
+	const shortcutService = getContext(ShortcutService);
 	const httpClient = getContext(HttpClient);
 	const user = getContextStore(User);
 
@@ -129,14 +130,8 @@
 		modal?.close();
 	}
 
-	onMount(() => {
-		const unsubscribe = listen<string>('menu://help/share-debug-info/clicked', () => {
-			show();
-		});
-
-		return () => {
-			unsubscribe();
-		};
+	shortcutService.on('share-debug-info', () => {
+		show();
 	});
 </script>
 

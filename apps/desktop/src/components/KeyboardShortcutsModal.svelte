@@ -1,24 +1,19 @@
 <script lang="ts">
-	import { listen } from '$lib/backend/ipc';
+	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { shortcuts } from '$lib/utils/hotkeys';
+	import { getContext } from '@gitbutler/shared/context';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import { onMount } from 'svelte';
+
+	let modal: ReturnType<typeof Modal> | undefined = $state();
+
+	const shortcutService = getContext(ShortcutService);
+	shortcutService.on('keyboard-shortcuts', () => {
+		show();
+	});
 
 	export function show() {
 		modal?.show();
 	}
-
-	let modal: ReturnType<typeof Modal> | undefined = $state();
-
-	onMount(() => {
-		const unsubscribe = listen<string>('menu://help/keyboard-shortcuts/clicked', () => {
-			show();
-		});
-
-		return () => {
-			unsubscribe();
-		};
-	});
 
 	function keysStringToArr(keys: string): string[] {
 		return keys.split('+').map((key) => {

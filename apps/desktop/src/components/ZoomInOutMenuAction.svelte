@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { listen } from '$lib/backend/ipc';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
+	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+	const shortcutService = getContext(ShortcutService);
 
 	let zoom = $state($userSettings.zoom);
 
@@ -24,25 +25,19 @@
 		userSettings.update((s) => ({ ...s, zoom }));
 	}
 
+	shortcutService.on('zoom-in', () => {
+		updateZoom(zoom + ZOOM_STEP);
+	});
+	shortcutService.on('zoom-out', () => {
+		updateZoom(zoom - ZOOM_STEP);
+	});
+	shortcutService.on('zoom-reset', () => {
+		updateZoom(DEFAULT_ZOOM);
+	});
+
 	onMount(() => {
 		if (zoom !== DEFAULT_ZOOM) {
 			setDomZoom(zoom);
 		}
-
-		const unsubscribeZoomIn = listen<string>('menu://view/zoom-in/clicked', () =>
-			updateZoom(zoom + ZOOM_STEP)
-		);
-		const unsubscribeZoomOut = listen<string>('menu://view/zoom-out/clicked', () =>
-			updateZoom(zoom - ZOOM_STEP)
-		);
-		const unsubscribeResetZoom = listen<string>('menu://view/zoom-reset/clicked', () =>
-			updateZoom(DEFAULT_ZOOM)
-		);
-
-		return () => {
-			unsubscribeZoomIn();
-			unsubscribeZoomOut();
-			unsubscribeResetZoom();
-		};
 	});
 </script>
