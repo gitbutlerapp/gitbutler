@@ -156,45 +156,62 @@
 		</div>
 	</div>
 	<div class="bottom">
-		<div>
-			{#if routes.isSettingsPath}
-				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-			{/if}
-			<Button
-				icon="settings"
-				kind="outline"
-				onclick={() => goto(routes.settingsPath(project.id))}
-				width={34}
-				class={['btn-square', routes.isSettingsPath && 'btn-active']}
-			/>
-		</div>
-
-		<Button
-			kind="outline"
-			width={34}
-			class="btn-height-auto"
-			onclick={() => {
-				contextMenuEl?.toggle();
-			}}
-		>
-			<div class="user-button" bind:this={contextTriggerButton}>
-				{#if $user?.picture}
-					<img
-						class="profile-picture"
-						src={$user.picture}
-						alt="Avatar"
-						referrerpolicy="no-referrer"
-					/>
-				{:else}
-					<div class="anon-icon">
-						<Icon name="profile" />
-					</div>
+		<div class="bottom__primary-actions">
+			<div>
+				{#if routes.isSettingsPath}
+					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 				{/if}
-				<Icon name="select-chevron" />
+				<Button
+					icon="settings"
+					kind="outline"
+					onclick={() => goto(routes.settingsPath(project.id))}
+					width={34}
+					class={['btn-square', routes.isSettingsPath && 'btn-active']}
+				/>
 			</div>
-		</Button>
 
-		<div>
+			<Button
+				kind="outline"
+				width={34}
+				class="btn-height-auto"
+				onclick={() => {
+					contextMenuEl?.toggle();
+				}}
+			>
+				<div class="user-button" bind:this={contextTriggerButton}>
+					<div class="user-icon">
+						{#if $user?.picture}
+							<img
+								class="user-icon__image"
+								src={$user.picture}
+								alt=""
+								referrerpolicy="no-referrer"
+							/>
+						{:else}
+							<Icon name="profile" />
+						{/if}
+					</div>
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 16 16"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+						class="user-button__select-icon"
+					>
+						<path
+							d="M2 10L7.55279 12.7764C7.83431 12.9172 8.16569 12.9172 8.44721 12.7764L14 10"
+							stroke-width="1.5"
+						/>
+						<path
+							d="M2 6L7.55279 3.22361C7.83431 3.08284 8.16569 3.08284 8.44721 3.22361L14 6"
+							stroke-width="1.5"
+						/>
+					</svg>
+				</div></Button
+			>
+		</div>
+		<div class="bottom__ghost-actions">
 			<Button
 				icon="keyboard"
 				kind="ghost"
@@ -267,7 +284,7 @@
 
 <ShareIssueModal bind:this={shareIssueModal} />
 
-<style>
+<style lang="postcss">
 	.sidebar {
 		display: flex;
 		flex-direction: column;
@@ -287,9 +304,20 @@
 		gap: 4px;
 	}
 	.bottom {
+		gap: 16px;
+	}
+	.bottom__primary-actions {
+		display: flex;
+		flex-direction: column;
 		gap: 8px;
 	}
+	.bottom__ghost-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
 
+	/* USER BUTTON */
 	.user-button {
 		display: flex;
 		flex-direction: column;
@@ -300,14 +328,31 @@
 		gap: 4px;
 	}
 
-	.user-button img {
+	.user-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 26px;
+		height: 26px;
+		background-color: var(--clr-core-pop-50);
+		color: var(--clr-core-ntrl-100);
 		border-radius: var(--radius-m);
+		overflow: hidden;
 	}
 
-	.profile-picture {
-		border-radius: var(--radius-m);
+	.user-icon__image {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
 	}
 
+	.user-button__select-icon {
+		stroke: var(--label-clr);
+		opacity: var(--icon-opacity);
+		transition: opacity var(--transition-fast);
+	}
+
+	/*  */
 	.active-page-indicator {
 		content: '';
 		position: absolute;
