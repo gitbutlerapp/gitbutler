@@ -157,7 +157,9 @@ pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Me
 
     #[cfg(any(debug_assertions, feature = "devtools"))]
     view_menu.append_items(&[
-        &MenuItemBuilder::with_id("view/devtools", "Developer Tools").build(handle)?,
+        &MenuItemBuilder::with_id("view/devtools", "Developer Tools")
+            .accelerator("CmdOrCtrl+Shift+C")
+            .build(handle)?,
         &MenuItemBuilder::with_id("view/reload", "Reload View")
             .accelerator("CmdOrCtrl+R")
             .build(handle)?,
@@ -243,7 +245,11 @@ pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
     #[cfg(any(debug_assertions, feature = "devtools"))]
     {
         if event.id() == "view/devtools" {
-            webview.open_devtools();
+            if webview.is_devtools_open() {
+                webview.close_devtools();
+            } else {
+                webview.open_devtools();
+            }
             return;
         }
     }
