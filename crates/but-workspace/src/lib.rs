@@ -217,11 +217,32 @@ fn convert(
         if !is_integrated {
             is_integrated = check_commit.is_integrated(commit)?;
         }
+
+        let state = if is_integrated {
+            CommitState::Integrated
+        } else {
+            match commit.change_id() {
+                Some(change_id) => {
+                    let remote_id = branch_commits
+                        .remote_commits
+                        .iter()
+                        .find(|c| c.change_id().as_deref() == Some(&change_id))
+                        .map(|c| c.id());
+
+                    match remote_id {
+                        Some(remote_id) => CommitState::LocalAndRemote(remote_id.to_gix()),
+                        None => CommitState::LocalOnly,
+                    }
+                }
+                None => CommitState::LocalOnly,
+            }
+        };
+
         let api_commit = Commit {
             id: commit.id().to_gix(),
             message: commit.message_bstr().into(),
             has_conflicts: commit.is_conflicted(),
-            state: CommitState::LocalOnly,
+            state,
         };
         local_and_remote.push(api_commit);
     }
