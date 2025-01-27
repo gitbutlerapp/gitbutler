@@ -112,7 +112,7 @@
 					<Markdown content={patch.description?.trim() || DESCRIPTION_PLACE_HOLDER} />
 				</p>
 
-				<ReviewInfo {patch} />
+				<ReviewInfo projectId={repositoryId} {patch} />
 				<ReviewSections {patch} patchSections={patchSections?.current} />
 			</div>
 
