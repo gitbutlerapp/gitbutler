@@ -8,7 +8,8 @@ use crate::{
     remote::branch_to_remote_branch,
     stack::stack_series,
     status::{get_applied_status, get_applied_status_cached},
-    Get, RemoteBranchData, VirtualBranchHunkRange, VirtualBranchHunkRangeMap, VirtualBranchesExt,
+    verify_branch, Get, RemoteBranchData, VirtualBranchHunkRange, VirtualBranchHunkRangeMap,
+    VirtualBranchesExt,
 };
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice};
@@ -326,6 +327,9 @@ pub fn list_virtual_branches_cached(
 ) -> Result<StackListResult> {
     assure_open_workspace_mode(ctx)
         .context("Listing virtual branches requires open workspace mode")?;
+    // Make sure that the workspace commit is the head of the branch before listing.
+    verify_branch(ctx, perm)?;
+
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
     let vb_state = ctx.project().virtual_branches();
