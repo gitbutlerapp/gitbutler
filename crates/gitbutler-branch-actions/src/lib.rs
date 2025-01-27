@@ -38,7 +38,7 @@ pub use dependencies::compute_workspace_dependencies;
 pub mod upstream_integration;
 
 mod integration;
-pub use integration::{update_workspace_commit, verify_branch};
+pub use integration::{update_workspace_commit, verify_branch, workspace_state, WorkspaceState};
 
 mod file;
 pub use file::{Get, RemoteBranchFile};
