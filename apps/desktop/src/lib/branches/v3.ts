@@ -118,7 +118,7 @@ export type CommitState =
 	 *  - The commit has been pushed to the remote
 	 *  - The commit has been copied from a remote commit (when applying a remote branch)
 	 *
-	 * This variant carries the remote commit id.
+	 * This variant carries the remote commit id in the `subject` field.
 	 * The remote commit id may be the same as the `id` or it may be different if the local commit has been rebased or updated in another way.
 	 */
 	| { readonly type: 'LocalAndRemote'; readonly subject: string }
