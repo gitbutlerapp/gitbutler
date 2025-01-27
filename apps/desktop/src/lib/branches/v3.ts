@@ -93,6 +93,8 @@ export type Commit = {
 	readonly state: CommitState;
 	/** Commit creation time in Epoch milliseconds. */
 	readonly createdAt: string;
+	/** The author of the commit. */
+	readonly author: Author;
 };
 
 /**
@@ -106,6 +108,18 @@ export type UpstreamCommit = {
 	readonly message: string;
 	/** Commit creation time in Epoch milliseconds. */
 	readonly createdAt: number;
+	/** The author of the commit. */
+	readonly author: Author;
+};
+
+/** Represents the author of a commit. */
+export type Author = {
+	/** The name from the git commit signature */
+	readonly name: string;
+	/** The email from the git commit signature */
+	readonly email: string;
+	/** A URL to a gravatar image for the email from the commit signature */
+	readonly gravatarUrl: string;
 };
 
 /** Represents the state a commit could be in. */

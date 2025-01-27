@@ -3,11 +3,15 @@ use anyhow::Result;
 use bstr::ByteSlice;
 use serde::Serialize;
 
+/// Represents the author of a commit.
 #[derive(Debug, Serialize, Hash, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Author {
+    /// The name from the git commit signature
     pub name: String,
+    /// The email from the git commit signature
     pub email: String,
+    /// A URL to a gravatar image for the email from the commit signature
     pub gravatar_url: url::Url,
 }
 
