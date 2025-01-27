@@ -21,12 +21,13 @@ use bstr::BString;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_id::id::Id;
-use gitbutler_oxidize::OidExt;
+use gitbutler_oxidize::{git2_signature_to_gix_signature, OidExt};
 use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::{stack_context::StackContext, Stack, Target, VirtualBranchesHandle};
 use integrated::IsCommitIntegrated;
 use itertools::Itertools;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -211,17 +212,51 @@ fn convert(
     let mut local_and_remote: Vec<Commit> = vec![];
     let mut is_integrated = false;
 
+    let remote_commit_data = branch_commits
+        .remote_commits
+        .iter()
+        .filter_map(|commit| {
+            let data = CommitData::try_from(commit).ok()?;
+            Some((data, commit.id()))
+        })
+        .collect::<HashMap<_, _>>();
+
     // Local and remote
     // Reverse first instead of later, so that we catch the first integrated commit
     for commit in branch_commits.clone().local_commits.iter().rev() {
         if !is_integrated {
             is_integrated = check_commit.is_integrated(commit)?;
         }
+        let copied_from_remote_id = CommitData::try_from(commit)
+            .ok()
+            .and_then(|data| remote_commit_data.get(&data).copied());
+
+        let state = if is_integrated {
+            CommitState::Integrated
+        } else {
+            // Can we find this as a remote commit by any of these options:
+            // - the commit is copied from a remote commit
+            // - the commit has an identical sha as the remote commit (the no brainer case)
+            // - the commit has a change id that matches a remote commit
+            if let Some(remote_id) = copied_from_remote_id {
+                CommitState::LocalAndRemote(remote_id.to_gix())
+            } else if let Some(remote_id) = branch_commits
+                .remote_commits
+                .iter()
+                .find(|c| c.id() == commit.id() || c.change_id() == commit.change_id())
+                .map(|c| c.id())
+            {
+                CommitState::LocalAndRemote(remote_id.to_gix())
+            } else {
+                CommitState::LocalOnly
+            }
+        };
+
         let api_commit = Commit {
             id: commit.id().to_gix(),
             message: commit.message_bstr().into(),
             has_conflicts: commit.is_conflicted(),
-            state: CommitState::LocalOnly,
+            state,
         };
         local_and_remote.push(api_commit);
     }
@@ -229,11 +264,21 @@ fn convert(
     // Upstream only
     let mut upstream_only = vec![];
     for commit in branch_commits.upstream_only.iter() {
-        let upstream_commit = UpstreamCommit {
-            id: commit.id().to_gix(),
-            message: commit.message_bstr().into(),
-        };
-        upstream_only.push(upstream_commit);
+        let matches_known_commit = local_and_remote.iter().any(|c| {
+            if let CommitState::LocalAndRemote(remote_id) = &c.state {
+                remote_id == &commit.id().to_gix()
+            } else {
+                false
+            }
+        });
+        // Ignore commits that strictly speaking are remote only but they match a known local commit (rebase etc)
+        if !matches_known_commit {
+            let upstream_commit = UpstreamCommit {
+                id: commit.id().to_gix(),
+                message: commit.message_bstr().into(),
+            };
+            upstream_only.push(upstream_commit);
+        }
     }
     upstream_only.reverse();
 
@@ -261,4 +306,24 @@ fn convert(
 
 fn state_handle(gb_state_path: &Path) -> VirtualBranchesHandle {
     VirtualBranchesHandle::new(gb_state_path)
+}
+
+/// The commit-data we can use for comparison to see which remote-commit was used to craete
+/// a local commit from.
+/// Note that trees can't be used for comparison as these are typically rebased.
+#[derive(Debug, Hash, Eq, PartialEq)]
+pub(crate) struct CommitData {
+    message: BString,
+    author: gix::actor::Signature,
+}
+
+impl TryFrom<&git2::Commit<'_>> for CommitData {
+    type Error = anyhow::Error;
+
+    fn try_from(commit: &git2::Commit<'_>) -> std::result::Result<Self, Self::Error> {
+        Ok(CommitData {
+            message: commit.message_raw_bytes().into(),
+            author: git2_signature_to_gix_signature(commit.author()),
+        })
+    }
 }
