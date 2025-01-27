@@ -1,4 +1,6 @@
 <script module lang="ts">
+	import type { IconName } from '$lib/Icon.svelte';
+	import type { ComponentColorType } from '$lib/utils/colorTypes';
 	export interface Props {
 		avatars: {
 			srcUrl: string;
@@ -6,14 +8,17 @@
 		}[];
 		maxAvatars?: number;
 		size?: 'small' | 'medium' | 'large';
+		icon?: IconName;
+		iconColor?: ComponentColorType;
 	}
 </script>
 
 <script lang="ts">
 	import Avatar from './Avatar.svelte';
+	import Icon from '$lib/Icon.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
 
-	const { avatars, maxAvatars = 3, size = 'medium' }: Props = $props();
+	const { avatars, maxAvatars = 3, size = 'medium', icon, iconColor }: Props = $props();
 
 	const maxTooltipLength = 10;
 	const leftAvatars = $derived(avatars.length - maxAvatars);
@@ -50,6 +55,14 @@
 			</div>
 		</Tooltip>
 	{/if}
+
+	{#if avatars.length > 0 && icon}
+		<div class="avatar-icon-wrapper">
+			<div class="avatar-icon {iconColor}">
+				<Icon name={icon} />
+			</div>
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -60,6 +73,40 @@
 		& :global(> span) {
 			display: flex;
 			margin-right: -4px;
+		}
+	}
+
+	.avatar-icon {
+		z-index: var(--z-ground);
+		width: 14px;
+		height: 14px;
+		position: absolute;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		border-radius: 50%;
+
+		transform: translate(-4px, -7px);
+		color: white;
+
+		&.success {
+			background: var(--clr-scale-succ-50);
+		}
+
+		&.error {
+			background: var(--clr-scale-err-50);
+		}
+
+		&.pop {
+			background: var(--clr-scale-pop-50);
+		}
+
+		&.warning {
+			background: var(--clr-scale-warn-50);
+		}
+
+		&.purple {
+			background: var(--clr-scale-purp-50);
 		}
 	}
 
