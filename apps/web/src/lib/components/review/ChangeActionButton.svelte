@@ -31,7 +31,16 @@
 			case 'approve':
 				return 'pop';
 			case 'requestChanges':
-				return 'purple';
+				return 'warning';
+		}
+	});
+
+	const icon = $derived.by(() => {
+		switch (action) {
+			case 'approve':
+				return 'success';
+			case 'requestChanges':
+				return 'refresh-in-circle';
 		}
 	});
 
@@ -64,7 +73,7 @@
 <DropDownButton
 	bind:this={dropDownButton}
 	loading={isExecuting}
-	icon="success"
+	{icon}
 	style={buttonColor}
 	onclick={handleClick}
 >

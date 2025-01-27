@@ -12,11 +12,11 @@
 </script>
 
 {#if status === 'approved'}
-	<Badge>Approved</Badge>
+	<Badge style="success">Approved</Badge>
 {:else if status === 'changes-requested'}
-	<Badge>Changes Requested</Badge>
+	<Badge style="warning">Changes Requested</Badge>
 {:else if status === 'unreviewed'}
-	<Badge>Unreviewed</Badge>
+	<Badge style="neutral" kind="soft">Unreviewed</Badge>
 {:else if status === 'in-discussion'}
-	<Badge>In Discussion</Badge>
+	<Badge style="pop" kind="soft">In Discussion</Badge>
 {/if}

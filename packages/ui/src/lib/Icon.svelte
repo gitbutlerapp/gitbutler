@@ -1,14 +1,16 @@
 <script lang="ts" module>
+	import iconsJson from '$lib/data/icons.json';
 	import { pxToRem } from '$lib/utils/pxToRem';
+
 	export type IconColor = ComponentColorType | undefined;
+	export type IconName = keyof typeof iconsJson;
 </script>
 
 <script lang="ts">
-	import iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType } from '$lib/utils/colorTypes';
 
 	interface Props {
-		name: keyof typeof iconsJson;
+		name: IconName;
 		color?: IconColor;
 		opacity?: number | undefined;
 		spinnerRadius?: number | undefined;
