@@ -17,6 +17,7 @@
 //!
 
 use anyhow::{Context, Result};
+use author::Author;
 use bstr::BString;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -31,6 +32,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::str::FromStr;
 
+mod author;
 mod integrated;
 
 /// Represents a lightweight version of a [`gitbutler_stack::Stack`] for listing.
@@ -105,6 +107,8 @@ pub struct Commit {
     pub state: CommitState,
     /// Commit creation time in Epoch milliseconds.
     pub created_at: u128,
+    /// The author of the commit.
+    pub author: Author,
 }
 
 /// Commit that is only at the remote.
@@ -120,6 +124,8 @@ pub struct UpstreamCommit {
     pub message: BString,
     /// Commit creation time in Epoch milliseconds.
     pub created_at: u128,
+    /// The author of the commit.
+    pub author: Author,
 }
 
 /// Represents a branch in a [`Stack`]. It contains commits derived from the local pseudo branch and it's respective remote
@@ -267,6 +273,7 @@ fn convert(
             has_conflicts: commit.is_conflicted(),
             state,
             created_at,
+            author: commit.author().into(),
         };
         local_and_remote.push(api_commit);
     }
@@ -288,6 +295,7 @@ fn convert(
                 id: commit.id().to_gix(),
                 message: commit.message_bstr().into(),
                 created_at,
+                author: commit.author().into(),
             };
             upstream_only.push(upstream_commit);
         }
