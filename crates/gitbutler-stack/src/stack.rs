@@ -511,6 +511,9 @@ impl Stack {
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         #[allow(deprecated)] // this is the only place where this is allowed
         self.set_head(commit_id);
+        // TODO(CTO): Determine whether this does anything. If we're not
+        // calling `checkout_branch_trees` right after this, then it will
+        // likly get overridden by the next `list_virtual_branches`.
         if let Some(tree) = tree {
             self.tree = tree;
         }
