@@ -61,6 +61,15 @@ export type Commits = {
 	 * In either case this is effectively a list of commits that in the working copy which may or may not have been pushed to the remote.
 	 */
 	readonly localAndRemote: Commit[];
+
+	/**
+	 * List of commits that exist **only** on the upstream branch. Ordered from newest to oldest.
+	 * Created from the tip of the local tracking branch eg. refs/remotes/origin/my-branch -> refs/heads/my-branch
+	 *
+	 * This does **not** include the commits that are in the commits list (local)
+	 * This is effectively the list of commits that are on the remote branch but are not in the working copy.
+	 */
+	readonly upstreamOnly: UpstreamCommit[];
 };
 
 /** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.*/
@@ -75,13 +84,42 @@ export type Commit = {
 	 * GitButler will perform rebasing/reordering etc without interruptions and flag commits as conflicted if needed.
 	 * Conflicts are resolved via the Edit Mode mechanism.
 	 */
-	readonly has_conflicts: boolean;
+	readonly hasConflicts: boolean;
 	/**
 	 * Represents wether the the commit is considered integrated, local only,
 	 * or local and remote with respect to the branch it belongs to.
 	 * Note that remote only commits in the context of a branch are expressed with the [`UpstreamCommit`] struct instead of this.
 	 */
 	readonly state: CommitState;
+	/** Commit creation time in Epoch milliseconds. */
+	readonly createdAt: string;
+	/** The author of the commit. */
+	readonly author: Author;
+};
+
+/**
+ * Commit that is only at the remote.
+ * Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
+ */
+export type UpstreamCommit = {
+	/** The OID of the commit. */
+	readonly id: string;
+	/** The message of the commit. */
+	readonly message: string;
+	/** Commit creation time in Epoch milliseconds. */
+	readonly createdAt: number;
+	/** The author of the commit. */
+	readonly author: Author;
+};
+
+/** Represents the author of a commit. */
+export type Author = {
+	/** The name from the git commit signature */
+	readonly name: string;
+	/** The email from the git commit signature */
+	readonly email: string;
+	/** A URL to a gravatar image for the email from the commit signature */
+	readonly gravatarUrl: string;
 };
 
 /** Represents the state a commit could be in. */
@@ -94,7 +132,7 @@ export type CommitState =
 	 *  - The commit has been pushed to the remote
 	 *  - The commit has been copied from a remote commit (when applying a remote branch)
 	 *
-	 * This variant carries the remote commit id.
+	 * This variant carries the remote commit id in the `subject` field.
 	 * The remote commit id may be the same as the `id` or it may be different if the local commit has been rebased or updated in another way.
 	 */
 	| { readonly type: 'LocalAndRemote'; readonly subject: string }
