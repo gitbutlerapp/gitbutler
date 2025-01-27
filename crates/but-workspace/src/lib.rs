@@ -66,7 +66,7 @@ pub fn stacks(gb_dir: &Path) -> Result<Vec<StackEntry>> {
 
 /// Represents the state a commit could be in.
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type", content = "subject", rename_all = "camelCase")]
+#[serde(tag = "type", content = "subject")]
 pub enum CommitState {
     /// The commit is only local
     LocalOnly,
@@ -167,7 +167,7 @@ pub struct Commits {
 
 /// Represents the state of a branch in a stack.
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type", content = "subject", rename_all = "camelCase")]
+#[serde(tag = "type", content = "subject")]
 pub enum State {
     /// Indicates that the branch is considered to be part of a stack
     Stacked(Commits),

@@ -75,7 +75,7 @@ export type Commit = {
 	 * GitButler will perform rebasing/reordering etc without interruptions and flag commits as conflicted if needed.
 	 * Conflicts are resolved via the Edit Mode mechanism.
 	 */
-	readonly has_conflicts: boolean;
+	readonly hasConflicts: boolean;
 	/**
 	 * Represents wether the the commit is considered integrated, local only,
 	 * or local and remote with respect to the branch it belongs to.
