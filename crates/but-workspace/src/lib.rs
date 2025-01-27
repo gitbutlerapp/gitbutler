@@ -76,6 +76,7 @@ pub enum CommitState {
     ///
     /// This variant carries the remote commit id.
     /// The `remote_commit_id` may be the same as the `id` or it may be different if the local commit has been rebased or updated in another way.
+    #[serde(with = "gitbutler_serde::object_id")]
     LocalAndRemote(gix::ObjectId),
     /// The commit is considered integrated.
     /// This should happen when this commit or the contents of this commit is already part of the base.
@@ -86,6 +87,7 @@ pub enum CommitState {
 #[derive(Debug, Clone, Serialize)]
 pub struct Commit {
     /// The OID of the commit.
+    #[serde(with = "gitbutler_serde::object_id")]
     pub id: gix::ObjectId,
     /// The message of the commit.
     #[serde(with = "gitbutler_serde::bstring_lossy")]
@@ -106,6 +108,7 @@ pub struct Commit {
 #[derive(Debug, Clone, Serialize)]
 pub struct UpstreamCommit {
     /// The OID of the commit.
+    #[serde(with = "gitbutler_serde::object_id")]
     pub id: gix::ObjectId,
     /// The message of the commit.
     #[serde(with = "gitbutler_serde::bstring_lossy")]
