@@ -66,7 +66,7 @@ pub fn stacks(gb_dir: &Path) -> Result<Vec<StackEntry>> {
 
 /// Represents the state a commit could be in.
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type", content = "subject")]
+#[serde(tag = "type", content = "subject", rename_all = "camelCase")]
 pub enum CommitState {
     /// The commit is only local
     LocalOnly,
@@ -86,6 +86,7 @@ pub enum CommitState {
 
 /// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Commit {
     /// The OID of the commit.
     #[serde(with = "gitbutler_serde::object_id")]
@@ -107,6 +108,7 @@ pub struct Commit {
 /// Commit that is only at the remote.
 /// Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpstreamCommit {
     /// The OID of the commit.
     #[serde(with = "gitbutler_serde::object_id")]
@@ -140,6 +142,7 @@ pub struct Branch {
 
 /// List of commits beloning to this branch. Ordered from newest to oldest (child-most to parent-most).
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Commits {
     /// Commits that are currently part of the workspace (applied).
     /// Created from the local pseudo branch (head currently stored in the TOML file)
@@ -160,7 +163,7 @@ pub struct Commits {
 
 /// Represents the state of a branch in a stack.
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type", content = "subject")]
+#[serde(tag = "type", content = "subject", rename_all = "camelCase")]
 pub enum State {
     /// Indicates that the branch is considered to be part of a stack
     Stacked(Commits),
