@@ -4,6 +4,7 @@
 	import { Project } from '$lib/project/project';
 	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { User } from '$lib/user/user';
+	import { UserService } from '$lib/user/userService';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -22,6 +23,8 @@
 	let contextMenuEl = $state<ContextMenu>();
 	let shareIssueModal = $state<ShareIssueModal>();
 	let keyboardShortcutsModal = $state<KeyboardShortcutsModal>();
+
+	const userService = getContext(UserService);
 </script>
 
 <nav class="sidebar">
@@ -223,6 +226,9 @@
 				tooltipAlign="start"
 				width={34}
 				class="faded-btn"
+				onclick={() => {
+					keyboardShortcutsModal?.show();
+				}}
 			/>
 			<Button
 				icon="mail"
@@ -244,13 +250,13 @@
 	bind:this={contextMenuEl}
 	leftClickTrigger={contextTriggerButton}
 	side="right"
-	verticalAlign="bottom"
+	verticalAlign="top"
 >
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Preferences"
 			onclick={() => {
-				contextMenuEl?.close();
+				goto('/settings/profile');
 			}}
 		/>
 	</ContextMenuSection>
@@ -258,18 +264,21 @@
 		<ContextMenuItem
 			label="Dark"
 			onclick={async () => {
+				// TODO
 				contextMenuEl?.close();
 			}}
 		/>
 		<ContextMenuItem
 			label="Light"
 			onclick={async () => {
+				// TODO
 				contextMenuEl?.close();
 			}}
 		/>
 		<ContextMenuItem
 			label="System"
 			onclick={async () => {
+				// TODO
 				contextMenuEl?.close();
 			}}
 		/>
@@ -278,7 +287,7 @@
 		<ContextMenuItem
 			label="Logout"
 			onclick={async () => {
-				contextMenuEl?.close();
+				await userService.logout();
 			}}
 		/>
 	</ContextMenuSection>
