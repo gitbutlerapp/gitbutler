@@ -8,22 +8,28 @@ export class ShortcutService {
 	constructor(private tauri: Tauri) {}
 
 	listen() {
-		$effect(() =>
-			this.tauri.listen<string>('menu://shortcut', (e) => {
+		$effect(() => {
+			const unsubscribe = this.tauri.listen<string>('menu://shortcut', (e) => {
 				for (const listener of this.listeners) {
 					if (listener[0] === e.payload) {
 						listener[1]();
 					}
 				}
-			})
-		);
+			});
+
+			return unsubscribe;
+		});
 	}
 
 	on(shortcut: string, callback: () => void) {
 		$effect(() => {
-			this.listeners.push([shortcut, callback]);
+			const value = [shortcut, callback] as [string, CallableFunction];
+			this.listeners.push(value);
 			return () => {
-				this.listeners.splice(this.listeners.findIndex(callback), 1);
+				this.listeners.splice(
+					this.listeners.findIndex((listener) => listener === value),
+					1
+				);
 			};
 		});
 	}
