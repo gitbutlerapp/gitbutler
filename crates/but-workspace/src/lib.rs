@@ -103,6 +103,8 @@ pub struct Commit {
     /// or local and remote with respect to the branch it belongs to.
     /// Note that remote only commits in the context of a branch are expressed with the [`UpstreamCommit`] struct instead of this.
     pub state: CommitState,
+    /// Commit creation time in Epoch milliseconds.
+    pub created_at: u128,
 }
 
 /// Commit that is only at the remote.
@@ -116,6 +118,8 @@ pub struct UpstreamCommit {
     /// The message of the commit.
     #[serde(with = "gitbutler_serde::bstring_lossy")]
     pub message: BString,
+    /// Commit creation time in Epoch milliseconds.
+    pub created_at: u128,
 }
 
 /// Represents a branch in a [`Stack`]. It contains commits derived from the local pseudo branch and it's respective remote
@@ -255,11 +259,14 @@ fn convert(
             }
         };
 
+        let created_at = u128::try_from(commit.time().seconds())? * 1000;
+
         let api_commit = Commit {
             id: commit.id().to_gix(),
             message: commit.message_bstr().into(),
             has_conflicts: commit.is_conflicted(),
             state,
+            created_at,
         };
         local_and_remote.push(api_commit);
     }
@@ -276,9 +283,11 @@ fn convert(
         });
         // Ignore commits that strictly speaking are remote only but they match a known local commit (rebase etc)
         if !matches_known_commit {
+            let created_at = u128::try_from(commit.time().seconds())? * 1000;
             let upstream_commit = UpstreamCommit {
                 id: commit.id().to_gix(),
                 message: commit.message_bstr().into(),
+                created_at,
             };
             upstream_only.push(upstream_commit);
         }
