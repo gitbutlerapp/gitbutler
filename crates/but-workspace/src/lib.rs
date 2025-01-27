@@ -250,11 +250,21 @@ fn convert(
     // Upstream only
     let mut upstream_only = vec![];
     for commit in branch_commits.upstream_only.iter() {
-        let upstream_commit = UpstreamCommit {
-            id: commit.id().to_gix(),
-            message: commit.message_bstr().into(),
-        };
-        upstream_only.push(upstream_commit);
+        let matches_known_commit = local_and_remote.iter().any(|c| {
+            if let CommitState::LocalAndRemote(remote_id) = &c.state {
+                remote_id == &commit.id().to_gix()
+            } else {
+                false
+            }
+        });
+        // Ignore commits that strictly speaking are remote only but they match a known local commit (rebase etc)
+        if !matches_known_commit {
+            let upstream_commit = UpstreamCommit {
+                id: commit.id().to_gix(),
+                message: commit.message_bstr().into(),
+            };
+            upstream_only.push(upstream_commit);
+        }
     }
     upstream_only.reverse();
 
