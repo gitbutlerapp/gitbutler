@@ -1,18 +1,25 @@
 import type { Tauri } from '$lib/backend/tauri';
 
+type ShortcutListener = {
+	id: number;
+	shortcut: string;
+	callback: () => void;
+};
+
 /**
  * Service class for listening to shortcut events from the back end.
  */
 export class ShortcutService {
-	private listeners: [string, CallableFunction][] = [];
+	static idCounter = 0;
+	private listeners: ShortcutListener[] = [];
 	constructor(private tauri: Tauri) {}
 
 	listen() {
 		$effect(() =>
 			this.tauri.listen<string>('menu://shortcut', (e) => {
 				for (const listener of this.listeners) {
-					if (listener[0] === e.payload) {
-						listener[1]();
+					if (listener.shortcut === e.payload) {
+						listener.callback();
 					}
 				}
 			})
@@ -20,10 +27,14 @@ export class ShortcutService {
 	}
 
 	on(shortcut: string, callback: () => void) {
+		const id = ShortcutService.idCounter;
+		ShortcutService.idCounter += 1;
+		const listener = { id, shortcut, callback };
 		$effect(() => {
-			this.listeners.push([shortcut, callback]);
+			this.listeners.push(listener);
 			return () => {
-				this.listeners.splice(this.listeners.findIndex(callback), 1);
+				const index = this.listeners.findIndex((l) => l.id === id);
+				if (index >= 0) this.listeners.splice(index, 1);
 			};
 		});
 	}
