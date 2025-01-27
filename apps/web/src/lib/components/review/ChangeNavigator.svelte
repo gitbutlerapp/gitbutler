@@ -8,9 +8,9 @@
 	}
 
 	const { patchIds, currentPatchId, goToPatch }: Props = $props();
-	const index = patchIds.indexOf(currentPatchId);
-	const previousPatchId = patchIds[index - 1];
-	const nextPatchId = patchIds[index + 1];
+	const index = $derived(patchIds.indexOf(currentPatchId));
+	const previousPatchId = $derived(patchIds[index + 1]);
+	const nextPatchId = $derived(patchIds[index - 1]);
 
 	function handleNavigateBack() {
 		if (previousPatchId) {
@@ -32,7 +32,7 @@
 		class="navigate-prev"
 		onclick={handleNavigateBack}><Icon name="chevron-left" /></button
 	>
-	<div class="indicator">Patch {index + 1}/{patchIds?.length}</div>
+	<div class="indicator">Patch {patchIds?.length - index}/{patchIds?.length}</div>
 	<button
 		type="button"
 		disabled={!nextPatchId}

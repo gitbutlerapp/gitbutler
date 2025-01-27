@@ -69,7 +69,7 @@
 	function visitFirstCommit(branch: Branch) {
 		if ((branch.patchIds?.length || 0) === 0) return;
 
-		goto(routes.projectReviewBranchCommitPath({ ...data, changeId: branch.patchIds[0] }));
+		goto(routes.projectReviewBranchCommitPath({ ...data, changeId: branch.patchIds.at(-1)! }));
 	}
 
 	let editingSummary = $state(false);
