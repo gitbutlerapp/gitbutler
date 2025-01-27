@@ -61,6 +61,15 @@ export type Commits = {
 	 * In either case this is effectively a list of commits that in the working copy which may or may not have been pushed to the remote.
 	 */
 	readonly localAndRemote: Commit[];
+
+	/**
+	 * List of commits that exist **only** on the upstream branch. Ordered from newest to oldest.
+	 * Created from the tip of the local tracking branch eg. refs/remotes/origin/my-branch -> refs/heads/my-branch
+	 *
+	 * This does **not** include the commits that are in the commits list (local)
+	 * This is effectively the list of commits that are on the remote branch but are not in the working copy.
+	 */
+	readonly upstreamOnly: UpstreamCommit[];
 };
 
 /** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.*/
@@ -82,6 +91,21 @@ export type Commit = {
 	 * Note that remote only commits in the context of a branch are expressed with the [`UpstreamCommit`] struct instead of this.
 	 */
 	readonly state: CommitState;
+	/** Commit creation time in Epoch milliseconds. */
+	readonly createdAt: string;
+};
+
+/**
+ * Commit that is only at the remote.
+ * Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
+ */
+export type UpstreamCommit = {
+	/** The OID of the commit. */
+	readonly id: string;
+	/** The message of the commit. */
+	readonly message: string;
+	/** Commit creation time in Epoch milliseconds. */
+	readonly createdAt: number;
 };
 
 /** Represents the state a commit could be in. */
