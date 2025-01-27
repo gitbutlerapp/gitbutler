@@ -14,13 +14,13 @@
 	}
 
 	type HorizontalProps = BaseProps & {
-		side: 'top' | 'bottom';
+		side?: 'top' | 'bottom';
 		horizontalAlign?: 'left' | 'right';
 		verticalAlign?: never;
 	};
 
 	type VerticalProps = BaseProps & {
-		side: 'left' | 'right';
+		side?: 'left' | 'right';
 		verticalAlign?: 'top' | 'bottom';
 		horizontalAlign?: never;
 	};
@@ -50,19 +50,20 @@
 	function setVerticalAlign(targetBoundingRect: DOMRect) {
 		if (['top', 'bottom'].includes(side)) {
 			return side === 'top'
-				? targetBoundingRect?.top
+				? targetBoundingRect.top
 					? targetBoundingRect.top - contextMenuHeight
 					: 0
-				: targetBoundingRect?.top
+				: targetBoundingRect.top
 					? targetBoundingRect.top + targetBoundingRect.height
 					: 0;
 		} else if (['left', 'right'].includes(side)) {
 			if (verticalAlign === 'top') {
-				return targetBoundingRect?.bottom - targetBoundingRect?.height;
+				return targetBoundingRect.bottom - targetBoundingRect.height;
 			} else if (verticalAlign === 'bottom') {
-				return targetBoundingRect?.bottom;
+				return targetBoundingRect.bottom;
 			}
 		}
+		return 0;
 	}
 
 	function setHorizontalAlign(targetBoundingRect: DOMRect) {
@@ -70,15 +71,16 @@
 
 		if (['top', 'bottom'].includes(side)) {
 			return horizontalAlign === 'left'
-				? targetBoundingRect?.left
-				: targetBoundingRect?.left + targetBoundingRect.width - contextMenuWidth - padding;
+				? targetBoundingRect.left
+				: targetBoundingRect.left + targetBoundingRect.width - contextMenuWidth - padding;
 		} else if (['left', 'right'].includes(side)) {
 			if (side === 'left') {
-				return targetBoundingRect?.x - contextMenuWidth - padding * 2;
+				return targetBoundingRect.x - contextMenuWidth - padding * 2;
 			} else {
-				return targetBoundingRect?.right + padding;
+				return targetBoundingRect.right + padding;
 			}
 		}
+		return padding;
 	}
 
 	function executeByTrigger(callback: (isOpened: boolean, isLeftClick: boolean) => void) {
@@ -149,8 +151,9 @@
 				if (!entry.isIntersecting) {
 					const rect = entry.boundingClientRect;
 					const viewport = entry.rootBounds;
+					if (!viewport) return;
 
-					if (rect.right > viewport?.right) {
+					if (rect.right > viewport.right) {
 						horizontalAlign = 'right';
 						setAlignment();
 					}
