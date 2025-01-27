@@ -64,7 +64,7 @@ pub fn stacks(gb_dir: &Path) -> Result<Vec<StackEntry>> {
 }
 
 /// Represents the state a commit could be in.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum CommitState {
     /// The commit is only local
     LocalOnly,
@@ -82,11 +82,12 @@ pub enum CommitState {
 }
 
 /// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Commit {
     /// The OID of the commit.
     pub id: gix::ObjectId,
     /// The message of the commit.
+    #[serde(with = "gitbutler_serde::bstring_lossy")]
     pub message: BString,
     /// Whether the commit is in a conflicted state.
     /// Conflicted state of a commit is a GitButler concept.
@@ -101,20 +102,24 @@ pub struct Commit {
 
 /// Commit that is only at the remote.
 /// Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct UpstreamCommit {
     /// The OID of the commit.
     pub id: gix::ObjectId,
     /// The message of the commit.
+    #[serde(with = "gitbutler_serde::bstring_lossy")]
     pub message: BString,
 }
 
 /// Represents a branch in a [`Stack`]. It contains commits derived from the local pseudo branch and it's respective remote
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Branch {
     /// The name of the branch.
+    #[serde(with = "gitbutler_serde::bstring_lossy")]
     pub name: BString,
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
+    #[serde(with = "gitbutler_serde::bstring_opt_lossy")]
     pub remote_tracking_branch: Option<BString>,
     /// Description of the branch.
     /// Can include arbitrary utf8 data, eg. markdown etc.
@@ -129,7 +134,7 @@ pub struct Branch {
 }
 
 /// List of commits beloning to this branch. Ordered from newest to oldest (child-most to parent-most).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Commits {
     /// Created from the local pseudo branch (head currently stored in the TOML file)
     /// This includes the commits from the tip of the stack to the merge base with the trunk / target branch (not including the merge base).
@@ -143,7 +148,7 @@ pub struct Commits {
 }
 
 /// Represents the state of a branch in a stack.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum State {
     /// Indicates that the branch is considered to be part of a stack
     Stacked(Commits),
