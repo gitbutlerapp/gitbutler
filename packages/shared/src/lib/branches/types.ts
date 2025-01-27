@@ -1,5 +1,4 @@
 import { apiToPermissions, type ApiPermissions, type Permissions } from '$lib/permissions';
-import { deduplicate } from '$lib/utils/array';
 import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 import type { LoadableData } from '$lib/network/types';
 
@@ -231,9 +230,12 @@ export async function getPatchContributorsWithAvatars(patch: Patch) {
 	return await getUsersWithAvatars(patch.contributors);
 }
 
-export async function getPatchReviewersWithAvatars(patch: Patch) {
-	const reviewers = deduplicate([...patch.review.rejected, ...patch.review.signedOff]);
-	return await getUsersWithAvatars(reviewers);
+export async function getPatchApproversWithAvatars(patch: Patch) {
+	return await getUsersWithAvatars(patch.review.signedOff);
+}
+
+export async function getPatchRejectorsWithAvatars(patch: Patch) {
+	return await getUsersWithAvatars(patch.review.rejected);
 }
 
 export async function getPatchViewersWithAvatars(patch: Patch) {

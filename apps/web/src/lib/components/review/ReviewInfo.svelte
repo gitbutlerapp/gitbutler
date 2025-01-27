@@ -2,8 +2,9 @@
 	import ChangeStatus from '../changes/ChangeStatus.svelte';
 	import {
 		getCommentersWithAvatars,
+		getPatchApproversWithAvatars,
 		getPatchContributorsWithAvatars,
-		getPatchReviewersWithAvatars,
+		getPatchRejectorsWithAvatars,
 		type Patch
 	} from '@gitbutler/shared/branches/types';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
@@ -38,7 +39,8 @@
 			: getCommentersWithAvatars(chatParticipants.current)
 	);
 	const contributors = $derived(getPatchContributorsWithAvatars(patch));
-	const reviewers = $derived(getPatchReviewersWithAvatars(patch));
+	const approvers = $derived(getPatchApproversWithAvatars(patch));
+	const rejectors = $derived(getPatchRejectorsWithAvatars(patch));
 </script>
 
 <div class="review-main-content-info">
@@ -49,12 +51,18 @@
 
 	<div class="review-main-content-info__entry">
 		<p class="review-main-content-info__header">Reviewed by:</p>
-		<div>
-			{#await reviewers then reviewers}
-				{#if reviewers.length === 0}
+		<div class="review-main-content-info__value-wrapper">
+			{#await Promise.all([approvers, rejectors]) then [approvers, rejectors]}
+				{#if approvers.length === 0 && rejectors.length === 0}
 					<p class="review-main-content-info__value">{NO_REVIEWERS}</p>
 				{:else}
-					<AvatarGroup avatars={reviewers}></AvatarGroup>
+					<AvatarGroup
+						avatars={rejectors}
+						maxAvatars={2}
+						icon="refresh-small"
+						iconColor="warning"
+					/>
+					<AvatarGroup avatars={approvers} maxAvatars={2} icon="tick-small" iconColor="success" />
 				{/if}
 			{/await}
 		</div>
@@ -66,7 +74,7 @@
 			{#if commentors.length === 0}
 				<p class="review-main-content-info__value">{NO_COMMENTS}</p>
 			{:else}
-				<AvatarGroup avatars={commentors}></AvatarGroup>
+				<AvatarGroup avatars={commentors} />
 			{/if}
 		{/await}
 	</div>
@@ -78,7 +86,7 @@
 				{#if contributors.length === 0}
 					<p class="review-main-content-info__value">{NO_CONTRIBUTORS}</p>
 				{:else}
-					<AvatarGroup avatars={contributors}></AvatarGroup>
+					<AvatarGroup avatars={contributors} />
 				{/if}
 			{/await}
 		</div>
@@ -108,6 +116,11 @@
 		font-style: normal;
 		font-weight: var(--weight-regular, 400);
 		line-height: 120%; /* 14.4px */
+	}
+
+	.review-main-content-info__value-wrapper {
+		display: flex;
+		gap: 8px;
 	}
 
 	.review-main-content-info__value {
