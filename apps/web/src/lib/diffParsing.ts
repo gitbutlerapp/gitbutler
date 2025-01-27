@@ -51,7 +51,6 @@ function lineType(line: string): SectionType {
 
 export function parsePatch(patch: string) {
 	const lines = patch.trim().split('\n');
-	console.log(lines);
 
 	const hunks = [];
 	let currentHunk: Hunk | undefined;
@@ -104,6 +103,5 @@ export function parsePatch(patch: string) {
 		}
 	}
 
-	console.log(hunks);
 	return hunks;
 }
