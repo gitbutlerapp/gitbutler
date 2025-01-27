@@ -38,6 +38,7 @@
 	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
+	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UpdaterService } from '$lib/updater/updater';
 	import { User } from '$lib/user/user';
@@ -89,6 +90,8 @@
 	const latestBranchLookupService = new LatestBranchLookupService(data.cloud, appState.appDispatch);
 	const webRoutesService = new WebRoutesService(env.PUBLIC_CLOUD_BASE_URL);
 	const desktopRouteService = new DesktopRoutesService();
+	const shortcutService = new ShortcutService(data.tauri);
+	shortcutService.listen();
 
 	setExternalLinkService({ open: openExternalUrl });
 
@@ -129,6 +132,7 @@
 	setContext(GitHubAuthenticationService, data.githubAuthenticationService);
 	setContext(StackService, stackService);
 	setContext(WorktreeService, worktreeService);
+	setContext(ShortcutService, shortcutService);
 
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 

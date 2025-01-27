@@ -1,4 +1,5 @@
 <script lang="ts">
+	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import { Project } from '$lib/project/project';
 	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
@@ -20,6 +21,7 @@
 	let contextTriggerButton = $state<HTMLDivElement>();
 	let contextMenuEl = $state<ContextMenu>();
 	let shareIssueModal = $state<ShareIssueModal>();
+	let keyboardShortcutsModal = $state<KeyboardShortcutsModal>();
 </script>
 
 <nav class="sidebar">
@@ -158,15 +160,15 @@
 	<div class="bottom">
 		<div class="bottom__primary-actions">
 			<div>
-				{#if routes.isSettingsPath}
+				{#if routes.isProjectSettingsPath}
 					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 				{/if}
 				<Button
 					icon="settings"
 					kind="outline"
-					onclick={() => goto(routes.settingsPath(project.id))}
+					onclick={() => goto(routes.projectSettingsPath(project.id))}
 					width={34}
-					class={['btn-square', routes.isSettingsPath && 'btn-active']}
+					class={['btn-square', routes.isProjectSettingsPath && 'btn-active']}
 				/>
 			</div>
 
@@ -282,6 +284,7 @@
 	</ContextMenuSection>
 </ContextMenu>
 
+<KeyboardShortcutsModal bind:this={keyboardShortcutsModal} />
 <ShareIssueModal bind:this={shareIssueModal} />
 
 <style lang="postcss">

@@ -4,7 +4,7 @@
 @import '@gitbutler/ui/fonts.css';
 
 :root {
-	--text-font-family-default: 'Inter';
+	--text-fontfamily-default: 'Inter';
 	--font-body: 'Spline Sans Mono Variable', monospace, ui-sans-serif, system-ui, sans-serif,
 		'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 	--font-mono: 'Fira Mono', monospace;

@@ -20,7 +20,7 @@
 	setContext(IdSelection, idSelection);
 	createCommitStore(undefined);
 
-	const { data, status, error } = $derived(worktreeService.getChanges(projectId));
+	const result = $derived(worktreeService.getChanges(projectId));
 </script>
 
 <div class="worktree-header">
@@ -29,16 +29,17 @@
 </div>
 
 <div class="file-list">
-	<ReduxResult data={data?.changes} {status} {error}>
-		{#snippet children(changes)}
-			<ChangeList {projectId} {changes} />
-		{/snippet}
-		{#snippet empty()}
-			<div class="text-12 text-body helper-text">
-				{@html noChanges}
-				<div>You're all caught up!</div>
-				<div>No files need committing</div>
-			</div>
+	<ReduxResult {result}>
+		{#snippet children(result)}
+			{#if result.changes.length > 0}
+				<ChangeList {projectId} changes={result.changes} />
+			{:else}
+				<div class="text-12 text-body helper-text">
+					{@html noChanges}
+					<div>You're all caught up!</div>
+					<div>No files need committing</div>
+				</div>
+			{/if}
 		{/snippet}
 	</ReduxResult>
 </div>
