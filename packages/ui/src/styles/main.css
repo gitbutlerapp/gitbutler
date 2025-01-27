@@ -20,4 +20,4 @@
 @import './components/review.css';
 
 /* LAYERS PRIORITY */
-@layer reset, sharable;
+@layer reset, sharable, button;

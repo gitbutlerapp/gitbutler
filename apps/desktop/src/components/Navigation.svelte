@@ -12,7 +12,7 @@
 	import { platformName } from '$lib/platform/platform';
 	import { ProjectService } from '$lib/project/projectService';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { createKeybind } from '$lib/utils/hotkeys';
+	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { env } from '$env/dynamic/public';
@@ -33,21 +33,18 @@
 
 	const isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + projectId);
 
+	const shortcutService = getContext(ShortcutService);
+	const modeService = getContext(ModeService);
+	const mode = $derived(modeService.mode);
+
+	shortcutService.on('toggle-sidebar', () => {
+		toggleNavCollapse();
+	});
+
 	function toggleNavCollapse() {
 		$isNavCollapsed = !$isNavCollapsed;
 	}
-
-	const handleKeyDown = createKeybind({
-		'$mod+/': () => {
-			toggleNavCollapse();
-		}
-	});
-
-	const modeService = getContext(ModeService);
-	const mode = modeService.mode;
 </script>
-
-<svelte:window onkeydown={handleKeyDown} />
 
 <aside class="navigation-wrapper">
 	<div

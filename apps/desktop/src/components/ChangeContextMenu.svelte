@@ -1,11 +1,9 @@
-<!-- TODO: Delete this file after V3 has shipped. -->
+<!-- This is a V3 replacement for `FileContextMenu.svelte` -->
 <script lang="ts">
 	import { BranchController } from '$lib/branches/branchController';
 	import { LocalFile } from '$lib/files/file';
-	import { isAnyFile } from '$lib/files/file';
 	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
@@ -39,8 +37,9 @@
 		if (!item.files || !Array.isArray(item.files)) return false;
 
 		return item.files.some((f: unknown) => {
-			if (!isAnyFile(f)) return false;
-			return computeFileStatus(f) === 'D';
+			if (!(typeof f === 'string')) return false;
+			return true;
+			// return computeChangeStatus(f) === 'D';
 		});
 	}
 

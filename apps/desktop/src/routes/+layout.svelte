@@ -38,6 +38,7 @@
 	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
+	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UpdaterService } from '$lib/updater/updater';
 	import { User } from '$lib/user/user';
@@ -46,6 +47,7 @@
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { PatchService as CloudPatchService } from '@gitbutler/shared/branches/patchService';
@@ -75,8 +77,9 @@
 	setContext(SETTINGS, userSettings);
 
 	const appState = new AppState();
-	const desktopState = new DesktopRedux(data.tauri);
-	const stackService = new StackService(desktopState);
+	const redux = new DesktopRedux(data.tauri);
+	const stackService = new StackService(redux);
+	const worktreeService = new WorktreeService(redux);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
 	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
 	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
@@ -87,12 +90,14 @@
 	const latestBranchLookupService = new LatestBranchLookupService(data.cloud, appState.appDispatch);
 	const webRoutesService = new WebRoutesService(env.PUBLIC_CLOUD_BASE_URL);
 	const desktopRouteService = new DesktopRoutesService();
+	const shortcutService = new ShortcutService(data.tauri);
+	shortcutService.listen();
 
 	setExternalLinkService({ open: openExternalUrl });
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
-	setContext(DesktopRedux, desktopState);
+	setContext(DesktopRedux, redux);
 	setContext(FeedService, feedService);
 	setContext(OrganizationService, organizationService);
 	setContext(CloudUserService, cloudUserService);
@@ -126,6 +131,8 @@
 	setContext(AppSettings, data.appSettings);
 	setContext(GitHubAuthenticationService, data.githubAuthenticationService);
 	setContext(StackService, stackService);
+	setContext(WorktreeService, worktreeService);
+	setContext(ShortcutService, shortcutService);
 
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 

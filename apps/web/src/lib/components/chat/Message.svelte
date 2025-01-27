@@ -56,7 +56,7 @@
 		text-overflow: ellipsis;
 
 		/* base/13-bold */
-		font-family: var(--font-family-default, Inter);
+		font-family: var(--fontfamily-default, Inter);
 		font-size: 13px;
 		font-style: normal;
 		font-weight: 600;
@@ -67,7 +67,7 @@
 		color: var(--text-1, #1a1614);
 
 		/* base-body/13 */
-		font-family: var(--font-family-default, Inter);
+		font-family: var(--fontfamily-default, Inter);
 		font-size: 13px;
 		font-style: normal;
 		font-weight: var(--weight-regular, 400);

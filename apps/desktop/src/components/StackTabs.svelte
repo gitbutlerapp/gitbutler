@@ -13,21 +13,23 @@
 	const { projectId, selectedId }: Props = $props();
 
 	const stackService = getContext(StackService);
-
-	const { data, status, error } = $derived(stackService.select(projectId));
-	const tabs = $derived(stacksToTabs(data));
-
-	stackService.poll(projectId);
+	const result = $derived(stackService.getAll(projectId));
 </script>
 
 <div class="tabs">
-	<ReduxResult {status} {error}>
-		{#each tabs as tab, i (tab.name)}
-			{@const first = i === 0}
-			{@const last = i === tabs.length - 1}
-			{@const selected = tab.id === selectedId}
-			<StackTab {projectId} {tab} {first} {last} {selected} />
-		{/each}
+	<ReduxResult {result}>
+		{#snippet children(result)}
+			{@const tabs = stacksToTabs(result)}
+			{#each tabs as tab, i (tab.name)}
+				{@const first = i === 0}
+				{@const last = i === tabs.length - 1}
+				{@const selected = tab.id === selectedId}
+				<StackTab {projectId} {tab} {first} {last} {selected} />
+			{/each}
+		{/snippet}
+		{#snippet empty()}
+			no stacks
+		{/snippet}
 	</ReduxResult>
 	<StackTabNew {projectId} />
 </div>

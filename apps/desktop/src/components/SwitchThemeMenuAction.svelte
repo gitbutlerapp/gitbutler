@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { listen } from '$lib/backend/ipc';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { createKeybind } from '$lib/utils/hotkeys';
+	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { initTheme } from '$lib/utils/theme';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import { onMount } from 'svelte';
+	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import type { Writable } from 'svelte/store';
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+	const shortcutService = getContext(ShortcutService);
+
 	initTheme(userSettings);
 
 	function updateTheme() {
@@ -17,17 +17,7 @@
 		}));
 	}
 
-	onMount(() => {
-		const unsubscribeTheme = listen<string>('menu://view/switch-theme/clicked', updateTheme);
-
-		return async () => {
-			unsubscribeTheme();
-		};
-	});
-
-	const handleKeyDown = createKeybind({
-		'$mod+T': updateTheme
+	shortcutService.on('switch-theme', () => {
+		updateTheme();
 	});
 </script>
-
-<svelte:window onkeydown={handleKeyDown} />

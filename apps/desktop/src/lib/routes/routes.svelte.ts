@@ -13,10 +13,10 @@ export class DesktopRoutesService {
 	}
 	isProjectPath = $derived(isUrl<{ projectId: string }>('/[projectId]'));
 
-	settingsPath(projectId: string) {
+	projectSettingsPath(projectId: string) {
 		return `/${projectId}/settings`;
 	}
-	isSettingsPath = $derived(isUrl<{ projectId: string }>('/[projectId]/settings'));
+	isProjectSettingsPath = $derived(isUrl<{ projectId: string }>('/[projectId]/settings'));
 
 	workspacePath(projectId: string) {
 		return `/${projectId}/workspace`;
@@ -49,6 +49,14 @@ export class DesktopRoutesService {
 	}
 }
 
+export function settingsPath() {
+	return `/settings`;
+}
+
 export function stackPath(projectId: string, stackId: string) {
 	return `/${projectId}/workspace/${stackId}`;
+}
+
+export function clonePath() {
+	return '/onboarding/clone';
 }

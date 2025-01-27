@@ -1,10 +1,15 @@
 <script lang="ts">
 	import ChangeStatus from '../changes/ChangeStatus.svelte';
 	import {
+		getCommentersWithAvatars,
 		getPatchContributorsWithAvatars,
 		getPatchReviewersWithAvatars,
 		type Patch
 	} from '@gitbutler/shared/branches/types';
+	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
+	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
+	import { getContext } from '@gitbutler/shared/context';
+	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 
 	const NO_REVIEWERS = 'Not reviewed yet';
@@ -12,11 +17,26 @@
 	const NO_COMMENTS = 'No comments yet';
 
 	interface Props {
+		projectId: string;
 		patch: Patch;
 	}
 
-	const { patch }: Props = $props();
+	const { patch, projectId }: Props = $props();
+	const appState = getContext(AppState);
+	const chatChannelService = getContext(ChatChannelsService);
 
+	const chatParticipants = getChatChannelParticipants(
+		appState,
+		chatChannelService,
+		projectId,
+		patch.changeId
+	);
+
+	const commenters = $derived(
+		chatParticipants.current === undefined
+			? Promise.resolve([])
+			: getCommentersWithAvatars(chatParticipants.current)
+	);
 	const contributors = $derived(getPatchContributorsWithAvatars(patch));
 	const reviewers = $derived(getPatchReviewersWithAvatars(patch));
 </script>
@@ -42,7 +62,13 @@
 
 	<div class="review-main-content-info__entry">
 		<p class="review-main-content-info__header">Commented by:</p>
-		<p class="review-main-content-info__value">{NO_COMMENTS}</p>
+		{#await commenters then commentors}
+			{#if commentors.length === 0}
+				<p class="review-main-content-info__value">{NO_COMMENTS}</p>
+			{:else}
+				<AvatarGroup avatars={commentors}></AvatarGroup>
+			{/if}
+		{/await}
 	</div>
 
 	<div class="review-main-content-info__entry">
@@ -77,7 +103,7 @@
 		text-overflow: ellipsis;
 
 		/* base/12 */
-		font-family: var(--font-family-default, Inter);
+		font-family: var(--fontfamily-default, Inter);
 		font-size: 12px;
 		font-style: normal;
 		font-weight: var(--weight-regular, 400);
@@ -90,7 +116,7 @@
 		text-overflow: ellipsis;
 
 		/* base/12 */
-		font-family: var(--font-family-default, Inter);
+		font-family: var(--fontfamily-default, Inter);
 		font-size: 12px;
 		font-style: normal;
 		font-weight: var(--weight-regular, 400);

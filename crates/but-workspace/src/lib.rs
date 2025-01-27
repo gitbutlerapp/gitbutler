@@ -64,7 +64,8 @@ pub fn stacks(gb_dir: &Path) -> Result<Vec<StackEntry>> {
 }
 
 /// Represents the state a commit could be in.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", content = "subject")]
 pub enum CommitState {
     /// The commit is only local
     LocalOnly,
@@ -75,6 +76,7 @@ pub enum CommitState {
     ///
     /// This variant carries the remote commit id.
     /// The `remote_commit_id` may be the same as the `id` or it may be different if the local commit has been rebased or updated in another way.
+    #[serde(with = "gitbutler_serde::object_id")]
     LocalAndRemote(gix::ObjectId),
     /// The commit is considered integrated.
     /// This should happen when this commit or the contents of this commit is already part of the base.
@@ -82,11 +84,13 @@ pub enum CommitState {
 }
 
 /// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Commit {
     /// The OID of the commit.
+    #[serde(with = "gitbutler_serde::object_id")]
     pub id: gix::ObjectId,
     /// The message of the commit.
+    #[serde(with = "gitbutler_serde::bstring_lossy")]
     pub message: BString,
     /// Whether the commit is in a conflicted state.
     /// Conflicted state of a commit is a GitButler concept.
@@ -101,20 +105,25 @@ pub struct Commit {
 
 /// Commit that is only at the remote.
 /// Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct UpstreamCommit {
     /// The OID of the commit.
+    #[serde(with = "gitbutler_serde::object_id")]
     pub id: gix::ObjectId,
     /// The message of the commit.
+    #[serde(with = "gitbutler_serde::bstring_lossy")]
     pub message: BString,
 }
 
 /// Represents a branch in a [`Stack`]. It contains commits derived from the local pseudo branch and it's respective remote
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Branch {
     /// The name of the branch.
+    #[serde(with = "gitbutler_serde::bstring_lossy")]
     pub name: BString,
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
+    #[serde(with = "gitbutler_serde::bstring_opt_lossy")]
     pub remote_tracking_branch: Option<BString>,
     /// Description of the branch.
     /// Can include arbitrary utf8 data, eg. markdown etc.
@@ -129,11 +138,17 @@ pub struct Branch {
 }
 
 /// List of commits beloning to this branch. Ordered from newest to oldest (child-most to parent-most).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Commits {
+    /// Commits that are currently part of the workspace (applied).
     /// Created from the local pseudo branch (head currently stored in the TOML file)
-    /// This includes the commits from the tip of the stack to the merge base with the trunk / target branch (not including the merge base).
-    /// This is effectively the list of commits that in the working copy which may or may not have been pushed to the remote.
+    ///
+    /// When there is only one branch in the stack, this includes the commits
+    /// from the tip of the stack to the merge base with the trunk / target branch (not including the merge base).
+    ///
+    /// When there are multiple branches in the stack, this includes the commits from the branch head to the next branch in the stack.
+    ///
+    /// In either case this is effectively a list of commits that in the working copy which may or may not have been pushed to the remote.
     pub local_and_remote: Vec<Commit>,
     /// List of commits that exist **only** on the upstream branch. Ordered from newest to oldest.
     /// Created from the tip of the local tracking branch eg. refs/remotes/origin/my-branch -> refs/heads/my-branch
@@ -143,7 +158,8 @@ pub struct Commits {
 }
 
 /// Represents the state of a branch in a stack.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", content = "subject")]
 pub enum State {
     /// Indicates that the branch is considered to be part of a stack
     Stacked(Commits),
@@ -153,7 +169,7 @@ pub enum State {
     Archived,
 }
 
-/// Provides the relevant details of a particular [`gitbutler_stack::Stack`]
+/// Returns the branches that belong to a particular [`gitbutler_stack::Stack`]
 /// The entries are ordered from newest to oldest.
 pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Branch>> {
     let state = state_handle(&ctx.project().gb_dir());

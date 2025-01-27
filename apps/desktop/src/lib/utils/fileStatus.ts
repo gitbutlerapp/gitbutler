@@ -1,4 +1,5 @@
 import { type AnyFile } from '$lib/files/file';
+import type { TreeChange } from '$lib/hunks/change';
 
 export type FileStatus = 'A' | 'M' | 'D';
 
@@ -12,4 +13,17 @@ export function computeFileStatus(file: AnyFile): FileStatus {
 		}
 	}
 	return 'M';
+}
+
+export function computeChangeStatus(change: TreeChange): FileStatus {
+	switch (change.status.type) {
+		case 'Addition':
+			return 'A';
+		case 'Deletion':
+			return 'D';
+		case 'Modification':
+			return 'M';
+		case 'Rename':
+			return 'M';
+	}
 }

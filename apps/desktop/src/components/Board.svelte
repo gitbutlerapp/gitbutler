@@ -9,7 +9,6 @@
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { showHistoryView } from '$lib/config/config';
 	import { cloneElement } from '$lib/dragging/draggable';
-	import { createKeybind } from '$lib/utils/hotkeys';
 	import { throttle } from '$lib/utils/misc';
 	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
@@ -74,21 +73,11 @@
 		}
 	}, 200);
 
-	const handleKeyDown = createKeybind({
-		'$mod+Shift+H': () => {
-			$showHistoryView = !$showHistoryView;
-		},
-		'$mod+z': () => {
-			$showHistoryView = !$showHistoryView;
-		}
-	});
-
 	onMount(() => {
 		posthog.capture('Workspace Open');
 	});
 </script>
 
-<svelte:window onkeydown={handleKeyDown} />
 {#if $error}
 	<PageLoadFailed error={$error} />
 {:else if !$branches}

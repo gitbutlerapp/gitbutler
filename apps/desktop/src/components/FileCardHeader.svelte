@@ -35,7 +35,7 @@
 					<div class="header__tag-group">
 						{#if isFileLocked}
 							<Badge
-								size="tag"
+								size="icon"
 								icon="locked-small"
 								style="warning"
 								tooltip="File changes cannot be moved because part of this file was already committed into this branch"

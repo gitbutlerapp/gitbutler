@@ -329,11 +329,11 @@
 	--text-weight-regular: 400;
 	--text-weight-semibold: 500;
 	--text-weight-bold: 600;
-	--text-line-height-body: 160%;
-	--text-line-height-default: 120%;
-	--text-font-family-default: Inter;
-	--text-font-family-mono: Geist Mono;
-	--text-font-family-accent: PP Editorial New;
+	--text-lineheight-body: 160%;
+	--text-lineheight-default: 120%;
+	--text-fontfamily-default: Inter;
+	--text-fontfamily-mono: Geist Mono;
+	--text-fontfamily-accent: PP Editorial New;
 	--opacity-btn-icon-outline: 0.7;
 	--opacity-btn-icon-outline-hover: 0.8;
 	--opacity-btn-icon-solid: 0.8;

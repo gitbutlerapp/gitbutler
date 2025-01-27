@@ -1,7 +1,10 @@
+import { key } from '$lib/selection/key';
 import { get, type Readable } from 'svelte/store';
 import type { AnyCommit, DetailedCommit } from '$lib/commits/commit';
 import type { AnyFile } from '$lib/files/file';
+import type { TreeChange } from '$lib/hunks/change';
 import type { Hunk, HunkLock } from '$lib/hunks/hunk';
+import type { IdSelection } from '$lib/selection/idSelection.svelte';
 
 export const NON_DRAGGABLE = {
 	disabled: true
@@ -14,6 +17,34 @@ export class HunkDropData {
 		public readonly lockedTo: HunkLock[],
 		public readonly commitId: string | undefined
 	) {}
+
+	get isCommitted(): boolean {
+		return !!this.commitId;
+	}
+}
+
+export class ChangeDropData {
+	constructor(
+		readonly stackId: string,
+		readonly file: TreeChange,
+		/**
+		 * When a a file is dragged we compare it to what is already selected,
+		 * if dragged item is part of the selection we consider that to be to
+		 * be dragging all of them. If it is not part of the selection, we
+		 * want to ignore what is selected and only drag the actual file being
+		 * dragged.
+		 */
+		private selection: IdSelection,
+		readonly commitId?: string
+	) {}
+
+	changedPaths(): string[] {
+		if (this.selection.has(this.file.path, this.commitId)) {
+			return this.selection.values().map((value) => `${value.path}:${value.commitId}`);
+		} else {
+			return [key(this.file.path, this.commitId)];
+		}
+	}
 
 	get isCommitted(): boolean {
 		return !!this.commitId;
@@ -58,4 +89,4 @@ export class CommitDropData {
 	) {}
 }
 
-export type DropData = FileDropData | HunkDropData | CommitDropData;
+export type DropData = FileDropData | HunkDropData | CommitDropData | ChangeDropData;

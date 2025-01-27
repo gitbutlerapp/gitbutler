@@ -1,23 +1,10 @@
 <script lang="ts">
-	import { listen } from '$lib/backend/ipc';
-	import { createKeybind } from '$lib/utils/hotkeys';
-	import { onMount } from 'svelte';
+	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
+	import { getContext } from '@gitbutler/shared/context';
 
-	onMount(() => {
-		const unsubscribe = listen<string>('menu://view/reload/clicked', () => {
-			location.reload();
-		});
+	const shortcutService = getContext(ShortcutService);
 
-		return async () => {
-			unsubscribe();
-		};
-	});
-
-	const handleKeyDown = createKeybind({
-		'$mod+R': () => {
-			location.reload();
-		}
+	shortcutService.on('reload', () => {
+		location.reload();
 	});
 </script>
-
-<svelte:window onkeydown={handleKeyDown} />

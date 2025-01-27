@@ -210,6 +210,23 @@ async function getUsersWithAvatars(userEmails: string[]) {
 	);
 }
 
+export type Commenter = {
+	avatarUrl: string | undefined;
+	name: string | undefined;
+};
+
+export async function getCommentersWithAvatars(commenters: Commenter[]) {
+	return await Promise.all(
+		commenters.map(async (commenter) => {
+			const name = commenter.name ?? 'unknown';
+			return {
+				srcUrl: commenter.avatarUrl ?? (await gravatarUrlFromEmail(name)),
+				name
+			};
+		})
+	);
+}
+
 export async function getPatchContributorsWithAvatars(patch: Patch) {
 	return await getUsersWithAvatars(patch.contributors);
 }

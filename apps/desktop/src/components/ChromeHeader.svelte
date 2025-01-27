@@ -58,7 +58,7 @@
 			{#snippet customSelectButton()}
 				<div class="selector-series-select">
 					<span class="text-13 text-bold">{project?.title}</span>
-					<div class="selector-series-select__icon"><Icon name="select-chevron" /></div>
+					<div class="selector-series-select__icon"><Icon name="chevron-down-small" /></div>
 				</div>
 			{/snippet}
 
@@ -133,15 +133,21 @@
 	.selector-series-select {
 		display: flex;
 		align-items: center;
-		gap: 2px;
+		gap: 4px;
 		padding: 2px 4px 2px 6px;
-		margin-left: -2px;
 		color: var(--clr-text-1);
 		text-wrap: nowrap;
+
+		&:hover {
+			& .selector-series-select__icon {
+				color: var(--clr-text-2);
+			}
+		}
 	}
 
 	.selector-series-select__icon {
 		display: flex;
-		color: var(--clr-text-2);
+		color: var(--clr-text-3);
+		transition: opacity var(--transition-fast);
 	}
 </style>

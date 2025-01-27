@@ -1,39 +1,18 @@
 <script lang="ts">
-	import { listen } from '$lib/backend/ipc';
 	import { ProjectsService } from '$lib/project/projectsService';
-	import { createKeybind } from '$lib/utils/hotkeys';
+	import { clonePath } from '$lib/routes/routes.svelte';
+	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
 	const projectsService = getContext(ProjectsService);
+	const shortcutService = getContext(ShortcutService);
 
-	onMount(() => {
-		const unsubscribeAddLocalRepo = listen<string>(
-			'menu://file/add-local-repo/clicked',
-			async () => {
-				await projectsService.addProject();
-			}
-		);
-
-		const unsubscribeCloneRepo = listen<string>('menu://file/clone-repo/clicked', async () => {
-			goto('/onboarding/clone');
-		});
-
-		return async () => {
-			unsubscribeAddLocalRepo();
-			unsubscribeCloneRepo();
-		};
+	shortcutService.on('add-local-repo', async () => {
+		await projectsService.addProject();
 	});
 
-	const handleKeyDown = createKeybind({
-		'$mod+O': async () => {
-			await projectsService.addProject();
-		},
-		'$mod+Shift+O': async () => {
-			goto('/onboarding/clone');
-		}
+	shortcutService.on('clone-repo', async () => {
+		goto(clonePath());
 	});
 </script>
-
-<svelte:window onkeydown={handleKeyDown} />
