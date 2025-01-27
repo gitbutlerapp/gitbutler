@@ -1,26 +1,21 @@
 use std::{path::PathBuf, vec};
 
 use anyhow::{anyhow, Context, Result};
-use bstr::ByteSlice;
-use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch::{self, GITBUTLER_WORKSPACE_REFERENCE};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
-use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_error::error::Marker;
 use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
-use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, RepoExt};
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, RepoExt as _};
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
-use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::SignaturePurpose;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use tracing::instrument;
 
-use crate::{branch_manager::BranchManagerExt, VirtualBranchesExt};
+use crate::{workspace_commit::resolve_commits_above, VirtualBranchesExt};
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
-const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
+pub const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
 pub const GITBUTLER_WORKSPACE_COMMIT_TITLE: &str = "GitButler Workspace Commit";
 
 /// Creates and returns a merge commit of all active branch heads.
@@ -287,7 +282,7 @@ pub fn update_workspace_commit(
 pub fn verify_branch(ctx: &CommandContext, perm: &mut WorktreeWritePermission) -> Result<()> {
     verify_current_branch_name(ctx)
         .and_then(verify_head_is_set)
-        .and_then(|()| verify_head_is_clean(ctx, perm))
+        .and_then(|()| resolve_commits_above(ctx, perm))
         .context(Marker::VerificationFailure)?;
     Ok(())
 }
@@ -315,106 +310,6 @@ fn verify_current_branch_name(ctx: &CommandContext) -> Result<&CommandContext> {
         }
         None => Err(anyhow!("Repo HEAD is unavailable")),
     }
-}
-
-// TODO(ST): Probably there should not be an implicit vbranch creation here.
-fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission) -> Result<()> {
-    let head_commit = ctx
-        .repo()
-        .head()
-        .context("failed to get head")?
-        .peel_to_commit()
-        .context("failed to peel to commit")?;
-
-    let vb_handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let default_target = vb_handle
-        .get_default_target()
-        .context("failed to get default target")?;
-
-    let commits = ctx
-        .repo()
-        .log(
-            head_commit.id(),
-            LogUntil::Commit(default_target.sha),
-            false,
-        )
-        .context("failed to get log")?;
-
-    let workspace_index = commits
-        .iter()
-        .position(|commit| {
-            commit.message().is_some_and(|message| {
-                message.starts_with(GITBUTLER_WORKSPACE_COMMIT_TITLE)
-                    || message.starts_with(GITBUTLER_INTEGRATION_COMMIT_TITLE)
-            })
-        })
-        .context("GitButler workspace commit not found")?;
-    let workspace_commit = &commits[workspace_index];
-    let mut extra_commits = commits[..workspace_index].to_vec();
-    extra_commits.reverse();
-
-    if extra_commits.is_empty() {
-        // no extra commits found, so we're good
-        return Ok(());
-    }
-
-    ctx.repo()
-        .reset(workspace_commit.as_object(), git2::ResetType::Soft, None)
-        .context("failed to reset to workspace commit")?;
-
-    let branch_manager = ctx.branch_manager();
-    let mut new_branch = branch_manager
-        .create_virtual_branch(
-            &BranchCreateRequest {
-                name: extra_commits
-                    .last()
-                    .map(|commit| commit.message_bstr().to_string()),
-                ..Default::default()
-            },
-            perm,
-        )
-        .context("failed to create virtual branch")?;
-
-    // rebasing the extra commits onto the new branch
-    let gix_repo = ctx.repo().to_gix()?;
-    let mut head = new_branch.head(&gix_repo)?;
-    for commit in extra_commits {
-        let new_branch_head = ctx
-            .repo()
-            .find_commit(head)
-            .context("failed to find new branch head")?;
-
-        let rebased_commit_oid = ctx
-            .repo()
-            .commit_with_signature(
-                None,
-                &commit.author(),
-                &commit.committer(),
-                &commit.message_bstr().to_str_lossy(),
-                &commit.tree().unwrap(),
-                &[&new_branch_head],
-                None,
-            )
-            .context(format!(
-                "failed to rebase commit {} onto new branch",
-                commit.id()
-            ))?;
-
-        let rebased_commit = ctx.repo().find_commit(rebased_commit_oid).context(format!(
-            "failed to find rebased commit {}",
-            rebased_commit_oid
-        ))?;
-
-        new_branch.set_stack_head(
-            &vb_handle,
-            &gix_repo,
-            rebased_commit.id(),
-            Some(rebased_commit.tree_id()),
-        )?;
-
-        head = rebased_commit.id();
-    }
-    Ok(())
 }
 
 fn invalid_head_err(head_name: &str) -> anyhow::Error {

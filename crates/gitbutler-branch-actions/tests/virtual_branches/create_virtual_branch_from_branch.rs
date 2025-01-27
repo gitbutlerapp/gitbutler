@@ -370,6 +370,8 @@ mod conflict_cases {
         let branch_refname =
             gitbutler_branch_actions::save_and_unapply_virutal_branch(ctx, branch.id).unwrap();
 
+        gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
+
         // Make X and set base branch to X
         let mut tree_builder = git_repo
             .treebuilder(Some(&git_repo.head().unwrap().peel_to_tree().unwrap()))
