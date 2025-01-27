@@ -10,8 +10,13 @@ doctest = false
 
 [dependencies]
 anyhow = "1.0.95"
+itertools = "0.14.0"
+rustc-hash = "2.1.0"
+serde.workspace = true
 gix = { workspace = true, features = [] }
 but-core.workspace = true
+but-workspace.workspace = true
+gitbutler-serde.workspace = true
 
 [dev-dependencies]
 gix-testtools.workspace = true

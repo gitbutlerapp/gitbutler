@@ -1,4 +1,10 @@
+#![feature(unsigned_signed_diff)]
 #![deny(missing_docs, rust_2018_idioms)]
+//! ## Terminology
+//! * **CommittedHunk**
+//!     - A change that was committed, typically in the form of a hunk, i.e. the range that a hunk occupied in an old version of a file,
+//!       along with the range that it occupies in a current version.
+//!
 //! ## A possible future
 //!
 //! What follows is research on how one could implement a perfectly *accurate* version of the existing algorithm that *doesn't* use patch context lines,
@@ -118,3 +124,88 @@
 //!
 //! In theory, would have to merge the parents, and diff it against the commit. That bears the risk of a conflict (that has been resolved in the commit),
 //! so in that case it should be fine to fallback to using the first parent.
+use but_core::{TreeChange, UnifiedDiff};
+use but_workspace::StackId;
+use std::collections::{HashMap, HashSet};
+
+/// All of our publicly exported types
+mod types;
+pub use types::{CalculationError, Dependencies, HunkHash, HunkLock};
+
+mod input;
+use crate::utils::hash_lines;
+pub use input::{InputCommit, InputDiffHunk, InputFile, InputStack};
+
+mod hunk;
+mod ranges;
+mod utils;
+
+/// Calculate all hunk dependencies by providing information about all changes.
+///
+/// * **worktree_changes**
+///     - Uncommitted changes in workspace.
+/// * **stacks**
+///     - a list of commits along with all information about its hunks (but without unified diff).
+/// * **repo**
+///     - The repository to use for obtaining unified diffs for worktree changes.
+///
+// TODO(performance): could this use iterators so it can stop if it found the answer already? Right now it does a lot of upfront work
+//                    without necessarily needing all inputs.
+// TODO: This should probably be in `tauri`, and `WorkspaceRanges` would be the main entry point here.
+pub fn calculate(
+    worktree_changes: Vec<TreeChange>,
+    stacks: Vec<InputStack>,
+    repo: &gix::Repository,
+) -> anyhow::Result<Dependencies> {
+    // Transforms stack specific line numbers to workspace line numbers.
+    let ranges = ranges::WorkspaceRanges::try_from_stacks(stacks)?;
+
+    let mut diffs = HashMap::<HunkHash, Vec<HunkLock>>::new();
+    for change in worktree_changes {
+        let unidiff = change.unified_diff(repo)?;
+        let UnifiedDiff::Patch { hunks } = unidiff else {
+            continue;
+        };
+        let path = gix::path::from_bstring(change.path);
+        for hunk in hunks {
+            if let Some(intersections) = ranges.intersection(&path, hunk.old_start, hunk.old_lines)
+            {
+                let locks: Vec<_> = intersections
+                    .into_iter()
+                    .map(|dependency| HunkLock {
+                        commit_id: dependency.commit_id,
+                        stack_id: dependency.stack_id,
+                    })
+                    .collect();
+                diffs.insert(hash_lines(&hunk.diff), locks);
+            }
+        }
+    }
+
+    let commit_dependent_diffs = diffs.iter().fold(
+        HashMap::new(),
+        |mut acc: HashMap<StackId, HashMap<gix::ObjectId, HashSet<HunkHash>>>, (hash, locks)| {
+            // TODO: do without fold - easier to read.
+            for lock in locks {
+                acc.entry(lock.stack_id)
+                    .or_default()
+                    .entry(lock.commit_id)
+                    .or_default()
+                    .insert(*hash);
+            }
+            acc
+        },
+    );
+
+    let commit_dependencies = ranges.commit_dependencies;
+    let inverse_commit_dependencies = ranges.inverse_commit_dependencies;
+    let errors = ranges.errors;
+
+    Ok(Dependencies {
+        diffs,
+        commit_dependencies,
+        inverse_commit_dependencies,
+        commit_dependent_diffs,
+        errors,
+    })
+}

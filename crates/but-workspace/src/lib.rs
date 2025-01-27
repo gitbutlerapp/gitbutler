@@ -35,12 +35,15 @@ use std::str::FromStr;
 mod author;
 mod integrated;
 
+/// An ID uniquely identifying stacks.
+pub use gitbutler_stack::StackId;
+
 /// Represents a lightweight version of a [`gitbutler_stack::Stack`] for listing.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StackEntry {
     /// The ID of the stack.
-    pub id: Id<gitbutler_stack::Stack>,
+    pub id: StackId,
     /// The list of the branch names that are part of the stack.
     /// The list is never empty.
     /// The first entry in the list is always the most recent branch on top the stack.

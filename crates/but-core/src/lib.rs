@@ -136,6 +136,25 @@ pub enum TreeStatus {
     },
 }
 
+/// Like [`TreeStatus`], but distilled down to its variant.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum TreeStatusKind {
+    /// Something was added or scheduled to be added.
+    Addition,
+    /// Something was deleted.
+    Deletion,
+    /// A tracked entry was modified, which might mean:
+    ///
+    /// * the content change, i.e. a file was changed
+    /// * the type changed, a file is now a symlink or something else
+    /// * the executable bit changed, so a file is now executable, or isn't anymore.
+    Modification,
+    /// An entry was renamed from `previous_path` to its current location.
+    ///
+    /// Note that this may include any change already documented in [`Modification`](TreeStatusKind::Modification)
+    Rename,
+}
+
 /// Something that fully identifies the state of a [`TreeChange`].
 #[derive(Debug, Clone, Copy)]
 pub struct ChangeState {
@@ -207,6 +226,18 @@ impl ModeFlags {
             (a, b) if a != b => ModeFlags::TypeChange,
             _ => return None,
         })
+    }
+}
+
+impl TreeStatus {
+    /// Learn what kind of status this is, useful if only this information is needed.
+    pub fn kind(&self) -> TreeStatusKind {
+        match self {
+            TreeStatus::Addition { .. } => TreeStatusKind::Addition,
+            TreeStatus::Deletion { .. } => TreeStatusKind::Deletion,
+            TreeStatus::Modification { .. } => TreeStatusKind::Modification,
+            TreeStatus::Rename { .. } => TreeStatusKind::Rename,
+        }
     }
 }
 
