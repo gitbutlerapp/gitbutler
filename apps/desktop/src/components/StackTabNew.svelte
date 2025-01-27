@@ -38,7 +38,7 @@
 	.new-stack {
 		border: 1px solid var(--clr-border-2);
 		border-bottom: none;
-		border-radius: 0 10px 0 0;
+		border-radius: 0 var(--radius-ml) 0 0;
 		padding: 14px 20px;
 		&:hover {
 			background: var(--clr-stack-tab-active);
