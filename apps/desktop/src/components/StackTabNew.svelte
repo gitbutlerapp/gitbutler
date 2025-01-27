@@ -23,25 +23,28 @@
 
 <button aria-label="new stack" type="button" class="new-stack" onclick={() => addNew()}>
 	<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-		<g clip-path="url(#clip0_3856_9495)">
-			<path d="M0 10H20M10 0L10 20" stroke="#867E79" stroke-width="1.5" />
-		</g>
-		<defs>
-			<clipPath id="clip0_3856_9495">
-				<rect width="20" height="20" fill="white" />
-			</clipPath>
-		</defs>
+		<path d="M0 10H20M10 0L10 20" stroke="currentColor" stroke-width="1.5" />
 	</svg>
 </button>
 
 <style lang="postcss">
 	.new-stack {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		border: 1px solid var(--clr-border-2);
 		border-bottom: none;
 		border-radius: 0 var(--radius-ml) 0 0;
 		padding: 14px 20px;
+		background: var(--clr-stack-tab-inactive);
+		color: var(--clr-text-3);
+		transition:
+			color var(--transition-fast),
+			background var(--transition-fast);
+
 		&:hover {
-			background: var(--clr-stack-tab-active);
+			color: var(--clr-text-2);
+			background: var(--clr-stack-tab-inactive-hover);
 		}
 	}
 </style>
