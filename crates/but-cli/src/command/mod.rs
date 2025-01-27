@@ -61,7 +61,7 @@ pub mod diff {
             .into_iter()
             .map(|tree_change| {
                 tree_change
-                    .unified_diff(repo)
+                    .unified_diff(repo, 3)
                     .map(|diff| (tree_change, diff))
             })
             .collect::<Result<Vec<_>, _>>()

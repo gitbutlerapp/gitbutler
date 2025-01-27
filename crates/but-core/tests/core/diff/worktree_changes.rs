@@ -1146,7 +1146,7 @@ fn unified_diffs(
     worktree
         .changes
         .into_iter()
-        .map(|c| c.unified_diff(repo))
+        .map(|c| c.unified_diff(repo, 3))
         .collect()
 }
 

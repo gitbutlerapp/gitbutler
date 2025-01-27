@@ -1,8 +1,7 @@
-use std::path::PathBuf;
-
 use anyhow::anyhow;
 use but_core::TreeStatusKind;
 use but_workspace::StackId;
+use gix::bstr::BString;
 
 /// A whole stack for the purpose of generating hunk locking information from it, for use in [Dependencies::calculate()](crate::Dependencies::calculate()).
 #[derive(Debug, Clone)]
@@ -28,16 +27,15 @@ pub struct InputCommit {
 #[derive(Debug, Clone)]
 pub struct InputFile {
     /// The worktree-relative path to the file.
-    // TODO: make this BString.
-    pub path: PathBuf,
+    pub path: BString,
     /// The hunks that changed in this file.
     pub hunks: Vec<InputDiffHunk>,
-    // TODO: add `change_type` here.
+    /// The kind of change of the parent file.
+    pub change_type: TreeStatusKind,
 }
 
 /// A
 #[derive(Debug, Clone, Copy)]
-// TODO: revise this name, something with Hunk?
 pub struct InputDiffHunk {
     /// The 1-based line number at which the previous version of the file started.
     pub old_start: u32,
@@ -47,9 +45,6 @@ pub struct InputDiffHunk {
     pub new_start: u32,
     /// The non-zero amount of lines included in the new version of the file.
     pub new_lines: u32,
-    /// The kind of change of the parent file.
-    // TODO: remove from here in favor of changetype above.
-    pub change_type: TreeStatusKind,
 }
 
 impl InputDiffHunk {
@@ -71,14 +66,12 @@ impl InputDiffHunk {
             new_lines,
             diff: _,
         }: &but_core::unified_diff::DiffHunk,
-        change_type: TreeStatusKind,
     ) -> Self {
         InputDiffHunk {
             old_start: *old_start,
             old_lines: *old_lines,
             new_start: *new_start,
             new_lines: *new_lines,
-            change_type,
         }
     }
 }

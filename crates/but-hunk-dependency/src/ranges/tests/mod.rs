@@ -1,6 +1,5 @@
 use crate::InputDiffHunk;
 use anyhow::{anyhow, Context};
-use but_core::TreeStatusKind;
 
 mod path;
 mod path_utilities;
@@ -12,10 +11,7 @@ fn id_from_hex_char(hex_char: char) -> gix::ObjectId {
         .expect("input char is hex-only")
 }
 
-fn input_hunk_from_unified_diff(
-    diff: &str,
-    change_type: TreeStatusKind,
-) -> Result<InputDiffHunk, anyhow::Error> {
+fn input_hunk_from_unified_diff(diff: &str) -> Result<InputDiffHunk, anyhow::Error> {
     let header = diff.lines().next().context("No header found")?;
     if !header.starts_with("@@") {
         return Err(anyhow!("Malformed undiff"));
@@ -28,7 +24,6 @@ fn input_hunk_from_unified_diff(
     let context_lines = head_context_lines + tail_context_lines;
 
     Ok(InputDiffHunk {
-        change_type,
         old_start: old_start + head_context_lines,
         old_lines: old_lines - context_lines,
         new_start: new_start + head_context_lines,

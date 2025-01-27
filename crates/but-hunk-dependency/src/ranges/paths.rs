@@ -3,9 +3,8 @@ use std::{
     vec,
 };
 
-use crate::hunk::HunkRange;
 use crate::utils::PaniclessSubtraction;
-use crate::InputDiffHunk;
+use crate::{HunkRange, InputDiffHunk};
 use anyhow::{bail, Context};
 use but_core::TreeStatusKind;
 use but_workspace::StackId;
@@ -22,10 +21,12 @@ pub(crate) struct PathRanges {
 }
 
 impl PathRanges {
+    /// `change_type` is the kind of diff that the `incoming_hunks` was created from.
     pub fn add(
         &mut self,
         stack_id: StackId,
         commit_id: gix::ObjectId,
+        change_type: TreeStatusKind,
         incoming_hunks: Vec<InputDiffHunk>,
     ) -> anyhow::Result<()> {
         if self.commit_ids.contains(&commit_id) {
@@ -46,6 +47,7 @@ impl PathRanges {
                 self.handle_file_recreation(
                     commit_id,
                     stack_id,
+                    change_type,
                     incoming_hunks,
                     self.hunk_ranges[0],
                 )?;
@@ -53,9 +55,10 @@ impl PathRanges {
             }
 
             // Assume that an incoming hunk deleting a file is the only diff in the commit.
-            if incoming_hunk.change_type == TreeStatusKind::Deletion {
+            if change_type == TreeStatusKind::Deletion {
                 self.handle_file_deletion(
                     incoming_hunks_count,
+                    change_type,
                     incoming_hunk,
                     stack_id,
                     commit_id,
@@ -65,7 +68,7 @@ impl PathRanges {
 
             // If no existing hunk ranges, add all incoming hunks.
             if self.hunk_ranges.is_empty() {
-                self.handle_add_all_hunks(stack_id, commit_id, incoming_hunks)?;
+                self.handle_add_all_hunks(stack_id, commit_id, change_type, incoming_hunks)?;
                 break;
             }
 
@@ -88,7 +91,7 @@ impl PathRanges {
 
                     if incoming_hunk.new_lines > 0 {
                         self.hunk_ranges.push(HunkRange {
-                            change_type: incoming_hunk.change_type,
+                            change_type,
                             stack_id,
                             commit_id,
                             start: incoming_hunk.new_start,
@@ -146,6 +149,7 @@ impl PathRanges {
                 self.handle_no_intersecting_hunks(
                     commit_id,
                     i,
+                    change_type,
                     incoming_hunk,
                     stack_id,
                     &mut index_next_hunk_to_visit,
@@ -157,6 +161,7 @@ impl PathRanges {
             if intersecting_hunks.len() == 1 {
                 self.handle_single_intersecting_hunk(
                     intersecting_hunks[0],
+                    change_type,
                     incoming_hunk,
                     stack_id,
                     commit_id,
@@ -167,6 +172,7 @@ impl PathRanges {
 
             self.handle_multiple_intersecting_hunks(
                 intersecting_hunks,
+                change_type,
                 incoming_hunk,
                 stack_id,
                 commit_id,
@@ -183,26 +189,27 @@ impl PathRanges {
         &mut self,
         commit_id: gix::ObjectId,
         stack_id: StackId,
+        change_type: TreeStatusKind,
         incoming_hunks: Vec<InputDiffHunk>,
         existing_hunk_range: HunkRange,
     ) -> Result<(), anyhow::Error> {
         if incoming_hunks.len() > 1 {
             bail!("File recreation must be the only diff in a commit");
         }
-        let incoming_hunk = &incoming_hunks[0];
-        if incoming_hunk.change_type != TreeStatusKind::Addition {
+        if change_type != TreeStatusKind::Addition {
             bail!("File recreation must be an addition");
         }
 
         self.track_commit_dependency(commit_id, vec![existing_hunk_range.commit_id])?;
         self.hunk_ranges.clear();
-        self.handle_add_all_hunks(stack_id, commit_id, incoming_hunks)?;
+        self.handle_add_all_hunks(stack_id, commit_id, change_type, incoming_hunks)?;
         Ok(())
     }
 
     fn handle_file_deletion(
         &mut self,
         incoming_hunks_count: usize,
+        change_type: TreeStatusKind,
         incoming_hunk: &InputDiffHunk,
         stack_id: StackId,
         commit_id: gix::ObjectId,
@@ -213,7 +220,7 @@ impl PathRanges {
             bail!("File deletion must be the only diff in a commit");
         }
         self.hunk_ranges = vec![HunkRange {
-            change_type: incoming_hunk.change_type,
+            change_type,
             stack_id,
             commit_id,
             start: incoming_hunk.new_start,
@@ -234,6 +241,7 @@ impl PathRanges {
         &mut self,
         commit_id: gix::ObjectId,
         index: usize,
+        change_type: TreeStatusKind,
         incoming_hunk: &InputDiffHunk,
         stack_id: StackId,
         index_next_hunk_to_visit: &mut Option<usize>,
@@ -250,7 +258,7 @@ impl PathRanges {
         let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.insert_hunk_ranges_at(
             index,
             vec![HunkRange {
-                change_type: incoming_hunk.change_type,
+                change_type,
                 stack_id,
                 commit_id,
                 start: incoming_hunk.new_start,
@@ -278,20 +286,17 @@ impl PathRanges {
         &mut self,
         stack_id: StackId,
         commit_id: gix::ObjectId,
+        change_type: TreeStatusKind,
         incoming_hunks: Vec<InputDiffHunk>,
     ) -> anyhow::Result<()> {
-        for hunk in incoming_hunks {
-            // if hunk.new_lines == 0 {
-            //     continue;
-            // }
-
+        for incoming_hunk in incoming_hunks {
             self.hunk_ranges.push(HunkRange {
-                change_type: hunk.change_type,
+                change_type,
                 stack_id,
                 commit_id,
-                start: hunk.new_start,
-                lines: hunk.new_lines,
-                line_shift: hunk.net_lines()?,
+                start: incoming_hunk.new_start,
+                lines: incoming_hunk.new_lines,
+                line_shift: incoming_hunk.net_lines()?,
             });
         }
         Ok(())
@@ -301,6 +306,7 @@ impl PathRanges {
     fn handle_multiple_intersecting_hunks(
         &mut self,
         intersecting_hunk_ranges: Vec<(usize, HunkRange)>,
+        change_type: TreeStatusKind,
         incoming_hunk: &InputDiffHunk,
         stack_id: StackId,
         commit_id: gix::ObjectId,
@@ -334,7 +340,7 @@ impl PathRanges {
                 *first_intersecting_hunk_index,
                 *last_intersecting_hunk_index + 1,
                 vec![HunkRange {
-                    change_type: incoming_hunk.change_type,
+                    change_type,
                     stack_id,
                     commit_id,
                     start: incoming_hunk.new_start,
@@ -362,7 +368,7 @@ impl PathRanges {
                 *last_intersecting_hunk_index + 1,
                 vec![
                     HunkRange {
-                        change_type: incoming_hunk.change_type,
+                        change_type,
                         stack_id,
                         commit_id,
                         start: incoming_hunk.new_start,
@@ -377,6 +383,7 @@ impl PathRanges {
                         lines: self
                             .calculate_lines_of_trimmed_hunk(
                                 last_intersecting_hunk,
+                                change_type,
                                 incoming_hunk,
                                 "While calculating the lines of the bottom hunk range when incoming hunk overlaps the beginning of the second intersecting hunk range."
 
@@ -414,7 +421,7 @@ impl PathRanges {
                         line_shift: first_intersecting_hunk.line_shift,
                     },
                     HunkRange {
-                        change_type: incoming_hunk.change_type,
+                        change_type,
                         stack_id,
                         commit_id,
                         start: incoming_hunk.new_start,
@@ -447,7 +454,7 @@ impl PathRanges {
                     line_shift: first_intersecting_hunk.line_shift,
                 },
                 HunkRange {
-                    change_type: incoming_hunk.change_type,
+                    change_type,
                     stack_id,
                     commit_id,
                     start: incoming_hunk.new_start,
@@ -462,6 +469,7 @@ impl PathRanges {
                     lines: self
                         .calculate_lines_of_trimmed_hunk(
                             last_intersecting_hunk,
+                            change_type,
                             incoming_hunk,
                             "While calculating the lines of the bottom hunk range when incoming hunk is contained in the intersecting hunk ranges."
                         )?,
@@ -481,6 +489,7 @@ impl PathRanges {
     fn handle_single_intersecting_hunk(
         &mut self,
         intersecting_hunk_range: (usize, HunkRange),
+        change_type: TreeStatusKind,
         incoming_hunk: &InputDiffHunk,
         stack_id: StackId,
         commit_id: gix::ObjectId,
@@ -498,7 +507,7 @@ impl PathRanges {
             let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.replace_hunk_ranges_at(
                 index,
                 vec![HunkRange {
-                    change_type: incoming_hunk.change_type,
+                    change_type,
                     stack_id,
                     commit_id,
                     start: incoming_hunk.new_start,
@@ -533,7 +542,7 @@ impl PathRanges {
                         line_shift: hunk.line_shift,
                     },
                     HunkRange {
-                        change_type: incoming_hunk.change_type,
+                        change_type,
                         stack_id,
                         commit_id,
                         start: incoming_hunk.new_start,
@@ -547,6 +556,7 @@ impl PathRanges {
                         start: incoming_hunk.new_start + incoming_hunk.new_lines,
                         lines: self.calculate_lines_of_trimmed_hunk(
                             &hunk,
+                            change_type,
                             incoming_hunk,
                             "When calculating the bottom lines of the hunk range being split.",
                         )?,
@@ -571,7 +581,7 @@ impl PathRanges {
                 index,
                 vec![
                     HunkRange {
-                        change_type: incoming_hunk.change_type,
+                        change_type,
                         stack_id,
                         commit_id,
                         start: incoming_hunk.new_start,
@@ -585,6 +595,7 @@ impl PathRanges {
                         start: incoming_hunk.new_start + incoming_hunk.new_lines,
                         lines: self.calculate_lines_of_trimmed_hunk(
                             &hunk,
+                            change_type,
                             incoming_hunk,
                             "When calculating the lines of the hunk range's beginning being trimmed.",
                         )?,
@@ -609,7 +620,7 @@ impl PathRanges {
                         line_shift: hunk.line_shift,
                     },
                     HunkRange {
-                        change_type: incoming_hunk.change_type,
+                        change_type,
                         stack_id,
                         commit_id,
                         start: incoming_hunk.new_start,
@@ -634,18 +645,19 @@ impl PathRanges {
     fn calculate_lines_of_trimmed_hunk(
         &self,
         hunk: &HunkRange,
+        change_type: TreeStatusKind,
         incoming_hunk: &InputDiffHunk,
         context: &'static str,
     ) -> anyhow::Result<u32> {
         let old_start = self.get_shifted_old_start(incoming_hunk.old_start);
-        let addition_shift = if self.is_addition_only_hunk(incoming_hunk) {
+        let addition_shift = if self.is_addition_only_hunk(change_type, incoming_hunk) {
             // If the incoming hunk is an addition, we need to subtract one more line.
             1
         } else {
             0
         };
 
-        let deletion_shift = if self.is_deletion_only_hunk(incoming_hunk) {
+        let deletion_shift = if self.is_deletion_only_hunk(change_type, incoming_hunk) {
             // If the incoming hunk is a deletion, we need to add one more line.
             1
         } else {
@@ -662,18 +674,26 @@ impl PathRanges {
     }
 
     /// Determine whether the incoming hunk is of modification type and only adds lines.
-    fn is_addition_only_hunk(&self, incoming_hunk: &InputDiffHunk) -> bool {
+    fn is_addition_only_hunk(
+        &self,
+        change_type: TreeStatusKind,
+        incoming_hunk: &InputDiffHunk,
+    ) -> bool {
         let old_start = self.get_shifted_old_start(incoming_hunk.old_start);
-        incoming_hunk.change_type == TreeStatusKind::Modification
+        change_type == TreeStatusKind::Modification
             && (old_start + 1) == incoming_hunk.new_start
             && incoming_hunk.old_lines == 0
             && incoming_hunk.new_lines > 0
     }
 
     /// Determine whether the incoming hunk is of modification type and only deletes lines.
-    fn is_deletion_only_hunk(&self, incoming_hunk: &InputDiffHunk) -> bool {
+    fn is_deletion_only_hunk(
+        &self,
+        change_type: TreeStatusKind,
+        incoming_hunk: &InputDiffHunk,
+    ) -> bool {
         let old_start = self.get_shifted_old_start(incoming_hunk.old_start);
-        incoming_hunk.change_type == TreeStatusKind::Modification
+        change_type == TreeStatusKind::Modification
             && old_start == (incoming_hunk.new_start + 1)
             && incoming_hunk.old_lines > 0
             && incoming_hunk.new_lines == 0
@@ -786,13 +806,6 @@ impl PathRanges {
         index_of_interest: usize,
     ) -> (usize, usize) {
         insert_hunk_ranges(&mut self.hunk_ranges, start, end, hunks, index_of_interest)
-    }
-
-    pub fn intersection(&self, start: u32, lines: u32) -> Vec<&HunkRange> {
-        self.hunk_ranges
-            .iter()
-            .filter(|hunk| hunk.intersects(start, lines).unwrap_or(false))
-            .collect()
     }
 }
 

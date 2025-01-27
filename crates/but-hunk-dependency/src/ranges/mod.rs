@@ -1,26 +1,42 @@
-use crate::hunk::HunkRange;
-use crate::{CalculationError, InputCommit, InputDiffHunk, InputStack};
+use crate::{InputCommit, InputDiffHunk, InputStack};
+use but_core::TreeStatusKind;
 use but_workspace::StackId;
+use gix::bstr::BString;
 use itertools::Itertools;
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+
+mod hunk;
+pub use hunk::HunkRange;
 
 mod paths;
 use paths::PathRanges;
 
+/// All hunk-dependencies for the entire workspace.
 #[derive(Debug)]
-pub(crate) struct WorkspaceRanges {
-    paths: HashMap<PathBuf, Vec<HunkRange>>,
-    pub commit_dependencies: HashMap<StackId, HashMap<gix::ObjectId, HashSet<gix::ObjectId>>>,
-    pub inverse_commit_dependencies:
-        HashMap<StackId, HashMap<gix::ObjectId, HashSet<gix::ObjectId>>>,
+pub struct WorkspaceRanges {
+    paths: HashMap<BString, Vec<HunkRange>>,
+    stacks: Vec<StackRanges>,
+    /// Errors that occurred while computing the fields in this instance.
     pub errors: Vec<CalculationError>,
+}
+
+/// An error that can say what went wrong when computing the hunk ranges for a commit in a stack at a given path.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(missing_docs)]
+pub struct CalculationError {
+    pub error_message: String,
+    pub stack_id: StackId,
+    #[serde(serialize_with = "gitbutler_serde::object_id::serialize")]
+    pub commit_id: gix::ObjectId,
+    pub path: BString,
 }
 
 #[derive(Debug, Default)]
 struct StackRanges {
     stack_id: StackId,
-    paths: HashMap<PathBuf, PathRanges>,
+    paths: HashMap<BString, PathRanges>,
 }
 
 /// A struct for collecting hunk ranges by path, before they get merged into a single dimension
@@ -30,30 +46,24 @@ impl StackRanges {
         &mut self,
         stack_id: StackId,
         commit_id: gix::ObjectId,
-        path: &PathBuf,
+        path: BString,
+        change_type: TreeStatusKind,
         diffs: Vec<InputDiffHunk>,
     ) -> anyhow::Result<()> {
         self.paths
-            .entry(path.to_owned())
+            .entry(path)
             .or_default()
-            .add(stack_id, commit_id, diffs)?;
+            .add(stack_id, commit_id, change_type, diffs)?;
 
         Ok(())
     }
 
-    pub fn unique_paths(&self) -> HashSet<PathBuf> {
+    pub fn unique_paths(&self) -> HashSet<BString> {
         self.paths
             .keys()
             .unique()
             .map(|path| path.to_owned())
-            .collect::<HashSet<PathBuf>>()
-    }
-
-    pub fn intersection(&mut self, path: &PathBuf, start: u32, lines: u32) -> Vec<&HunkRange> {
-        if let Some(deps_path) = self.paths.get_mut(path) {
-            return deps_path.intersection(start, lines);
-        }
-        vec![]
+            .collect::<HashSet<BString>>()
     }
 
     /// Merge all the commit dependencies for each path into a single, global commit dependency map
@@ -80,6 +90,8 @@ impl StackRanges {
 /// match the workspace commit. These per branch changes are assumed and required to be
 /// independent without overlap.
 impl WorkspaceRanges {
+    /// Calculates all ranges for the workspace, which is identified by `input_stacks`,
+    /// i.e. all stacks that make up that workspace.
     pub fn try_from_stacks(input_stacks: Vec<InputStack>) -> anyhow::Result<WorkspaceRanges> {
         let mut stacks = vec![];
         let mut errors = vec![];
@@ -93,7 +105,13 @@ impl WorkspaceRanges {
                 let InputCommit { commit_id, files } = commit;
                 for file in files {
                     if let Some(error) = stack_ranges
-                        .add(stack_id, commit_id, &file.path, file.hunks)
+                        .add(
+                            stack_id,
+                            commit_id,
+                            file.path.clone(),
+                            file.change_type,
+                            file.hunks,
+                        )
                         .err()
                     {
                         errors.push(CalculationError {
@@ -112,27 +130,18 @@ impl WorkspaceRanges {
             .flat_map(StackRanges::unique_paths)
             .unique()
             .collect_vec();
-
-        let commit_dependencies = stacks
-            .iter()
-            .map(|stack| (stack.stack_id, stack.get_commit_dependencies()))
-            .collect();
-        let inverse_commit_dependencies = get_inverted_dependency_maps(&commit_dependencies);
-
         Ok(WorkspaceRanges {
             paths: paths
                 .iter()
                 .map(|path| (path.clone(), combine_path_ranges(path, &stacks)))
                 .collect(),
-            commit_dependencies,
-            inverse_commit_dependencies,
+            stacks,
             errors,
         })
     }
 
     /// Finds commits that intersect with a given path and range combination.
-    // TODO: could be smallvec
-    pub fn intersection(&self, path: &Path, start: u32, lines: u32) -> Option<Vec<&HunkRange>> {
+    pub fn intersection(&self, path: &BString, start: u32, lines: u32) -> Option<Vec<&HunkRange>> {
         if let Some(hunk_range) = self.paths.get(path) {
             let intersection = hunk_range
                 .iter()
@@ -144,12 +153,30 @@ impl WorkspaceRanges {
         }
         None
     }
+
+    /// Calculate inverse dependencies - it's really for the frontend-UI, but has tests here.
+    // TODO: only for `UI` - but depends on stack-ranges which is still private.
+    #[allow(clippy::type_complexity)]
+    pub fn commit_dependencies_and_inverse_commit_dependencies(
+        &self,
+    ) -> (
+        HashMap<StackId, HashMap<gix::ObjectId, HashSet<gix::ObjectId>>>,
+        HashMap<StackId, HashMap<gix::ObjectId, HashSet<gix::ObjectId>>>,
+    ) {
+        let commit_dependencies = self
+            .stacks
+            .iter()
+            .map(|stack| (stack.stack_id, stack.get_commit_dependencies()))
+            .collect();
+        let inverse_commit_dependencies = get_inverted_dependency_maps(&commit_dependencies);
+        (commit_dependencies, inverse_commit_dependencies)
+    }
 }
 
 /// Combines ranges from muiltiple branches/stacks into a single vector
 /// with adjusted line numbers. For this to work it is required that changes
 /// between stacks are not overlapping, which is already a hard requirement.
-fn combine_path_ranges(path: &Path, stacks: &[StackRanges]) -> Vec<HunkRange> {
+fn combine_path_ranges(path: &BString, stacks: &[StackRanges]) -> Vec<HunkRange> {
     let mut result: Vec<HunkRange> = vec![];
 
     // Only process stacks that contain the path.

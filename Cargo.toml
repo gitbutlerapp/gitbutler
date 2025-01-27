@@ -70,6 +70,7 @@ gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 but-debugging = { path = "crates/but-debugging" }
 but-core = { path = "crates/but-core" }
 but-workspace = { path = "crates/but-workspace" }
+but-hunk-dependency = { path = "crates/but-hunk-dependency" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better

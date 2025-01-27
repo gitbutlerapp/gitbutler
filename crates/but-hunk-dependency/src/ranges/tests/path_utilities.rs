@@ -1,5 +1,5 @@
-use crate::hunk::HunkRange;
 use crate::ranges::tests::id_from_hex_char;
+use crate::HunkRange;
 use but_core::TreeStatusKind;
 use but_workspace::StackId;
 

@@ -449,8 +449,11 @@ impl TreeChange {
     /// for obtaining a working tree to read files from disk.
     /// Note that the mount of lines of context around each hunk are currently hardcoded to `3` as it *might* be relevant for creating
     /// commits later.
-    pub fn unified_diff(&self, repo: &gix::Repository) -> anyhow::Result<UnifiedDiff> {
-        const CONTEXT_LINES: u32 = 3;
+    pub fn unified_diff(
+        &self,
+        repo: &gix::Repository,
+        context_lines: u32,
+    ) -> anyhow::Result<UnifiedDiff> {
         match &self.status {
             TreeStatus::Deletion { previous_state } => UnifiedDiff::compute(
                 repo,
@@ -458,12 +461,12 @@ impl TreeChange {
                 None,
                 None,
                 *previous_state,
-                CONTEXT_LINES,
+                context_lines,
             ),
             TreeStatus::Addition {
                 state,
                 is_untracked: _,
-            } => UnifiedDiff::compute(repo, self.path.as_bstr(), None, *state, None, CONTEXT_LINES),
+            } => UnifiedDiff::compute(repo, self.path.as_bstr(), None, *state, None, context_lines),
             TreeStatus::Modification {
                 state,
                 previous_state,
@@ -474,7 +477,7 @@ impl TreeChange {
                 None,
                 *state,
                 *previous_state,
-                CONTEXT_LINES,
+                context_lines,
             ),
             TreeStatus::Rename {
                 previous_path,
@@ -487,7 +490,7 @@ impl TreeChange {
                 Some(previous_path.as_bstr()),
                 *state,
                 *previous_state,
-                CONTEXT_LINES,
+                context_lines,
             ),
         }
     }

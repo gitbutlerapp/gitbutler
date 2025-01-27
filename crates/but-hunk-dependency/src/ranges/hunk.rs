@@ -7,18 +7,24 @@ use crate::utils::PaniclessSubtraction;
 /// A struct for tracking what stack and commit a hunk belongs to as its line numbers shift with
 /// new changes come in from other commits and/or stacks.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct HunkRange {
+pub struct HunkRange {
+    /// The kind of change that was performed on the path of the parent-diff.
     pub change_type: TreeStatusKind,
+    /// The stack that ownes `commit_id`.
     pub stack_id: StackId,
+    /// The commit in the `stack_id`.
     pub commit_id: gix::ObjectId,
+    /// The first line (1-based) at which this hunk is present.
     pub start: u32,
+    /// The amount of lines the hunk is spanning.
     pub lines: u32,
+    /// How many lines up or down this hunk moved when tracking it through the commits.
     pub line_shift: i32,
 }
 
 impl HunkRange {
-    pub fn intersects(&self, start: u32, lines: u32) -> Result<bool> {
-        // TODO: since it only matters that it's deleted, maybe only keep this flag then?
+    /// See if this range intersects with the hunk identified with `start` and `lines`.
+    pub(crate) fn intersects(&self, start: u32, lines: u32) -> Result<bool> {
         if self.change_type == TreeStatusKind::Deletion {
             // Special case when file is deleted.
             return Ok(true);
@@ -60,7 +66,7 @@ impl HunkRange {
         Ok(self.start <= incoming_last_line && last_line >= start)
     }
 
-    pub fn contains(&self, start: u32, lines: u32) -> bool {
+    pub(crate) fn contains(&self, start: u32, lines: u32) -> bool {
         if lines == 0 {
             // Special case when only adding lines.
             return self.start <= start && self.start + self.lines > start + 1;
@@ -68,7 +74,7 @@ impl HunkRange {
         start > self.start && start + lines <= self.start + self.lines
     }
 
-    pub fn covered_by(&self, start: u32, lines: u32) -> bool {
+    pub(crate) fn covered_by(&self, start: u32, lines: u32) -> bool {
         if start == 0 && lines == 0 {
             // Special when adding lines at the top of the file.
             return false;
@@ -76,7 +82,7 @@ impl HunkRange {
         self.start >= start && self.start + self.lines <= start + lines
     }
 
-    pub fn precedes(&self, start: u32) -> Result<bool> {
+    pub(crate) fn precedes(&self, start: u32) -> Result<bool> {
         let last_line = (self.start + self.lines)
             .sub_or_err(1)
             .context("While calculating the last line")?;
@@ -84,7 +90,7 @@ impl HunkRange {
         Ok(last_line < start)
     }
 
-    pub fn follows(&self, start: u32, lines: u32) -> Result<bool> {
+    pub(crate) fn follows(&self, start: u32, lines: u32) -> Result<bool> {
         if start == 0 && lines == 0 {
             // Special case when adding lines at the top of the file.
             return Ok(true);

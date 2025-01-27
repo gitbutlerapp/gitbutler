@@ -4,9 +4,8 @@ use crate::ranges::{get_inverted_dependency_maps, WorkspaceRanges};
 use crate::{InputCommit, InputDiffHunk, InputStack};
 use but_core::TreeStatusKind;
 use but_workspace::StackId;
+use gix::bstr::BString;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
-use std::str::FromStr;
 
 #[test]
 fn get_inverted_dependency_maps_test_single_stack() {
@@ -259,7 +258,7 @@ fn get_inverted_dependency_maps_test_multple_dependencies() {
 
 #[test]
 fn workspace_simple() -> anyhow::Result<()> {
-    let path = PathBuf::from_str("/test.txt")?;
+    let path = BString::from("/test.txt");
 
     let commit1_id = id_from_hex_char('1');
     let stack1_id = StackId::generate();
@@ -273,9 +272,9 @@ fn workspace_simple() -> anyhow::Result<()> {
             commits: vec![InputCommit {
                 commit_id: commit1_id,
                 files: vec![InputFile {
-                    path: path.to_owned(),
+                    path: path.clone(),
+                    change_type: TreeStatusKind::Modification,
                     hunks: vec![InputDiffHunk {
-                        change_type: TreeStatusKind::Modification,
                         old_start: 2,
                         old_lines: 1,
                         new_start: 2,
@@ -289,7 +288,8 @@ fn workspace_simple() -> anyhow::Result<()> {
             commits: vec![InputCommit {
                 commit_id: commit2_id,
                 files: vec![InputFile {
-                    path: path.to_owned(),
+                    change_type: TreeStatusKind::Modification,
+                    path: path.clone(),
                     hunks: vec![
                         input_hunk_from_unified_diff(
                             "@@ -6,8 +6,6 @@
@@ -303,7 +303,6 @@ fn workspace_simple() -> anyhow::Result<()> {
 12
 13
 ",
-                            TreeStatusKind::Modification,
                         )?,
                         input_hunk_from_unified_diff(
                             "@@ -14,6 +12,7 @@
@@ -315,7 +314,6 @@ fn workspace_simple() -> anyhow::Result<()> {
 19
 20
 ",
-                            TreeStatusKind::Modification,
                         )?,
                     ],
                 }],
@@ -343,7 +341,7 @@ fn workspace_simple() -> anyhow::Result<()> {
 
 #[test]
 fn gracefully_handle_invalid_input_commits() -> anyhow::Result<()> {
-    let path = PathBuf::from_str("/test.txt")?;
+    let path = BString::from("/test.txt");
 
     let stack_id = StackId::generate();
     let commit_a_id = id_from_hex_char('a');
@@ -357,9 +355,9 @@ fn gracefully_handle_invalid_input_commits() -> anyhow::Result<()> {
             InputCommit {
                 commit_id: commit_a_id, // Delete file
                 files: vec![InputFile {
-                    path: path.to_owned(),
+                    path: path.clone(),
+                    change_type: TreeStatusKind::Deletion,
                     hunks: vec![InputDiffHunk {
-                        change_type: TreeStatusKind::Deletion,
                         old_start: 1,
                         old_lines: 2,
                         new_start: 0,
@@ -370,9 +368,9 @@ fn gracefully_handle_invalid_input_commits() -> anyhow::Result<()> {
             InputCommit {
                 commit_id: commit_b_id, // Delete file, again
                 files: vec![InputFile {
-                    path: path.to_owned(),
+                    path: path.clone(),
+                    change_type: TreeStatusKind::Deletion,
                     hunks: vec![InputDiffHunk {
-                        change_type: TreeStatusKind::Deletion,
                         old_start: 1,
                         old_lines: 2,
                         new_start: 0,
@@ -383,9 +381,9 @@ fn gracefully_handle_invalid_input_commits() -> anyhow::Result<()> {
             InputCommit {
                 commit_id: commit_c_id, // Re-add file
                 files: vec![InputFile {
-                    path: path.to_owned(),
+                    path: path.clone(),
+                    change_type: TreeStatusKind::Addition,
                     hunks: vec![InputDiffHunk {
-                        change_type: TreeStatusKind::Addition,
                         old_start: 0,
                         old_lines: 0,
                         new_start: 1,

@@ -707,7 +707,6 @@ dependencies = [
  "gix-testtools",
  "insta",
  "itertools 0.14.0",
- "rustc-hash",
  "serde",
 ]
 
@@ -2915,6 +2914,7 @@ dependencies = [
  "anyhow",
  "backtrace",
  "but-core",
+ "but-hunk-dependency",
  "but-workspace",
  "console-subscriber",
  "git2",
@@ -2948,6 +2948,7 @@ dependencies = [
  "open",
  "parking_lot",
  "reqwest",
+ "rustc-hash",
  "serde",
  "serde_json",
  "tauri",
