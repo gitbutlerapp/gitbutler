@@ -27,7 +27,7 @@ export type Hunk = {
 };
 
 const headerRegex =
-	/@@ -(?<beforeStart>\d+),?(?<beforeCount>\d+)? \+(?<afterStart>\d+),?(?<afterCount>\d+) @@(?<comment>.+)?/;
+	/@@ -(?<beforeStart>\d+),?(?<beforeCount>\d+)? \+(?<afterStart>\d+),?(?<afterCount>\d+)? @@(?<comment>.+)?/;
 function parseHeader(header: string): { oldStart: number; newStart: number } {
 	const result = headerRegex.exec(header);
 	if (!result?.groups) {
