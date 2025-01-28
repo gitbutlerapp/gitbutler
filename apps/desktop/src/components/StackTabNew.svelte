@@ -45,10 +45,6 @@
 		}
 	}
 
-	$effect(() => {
-		createRefModal?.show();
-	});
-
 	// TODO: it would be nice to remember the last selected option for the next time the modal is opened
 </script>
 
