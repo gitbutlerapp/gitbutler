@@ -49,6 +49,7 @@ urlencoding = "2.1.3"
 reqwest = { version = "0.12.9", features = ["json"] }
 toml.workspace = true
 uuid.workspace = true
+but-debugging.workspace = true
 
 [dev-dependencies]
 once_cell = "1.20"
