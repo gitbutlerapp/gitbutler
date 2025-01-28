@@ -116,11 +116,11 @@
 	}
 
 	.success {
-		background: var(--clr-theme-pop-bg);
+		background: var(--clr-theme-pop-bg-muted);
 	}
 
 	.error {
-		background: var(--clr-theme-warn-bg);
+		background: var(--clr-theme-warn-bg-muted);
 	}
 	.extra-padding {
 		padding: 20px;
