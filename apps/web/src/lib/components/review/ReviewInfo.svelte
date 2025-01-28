@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ChangeStatus from '../changes/ChangeStatus.svelte';
 	import {
-		getCommentersWithAvatars,
+		getUsersWithAvatars,
 		getPatchApproversWithAvatars,
 		getPatchContributorsWithAvatars,
 		getPatchRejectorsWithAvatars,
@@ -36,7 +36,7 @@
 	const commenters = $derived(
 		chatParticipants.current === undefined
 			? Promise.resolve([])
-			: getCommentersWithAvatars(chatParticipants.current)
+			: getUsersWithAvatars(chatParticipants.current)
 	);
 	const contributors = $derived(getPatchContributorsWithAvatars(patch));
 	const approvers = $derived(getPatchApproversWithAvatars(patch));
