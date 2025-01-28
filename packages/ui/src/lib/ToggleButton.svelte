@@ -54,7 +54,9 @@
 		height: var(--size-button);
 		padding: 4px 8px;
 		border-radius: var(--radius-m);
-		transition: border-color var(--transition-fast);
+		transition:
+			border-color var(--transition-fast),
+			background-color var(--transition-fast);
 
 		color: var(--label-clr);
 		background: color-mix(
