@@ -51,6 +51,10 @@ fn main() {
                     )
                     .expect("Failed to create window");
 
+                    #[cfg(target_os = "macos")]
+                    // NOTE: Make sure you only call this ONCE per window.
+                    let _ = window.setup_traffic_lights_inset(LogicalPosition::new(20.0, 24.0));
+
                     // TODO(mtsgrd): Is there a better way to disable devtools in E2E tests?
                     #[cfg(debug_assertions)]
                     if tauri_app.config().product_name != Some("GitButler Test".to_string()) {
