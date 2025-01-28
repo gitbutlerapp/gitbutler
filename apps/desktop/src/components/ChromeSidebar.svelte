@@ -4,7 +4,6 @@
 	import { Project } from '$lib/project/project';
 	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { User } from '$lib/user/user';
-	import { UserService } from '$lib/user/userService';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -23,8 +22,6 @@
 	let contextMenuEl = $state<ContextMenu>();
 	let shareIssueModal = $state<ShareIssueModal>();
 	let keyboardShortcutsModal = $state<KeyboardShortcutsModal>();
-
-	const userService = getContext(UserService);
 </script>
 
 <nav class="sidebar">
@@ -256,7 +253,7 @@
 		<ContextMenuItem
 			label="Preferences"
 			onclick={() => {
-				goto('/settings/profile');
+				contextMenuEl?.close();
 			}}
 		/>
 	</ContextMenuSection>
@@ -264,21 +261,18 @@
 		<ContextMenuItem
 			label="Dark"
 			onclick={async () => {
-				// TODO
 				contextMenuEl?.close();
 			}}
 		/>
 		<ContextMenuItem
 			label="Light"
 			onclick={async () => {
-				// TODO
 				contextMenuEl?.close();
 			}}
 		/>
 		<ContextMenuItem
 			label="System"
 			onclick={async () => {
-				// TODO
 				contextMenuEl?.close();
 			}}
 		/>
@@ -287,7 +281,7 @@
 		<ContextMenuItem
 			label="Logout"
 			onclick={async () => {
-				await userService.logout();
+				contextMenuEl?.close();
 			}}
 		/>
 	</ContextMenuSection>
