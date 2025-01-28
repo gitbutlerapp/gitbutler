@@ -12,7 +12,14 @@
 		"category": "DeveloperTool",
 		"copyright": "Copyright © 2023-2024 GitButler. All rights reserved.",
 		"createUpdaterArtifacts": "v1Compatible",
-		"targets": ["app", "dmg", "appimage", "deb", "rpm", "msi"],
+		"targets": [
+			"app",
+			"dmg",
+			"appimage",
+			"deb",
+			"rpm",
+			"msi"
+		],
 		"icon": [
 			"icons/dev/32x32.png",
 			"icons/dev/128x128.png",
@@ -25,10 +32,15 @@
 		},
 		"linux": {
 			"rpm": {
-				"depends": ["webkit2gtk4.1"]
+				"depends": [
+					"webkit2gtk4.1"
+				]
 			},
 			"deb": {
-				"depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+				"depends": [
+					"libwebkit2gtk-4.1-0",
+					"libgtk-3-0"
+				]
 			}
 		}
 	},
