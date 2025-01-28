@@ -1,34 +1,305 @@
 <script lang="ts">
+	import RadioButton from './RadioButton.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { stackPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import Link from '@gitbutler/ui/link/Link.svelte';
+	import { slugify } from '@gitbutler/ui/utils/string';
 	import { goto } from '$app/navigation';
 
 	type Props = {
 		projectId: string;
+		selectedId: string | undefined;
 	};
-	const { projectId }: Props = $props();
+
+	const { projectId, selectedId }: Props = $props();
 	const stackService = getContext(StackService);
 
+	let createRefModal = $state<ReturnType<typeof Modal>>();
+
+	let createRefName: string | undefined = $state();
+	const slugifiedRefName = $derived(createRefName && slugify(createRefName));
+	const generatedNameDiverges = $derived(!!createRefName && slugifiedRefName !== createRefName);
+
+	let createRefType: 'stack' | 'dependent' = $state('stack');
+
+	function handleOptionSelect(event: Event) {
+		const target = event.target as HTMLInputElement;
+		createRefType = target.id === 'new-stack' ? 'stack' : 'dependent';
+	}
+
 	async function addNew() {
-		const { data, error } = await stackService.new(projectId);
-		if (data) {
-			goto(stackPath(projectId, data.id));
+		if (createRefType === 'stack') {
+			const { data, error } = await stackService.new(projectId);
+			if (data) {
+				goto(stackPath(projectId, data.id));
+			} else {
+				showError('Failed to add new stack', error);
+			}
 		} else {
-			showError('Failed to add new stack', error);
+			console.log('add dependent branch');
 		}
 	}
+
+	$effect(() => {
+		createRefModal?.show();
+	});
+
+	// TODO: it would be nice to remember the last selected option for the next time the modal is opened
 </script>
 
-<button aria-label="new stack" type="button" class="new-stack" onclick={() => addNew()}>
+<button
+	aria-label="new stack"
+	type="button"
+	class="new-stack-btn"
+	onclick={() => createRefModal?.show()}
+>
 	<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
 		<path d="M0 10H20M10 0L10 20" stroke="currentColor" stroke-width="1.5" />
 	</svg>
 </button>
 
+<Modal bind:this={createRefModal} width={500}>
+	<div class="content-wrap">
+		<Textbox
+			label="New branch"
+			id="newRemoteName"
+			bind:value={createRefName}
+			autofocus
+			helperText={generatedNameDiverges ? `Will be created as '${slugifiedRefName}'` : undefined}
+		/>
+
+		{#if selectedId}
+			<div class="options-wrap">
+				<!-- Option 1 -->
+				<label for="new-stack" class="radio-label" class:radio-selected={createRefType === 'stack'}>
+					<div class="radio-btn">
+						<RadioButton checked name="create-new" id="new-stack" onchange={handleOptionSelect} />
+					</div>
+
+					<h3 class="text-13 text-bold text-body radio-title">New stack</h3>
+					<p class="text-12 text-body radio-caption">
+						Create an independent branch<br />in a new stack.
+					</p>
+
+					<div class="radio-illustration">
+						<svg
+							width="186"
+							height="74"
+							viewBox="0 0 186 74"
+							fill="none"
+							xmlns="http://www.w3.org/2000/svg"
+						>
+							<path
+								d="M1 12.6515C1 6.4927 5.9927 1.5 12.1515 1.5H45.6061C51.7649 1.5 56.7576 6.4927 56.7576 12.6515V27.1485H1V12.6515Z"
+								fill="var(--clr-bg-1)"
+								stroke="var(--illustration-outline)"
+								stroke-width="1.2"
+							/>
+							<rect
+								x="14.3818"
+								y="11.5364"
+								width="28.9939"
+								height="5.57576"
+								fill="var(--illustration-outline)"
+							/>
+							<path
+								d="M56.7576 12.6515C56.7576 6.4927 61.7503 1.5 67.9091 1.5H101.364C107.522 1.5 112.515 6.4927 112.515 12.6515V27.1485H56.7576V12.6515Z"
+								fill="var(--illustration-accent-bg)"
+								stroke="var(--illustration-accent-outline)"
+								stroke-width="1.2"
+							/>
+							<rect
+								x="70.1394"
+								y="11.5364"
+								width="28.9939"
+								height="5.57576"
+								fill="var(--illustration-accent-outline)"
+							/>
+							<path
+								d="M1 27H173.848C180.007 27 185 31.9927 185 38.1515V74H1V27Z"
+								fill="var(--clr-bg-1)"
+							/>
+							<path
+								d="M80 40.5H185M80 53.5H185M80 65.5H185"
+								stroke="var(--illustration-outline)"
+								stroke-width="1.2"
+								opacity="0.4"
+							/>
+
+							<path d="M80 27L80 74" stroke="var(--illustration-outline)" stroke-width="1.2" />
+							<path
+								opacity="0.3"
+								d="M10 40.4606C10 37.9971 11.9971 36 14.4606 36H66.5394C69.0029 36 71 37.9971 71 40.4606V74H10V40.4606Z"
+								fill="var(--illustration-outline)"
+							/>
+							<path
+								d="M185 74V38.1515C185 31.9927 180.007 27 173.848 27H1V74"
+								stroke="var(--illustration-outline)"
+								stroke-width="1.2"
+							/>
+						</svg>
+					</div>
+				</label>
+				<!-- Option 2 -->
+				<label
+					for="new-dependent"
+					class="radio-label"
+					class:radio-selected={createRefType === 'dependent'}
+				>
+					<div class="radio-btn">
+						<RadioButton name="create-new" id="new-dependent" onchange={handleOptionSelect} />
+					</div>
+					<h3 class="text-13 text-bold text-body radio-title">Dependent branch</h3>
+					<p class="text-12 text-body radio-caption">
+						Create a branch that depends on<br />the branches in the current stack.
+					</p>
+
+					<div class="radio-illustration">
+						<svg
+							width="139"
+							height="72"
+							viewBox="0 0 139 72"
+							fill="none"
+							xmlns="http://www.w3.org/2000/svg"
+						>
+							<path
+								d="M1 11C1 5.47715 5.47715 1 11 1H128C133.523 1 138 5.47715 138 11V22C138 27.5228 133.523 32 128 32H11C5.47715 32 1 27.5228 1 22V11Z"
+								fill="var(--illustration-accent-bg)"
+								stroke="var(--illustration-accent-outline)"
+								stroke-width="1.2"
+							/>
+							<path
+								d="M29.8608 21V12.2727H33.2017C33.8324 12.2727 34.3565 12.3722 34.7741 12.571C35.1946 12.767 35.5085 13.0355 35.7159 13.3764C35.9261 13.7173 36.0312 14.1037 36.0312 14.5355C36.0312 14.8906 35.9631 15.1946 35.8267 15.4474C35.6903 15.6974 35.5071 15.9006 35.277 16.0568C35.0469 16.2131 34.7898 16.3253 34.5057 16.3935V16.4787C34.8153 16.4957 35.1122 16.5909 35.3963 16.7642C35.6832 16.9347 35.9176 17.1761 36.0994 17.4886C36.2813 17.8011 36.3722 18.179 36.3722 18.6222C36.3722 19.0739 36.2628 19.4801 36.044 19.8409C35.8253 20.1989 35.4957 20.4815 35.0554 20.6889C34.6151 20.8963 34.0611 21 33.3935 21H29.8608ZM31.4418 19.679H33.142C33.7159 19.679 34.1293 19.5696 34.3821 19.3509C34.6378 19.1293 34.7656 18.8452 34.7656 18.4986C34.7656 18.2401 34.7017 18.0071 34.5739 17.7997C34.446 17.5895 34.2642 17.4247 34.0284 17.3054C33.7926 17.1832 33.5114 17.1222 33.1847 17.1222H31.4418V19.679ZM31.4418 15.9844H33.0057C33.2784 15.9844 33.5241 15.9347 33.7429 15.8352C33.9616 15.733 34.1335 15.5895 34.2585 15.4048C34.3864 15.2173 34.4503 14.9957 34.4503 14.7401C34.4503 14.402 34.331 14.1236 34.0923 13.9048C33.8565 13.6861 33.5057 13.5767 33.0398 13.5767H31.4418V15.9844ZM37.6793 21V14.4545H39.1751V15.5455H39.2433C39.3626 15.1676 39.5671 14.8764 39.8569 14.6719C40.1495 14.4645 40.4833 14.3608 40.8583 14.3608C40.9435 14.3608 41.0387 14.3651 41.1438 14.3736C41.2518 14.3793 41.3413 14.3892 41.4123 14.4034V15.8224C41.3469 15.7997 41.2433 15.7798 41.1012 15.7628C40.962 15.7429 40.8271 15.733 40.6964 15.733C40.4151 15.733 40.1623 15.794 39.9379 15.9162C39.7163 16.0355 39.5415 16.2017 39.4137 16.4148C39.2859 16.6278 39.2219 16.8736 39.2219 17.152V21H37.6793ZM44.2035 21.1321C43.7887 21.1321 43.4151 21.0582 43.0827 20.9105C42.7532 20.7599 42.4918 20.5384 42.2987 20.2457C42.1083 19.9531 42.0131 19.5923 42.0131 19.1634C42.0131 18.794 42.0813 18.4886 42.2177 18.2472C42.354 18.0057 42.5401 17.8125 42.7759 17.6676C43.0117 17.5227 43.2773 17.4134 43.5728 17.3395C43.8711 17.2628 44.1793 17.2074 44.4975 17.1733C44.881 17.1335 45.1921 17.098 45.4308 17.0668C45.6694 17.0327 45.8427 16.9815 45.9506 16.9134C46.0614 16.8423 46.1168 16.733 46.1168 16.5852V16.5597C46.1168 16.2386 46.0217 15.9901 45.8313 15.8139C45.641 15.6378 45.3668 15.5497 45.0089 15.5497C44.631 15.5497 44.3313 15.6321 44.1097 15.7969C43.891 15.9616 43.7433 16.1562 43.6665 16.3807L42.2262 16.1761C42.3398 15.7784 42.5273 15.446 42.7887 15.179C43.0501 14.9091 43.3697 14.7074 43.7475 14.5739C44.1254 14.4375 44.543 14.3693 45.0004 14.3693C45.3157 14.3693 45.6296 14.4062 45.9421 14.4801C46.2546 14.554 46.5401 14.6761 46.7987 14.8466C47.0572 15.0142 47.2646 15.2429 47.4208 15.5327C47.5799 15.8224 47.6594 16.1847 47.6594 16.6193V21H46.1765V20.1009H46.1254C46.0316 20.2827 45.8995 20.4531 45.729 20.6122C45.5614 20.7685 45.3498 20.8949 45.0941 20.9915C44.8413 21.0852 44.5444 21.1321 44.2035 21.1321ZM44.604 19.9986C44.9137 19.9986 45.1822 19.9375 45.4094 19.8153C45.6367 19.6903 45.8114 19.5256 45.9336 19.321C46.0586 19.1165 46.1211 18.8935 46.1211 18.652V17.8807C46.0728 17.9205 45.9904 17.9574 45.8739 17.9915C45.7603 18.0256 45.6325 18.0554 45.4904 18.081C45.3484 18.1065 45.2077 18.1293 45.0685 18.1491C44.9293 18.169 44.8086 18.1861 44.7063 18.2003C44.4762 18.2315 44.2702 18.2827 44.0884 18.3537C43.9066 18.4247 43.7631 18.5241 43.658 18.652C43.5529 18.777 43.5004 18.9389 43.5004 19.1378C43.5004 19.4219 43.604 19.6364 43.8114 19.7812C44.0188 19.9261 44.283 19.9986 44.604 19.9986ZM50.7532 17.1648V21H49.2106V14.4545H50.685V15.5668H50.7617C50.9123 15.2003 51.1523 14.9091 51.4819 14.6932C51.8143 14.4773 52.2248 14.3693 52.7134 14.3693C53.1651 14.3693 53.5586 14.4659 53.8938 14.6591C54.2319 14.8523 54.4933 15.1321 54.6779 15.4986C54.8654 15.8651 54.9577 16.3097 54.9549 16.8324V21H53.4123V17.071C53.4123 16.6335 53.2987 16.2912 53.0714 16.044C52.8469 15.7969 52.5359 15.6733 52.1381 15.6733C51.8683 15.6733 51.6282 15.733 51.418 15.8523C51.2106 15.9687 51.0472 16.1378 50.9279 16.3594C50.8114 16.581 50.7532 16.8494 50.7532 17.1648ZM59.3782 21.1278C58.7248 21.1278 58.1637 20.9844 57.695 20.6974C57.229 20.4105 56.8697 20.0142 56.6168 19.5085C56.3668 19 56.2418 18.4148 56.2418 17.7528C56.2418 17.0881 56.3697 16.5014 56.6254 15.9929C56.881 15.4815 57.2418 15.0838 57.7077 14.7997C58.1765 14.5128 58.7305 14.3693 59.3697 14.3693C59.9009 14.3693 60.3711 14.4673 60.7802 14.6634C61.1921 14.8565 61.5202 15.1307 61.7646 15.4858C62.0089 15.8381 62.1481 16.25 62.1822 16.7216H60.7077C60.6481 16.4062 60.506 16.1435 60.2816 15.9332C60.06 15.7202 59.7631 15.6136 59.391 15.6136C59.0756 15.6136 58.7987 15.6989 58.56 15.8693C58.3214 16.0369 58.1353 16.2784 58.0018 16.5938C57.8711 16.9091 57.8058 17.2869 57.8058 17.7273C57.8058 18.1733 57.8711 18.5568 58.0018 18.8778C58.1325 19.196 58.3157 19.4418 58.5515 19.6151C58.7901 19.7855 59.07 19.8707 59.391 19.8707C59.6183 19.8707 59.8214 19.8281 60.0004 19.7429C60.1822 19.6548 60.3342 19.5284 60.4563 19.3636C60.5785 19.1989 60.6623 18.9986 60.7077 18.7628H62.1822C62.1452 19.2259 62.0089 19.6364 61.7731 19.9943C61.5373 20.3494 61.2163 20.6278 60.81 20.8295C60.4038 21.0284 59.9265 21.1278 59.3782 21.1278ZM64.9915 17.1648V21H63.4489V12.2727H64.9574V15.5668H65.0341C65.1875 15.1974 65.4247 14.9062 65.7457 14.6932C66.0696 14.4773 66.4815 14.3693 66.9815 14.3693C67.4361 14.3693 67.8324 14.4645 68.1705 14.6548C68.5085 14.8452 68.7699 15.1236 68.9545 15.4901C69.142 15.8565 69.2358 16.304 69.2358 16.8324V21H67.6932V17.071C67.6932 16.6307 67.5795 16.2884 67.3523 16.044C67.1278 15.7969 66.8125 15.6733 66.4062 15.6733C66.1335 15.6733 65.8892 15.733 65.6733 15.8523C65.4602 15.9687 65.2926 16.1378 65.1705 16.3594C65.0511 16.581 64.9915 16.8494 64.9915 17.1648ZM77.0746 21L78.5064 12.2727H79.6996L78.2678 21H77.0746ZM73.1413 18.75L73.3416 17.5568H80.0575L79.8572 18.75H73.1413ZM74.0064 21L75.4382 12.2727H76.6314L75.1996 21H74.0064ZM73.6484 15.7159L73.8445 14.5227H80.5604L80.3643 15.7159H73.6484ZM81.4904 21V19.858L84.5202 16.8878C84.81 16.5952 85.0515 16.3352 85.2447 16.108C85.4379 15.8807 85.5827 15.6605 85.6793 15.4474C85.7759 15.2344 85.8242 15.0071 85.8242 14.7656C85.8242 14.4901 85.7617 14.2543 85.6367 14.0582C85.5117 13.8594 85.3398 13.706 85.1211 13.598C84.9023 13.4901 84.6538 13.4361 84.3754 13.4361C84.0884 13.4361 83.837 13.4957 83.6211 13.6151C83.4052 13.7315 83.2376 13.8977 83.1183 14.1136C83.0018 14.3295 82.9435 14.5866 82.9435 14.8849H81.4393C81.4393 14.331 81.5657 13.8494 81.8185 13.4403C82.0714 13.0312 82.4194 12.7145 82.8626 12.4901C83.3086 12.2656 83.82 12.1534 84.3967 12.1534C84.9819 12.1534 85.4961 12.2628 85.9393 12.4815C86.3825 12.7003 86.7262 13 86.9705 13.3807C87.2177 13.7614 87.3413 14.196 87.3413 14.6847C87.3413 15.0114 87.2788 15.3324 87.1538 15.6477C87.0288 15.9631 86.8086 16.3125 86.4933 16.696C86.1808 17.0795 85.7418 17.544 85.1765 18.0895L83.6722 19.6193V19.679H87.4734V21H81.4904Z"
+								fill="var(--illustration-accent-outline)"
+							/>
+							<circle cx="16" cy="16" r="5" fill="var(--illustration-accent-outline)" />
+							<path d="M16 16V39" stroke="var(--illustration-accent-outline)" stroke-width="2" />
+							<path
+								d="M1 49C1 43.4772 5.47715 39 11 39H128C133.523 39 138 43.4772 138 49V72H1V49Z"
+								fill="var(--clr-bg-1)"
+							/>
+							<path
+								d="M138 72V49C138 43.4772 133.523 39 128 39H11C5.47715 39 1 43.4772 1 49V72"
+								stroke="var(--illustration-outline)"
+								stroke-width="1.2"
+							/>
+							<path
+								d="M29.8608 61V52.2727H33.2017C33.8324 52.2727 34.3565 52.3722 34.7741 52.571C35.1946 52.767 35.5085 53.0355 35.7159 53.3764C35.9261 53.7173 36.0312 54.1037 36.0312 54.5355C36.0312 54.8906 35.9631 55.1946 35.8267 55.4474C35.6903 55.6974 35.5071 55.9006 35.277 56.0568C35.0469 56.2131 34.7898 56.3253 34.5057 56.3935V56.4787C34.8153 56.4957 35.1122 56.5909 35.3963 56.7642C35.6832 56.9347 35.9176 57.1761 36.0994 57.4886C36.2813 57.8011 36.3722 58.179 36.3722 58.6222C36.3722 59.0739 36.2628 59.4801 36.044 59.8409C35.8253 60.1989 35.4957 60.4815 35.0554 60.6889C34.6151 60.8963 34.0611 61 33.3935 61H29.8608ZM31.4418 59.679H33.142C33.7159 59.679 34.1293 59.5696 34.3821 59.3509C34.6378 59.1293 34.7656 58.8452 34.7656 58.4986C34.7656 58.2401 34.7017 58.0071 34.5739 57.7997C34.446 57.5895 34.2642 57.4247 34.0284 57.3054C33.7926 57.1832 33.5114 57.1222 33.1847 57.1222H31.4418V59.679ZM31.4418 55.9844H33.0057C33.2784 55.9844 33.5241 55.9347 33.7429 55.8352C33.9616 55.733 34.1335 55.5895 34.2585 55.4048C34.3864 55.2173 34.4503 54.9957 34.4503 54.7401C34.4503 54.402 34.331 54.1236 34.0923 53.9048C33.8565 53.6861 33.5057 53.5767 33.0398 53.5767H31.4418V55.9844ZM37.6793 61V54.4545H39.1751V55.5455H39.2433C39.3626 55.1676 39.5671 54.8764 39.8569 54.6719C40.1495 54.4645 40.4833 54.3608 40.8583 54.3608C40.9435 54.3608 41.0387 54.3651 41.1438 54.3736C41.2518 54.3793 41.3413 54.3892 41.4123 54.4034V55.8224C41.3469 55.7997 41.2433 55.7798 41.1012 55.7628C40.962 55.7429 40.8271 55.733 40.6964 55.733C40.4151 55.733 40.1623 55.794 39.9379 55.9162C39.7163 56.0355 39.5415 56.2017 39.4137 56.4148C39.2859 56.6278 39.2219 56.8736 39.2219 57.152V61H37.6793ZM44.2035 61.1321C43.7887 61.1321 43.4151 61.0582 43.0827 60.9105C42.7532 60.7599 42.4918 60.5384 42.2987 60.2457C42.1083 59.9531 42.0131 59.5923 42.0131 59.1634C42.0131 58.794 42.0813 58.4886 42.2177 58.2472C42.354 58.0057 42.5401 57.8125 42.7759 57.6676C43.0117 57.5227 43.2773 57.4134 43.5728 57.3395C43.8711 57.2628 44.1793 57.2074 44.4975 57.1733C44.881 57.1335 45.1921 57.098 45.4308 57.0668C45.6694 57.0327 45.8427 56.9815 45.9506 56.9134C46.0614 56.8423 46.1168 56.733 46.1168 56.5852V56.5597C46.1168 56.2386 46.0217 55.9901 45.8313 55.8139C45.641 55.6378 45.3668 55.5497 45.0089 55.5497C44.631 55.5497 44.3313 55.6321 44.1097 55.7969C43.891 55.9616 43.7433 56.1562 43.6665 56.3807L42.2262 56.1761C42.3398 55.7784 42.5273 55.446 42.7887 55.179C43.0501 54.9091 43.3697 54.7074 43.7475 54.5739C44.1254 54.4375 44.543 54.3693 45.0004 54.3693C45.3157 54.3693 45.6296 54.4062 45.9421 54.4801C46.2546 54.554 46.5401 54.6761 46.7987 54.8466C47.0572 55.0142 47.2646 55.2429 47.4208 55.5327C47.5799 55.8224 47.6594 56.1847 47.6594 56.6193V61H46.1765V60.1009H46.1254C46.0316 60.2827 45.8995 60.4531 45.729 60.6122C45.5614 60.7685 45.3498 60.8949 45.0941 60.9915C44.8413 61.0852 44.5444 61.1321 44.2035 61.1321ZM44.604 59.9986C44.9137 59.9986 45.1822 59.9375 45.4094 59.8153C45.6367 59.6903 45.8114 59.5256 45.9336 59.321C46.0586 59.1165 46.1211 58.8935 46.1211 58.652V57.8807C46.0728 57.9205 45.9904 57.9574 45.8739 57.9915C45.7603 58.0256 45.6325 58.0554 45.4904 58.081C45.3484 58.1065 45.2077 58.1293 45.0685 58.1491C44.9293 58.169 44.8086 58.1861 44.7063 58.2003C44.4762 58.2315 44.2702 58.2827 44.0884 58.3537C43.9066 58.4247 43.7631 58.5241 43.658 58.652C43.5529 58.777 43.5004 58.9389 43.5004 59.1378C43.5004 59.4219 43.604 59.6364 43.8114 59.7812C44.0188 59.9261 44.283 59.9986 44.604 59.9986ZM50.7532 57.1648V61H49.2106V54.4545H50.685V55.5668H50.7617C50.9123 55.2003 51.1523 54.9091 51.4819 54.6932C51.8143 54.4773 52.2248 54.3693 52.7134 54.3693C53.1651 54.3693 53.5586 54.4659 53.8938 54.6591C54.2319 54.8523 54.4933 55.1321 54.6779 55.4986C54.8654 55.8651 54.9577 56.3097 54.9549 56.8324V61H53.4123V57.071C53.4123 56.6335 53.2987 56.2912 53.0714 56.044C52.8469 55.7969 52.5359 55.6733 52.1381 55.6733C51.8683 55.6733 51.6282 55.733 51.418 55.8523C51.2106 55.9687 51.0472 56.1378 50.9279 56.3594C50.8114 56.581 50.7532 56.8494 50.7532 57.1648ZM59.3782 61.1278C58.7248 61.1278 58.1637 60.9844 57.695 60.6974C57.229 60.4105 56.8697 60.0142 56.6168 59.5085C56.3668 59 56.2418 58.4148 56.2418 57.7528C56.2418 57.0881 56.3697 56.5014 56.6254 55.9929C56.881 55.4815 57.2418 55.0838 57.7077 54.7997C58.1765 54.5128 58.7305 54.3693 59.3697 54.3693C59.9009 54.3693 60.3711 54.4673 60.7802 54.6634C61.1921 54.8565 61.5202 55.1307 61.7646 55.4858C62.0089 55.8381 62.1481 56.25 62.1822 56.7216H60.7077C60.6481 56.4062 60.506 56.1435 60.2816 55.9332C60.06 55.7202 59.7631 55.6136 59.391 55.6136C59.0756 55.6136 58.7987 55.6989 58.56 55.8693C58.3214 56.0369 58.1353 56.2784 58.0018 56.5938C57.8711 56.9091 57.8058 57.2869 57.8058 57.7273C57.8058 58.1733 57.8711 58.5568 58.0018 58.8778C58.1325 59.196 58.3157 59.4418 58.5515 59.6151C58.7901 59.7855 59.07 59.8707 59.391 59.8707C59.6183 59.8707 59.8214 59.8281 60.0004 59.7429C60.1822 59.6548 60.3342 59.5284 60.4563 59.3636C60.5785 59.1989 60.6623 58.9986 60.7077 58.7628H62.1822C62.1452 59.2259 62.0089 59.6364 61.7731 59.9943C61.5373 60.3494 61.2163 60.6278 60.81 60.8295C60.4038 61.0284 59.9265 61.1278 59.3782 61.1278ZM64.9915 57.1648V61H63.4489V52.2727H64.9574V55.5668H65.0341C65.1875 55.1974 65.4247 54.9062 65.7457 54.6932C66.0696 54.4773 66.4815 54.3693 66.9815 54.3693C67.4361 54.3693 67.8324 54.4645 68.1705 54.6548C68.5085 54.8452 68.7699 55.1236 68.9545 55.4901C69.142 55.8565 69.2358 56.304 69.2358 56.8324V61H67.6932V57.071C67.6932 56.6307 67.5795 56.2884 67.3523 56.044C67.1278 55.7969 66.8125 55.6733 66.4062 55.6733C66.1335 55.6733 65.8892 55.733 65.6733 55.8523C65.4602 55.9687 65.2926 56.1378 65.1705 56.3594C65.0511 56.581 64.9915 56.8494 64.9915 57.1648ZM77.0746 61L78.5064 52.2727H79.6996L78.2678 61H77.0746ZM73.1413 58.75L73.3416 57.5568H80.0575L79.8572 58.75H73.1413ZM74.0064 61L75.4382 52.2727H76.6314L75.1996 61H74.0064ZM73.6484 55.7159L73.8445 54.5227H80.5604L80.3643 55.7159H73.6484ZM85.0401 52.2727V61H83.4592V53.8111H83.408L81.3668 55.1151V53.6662L83.5359 52.2727H85.0401Z"
+								fill="var(--illustration-text)"
+							/>
+							<path d="M16 39V58" stroke="var(--illustration-outline)" stroke-width="2" />
+							<circle cx="16" cy="57" r="5" fill="var(--illustration-outline)" />
+						</svg>
+					</div>
+				</label>
+			</div>
+		{:else}
+			<div class="new-stack-single">
+				<div class="new-stack-single__content">
+					<h3 class="text-13 text-bold text-body radio-title">New stack</h3>
+					<p class="text-12 text-body radio-caption">
+						Create an independent branch<br />in a new stack.
+					</p>
+				</div>
+
+				<svg
+					width="186"
+					height="74"
+					viewBox="0 0 186 74"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<path
+						d="M1 12.6515C1 6.4927 5.9927 1.5 12.1515 1.5H45.6061C51.7649 1.5 56.7576 6.4927 56.7576 12.6515V27.1485H1V12.6515Z"
+						fill="var(--clr-bg-1)"
+						stroke="var(--illustration-outline)"
+						stroke-width="1.2"
+					/>
+					<rect
+						x="14.3818"
+						y="11.5364"
+						width="28.9939"
+						height="5.57576"
+						fill="var(--illustration-outline)"
+					/>
+					<path
+						d="M56.7576 12.6515C56.7576 6.4927 61.7503 1.5 67.9091 1.5H101.364C107.522 1.5 112.515 6.4927 112.515 12.6515V27.1485H56.7576V12.6515Z"
+						fill="var(--illustration-accent-bg)"
+						stroke="var(--illustration-accent-outline)"
+						stroke-width="1.2"
+					/>
+					<rect
+						x="70.1394"
+						y="11.5364"
+						width="28.9939"
+						height="5.57576"
+						fill="var(--illustration-accent-outline)"
+					/>
+					<path
+						d="M1 27H173.848C180.007 27 185 31.9927 185 38.1515V74H1V27Z"
+						fill="var(--clr-bg-1)"
+					/>
+					<path
+						d="M80 40.5H185M80 53.5H185M80 65.5H185"
+						stroke="var(--illustration-outline)"
+						stroke-width="1.2"
+						opacity="0.4"
+					/>
+
+					<path d="M80 27L80 74" stroke="var(--illustration-outline)" stroke-width="1.2" />
+					<path
+						opacity="0.3"
+						d="M10 40.4606C10 37.9971 11.9971 36 14.4606 36H66.5394C69.0029 36 71 37.9971 71 40.4606V74H10V40.4606Z"
+						fill="var(--illustration-outline)"
+					/>
+					<path
+						d="M185 74V38.1515C185 31.9927 180.007 27 173.848 27H1V74"
+						stroke="var(--illustration-outline)"
+						stroke-width="1.2"
+					/>
+				</svg>
+			</div>
+		{/if}
+
+		<span class="text-12 text-body radio-aditional-info"
+			>{createRefType === 'stack'
+				? '└ Stacks that are currently applied will remain in the workspace.'
+				: `└ The new branch will be added on top of 'branch-name'`}</span
+		>
+	</div>
+
+	{#snippet controls(close)}
+		<div class="footer">
+			<span class="text-12 text-body footer-text"
+				>See more: <Link
+					target="_blank"
+					rel="noreferrer"
+					href="https://docs.gitbutler.com/features/stacked-branches#comparison-to-virtual-branches"
+					>Stacked vs. Dependent</Link
+				></span
+			>
+
+			<div class="footer__controls">
+				<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
+				<Button style="pop" type="submit" onclick={addNew} disabled={!createRefName}>
+					{#if createRefType === 'stack'}
+						Add new stack
+					{:else}
+						Add dependent branch
+					{/if}
+				</Button>
+			</div>
+		</div>
+	{/snippet}
+</Modal>
+
 <style lang="postcss">
-	.new-stack {
+	.new-stack-btn {
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -46,5 +317,122 @@
 			color: var(--clr-text-2);
 			background: var(--clr-stack-tab-inactive-hover);
 		}
+	}
+
+	.content-wrap {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.options-wrap {
+		display: flex;
+		gap: 8px;
+	}
+
+	/* NEW STACK SINGLE */
+	.new-stack-single {
+		--illustration-outline: var(--clr-text-3);
+		--illustration-text: var(--clr-text-2);
+		--illustration-accent-outline: var(--clr-theme-pop-element);
+		--illustration-accent-bg: var(--clr-theme-pop-bg);
+
+		position: relative;
+		display: flex;
+		gap: 16px;
+		padding: 14px 14px 0;
+		background-color: var(--clr-bg-1-muted);
+		border-radius: var(--radius-m);
+	}
+
+	.new-stack-single__content {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	/* RADIO */
+	.radio-label {
+		--btn-bg: var(--clr-btn-ntrl-outline-bg);
+		--opacity-btn-bg: 0;
+		--btn-border-clr: var(--clr-btn-ntrl-outline);
+		--btn-border-opacity: var(--opacity-btn-outline);
+		/* illustration */
+		--illustration-outline: var(--clr-border-2);
+		--illustration-text: var(--clr-text-3);
+		--illustration-accent-outline: var(--clr-text-3);
+		--illustration-accent-bg: var(--clr-bg-2);
+
+		position: relative;
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		padding: 14px 14px 0;
+		gap: 4px;
+		transition:
+			border-color var(--transition-fast),
+			background-color var(--transition-fast);
+
+		border-radius: var(--radius-m);
+		background: color-mix(
+			in srgb,
+			var(--btn-bg, transparent),
+			transparent calc((1 - var(--opacity-btn-bg, 1)) * 100%)
+		);
+		border: 1px solid
+			color-mix(
+				in srgb,
+				var(--btn-border-clr, transparent),
+				transparent calc((1 - var(--btn-border-opacity, 1)) * 100%)
+			);
+
+		&:not(.radio-selected):hover {
+			--opacity-btn-bg: 0.14;
+		}
+	}
+
+	.radio-btn {
+		position: absolute;
+		right: 12px;
+		top: 12px;
+		display: flex;
+	}
+
+	.radio-caption {
+		opacity: 0.7;
+	}
+
+	.radio-illustration {
+		display: flex;
+		align-items: flex-end;
+		margin-top: 20px;
+		height: 100%;
+	}
+
+	.radio-aditional-info {
+		color: var(--clr-text-2);
+	}
+
+	/* MODIFIERS */
+	.radio-selected {
+		--btn-bg: var(--clr-theme-pop-bg);
+		--opacity-btn-bg: 1;
+		--btn-border-clr: var(--clr-btn-pop-outline);
+		/* illustration */
+		--illustration-outline: var(--clr-text-3);
+		--illustration-text: var(--clr-text-2);
+		--illustration-accent-outline: var(--clr-theme-pop-element);
+		--illustration-accent-bg: var(--clr-theme-pop-bg);
+	}
+
+	/* FOOTER */
+	.footer {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		width: 100%;
+		gap: 16px;
+		color: var(--clr-text-2);
 	}
 </style>
