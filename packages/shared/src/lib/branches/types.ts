@@ -135,23 +135,49 @@ export function apiToPatchStatistics(api: ApiPatchStatistics): PatchStatistics {
 	};
 }
 
+export type ApiPatchReviewUser = {
+	id: number;
+	avatar_url: string | null;
+	email: string | null;
+	login: string | null;
+	name: string | null;
+};
+
+export type PatchReviewUser = {
+	id: number;
+	avatarUrl: string | undefined;
+	email: string | undefined;
+	login: string | undefined;
+	name: string | undefined;
+};
+
+export function apiToPatchReviewUser(api: ApiPatchReviewUser): PatchReviewUser {
+	return {
+		id: api.id,
+		avatarUrl: api.avatar_url ?? undefined,
+		email: api.email ?? undefined,
+		login: api.login ?? undefined,
+		name: api.name ?? undefined
+	};
+}
+
 export type ApiPatchReview = {
-	viewed: string[];
-	signed_off: string[];
-	rejected: string[];
+	viewed: ApiPatchReviewUser[];
+	signed_off: ApiPatchReviewUser[];
+	rejected: ApiPatchReviewUser[];
 };
 
 export type PatchReview = {
-	viewed: string[];
-	signedOff: string[];
-	rejected: string[];
+	viewed: PatchReviewUser[];
+	signedOff: PatchReviewUser[];
+	rejected: PatchReviewUser[];
 };
 
 export function apiToPatchReview(api: ApiPatchReview): PatchReview {
 	return {
-		viewed: api.viewed,
-		signedOff: api.signed_off,
-		rejected: api.rejected
+		viewed: api.viewed.map(apiToPatchReviewUser),
+		signedOff: api.signed_off.map(apiToPatchReviewUser),
+		rejected: api.rejected.map(apiToPatchReviewUser)
 	};
 }
 
@@ -198,7 +224,7 @@ export function getPatchStatus(
 	return 'unreviewed';
 }
 
-async function getUsersWithAvatars(userEmails: string[]) {
+async function getUsersWithAvatarsFromMails(userEmails: string[]) {
 	return await Promise.all(
 		userEmails.map(async (user) => {
 			return {
@@ -210,16 +236,19 @@ async function getUsersWithAvatars(userEmails: string[]) {
 }
 
 export type Commenter = {
-	avatarUrl: string | undefined;
-	name: string | undefined;
+	avatarUrl?: string;
+	email?: string;
+	login?: string;
+	name?: string;
 };
 
-export async function getCommentersWithAvatars(commenters: Commenter[]) {
+export async function getUsersWithAvatars(commenters: Commenter[]) {
 	return await Promise.all(
 		commenters.map(async (commenter) => {
-			const name = commenter.name ?? 'unknown';
+			const name = commenter.login ?? commenter.email ?? commenter.name ?? 'unknown';
+			const email = commenter.email ?? 'unknown';
 			return {
-				srcUrl: commenter.avatarUrl ?? (await gravatarUrlFromEmail(name)),
+				srcUrl: commenter.avatarUrl ?? (await gravatarUrlFromEmail(email)),
 				name
 			};
 		})
@@ -227,7 +256,7 @@ export async function getCommentersWithAvatars(commenters: Commenter[]) {
 }
 
 export async function getPatchContributorsWithAvatars(patch: Patch) {
-	return await getUsersWithAvatars(patch.contributors);
+	return await getUsersWithAvatarsFromMails(patch.contributors);
 }
 
 export async function getPatchApproversWithAvatars(patch: Patch) {
