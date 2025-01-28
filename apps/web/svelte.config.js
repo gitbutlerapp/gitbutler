@@ -9,6 +9,11 @@ const config = {
 		alias: {
 			$home: 'src/routes/home'
 		}
+	},
+	compilerOptions: {
+		// There seems to be strange behaviour that might be caused by "external" and it's interactoin with layers
+		css: 'injected',
+		enableSourcemap: true
 	}
 };
 
