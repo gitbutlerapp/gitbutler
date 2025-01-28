@@ -3,15 +3,19 @@
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import { Project } from '$lib/project/project';
 	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { User } from '$lib/user/user';
+	import { UserService } from '$lib/user/userService';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { slide } from 'svelte/transition';
+	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
 	const routes = getContext(DesktopRoutesService);
@@ -22,6 +26,9 @@
 	let contextMenuEl = $state<ContextMenu>();
 	let shareIssueModal = $state<ShareIssueModal>();
 	let keyboardShortcutsModal = $state<KeyboardShortcutsModal>();
+
+	const userService = getContext(UserService);
+	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 </script>
 
 <nav class="sidebar">
@@ -253,7 +260,7 @@
 		<ContextMenuItem
 			label="Preferences"
 			onclick={() => {
-				contextMenuEl?.close();
+				goto('/settings/profile');
 			}}
 		/>
 	</ContextMenuSection>
@@ -261,18 +268,30 @@
 		<ContextMenuItem
 			label="Dark"
 			onclick={async () => {
+				userSettings.update((s) => ({
+					...s,
+					theme: 'dark'
+				}));
 				contextMenuEl?.close();
 			}}
 		/>
 		<ContextMenuItem
 			label="Light"
 			onclick={async () => {
+				userSettings.update((s) => ({
+					...s,
+					theme: 'light'
+				}));
 				contextMenuEl?.close();
 			}}
 		/>
 		<ContextMenuItem
 			label="System"
 			onclick={async () => {
+				userSettings.update((s) => ({
+					...s,
+					theme: 'system'
+				}));
 				contextMenuEl?.close();
 			}}
 		/>
@@ -281,7 +300,7 @@
 		<ContextMenuItem
 			label="Logout"
 			onclick={async () => {
-				contextMenuEl?.close();
+				await userService.logout();
 			}}
 		/>
 	</ContextMenuSection>
