@@ -418,7 +418,7 @@
 	}
 	:global(.sidebar .btn-square.btn-active) {
 		--icon-opacity: 1;
-		--btn-bg: var(--clr-core-ntrl-100);
+		--btn-bg: var(--clr-bg-1);
 		--opacity-btn-bg: 1;
 
 		/* workspace icon */
