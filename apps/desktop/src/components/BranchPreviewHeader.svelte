@@ -1,6 +1,6 @@
 <script lang="ts">
-	import BranchLabel from './BranchLabel.svelte';
 	import { BranchController } from '$lib/branches/branchController';
+	import { BranchListingService } from '$lib/branches/branchListing';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { ModeService } from '$lib/mode/modeService';
 	import { Project } from '$lib/project/project';
@@ -8,8 +8,8 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { error } from '@gitbutler/ui/toasts';
 	import type { BranchData } from '$lib/branches/branch';
@@ -28,11 +28,20 @@
 	const upstream = $derived(remoteBranch?.givenName);
 
 	const branchController = getContext(BranchController);
+	const branchListingService = getContext(BranchListingService);
 	const project = getContext(Project);
 	const forge = getForge();
 	const modeSerivce = getContext(ModeService);
 	const mode = modeSerivce.mode;
 	const forgeBranch = $derived(upstream ? $forge?.branch(upstream) : undefined);
+
+	const listingDetails = $derived(branchListingService.getBranchListingDetails(branch.givenName));
+	const stackBranchNames = $derived.by(() => {
+		if ($listingDetails?.virtualBranch) return $listingDetails.virtualBranch.stackBranches;
+		if (pr) return [pr.title];
+		if (branch) return [branch.givenName];
+		return [];
+	});
 
 	let isApplying = $state(false);
 	let isDeleting = $state(false);
@@ -42,7 +51,7 @@
 <div class="header__wrapper">
 	<div class="header card">
 		<div class="header__info">
-			<BranchLabel disabled name={branch.givenName} />
+			<SeriesLabelsRow series={stackBranchNames} showRestAmount />
 			<div class="header__remote-branch">
 				{#if remoteBranch}
 					<Tooltip text="At least some of your changes have been pushed">
@@ -68,9 +77,7 @@
 						</Button>
 					{/if}
 				{:else}
-					<div class="status-tag text-11 text-semibold remote">
-						<Icon name="branch-small" /> local
-					</div>
+					<Badge size="tag" icon="branch-small" style="neutral">local</Badge>
 				{/if}
 				{#if pr?.htmlUrl}
 					<Button
@@ -225,19 +232,5 @@
 		overflow-x: hidden;
 		white-space: nowrap;
 		align-items: center;
-	}
-
-	.status-tag {
-		cursor: default;
-		display: flex;
-		align-items: center;
-		gap: 2px;
-		padding: 2px 6px 2px 4px;
-		border-radius: var(--radius-m);
-	}
-
-	.remote {
-		color: var(--clr-scale-ntrl-100);
-		background: var(--clr-scale-ntrl-40);
 	}
 </style>

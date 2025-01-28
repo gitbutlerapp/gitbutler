@@ -685,6 +685,7 @@ pub fn get_branch_listing_details(
                 number_of_files,
                 authors: authors.into_iter().collect(),
                 number_of_commits: num_commits,
+                virtual_branch: branch.virtual_branch,
             };
             enriched_branches.push(branch_data);
         }
@@ -727,6 +728,8 @@ pub struct BranchListingDetails {
     /// In the case of multiple remote tracking branches, or branches whose commits are evaluated,
     /// it takes the full list of unique authors, without applying a mailmap.
     pub authors: Vec<Author>,
+    /// The branch may or may not have a virtual branch associated with it.
+    pub virtual_branch: Option<VirtualBranchReference>,
 }
 /// Represents a local branch
 #[derive(Debug, Clone, Serialize, PartialEq)]
