@@ -22,17 +22,19 @@
 		"@sveltejs/adapter-auto": "^3.0.0",
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
+		"@types/diff-match-patch": "^1.0.36",
 		"@types/node": "^22.3.0",
+		"@types/rails__actioncable": "^6.1.11",
+		"diff-match-patch": "^1.0.5",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
 		"svelte-french-toast": "^1.2.0",
-		"vite": "catalog:",
-		"diff-match-patch": "^1.0.5",
-		"@types/diff-match-patch": "^1.0.36"
+		"vite": "catalog:"
 	},
 	"dependencies": {
 		"@ethercorps/sveltekit-og": "^3.0.0",
 		"@fontsource-variable/spline-sans-mono": "^5.1.0",
+		"@rails/actioncable": "^8.0.100",
 		"@resvg/resvg-js": "^2.6.2",
 		"@sentry/sveltekit": "catalog:svelte",
 		"@tryghost/content-api": "^1.11.21",

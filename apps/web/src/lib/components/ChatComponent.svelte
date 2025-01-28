@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { AuthService } from '$lib/auth/authService';
+	import { subscribeToChatChannel } from '$lib/chat/subscribe.svelte';
 	import ChatInputProps from '$lib/components/chat/ChatInput.svelte';
 	import Message from '$lib/components/chat/Message.svelte';
 	import blankChat from '$lib/images/blank-chat.svg?raw';
@@ -7,6 +9,8 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { onMount } from 'svelte';
+	import type { SubscriptionEvent } from '$lib/chat/utils';
 
 	interface Props {
 		projectId: string;
@@ -16,9 +20,43 @@
 
 	const { projectId, changeId, branchId }: Props = $props();
 
+	const authService = getContext(AuthService);
+	const token = $derived(authService.token);
 	const appState = getContext(AppState);
 	const chatChannelService = getContext(ChatChannelsService);
 	const chatChannel = getChatChannel(appState, chatChannelService, projectId, changeId);
+
+	let chatMessagesContainer = $state<HTMLDivElement>();
+
+	const seenEventIds = new Set<string>();
+
+	function scrollToBottom() {
+		if (chatMessagesContainer) {
+			chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+		}
+	}
+
+	async function onEvent(event: SubscriptionEvent) {
+		if (seenEventIds.has(event.uuid)) return;
+		seenEventIds.add(event.uuid);
+		if (event.event_type === 'chat') {
+			await chatChannelService.refetchChatChannel(projectId, changeId);
+			scrollToBottom();
+		}
+	}
+
+	onMount(() => {
+		subscribeToChatChannel({
+			token: $token ?? '',
+			projectId,
+			changeId,
+			onEvent
+		});
+
+		return () => {
+			seenEventIds.clear();
+		};
+	});
 
 	async function sendMessage(message: string | undefined) {
 		if (message === undefined || message.trim() === '') {
@@ -35,7 +73,7 @@
 </script>
 
 <div class="chat-card">
-	<div class="chat-messages">
+	<div class="chat-messages" bind:this={chatMessagesContainer}>
 		{#if chatChannel}
 			<Loading loadable={chatChannel.current}>
 				{#snippet children(channel)}
