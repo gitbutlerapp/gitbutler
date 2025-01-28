@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { AuthService } from '$lib/auth/authService';
-	import { subscribeToChatChannel } from '$lib/chat/subscribe.svelte';
+	import { subscribeToChatChannel } from '$lib/chat/subscribe';
 	import ChatInputProps from '$lib/components/chat/ChatInput.svelte';
 	import Message from '$lib/components/chat/Message.svelte';
 	import blankChat from '$lib/images/blank-chat.svg?raw';
@@ -9,7 +9,6 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { onMount } from 'svelte';
 	import type { SubscriptionEvent } from '$lib/chat/utils';
 
 	interface Props {
@@ -24,7 +23,7 @@
 	const token = $derived(authService.token);
 	const appState = getContext(AppState);
 	const chatChannelService = getContext(ChatChannelsService);
-	const chatChannel = getChatChannel(appState, chatChannelService, projectId, changeId);
+	const chatChannel = $derived(getChatChannel(appState, chatChannelService, projectId, changeId));
 
 	let chatMessagesContainer = $state<HTMLDivElement>();
 
@@ -45,8 +44,8 @@
 		}
 	}
 
-	onMount(() => {
-		subscribeToChatChannel({
+	$effect(() => {
+		const unsubscribe = subscribeToChatChannel({
 			token: $token ?? '',
 			projectId,
 			changeId,
@@ -54,6 +53,7 @@
 		});
 
 		return () => {
+			unsubscribe();
 			seenEventIds.clear();
 		};
 	});
