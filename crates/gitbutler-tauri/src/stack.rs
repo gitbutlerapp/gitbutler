@@ -122,8 +122,9 @@ pub fn push_stack(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(projects, settings, windows), err(Debug))]
 pub fn push_stack_to_review(
+    windows: State<'_, WindowState>,
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
@@ -134,5 +135,6 @@ pub fn push_stack_to_review(
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     gitbutler_sync::stack_upload::push_stack_to_review(&ctx, &user, stack_id)?;
 
+    emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
