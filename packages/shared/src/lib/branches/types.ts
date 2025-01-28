@@ -1,4 +1,5 @@
 import { apiToPermissions, type ApiPermissions, type Permissions } from '$lib/permissions';
+import { apiToUserSimple, type ApiUserSimple, type UserSimple } from '$lib/users/types';
 import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 import type { LoadableData } from '$lib/network/types';
 
@@ -136,22 +137,22 @@ export function apiToPatchStatistics(api: ApiPatchStatistics): PatchStatistics {
 }
 
 export type ApiPatchReview = {
-	viewed: string[];
-	signed_off: string[];
-	rejected: string[];
+	viewed: ApiUserSimple[];
+	signed_off: ApiUserSimple[];
+	rejected: ApiUserSimple[];
 };
 
 export type PatchReview = {
-	viewed: string[];
-	signedOff: string[];
-	rejected: string[];
+	viewed: UserSimple[];
+	signedOff: UserSimple[];
+	rejected: UserSimple[];
 };
 
 export function apiToPatchReview(api: ApiPatchReview): PatchReview {
 	return {
-		viewed: api.viewed,
-		signedOff: api.signed_off,
-		rejected: api.rejected
+		viewed: api.viewed.map(apiToUserSimple),
+		signedOff: api.signed_off.map(apiToUserSimple),
+		rejected: api.rejected.map(apiToUserSimple)
 	};
 }
 
@@ -198,7 +199,7 @@ export function getPatchStatus(
 	return 'unreviewed';
 }
 
-async function getUsersWithAvatars(userEmails: string[]) {
+async function getUsersWithAvatarsFromMails(userEmails: string[]) {
 	return await Promise.all(
 		userEmails.map(async (user) => {
 			return {
@@ -210,16 +211,19 @@ async function getUsersWithAvatars(userEmails: string[]) {
 }
 
 export type Commenter = {
-	avatarUrl: string | undefined;
-	name: string | undefined;
+	avatarUrl?: string;
+	email?: string;
+	login?: string;
+	name?: string;
 };
 
-export async function getCommentersWithAvatars(commenters: Commenter[]) {
+export async function getUsersWithAvatars(commenters: Commenter[]) {
 	return await Promise.all(
 		commenters.map(async (commenter) => {
-			const name = commenter.name ?? 'unknown';
+			const name = commenter.login ?? commenter.email ?? commenter.name ?? 'unknown';
+			const email = commenter.email ?? 'unknown';
 			return {
-				srcUrl: commenter.avatarUrl ?? (await gravatarUrlFromEmail(name)),
+				srcUrl: commenter.avatarUrl ?? (await gravatarUrlFromEmail(email)),
 				name
 			};
 		})
@@ -227,7 +231,7 @@ export async function getCommentersWithAvatars(commenters: Commenter[]) {
 }
 
 export async function getPatchContributorsWithAvatars(patch: Patch) {
-	return await getUsersWithAvatars(patch.contributors);
+	return await getUsersWithAvatarsFromMails(patch.contributors);
 }
 
 export async function getPatchApproversWithAvatars(patch: Patch) {
@@ -240,6 +244,10 @@ export async function getPatchRejectorsWithAvatars(patch: Patch) {
 
 export async function getPatchViewersWithAvatars(patch: Patch) {
 	return await getUsersWithAvatars(patch.review.viewed);
+}
+
+export async function getPatchViewersAllWithAvatars(patch: Patch) {
+	return await getUsersWithAvatars(patch.reviewAll.viewed);
 }
 
 export type LoadablePatch = LoadableData<Patch, Patch['changeId']>;

@@ -1,11 +1,12 @@
 import { chatChannelsSelectors } from './chatChannelsSlice';
-import { createChannelKey, type ChatMessageUser, type LoadableChatChannel } from '$lib/chat/types';
+import { createChannelKey, type LoadableChatChannel } from '$lib/chat/types';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { map } from '$lib/network/loadable';
 import { deduplicateBy } from '$lib/utils/array';
 import type { ChatChannelsService } from '$lib/chat/chatChannelsService';
 import type { AppChatChannelsState } from '$lib/redux/store.svelte';
 import type { Reactive } from '$lib/storeUtils';
+import type { UserSimple } from '$lib/users/types';
 
 export function getChatChannel(
 	appState: AppChatChannelsState,
@@ -35,7 +36,7 @@ export function getChatChannelParticipants(
 	projectId: string,
 	changeId: string,
 	inView?: InView
-): Reactive<ChatMessageUser[] | undefined> {
+): Reactive<UserSimple[] | undefined> {
 	const chatMessagesInterest = chatMessagesService.getChatChannelInterest(projectId, changeId);
 	registerInterest(chatMessagesInterest, inView);
 

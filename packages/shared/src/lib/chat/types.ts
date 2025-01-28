@@ -1,13 +1,6 @@
+import { apiToUserSimple, type ApiUserSimple, type UserSimple } from '$lib/users/types';
 import type { LoadableData } from '$lib/network/types';
 import type { BrandedId } from '$lib/utils/branding';
-
-export type ApiChatMessageUser = {
-	id: number;
-	avatar_url: string | null;
-	email: string | null;
-	login: string | null;
-	name: string | null;
-};
 
 export type ApiChatMessage = {
 	comment: string;
@@ -21,15 +14,7 @@ export type ApiChatMessage = {
 	created_at: string;
 	updated_at: string;
 	thread_id: string | null;
-	user: ApiChatMessageUser;
-};
-
-export type ChatMessageUser = {
-	id: number;
-	avatarUrl: string | undefined;
-	email: string | undefined;
-	login: string | undefined;
-	name: string | undefined;
+	user: ApiUserSimple;
 };
 
 export type ChatMessage = {
@@ -44,7 +29,7 @@ export type ChatMessage = {
 	createdAt: string;
 	updatedAt: string;
 	threadId: string | undefined;
-	user: ChatMessageUser;
+	user: UserSimple;
 };
 
 type ChatChannelId = BrandedId<'ChatChannelId'>;
@@ -70,16 +55,6 @@ export function createChannelKey(projectId: string, changeId: string | undefined
 
 export type LoadableChatChannel = LoadableData<ChatChannel, ChatChannel['id']>;
 
-function apiToChatMessageUser(apiChatMessageUser: ApiChatMessageUser): ChatMessageUser {
-	return {
-		id: apiChatMessageUser.id,
-		avatarUrl: apiChatMessageUser.avatar_url ?? undefined,
-		email: apiChatMessageUser.email ?? undefined,
-		login: apiChatMessageUser.login ?? undefined,
-		name: apiChatMessageUser.name ?? undefined
-	};
-}
-
 export function apiToChatMessage(apiChatMessage: ApiChatMessage): ChatMessage {
 	return {
 		comment: apiChatMessage.comment,
@@ -93,7 +68,7 @@ export function apiToChatMessage(apiChatMessage: ApiChatMessage): ChatMessage {
 		createdAt: apiChatMessage.created_at,
 		updatedAt: apiChatMessage.updated_at,
 		threadId: apiChatMessage.thread_id ?? undefined,
-		user: apiToChatMessageUser(apiChatMessage.user)
+		user: apiToUserSimple(apiChatMessage.user)
 	};
 }
 
