@@ -41,6 +41,7 @@
 				showError('Failed to add new stack', error);
 			}
 		} else {
+			// TODO: add dependent branch
 			console.log('add dependent branch');
 		}
 	}
