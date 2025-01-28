@@ -1,0 +1,23 @@
+[package]
+name = "tauri-plugin-traffic-lights"
+version = "1.0.0"
+authors = ["ItsEeleeya"]
+description = "A Tauri v2 plugin to help setting the position of the window traffic lights on macOS."
+edition = "2021"
+rust-version = "1.60"
+license = "MIT"
+repository = "https://github.com/itseeleeya/tauri-plugin-trafficlights-positioner/"
+keywords = ["tauri", "tauri-plugin", "tauri-plugin-macos"]
+publish = false
+
+[lib]
+doctest = false
+path = "src/lib.rs"
+
+[dependencies]
+tauri = { version = "^2.1.1", features = ["unstable"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = "0.26.0"
+objc = "0.2.7"
+rand = "0.8.5"
