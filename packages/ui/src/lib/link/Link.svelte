@@ -76,6 +76,7 @@
 	}
 
 	.link-icon {
+		display: flex;
 		flex-shrink: 0;
 		opacity: 0.7;
 	}
