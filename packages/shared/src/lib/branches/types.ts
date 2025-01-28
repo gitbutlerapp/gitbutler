@@ -271,6 +271,10 @@ export async function getPatchViewersWithAvatars(patch: Patch) {
 	return await getUsersWithAvatars(patch.review.viewed);
 }
 
+export async function getPatchViewersAllWithAvatars(patch: Patch) {
+	return await getUsersWithAvatars(patch.reviewAll.viewed);
+}
+
 export type LoadablePatch = LoadableData<Patch, Patch['changeId']>;
 
 export function apiToPatch(api: ApiPatch): Patch {
