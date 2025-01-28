@@ -9,7 +9,11 @@ const config = {
 		alias: {
 			$home: 'src/routes/home'
 		}
-	}
+	},
+	compilerOptions: {
+		css: 'injected',
+		enableSourcemap: true
+	},
 };
 
 export default config;
