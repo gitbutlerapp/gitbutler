@@ -37,7 +37,7 @@ export function apiToPost(apiPost: ApiPost): Post {
 		postType: apiPost.post_type,
 		replyToId: apiPost.reply_to_id,
 		createdAt: apiPost.created_at,
-		userLogin: apiPost.user.login,
+		userLogin: apiPost.user.login ?? '',
 		pictureUrl: apiPost.picture_url || undefined
 	};
 }

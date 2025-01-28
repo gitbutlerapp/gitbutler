@@ -28,7 +28,7 @@ export class UserService {
 		this.user,
 		(user, set) => {
 			if (user) {
-				this.getUser().then((user) => set(user.login));
+				this.getUser().then((user) => set(user.login ?? undefined));
 			} else {
 				set(undefined);
 			}

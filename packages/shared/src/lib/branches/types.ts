@@ -1,4 +1,5 @@
 import { apiToPermissions, type ApiPermissions, type Permissions } from '$lib/permissions';
+import { apiToUserSimple, type ApiUserSimple, type UserSimple } from '$lib/users/types';
 import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 import type { LoadableData } from '$lib/network/types';
 
@@ -135,49 +136,23 @@ export function apiToPatchStatistics(api: ApiPatchStatistics): PatchStatistics {
 	};
 }
 
-export type ApiPatchReviewUser = {
-	id: number;
-	avatar_url: string | null;
-	email: string | null;
-	login: string | null;
-	name: string | null;
-};
-
-export type PatchReviewUser = {
-	id: number;
-	avatarUrl: string | undefined;
-	email: string | undefined;
-	login: string | undefined;
-	name: string | undefined;
-};
-
-export function apiToPatchReviewUser(api: ApiPatchReviewUser): PatchReviewUser {
-	return {
-		id: api.id,
-		avatarUrl: api.avatar_url ?? undefined,
-		email: api.email ?? undefined,
-		login: api.login ?? undefined,
-		name: api.name ?? undefined
-	};
-}
-
 export type ApiPatchReview = {
-	viewed: ApiPatchReviewUser[];
-	signed_off: ApiPatchReviewUser[];
-	rejected: ApiPatchReviewUser[];
+	viewed: ApiUserSimple[];
+	signed_off: ApiUserSimple[];
+	rejected: ApiUserSimple[];
 };
 
 export type PatchReview = {
-	viewed: PatchReviewUser[];
-	signedOff: PatchReviewUser[];
-	rejected: PatchReviewUser[];
+	viewed: UserSimple[];
+	signedOff: UserSimple[];
+	rejected: UserSimple[];
 };
 
 export function apiToPatchReview(api: ApiPatchReview): PatchReview {
 	return {
-		viewed: api.viewed.map(apiToPatchReviewUser),
-		signedOff: api.signed_off.map(apiToPatchReviewUser),
-		rejected: api.rejected.map(apiToPatchReviewUser)
+		viewed: api.viewed.map(apiToUserSimple),
+		signedOff: api.signed_off.map(apiToUserSimple),
+		rejected: api.rejected.map(apiToUserSimple)
 	};
 }
 
