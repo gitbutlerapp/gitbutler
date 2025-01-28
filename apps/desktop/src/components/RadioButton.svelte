@@ -6,6 +6,7 @@
 		value?: string;
 		id?: string;
 		checked?: boolean;
+		onchange?: (e: Event) => void;
 	}
 
 	const {
@@ -14,11 +15,12 @@
 		disabled = false,
 		value = '',
 		id = '',
-		checked = false
+		checked = false,
+		onchange
 	}: Props = $props();
 </script>
 
-<input type="radio" class="radio" class:small {id} {value} {name} {disabled} {checked} />
+<input type="radio" class="radio" class:small {id} {value} {name} {disabled} {checked} {onchange} />
 
 <style lang="postcss">
 	.radio {
