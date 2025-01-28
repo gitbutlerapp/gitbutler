@@ -1469,7 +1469,7 @@ pub(crate) fn insert_blank_commit(
     let commit_tree = repository
         .find_real_tree(&commit, Default::default())
         .unwrap();
-    let blank_commit_oid = ctx.commit("", &commit_tree, &[&commit], None)?;
+    let blank_commit_oid = ctx.commit("", &commit_tree, &[&commit], Some(Default::default()))?;
 
     if commit.id() == stack.head() && offset < 0 {
         // inserting before the first commit
