@@ -223,6 +223,9 @@
 				tooltipAlign="start"
 				width={34}
 				class="faded-btn"
+				onclick={() => {
+					keyboardShortcutsModal?.show();
+				}}
 			/>
 			<Button
 				icon="mail"
