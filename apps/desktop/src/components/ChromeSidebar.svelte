@@ -250,7 +250,7 @@
 	bind:this={contextMenuEl}
 	leftClickTrigger={contextTriggerButton}
 	side="right"
-	verticalAlign="top"
+	verticalAlign="bottom"
 >
 	<ContextMenuSection>
 		<ContextMenuItem

@@ -60,7 +60,7 @@
 			if (verticalAlign === 'top') {
 				return targetBoundingRect.bottom - targetBoundingRect.height;
 			} else if (verticalAlign === 'bottom') {
-				return targetBoundingRect.bottom;
+				return targetBoundingRect.bottom - contextMenuHeight;
 			}
 		}
 		return 0;
@@ -145,6 +145,7 @@
 
 		setAlignment();
 
+		// Keep contextMenu in viewport
 		const observer = new IntersectionObserver(
 			(entries) => {
 				const entry = entries[0];
@@ -184,7 +185,10 @@
 
 	function setTransformOrigin() {
 		if (savedMouseEvent) return 'top left';
-		if (side === 'top') return horizontalAlign === 'left' ? 'bottom left' : 'bottom right';
+		if (['top', 'bottom'].includes(side))
+			return horizontalAlign === 'left' ? `${side} left` : `${side} right`;
+		if (['left', 'right'].includes(side))
+			return verticalAlign === 'top' ? `top ${side}` : `bottom ${side}`;
 		return horizontalAlign === 'left' ? 'top left' : 'top right';
 	}
 
