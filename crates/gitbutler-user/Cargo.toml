@@ -10,14 +10,14 @@ autotests = false
 gitbutler-secret.workspace = true
 gitbutler-storage.workspace = true
 anyhow = "1.0.95"
-serde = { workspace = true, features = ["std"]}
-serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
+serde = { workspace = true, features = ["std"] }
+serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
 
 [[test]]
-name="user"
+name = "user"
 path = "tests/mod.rs"
 
 [dev-dependencies]
 serial_test = "3.2.0"
-tempfile = "3.14"
+tempfile.workspace = true
 keyring.workspace = true

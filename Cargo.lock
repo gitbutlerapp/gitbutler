@@ -2533,9 +2533,11 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-stack",
+ "gitbutler-testsupport",
  "gitbutler-workspace",
  "gix",
  "serde",
+ "tempfile",
  "tracing",
 ]
 

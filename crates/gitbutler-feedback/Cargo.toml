@@ -13,4 +13,4 @@ sha2 = "0.10.8"
 gitbutler-project.workspace = true
 
 [dev-dependencies]
-tempfile = "3.14"
+tempfile.workspace = true
