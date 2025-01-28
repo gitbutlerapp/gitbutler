@@ -17,6 +17,7 @@
 //!
 
 use anyhow::{Context, Result};
+use author::Author;
 use bstr::BString;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -31,6 +32,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::str::FromStr;
 
+mod author;
 mod integrated;
 
 /// Represents a lightweight version of a [`gitbutler_stack::Stack`] for listing.
@@ -86,6 +88,7 @@ pub enum CommitState {
 
 /// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Commit {
     /// The OID of the commit.
     #[serde(with = "gitbutler_serde::object_id")]
@@ -102,11 +105,16 @@ pub struct Commit {
     /// or local and remote with respect to the branch it belongs to.
     /// Note that remote only commits in the context of a branch are expressed with the [`UpstreamCommit`] struct instead of this.
     pub state: CommitState,
+    /// Commit creation time in Epoch milliseconds.
+    pub created_at: u128,
+    /// The author of the commit.
+    pub author: Author,
 }
 
 /// Commit that is only at the remote.
 /// Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpstreamCommit {
     /// The OID of the commit.
     #[serde(with = "gitbutler_serde::object_id")]
@@ -114,6 +122,10 @@ pub struct UpstreamCommit {
     /// The message of the commit.
     #[serde(with = "gitbutler_serde::bstring_lossy")]
     pub message: BString,
+    /// Commit creation time in Epoch milliseconds.
+    pub created_at: u128,
+    /// The author of the commit.
+    pub author: Author,
 }
 
 /// Represents a branch in a [`Stack`]. It contains commits derived from the local pseudo branch and it's respective remote
@@ -140,6 +152,7 @@ pub struct Branch {
 
 /// List of commits beloning to this branch. Ordered from newest to oldest (child-most to parent-most).
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Commits {
     /// Commits that are currently part of the workspace (applied).
     /// Created from the local pseudo branch (head currently stored in the TOML file)
@@ -252,11 +265,15 @@ fn convert(
             }
         };
 
+        let created_at = u128::try_from(commit.time().seconds())? * 1000;
+
         let api_commit = Commit {
             id: commit.id().to_gix(),
             message: commit.message_bstr().into(),
             has_conflicts: commit.is_conflicted(),
             state,
+            created_at,
+            author: commit.author().into(),
         };
         local_and_remote.push(api_commit);
     }
@@ -273,9 +290,12 @@ fn convert(
         });
         // Ignore commits that strictly speaking are remote only but they match a known local commit (rebase etc)
         if !matches_known_commit {
+            let created_at = u128::try_from(commit.time().seconds())? * 1000;
             let upstream_commit = UpstreamCommit {
                 id: commit.id().to_gix(),
                 message: commit.message_bstr().into(),
+                created_at,
+                author: commit.author().into(),
             };
             upstream_only.push(upstream_commit);
         }

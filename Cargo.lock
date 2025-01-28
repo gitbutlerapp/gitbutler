@@ -707,7 +707,9 @@ dependencies = [
  "gitbutler-stack",
  "gix",
  "itertools 0.14.0",
+ "md5",
  "serde",
+ "url",
 ]
 
 [[package]]

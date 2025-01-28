@@ -19,7 +19,6 @@ gix = { workspace = true, features = [
     "parallel",
     "serde",
     "status",
-    "revision"
 ] }
 gitbutler-stack.workspace = true
 gitbutler-command-context.workspace = true
@@ -29,3 +28,5 @@ gitbutler-repo.workspace = true
 serde = { workspace = true, features = ["std"] }
 gitbutler-serde.workspace = true
 itertools = "0.14"
+url = { version = "2.5.4", features = ["serde"] }
+md5 = "0.7.0"
