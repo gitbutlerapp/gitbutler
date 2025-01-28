@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { platformName } from '$lib/platform/platform';
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { shortcuts } from '$lib/utils/hotkeys';
 	import { getContext } from '@gitbutler/shared/context';
@@ -18,7 +19,13 @@
 	function keysStringToArr(keys: string): string[] {
 		return keys.split('+').map((key) => {
 			if (key === 'Shift') return '⇧';
-			if (key === '$mod') return '⌘';
+			if (key === '$mod') {
+				if (platformName === 'macos') {
+					return '⌘';
+				} else {
+					return 'Ctrl';
+				}
+			}
 			return key;
 		});
 	}
@@ -108,6 +115,7 @@
 		font-size: 12px;
 		min-width: 18px;
 		height: 18px;
+		padding: 0 4px;
 		background-color: var(--clr-bg-2);
 		border-radius: var(--radius-m);
 		display: flex;
