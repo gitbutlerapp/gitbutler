@@ -281,6 +281,9 @@ importers:
       '@fontsource-variable/spline-sans-mono':
         specifier: ^5.1.0
         version: 5.1.0
+      '@rails/actioncable':
+        specifier: ^8.0.100
+        version: 8.0.100
       '@resvg/resvg-js':
         specifier: ^2.6.2
         version: 2.6.2
@@ -342,6 +345,9 @@ importers:
       '@types/node':
         specifier: ^22.3.0
         version: 22.3.0
+      '@types/rails__actioncable':
+        specifier: ^6.1.11
+        version: 6.1.11
       diff-match-patch:
         specifier: ^1.0.5
         version: 1.0.5
@@ -1531,6 +1537,9 @@ packages:
     engines: {node: '>=16.3.0'}
     hasBin: true
 
+  '@rails/actioncable@8.0.100':
+    resolution: {integrity: sha512-/vXTG6gzSW0CDqmA0hWasZ1UAGZC7g5NGM21jowh58rCCeTHAGbWwKExHn49VDuYXz+cHbL4MGfc5LMdTp9m3A==}
+
   '@reduxjs/toolkit@2.5.0':
     resolution: {integrity: sha512-awNe2oTodsZ6LmRqmkFhtb/KH03hUhxOamEQy411m3Njj3BbFvoBovxo4Q1cBWnV1ErprVj9MlF0UPXkng0eyg==}
     peerDependencies:
@@ -2406,6 +2415,9 @@ packages:
 
   '@types/pug@2.0.6':
     resolution: {integrity: sha512-SnHmG9wN1UVmagJOnyo/qkk0Z7gejYxOYYmaAwr5u2yFYfsupN3sg10kyzN8Hep/2zbHxCnsumxOoRIRMBwKCg==}
+
+  '@types/rails__actioncable@6.1.11':
+    resolution: {integrity: sha512-L6A3Rg6sGsv2cqalOgdOmyFvL1Pw69Mg0WuG6NtY9chzabhtkiSFY5fczo72mqRGezrMvl0Jy80v+N719CW+Tg==}
 
   '@types/react@18.3.3':
     resolution: {integrity: sha512-hti/R0pS0q1/xx+TsI73XIqk26eBsISZ2R0wUijXIngRK9R/e7Xw/cXVxQK7R5JjW+SV4zGcn5hXjudkN/pLIw==}
@@ -7871,6 +7883,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@rails/actioncable@8.0.100': {}
+
   '@reduxjs/toolkit@2.5.0(react@18.3.1)':
     dependencies:
       immer: 10.1.1
@@ -8871,6 +8885,8 @@ snapshots:
 
   '@types/pug@2.0.6': {}
 
+  '@types/rails__actioncable@6.1.11': {}
+
   '@types/react@18.3.3':
     dependencies:
       '@types/prop-types': 15.7.12
@@ -9241,7 +9257,7 @@ snapshots:
       sirv: 3.0.0
       tinyglobby: 0.2.10
       tinyrainbow: 2.0.0
-      vitest: 3.0.3(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.3)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)
+      vitest: 3.0.3(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.3)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0)
 
   '@vitest/utils@2.0.5':
     dependencies:
