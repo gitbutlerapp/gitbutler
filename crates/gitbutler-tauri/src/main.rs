@@ -52,8 +52,18 @@ fn main() {
                     .expect("Failed to create window");
 
                     #[cfg(target_os = "macos")]
+                    use tauri::LogicalPosition;
+                    #[cfg(target_os = "macos")]
+                    use tauri_plugin_traffic_lights::WindowExt;
+                    #[cfg(target_os = "macos")]
                     // NOTE: Make sure you only call this ONCE per window.
-                    let _ = window.setup_traffic_lights_inset(LogicalPosition::new(20.0, 24.0));
+                    {
+                        if let Some(window) = tauri_app.get_window("main") {
+                            #[cfg(target_os = "macos")]
+                            // NOTE: Make sure you only call this ONCE per window.
+                            window.setup_traffic_lights_inset(LogicalPosition::new(20.0, 24.0))?;
+                        };
+                    }
 
                     // TODO(mtsgrd): Is there a better way to disable devtools in E2E tests?
                     #[cfg(debug_assertions)]
