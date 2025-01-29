@@ -112,6 +112,10 @@
 		margin: 14px 14px 0 14px;
 	}
 
+	.traffic-lights-placeholder {
+		width: 58px;
+	}
+
 	.left {
 		display: flex;
 		gap: 14px;

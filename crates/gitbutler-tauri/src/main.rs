@@ -61,7 +61,7 @@ fn main() {
                         if let Some(window) = tauri_app.get_window("main") {
                             #[cfg(target_os = "macos")]
                             // NOTE: Make sure you only call this ONCE per window.
-                            window.setup_traffic_lights_inset(LogicalPosition::new(18.0, 22.0))?;
+                            window.setup_traffic_lights_inset(LogicalPosition::new(16.0, 25.0))?;
                         };
                     }
 
@@ -167,7 +167,7 @@ fn main() {
                                 #[cfg(target_os = "macos")]
                                 // NOTE: Make sure you only call this ONCE per window.
                                 window
-                                    .setup_traffic_lights_inset(LogicalPosition::new(20.0, 24.0))?;
+                                    .setup_traffic_lights_inset(LogicalPosition::new(16.0, 25.0))?;
                             };
                         }
                     }
