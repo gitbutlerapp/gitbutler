@@ -60,7 +60,7 @@ gix = { workspace = true, features = ["max-performance"] }
 gitbutler-git = { workspace = true, features = ["test-askpass-path"] }
 glob = "0.3.2"
 serial_test = "3.2.0"
-tempfile = "3.14"
+tempfile.workspace = true
 criterion = "0.5.1"
 uuid.workspace = true
 

@@ -32,4 +32,4 @@ path = "tests/mod.rs"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
-tempfile = "3.14"
+tempfile.workspace = true

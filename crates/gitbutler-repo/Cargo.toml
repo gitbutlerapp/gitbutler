@@ -13,7 +13,7 @@ gix = { workspace = true, features = ["merge", "status", "tree-editor"] }
 anyhow = "1.0.95"
 bstr.workspace = true
 tracing.workspace = true
-tempfile = "3.14"
+tempfile.workspace = true
 serde = { workspace = true, features = ["std"] }
 thiserror.workspace = true
 resolve-path = "0.1.0"

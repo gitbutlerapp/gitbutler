@@ -129,3 +129,19 @@ pub fn git_ls_tree(path: &Path, options: &LsTreeOptions) {
     println!("{:?}", command);
     println!("{}", std::str::from_utf8(&result).unwrap());
 }
+
+/// Runs `git status` and passes the output to println!
+#[deprecated = "git_status should not be used in production code or testing infastructure"]
+pub fn git_status(path: &Path) {
+    let path = if path.ends_with(".git") {
+        path.parent().unwrap()
+    } else {
+        path
+    };
+    let mut command = Command::new("git");
+    command.current_dir(path);
+    command.arg("status");
+    let result = command.output().unwrap().stdout;
+    println!("{:?}", command);
+    println!("{}", std::str::from_utf8(&result).unwrap());
+}

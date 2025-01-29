@@ -8,8 +8,8 @@ publish = false
 [dependencies]
 anyhow = "1.0.95"
 parking_lot = { workspace = true, features = ["arc_lock"] }
-serde = { workspace = true, features = ["std"]}
-serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
+serde = { workspace = true, features = ["std"] }
+serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
 gitbutler-error.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-id.workspace = true
@@ -26,5 +26,5 @@ fslock = "0.2.1"
 
 [dev-dependencies]
 gitbutler-testsupport.workspace = true
-tempfile = "3.14"
-tokio = { workspace = true, features = [ "rt-multi-thread", "rt", "macros" ] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "rt", "macros"] }

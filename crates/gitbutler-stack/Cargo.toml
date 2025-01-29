@@ -38,4 +38,4 @@ gitbutler-git = { workspace = true, features = [
 ] } # Runtime test dependency
 gitbutler-testsupport.workspace = true
 gitbutler-repo-actions.workspace = true
-tempfile = "3.14"
+tempfile.workspace = true
