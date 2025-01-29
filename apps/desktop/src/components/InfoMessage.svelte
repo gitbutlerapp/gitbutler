@@ -194,19 +194,19 @@
 		}
 
 		&.error {
-			background-color: var(--clr-theme-err-bg);
+			background-color: var(--clr-theme-err-bg-muted);
 		}
 
 		&.pop {
-			background-color: var(--clr-theme-pop-bg);
+			background-color: var(--clr-theme-pop-bg-muted);
 		}
 
 		&.warning {
-			background-color: var(--clr-theme-warn-bg);
+			background-color: var(--clr-theme-warn-bg-muted);
 		}
 
 		&.success {
-			background-color: var(--clr-theme-succ-bg);
+			background-color: var(--clr-theme-succ-bg-muted);
 		}
 	}
 

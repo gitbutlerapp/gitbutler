@@ -219,7 +219,6 @@
 		position: relative;
 
 		&.disabled {
-			/* background-color: var(--clr-bg-1); */
 			& .textbox__icon {
 				color: var(--clr-scale-ntrl-60);
 			}

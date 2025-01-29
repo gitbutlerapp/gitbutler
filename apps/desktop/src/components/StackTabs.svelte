@@ -31,7 +31,7 @@
 			no stacks
 		{/snippet}
 	</ReduxResult>
-	<StackTabNew {projectId} />
+	<StackTabNew {projectId} {selectedId} />
 </div>
 
 <style lang="postcss">

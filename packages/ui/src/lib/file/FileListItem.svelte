@@ -275,6 +275,6 @@
 
 	/* MODIFIERS */
 	.selected-draggable {
-		background-color: var(--clr-theme-pop-bg) !important;
+		background-color: var(--clr-theme-pop-bg-muted) !important;
 	}
 </style>
