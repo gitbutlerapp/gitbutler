@@ -113,7 +113,7 @@
 
 		& .bubble__header,
 		& .bubble-message {
-			background-color: var(--clr-theme-pop-bg);
+			background-color: var(--clr-theme-pop-bg-muted);
 		}
 	}
 

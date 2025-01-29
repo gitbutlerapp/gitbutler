@@ -50,8 +50,9 @@
 		border-right: none;
 		border-bottom: none;
 		overflow: hidden;
+
 		&.first {
-			border-radius: 10px 0 0 0;
+			border-radius: var(--radius-ml) 0 0 0;
 		}
 	}
 
