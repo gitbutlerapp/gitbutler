@@ -26,11 +26,8 @@
 	const appState = getContext(AppState);
 	const chatChannelService = getContext(ChatChannelsService);
 
-	const chatParticipants = getChatChannelParticipants(
-		appState,
-		chatChannelService,
-		projectId,
-		patch.changeId
+	const chatParticipants = $derived(
+		getChatChannelParticipants(appState, chatChannelService, projectId, patch.changeId)
 	);
 
 	const commenters = $derived(
