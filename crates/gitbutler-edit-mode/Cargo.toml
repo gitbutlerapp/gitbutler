@@ -27,3 +27,7 @@ gitbutler-cherry-pick.workspace = true
 gitbutler-workspace.workspace = true
 serde.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+gitbutler-testsupport.workspace = true
+tempfile.workspace = true

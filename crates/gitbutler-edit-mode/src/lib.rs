@@ -5,6 +5,7 @@ use std::str::FromStr;
 use anyhow::{bail, Context, Result};
 use bstr::ByteSlice;
 use git2::build::CheckoutBuilder;
+use git2::IndexAddOption;
 use gitbutler_branch_actions::internal::list_virtual_branches;
 use gitbutler_branch_actions::{update_workspace_commit, RemoteBranchFile};
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
@@ -236,6 +237,12 @@ pub(crate) fn save_and_return_to_workspace(
     // Recommit commit
     // While we perform hard resets we should pick up everything to avoid loosing worktree state.
     let pick_up_untracked_files_of_any_size = 0;
+
+    // Make sure any conflicted entries are added to the index
+    let mut index = repository.index()?;
+    index.add_all(["*"], IndexAddOption::DEFAULT, None)?;
+    index.write()?;
+
     let tree = repository.create_wd_tree(pick_up_untracked_files_of_any_size)?;
 
     let (_, committer) = repository.signatures()?;
