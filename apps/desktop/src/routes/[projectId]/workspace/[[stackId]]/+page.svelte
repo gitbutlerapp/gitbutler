@@ -2,12 +2,16 @@
 	import StackTabs from '$components/StackTabs.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import { setContext } from 'svelte';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
 	const settingsService = getContext(SettingsService);
+	const worktreeService = getContext(WorktreeService);
 	const settingsStore = settingsService.appSettings;
 
 	const { data }: { data: PageData } = $props();
@@ -21,6 +25,9 @@
 			goto(`/${data.projectId}/board`);
 		}
 	});
+
+	const idSelection = new IdSelection(worktreeService);
+	setContext(IdSelection, idSelection);
 </script>
 
 <div class="workspace">
@@ -29,7 +36,11 @@
 	</div>
 	<div class="right">
 		<StackTabs {projectId} selectedId={stackId} />
-		<div class="branch"></div>
+		<div class="branch">
+			{#if stackId}
+				stack details: {stackId}
+			{/if}
+		</div>
 	</div>
 </div>
 
@@ -42,6 +53,8 @@
 		padding-right: 16px;
 		height: 100%;
 		gap: 14px;
+		width: 100%;
+		position: relative;
 	}
 
 	.left {
@@ -59,6 +72,7 @@
 		display: flex;
 		flex: 1;
 		flex-direction: column;
+		overflow: scroll;
 	}
 
 	.branch {

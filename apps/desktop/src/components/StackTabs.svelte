@@ -13,11 +13,11 @@
 	const { projectId, selectedId }: Props = $props();
 
 	const stackService = getContext(StackService);
-	const result = $derived(stackService.getAll(projectId));
+	const result = $derived(stackService.getStacks(projectId));
 </script>
 
 <div class="tabs">
-	<ReduxResult {result}>
+	<ReduxResult result={result.current}>
 		{#snippet children(result)}
 			{@const tabs = stacksToTabs(result)}
 			{#each tabs as tab, i (tab.name)}

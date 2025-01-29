@@ -1,18 +1,8 @@
-import { ReduxTag } from './tags';
 import { Tauri } from '$lib/backend/tauri';
 import { isBackendError } from '$lib/error/typeguards';
-import { createApi, type BaseQueryApi, type BaseQueryFn } from '@reduxjs/toolkit/query';
+import { type BaseQueryApi, type BaseQueryFn } from '@reduxjs/toolkit/query';
 
-export const reduxApi = createApi({
-	reducerPath: 'api',
-	tagTypes: Object.values(ReduxTag),
-	baseQuery: tauriBaseQuery,
-	endpoints: (_) => {
-		return {};
-	}
-});
-
-function tauriBaseQuery<T>(
+export function tauriBaseQuery<T>(
 	args: ApiArgs,
 	api: BaseQueryApi
 ): ReturnType<BaseQueryFn<ApiArgs, Promise<T>, TauriCommandError, object, object>> {

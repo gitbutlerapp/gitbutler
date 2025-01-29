@@ -34,7 +34,7 @@
 
 	async function addNew() {
 		if (createRefType === 'stack') {
-			const { data, error } = await stackService.new(projectId);
+			const { data, error } = await stackService.newStack(projectId, { name: createRefName });
 			if (data) {
 				goto(stackPath(projectId, data.id));
 			} else {

@@ -30,16 +30,17 @@
 	} from '$lib/forge/github/githubUserService';
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
 	import { HooksService } from '$lib/hooks/hooksService';
+	import { DiffService } from '$lib/hunks/diffService';
 	import { platformName } from '$lib/platform/platform';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { PromptService } from '$lib/prompt/promptService';
-	import { DesktopRedux } from '$lib/redux/store.svelte';
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { ClientState } from '$lib/state/clientState.svelte';
 	import { UpdaterService } from '$lib/updater/updater';
 	import { User } from '$lib/user/user';
 	import { UserService } from '$lib/user/userService';
@@ -77,9 +78,9 @@
 	setContext(SETTINGS, userSettings);
 
 	const appState = new AppState();
-	const redux = new DesktopRedux(data.tauri);
-	const stackService = new StackService(redux);
-	const worktreeService = new WorktreeService(redux);
+	const clientState = new ClientState(data.tauri);
+	const stackService = new StackService(clientState);
+	const worktreeService = new WorktreeService(clientState);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
 	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
 	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
@@ -90,6 +91,7 @@
 	const latestBranchLookupService = new LatestBranchLookupService(data.cloud, appState.appDispatch);
 	const webRoutesService = new WebRoutesService(env.PUBLIC_CLOUD_BASE_URL);
 	const desktopRouteService = new DesktopRoutesService();
+	const diffService = new DiffService(data.tauri);
 	const shortcutService = new ShortcutService(data.tauri);
 	shortcutService.listen();
 
@@ -97,7 +99,7 @@
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
-	setContext(DesktopRedux, redux);
+	setContext(ClientState, clientState);
 	setContext(FeedService, feedService);
 	setContext(OrganizationService, organizationService);
 	setContext(CloudUserService, cloudUserService);
@@ -133,6 +135,7 @@
 	setContext(StackService, stackService);
 	setContext(WorktreeService, worktreeService);
 	setContext(ShortcutService, shortcutService);
+	setContext(DiffService, diffService);
 
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 
