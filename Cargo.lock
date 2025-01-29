@@ -692,6 +692,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-debugging"
+version = "0.0.0"
+
+[[package]]
 name = "but-workspace"
 version = "0.0.0"
 dependencies = [
@@ -2369,6 +2373,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-debugging",
  "but-workspace",
  "criterion",
  "diffy",
