@@ -32,7 +32,7 @@
 		},
 		argTypes: {
 			size: {
-				options: ['cta', 'button', 'tag'],
+				options: ['icon', 'cta', 'button', 'tag'],
 				control: {
 					type: 'select'
 				}
