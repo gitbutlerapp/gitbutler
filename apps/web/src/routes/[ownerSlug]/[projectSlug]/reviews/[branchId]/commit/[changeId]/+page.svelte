@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ChatMinimize } from '$lib/chat/minimize.svelte';
 	import ChatComponent from '$lib/components/ChatComponent.svelte';
 	import ChangeActionButton from '$lib/components/review/ChangeActionButton.svelte';
 	import ChangeNavigator from '$lib/components/review/ChangeNavigator.svelte';
@@ -38,6 +39,7 @@
 	const patchService = getContext(PatchService);
 	const appState = getContext(AppState);
 	const routes = getContext(WebRoutesService);
+	const chatMinimizer = new ChatMinimize();
 
 	const repositoryId = $derived(
 		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
@@ -84,12 +86,23 @@
 
 		goto(url);
 	}
+
+	function handleKeyDown(event: KeyboardEvent) {
+		if (chatMinimizer.isKeyboardShortcut(event)) {
+			chatMinimizer.toggle();
+			event.stopPropagation();
+			event.preventDefault();
+			return;
+		}
+	}
 </script>
 
-<div class="review-page">
+<svelte:window onkeydown={handleKeyDown} />
+
+<div class="review-page" class:column={chatMinimizer.value}>
 	<Loading loadable={combine([patch?.current, repositoryId.current, branchUuid?.current])}>
 		{#snippet children([patch, repositoryId, branchUuid])}
-			<div class="review-main-content">
+			<div class="review-main-content" class:expand={chatMinimizer.value}>
 				<div class="review-main__header">
 					<p class="review-main__branch-title-line">
 						Branch: <span class="review-main__branch-title">{branchName}</span>
@@ -117,12 +130,14 @@
 			</div>
 
 			{#if branchUuid !== undefined}
-				<div class="review-chat">
+				<div class="review-chat" class:minimized={chatMinimizer.value}>
 					<ChatComponent
 						{branchUuid}
 						projectId={repositoryId}
 						branchId={data.branchId}
 						changeId={data.changeId}
+						minimized={chatMinimizer.value}
+						toggleMinimized={() => chatMinimizer.toggle()}
 					/>
 				</div>
 			{/if}
@@ -130,12 +145,16 @@
 	</Loading>
 </div>
 
-<style>
+<style lang="postcss">
 	.review-page {
 		display: flex;
 		width: 100%;
 		flex-grow: 1;
 		gap: 20px;
+
+		&.column {
+			flex-direction: column;
+		}
 	}
 
 	.review-main-content {
@@ -144,6 +163,11 @@
 		gap: 24px;
 		width: 100%;
 		max-width: 50%;
+
+		&.expand {
+			max-width: 100%;
+			flex-grow: 1;
+		}
 	}
 
 	.review-main__header {
@@ -206,5 +230,18 @@
 		display: flex;
 		height: calc(100vh - var(--top-nav-offset) - var(--bottom-margin));
 		position: sticky;
+
+		&.minimized {
+			height: fit-content;
+			--top-nav-offset: 84px;
+			--bottom-margin: 10px;
+			position: sticky;
+			top: unset;
+			bottom: var(--top-nav-offset);
+			z-index: var(--z-floating);
+
+			justify-content: flex-end;
+			align-items: center;
+		}
 	}
 </style>
