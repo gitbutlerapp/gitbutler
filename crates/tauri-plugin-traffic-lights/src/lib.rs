@@ -1,3 +1,4 @@
+#[cfg(target_os = "macos")]
 use tauri::{LogicalPosition, Runtime, Window};
 
 #[cfg(target_os = "macos")]
