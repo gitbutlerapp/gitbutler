@@ -1,8 +1,12 @@
 <script lang="ts">
 	import { stackPath } from '$lib/routes/routes.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { Tab } from '$lib/tabs/tab';
 	import { goto } from '$app/navigation';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 
 	type Props = {
 		projectId: string;
@@ -11,6 +15,10 @@
 		last: boolean;
 		selected: boolean;
 	};
+
+	let kebabMenuTrigger = $state<HTMLElement>();
+	let contextMenuEl = $state<ContextMenu>();
+	let isContextMenuOpen = $state(false);
 
 	const { projectId, tab, first, last, selected }: Props = $props();
 </script>
@@ -36,6 +44,42 @@
 	<div class="name">
 		{tab.name}
 	</div>
+	<div class="tab__overflow-menu">
+		<Button
+			kind="ghost"
+			icon="kebab"
+			bind:el={kebabMenuTrigger}
+			onclick={() => {
+				contextMenuEl?.toggle();
+			}}
+			activated={isContextMenuOpen}
+		></Button>
+	</div>
+
+	<ContextMenu
+		bind:this={contextMenuEl}
+		leftClickTrigger={kebabMenuTrigger}
+		ontoggle={(isOpen) => (isContextMenuOpen = isOpen)}
+		side="bottom"
+		horizontalAlign="left"
+	>
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Unapply Stack"
+				keyboardShortcut="$mod+X"
+				onclick={() => {
+					contextMenuEl?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Rename"
+				keyboardShortcut="$mod+R"
+				onclick={() => {
+					contextMenuEl?.close();
+				}}
+			/>
+		</ContextMenuSection>
+	</ContextMenu>
 </button>
 
 <style lang="postcss">
@@ -53,6 +97,23 @@
 
 		&.first {
 			border-radius: var(--radius-ml) 0 0 0;
+		}
+
+		.tab__overflow-menu {
+			opacity: 0;
+			width: 0px;
+			transition:
+				opacity 100ms ease-in,
+				width 100ms ease-in-out;
+		}
+
+		&:active .tab__overflow-menu,
+		&:hover .tab__overflow-menu,
+		&:focus .tab__overflow-menu {
+			margin-right: 8px;
+			display: flex;
+			opacity: 1;
+			width: 16px;
 		}
 	}
 
