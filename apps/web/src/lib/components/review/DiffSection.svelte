@@ -1,21 +1,20 @@
 <script lang="ts">
-	import HunkDiff from '$lib/components/HunkDiff.svelte';
-	import { parsePatch } from '$lib/diffParsing';
+	import { splitDiffIntoHunks } from '$lib/diffParsing';
+	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import type { DiffSection } from '@gitbutler/shared/branches/types';
 
 	interface Props {
 		section: DiffSection;
 	}
-
 	const { section }: Props = $props();
 
-	const hunks = $derived(section.diffPatch ? parsePatch(section.diffPatch) : []);
+	const hunks = $derived(section.diffPatch ? splitDiffIntoHunks(section.diffPatch) : []);
 </script>
 
 <div class="diff-section">
 	<p class="file-name">{section.newPath}</p>
-	{#each hunks as hunk}
-		<HunkDiff filePath={section.newPath || 'unknown'} subsections={hunk.contentSections}></HunkDiff>
+	{#each hunks as hunkStr}
+		<HunkDiff filePath={section.newPath || 'unknown'} {hunkStr}></HunkDiff>
 	{/each}
 </div>
 
