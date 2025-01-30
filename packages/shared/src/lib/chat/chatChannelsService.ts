@@ -33,6 +33,10 @@ export class ChatChannelsService {
 						`chat_messages/${projectId}/chats/${changeId ?? ''}`
 					);
 
+					// Return the messages in reverse order so that
+					// the newest messages are at the bottom
+					apiChatMessages.reverse();
+
 					const chatChannel: LoadableChatChannel = {
 						status: 'found',
 						id: chatChannelKey,
