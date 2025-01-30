@@ -23,6 +23,13 @@ export class StackService {
 		const result = $derived(createStack.useMutation({ projectId, branch }));
 		return result;
 	}
+
+	// TODO: Show Commits from Stack
+	getStackBranches(projectId: string, stackId: string) {
+		const { getStackBranches } = this.api.endpoints;
+		const result = $derived(getStackBranches.useQuery({ projectId, stackId }));
+		return result;
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -38,6 +45,13 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					params: { projectId, branch }
 				}),
 				invalidatesTags: [ReduxTag.Stacks]
+			}),
+			getStackBranches: build.query<Stack, { projectId: string; stackId: string }>({
+				query: ({ projectId, stackId }) => ({
+					command: 'stack_branches',
+					params: { projectId, stackId }
+				}),
+				providesTags: [ReduxTag.StackBranches]
 			})
 		})
 	});
