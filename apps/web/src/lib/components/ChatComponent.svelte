@@ -118,6 +118,8 @@
 	}
 
 	.chat-messages {
+		display: flex;
+		flex-direction: column-reverse;
 		flex-grow: 1;
 		overflow-y: scroll;
 		scrollbar-width: none;
