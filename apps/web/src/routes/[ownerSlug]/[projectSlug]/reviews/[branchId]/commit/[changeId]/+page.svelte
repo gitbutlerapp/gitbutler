@@ -116,9 +116,16 @@
 				<ReviewSections {patch} patchSections={patchSections?.current} />
 			</div>
 
-			<div class="review-chat">
-				<ChatComponent projectId={repositoryId} branchId={data.branchId} changeId={data.changeId} />
-			</div>
+			{#if branchUuid !== undefined}
+				<div class="review-chat">
+					<ChatComponent
+						{branchUuid}
+						projectId={repositoryId}
+						branchId={data.branchId}
+						changeId={data.changeId}
+					/>
+				</div>
+			{/if}
 		{/snippet}
 	</Loading>
 </div>

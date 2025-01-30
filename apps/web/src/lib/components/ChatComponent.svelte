@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { AuthService } from '$lib/auth/authService';
 	import { subscribeToChatChannel } from '$lib/chat/subscribe';
-	import ChatInputProps from '$lib/components/chat/ChatInput.svelte';
+	import ChatInput from '$lib/components/chat/ChatInput.svelte';
 	import Message from '$lib/components/chat/Message.svelte';
 	import blankChat from '$lib/images/blank-chat.svg?raw';
 	import { getChatChannel } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
@@ -12,12 +12,13 @@
 	import type { SubscriptionEvent } from '$lib/chat/utils';
 
 	interface Props {
+		branchUuid: string;
 		projectId: string;
 		branchId: string;
 		changeId: string;
 	}
 
-	const { projectId, changeId, branchId }: Props = $props();
+	const { projectId, changeId, branchId, branchUuid }: Props = $props();
 
 	const authService = getContext(AuthService);
 	const token = $derived(authService.token);
@@ -57,19 +58,6 @@
 			seenEventIds.clear();
 		};
 	});
-
-	async function sendMessage(message: string | undefined) {
-		if (message === undefined || message.trim() === '') {
-			return;
-		}
-
-		await chatChannelService.sendChatMessage({
-			projectId,
-			branchId,
-			changeId,
-			chat: message
-		});
-	}
 </script>
 
 <div class="chat-card">
@@ -100,7 +88,7 @@
 			</Loading>
 		{/if}
 	</div>
-	<ChatInputProps {sendMessage} />
+	<ChatInput {branchUuid} {projectId} {branchId} {changeId} />
 </div>
 
 <style lang="postcss">
