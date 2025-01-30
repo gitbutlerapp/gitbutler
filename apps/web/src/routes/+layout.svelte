@@ -100,7 +100,8 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 100vh;
-		max-width: 1280px;
+		max-width: 1440px;
+		padding: 0 80px;
 		margin: 0 auto;
 	}
 
@@ -108,7 +109,6 @@
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		padding: 20px;
 		margin: 0 auto;
 		width: 100%;
 	}

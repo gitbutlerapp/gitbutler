@@ -25,25 +25,17 @@
 
 <div class="navigation">
 	<div class="main-links">
-		<div class="link">
-			<a href="/" class="main-nav" aria-label="main nav" title="Home">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="23"
-					height="24"
-					viewBox="0 0 23 24"
-					fill="none"
-				>
-					<path d="M0 24V0L11.4819 10.5091L23 0V24L11.4819 13.5273L0 24Z" fill="black" />
-				</svg>
-			</a>
-		</div>
+		<a href="/" class="logo" aria-label="main nav" title="Home">
+			<svg xmlns="http://www.w3.org/2000/svg" width="23" height="24" viewBox="0 0 23 24">
+				<path d="M0 24V0L11.4819 10.5091L23 0V24L11.4819 13.5273L0 24Z" />
+			</svg>
+		</a>
 		<div class="link">
 			<Breadcrumbs />
 		</div>
 	</div>
 
-	<div class="account-links">
+	<!-- <div class="account-links">
 		{#if $token}
 			<div class="link">
 				<a class="nav-link nav-button" href="/organizations" aria-label="organizations">
@@ -89,7 +81,7 @@
 				{/if}
 			</button>
 		</div>
-	</div>
+	</div> -->
 </div>
 
 <style>
@@ -97,11 +89,20 @@
 		display: flex;
 		justify-content: space-between;
 		width: 100%;
-		height: 64px;
-		padding: 0 16px;
+		padding: 24px 0;
 	}
 
-	.user__id--img {
+	.main-links {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.logo {
+		display: flex;
+	}
+
+	/* .user__id--img {
 		width: 28px;
 		height: 28px;
 		border-radius: 0.5rem;
@@ -115,16 +116,9 @@
 		gap: 12px;
 	}
 
-	.main-links {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 24px;
-	}
-
 	.nav-button {
 		display: flex;
 		border-radius: var(--radius-s);
 		white-space: nowrap;
-	}
+	} */
 </style>
