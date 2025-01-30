@@ -4,6 +4,12 @@
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { goto } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
 
 	const routes = getContext(WebRoutesService);
@@ -13,6 +19,10 @@
 
 	const userService = getContext(UserService);
 	const user = $derived(userService.user);
+
+	let contextMenuEl = $state<ReturnType<typeof ContextMenu>>();
+	let contextUserTriggerButton = $state<HTMLButtonElement | undefined>();
+	let isContextMenuOpen = $state(false);
 
 	function login() {
 		window.location.href = `${env.PUBLIC_APP_HOST}/cloud/login?callback=${window.location.href}`;
@@ -30,59 +40,112 @@
 				<path d="M0 24V0L11.4819 10.5091L23 0V24L11.4819 13.5273L0 24Z" />
 			</svg>
 		</a>
-		<div class="link">
-			<Breadcrumbs />
-		</div>
+		<Breadcrumbs />
 	</div>
 
-	<!-- <div class="account-links">
+	<div class="other-links">
 		{#if $token}
-			<div class="link">
-				<a class="nav-link nav-button" href="/organizations" aria-label="organizations">
-					Organizations
-				</a>
-			</div>
-			<div class="link">
-				<a class="nav-link nav-button" href={routes.projectsPath()} aria-label="projects"
-					>Projects</a
-				>
-			</div>
+			<a
+				class="text-12 text-semibold other-nav-link"
+				href={routes.projectsPath()}
+				aria-label="projects">Projects</a
+			>
+			<a
+				class="text-12 text-semibold other-nav-link"
+				href="/organizations"
+				aria-label="organizations"
+			>
+				Organizations
+			</a>
 		{/if}
-		<div class="link">
-			<a class="nav-link nav-button" href="/downloads" aria-label="downloads" title="Downloads">
+
+		{#if !$user}
+			<a
+				class="text-12 text-semibold other-nav-link"
+				href="/downloads"
+				aria-label="downloads"
+				title="Downloads"
+			>
 				Downloads
 			</a>
-		</div>
-
-		{#if $user}
-			<div>
-				<a href="/profile" class="nav-link nav-button" aria-label="profile">
-					<img class="user__id--img" alt="User Avatar" width="48" src={$user.picture} />
-				</a>
-			</div>
 		{/if}
 
-		<div>
-			<button
-				type="button"
-				class="nav-link nav-button"
+		{#if $user}
+			<Button
+				kind="outline"
+				class="user-btn"
+				activated={isContextMenuOpen}
 				onclick={() => {
-					if ($token) {
-						logout();
-					} else {
-						login();
-					}
+					contextMenuEl?.toggle();
 				}}
+				bind:el={contextUserTriggerButton}
 			>
-				{#if $token}
-					Log Out
-				{:else}
-					Log In
-				{/if}
-			</button>
-		</div>
-	</div> -->
+				<div class="user-btn">
+					<div class="user-icon">
+						{#if $user?.picture}
+							<img
+								class="user-icon__image"
+								src={$user.picture}
+								alt=""
+								referrerpolicy="no-referrer"
+							/>
+						{:else}
+							<Icon name="profile" />
+						{/if}
+					</div>
+					<div class="user-select-icon">
+						<Icon name="select-chevron" />
+					</div>
+				</div></Button
+			>
+		{:else}
+			<Button kind="outline" icon="signin" onclick={login}>Log in / Sign up</Button>
+		{/if}
+	</div>
 </div>
+
+<ContextMenu
+	bind:this={contextMenuEl}
+	leftClickTrigger={contextUserTriggerButton}
+	side="right"
+	verticalAlign="bottom"
+	ontoggle={(isOpen) => (isContextMenuOpen = isOpen)}
+>
+	<ContextMenuSection>
+		<ContextMenuItem
+			label="Preferences"
+			onclick={() => {
+				goto('/settings/profile');
+			}}
+		/>
+	</ContextMenuSection>
+	<ContextMenuSection title="Theme (⌘K)">
+		<ContextMenuItem
+			label="Dark"
+			onclick={async () => {
+				// TODO: implement theme switching
+			}}
+		/>
+		<ContextMenuItem
+			label="Light"
+			onclick={async () => {
+				// TODO: implement theme switching
+			}}
+		/>
+		<ContextMenuItem
+			label="System"
+			onclick={async () => {
+				// TODO: implement theme switching
+			}}
+		/>
+	</ContextMenuSection>
+	<ContextMenuSection>
+		<ContextMenuItem label="Downloads" onclick={() => goto('/downloads')} />
+	</ContextMenuSection>
+	<ContextMenuSection>
+		<ContextMenuItem label="Logout" onclick={logout} />
+	</ContextMenuSection>
+</ContextMenu>
 
 <style>
 	.navigation {
@@ -102,23 +165,42 @@
 		display: flex;
 	}
 
-	/* .user__id--img {
-		width: 28px;
-		height: 28px;
-		border-radius: 0.5rem;
-	}
-
-	.account-links {
+	.other-links {
 		display: flex;
-		flex-direction: row;
 		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
+		gap: 16px;
 	}
 
-	.nav-button {
+	.other-nav-link {
+		color: var(--clr-text-2);
+	}
+
+	/* override profile button */
+	:global(.navigation .user-btn) {
+		border-radius: var(--radius-ml);
+		padding: 0;
+	}
+
+	.user-btn {
 		display: flex;
-		border-radius: var(--radius-s);
-		white-space: nowrap;
-	} */
+		align-items: center;
+		gap: 4px;
+	}
+
+	.user-select-icon {
+		display: flex;
+		color: var(--label-clr);
+		opacity: var(--icon-opacity);
+		margin-right: 2px;
+		transition:
+			opacity var(--transition-fast),
+			stroke var(--transition-fast);
+	}
+
+	.user-icon {
+		width: 20px;
+		height: 20px;
+		border-radius: var(--radius-m);
+		overflow: hidden;
+	}
 </style>
