@@ -42,6 +42,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					const unsubscribe = lifecycleApi.extra.tauri.listen<WorktreeChanges>(
 						`project://${arg.projectId}/worktree_changes`,
 						(event) => {
+							lifecycleApi.dispatch(api.util.invalidateTags([ReduxTag.Diff]));
 							lifecycleApi.updateCachedData(() => event.payload);
 						}
 					);

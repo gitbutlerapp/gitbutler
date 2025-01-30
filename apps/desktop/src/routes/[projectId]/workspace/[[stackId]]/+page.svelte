@@ -1,10 +1,15 @@
 <script lang="ts">
+	import Resizer from '$components/Resizer.svelte';
+	import SelectionView from '$components/SelectionView.svelte';
 	import StackTabs from '$components/StackTabs.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { createKeybind } from '$lib/utils/hotkeys';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import { setContext } from 'svelte';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
@@ -26,19 +31,50 @@
 		}
 	});
 
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const idSelection = new IdSelection(worktreeService);
 	setContext(IdSelection, idSelection);
+
+	const trayWidthKey = $derived('defaulTrayWidth_ ' + projectId);
+	const trayWidth = $derived(persisted<number>(240, trayWidthKey));
+
+	const previewingKey = $derived('previewing_' + projectId);
+	const previewing = $derived(persisted<boolean>(false, previewingKey));
+
+	let resizeViewport = $state<HTMLElement>();
+
+	const handleKeyDown = createKeybind({
+		p: () => ($previewing = true)
+	});
+	const handleKeyUp = createKeybind({
+		p: () => ($previewing = false)
+	});
+	function handleBlur() {
+		$previewing = false;
+	}
 </script>
 
+<svelte:window onkeydown={handleKeyDown} onkeyup={handleKeyUp} onblur={handleBlur} />
+
 <div class="workspace">
-	<div class="left">
+	<div class="left" bind:this={resizeViewport} style:width={$trayWidth + 'rem'}>
+		<Resizer
+			viewport={resizeViewport}
+			direction="right"
+			minWidth={240}
+			onWidth={(value) => {
+				$trayWidth = value / (16 * $userSettings.zoom);
+			}}
+		/>
 		<WorktreeChanges {projectId} />
 	</div>
 	<div class="right">
-		<StackTabs {projectId} selectedId={stackId} />
+		<StackTabs {projectId} selectedId={stackId} previewing={$previewing} />
 		<div class="branch">
-			{#if stackId}
+			{#if stackId && !$previewing}
 				stack details: {stackId}
+			{:else}
+				<SelectionView {projectId} />
 			{/if}
 		</div>
 	</div>
@@ -49,8 +85,6 @@
 		display: flex;
 		flex: 1;
 		align-items: stretch;
-		padding-bottom: 16px;
-		padding-right: 16px;
 		height: 100%;
 		gap: 14px;
 		width: 100%;
@@ -66,6 +100,7 @@
 		background-color: var(--clr-bg-1);
 		border-radius: var(--radius-ml);
 		border: 1px solid var(--clr-border-2);
+		position: relative;
 	}
 
 	.right {
