@@ -125,9 +125,105 @@
 //! In theory, would have to merge the parents, and diff it against the commit. That bears the risk of a conflict (that has been resolved in the commit),
 //! so in that case it should be fine to fallback to using the first parent.
 mod input;
+
+use anyhow::Context;
+use but_core::{TreeChange, UnifiedDiff};
+use gitbutler_oxidize::{ObjectIdExt, OidExt};
+use gitbutler_repo::logging::{LogUntil, RepositoryExt};
+use gix::prelude::ObjectIdExt as _;
 pub use input::{InputCommit, InputDiffHunk, InputFile, InputStack};
 
 mod ranges;
 pub use ranges::{CalculationError, HunkRange, WorkspaceRanges};
 
 mod utils;
+
+/// Produce one [`InputStack`] instance for each [`but_workspace::StackEntry`] in `stacks` for use in [`WorkspaceRanges::try_from_stacks`].
+///
+/// `common_merge_base` is expected to be the merge base that all `stacks` have in common, as would be created with [gix::Repository::merge_base_octopus()].
+pub fn workspace_stacks_to_input_stacks(
+    repo: &gix::Repository,
+    stacks: &[but_workspace::StackEntry],
+    common_merge_base: gix::ObjectId,
+) -> anyhow::Result<Vec<InputStack>> {
+    let mut out = Vec::new();
+    let git2_repo = git2::Repository::open(repo.path())?;
+    for stack in stacks {
+        let mut commits_from_base_to_tip = Vec::new();
+        let commit_ids = commits_in_stack_base_to_tip_without_merge_bases(
+            stack.tip.attach(repo),
+            &git2_repo,
+            common_merge_base,
+        )?;
+        for commit_id in commit_ids {
+            let commit = repo.find_commit(commit_id)?;
+            let tree_changes = but_core::diff::commit_changes(
+                repo,
+                commit.parent_ids().next().map(|id| id.detach()),
+                commit_id,
+            )?;
+            let files = tree_changes_to_input_files(repo, tree_changes)?;
+            commits_from_base_to_tip.push(InputCommit { commit_id, files });
+        }
+        out.push(InputStack {
+            stack_id: stack.id,
+            commits_from_base_to_tip,
+        });
+    }
+    Ok(out)
+}
+
+/// Turn `changes` with [`TreeChange`] instances into [`InputFile`], one for each input.
+pub fn tree_changes_to_input_files(
+    repo: &gix::Repository,
+    changes: Vec<TreeChange>,
+) -> anyhow::Result<Vec<InputFile>> {
+    let mut files = Vec::new();
+    for change in changes {
+        let diff = change.unified_diff(repo, 0)?;
+        let UnifiedDiff::Patch { hunks } = diff else {
+            unreachable!("Test repos don't have file-size issue")
+        };
+        let change_type = change.status.kind();
+        files.push(InputFile {
+            path: change.path,
+            hunks: hunks.iter().map(InputDiffHunk::from_unified_diff).collect(),
+            change_type,
+        })
+    }
+    Ok(files)
+}
+
+/// Traverse all commits from `tip` down to `common_merge_base`, but omit merges.
+// TODO: the algorithm should be able to deal with merges, just like `jj absorb` or `git absorb`.
+fn commits_in_stack_base_to_tip_without_merge_bases(
+    tip: gix::Id<'_>,
+    // TODO: implement in `gix` - need actual rev-walk with excludes, and possibly ahead-behind.
+    git2_repo: &git2::Repository,
+    common_merge_base: gix::ObjectId,
+) -> anyhow::Result<Vec<gix::ObjectId>> {
+    let tip = tip.detach().to_git2();
+    let common_merge_base = common_merge_base.to_git2();
+    let commit_ids = git2_repo
+        .l(tip, LogUntil::Commit(common_merge_base), false)
+        .context("failed to list commits")?
+        .into_iter()
+        .rev()
+        .filter_map(move |commit_id| {
+            let commit = git2_repo.find_commit(commit_id).ok()?;
+            if commit.parent_count() == 1 {
+                return Some(commit_id.to_gix());
+            }
+
+            // TODO: probably to be reviewed as it basically doesn't give access to the
+            //       first (base) commit in a branch that forked off target-sha.
+            let has_integrated_parent = commit.parent_ids().any(|id| {
+                git2_repo
+                    .graph_ahead_behind(id, common_merge_base)
+                    .is_ok_and(|(number_commits_ahead, _)| number_commits_ahead == 0)
+            });
+
+            (!has_integrated_parent).then_some(commit_id.to_gix())
+        });
+    Ok(commit_ids.collect())
+}

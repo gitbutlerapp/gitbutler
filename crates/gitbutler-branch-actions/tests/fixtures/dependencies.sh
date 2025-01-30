@@ -59,9 +59,6 @@ git init remote
 export GITBUTLER_CLI_DATA_DIR=../user/gitbutler/app-data
 git clone remote independent-commits
 (cd independent-commits
-  git config user.name "Author"
-  git config user.email "author@example.com"
-
   git branch existing-branch
   $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
 
@@ -85,9 +82,6 @@ git clone remote independent-commits
 
 git clone remote independent-commits-multi-stack
 (cd independent-commits-multi-stack
-  git config user.name "Author"
-  git config user.email "author@example.com"
-
   git branch existing-branch
   $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
 
@@ -128,9 +122,6 @@ git clone remote independent-commits-multi-stack
 
 git clone remote sequentially-dependent-commits
 (cd sequentially-dependent-commits
-  git config user.name "Author"
-  git config user.email "author@example.com"
-
   git branch existing-branch
   $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
 
@@ -154,9 +145,6 @@ git clone remote sequentially-dependent-commits
 
 git clone remote sequentially-dependent-commits-muli-stack
 (cd sequentially-dependent-commits-muli-stack
-  git config user.name "Author"
-  git config user.email "author@example.com"
-
   git branch existing-branch
   $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
 
@@ -196,9 +184,6 @@ git clone remote sequentially-dependent-commits-muli-stack
 
 git clone remote delete-and-recreate-file-multi-stack
 (cd delete-and-recreate-file-multi-stack
-  git config user.name "Author"
-  git config user.email "author@example.com"
-
   git branch existing-branch
   $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
 
@@ -238,9 +223,6 @@ git clone remote delete-and-recreate-file-multi-stack
 
 git clone remote complex-file-manipulation
 (cd complex-file-manipulation
-  git config user.name "Author"
-  git config user.email "author@example.com"
-
   git branch existing-branch
   $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
 
@@ -337,9 +319,6 @@ f
 
 git clone remote complex-file-manipulation-multiple-hunks
 (cd complex-file-manipulation-multiple-hunks
-  git config user.name "Author"
-  git config user.email "author@example.com"
-
   git branch existing-branch
   $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
 
@@ -395,9 +374,6 @@ added at the bottom
 
 git clone remote complex-branch-checkout
 (cd complex-branch-checkout
-  git config user.name "Author"
-  git config user.email "author@example.com"
-
   git switch -c my_stack
   echo "this is a" > a
   git add a && git commit -m "add a" --trailer ""

@@ -2,6 +2,7 @@ use crate::error::Error;
 use but_core::UnifiedDiff;
 use but_workspace::StackEntry;
 use gitbutler_command_context::CommandContext;
+use gitbutler_oxidize::OidExt;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_settings::AppSettingsWithDiskSync;
@@ -10,6 +11,7 @@ use gix::bstr::ByteSlice;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hasher;
+use std::path::Path;
 use tauri::State;
 use tracing::instrument;
 
@@ -36,17 +38,98 @@ pub fn stack_branches(
     but_workspace::stack_branches(stack_id, &ctx).map_err(Into::into)
 }
 
+/// Retrieve all changes in the workspace and associate them with commits in the Workspace of `project_id`.
+/// NOTE: right now there is no way to keep track of unassociated hunks.
+// TODO: This probably has to change a lot once it's clear how the UI is going to use it.
+//       Right now this is only a port from the V2 UI, and that data structure was never used directly.
+#[tauri::command(async)]
+#[instrument(skip(projects), err(Debug))]
+pub fn hunk_dependencies_for_workspace_changes(
+    projects: State<'_, projects::Controller>,
+    project_id: ProjectId,
+) -> Result<HunkDependencies, Error> {
+    let project = projects.get(project_id)?;
+    let dependencies =
+        hunk_dependencies_for_workspace_changes_by_worktree_dir(&project.path, &project.gb_dir())?;
+    Ok(dependencies)
+}
+
+pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
+    worktree_dir: &Path,
+    gitbutler_dir: &Path,
+) -> anyhow::Result<HunkDependencies> {
+    let repo = gix::open(worktree_dir).map_err(anyhow::Error::from)?;
+    let worktree_changes = but_core::diff::worktree_changes(&repo)?;
+    let stacks = but_workspace::stacks(gitbutler_dir)?;
+    let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(gitbutler_dir)
+        .get_default_target()?
+        .sha;
+    let input_stacks = but_hunk_dependency::workspace_stacks_to_input_stacks(
+        &repo,
+        &stacks,
+        common_merge_base.to_gix(),
+    )?;
+    let ranges = but_hunk_dependency::WorkspaceRanges::try_from_stacks(input_stacks)?;
+    HunkDependencies::try_from_workspace_ranges(&repo, ranges, worktree_changes.changes)
+}
+
+/// Calculate as hash for a `universal_diff`.
+// TODO: see if this should be avoided entirely here as the current impl would allow for hash collisions.
+pub fn hash_lines(universal_diff: impl AsRef<[u8]>) -> HunkHash {
+    let diff = universal_diff.as_ref();
+    assert!(
+        diff.starts_with(b"@@"),
+        "BUG: input mut be a universal diff"
+    );
+    let mut ctx = rustc_hash::FxHasher::default();
+    diff.lines_with_terminator()
+        .skip(1) // skip the first line which is the diff header.
+        .for_each(|line| ctx.write(line));
+    ctx.finish()
+}
+
+/// A way to represent all hunk dependencies that would make it possible to know what can be applied, and were.
+///
+/// Note that the [`errors`](Self::errors) field may contain information about specific failures, while other paths
+/// may have succeeded computing.
+#[derive(Debug, Clone, Serialize)]
+pub struct HunkDependencies {
+    /// A map from diffs to branch and commit dependencies.
+    // TODO: could this be a specific type? Is the mapping truly required?
+    //       Is this because `commit_dependent_diffs` use `HunkHash`?
+    // TODO: the frontend actually has no way of associating the hunks it gets with this hash as it's made
+    //       on the patch lines without any context lines, while it has context lines.
+    //       Hash must then skip the context lines if there are any.
+    pub diffs: Vec<(HunkHash, Vec<HunkLock>)>,
+    /// A map from stack id to commit dependencies.
+    /// Commit dependencies map commit id to commits it depends on.
+    // TODO: have to use strings as keys for serialization (`gix::ObjectId`)
+    #[serde(skip)]
+    pub commit_dependencies: HashMap<StackId, HashMap<gix::ObjectId, HashSet<gix::ObjectId>>>,
+    /// A map from stack id to inverse commit dependencies.
+    /// Inverse commit dependencies map commit id to commits that depend on it.
+    // TODO: have to use strings as keys for serialization (`gix::ObjectId`)
+    #[serde(skip)]
+    pub inverse_commit_dependencies:
+        HashMap<StackId, HashMap<gix::ObjectId, HashSet<gix::ObjectId>>>,
+    /// A map from stack id to dependent commit dependent diffs.
+    /// Commit dependent diffs map commit id to diffs that depend on it.
+    // TODO: have to use strings as keys for serialization (`gix::ObjectId`)
+    #[serde(skip)]
+    pub commit_dependent_diffs: HashMap<StackId, HashMap<gix::ObjectId, HashSet<HunkHash>>>,
+    /// Errors that occurred during the calculation that should be presented in some way.
+    // TODO: Does the UI really use whatever partial result that there may be? Should this be a real error?
+    pub errors: Vec<but_hunk_dependency::CalculationError>,
+}
+
 impl HunkDependencies {
     /// Calculate all hunk dependencies using a preparepd [`but_hunk_dependency::WorkspaceRanges`].
-    // TODO(performance): could this use iterators so it can stop if it found the answer already? Right now it does a lot of upfront work
-    //                    without necessarily needing all inputs.
-    // TODO: This should probably be in `tauri`, and `WorkspaceRanges` would be the main entry point here.
     fn try_from_workspace_ranges(
         repo: &gix::Repository,
         ranges: but_hunk_dependency::WorkspaceRanges,
         worktree_changes: Vec<but_core::TreeChange>,
     ) -> anyhow::Result<HunkDependencies> {
-        let mut diffs = HashMap::<HunkHash, Vec<HunkLock>>::new();
+        let mut diffs = Vec::<(HunkHash, Vec<HunkLock>)>::new();
         for change in worktree_changes {
             let unidiff = change.unified_diff(repo, 0 /* zero context lines */)?;
             let UnifiedDiff::Patch { hunks } = unidiff else {
@@ -63,7 +146,7 @@ impl HunkDependencies {
                             stack_id: dependency.stack_id,
                         })
                         .collect();
-                    diffs.insert(hash_lines(&hunk.diff), locks);
+                    diffs.push((hash_lines(&hunk.diff), locks));
                 }
             }
         }
@@ -93,47 +176,6 @@ impl HunkDependencies {
             errors,
         })
     }
-}
-
-/// Calculate as hash for a `universal_diff`.
-// TODO: see if this should be avoided entirely here as the current impl would allow for hash collisions.
-pub fn hash_lines(universal_diff: impl AsRef<[u8]>) -> HunkHash {
-    let diff = universal_diff.as_ref();
-    assert!(
-        diff.starts_with(b"@@"),
-        "BUG: input mut be a universal diff"
-    );
-    let mut ctx = rustc_hash::FxHasher::default();
-    diff.lines_with_terminator()
-        .skip(1) // skip the first line which is the diff header.
-        .for_each(|line| ctx.write(line));
-    ctx.finish()
-}
-
-/// A way to represent all hunk dependencies that would make it possible to know what can be applied, and were.
-///
-/// Note that the [`errors`](Self::errors) field may contain information about specific failures, while other paths
-/// may have succeeded computing.
-#[derive(Debug, Clone, Serialize)]
-pub struct HunkDependencies {
-    /// A map from diffs to branch and commit dependencies.
-    // TODO: could this be a specific type? Is the mapping truly required?
-    //       Is this because `commit_dependent_diffs` use `HunkHash`?
-    pub diffs: HashMap<HunkHash, Vec<HunkLock>>,
-    /// A map from stack id to commit dependencies.
-    /// Commit dependencies map commit id to commits it depends on.
-    pub commit_dependencies: HashMap<StackId, HashMap<gix::ObjectId, HashSet<gix::ObjectId>>>,
-    /// A map from stack id to inverse commit dependencies.
-    /// Inverse commit dependencies map commit id to commits that depend on it.
-    pub inverse_commit_dependencies:
-        HashMap<StackId, HashMap<gix::ObjectId, HashSet<gix::ObjectId>>>,
-    /// A map from stack id to dependent commit dependent diffs.
-    /// Commit dependent diffs map commit id to diffs that depend on it.
-    // TODO: could this be a specific type so no mapping is required?
-    pub commit_dependent_diffs: HashMap<StackId, HashMap<gix::ObjectId, HashSet<HunkHash>>>,
-    /// Errors that occurred during the calculation that should be presented in some way.
-    // TODO: Does the UI really use whatever partial result that there may be? Should this be a real error?
-    pub errors: Vec<but_hunk_dependency::CalculationError>,
 }
 
 /// A hash over the universal diff of a hunk.

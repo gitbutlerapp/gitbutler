@@ -28,6 +28,7 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt, SnapshotExt,
 };
+use gitbutler_oxidize::OidExt;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
@@ -109,6 +110,7 @@ pub fn create_virtual_branch(
     Ok(StackEntry {
         id: stack.id,
         branch_names: stack.heads().into_iter().map(Into::into).collect(),
+        tip: stack.head().to_gix(),
     })
 }
 

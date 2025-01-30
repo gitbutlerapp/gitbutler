@@ -411,7 +411,6 @@ fn complex_file_manipulation() -> Result<()> {
 }
 
 #[test]
-
 fn complex_file_manipulation_with_uncommitted_changes() -> Result<()> {
     let ctx = command_ctx("complex-file-manipulation")?;
     let test_ctx = test_ctx(&ctx)?;
@@ -673,7 +672,7 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> Result
 }
 
 #[test]
-fn dependecies_ignore_merge_commits() -> Result<()> {
+fn dependencies_ignore_merge_commits() -> Result<()> {
     let ctx = command_ctx_after_updates("merge-commit")?;
     let test_ctx = test_ctx(&ctx)?;
     let default_target = test_ctx.virtual_branches.get_default_target()?;

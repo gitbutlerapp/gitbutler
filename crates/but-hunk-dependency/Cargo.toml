@@ -17,6 +17,16 @@ but-core.workspace = true
 but-workspace.workspace = true
 gitbutler-serde.workspace = true
 
+# TODO: remove once not needed anymore
+git2.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-oxidize.workspace = true
+
 [dev-dependencies]
 gix-testtools.workspace = true
+gitbutler-stack.workspace = true
+gitbutler-testsupport.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-oxidize.workspace = true
+itertools = "0.14.0"
 insta.workspace = true

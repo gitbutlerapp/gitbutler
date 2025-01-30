@@ -15,6 +15,7 @@ fn main() -> Result<()> {
     let _op_span = tracing::info_span!("cli-op").entered();
 
     match args.cmd {
+        args::Subcommands::HunkDependency => command::diff::locks(args.current_dir),
         args::Subcommands::Status { unified_diff } => {
             command::diff::status(args.current_dir, unified_diff)
         }

@@ -100,7 +100,10 @@ impl WorkspaceRanges {
                 stack_id: input_stack.stack_id,
                 ..Default::default()
             };
-            let InputStack { stack_id, commits } = input_stack;
+            let InputStack {
+                stack_id,
+                commits_from_base_to_tip: commits,
+            } = input_stack;
             for commit in commits {
                 let InputCommit { commit_id, files } = commit;
                 for file in files {
@@ -152,6 +155,11 @@ impl WorkspaceRanges {
             }
         }
         None
+    }
+
+    /// Return a reference to the internal mapping that is used for [`Self::intersection()`]
+    pub fn ranges_by_path_map(&self) -> &HashMap<BString, Vec<HunkRange>> {
+        &self.paths
     }
 
     /// Calculate inverse dependencies - it's really for the frontend-UI, but has tests here.

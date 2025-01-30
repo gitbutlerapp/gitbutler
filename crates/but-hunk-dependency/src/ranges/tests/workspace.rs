@@ -269,7 +269,7 @@ fn workspace_simple() -> anyhow::Result<()> {
     let workspace_ranges = WorkspaceRanges::try_from_stacks(vec![
         InputStack {
             stack_id: stack1_id,
-            commits: vec![InputCommit {
+            commits_from_base_to_tip: vec![InputCommit {
                 commit_id: commit1_id,
                 files: vec![InputFile {
                     path: path.clone(),
@@ -285,7 +285,7 @@ fn workspace_simple() -> anyhow::Result<()> {
         },
         InputStack {
             stack_id: stack2_id,
-            commits: vec![InputCommit {
+            commits_from_base_to_tip: vec![InputCommit {
                 commit_id: commit2_id,
                 files: vec![InputFile {
                     change_type: TreeStatusKind::Modification,
@@ -351,7 +351,7 @@ fn gracefully_handle_invalid_input_commits() -> anyhow::Result<()> {
     // Invalid input, two subsequent commits with the same changes.
     let workspace_ranges = WorkspaceRanges::try_from_stacks(vec![InputStack {
         stack_id,
-        commits: vec![
+        commits_from_base_to_tip: vec![
             InputCommit {
                 commit_id: commit_a_id, // Delete file
                 files: vec![InputFile {

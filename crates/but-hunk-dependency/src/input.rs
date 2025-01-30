@@ -10,8 +10,8 @@ pub struct InputStack {
     pub stack_id: StackId,
     /// The commits in the stack.
     ///
-    /// The commits are ordered from the base to the top of the stack (application order).
-    pub commits: Vec<InputCommit>,
+    /// **The commits are ordered from the base to the tip of the stack (application order)**.
+    pub commits_from_base_to_tip: Vec<InputCommit>,
 }
 
 /// A commit along with the files that it changes, used in [`InputStack`].

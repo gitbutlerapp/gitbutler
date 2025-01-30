@@ -223,7 +223,7 @@ use std::path::{Path, PathBuf};
 pub(crate) static DRIVER: Lazy<PathBuf> = Lazy::new(|| {
     let mut cargo = std::process::Command::new(env!("CARGO"));
     let res = cargo
-        .args(["build", "-p=gitbutler-cli"])
+        .args(["build", "-p=gitbutler-cli", "--features=testing"])
         .status()
         .expect("cargo should run fine");
     assert!(res.success(), "cargo invocation should be successful");

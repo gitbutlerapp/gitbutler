@@ -14,11 +14,13 @@
 //!     (pseudo branches) that contain each other.
 //!   - Always contains at least one branch.
 //!   - High level documentation here: <https://docs.gitbutler.com/features/stacked-branches>
-//!
+//! * **Target Branch**
+//!   - The branch every stack in the workspace wants to get merged into.
+//!   - Git doesn't have a notion of such a branch.
 
 use anyhow::{Context, Result};
 use author::Author;
-use bstr::BString;
+use bstr::{BStr, BString};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_id::id::Id;
@@ -49,6 +51,15 @@ pub struct StackEntry {
     /// The first entry in the list is always the most recent branch on top the stack.
     #[serde(with = "gitbutler_serde::bstring_vec_lossy")]
     pub branch_names: Vec<BString>,
+    /// The tip of the top-most branch, i.e. the most recent commit that would become the parent of new commits of the topmost stack branch.
+    pub tip: gix::ObjectId,
+}
+
+impl StackEntry {
+    /// The name of the stack, which is the name of the top-most branch.
+    pub fn name(&self) -> Option<&BStr> {
+        self.branch_names.last().map(AsRef::<BStr>::as_ref)
+    }
 }
 
 /// Returns the list of stacks that are currently part of the workspace.
@@ -65,8 +76,18 @@ pub fn stacks(gb_dir: &Path) -> Result<Vec<StackEntry>> {
         .map(|stack| StackEntry {
             id: stack.id,
             branch_names: stack.heads().into_iter().map(Into::into).collect(),
+            tip: stack.head().to_gix(),
         })
         .collect())
+}
+
+/// Returns the last-seen fork-point that the workspace has with the target branch with which it wants to integrate.
+// TODO: at some point this should be optional, integration branch doesn't have to be defined.
+pub fn common_merge_base_with_target_branch(gb_dir: &Path) -> Result<gix::ObjectId> {
+    Ok(VirtualBranchesHandle::new(gb_dir)
+        .get_default_target()?
+        .sha
+        .to_gix())
 }
 
 /// Represents the state a commit could be in.
