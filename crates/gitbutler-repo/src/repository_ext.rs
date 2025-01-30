@@ -116,6 +116,8 @@ impl RepositoryExt for git2::Repository {
         Ok(branch)
     }
 
+    /// Creates a tree containing the uncommited changes in the project.
+    /// This includes files in the index that are considered conflicted.
     #[instrument(level = tracing::Level::DEBUG, skip(self, untracked_limit_in_bytes), err(Debug))]
     fn create_wd_tree(&self, untracked_limit_in_bytes: u64) -> Result<Tree> {
         use bstr::ByteSlice;
@@ -258,12 +260,13 @@ impl RepositoryExt for git2::Repository {
                     head_tree_editor.remove(rela_path.as_bstr())?;
                     worktreepaths_changed.insert(rela_path);
                 }
-                // modified or untracked files are unconditionally added as blob.
+                // modified, conflicted, or untracked files are unconditionally added as blob.
                 // Note that this implementation will re-read the whole blob even on type-change
                 status::Item::IndexWorktree(index_worktree::Item::Modification {
                     rela_path,
                     status:
                         EntryStatus::Change(Change::Type { .. } | Change::Modification { .. })
+                        | EntryStatus::Conflict(_)
                         | EntryStatus::IntentToAdd,
                     ..
                 }) => {
@@ -302,7 +305,7 @@ impl RepositoryExt for git2::Repository {
                 }
                 status::Item::IndexWorktree(
                     index_worktree::Item::Modification {
-                        status: EntryStatus::Conflict(_) | EntryStatus::NeedsUpdate(_),
+                        status: EntryStatus::NeedsUpdate(_),
                         ..
                     }
                     | index_worktree::Item::DirectoryContents {
