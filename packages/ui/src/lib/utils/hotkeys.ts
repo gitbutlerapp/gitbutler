@@ -1,12 +1,12 @@
-import { platform } from '@tauri-apps/plugin-os';
-
-export const platformName = platform();
+import { determinePlatform } from '$lib/utils/url';
 
 export function keysStringToArr(keys: string): string[] {
+	const platform = determinePlatform(navigator.userAgent);
+
 	return keys.split('+').map((key) => {
 		if (key === 'Shift') return '⇧';
 		if (key === '$mod') {
-			if (platformName === 'macos') {
+			if (platform === 'macos') {
 				return '⌘';
 			} else {
 				return 'Ctrl';
