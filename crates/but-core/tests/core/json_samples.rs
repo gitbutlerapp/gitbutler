@@ -22,7 +22,7 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
               "oldLines": 0,
               "newStart": 1,
               "newLines": 1,
-              "diff": "@@ -1,0 +1,1 @@\n+content\n\n"
+              "diff": "@@ -1,0 +1,1 @@+content\n"
             }
           ]
         }
@@ -42,7 +42,7 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
               "oldLines": 0,
               "newStart": 1,
               "newLines": 1,
-              "diff": "@@ -1,0 +1,1 @@\n+link-target\n"
+              "diff": "@@ -1,0 +1,1 @@+link-target"
             }
           ]
         }
@@ -56,7 +56,7 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
               "oldLines": 0,
               "newStart": 1,
               "newLines": 1,
-              "diff": "@@ -1,0 +1,1 @@\n+content not to add to the index\n\n"
+              "diff": "@@ -1,0 +1,1 @@+content not to add to the index\n"
             }
           ]
         }
@@ -70,7 +70,7 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
               "oldLines": 0,
               "newStart": 1,
               "newLines": 1,
-              "diff": "@@ -1,0 +1,1 @@\n+change-in-index\n\n"
+              "diff": "@@ -1,0 +1,1 @@+change-in-index\n"
             }
           ]
         }
@@ -84,7 +84,7 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
               "oldLines": 0,
               "newStart": 1,
               "newLines": 1,
-              "diff": "@@ -1,0 +1,1 @@\n+change-in-worktree\n\n"
+              "diff": "@@ -1,0 +1,1 @@+change-in-worktree\n"
             }
           ]
         }
@@ -104,7 +104,7 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
               "oldLines": 0,
               "newStart": 1,
               "newLines": 1,
-              "diff": "@@ -1,0 +1,1 @@\n+worktree-change\n\n"
+              "diff": "@@ -1,0 +1,1 @@+worktree-change\n"
             }
           ]
         }
