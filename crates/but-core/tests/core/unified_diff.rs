@@ -23,7 +23,7 @@ fn file_added_in_worktree() -> anyhow::Result<()> {
             old_lines: 0,
             new_start: 1,
             new_lines: 1,
-            diff: "@@ -1,0 +1,1 @@+change\n",
+            diff: "@@ -1,0 +1,1 @@\n+change\n",
         },
     ]
     "#);
@@ -52,7 +52,7 @@ fn binary_text_in_unborn() -> anyhow::Result<()> {
             old_lines: 0,
             new_start: 1,
             new_lines: 1,
-            diff: "@@ -1,0 +1,1 @@+hi\n",
+            diff: "@@ -1,0 +1,1 @@\n+hi\n",
         },
     ]
     "#);
@@ -85,7 +85,7 @@ fn binary_text_renamed_unborn() -> anyhow::Result<()> {
             old_lines: 1,
             new_start: 1,
             new_lines: 1,
-            diff: "@@ -1,1 +1,1 @@-hi\n+ho\n",
+            diff: "@@ -1,1 +1,1 @@\n-hi\n+ho\n",
         },
     ]
     "#);
@@ -117,7 +117,7 @@ fn file_deleted_in_worktree() -> anyhow::Result<()> {
             old_lines: 1,
             new_start: 1,
             new_lines: 0,
-            diff: "@@ -1,1 +1,0 @@-something\n",
+            diff: "@@ -1,1 +1,0 @@\n-something\n",
         },
     ]
     "#);
@@ -205,7 +205,7 @@ fn symlink_modified_in_worktree() -> anyhow::Result<()> {
             old_lines: 1,
             new_start: 1,
             new_lines: 1,
-            diff: "@@ -1,1 +1,1 @@-target-to-be-changed+changed-target",
+            diff: "@@ -1,1 +1,1 @@\n-target-to-be-changed\n+changed-target\n",
         },
     ]
     "#);

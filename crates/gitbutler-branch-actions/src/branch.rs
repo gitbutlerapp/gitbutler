@@ -623,7 +623,7 @@ pub fn get_branch_listing_details(
                                 let mut authors = HashSet::new();
                                 for attempt in 1..=2 {
                                     let mut revwalk =
-                                        repo.rev_walk(Some(branch_head)).with_pruned(Some(base));
+                                        repo.rev_walk(Some(branch_head)).with_boundary(Some(base));
                                     if attempt == 2 {
                                         revwalk = revwalk
                                             .sorting(gix::revision::walk::Sorting::BreadthFirst);

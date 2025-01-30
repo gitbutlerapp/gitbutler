@@ -37,7 +37,7 @@ pub fn push_stack_to_review(ctx: &CommandContext, user: &User, stack_id: StackId
     let commits = repository
         .rev_walk([stack.head().to_gix()])
         .first_parent_only()
-        .with_pruned([target_commit_id])
+        .with_boundary([target_commit_id])
         .sorting(gix::revision::walk::Sorting::BreadthFirst)
         .all()?
         .filter_map(|e| Some(e.ok()?.id().detach()))
