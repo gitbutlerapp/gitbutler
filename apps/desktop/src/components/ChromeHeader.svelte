@@ -124,10 +124,15 @@
 
 	.center {
 		position: absolute;
-		left: 0;
 		width: 100%;
+		left: 0;
 		display: flex;
 		justify-content: center;
+		pointer-events: none;
+
+		& * {
+			pointer-events: auto;
+		}
 	}
 
 	.selector-series-select {
