@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { keysStringToArr } from '@gitbutler/ui/utils/hotkeys';
+	import { keysStringToArr } from '$lib/utils/hotkeys';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
