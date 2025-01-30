@@ -19,10 +19,10 @@
 <style>
 	.chrome {
 		display: flex;
-		flex-grow: 1;
-		flex-direction: column;
-		max-height: 100vh;
+		flex: 1;
 		background-color: var(--clr-bg-2);
+		flex-direction: column;
+		max-width: 100%;
 	}
 
 	.wrapper {
@@ -35,8 +35,9 @@
 	.content {
 		display: flex;
 		flex-grow: 1;
-		padding: 16px 0 0 16px;
+		padding: 0 16px 16px 0;
 		align-items: self-start;
 		user-select: none;
+		overflow: hidden;
 	}
 </style>

@@ -31,12 +31,9 @@
 	let cloneProjectLoading = $state(false);
 </script>
 
-<nav>
+<div class="header">
 	<div class="left">
-		{#if platformName === 'macos'}
-			<div class="traffic-lights-placeholder" data-tauri-drag-region></div>
-		{/if}
-		<div class="left-buttons">
+		<div class="left-buttons" class:macos={platformName === 'macos'}>
 			<SyncButton size="button" />
 			<Button style="pop">3 upstream commits</Button>
 		</div>
@@ -103,13 +100,13 @@
 	<div class="right">
 		<Button kind="ghost" icon="bell" />
 	</div>
-</nav>
+</div>
 
 <style>
-	nav {
+	.header {
 		display: flex;
 		justify-content: space-between;
-		margin: 14px 14px 0 14px;
+		padding: 14px 14px 14px 84px;
 	}
 
 	.left {
