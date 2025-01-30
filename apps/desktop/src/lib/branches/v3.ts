@@ -1,16 +1,3 @@
-import { invoke } from '$lib/backend/ipc';
-
-/**
- * Returns the branches that belong to a particular `Stack`
- * The entries are ordered from newest to oldest.
- */
-export async function stackBranches(
-	projectId: string,
-	stackId: string
-): Promise<WorkspaceBranch[]> {
-	return await invoke<WorkspaceBranch[]>('stack_branches', { projectId, stackId });
-}
-
 /**
  * Represents a branch in a `Stack`.
  * It contains commits derived from the local pseudo branch and it's respective remote.

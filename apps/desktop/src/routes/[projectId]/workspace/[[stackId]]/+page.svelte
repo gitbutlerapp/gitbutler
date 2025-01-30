@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Resizer from '$components/Resizer.svelte';
 	import SelectionView from '$components/SelectionView.svelte';
+	import StackDetails from '$components/StackDetails.svelte';
 	import StackTabs from '$components/StackTabs.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
@@ -71,8 +72,8 @@
 	<div class="right">
 		<StackTabs {projectId} selectedId={stackId} previewing={$previewing} />
 		<div class="branch">
-			{#if stackId && !$previewing}
-				stack details: {stackId}
+			{#if stackId}
+				<StackDetails {projectId} {stackId} />
 			{:else}
 				<SelectionView {projectId} />
 			{/if}
@@ -108,11 +109,5 @@
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
-	}
-
-	.branch {
-		border: 1px solid var(--clr-border-2);
-		flex: 1;
-		border-radius: 0 var(--radius-ml) var(--radius-ml);
 	}
 </style>
