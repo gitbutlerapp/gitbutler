@@ -103,6 +103,14 @@
 		max-width: 1440px;
 		padding: 0 80px;
 		margin: 0 auto;
+
+		@media (max-width: 1020px) {
+			padding: 0 40px;
+		}
+
+		@media (max-width: 768px) {
+			padding: 0 20px;
+		}
 	}
 
 	main {
