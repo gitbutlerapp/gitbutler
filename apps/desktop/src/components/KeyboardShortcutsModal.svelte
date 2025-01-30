@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { platformName } from '$lib/platform/platform';
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { shortcuts } from '$lib/utils/hotkeys';
 	import { getContext } from '@gitbutler/shared/context';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { keysStringToArr } from '@gitbutler/ui/utils/hotkeys';
 
 	let modal: ReturnType<typeof Modal> | undefined = $state();
 
@@ -14,20 +14,6 @@
 
 	export function show() {
 		modal?.show();
-	}
-
-	function keysStringToArr(keys: string): string[] {
-		return keys.split('+').map((key) => {
-			if (key === 'Shift') return '⇧';
-			if (key === '$mod') {
-				if (platformName === 'macos') {
-					return '⌘';
-				} else {
-					return 'Ctrl';
-				}
-			}
-			return key;
-		});
 	}
 </script>
 

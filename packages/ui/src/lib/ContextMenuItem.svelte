@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { keysStringToArr } from '@gitbutler/ui/utils/hotkeys';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
@@ -8,10 +9,11 @@
 		label: string;
 		disabled?: boolean;
 		control?: Snippet;
+		keyboardShortcut?: string;
 		onclick: (e: MouseEvent) => void;
 	}
 
-	const { onclick, icon, label, disabled, control }: Props = $props();
+	const { onclick, icon, label, disabled, control, keyboardShortcut }: Props = $props();
 </script>
 
 <button type="button" class="menu-item no-select" class:disabled {disabled} {onclick}>
@@ -22,6 +24,13 @@
 	<span class="menu-item__label text-12">
 		{label}
 	</span>
+	{#if keyboardShortcut}
+		<span class="menu-item__shortcut text-12">
+			{#each keysStringToArr(keyboardShortcut) as key}
+				<span>{key}</span>
+			{/each}
+		</span>
+	{/if}
 	{#if control}
 		{@render control()}
 	{/if}
@@ -58,5 +67,11 @@
 	.menu-item__label {
 		flex-grow: 1;
 		white-space: nowrap;
+	}
+
+	.menu-item__shortcut {
+		display: flex;
+		gap: 4px;
+		color: var(--clr-text-3);
 	}
 </style>
