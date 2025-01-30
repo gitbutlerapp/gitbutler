@@ -169,7 +169,7 @@ importers:
         version: 6.6.3
       '@testing-library/svelte':
         specifier: 5.2.5
-        version: 5.2.5(svelte@5.19.2)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)
+        version: 5.2.5(svelte@5.19.2)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.3)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0))
       '@types/diff-match-patch':
         specifier: ^1.0.36
         version: 1.0.36
@@ -493,9 +493,63 @@ importers:
 
   packages/ui:
     devDependencies:
+      '@codemirror/lang-cpp':
+        specifier: ^6.0.2
+        version: 6.0.2
+      '@codemirror/lang-css':
+        specifier: ^6.2.1
+        version: 6.2.1(@codemirror/view@6.26.3)
+      '@codemirror/lang-html':
+        specifier: ^6.4.9
+        version: 6.4.9
+      '@codemirror/lang-java':
+        specifier: ^6.0.1
+        version: 6.0.1
+      '@codemirror/lang-javascript':
+        specifier: ^6.2.2
+        version: 6.2.2
+      '@codemirror/lang-json':
+        specifier: ^6.0.1
+        version: 6.0.1
+      '@codemirror/lang-markdown':
+        specifier: ^6.2.5
+        version: 6.2.5
+      '@codemirror/lang-php':
+        specifier: ^6.0.1
+        version: 6.0.1
+      '@codemirror/lang-python':
+        specifier: ^6.1.6
+        version: 6.1.6(@codemirror/view@6.26.3)
+      '@codemirror/lang-rust':
+        specifier: ^6.0.1
+        version: 6.0.1
+      '@codemirror/lang-vue':
+        specifier: ^0.1.3
+        version: 0.1.3
+      '@codemirror/lang-wast':
+        specifier: ^6.0.2
+        version: 6.0.2
+      '@codemirror/lang-xml':
+        specifier: ^6.1.0
+        version: 6.1.0
+      '@codemirror/language':
+        specifier: ^6.10.2
+        version: 6.10.2
+      '@codemirror/legacy-modes':
+        specifier: ^6.4.0
+        version: 6.4.0
       '@csstools/postcss-bundler':
         specifier: ^2.0.5
         version: 2.0.5(postcss@8.4.49)
+      '@lezer/common':
+        specifier: ^1.2.1
+        version: 1.2.1
+      '@lezer/highlight':
+        specifier: ^1.2.0
+        version: 1.2.0
+      '@replit/codemirror-lang-svelte':
+        specifier: ^6.0.0
+        version: 6.0.0(@codemirror/autocomplete@6.16.2(@codemirror/language@6.10.2)(@codemirror/state@6.4.1)(@codemirror/view@6.26.3)(@lezer/common@1.2.1))(@codemirror/lang-css@6.2.1(@codemirror/view@6.26.3))(@codemirror/lang-html@6.4.9)(@codemirror/lang-javascript@6.2.2)(@codemirror/language@6.10.2)(@codemirror/state@6.4.1)(@codemirror/view@6.26.3)(@lezer/common@1.2.1)(@lezer/highlight@1.2.0)(@lezer/javascript@1.4.16)(@lezer/lr@1.4.1)
       '@storybook/addon-docs':
         specifier: ^8.4.5
         version: 8.4.5(@types/react@18.3.3)(storybook@8.4.5(prettier@3.3.2))
@@ -516,7 +570,7 @@ importers:
         version: 8.4.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))
       '@storybook/experimental-addon-test':
         specifier: ^8.4.5
-        version: 8.4.5(@vitest/browser@3.0.3)(@vitest/runner@2.1.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))(vitest@3.0.3)
+        version: 8.4.5(@vitest/browser@3.0.3(@types/node@22.3.0)(playwright@1.47.0)(typescript@5.4.5)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)(webdriverio@8.40.2))(@vitest/runner@2.1.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))(vitest@3.0.3(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.3)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0))
       '@storybook/svelte':
         specifier: ^8.4.5
         version: 8.4.5(storybook@8.4.5(prettier@3.3.2))(svelte@5.19.2)
@@ -547,6 +601,9 @@ importers:
       '@terrazzo/plugin-css':
         specifier: 0.6.0
         version: 0.6.0(@terrazzo/cli@0.6.0)
+      '@types/diff-match-patch':
+        specifier: ^1.0.36
+        version: 1.0.36
       '@types/marked':
         specifier: ^5.0.2
         version: 5.0.2
@@ -565,6 +622,9 @@ importers:
       dayjs:
         specifier: ^1.11.13
         version: 1.11.13
+      diff-match-patch:
+        specifier: ^1.0.5
+        version: 1.0.5
       marked:
         specifier: ^10.0.0
         version: 10.0.0
@@ -8378,7 +8438,7 @@ snapshots:
     dependencies:
       storybook: 8.4.5(prettier@3.3.2)
 
-  '@storybook/experimental-addon-test@8.4.5(@vitest/browser@3.0.3)(@vitest/runner@2.1.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))(vitest@3.0.3)':
+  '@storybook/experimental-addon-test@8.4.5(@vitest/browser@3.0.3(@types/node@22.3.0)(playwright@1.47.0)(typescript@5.4.5)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)(webdriverio@8.40.2))(@vitest/runner@2.1.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))(vitest@3.0.3(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.3)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0))':
     dependencies:
       '@storybook/csf': 0.1.11
       '@storybook/global': 5.0.0
@@ -8752,7 +8812,7 @@ snapshots:
       lodash: 4.17.21
       redent: 3.0.0
 
-  '@testing-library/svelte@5.2.5(svelte@5.19.2)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)':
+  '@testing-library/svelte@5.2.5(svelte@5.19.2)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.3)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0))':
     dependencies:
       '@testing-library/dom': 10.4.0
       svelte: 5.19.2
@@ -9257,7 +9317,7 @@ snapshots:
       sirv: 3.0.0
       tinyglobby: 0.2.10
       tinyrainbow: 2.0.0
-      vitest: 3.0.3(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.3)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0)
+      vitest: 3.0.3(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.3)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)
 
   '@vitest/utils@2.0.5':
     dependencies:
@@ -10412,7 +10472,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0)(eslint@9.18.0):
+  eslint-module-utils@2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0(eslint-plugin-import-x@4.6.1(eslint@9.18.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.18.0))(eslint@9.18.0):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
@@ -10454,7 +10514,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.18.0
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0)(eslint@9.18.0)
+      eslint-module-utils: 2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0(eslint-plugin-import-x@4.6.1(eslint@9.18.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.18.0))(eslint@9.18.0)
       hasown: 2.0.2
       is-core-module: 2.15.1
       is-glob: 4.0.3

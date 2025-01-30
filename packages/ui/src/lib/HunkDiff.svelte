@@ -1,11 +1,16 @@
 <script lang="ts">
-	import { CountColumnSide, SectionType, type ContentSection, type Line } from '$lib/diffParsing';
-	import { create } from '@gitbutler/shared/codeHighlight';
-	import diff_match_patch from 'diff-match-patch';
-
+	import {
+		CountColumnSide,
+		generateRows,
+		getHunkLineInfo,
+		parseHunk,
+		parserFromFilename,
+		type Row,
+		SectionType
+	} from '$lib/utils/diffParsing';
 	interface Props {
 		filePath: string;
-		subsections: ContentSection[];
+		hunkStr: string;
 		tabSize?: number;
 		wrapText?: boolean;
 		diffFont?: string;
@@ -16,7 +21,7 @@
 
 	const {
 		filePath,
-		subsections,
+		hunkStr,
 		tabSize = 4,
 		wrapText = true,
 		diffFont,
@@ -25,269 +30,16 @@
 		inlineUnifiedDiffs = false
 	}: Props = $props();
 
-	const WHITESPACE_REGEX = /\s/;
 	const BORDER_WIDTH = 1;
 
 	let tableWidth = $state<number>(0);
 	let tableHeight = $state<number>(0);
 	let numberHeaderWidth = $state<number>(0);
 
-	function charDiff(text1: string, text2: string): { 0: number; 1: string }[] {
-		const differ = new diff_match_patch();
-		const diff = differ.diff_main(text1, text2);
-		differ.diff_cleanupSemantic(diff);
-		return diff;
-	}
-
-	function isLineEmpty(lines: Line[]) {
-		const whitespaceRegex = new RegExp(WHITESPACE_REGEX);
-		if (!lines[0]?.content.match(whitespaceRegex)) {
-			return true;
-		}
-
-		return false;
-	}
-
-	function createRowData(section: ContentSection): Row[] {
-		return section.lines.map((line) => {
-			// if (line.content === '') {
-			// 	// Add extra \n for empty lines for correct copy/pasting output
-			// 	line.content = '\n';
-			// }
-
-			return {
-				beforeLineNumber: line.beforeLineNumber,
-				afterLineNumber: line.afterLineNumber,
-				tokens: toTokens(line.content),
-				type: section.sectionType,
-				size: line.content.length,
-				isLast: false
-			};
-		});
-	}
-
-	function sanitize(text: string) {
-		const element = document.createElement('div');
-		element.innerText = text;
-		return element.innerHTML;
-	}
-
-	function toTokens(inputLine: string): string[] {
-		let highlighter = create(inputLine, filePath);
-		let tokens: string[] = [];
-		highlighter.highlight((text, classNames) => {
-			const token = classNames
-				? `<span data-no-drag class=${classNames}>${sanitize(text)}</span>`
-				: sanitize(text);
-
-			tokens.push(token);
-		});
-
-		return tokens;
-	}
-
-	function computeWordDiff(prevSection: ContentSection, nextSection: ContentSection): DiffRows {
-		const numberOfLines = nextSection.lines.length;
-		const returnRows: DiffRows = {
-			prevRows: [],
-			nextRows: []
-		};
-
-		// Loop through every line in the section
-		// We're only bothered with prev/next sections with equal # of lines changes
-		for (let i = 0; i < numberOfLines; i++) {
-			const oldLine = prevSection.lines[i] as Line;
-			const newLine = nextSection.lines[i] as Line;
-			const prevSectionRow = {
-				beforeLineNumber: oldLine.beforeLineNumber,
-				afterLineNumber: oldLine.afterLineNumber,
-				tokens: [] as string[],
-				type: prevSection.sectionType,
-				size: oldLine.content.length,
-				isLast: false
-			};
-			const nextSectionRow = {
-				beforeLineNumber: newLine.beforeLineNumber,
-				afterLineNumber: newLine.afterLineNumber,
-				tokens: [] as string[],
-				type: nextSection.sectionType,
-				size: newLine.content.length,
-				isLast: false
-			};
-
-			const diff = charDiff(oldLine.content, newLine.content);
-
-			for (const token of diff) {
-				const text = token[1];
-				const type = token[0];
-
-				if (type === Operation.Equal) {
-					prevSectionRow.tokens.push(...toTokens(text));
-					nextSectionRow.tokens.push(...toTokens(text));
-				} else if (type === Operation.Insert) {
-					nextSectionRow.tokens.push(
-						`<span data-no-drag class="token-inserted">${sanitize(text)}</span>`
-					);
-				} else if (type === Operation.Delete) {
-					prevSectionRow.tokens.push(
-						`<span data-no-drag class="token-deleted">${sanitize(text)}</span>`
-					);
-				}
-			}
-			returnRows.nextRows.push(nextSectionRow);
-			returnRows.prevRows.push(prevSectionRow);
-		}
-
-		return returnRows;
-	}
-
-	function computeInlineWordDiff(prevSection: ContentSection, nextSection: ContentSection): Row[] {
-		const numberOfLines = nextSection.lines.length;
-
-		const rows = [];
-
-		// Loop through every line in the section
-		// We're only bothered with prev/next sections with equal # of lines changes
-		for (let i = 0; i < numberOfLines; i++) {
-			const oldLine = prevSection.lines[i] as Line;
-			const newLine = nextSection.lines[i] as Line;
-
-			const sectionRow = {
-				beforeLineNumber: newLine.beforeLineNumber,
-				afterLineNumber: newLine.afterLineNumber,
-				tokens: [] as string[],
-				type: nextSection.sectionType,
-				size: newLine.content.length,
-				isLast: false
-			};
-
-			const diff = charDiff(oldLine.content, newLine.content);
-
-			for (const token of diff) {
-				const text = token[1];
-				const type = token[0];
-
-				if (type === Operation.Equal) {
-					sectionRow.tokens.push(...toTokens(text));
-				} else if (type === Operation.Insert) {
-					sectionRow.tokens.push(
-						`<span data-no-drag class="token-inserted">${sanitize(text)}</span>`
-					);
-				} else if (type === Operation.Delete) {
-					sectionRow.tokens.push(
-						`<span data-no-drag class="token-deleted token-strikethrough">${sanitize(text)}</span>`
-					);
-				}
-			}
-			rows.push(sectionRow);
-		}
-
-		return rows;
-	}
-
-	function generateRows(subsections: ContentSection[]) {
-		const rows = subsections.reduce((acc, nextSection, i) => {
-			const prevSection = subsections[i - 1];
-
-			// Filter out section for which we don't need to compute word diffs
-			if (!prevSection || nextSection.sectionType === SectionType.Context) {
-				acc.push(...createRowData(nextSection));
-				return acc;
-			}
-
-			if (prevSection.sectionType === SectionType.Context) {
-				acc.push(...createRowData(nextSection));
-				return acc;
-			}
-
-			if (prevSection.lines.length !== nextSection.lines.length) {
-				acc.push(...createRowData(nextSection));
-				return acc;
-			}
-
-			if (isLineEmpty(prevSection.lines)) {
-				acc.push(...createRowData(nextSection));
-				return acc;
-			}
-
-			if (inlineUnifiedDiffs) {
-				const rows = computeInlineWordDiff(prevSection, nextSection);
-
-				acc.splice(-prevSection.lines.length);
-
-				acc.push(...rows);
-				return acc;
-			} else {
-				const { prevRows, nextRows } = computeWordDiff(prevSection, nextSection);
-
-				// Insert returned row datastructures into the correct place
-				// Find and replace previous rows with tokenized version
-				prevRows.forEach((row, previousRowIndex) => {
-					acc[acc.length - (prevRows.length - previousRowIndex)] = row;
-				});
-
-				acc.push(...nextRows);
-
-				return acc;
-			}
-		}, [] as Row[]);
-
-		const last = rows.at(-1);
-		if (last) {
-			last.isLast = true;
-		}
-
-		return rows;
-	}
-
-	const renderRows = $derived(generateRows(subsections));
-
-	interface DiffHunkLineInfo {
-		beforLineStart: number;
-		beforeLineCount: number;
-		afterLineStart: number;
-		afterLineCount: number;
-	}
-
-	function getHunkLineInfo(subsections: ContentSection[]): DiffHunkLineInfo {
-		const firstSection = subsections[0];
-		const lastSection = subsections.at(-1);
-
-		const beforLineStart = firstSection?.lines[0]?.beforeLineNumber ?? 0;
-		const beforeLineEnd = lastSection?.lines?.at(-1)?.beforeLineNumber ?? 0;
-		const beforeLineCount = beforeLineEnd - beforLineStart + 1;
-
-		const afterLineStart = firstSection?.lines[0]?.afterLineNumber ?? 0;
-		const afterLineEnd = lastSection?.lines?.at(-1)?.afterLineNumber ?? 0;
-		const afterLineCount = afterLineEnd - afterLineStart + 1;
-
-		return {
-			beforLineStart,
-			beforeLineCount,
-			afterLineStart,
-			afterLineCount
-		};
-	}
-
-	const hunkLineInfo = $derived(getHunkLineInfo(subsections));
-
-	interface Row {
-		beforeLineNumber?: number;
-		afterLineNumber?: number;
-		tokens: string[];
-		type: SectionType;
-		size: number;
-		isLast: boolean;
-	}
-
-	enum Operation {
-		Equal = 0,
-		Insert = 1,
-		Delete = -1,
-		Edit = 2
-	}
-
-	type DiffRows = { prevRows: Row[]; nextRows: Row[] };
+	const hunk = $derived(parseHunk(hunkStr));
+	const hunkLineInfo = $derived(getHunkLineInfo(hunk.contentSections));
+	const parser = $derived(parserFromFilename(filePath));
+	const renderRows = $derived(generateRows(hunk.contentSections, inlineUnifiedDiffs, parser));
 </script>
 
 {#snippet countColumn(row: Row, side: CountColumnSide)}
