@@ -31,7 +31,7 @@
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 </script>
 
-<nav class="sidebar">
+<div class="sidebar">
 	<div class="top">
 		<div>
 			{#if routes.isWorkspacePath}
@@ -248,7 +248,7 @@
 			/>
 		</div>
 	</div>
-</nav>
+</div>
 
 <ContextMenu
 	bind:this={contextMenuEl}
@@ -316,8 +316,7 @@
 		align-items: flex-start;
 		justify-content: space-between;
 		height: 100%;
-		width: 50px;
-		padding: 16px;
+		padding: 0 16px 16px 16px;
 	}
 
 	.top,
