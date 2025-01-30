@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { stackPath } from '$lib/routes/routes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { Tab } from '$lib/tabs/tab';
 	import { goto } from '$app/navigation';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 
 	type Props = {
 		projectId: string;
@@ -19,6 +19,7 @@
 	let kebabMenuTrigger = $state<HTMLElement>();
 	let contextMenuEl = $state<ContextMenu>();
 	let isContextMenuOpen = $state(false);
+	let isHovered = $state(false);
 
 	const { projectId, tab, first, last, selected }: Props = $props();
 </script>
@@ -44,7 +45,12 @@
 	<div class="name">
 		{tab.name}
 	</div>
-	<div class="tab__overflow-menu">
+	<div
+		class={['tab__overflow-menu', isContextMenuOpen || isHovered ? 'active' : '']}
+		role="region"
+		onmouseenter={() => (isHovered = true)}
+		onmouseleave={() => (isHovered = false)}
+	>
 		<Button
 			kind="ghost"
 			icon="kebab"
@@ -102,14 +108,18 @@
 		.tab__overflow-menu {
 			opacity: 0;
 			width: 0px;
+			pointer-events: none;
 			transition:
 				opacity 100ms ease-in,
 				width 100ms ease-in-out;
 		}
 
+		.tab__overflow-menu.active,
 		&:active .tab__overflow-menu,
 		&:hover .tab__overflow-menu,
+		&:focus-within .tab__overflow-menu,
 		&:focus .tab__overflow-menu {
+			pointer-events: auto;
 			margin-right: 8px;
 			display: flex;
 			opacity: 1;
