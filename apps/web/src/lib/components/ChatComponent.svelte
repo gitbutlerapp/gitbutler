@@ -98,6 +98,7 @@
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
+		justify-content: space-between;
 		height: 100%;
 
 		border-radius: var(--ml, 10px);
@@ -108,7 +109,6 @@
 	.chat-messages {
 		display: flex;
 		flex-direction: column-reverse;
-		flex-grow: 1;
 		overflow-y: scroll;
 		scrollbar-width: none;
 		&::-webkit-scrollbar {
