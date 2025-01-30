@@ -13,7 +13,7 @@
 		reversedDirection?: boolean;
 		width?: number | string | undefined;
 		maxWidth?: number | undefined;
-		size?: 'tag' | 'button' | 'cta';
+		size?: 'icon' | 'tag' | 'button' | 'cta';
 		wide?: boolean;
 		grow?: boolean;
 		align?: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto';
@@ -131,6 +131,7 @@
 				class="label text-semibold"
 				class:text-12={size === 'button' || size === 'cta'}
 				class:text-11={size === 'tag'}
+				class:text-10={size === 'icon'}
 			>
 				{@render children()}
 			</span>
@@ -419,6 +420,11 @@
 		}
 
 		/* SIZE MODIFIERS */
+		.btn.icon-size {
+			gap: 0;
+			height: var(--size-icon);
+			padding: 2px;
+		}
 
 		.btn.tag-size {
 			gap: 2px;
@@ -439,8 +445,11 @@
 		}
 
 		/* FIXED WIDTH */
-
 		.btn.fixed-width {
+			&.icon-size {
+				width: var(--size-icon);
+			}
+
 			&.tag-size {
 				width: var(--size-tag);
 			}
