@@ -67,7 +67,7 @@
 				{#snippet children(channel)}
 					{#if channel.messages.length > 0}
 						{#each channel.messages as message}
-							<Message {message} />
+							<Message {projectId} {changeId} {message} />
 						{/each}
 					{:else}
 						<div class="blank-state">

@@ -3,8 +3,10 @@ import {
 	apiToChatMessage,
 	createChannelKey,
 	toApiCreateChatMessageParams,
+	toApiPatchChatMessageParams,
 	type ApiChatMessage,
 	type LoadableChatChannel,
+	type PatchChatMessageParams,
 	type SendChatMessageParams
 } from '$lib/chat/types';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
@@ -73,6 +75,22 @@ export class ChatChannelsService {
 			});
 		} catch (error) {
 			console.error('Failed to send chat message', error);
+		}
+	}
+
+	async patchChatMessage(params: PatchChatMessageParams): Promise<void> {
+		try {
+			await this.httpClient.patch(`chat_messages/${params.projectId}/chat/${params.messageUuid}`, {
+				body: toApiPatchChatMessageParams(params)
+			});
+
+			// Re-fetch the chat messages to get the new message
+			this.chatMessagesInterests.invalidate({
+				projectId: params.projectId,
+				changeId: params.changeId
+			});
+		} catch (error) {
+			console.error('Failed to update chat message', error);
 		}
 	}
 }

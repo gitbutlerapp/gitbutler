@@ -153,3 +153,30 @@ export function toApiCreateChatMessageParams(
 		range: params.range
 	};
 }
+
+export type ApiPatchChatMessageParams = {
+	chat_uuid: string;
+	/**
+	 * Chat message issue is resolved
+	 */
+	resolved: boolean;
+};
+
+export type PatchChatMessageParams = {
+	projectId: string;
+	changeId?: string;
+	messageUuid: string;
+	/**
+	 * Chat message issue is resolved
+	 */
+	resolved: boolean;
+};
+
+export function toApiPatchChatMessageParams(
+	params: PatchChatMessageParams
+): ApiPatchChatMessageParams {
+	return {
+		chat_uuid: params.messageUuid,
+		resolved: params.resolved
+	};
+}
