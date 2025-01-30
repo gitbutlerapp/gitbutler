@@ -1,23 +1,48 @@
 <script lang="ts">
+	import { PatchService } from '@gitbutler/shared/branches/patchService';
+	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 
 	interface Props {
-		sendMessage: (message: string | undefined) => Promise<void>;
+		projectId: string;
+		branchId: string;
+		branchUuid: string;
+		changeId: string;
 	}
 
-	let { sendMessage }: Props = $props();
+	let { branchUuid, projectId, branchId, changeId }: Props = $props();
+
+	const patchService = getContext(PatchService);
+	const chatChannelService = getContext(ChatChannelsService);
 
 	let message = $state<string>();
 	let isSendingMessage = $state(false);
+	let isExecuting = $state(false);
 
-	const disableIssueButton = true; // TODO: $derived(!message || isSendingMessage);
+	async function sendMessage(message: string | undefined, issue?: boolean) {
+		if (message === undefined || message.trim() === '') {
+			return;
+		}
 
-	async function handleSendMessage() {
+		await chatChannelService.sendChatMessage({
+			projectId,
+			branchId,
+			changeId,
+			chat: message,
+			issue
+		});
+	}
+
+	async function handleSendMessage(issue?: boolean) {
 		if (isSendingMessage) return;
 		isSendingMessage = true;
 		try {
-			await sendMessage(message);
+			await sendMessage(message, issue);
 		} finally {
 			message = undefined;
 			isSendingMessage = false;
@@ -36,9 +61,51 @@
 		}
 	}
 
-	async function handleClick() {
+	async function handleClickSend() {
 		await handleSendMessage();
 	}
+
+	const actionLabels = {
+		approve: 'Approve commit',
+		requestChanges: 'Request changes'
+	} as const;
+
+	type Action = keyof typeof actionLabels;
+
+	let action = $state<Action>('approve');
+	let dropDownButton = $state<ReturnType<typeof DropDownButton>>();
+
+	async function approve() {
+		await patchService.updatePatch(branchUuid, changeId, { signOff: true });
+	}
+
+	async function requestChanges() {
+		await patchService.updatePatch(branchUuid, changeId, { signOff: false });
+	}
+
+	async function handleActionClick() {
+		if (isExecuting) return;
+		isExecuting = true;
+		try {
+			switch (action) {
+				case 'approve':
+					await approve();
+					await handleSendMessage();
+					break;
+				case 'requestChanges':
+					await requestChanges();
+					await handleSendMessage(true);
+					break;
+			}
+		} finally {
+			isExecuting = false;
+		}
+	}
+
+	const actionButtonLabel = $derived.by(() => {
+		const suffix = message ? ' & Comment' : '';
+		return actionLabels[action] + suffix;
+	});
 </script>
 
 <div class="chat-input">
@@ -50,8 +117,39 @@
 				<p>😈</p>
 			</div>
 			<div class="chat-input__action-buttons">
-				<Button disabled={disableIssueButton}>Mark as an issue</Button>
-				<Button loading={isSendingMessage} disabled={!message} onclick={handleClick}>Send</Button>
+				<DropDownButton
+					bind:this={dropDownButton}
+					loading={isSendingMessage || isExecuting}
+					style="neutral"
+					kind="outline"
+					onclick={handleActionClick}
+				>
+					{actionButtonLabel}
+					{#snippet contextMenuSlot()}
+						<ContextMenuSection>
+							<ContextMenuItem
+								label={actionLabels.approve}
+								onclick={() => {
+									action = 'approve';
+									dropDownButton?.close();
+								}}
+							/>
+							<ContextMenuItem
+								label={actionLabels.requestChanges}
+								onclick={() => {
+									action = 'requestChanges';
+									dropDownButton?.close();
+								}}
+							/>
+						</ContextMenuSection>
+					{/snippet}
+				</DropDownButton>
+				<Button
+					style="pop"
+					loading={isSendingMessage || isExecuting}
+					disabled={!message}
+					onclick={handleClickSend}>Comment</Button
+				>
 			</div>
 		</div>
 	</div>
