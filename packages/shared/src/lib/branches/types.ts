@@ -1,7 +1,14 @@
+import { apiToChatMessage, type ApiChatMessage, type ChatMessage } from '$lib/chat/types';
 import { apiToPermissions, type ApiPermissions, type Permissions } from '$lib/permissions';
-import { apiToUserSimple, type ApiUserSimple, type UserSimple } from '$lib/users/types';
+import {
+	apiToUserSimple,
+	isApiUserSimple,
+	type ApiUserSimple,
+	type UserSimple
+} from '$lib/users/types';
 import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 import type { LoadableData } from '$lib/network/types';
+import type { BrandedId } from '$lib/utils/branding';
 
 export type ApiDiffSection = {
 	id: number;
@@ -350,3 +357,182 @@ export type LoadableBranchReviewListing = LoadableData<string[], string>;
 export function toCombineSlug(ownerSlug: string, projectSlug: string) {
 	return `${ownerSlug}/${projectSlug}`;
 }
+
+type ApiPatchEventBase = {
+	uuid: string;
+	user: ApiUserSimple | null;
+	event_type: string;
+	data: unknown;
+	object: unknown;
+};
+
+function isApiPatchEventBase(data: unknown): data is ApiPatchEventBase {
+	return (
+		typeof data === 'object' &&
+		data !== null &&
+		typeof (data as any).uuid === 'string' &&
+		typeof (data as any).event_type === 'string' &&
+		(isApiUserSimple((data as any).user) || (data as any).user === null)
+	);
+}
+
+export type ApiChatEvent = ApiPatchEventBase & {
+	event_type: 'chat';
+	object: ApiChatMessage | null;
+};
+
+export function isApiChatEvent(data: unknown): data is ApiChatEvent {
+	return isApiPatchEventBase(data) && (data as any).event_type === 'chat';
+}
+
+export type ApiPatchUpdateEvent = ApiPatchEventBase & {
+	event_type: 'patch_version' | 'patch_status';
+	object: ApiPatch;
+};
+
+export function isApiPatchUpdateEvent(data: unknown): data is ApiPatchUpdateEvent {
+	return isApiPatchEventBase(data) && (data as any).event_type !== 'chat';
+}
+
+export type ApiIssueUpdate = {
+	uuid: string;
+	user: ApiUserSimple | null;
+	outdated: boolean;
+	issue: boolean;
+	resolved: boolean;
+	thread_id: string | null;
+	comment: string;
+	diffSha: string | null;
+	range: string | null;
+	diff_path: string | null;
+	diff_patch_array: string[] | null;
+	created_at: string;
+	updated_at: string;
+};
+
+export type ApiIssueUpdateEvent = ApiPatchEventBase & {
+	event_type: 'issue_status';
+	object: ApiIssueUpdate;
+};
+
+export function isApiIssueUpdateEvent(data: unknown): data is ApiIssueUpdateEvent {
+	return isApiPatchEventBase(data) && (data as any).event_type === 'issue_status';
+}
+
+export type ApiPatchEvent = ApiChatEvent | ApiPatchUpdateEvent | ApiIssueUpdateEvent;
+
+export function isApiPatchEvent(data: unknown): data is ApiPatchEvent {
+	return isApiChatEvent(data) || isApiPatchUpdateEvent(data) || isApiIssueUpdateEvent(data);
+}
+
+type PatchEventBase = {
+	uuid: string;
+	user: UserSimple | undefined;
+	eventType: string;
+	data: unknown;
+	object: unknown;
+};
+
+export type ChatEvent = PatchEventBase & {
+	eventType: 'chat';
+	object: ChatMessage | undefined;
+};
+
+export type PatchUpdateEvent = PatchEventBase & {
+	eventType: 'patch_version' | 'patch_status';
+	object: Patch;
+};
+
+export type IssueUpdate = {
+	uuid: string;
+	user: UserSimple | undefined;
+	outdated: boolean;
+	issue: boolean;
+	resolved: boolean;
+	threadId: string | undefined;
+	comment: string;
+	diffSha: string | undefined;
+	range: string | undefined;
+	diffPath: string | undefined;
+	diffPatchArray: string[] | undefined;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export function apiToIssueUpdate(api: ApiIssueUpdate): IssueUpdate {
+	return {
+		uuid: api.uuid,
+		user: api.user ? apiToUserSimple(api.user) : undefined,
+		outdated: api.outdated,
+		issue: api.issue,
+		resolved: api.resolved,
+		threadId: api.thread_id ?? undefined,
+		comment: api.comment,
+		diffSha: api.diffSha ?? undefined,
+		range: api.range ?? undefined,
+		diffPath: api.diff_path ?? undefined,
+		diffPatchArray: api.diff_patch_array ?? undefined,
+		createdAt: api.created_at,
+		updatedAt: api.updated_at
+	};
+}
+
+export type IssueUpdateEvent = PatchEventBase & {
+	eventType: 'issue_status';
+	object: IssueUpdate;
+};
+
+export type PatchEvent = ChatEvent | PatchUpdateEvent | IssueUpdateEvent;
+
+export function apiToPatchEvent(api: ApiPatchEvent): PatchEvent {
+	switch (api.event_type) {
+		case 'chat':
+			return {
+				eventType: api.event_type,
+				uuid: api.uuid,
+				user: api.user ? apiToUserSimple(api.user) : undefined,
+				data: api.data,
+				object: api.object ? apiToChatMessage(api.object) : undefined
+			};
+		case 'patch_version':
+		case 'patch_status':
+			return {
+				eventType: api.event_type,
+				uuid: api.uuid,
+				user: api.user ? apiToUserSimple(api.user) : undefined,
+				data: api.data,
+				object: apiToPatch(api.object)
+			};
+		case 'issue_status':
+			return {
+				eventType: api.event_type,
+				uuid: api.uuid,
+				user: api.user ? apiToUserSimple(api.user) : undefined,
+				data: api.data,
+				object: apiToIssueUpdate(api.object)
+			};
+	}
+}
+
+type PatchEventChannelId = BrandedId<'PatchEventChannelId'>;
+
+export type PatchEventChannel = {
+	/**
+	 * The unique identifier of the patch event channel.
+	 *
+	 * Built from the project ID and the change ID.
+	 */
+	id: PatchEventChannelId;
+	projectId: string;
+	changeId: string;
+	events: PatchEvent[];
+};
+
+export function createPatchEventChannelKey(
+	projectId: string,
+	changeId: string
+): PatchEventChannelId {
+	return `${projectId}:${changeId}` as PatchEventChannelId;
+}
+
+export type LoadablePatchEventChannel = LoadableData<PatchEventChannel, PatchEventChannel['id']>;
