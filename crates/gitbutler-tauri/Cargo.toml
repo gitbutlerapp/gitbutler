@@ -43,9 +43,6 @@ tauri-plugin-store = "2.2.0"
 tauri-plugin-updater = "2.3.0"
 tauri-plugin-window-state = "2.2.0"
 
-[target.'cfg(target_os = "macos")'.dependencies]
-tauri-plugin-traffic-lights = { path = "../tauri-plugin-traffic-lights" }
-
 parking_lot.workspace = true
 log = "^0.4"
 # The features here optimize for performance.
@@ -81,6 +78,9 @@ but-core.workspace = true
 but-hunk-dependency.workspace = true
 open = "5"
 url = "2.5.4"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri-plugin-traffic-lights = { path = "../tauri-plugin-traffic-lights" }
 
 [lints.clippy]
 all = "deny"
