@@ -9,6 +9,7 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import NotificationButton from '@gitbutler/ui/NotificationButton.svelte';
 	import { goto } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
 
@@ -20,9 +21,15 @@
 	const userService = getContext(UserService);
 	const user = $derived(userService.user);
 
-	let contextMenuEl = $state<ReturnType<typeof ContextMenu>>();
-	let contextUserTriggerButton = $state<HTMLButtonElement | undefined>();
-	let isContextMenuOpen = $state(false);
+	let ctxMenuUserEl = $state<ReturnType<typeof ContextMenu>>();
+	let ctxUserTriggerButton = $state<HTMLButtonElement | undefined>();
+	let isCtxMenuOpen = $state(false);
+
+	let ctxMenuOtherLinks = $state<ReturnType<typeof ContextMenu>>();
+	let ctxOtherLinksTriggerButton = $state<HTMLButtonElement | undefined>();
+	let isCtxOtherLinksMenuOpen = $state(false);
+
+	let isNotificationsUnread = $state(false);
 
 	function login() {
 		window.location.href = `${env.PUBLIC_APP_HOST}/cloud/login?callback=${window.location.href}`;
@@ -57,6 +64,17 @@
 			>
 				Organizations
 			</a>
+
+			<Button
+				kind="ghost"
+				icon="kebab"
+				class="hidden-on-desktop"
+				bind:el={ctxOtherLinksTriggerButton}
+				activated={isCtxOtherLinksMenuOpen}
+				onclick={() => {
+					ctxMenuOtherLinks?.toggle();
+				}}
+			/>
 		{/if}
 
 		{#if !$user}
@@ -71,14 +89,22 @@
 		{/if}
 
 		{#if $user}
+			<NotificationButton
+				hasUnread={isNotificationsUnread}
+				onclick={() => {
+					isNotificationsUnread = !isNotificationsUnread;
+					console.log('toggle notifications to show animation');
+				}}
+			/>
+
 			<Button
 				kind="outline"
 				class="user-btn"
-				activated={isContextMenuOpen}
+				activated={isCtxMenuOpen}
 				onclick={() => {
-					contextMenuEl?.toggle();
+					ctxMenuUserEl?.toggle();
 				}}
-				bind:el={contextUserTriggerButton}
+				bind:el={ctxUserTriggerButton}
 			>
 				<div class="user-btn">
 					<div class="user-icon">
@@ -105,11 +131,24 @@
 </div>
 
 <ContextMenu
-	bind:this={contextMenuEl}
-	leftClickTrigger={contextUserTriggerButton}
+	bind:this={ctxMenuOtherLinks}
+	leftClickTrigger={ctxOtherLinksTriggerButton}
 	side="right"
 	verticalAlign="bottom"
-	ontoggle={(isOpen) => (isContextMenuOpen = isOpen)}
+	ontoggle={(isOpen) => (isCtxOtherLinksMenuOpen = isOpen)}
+>
+	<ContextMenuSection>
+		<ContextMenuItem label="Projects" onclick={() => goto(routes.projectsPath())} />
+		<ContextMenuItem label="Organizations" onclick={() => goto('/organizations')} />
+	</ContextMenuSection>
+</ContextMenu>
+
+<ContextMenu
+	bind:this={ctxMenuUserEl}
+	leftClickTrigger={ctxUserTriggerButton}
+	side="right"
+	verticalAlign="bottom"
+	ontoggle={(isOpen) => (isCtxMenuOpen = isOpen)}
 >
 	<ContextMenuSection>
 		<ContextMenuItem
@@ -168,11 +207,19 @@
 	.other-links {
 		display: flex;
 		align-items: center;
-		gap: 16px;
+		gap: 20px;
+
+		@media (max-width: 800px) {
+			gap: 10px;
+		}
 	}
 
 	.other-nav-link {
 		color: var(--clr-text-2);
+
+		@media (max-width: 800px) {
+			display: none;
+		}
 	}
 
 	/* override profile button */
@@ -202,5 +249,13 @@
 		height: 20px;
 		border-radius: var(--radius-m);
 		overflow: hidden;
+	}
+
+	:global(.navigation .hidden-on-desktop) {
+		display: none;
+
+		@media (max-width: 800px) {
+			display: block;
+		}
 	}
 </style>

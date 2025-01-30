@@ -69,7 +69,7 @@
 		</div>
 
 		{#if routes.isProjectReviewPageSubset}
-			<div class="text-12 text-semibold current-page">
+			<div class="text-12 text-semibold current-page-data">
 				<span>/</span>
 				<span>Branches and Stacks</span>
 			</div>
@@ -109,9 +109,13 @@
 		align-items: center;
 	}
 
-	.current-page {
+	.current-page-data {
 		display: flex;
 		gap: 10px;
 		color: var(--clr-text-2);
+
+		@media (max-width: 800px) {
+			display: none;
+		}
 	}
 </style>
