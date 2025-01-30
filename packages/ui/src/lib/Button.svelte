@@ -23,6 +23,7 @@
 		kind?: ComponentKindType;
 		solidBackground?: boolean;
 		class?: string | (string | undefined)[] | Record<string, string>;
+		iconClass?: string;
 		// Additional elements
 		icon?: keyof typeof iconsJson | undefined;
 		tooltip?: string;
@@ -69,6 +70,7 @@
 		kind = 'solid',
 		solidBackground = false,
 		class: className = '',
+		iconClass = '',
 		testId,
 		icon,
 		tooltip,
@@ -138,7 +140,7 @@
 		{/if}
 
 		{#if icon || loading}
-			<div class="btn-icon">
+			<div class={['btn-icon', iconClass]}>
 				{#if loading}
 					<Icon name="spinner" spinnerRadius={size === 'tag' ? 4 : 5} />
 				{:else if icon}
