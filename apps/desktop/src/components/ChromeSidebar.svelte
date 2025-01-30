@@ -253,8 +253,8 @@
 <ContextMenu
 	bind:this={contextMenuEl}
 	leftClickTrigger={contextTriggerButton}
-	verticalAlign="top"
-	horizontalAlign="left"
+	side="right"
+	verticalAlign="bottom"
 >
 	<ContextMenuSection>
 		<ContextMenuItem

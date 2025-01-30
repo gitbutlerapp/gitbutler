@@ -4,20 +4,33 @@
 	import { portal } from '@gitbutler/ui/utils/portal';
 	import { type Snippet } from 'svelte';
 
-	interface Props {
+	interface BaseProps {
+		children: Snippet<[item: any]>;
 		leftClickTrigger?: HTMLElement;
 		rightClickTrigger?: HTMLElement;
-		verticalAlign?: 'top' | 'bottom';
-		horizontalAlign?: 'left' | 'right';
-		children: Snippet<[item: any]>;
 		onclose?: () => void;
 		onopen?: () => void;
 		ontoggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
 
+	type HorizontalProps = BaseProps & {
+		side?: 'top' | 'bottom';
+		horizontalAlign?: 'left' | 'right';
+		verticalAlign?: never;
+	};
+
+	type VerticalProps = BaseProps & {
+		side?: 'left' | 'right';
+		verticalAlign?: 'top' | 'bottom';
+		horizontalAlign?: never;
+	};
+
+	type Props = HorizontalProps | VerticalProps;
+
 	let {
 		leftClickTrigger,
 		rightClickTrigger,
+		side = 'right',
 		verticalAlign = 'bottom',
 		horizontalAlign = 'right',
 		children,
@@ -35,20 +48,39 @@
 	let savedMouseEvent: MouseEvent | undefined = $state();
 
 	function setVerticalAlign(targetBoundingRect: DOMRect) {
-		return verticalAlign === 'top'
-			? targetBoundingRect?.top
-				? targetBoundingRect.top - contextMenuHeight
-				: 0
-			: targetBoundingRect?.top
-				? targetBoundingRect.top + targetBoundingRect.height
-				: 0;
+		if (['top', 'bottom'].includes(side)) {
+			return side === 'top'
+				? targetBoundingRect.top
+					? targetBoundingRect.top - contextMenuHeight
+					: 0
+				: targetBoundingRect.top
+					? targetBoundingRect.top + targetBoundingRect.height
+					: 0;
+		} else if (['left', 'right'].includes(side)) {
+			if (verticalAlign === 'top') {
+				return targetBoundingRect.bottom - targetBoundingRect.height;
+			} else if (verticalAlign === 'bottom') {
+				return targetBoundingRect.bottom - contextMenuHeight;
+			}
+		}
+		return 0;
 	}
 
 	function setHorizontalAlign(targetBoundingRect: DOMRect) {
-		const correction = 2;
-		return horizontalAlign === 'left'
-			? targetBoundingRect?.left
-			: targetBoundingRect?.left + targetBoundingRect.width - contextMenuWidth - correction;
+		const padding = 2;
+
+		if (['top', 'bottom'].includes(side)) {
+			return horizontalAlign === 'left'
+				? targetBoundingRect.left
+				: targetBoundingRect.left + targetBoundingRect.width - contextMenuWidth - padding;
+		} else if (['left', 'right'].includes(side)) {
+			if (side === 'left') {
+				return targetBoundingRect.x - contextMenuWidth - padding * 2;
+			} else {
+				return targetBoundingRect.right + padding;
+			}
+		}
+		return padding;
 	}
 
 	function executeByTrigger(callback: (isOpened: boolean, isLeftClick: boolean) => void) {
@@ -59,26 +91,9 @@
 		}
 	}
 
-	function setAlignByMouse(
-		e?: MouseEvent,
-		contextMenuWidth: number = 0,
-		contextMenuHeight: number = 0
-	) {
+	function setAlignByMouse(e?: MouseEvent) {
 		if (!e) return;
-		let newMenuPosition = { x: e.clientX, y: e.clientY };
-		const menuWindowEdgesOffset = 20;
-
-		// Adjust menu position to stay within the window
-		if (newMenuPosition.x + contextMenuWidth > window.innerWidth) {
-			newMenuPosition.x = window.innerWidth - contextMenuWidth - menuWindowEdgesOffset;
-		}
-		if (newMenuPosition.x < 0) newMenuPosition.x = 0;
-		if (newMenuPosition.y + contextMenuHeight > window.innerHeight) {
-			newMenuPosition.y = window.innerHeight - contextMenuHeight - menuWindowEdgesOffset;
-		}
-		if (newMenuPosition.y < 0) newMenuPosition.y = 0;
-
-		menuPosition = newMenuPosition;
+		menuPosition = { x: e.clientX, y: e.clientY };
 	}
 
 	function setAlignByTarget(target: HTMLElement) {
@@ -87,24 +102,6 @@
 			x: setHorizontalAlign(targetBoundingRect),
 			y: setVerticalAlign(targetBoundingRect)
 		};
-
-		// Adjust alignment to stay within the window
-		if (newMenuPosition.x + contextMenuWidth > window.innerWidth) {
-			horizontalAlign = horizontalAlign === 'right' ? 'left' : 'right';
-			newMenuPosition.x = setHorizontalAlign(targetBoundingRect);
-		}
-		if (newMenuPosition.x < 0) {
-			horizontalAlign = 'right';
-			newMenuPosition.x = setHorizontalAlign(targetBoundingRect);
-		}
-		if (newMenuPosition.y + contextMenuHeight > window.innerHeight) {
-			verticalAlign = verticalAlign === 'bottom' ? 'top' : 'bottom';
-			newMenuPosition.y = setVerticalAlign(targetBoundingRect);
-		}
-		if (newMenuPosition.y < 0) {
-			verticalAlign = 'bottom';
-			newMenuPosition.y = setVerticalAlign(targetBoundingRect);
-		}
 
 		menuPosition = newMenuPosition;
 	}
@@ -135,25 +132,63 @@
 		}
 	}
 
+	function setAlignment() {
+		if (savedMouseEvent && rightClickTrigger) {
+			setAlignByMouse(savedMouseEvent);
+		} else if (leftClickTrigger) {
+			setAlignByTarget(leftClickTrigger);
+		}
+	}
+
 	$effect(() => {
-		if (isVisible && contextMenuHeight > 0 && contextMenuWidth > 0) {
-			menuContainer?.focus();
+		if (!isVisible || !menuContainer) return;
 
-			if (savedMouseEvent && rightClickTrigger) {
-				setAlignByMouse(savedMouseEvent, contextMenuWidth, contextMenuHeight);
-			} else if (leftClickTrigger) {
-				setAlignByTarget(leftClickTrigger);
+		setAlignment();
+
+		// Keep contextMenu in viewport
+		const observer = new IntersectionObserver(
+			(entries) => {
+				const entry = entries[0];
+				if (!entry.isIntersecting) {
+					const rect = entry.boundingClientRect;
+					const viewport = entry.rootBounds;
+					if (!viewport) return;
+
+					if (rect.right > viewport.right) {
+						horizontalAlign = 'right';
+						setAlignment();
+					}
+					if (rect.left < viewport.left) {
+						horizontalAlign = 'left';
+						setAlignment();
+					}
+					if (rect.bottom > viewport.bottom) {
+						side = 'top';
+						setAlignment();
+					}
+					if (rect.top < viewport.top) {
+						side = 'bottom';
+						setAlignment();
+					}
+				}
+			},
+			{
+				root: null,
+				rootMargin: '0px',
+				threshold: 1.0
 			}
-		}
+		);
 
-		if (!isVisible) {
-			savedMouseEvent = undefined;
-		}
+		observer.observe(menuContainer);
+		return () => observer.disconnect();
 	});
 
 	function setTransformOrigin() {
 		if (savedMouseEvent) return 'top left';
-		if (verticalAlign === 'top') return horizontalAlign === 'left' ? 'bottom left' : 'bottom right';
+		if (['top', 'bottom'].includes(side))
+			return horizontalAlign === 'left' ? `${side} left` : `${side} right`;
+		if (['left', 'right'].includes(side))
+			return verticalAlign === 'top' ? `top ${side}` : `bottom ${side}`;
 		return horizontalAlign === 'left' ? 'top left' : 'top right';
 	}
 
@@ -174,12 +209,12 @@
 		bind:clientHeight={contextMenuHeight}
 		bind:clientWidth={contextMenuWidth}
 		class="context-menu"
-		class:top-oriented={verticalAlign === 'top'}
-		class:bottom-oriented={verticalAlign === 'bottom'}
+		class:top-oriented={side === 'top'}
+		class:bottom-oriented={side === 'bottom'}
 		style:top="{menuPosition.y}px"
 		style:left="{menuPosition.x}px"
 		style:transform-origin={setTransformOrigin()}
-		style:--animation-transform-shift={verticalAlign === 'top' ? '6px' : '-6px'}
+		style:--animation-transform-shift={side === 'top' ? '6px' : '-6px'}
 	>
 		{@render children(item)}
 	</div>
