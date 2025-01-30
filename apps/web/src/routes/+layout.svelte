@@ -5,6 +5,7 @@
 	import { UserService } from '$lib/user/userService';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
+	import { PatchEventsService } from '@gitbutler/shared/branches/patchEventsService';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
@@ -53,6 +54,8 @@
 	setContext(BranchService, branchService);
 	const patchSerice = new PatchService(httpClient, appState.appDispatch);
 	setContext(PatchService, patchSerice);
+	const patchEventsService = new PatchEventsService(httpClient, appState.appDispatch);
+	setContext(PatchEventsService, patchEventsService);
 	const chatChannelService = new ChatChannelsService(httpClient, appState.appDispatch);
 	setContext(ChatChannelsService, chatChannelService);
 	const repositoryIdLookupService = new RepositoryIdLookupService(httpClient, appState.appDispatch);
