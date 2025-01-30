@@ -152,7 +152,7 @@
 		display: flex;
 		justify-content: space-between;
 		width: 100%;
-		padding: 24px 0;
+		padding: 0 0 24px;
 	}
 
 	.main-links {
