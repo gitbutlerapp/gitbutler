@@ -13,6 +13,7 @@
 <script lang="ts">
 	import MessageActions from './MessageActions.svelte';
 	import Badge from '@gitbutler/ui/Badge.svelte';
+	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 
 	const UNKNOWN_AUTHOR = 'Unknown author';
 
@@ -61,9 +62,9 @@
 		</div>
 
 		<div class="chat-message-content">
-			<p class="chat-message__content-text">
-				{message.comment}
-			</p>
+			<div class="chat-message__content-text">
+				<Markdown content={message.comment} />
+			</div>
 
 			<MessageActions {projectId} {changeId} {message} />
 		</div>
