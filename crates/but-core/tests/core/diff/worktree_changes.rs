@@ -343,7 +343,7 @@ fn case_folding_worktree_changes() -> Result<()> {
                     old_lines: 1,
                     new_start: 1,
                     new_lines: 0,
-                    diff: "@@ -1,1 +1,0 @@\n-content\n\n",
+                    diff: "@@ -1,1 +1,0 @@\n-content\n",
                 },
             ],
         },
@@ -392,7 +392,7 @@ fn case_folding_worktree_and_index_changes() -> Result<()> {
                     old_lines: 1,
                     new_start: 1,
                     new_lines: 0,
-                    diff: "@@ -1,1 +1,0 @@\n-content\n\n",
+                    diff: "@@ -1,1 +1,0 @@\n-content\n",
                 },
             ],
         },
@@ -443,7 +443,7 @@ fn file_to_dir_in_worktree() -> Result<()> {
                     old_lines: 0,
                     new_start: 1,
                     new_lines: 1,
-                    diff: "@@ -1,0 +1,1 @@\n+content\n\n",
+                    diff: "@@ -1,0 +1,1 @@\n+content\n",
                 },
             ],
         },
@@ -494,7 +494,7 @@ fn file_to_dir_in_index() -> Result<()> {
                     old_lines: 0,
                     new_start: 1,
                     new_lines: 1,
-                    diff: "@@ -1,0 +1,1 @@\n+content\n\n",
+                    diff: "@@ -1,0 +1,1 @@\n+content\n",
                 },
             ],
         },
@@ -542,7 +542,7 @@ fn dir_to_file_in_worktree() -> Result<()> {
                     old_lines: 0,
                     new_start: 1,
                     new_lines: 1,
-                    diff: "@@ -1,0 +1,1 @@\n+content\n\n",
+                    diff: "@@ -1,0 +1,1 @@\n+content\n",
                 },
             ],
         },
@@ -593,7 +593,7 @@ fn dir_to_file_in_index() -> Result<()> {
                     old_lines: 0,
                     new_start: 1,
                     new_lines: 1,
-                    diff: "@@ -1,0 +1,1 @@\n+content\n\n",
+                    diff: "@@ -1,0 +1,1 @@\n+content\n",
                 },
             ],
         },
@@ -642,7 +642,7 @@ fn file_to_symlink_in_worktree() -> Result<()> {
                     old_lines: 1,
                     new_start: 1,
                     new_lines: 1,
-                    diff: "@@ -1,1 +1,1 @@\n-content\n\n+does-not-exist\n",
+                    diff: "@@ -1,1 +1,1 @@\n-content\n+does-not-exist\n",
                 },
             ],
         },
@@ -706,7 +706,7 @@ fn file_to_symlink_in_index() -> Result<()> {
                     old_lines: 1,
                     new_start: 1,
                     new_lines: 1,
-                    diff: "@@ -1,1 +1,1 @@\n-content\n\n+does-not-exist\n",
+                    diff: "@@ -1,1 +1,1 @@\n-content\n+does-not-exist\n",
                 },
             ],
         },
@@ -752,7 +752,7 @@ fn symlink_to_file_in_worktree() -> Result<()> {
                     old_lines: 1,
                     new_start: 1,
                     new_lines: 1,
-                    diff: "@@ -1,1 +1,1 @@\n-target\n+content\n\n",
+                    diff: "@@ -1,1 +1,1 @@\n-target\n+content\n",
                 },
             ],
         },
@@ -798,7 +798,7 @@ fn symlink_to_file_in_index() -> Result<()> {
                     old_lines: 1,
                     new_start: 1,
                     new_lines: 1,
-                    diff: "@@ -1,1 +1,1 @@\n-target\n+content\n\n",
+                    diff: "@@ -1,1 +1,1 @@\n-target\n+content\n",
                 },
             ],
         },
@@ -868,7 +868,7 @@ fn added_modified_in_worktree() -> Result<()> {
                     old_lines: 0,
                     new_start: 1,
                     new_lines: 1,
-                    diff: "@@ -1,0 +1,1 @@\n+content\n\n",
+                    diff: "@@ -1,0 +1,1 @@\n+content\n",
                 },
             ],
         },
@@ -879,7 +879,7 @@ fn added_modified_in_worktree() -> Result<()> {
                     old_lines: 1,
                     new_start: 1,
                     new_lines: 1,
-                    diff: "@@ -1,1 +1,1 @@\n-something\n\n+change\n\n",
+                    diff: "@@ -1,1 +1,1 @@\n-something\n+change\n",
                 },
             ],
         },
@@ -922,7 +922,7 @@ fn modified_in_index() -> Result<()> {
                     old_lines: 1,
                     new_start: 1,
                     new_lines: 1,
-                    diff: "@@ -1,1 +1,1 @@\n-something\n\n+change\n\n",
+                    diff: "@@ -1,1 +1,1 @@\n-something\n+change\n",
                 },
             ],
         },
@@ -960,7 +960,7 @@ fn deleted_in_worktree() -> Result<()> {
                     old_lines: 1,
                     new_start: 1,
                     new_lines: 0,
-                    diff: "@@ -1,1 +1,0 @@\n-something\n\n",
+                    diff: "@@ -1,1 +1,0 @@\n-something\n",
                 },
             ],
         },
@@ -998,7 +998,7 @@ fn deleted_in_index() -> Result<()> {
                     old_lines: 1,
                     new_start: 1,
                     new_lines: 0,
-                    diff: "@@ -1,1 +1,0 @@\n-something\n\n",
+                    diff: "@@ -1,1 +1,0 @@\n-something\n",
                 },
             ],
         },
@@ -1109,7 +1109,9 @@ fn modified_in_index_and_workingtree() -> Result<()> {
         ],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+
+    let actual = unified_diffs(actual, &repo)?;
+    insta::assert_debug_snapshot!(actual, @r#"
     [
         Patch {
             hunks: [
@@ -1118,12 +1120,22 @@ fn modified_in_index_and_workingtree() -> Result<()> {
                     old_lines: 2,
                     new_start: 1,
                     new_lines: 3,
-                    diff: "@@ -1,2 +1,3 @@\n initial\n\n change\n\n+second-change\n\n",
+                    diff: "@@ -1,2 +1,3 @@\n initial\n change\n+second-change\n",
                 },
             ],
         },
     ]
     "#);
+    let [UnifiedDiff::Patch { hunks }] = &actual[..] else {
+        unreachable!("need hunks")
+    };
+    // newlines at the end should work.
+    insta::assert_snapshot!(hunks[0].diff, @r"
+    @@ -1,2 +1,3 @@
+     initial
+     change
+    +second-change
+    ");
     Ok(())
 }
 

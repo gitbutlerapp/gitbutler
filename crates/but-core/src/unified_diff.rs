@@ -140,7 +140,7 @@ impl UnifiedDiff {
                         gix::diff::blob::UnifiedDiff::new(
                             &input,
                             ProduceDiffHunk::default(),
-                            "\n",
+                            gix::diff::blob::unified_diff::NewlineSeparator::AfterHeaderAndWhenNeeded("\n"),
                             ContextSize::symmetrical(context_lines),
                         ),
                     )?,
