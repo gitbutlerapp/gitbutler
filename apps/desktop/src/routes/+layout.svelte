@@ -30,7 +30,7 @@
 	} from '$lib/forge/github/githubUserService';
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
 	import { HooksService } from '$lib/hooks/hooksService';
-	import { DiffService } from '$lib/hunks/diffService';
+	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { PromptService } from '$lib/prompt/promptService';
@@ -91,7 +91,7 @@
 	const latestBranchLookupService = new LatestBranchLookupService(data.cloud, appState.appDispatch);
 	const webRoutesService = new WebRoutesService(env.PUBLIC_CLOUD_BASE_URL);
 	const desktopRouteService = new DesktopRoutesService();
-	const diffService = new DiffService(data.tauri);
+	const diffService = new DiffService(clientState);
 	const shortcutService = new ShortcutService(data.tauri);
 	shortcutService.listen();
 
