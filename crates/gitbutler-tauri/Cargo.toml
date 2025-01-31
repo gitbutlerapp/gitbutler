@@ -72,16 +72,11 @@ gitbutler-edit-mode.workspace = true
 gitbutler-sync.workspace = true
 gitbutler-forge.workspace = true
 gitbutler-settings.workspace = true
-gitbutler-serde.workspace = true
 but-workspace.workspace = true
 but-core.workspace = true
 but-hunk-dependency.workspace = true
 open = "5"
 url = "2.5.4"
-
-[dev-dependencies]
-gix-testtools.workspace = true
-insta.workspace = true
 
 [lints.clippy]
 all = "deny"
