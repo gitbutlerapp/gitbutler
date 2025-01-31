@@ -7,8 +7,8 @@ import path from 'path';
 
 const mediaQueriesCssPath = path.resolve('src/lib/styles/media-queries.css');
 
-/** @type {import('postcss').AcceptedPlugin[]} */
-export default {
+/** @type {import('postcss-load-config').Config} */
+const config = {
 	plugins: [
 		autoprefixer(),
 		pxToRem({
@@ -27,3 +27,5 @@ export default {
 		postcssCustomMedia()
 	]
 };
+
+export default config;
