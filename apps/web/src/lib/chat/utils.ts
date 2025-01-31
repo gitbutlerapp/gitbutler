@@ -1,5 +1,4 @@
 import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
-import type { ChatMessage } from '@gitbutler/shared/chat/types';
 import { env } from '$env/dynamic/public';
 
 export function getActionCableEndpoint(token: string): string {
@@ -13,8 +12,13 @@ export function getActionCableEndpoint(token: string): string {
 	return url.toString();
 }
 
-export function messageTimeStamp(message: ChatMessage): string {
-	const creationDate = new Date(message.createdAt);
+export type TimestampedEvent = {
+	createdAt: string;
+	updatedAt: string;
+};
+
+export function eventTimeStamp(event: TimestampedEvent): string {
+	const creationDate = new Date(event.createdAt);
 	const hoursAgo = Math.round((Date.now() - creationDate.getTime()) / 1000 / 60 / 60);
 
 	if (hoursAgo < 24) {
