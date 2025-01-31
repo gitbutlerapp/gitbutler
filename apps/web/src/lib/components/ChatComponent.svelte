@@ -2,7 +2,7 @@
 	import { AuthService } from '$lib/auth/authService';
 	import { subscribeToChatChannel } from '$lib/chat/subscribe';
 	import ChatInput from '$lib/components/chat/ChatInput.svelte';
-	import Message from '$lib/components/chat/Message.svelte';
+	import Event from '$lib/components/chat/Event.svelte';
 	import blankChat from '$lib/images/blank-chat.svg?raw';
 	import { PatchEventsService } from '@gitbutler/shared/branches/patchEventsService';
 	import { getPatchEvents } from '@gitbutler/shared/branches/patchesPreview.svelte';
@@ -64,9 +64,7 @@
 			{#snippet children(patchEvents)}
 				{#if patchEvents.events.length > 0}
 					{#each patchEvents.events as event}
-						{#if event.eventType === 'chat' && event.object}
-							<Message {projectId} {changeId} message={event.object} />
-						{/if}
+						<Event {projectId} {changeId} {event} />
 					{/each}
 				{:else}
 					<div class="blank-state">
