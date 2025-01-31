@@ -1,6 +1,7 @@
 <script lang="ts">
 	import IssueUpdate from './IssueUpdate.svelte';
 	import Message from './Message.svelte';
+	import PatchStatus from './PatchStatus.svelte';
 	import PatchVersion from './PatchVersion.svelte';
 	import type { PatchEvent } from '@gitbutler/shared/branches/types';
 
@@ -19,4 +20,6 @@
 	<IssueUpdate {event} />
 {:else if event.eventType === 'patch_version'}
 	<PatchVersion {event} />
+{:else if event.eventType === 'patch_status'}
+	<PatchStatus {event} />
 {/if}
