@@ -98,7 +98,7 @@
 	</div>
 {/if}
 
-<style>
+<style lang="postcss">
 	.app {
 		display: flex;
 		flex-direction: column;
@@ -107,11 +107,11 @@
 		padding: 24px 80px;
 		margin: 0 auto;
 
-		@media (max-width: 1020px) {
+		@media (--tablet-viewport) {
 			padding: 24px 40px;
 		}
 
-		@media (max-width: 800px) {
+		@media (--mobile-viewport) {
 			padding: 16px;
 		}
 	}
@@ -129,9 +129,5 @@
 		flex-direction: column;
 		max-width: 1280px;
 		margin: 0 auto;
-
-		@media (max-width: 1280px) {
-			padding: 0 24px;
-		}
 	}
 </style>

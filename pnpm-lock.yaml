@@ -278,9 +278,6 @@ importers:
       '@ethercorps/sveltekit-og':
         specifier: ^3.0.0
         version: 3.0.0(svelte@5.19.2)
-      '@fontsource-variable/spline-sans-mono':
-        specifier: ^5.1.0
-        version: 5.1.0
       '@rails/actioncable':
         specifier: ^8.0.100
         version: 8.0.100
@@ -312,18 +309,15 @@ importers:
         specifier: ^0.3.2
         version: 0.3.2
     devDependencies:
-      '@fontsource/fira-mono':
-        specifier: ^4.5.10
-        version: 4.5.10
+      '@csstools/postcss-global-data':
+        specifier: ^3.0.0
+        version: 3.0.0(postcss@8.4.49)
       '@gitbutler/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@gitbutler/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@neoconfetti/svelte':
-        specifier: ^1.0.0
-        version: 1.0.0
       '@playwright/test':
         specifier: 1.47.0
         version: 1.47.0
@@ -345,12 +339,36 @@ importers:
       '@types/node':
         specifier: ^22.3.0
         version: 22.3.0
+      '@types/postcss-pxtorem':
+        specifier: ^6.0.3
+        version: 6.1.0
       '@types/rails__actioncable':
         specifier: ^6.1.11
         version: 6.1.11
+      autoprefixer:
+        specifier: ^10.4.19
+        version: 10.4.20(postcss@8.4.49)
       diff-match-patch:
         specifier: ^1.0.5
         version: 1.0.5
+      path:
+        specifier: ^0.12.7
+        version: 0.12.7
+      postcss:
+        specifier: ^8.4.38
+        version: 8.4.49
+      postcss-custom-media:
+        specifier: ^11.0.5
+        version: 11.0.5(postcss@8.4.49)
+      postcss-load-config:
+        specifier: ^5.1.0
+        version: 5.1.0(postcss@8.4.49)
+      postcss-nesting:
+        specifier: ^12.1.5
+        version: 12.1.5(postcss@8.4.49)
+      postcss-pxtorem:
+        specifier: ^6.1.0
+        version: 6.1.0(postcss@8.4.49)
       svelte:
         specifier: catalog:svelte
         version: 5.19.2
@@ -862,6 +880,13 @@ packages:
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
 
+  '@csstools/cascade-layer-name-parser@2.0.4':
+    resolution: {integrity: sha512-7DFHlPuIxviKYZrOiwVU/PiHLm3lLUR23OMuEEtfEOQTOp9hzQ2JjdY6X5H18RVuUPJqSCI+qNnD5iOLMVE0bA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@csstools/css-parser-algorithms': ^3.0.4
+      '@csstools/css-tokenizer': ^3.0.3
+
   '@csstools/css-parser-algorithms@2.7.1':
     resolution: {integrity: sha512-2SJS42gxmACHgikc1WGesXLIT8d/q2l0UFM7TaEeIzdFCE/FPMtTiizcPGGJtlPo2xuQzY09OhrLTzRxqJqwGw==}
     engines: {node: ^14 || ^16 || >=18}
@@ -882,6 +907,13 @@ packages:
     resolution: {integrity: sha512-UJnjoFsmxfKUdNYdWgOB0mWUypuLvAfQPH1+pyvRJs6euowbFkFC6P13w1l8mJyi3vxYMxc9kld5jZEGRQs6bw==}
     engines: {node: '>=18'}
 
+  '@csstools/media-query-list-parser@4.0.2':
+    resolution: {integrity: sha512-EUos465uvVvMJehckATTlNqGj4UJWkTmdWuDMjqvSUkjGpmOyFZBVwb4knxCm/k2GMTXY+c/5RkdndzFYWeX5A==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@csstools/css-parser-algorithms': ^3.0.4
+      '@csstools/css-tokenizer': ^3.0.3
+
   '@csstools/postcss-bundler@1.0.15':
     resolution: {integrity: sha512-cDeDnVOX+khvy0vp8zqMLW0Yja51pHBT14se4c1WI0jgLVqihBU363qK8APeHQCJqTUCln0z9MeY/6m7lWaDug==}
     engines: {node: ^14 || ^16 || >=18}
@@ -890,6 +922,12 @@ packages:
 
   '@csstools/postcss-bundler@2.0.5':
     resolution: {integrity: sha512-QzCmZWO2gQnyagUO5uBpxUqowDhHLgME76lCRUKbJ2KQh4NKqa1F/7nmEKscbiHt6EsHvE9YNPAU9yjGP0Fc0w==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      postcss: ^8.4
+
+  '@csstools/postcss-global-data@3.0.0':
+    resolution: {integrity: sha512-3dR5+RDhPW1uqPWZUyTBSVn03gGbxzoSyCEpXugy9UMtXeyKjrB84dX3V8eggzooCsX8wcraKehzdouNO+MlsA==}
     engines: {node: '>=18'}
     peerDependencies:
       postcss: ^8.4
@@ -1120,12 +1158,6 @@ packages:
     peerDependencies:
       svelte: ^4.0.0
 
-  '@fontsource-variable/spline-sans-mono@5.1.0':
-    resolution: {integrity: sha512-B9rWuTg1/G9/sKTxWb7CHVabv0tSFw5ETEmMpY8RU10nZq09JzWdMJO7Fj4cx61S0DvAOaM1F/uyTpFRmd+KWQ==}
-
-  '@fontsource/fira-mono@4.5.10':
-    resolution: {integrity: sha512-bxUnRP8xptGRo8YXeY073DSpfK74XpSb0ZyRNpHV9WvLnJ7TwPOjZll8hTMin7zLC6iOp59pDZ8EQDj1gzgAQQ==}
-
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
     engines: {node: '>=18.18.0'}
@@ -1271,9 +1303,6 @@ packages:
   '@mswjs/interceptors@0.37.1':
     resolution: {integrity: sha512-SvE+tSpcX884RJrPCskXxoS965Ky/pYABDEhWW6oeSRhpUDLrS5nTvT5n1LLSDVDYvty4imVmXsy+3/ROVuknA==}
     engines: {node: '>=18'}
-
-  '@neoconfetti/svelte@1.0.0':
-    resolution: {integrity: sha512-SmksyaJAdSlMa9cTidVSIqYo1qti+WTsviNDwgjNVm+KQ3DRP2Df9umDIzC4vCcpEYY+chQe0i2IKnLw03AT8Q==}
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -4344,6 +4373,9 @@ packages:
     resolution: {integrity: sha512-k92I/b08q4wvFscXCLvqfsHCrjrF7yiXsQuIVvVE7N82W3+aqpzuUdBbfhWcy/FZR3/4IgflMgKLOsvPDrGCJA==}
     deprecated: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
 
+  inherits@2.0.3:
+    resolution: {integrity: sha512-x00IRNXNy63jwGkJmzPigoySHbaqpNuzKbBOmzK+g2OdZpQ9w+sxCN+VSB3ja7IAge2OP2qpfxTjeNcyjmW1uw==}
+
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
 
@@ -5199,6 +5231,9 @@ packages:
     resolution: {integrity: sha512-5HviZNaZcfqP95rwpv+1HDgUamezbqdSYTyzjTvwtJSnIH+3vnbmWsItli8OFEndS984VT55M3jduxZbX351gg==}
     engines: {node: '>=12'}
 
+  path@0.12.7:
+    resolution: {integrity: sha512-aXXC6s+1w7otVF9UletFkFcDsJeO7lSZBPUQhtb5O0xJe8LtYhj/GxldoL09bBj9+ZmE2hNoHqQSFMN5fikh4Q==}
+
   pathe@1.1.2:
     resolution: {integrity: sha512-whLdWMYL2TwI08hn8/ZqAbrVemu0LNaNNJZX73O6qaIdCTfXutsLhMkjdENX0qhsQ9uIimo4/aQOmXkoon2nDQ==}
 
@@ -5246,18 +5281,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  playwright-core@1.48.2:
-    resolution: {integrity: sha512-sjjw+qrLFlriJo64du+EK0kJgZzoQPsabGF4lBvsid+3CNIZIYLgnMj9V6JY5VhM2Peh20DJWIVpVljLLnlawA==}
-    engines: {node: '>=18'}
-    hasBin: true
-
   playwright@1.47.0:
     resolution: {integrity: sha512-jOWiRq2pdNAX/mwLiwFYnPHpEZ4rM+fRSQpRHwEwZlP2PUANvL3+aJOF/bvISMhFD30rqMxUB4RJx9aQbfh4Ww==}
-    engines: {node: '>=18'}
-    hasBin: true
-
-  playwright@1.48.2:
-    resolution: {integrity: sha512-NjYvYgp4BPmiwfe31j4gHLa3J7bD2WiBz8Lk2RoSsmX38SVIARZ18VYjxLjAcDsAhA+F4iSEXTSGgjua0rrlgQ==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -5275,6 +5300,12 @@ packages:
     hasBin: true
     peerDependencies:
       postcss: ^8.0.0
+
+  postcss-custom-media@11.0.5:
+    resolution: {integrity: sha512-SQHhayVNgDvSAdX9NQ/ygcDQGEY+aSF4b/96z7QUX6mqL5yl/JgG/DywcF6fW9XbnCRE+aVYk+9/nqGuzOPWeQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      postcss: ^8.4
 
   postcss-load-config@3.1.4:
     resolution: {integrity: sha512-6DiM4E7v4coTE4uzA8U//WhtPwyhiim3eyjEMFCnUpzbrkK9wJHgKDT2mR+HbtSrd/NubVaYTOpSpjUl8NQeRg==}
@@ -6470,6 +6501,9 @@ packages:
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
+  util@0.10.4:
+    resolution: {integrity: sha512-0Pm9hTQ3se5ll1XihRic3FDIku70C+iHUdT/W926rSgHV5QgXsYbKZN8MSC3tJtSkhuROzvsQjAaFENRXr+19A==}
+
   util@0.12.5:
     resolution: {integrity: sha512-kZf/K6hEIrWHI6XqOFUiiMa+79wE/D8Q+NCNAWclkyg3b4d2k7s0QGepNjiABc+aR3N1PAyHL7p6UcLY6LmrnA==}
 
@@ -7154,6 +7188,11 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
+  '@csstools/cascade-layer-name-parser@2.0.4(@csstools/css-parser-algorithms@3.0.4(@csstools/css-tokenizer@3.0.3))(@csstools/css-tokenizer@3.0.3)':
+    dependencies:
+      '@csstools/css-parser-algorithms': 3.0.4(@csstools/css-tokenizer@3.0.3)
+      '@csstools/css-tokenizer': 3.0.3
+
   '@csstools/css-parser-algorithms@2.7.1(@csstools/css-tokenizer@2.4.1)':
     dependencies:
       '@csstools/css-tokenizer': 2.4.1
@@ -7165,6 +7204,11 @@ snapshots:
   '@csstools/css-tokenizer@2.4.1': {}
 
   '@csstools/css-tokenizer@3.0.3': {}
+
+  '@csstools/media-query-list-parser@4.0.2(@csstools/css-parser-algorithms@3.0.4(@csstools/css-tokenizer@3.0.3))(@csstools/css-tokenizer@3.0.3)':
+    dependencies:
+      '@csstools/css-parser-algorithms': 3.0.4(@csstools/css-tokenizer@3.0.3)
+      '@csstools/css-tokenizer': 3.0.3
 
   '@csstools/postcss-bundler@1.0.15(postcss@8.4.39)':
     dependencies:
@@ -7178,6 +7222,10 @@ snapshots:
       '@csstools/css-parser-algorithms': 3.0.4(@csstools/css-tokenizer@3.0.3)
       '@csstools/css-tokenizer': 3.0.3
       '@csstools/postcss-rebase-url': 2.0.4(postcss@8.4.49)
+      postcss: 8.4.49
+
+  '@csstools/postcss-global-data@3.0.0(postcss@8.4.49)':
+    dependencies:
       postcss: 8.4.49
 
   '@csstools/postcss-rebase-url@1.0.11(postcss@8.4.39)':
@@ -7345,10 +7393,6 @@ snapshots:
       '@resvg/resvg-js': 2.6.2
       satori: 0.10.14
       svelte: 5.19.2
-
-  '@fontsource-variable/spline-sans-mono@5.1.0': {}
-
-  '@fontsource/fira-mono@4.5.10': {}
 
   '@humanfs/core@0.19.1': {}
 
@@ -7534,8 +7578,6 @@ snapshots:
       is-node-process: 1.2.0
       outvariant: 1.4.3
       strict-event-emitter: 0.5.1
-
-  '@neoconfetti/svelte@1.0.0': {}
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
@@ -9140,7 +9182,7 @@ snapshots:
       '@typescript-eslint/types': 8.21.0
       eslint-visitor-keys: 4.2.0
 
-  '@vitest/browser@2.0.5(@types/node@22.3.0)(playwright@1.48.2)(typescript@5.7.3)(vitest@2.0.5)(webdriverio@8.40.2)':
+  '@vitest/browser@2.0.5(@types/node@22.3.0)(typescript@5.7.3)(vitest@2.0.5)':
     dependencies:
       '@testing-library/dom': 10.4.0
       '@testing-library/user-event': 14.6.1(@testing-library/dom@10.4.0)
@@ -9150,9 +9192,6 @@ snapshots:
       sirv: 2.0.4
       vitest: 2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(sass-embedded@1.82.0)
       ws: 8.18.0
-    optionalDependencies:
-      playwright: 1.48.2
-      webdriverio: 8.40.2
     transitivePeerDependencies:
       - '@types/node'
       - bufferutil
@@ -9182,7 +9221,7 @@ snapshots:
       - utf-8-validate
       - vite
 
-  '@vitest/browser@3.0.3(@types/node@22.3.0)(playwright@1.48.2)(typescript@5.7.3)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)(webdriverio@8.40.2)':
+  '@vitest/browser@3.0.3(@types/node@22.3.0)(typescript@5.7.3)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)':
     dependencies:
       '@testing-library/dom': 10.4.0
       '@testing-library/user-event': 14.6.1(@testing-library/dom@10.4.0)
@@ -9194,9 +9233,6 @@ snapshots:
       tinyrainbow: 2.0.0
       vitest: 3.0.3(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.3)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)
       ws: 8.18.0
-    optionalDependencies:
-      playwright: 1.48.2
-      webdriverio: 8.40.2
     transitivePeerDependencies:
       - '@types/node'
       - bufferutil
@@ -11293,6 +11329,8 @@ snapshots:
       once: 1.4.0
       wrappy: 1.0.2
 
+  inherits@2.0.3: {}
+
   inherits@2.0.4: {}
 
   inquirer@9.2.12:
@@ -12196,6 +12234,11 @@ snapshots:
 
   path-type@5.0.0: {}
 
+  path@0.12.7:
+    dependencies:
+      process: 0.11.10
+      util: 0.10.4
+
   pathe@1.1.2: {}
 
   pathe@2.0.2: {}
@@ -12228,21 +12271,11 @@ snapshots:
 
   playwright-core@1.47.0: {}
 
-  playwright-core@1.48.2:
-    optional: true
-
   playwright@1.47.0:
     dependencies:
       playwright-core: 1.47.0
     optionalDependencies:
       fsevents: 2.3.2
-
-  playwright@1.48.2:
-    dependencies:
-      playwright-core: 1.48.2
-    optionalDependencies:
-      fsevents: 2.3.2
-    optional: true
 
   polished@4.3.1:
     dependencies:
@@ -12288,6 +12321,14 @@ snapshots:
       - jiti
       - tsx
 
+  postcss-custom-media@11.0.5(postcss@8.4.49):
+    dependencies:
+      '@csstools/cascade-layer-name-parser': 2.0.4(@csstools/css-parser-algorithms@3.0.4(@csstools/css-tokenizer@3.0.3))(@csstools/css-tokenizer@3.0.3)
+      '@csstools/css-parser-algorithms': 3.0.4(@csstools/css-tokenizer@3.0.3)
+      '@csstools/css-tokenizer': 3.0.3
+      '@csstools/media-query-list-parser': 4.0.2(@csstools/css-parser-algorithms@3.0.4(@csstools/css-tokenizer@3.0.3))(@csstools/css-tokenizer@3.0.3)
+      postcss: 8.4.49
+
   postcss-load-config@3.1.4(postcss@8.4.49)(ts-node@10.9.2(@types/node@22.3.0)(typescript@5.4.5)):
     dependencies:
       lilconfig: 2.1.0
@@ -12327,6 +12368,13 @@ snapshots:
       '@csstools/selector-resolve-nested': 1.1.0(postcss-selector-parser@6.1.0)
       '@csstools/selector-specificity': 3.1.1(postcss-selector-parser@6.1.0)
       postcss: 8.4.39
+      postcss-selector-parser: 6.1.0
+
+  postcss-nesting@12.1.5(postcss@8.4.49):
+    dependencies:
+      '@csstools/selector-resolve-nested': 1.1.0(postcss-selector-parser@6.1.0)
+      '@csstools/selector-specificity': 3.1.1(postcss-selector-parser@6.1.0)
+      postcss: 8.4.49
       postcss-selector-parser: 6.1.0
 
   postcss-nesting@13.0.1(postcss@8.4.49):
@@ -13570,6 +13618,10 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
+  util@0.10.4:
+    dependencies:
+      inherits: 2.0.3
+
   util@0.12.5:
     dependencies:
       inherits: 2.0.4
@@ -13665,7 +13717,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 22.3.0
-      '@vitest/browser': 2.0.5(@types/node@22.3.0)(playwright@1.48.2)(typescript@5.7.3)(vitest@2.0.5)(webdriverio@8.40.2)
+      '@vitest/browser': 2.0.5(@types/node@22.3.0)(typescript@5.7.3)(vitest@2.0.5)
       '@vitest/ui': 2.0.5(vitest@2.0.5)
       happy-dom: 14.12.3
       jsdom: 24.1.1
@@ -13742,7 +13794,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 22.3.0
-      '@vitest/browser': 3.0.3(@types/node@22.3.0)(playwright@1.48.2)(typescript@5.7.3)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)(webdriverio@8.40.2)
+      '@vitest/browser': 3.0.3(@types/node@22.3.0)(typescript@5.7.3)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)
       '@vitest/ui': 3.0.3(vitest@3.0.3)
       happy-dom: 14.12.3
       jsdom: 24.1.1
