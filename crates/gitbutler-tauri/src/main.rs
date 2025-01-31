@@ -250,6 +250,7 @@ fn main() {
                     settings::update_feature_flags,
                     workspace::stacks,
                     workspace::stack_branches,
+                    workspace::hunk_dependencies_for_workspace_changes,
                     diff::worktree_changes,
                     diff::commit_changes,
                     diff::tree_change_diffs,

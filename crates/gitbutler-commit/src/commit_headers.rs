@@ -36,7 +36,17 @@ impl Default for CommitHeadersV2 {
     fn default() -> Self {
         CommitHeadersV2 {
             // Change ID using base16 encoding
-            change_id: Uuid::new_v4().to_string(),
+            change_id: if cfg!(feature = "testing") {
+                std::env::var("CHANGE_ID").unwrap_or_else(|_| {
+                    eprintln!(
+                        "With 'testing' feature the `CHANGE_ID` \
+environment variable can be set have stable values"
+                    );
+                    Uuid::new_v4().to_string()
+                })
+            } else {
+                Uuid::new_v4().to_string()
+            },
             conflicted: None,
         }
     }

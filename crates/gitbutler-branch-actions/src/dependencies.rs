@@ -81,7 +81,7 @@ fn get_commits_to_process<'a>(
         .context("failed to list commits")?
         .into_iter()
         .rev()
-        .filter_map(|commit_id| {
+        .filter_map(move |commit_id| {
             let commit = repo.find_commit(commit_id).ok()?;
             if commit.parent_count() == 1 {
                 return Some(commit_id);
@@ -89,7 +89,7 @@ fn get_commits_to_process<'a>(
 
             let has_integrated_parent = commit.parent_ids().any(|id| {
                 repo.graph_ahead_behind(id, *target_sha)
-                    .map_or(false, |(number_commits_ahead, _)| number_commits_ahead == 0)
+                    .is_ok_and(|(number_commits_ahead, _)| number_commits_ahead == 0)
             });
 
             (!has_integrated_parent).then_some(commit_id)

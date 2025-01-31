@@ -8,7 +8,7 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
     let diffs: Vec<UnifiedDiff> = but_core::diff::worktree_changes(&repo)?
         .changes
         .iter()
-        .map(|tree_change| tree_change.unified_diff(&repo))
+        .map(|tree_change| tree_change.unified_diff(&repo, 3))
         .collect::<std::result::Result<_, _>>()?;
     let actual = serde_json::to_string_pretty(&diffs)?;
     insta::assert_snapshot!(actual, @r#"

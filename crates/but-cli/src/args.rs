@@ -32,6 +32,9 @@ pub enum Subcommands {
         /// The revspec to the previous commit that the returned changes transform into current commit.
         previous_commit: Option<String>,
     },
+    /// Return the dependencies of worktree changes with the commits that last changed them.
+    #[clap(visible_alias = "dep")]
+    HunkDependency,
     /// Returns the list of stacks that are currently part of the GitButler workspace.
     Stacks,
     StackBranches {

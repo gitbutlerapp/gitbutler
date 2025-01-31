@@ -5,6 +5,10 @@ edition = "2021"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
+[features]
+# Set when building in test-mode to enable features that help with generating repeatable tests.
+testing = []
+
 [dependencies]
 git2.workspace = true
 gix.workspace = true

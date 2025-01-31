@@ -665,12 +665,15 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-core",
+ "but-hunk-dependency",
  "but-workspace",
  "clap",
  "gitbutler-command-context",
+ "gitbutler-commit",
  "gitbutler-project",
  "gitbutler-settings",
  "gix",
+ "itertools 0.14.0",
  "tracing",
  "tracing-forest",
  "tracing-subscriber",
@@ -694,6 +697,27 @@ dependencies = [
 [[package]]
 name = "but-debugging"
 version = "0.0.0"
+
+[[package]]
+name = "but-hunk-dependency"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-core",
+ "but-workspace",
+ "git2",
+ "gitbutler-command-context",
+ "gitbutler-oxidize",
+ "gitbutler-repo",
+ "gitbutler-serde",
+ "gitbutler-stack",
+ "gitbutler-testsupport",
+ "gix",
+ "gix-testtools",
+ "insta",
+ "itertools 0.14.0",
+ "serde",
+]
 
 [[package]]
 name = "but-workspace"
@@ -2447,6 +2471,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
+ "gitbutler-commit",
  "gitbutler-diff",
  "gitbutler-oplog",
  "gitbutler-oxidize",
@@ -2899,6 +2924,7 @@ dependencies = [
  "anyhow",
  "backtrace",
  "but-core",
+ "but-hunk-dependency",
  "but-workspace",
  "console-subscriber",
  "git2",
@@ -2914,6 +2940,7 @@ dependencies = [
  "gitbutler-id",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
+ "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
@@ -2923,15 +2950,18 @@ dependencies = [
  "gitbutler-settings",
  "gitbutler-stack",
  "gitbutler-sync",
+ "gitbutler-testsupport",
  "gitbutler-user",
  "gitbutler-watcher",
  "gix",
  "gix-testtools",
  "insta",
+ "itertools 0.14.0",
  "log",
  "open",
  "parking_lot",
  "reqwest",
+ "rustc-hash",
  "serde",
  "serde_json",
  "tauri",
@@ -5330,7 +5360,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -7196,9 +7226,9 @@ checksum = "719b953e2095829ee67db738b3bfa9fa368c94900df327b3f07fe6e794d2fe1f"
 
 [[package]]
 name = "rustc-hash"
-version = "2.0.0"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "583034fd73374156e66797ed8e5b0d5690409c9226b22d87cb7f19821c05d152"
+checksum = "c7fb8039b3032c191086b10f11f319a6e99e1e82889c5cc6046f515c9db1d497"
 
 [[package]]
 name = "rustc_version"
@@ -9565,7 +9595,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

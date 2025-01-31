@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::instrument;
 
+pub(crate) const UNIDIFF_CONTEXT_LINES: u32 = 3;
+
 /// The array of unified diffs matches `changes`, so that `result[n] = unified_diff_of(changes[n])`.
 #[tauri::command(async)]
 #[instrument(skip(projects, change), err(Debug))]
@@ -20,7 +22,9 @@ pub fn tree_change_diffs(
     let change: but_core::TreeChange = change.into();
     let project = projects.get(project_id)?;
     let repo = gix::open(project.path).map_err(anyhow::Error::from)?;
-    change.unified_diff(&repo).map_err(Into::into)
+    change
+        .unified_diff(&repo, UNIDIFF_CONTEXT_LINES)
+        .map_err(Into::into)
 }
 
 #[tauri::command(async)]
