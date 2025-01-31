@@ -384,6 +384,8 @@ type ApiPatchEventBase = {
 	event_type: string;
 	data: unknown;
 	object: unknown;
+	created_at: string;
+	updated_at: string;
 };
 
 function isApiPatchEventBase(data: unknown): data is ApiPatchEventBase {
@@ -405,13 +407,22 @@ export function isApiChatEvent(data: unknown): data is ApiChatEvent {
 	return isApiPatchEventBase(data) && (data as any).event_type === 'chat';
 }
 
-export type ApiPatchUpdateEvent = ApiPatchEventBase & {
-	event_type: 'patch_version' | 'patch_status';
+export type ApiPatchVersionEvent = ApiPatchEventBase & {
+	event_type: 'patch_version';
 	object: ApiPatch;
 };
 
-export function isApiPatchUpdateEvent(data: unknown): data is ApiPatchUpdateEvent {
-	return isApiPatchEventBase(data) && (data as any).event_type !== 'chat';
+export type ApiPatchStatusEvent = ApiPatchEventBase & {
+	event_type: 'patch_status';
+	object: ApiPatch;
+};
+
+export function isApiPatchUpdateEvent(data: unknown): data is ApiPatchVersionEvent {
+	return isApiPatchEventBase(data) && (data as any).event_type === 'patch_version';
+}
+
+export function isApiPatchStatusEvent(data: unknown): data is ApiPatchStatusEvent {
+	return isApiPatchEventBase(data) && (data as any).event_type === 'patch_status';
 }
 
 export type ApiIssueUpdate = {
@@ -439,7 +450,11 @@ export function isApiIssueUpdateEvent(data: unknown): data is ApiIssueUpdateEven
 	return isApiPatchEventBase(data) && (data as any).event_type === 'issue_status';
 }
 
-export type ApiPatchEvent = ApiChatEvent | ApiPatchUpdateEvent | ApiIssueUpdateEvent;
+export type ApiPatchEvent =
+	| ApiChatEvent
+	| ApiPatchVersionEvent
+	| ApiPatchStatusEvent
+	| ApiIssueUpdateEvent;
 
 export function isApiPatchEvent(data: unknown): data is ApiPatchEvent {
 	return isApiChatEvent(data) || isApiPatchUpdateEvent(data) || isApiIssueUpdateEvent(data);
@@ -451,15 +466,22 @@ type PatchEventBase = {
 	eventType: string;
 	data: unknown;
 	object: unknown;
+	createdAt: string;
+	updatedAt: string;
 };
 
 export type ChatEvent = PatchEventBase & {
 	eventType: 'chat';
-	object: ChatMessage | undefined;
+	object: ChatMessage;
 };
 
-export type PatchUpdateEvent = PatchEventBase & {
-	eventType: 'patch_version' | 'patch_status';
+export type PatchVersionEvent = PatchEventBase & {
+	eventType: 'patch_version';
+	object: Patch;
+};
+
+export type PatchStatusEvent = PatchEventBase & {
+	eventType: 'patch_status';
 	object: Patch;
 };
 
@@ -502,26 +524,32 @@ export type IssueUpdateEvent = PatchEventBase & {
 	object: IssueUpdate;
 };
 
-export type PatchEvent = ChatEvent | PatchUpdateEvent | IssueUpdateEvent;
+export type PatchEvent = ChatEvent | PatchVersionEvent | PatchStatusEvent | IssueUpdateEvent;
 
-export function apiToPatchEvent(api: ApiPatchEvent): PatchEvent {
+export function apiToPatchEvent(api: ApiPatchEvent): PatchEvent | undefined {
 	switch (api.event_type) {
 		case 'chat':
+			if (!api.object) return undefined;
 			return {
 				eventType: api.event_type,
 				uuid: api.uuid,
 				user: api.user ? apiToUserSimple(api.user) : undefined,
 				data: api.data,
-				object: api.object ? apiToChatMessage(api.object) : undefined
+				object: apiToChatMessage(api.object),
+				createdAt: api.created_at,
+				updatedAt: api.updated_at
 			};
 		case 'patch_version':
 		case 'patch_status':
+			if (api.event_type === 'patch_version' && api.object.version === 1) return undefined;
 			return {
 				eventType: api.event_type,
 				uuid: api.uuid,
 				user: api.user ? apiToUserSimple(api.user) : undefined,
 				data: api.data,
-				object: apiToPatch(api.object)
+				object: apiToPatch(api.object),
+				createdAt: api.created_at,
+				updatedAt: api.updated_at
 			};
 		case 'issue_status':
 			return {
@@ -529,7 +557,9 @@ export function apiToPatchEvent(api: ApiPatchEvent): PatchEvent {
 				uuid: api.uuid,
 				user: api.user ? apiToUserSimple(api.user) : undefined,
 				data: api.data,
-				object: apiToIssueUpdate(api.object)
+				object: apiToIssueUpdate(api.object),
+				createdAt: api.created_at,
+				updatedAt: api.updated_at
 			};
 	}
 }

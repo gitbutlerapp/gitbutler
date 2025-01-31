@@ -17,11 +17,20 @@ export type TimestampedEvent = {
 	updatedAt: string;
 };
 
+function isSameDay(date1: Date, date2: Date): boolean {
+	return (
+		date1.getFullYear() === date2.getFullYear() &&
+		date1.getMonth() === date2.getMonth() &&
+		date1.getDate() === date2.getDate()
+	);
+}
+
 export function eventTimeStamp(event: TimestampedEvent): string {
 	const creationDate = new Date(event.createdAt);
-	const hoursAgo = Math.round((Date.now() - creationDate.getTime()) / 1000 / 60 / 60);
 
-	if (hoursAgo < 24) {
+	const createdToday = isSameDay(creationDate, new Date());
+
+	if (createdToday) {
 		return (
 			'Today at ' +
 			creationDate.toLocaleTimeString('en-US', {

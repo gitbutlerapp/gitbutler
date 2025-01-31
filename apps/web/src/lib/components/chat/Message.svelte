@@ -1,10 +1,8 @@
 <script lang="ts" module>
-	import type { ChatMessage } from '@gitbutler/shared/chat/types';
-
 	export interface MessageProps {
 		projectId: string;
 		changeId?: string;
-		message: ChatMessage;
+		event: ChatEvent;
 	}
 </script>
 
@@ -14,16 +12,19 @@
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
+	import type { ChatEvent } from '@gitbutler/shared/branches/types';
 
 	const UNKNOWN_AUTHOR = 'Unknown author';
 
-	const { message, projectId, changeId }: MessageProps = $props();
+	const { event, projectId, changeId }: MessageProps = $props();
+
+	const message = $derived(event.object);
 
 	const authorName = $derived(
 		message.user.login ?? message.user.name ?? message.user.email ?? UNKNOWN_AUTHOR
 	);
 
-	const timestamp = $derived(eventTimeStamp(message));
+	const timestamp = $derived(eventTimeStamp(event));
 </script>
 
 <div
@@ -78,7 +79,7 @@
 		gap: 12px;
 
 		background: var(--bg-1, #fff);
-		border-bottom: 1px solid var(--border-2, #d4d0ce);
+		border-bottom: 1px solid var(--clr-border-3, #eae9e8);
 
 		&.open-issue {
 			padding-left: 12px;

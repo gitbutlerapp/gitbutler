@@ -1,21 +1,23 @@
 <script lang="ts">
 	import { eventTimeStamp } from '$lib/chat/utils';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { IssueUpdate } from '@gitbutler/shared/branches/types';
+	import type { IssueUpdateEvent } from '@gitbutler/shared/branches/types';
 
 	const UNKNOWN_AUTHOR = 'Unknown author';
 
 	interface Props {
-		issueUpdate: IssueUpdate;
+		event: IssueUpdateEvent;
 	}
 
-	const { issueUpdate }: Props = $props();
+	const { event }: Props = $props();
+
+	const issueUpdate = $derived(event.object);
 
 	const authorName = $derived(
 		issueUpdate.user?.login ?? issueUpdate.user?.name ?? issueUpdate.user?.email ?? UNKNOWN_AUTHOR
 	);
 
-	const timestamp = $derived(eventTimeStamp(issueUpdate));
+	const timestamp = $derived(eventTimeStamp(event));
 </script>
 
 <div class="issue-update">
@@ -46,6 +48,7 @@
 		gap: 12px;
 
 		border-left: 4px solid var(--theme-succ-element, #4ab582);
+		border-bottom: 1px solid var(--clr-border-3, #eae9e8);
 	}
 
 	.issue-update__header {
