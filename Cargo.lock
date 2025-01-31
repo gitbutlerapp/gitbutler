@@ -2975,6 +2975,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tauri-plugin-single-instance",
  "tauri-plugin-store",
+ "tauri-plugin-traffic-lights",
  "tauri-plugin-updater",
  "tauri-plugin-window-state",
  "tokio",
@@ -8429,6 +8430,16 @@ dependencies = [
  "thiserror 2.0.9",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "tauri-plugin-traffic-lights"
+version = "1.0.0"
+dependencies = [
+ "cocoa",
+ "objc",
+ "rand 0.8.5",
+ "tauri",
 ]
 
 [[package]]

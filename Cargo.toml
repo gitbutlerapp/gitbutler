@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/gitbutler-*", "crates/but-*"]
+members = ["crates/gitbutler-*", "crates/but-*", "crates/tauri-plugin-*"]
 resolver = "2"
 
 [workspace.dependencies]
