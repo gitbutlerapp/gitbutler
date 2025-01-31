@@ -22,7 +22,7 @@
 	const project = getContext(Project);
 	const user = getContextStore(User);
 
-	let contextTriggerButton = $state<HTMLDivElement>();
+	let contextTriggerButton = $state<HTMLButtonElement | undefined>();
 	let contextMenuEl = $state<ContextMenu>();
 	let shareIssueModal = $state<ShareIssueModal>();
 	let keyboardShortcutsModal = $state<KeyboardShortcutsModal>();
@@ -186,8 +186,9 @@
 				onclick={() => {
 					contextMenuEl?.toggle();
 				}}
+				bind:el={contextTriggerButton}
 			>
-				<div class="user-button" bind:this={contextTriggerButton}>
+				<div class="user-button">
 					<div class="user-icon">
 						{#if $user?.picture}
 							<img
@@ -200,7 +201,11 @@
 							<Icon name="profile" />
 						{/if}
 					</div>
-					<svg
+					<!-- TODO: Replace with the select-chevron icon -->
+					<div class="user-button__select-icon">
+						<Icon name="select-chevron" />
+					</div>
+					<!-- <svg
 						width="16"
 						height="16"
 						viewBox="0 0 16 16"
@@ -216,7 +221,7 @@
 							d="M2 6L7.55279 3.22361C7.83431 3.08284 8.16569 3.08284 8.44721 3.22361L14 6"
 							stroke-width="1.5"
 						/>
-					</svg>
+					</svg> -->
 				</div></Button
 			>
 		</div>
@@ -371,9 +376,11 @@
 	}
 
 	.user-button__select-icon {
-		stroke: var(--label-clr);
+		color: var(--label-clr);
 		opacity: var(--icon-opacity);
-		transition: opacity var(--transition-fast);
+		transition:
+			opacity var(--transition-fast),
+			color var(--transition-fast);
 	}
 
 	/*  */

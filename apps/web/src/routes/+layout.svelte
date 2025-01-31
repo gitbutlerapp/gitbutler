@@ -103,15 +103,23 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 100vh;
-		max-width: 1280px;
+		max-width: 1440px;
+		padding: 24px 80px;
 		margin: 0 auto;
+
+		@media (max-width: 1020px) {
+			padding: 24px 40px;
+		}
+
+		@media (max-width: 800px) {
+			padding: 16px;
+		}
 	}
 
 	main {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		padding: 20px;
 		margin: 0 auto;
 		width: 100%;
 	}

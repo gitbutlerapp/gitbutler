@@ -22,19 +22,16 @@
 
 	let projectSwitcher = $state<ContextMenu>();
 	let leftClickTrigger = $state<HTMLElement>();
+	let isContextMenuOpen = $state(false);
 
 	const allProjects = $derived(
 		projectSwitcher?.isOpen() && $user?.login
 			? getAllUserRelatedProjects(appState, projectService, organizationService, $user.login)
 			: undefined
 	);
-
-	function openProjectSwitcher() {
-		projectSwitcher?.open();
-	}
 </script>
 
-<div class="flow">
+<div class="actions">
 	{#if routes.isProjectReviewBranchCommitPageSubset}
 		<Button
 			kind="ghost"
@@ -57,7 +54,12 @@
 		>
 	{:else}
 		<div bind:this={leftClickTrigger}>
-			<Button kind="ghost" icon="select-chevron" onclick={openProjectSwitcher}>
+			<Button
+				kind="ghost"
+				icon="select-chevron"
+				onclick={() => projectSwitcher?.toggle()}
+				activated={isContextMenuOpen}
+			>
 				{#if routes.isProjectPageSubset && routes.isProjectPageSubset}
 					{routes.isProjectPageSubset.ownerSlug}/{routes.isProjectPageSubset.projectSlug}
 				{:else}
@@ -67,12 +69,20 @@
 		</div>
 
 		{#if routes.isProjectReviewPageSubset}
-			<p class="text-12 text-semibold grey">/ Branches and Stacks</p>
+			<div class="text-12 text-semibold current-page-data">
+				<span>/</span>
+				<span>Branches and Stacks</span>
+			</div>
 		{/if}
 	{/if}
 </div>
 
-<ContextMenu {leftClickTrigger} bind:this={projectSwitcher}>
+<ContextMenu
+	{leftClickTrigger}
+	bind:this={projectSwitcher}
+	horizontalAlign="left"
+	ontoggle={(isOpen) => (isContextMenuOpen = isOpen)}
+>
 	<ContextMenuSection>
 		{#each allProjects?.current || [] as project}
 			<Loading loadable={project}>
@@ -91,7 +101,7 @@
 </ContextMenu>
 
 <style lang="postcss">
-	.flow {
+	.actions {
 		display: flex;
 		gap: 8px;
 		flex-wrap: wrap;
@@ -99,7 +109,13 @@
 		align-items: center;
 	}
 
-	.grey {
+	.current-page-data {
+		display: flex;
+		gap: 10px;
 		color: var(--clr-text-2);
+
+		@media (max-width: 800px) {
+			display: none;
+		}
 	}
 </style>

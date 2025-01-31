@@ -10,6 +10,7 @@
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import NotificationButton from '@gitbutler/ui/NotificationButton.svelte';
 	import { goto } from '$app/navigation';
 
 	const routes = getContext(DesktopRoutesService);
@@ -29,6 +30,8 @@
 
 	let newProjectLoading = $state(false);
 	let cloneProjectLoading = $state(false);
+
+	let isNotificationsUnread = $state(false);
 </script>
 
 <div class="header">
@@ -98,7 +101,14 @@
 		</Select>
 	</div>
 	<div class="right">
-		<Button kind="ghost" icon="bell" />
+		<NotificationButton
+			hasUnread={isNotificationsUnread}
+			onclick={() => {
+				// TODO: implement notifications
+				console.log('Example of the button animation');
+				isNotificationsUnread = !isNotificationsUnread;
+			}}
+		/>
 	</div>
 </div>
 
