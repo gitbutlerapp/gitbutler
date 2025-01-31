@@ -1,11 +1,15 @@
 import { apiToChatMessage, type ApiChatMessage, type ChatMessage } from '$lib/chat/types';
 import { apiToPermissions, type ApiPermissions, type Permissions } from '$lib/permissions';
 import {
+	apiToUserMaybe,
 	apiToUserSimple,
 	isApiUserSimple,
+	type ApiUserMaybe,
 	type ApiUserSimple,
+	type UserMaybe,
 	type UserSimple
 } from '$lib/users/types';
+import { filterWithRest } from '$lib/utils/array';
 import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 import type { LoadableData } from '$lib/network/types';
 import type { BrandedId } from '$lib/utils/branding';
@@ -171,7 +175,7 @@ export type ApiPatch = {
 	description?: string;
 	position?: number;
 	version?: number;
-	contributors: string[];
+	contributors: ApiUserMaybe[];
 	statistics: ApiPatchStatistics;
 	review: ApiPatchReview;
 	review_all: ApiPatchReview;
@@ -188,7 +192,7 @@ export type Patch = {
 	description?: string;
 	position?: number;
 	version?: number;
-	contributors: string[];
+	contributors: UserMaybe[];
 	statistics: PatchStatistics;
 	review: PatchReview;
 	reviewAll: PatchReview;
@@ -237,8 +241,24 @@ export async function getUsersWithAvatars(commenters: Commenter[]) {
 	);
 }
 
+async function getAvatarsForContributors(contributors: UserMaybe[]) {
+	const [userContributors, emailContributors] = filterWithRest(
+		contributors,
+		(contributor) => !!contributor.user
+	);
+
+	return await Promise.all([
+		getUsersWithAvatars(userContributors.map((contributor) => contributor.user!)),
+		getUsersWithAvatarsFromMails(emailContributors.map((contributor) => contributor.email))
+	]).then((result) => result.flat());
+}
+
+export async function getContributorsWithAvatars(branch: Branch) {
+	return await getAvatarsForContributors(branch.contributors);
+}
+
 export async function getPatchContributorsWithAvatars(patch: Patch) {
-	return await getUsersWithAvatarsFromMails(patch.contributors);
+	return await getAvatarsForContributors(patch.contributors);
 }
 
 export async function getPatchApproversWithAvatars(patch: Patch) {
@@ -267,7 +287,7 @@ export function apiToPatch(api: ApiPatch): Patch {
 		description: api.description,
 		position: api.position,
 		version: api.version,
-		contributors: api.contributors,
+		contributors: api.contributors.map(apiToUserMaybe),
 		statistics: apiToPatchStatistics(api.statistics),
 		review: apiToPatchReview(api.review),
 		reviewAll: apiToPatchReview(api.review_all),
@@ -297,7 +317,7 @@ export type ApiBranch = {
 	created_at: string;
 	updated_at: string;
 	stack_size?: number;
-	contributors: string[];
+	contributors: ApiUserMaybe[];
 	patches: ApiPatch[];
 	repository_id: string;
 	branch_stack_id?: string;
@@ -317,7 +337,7 @@ export type Branch = {
 	createdAt: string;
 	updatedAt: string;
 	stackSize?: number;
-	contributors: string[];
+	contributors: UserMaybe[];
 	patchIds: string[];
 	patches: Patch[];
 	repositoryId: string;
@@ -340,7 +360,7 @@ export function apiToBranch(api: ApiBranch): Branch {
 		createdAt: api.created_at,
 		updatedAt: api.updated_at,
 		stackSize: api.stack_size,
-		contributors: api.contributors,
+		contributors: api.contributors.map(apiToUserMaybe),
 		patchIds: api.patches.map((patch) => patch.change_id),
 		patches: api.patches.map(apiToPatch),
 		repositoryId: api.repository_id,

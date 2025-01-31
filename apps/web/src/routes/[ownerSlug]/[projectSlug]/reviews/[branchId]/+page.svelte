@@ -4,12 +4,10 @@
 	import BranchStatusBadge from '$lib/components/review/BranchStatusBadge.svelte';
 	import CommitsGraph from '$lib/components/review/CommitsGraph.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
-	import {
-		getBranchReview,
-		getContributorsWithAvatars
-	} from '@gitbutler/shared/branches/branchesPreview.svelte';
+	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
+	import { getContributorsWithAvatars, type Branch } from '@gitbutler/shared/branches/types';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
@@ -27,7 +25,6 @@
 	import toasts from '@gitbutler/ui/toasts';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
-	import type { Branch } from '@gitbutler/shared/branches/types';
 	import { goto } from '$app/navigation';
 	import { PUBLIC_APP_HOST } from '$env/static/public';
 

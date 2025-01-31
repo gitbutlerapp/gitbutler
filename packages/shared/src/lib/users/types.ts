@@ -38,6 +38,23 @@ export function apiToUserSimple(api: ApiUserSimple): UserSimple {
 	};
 }
 
+export type ApiUserMaybe = {
+	email: string;
+	user: ApiUserSimple | null;
+};
+
+export type UserMaybe = {
+	email: string;
+	user: UserSimple | undefined;
+};
+
+export function apiToUserMaybe(api: ApiUserMaybe): UserMaybe {
+	return {
+		email: api.email,
+		user: api.user ? apiToUserSimple(api.user) : undefined
+	};
+}
+
 export type ApiUser = ApiUserSimple & {
 	given_name?: string;
 	family_name?: string;

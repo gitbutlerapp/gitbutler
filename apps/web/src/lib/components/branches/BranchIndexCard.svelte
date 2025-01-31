@@ -2,11 +2,8 @@
 	import BranchStatusBadge from '../review/BranchStatusBadge.svelte';
 	import CommitsGraph from '../review/CommitsGraph.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
-	import {
-		getBranchReview,
-		getContributorsWithAvatars
-	} from '@gitbutler/shared/branches/branchesPreview.svelte';
-	import { BranchStatus } from '@gitbutler/shared/branches/types';
+	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
+	import { BranchStatus, getContributorsWithAvatars } from '@gitbutler/shared/branches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';

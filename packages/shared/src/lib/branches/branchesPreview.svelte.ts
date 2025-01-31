@@ -3,7 +3,6 @@ import { branchesSelectors } from '$lib/branches/branchesSlice';
 import { BranchStatus, toCombineSlug, type Branch, type LoadableBranch } from '$lib/branches/types';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { isFound } from '$lib/network/loadable';
-import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 import type { BranchService } from '$lib/branches/branchService';
 import type { Loadable } from '$lib/network/types';
 import type { AppBranchesState, AppBranchReviewListingsState } from '$lib/redux/store.svelte';
@@ -78,15 +77,4 @@ export function getBranchReview(
 			return branchReview;
 		}
 	};
-}
-
-export async function getContributorsWithAvatars(branch: Branch) {
-	return await Promise.all(
-		branch.contributors.map(async (contributor) => {
-			return {
-				srcUrl: await gravatarUrlFromEmail(contributor),
-				name: contributor
-			};
-		})
-	);
 }
