@@ -3,7 +3,8 @@ import {
 	type ApiPatchEvent,
 	apiToPatchEvent,
 	createPatchEventChannelKey,
-	type LoadablePatchEventChannel
+	type LoadablePatchEventChannel,
+	type PatchEvent
 } from '$lib/branches/types';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
@@ -35,7 +36,7 @@ export class PatchEventsService {
 					// the newest events are at the bottom
 					apiPatchEvents.reverse();
 
-					const events = apiPatchEvents.map(apiToPatchEvent);
+					const events = apiPatchEvents.map(apiToPatchEvent).filter((e): e is PatchEvent => !!e);
 					const patchEventChannel: LoadablePatchEventChannel = {
 						status: 'found',
 						id: patchEventChannelKey,
