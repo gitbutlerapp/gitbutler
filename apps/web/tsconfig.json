@@ -25,6 +25,7 @@
 		"vite.config.js",
 		"vite.config.ts",
 		"playwright.config.ts",
+		"postcss.config.js",
 		"src/**/*.js",
 		"src/**/*.ts",
 		"src/**/*.svelte",

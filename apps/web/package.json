@@ -13,6 +13,7 @@
 		"test:e2e:web": "playwright test"
 	},
 	"devDependencies": {
+		"@csstools/postcss-global-data": "^3.0.0",
 		"@fontsource/fira-mono": "^4.5.10",
 		"@gitbutler/shared": "workspace:*",
 		"@gitbutler/ui": "workspace:*",
@@ -23,12 +24,21 @@
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
 		"@types/node": "^22.3.0",
+		"@types/postcss-pxtorem": "^6.0.3",
 		"@types/rails__actioncable": "^6.1.11",
 		"@types/diff-match-patch": "^1.0.36",
+		"autoprefixer": "^10.4.19",
 		"diff-match-patch": "^1.0.5",
+		"path": "^0.12.7",
+		"postcss": "^8.4.38",
+		"postcss-custom-media": "^11.0.5",
+		"postcss-load-config": "^5.1.0",
+		"postcss-nesting": "^12.1.5",
+		"postcss-pxtorem": "^6.1.0",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
 		"svelte-french-toast": "^1.2.0",
+		"svelte-preprocess": "^6.0.3",
 		"vite": "catalog:"
 	},
 	"dependencies": {
