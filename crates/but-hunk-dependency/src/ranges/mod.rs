@@ -16,7 +16,6 @@ use paths::PathRanges;
 #[derive(Debug)]
 pub struct WorkspaceRanges {
     paths: HashMap<BString, Vec<HunkRange>>,
-    stacks: Vec<StackRanges>,
     /// Errors that occurred while computing the fields in this instance.
     pub errors: Vec<CalculationError>,
 }
@@ -35,7 +34,6 @@ pub struct CalculationError {
 
 #[derive(Debug, Default)]
 struct StackRanges {
-    stack_id: StackId,
     paths: HashMap<BString, PathRanges>,
 }
 
@@ -65,19 +63,6 @@ impl StackRanges {
             .map(|path| path.to_owned())
             .collect::<HashSet<BString>>()
     }
-
-    /// Merge all the commit dependencies for each path into a single, global commit dependency map
-    pub fn get_commit_dependencies(&self) -> HashMap<gix::ObjectId, HashSet<gix::ObjectId>> {
-        self.paths
-            .values()
-            .flat_map(|path_ranges| path_ranges.commit_dependencies.iter())
-            .fold(HashMap::new(), |mut acc, (commit_id, dependencies)| {
-                acc.entry(*commit_id)
-                    .and_modify(|existing_dependencies| existing_dependencies.extend(dependencies))
-                    .or_insert(dependencies.clone());
-                acc
-            })
-    }
 }
 
 /// Provides blame-like functionality for looking up what commit(s) have touched a specific line
@@ -97,7 +82,6 @@ impl WorkspaceRanges {
         let mut errors = vec![];
         for input_stack in input_stacks {
             let mut stack_ranges = StackRanges {
-                stack_id: input_stack.stack_id,
                 ..Default::default()
             };
             let InputStack {
@@ -138,7 +122,6 @@ impl WorkspaceRanges {
                 .iter()
                 .map(|path| (path.clone(), combine_path_ranges(path, &stacks)))
                 .collect(),
-            stacks,
             errors,
         })
     }
@@ -160,24 +143,6 @@ impl WorkspaceRanges {
     /// Return a reference to the internal mapping that is used for [`Self::intersection()`]
     pub fn ranges_by_path_map(&self) -> &HashMap<BString, Vec<HunkRange>> {
         &self.paths
-    }
-
-    /// Calculate inverse dependencies - it's really for the frontend-UI, but has tests here.
-    // TODO: only for `UI` - but depends on stack-ranges which is still private.
-    #[allow(clippy::type_complexity)]
-    pub fn commit_dependencies_and_inverse_commit_dependencies(
-        &self,
-    ) -> (
-        HashMap<StackId, HashMap<gix::ObjectId, HashSet<gix::ObjectId>>>,
-        HashMap<StackId, HashMap<gix::ObjectId, HashSet<gix::ObjectId>>>,
-    ) {
-        let commit_dependencies = self
-            .stacks
-            .iter()
-            .map(|stack| (stack.stack_id, stack.get_commit_dependencies()))
-            .collect();
-        let inverse_commit_dependencies = get_inverted_dependency_maps(&commit_dependencies);
-        (commit_dependencies, inverse_commit_dependencies)
     }
 }
 
@@ -246,29 +211,6 @@ fn combine_path_ranges(path: &BString, stacks: &[StackRanges]) -> Vec<HunkRange>
         }
     }
     result
-}
-
-fn get_inverted_dependency_maps(
-    commit_dependencies: &HashMap<StackId, HashMap<gix::ObjectId, HashSet<gix::ObjectId>>>,
-) -> HashMap<StackId, HashMap<gix::ObjectId, HashSet<gix::ObjectId>>> {
-    commit_dependencies
-        .iter()
-        .map(|(stack_id, dependencies)| {
-            (
-                *stack_id,
-                dependencies
-                    .iter()
-                    .flat_map(|(key, values)| values.iter().map(move |value| (value, key)))
-                    .fold(
-                        HashMap::new(),
-                        |mut acc: HashMap<gix::ObjectId, HashSet<gix::ObjectId>>, (value, key)| {
-                            acc.entry(*value).or_default().insert(*key);
-                            acc
-                        },
-                    ),
-            )
-        })
-        .collect()
 }
 
 #[cfg(test)]

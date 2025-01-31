@@ -9,7 +9,6 @@ use gitbutler_settings::AppSettingsWithDiskSync;
 use gitbutler_stack::StackId;
 use gix::bstr::ByteSlice;
 use serde::Serialize;
-use std::collections::{HashMap, HashSet};
 use std::hash::Hasher;
 use std::path::Path;
 use tauri::State;
@@ -101,22 +100,6 @@ pub struct HunkDependencies {
     //       on the patch lines without any context lines, while it has context lines.
     //       Hash must then skip the context lines if there are any.
     pub diffs: Vec<(HunkHash, Vec<HunkLock>)>,
-    /// A map from stack id to commit dependencies.
-    /// Commit dependencies map commit id to commits it depends on.
-    // TODO: have to use strings as keys for serialization (`gix::ObjectId`)
-    #[serde(skip)]
-    pub commit_dependencies: HashMap<StackId, HashMap<gix::ObjectId, HashSet<gix::ObjectId>>>,
-    /// A map from stack id to inverse commit dependencies.
-    /// Inverse commit dependencies map commit id to commits that depend on it.
-    // TODO: have to use strings as keys for serialization (`gix::ObjectId`)
-    #[serde(skip)]
-    pub inverse_commit_dependencies:
-        HashMap<StackId, HashMap<gix::ObjectId, HashSet<gix::ObjectId>>>,
-    /// A map from stack id to dependent commit dependent diffs.
-    /// Commit dependent diffs map commit id to diffs that depend on it.
-    // TODO: have to use strings as keys for serialization (`gix::ObjectId`)
-    #[serde(skip)]
-    pub commit_dependent_diffs: HashMap<StackId, HashMap<gix::ObjectId, HashSet<HunkHash>>>,
     /// Errors that occurred during the calculation that should be presented in some way.
     // TODO: Does the UI really use whatever partial result that there may be? Should this be a real error?
     pub errors: Vec<but_hunk_dependency::CalculationError>,
@@ -151,29 +134,9 @@ impl HunkDependencies {
             }
         }
 
-        let mut commit_dependent_diffs =
-            HashMap::<StackId, HashMap<gix::ObjectId, HashSet<HunkHash>>>::new();
-        for (hash, locks) in &diffs {
-            for lock in locks {
-                commit_dependent_diffs
-                    .entry(lock.stack_id)
-                    .or_default()
-                    .entry(lock.commit_id)
-                    .or_default()
-                    .insert(*hash);
-            }
-        }
-
-        let (commit_dependencies, inverse_commit_dependencies) =
-            ranges.commit_dependencies_and_inverse_commit_dependencies();
-        let errors = ranges.errors;
-
         Ok(HunkDependencies {
             diffs,
-            commit_dependencies,
-            inverse_commit_dependencies,
-            commit_dependent_diffs,
-            errors,
+            errors: ranges.errors,
         })
     }
 }
