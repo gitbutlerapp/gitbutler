@@ -76,7 +76,7 @@
 	let dropDownButton = $state<ReturnType<typeof DropDownButton>>();
 
 	async function approve() {
-		await patchService.updatePatch(branchUuid, changeId, { signOff: true });
+		await patchService.updatePatch(branchUuid, changeId, { signOff: true, message });
 	}
 
 	async function requestChanges() {
@@ -90,7 +90,6 @@
 			switch (action) {
 				case 'approve':
 					await approve();
-					await handleSendMessage();
 					break;
 				case 'requestChanges':
 					await requestChanges();

@@ -413,7 +413,7 @@ export type ApiPatchVersionEvent = ApiPatchEventBase & {
 };
 
 export type ApiPatchStatusEvent = ApiPatchEventBase & {
-	data: { status: boolean };
+	data: { status: boolean; message: string | null };
 	event_type: 'patch_status';
 	object: ApiPatch;
 };
@@ -482,10 +482,17 @@ export type PatchVersionEvent = PatchEventBase & {
 };
 
 export type PatchStatusEvent = PatchEventBase & {
-	data: { status: boolean };
+	data: { status: boolean; message: string | undefined };
 	eventType: 'patch_status';
 	object: Patch;
 };
+
+export function apiToPatchStatusData(api: ApiPatchStatusEvent['data']): PatchStatusEvent['data'] {
+	return {
+		status: api.status,
+		message: api.message ?? undefined
+	};
+}
 
 export type IssueUpdate = {
 	uuid: string;
@@ -560,7 +567,7 @@ export function apiToPatchEvent(api: ApiPatchEvent): PatchEvent | undefined {
 				eventType: api.event_type,
 				uuid: api.uuid,
 				user: api.user ? apiToUserSimple(api.user) : undefined,
-				data: api.data,
+				data: apiToPatchStatusData(api.data),
 				object: apiToPatch(api.object),
 				createdAt: api.created_at,
 				updatedAt: api.updated_at
