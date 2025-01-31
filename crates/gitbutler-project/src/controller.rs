@@ -201,7 +201,9 @@ impl Controller {
             .map_err(anyhow::Error::from)?;
 
         if let Err(error) = std::fs::remove_dir_all(self.project_metadata_dir(project.id)) {
-            tracing::error!(project_id = %id, ?error, "failed to remove project data",);
+            if error.kind() != std::io::ErrorKind::NotFound {
+                tracing::error!(project_id = %id, ?error, "failed to remove project data",);
+            }
         }
 
         if project.gb_dir().exists() {
