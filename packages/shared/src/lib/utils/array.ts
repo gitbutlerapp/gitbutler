@@ -16,3 +16,18 @@ export function deduplicateBy<T, K extends keyof T>(array: T[], key: K): T[] {
 
 	return result;
 }
+
+export function filterWithRest<T>(array: T[], predicate: (item: T) => boolean): [T[], T[]] {
+	const rest: T[] = [];
+	const filtered: T[] = [];
+
+	for (const item of array) {
+		if (predicate(item)) {
+			filtered.push(item);
+			continue;
+		}
+		rest.push(item);
+	}
+
+	return [filtered, rest];
+}
