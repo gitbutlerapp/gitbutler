@@ -9,7 +9,7 @@ const mediaQueriesCssPath = path.resolve('src/lib/styles/media-queries.css');
 
 export default {
 	plugins: [
-		autoprefixer,
+		autoprefixer(),
 		pxToRem({
 			rootValue: 16,
 			unitPrecision: 5,

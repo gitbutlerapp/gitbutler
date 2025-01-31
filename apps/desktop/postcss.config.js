@@ -4,8 +4,7 @@ import pxToRem from 'postcss-pxtorem';
 
 export default {
 	plugins: [
-		//But others, like autoprefixer, need to run after,
-		autoprefixer,
+		autoprefixer(),
 		pxToRem({
 			rootValue: 16,
 			unitPrecision: 5,
