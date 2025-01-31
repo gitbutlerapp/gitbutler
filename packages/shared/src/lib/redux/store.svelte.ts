@@ -1,6 +1,7 @@
 import { branchReviewListingsReducer } from '$lib/branches/branchReviewListingsSlice';
 import { branchesReducer } from '$lib/branches/branchesSlice';
 import { latestBranchLookupsReducer } from '$lib/branches/latestBranchLookupSlice';
+import { patchEventsReducer } from '$lib/branches/patchEventsSlice';
 import { patchSectionsReducer } from '$lib/branches/patchSectionsSlice';
 import { patchesReducer } from '$lib/branches/patchesSlice';
 import { chatChannelsReducer } from '$lib/chat/chatChannelsSlice';
@@ -45,6 +46,10 @@ export interface AppPatchesState {
 	readonly patches: ReturnType<typeof patchesReducer>;
 }
 
+export interface AppPatchEventsState {
+	readonly patchEvents: ReturnType<typeof patchEventsReducer>;
+}
+
 export interface AppBranchesState {
 	readonly branches: ReturnType<typeof branchesReducer>;
 }
@@ -82,6 +87,7 @@ export class AppState
 		AppUsersState,
 		AppProjectsState,
 		AppPatchesState,
+		AppPatchEventsState,
 		AppBranchesState,
 		AppPatchSectionsState,
 		AppChatChannelsState,
@@ -104,6 +110,7 @@ export class AppState
 			users: usersReducer,
 			projects: projectsReducer,
 			patches: patchesReducer,
+			patchEvents: patchEventsReducer,
 			branches: branchesReducer,
 			patchSections: patchSectionsReducer,
 			chatChannels: chatChannelsReducer,
@@ -143,6 +150,10 @@ export class AppState
 		[this.selectSelf],
 		(rootState) => rootState.patches
 	);
+	private readonly selectPatchEvents = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.patchEvents
+	);
 	private readonly selectBranches = createSelector(
 		[this.selectSelf],
 		(rootState) => rootState.branches
@@ -175,6 +186,7 @@ export class AppState
 	readonly users = $derived(this.selectUsers(this.rootState));
 	readonly projects = $derived(this.selectProjects(this.rootState));
 	readonly patches = $derived(this.selectPatches(this.rootState));
+	readonly patchEvents = $derived(this.selectPatchEvents(this.rootState));
 	readonly branches = $derived(this.selectBranches(this.rootState));
 	readonly patchSections = $derived(this.selectPatchSections(this.rootState));
 	readonly chatChannels = $derived(this.selectChatChannels(this.rootState));

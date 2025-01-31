@@ -1,6 +1,4 @@
 <script lang="ts" module>
-	import { messageTimeStamp } from '$lib/chat/utils';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { ChatMessage } from '@gitbutler/shared/chat/types';
 
 	export interface MessageProps {
@@ -12,7 +10,9 @@
 
 <script lang="ts">
 	import MessageActions from './MessageActions.svelte';
+	import { eventTimeStamp } from '$lib/chat/utils';
 	import Badge from '@gitbutler/ui/Badge.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 
 	const UNKNOWN_AUTHOR = 'Unknown author';
@@ -23,7 +23,7 @@
 		message.user.login ?? message.user.name ?? message.user.email ?? UNKNOWN_AUTHOR
 	);
 
-	const timestamp = $derived(messageTimeStamp(message));
+	const timestamp = $derived(eventTimeStamp(message));
 </script>
 
 <div

@@ -2,14 +2,14 @@
 	import { AuthService } from '$lib/auth/authService';
 	import { subscribeToChatChannel } from '$lib/chat/subscribe';
 	import ChatInput from '$lib/components/chat/ChatInput.svelte';
-	import Message from '$lib/components/chat/Message.svelte';
+	import Event from '$lib/components/chat/Event.svelte';
 	import blankChat from '$lib/images/blank-chat.svg?raw';
-	import { getChatChannel } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
-	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
+	import { PatchEventsService } from '@gitbutler/shared/branches/patchEventsService';
+	import { getPatchEvents } from '@gitbutler/shared/branches/patchesPreview.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import type { SubscriptionEvent } from '$lib/chat/utils';
+	import type { ApiPatchEvent } from '@gitbutler/shared/branches/types';
 
 	interface Props {
 		branchUuid: string;
@@ -23,9 +23,9 @@
 	const authService = getContext(AuthService);
 	const token = $derived(authService.token);
 	const appState = getContext(AppState);
-	const chatChannelService = getContext(ChatChannelsService);
-	const chatChannel = $derived(getChatChannel(appState, chatChannelService, projectId, changeId));
+	const patchEventsService = getContext(PatchEventsService);
 
+	const patchEvents = $derived(getPatchEvents(appState, patchEventsService, projectId, changeId));
 	let chatMessagesContainer = $state<HTMLDivElement>();
 
 	const seenEventIds = new Set<string>();
@@ -36,13 +36,11 @@
 		}
 	}
 
-	async function onEvent(event: SubscriptionEvent) {
+	async function onEvent(event: ApiPatchEvent) {
 		if (seenEventIds.has(event.uuid)) return;
 		seenEventIds.add(event.uuid);
-		if (event.event_type === 'chat') {
-			await chatChannelService.refetchChatChannel(projectId, changeId);
-			scrollToBottom();
-		}
+		await patchEventsService.refreshPatchEvents(projectId, changeId);
+		scrollToBottom();
 	}
 
 	$effect(() => {
@@ -62,31 +60,29 @@
 
 <div class="chat-card">
 	<div class="chat-messages" bind:this={chatMessagesContainer}>
-		{#if chatChannel}
-			<Loading loadable={chatChannel.current}>
-				{#snippet children(channel)}
-					{#if channel.messages.length > 0}
-						{#each channel.messages as message}
-							<Message {projectId} {changeId} {message} />
-						{/each}
-					{:else}
-						<div class="blank-state">
-							<div class="blank-state-content">
-								{@html blankChat}
-								<div class="blank-message">
-									<div class="blank-message-title">Give some feedback!</div>
-									<p class="blank-message-text">
-										If you're here, you must be important. This patch can use your help. Leave a
-										comment or ask a question. Does this look right to you? How can it be improved?
-										Is it perfect? Just let us know!
-									</p>
-								</div>
+		<Loading loadable={patchEvents.current}>
+			{#snippet children(patchEvents)}
+				{#if patchEvents.events.length > 0}
+					{#each patchEvents.events as event}
+						<Event {projectId} {changeId} {event} />
+					{/each}
+				{:else}
+					<div class="blank-state">
+						<div class="blank-state-content">
+							{@html blankChat}
+							<div class="blank-message">
+								<div class="blank-message-title">Give some feedback!</div>
+								<p class="blank-message-text">
+									If you're here, you must be important. This patch can use your help. Leave a
+									comment or ask a question. Does this look right to you? How can it be improved? Is
+									it perfect? Just let us know!
+								</p>
 							</div>
 						</div>
-					{/if}
-				{/snippet}
-			</Loading>
-		{/if}
+					</div>
+				{/if}
+			{/snippet}
+		</Loading>
 	</div>
 	<ChatInput {branchUuid} {projectId} {branchId} {changeId} />
 </div>

@@ -8,6 +8,18 @@ export type ApiUserSimple = {
 	name: string | null;
 };
 
+export function isApiUserSimple(data: unknown): data is ApiUserSimple {
+	return (
+		typeof data === 'object' &&
+		data !== null &&
+		typeof (data as any).id === 'number' &&
+		(typeof (data as any).avatar_url === 'string' || (data as any).avatar_url === null) &&
+		(typeof (data as any).email === 'string' || (data as any).email === null) &&
+		(typeof (data as any).login === 'string' || (data as any).login === null) &&
+		(typeof (data as any).name === 'string' || (data as any).name === null)
+	);
+}
+
 export type UserSimple = {
 	id: number;
 	avatarUrl: string | undefined;
