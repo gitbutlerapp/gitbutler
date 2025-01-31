@@ -187,7 +187,7 @@
 	</ContextMenuSection>
 </ContextMenu>
 
-<style>
+<style lang="postcss">
 	.navigation {
 		display: flex;
 		justify-content: space-between;
@@ -210,7 +210,7 @@
 		align-items: center;
 		gap: 20px;
 
-		@media (max-width: 800px) {
+		@media (--tablet-viewport) {
 			gap: 10px;
 		}
 	}
@@ -218,7 +218,7 @@
 	.other-nav-link {
 		color: var(--clr-text-2);
 
-		@media (max-width: 800px) {
+		@media (--tablet-viewport) {
 			display: none;
 		}
 	}
@@ -255,7 +255,7 @@
 	:global(.navigation .hidden-on-desktop) {
 		display: none;
 
-		@media (max-width: 800px) {
+		@media (--mobile-viewport) {
 			display: block;
 		}
 	}
