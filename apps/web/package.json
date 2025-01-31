@@ -16,7 +16,6 @@
 		"@csstools/postcss-global-data": "^3.0.0",
 		"@gitbutler/shared": "workspace:*",
 		"@gitbutler/ui": "workspace:*",
-		"@neoconfetti/svelte": "^1.0.0",
 		"@playwright/test": "1.47.0",
 		"@reduxjs/toolkit": "catalog:redux",
 		"@sveltejs/adapter-auto": "^3.0.0",
