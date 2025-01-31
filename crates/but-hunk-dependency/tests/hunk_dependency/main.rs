@@ -3,6 +3,8 @@ mod query_workspace_ranges;
 /// Turn real workspaces into dependency queries.
 mod workspace_dependencies;
 
+mod ui;
+
 fn intersect_workspace_ranges(
     repo: &gix::Repository,
     ranges: but_hunk_dependency::WorkspaceRanges,

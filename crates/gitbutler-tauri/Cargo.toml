@@ -73,19 +73,15 @@ gitbutler-sync.workspace = true
 gitbutler-forge.workspace = true
 gitbutler-settings.workspace = true
 gitbutler-serde.workspace = true
-gitbutler-oxidize.workspace = true
 but-workspace.workspace = true
 but-core.workspace = true
 but-hunk-dependency.workspace = true
 open = "5"
 url = "2.5.4"
-rustc-hash = "2.1.0"
 
 [dev-dependencies]
 gix-testtools.workspace = true
-gitbutler-testsupport.workspace = true
 insta.workspace = true
-itertools = "0.14.0"
 
 [lints.clippy]
 all = "deny"
