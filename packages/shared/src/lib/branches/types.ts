@@ -413,6 +413,7 @@ export type ApiPatchVersionEvent = ApiPatchEventBase & {
 };
 
 export type ApiPatchStatusEvent = ApiPatchEventBase & {
+	data: { status: boolean };
 	event_type: 'patch_status';
 	object: ApiPatch;
 };
@@ -481,6 +482,7 @@ export type PatchVersionEvent = PatchEventBase & {
 };
 
 export type PatchStatusEvent = PatchEventBase & {
+	data: { status: boolean };
 	eventType: 'patch_status';
 	object: Patch;
 };
@@ -540,8 +542,20 @@ export function apiToPatchEvent(api: ApiPatchEvent): PatchEvent | undefined {
 				updatedAt: api.updated_at
 			};
 		case 'patch_version':
+			// Ignore version 1 patches
+			if (api.object.version === 1) return undefined;
+			return {
+				eventType: api.event_type,
+				uuid: api.uuid,
+				user: api.user ? apiToUserSimple(api.user) : undefined,
+				data: api.data,
+				object: apiToPatch(api.object),
+				createdAt: api.created_at,
+				updatedAt: api.updated_at
+			};
 		case 'patch_status':
-			if (api.event_type === 'patch_version' && api.object.version === 1) return undefined;
+			// Ignore status updates that are not approved
+			if (!api.data.status) return undefined;
 			return {
 				eventType: api.event_type,
 				uuid: api.uuid,

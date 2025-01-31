@@ -1,5 +1,8 @@
 import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+import type { UserMaybe } from '@gitbutler/shared/users/types';
 import { env } from '$env/dynamic/public';
+
+const UNKNOWN_AUTHOR = 'Unknown author';
 
 export function getActionCableEndpoint(token: string): string {
 	const domain = env.PUBLIC_APP_HOST.replace('http', 'ws');
@@ -41,4 +44,21 @@ export function eventTimeStamp(event: TimestampedEvent): string {
 	}
 
 	return getTimeAgo(creationDate);
+}
+
+export function getMultipleContributorNames(contributors: UserMaybe[]): string {
+	if (contributors.length === 0) {
+		return UNKNOWN_AUTHOR;
+	}
+
+	return contributors
+		.map((contributor) => {
+			if (contributor.user) {
+				const user = contributor.user;
+				return user.login ?? user.name ?? user.email ?? UNKNOWN_AUTHOR;
+			} else {
+				return contributor.email;
+			}
+		})
+		.join(', ');
 }

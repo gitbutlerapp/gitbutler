@@ -1,13 +1,11 @@
 <script lang="ts">
-	import { eventTimeStamp } from '$lib/chat/utils';
+	import { eventTimeStamp, getMultipleContributorNames } from '$lib/chat/utils';
 	import {
 		getPatchContributorsWithAvatars,
 		type PatchVersionEvent
 	} from '@gitbutler/shared/branches/types';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
-
-	const UNKNOWN_AUTHOR = 'Unknown author';
 
 	interface Props {
 		event: PatchVersionEvent;
@@ -17,20 +15,7 @@
 
 	const patch = $derived(event.object);
 
-	const authorNames = $derived.by(() => {
-		return patch.contributors.length > 0
-			? patch.contributors
-					.map((contributor) => {
-						if (contributor.user) {
-							const user = contributor.user;
-							return user.login ?? user.name ?? user.email ?? UNKNOWN_AUTHOR;
-						} else {
-							return contributor.email;
-						}
-					})
-					.join(', ')
-			: UNKNOWN_AUTHOR;
-	});
+	const authorNames = $derived(getMultipleContributorNames(patch.contributors));
 	const authorAvatars = $derived(getPatchContributorsWithAvatars(patch));
 
 	const timestamp = $derived(eventTimeStamp(event));
