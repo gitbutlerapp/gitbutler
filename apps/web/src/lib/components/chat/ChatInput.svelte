@@ -77,6 +77,7 @@
 
 	async function approve() {
 		await patchService.updatePatch(branchUuid, changeId, { signOff: true, message });
+		message = undefined;
 	}
 
 	async function requestChanges() {
@@ -92,8 +93,8 @@
 					await approve();
 					break;
 				case 'requestChanges':
-					await requestChanges();
 					await handleSendMessage(true);
+					await requestChanges();
 					break;
 			}
 		} finally {

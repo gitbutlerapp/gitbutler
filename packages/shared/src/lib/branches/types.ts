@@ -418,7 +418,7 @@ export type ApiPatchStatusEvent = ApiPatchEventBase & {
 	object: ApiPatch;
 };
 
-export function isApiPatchUpdateEvent(data: unknown): data is ApiPatchVersionEvent {
+export function isApiPatchVersionEvent(data: unknown): data is ApiPatchVersionEvent {
 	return isApiPatchEventBase(data) && (data as any).event_type === 'patch_version';
 }
 
@@ -458,7 +458,12 @@ export type ApiPatchEvent =
 	| ApiIssueUpdateEvent;
 
 export function isApiPatchEvent(data: unknown): data is ApiPatchEvent {
-	return isApiChatEvent(data) || isApiPatchUpdateEvent(data) || isApiIssueUpdateEvent(data);
+	return (
+		isApiChatEvent(data) ||
+		isApiPatchVersionEvent(data) ||
+		isApiPatchStatusEvent(data) ||
+		isApiIssueUpdateEvent(data)
+	);
 }
 
 type PatchEventBase = {
