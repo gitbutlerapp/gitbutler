@@ -9,9 +9,6 @@ catalogs:
     vite:
       specifier: 5.4.14
       version: 5.4.14
-    vitest:
-      specifier: 3.0.3
-      version: 3.0.3
   redux:
     '@reduxjs/toolkit':
       specifier: ^2.5.0
@@ -20,9 +17,6 @@ catalogs:
     '@sentry/sveltekit':
       specifier: 8.51.0
       version: 8.51.0
-    '@sveltejs/adapter-static':
-      specifier: 3.0.8
-      version: 3.0.8
     '@sveltejs/kit':
       specifier: 2.16.1
       version: 2.16.1
@@ -278,9 +272,6 @@ importers:
       '@ethercorps/sveltekit-og':
         specifier: ^3.0.0
         version: 3.0.0(svelte@5.19.2)
-      '@fontsource-variable/spline-sans-mono':
-        specifier: ^5.1.0
-        version: 5.1.0
       '@rails/actioncable':
         specifier: ^8.0.100
         version: 8.0.100
@@ -315,9 +306,6 @@ importers:
       '@csstools/postcss-global-data':
         specifier: ^3.0.0
         version: 3.0.0(postcss@8.4.49)
-      '@fontsource/fira-mono':
-        specifier: ^4.5.10
-        version: 4.5.10
       '@gitbutler/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -1169,12 +1157,6 @@ packages:
     resolution: {integrity: sha512-CQRmcfCPnTEqP+EeHBE7wWp1sNxpBaT4Fb5Js5fGnWEgFFIDbJEEcFiT0Uwc1CteolXY+CyTOg7mokcOtu3d7w==}
     peerDependencies:
       svelte: ^4.0.0
-
-  '@fontsource-variable/spline-sans-mono@5.1.0':
-    resolution: {integrity: sha512-B9rWuTg1/G9/sKTxWb7CHVabv0tSFw5ETEmMpY8RU10nZq09JzWdMJO7Fj4cx61S0DvAOaM1F/uyTpFRmd+KWQ==}
-
-  '@fontsource/fira-mono@4.5.10':
-    resolution: {integrity: sha512-bxUnRP8xptGRo8YXeY073DSpfK74XpSb0ZyRNpHV9WvLnJ7TwPOjZll8hTMin7zLC6iOp59pDZ8EQDj1gzgAQQ==}
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -7451,10 +7433,6 @@ snapshots:
       '@resvg/resvg-js': 2.6.2
       satori: 0.10.14
       svelte: 5.19.2
-
-  '@fontsource-variable/spline-sans-mono@5.1.0': {}
-
-  '@fontsource/fira-mono@4.5.10': {}
 
   '@humanfs/core@0.19.1': {}
 

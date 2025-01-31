@@ -14,7 +14,6 @@
 	},
 	"devDependencies": {
 		"@csstools/postcss-global-data": "^3.0.0",
-		"@fontsource/fira-mono": "^4.5.10",
 		"@gitbutler/shared": "workspace:*",
 		"@gitbutler/ui": "workspace:*",
 		"@neoconfetti/svelte": "^1.0.0",
@@ -43,7 +42,6 @@
 	},
 	"dependencies": {
 		"@ethercorps/sveltekit-og": "^3.0.0",
-		"@fontsource-variable/spline-sans-mono": "^5.1.0",
 		"@rails/actioncable": "^8.0.100",
 		"@resvg/resvg-js": "^2.6.2",
 		"@sentry/sveltekit": "catalog:svelte",
