@@ -37,7 +37,6 @@
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
 		"svelte-french-toast": "^1.2.0",
-		"svelte-preprocess": "^6.0.3",
 		"vite": "catalog:"
 	},
 	"dependencies": {
