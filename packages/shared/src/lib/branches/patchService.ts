@@ -10,6 +10,7 @@ import type { AppDispatch } from '$lib/redux/store.svelte';
 type PatchUpdateParams = {
 	signOff?: boolean;
 	sectionOrder?: string[];
+	message?: string;
 };
 
 export class PatchService {
@@ -56,7 +57,8 @@ export class PatchService {
 			{
 				body: {
 					sign_off: params.signOff,
-					section_order: params.sectionOrder
+					section_order: params.sectionOrder,
+					message: params.message
 				}
 			}
 		);

@@ -25,10 +25,16 @@
 		</div>
 	{/if}
 
-	<div class="patch-status__header">
-		<p class="patch-status__name">{userName}</p>
-		<p class="patch-status__message">{statusAction} this commit</p>
-		<div class="patch-status__timestamp">{timestamp}</div>
+	<div class="patch-status-content">
+		<div class="patch-status__header">
+			<p class="patch-status__name">{userName}</p>
+			<p class="patch-status__message">{statusAction} this commit</p>
+			<div class="patch-status__timestamp">{timestamp}</div>
+		</div>
+
+		{#if event.data.message}
+			<p class="patch-status__text-content">{event.data.message}</p>
+		{/if}
 	</div>
 </div>
 
@@ -55,6 +61,13 @@
 		border-radius: 8px;
 		background: var(--clr-theme-succ-element, #4ab582);
 		color: var(--clr-core-ntrl-100);
+	}
+
+	.patch-status-content {
+		display: flex;
+		flex-direction: column;
+
+		gap: 12px;
 	}
 
 	.patch-status__header {
@@ -103,5 +116,16 @@
 		line-height: 120%; /* 14.4px */
 
 		opacity: 0.4;
+	}
+
+	.patch-status__text-content {
+		color: var(--clr-text-1, #1a1614);
+
+		/* base-body/13 */
+		font-family: var(--text-fontfamily-default, Inter);
+		font-size: 13px;
+		font-style: normal;
+		font-weight: var(--text-weight-regular, 400);
+		line-height: 160%; /* 20.8px */
 	}
 </style>
