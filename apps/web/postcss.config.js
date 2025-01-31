@@ -7,6 +7,7 @@ import path from 'path';
 
 const mediaQueriesCssPath = path.resolve('src/lib/styles/media-queries.css');
 
+/** @type {import('postcss').AcceptedPlugin[]} */
 export default {
 	plugins: [
 		autoprefixer(),

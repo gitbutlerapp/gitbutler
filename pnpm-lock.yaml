@@ -9,6 +9,9 @@ catalogs:
     vite:
       specifier: 5.4.14
       version: 5.4.14
+    vitest:
+      specifier: 3.0.3
+      version: 3.0.3
   redux:
     '@reduxjs/toolkit':
       specifier: ^2.5.0
@@ -17,6 +20,9 @@ catalogs:
     '@sentry/sveltekit':
       specifier: 8.51.0
       version: 8.51.0
+    '@sveltejs/adapter-static':
+      specifier: 3.0.8
+      version: 3.0.8
     '@sveltejs/kit':
       specifier: 2.16.1
       version: 2.16.1
@@ -312,9 +318,6 @@ importers:
       '@gitbutler/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@neoconfetti/svelte':
-        specifier: ^1.0.0
-        version: 1.0.0
       '@playwright/test':
         specifier: 1.47.0
         version: 1.47.0
@@ -1300,9 +1303,6 @@ packages:
   '@mswjs/interceptors@0.37.1':
     resolution: {integrity: sha512-SvE+tSpcX884RJrPCskXxoS965Ky/pYABDEhWW6oeSRhpUDLrS5nTvT5n1LLSDVDYvty4imVmXsy+3/ROVuknA==}
     engines: {node: '>=18'}
-
-  '@neoconfetti/svelte@1.0.0':
-    resolution: {integrity: sha512-SmksyaJAdSlMa9cTidVSIqYo1qti+WTsviNDwgjNVm+KQ3DRP2Df9umDIzC4vCcpEYY+chQe0i2IKnLw03AT8Q==}
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -7578,8 +7578,6 @@ snapshots:
       is-node-process: 1.2.0
       outvariant: 1.4.3
       strict-event-emitter: 0.5.1
-
-  '@neoconfetti/svelte@1.0.0': {}
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
