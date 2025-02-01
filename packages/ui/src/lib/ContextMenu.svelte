@@ -30,7 +30,7 @@
 	let {
 		leftClickTrigger,
 		rightClickTrigger,
-		side = 'right',
+		side = 'bottom',
 		verticalAlign = 'bottom',
 		horizontalAlign = 'right',
 		children,
