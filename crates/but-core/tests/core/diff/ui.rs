@@ -1,9 +1,11 @@
+use but_core::UnifiedDiff;
+
 #[test]
-fn worktree_status() -> anyhow::Result<()> {
+fn worktree_changes() -> anyhow::Result<()> {
     let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
         .map_err(anyhow::Error::from_boxed)?;
     let actual = serde_json::to_string_pretty(
-        &gitbutler_tauri::diff::worktree_changes_by_worktree_dir(root.join("many-in-worktree"))?,
+        &but_core::diff::ui::worktree_changes_by_worktree_dir(root.join("many-in-worktree"))?,
     )?;
     insta::assert_snapshot!(actual, @r#"
     {
@@ -371,7 +373,7 @@ fn commit_to_commit() -> anyhow::Result<()> {
     let worktree_dir = root.join("many-in-tree");
     let repo = gix::open_opts(&worktree_dir, gix::open::Options::isolated())?;
     let actual =
-        serde_json::to_string_pretty(&gitbutler_tauri::diff::commit_changes_by_worktree_dir(
+        serde_json::to_string_pretty(&but_core::diff::ui::commit_changes_by_worktree_dir(
             worktree_dir,
             Some(repo.rev_parse_single("@~1")?.into()),
             repo.rev_parse_single("@")?.into(),
@@ -559,4 +561,138 @@ fn commit_to_commit() -> anyhow::Result<()> {
     ]
     "#);
     Ok(())
+}
+
+/// Assure our JSON serialization doesn't break unknowingly - after all downstream may depend on it.
+#[test]
+fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
+    let repo = repo("many-in-worktree")?;
+    let diffs: Vec<UnifiedDiff> = but_core::diff::worktree_changes(&repo)?
+        .changes
+        .iter()
+        .map(|tree_change| tree_change.unified_diff(&repo, 3))
+        .collect::<std::result::Result<_, _>>()?;
+    let actual = serde_json::to_string_pretty(&diffs)?;
+    insta::assert_snapshot!(actual, @r#"
+    [
+      {
+        "type": "Patch",
+        "subject": {
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 0,
+              "newStart": 1,
+              "newLines": 1,
+              "diff": "@@ -1,0 +1,1 @@\n+content\n"
+            }
+          ]
+        }
+      },
+      {
+        "type": "Patch",
+        "subject": {
+          "hunks": []
+        }
+      },
+      {
+        "type": "Patch",
+        "subject": {
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 0,
+              "newStart": 1,
+              "newLines": 1,
+              "diff": "@@ -1,0 +1,1 @@\n+link-target\n"
+            }
+          ]
+        }
+      },
+      {
+        "type": "Patch",
+        "subject": {
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 0,
+              "newStart": 1,
+              "newLines": 1,
+              "diff": "@@ -1,0 +1,1 @@\n+content not to add to the index\n"
+            }
+          ]
+        }
+      },
+      {
+        "type": "Patch",
+        "subject": {
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 0,
+              "newStart": 1,
+              "newLines": 1,
+              "diff": "@@ -1,0 +1,1 @@\n+change-in-index\n"
+            }
+          ]
+        }
+      },
+      {
+        "type": "Patch",
+        "subject": {
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 0,
+              "newStart": 1,
+              "newLines": 1,
+              "diff": "@@ -1,0 +1,1 @@\n+change-in-worktree\n"
+            }
+          ]
+        }
+      },
+      {
+        "type": "Patch",
+        "subject": {
+          "hunks": []
+        }
+      },
+      {
+        "type": "Patch",
+        "subject": {
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 0,
+              "newStart": 1,
+              "newLines": 1,
+              "diff": "@@ -1,0 +1,1 @@\n+worktree-change\n"
+            }
+          ]
+        }
+      },
+      {
+        "type": "Patch",
+        "subject": {
+          "hunks": []
+        }
+      },
+      {
+        "type": "Patch",
+        "subject": {
+          "hunks": []
+        }
+      }
+    ]
+    "#);
+    Ok(())
+}
+
+pub fn repo(name: &str) -> anyhow::Result<gix::Repository> {
+    let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
+        .map_err(anyhow::Error::from_boxed)?;
+    Ok(gix::open_opts(
+        root.join(name),
+        gix::open::Options::isolated(),
+    )?)
 }

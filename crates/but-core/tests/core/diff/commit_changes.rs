@@ -1,5 +1,5 @@
 use crate::commit::conflict_repo;
-use crate::json_samples::repo;
+use crate::diff::ui::repo;
 
 #[test]
 fn many_changes() -> anyhow::Result<()> {

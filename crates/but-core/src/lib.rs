@@ -3,6 +3,10 @@
 //!
 //! It also is a catch-all for code until it's worth putting it into its own crate.
 //!
+//! ### Data for consumption by UI
+//!
+//! Data-types for the user-interface are colocated in a `ui` module close to the module where the plumbing-type is located.
+//!
 //! ### House-~~Rules~~ Guidance
 //!
 //! * **Try hard to do write all the 'right' tests**
@@ -46,6 +50,9 @@ pub mod diff;
 
 /// Commit related utility types.
 pub mod commit;
+
+/// Types for use in the user interface.
+pub mod ui;
 
 /// utility types
 pub mod unified_diff;

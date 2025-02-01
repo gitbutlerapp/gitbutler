@@ -1,9 +1,11 @@
 #![feature(unsigned_signed_diff)]
 #![deny(missing_docs, rust_2018_idioms)]
-//! ## Terminology
-//! * **CommittedHunk**
-//!     - A change that was committed, typically in the form of a hunk, i.e. the range that a hunk occupied in an old version of a file,
-//!       along with the range that it occupies in a current version.
+
+//! ## Module Guidelines
+//!
+//! ### Data for consumption by UI
+//!
+//! Data-types for the user-interface are colocated in a `ui` module close to the module where the plumbing-type is located.
 //!
 //! ## A possible future
 //!
@@ -135,6 +137,9 @@ pub use input::{InputCommit, InputDiffHunk, InputFile, InputStack};
 
 mod ranges;
 pub use ranges::{CalculationError, HunkRange, WorkspaceRanges};
+
+/// Types and conversions for use in `tauri`.
+pub mod ui;
 
 mod utils;
 
