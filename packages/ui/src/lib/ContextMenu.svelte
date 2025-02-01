@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
-	import { focusTrap } from '@gitbutler/ui/utils/focusTrap';
-	import { portal } from '@gitbutler/ui/utils/portal';
+	import { clickOutside } from '$lib/utils/clickOutside';
+	import { focusTrap } from '$lib/utils/focusTrap';
+	import { portal } from '$lib/utils/portal';
 	import { type Snippet } from 'svelte';
 
 	interface BaseProps {
