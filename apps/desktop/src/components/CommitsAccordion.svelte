@@ -33,12 +33,11 @@
 		<button type="button" class="commits-accordion-row__header" onclick={toggle}>
 			<div class="commits-accordion-row__line">
 				{#if !isOpen && count !== 1}
-					<div class="dots">
-						{#each new Array(count) as _, idx}
+					<div class="dots" style="--dots-count: {count}">
+						{#each new Array(Math.min(count, 3)) as _}
 							<svg
 								viewBox="0 0 14 14"
 								class="upstream-dot"
-								style="--dot: {idx + 1}"
 								fill="none"
 								xmlns="http://www.w3.org/2000/svg"
 							>
@@ -72,7 +71,7 @@
 	{/if}
 </div>
 
-<style>
+<style lang="postcss">
 	.commits-accordion {
 		position: relative;
 		display: flex;
@@ -122,20 +121,24 @@
 		position: relative;
 		width: 2px;
 		margin: 0 22px 0 20px;
-
 		--dots-y-shift: -8px;
 
 		& .upstream-dot {
 			width: 14px;
 			height: 14px;
-			transform: rotate(45deg);
-			margin-top: var(--dots-y-shift);
+			margin-top: calc(var(--dots-y-shift) + 2px);
+
+			rect {
+				transform: rotate(45deg);
+				transform-origin: center;
+			}
 		}
 
 		& .dots {
+			display: flex;
+			flex-direction: column;
 			position: absolute;
-
-			top: calc(50% - (var(--dots-y-shift) / 2));
+			top: calc(50% - var(--dots-y-shift) / var(--dots-count));
 			left: 50%;
 			transform: translate(-50%, -50%);
 		}
