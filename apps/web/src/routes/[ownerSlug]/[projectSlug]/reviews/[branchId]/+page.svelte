@@ -18,7 +18,6 @@
 		type ProjectReviewParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
@@ -182,11 +181,10 @@
 							<p class="text-12 text-body text-clr2">
 								<em>
 									Summaries provide context on the branch's purpose and helps team members
-									understand it's changes. <LinkButton onclick={editSummary} icon="plus-small"
-										>Add summary</LinkButton
-									>
+									understand it's changes.
 								</em>
 							</p>
+							<Button icon="plus-small" kind="outline" onclick={editSummary}>Add summary</Button>
 						</div>
 					{/if}
 				</div>
@@ -254,6 +252,7 @@
 	.summary-placeholder {
 		display: flex;
 		flex-direction: column;
+		align-items: flex-start;
 		gap: 12px;
 	}
 
