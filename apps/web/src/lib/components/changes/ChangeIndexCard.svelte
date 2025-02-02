@@ -47,14 +47,19 @@
 		<tr class="row" class:rounded-bottom={last}>
 			<td> <div><CommitStatusBadge status={getPatchStatus(patch)} /></div></td>
 			<td
-				><div class="name">
+				><div class="text-13 text-bold">
 					<a href={routes.projectReviewBranchCommitPath({ ...params, changeId: patch.changeId })}
 						>{patch.title}</a
 					>
 				</div></td
 			>
-			<td><div>+{patch.statistics.lines} -{patch.statistics.deletions}</div></td>
-			<td><div class="updated">{dayjs(patch.updatedAt).fromNow()}</div></td>
+			<td
+				><div class="row-text changes text-12">
+					<span class="changes_additions">+{patch.statistics.lines}</span>
+					<span class="changes_deletions">-{patch.statistics.deletions}</span>
+				</div></td
+			>
+			<td><div class="row-text updated text-12">{dayjs(patch.updatedAt).fromNow()}</div></td>
 			<td>
 				<div>
 					{#await contributors then contributors}
@@ -112,12 +117,22 @@
 		}
 	}
 
-	.name {
-		font-weight: bold;
+	.row-text {
+		text-wrap: nowrap;
 	}
 
 	.updated {
 		color: var(--clr-text-2);
-		font-size: 0.8rem;
+	}
+
+	.changes {
+		display: flex;
+		gap: 4px;
+	}
+	.changes_additions {
+		color: var(--clr-theme-succ-element);
+	}
+	.changes_deletions {
+		color: var(--clr-theme-err-element);
 	}
 </style>
