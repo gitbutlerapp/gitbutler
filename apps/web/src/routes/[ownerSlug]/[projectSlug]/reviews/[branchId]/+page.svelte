@@ -134,10 +134,10 @@
 				<div class="heading">
 					<p class="text-15 text-bold">{branch.title}</p>
 					<div class="actions">
-						{#if !branch.description}
+						<!-- {#if !branch.description}
 							<Button icon="plus-small" kind="outline" onclick={editSummary}>Add summary</Button>
-						{/if}
-						<Button icon="chain-link" kind="outline" onclick={copyLocation}>Share link</Button>
+						{/if} -->
+						<Button icon="text-link" kind="outline" onclick={copyLocation}>Branch link</Button>
 						{@render startReview(branch)}
 					</div>
 				</div>
@@ -177,15 +177,17 @@
 							<Button kind="outline" onclick={editSummary}>Change summary</Button>
 						</div>
 					{:else}
-						<p class="text-13 text-clr-2">No summary provided.</p>
-						<p class="text-13 text-clr-2">
-							<em>
-								Summaries provide context on the branch's purpose and helps team members understand
-								it's changes. <LinkButton onclick={editSummary} icon="plus-small"
-									>Add summary</LinkButton
-								>
-							</em>
-						</p>
+						<div class="summary-placeholder">
+							<p class="text-13 text-clr2">No summary provided.</p>
+							<p class="text-12 text-body text-clr2">
+								<em>
+									Summaries provide context on the branch's purpose and helps team members
+									understand it's changes. <LinkButton onclick={editSummary} icon="plus-small"
+										>Add summary</LinkButton
+									>
+								</em>
+							</p>
+						</div>
 					{/if}
 				</div>
 			</div>
@@ -230,6 +232,11 @@
 		display: flex;
 		gap: 24px;
 		flex-direction: column;
+		padding-right: 20px;
+
+		@media (--tablet-viewport) {
+			padding-right: 0;
+		}
 	}
 
 	.heading {
@@ -244,18 +251,15 @@
 		gap: 16px;
 	}
 
+	.summary-placeholder {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
 	.stats {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 16px;
-	}
-
-	.text-clr-2 {
-		color: var(--clr-text-2);
-	}
-
-	.fact {
-		font-size: 0.8em;
-		color: var(--clr-text-2);
 	}
 </style>
