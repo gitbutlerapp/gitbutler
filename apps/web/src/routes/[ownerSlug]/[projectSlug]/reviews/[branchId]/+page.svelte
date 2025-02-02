@@ -224,6 +224,10 @@
 		display: grid;
 		grid-template-columns: 5fr 11fr;
 		gap: var(--layout-col-gap);
+
+		@media (--desktop-small-viewport) {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	.information {
