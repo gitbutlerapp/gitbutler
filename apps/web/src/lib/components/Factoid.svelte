@@ -11,7 +11,7 @@
 
 <div class="container">
 	<p class="text-12 text-regular title">{title}</p>
-	<div>
+	<div class="text-12">
 		{@render children()}
 	</div>
 </div>
