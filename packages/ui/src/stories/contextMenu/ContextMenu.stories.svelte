@@ -3,19 +3,47 @@
 	import ContextMenu from '$lib/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/ContextMenuSection.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import {
+		type Args,
+		defineMeta,
+		setTemplate,
+		type StoryContext
+	} from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
 		title: 'Overlays / ContextMenu',
 		args: {},
-		argTypes: {}
+		argTypes: {
+			side: {
+				options: ['top', 'bottom', 'left', 'right'],
+				control: {
+					type: 'select'
+				}
+			},
+			verticalAlign: {
+				options: ['top', 'bottom'],
+				control: {
+					type: 'select'
+				}
+			},
+			horizontalAlign: {
+				options: ['left', 'right'],
+				control: {
+					type: 'select'
+				}
+			}
+		}
 	});
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let contextTrigger = $state<HTMLButtonElement | undefined>();
 </script>
 
-<Story name="Left click">
+<script lang="ts">
+	setTemplate(template);
+</script>
+
+{#snippet template({ ...args }: Args<typeof Story>, _context: StoryContext<typeof Story>)}
 	<div class="wrap">
 		<Button
 			kind="outline"
@@ -25,38 +53,40 @@
 			}}>Toggle context menu</Button
 		>
 	</div>
-</Story>
 
-<ContextMenu bind:this={contextMenu} leftClickTrigger={contextTrigger}>
-	<ContextMenuSection>
-		<ContextMenuItem
-			label="Commit and bleep"
-			onclick={() => {
-				console.log('Commit and bleep');
-			}}
-		/>
-		<ContextMenuItem
-			label="Commit"
-			onclick={() => {
-				console.log('Commit and bleep');
-			}}
-		/>
-	</ContextMenuSection>
-	<ContextMenuSection title="More">
-		<ContextMenuItem
-			label="Another commit"
-			onclick={() => {
-				console.log('Commit and bleep');
-			}}
-		/>
-		<ContextMenuItem
-			label="Amend"
-			onclick={() => {
-				console.log('Commit and bleep');
-			}}
-		/>
-	</ContextMenuSection>
-</ContextMenu>
+	<ContextMenu bind:this={contextMenu} leftClickTrigger={contextTrigger} {...args}>
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Commit and bleep"
+				onclick={() => {
+					console.log('Commit and bleep');
+				}}
+			/>
+			<ContextMenuItem
+				label="Commit"
+				onclick={() => {
+					console.log('Commit and bleep');
+				}}
+			/>
+		</ContextMenuSection>
+		<ContextMenuSection title="More">
+			<ContextMenuItem
+				label="Another commit"
+				onclick={() => {
+					console.log('Commit and bleep');
+				}}
+			/>
+			<ContextMenuItem
+				label="Amend"
+				onclick={() => {
+					console.log('Commit and bleep');
+				}}
+			/>
+		</ContextMenuSection>
+	</ContextMenu>
+{/snippet}
+
+<Story name="Left click" />
 
 <style>
 	.wrap {
