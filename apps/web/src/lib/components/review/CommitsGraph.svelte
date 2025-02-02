@@ -11,38 +11,49 @@
 
 	function getClass(patch: Patch) {
 		if (patch.reviewAll.rejected.length > 0) {
-			return 'block rejected';
+			return 'rejected';
 		}
 		if (patch.reviewAll.signedOff.length > 0) {
-			return 'block signoff';
+			return 'signoff';
 		}
-		return 'block';
+
+		return 'discuss';
 	}
 </script>
 
 <div class="container">
-	<p class="fact">{branch.stackSize}</p>
-	<table class="graph" width="100%">
-		<tbody>
-			<tr>
-				{#each patches as patch}
-					<td class="patch"><div class={getClass(patch)}>&nbsp;</div></td>
-				{/each}
-			</tr>
-		</tbody>
-	</table>
+	<p class="text-12 fact">{branch.stackSize}</p>
+	<div class="commits">
+		{#each patches as patch}
+			<div class={['commit-block', getClass(patch)]}></div>
+		{/each}
+	</div>
 </div>
 
 <style lang="postcss">
 	.container {
 		display: flex;
+		gap: 8px;
 		align-items: center;
-		font-size: 0.8em;
 		color: var(--clr-text-2);
 	}
 
 	.fact {
-		margin-right: 8px;
+		color: var(--clr-text-2);
+		min-width: 10px;
+		text-align: right;
+	}
+
+	.commits {
+		display: flex;
+		gap: 1px;
+		width: 100%;
+	}
+
+	.commit-block {
+		flex: 1;
+		height: 12px;
+		background-color: var(--clr-scale-ntrl-80);
 	}
 
 	.rejected {
@@ -53,9 +64,5 @@
 	}
 	.discuss {
 		background-color: var(--clr-scale-warn-50);
-	}
-
-	.block {
-		margin-left: 0.5px;
 	}
 </style>
