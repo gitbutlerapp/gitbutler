@@ -5301,6 +5301,176 @@
 					}
 				}
 			}
+		},
+		"br-commit": {
+			"approved": {
+				"bg": {
+					"$type": "color",
+					"$value": "{clr.theme.succ.element}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.succ.element}",
+							"dark": "{clr.theme.succ.element}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5849:4645",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"text": {
+					"$type": "color",
+					"$value": "{clr.theme.succ.on-element}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.succ.on-element}",
+							"dark": "{clr.theme.succ.on-element}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5852:120",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"in-discussion": {
+				"bg": {
+					"$type": "color",
+					"$value": "{clr-core.pop.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.70}",
+							"dark": "{clr-core.pop.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5849:4780",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"text": {
+					"$type": "color",
+					"$value": "{clr.theme.pop.on-soft}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.pop.on-soft}",
+							"dark": "{clr.theme.pop.on-soft}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5852:583",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"changes-requested": {
+				"bg": {
+					"$type": "color",
+					"$value": "{clr.theme.warn.element}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.warn.element}",
+							"dark": "{clr.theme.warn.element}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5849:4788",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"text": {
+					"$type": "color",
+					"$value": "{clr.theme.warn.on-element}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.warn.on-element}",
+							"dark": "{clr.theme.warn.on-element}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5852:587",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"unreviewed": {
+				"bg": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.80}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.80}",
+							"dark": "{clr-core.ntrl.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5849:4789",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"text": {
+					"$type": "color",
+					"$value": "{clr.theme.ntrl.on-soft}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.ntrl.on-soft}",
+							"dark": "{clr.theme.ntrl.on-soft}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5852:663",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			}
 		}
 	},
 	"size": {
@@ -5760,7 +5930,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius", "text", "opacity"],
-			"createdAt": "2025-01-28T14:00:18.352Z"
+			"createdAt": "2025-02-02T23:15:19.484Z"
 		}
 	}
 }
