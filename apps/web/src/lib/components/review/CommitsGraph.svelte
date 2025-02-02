@@ -11,13 +11,13 @@
 
 	function getClass(patch: Patch) {
 		if (patch.reviewAll.rejected.length > 0) {
-			return 'rejected';
+			return 'changes-requested';
 		}
 		if (patch.reviewAll.signedOff.length > 0) {
-			return 'signoff';
+			return 'approved';
 		}
 
-		return 'discuss';
+		return 'in-discussion';
 	}
 </script>
 
@@ -53,16 +53,16 @@
 	.commit-block {
 		flex: 1;
 		height: 12px;
-		background-color: var(--clr-scale-ntrl-80);
+		background-color: var(--clr-br-commit-unreviewed-bg);
 	}
 
-	.rejected {
-		background-color: var(--clr-scale-err-50);
+	.changes-requested {
+		background-color: var(--clr-br-commit-changes-requested-bg);
 	}
-	.signoff {
-		background-color: var(--clr-scale-succ-50);
+	.approved {
+		background-color: var(--clr-br-commit-approved-bg);
 	}
-	.discuss {
-		background-color: var(--clr-scale-warn-50);
+	.in-discussion {
+		background-color: var(--clr-br-commit-in-discussion-bg);
 	}
 </style>
