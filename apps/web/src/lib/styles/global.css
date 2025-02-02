@@ -1,6 +1,10 @@
 @import '@gitbutler/ui/main.css';
 @import '@gitbutler/ui/fonts.css';
 
+:root {
+	--layout-col-gap: 20px;
+}
+
 body {
 	min-height: 100vh;
 	background: var(--clr-bg-2);

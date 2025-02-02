@@ -225,7 +225,7 @@
 	.layout {
 		display: grid;
 		grid-template-columns: 5fr 11fr;
-		gap: 16px;
+		gap: var(--layout-col-gap);
 	}
 
 	.information {
