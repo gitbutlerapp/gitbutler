@@ -10,6 +10,8 @@
 		target?: '_blank' | '_self' | '_parent' | '_top' | undefined;
 		rel?: string | undefined;
 		role?: 'basic' | 'primary' | 'error';
+		underline?: boolean;
+		externalIcon?: boolean;
 		disabled?: boolean;
 	}
 
@@ -19,6 +21,8 @@
 		class: classes,
 		rel = undefined,
 		role = 'basic',
+		underline = true,
+		externalIcon = true,
 		disabled = false,
 		children
 	}: Props = $props();
@@ -43,6 +47,7 @@
 	class="link {role} {classes}"
 	bind:this={element}
 	class:disabled
+	class:underline
 	onclick={(e) => {
 		if (href && isExternal) {
 			e.preventDefault();
@@ -52,7 +57,7 @@
 	}}
 >
 	{@render children()}
-	{#if isExternal}
+	{#if isExternal && externalIcon}
 		<div class="link-icon">
 			<Icon name="open-link" />
 		</div>
@@ -67,12 +72,16 @@
 		gap: 2px;
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
-		text-decoration: underline;
 		user-select: text;
+		text-decoration: none !important;
 
 		&:hover {
 			text-decoration: none;
 		}
+	}
+
+	.link.underline {
+		text-decoration: underline !important;
 	}
 
 	.link-icon {
