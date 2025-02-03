@@ -55,7 +55,9 @@
 			>
 			<td
 				><div class="row-text changes text-12">
-					<span class="changes_additions">+{patch.statistics.lines}</span>
+					<span class="changes_additions"
+						>+{patch.statistics.lines - patch.statistics.deletions}</span
+					>
 					<span class="changes_deletions">-{patch.statistics.deletions}</span>
 				</div></td
 			>
