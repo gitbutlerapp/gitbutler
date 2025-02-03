@@ -607,9 +607,11 @@ impl Stack {
         let matching_heads = self
             .heads
             .iter()
-            .filter(|h| match from.change_id() {
-                Some(change_id) => h.head == CommitOrChangeId::ChangeId(change_id.clone()),
-                None => h.head == CommitOrChangeId::CommitId(from.id().to_string()),
+            .filter(|h| {
+                h.head == CommitOrChangeId::CommitId(from.id().to_string())
+                    || from.change_id().is_some_and(|change_id| {
+                        h.head == CommitOrChangeId::ChangeId(change_id.clone())
+                    })
             })
             .cloned()
             .collect_vec();
@@ -806,15 +808,6 @@ fn validate_target(
             "The commit {} is not between the stack head and the stack base",
             commit.id()
         ));
-    }
-    // Enforce that change ids are used when available
-    if let CommitOrChangeId::CommitId(_) = reference.head {
-        if commit.change_id().is_some() {
-            return Err(anyhow!(
-                "The commit {} has a change id associated with it. Use the change id instead",
-                commit.id()
-            ));
-        }
     }
     Ok(())
 }

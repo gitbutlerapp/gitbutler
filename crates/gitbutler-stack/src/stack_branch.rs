@@ -1,6 +1,6 @@
 use anyhow::Result;
 use git2::{Commit, Oid};
-use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
+use gitbutler_commit::commit_ext::CommitVecExt;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -55,11 +55,7 @@ impl Display for CommitOrChangeId {
 
 impl From<git2::Commit<'_>> for CommitOrChangeId {
     fn from(commit: git2::Commit) -> Self {
-        if let Some(change_id) = commit.change_id() {
-            CommitOrChangeId::ChangeId(change_id.to_string())
-        } else {
-            CommitOrChangeId::CommitId(commit.id().to_string())
-        }
+        CommitOrChangeId::CommitId(commit.id().to_string())
     }
 }
 
