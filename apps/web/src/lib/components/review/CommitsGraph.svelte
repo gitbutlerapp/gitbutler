@@ -11,51 +11,58 @@
 
 	function getClass(patch: Patch) {
 		if (patch.reviewAll.rejected.length > 0) {
-			return 'block rejected';
+			return 'changes-requested';
 		}
 		if (patch.reviewAll.signedOff.length > 0) {
-			return 'block signoff';
+			return 'approved';
 		}
-		return 'block';
+
+		return 'in-discussion';
 	}
 </script>
 
 <div class="container">
-	<p class="fact">{branch.stackSize}</p>
-	<table class="graph" width="100%">
-		<tbody>
-			<tr>
-				{#each patches as patch}
-					<td class="patch"><div class={getClass(patch)}>&nbsp;</div></td>
-				{/each}
-			</tr>
-		</tbody>
-	</table>
+	<p class="text-12 fact">{branch.stackSize}</p>
+	<div class="commits">
+		{#each patches as patch}
+			<div class={['commit-block', getClass(patch)]}></div>
+		{/each}
+	</div>
 </div>
 
 <style lang="postcss">
 	.container {
 		display: flex;
+		gap: 8px;
 		align-items: center;
-		font-size: 0.8em;
 		color: var(--clr-text-2);
 	}
 
 	.fact {
-		margin-right: 8px;
+		color: var(--clr-text-2);
+		min-width: 10px;
+		text-align: right;
 	}
 
-	.rejected {
-		background-color: var(--clr-scale-err-50);
-	}
-	.signoff {
-		background-color: var(--clr-scale-succ-50);
-	}
-	.discuss {
-		background-color: var(--clr-scale-warn-50);
+	.commits {
+		display: flex;
+		gap: 1px;
+		width: 100%;
 	}
 
-	.block {
-		margin-left: 0.5px;
+	.commit-block {
+		flex: 1;
+		height: 12px;
+		background-color: var(--clr-br-commit-unreviewed-bg);
+	}
+
+	.changes-requested {
+		background-color: var(--clr-br-commit-changes-requested-bg);
+	}
+	.approved {
+		background-color: var(--clr-br-commit-approved-bg);
+	}
+	.in-discussion {
+		background-color: var(--clr-br-commit-in-discussion-bg);
 	}
 </style>

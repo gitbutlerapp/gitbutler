@@ -18,7 +18,6 @@
 		type ProjectReviewParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
@@ -134,10 +133,10 @@
 				<div class="heading">
 					<p class="text-15 text-bold">{branch.title}</p>
 					<div class="actions">
-						{#if !branch.description}
+						<!-- {#if !branch.description}
 							<Button icon="plus-small" kind="outline" onclick={editSummary}>Add summary</Button>
-						{/if}
-						<Button icon="chain-link" kind="outline" onclick={copyLocation}>Share link</Button>
+						{/if} -->
+						<Button icon="text-link" kind="outline" onclick={copyLocation}>Branch link</Button>
 						{@render startReview(branch)}
 					</div>
 				</div>
@@ -177,15 +176,16 @@
 							<Button kind="outline" onclick={editSummary}>Change summary</Button>
 						</div>
 					{:else}
-						<p class="text-13 text-clr-2">No summary provided.</p>
-						<p class="text-13 text-clr-2">
-							<em>
-								Summaries provide context on the branch's purpose and helps team members understand
-								it's changes. <LinkButton onclick={editSummary} icon="plus-small"
-									>Add summary</LinkButton
-								>
-							</em>
-						</p>
+						<div class="summary-placeholder">
+							<p class="text-13 text-clr2">No summary provided.</p>
+							<p class="text-12 text-body text-clr2">
+								<em>
+									Summaries provide context on the branch's purpose and helps team members
+									understand it's changes.
+								</em>
+							</p>
+							<Button icon="plus-small" kind="outline" onclick={editSummary}>Add summary</Button>
+						</div>
 					{/if}
 				</div>
 			</div>
@@ -223,13 +223,22 @@
 	.layout {
 		display: grid;
 		grid-template-columns: 5fr 11fr;
-		gap: 16px;
+		gap: var(--layout-col-gap);
+
+		@media (--desktop-small-viewport) {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	.information {
 		display: flex;
 		gap: 24px;
 		flex-direction: column;
+		padding-right: 20px;
+
+		@media (--tablet-viewport) {
+			padding-right: 0;
+		}
 	}
 
 	.heading {
@@ -244,18 +253,16 @@
 		gap: 16px;
 	}
 
+	.summary-placeholder {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 12px;
+	}
+
 	.stats {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 16px;
-	}
-
-	.text-clr-2 {
-		color: var(--clr-text-2);
-	}
-
-	.fact {
-		font-size: 0.8em;
-		color: var(--clr-text-2);
 	}
 </style>

@@ -56,7 +56,7 @@
 		<tr class:rounded-top={roundedTop} class:rounded-bottom={roundedBottom} class="row">
 			<td><div><BranchStatusBadge {branch} /></div></td>
 			<td>
-				<div class="title">
+				<div class="text-13 text-bold">
 					<a href={routes.projectReviewBranchPath({ ...linkParams, branchId: branch.branchId })}>
 						{branch.title}
 					</a>

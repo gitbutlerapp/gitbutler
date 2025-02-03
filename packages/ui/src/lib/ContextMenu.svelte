@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
-	import { focusTrap } from '@gitbutler/ui/utils/focusTrap';
-	import { portal } from '@gitbutler/ui/utils/portal';
+	import { clickOutside } from '$lib/utils/clickOutside';
+	import { focusTrap } from '$lib/utils/focusTrap';
+	import { portal } from '$lib/utils/portal';
 	import { type Snippet } from 'svelte';
 
 	interface BaseProps {
@@ -184,11 +184,22 @@
 	});
 
 	function setTransformOrigin() {
+		// if trigger is right click, grow from cursor
 		if (savedMouseEvent) return 'top left';
-		if (['top', 'bottom'].includes(side))
-			return horizontalAlign === 'left' ? `${side} left` : `${side} right`;
-		if (['left', 'right'].includes(side))
-			return verticalAlign === 'top' ? `top ${side}` : `bottom ${side}`;
+
+		// if attaching to a trigger element
+		if (['top', 'bottom'].includes(side)) {
+			return horizontalAlign === 'left'
+				? `${side === 'top' ? 'bottom' : 'top'} left`
+				: `${side === 'top' ? 'bottom' : 'top'} right`;
+		}
+
+		if (['left', 'right'].includes(side)) {
+			return verticalAlign === 'top'
+				? `top ${side === 'left' ? 'right' : 'left'}`
+				: `bottom ${side === 'left' ? 'right' : 'left'}`;
+		}
+
 		return horizontalAlign === 'left' ? 'top left' : 'top right';
 	}
 
@@ -211,10 +222,12 @@
 		class="context-menu"
 		class:top-oriented={side === 'top'}
 		class:bottom-oriented={side === 'bottom'}
+		class:left-oriented={side === 'left'}
+		class:right-oriented={side === 'right'}
 		style:top="{menuPosition.y}px"
 		style:left="{menuPosition.x}px"
 		style:transform-origin={setTransformOrigin()}
-		style:--animation-transform-shift={side === 'top' ? '6px' : '-6px'}
+		style:--animation-transform-y-shift={side === 'top' ? '6px' : side === 'bottom' ? '-6px' : '0'}
 	>
 		{@render children(item)}
 	</div>
@@ -236,6 +249,12 @@
 	.bottom-oriented {
 		margin-top: 4px;
 	}
+	.left-oriented {
+		margin-left: -2px;
+	}
+	.right-oriented {
+		margin-left: 2px;
+	}
 	.context-menu {
 		pointer-events: none;
 		z-index: var(--z-blocker);
@@ -253,14 +272,14 @@
 	@keyframes fadeIn {
 		0% {
 			opacity: 0;
-			transform: translateY(var(--animation-transform-shift)) scale(0.9);
+			transform: translateY(var(--animation-transform-y-shift)) scale(0.9);
 		}
 		50% {
 			opacity: 1;
 		}
 		100% {
 			opacity: 1;
-			transform: translateY(0) scale(1);
+			transform: scale(1);
 			pointer-events: all;
 		}
 	}

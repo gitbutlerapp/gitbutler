@@ -69,7 +69,7 @@
 		</div>
 
 		{#if routes.isProjectReviewPageSubset}
-			<div class="text-12 text-semibold current-page-data">
+			<div class="text-11 text-semibold current-page-data">
 				<span>/</span>
 				<span>Branches and Stacks</span>
 			</div>

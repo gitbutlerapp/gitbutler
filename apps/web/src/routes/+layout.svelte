@@ -100,19 +100,23 @@
 
 <style lang="postcss">
 	.app {
+		--layout-side-paddings: 80px;
+
 		display: flex;
 		flex-direction: column;
 		min-height: 100vh;
-		max-width: 1440px;
-		padding: 24px 80px;
+		max-width: calc(1440px + var(--layout-side-paddings) * 2);
+		padding: 24px var(--layout-side-paddings);
 		margin: 0 auto;
 
 		@media (--tablet-viewport) {
-			padding: 24px 40px;
+			--layout-side-paddings: 40px;
+			padding: 24px var(--layout-side-paddings);
 		}
 
 		@media (--mobile-viewport) {
-			padding: 16px;
+			--layout-side-paddings: 16px;
+			padding: var(--layout-side-paddings);
 		}
 	}
 

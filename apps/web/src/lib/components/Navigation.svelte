@@ -217,6 +217,12 @@
 
 	.other-nav-link {
 		color: var(--clr-text-2);
+		transition: color var(--transition-fast);
+
+		&:hover {
+			color: var(--clr-text-1);
+			text-decoration: underline;
+		}
 
 		@media (--tablet-viewport) {
 			display: none;
