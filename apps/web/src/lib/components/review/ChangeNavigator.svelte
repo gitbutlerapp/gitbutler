@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 
 	interface Props {
 		goToPatch: (patchId: string) => void;
@@ -26,19 +26,23 @@
 </script>
 
 <div class="change-navigator">
-	<button
-		type="button"
+	<Button
 		disabled={!previousPatchId}
+		kind="outline"
 		class="navigate-prev"
-		onclick={handleNavigateBack}><Icon name="chevron-left" /></button
-	>
-	<div class="indicator">Patch {patchIds?.length - index}/{patchIds?.length}</div>
-	<button
-		type="button"
+		onclick={handleNavigateBack}
+		icon="chevron-left"
+	></Button>
+	<div class="indicator text-12 text-semibold">
+		Patch {patchIds?.length - index}/{patchIds?.length}
+	</div>
+	<Button
 		disabled={!nextPatchId}
+		kind="outline"
 		class="navigate-next"
-		onclick={handleNavigateForward}><Icon name="chevron-right" /></button
-	>
+		onclick={handleNavigateForward}
+		icon="chevron-right"
+	></Button>
 </div>
 
 <style lang="postcss">
@@ -46,58 +50,34 @@
 		display: flex;
 	}
 
-	.navigate-prev {
-		cursor: pointer;
-		display: flex;
-		height: var(--button, 28px);
-		padding: 4px 6px;
-		justify-content: center;
-		align-items: center;
-		gap: 4px;
-
-		border-radius: var(--m, 6px) 0px 0px var(--m, 6px);
-		border: 1px solid var(--border-2, #d4d0ce);
-
-		&:disabled {
-			pointer-events: none;
-		}
+	:global(.change-navigator .navigate-prev) {
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+		border-right: none;
 	}
 
-	.navigate-next {
-		cursor: pointer;
-		display: flex;
-		height: var(--button, 28px);
-		padding: 4px 6px;
-		justify-content: center;
-		align-items: center;
-		gap: 4px;
-
-		border-radius: 0px var(--m, 6px) var(--m, 6px) 0px;
-		border: 1px solid var(--border-2, #d4d0ce);
-
-		&:disabled {
-			pointer-events: none;
-		}
+	:global(.change-navigator .navigate-next) {
+		border-top-left-radius: 0;
+		border-bottom-left-radius: 0;
+		border-left: none;
 	}
 
 	.indicator {
+		--label-clr: var(--clr-text-1);
+		--btn-border-clr: var(--clr-btn-ntrl-outline);
+		--btn-border-opacity: var(--opacity-btn-outline);
+
 		display: flex;
-		height: var(--button, 28px);
-		padding: 4px 6px;
-		justify-content: center;
 		align-items: center;
-		gap: 4px;
+		justify-content: center;
+		padding: 0 10px;
+		color: var(--label-clr);
 
-		color: var(--text-1, #1a1614);
-
-		/* base/12-semibold */
-		font-family: var(--fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: 500;
-		line-height: 120%; /* 14.4px */
-
-		border-top: 1px solid var(--border-2, #d4d0ce);
-		border-bottom: 1px solid var(--border-2, #d4d0ce);
+		border: 1px solid
+			color-mix(
+				in srgb,
+				var(--btn-border-clr, transparent),
+				transparent calc((1 - var(--btn-border-opacity, 1)) * 100%)
+			);
 	}
 </style>
