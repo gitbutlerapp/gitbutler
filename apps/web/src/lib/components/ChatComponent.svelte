@@ -65,54 +65,62 @@
 {#if minimized}
 	<ShowChatButton onclick={toggleMinimized} />
 {:else}
-	<div class="chat-card">
+	<div class="chat-wrapper">
 		<div class="chat-header">
 			<h3 class="text-13 text-bold">Disscussion</h3>
 			<div class="chat-header-actions">
 				<Button icon="minus-small" kind="ghost" onclick={toggleMinimized} />
 			</div>
 		</div>
-		<div class="chat-messages" bind:this={chatMessagesContainer}>
-			<Loading loadable={patchEvents.current}>
-				{#snippet children(patchEvents)}
-					{#if patchEvents.events.length > 0}
-						{#each patchEvents.events as event}
-							<Event {projectId} {changeId} {event} />
-						{/each}
-					{:else}
-						<div class="blank-state">
-							<div class="blank-state-content">
-								{@html blankChat}
-								<div class="blank-message">
-									<div class="text-18 text-semibold blank-message-title">Give some feedback!</div>
-									<p class="text-12 text-body blank-message-text">
-										If you're here, you must be important. This patch can use your help. Leave a
-										comment or ask a question. Does this look right to you? How can it be improved?
-										Is it perfect? Just let us know!
-									</p>
+
+		<div class="chat-card">
+			<div class="chat-messages" bind:this={chatMessagesContainer}>
+				<Loading loadable={patchEvents.current}>
+					{#snippet children(patchEvents)}
+						{#if patchEvents.events.length > 0}
+							{#each patchEvents.events as event}
+								<Event {projectId} {changeId} {event} />
+							{/each}
+						{:else}
+							<div class="blank-state">
+								<div class="blank-state-content">
+									{@html blankChat}
+									<div class="blank-message">
+										<div class="text-18 text-semibold blank-message-title">Give some feedback!</div>
+										<p class="text-12 text-body blank-message-text">
+											If you're here, you must be important. This patch can use your help. Leave a
+											comment or ask a question. Does this look right to you? How can it be
+											improved? Is it perfect? Just let us know!
+										</p>
+									</div>
 								</div>
 							</div>
-						</div>
-					{/if}
-				{/snippet}
-			</Loading>
+						{/if}
+					{/snippet}
+				</Loading>
+			</div>
+			<ChatInput {branchUuid} {projectId} {branchId} {changeId} />
 		</div>
-		<ChatInput {branchUuid} {projectId} {branchId} {changeId} />
 	</div>
 {/if}
 
 <style lang="postcss">
+	.chat-wrapper {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+
+		border-radius: var(--radius-ml, 10px);
+		border: 1px solid var(--clr-border-2);
+		background: var(--clr-bg-1);
+	}
 	.chat-card {
 		width: 100%;
-		height: 50vh;
+		height: 100%;
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
 		justify-content: space-between;
-		height: 100%;
-		border-radius: var(--radius-ml, 10px);
-		border: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
 	}
 
 	.chat-header {
@@ -129,13 +137,14 @@
 	}
 
 	.chat-messages {
-		flex: 1;
+		/* flex: 1; */
 		display: flex;
 		flex-direction: column-reverse;
-		justify-content: flex-end;
+		/* justify-content: flex-end; */
+		/* justify-self: start;
+		align-self: flex-start; */
 		overflow-y: scroll;
 		scrollbar-width: none;
-		height: max-content;
 
 		&::-webkit-scrollbar {
 			display: none;
