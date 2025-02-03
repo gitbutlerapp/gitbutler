@@ -1,9 +1,8 @@
-import { initSentry } from '$lib/analytics/sentry';
-import { handleErrorWithSentry, sentryHandle } from '@sentry/sveltekit';
-import { sequence } from '@sveltejs/kit/hooks';
+import { fillMeta } from '$lib/meta/opengraph';
 
-initSentry();
-
-export const handle = sequence(sentryHandle());
-
-export const handleError = handleErrorWithSentry();
+export async function handle({ event, resolve }) {
+	const currentUrl = event.url.href;
+	return resolve(event, {
+		transformPageChunk: ({ html }) => fillMeta(html, currentUrl)
+	});
+}
