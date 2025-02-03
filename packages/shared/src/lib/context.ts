@@ -112,3 +112,20 @@ export function buildContext<T>(name: string): [() => T, (value: T | undefined) 
 		}
 	];
 }
+
+type Constructor<T> = new (...args: any[]) => T;
+
+/**
+ * Inject multiple dependencies using positional rest parameters.
+ *
+ * Example: ```
+ *  const [serviceA, serviceB] = inject(ServiceA, ServiceB);
+ * ```
+ */
+export function inject<T extends Constructor<any>[]>(
+	...constructors: T
+): { [K in keyof T]: InstanceType<T[K]> } {
+	return constructors.map((Ctor) => getContext<InstanceType<typeof Ctor>>(Ctor)) as {
+		[K in keyof T]: InstanceType<T[K]>;
+	};
+}
