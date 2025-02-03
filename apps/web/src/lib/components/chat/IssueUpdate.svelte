@@ -12,18 +12,17 @@
 	const { event }: Props = $props();
 
 	const issueUpdate = $derived(event.object);
+	const user = $derived(event.user);
 
-	const authorName = $derived(
-		issueUpdate.user?.login ?? issueUpdate.user?.name ?? issueUpdate.user?.email ?? UNKNOWN_AUTHOR
-	);
+	const authorName = $derived(user?.login ?? user?.name ?? user?.email ?? UNKNOWN_AUTHOR);
 
 	const timestamp = $derived(eventTimeStamp(event));
 </script>
 
 <div class="issue-update">
 	<div class="issue-update__header">
-		{#if issueUpdate.user}
-			<img class="issue-update__avatar" src={issueUpdate.user.avatarUrl} alt={authorName} />
+		{#if user}
+			<img class="issue-update__avatar" src={user.avatarUrl} alt={authorName} />
 		{/if}
 
 		<div class="issue-update__author-name">{authorName}</div>
