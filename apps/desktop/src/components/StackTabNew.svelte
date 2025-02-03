@@ -13,10 +13,10 @@
 
 	type Props = {
 		projectId: string;
-		selectedId: string | undefined;
+		tabOverflow?: boolean;
 	};
 
-	const { projectId }: Props = $props();
+	const { projectId, tabOverflow = false }: Props = $props();
 	const stackService = getContext(StackService);
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
@@ -55,6 +55,7 @@
 	aria-label="new stack"
 	type="button"
 	class="new-stack-btn"
+	class:overflow={tabOverflow}
 	onclick={() => createRefModal?.show()}
 >
 	<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -247,6 +248,13 @@
 		&:hover {
 			color: var(--clr-text-2);
 			background: var(--clr-stack-tab-inactive-hover);
+		}
+
+		&.overflow {
+			position: absolute;
+			top: 0;
+			right: 0px;
+			height: 53px;
 		}
 	}
 

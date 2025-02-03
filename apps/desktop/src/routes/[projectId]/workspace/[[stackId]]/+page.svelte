@@ -71,7 +71,7 @@
 	</div>
 	<div class="right">
 		<StackTabs {projectId} selectedId={stackId} previewing={$previewing} />
-		<div class="branch">
+		<div class="contents">
 			{#if stackId}
 				<StackDetails {projectId} {stackId} />
 			{:else}
@@ -109,5 +109,14 @@
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
+	}
+
+	.right .contents {
+		border: 1px solid var(--clr-border-2);
+		flex: 1;
+		border-radius: 0 var(--radius-ml) var(--radius-ml);
+
+		white-space: pre-wrap;
+		overflow-y: scroll;
 	}
 </style>
