@@ -14,6 +14,7 @@
 		first: boolean;
 		last: boolean;
 		selected: boolean;
+		tabOverflow?: boolean;
 	};
 
 	let kebabMenuTrigger = $state<HTMLElement>();
@@ -21,7 +22,7 @@
 	let isContextMenuOpen = $state(false);
 	let isHovered = $state(false);
 
-	const { projectId, tab, first, last, selected }: Props = $props();
+	const { projectId, tab, first, last, selected, tabOverflow = false }: Props = $props();
 </script>
 
 <button
@@ -30,6 +31,7 @@
 	class:first
 	class:last
 	class:selected
+	class:overflow={tabOverflow}
 	type="button"
 >
 	{#if selected}
@@ -103,6 +105,18 @@
 
 		&.first {
 			border-radius: var(--radius-ml) 0 0 0;
+		}
+
+		&.last {
+			border-right: 1px solid var(--clr-border-2);
+		}
+
+		&.overflow {
+			flex-shrink: 0;
+		}
+
+		&.overflow.last {
+			border-radius: 0 var(--radius-ml) 0 0;
 		}
 
 		.tab__overflow-menu {

@@ -16,19 +16,19 @@
 </script>
 
 <div class="stack">
-	<div class="branch">
-		{#if stackId}
-			<pre>
+	{#if stackId}
+		<pre>
 {JSON.stringify(result.current, null, 2)}
-			</pre>
-		{/if}
-	</div>
+		</pre>
+	{/if}
 </div>
 
 <style>
 	.stack {
-		border: 1px solid var(--clr-border-2);
 		flex: 1;
 		border-radius: 0 var(--radius-ml) var(--radius-ml);
+	}
+	.stack pre {
+		text-wrap: wrap;
 	}
 </style>
