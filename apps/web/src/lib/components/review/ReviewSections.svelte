@@ -13,7 +13,7 @@
 <div class="review-sections-card">
 	<div class="review-sections-statistics">
 		<p class="statistic-files">{patch.statistics.fileCount} files changed</p>
-		<p class="statistic-added">{patch.statistics.lines} additions</p>
+		<p class="statistic-added">{patch.statistics.lines - patch.statistics.deletions} additions</p>
 		<p class="statistic-deleted">{patch.statistics.deletions} deletions</p>
 	</div>
 	{#if patchSections !== undefined}

@@ -175,6 +175,7 @@ export type ApiPatch = {
 	description?: string;
 	position?: number;
 	version?: number;
+	comment_count?: number;
 	contributors: ApiUserMaybe[];
 	statistics: ApiPatchStatistics;
 	review: ApiPatchReview;
@@ -192,6 +193,7 @@ export type Patch = {
 	description?: string;
 	position?: number;
 	version?: number;
+	commentCount: number;
 	contributors: UserMaybe[];
 	statistics: PatchStatistics;
 	review: PatchReview;
@@ -204,9 +206,9 @@ export type Patch = {
 export function getPatchStatus(
 	patch: Patch
 ): 'approved' | 'changes-requested' | 'unreviewed' | 'in-discussion' {
-	if (patch.review.rejected.length > 0) return 'changes-requested';
-	if (patch.review.signedOff.length > 0) return 'approved';
-	if (patch.review.viewed.length > 0) return 'in-discussion';
+	if (patch.reviewAll.rejected.length > 0) return 'changes-requested';
+	if (patch.reviewAll.signedOff.length > 0) return 'approved';
+	if (patch.commentCount > 0) return 'in-discussion';
 	return 'unreviewed';
 }
 
@@ -273,6 +275,11 @@ export async function getPatchViewersWithAvatars(patch: Patch) {
 	return await getUsersWithAvatars(patch.review.viewed);
 }
 
+export async function getPatchReviewersAllWithAvatars(patch: Patch) {
+	const reviewers = patch.reviewAll.signedOff.concat(patch.reviewAll.rejected);
+	return await getUsersWithAvatars(reviewers);
+}
+
 export async function getPatchViewersAllWithAvatars(patch: Patch) {
 	return await getUsersWithAvatars(patch.reviewAll.viewed);
 }
@@ -287,6 +294,7 @@ export function apiToPatch(api: ApiPatch): Patch {
 		description: api.description,
 		position: api.position,
 		version: api.version,
+		commentCount: api.comment_count || 0,
 		contributors: api.contributors.map(apiToUserMaybe),
 		statistics: apiToPatchStatistics(api.statistics),
 		review: apiToPatchReview(api.review),
