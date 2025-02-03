@@ -672,9 +672,13 @@ impl Stack {
             return Err(anyhow!("The new head names do not match the current heads"));
         }
         let stack_head = self.head();
-        for head in self.heads.iter_mut() {
-            validate_target(head, ctx.repo(), stack_head, &state)?;
-            if let Some(commit) = new_heads.get(&head.name).cloned() {
+        for head in &mut self.heads {
+            if let Some(commit) = new_heads.get(&head.name) {
+                let updated = StackBranch {
+                    head: commit.clone().into(),
+                    ..head.clone()
+                };
+                validate_target(&updated, ctx.repo(), stack_head, &state)?;
                 head.head = commit.clone().into();
             }
         }
