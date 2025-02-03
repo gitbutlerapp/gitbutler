@@ -190,12 +190,6 @@
 		justify-content: end;
 	}
 
-	.placeholder__bottom--right > div {
-		display: flex;
-		align-items: flex-end;
-		gap: 4px;
-	}
-
 	.placeholder-text {
 		text-align: left;
 		line-height: 1 !important;

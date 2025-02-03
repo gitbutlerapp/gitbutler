@@ -62,7 +62,7 @@
 		<Resizer
 			viewport={resizeViewport}
 			direction="right"
-			minWidth={240}
+			minWidth={36}
 			onWidth={(value) => {
 				$trayWidth = value / (16 * $userSettings.zoom);
 			}}
