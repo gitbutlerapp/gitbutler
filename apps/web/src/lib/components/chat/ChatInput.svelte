@@ -197,8 +197,26 @@
 		/>
 		<div class="chat-input__actions">
 			<div class="chat-input__secondary-actions">
-				<p>📋</p>
-				<p>😈</p>
+				<Button
+					icon="attachment"
+					tooltip="Attach files"
+					tooltipPosition="top"
+					kind="ghost"
+					disabled
+					onclick={() => {
+						// TODO: Implement
+					}}
+				/>
+				<Button
+					icon="smile"
+					kind="ghost"
+					tooltipPosition="top"
+					tooltip="Insert emoji"
+					disabled
+					onclick={() => {
+						// TODO: Implement
+					}}
+				/>
 			</div>
 			<div class="chat-input__action-buttons">
 				<DropDownButton
