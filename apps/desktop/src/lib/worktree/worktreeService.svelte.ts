@@ -20,7 +20,7 @@ export class WorktreeService {
 		const { getWorktreeChanges } = this.api.endpoints;
 		const result = $derived(
 			getWorktreeChanges.useQueryState({ projectId }, (result) => {
-				return result.changes.find((change) => change.path === path);
+				return result.changes.find((change) => change.path === path)!;
 			})
 		);
 		return result;
