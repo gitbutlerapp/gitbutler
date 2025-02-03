@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { AuthService } from '$lib/auth/authService';
 	import { subscribeToChatChannel } from '$lib/chat/subscribe';
+	import ShowChatButton from '$lib/components/ShowChatButton.svelte';
 	import ChatInput from '$lib/components/chat/ChatInput.svelte';
 	import Event from '$lib/components/chat/Event.svelte';
 	import blankChat from '$lib/images/blank-chat.svg?raw';
@@ -10,7 +11,6 @@
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { ApiPatchEvent } from '@gitbutler/shared/branches/types';
 
 	interface Props {
@@ -63,17 +63,14 @@
 </script>
 
 {#if minimized}
-	<div class="chat-card minimized">
-		<Button style="pop" kind="ghost" onclick={toggleMinimized}>
-			<Icon name="chat" />
-		</Button>
-	</div>
+	<ShowChatButton onclick={toggleMinimized} />
 {:else}
 	<div class="chat-card">
 		<div class="chat-header">
-			<Button size="tag" kind="ghost" onclick={toggleMinimized}>
-				<Icon name="minus-small" />
-			</Button>
+			<h3 class="text-13 text-bold">Disscussion</h3>
+			<div class="chat-header-actions">
+				<Button icon="minus-small" kind="ghost" onclick={toggleMinimized} />
+			</div>
 		</div>
 		<div class="chat-messages" bind:this={chatMessagesContainer}>
 			<Loading loadable={patchEvents.current}>
@@ -87,8 +84,8 @@
 							<div class="blank-state-content">
 								{@html blankChat}
 								<div class="blank-message">
-									<div class="blank-message-title">Give some feedback!</div>
-									<p class="blank-message-text">
+									<div class="text-18 text-semibold blank-message-title">Give some feedback!</div>
+									<p class="text-12 text-body blank-message-text">
 										If you're here, you must be important. This patch can use your help. Leave a
 										comment or ask a question. Does this look right to you? How can it be improved?
 										Is it perfect? Just let us know!
@@ -113,30 +110,33 @@
 		flex-direction: column;
 		justify-content: space-between;
 		height: 100%;
-
 		border-radius: var(--radius-ml, 10px);
-		border: 1px solid var(--clr-border-2, #d4d0ce);
-		background: var(--clr-bg-1, #fff);
-
-		&.minimized {
-			padding: 8px 4px;
-			height: fit-content;
-			width: fit-content;
-		}
+		border: 1px solid var(--clr-border-2);
+		background: var(--clr-bg-1);
 	}
 
 	.chat-header {
 		display: flex;
-		justify-content: flex-end;
-		padding: 10px;
-		border-bottom: 1px solid var(--clr-border-2, #d4d0ce);
+		justify-content: space-between;
+		align-items: center;
+		padding: 10px 10px 10px 16px;
+		border-bottom: 1px solid var(--clr-border-2);
+	}
+
+	.chat-header-actions {
+		display: flex;
+		gap: 4px;
 	}
 
 	.chat-messages {
+		flex: 1;
 		display: flex;
 		flex-direction: column-reverse;
+		justify-content: flex-end;
 		overflow-y: scroll;
 		scrollbar-width: none;
+		height: max-content;
+
 		&::-webkit-scrollbar {
 			display: none;
 		}
@@ -144,20 +144,18 @@
 
 	.blank-state {
 		height: 100%;
+		width: 100%;
 		display: flex;
 		align-items: center;
-		justify-content: flex-start;
-		padding-left: 30px;
-		margin-top: 20px;
+		justify-content: center;
+		padding: 0 24px;
 	}
 
 	.blank-state-content {
 		display: flex;
 		flex-direction: column;
-		align-items: left;
-		gap: 1rem;
-		text-align: left;
-		padding-left: 40px;
+		gap: 28px;
+		max-width: 420px;
 	}
 
 	.blank-message {
@@ -165,16 +163,11 @@
 	}
 
 	.blank-message-title {
-		font-size: 1.3rem;
-		font-weight: 600;
-		color: var(--clr-text-2, #333);
 		margin-top: 10px;
 	}
 
 	.blank-message-text {
-		font-size: 0.9rem;
-		color: var(--clr-text-2, #777);
+		color: var(--clr-text-2);
 		margin-top: 10px;
-		width: 80%;
 	}
 </style>
