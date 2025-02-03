@@ -1,5 +1,6 @@
 import { ClientState } from '$lib/state/clientState.svelte';
 import { ReduxTag } from '$lib/state/tags';
+import type { WorkspaceBranch } from '$lib/branches/v3';
 import type { Stack } from './stack';
 
 type CreateBranchRequest = { name?: string; ownership?: string; order?: number };
@@ -46,7 +47,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: [ReduxTag.Stacks]
 			}),
-			getStackBranches: build.query<Stack, { projectId: string; stackId: string }>({
+			getStackBranches: build.query<WorkspaceBranch[], { projectId: string; stackId: string }>({
 				query: ({ projectId, stackId }) => ({
 					command: 'stack_branches',
 					params: { projectId, stackId }
