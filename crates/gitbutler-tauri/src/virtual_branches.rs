@@ -693,7 +693,7 @@ pub mod commands {
         project_id: projects::ProjectId,
         app_settings: &gitbutler_settings::AppSettings,
     ) {
-        if app_settings.feature_flags.v3 {
+        if !app_settings.feature_flags.v3 {
             if let Err(error) = windows.post(gitbutler_watcher::Action::CalculateVirtualBranches(
                 project_id,
             )) {
