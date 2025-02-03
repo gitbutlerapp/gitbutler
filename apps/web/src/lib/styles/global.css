@@ -1,5 +1,5 @@
 @import '@gitbutler/ui/main.css';
-@import '@gitbutler/ui/fonts.css';
+@import './fonts.css';
 
 :root {
 	--layout-col-gap: 20px;
