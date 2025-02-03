@@ -101,6 +101,27 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 }
 
 /**
+ * Custom return type for the `QueryHooks` extensions.
+ */
+type CustomQueryResultSelectorResult<T extends QueryDefinition<any, any, any, any>> =
+	QueryResultSelectorResult<T> & {
+		/**
+		 * Allows using the result from one query in the arguments to another.
+		 *
+		 * Example: ```
+		 *   const result = $derived(
+		 *     someService
+		 *       .getData(someId).current
+		 *       .andThen((data) => anotherService.getData(data.id)).current
+		 *   );
+		 * ```
+		 */
+		andThen<S extends QueryDefinition<any, any, any, any>>(
+			arg: (arg: ResultTypeFrom<T>) => Reactive<CustomQueryResultSelectorResult<S>>
+		): Reactive<CustomQueryResultSelectorResult<S>>;
+	};
+
+/**
  * Declaration of custom methods for queries.
  */
 type QueryHooks<Definition extends QueryDefinition<any, any, any, any>> = {
@@ -108,7 +129,7 @@ type QueryHooks<Definition extends QueryDefinition<any, any, any, any>> = {
 	useQuery: (
 		args: QueryArgFrom<Definition>
 	) => Reactive<
-		QueryResultSelectorResult<
+		CustomQueryResultSelectorResult<
 			Extract<Definition, QueryDefinition<any, any, any, ResultTypeFrom<Definition>>>
 		>
 	>;
@@ -117,7 +138,7 @@ type QueryHooks<Definition extends QueryDefinition<any, any, any, any>> = {
 		args: QueryArgFrom<Definition>,
 		/** Optional transformation of the result.  */
 		transform?: T
-	) => Reactive<QueryResultSelectorResult<QueryDefinition<any, any, any, ReturnType<T>>>>;
+	) => Reactive<CustomQueryResultSelectorResult<QueryDefinition<any, any, any, ReturnType<T>>>>;
 };
 
 /**

@@ -58,10 +58,19 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 		const result = $derived(selector(state()));
 		return {
 			get current() {
-				if (transform) {
-					return { ...result, data: transform(result.data) };
+				const data = transform ? transform(result.data) : result.data;
+				function andThen(fn: (arg: any) => any) {
+					if (data) {
+						return fn(data);
+					} else {
+						return result;
+					}
 				}
-				return result;
+				return {
+					...result,
+					data,
+					andThen
+				};
 			}
 		};
 	}
