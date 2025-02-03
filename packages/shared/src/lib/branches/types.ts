@@ -206,8 +206,8 @@ export type Patch = {
 export function getPatchStatus(
 	patch: Patch
 ): 'approved' | 'changes-requested' | 'unreviewed' | 'in-discussion' {
-	if (patch.review.rejected.length > 0) return 'changes-requested';
-	if (patch.review.signedOff.length > 0) return 'approved';
+	if (patch.reviewAll.rejected.length > 0) return 'changes-requested';
+	if (patch.reviewAll.signedOff.length > 0) return 'approved';
 	if (patch.commentCount > 0) return 'in-discussion';
 	return 'unreviewed';
 }
