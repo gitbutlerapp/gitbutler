@@ -50,3 +50,7 @@ export function getMultipleContributorNames(contributors: UserMaybe[]): string {
 		})
 		.join(', ');
 }
+
+export function embedUserMention(username: string): string {
+	return `<<@${username}>>`;
+}
