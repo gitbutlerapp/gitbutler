@@ -167,19 +167,23 @@
 						</div>
 					{:else if branch.description}
 						<Markdown content={branch.description} />
-						<div>
-							<Button kind="outline" onclick={editSummary}>Change summary</Button>
-						</div>
+						{#if branch.permissions.canWrite}
+							<div>
+								<Button kind="outline" onclick={editSummary}>Change summary</Button>
+							</div>
+						{/if}
 					{:else}
 						<div class="summary-placeholder">
 							<p class="text-13 text-clr2">No summary provided.</p>
-							<p class="text-12 text-body text-clr2">
-								<em>
-									Summaries provide context on the branch's purpose and helps team members
-									understand it's changes.
-								</em>
-							</p>
-							<Button icon="plus-small" kind="outline" onclick={editSummary}>Add summary</Button>
+							{#if branch.permissions.canWrite}
+								<p class="text-12 text-body text-clr2">
+									<em>
+										Summaries provide context on the branch's purpose and helps team members
+										understand it's changes.
+									</em>
+								</p>
+								<Button icon="plus-small" kind="outline" onclick={editSummary}>Add summary</Button>
+							{/if}
 						</div>
 					{/if}
 				</div>
