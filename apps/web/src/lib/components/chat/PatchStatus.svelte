@@ -27,6 +27,9 @@
 
 	<div class="patch-status-content">
 		<div class="patch-status__header">
+			{#if event.user}
+				<img class="patch-status__avatar" src={event.user.avatarUrl} alt={userName} />
+			{/if}
 			<p class="patch-status__name">{userName}</p>
 			<p class="patch-status__message">{statusAction} this commit</p>
 			<div class="patch-status__timestamp">{timestamp}</div>
@@ -75,6 +78,12 @@
 		align-items: center;
 		padding-top: 4px;
 		gap: 8px;
+	}
+
+	.patch-status__avatar {
+		width: 16px;
+		height: 16px;
+		border-radius: 20px;
 	}
 
 	.patch-status__name {
