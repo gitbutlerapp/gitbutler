@@ -21,13 +21,11 @@
 <div class="stack">
 	{#if stackId && branches && branches?.length > 0}
 		<div class="stack__branches">
-			<div class="stack__branches--list">
-				{#each branches as branch, i (branch.name)}
-					{@const first = i === 0}
-					{@const last = i === branches.length - 1}
-					<Branch {branch} {first} {last} />
-				{/each}
-			</div>
+			{#each branches as branch, i (branch.name)}
+				{@const first = i === 0}
+				{@const last = i === branches.length - 1}
+				<Branch {branch} {first} {last} />
+			{/each}
 		</div>
 
 		<div class="stack__branch-content">

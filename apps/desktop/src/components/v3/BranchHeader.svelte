@@ -1,5 +1,9 @@
 <script lang="ts">
-	import type { WorkspaceBranch } from '$lib/branches/v3';
+	import BranchLabel from '$components/BranchLabel.svelte';
+	import SeriesDescription from '$components/SeriesDescription.svelte';
+	import SeriesHeaderStatusIcon from '$components/SeriesHeaderStatusIcon.svelte';
+	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
+	import type { WorkspaceBranch, CommitState } from '$lib/branches/v3';
 
 	interface Props {
 		branch: WorkspaceBranch;
@@ -10,9 +14,71 @@
 
 	// const { branch, isTopBranch, lastPush }: Props = $props();
 	const { branch, isTopBranch }: Props = $props();
+
+	const topPatch = $derived(branch?.state.subject.localAndRemote[0]);
+	const branchType = $derived(topPatch?.state?.type.toLowerCase());
+	const lineColor = $derived(getColorFromBranchType(branchType));
+	const descriptionVisible = $derived(!!branch.description);
+	const remoteName = $derived(
+		branch.remoteTrackingBranch
+			? branch.remoteTrackingBranch.replace('refs/remotes/', '').replace(`/${branch.name}`, '')
+			: ''
+	);
+	let seriesDescriptionEl = $state<HTMLTextAreaElement>();
+
+	function editTitle(title: string) {
+		console.log('FIXME', title);
+	}
+
+	function editDescription(description: string) {
+		console.log('FIXME', description);
+	}
+
+	function toggleDescription() {
+		console.log('FIXME');
+	}
 </script>
 
-<div>{branch.name}</div>
+<div class="branch-header">
+	<div class="branch-info">
+		<SeriesHeaderStatusIcon
+			lineTop={isTopBranch ? false : true}
+			icon={branchType === 'integrated' ? 'tick-small' : 'branch-small'}
+			iconColor="var(--clr-core-ntrl-100)"
+			color={lineColor}
+		/>
+		<div class="branch-info__content">
+			<div class="text-14 text-bold branch-info__name">
+				{#if branch.remoteTrackingBranch}
+					<span class="remote-name">
+						{remoteName ? `${remoteName} /` : 'origin /'}
+					</span>
+				{/if}
+				<BranchLabel
+					name={branch.name}
+					onChange={(name) => editTitle(name)}
+					readonly={!!branch.remoteTrackingBranch}
+					onDblClick={() => {
+						if (branchType !== 'integrated') {
+							// stackingContextMenu?.showSeriesRenameModal?.(branch.name);
+						}
+					}}
+				/>
+			</div>
+			{#if descriptionVisible}
+				<div class="branch-info__description">
+					<div class="branch-action__line" style:--bg-color={lineColor}></div>
+					<SeriesDescription
+						bind:textAreaEl={seriesDescriptionEl}
+						value={branch.description ?? ''}
+						onBlur={(value) => editDescription(value)}
+						onEmpty={() => toggleDescription()}
+					/>
+				</div>
+			{/if}
+		</div>
+	</div>
+</div>
 
 <style lang="postcss">
 	.branch-header {
