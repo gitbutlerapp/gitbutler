@@ -98,25 +98,16 @@
 		position: relative;
 		padding: 12px 14px;
 		background: var(--clr-stack-tab-inactive);
-		border: 1px solid var(--clr-border-2);
-		border-right: none;
-		border-bottom: none;
+		border-right: 1px solid var(--clr-border-2);
 		overflow: hidden;
+		min-width: 160px;
 
 		&.first {
 			border-radius: var(--radius-ml) 0 0 0;
 		}
 
 		&.last {
-			border-right: 1px solid var(--clr-border-2);
-		}
-
-		&.overflow {
-			flex-shrink: 0;
-		}
-
-		&.overflow.last {
-			border-radius: 0 var(--radius-ml) 0 0;
+			border-right: none;
 		}
 
 		.tab__overflow-menu {

@@ -11,7 +11,7 @@
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { setContext } from 'svelte';
+	import { onMount, setContext } from 'svelte';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -53,6 +53,27 @@
 	function handleBlur() {
 		$previewing = false;
 	}
+
+	/** Offset width for tabs component. */
+	let width: number | undefined = $state();
+	/** Content area on the right for stack details. */
+	let right = $state<HTMLDivElement>();
+	/** Width of content area on the right. */
+	let rightWidth: number | undefined = $state();
+	/** True if content area should be rounded. */
+	let rounded = $state(false);
+
+	$effect(() => {
+		rounded = rightWidth !== width;
+	});
+
+	onMount(() => {
+		const observer = new ResizeObserver(() => (rightWidth = right?.offsetWidth));
+		observer.observe(right!);
+		return () => {
+			observer.disconnect();
+		};
+	});
 </script>
 
 <svelte:window onkeydown={handleKeyDown} onkeyup={handleKeyUp} onblur={handleBlur} />
@@ -69,9 +90,9 @@
 		/>
 		<WorktreeChanges {projectId} />
 	</div>
-	<div class="right">
-		<StackTabs {projectId} selectedId={stackId} previewing={$previewing} />
-		<div class="contents">
+	<div class="right" bind:this={right}>
+		<StackTabs {projectId} selectedId={stackId} previewing={$previewing} bind:width />
+		<div class="contents" class:rounded>
 			{#if stackId}
 				<StackDetails {projectId} {stackId} />
 			{:else}
@@ -114,8 +135,10 @@
 	.right .contents {
 		border: 1px solid var(--clr-border-2);
 		flex: 1;
-		border-radius: 0 var(--radius-ml) var(--radius-ml);
-
+		border-radius: 0 0 var(--radius-ml);
 		overflow-y: scroll;
+		&.rounded {
+			border-radius: 0 var(--radius-ml) var(--radius-ml);
+		}
 	}
 </style>
