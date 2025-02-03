@@ -273,6 +273,11 @@ export async function getPatchViewersWithAvatars(patch: Patch) {
 	return await getUsersWithAvatars(patch.review.viewed);
 }
 
+export async function getPatchReviewersAllWithAvatars(patch: Patch) {
+	const reviewers = patch.reviewAll.signedOff.concat(patch.reviewAll.rejected);
+	return await getUsersWithAvatars(reviewers);
+}
+
 export async function getPatchViewersAllWithAvatars(patch: Patch) {
 	return await getUsersWithAvatars(patch.reviewAll.viewed);
 }

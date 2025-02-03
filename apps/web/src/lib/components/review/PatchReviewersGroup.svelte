@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getPatchViewersAllWithAvatars, type Patch } from '@gitbutler/shared/branches/types';
+	import { getPatchReviewersAllWithAvatars, type Patch } from '@gitbutler/shared/branches/types';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 
 	type Props = {
@@ -8,7 +8,7 @@
 
 	const { patch }: Props = $props();
 
-	const avatars = $derived(getPatchViewersAllWithAvatars(patch));
+	const avatars = $derived(getPatchReviewersAllWithAvatars(patch));
 </script>
 
 {#await avatars then avatars}
