@@ -14,8 +14,6 @@
 	const stackService = getContext(StackService);
 	const result = $derived(stackService.getStackBranches(projectId, stackId));
 	const branches = $derived(result.current.data);
-
-	$inspect('getStackBranches', result);
 </script>
 
 <div class="stack">

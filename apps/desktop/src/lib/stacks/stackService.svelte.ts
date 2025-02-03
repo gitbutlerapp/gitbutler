@@ -25,7 +25,6 @@ export class StackService {
 		return result;
 	}
 
-	// TODO: Show Commits from Stack
 	getStackBranches(projectId: string, stackId: string) {
 		const { getStackBranches } = this.api.endpoints;
 		const result = $derived(getStackBranches.useQuery({ projectId, stackId }));

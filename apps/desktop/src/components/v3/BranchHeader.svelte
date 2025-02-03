@@ -3,19 +3,19 @@
 	import SeriesDescription from '$components/SeriesDescription.svelte';
 	import SeriesHeaderStatusIcon from '$components/SeriesHeaderStatusIcon.svelte';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
-	import type { WorkspaceBranch, CommitState } from '$lib/branches/v3';
+	import type { WorkspaceBranch } from '$lib/branches/v3';
 
 	interface Props {
 		branch: WorkspaceBranch;
-		// branch: PatchSeries;
 		isTopBranch: boolean;
 		// lastPush: Date | undefined;
 	}
 
-	// const { branch, isTopBranch, lastPush }: Props = $props();
 	const { branch, isTopBranch }: Props = $props();
 
-	const topPatch = $derived(branch?.state.subject.localAndRemote[0]);
+	const topPatch = $derived(
+		branch.state.type !== 'Archived' ? branch?.state.subject.localAndRemote[0] : undefined
+	);
 	const branchType = $derived(topPatch?.state?.type.toLowerCase());
 	const lineColor = $derived(getColorFromBranchType(branchType));
 	const descriptionVisible = $derived(!!branch.description);
@@ -70,7 +70,7 @@
 					<div class="branch-action__line" style:--bg-color={lineColor}></div>
 					<SeriesDescription
 						bind:textAreaEl={seriesDescriptionEl}
-						value={branch.description ?? ''}
+						value={branch.description || ''}
 						onBlur={(value) => editDescription(value)}
 						onEmpty={() => toggleDescription()}
 					/>
