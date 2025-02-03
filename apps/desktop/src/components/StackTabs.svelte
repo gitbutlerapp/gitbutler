@@ -25,7 +25,7 @@
 	// TODO: Get reactive max allowed space for tabs in order to
 	// pin "+" button on the right side of page and add shadow on left
 	// side to indicate more content, scrolling of tabs, etc. etc.
-	const tabOverflow = $derived((result.current.data?.length ?? 0) >= 9);
+	const tabOverflow = $derived((result.current.data?.length ?? 0) >= 3);
 </script>
 
 <div class="tabs">
