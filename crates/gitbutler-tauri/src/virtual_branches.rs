@@ -44,7 +44,7 @@ pub mod commands {
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let oid =
             gitbutler_branch_actions::create_commit(&ctx, branch, message, ownership.as_ref())?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(oid.to_string())
     }
 
@@ -84,7 +84,7 @@ pub mod commands {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(&ctx, &branch)?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(stack_entry)
     }
 
@@ -101,7 +101,7 @@ pub mod commands {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::delete_local_branch(&ctx, &refname, given_name)?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -121,7 +121,7 @@ pub mod commands {
         let branch_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
             &ctx, &branch, remote, pr_number,
         )?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(branch_id)
     }
 
@@ -144,7 +144,7 @@ pub mod commands {
             series_name,
             integration_strategy,
         )?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -185,7 +185,7 @@ pub mod commands {
         if let Some(push_remote) = push_remote {
             gitbutler_branch_actions::set_target_push_remote(&ctx, push_remote)?;
         }
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(base_branch)
     }
 
@@ -201,7 +201,7 @@ pub mod commands {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::push_base_branch(&ctx, with_force)?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -218,7 +218,7 @@ pub mod commands {
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::update_virtual_branch(&ctx, branch)?;
 
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -234,7 +234,7 @@ pub mod commands {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::update_branch_order(&ctx, branches)?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -250,7 +250,7 @@ pub mod commands {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::unapply_without_saving_virtual_branch(&ctx, branch_id)?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -266,7 +266,7 @@ pub mod commands {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::save_and_unapply_virutal_branch(&ctx, branch)?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -282,7 +282,7 @@ pub mod commands {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::unapply_ownership(&ctx, &ownership)?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -299,7 +299,7 @@ pub mod commands {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::unapply_lines(&ctx, &ownership, lines)?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -316,7 +316,7 @@ pub mod commands {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::reset_files(&ctx, branch_id, &files)?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -363,7 +363,7 @@ pub mod commands {
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let target_commit_oid = git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
         gitbutler_branch_actions::reset_virtual_branch(&ctx, branch_id, target_commit_oid)?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -382,7 +382,7 @@ pub mod commands {
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
         let oid = gitbutler_branch_actions::amend(&ctx, branch_id, commit_oid, &ownership)?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(oid.to_string())
     }
 
@@ -410,7 +410,7 @@ pub mod commands {
             to_commit_oid,
             &ownership,
         )?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(oid.to_string())
     }
 
@@ -428,7 +428,7 @@ pub mod commands {
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
         gitbutler_branch_actions::undo_commit(&ctx, branch_id, commit_oid)?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -447,7 +447,7 @@ pub mod commands {
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
         gitbutler_branch_actions::insert_blank_commit(&ctx, branch_id, commit_oid, offset)?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -464,7 +464,7 @@ pub mod commands {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::reorder_stack(&ctx, branch_id, stack_order)?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -536,7 +536,7 @@ pub mod commands {
             source_commit_oids,
             destination_commit_oid,
         )?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -572,7 +572,7 @@ pub mod commands {
             return Err(anyhow!(error).into());
         }
 
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
         Ok(base_branch)
     }
@@ -597,7 +597,7 @@ pub mod commands {
             commit_oid,
             source_branch_id,
         )?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -616,7 +616,7 @@ pub mod commands {
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
         gitbutler_branch_actions::update_commit_message(&ctx, branch_id, commit_oid, message)?;
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
 
@@ -666,7 +666,7 @@ pub mod commands {
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::integrate_upstream(&ctx, &resolutions, base_branch_resolution)?;
 
-        emit_vbranches(&windows, project_id);
+        emit_vbranches(&windows, project_id, ctx.app_settings());
 
         Ok(())
     }
@@ -688,11 +688,17 @@ pub mod commands {
         Ok(commit_id)
     }
 
-    pub(crate) fn emit_vbranches(windows: &WindowState, project_id: projects::ProjectId) {
-        if let Err(error) = windows.post(gitbutler_watcher::Action::CalculateVirtualBranches(
-            project_id,
-        )) {
-            tracing::error!(?error);
+    pub(crate) fn emit_vbranches(
+        windows: &WindowState,
+        project_id: projects::ProjectId,
+        app_settings: &gitbutler_settings::AppSettings,
+    ) {
+        if app_settings.feature_flags.v3 {
+            if let Err(error) = windows.post(gitbutler_watcher::Action::CalculateVirtualBranches(
+                project_id,
+            )) {
+                tracing::error!(?error);
+            }
         }
     }
 }

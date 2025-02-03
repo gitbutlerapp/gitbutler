@@ -24,7 +24,7 @@ pub fn create_series(
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     gitbutler_branch_actions::stack::create_series(&ctx, branch_id, request)?;
-    emit_vbranches(&windows, project_id);
+    emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
 
@@ -41,7 +41,7 @@ pub fn remove_series(
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     gitbutler_branch_actions::stack::remove_series(&ctx, branch_id, head_name)?;
-    emit_vbranches(&windows, project_id);
+    emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
 
@@ -59,7 +59,7 @@ pub fn update_series_name(
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     gitbutler_branch_actions::stack::update_series_name(&ctx, branch_id, head_name, new_head_name)?;
-    emit_vbranches(&windows, project_id);
+    emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
 
@@ -82,7 +82,7 @@ pub fn update_series_description(
         head_name,
         description,
     )?;
-    emit_vbranches(&windows, project_id);
+    emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
 
@@ -100,7 +100,7 @@ pub fn update_series_pr_number(
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     gitbutler_branch_actions::stack::update_series_pr_number(&ctx, stack_id, head_name, pr_number)?;
-    emit_vbranches(&windows, project_id);
+    emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
 
@@ -117,7 +117,7 @@ pub fn push_stack(
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     gitbutler_branch_actions::stack::push_stack(&ctx, branch_id, with_force)?;
-    emit_vbranches(&windows, project_id);
+    emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
 

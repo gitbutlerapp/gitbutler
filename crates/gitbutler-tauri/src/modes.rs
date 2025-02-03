@@ -57,7 +57,7 @@ pub fn abort_edit_and_return_to_workspace(
 
     gitbutler_edit_mode::commands::abort_and_return_to_workspace(&ctx)?;
 
-    emit_vbranches(&windows, project_id);
+    emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
 
@@ -74,7 +74,7 @@ pub fn save_edit_and_return_to_workspace(
 
     gitbutler_edit_mode::commands::save_and_return_to_workspace(&ctx)?;
 
-    emit_vbranches(&windows, project_id);
+    emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
 
