@@ -245,17 +245,18 @@
 		display: flex;
 		flex-direction: column;
 		padding: 16px;
-		border-top: 1px solid #ccc;
+		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.chat-input__content-container {
 		flex-grow: 1;
 		display: flex;
 		flex-direction: column;
+		gap: 12px;
 		padding: 12px;
 
-		border-radius: var(--m, 6px);
-		border: 1px solid var(--border-2, #d4d0ce);
+		border-radius: var(--radius-m);
+		border: 1px solid var(--clr-border-2);
 	}
 
 	.chat-input__actions {

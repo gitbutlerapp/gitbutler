@@ -163,34 +163,22 @@
 	}
 </script>
 
-<div style:--lineheight-ratio={1.6} class="rich-text-wrapper" bind:this={element}></div>
+<div
+	style:--lineheight-ratio={1.6}
+	class="text-body text-13 rich-text-wrapper"
+	bind:this={element}
+></div>
 
 <style>
 	.rich-text-wrapper :global(.mention) {
 		padding: 0px 4px;
-		border-radius: var(--radius-s, 4px);
-		background: var(--clr-theme-pop-bg, #f3fcfb);
-
-		color: var(--clr-theme-pop-on-soft, #1c5451);
-
-		/* base-body/13 */
-		font-family: var(--text-fontfamily-default, Inter);
-		font-size: 13px;
-		font-style: normal;
-		font-weight: var(--text-weight-regular, 400);
-		line-height: 160%; /* 20.8px */
+		border-radius: var(--radius-s);
+		background: var(--clr-theme-pop-bg);
+		color: var(--clr-theme-pop-on-soft);
 	}
 
 	.rich-text-wrapper > :global(.ProseMirror) {
 		outline: 0;
-
-		color: var(--clr-text-1, #1a1614);
-
-		/* base-body/13 */
-		font-family: var(--text-fontfamily-default, Inter);
-		font-size: 13px;
-		font-style: normal;
-		font-weight: var(--text-weight-regular, 400);
-		line-height: 160%; /* 20.8px */
+		color: var(--clr-text-1);
 	}
 </style>
