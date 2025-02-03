@@ -116,7 +116,6 @@
 		flex: 1;
 		border-radius: 0 var(--radius-ml) var(--radius-ml);
 
-		white-space: pre-wrap;
 		overflow-y: scroll;
 	}
 </style>
