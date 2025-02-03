@@ -70,7 +70,7 @@
 				</div>
 			</td>
 			<td><div><PatchReviewersGroup {patch} /></div></td>
-			<td><div></div></td>
+			<td><div>{patch.commentCount}</div></td>
 		</tr>
 	{/snippet}
 </Loading>
