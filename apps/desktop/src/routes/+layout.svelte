@@ -1,7 +1,6 @@
 <script lang="ts">
-	import '@gitbutler/ui/fonts.css';
 	import '@gitbutler/ui/main.css';
-	import '../styles.css';
+	import '../styles/styles.css';
 
 	import AppUpdater from '$components/AppUpdater.svelte';
 	import GlobalSettingsMenuAction from '$components/GlobalSettingsMenuAction.svelte';
