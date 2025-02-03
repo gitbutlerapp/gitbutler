@@ -1,6 +1,6 @@
 <script lang="ts">
-	import StackBranch from '$components/StackBranch.svelte';
 	import StackContentPlaceholder from '$components/StackContentPlaceholder.svelte';
+	import Branch from '$components/v3/Branch.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 
@@ -22,8 +22,10 @@
 	{#if stackId && branches && branches?.length > 0}
 		<div class="stack__branches">
 			<div class="stack__branches--list">
-				{#each branches as branch}
-					<StackBranch {branch} />
+				{#each branches as branch, i (branch.name)}
+					{@const first = i === 0}
+					{@const last = i === branches.length - 1}
+					<Branch {branch} {first} {last} />
 				{/each}
 			</div>
 		</div>
