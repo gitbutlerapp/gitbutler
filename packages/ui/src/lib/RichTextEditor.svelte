@@ -81,7 +81,7 @@
 		onSuggestionExit: (props: SuggestionProps) => void;
 		onSuggestionKeyDown: (event: KeyboardEvent) => boolean;
 		onKeyDown?: (event: KeyboardEvent) => boolean;
-		onTextUpdate?: (text: string) => void;
+		onUpdate?: (event: EditorInstance) => void;
 		padding?: {
 			top: number;
 			right: number;
@@ -97,7 +97,7 @@
 		onSuggestionKeyDown,
 		onSuggestionExit,
 		onKeyDown,
-		onTextUpdate,
+		onUpdate,
 		padding = { top: 12, right: 12, bottom: 12, left: 12 }
 	}: Props = $props();
 
@@ -158,7 +158,7 @@
 				editor = editor;
 			},
 			onUpdate: ({ editor }) => {
-				onTextUpdate?.(editor.getText());
+				onUpdate?.(editor);
 			}
 		});
 

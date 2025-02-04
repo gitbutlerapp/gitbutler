@@ -1,5 +1,6 @@
 <script lang="ts">
 	import MentionSuggestions from './MentionSuggestions.svelte';
+	import { embedUserMention } from '$lib/chat/mentions';
 	import RichText from '$lib/chat/richText.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
@@ -11,7 +12,7 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
-	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
+	import RichTextEditor, { type EditorInstance } from '@gitbutler/ui/RichTextEditor.svelte';
 	import type { UserSimple } from '@gitbutler/shared/users/types';
 
 	interface Props {
@@ -66,7 +67,6 @@
 
 	async function handleSendMessage(issue?: boolean) {
 		if (isSendingMessage) return;
-
 		isSendingMessage = true;
 		try {
 			await sendMessage(message, issue);
@@ -79,8 +79,6 @@
 
 	function handleKeyDown(event: KeyboardEvent): boolean {
 		if (event.key === 'Enter' && !event.shiftKey && richText.suggestions === undefined) {
-			const editor = richText.richTextEditor?.getEditor();
-			editor?.commands.clearContent();
 			event.preventDefault();
 			event.stopPropagation();
 			handleSendMessage();
@@ -165,6 +163,22 @@
 				.filter((item) => item.toLowerCase().startsWith(query.toLowerCase())) ?? []
 		);
 	}
+
+	function onEditorUpdate(editor: EditorInstance) {
+		message = editor?.getText({
+			textSerializers: {
+				mention: ({ node }) => {
+					const username = node.attrs.id;
+					const user = userMap.get(username);
+					if (!user) {
+						return '@' + username;
+					}
+
+					return embedUserMention(`${user.id}`);
+				}
+			}
+		});
+	}
 </script>
 
 <div class="chat-input">
@@ -207,7 +221,7 @@
 			onSuggestionExit={() => richText.onSuggestionExit()}
 			onSuggestionKeyDown={(event) => richText.onSuggestionKeyDown(event)}
 			onKeyDown={handleKeyDown}
-			onTextUpdate={(text) => (message = text)}
+			onUpdate={onEditorUpdate}
 		/>
 		<div class="chat-input__actions">
 			<div class="chat-input__secondary-actions">

@@ -4,6 +4,7 @@ import type { BrandedId } from '$lib/utils/branding';
 
 export type ApiChatMessage = {
 	comment: string;
+	mentions: ApiUserSimple[];
 	diff_patch_array: string[] | null;
 	diff_path: string | null;
 	diff_sha: string | null;
@@ -19,6 +20,7 @@ export type ApiChatMessage = {
 
 export type ChatMessage = {
 	comment: string;
+	mentions: UserSimple[];
 	diffPatchArray: string[] | undefined;
 	diffPath: string | undefined;
 	diffSha: string | undefined;
@@ -58,6 +60,7 @@ export type LoadableChatChannel = LoadableData<ChatChannel, ChatChannel['id']>;
 export function apiToChatMessage(apiChatMessage: ApiChatMessage): ChatMessage {
 	return {
 		comment: apiChatMessage.comment,
+		mentions: apiChatMessage.mentions.map(apiToUserSimple),
 		diffPatchArray: apiChatMessage.diff_patch_array ?? undefined,
 		diffPath: apiChatMessage.diff_path ?? undefined,
 		diffSha: apiChatMessage.diff_sha ?? undefined,
