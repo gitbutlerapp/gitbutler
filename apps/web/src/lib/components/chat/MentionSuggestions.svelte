@@ -69,8 +69,8 @@
 					{#if suggestions.length === 0}
 						<li>
 							<div class="suggestion-item">
-								<p class="suggestion-item__no-match text-12 text-tertiary name truncate">
-									No matches found
+								<p class="suggestion-item__no-match text-13 text-tertiary name truncate">
+									No matches found ¯\_(ツ)_/¯
 								</p>
 							</div>
 						</li>
