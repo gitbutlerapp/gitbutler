@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { Commit } from '$lib/branches/v3';
+	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
 
 	interface Props {
-		commits: Commit[];
+		commits: UpstreamCommit[] | Commit[];
 	}
 
 	const { commits }: Props = $props();
