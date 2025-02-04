@@ -1,7 +1,7 @@
 <script lang="ts">
 	import MentionSuggestions from './MentionSuggestions.svelte';
+	import { embedUserMention } from '$lib/chat/mentions';
 	import RichText from '$lib/chat/richText.svelte';
-	import { embedUserMention } from '$lib/chat/utils';
 	import { UserService } from '$lib/user/userService';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
