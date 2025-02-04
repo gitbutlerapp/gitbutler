@@ -235,6 +235,10 @@
 		padding: 0;
 	}
 
+	:global(.navigation .user-btn, .label) {
+		padding: 0 1px;
+	}
+
 	.user-btn {
 		display: flex;
 		align-items: center;
