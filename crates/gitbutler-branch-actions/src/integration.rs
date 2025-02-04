@@ -1,29 +1,21 @@
-use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::{path::PathBuf, vec};
 
 use anyhow::{anyhow, Context, Result};
-use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch::{self, GITBUTLER_WORKSPACE_REFERENCE};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
-use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_diff::diff_files_into_hunks;
 use gitbutler_error::error::Marker;
-use gitbutler_operating_modes::{OPEN_WORKSPACE_REFS, WORKSPACE_BRANCH_REF};
+use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
 use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt};
-use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
-use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
-use gitbutler_repo::rebase::cherry_rebase_group;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::SignaturePurpose;
-use gitbutler_stack::{Stack, StackId, VirtualBranchesHandle};
+use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use tracing::instrument;
 
-use crate::compute_workspace_dependencies;
-use crate::{branch_manager::BranchManagerExt, conflicts, VirtualBranchesExt};
+use crate::{conflicts, workspace_commit::resolve_commits_above, VirtualBranchesExt};
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
-const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
+pub const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
 pub const GITBUTLER_WORKSPACE_COMMIT_TITLE: &str = "GitButler Workspace Commit";
 
 /// Creates and returns a merge commit of all active branch heads.
@@ -295,7 +287,7 @@ pub fn update_workspace_commit(
 pub fn verify_branch(ctx: &CommandContext, perm: &mut WorktreeWritePermission) -> Result<()> {
     verify_current_branch_name(ctx)
         .and_then(verify_head_is_set)
-        .and_then(|()| verify_head_is_clean(ctx, perm))
+        .and_then(|()| resolve_commits_above(ctx, perm))
         .context(Marker::VerificationFailure)?;
     Ok(())
 }
@@ -322,157 +314,6 @@ fn verify_current_branch_name(ctx: &CommandContext) -> Result<&CommandContext> {
             Ok(ctx)
         }
         None => Err(anyhow!("Repo HEAD is unavailable")),
-    }
-}
-
-#[derive(Debug)]
-pub enum WorkspaceState {
-    OffWorkspaceCommit {
-        workspace_commit: git2::Oid,
-        extra_commits: Vec<git2::Oid>,
-    },
-    OnWorkspaceCommit,
-}
-
-pub fn workspace_state(
-    ctx: &CommandContext,
-    _perm: &WorktreeReadPermission,
-) -> Result<WorkspaceState> {
-    let repository = ctx.repo();
-    let vb_handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let default_target = vb_handle.get_default_target()?;
-
-    let head_commit = repository.head()?.peel_to_commit()?;
-    let commits = repository.log(
-        head_commit.id(),
-        LogUntil::Commit(default_target.sha),
-        false,
-    )?;
-
-    let workspace_index = commits
-        .iter()
-        .position(|commit| {
-            commit.message().is_some_and(|message| {
-                message.starts_with(GITBUTLER_WORKSPACE_COMMIT_TITLE)
-                    || message.starts_with(GITBUTLER_INTEGRATION_COMMIT_TITLE)
-            })
-        })
-        .context("")?;
-    let workspace_commit = &commits[workspace_index];
-    let extra_commits = commits[..workspace_index].to_vec();
-
-    if extra_commits.is_empty() {
-        // no extra commits found, so we're good
-        return Ok(WorkspaceState::OnWorkspaceCommit);
-    }
-
-    Ok(WorkspaceState::OffWorkspaceCommit {
-        workspace_commit: workspace_commit.id(),
-        extra_commits: extra_commits
-            .iter()
-            .map(git2::Commit::id)
-            .collect::<Vec<_>>(),
-    })
-}
-
-// TODO(ST): Probably there should not be an implicit vbranch creation here.
-fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission) -> Result<()> {
-    let repository = ctx.repo();
-    let head_commit = repository.head()?.peel_to_commit()?;
-
-    let WorkspaceState::OffWorkspaceCommit {
-        workspace_commit,
-        extra_commits,
-    } = workspace_state(ctx, perm.read_permission())?
-    else {
-        return Ok(());
-    };
-
-    let best_stack_id = find_best_stack_for_changes(ctx, perm, head_commit.id(), workspace_commit)?;
-
-    if let Some(best_stack_id) = best_stack_id {
-        let vb_handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
-        let mut stack = vb_handle.get_stack_in_workspace(best_stack_id)?;
-
-        let new_head = cherry_rebase_group(repository, stack.head(), &extra_commits, false)?;
-
-        stack.set_stack_head(
-            ctx,
-            new_head,
-            Some(repository.find_commit(new_head)?.tree_id()),
-        )?;
-
-        update_workspace_commit(&vb_handle, ctx)?;
-    } else {
-        // There is no stack which can hold the commits so we should just unroll those changes
-        repository.reference(WORKSPACE_BRANCH_REF, workspace_commit, true, "")?;
-        repository.set_head(WORKSPACE_BRANCH_REF)?;
-    }
-
-    Ok(())
-}
-
-fn find_best_stack_for_changes(
-    ctx: &CommandContext,
-    perm: &mut WorktreeWritePermission,
-    head_commit: git2::Oid,
-    workspace_commit: git2::Oid,
-) -> Result<Option<StackId>> {
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let default_target = vb_state.get_default_target()?;
-    let repository = ctx.repo();
-    let stacks = vb_state.list_stacks_in_workspace()?;
-
-    let head_commit = repository.find_commit(head_commit)?;
-
-    let diffs = gitbutler_diff::trees(
-        ctx.repo(),
-        &repository.find_commit(workspace_commit)?.tree()?,
-        &head_commit.tree()?,
-        true,
-    )?;
-    let base_diffs: HashMap<_, _> = diff_files_into_hunks(&diffs).collect();
-    let workspace_dependencies =
-        compute_workspace_dependencies(ctx, &default_target.sha, &base_diffs, &stacks)?;
-
-    match workspace_dependencies.commit_dependent_diffs.len().cmp(&1) {
-        Ordering::Greater => {
-            // The commits are locked to multiple stacks. We can't correctly assign it
-            // to any one stack, so the commits should be undone.
-            Ok(None)
-        }
-        Ordering::Equal => {
-            // There is one stack which the commits are locked to, so the commits
-            // should be added to that particular stack.
-            let stack_id = workspace_dependencies
-                .commit_dependent_diffs
-                .keys()
-                .next()
-                .expect("Values was asserted length 1 above");
-            Ok(Some(*stack_id))
-        }
-        Ordering::Less => {
-            // We should return the branch selected for changes, or create a new default branch.
-            let mut stacks = vb_state.list_stacks_in_workspace()?;
-            stacks.sort_by_key(|stack| stack.selected_for_changes.unwrap_or(0));
-
-            if let Some(stack) = stacks.last() {
-                return Ok(Some(stack.id));
-            }
-
-            let branch_manager = ctx.branch_manager();
-            let new_stack = branch_manager
-                .create_virtual_branch(
-                    &BranchCreateRequest {
-                        name: Some(head_commit.message_bstr().to_string()),
-                        ..Default::default()
-                    },
-                    perm,
-                )
-                .context("failed to create virtual branch")?;
-
-            Ok(Some(new_stack.id))
-        }
     }
 }
 

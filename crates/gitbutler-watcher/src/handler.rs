@@ -2,7 +2,10 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result};
 use gitbutler_branch_actions::{
-    internal::StackListResult, verify_branch, workspace_state, VirtualBranches, WorkspaceState,
+    internal::StackListResult,
+    verify_branch,
+    workspace_commit::{workspace_commit_status, WorkspaceCommitStatus},
+    VirtualBranches,
 };
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
@@ -207,9 +210,12 @@ impl Handler {
         let workspace_state = {
             let guard = ctx.project().exclusive_worktree_access();
             let permission = guard.read_permission();
-            workspace_state(ctx, permission)?
+            workspace_commit_status(ctx, permission)?
         };
-        if matches!(workspace_state, WorkspaceState::OffWorkspaceCommit { .. }) {
+        if matches!(
+            workspace_state,
+            WorkspaceCommitStatus::WorkspaceCommitBehind { .. }
+        ) {
             {
                 let mut guard = ctx.project().exclusive_worktree_access();
                 let permission = guard.write_permission();
