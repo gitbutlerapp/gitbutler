@@ -104,11 +104,18 @@
 		{#snippet children([patch, repositoryId, branchUuid])}
 			<div class="review-main-content" class:expand={chatMinimizer.value}>
 				<div class="review-main__header">
-					<p class="review-main__branch-title-line">
-						Branch: <span class="review-main__branch-title">{branchName}</span>
-					</p>
+					<!-- <p class="text-12 review-main__branch-title-line show-on-mobile">
+						Branch: <a
+							class="review-main__branch-link"
+							href={routes.projectReviewBranchPath({
+								ownerSlug: data.ownerSlug,
+								projectSlug: data.projectSlug,
+								branchId: data.branchId
+							})}>{branchName}</a
+						>
+					</p> -->
 
-					<h3 class="review-main-content-title">{patch.title}</h3>
+					<h3 class="text-18 text-bold review-main-content-title">{patch.title}</h3>
 
 					<div class="review-main-content__patch-navigator">
 						{#if patchIds !== undefined}
@@ -177,35 +184,19 @@
 	}
 
 	.review-main__branch-title-line {
-		color: var(--text-3, #b4afac);
-
-		/* base/12 */
-		font-family: var(--fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--weight-regular, 400);
-		line-height: 120%; /* 14.4px */
+		color: var(--clr-text-3);
 	}
 
-	.review-main__branch-title {
-		color: var(--text-1, #1a1614);
+	.review-main__branch-link {
+		color: var(--clr-text-1);
 
-		/* base/12 */
-		font-family: var(--fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--weight-regular, 400);
-		line-height: 120%;
+		&:hover {
+			text-decoration: underline;
+		}
 	}
 
 	.review-main-content-title {
-		color: var(--text-1, #1a1614);
-
-		font-family: var(--fontfamily-default, Inter);
-		font-size: 18px;
-		font-style: normal;
-		font-weight: var(--weight-bold, 600);
-		line-height: 120%; /* 21.6px */
+		color: var(--clr-text-1);
 	}
 
 	.review-main-content__patch-navigator {

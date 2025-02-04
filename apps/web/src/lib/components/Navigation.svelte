@@ -3,7 +3,6 @@
 	import Breadcrumbs from '$lib/components/breadcrumbs/Breadcrumbs.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -12,8 +11,6 @@
 	import NotificationButton from '@gitbutler/ui/NotificationButton.svelte';
 	import { goto } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
-
-	const routes = getContext(WebRoutesService);
 
 	const authService = getContext(AuthService);
 	const token = $derived(authService.tokenReadable);
@@ -24,10 +21,6 @@
 	let ctxMenuUserEl = $state<ReturnType<typeof ContextMenu>>();
 	let ctxUserTriggerButton = $state<HTMLButtonElement | undefined>();
 	let isCtxMenuOpen = $state(false);
-
-	let ctxMenuOtherLinks = $state<ReturnType<typeof ContextMenu>>();
-	let ctxOtherLinksTriggerButton = $state<HTMLButtonElement | undefined>();
-	let isCtxOtherLinksMenuOpen = $state(false);
 
 	let isNotificationsUnread = $state(false);
 
@@ -42,52 +35,22 @@
 
 <div class="navigation">
 	<div class="main-links">
-		<a href="/" class="logo" aria-label="main nav" title="Home">
-			<svg xmlns="http://www.w3.org/2000/svg" width="23" height="24" viewBox="0 0 23 24">
-				<path d="M0 24V0L11.4819 10.5091L23 0V24L11.4819 13.5273L0 24Z" />
+		<a href="/repositories" class="logo" aria-label="main nav" title="Home">
+			<svg
+				width="23"
+				height="22"
+				viewBox="0 0 23 22"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+			>
+				<path d="M0 22V0L11.4819 9.63333L23 0V22L11.4819 12.4L0 22Z" fill="#1A1614" />
 			</svg>
 		</a>
+
 		<Breadcrumbs />
 	</div>
 
 	<div class="other-links">
-		{#if $token}
-			<a
-				class="text-12 text-semibold other-nav-link"
-				href={routes.projectsPath()}
-				aria-label="projects">Projects</a
-			>
-			<a
-				class="text-12 text-semibold other-nav-link"
-				href="/organizations"
-				aria-label="organizations"
-			>
-				Organizations
-			</a>
-
-			<Button
-				kind="ghost"
-				icon="kebab"
-				class="hidden-on-desktop"
-				bind:el={ctxOtherLinksTriggerButton}
-				activated={isCtxOtherLinksMenuOpen}
-				onclick={() => {
-					ctxMenuOtherLinks?.toggle();
-				}}
-			/>
-		{/if}
-
-		{#if !$user}
-			<a
-				class="text-12 text-semibold other-nav-link"
-				href="/downloads"
-				aria-label="downloads"
-				title="Downloads"
-			>
-				Downloads
-			</a>
-		{/if}
-
 		{#if $user}
 			<NotificationButton
 				hasUnread={isNotificationsUnread}
@@ -132,19 +95,6 @@
 </div>
 
 <ContextMenu
-	bind:this={ctxMenuOtherLinks}
-	leftClickTrigger={ctxOtherLinksTriggerButton}
-	side="right"
-	verticalAlign="bottom"
-	ontoggle={(isOpen) => (isCtxOtherLinksMenuOpen = isOpen)}
->
-	<ContextMenuSection>
-		<ContextMenuItem label="Projects" onclick={() => goto(routes.projectsPath())} />
-		<ContextMenuItem label="Organizations" onclick={() => goto('/organizations')} />
-	</ContextMenuSection>
-</ContextMenu>
-
-<ContextMenu
 	bind:this={ctxMenuUserEl}
 	leftClickTrigger={ctxUserTriggerButton}
 	side="right"
@@ -179,9 +129,11 @@
 			}}
 		/>
 	</ContextMenuSection>
-	<ContextMenuSection>
-		<ContextMenuItem label="Downloads" onclick={() => goto('/downloads')} />
-	</ContextMenuSection>
+	{#if $token}
+		<ContextMenuSection>
+			<ContextMenuItem label="Organizations" onclick={() => goto('/organizations')} />
+		</ContextMenuSection>
+	{/if}
 	<ContextMenuSection>
 		<ContextMenuItem label="Logout" onclick={logout} />
 	</ContextMenuSection>
@@ -196,9 +148,11 @@
 	}
 
 	.main-links {
+		flex: 1;
 		display: flex;
 		align-items: center;
-		gap: 12px;
+		gap: 16px;
+		overflow: hidden;
 	}
 
 	.logo {
@@ -208,24 +162,10 @@
 	.other-links {
 		display: flex;
 		align-items: center;
-		gap: 20px;
+		gap: 12px;
 
 		@media (--tablet-viewport) {
 			gap: 10px;
-		}
-	}
-
-	.other-nav-link {
-		color: var(--clr-text-2);
-		transition: color var(--transition-fast);
-
-		&:hover {
-			color: var(--clr-text-1);
-			text-decoration: underline;
-		}
-
-		@media (--tablet-viewport) {
-			display: none;
 		}
 	}
 
