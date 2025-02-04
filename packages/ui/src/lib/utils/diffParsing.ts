@@ -28,9 +28,8 @@ export function parseHunk(hunkStr: string): Hunk {
 		contentSections: []
 	};
 
-	// These zero values will never get used in practice.
-	let lastBefore = 0;
-	let lastAfter = 0;
+	let lastBefore = hunk.oldStart;
+	let lastAfter = hunk.newStart;
 
 	for (const line of bodyLines) {
 		const type = lineType(line);
