@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '$lib/styles/global.css';
 	import { AuthService } from '$lib/auth/authService.svelte';
+	import Footer from '$lib/components/Footer.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
@@ -102,6 +103,7 @@
 		<main>
 			{@render children()}
 		</main>
+		<Footer />
 	</div>
 {/if}
 
