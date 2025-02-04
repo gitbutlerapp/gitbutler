@@ -8,10 +8,10 @@
 
 <script lang="ts">
 	import MessageActions from './MessageActions.svelte';
+	import MessageMarkdown from './MessageMarkdown.svelte';
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import type { ChatEvent } from '@gitbutler/shared/branches/types';
 
 	const UNKNOWN_AUTHOR = 'Unknown author';
@@ -64,7 +64,7 @@
 
 		<div class="chat-message-content">
 			<div class="chat-message__content-text">
-				<Markdown content={message.comment} />
+				<MessageMarkdown content={message.comment} />
 			</div>
 
 			<MessageActions {projectId} {changeId} {message} />
