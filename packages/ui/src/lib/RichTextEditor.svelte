@@ -1,4 +1,5 @@
 <script lang="ts" module>
+	export type EditorInstance = Editor;
 	export type Range = {
 		from: number;
 		to: number;
@@ -66,6 +67,7 @@
 </script>
 
 <script lang="ts">
+	import { pxToRem } from './utils/pxToRem';
 	import { Editor } from '@tiptap/core';
 	import Document from '@tiptap/extension-document';
 	import Mention from '@tiptap/extension-mention';
@@ -80,6 +82,12 @@
 		onSuggestionKeyDown: (event: KeyboardEvent) => boolean;
 		onKeyDown?: (event: KeyboardEvent) => boolean;
 		onTextUpdate?: (text: string) => void;
+		padding?: {
+			top: number;
+			right: number;
+			bottom: number;
+			left: number;
+		};
 	}
 
 	const {
@@ -89,7 +97,8 @@
 		onSuggestionKeyDown,
 		onSuggestionExit,
 		onKeyDown,
-		onTextUpdate
+		onTextUpdate,
+		padding = { top: 12, right: 12, bottom: 12, left: 12 }
 	}: Props = $props();
 
 	let element = $state<HTMLDivElement>();
@@ -164,6 +173,10 @@
 </script>
 
 <div
+	style:--padding-top={pxToRem(padding.top)}
+	style:--padding-right={pxToRem(padding.right)}
+	style:--padding-bottom={pxToRem(padding.bottom)}
+	style:--padding-left={pxToRem(padding.left)}
 	style:--lineheight-ratio={1.6}
 	class="text-body text-13 rich-text-wrapper"
 	bind:this={element}
@@ -178,6 +191,7 @@
 	}
 
 	.rich-text-wrapper > :global(.ProseMirror) {
+		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);
 		outline: 0;
 		color: var(--clr-text-1);
 	}
