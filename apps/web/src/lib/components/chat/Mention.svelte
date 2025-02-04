@@ -1,18 +1,6 @@
-<script lang="ts" module>
-	export interface MentionMatch {
-		user: UserSimple;
-		prefix: MentionMatch | string;
-		suffix: MentionMatch | string;
-	}
-
-	export function isMentionMatch(value: any): value is MentionMatch {
-		return typeof value === 'object' && value !== null && 'id' in value;
-	}
-</script>
-
 <script lang="ts">
+	import { isMentionMatch, type MentionMatch } from '$lib/chat/utils';
 	import Self from '$lib/components/chat/Mention.svelte';
-	import type { UserSimple } from '@gitbutler/shared/users/types';
 
 	interface Props {
 		mention: MentionMatch;
