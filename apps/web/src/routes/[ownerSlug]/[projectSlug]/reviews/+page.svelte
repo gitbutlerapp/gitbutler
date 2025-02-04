@@ -40,7 +40,6 @@
 					<th><div>Name</div></th>
 					<th><div>UUID</div></th>
 					<th><div>Branch commits</div></th>
-					<th><div>Status</div></th>
 					<th><div>Last update</div></th>
 					<th><div>Authors</div></th>
 					<th><div>Version</div></th>

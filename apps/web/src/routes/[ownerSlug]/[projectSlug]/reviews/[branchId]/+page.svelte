@@ -7,7 +7,11 @@
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
-	import { getContributorsWithAvatars, type Branch } from '@gitbutler/shared/branches/types';
+	import {
+		BranchStatus,
+		getContributorsWithAvatars,
+		type Branch
+	} from '@gitbutler/shared/branches/types';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
@@ -17,6 +21,7 @@
 		WebRoutesService,
 		type ProjectReviewParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
@@ -85,22 +90,26 @@
 		editingSummary = false;
 	}
 
-	let savingSummary = $state<'inert' | 'loading' | 'complete'>('inert');
-
 	async function saveSummary() {
 		if (!isFound(branch?.current)) return;
-
-		savingSummary = 'loading';
 
 		try {
 			await branchService.updateBranch(branch.current.value.uuid, {
 				description: summary
 			});
-			toasts.success('Saved review summary');
+			toasts.success('Updated review status');
 		} finally {
 			editingSummary = false;
-			savingSummary = 'complete';
 		}
+	}
+
+	async function updateStatus(status: BranchStatus.Active | BranchStatus.Closed) {
+		if (!isFound(branch?.current)) return;
+
+		await branchService.updateBranch(branch.current.value.uuid, {
+			status
+		});
+		toasts.success('Saved review summary');
 	}
 
 	function copyLocation() {
@@ -128,11 +137,19 @@
 				<div class="heading">
 					<p class="text-15 text-bold">{branch.title}</p>
 					<div class="actions">
-						<!-- {#if !branch.description}
-							<Button icon="plus-small" kind="outline" onclick={editSummary}>Add summary</Button>
-						{/if} -->
 						<Button icon="text-link" kind="outline" onclick={copyLocation}>Branch link</Button>
 						{@render startReview(branch)}
+						{#if branch.status === BranchStatus.Closed}
+							<AsyncButton action={async () => updateStatus(BranchStatus.Active)} kind="outline"
+								>Re-open review</AsyncButton
+							>
+						{:else}
+							<AsyncButton
+								style="error"
+								kind="outline"
+								action={async () => updateStatus(BranchStatus.Closed)}>Close review</AsyncButton
+							>
+						{/if}
 					</div>
 				</div>
 				<div class="stats">
@@ -156,14 +173,8 @@
 					{#if editingSummary}
 						<Textarea minRows={6} bind:value={summary}></Textarea>
 						<div class="summary-actions">
-							<Button
-								kind="outline"
-								onclick={abortEditingSummary}
-								loading={savingSummary === 'loading'}>Cancel</Button
-							>
-							<Button style="pop" onclick={saveSummary} loading={savingSummary === 'loading'}
-								>Save</Button
-							>
+							<Button kind="outline" onclick={abortEditingSummary}>Cancel</Button>
+							<AsyncButton style="pop" action={saveSummary}>Save</AsyncButton>
 						</div>
 					{:else if branch.description}
 						<Markdown content={branch.description} />
