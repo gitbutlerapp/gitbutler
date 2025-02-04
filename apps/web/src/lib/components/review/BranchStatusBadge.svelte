@@ -1,6 +1,6 @@
 <script lang="ts">
+	import { BranchStatus, type Branch, type Patch } from '@gitbutler/shared/branches/types';
 	import CommitStatusBadge from '@gitbutler/ui/CommitStatusBadge.svelte';
-	import type { Branch, Patch } from '@gitbutler/shared/branches/types';
 
 	type Props = {
 		branch: Branch;
@@ -8,14 +8,22 @@
 
 	const { branch }: Props = $props();
 
-	const patches = branch.patches;
+	const patches = $derived(branch.patches);
 
-	let anyRejected = patches.some((patch: Patch) => patch.reviewAll.rejected.length > 0);
-	let someApproved = patches.some((patch: Patch) => patch.reviewAll.signedOff.length > 0);
-	let allApproved = !patches.some((patch: Patch) => patch.reviewAll.signedOff.length === 0);
+	const anyRejected = $derived(patches.some((patch: Patch) => patch.reviewAll.rejected.length > 0));
+	const someApproved = $derived(
+		patches.some((patch: Patch) => patch.reviewAll.signedOff.length > 0)
+	);
+	const allApproved = $derived(
+		!patches.some((patch: Patch) => patch.reviewAll.signedOff.length === 0)
+	);
 
-	function getStatus() {
-		if (anyRejected) {
+	const status = $derived.by(() => {
+		if (branch.status === BranchStatus.Closed) {
+			return 'closed';
+		} else if (branch.status === BranchStatus.Loading) {
+			return 'loading';
+		} else if (anyRejected) {
 			return 'changes-requested';
 		} else if (allApproved) {
 			return 'approved';
@@ -24,7 +32,7 @@
 		} else {
 			return 'unreviewed';
 		}
-	}
+	});
 </script>
 
-<CommitStatusBadge status={getStatus()} />
+<CommitStatusBadge {status} />

@@ -2,7 +2,13 @@
 	import Icon from '$lib/Icon.svelte';
 
 	type Props = {
-		status: 'unreviewed' | 'in-discussion' | 'approved' | 'changes-requested';
+		status:
+			| 'unreviewed'
+			| 'in-discussion'
+			| 'approved'
+			| 'changes-requested'
+			| 'closed'
+			| 'loading';
 		kind?: 'icon' | 'text';
 	};
 
@@ -25,6 +31,8 @@
 	class="status-badge"
 	class:status-badge_icon={kind === 'icon'}
 	class:status-badge_approved={status === 'approved'}
+	class:status-badge_closed={status === 'closed'}
+	class:status-badge_loading={status === 'loading'}
 	class:status-badge_changes-requested={status === 'changes-requested'}
 	class:status-badge_in-discussion={status === 'in-discussion'}
 	class:status-badge_unreviewed={status === 'unreviewed'}
@@ -33,7 +41,11 @@
 		<Icon name={getIconName()} />
 	{:else}
 		<span class="text-10 text-bold status-badge__text">
-			{#if status === 'changes-requested'}
+			{#if status === 'closed'}
+				Closed
+			{:else if status === 'loading'}
+				Processing
+			{:else if status === 'changes-requested'}
 				Changes requested
 			{:else if status === 'approved'}
 				Approved
@@ -57,6 +69,10 @@
 		text-wrap: nowrap;
 		padding: 0 4px;
 	}
+	.status-badge_closed {
+		background-color: var(--clr-theme-purp-element);
+		color: var(--clr-core-ntrl-100);
+	}
 
 	.status-badge_approved {
 		background-color: var(--clr-br-commit-approved-bg);
@@ -73,7 +89,8 @@
 		color: var(--clr-br-commit-in-discussion-text);
 	}
 
-	.status-badge_unreviewed {
+	.status-badge_unreviewed,
+	.status-badge_loading {
 		background-color: var(--clr-br-commit-unreviewed-bg);
 		color: var(--clr-br-commit-unreviewed-text);
 	}
