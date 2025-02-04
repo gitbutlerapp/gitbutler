@@ -64,7 +64,7 @@
 
 		<div class="chat-message-content">
 			<div class="chat-message__content-text">
-				<MessageMarkdown content={message.comment} />
+				<MessageMarkdown content={message.comment} mentions={message.mentions} />
 			</div>
 
 			<MessageActions {projectId} {changeId} {message} />

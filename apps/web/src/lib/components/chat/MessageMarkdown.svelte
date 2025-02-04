@@ -1,6 +1,7 @@
 <script lang="ts">
 	import MessageMarkdownContent from './MessageMarkdownContent.svelte';
 	import { Lexer } from 'marked';
+	import type { UserSimple } from '@gitbutler/shared/users/types';
 
 	const options = {
 		async: false,
@@ -14,10 +15,11 @@
 	};
 
 	interface Props {
+		mentions: UserSimple[];
 		content: string | undefined;
 	}
 
-	const { content }: Props = $props();
+	const { content, mentions }: Props = $props();
 
 	const tokens = $derived.by(() => {
 		const lexer = new Lexer(options);
@@ -27,6 +29,6 @@
 
 <div class="markdown">
 	{#if tokens}
-		<MessageMarkdownContent type="init" {tokens} />
+		<MessageMarkdownContent type="init" {tokens} {mentions} />
 	{/if}
 </div>

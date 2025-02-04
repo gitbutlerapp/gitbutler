@@ -14,10 +14,11 @@
 	import ListItem from '@gitbutler/ui/markdown/markdownRenderers/ListItem.svelte';
 	import Paragraph from '@gitbutler/ui/markdown/markdownRenderers/Paragraph.svelte';
 	import Strong from '@gitbutler/ui/markdown/markdownRenderers/Strong.svelte';
+	import type { UserSimple } from '@gitbutler/shared/users/types';
 	import type { Token } from 'marked';
 	import type { Component } from 'svelte';
 
-	type Props = { type: 'init'; tokens: Token[] } | Token;
+	type Props = { type: 'init'; tokens: Token[]; mentions: UserSimple[] } | Token;
 
 	const renderers = {
 		link: Link,
@@ -38,11 +39,12 @@
 	};
 
 	const { type, ...rest }: Props = $props();
+	const mentions = $derived('mentions' in rest ? rest.mentions : []);
 </script>
 
 {#if type === 'init' && 'tokens' in rest && rest.tokens}
 	{#each rest.tokens as token}
-		<Self {...token} />
+		<Self {...token} {mentions} />
 	{/each}
 {:else if renderers[type as keyof typeof renderers]}
 	{@const CurrentComponent = renderers[type as keyof typeof renderers] as Component<
@@ -54,16 +56,16 @@
 			{#each listItems as item}
 				{@const ChildComponent = renderers[item.type]}
 				<ChildComponent {...item}>
-					<Self type="init" tokens={item.tokens} />
+					<Self type="init" tokens={item.tokens} {mentions} />
 				</ChildComponent>
 			{/each}
 		</CurrentComponent>
 	{:else if type === 'text' && 'raw' in rest}
-		<MessageText text={rest.raw} />
+		<MessageText text={rest.raw} {mentions} />
 	{:else}
 		<CurrentComponent {...rest}>
 			{#if 'tokens' in rest && rest.tokens}
-				<Self type="init" tokens={rest.tokens} />
+				<Self type="init" tokens={rest.tokens} {mentions} />
 			{:else if 'raw' in rest}
 				{rest.raw}
 			{/if}

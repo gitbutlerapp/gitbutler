@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	export interface MentionMatch {
-		id: number;
+		user: UserSimple;
 		prefix: MentionMatch | string;
 		suffix: MentionMatch | string;
 	}
@@ -12,12 +12,15 @@
 
 <script lang="ts">
 	import Self from '$lib/components/chat/Mention.svelte';
+	import type { UserSimple } from '@gitbutler/shared/users/types';
 
 	interface Props {
 		mention: MentionMatch;
 	}
 
 	const { mention }: Props = $props();
+
+	const username = $derived(mention.user.login ?? mention.user.name ?? mention.user.email);
 </script>
 
 {#if isMentionMatch(mention.prefix)}
@@ -26,7 +29,7 @@
 	{mention.prefix}
 {/if}
 <span class="message-mention text-13">
-	@{mention.id}
+	@{username}
 </span>
 {#if isMentionMatch(mention.suffix)}
 	<Self mention={mention.suffix} />
