@@ -4,6 +4,7 @@
 	import SeriesHeaderStatusIcon from '$components/SeriesHeaderStatusIcon.svelte';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import type { WorkspaceBranch } from '$lib/branches/v3';
+	import type { CellType } from '@gitbutler/ui/commitLines/types';
 
 	interface Props {
 		branch: WorkspaceBranch;
@@ -16,8 +17,16 @@
 	const topPatch = $derived(
 		branch.state.type !== 'Archived' ? branch?.state.subject.localAndRemote[0] : undefined
 	);
-	const branchType = $derived(topPatch?.state?.type.toLowerCase());
+
+	// Lowercased first letter to match CellTypes from v2
+	// TODO: Harmonize types once we drop v2
+	let branchType = $derived(
+		topPatch?.state?.type
+			? topPatch?.state?.type[0]?.toLowerCase() + topPatch?.state?.type.slice(1)
+			: 'local'
+	) as CellType;
 	const lineColor = $derived(getColorFromBranchType(branchType));
+
 	const descriptionVisible = $derived(!!branch.description);
 	const remoteName = $derived(
 		branch.remoteTrackingBranch
@@ -30,7 +39,7 @@
 		console.log('FIXME', title);
 	}
 
-	function editDescription(description: string) {
+	function editDescription(description: string | null | undefined) {
 		console.log('FIXME', description);
 	}
 
