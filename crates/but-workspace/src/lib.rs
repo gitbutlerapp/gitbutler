@@ -4,11 +4,12 @@
 //! ### Terminology
 //!
 //! * **Workspace**
-//!     - A GitButler concept of the combination of one or more branches into one worktree. This allows
-//!       multiple branches to be perceived in one worktree, by merging multiple branches together.
-//!     - Currently, there is only one workspace per repository, but this is something we intend to change
-//!       in the future to facilitate new use cases.
-//!
+//!   - A GitButler concept of the combination of one or more branches into one worktree. This allows
+//!     multiple branches to be perceived in one worktree, by merging multiple branches together.
+//!   - Currently, there is only one workspace per repository, but this is something we intend to change
+//!     in the future to facilitate new use cases.
+//! * **Workspace Ref**
+//!   - The reference that points to the merge-commit which integrates all *workspace* *stacks*.
 //! * **Stack**
 //!   - GitButler implements the concept of a branch stack. This is essentially a collection of "heads"
 //!     (pseudo branches) that contain each other.
@@ -16,6 +17,7 @@
 //!   - High level documentation here: <https://docs.gitbutler.com/features/stacked-branches>
 //! * **Target Branch**
 //!   - The branch every stack in the workspace wants to get merged into.
+//!   - It's usually a local tracking branch, but doesn't have to if no Git *remote* is associated with it.
 //!   - Git doesn't have a notion of such a branch.
 
 use anyhow::{Context, Result};
@@ -36,6 +38,8 @@ use std::str::FromStr;
 
 mod author;
 mod integrated;
+
+pub mod commit_engine;
 
 /// An ID uniquely identifying stacks.
 pub use gitbutler_stack::StackId;
