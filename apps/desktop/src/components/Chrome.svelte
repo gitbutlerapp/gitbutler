@@ -8,9 +8,9 @@
 
 <div class="chrome">
 	<Header />
-	<div class="wrapper">
+	<div class="chrome-body">
 		<Sidebar />
-		<div class="content">
+		<div class="chrome-content">
 			{@render children()}
 		</div>
 	</div>
@@ -25,15 +25,14 @@
 		max-width: 100%;
 	}
 
-	.wrapper {
+	.chrome-body {
 		display: flex;
 		overflow: hidden;
 		flex-grow: 1;
 		height: 100%;
-		max-width: 100vw;
 	}
 
-	.content {
+	.chrome-content {
 		display: flex;
 		flex-grow: 1;
 		padding: 0 16px 16px 0;
