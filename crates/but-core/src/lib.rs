@@ -57,6 +57,15 @@ pub mod ui;
 /// utility types
 pub mod unified_diff;
 
+/// utilities for command-invocation.
+pub mod cmd;
+
+mod settings;
+pub use settings::git::GitConfigSettings;
+
+mod repo_ext;
+pub use repo_ext::RepositoryExt;
+
 /// A decoded commit object with easy access to additional GitButler information.
 pub struct Commit<'repo> {
     /// The id of the commit itself.
