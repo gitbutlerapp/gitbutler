@@ -39,6 +39,7 @@ pub mod upstream_integration;
 
 mod integration;
 pub use integration::{update_workspace_commit, verify_branch};
+pub mod workspace_commit;
 
 mod file;
 pub use file::{Get, RemoteBranchFile};
