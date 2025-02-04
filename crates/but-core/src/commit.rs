@@ -1,7 +1,8 @@
 use crate::Commit;
 use anyhow::Context;
-use bstr::ByteSlice;
+use bstr::{BString, ByteSlice};
 use gix::prelude::ObjectIdExt;
+use uuid::Uuid;
 
 /// A collection of all the extra information we keep in the headers of a commit.
 #[derive(Debug, Clone)]
@@ -21,6 +22,26 @@ pub struct HeadersV2 {
     pub conflicted: Option<u64>,
 }
 
+impl Default for HeadersV2 {
+    fn default() -> Self {
+        HeadersV2 {
+            // Change ID using base16 encoding
+            change_id: if cfg!(feature = "testing") {
+                std::env::var("CHANGE_ID").unwrap_or_else(|_| {
+                    eprintln!(
+                        "With 'testing' feature the `CHANGE_ID` \
+environment variable can be set have stable values"
+                    );
+                    Uuid::new_v4().to_string()
+                })
+            } else {
+                Uuid::new_v4().to_string()
+            },
+            conflicted: None,
+        }
+    }
+}
+
 /// Used to represent the old commit headers layout, here just for backwards compatibility.
 #[derive(Debug)]
 struct HeadersV1 {
@@ -34,6 +55,40 @@ impl From<HeadersV1> for HeadersV2 {
             conflicted: None,
         }
     }
+}
+
+const HEADERS_VERSION_FIELD: &str = "gitbutler-headers-version";
+const HEADERS_CHANGE_ID_FIELD: &str = "gitbutler-change-id";
+const HEADERS_CONFLICTED_FIELD: &str = "gitbutler-conflicted";
+
+impl From<HeadersV2> for Vec<(BString, BString)> {
+    fn from(hdr: HeadersV2) -> Self {
+        let mut out = vec![
+            (BString::from(HEADERS_VERSION_FIELD), BString::from("2")),
+            (HEADERS_CHANGE_ID_FIELD.into(), hdr.change_id.clone().into()),
+        ];
+
+        if let Some(conflicted) = hdr.conflicted {
+            out.push((
+                HEADERS_CONFLICTED_FIELD.into(),
+                conflicted.to_string().into(),
+            ));
+        }
+        out
+    }
+}
+
+/// When commits are in conflicting state, they store various trees which to help deal with the conflict.
+#[derive(Debug, Copy, Clone)]
+pub enum TreeKind {
+    /// Our tree that caused a conflict during the merge.
+    Ours,
+    /// Their tree that caused a conflict during the merge.
+    Theirs,
+    /// The base of the conflicting mereg.
+    Base,
+    /// The tree that resulted from the merge with auto-resolution enabled.
+    AutoResolution,
 }
 
 /// Instantiation
@@ -57,35 +112,57 @@ impl<'repo> Commit<'repo> {
 
     /// Return the hash of *our* tree, even if this commit is conflicted.
     pub fn tree_id(&self) -> anyhow::Result<gix::Id<'repo>> {
-        if self.is_conflicted() {
+        Ok(self
+            .tree_id_by_kind(TreeKind::Ours)?
+            .expect("our tree is always available"))
+    }
+
+    /// Return the tree of the given `kind`, or `None` if no such tree exists as this instance is *not* conflicted.
+    /// If `kind` is [`TreeKind::Ours`] one can always expect `Some()` tree.
+    pub fn tree_id_by_kind(&self, kind: TreeKind) -> anyhow::Result<Option<gix::Id<'repo>>> {
+        Ok(if self.is_conflicted() {
             let our_tree = self
                 .inner
                 .tree
                 .attach(self.id.repo)
                 .object()?
                 .into_tree()
-                .find_entry(".conflict-side-0")
+                .find_entry(match kind {
+                    TreeKind::Ours => ".conflict-side-0",
+                    TreeKind::Theirs => ".conflict-side-1",
+                    TreeKind::Base => ".conflict-base-0",
+                    TreeKind::AutoResolution => ".auto-resolution",
+                })
                 .with_context(|| format!("Unexpected tree in conflicting commit {}", self.id))?
                 .id();
-            Ok(our_tree)
+            Some(our_tree)
+        } else if matches!(kind, TreeKind::Ours) {
+            Some(self.inner.tree.attach(self.id.repo))
         } else {
-            Ok(self.inner.tree.attach(self.id.repo))
-        }
+            None
+        })
+    }
+
+    /// Just like [`Self::tree_id_by_kind()`], but automatically return our tree if this instance isn't conflicted.
+    pub fn tree_id_by_kind_or_ours(&self, kind: TreeKind) -> anyhow::Result<gix::Id<'repo>> {
+        Ok(self
+            .tree_id_by_kind(kind)?
+            .unwrap_or_else(|| self.inner.tree.attach(self.id.repo)))
     }
 
     /// Return our custom headers, of present.
     pub fn headers(&self) -> Option<HeadersV2> {
         let decoded = &self.inner;
-        if let Some(header) = decoded.extra_headers().find("gitbutler-headers-version") {
+        if let Some(header) = decoded.extra_headers().find(HEADERS_VERSION_FIELD) {
             let version = header.to_owned();
 
             if version == "2" {
-                let change_id = decoded.extra_headers().find("gitbutler-change-id")?;
+                let change_id = decoded.extra_headers().find(HEADERS_CHANGE_ID_FIELD)?;
                 let change_id = change_id.to_str().ok()?.to_string();
 
                 let conflicted = decoded
                     .extra_headers()
-                    .find("gitbutler-conflicted")
+                    .find(HEADERS_CONFLICTED_FIELD)
                     .and_then(|value| value.to_str().ok()?.parse::<u64>().ok());
 
                 Some(HeadersV2 {
