@@ -173,7 +173,7 @@
 	.rich-text-wrapper :global(.mention) {
 		padding: 0px 4px;
 		border-radius: var(--radius-s);
-		background: var(--clr-theme-pop-bg);
+		background: var(--clr-theme-pop-bg-muted);
 		color: var(--clr-theme-pop-on-soft);
 	}
 
