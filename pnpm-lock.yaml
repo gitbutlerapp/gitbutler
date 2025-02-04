@@ -278,9 +278,6 @@ importers:
       '@ethercorps/sveltekit-og':
         specifier: ^3.0.0
         version: 3.0.0(svelte@5.19.2)
-      '@rails/actioncable':
-        specifier: ^8.0.100
-        version: 8.0.100
       '@resvg/resvg-js':
         specifier: ^2.6.2
         version: 2.6.2
@@ -342,9 +339,6 @@ importers:
       '@types/postcss-pxtorem':
         specifier: ^6.0.3
         version: 6.1.0
-      '@types/rails__actioncable':
-        specifier: ^6.1.11
-        version: 6.1.11
       autoprefixer:
         specifier: ^10.4.19
         version: 10.4.20(postcss@8.4.49)
@@ -445,6 +439,9 @@ importers:
       '@lezer/highlight':
         specifier: ^1.2.0
         version: 1.2.0
+      '@rails/actioncable':
+        specifier: ^8.0.100
+        version: 8.0.100
       '@reduxjs/toolkit':
         specifier: catalog:redux
         version: 2.5.0(react@18.3.1)
@@ -469,6 +466,9 @@ importers:
       '@types/postcss-pxtorem':
         specifier: ^6.0.3
         version: 6.0.3
+      '@types/rails__actioncable':
+        specifier: ^6.1.11
+        version: 6.1.11
       autoprefixer:
         specifier: ^10.4.19
         version: 10.4.19(postcss@8.4.39)

@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { AuthService } from '$lib/auth/authService';
-	import { subscribeToChatChannel } from '$lib/chat/subscribe';
 	import ShowChatButton from '$lib/components/ShowChatButton.svelte';
 	import ChatInput from '$lib/components/chat/ChatInput.svelte';
 	import Event from '$lib/components/chat/Event.svelte';
@@ -11,7 +9,6 @@
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import type { ApiPatchEvent } from '@gitbutler/shared/branches/types';
 
 	interface Props {
 		branchUuid: string;
@@ -24,42 +21,11 @@
 
 	const { projectId, changeId, branchId, branchUuid, minimized, toggleMinimized }: Props = $props();
 
-	const authService = getContext(AuthService);
-	const token = $derived(authService.token);
 	const appState = getContext(AppState);
 	const patchEventsService = getContext(PatchEventsService);
 
 	const patchEvents = $derived(getPatchEvents(appState, patchEventsService, projectId, changeId));
 	let chatMessagesContainer = $state<HTMLDivElement>();
-
-	const seenEventIds = new Set<string>();
-
-	function scrollToBottom() {
-		if (chatMessagesContainer) {
-			chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
-		}
-	}
-
-	async function onEvent(event: ApiPatchEvent) {
-		if (seenEventIds.has(event.uuid)) return;
-		seenEventIds.add(event.uuid);
-		await patchEventsService.refreshPatchEvents(projectId, changeId);
-		scrollToBottom();
-	}
-
-	$effect(() => {
-		const unsubscribe = subscribeToChatChannel({
-			token: $token ?? '',
-			projectId,
-			changeId,
-			onEvent
-		});
-
-		return () => {
-			unsubscribe();
-			seenEventIds.clear();
-		};
-	});
 </script>
 
 {#if minimized}

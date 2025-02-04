@@ -1,19 +1,7 @@
 import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 import type { UserMaybe } from '@gitbutler/shared/users/types';
-import { env } from '$env/dynamic/public';
 
 const UNKNOWN_AUTHOR = 'Unknown author';
-
-export function getActionCableEndpoint(token: string): string {
-	const domain = env.PUBLIC_APP_HOST.replace('http', 'ws');
-	const url = new URL('cable', domain);
-
-	const urlSearchParams = new URLSearchParams();
-	urlSearchParams.append('token', token);
-	url.search = urlSearchParams.toString();
-
-	return url.toString();
-}
 
 export type TimestampedEvent = {
 	createdAt: string;

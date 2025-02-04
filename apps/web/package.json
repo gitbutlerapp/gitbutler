@@ -23,7 +23,6 @@
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
 		"@types/node": "^22.3.0",
 		"@types/postcss-pxtorem": "^6.0.3",
-		"@types/rails__actioncable": "^6.1.11",
 		"@types/diff-match-patch": "^1.0.36",
 		"autoprefixer": "^10.4.19",
 		"diff-match-patch": "^1.0.5",
@@ -40,7 +39,6 @@
 	},
 	"dependencies": {
 		"@ethercorps/sveltekit-og": "^3.0.0",
-		"@rails/actioncable": "^8.0.100",
 		"@resvg/resvg-js": "^2.6.2",
 		"@sentry/sveltekit": "catalog:svelte",
 		"@tryghost/content-api": "^1.11.21",

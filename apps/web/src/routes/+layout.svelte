@@ -1,6 +1,6 @@
 <script lang="ts">
 	import '$lib/styles/global.css';
-	import { AuthService } from '$lib/auth/authService';
+	import { AuthService } from '$lib/auth/authService.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
@@ -32,9 +32,9 @@
 
 	const authService = new AuthService();
 	setContext(AuthService, authService);
-	let token = $derived(authService.token);
+	let token = $derived(authService.tokenReadable);
 
-	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.token);
+	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.tokenReadable);
 	setContext(HttpClient, httpClient);
 
 	const userService = new UserService(httpClient);
@@ -54,7 +54,14 @@
 	setContext(BranchService, branchService);
 	const patchSerice = new PatchService(httpClient, appState.appDispatch);
 	setContext(PatchService, patchSerice);
-	const patchEventsService = new PatchEventsService(httpClient, appState.appDispatch);
+	const patchEventsService = new PatchEventsService(
+		httpClient,
+		appState,
+		appState.appDispatch,
+		authService.tokenReadable,
+		patchSerice,
+		env.PUBLIC_APP_HOST
+	);
 	setContext(PatchEventsService, patchEventsService);
 	const chatChannelService = new ChatChannelsService(httpClient, appState.appDispatch);
 	setContext(ChatChannelsService, chatChannelService);
@@ -71,7 +78,7 @@
 	});
 
 	$effect(() => {
-		const token = get(authService.token) || $page.url.searchParams.get('gb_access_token');
+		const token = get(authService.tokenReadable) || $page.url.searchParams.get('gb_access_token');
 		if (token) {
 			authService.setToken(token);
 

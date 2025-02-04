@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AuthService } from '$lib/auth/authService';
+	import { AuthService } from '$lib/auth/authService.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 
@@ -7,7 +7,7 @@
 	const userService = getContext(UserService);
 
 	const user = $derived(userService.user);
-	const token = $derived(authService.token);
+	const token = $derived(authService.tokenReadable);
 	let userAvatarUrl = $state($user?.picture);
 
 	function handleImageLoadError() {

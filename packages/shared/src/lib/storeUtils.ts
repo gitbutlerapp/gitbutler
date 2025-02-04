@@ -72,3 +72,109 @@ export async function guardReadableTrue(target: Readable<boolean>): Promise<bool
 		});
 	});
 }
+
+/**
+ * Converts an async subscriber contract to one that can be consumed syncronusly
+ * in something like an `$effect`.
+ *
+ * This function ensures eventual consistency with the state of the effect.
+ *
+ * It also ensures that a subscribe call is always followed by an unsubscribe,
+ * and vise versa. As such, we can garuntee that the subscription counter
+ * contained in the async fn is consistent.
+ *
+ * To manage this, track some important states:
+ * - `inUse` tracks the state that the sync world wants us to be in.
+ * - `subscribed` tracks whether we are actually subscribed or not.
+ * - `working` tracks whether we are currently transitioning from subscribed
+ *   to unsubscribed, or vise versa.
+ *
+ * Whenever the sync world signals a state change, we call an internal
+ * `resolveState` function, which checks to see if we're already changing states
+ * and if so, simply does nothing. It also checks to see if we're already in
+ * the desired state, and also will do nothing.
+ *
+ * We also call `resolveState` after we have finished either subscribing or
+ * unsubscribing which allows us to catch up on any state changes that may of
+ * happened while that subscribe or unsubscribe was still happening.
+ */
+export function asyncToSyncSignals<Args extends [...unknown[]]>(
+	fn: (...args: Args) => Promise<void | (() => Promise<void>)>
+): (...args: Args) => () => void {
+	let inUse = false;
+	let working = false;
+	let subscribed = false;
+	let unsubscribeClosure: (() => Promise<void>) | undefined;
+
+	// Starts the async subscription start.
+	//
+	// At the end of subscription, `resolveState` gets called again in order to
+	// resolve any pending state changes, like if `inUse` got set to false
+	// wilst the subscription was in progress.
+	function subscribe(args: Args) {
+		working = true;
+
+		fn(...args).then((u) => {
+			working = false;
+			subscribed = true;
+			unsubscribeClosure = u || (async () => undefined);
+
+			resolveState(args);
+		});
+	}
+
+	// Works the same as `subscribe`, but unsubscribes from the signal instead.
+	function unsubscribe(args: Args) {
+		// In reality we should never return early because if we're still
+		// subscribing, then `resolveState` should not call either
+		// `subscribe` or `unsubscribe`
+		if (!unsubscribeClosure) return;
+
+		working = true;
+
+		unsubscribeClosure().then(() => {
+			working = false;
+			subscribed = false;
+			unsubscribeClosure = undefined;
+
+			resolveState(args);
+		});
+	}
+
+	// Checks if a new state transition trigger is required.
+	//
+	function resolveState(args: Args) {
+		// If working is true, then there is already a thread working on
+		// subscribing or unsubscribing. Even if it was currently subscribing
+		// and this was called from the sync unsubscriber, we still don't want
+		// to do anything. This is because at the end of that subscribing
+		// process, it will call resolveState() again for, and potentially
+		// change state again.
+		if (working) return;
+		if (inUse) {
+			if (!subscribed) {
+				subscribe(args);
+			}
+		} else {
+			if (subscribed) {
+				unsubscribe(args);
+			}
+		}
+	}
+
+	// In the sync functions, we update the state that the sync code wants us
+	// to be in (`inUse`), and then call resolveState() which will trigger a
+	// subscribe or unsubscribe if it's not already working and if it's needed
+	// to resolve the state.
+	return (...args: Args) => {
+		inUse = true;
+
+		resolveState(args);
+
+		return () => {
+			inUse = false;
+
+			resolveState(args);
+		};
+	};
+}
