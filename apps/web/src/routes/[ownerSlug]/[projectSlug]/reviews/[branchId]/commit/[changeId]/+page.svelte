@@ -24,7 +24,6 @@
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { goto } from '$app/navigation';
 
-	const BRANCH_TITLE_PLACE_HOLDER = 'No branch title provided';
 	const DESCRIPTION_PLACE_HOLDER = 'No description provided';
 
 	interface Props {
@@ -62,7 +61,6 @@
 	);
 
 	const patchIds = $derived(map(branch?.current, (b) => b.patchIds));
-	const branchName = $derived(map(branch?.current, (b) => b.title) ?? BRANCH_TITLE_PLACE_HOLDER);
 
 	const patch = $derived(
 		map(branchUuid?.current, (branchUuid) => {
@@ -104,17 +102,6 @@
 		{#snippet children([patch, repositoryId, branchUuid])}
 			<div class="review-main-content" class:expand={chatMinimizer.value}>
 				<div class="review-main__header">
-					<!-- <p class="text-12 review-main__branch-title-line show-on-mobile">
-						Branch: <a
-							class="review-main__branch-link"
-							href={routes.projectReviewBranchPath({
-								ownerSlug: data.ownerSlug,
-								projectSlug: data.projectSlug,
-								branchId: data.branchId
-							})}>{branchName}</a
-						>
-					</p> -->
-
 					<h3 class="text-18 text-bold review-main-content-title">{patch.title}</h3>
 
 					<div class="review-main-content__patch-navigator">
@@ -181,18 +168,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
-	}
-
-	.review-main__branch-title-line {
-		color: var(--clr-text-3);
-	}
-
-	.review-main__branch-link {
-		color: var(--clr-text-1);
-
-		&:hover {
-			text-decoration: underline;
-		}
 	}
 
 	.review-main-content-title {
