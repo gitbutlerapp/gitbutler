@@ -69,7 +69,7 @@ export function getPatchEvents(
 	changeId: string,
 	inView?: InView
 ): Reactive<LoadablePatchEventChannel | undefined> {
-	const patchEventsInterest = patchEventsService.getPatchEventsInterest(projectId, changeId);
+	const patchEventsInterest = patchEventsService.patchEventsInterest(projectId, changeId);
 	registerInterest(patchEventsInterest, inView);
 
 	const patchEventChannelKey = createPatchEventChannelKey(projectId, changeId);

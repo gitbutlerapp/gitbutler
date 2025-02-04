@@ -169,7 +169,7 @@ importers:
         version: 6.6.3
       '@testing-library/svelte':
         specifier: 5.2.5
-        version: 5.2.5(svelte@5.19.2)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.3)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0))
+        version: 5.2.5(svelte@5.19.2)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)
       '@types/diff-match-patch':
         specifier: ^1.0.36
         version: 1.0.36
@@ -278,9 +278,6 @@ importers:
       '@ethercorps/sveltekit-og':
         specifier: ^3.0.0
         version: 3.0.0(svelte@5.19.2)
-      '@rails/actioncable':
-        specifier: ^8.0.100
-        version: 8.0.100
       '@resvg/resvg-js':
         specifier: ^2.6.2
         version: 2.6.2
@@ -342,9 +339,6 @@ importers:
       '@types/postcss-pxtorem':
         specifier: ^6.0.3
         version: 6.1.0
-      '@types/rails__actioncable':
-        specifier: ^6.1.11
-        version: 6.1.11
       autoprefixer:
         specifier: ^10.4.19
         version: 10.4.20(postcss@8.4.49)
@@ -445,6 +439,9 @@ importers:
       '@lezer/highlight':
         specifier: ^1.2.0
         version: 1.2.0
+      '@rails/actioncable':
+        specifier: ^8.0.100
+        version: 8.0.100
       '@reduxjs/toolkit':
         specifier: catalog:redux
         version: 2.5.0(react@18.3.1)
@@ -469,6 +466,9 @@ importers:
       '@types/postcss-pxtorem':
         specifier: ^6.0.3
         version: 6.0.3
+      '@types/rails__actioncable':
+        specifier: ^6.1.11
+        version: 6.1.11
       autoprefixer:
         specifier: ^10.4.19
         version: 10.4.19(postcss@8.4.39)
@@ -588,7 +588,7 @@ importers:
         version: 8.4.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))
       '@storybook/experimental-addon-test':
         specifier: ^8.4.5
-        version: 8.4.5(@vitest/browser@3.0.3(@types/node@22.3.0)(playwright@1.47.0)(typescript@5.4.5)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)(webdriverio@8.40.2))(@vitest/runner@2.1.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))(vitest@3.0.3(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.3)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0))
+        version: 8.4.5(@vitest/browser@3.0.3)(@vitest/runner@2.1.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))(vitest@3.0.3)
       '@storybook/svelte':
         specifier: ^8.4.5
         version: 8.4.5(storybook@8.4.5(prettier@3.3.2))(svelte@5.19.2)
@@ -8480,7 +8480,7 @@ snapshots:
     dependencies:
       storybook: 8.4.5(prettier@3.3.2)
 
-  '@storybook/experimental-addon-test@8.4.5(@vitest/browser@3.0.3(@types/node@22.3.0)(playwright@1.47.0)(typescript@5.4.5)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)(webdriverio@8.40.2))(@vitest/runner@2.1.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))(vitest@3.0.3(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.3)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0))':
+  '@storybook/experimental-addon-test@8.4.5(@vitest/browser@3.0.3)(@vitest/runner@2.1.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))(vitest@3.0.3)':
     dependencies:
       '@storybook/csf': 0.1.11
       '@storybook/global': 5.0.0
@@ -8854,7 +8854,7 @@ snapshots:
       lodash: 4.17.21
       redent: 3.0.0
 
-  '@testing-library/svelte@5.2.5(svelte@5.19.2)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.3)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0))':
+  '@testing-library/svelte@5.2.5(svelte@5.19.2)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)':
     dependencies:
       '@testing-library/dom': 10.4.0
       svelte: 5.19.2
@@ -9182,7 +9182,7 @@ snapshots:
       '@typescript-eslint/types': 8.21.0
       eslint-visitor-keys: 4.2.0
 
-  '@vitest/browser@2.0.5(@types/node@22.3.0)(typescript@5.7.3)(vitest@2.0.5)':
+  '@vitest/browser@2.0.5(@types/node@22.3.0)(playwright@1.47.0)(typescript@5.7.3)(vitest@2.0.5)(webdriverio@8.40.2)':
     dependencies:
       '@testing-library/dom': 10.4.0
       '@testing-library/user-event': 14.6.1(@testing-library/dom@10.4.0)
@@ -9192,6 +9192,9 @@ snapshots:
       sirv: 2.0.4
       vitest: 2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(sass-embedded@1.82.0)
       ws: 8.18.0
+    optionalDependencies:
+      playwright: 1.47.0
+      webdriverio: 8.40.2
     transitivePeerDependencies:
       - '@types/node'
       - bufferutil
@@ -9221,7 +9224,7 @@ snapshots:
       - utf-8-validate
       - vite
 
-  '@vitest/browser@3.0.3(@types/node@22.3.0)(typescript@5.7.3)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)':
+  '@vitest/browser@3.0.3(@types/node@22.3.0)(playwright@1.47.0)(typescript@5.7.3)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)(webdriverio@8.40.2)':
     dependencies:
       '@testing-library/dom': 10.4.0
       '@testing-library/user-event': 14.6.1(@testing-library/dom@10.4.0)
@@ -9233,6 +9236,9 @@ snapshots:
       tinyrainbow: 2.0.0
       vitest: 3.0.3(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.3)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)
       ws: 8.18.0
+    optionalDependencies:
+      playwright: 1.47.0
+      webdriverio: 8.40.2
     transitivePeerDependencies:
       - '@types/node'
       - bufferutil
@@ -10508,7 +10514,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0(eslint-plugin-import-x@4.6.1(eslint@9.18.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.18.0))(eslint@9.18.0):
+  eslint-module-utils@2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0)(eslint@9.18.0):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
@@ -10550,7 +10556,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.18.0
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0(eslint-plugin-import-x@4.6.1(eslint@9.18.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.18.0))(eslint@9.18.0)
+      eslint-module-utils: 2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0)(eslint@9.18.0)
       hasown: 2.0.2
       is-core-module: 2.15.1
       is-glob: 4.0.3
@@ -13717,7 +13723,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 22.3.0
-      '@vitest/browser': 2.0.5(@types/node@22.3.0)(typescript@5.7.3)(vitest@2.0.5)
+      '@vitest/browser': 2.0.5(@types/node@22.3.0)(playwright@1.47.0)(typescript@5.7.3)(vitest@2.0.5)(webdriverio@8.40.2)
       '@vitest/ui': 2.0.5(vitest@2.0.5)
       happy-dom: 14.12.3
       jsdom: 24.1.1
@@ -13794,7 +13800,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 22.3.0
-      '@vitest/browser': 3.0.3(@types/node@22.3.0)(typescript@5.7.3)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)
+      '@vitest/browser': 3.0.3(@types/node@22.3.0)(playwright@1.47.0)(typescript@5.7.3)(vite@5.4.14(@types/node@22.3.0)(sass-embedded@1.82.0))(vitest@3.0.3)(webdriverio@8.40.2)
       '@vitest/ui': 3.0.3(vitest@3.0.3)
       happy-dom: 14.12.3
       jsdom: 24.1.1

@@ -50,10 +50,7 @@ export function registerInterestInView(interest: Interest, element?: HTMLElement
 
 	$effect(() => {
 		if (inView) {
-			const unsubscribe = interest._subscribe();
-
-			// It is vitally important that we return the unsubscribe function
-			return unsubscribe;
+			registerInterestAlways(interest);
 		}
 	});
 }

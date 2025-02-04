@@ -78,7 +78,9 @@
 		"@codemirror/legacy-modes": "^6.4.0",
 		"@lezer/common": "^1.2.1",
 		"@lezer/highlight": "^1.2.0",
-		"@replit/codemirror-lang-svelte": "^6.0.0"
+		"@replit/codemirror-lang-svelte": "^6.0.0",
+		"@types/rails__actioncable": "^6.1.11",
+		"@rails/actioncable": "^8.0.100"
 	},
 	"type": "module",
 	"dependencies": {

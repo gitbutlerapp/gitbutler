@@ -47,6 +47,10 @@ export class PatchService {
 			.createInterest();
 	}
 
+	async refreshPatchWithSections(changeId: string) {
+		await this.patchInterests.invalidate({ changeId });
+	}
+
 	async updatePatch(
 		branchUuid: string,
 		changeId: string,

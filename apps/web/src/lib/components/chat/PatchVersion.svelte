@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { eventTimeStamp, getMultipleContributorNames } from '$lib/chat/utils';
 	import {
 		getPatchContributorsWithAvatars,
 		type PatchVersionEvent
 	} from '@gitbutler/shared/branches/types';
+	import { eventTimeStamp, getMultipleContributorNames } from '@gitbutler/shared/branches/utils';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 

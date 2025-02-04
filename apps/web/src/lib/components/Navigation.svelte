@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AuthService } from '$lib/auth/authService';
+	import { AuthService } from '$lib/auth/authService.svelte';
 	import Breadcrumbs from '$lib/components/breadcrumbs/Breadcrumbs.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
@@ -16,7 +16,7 @@
 	const routes = getContext(WebRoutesService);
 
 	const authService = getContext(AuthService);
-	const token = $derived(authService.token);
+	const token = $derived(authService.tokenReadable);
 
 	const userService = getContext(UserService);
 	const user = $derived(userService.user);

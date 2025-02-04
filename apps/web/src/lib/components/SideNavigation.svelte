@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { AuthService } from '$lib/auth/authService';
+	import { AuthService } from '$lib/auth/authService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { env } from '$env/dynamic/public';
 
 	const authService = getContext(AuthService);
-	const token = $derived(authService.token);
+	const token = $derived(authService.tokenReadable);
 
 	function logout() {
 		authService.clearToken();

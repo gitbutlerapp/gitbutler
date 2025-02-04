@@ -1,7 +1,7 @@
 <script lang="ts">
 	import HeaderLink from '$home/components/HeaderLink.svelte';
 	import HeaderMobileLink from '$home/components/HeaderMobileLink.svelte';
-	import { AuthService } from '$lib/auth/authService';
+	import { AuthService } from '$lib/auth/authService.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
 	import { getContext } from '@gitbutler/shared/context';
 	import { fly } from 'svelte/transition';
@@ -9,7 +9,7 @@
 	let isMobileMenuOpen = $state(false);
 
 	const authService = getContext(AuthService);
-	const token = $derived(authService.token);
+	const token = $derived(authService.tokenReadable);
 
 	function handleBurgerClick() {
 		isMobileMenuOpen = !isMobileMenuOpen;

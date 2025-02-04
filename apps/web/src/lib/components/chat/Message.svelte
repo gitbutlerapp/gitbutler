@@ -8,7 +8,7 @@
 
 <script lang="ts">
 	import MessageActions from './MessageActions.svelte';
-	import { eventTimeStamp } from '$lib/chat/utils';
+	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';

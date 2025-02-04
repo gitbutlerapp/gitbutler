@@ -11,7 +11,7 @@
 
 	let name = $state<string>('');
 	let slug = $state<string>('');
-	const sluggifiedSlug = $derived(slugify(slug || name).toLocaleLowerCase());
+	const sluggifiedSlug = $derived(slugify(slug || name || '').toLocaleLowerCase());
 	let description = $state<string>('');
 
 	const requiredFieldsFilled = $derived(!!(name && sluggifiedSlug));

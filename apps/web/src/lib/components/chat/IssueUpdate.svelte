@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { eventTimeStamp } from '$lib/chat/utils';
+	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { IssueUpdateEvent } from '@gitbutler/shared/branches/types';
 

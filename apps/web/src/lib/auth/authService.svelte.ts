@@ -1,11 +1,17 @@
 import { persisted } from '@gitbutler/shared/persisted';
+import { readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { type Readable } from 'svelte/store';
+import type { Reactive } from '@gitbutler/shared/storeUtils';
 
 export class AuthService {
 	#token = persisted<string | undefined>(undefined, 'AuthService--token');
 
-	get token(): Readable<string | undefined> {
+	get tokenReadable(): Readable<string | undefined> {
 		return this.#token;
+	}
+
+	get token(): Reactive<string | undefined> {
+		return readableToReactive(this.tokenReadable);
 	}
 
 	setToken(data: string) {
