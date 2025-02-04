@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import StackContentPlaceholder from '$components/StackContentPlaceholder.svelte';
 	import Branch from '$components/v3/Branch.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -13,23 +14,26 @@
 
 	const stackService = getContext(StackService);
 	const result = $derived(stackService.getStackBranches(projectId, stackId));
-	const branches = $derived(result.current.data);
 </script>
 
 <div class="stack">
-	{#if stackId && branches && branches?.length > 0}
-		<div class="stack__branches">
-			{#each branches as branch, i (branch.name)}
-				{@const first = i === 0}
-				{@const last = i === branches.length - 1}
-				<Branch {branch} {first} {last} />
-			{/each}
-		</div>
+	<ReduxResult result={result.current}>
+		{#snippet children(result)}
+			{#if stackId && result.length > 0}
+				<div class="stack__branches">
+					{#each result as branch, i (branch.name)}
+						{@const first = i === 0}
+						{@const last = i === result.length - 1}
+						<Branch {branch} {first} {last} />
+					{/each}
+				</div>
+			{/if}
+		{/snippet}
+	</ReduxResult>
 
-		<div class="stack__branch-content">
-			<StackContentPlaceholder />
-		</div>
-	{/if}
+	<div class="stack__branch-content">
+		<StackContentPlaceholder />
+	</div>
 </div>
 
 <style>
