@@ -108,6 +108,9 @@
 				goto('/settings/profile');
 			}}
 		/>
+		{#if $token}
+			<ContextMenuItem label="Organizations" onclick={() => goto('/organizations')} />
+		{/if}
 	</ContextMenuSection>
 	<ContextMenuSection title="Theme (⌘K)">
 		<ContextMenuItem
@@ -129,11 +132,7 @@
 			}}
 		/>
 	</ContextMenuSection>
-	{#if $token}
-		<ContextMenuSection>
-			<ContextMenuItem label="Organizations" onclick={() => goto('/organizations')} />
-		</ContextMenuSection>
-	{/if}
+
 	<ContextMenuSection>
 		<ContextMenuItem label="Logout" onclick={logout} />
 	</ContextMenuSection>
