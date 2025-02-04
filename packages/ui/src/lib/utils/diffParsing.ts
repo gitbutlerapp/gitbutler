@@ -28,9 +28,8 @@ export function parseHunk(hunkStr: string): Hunk {
 		contentSections: []
 	};
 
-	// These zero values will never get used in practice.
-	let lastBefore = 0;
-	let lastAfter = 0;
+	let lastBefore = hunk.oldStart;
+	let lastAfter = hunk.newStart;
 
 	for (const line of bodyLines) {
 		const type = lineType(line);
@@ -47,19 +46,19 @@ export function parseHunk(hunkStr: string): Hunk {
 		}
 
 		if (type === SectionType.AddedLines) {
-			lastAfter += 1;
 			lastSection.lines.push({ afterLineNumber: lastAfter, content: line.slice(1) });
-		} else if (type === SectionType.RemovedLines) {
-			lastBefore += 1;
-			lastSection.lines.push({ beforeLineNumber: lastBefore, content: line.slice(1) });
-		} else {
 			lastAfter += 1;
+		} else if (type === SectionType.RemovedLines) {
+			lastSection.lines.push({ beforeLineNumber: lastBefore, content: line.slice(1) });
 			lastBefore += 1;
+		} else {
 			lastSection.lines.push({
 				afterLineNumber: lastAfter,
 				beforeLineNumber: lastBefore,
 				content: line.slice(1)
 			});
+			lastAfter += 1;
+			lastBefore += 1;
 		}
 	}
 
