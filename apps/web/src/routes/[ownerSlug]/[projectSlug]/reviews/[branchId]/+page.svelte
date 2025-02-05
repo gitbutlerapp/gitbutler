@@ -188,7 +188,9 @@
 							<AsyncButton style="pop" action={saveSummary}>Save</AsyncButton>
 						</div>
 					{:else if branch.description}
-						<Markdown content={branch.description} />
+						<div class="text-13 summary-text">
+							<Markdown content={branch.description} />
+						</div>
 						{#if branch.permissions.canWrite}
 							<div>
 								<Button kind="outline" onclick={editSummary}>Change summary</Button>
@@ -272,6 +274,10 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
+	}
+
+	.summary-text {
+		line-height: 160%; /* 20.8px */
 	}
 
 	.summary-placeholder {
