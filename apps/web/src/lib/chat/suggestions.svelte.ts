@@ -16,6 +16,12 @@ export default class SuggestionsHandler {
 		this._isLoading = true;
 		const results = await this.userService.searchUsers({
 			query: {
+				filters: [
+					{
+						field: 'login',
+						operator: 'NOT_NULL'
+					}
+				],
 				search_terms: [
 					{
 						value: query,

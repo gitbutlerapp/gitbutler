@@ -109,7 +109,13 @@ export type SearchUsersApiSearchTerm = {
 	case_sensitive?: boolean;
 };
 
+export type SearchUsersApiFilter = {
+	field: 'login' | 'name' | 'email';
+	operator: 'NULL' | 'NOT_NULL';
+};
+
 export type SearchUsersApiQuery = {
+	filters?: SearchUsersApiFilter[];
 	search_terms: SearchUsersApiSearchTerm[];
 };
 
