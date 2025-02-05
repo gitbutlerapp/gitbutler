@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import Breadcrumbs from '$lib/components/breadcrumbs/Breadcrumbs.svelte';
+	import { featureShowOrganizations } from '$lib/featureFlags';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -105,10 +106,10 @@
 		<ContextMenuItem
 			label="Preferences"
 			onclick={() => {
-				goto('/settings/profile');
+				goto('/profile');
 			}}
 		/>
-		{#if $token}
+		{#if $token && $featureShowOrganizations}
 			<ContextMenuItem label="Organizations" onclick={() => goto('/organizations')} />
 		{/if}
 	</ContextMenuSection>
