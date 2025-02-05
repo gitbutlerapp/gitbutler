@@ -145,7 +145,7 @@ mod test {
     #[test]
     fn add_head_with_archived_bottom_head() -> Result<()> {
         let head_1_archived = StackBranch {
-            head: CommitOrChangeId::ChangeId("328447a2-08aa-4c4d-a1bc-08d5cd82bcd4".to_string()),
+            head: CommitOrChangeId::CommitId("328447a2-08aa-4c4d-a1bc-08d5cd82bcd4".to_string()),
             name: "kv-branch-3".to_string(),
             description: None,
             pr_number: None,
@@ -153,7 +153,7 @@ mod test {
             review_id: None,
         };
         let head_2 = StackBranch {
-            head: CommitOrChangeId::ChangeId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
+            head: CommitOrChangeId::CommitId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
             name: "more-on-top".to_string(),
             description: None,
             pr_number: None,
@@ -162,7 +162,7 @@ mod test {
         };
         let existing_heads = vec![head_1_archived.clone(), head_2.clone()];
         let new_head = StackBranch {
-            head: CommitOrChangeId::ChangeId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
+            head: CommitOrChangeId::CommitId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
             name: "abcd".to_string(),
             description: None,
             pr_number: None,
@@ -170,8 +170,8 @@ mod test {
             review_id: None,
         };
         let patches = vec![
-            CommitOrChangeId::ChangeId("92a89ae608d77ff75c1ce52ea9dccc0bccd577e9".to_string()),
-            CommitOrChangeId::ChangeId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
+            CommitOrChangeId::CommitId("92a89ae608d77ff75c1ce52ea9dccc0bccd577e9".to_string()),
+            CommitOrChangeId::CommitId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
         ];
 
         let updated_heads = add_head(

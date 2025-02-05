@@ -4,7 +4,7 @@ use anyhow::{bail, Context, Result};
 use git2::{Commit, Oid};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::rebase::cherry_rebase_group;
+use gitbutler_repo::{logging::RepositoryExt, rebase::cherry_rebase_group};
 use gitbutler_stack::{
     stack_context::{CommandContextExt, StackContext},
     Stack, StackId,
@@ -55,6 +55,19 @@ pub fn reorder_stack(
         .cloned()
         .collect_vec();
     let new_head = cherry_rebase_group(repo, merge_base, &ids_to_rebase, false)?;
+
+    let oids_after = repo.l(
+        new_head,
+        gitbutler_repo::logging::LogUntil::Commit(merge_base),
+        false,
+    )?;
+    // let x = new_order.flatten();
+    let oids_map = new_order
+        .flatten()
+        .iter()
+        .zip(oids_after.iter())
+        .collect::<HashMap<&Oid, &Oid>>();
+
     // Calculate the new head and tree
     let BranchHeadAndTree {
         head: new_head_oid,
@@ -67,8 +80,12 @@ pub fn reorder_stack(
     let mut new_heads: HashMap<String, Commit<'_>> = HashMap::new();
     let mut previous = merge_base;
     for series in new_order.series.iter().rev() {
-        let commit = if let Some(commit_id) = series.commit_ids.first() {
-            repo.find_commit(*commit_id)?
+        let commit = if let Some(commit_oid) = series.commit_ids.first() {
+            if let Some(new_oid) = oids_map.get(commit_oid) {
+                repo.find_commit(**new_oid)?
+            } else {
+                repo.find_commit(previous)?
+            }
         } else {
             repo.find_commit(previous)?
         };
@@ -107,6 +124,9 @@ pub struct SeriesOrder {
 }
 
 impl StackOrder {
+    fn flatten(&self) -> Vec<&Oid> {
+        self.series.iter().flat_map(|s| &s.commit_ids).collect()
+    }
     fn validate(&self, current_order: StackOrder) -> Result<()> {
         // Ensure the number of series is the same between the reorder update request and the stack
         if self.series.len() != current_order.series.len() {

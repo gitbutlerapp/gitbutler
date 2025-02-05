@@ -89,6 +89,10 @@ fn do_squash_commits(
         .filter_map(|id| ctx.repo().find_commit(*id).ok())
         .collect_vec();
 
+    for bc in branch_commits.clone() {
+        println!("{:?} {:?}", bc.message(), bc.id());
+    }
+
     // Find the new destination commit using the change id, error if not found
     let destination_change_id = ctx.repo().find_commit(desitnation_id)?.change_id();
     let destination_commit = branch_commits
@@ -159,6 +163,19 @@ fn do_squash_commits(
     // is replaces with a new commit with the final tree that is the result of the merge
     let new_stack_head = cherry_rebase_group(ctx.repo(), merge_base, &ids_to_rebase, false)?;
 
+    for c in ctx.repo().l(
+        new_stack_head,
+        gitbutler_repo::logging::LogUntil::Commit(merge_base),
+        false,
+    )? {
+        let commit = ctx.repo().find_commit(c)?;
+        println!("c {:?} {:?}", commit.message(), commit.id());
+    }
+    
+    for h in stack.branches() {
+        println!("h {:?} {:?}", h.name, h.head);
+    }
+
     let BranchHeadAndTree {
         head: new_head_oid,
         tree: new_tree_oid,
@@ -171,17 +188,56 @@ fn do_squash_commits(
         .context("failed to update gitbutler workspace")?;
 
     // Finally, update branch heads in the stack if present
-    for source_commit in &source_commits {
-        // Find the next eligible ancestor commit that is not in the source commits
-        let mut ancestor = source_commit.parent(0)?;
-        while source_commits.iter().any(|c| c.id() == ancestor.id()) {
-            if ancestor.id() == merge_base {
-                break; // Don's search past the merge base
-            }
-            ancestor = ancestor.parent(0)?;
-        }
-        stack.replace_head(ctx, source_commit, &ancestor)?;
-    }
+    // for source_oid in source_ids {
+    //     let source_commit = ctx.repo().find_commit(source_oid)?;
+    //     // Find the next eligible ancestor commit that is not in the source commits
+    //     let mut ancestor = source_commit.parent(0)?;
+    //     while source_commits.iter().any(|c| c.id() == ancestor.id()) {
+    //         if ancestor.id() == merge_base {
+    //             break; // Don's search past the merge base
+    //         }
+    //         ancestor = ancestor.parent(0)?;
+    //     }
+    //     println!(
+    //         "Replacing sc {:?},{:?} with {:?},{:?}",
+    //         source_commit.message(),
+    //         source_commit.id(),
+    //         ancestor.message(),
+    //         ancestor.id()
+    //     );
+    //     stack.replace_head(ctx, &source_commit, &ancestor)?;
+    // }
+
+    let new_commit = ctx.repo().find_commit(new_commit_oid)?;
+
+    // Replace desitnation commit with the new commit
+    println!(
+        "Replacing d {:?},{:?} with {:?},{:?}",
+        destination_commit.message(),
+        destination_commit.id(),
+        new_commit.message(),
+        new_commit.id()
+    );
+    stack.replace_head(ctx, destination_commit, &new_commit)?;
+
+    // for source_commit in &source_commits {
+    //     // Find the next eligible ancestor commit that is not in the source commits
+    //     let mut ancestor = source_commit.parent(0)?;
+    //     while source_commits.iter().any(|c| c.id() == ancestor.id()) {
+    //         if ancestor.id() == merge_base {
+    //             break; // Don's search past the merge base
+    //         }
+    //         ancestor = ancestor.parent(0)?;
+    //     }
+    //     println!(
+    //         "Replacing sc {:?},{:?} with {:?},{:?}",
+    //         source_commit.message(),
+    //         source_commit.id(),
+    //         ancestor.message(),
+    //         ancestor.id()
+    //     );
+    //     stack.replace_head(ctx, source_commit, &ancestor)?;
+    // }
     Ok(())
 }
 
