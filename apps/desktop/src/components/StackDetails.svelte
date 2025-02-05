@@ -1,9 +1,12 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import Resizer from '$components/Resizer.svelte';
 	import StackContentPlaceholder from '$components/StackContentPlaceholder.svelte';
 	import Branch from '$components/v3/Branch.svelte';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 
 	interface Props {
 		stackId: string;
@@ -12,23 +15,46 @@
 
 	const { stackId, projectId }: Props = $props();
 
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	let resizeStackBranches = $state<HTMLElement>();
+	const stackBranchWidthKey = $derived('defaultStackBranchWidth_ ' + projectId);
+	let stackBranchWidth = $derived(persisted<number>(22.5, stackBranchWidthKey));
+
 	const stackService = getContext(StackService);
 	const result = $derived(stackService.getStackBranches(projectId, stackId));
 </script>
 
 <div class="stack">
-	<div class="stack__branches">
-		<ReduxResult result={result.current}>
-			{#snippet children(result)}
-				{#if stackId && result.length > 0}
-					{#each result as branch, i (branch.name)}
-						{@const first = i === 0}
-						{@const last = i === result.length - 1}
-						<Branch {branch} {first} {last} />
-					{/each}
-				{/if}
-			{/snippet}
-		</ReduxResult>
+	<div
+		class="stack__wrapper"
+		bind:this={resizeStackBranches}
+		style:width={$stackBranchWidth + 'rem'}
+	>
+		<Resizer
+			viewport={resizeStackBranches}
+			direction="right"
+			minWidth={22.5}
+			onWidth={(value) => {
+				$stackBranchWidth = value / (16 * $userSettings.zoom);
+			}}
+		/>
+		<div
+			class="stack__branches"
+			bind:this={resizeStackBranches}
+			style:width={$stackBranchWidth + 'rem'}
+		>
+			<ReduxResult result={result.current}>
+				{#snippet children(result)}
+					{#if stackId && result.length > 0}
+						{#each result as branch, i (branch.name)}
+							{@const first = i === 0}
+							{@const last = i === result.length - 1}
+							<Branch {branch} {first} {last} />
+						{/each}
+					{/if}
+				{/snippet}
+			</ReduxResult>
+		</div>
 	</div>
 
 	<div class="stack__branch-content">
@@ -37,8 +63,11 @@
 </div>
 
 <style>
+	.stack__wrapper,
 	.stack {
+		position: relative;
 		height: 100%;
+		width: 100%;
 		flex: 1;
 		display: flex;
 		border-radius: 0 var(--radius-ml) var(--radius-ml);
@@ -46,10 +75,11 @@
 
 	.stack__branches {
 		position: relative;
-		flex: 0.5;
 		display: flex;
+		width: 22.5rem;
 		flex-direction: column;
 		padding: 16px;
+		overflow: hidden;
 
 		background-color: transparent;
 		opacity: 1;
@@ -59,7 +89,6 @@
 	}
 
 	.stack__branch-content {
-		flex: 0.5;
 		display: flex;
 		flex-direction: column;
 	}
