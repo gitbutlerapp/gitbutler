@@ -2,19 +2,18 @@
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 
 	interface Props {
-		// The element that is being resized
+		/** The element that is being resized */
 		viewport: HTMLElement;
-		// Sets direction of resizing for viewport
+		/** Sets direction of resizing for viewport */
 		direction: 'left' | 'right' | 'up' | 'down';
-		// Sets the color of the line
+		/** Sets the color of the line */
 		defaultLineColor?: string;
 		defaultLineThickness?: number;
 		hoverLineThickness?: number;
-		// Needed when overflow is hidden
+		/** Needed when overflow is hidden */
 		sticky?: boolean;
-		// Custom z-index in case of overlapping with other elements
+		/** Custom z-index in case of overlapping with other elements */
 		zIndex?: string;
-		//
 		minWidth?: number;
 		minHeight?: number;
 
