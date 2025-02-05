@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { featureShowProjectPage } from '$lib/featureFlags';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
@@ -17,6 +18,7 @@
 	const routes = getContext(WebRoutesService);
 
 	const project = getProjectByRepositoryId(appState, projectService, projectId);
+	const projectRoute = $featureShowProjectPage ? routes.projectPath : routes.projectReviewPath;
 </script>
 
 <Loading loadable={project.current}>
@@ -27,7 +29,7 @@
 			</td>
 			<td>
 				<div>
-					<a href={routes.projectPath({ ownerSlug: project.owner, projectSlug: project.slug })}>
+					<a href={projectRoute({ ownerSlug: project.owner, projectSlug: project.slug })}>
 						<p>{project.slug}</p>
 					</a>
 				</div>
