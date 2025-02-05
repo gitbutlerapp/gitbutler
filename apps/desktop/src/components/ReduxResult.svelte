@@ -28,9 +28,21 @@
 		{@render empty?.()}
 	{/if}
 {:else if status === 'pending'}
-	<Icon name="spinner" />
+	<div class="loading-spinner">
+		<Icon name="spinner" />
+	</div>
 {:else if status === 'rejected'}
 	{String(error)}
 {:else if status === 'uninitialized'}
 	Uninitialized...
 {/if}
+
+<style>
+	.loading-spinner {
+		position: absolute;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: var(--z-lifted);
+		margin-top: 24px;
+	}
+</style>

@@ -17,19 +17,19 @@
 </script>
 
 <div class="stack">
-	<ReduxResult result={result.current}>
-		{#snippet children(result)}
-			{#if stackId && result.length > 0}
-				<div class="stack__branches">
+	<div class="stack__branches">
+		<ReduxResult result={result.current}>
+			{#snippet children(result)}
+				{#if stackId && result.length > 0}
 					{#each result as branch, i (branch.name)}
 						{@const first = i === 0}
 						{@const last = i === result.length - 1}
 						<Branch {branch} {first} {last} />
 					{/each}
-				</div>
-			{/if}
-		{/snippet}
-	</ReduxResult>
+				{/if}
+			{/snippet}
+		</ReduxResult>
+	</div>
 
 	<div class="stack__branch-content">
 		<StackContentPlaceholder />
@@ -45,6 +45,7 @@
 	}
 
 	.stack__branches {
+		position: relative;
 		flex: 0.5;
 		display: flex;
 		flex-direction: column;
