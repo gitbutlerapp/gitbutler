@@ -5,7 +5,7 @@ packages:
 
 catalog:
   vite: '5.4.14'
-  vitest: '3.0.3'
+  vitest: '2.1.9'
 catalogs:
   svelte:
     svelte: '5.19.2'

@@ -59,7 +59,7 @@
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
 		"vite": "catalog:",
-		"vitest": "^2.0.5",
+		"vitest": "^2.1.9",
 		"@reduxjs/toolkit": "catalog:redux",
 		"@codemirror/lang-cpp": "^6.0.2",
 		"@codemirror/lang-css": "^6.2.1",
