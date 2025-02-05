@@ -1,0 +1,26 @@
+[package]
+name = "but-rebase"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[lib]
+doctest = false
+
+[dependencies]
+bstr.workspace = true
+tracing.workspace = true
+anyhow = "1.0.95"
+gix = { workspace = true, features = [
+    "dirwalk",
+    "credentials",
+    "parallel",
+    "serde",
+    "status",
+] }
+
+[dev-dependencies]
+gix-testtools.workspace = true
+gix = { workspace = true, features = ["revision"] }
+insta.workspace = true
