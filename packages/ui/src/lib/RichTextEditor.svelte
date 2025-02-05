@@ -10,12 +10,12 @@
 		 * The identifier for the selected item that was mentioned, stored as a `data-id`
 		 * attribute.
 		 */
-		id: string | null;
+		id: string;
 		/**
 		 * The label to be rendered by the editor as the displayed text for this mentioned
 		 * item, if provided. Stored as a `data-label` attribute. See `renderLabel`.
 		 */
-		label?: string | null;
+		label: string;
 	}
 
 	export interface SuggestionProps {
@@ -42,7 +42,7 @@
 		/**
 		 * The suggestion items array.
 		 */
-		items: string[];
+		items: MentionNodeAttrs[];
 
 		/**
 		 * A function that is called when a suggestion is selected.
@@ -75,7 +75,7 @@
 	import Text from '@tiptap/extension-text';
 
 	interface Props {
-		getSuggestionItems: (query: string) => Promise<string[]>;
+		getSuggestionItems: (query: string) => Promise<MentionNodeAttrs[]>;
 		onSuggestionStart: (props: SuggestionProps) => void;
 		onSuggestionUpdate: (props: SuggestionProps) => void;
 		onSuggestionExit: (props: SuggestionProps) => void;
@@ -124,7 +124,7 @@
 						class: 'mention'
 					},
 					suggestion: {
-						items: async ({ query }): Promise<string[]> => {
+						items: async ({ query }): Promise<MentionNodeAttrs[]> => {
 							return await getSuggestionItems(query);
 						},
 						render: () => {

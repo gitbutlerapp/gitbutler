@@ -1,17 +1,19 @@
 <script lang="ts" module>
+	import type { MentionNodeAttrs } from '@gitbutler/ui/RichTextEditor.svelte';
+
 	export interface Props {
-		suggestions: string[] | undefined;
-		selectSuggestion?: (suggestion: string) => void;
-		item?: Snippet<[string]>;
+		isLoading: boolean;
+		suggestions: MentionNodeAttrs[] | undefined;
+		selectSuggestion?: (suggestion: MentionNodeAttrs) => void;
 	}
 </script>
 
 <script lang="ts">
+	import MentionSuggestionItem from './MentionSuggestionItem.svelte';
 	import { setPosition } from '@gitbutler/ui/utils/tooltipPosition';
 	import { flyScale } from '@gitbutler/ui/utils/transitions';
-	import type { Snippet } from 'svelte';
 
-	const { suggestions, selectSuggestion, item }: Props = $props();
+	const { suggestions, selectSuggestion, isLoading }: Props = $props();
 
 	let selectedSuggestionIndex = $state<number>();
 	let targetEl: HTMLElement | undefined = $state();
@@ -74,18 +76,20 @@
 								</p>
 							</div>
 						</li>
+					{:else if isLoading}
+						<li>
+							<div class="suggestion-item">
+								<p class="suggestion-item__no-match text-13 text-tertiary name truncate">
+									Loading...
+								</p>
+							</div>
+						</li>
 					{:else}
-						{#each suggestions as suggestion, idx}
+						{#each suggestions as suggestion, idx (suggestion.id)}
 							<li>
 								<div class="suggestion-item" class:selected={idx === selectedSuggestionIndex}>
 									<button type="button" onclick={() => selectSuggestion?.(suggestion)}>
-										{#if item}
-											{@render item(suggestion)}
-										{:else}
-											<p class="text-12 text-semibold name truncate">
-												{suggestion}
-											</p>
-										{/if}
+										<MentionSuggestionItem username={suggestion.label} />
 									</button>
 								</div>
 							</li>

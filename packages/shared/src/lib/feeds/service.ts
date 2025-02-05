@@ -46,7 +46,7 @@ export class FeedService {
 			(apiPost): LoadableUser => ({
 				status: 'found',
 				value: apiToUser(apiPost.user),
-				id: apiPost.user.login ?? ''
+				id: apiPost.user.id
 			})
 		);
 		this.appDispatch.dispatch(upsertUsers(users));
@@ -113,7 +113,7 @@ export class FeedService {
 		const users = [apiPostWithReplies, ...apiPostWithReplies.replies].map(
 			(apiPost): LoadableUser => ({
 				status: 'found',
-				id: apiPost.user.login ?? '',
+				id: apiPost.user.id,
 				value: apiToUser(apiPost.user)
 			})
 		);

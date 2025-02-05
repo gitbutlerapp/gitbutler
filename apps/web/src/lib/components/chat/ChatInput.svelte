@@ -2,18 +2,19 @@
 	import MentionSuggestions from './MentionSuggestions.svelte';
 	import { embedUserMention } from '$lib/chat/mentions';
 	import RichText from '$lib/chat/richText.svelte';
+	import SuggestionsHandler from '$lib/chat/suggestions.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
 	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
 	import RichTextEditor, { type EditorInstance } from '@gitbutler/ui/RichTextEditor.svelte';
-	import type { UserSimple } from '@gitbutler/shared/users/types';
 
 	interface Props {
 		projectId: string;
@@ -24,6 +25,7 @@
 
 	let { branchUuid, projectId, branchId, changeId }: Props = $props();
 
+	const newUserService = getContext(NewUserService);
 	const userService = getContext(UserService);
 	const user = $derived(userService.user);
 
@@ -32,6 +34,9 @@
 	const chatChannelService = getContext(ChatChannelsService);
 	const chatParticipants = $derived(
 		getChatChannelParticipants(appState, chatChannelService, projectId, changeId)
+	);
+	const suggestions = $derived(
+		new SuggestionsHandler(newUserService, chatParticipants.current, $user)
 	);
 
 	let message = $state<string>();
@@ -146,35 +151,17 @@
 		return actionLabels[action] + suffix;
 	});
 
-	const userMap = $derived.by(() => {
-		const map = new Map<string, UserSimple>();
-		chatParticipants.current?.forEach((participant) => {
-			if (!participant.login) return;
-			map.set(participant.login, participant);
-		});
-		return map;
-	});
-
-	async function getSuggestionItems(query: string): Promise<string[]> {
-		return (
-			chatParticipants.current
-				?.map((participant) => participant.login)
-				.filter((username): username is string => !!username && username !== $user?.login)
-				.filter((item) => item.toLowerCase().startsWith(query.toLowerCase())) ?? []
-		);
-	}
-
 	function onEditorUpdate(editor: EditorInstance) {
 		message = editor?.getText({
 			textSerializers: {
 				mention: ({ node }) => {
-					const username = node.attrs.id;
-					const user = userMap.get(username);
-					if (!user) {
+					const id = node.attrs.id;
+					const username = node.attrs.label;
+					if (!id) {
 						return '@' + username;
 					}
 
-					return embedUserMention(`${user.id}`);
+					return embedUserMention(id);
 				}
 			}
 		});
@@ -184,38 +171,14 @@
 <div class="chat-input">
 	<MentionSuggestions
 		bind:this={richText.mentionSuggestions}
+		isLoading={suggestions.isLoading}
 		suggestions={richText.suggestions}
 		selectSuggestion={richText.selectSuggestion}
-	>
-		{#snippet item(username)}
-			<div class="mention-suggestion">
-				<div class="mention-suggestion__header">
-					{#if userMap.has(username)}
-						<img
-							src={userMap.get(username)?.avatarUrl}
-							alt={username}
-							class="mention-suggestion__avatar"
-						/>
-					{/if}
-					<p class="text-13 text-semibold truncate">
-						@{username}
-					</p>
-				</div>
-
-				{#if userMap.has(username)}
-					<div class="mention-suggestion__body">
-						<p class="mention-suggestion__name text-12 text-tertiary truncate">
-							{userMap.get(username)?.name}
-						</p>
-					</div>
-				{/if}
-			</div>
-		{/snippet}
-	</MentionSuggestions>
+	/>
 	<div class="text-input chat-input__content-container">
 		<RichTextEditor
 			bind:this={richText.richTextEditor}
-			{getSuggestionItems}
+			getSuggestionItems={(q) => suggestions.getSuggestionItems(q)}
 			onSuggestionStart={(p) => richText.onSuggestionStart(p)}
 			onSuggestionUpdate={(p) => richText.onSuggestionUpdate(p)}
 			onSuggestionExit={() => richText.onSuggestionExit()}
@@ -311,38 +274,10 @@
 
 	.chat-input__secondary-actions {
 		display: flex;
-
-		p {
-			padding: 6px;
-			opacity: 0.5;
-		}
 	}
 
 	.chat-input__action-buttons {
 		display: flex;
 		gap: 4px;
-	}
-
-	.mention-suggestion {
-		width: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.mention-suggestion__header {
-		flex-grow: 1;
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-	.mention-suggestion__avatar {
-		width: 16px;
-		height: 16px;
-		border-radius: 50%;
-	}
-
-	.mention-suggestion__name {
-		opacity: 0.4;
 	}
 </style>

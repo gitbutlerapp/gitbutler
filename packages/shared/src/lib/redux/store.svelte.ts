@@ -11,7 +11,7 @@ import { organizationsReducer } from '$lib/organizations/organizationsSlice';
 import { projectsReducer } from '$lib/organizations/projectsSlice';
 import { repositoryIdLookupsReducer } from '$lib/organizations/repositoryIdLookupsSlice';
 import { exampleReducer } from '$lib/redux/example';
-import { usersReducer } from '$lib/users/usersSlice';
+import { usersByLoginReducer, usersReducer } from '$lib/users/usersSlice';
 import { configureStore, createSelector } from '@reduxjs/toolkit';
 
 // Individual interfaces to be used when consuming in other servies.
@@ -36,6 +36,7 @@ export interface AppOrganizationsState {
 
 export interface AppUsersState {
 	readonly users: ReturnType<typeof usersReducer>;
+	readonly usersByLogin: ReturnType<typeof usersByLoginReducer>;
 }
 
 export interface AppProjectsState {
@@ -108,6 +109,7 @@ export class AppState
 			feeds: feedsReducer,
 			orgnaizations: organizationsReducer,
 			users: usersReducer,
+			usersByLogin: usersByLoginReducer,
 			projects: projectsReducer,
 			patches: patchesReducer,
 			patchEvents: patchEventsReducer,
@@ -142,6 +144,10 @@ export class AppState
 		(rootState) => rootState.orgnaizations
 	);
 	private readonly selectUsers = createSelector([this.selectSelf], (rootState) => rootState.users);
+	private readonly selectUsersByLogin = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.usersByLogin
+	);
 	private readonly selectProjects = createSelector(
 		[this.selectSelf],
 		(rootState) => rootState.projects
@@ -184,6 +190,7 @@ export class AppState
 	readonly feeds = $derived(this.selectFeeds(this.rootState));
 	readonly organizations = $derived(this.selectOrganizations(this.rootState));
 	readonly users = $derived(this.selectUsers(this.rootState));
+	readonly usersByLogin = $derived(this.selectUsersByLogin(this.rootState));
 	readonly projects = $derived(this.selectProjects(this.rootState));
 	readonly patches = $derived(this.selectPatches(this.rootState));
 	readonly patchEvents = $derived(this.selectPatchEvents(this.rootState));

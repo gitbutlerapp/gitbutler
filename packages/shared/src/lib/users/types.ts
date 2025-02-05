@@ -68,18 +68,20 @@ export type ApiUser = ApiUserSimple & {
 };
 
 export type User = {
-	login: string;
+	id: number;
+	login?: string;
 	name?: string;
 	email?: string;
 	avatarUrl?: string;
 };
 
-export type LoadableUser = LoadableData<User, User['login']>;
+export type LoadableUser = LoadableData<User, User['id']>;
+
+export type LoadableUserIdByLogin = LoadableData<number, string>;
 
 export function apiToUser(apiUser: ApiUser): User {
 	return {
-		...apiToUserSimple(apiUser),
-		login: apiUser.login ?? '' // Shouldn't be null, but we need to make sure
+		...apiToUserSimple(apiUser)
 	};
 }
 
@@ -100,3 +102,23 @@ export function apiToUserPrivate(api: ApiUserPrivate): UserPrivate {
 		role: api.role ?? undefined
 	};
 }
+
+export type SearchUsersApiSearchTerm = {
+	value: string;
+	operator?: 'EQUAL' | 'STARTS_WITH';
+	case_sensitive?: boolean;
+};
+
+export type SearchUsersApiFilter = {
+	field: 'login' | 'name' | 'email';
+	operator: 'NULL' | 'NOT_NULL';
+};
+
+export type SearchUsersApiQuery = {
+	filters?: SearchUsersApiFilter[];
+	search_terms: SearchUsersApiSearchTerm[];
+};
+
+export type SearchUsersApiParams = {
+	query: SearchUsersApiQuery;
+};
