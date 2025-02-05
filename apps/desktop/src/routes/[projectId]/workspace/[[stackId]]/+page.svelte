@@ -136,7 +136,8 @@
 		border: 1px solid var(--clr-border-2);
 		flex: 1;
 		border-radius: 0 0 var(--radius-ml);
-		overflow-y: scroll;
+		overflow-y: none;
+
 		&.rounded {
 			border-radius: 0 var(--radius-ml) var(--radius-ml);
 		}
