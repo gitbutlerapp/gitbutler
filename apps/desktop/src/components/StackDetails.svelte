@@ -1,8 +1,20 @@
+<script lang="ts" module>
+	export const previewModes = {
+		EmptyBranch: 'EmptyBranch',
+		SelectToPreview: 'SelectToPreview',
+		ViewingTips: 'ViewingTips',
+		ViewingPreview: 'ViewingPreview'
+	} as const;
+
+	export type PreviewMode = keyof typeof previewModes;
+</script>
+
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import StackContentPlaceholder from '$components/StackContentPlaceholder.svelte';
 	import Branch from '$components/v3/Branch.svelte';
+	import { isArchivedBranch, isStackedBranch } from '$components/v3/lib';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
@@ -22,6 +34,20 @@
 
 	const stackService = getContext(StackService);
 	const result = $derived(stackService.getStackBranches(projectId, stackId));
+	const stackData = $derived(result.current.data?.[0]);
+
+	const stackContentMode = $derived.by<PreviewMode>(() => {
+		if (!stackData) return previewModes.EmptyBranch;
+		if (isArchivedBranch(stackData.state)) return previewModes.SelectToPreview;
+
+		// If there is 1 branch and it is empty
+		if (isStackedBranch(stackData.state) && stackData.state.subject.localAndRemote.length === 0) {
+			return previewModes.EmptyBranch;
+		}
+
+		// If there are commits available to view
+		return previewModes.SelectToPreview;
+	});
 </script>
 
 <div class="stack">
@@ -58,7 +84,7 @@
 	</div>
 
 	<div class="stack__branch-content">
-		<StackContentPlaceholder />
+		<StackContentPlaceholder mode={stackContentMode} />
 	</div>
 </div>
 
@@ -67,8 +93,6 @@
 	.stack {
 		position: relative;
 		height: 100%;
-		width: 100%;
-		flex: 1;
 		display: flex;
 		border-radius: 0 var(--radius-ml) var(--radius-ml);
 	}
@@ -90,6 +114,7 @@
 
 	.stack__branch-content {
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 	}
 </style>
