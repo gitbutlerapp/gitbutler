@@ -1,4 +1,4 @@
-import type { CommitStateType, State, Commits } from '$lib/branches/v3';
+import type { CommitStateType, State, Commits, UpstreamCommit, Commit } from '$lib/branches/v3';
 
 const colorMap = {
 	LocalOnly: 'var(--clr-commit-local)',
@@ -27,4 +27,13 @@ export function isArchivedBranch(state: State): state is { type: 'Archived' } {
  */
 export function isStackedBranch(state: State): state is { type: 'Stacked'; subject: Commits } {
 	return state.type === 'Stacked';
+}
+
+/**
+ * Type guard to check if a commit is an 'UpstreamCommit'
+ * @param commit - The commit to check
+ * @returns True if the commit is an 'UpstreamCommit', false otherwise
+ */
+export function isUpstreamCommit(commit: Commit | UpstreamCommit): commit is UpstreamCommit {
+	return !('state' in commit);
 }
