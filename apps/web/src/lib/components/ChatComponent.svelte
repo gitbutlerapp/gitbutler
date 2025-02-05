@@ -11,6 +11,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	interface Props {
+		isPatchAuthor: boolean | undefined;
 		branchUuid: string;
 		projectId: string;
 		branchId: string;
@@ -19,7 +20,15 @@
 		toggleMinimized: () => void;
 	}
 
-	const { projectId, changeId, branchId, branchUuid, minimized, toggleMinimized }: Props = $props();
+	const {
+		projectId,
+		changeId,
+		branchId,
+		branchUuid,
+		minimized,
+		isPatchAuthor,
+		toggleMinimized
+	}: Props = $props();
 
 	const appState = getContext(AppState);
 	const patchEventsService = getContext(PatchEventsService);
@@ -65,7 +74,7 @@
 					{/snippet}
 				</Loading>
 			</div>
-			<ChatInput {branchUuid} {projectId} {branchId} {changeId} />
+			<ChatInput {branchUuid} {projectId} {branchId} {changeId} {isPatchAuthor} />
 		</div>
 	</div>
 {/if}

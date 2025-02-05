@@ -5,6 +5,7 @@
 	import ChangeNavigator from '$lib/components/review/ChangeNavigator.svelte';
 	import ReviewInfo from '$lib/components/review/ReviewInfo.svelte';
 	import ReviewSections from '$lib/components/review/ReviewSections.svelte';
+	import { UserService } from '$lib/user/userService';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
@@ -38,6 +39,8 @@
 	const patchService = getContext(PatchService);
 	const appState = getContext(AppState);
 	const routes = getContext(WebRoutesService);
+	const userService = getContext(UserService);
+	const user = $derived(userService.user);
 	const chatMinimizer = new ChatMinimize();
 
 	const repositoryId = $derived(
@@ -65,6 +68,14 @@
 	const patch = $derived(
 		map(branchUuid?.current, (branchUuid) => {
 			return getPatch(appState, patchService, branchUuid, data.changeId);
+		})
+	);
+
+	const isPatchAuthor = $derived(
+		map(patch?.current, (patch) => {
+			return patch.contributors.some(
+				(contributor) => contributor.user?.id !== undefined && contributor.user?.id === $user?.id
+			);
 		})
 	);
 
@@ -109,7 +120,7 @@
 							<ChangeNavigator {goToPatch} currentPatchId={patch.changeId} {patchIds} />
 						{/if}
 
-						{#if branchUuid !== undefined}
+						{#if branchUuid !== undefined && isPatchAuthor === false}
 							<ChangeActionButton {branchUuid} {patch} />
 						{/if}
 					</div>
@@ -126,6 +137,7 @@
 			{#if branchUuid !== undefined}
 				<div class="review-chat" class:minimized={chatMinimizer.value}>
 					<ChatComponent
+						{isPatchAuthor}
 						{branchUuid}
 						projectId={repositoryId}
 						branchId={data.branchId}

@@ -3,6 +3,7 @@
 	import ChangeIndexCard from '$lib/components/changes/ChangeIndexCard.svelte';
 	import BranchStatusBadge from '$lib/components/review/BranchStatusBadge.svelte';
 	import CommitsGraph from '$lib/components/review/CommitsGraph.svelte';
+	import { UserService } from '$lib/user/userService';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
@@ -43,6 +44,8 @@
 	const branchService = getContext(BranchService);
 	const appState = getContext(AppState);
 	const routes = getContext(WebRoutesService);
+	const userService = getContext(UserService);
+	const user = $derived(userService.user);
 
 	const branchUuid = $derived(
 		lookupLatestBranchUuid(
@@ -57,6 +60,14 @@
 	const branch = $derived(
 		map(branchUuid?.current, (branchUuid) => {
 			return getBranchReview(appState, branchService, branchUuid);
+		})
+	);
+
+	const isBranchAuthor = $derived(
+		map(branch?.current, (branch) => {
+			return branch.contributors.some(
+				(contributor) => contributor.user?.id !== undefined && contributor.user?.id === $user?.id
+			);
 		})
 	);
 
@@ -118,7 +129,7 @@
 </script>
 
 {#snippet startReview(branch: Branch)}
-	{#if (branch.stackSize || 0) > 0}
+	{#if (branch.stackSize || 0) > 0 && isBranchAuthor === false}
 		<Button style="pop" icon="play" onclick={() => visitFirstCommit(branch)}>Start review</Button>
 	{/if}
 {/snippet}

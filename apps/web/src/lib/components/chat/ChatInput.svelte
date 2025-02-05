@@ -17,13 +17,14 @@
 	import RichTextEditor, { type EditorInstance } from '@gitbutler/ui/RichTextEditor.svelte';
 
 	interface Props {
+		isPatchAuthor: boolean | undefined;
 		projectId: string;
 		branchId: string;
 		branchUuid: string;
 		changeId: string;
 	}
 
-	let { branchUuid, projectId, branchId, changeId }: Props = $props();
+	let { branchUuid, projectId, branchId, changeId, isPatchAuthor }: Props = $props();
 
 	const newUserService = getContext(NewUserService);
 	const userService = getContext(UserService);
@@ -210,33 +211,35 @@
 				/>
 			</div>
 			<div class="chat-input__action-buttons">
-				<DropDownButton
-					bind:this={dropDownButton}
-					loading={isSendingMessage || isExecuting}
-					style="neutral"
-					kind="outline"
-					onclick={handleActionClick}
-				>
-					{actionButtonLabel}
-					{#snippet contextMenuSlot()}
-						<ContextMenuSection>
-							<ContextMenuItem
-								label={actionLabels.approve}
-								onclick={() => {
-									action = 'approve';
-									dropDownButton?.close();
-								}}
-							/>
-							<ContextMenuItem
-								label={actionLabels.requestChanges}
-								onclick={() => {
-									action = 'requestChanges';
-									dropDownButton?.close();
-								}}
-							/>
-						</ContextMenuSection>
-					{/snippet}
-				</DropDownButton>
+				{#if isPatchAuthor === false}
+					<DropDownButton
+						bind:this={dropDownButton}
+						loading={isSendingMessage || isExecuting}
+						style="neutral"
+						kind="outline"
+						onclick={handleActionClick}
+					>
+						{actionButtonLabel}
+						{#snippet contextMenuSlot()}
+							<ContextMenuSection>
+								<ContextMenuItem
+									label={actionLabels.approve}
+									onclick={() => {
+										action = 'approve';
+										dropDownButton?.close();
+									}}
+								/>
+								<ContextMenuItem
+									label={actionLabels.requestChanges}
+									onclick={() => {
+										action = 'requestChanges';
+										dropDownButton?.close();
+									}}
+								/>
+							</ContextMenuSection>
+						{/snippet}
+					</DropDownButton>
+				{/if}
 				<Button
 					style="pop"
 					loading={isSendingMessage || isExecuting}
