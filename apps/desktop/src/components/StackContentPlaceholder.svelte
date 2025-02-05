@@ -31,7 +31,7 @@
 </script>
 
 <div class="placeholder">
-	<div class="placeholder__top">
+	<div class="placeholder__top" class:white-bg={isTipViewingMode}>
 		{#if mode === previewModes.EmptyBranch}
 			<StackContentPlaceholderEmptyBranch />
 		{/if}
@@ -138,6 +138,10 @@
 
 		gap: 24px;
 		padding: 48px;
+
+		&.white-bg {
+			background-color: var(--clr-bg-1);
+		}
 	}
 
 	.placeholder__bottom {
