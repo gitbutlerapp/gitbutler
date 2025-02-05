@@ -13,14 +13,14 @@
 	const { commit, last, lastBranch }: Props = $props();
 
 	const lineColor = $derived(
-		!isUpstreamCommit(commit)
-			? getColorFromBranchType(commit.state?.type ?? 'LocalOnly')
-			: 'var(--clr-commit-upstream)'
+		isUpstreamCommit(commit)
+			? 'var(--clr-commit-upstream)'
+			: getColorFromBranchType(commit.state?.type ?? 'LocalOnly')
 	);
 	const dotRhombus = $derived(!isUpstreamCommit(commit) && commit.state.type === 'LocalAndRemote');
 
 	const tooltipText = $derived(
-		!isUpstreamCommit(commit) ? camelCaseToTitleCase(commit.state.type) : 'Upstream'
+		isUpstreamCommit(commit) ? 'Upstream' : camelCaseToTitleCase(commit.state.type)
 	);
 </script>
 

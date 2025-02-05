@@ -2,22 +2,23 @@
 	import BranchLabel from '$components/BranchLabel.svelte';
 	import SeriesDescription from '$components/SeriesDescription.svelte';
 	import SeriesHeaderStatusIcon from '$components/SeriesHeaderStatusIcon.svelte';
-	import { getColorFromBranchType } from '$components/v3/lib';
+	import { getColorFromBranchType, isStackedBranch } from '$components/v3/lib';
 	import type { CommitStateType, WorkspaceBranch } from '$lib/branches/v3';
 
 	interface Props {
 		branch: WorkspaceBranch;
 		isTopBranch: boolean;
-		// lastPush: Date | undefined;
 	}
 
 	const { branch, isTopBranch }: Props = $props();
 
 	const topPatch = $derived(
-		branch.state.type !== 'Archived' ? branch?.state.subject.localAndRemote[0] : undefined
+		isStackedBranch(branch.state) && branch?.state.subject.localAndRemote.length > 0
+			? branch?.state.subject.localAndRemote[0]
+			: undefined
 	);
 
-	let branchType = $derived(topPatch?.state?.type ?? 'Error') as CommitStateType;
+	let branchType = $derived(topPatch?.state?.type ?? 'LocalOnly') as CommitStateType;
 	const lineColor = $derived(getColorFromBranchType(branchType));
 
 	const descriptionVisible = $derived(!!branch.description);
@@ -136,7 +137,7 @@
 
 	.branch-info__line {
 		min-width: 2px;
-		margin: 0 22px 0 22px;
+		margin: 0 22px;
 		background-color: var(--bg-color, var(--clr-border-3));
 	}
 </style>
