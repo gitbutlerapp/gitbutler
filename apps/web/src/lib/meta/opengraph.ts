@@ -8,7 +8,7 @@ function replacePropertyContent(metaTags: string, property: string, newContent: 
 	return metaTags;
 }
 
-export function fillMeta(html: string, url: string) {
+export async function fillMeta(html: string, url: string) {
 	let metaTags = `
         <!-- Meta Tags -->
         <!-- Open Graph -->
@@ -50,25 +50,26 @@ export function fillMeta(html: string, url: string) {
 		);
 
 		// hit the API for this patch and get the project name
-		fetch(env.PUBLIC_APP_HOST + `api/patch_stack/${user}/${project}/branch/${reviewId}`)
-			.then(async (response) => await response.json())
-			.then((data) => {
-				metaTags = replacePropertyContent(metaTags, 'title', `Review ${data.title}`);
-				if (data.description) {
-					metaTags = replacePropertyContent(metaTags, 'description', data.description);
-				} else {
-					metaTags = replacePropertyContent(
-						metaTags,
-						'description',
-						`Review code for ${user}/${project}`
-					);
-				}
-				return html.replace('%metatags%', metaTags);
-			})
-			.catch((error) => {
-				console.error('Fetch error:', error);
-				return html.replace('%metatags%', metaTags);
-			});
+		try {
+			const response = await fetch(
+				env.PUBLIC_APP_HOST + `api/patch_stack/${user}/${project}/branch/${reviewId}`
+			);
+			const data = await response.json();
+			metaTags = replacePropertyContent(metaTags, 'title', `Review ${data.title}`);
+			if (data.description) {
+				metaTags = replacePropertyContent(metaTags, 'description', data.description);
+			} else {
+				metaTags = replacePropertyContent(
+					metaTags,
+					'description',
+					`Review code for ${user}/${project}`
+				);
+			}
+			return html.replace('%metatags%', metaTags);
+		} catch (error: unknown) {
+			console.error('Fetch error:', error);
+			return html.replace('%metatags%', metaTags);
+		}
 	}
 
 	return html.replace('%metatags%', metaTags);
