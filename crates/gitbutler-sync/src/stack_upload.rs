@@ -17,7 +17,13 @@ use gix::bstr::ByteSlice;
 
 use crate::cloud::{push_to_gitbutler_server, remote, RemoteKind};
 
-pub fn push_stack_to_review(ctx: &CommandContext, user: &User, stack_id: StackId) -> Result<()> {
+/// Pushes all the branches in a stack, starting at the specified top_branch.
+pub fn push_stack_to_review(
+    ctx: &CommandContext,
+    user: &User,
+    stack_id: StackId,
+    top_branch: String,
+) -> Result<()> {
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let mut stack = vb_state.get_stack(stack_id)?;
     let repository = ctx.gix_repository()?;
@@ -27,7 +33,10 @@ pub fn push_stack_to_review(ctx: &CommandContext, user: &User, stack_id: StackId
     vb_state.set_stack(stack.clone())?;
     let stack_context = ctx.to_stack_context()?;
 
-    let branch_heads = branch_heads(&vb_state, &mut stack, &stack_context)?;
+    let branch_heads = branch_heads(&vb_state, &mut stack, &stack_context, top_branch)?;
+    let Some(top_branch) = branch_heads.first() else {
+        bail!("No branches to be pushed.");
+    };
     let Some(review_base_id) = vb_state.upsert_last_pushed_base(&repository)? else {
         bail!("This is impossible. If you got here, I'm sorry.");
     };
@@ -35,7 +44,7 @@ pub fn push_stack_to_review(ctx: &CommandContext, user: &User, stack_id: StackId
 
     let target_commit_id = vb_state.get_default_target()?.sha.to_gix();
     let commits = repository
-        .rev_walk([stack.head().to_gix()])
+        .rev_walk([top_branch.id])
         .first_parent_only()
         .with_boundary([target_commit_id])
         .sorting(gix::revision::walk::Sorting::BreadthFirst)
@@ -69,12 +78,25 @@ fn branch_heads(
     vb_state: &VirtualBranchesHandle,
     stack: &mut Stack,
     stack_context: &StackContext<'_>,
+    top_branch: String,
 ) -> Result<Vec<BranchHead>> {
     let mut heads = vec![];
 
     let stack_clone = stack.clone();
+    let mut top_head_found = false;
 
-    for head in stack.heads.iter_mut() {
+    // Heads is listed from parent-most to child-most, but we are wanting to
+    // find the parent-most match, and any branches that are parent-er to the
+    // found branch, so we iterate in reverse.
+    for head in stack.heads.iter_mut().rev() {
+        if !top_head_found {
+            if head.name == top_branch {
+                top_head_found = true;
+            } else {
+                continue;
+            }
+        }
+
         let head_oid = head.head_oid(stack_context, &stack_clone)?.to_gix();
         let review_id = head
             .review_id

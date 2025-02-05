@@ -129,11 +129,12 @@ pub fn push_stack_to_review(
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     stack_id: StackId,
+    top_branch: String,
     user: User,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_sync::stack_upload::push_stack_to_review(&ctx, &user, stack_id)?;
+    gitbutler_sync::stack_upload::push_stack_to_review(&ctx, &user, stack_id, top_branch)?;
 
     emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
