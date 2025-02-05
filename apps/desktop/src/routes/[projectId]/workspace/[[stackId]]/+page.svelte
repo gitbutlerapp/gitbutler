@@ -119,6 +119,7 @@
 		align-items: center;
 		justify-content: flex-start;
 		width: 290px;
+		overflow: hidden;
 		background-color: var(--clr-bg-1);
 		border-radius: var(--radius-ml);
 		border: 1px solid var(--clr-border-2);
