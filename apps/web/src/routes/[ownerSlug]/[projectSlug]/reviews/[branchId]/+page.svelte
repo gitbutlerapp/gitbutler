@@ -137,7 +137,7 @@
 				<div class="heading">
 					<p class="text-15 text-bold">{branch.title}</p>
 					<div class="actions">
-						<Button icon="text-link" kind="outline" onclick={copyLocation}>Branch link</Button>
+						<Button icon="chain-link" kind="outline" onclick={copyLocation}>Branch link</Button>
 						{@render startReview(branch)}
 						{#if branch.status === BranchStatus.Closed}
 							<AsyncButton action={async () => updateStatus(BranchStatus.Active)} kind="outline"

@@ -24,7 +24,6 @@
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { goto } from '$app/navigation';
 
-	const BRANCH_TITLE_PLACE_HOLDER = 'No branch title provided';
 	const DESCRIPTION_PLACE_HOLDER = 'No description provided';
 
 	interface Props {
@@ -62,7 +61,6 @@
 	);
 
 	const patchIds = $derived(map(branch?.current, (b) => b.patchIds));
-	const branchName = $derived(map(branch?.current, (b) => b.title) ?? BRANCH_TITLE_PLACE_HOLDER);
 
 	const patch = $derived(
 		map(branchUuid?.current, (branchUuid) => {
@@ -104,11 +102,7 @@
 		{#snippet children([patch, repositoryId, branchUuid])}
 			<div class="review-main-content" class:expand={chatMinimizer.value}>
 				<div class="review-main__header">
-					<p class="review-main__branch-title-line">
-						Branch: <span class="review-main__branch-title">{branchName}</span>
-					</p>
-
-					<h3 class="review-main-content-title">{patch.title}</h3>
+					<h3 class="text-18 text-bold review-main-content-title">{patch.title}</h3>
 
 					<div class="review-main-content__patch-navigator">
 						{#if patchIds !== undefined}
@@ -176,36 +170,8 @@
 		gap: 12px;
 	}
 
-	.review-main__branch-title-line {
-		color: var(--text-3, #b4afac);
-
-		/* base/12 */
-		font-family: var(--fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--weight-regular, 400);
-		line-height: 120%; /* 14.4px */
-	}
-
-	.review-main__branch-title {
-		color: var(--text-1, #1a1614);
-
-		/* base/12 */
-		font-family: var(--fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--weight-regular, 400);
-		line-height: 120%;
-	}
-
 	.review-main-content-title {
-		color: var(--text-1, #1a1614);
-
-		font-family: var(--fontfamily-default, Inter);
-		font-size: 18px;
-		font-style: normal;
-		font-weight: var(--weight-bold, 600);
-		line-height: 120%; /* 21.6px */
+		color: var(--clr-text-1);
 	}
 
 	.review-main-content__patch-navigator {

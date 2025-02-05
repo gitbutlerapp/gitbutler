@@ -30,7 +30,7 @@
 	{#snippet children(brancheses)}
 		<div class="title">
 			<div class="text">Branches shared for review</div>
-			<div><Badge>{brancheses.length || 0}</Badge></div>
+			<Badge>{brancheses.length || 0}</Badge>
 		</div>
 
 		<table class="commits-table">
@@ -66,7 +66,7 @@
 		display: flex;
 		align-items: center;
 		margin-bottom: 1.5rem;
-		gap: 10px;
+		gap: 6px;
 	}
 	.title > .text {
 		font-weight: bold;

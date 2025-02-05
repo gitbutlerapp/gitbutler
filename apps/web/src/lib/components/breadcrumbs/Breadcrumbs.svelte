@@ -1,121 +1,97 @@
 <script lang="ts">
-	import { UserService } from '$lib/user/userService';
+	import { BranchService } from '@gitbutler/shared/branches/branchService';
+	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
+	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
+	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { getContext } from '@gitbutler/shared/context';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
-	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
-	import { getAllUserRelatedProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
+	import { map } from '@gitbutler/shared/network/loadable';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import { goto } from '$app/navigation';
 
 	const appState = getContext(AppState);
-	const projectService = getContext(ProjectService);
-	const organizationService = getContext(OrganizationService);
-	const userService = getContext(UserService);
+	const branchService = getContext(BranchService);
 	const routes = getContext(WebRoutesService);
-	const user = userService.user;
+	const latestBranchLookupService = getContext(LatestBranchLookupService);
 
-	let projectSwitcher = $state<ContextMenu>();
-	let leftClickTrigger = $state<HTMLElement>();
-	let isContextMenuOpen = $state(false);
+	const branchUuid = $derived.by(() => {
+		if (!routes.isProjectReviewBranchPageSubset) return;
+		const ownerSlug = routes.isProjectReviewBranchPageSubset.ownerSlug;
+		const projectSlug = routes.isProjectReviewBranchPageSubset.projectSlug;
+		const branchId = routes.isProjectReviewBranchPageSubset.branchId;
+		return lookupLatestBranchUuid(
+			appState,
+			latestBranchLookupService,
+			ownerSlug,
+			projectSlug,
+			branchId
+		);
+	});
 
-	const allProjects = $derived(
-		projectSwitcher?.isOpen() && $user?.login
-			? getAllUserRelatedProjects(appState, projectService, organizationService, $user.login)
-			: undefined
+	const branch = $derived(
+		map(branchUuid?.current, (branchUuid) => getBranchReview(appState, branchService, branchUuid))
 	);
 </script>
 
-<div class="actions">
-	{#if routes.isProjectReviewBranchCommitPageSubset}
-		<Button
-			kind="ghost"
-			icon="chevron-left"
-			reversedDirection
-			onclick={() => {
-				if (!routes.isProjectReviewBranchPageSubset) return;
-				goto(routes.projectReviewBranchPath(routes.isProjectReviewBranchPageSubset));
-			}}>Back to branch</Button
-		>
-	{:else if routes.isProjectReviewBranchPageSubset}
-		<Button
-			kind="ghost"
-			icon="chevron-left"
-			reversedDirection
-			onclick={() => {
-				if (!routes.isProjectReviewPageSubset) return;
-				goto(routes.projectReviewPath(routes.isProjectReviewPageSubset));
-			}}>Back to all branches</Button
-		>
-	{:else}
-		<div bind:this={leftClickTrigger}>
-			<Button
-				kind="ghost"
-				icon="select-chevron"
-				onclick={() => projectSwitcher?.toggle()}
-				activated={isContextMenuOpen}
+<ol class="breadcrumbs">
+	<li class="text-12 text-semibold breadcrumb-item">
+		<a class:breadcrumb-item_disabled={!routes.isProjectReviewPageSubset} href="/repositories">
+			All projects
+		</a>
+	</li>
+
+	<span class="text-12 text-semibold nav-slash">/</span>
+	{#if routes.isProjectReviewPageSubset}
+		<li class="text-12 text-semibold breadcrumb-item truncate">
+			<a
+				class:breadcrumb-item_disabled={!routes.isProjectReviewBranchPageSubset}
+				href={routes.isProjectPageSubset
+					? `${routes.projectPath(routes.isProjectReviewPageSubset)}/reviews`
+					: ''}
+				>{routes.isProjectReviewPageSubset.ownerSlug}/{routes.isProjectReviewPageSubset
+					.projectSlug}</a
 			>
-				{#if routes.isProjectPageSubset && routes.isProjectPageSubset}
-					{routes.isProjectPageSubset.ownerSlug}/{routes.isProjectPageSubset.projectSlug}
-				{:else}
-					Select project
-				{/if}
-			</Button>
-		</div>
+		</li>
 
-		{#if routes.isProjectReviewPageSubset}
-			<div class="text-11 text-semibold current-page-data">
-				<span>/</span>
-				<span>Branches and Stacks</span>
-			</div>
-		{/if}
+		<span class="text-12 text-semibold nav-slash">/</span>
 	{/if}
-</div>
-
-<ContextMenu
-	{leftClickTrigger}
-	bind:this={projectSwitcher}
-	horizontalAlign="left"
-	ontoggle={(isOpen) => (isContextMenuOpen = isOpen)}
->
-	<ContextMenuSection>
-		{#each allProjects?.current || [] as project}
-			<Loading loadable={project}>
-				{#snippet children(project)}
-					<ContextMenuItem
-						label="{project.owner}/{project.slug}"
-						onclick={() => {
-							goto(routes.projectPath({ ownerSlug: project.owner, projectSlug: project.slug }));
-							projectSwitcher?.close();
-						}}
-					/>
-				{/snippet}
-			</Loading>
-		{/each}
-	</ContextMenuSection>
-</ContextMenu>
+	{#if routes.isProjectReviewBranchCommitPageSubset}
+		<li class="text-12 text-semibold breadcrumb-item truncate">
+			{#if branch?.current && branch.current.status === 'found'}
+				<a href={routes.projectReviewBranchPath(routes.isProjectReviewBranchCommitPageSubset)}>
+					{console.log(branch.current.value.branchId)}
+					{branch.current.value.title}
+				</a>
+			{:else}
+				<span class="breadcrumb-item_disabled">...</span>
+			{/if}
+		</li>
+	{/if}
+</ol>
 
 <style lang="postcss">
-	.actions {
+	.breadcrumbs {
 		display: flex;
-		gap: 8px;
-		flex-wrap: wrap;
-
+		flex-wrap: nowrap;
 		align-items: center;
+		overflow: hidden;
+		gap: 8px;
 	}
 
-	.current-page-data {
-		display: flex;
-		gap: 10px;
-		color: var(--clr-text-2);
+	.breadcrumb-item {
+		color: var(--clr-text-1);
+		white-space: nowrap;
 
-		@media (max-width: 800px) {
-			display: none;
+		a:hover {
+			text-decoration: underline;
 		}
+	}
+
+	.breadcrumb-item_disabled {
+		color: var(--clr-text-3);
+		pointer-events: none;
+	}
+
+	.nav-slash {
+		color: var(--clr-text-3);
 	}
 </style>
