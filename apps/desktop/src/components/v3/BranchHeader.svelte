@@ -2,9 +2,8 @@
 	import BranchLabel from '$components/BranchLabel.svelte';
 	import SeriesDescription from '$components/SeriesDescription.svelte';
 	import SeriesHeaderStatusIcon from '$components/SeriesHeaderStatusIcon.svelte';
-	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
-	import type { WorkspaceBranch } from '$lib/branches/v3';
-	import type { CellType } from '@gitbutler/ui/commitLines/types';
+	import { getColorFromBranchType } from '$components/v3/lib';
+	import type { CommitStateType, WorkspaceBranch } from '$lib/branches/v3';
 
 	interface Props {
 		branch: WorkspaceBranch;
@@ -18,13 +17,7 @@
 		branch.state.type !== 'Archived' ? branch?.state.subject.localAndRemote[0] : undefined
 	);
 
-	// Lowercased first letter to match CellTypes from v2
-	// TODO: Harmonize types once we drop v2
-	let branchType = $derived(
-		topPatch?.state?.type
-			? topPatch?.state?.type[0]?.toLowerCase() + topPatch?.state?.type.slice(1)
-			: 'local'
-	) as CellType;
+	let branchType = $derived(topPatch?.state?.type ?? 'Error') as CommitStateType;
 	const lineColor = $derived(getColorFromBranchType(branchType));
 
 	const descriptionVisible = $derived(!!branch.description);
@@ -52,7 +45,7 @@
 	<div class="branch-info">
 		<SeriesHeaderStatusIcon
 			lineTop={isTopBranch ? false : true}
-			icon={branchType === 'integrated' ? 'tick-small' : 'branch-small'}
+			icon={branchType === 'Integrated' ? 'tick-small' : 'branch-small'}
 			iconColor="var(--clr-core-ntrl-100)"
 			color={lineColor}
 		/>
@@ -68,7 +61,7 @@
 					onChange={(name) => editTitle(name)}
 					readonly={!!branch.remoteTrackingBranch}
 					onDblClick={() => {
-						if (branchType !== 'integrated') {
+						if (branchType !== 'Integrated') {
 							// stackingContextMenu?.showSeriesRenameModal?.(branch.name);
 						}
 					}}
@@ -76,7 +69,7 @@
 			</div>
 			{#if descriptionVisible}
 				<div class="branch-info__description">
-					<div class="branch-action__line" style:--bg-color={lineColor}></div>
+					<div class="branch-info__line" style:--bg-color={lineColor}></div>
 					<SeriesDescription
 						bind:textAreaEl={seriesDescriptionEl}
 						value={branch.description || ''}
@@ -141,24 +134,9 @@
 		margin-left: -2px;
 	}
 
-	.branch-action {
-		width: 100%;
-		display: flex;
-		justify-content: flex-start;
-		align-items: stretch;
-
-		.branch-action__body {
-			width: 100%;
-			padding: 0 14px 14px 0;
-			display: flex;
-			flex-direction: column;
-			gap: 14px;
-		}
-	}
-
-	.branch-action__line {
+	.branch-info__line {
 		min-width: 2px;
-		margin: 0 22px 0 20px;
+		margin: 0 22px 0 22px;
 		background-color: var(--bg-color, var(--clr-border-3));
 	}
 </style>
