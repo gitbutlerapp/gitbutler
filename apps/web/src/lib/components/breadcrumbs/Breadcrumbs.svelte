@@ -58,7 +58,6 @@
 		<li class="text-12 text-semibold breadcrumb-item truncate">
 			{#if branch?.current && branch.current.status === 'found'}
 				<a href={routes.projectReviewBranchPath(routes.isProjectReviewBranchCommitPageSubset)}>
-					{console.log(branch.current.value.branchId)}
 					{branch.current.value.title}
 				</a>
 			{:else}
