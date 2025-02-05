@@ -31,7 +31,7 @@
 		<EmptyBranch {last} />
 	{/if}
 	{#if isStackedBranch(branch.state)}
-		<BranchCommitList commits={branch.state.subject} />
+		<BranchCommitList commits={branch.state.subject} lastBranch={last} />
 	{/if}
 </div>
 

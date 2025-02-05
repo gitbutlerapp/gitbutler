@@ -4,9 +4,10 @@
 
 	interface Props {
 		commits: Commits;
+		lastBranch?: boolean;
 	}
 
-	const { commits }: Props = $props();
+	const { commits, lastBranch }: Props = $props();
 
 	const localAndRemoteCommits = $derived(commits.localAndRemote);
 	const upstreamOnlyCommits = $derived(commits.upstreamOnly);
@@ -22,7 +23,7 @@
 	{#each localAndRemoteCommits as commit, i (commit.id)}
 		{@const first = i === 0}
 		{@const last = i === localAndRemoteCommits.length - 1}
-		<CommitRow {first} {last} {commit} />
+		<CommitRow {first} {last} {commit} {lastBranch} />
 	{/each}
 </div>
 
