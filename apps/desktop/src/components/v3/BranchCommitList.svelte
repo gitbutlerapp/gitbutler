@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CommitRow from '$components/v3/CommitRow.svelte';
 	import type { Commits } from '$lib/branches/v3';
 
 	interface Props {
@@ -15,17 +16,13 @@
 	{#each upstreamOnlyCommits as commit, i (commit.id)}
 		{@const first = i === 0}
 		{@const last = i === upstreamOnlyCommits.length - 1}
-		<div class="commit" class:first class:last>
-			<span>{commit.message}</span>
-		</div>
+		<CommitRow {first} {last} {commit} />
 	{/each}
 
 	{#each localAndRemoteCommits as commit, i (commit.id)}
 		{@const first = i === 0}
 		{@const last = i === localAndRemoteCommits.length - 1}
-		<div class="commit" class:first class:last>
-			<span>{commit.message}</span>
-		</div>
+		<CommitRow {first} {last} {commit} />
 	{/each}
 </div>
 
