@@ -238,7 +238,8 @@
 		border: 1px solid var(--clr-border-2);
 		border-bottom: none;
 		border-radius: 0 var(--radius-ml) 0 0;
-		padding: 14px 20px;
+		height: 100%;
+		padding: 0 20px;
 		background: var(--clr-stack-tab-inactive);
 		color: var(--clr-text-3);
 		transition:
@@ -248,13 +249,6 @@
 		&:hover {
 			color: var(--clr-text-2);
 			background: var(--clr-stack-tab-inactive-hover);
-		}
-
-		&.overflow {
-			position: absolute;
-			top: 0;
-			right: 0px;
-			height: 53px;
 		}
 	}
 
@@ -267,28 +261,6 @@
 	.options-wrap {
 		display: flex;
 		gap: 8px;
-	}
-
-	/* NEW STACK SINGLE */
-	.new-stack-single {
-		--illustration-outline: var(--clr-text-3);
-		--illustration-text: var(--clr-text-2);
-		--illustration-accent-outline: var(--clr-theme-pop-element);
-		--illustration-accent-bg: var(--clr-theme-pop-bg);
-
-		position: relative;
-		display: flex;
-		gap: 16px;
-		padding: 14px 14px 0;
-		background-color: var(--clr-bg-1-muted);
-		border-radius: var(--radius-m);
-	}
-
-	.new-stack-single__content {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
 	}
 
 	/* RADIO */

@@ -19,7 +19,7 @@
 	const result = $derived(stackService.getStacks(projectId));
 
 	let inner = $state<HTMLDivElement>();
-	let scroller = $state<HTMLDivElement>();
+	let scroller = $state<HTMLUListElement>();
 
 	let scrollable = $state(false);
 	let scrolled = $state(false);
@@ -44,10 +44,10 @@
 	});
 </script>
 
-<div class="tabs">
+<menu class="tabs">
 	<div class="inner" bind:this={inner}>
 		<div class="shadows">
-			<div class="scroller" bind:this={scroller} class:scrolled {onscroll}>
+			<ul class="scroller" bind:this={scroller} class:scrolled {onscroll}>
 				<ReduxResult result={result.current}>
 					{#snippet children(result)}
 						{@const tabs = stacksToTabs(result)}
@@ -62,13 +62,13 @@
 						no stacks
 					{/snippet}
 				</ReduxResult>
-			</div>
+			</ul>
 			<div class="shadow shadow-left" class:scrolled></div>
 			<div class="shadow shadow-right" class:scrollable class:scrolled-end={scrolledEnd}></div>
 		</div>
 		<StackTabNew {projectId} />
 	</div>
-</div>
+</menu>
 
 <style lang="postcss">
 	.tabs {
@@ -100,26 +100,33 @@
 		position: absolute;
 		top: 0;
 		height: 100%;
-		width: 8px;
+		width: 24px;
 	}
 
 	.shadow-left {
-		display: none;
+		pointer-events: none;
+		opacity: 0;
 		left: 0;
-		background: linear-gradient(to right, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0));
+		background: linear-gradient(to right, var(--clr-bg-1) 0%, transparent 100%);
+		transition: opacity var(--transition-fast);
+
 		&.scrolled {
-			display: block;
+			opacity: 1;
 		}
 	}
 
 	.shadow-right {
-		display: none;
+		pointer-events: none;
+		opacity: 0;
 		right: 0;
-		background: linear-gradient(to left, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0));
+		background: linear-gradient(to left, var(--clr-bg-1) 0%, transparent 100%);
+		transition: opacity var(--transition-fast);
+
 		&.scrollable {
-			display: initial;
+			opacity: 1;
+
 			&.scrolled-end {
-				display: none;
+				opacity: 0;
 			}
 		}
 	}

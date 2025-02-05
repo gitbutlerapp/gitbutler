@@ -1,12 +1,10 @@
 <script lang="ts">
 	import { stackPath } from '$lib/routes/routes.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { Tab } from '$lib/tabs/tab';
-	import { goto } from '$app/navigation';
 
 	type Props = {
 		projectId: string;
@@ -21,84 +19,97 @@
 	let isContextMenuOpen = $state(false);
 	let isHovered = $state(false);
 
+	let nameEl = $state<HTMLDivElement>();
+	let nameWidth = $state<number>();
+
 	const { projectId, tab, first, last, selected }: Props = $props();
+
+	$effect(() => {
+		if (nameEl) {
+			nameWidth = nameEl.offsetWidth - 1;
+		}
+	});
 </script>
 
-<button
-	onclick={() => goto(stackPath(projectId, tab.id))}
-	class="tab"
-	class:first
-	class:last
-	class:selected
-	type="button"
->
-	{#if selected}
-		<div class="selected-accent"></div>
-	{/if}
-	<div class="icon">
-		{#if tab.anchors.length > 0}
-			<Icon name="chain-link" verticalAlign="top" />
-		{:else}
-			<Icon name="branch-small" verticalAlign="top" />
-		{/if}
-	</div>
-	<div class="name">
-		{tab.name}
-	</div>
-	<div
-		class={['tab__overflow-menu', isContextMenuOpen || isHovered ? 'active' : '']}
-		role="region"
-		onmouseenter={() => (isHovered = true)}
-		onmouseleave={() => (isHovered = false)}
-	>
-		<Button
-			kind="ghost"
-			icon="kebab"
-			bind:el={kebabMenuTrigger}
-			onclick={() => {
-				contextMenuEl?.toggle();
-			}}
-			activated={isContextMenuOpen}
-		></Button>
-	</div>
+<li>
+	<a href={stackPath(projectId, tab.id)} class="tab" class:first class:last class:selected>
+		<div class="icon">
+			{#if tab.anchors.length > 0}
+				<Icon name="chain-link" verticalAlign="top" />
+			{:else}
+				<Icon name="branch-small" verticalAlign="top" />
+			{/if}
+		</div>
+		<div class="tab__content" style:max-width="{nameWidth}px">
+			<div class="text-12 text-semibold name" bind:this={nameEl}>
+				{tab.name}
+			</div>
+			<div class={['tab__menu-btn-wrap', isContextMenuOpen || isHovered ? 'active' : '']}>
+				<button
+					class={['tab__menu-btn', isContextMenuOpen ? 'active' : '']}
+					onmouseenter={() => (isHovered = true)}
+					onmouseleave={() => (isHovered = false)}
+					onclick={(e) => {
+						e.preventDefault();
+						e.stopPropagation();
+						contextMenuEl?.toggle();
+					}}
+					bind:this={kebabMenuTrigger}
+					type="button"
+				>
+					<Icon name="kebab" />
+				</button>
+			</div>
+		</div>
+	</a>
+</li>
 
-	<ContextMenu
-		bind:this={contextMenuEl}
-		leftClickTrigger={kebabMenuTrigger}
-		ontoggle={(isOpen) => (isContextMenuOpen = isOpen)}
-		side="bottom"
-		horizontalAlign="left"
-	>
-		<ContextMenuSection>
-			<ContextMenuItem
-				label="Unapply Stack"
-				keyboardShortcut="$mod+X"
-				onclick={() => {
-					contextMenuEl?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Rename"
-				keyboardShortcut="$mod+R"
-				onclick={() => {
-					contextMenuEl?.close();
-				}}
-			/>
-		</ContextMenuSection>
-	</ContextMenu>
-</button>
+<ContextMenu
+	bind:this={contextMenuEl}
+	leftClickTrigger={kebabMenuTrigger}
+	ontoggle={(isOpen) => (isContextMenuOpen = isOpen)}
+	side="bottom"
+>
+	<ContextMenuSection>
+		<ContextMenuItem
+			label="Unapply Stack"
+			keyboardShortcut="$mod+X"
+			onclick={() => {
+				contextMenuEl?.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="Rename"
+			keyboardShortcut="$mod+R"
+			onclick={() => {
+				contextMenuEl?.close();
+			}}
+		/>
+	</ContextMenuSection>
+</ContextMenu>
 
 <style lang="postcss">
 	.tab {
 		display: flex;
 		align-items: center;
-		gap: 8px;
 		position: relative;
-		padding: 12px 14px;
+		padding: 0 14px;
+		height: 48px;
 		background: var(--clr-stack-tab-inactive);
 		border-right: 1px solid var(--clr-border-2);
 		overflow: hidden;
-		min-width: 160px;
+		min-width: 80px;
+
+		&::after {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 2px;
+			transform: translateY(-100%);
+			transition: transform var(--transition-fast);
+		}
 
 		&.first {
 			border-radius: var(--radius-ml) 0 0 0;
@@ -108,25 +119,64 @@
 			border-right: none;
 		}
 
-		.tab__overflow-menu {
-			opacity: 0;
-			width: 0px;
-			pointer-events: none;
-			transition:
-				opacity 100ms ease-in,
-				width 100ms ease-in-out;
+		.tab__content {
+			display: flex;
+			align-items: center;
 		}
 
-		.tab__overflow-menu.active,
-		&:active .tab__overflow-menu,
-		&:hover .tab__overflow-menu,
-		&:focus-within .tab__overflow-menu,
-		&:focus .tab__overflow-menu {
-			pointer-events: auto;
-			margin-right: 8px;
+		.tab__menu-btn-wrap {
+			flex: 1;
+			position: relative;
+			display: flex;
+			width: 0;
+			overflow: hidden;
+		}
+
+		.tab__menu-btn {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			color: var(--clr-text-2);
+			padding: 8px;
+
+			&.active,
+			&:hover {
+				color: var(--clr-text-1);
+			}
+		}
+
+		&:not(.selected):hover,
+		&:not(.selected):focus-within {
+			background: var(--clr-stack-tab-inactive-hover);
+		}
+
+		&:not(.selected):focus-within {
+			&::after {
+				transform: translateY(0);
+				background: var(--clr-border-1);
+			}
+		}
+
+		.tab__menu-btn-wrap.active,
+		&:active .tab__menu-btn-wrap,
+		&:hover .tab__menu-btn-wrap,
+		&:focus-within .tab__menu-btn-wrap {
 			display: flex;
 			opacity: 1;
-			width: 16px;
+			min-width: 32px;
+			margin-right: -8px;
+
+			.tab__menu-btn {
+				opacity: 0.8;
+			}
+		}
+
+		/* ACCENT LINES */
+		&.selected {
+			&::after {
+				transform: translateY(0);
+				background: var(--clr-theme-pop-element);
+			}
 		}
 	}
 
@@ -138,9 +188,11 @@
 		width: 18px;
 		height: 18px;
 		line-height: 16px;
+		margin-right: 8px;
 	}
 
 	.name {
+		box-sizing: content-box;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		overflow: hidden;
@@ -148,14 +200,5 @@
 
 	.selected {
 		background-color: var(--clr-stack-tab-active);
-	}
-
-	.selected-accent {
-		position: absolute;
-		background: var(--clr-theme-pop-element);
-		width: 100%;
-		height: 3px;
-		left: 0;
-		top: 0;
 	}
 </style>
