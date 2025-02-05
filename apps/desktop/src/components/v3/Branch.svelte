@@ -2,6 +2,7 @@
 	import BranchDividerLine from './BranchDividerLine.svelte';
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
+	import { isStackedBranch } from '$components/v3/lib';
 	import type { WorkspaceBranch } from '$lib/branches/v3';
 
 	interface Props {
@@ -13,10 +14,7 @@
 	const { branch, first }: Props = $props();
 
 	const localAndRemoteCommits = $derived(
-		branch.state.type !== 'Archived' ? branch.state.subject.localAndRemote : []
-	);
-	const upstreamOnlyCommits = $derived(
-		branch.state.type !== 'Archived' ? branch.state.subject.upstreamOnly : []
+		isStackedBranch(branch.state) ? branch.state.subject.localAndRemote : []
 	);
 </script>
 
@@ -25,14 +23,9 @@
 {/if}
 <div class="branch" data-series-name={branch.name}>
 	<BranchHeader {branch} isTopBranch={first} />
-	<div>
-		{#if branch.state.type !== 'Archived' && branch.state.subject.upstreamOnly.length}
-			<BranchCommitList commits={upstreamOnlyCommits} />
-		{/if}
-		{#if branch.state.type !== 'Archived' && branch.state.subject.localAndRemote.length}
-			<BranchCommitList commits={localAndRemoteCommits} />
-		{/if}
-	</div>
+	{#if isStackedBranch(branch.state)}
+		<BranchCommitList commits={branch.state.subject} />
+	{/if}
 </div>
 
 <style>
