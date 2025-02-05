@@ -13,15 +13,15 @@
 </script>
 
 {#if !loadable}
-	<p>Uninitialized...</p>
+	<span>Uninitialized...</span>
 {:else if loadable.status === 'found'}
 	{@render children(loadable.value)}
 {:else if loadable.status === 'loading'}
 	<LoadingState />
 {:else if loadable.status === 'not-found'}
-	<p>Not found</p>
+	<span>Not found</span>
 {:else if loadable.status === 'error'}
-	<p>{loadable.error.message}</p>
+	<span>{loadable.error.message}</span>
 {:else}
-	<p>Unknown state</p>
+	<span>Unknown state</span>
 {/if}
