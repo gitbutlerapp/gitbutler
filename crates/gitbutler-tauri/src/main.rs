@@ -51,20 +51,6 @@ fn main() {
                     )
                     .expect("Failed to create window");
 
-                    #[cfg(target_os = "macos")]
-                    use tauri::LogicalPosition;
-                    #[cfg(target_os = "macos")]
-                    use tauri_plugin_traffic_lights::WindowExt;
-                    #[cfg(target_os = "macos")]
-                    // NOTE: Make sure you only call this ONCE per window.
-                    {
-                        if let Some(window) = tauri_app.get_window("main") {
-                            #[cfg(target_os = "macos")]
-                            // NOTE: Make sure you only call this ONCE per window.
-                            window.setup_traffic_lights_inset(LogicalPosition::new(16.0, 25.0))?;
-                        };
-                    }
-
                     // TODO(mtsgrd): Is there a better way to disable devtools in E2E tests?
                     #[cfg(debug_assertions)]
                     if tauri_app.config().product_name != Some("GitButler Test".to_string()) {
@@ -127,7 +113,6 @@ fn main() {
                             gitbutler_tauri::ChangeForFrontend::from(app_settings).send(&app_handle)
                         }
                     })?;
-                    app_handle.manage(app_settings);
                     let app = App {
                         app_data_dir: app_data_dir.clone(),
                     };
@@ -147,14 +132,6 @@ fn main() {
                         menu::handle_event(&window.clone(), &event)
                     });
 
-                    let mut app_settings = AppSettingsWithDiskSync::new(config_dir)?;
-                    app_settings.watch_in_background({
-                        let app_handle = app_handle.clone();
-                        move |app_settings| {
-                            gitbutler_tauri::ChangeForFrontend::from(app_settings).send(&app_handle)
-                        }
-                    })?;
-
                     if app_settings.get()?.clone().feature_flags.v3 {
                         #[cfg(target_os = "macos")]
                         use tauri::LogicalPosition;
@@ -171,6 +148,7 @@ fn main() {
                             };
                         }
                     }
+                    app_handle.manage(app_settings);
 
                     Ok(())
                 })
