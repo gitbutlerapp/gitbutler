@@ -13,17 +13,9 @@
 	import { DetailedCommit } from '$lib/commits/commit';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { Project } from '$lib/project/project';
-	// import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	// import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	// import { getForgePrService } from '$lib/forge/interface/forgePrService';
-	// import { type MergeMethod } from '$lib/forge/interface/types';
-	// import { showError } from '$lib/notifications/toasts';
-	// import MergeButton from '$components/MergeButton.svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
-	// import * as toasts from '@gitbutler/ui/toasts';
-	// import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -32,22 +24,21 @@
 	import lscache from 'lscache';
 	import { onMount } from 'svelte';
 	import { type Writable } from 'svelte/store';
+	import { cloudReviewFunctionality } from '$lib/config/uiFeatureFlags';
+	import { StackPublishingService } from '$lib/history/stackPublishingService';
 
 	const {
 		isLaneCollapsed,
 		commitBoxOpen
 	}: { isLaneCollapsed: Writable<boolean>; commitBoxOpen: Writable<boolean> } = $props();
 
-	// const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
 	const fileIdSelection = getContext(FileIdSelection);
 	const branchStore = getContextStore(BranchStack);
-	// const baseBranchService = getContext(BaseBranchService);
-	// const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
-	// const prService = getForgePrService();
 	const listingService = getForgeListingService();
 	const stack = $derived($branchStore);
+	const stackPublishingService = getContext(StackPublishingService);
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
@@ -72,7 +63,6 @@
 
 	let scrollEndVisible = $state(true);
 	let isPushingCommits = $state(false);
-	// let isMergingSeries = $state(false);
 
 	const { upstreamPatches, branchPatches, hasConflicts } = $derived.by(() => {
 		let hasConflicts = false;
@@ -105,60 +95,19 @@
 			await branchController.pushBranch(stack.id, stack.requiresForce);
 			$listingService?.refresh();
 			lastPush = new Date();
+			await pushButlerReviewStacks();
 		} finally {
 			isPushingCommits = false;
 		}
 	}
 
-	// async function checkMergeable() {
-	// 	const nonArchivedBranches = branch.validSeries.filter((s) => !s.archived);
-	// 	if (nonArchivedBranches.length <= 1) return false;
+	async function pushButlerReviewStacks() {
+		if (!$cloudReviewFunctionality) return;
+		const topPushableBranch = stack.validSeries.find((series) => series.reviewId);
+		if (!topPushableBranch) return;
 
-	// 	const seriesMergeResponse = await Promise.allSettled(
-	// 		nonArchivedBranches.map((series) => {
-	// 			if (!series.prNumber) return Promise.reject();
-
-	// 			const detailedPr = $prService?.get(series.prNumber);
-	// 			return detailedPr;
-	// 		})
-	// 	);
-
-	// 	return seriesMergeResponse.every((s) => {
-	// 		if (s.status === 'fulfilled' && s.value) {
-	// 			return s.value.mergeable === true;
-	// 		}
-	// 		return false;
-	// 	});
-	// }
-
-	// let canMergeAll = $derived(checkMergeable());
-
-	// async function mergeAll(method: MergeMethod) {
-	// 	isMergingSeries = true;
-	// 	try {
-	// 		const topBranch = branch.validSeries[0];
-
-	// 		if (topBranch?.prNumber && $prService) {
-	// 			const targetBase = $baseBranch.branchName.replace(`${$baseBranch.remoteName}/`, '');
-	// 			await $prService.update(topBranch.prNumber, { targetBase });
-	// 			await $prService.merge(method, topBranch.prNumber);
-	// 			await baseBranchService.fetchFromRemotes();
-	// 			toasts.success('Stack Merged Successfully');
-
-	// 			await Promise.all([
-	// 				$prService?.prMonitor(topBranch.prNumber).refresh(),
-	// 				$listingService?.refresh(),
-	// 				vbranchService.refresh(),
-	// 				baseBranchService.refresh()
-	// 			]);
-	// 		}
-	// 	} catch (e) {
-	// 		console.error(e);
-	// 		showError('Failed to merge PR', e);
-	// 	} finally {
-	// 		isMergingSeries = false;
-	// 	}
-	// }
+		await stackPublishingService.upsertStack(stack.id, topPushableBranch.name);
+	}
 </script>
 
 {#if $isLaneCollapsed}
