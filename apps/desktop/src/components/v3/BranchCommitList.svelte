@@ -1,25 +1,36 @@
 <script lang="ts">
-	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
+	import type { Commits } from '$lib/branches/v3';
 
 	interface Props {
-		commits: UpstreamCommit[] | Commit[];
+		commits: Commits;
 	}
 
 	const { commits }: Props = $props();
+
+	const localAndRemoteCommits = $derived(commits.localAndRemote);
+	const upstreamOnlyCommits = $derived(commits.upstreamOnly);
 </script>
 
-<div class="commits">
-	{#each commits as commit, i (commit.id)}
+<div class="commit-list">
+	{#each upstreamOnlyCommits as commit, i (commit.id)}
 		{@const first = i === 0}
-		{@const last = i === commits.length - 1}
+		{@const last = i === upstreamOnlyCommits.length - 1}
 		<div class="commit" class:first class:last>
-			<span>{commit.message}</span> <span class="text-clr3">{commit.id.substring(0, 7)}</span>
+			<span>{commit.message}</span>
+		</div>
+	{/each}
+
+	{#each localAndRemoteCommits as commit, i (commit.id)}
+		{@const first = i === 0}
+		{@const last = i === localAndRemoteCommits.length - 1}
+		<div class="commit" class:first class:last>
+			<span>{commit.message}</span>
 		</div>
 	{/each}
 </div>
 
 <style lang="postcss">
-	.commits {
+	.commit-list {
 		position: relative;
 		display: flex;
 		flex-direction: column;
