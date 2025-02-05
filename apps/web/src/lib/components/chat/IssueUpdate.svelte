@@ -35,7 +35,7 @@
 			<p class="issue-update__status">resolved</p>
 		{/if}
 
-		<div class="issue-update__timestamp">{timestamp}</div>
+		<div class="issue-update__timestamp" title={event.createdAt}>{timestamp}</div>
 	</div>
 </div>
 

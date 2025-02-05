@@ -32,7 +32,7 @@
 			{/if}
 			<p class="patch-status__name">{userName}</p>
 			<p class="patch-status__message">{statusAction} this commit</p>
-			<div class="patch-status__timestamp">{timestamp}</div>
+			<div class="patch-status__timestamp" title={event.createdAt}>{timestamp}</div>
 		</div>
 
 		{#if event.data.message}

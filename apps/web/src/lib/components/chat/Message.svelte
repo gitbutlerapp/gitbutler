@@ -57,7 +57,7 @@
 				{/if}
 			{/if}
 
-			<div class="chat-message__timestamp">
+			<div class="chat-message__timestamp" title={event.createdAt}>
 				{timestamp}
 			</div>
 		</div>

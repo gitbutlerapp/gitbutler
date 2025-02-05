@@ -61,7 +61,11 @@
 					<span class="changes_deletions">-{patch.statistics.deletions}</span>
 				</div></td
 			>
-			<td><div class="row-text updated text-12">{dayjs(patch.updatedAt).fromNow()}</div></td>
+			<td
+				><div class="row-text updated text-12" title={patch.updatedAt}>
+					{dayjs(patch.updatedAt).fromNow()}
+				</div></td
+			>
 			<td>
 				<div>
 					{#await contributors then contributors}

@@ -41,7 +41,7 @@
 			published a new <span>commit version #{patch.version}</span>
 		</p>
 
-		<div class="patch-version__timestamp">{timestamp}</div>
+		<div class="patch-version__timestamp" title={event.createdAt}>{timestamp}</div>
 	</div>
 </div>
 
