@@ -3,10 +3,7 @@
 	import HeaderMetaSection from './HeaderMetaSection.svelte';
 	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
-	import { cloudReviewFunctionality } from '$lib/config/uiFeatureFlags';
-	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { getContext } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import { isError } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
@@ -24,16 +21,6 @@
 			return !s.archived;
 		})
 	);
-
-	const stackPublishingService = getContext(StackPublishingService);
-	const canPublish = stackPublishingService.canPublish;
-	let publishing = $state<'inert' | 'loading' | 'complete'>('inert');
-
-	async function publishStack() {
-		publishing = 'loading';
-		await stackPublishingService.upsertStack(stack.id);
-		publishing = 'complete';
-	}
 </script>
 
 <div class="stack-header">
@@ -44,10 +31,7 @@
 			await branchController.setSelectedForChanges(stack.id);
 		}}
 	/>
-	<HeaderMetaSection series={nonArchivedSeries} {onCollapseButtonClick} />
-	{#if $cloudReviewFunctionality && $canPublish}
-		<Button onclick={publishStack} loading={publishing === 'loading'}>Publish stack</Button>
-	{/if}
+	<HeaderMetaSection series={nonArchivedSeries} {onCollapseButtonClick} stackId={stack.id} />
 </div>
 
 <style lang="postcss">
