@@ -57,7 +57,7 @@
 	/** Offset width for tabs component. */
 	let width: number | undefined = $state();
 	/** Content area on the right for stack details. */
-	let right = $state<HTMLDivElement>();
+	let rightEl = $state<HTMLDivElement>();
 	/** Width of content area on the right. */
 	let rightWidth: number | undefined = $state();
 	/** True if content area should be rounded. */
@@ -68,8 +68,8 @@
 	});
 
 	onMount(() => {
-		const observer = new ResizeObserver(() => (rightWidth = right?.offsetWidth));
-		observer.observe(right!);
+		const observer = new ResizeObserver(() => (rightWidth = rightEl?.offsetWidth));
+		observer.observe(rightEl!);
 		return () => {
 			observer.disconnect();
 		};
@@ -90,7 +90,7 @@
 		/>
 		<WorktreeChanges {projectId} />
 	</div>
-	<div class="right" bind:this={right}>
+	<div class="right" bind:this={rightEl}>
 		<StackTabs {projectId} selectedId={stackId} previewing={$previewing} bind:width />
 		<div class="contents" class:rounded>
 			{#if stackId}
@@ -135,10 +135,11 @@
 	.right .contents {
 		border: 1px solid var(--clr-border-2);
 		flex: 1;
-		border-radius: 0 0 var(--radius-ml);
-		overflow-y: scroll;
+		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+		overflow-y: none;
+
 		&.rounded {
-			border-radius: 0 var(--radius-ml) var(--radius-ml);
+			border-radius: 0 var(--radius-ml) var(--radius-ml) var(--radius-ml);
 		}
 	}
 </style>
