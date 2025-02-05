@@ -186,32 +186,7 @@
 		bind:this={richText.mentionSuggestions}
 		suggestions={richText.suggestions}
 		selectSuggestion={richText.selectSuggestion}
-	>
-		{#snippet item(username)}
-			<div class="mention-suggestion">
-				<div class="mention-suggestion__header">
-					{#if userMap.has(username)}
-						<img
-							src={userMap.get(username)?.avatarUrl}
-							alt={username}
-							class="mention-suggestion__avatar"
-						/>
-					{/if}
-					<p class="text-13 text-semibold truncate">
-						@{username}
-					</p>
-				</div>
-
-				{#if userMap.has(username)}
-					<div class="mention-suggestion__body">
-						<p class="mention-suggestion__name text-12 text-tertiary truncate">
-							{userMap.get(username)?.name}
-						</p>
-					</div>
-				{/if}
-			</div>
-		{/snippet}
-	</MentionSuggestions>
+	/>
 	<div class="text-input chat-input__content-container">
 		<RichTextEditor
 			bind:this={richText.richTextEditor}
@@ -311,38 +286,10 @@
 
 	.chat-input__secondary-actions {
 		display: flex;
-
-		p {
-			padding: 6px;
-			opacity: 0.5;
-		}
 	}
 
 	.chat-input__action-buttons {
 		display: flex;
 		gap: 4px;
-	}
-
-	.mention-suggestion {
-		width: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.mention-suggestion__header {
-		flex-grow: 1;
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-	.mention-suggestion__avatar {
-		width: 16px;
-		height: 16px;
-		border-radius: 50%;
-	}
-
-	.mention-suggestion__name {
-		opacity: 0.4;
 	}
 </style>

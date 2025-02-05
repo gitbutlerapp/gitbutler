@@ -2,16 +2,15 @@
 	export interface Props {
 		suggestions: string[] | undefined;
 		selectSuggestion?: (suggestion: string) => void;
-		item?: Snippet<[string]>;
 	}
 </script>
 
 <script lang="ts">
+	import MentionSuggestionItem from './MentionSuggestionItem.svelte';
 	import { setPosition } from '@gitbutler/ui/utils/tooltipPosition';
 	import { flyScale } from '@gitbutler/ui/utils/transitions';
-	import type { Snippet } from 'svelte';
 
-	const { suggestions, selectSuggestion, item }: Props = $props();
+	const { suggestions, selectSuggestion }: Props = $props();
 
 	let selectedSuggestionIndex = $state<number>();
 	let targetEl: HTMLElement | undefined = $state();
@@ -79,13 +78,7 @@
 							<li>
 								<div class="suggestion-item" class:selected={idx === selectedSuggestionIndex}>
 									<button type="button" onclick={() => selectSuggestion?.(suggestion)}>
-										{#if item}
-											{@render item(suggestion)}
-										{:else}
-											<p class="text-12 text-semibold name truncate">
-												{suggestion}
-											</p>
-										{/if}
+										<MentionSuggestionItem username={suggestion} />
 									</button>
 								</div>
 							</li>
