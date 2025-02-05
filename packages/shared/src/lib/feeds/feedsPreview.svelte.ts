@@ -4,12 +4,14 @@ import {
 	registerInterest,
 	registerInterestInView
 } from '$lib/interest/registerInterestFunction.svelte';
-import { usersSelectors } from '$lib/users/usersSlice';
+import { isFound } from '$lib/network/loadable';
+import { usersByLoginSelectors, usersSelectors } from '$lib/users/usersSlice';
 import type { FeedService } from '$lib/feeds/service';
 import type { Feed, Post } from '$lib/feeds/types';
+import type { Loadable } from '$lib/network/types';
 import type { AppFeedsState, AppPostsState, AppUsersState } from '$lib/redux/store.svelte';
 import type { Reactive } from '$lib/storeUtils';
-import type { LoadableUser } from '$lib/users/types';
+import type { User } from '$lib/users/types';
 import type { UserService } from '$lib/users/userService';
 
 export function getFeed(
@@ -66,8 +68,8 @@ export function getPostAuthor(
 	renderInView?: {
 		element?: HTMLElement;
 	}
-): Reactive<LoadableUser | undefined> {
-	const current = $derived.by(() => {
+): Reactive<Loadable<User> | undefined> {
+	const currentUserId = $derived.by(() => {
 		const postInterest = feedService.getPostWithRepliesInterest(postId);
 		if (renderInView) {
 			registerInterestInView(postInterest, renderInView.element);
@@ -78,13 +80,21 @@ export function getPostAuthor(
 
 		if (!post) return;
 
-		const userInterest = userService.getUserInterest(post.userLogin);
+		const userByLoginInterest = userService.getUserByLoginInterest(post.userLogin);
 		if (renderInView) {
-			registerInterestInView(userInterest, renderInView.element);
+			registerInterestInView(userByLoginInterest, renderInView.element);
 		} else {
-			registerInterest(userInterest);
+			registerInterest(userByLoginInterest);
 		}
-		return usersSelectors.selectById(appState.users, post.userLogin);
+
+		return usersByLoginSelectors.selectById(appState.usersByLogin, post.userLogin);
+	});
+
+	const current = $derived.by(() => {
+		if (!currentUserId) return undefined;
+		if (!isFound(currentUserId)) return currentUserId;
+		const id = currentUserId.value;
+		return usersSelectors.selectById(appState.users, id);
 	});
 
 	return {
