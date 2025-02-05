@@ -128,3 +128,5 @@ export type CommitState =
 	 * This should happen when this commit or the contents of this commit is already part of the base.
 	 */
 	| { readonly type: 'Integrated' };
+
+export type CommitStateType = CommitState['type'];
