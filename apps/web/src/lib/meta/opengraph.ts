@@ -1,5 +1,13 @@
 import { env } from '$env/dynamic/public';
 
+function replacePropertyContent(metaTags: string, property: string, newContent: string) {
+	const regexOg = new RegExp(`property="og:${property}" content="([^"]+)"`);
+	metaTags = metaTags.replace(regexOg, `property="og:${property}" content="${newContent}"`);
+	const regexTwitter = new RegExp(`name="twitter:${property}" content="([^"]+)"`);
+	metaTags = metaTags.replace(regexTwitter, `name="twitter:${property}" content="${newContent}"`);
+	return metaTags;
+}
+
 export function fillMeta(html: string, url: string) {
 	let metaTags = `
         <!-- Meta Tags -->
@@ -21,16 +29,46 @@ export function fillMeta(html: string, url: string) {
         <!-- / Meta Tags -->
 `;
 
-	const regex = /\/([^/]+)\/([^/]+)\/reviews\/([^/]+)/;
-	const match = url.match(regex);
+	const regex_patch = /\/([^/]+)\/([^/]+)\/reviews\/([^/]+)\/commit\/([^/]+)/;
+	let match = url.match(regex_patch);
+	if (match) {
+		const [_, user, project, reviewId, changeId] = match;
+		metaTags = metaTags.replaceAll(
+			'%image%',
+			`${env.PUBLIC_APP_HOST}og/review/${user}/${project}/${reviewId}/${changeId}`
+		);
+		return html.replace('%metatags%', metaTags);
+	}
+
+	const regex_review = /\/([^/]+)\/([^/]+)\/reviews\/([^/]+)/;
+	match = url.match(regex_review);
 	if (match) {
 		const [_, user, project, reviewId] = match;
 		metaTags = metaTags.replaceAll(
 			'%image%',
 			`${env.PUBLIC_APP_HOST}og/review/${user}/${project}/${reviewId}`
 		);
-	} else {
-		metaTags = metaTags.replaceAll('%image%', `${env.PUBLIC_APP_HOST}og/default`);
+
+		// hit the API for this patch and get the project name
+		fetch(env.PUBLIC_APP_HOST + `api/patch_stack/${user}/${project}/branch/${reviewId}`)
+			.then(async (response) => await response.json())
+			.then((data) => {
+				metaTags = replacePropertyContent(metaTags, 'title', `Review ${data.title}`);
+				if (data.description) {
+					metaTags = replacePropertyContent(metaTags, 'description', data.description);
+				} else {
+					metaTags = replacePropertyContent(
+						metaTags,
+						'description',
+						`Review code for ${user}/${project}`
+					);
+				}
+				return html.replace('%metatags%', metaTags);
+			})
+			.catch((error) => {
+				console.error('Fetch error:', error);
+				return html.replace('%metatags%', metaTags);
+			});
 	}
 
 	return html.replace('%metatags%', metaTags);
