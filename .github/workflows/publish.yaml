@@ -68,6 +68,12 @@ jobs:
         env:
           SENTRY_RELEASE: ${{ env.version }}
       - uses: actions/upload-artifact@v4
+        name: Upload pnpm-store contents
+        with:
+          name: pnpm-store
+          path: /home/runner/setup-pnpm/node_modules/.bin/store/v3
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
         name: Upload SvelteKit build output
         with:
           name: sveltekit-build
@@ -275,7 +281,7 @@ jobs:
       - name: Sign our EV signed file
         shell: bash
         run: |
-          set -x  
+          set -x
           curl -O https://gitbutler-public.s3.us-east-1.amazonaws.com/_win/minisign.exe
           chmod +x minisign.exe  # Add this line to make the file executable
           echo "sign release/${{ steps.set-path.outputs.msi_file }}"
