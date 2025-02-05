@@ -25,6 +25,13 @@
 		}
 	});
 
+	function scrollSuggestionIntoView(index: number) {
+		const suggestionItem = document.getElementById(`suggestion-item-${index}`);
+		if (suggestionItem) {
+			suggestionItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+		}
+	}
+
 	export function onArrowUp() {
 		if (suggestions === undefined) return;
 
@@ -35,6 +42,8 @@
 
 		selectedSuggestionIndex =
 			(selectedSuggestionIndex - 1 + suggestions.length) % suggestions.length;
+
+		scrollSuggestionIntoView(selectedSuggestionIndex);
 	}
 
 	export function onArrowDown() {
@@ -46,6 +55,8 @@
 		}
 
 		selectedSuggestionIndex = (selectedSuggestionIndex + 1) % suggestions.length;
+
+		scrollSuggestionIntoView(selectedSuggestionIndex);
 	}
 
 	export function onEnter() {
@@ -87,7 +98,11 @@
 					{:else}
 						{#each suggestions as suggestion, idx (suggestion.id)}
 							<li>
-								<div class="suggestion-item" class:selected={idx === selectedSuggestionIndex}>
+								<div
+									id="suggestion-item-{idx}"
+									class="suggestion-item"
+									class:selected={idx === selectedSuggestionIndex}
+								>
 									<button type="button" onclick={() => selectSuggestion?.(suggestion)}>
 										<MentionSuggestionItem username={suggestion.label} />
 									</button>
