@@ -1,7 +1,8 @@
 use crate::Commit;
 use anyhow::Context;
-use bstr::ByteSlice;
+use bstr::{BString, ByteSlice};
 use gix::prelude::ObjectIdExt;
+use uuid::Uuid;
 
 /// A collection of all the extra information we keep in the headers of a commit.
 #[derive(Debug, Clone)]
@@ -21,6 +22,26 @@ pub struct HeadersV2 {
     pub conflicted: Option<u64>,
 }
 
+impl Default for HeadersV2 {
+    fn default() -> Self {
+        HeadersV2 {
+            // Change ID using base16 encoding
+            change_id: if cfg!(feature = "testing") {
+                std::env::var("CHANGE_ID").unwrap_or_else(|_| {
+                    eprintln!(
+                        "With 'testing' feature the `CHANGE_ID` \
+environment variable can be set have stable values"
+                    );
+                    Uuid::new_v4().to_string()
+                })
+            } else {
+                Uuid::new_v4().to_string()
+            },
+            conflicted: None,
+        }
+    }
+}
+
 /// Used to represent the old commit headers layout, here just for backwards compatibility.
 #[derive(Debug)]
 struct HeadersV1 {
@@ -33,6 +54,27 @@ impl From<HeadersV1> for HeadersV2 {
             change_id: commit_headers_v1.change_id,
             conflicted: None,
         }
+    }
+}
+
+const HEADERS_VERSION_FIELD: &'static str = "gitbutler-headers-version";
+const HEADERS_CHANGE_ID_FIELD: &'static str = "gitbutler-change-id";
+const HEADERS_CONFLICTED_FIELD: &'static str = "gitbutler-conflicted";
+
+impl From<HeadersV2> for Vec<(BString, BString)> {
+    fn from(hdr: HeadersV2) -> Self {
+        let mut out = vec![
+            (BString::from(HEADERS_VERSION_FIELD), BString::from("2")),
+            (HEADERS_CHANGE_ID_FIELD.into(), hdr.change_id.clone().into()),
+        ];
+
+        if let Some(conflicted) = hdr.conflicted {
+            out.push((
+                HEADERS_CONFLICTED_FIELD.into(),
+                conflicted.to_string().into(),
+            ));
+        }
+        out
     }
 }
 
@@ -76,16 +118,16 @@ impl<'repo> Commit<'repo> {
     /// Return our custom headers, of present.
     pub fn headers(&self) -> Option<HeadersV2> {
         let decoded = &self.inner;
-        if let Some(header) = decoded.extra_headers().find("gitbutler-headers-version") {
+        if let Some(header) = decoded.extra_headers().find(HEADERS_VERSION_FIELD) {
             let version = header.to_owned();
 
             if version == "2" {
-                let change_id = decoded.extra_headers().find("gitbutler-change-id")?;
+                let change_id = decoded.extra_headers().find(HEADERS_CHANGE_ID_FIELD)?;
                 let change_id = change_id.to_str().ok()?.to_string();
 
                 let conflicted = decoded
                     .extra_headers()
-                    .find("gitbutler-conflicted")
+                    .find(HEADERS_CONFLICTED_FIELD)
                     .and_then(|value| value.to_str().ok()?.parse::<u64>().ok());
 
                 Some(HeadersV2 {
