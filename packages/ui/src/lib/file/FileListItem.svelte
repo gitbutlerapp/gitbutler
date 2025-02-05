@@ -225,6 +225,7 @@
 		align-items: center;
 		flex-grow: 1;
 		flex-shrink: 1;
+		min-width: 32px;
 		gap: 6px;
 		overflow: hidden;
 	}

@@ -40,13 +40,22 @@
 	</ReduxResult>
 </div>
 
-<style lang="postcss">
+<style>
 	.worktree-header {
 		width: 100%;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		padding: 10px 8px 10px 14px;
+		text-wrap: nowrap;
+		overflow: hidden;
+
+		& > div {
+			width: 100%;
+			overflow: hidden;
+			white-space: nowrap;
+			text-overflow: ellipsis;
+		}
 	}
 
 	.file-list {
