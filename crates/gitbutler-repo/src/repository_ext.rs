@@ -10,7 +10,6 @@ use gitbutler_oxidize::{
     git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, gix_to_git2_signature,
 };
 use gitbutler_reference::{Refname, RemoteRefname};
-use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 use gix::objs::WriteTo;
 use gix::status::index_worktree;
 use std::borrow::Cow;
@@ -138,55 +137,18 @@ impl RepositoryExt for git2::Repository {
             }),
         )?;
         let (mut pipeline, index) = repo.filter_pipeline(None)?;
-        let workdir = repo.work_dir().context("Need non-bare repository")?;
         let mut added_worktree_file = |rela_path: &BStr,
                                        head_tree_editor: &mut gix::object::tree::Editor<'_>|
          -> anyhow::Result<bool> {
-            let rela_path_as_path = gix::path::from_bstr(rela_path);
-            let path = workdir.join(&rela_path_as_path);
-            let Ok(md) = std::fs::symlink_metadata(&path) else {
-                return Ok(false);
-            };
-            if untracked_limit_in_bytes != 0 && md.len() > untracked_limit_in_bytes {
-                return Ok(false);
-            }
-            let (id, kind) = if md.is_symlink() {
-                let target = std::fs::read_link(&path).with_context(|| {
-                    format!(
-                        "Failed to read link at '{}' for adding to the object database",
-                        path.display()
-                    )
-                })?;
-                let id = repo.write_blob(gix::path::into_bstr(target).as_bytes())?;
-                (id, gix::object::tree::EntryKind::Link)
-            } else if md.is_file() {
-                let file = std::fs::File::open(&path).with_context(|| {
-                    format!(
-                        "Could not open file at '{}' for adding it to the object database",
-                        path.display()
-                    )
-                })?;
-                let file_for_git =
-                    pipeline.convert_to_git(file, rela_path_as_path.as_ref(), &index)?;
-                let id = match file_for_git {
-                    ToGitOutcome::Unchanged(mut file) => repo.write_blob_stream(&mut file)?,
-                    ToGitOutcome::Buffer(buf) => repo.write_blob(buf)?,
-                    ToGitOutcome::Process(mut read) => repo.write_blob_stream(&mut read)?,
-                };
-
-                let kind = if gix::fs::is_executable(&md) {
-                    gix::object::tree::EntryKind::BlobExecutable
-                } else {
-                    gix::object::tree::EntryKind::Blob
-                };
-                (id, kind)
-            } else {
-                // This is probably a type-change to something we can't track. Instead of keeping
-                // what's in `HEAD^{tree}` we remove the entry.
+            let Some((id, kind, md)) = pipeline.worktree_file_to_object(rela_path, &index)? else {
                 head_tree_editor.remove(rela_path)?;
-                return Ok(true);
+                return Ok(false);
             };
-
+            if untracked_limit_in_bytes != 0 {
+                if md.len() > untracked_limit_in_bytes {
+                    return Ok(false);
+                }
+            }
             head_tree_editor.upsert(rela_path, kind, id)?;
             Ok(true)
         };
