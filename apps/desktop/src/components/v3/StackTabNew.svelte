@@ -1,5 +1,5 @@
 <script lang="ts">
-	import RadioButton from './RadioButton.svelte';
+	import RadioButton from '$components/RadioButton.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { stackPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';

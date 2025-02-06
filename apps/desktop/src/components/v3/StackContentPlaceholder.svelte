@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { previewModes, type PreviewMode } from '$components/StackDetails.svelte';
 	import StackContentPlaceholderEmptyBranch from '$components/v3/StackContentPlaceholder_EmptyBranch.svelte';
 	import StackContentPlaceholderSelectToPreview from '$components/v3/StackContentPlaceholder_SelectToPreview.svelte';
 	import StackContentTip0 from '$components/v3/StackContentTip_0.svelte';
 	import StackContentTip1 from '$components/v3/StackContentTip_1.svelte';
 	import StackContentTip2 from '$components/v3/StackContentTip_2.svelte';
+	import { previewModes, type PreviewMode } from '$components/v3/StackDetails.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { slide } from 'svelte/transition';

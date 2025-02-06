@@ -1,6 +1,6 @@
 <script lang="ts">
-	import SeriesRowLabels from './SeriesLabels.svelte';
 	import BranchLaneContextMenu from '$components/BranchLaneContextMenu.svelte';
+	import SeriesRowLabels from '$components/SeriesLabels.svelte';
 	import { PatchSeries } from '$lib/branches/branch';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';

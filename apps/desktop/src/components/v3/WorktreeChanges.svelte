@@ -1,6 +1,6 @@
 <script lang="ts">
-	import ChangeList from './ChangeList.svelte';
-	import ReduxResult from './ReduxResult.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
+	import ChangeList from '$components/v3/ChangeList.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';

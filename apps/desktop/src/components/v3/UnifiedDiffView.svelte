@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ReduxResult from './ReduxResult.svelte';
+	import ReduxResult from '../ReduxResult.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
