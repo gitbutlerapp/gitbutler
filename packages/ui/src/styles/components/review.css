@@ -4,6 +4,8 @@
 	font-size: 0.9rem;
 
 	.row-placeholder {
+		pointer-events: none;
+		user-select: none;
 		opacity: 0.3;
 		white-space: nowrap;
 	}
