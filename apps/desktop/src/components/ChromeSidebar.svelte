@@ -383,7 +383,6 @@
 			color var(--transition-fast);
 	}
 
-	/*  */
 	.active-page-indicator {
 		content: '';
 		position: absolute;

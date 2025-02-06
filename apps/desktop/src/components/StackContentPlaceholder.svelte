@@ -1,43 +1,96 @@
 <script lang="ts">
-	import EmptyStack from '$lib/assets/illustrations/empty-stack-placeholder.svg?raw';
+	import { previewModes, type PreviewMode } from '$components/StackDetails.svelte';
+	import StackContentPlaceholderEmptyBranch from '$components/v3/StackContentPlaceholder_EmptyBranch.svelte';
+	import StackContentPlaceholderSelectToPreview from '$components/v3/StackContentPlaceholder_SelectToPreview.svelte';
+	import StackContentTip0 from '$components/v3/StackContentTip_0.svelte';
+	import StackContentTip1 from '$components/v3/StackContentTip_1.svelte';
+	import StackContentTip2 from '$components/v3/StackContentTip_2.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
+	import { slide } from 'svelte/transition';
+
+	interface Props {
+		mode: PreviewMode;
+	}
+
+	const { mode: initialMode }: Props = $props();
+
+	let mode = $state<PreviewMode>(initialMode);
+
+	$effect(() => {
+		mode = initialMode;
+	});
+
+	const isTipViewingMode = $derived(mode === previewModes.ViewingTips);
+	let activeTip = $state(0);
+
+	function selectTip(tipIndex: number) {
+		mode = previewModes.ViewingTips;
+		activeTip = tipIndex;
+	}
 </script>
 
 <div class="placeholder">
-	<div class="placeholder__top">
-		<div class="placeholder__top--svg">
-			{@html EmptyStack}
-		</div>
-		<div class="placeholder-text">
-			<div class="text-18 text-semibold text-clr1">This is a new stack</div>
-			<div class="text-13 text-clr2">
-				<!-- Weird string rendering required because prettier seems to break this -->
-				{`Stack is a workflow for building branches sequentially to break features into smaller parts. You can also choose a regular single-branch flow.`}
-			</div>
-		</div>
+	<div class="placeholder__top" class:white-bg={isTipViewingMode}>
+		{#if mode === previewModes.EmptyBranch}
+			<StackContentPlaceholderEmptyBranch />
+		{/if}
+		{#if mode === previewModes.SelectToPreview}
+			<StackContentPlaceholderSelectToPreview />
+		{/if}
+		{#if mode === previewModes.ViewingTips && activeTip === 0}
+			<StackContentTip0 />
+		{/if}
+		{#if mode === previewModes.ViewingTips && activeTip === 1}
+			<StackContentTip1 />
+		{/if}
+		{#if mode === previewModes.ViewingTips && activeTip === 2}
+			<StackContentTip2 />
+		{/if}
 	</div>
 	<div class="placeholder__bottom">
 		<div class="placeholder__bottom--left">
 			<div class="text-16 text-semibold">Tips</div>
-			<Link
-				href="https://docs.gitbutler.com/features/stacked-branches"
-				target="_blank"
-				underline={false}
-				class="text-13 text-semibold text-clr3">What is a stack?</Link
+
+			<button
+				type="button"
+				class={[
+					'text-13 text-semibold',
+					isTipViewingMode && activeTip === 0 ? 'text-clr2' : 'text-clr3'
+				]}
+				onclick={() => selectTip(0)}
 			>
-			<Link
-				href="https://docs.gitbutler.com/guide"
-				target="_blank"
-				underline={false}
-				class="text-13 text-semibold text-clr3">Commit and push</Link
+				{#if isTipViewingMode && activeTip === 0}
+					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+				{/if}
+				What is a stack?
+			</button>
+			<button
+				type="button"
+				class={[
+					'text-13 text-semibold',
+					isTipViewingMode && activeTip === 1 ? 'text-clr2' : 'text-clr3'
+				]}
+				onclick={() => selectTip(1)}
 			>
-			<Link
-				href="https://cloud.gitbutler.com"
-				target="_blank"
-				underline={false}
-				class="text-13 text-semibold text-clr3">Manage commits</Link
+				{#if isTipViewingMode && activeTip === 1}
+					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+				{/if}
+				Commit and push
+			</button>
+			<button
+				type="button"
+				class={[
+					'text-13 text-semibold',
+					isTipViewingMode && activeTip === 2 ? 'text-clr2' : 'text-clr3'
+				]}
+				onclick={() => selectTip(2)}
 			>
+				{#if isTipViewingMode && activeTip === 2}
+					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+				{/if}
+				Manage commits
+			</button>
 		</div>
 		<div class="placeholder__bottom--right">
 			<Link
@@ -67,6 +120,7 @@
 
 <style>
 	.placeholder {
+		position: relative;
 		height: 100%;
 		display: flex;
 		flex-direction: column;
@@ -77,16 +131,17 @@
 
 	.placeholder__top {
 		flex: 1;
+		width: 100%;
 		display: flex;
 		flex-direction: column;
+		justify-content: center;
 
 		gap: 24px;
 		padding: 48px;
-	}
 
-	.placeholder__top--svg {
-		height: 200px;
-		width: 300px;
+		&.white-bg {
+			background-color: var(--clr-bg-1);
+		}
 	}
 
 	.placeholder__bottom {
@@ -105,20 +160,27 @@
 	.placeholder__bottom--left {
 		flex: 0.5;
 		display: flex;
+		align-items: start;
 		flex-direction: column;
 		gap: 12px;
+
+		& button {
+			outline: none;
+		}
 	}
 
 	.placeholder__bottom--right {
 		justify-content: end;
 	}
 
-	.placeholder-text {
-		text-align: left;
-		line-height: 1 !important;
-		display: inline;
-
-		white-space: pre-wrap;
-		text-wrap: wrap;
+	.active-page-indicator {
+		content: '';
+		position: absolute;
+		left: 0;
+		width: 12px;
+		height: 18px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-core-ntrl-50);
+		transform: translateX(-50%);
 	}
 </style>

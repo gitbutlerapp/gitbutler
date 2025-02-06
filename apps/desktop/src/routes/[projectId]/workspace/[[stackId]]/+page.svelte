@@ -7,6 +7,7 @@
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
@@ -24,11 +25,20 @@
 
 	const projectId = $derived(data.projectId);
 	const stackId = $derived(page.params.stackId);
+	const stackService = getContext(StackService);
+	const result = $derived(stackService.getStacks(projectId));
 
 	// Redirect to board if we have switched away from V3 feature.
 	$effect(() => {
 		if ($settingsStore && !$settingsStore.featureFlags.v3) {
 			goto(`/${data.projectId}/board`);
+		}
+	});
+
+	$effect(() => {
+		if (!stackId && result.current.data?.[0]) {
+			const firstStackId = result.current.data?.[0]?.id;
+			goto(`/${data.projectId}/workspace/${firstStackId}`);
 		}
 	});
 
@@ -91,7 +101,7 @@
 		<WorktreeChanges {projectId} />
 	</div>
 	<div class="right" bind:this={rightEl}>
-		<StackTabs {projectId} selectedId={stackId} previewing={$previewing} bind:width />
+		<StackTabs {projectId} selectedId={stackId} previewing={$previewing} />
 		<div class="contents" class:rounded>
 			{#if stackId}
 				<StackDetails {projectId} {stackId} />
