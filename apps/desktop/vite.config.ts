@@ -1,10 +1,11 @@
 import { sentrySvelteKit } from '@sentry/sveltekit';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
-import { defineConfig } from 'vitest/config';
+import { defineConfig, type Plugin } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [
+		debounceReload(),
 		sentrySvelteKit({
 			adapter: 'other',
 			autoInstrument: {
@@ -66,3 +67,29 @@ export default defineConfig({
 		setupFiles: ['./vitest-setup.js']
 	}
 });
+
+/**
+ * A module to debounce reloading when making changes to packages rather than
+ * the desktop app.
+ */
+function debounceReload(): Plugin {
+	let timeout: NodeJS.Timeout | undefined;
+
+	return {
+		name: 'debounce-reload',
+		/**
+		 * There is a `handleHotUpdate` callback that has the same docs, and
+		 * gets called as expected, but that fails to prevent the reload.
+		 */
+		hotUpdate({ server, file }) {
+			if (file.includes('gitbutler/packages')) {
+				if (timeout) clearTimeout(timeout);
+				timeout = setTimeout(() => {
+					server.hot.send({ type: 'full-reload' });
+					timeout = undefined;
+				}, 5000);
+				return []; // Prevent immediate reload.
+			}
+		}
+	};
+}
