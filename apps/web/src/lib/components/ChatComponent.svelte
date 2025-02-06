@@ -7,10 +7,12 @@
 	import { getPatchEvents } from '@gitbutler/shared/branches/patchesPreview.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
+	import { isFound } from '@gitbutler/shared/network/loadable';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	interface Props {
+		messageUuid: string | undefined;
 		isPatchAuthor: boolean | undefined;
 		branchUuid: string;
 		projectId: string;
@@ -21,6 +23,7 @@
 	}
 
 	const {
+		messageUuid,
 		projectId,
 		changeId,
 		branchId,
@@ -34,7 +37,28 @@
 	const patchEventsService = getContext(PatchEventsService);
 
 	const patchEvents = $derived(getPatchEvents(appState, patchEventsService, projectId, changeId));
-	let chatMessagesContainer = $state<HTMLDivElement>();
+	// This shouldn't be reactive as is just to check if the message was scrolled to already.
+	// Only a hard reload should trigger the scroll again.
+	const scrolledMessages = new Set<string>();
+
+	function scrollToMessageWithDelay(uuid: string, delay: number) {
+		if (scrolledMessages.has(uuid)) {
+			return;
+		}
+		setTimeout(() => {
+			const element = document.getElementById(`chat-message-${uuid}`);
+			if (element) {
+				element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				scrolledMessages.add(uuid);
+			}
+		}, delay);
+	}
+
+	$effect(() => {
+		if (messageUuid && isFound(patchEvents.current)) {
+			scrollToMessageWithDelay(messageUuid, 300);
+		}
+	});
 </script>
 
 {#if minimized}
@@ -42,19 +66,19 @@
 {:else}
 	<div class="chat-wrapper">
 		<div class="chat-header">
-			<h3 class="text-13 text-bold">Disscussion</h3>
+			<h3 class="text-13 text-bold">Discussion</h3>
 			<div class="chat-header-actions">
 				<Button icon="minus-small" kind="ghost" onclick={toggleMinimized} />
 			</div>
 		</div>
 
 		<div class="chat-card">
-			<div class="chat-messages" bind:this={chatMessagesContainer}>
+			<div class="chat-messages">
 				<Loading loadable={patchEvents.current}>
 					{#snippet children(patchEvents)}
 						{#if patchEvents.events.length > 0}
 							{#each patchEvents.events as event}
-								<Event {projectId} {changeId} {event} />
+								<Event {projectId} {changeId} {event} highlightedMessageUuid={messageUuid} />
 							{/each}
 						{:else}
 							<div class="blank-state">
@@ -132,7 +156,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 0 24px;
+		padding: 50px 24px;
 	}
 
 	.blank-state-content {
