@@ -44,8 +44,8 @@
 	{href}
 	{target}
 	{rel}
-	class="link {role} {classes}"
 	bind:this={element}
+	class={['link', role, classes]}
 	class:disabled
 	class:underline
 	onclick={(e) => {

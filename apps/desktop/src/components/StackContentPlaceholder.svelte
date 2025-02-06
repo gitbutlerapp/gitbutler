@@ -112,7 +112,7 @@
 				target="_blank"
 				underline={false}
 				externalIcon={false}
-				class="text-13 text-semibold text-clr2"><Icon name="discord" /> Join Community</Link
+				class="text-13 text-semibold text-clr2 gap-4"><Icon name="discord" /> Join Community</Link
 			>
 		</div>
 	</div>
