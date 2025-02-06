@@ -48,12 +48,10 @@ export default defineConfig({
 	// to make use of `TAURI_ENV_DEBUG` and other env variables
 	// https://tauri.studio/v1/api/config#buildconfig.beforedevcommand
 	envPrefix: ['VITE_', 'TAURI_'],
-	resolve: {
-		conditions: ['es2015']
-	},
 	build: {
+		rollupOptions: { output: { manualChunks: {} } },
 		// Tauri supports es2021
-		target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome105' : 'safari13',
+		target: 'modules',
 		// minify production builds
 		minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
 		// ship sourcemaps for better sentry error reports
