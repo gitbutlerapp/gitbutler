@@ -267,8 +267,16 @@ export async function getPatchApproversWithAvatars(patch: Patch) {
 	return await getUsersWithAvatars(patch.review.signedOff);
 }
 
+export async function getPatchApproversAllWithAvatars(patch: Patch) {
+	return await getUsersWithAvatars(patch.reviewAll.signedOff);
+}
+
 export async function getPatchRejectorsWithAvatars(patch: Patch) {
 	return await getUsersWithAvatars(patch.review.rejected);
+}
+
+export async function getPatchRejectorsAllWithAvatars(patch: Patch) {
+	return await getUsersWithAvatars(patch.reviewAll.rejected);
 }
 
 export async function getPatchViewersWithAvatars(patch: Patch) {
