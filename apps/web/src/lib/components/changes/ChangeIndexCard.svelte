@@ -44,7 +44,7 @@
 
 <Loading loadable={change.current}>
 	{#snippet children(patch)}
-		<tr class="row" class:rounded-bottom={last}>
+		<tr class="text-12 row" class:rounded-bottom={last}>
 			<td> <div><CommitStatusBadge status={getPatchStatus(patch)} /></div></td>
 			<td
 				><div class="text-13 text-bold">
@@ -54,15 +54,16 @@
 				</div></td
 			>
 			<td
-				><div class="row-text changes text-12">
+				><div class="row-text changes">
 					<span class="changes_additions"
 						>+{patch.statistics.lines - patch.statistics.deletions}</span
 					>
 					<span class="changes_deletions">-{patch.statistics.deletions}</span>
 				</div></td
 			>
+			<td><div class="row-text updated">{dayjs(patch.updatedAt).fromNow()}</div></td>
 			<td
-				><div class="row-text updated text-12" title={patch.updatedAt}>
+				><div class="row-text updated" title={patch.updatedAt}>
 					{dayjs(patch.updatedAt).fromNow()}
 				</div></td
 			>
@@ -74,7 +75,7 @@
 				</div>
 			</td>
 			<td><div><PatchReviewersGroup {patch} /></div></td>
-			<td><div>{patch.commentCount}</div></td>
+			<td><div class="row-coments">{patch.commentCount}</div></td>
 		</tr>
 	{/snippet}
 </Loading>
@@ -94,13 +95,14 @@
 			height: 1px;
 
 			> div {
+				display: flex;
 				height: 100%;
-
 				background-color: var(--clr-bg-1);
 				padding: 16px;
 
 				border-top: none;
 				border-bottom: 1px solid var(--clr-border-2);
+				/* border-left: 1px solid var(--clr-border-2); */
 			}
 
 			&:first-child > div {

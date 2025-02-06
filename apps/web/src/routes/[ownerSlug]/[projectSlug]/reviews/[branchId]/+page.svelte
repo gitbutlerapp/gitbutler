@@ -217,7 +217,7 @@
 						<tr>
 							<th><div>Status</div></th>
 							<th><div>Name</div></th>
-							<th><div>Changes</div></th>
+							<th><div class="align-right">Changes</div></th>
 							<th><div>Last update</div></th>
 							<th><div>Authors</div></th>
 							<th><div>Reviewers</div></th>
