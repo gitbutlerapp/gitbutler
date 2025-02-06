@@ -50,6 +50,7 @@ export default class MessageHandler {
 			branchId: this.branchId,
 			changeId: this.changeId,
 			chat: this._message,
+			displayableText: this._displayMessage,
 			issue
 		});
 	}
