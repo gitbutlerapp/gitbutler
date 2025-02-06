@@ -13,7 +13,6 @@
 <style>
 	.placeholder__svg {
 		margin: 0 auto;
-		height: 200px;
 		width: 300px;
 	}
 

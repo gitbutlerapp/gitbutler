@@ -1,5 +1,5 @@
 <script lang="ts">
-	import WhatIsAStack from '$lib/assets/illustrations/what-is-a-stack-tip.svg?raw';
+	import WhatIsAStack from '$lib/assets/illustrations/tip-what-is-a-stack.svg?raw';
 	import { fade } from 'svelte/transition';
 </script>
 
@@ -19,7 +19,6 @@
 
 <style>
 	.placeholder__svg {
-		height: 200px;
 		width: 300px;
 	}
 

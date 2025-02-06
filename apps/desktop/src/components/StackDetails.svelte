@@ -40,12 +40,10 @@
 		if (!stackData) return previewModes.EmptyBranch;
 		if (isArchivedBranch(stackData.state)) return previewModes.SelectToPreview;
 
-		// If there is 1 branch and it is empty
 		if (isStackedBranch(stackData.state) && stackData.state.subject.localAndRemote.length === 0) {
 			return previewModes.EmptyBranch;
 		}
 
-		// If there are commits available to view
 		return previewModes.SelectToPreview;
 	});
 </script>
