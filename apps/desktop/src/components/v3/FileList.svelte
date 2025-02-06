@@ -1,7 +1,7 @@
 <!-- This is a V3 replacement for `BranchFileList.svelte` -->
 <script lang="ts">
-	import ChangeListItemWrapper from './ChangeListItemWrapper.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
+	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
 	import { chunk } from '$lib/utils/array';
@@ -58,7 +58,7 @@
 		onkeydown={handleKeyDown}
 	>
 		{#each visibleFiles as change (change.path)}
-			<ChangeListItemWrapper
+			<FileListItemWrapper
 				{change}
 				{projectId}
 				selected={idSelection.has(change.path, commitId)}
