@@ -16,12 +16,14 @@ import type { PatchService } from '$lib/branches/patchService';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch, AppPatchEventsState } from '$lib/redux/store.svelte';
 
-function getActionCableEndpoint(token: string, baseUrl: string): string {
+function getActionCableEndpoint(token: string | undefined, baseUrl: string): string {
 	const domain = baseUrl.replace('http', 'ws');
 	const url = new URL('cable', domain);
 
 	const urlSearchParams = new URLSearchParams();
-	urlSearchParams.append('token', token);
+	if (token) {
+		urlSearchParams.append('token', token);
+	}
 	url.search = urlSearchParams.toString();
 
 	return url.toString();
@@ -50,8 +52,6 @@ export class PatchEventsService {
 			this.token,
 			undefined,
 			asyncToSyncSignals<[string | undefined]>(async (token: string | undefined) => {
-				if (!token) return;
-
 				// Before we subscribe to chat, fetch the initial set of patch data.
 				await this.fetchInitialPatchEvents(projectId, changeId);
 
