@@ -45,7 +45,7 @@
 			<td>
 				<div class="text-13 text-bold">
 					<a href={routes.projectReviewBranchPath({ ...linkParams, branchId: branch.branchId })}>
-						{branch.title}
+						{branch.title || '-'}
 					</a>
 				</div>
 			</td>

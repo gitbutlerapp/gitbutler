@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { getPatchReviewersAllWithAvatars, type Patch } from '@gitbutler/shared/branches/types';
+	import {
+		getPatchApproversAllWithAvatars,
+		getPatchRejectorsAllWithAvatars,
+		type Patch
+	} from '@gitbutler/shared/branches/types';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 
 	type Props = {
@@ -8,9 +12,13 @@
 
 	const { patch }: Props = $props();
 
-	const avatars = $derived(getPatchReviewersAllWithAvatars(patch));
+	const approvers = $derived(getPatchApproversAllWithAvatars(patch));
+	const rejectors = $derived(getPatchRejectorsAllWithAvatars(patch));
 </script>
 
-{#await avatars then avatars}
-	<div class="container"><AvatarGroup {avatars} /></div>
+{#await Promise.all([approvers, rejectors]) then [approvers, rejectors]}
+	{#if approvers.length > 0 || rejectors.length > 0}
+		<AvatarGroup avatars={rejectors} maxAvatars={2} icon="refresh-small" iconColor="warning" />
+		<AvatarGroup avatars={approvers} maxAvatars={2} icon="tick-small" iconColor="success" />
+	{/if}
 {/await}

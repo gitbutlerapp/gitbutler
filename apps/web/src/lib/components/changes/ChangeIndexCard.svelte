@@ -15,6 +15,7 @@
 		type ProjectReviewParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import CommitStatusBadge from '@gitbutler/ui/CommitStatusBadge.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
@@ -74,7 +75,14 @@
 				</div>
 			</td>
 			<td><div><PatchReviewersGroup {patch} /></div></td>
-			<td><div>{patch.commentCount}</div></td>
+			<td
+				><div class="row-text comments text-12">
+					{#if patch.commentCount > 0}
+						<Icon name="show-comments" />
+						<div>{patch.commentCount}</div>
+					{/if}
+				</div></td
+			>
 		</tr>
 	{/snippet}
 </Loading>
@@ -131,14 +139,26 @@
 		color: var(--clr-text-2);
 	}
 
-	.changes {
+	.comments {
+		color: var(--clr-text-1);
 		display: flex;
 		gap: 4px;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.changes {
+		display: flex;
 	}
 	.changes_additions {
 		color: var(--clr-theme-succ-element);
+		min-width: 40px;
+		text-align: right;
 	}
 	.changes_deletions {
 		color: var(--clr-theme-err-element);
+		min-width: 40px;
+		text-align: right;
+		padding-left: 6px;
 	}
 </style>
