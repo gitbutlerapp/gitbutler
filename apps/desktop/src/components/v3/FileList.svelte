@@ -1,7 +1,9 @@
 <!-- This is a V3 replacement for `BranchFileList.svelte` -->
 <script lang="ts">
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
+	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
+	import UnifiedDiffView from '$components/v3/UnifiedDiffView.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
 	import { chunk } from '$lib/utils/array';
@@ -46,29 +48,38 @@
 </script>
 
 {#if visibleFiles.length > 0}
-	<!-- Maximum amount for initial render is 100 files
+	<div class="file-list hide-native-scrollbar">
+		<ScrollableContainer wide>
+			<!-- Maximum amount for initial render is 100 files
 	`minTriggerCount` set to 80 in order to start the loading a bit earlier. -->
-	<LazyloadContainer
-		minTriggerCount={80}
-		ontrigger={() => {
-			console.log('loading more files...');
-			loadMore();
-		}}
-		role="listbox"
-		onkeydown={handleKeyDown}
-	>
-		{#each visibleFiles as change (change.path)}
-			<FileListItemWrapper
-				{change}
-				{projectId}
-				selected={idSelection.has(change.path, commitId)}
-				onclick={(e) => {
-					selectFilesInList(e, change, visibleFiles, idSelection, true, commitId);
+			<LazyloadContainer
+				minTriggerCount={80}
+				ontrigger={() => {
+					console.log('loading more files...');
+					loadMore();
 				}}
-			/>
-		{/each}
-	</LazyloadContainer>
+				role="listbox"
+				onkeydown={handleKeyDown}
+			>
+				{#each visibleFiles as change (change.path)}
+					<FileListItemWrapper
+						{change}
+						{projectId}
+						selected={idSelection.has(change.path, commitId)}
+						onclick={(e) => {
+							selectFilesInList(e, change, visibleFiles, idSelection, true, commitId);
+						}}
+					>
+						<UnifiedDiffView {projectId} path={change.path} {commitId} />
+					</FileListItemWrapper>
+				{/each}
+			</LazyloadContainer>
+		</ScrollableContainer>
+	</div>
 {/if}
 
 <style lang="postcss">
+	.file-list {
+		height: 100%;
+	}
 </style>

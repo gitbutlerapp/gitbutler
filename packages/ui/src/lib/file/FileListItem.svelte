@@ -1,6 +1,7 @@
 <script lang="ts">
 	import FileStatusBadge from './FileStatusBadge.svelte';
 	import Badge from '$lib/Badge.svelte';
+	import Button from '$lib/Button.svelte';
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
@@ -24,6 +25,7 @@
 		conflictHint?: string;
 		locked?: boolean;
 		lockText?: string;
+		open?: boolean;
 		oncheck?: (
 			e: Event & {
 				currentTarget: EventTarget & HTMLInputElement;
@@ -37,6 +39,7 @@
 
 	let {
 		ref = $bindable(),
+		open = $bindable(),
 		id,
 		filePath,
 		fileStatus,
@@ -135,6 +138,22 @@
 					<Icon name="warning-small" color="error" />
 				</div>
 			</Tooltip>
+		{/if}
+
+		{#if open !== undefined}
+			<div class="chevron">
+				<Button
+					style=""
+					kind="ghost"
+					size="icon"
+					icon={open ? 'chevron-up-small' : 'chevron-down-small'}
+					onclick={(e) => {
+						open = !open;
+						e.stopPropagation();
+						e.preventDefault();
+					}}
+				/>
+			</div>
 		{/if}
 
 		{#if fileStatus}
@@ -277,5 +296,16 @@
 	/* MODIFIERS */
 	.selected-draggable {
 		background-color: var(--clr-theme-pop-bg-muted) !important;
+	}
+
+	.file-list-item:hover .chevron {
+		display: inline-block;
+		opacity: 0.5;
+		transition-delay: 300ms;
+	}
+	.chevron {
+		display: none;
+		opacity: 0;
+		transition: opacity var(--transition-fast);
 	}
 </style>

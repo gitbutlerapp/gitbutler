@@ -89,7 +89,10 @@
 <svelte:window onkeydown={handleKeyDown} onkeyup={handleKeyUp} onblur={handleBlur} />
 
 <div class="workspace">
-	<div class="left" bind:this={resizeViewport} style:width={$trayWidth + 'rem'}>
+	<div class="left">
+		<div class="resizable-area" bind:this={resizeViewport} style:width={$trayWidth + 'rem'}>
+			<WorktreeChanges {projectId} />
+		</div>
 		<Resizer
 			viewport={resizeViewport}
 			direction="right"
@@ -98,7 +101,6 @@
 				$trayWidth = value / (16 * $userSettings.zoom);
 			}}
 		/>
-		<WorktreeChanges {projectId} />
 	</div>
 	<div class="right" bind:this={rightEl}>
 		<StackTabs {projectId} selectedId={stackId} previewing={$previewing} />
@@ -118,7 +120,6 @@
 		flex: 1;
 		align-items: stretch;
 		height: 100%;
-		gap: 14px;
 		width: 100%;
 		position: relative;
 	}
@@ -126,19 +127,23 @@
 	.left {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
 		justify-content: flex-start;
-		width: 290px;
 		overflow: hidden;
+		position: relative;
+		padding-right: 8px;
+	}
+
+	.resizable-area {
 		background-color: var(--clr-bg-1);
 		border-radius: var(--radius-ml);
 		border: 1px solid var(--clr-border-2);
-		position: relative;
+		height: 100%;
 	}
 
 	.right {
 		display: flex;
 		flex: 1;
+		margin-left: 6px;
 		flex-direction: column;
 		overflow: hidden;
 	}

@@ -11,6 +11,7 @@
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		change: TreeChange;
@@ -20,6 +21,7 @@
 		showCheckbox?: boolean;
 		onclick: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
+		children: Snippet;
 	}
 
 	const {
@@ -29,7 +31,8 @@
 		selected,
 		showCheckbox,
 		onclick,
-		onkeydown
+		onkeydown,
+		children
 	}: Props = $props();
 
 	const stack = maybeGetContextStore(BranchStack);
@@ -40,6 +43,7 @@
 	let draggableEl: HTMLDivElement | undefined = $state();
 	let indeterminate = $state(false);
 	let checked = $state(false);
+	let open = $state(false);
 </script>
 
 <div
@@ -61,6 +65,7 @@
 	/>
 
 	<FileListItem
+		bind:open
 		id={key(change.path, commitId)}
 		filePath={change.path}
 		fileStatus={computeChangeStatus(change)}
@@ -69,10 +74,10 @@
 		{checked}
 		{indeterminate}
 		draggable={true}
-		{onclick}
 		{onkeydown}
 		locked={false}
 		conflicted={false}
+		{onclick}
 		oncontextmenu={(e) => {
 			const changes = idSelection.treeChanges(projectId);
 			if (idSelection.has(change.path, commitId)) {
@@ -83,7 +88,13 @@
 		}}
 	/>
 </div>
+{#if open}
+	<div class="diff">
+		{@render children()}
+	</div>
+{/if}
 
 <style lang="postcss">
-	/* blah */
+	.diff {
+	}
 </style>
