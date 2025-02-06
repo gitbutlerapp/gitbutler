@@ -1,9 +1,9 @@
 <script lang="ts">
 	import Resizer from '$components/Resizer.svelte';
 	import SelectionView from '$components/SelectionView.svelte';
-	import StackDetails from '$components/StackDetails.svelte';
-	import StackTabs from '$components/StackTabs.svelte';
-	import WorktreeChanges from '$components/WorktreeChanges.svelte';
+	import StackDetails from '$components/v3/StackDetails.svelte';
+	import StackTabs from '$components/v3/StackTabs.svelte';
+	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';

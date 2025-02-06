@@ -1,11 +1,11 @@
 <script lang="ts">
-	import SeriesList from './SeriesList.svelte';
-	import UncommittedChanges from './UncommittedChanges.svelte';
+	import SeriesList from '../SeriesList.svelte';
+	import UncommittedChanges from '../UncommittedChanges.svelte';
 	import CollapsedLane from '$components/CollapsedLane.svelte';
 	import Dropzones from '$components/Dropzones.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
-	import StackHeader from '$components/StackHeader.svelte';
+	import StackHeader from '$components/v3/StackHeader.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { BranchStack } from '$lib/branches/branch';
