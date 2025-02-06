@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import ChangeList from '$components/v3/ChangeList.svelte';
+	import FileList from '$components/v3/FileList.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
@@ -28,7 +28,7 @@
 	<ReduxResult result={result.current}>
 		{#snippet children(result)}
 			{#if result.changes.length > 0}
-				<ChangeList {projectId} changes={result.changes} />
+				<FileList {projectId} changes={result.changes} />
 			{:else}
 				<div class="text-12 text-body helper-text">
 					{@html noChanges}
