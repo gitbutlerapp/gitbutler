@@ -45,7 +45,7 @@
 
 <Loading loadable={change.current}>
 	{#snippet children(patch)}
-		<tr class="row" class:rounded-bottom={last}>
+		<tr class="row text-12" class:rounded-bottom={last}>
 			<td> <div><CommitStatusBadge status={getPatchStatus(patch)} /></div></td>
 			<td
 				><div class="text-13 text-bold">
@@ -55,7 +55,7 @@
 				</div></td
 			>
 			<td
-				><div class="row-text changes text-12">
+				><div class="row-text changes">
 					<span class="changes_additions"
 						>+{patch.statistics.lines - patch.statistics.deletions}</span
 					>
@@ -63,7 +63,7 @@
 				</div></td
 			>
 			<td
-				><div class="row-text updated text-12" title={patch.updatedAt}>
+				><div class="row-text updated" title={patch.updatedAt}>
 					{dayjs(patch.updatedAt).fromNow()}
 				</div></td
 			>
@@ -76,7 +76,7 @@
 			</td>
 			<td><div><PatchReviewersGroup {patch} /></div></td>
 			<td
-				><div class="row-text comments text-12">
+				><div class="row-text comments">
 					{#if patch.commentCount > 0}
 						<Icon name="show-comments" />
 						<div>{patch.commentCount}</div>
