@@ -21,7 +21,7 @@
           };
           pkgs = import nixpkgs {
             system = system;
-            overlays = [ nix-playwright-browsers.overlays.${system}.default];
+            overlays = [ nix-playwright-browsers.overlays.${system}.default ];
           };
 
           rustToolchain = unstable.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
@@ -39,8 +39,8 @@
             libsoup_3
             webkitgtk
             webkitgtk_4_1
-            nodejs_20
-            corepack_20
+            nodejs_22
+            corepack_22
             pkgs.playwright-browsers_v1_47_0
           ];
 
