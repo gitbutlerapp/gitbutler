@@ -45,7 +45,7 @@
 
 <Loading loadable={change.current}>
 	{#snippet children(patch)}
-		<tr class="row" class:rounded-bottom={last}>
+		<tr class="row text-12" class:rounded-bottom={last}>
 			<td> <div><CommitStatusBadge status={getPatchStatus(patch)} /></div></td>
 			<td
 				><div class="text-13 text-bold">
@@ -55,7 +55,7 @@
 				</div></td
 			>
 			<td
-				><div class="row-text changes text-12">
+				><div class="row-text changes">
 					<span class="changes_additions"
 						>+{patch.statistics.lines - patch.statistics.deletions}</span
 					>
@@ -63,7 +63,7 @@
 				</div></td
 			>
 			<td
-				><div class="row-text updated text-12" title={patch.updatedAt}>
+				><div class="row-text updated" title={patch.updatedAt}>
 					{dayjs(patch.updatedAt).fromNow()}
 				</div></td
 			>
@@ -76,11 +76,11 @@
 			</td>
 			<td><div><PatchReviewersGroup {patch} /></div></td>
 			<td
-				><div class="row-text comments text-12">
-					{#if patch.commentCount > 0}
-						<Icon name="show-comments" />
+				><div class="row-text">
+					<div class="comments" class:row-placeholder={!patch.commentCount}>
+						<div class="comments-icon"><Icon name="comments-small" /></div>
 						<div>{patch.commentCount}</div>
-					{/if}
+					</div>
 				</div></td
 			>
 		</tr>
@@ -147,17 +147,21 @@
 		align-items: center;
 	}
 
+	.comments-icon {
+		display: flex;
+		color: var(--clr-text-2);
+	}
+
 	.changes {
 		display: flex;
+		justify-content: flex-end;
 	}
 	.changes_additions {
 		color: var(--clr-theme-succ-element);
-		min-width: 40px;
 		text-align: right;
 	}
 	.changes_deletions {
 		color: var(--clr-theme-err-element);
-		min-width: 40px;
 		text-align: right;
 		padding-left: 6px;
 	}

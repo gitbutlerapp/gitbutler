@@ -95,6 +95,10 @@
 		background: var(--clr-bg-1);
 		border-bottom: 1px solid var(--clr-border-3);
 
+		&:first-child {
+			border-bottom: none;
+		}
+
 		&.open-issue {
 			padding-left: 12px;
 			border-left: 4px solid var(--clr-scale-err-50);

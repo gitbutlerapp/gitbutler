@@ -21,8 +21,10 @@
 			return 'refresh-small';
 		} else if (status === 'in-discussion') {
 			return 'dialog-small';
+		} else if (status === 'closed') {
+			return 'cross-small';
 		} else {
-			return 'minus-small';
+			return 'dotted-circle';
 		}
 	}
 </script>
@@ -67,11 +69,11 @@
 		width: fit-content;
 		height: var(--size-icon);
 		text-wrap: nowrap;
-		padding: 0 4px;
+		padding: 0 5px;
 	}
 	.status-badge_closed {
-		background-color: var(--clr-theme-purp-element);
-		color: var(--clr-core-ntrl-100);
+		background-color: var(--clr-br-commit-closed-bg);
+		color: var(--clr-br-commit-closed-text);
 	}
 
 	.status-badge_approved {

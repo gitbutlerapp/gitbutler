@@ -5470,6 +5470,48 @@
 						}
 					}
 				}
+			},
+			"closed": {
+				"bg": {
+					"$type": "color",
+					"$value": "{clr.theme.purp.element}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.purp.element}",
+							"dark": "{clr.theme.purp.element}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5952:5346",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"text": {
+					"$type": "color",
+					"$value": "{clr.theme.purp.on-element}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.purp.on-element}",
+							"dark": "{clr.theme.purp.on-element}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5953:5487",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
 			}
 		}
 	},
@@ -5930,7 +5972,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius", "text", "opacity"],
-			"createdAt": "2025-02-02T23:15:19.484Z"
+			"createdAt": "2025-02-05T14:59:12.082Z"
 		}
 	}
 }
