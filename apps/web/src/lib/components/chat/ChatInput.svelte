@@ -1,6 +1,6 @@
 <script lang="ts">
 	import MentionSuggestions from './MentionSuggestions.svelte';
-	import { embedUserMention } from '$lib/chat/mentions';
+	import MessageHandler from '$lib/chat/message.svelte';
 	import RichText from '$lib/chat/richText.svelte';
 	import SuggestionsHandler from '$lib/chat/suggestions.svelte';
 	import { UserService } from '$lib/user/userService';
@@ -40,7 +40,10 @@
 		new SuggestionsHandler(newUserService, chatParticipants.current, $user)
 	);
 
-	let message = $state<string>();
+	const messageHandler = $derived(
+		new MessageHandler(chatChannelService, projectId, branchId, changeId)
+	);
+
 	let isSendingMessage = $state(false);
 	let isExecuting = $state(false);
 
@@ -57,25 +60,11 @@
 		};
 	});
 
-	async function sendMessage(message: string | undefined, issue?: boolean) {
-		if (message === undefined || message.trim() === '') {
-			return;
-		}
-
-		await chatChannelService.sendChatMessage({
-			projectId,
-			branchId,
-			changeId,
-			chat: message,
-			issue
-		});
-	}
-
 	async function handleSendMessage(issue?: boolean) {
 		if (isSendingMessage) return;
 		isSendingMessage = true;
 		try {
-			await sendMessage(message, issue);
+			await messageHandler.send(issue);
 		} finally {
 			const editor = richText.richTextEditor?.getEditor();
 			editor?.commands.clearContent(true);
@@ -120,7 +109,10 @@
 	let dropDownButton = $state<ReturnType<typeof DropDownButton>>();
 
 	async function approve() {
-		await patchService.updatePatch(branchUuid, changeId, { signOff: true, message });
+		await patchService.updatePatch(branchUuid, changeId, {
+			signOff: true,
+			message: messageHandler.message
+		});
 		const editor = richText.richTextEditor?.getEditor();
 		editor?.commands.clearContent(true);
 	}
@@ -148,24 +140,12 @@
 	}
 
 	const actionButtonLabel = $derived.by(() => {
-		const suffix = message ? ' & Comment' : '';
+		const suffix = messageHandler.message ? ' & Comment' : '';
 		return actionLabels[action] + suffix;
 	});
 
 	function onEditorUpdate(editor: EditorInstance) {
-		message = editor?.getText({
-			textSerializers: {
-				mention: ({ node }) => {
-					const id = node.attrs.id;
-					const username = node.attrs.label;
-					if (!id) {
-						return '@' + username;
-					}
-
-					return embedUserMention(id);
-				}
-			}
-		});
+		messageHandler.update(editor);
 	}
 </script>
 
@@ -243,7 +223,7 @@
 				<Button
 					style="pop"
 					loading={isSendingMessage || isExecuting}
-					disabled={!message}
+					disabled={!messageHandler.message}
 					onclick={handleClickSend}>Comment</Button
 				>
 			</div>

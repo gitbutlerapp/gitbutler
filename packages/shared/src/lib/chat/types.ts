@@ -85,6 +85,11 @@ export type ApiCreateChatMessageParams = {
 	 */
 	chat: string;
 	/**
+	 * Displayable text for the chat message.
+	 * This is used to display the chat message in notification without having to de-embed the mentions.
+	 */
+	displayable_text?: string;
+	/**
 	 * Change ID
 	 */
 	change_id?: string;
@@ -119,6 +124,11 @@ export type SendChatMessageParams = {
 	 */
 	chat: string;
 	/**
+	 * Displayable text for the chat message.
+	 * This is used to display the chat message in notification without having to de-embed the mentions.
+	 */
+	displayableText?: string;
+	/**
 	 * Commit Change ID
 	 */
 	changeId?: string;
@@ -148,6 +158,7 @@ export function toApiCreateChatMessageParams(
 	return {
 		branch_id: params.branchId,
 		chat: params.chat,
+		displayable_text: params.displayableText,
 		change_id: params.changeId,
 		thread_id: params.threadId,
 		issue: params.issue,
