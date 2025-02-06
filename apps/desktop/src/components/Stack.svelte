@@ -11,7 +11,9 @@
 	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import { DetailedCommit } from '$lib/commits/commit';
+	import { cloudReviewFunctionality } from '$lib/config/uiFeatureFlags';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
+	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { Project } from '$lib/project/project';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -24,8 +26,6 @@
 	import lscache from 'lscache';
 	import { onMount } from 'svelte';
 	import { type Writable } from 'svelte/store';
-	import { cloudReviewFunctionality } from '$lib/config/uiFeatureFlags';
-	import { StackPublishingService } from '$lib/history/stackPublishingService';
 
 	const {
 		isLaneCollapsed,
