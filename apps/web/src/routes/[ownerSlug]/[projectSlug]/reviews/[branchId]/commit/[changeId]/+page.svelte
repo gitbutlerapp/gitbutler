@@ -139,6 +139,7 @@
 					<ChatComponent
 						{isPatchAuthor}
 						{branchUuid}
+						messageUuid={data.messageUuid}
 						projectId={repositoryId}
 						branchId={data.branchId}
 						changeId={data.changeId}

@@ -1,5 +1,6 @@
 <script lang="ts" module>
 	export interface MessageProps {
+		highlight?: boolean;
 		projectId: string;
 		changeId?: string;
 		event: ChatEvent;
@@ -16,7 +17,7 @@
 
 	const UNKNOWN_AUTHOR = 'Unknown author';
 
-	const { event, projectId, changeId }: MessageProps = $props();
+	const { event, projectId, changeId, highlight }: MessageProps = $props();
 
 	const message = $derived(event.object);
 
@@ -28,7 +29,9 @@
 </script>
 
 <div
+	id="chat-message-{message.uuid}"
 	class="chat-message"
+	class:highlight
 	class:open-issue={message.issue && !message.resolved}
 	class:resolved={message.issue && message.resolved}
 >
@@ -73,22 +76,37 @@
 </div>
 
 <style lang="postcss">
+	@keyframes temporary-highlight {
+		0% {
+			background: var(--clr-bg-1-muted);
+		}
+		75% {
+			background: var(--clr-bg-1-muted);
+		}
+		100% {
+			background: var(--clr-bg-1);
+		}
+	}
 	.chat-message {
 		display: flex;
 		padding: 14px 16px;
 		gap: 12px;
 
-		background: var(--bg-1, #fff);
-		border-bottom: 1px solid var(--clr-border-3, #eae9e8);
+		background: var(--clr-bg-1);
+		border-bottom: 1px solid var(--clr-border-3);
 
 		&.open-issue {
 			padding-left: 12px;
-			border-left: 4px solid var(--clr-scale-err-50, #dc606b);
+			border-left: 4px solid var(--clr-scale-err-50);
 		}
 
 		&.resolved {
 			padding-left: 12px;
-			border-left: 4px solid var(--clr-core-ntrl-60, #b4afac);
+			border-left: 4px solid var(--clr-core-ntrl-60);
+		}
+
+		&.highlight {
+			animation: temporary-highlight 2s ease-out;
 		}
 	}
 

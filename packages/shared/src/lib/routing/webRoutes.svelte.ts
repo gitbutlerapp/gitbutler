@@ -14,6 +14,7 @@ export interface ProjectReviewParameters extends ProjectParameters {
 
 export interface ProjectReviewCommitParameters extends ProjectReviewParameters {
 	changeId: string;
+	messageUuid?: string;
 }
 
 function isUrl<T>(isWeb: boolean, id: string): T | undefined {
