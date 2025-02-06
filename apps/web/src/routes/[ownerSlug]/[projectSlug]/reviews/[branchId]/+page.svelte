@@ -219,7 +219,7 @@
 						<tr>
 							<th><div>Status</div></th>
 							<th><div>Name</div></th>
-							<th><div class="header-center">Changes</div></th>
+							<th><div class="header-right">Changes</div></th>
 							<th><div>Last update</div></th>
 							<th><div>Authors</div></th>
 							<th><div>Reviewers</div></th>
@@ -293,7 +293,7 @@
 		gap: 16px;
 	}
 
-	.header-center {
-		text-align: center;
+	.header-right {
+		text-align: right;
 	}
 </style>
