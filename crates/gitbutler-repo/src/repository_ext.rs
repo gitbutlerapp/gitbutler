@@ -144,10 +144,8 @@ impl RepositoryExt for git2::Repository {
                 head_tree_editor.remove(rela_path)?;
                 return Ok(false);
             };
-            if untracked_limit_in_bytes != 0 {
-                if md.len() > untracked_limit_in_bytes {
-                    return Ok(false);
-                }
+            if untracked_limit_in_bytes != 0 && md.len() > untracked_limit_in_bytes {
+                return Ok(false);
             }
             head_tree_editor.upsert(rela_path, kind, id)?;
             Ok(true)

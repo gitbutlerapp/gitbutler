@@ -6,4 +6,5 @@
 set -eu -o pipefail
 
 git init
+git config core.autocrlf true
 echo -n $'1\r\n2\r\n' > not-yet-tracked

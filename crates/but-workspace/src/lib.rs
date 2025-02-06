@@ -19,6 +19,9 @@
 //!   - The branch every stack in the workspace wants to get merged into.
 //!   - It's usually a local tracking branch, but doesn't have to if no Git *remote* is associated with it.
 //!   - Git doesn't have a notion of such a branch.
+//! * **DiffSpec**
+//!   - A type that identifies changes, either as whole file, or as hunks in the file.
+//!   - It doesn't specify if the change is in a commit, or in the worktree, so that information must provided separately.
 
 use anyhow::{Context, Result};
 use author::Author;

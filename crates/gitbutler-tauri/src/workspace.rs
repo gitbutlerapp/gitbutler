@@ -1,8 +1,10 @@
 use crate::error::Error;
+use crate::from_json::HexHash;
 use but_hunk_dependency::ui::{
     hunk_dependencies_for_workspace_changes_by_worktree_dir, HunkDependencies,
 };
-use but_workspace::StackEntry;
+use but_workspace::commit_engine::RefHandling;
+use but_workspace::{commit_engine, StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
@@ -47,4 +49,32 @@ pub fn hunk_dependencies_for_workspace_changes(
     let dependencies =
         hunk_dependencies_for_workspace_changes_by_worktree_dir(&project.path, &project.gb_dir())?;
     Ok(dependencies)
+}
+
+/// Create a new commit with `message` on top of `parent_id` that contains all `changes`.
+/// If `parent_id` is `None`, there is not a single commit as the repository is unborn.
+/// All `changes` are meant to be relative to the worktree.
+/// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
+/// hunks would fail.
+#[tauri::command(async)]
+#[instrument(skip(projects), err(Debug))]
+pub fn create_commit_from_worktree_changes(
+    projects: State<'_, projects::Controller>,
+    project_id: ProjectId,
+    parent_id: Option<HexHash>,
+    worktree_changes: Vec<commit_engine::ui::DiffSpec>,
+    message: String,
+) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
+    let project = projects.get(project_id)?;
+    let repo = gix::open(project.worktree_path()).map_err(anyhow::Error::from)?;
+    let out = commit_engine::create_commit(
+        &repo,
+        commit_engine::Destination::ParentForNewCommit(parent_id.map(Into::into)),
+        None,
+        worktree_changes.into_iter().map(Into::into).collect(),
+        &message,
+        3, /* context-lines */
+        RefHandling::UpdateHEADRefForTipCommits,
+    )?;
+    Ok(out.into())
 }

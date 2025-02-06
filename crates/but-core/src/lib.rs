@@ -41,7 +41,7 @@
 //!     - A list of patches in unified diff format, with easily accessible line number information. It isn't baked into the patch string itself.
 //!
 
-use bstr::BString;
+use bstr::{BStr, BString};
 use gix::object::tree::EntryKind;
 use serde::Serialize;
 
@@ -100,13 +100,25 @@ pub enum UnifiedDiff {
 /// ### Note
 ///
 /// For simplicity, copy-tracking is not representable right now, but `copy: bool` could be added
-/// if needed.
+/// if needed. Copy-tracking is deactivated as well.
 #[derive(Debug, Clone)]
 pub struct TreeChange {
     /// The *relative* path in the worktree where the entry can be found.
     pub path: BString,
     /// The specific information about this change.
     pub status: TreeStatus,
+}
+
+impl TreeChange {
+    /// Return the path at which this directory entry was previously located, if it was renamed.
+    pub fn previous_path(&self) -> Option<&BStr> {
+        match &self.status {
+            TreeStatus::Addition { .. }
+            | TreeStatus::Deletion { .. }
+            | TreeStatus::Modification { .. } => None,
+            TreeStatus::Rename { previous_path, .. } => Some(previous_path.as_ref()),
+        }
+    }
 }
 
 /// Specifically defines a [`TreeChange`].

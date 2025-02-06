@@ -5,7 +5,7 @@ use gitbutler_serde::BStringForFrontend;
 use gix::object::tree::EntryKind;
 use serde::{Deserialize, Serialize};
 
-/// The type returned by [`crate::diff::worktree_status()`].
+/// The type returned by [`crate::diff::worktree_changes()`].
 #[derive(Debug, Clone, Serialize)]
 pub struct WorktreeChanges {
     /// Changes that could be committed.

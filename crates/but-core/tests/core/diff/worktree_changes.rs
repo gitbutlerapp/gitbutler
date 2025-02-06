@@ -1044,6 +1044,42 @@ fn renamed_in_index() -> Result<()> {
 }
 
 #[test]
+fn renamed_in_index_with_executable_bit() -> Result<()> {
+    let repo = repo("renamed-in-index-with-executable-bit")?;
+    let actual = diff::worktree_changes(&repo)?;
+    insta::assert_debug_snapshot!(actual, @r#"
+    WorktreeChanges {
+        changes: [
+            TreeChange {
+                path: "new-name",
+                status: Rename {
+                    previous_path: "to-be-renamed",
+                    previous_state: ChangeState {
+                        id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
+                        kind: BlobExecutable,
+                    },
+                    state: ChangeState {
+                        id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
+                        kind: BlobExecutable,
+                    },
+                    flags: None,
+                },
+            },
+        ],
+        ignored_changes: [],
+    }
+    "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    [
+        Patch {
+            hunks: [],
+        },
+    ]
+    ");
+    Ok(())
+}
+
+#[test]
 fn renamed_in_worktree() -> Result<()> {
     let repo = repo("renamed-in-worktree")?;
     let actual = diff::worktree_changes(&repo)?;
@@ -1061,6 +1097,42 @@ fn renamed_in_worktree() -> Result<()> {
                     state: ChangeState {
                         id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
                         kind: Blob,
+                    },
+                    flags: None,
+                },
+            },
+        ],
+        ignored_changes: [],
+    }
+    "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    [
+        Patch {
+            hunks: [],
+        },
+    ]
+    ");
+    Ok(())
+}
+
+#[test]
+fn renamed_in_worktree_with_executable_bit() -> Result<()> {
+    let repo = repo("renamed-in-worktree-with-executable-bit")?;
+    let actual = diff::worktree_changes(&repo)?;
+    insta::assert_debug_snapshot!(actual, @r#"
+    WorktreeChanges {
+        changes: [
+            TreeChange {
+                path: "new-name",
+                status: Rename {
+                    previous_path: "to-be-renamed",
+                    previous_state: ChangeState {
+                        id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
+                        kind: BlobExecutable,
+                    },
+                    state: ChangeState {
+                        id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
+                        kind: BlobExecutable,
                     },
                     flags: None,
                 },

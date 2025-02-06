@@ -80,9 +80,23 @@ git init renamed-in-index
   git mv to-be-renamed new-name
 )
 
+git init renamed-in-index-with-executable-bit
+(cd renamed-in-index-with-executable-bit
+  echo content >to-be-renamed && chmod +x to-be-renamed
+  git add . && git commit -m "init"
+  git mv to-be-renamed new-name
+)
+
 git init renamed-in-worktree
 (cd renamed-in-worktree
   echo content >to-be-renamed
+  git add . && git commit -m "init"
+  mv to-be-renamed new-name
+)
+
+git init renamed-in-worktree-with-executable-bit
+(cd renamed-in-worktree-with-executable-bit
+  echo content >to-be-renamed && chmod +x to-be-renamed
   git add . && git commit -m "init"
   mv to-be-renamed new-name
 )
