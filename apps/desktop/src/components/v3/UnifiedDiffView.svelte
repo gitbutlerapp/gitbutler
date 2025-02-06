@@ -22,7 +22,6 @@
 </script>
 
 <div class="diff-section">
-	<p class="file-name">{path}</p>
 	<ReduxResult {result}>
 		{#snippet children(diff)}
 			{#if diff.type === 'Patch'}
@@ -44,16 +43,5 @@
 		align-self: stretch;
 		overflow-x: hidden;
 		max-width: 100%;
-	}
-
-	.file-name {
-		color: var(--text-1, #1a1614);
-
-		/* base-body/12 */
-		font-family: var(--fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--weight-regular, 400);
-		line-height: 160%; /* 19.2px */
 	}
 </style>

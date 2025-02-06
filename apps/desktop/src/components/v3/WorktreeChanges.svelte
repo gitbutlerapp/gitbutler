@@ -24,7 +24,7 @@
 	<Button kind="ghost" icon="sidebar-unfold" />
 </div>
 
-<div class="file-list">
+<div class="uncommitted-changes">
 	<ReduxResult result={result.current}>
 		{#snippet children(result)}
 			{#if result.changes.length > 0}
@@ -58,10 +58,11 @@
 		}
 	}
 
-	.file-list {
+	.uncommitted-changes {
 		display: flex;
 		flex: 1;
 		width: 100%;
+		height: 100%;
 		display: flex;
 		justify-items: top;
 		flex-direction: column;
