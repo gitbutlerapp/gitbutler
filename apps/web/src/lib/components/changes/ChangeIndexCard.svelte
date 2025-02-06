@@ -76,11 +76,11 @@
 			</td>
 			<td><div><PatchReviewersGroup {patch} /></div></td>
 			<td
-				><div class="row-text comments">
-					{#if patch.commentCount > 0}
-						<Icon name="show-comments" />
+				><div class="row-text">
+					<div class="comments" class:row-placeholder={!patch.commentCount}>
+						<div class="comments-icon"><Icon name="comments-small" /></div>
 						<div>{patch.commentCount}</div>
-					{/if}
+					</div>
 				</div></td
 			>
 		</tr>
@@ -145,6 +145,11 @@
 		gap: 4px;
 		justify-content: center;
 		align-items: center;
+	}
+
+	.comments-icon {
+		display: flex;
+		color: var(--clr-text-2);
 	}
 
 	.changes {

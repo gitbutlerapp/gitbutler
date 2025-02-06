@@ -3,6 +3,11 @@
 	color: var(--clr-text-1);
 	font-size: 0.9rem;
 
+	.row-placeholder {
+		opacity: 0.3;
+		white-space: nowrap;
+	}
+
 	tbody.pretty > tr:first-child > td {
 		padding-top: 10px; /* Simulates a top margin */
 		> div {
