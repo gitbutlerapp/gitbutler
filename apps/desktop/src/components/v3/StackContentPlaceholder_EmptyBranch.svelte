@@ -18,13 +18,11 @@
 
 <style>
 	.placeholder__svg {
-		height: 200px;
 		width: 300px;
 	}
 
 	.placeholder__text {
 		text-align: left;
-		line-height: 1 !important;
 		display: inline;
 
 		white-space: pre-wrap;
@@ -33,6 +31,6 @@
 
 	p {
 		display: inline-block;
-		line-height: 1.5;
+		line-height: 1.75;
 	}
 </style>

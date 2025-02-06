@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ManageCommits from '$lib/assets/illustrations/manage-commits-tip.svg?raw';
+	import ManageCommits from '$lib/assets/illustrations/tip-manage-commits.svg?raw';
 	import { fade } from 'svelte/transition';
 </script>
 
@@ -19,7 +19,6 @@
 
 <style>
 	.placeholder__svg {
-		height: 200px;
 		width: 300px;
 	}
 

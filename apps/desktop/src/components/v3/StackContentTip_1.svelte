@@ -1,5 +1,5 @@
 <script lang="ts">
-	import CommitAndPush from '$lib/assets/illustrations/commit-and-push-tip.svg?raw';
+	import CommitAndPush from '$lib/assets/illustrations/tip-commit-and-push.svg?raw';
 	import { fade } from 'svelte/transition';
 </script>
 
@@ -19,7 +19,6 @@
 
 <style>
 	.placeholder__svg {
-		height: 200px;
 		width: 300px;
 	}
 
