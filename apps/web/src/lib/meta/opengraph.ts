@@ -37,7 +37,28 @@ export async function fillMeta(html: string, url: string) {
 			'%image%',
 			`${env.PUBLIC_APP_HOST}og/review/${user}/${project}/${reviewId}/${changeId}`
 		);
-		return html.replace('%metatags%', metaTags);
+
+		try {
+			const response = await fetch(
+				env.PUBLIC_APP_HOST +
+					`api/patch_stack/${user}/${project}/branch/${reviewId}/commit/${changeId}`
+			);
+			const data = await response.json();
+			metaTags = replacePropertyContent(metaTags, 'title', `Review ${data.title}`);
+			if (data.description) {
+				metaTags = replacePropertyContent(metaTags, 'description', data.description);
+			} else {
+				metaTags = replacePropertyContent(
+					metaTags,
+					'description',
+					`Review code for ${user}/${project}`
+				);
+			}
+			return html.replace('%metatags%', metaTags);
+		} catch (error: unknown) {
+			console.error('Fetch error:', error);
+			return html.replace('%metatags%', metaTags);
+		}
 	}
 
 	const regex_review = /\/([^/]+)\/([^/]+)\/reviews\/([^/]+)/;
