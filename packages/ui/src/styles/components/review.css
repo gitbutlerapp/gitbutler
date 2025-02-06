@@ -24,7 +24,6 @@
 	th {
 		padding: 0;
 		color: var(--clr-text-2);
-		/* border-right: 1px solid var(--clr-border-2); */
 
 		> div {
 			font-weight: 100;
@@ -53,9 +52,5 @@
 				border-bottom-right-radius: var(--radius-m);
 			}
 		}
-	}
-
-	.align-right {
-		text-align: right;
 	}
 }
