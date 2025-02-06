@@ -106,7 +106,7 @@
 	.shadow-left {
 		pointer-events: none;
 		opacity: 0;
-		left: 0;
+		left: -18px;
 		background: linear-gradient(to right, var(--clr-bg-1) 0%, transparent 100%);
 		transition: opacity var(--transition-fast);
 
@@ -118,7 +118,7 @@
 	.shadow-right {
 		pointer-events: none;
 		opacity: 0;
-		right: 0;
+		right: -18px;
 		background: linear-gradient(to left, var(--clr-bg-1) 0%, transparent 100%);
 		transition: opacity var(--transition-fast);
 
