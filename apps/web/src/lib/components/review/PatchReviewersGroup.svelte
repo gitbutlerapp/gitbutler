@@ -20,5 +20,7 @@
 	{#if approvers.length > 0 || rejectors.length > 0}
 		<AvatarGroup avatars={rejectors} maxAvatars={2} icon="refresh-small" iconColor="warning" />
 		<AvatarGroup avatars={approvers} maxAvatars={2} icon="tick-small" iconColor="success" />
+	{:else}
+		<span class="row-placeholder">—</span>
 	{/if}
 {/await}

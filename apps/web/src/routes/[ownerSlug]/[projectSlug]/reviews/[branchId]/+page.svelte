@@ -148,7 +148,7 @@
 				<div class="heading">
 					<p class="text-15 text-bold">{branch.title}</p>
 					<div class="actions">
-						<Button icon="chain-link" kind="outline" onclick={copyLocation}>Branch link</Button>
+						<Button icon="copy-small" kind="outline" onclick={copyLocation}>Share link</Button>
 						{@render startReview(branch)}
 						{#if branch.status === BranchStatus.Closed}
 							<AsyncButton action={async () => updateStatus(BranchStatus.Active)} kind="outline"
@@ -219,7 +219,7 @@
 						<tr>
 							<th><div>Status</div></th>
 							<th><div>Name</div></th>
-							<th><div class="header-center">Changes</div></th>
+							<th><div class="header-right">Changes</div></th>
 							<th><div>Last update</div></th>
 							<th><div>Authors</div></th>
 							<th><div>Reviewers</div></th>
@@ -293,7 +293,7 @@
 		gap: 16px;
 	}
 
-	.header-center {
-		text-align: center;
+	.header-right {
+		text-align: right;
 	}
 </style>

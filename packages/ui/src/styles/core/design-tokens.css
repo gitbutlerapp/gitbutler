@@ -16,6 +16,8 @@
 	--clr-br-commit-approved-text: var(--clr-theme-succ-on-element);
 	--clr-br-commit-changes-requested-bg: var(--clr-theme-warn-element);
 	--clr-br-commit-changes-requested-text: var(--clr-theme-warn-on-element);
+	--clr-br-commit-closed-bg: var(--clr-theme-purp-element);
+	--clr-br-commit-closed-text: var(--clr-theme-purp-on-element);
 	--clr-br-commit-in-discussion-bg: var(--clr-core-pop-70);
 	--clr-br-commit-in-discussion-text: var(--clr-theme-pop-on-soft);
 	--clr-br-commit-unreviewed-bg: var(--clr-core-ntrl-80);
@@ -372,6 +374,8 @@
 	--clr-br-commit-approved-text: var(--clr-theme-succ-on-element);
 	--clr-br-commit-changes-requested-bg: var(--clr-theme-warn-element);
 	--clr-br-commit-changes-requested-text: var(--clr-theme-warn-on-element);
+	--clr-br-commit-closed-bg: var(--clr-theme-purp-element);
+	--clr-br-commit-closed-text: var(--clr-theme-purp-on-element);
 	--clr-br-commit-in-discussion-bg: var(--clr-core-pop-20);
 	--clr-br-commit-in-discussion-text: var(--clr-theme-pop-on-soft);
 	--clr-br-commit-unreviewed-bg: var(--clr-core-ntrl-30);
