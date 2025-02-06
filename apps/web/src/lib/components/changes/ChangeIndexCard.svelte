@@ -149,12 +149,16 @@
 
 	.changes {
 		display: flex;
-		gap: 4px;
 	}
 	.changes_additions {
 		color: var(--clr-theme-succ-element);
+		min-width: 40px;
+		text-align: right;
 	}
 	.changes_deletions {
 		color: var(--clr-theme-err-element);
+		min-width: 40px;
+		text-align: right;
+		padding-left: 6px;
 	}
 </style>

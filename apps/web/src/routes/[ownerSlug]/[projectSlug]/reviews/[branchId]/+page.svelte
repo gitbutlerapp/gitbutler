@@ -219,7 +219,7 @@
 						<tr>
 							<th><div>Status</div></th>
 							<th><div>Name</div></th>
-							<th><div>Changes</div></th>
+							<th><div class="header-center">Changes</div></th>
 							<th><div>Last update</div></th>
 							<th><div>Authors</div></th>
 							<th><div>Reviewers</div></th>
@@ -291,5 +291,9 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 16px;
+	}
+
+	.header-center {
+		text-align: center;
 	}
 </style>
