@@ -87,25 +87,25 @@ pre {
 }
 
 .gap-1 {
-	gap: 4px;
+	gap: 4px !important;
 }
 
 .gap-2 {
-	gap: 8px;
+	gap: 8px !important;
 }
 
 .gap-3 {
-	gap: 12px;
+	gap: 12px !important;
 }
 
 .gap-4 {
-	gap: 16px;
+	gap: 16px !important;
 }
 
 .gap-5 {
-	gap: 20px;
+	gap: 20px !important;
 }
 
 .gap-6 {
-	gap: 24px;
+	gap: 24px !important;
 }

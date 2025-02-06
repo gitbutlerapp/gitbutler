@@ -98,21 +98,21 @@
 				target="_blank"
 				underline={false}
 				externalIcon={false}
-				class="text-13 text-semibold text-clr2"><Icon name="doc" /> GitButler Docs</Link
+				class="text-13 text-semibold text-clr2 gap-2"><Icon name="doc" /> GitButler Docs</Link
 			>
 			<Link
 				href="https://github.com/gitbutlerapp/gitbutler"
 				target="_blank"
 				underline={false}
 				externalIcon={false}
-				class="text-13 text-semibold text-clr2"><Icon name="github" /> Source Code</Link
+				class="text-13 text-semibold text-clr2 gap-2"><Icon name="github" /> Source Code</Link
 			>
 			<Link
 				href="https://discord.com/invite/MmFkmaJ42D"
 				target="_blank"
 				underline={false}
 				externalIcon={false}
-				class="text-13 text-semibold text-clr2 gap-4"><Icon name="discord" /> Join Community</Link
+				class="text-13 text-semibold text-clr2 gap-2"><Icon name="discord" /> Join Community</Link
 			>
 		</div>
 	</div>
