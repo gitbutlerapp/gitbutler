@@ -34,7 +34,7 @@
 	let isNotificationsUnread = $state(false);
 </script>
 
-<div class="header">
+<div class="header" class:isMac={platformName === 'macos'}>
 	<div class="left">
 		<div class="left-buttons" class:macos={platformName === 'macos'}>
 			<SyncButton size="button" />
@@ -116,7 +116,11 @@
 	.header {
 		display: flex;
 		justify-content: space-between;
-		padding: 14px 14px 14px 84px;
+		padding: 14px;
+
+		&.isMac {
+			padding: 14px 14px 14px 84px;
+		}
 	}
 
 	.left {
