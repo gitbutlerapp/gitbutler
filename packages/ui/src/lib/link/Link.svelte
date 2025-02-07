@@ -73,7 +73,7 @@
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
 		user-select: text;
-		text-decoration: none !important;
+		text-decoration: none;
 
 		&:hover {
 			text-decoration: none;
@@ -81,7 +81,7 @@
 	}
 
 	.link.underline {
-		text-decoration: underline !important;
+		text-decoration: underline;
 	}
 
 	.link-icon {
