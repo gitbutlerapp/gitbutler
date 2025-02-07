@@ -15,74 +15,57 @@
 	};
 
 	let kebabMenuTrigger = $state<HTMLElement>();
-	let contextMenuEl = $state<ContextMenu>();
-	let isContextMenuOpen = $state(false);
-	let isHovered = $state(false);
-
-	let nameEl = $state<HTMLDivElement>();
-	let nameWidth = $state<number>();
+	let contextMenu = $state<ContextMenu>();
 
 	const { projectId, tab, first, last, selected }: Props = $props();
-
-	$effect(() => {
-		if (nameEl) {
-			nameWidth = nameEl.offsetWidth - 1;
-		}
-	});
 </script>
 
 <div>
-	<a href={stackPath(projectId, tab.id)} class="tab" class:first class:last class:selected>
+	<a
+		data-sveltekit-keepfocus
+		href={stackPath(projectId, tab.id)}
+		class="tab"
+		class:first
+		class:last
+		class:selected
+	>
 		<div class="icon">
-			{#if tab.anchors.length > 0}
-				<Icon name="chain-link" verticalAlign="top" />
-			{:else}
-				<Icon name="branch-small" verticalAlign="top" />
-			{/if}
+			<Icon name={tab.anchors.length > 0 ? 'chain-link' : 'branch-small'} verticalAlign="top" />
 		</div>
-		<div class="tab__content" style:max-width="{nameWidth}px">
-			<div class="text-12 text-semibold name" bind:this={nameEl}>
+		<div class="content">
+			<div class="text-12 text-semibold name">
 				{tab.name}
 			</div>
-			<div class={['tab__menu-btn-wrap', isContextMenuOpen || isHovered ? 'active' : '']}>
-				<button
-					class={['tab__menu-btn', isContextMenuOpen ? 'active' : '']}
-					onmouseenter={() => (isHovered = true)}
-					onmouseleave={() => (isHovered = false)}
-					onclick={(e) => {
-						e.preventDefault();
-						e.stopPropagation();
-						contextMenuEl?.toggle();
-					}}
-					bind:this={kebabMenuTrigger}
-					type="button"
-				>
-					<Icon name="kebab" />
-				</button>
-			</div>
+			<button
+				class="menu-btn"
+				onclick={(e) => {
+					e.preventDefault();
+					e.stopPropagation();
+					contextMenu?.toggle();
+				}}
+				bind:this={kebabMenuTrigger}
+				type="button"
+			>
+				<Icon name="kebab" />
+			</button>
 		</div>
 	</a>
 </div>
 
-<ContextMenu
-	bind:this={contextMenuEl}
-	leftClickTrigger={kebabMenuTrigger}
-	ontoggle={(isOpen) => (isContextMenuOpen = isOpen)}
-	side="bottom"
->
+<ContextMenu bind:this={contextMenu} leftClickTrigger={kebabMenuTrigger} side="bottom">
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Unapply Stack"
 			keyboardShortcut="$mod+X"
 			onclick={() => {
-				contextMenuEl?.close();
+				contextMenu?.close();
 			}}
 		/>
 		<ContextMenuItem
 			label="Rename"
 			keyboardShortcut="$mod+R"
 			onclick={() => {
-				contextMenuEl?.close();
+				contextMenu?.close();
 			}}
 		/>
 	</ContextMenuSection>
@@ -98,7 +81,7 @@
 		background: var(--clr-stack-tab-inactive);
 		border-right: 1px solid var(--clr-border-2);
 		overflow: hidden;
-		min-width: 80px;
+		flex: 0 0 auto;
 
 		&::after {
 			content: '';
@@ -119,27 +102,32 @@
 			border-right: none;
 		}
 
-		.tab__content {
+		.content {
 			display: flex;
+			width: 75px;
 			align-items: center;
-		}
-
-		.tab__menu-btn-wrap {
-			flex: 1;
-			position: relative;
-			display: flex;
-			width: 0;
 			overflow: hidden;
 		}
 
-		.tab__menu-btn {
+		&:active .menu-btn,
+		&:hover .menu-btn,
+		&:focus-within .menu-btn {
+			opacity: 1;
+			min-width: 32px;
+			padding: 8px;
+		}
+
+		.menu-btn {
+			position: relative;
+			opacity: 0;
+			width: 0;
+			overflow: hidden;
+
 			display: flex;
 			align-items: center;
 			justify-content: center;
 			color: var(--clr-text-2);
-			padding: 8px;
 
-			&.active,
 			&:hover {
 				color: var(--clr-text-1);
 			}
@@ -154,20 +142,6 @@
 			&::after {
 				transform: translateY(0);
 				background: var(--clr-border-1);
-			}
-		}
-
-		.tab__menu-btn-wrap.active,
-		&:active .tab__menu-btn-wrap,
-		&:hover .tab__menu-btn-wrap,
-		&:focus-within .tab__menu-btn-wrap {
-			display: flex;
-			opacity: 1;
-			min-width: 32px;
-			margin-right: -8px;
-
-			.tab__menu-btn {
-				opacity: 0.8;
 			}
 		}
 
@@ -192,7 +166,7 @@
 	}
 
 	.name {
-		box-sizing: content-box;
+		width: 100%;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		overflow: hidden;
