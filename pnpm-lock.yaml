@@ -614,9 +614,6 @@ importers:
       '@storybook/experimental-addon-test':
         specifier: ^8.5.3
         version: 8.5.3(@vitest/browser@3.0.3)(@vitest/runner@3.0.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.5.3(prettier@3.3.2))(vitest@3.0.5)
-      '@storybook/svelte':
-        specifier: ^8.5.3
-        version: 8.5.3(storybook@8.5.3(prettier@3.3.2))(svelte@5.19.7)
       '@storybook/sveltekit':
         specifier: ^8.5.3
         version: 8.5.3(@babel/core@7.24.7)(@sveltejs/vite-plugin-svelte@5.0.3(svelte@5.19.7)(vite@6.1.0(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0)))(postcss-load-config@5.1.0(postcss@8.4.49))(postcss@8.4.49)(storybook@8.5.3(prettier@3.3.2))(svelte@5.19.7)(vite@6.1.0(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0))
@@ -14010,7 +14007,7 @@ snapshots:
       '@wdio/types': 8.39.0
       '@wdio/utils': 8.40.2
       archiver: 7.0.1
-      aria-query: 5.3.0
+      aria-query: 5.3.2
       css-shorthand-properties: 1.1.1
       css-value: 0.0.1
       devtools-protocol: 0.0.1335233
