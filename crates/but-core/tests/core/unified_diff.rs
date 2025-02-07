@@ -212,6 +212,44 @@ fn symlink_modified_in_worktree() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn submodule_added() -> anyhow::Result<()> {
+    let repo = crate::diff::worktree_changes::repo("submodule-added-unborn")?;
+    let changes = but_core::diff::worktree_changes(&repo)?.changes;
+    insta::assert_debug_snapshot!(&changes, @r#"
+    [
+        TreeChange {
+            path: ".gitmodules",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(46f8c8b821d79a888a1ea0b30ec9f5d7e90821b0),
+                    kind: Blob,
+                },
+                is_untracked: false,
+            },
+        },
+        TreeChange {
+            path: "submodule",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(e95516bd2f49a83a6cdb98cfec40b2717fbc2c1b),
+                    kind: Commit,
+                },
+                is_untracked: false,
+            },
+        },
+    ]
+    "#);
+    let err = changes[1].unified_diff(&repo, 3).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Can only diff blobs and links, not Commit",
+        "We can't consistently create unified diffs while it's somewhat \
+               hard to consistently read state (i.e. worktree or ODB with correct conversions)"
+    );
+    Ok(())
+}
+
 fn extract_patch(diff: UnifiedDiff) -> Vec<unified_diff::DiffHunk> {
     match diff {
         UnifiedDiff::Binary | UnifiedDiff::TooLarge { .. } => unreachable!("should have patches"),
