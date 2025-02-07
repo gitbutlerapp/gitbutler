@@ -19,7 +19,7 @@
 	const result = $derived(stackService.getStacks(projectId));
 
 	let inner = $state<HTMLDivElement>();
-	let scroller = $state<HTMLUListElement>();
+	let scroller = $state<HTMLDivElement>();
 
 	let scrollable = $state(false);
 	let scrolled = $state(false);
@@ -47,7 +47,7 @@
 <menu class="tabs">
 	<div class="inner" bind:this={inner}>
 		<div class="shadows">
-			<ul class="scroller" bind:this={scroller} class:scrolled {onscroll}>
+			<div class="scroller" bind:this={scroller} class:scrolled {onscroll}>
 				<ReduxResult result={result.current}>
 					{#snippet children(result)}
 						{@const tabs = stacksToTabs(result)}
@@ -62,7 +62,7 @@
 						no stacks
 					{/snippet}
 				</ReduxResult>
-			</ul>
+			</div>
 			<div class="shadow shadow-left" class:scrolled></div>
 			<div class="shadow shadow-right" class:scrollable class:scrolled-end={scrolledEnd}></div>
 		</div>

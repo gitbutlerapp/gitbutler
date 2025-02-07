@@ -18,7 +18,7 @@
 			: undefined
 	);
 
-	let branchType = $derived(topPatch?.state?.type ?? 'LocalOnly') as CommitStateType;
+	let branchType = $derived(topPatch?.state.type ?? 'LocalOnly') as CommitStateType;
 	const lineColor = $derived(getColorFromBranchType(branchType));
 
 	const descriptionVisible = $derived(!!branch.description);
