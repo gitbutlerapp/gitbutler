@@ -47,15 +47,15 @@ export class WebRoutesService {
 	}
 
 	projectsPath() {
-		return `/repositories`;
+		return `/projects`;
 	}
 	projectsUrl() {
 		return this.toUrl(this.projectsPath());
 	}
 	// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-	isProjectsPage = $derived(isUrl<{}>(this.isWeb, '/repositories'));
+	isProjectsPage = $derived(isUrl<{}>(this.isWeb, '/projects'));
 	// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-	isProjectsPageSubset = $derived(isUrlSubset<{}>(this.isWeb, '/repositories'));
+	isProjectsPageSubset = $derived(isUrlSubset<{}>(this.isWeb, '/projects'));
 
 	ownerPath(parameters: OwnerParameters) {
 		return `/${parameters.ownerSlug}`;

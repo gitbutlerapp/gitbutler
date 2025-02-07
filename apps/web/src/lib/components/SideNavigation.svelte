@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { env } from '$env/dynamic/public';
 
 	const authService = getContext(AuthService);
 	const token = $derived(authService.tokenReadable);
+	const routes = getContext(WebRoutesService);
 
 	function logout() {
 		authService.clearToken();
@@ -54,7 +56,12 @@
 				</svg>
 			</a>
 
-			<a class="nav-link nav-button" href="/repositories" aria-label="projects" title="Projects">
+			<a
+				class="nav-link nav-button"
+				href={routes.projectsPath()}
+				aria-label="projects"
+				title="Projects"
+			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					width="16"

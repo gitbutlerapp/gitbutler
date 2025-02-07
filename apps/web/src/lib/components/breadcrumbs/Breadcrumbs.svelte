@@ -34,7 +34,10 @@
 
 <ol class="breadcrumbs">
 	<li class="text-12 text-semibold breadcrumb-item">
-		<a class:breadcrumb-item_disabled={!routes.isProjectReviewPageSubset} href="/repositories">
+		<a
+			class:breadcrumb-item_disabled={!routes.isProjectReviewPageSubset}
+			href={routes.projectsPath()}
+		>
 			All projects
 		</a>
 	</li>
