@@ -6,6 +6,7 @@
 	import GlobalSettingsMenuAction from '$components/GlobalSettingsMenuAction.svelte';
 	import PromptModal from '$components/PromptModal.svelte';
 	import ReloadMenuAction from '$components/ReloadMenuAction.svelte';
+	import ReloadWarning from '$components/ReloadWarning.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import SwitchThemeMenuAction from '$components/SwitchThemeMenuAction.svelte';
 	import ToastController from '$components/ToastController.svelte';
@@ -205,6 +206,10 @@
 <GlobalSettingsMenuAction />
 <ReloadMenuAction />
 <SwitchThemeMenuAction />
+
+{#if import.meta.env.MODE === 'development'}
+	<ReloadWarning />
+{/if}
 
 <style lang="postcss">
 	.app-root {
