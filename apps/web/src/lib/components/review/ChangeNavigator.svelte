@@ -34,7 +34,7 @@
 		icon="chevron-left"
 	></Button>
 	<div class="indicator text-12 text-semibold">
-		Patch {patchIds?.length - index}/{patchIds?.length}
+		Commit {patchIds?.length - index}/{patchIds?.length}
 	</div>
 	<Button
 		disabled={!nextPatchId}
@@ -48,6 +48,7 @@
 <style lang="postcss">
 	.change-navigator {
 		display: flex;
+		height: fit-content;
 	}
 
 	:global(.change-navigator .navigate-prev) {

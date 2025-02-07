@@ -48,7 +48,7 @@
 				<img class="chat-message__avatar-small" src={message.user.avatarUrl} alt={authorName} />
 			{/if}
 
-			<div class="chat-message__author-name">
+			<div class="text-13 text-bold chat-message__author-name">
 				{authorName}
 			</div>
 
@@ -60,13 +60,13 @@
 				{/if}
 			{/if}
 
-			<div class="chat-message__timestamp" title={event.createdAt}>
+			<div class="text-12 chat-message__timestamp" title={event.createdAt}>
 				{timestamp}
 			</div>
 		</div>
 
 		<div class="chat-message-content">
-			<div class="chat-message__content-text">
+			<div class="text-13 text-body chat-message__content-text">
 				<MessageMarkdown content={message.comment} mentions={message.mentions} />
 			</div>
 
@@ -128,8 +128,8 @@
 		color: var(--clr-br-commit-changes-requested-text);
 
 		&.resolved {
-			background: var(--clr-core-ntrl-60, #b4afac);
-			color: var(--clr-core-ntrl-100, #d4d0ce);
+			background: var(--clr-core-ntrl-60);
+			color: var(--clr-core-ntrl-100);
 		}
 	}
 
@@ -159,30 +159,15 @@
 
 	.chat-message__timestamp {
 		overflow: hidden;
-		color: var(--clr-text-1, #1a1614);
+		color: var(--clr-text-1);
 		text-overflow: ellipsis;
-
-		/* base/12 */
-		font-family: var(--text-fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--text-weight-regular, 400);
-		line-height: 120%; /* 14.4px */
-
 		opacity: 0.4;
 	}
 
 	.chat-message__author-name {
 		overflow: hidden;
-		color: var(--text-1, #1a1614);
+		color: var(--clr-text-1);
 		text-overflow: ellipsis;
-
-		/* base/13-bold */
-		font-family: var(--text-fontfamily-default, Inter);
-		font-size: 13px;
-		font-style: normal;
-		font-weight: 600;
-		line-height: 120%; /* 15.6px */
 	}
 
 	.chat-message-content {
@@ -194,13 +179,6 @@
 	}
 
 	.chat-message__content-text {
-		color: var(--text-1, #1a1614);
-
-		/* base-body/13 */
-		font-family: var(--text-fontfamily-default, Inter);
-		font-size: 13px;
-		font-style: normal;
-		font-weight: var(--text-weight-regular, 400);
-		line-height: 160%; /* 20.8px */
+		color: var(--clr-text-1);
 	}
 </style>

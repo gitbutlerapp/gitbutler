@@ -28,13 +28,13 @@
 			{#if event.user}
 				<img class="patch-status__avatar" src={event.user.avatarUrl} alt={userName} />
 			{/if}
-			<p class="patch-status__name">{userName}</p>
-			<p class="patch-status__message">{statusAction} this commit</p>
-			<div class="patch-status__timestamp" title={event.createdAt}>{timestamp}</div>
+			<p class="text-13 text-bold patch-status__name">{userName}</p>
+			<p class="text-12 patch-status__message">{statusAction} this commit</p>
+			<div class="text-12 patch-status__timestamp" title={event.createdAt}>{timestamp}</div>
 		</div>
 
 		{#if event.data.message}
-			<p class="patch-status__text-content">{event.data.message}</p>
+			<p class="text-13 text-body patch-status__text-content">{event.data.message}</p>
 		{/if}
 	</div>
 </div>
@@ -46,9 +46,13 @@
 		padding-left: 10px;
 		gap: 12px;
 
-		border-left: 4px solid var(--clr-theme-succ-element, #4ab582);
-		border-bottom: 1px solid var(--clr-border-3, #eae9e8);
-		background: var(--clr-theme-succ-bg, #f6fcfb);
+		border-left: 4px solid var(--clr-theme-succ-element);
+		border-bottom: 1px solid var(--clr-border-3);
+		background: var(--clr-theme-succ-bg);
+
+		&:first-child {
+			border-bottom: none;
+		}
 
 		&.request-changes {
 			border-left-color: var(--clr-br-commit-changes-requested-bg);
@@ -95,53 +99,25 @@
 
 	.patch-status__name {
 		overflow: hidden;
-		color: var(--clr-text-1, #1a1614);
+		color: var(--clr-text-1);
 		text-overflow: ellipsis;
-
-		/* base/13-bold */
-		font-family: var(--text-fontfamily-default, Inter);
-		font-size: 13px;
-		font-style: normal;
-		font-weight: 600;
-		line-height: 120%; /* 15.6px */
 	}
 
 	.patch-status__message {
 		overflow: hidden;
-		color: var(--clr-text-1, #1a1614);
+		color: var(--clr-text-1);
 		text-overflow: ellipsis;
-
-		/* base/12 */
-		font-family: var(--text-fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--text-weight-regular, 400);
-		line-height: 120%; /* 14.4px */
 	}
 
 	.patch-status__timestamp {
 		overflow: hidden;
-		color: var(--clr-text-1, #1a1614);
+		color: var(--clr-text-1);
 		text-overflow: ellipsis;
-
-		/* base/12 */
-		font-family: var(--text-fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--text-weight-regular, 400);
-		line-height: 120%; /* 14.4px */
 
 		opacity: 0.4;
 	}
 
 	.patch-status__text-content {
-		color: var(--clr-text-1, #1a1614);
-
-		/* base-body/13 */
-		font-family: var(--text-fontfamily-default, Inter);
-		font-size: 13px;
-		font-style: normal;
-		font-weight: var(--text-weight-regular, 400);
-		line-height: 160%; /* 20.8px */
+		color: var(--clr-text-1);
 	}
 </style>
