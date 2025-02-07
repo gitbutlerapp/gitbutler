@@ -61,6 +61,4 @@
 		await userEvent.click(submitButton);
 		await expect(args.onclick).toHaveBeenCalled();
 	}}
->
-	Button
-</Story>
+/>
