@@ -81,6 +81,7 @@
 
 	.scroller {
 		display: flex;
+		position: relative;
 		overflow-x: scroll;
 	}
 
@@ -100,14 +101,14 @@
 		position: absolute;
 		top: 0;
 		height: 100%;
-		width: 24px;
+		width: 12px;
 	}
 
 	.shadow-left {
 		pointer-events: none;
 		opacity: 0;
-		left: -18px;
-		background: linear-gradient(to right, var(--clr-bg-1) 0%, transparent 100%);
+		left: 0;
+		background: linear-gradient(to right, var(--clr-bg-2) 0%, transparent 100%);
 		transition: opacity var(--transition-fast);
 
 		&.scrolled {
@@ -118,8 +119,8 @@
 	.shadow-right {
 		pointer-events: none;
 		opacity: 0;
-		right: -18px;
-		background: linear-gradient(to left, var(--clr-bg-1) 0%, transparent 100%);
+		right: 0;
+		background: linear-gradient(to left, var(--clr-bg-2) 0%, transparent 100%);
 		transition: opacity var(--transition-fast);
 
 		&.scrollable {
