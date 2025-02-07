@@ -6,23 +6,13 @@ settings:
 
 catalogs:
   default:
-    '@vitest/ui':
-      specifier: 3.0.5
-      version: 3.0.5
     vite:
       specifier: 6.1.0
       version: 6.1.0
     vitest:
       specifier: 3.0.5
       version: 3.0.5
-  redux:
-    '@reduxjs/toolkit':
-      specifier: ^2.5.0
-      version: 2.5.0
   svelte:
-    '@sentry/sveltekit':
-      specifier: 8.54.0
-      version: 8.54.0
     '@sveltejs/adapter-static':
       specifier: 3.0.8
       version: 3.0.8
@@ -599,9 +589,6 @@ importers:
       '@storybook/addon-essentials':
         specifier: ^8.5.3
         version: 8.5.3(@types/react@18.3.3)(storybook@8.5.3(prettier@3.3.2))
-      '@storybook/addon-interactions':
-        specifier: ^8.5.3
-        version: 8.5.3(storybook@8.5.3(prettier@3.3.2))
       '@storybook/addon-links':
         specifier: ^8.5.3
         version: 8.5.3(react@18.3.1)(storybook@8.5.3(prettier@3.3.2))
@@ -2013,11 +2000,6 @@ packages:
 
   '@storybook/addon-highlight@8.5.3':
     resolution: {integrity: sha512-xhsr3W6KTvlOIIe+8JE9/sEOAgkW0yjMZzs47A+bWcxKwcFhAUgVLbAgEzjJ0u248rjGKlCJ2pswWefO+ZKJeg==}
-    peerDependencies:
-      storybook: ^8.5.3
-
-  '@storybook/addon-interactions@8.5.3':
-    resolution: {integrity: sha512-nQuP65iFGgqfVp/O8NxNDUwLTWmQBW4bofUFaT4wzYn7Jk9zobOZYtgQvdqBZtNzBDYmLrfrCutEBj5jVPRyuQ==}
     peerDependencies:
       storybook: ^8.5.3
 
@@ -8458,15 +8440,6 @@ snapshots:
     dependencies:
       '@storybook/global': 5.0.0
       storybook: 8.5.3(prettier@3.3.2)
-
-  '@storybook/addon-interactions@8.5.3(storybook@8.5.3(prettier@3.3.2))':
-    dependencies:
-      '@storybook/global': 5.0.0
-      '@storybook/instrumenter': 8.5.3(storybook@8.5.3(prettier@3.3.2))
-      '@storybook/test': 8.5.3(storybook@8.5.3(prettier@3.3.2))
-      polished: 4.3.1
-      storybook: 8.5.3(prettier@3.3.2)
-      ts-dedent: 2.2.0
 
   '@storybook/addon-links@8.5.3(react@18.3.1)(storybook@8.5.3(prettier@3.3.2))':
     dependencies:

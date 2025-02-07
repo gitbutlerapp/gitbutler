@@ -7,7 +7,6 @@ const config: StorybookConfig = {
 		getAbsolutePath('@storybook/addon-links'),
 		getAbsolutePath('@storybook/addon-essentials'),
 		'@storybook/addon-svelte-csf',
-		'@storybook/addon-interactions',
 		getAbsolutePath('@storybook/experimental-addon-test'),
 		getAbsolutePath('storybook-dark-mode')
 	],
