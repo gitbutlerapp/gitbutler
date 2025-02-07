@@ -34,7 +34,7 @@
 		icon="chevron-left"
 	></Button>
 	<div class="indicator text-12 text-semibold">
-		Patch {patchIds?.length - index}/{patchIds?.length}
+		Commit {patchIds?.length - index}/{patchIds?.length}
 	</div>
 	<Button
 		disabled={!nextPatchId}
