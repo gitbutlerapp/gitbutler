@@ -14,16 +14,14 @@
 	const userName = $derived(
 		event.user?.login ?? event.user?.name ?? event.user?.email ?? UNKNOWN_USER
 	);
-	const statusAction = $derived(event.data.status ? 'approved' : 'rejected');
+	const statusAction = $derived(event.data.status ? 'approved' : 'requested changes on');
 	const timestamp = $derived(eventTimeStamp(event));
 </script>
 
-<div class="patch-status">
-	{#if event.data.status}
-		<div class="patch-status__icon">
-			<Icon name="confeti" />
-		</div>
-	{/if}
+<div class="patch-status" class:request-changes={!event.data.status}>
+	<div class="patch-status__icon" class:request-changes={!event.data.status}>
+		<Icon name={event.data.status ? 'confeti' : 'refresh-in-circle'} />
+	</div>
 
 	<div class="patch-status-content">
 		<div class="patch-status__header">
@@ -55,6 +53,11 @@
 		&:first-child {
 			border-bottom: none;
 		}
+
+		&.request-changes {
+			border-left-color: var(--clr-br-commit-changes-requested-bg);
+			background: var(--clr-bg-1);
+		}
 	}
 
 	.patch-status__icon {
@@ -68,6 +71,10 @@
 		border-radius: 8px;
 		background: var(--clr-theme-succ-element);
 		color: var(--clr-core-ntrl-100);
+
+		&.request-changes {
+			background: var(--clr-br-commit-changes-requested-bg);
+		}
 	}
 
 	.patch-status-content {

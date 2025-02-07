@@ -31,7 +31,7 @@
 	});
 </script>
 
-<li>
+<div>
 	<a href={stackPath(projectId, tab.id)} class="tab" class:first class:last class:selected>
 		<div class="icon">
 			{#if tab.anchors.length > 0}
@@ -62,7 +62,7 @@
 			</div>
 		</div>
 	</a>
-</li>
+</div>
 
 <ContextMenu
 	bind:this={contextMenuEl}
@@ -171,11 +171,11 @@
 			}
 		}
 
-		/* ACCENT LINES */
 		&.selected {
 			&::after {
 				transform: translateY(0);
 				background: var(--clr-theme-pop-element);
+				z-index: var(--z-ground);
 			}
 		}
 	}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import UnifiedDiffView from './UnifiedDiffView.svelte';
+	import UnifiedDiffView from './v3/UnifiedDiffView.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 

@@ -6,12 +6,17 @@
 	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import dayjs from 'dayjs';
+	import relativeTime from 'dayjs/plugin/relativeTime';
 
+	dayjs.extend(relativeTime);
 	type Props = {
 		projectId: string;
+		roundedTop: boolean;
+		roundedBottom: boolean;
 	};
 
-	const { projectId }: Props = $props();
+	const { projectId, roundedTop, roundedBottom }: Props = $props();
 
 	const appState = getContext(AppState);
 	const projectService = getContext(ProjectService);
@@ -23,22 +28,22 @@
 
 <Loading loadable={project.current}>
 	{#snippet children(project)}
-		<tr class="row">
+		<tr class:rounded-top={roundedTop} class:rounded-bottom={roundedBottom} class="row">
 			<td>
 				<div>{project.activeReviewsCount}</div>
 			</td>
 			<td>
 				<div>
 					<a href={projectRoute({ ownerSlug: project.owner, projectSlug: project.slug })}>
-						<p>{project.slug}</p>
+						<p class="slug">{project.owner}/<strong>{project.slug}</strong></p>
 					</a>
 				</div>
 			</td>
 			<td>
-				<div>{project.createdAt}</div>
+				<div class="norm">{dayjs(project.createdAt).fromNow()}</div>
 			</td>
 			<td>
-				<div>{project.updatedAt}</div>
+				<div class="norm">{dayjs(project.updatedAt).fromNow()}</div>
 			</td>
 		</tr>
 	{/snippet}
@@ -76,5 +81,38 @@
 				border-right: 1px solid var(--clr-border-2);
 			}
 		}
+	}
+
+	.rounded-top > td {
+		padding-top: 8px;
+
+		> div {
+			border-top: 1px solid var(--clr-border-2);
+		}
+
+		&:first-child > div {
+			border-top-left-radius: var(--radius-m);
+		}
+
+		&:last-child > div {
+			border-top-right-radius: var(--radius-m);
+		}
+	}
+
+	.rounded-bottom > td {
+		&:first-child > div {
+			border-bottom-left-radius: var(--radius-m);
+		}
+
+		&:last-child > div {
+			border-bottom-right-radius: var(--radius-m);
+		}
+	}
+
+	.slug {
+		color: var(--clr-text-2);
+	}
+	.slug strong {
+		color: var(--clr-text-1);
 	}
 </style>

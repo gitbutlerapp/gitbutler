@@ -85,16 +85,18 @@
 
 	let editingSummary = $state(false);
 	let summary = $state('');
+	let title = $state('');
 
 	function editSummary() {
 		if (!isFound(branch?.current)) return;
 		// Make sure we're not dealing with a reference to the origional
 		summary = structuredClone(branch.current.value.description || '');
+		title = structuredClone(branch.current.value.title || '');
 		editingSummary = true;
 	}
 
 	function abortEditingSummary() {
-		if (!confirm('Canceling will loose any changes made')) {
+		if (!confirm('Canceling will lose any changes made')) {
 			return;
 		}
 
@@ -106,6 +108,7 @@
 
 		try {
 			await branchService.updateBranch(branch.current.value.uuid, {
+				title: title,
 				description: summary
 			});
 			toasts.success('Updated review status');
@@ -146,7 +149,11 @@
 		<div class="layout">
 			<div class="information">
 				<div class="heading">
-					<p class="text-15 text-bold">{branch.title}</p>
+					{#if editingSummary}
+						<Textarea bind:value={title}></Textarea>
+					{:else}
+						<p class="text-15 text-bold">{branch.title}</p>
+					{/if}
 					<div class="actions">
 						<Button icon="copy-small" kind="outline" onclick={copyLocation}>Share link</Button>
 						{@render startReview(branch)}
@@ -193,7 +200,7 @@
 						</div>
 						{#if branch.permissions.canWrite}
 							<div>
-								<Button kind="outline" onclick={editSummary}>Change summary</Button>
+								<Button kind="outline" onclick={editSummary}>Change details</Button>
 							</div>
 						{/if}
 					{:else}

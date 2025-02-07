@@ -10,11 +10,11 @@
 </script>
 
 <script lang="ts">
+	import { isArchivedBranch, isStackedBranch } from './lib';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import StackContentPlaceholder from '$components/StackContentPlaceholder.svelte';
 	import Branch from '$components/v3/Branch.svelte';
-	import { isArchivedBranch, isStackedBranch } from '$components/v3/lib';
+	import StackContentPlaceholder from '$components/v3/StackContentPlaceholder.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';

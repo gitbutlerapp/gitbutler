@@ -1,7 +1,7 @@
 <script lang="ts">
-	import ReduxResult from './ReduxResult.svelte';
-	import StackTab from './StackTab.svelte';
 	import StackTabNew from './StackTabNew.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
+	import StackTab from '$components/v3/StackTab.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { stacksToTabs } from '$lib/tabs/mapping';
 	import { getContext } from '@gitbutler/shared/context';
@@ -11,14 +11,15 @@
 		projectId: string;
 		selectedId: string | undefined;
 		previewing: boolean;
+		width: number | undefined;
 	};
-	let { projectId, selectedId }: Props = $props();
+	let { projectId, selectedId, width = $bindable() }: Props = $props();
 
 	const stackService = getContext(StackService);
 	const result = $derived(stackService.getStacks(projectId));
 
 	let inner = $state<HTMLDivElement>();
-	let scroller = $state<HTMLUListElement>();
+	let scroller = $state<HTMLDivElement>();
 
 	let scrollable = $state(false);
 	let scrolled = $state(false);
@@ -34,6 +35,7 @@
 	onMount(() => {
 		const observer = new ResizeObserver(() => {
 			scrollable = scroller ? scroller.scrollWidth > scroller.offsetWidth : false;
+			width = inner?.offsetWidth;
 		});
 		observer.observe(inner!);
 		return () => {
@@ -45,7 +47,7 @@
 <menu class="tabs">
 	<div class="inner" bind:this={inner}>
 		<div class="shadows">
-			<ul class="scroller" bind:this={scroller} class:scrolled {onscroll}>
+			<div class="scroller" bind:this={scroller} class:scrolled {onscroll}>
 				<ReduxResult result={result.current}>
 					{#snippet children(result)}
 						{@const tabs = stacksToTabs(result)}
@@ -60,7 +62,7 @@
 						no stacks
 					{/snippet}
 				</ReduxResult>
-			</ul>
+			</div>
 			<div class="shadow shadow-left" class:scrolled></div>
 			<div class="shadow shadow-right" class:scrollable class:scrolled-end={scrolledEnd}></div>
 		</div>
@@ -79,6 +81,7 @@
 
 	.scroller {
 		display: flex;
+		position: relative;
 		overflow-x: scroll;
 	}
 
@@ -98,14 +101,14 @@
 		position: absolute;
 		top: 0;
 		height: 100%;
-		width: 24px;
+		width: 12px;
 	}
 
 	.shadow-left {
 		pointer-events: none;
 		opacity: 0;
-		left: -18px;
-		background: linear-gradient(to right, var(--clr-bg-1) 0%, transparent 100%);
+		left: 0;
+		background: linear-gradient(to right, var(--clr-bg-2) 0%, transparent 100%);
 		transition: opacity var(--transition-fast);
 
 		&.scrolled {
@@ -116,8 +119,8 @@
 	.shadow-right {
 		pointer-events: none;
 		opacity: 0;
-		right: -18px;
-		background: linear-gradient(to left, var(--clr-bg-1) 0%, transparent 100%);
+		right: 0;
+		background: linear-gradient(to left, var(--clr-bg-2) 0%, transparent 100%);
 		transition: opacity var(--transition-fast);
 
 		&.scrollable {

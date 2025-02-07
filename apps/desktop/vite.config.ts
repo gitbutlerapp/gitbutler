@@ -72,6 +72,8 @@ export default defineConfig({
  */
 function debounceReload(): Plugin {
 	let timeout: NodeJS.Timeout | undefined;
+	let mustReload = false;
+	let longDelay = false;
 
 	return {
 		name: 'debounce-reload',
@@ -80,12 +82,24 @@ function debounceReload(): Plugin {
 		 * gets called as expected, but that fails to prevent the reload.
 		 */
 		hotUpdate({ server, file }) {
-			if (file.includes('gitbutler/packages')) {
-				if (timeout) clearTimeout(timeout);
-				timeout = setTimeout(() => {
-					server.hot.send({ type: 'full-reload' });
-					timeout = undefined;
-				}, 5000);
+			if (!file.includes('apps/desktop')) {
+				mustReload = true;
+				longDelay = true;
+			} else if (file.includes('.svelte-kit')) {
+				mustReload = true;
+			}
+			if (mustReload) {
+				clearTimeout(timeout);
+				timeout = setTimeout(
+					() => {
+						timeout = undefined;
+						mustReload = false;
+						longDelay = false;
+						server.hot.send({ type: 'full-reload' });
+					},
+					longDelay ? 5000 : 250
+				);
+				server.hot.send('gb:reload');
 				return []; // Prevent immediate reload.
 			}
 		}

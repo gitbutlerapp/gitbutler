@@ -1,6 +1,6 @@
 <script lang="ts">
-	import ChangeList from './ChangeList.svelte';
-	import ReduxResult from './ReduxResult.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
+	import FileList from '$components/v3/FileList.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
@@ -24,11 +24,11 @@
 	<Button kind="ghost" icon="sidebar-unfold" />
 </div>
 
-<div class="file-list">
+<div class="uncommitted-changes">
 	<ReduxResult result={result.current}>
 		{#snippet children(result)}
 			{#if result.changes.length > 0}
-				<ChangeList {projectId} changes={result.changes} />
+				<FileList {projectId} changes={result.changes} />
 			{:else}
 				<div class="text-12 text-body helper-text">
 					{@html noChanges}
@@ -58,10 +58,11 @@
 		}
 	}
 
-	.file-list {
+	.uncommitted-changes {
 		display: flex;
 		flex: 1;
 		width: 100%;
+		height: 100%;
 		display: flex;
 		justify-items: top;
 		flex-direction: column;

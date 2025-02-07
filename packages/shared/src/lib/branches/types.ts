@@ -582,8 +582,6 @@ export function apiToPatchEvent(api: ApiPatchEvent): PatchEvent | undefined {
 				updatedAt: api.updated_at
 			};
 		case 'patch_status':
-			// Ignore status updates that are not approved
-			if (!api.data.status) return undefined;
 			return {
 				eventType: api.event_type,
 				uuid: api.uuid,

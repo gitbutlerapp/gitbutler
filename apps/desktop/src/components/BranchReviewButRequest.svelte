@@ -81,6 +81,8 @@
 			await sleep(100 * (2 ^ counter));
 
 			await invalidateAll(reviewId);
+
+			++counter;
 		}
 	}
 

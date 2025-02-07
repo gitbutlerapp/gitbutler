@@ -1,4 +1,4 @@
-import { determinePlatform } from '$lib/utils/url';
+import { determinePlatform } from '$lib/utils/platform';
 
 export function keysStringToArr(keys: string): string[] {
 	const platform = determinePlatform(navigator.userAgent);

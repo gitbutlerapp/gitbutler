@@ -34,7 +34,7 @@
 	let isNotificationsUnread = $state(false);
 </script>
 
-<div class="header" class:isMac={platformName === 'macos'}>
+<div class="header" class:mac={platformName === 'macos'}>
 	<div class="left">
 		<div class="left-buttons" class:macos={platformName === 'macos'}>
 			<SyncButton size="button" />
@@ -115,12 +115,10 @@
 <style>
 	.header {
 		display: flex;
-		justify-content: space-between;
 		padding: 14px;
-
-		&.isMac {
-			padding: 14px 14px 14px 84px;
-		}
+		align-items: center;
+		justify-content: space-between;
+		overflow: hidden;
 	}
 
 	.left {
@@ -128,22 +126,30 @@
 		gap: 14px;
 	}
 
+	.center {
+		flex-shrink: 1;
+	}
+
+	.right {
+		display: flex;
+		justify-content: right;
+	}
+
+	/** Flex basis 0 means they grow by the same amount. */
+	.right,
+	.left {
+		flex-basis: 0;
+		flex-grow: 1;
+	}
+
 	.left-buttons {
 		display: flex;
 		gap: 8px;
 	}
 
-	.center {
-		position: absolute;
-		width: 100%;
-		left: 0;
-		display: flex;
-		justify-content: center;
-		pointer-events: none;
-
-		& * {
-			pointer-events: auto;
-		}
+	/** Mac padding added here to not affect header flex-box sizing. */
+	.mac .left-buttons {
+		padding-left: 70px;
 	}
 
 	.selector-series-select {
