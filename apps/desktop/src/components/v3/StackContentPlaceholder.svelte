@@ -1,6 +1,5 @@
 <script lang="ts">
-	import StackContentPlaceholderTop from '$components/v3/StackContentPlaceholderTop.svelte';
-	import StackContentTip from '$components/v3/StackContentTip.svelte';
+	import StackTip from '$components/v3/StackTip.svelte';
 	import EmptyStack from '$lib/assets/illustrations/empty-stack-placeholder.svg?raw';
 	import SelectACommit from '$lib/assets/illustrations/select-a-commit-preview.svg?raw';
 	import CommitAndPush from '$lib/assets/illustrations/tip-commit-and-push.svg?raw';
@@ -33,9 +32,9 @@
 </script>
 
 <div class="placeholder">
-	<div class="placeholder__top" class:white-bg={isTipViewingMode}>
+	<div class="top" class:white-bg={isTipViewingMode}>
 		{#if mode === previewModes.EmptyBranch}
-			<StackContentPlaceholderTop>
+			<StackTip>
 				{#snippet illustration()}
 					{@html EmptyStack}
 				{/snippet}
@@ -43,26 +42,23 @@
 					This is a new stack
 				{/snippet}
 				{#snippet body()}
-					<p>
-						Stack is a workflow for building branches sequentially to break features into smaller
-						parts.
-					</p>
-					<p>You can also choose a regular single-branch flow.</p>
+					Stack is a workflow for building branches sequentially to break features into smaller
+					parts. You can also choose a regular single-branch flow.
 				{/snippet}
-			</StackContentPlaceholderTop>
+			</StackTip>
 		{/if}
 		{#if mode === previewModes.SelectToPreview}
-			<StackContentPlaceholderTop>
+			<StackTip>
 				{#snippet illustration()}
 					{@html SelectACommit}
 				{/snippet}
 				{#snippet title()}
 					Select a commit to preview
 				{/snippet}
-			</StackContentPlaceholderTop>
+			</StackTip>
 		{/if}
 		{#if mode === previewModes.ViewingTips && activeTip === 0}
-			<StackContentTip>
+			<StackTip>
 				{#snippet illustration()}
 					{@html WhatIsAStack}
 				{/snippet}
@@ -76,10 +72,10 @@
 						single-branch flow.
 					</p>
 				{/snippet}
-			</StackContentTip>
+			</StackTip>
 		{/if}
 		{#if mode === previewModes.ViewingTips && activeTip === 1}
-			<StackContentTip>
+			<StackTip>
 				{#snippet illustration()}
 					{@html CommitAndPush}
 				{/snippet}
@@ -93,10 +89,10 @@
 						“locked” files. All branches in a stack are pushed together.
 					</p>
 				{/snippet}
-			</StackContentTip>
+			</StackTip>
 		{/if}
 		{#if mode === previewModes.ViewingTips && activeTip === 2}
-			<StackContentTip>
+			<StackTip>
 				{#snippet illustration()}
 					{@html ManageCommits}
 				{/snippet}
@@ -110,81 +106,84 @@
 						“locked” files. All branches in a stack are pushed together.
 					</p>
 				{/snippet}
-			</StackContentTip>
+			</StackTip>
 		{/if}
 	</div>
-	<div class="placeholder__bottom">
-		<div class="placeholder__bottom--left">
-			<div class="text-16 text-semibold">Tips</div>
+	<div class="bottom">
+		<div class="content">
+			<div class="left">
+				<div class="text-16 text-semibold">Tips</div>
 
-			<button
-				type="button"
-				class={[
-					'text-13 text-semibold',
-					isTipViewingMode && activeTip === 0 ? 'text-clr2' : 'text-clr3'
-				]}
-				onclick={() => selectTip(0)}
-			>
-				{#if isTipViewingMode && activeTip === 0}
-					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-				{/if}
-				What is a stack?
-			</button>
-			<button
-				type="button"
-				class={[
-					'text-13 text-semibold',
-					isTipViewingMode && activeTip === 1 ? 'text-clr2' : 'text-clr3'
-				]}
-				onclick={() => selectTip(1)}
-			>
-				{#if isTipViewingMode && activeTip === 1}
-					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-				{/if}
-				Commit and push
-			</button>
-			<button
-				type="button"
-				class={[
-					'text-13 text-semibold',
-					isTipViewingMode && activeTip === 2 ? 'text-clr2' : 'text-clr3'
-				]}
-				onclick={() => selectTip(2)}
-			>
-				{#if isTipViewingMode && activeTip === 2}
-					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-				{/if}
-				Manage commits
-			</button>
-		</div>
-		<div class="placeholder__bottom--right">
-			<Link
-				href="https://docs.gitbutler.com"
-				target="_blank"
-				underline={false}
-				externalIcon={false}
-				class="text-13 text-semibold text-clr2"><Icon name="doc" /> GitButler Docs</Link
-			>
-			<Link
-				href="https://github.com/gitbutlerapp/gitbutler"
-				target="_blank"
-				underline={false}
-				externalIcon={false}
-				class="text-13 text-semibold text-clr2"><Icon name="github" /> Source Code</Link
-			>
-			<Link
-				href="https://discord.com/invite/MmFkmaJ42D"
-				target="_blank"
-				underline={false}
-				externalIcon={false}
-				class="text-13 text-semibold text-clr2"><Icon name="discord" /> Join Community</Link
-			>
+				<button
+					type="button"
+					class={[
+						'text-13 text-semibold',
+						isTipViewingMode && activeTip === 0 ? 'text-clr2' : 'text-clr3'
+					]}
+					onclick={() => selectTip(0)}
+				>
+					{#if isTipViewingMode && activeTip === 0}
+						<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+					{/if}
+					What is a stack?
+				</button>
+				<button
+					type="button"
+					class={[
+						'text-13 text-semibold',
+						isTipViewingMode && activeTip === 1 ? 'text-clr2' : 'text-clr3'
+					]}
+					onclick={() => selectTip(1)}
+				>
+					{#if isTipViewingMode && activeTip === 1}
+						<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+					{/if}
+					Commit and push
+				</button>
+				<button
+					type="button"
+					class={[
+						'text-13 text-semibold',
+						isTipViewingMode && activeTip === 2 ? 'text-clr2' : 'text-clr3'
+					]}
+					onclick={() => selectTip(2)}
+				>
+					{#if isTipViewingMode && activeTip === 2}
+						<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+					{/if}
+					Manage commits
+				</button>
+			</div>
+			<div class="right">
+				<Link
+					href="https://docs.gitbutler.com"
+					target="_blank"
+					underline={false}
+					externalIcon={false}
+					class="text-13 text-semibold text-clr2"><Icon name="doc" /> GitButler Docs</Link
+				>
+				<Link
+					href="https://github.com/gitbutlerapp/gitbutler"
+					target="_blank"
+					underline={false}
+					externalIcon={false}
+					class="text-13 text-semibold text-clr2"><Icon name="github" /> Source Code</Link
+				>
+				<Link
+					href="https://discord.com/invite/MmFkmaJ42D"
+					target="_blank"
+					underline={false}
+					externalIcon={false}
+					class="text-13 text-semibold text-clr2"><Icon name="discord" /> Join Community</Link
+				>
+			</div>
 		</div>
 	</div>
 </div>
 
 <style>
 	.placeholder {
+		flex: 1;
 		position: relative;
 		height: 100%;
 		display: flex;
@@ -194,7 +193,7 @@
 		overflow: hidden;
 	}
 
-	.placeholder__top {
+	.top {
 		flex: 1;
 		width: 100%;
 		display: flex;
@@ -209,32 +208,33 @@
 		}
 	}
 
-	.placeholder__bottom {
+	.bottom {
 		width: 100%;
 		display: flex;
 		padding: 48px;
 
 		border-top: 1px solid var(--clr-border-2);
-	}
 
-	.placeholder__bottom--left > div:first-child {
-		margin-bottom: 20px;
-	}
+		& .left > div:first-child {
+			margin-bottom: 20px;
+		}
 
-	.placeholder__bottom--right,
-	.placeholder__bottom--left {
-		flex: 0.5;
-		display: flex;
-		align-items: start;
-		flex-direction: column;
-		gap: 12px;
+		& .right,
+		& .left {
+			flex: 0.5;
+			display: flex;
+			align-items: start;
+			flex-direction: column;
+			gap: 12px;
+		}
 
-		& button {
-			outline: none;
+		& .content {
+			display: flex;
+			width: 375px;
 		}
 	}
 
-	.placeholder__bottom--right {
+	.bottom .right {
 		justify-content: end;
 	}
 

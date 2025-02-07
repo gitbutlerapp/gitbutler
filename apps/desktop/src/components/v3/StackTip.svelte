@@ -12,36 +12,45 @@
 </script>
 
 {#if illustration}
-	<div class="placeholder__svg" in:fade={{ duration: 250 }}>
+	<div class="illustration" in:fade={{ duration: 250 }}>
 		{@render illustration()}
 	</div>
 {/if}
-<div class="placeholder__text">
+<div class="text">
 	{#if title}
-		<div class="text-18 text-semibold text-clr1">{@render title()}</div>
+		<div class="text-18 text-semibold text-clr1" class:center={!body}>
+			{@render title()}
+		</div>
 	{/if}
 	{#if body}
-		<div class="text-13 text-clr2">
+		<p class="text-13 text-clr2">
 			{@render body()}
-		</div>
+		</p>
 	{/if}
 </div>
 
 <style>
-	.placeholder__svg {
+	.illustration {
 		width: 300px;
 	}
 
-	.placeholder__text {
-		text-align: left;
-		line-height: 1 !important;
-		margin: 0 auto;
+	.text {
 		display: flex;
+		max-width: 375px;
 		flex-direction: column;
 		gap: 8px;
+		text-align: left;
 
 		& p {
 			line-height: 1.75;
+		}
+
+		.center {
+			text-align: center;
+			max-width: 300px;
+			font-size: 13px;
+			font-weight: 300;
+			color: var(--clr-text-2);
 		}
 	}
 </style>
