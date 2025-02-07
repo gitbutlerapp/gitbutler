@@ -16,6 +16,7 @@
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { NotificationSettingsService } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
 	import { setExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
 	import { setContext, type Snippet } from 'svelte';
@@ -72,6 +73,11 @@
 	setContext(LatestBranchLookupService, latestBranchLookupService);
 	const routesService = new WebRoutesService(location.protocol + '//' + location.host, true);
 	setContext(WebRoutesService, routesService);
+	const notificationSettingsService = new NotificationSettingsService(
+		httpClient,
+		appState.appDispatch
+	);
+	setContext(NotificationSettingsService, notificationSettingsService);
 	setExternalLinkService({
 		open: (href) => {
 			location.href = href;
