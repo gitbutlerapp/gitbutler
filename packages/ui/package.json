@@ -47,7 +47,6 @@
 		"@replit/codemirror-lang-svelte": "^6.0.0",
 		"@storybook/addon-docs": "^8.5.3",
 		"@storybook/addon-essentials": "^8.5.3",
-		"@storybook/addon-interactions": "^8.5.3",
 		"@storybook/addon-links": "^8.5.3",
 		"@storybook/addon-svelte-csf": "5.0.0-next.23",
 		"@storybook/blocks": "^8.5.3",
