@@ -252,7 +252,7 @@
 <style lang="postcss">
 	.layout {
 		display: grid;
-		grid-template-columns: 5fr 11fr;
+		grid-template-columns: 6fr 10fr;
 		gap: var(--layout-col-gap);
 
 		@media (--desktop-small-viewport) {
@@ -297,7 +297,7 @@
 	.stats {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 16px;
+		gap: 30px;
 	}
 
 	.header-right {
