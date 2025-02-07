@@ -175,8 +175,8 @@
 		padding: 0;
 	}
 
-	:global(.navigation .user-btn, .label) {
-		padding: 0 1px;
+	:global(.navigation .user-btn .label) {
+		padding: 0 3px;
 	}
 
 	.user-btn {
