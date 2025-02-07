@@ -11,6 +11,7 @@ import { organizationsReducer } from '$lib/organizations/organizationsSlice';
 import { projectsReducer } from '$lib/organizations/projectsSlice';
 import { repositoryIdLookupsReducer } from '$lib/organizations/repositoryIdLookupsSlice';
 import { exampleReducer } from '$lib/redux/example';
+import { notificationSettingsReducer } from '$lib/settings/notificationSetttingsSlice';
 import { usersByLoginReducer, usersReducer } from '$lib/users/usersSlice';
 import { configureStore, createSelector } from '@reduxjs/toolkit';
 
@@ -75,6 +76,10 @@ export interface AppBranchReviewListingsState {
 	readonly branchReviewListings: ReturnType<typeof branchReviewListingsReducer>;
 }
 
+export interface AppNotificationSettingsState {
+	readonly notificationSettings: ReturnType<typeof notificationSettingsReducer>;
+}
+
 export class AppDispatch {
 	constructor(readonly dispatch: typeof AppState.prototype._store.dispatch) {}
 }
@@ -94,7 +99,8 @@ export class AppState
 		AppChatChannelsState,
 		AppRepositoryIdLookupsState,
 		AppLatestBranchLookupsState,
-		AppBranchReviewListingsState
+		AppBranchReviewListingsState,
+		AppNotificationSettingsState
 {
 	/**
 	 * The base store.
@@ -118,7 +124,8 @@ export class AppState
 			chatChannels: chatChannelsReducer,
 			repositoryIdLookups: repositoryIdLookupsReducer,
 			latestBranchLookups: latestBranchLookupsReducer,
-			branchReviewListings: branchReviewListingsReducer
+			branchReviewListings: branchReviewListingsReducer,
+			notificationSettings: notificationSettingsReducer
 		}
 	});
 
@@ -184,6 +191,10 @@ export class AppState
 		[this.selectSelf],
 		(rootState) => rootState.branchReviewListings
 	);
+	private readonly selectNotificationSettings = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.notificationSettings
+	);
 
 	readonly example = $derived(this.selectExample(this.rootState));
 	readonly posts = $derived(this.selectPosts(this.rootState));
@@ -200,6 +211,7 @@ export class AppState
 	readonly repositoryIdLookups = $derived(this.selectRepositoryIdLookups(this.rootState));
 	readonly latestBranchLookups = $derived(this.selectLatestBranchLookups(this.rootState));
 	readonly branchReviewListings = $derived(this.selectBranchReviewListings(this.rootState));
+	readonly notificationSettings = $derived(this.selectNotificationSettings(this.rootState));
 
 	constructor() {
 		$effect(() => {
