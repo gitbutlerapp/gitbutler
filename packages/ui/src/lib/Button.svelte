@@ -168,12 +168,6 @@
 				var(--btn-bg, transparent),
 				transparent calc((1 - var(--opacity-btn-bg, 1)) * 100%)
 			);
-			border: 1px solid
-				color-mix(
-					in srgb,
-					var(--btn-border-clr, transparent),
-					transparent calc((1 - var(--btn-border-opacity, 1)) * 100%)
-				);
 
 			transition:
 				background var(--transition-fast),
@@ -202,6 +196,12 @@
 			}
 			&.outline {
 				--btn-border-opacity: var(--opacity-btn-outline);
+				border: 1px solid
+					color-mix(
+						in srgb,
+						var(--btn-border-clr, transparent),
+						transparent calc((1 - var(--btn-border-opacity, 1)) * 100%)
+					);
 			}
 			&:disabled {
 				cursor: default;

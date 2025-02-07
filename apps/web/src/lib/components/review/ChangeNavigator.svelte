@@ -48,6 +48,7 @@
 <style lang="postcss">
 	.change-navigator {
 		display: flex;
+		height: fit-content;
 	}
 
 	:global(.change-navigator .navigate-prev) {
