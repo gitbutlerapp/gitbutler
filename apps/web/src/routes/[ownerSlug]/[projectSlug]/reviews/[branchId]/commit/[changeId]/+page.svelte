@@ -127,7 +127,11 @@
 				</div>
 
 				<p class="review-main-content-description">
-					<Markdown content={patch.description?.trim() || DESCRIPTION_PLACE_HOLDER} />
+					{#if patch.description?.trim() === ''}
+						<span class="none">{DESCRIPTION_PLACE_HOLDER}</span>
+					{:else}
+						<Markdown content={patch.description?.trim()} />
+					{/if}
 				</p>
 
 				<ReviewInfo projectId={repositoryId} {patch} />
@@ -194,11 +198,15 @@
 
 	.review-main-content-description {
 		color: var(--text-1, #1a1614);
-		font-family: var(--fontfamily-mono, 'Geist Mono');
-		font-size: 12px;
+		font-size: 14px;
 		font-style: normal;
 		font-weight: var(--weight-regular, 400);
 		line-height: 160%; /* 19.2px */
+	}
+
+	.review-main-content-description .none {
+		color: var(--text-2, #6e6e6e);
+		font-style: italic;
 	}
 
 	.review-chat {
