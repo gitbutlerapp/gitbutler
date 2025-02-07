@@ -11,8 +11,9 @@
 		projectId: string;
 		selectedId: string | undefined;
 		previewing: boolean;
+		width: number | undefined;
 	};
-	let { projectId, selectedId }: Props = $props();
+	let { projectId, selectedId, width = $bindable() }: Props = $props();
 
 	const stackService = getContext(StackService);
 	const result = $derived(stackService.getStacks(projectId));
@@ -34,6 +35,7 @@
 	onMount(() => {
 		const observer = new ResizeObserver(() => {
 			scrollable = scroller ? scroller.scrollWidth > scroller.offsetWidth : false;
+			width = inner?.offsetWidth;
 		});
 		observer.observe(inner!);
 		return () => {
