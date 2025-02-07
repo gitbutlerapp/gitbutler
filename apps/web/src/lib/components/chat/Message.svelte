@@ -56,7 +56,7 @@
 				{#if message.resolved}
 					<Badge style="success">Issue resolved</Badge>
 				{:else}
-					<Badge style="error">Issue</Badge>
+					<Badge style="warning">Issue</Badge>
 				{/if}
 			{/if}
 
@@ -101,7 +101,7 @@
 
 		&.open-issue {
 			padding-left: 12px;
-			border-left: 4px solid var(--clr-scale-err-50);
+			border-left: 4px solid var(--clr-br-commit-changes-requested-bg);
 		}
 
 		&.resolved {
@@ -124,8 +124,8 @@
 		flex-shrink: 0;
 
 		border-radius: 8px;
-		background: var(--clr-scale-err-50, #dc606b);
-		color: var(--clr-theme-err-soft);
+		background: var(--clr-br-commit-changes-requested-bg);
+		color: var(--clr-br-commit-changes-requested-text);
 
 		&.resolved {
 			background: var(--clr-core-ntrl-60, #b4afac);
