@@ -14,10 +14,6 @@ export default defineWorkspace([
 				name: 'chromium',
 				provider: 'playwright'
 			},
-			include: ['**/*.stories.?(m)[jt]s?(x)'],
-			// TODO: Enable once CSF is supporting experimental-addon-test
-			// See: https://github.com/storybookjs/addon-svelte-csf/issues/213
-			// include: ['**/*.stories.?([jt]s|svelte)'],
 			setupFiles: ['./.storybook/vitest.setup.ts']
 		}
 	}
