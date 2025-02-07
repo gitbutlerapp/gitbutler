@@ -1,7 +1,7 @@
 <script lang="ts">
-	import StackTabNew from './StackTabNew.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import StackTab from '$components/v3/StackTab.svelte';
+	import StackTabNew from '$components/v3/StackTabNew.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { stacksToTabs } from '$lib/tabs/mapping';
 	import { getContext } from '@gitbutler/shared/context';
@@ -11,9 +11,8 @@
 		projectId: string;
 		selectedId: string | undefined;
 		previewing: boolean;
-		width: number | undefined;
 	};
-	let { projectId, selectedId, width = $bindable() }: Props = $props();
+	let { projectId, selectedId }: Props = $props();
 
 	const stackService = getContext(StackService);
 	const result = $derived(stackService.getStacks(projectId));
@@ -35,7 +34,6 @@
 	onMount(() => {
 		const observer = new ResizeObserver(() => {
 			scrollable = scroller ? scroller.scrollWidth > scroller.offsetWidth : false;
-			width = inner?.offsetWidth;
 		});
 		observer.observe(inner!);
 		return () => {
@@ -44,10 +42,10 @@
 	});
 </script>
 
-<menu class="tabs">
+<div class="tabs">
 	<div class="inner" bind:this={inner}>
 		<div class="shadows">
-			<div class="scroller" bind:this={scroller} class:scrolled {onscroll}>
+			<div class="nav-scroller" bind:this={scroller} class:scrolled {onscroll}>
 				<ReduxResult result={result.current}>
 					{#snippet children(result)}
 						{@const tabs = stacksToTabs(result)}
@@ -68,7 +66,7 @@
 		</div>
 		<StackTabNew {projectId} />
 	</div>
-</menu>
+</div>
 
 <style lang="postcss">
 	.tabs {
@@ -79,13 +77,12 @@
 		max-width: 100%;
 	}
 
-	.scroller {
+	.nav-scroller {
 		display: flex;
-		position: relative;
 		overflow-x: scroll;
 	}
 
-	.scroller::-webkit-scrollbar {
+	.nav-scroller::-webkit-scrollbar {
 		display: none;
 	}
 
