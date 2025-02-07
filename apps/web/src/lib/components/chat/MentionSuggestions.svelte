@@ -19,9 +19,10 @@
 	let targetEl: HTMLElement | undefined = $state();
 
 	$effect(() => {
-		if (suggestions) {
-			// Reset the selected suggestion index when the suggestions change
+		if (suggestions === undefined || suggestions.length === 0) {
 			selectedSuggestionIndex = undefined;
+		} else {
+			selectedSuggestionIndex = 0;
 		}
 	});
 

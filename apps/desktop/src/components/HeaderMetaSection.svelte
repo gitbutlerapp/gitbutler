@@ -2,9 +2,6 @@
 	import SeriesRowLabels from './SeriesLabels.svelte';
 	import BranchLaneContextMenu from '$components/BranchLaneContextMenu.svelte';
 	import { PatchSeries } from '$lib/branches/branch';
-	import { cloudReviewFunctionality } from '$lib/config/uiFeatureFlags';
-	import { StackPublishingService } from '$lib/history/stackPublishingService';
-	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 
@@ -14,21 +11,11 @@
 		stackId?: string;
 	}
 
-	const { series, onCollapseButtonClick, stackId }: Props = $props();
+	const { series, onCollapseButtonClick }: Props = $props();
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let kebabButtonEl: HTMLButtonElement | undefined = $state();
 	let isContextMenuOpen = $state(false);
-
-	const stackPublishingService = getContext(StackPublishingService);
-	const canPublish = stackPublishingService.canPublish;
-	let publishing = $state<'inert' | 'loading' | 'complete'>('inert');
-
-	async function publishStack() {
-		publishing = 'loading';
-		await stackPublishingService.upsertStack(stackId);
-		publishing = 'complete';
-	}
 </script>
 
 <div class="stack-meta">
@@ -52,11 +39,6 @@
 			ontoggle={(isOpen) => (isContextMenuOpen = isOpen)}
 		/>
 	</div>
-	{#if $cloudReviewFunctionality && $canPublish}
-		<div class="stack-meta-bottom">
-			<Button wide onclick={publishStack} loading={publishing === 'loading'}>Publish stack</Button>
-		</div>
-	{/if}
 </div>
 
 <style lang="postcss">

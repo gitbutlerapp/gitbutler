@@ -37,4 +37,8 @@ export class LatestBranchLookupService {
 			})
 			.createInterest();
 	}
+
+	async refreshBranchUuid(branchId: string) {
+		await this.branchLookupInterests.invalidate({ branchId });
+	}
 }

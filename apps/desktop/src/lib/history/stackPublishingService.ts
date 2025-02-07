@@ -29,7 +29,7 @@ export class StackPublishingService {
 		});
 	}
 
-	async upsertStack(stackId?: string): Promise<void> {
+	async upsertStack(stackId: string, topBranch: string): Promise<void> {
 		// Take a snapshot
 		const { user, project } = get(this.#joinedUserAndProject);
 
@@ -41,7 +41,8 @@ export class StackPublishingService {
 		await this.commandService.invoke<string>('push_stack_to_review', {
 			projectId: project!.id,
 			user: user!,
-			stackId
+			stackId,
+			topBranch
 		});
 	}
 
