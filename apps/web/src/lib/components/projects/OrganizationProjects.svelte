@@ -20,8 +20,14 @@
 
 <Loading loadable={organization.current}>
 	{#snippet children(organization)}
-		{#each organization.projectRepositoryIds || [] as projectId}
-			<ProjectIndexCard {projectId} />
-		{/each}
+		{#if organization.projectRepositoryIds}
+			{#each organization.projectRepositoryIds as projectId, index}
+				<ProjectIndexCard
+					roundedTop={index === 0}
+					roundedBottom={organization.projectRepositoryIds.length - 1 === index}
+					{projectId}
+				/>
+			{/each}
+		{/if}
 	{/snippet}
 </Loading>

@@ -4,6 +4,7 @@
 	import { featureShowOrganizations } from '$lib/featureFlags';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -18,6 +19,7 @@
 
 	const userService = getContext(UserService);
 	const user = $derived(userService.user);
+	const routes = getContext(WebRoutesService);
 
 	let ctxMenuUserEl = $state<ReturnType<typeof ContextMenu>>();
 	let ctxUserTriggerButton = $state<HTMLButtonElement | undefined>();
@@ -36,7 +38,7 @@
 
 <div class="navigation">
 	<div class="main-links">
-		<a href="/repositories" class="logo" aria-label="main nav" title="Home">
+		<a href={routes.projectsPath()} class="logo" aria-label="main nav" title="Home">
 			<svg
 				width="23"
 				height="22"
