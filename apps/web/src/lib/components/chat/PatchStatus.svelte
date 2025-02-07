@@ -51,6 +51,10 @@
 		border-left: 4px solid var(--clr-theme-succ-element, #4ab582);
 		border-bottom: 1px solid var(--clr-border-3, #eae9e8);
 		background: var(--clr-theme-succ-bg, #f6fcfb);
+
+		&:first-child {
+			border-bottom: none;
+		}
 	}
 
 	.patch-status__icon {
