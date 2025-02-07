@@ -52,7 +52,6 @@
 		"@storybook/addon-svelte-csf": "5.0.0-next.23",
 		"@storybook/blocks": "^8.5.3",
 		"@storybook/experimental-addon-test": "^8.5.3",
-		"@storybook/svelte": "^8.5.3",
 		"@storybook/sveltekit": "^8.5.3",
 		"@storybook/test": "^8.5.3",
 		"@sveltejs/adapter-static": "catalog:svelte",
