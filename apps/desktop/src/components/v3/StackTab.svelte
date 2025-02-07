@@ -171,11 +171,11 @@
 			}
 		}
 
-		/* ACCENT LINES */
 		&.selected {
 			&::after {
 				transform: translateY(0);
 				background: var(--clr-theme-pop-element);
+				z-index: var(--z-ground);
 			}
 		}
 	}
