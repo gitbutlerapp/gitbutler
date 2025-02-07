@@ -103,7 +103,7 @@
 		/>
 	</div>
 	<div class="right" bind:this={rightEl}>
-		<StackTabs {projectId} selectedId={stackId} previewing={$previewing} />
+		<StackTabs {projectId} selectedId={stackId} previewing={$previewing} bind:width />
 		<div class="contents" class:rounded>
 			{#if stackId}
 				<StackDetails {projectId} {stackId} />
