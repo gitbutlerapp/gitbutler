@@ -42,33 +42,34 @@
 	}
 </script>
 
-<div class="avatar-grouping">
-	{#each avatars as avatar, i}
-		{#if i < maxAvatars}
-			<Avatar {size} srcUrl={avatar.srcUrl} tooltip={avatar.name} />
+{#if avatars.length > 0}
+	<div class="avatar-grouping">
+		{#each avatars as avatar, i}
+			{#if i < maxAvatars}
+				<Avatar {size} srcUrl={avatar.srcUrl} tooltip={avatar.name} />
+			{/if}
+		{/each}
+		{#if avatars.length > maxAvatars}
+			<Tooltip text={getTooltipText() || 'mr. unknown'}>
+				<div class="avatars-counter">
+					<span class="text-11 text-semibold">+{avatars.length - maxAvatars}</span>
+				</div>
+			</Tooltip>
 		{/if}
-	{/each}
-	{#if avatars.length > maxAvatars}
-		<Tooltip text={getTooltipText() || 'mr. unknown'}>
-			<div class="avatars-counter">
-				<span class="text-11 text-semibold">+{avatars.length - maxAvatars}</span>
-			</div>
-		</Tooltip>
-	{/if}
 
-	{#if avatars.length > 0 && icon}
-		<div class="avatar-icon-wrapper">
+		{#if avatars.length > 0 && icon}
 			<div class="avatar-icon {iconColor}">
 				<Icon name={icon} />
 			</div>
-		</div>
-	{/if}
-</div>
+		{/if}
+	</div>
+{/if}
 
 <style lang="postcss">
 	.avatar-grouping {
 		position: relative;
 		display: flex;
+		width: fit-content;
 
 		& :global(> span) {
 			display: flex;
@@ -77,16 +78,20 @@
 	}
 
 	.avatar-icon {
+		position: absolute;
+		top: -4px;
+		right: -12px;
+
 		z-index: var(--z-ground);
 		width: 14px;
 		height: 14px;
-		position: absolute;
+
 		display: flex;
 		justify-content: center;
 		align-items: center;
 		border-radius: 50%;
 
-		transform: translate(-4px, -7px);
+		transform: scale(0.95);
 		color: white;
 
 		&.success {
