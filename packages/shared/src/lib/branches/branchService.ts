@@ -119,6 +119,10 @@ export class BranchService {
 			.createInterest();
 	}
 
+	async refreshBranch(uuid: string) {
+		await this.branchInterests.invalidate({ uuid });
+	}
+
 	async updateBranch(uuid: string, params: BranchUpdateParams): Promise<Branch> {
 		const apiBranch = await this.httpClient.patch<ApiBranch>(`patch_stack/${uuid}`, {
 			body: params

@@ -1,11 +1,11 @@
 import type { Reactive, WritableReactive } from '$lib/storeUtils';
 import type { Readable, Writable } from 'svelte/store';
 
-export function readableToReactive<T>(readable: Readable<T>): Reactive<T | undefined> {
+export function readableToReactive<T>(readable?: Readable<T>): Reactive<T | undefined> {
 	let current = $state<T>();
 
 	$effect(() => {
-		const unsubscribe = readable.subscribe((value) => {
+		const unsubscribe = readable?.subscribe((value) => {
 			current = value;
 		});
 
