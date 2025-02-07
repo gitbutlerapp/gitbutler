@@ -80,7 +80,7 @@
 	.avatar-icon {
 		position: absolute;
 		top: -4px;
-		right: -12px;
+		right: -10px;
 
 		z-index: var(--z-ground);
 		width: 14px;
