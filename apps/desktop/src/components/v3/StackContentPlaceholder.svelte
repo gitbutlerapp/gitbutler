@@ -1,9 +1,11 @@
 <script lang="ts">
-	import StackContentPlaceholderEmptyBranch from '$components/v3/StackContentPlaceholder_EmptyBranch.svelte';
-	import StackContentPlaceholderSelectToPreview from '$components/v3/StackContentPlaceholder_SelectToPreview.svelte';
-	import StackContentTip0 from '$components/v3/StackContentTip_0.svelte';
-	import StackContentTip1 from '$components/v3/StackContentTip_1.svelte';
-	import StackContentTip2 from '$components/v3/StackContentTip_2.svelte';
+	import StackContentPlaceholderTop from '$components/v3/StackContentPlaceholderTop.svelte';
+	import StackContentTip from '$components/v3/StackContentTip.svelte';
+	import EmptyStack from '$lib/assets/illustrations/empty-stack-placeholder.svg?raw';
+	import SelectACommit from '$lib/assets/illustrations/select-a-commit-preview.svg?raw';
+	import CommitAndPush from '$lib/assets/illustrations/tip-commit-and-push.svg?raw';
+	import ManageCommits from '$lib/assets/illustrations/tip-manage-commits.svg?raw';
+	import WhatIsAStack from '$lib/assets/illustrations/tip-what-is-a-stack.svg?raw';
 	import { previewModes, type PreviewMode } from '$components/v3/StackDetails.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
@@ -33,19 +35,82 @@
 <div class="placeholder">
 	<div class="placeholder__top" class:white-bg={isTipViewingMode}>
 		{#if mode === previewModes.EmptyBranch}
-			<StackContentPlaceholderEmptyBranch />
+			<StackContentPlaceholderTop>
+				{#snippet illustration()}
+					{@html EmptyStack}
+				{/snippet}
+				{#snippet title()}
+					This is a new stack
+				{/snippet}
+				{#snippet body()}
+					<p>
+						Stack is a workflow for building branches sequentially to break features into smaller
+						parts.
+					</p>
+					<p>You can also choose a regular single-branch flow.</p>
+				{/snippet}
+			</StackContentPlaceholderTop>
 		{/if}
 		{#if mode === previewModes.SelectToPreview}
-			<StackContentPlaceholderSelectToPreview />
+			<StackContentPlaceholderTop>
+				{#snippet illustration()}
+					{@html SelectACommit}
+				{/snippet}
+				{#snippet title()}
+					Select a commit to preview
+				{/snippet}
+			</StackContentPlaceholderTop>
 		{/if}
 		{#if mode === previewModes.ViewingTips && activeTip === 0}
-			<StackContentTip0 />
+			<StackContentTip>
+				{#snippet illustration()}
+					{@html WhatIsAStack}
+				{/snippet}
+				{#snippet title()}
+					What is a stack?
+				{/snippet}
+				{#snippet body()}
+					<p>
+						Stack is a workflow where branches are built sequentially, breaking large features into
+						smaller parts. Each branch depends on the previous one. You can also choose a
+						single-branch flow.
+					</p>
+				{/snippet}
+			</StackContentTip>
 		{/if}
 		{#if mode === previewModes.ViewingTips && activeTip === 1}
-			<StackContentTip1 />
+			<StackContentTip>
+				{#snippet illustration()}
+					{@html CommitAndPush}
+				{/snippet}
+				{#snippet title()}
+					Commit and push
+				{/snippet}
+				{#snippet body()}
+					<p>
+						File changes can be committed in any stack unless already committed in another, as they
+						are dependent on a branch. When the dependent branch is selected, you can commit
+						“locked” files. All branches in a stack are pushed together.
+					</p>
+				{/snippet}
+			</StackContentTip>
 		{/if}
 		{#if mode === previewModes.ViewingTips && activeTip === 2}
-			<StackContentTip2 />
+			<StackContentTip>
+				{#snippet illustration()}
+					{@html ManageCommits}
+				{/snippet}
+				{#snippet title()}
+					Manage commits
+				{/snippet}
+				{#snippet body()}
+					<p>
+						File changes can be committed in any stack unless already committed in another, as they
+						are dependent on a branch. When the dependent branch is selected, you can commit
+						“locked” files. All branches in a stack are pushed together.
+					</p>
+				{/snippet}
+			</StackContentTip>
 		{/if}
 	</div>
 	<div class="placeholder__bottom">
