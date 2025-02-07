@@ -65,9 +65,6 @@
 </Loading>
 
 <style lang="postcss">
-	.title {
-		font-weight: bold;
-	}
 	.uuid {
 		font-size: 0.8em;
 		color: var(--clr-text-2);
