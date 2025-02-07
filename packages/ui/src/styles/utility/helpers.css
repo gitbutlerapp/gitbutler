@@ -68,16 +68,44 @@ pre {
 	0% {
 		transform: translateX(-3px);
 	}
+
 	25% {
 		transform: translateX(3px);
 	}
+
 	50% {
 		transform: translateX(-2px);
 	}
+
 	75% {
 		transform: translateX(2px);
 	}
+
 	100% {
 		transform: translateX(0);
 	}
+}
+
+.gap-1 {
+	gap: 4px !important;
+}
+
+.gap-2 {
+	gap: 8px !important;
+}
+
+.gap-3 {
+	gap: 12px !important;
+}
+
+.gap-4 {
+	gap: 16px !important;
+}
+
+.gap-5 {
+	gap: 20px !important;
+}
+
+.gap-6 {
+	gap: 24px !important;
 }
