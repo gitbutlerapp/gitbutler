@@ -135,15 +135,10 @@
 
 	.center {
 		position: absolute;
-		width: 100%;
 		left: 0;
-		display: flex;
-		justify-content: center;
-		pointer-events: none;
-
-		& * {
-			pointer-events: auto;
-		}
+		right: 0;
+		margin-inline: auto;
+		width: fit-content;
 	}
 
 	.selector-series-select {
