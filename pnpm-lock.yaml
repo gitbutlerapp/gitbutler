@@ -6,13 +6,23 @@ settings:
 
 catalogs:
   default:
+    '@vitest/ui':
+      specifier: 3.0.5
+      version: 3.0.5
     vite:
       specifier: 6.1.0
       version: 6.1.0
     vitest:
       specifier: 3.0.5
       version: 3.0.5
+  redux:
+    '@reduxjs/toolkit':
+      specifier: ^2.5.0
+      version: 2.5.0
   svelte:
+    '@sentry/sveltekit':
+      specifier: 8.54.0
+      version: 8.54.0
     '@sveltejs/adapter-static':
       specifier: 3.0.8
       version: 3.0.8
@@ -601,6 +611,9 @@ importers:
       '@storybook/experimental-addon-test':
         specifier: ^8.5.3
         version: 8.5.3(@vitest/browser@3.0.3)(@vitest/runner@3.0.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.5.3(prettier@3.3.2))(vitest@3.0.5)
+      '@storybook/svelte':
+        specifier: ^8.5.3
+        version: 8.5.3(storybook@8.5.3(prettier@3.3.2))(svelte@5.19.7)
       '@storybook/sveltekit':
         specifier: ^8.5.3
         version: 8.5.3(@babel/core@7.24.7)(@sveltejs/vite-plugin-svelte@5.0.3(svelte@5.19.7)(vite@6.1.0(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0)))(postcss-load-config@5.1.0(postcss@8.4.49))(postcss@8.4.49)(storybook@8.5.3(prettier@3.3.2))(svelte@5.19.7)(vite@6.1.0(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0))
