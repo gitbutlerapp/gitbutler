@@ -19,6 +19,7 @@
 		branchId: string;
 		changeId: string;
 		minimized: boolean;
+		isUserLoggedIn: boolean | undefined;
 		toggleMinimized: () => void;
 	}
 
@@ -30,6 +31,7 @@
 		branchUuid,
 		minimized,
 		isPatchAuthor,
+		isUserLoggedIn,
 		toggleMinimized
 	}: Props = $props();
 
@@ -103,7 +105,7 @@
 					{/snippet}
 				</Loading>
 			</div>
-			<ChatInput {branchUuid} {projectId} {branchId} {changeId} {isPatchAuthor} />
+			<ChatInput {isUserLoggedIn} {branchUuid} {projectId} {branchId} {changeId} {isPatchAuthor} />
 		</div>
 	</div>
 {/if}

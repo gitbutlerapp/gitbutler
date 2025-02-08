@@ -1,4 +1,5 @@
 <script lang="ts">
+	import LoginModal from '$lib/components/LoginModal.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { type Patch } from '@gitbutler/shared/branches/types';
@@ -12,6 +13,7 @@
 	interface Props {
 		branchUuid: string;
 		patch: Patch;
+		isUserLoggedIn: boolean;
 	}
 
 	const actionLabels = {
@@ -22,7 +24,7 @@
 	type Action = keyof typeof actionLabels;
 	type UserActionType = 'requested-changes' | 'approved' | 'not-reviewed';
 
-	const { patch, branchUuid }: Props = $props();
+	const { patch, branchUuid, isUserLoggedIn }: Props = $props();
 
 	const patchService = getContext(PatchService);
 	const userService = getContext(UserService);
@@ -39,6 +41,7 @@
 		return 'not-reviewed';
 	});
 
+	let loginModal = $state<LoginModal>();
 	let action = $state<Action>('approve');
 	let isExecuting = $state(false);
 	let dropDownButton = $state<ReturnType<typeof DropDownButton>>();
@@ -70,6 +73,11 @@
 	}
 
 	async function handleClick() {
+		if (!isUserLoggedIn) {
+			loginModal?.show();
+			return;
+		}
+
 		if (isExecuting) return;
 		isExecuting = true;
 
@@ -96,10 +104,6 @@
 		action = 'approve';
 		handleClick();
 	}
-
-	$effect(() => {
-		console.log('userAction', userAction);
-	});
 </script>
 
 {#if userAction === 'approved'}
@@ -156,6 +160,8 @@
 		{/snippet}
 	</DropDownButton>
 {/if}
+
+<LoginModal bind:this={loginModal} />
 
 <style lang="postcss">
 	.my-status-wrap {

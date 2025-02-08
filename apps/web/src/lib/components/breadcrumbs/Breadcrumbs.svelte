@@ -8,6 +8,12 @@
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 
+	interface Props {
+		isUserLoggedIn: boolean;
+	}
+
+	let { isUserLoggedIn }: Props = $props();
+
 	const appState = getContext(AppState);
 	const branchService = getContext(BranchService);
 	const routes = getContext(WebRoutesService);
@@ -35,7 +41,7 @@
 <ol class="breadcrumbs">
 	<li class="text-12 text-semibold breadcrumb-item">
 		<a
-			class:breadcrumb-item_disabled={!routes.isProjectReviewPageSubset}
+			class:breadcrumb-item_disabled={!routes.isProjectReviewPageSubset || !isUserLoggedIn}
 			href={routes.projectsPath()}
 		>
 			All projects
@@ -46,7 +52,7 @@
 	{#if routes.isProjectReviewPageSubset}
 		<li class="text-12 text-semibold breadcrumb-item truncate">
 			<a
-				class:breadcrumb-item_disabled={!routes.isProjectReviewBranchPageSubset}
+				class:breadcrumb-item_disabled={!routes.isProjectReviewBranchPageSubset || !isUserLoggedIn}
 				href={routes.isProjectPageSubset
 					? `${routes.projectPath(routes.isProjectReviewPageSubset)}/reviews`
 					: ''}

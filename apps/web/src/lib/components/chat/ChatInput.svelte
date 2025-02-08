@@ -15,16 +15,19 @@
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
 	import RichTextEditor, { type EditorInstance } from '@gitbutler/ui/RichTextEditor.svelte';
+	import { env } from '$env/dynamic/public';
 
 	interface Props {
-		isPatchAuthor: boolean | undefined;
 		projectId: string;
 		branchId: string;
 		branchUuid: string;
 		changeId: string;
+		isPatchAuthor: boolean | undefined;
+		isUserLoggedIn: boolean | undefined;
 	}
 
-	let { branchUuid, projectId, branchId, changeId, isPatchAuthor }: Props = $props();
+	let { branchUuid, projectId, branchId, changeId, isPatchAuthor, isUserLoggedIn }: Props =
+		$props();
 
 	const newUserService = getContext(NewUserService);
 	const userService = getContext(UserService);
@@ -147,89 +150,100 @@
 	function onEditorUpdate(editor: EditorInstance) {
 		messageHandler.update(editor);
 	}
+
+	function login() {
+		window.location.href = `${env.PUBLIC_APP_HOST}/cloud/login?callback=${window.location.href}`;
+	}
 </script>
 
-<div class="chat-input">
-	<MentionSuggestions
-		bind:this={richText.mentionSuggestions}
-		isLoading={suggestions.isLoading}
-		suggestions={richText.suggestions}
-		selectSuggestion={richText.selectSuggestion}
-	/>
-	<div class="text-input chat-input__content-container">
-		<RichTextEditor
-			bind:this={richText.richTextEditor}
-			getSuggestionItems={(q) => suggestions.getSuggestionItems(q)}
-			onSuggestionStart={(p) => richText.onSuggestionStart(p)}
-			onSuggestionUpdate={(p) => richText.onSuggestionUpdate(p)}
-			onSuggestionExit={() => richText.onSuggestionExit()}
-			onSuggestionKeyDown={(event) => richText.onSuggestionKeyDown(event)}
-			onKeyDown={handleKeyDown}
-			onUpdate={onEditorUpdate}
+{#if isUserLoggedIn}
+	<div class="chat-input">
+		<MentionSuggestions
+			bind:this={richText.mentionSuggestions}
+			isLoading={suggestions.isLoading}
+			suggestions={richText.suggestions}
+			selectSuggestion={richText.selectSuggestion}
 		/>
-		<div class="chat-input__actions">
-			<div class="chat-input__secondary-actions">
-				<Button
-					icon="attachment"
-					tooltip="Attach files"
-					tooltipPosition="top"
-					kind="ghost"
-					disabled
-					onclick={() => {
-						// TODO: Implement
-					}}
-				/>
-				<Button
-					icon="smile"
-					kind="ghost"
-					tooltipPosition="top"
-					tooltip="Insert emoji"
-					disabled
-					onclick={() => {
-						// TODO: Implement
-					}}
-				/>
-			</div>
-			<div class="chat-input__action-buttons">
-				{#if isPatchAuthor === false}
-					<DropDownButton
-						bind:this={dropDownButton}
+		<div class="text-input chat-input__content-container">
+			<RichTextEditor
+				bind:this={richText.richTextEditor}
+				getSuggestionItems={(q) => suggestions.getSuggestionItems(q)}
+				onSuggestionStart={(p) => richText.onSuggestionStart(p)}
+				onSuggestionUpdate={(p) => richText.onSuggestionUpdate(p)}
+				onSuggestionExit={() => richText.onSuggestionExit()}
+				onSuggestionKeyDown={(event) => richText.onSuggestionKeyDown(event)}
+				onKeyDown={handleKeyDown}
+				onUpdate={onEditorUpdate}
+			/>
+			<div class="chat-input__actions">
+				<div class="chat-input__secondary-actions">
+					<Button
+						icon="attachment"
+						tooltip="Attach files"
+						tooltipPosition="top"
+						kind="ghost"
+						disabled
+						onclick={() => {
+							// TODO: Implement
+						}}
+					/>
+					<Button
+						icon="smile"
+						kind="ghost"
+						tooltipPosition="top"
+						tooltip="Insert emoji"
+						disabled
+						onclick={() => {
+							// TODO: Implement
+						}}
+					/>
+				</div>
+				<div class="chat-input__action-buttons">
+					{#if isPatchAuthor === false}
+						<DropDownButton
+							bind:this={dropDownButton}
+							loading={isSendingMessage || isExecuting}
+							style="neutral"
+							kind="outline"
+							onclick={handleActionClick}
+						>
+							{actionButtonLabel}
+							{#snippet contextMenuSlot()}
+								<ContextMenuSection>
+									<ContextMenuItem
+										label={actionLabels.approve}
+										onclick={() => {
+											action = 'approve';
+											dropDownButton?.close();
+										}}
+									/>
+									<ContextMenuItem
+										label={actionLabels.requestChanges}
+										onclick={() => {
+											action = 'requestChanges';
+											dropDownButton?.close();
+										}}
+									/>
+								</ContextMenuSection>
+							{/snippet}
+						</DropDownButton>
+					{/if}
+					<Button
+						style="pop"
 						loading={isSendingMessage || isExecuting}
-						style="neutral"
-						kind="outline"
-						onclick={handleActionClick}
+						disabled={!messageHandler.message}
+						onclick={handleClickSend}>Comment</Button
 					>
-						{actionButtonLabel}
-						{#snippet contextMenuSlot()}
-							<ContextMenuSection>
-								<ContextMenuItem
-									label={actionLabels.approve}
-									onclick={() => {
-										action = 'approve';
-										dropDownButton?.close();
-									}}
-								/>
-								<ContextMenuItem
-									label={actionLabels.requestChanges}
-									onclick={() => {
-										action = 'requestChanges';
-										dropDownButton?.close();
-									}}
-								/>
-							</ContextMenuSection>
-						{/snippet}
-					</DropDownButton>
-				{/if}
-				<Button
-					style="pop"
-					loading={isSendingMessage || isExecuting}
-					disabled={!messageHandler.message}
-					onclick={handleClickSend}>Comment</Button
-				>
+				</div>
 			</div>
 		</div>
 	</div>
-</div>
+{:else}
+	<div class="chat-input-notlooged">
+		<p class="text-12">🔒 You must be logged in to join the conversation</p>
+		<Button style="pop" onclick={login}>Log in to comment</Button>
+	</div>
+{/if}
 
 <style lang="postcss">
 	.chat-input {
@@ -262,5 +276,20 @@
 	.chat-input__action-buttons {
 		display: flex;
 		gap: 4px;
+	}
+
+	.chat-input-notlooged {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 16px;
+		padding: 16px;
+		border-top: 1px solid var(--clr-border-2);
+
+		p {
+			width: 100%;
+			color: var(--clr-text-2);
+			line-height: 140%;
+		}
 	}
 </style>
