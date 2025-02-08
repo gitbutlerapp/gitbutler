@@ -141,13 +141,16 @@ Path: ${e.path}`);
 			const files = branches.flatMap((branch) => branch.files);
 			const hunks = files.flatMap((file) => file.hunks);
 			const lockedHunks = hunks.filter((hunk) => hunk.locked);
+			const validUnarchivedSeriesLengths = branches.map(
+				(b) => b.validSeries.filter((series) => !series.archived).length
+			);
 			this.projectMetrics.setMetric('hunk_count', hunks.length);
 			this.projectMetrics.setMetric('locked_hunk_count', lockedHunks.length);
 			this.projectMetrics.setMetric('file_count', files.length);
 			this.projectMetrics.setMetric('virtual_branch_count', branches.length);
 			this.projectMetrics.setMetric(
 				'max_stack_count',
-				branches.length > 0 ? Math.max(...branches.map((b) => b.series.length)) : 0
+				branches.length > 0 ? Math.max(...validUnarchivedSeriesLengths) : 0
 			);
 		} catch (err: unknown) {
 			console.error(err);
