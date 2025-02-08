@@ -124,6 +124,12 @@
 					onSubmit?.(close);
 				}}
 			>
+				{#if closeButton}
+					<div class="close-btn">
+						<Button type="button" kind="ghost" icon="cross" onclick={close}></Button>
+					</div>
+				{/if}
+
 				{#if title}
 					<div class="modal__header">
 						{#if type === 'warning'}
@@ -141,12 +147,6 @@
 						<h2 class="text-14 text-bold">
 							{title}
 						</h2>
-
-						{#if closeButton}
-							<div class="close-btn">
-								<Button type="button" kind="ghost" icon="cross" onclick={close}></Button>
-							</div>
-						{/if}
 					</div>
 				{/if}
 
@@ -174,6 +174,7 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
+		padding: 24px;
 
 		display: flex;
 		justify-content: center;
