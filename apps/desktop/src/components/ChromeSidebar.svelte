@@ -303,7 +303,7 @@
 	</ContextMenuSection>
 	<ContextMenuSection>
 		<ContextMenuItem
-			label="Logout"
+			label="Log out"
 			onclick={async () => {
 				await userService.logout();
 			}}

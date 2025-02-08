@@ -137,7 +137,7 @@
 	</ContextMenuSection>
 
 	<ContextMenuSection>
-		<ContextMenuItem label="Logout" onclick={logout} />
+		<ContextMenuItem label="Log out" onclick={logout} />
 	</ContextMenuSection>
 </ContextMenu>
 
