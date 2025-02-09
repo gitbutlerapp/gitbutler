@@ -161,7 +161,9 @@
 	</DropDownButton>
 {/if}
 
-<LoginModal bind:this={loginModal} />
+<LoginModal bind:this={loginModal}>
+	To approve this commit or request changes, you need to be logged in.
+</LoginModal>
 
 <style lang="postcss">
 	.my-status-wrap {

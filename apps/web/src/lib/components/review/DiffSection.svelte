@@ -12,7 +12,7 @@
 </script>
 
 <div class="diff-section">
-	<p class="file-name">{section.newPath}</p>
+	<p class="text-12 text-body file-name">{section.newPath}</p>
 	{#each hunks as hunkStr}
 		<HunkDiff filePath={section.newPath || 'unknown'} {hunkStr}></HunkDiff>
 	{/each}
@@ -29,13 +29,6 @@
 	}
 
 	.file-name {
-		color: var(--text-1, #1a1614);
-
-		/* base-body/12 */
-		font-family: var(--fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--weight-regular, 400);
-		line-height: 160%; /* 19.2px */
+		color: var(--clr-text-1);
 	}
 </style>

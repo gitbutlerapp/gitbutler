@@ -2,9 +2,16 @@
 	import loginSvg from '$lib/assets/login-modal.svg?raw';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { type Snippet } from 'svelte';
 	import { env } from '$env/dynamic/public';
 
 	let modal: ReturnType<typeof Modal> | undefined = $state();
+
+	interface Props {
+		children?: Snippet;
+	}
+
+	const { children }: Props = $props();
 
 	export function show() {
 		modal?.show();
@@ -23,7 +30,11 @@
 		<div class="login-modal__content">
 			<h2 class="text-18 text-bold login-modal__title">🔒 Log in to continue</h2>
 			<p class="text-13 text-body login-modal__text">
-				To approve this commit or request changes, you need to be logged in.
+				{#if children}
+					{@render children()}
+				{:else}
+					You need to be logged in to unlock full access to all features.
+				{/if}
 			</p>
 
 			<div class="login-modal__actions">

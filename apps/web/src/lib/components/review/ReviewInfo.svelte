@@ -77,11 +77,11 @@
 	</div>
 
 	<div class="review-main-content-info__entry">
-		<p class="review-main-content-info__header">Authors:</p>
+		<p class="text-12 review-main-content-info__header">Authors:</p>
 		<div>
 			{#await contributors then contributors}
 				{#if contributors.length === 0}
-					<p class="review-main-content-info__value">{NO_CONTRIBUTORS}</p>
+					<p class="text-12 review-main-content-info__value">{NO_CONTRIBUTORS}</p>
 				{:else}
 					<AvatarGroup avatars={contributors} />
 				{/if}
@@ -104,15 +104,8 @@
 
 	.review-main-content-info__header {
 		overflow: hidden;
-		color: var(--text-2, #867e79);
+		color: var(--clr-text-2);
 		text-overflow: ellipsis;
-
-		/* base/12 */
-		font-family: var(--fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--weight-regular, 400);
-		line-height: 120%; /* 14.4px */
 	}
 
 	.review-main-content-info__value-wrapper {
@@ -122,14 +115,7 @@
 
 	.review-main-content-info__value {
 		overflow: hidden;
-		color: var(--text-3, #b4afac);
+		color: var(--clr-text-3);
 		text-overflow: ellipsis;
-
-		/* base/12 */
-		font-family: var(--fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--weight-regular, 400);
-		line-height: 120%; /* 14.4px */
 	}
 </style>
