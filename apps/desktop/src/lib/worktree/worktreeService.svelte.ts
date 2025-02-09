@@ -1,6 +1,7 @@
 import { hasTauriExtra } from '$lib/state/backendQuery';
 import { ReduxTag } from '$lib/state/tags';
-import type { WorktreeChanges } from '$lib/hunks/change';
+import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
+import type { TreeChange, WorktreeChanges } from '$lib/hunks/change';
 import type { ClientState } from '$lib/state/clientState.svelte';
 
 export class WorktreeService {
@@ -11,17 +12,15 @@ export class WorktreeService {
 	}
 
 	getChanges(projectId: string) {
-		const { getWorktreeChanges } = this.api.endpoints;
-		const result = $derived(getWorktreeChanges.useQuery({ projectId }));
+		const { getChanges } = this.api.endpoints;
+		const result = $derived(getChanges.useQuery({ projectId }, (res) => selectAll(res)));
 		return result;
 	}
 
 	getChange(projectId: string, path: string) {
-		const { getWorktreeChanges } = this.api.endpoints;
+		const { getChanges } = this.api.endpoints;
 		const result = $derived(
-			getWorktreeChanges.useQueryState({ projectId }, (result) => {
-				return result.changes.find((change) => change.path === path)!;
-			})
+			getChanges.useQueryState({ projectId }, (res) => selectById(res, path)!)
 		);
 		return result;
 	}
@@ -30,7 +29,7 @@ export class WorktreeService {
 function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			getWorktreeChanges: build.query<WorktreeChanges, { projectId: string }>({
+			getChanges: build.query<EntityState<TreeChange, string>, { projectId: string }>({
 				query: ({ projectId }) => ({ command: 'worktree_changes', params: { projectId } }),
 				providesTags: [ReduxTag.WorktreeChanges],
 				// TODO: Customize this function to provide types for injected dependencies.
@@ -43,13 +42,33 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						`project://${arg.projectId}/worktree_changes`,
 						(event) => {
 							lifecycleApi.dispatch(api.util.invalidateTags([ReduxTag.Diff]));
-							lifecycleApi.updateCachedData(() => event.payload);
+							lifecycleApi.updateCachedData(() => {
+								console.log('streaming update', event);
+								return worktreeAdapter.addMany(
+									worktreeAdapter.getInitialState(),
+									event.payload.changes
+								);
+							});
 						}
 					);
 					await lifecycleApi.cacheEntryRemoved;
 					unsubscribe();
+				},
+				/**
+				 * For convenience we transform the result using the entity adapter such
+				 * that we can use selectors like `selectById`.
+				 */
+				async transformResponse(response: WorktreeChanges) {
+					return worktreeAdapter.addMany(worktreeAdapter.getInitialState(), response.changes);
 				}
 			})
 		})
 	});
 }
+
+const worktreeAdapter = createEntityAdapter<TreeChange, TreeChange['path']>({
+	selectId: (change) => change.path,
+	sortComparer: (a, b) => a.path.localeCompare(b.path)
+});
+
+const { selectAll, selectById } = worktreeAdapter.getSelectors();
