@@ -42,12 +42,12 @@
 
 <div class="review-main-content-info">
 	<div class="review-main-content-info__entry">
-		<p class="review-main-content-info__header">Status:</p>
+		<p class="text-12 review-main-content-info__header">Status:</p>
 		<ChangeStatus {patch} />
 	</div>
 
 	<div class="review-main-content-info__entry">
-		<p class="review-main-content-info__header">Reviewed by:</p>
+		<p class="text-12 review-main-content-info__header">Reviewed by:</p>
 		<div class="review-main-content-info__value-wrapper">
 			{#await Promise.all([approvers, rejectors]) then [approvers, rejectors]}
 				{#if approvers.length === 0 && rejectors.length === 0}
@@ -66,7 +66,7 @@
 	</div>
 
 	<div class="review-main-content-info__entry">
-		<p class="review-main-content-info__header">Commented by:</p>
+		<p class="text-12 review-main-content-info__header">Commented by:</p>
 		{#await commenters then commentors}
 			{#if commentors.length === 0}
 				<p class="review-main-content-info__value">{NO_COMMENTS}</p>
