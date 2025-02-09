@@ -126,13 +126,11 @@ type CustomQueryResultSelectorResult<T extends QueryDefinition<any, any, any, an
  */
 type QueryHooks<Definition extends QueryDefinition<any, any, any, any>> = {
 	/** Execute query and return results. */
-	useQuery: (
-		args: QueryArgFrom<Definition>
-	) => Reactive<
-		CustomQueryResultSelectorResult<
-			Extract<Definition, QueryDefinition<any, any, any, ResultTypeFrom<Definition>>>
-		>
-	>;
+	useQuery: <T extends (args: ResultTypeFrom<Definition>) => any>(
+		args: QueryArgFrom<Definition>,
+		/** Optional transformation of the result.  */
+		transform?: T
+	) => Reactive<CustomQueryResultSelectorResult<QueryDefinition<any, any, any, ReturnType<T>>>>;
 	/** Execute query on existing state. */
 	useQueryState: <T extends (args: ResultTypeFrom<Definition>) => any>(
 		args: QueryArgFrom<Definition>,
