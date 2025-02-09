@@ -26,9 +26,9 @@
 
 <div class="uncommitted-changes">
 	<ReduxResult result={result.current}>
-		{#snippet children(result)}
-			{#if result.changes.length > 0}
-				<FileList {projectId} changes={result.changes} />
+		{#snippet children(changes)}
+			{#if changes.length > 0}
+				<FileList {projectId} {changes} />
 			{:else}
 				<div class="text-12 text-body helper-text">
 					{@html noChanges}
@@ -38,6 +38,10 @@
 			{/if}
 		{/snippet}
 	</ReduxResult>
+</div>
+
+<div class="start-commit">
+	<Button kind="solid" type="button" size="cta" wide>Start a commit</Button>
 </div>
 
 <style>
@@ -76,5 +80,9 @@
 		color: var(--clr-text-2);
 		opacity: 0.6;
 		margin-top: 10px;
+	}
+
+	.start-commit {
+		padding: 14px;
 	}
 </style>
