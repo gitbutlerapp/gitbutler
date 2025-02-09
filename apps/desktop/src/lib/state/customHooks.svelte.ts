@@ -1,14 +1,15 @@
+import { type ThunkDispatch, type UnknownAction } from '@reduxjs/toolkit';
 import {
 	type Api,
 	type ApiEndpointMutation,
 	type ApiEndpointQuery,
+	type BaseQueryFn,
 	type CoreModule,
 	type EndpointDefinitions,
 	type MutationDefinition,
 	type QueryDefinition,
 	type RootState
 } from '@reduxjs/toolkit/query';
-import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
 
 /**
  *	The api is necessary to create the store, so we need to provide
@@ -38,17 +39,17 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 	const endpoint = api.endpoints[endpointName]!;
 
 	const { initiate, select } = endpoint as ApiEndpointQuery<
-		QueryDefinition<any, any, any, any, any>,
+		QueryDefinition<unknown, BaseQueryFn, string, any>,
 		Definitions
 	>;
 
-	function useQuery(queryArg: unknown) {
+	function useQuery<T extends (arg: any) => any>(queryArg: unknown, transform?: T) {
 		const dispatch = getDispatch();
 		$effect(() => {
 			const { unsubscribe } = dispatch(initiate(queryArg));
 			return unsubscribe;
 		});
-		const result = $derived(useQueryState(queryArg));
+		const result = $derived(useQueryState(queryArg, transform));
 		return result;
 	}
 
@@ -58,7 +59,10 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 		const result = $derived(selector(state()));
 		return {
 			get current() {
-				const data = transform ? transform(result.data) : result.data;
+				let data = result.data;
+				if (transform && data) {
+					data = transform(data);
+				}
 				function andThen(fn: (arg: any) => any) {
 					if (data) {
 						return fn(data);
