@@ -29,7 +29,6 @@ export function registerInterestInView(interest: Interest, element?: HTMLElement
 
 			const observer = new IntersectionObserver(
 				(entries) => {
-					console.log(entries);
 					inView = entries[0]?.isIntersecting || false;
 				},
 				{
