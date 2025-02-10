@@ -8,9 +8,16 @@
 		Tip3
 	}
 
+	// eslint-disable-next-line svelte/valid-compile
+	enum PlaceholderType {
+		Tip,
+		Placeholder
+	}
+
 	const modeMap = {
 		[PreviewMode.EmptyBranch]: {
 			svg: EmptyStack,
+			type: PlaceholderType.Placeholder,
 			title: 'This is a new stack',
 			body: `
 				Stack is a workflow for building branches sequentially to
@@ -20,11 +27,13 @@
 		},
 		[PreviewMode.SelectToPreview]: {
 			svg: SelectACommit,
+			type: PlaceholderType.Placeholder,
 			title: 'Select a commit to preview',
 			body: ''
 		},
 		[PreviewMode.Tip1]: {
 			svg: WhatIsAStack,
+			type: PlaceholderType.Tip,
 			title: 'What is a stack',
 			body: `
 				Stack is a workflow where branches are built sequentially,
@@ -34,6 +43,7 @@
 		},
 		[PreviewMode.Tip2]: {
 			svg: CommitAndPush,
+			type: PlaceholderType.Tip,
 			title: 'Commit and push',
 			body: `
 				File changes can be committed in any stack unless already
@@ -44,6 +54,7 @@
 		},
 		[PreviewMode.Tip3]: {
 			svg: ManageCommits,
+			type: PlaceholderType.Tip,
 			title: 'Manage commits',
 			body: `
 				File changes can be committed in any stack unless already
@@ -71,7 +82,7 @@
 	}
 
 	let { mode }: Props = $props();
-	const { svg, title, body } = $derived(modeMap[mode]);
+	const { svg, title, body, type } = $derived(modeMap[mode]);
 </script>
 
 {#snippet tipButton(value: PreviewMode)}
@@ -88,8 +99,9 @@
 		{modeMap[value].title}
 	</button>
 {/snippet}
+
 <div class="placeholder">
-	<div class="top">
+	<div class="top" class:white-bg={type === PlaceholderType.Tip}>
 		<StackContentTip {title} {body}>
 			{#snippet illustration()}
 				{@html svg}
