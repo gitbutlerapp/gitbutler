@@ -39,6 +39,12 @@ impl ObjectIdExt for gix::ObjectId {
     }
 }
 
+impl<'a> ObjectIdExt for gix::Id<'a> {
+    fn to_git2(self) -> git2::Oid {
+        gix_to_git2_oid(self.detach())
+    }
+}
+
 pub fn git2_signature_to_gix_signature<'a>(
     input: impl Borrow<git2::Signature<'a>>,
 ) -> gix::actor::Signature {

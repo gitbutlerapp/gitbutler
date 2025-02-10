@@ -316,7 +316,7 @@ fn fixup_is_first_step() -> Result<()> {
     });
     assert_eq!(
         result.err().unwrap().to_string(),
-        "Fixup commit must have a Pick or Merge step preceding it"
+        "Fixup must have a commit to work on"
     );
     Ok(())
 }
@@ -335,7 +335,7 @@ fn fixup_is_only_preceeded_by_a_reference_step() -> Result<()> {
     });
     assert_eq!(
         result.err().unwrap().to_string(),
-        "Fixup commit must have a Pick or Merge step preceding it"
+        "Fixup commit must not come after a reference step"
     );
     Ok(())
 }
