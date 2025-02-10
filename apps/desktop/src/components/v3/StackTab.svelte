@@ -14,43 +14,50 @@
 		selected: boolean;
 	};
 
+	const { projectId, tab, first, last, selected }: Props = $props();
+
 	let kebabMenuTrigger = $state<HTMLElement>();
 	let contextMenu = $state<ContextMenu>();
 
-	const { projectId, tab, first, last, selected }: Props = $props();
+	let nameEl = $state<HTMLDivElement>();
+	let nameWidth = $state<number>();
+
+	$effect(() => {
+		if (nameEl) {
+			nameWidth = nameEl.offsetWidth - 1;
+		}
+	});
 </script>
 
-<div class="container">
-	<a
-		data-sveltekit-keepfocus
-		href={stackPath(projectId, tab.id)}
-		class="tab"
-		class:first
-		class:last
-		class:selected
-	>
-		<div class="icon">
-			<Icon name={tab.anchors.length > 0 ? 'chain-link' : 'branch-small'} verticalAlign="top" />
+<a
+	data-sveltekit-keepfocus
+	href={stackPath(projectId, tab.id)}
+	class="tab"
+	class:first
+	class:last
+	class:selected
+>
+	<div class="icon">
+		<Icon name={tab.anchors.length > 0 ? 'chain-link' : 'branch-small'} verticalAlign="top" />
+	</div>
+	<div class="content" style:max-width="{nameWidth}px">
+		<div class="text-12 text-semibold name" bind:this={nameEl}>
+			{tab.name}
 		</div>
-		<div class="content">
-			<div class="text-12 text-semibold name">
-				{tab.name}
-			</div>
-			<button
-				class="menu-btn"
-				onclick={(e) => {
-					e.preventDefault();
-					e.stopPropagation();
-					contextMenu?.toggle();
-				}}
-				bind:this={kebabMenuTrigger}
-				type="button"
-			>
-				<Icon name="kebab" />
-			</button>
-		</div>
-	</a>
-</div>
+		<button
+			class="menu-btn"
+			onclick={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				contextMenu?.toggle();
+			}}
+			bind:this={kebabMenuTrigger}
+			type="button"
+		>
+			<Icon name="kebab" />
+		</button>
+	</div>
+</a>
 
 <ContextMenu bind:this={contextMenu} leftClickTrigger={kebabMenuTrigger} side="bottom">
 	<ContextMenuSection>
@@ -72,9 +79,6 @@
 </ContextMenu>
 
 <style lang="postcss">
-	.container {
-		scroll-snap-align: start;
-	}
 	.tab {
 		display: flex;
 		align-items: center;
@@ -85,6 +89,7 @@
 		border-right: 1px solid var(--clr-border-2);
 		overflow: hidden;
 		flex: 0 0 auto;
+		scroll-snap-align: start;
 
 		&::after {
 			content: '';
@@ -106,8 +111,9 @@
 		}
 
 		.content {
+			min-width: 75px;
+			width: 100%;
 			display: flex;
-			width: 75px;
 			align-items: center;
 			overflow: hidden;
 		}
@@ -124,7 +130,7 @@
 			position: relative;
 			opacity: 0;
 			width: 0;
-			overflow: hidden;
+			flex-shrink: 0;
 
 			display: flex;
 			align-items: center;
@@ -171,8 +177,8 @@
 	.name {
 		width: 100%;
 		text-overflow: ellipsis;
-		white-space: nowrap;
 		overflow: hidden;
+		white-space: nowrap;
 	}
 
 	.selected {
