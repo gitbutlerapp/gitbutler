@@ -48,10 +48,8 @@
 	</Factoid>
 	<Factoid label="Reviewed by" placeholderText={NO_REVIEWERS}>
 		{#await Promise.all([approvers, rejectors]) then [approvers, rejectors]}
-			{#if rejectors.length > 0}
+			{#if approvers.length > 0 || rejectors.length > 0}
 				<AvatarGroup avatars={rejectors} maxAvatars={2} icon="refresh-small" iconColor="warning" />
-			{/if}
-			{#if approvers.length > 0}
 				<AvatarGroup avatars={approvers} maxAvatars={2} icon="tick-small" iconColor="success" />
 			{/if}
 		{/await}
