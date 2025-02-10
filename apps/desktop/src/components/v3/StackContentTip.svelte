@@ -4,8 +4,8 @@
 
 	interface Props {
 		illustration?: Snippet;
-		title?: Snippet;
-		body?: Snippet;
+		title: string;
+		body?: string;
 	}
 
 	const { illustration, title, body }: Props = $props();
@@ -17,14 +17,12 @@
 	</div>
 {/if}
 <div class="text">
-	{#if title}
-		<div class="text-18 text-semibold text-clr1" class:center={!body}>
-			{@render title()}
-		</div>
-	{/if}
+	<div class="text-18 text-semibold text-clr1" class:center={!body}>
+		{title}
+	</div>
 	{#if body}
 		<p class="text-13 text-clr2">
-			{@render body()}
+			{body}
 		</p>
 	{/if}
 </div>
