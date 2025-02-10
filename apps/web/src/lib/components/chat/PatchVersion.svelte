@@ -35,13 +35,13 @@
 			</div>
 		{/if}
 
-		<div class="patch-version__author-name">{authorNames}</div>
+		<div class="text-13 text-bold patch-version__author-name">{authorNames}</div>
 
-		<p class="patch-verssion__message">
-			published a new <span>commit version #{patch.version}</span>
+		<p class="text-12 patch-verssion__message">
+			published a new <span class="text-bold">commit version #{patch.version}</span>
 		</p>
 
-		<div class="patch-version__timestamp" title={event.createdAt}>{timestamp}</div>
+		<div class="text-12 patch-version__timestamp" title={event.createdAt}>{timestamp}</div>
 	</div>
 </div>
 
@@ -53,9 +53,9 @@
 		padding-left: 12px;
 		gap: 12px;
 
-		border-left: 4px solid var(--clr-theme-pop-element, #3cb4ae);
-		border-bottom: 1px solid var(--clr-border-3, #eae9e8);
-		background: var(--clr-bg-1-muted, #f8f8f7);
+		border-left: 4px solid var(--clr-theme-pop-element);
+		border-bottom: 1px solid var(--clr-border-3);
+		background: var(--clr-bg-1-muted);
 	}
 
 	.patch-version__icon {
@@ -67,8 +67,8 @@
 		align-items: center;
 		flex-shrink: 0;
 		border-radius: 8px;
-		background: var(--clr-theme-pop-element, #3cb4ae);
-		color: var(--clr-theme-pop-on-element, #ffffff);
+		background: var(--clr-theme-pop-element);
+		color: var(--clr-theme-pop-on-element);
 	}
 
 	.patch-version__header {
@@ -83,42 +83,22 @@
 
 	.patch-version__author-name {
 		overflow: hidden;
-		color: var(--clr-text-1, #1a1614);
+		color: var(--clr-text-1);
 		text-overflow: ellipsis;
-
-		/* base/13-bold */
-		font-family: var(--text-fontfamily-default, Inter);
-		font-size: 13px;
-		font-style: normal;
-		font-weight: 600;
-		line-height: 120%; /* 15.6px */
 	}
 
 	.patch-verssion__message {
 		overflow: hidden;
-		color: var(--clr-text-1, #1a1614);
+		color: var(--clr-text-1);
 		text-overflow: ellipsis;
-
-		/* base/12 */
-		font-family: var(--text-fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--text-weight-regular, 400);
-		line-height: 120%; /* 14.4px */
 
 		span {
 			overflow: hidden;
 			-webkit-box-orient: vertical;
 			-webkit-line-clamp: 1;
-			color: var(--clr-text-1, #1a1614);
+			color: var(--clr-text-1);
 			text-overflow: ellipsis;
 
-			/* base/12-bold */
-			font-family: var(--text-fontfamily-default, Inter);
-			font-size: 12px;
-			font-style: normal;
-			font-weight: var(--text-weight-bold, 500);
-			line-height: 120%;
 			text-decoration-line: underline;
 			text-decoration-style: solid;
 			text-decoration-skip-ink: none;
@@ -130,15 +110,8 @@
 
 	.patch-version__timestamp {
 		overflow: hidden;
-		color: var(--clr-text-1, #1a1614);
+		color: var(--clr-text-1);
 		text-overflow: ellipsis;
-
-		/* base/12 */
-		font-family: var(--text-fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--text-weight-regular, 400);
-		line-height: 120%; /* 14.4px */
 
 		opacity: 0.4;
 	}

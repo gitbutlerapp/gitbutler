@@ -25,17 +25,17 @@
 			<img class="issue-update__avatar" src={user.avatarUrl} alt={authorName} />
 		{/if}
 
-		<div class="issue-update__author-name">{authorName}</div>
+		<div class="text-12 text-bold issue-update__author-name">{authorName}</div>
 
 		{#if issueUpdate.resolved}
 			<div class="issue-update__status-icon">
 				<Icon name="tick-extrasmall" />
 			</div>
 
-			<p class="issue-update__status">resolved</p>
+			<p class="text-12 issue-update__status">resolved</p>
 		{/if}
 
-		<div class="issue-update__timestamp" title={event.createdAt}>{timestamp}</div>
+		<div class="text-12 issue-update__timestamp" title={event.createdAt}>{timestamp}</div>
 	</div>
 </div>
 
@@ -46,8 +46,8 @@
 		padding: 14px 16px;
 		gap: 12px;
 
-		border-left: 4px solid var(--theme-succ-element, #4ab582);
-		border-bottom: 1px solid var(--clr-border-3, #eae9e8);
+		border-left: 4px solid var(--clr-theme-succ-element);
+		border-bottom: 1px solid var(--clr-border-3);
 	}
 
 	.issue-update__header {
@@ -63,15 +63,8 @@
 
 	.issue-update__author-name {
 		overflow: hidden;
-		color: var(--clr-text-1, #1a1614);
+		color: var(--clr-text-1);
 		text-overflow: ellipsis;
-
-		/* base/13-bold */
-		font-family: var(--text-fontfamily-default, Inter);
-		font-size: 13px;
-		font-style: normal;
-		font-weight: 600;
-		line-height: 120%; /* 15.6px */
 	}
 
 	.issue-update__status-icon {
@@ -79,35 +72,21 @@
 		width: 16px;
 		align-items: center;
 
-		border-radius: var(--radius-m, 6px);
-		background: var(--clr-theme-succ-element, #4ab582);
+		border-radius: var(--radius-m);
+		background: var(--clr-theme-succ-element);
 		color: var(--clr-core-ntrl-100);
 	}
 
 	.issue-update__status {
 		overflow: hidden;
-		color: var(--clr-text-1, #1a1614);
+		color: var(--clr-text-1);
 		text-overflow: ellipsis;
-
-		/* base/12 */
-		font-family: var(--text-fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--text-weight-regular, 400);
-		line-height: 120%; /* 14.4px */
 	}
 
 	.issue-update__timestamp {
 		overflow: hidden;
-		color: var(--clr-text-1, #1a1614);
+		color: var(--clr-text-1);
 		text-overflow: ellipsis;
-
-		/* base/12 */
-		font-family: var(--text-fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--text-weight-regular, 400);
-		line-height: 120%; /* 14.4px */
 
 		opacity: 0.4;
 	}

@@ -50,7 +50,7 @@
 			</svg>
 		</a>
 
-		<Breadcrumbs />
+		<Breadcrumbs isUserLoggedIn={!!$user} />
 	</div>
 
 	<div class="other-links">
@@ -92,7 +92,10 @@
 				</div></Button
 			>
 		{:else}
-			<Button kind="outline" icon="signin" onclick={login}>Log in / Sign up</Button>
+			<div class="login-signup-wrap">
+				<Button kind="outline" onclick={login}>Join GitButler</Button>
+				<Button style="pop" icon="signin" onclick={login}>Log in</Button>
+			</div>
 		{/if}
 	</div>
 </div>
@@ -137,7 +140,7 @@
 	</ContextMenuSection>
 
 	<ContextMenuSection>
-		<ContextMenuItem label="Logout" onclick={logout} />
+		<ContextMenuItem label="Log out" onclick={logout} />
 	</ContextMenuSection>
 </ContextMenu>
 
@@ -204,6 +207,14 @@
 		overflow: hidden;
 	}
 
+	/* login */
+	.login-signup-wrap {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	/* MODIFIERS */
 	:global(.navigation .hidden-on-desktop) {
 		display: none;
 

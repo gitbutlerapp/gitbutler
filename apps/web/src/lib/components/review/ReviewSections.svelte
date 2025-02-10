@@ -12,9 +12,11 @@
 
 <div class="review-sections-card">
 	<div class="review-sections-statistics">
-		<p class="statistic-files">{patch.statistics.fileCount} files changed</p>
-		<p class="statistic-added">{patch.statistics.lines - patch.statistics.deletions} additions</p>
-		<p class="statistic-deleted">{patch.statistics.deletions} deletions</p>
+		<p class="text-12 text-bold statistic-files">{patch.statistics.fileCount} files changed</p>
+		<p class="text-12 statistic-added">
+			{patch.statistics.lines - patch.statistics.deletions} additions
+		</p>
+		<p class="text-12 statistic-deleted">{patch.statistics.deletions} deletions</p>
 	</div>
 	{#if patchSections !== undefined}
 		{#each patchSections as section}
@@ -30,9 +32,9 @@
 		align-items: flex-start;
 		align-self: stretch;
 
-		border-radius: var(--ml, 10px);
-		border: 1px solid var(--border-2, #d4d0ce);
-		background: var(--bg-1, #fff);
+		border-radius: var(--radius-ml);
+		border: 1px solid var(--clr-border-2);
+		background: var(--clr-bg-1);
 	}
 
 	.review-sections-statistics {
@@ -42,39 +44,18 @@
 		padding: 17px 16px;
 		align-items: center;
 		align-self: stretch;
-		border-bottom: 1px solid var(--border-2, #d4d0ce);
+		border-bottom: 1px solid var(--clr-border-2);
 	}
 
 	.statistic-files {
-		color: var(--text-1, #1a1614);
-
-		/* base/12-bold */
-		font-family: var(--fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--weight-bold, 600);
-		line-height: 120%; /* 14.4px */
+		color: var(--clr-text-1);
 	}
 
 	.statistic-added {
-		color: var(--succ-30, #287b55);
-
-		/* base/12 */
-		font-family: var(--fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--weight-regular, 400);
-		line-height: 120%; /* 14.4px */
+		color: var(--clr-scale-succ-30);
 	}
 
 	.statistic-deleted {
-		color: var(--err-30, #95323c);
-
-		/* base/12 */
-		font-family: var(--fontfamily-default, Inter);
-		font-size: 12px;
-		font-style: normal;
-		font-weight: var(--weight-regular, 400);
-		line-height: 120%; /* 14.4px */
+		color: var(--clr-scale-err-30);
 	}
 </style>

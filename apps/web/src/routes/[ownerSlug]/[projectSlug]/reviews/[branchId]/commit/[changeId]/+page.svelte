@@ -121,7 +121,7 @@
 						{/if}
 
 						{#if branchUuid !== undefined && isPatchAuthor === false}
-							<ChangeActionButton {branchUuid} {patch} />
+							<ChangeActionButton {branchUuid} {patch} isUserLoggedIn={!!$user} />
 						{/if}
 					</div>
 				</div>
@@ -138,6 +138,7 @@
 				<div class="review-chat" class:minimized={chatMinimizer.value}>
 					<ChatComponent
 						{isPatchAuthor}
+						isUserLoggedIn={!!$user}
 						{branchUuid}
 						messageUuid={data.messageUuid}
 						projectId={repositoryId}

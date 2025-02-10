@@ -205,23 +205,6 @@
 					<div class="user-button__select-icon">
 						<Icon name="select-chevron" />
 					</div>
-					<!-- <svg
-						width="16"
-						height="16"
-						viewBox="0 0 16 16"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-						class="user-button__select-icon"
-					>
-						<path
-							d="M2 10L7.55279 12.7764C7.83431 12.9172 8.16569 12.9172 8.44721 12.7764L14 10"
-							stroke-width="1.5"
-						/>
-						<path
-							d="M2 6L7.55279 3.22361C7.83431 3.08284 8.16569 3.08284 8.44721 3.22361L14 6"
-							stroke-width="1.5"
-						/>
-					</svg> -->
 				</div></Button
 			>
 		</div>
@@ -303,7 +286,7 @@
 	</ContextMenuSection>
 	<ContextMenuSection>
 		<ContextMenuItem
-			label="Logout"
+			label="Log out"
 			onclick={async () => {
 				await userService.logout();
 			}}

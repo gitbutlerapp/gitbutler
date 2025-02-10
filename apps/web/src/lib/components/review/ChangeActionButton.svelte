@@ -1,4 +1,5 @@
 <script lang="ts">
+	import LoginModal from '$lib/components/LoginModal.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { type Patch } from '@gitbutler/shared/branches/types';
@@ -7,10 +8,12 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	interface Props {
 		branchUuid: string;
 		patch: Patch;
+		isUserLoggedIn: boolean;
 	}
 
 	const actionLabels = {
@@ -21,7 +24,7 @@
 	type Action = keyof typeof actionLabels;
 	type UserActionType = 'requested-changes' | 'approved' | 'not-reviewed';
 
-	const { patch, branchUuid }: Props = $props();
+	const { patch, branchUuid, isUserLoggedIn }: Props = $props();
 
 	const patchService = getContext(PatchService);
 	const userService = getContext(UserService);
@@ -38,6 +41,7 @@
 		return 'not-reviewed';
 	});
 
+	let loginModal = $state<LoginModal>();
 	let action = $state<Action>('approve');
 	let isExecuting = $state(false);
 	let dropDownButton = $state<ReturnType<typeof DropDownButton>>();
@@ -69,6 +73,11 @@
 	}
 
 	async function handleClick() {
+		if (!isUserLoggedIn) {
+			loginModal?.show();
+			return;
+		}
+
 		if (isExecuting) return;
 		isExecuting = true;
 
@@ -95,26 +104,16 @@
 		action = 'approve';
 		handleClick();
 	}
-
-	$effect(() => {
-		console.log('userAction', userAction);
-	});
 </script>
 
 {#if userAction === 'approved'}
-	<div class="my-status-wrap">
-		<div class="user-status-label approved">
-			<span class="text-12">You approved this</span>
-		</div>
-		<Button
-			loading={isExecuting}
-			icon="undo-small"
-			style="warning"
-			class="my-status-btn"
-			onclick={handleRequestChanges}
-		>
-			Revert approval
-		</Button>
+	<div class="revert-approval-wrap approved">
+		<span class="text-12">You approved this</span>
+
+		<button class="text-12 revert-approval-btn" type="button" onclick={handleRequestChanges}>
+			<span> Request changes</span>
+			<Icon name="refresh-small" />
+		</button>
 	</div>
 {:else if userAction === 'requested-changes'}
 	<div class="my-status-wrap">
@@ -162,6 +161,10 @@
 	</DropDownButton>
 {/if}
 
+<LoginModal bind:this={loginModal}>
+	To approve this commit or request changes, you need to be logged in.
+</LoginModal>
+
 <style lang="postcss">
 	.my-status-wrap {
 		display: flex;
@@ -180,14 +183,30 @@
 
 		color: var(--clr-text-2);
 
-		&.approved {
-			background-color: var(--clr-theme-succ-soft);
-			color: var(--clr-theme-succ-on-soft);
-		}
-
 		&.requested-changes {
 			background-color: var(--clr-theme-warn-soft);
 			color: var(--clr-theme-warn-on-soft);
+		}
+	}
+
+	.revert-approval-wrap {
+		display: flex;
+		align-items: center;
+		background-color: var(--clr-theme-succ-soft);
+		color: var(--clr-theme-succ-on-soft);
+		border-radius: var(--radius-m);
+		padding: 0 8px 0 10px;
+	}
+
+	.revert-approval-btn {
+		display: flex;
+		align-items: center;
+
+		& span {
+			font-style: italic;
+			margin-right: 4px;
+			text-decoration: dotted underline;
+			margin-left: 6px;
 		}
 	}
 

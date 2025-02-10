@@ -10,18 +10,26 @@
 	const patches = branch.patches;
 
 	function getClass(patch: Patch) {
+		console.log(patch);
+
+		if (
+			patch.commentCount > 0 &&
+			patch.reviewAll.signedOff.length === 0 &&
+			patch.reviewAll.rejected.length === 0
+		) {
+			return 'in-discussion';
+		}
+
 		if (patch.reviewAll.rejected.length > 0) {
 			return 'changes-requested';
 		}
 		if (patch.reviewAll.signedOff.length > 0) {
 			return 'approved';
 		}
-
-		return 'in-discussion';
 	}
 </script>
 
-<div class="container">
+<div class="commit-graph-wrap">
 	<p class="text-12 fact">{branch.stackSize}</p>
 	<div class="commits">
 		{#each patches as patch}
@@ -31,11 +39,12 @@
 </div>
 
 <style lang="postcss">
-	.container {
+	.commit-graph-wrap {
 		display: flex;
 		gap: 8px;
 		align-items: center;
 		color: var(--clr-text-2);
+		width: -webkit-fill-available;
 	}
 
 	.fact {
@@ -48,6 +57,7 @@
 		display: flex;
 		gap: 1px;
 		width: 100%;
+		min-width: 50px;
 	}
 
 	.commit-block {

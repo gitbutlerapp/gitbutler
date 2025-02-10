@@ -19,6 +19,7 @@
 		branchId: string;
 		changeId: string;
 		minimized: boolean;
+		isUserLoggedIn: boolean | undefined;
 		toggleMinimized: () => void;
 	}
 
@@ -30,6 +31,7 @@
 		branchUuid,
 		minimized,
 		isPatchAuthor,
+		isUserLoggedIn,
 		toggleMinimized
 	}: Props = $props();
 
@@ -68,7 +70,12 @@
 		<div class="chat-header">
 			<h3 class="text-13 text-bold">Discussion</h3>
 			<div class="chat-header-actions">
-				<Button icon="minus-small" kind="ghost" onclick={toggleMinimized} />
+				<Button
+					icon="minus-small"
+					kind="ghost"
+					tooltip="Hide discussion"
+					onclick={toggleMinimized}
+				/>
 			</div>
 		</div>
 
@@ -98,7 +105,7 @@
 					{/snippet}
 				</Loading>
 			</div>
-			<ChatInput {branchUuid} {projectId} {branchId} {changeId} {isPatchAuthor} />
+			<ChatInput {isUserLoggedIn} {branchUuid} {projectId} {branchId} {changeId} {isPatchAuthor} />
 		</div>
 	</div>
 {/if}

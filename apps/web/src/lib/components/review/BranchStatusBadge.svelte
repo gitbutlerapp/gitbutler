@@ -17,6 +17,7 @@
 	const allApproved = $derived(
 		!patches.some((patch: Patch) => patch.reviewAll.signedOff.length === 0)
 	);
+	const hasComments = $derived(patches.some((patch: Patch) => patch.commentCount > 0));
 
 	const status = $derived.by(() => {
 		if (branch.status === BranchStatus.Closed) {
@@ -28,6 +29,8 @@
 		} else if (allApproved) {
 			return 'approved';
 		} else if (someApproved) {
+			return 'in-discussion';
+		} else if (hasComments && !someApproved && !anyRejected) {
 			return 'in-discussion';
 		} else {
 			return 'unreviewed';
