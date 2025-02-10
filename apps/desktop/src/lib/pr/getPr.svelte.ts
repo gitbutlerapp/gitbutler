@@ -1,6 +1,6 @@
 import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 import { getForgePrService } from '$lib/forge/interface/forgePrService';
-import { readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
+import { reactive, readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import type { PatchSeries } from '$lib/branches/branch';
 import type { DetailedPullRequest } from '$lib/forge/interface/types';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
@@ -17,9 +17,5 @@ export function getPr(branch: Reactive<PatchSeries>): Reactive<DetailedPullReque
 	const prMonitor = $derived(prNumber ? prService.current?.prMonitor(prNumber) : undefined);
 	const pr = $derived(readableToReactive(prMonitor?.pr));
 
-	return {
-		get current() {
-			return pr.current;
-		}
-	};
+	return reactive(() => pr.current);
 }

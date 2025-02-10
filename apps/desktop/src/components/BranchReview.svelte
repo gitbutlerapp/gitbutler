@@ -7,6 +7,7 @@
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { getPr } from '$lib/pr/getPr.svelte';
 	import { getContextStore, inject } from '@gitbutler/shared/context';
+	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
@@ -41,11 +42,7 @@
 	}
 
 	const prService = getForgePrService();
-	const pr = getPr({
-		get current() {
-			return branch;
-		}
-	});
+	const pr = getPr(reactive(() => branch));
 
 	const enum CreationAction {
 		CreateBR,
@@ -105,7 +102,7 @@
 <div class="branch-action">
 	{@render branchLine()}
 	<div class="branch-action__body">
-		{#if $prService && pr.current}
+		{#if pr.current}
 			{@render pullRequestCard(pr.current)}
 		{/if}
 		{#if branch.reviewId}
@@ -171,13 +168,16 @@
 	}
 
 	/*
-        The :empty selector does not work in svelte because undeterminate reasons.
-        As such we have this beauty.
+		The :empty selector does not work in svelte because undeterminate reasons.
+		As such we have this beauty.
 
-        All we want to do is to have this thing to not add extra whitespace if
-        there is nothing interesting going on inside of the component.
-    */
+		All we want to do is to have this thing to not add extra whitespace if
+		there is nothing interesting going on inside of the component.
+
+		We don't want to use display: none as that breaks things in other strange ways
+	*/
+
 	.branch-action:not(:has(> .branch-action__body > *)) {
-		display: none;
+		padding: 0;
 	}
 </style>
