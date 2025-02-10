@@ -364,7 +364,7 @@
 				{/if}
 			</div>
 		</div>
-		{#if $prService && !hasNoCommits}
+		{#if !hasNoCommits}
 			<BranchReview {branch} openForgePullRequest={handleOpenPR}>
 				{#snippet branchLine()}
 					<div class="branch-action__line" style:--bg-color={lineColor}></div>
