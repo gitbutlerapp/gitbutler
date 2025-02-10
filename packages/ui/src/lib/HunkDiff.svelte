@@ -1,20 +1,12 @@
 <script lang="ts" module>
-	import LineSelection, { type LineSelectionParams } from '$lib/hunkDiff/lineSelection.svelte';
+	import { type LineSelectionParams } from '$lib/hunkDiff/lineSelection.svelte';
 	export type LineClickParams = LineSelectionParams;
 </script>
 
 <script lang="ts">
 	import Checkbox from './Checkbox.svelte';
-	import {
-		CountColumnSide,
-		generateRows,
-		getHunkLineInfo,
-		type LineSelector,
-		parseHunk,
-		parserFromFilename,
-		type Row,
-		SectionType
-	} from '$lib/utils/diffParsing';
+	import HunkDiffBody from './hunkDiff/HunkDiffBody.svelte';
+	import { getHunkLineInfo, type LineSelector, parseHunk } from '$lib/utils/diffParsing';
 	interface Props {
 		filePath: string;
 		hunkStr: string;
@@ -53,31 +45,7 @@
 
 	const hunk = $derived(parseHunk(hunkStr));
 	const hunkLineInfo = $derived(getHunkLineInfo(hunk.contentSections));
-	const parser = $derived(parserFromFilename(filePath));
-	const renderRows = $derived(
-		generateRows(hunk.contentSections, inlineUnifiedDiffs, parser, selectedLines)
-	);
-
-	const lineSelection = $derived(new LineSelection(onLineClick));
-
-	$effect(() => lineSelection.setRows(renderRows));
 </script>
-
-{#snippet countColumn(row: Row, side: CountColumnSide)}
-	<td
-		class="table__numberColumn"
-		data-no-drag
-		class:diff-line-deletion={row.type === SectionType.RemovedLines}
-		class:diff-line-addition={row.type === SectionType.AddedLines}
-		class:selected={row.isSelected}
-		class:clickable={onLineClick}
-		align="center"
-		class:is-last={row.isLast}
-		class:is-before={side === CountColumnSide.Before}
-	>
-		{side === CountColumnSide.Before ? row.beforeLineNumber : row.afterLineNumber}
-	</td>
-{/snippet}
 
 <div
 	bind:clientWidth={tableWidth}
@@ -118,31 +86,16 @@
 			</tr>
 		</thead>
 
-		<tbody>
-			{#each renderRows as row, idx}
-				<tr
-					data-no-drag
-					onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
-					onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
-					onmouseup={() => lineSelection.onEnd()}
-				>
-					{@render countColumn(row, CountColumnSide.Before)}
-					{@render countColumn(row, CountColumnSide.After)}
-					<td
-						class="table__textContent"
-						style="--tab-size: {tabSize}; --wrap: {wrapText ? 'wrap' : 'nowrap'}"
-						class:readonly={true}
-						data-no-drag
-						class:diff-line-deletion={row.type === SectionType.RemovedLines}
-						class:diff-line-addition={row.type === SectionType.AddedLines}
-						class:selected={row.isSelected}
-						class:is-last={row.isLast}
-					>
-						{@html row.tokens.join('')}
-					</td>
-				</tr>
-			{/each}
-		</tbody>
+		<HunkDiffBody
+			{filePath}
+			content={hunk.contentSections}
+			{onLineClick}
+			{wrapText}
+			{tabSize}
+			{inlineUnifiedDiffs}
+			{selectedLines}
+			{diffContrast}
+		/>
 	</table>
 </div>
 
@@ -168,12 +121,7 @@
 		padding: 0;
 	}
 
-	tbody {
-		z-index: var(--z-lifted);
-	}
-
 	th,
-	td,
 	tr {
 		padding: 0;
 		margin: 0;
@@ -272,146 +220,5 @@
 		align-items: center;
 		border-bottom: 1px solid var(--clr-border-2);
 		border-top-right-radius: var(--radius-m);
-	}
-
-	.table__numberColumn {
-		color: var(--clr-diff-count-text, #b4afac);
-		font-family: 'Geist Mono';
-		font-size: 11px;
-		font-style: normal;
-		font-weight: 400;
-		line-height: 120%; /* 13.2px */
-
-		border-color: var(--clr-diff-count-border);
-		background-color: var(--clr-diff-count-bg);
-		padding: 0 4px;
-		text-align: right;
-		vertical-align: top;
-		user-select: none;
-
-		box-sizing: border-box;
-		position: sticky;
-		left: calc(var(--number-col-width));
-		width: var(--number-col-width);
-		min-width: var(--number-col-width);
-
-		&.diff-line-addition {
-			background-color: var(--clr-diff-addition-count-bg);
-			color: var(--clr-diff-addition-count-text);
-			border-color: var(--clr-diff-addition-count-border);
-		}
-
-		&.diff-line-deletion {
-			background-color: var(--clr-diff-deletion-count-bg);
-			color: var(--clr-diff-deletion-count-text);
-			border-color: var(--clr-diff-deletion-count-border);
-		}
-
-		&.selected {
-			background-color: var(--clr-diff-selected-count-bg);
-			color: var(--clr-diff-selected-count-text);
-			border-color: var(--clr-diff-selected-count-border);
-		}
-
-		&.is-before.is-last {
-			border-bottom-left-radius: var(--radius-s);
-		}
-
-		&.clickable {
-			cursor: pointer;
-		}
-	}
-
-	.table__numberColumn:first-of-type {
-		width: var(--number-col-width);
-		min-width: var(--number-col-width);
-		left: 0px;
-	}
-
-	.table__textContent {
-		z-index: var(--z-lifted);
-		width: 100%;
-
-		color: var(--clr-text-1, #1a1614);
-		font-family: 'Geist Mono';
-		font-size: 12px;
-		font-style: normal;
-		font-weight: 400;
-		line-height: 120%; /* 14.4px */
-
-		padding-left: 4px;
-		tab-size: var(--tab-size);
-		white-space: pre;
-		user-select: text;
-		cursor: text;
-		text-wrap: var(--wrap);
-		border-left: 1px solid var(--clr-border-2);
-
-		&.selected {
-			/* box-sizing: border-box;
-			border: 1px solid aqua; */
-		}
-	}
-
-	/* DIFF LINE */
-	.diff-line-marker-addition,
-	.diff-line-addition {
-		background-color: var(--clr-diff-addition-line-bg);
-	}
-
-	.diff-line-marker-deletion,
-	.diff-line-deletion {
-		background-color: var(--clr-diff-deletion-line-bg);
-	}
-
-	/* CONTRAST MODIFIERS */
-	.table__wrapper {
-		&.contrast-light {
-			--clr-diff-count-text: var('--', var(--clr-diff-count-text));
-			/* deletion */
-			--clr-diff-deletion-line-bg: var('--', var(--clr-diff-deletion-line-bg));
-			--clr-diff-deletion-line-highlight: var('--', var(--clr-diff-deletion-line-highlight));
-			--clr-diff-deletion-count-bg: var('--', var(--clr-diff-deletion-count-bg));
-			--clr-diff-deletion-count-text: var('--', var(--clr-diff-deletion-count-text));
-			--clr-diff-deletion-count-border: var('--', var(--clr-diff-deletion-count-border));
-			/* addition */
-			--ctx-diff-addition-line-bg: var('--', var(--clr-diff-addition-line-bg));
-			--clr-diff-addition-line-highlight: var('--', var(--clr-diff-addition-line-highlight));
-			--clr-diff-addition-count-bg: var('--', var(--clr-diff-addition-count-bg));
-			--clr-diff-addition-count-text: var('--', var(--clr-diff-addition-count-text));
-			--clr-diff-addition-count-border: var('--', var(--clr-diff-addition-count-border));
-		}
-
-		&.contrast-medium {
-			--clr-diff-count-text: var(--clr-diff-count-text-contrast-2);
-			/* deletion */
-			--clr-diff-deletion-line-bg: var(--clr-diff-deletion-contrast-2-line-bg);
-			--clr-diff-deletion-line-highlight: var(--clr-diff-deletion-contrast-2-line-highlight);
-			--clr-diff-deletion-count-bg: var(--clr-diff-deletion-contrast-2-count-bg);
-			--clr-diff-deletion-count-text: var(--clr-diff-deletion-contrast-2-count-text);
-			--clr-diff-deletion-count-border: var(--clr-diff-deletion-contrast-2-count-border);
-			/* addition */
-			--clr-diff-addition-line-bg: var(--clr-diff-addition-contrast-2-line-bg);
-			--clr-diff-addition-line-highlight: var(--clr-diff-addition-contrast-2-line-highlight);
-			--clr-diff-addition-count-bg: var(--clr-diff-addition-contrast-2-count-bg);
-			--clr-diff-addition-count-text: var(--clr-diff-addition-contrast-2-count-text);
-			--clr-diff-addition-count-border: var(--clr-diff-addition-contrast-2-count-border);
-		}
-
-		&.contrast-strong {
-			--clr-diff-count-text: var(--clr-diff-count-text-contrast-3);
-			/* deletion */
-			--clr-diff-deletion-line-bg: var(--clr-diff-deletion-contrast-3-line-bg);
-			--clr-diff-deletion-line-highlight: var(--clr-diff-deletion-contrast-3-line-highlight);
-			--clr-diff-deletion-count-bg: var(--clr-diff-deletion-contrast-3-count-bg);
-			--clr-diff-deletion-count-text: var(--clr-diff-deletion-contrast-3-count-text);
-			--clr-diff-deletion-count-border: var(--clr-diff-deletion-contrast-3-count-border);
-			/* addition */
-			--clr-diff-addition-line-bg: var(--clr-diff-addition-contrast-3-line-bg);
-			--clr-diff-addition-line-highlight: var(--clr-diff-addition-contrast-3-line-highlight);
-			--clr-diff-addition-count-bg: var(--clr-diff-addition-contrast-3-count-bg);
-			--clr-diff-addition-count-text: var(--clr-diff-addition-contrast-3-count-text);
-			--clr-diff-addition-count-border: var(--clr-diff-addition-contrast-3-count-border);
-		}
 	}
 </style>

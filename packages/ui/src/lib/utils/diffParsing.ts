@@ -93,7 +93,7 @@ export enum CountColumnSide {
 	After
 }
 
-type Line = {
+export type Line = {
 	readonly beforeLineNumber?: number;
 	readonly afterLineNumber?: number;
 	readonly content: string;
