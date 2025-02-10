@@ -26,6 +26,10 @@
 		align-items: flex-start;
 		gap: 14px;
 		align-self: stretch;
+
+		&:not(:last-child) {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
 	}
 
 	.file-name {
