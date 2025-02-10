@@ -3,7 +3,6 @@ use crate::from_json::HexHash;
 use but_hunk_dependency::ui::{
     hunk_dependencies_for_workspace_changes_by_worktree_dir, HunkDependencies,
 };
-use but_workspace::commit_engine::RefHandling;
 use but_workspace::{commit_engine, StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
@@ -69,12 +68,13 @@ pub fn create_commit_from_worktree_changes(
     let repo = gix::open(project.worktree_path()).map_err(anyhow::Error::from)?;
     let out = commit_engine::create_commit(
         &repo,
-        commit_engine::Destination::ParentForNewCommit(parent_id.map(Into::into)),
+        commit_engine::Destination::NewCommit {
+            parent_commit_id: parent_id.map(Into::into),
+            message,
+        },
         None,
         worktree_changes.into_iter().map(Into::into).collect(),
-        &message,
         3, /* context-lines */
-        RefHandling::UpdateHEADRefForTipCommits,
     )?;
     Ok(out.into())
 }

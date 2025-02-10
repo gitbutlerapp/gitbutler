@@ -20,16 +20,20 @@ mod plumbing;
 /// The place to apply the [change-specifications](DiffSpec) to.
 ///
 /// Note that any commit this instance points to will be the basis to apply all changes to.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Destination {
-    /// Create a new commit on top of the given `Some(commit)`, so it will be the sole parent
+    /// Create a new commit on top of the given `parent_commit_id`, so it will be the sole parent
     /// of the newly created commit, making it its ancestor.
-    /// To create a commit at the position of the first commit of a branch, the parent has to be the merge-base with the *target branch*.
-    ///
-    /// If the commit is `None`, the base-state for the new commit will be an empty tree and the new commit will be the first one
-    /// (i.e. have no parent). This is the case when `HEAD` is unborn. If `HEAD` is detached, this is a failure.
-    ParentForNewCommit(Option<gix::ObjectId>),
-    /// Amend the given commit.
+    NewCommit {
+        /// If `None`, the base-state for the new commit will be an empty tree and the new commit will be the first one
+        /// (i.e. have no parent). This is the case when `HEAD` is unborn. If `HEAD` is detached, this is a failure.
+        ///
+        /// To create a commit at the position of the first commit of a branch, the parent has to be the merge-base with the *target branch*.
+        parent_commit_id: Option<gix::ObjectId>,
+        /// Use `message` as commit message for the new commit.
+        message: String,
+    },
+    /// Amend all changes to the given commit, leaving all other aspects of the commit unchanged.
     AmendCommit(gix::ObjectId),
 }
 
@@ -91,8 +95,6 @@ pub struct CreateCommitOutcome {
     pub rejected_specs: Vec<DiffSpec>,
     /// The newly created commit, or `None` if no commit could be created as all changes-requests were rejected.
     pub new_commit: Option<gix::ObjectId>,
-    /// Only set when `HEAD` was updated as it was unborn, and we created the first commit.
-    pub ref_edit: Option<gix::refs::transaction::RefEdit>,
 }
 
 /// Additional information about the outcome of a [`create_tree()`] call.
@@ -109,7 +111,7 @@ pub struct CreateTreeOutcome {
 /// Like [`create_commit()`], but lower-level and only returns a new tree, without finally associating it with a commit.
 pub fn create_tree(
     repo: &gix::Repository,
-    destination: Destination,
+    destination: &Destination,
     origin_commit: Option<gix::ObjectId>,
     changes: Vec<DiffSpec>,
     context_lines: u32,
@@ -119,8 +121,14 @@ pub fn create_tree(
     }
 
     let target_tree = match destination {
-        Destination::ParentForNewCommit(None) => gix::ObjectId::empty_tree(repo.object_hash()),
-        Destination::ParentForNewCommit(Some(base_commit))
+        Destination::NewCommit {
+            parent_commit_id: None,
+            ..
+        } => gix::ObjectId::empty_tree(repo.object_hash()),
+        Destination::NewCommit {
+            parent_commit_id: Some(base_commit),
+            ..
+        }
         | Destination::AmendCommit(base_commit) => {
             but_core::Commit::from_id(base_commit.attach(repo))?
                 .tree_id()?
@@ -194,19 +202,9 @@ pub fn create_tree(
     })
 }
 
-/// Control how [`create_commit()`] alters references after creating the new commit.
-#[derive(Debug, Copy, Clone)]
-pub enum RefHandling {
-    /// If the commit is created on top of a commit that the `HEAD` ref is currently pointing to, then update it to point to the new commit.
-    UpdateHEADRefForTipCommits,
-    /// Do not touch any ref, only create a commit.
-    None,
-}
-
 /// Alter the single `destination` in a given `frame` with as many `changes` as possible and write new objects into `repo`,
 /// but only if the commit succeeds.
 /// If `origin_commit` is `Some(commit)`, all changes are considered to originate from the given commit, otherwise they originate from the worktree.
-/// Use `message` as commit message.
 /// `context_lines` is the amount of lines of context included in each [`HunkHeader`], and the value that will be used to recover the existing hunks,
 /// so that the hunks can be matched.
 ///
@@ -220,63 +218,63 @@ pub fn create_commit(
     destination: Destination,
     origin_commit: Option<gix::ObjectId>,
     changes: Vec<DiffSpec>,
-    message: &str,
     context_lines: u32,
-    ref_handling: RefHandling,
 ) -> anyhow::Result<CreateCommitOutcome> {
-    let parents = match destination {
-        Destination::ParentForNewCommit(None) => Vec::new(),
-        Destination::ParentForNewCommit(Some(parent)) => vec![parent],
-        Destination::AmendCommit(_) => {
-            todo!("get parents of the given commit ")
-        }
+    let parents = match &destination {
+        Destination::NewCommit {
+            parent_commit_id: None,
+            ..
+        } => Vec::new(),
+        Destination::NewCommit {
+            parent_commit_id: Some(parent),
+            ..
+        } => vec![*parent],
+        Destination::AmendCommit(commit_id) => commit_id
+            .attach(repo)
+            .object()?
+            .peel_to_commit()?
+            .parent_ids()
+            .map(|id| id.detach())
+            .collect(),
     };
 
     if parents.len() > 1 {
         bail!("cannot currently handle more than 1 parent")
     }
 
-    let ref_name_to_update = repo
-        .head_name()?
-        .context("Refusing to commit into a detached HEAD")?;
-    let ref_name_to_update = match ref_handling {
-        RefHandling::UpdateHEADRefForTipCommits => {
-            if let &[parent] = &parents[..] {
-                new_commit_is_on_top_of_tip(repo, ref_name_to_update.as_ref(), parent)?
-                    .then_some(ref_name_to_update)
-            } else if repo.head()?.is_unborn() {
-                Some(ref_name_to_update)
-            } else {
-                None
-            }
-        }
-        RefHandling::None => None,
-    };
-
     let CreateTreeOutcome {
         rejected_specs,
         new_tree,
-    } = create_tree(repo, destination, origin_commit, changes, context_lines)?;
-    let (new_commit, ref_edit) = if let Some(new_tree) = new_tree {
-        let (author, committer) = repo.commit_signatures()?;
-        let (new_commit, ref_edit) = plumbing::create_commit(
-            repo,
-            ref_name_to_update,
-            author,
-            committer,
-            message,
-            new_tree,
-            parents,
-            None,
-        )?;
-        (Some(new_commit), ref_edit)
+    } = create_tree(repo, &destination, origin_commit, changes, context_lines)?;
+    let new_commit = if let Some(new_tree) = new_tree {
+        match destination {
+            Destination::NewCommit {
+                message,
+                parent_commit_id: _,
+            } => {
+                let (author, committer) = repo.commit_signatures()?;
+                let (new_commit, _ref_edit) = plumbing::create_commit(
+                    repo, None, author, committer, &message, new_tree, parents, None,
+                )?;
+                Some(new_commit)
+            }
+            Destination::AmendCommit(commit_id) => {
+                let mut commit = commit_id
+                    .attach(repo)
+                    .object()?
+                    .peel_to_commit()?
+                    .decode()?
+                    .to_owned();
+                commit.tree = new_tree;
+                Some(repo.write_object(commit)?.detach())
+            }
+        }
     } else {
-        (None, None)
+        None
     };
     Ok(CreateCommitOutcome {
         rejected_specs,
         new_commit,
-        ref_edit,
     })
 }
 
@@ -286,17 +284,6 @@ fn into_err_spec(input: &mut PossibleChange) {
         Ok(inner) => Err(inner),
         Err(inner) => Err(inner),
     };
-}
-
-fn new_commit_is_on_top_of_tip(
-    repo: &gix::Repository,
-    name: &gix::refs::FullNameRef,
-    parent: gix::ObjectId,
-) -> anyhow::Result<bool> {
-    let Some(head_ref) = repo.try_find_reference(name)? else {
-        return Ok(true);
-    };
-    Ok(head_ref.id() == *parent)
 }
 
 type PossibleChange = Result<DiffSpec, DiffSpec>;

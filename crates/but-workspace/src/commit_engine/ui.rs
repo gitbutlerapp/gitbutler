@@ -50,7 +50,6 @@ impl From<super::CreateCommitOutcome> for CreateCommitOutcome {
         super::CreateCommitOutcome {
             rejected_specs,
             new_commit,
-            ref_edit: _,
         }: super::CreateCommitOutcome,
     ) -> Self {
         CreateCommitOutcome {
