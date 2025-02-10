@@ -723,6 +723,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-rebase"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "git2",
+ "gix",
+ "gix-testtools",
+ "itertools 0.14.0",
+]
+
+[[package]]
 name = "but-workspace"
 version = "0.0.0"
 dependencies = [
