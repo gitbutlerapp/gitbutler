@@ -63,9 +63,11 @@
 		})
 	);
 
+	const areAnyNotFound = $derived(anyNotFound());
+
 	$effect(() => {
 		const options = { keepPolling: true };
-		if (anyNotFound()) {
+		if (areAnyNotFound) {
 			pollWhileNotFound(reviewId, options);
 		}
 
@@ -103,20 +105,25 @@
 	}
 </script>
 
-<Loading
-	loadable={and([cloudBranchUuid?.current, combine([cloudBranch?.current, cloudProject?.current])])}
->
-	{#snippet children([cloudBranch, cloudProject])}
-		<Link
-			target="_blank"
-			rel="noreferrer"
-			href={webRoutes.projectReviewBranchUrl({
-				ownerSlug: cloudProject.owner,
-				projectSlug: cloudProject.slug,
-				branchId: cloudBranch.branchId
-			})}
-		>
-			Open review</Link
-		>
-	{/snippet}
-</Loading>
+{#if $project?.api?.repository_id}
+	<Loading
+		loadable={and([
+			cloudBranchUuid?.current,
+			combine([cloudBranch?.current, cloudProject?.current])
+		])}
+	>
+		{#snippet children([cloudBranch, cloudProject])}
+			<Link
+				target="_blank"
+				rel="noreferrer"
+				href={webRoutes.projectReviewBranchUrl({
+					ownerSlug: cloudProject.owner,
+					projectSlug: cloudProject.slug,
+					branchId: cloudBranch.branchId
+				})}
+			>
+				Open review</Link
+			>
+		{/snippet}
+	</Loading>
+{/if}
