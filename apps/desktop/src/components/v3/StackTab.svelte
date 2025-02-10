@@ -20,7 +20,7 @@
 	const { projectId, tab, first, last, selected }: Props = $props();
 </script>
 
-<div>
+<div class="container">
 	<a
 		data-sveltekit-keepfocus
 		href={stackPath(projectId, tab.id)}
@@ -72,6 +72,9 @@
 </ContextMenu>
 
 <style lang="postcss">
+	.container {
+		scroll-snap-align: start;
+	}
 	.tab {
 		display: flex;
 		align-items: center;

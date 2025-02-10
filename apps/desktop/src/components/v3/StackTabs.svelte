@@ -80,6 +80,8 @@
 	.nav-scroller {
 		display: flex;
 		overflow-x: scroll;
+		scroll-snap-type: x mandatory;
+		scroll-behavior: smooth;
 	}
 
 	.nav-scroller::-webkit-scrollbar {
