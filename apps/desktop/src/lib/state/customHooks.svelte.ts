@@ -1,4 +1,4 @@
-import { type ThunkDispatch, type UnknownAction } from '@reduxjs/toolkit';
+import { reactive } from '@gitbutler/shared/storeUtils';
 import {
 	type Api,
 	type ApiEndpointMutation,
@@ -37,46 +37,48 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 	ctx: HookContext;
 }) {
 	const endpoint = api.endpoints[endpointName]!;
+	const state = getState() as any as () => RootState<any, any, any>;
 
 	const { initiate, select } = endpoint as ApiEndpointQuery<
 		QueryDefinition<unknown, BaseQueryFn, string, any>,
 		Definitions
 	>;
 
-	function useQuery<T extends (arg: any) => any>(queryArg: unknown, transform?: T) {
+	function useQuery<T extends (arg: any) => any>(queryArg: unknown, options?: { transform?: T }) {
 		const dispatch = getDispatch();
 		$effect(() => {
 			const { unsubscribe } = dispatch(initiate(queryArg));
 			return unsubscribe;
 		});
-		const result = $derived(useQueryState(queryArg, transform));
+		const result = $derived(useQueryState(queryArg, options));
 		return result;
 	}
 
-	function useQueryState<T extends (arg: any) => any>(queryArg: unknown, transform?: T) {
-		const state = getState();
+	function useQueryState<T extends (arg: any) => any>(
+		queryArg: unknown,
+		options?: { transform?: T }
+	) {
 		const selector = $derived(select(queryArg));
 		const result = $derived(selector(state()));
-		return {
-			get current() {
-				let data = result.data;
-				if (transform && data) {
-					data = transform(data);
-				}
-				function andThen(fn: (arg: any) => any) {
-					if (data) {
-						return fn(data);
-					} else {
-						return result;
-					}
-				}
-				return {
-					...result,
-					data,
-					andThen
-				};
+		const output = $derived.by(() => {
+			let data = result.data;
+			if (options?.transform && data) {
+				data = options.transform(data);
 			}
-		};
+			function andThen(fn: (arg: any) => any) {
+				if (data) {
+					return fn(data);
+				} else {
+					return result;
+				}
+			}
+			return {
+				...result,
+				data,
+				andThen
+			};
+		});
+		return reactive(() => output);
 	}
 
 	return {
