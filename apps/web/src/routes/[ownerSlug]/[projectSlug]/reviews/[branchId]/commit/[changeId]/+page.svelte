@@ -136,7 +136,7 @@
 				<ReviewSections
 					{patch}
 					patchSections={patchSections?.current}
-					toggleDiffLine={(f, h, p) => diffLineSelection.toggle(f, h, p)}
+					toggleDiffLine={(f, h, s, p) => diffLineSelection.toggle(f, h, s, p)}
 					selectedLines={diffLineSelection.selectedLines}
 				/>
 			</div>

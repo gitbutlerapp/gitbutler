@@ -8,7 +8,12 @@
 		patch: Patch;
 		patchSections: Section[] | undefined;
 		selectedLines: LineSelector[];
-		toggleDiffLine: (fileName: string, hunkIndex: number, params: LineClickParams) => void;
+		toggleDiffLine: (
+			fileName: string,
+			hunkIndex: number,
+			diffSha: string,
+			params: LineClickParams
+		) => void;
 	}
 
 	const { patch, patchSections, selectedLines, toggleDiffLine }: Props = $props();

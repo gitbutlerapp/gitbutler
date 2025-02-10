@@ -79,11 +79,12 @@
 		if (isSendingMessage) return;
 		isSendingMessage = true;
 		try {
-			await messageHandler.send(issue);
+			await messageHandler.send({ issue, diffSelection });
 		} finally {
 			const editor = richText.richTextEditor?.getEditor();
 			editor?.commands.clearContent(true);
 			isSendingMessage = false;
+			clearDiffSelection();
 		}
 	}
 

@@ -38,6 +38,7 @@ export interface DiffLineSelected extends LineSelector {
 }
 
 export interface DiffSelection {
+	diffSha: string;
 	fileName: string;
 	hunkIndex: number;
 	lines: DiffLineSelected[];
@@ -79,6 +80,7 @@ export function encodeLineSelection(
 }
 
 export default class DiffLineSelection {
+	private _diffSha = $state<string>();
 	private _selectedDiffLines = new SvelteSet<DiffLineKey>();
 	private _selectedLines: DiffLineSelected[] = $derived.by(() => {
 		return Array.from(this._selectedDiffLines).map((key) => {
@@ -91,9 +93,11 @@ export default class DiffLineSelection {
 	clear() {
 		this._selectedDiffLines.clear();
 		this._selectedDiffFileHunk = undefined;
+		this._diffSha = undefined;
 	}
 
-	toggle(fileName: string, hunkIndex: number, params: LineClickParams) {
+	toggle(fileName: string, hunkIndex: number, diffSha: string, params: LineClickParams) {
+		this._diffSha = diffSha;
 		const diffFileHunkKey = createDiffFileHunkKey(fileName, hunkIndex);
 
 		if (this._selectedDiffFileHunk !== diffFileHunkKey) {
@@ -121,10 +125,16 @@ export default class DiffLineSelection {
 	}
 
 	get diffSelection(): DiffSelection | undefined {
-		if (!this._selectedDiffFileHunk || this._selectedLines.length === 0) return;
+		if (
+			!this._selectedDiffFileHunk ||
+			this._selectedLines.length === 0 ||
+			this._diffSha === undefined
+		)
+			return;
 		const [fileName, hunkIndex] = readDiffFileHunkKey(this._selectedDiffFileHunk);
 
 		return {
+			diffSha: this._diffSha,
 			fileName,
 			hunkIndex,
 			lines: this._selectedLines

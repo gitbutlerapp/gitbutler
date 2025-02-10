@@ -7,7 +7,12 @@
 	interface Props {
 		section: Section;
 		selectedLines: LineSelector[];
-		toggleDiffLine: (fileName: string, hunkIndex: number, params: LineClickParams) => void;
+		toggleDiffLine: (
+			fileName: string,
+			hunkIndex: number,
+			diffSha: string,
+			params: LineClickParams
+		) => void;
 	}
 
 	const { section, toggleDiffLine, selectedLines }: Props = $props();
