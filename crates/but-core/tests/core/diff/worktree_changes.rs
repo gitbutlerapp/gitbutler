@@ -235,6 +235,17 @@ fn added_in_unborn() -> Result<()> {
 }
 
 #[test]
+fn sparse() -> Result<()> {
+    let repo = repo("sparse")?;
+    let err = diff::worktree_changes(&repo).unwrap_err();
+    assert!(
+        err.to_string().contains("sparse"),
+        "Currently status doesn't run on sparse indices, but it could if it would unsparse it"
+    );
+    Ok(())
+}
+
+#[test]
 fn submodule_added_in_unborn() -> Result<()> {
     let repo = repo("submodule-added-unborn")?;
     let actual = diff::worktree_changes(&repo)?;
