@@ -11,8 +11,9 @@
 		projectId: string;
 		selectedId: string | undefined;
 		previewing: boolean;
+		width: number | undefined;
 	};
-	let { projectId, selectedId }: Props = $props();
+	let { projectId, selectedId, width = $bindable() }: Props = $props();
 
 	const stackService = getContext(StackService);
 	const result = $derived(stackService.getStacks(projectId));
@@ -34,6 +35,7 @@
 	onMount(() => {
 		const observer = new ResizeObserver(() => {
 			scrollable = scroller ? scroller.scrollWidth > scroller.offsetWidth : false;
+			width = inner?.offsetWidth;
 		});
 		observer.observe(inner!);
 		return () => {
@@ -45,7 +47,7 @@
 <div class="tabs">
 	<div class="inner" bind:this={inner}>
 		<div class="shadows">
-			<div class="nav-scroller" bind:this={scroller} class:scrolled {onscroll}>
+			<div class="scroller" bind:this={scroller} class:scrolled {onscroll}>
 				<ReduxResult result={result.current}>
 					{#snippet children(result)}
 						{@const tabs = stacksToTabs(result)}
@@ -77,14 +79,14 @@
 		max-width: 100%;
 	}
 
-	.nav-scroller {
+	.scroller {
 		display: flex;
 		overflow-x: scroll;
 		scroll-snap-type: x mandatory;
 		scroll-behavior: smooth;
 	}
 
-	.nav-scroller::-webkit-scrollbar {
+	.scroller::-webkit-scrollbar {
 		display: none;
 	}
 
