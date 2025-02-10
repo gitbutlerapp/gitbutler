@@ -116,9 +116,7 @@ type CustomQueryResultSelectorResult<T extends QueryDefinition<any, any, any, an
 		 *   );
 		 * ```
 		 */
-		andThen<S extends QueryDefinition<any, any, any, any>>(
-			arg: (arg: ResultTypeFrom<T>) => Reactive<CustomQueryResultSelectorResult<S>>
-		): Reactive<CustomQueryResultSelectorResult<S>>;
+		andThen<S extends (arg1: ResultTypeFrom<T>) => any>(fn: S): ReturnType<S>;
 	};
 
 /**
@@ -128,14 +126,20 @@ type QueryHooks<Definition extends QueryDefinition<any, any, any, any>> = {
 	/** Execute query and return results. */
 	useQuery: <T extends (args: ResultTypeFrom<Definition>) => any>(
 		args: QueryArgFrom<Definition>,
-		/** Optional transformation of the result.  */
-		transform?: T
-	) => Reactive<CustomQueryResultSelectorResult<QueryDefinition<any, any, any, ReturnType<T>>>>;
+		options?: {
+			/** Optional transformation of the result.  */
+			transform?: T;
+		}
+	) => T extends () => any
+		? Reactive<CustomQueryResultSelectorResult<QueryDefinition<any, any, any, ReturnType<T>>>>
+		: Reactive<CustomQueryResultSelectorResult<Definition>>;
 	/** Execute query on existing state. */
 	useQueryState: <T extends (args: ResultTypeFrom<Definition>) => any>(
 		args: QueryArgFrom<Definition>,
-		/** Optional transformation of the result.  */
-		transform?: T
+		options?: {
+			/** Optional transformation of the result.  */
+			transform?: T;
+		}
 	) => Reactive<CustomQueryResultSelectorResult<QueryDefinition<any, any, any, ReturnType<T>>>>;
 };
 
