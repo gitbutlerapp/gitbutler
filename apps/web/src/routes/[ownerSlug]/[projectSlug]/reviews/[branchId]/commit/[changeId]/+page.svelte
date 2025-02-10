@@ -153,6 +153,8 @@
 						changeId={data.changeId}
 						minimized={chatMinimizer.value}
 						toggleMinimized={() => chatMinimizer.toggle()}
+						diffSelection={diffLineSelection.diffSelection}
+						clearDiffSelection={() => diffLineSelection.clear()}
 					/>
 				</div>
 			{/if}

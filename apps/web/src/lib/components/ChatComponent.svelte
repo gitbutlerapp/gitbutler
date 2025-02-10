@@ -2,6 +2,7 @@
 	import ShowChatButton from '$lib/components/ShowChatButton.svelte';
 	import ChatInput from '$lib/components/chat/ChatInput.svelte';
 	import Event from '$lib/components/chat/Event.svelte';
+	import { type DiffSelection } from '$lib/diff/lineSelection.svelte';
 	import blankChat from '$lib/images/blank-chat.svg?raw';
 	import { PatchEventsService } from '@gitbutler/shared/branches/patchEventsService';
 	import { getPatchEvents } from '@gitbutler/shared/branches/patchesPreview.svelte';
@@ -21,6 +22,8 @@
 		minimized: boolean;
 		isUserLoggedIn: boolean | undefined;
 		toggleMinimized: () => void;
+		diffSelection: DiffSelection | undefined;
+		clearDiffSelection: () => void;
 	}
 
 	const {
@@ -32,7 +35,9 @@
 		minimized,
 		isPatchAuthor,
 		isUserLoggedIn,
-		toggleMinimized
+		toggleMinimized,
+		diffSelection,
+		clearDiffSelection
 	}: Props = $props();
 
 	const appState = getContext(AppState);
@@ -105,7 +110,16 @@
 					{/snippet}
 				</Loading>
 			</div>
-			<ChatInput {isUserLoggedIn} {branchUuid} {projectId} {branchId} {changeId} {isPatchAuthor} />
+			<ChatInput
+				{isUserLoggedIn}
+				{branchUuid}
+				{projectId}
+				{branchId}
+				{changeId}
+				{isPatchAuthor}
+				{diffSelection}
+				{clearDiffSelection}
+			/>
 		</div>
 	</div>
 {/if}

@@ -88,6 +88,11 @@ export default class DiffLineSelection {
 	});
 	private _selectedDiffFileHunk = $state<DiffFileHunkKey>();
 
+	clear() {
+		this._selectedDiffLines.clear();
+		this._selectedDiffFileHunk = undefined;
+	}
+
 	toggle(fileName: string, hunkIndex: number, params: LineClickParams) {
 		const diffFileHunkKey = createDiffFileHunkKey(fileName, hunkIndex);
 

@@ -75,7 +75,7 @@ export default class LineSelection {
 						if (!lastRow) break toggleLine;
 
 						this.onLineClick?.({
-							index,
+							index: this._lastSelected,
 							oldLine: lastRow.beforeLineNumber,
 							newLine: lastRow.afterLineNumber,
 							shift: ev.shiftKey,
