@@ -1,4 +1,4 @@
-import { buildMutationHooks, buildQueryHooks, type HookContext } from './customHooks.svelte';
+import { buildMutationHooks, buildQueryHooks } from './customHooks.svelte';
 import { isMutationDefinition, isQueryDefinition } from './helpers';
 import { type Reactive } from '@gitbutler/shared/storeUtils';
 import {
@@ -15,6 +15,7 @@ import {
 	type ApiModules,
 	type MutationActionCreatorResult
 } from '@reduxjs/toolkit/query';
+import type { HookContext } from './context';
 
 /** Gives our module a namespace in the extended `ApiModules` interface. */
 const butlerModuleName = Symbol();
