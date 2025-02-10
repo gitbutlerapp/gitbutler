@@ -729,9 +729,12 @@ dependencies = [
  "anyhow",
  "bstr",
  "git2",
+ "gitbutler-oxidize",
+ "gitbutler-repo",
  "gix",
  "gix-testtools",
  "itertools 0.14.0",
+ "smallvec",
 ]
 
 [[package]]

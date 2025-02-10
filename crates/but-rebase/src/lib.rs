@@ -2,7 +2,10 @@
 
 use anyhow::{anyhow, bail, Ok, Result};
 use bstr::BString;
+use gitbutler_oxidize::{ObjectIdExt, OidExt};
+use gitbutler_repo::rebase::cherry_rebase_group;
 use gix::validate;
+use smallvec::SmallVec;
 
 #[derive(Debug)]
 pub enum RebaseStep {
@@ -20,7 +23,7 @@ pub enum RebaseStep {
         /// Optional message to use for newly produced commit
         new_message: BString,
     },
-    /// Squashes an existing commit into the one in the first `Pick` or `Merge` RebaseStep that preceedes it.
+    /// Squashes an existing commit into the one in the first `Pick` or `Merge` RebaseStep that precedes it.
     ///
     /// If there are neither `Pick` nor `Merge` steps preceding this operation (e.g. only `Reference` steps), the execution will halt with an error.
     /// If the step immediately preceding this step is a `Reference` step, the commit will be squashed into the commit that is referenced.
@@ -177,14 +180,86 @@ impl RebaseBuilder {
 pub struct Rebase {
     repo: gix::Repository,
     base: gix::ObjectId,
+    /// The first step will be the first commit in the rebase and the last step will be the last commit.
     steps: Vec<RebaseStep>,
 }
 
 impl Rebase {
     /// Performs a rebase on top of a given base, according to the provided steps.
     /// It does not actually create new git references nor does it update existing ones.
-    pub fn rebase(self) -> Result<RebaseOutput> {
-        todo!()
+    pub fn rebase(&self) -> Result<RebaseOutput> {
+        let repo = git2::Repository::open(self.repo.path())?;
+        let mut references = vec![];
+        // Start with the base commit
+        let mut base = self.base.to_git2();
+        // Running cherry_rebase_group for each step individually
+        for step in self.steps {
+            match step {
+                RebaseStep::Pick { oid, new_message } => {
+                    let mut new_head = cherry_rebase_group(
+                        &repo,
+                        self.base.to_git2(),
+                        &vec![oid.to_git2()],
+                        true,
+                    )?;
+                    if let Some(new_message) = new_message {
+                        new_head = self.reword_commit(new_head.into(), new_message)?.to_git2();
+                    }
+                    // Update the base for the next loop iteration
+                    base = new_head;
+                }
+                RebaseStep::Merge { oid, new_message } => {
+                    // TODO:
+                    // - find the merge base between the two legs (current head of the rebase and the other commit
+                    // - do 3 way merge between the merge base as base, and the two commits being the left and the right.
+                    // The parents of the new commit will be the left and the right of the new commit
+                    // This is just like gitbutler_merge_commits, but taking commits instead of branches
+
+                    todo!();
+
+                    // Update the base for the next loop iteration
+                    // base = new_head;
+                }
+                RebaseStep::Fixup { oid, new_message } => {
+                    // This time, the base is the parent of the last commit
+                    let base_commit = self.repo.find_commit(base.into())?;
+
+                    // First cherry-pick the target oid on top of base_commit
+                    let new_head = cherry_rebase_group(&repo, base, &vec![oid.to_git2()], true)?;
+
+                    // Now, lets pretend the base didn't exist by swapping parent with the parent of the base
+                    let commit = self.repo.find_commit(new_head.to_gix())?;
+                    let mut new_commit: gix::objs::Commit = commit.decode().into();
+                    new_commit.parents = SmallVec::from_slice(&[base_commit.parent_ids()]);
+                    let mut new_head = self.repo.write_object(new_commit)?.detach().to_git2();
+
+                    // Optionally reword the commit
+                    if let Some(new_message) = new_message {
+                        new_head = self.reword_commit(new_head.into(), new_message)?.to_git2();
+                    }
+                    // Update the base for the next loop iteration
+                    base = new_head;
+                }
+                RebaseStep::Reference { refname } => {
+                    references.push(ReferenceSpec {
+                        refname,
+                        oid: base.to_gix(),
+                    });
+                }
+            }
+        }
+
+        Ok(RebaseOutput {
+            new_head: base.to_gix(), // the base from the last iteration is the tip / head
+            references,
+        })
+    }
+    fn reword_commit(&self, oid: gix::ObjectId, new_message: BString) -> Result<gix::ObjectId> {
+        let commit = self.repo.find_commit(oid)?;
+        let mut new_commit: gix::objs::Commit = commit.decode().into();
+        new_commit.message = new_message;
+        // TODO: maybe update timestamps?
+        Ok(self.repo.write_object(new_commit)?.detach())
     }
 }
 
