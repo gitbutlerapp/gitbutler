@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { isArchivedBranch, isStackedBranch } from './lib';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import Branch from '$components/v3/Branch.svelte';
 	import StackContentIllustration, {
 		PreviewMode
 	} from '$components/v3/StackContentIllustration.svelte';
+	import { isStackedBranch } from '$components/v3/lib';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
@@ -28,10 +28,10 @@
 	const stackData = $derived(result.current.data?.[0]);
 
 	const stackContentMode = $derived.by<PreviewMode>(() => {
-		if (!stackData) return PreviewMode.EmptyBranch;
-		if (isArchivedBranch(stackData.state)) return PreviewMode.SelectToPreview;
-
-		if (isStackedBranch(stackData.state) && stackData.state.subject.localAndRemote.length === 0) {
+		if (
+			!stackData ||
+			(isStackedBranch(stackData.state) && stackData.state.subject.localAndRemote.length === 0)
+		) {
 			return PreviewMode.EmptyBranch;
 		}
 
