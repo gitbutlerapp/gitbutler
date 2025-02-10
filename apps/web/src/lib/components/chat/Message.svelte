@@ -10,9 +10,12 @@
 <script lang="ts">
 	import MessageActions from './MessageActions.svelte';
 	import MessageMarkdown from './MessageMarkdown.svelte';
+	import { parseDiffPatchToContentSection } from '$lib/chat/diffPatch';
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
+	import HunkDiffBody from '@gitbutler/ui/hunkDiff/HunkDiffBody.svelte';
 	import type { ChatEvent } from '@gitbutler/shared/branches/types';
 
 	const UNKNOWN_AUTHOR = 'Unknown author';
@@ -26,6 +29,8 @@
 	);
 
 	const timestamp = $derived(eventTimeStamp(event));
+
+	const content = $derived(parseDiffPatchToContentSection(message.diffPatchArray));
 </script>
 
 <div
@@ -42,6 +47,7 @@
 	{:else}
 		<img class="chat-message__avatar" src={message.user.avatarUrl} alt={authorName} />
 	{/if}
+
 	<div class="chat-message__data">
 		<div class="chat-message__header">
 			{#if message.issue}
@@ -65,6 +71,21 @@
 			</div>
 		</div>
 
+		{#if message.diffPatchArray && message.diffPatchArray.length > 0 && message.diffPath}
+			<div class="chat-message__diff-section">
+				<div class="chat-message__diff-section__header">
+					<FileIcon fileName={message.diffPath} size={16} />
+					<p title={message.diffPath} class="text-12 text-body file-name">{message.diffPath}</p>
+				</div>
+
+				<div class="chat-message__diff-content">
+					<table class="table__section">
+						<HunkDiffBody filePath={message.diffPath} {content} />
+					</table>
+				</div>
+			</div>
+		{/if}
+
 		<div class="chat-message-content">
 			<div class="text-13 text-body chat-message__content-text">
 				<MessageMarkdown content={message.comment} mentions={message.mentions} />
@@ -87,6 +108,7 @@
 			background: var(--clr-bg-1);
 		}
 	}
+
 	.chat-message {
 		display: flex;
 		padding: 14px 16px;
@@ -148,7 +170,40 @@
 	.chat-message__data {
 		display: flex;
 		flex-direction: column;
+		width: 100%;
 		gap: 12px;
+	}
+
+	table,
+	.table__section {
+		width: 100%;
+		border-collapse: separate;
+		border-spacing: 0;
+	}
+
+	.chat-message__diff-content {
+		overflow: hidden;
+		border-radius: var(--radius-m);
+		border: 1px solid var(--clr-diff-count-border);
+	}
+
+	.chat-message__diff-section {
+		display: flex;
+		flex-direction: column;
+		padding: 6px;
+		gap: 8px;
+		align-self: stretch;
+
+		border-radius: var(--radius-m);
+		border: 1px solid var(--clr-border-2);
+		background: var(--clr-bg-1);
+	}
+
+	.chat-message__diff-section__header {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		align-self: stretch;
 	}
 
 	.chat-message__header {
