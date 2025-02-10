@@ -14,7 +14,7 @@
 <div class="diff-section">
 	<p class="text-12 text-body file-name">{section.newPath}</p>
 	{#each hunks as hunkStr}
-		<HunkDiff filePath={section.newPath || 'unknown'} {hunkStr}></HunkDiff>
+		<HunkDiff filePath={section.newPath || 'unknown'} {hunkStr} diffLigatures={false}></HunkDiff>
 	{/each}
 </div>
 
