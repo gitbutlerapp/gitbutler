@@ -6,7 +6,8 @@ use tracing::instrument;
 
 pub(crate) const UNIDIFF_CONTEXT_LINES: u32 = 3;
 
-/// The array of unified diffs matches `changes`, so that `result[n] = unified_diff_of(changes[n])`.
+/// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
+/// or if it involves a change to a [submodule](gix::object::Kind::Commit).
 #[tauri::command(async)]
 #[instrument(skip(projects, change), err(Debug))]
 pub fn tree_change_diffs(

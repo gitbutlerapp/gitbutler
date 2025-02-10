@@ -45,6 +45,13 @@ impl UnifiedDiff {
     /// `current_state` is either the state we know the resource currently has, or is `None`, if there is no current state.
     /// `previous_state`, if `None`, indicates the file is new so there is nothing to compare to.
     /// Otherwise, it's the state of the resource as previously known.
+    ///
+    /// ### Special Types
+    ///
+    /// Note that *Submodules* won't render as patches, they have to be caught in the UI to render their previous hash
+    /// and current hash directly.
+    /// Type-changes, from file to submodule or vice-versa for instance, should be shown as typechange only, probably showing
+    /// the old and the new type, without diff preview for now.
     pub fn compute(
         repo: &gix::Repository,
         path: &BStr,
