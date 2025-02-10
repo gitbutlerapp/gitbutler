@@ -5,6 +5,7 @@
 	import ChangeNavigator from '$lib/components/review/ChangeNavigator.svelte';
 	import ReviewInfo from '$lib/components/review/ReviewInfo.svelte';
 	import ReviewSections from '$lib/components/review/ReviewSections.svelte';
+	import DiffLineSelection from '$lib/diff/lineSelection.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
@@ -42,6 +43,7 @@
 	const userService = getContext(UserService);
 	const user = $derived(userService.user);
 	const chatMinimizer = new ChatMinimize();
+	const diffLineSelection = new DiffLineSelection();
 
 	const repositoryId = $derived(
 		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
@@ -131,7 +133,12 @@
 				</p>
 
 				<ReviewInfo projectId={repositoryId} {patch} />
-				<ReviewSections {patch} patchSections={patchSections?.current} />
+				<ReviewSections
+					{patch}
+					patchSections={patchSections?.current}
+					toggleDiffLine={(f, h, p) => diffLineSelection.toggle(f, h, p)}
+					selectedLines={diffLineSelection.selectedLines}
+				/>
 			</div>
 
 			{#if branchUuid !== undefined}

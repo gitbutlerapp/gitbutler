@@ -1,16 +1,23 @@
 <script lang="ts">
 	import { splitDiffIntoHunks } from '$lib/diffParsing';
-	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
+	import HunkDiff, { type LineClickParams } from '@gitbutler/ui/HunkDiff.svelte';
 	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
 	import type { DiffSection } from '@gitbutler/shared/branches/types';
+	import type { LineSelector } from '@gitbutler/ui/utils/diffParsing';
 
 	interface Props {
 		section: DiffSection;
+		selectedLines: LineSelector[];
+		toggleDiffLine: (fileName: string, hunkIndex: number, params: LineClickParams) => void;
 	}
-	const { section }: Props = $props();
+	const { section, toggleDiffLine, selectedLines }: Props = $props();
 
 	const hunks = $derived(section.diffPatch ? splitDiffIntoHunks(section.diffPatch) : []);
 	const filePath = $derived(section.newPath || 'unknown');
+
+	function handleLineClick(index: number, params: LineClickParams) {
+		toggleDiffLine(section.newPath || 'unknown', index, params);
+	}
 </script>
 
 <div class="diff-section">
@@ -18,8 +25,14 @@
 		<FileIcon fileName={filePath} size={16} />
 		<p title={filePath} class="text-12 text-body file-name">{filePath}</p>
 	</div>
-	{#each hunks as hunkStr}
-		<HunkDiff filePath={section.newPath || 'unknown'} {hunkStr} diffLigatures={false}></HunkDiff>
+	{#each hunks as hunkStr, idx}
+		<HunkDiff
+			filePath={section.newPath || 'unknown'}
+			{hunkStr}
+			diffLigatures={false}
+			{selectedLines}
+			onLineClick={(p) => handleLineClick(idx, p)}
+		/>
 	{/each}
 </div>
 

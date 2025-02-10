@@ -1,13 +1,17 @@
 <script lang="ts">
 	import SectionComponent from './Section.svelte';
 	import type { Patch, Section } from '@gitbutler/shared/branches/types';
+	import type { LineClickParams } from '@gitbutler/ui/HunkDiff.svelte';
+	import type { LineSelector } from '@gitbutler/ui/utils/diffParsing';
 
 	interface Props {
 		patch: Patch;
 		patchSections: Section[] | undefined;
+		selectedLines: LineSelector[];
+		toggleDiffLine: (fileName: string, hunkIndex: number, params: LineClickParams) => void;
 	}
 
-	const { patch, patchSections }: Props = $props();
+	const { patch, patchSections, selectedLines, toggleDiffLine }: Props = $props();
 </script>
 
 <div class="review-sections-card">
@@ -20,7 +24,7 @@
 	</div>
 	{#if patchSections !== undefined}
 		{#each patchSections as section}
-			<SectionComponent {section} />
+			<SectionComponent {section} {toggleDiffLine} {selectedLines} />
 		{/each}
 	{/if}
 </div>
