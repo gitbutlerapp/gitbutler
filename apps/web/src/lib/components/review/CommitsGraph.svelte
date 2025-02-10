@@ -10,8 +10,6 @@
 	const patches = branch.patches;
 
 	function getClass(patch: Patch) {
-		console.log(patch);
-
 		if (
 			patch.commentCount > 0 &&
 			patch.reviewAll.signedOff.length === 0 &&
