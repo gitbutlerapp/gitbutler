@@ -1,5 +1,7 @@
 <script lang="ts">
 	import ChangeStatus from '../changes/ChangeStatus.svelte';
+	import Factoid from '../infoFlexRow/Factoid.svelte';
+	import InfoFlexRow from '../infoFlexRow/InfoFlexRow.svelte';
 	import {
 		getUsersWithAvatars,
 		getPatchApproversWithAvatars,
@@ -40,82 +42,32 @@
 	const rejectors = $derived(getPatchRejectorsWithAvatars(patch));
 </script>
 
-<div class="review-main-content-info">
-	<div class="review-main-content-info__entry">
-		<p class="text-12 review-main-content-info__header">Status:</p>
+<InfoFlexRow>
+	<Factoid label="Status">
 		<ChangeStatus {patch} />
-	</div>
-
-	<div class="review-main-content-info__entry">
-		<p class="text-12 review-main-content-info__header">Reviewed by:</p>
-		<div class="review-main-content-info__value-wrapper">
-			{#await Promise.all([approvers, rejectors]) then [approvers, rejectors]}
-				{#if approvers.length === 0 && rejectors.length === 0}
-					<p class="review-main-content-info__value">{NO_REVIEWERS}</p>
-				{:else}
-					<AvatarGroup
-						avatars={rejectors}
-						maxAvatars={2}
-						icon="refresh-small"
-						iconColor="warning"
-					/>
-					<AvatarGroup avatars={approvers} maxAvatars={2} icon="tick-small" iconColor="success" />
-				{/if}
-			{/await}
-		</div>
-	</div>
-
-	<div class="review-main-content-info__entry">
-		<p class="text-12 review-main-content-info__header">Commented by:</p>
+	</Factoid>
+	<Factoid label="Reviewed by" placeholderText={NO_REVIEWERS}>
+		{#await Promise.all([approvers, rejectors]) then [approvers, rejectors]}
+			{#if rejectors.length > 0}
+				<AvatarGroup avatars={rejectors} maxAvatars={2} icon="refresh-small" iconColor="warning" />
+			{/if}
+			{#if approvers.length > 0}
+				<AvatarGroup avatars={approvers} maxAvatars={2} icon="tick-small" iconColor="success" />
+			{/if}
+		{/await}
+	</Factoid>
+	<Factoid label="Commented by" placeholderText={NO_COMMENTS}>
 		{#await commenters then commentors}
-			{#if commentors.length === 0}
-				<p class="review-main-content-info__value">{NO_COMMENTS}</p>
-			{:else}
+			{#if commentors.length > 0}
 				<AvatarGroup avatars={commentors} />
 			{/if}
 		{/await}
-	</div>
-
-	<div class="review-main-content-info__entry">
-		<p class="text-12 review-main-content-info__header">Authors:</p>
-		<div>
-			{#await contributors then contributors}
-				{#if contributors.length === 0}
-					<p class="text-12 review-main-content-info__value">{NO_CONTRIBUTORS}</p>
-				{:else}
-					<AvatarGroup avatars={contributors} />
-				{/if}
-			{/await}
-		</div>
-	</div>
-</div>
-
-<style>
-	.review-main-content-info {
-		display: flex;
-		gap: 30px;
-	}
-
-	.review-main-content-info__entry {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-
-	.review-main-content-info__header {
-		overflow: hidden;
-		color: var(--clr-text-2);
-		text-overflow: ellipsis;
-	}
-
-	.review-main-content-info__value-wrapper {
-		display: flex;
-		gap: 8px;
-	}
-
-	.review-main-content-info__value {
-		overflow: hidden;
-		color: var(--clr-text-3);
-		text-overflow: ellipsis;
-	}
-</style>
+	</Factoid>
+	<Factoid label="Authors" placeholderText={NO_CONTRIBUTORS}>
+		{#await contributors then contributors}
+			{#if contributors.length > 0}
+				<AvatarGroup avatars={contributors} />
+			{/if}
+		{/await}
+	</Factoid>
+</InfoFlexRow>

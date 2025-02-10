@@ -1,6 +1,7 @@
 <script lang="ts">
-	import Factoid from '$lib/components/Factoid.svelte';
 	import ChangeIndexCard from '$lib/components/changes/ChangeIndexCard.svelte';
+	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
+	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
 	import BranchStatusBadge from '$lib/components/review/BranchStatusBadge.svelte';
 	import CommitsGraph from '$lib/components/review/CommitsGraph.svelte';
 	import { UserService } from '$lib/user/userService';
@@ -170,23 +171,23 @@
 						{/if}
 					</div>
 				</div>
-				<div class="stats">
-					<Factoid title="Commits:">
+				<InfoFlexRow>
+					<Factoid label="Commits">
 						<CommitsGraph {branch} />
 					</Factoid>
-					<Factoid title="Status:"><BranchStatusBadge {branch} /></Factoid>
-					<Factoid title="Authors:">
+					<Factoid label="Status"><BranchStatusBadge {branch} /></Factoid>
+					<Factoid label="Authors">
 						{#await contributors then contributors}
 							<AvatarGroup avatars={contributors}></AvatarGroup>
 						{/await}
 					</Factoid>
-					<Factoid title="Updated:">
-						<p class="fact">{dayjs(branch.updatedAt).fromNow()}</p>
+					<Factoid label="Updated">
+						{dayjs(branch.updatedAt).fromNow()}
 					</Factoid>
-					<Factoid title="Version:">
-						<p class="fact">{branch.version}</p>
+					<Factoid label="Version">
+						{branch.version}
 					</Factoid>
-				</div>
+				</InfoFlexRow>
 				<div class="summary">
 					{#if editingSummary}
 						<Textarea minRows={6} bind:value={summary}></Textarea>
@@ -292,12 +293,6 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 12px;
-	}
-
-	.stats {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 30px;
 	}
 
 	.header-right {
