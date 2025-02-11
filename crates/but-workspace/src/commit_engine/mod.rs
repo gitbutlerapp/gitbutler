@@ -15,8 +15,6 @@ use std::io::Read;
 /// Types for use in the frontend with serialization support.
 pub mod ui;
 
-mod plumbing;
-
 /// The place to apply the [change-specifications](DiffSpec) to.
 ///
 /// Note that any commit this instance points to will be the basis to apply all changes to.
@@ -253,8 +251,8 @@ pub fn create_commit(
                 parent_commit_id: _,
             } => {
                 let (author, committer) = repo.commit_signatures()?;
-                let (new_commit, _ref_edit) = plumbing::create_commit(
-                    repo, None, author, committer, &message, new_tree, parents, None,
+                let new_commit = create_possibly_signed_commit(
+                    repo, author, committer, &message, new_tree, parents, None,
                 )?;
                 Some(new_commit)
             }
@@ -266,8 +264,7 @@ pub fn create_commit(
                     .decode()?
                     .to_owned();
                 commit.tree = new_tree;
-                let (new_commit, _ref_edit) = plumbing::create_given_commit(repo, None, commit)?;
-                Some(new_commit)
+                Some(but_rebase::commit::create(repo, commit)?)
             }
         }
     } else {
@@ -490,4 +487,26 @@ fn apply_worktree_changes<'repo>(
 
 fn has_zero_based_line_numbers(hunk_header: &HunkHeader) -> bool {
     hunk_header.new_start == 0 || hunk_header.old_start == 0
+}
+/// Create a commit exactly as specified, and sign it depending on Git and GitButler specific Git configuration.
+#[allow(clippy::too_many_arguments)]
+fn create_possibly_signed_commit(
+    repo: &gix::Repository,
+    author: gix::actor::Signature,
+    committer: gix::actor::Signature,
+    message: &str,
+    tree: gix::ObjectId,
+    parents: impl IntoIterator<Item = impl Into<gix::ObjectId>>,
+    commit_headers: Option<but_core::commit::HeadersV2>,
+) -> anyhow::Result<gix::ObjectId> {
+    let commit = gix::objs::Commit {
+        message: message.into(),
+        tree,
+        author,
+        committer,
+        encoding: None,
+        parents: parents.into_iter().map(Into::into).collect(),
+        extra_headers: commit_headers.unwrap_or_default().into(),
+    };
+    but_rebase::commit::create(repo, commit)
 }

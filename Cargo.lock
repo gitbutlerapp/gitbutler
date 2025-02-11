@@ -728,11 +728,15 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-core",
  "git2",
+ "gitbutler-error",
  "gitbutler-oxidize",
  "gitbutler-repo",
  "gix",
  "gix-testtools",
+ "tempfile",
+ "tracing",
 ]
 
 [[package]]
@@ -742,10 +746,10 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-core",
+ "but-rebase",
  "git2",
  "gitbutler-command-context",
  "gitbutler-commit",
- "gitbutler-error",
  "gitbutler-id",
  "gitbutler-oxidize",
  "gitbutler-repo",
@@ -758,8 +762,6 @@ dependencies = [
  "itertools 0.14.0",
  "md5",
  "serde",
- "tempfile",
- "tracing",
  "url",
 ]
 

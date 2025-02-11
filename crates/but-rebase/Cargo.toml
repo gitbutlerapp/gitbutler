@@ -11,10 +11,14 @@ doctest = false
 [dependencies]
 gix.workspace = true
 anyhow.workspace = true
+tracing.workspace = true
+but-core.workspace = true
 gitbutler-repo.workspace = true
 gitbutler-oxidize.workspace = true
+gitbutler-error.workspace = true
 bstr.workspace = true
 git2.workspace = true
+tempfile.workspace = true
 
 [dev-dependencies]
 gix-testtools.workspace = true

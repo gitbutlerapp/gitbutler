@@ -1,7 +1,7 @@
 use but_core::TreeStatus;
 use but_workspace::commit_engine::{Destination, DiffSpec};
 use gix::prelude::ObjectIdExt;
-use gix_testtools::Creation;
+use gix_testtools::{tempfile, Creation};
 
 pub const CONTEXT_LINES: u32 = 0;
 
