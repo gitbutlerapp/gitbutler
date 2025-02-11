@@ -41,4 +41,3 @@ gix-testtools = "0.15.0"
 gitbutler-testsupport.workspace = true
 insta = "1.42.1"
 but-core = { workspace = true, features = ["testing"] }
-serial_test = "3.2.0"

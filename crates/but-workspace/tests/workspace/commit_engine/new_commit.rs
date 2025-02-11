@@ -1,17 +1,16 @@
 use crate::commit_engine::utils::{
-    commit_whole_files_and_all_hunks_from_workspace, read_only_in_memory_scenario, stable_env,
-    to_change_specs_all_hunks, to_change_specs_all_hunks_with_context_lines,
-    to_change_specs_whole_file, visualize_tree, writable_scenario, write_sequence, CONTEXT_LINES,
+    assure_stable_env, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace,
+    read_only_in_memory_scenario, to_change_specs_all_hunks,
+    to_change_specs_all_hunks_with_context_lines, to_change_specs_whole_file, visualize_tree,
+    writable_scenario, writable_scenario_execute, write_sequence, CONTEXT_LINES,
 };
 use but_workspace::commit_engine;
 use but_workspace::commit_engine::{CreateCommitOutcome, Destination, DiffSpec};
 use gix::prelude::ObjectIdExt;
-use serial_test::serial;
 
 #[test]
-#[serial]
 fn from_unborn_head() -> anyhow::Result<()> {
-    let _env = stable_env();
+    assure_stable_env();
 
     let (repo, _tmp) = writable_scenario("unborn-untracked");
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
@@ -76,10 +75,9 @@ fn from_unborn_head() -> anyhow::Result<()> {
 }
 
 #[test]
-#[serial]
 #[cfg(unix)]
 fn from_unborn_head_all_file_types() -> anyhow::Result<()> {
-    let _env = stable_env();
+    assure_stable_env();
 
     let repo = read_only_in_memory_scenario("unborn-untracked-all-file-types")?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
@@ -112,10 +110,9 @@ fn from_unborn_head_all_file_types() -> anyhow::Result<()> {
 }
 
 #[test]
-#[serial]
 #[cfg(unix)]
 fn from_first_commit_all_file_types_changed() -> anyhow::Result<()> {
-    let _env = stable_env();
+    assure_stable_env();
 
     let repo = read_only_in_memory_scenario("all-file-types-changed")?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
@@ -137,9 +134,8 @@ fn from_first_commit_all_file_types_changed() -> anyhow::Result<()> {
 }
 
 #[test]
-#[serial]
 fn unborn_with_added_submodules() -> anyhow::Result<()> {
-    let _env = stable_env();
+    assure_stable_env();
 
     let (repo, _tmp) = writable_scenario("unborn-with-submodules");
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
@@ -173,9 +169,8 @@ fn unborn_with_added_submodules() -> anyhow::Result<()> {
 }
 
 #[test]
-#[serial]
 fn deletions() -> anyhow::Result<()> {
-    let _env = stable_env();
+    assure_stable_env();
 
     let repo = read_only_in_memory_scenario("delete-all-file-types")?;
     let head_commit = repo.rev_parse_single("HEAD")?;
@@ -204,9 +199,8 @@ fn deletions() -> anyhow::Result<()> {
 }
 
 #[test]
-#[serial]
 fn renames() -> anyhow::Result<()> {
-    let _env = stable_env();
+    assure_stable_env();
 
     let repo = read_only_in_memory_scenario("all-file-types-renamed-and-modified")?;
     let head_commit = repo.rev_parse_single("HEAD")?;
@@ -234,9 +228,8 @@ fn renames() -> anyhow::Result<()> {
 }
 
 #[test]
-#[serial]
 fn submodule_typechanges() -> anyhow::Result<()> {
-    let _env = stable_env();
+    assure_stable_env();
 
     let (repo, _tmp) = writable_scenario("submodule-typechanges");
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
@@ -321,15 +314,14 @@ fn submodule_typechanges() -> anyhow::Result<()> {
 }
 
 #[test]
-#[serial]
 fn commit_to_one_below_tip() -> anyhow::Result<()> {
-    let _env = stable_env();
+    assure_stable_env();
 
     let (repo, _tmp) = writable_scenario("two-commits-with-line-offset");
     write_sequence(&repo, "file", [(20, Some(40)), (80, None), (30, Some(50))])?;
     let first_commit = Destination::NewCommit {
         parent_commit_id: Some(repo.rev_parse_single("first-commit")?.into()),
-        message: "we apply a change with line offsets on top of the first commit, so the patch wouldn't apply without fuzzy matching.".into()
+        message: "we apply a change with line offsets on top of the first commit, so the patch wouldn't apply cleanly.".into()
     };
 
     let outcome_ctx_0 = commit_whole_files_and_all_hunks_from_workspace(&repo, first_commit)?;
@@ -342,9 +334,8 @@ fn commit_to_one_below_tip() -> anyhow::Result<()> {
 }
 
 #[test]
-#[serial]
 fn commit_to_one_below_tip_with_three_context_lines() -> anyhow::Result<()> {
-    let _env = stable_env();
+    assure_stable_env();
 
     let (repo, _tmp) = writable_scenario("two-commits-with-line-offset");
     write_sequence(&repo, "file", [(20, Some(40)), (80, None), (30, Some(50))])?;
@@ -383,9 +374,8 @@ fn commit_to_one_below_tip_with_three_context_lines() -> anyhow::Result<()> {
 }
 
 #[test]
-#[serial]
 fn commit_to_branches_below_merge_commit() -> anyhow::Result<()> {
-    let _env = stable_env();
+    assure_stable_env();
 
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
 
@@ -422,9 +412,8 @@ fn commit_to_branches_below_merge_commit() -> anyhow::Result<()> {
 }
 
 #[test]
-#[serial]
 fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
-    let _env = stable_env();
+    assure_stable_env();
 
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
 
@@ -470,10 +459,9 @@ fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
 }
 
 #[test]
-#[serial]
 fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() -> anyhow::Result<()>
 {
-    let _env = stable_env();
+    assure_stable_env();
 
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset-two-files");
 
@@ -542,9 +530,8 @@ fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() ->
 }
 
 #[test]
-#[serial]
 fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Result<()> {
-    let _env = stable_env();
+    assure_stable_env();
 
     let (repo, _tmp) = writable_scenario("unborn-untracked-crlf");
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
@@ -606,13 +593,52 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
 }
 
 #[test]
-#[ignore = "TBD"]
-fn figure_out_commit_signature_test() {}
+fn signatures_are_redone() -> anyhow::Result<()> {
+    assure_stable_env();
+
+    let (repo, _tmp) = writable_scenario_execute("two-signed-commits-with-line-offset");
+
+    let head_id = repo.head_id()?;
+    let head_commit = head_id.object()?.into_commit().decode()?.to_owned();
+    let head_id = head_id.detach();
+    let previous_signature = head_commit
+        .extra_headers()
+        .pgp_signature()
+        .expect("it's signed by default");
+
+    // Rewrite everything for amending on top.
+    write_sequence(&repo, "file", [(40, 60)])?;
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
+        &repo,
+        Destination::NewCommit {
+            parent_commit_id: Some(head_id),
+            message: "a commit with signature".into(),
+        },
+    )?;
+
+    let new_commit = commit_from_outcome(&repo, &outcome)?;
+    let new_signature = new_commit
+        .extra_headers()
+        .pgp_signature()
+        .expect("signing config is respected");
+    assert_ne!(
+        previous_signature, new_signature,
+        "signatures are recreated as the commit is changed"
+    );
+    assert_eq!(
+        new_commit
+            .extra_headers()
+            .find_all(gix::objs::commit::SIGNATURE_FIELD_NAME)
+            .count(),
+        1,
+        "it doesn't leave outdated signatures on top of the updated one"
+    );
+    Ok(())
+}
 
 #[test]
-#[serial]
 fn validate_no_change_on_noop() -> anyhow::Result<()> {
-    let _env = stable_env();
+    assure_stable_env();
 
     let repo = read_only_in_memory_scenario("two-commits-with-line-offset")?;
     let specs = vec![DiffSpec {

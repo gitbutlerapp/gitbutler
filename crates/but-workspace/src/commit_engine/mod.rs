@@ -238,7 +238,7 @@ pub fn create_commit(
             .collect(),
     };
 
-    if parents.len() > 1 {
+    if !matches!(destination, Destination::AmendCommit(_)) && parents.len() > 1 {
         bail!("cannot currently handle more than 1 parent")
     }
 
@@ -266,7 +266,8 @@ pub fn create_commit(
                     .decode()?
                     .to_owned();
                 commit.tree = new_tree;
-                Some(repo.write_object(commit)?.detach())
+                let (new_commit, _ref_edit) = plumbing::create_given_commit(repo, None, commit)?;
+                Some(new_commit)
             }
         }
     } else {

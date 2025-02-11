@@ -5,17 +5,20 @@ use gix_testtools::Creation;
 
 pub const CONTEXT_LINES: u32 = 0;
 
-/// Returns an environment that assure commits are reproducible. This needs the `testing` feature enabled in `but-core` as well to work.
-/// Note that this is racy once other tests rely on other values for these environment variables.
-pub fn stable_env() -> gix_testtools::Env<'static> {
-    gix_testtools::Env::new()
+/// Sets and environment that assures commits are reproducible.
+/// This needs the `testing` feature enabled in `but-core` as well to work.
+/// This changes the process environment, be aware.
+pub fn assure_stable_env() {
+    let env = gix_testtools::Env::new()
         .set("GIT_AUTHOR_DATE", "2000-01-01 00:00:00 +0000")
         .set("GIT_AUTHOR_EMAIL", "author@example.com")
         .set("GIT_AUTHOR_NAME", "author")
         .set("GIT_COMMITTER_DATE", "2000-01-02 00:00:00 +0000")
         .set("GIT_COMMITTER_EMAIL", "committer@example.com")
         .set("GIT_COMMITTER_NAME", "committer")
-        .set("CHANGE_ID", "committer")
+        .set("CHANGE_ID", "committer");
+    // assure it doesn't get racy.
+    std::mem::forget(env);
 }
 
 fn writable_scenario_inner(
@@ -48,6 +51,12 @@ pub fn writable_scenario(name: &str) -> (gix::Repository, tempfile::TempDir) {
     writable_scenario_inner(name, Creation::CopyFromReadOnly)
         .expect("fixtures will yield valid repositories")
 }
+
+pub fn writable_scenario_execute(name: &str) -> (gix::Repository, tempfile::TempDir) {
+    writable_scenario_inner(name, Creation::ExecuteScript)
+        .expect("fixtures will yield valid repositories")
+}
+
 /// Always use all the hunks.
 pub fn to_change_specs_whole_file(changes: but_core::WorktreeChanges) -> Vec<DiffSpec> {
     let out: Vec<_> = changes
@@ -198,4 +207,18 @@ pub fn commit_whole_files_and_all_hunks_from_workspace(
         "rejections are the same as well"
     );
     Ok(all_hunks_output)
+}
+
+pub fn commit_from_outcome(
+    repo: &gix::Repository,
+    outcome: &but_workspace::commit_engine::CreateCommitOutcome,
+) -> anyhow::Result<gix::objs::Commit> {
+    Ok(outcome
+        .new_commit
+        .expect("the amended commit was created")
+        .attach(repo)
+        .object()?
+        .peel_to_commit()?
+        .decode()?
+        .into())
 }

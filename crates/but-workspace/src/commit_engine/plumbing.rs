@@ -23,7 +23,7 @@ pub fn create_commit(
     parents: impl IntoIterator<Item = impl Into<gix::ObjectId>>,
     commit_headers: Option<but_core::commit::HeadersV2>,
 ) -> anyhow::Result<(gix::ObjectId, Option<gix::refs::transaction::RefEdit>)> {
-    let mut commit = gix::objs::Commit {
+    let commit = gix::objs::Commit {
         message: message.into(),
         tree,
         author,
@@ -32,23 +32,43 @@ pub fn create_commit(
         parents: parents.into_iter().map(Into::into).collect(),
         extra_headers: commit_headers.unwrap_or_default().into(),
     };
+    create_given_commit(repo, update_ref, commit)
+}
 
+/// Use the given commit and possibly sign it, replacing a possibly existing signature,
+/// or removing the signature if GitButler is not configured to keep it.
+///
+/// Signatures will be removed automatically if signing is disabled to prevent an amended commit
+/// to use the old signature. They will also be added or replace existing signatures.
+#[allow(clippy::too_many_arguments)]
+pub fn create_given_commit(
+    repo: &gix::Repository,
+    update_ref: Option<gix::refs::FullName>,
+    mut commit: gix::objs::Commit,
+) -> anyhow::Result<(gix::ObjectId, Option<gix::refs::transaction::RefEdit>)> {
+    if let Some(pos) = commit
+        .extra_headers()
+        .find_pos(gix::objs::commit::SIGNATURE_FIELD_NAME)
+    {
+        commit.extra_headers.remove(pos);
+    }
     if repo.git_settings()?.gitbutler_sign_commits.unwrap_or(false) {
         let mut buf = Vec::new();
         commit.write_to(&mut buf)?;
-        let signature = sign_buffer(repo, &buf);
-        match signature {
+        match sign_buffer(repo, &buf) {
             Ok(signature) => {
-                commit.extra_headers.push(("gpgsig".into(), signature));
+                commit
+                    .extra_headers
+                    .push((gix::objs::commit::SIGNATURE_FIELD_NAME.into(), signature));
             }
-            Err(e) => {
+            Err(err) => {
                 // If signing fails, turn off signing automatically and let everyone know,
                 repo.set_git_settings(&GitConfigSettings {
                     gitbutler_sign_commits: Some(false),
                     ..GitConfigSettings::default()
                 })?;
                 return Err(
-                    anyhow!("Failed to sign commit: {}", e).context(Code::CommitSigningFailed)
+                    anyhow!("Failed to sign commit: {}", err).context(Code::CommitSigningFailed)
                 );
             }
         }
@@ -58,8 +78,8 @@ pub fn create_commit(
     let refedit = if let Some(refname) = update_ref {
         // TODO:(ST) should this be something more like what Git does (also in terms of reflog message)?
         //       Probably should support making a commit in full with `gix`.
-        let log_message = message;
-        let edit = update_reference(repo, refname, new_commit_id, log_message.into())?;
+        let log_message = commit.message;
+        let edit = update_reference(repo, refname, new_commit_id, log_message)?;
         Some(edit)
     } else {
         None
