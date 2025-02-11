@@ -25,7 +25,7 @@ but-hunk-dependency.workspace = true
 
 gitbutler-commit = { workspace = true, optional = true, features = ["testing"] }
 
-clap = { version = "4.5.23", features = ["derive", "env"] }
+clap = { version = "4.5.28", features = ["derive", "env"] }
 gix.workspace = true
 anyhow.workspace = true
 itertools = "0.14.0"
