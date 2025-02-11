@@ -15,12 +15,6 @@ gitbutler-repo.workspace = true
 gitbutler-oxidize.workspace = true
 bstr.workspace = true
 git2.workspace = true
-itertools = "0.14"
-smallvec = "1.13.2"
-
-[[test]]
-name = "rebase"
-path = "tests/mod.rs"
 
 [dev-dependencies]
 gix-testtools.workspace = true

@@ -733,8 +733,6 @@ dependencies = [
  "gitbutler-repo",
  "gix",
  "gix-testtools",
- "itertools 0.14.0",
- "smallvec",
 ]
 
 [[package]]
