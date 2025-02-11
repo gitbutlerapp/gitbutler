@@ -9,17 +9,17 @@ use gitbutler_repo::rebase::{cherry_rebase_group, merge_commits};
 /// An instruction for [`RebaseBuilder::rebase()`].
 #[derive(Debug)]
 pub enum RebaseStep {
-    /// Pick an existing commit and optionally reword it.
+    /// Pick an existing commit and place it on top of `base` and optionally reword it.
     Pick {
-        /// Oid of an already existing commit
-        oid: gix::ObjectId,
+        /// Id of an already existing commit
+        commit_id: gix::ObjectId,
         /// Optional message to use for newly produced commit
         new_message: Option<BString>,
     },
     /// Merge an existing commit and it's parents producing a new merge commit.
     Merge {
-        /// Oid of an already existing commit
-        oid: gix::ObjectId,
+        /// Id of an already existing commit
+        commit_id: gix::ObjectId,
         /// Optional message to use for newly produced commit
         new_message: BString,
     },
@@ -31,8 +31,8 @@ pub enum RebaseStep {
     ///
     /// Optionally sets the message of the new commit.
     Fixup {
-        /// Oid of an already existing commit
-        oid: gix::ObjectId,
+        /// Id of an already existing commit
+        commit_id: gix::ObjectId,
         /// Optional message to use for newly produced commit
         new_message: Option<BString>,
     },
@@ -42,16 +42,16 @@ pub enum RebaseStep {
     Reference {
         /// The name of the reference (literally, a name to refer to an object, not necessarily a valid Git reference)
         /// that should refer to the possibly rewritten commit that precedes it, as returned in [`RebaseOutput::references`].
-        refname: BString,
+        name: BString,
     },
 }
 
 impl RebaseStep {
     fn commit_id(&self) -> Option<&gix::oid> {
         match self {
-            RebaseStep::Pick { oid, .. }
-            | RebaseStep::Merge { oid, .. }
-            | RebaseStep::Fixup { oid, .. } => Some(oid),
+            RebaseStep::Pick { commit_id, .. }
+            | RebaseStep::Merge { commit_id, .. }
+            | RebaseStep::Fixup { commit_id, .. } => Some(commit_id),
             RebaseStep::Reference { .. } => None,
         }
     }
@@ -115,22 +115,22 @@ impl RebaseBuilder {
     fn validate_step(&self, step: &RebaseStep) -> Result<()> {
         match step {
             RebaseStep::Pick {
-                oid,
+                commit_id,
                 new_message: _,
             } => {
-                self.assure_unique_step_and_existing_non_base(oid, "Picked")?;
+                self.assure_unique_step_and_existing_non_base(commit_id, "Picked")?;
             }
             RebaseStep::Merge {
-                oid,
+                commit_id,
                 new_message: _,
             } => {
-                self.assure_unique_step_and_existing_non_base(oid, "Merge")?;
+                self.assure_unique_step_and_existing_non_base(commit_id, "Merge")?;
             }
             RebaseStep::Fixup {
-                oid,
+                commit_id,
                 new_message: _,
             } => {
-                self.assure_unique_step_and_existing_non_base(oid, "Fixup")?;
+                self.assure_unique_step_and_existing_non_base(commit_id, "Fixup")?;
                 if matches!(self.steps.last(), Some(RebaseStep::Reference { .. })) {
                     bail!("Fixup commit must not come after a reference step");
                 }
@@ -138,12 +138,10 @@ impl RebaseBuilder {
                     bail!("Fixup must have a commit to work on");
                 }
             }
-            RebaseStep::Reference { refname } => {
-                if refname.is_empty() {
-                    return Err(anyhow!("Reference step must have a non-empty refname"));
+            RebaseStep::Reference { name } => {
+                if name.is_empty() {
+                    return Err(anyhow!("Reference step must have a non-empty name"));
                 }
-                // TODO: remove validation as it can be anything really.
-                gix::validate::reference::name(refname.as_ref())?;
             }
         }
         Ok(())
@@ -177,9 +175,12 @@ fn rebase(
     // Running cherry_rebase_group for each step individually
     for step in steps {
         match step {
-            RebaseStep::Pick { oid, new_message } => {
+            RebaseStep::Pick {
+                commit_id,
+                new_message,
+            } => {
                 let mut new_head =
-                    cherry_rebase_group(&git2_repo, base.to_git2(), &[oid.to_git2()], true)?
+                    cherry_rebase_group(&git2_repo, base.to_git2(), &[commit_id.to_git2()], true)?
                         .to_gix();
                 if let Some(new_message) = new_message {
                     new_head = reword_commit(repo, new_head, new_message.clone())?;
@@ -187,16 +188,22 @@ fn rebase(
                 // Update the base for the next loop iteration
                 head = new_head;
             }
-            RebaseStep::Merge { oid, new_message } => {
-                head = merge_commits(repo, head, oid, &new_message.to_str_lossy())?;
+            RebaseStep::Merge {
+                commit_id,
+                new_message,
+            } => {
+                head = merge_commits(repo, head, commit_id, &new_message.to_str_lossy())?;
             }
-            RebaseStep::Fixup { oid, new_message } => {
+            RebaseStep::Fixup {
+                commit_id,
+                new_message,
+            } => {
                 // This time, the base is the parent of the last commit
                 let base_commit = repo.find_commit(head)?;
 
                 // First cherry-pick the target oid on top of base_commit
                 let new_head =
-                    cherry_rebase_group(&git2_repo, head.to_git2(), &[oid.to_git2()], true)?
+                    cherry_rebase_group(&git2_repo, head.to_git2(), &[commit_id.to_git2()], true)?
                         .to_gix();
 
                 // Now, lets pretend the base didn't exist by swapping parent with the parent of the base
@@ -211,7 +218,7 @@ fn rebase(
                 // Update the base for the next loop iteration
                 head = new_head;
             }
-            RebaseStep::Reference { refname } => {
+            RebaseStep::Reference { name: refname } => {
                 references.push(ReferenceSpec {
                     refname: refname.clone(),
                     oid: head,

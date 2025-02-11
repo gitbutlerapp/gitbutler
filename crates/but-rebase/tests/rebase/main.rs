@@ -27,7 +27,7 @@ mod error_handling {
         let (repo, commits) = four_commits()?;
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder.step(RebaseStep::Pick {
-            oid: non_existing_commit(),
+            commit_id: non_existing_commit(),
             new_message: None,
         });
         assert_eq!(
@@ -42,7 +42,7 @@ mod error_handling {
         let (repo, commits) = four_commits()?;
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder.step(RebaseStep::Merge {
-            oid: non_existing_commit(),
+            commit_id: non_existing_commit(),
             new_message: "merge commit".into(),
         });
         assert_eq!(
@@ -57,7 +57,7 @@ mod error_handling {
         let (repo, commits) = four_commits()?;
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder.step(RebaseStep::Fixup {
-            oid: non_existing_commit(),
+            commit_id: non_existing_commit(),
             new_message: None,
         });
         assert_eq!(
@@ -72,7 +72,7 @@ mod error_handling {
         let (repo, commits) = four_commits()?;
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder.step(RebaseStep::Fixup {
-            oid: commits.base,
+            commit_id: commits.base,
             new_message: None,
         });
         assert_eq!(
@@ -87,7 +87,7 @@ mod error_handling {
         let (repo, commits) = four_commits()?;
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder.step(RebaseStep::Merge {
-            oid: commits.base,
+            commit_id: commits.base,
             new_message: "merge commit".into(),
         });
         assert_eq!(
@@ -102,7 +102,7 @@ mod error_handling {
         let (repo, commits) = four_commits()?;
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder.step(RebaseStep::Fixup {
-            oid: commits.base,
+            commit_id: commits.base,
             new_message: None,
         });
         assert_eq!(
@@ -118,11 +118,11 @@ mod error_handling {
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder
             .step(RebaseStep::Pick {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: None,
             })?
             .step(RebaseStep::Pick {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: None,
             });
         assert_eq!(
@@ -138,11 +138,11 @@ mod error_handling {
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder
             .step(RebaseStep::Merge {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: "merge commit".into(),
             })?
             .step(RebaseStep::Pick {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: None,
             });
         assert_eq!(
@@ -158,15 +158,15 @@ mod error_handling {
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder
             .step(RebaseStep::Pick {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: None,
             })?
             .step(RebaseStep::Fixup {
-                oid: commits.b,
+                commit_id: commits.b,
                 new_message: None,
             })?
             .step(RebaseStep::Pick {
-                oid: commits.b,
+                commit_id: commits.b,
                 new_message: None,
             });
         assert_eq!(
@@ -182,11 +182,11 @@ mod error_handling {
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder
             .step(RebaseStep::Pick {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: None,
             })?
             .step(RebaseStep::Merge {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: "merge commit".into(),
             });
         assert_eq!(
@@ -202,11 +202,11 @@ mod error_handling {
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder
             .step(RebaseStep::Merge {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: "merge commit".into(),
             })?
             .step(RebaseStep::Merge {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: "merge commit".into(),
             });
         assert_eq!(
@@ -222,15 +222,15 @@ mod error_handling {
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder
             .step(RebaseStep::Pick {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: None,
             })?
             .step(RebaseStep::Fixup {
-                oid: commits.b,
+                commit_id: commits.b,
                 new_message: None,
             })?
             .step(RebaseStep::Merge {
-                oid: commits.b,
+                commit_id: commits.b,
                 new_message: "merge commit".into(),
             });
         assert_eq!(
@@ -246,11 +246,11 @@ mod error_handling {
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder
             .step(RebaseStep::Pick {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: None,
             })?
             .step(RebaseStep::Fixup {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: None,
             });
         assert_eq!(
@@ -266,11 +266,11 @@ mod error_handling {
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder
             .step(RebaseStep::Merge {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: "merge commit".into(),
             })?
             .step(RebaseStep::Fixup {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: None,
             });
         assert_eq!(
@@ -286,15 +286,15 @@ mod error_handling {
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder
             .step(RebaseStep::Pick {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: None,
             })?
             .step(RebaseStep::Fixup {
-                oid: commits.b,
+                commit_id: commits.b,
                 new_message: None,
             })?
             .step(RebaseStep::Fixup {
-                oid: commits.b,
+                commit_id: commits.b,
                 new_message: None,
             });
         assert_eq!(
@@ -309,7 +309,7 @@ mod error_handling {
         let (repo, commits) = four_commits()?;
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder.step(RebaseStep::Fixup {
-            oid: commits.a,
+            commit_id: commits.a,
             new_message: None,
         });
         assert_eq!(
@@ -325,10 +325,10 @@ mod error_handling {
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
         let result = builder
             .step(RebaseStep::Reference {
-                refname: "foo/bar".into(),
+                name: "foo/bar".into(),
             })?
             .step(RebaseStep::Fixup {
-                oid: commits.a,
+                commit_id: commits.a,
                 new_message: None,
             });
         assert_eq!(
@@ -339,15 +339,13 @@ mod error_handling {
     }
 
     #[test]
-    fn reference_is_not_a_valid_reference_name() -> anyhow::Result<()> {
+    fn empty_reference_step() -> anyhow::Result<()> {
         let (repo, commits) = four_commits()?;
         let mut builder = RebaseBuilder::new(repo, commits.base)?;
-        let result = builder.step(RebaseStep::Reference {
-            refname: "abc".into(),
-        });
+        let result = builder.step(RebaseStep::Reference { name: "".into() });
         assert_eq!(
             result.unwrap_err().to_string(),
-            "Standalone references must be all uppercased, like 'HEAD'"
+            "Reference step must have a non-empty name"
         );
         Ok(())
     }
@@ -359,18 +357,18 @@ fn happy_case_scenario() -> Result<()> {
     let mut builder = RebaseBuilder::new(repo, commits.base)?;
     builder
         .step(RebaseStep::Pick {
-            oid: commits.a,
+            commit_id: commits.a,
             new_message: Some("updated commit message".into()),
         })?
         .step(RebaseStep::Fixup {
-            oid: commits.b,
+            commit_id: commits.b,
             new_message: None,
         })?
         .step(RebaseStep::Reference {
-            refname: "my/ref".into(),
+            name: "my/ref".into(),
         })?
         .step(RebaseStep::Merge {
-            oid: commits.c,
+            commit_id: commits.c,
             new_message: "merge commit".into(),
         })?;
     // TODO: make assertions
