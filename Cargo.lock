@@ -730,11 +730,13 @@ dependencies = [
  "bstr",
  "but-core",
  "git2",
+ "gitbutler-commit",
  "gitbutler-error",
  "gitbutler-oxidize",
  "gitbutler-repo",
  "gix",
  "gix-testtools",
+ "insta",
  "tempfile",
  "tracing",
 ]

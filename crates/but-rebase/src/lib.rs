@@ -3,10 +3,10 @@
 
 use anyhow::{anyhow, bail, Ok, Result};
 use bstr::{BString, ByteSlice};
-use gitbutler_oxidize::{ObjectIdExt, OidExt};
-use gitbutler_repo::rebase::{cherry_rebase_group, merge_commits};
+use gitbutler_oxidize::{ObjectIdExt as _, OidExt};
+use gix::prelude::ObjectIdExt;
 
-///
+/// Utilities to create commits (and deal with signing)
 pub mod commit;
 
 /// An instruction for [`RebaseBuilder::rebase()`].
@@ -33,7 +33,7 @@ pub enum RebaseStep {
     /// If the step immediately preceding this step is another `Fixup` step, the commit will be squashed into the same commit as the previous `Fixup` step.
     ///
     /// Optionally sets the message of the new commit.
-    Fixup {
+    SquashIntoPreceding {
         /// Id of an already existing commit
         commit_id: gix::ObjectId,
         /// Optional message to use for newly produced commit
@@ -54,7 +54,7 @@ impl RebaseStep {
         match self {
             RebaseStep::Pick { commit_id, .. }
             | RebaseStep::Merge { commit_id, .. }
-            | RebaseStep::Fixup { commit_id, .. } => Some(commit_id),
+            | RebaseStep::SquashIntoPreceding { commit_id, .. } => Some(commit_id),
             RebaseStep::Reference { .. } => None,
         }
     }
@@ -62,17 +62,17 @@ impl RebaseStep {
 
 /// Setup a list of [instructions](RebaseStep) for the actual [rebase operation](RebaseBuilder::rebase).
 #[derive(Debug)]
-pub struct RebaseBuilder {
-    repo: gix::Repository,
+pub struct RebaseBuilder<'repo> {
+    repo: &'repo gix::Repository,
     base: gix::ObjectId,
     steps: Vec<RebaseStep>,
 }
 
-impl RebaseBuilder {
+impl<'repo> RebaseBuilder<'repo> {
     /// Creates a new rebase builder with the provided commit as a `base`, the commit
     /// that all other commits should be placed on top of.
     /// This means that the first [picked commit](Self::step()) will be placed right on top of `base`.
-    pub fn new(repo: gix::Repository, base: gix::ObjectId) -> Result<Self> {
+    pub fn new(repo: &'repo gix::Repository, base: gix::ObjectId) -> Result<Self> {
         repo.find_commit(base)?;
         Ok(Self {
             repo,
@@ -93,15 +93,25 @@ impl RebaseBuilder {
     /// Performs a rebase on top of a given base, according to the provided steps, or fails if no step was provided.
     /// It does not actually create new git references nor does it update existing ones, it only deals with
     /// altering commits and providing the information needed to update refs.
-    pub fn rebase(self) -> Result<RebaseOutput> {
+    ///
+    /// Use it to
+    ///
+    ///  - drop commits
+    ///  - insert new commits
+    ///  - reorder commits
+    ///  - rewrite the history at will
+    ///
+    /// **However, note that it will also make all input commits sequential, so the caller must assure
+    /// these actually form a 'line'.**
+    pub fn rebase(&mut self) -> Result<RebaseOutput> {
         if self.steps.is_empty() {
             return Err(anyhow!("No rebase steps provided"));
         }
-        rebase(&self.repo, self.base, self.steps)
+        rebase(self.repo, self.base, std::mem::take(&mut self.steps))
     }
 }
 
-impl RebaseBuilder {
+impl RebaseBuilder<'_> {
     /// Pick, Merge and Fixup operations:
     /// - The commit must already exist in the repository
     /// - The commit must not be the base commit
@@ -129,7 +139,7 @@ impl RebaseBuilder {
             } => {
                 self.assure_unique_step_and_existing_non_base(commit_id, "Merge")?;
             }
-            RebaseStep::Fixup {
+            RebaseStep::SquashIntoPreceding {
                 commit_id,
                 new_message: _,
             } => {
@@ -173,42 +183,62 @@ fn rebase(
 ) -> Result<RebaseOutput> {
     let git2_repo = git2::Repository::open(repo.path())?;
     let mut references = vec![];
-    // Start with the base commit
     let (mut cursor, mut last_seen_commit) = (base, base);
-    // Running cherry_rebase_group for each step individually
     for step in steps {
         match step {
             RebaseStep::Pick {
                 commit_id,
                 new_message,
             } => {
-                last_seen_commit = commit_id;
-                let mut new_commit =
-                    cherry_rebase_group(&git2_repo, base.to_git2(), &[commit_id.to_git2()], true)?
-                        .to_gix();
-                if let Some(new_message) = new_message {
-                    new_commit = reword_commit(repo, new_commit, new_message.clone())?;
+                let commit = assure_direct_ancestor(repo, commit_id, &last_seen_commit)?;
+                if commit.parents.len() > 1 {
+                    // TODO: actually redo the merge.
+                    let mut merge_commit = commit;
+                    let parent_to_change = merge_commit
+                        .parents
+                        .iter_mut()
+                        .find(|id| **id == last_seen_commit)
+                        .expect("we checked it's connected earlier");
+                    *parent_to_change = cursor;
+                    if let Some(new_message) = new_message {
+                        merge_commit.message = new_message;
+                    }
+                    cursor = commit::create(repo, merge_commit)?;
+                } else {
+                    let mut new_commit = gitbutler_repo::rebase::cherry_rebase_group(
+                        &git2_repo,
+                        cursor.to_git2(),
+                        &[commit_id.to_git2()],
+                        true,
+                    )?
+                    .to_gix();
+                    if let Some(new_message) = new_message {
+                        new_commit = reword_commit(repo, new_commit, new_message.clone())?;
+                    }
+                    cursor = new_commit;
                 }
-                // Update the base for the next loop iteration
-                cursor = new_commit;
+                last_seen_commit = commit_id;
             }
             RebaseStep::Merge {
                 commit_id,
                 new_message,
             } => {
+                assure_direct_ancestor(repo, commit_id, &last_seen_commit)?;
                 last_seen_commit = commit_id;
-                cursor = merge_commits(repo, cursor, commit_id, &new_message.to_str_lossy())?;
+                cursor = gitbutler_repo::rebase::merge_commits(
+                    repo,
+                    cursor,
+                    commit_id,
+                    &new_message.to_str_lossy(),
+                )?;
             }
-            RebaseStep::Fixup {
+            RebaseStep::SquashIntoPreceding {
                 commit_id,
                 new_message,
             } => {
                 last_seen_commit = commit_id;
-                // This time, the base is the parent of the last commit
                 let base_commit = repo.find_commit(cursor)?;
-
-                // First cherry-pick the target oid on top of base_commit
-                let new_commit = cherry_rebase_group(
+                let new_commit = gitbutler_repo::rebase::cherry_rebase_group(
                     &git2_repo,
                     cursor.to_git2(),
                     &[commit_id.to_git2()],
@@ -241,6 +271,25 @@ fn rebase(
     })
 }
 
+/// Error if the `commit_id` does *not* have `candidate_previous_commit` as direct parent.
+/// Return the fully decoded commit behind `commit_id` otherwise.
+fn assure_direct_ancestor(
+    repo: &gix::Repository,
+    commit_id: gix::ObjectId,
+    candidate_previous_commit: &gix::ObjectId,
+) -> Result<gix::objs::Commit> {
+    let commit = commit_id
+        .attach(repo)
+        .object()?
+        .into_commit()
+        .decode()?
+        .to_owned();
+    if !commit.parents.contains(candidate_previous_commit) {
+        bail!("Commit {commit_id} must be directly connected to {candidate_previous_commit}");
+    }
+    Ok(commit)
+}
+
 fn reword_commit(
     repo: &gix::Repository,
     oid: gix::ObjectId,
@@ -253,6 +302,7 @@ fn reword_commit(
 
 /// A reference that is an output of a rebase operation.
 /// This is simply a marker for where the actual reference should point to after the rebase operation.
+#[derive(Debug, Clone)]
 pub struct ReferenceSpec {
     /// A literal reference, useful only to the caller.
     pub refname: BString,
@@ -264,6 +314,7 @@ pub struct ReferenceSpec {
 }
 
 /// The output of the [rebase](RebaseBuilder::rebase()) operation.
+#[derive(Debug, Clone)]
 pub struct RebaseOutput {
     /// The id of the most recently created commit in the rebase operation.
     pub top_commit: gix::ObjectId,
