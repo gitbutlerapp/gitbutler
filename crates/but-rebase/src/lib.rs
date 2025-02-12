@@ -4,6 +4,7 @@
 use anyhow::{anyhow, bail, Ok, Result};
 use bstr::{BString, ByteSlice};
 use gitbutler_oxidize::{ObjectIdExt as _, OidExt};
+use gix::objs::Exists;
 use gix::prelude::ObjectIdExt;
 
 /// Utilities to create commits (and deal with signing)
@@ -64,16 +65,23 @@ impl RebaseStep {
 #[derive(Debug)]
 pub struct RebaseBuilder<'repo> {
     repo: &'repo gix::Repository,
-    base: gix::ObjectId,
+    base: Option<gix::ObjectId>,
     steps: Vec<RebaseStep>,
 }
 
 impl<'repo> RebaseBuilder<'repo> {
     /// Creates a new rebase builder with the provided commit as a `base`, the commit
     /// that all other commits should be placed on top of.
+    /// If `None` this means the first picked commit will have no parents.
     /// This means that the first [picked commit](Self::step()) will be placed right on top of `base`.
-    pub fn new(repo: &'repo gix::Repository, base: gix::ObjectId) -> Result<Self> {
-        repo.find_commit(base)?;
+    pub fn new(
+        repo: &'repo gix::Repository,
+        base: impl Into<Option<gix::ObjectId>>,
+    ) -> Result<Self> {
+        let base = base.into();
+        if base.is_some() && base.filter(|base| repo.exists(base)).is_none() {
+            bail!("Base commit must exist if provided: {}", base.unwrap());
+        }
         Ok(Self {
             repo,
             base,
@@ -166,7 +174,7 @@ impl RebaseBuilder<'_> {
         kind: &str,
     ) -> Result<()> {
         self.repo.find_commit(commit_id)?;
-        if commit_id == self.base {
+        if Some(commit_id) == self.base.as_deref() {
             bail!("{kind} commit cannot be the base commit");
         }
         if self.steps.iter().any(|s| s.commit_id() == Some(commit_id)) {
@@ -178,7 +186,7 @@ impl RebaseBuilder<'_> {
 
 fn rebase(
     repo: &gix::Repository,
-    base: gix::ObjectId,
+    base: Option<gix::ObjectId>,
     steps: Vec<RebaseStep>,
 ) -> Result<RebaseOutput> {
     let git2_repo = git2::Repository::open(repo.path())?;
@@ -190,44 +198,63 @@ fn rebase(
                 commit_id,
                 new_message,
             } => {
-                let commit = assure_direct_ancestor(repo, commit_id, &last_seen_commit)?;
+                let commit = to_commit(repo, commit_id)?;
                 if commit.parents.len() > 1 {
                     // TODO: actually redo the merge.
                     let mut merge_commit = commit;
-                    let parent_to_change = merge_commit
+                    match merge_commit
                         .parents
                         .iter_mut()
-                        .find(|id| **id == last_seen_commit)
-                        .expect("we checked it's connected earlier");
-                    *parent_to_change = cursor;
+                        .find(|id| Some(**id) == last_seen_commit).zip(cursor) {
+                        Some((parent_to_change, cursor)) => {
+                            *parent_to_change = cursor;
+                        },
+                        None => todo!("needs tests to force an actual re-merge, one that naturally includes cursor")
+                    };
                     if let Some(new_message) = new_message {
                         merge_commit.message = new_message;
                     }
-                    cursor = commit::create(repo, merge_commit)?;
+                    cursor = commit::create(repo, merge_commit)?.into();
                 } else {
-                    let mut new_commit = gitbutler_repo::rebase::cherry_rebase_group(
-                        &git2_repo,
-                        cursor.to_git2(),
-                        &[commit_id.to_git2()],
-                        true,
-                    )?
-                    .to_gix();
-                    if let Some(new_message) = new_message {
-                        new_commit = reword_commit(repo, new_commit, new_message.clone())?;
+                    match &mut cursor {
+                        Some(cursor) => {
+                            let mut new_commit = gitbutler_repo::rebase::cherry_rebase_group(
+                                &git2_repo,
+                                cursor.to_git2(),
+                                &[commit_id.to_git2()],
+                                true,
+                            )?
+                            .to_gix();
+                            if let Some(new_message) = new_message {
+                                new_commit = reword_commit(repo, new_commit, new_message.clone())?;
+                            }
+                            *cursor = new_commit;
+                        }
+                        None if commit.parents.is_empty() => {
+                            let mut new_commit = commit;
+                            if let Some(new_message) = new_message {
+                                new_commit.message = new_message;
+                            }
+                            cursor = Some(commit::create(repo, new_commit)?);
+                        }
+                        None => {
+                            bail!("Cannot currently rebase a commit so that it becomes the first commit in the history")
+                        }
                     }
-                    cursor = new_commit;
                 }
-                last_seen_commit = commit_id;
+                last_seen_commit = Some(commit_id);
             }
             RebaseStep::Merge {
                 commit_id,
                 new_message,
             } => {
-                assure_direct_ancestor(repo, commit_id, &last_seen_commit)?;
-                last_seen_commit = commit_id;
-                cursor = gitbutler_repo::rebase::merge_commits(
+                let Some(cursor) = &mut cursor else {
+                    bail!("Can't merge without history present yet");
+                };
+                last_seen_commit = Some(commit_id);
+                *cursor = gitbutler_repo::rebase::merge_commits(
                     repo,
-                    cursor,
+                    *cursor,
                     commit_id,
                     &new_message.to_str_lossy(),
                 )?;
@@ -236,8 +263,11 @@ fn rebase(
                 commit_id,
                 new_message,
             } => {
-                last_seen_commit = commit_id;
-                let base_commit = repo.find_commit(cursor)?;
+                let Some(cursor) = &mut cursor else {
+                    bail!("Can't squash if previous commit is missing");
+                };
+                last_seen_commit = Some(commit_id);
+                let base_commit = repo.find_commit(*cursor)?;
                 let new_commit = gitbutler_repo::rebase::cherry_rebase_group(
                     &git2_repo,
                     cursor.to_git2(),
@@ -253,41 +283,33 @@ fn rebase(
                 if let Some(new_message) = new_message {
                     new_commit.message = new_message;
                 }
-                cursor = commit::create(repo, new_commit)?;
+                *cursor = commit::create(repo, new_commit)?;
             }
             RebaseStep::Reference { name: refname } => {
                 references.push(ReferenceSpec {
                     refname: refname.clone(),
-                    commit_id: cursor,
-                    previous_commit_id: last_seen_commit,
+                    commit_id: cursor
+                        .expect("Validation assures there is a rewritten commit prior"),
+                    previous_commit_id: last_seen_commit
+                        .expect("Validation assures there is a commit prior"),
                 });
             }
         }
     }
 
     Ok(RebaseOutput {
-        top_commit: cursor,
+        top_commit: cursor.expect("validation assures we have at least one commit to process"),
         references,
     })
 }
 
-/// Error if the `commit_id` does *not* have `candidate_previous_commit` as direct parent.
-/// Return the fully decoded commit behind `commit_id` otherwise.
-fn assure_direct_ancestor(
-    repo: &gix::Repository,
-    commit_id: gix::ObjectId,
-    candidate_previous_commit: &gix::ObjectId,
-) -> Result<gix::objs::Commit> {
-    let commit = commit_id
+fn to_commit(repo: &gix::Repository, commit_id: gix::ObjectId) -> Result<gix::objs::Commit> {
+    Ok(commit_id
         .attach(repo)
         .object()?
         .into_commit()
         .decode()?
-        .to_owned();
-    if !commit.parents.contains(candidate_previous_commit) {
-        bail!("Commit {commit_id} must be directly connected to {candidate_previous_commit}");
-    }
-    Ok(commit)
+        .into())
 }
 
 fn reword_commit(

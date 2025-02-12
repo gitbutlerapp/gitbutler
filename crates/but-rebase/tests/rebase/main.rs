@@ -78,7 +78,7 @@ fn amended_commit_integration() -> Result<()> {
     |/  
     * 8f0d338 base
     ");
-    let mut builder = RebaseBuilder::new(&repo, repo.rev_parse_single("C~1")?.into())?;
+    let mut builder = RebaseBuilder::new(&repo, repo.rev_parse_single("C~1")?.detach())?;
     let out = builder
         // Pretend we have rewritten the commit at the tip of C.
         .step(RebaseStep::Pick {
@@ -116,8 +116,27 @@ fn amended_commit_integration() -> Result<()> {
 }
 
 #[test]
-#[ignore = "TBD"]
-fn pick_the_first_commit_with_no_parents() -> Result<()> {
+fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
+    assure_stable_env();
+    let (repo, commits, _tmp) = four_commits_writable()?;
+    let mut builder = RebaseBuilder::new(&repo, None)?;
+    let out = builder
+        .step(RebaseStep::Pick {
+            commit_id: commits.base,
+            new_message: Some("reword base".into()),
+        })?
+        .step(RebaseStep::SquashIntoPreceding {
+            commit_id: commits.a,
+            new_message: Some("reworded base after squash".into()),
+        })?
+        .rebase()?;
+    insta::assert_snapshot!(commit_graph(&repo, out.top_commit)?, @"* dc4aa9e reworded base after squash");
+    insta::assert_debug_snapshot!(out, @r"
+    RebaseOutput {
+        top_commit: Sha1(dc4aa9e43cb8316c8a00f096951ef593cc2f244b),
+        references: [],
+    }
+    ");
     Ok(())
 }
 

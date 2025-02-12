@@ -13,7 +13,7 @@ fn base_non_existing() -> anyhow::Result<()> {
     let result = RebaseBuilder::new(&repo, non_existing_commit());
     assert_eq!(
         result.unwrap_err().to_string(),
-        "An object with id eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee could not be found"
+        "Base commit must exist if provided: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
     );
     Ok(())
 }
