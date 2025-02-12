@@ -685,10 +685,10 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-testsupport",
  "gitbutler-error",
  "gitbutler-serde",
  "gix",
- "gix-testtools",
  "insta",
  "serde",
  "serde_json",
@@ -729,16 +729,26 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-core",
+ "but-testsupport",
  "git2",
  "gitbutler-commit",
  "gitbutler-error",
  "gitbutler-oxidize",
  "gitbutler-repo",
  "gix",
- "gix-testtools",
  "insta",
  "tempfile",
  "tracing",
+]
+
+[[package]]
+name = "but-testsupport"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gix",
+ "gix-testtools",
+ "termtree 0.5.1",
 ]
 
 [[package]]
@@ -749,6 +759,7 @@ dependencies = [
  "bstr",
  "but-core",
  "but-rebase",
+ "but-testsupport",
  "git2",
  "gitbutler-command-context",
  "gitbutler-commit",
@@ -757,9 +768,7 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-serde",
  "gitbutler-stack",
- "gitbutler-testsupport",
  "gix",
- "gix-testtools",
  "insta",
  "itertools 0.14.0",
  "md5",
@@ -2436,7 +2445,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
- "but-debugging",
  "but-workspace",
  "criterion",
  "diffy",
@@ -2583,7 +2591,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
- "but-debugging",
  "git2",
  "gitbutler-branch",
  "gitbutler-branch-actions",

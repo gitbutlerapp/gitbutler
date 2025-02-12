@@ -1,6 +1,7 @@
 use anyhow::Result;
 use but_core::diff;
 use but_core::{UnifiedDiff, WorktreeChanges};
+use but_testsupport::gix_testtools;
 
 #[test]
 #[cfg(unix)]

@@ -1,7 +1,10 @@
+use bstr::ByteSlice;
 use but_core::TreeStatus;
+use but_testsupport::gix_testtools;
+use but_testsupport::gix_testtools::{tempfile, Creation};
 use but_workspace::commit_engine::{Destination, DiffSpec};
 use gix::prelude::ObjectIdExt;
-use gix_testtools::{tempfile, Creation};
+use std::fs::Permissions;
 
 pub const CONTEXT_LINES: u32 = 0;
 
@@ -52,9 +55,33 @@ pub fn writable_scenario(name: &str) -> (gix::Repository, tempfile::TempDir) {
         .expect("fixtures will yield valid repositories")
 }
 
-pub fn writable_scenario_execute(name: &str) -> (gix::Repository, tempfile::TempDir) {
-    writable_scenario_inner(name, Creation::ExecuteScript)
-        .expect("fixtures will yield valid repositories")
+pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile::TempDir) {
+    let (mut repo, tmp) = writable_scenario_inner(name, Creation::CopyFromReadOnly)
+        .expect("fixtures will yield valid repositories");
+    let signing_key_path = repo.work_dir().expect("non-bare").join("signature.key");
+    assert!(
+        signing_key_path.is_file(),
+        "Expecting signing key at '{}'",
+        signing_key_path.display()
+    );
+    // It seems `Creation::CopyReadOnly` doesn't retain the mode
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let key = std::fs::File::open(&signing_key_path).expect("file exists");
+        key.set_permissions(Permissions::from_mode(0o400))
+            .expect("must assure permissions are 400");
+    }
+
+    repo.config_snapshot_mut()
+        .set_raw_value(
+            &"user.signingKey",
+            gix::path::into_bstr(signing_key_path).as_ref(),
+        )
+        .expect("in-memory values can always be set");
+    write_local_config(&repo)
+        .expect("need this to be in configuration file while git2 is involved");
+    (repo, tmp)
 }
 
 /// Always use all the hunks.
@@ -148,7 +175,7 @@ pub fn visualize_tree(
     repo: &gix::Repository,
     outcome: &but_workspace::commit_engine::CreateCommitOutcome,
 ) -> anyhow::Result<String> {
-    Ok(gitbutler_testsupport::visualize_gix_tree(
+    Ok(but_testsupport::visualize_tree(
         outcome
             .new_commit
             .expect("no rejected changes")
@@ -158,6 +185,22 @@ pub fn visualize_tree(
             .tree_id()?,
     )
     .to_string())
+}
+
+pub fn visualize_index(index: &gix::index::State) -> String {
+    use std::fmt::Write;
+    let mut buf = String::new();
+    for entry in index.entries() {
+        let path = entry.path(index);
+        writeln!(
+            &mut buf,
+            "{mode:o}:{id} {path}",
+            id = &entry.id.to_hex_with_len(7),
+            mode = entry.mode.bits(),
+        )
+        .expect("enough memory")
+    }
+    buf
 }
 
 /// Create a commit with the entire file as change, and another time with a whole hunk.
@@ -221,4 +264,28 @@ pub fn commit_from_outcome(
         .peel_to_commit()?
         .decode()?
         .into())
+}
+
+pub fn visualize_commit(
+    repo: &gix::Repository,
+    outcome: &but_workspace::commit_engine::CreateCommitOutcome,
+) -> anyhow::Result<String> {
+    Ok(outcome
+        .new_commit
+        .expect("the amended commit was created")
+        .attach(repo)
+        .object()?
+        .data
+        .as_bstr()
+        .to_string())
+}
+
+// In-memory config changes aren't enough as we still only have snapshots, without the ability to keep
+// the entire configuration fresh.
+pub fn write_local_config(repo: &gix::Repository) -> anyhow::Result<()> {
+    repo.config_snapshot().write_to_filter(
+        &mut std::fs::File::create(repo.path().join("config"))?,
+        |section| section.meta().source == gix::config::Source::Local,
+    )?;
+    Ok(())
 }

@@ -1,5 +1,6 @@
 mod git {
     use but_core::{GitConfigSettings, RepositoryExt};
+    use but_testsupport::gix_testtools;
 
     #[test]
     fn set_git_settings() -> anyhow::Result<()> {

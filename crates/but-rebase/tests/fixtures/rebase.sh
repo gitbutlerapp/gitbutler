@@ -12,7 +12,7 @@ git init four-commits
 
 git init three-branches-merged
 (cd three-branches-merged
-  seq 50 60 >file && git add . && git commit -m "base"
+  seq 50 60 >file && git add . && git commit -m "base" && git tag base
   git branch B
   git branch C
 

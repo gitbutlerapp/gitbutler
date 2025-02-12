@@ -28,7 +28,9 @@ url = { version = "2.5.4", features = ["serde"] }
 md5 = "0.7.0"
 
 [dev-dependencies]
-gix-testtools = "0.15.0"
-gitbutler-testsupport.workspace = true
+but-testsupport.workspace = true
 insta = "1.42.1"
 but-core = { workspace = true, features = ["testing"] }
+# for stable hashes in `gitbuter-` crates while we use them.
+# TODO: remove once `gitbutler-repo` isn't needed anymore.
+gitbutler-commit = { workspace = true, features = ["testing"] }

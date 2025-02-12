@@ -1,7 +1,9 @@
-//! An API for an interactive rebase.
+//! An API for an interactive rebases, suitable for interactive, UI driven, and programmatic use.
+//!
+//! It will only affect the commit-graph, and never the alter the worktree in any way.
 #![deny(rust_2018_idioms, missing_docs)]
 
-use anyhow::{anyhow, bail, Ok, Result};
+use anyhow::{anyhow, bail, Context, Ok, Result};
 use bstr::{BString, ByteSlice};
 use gitbutler_oxidize::{ObjectIdExt as _, OidExt};
 use gix::objs::Exists;
@@ -9,6 +11,8 @@ use gix::prelude::ObjectIdExt;
 
 /// Utilities to create commits (and deal with signing)
 pub mod commit;
+/// Utilities around merging
+pub mod merge;
 
 /// An instruction for [`RebaseBuilder::rebase()`].
 #[derive(Debug)]
@@ -19,8 +23,12 @@ pub enum RebaseStep {
         commit_id: gix::ObjectId,
         /// Optional message to use for newly produced commit
         new_message: Option<BString>,
+        // TODO: add `base: Option<ObjectId>` to allow restarting the sequence at a new base
+        //       for multi-branch rebasing. It would keep the previous cursor, to allow the last
+        //       branch to contain a pick of the merge commit on top, which it can then correctly re-merge.
     },
     /// Merge an existing commit and it's parents producing a new merge commit.
+    // TODO: figure out what this is used for, and add tests for it/port it over.
     Merge {
         /// Id of an already existing commit
         commit_id: gix::ObjectId,
@@ -62,6 +70,7 @@ impl RebaseStep {
 pub struct RebaseBuilder<'repo> {
     repo: &'repo gix::Repository,
     base: Option<gix::ObjectId>,
+    base_substitute: Option<gix::ObjectId>,
     steps: Vec<RebaseStep>,
 }
 
@@ -70,9 +79,16 @@ impl<'repo> RebaseBuilder<'repo> {
     /// that all other commits should be placed on top of.
     /// If `None` this means the first picked commit will have no parents.
     /// This means that the first [picked commit](Self::step()) will be placed right on top of `base`.
+    ///
+    /// If the first pick refers to a merge-commit then we will have to prove it's connected to the `base` commit.
+    /// If that `base`, however, is also a new commit, we'd have no way of figuring out which parent in the picked merge
+    /// is replaced with `base` to know which commits are involved in the merge.
+    /// The `base_substitute` passed here is the commit that stands in for `base` in the original graph that the
+    /// picked merge commit is linked to.
     pub fn new(
         repo: &'repo gix::Repository,
         base: impl Into<Option<gix::ObjectId>>,
+        base_substitute: Option<gix::ObjectId>,
     ) -> Result<Self> {
         let base = base.into();
         if base.is_some() && base.filter(|base| repo.exists(base)).is_none() {
@@ -81,6 +97,7 @@ impl<'repo> RebaseBuilder<'repo> {
         Ok(Self {
             repo,
             base,
+            base_substitute,
             steps: Vec::new(),
         })
     }
@@ -92,6 +109,13 @@ impl<'repo> RebaseBuilder<'repo> {
         self.validate_step(&step)?;
         self.steps.push(step);
         Ok(self)
+    }
+
+    /// A way to ingest `steps` without additional validation, putting correct use strictly on the caller.
+    /// Note that `steps` will extend whatever steps were added before.
+    pub fn steps_unvalidated(&mut self, steps: impl IntoIterator<Item = RebaseStep>) -> &mut Self {
+        self.steps.extend(steps);
+        self
     }
 
     /// Performs a rebase on top of a given base, according to the provided steps, or fails if no step was provided.
@@ -111,7 +135,12 @@ impl<'repo> RebaseBuilder<'repo> {
         if self.steps.is_empty() {
             return Err(anyhow!("No rebase steps provided"));
         }
-        rebase(self.repo, self.base, std::mem::take(&mut self.steps))
+        rebase(
+            self.repo,
+            self.base,
+            self.base_substitute,
+            std::mem::take(&mut self.steps),
+        )
     }
 }
 
@@ -185,11 +214,17 @@ impl RebaseBuilder<'_> {
 fn rebase(
     repo: &gix::Repository,
     base: Option<gix::ObjectId>,
+    base_substitute: Option<gix::ObjectId>,
     steps: Vec<RebaseStep>,
 ) -> Result<RebaseOutput> {
     let git2_repo = git2::Repository::open(repo.path())?;
-    let mut references = vec![];
+    let (mut references, mut commit_mapping) = (
+        vec![],
+        Vec::<(Option<gix::ObjectId>, gix::ObjectId, gix::ObjectId)>::new(),
+    );
     let (mut cursor, mut last_seen_commit) = (base, base);
+    let cache = repo.commit_graph_if_enabled()?;
+    let mut graph = repo.revision_graph(cache.as_ref());
     for step in steps {
         match step {
             RebaseStep::Pick {
@@ -198,21 +233,29 @@ fn rebase(
             } => {
                 let commit = to_commit(repo, commit_id)?;
                 if commit.parents.len() > 1 {
-                    // TODO: actually redo the merge.
                     let mut merge_commit = commit;
-                    match merge_commit
-                        .parents
-                        .iter_mut()
-                        .find(|id| Some(**id) == last_seen_commit).zip(cursor) {
-                        Some((parent_to_change, cursor)) => {
-                            *parent_to_change = cursor;
-                        },
-                        None => todo!("needs tests to force an actual re-merge, one that naturally includes cursor")
-                    };
                     if let Some(new_message) = new_message {
                         merge_commit.message = new_message;
                     }
-                    cursor = commit::create(repo, merge_commit)?.into();
+                    // Find any parent that we have seen during picking.
+                    let Some(parent_to_replace) = merge_commit.parents.iter_mut().find(|id| {
+                        (Some(**id) == base_substitute)
+                            || commit_mapping.iter().any(|(mapping_base, old, _new)| {
+                                *mapping_base == base && (*id == old)
+                            })
+                    }) else {
+                        bail!(
+                            "Merge-commit {commit_id} can't be remerged if none of \
+                                its parents was seen in the rebase (to \
+                                be replaced with this new commit)"
+                        )
+                    };
+                    *parent_to_replace = cursor.context("Expecting a base for any merge")?;
+                    cursor = merge::octopus(repo, merge_commit, &mut graph)
+                        .context(
+                            "The rebase failed as a merge could not be repeated without conflicts",
+                        )?
+                        .into();
                 } else {
                     match &mut cursor {
                         Some(cursor) => {
@@ -236,6 +279,7 @@ fn rebase(
                             cursor = Some(commit::create(repo, new_commit)?);
                         }
                         None => {
+                            // TODO: should this be supported? This would be as easy as forgetting its parents.
                             bail!("Cannot currently rebase a commit so that it becomes the first commit in the history")
                         }
                     }
@@ -293,11 +337,15 @@ fn rebase(
                 });
             }
         }
+        if let Some((old, new)) = last_seen_commit.zip(cursor) {
+            commit_mapping.push((base, old, new));
+        }
     }
 
     Ok(RebaseOutput {
         top_commit: cursor.expect("validation assures we have at least one commit to process"),
         references,
+        commit_mapping,
     })
 }
 
@@ -340,4 +388,9 @@ pub struct RebaseOutput {
     pub top_commit: gix::ObjectId,
     /// The list of references along with their new locations, ordered from the least recent to the most recent.
     pub references: Vec<ReferenceSpec>,
+    /// A listing of all commits `(base, old, new)` in order of [steps](RebaseBuilder::step()), with its base followed by
+    /// the initial commit hash on the left and the rewritten version of it on the right side of each tuple.
+    ///
+    /// That way programmatic users may perform their own remapping without having to deal with [references](RebaseStep::Reference).
+    pub commit_mapping: Vec<(Option<gix::ObjectId>, gix::ObjectId, gix::ObjectId)>,
 }

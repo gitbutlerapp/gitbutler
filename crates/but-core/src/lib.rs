@@ -70,7 +70,8 @@ pub use repo_ext::RepositoryExt;
 pub struct Commit<'repo> {
     /// The id of the commit itself.
     pub id: gix::Id<'repo>,
-    inner: gix::objs::Commit,
+    /// The decoded commit for direct access.
+    pub inner: gix::objs::Commit,
 }
 
 /// A patch in unified diff format to show how a resource changed or now looks like (in case it was newly added),
@@ -94,12 +95,12 @@ pub enum UnifiedDiff {
 }
 
 /// Either git reference or a virtual reference (i.e. a reference not visible in Git).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Reference {
     /// A git reference or lightweight tag.
-    Git(gix::refs::PartialName),
+    Git(gix::refs::FullName),
     /// A reference not visible in Git, managed by GitButler.
-    // TODO: ideally this isn't needed anymore in the final version.
+    // TODO: ideally this isn't needed anymore in the final version as all refs are 'real'.
     Virtual(String),
 }
 
