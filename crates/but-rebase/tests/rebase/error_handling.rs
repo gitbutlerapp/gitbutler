@@ -320,9 +320,9 @@ fn fixup_is_only_preceeded_by_a_reference_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = RebaseBuilder::new(&repo, commits.base)?;
     let result = builder
-        .step(RebaseStep::Reference {
-            name: "foo/bar".into(),
-        })?
+        .step(RebaseStep::Reference(but_core::Reference::Virtual(
+            "foo/bar".into(),
+        )))?
         .step(RebaseStep::SquashIntoPreceding {
             commit_id: commits.a,
             new_message: None,
@@ -338,10 +338,12 @@ fn fixup_is_only_preceeded_by_a_reference_step() -> anyhow::Result<()> {
 fn empty_reference_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = RebaseBuilder::new(&repo, commits.base)?;
-    let result = builder.step(RebaseStep::Reference { name: "".into() });
+    let result = builder.step(RebaseStep::Reference(but_core::Reference::Virtual(
+        "".into(),
+    )));
     assert_eq!(
         result.unwrap_err().to_string(),
-        "Reference step must have a non-empty name"
+        "Reference step must have a non-empty virtual branch name"
     );
     Ok(())
 }

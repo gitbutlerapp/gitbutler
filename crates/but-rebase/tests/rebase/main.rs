@@ -18,9 +18,9 @@ fn single_stack_journey() -> Result<()> {
             commit_id: commits.b,
             new_message: Some("second step: squash b into a".into()),
         })?
-        .step(RebaseStep::Reference {
-            name: "anchor".into(),
-        })?
+        .step(RebaseStep::Reference(but_core::Reference::Virtual(
+            "anchor".into(),
+        )))?
         .step(RebaseStep::Merge {
             commit_id: commits.c,
             new_message: "third step: merge C into b".into(),
@@ -51,7 +51,9 @@ fn single_stack_journey() -> Result<()> {
         top_commit: Sha1(2e89cda20aa24cf27d947ade0858df7aab48cdf6),
         references: [
             ReferenceSpec {
-                refname: "anchor",
+                reference: Virtual(
+                    "anchor",
+                ),
                 commit_id: Sha1(caf2eb225788ceb3f3ad8fd9866af40719a88dac),
                 previous_commit_id: Sha1(a96434e2505c2ea0896cf4f58fec0778e074d3da),
             },

@@ -93,6 +93,16 @@ pub enum UnifiedDiff {
     },
 }
 
+/// Either git reference or a virtual reference (i.e. a reference not visible in Git).
+#[derive(Debug, Clone)]
+pub enum Reference {
+    /// A git reference or lightweight tag.
+    Git(gix::refs::PartialName),
+    /// A reference not visible in Git, managed by GitButler.
+    // TODO: ideally this isn't needed anymore in the final version.
+    Virtual(String),
+}
+
 /// An entry in the worktree that changed and thus is eligible to being committed.
 ///
 /// It either lives (or lived) in the in `.git/index`, or in the `worktree`.

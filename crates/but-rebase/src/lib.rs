@@ -43,11 +43,7 @@ pub enum RebaseStep {
     /// Create a new reference pointing to the commit that precedes this step.
     /// If this is the first step in the list, the reference will be to the `base` commit.
     /// If the step before this one is another `Reference` step, this reference will point to the same commit.
-    Reference {
-        /// The name of the reference (literally, a name to refer to an object, not necessarily a valid Git reference)
-        /// that should refer to the possibly rewritten commit that precedes it, as returned in [`RebaseOutput::references`].
-        name: BString,
-    },
+    Reference(but_core::Reference),
 }
 
 impl RebaseStep {
@@ -159,9 +155,11 @@ impl RebaseBuilder<'_> {
                     bail!("Fixup must have a commit to work on");
                 }
             }
-            RebaseStep::Reference { name } => {
-                if name.is_empty() {
-                    return Err(anyhow!("Reference step must have a non-empty name"));
+            RebaseStep::Reference(name) => {
+                if matches!(name, but_core::Reference::Virtual(name) if name.is_empty()) {
+                    return Err(anyhow!(
+                        "Reference step must have a non-empty virtual branch name"
+                    ));
                 }
             }
         }
@@ -285,9 +283,9 @@ fn rebase(
                 }
                 *cursor = commit::create(repo, new_commit)?;
             }
-            RebaseStep::Reference { name: refname } => {
+            RebaseStep::Reference(reference) => {
                 references.push(ReferenceSpec {
-                    refname: refname.clone(),
+                    reference,
                     commit_id: cursor
                         .expect("Validation assures there is a rewritten commit prior"),
                     previous_commit_id: last_seen_commit
@@ -327,7 +325,7 @@ fn reword_commit(
 #[derive(Debug, Clone)]
 pub struct ReferenceSpec {
     /// A literal reference, useful only to the caller.
-    pub refname: BString,
+    pub reference: but_core::Reference,
     /// The commit it now points to.
     pub commit_id: gix::ObjectId,
     /// The commit it previously pointed to (as per pick-list).
