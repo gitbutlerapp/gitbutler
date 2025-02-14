@@ -20,4 +20,4 @@ tauri = { version = "^2.1.1", features = ["unstable"] }
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.26.0"
 objc = "0.2.7"
-rand = "0.8.5"
+rand = "0.9.0"
