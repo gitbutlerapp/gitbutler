@@ -341,7 +341,7 @@ fn convert(
     Ok(Branch {
         name: stack_branch.name.into(),
         remote_tracking_branch: upstream_reference.map(Into::into),
-        description: stack_branch.description.map(Into::into),
+        description: stack_branch.description,
         pr_number: stack_branch.pr_number,
         review_id: stack_branch.review_id,
         state: if stack_branch.archived {

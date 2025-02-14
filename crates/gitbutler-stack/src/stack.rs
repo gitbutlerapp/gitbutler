@@ -333,10 +333,10 @@ impl Stack {
 
         while is_duplicate(&reference)? {
             // keep incrementing the suffix until the name is unique
-            let split = reference.name.split('-');
+            let mut split = reference.name.split('-');
             let left = split.clone().take(split.clone().count() - 1).join("-");
             reference.name = split
-                .last()
+                .next_back()
                 .and_then(|last| last.parse::<u32>().ok())
                 .map(|last| format!("{}-{}", left, last + 1)) //take everything except last, and append last + 1
                 .unwrap_or_else(|| format!("{}-1", reference.name));

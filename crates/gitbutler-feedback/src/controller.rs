@@ -21,10 +21,10 @@ impl Archival {
 impl Archival {
     pub fn archive(&self, project_id: ProjectId) -> Result<PathBuf> {
         let project = self.projects_controller.get(project_id)?;
-        self.zipper().zip(project.path).map_err(Into::into)
+        self.zipper().zip(project.path)
     }
 
     pub fn logs_archive(&self) -> Result<PathBuf> {
-        self.zipper().zip(&self.logs_dir).map_err(Into::into)
+        self.zipper().zip(&self.logs_dir)
     }
 }

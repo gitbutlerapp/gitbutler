@@ -13,7 +13,7 @@ fn stage_tracked_changes(
     for (path, hunks) in changes {
         let mut apply_opts = ApplyOptions::new();
         apply_opts.hunk_callback(|cb_hunk| {
-            cb_hunk.map_or(false, |cb_hunk| {
+            cb_hunk.is_some_and(|cb_hunk| {
                 for hunk in hunks {
                     if hunk == cb_hunk {
                         return true;
