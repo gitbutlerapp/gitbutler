@@ -1,7 +1,7 @@
 use crate::commit_engine::utils::{
     assure_stable_env, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace,
-    read_only_in_memory_scenario, visualize_commit, visualize_index, visualize_tree,
-    writable_scenario, writable_scenario_with_ssh_key, write_local_config, write_sequence,
+    read_only_in_memory_scenario, visualize_commit, visualize_tree, writable_scenario,
+    writable_scenario_with_ssh_key, write_local_config, write_sequence,
 };
 use but_workspace::commit_engine::Destination;
 
@@ -17,11 +17,10 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     ├── file:100644:3aac70f "5\n6\n7\n8\n"
     └── link:120000:c4c364c "nonexisting-target"
     "#);
-    let mut outcome = commit_whole_files_and_all_hunks_from_workspace(
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::AmendCommit(head_commit.into()),
     )?;
-    let index = outcome.index.take().unwrap();
     insta::assert_debug_snapshot!(&outcome, @r"
     CreateCommitOutcome {
         rejected_specs: [],
@@ -51,11 +50,6 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     init
     ");
 
-    insta::assert_snapshot!(visualize_index(&index), @r"
-    100755:94ebaf9 executable-renamed
-    100644:66f816c file-renamed
-    120000:94e4e07 link-renamed
-    ");
     Ok(())
 }
 
@@ -66,7 +60,7 @@ fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
     write_sequence(&repo, "file", [(40, 70)])?;
-    let mut outcome = commit_whole_files_and_all_hunks_from_workspace(
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::AmendCommit(repo.rev_parse_single("merge")?.detach()),
     )?;
@@ -75,7 +69,6 @@ fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
     5bbee6d
     └── file:100644:1c9325b "40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n61\n62\n63\n64\n65\n66\n67\n68\n69\n70\n"
     "#);
-    insta::assert_snapshot!(visualize_index(&outcome.index.take().unwrap()), @"100644:1c9325b file");
     insta::assert_snapshot!(visualize_commit(&repo, &outcome)?, @r"
     tree 5bbee6d0219923e795f7b0818dda2f33f16278b4
     parent 91ef6f6fc0a8b97fb456886c1cc3b2a3536ea2eb
@@ -128,7 +121,7 @@ fn signatures_are_redone() -> anyhow::Result<()> {
     repo.config_snapshot_mut()
         .set_raw_value(&"gitbutler.signCommits", "false")?;
     write_local_config(&repo)?;
-    let mut outcome =
+    let outcome =
         commit_whole_files_and_all_hunks_from_workspace(&repo, Destination::AmendCommit(head_id))?;
     let new_commit = commit_from_outcome(&repo, &outcome)?;
     assert!(
@@ -143,9 +136,5 @@ fn signatures_are_redone() -> anyhow::Result<()> {
     ├── .gitignore:100644:ccc87a0 "*.key*\n"
     └── file:100644:a07b65a "40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n"
     "#);
-    insta::assert_snapshot!(visualize_index(&outcome.index.take().unwrap()), @r"
-    100644:ccc87a0 .gitignore
-    100644:a07b65a file
-    ");
     Ok(())
 }
