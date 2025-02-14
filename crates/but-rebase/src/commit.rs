@@ -4,48 +4,21 @@ use but_core::cmd::prepare_with_shell_on_windows;
 use but_core::{GitConfigSettings, RepositoryExt};
 use gitbutler_error::error::Code;
 use gix::objs::WriteTo;
-use gix::refs::transaction::{Change, LogChange, PreviousValue, RefLog};
-use gix::refs::Target;
 use std::borrow::Cow;
 use std::io::Write;
 use std::path::Path;
 use std::process::Stdio;
 
-/// Create a commit exactly as specified, and sign it depending on Git and GitButler specific Git configuration.
-#[allow(clippy::too_many_arguments)]
-pub fn create_commit(
-    repo: &gix::Repository,
-    update_ref: Option<gix::refs::FullName>,
-    author: gix::actor::Signature,
-    committer: gix::actor::Signature,
-    message: &str,
-    tree: gix::ObjectId,
-    parents: impl IntoIterator<Item = impl Into<gix::ObjectId>>,
-    commit_headers: Option<but_core::commit::HeadersV2>,
-) -> anyhow::Result<(gix::ObjectId, Option<gix::refs::transaction::RefEdit>)> {
-    let commit = gix::objs::Commit {
-        message: message.into(),
-        tree,
-        author,
-        committer,
-        encoding: None,
-        parents: parents.into_iter().map(Into::into).collect(),
-        extra_headers: commit_headers.unwrap_or_default().into(),
-    };
-    create_given_commit(repo, update_ref, commit)
-}
-
-/// Use the given commit and possibly sign it, replacing a possibly existing signature,
+/// Use the given `commit` and possibly sign it, replacing a possibly existing signature,
 /// or removing the signature if GitButler is not configured to keep it.
 ///
 /// Signatures will be removed automatically if signing is disabled to prevent an amended commit
-/// to use the old signature. They will also be added or replace existing signatures.
+/// to use the old signature.
 #[allow(clippy::too_many_arguments)]
-pub fn create_given_commit(
+pub fn create(
     repo: &gix::Repository,
-    update_ref: Option<gix::refs::FullName>,
     mut commit: gix::objs::Commit,
-) -> anyhow::Result<(gix::ObjectId, Option<gix::refs::transaction::RefEdit>)> {
+) -> anyhow::Result<gix::ObjectId> {
     if let Some(pos) = commit
         .extra_headers()
         .find_pos(gix::objs::commit::SIGNATURE_FIELD_NAME)
@@ -74,44 +47,7 @@ pub fn create_given_commit(
         }
     }
 
-    let new_commit_id = repo.write_object(&commit)?.detach();
-    let refedit = if let Some(refname) = update_ref {
-        // TODO:(ST) should this be something more like what Git does (also in terms of reflog message)?
-        //       Probably should support making a commit in full with `gix`.
-        let log_message = commit.message;
-        let edit = update_reference(repo, refname, new_commit_id, log_message)?;
-        Some(edit)
-    } else {
-        None
-    };
-    Ok((new_commit_id, refedit))
-}
-
-fn update_reference(
-    repo: &gix::Repository,
-    name: gix::refs::FullName,
-    target: gix::ObjectId,
-    log_message: BString,
-) -> anyhow::Result<gix::refs::transaction::RefEdit> {
-    let mut edits = repo.edit_reference(gix::refs::transaction::RefEdit {
-        change: Change::Update {
-            log: LogChange {
-                mode: RefLog::AndReference,
-                force_create_reflog: false,
-                message: log_message,
-            },
-            expected: PreviousValue::Any,
-            new: Target::Object(target),
-        },
-        name,
-        deref: false,
-    })?;
-    debug_assert_eq!(
-        edits.len(),
-        1,
-        "only one reference can be created, splits aren't possible"
-    );
-    Ok(edits.pop().expect("exactly one edit"))
+    Ok(repo.write_object(&commit)?.detach())
 }
 
 fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BString> {

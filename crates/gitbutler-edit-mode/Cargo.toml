@@ -6,7 +6,6 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
 [dependencies]
-but-debugging.workspace = true
 git2.workspace = true
 gix.workspace = true
 anyhow.workspace = true

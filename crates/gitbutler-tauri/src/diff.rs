@@ -40,7 +40,7 @@ pub fn commit_changes(
     .map_err(Into::into)
 }
 
-/// This UI-version of [`but_core::diff::worktree_status()`] simplifies the `git status` information for display in
+/// This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in
 /// the user interface as it is right now. From here, it's always possible to add more information as the need arises.
 ///
 /// ### Notable Transformations

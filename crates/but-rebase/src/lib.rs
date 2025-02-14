@@ -1,24 +1,37 @@
-#![deny(rust_2018_idioms)]
+//! An API for an interactive rebases, suitable for interactive, UI driven, and programmatic use.
+//!
+//! It will only affect the commit-graph, and never the alter the worktree in any way.
+#![deny(rust_2018_idioms, missing_docs)]
 
-use anyhow::{anyhow, bail, Ok, Result};
+use anyhow::{anyhow, bail, Context, Ok, Result};
 use bstr::{BString, ByteSlice};
-use gitbutler_oxidize::{ObjectIdExt, OidExt};
-use gitbutler_repo::rebase::{cherry_rebase_group, merge_commits};
-use gix::validate;
+use gitbutler_oxidize::{ObjectIdExt as _, OidExt};
+use gix::objs::Exists;
+use gix::prelude::ObjectIdExt;
 
+/// Utilities to create commits (and deal with signing)
+pub mod commit;
+/// Utilities around merging
+pub mod merge;
+
+/// An instruction for [`RebaseBuilder::rebase()`].
 #[derive(Debug)]
 pub enum RebaseStep {
-    /// Pick an existing commit and optionally reword it
+    /// Pick an existing commit and place it on top of `base` and optionally reword it.
     Pick {
-        /// Oid of an already existing commit
-        oid: gix::ObjectId,
+        /// Id of an already existing commit
+        commit_id: gix::ObjectId,
         /// Optional message to use for newly produced commit
         new_message: Option<BString>,
+        // TODO: add `base: Option<ObjectId>` to allow restarting the sequence at a new base
+        //       for multi-branch rebasing. It would keep the previous cursor, to allow the last
+        //       branch to contain a pick of the merge commit on top, which it can then correctly re-merge.
     },
     /// Merge an existing commit and it's parents producing a new merge commit.
+    // TODO: figure out what this is used for, and add tests for it/port it over.
     Merge {
-        /// Oid of an already existing commit
-        oid: gix::ObjectId,
+        /// Id of an already existing commit
+        commit_id: gix::ObjectId,
         /// Optional message to use for newly produced commit
         new_message: BString,
     },
@@ -29,33 +42,62 @@ pub enum RebaseStep {
     /// If the step immediately preceding this step is another `Fixup` step, the commit will be squashed into the same commit as the previous `Fixup` step.
     ///
     /// Optionally sets the message of the new commit.
-    Fixup {
-        /// Oid of an already existing commit
-        oid: gix::ObjectId,
+    SquashIntoPreceding {
+        /// Id of an already existing commit
+        commit_id: gix::ObjectId,
         /// Optional message to use for newly produced commit
         new_message: Option<BString>,
     },
     /// Create a new reference pointing to the commit that precedes this step.
     /// If this is the first step in the list, the reference will be to the `base` commit.
     /// If the step before this one is another `Reference` step, this reference will point to the same commit.
-    Reference { refname: BString },
+    Reference(but_core::Reference),
 }
 
+impl RebaseStep {
+    fn commit_id(&self) -> Option<&gix::oid> {
+        match self {
+            RebaseStep::Pick { commit_id, .. }
+            | RebaseStep::Merge { commit_id, .. }
+            | RebaseStep::SquashIntoPreceding { commit_id, .. } => Some(commit_id),
+            RebaseStep::Reference { .. } => None,
+        }
+    }
+}
+
+/// Setup a list of [instructions](RebaseStep) for the actual [rebase operation](RebaseBuilder::rebase).
 #[derive(Debug)]
-pub struct RebaseBuilder {
-    repo: gix::Repository,
-    base: gix::ObjectId,
+pub struct RebaseBuilder<'repo> {
+    repo: &'repo gix::Repository,
+    base: Option<gix::ObjectId>,
+    base_substitute: Option<gix::ObjectId>,
     steps: Vec<RebaseStep>,
 }
 
-impl RebaseBuilder {
-    /// Creates a new rebase builder with the provided commit as a base.
-    /// The commit must already exist in the odb.
-    pub fn new(repo: gix::Repository, base: gix::ObjectId) -> Result<Self> {
-        repo.find_commit(base)?;
+impl<'repo> RebaseBuilder<'repo> {
+    /// Creates a new rebase builder with the provided commit as a `base`, the commit
+    /// that all other commits should be placed on top of.
+    /// If `None` this means the first picked commit will have no parents.
+    /// This means that the first [picked commit](Self::step()) will be placed right on top of `base`.
+    ///
+    /// If the first pick refers to a merge-commit then we will have to prove it's connected to the `base` commit.
+    /// If that `base`, however, is also a new commit, we'd have no way of figuring out which parent in the picked merge
+    /// is replaced with `base` to know which commits are involved in the merge.
+    /// The `base_substitute` passed here is the commit that stands in for `base` in the original graph that the
+    /// picked merge commit is linked to.
+    pub fn new(
+        repo: &'repo gix::Repository,
+        base: impl Into<Option<gix::ObjectId>>,
+        base_substitute: Option<gix::ObjectId>,
+    ) -> Result<Self> {
+        let base = base.into();
+        if base.is_some() && base.filter(|base| repo.exists(base)).is_none() {
+            bail!("Base commit must exist if provided: {}", base.unwrap());
+        }
         Ok(Self {
             repo,
             base,
+            base_substitute,
             steps: Vec::new(),
         })
     }
@@ -69,6 +111,40 @@ impl RebaseBuilder {
         Ok(self)
     }
 
+    /// A way to ingest `steps` without additional validation, putting correct use strictly on the caller.
+    /// Note that `steps` will extend whatever steps were added before.
+    pub fn steps_unvalidated(&mut self, steps: impl IntoIterator<Item = RebaseStep>) -> &mut Self {
+        self.steps.extend(steps);
+        self
+    }
+
+    /// Performs a rebase on top of a given base, according to the provided steps, or fails if no step was provided.
+    /// It does not actually create new git references nor does it update existing ones, it only deals with
+    /// altering commits and providing the information needed to update refs.
+    ///
+    /// Use it to
+    ///
+    ///  - drop commits
+    ///  - insert new commits
+    ///  - reorder commits
+    ///  - rewrite the history at will
+    ///
+    /// **However, note that it will also make all input commits sequential, so the caller must assure
+    /// these actually form a 'line'.**
+    pub fn rebase(&mut self) -> Result<RebaseOutput> {
+        if self.steps.is_empty() {
+            return Err(anyhow!("No rebase steps provided"));
+        }
+        rebase(
+            self.repo,
+            self.base,
+            self.base_substitute,
+            std::mem::take(&mut self.steps),
+        )
+    }
+}
+
+impl RebaseBuilder<'_> {
     /// Pick, Merge and Fixup operations:
     /// - The commit must already exist in the repository
     /// - The commit must not be the base commit
@@ -77,7 +153,7 @@ impl RebaseBuilder {
     /// - The commit must not be a commit that is already in a pick, merge or fixup step
     ///
     /// Fixup operations:
-    /// - Must not be a reference step immediatly before it
+    /// - Must not be a reference step immediately before it
     /// - Must not be the first operation
     ///
     /// Reference operations:
@@ -85,64 +161,22 @@ impl RebaseBuilder {
     fn validate_step(&self, step: &RebaseStep) -> Result<()> {
         match step {
             RebaseStep::Pick {
-                oid,
+                commit_id,
                 new_message: _,
             } => {
-                self.repo.find_commit(*oid)?;
-                if *oid == self.base {
-                    bail!("Picked commit cannot be the base commit");
-                }
-                if self.steps.iter().any(|s| {
-                    matches!(
-                        s,
-                        RebaseStep::Pick { oid: o, .. } |
-                        RebaseStep::Merge { oid: o, .. } |
-                        RebaseStep::Fixup { oid: o, .. }
-                        if o == oid
-                    )
-                }) {
-                    bail!("Picked commit already exists in a previous step");
-                }
+                self.assure_unique_step_and_existing_non_base(commit_id, "Picked")?;
             }
             RebaseStep::Merge {
-                oid,
+                commit_id,
                 new_message: _,
             } => {
-                self.repo.find_commit(*oid)?;
-                if *oid == self.base {
-                    bail!("Merge commit cannot be the base commit");
-                }
-                if self.steps.iter().any(|s| {
-                    matches!(
-                        s,
-                        RebaseStep::Pick { oid: o, .. } |
-                        RebaseStep::Merge { oid: o, .. } |
-                        RebaseStep::Fixup { oid: o, .. }
-                        if o == oid
-                    )
-                }) {
-                    bail!("Picked commit already exists in a previous step");
-                }
+                self.assure_unique_step_and_existing_non_base(commit_id, "Merge")?;
             }
-            RebaseStep::Fixup {
-                oid,
+            RebaseStep::SquashIntoPreceding {
+                commit_id,
                 new_message: _,
             } => {
-                self.repo.find_commit(*oid)?;
-                if *oid == self.base {
-                    bail!("Fixup commit cannot be the base commit");
-                }
-                if self.steps.iter().any(|s| {
-                    matches!(
-                        s,
-                        RebaseStep::Pick { oid: o, .. } |
-                        RebaseStep::Merge { oid: o, .. } |
-                        RebaseStep::Fixup { oid: o, .. }
-                        if o == oid
-                    )
-                }) {
-                    bail!("Picked commit already exists in a previous step");
-                }
+                self.assure_unique_step_and_existing_non_base(commit_id, "Fixup")?;
                 if matches!(self.steps.last(), Some(RebaseStep::Reference { .. })) {
                     bail!("Fixup commit must not come after a reference step");
                 }
@@ -150,116 +184,213 @@ impl RebaseBuilder {
                     bail!("Fixup must have a commit to work on");
                 }
             }
-            RebaseStep::Reference { refname } => {
-                if refname.is_empty() {
-                    return Err(anyhow!("Reference step must have a non-empty refname"));
+            RebaseStep::Reference(name) => {
+                if matches!(name, but_core::Reference::Virtual(name) if name.is_empty()) {
+                    return Err(anyhow!(
+                        "Reference step must have a non-empty virtual branch name"
+                    ));
                 }
-                validate::reference::name(refname.as_ref())?;
             }
         }
         Ok(())
     }
 
-    /// Consumes the builder and returns a `Rebase` object.
-    ///
-    /// The list of steps must not be empty.
-    pub fn build(self) -> Result<Rebase> {
-        if self.steps.is_empty() {
-            return Err(anyhow!("No rebase steps provided"));
+    fn assure_unique_step_and_existing_non_base(
+        &self,
+        commit_id: &gix::oid,
+        kind: &str,
+    ) -> Result<()> {
+        self.repo.find_commit(commit_id)?;
+        if Some(commit_id) == self.base.as_deref() {
+            bail!("{kind} commit cannot be the base commit");
         }
-        Ok(Rebase {
-            repo: self.repo,
-            base: self.base,
-            steps: self.steps,
-        })
+        if self.steps.iter().any(|s| s.commit_id() == Some(commit_id)) {
+            bail!("Picked commit already exists in a previous step");
+        }
+        Ok(())
     }
 }
 
-#[derive(Debug)]
-pub struct Rebase {
-    repo: gix::Repository,
-    base: gix::ObjectId,
-    /// The first step will be the first commit in the rebase and the last step will be the last commit.
+fn rebase(
+    repo: &gix::Repository,
+    base: Option<gix::ObjectId>,
+    base_substitute: Option<gix::ObjectId>,
     steps: Vec<RebaseStep>,
-}
-
-impl Rebase {
-    /// Performs a rebase on top of a given base, according to the provided steps.
-    /// It does not actually create new git references nor does it update existing ones.
-    pub fn rebase(&self) -> Result<RebaseOutput> {
-        let repo = git2::Repository::open(self.repo.path())?;
-        let mut references = vec![];
-        // Start with the base commit
-        let mut head = self.base;
-        // Running cherry_rebase_group for each step individually
-        for step in &self.steps {
-            match step {
-                RebaseStep::Pick { oid, new_message } => {
-                    let mut new_head =
-                        cherry_rebase_group(&repo, self.base.to_git2(), &[oid.to_git2()], true)?
-                            .to_gix();
+) -> Result<RebaseOutput> {
+    let git2_repo = git2::Repository::open(repo.path())?;
+    let (mut references, mut commit_mapping) = (
+        vec![],
+        Vec::<(Option<gix::ObjectId>, gix::ObjectId, gix::ObjectId)>::new(),
+    );
+    let (mut cursor, mut last_seen_commit) = (base, base);
+    let cache = repo.commit_graph_if_enabled()?;
+    let mut graph = repo.revision_graph(cache.as_ref());
+    for step in steps {
+        match step {
+            RebaseStep::Pick {
+                commit_id,
+                new_message,
+            } => {
+                let commit = to_commit(repo, commit_id)?;
+                if commit.parents.len() > 1 {
+                    let mut merge_commit = commit;
                     if let Some(new_message) = new_message {
-                        new_head = self.reword_commit(new_head, new_message.clone())?;
+                        merge_commit.message = new_message;
                     }
-                    // Update the base for the next loop iteration
-                    head = new_head;
-                }
-                RebaseStep::Merge { oid, new_message } => {
-                    head = merge_commits(&self.repo, head, *oid, &new_message.to_str_lossy())?;
-                }
-                RebaseStep::Fixup { oid, new_message } => {
-                    // This time, the base is the parent of the last commit
-                    let base_commit = self.repo.find_commit(head)?;
-
-                    // First cherry-pick the target oid on top of base_commit
-                    let new_head =
-                        cherry_rebase_group(&repo, head.to_git2(), &[oid.to_git2()], true)?
+                    // Find any parent that we have seen during picking.
+                    let Some(parent_to_replace) = merge_commit.parents.iter_mut().find(|id| {
+                        (Some(**id) == base_substitute)
+                            || commit_mapping.iter().any(|(mapping_base, old, _new)| {
+                                *mapping_base == base && (*id == old)
+                            })
+                    }) else {
+                        bail!(
+                            "Merge-commit {commit_id} can't be remerged if none of \
+                                its parents was seen in the rebase (to \
+                                be replaced with this new commit)"
+                        )
+                    };
+                    *parent_to_replace = cursor.context("Expecting a base for any merge")?;
+                    cursor = merge::octopus(repo, merge_commit, &mut graph)
+                        .context(
+                            "The rebase failed as a merge could not be repeated without conflicts",
+                        )?
+                        .into();
+                } else {
+                    match &mut cursor {
+                        Some(cursor) => {
+                            let mut new_commit = gitbutler_repo::rebase::cherry_rebase_group(
+                                &git2_repo,
+                                cursor.to_git2(),
+                                &[commit_id.to_git2()],
+                                true,
+                            )?
                             .to_gix();
-
-                    // Now, lets pretend the base didn't exist by swapping parent with the parent of the base
-                    let commit = self.repo.find_commit(new_head)?;
-                    let mut new_commit: gix::objs::Commit = commit.decode()?.into();
-                    new_commit.parents = base_commit.parent_ids().map(|id| id.detach()).collect();
-                    let mut new_head = self.repo.write_object(new_commit)?.detach();
-
-                    // Optionally reword the commit
-                    if let Some(new_message) = new_message {
-                        new_head = self.reword_commit(new_head, new_message.clone())?;
+                            if let Some(new_message) = new_message {
+                                new_commit = reword_commit(repo, new_commit, new_message.clone())?;
+                            }
+                            *cursor = new_commit;
+                        }
+                        None if commit.parents.is_empty() => {
+                            let mut new_commit = commit;
+                            if let Some(new_message) = new_message {
+                                new_commit.message = new_message;
+                            }
+                            cursor = Some(commit::create(repo, new_commit)?);
+                        }
+                        None => {
+                            // TODO: should this be supported? This would be as easy as forgetting its parents.
+                            bail!("Cannot currently rebase a commit so that it becomes the first commit in the history")
+                        }
                     }
-                    // Update the base for the next loop iteration
-                    head = new_head;
                 }
-                RebaseStep::Reference { refname } => {
-                    references.push(ReferenceSpec {
-                        refname: refname.clone(),
-                        oid: head,
-                    });
+                last_seen_commit = Some(commit_id);
+            }
+            RebaseStep::Merge {
+                commit_id,
+                new_message,
+            } => {
+                let Some(cursor) = &mut cursor else {
+                    bail!("Can't merge without history present yet");
+                };
+                last_seen_commit = Some(commit_id);
+                *cursor = gitbutler_repo::rebase::merge_commits(
+                    repo,
+                    *cursor,
+                    commit_id,
+                    &new_message.to_str_lossy(),
+                )?;
+            }
+            RebaseStep::SquashIntoPreceding {
+                commit_id,
+                new_message,
+            } => {
+                let Some(cursor) = &mut cursor else {
+                    bail!("Can't squash if previous commit is missing");
+                };
+                last_seen_commit = Some(commit_id);
+                let base_commit = repo.find_commit(*cursor)?;
+                let new_commit = gitbutler_repo::rebase::cherry_rebase_group(
+                    &git2_repo,
+                    cursor.to_git2(),
+                    &[commit_id.to_git2()],
+                    true,
+                )?
+                .to_gix();
+
+                // Now, lets pretend the base didn't exist by swapping parent with the parent of the base
+                let commit = repo.find_commit(new_commit)?;
+                let mut new_commit = commit.decode()?.to_owned();
+                new_commit.parents = base_commit.parent_ids().map(|id| id.detach()).collect();
+                if let Some(new_message) = new_message {
+                    new_commit.message = new_message;
                 }
+                *cursor = commit::create(repo, new_commit)?;
+            }
+            RebaseStep::Reference(reference) => {
+                references.push(ReferenceSpec {
+                    reference,
+                    commit_id: cursor
+                        .expect("Validation assures there is a rewritten commit prior"),
+                    previous_commit_id: last_seen_commit
+                        .expect("Validation assures there is a commit prior"),
+                });
             }
         }
+        if let Some((old, new)) = last_seen_commit.zip(cursor) {
+            commit_mapping.push((base, old, new));
+        }
+    }
 
-        Ok(RebaseOutput {
-            new_head: head,
-            references,
-        })
-    }
-    fn reword_commit(&self, oid: gix::ObjectId, new_message: BString) -> Result<gix::ObjectId> {
-        let commit = self.repo.find_commit(oid)?;
-        let mut new_commit: gix::objs::Commit = commit.decode()?.into();
-        new_commit.message = new_message;
-        Ok(self.repo.write_object(new_commit)?.detach())
-    }
+    Ok(RebaseOutput {
+        top_commit: cursor.expect("validation assures we have at least one commit to process"),
+        references,
+        commit_mapping,
+    })
 }
 
-/// A reference that is an output of a rebase operation. This is simply a marker for where the actual reference should point to after the rebase operation.
+fn to_commit(repo: &gix::Repository, commit_id: gix::ObjectId) -> Result<gix::objs::Commit> {
+    Ok(commit_id
+        .attach(repo)
+        .object()?
+        .into_commit()
+        .decode()?
+        .into())
+}
+
+fn reword_commit(
+    repo: &gix::Repository,
+    oid: gix::ObjectId,
+    new_message: BString,
+) -> Result<gix::ObjectId> {
+    let mut new_commit = repo.find_commit(oid)?.decode()?.to_owned();
+    new_commit.message = new_message;
+    Ok(commit::create(repo, new_commit)?)
+}
+
+/// A reference that is an output of a rebase operation.
+/// This is simply a marker for where the actual reference should point to after the rebase operation.
+#[derive(Debug, Clone)]
 pub struct ReferenceSpec {
-    pub refname: BString,
-    pub oid: gix::ObjectId,
+    /// A literal reference, useful only to the caller.
+    pub reference: but_core::Reference,
+    /// The commit it now points to.
+    pub commit_id: gix::ObjectId,
+    /// The commit it previously pointed to (as per pick-list).
+    /// Useful for reference-transactions that validate the current value before changing it to the new one.
+    pub previous_commit_id: gix::ObjectId,
 }
 
+/// The output of the [rebase](RebaseBuilder::rebase()) operation.
+#[derive(Debug, Clone)]
 pub struct RebaseOutput {
-    /// The oid of the last commit in the rebase operation, i.e. the new head.
-    pub new_head: gix::ObjectId,
-    /// The list of references that should be created, ordered from the least recent to the most recent.
+    /// The id of the most recently created commit in the rebase operation.
+    pub top_commit: gix::ObjectId,
+    /// The list of references along with their new locations, ordered from the least recent to the most recent.
     pub references: Vec<ReferenceSpec>,
+    /// A listing of all commits `(base, old, new)` in order of [steps](RebaseBuilder::step()), with its base followed by
+    /// the initial commit hash on the left and the rewritten version of it on the right side of each tuple.
+    ///
+    /// That way programmatic users may perform their own remapping without having to deal with [references](RebaseStep::Reference).
+    pub commit_mapping: Vec<(Option<gix::ObjectId>, gix::ObjectId, gix::ObjectId)>,
 }

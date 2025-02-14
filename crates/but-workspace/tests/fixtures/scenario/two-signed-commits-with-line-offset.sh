@@ -12,6 +12,7 @@ git init
 git config gpg.format ssh
 git config user.signingKey "$PWD/signature.key"
 git config GitButler.signCommits true
+echo "*.key*" >.gitignore
 
 export "GIT_CONFIG_COUNT=2"
 export "GIT_CONFIG_KEY_0=commit.gpgsign"
@@ -20,7 +21,8 @@ export "GIT_CONFIG_KEY_1=init.defaultBranch"
 export "GIT_CONFIG_VALUE_1=main"
 
 seq 10 20 >file
-git add file && git commit -m init && git tag first-commit
+git add file && git commit -m init && \
+  git tag first-commit && git branch first-commit
 
 seq 20  >file && git commit -am "insert 10 lines to the top"
 

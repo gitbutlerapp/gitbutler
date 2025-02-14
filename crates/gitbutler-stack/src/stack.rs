@@ -66,7 +66,7 @@ pub struct Stack {
     pub tree: git2::Oid,
     /// head is id of the last "virtual" commit in this branch
     #[serde(with = "gitbutler_serde::oid")]
-    head: git2::Oid,
+    pub head: git2::Oid,
     pub ownership: BranchOwnershipClaims,
     // order is the number by which UI should sort branches
     pub order: usize,

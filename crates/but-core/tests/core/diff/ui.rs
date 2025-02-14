@@ -1,4 +1,5 @@
 use but_core::UnifiedDiff;
+use but_testsupport::gix_testtools;
 
 #[test]
 fn worktree_changes() -> anyhow::Result<()> {

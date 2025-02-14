@@ -111,7 +111,7 @@ pub fn visualize_gix_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
         name_and_mode: Option<(&BStr, gix::object::tree::EntryMode)>,
     ) -> anyhow::Result<termtree::Tree<String>> {
         fn short_id(id: &gix::hash::oid) -> String {
-            id.to_string()[..7].to_string()
+            id.to_hex_with_len(7).to_string()
         }
         let repo = id.repo;
         let entry_name =
@@ -153,7 +153,7 @@ pub fn visualize_gix_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
         }
         Ok(tree)
     }
-    visualize_tree(tree_id, None).unwrap()
+    visualize_tree(tree_id.object().unwrap().peel_to_tree().unwrap().id(), None).unwrap()
 }
 
 /// Visualize a git2 tree, otherwise just like [`visualize_gix_tree()`].
