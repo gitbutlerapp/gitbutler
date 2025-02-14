@@ -129,8 +129,8 @@ where
     // FIXME(qix-): of a hurry. We should probably use a proper CSPRNG here, but this
     // FIXME(qix-): is probably fine for now (as this security mechanism is probably
     // FIXME(qix-): overkill to begin with).
-    let secret = rand::thread_rng()
-        .sample_iter(&rand::distributions::Alphanumeric)
+    let secret = rand::rng()
+        .sample_iter(&rand::distr::Alphanumeric)
         .take(ASKPASS_SECRET_LENGTH)
         .map(char::from)
         .collect::<String>();
