@@ -25,11 +25,11 @@ impl Config<'_> {
     }
 
     pub fn user_name(&self) -> Result<Option<String>> {
-        self.get_string("user.name").map_err(Into::into)
+        self.get_string("user.name")
     }
 
     pub fn user_email(&self) -> Result<Option<String>> {
-        self.get_string("user.email").map_err(Into::into)
+        self.get_string("user.email")
     }
 
     pub fn set_local(&self, key: &str, val: &str) -> Result<()> {

@@ -66,7 +66,7 @@ impl Controller {
         // title is the base name of the file
         let title = path
             .iter()
-            .last()
+            .next_back()
             .map_or_else(|| id.clone(), |p| p.to_str().unwrap().to_string());
 
         let project = Project {
@@ -188,7 +188,7 @@ impl Controller {
     }
 
     pub fn list(&self) -> Result<Vec<Project>> {
-        self.projects_storage.list().map_err(Into::into)
+        self.projects_storage.list()
     }
 
     pub fn delete(&self, id: ProjectId) -> Result<()> {
@@ -196,9 +196,7 @@ impl Controller {
             return Ok(());
         };
 
-        self.projects_storage
-            .purge(project.id)
-            .map_err(anyhow::Error::from)?;
+        self.projects_storage.purge(project.id)?;
 
         if let Err(error) = std::fs::remove_dir_all(self.project_metadata_dir(project.id)) {
             if error.kind() != std::io::ErrorKind::NotFound {

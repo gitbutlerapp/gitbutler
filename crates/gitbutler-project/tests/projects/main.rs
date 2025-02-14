@@ -18,7 +18,10 @@ mod add {
         let path = repository.path();
         let project = controller.add(path).unwrap();
         assert_eq!(project.path, path);
-        assert_eq!(project.title, path.iter().last().unwrap().to_str().unwrap());
+        assert_eq!(
+            project.title,
+            path.iter().next_back().unwrap().to_str().unwrap()
+        );
     }
 
     mod error {

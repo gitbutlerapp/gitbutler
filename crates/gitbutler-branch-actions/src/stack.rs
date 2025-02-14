@@ -344,7 +344,7 @@ fn stack_branch_to_api_branch(
                 .or(copied_from_remote_id)
         };
 
-        if remote_commit_id.map_or(false, |id| commit.id() != id) {
+        if remote_commit_id.is_none_or(|id| commit.id() != id) {
             requires_force = true;
         }
 

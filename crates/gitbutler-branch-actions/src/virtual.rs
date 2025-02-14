@@ -758,7 +758,7 @@ pub fn commit(
                         .claims
                         .iter()
                         .find(|f| f.file_path.eq(&file.path))
-                        .map_or(false, |f| {
+                        .is_none_or(|f| {
                             f.hunks.iter().any(|h| {
                                 h.start == hunk.new_start
                                     && h.end == hunk.new_start + hunk.new_lines

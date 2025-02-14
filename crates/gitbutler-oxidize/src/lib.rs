@@ -39,7 +39,7 @@ impl ObjectIdExt for gix::ObjectId {
     }
 }
 
-impl<'a> ObjectIdExt for gix::Id<'a> {
+impl ObjectIdExt for gix::Id<'_> {
     fn to_git2(self) -> git2::Oid {
         gix_to_git2_oid(self.detach())
     }

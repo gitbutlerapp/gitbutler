@@ -257,7 +257,7 @@ impl BranchManager<'_> {
             Err(err)
                 if err
                     .downcast_ref()
-                    .map_or(false, |marker: &Marker| *marker == Marker::ProjectConflict) =>
+                    .is_none_or(|marker: &Marker| *marker == Marker::ProjectConflict) =>
             {
                 // if branch conflicts with the workspace, it's ok. keep it unapplied
                 Ok(branch.id)

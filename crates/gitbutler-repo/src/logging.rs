@@ -34,9 +34,7 @@ impl RepositoryExt for git2::Repository {
                 revwalk
                     .hide(oid)
                     .context(format!("failed to hide {}", oid))?;
-                revwalk
-                    .map(|oid| oid.map(Into::into))
-                    .collect::<Result<Vec<_>, _>>()
+                revwalk.collect::<Result<Vec<_>, _>>()
             }
             LogUntil::Take(n) => {
                 let mut revwalk = self.revwalk().context("failed to create revwalk")?;
@@ -46,10 +44,7 @@ impl RepositoryExt for git2::Repository {
                 revwalk
                     .push(from)
                     .context(format!("failed to push {}", from))?;
-                revwalk
-                    .take(n)
-                    .map(|oid| oid.map(Into::into))
-                    .collect::<Result<Vec<_>, _>>()
+                revwalk.take(n).collect::<Result<Vec<_>, _>>()
             }
             LogUntil::When(cond) => {
                 let mut revwalk = self.revwalk().context("failed to create revwalk")?;
@@ -80,9 +75,7 @@ impl RepositoryExt for git2::Repository {
                 revwalk
                     .push(from)
                     .context(format!("failed to push {}", from))?;
-                revwalk
-                    .map(|oid| oid.map(Into::into))
-                    .collect::<Result<Vec<_>, _>>()
+                revwalk.collect::<Result<Vec<_>, _>>()
             }
         }
         .context("failed to collect oids")
