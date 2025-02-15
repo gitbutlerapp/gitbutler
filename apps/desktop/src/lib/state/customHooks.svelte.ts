@@ -3,13 +3,12 @@ import {
 	type Api,
 	type ApiEndpointMutation,
 	type ApiEndpointQuery,
-	type BaseQueryFn,
 	type CoreModule,
 	type EndpointDefinitions,
 	type MutationDefinition,
-	type QueryDefinition,
 	type RootState
 } from '@reduxjs/toolkit/query';
+import type { CustomQuery } from './butlerModule';
 import type { HookContext } from './context';
 
 /**
@@ -27,10 +26,7 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 	const endpoint = api.endpoints[endpointName]!;
 	const state = getState() as any as () => RootState<any, any, any>;
 
-	const { initiate, select } = endpoint as ApiEndpointQuery<
-		QueryDefinition<unknown, BaseQueryFn, string, any>,
-		Definitions
-	>;
+	const { initiate, select } = endpoint as ApiEndpointQuery<CustomQuery<any>, Definitions>;
 
 	function useQuery<T extends (arg: any) => any>(queryArg: unknown, options?: { transform?: T }) {
 		const dispatch = getDispatch();
