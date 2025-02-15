@@ -12,7 +12,7 @@
  * (Hoppscotch) https://github.com/hoppscotch/hoppscotch/blob/286fcd2bb08a84f027b10308d1e18da368f95ebf/packages/hoppscotch-selfhost-desktop/src-tauri/src/mac/window.rs
  */
 use objc::{msg_send, sel, sel_impl};
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{distr::Alphanumeric, Rng};
 use tauri::{Emitter, LogicalPosition, Runtime, Window};
 
 struct UnsafeWindowHandle(*mut std::ffi::c_void);
