@@ -36,7 +36,8 @@ pub fn cherry_rebase(
         return Ok(None);
     }
 
-    let new_head_id = cherry_rebase_group(ctx.repo(), target_commit_oid, &ids_to_rebase, false)?;
+    let new_head_id =
+        cherry_rebase_group(ctx.repo(), target_commit_oid, &ids_to_rebase, false, false)?;
 
     Ok(Some(new_head_id))
 }
@@ -53,6 +54,7 @@ pub fn cherry_rebase_group(
     target_commit_oid: git2::Oid,
     ids_to_rebase: &[git2::Oid],
     always_rebase: bool,
+    allow_empty_commit: bool,
 ) -> Result<git2::Oid> {
     // now, rebase unchanged commits onto the new commit
     let commits_to_rebase = ids_to_rebase
@@ -98,6 +100,7 @@ pub fn cherry_rebase_group(
                         head,
                         to_rebase,
                         gix_to_git2_oid(tree_id),
+                        allow_empty_commit,
                     )
                 }
             },
@@ -112,9 +115,10 @@ fn commit_unconflicted_cherry_result<'repository>(
     head: git2::Commit<'repository>,
     to_rebase: git2::Commit,
     merge_tree_id: git2::Oid,
+    deny_empty_commit: bool,
 ) -> Result<git2::Commit<'repository>> {
     // Remove empty commits
-    if merge_tree_id == head.tree_id() {
+    if !deny_empty_commit && merge_tree_id == head.tree_id() {
         return Ok(head);
     }
 

@@ -417,6 +417,60 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
 }
 
 #[test]
+fn branch_tip_below_non_merge_workspace_commit() -> anyhow::Result<()> {
+    assure_stable_env();
+
+    let (repo, _tmp) = writable_scenario("two-commits-with-line-offset");
+
+    let mut vb = VirtualBranchesState::default();
+    let initial_commit_id = repo.rev_parse_single("@~1")?.detach();
+    let head_commit_id = repo.rev_parse_single("@")?.detach();
+    insta::assert_snapshot!(visualize_commit_graph(&repo, head_commit_id)?, @r"
+    * 40ceac2 (HEAD -> main) insert 20 lines to the top
+    * 4342edf (tag: first-commit) init
+    ");
+
+    let stack = stack_with_branches("s1", head_commit_id, [("s1-b/init", initial_commit_id)]);
+    vb.branches.insert(stack.id, stack);
+
+    write_sequence(&repo, "file", [(110, None)])?;
+    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+        &repo,
+        ReferenceFrame {
+            workspace_tip: Some(head_commit_id),
+            branch_tip: Some(initial_commit_id),
+            vb: &mut vb,
+        },
+        Destination::NewCommit {
+            parent_commit_id: Some(initial_commit_id),
+            message: "extend lines to 110".into(),
+        },
+        None,
+        to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
+        CONTEXT_LINES,
+    )?;
+
+    write_vrbranches_to_refs(&vb, &repo)?;
+    insta::assert_snapshot!(visualize_commit_graph(&repo, repo.head_id()?)?, @r"
+    * 403cc44 (HEAD -> main, s1) insert 20 lines to the top
+    * a5a034f (s1-b/init) extend lines to 110
+    * 4342edf (tag: first-commit) init
+    ");
+
+    insta::assert_snapshot!(but_testsupport::visualize_tree(outcome.new_commit.unwrap().attach(&repo)), @r#"
+    35d7a5e
+    └── file:100644:c6fc2ee "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n61\n62\n63\n64\n65\n66\n67\n68\n69\n70\n71\n72\n73\n74\n75\n76\n77\n78\n79\n80\n81\n82\n83\n84\n85\n86\n87\n88\n89\n90\n91\n92\n93\n94\n95\n96\n97\n98\n99\n100\n101\n102\n103\n104\n105\n106\n107\n108\n109\n110\n"
+    "#);
+    assert_eq!(
+        but_core::diff::worktree_changes(&repo)?.changes.len(),
+        1,
+        "Even though the cherry-pick works, the cherry-pick doesn't produce the worktree\
+        lines 20-40 are present in head-commit, but not in worktree"
+    );
+    Ok(())
+}
+
+#[test]
 fn deletions() -> anyhow::Result<()> {
     assure_stable_env();
 

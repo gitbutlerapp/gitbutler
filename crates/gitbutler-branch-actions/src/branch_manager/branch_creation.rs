@@ -338,7 +338,7 @@ impl BranchManager<'_> {
                     repo.l(stack.head(), LogUntil::Commit(merge_base), false)?;
 
                 let head_oid =
-                    cherry_rebase_group(repo, default_target.sha, &commits_to_rebase, true)?;
+                    cherry_rebase_group(repo, default_target.sha, &commits_to_rebase, true, false)?;
 
                 repo.find_commit(head_oid)?
             } else {

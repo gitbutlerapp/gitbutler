@@ -6,6 +6,7 @@ use but_core::unified_diff::DiffHunk;
 use but_core::{RepositoryExt, UnifiedDiff};
 use but_rebase::RebaseOutput;
 use gitbutler_oxidize::ObjectIdExt;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{CommitOrChangeId, VirtualBranchesState};
 use gix::filter::plumbing::driver::apply::{Delay, MaybeDelayed};
 use gix::filter::plumbing::pipeline::convert::{ToGitOutcome, ToWorktreeOutcome};
@@ -460,13 +461,16 @@ pub fn create_commit_and_update_refs(
                 // Set commits leading up to the tip on top of the new commit, serving as base.
                 let mut builder =
                     but_rebase::RebaseBuilder::new(repo, new_commit, Some(commit_in_graph))?;
+                let workspace_tip = frame
+                    .workspace_tip
+                    .filter(|tip| !commits_to_rebase.contains(tip));
                 builder.steps_unvalidated(commits_to_rebase.into_iter().rev().map(|commit_id| {
                     but_rebase::RebaseStep::Pick {
                         commit_id,
                         new_message: None,
                     }
                 }));
-                if let Some(workspace_tip) = frame.workspace_tip {
+                if let Some(workspace_tip) = workspace_tip {
                     // We can assume the workspace tip is connected to a pick (or else the rebase will fail)
                     builder.step(but_rebase::RebaseStep::Pick {
                         commit_id: workspace_tip,
@@ -524,6 +528,38 @@ pub fn create_commit_and_update_refs(
         index.write(Default::default())?;
     }
     Ok(out)
+}
+
+/// Like [`create_commit_and_update_refs()`], but integrates with an existing GitButler `project`
+/// if present. Alternatively it uses the current `HEAD` as only reference point.
+/// Note that virtual branches will not be written back after this call.
+pub fn create_commit_and_update_refs_with_project(
+    repo: &gix::Repository,
+    project: Option<(ReferenceFrame<'_>, &mut WorktreeWritePermission)>,
+    destination: Destination,
+    move_source: Option<MoveSourceCommit>,
+    changes: Vec<DiffSpec>,
+    context_lines: u32,
+) -> anyhow::Result<CreateCommitOutcome> {
+    let mut vbs_storage = VirtualBranchesState::default();
+    let frame = if let Some((frame, _perm)) = project {
+        frame
+    } else {
+        ReferenceFrame {
+            workspace_tip: None,
+            branch_tip: repo.head_id()?.detach().into(),
+            vb: &mut vbs_storage,
+        }
+    };
+
+    create_commit_and_update_refs(
+        repo,
+        frame,
+        destination,
+        move_source,
+        changes,
+        context_lines,
+    )
 }
 
 fn rewrite_references(
