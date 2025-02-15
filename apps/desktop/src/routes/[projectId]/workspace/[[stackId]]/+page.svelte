@@ -134,6 +134,8 @@
 	}
 
 	.resizable-area {
+		display: flex;
+		flex-direction: column;
 		background-color: var(--clr-bg-1);
 		border-radius: var(--radius-ml);
 		border: 1px solid var(--clr-border-2);

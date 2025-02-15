@@ -37,6 +37,7 @@
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { setSecretsService } from '$lib/secrets/secretsService';
+	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -59,6 +60,7 @@
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { reactive } from '@gitbutler/shared/storeUtils';
 	import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
@@ -79,6 +81,11 @@
 
 	const appState = new AppState();
 	const clientState = new ClientState(data.tauri);
+	const selectionState = $derived(clientState.selectionState);
+	const changeSelection = new ChangeSelectionService(
+		reactive(() => selectionState),
+		clientState.dispatch
+	);
 	const stackService = new StackService(clientState);
 	const worktreeService = new WorktreeService(clientState);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
@@ -99,6 +106,7 @@
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
+	setContext(ChangeSelectionService, changeSelection);
 	setContext(ClientState, clientState);
 	setContext(FeedService, feedService);
 	setContext(OrganizationService, organizationService);

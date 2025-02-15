@@ -3,6 +3,7 @@
 	import FileList from '$components/v3/FileList.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
+	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -14,9 +15,16 @@
 	const { projectId }: Props = $props();
 
 	const worktreeService = getContext(WorktreeService);
+	const changeSelection = getContext(ChangeSelectionService);
 	createCommitStore(undefined);
 
 	const result = $derived(worktreeService.getChanges(projectId));
+
+	/** Clear any selected changes that no longer exist. */
+	$effect(() => {
+		const affectedPaths = result.current.data?.map((c) => c.path);
+		changeSelection.retain(affectedPaths);
+	});
 </script>
 
 <div class="worktree-header">

@@ -65,12 +65,13 @@
 					<FileListItemWrapper
 						{change}
 						{projectId}
+						showCheckbox
 						selected={idSelection.has(change.path, commitId)}
 						onclick={(e) => {
 							selectFilesInList(e, change, visibleFiles, idSelection, true, commitId);
 						}}
 					>
-						<UnifiedDiffView {projectId} path={change.path} {commitId} />
+						<UnifiedDiffView {projectId} path={change.path} {commitId} selectable />
 					</FileListItemWrapper>
 				{/each}
 			</LazyloadContainer>
