@@ -14,8 +14,8 @@
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { GitBranchService } from '$lib/branches/gitBranch';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
+	import { CommitService } from '$lib/commits/commitService';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
-	import { CommitService } from '$lib/commits/service';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showHistoryView } from '$lib/config/config';
 	import { cloudFunctionality } from '$lib/config/uiFeatureFlags';

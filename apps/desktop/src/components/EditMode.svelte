@@ -2,7 +2,7 @@
 	import FileContextMenu from '$components/FileContextMenu.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { Commit } from '$lib/commits/commit';
-	import { CommitService } from '$lib/commits/service';
+	import { CommitService } from '$lib/commits/commitService';
 	import {
 		conflictEntryHint,
 		getConflictState,
