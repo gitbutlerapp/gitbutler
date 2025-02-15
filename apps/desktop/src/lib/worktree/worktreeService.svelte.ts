@@ -13,9 +13,7 @@ export class WorktreeService {
 
 	getChanges(projectId: string) {
 		const { getChanges } = this.api.endpoints;
-		const result = $derived(
-			getChanges.useQuery({ projectId }, { transform: (res) => selectAll(res) })
-		);
+		const result = $derived(getChanges.useQuery({ projectId }, { transform: selectAll }));
 		return result;
 	}
 
