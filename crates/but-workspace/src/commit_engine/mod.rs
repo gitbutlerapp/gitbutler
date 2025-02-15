@@ -957,7 +957,11 @@ fn upsert_index_entry(
     ) {
         #[allow(clippy::indexing_slicing)]
         let entry = &mut index.entries_mut()[pos];
-        entry.stat = gix::index::entry::Stat::from_fs(md)?;
+        // NOTE: it's needed to set the values to 0 here or else 1 in 40 times or so
+        //       git status will report the file didn't change even though it did.
+        //       This basically forces it to look closely, bad for performance, but at
+        //       least correct. Usually it fixes itself as well.
+        entry.stat = Default::default();
         entry.id = id;
         entry.mode = mode;
         false
