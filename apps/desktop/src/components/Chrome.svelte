@@ -35,7 +35,7 @@
 	.chrome-content {
 		display: flex;
 		flex-grow: 1;
-		padding: 0 16px 16px 0;
+		padding: 0 14px 14px 0;
 		align-items: self-start;
 		user-select: none;
 		overflow: hidden;
