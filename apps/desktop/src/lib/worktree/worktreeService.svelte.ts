@@ -37,20 +37,18 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					if (!hasTauriExtra(lifecycleApi.extra)) {
 						throw new Error('Redux dependency Tauri not found!');
 					}
+					// The `cacheDataLoaded` promise resolves when the result is first loaded.
 					await lifecycleApi.cacheDataLoaded;
 					const unsubscribe = lifecycleApi.extra.tauri.listen<WorktreeChanges>(
 						`project://${arg.projectId}/worktree_changes`,
 						(event) => {
 							lifecycleApi.dispatch(api.util.invalidateTags([ReduxTag.Diff]));
-							lifecycleApi.updateCachedData(() => {
-								console.log('streaming update', event);
-								return worktreeAdapter.addMany(
-									worktreeAdapter.getInitialState(),
-									event.payload.changes
-								);
-							});
+							lifecycleApi.updateCachedData(() =>
+								worktreeAdapter.addMany(worktreeAdapter.getInitialState(), event.payload.changes)
+							);
 						}
 					);
+					// The `cacheEntryRemoved` promise resolves when the result is removed
 					await lifecycleApi.cacheEntryRemoved;
 					unsubscribe();
 				},

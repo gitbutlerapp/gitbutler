@@ -27,7 +27,7 @@ type ApiArgs = {
 type TauriCommandError = { message: string; code?: string };
 
 /**
- *  Typeguard that makes `tauriBaseQuery` more concise.
+ * Typeguard for accessing injected Tauri dependency safely.
  */
 export function hasTauriExtra(extra: unknown): extra is {
 	tauri: Tauri;

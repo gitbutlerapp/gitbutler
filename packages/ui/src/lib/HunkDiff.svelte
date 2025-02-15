@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Checkbox from './Checkbox.svelte';
 	import {
 		CountColumnSide,
 		generateRows,
@@ -17,6 +18,8 @@
 		diffLigatures?: boolean;
 		inlineUnifiedDiffs?: boolean;
 		diffContrast?: 'light' | 'medium' | 'strong';
+		selected?: boolean;
+		onchange?: (selected: boolean) => void;
 	}
 
 	const {
@@ -27,7 +30,9 @@
 		diffFont,
 		diffLigatures = true,
 		diffContrast = 'medium',
-		inlineUnifiedDiffs = false
+		inlineUnifiedDiffs = false,
+		selected,
+		onchange
 	}: Props = $props();
 
 	const BORDER_WIDTH = 1;
@@ -72,6 +77,17 @@
 					style="--border-width: {BORDER_WIDTH}px;"
 					colspan={2}
 				>
+					<div class="table__checkbox">
+						{#if selected !== undefined}
+							<Checkbox
+								checked={selected}
+								small
+								onchange={(e) => {
+									onchange?.(e.currentTarget.checked);
+								}}
+							/>
+						{/if}
+					</div>
 					<div
 						class="table__title-content"
 						style="--number-col-width: {numberHeaderWidth}px; --table-width: {tableWidth}px; --border-width: {BORDER_WIDTH}px; --top: -{BORDER_WIDTH}px"

@@ -5,6 +5,7 @@
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { getFilename } from '$lib/files/utils';
+	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { key } from '$lib/selection/key';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
@@ -38,12 +39,22 @@
 	const stack = maybeGetContextStore(BranchStack);
 	const stackId = $derived($stack?.id);
 	const idSelection = getContext(IdSelection);
+	const changeSelection = getContext(ChangeSelectionService);
 
 	let contextMenu = $state<ReturnType<typeof FileContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
-	let indeterminate = $state(false);
-	let checked = $state(false);
 	let open = $state(false);
+
+	const selection = $derived(changeSelection.getById(change.path).current);
+	let indeterminate = $derived(selection && selection.type === 'partial');
+
+	function onCheck() {
+		if (selection) {
+			changeSelection.remove(change.path);
+		} else {
+			changeSelection.addFull(change.path);
+		}
+	}
 </script>
 
 <div
@@ -71,13 +82,14 @@
 		fileStatus={computeChangeStatus(change)}
 		{selected}
 		{showCheckbox}
-		{checked}
+		checked={!!selection}
 		{indeterminate}
 		draggable={true}
 		{onkeydown}
 		locked={false}
 		conflicted={false}
 		{onclick}
+		oncheck={onCheck}
 		oncontextmenu={(e) => {
 			const changes = idSelection.treeChanges(projectId);
 			if (idSelection.has(change.path, commitId)) {
