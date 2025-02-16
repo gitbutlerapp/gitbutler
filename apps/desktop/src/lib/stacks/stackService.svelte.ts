@@ -1,5 +1,6 @@
 import { ClientState } from '$lib/state/clientState.svelte';
 import { ReduxTag } from '$lib/state/tags';
+import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { WorkspaceBranch } from '$lib/branches/v3';
 import type { Stack } from './stack';
 
@@ -27,7 +28,20 @@ export class StackService {
 
 	getStackBranches(projectId: string, stackId: string) {
 		const { getStackBranches } = this.api.endpoints;
-		const result = $derived(getStackBranches.useQuery({ projectId, stackId }));
+		const result = $derived(
+			getStackBranches.useQuery({ projectId, stackId }, { transform: branchSelectors.selectAll })
+		);
+		return result;
+	}
+
+	getBranchByIndex(projectId: string, stackId: string, index: number) {
+		const { getStackBranches } = this.api.endpoints;
+		const result = $derived(
+			getStackBranches.useQuery(
+				{ projectId, stackId },
+				{ transform: (result) => branchSelectors.selectAll(result).at(index) }
+			)
+		);
 		return result;
 	}
 }
@@ -46,13 +60,26 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: [ReduxTag.Stacks]
 			}),
-			getStackBranches: build.query<WorkspaceBranch[], { projectId: string; stackId: string }>({
+			getStackBranches: build.query<
+				EntityState<WorkspaceBranch, string>,
+				{ projectId: string; stackId: string }
+			>({
 				query: ({ projectId, stackId }) => ({
 					command: 'stack_branches',
 					params: { projectId, stackId }
 				}),
-				providesTags: [ReduxTag.StackBranches]
+				providesTags: [ReduxTag.StackBranches],
+				transformResponse(response: WorkspaceBranch[]) {
+					return branchAdapter.addMany(branchAdapter.getInitialState(), response);
+				}
 			})
 		})
 	});
 }
+
+const branchAdapter = createEntityAdapter<WorkspaceBranch, WorkspaceBranch['name']>({
+	selectId: (change) => change.name,
+	sortComparer: (a, b) => a.name.localeCompare(b.name)
+});
+
+const branchSelectors = branchAdapter.getSelectors();

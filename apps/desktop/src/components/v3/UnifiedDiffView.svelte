@@ -21,13 +21,18 @@
 		ChangeSelectionService
 	);
 
-	const result = $derived(
-		worktreeService
-			.getChange(projectId, path)
-			.current.andThen((change) => diffService.getDiff(projectId, change)).current
+	const changeQuery = $derived(worktreeService.getChange(projectId, path).current);
+	const change = $derived(changeQuery.data);
+	const diffQuery = $derived(
+		changeQuery.andThen((change) => diffService.getDiff(projectId, change)).current
 	);
 
 	const selection = $derived(changeSelection.getById(path).current);
+	const pathData = $derived({
+		path,
+		pathBytes: change!.pathBytes,
+		previousPathBytes: change!.previousPathBytes
+	});
 
 	function onchange(hunk: DiffHunk, selected: boolean, allHunks: DiffHunk[]) {
 		if (selection) {
@@ -36,13 +41,14 @@
 					throw new Error('Cannot add to full selection');
 				}
 				const newHunks = allHunks.filter((h) => h !== hunk);
-				changeSelection.update(
-					path,
-					newHunks.map((h) => ({
+				changeSelection.update({
+					...pathData,
+					type: 'partial',
+					hunks: newHunks.map((h) => ({
 						type: 'full',
 						...h
 					}))
-				);
+				});
 			} else if (selection.type === 'partial') {
 				if (selected) {
 					const newHunks = selection.hunks.slice();
@@ -51,9 +57,16 @@
 						...hunk
 					});
 					if (newHunks.length === allHunks.length) {
-						changeSelection.update(path, []);
+						changeSelection.update({
+							type: 'full',
+							...pathData
+						});
 					} else {
-						changeSelection.update(path, newHunks);
+						changeSelection.update({
+							type: 'partial',
+							...pathData,
+							hunks: newHunks
+						});
 					}
 				} else {
 					const hunks = selection.hunks.filter((h) => {
@@ -62,17 +75,20 @@
 					if (hunks.length === 0) {
 						changeSelection.remove(path);
 					} else {
-						changeSelection.update(path, hunks);
+						changeSelection.update({
+							type: 'partial',
+							...pathData,
+							hunks
+						});
 					}
 				}
 			}
 		} else if (selected) {
-			changeSelection.addPartial(path, [
-				{
-					type: 'full',
-					...hunk
-				}
-			]);
+			changeSelection.add({
+				type: 'partial',
+				...pathData,
+				hunks: [{ type: 'full', ...hunk }]
+			});
 		} else {
 			throw new Error('Cannot deselect from an empty selection');
 		}
@@ -80,7 +96,7 @@
 </script>
 
 <div class="diff-section">
-	<ReduxResult {result}>
+	<ReduxResult result={diffQuery}>
 		{#snippet children(diff)}
 			{#if diff.type === 'Patch'}
 				{#each diff.subject.hunks as hunk}
@@ -99,6 +115,10 @@
 						}}
 					/>
 				{/each}
+			{:else if diff.type === 'TooLarge'}
+				Too large!
+			{:else if diff.type === 'Binary'}
+				Binary!
 			{/if}
 		{/snippet}
 	</ReduxResult>

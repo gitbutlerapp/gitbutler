@@ -28,6 +28,7 @@ export class CommitService {
 
 	// eslint-disable-next-line @typescript-eslint/promise-function-async
 	createCommit(projectId: string, request: CreateCommitRequest) {
+		throw new Error('Not yet implemented');
 		const result = $derived(this.api.endpoints.createCommit.useMutation({ projectId, ...request }));
 		return result;
 	}

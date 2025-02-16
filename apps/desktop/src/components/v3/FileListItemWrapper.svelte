@@ -52,7 +52,13 @@
 		if (selection) {
 			changeSelection.remove(change.path);
 		} else {
-			changeSelection.addFull(change.path);
+			const { path, pathBytes, previousPathBytes } = change;
+			changeSelection.add({
+				type: 'full',
+				path,
+				pathBytes,
+				previousPathBytes
+			});
 		}
 	}
 </script>
