@@ -256,7 +256,7 @@ fn branch_group_to_branch(
                 .identity(remotes)
                 .as_deref()
                 .ok()
-                .is_none_or(|identity| identity == target.branch.branch())
+                .is_some_and(|identity| identity == target.branch.branch())
         })
     {
         return Ok(None);
