@@ -1,3 +1,4 @@
+use crate::diff::UNIDIFF_CONTEXT_LINES;
 use crate::error::Error;
 use crate::from_json::HexHash;
 use but_hunk_dependency::ui::{
@@ -88,7 +89,45 @@ pub fn create_commit_from_worktree_changes(
         },
         None,
         worktree_changes.into_iter().map(Into::into).collect(),
-        3, /* context-lines */
+        UNIDIFF_CONTEXT_LINES,
     )?;
+
+    vbh.write_file(&vb)?;
+    Ok(out.into())
+}
+
+/// Amend all `changes` to `commit_id`, keeping its commit message exactly as is.
+/// `stack_id` is the stack that contains the `commit_id`, and it's fatal if that's not the case.
+/// All `changes` are meant to be relative to the worktree.
+/// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
+/// hunks would fail.
+#[tauri::command(async)]
+#[instrument(skip(projects), err(Debug))]
+pub fn amend_commit_from_worktree_changes(
+    projects: State<'_, projects::Controller>,
+    project_id: ProjectId,
+    stack_id: StackId,
+    commit_id: HexHash,
+    worktree_changes: Vec<commit_engine::ui::DiffSpec>,
+) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
+    let project = projects.get(project_id)?;
+    let mut guard = project.exclusive_worktree_access();
+    let vbh = VirtualBranchesHandle::new(project.gb_dir());
+    let mut vb = vbh.read_file()?;
+    let repo = gix::open(project.worktree_path()).map_err(anyhow::Error::from)?;
+    let out = commit_engine::create_commit_and_update_refs_with_project(
+        &repo,
+        Some((
+            ReferenceFrame::infer(&repo, &vb, InferenceMode::StackId(stack_id))?,
+            &mut vb,
+            guard.write_permission(),
+        )),
+        commit_engine::Destination::AmendCommit(commit_id.into()),
+        None,
+        worktree_changes.into_iter().map(Into::into).collect(),
+        UNIDIFF_CONTEXT_LINES,
+    )?;
+
+    vbh.write_file(&vb)?;
     Ok(out.into())
 }
