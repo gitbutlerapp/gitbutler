@@ -3,6 +3,7 @@
 //! It will only affect the commit-graph, and never the alter the worktree in any way.
 #![deny(rust_2018_idioms, missing_docs)]
 
+use crate::commit::CommitterMode;
 use anyhow::{anyhow, bail, Context, Ok, Result};
 use bstr::{BString, ByteSlice};
 use gitbutler_oxidize::{ObjectIdExt as _, OidExt};
@@ -284,7 +285,7 @@ fn rebase(
                             if let Some(new_message) = new_message {
                                 new_commit.message = new_message;
                             }
-                            cursor = Some(commit::create(repo, new_commit)?);
+                            cursor = Some(commit::create(repo, new_commit, CommitterMode::Update)?);
                         }
                         None => {
                             // TODO: should this be supported? This would be as easy as forgetting its parents.
@@ -334,7 +335,7 @@ fn rebase(
                 if let Some(new_message) = new_message {
                     new_commit.message = new_message;
                 }
-                *cursor = commit::create(repo, new_commit)?;
+                *cursor = commit::create(repo, new_commit, CommitterMode::Update)?;
             }
             RebaseStep::Reference(reference) => {
                 references.push(ReferenceSpec {
@@ -374,7 +375,7 @@ fn reword_commit(
 ) -> Result<gix::ObjectId> {
     let mut new_commit = repo.find_commit(oid)?.decode()?.to_owned();
     new_commit.message = new_message;
-    Ok(commit::create(repo, new_commit)?)
+    Ok(commit::create(repo, new_commit, CommitterMode::Update)?)
 }
 
 /// A reference that is an output of a rebase operation.

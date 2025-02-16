@@ -4,6 +4,7 @@ use anyhow::{bail, Context};
 use bstr::BString;
 use but_core::unified_diff::DiffHunk;
 use but_core::RepositoryExt;
+use but_rebase::commit::CommitterMode;
 use but_rebase::RebaseOutput;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::VirtualBranchesState;
@@ -205,7 +206,11 @@ pub fn create_commit(
                     .decode()?
                     .to_owned();
                 commit.tree = new_tree;
-                Some(but_rebase::commit::create(repo, commit)?)
+                Some(but_rebase::commit::create(
+                    repo,
+                    commit,
+                    CommitterMode::Update,
+                )?)
             }
         }
     } else {
@@ -464,5 +469,5 @@ fn create_possibly_signed_commit(
         parents: parents.into_iter().map(Into::into).collect(),
         extra_headers: commit_headers.unwrap_or_default().into(),
     };
-    but_rebase::commit::create(repo, commit)
+    but_rebase::commit::create(repo, commit, CommitterMode::Keep)
 }
