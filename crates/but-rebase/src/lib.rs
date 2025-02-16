@@ -32,7 +32,7 @@ pub enum RebaseStep {
     Merge {
         /// Id of an already existing commit
         commit_id: gix::ObjectId,
-        /// Optional message to use for newly produced commit
+        /// Message to use for newly produced commit
         new_message: BString,
     },
     /// Squashes an existing commit into the one in the first `Pick` or `Merge` RebaseStep that precedes it.
