@@ -17,52 +17,46 @@
 	let kebabMenuTrigger = $state<HTMLElement>();
 	let contextMenuEl = $state<ContextMenu>();
 	let isContextMenuOpen = $state(false);
-	let isHovered = $state(false);
-
-	let nameEl = $state<HTMLDivElement>();
-	let nameWidth = $state<number>();
 
 	const { projectId, tab, first, last, selected }: Props = $props();
-
-	$effect(() => {
-		if (nameEl) {
-			nameWidth = nameEl.offsetWidth - 1;
-		}
-	});
 </script>
 
-<div>
-	<a href={stackPath(projectId, tab.id)} class="tab" class:first class:last class:selected>
-		<div class="icon">
-			{#if tab.anchors.length > 0}
-				<Icon name="chain-link" verticalAlign="top" />
-			{:else}
-				<Icon name="branch-small" verticalAlign="top" />
-			{/if}
+<a
+	href={stackPath(projectId, tab.id)}
+	class="tab"
+	class:first
+	class:last
+	class:selected
+	class:menu-open={isContextMenuOpen}
+>
+	<div class="icon">
+		{#if tab.anchors.length > 0}
+			<Icon name="chain-link" verticalAlign="top" />
+		{:else}
+			<Icon name="branch-small" verticalAlign="top" />
+		{/if}
+	</div>
+	<div class="content">
+		<div class="text-12 text-semibold name">
+			{tab.name}
 		</div>
-		<div class="tab__content" style:max-width="{nameWidth}px">
-			<div class="text-12 text-semibold name" bind:this={nameEl}>
-				{tab.name}
-			</div>
-			<div class={['tab__menu-btn-wrap', isContextMenuOpen || isHovered ? 'active' : '']}>
-				<button
-					class={['tab__menu-btn', isContextMenuOpen ? 'active' : '']}
-					onmouseenter={() => (isHovered = true)}
-					onmouseleave={() => (isHovered = false)}
-					onclick={(e) => {
-						e.preventDefault();
-						e.stopPropagation();
-						contextMenuEl?.toggle();
-					}}
-					bind:this={kebabMenuTrigger}
-					type="button"
-				>
-					<Icon name="kebab" />
-				</button>
-			</div>
+		<div class="menu-button-wrap">
+			<button
+				class="menu-button"
+				class:menu-open={isContextMenuOpen}
+				onclick={(e) => {
+					e.preventDefault();
+					e.stopPropagation();
+					contextMenuEl?.toggle();
+				}}
+				bind:this={kebabMenuTrigger}
+				type="button"
+			>
+				<Icon name="kebab" />
+			</button>
 		</div>
-	</a>
-</div>
+	</div>
+</a>
 
 <ContextMenu
 	bind:this={contextMenuEl}
@@ -98,7 +92,7 @@
 		background: var(--clr-stack-tab-inactive);
 		border-right: 1px solid var(--clr-border-2);
 		overflow: hidden;
-		min-width: 80px;
+		min-width: 100px;
 
 		&::after {
 			content: '';
@@ -110,73 +104,73 @@
 			transform: translateY(-100%);
 			transition: transform var(--transition-fast);
 		}
+	}
+	.first {
+		border-radius: var(--radius-ml) 0 0 0;
+	}
 
-		&.first {
-			border-radius: var(--radius-ml) 0 0 0;
+	.last {
+		border-right: none;
+	}
+
+	.content {
+		display: flex;
+		align-items: center;
+		overflow: hidden;
+		position: relative;
+	}
+
+	.menu-button-wrap {
+		position: relative;
+		width: 0;
+	}
+
+	.tab:hover .name,
+	.menu-open .name {
+		/* Shrinks name to make room for hover button. */
+		width: calc(100% - 32px);
+	}
+
+	.tab:hover .menu-button-wrap,
+	.menu-open .menu-button-wrap {
+		opacity: 1;
+		width: 32px;
+		/* We want the container to not take up extra space. */
+		margin-left: -32px;
+		/* But still be visible where it would normally display. */
+		transform: translateX(32px);
+	}
+
+	.menu-button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--clr-text-2);
+		padding: 8px;
+
+		&.menu-open,
+		&:hover {
+			color: var(--clr-text-1);
 		}
+	}
 
-		&.last {
-			border-right: none;
+	.tab:not(.selected):hover,
+	.tab:not(.selected):focus-within {
+		background: var(--clr-stack-tab-inactive-hover);
+	}
+
+	.tab:not(.selected):focus-within {
+		&::after {
+			transform: translateY(0);
+			background: var(--clr-border-1);
 		}
+	}
 
-		.tab__content {
-			display: flex;
-			align-items: center;
-		}
-
-		.tab__menu-btn-wrap {
-			flex: 1;
-			position: relative;
-			display: flex;
-			width: 0;
-			overflow: hidden;
-		}
-
-		.tab__menu-btn {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			color: var(--clr-text-2);
-			padding: 8px;
-
-			&.active,
-			&:hover {
-				color: var(--clr-text-1);
-			}
-		}
-
-		&:not(.selected):hover,
-		&:not(.selected):focus-within {
-			background: var(--clr-stack-tab-inactive-hover);
-		}
-
-		&:not(.selected):focus-within {
-			&::after {
-				transform: translateY(0);
-				background: var(--clr-border-1);
-			}
-		}
-
-		.tab__menu-btn-wrap.active,
-		&:active .tab__menu-btn-wrap,
-		&:hover .tab__menu-btn-wrap,
-		&:focus-within .tab__menu-btn-wrap {
-			display: flex;
-			opacity: 1;
-			min-width: 32px;
-			margin-right: -8px;
-
-			.tab__menu-btn {
-				opacity: 0.8;
-			}
-		}
-
-		&.selected {
-			&::after {
-				transform: translateY(0);
-				background: var(--clr-theme-pop-element);
-				z-index: var(--z-ground);
-			}
+	.selected {
+		&::after {
+			transform: translateY(0);
+			background: var(--clr-theme-pop-element);
+			z-index: var(--z-ground);
 		}
 	}
 
@@ -192,7 +186,6 @@
 	}
 
 	.name {
-		box-sizing: content-box;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		overflow: hidden;
