@@ -4,6 +4,12 @@ import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { TreeChange, WorktreeChanges } from '$lib/hunks/change';
 import type { ClientState } from '$lib/state/clientState.svelte';
 
+/**
+ * A service for tracking uncommitted changes.
+ *
+ * Since we want to maintain a list and access individual records we use a
+ * redux entity adapter on the results.
+ */
 export class WorktreeService {
 	private api: ReturnType<typeof injectEndpoints>;
 
@@ -11,12 +17,14 @@ export class WorktreeService {
 		this.api = injectEndpoints(state.backendApi);
 	}
 
+	/** Fetches and subscribes to a list of uncommitted changes. */
 	getChanges(projectId: string) {
 		const { getChanges } = this.api.endpoints;
 		const result = $derived(getChanges.useQuery({ projectId }, { transform: selectAll }));
 		return result;
 	}
 
+	/** Gets a specific change from any existing set of results. */
 	getChange(projectId: string, path: string) {
 		const { getChanges } = this.api.endpoints;
 		const result = $derived(
@@ -29,10 +37,20 @@ export class WorktreeService {
 function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
+			/**
+			 * Queries the backend for ucommitted changes.
+			 *
+			 * It is necessary to access to individual results by their id's, so we use a redux
+			 * entity entity adapter to create the necessary selectors.
+			 */
 			getChanges: build.query<EntityState<TreeChange, string>, { projectId: string }>({
 				query: ({ projectId }) => ({ command: 'worktree_changes', params: { projectId } }),
+				/** Invalidating tags causes data to be refreshed. */
 				providesTags: [ReduxTag.WorktreeChanges],
-				// TODO: Customize this function to provide types for injected dependencies.
+				/**
+				 * Sets up a subscription for changes to uncommitted changes until all consumers
+				 * of the query results have unsubscribed.
+				 */
 				async onCacheEntryAdded(arg, lifecycleApi) {
 					if (!hasTauriExtra(lifecycleApi.extra)) {
 						throw new Error('Redux dependency Tauri not found!');
