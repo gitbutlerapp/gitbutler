@@ -162,11 +162,6 @@
 		}
 	}
 
-	.textarea-wrapper {
-		position: relative;
-		display: flex;
-	}
-
 	.textarea-measure-el,
 	.textarea {
 		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);

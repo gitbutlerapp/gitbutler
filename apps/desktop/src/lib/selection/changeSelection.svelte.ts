@@ -26,30 +26,36 @@ type HunkHeader = {
 /**
  * Representation of visually selected hunk.
  */
-type SelectedHunk = (
-	| {
-			type: 'full';
-	  }
-	| {
-			type: 'partial';
-			ranges: HunkRange;
-	  }
-) &
-	HunkHeader;
+type SelectedHunk = HunkHeader &
+	(
+		| {
+				type: 'full';
+		  }
+		| {
+				type: 'partial';
+				hunkRanges: HunkRange[];
+		  }
+	);
+
+type FileHeader = {
+	path: string;
+	pathBytes: number[];
+	previousPathBytes: number[];
+};
 
 /**
  * Representation of visually selected file.
  */
-type SelectedFile =
-	| {
-			type: 'full';
-			path: string;
-	  }
-	| {
-			type: 'partial';
-			path: string;
-			hunks: SelectedHunk[];
-	  };
+type SelectedFile = FileHeader &
+	(
+		| {
+				type: 'full';
+		  }
+		| {
+				type: 'partial';
+				hunks: SelectedHunk[];
+		  }
+	);
 
 export const changeSelectionAdapter = createEntityAdapter<SelectedFile, SelectedFile['path']>({
 	selectId: (change) => change.path,
@@ -86,25 +92,22 @@ export class ChangeSelectionService {
 		});
 	}
 
+	list(): Reactive<SelectedFile[]> {
+		const selected = $derived(selectAll(this.state));
+		return reactive(() => selected);
+	}
+
 	getById(path: string): Reactive<SelectedFile | undefined> {
 		const selected = $derived(selectById(this.state, path));
 		return reactive(() => selected);
 	}
 
-	addFull(path: string) {
-		this.dispatch(addOne({ type: 'full', path }));
+	add(partial: SelectedFile) {
+		this.dispatch(addOne(partial));
 	}
 
-	addPartial(path: string, hunks: SelectedHunk[]) {
-		this.dispatch(addOne({ type: 'partial', path, hunks }));
-	}
-
-	update(path: string, hunks: SelectedHunk[]) {
-		if (hunks.length === 0) {
-			this.dispatch(upsertOne({ path, type: 'full' }));
-		} else {
-			this.dispatch(upsertOne({ path, type: 'partial', hunks }));
-		}
+	update(selectedFile: SelectedFile) {
+		this.dispatch(upsertOne(selectedFile));
 	}
 
 	remove(path: string) {

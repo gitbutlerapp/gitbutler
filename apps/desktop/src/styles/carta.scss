@@ -1,0 +1,302 @@
+/* These styles are adapted from Carta's github example. */
+/* TODO: Iterate and clean up. */
+.carta-theme__github {
+	$background: var(--clr-bg-1);
+	$background-light: var(--clr-bg-1);
+	$border: var(--clr-border-2);
+	$accent: var(--clr-scale-pop-70);
+
+	&.carta-editor {
+		background-color: $background;
+		font-size: 14px;
+		height: 100%;
+		overflow: hidden;
+
+		.carta-wrapper {
+			flex-grow: 1;
+			overflow: auto;
+		}
+
+		.carta-container {
+			height: 100%;
+			padding: 1rem;
+		}
+
+		.carta-input,
+		.carta-renderer {
+			height: 100%;
+		}
+
+		.carta-font-code {
+			font-family: var(--text-fontfamily-mono);
+			overflow-y: auto;
+		}
+
+		.carta-toolbar {
+			height: 2.5rem;
+
+			background-color: $background-light;
+
+			.carta-icon {
+				width: 2rem;
+				height: 2rem;
+				color: var(--clr-text-2);
+
+				&:hover {
+					color: var(--clr-text-1);
+					background-color: $border;
+				}
+			}
+		}
+
+		.carta-toolbar-left button,
+		.carta-toolbar-right,
+		.carta-filler {
+			border-bottom: 1px solid $border;
+		}
+
+		.carta-toolbar-left {
+			& > *:first-child {
+				border-top-left-radius: 0.5rem;
+			}
+
+			& > * {
+				padding-left: 1rem;
+				padding-right: 1rem;
+				font-size: 0.95rem;
+			}
+
+			button {
+				height: 100%;
+			}
+
+			.carta-active {
+				background-color: $background;
+				color: var(--clr-text-1);
+
+				border-right: 1px solid $border;
+				border-bottom: 1px solid $background;
+
+				&:not(:first-child) {
+					border-left: 1px solid $border;
+				}
+			}
+		}
+
+		.carta-toolbar-right {
+			padding-right: 12px;
+		}
+
+		.carta-icons-menu {
+			padding: 8px;
+			border: 1px solid $border;
+			border-radius: 6px;
+			min-width: 180px;
+			background: $background;
+
+			.carta-icon-full {
+				padding-left: 6px;
+				padding-right: 6px;
+
+				margin-top: 2px;
+				&:first-child {
+					margin-top: 0;
+				}
+
+				&:hover {
+					color: var(--clr-text-1);
+					background-color: $border;
+				}
+
+				span {
+					margin-left: 6px;
+					color: var(--clr-text-1);
+					font-size: 0.85rem;
+				}
+			}
+		}
+	}
+
+	// Plugin emoji
+	&.carta-emoji {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-start;
+
+		width: 19rem;
+		max-height: 14rem;
+		overflow-x: auto;
+		overflow-y: auto;
+		border-radius: 4px;
+		font-family: inherit;
+		background-color: $background;
+		word-break: break-word;
+		scroll-padding: 6px;
+	}
+
+	&.carta-emoji button {
+		background: $background-light;
+
+		cursor: pointer;
+		display: inline-block;
+		border-radius: 4px;
+		border: 0;
+		padding: 0;
+		margin: 0.175rem;
+
+		min-width: 2rem;
+		height: 2rem;
+		font-size: 1.2rem;
+		line-height: 100%;
+		text-align: center;
+		white-space: nowrap;
+	}
+
+	&.carta-emoji button:hover,
+	&.carta-emoji button.carta-active {
+		background: $border;
+	}
+
+	// Plugin slash
+	&.carta-slash {
+		width: 18rem;
+		max-height: 14rem;
+		overflow-y: scroll;
+		border-radius: 4px;
+		font-family: inherit;
+		background-color: $background;
+		padding: 6px;
+		scroll-padding: 6px;
+	}
+
+	&.carta-slash span {
+		width: fit-content;
+	}
+
+	&.carta-slash button {
+		background: none;
+		width: 100%;
+		padding: 10px;
+		border: 0;
+		border-radius: 4px;
+	}
+
+	&.carta-slash .carta-slash-group {
+		padding: 0 4px 0 4px;
+		margin-bottom: 4px;
+		font-size: 0.8rem;
+	}
+
+	&.carta-slash button.carta-active,
+	&.carta-slash button:hover {
+		background: $background-light;
+		cursor: pointer;
+	}
+
+	&.carta-slash .carta-snippet-title {
+		font-size: 0.85rem;
+		font-weight: 600;
+	}
+
+	&.carta-slash .carta-snippet-description {
+		font-size: 0.8rem;
+		text-overflow: ellipsis;
+	}
+}
+
+.carta-md {
+	h1,
+	h2,
+	h3,
+	h4 h1 {
+		font-size: 24px;
+		font-weight: 700;
+		margin-top: 24px;
+		margin-bottom: 16px;
+	}
+
+	h2 {
+		font-size: 20px;
+		font-weight: 600;
+		margin-top: 24px;
+		margin-bottom: 16px;
+	}
+
+	h3 {
+		font-size: 18px;
+		font-weight: 400;
+		margin-top: 12px;
+		margin-bottom: 12px;
+	}
+
+	h4 {
+		font-size: 16px;
+		font-weight: 400;
+		margin-top: 12px;
+		margin-bottom: 12px;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4 {
+		scroll-margin: 20px;
+		&:first-child {
+			margin-top: 0;
+		}
+	}
+
+	blockquote {
+		font-size: 16px;
+		font-weight: 400;
+		margin-top: 12px;
+		margin-bottom: 12px;
+		font-style: italic;
+	}
+
+	ol {
+		list-style-type: decimal;
+	}
+
+	ul {
+		list-style-type: disc;
+	}
+
+	li {
+		margin-left: 16px;
+	}
+
+	strong {
+		font-weight: 700;
+	}
+
+	a:not(h1 > a, h2 > a, h3 > a, h4 > a, .bg-card) {
+		font-style: underline;
+	}
+
+	pre > code {
+		padding-left: 0;
+		padding-right: 0;
+	}
+
+	.carta-editor code {
+		font-family: var(--text-fontfamily-mono);
+		background: transparent;
+		padding: 0;
+	}
+
+	/* The code element is used in the editor as well. */
+	/* TODO: Improve this selector. */
+	.carta-renderer code {
+		color: var(--clr-text-2);
+		font-family: var(--text-fontfamily-mono);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-2);
+		padding: 12px;
+	}
+}
+
+html.dark .shiki,
+html.dark .shiki span {
+	color: var(--shiki-dark) !important;
+}

@@ -16,9 +16,10 @@
 		projectId: string;
 		/** The commit ID these changes belong to, if any. */
 		commitId?: string;
+		showCheckboxes?: boolean;
 	}
 
-	const { changes: files, projectId, commitId }: Props = $props();
+	const { changes: files, projectId, commitId, showCheckboxes }: Props = $props();
 
 	let currentDisplayIndex = $state(0);
 
@@ -65,7 +66,7 @@
 					<FileListItemWrapper
 						{change}
 						{projectId}
-						showCheckbox
+						showCheckbox={showCheckboxes}
 						selected={idSelection.has(change.path, commitId)}
 						onclick={(e) => {
 							selectFilesInList(e, change, visibleFiles, idSelection, true, commitId);
@@ -81,6 +82,7 @@
 
 <style lang="postcss">
 	.file-list {
-		height: 100%;
+		flex-grow: 1;
+		overflow: hidden;
 	}
 </style>
