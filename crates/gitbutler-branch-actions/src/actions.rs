@@ -127,7 +127,7 @@ pub fn delete_local_branch(
         stack
             .source_refname
             .as_ref()
-            .is_none_or(|source_refname| source_refname == refname)
+            .is_some_and(|source_refname| source_refname == refname)
     });
 
     if let Some(stack) = stack {
