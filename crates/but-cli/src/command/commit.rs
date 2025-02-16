@@ -1,12 +1,10 @@
 use crate::command::debug_print;
 use anyhow::bail;
 use but_core::TreeChange;
-use but_workspace::commit_engine::DiffSpec;
-use gitbutler_oxidize::OidExt;
+use but_workspace::commit_engine::reference_frame::InferenceMode;
+use but_workspace::commit_engine::{DiffSpec, ReferenceFrame};
 use gitbutler_project::Project;
-use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
-use gix::prelude::ObjectIdExt;
-use gix::revision::walk::Sorting;
+use gitbutler_stack::VirtualBranchesHandle;
 
 pub fn commit(
     repo: gix::Repository,
@@ -23,12 +21,12 @@ pub fn commit(
         .unwrap_or_else(|| Ok(repo.head_id()?))?
         .detach();
     #[allow(unused_assignments)]
-    let mut vbs = None;
     let mut frame = None;
-    let mut project = if let Some(project) = project {
+    let mut project_and_vb = if let Some(project) = project {
         let guard = project.exclusive_worktree_access();
-        vbs = Some(VirtualBranchesHandle::new(project.gb_dir()).read_file()?);
-        let reference_frame = project_to_reference_frame(&repo, vbs.as_mut().unwrap(), parent_id)?;
+        let vbs = VirtualBranchesHandle::new(project.gb_dir()).read_file()?;
+        let reference_frame =
+            ReferenceFrame::infer(&repo, &vbs, InferenceMode::CommitIdInStack(parent_id))?;
         // This might be the default set earlier, but we never want to push on top of the workspace commit.
         if repo.head_id().ok().map(|id| id.detach()) == Some(parent_id) {
             parent_id = reference_frame
@@ -36,18 +34,21 @@ pub fn commit(
                 .expect("set as we need the parent to be part of a stack");
         }
         frame = Some(reference_frame);
-        Some((project, guard))
+        Some((project, vbs, guard))
     } else {
         None
     };
     debug_print(
         but_workspace::commit_engine::create_commit_and_update_refs_with_project(
             &repo,
-            project
+            project_and_vb
                 .as_mut()
                 .zip(frame)
-                .map(|((_project, guard), frame)| (frame, guard.write_permission())),
+                .map(|((_project, vbs, guard), frame)| (frame, vbs, guard.write_permission())),
             if amend {
+                if message.is_some() {
+                    bail!("Messages aren't used when amending");
+                }
                 but_workspace::commit_engine::Destination::AmendCommit(parent_id)
             } else {
                 but_workspace::commit_engine::Destination::NewCommit {
@@ -61,70 +62,10 @@ pub fn commit(
         )?,
     )?;
 
-    if let Some((vbs, (project, _guard))) = vbs.zip(project) {
+    if let Some((project, vbs, _guard)) = project_and_vb {
         VirtualBranchesHandle::new(project.gb_dir()).write_file(&vbs)?;
     }
     Ok(())
-}
-
-/// Find the tip of the stack that will contain the `parent_id`, and the workspace merge commit as well.
-fn project_to_reference_frame<'a>(
-    repo: &gix::Repository,
-    vb: &'a mut VirtualBranchesState,
-    parent_id: gix::ObjectId,
-) -> anyhow::Result<but_workspace::commit_engine::ReferenceFrame<'a>> {
-    let head_id = repo.head_id()?;
-    let workspace_commit = head_id.object()?.into_commit().decode()?.to_owned();
-    if workspace_commit.parents.len() < 2 {
-        return Ok(but_workspace::commit_engine::ReferenceFrame {
-            workspace_tip: Some(head_id.detach()),
-            // The workspace commit is never the tip
-            branch_tip: Some(workspace_commit.parents[0]),
-            vb,
-        });
-    }
-
-    let cache = repo.commit_graph_if_enabled()?;
-    let mut graph = repo.revision_graph(cache.as_ref());
-    let default_target_tip = vb
-        .default_target
-        .as_ref()
-        .map(|target| -> anyhow::Result<_> {
-            let r = repo.find_reference(&target.branch.to_string())?;
-            Ok(r.try_id())
-        })
-        .and_then(Result::ok)
-        .flatten();
-
-    let merge_base = if default_target_tip.is_none() {
-        Some(repo.merge_base_octopus(workspace_commit.parents)?)
-    } else {
-        None
-    };
-    for stack in vb.branches.values() {
-        let stack_tip = stack.head.to_gix();
-        if stack_tip
-            .attach(repo)
-            .ancestors()
-            .with_boundary(match default_target_tip {
-                Some(target_tip) => {
-                    Some(repo.merge_base_with_graph(stack_tip, target_tip, &mut graph)?)
-                }
-                None => merge_base,
-            })
-            .sorting(Sorting::BreadthFirst)
-            .all()?
-            .filter_map(Result::ok)
-            .any(|info| info.id == parent_id)
-        {
-            return Ok(but_workspace::commit_engine::ReferenceFrame {
-                workspace_tip: Some(head_id.detach()),
-                branch_tip: Some(stack_tip),
-                vb,
-            });
-        }
-    }
-    bail!("Could not find stack that includes parent-id at {parent_id}")
 }
 
 fn to_whole_file_diffspec(changes: Vec<TreeChange>) -> Vec<DiffSpec> {

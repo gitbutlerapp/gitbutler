@@ -16,6 +16,8 @@ mod tree;
 use tree::{create_tree, CreateTreeOutcome};
 
 mod index;
+/// Utility types
+pub mod reference_frame;
 mod refs;
 
 /// Types for use in the frontend with serialization support.
@@ -228,8 +230,8 @@ pub fn create_commit(
 
 /// All information to know where in the commit-graph the rewritten commit is located to figure out
 /// which descendant commits to rewrite.
-#[derive(Debug)]
-pub struct ReferenceFrame<'a> {
+#[derive(Debug, Copy, Clone)]
+pub struct ReferenceFrame {
     /// The commit that merges all stacks together for a unified view.
     pub workspace_tip: Option<gix::ObjectId>,
     /// If given, and if rebases are necessary, this is the tip (commit) whose ancestry contains
@@ -237,9 +239,6 @@ pub struct ReferenceFrame<'a> {
     ///
     /// Note that in case of moves, right now the source *and* destination need to be contained.
     pub branch_tip: Option<gix::ObjectId>,
-    /// A snapshot of all virtual branches we have to possibly rewrite.
-    /// They also inform about the stacks active in the workspace, if any.
-    pub vb: &'a mut VirtualBranchesState,
 }
 
 /// Like [`create_commit()`], but allows to also update virtual branches and git references pointing to commits
@@ -247,6 +246,9 @@ pub struct ReferenceFrame<'a> {
 ///
 /// `frame` contains the virtual branches to be modified to point to the rebased versions of commits, but also to inform
 /// about the available stacks in the workspace and helps to find the stack that contains the affects commits.
+///
+/// `vb` is a snapshot of all virtual branches we have to possibly rewrite. They also inform about the stacks active
+/// in the workspace, if any.
 ///
 /// Note that conflicts that occur during the rebase will be swallowed, putting the commit into a conflicted state.
 /// Finally, the index will be written so it matches the `HEAD^{commit}` *if* there were worktree changes.
@@ -260,7 +262,8 @@ pub struct ReferenceFrame<'a> {
 /// [object cache](gix::Repository::object_cache_size_if_unset()) should be configured.
 pub fn create_commit_and_update_refs(
     repo: &gix::Repository,
-    frame: ReferenceFrame<'_>,
+    frame: ReferenceFrame,
+    vb: &mut VirtualBranchesState,
     destination: Destination,
     move_source: Option<MoveSourceCommit>,
     changes: Vec<DiffSpec>,
@@ -307,7 +310,7 @@ pub fn create_commit_and_update_refs(
         {
             refs::rewrite(
                 repo,
-                frame.vb,
+                vb,
                 None,
                 all_refs_by_id,
                 [(commit_in_graph, new_commit)],
@@ -368,7 +371,7 @@ pub fn create_commit_and_update_refs(
 
             refs::rewrite(
                 repo,
-                frame.vb,
+                vb,
                 workspace_tip,
                 all_refs_by_id,
                 rebase
@@ -422,26 +425,33 @@ pub fn create_commit_and_update_refs(
 /// Note that virtual branches will not be written back after this call.
 pub fn create_commit_and_update_refs_with_project(
     repo: &gix::Repository,
-    project: Option<(ReferenceFrame<'_>, &mut WorktreeWritePermission)>,
+    project: Option<(
+        ReferenceFrame,
+        &mut VirtualBranchesState,
+        &mut WorktreeWritePermission,
+    )>,
     destination: Destination,
     move_source: Option<MoveSourceCommit>,
     changes: Vec<DiffSpec>,
     context_lines: u32,
 ) -> anyhow::Result<CreateCommitOutcome> {
     let mut vbs_storage = VirtualBranchesState::default();
-    let frame = if let Some((frame, _perm)) = project {
-        frame
+    let (frame, vb) = if let Some((frame, vb, _perm)) = project {
+        (frame, vb)
     } else {
-        ReferenceFrame {
-            workspace_tip: None,
-            branch_tip: repo.head_id()?.detach().into(),
-            vb: &mut vbs_storage,
-        }
+        (
+            ReferenceFrame {
+                workspace_tip: None,
+                branch_tip: repo.head_id()?.detach().into(),
+            },
+            &mut vbs_storage,
+        )
     };
 
     create_commit_and_update_refs(
         repo,
         frame,
+        vb,
         destination,
         move_source,
         changes,

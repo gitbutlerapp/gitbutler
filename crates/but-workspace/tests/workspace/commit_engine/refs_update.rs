@@ -24,8 +24,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: None,
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: None,
             message: "initial commit".to_string(),
@@ -56,8 +56,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: None,
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(new_commit_id),
             message: "second commit".to_string(),
@@ -93,8 +93,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: None,
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(new_commit_id),
             message: "third commit".to_string(),
@@ -118,8 +118,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: None,
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::AmendCommit(new_commit),
         None,
         to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
@@ -165,8 +165,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: None,
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(new_commit),
             message: "fourth commit".to_string(),
@@ -283,8 +283,8 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: Some(head_commit_id),
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(initial_commit_id),
             message: "between initial and former first".to_string(),
@@ -388,8 +388,8 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: Some(rewritten_head_id),
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::AmendCommit(repo.rev_parse_single("@~1")?.detach()),
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
@@ -439,8 +439,8 @@ fn branch_tip_below_non_merge_workspace_commit() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: Some(head_commit_id),
             branch_tip: Some(initial_commit_id),
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(initial_commit_id),
             message: "extend lines to 110".into(),
@@ -491,8 +491,8 @@ fn deletions() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: Some(head_commit.detach()),
-            vb: &mut Default::default(),
         },
+        &mut Default::default(),
         Destination::NewCommit {
             parent_commit_id: Some(head_commit.into()),
             message: "deletions maybe a bit special".into(),
@@ -540,8 +540,8 @@ fn insert_commits_into_workspace() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: Some(repo.rev_parse_single("merge")?.detach()),
             branch_tip: Some(branch_b),
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(branch_b),
             message: "add 10 more lines at end".into(),
@@ -609,8 +609,8 @@ fn workspace_commit_with_merge_conflict() -> anyhow::Result<()> {
             ReferenceFrame {
                 workspace_tip: Some(repo.rev_parse_single("merge")?.detach()),
                 branch_tip: Some(branch_b),
-                vb: &mut Default::default(),
             },
+            &mut Default::default(),
             destination,
             None,
             to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
@@ -667,8 +667,8 @@ fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: Some(head_commit_id.detach()),
             branch_tip: Some(branch_a),
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(branch_a),
             message: "remove 5 lines from beginning".into(),
@@ -751,8 +751,8 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: Some(head_commit_id.detach()),
             branch_tip: Some(branch_a),
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(branch_a),
             message: "remove 5 lines from beginning".into(),
@@ -832,8 +832,8 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: Some(head_commit_id.detach()),
             branch_tip: Some(branch_a),
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::AmendCommit(branch_a),
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
