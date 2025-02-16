@@ -381,7 +381,8 @@ pub fn reorder_stack(
         SnapshotDetails::new(OperationKind::ReorderCommit),
         guard.write_permission(),
     );
-    reorder::reorder_stack(ctx, stack_id, stack_order, guard.write_permission())
+    reorder::reorder_stack(ctx, stack_id, stack_order, guard.write_permission())?;
+    Ok(())
 }
 
 pub fn reset_virtual_branch(

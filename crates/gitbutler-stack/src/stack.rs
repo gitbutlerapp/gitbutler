@@ -718,6 +718,18 @@ impl Stack {
         self.heads.iter().map(|h| h.name.clone()).collect()
     }
 
+    pub fn heads_by_commit(&self, commit: Commit<'_>) -> Vec<String> {
+        // let id: CommitOrChangeId = commit.into();
+        self.heads
+            .iter()
+            .filter(|h| match h.head.clone() {
+                CommitOrChangeId::CommitId(x) => commit.id().to_string() == x,
+                CommitOrChangeId::ChangeId(x) => commit.change_id() == Some(x), // todo:bug
+            })
+            .map(|h| h.name.clone())
+            .collect_vec()
+    }
+
     /// Returns the list of patches between the stack head and the merge base.
     /// The most recent patch is at the top of the 'stack' (i.e. the last element in the vector)
     fn stack_patches(

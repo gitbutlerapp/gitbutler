@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{bail, Context, Result};
-use but_rebase::RebaseStep;
+use but_rebase::{RebaseOutput, RebaseStep};
 use git2::{Commit, Oid};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
@@ -35,7 +35,7 @@ pub fn reorder_stack(
     stack_id: StackId,
     new_order: StackOrder,
     perm: &mut WorktreeWritePermission,
-) -> Result<()> {
+) -> Result<RebaseOutput> {
     let state = ctx.project().virtual_branches();
     let repo = ctx.repo();
     let mut stack = state.get_stack(stack_id)?;
@@ -79,10 +79,10 @@ pub fn reorder_stack(
     stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;
 
     let mut new_heads: HashMap<String, Commit<'_>> = HashMap::new();
-    for reference in output.references {
+    for reference in &output.references {
         let commit = repo.find_commit(reference.commit_id.to_git2())?;
-        if let but_core::Reference::Virtual(name) = reference.reference {
-            new_heads.insert(name, commit);
+        if let but_core::Reference::Virtual(name) = &reference.reference {
+            new_heads.insert(name.clone(), commit);
         }
     }
     // Set the series heads accordingly in one go
@@ -92,7 +92,7 @@ pub fn reorder_stack(
     crate::integration::update_workspace_commit(&state, ctx)
         .context("failed to update gitbutler workspace")?;
 
-    Ok(())
+    Ok(output)
 }
 
 /// Represents the order of series (branches) and changes (commits) in a stack.
