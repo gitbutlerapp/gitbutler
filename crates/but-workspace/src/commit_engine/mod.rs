@@ -459,23 +459,22 @@ pub fn create_commit_and_update_refs(
 
             let rebase = {
                 // Set commits leading up to the tip on top of the new commit, serving as base.
-                let mut builder =
-                    but_rebase::RebaseBuilder::new(repo, new_commit, Some(commit_in_graph))?;
+                let mut builder = but_rebase::Rebase::new(repo, new_commit, Some(commit_in_graph))?;
                 let workspace_tip = frame
                     .workspace_tip
                     .filter(|tip| !commits_to_rebase.contains(tip));
-                builder.steps_unvalidated(commits_to_rebase.into_iter().rev().map(|commit_id| {
+                builder.steps(commits_to_rebase.into_iter().rev().map(|commit_id| {
                     but_rebase::RebaseStep::Pick {
                         commit_id,
                         new_message: None,
                     }
-                }));
+                }))?;
                 if let Some(workspace_tip) = workspace_tip {
                     // We can assume the workspace tip is connected to a pick (or else the rebase will fail)
-                    builder.step(but_rebase::RebaseStep::Pick {
+                    builder.steps(vec![but_rebase::RebaseStep::Pick {
                         commit_id: workspace_tip,
                         new_message: None,
-                    })?;
+                    }])?;
                 }
                 builder.rebase()?
             };

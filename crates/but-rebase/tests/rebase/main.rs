@@ -3,7 +3,7 @@ use crate::utils::{
     visualize_tree,
 };
 use anyhow::Result;
-use but_rebase::{RebaseBuilder, RebaseStep};
+use but_rebase::{Rebase, RebaseStep};
 use but_testsupport::visualize_commit_graph;
 use gix::prelude::ObjectIdExt;
 
@@ -13,23 +13,23 @@ mod error_handling;
 fn single_stack_journey() -> Result<()> {
     assure_stable_env();
     let (repo, commits, _tmp) = four_commits_writable()?;
-    let mut builder = RebaseBuilder::new(&repo, commits.base, None)?;
+    let mut builder = Rebase::new(&repo, commits.base, None)?;
     let out = builder
-        .step(RebaseStep::Pick {
-            commit_id: commits.a,
-            new_message: Some("first step: pick a".into()),
-        })?
-        .step(RebaseStep::SquashIntoPreceding {
-            commit_id: commits.b,
-            new_message: Some("second step: squash b into a".into()),
-        })?
-        .step(RebaseStep::Reference(but_core::Reference::Virtual(
-            "anchor".into(),
-        )))?
-        .step(RebaseStep::Merge {
-            commit_id: commits.c,
-            new_message: "third step: merge C into b".into(),
-        })?
+        .steps(vec![
+            RebaseStep::Pick {
+                commit_id: commits.a,
+                new_message: Some("first step: pick a".into()),
+            },
+            RebaseStep::SquashIntoPreceding {
+                commit_id: commits.b,
+                new_message: Some("second step: squash b into a".into()),
+            },
+            RebaseStep::Reference(but_core::Reference::Virtual("anchor".into())),
+            RebaseStep::Merge {
+                commit_id: commits.c,
+                new_message: "third step: merge C into b".into(),
+            },
+        ])?
         .rebase()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
     * 120e3a9 (HEAD -> main) c
@@ -122,19 +122,21 @@ fn amended_commit() -> Result<()> {
     |/  
     * 8f0d338 (tag: base) base
     ");
-    let mut builder = RebaseBuilder::new(&repo, repo.rev_parse_single("C~1")?.detach(), None)?;
+    let mut builder = Rebase::new(&repo, repo.rev_parse_single("C~1")?.detach(), None)?;
     let out = builder
-        // Pretend we have rewritten the commit at the tip of C.
-        .step(RebaseStep::Pick {
-            commit_id: repo.rev_parse_single("C")?.into(),
-            new_message: Some("C: add another 10 lines to new file - amended".into()),
-        })?
-        // Picking a merge commit means to repeat the merge with the latest rewritten commit
-        // from the previous step.
-        .step(RebaseStep::Pick {
-            commit_id: repo.rev_parse_single("main")?.into(),
-            new_message: Some("Merge branches 'A', 'B' and 'C' - rewritten".into()),
-        })?
+        .steps(vec![
+            // Pretend we have rewritten the commit at the tip of C.
+            RebaseStep::Pick {
+                commit_id: repo.rev_parse_single("C")?.into(),
+                new_message: Some("C: add another 10 lines to new file - amended".into()),
+            },
+            // Picking a merge commit means to repeat the merge with the latest rewritten commit
+            // from the previous step.
+            RebaseStep::Pick {
+                commit_id: repo.rev_parse_single("main")?.into(),
+                new_message: Some("Merge branches 'A', 'B' and 'C' - rewritten".into()),
+            },
+        ])?
         .rebase()?;
     // Note how the `C` isn't visible anymore as we don't rewrite reference here.
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
@@ -195,26 +197,28 @@ fn reorder_with_conflict_and_remerge() -> Result<()> {
     * 8f0d338 (tag: base) base
     ");
 
-    let mut builder = RebaseBuilder::new(&repo, repo.rev_parse_single("base")?.detach(), None)?;
+    let mut builder = Rebase::new(&repo, repo.rev_parse_single("base")?.detach(), None)?;
     // Re-order commits with conflict, and trigger a re-merge.
     let out = builder
-        .step(RebaseStep::Pick {
-            commit_id: repo.rev_parse_single("C~2")?.into(),
-            new_message: Some("C~2".into()),
-        })?
-        .step(RebaseStep::Pick {
-            commit_id: repo.rev_parse_single("C")?.into(),
-            new_message: Some("C".into()),
-        })?
-        .step(RebaseStep::Pick {
-            // This will conflict,
-            commit_id: repo.rev_parse_single("C~1")?.into(),
-            new_message: Some("C~1".into()),
-        })?
-        .step(RebaseStep::Pick {
-            commit_id: repo.rev_parse_single("main")?.into(),
-            new_message: Some("Re-merge branches 'A', 'B' and 'C'".into()),
-        })?
+        .steps(vec![
+            RebaseStep::Pick {
+                commit_id: repo.rev_parse_single("C~2")?.into(),
+                new_message: Some("C~2".into()),
+            },
+            RebaseStep::Pick {
+                commit_id: repo.rev_parse_single("C")?.into(),
+                new_message: Some("C".into()),
+            },
+            RebaseStep::Pick {
+                // This will conflict,
+                commit_id: repo.rev_parse_single("C~1")?.into(),
+                new_message: Some("C~1".into()),
+            },
+            RebaseStep::Pick {
+                commit_id: repo.rev_parse_single("main")?.into(),
+                new_message: Some("Re-merge branches 'A', 'B' and 'C'".into()),
+            },
+        ])?
         .rebase()?;
     insta::assert_debug_snapshot!(out, @r"
     RebaseOutput {
@@ -284,16 +288,18 @@ fn reorder_with_conflict_and_remerge() -> Result<()> {
 fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
     assure_stable_env();
     let (repo, commits, _tmp) = four_commits_writable()?;
-    let mut builder = RebaseBuilder::new(&repo, None, None)?;
+    let mut builder = Rebase::new(&repo, None, None)?;
     let out = builder
-        .step(RebaseStep::Pick {
-            commit_id: commits.base,
-            new_message: Some("reword base".into()),
-        })?
-        .step(RebaseStep::SquashIntoPreceding {
-            commit_id: commits.a,
-            new_message: Some("reworded base after squash".into()),
-        })?
+        .steps(vec![
+            RebaseStep::Pick {
+                commit_id: commits.base,
+                new_message: Some("reword base".into()),
+            },
+            RebaseStep::SquashIntoPreceding {
+                commit_id: commits.a,
+                new_message: Some("reworded base after squash".into()),
+            },
+        ])?
         .rebase()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @"* dc4aa9e reworded base after squash");
     insta::assert_debug_snapshot!(out, @r"
