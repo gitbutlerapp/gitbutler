@@ -72,6 +72,7 @@ pub struct Rebase<'repo> {
     base: Option<gix::ObjectId>,
     base_substitute: Option<gix::ObjectId>,
     steps: Vec<RebaseStep>,
+    rebase_noops: bool,
 }
 
 impl<'repo> Rebase<'repo> {
@@ -99,6 +100,7 @@ impl<'repo> Rebase<'repo> {
             base,
             base_substitute,
             steps: Vec::new(),
+            rebase_noops: true, // default to always rebasing
         })
     }
 
@@ -111,6 +113,14 @@ impl<'repo> Rebase<'repo> {
             self.steps.push(step);
         }
         Ok(self)
+    }
+
+    /// Configures whether the noop steps should be rebased regardless.
+    /// If set to true, commits that dont really change will have their timestamps and ids updated.
+    /// Default is `true`
+    pub fn rebase_noops(&mut self, value: bool) -> &mut Self {
+        self.rebase_noops = value;
+        self
     }
 
     /// Performs a rebase on top of a given base, according to the provided steps, or fails if no step was provided.
@@ -135,6 +145,7 @@ impl<'repo> Rebase<'repo> {
             self.base,
             self.base_substitute,
             std::mem::take(&mut self.steps),
+            self.rebase_noops,
         )
     }
 }
@@ -211,6 +222,7 @@ fn rebase(
     base: Option<gix::ObjectId>,
     base_substitute: Option<gix::ObjectId>,
     steps: Vec<RebaseStep>,
+    rebase_noops: bool,
 ) -> Result<RebaseOutput> {
     let git2_repo = git2::Repository::open(repo.path())?;
     let (mut references, mut commit_mapping) = (
@@ -258,7 +270,7 @@ fn rebase(
                                 &git2_repo,
                                 cursor.to_git2(),
                                 &[commit_id.to_git2()],
-                                true,
+                                rebase_noops,
                                 true,
                             )?
                             .to_gix();
