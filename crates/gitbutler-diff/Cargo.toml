@@ -16,7 +16,7 @@ tracing.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-cherry-pick.workspace = true
-diffy = "0.4.0"
+diffy = "0.4.2"
 serde = { workspace = true, features = ["std"] }
 
 [[test]]
