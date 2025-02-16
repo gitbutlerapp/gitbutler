@@ -463,7 +463,7 @@ pub fn create_commit_and_update_refs(
                 let workspace_tip = frame
                     .workspace_tip
                     .filter(|tip| !commits_to_rebase.contains(tip));
-                builder.steps_unvalidated(commits_to_rebase.into_iter().rev().map(|commit_id| {
+                builder.steps(commits_to_rebase.into_iter().rev().map(|commit_id| {
                     but_rebase::RebaseStep::Pick {
                         commit_id,
                         new_message: None,
