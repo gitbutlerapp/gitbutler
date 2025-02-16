@@ -471,10 +471,10 @@ pub fn create_commit_and_update_refs(
                 }))?;
                 if let Some(workspace_tip) = workspace_tip {
                     // We can assume the workspace tip is connected to a pick (or else the rebase will fail)
-                    builder.step(but_rebase::RebaseStep::Pick {
+                    builder.steps(vec![but_rebase::RebaseStep::Pick {
                         commit_id: workspace_tip,
                         new_message: None,
-                    })?;
+                    }])?;
                 }
                 builder.rebase()?
             };

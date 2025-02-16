@@ -102,16 +102,8 @@ impl<'repo> Rebase<'repo> {
         })
     }
 
-    /// Adds a rebase step to the list of steps.
-    /// The steps must be added in the order in which they should appear in the graph,
-    /// i.e. the first step will be the first commit in the rebase and the last step will be the last commit.
-    pub fn step(&mut self, step: RebaseStep) -> Result<&mut Self> {
-        self.validate_step(&step)?;
-        self.steps.push(step);
-        Ok(self)
-    }
-
-    /// A way to ingest `steps` without additional validation, putting correct use strictly on the caller.
+    /// Adds and validates a list of rebase steps.
+    /// Ordered oldest (parentmost) to newest (childmost). Reference steps refer to the commit that precedes them.
     /// Note that `steps` will extend whatever steps were added before.
     pub fn steps(&mut self, steps: impl IntoIterator<Item = RebaseStep>) -> Result<&mut Self> {
         for step in steps {
