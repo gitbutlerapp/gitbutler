@@ -67,14 +67,14 @@ impl RebaseStep {
 
 /// Setup a list of [instructions](RebaseStep) for the actual [rebase operation](RebaseBuilder::rebase).
 #[derive(Debug)]
-pub struct RebaseBuilder<'repo> {
+pub struct Rebase<'repo> {
     repo: &'repo gix::Repository,
     base: Option<gix::ObjectId>,
     base_substitute: Option<gix::ObjectId>,
     steps: Vec<RebaseStep>,
 }
 
-impl<'repo> RebaseBuilder<'repo> {
+impl<'repo> Rebase<'repo> {
     /// Creates a new rebase builder with the provided commit as a `base`, the commit
     /// that all other commits should be placed on top of.
     /// If `None` this means the first picked commit will have no parents.
@@ -144,7 +144,7 @@ impl<'repo> RebaseBuilder<'repo> {
     }
 }
 
-impl RebaseBuilder<'_> {
+impl Rebase<'_> {
     /// Pick, Merge and Fixup operations:
     /// - The commit must already exist in the repository
     /// - The commit must not be the base commit

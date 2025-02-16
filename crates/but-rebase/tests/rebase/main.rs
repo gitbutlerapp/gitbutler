@@ -3,7 +3,7 @@ use crate::utils::{
     visualize_tree,
 };
 use anyhow::Result;
-use but_rebase::{RebaseBuilder, RebaseStep};
+use but_rebase::{Rebase, RebaseStep};
 use but_testsupport::visualize_commit_graph;
 use gix::prelude::ObjectIdExt;
 
@@ -13,7 +13,7 @@ mod error_handling;
 fn single_stack_journey() -> Result<()> {
     assure_stable_env();
     let (repo, commits, _tmp) = four_commits_writable()?;
-    let mut builder = RebaseBuilder::new(&repo, commits.base, None)?;
+    let mut builder = Rebase::new(&repo, commits.base, None)?;
     let out = builder
         .step(RebaseStep::Pick {
             commit_id: commits.a,
@@ -122,7 +122,7 @@ fn amended_commit() -> Result<()> {
     |/  
     * 8f0d338 (tag: base) base
     ");
-    let mut builder = RebaseBuilder::new(&repo, repo.rev_parse_single("C~1")?.detach(), None)?;
+    let mut builder = Rebase::new(&repo, repo.rev_parse_single("C~1")?.detach(), None)?;
     let out = builder
         // Pretend we have rewritten the commit at the tip of C.
         .step(RebaseStep::Pick {
@@ -195,7 +195,7 @@ fn reorder_with_conflict_and_remerge() -> Result<()> {
     * 8f0d338 (tag: base) base
     ");
 
-    let mut builder = RebaseBuilder::new(&repo, repo.rev_parse_single("base")?.detach(), None)?;
+    let mut builder = Rebase::new(&repo, repo.rev_parse_single("base")?.detach(), None)?;
     // Re-order commits with conflict, and trigger a re-merge.
     let out = builder
         .step(RebaseStep::Pick {
@@ -284,7 +284,7 @@ fn reorder_with_conflict_and_remerge() -> Result<()> {
 fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
     assure_stable_env();
     let (repo, commits, _tmp) = four_commits_writable()?;
-    let mut builder = RebaseBuilder::new(&repo, None, None)?;
+    let mut builder = Rebase::new(&repo, None, None)?;
     let out = builder
         .step(RebaseStep::Pick {
             commit_id: commits.base,

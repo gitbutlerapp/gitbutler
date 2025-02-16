@@ -459,8 +459,7 @@ pub fn create_commit_and_update_refs(
 
             let rebase = {
                 // Set commits leading up to the tip on top of the new commit, serving as base.
-                let mut builder =
-                    but_rebase::RebaseBuilder::new(repo, new_commit, Some(commit_in_graph))?;
+                let mut builder = but_rebase::Rebase::new(repo, new_commit, Some(commit_in_graph))?;
                 let workspace_tip = frame
                     .workspace_tip
                     .filter(|tip| !commits_to_rebase.contains(tip));
