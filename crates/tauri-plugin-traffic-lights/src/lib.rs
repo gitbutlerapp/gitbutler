@@ -1,3 +1,5 @@
+// silence an incorrect use of cfg attributes in the `msg_send` macro of the `objc` crate.
+#![allow(unexpected_cfgs)]
 #[cfg(target_os = "macos")]
 use tauri::{LogicalPosition, Runtime, Window};
 
