@@ -9,6 +9,16 @@ pub struct Args {
     /// Run as if gitbutler-cli was started in PATH instead of the current working directory.
     #[clap(short = 'C', long, default_value = ".", value_name = "PATH")]
     pub current_dir: PathBuf,
+    /// The location of the directory to contain app data.
+    ///
+    /// Defaults to the standard location on this platform if unset.
+    #[clap(short = 'a', long, env = "GITBUTLER_CLI_DATA_DIR")]
+    pub app_data_dir: Option<PathBuf>,
+    /// A suffix like `dev` to refer to projects of the development version of the application.
+    ///
+    /// The production version is used if unset.
+    #[clap(short = 's', long)]
+    pub app_suffix: Option<String>,
 
     #[clap(subcommand)]
     pub cmd: Subcommands,
@@ -16,13 +26,25 @@ pub struct Args {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
+    /// Commit or amend all worktree changes to a new commit.
+    Commit {
+        /// The message of the new commit.
+        #[clap(long, short = 'm')]
+        message: Option<String>,
+        /// Amend to the current or given commit.
+        #[clap(long)]
+        amend: bool,
+        /// The revspec to create the commit on top of, or the commit to amend to.
+        #[clap(long)]
+        parent: Option<String>,
+    },
     /// Update the local workspace against an updated remote or target branch.
     Status {
         /// Also compute unified diffs for each tree-change.
         #[clap(long, short = 'd')]
         unified_diff: bool,
     },
-    /// Calculate the changes between
+    /// Calculate the changes between two commits.
     CommitChanges {
         /// Also compute unified diffs for each tree-change.
         #[clap(long, short = 'd')]
@@ -37,9 +59,8 @@ pub enum Subcommands {
     HunkDependency,
     /// Returns the list of stacks that are currently part of the GitButler workspace.
     Stacks,
-    StackBranches {
-        id: String,
-    },
+    /// Return all stack branches related to the given `id`.
+    StackBranches { id: String },
 }
 
 #[cfg(test)]

@@ -19,7 +19,9 @@ testing = ["dep:gitbutler-commit"]
 gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
 gitbutler-settings.workspace = true
+gitbutler-stack.workspace = true
 but-core.workspace = true
+gitbutler-oxidize.workspace = true
 but-workspace.workspace = true
 but-hunk-dependency.workspace = true
 
@@ -32,3 +34,4 @@ itertools = "0.14.0"
 tracing-forest = { version = "0.1.6" }
 tracing-subscriber.workspace = true
 tracing.workspace = true
+dirs-next = "2.0.0"

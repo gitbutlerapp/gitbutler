@@ -113,6 +113,7 @@ fn rebase_excluding(
         commit_to_remove.parent_id(0)?,
         &commits_to_rebase,
         false,
+        false,
     )?;
 
     Ok(UndoResult {

@@ -54,7 +54,7 @@ pub fn reorder_stack(
         .flat_map(|s| s.commit_ids.iter())
         .cloned()
         .collect_vec();
-    let new_head = cherry_rebase_group(repo, merge_base, &ids_to_rebase, false)?;
+    let new_head = cherry_rebase_group(repo, merge_base, &ids_to_rebase, false, false)?;
     // Calculate the new head and tree
     let BranchHeadAndTree {
         head: new_head_oid,

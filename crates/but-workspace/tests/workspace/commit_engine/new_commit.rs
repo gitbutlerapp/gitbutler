@@ -1,9 +1,8 @@
 use crate::commit_engine::utils::{
     assure_stable_env, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace,
     read_only_in_memory_scenario, to_change_specs_all_hunks,
-    to_change_specs_all_hunks_with_context_lines, to_change_specs_whole_file, visualize_index,
-    visualize_tree, writable_scenario, writable_scenario_with_ssh_key, write_sequence,
-    CONTEXT_LINES,
+    to_change_specs_all_hunks_with_context_lines, to_change_specs_whole_file, visualize_tree,
+    writable_scenario, writable_scenario_with_ssh_key, write_sequence, CONTEXT_LINES,
 };
 use but_workspace::commit_engine;
 use but_workspace::commit_engine::{Destination, DiffSpec};
@@ -16,14 +15,13 @@ fn from_unborn_head() -> anyhow::Result<()> {
     assure_stable_env();
 
     let (repo, _tmp) = writable_scenario("unborn-untracked");
-    let mut outcome = commit_whole_files_and_all_hunks_from_workspace(
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {
             parent_commit_id: None,
             message: "the commit message".into(),
         },
     )?;
-    outcome.index.take();
     insta::assert_debug_snapshot!(&outcome, @r"
     CreateCommitOutcome {
         rejected_specs: [],
@@ -59,7 +57,7 @@ fn from_unborn_head() -> anyhow::Result<()> {
         repo.work_dir().expect("non-bare").join("new-untracked"),
         "new-content",
     )?;
-    let mut outcome = commit_whole_files_and_all_hunks_from_workspace(
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {
             parent_commit_id: Some(new_commit_id),
@@ -67,7 +65,6 @@ fn from_unborn_head() -> anyhow::Result<()> {
         },
     )?;
 
-    let index = outcome.index.take().unwrap();
     insta::assert_debug_snapshot!(&outcome, @r"
     CreateCommitOutcome {
         rejected_specs: [],
@@ -88,10 +85,6 @@ fn from_unborn_head() -> anyhow::Result<()> {
     ├── new-untracked:100644:72278a7 "new-content"
     └── not-yet-tracked:100644:d95f3ad "content\n"
     "#);
-    insta::assert_snapshot!(visualize_index(&index), @r"
-    100644:72278a7 new-untracked
-    100644:d95f3ad not-yet-tracked
-    ");
     Ok(())
 }
 
@@ -101,7 +94,7 @@ fn from_unborn_head_all_file_types() -> anyhow::Result<()> {
     assure_stable_env();
 
     let repo = read_only_in_memory_scenario("unborn-untracked-all-file-types")?;
-    let mut outcome = commit_whole_files_and_all_hunks_from_workspace(
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {
             parent_commit_id: None,
@@ -126,11 +119,6 @@ fn from_unborn_head_all_file_types() -> anyhow::Result<()> {
     ├── untracked:100644:d95f3ad "content\n"
     └── untracked-exe:100755:86daf54 "exe\n"
     "#);
-    insta::assert_snapshot!(visualize_index(&outcome.index.take().unwrap()), @r"
-    120000:faf96c1 link
-    100644:d95f3ad untracked
-    100755:86daf54 untracked-exe
-    ");
 
     Ok(())
 }
@@ -141,7 +129,7 @@ fn from_first_commit_all_file_types_changed() -> anyhow::Result<()> {
     assure_stable_env();
 
     let repo = read_only_in_memory_scenario("all-file-types-changed")?;
-    let mut outcome = commit_whole_files_and_all_hunks_from_workspace(
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {
             parent_commit_id: Some(repo.rev_parse_single("HEAD")?.into()),
@@ -156,11 +144,6 @@ fn from_first_commit_all_file_types_changed() -> anyhow::Result<()> {
     ├── soon-file-not-link:100644:72f007b "ordinary content\n"
     └── soon-not-executable:100644:86daf54 "exe\n"
     "#);
-    insta::assert_snapshot!(visualize_index(&outcome.index.take().unwrap()), @r"
-    100755:d95f3ad soon-executable
-    100644:72f007b soon-file-not-link
-    100644:86daf54 soon-not-executable
-    ");
     Ok(())
 }
 
@@ -170,7 +153,7 @@ fn unborn_with_added_submodules() -> anyhow::Result<()> {
 
     let (repo, _tmp) = writable_scenario("unborn-with-submodules");
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
-    let mut outcome = but_workspace::commit_engine::create_commit(
+    let outcome = but_workspace::commit_engine::create_commit(
         &repo,
         Destination::NewCommit {
             parent_commit_id: None,
@@ -196,11 +179,6 @@ fn unborn_with_added_submodules() -> anyhow::Result<()> {
     ├── m1:160000:a047f81 
     └── module:160000:a047f81
     "#);
-    insta::assert_snapshot!(visualize_index(&outcome.index.take().unwrap()), @r"
-    100644:49dc605 .gitmodules
-    160000:a047f81 m1
-    160000:a047f81 module
-    ");
     Ok(())
 }
 
@@ -219,7 +197,7 @@ fn deletions() -> anyhow::Result<()> {
     ├── link:120000:b158162 "file-to-remain"
     └── submodule:160000:a047f81
     "#);
-    let mut outcome = commit_whole_files_and_all_hunks_from_workspace(
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {
             parent_commit_id: Some(head_commit.into()),
@@ -236,7 +214,6 @@ fn deletions() -> anyhow::Result<()> {
         5,
         "we don't actually change the index to match, nor is the HEAD changed, worktree changes seem to remain"
     );
-    insta::assert_snapshot!(visualize_index(&outcome.index.take().unwrap()), @"100644:d95f3ad file-to-remain");
     Ok(())
 }
 
@@ -252,7 +229,7 @@ fn renames() -> anyhow::Result<()> {
     ├── file:100644:3aac70f "5\n6\n7\n8\n"
     └── link:120000:c4c364c "nonexisting-target"
     "#);
-    let mut outcome = commit_whole_files_and_all_hunks_from_workspace(
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {
             parent_commit_id: Some(head_commit.into()),
@@ -266,11 +243,6 @@ fn renames() -> anyhow::Result<()> {
     ├── file-renamed:100644:66f816c "5\n6\n7\n8\n9\n"
     └── link-renamed:120000:94e4e07 "other-nonexisting-target"
     "#);
-    insta::assert_snapshot!(visualize_index(&outcome.index.take().unwrap()), @r"
-    100755:94ebaf9 executable-renamed
-    100644:66f816c file-renamed
-    120000:94e4e07 link-renamed
-    ");
     Ok(())
 }
 
@@ -330,7 +302,7 @@ fn submodule_typechanges() -> anyhow::Result<()> {
         },
     ]
     "#);
-    let mut outcome = but_workspace::commit_engine::create_commit(
+    let outcome = but_workspace::commit_engine::create_commit(
         &repo,
         Destination::NewCommit {
             parent_commit_id: Some(repo.rev_parse_single("HEAD")?.into()),
@@ -357,12 +329,6 @@ fn submodule_typechanges() -> anyhow::Result<()> {
     ├── file:160000:a047f81 
     └── submodule:100644:d95f3ad "content\n"
     "#);
-    insta::assert_snapshot!(visualize_index(&outcome.index.take().unwrap()), @r"
-    100644:57fc33b .gitmodules
-    160000:a047f81 embedded-repository
-    160000:a047f81 file
-    100644:d95f3ad submodule
-    ");
     Ok(())
 }
 
@@ -377,13 +343,12 @@ fn commit_to_one_below_tip() -> anyhow::Result<()> {
         message: "we apply a change with line offsets on top of the first commit, so the patch wouldn't apply cleanly.".into(),
     };
 
-    let mut outcome = commit_whole_files_and_all_hunks_from_workspace(&repo, first_commit)?;
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(&repo, first_commit)?;
     let tree = visualize_tree(&repo, &outcome)?;
     insta::assert_snapshot!(tree, @r#"
     754a70c
     └── file:100644:cc418b0 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n61\n62\n63\n64\n65\n66\n67\n68\n69\n70\n71\n72\n73\n74\n75\n76\n77\n78\n79\n80\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n"
     "#);
-    insta::assert_snapshot!(visualize_index(&outcome.index.take().unwrap()), @"100644:33e9beb file");
     Ok(())
 }
 
@@ -400,7 +365,7 @@ fn commit_to_one_below_tip_with_three_context_lines() -> anyhow::Result<()> {
                 .into(),
         };
 
-        let mut outcome = but_workspace::commit_engine::create_commit(
+        let outcome = but_workspace::commit_engine::create_commit(
             &repo,
             first_commit,
             None,
@@ -424,11 +389,6 @@ fn commit_to_one_below_tip_with_three_context_lines() -> anyhow::Result<()> {
 "#
         );
 
-        // The index is from `HEAD^{tree}` and thus doesn't match a tree that was inserted in the middle.
-        assert_eq!(
-            visualize_index(&outcome.index.take().unwrap()),
-            "100644:33e9beb file\n"
-        );
         assert_eq!(
             but_testsupport::visualize_tree(
                 outcome
@@ -467,7 +427,7 @@ fn commit_to_branches_below_merge_commit() -> anyhow::Result<()> {
     "#);
 
     write_sequence(&repo, "file", [(40, 50), (10, 30)])?;
-    let mut outcome = commit_whole_files_and_all_hunks_from_workspace(
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {
             parent_commit_id: Some(repo.rev_parse_single("A")?.into()),
@@ -481,9 +441,6 @@ fn commit_to_branches_below_merge_commit() -> anyhow::Result<()> {
     └── file:100644:bc33e02 "40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n"
     "#);
 
-    // The index is the one from `HEAD^{commit}` and thus doesn't match the tree in the created commit,
-    // as it was rebased onto its parent.
-    insta::assert_snapshot!(visualize_index(&outcome.index.take().unwrap()), @"100644:144ccb0 file");
     insta::assert_snapshot!(but_testsupport::visualize_tree(outcome.changed_tree_pre_cherry_pick.unwrap().attach(&repo)), @r#"
     3cca5b3
     └── file:100644:144ccb0 "40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n"
@@ -517,7 +474,7 @@ fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
         );
     }
 
-    let mut outcome = commit_whole_files_and_all_hunks_from_workspace(
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {
             parent_commit_id: Some(repo.head_id()?.into()),
@@ -529,7 +486,6 @@ fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
     5bbee6d
     └── file:100644:1c9325b "40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n61\n62\n63\n64\n65\n66\n67\n68\n69\n70\n"
     "#);
-    insta::assert_snapshot!(visualize_index(&outcome.index.take().unwrap()), @"100644:1c9325b file");
     Ok(())
 }
 
@@ -586,7 +542,7 @@ fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() ->
         }
     }
 
-    let mut outcome = commit_whole_files_and_all_hunks_from_workspace(
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {
             parent_commit_id: Some(repo.head_id()?.into()),
@@ -601,10 +557,6 @@ fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() ->
     ├── file:100644:1c9325b "40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n61\n62\n63\n64\n65\n66\n67\n68\n69\n70\n"
     └── other-file:100644:4223e57 "35\n36\n37\n38\n39\n40\n41\n42\n43\n44\n80\n81\n82\n83\n84\n85\n86\n87\n88\n89\n90\n66\n67\n68\n69\n70\n71\n72\n73\n74\n75\n"
     "#);
-    insta::assert_snapshot!(visualize_index(&outcome.index.take().unwrap()), @r"
-    100644:1c9325b file
-    100644:4223e57 other-file
-    ");
     Ok(())
 }
 
@@ -613,14 +565,13 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
     assure_stable_env();
 
     let (repo, _tmp) = writable_scenario("unborn-untracked-crlf");
-    let mut outcome = commit_whole_files_and_all_hunks_from_workspace(
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {
             parent_commit_id: None,
             message: "the commit message".into(),
         },
     )?;
-    outcome.index.take();
     insta::assert_debug_snapshot!(&outcome, @r"
     CreateCommitOutcome {
         rejected_specs: [],
@@ -651,7 +602,7 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
         repo.work_dir().expect("non-bare").join("new-untracked"),
         "one\r\ntwo\r\n",
     )?;
-    let mut outcome = commit_whole_files_and_all_hunks_from_workspace(
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {
             parent_commit_id: Some(new_commit_id),
@@ -659,7 +610,6 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
         },
     )?;
 
-    let index = outcome.index.take().unwrap();
     insta::assert_debug_snapshot!(&outcome, @r"
     CreateCommitOutcome {
         rejected_specs: [],
@@ -682,10 +632,6 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
     └── not-yet-tracked:100644:1191247 "1\n2\n"
     "#);
 
-    insta::assert_snapshot!(visualize_index(&index), @r"
-    100644:814f4a4 new-untracked
-    100644:1191247 not-yet-tracked
-    ");
     Ok(())
 }
 
@@ -705,7 +651,7 @@ fn signatures_are_redone() -> anyhow::Result<()> {
 
     // Rewrite everything for amending on top.
     write_sequence(&repo, "file", [(40, 60)])?;
-    let mut outcome = commit_whole_files_and_all_hunks_from_workspace(
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {
             parent_commit_id: Some(head_id),
@@ -735,10 +681,6 @@ fn signatures_are_redone() -> anyhow::Result<()> {
     ├── .gitignore:100644:ccc87a0 "*.key*\n"
     └── file:100644:a07b65a "40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n"
     "#);
-    insta::assert_snapshot!(visualize_index(&outcome.index.take().unwrap()), @r"
-    100644:ccc87a0 .gitignore
-    100644:a07b65a file
-    ");
 
     Ok(())
 }

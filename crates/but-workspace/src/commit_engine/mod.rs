@@ -6,6 +6,7 @@ use but_core::unified_diff::DiffHunk;
 use but_core::{RepositoryExt, UnifiedDiff};
 use but_rebase::RebaseOutput;
 use gitbutler_oxidize::ObjectIdExt;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{CommitOrChangeId, VirtualBranchesState};
 use gix::filter::plumbing::driver::apply::{Delay, MaybeDelayed};
 use gix::filter::plumbing::pipeline::convert::{ToGitOutcome, ToWorktreeOutcome};
@@ -15,6 +16,7 @@ use gix::prelude::ObjectIdExt as _;
 use gix::refs::transaction::PreviousValue;
 use serde::{Deserialize, Serialize};
 use std::io::Read;
+use std::path::Path;
 
 /// Types for use in the frontend with serialization support.
 pub mod ui;
@@ -151,11 +153,6 @@ pub struct CreateTreeOutcome {
     /// If the applied changes were from the worktree, it's `HEAD^{tree}` + changes.
     /// Otherwise, it's `<commit>^{tree}` + changes.
     pub changed_tree_pre_cherry_pick: Option<gix::ObjectId>,
-    /// An index based on the existing index on disk that matches *the tree at `HEAD`* (but not necessarily `destination_tree`).
-    /// Note that a couple of extensions that relate to paths will have been dropped to assure consistency - we don't have
-    /// `unpack_trees` just yet.
-    /// The index wasn't written yet, but could be to match `HEAD^{commit}`.
-    pub index: Option<gix::index::File>,
 }
 
 /// Like [`create_commit()`], but lower-level and only returns a new tree, without finally associating it with a commit.
@@ -187,8 +184,8 @@ pub fn create_tree(
     };
 
     let mut changes: Vec<_> = changes.into_iter().map(Ok).collect();
-    let (new_tree, changed_tree_pre_cherry_pick, maybe_index) = 'retry: loop {
-        let (maybe_new_tree, actual_base_tree, maybe_index) = if let Some(_source) = move_source {
+    let (new_tree, changed_tree_pre_cherry_pick) = 'retry: loop {
+        let (maybe_new_tree, actual_base_tree) = if let Some(_source) = move_source {
             todo!("get base tree and apply changes by cherry-picking, probably can all be done by one function, but optimizations are different")
         } else {
             let changes_base_tree = repo.head()?.id().and_then(|id| {
@@ -201,22 +198,14 @@ pub fn create_tree(
                     .detach()
                     .into()
             });
-            let index = repo.open_index().or_else(|err| match err {
-                gix::worktree::open_index::Error::IndexFile(gix::index::file::init::Error::Io(
-                    io_err,
-                )) if gix::fs::io_err::is_not_found(io_err.kind(), io_err.raw_os_error()) => {
-                    Ok((**repo.index_or_empty()?).clone())
-                }
-                err => Err(err),
-            })?;
-            apply_worktree_changes(changes_base_tree, index, repo, &mut changes, context_lines)?
+            apply_worktree_changes(changes_base_tree, repo, &mut changes, context_lines)?
         };
 
         let Some(tree_with_changes) =
             maybe_new_tree.filter(|tree_with_changes| *tree_with_changes != target_tree)
         else {
             changes.iter_mut().for_each(into_err_spec);
-            break 'retry (None, None, maybe_index);
+            break 'retry (None, None);
         };
         let tree_with_changes_without_cherry_pick = tree_with_changes.detach();
         let mut tree_with_changes = tree_with_changes.detach();
@@ -256,14 +245,12 @@ pub fn create_tree(
         break 'retry (
             Some(tree_with_changes),
             Some(tree_with_changes_without_cherry_pick),
-            maybe_index,
         );
     };
     Ok(CreateTreeOutcome {
         rejected_specs: changes.into_iter().filter_map(Result::err).collect(),
         destination_tree: new_tree,
         changed_tree_pre_cherry_pick,
-        index: maybe_index,
     })
 }
 
@@ -276,6 +263,8 @@ pub fn create_tree(
 ///
 /// Return additional information that helps to understand to what extent the commit was created, as the commit might not contain all the [`DiffSpecs`](DiffSpec)
 /// that were requested if they failed to apply.
+///
+/// Note that no [`index`](CreateCommitOutcome::index) is produced here as the `HEAD` isn't queried and doesn't play a role.
 ///
 /// No reference is touched in the process.
 pub fn create_commit(
@@ -311,7 +300,6 @@ pub fn create_commit(
         rejected_specs,
         destination_tree,
         changed_tree_pre_cherry_pick,
-        index,
     } = create_tree(repo, &destination, move_source, changes, context_lines)?;
     let new_commit = if let Some(new_tree) = destination_tree {
         match destination {
@@ -345,7 +333,7 @@ pub fn create_commit(
         changed_tree_pre_cherry_pick,
         references: Vec::new(),
         rebase_output: None,
-        index,
+        index: None,
     })
 }
 
@@ -373,6 +361,9 @@ pub struct ReferenceFrame<'a> {
 ///
 /// Note that conflicts that occur during the rebase will be swallowed, putting the commit into a conflicted state.
 /// Finally, the index will be written so it matches the `HEAD^{commit}` *if* there were worktree changes.
+///
+/// An index is produced so it matches the tree at `HEAD^{tree}` while keeping all content already present a possibly
+/// existing `.git/index`. Updated or added files will have their `stat` forcefully updated.
 ///
 /// ### Performance Note
 ///
@@ -470,13 +461,16 @@ pub fn create_commit_and_update_refs(
                 // Set commits leading up to the tip on top of the new commit, serving as base.
                 let mut builder =
                     but_rebase::RebaseBuilder::new(repo, new_commit, Some(commit_in_graph))?;
+                let workspace_tip = frame
+                    .workspace_tip
+                    .filter(|tip| !commits_to_rebase.contains(tip));
                 builder.steps_unvalidated(commits_to_rebase.into_iter().rev().map(|commit_id| {
                     but_rebase::RebaseStep::Pick {
                         commit_id,
                         new_message: None,
                     }
                 }));
-                if let Some(workspace_tip) = frame.workspace_tip {
+                if let Some(workspace_tip) = workspace_tip {
                     // We can assume the workspace tip is connected to a pick (or else the rebase will fail)
                     builder.step(but_rebase::RebaseStep::Pick {
                         commit_id: workspace_tip,
@@ -493,11 +487,22 @@ pub fn create_commit_and_update_refs(
                 rebase
                     .commit_mapping
                     .iter()
-                    .map(|(_base, old, new)| (*old, *new)),
+                    .map(|(_base, old, new)| (*old, *new))
+                    .chain(Some((commit_in_graph, new_commit))),
                 &mut out.references,
             )?;
             out.rebase_output = Some(rebase);
         }
+        // Assume an index to be present and adjust it to match the new tree.
+
+        let tree_index = repo.index_from_tree(&repo.head_tree_id()?)?;
+        let mut disk_index = repo.open_index()?;
+        apply_index(
+            repo.work_dir().expect("non-bare"),
+            &tree_index,
+            &mut disk_index,
+        )?;
+        out.index = disk_index.into();
     } else {
         // unborn branch special case.
         repo.reference(
@@ -515,12 +520,46 @@ pub fn create_commit_and_update_refs(
                     .title
             ),
         )?;
+        let new_tree = new_commit.attach(repo).object()?.into_commit().tree_id()?;
+        out.index = repo.index_from_tree(&new_tree)?.into();
     }
 
     if let Some(index) = out.index.as_mut() {
         index.write(Default::default())?;
     }
     Ok(out)
+}
+
+/// Like [`create_commit_and_update_refs()`], but integrates with an existing GitButler `project`
+/// if present. Alternatively it uses the current `HEAD` as only reference point.
+/// Note that virtual branches will not be written back after this call.
+pub fn create_commit_and_update_refs_with_project(
+    repo: &gix::Repository,
+    project: Option<(ReferenceFrame<'_>, &mut WorktreeWritePermission)>,
+    destination: Destination,
+    move_source: Option<MoveSourceCommit>,
+    changes: Vec<DiffSpec>,
+    context_lines: u32,
+) -> anyhow::Result<CreateCommitOutcome> {
+    let mut vbs_storage = VirtualBranchesState::default();
+    let frame = if let Some((frame, _perm)) = project {
+        frame
+    } else {
+        ReferenceFrame {
+            workspace_tip: None,
+            branch_tip: repo.head_id()?.detach().into(),
+            vb: &mut vbs_storage,
+        }
+    };
+
+    create_commit_and_update_refs(
+        repo,
+        frame,
+        destination,
+        move_source,
+        changes,
+        context_lines,
+    )
 }
 
 fn rewrite_references(
@@ -631,18 +670,10 @@ type PossibleChange = Result<DiffSpec, DiffSpec>;
 /// avoid destroying indexed information like stats which would slow down the next status.
 fn apply_worktree_changes<'repo>(
     changes_base_tree: Option<gix::ObjectId>,
-    mut head_index: gix::index::File,
     repo: &'repo gix::Repository,
     changes: &mut [PossibleChange],
     context_lines: u32,
-) -> anyhow::Result<(
-    Option<gix::Id<'repo>>,
-    gix::ObjectId,
-    Option<gix::index::File>,
-)> {
-    if head_index.is_sparse() {
-        bail!("Cannot currently edit sparse indices");
-    }
+) -> anyhow::Result<(Option<gix::Id<'repo>>, gix::ObjectId)> {
     let actual_base_tree =
         changes_base_tree.unwrap_or_else(|| gix::ObjectId::empty_tree(repo.object_hash()));
     let base_tree = actual_base_tree.attach(repo).object()?.peel_to_tree()?;
@@ -656,8 +687,6 @@ fn apply_worktree_changes<'repo>(
         .then(|| but_core::diff::worktree_changes(repo).map(|wtc| wtc.changes))
         .transpose()?;
     let mut current_worktree = Vec::new();
-    let mut index_needs_sort = false;
-    let mut num_sorted_entries = head_index.entries().len();
 
     let work_dir = repo.work_dir().expect("non-bare repo");
     'each_change: for possible_change in changes.iter_mut() {
@@ -670,11 +699,6 @@ fn apply_worktree_changes<'repo>(
             Ok(md) => md,
             Err(err) if gix::fs::io_err::is_not_found(err.kind(), err.raw_os_error()) => {
                 base_tree_editor.remove(change_request.path.as_bstr())?;
-                delete_entry_by_path_bounded(
-                    &mut head_index,
-                    change_request.path.as_bstr(),
-                    &mut num_sorted_entries,
-                );
                 continue;
             }
             Err(err) => return Err(err.into()),
@@ -683,24 +707,11 @@ fn apply_worktree_changes<'repo>(
             if let Some(previous_path) = change_request.previous_path.as_ref().map(|p| p.as_bstr())
             {
                 base_tree_editor.remove(previous_path)?;
-                delete_entry_by_path_bounded(
-                    &mut head_index,
-                    previous_path,
-                    &mut num_sorted_entries,
-                );
             }
             let rela_path = change_request.path.as_bstr();
             match pipeline.worktree_file_to_object(rela_path, &index)? {
                 Some((id, kind, _fs_metadata)) => {
                     base_tree_editor.upsert(rela_path, kind, id)?;
-                    index_needs_sort |= upsert_index_entry(
-                        &mut head_index,
-                        rela_path,
-                        &md,
-                        id,
-                        kind,
-                        &mut num_sorted_entries,
-                    )?;
                 }
                 None => into_err_spec(possible_change),
             }
@@ -721,11 +732,6 @@ fn apply_worktree_changes<'repo>(
             let previous_path = worktree_change.previous_path();
             if let Some(previous_path) = previous_path {
                 base_tree_editor.remove(previous_path)?;
-                delete_entry_by_path_bounded(
-                    &mut head_index,
-                    previous_path,
-                    &mut num_sorted_entries,
-                );
             }
             let base_rela_path = previous_path.unwrap_or(change_request.path.as_bstr());
             let Some(entry) = base_tree.lookup_entry(base_rela_path.split(|b| *b == b'/'))? else {
@@ -847,14 +853,6 @@ fn apply_worktree_changes<'repo>(
                 current_entry_kind,
                 blob_with_selected_patches,
             )?;
-            index_needs_sort |= upsert_index_entry(
-                &mut head_index,
-                change_request.path.as_bstr(),
-                &md,
-                blob_with_selected_patches.detach(),
-                current_entry_kind,
-                &mut num_sorted_entries,
-            )?;
         } else {
             unreachable!("worktree-changes are always set if there are hunks")
         }
@@ -862,20 +860,78 @@ fn apply_worktree_changes<'repo>(
 
     let altered_base_tree_id = base_tree_editor.write()?;
     let maybe_new_tree = (actual_base_tree != altered_base_tree_id).then_some(altered_base_tree_id);
-    let maybe_index = if maybe_new_tree.is_some() {
-        if index_needs_sort {
-            head_index.sort_entries();
-        }
-        head_index.remove_tree();
-        head_index.remove_resolve_undo();
-        Some(head_index)
-    } else {
-        None
-    };
-    Ok((maybe_new_tree, actual_base_tree, maybe_index))
+    Ok((maybe_new_tree, actual_base_tree))
 }
 
-// TODO: this could be a platform in Gix which supports these kinds of edits while assuring
+/// Turn `rhs` into `lhs` by modifying `rhs`. This will leave `rhs` intact as much as possible, but will remove
+/// Note that conflicting entries will be replaced by an addition or edit automatically.
+/// extensions that might be affected by these changes, for a lack of finesse with our edits.
+fn apply_index(
+    workdir: &Path,
+    lhs: &gix::index::State,
+    rhs: &mut gix::index::State,
+) -> anyhow::Result<()> {
+    let mut num_sorted_entries = rhs.entries().len();
+    let mut needs_sorting = false;
+
+    let mut changes = Vec::new();
+    gix::diff::index(
+        lhs,
+        rhs,
+        |change| -> Result<_, std::convert::Infallible> {
+            changes.push(change.into_owned());
+            Ok(gix::diff::index::Action::Continue)
+        },
+        None::<gix::diff::index::RewriteOptions<'_, gix::Repository>>,
+        &mut gix::pathspec::Search::from_specs(None, None, workdir)?,
+        &mut |_, _, _, _| unreachable!("no pathspec is used"),
+    )?;
+
+    use gix::diff::index::Change;
+    for change in changes {
+        match change {
+            Change::Addition { location, .. } => {
+                delete_entry_by_path_bounded(rhs, location.as_bstr(), &mut num_sorted_entries);
+            }
+            Change::Deletion {
+                location,
+                entry_mode,
+                id,
+                ..
+            }
+            | Change::Modification {
+                location,
+                previous_entry_mode: entry_mode,
+                previous_id: id,
+                ..
+            } => {
+                let md = gix::index::fs::Metadata::from_path_no_follow(
+                    &workdir.join(gix::path::from_bstr(location.as_bstr())),
+                )?;
+                needs_sorting |= upsert_index_entry(
+                    rhs,
+                    location.as_bstr(),
+                    &md,
+                    id.into_owned(),
+                    entry_mode,
+                    &mut num_sorted_entries,
+                )?;
+            }
+            Change::Rewrite { .. } => {
+                unreachable!("rewrites tracking was disabled")
+            }
+        }
+    }
+
+    if needs_sorting {
+        rhs.sort_entries();
+    }
+    rhs.remove_tree();
+    rhs.remove_resolve_undo();
+    Ok(())
+}
+
+// TODO(gix): this could be a platform in Gix which supports these kinds of edits while assuring
 //       consistency. It could use some tricks to not have worst-case performance like this has.
 //       It really is index-add that we need.
 fn upsert_index_entry(
@@ -883,7 +939,7 @@ fn upsert_index_entry(
     rela_path: &BStr,
     md: &gix::index::fs::Metadata,
     id: gix::ObjectId,
-    kind: gix::object::tree::EntryKind,
+    mode: gix::index::entry::Mode,
     num_sorted_entries: &mut usize,
 ) -> anyhow::Result<bool> {
     use gix::index::entry::Stage;
@@ -901,16 +957,20 @@ fn upsert_index_entry(
     ) {
         #[allow(clippy::indexing_slicing)]
         let entry = &mut index.entries_mut()[pos];
-        entry.stat = gix::index::entry::Stat::from_fs(md)?;
+        // NOTE: it's needed to set the values to 0 here or else 1 in 40 times or so
+        //       git status will report the file didn't change even though it did.
+        //       This basically forces it to look closely, bad for performance, but at
+        //       least correct. Usually it fixes itself as well.
+        entry.stat = Default::default();
         entry.id = id;
-        entry.mode = kind.into();
+        entry.mode = mode;
         false
     } else {
         index.dangerously_push_entry(
             gix::index::entry::Stat::from_fs(md)?,
             id,
             gix::index::entry::Flags::empty(),
-            kind.into(),
+            mode,
             rela_path,
         );
         true
@@ -932,6 +992,7 @@ fn delete_entry_by_path_bounded(
     );
 }
 
+// TODO(gix)
 // TODO(performance): make an efficient version of this available in `gix`,
 //                    right now we need 4 lookups for each deletion, and possibly 4 rewrites of the vec
 fn delete_entry_by_path_bounded_stages(

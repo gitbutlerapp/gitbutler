@@ -264,6 +264,7 @@ fn rebase(
                                 cursor.to_git2(),
                                 &[commit_id.to_git2()],
                                 true,
+                                true,
                             )?
                             .to_gix();
                             if let Some(new_message) = new_message {
@@ -314,6 +315,7 @@ fn rebase(
                     &git2_repo,
                     cursor.to_git2(),
                     &[commit_id.to_git2()],
+                    true,
                     true,
                 )?
                 .to_gix();

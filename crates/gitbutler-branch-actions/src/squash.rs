@@ -157,7 +157,7 @@ fn do_squash_commits(
 
     // Rebase the commits in the stack so that the source commits are removed and the destination commit
     // is replaces with a new commit with the final tree that is the result of the merge
-    let new_stack_head = cherry_rebase_group(ctx.repo(), merge_base, &ids_to_rebase, false)?;
+    let new_stack_head = cherry_rebase_group(ctx.repo(), merge_base, &ids_to_rebase, false, false)?;
 
     let BranchHeadAndTree {
         head: new_head_oid,

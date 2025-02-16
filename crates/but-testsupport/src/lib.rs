@@ -3,13 +3,37 @@
 use gix::bstr::{BStr, ByteSlice};
 pub use gix_testtools;
 
+/// While `gix` can't (or can't conveniently) do everything, let's make using `git` easier.
+pub fn git(repo: &gix::Repository) -> std::process::Command {
+    let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
+    cmd.current_dir(repo.work_dir().expect("non-bare"));
+    cmd
+}
+
+/// Utilities for the [`git()`] command.
+pub trait CommandExt {
+    /// Run the command successfully or print panic with all available command output.
+    fn run(&mut self);
+}
+
+impl CommandExt for std::process::Command {
+    fn run(&mut self) {
+        let out = self.output().expect("Can execute well-known command");
+        assert!(
+            out.status.success(),
+            "{self:?} failed: {}\n\n{}",
+            out.stdout.as_bstr(),
+            out.stderr.as_bstr()
+        );
+    }
+}
+
 /// Produce a graph of all commits reachable from `refspec`.
 pub fn visualize_commit_graph(
     repo: &gix::Repository,
     refspec: impl ToString,
 ) -> std::io::Result<String> {
-    let log = std::process::Command::new(gix::path::env::exe_invocation())
-        .current_dir(repo.path())
+    let log = git(repo)
         .args(["log", "--oneline", "--graph", "--decorate"])
         .arg(refspec.to_string())
         .output()?;
