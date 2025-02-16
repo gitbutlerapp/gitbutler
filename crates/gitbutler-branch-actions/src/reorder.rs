@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
 use anyhow::{bail, Context, Result};
+use but_rebase::RebaseStep;
 use git2::{Commit, Oid};
 use gitbutler_command_context::CommandContext;
+use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::rebase::cherry_rebase_group;
 use gitbutler_stack::{
     stack_context::{CommandContextExt, StackContext},
     Stack, StackId,
@@ -48,13 +49,26 @@ pub fn reorder_stack(
     let old_head = repo.find_commit(stack.head())?;
     let merge_base = repo.merge_base(default_target_commit.id(), stack.head())?;
 
-    let ids_to_rebase = new_order
-        .series
-        .iter()
-        .flat_map(|s| s.commit_ids.iter())
-        .cloned()
-        .collect_vec();
-    let new_head = cherry_rebase_group(repo, merge_base, &ids_to_rebase, false, false)?;
+    let mut steps: Vec<RebaseStep> = Vec::new();
+    for series in new_order.series.iter().rev() {
+        for oid in series.commit_ids.iter().rev() {
+            steps.push(RebaseStep::Pick {
+                commit_id: oid.to_gix(),
+                new_message: None,
+            });
+        }
+        steps.push(RebaseStep::Reference(but_core::Reference::Virtual(
+            series.name.clone(),
+        )));
+    }
+    let gix_repo = ctx.gix_repository()?;
+    let mut builder = but_rebase::Rebase::new(&gix_repo, merge_base.to_gix(), None)?;
+    let builder = builder.steps(steps)?;
+    builder.rebase_noops(false);
+    let output = builder.rebase()?;
+
+    let new_head = output.top_commit.to_git2();
+
     // Calculate the new head and tree
     let BranchHeadAndTree {
         head: new_head_oid,
@@ -65,15 +79,11 @@ pub fn reorder_stack(
     stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;
 
     let mut new_heads: HashMap<String, Commit<'_>> = HashMap::new();
-    let mut previous = merge_base;
-    for series in new_order.series.iter().rev() {
-        let commit = if let Some(commit_id) = series.commit_ids.first() {
-            repo.find_commit(*commit_id)?
-        } else {
-            repo.find_commit(previous)?
-        };
-        previous = commit.id();
-        new_heads.insert(series.name.clone(), commit);
+    for reference in output.references {
+        let commit = repo.find_commit(reference.commit_id.to_git2())?;
+        if let but_core::Reference::Virtual(name) = reference.reference {
+            new_heads.insert(name, commit);
+        }
     }
     // Set the series heads accordingly in one go
     stack.set_all_heads(ctx, new_heads)?;

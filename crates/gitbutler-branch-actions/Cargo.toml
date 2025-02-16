@@ -33,6 +33,8 @@ gitbutler-stack.workspace = true
 gitbutler-hunk-dependency.workspace = true
 gitbutler-workspace.workspace = true
 but-workspace.workspace = true
+but-rebase.workspace = true
+but-core.workspace = true
 serde = { workspace = true, features = ["std"] }
 serde-error = "0.1.3"
 bstr.workspace = true
