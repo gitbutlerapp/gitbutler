@@ -14,7 +14,6 @@
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { GitBranchService } from '$lib/branches/gitBranch';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
-	import { CommitService } from '$lib/commits/commitService';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showHistoryView } from '$lib/config/config';
@@ -76,7 +75,6 @@
 		setContext(VirtualBranchService, data.vbranchService);
 		setContext(BranchController, data.branchController);
 		setContext(BaseBranchService, data.baseBranchService);
-		setContext(CommitService, data.commitService);
 		setContext(TemplateService, data.templateService);
 		setContext(BaseBranch, baseBranch);
 		setContext(Project, project);
