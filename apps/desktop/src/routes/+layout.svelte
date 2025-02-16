@@ -19,6 +19,7 @@
 		IpcNameNormalizationService,
 		setNameNormalizationServiceContext
 	} from '$lib/branches/nameNormalizationService';
+	import { CommitService } from '$lib/commits/commitService.svelte';
 	import { AppSettings } from '$lib/config/appSettings';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { GitConfigService } from '$lib/config/gitConfigService';
@@ -100,6 +101,8 @@
 	const desktopRouteService = new DesktopRoutesService();
 	const diffService = new DiffService(clientState);
 	const shortcutService = new ShortcutService(data.tauri);
+	const commitService = new CommitService(clientState);
+
 	shortcutService.listen();
 
 	setExternalLinkService({ open: openExternalUrl });
@@ -121,6 +124,7 @@
 	setContext(HooksService, data.hooksService);
 	setContext(SettingsService, data.settingsService);
 	setContext(FileService, data.fileService);
+	setContext(CommitService, commitService);
 
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
