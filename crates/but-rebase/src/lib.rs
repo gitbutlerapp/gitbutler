@@ -113,9 +113,12 @@ impl<'repo> Rebase<'repo> {
 
     /// A way to ingest `steps` without additional validation, putting correct use strictly on the caller.
     /// Note that `steps` will extend whatever steps were added before.
-    pub fn steps(&mut self, steps: impl IntoIterator<Item = RebaseStep>) -> &mut Self {
-        self.steps.extend(steps);
-        self
+    pub fn steps(&mut self, steps: impl IntoIterator<Item = RebaseStep>) -> Result<&mut Self> {
+        for step in steps {
+            self.validate_step(&step)?;
+            self.steps.push(step);
+        }
+        Ok(self)
     }
 
     /// Performs a rebase on top of a given base, according to the provided steps, or fails if no step was provided.
