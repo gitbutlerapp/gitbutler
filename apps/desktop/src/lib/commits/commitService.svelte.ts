@@ -28,7 +28,6 @@ export class CommitService {
 
 	// eslint-disable-next-line @typescript-eslint/promise-function-async
 	createCommit(projectId: string, request: CreateCommitRequest) {
-		throw new Error('Not yet implemented');
 		const result = $derived(this.api.endpoints.createCommit.useMutation({ projectId, ...request }));
 		return result;
 	}
@@ -50,7 +49,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'create_commit_from_worktree_changes',
 					params: { projectId, ...commitData }
 				}),
-				invalidatesTags: [ReduxTag.Commits]
+				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commit]
 			})
 		})
 	});
