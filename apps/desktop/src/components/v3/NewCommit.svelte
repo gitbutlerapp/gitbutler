@@ -62,6 +62,7 @@
 			commitService.createCommit(projectId, {
 				message: commitMessage,
 				parentId: commitParent!,
+				stackId,
 				worktreeChanges: selection.map((item) =>
 					item.type === 'full'
 						? {
@@ -75,6 +76,7 @@
 							}
 				)
 			});
+			goto(stackPath(projectId, stackId));
 		} catch (err: unknown) {
 			showError('Failed to commit', err);
 		}

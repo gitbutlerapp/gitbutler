@@ -5,6 +5,7 @@ import type { HunkHeader } from '$lib/hunks/hunk';
 import type { ClientState } from '$lib/state/clientState.svelte';
 
 type CreateCommitRequest = {
+	stackId: string;
 	message: string;
 	parentId: string;
 	worktreeChanges: {
