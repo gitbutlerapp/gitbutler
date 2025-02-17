@@ -1,3 +1,4 @@
+use crate::commit::CommitterMode;
 use anyhow::{bail, Result};
 use but_core::commit::TreeKind;
 use gitbutler_oxidize::GixRepositoryExt;
@@ -76,8 +77,9 @@ pub fn octopus(
         .pgp_signature()
         .is_some()
     {
-        crate::commit::create(repo, target_merge_commit)
+        crate::commit::create(repo, target_merge_commit, CommitterMode::Update)
     } else {
+        crate::commit::update_committer(repo, &mut target_merge_commit)?;
         Ok(repo.write_object(target_merge_commit)?.detach())
     }
 }

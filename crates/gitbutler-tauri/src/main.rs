@@ -270,6 +270,7 @@ fn main() {
                     workspace::stack_branches,
                     workspace::hunk_dependencies_for_workspace_changes,
                     workspace::create_commit_from_worktree_changes,
+                    workspace::amend_commit_from_worktree_changes,
                     diff::worktree_changes,
                     diff::commit_changes,
                     diff::tree_change_diffs,

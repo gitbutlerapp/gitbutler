@@ -26,7 +26,7 @@ const LAST_PUSHED_BASE_VERSION: &str = "1";
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct VirtualBranches {
     /// This is the target/base that is set when a repo is added to gb
-    default_target: Option<Target>,
+    pub default_target: Option<Target>,
     /// The targets for each virtual branch
     branch_targets: HashMap<StackId, Target>,
     /// The current state of the virtual branches

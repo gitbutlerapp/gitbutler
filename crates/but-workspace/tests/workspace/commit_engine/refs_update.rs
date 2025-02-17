@@ -24,8 +24,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: None,
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: None,
             message: "initial commit".to_string(),
@@ -56,8 +56,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: None,
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(new_commit_id),
             message: "second commit".to_string(),
@@ -93,8 +93,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: None,
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(new_commit_id),
             message: "third commit".to_string(),
@@ -118,8 +118,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: None,
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::AmendCommit(new_commit),
         None,
         to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
@@ -129,7 +129,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     assure_no_worktree_changes(&repo)?;
     // The top commit has a different hash now thanks to amending.
     insta::assert_snapshot!(graph_commit_outcome(&repo, &outcome)?, @r"
-    * f00ac96 (HEAD -> main, another-tip) third commit
+    * 5f18e8a (HEAD -> main, another-tip) third commit
     * 775de8d (tag: tag-that-should-not-move) second commit
     * 4f950d2 initial commit
     ");
@@ -165,8 +165,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: None,
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(new_commit),
             message: "fourth commit".to_string(),
@@ -182,7 +182,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(0b369dfc9d27ad88b9949a51db1c2da38b40891d),
+            Sha1(87d5ad67aa21618d45b58577bb11e680358c86d5),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(273aeca7ca98af0f7972af6e7859a3ae7fde497a),
@@ -192,29 +192,29 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
                 reference: Virtual(
                     "s1",
                 ),
-                old_commit_id: Sha1(f00ac96b741a8de62ebd2a0567d741e2d711b53b),
-                new_commit_id: Sha1(0b369dfc9d27ad88b9949a51db1c2da38b40891d),
+                old_commit_id: Sha1(5f18e8a125a8ece0b6a6fbd96c5bbdfaca2ddbe7),
+                new_commit_id: Sha1(87d5ad67aa21618d45b58577bb11e680358c86d5),
             },
             UpdatedReference {
                 reference: Virtual(
                     "s1-b/second",
                 ),
-                old_commit_id: Sha1(f00ac96b741a8de62ebd2a0567d741e2d711b53b),
-                new_commit_id: Sha1(0b369dfc9d27ad88b9949a51db1c2da38b40891d),
+                old_commit_id: Sha1(5f18e8a125a8ece0b6a6fbd96c5bbdfaca2ddbe7),
+                new_commit_id: Sha1(87d5ad67aa21618d45b58577bb11e680358c86d5),
             },
             UpdatedReference {
                 reference: Virtual(
                     "s2",
                 ),
-                old_commit_id: Sha1(f00ac96b741a8de62ebd2a0567d741e2d711b53b),
-                new_commit_id: Sha1(0b369dfc9d27ad88b9949a51db1c2da38b40891d),
+                old_commit_id: Sha1(5f18e8a125a8ece0b6a6fbd96c5bbdfaca2ddbe7),
+                new_commit_id: Sha1(87d5ad67aa21618d45b58577bb11e680358c86d5),
             },
             UpdatedReference {
                 reference: Virtual(
                     "s2-b/second",
                 ),
-                old_commit_id: Sha1(f00ac96b741a8de62ebd2a0567d741e2d711b53b),
-                new_commit_id: Sha1(0b369dfc9d27ad88b9949a51db1c2da38b40891d),
+                old_commit_id: Sha1(5f18e8a125a8ece0b6a6fbd96c5bbdfaca2ddbe7),
+                new_commit_id: Sha1(87d5ad67aa21618d45b58577bb11e680358c86d5),
             },
             UpdatedReference {
                 reference: Git(
@@ -222,8 +222,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
                         "refs/heads/another-tip",
                     ),
                 ),
-                old_commit_id: Sha1(f00ac96b741a8de62ebd2a0567d741e2d711b53b),
-                new_commit_id: Sha1(0b369dfc9d27ad88b9949a51db1c2da38b40891d),
+                old_commit_id: Sha1(5f18e8a125a8ece0b6a6fbd96c5bbdfaca2ddbe7),
+                new_commit_id: Sha1(87d5ad67aa21618d45b58577bb11e680358c86d5),
             },
             UpdatedReference {
                 reference: Git(
@@ -231,8 +231,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
                         "refs/heads/main",
                     ),
                 ),
-                old_commit_id: Sha1(f00ac96b741a8de62ebd2a0567d741e2d711b53b),
-                new_commit_id: Sha1(0b369dfc9d27ad88b9949a51db1c2da38b40891d),
+                old_commit_id: Sha1(5f18e8a125a8ece0b6a6fbd96c5bbdfaca2ddbe7),
+                new_commit_id: Sha1(87d5ad67aa21618d45b58577bb11e680358c86d5),
             },
         ],
         rebase_output: None,
@@ -242,8 +242,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     write_vrbranches_to_refs(&vb, &repo)?;
     // It updates stack heads and stack branch heads.
     insta::assert_snapshot!(graph_commit_outcome(&repo, &outcome)?, @r"
-    * 0b369df (HEAD -> main, s2-b/second, s2, s1-b/second, s1, another-tip) fourth commit
-    * f00ac96 third commit
+    * 87d5ad6 (HEAD -> main, s2-b/second, s2, s1-b/second, s1, another-tip) fourth commit
+    * 5f18e8a third commit
     * 775de8d (tag: tag-that-should-not-move, s2-b/first, s1-b/first) second commit
     * 4f950d2 (s2-b/init, s1-b/init) initial commit
     ");
@@ -283,8 +283,8 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: Some(head_commit_id),
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(initial_commit_id),
             message: "between initial and former first".to_string(),
@@ -388,8 +388,8 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: Some(rewritten_head_id),
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::AmendCommit(repo.rev_parse_single("@~1")?.detach()),
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
@@ -397,8 +397,8 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
     )?;
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
-    * a23565d (HEAD -> main, s1) insert 10 lines to the top
-    * 053486e (s1-b/init, first-commit) between initial and former first
+    * 4e8b9bc (HEAD -> main, s1) insert 10 lines to the top
+    * ac01a66 (s1-b/init, first-commit) between initial and former first
     * ecd6722 (tag: first-commit) init
     ");
     insta::assert_snapshot!(but_testsupport::visualize_tree(rewritten_head_id), @r#"
@@ -439,8 +439,8 @@ fn branch_tip_below_non_merge_workspace_commit() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: Some(head_commit_id),
             branch_tip: Some(initial_commit_id),
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(initial_commit_id),
             message: "extend lines to 110".into(),
@@ -491,8 +491,8 @@ fn deletions() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: None,
             branch_tip: Some(head_commit.detach()),
-            vb: &mut Default::default(),
         },
+        &mut Default::default(),
         Destination::NewCommit {
             parent_commit_id: Some(head_commit.into()),
             message: "deletions maybe a bit special".into(),
@@ -540,8 +540,8 @@ fn insert_commits_into_workspace() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: Some(repo.rev_parse_single("merge")?.detach()),
             branch_tip: Some(branch_b),
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(branch_b),
             message: "add 10 more lines at end".into(),
@@ -609,8 +609,8 @@ fn workspace_commit_with_merge_conflict() -> anyhow::Result<()> {
             ReferenceFrame {
                 workspace_tip: Some(repo.rev_parse_single("merge")?.detach()),
                 branch_tip: Some(branch_b),
-                vb: &mut Default::default(),
             },
+            &mut Default::default(),
             destination,
             None,
             to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
@@ -667,8 +667,8 @@ fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: Some(head_commit_id.detach()),
             branch_tip: Some(branch_a),
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(branch_a),
             message: "remove 5 lines from beginning".into(),
@@ -751,8 +751,8 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: Some(head_commit_id.detach()),
             branch_tip: Some(branch_a),
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(branch_a),
             message: "remove 5 lines from beginning".into(),
@@ -832,8 +832,8 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
         ReferenceFrame {
             workspace_tip: Some(head_commit_id.detach()),
             branch_tip: Some(branch_a),
-            vb: &mut vb,
         },
+        &mut vb,
         Destination::AmendCommit(branch_a),
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,

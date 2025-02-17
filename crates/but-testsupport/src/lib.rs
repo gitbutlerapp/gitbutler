@@ -1,13 +1,41 @@
 //! Utilities for testing.
 #![deny(rust_2018_idioms, missing_docs)]
+
 use gix::bstr::{BStr, ByteSlice};
+use gix::config::tree::Key;
 pub use gix_testtools;
+use std::path::Path;
 
 /// While `gix` can't (or can't conveniently) do everything, let's make using `git` easier.
 pub fn git(repo: &gix::Repository) -> std::process::Command {
     let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
     cmd.current_dir(repo.work_dir().expect("non-bare"));
     cmd
+}
+
+/// Open a repository at `path` suitable for testing which means that:
+///
+/// * author and committer are configured, as well as a stable time.
+/// * it's isolated and won't load environment variables.
+/// * an object cache is set for minor speed boost.
+pub fn open_repo(path: &Path) -> anyhow::Result<gix::Repository> {
+    let mut repo = gix::open_opts(
+        path,
+        gix::open::Options::isolated()
+            .lossy_config(false)
+            .config_overrides([
+                gix::config::tree::Author::NAME.validated_assignment("Author".into())?,
+                gix::config::tree::Author::EMAIL
+                    .validated_assignment("author@example.com".into())?,
+                gix::config::tree::Committer::NAME.validated_assignment("Committer".into())?,
+                gix::config::tree::Committer::EMAIL
+                    .validated_assignment("committer@example.com".into())?,
+                gix::config::tree::gitoxide::Commit::COMMITTER_DATE
+                    .validated_assignment("2000-01-01 00:00:00 +0000".into())?,
+            ]),
+    )?;
+    repo.object_cache_size_if_unset(512 * 1024);
+    Ok(repo)
 }
 
 /// Utilities for the [`git()`] command.
