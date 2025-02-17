@@ -39,12 +39,8 @@
 	});
 </script>
 
-<div class="stack">
-	<div
-		class="stack__wrapper"
-		bind:this={resizeStackBranches}
-		style:width={$stackBranchWidth + 'rem'}
-	>
+<div class="wrapper">
+	<div class="branches" bind:this={resizeStackBranches} style:width={$stackBranchWidth + 'rem'}>
 		<Resizer
 			viewport={resizeStackBranches}
 			direction="right"
@@ -53,40 +49,31 @@
 				$stackBranchWidth = value / (16 * $userSettings.zoom);
 			}}
 		/>
-		<div
-			class="stack__branches"
-			bind:this={resizeStackBranches}
-			style:width={$stackBranchWidth + 'rem'}
-		>
-			<ReduxResult result={result.current}>
-				{#snippet children(result)}
-					{#if stackId && result.length > 0}
-						{#each result as branch, i (branch.name)}
-							{@const first = i === 0}
-							{@const last = i === result.length - 1}
-							<Branch {branch} {first} {last} />
-						{/each}
-					{/if}
-				{/snippet}
-			</ReduxResult>
-		</div>
+		<ReduxResult result={result.current}>
+			{#snippet children(result)}
+				{#if stackId && result.length > 0}
+					{#each result as branch, i (branch.name)}
+						{@const first = i === 0}
+						{@const last = i === result.length - 1}
+						<Branch {branch} {first} {last} />
+					{/each}
+				{/if}
+			{/snippet}
+		</ReduxResult>
 	</div>
 
-	<div class="stack__branch-content">
-		<StackContentIllustration mode={stackContentMode} />
-	</div>
+	<StackContentIllustration mode={stackContentMode} />
 </div>
 
 <style>
-	.stack__wrapper,
-	.stack {
+	.wrapper {
 		position: relative;
 		height: 100%;
 		display: flex;
 		border-radius: 0 var(--radius-ml) var(--radius-ml);
 	}
 
-	.stack__branches {
+	.branches {
 		position: relative;
 		display: flex;
 		width: 22.5rem;
@@ -96,14 +83,11 @@
 
 		background-color: transparent;
 		opacity: 1;
-		background-image: radial-gradient(var(--clr-border-2) 0.9px, #ffffff00 0.9px);
-		background-size: 12px 12px;
+		background-image: radial-gradient(
+			oklch(from var(--clr-scale-ntrl-50) l c h / 0.5) 0.6px,
+			#ffffff00 0.6px
+		);
+		background-size: 6px 6px;
 		border-right: 1px solid var(--clr-border-2);
-	}
-
-	.stack__branch-content {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
 	}
 </style>
