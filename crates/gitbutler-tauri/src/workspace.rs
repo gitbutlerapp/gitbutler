@@ -4,14 +4,12 @@ use crate::from_json::HexHash;
 use but_hunk_dependency::ui::{
     hunk_dependencies_for_workspace_changes_by_worktree_dir, HunkDependencies,
 };
-use but_workspace::commit_engine::reference_frame::InferenceMode;
-use but_workspace::commit_engine::ReferenceFrame;
 use but_workspace::{commit_engine, StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_settings::AppSettingsWithDiskSync;
-use gitbutler_stack::{StackId, VirtualBranchesHandle};
+use gitbutler_stack::StackId;
 use tauri::State;
 use tracing::instrument;
 
@@ -71,29 +69,19 @@ pub fn create_commit_from_worktree_changes(
     message: String,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = projects.get(project_id)?;
-    let mut guard = project.exclusive_worktree_access();
-    let vbh = VirtualBranchesHandle::new(project.gb_dir());
-    let mut vb = vbh.read_file()?;
     let repo = gix::open(project.worktree_path()).map_err(anyhow::Error::from)?;
-    let parent_commit_id = parent_id.map(Into::into);
-    let out = commit_engine::create_commit_and_update_refs_with_project(
+    Ok(commit_engine::create_commit_and_update_refs_with_project(
         &repo,
-        Some((
-            ReferenceFrame::infer(&repo, &vb, InferenceMode::StackId(stack_id))?,
-            &mut vb,
-            guard.write_permission(),
-        )),
+        Some((&project, Some(stack_id))),
         commit_engine::Destination::NewCommit {
-            parent_commit_id,
+            parent_commit_id: parent_id.map(Into::into),
             message,
         },
         None,
         worktree_changes.into_iter().map(Into::into).collect(),
         UNIDIFF_CONTEXT_LINES,
-    )?;
-
-    vbh.write_file(&vb)?;
-    Ok(out.into())
+    )?
+    .into())
 }
 
 /// Amend all `changes` to `commit_id`, keeping its commit message exactly as is.
@@ -111,23 +99,14 @@ pub fn amend_commit_from_worktree_changes(
     worktree_changes: Vec<commit_engine::ui::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = projects.get(project_id)?;
-    let mut guard = project.exclusive_worktree_access();
-    let vbh = VirtualBranchesHandle::new(project.gb_dir());
-    let mut vb = vbh.read_file()?;
     let repo = gix::open(project.worktree_path()).map_err(anyhow::Error::from)?;
-    let out = commit_engine::create_commit_and_update_refs_with_project(
+    Ok(commit_engine::create_commit_and_update_refs_with_project(
         &repo,
-        Some((
-            ReferenceFrame::infer(&repo, &vb, InferenceMode::StackId(stack_id))?,
-            &mut vb,
-            guard.write_permission(),
-        )),
+        Some((&project, Some(stack_id))),
         commit_engine::Destination::AmendCommit(commit_id.into()),
         None,
         worktree_changes.into_iter().map(Into::into).collect(),
         UNIDIFF_CONTEXT_LINES,
-    )?;
-
-    vbh.write_file(&vb)?;
-    Ok(out.into())
+    )?
+    .into())
 }
