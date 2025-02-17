@@ -15,7 +15,7 @@ fn single_stack_journey() -> Result<()> {
     let (repo, commits, _tmp) = four_commits_writable()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
     let out = builder
-        .steps(vec![
+        .steps([
             RebaseStep::Pick {
                 commit_id: commits.a,
                 new_message: Some("first step: pick a".into()),
@@ -124,7 +124,7 @@ fn amended_commit() -> Result<()> {
     ");
     let mut builder = Rebase::new(&repo, repo.rev_parse_single("C~1")?.detach(), None)?;
     let out = builder
-        .steps(vec![
+        .steps([
             // Pretend we have rewritten the commit at the tip of C.
             RebaseStep::Pick {
                 commit_id: repo.rev_parse_single("C")?.into(),
@@ -200,7 +200,7 @@ fn reorder_with_conflict_and_remerge() -> Result<()> {
     let mut builder = Rebase::new(&repo, repo.rev_parse_single("base")?.detach(), None)?;
     // Re-order commits with conflict, and trigger a re-merge.
     let out = builder
-        .steps(vec![
+        .steps([
             RebaseStep::Pick {
                 commit_id: repo.rev_parse_single("C~2")?.into(),
                 new_message: Some("C~2".into()),
@@ -290,7 +290,7 @@ fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
     let (repo, commits, _tmp) = four_commits_writable()?;
     let mut builder = Rebase::new(&repo, None, None)?;
     let out = builder
-        .steps(vec![
+        .steps([
             RebaseStep::Pick {
                 commit_id: commits.base,
                 new_message: Some("reword base".into()),
