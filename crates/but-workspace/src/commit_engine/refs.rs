@@ -60,6 +60,7 @@ pub fn rewrite(
                             });
                         }
                     }
+                    #[allow(deprecated)]
                     CommitOrChangeId::ChangeId(change_id) => {
                         let Some(commit_id) = change_id_to_id_map.get(change_id) else {
                             continue;

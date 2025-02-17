@@ -41,6 +41,7 @@ pub enum CommitOrChangeId {
     /// A reference that points directly to a commit.
     CommitId(String),
     /// A reference that points to a change (patch) through which a valid commit can be derived.
+    #[deprecated(note = "Use CommitId instead")]
     ChangeId(String),
 }
 
@@ -48,6 +49,7 @@ impl Display for CommitOrChangeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CommitOrChangeId::CommitId(id) => write!(f, "CommitId: {}", id),
+            #[allow(deprecated)]
             CommitOrChangeId::ChangeId(id) => write!(f, "ChangeId: {}", id),
         }
     }
@@ -75,6 +77,7 @@ impl StackBranch {
     pub fn head_oid(&self, stack_context: &StackContext, stack: &Stack) -> Result<Oid> {
         match self.head.clone() {
             CommitOrChangeId::CommitId(id) => id.parse().map_err(Into::into),
+            #[allow(deprecated)]
             CommitOrChangeId::ChangeId(_) => {
                 let repository = stack_context.repository();
                 let merge_base = stack.merge_base(stack_context)?;
