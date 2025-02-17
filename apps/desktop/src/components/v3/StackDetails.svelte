@@ -96,8 +96,11 @@
 
 		background-color: transparent;
 		opacity: 1;
-		background-image: radial-gradient(var(--clr-border-2) 0.9px, #ffffff00 0.9px);
-		background-size: 12px 12px;
+		background-image: radial-gradient(
+			oklch(from var(--clr-scale-ntrl-50) l c h / 0.5) 0.6px,
+			#ffffff00 0.6px
+		);
+		background-size: 6px 6px;
 		border-right: 1px solid var(--clr-border-2);
 	}
 
