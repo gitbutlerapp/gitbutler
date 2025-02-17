@@ -102,12 +102,12 @@ export class ChangeSelectionService {
 		return reactive(() => selected);
 	}
 
-	add(partial: SelectedFile) {
-		this.dispatch(addOne(partial));
+	add(file: SelectedFile) {
+		this.dispatch(addOne(file));
 	}
 
-	update(selectedFile: SelectedFile) {
-		this.dispatch(upsertOne(selectedFile));
+	update(file: SelectedFile) {
+		this.dispatch(upsertOne(file));
 	}
 
 	remove(path: string) {
