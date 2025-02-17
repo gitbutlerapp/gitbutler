@@ -1,4 +1,3 @@
-use crate::diff::UNIDIFF_CONTEXT_LINES;
 use crate::error::Error;
 use crate::from_json::HexHash;
 use but_hunk_dependency::ui::{
@@ -59,9 +58,10 @@ pub fn hunk_dependencies_for_workspace_changes(
 /// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
 /// hunks would fail.
 #[tauri::command(async)]
-#[instrument(skip(projects), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn create_commit_from_worktree_changes(
     projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     stack_id: StackId,
     parent_id: Option<HexHash>,
@@ -79,7 +79,7 @@ pub fn create_commit_from_worktree_changes(
         },
         None,
         worktree_changes.into_iter().map(Into::into).collect(),
-        UNIDIFF_CONTEXT_LINES,
+        settings.get()?.context_lines,
     )?
     .into())
 }
@@ -90,9 +90,10 @@ pub fn create_commit_from_worktree_changes(
 /// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
 /// hunks would fail.
 #[tauri::command(async)]
-#[instrument(skip(projects), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn amend_commit_from_worktree_changes(
     projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     stack_id: StackId,
     commit_id: HexHash,
@@ -106,7 +107,7 @@ pub fn amend_commit_from_worktree_changes(
         commit_engine::Destination::AmendCommit(commit_id.into()),
         None,
         worktree_changes.into_iter().map(Into::into).collect(),
-        UNIDIFF_CONTEXT_LINES,
+        settings.get()?.context_lines,
     )?
     .into())
 }
