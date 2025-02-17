@@ -4,11 +4,11 @@ use crate::from_json::HexHash;
 use but_hunk_dependency::ui::{
     hunk_dependencies_for_workspace_changes_by_worktree_dir, HunkDependencies,
 };
+use but_settings::AppSettingsWithDiskSync;
 use but_workspace::{commit_engine, StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
-use gitbutler_settings::AppSettingsWithDiskSync;
 use gitbutler_stack::StackId;
 use tauri::State;
 use tracing::instrument;

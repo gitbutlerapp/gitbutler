@@ -4,8 +4,8 @@ pub mod commands {
     use std::path;
 
     use anyhow::Context;
+    use but_settings::AppSettingsWithDiskSync;
     use gitbutler_project::{self as projects, Controller, ProjectId};
-    use gitbutler_settings::AppSettingsWithDiskSync;
     use tauri::{State, Window};
     use tracing::instrument;
 

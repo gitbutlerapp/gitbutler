@@ -1,4 +1,4 @@
-use gitbutler_settings::AppSettings;
+use but_settings::AppSettings;
 
 #[test]
 #[allow(clippy::bool_assert_comparison)]

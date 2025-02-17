@@ -11,7 +11,7 @@
     clippy::too_many_lines
 )]
 
-use gitbutler_settings::AppSettingsWithDiskSync;
+use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
     askpass, commands, config, diff, env, forge, github, logs, menu, modes, open, projects,

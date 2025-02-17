@@ -1,8 +1,8 @@
+use but_settings::AppSettingsWithDiskSync;
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
-use gitbutler_settings::AppSettingsWithDiskSync;
 use gitbutler_stack::StackId;
 use gitbutler_user::User;
 use tauri::State;

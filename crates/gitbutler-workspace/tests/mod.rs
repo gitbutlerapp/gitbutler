@@ -3,12 +3,12 @@ mod branch_trees;
 mod checkout_branch_trees {
     use std::fs;
 
+    use but_settings::AppSettings;
     use gitbutler_branch::BranchCreateRequest;
     use gitbutler_branch_actions as branch_actions;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
     use gitbutler_repo::RepositoryExt as _;
-    use gitbutler_settings::AppSettings;
     use gitbutler_testsupport::{paths, testing_repository::assert_tree_matches, TestProject};
     use gitbutler_workspace::checkout_branch_trees;
 

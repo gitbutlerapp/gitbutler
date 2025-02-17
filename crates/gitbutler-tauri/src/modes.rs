@@ -1,4 +1,5 @@
 use anyhow::Context;
+use but_settings::AppSettingsWithDiskSync;
 use gitbutler_branch_actions::RemoteBranchFile;
 use gitbutler_command_context::CommandContext;
 use gitbutler_edit_mode::ConflictEntryPresence;
@@ -6,7 +7,6 @@ use gitbutler_operating_modes::EditModeMetadata;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_project::Controller;
 use gitbutler_project::ProjectId;
-use gitbutler_settings::AppSettingsWithDiskSync;
 use tauri::State;
 use tracing::instrument;
 

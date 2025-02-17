@@ -77,9 +77,9 @@ pub mod diff;
 pub mod stacks {
     use std::path::Path;
 
+    use but_settings::AppSettings;
     use but_workspace::stack_branches;
     use gitbutler_command_context::CommandContext;
-    use gitbutler_settings::AppSettings;
 
     use crate::command::{debug_print, project_from_path};
 

@@ -1,13 +1,13 @@
 pub mod commands {
     use crate::error::{Error, UnmarkedError};
     use anyhow::Result;
+    use but_settings::AppSettingsWithDiskSync;
     use gitbutler_branch_actions::{hooks, RemoteBranchFile};
     use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use gitbutler_repo::hooks::{HookResult, MessageHookResult};
     use gitbutler_repo::{FileInfo, RepoCommands};
-    use gitbutler_settings::AppSettingsWithDiskSync;
     use gitbutler_stack::BranchOwnershipClaims;
     use std::path::Path;
     use std::sync::atomic::AtomicBool;

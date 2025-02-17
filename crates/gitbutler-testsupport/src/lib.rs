@@ -70,9 +70,9 @@ pub fn init_opts_bare() -> git2::RepositoryInitOptions {
 
 pub mod writable {
     use crate::DRIVER;
+    use but_settings::AppSettings;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project::{Project, ProjectId};
-    use gitbutler_settings::AppSettings;
     use tempfile::TempDir;
 
     pub fn fixture(
@@ -164,9 +164,9 @@ pub fn visualize_git2_tree(tree_id: git2::Oid, repo: &git2::Repository) -> termt
 
 pub mod read_only {
     use crate::DRIVER;
+    use but_settings::AppSettings;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project::{Project, ProjectId};
-    use gitbutler_settings::AppSettings;
     use once_cell::sync::Lazy;
     use parking_lot::Mutex;
     use std::collections::BTreeSet;
