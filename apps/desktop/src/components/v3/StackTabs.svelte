@@ -13,6 +13,7 @@
 		previewing: boolean;
 		width: number | undefined;
 	};
+
 	let { projectId, selectedId, width = $bindable() }: Props = $props();
 
 	const stackService = getContext(StackService);
@@ -44,37 +45,32 @@
 	});
 </script>
 
-<div class="tabs">
-	<div class="inner" bind:this={inner}>
-		<div class="shadows">
-			<div class="scroller" bind:this={scroller} class:scrolled {onscroll}>
-				<ReduxResult result={result.current}>
-					{#snippet children(result)}
-						{@const tabs = stacksToTabs(result)}
-						{#each tabs as tab, i (tab.name)}
-							{@const first = i === 0}
-							{@const last = i === tabs.length - 1}
-							{@const selected = tab.id === selectedId}
-							<StackTab {projectId} {tab} {first} {last} {selected} />
-						{/each}
-					{/snippet}
-					{#snippet empty()}
-						no stacks
-					{/snippet}
-				</ReduxResult>
-			</div>
-			<div class="shadow shadow-left" class:scrolled></div>
-			<div class="shadow shadow-right" class:scrollable class:scrolled-end={scrolledEnd}></div>
+<div class="tabs" bind:this={inner}>
+	<div class="inner">
+		<div class="scroller" bind:this={scroller} class:scrolled {onscroll}>
+			<ReduxResult result={result.current}>
+				{#snippet children(result)}
+					{@const tabs = stacksToTabs(result)}
+					{#each tabs as tab, i (tab.name)}
+						{@const first = i === 0}
+						{@const last = i === tabs.length - 1}
+						{@const selected = tab.id === selectedId}
+						<StackTab {projectId} {tab} {first} {last} {selected} />
+					{/each}
+				{/snippet}
+				{#snippet empty()}
+					no stacks
+				{/snippet}
+			</ReduxResult>
 		</div>
-		<StackTabNew {projectId} />
+		<div class="shadow shadow-left" class:scrolled></div>
+		<div class="shadow shadow-right" class:scrollable class:scrolled-end={scrolledEnd}></div>
 	</div>
+	<StackTabNew {projectId} />
 </div>
 
 <style lang="postcss">
 	.tabs {
-		display: flex;
-	}
-	.inner {
 		display: flex;
 		max-width: 100%;
 	}
@@ -90,7 +86,7 @@
 		display: none;
 	}
 
-	.shadows {
+	.inner {
 		position: relative;
 		overflow-x: hidden;
 		border-radius: 10px 0 0 0;
