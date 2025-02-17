@@ -154,19 +154,17 @@
 	</div>
 
 	{#if open !== undefined}
-		<Tooltip text={open ? 'Collapse' : 'Expand'} delay={1200}>
-			<button
-				class="chevron"
-				type="button"
-				onclick={(e) => {
-					open = !open;
-					e.stopPropagation();
-					e.preventDefault();
-				}}
-			>
-				<Icon name={open ? 'chevron-up-small' : 'chevron-down-small'} />
-			</button>
-		</Tooltip>
+		<button
+			class="chevron"
+			type="button"
+			onclick={(e) => {
+				open = !open;
+				e.stopPropagation();
+				e.preventDefault();
+			}}
+		>
+			<Icon name={open ? 'chevron-up-small' : 'chevron-down-small'} />
+		</button>
 	{/if}
 </div>
 
@@ -315,7 +313,7 @@
 		transition: opacity var(--transition-fast);
 
 		&:hover {
-			opacity: 0.9;
+			opacity: 0.8;
 		}
 	}
 
