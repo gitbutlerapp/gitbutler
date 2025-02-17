@@ -42,6 +42,7 @@
 				onclick={() => goto(routes.workspacePath(project.id))}
 				width={34}
 				class={['btn-square', routes.isWorkspacePath && 'btn-active']}
+				tooltip="Workspace"
 			>
 				<svg viewBox="0 0 16 13" fill="none" xmlns="http://www.w3.org/2000/svg">
 					<path
@@ -67,6 +68,7 @@
 				onclick={() => goto(routes.branchesPath(project.id))}
 				width={34}
 				class={['btn-square', routes.isBranchesPath && 'btn-active']}
+				tooltip="Branches"
 			>
 				<svg viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
 					<path d="M5 3L11 3" stroke-width="1.5" stroke="var(--clr-branches)" />
@@ -117,6 +119,7 @@
 				onclick={() => goto(routes.targetPath(project.id))}
 				width={34}
 				class={['btn-square', routes.isTargetPath && 'btn-active']}
+				tooltip="Target"
 			>
 				<svg viewBox="0 0 18 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 					<path
@@ -144,6 +147,7 @@
 				onclick={() => goto(routes.historyPath(project.id))}
 				width={34}
 				class={['btn-square', routes.isHistoryPath && 'btn-active']}
+				tooltip="History"
 			>
 				<svg
 					viewBox="0 0 18 18"
@@ -176,6 +180,9 @@
 					onclick={() => goto(routes.projectSettingsPath(project.id))}
 					width={34}
 					class={['btn-square', routes.isProjectSettingsPath && 'btn-active']}
+					tooltipPosition="top"
+					tooltipAlign="start"
+					tooltip="Project settings"
 				/>
 			</div>
 
@@ -201,7 +208,6 @@
 							<Icon name="profile" />
 						{/if}
 					</div>
-					<!-- TODO: Replace with the select-chevron icon -->
 					<div class="user-button__select-icon">
 						<Icon name="select-chevron" />
 					</div>
