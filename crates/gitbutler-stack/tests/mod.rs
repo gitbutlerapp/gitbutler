@@ -3,7 +3,6 @@ mod ownership;
 
 use anyhow::Result;
 use gitbutler_command_context::CommandContext;
-use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::stack_context::CommandContextExt;
@@ -18,7 +17,7 @@ fn add_series_success() -> Result<()> {
     let mut test_ctx = test_ctx(&ctx)?;
     let reference = StackBranch {
         name: "asdf".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string()),
         description: Some("my description".into()),
         pr_number: Default::default(),
         archived: Default::default(),
@@ -100,7 +99,7 @@ fn add_multiple_series() -> Result<()> {
 
     let head_4 = StackBranch {
         name: "head_4".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits.last().unwrap().id().to_string()),
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -114,7 +113,7 @@ fn add_multiple_series() -> Result<()> {
 
     let head_2 = StackBranch {
         name: "head_2".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits.last().unwrap().id().to_string()),
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -129,7 +128,7 @@ fn add_multiple_series() -> Result<()> {
 
     let head_1 = StackBranch {
         name: "head_1".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits.first().unwrap().change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits.first().unwrap().id().to_string()),
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -147,29 +146,6 @@ fn add_multiple_series() -> Result<()> {
     let before_prune = test_ctx.stack.heads.clone();
     test_ctx.stack.archive_integrated_heads(&ctx)?;
     assert_eq!(before_prune, test_ctx.stack.heads);
-    Ok(())
-}
-
-#[test]
-fn add_series_commit_id_when_change_id_available() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let mut test_ctx = test_ctx(&ctx)?;
-    let reference = StackBranch {
-        name: "asdf".into(),
-        head: CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string()),
-        description: None,
-        pr_number: Default::default(),
-        archived: Default::default(),
-        review_id: None,
-    };
-    let result = test_ctx.stack.add_series(&ctx, reference, None);
-    assert_eq!(
-        result.err().unwrap().to_string(),
-        format!(
-            "The commit {} has a change id associated with it. Use the change id instead",
-            test_ctx.commits[1].id()
-        )
-    );
     Ok(())
 }
 
@@ -196,7 +172,7 @@ fn add_series_duplicate_name_fails() -> Result<()> {
     let mut test_ctx = test_ctx(&ctx)?;
     let reference = StackBranch {
         name: "asdf".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string()),
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -276,7 +252,7 @@ fn add_series_target_change_id_doesnt_exist() -> Result<()> {
     let mut test_ctx = test_ctx(&ctx)?;
     let reference = StackBranch {
         name: "my-branch".into(),
-        head: CommitOrChangeId::ChangeId("does-not-exist".into()), // does not exist
+        head: CommitOrChangeId::CommitId("10696678319e0fa3a20e54f22d47fc8cf1ceaade".into()), // does not exist
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -285,7 +261,7 @@ fn add_series_target_change_id_doesnt_exist() -> Result<()> {
     let result = test_ctx.stack.add_series(&ctx, reference.clone(), None);
     assert_eq!(
         result.err().unwrap().to_string(),
-        "No commit with change id does-not-exist found",
+        "object not found - no match for id (10696678319e0fa3a20e54f22d47fc8cf1ceaade); class=Odb (9); code=NotFound (-3)",
     );
     Ok(())
 }
@@ -353,7 +329,7 @@ fn remove_series_with_multiple_last_heads() -> Result<()> {
 
     let to_stay = StackBranch {
         name: "to_stay".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits.last().unwrap().id().to_string()),
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -370,7 +346,7 @@ fn remove_series_with_multiple_last_heads() -> Result<()> {
     assert_eq!(head_names(&test_ctx), vec!["to_stay"]);
     assert_eq!(
         test_ctx.stack.heads[0].head,
-        CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap())
+        CommitOrChangeId::CommitId(test_ctx.commits.last().unwrap().id().to_string())
     ); // it references the newest commit
     Ok(())
 }
@@ -386,7 +362,7 @@ fn remove_series_no_orphan_commits() -> Result<()> {
 
     let to_stay = StackBranch {
         name: "to_stay".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits.first().unwrap().change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits.first().unwrap().id().to_string()),
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -403,7 +379,7 @@ fn remove_series_no_orphan_commits() -> Result<()> {
     assert_eq!(head_names(&test_ctx), vec!["to_stay"]);
     assert_eq!(
         test_ctx.stack.heads[0].head,
-        CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap())
+        CommitOrChangeId::CommitId(test_ctx.commits.last().unwrap().id().to_string())
     ); // it was updated to reference the newest commit
     Ok(())
 }
@@ -541,11 +517,11 @@ fn update_series_target_orphan_commit_fails() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     let initial_state = test_ctx.stack.heads.clone();
-    let first_commit_change_id = test_ctx.commits.first().unwrap().change_id().unwrap();
+    let first_commit_id = test_ctx.commits.first().unwrap().id().to_string();
     let update = PatchReferenceUpdate {
         name: Some("new-lol".into()),
         target_update: Some(TargetUpdate {
-            target: CommitOrChangeId::ChangeId(first_commit_change_id.clone()),
+            target: CommitOrChangeId::CommitId(first_commit_id.clone()),
             preceding_head_name: None,
         }),
         description: None,
@@ -566,7 +542,7 @@ fn update_series_target_orphan_commit_fails() -> Result<()> {
 fn update_series_target_success() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
-    let commit_0_change_id = CommitOrChangeId::ChangeId(test_ctx.commits[0].change_id().unwrap());
+    let commit_0_change_id = CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string());
     let series_1 = StackBranch {
         name: "series_1".into(),
         head: commit_0_change_id.clone(),
@@ -578,7 +554,7 @@ fn update_series_target_success() -> Result<()> {
     let result = test_ctx.stack.add_series(&ctx, series_1, None);
     assert!(result.is_ok());
     assert_eq!(test_ctx.stack.heads[0].head, commit_0_change_id);
-    let commit_1_change_id = CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap());
+    let commit_1_change_id = CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string());
     let update = PatchReferenceUpdate {
         name: None,
         target_update: Some(TargetUpdate {
@@ -672,7 +648,7 @@ fn list_series_two_heads_same_commit() -> Result<()> {
     let mut test_ctx = test_ctx(&ctx)?;
     let head_before = StackBranch {
         name: "head_before".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits.last().unwrap().id().to_string()),
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -719,7 +695,7 @@ fn list_series_two_heads_different_commit() -> Result<()> {
     let head_before = StackBranch {
         name: "head_before".into(),
         // point to the first commit
-        head: CommitOrChangeId::ChangeId(test_ctx.commits.first().unwrap().change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits.first().unwrap().id().to_string()),
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -779,7 +755,7 @@ fn set_stack_head() -> Result<()> {
     let branches = test_ctx.stack.branches();
     assert_eq!(
         branches.first().unwrap().head,
-        CommitOrChangeId::ChangeId(commit.change_id().unwrap())
+        CommitOrChangeId::CommitId(commit.id().to_string())
     );
     assert_eq!(
         test_ctx.stack.head(),
@@ -795,7 +771,7 @@ fn replace_head_single() -> Result<()> {
     let top_of_stack = test_ctx.stack.heads.last().unwrap().head.clone();
     let from_head = StackBranch {
         name: "from_head".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string()),
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -810,7 +786,7 @@ fn replace_head_single() -> Result<()> {
     // the head is updated to point to the new commit
     assert_eq!(
         test_ctx.stack.heads[0].head,
-        CommitOrChangeId::ChangeId(test_ctx.commits[0].change_id().unwrap())
+        CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string())
     );
     // the top of the stack is not changed
     assert_eq!(test_ctx.stack.heads.last().unwrap().head, top_of_stack);
@@ -829,7 +805,7 @@ fn replace_head_single_with_merge_base() -> Result<()> {
     let top_of_stack = test_ctx.stack.heads.last().unwrap().head.clone();
     let from_head = StackBranch {
         name: "from_head".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string()),
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -867,7 +843,7 @@ fn replace_head_with_invalid_commit_error() -> Result<()> {
     let mut test_ctx = test_ctx(&ctx)?;
     let from_head = StackBranch {
         name: "from_head".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string()),
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -896,7 +872,7 @@ fn replace_head_with_same_noop() -> Result<()> {
     let mut test_ctx = test_ctx(&ctx)?;
     let from_head = StackBranch {
         name: "from_head".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string()),
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -965,7 +941,7 @@ fn replace_top_of_stack_single() -> Result<()> {
     // the head is updated to point to the new commit
     assert_eq!(
         test_ctx.stack.heads[0].head,
-        CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap())
+        CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string())
     );
     assert_eq!(test_ctx.stack.head(), test_ctx.commits[1].id());
     assert_eq!(test_ctx.stack.heads.len(), 1);
@@ -984,7 +960,7 @@ fn replace_head_multiple() -> Result<()> {
     let top_of_stack = test_ctx.stack.heads.last().unwrap().head.clone();
     let from_head_1 = StackBranch {
         name: "from_head_1".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string()),
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -992,7 +968,7 @@ fn replace_head_multiple() -> Result<()> {
     };
     let from_head_2 = StackBranch {
         name: "from_head_2".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string()),
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -1011,11 +987,11 @@ fn replace_head_multiple() -> Result<()> {
     // both heads are  updated to point to the new commit
     assert_eq!(
         test_ctx.stack.heads[0].head,
-        CommitOrChangeId::ChangeId(test_ctx.commits[0].change_id().unwrap())
+        CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string())
     );
     assert_eq!(
         test_ctx.stack.heads[1].head,
-        CommitOrChangeId::ChangeId(test_ctx.commits[0].change_id().unwrap())
+        CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string())
     );
     // the top of the stack is not changed
     assert_eq!(test_ctx.stack.heads.last().unwrap().head, top_of_stack);
@@ -1034,7 +1010,7 @@ fn replace_head_top_of_stack_multiple() -> Result<()> {
     let initial_head = ctx.repo().find_commit(test_ctx.stack.head())?;
     let extra_head = StackBranch {
         name: "extra_head".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
+        head: CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string()),
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
@@ -1050,11 +1026,11 @@ fn replace_head_top_of_stack_multiple() -> Result<()> {
     // both heads are  updated to point to the new commit
     assert_eq!(
         test_ctx.stack.heads[0].head,
-        CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap())
+        CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string())
     );
     assert_eq!(
         test_ctx.stack.heads[1].head,
-        CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap())
+        CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string())
     );
     assert_eq!(test_ctx.stack.head(), test_ctx.commits[1].id());
     // order is the same

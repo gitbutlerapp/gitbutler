@@ -1,3 +1,5 @@
+use but_testsupport::gix_testtools;
+
 #[test]
 fn is_conflicted() -> anyhow::Result<()> {
     let repo = conflict_repo("normal-and-artificial")?;

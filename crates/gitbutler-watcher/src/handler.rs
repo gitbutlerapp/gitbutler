@@ -1,6 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result};
+use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_branch_actions::{internal::StackListResult, VirtualBranches};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
@@ -11,7 +12,6 @@ use gitbutler_oplog::{
     OplogExt,
 };
 use gitbutler_project::{self as projects, Project, ProjectId};
-use gitbutler_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_sync::cloud::{push_oplog, push_repo};
 use gitbutler_user as users;
 use tracing::instrument;

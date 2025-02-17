@@ -3,10 +3,10 @@ use but_core::TreeStatusKind;
 use but_workspace::StackId;
 use gix::bstr::BString;
 
-/// A whole stack for the purpose of generating hunk locking information from it, for use in [Dependencies::calculate()](crate::Dependencies::calculate()).
+/// A whole stack for the purpose of generating hunk locking information from it, for use in [`WorkspaceRanges::try_from_stacks()`](crate::WorkspaceRanges::try_from_stacks()) .
 #[derive(Debug, Clone)]
 pub struct InputStack {
-    /// The stack that contains [`commits`](InputStack::commits).
+    /// The stack that contains [commits](InputStack::commits_from_base_to_tip).
     pub stack_id: StackId,
     /// The commits in the stack.
     ///

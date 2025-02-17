@@ -6,10 +6,10 @@ mod events;
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use but_settings::AppSettingsWithDiskSync;
 use events::InternalEvent;
 pub use events::{Action, Change};
 use gitbutler_project::ProjectId;
-use gitbutler_settings::AppSettingsWithDiskSync;
 pub use handler::Handler;
 use tokio::{
     sync::mpsc::{unbounded_channel, UnboundedSender},

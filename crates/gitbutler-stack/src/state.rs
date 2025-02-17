@@ -23,14 +23,14 @@ const LAST_PUSHED_BASE_VERSION_HEADER: &str = "base-commit-version";
 const LAST_PUSHED_BASE_VERSION: &str = "1";
 
 /// The state of virtual branches data, as persisted in a TOML file.
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct VirtualBranches {
     /// This is the target/base that is set when a repo is added to gb
-    default_target: Option<Target>,
+    pub default_target: Option<Target>,
     /// The targets for each virtual branch
     branch_targets: HashMap<StackId, Target>,
     /// The current state of the virtual branches
-    branches: HashMap<StackId, Stack>,
+    pub branches: HashMap<StackId, Stack>,
 
     #[serde(with = "object_id_opt", default)]
     last_pushed_base: Option<gix::ObjectId>,
@@ -49,10 +49,10 @@ impl VirtualBranches {
     ///
     /// Errors if the file cannot be read or written.
     pub fn list_stacks_in_workspace(&self) -> Result<Vec<Stack>> {
-        self.list_all_stacks().map(|branches| {
-            branches
+        self.list_all_stacks().map(|stacks| {
+            stacks
                 .into_iter()
-                .filter(|branch| branch.in_workspace)
+                .filter(|stack| stack.in_workspace)
                 .collect()
         })
     }
@@ -202,11 +202,12 @@ impl VirtualBranchesHandle {
     /// Reads and parses the state file.
     ///
     /// If the file does not exist, it will be created.
-    fn read_file(&self) -> Result<VirtualBranches> {
+    pub fn read_file(&self) -> Result<VirtualBranches> {
         read_toml_file_or_default(&self.file_path)
     }
 
-    fn write_file(&self, virtual_branches: &VirtualBranches) -> Result<()> {
+    /// Write the given `virtual_branches` back to disk in one go.
+    pub fn write_file(&self, virtual_branches: &VirtualBranches) -> Result<()> {
         write(self.file_path.as_path(), virtual_branches)
     }
 

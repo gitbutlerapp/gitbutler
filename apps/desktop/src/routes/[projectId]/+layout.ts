@@ -6,7 +6,6 @@ import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { GitBranchService } from '$lib/branches/gitBranch';
 import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
-import { CommitService } from '$lib/commits/service';
 import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
 import { UncommitedFilesWatcher } from '$lib/files/watcher';
@@ -57,7 +56,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 	const historyService = new HistoryService(projectId);
 	const baseBranchService = new BaseBranchService(projectId);
-	const commitService = new CommitService(projectId);
 	const templateService = new TemplateService(projectId);
 
 	const branchListingService = new BranchListingService(projectId);
@@ -99,7 +97,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 	return {
 		baseBranchService,
-		commitService,
 		templateService,
 		branchController,
 		historyService,

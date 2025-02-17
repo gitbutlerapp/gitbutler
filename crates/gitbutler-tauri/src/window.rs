@@ -2,17 +2,17 @@ pub(crate) mod state {
     use std::{collections::BTreeMap, sync::Arc};
 
     use anyhow::{Context, Result};
+    use but_settings::AppSettingsWithDiskSync;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
-    use gitbutler_settings::AppSettingsWithDiskSync;
     use gitbutler_user as users;
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
     pub(crate) mod event {
         use anyhow::{Context, Result};
+        use but_settings::AppSettings;
         use gitbutler_project::ProjectId;
-        use gitbutler_settings::AppSettings;
         use gitbutler_watcher::Change;
         use tauri::Emitter;
 

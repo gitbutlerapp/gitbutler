@@ -15,5 +15,7 @@ pub use target::Target;
 mod heads;
 pub use stack::{commit_by_oid_or_change_id, CommitsForId, PatchReferenceUpdate, TargetUpdate};
 
+// This is here because CommitOrChangeId::ChangeId is deprecated, for some reason allow cant be done on the CommitOrChangeId struct
+#[allow(deprecated)]
 mod stack_branch;
 pub use stack_branch::{CommitOrChangeId, StackBranch};

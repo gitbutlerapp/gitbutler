@@ -51,8 +51,7 @@ export class HunkLock {
 	commitId!: string;
 }
 
-/** A hunk as used in UnifiedDiff. */
-export type DiffHunk = {
+export type HunkHeader = {
 	/** The 1-based line number at which the previous version of the file started.*/
 	readonly oldStart: number;
 	/** The non-zero amount of lines included in the previous version of the file.*/
@@ -61,6 +60,10 @@ export type DiffHunk = {
 	readonly newStart: number;
 	/** The non-zero amount of lines included in the new version of the file.*/
 	readonly newLines: number;
+};
+
+/** A hunk as used in UnifiedDiff. */
+export type DiffHunk = HunkHeader & {
 	/**
 	 * A unified-diff formatted patch like:
 	 *

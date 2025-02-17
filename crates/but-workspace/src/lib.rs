@@ -4,11 +4,12 @@
 //! ### Terminology
 //!
 //! * **Workspace**
-//!     - A GitButler concept of the combination of one or more branches into one worktree. This allows
-//!       multiple branches to be perceived in one worktree, by merging multiple branches together.
-//!     - Currently, there is only one workspace per repository, but this is something we intend to change
-//!       in the future to facilitate new use cases.
-//!
+//!   - A GitButler concept of the combination of one or more branches into one worktree. This allows
+//!     multiple branches to be perceived in one worktree, by merging multiple branches together.
+//!   - Currently, there is only one workspace per repository, but this is something we intend to change
+//!     in the future to facilitate new use cases.
+//! * **Workspace Ref**
+//!   - The reference that points to the merge-commit which integrates all *workspace* *stacks*.
 //! * **Stack**
 //!   - GitButler implements the concept of a branch stack. This is essentially a collection of "heads"
 //!     (pseudo branches) that contain each other.
@@ -16,7 +17,11 @@
 //!   - High level documentation here: <https://docs.gitbutler.com/features/stacked-branches>
 //! * **Target Branch**
 //!   - The branch every stack in the workspace wants to get merged into.
+//!   - It's usually a local tracking branch, but doesn't have to if no Git *remote* is associated with it.
 //!   - Git doesn't have a notion of such a branch.
+//! * **DiffSpec**
+//!   - A type that identifies changes, either as whole file, or as hunks in the file.
+//!   - It doesn't specify if the change is in a commit, or in the worktree, so that information must provided separately.
 
 use anyhow::{Context, Result};
 use author::Author;
@@ -36,6 +41,8 @@ use std::str::FromStr;
 
 mod author;
 mod integrated;
+
+pub mod commit_engine;
 
 /// An ID uniquely identifying stacks.
 pub use gitbutler_stack::StackId;
@@ -334,7 +341,7 @@ fn convert(
     Ok(Branch {
         name: stack_branch.name.into(),
         remote_tracking_branch: upstream_reference.map(Into::into),
-        description: stack_branch.description.map(Into::into),
+        description: stack_branch.description,
         pr_number: stack_branch.pr_number,
         review_id: stack_branch.review_id,
         state: if stack_branch.archived {

@@ -1,11 +1,11 @@
 use anyhow::{bail, Context, Result};
+use but_settings::AppSettings;
 use gitbutler_branch::{BranchCreateRequest, BranchIdentity, BranchUpdateRequest};
 use gitbutler_branch_actions::{get_branch_listing_details, list_branches, BranchManagerExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::Project;
 use gitbutler_reference::{LocalRefname, Refname};
-use gitbutler_settings::AppSettings;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 
 use crate::command::debug_print;

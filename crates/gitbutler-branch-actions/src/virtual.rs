@@ -758,7 +758,7 @@ pub fn commit(
                         .claims
                         .iter()
                         .find(|f| f.file_path.eq(&file.path))
-                        .map_or(false, |f| {
+                        .is_some_and(|f| {
                             f.hunks.iter().any(|h| {
                                 h.start == hunk.new_start
                                     && h.end == hunk.new_start + hunk.new_lines
@@ -1566,7 +1566,7 @@ pub(crate) fn update_commit_message(
     .with_context(|| format!("commit {commit_id} not in the branch"))?;
     let ids_to_rebase = ids_to_rebase.to_vec();
 
-    let new_head_id = cherry_rebase_group(ctx.repo(), new_commit_oid, &ids_to_rebase, false)
+    let new_head_id = cherry_rebase_group(ctx.repo(), new_commit_oid, &ids_to_rebase, false, false)
         .map_err(|err| err.context("rebase error"))?;
     // save new branch head
     stack.set_stack_head(ctx, new_head_id, None)?;

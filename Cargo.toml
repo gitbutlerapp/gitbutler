@@ -1,11 +1,11 @@
 [workspace]
-members = ["crates/gitbutler-*", "crates/but-*", "crates/tauri-plugin-*"]
+members = ["crates/gitbutler-*", "crates/but-*"]
 resolver = "2"
 
 [workspace.dependencies]
 bstr = "1.11.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
-gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "914bf28409e8c319c25967f2bdb6aa71f2255879", default-features = false, features = [
+gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "b4fe425a1a7823790fab592c84aa8494d295640d", default-features = false, features = [
 ] }
 gix-testtools = "0.15.0"
 insta = "1.41.1"
@@ -30,6 +30,7 @@ toml = "0.8.13"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 tempfile = "3.14"
+rand = "0.9.0"
 
 gitbutler-id = { path = "crates/gitbutler-id" }
 gitbutler-git = { path = "crates/gitbutler-git" }
@@ -65,9 +66,10 @@ gitbutler-oxidize = { path = "crates/gitbutler-oxidize" }
 gitbutler-stack = { path = "crates/gitbutler-stack" }
 gitbutler-forge = { path = "crates/gitbutler-forge" }
 gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
-gitbutler-settings = { path = "crates/gitbutler-settings" }
+but-settings = { path = "crates/but-settings" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
-but-debugging = { path = "crates/but-debugging" }
+but-testsupport = { path = "crates/but-testsupport" }
+but-rebase = { path = "crates/but-rebase" }
 but-core = { path = "crates/but-core" }
 but-workspace = { path = "crates/but-workspace" }
 but-hunk-dependency = { path = "crates/but-hunk-dependency" }

@@ -183,11 +183,7 @@ pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> 
     let repo = ctx.repo();
     let default_target = state.get_default_target()?;
     let merge_base = repo.find_commit(repo.merge_base(stack.head(), default_target.sha)?)?;
-    let merge_base = if let Some(change_id) = merge_base.change_id() {
-        CommitOrChangeId::ChangeId(change_id)
-    } else {
-        CommitOrChangeId::CommitId(merge_base.id().to_string())
-    };
+    let merge_base: CommitOrChangeId = merge_base.into();
 
     // First fetch, because we dont want to push integrated series
     ctx.fetch(
@@ -344,7 +340,7 @@ fn stack_branch_to_api_branch(
                 .or(copied_from_remote_id)
         };
 
-        if remote_commit_id.map_or(false, |id| commit.id() != id) {
+        if remote_commit_id.is_some_and(|id| commit.id() != id) {
             requires_force = true;
         }
 

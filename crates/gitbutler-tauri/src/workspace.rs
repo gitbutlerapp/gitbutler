@@ -1,12 +1,14 @@
 use crate::error::Error;
+use crate::from_json::HexHash;
 use but_hunk_dependency::ui::{
     hunk_dependencies_for_workspace_changes_by_worktree_dir, HunkDependencies,
 };
-use but_workspace::StackEntry;
+use but_settings::AppSettingsWithDiskSync;
+use but_workspace::{commit_engine, StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
-use gitbutler_settings::AppSettingsWithDiskSync;
+use gitbutler_stack::StackId;
 use tauri::State;
 use tracing::instrument;
 
@@ -47,4 +49,65 @@ pub fn hunk_dependencies_for_workspace_changes(
     let dependencies =
         hunk_dependencies_for_workspace_changes_by_worktree_dir(&project.path, &project.gb_dir())?;
     Ok(dependencies)
+}
+
+/// Create a new commit with `message` on top of `parent_id` that contains all `changes`.
+/// If `parent_id` is `None`, there is not a single commit as the repository is unborn.
+/// `stack_id` is the stack that contains the `parent_id`, and it's fatal if that's not the case.
+/// All `changes` are meant to be relative to the worktree.
+/// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
+/// hunks would fail.
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn create_commit_from_worktree_changes(
+    projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+    stack_id: StackId,
+    parent_id: Option<HexHash>,
+    worktree_changes: Vec<commit_engine::ui::DiffSpec>,
+    message: String,
+) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
+    let project = projects.get(project_id)?;
+    let repo = gix::open(project.worktree_path()).map_err(anyhow::Error::from)?;
+    Ok(commit_engine::create_commit_and_update_refs_with_project(
+        &repo,
+        Some((&project, Some(stack_id))),
+        commit_engine::Destination::NewCommit {
+            parent_commit_id: parent_id.map(Into::into),
+            message,
+        },
+        None,
+        worktree_changes.into_iter().map(Into::into).collect(),
+        settings.get()?.context_lines,
+    )?
+    .into())
+}
+
+/// Amend all `changes` to `commit_id`, keeping its commit message exactly as is.
+/// `stack_id` is the stack that contains the `commit_id`, and it's fatal if that's not the case.
+/// All `changes` are meant to be relative to the worktree.
+/// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
+/// hunks would fail.
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn amend_commit_from_worktree_changes(
+    projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+    stack_id: StackId,
+    commit_id: HexHash,
+    worktree_changes: Vec<commit_engine::ui::DiffSpec>,
+) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
+    let project = projects.get(project_id)?;
+    let repo = gix::open(project.worktree_path()).map_err(anyhow::Error::from)?;
+    Ok(commit_engine::create_commit_and_update_refs_with_project(
+        &repo,
+        Some((&project, Some(stack_id))),
+        commit_engine::Destination::AmendCommit(commit_id.into()),
+        None,
+        worktree_changes.into_iter().map(Into::into).collect(),
+        settings.get()?.context_lines,
+    )?
+    .into())
 }

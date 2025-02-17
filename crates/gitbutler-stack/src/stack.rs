@@ -66,7 +66,7 @@ pub struct Stack {
     pub tree: git2::Oid,
     /// head is id of the last "virtual" commit in this branch
     #[serde(with = "gitbutler_serde::oid")]
-    head: git2::Oid,
+    pub head: git2::Oid,
     pub ownership: BranchOwnershipClaims,
     // order is the number by which UI should sort branches
     pub order: usize,
@@ -333,10 +333,10 @@ impl Stack {
 
         while is_duplicate(&reference)? {
             // keep incrementing the suffix until the name is unique
-            let split = reference.name.split('-');
+            let mut split = reference.name.split('-');
             let left = split.clone().take(split.clone().count() - 1).join("-");
             reference.name = split
-                .last()
+                .next_back()
                 .and_then(|last| last.parse::<u32>().ok())
                 .map(|last| format!("{}-{}", left, last + 1)) //take everything except last, and append last + 1
                 .unwrap_or_else(|| format!("{}-1", reference.name));
@@ -604,12 +604,15 @@ impl Stack {
     ) -> Result<()> {
         self.ensure_initialized()?;
         // find all heads matching the 'from' target (there can be multiple heads pointing to the same commit)
+        #[allow(deprecated)]
         let matching_heads = self
             .heads
             .iter()
-            .filter(|h| match from.change_id() {
-                Some(change_id) => h.head == CommitOrChangeId::ChangeId(change_id.clone()),
-                None => h.head == CommitOrChangeId::CommitId(from.id().to_string()),
+            .filter(|h| {
+                h.head == CommitOrChangeId::CommitId(from.id().to_string())
+                    || from.change_id().is_some_and(|change_id| {
+                        h.head == CommitOrChangeId::ChangeId(change_id.clone())
+                    })
             })
             .cloned()
             .collect_vec();
@@ -716,6 +719,19 @@ impl Stack {
         self.heads.iter().map(|h| h.name.clone()).collect()
     }
 
+    pub fn heads_by_commit(&self, commit: Commit<'_>) -> Vec<String> {
+        // let id: CommitOrChangeId = commit.into();
+        self.heads
+            .iter()
+            .filter(|h| match h.head.clone() {
+                CommitOrChangeId::CommitId(x) => commit.id().to_string() == x,
+                #[allow(deprecated)]
+                CommitOrChangeId::ChangeId(x) => commit.change_id() == Some(x), // todo:bug
+            })
+            .map(|h| h.name.clone())
+            .collect_vec()
+    }
+
     /// Returns the list of patches between the stack head and the merge base.
     /// The most recent patch is at the top of the 'stack' (i.e. the last element in the vector)
     fn stack_patches(
@@ -807,15 +823,6 @@ fn validate_target(
             commit.id()
         ));
     }
-    // Enforce that change ids are used when available
-    if let CommitOrChangeId::CommitId(_) = reference.head {
-        if commit.change_id().is_some() {
-            return Err(anyhow!(
-                "The commit {} has a change id associated with it. Use the change id instead",
-                commit.id()
-            ));
-        }
-    }
     Ok(())
 }
 
@@ -894,6 +901,7 @@ pub fn commit_by_oid_or_change_id<'a>(
             head: repo.find_commit(commit_id.parse()?)?,
             tail: vec![],
         },
+        #[allow(deprecated)]
         CommitOrChangeId::ChangeId(change_id) => {
             commit_by_branch_id_and_change_id(repo, stack_head, merge_base, change_id)?
         }

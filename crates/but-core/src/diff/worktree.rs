@@ -3,7 +3,7 @@ use crate::{
     TreeStatus, UnifiedDiff, WorktreeChanges,
 };
 use anyhow::Context;
-use bstr::ByteSlice;
+use bstr::{BString, ByteSlice};
 use gix::dir::entry;
 use gix::dir::walk::EmissionMode;
 use gix::object::tree::EntryKind;
@@ -12,6 +12,7 @@ use gix::status::index_worktree;
 use gix::status::index_worktree::RewriteSource;
 use gix::status::plumbing::index_as_worktree::{self, EntryStatus};
 use gix::status::tree_index::TrackRenames;
+use std::path::PathBuf;
 
 /// Identify where a [`TreeChange`] is from.
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
@@ -27,7 +28,11 @@ enum Origin {
 /// It's equivalent to a `git status` which is "boiled down" into all the changes that one would have to add into `HEAD^{tree}`
 /// to get a commit with a tree equal to the current worktree.
 pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChanges> {
-    let rewrites = Default::default(); /* standard Git rewrite handling for everything */
+    let rewrites = gix::diff::Rewrites::default(); /* standard Git rewrite handling for everything */
+    debug_assert!(
+        rewrites.copies.is_none(),
+        "TODO: copy tracking needs specific support wherever 'previous_path()' is called."
+    );
     let status_changes = repo
         .status(gix::progress::Discard)?
         .tree_index_track_renames(TrackRenames::Given(rewrites))
@@ -51,6 +56,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
         })
         .into_iter(None)?;
 
+    let work_dir = repo.work_dir().context("need non-bare repository")?;
     let mut tmp = Vec::new();
     let mut ignored_changes = Vec::new();
     for change in status_changes {
@@ -229,22 +235,29 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                         ..
                     },
                 ..
-            }) => (
-                Origin::IndexWorktree,
-                TreeChange {
-                    path: rela_path,
-                    status: TreeStatus::Addition {
-                        state: match disk_kind_to_entry_kind(disk_kind, index_kind)? {
-                            None => continue,
-                            Some(kind) => ChangeState {
-                                id: repo.object_hash().null(),
-                                kind,
+            }) => {
+                let kind = disk_kind_to_entry_kind(
+                    disk_kind,
+                    index_kind,
+                    work_dir.join(gix::path::from_bstr(rela_path.as_bstr())),
+                )?;
+                (
+                    Origin::IndexWorktree,
+                    TreeChange {
+                        path: rela_path,
+                        status: TreeStatus::Addition {
+                            state: match kind {
+                                None => continue,
+                                Some(kind) => ChangeState {
+                                    id: repo.object_hash().null(),
+                                    kind,
+                                },
                             },
+                            is_untracked: true,
                         },
-                        is_untracked: true,
                     },
-                },
-            ),
+                )
+            }
             status::Item::IndexWorktree(index_worktree::Item::Modification {
                 rela_path,
                 entry,
@@ -281,7 +294,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                 dirwalk_entry_id,
                 ..
             }) => {
-                let previous_path = source.rela_path().into();
+                let previous_path: BString = source.rela_path().into();
                 let previous_state = match source {
                     RewriteSource::RewriteFromIndex { source_entry, .. } => ChangeState {
                         id: source_entry.id,
@@ -296,6 +309,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                         kind: match disk_kind_to_entry_kind(
                             source_dirwalk_entry.disk_kind,
                             source_dirwalk_entry.index_kind,
+                            work_dir.join(gix::path::from_bstr(previous_path.as_bstr())),
                         )? {
                             None => continue,
                             Some(kind) => kind,
@@ -307,6 +321,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                     kind: match disk_kind_to_entry_kind(
                         dirwalk_entry.disk_kind,
                         dirwalk_entry.index_kind,
+                        work_dir.join(gix::path::from_bstr(dirwalk_entry.rela_path.as_bstr())),
                     )? {
                         None => continue,
                         Some(kind) => kind,
@@ -424,9 +439,12 @@ fn into_tree_entry_kind(mode: gix::index::entry::Mode) -> anyhow::Result<EntryKi
 }
 
 /// Most importantly, this function allows to skip over untrackable entries, like named pipes, sockets and character devices, just like Git.
+/// `path` is needed for now while we have to stat the file again to learn about the executable bits.
+// TODO: remove `path` and provide the stat information or at least executable info with `gitoxide` - it has that info.
 fn disk_kind_to_entry_kind(
     disk_kind: Option<gix::dir::entry::Kind>,
     index_kind: Option<gix::dir::entry::Kind>,
+    path: PathBuf,
 ) -> anyhow::Result<Option<EntryKind>> {
     Ok(Some(
         match disk_kind
@@ -438,7 +456,14 @@ fn disk_kind_to_entry_kind(
                 unreachable!("BUG: we use 'matching' so there are no directories")
             }
             entry::Kind::Untrackable => return Ok(None),
-            entry::Kind::File => EntryKind::Blob,
+            entry::Kind::File => {
+                let md = path.symlink_metadata()?;
+                if gix::fs::is_executable(&md) {
+                    EntryKind::BlobExecutable
+                } else {
+                    EntryKind::Blob
+                }
+            }
             entry::Kind::Symlink => EntryKind::Link,
         },
     ))

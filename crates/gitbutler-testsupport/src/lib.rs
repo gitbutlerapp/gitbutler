@@ -70,9 +70,9 @@ pub fn init_opts_bare() -> git2::RepositoryInitOptions {
 
 pub mod writable {
     use crate::DRIVER;
+    use but_settings::AppSettings;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project::{Project, ProjectId};
-    use gitbutler_settings::AppSettings;
     use tempfile::TempDir;
 
     pub fn fixture(
@@ -111,7 +111,7 @@ pub fn visualize_gix_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
         name_and_mode: Option<(&BStr, gix::object::tree::EntryMode)>,
     ) -> anyhow::Result<termtree::Tree<String>> {
         fn short_id(id: &gix::hash::oid) -> String {
-            id.to_string()[..7].to_string()
+            id.to_hex_with_len(7).to_string()
         }
         let repo = id.repo;
         let entry_name =
@@ -153,7 +153,7 @@ pub fn visualize_gix_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
         }
         Ok(tree)
     }
-    visualize_tree(tree_id, None).unwrap()
+    visualize_tree(tree_id.object().unwrap().peel_to_tree().unwrap().id(), None).unwrap()
 }
 
 /// Visualize a git2 tree, otherwise just like [`visualize_gix_tree()`].
@@ -164,9 +164,9 @@ pub fn visualize_git2_tree(tree_id: git2::Oid, repo: &git2::Repository) -> termt
 
 pub mod read_only {
     use crate::DRIVER;
+    use but_settings::AppSettings;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project::{Project, ProjectId};
-    use gitbutler_settings::AppSettings;
     use once_cell::sync::Lazy;
     use parking_lot::Mutex;
     use std::collections::BTreeSet;

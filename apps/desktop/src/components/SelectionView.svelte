@@ -15,7 +15,12 @@
 
 <div class="selection-view">
 	{#each selection as selectedFile (selectedFile.path)}
-		<UnifiedDiffView {projectId} path={selectedFile.path} commitId={selectedFile.commitId} />
+		<UnifiedDiffView
+			{projectId}
+			path={selectedFile.path}
+			commitId={selectedFile.commitId}
+			selectable
+		/>
 	{/each}
 </div>
 

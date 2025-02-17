@@ -1,0 +1,29 @@
+[package]
+name = "but-rebase"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[lib]
+doctest = false
+
+[dependencies]
+gix = { workspace = true, features = ["revision", "merge"]}
+anyhow.workspace = true
+tracing.workspace = true
+but-core.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-oxidize.workspace = true
+gitbutler-error.workspace = true
+bstr.workspace = true
+git2.workspace = true
+tempfile.workspace = true
+
+[dev-dependencies]
+but-testsupport.workspace = true
+insta = "1.42.1"
+but-core = { workspace = true, features = ["testing"] }
+# for stable hashes in `gitbuter-` crates while we use them.
+# TODO: remove once `gitbutler-repo` isn't needed anymore.
+gitbutler-commit = { workspace = true, features = ["testing"] }

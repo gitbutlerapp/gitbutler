@@ -47,7 +47,7 @@ pub fn create_commit(
     assure_open_workspace_mode(ctx).context("Creating a commit requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
     let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
-    let result = vbranch::commit(ctx, stack_id, message, ownership).map_err(Into::into);
+    let result = vbranch::commit(ctx, stack_id, message, ownership);
 
     let _ = snapshot_tree.and_then(|snapshot_tree| {
         ctx.project().snapshot_commit_creation(
@@ -65,7 +65,7 @@ pub fn create_commit(
 pub fn can_apply_remote_branch(ctx: &CommandContext, branch_name: &RemoteRefname) -> Result<bool> {
     assure_open_workspace_mode(ctx)
         .context("Testing branch mergability requires open workspace mode")?;
-    vbranch::is_remote_branch_mergeable(ctx, branch_name).map_err(Into::into)
+    vbranch::is_remote_branch_mergeable(ctx, branch_name)
 }
 
 pub fn list_virtual_branches(ctx: &CommandContext) -> Result<StackListResult> {
@@ -78,7 +78,6 @@ pub fn list_virtual_branches(ctx: &CommandContext) -> Result<StackListResult> {
         ctx,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
-    .map_err(Into::into)
 }
 
 pub fn list_virtual_branches_cached(
@@ -95,7 +94,6 @@ pub fn list_virtual_branches_cached(
         ctx.project().exclusive_worktree_access().write_permission(),
         &worktree_changes,
     )
-    .map_err(Into::into)
 }
 
 pub fn create_virtual_branch(
@@ -129,7 +127,7 @@ pub fn delete_local_branch(
         stack
             .source_refname
             .as_ref()
-            .map_or(false, |source_refname| source_refname == refname)
+            .is_some_and(|source_refname| source_refname == refname)
     });
 
     if let Some(stack) = stack {
@@ -154,7 +152,7 @@ pub fn list_commit_files(
     ctx: &CommandContext,
     commit_oid: git2::Oid,
 ) -> Result<Vec<RemoteBranchFile>> {
-    crate::file::list_commit_files(ctx.repo(), commit_oid).map_err(Into::into)
+    crate::file::list_commit_files(ctx.repo(), commit_oid)
 }
 
 pub fn set_base_branch(ctx: &CommandContext, target_branch: &RemoteRefname) -> Result<BaseBranch> {
@@ -195,7 +193,6 @@ pub fn integrate_upstream_commits(
         series_name,
         integration_strategy,
     )
-    .map_err(Into::into)
 }
 
 pub fn update_virtual_branch(
@@ -275,7 +272,6 @@ pub fn unapply_lines(
     );
 
     vbranch::unapply_ownership(ctx, ownership, Some(lines), guard.write_permission())
-        .map_err(Into::into)
 }
 
 pub fn unapply_ownership(ctx: &CommandContext, ownership: &BranchOwnershipClaims) -> Result<()> {
@@ -286,7 +282,7 @@ pub fn unapply_ownership(ctx: &CommandContext, ownership: &BranchOwnershipClaims
         SnapshotDetails::new(OperationKind::DiscardHunk),
         guard.write_permission(),
     );
-    vbranch::unapply_ownership(ctx, ownership, None, guard.write_permission()).map_err(Into::into)
+    vbranch::unapply_ownership(ctx, ownership, None, guard.write_permission())
 }
 
 pub fn reset_files(ctx: &CommandContext, stack_id: StackId, files: &[PathBuf]) -> Result<()> {
@@ -297,7 +293,7 @@ pub fn reset_files(ctx: &CommandContext, stack_id: StackId, files: &[PathBuf]) -
         SnapshotDetails::new(OperationKind::DiscardFile),
         guard.write_permission(),
     );
-    vbranch::reset_files(ctx, stack_id, files, guard.write_permission()).map_err(Into::into)
+    vbranch::reset_files(ctx, stack_id, files, guard.write_permission())
 }
 
 pub fn amend(
@@ -337,7 +333,6 @@ pub fn move_commit_file(
         guard.write_permission(),
     );
     vbranch::move_commit_file(ctx, stack_id, from_commit_oid, to_commit_oid, ownership)
-        .map_err(Into::into)
 }
 
 pub fn undo_commit(ctx: &CommandContext, stack_id: StackId, commit_oid: git2::Oid) -> Result<()> {
@@ -345,9 +340,7 @@ pub fn undo_commit(ctx: &CommandContext, stack_id: StackId, commit_oid: git2::Oi
     assure_open_workspace_mode(ctx).context("Undoing a commit requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
     let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
-    let result: Result<()> = crate::undo_commit::undo_commit(ctx, stack_id, commit_oid)
-        .map(|_| ())
-        .map_err(Into::into);
+    let result: Result<()> = crate::undo_commit::undo_commit(ctx, stack_id, commit_oid).map(|_| ());
     let _ = snapshot_tree.and_then(|snapshot_tree| {
         ctx.project().snapshot_commit_undo(
             snapshot_tree,
@@ -373,7 +366,7 @@ pub fn insert_blank_commit(
         SnapshotDetails::new(OperationKind::InsertBlankCommit),
         guard.write_permission(),
     );
-    vbranch::insert_blank_commit(ctx, stack_id, commit_oid, offset).map_err(Into::into)
+    vbranch::insert_blank_commit(ctx, stack_id, commit_oid, offset)
 }
 
 pub fn reorder_stack(
@@ -388,7 +381,8 @@ pub fn reorder_stack(
         SnapshotDetails::new(OperationKind::ReorderCommit),
         guard.write_permission(),
     );
-    reorder::reorder_stack(ctx, stack_id, stack_order, guard.write_permission())
+    reorder::reorder_stack(ctx, stack_id, stack_order, guard.write_permission())?;
+    Ok(())
 }
 
 pub fn reset_virtual_branch(
@@ -403,7 +397,7 @@ pub fn reset_virtual_branch(
         SnapshotDetails::new(OperationKind::UndoCommit),
         guard.write_permission(),
     );
-    vbranch::reset_branch(ctx, stack_id, target_commit_oid).map_err(Into::into)
+    vbranch::reset_branch(ctx, stack_id, target_commit_oid)
 }
 
 pub fn save_and_unapply_virutal_branch(
@@ -465,7 +459,6 @@ pub fn squash_commits(
         destination_id,
         guard.write_permission(),
     )
-    .map_err(Into::into)
 }
 
 pub fn update_commit_message(
@@ -482,7 +475,7 @@ pub fn update_commit_message(
         SnapshotDetails::new(OperationKind::UpdateCommitMessage),
         guard.write_permission(),
     );
-    vbranch::update_commit_message(ctx, stack_id, commit_oid, message).map_err(Into::into)
+    vbranch::update_commit_message(ctx, stack_id, commit_oid, message)
 }
 
 pub fn find_commit(ctx: &CommandContext, commit_oid: git2::Oid) -> Result<Option<RemoteCommit>> {
@@ -536,7 +529,6 @@ pub fn move_commit(
         guard.write_permission(),
         source_stack_id,
     )
-    .map_err(Into::into)
 }
 
 #[instrument(level = tracing::Level::DEBUG, skip(ctx), err(Debug))]
@@ -551,9 +543,12 @@ pub fn create_virtual_branch_from_branch(
         .context("Creating a virtual branch from a branch open workspace mode")?;
     let branch_manager = ctx.branch_manager();
     let mut guard = ctx.project().exclusive_worktree_access();
-    branch_manager
-        .create_virtual_branch_from_branch(branch, remote, pr_number, guard.write_permission())
-        .map_err(Into::into)
+    branch_manager.create_virtual_branch_from_branch(
+        branch,
+        remote,
+        pr_number,
+        guard.write_permission(),
+    )
 }
 
 pub fn get_uncommited_files(ctx: &CommandContext) -> Result<Vec<RemoteBranchFile>> {

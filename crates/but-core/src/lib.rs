@@ -41,7 +41,7 @@
 //!     - A list of patches in unified diff format, with easily accessible line number information. It isn't baked into the patch string itself.
 //!
 
-use bstr::BString;
+use bstr::{BStr, BString};
 use gix::object::tree::EntryKind;
 use serde::Serialize;
 
@@ -57,11 +57,21 @@ pub mod ui;
 /// utility types
 pub mod unified_diff;
 
+/// utilities for command-invocation.
+pub mod cmd;
+
+mod settings;
+pub use settings::git::GitConfigSettings;
+
+mod repo_ext;
+pub use repo_ext::RepositoryExt;
+
 /// A decoded commit object with easy access to additional GitButler information.
 pub struct Commit<'repo> {
     /// The id of the commit itself.
     pub id: gix::Id<'repo>,
-    inner: gix::objs::Commit,
+    /// The decoded commit for direct access.
+    pub inner: gix::objs::Commit,
 }
 
 /// A patch in unified diff format to show how a resource changed or now looks like (in case it was newly added),
@@ -84,6 +94,16 @@ pub enum UnifiedDiff {
     },
 }
 
+/// Either git reference or a virtual reference (i.e. a reference not visible in Git).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Reference {
+    /// A git reference or lightweight tag.
+    Git(gix::refs::FullName),
+    /// A reference not visible in Git, managed by GitButler.
+    // TODO: ideally this isn't needed anymore in the final version as all refs are 'real'.
+    Virtual(String),
+}
+
 /// An entry in the worktree that changed and thus is eligible to being committed.
 ///
 /// It either lives (or lived) in the in `.git/index`, or in the `worktree`.
@@ -91,13 +111,25 @@ pub enum UnifiedDiff {
 /// ### Note
 ///
 /// For simplicity, copy-tracking is not representable right now, but `copy: bool` could be added
-/// if needed.
+/// if needed. Copy-tracking is deactivated as well.
 #[derive(Debug, Clone)]
 pub struct TreeChange {
     /// The *relative* path in the worktree where the entry can be found.
     pub path: BString,
     /// The specific information about this change.
     pub status: TreeStatus,
+}
+
+impl TreeChange {
+    /// Return the path at which this directory entry was previously located, if it was renamed.
+    pub fn previous_path(&self) -> Option<&BStr> {
+        match &self.status {
+            TreeStatus::Addition { .. }
+            | TreeStatus::Deletion { .. }
+            | TreeStatus::Modification { .. } => None,
+            TreeStatus::Rename { previous_path, .. } => Some(previous_path.as_ref()),
+        }
+    }
 }
 
 /// Specifically defines a [`TreeChange`].

@@ -1,6 +1,7 @@
 use anyhow::Result;
 use but_core::diff;
 use but_core::{UnifiedDiff, WorktreeChanges};
+use but_testsupport::gix_testtools;
 
 #[test]
 #[cfg(unix)]
@@ -231,6 +232,17 @@ fn added_in_unborn() -> Result<()> {
         },
     ]
     ");
+    Ok(())
+}
+
+#[test]
+fn sparse() -> Result<()> {
+    let repo = repo_in("sparse", "non-cone")?;
+    let err = diff::worktree_changes(&repo).unwrap_err();
+    assert!(
+        err.to_string().contains("sparse"),
+        "Currently status doesn't run on sparse indices, but it could if it would unsparse it"
+    );
     Ok(())
 }
 
@@ -1044,6 +1056,42 @@ fn renamed_in_index() -> Result<()> {
 }
 
 #[test]
+fn renamed_in_index_with_executable_bit() -> Result<()> {
+    let repo = repo("renamed-in-index-with-executable-bit")?;
+    let actual = diff::worktree_changes(&repo)?;
+    insta::assert_debug_snapshot!(actual, @r#"
+    WorktreeChanges {
+        changes: [
+            TreeChange {
+                path: "new-name",
+                status: Rename {
+                    previous_path: "to-be-renamed",
+                    previous_state: ChangeState {
+                        id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
+                        kind: BlobExecutable,
+                    },
+                    state: ChangeState {
+                        id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
+                        kind: BlobExecutable,
+                    },
+                    flags: None,
+                },
+            },
+        ],
+        ignored_changes: [],
+    }
+    "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    [
+        Patch {
+            hunks: [],
+        },
+    ]
+    ");
+    Ok(())
+}
+
+#[test]
 fn renamed_in_worktree() -> Result<()> {
     let repo = repo("renamed-in-worktree")?;
     let actual = diff::worktree_changes(&repo)?;
@@ -1061,6 +1109,42 @@ fn renamed_in_worktree() -> Result<()> {
                     state: ChangeState {
                         id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
                         kind: Blob,
+                    },
+                    flags: None,
+                },
+            },
+        ],
+        ignored_changes: [],
+    }
+    "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    [
+        Patch {
+            hunks: [],
+        },
+    ]
+    ");
+    Ok(())
+}
+
+#[test]
+fn renamed_in_worktree_with_executable_bit() -> Result<()> {
+    let repo = repo("renamed-in-worktree-with-executable-bit")?;
+    let actual = diff::worktree_changes(&repo)?;
+    insta::assert_debug_snapshot!(actual, @r#"
+    WorktreeChanges {
+        changes: [
+            TreeChange {
+                path: "new-name",
+                status: Rename {
+                    previous_path: "to-be-renamed",
+                    previous_state: ChangeState {
+                        id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
+                        kind: BlobExecutable,
+                    },
+                    state: ChangeState {
+                        id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
+                        kind: BlobExecutable,
                     },
                     flags: None,
                 },
@@ -1150,16 +1234,20 @@ fn unified_diffs(
         .collect()
 }
 
-pub fn repo(fixture_name: &str) -> anyhow::Result<gix::Repository> {
-    let root = gix_testtools::scripted_fixture_read_only("worktree-changes.sh")
+pub fn repo_in(fixture_name: &str, name: &str) -> anyhow::Result<gix::Repository> {
+    let root = gix_testtools::scripted_fixture_read_only(format!("{}.sh", fixture_name))
         .map_err(anyhow::Error::from_boxed)?;
-    let worktree_root = root.join(fixture_name);
-    Ok(gix::open(worktree_root)?)
+    let worktree_root = root.join(name);
+    Ok(gix::open_opts(
+        worktree_root,
+        gix::open::Options::isolated(),
+    )?)
+}
+
+pub fn repo(fixture_name: &str) -> anyhow::Result<gix::Repository> {
+    repo_in("worktree-changes", fixture_name)
 }
 
 pub fn repo_unix(fixture_name: &str) -> anyhow::Result<gix::Repository> {
-    let root = gix_testtools::scripted_fixture_read_only("worktree-changes-unix.sh")
-        .map_err(anyhow::Error::from_boxed)?;
-    let worktree_root = root.join(fixture_name);
-    Ok(gix::open(worktree_root)?)
+    repo_in("worktree-changes-unix", fixture_name)
 }

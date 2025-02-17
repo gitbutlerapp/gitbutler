@@ -125,11 +125,8 @@ pub(crate) fn set_base_branch(
     }
 
     // lookup a branch by name
-    let target_branch =
-        match repo.maybe_find_branch_by_refname(&target_branch_ref.clone().into()) {
-            Ok(branch) => branch,
-            Err(err) => return Err(err),
-        }
+    let target_branch = repo
+        .maybe_find_branch_by_refname(&target_branch_ref.clone().into())?
         .ok_or(anyhow!("remote branch '{}' not found", target_branch_ref))?;
 
     let remote = repo

@@ -256,7 +256,7 @@ fn branch_group_to_branch(
                 .identity(remotes)
                 .as_deref()
                 .ok()
-                .map_or(false, |identity| identity == target.branch.branch())
+                .is_some_and(|identity| identity == target.branch.branch())
         })
     {
         return Ok(None);
@@ -373,7 +373,6 @@ impl GroupBranch<'_> {
                 Some(identity.into())
             }
         }
-        .map(BranchIdentity::from)
     }
 
     /// Determines if the branch is a remote branch by ref name

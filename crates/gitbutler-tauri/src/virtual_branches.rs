@@ -1,5 +1,6 @@
 pub mod commands {
     use anyhow::{anyhow, Context};
+    use but_settings::AppSettingsWithDiskSync;
     use but_workspace::StackEntry;
     use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
     use gitbutler_branch_actions::branch_upstream_integration::IntegrationStrategy;
@@ -15,7 +16,6 @@ pub mod commands {
     use gitbutler_project as projects;
     use gitbutler_project::{FetchResult, ProjectId};
     use gitbutler_reference::{normalize_branch_name as normalize_name, Refname, RemoteRefname};
-    use gitbutler_settings::AppSettingsWithDiskSync;
     use gitbutler_stack::{BranchOwnershipClaims, StackId};
     use std::path::PathBuf;
     use tauri::State;
@@ -691,7 +691,7 @@ pub mod commands {
     pub(crate) fn emit_vbranches(
         windows: &WindowState,
         project_id: projects::ProjectId,
-        app_settings: &gitbutler_settings::AppSettings,
+        app_settings: &but_settings::AppSettings,
     ) {
         if !app_settings.feature_flags.v3 {
             if let Err(error) = windows.post(gitbutler_watcher::Action::CalculateVirtualBranches(

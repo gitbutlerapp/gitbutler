@@ -1,6 +1,6 @@
 use anyhow::Result;
 use git2::{Commit, Oid};
-use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
+use gitbutler_commit::commit_ext::CommitVecExt;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -41,6 +41,7 @@ pub enum CommitOrChangeId {
     /// A reference that points directly to a commit.
     CommitId(String),
     /// A reference that points to a change (patch) through which a valid commit can be derived.
+    #[deprecated(note = "Use CommitId instead")]
     ChangeId(String),
 }
 
@@ -48,6 +49,7 @@ impl Display for CommitOrChangeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CommitOrChangeId::CommitId(id) => write!(f, "CommitId: {}", id),
+            #[allow(deprecated)]
             CommitOrChangeId::ChangeId(id) => write!(f, "ChangeId: {}", id),
         }
     }
@@ -55,11 +57,7 @@ impl Display for CommitOrChangeId {
 
 impl From<git2::Commit<'_>> for CommitOrChangeId {
     fn from(commit: git2::Commit) -> Self {
-        if let Some(change_id) = commit.change_id() {
-            CommitOrChangeId::ChangeId(change_id.to_string())
-        } else {
-            CommitOrChangeId::CommitId(commit.id().to_string())
-        }
+        CommitOrChangeId::CommitId(commit.id().to_string())
     }
 }
 
@@ -77,13 +75,19 @@ impl RepositoryExt for git2::Repository {
 
 impl StackBranch {
     pub fn head_oid(&self, stack_context: &StackContext, stack: &Stack) -> Result<Oid> {
-        let repository = stack_context.repository();
-        let merge_base = stack.merge_base(stack_context)?;
-        let head_commit =
-            commit_by_oid_or_change_id(&self.head, repository, stack.head(), merge_base)?
-                .head
-                .id();
-        Ok(head_commit)
+        match self.head.clone() {
+            CommitOrChangeId::CommitId(id) => id.parse().map_err(Into::into),
+            #[allow(deprecated)]
+            CommitOrChangeId::ChangeId(_) => {
+                let repository = stack_context.repository();
+                let merge_base = stack.merge_base(stack_context)?;
+                let head_commit =
+                    commit_by_oid_or_change_id(&self.head, repository, stack.head(), merge_base)?
+                        .head
+                        .id();
+                Ok(head_commit)
+            }
+        }
     }
     /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
     pub fn remote_reference(&self, remote: &str) -> String {

@@ -200,7 +200,7 @@ mod util {
             "virtual-branch-name: {msg}"
         );
         assert_eq!(
-            virtual_branch.as_ref().map_or(false, |b| b.in_workspace),
+            virtual_branch.as_ref().is_some_and(|b| b.in_workspace),
             expected.virtual_branch_in_workspace,
             "virtual-branch-in-workspace: {msg}"
         );

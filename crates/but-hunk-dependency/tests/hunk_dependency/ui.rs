@@ -233,6 +233,7 @@ mod util {
     pub struct TestContext {
         pub repo: gix::Repository,
         /// All the stacks in the workspace
+        #[allow(unused)]
         pub stacks_entries: Vec<but_workspace::StackEntry>,
         /// The storage directory for GitButler.
         pub gitbutler_dir: PathBuf,
@@ -251,6 +252,7 @@ mod util {
 
     impl TestContext {
         /// Find a stack which contains a branch with the given `short_name`.
+        #[allow(unused)]
         pub fn stack_with_branch(&self, short_name: &str) -> &but_workspace::StackEntry {
             self.stacks_entries
                 .iter()

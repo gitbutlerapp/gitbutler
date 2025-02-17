@@ -21,7 +21,7 @@ gitbutler-error.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-id.workspace = true
 gitbutler-time.workspace = true
-gitbutler-settings.workspace = true
+but-settings.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-url.workspace = true
 gitbutler-fs.workspace = true
@@ -33,6 +33,8 @@ gitbutler-stack.workspace = true
 gitbutler-hunk-dependency.workspace = true
 gitbutler-workspace.workspace = true
 but-workspace.workspace = true
+but-rebase.workspace = true
+but-core.workspace = true
 serde = { workspace = true, features = ["std"] }
 serde-error = "0.1.3"
 bstr.workspace = true
@@ -49,7 +51,6 @@ urlencoding = "2.1.3"
 reqwest = { version = "0.12.9", features = ["json"] }
 toml.workspace = true
 uuid.workspace = true
-but-debugging.workspace = true
 
 [dev-dependencies]
 once_cell = "1.20"

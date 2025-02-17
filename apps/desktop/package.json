@@ -74,7 +74,10 @@
 		"vitest": "catalog:"
 	},
 	"dependencies": {
+		"@cartamd/plugin-code": "^4.0.6",
+		"carta-md": "^4.6.7",
 		"dayjs": "^1.11.13",
+		"isomorphic-dompurify": "^2.21.0",
 		"openai": "^4.47.3"
 	}
 }

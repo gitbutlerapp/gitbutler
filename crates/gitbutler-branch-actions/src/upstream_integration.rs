@@ -266,7 +266,8 @@ fn get_stack_status(
 
         let rebase_base = last_head;
 
-        let new_head_oid = cherry_rebase_group(repository, rebase_base, &local_commit_ids, false)?;
+        let new_head_oid =
+            cherry_rebase_group(repository, rebase_base, &local_commit_ids, false, false)?;
         let rebased_commits = repository.log(new_head_oid, LogUntil::Commit(rebase_base), false)?;
 
         last_head = new_head_oid;
@@ -520,7 +521,7 @@ pub(crate) fn resolve_upstream_integration(
         }
         BaseBranchResolutionApproach::Rebase => {
             let commits = repo.l(old_target_id, LogUntil::Commit(fork_point), false)?;
-            let new_head = cherry_rebase_group(repo, new_target_id, &commits, false)?;
+            let new_head = cherry_rebase_group(repo, new_target_id, &commits, false, false)?;
 
             Ok(new_head)
         }
@@ -641,6 +642,7 @@ fn compute_resolutions(
                         repository,
                         new_target.id(),
                         &virtual_branch_commits,
+                        false,
                         false,
                     )?;
 

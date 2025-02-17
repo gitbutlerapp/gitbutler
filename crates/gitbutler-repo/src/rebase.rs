@@ -12,7 +12,7 @@ use gitbutler_commit::{
     commit_ext::CommitExt,
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
 };
-use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt as _};
+use gitbutler_oxidize::{gix_to_git2_oid, GixRepositoryExt as _, ObjectIdExt as _, OidExt as _};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -36,7 +36,8 @@ pub fn cherry_rebase(
         return Ok(None);
     }
 
-    let new_head_id = cherry_rebase_group(ctx.repo(), target_commit_oid, &ids_to_rebase, false)?;
+    let new_head_id =
+        cherry_rebase_group(ctx.repo(), target_commit_oid, &ids_to_rebase, false, false)?;
 
     Ok(Some(new_head_id))
 }
@@ -53,6 +54,7 @@ pub fn cherry_rebase_group(
     target_commit_oid: git2::Oid,
     ids_to_rebase: &[git2::Oid],
     always_rebase: bool,
+    allow_empty_commit: bool,
 ) -> Result<git2::Oid> {
     // now, rebase unchanged commits onto the new commit
     let commits_to_rebase = ids_to_rebase
@@ -98,6 +100,7 @@ pub fn cherry_rebase_group(
                         head,
                         to_rebase,
                         gix_to_git2_oid(tree_id),
+                        allow_empty_commit,
                     )
                 }
             },
@@ -112,9 +115,10 @@ fn commit_unconflicted_cherry_result<'repository>(
     head: git2::Commit<'repository>,
     to_rebase: git2::Commit,
     merge_tree_id: git2::Oid,
+    deny_empty_commit: bool,
 ) -> Result<git2::Commit<'repository>> {
     // Remove empty commits
-    if merge_tree_id == head.tree_id() {
+    if !deny_empty_commit && merge_tree_id == head.tree_id() {
         return Ok(head);
     }
 
@@ -303,13 +307,15 @@ fn extract_conflicted_files(
 /// The `target_commit` and `incoming_commit` must have a common ancestor.
 ///
 /// If there is a merge conflict, we will **auto-resolve** to favor *our* side, the `incoming_commit`.
-pub fn gitbutler_merge_commits<'repository>(
-    repository: &'repository git2::Repository,
-    target_commit: git2::Commit<'repository>,
-    incoming_commit: git2::Commit<'repository>,
-    target_branch_name: &str,
-    incoming_branch_name: &str,
-) -> Result<git2::Commit<'repository>> {
+pub fn merge_commits(
+    gix_repository: &gix::Repository,
+    target_commit: gix::ObjectId,
+    incoming_commit: gix::ObjectId,
+    resulting_name: &str,
+) -> Result<gix::ObjectId> {
+    let repository = git2::Repository::open(gix_repository.path())?;
+    let target_commit = repository.find_commit(target_commit.to_git2())?;
+    let incoming_commit = repository.find_commit(incoming_commit.to_git2())?;
     let merge_base = repository.merge_base(target_commit.id(), incoming_commit.id())?;
     let merge_base = repository.find_commit(merge_base)?;
 
@@ -323,9 +329,9 @@ pub fn gitbutler_merge_commits<'repository>(
     let incoming_merge_tree = repository.find_real_tree(&incoming_commit, Default::default())?;
     let gix_repo = gix_repository_for_merging(repository.path())?;
     let mut merge_result = gix_repo.merge_trees(
-        git2_to_gix_object_id(base_tree.id()),
-        git2_to_gix_object_id(incoming_merge_tree.id()),
-        git2_to_gix_object_id(target_merge_tree.id()),
+        base_tree.id().to_gix(),
+        incoming_merge_tree.id().to_gix(),
+        target_merge_tree.id().to_gix(),
         gix_repo.default_merge_labels(),
         gix_repo.merge_options_force_ours()?,
     )?;
@@ -350,7 +356,7 @@ pub fn gitbutler_merge_commits<'repository>(
         tree_writer.insert(&*ConflictedTreeKey::Base, base_tree.id(), 0o040000)?;
         tree_writer.insert(
             &*ConflictedTreeKey::AutoResolution,
-            gix_to_git2_oid(merged_tree_id),
+            merged_tree_id.to_git2(),
             0o040000,
         )?;
         tree_writer.insert(
@@ -368,20 +374,17 @@ pub fn gitbutler_merge_commits<'repository>(
         tree_oid = tree_writer.write().context("failed to write tree")?;
         conflicted_files.to_headers()
     } else {
-        tree_oid = gix_to_git2_oid(merged_tree_id);
+        tree_oid = merged_tree_id.to_git2();
         CommitHeadersV2::default()
     };
 
     let (author, committer) = repository.signatures()?;
     let commit_oid = crate::RepositoryExt::commit_with_signature(
-        repository,
+        &repository,
         None,
         &author,
         &committer,
-        &format!(
-            "Merge `{}` into `{}`",
-            incoming_branch_name, target_branch_name
-        ),
+        resulting_name,
         &repository
             .find_tree(tree_oid)
             .context("failed to find tree")?,
@@ -390,7 +393,27 @@ pub fn gitbutler_merge_commits<'repository>(
     )
     .context("failed to create commit")?;
 
-    Ok(repository.find_commit(commit_oid)?)
+    Ok(commit_oid.to_gix())
+}
+pub fn gitbutler_merge_commits<'repository>(
+    repository: &'repository git2::Repository,
+    target_commit: git2::Commit<'repository>,
+    incoming_commit: git2::Commit<'repository>,
+    target_branch_name: &str,
+    incoming_branch_name: &str,
+) -> Result<git2::Commit<'repository>> {
+    let gix_repository = gix::open(repository.path())?;
+    let result_oid = merge_commits(
+        &gix_repository,
+        target_commit.id().to_gix(),
+        incoming_commit.id().to_gix(),
+        &format!(
+            "Merge `{}` into `{}`",
+            incoming_branch_name, target_branch_name
+        ),
+    )?;
+
+    Ok(repository.find_commit(result_oid.to_git2())?)
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]

@@ -1,3 +1,4 @@
+import { reactive } from '@gitbutler/shared/storeUtils';
 import {
 	type Api,
 	type ApiEndpointMutation,
@@ -5,23 +6,10 @@ import {
 	type CoreModule,
 	type EndpointDefinitions,
 	type MutationDefinition,
-	type QueryDefinition,
 	type RootState
 } from '@reduxjs/toolkit/query';
-import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
-
-/**
- *	The api is necessary to create the store, so we need to provide
- *	a way for them to access state and dispatch. In react it's possible
- *	to use the application context since it is available to events
- *	fired by components, while Svelte requires `getContext` only be
- *	used during component initialization.
- */
-export type HookContext = {
-	/** Without the nested function we get looping reactivity.  */
-	getState: () => () => RootState<any, any, any>;
-	getDispatch: () => ThunkDispatch<any, any, UnknownAction>;
-};
+import type { CustomQuery } from './butlerModule';
+import type { HookContext } from './context';
 
 /**
  * Returns implementations for custom endpoint methods defined in `ButlerModule`.
@@ -36,43 +24,45 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 	ctx: HookContext;
 }) {
 	const endpoint = api.endpoints[endpointName]!;
+	const state = getState() as any as () => RootState<any, any, any>;
 
-	const { initiate, select } = endpoint as ApiEndpointQuery<
-		QueryDefinition<any, any, any, any, any>,
-		Definitions
-	>;
+	const { initiate, select } = endpoint as ApiEndpointQuery<CustomQuery<any>, Definitions>;
 
-	function useQuery(queryArg: unknown) {
+	function useQuery<T extends (arg: any) => any>(queryArg: unknown, options?: { transform?: T }) {
 		const dispatch = getDispatch();
 		$effect(() => {
 			const { unsubscribe } = dispatch(initiate(queryArg));
 			return unsubscribe;
 		});
-		const result = $derived(useQueryState(queryArg));
+		const result = $derived(useQueryState(queryArg, options));
 		return result;
 	}
 
-	function useQueryState<T extends (arg: any) => any>(queryArg: unknown, transform?: T) {
-		const state = getState();
+	function useQueryState<T extends (arg: any) => any>(
+		queryArg: unknown,
+		options?: { transform?: T }
+	) {
 		const selector = $derived(select(queryArg));
 		const result = $derived(selector(state()));
-		return {
-			get current() {
-				const data = transform ? transform(result.data) : result.data;
-				function andThen(fn: (arg: any) => any) {
-					if (data) {
-						return fn(data);
-					} else {
-						return result;
-					}
-				}
-				return {
-					...result,
-					data,
-					andThen
-				};
+		const output = $derived.by(() => {
+			let data = result.data;
+			if (options?.transform && data) {
+				data = options.transform(data);
 			}
-		};
+			function andThen(fn: (arg: any) => any) {
+				if (data) {
+					return fn(data);
+				} else {
+					return result;
+				}
+			}
+			return {
+				...result,
+				data,
+				andThen
+			};
+		});
+		return reactive(() => output);
 	}
 
 	return {
