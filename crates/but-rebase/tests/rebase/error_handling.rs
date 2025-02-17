@@ -22,7 +22,7 @@ fn base_non_existing() -> anyhow::Result<()> {
 fn non_existing_commit_in_pick_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![RebaseStep::Pick {
+    let result = builder.steps([RebaseStep::Pick {
         commit_id: non_existing_commit(),
         new_message: None,
     }]);
@@ -37,7 +37,7 @@ fn non_existing_commit_in_pick_step() -> anyhow::Result<()> {
 fn non_existing_commit_in_merge_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![RebaseStep::Merge {
+    let result = builder.steps([RebaseStep::Merge {
         commit_id: non_existing_commit(),
         new_message: "merge commit".into(),
     }]);
@@ -52,7 +52,7 @@ fn non_existing_commit_in_merge_step() -> anyhow::Result<()> {
 fn non_existing_commit_in_fixup_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![RebaseStep::SquashIntoPreceding {
+    let result = builder.steps([RebaseStep::SquashIntoPreceding {
         commit_id: non_existing_commit(),
         new_message: None,
     }]);
@@ -67,7 +67,7 @@ fn non_existing_commit_in_fixup_step() -> anyhow::Result<()> {
 fn using_base_in_pick_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![RebaseStep::SquashIntoPreceding {
+    let result = builder.steps([RebaseStep::SquashIntoPreceding {
         commit_id: commits.base,
         new_message: None,
     }]);
@@ -82,7 +82,7 @@ fn using_base_in_pick_step() -> anyhow::Result<()> {
 fn using_base_in_merge_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![RebaseStep::Merge {
+    let result = builder.steps([RebaseStep::Merge {
         commit_id: commits.base,
         new_message: "merge commit".into(),
     }]);
@@ -97,7 +97,7 @@ fn using_base_in_merge_step() -> anyhow::Result<()> {
 fn using_base_in_fixup_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![RebaseStep::SquashIntoPreceding {
+    let result = builder.steps([RebaseStep::SquashIntoPreceding {
         commit_id: commits.base,
         new_message: None,
     }]);
@@ -112,7 +112,7 @@ fn using_base_in_fixup_step() -> anyhow::Result<()> {
 fn using_picked_commit_in_a_pick_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![
+    let result = builder.steps([
         RebaseStep::Pick {
             commit_id: commits.a,
             new_message: None,
@@ -133,7 +133,7 @@ fn using_picked_commit_in_a_pick_step() -> anyhow::Result<()> {
 fn using_merged_commit_in_a_pick_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![
+    let result = builder.steps([
         RebaseStep::Merge {
             commit_id: commits.a,
             new_message: "merge commit".into(),
@@ -154,7 +154,7 @@ fn using_merged_commit_in_a_pick_step() -> anyhow::Result<()> {
 fn using_fixup_commit_in_a_pick_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![
+    let result = builder.steps([
         RebaseStep::Pick {
             commit_id: commits.a,
             new_message: None,
@@ -179,7 +179,7 @@ fn using_fixup_commit_in_a_pick_step() -> anyhow::Result<()> {
 fn using_picked_commit_in_a_merge_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![
+    let result = builder.steps([
         RebaseStep::Pick {
             commit_id: commits.a,
             new_message: None,
@@ -200,7 +200,7 @@ fn using_picked_commit_in_a_merge_step() -> anyhow::Result<()> {
 fn using_merged_commit_in_a_merge_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![
+    let result = builder.steps([
         RebaseStep::Merge {
             commit_id: commits.a,
             new_message: "merge commit".into(),
@@ -221,7 +221,7 @@ fn using_merged_commit_in_a_merge_step() -> anyhow::Result<()> {
 fn using_fixup_commit_in_a_merge_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![
+    let result = builder.steps([
         RebaseStep::Pick {
             commit_id: commits.a,
             new_message: None,
@@ -246,7 +246,7 @@ fn using_fixup_commit_in_a_merge_step() -> anyhow::Result<()> {
 fn using_picked_commit_in_a_fixup_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![
+    let result = builder.steps([
         RebaseStep::Pick {
             commit_id: commits.a,
             new_message: None,
@@ -267,7 +267,7 @@ fn using_picked_commit_in_a_fixup_step() -> anyhow::Result<()> {
 fn using_merged_commit_in_a_fixup_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![
+    let result = builder.steps([
         RebaseStep::Merge {
             commit_id: commits.a,
             new_message: "merge commit".into(),
@@ -288,7 +288,7 @@ fn using_merged_commit_in_a_fixup_step() -> anyhow::Result<()> {
 fn using_fixup_commit_in_a_fixup_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![
+    let result = builder.steps([
         RebaseStep::Pick {
             commit_id: commits.a,
             new_message: None,
@@ -313,7 +313,7 @@ fn using_fixup_commit_in_a_fixup_step() -> anyhow::Result<()> {
 fn fixup_is_first_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![RebaseStep::SquashIntoPreceding {
+    let result = builder.steps([RebaseStep::SquashIntoPreceding {
         commit_id: commits.a,
         new_message: None,
     }]);
@@ -328,7 +328,7 @@ fn fixup_is_first_step() -> anyhow::Result<()> {
 fn fixup_is_only_preceeded_by_a_reference_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps(vec![
+    let result = builder.steps([
         RebaseStep::Reference(but_core::Reference::Virtual("foo/bar".into())),
         RebaseStep::SquashIntoPreceding {
             commit_id: commits.a,
