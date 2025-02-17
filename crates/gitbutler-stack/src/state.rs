@@ -26,7 +26,7 @@ const LAST_PUSHED_BASE_VERSION: &str = "1";
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct VirtualBranches {
     /// This is the target/base that is set when a repo is added to gb
-    default_target: Option<Target>,
+    pub default_target: Option<Target>,
     /// The targets for each virtual branch
     branch_targets: HashMap<StackId, Target>,
     /// The current state of the virtual branches
@@ -202,11 +202,12 @@ impl VirtualBranchesHandle {
     /// Reads and parses the state file.
     ///
     /// If the file does not exist, it will be created.
-    fn read_file(&self) -> Result<VirtualBranches> {
+    pub fn read_file(&self) -> Result<VirtualBranches> {
         read_toml_file_or_default(&self.file_path)
     }
 
-    fn write_file(&self, virtual_branches: &VirtualBranches) -> Result<()> {
+    /// Write the given `virtual_branches` back to disk in one go.
+    pub fn write_file(&self, virtual_branches: &VirtualBranches) -> Result<()> {
         write(self.file_path.as_path(), virtual_branches)
     }
 

@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
+use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use gitbutler_reference::RemoteRefname;
-use gitbutler_settings::AppSettings;
 
 use crate::command::debug_print;
 

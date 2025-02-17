@@ -22,6 +22,7 @@ mod cherry_rebase_group {
             d.id(),
             &[c.id(), b.id()],
             false,
+            false,
         )
         .unwrap();
 
@@ -51,7 +52,8 @@ mod cherry_rebase_group {
 
         // Rebase C on top of B
         let result =
-            cherry_rebase_group(&test_repository.repository, b.id(), &[c.id()], false).unwrap();
+            cherry_rebase_group(&test_repository.repository, b.id(), &[c.id()], false, false)
+                .unwrap();
 
         let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
 
@@ -80,11 +82,13 @@ mod cherry_rebase_group {
 
         // Rebase C on top of B => C'
         let result =
-            cherry_rebase_group(&test_repository.repository, b.id(), &[c.id()], false).unwrap();
+            cherry_rebase_group(&test_repository.repository, b.id(), &[c.id()], false, false)
+                .unwrap();
 
         // Rebase C' on top of D => C''
         let result =
-            cherry_rebase_group(&test_repository.repository, d.id(), &[result], false).unwrap();
+            cherry_rebase_group(&test_repository.repository, d.id(), &[result], false, false)
+                .unwrap();
 
         let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
 
@@ -114,7 +118,8 @@ mod cherry_rebase_group {
 
         // Rebase D on top of B => D'
         let result =
-            cherry_rebase_group(&test_repository.repository, b.id(), &[d.id()], false).unwrap();
+            cherry_rebase_group(&test_repository.repository, b.id(), &[d.id()], false, false)
+                .unwrap();
 
         let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
         assert!(commit.is_conflicted());
@@ -132,7 +137,8 @@ mod cherry_rebase_group {
 
         // Rebase D' on top of C => D''
         let result =
-            cherry_rebase_group(&test_repository.repository, c.id(), &[result], false).unwrap();
+            cherry_rebase_group(&test_repository.repository, c.id(), &[result], false, false)
+                .unwrap();
 
         let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
         assert!(commit.is_conflicted());
@@ -163,6 +169,7 @@ mod cherry_rebase_group {
             &test_repository.repository,
             d.id(),
             &[c.id(), b.id()],
+            false,
             false,
         )
         .unwrap();

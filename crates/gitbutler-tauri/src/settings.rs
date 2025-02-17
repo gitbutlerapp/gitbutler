@@ -1,10 +1,10 @@
 #![allow(deprecated)]
 use anyhow::Result;
-use gitbutler_settings::api::FeatureFlagsUpdate;
-use gitbutler_settings::api::TelemetryUpdate;
-use gitbutler_settings::AppSettings;
-use gitbutler_settings::AppSettingsWithDiskSync;
-use gitbutler_settings::LegacySettings;
+use but_settings::api::FeatureFlagsUpdate;
+use but_settings::api::TelemetryUpdate;
+use but_settings::AppSettings;
+use but_settings::AppSettingsWithDiskSync;
+use but_settings::LegacySettings;
 use std::sync::Arc;
 use tauri::State;
 use tauri::Wry;

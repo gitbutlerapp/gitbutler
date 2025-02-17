@@ -130,7 +130,7 @@ pub fn compute_updated_branch_head_for_commits(
         Default::default(),
     )?;
 
-    let rebased_tree = cherry_rebase_group(repository, new_head, &[commited_tree], false)?;
+    let rebased_tree = cherry_rebase_group(repository, new_head, &[commited_tree], false, false)?;
     let rebased_tree = repository.find_commit(rebased_tree)?;
 
     if rebased_tree.is_conflicted() {

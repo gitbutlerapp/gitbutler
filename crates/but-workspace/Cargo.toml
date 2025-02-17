@@ -19,6 +19,7 @@ gix = { workspace = true, features = [] }
 gitbutler-stack.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-oxidize.workspace = true
+gitbutler-project.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-repo.workspace = true
 serde = { workspace = true, features = ["std"] }

@@ -3,6 +3,7 @@
 //! It will only affect the commit-graph, and never the alter the worktree in any way.
 #![deny(rust_2018_idioms, missing_docs)]
 
+use crate::commit::CommitterMode;
 use anyhow::{anyhow, bail, Context, Ok, Result};
 use bstr::{BString, ByteSlice};
 use gitbutler_oxidize::{ObjectIdExt as _, OidExt};
@@ -32,7 +33,7 @@ pub enum RebaseStep {
     Merge {
         /// Id of an already existing commit
         commit_id: gix::ObjectId,
-        /// Optional message to use for newly produced commit
+        /// Message to use for newly produced commit
         new_message: BString,
     },
     /// Squashes an existing commit into the one in the first `Pick` or `Merge` RebaseStep that precedes it.
@@ -67,14 +68,15 @@ impl RebaseStep {
 
 /// Setup a list of [instructions](RebaseStep) for the actual [rebase operation](RebaseBuilder::rebase).
 #[derive(Debug)]
-pub struct RebaseBuilder<'repo> {
+pub struct Rebase<'repo> {
     repo: &'repo gix::Repository,
     base: Option<gix::ObjectId>,
     base_substitute: Option<gix::ObjectId>,
     steps: Vec<RebaseStep>,
+    rebase_noops: bool,
 }
 
-impl<'repo> RebaseBuilder<'repo> {
+impl<'repo> Rebase<'repo> {
     /// Creates a new rebase builder with the provided commit as a `base`, the commit
     /// that all other commits should be placed on top of.
     /// If `None` this means the first picked commit will have no parents.
@@ -99,22 +101,26 @@ impl<'repo> RebaseBuilder<'repo> {
             base,
             base_substitute,
             steps: Vec::new(),
+            rebase_noops: true, // default to always rebasing
         })
     }
 
-    /// Adds a rebase step to the list of steps.
-    /// The steps must be added in the order in which they should appear in the graph,
-    /// i.e. the first step will be the first commit in the rebase and the last step will be the last commit.
-    pub fn step(&mut self, step: RebaseStep) -> Result<&mut Self> {
-        self.validate_step(&step)?;
-        self.steps.push(step);
+    /// Adds and validates a list of rebase steps.
+    /// Ordered oldest (parentmost) to newest (childmost). Reference steps refer to the commit that precedes them.
+    /// Note that `steps` will extend whatever steps were added before.
+    pub fn steps(&mut self, steps: impl IntoIterator<Item = RebaseStep>) -> Result<&mut Self> {
+        for step in steps {
+            self.validate_step(&step)?;
+            self.steps.push(step);
+        }
         Ok(self)
     }
 
-    /// A way to ingest `steps` without additional validation, putting correct use strictly on the caller.
-    /// Note that `steps` will extend whatever steps were added before.
-    pub fn steps_unvalidated(&mut self, steps: impl IntoIterator<Item = RebaseStep>) -> &mut Self {
-        self.steps.extend(steps);
+    /// Configures whether the noop steps should be rebased regardless.
+    /// If set to true, commits that dont really change will have their timestamps and ids updated.
+    /// Default is `true`
+    pub fn rebase_noops(&mut self, value: bool) -> &mut Self {
+        self.rebase_noops = value;
         self
     }
 
@@ -140,11 +146,12 @@ impl<'repo> RebaseBuilder<'repo> {
             self.base,
             self.base_substitute,
             std::mem::take(&mut self.steps),
+            self.rebase_noops,
         )
     }
 }
 
-impl RebaseBuilder<'_> {
+impl Rebase<'_> {
     /// Pick, Merge and Fixup operations:
     /// - The commit must already exist in the repository
     /// - The commit must not be the base commit
@@ -216,6 +223,7 @@ fn rebase(
     base: Option<gix::ObjectId>,
     base_substitute: Option<gix::ObjectId>,
     steps: Vec<RebaseStep>,
+    rebase_noops: bool,
 ) -> Result<RebaseOutput> {
     let git2_repo = git2::Repository::open(repo.path())?;
     let (mut references, mut commit_mapping) = (
@@ -263,6 +271,7 @@ fn rebase(
                                 &git2_repo,
                                 cursor.to_git2(),
                                 &[commit_id.to_git2()],
+                                rebase_noops,
                                 true,
                             )?
                             .to_gix();
@@ -276,7 +285,7 @@ fn rebase(
                             if let Some(new_message) = new_message {
                                 new_commit.message = new_message;
                             }
-                            cursor = Some(commit::create(repo, new_commit)?);
+                            cursor = Some(commit::create(repo, new_commit, CommitterMode::Update)?);
                         }
                         None => {
                             // TODO: should this be supported? This would be as easy as forgetting its parents.
@@ -315,6 +324,7 @@ fn rebase(
                     cursor.to_git2(),
                     &[commit_id.to_git2()],
                     true,
+                    true,
                 )?
                 .to_gix();
 
@@ -325,7 +335,7 @@ fn rebase(
                 if let Some(new_message) = new_message {
                     new_commit.message = new_message;
                 }
-                *cursor = commit::create(repo, new_commit)?;
+                *cursor = commit::create(repo, new_commit, CommitterMode::Update)?;
             }
             RebaseStep::Reference(reference) => {
                 references.push(ReferenceSpec {
@@ -365,7 +375,7 @@ fn reword_commit(
 ) -> Result<gix::ObjectId> {
     let mut new_commit = repo.find_commit(oid)?.decode()?.to_owned();
     new_commit.message = new_message;
-    Ok(commit::create(repo, new_commit)?)
+    Ok(commit::create(repo, new_commit, CommitterMode::Update)?)
 }
 
 /// A reference that is an output of a rebase operation.

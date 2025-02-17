@@ -666,12 +666,15 @@ dependencies = [
  "anyhow",
  "but-core",
  "but-hunk-dependency",
+ "but-settings",
  "but-workspace",
  "clap",
+ "dirs-next",
  "gitbutler-command-context",
  "gitbutler-commit",
+ "gitbutler-oxidize",
  "gitbutler-project",
- "gitbutler-settings",
+ "gitbutler-stack",
  "gix",
  "itertools 0.14.0",
  "tracing",
@@ -742,6 +745,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-settings"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gitbutler-fs",
+ "notify",
+ "serde",
+ "serde_json",
+ "serde_json_lenient",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "but-testsupport"
 version = "0.0.0"
 dependencies = [
@@ -765,6 +782,7 @@ dependencies = [
  "gitbutler-commit",
  "gitbutler-id",
  "gitbutler-oxidize",
+ "gitbutler-project",
  "gitbutler-repo",
  "gitbutler-serde",
  "gitbutler-stack",
@@ -2445,6 +2463,9 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-core",
+ "but-rebase",
+ "but-settings",
  "but-workspace",
  "criterion",
  "diffy",
@@ -2468,7 +2489,6 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-repo-actions",
  "gitbutler-serde",
- "gitbutler-settings",
  "gitbutler-stack",
  "gitbutler-testsupport",
  "gitbutler-time",
@@ -2512,6 +2532,7 @@ name = "gitbutler-cli"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-settings",
  "chrono",
  "clap",
  "dirs-next",
@@ -2524,7 +2545,6 @@ dependencies = [
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
- "gitbutler-settings",
  "gitbutler-stack",
  "gix",
  "tracing",
@@ -2538,9 +2558,9 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-settings",
  "git2",
  "gitbutler-project",
- "gitbutler-settings",
  "gix",
  "itertools 0.14.0",
  "tracing",
@@ -2715,13 +2735,13 @@ name = "gitbutler-operating-modes"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-settings",
  "git2",
  "gitbutler-command-context",
  "gitbutler-fs",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-serde",
- "gitbutler-settings",
  "gitbutler-testsupport",
  "serde",
  "toml 0.8.19",
@@ -2806,6 +2826,7 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "bstr",
+ "but-settings",
  "git2",
  "git2-hooks",
  "gitbutler-cherry-pick",
@@ -2817,7 +2838,6 @@ dependencies = [
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
- "gitbutler-settings",
  "gitbutler-testsupport",
  "gitbutler-url",
  "gitbutler-user",
@@ -2878,20 +2898,6 @@ dependencies = [
  "gitbutler-oxidize",
  "gix",
  "serde",
-]
-
-[[package]]
-name = "gitbutler-settings"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "gitbutler-fs",
- "notify",
- "serde",
- "serde_json",
- "serde_json_lenient",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -2971,6 +2977,7 @@ dependencies = [
  "backtrace",
  "but-core",
  "but-hunk-dependency",
+ "but-settings",
  "but-workspace",
  "console-subscriber",
  "git2",
@@ -2991,7 +2998,6 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-repo-actions",
  "gitbutler-secret",
- "gitbutler-settings",
  "gitbutler-stack",
  "gitbutler-sync",
  "gitbutler-user",
@@ -3014,7 +3020,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tauri-plugin-single-instance",
  "tauri-plugin-store",
- "tauri-plugin-traffic-lights",
+ "tauri-plugin-trafficlights-positioner",
  "tauri-plugin-updater",
  "tauri-plugin-window-state",
  "tokio",
@@ -3030,6 +3036,7 @@ name = "gitbutler-testsupport"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-settings",
  "git2",
  "gitbutler-branch",
  "gitbutler-branch-actions",
@@ -3039,7 +3046,6 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
- "gitbutler-settings",
  "gitbutler-stack",
  "gitbutler-storage",
  "gitbutler-url",
@@ -3089,6 +3095,7 @@ dependencies = [
  "anyhow",
  "backoff",
  "but-core",
+ "but-settings",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
  "gitbutler-diff",
@@ -3098,7 +3105,6 @@ dependencies = [
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
- "gitbutler-settings",
  "gitbutler-sync",
  "gitbutler-user",
  "gix",
@@ -3114,6 +3120,7 @@ name = "gitbutler-workspace"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-settings",
  "git2",
  "gitbutler-branch",
  "gitbutler-branch-actions",
@@ -3123,7 +3130,6 @@ dependencies = [
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-repo",
- "gitbutler-settings",
  "gitbutler-stack",
  "gitbutler-testsupport",
  "gitbutler-workspace",
@@ -8517,8 +8523,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-plugin-traffic-lights"
-version = "1.0.0"
+name = "tauri-plugin-trafficlights-positioner"
+version = "1.0.1"
+source = "git+https://github.com/gitbutlerapp/tauri-plugin-trafficlights-positioner?branch=v2#b19990da0dfaee7f1bb3304e4c100af9f1d40b2e"
 dependencies = [
  "cocoa",
  "objc",

@@ -127,7 +127,7 @@ pub fn delete_local_branch(
         stack
             .source_refname
             .as_ref()
-            .is_none_or(|source_refname| source_refname == refname)
+            .is_some_and(|source_refname| source_refname == refname)
     });
 
     if let Some(stack) = stack {
@@ -381,7 +381,8 @@ pub fn reorder_stack(
         SnapshotDetails::new(OperationKind::ReorderCommit),
         guard.write_permission(),
     );
-    reorder::reorder_stack(ctx, stack_id, stack_order, guard.write_permission())
+    reorder::reorder_stack(ctx, stack_id, stack_order, guard.write_permission())?;
+    Ok(())
 }
 
 pub fn reset_virtual_branch(

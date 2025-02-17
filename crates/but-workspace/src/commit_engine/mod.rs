@@ -1,20 +1,24 @@
 //! The machinery used to alter and mutate commits in various ways whilst adjusting descendant commits within a [reference frame](ReferenceFrame).
 
 use anyhow::{bail, Context};
-use bstr::{BStr, BString, ByteSlice};
+use bstr::BString;
 use but_core::unified_diff::DiffHunk;
-use but_core::{RepositoryExt, UnifiedDiff};
+use but_core::RepositoryExt;
+use but_rebase::commit::CommitterMode;
 use but_rebase::RebaseOutput;
-use gitbutler_oxidize::ObjectIdExt;
-use gitbutler_stack::{CommitOrChangeId, VirtualBranchesState};
-use gix::filter::plumbing::driver::apply::{Delay, MaybeDelayed};
-use gix::filter::plumbing::pipeline::convert::{ToGitOutcome, ToWorktreeOutcome};
-use gix::merge::tree::TreatAsUnresolved;
-use gix::objs::tree::EntryKind;
+use gitbutler_stack::{StackId, VirtualBranchesHandle, VirtualBranchesState};
 use gix::prelude::ObjectIdExt as _;
 use gix::refs::transaction::PreviousValue;
 use serde::{Deserialize, Serialize};
-use std::io::Read;
+
+mod tree;
+use crate::commit_engine::reference_frame::InferenceMode;
+use tree::{create_tree, CreateTreeOutcome};
+
+mod index;
+/// Utility types
+pub mod reference_frame;
+mod refs;
 
 /// Types for use in the frontend with serialization support.
 pub mod ui;
@@ -137,136 +141,6 @@ pub struct CreateCommitOutcome {
     pub index: Option<gix::index::File>,
 }
 
-/// Additional information about the outcome of a [`create_tree()`] call.
-#[derive(Debug)]
-pub struct CreateTreeOutcome {
-    /// Changes that were removed from `new_tree` because they caused conflicts when rebasing dependent commits,
-    /// when merging the workspace commit, or because the specified hunks didn't match exactly due to changes
-    /// that happened in the meantime, or if a file without a change was specified.
-    pub rejected_specs: Vec<DiffSpec>,
-    /// The newly created seen from tree that acts as the destination of the changes, or `None` if no commit could be
-    /// created as all changes-requests were rejected.
-    pub destination_tree: Option<gix::ObjectId>,
-    /// If `destination_tree` is `Some(_)`, this field is `Some(_)` as well and denotes the base-tree + all changes.
-    /// If the applied changes were from the worktree, it's `HEAD^{tree}` + changes.
-    /// Otherwise, it's `<commit>^{tree}` + changes.
-    pub changed_tree_pre_cherry_pick: Option<gix::ObjectId>,
-    /// An index based on the existing index on disk that matches *the tree at `HEAD`* (but not necessarily `destination_tree`).
-    /// Note that a couple of extensions that relate to paths will have been dropped to assure consistency - we don't have
-    /// `unpack_trees` just yet.
-    /// The index wasn't written yet, but could be to match `HEAD^{commit}`.
-    pub index: Option<gix::index::File>,
-}
-
-/// Like [`create_commit()`], but lower-level and only returns a new tree, without finally associating it with a commit.
-pub fn create_tree(
-    repo: &gix::Repository,
-    destination: &Destination,
-    move_source: Option<MoveSourceCommit>,
-    changes: Vec<DiffSpec>,
-    context_lines: u32,
-) -> anyhow::Result<CreateTreeOutcome> {
-    if changes.is_empty() {
-        bail!("Have to provide at least one change in order to mutate a commit");
-    }
-
-    let target_tree = match destination {
-        Destination::NewCommit {
-            parent_commit_id: None,
-            ..
-        } => gix::ObjectId::empty_tree(repo.object_hash()),
-        Destination::NewCommit {
-            parent_commit_id: Some(base_commit),
-            ..
-        }
-        | Destination::AmendCommit(base_commit) => {
-            but_core::Commit::from_id(base_commit.attach(repo))?
-                .tree_id()?
-                .detach()
-        }
-    };
-
-    let mut changes: Vec<_> = changes.into_iter().map(Ok).collect();
-    let (new_tree, changed_tree_pre_cherry_pick, maybe_index) = 'retry: loop {
-        let (maybe_new_tree, actual_base_tree, maybe_index) = if let Some(_source) = move_source {
-            todo!("get base tree and apply changes by cherry-picking, probably can all be done by one function, but optimizations are different")
-        } else {
-            let changes_base_tree = repo.head()?.id().and_then(|id| {
-                id.object()
-                    .ok()?
-                    .peel_to_commit()
-                    .ok()?
-                    .tree_id()
-                    .ok()?
-                    .detach()
-                    .into()
-            });
-            let index = repo.open_index().or_else(|err| match err {
-                gix::worktree::open_index::Error::IndexFile(gix::index::file::init::Error::Io(
-                    io_err,
-                )) if gix::fs::io_err::is_not_found(io_err.kind(), io_err.raw_os_error()) => {
-                    Ok((**repo.index_or_empty()?).clone())
-                }
-                err => Err(err),
-            })?;
-            apply_worktree_changes(changes_base_tree, index, repo, &mut changes, context_lines)?
-        };
-
-        let Some(tree_with_changes) =
-            maybe_new_tree.filter(|tree_with_changes| *tree_with_changes != target_tree)
-        else {
-            changes.iter_mut().for_each(into_err_spec);
-            break 'retry (None, None, maybe_index);
-        };
-        let tree_with_changes_without_cherry_pick = tree_with_changes.detach();
-        let mut tree_with_changes = tree_with_changes.detach();
-        let needs_cherry_pick = actual_base_tree != gix::ObjectId::empty_tree(repo.object_hash())
-            && actual_base_tree != target_tree;
-        if needs_cherry_pick {
-            let base = actual_base_tree;
-            let ours = target_tree;
-            let theirs = tree_with_changes;
-            let mut merge_result = repo.merge_trees(
-                base,
-                ours,
-                theirs,
-                repo.default_merge_labels(),
-                repo.tree_merge_options()?,
-            )?;
-            let unresolved_conflicts: Vec<_> = merge_result
-                .conflicts
-                .iter()
-                .filter_map(|c| {
-                    c.is_unresolved(TreatAsUnresolved::git())
-                        .then_some(c.theirs.location())
-                })
-                .collect();
-            if !unresolved_conflicts.is_empty() {
-                for change in changes.iter_mut().filter(|c| {
-                    c.as_ref()
-                        .ok()
-                        .is_some_and(|change| unresolved_conflicts.contains(&change.path.as_bstr()))
-                }) {
-                    into_err_spec(change);
-                }
-                continue 'retry;
-            }
-            tree_with_changes = merge_result.tree.write()?.detach();
-        }
-        break 'retry (
-            Some(tree_with_changes),
-            Some(tree_with_changes_without_cherry_pick),
-            maybe_index,
-        );
-    };
-    Ok(CreateTreeOutcome {
-        rejected_specs: changes.into_iter().filter_map(Result::err).collect(),
-        destination_tree: new_tree,
-        changed_tree_pre_cherry_pick,
-        index: maybe_index,
-    })
-}
-
 /// Alter the single `destination` in a given `frame` with as many `changes` as possible and write new objects into `repo`,
 /// but only if the commit succeeds.
 ///
@@ -276,6 +150,8 @@ pub fn create_tree(
 ///
 /// Return additional information that helps to understand to what extent the commit was created, as the commit might not contain all the [`DiffSpecs`](DiffSpec)
 /// that were requested if they failed to apply.
+///
+/// Note that no [`index`](CreateCommitOutcome::index) is produced here as the `HEAD` isn't queried and doesn't play a role.
 ///
 /// No reference is touched in the process.
 pub fn create_commit(
@@ -311,7 +187,6 @@ pub fn create_commit(
         rejected_specs,
         destination_tree,
         changed_tree_pre_cherry_pick,
-        index,
     } = create_tree(repo, &destination, move_source, changes, context_lines)?;
     let new_commit = if let Some(new_tree) = destination_tree {
         match destination {
@@ -333,7 +208,11 @@ pub fn create_commit(
                     .decode()?
                     .to_owned();
                 commit.tree = new_tree;
-                Some(but_rebase::commit::create(repo, commit)?)
+                Some(but_rebase::commit::create(
+                    repo,
+                    commit,
+                    CommitterMode::Update,
+                )?)
             }
         }
     } else {
@@ -345,14 +224,14 @@ pub fn create_commit(
         changed_tree_pre_cherry_pick,
         references: Vec::new(),
         rebase_output: None,
-        index,
+        index: None,
     })
 }
 
 /// All information to know where in the commit-graph the rewritten commit is located to figure out
 /// which descendant commits to rewrite.
-#[derive(Debug)]
-pub struct ReferenceFrame<'a> {
+#[derive(Debug, Copy, Clone, Default)]
+pub struct ReferenceFrame {
     /// The commit that merges all stacks together for a unified view.
     pub workspace_tip: Option<gix::ObjectId>,
     /// If given, and if rebases are necessary, this is the tip (commit) whose ancestry contains
@@ -360,9 +239,6 @@ pub struct ReferenceFrame<'a> {
     ///
     /// Note that in case of moves, right now the source *and* destination need to be contained.
     pub branch_tip: Option<gix::ObjectId>,
-    /// A snapshot of all virtual branches we have to possibly rewrite.
-    /// They also inform about the stacks active in the workspace, if any.
-    pub vb: &'a mut VirtualBranchesState,
 }
 
 /// Like [`create_commit()`], but allows to also update virtual branches and git references pointing to commits
@@ -371,8 +247,14 @@ pub struct ReferenceFrame<'a> {
 /// `frame` contains the virtual branches to be modified to point to the rebased versions of commits, but also to inform
 /// about the available stacks in the workspace and helps to find the stack that contains the affects commits.
 ///
+/// `vb` is a snapshot of all virtual branches we have to possibly rewrite. They also inform about the stacks active
+/// in the workspace, if any.
+///
 /// Note that conflicts that occur during the rebase will be swallowed, putting the commit into a conflicted state.
 /// Finally, the index will be written so it matches the `HEAD^{commit}` *if* there were worktree changes.
+///
+/// An index is produced so it matches the tree at `HEAD^{tree}` while keeping all content already present a possibly
+/// existing `.git/index`. Updated or added files will have their `stat` forcefully updated.
 ///
 /// ### Performance Note
 ///
@@ -380,7 +262,8 @@ pub struct ReferenceFrame<'a> {
 /// [object cache](gix::Repository::object_cache_size_if_unset()) should be configured.
 pub fn create_commit_and_update_refs(
     repo: &gix::Repository,
-    frame: ReferenceFrame<'_>,
+    frame: ReferenceFrame,
+    vb: &mut VirtualBranchesState,
     destination: Destination,
     move_source: Option<MoveSourceCommit>,
     changes: Vec<DiffSpec>,
@@ -409,13 +292,10 @@ pub fn create_commit_and_update_refs(
         let mut all_refs_by_id = gix::hashtable::HashMap::<_, Vec<_>>::default();
         for (commit_id, git_reference) in repo
             .references()?
-            // Theory: `refs/gitbutler` isn't relevant as for now it's only used to dump unapplied branches.
             .prefixed("refs/heads/")?
+            .chain(repo.references()?.prefixed("refs/gitbutler/")?)
             .filter_map(Result::ok)
-            .filter_map(|r| {
-                r.try_id()
-                    .map(|id| (id.detach(), but_core::Reference::Git(r.inner.name)))
-            })
+            .filter_map(|r| r.try_id().map(|id| (id.detach(), r.inner.name)))
         {
             all_refs_by_id
                 .entry(commit_id)
@@ -428,9 +308,10 @@ pub fn create_commit_and_update_refs(
             && repo.head_id().ok().map(|id| id.detach()) == Some(commit_in_graph)
             && all_refs_by_id.contains_key(&commit_in_graph)
         {
-            rewrite_references(
+            refs::rewrite(
                 repo,
-                frame.vb,
+                vb,
+                None,
                 all_refs_by_id,
                 [(commit_in_graph, new_commit)],
                 &mut out.references,
@@ -466,38 +347,52 @@ pub fn create_commit_and_update_refs(
                 );
             }
 
+            let workspace_tip = frame
+                .workspace_tip
+                .filter(|tip| !commits_to_rebase.contains(tip));
             let rebase = {
                 // Set commits leading up to the tip on top of the new commit, serving as base.
-                let mut builder =
-                    but_rebase::RebaseBuilder::new(repo, new_commit, Some(commit_in_graph))?;
-                builder.steps_unvalidated(commits_to_rebase.into_iter().rev().map(|commit_id| {
+                let mut builder = but_rebase::Rebase::new(repo, new_commit, Some(commit_in_graph))?;
+                builder.steps(commits_to_rebase.into_iter().rev().map(|commit_id| {
                     but_rebase::RebaseStep::Pick {
                         commit_id,
                         new_message: None,
                     }
-                }));
-                if let Some(workspace_tip) = frame.workspace_tip {
+                }))?;
+                if let Some(workspace_tip) = workspace_tip {
                     // We can assume the workspace tip is connected to a pick (or else the rebase will fail)
-                    builder.step(but_rebase::RebaseStep::Pick {
+                    builder.steps([but_rebase::RebaseStep::Pick {
                         commit_id: workspace_tip,
                         new_message: None,
-                    })?;
+                    }])?;
                 }
                 builder.rebase()?
             };
 
-            rewrite_references(
+            refs::rewrite(
                 repo,
-                frame.vb,
+                vb,
+                workspace_tip,
                 all_refs_by_id,
                 rebase
                     .commit_mapping
                     .iter()
-                    .map(|(_base, old, new)| (*old, *new)),
+                    .map(|(_base, old, new)| (*old, *new))
+                    .chain(Some((commit_in_graph, new_commit))),
                 &mut out.references,
             )?;
             out.rebase_output = Some(rebase);
         }
+        // Assume an index to be present and adjust it to match the new tree.
+
+        let tree_index = repo.index_from_tree(&repo.head_tree_id()?)?;
+        let mut disk_index = repo.open_index()?;
+        index::apply_lhs_to_rhs(
+            repo.work_dir().expect("non-bare"),
+            &tree_index,
+            &mut disk_index,
+        )?;
+        out.index = disk_index.into();
     } else {
         // unborn branch special case.
         repo.reference(
@@ -515,6 +410,8 @@ pub fn create_commit_and_update_refs(
                     .title
             ),
         )?;
+        let new_tree = new_commit.attach(repo).object()?.into_commit().tree_id()?;
+        out.index = repo.index_from_tree(&new_tree)?.into();
     }
 
     if let Some(index) = out.index.as_mut() {
@@ -523,436 +420,72 @@ pub fn create_commit_and_update_refs(
     Ok(out)
 }
 
-fn rewrite_references(
+/// Like [`create_commit_and_update_refs()`], but integrates with an existing GitButler `project`
+/// if present. Alternatively it uses the current `HEAD` as only reference point.
+/// Note that virtual branches will be updated and written back after this call, which will obtain
+/// an exclusive workspace lock as well.
+pub fn create_commit_and_update_refs_with_project(
     repo: &gix::Repository,
-    state: &mut VirtualBranchesState,
-    mut refs_by_commit_id: gix::hashtable::HashMap<gix::ObjectId, Vec<but_core::Reference>>,
-    changed_commits: impl IntoIterator<Item = (gix::ObjectId, gix::ObjectId)>,
-    updated_refs: &mut Vec<UpdatedReference>,
-) -> anyhow::Result<()> {
-    let mut ref_edits = Vec::new();
-    let mut branches_ordered: Vec<_> = state.branches.values_mut().collect();
-    branches_ordered.sort_by(|a, b| a.name.cmp(&b.name));
-    for (old, new) in changed_commits {
-        let old_git2 = old.to_git2();
-        for stack in &mut branches_ordered {
-            if stack.head == old_git2 {
-                stack.head = new.to_git2();
-                stack.tree = new
-                    .attach(repo)
-                    .object()?
-                    .into_commit()
-                    .tree_id()?
-                    .to_git2();
-                updated_refs.push(UpdatedReference {
-                    old_commit_id: old,
-                    new_commit_id: new,
-                    reference: but_core::Reference::Virtual(stack.name.clone()),
-                });
-            }
-            for (id, branch_target_id_hex, name) in
-                stack.heads.iter_mut().filter_map(|b| match &mut b.head {
-                    CommitOrChangeId::CommitId(id_hex) => {
-                        gix::ObjectId::from_hex(id_hex.as_bytes())
-                            .ok()
-                            .map(|id| (id, id_hex, &b.name))
-                    }
-                    CommitOrChangeId::ChangeId(_) => None,
-                })
-            {
-                if id == old {
-                    *branch_target_id_hex = new.to_string();
-                    updated_refs.push(UpdatedReference {
-                        old_commit_id: old,
-                        new_commit_id: new,
-                        reference: but_core::Reference::Virtual(name.clone()),
-                    });
-                }
-            }
-        }
-
-        let Some(refs_to_rewite) = refs_by_commit_id.remove(&old) else {
-            continue;
-        };
-        // No rebase required, change affects the tip of these heads.
-        for r in refs_to_rewite {
-            match r {
-                but_core::Reference::Git(name) => {
-                    use gix::refs::{
-                        transaction::{Change, LogChange, RefEdit, RefLog},
-                        Target,
-                    };
-                    updated_refs.push(UpdatedReference {
-                        old_commit_id: old,
-                        new_commit_id: new,
-                        reference: but_core::Reference::Git(name.clone()),
-                    });
-                    ref_edits.push(RefEdit {
-                        change: Change::Update {
-                            log: LogChange {
-                                mode: RefLog::AndReference,
-                                force_create_reflog: false,
-                                message: "Created or amended commit".into(),
-                            },
-                            expected: PreviousValue::ExistingMustMatch(Target::Object(old)),
-                            new: Target::Object(new),
-                        },
-                        name,
-                        deref: false,
-                    });
-                }
-                but_core::Reference::Virtual(_name) => {
-                    todo!("change dta in `branches`")
-                }
-            }
-        }
-    }
-    repo.edit_references(ref_edits)?;
-    Ok(())
-}
-
-fn into_err_spec(input: &mut PossibleChange) {
-    *input = match std::mem::replace(input, Ok(Default::default())) {
-        // What we thought was a good change turned out to be a no-op, rejected.
-        Ok(inner) => Err(inner),
-        Err(inner) => Err(inner),
-    };
-}
-
-type PossibleChange = Result<DiffSpec, DiffSpec>;
-
-/// Apply `changes` to `changes_base_tree` and return the newly written tree as `(maybe_new_tree, actual_base_tree, maybe_new_index)`.
-/// All `changes` are expected to originate from `changes_base_tree`, and will be applied `changes_base_tree`.
-///
-/// `head_index`, is expected to match `changes_base_tree` initially
-/// and will be adjusted to contain all the `changes`, thus matching the output tree.
-/// Since we read the latest stats, we will also update these accordingly.
-/// It is treated as if it lived on disk and may contain initial values, as a way to
-/// avoid destroying indexed information like stats which would slow down the next status.
-fn apply_worktree_changes<'repo>(
-    changes_base_tree: Option<gix::ObjectId>,
-    mut head_index: gix::index::File,
-    repo: &'repo gix::Repository,
-    changes: &mut [PossibleChange],
+    project: Option<(&gitbutler_project::Project, Option<StackId>)>,
+    destination: Destination,
+    move_source: Option<MoveSourceCommit>,
+    changes: Vec<DiffSpec>,
     context_lines: u32,
-) -> anyhow::Result<(
-    Option<gix::Id<'repo>>,
-    gix::ObjectId,
-    Option<gix::index::File>,
-)> {
-    if head_index.is_sparse() {
-        bail!("Cannot currently edit sparse indices");
-    }
-    let actual_base_tree =
-        changes_base_tree.unwrap_or_else(|| gix::ObjectId::empty_tree(repo.object_hash()));
-    let base_tree = actual_base_tree.attach(repo).object()?.peel_to_tree()?;
-    let mut base_tree_editor = base_tree.edit()?;
-    let (mut pipeline, index) = repo.filter_pipeline(None)?;
-    let changes_with_hunks = changes
-        .iter()
-        .filter_map(|c| c.as_ref().ok())
-        .any(|c| !c.hunk_headers.is_empty());
-    let worktree_changes = changes_with_hunks
-        .then(|| but_core::diff::worktree_changes(repo).map(|wtc| wtc.changes))
-        .transpose()?;
-    let mut current_worktree = Vec::new();
-    let mut index_needs_sort = false;
-    let mut num_sorted_entries = head_index.entries().len();
-
-    let work_dir = repo.work_dir().expect("non-bare repo");
-    'each_change: for possible_change in changes.iter_mut() {
-        let change_request = match possible_change {
-            Ok(change) => change,
-            Err(_) => continue,
-        };
-        let path = work_dir.join(gix::path::from_bstr(change_request.path.as_bstr()));
-        let md = match gix::index::fs::Metadata::from_path_no_follow(&path) {
-            Ok(md) => md,
-            Err(err) if gix::fs::io_err::is_not_found(err.kind(), err.raw_os_error()) => {
-                base_tree_editor.remove(change_request.path.as_bstr())?;
-                delete_entry_by_path_bounded(
-                    &mut head_index,
-                    change_request.path.as_bstr(),
-                    &mut num_sorted_entries,
-                );
-                continue;
-            }
-            Err(err) => return Err(err.into()),
-        };
-        if change_request.hunk_headers.is_empty() {
-            if let Some(previous_path) = change_request.previous_path.as_ref().map(|p| p.as_bstr())
-            {
-                base_tree_editor.remove(previous_path)?;
-                delete_entry_by_path_bounded(
-                    &mut head_index,
-                    previous_path,
-                    &mut num_sorted_entries,
-                );
-            }
-            let rela_path = change_request.path.as_bstr();
-            match pipeline.worktree_file_to_object(rela_path, &index)? {
-                Some((id, kind, _fs_metadata)) => {
-                    base_tree_editor.upsert(rela_path, kind, id)?;
-                    index_needs_sort |= upsert_index_entry(
-                        &mut head_index,
-                        rela_path,
-                        &md,
-                        id,
-                        kind,
-                        &mut num_sorted_entries,
-                    )?;
-                }
-                None => into_err_spec(possible_change),
-            }
-        } else if let Some(worktree_changes) = &worktree_changes {
-            let Some(worktree_change) = worktree_changes.iter().find(|c| {
-                c.path == change_request.path
-                    && c.previous_path()
-                        == change_request.previous_path.as_ref().map(|p| p.as_bstr())
-            }) else {
-                into_err_spec(possible_change);
-                continue;
-            };
-            let UnifiedDiff::Patch { hunks } = worktree_change.unified_diff(repo, context_lines)?
-            else {
-                into_err_spec(possible_change);
-                continue;
-            };
-            let previous_path = worktree_change.previous_path();
-            if let Some(previous_path) = previous_path {
-                base_tree_editor.remove(previous_path)?;
-                delete_entry_by_path_bounded(
-                    &mut head_index,
-                    previous_path,
-                    &mut num_sorted_entries,
-                );
-            }
-            let base_rela_path = previous_path.unwrap_or(change_request.path.as_bstr());
-            let Some(entry) = base_tree.lookup_entry(base_rela_path.split(|b| *b == b'/'))? else {
-                into_err_spec(possible_change);
-                continue;
-            };
-
-            let current_entry_kind = if md.is_symlink() {
-                EntryKind::Link
-            } else if md.is_file() {
-                if md.is_executable() {
-                    EntryKind::BlobExecutable
-                } else {
-                    EntryKind::Blob
-                }
-            } else {
-                // This could be a fifo (skip) or a repository. But that wouldn't have hunks.
-                into_err_spec(possible_change);
-                continue;
-            };
-
-            let worktree_base = if entry.mode().is_link() {
-                entry.object()?.detach().data
-            } else if entry.mode().is_blob() {
-                let mut obj_in_git = entry.object()?;
-                match pipeline.convert_to_worktree(
-                    &obj_in_git.data,
-                    base_rela_path,
-                    Delay::Forbid,
-                )? {
-                    ToWorktreeOutcome::Unchanged(_) => obj_in_git.detach().data,
-                    ToWorktreeOutcome::Buffer(buf) => buf.to_owned(),
-                    ToWorktreeOutcome::Process(MaybeDelayed::Immediate(mut stream)) => {
-                        obj_in_git.data.clear();
-                        stream.read_to_end(&mut obj_in_git.data)?;
-                        obj_in_git.detach().data
-                    }
-                    ToWorktreeOutcome::Process(MaybeDelayed::Delayed(_)) => {
-                        unreachable!("We forbade that")
+) -> anyhow::Result<CreateCommitOutcome> {
+    match project {
+        Some((project, maybe_stackid)) => {
+            let _guard = project.exclusive_worktree_access();
+            let vbh = VirtualBranchesHandle::new(project.gb_dir());
+            let mut vb = vbh.read_file()?;
+            let frame = match maybe_stackid {
+                None => {
+                    let maybe_commit_id = match &destination {
+                        Destination::NewCommit {
+                            parent_commit_id, ..
+                        } => *parent_commit_id,
+                        Destination::AmendCommit(commit_id) => Some(*commit_id),
+                    };
+                    match maybe_commit_id {
+                        None => ReferenceFrame::default(),
+                        Some(commit_id) => ReferenceFrame::infer(
+                            repo,
+                            &vb,
+                            InferenceMode::CommitIdInStack(commit_id),
+                        )?,
                     }
                 }
-            } else {
-                // defensive: assure file wasn't swapped with something we can't handle
-                into_err_spec(possible_change);
-                continue;
+                Some(stack_id) => {
+                    ReferenceFrame::infer(repo, &vb, InferenceMode::StackId(stack_id))?
+                }
             };
-
-            // TODO(performance): find a byte-line buffered reader so it doesn't have to be all in memory.
-            current_worktree.clear();
-            std::fs::File::open(path)?.read_to_end(&mut current_worktree)?;
-
-            let worktree_hunks: Vec<HunkHeader> = hunks.into_iter().map(Into::into).collect();
-            let mut worktree_base_cursor = 1; /* 1-based counting */
-            let mut old_iter = worktree_base.lines_with_terminator();
-            let mut worktree_actual_cursor = 1; /* 1-based counting */
-            let mut new_iter = current_worktree.lines_with_terminator();
-            let mut base_with_patches: BString = Vec::with_capacity(md.len().try_into()?).into();
-
-            // To each selected hunk, put the old-lines into a buffer.
-            // Skip over the old hunk in old hunk in old lines.
-            // Skip all new lines till the beginning of the new hunk.
-            // Write the new hunk.
-            // Repeat for each hunk, and write all remaining old lines.
-            for selected_hunk in &change_request.hunk_headers {
-                if !worktree_hunks.contains(selected_hunk)
-                    || has_zero_based_line_numbers(selected_hunk)
-                {
-                    into_err_spec(possible_change);
-                    // TODO: only skip this one hunk, but collect skipped hunks into a new err-spec.
-                    continue 'each_change;
-                }
-                let catchup_base_lines = old_iter.by_ref().take(
-                    (selected_hunk.old_start as usize)
-                        .checked_sub(worktree_base_cursor)
-                        .context("hunks must be in order from top to bottom of the file")?,
-                );
-                for line in catchup_base_lines {
-                    base_with_patches.extend_from_slice(line);
-                }
-                let _consume_old_hunk_to_replace_with_new = old_iter
-                    .by_ref()
-                    .take(selected_hunk.old_lines as usize)
-                    .count();
-                worktree_base_cursor += selected_hunk.old_lines as usize;
-
-                let new_hunk_lines = new_iter
-                    .by_ref()
-                    .skip(
-                        (selected_hunk.new_start as usize)
-                            .checked_sub(worktree_actual_cursor)
-                            .context("hunks for new lines must be in order")?,
-                    )
-                    .take(selected_hunk.new_lines as usize);
-
-                for line in new_hunk_lines {
-                    base_with_patches.extend_from_slice(line);
-                }
-                worktree_actual_cursor += selected_hunk.new_lines as usize;
-            }
-
-            for line in old_iter {
-                base_with_patches.extend_from_slice(line);
-            }
-
-            let slice_read = &mut base_with_patches.as_slice();
-            let to_git = pipeline.convert_to_git(
-                slice_read,
-                gix::path::from_bstr(&change_request.path).as_ref(),
-                &index,
+            let out = create_commit_and_update_refs(
+                repo,
+                frame,
+                &mut vb,
+                destination,
+                move_source,
+                changes,
+                context_lines,
             )?;
 
-            let blob_with_selected_patches = match to_git {
-                ToGitOutcome::Unchanged(slice) => repo.write_blob(slice)?,
-                ToGitOutcome::Process(stream) => repo.write_blob_stream(stream)?,
-                ToGitOutcome::Buffer(buf) => repo.write_blob(buf)?,
-            };
-            base_tree_editor.upsert(
-                change_request.path.as_bstr(),
-                current_entry_kind,
-                blob_with_selected_patches,
-            )?;
-            index_needs_sort |= upsert_index_entry(
-                &mut head_index,
-                change_request.path.as_bstr(),
-                &md,
-                blob_with_selected_patches.detach(),
-                current_entry_kind,
-                &mut num_sorted_entries,
-            )?;
-        } else {
-            unreachable!("worktree-changes are always set if there are hunks")
+            vbh.write_file(&vb)?;
+            Ok(out)
         }
-    }
-
-    let altered_base_tree_id = base_tree_editor.write()?;
-    let maybe_new_tree = (actual_base_tree != altered_base_tree_id).then_some(altered_base_tree_id);
-    let maybe_index = if maybe_new_tree.is_some() {
-        if index_needs_sort {
-            head_index.sort_entries();
-        }
-        head_index.remove_tree();
-        head_index.remove_resolve_undo();
-        Some(head_index)
-    } else {
-        None
-    };
-    Ok((maybe_new_tree, actual_base_tree, maybe_index))
-}
-
-// TODO: this could be a platform in Gix which supports these kinds of edits while assuring
-//       consistency. It could use some tricks to not have worst-case performance like this has.
-//       It really is index-add that we need.
-fn upsert_index_entry(
-    index: &mut gix::index::State,
-    rela_path: &BStr,
-    md: &gix::index::fs::Metadata,
-    id: gix::ObjectId,
-    kind: gix::object::tree::EntryKind,
-    num_sorted_entries: &mut usize,
-) -> anyhow::Result<bool> {
-    use gix::index::entry::Stage;
-    delete_entry_by_path_bounded_stages(
-        index,
-        rela_path,
-        num_sorted_entries,
-        &[Stage::Base, Stage::Ours, Stage::Theirs],
-    );
-
-    let needs_sort = if let Some(pos) = index.entry_index_by_path_and_stage_bounded(
-        rela_path,
-        Stage::Unconflicted,
-        *num_sorted_entries,
-    ) {
-        #[allow(clippy::indexing_slicing)]
-        let entry = &mut index.entries_mut()[pos];
-        entry.stat = gix::index::entry::Stat::from_fs(md)?;
-        entry.id = id;
-        entry.mode = kind.into();
-        false
-    } else {
-        index.dangerously_push_entry(
-            gix::index::entry::Stat::from_fs(md)?,
-            id,
-            gix::index::entry::Flags::empty(),
-            kind.into(),
-            rela_path,
-        );
-        true
-    };
-    Ok(needs_sort)
-}
-
-fn delete_entry_by_path_bounded(
-    index: &mut gix::index::State,
-    rela_path: &BStr,
-    num_sorted_entries: &mut usize,
-) {
-    use gix::index::entry::Stage;
-    delete_entry_by_path_bounded_stages(
-        index,
-        rela_path,
-        num_sorted_entries,
-        &[Stage::Unconflicted, Stage::Base, Stage::Ours, Stage::Theirs],
-    );
-}
-
-// TODO(performance): make an efficient version of this available in `gix`,
-//                    right now we need 4 lookups for each deletion, and possibly 4 rewrites of the vec
-fn delete_entry_by_path_bounded_stages(
-    index: &mut gix::index::State,
-    rela_path: &BStr,
-    num_sorted_entries: &mut usize,
-    stages: &[gix::index::entry::Stage],
-) {
-    for stage in stages {
-        if let Some(pos) =
-            index.entry_index_by_path_and_stage_bounded(rela_path, *stage, *num_sorted_entries)
-        {
-            index.remove_entry_at_index(pos);
-            *num_sorted_entries -= 1;
-        }
+        None => create_commit_and_update_refs(
+            repo,
+            ReferenceFrame {
+                workspace_tip: None,
+                branch_tip: repo.head_id()?.detach().into(),
+            },
+            &mut VirtualBranchesState::default(),
+            destination,
+            move_source,
+            changes,
+            context_lines,
+        ),
     }
 }
 
-fn has_zero_based_line_numbers(hunk_header: &HunkHeader) -> bool {
-    hunk_header.new_start == 0 || hunk_header.old_start == 0
-}
 /// Create a commit exactly as specified, and sign it depending on Git and GitButler specific Git configuration.
 #[allow(clippy::too_many_arguments)]
 fn create_possibly_signed_commit(
@@ -973,5 +506,5 @@ fn create_possibly_signed_commit(
         parents: parents.into_iter().map(Into::into).collect(),
         extra_headers: commit_headers.unwrap_or_default().into(),
     };
-    but_rebase::commit::create(repo, commit)
+    but_rebase::commit::create(repo, commit, CommitterMode::Keep)
 }

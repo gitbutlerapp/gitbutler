@@ -40,6 +40,10 @@ export class DesktopRoutesService {
 	}
 	isHistoryPath = $derived(isUrl<{ projectId: string }>('/[projectId]/history'));
 
+	isCommitPath = $derived(
+		isUrl<{ projectId: string; stackId: string }>('/[projectId]/workspace/[[stackId]]/commit')
+	);
+
 	changeProjectPath(targetProjectId: string) {
 		if (!page.route.id) {
 			return '/';
@@ -55,6 +59,10 @@ export function settingsPath() {
 
 export function stackPath(projectId: string, stackId: string) {
 	return `/${projectId}/workspace/${stackId}`;
+}
+
+export function commitPath(projectId: string, stackId: string) {
+	return `/${projectId}/workspace/${stackId}/commit`;
 }
 
 export function clonePath() {

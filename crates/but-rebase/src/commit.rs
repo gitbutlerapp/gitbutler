@@ -9,6 +9,15 @@ use std::io::Write;
 use std::path::Path;
 use std::process::Stdio;
 
+/// What to do with the committer (actor) and the commit time when [creating a new commit](create()).
+#[derive(Debug, Copy, Clone)]
+pub enum CommitterMode {
+    /// Obtain the current committer and the current local time and set it before creating the commit.
+    Update,
+    /// Keep the currently set committer and time.
+    Keep,
+}
+
 /// Use the given `commit` and possibly sign it, replacing a possibly existing signature,
 /// or removing the signature if GitButler is not configured to keep it.
 ///
@@ -18,7 +27,14 @@ use std::process::Stdio;
 pub fn create(
     repo: &gix::Repository,
     mut commit: gix::objs::Commit,
+    committer: CommitterMode,
 ) -> anyhow::Result<gix::ObjectId> {
+    match committer {
+        CommitterMode::Update => {
+            update_committer(repo, &mut commit)?;
+        }
+        CommitterMode::Keep => {}
+    }
     if let Some(pos) = commit
         .extra_headers()
         .find_pos(gix::objs::commit::SIGNATURE_FIELD_NAME)
@@ -48,6 +64,19 @@ pub fn create(
     }
 
     Ok(repo.write_object(&commit)?.detach())
+}
+
+/// Update the commiter of `commit` to be the current one.
+pub fn update_committer(
+    repo: &gix::Repository,
+    commit: &mut gix::objs::Commit,
+) -> anyhow::Result<()> {
+    commit.committer = repo
+        .committer()
+        .transpose()?
+        .context("Need committer to be configured when creating a new commit")?
+        .into();
+    Ok(())
 }
 
 fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BString> {

@@ -72,7 +72,7 @@ gitbutler-operating-modes.workspace = true
 gitbutler-edit-mode.workspace = true
 gitbutler-sync.workspace = true
 gitbutler-forge.workspace = true
-gitbutler-settings.workspace = true
+but-settings.workspace = true
 but-workspace.workspace = true
 but-core.workspace = true
 but-hunk-dependency.workspace = true
@@ -80,7 +80,7 @@ open = "5"
 url = "2.5.4"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-tauri-plugin-traffic-lights = { path = "../tauri-plugin-traffic-lights" }
+tauri-plugin-trafficlights-positioner = { git = "https://github.com/gitbutlerapp/tauri-plugin-trafficlights-positioner", branch = "v2"}
 
 [lints.clippy]
 all = "deny"

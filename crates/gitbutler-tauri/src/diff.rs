@@ -4,14 +4,13 @@ use but_core::ui::{TreeChange, WorktreeChanges};
 use gitbutler_project::ProjectId;
 use tracing::instrument;
 
-pub(crate) const UNIDIFF_CONTEXT_LINES: u32 = 3;
-
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).
 #[tauri::command(async)]
-#[instrument(skip(projects, change), err(Debug))]
+#[instrument(skip(projects, change, settings), err(Debug))]
 pub fn tree_change_diffs(
     projects: tauri::State<'_, gitbutler_project::Controller>,
+    settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
     project_id: ProjectId,
     change: TreeChange,
 ) -> anyhow::Result<but_core::UnifiedDiff, Error> {
@@ -19,7 +18,7 @@ pub fn tree_change_diffs(
     let project = projects.get(project_id)?;
     let repo = gix::open(project.path).map_err(anyhow::Error::from)?;
     change
-        .unified_diff(&repo, UNIDIFF_CONTEXT_LINES)
+        .unified_diff(&repo, settings.get()?.context_lines)
         .map_err(Into::into)
 }
 

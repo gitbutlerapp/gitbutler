@@ -19,9 +19,10 @@ export type TreeChange = {
 	/**
 	 * Something silently carried back and forth between the frontend and the backend.
 	 * This is neccessary because the path string conversion is lossy.
-	 * @private
 	 */
 	readonly pathBytes: number[];
+	/** Previous path bytes if the change is a rename. */
+	readonly previousPathBytes: number[];
 	/** The specific information about this change.*/
 	readonly status: Status;
 };

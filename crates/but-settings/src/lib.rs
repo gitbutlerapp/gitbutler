@@ -7,6 +7,8 @@ pub use legacy::LegacySettings;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
+    /// The amount of context lines to show in unified diffs, above and below the hunk.
+    pub context_lines: u32,
     /// Whether the user has passed the onboarding flow.
     pub onboarding_complete: bool,
     /// Telemetry settings

@@ -11,7 +11,7 @@
     clippy::too_many_lines
 )]
 
-use gitbutler_settings::AppSettingsWithDiskSync;
+use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
     askpass, commands, config, diff, env, forge, github, logs, menu, modes, open, projects,
@@ -270,6 +270,7 @@ fn main() {
                     workspace::stack_branches,
                     workspace::hunk_dependencies_for_workspace_changes,
                     workspace::create_commit_from_worktree_changes,
+                    workspace::amend_commit_from_worktree_changes,
                     diff::worktree_changes,
                     diff::commit_changes,
                     diff::tree_change_diffs,

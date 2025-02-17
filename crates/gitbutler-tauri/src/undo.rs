@@ -1,12 +1,12 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Context;
+use but_settings::AppSettingsWithDiskSync;
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::FileDiff;
 use gitbutler_oplog::{entry::Snapshot, OplogExt};
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
-use gitbutler_settings::AppSettingsWithDiskSync;
 use gitbutler_stack::StackId;
 use gitbutler_user::User;
 use tauri::State;

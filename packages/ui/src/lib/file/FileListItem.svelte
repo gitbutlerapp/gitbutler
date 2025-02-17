@@ -72,6 +72,7 @@
 	class:selected-draggable={selected}
 	class:clickable
 	class:draggable
+	class:open
 	aria-selected={selected}
 	role="option"
 	tabindex="-1"
@@ -238,7 +239,6 @@
 		}
 	}
 
-	/* INFO */
 	.info {
 		display: flex;
 		align-items: center;
@@ -278,7 +278,6 @@
 		text-align: left;
 	}
 
-	/* DETAILS */
 	.details {
 		display: flex;
 		align-items: center;
@@ -293,7 +292,6 @@
 		display: flex;
 	}
 
-	/* MODIFIERS */
 	.selected-draggable {
 		background-color: var(--clr-theme-pop-bg-muted) !important;
 	}
@@ -303,9 +301,16 @@
 		opacity: 0.5;
 		transition-delay: 300ms;
 	}
+
 	.chevron {
 		display: none;
 		opacity: 0;
 		transition: opacity var(--transition-fast);
+		line-height: 10px;
+	}
+
+	.file-list-item.open .chevron {
+		display: inline-block;
+		opacity: 0.5;
 	}
 </style>

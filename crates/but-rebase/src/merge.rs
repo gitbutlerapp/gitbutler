@@ -1,3 +1,4 @@
+use crate::commit::CommitterMode;
 use anyhow::{bail, Result};
 use but_core::commit::TreeKind;
 use gitbutler_oxidize::GixRepositoryExt;
@@ -15,6 +16,13 @@ use gix::prelude::ObjectIdExt;
 /// Conflicts will cause the operation to fail, there is no hiding of conflicts as merge commits typically are
 /// workspace tips which are implicit in the application. For consistency, there is no special treatment of merge-commits
 /// which are part of the branches or stacks.
+///
+/// ### About Signing
+///
+/// Merges are special, and we will *not* sign it if it wasn't yet signed. That way workspace commits will naturally
+/// remain unsigned.
+/// However, if we re-merge a commit that was signed before it's likely a user-commit that should be treated accordingly.
+/// Thanks to this logic, the caller shouldn't have to steer signing.
 pub fn octopus(
     repo: &gix::Repository,
     mut target_merge_commit: gix::objs::Commit,
@@ -64,5 +72,14 @@ pub fn octopus(
         ours = merge.tree.write()?.detach();
     }
     target_merge_commit.tree = ours;
-    crate::commit::create(repo, target_merge_commit)
+    if target_merge_commit
+        .extra_headers()
+        .pgp_signature()
+        .is_some()
+    {
+        crate::commit::create(repo, target_merge_commit, CommitterMode::Update)
+    } else {
+        crate::commit::update_committer(repo, &mut target_merge_commit)?;
+        Ok(repo.write_object(target_merge_commit)?.detach())
+    }
 }

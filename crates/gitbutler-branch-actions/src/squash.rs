@@ -1,4 +1,7 @@
+use std::collections::HashMap;
+
 use anyhow::{bail, Context, Ok, Result};
+use but_rebase::RebaseStep;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_oplog::{
@@ -9,7 +12,6 @@ use gitbutler_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt},
-    rebase::cherry_rebase_group,
     RepositoryExt as _,
 };
 use gitbutler_stack::{stack_context::CommandContextExt, StackId};
@@ -45,7 +47,7 @@ pub(crate) fn squash_commits(
 fn do_squash_commits(
     ctx: &CommandContext,
     stack_id: StackId,
-    source_ids: Vec<git2::Oid>,
+    mut source_ids: Vec<git2::Oid>,
     desitnation_id: git2::Oid,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
@@ -72,9 +74,25 @@ fn do_squash_commits(
             branch.commit_ids.splice(pos..pos, source_ids.clone());
         }
     }
-    if order != updated_order {
-        reorder_stack(ctx, stack_id, updated_order, perm)?;
-    }
+    let mapping = if order != updated_order {
+        Some(reorder_stack(ctx, stack_id, updated_order, perm)?.commit_mapping)
+    } else {
+        None
+    };
+
+    // update source ids from the mapping if present
+    if let Some(mapping) = mapping {
+        for (_, old, new) in mapping.iter() {
+            // if source_ids contains old, replace it with new
+            if source_ids.contains(&old.to_git2()) {
+                let index = source_ids
+                    .iter()
+                    .position(|id| id == &old.to_git2())
+                    .unwrap();
+                source_ids[index] = new.to_git2();
+            }
+        }
+    };
 
     // =========== Step 2: Squash
 
@@ -141,23 +159,38 @@ fn do_squash_commits(
         )
         .context("Failed to create a squash commit")?;
 
-    // ids_to_rebase is the list the original list of commit ids (branch_commit_ids) with the source commits removed and the
-    // destination commit replaced with the new commit
-    let ids_to_rebase = branch_commit_oids
-        .iter()
-        .filter(|id| !source_ids.contains(id))
-        .map(|id| {
-            if *id == destination_commit.id() {
-                new_commit_oid
-            } else {
-                *id
-            }
-        })
-        .collect::<Vec<_>>();
+    let mut steps: Vec<RebaseStep> = Vec::new();
 
-    // Rebase the commits in the stack so that the source commits are removed and the destination commit
-    // is replaces with a new commit with the final tree that is the result of the merge
-    let new_stack_head = cherry_rebase_group(ctx.repo(), merge_base, &ids_to_rebase, false)?;
+    for head in stack.heads_by_commit(ctx.repo().find_commit(merge_base)?) {
+        steps.push(RebaseStep::Reference(but_core::Reference::Virtual(head)));
+    }
+    for oid in branch_commit_oids.iter().rev() {
+        let commit = ctx.repo().find_commit(*oid)?;
+        if source_ids.contains(oid) {
+            // noop - skipping this
+        } else if destination_commit.id() == *oid {
+            steps.push(RebaseStep::Pick {
+                commit_id: new_commit_oid.to_gix(),
+                new_message: None,
+            });
+        } else {
+            steps.push(RebaseStep::Pick {
+                commit_id: oid.to_gix(),
+                new_message: None,
+            });
+        }
+        for head in stack.heads_by_commit(commit) {
+            steps.push(RebaseStep::Reference(but_core::Reference::Virtual(head)));
+        }
+    }
+
+    let gix_repo = ctx.gix_repository()?;
+    let mut builder = but_rebase::Rebase::new(&gix_repo, merge_base.to_gix(), None)?;
+    let builder = builder.steps(steps)?;
+    builder.rebase_noops(false);
+    let output = builder.rebase()?;
+
+    let new_stack_head = output.top_commit.to_git2();
 
     let BranchHeadAndTree {
         head: new_head_oid,
@@ -170,18 +203,15 @@ fn do_squash_commits(
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
 
-    // Finally, update branch heads in the stack if present
-    for source_commit in &source_commits {
-        // Find the next eligible ancestor commit that is not in the source commits
-        let mut ancestor = source_commit.parent(0)?;
-        while source_commits.iter().any(|c| c.id() == ancestor.id()) {
-            if ancestor.id() == merge_base {
-                break; // Don's search past the merge base
-            }
-            ancestor = ancestor.parent(0)?;
+    let mut new_heads: HashMap<String, git2::Commit<'_>> = HashMap::new();
+    for reference in output.references {
+        let commit = ctx.repo().find_commit(reference.commit_id.to_git2())?;
+        if let but_core::Reference::Virtual(name) = reference.reference {
+            new_heads.insert(name, commit);
         }
-        stack.replace_head(ctx, source_commit, &ancestor)?;
     }
+    // Set the series heads accordingly in one go
+    stack.set_all_heads(ctx, new_heads)?;
     Ok(())
 }
 

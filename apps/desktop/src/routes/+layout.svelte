@@ -19,6 +19,7 @@
 		IpcNameNormalizationService,
 		setNameNormalizationServiceContext
 	} from '$lib/branches/nameNormalizationService';
+	import { CommitService } from '$lib/commits/commitService.svelte';
 	import { AppSettings } from '$lib/config/appSettings';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { GitConfigService } from '$lib/config/gitConfigService';
@@ -37,6 +38,7 @@
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { setSecretsService } from '$lib/secrets/secretsService';
+	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -59,6 +61,7 @@
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { reactive } from '@gitbutler/shared/storeUtils';
 	import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
@@ -79,6 +82,11 @@
 
 	const appState = new AppState();
 	const clientState = new ClientState(data.tauri);
+	const selectionState = $derived(clientState.selectionState);
+	const changeSelection = new ChangeSelectionService(
+		reactive(() => selectionState),
+		clientState.dispatch
+	);
 	const stackService = new StackService(clientState);
 	const worktreeService = new WorktreeService(clientState);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
@@ -93,12 +101,15 @@
 	const desktopRouteService = new DesktopRoutesService();
 	const diffService = new DiffService(clientState);
 	const shortcutService = new ShortcutService(data.tauri);
+	const commitService = new CommitService(clientState);
+
 	shortcutService.listen();
 
 	setExternalLinkService({ open: openExternalUrl });
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
+	setContext(ChangeSelectionService, changeSelection);
 	setContext(ClientState, clientState);
 	setContext(FeedService, feedService);
 	setContext(OrganizationService, organizationService);
@@ -113,6 +124,7 @@
 	setContext(HooksService, data.hooksService);
 	setContext(SettingsService, data.settingsService);
 	setContext(FileService, data.fileService);
+	setContext(CommitService, commitService);
 
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
