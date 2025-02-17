@@ -23,7 +23,7 @@ gitbutler-repo.workspace = true
 gitbutler-oxidize.workspace = true
 
 # For `ui` module
-rustc-hash = "2.1.0"
+rustc-hash = "2.1.1"
 gitbutler-stack.workspace = true
 
 [dev-dependencies]
