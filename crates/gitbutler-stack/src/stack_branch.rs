@@ -73,13 +73,18 @@ impl RepositoryExt for git2::Repository {
 
 impl StackBranch {
     pub fn head_oid(&self, stack_context: &StackContext, stack: &Stack) -> Result<Oid> {
-        let repository = stack_context.repository();
-        let merge_base = stack.merge_base(stack_context)?;
-        let head_commit =
-            commit_by_oid_or_change_id(&self.head, repository, stack.head(), merge_base)?
-                .head
-                .id();
-        Ok(head_commit)
+        match self.head.clone() {
+            CommitOrChangeId::CommitId(id) => id.parse().map_err(Into::into),
+            CommitOrChangeId::ChangeId(_) => {
+                let repository = stack_context.repository();
+                let merge_base = stack.merge_base(stack_context)?;
+                let head_commit =
+                    commit_by_oid_or_change_id(&self.head, repository, stack.head(), merge_base)?
+                        .head
+                        .id();
+                Ok(head_commit)
+            }
+        }
     }
     /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
     pub fn remote_reference(&self, remote: &str) -> String {
