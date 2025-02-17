@@ -3020,7 +3020,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tauri-plugin-single-instance",
  "tauri-plugin-store",
- "tauri-plugin-traffic-lights",
+ "tauri-plugin-trafficlights-positioner",
  "tauri-plugin-updater",
  "tauri-plugin-window-state",
  "tokio",
@@ -8523,8 +8523,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-plugin-traffic-lights"
-version = "1.0.0"
+name = "tauri-plugin-trafficlights-positioner"
+version = "1.0.1"
+source = "git+https://github.com/gitbutlerapp/tauri-plugin-trafficlights-positioner?branch=v2#b19990da0dfaee7f1bb3304e4c100af9f1d40b2e"
 dependencies = [
  "cocoa",
  "objc",
