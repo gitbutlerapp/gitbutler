@@ -136,7 +136,7 @@ fn main() {
                         #[cfg(target_os = "macos")]
                         use tauri::LogicalPosition;
                         #[cfg(target_os = "macos")]
-                        use tauri_plugin_traffic_lights::WindowExt;
+                        use tauri_plugin_trafficlights_positioner::WindowExt;
                         #[cfg(target_os = "macos")]
                         // NOTE: Make sure you only call this ONCE per window.
                         {
