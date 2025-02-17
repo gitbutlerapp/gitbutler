@@ -171,7 +171,7 @@ pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Me
                 .accelerator("CmdOrCtrl+Shift+H")
                 .build(handle)?,
         )
-        .text("project/open-in-vscode", "Open in editor")
+        .text("project/open-in-vscode", "Open in Editor")
         .separator()
         .text("project/settings", "Project Settings")
         .build()?;
