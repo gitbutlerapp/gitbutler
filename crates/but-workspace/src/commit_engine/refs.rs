@@ -147,7 +147,7 @@ fn generate_change_ids_to_commit_mapping(
     } else {
         None
     };
-    for stack in vb.branches.values() {
+    for stack in vb.branches.values().filter(|b| b.in_workspace) {
         let stack_tip = stack.head.to_gix();
         for info in stack_tip
             .attach(repo)
