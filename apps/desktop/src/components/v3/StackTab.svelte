@@ -112,7 +112,6 @@
 
 		.content {
 			min-width: 75px;
-			width: 100%;
 			display: flex;
 			align-items: center;
 			overflow: hidden;
