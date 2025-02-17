@@ -604,6 +604,7 @@ impl Stack {
     ) -> Result<()> {
         self.ensure_initialized()?;
         // find all heads matching the 'from' target (there can be multiple heads pointing to the same commit)
+        #[allow(deprecated)]
         let matching_heads = self
             .heads
             .iter()
@@ -724,6 +725,7 @@ impl Stack {
             .iter()
             .filter(|h| match h.head.clone() {
                 CommitOrChangeId::CommitId(x) => commit.id().to_string() == x,
+                #[allow(deprecated)]
                 CommitOrChangeId::ChangeId(x) => commit.change_id() == Some(x), // todo:bug
             })
             .map(|h| h.name.clone())
@@ -899,6 +901,7 @@ pub fn commit_by_oid_or_change_id<'a>(
             head: repo.find_commit(commit_id.parse()?)?,
             tail: vec![],
         },
+        #[allow(deprecated)]
         CommitOrChangeId::ChangeId(change_id) => {
             commit_by_branch_id_and_change_id(repo, stack_head, merge_base, change_id)?
         }
