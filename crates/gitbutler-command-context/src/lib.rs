@@ -1,6 +1,6 @@
 use anyhow::Result;
+use but_settings::AppSettings;
 use gitbutler_project::Project;
-use gitbutler_settings::AppSettings;
 use std::path::Path;
 
 pub struct CommandContext {

@@ -66,7 +66,7 @@ gitbutler-oxidize = { path = "crates/gitbutler-oxidize" }
 gitbutler-stack = { path = "crates/gitbutler-stack" }
 gitbutler-forge = { path = "crates/gitbutler-forge" }
 gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
-gitbutler-settings = { path = "crates/gitbutler-settings" }
+but-settings = { path = "crates/but-settings" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 but-testsupport = { path = "crates/but-testsupport" }
 but-rebase = { path = "crates/but-rebase" }

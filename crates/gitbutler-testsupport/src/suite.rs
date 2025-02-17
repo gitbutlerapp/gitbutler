@@ -4,9 +4,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_repo::RepositoryExt;
-use gitbutler_settings::AppSettings;
 use tempfile::{tempdir, TempDir};
 
 use crate::test_project::setup_config;

@@ -1,8 +1,8 @@
+use but_settings::AppSettings;
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use gitbutler_branch_actions::{get_branch_listing_details, list_branches};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
-use gitbutler_settings::AppSettings;
 
 pub fn fixture_project(name: &str, script: &str) -> Project {
     gitbutler_testsupport::read_only::fixture_project(script, name).unwrap()

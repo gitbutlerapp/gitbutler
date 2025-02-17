@@ -37,10 +37,10 @@ fn debug_print(this: impl std::fmt::Debug) -> anyhow::Result<()> {
 }
 
 pub mod ownership {
+    use but_settings::AppSettings;
     use gitbutler_command_context::CommandContext;
     use gitbutler_diff::Hunk;
     use gitbutler_project::Project;
-    use gitbutler_settings::AppSettings;
     use gitbutler_stack::{BranchOwnershipClaims, OwnershipClaim};
     use std::path::PathBuf;
 
@@ -68,10 +68,10 @@ pub mod ownership {
 
 pub mod workspace {
     use crate::args::UpdateMode;
+    use but_settings::AppSettings;
     use gitbutler_branch_actions::upstream_integration;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project::Project;
-    use gitbutler_settings::AppSettings;
 
     pub fn update(project: Project, mode: UpdateMode) -> anyhow::Result<()> {
         let approach = match mode {

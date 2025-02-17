@@ -666,6 +666,7 @@ dependencies = [
  "anyhow",
  "but-core",
  "but-hunk-dependency",
+ "but-settings",
  "but-workspace",
  "clap",
  "dirs-next",
@@ -673,7 +674,6 @@ dependencies = [
  "gitbutler-commit",
  "gitbutler-oxidize",
  "gitbutler-project",
- "gitbutler-settings",
  "gitbutler-stack",
  "gix",
  "itertools 0.14.0",
@@ -741,6 +741,20 @@ dependencies = [
  "gix",
  "insta",
  "tempfile",
+ "tracing",
+]
+
+[[package]]
+name = "but-settings"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gitbutler-fs",
+ "notify",
+ "serde",
+ "serde_json",
+ "serde_json_lenient",
+ "tokio",
  "tracing",
 ]
 
@@ -2451,6 +2465,7 @@ dependencies = [
  "bstr",
  "but-core",
  "but-rebase",
+ "but-settings",
  "but-workspace",
  "criterion",
  "diffy",
@@ -2474,7 +2489,6 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-repo-actions",
  "gitbutler-serde",
- "gitbutler-settings",
  "gitbutler-stack",
  "gitbutler-testsupport",
  "gitbutler-time",
@@ -2518,6 +2532,7 @@ name = "gitbutler-cli"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-settings",
  "chrono",
  "clap",
  "dirs-next",
@@ -2530,7 +2545,6 @@ dependencies = [
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
- "gitbutler-settings",
  "gitbutler-stack",
  "gix",
  "tracing",
@@ -2544,9 +2558,9 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-settings",
  "git2",
  "gitbutler-project",
- "gitbutler-settings",
  "gix",
  "itertools 0.14.0",
  "tracing",
@@ -2721,13 +2735,13 @@ name = "gitbutler-operating-modes"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-settings",
  "git2",
  "gitbutler-command-context",
  "gitbutler-fs",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-serde",
- "gitbutler-settings",
  "gitbutler-testsupport",
  "serde",
  "toml 0.8.19",
@@ -2812,6 +2826,7 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "bstr",
+ "but-settings",
  "git2",
  "git2-hooks",
  "gitbutler-cherry-pick",
@@ -2823,7 +2838,6 @@ dependencies = [
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
- "gitbutler-settings",
  "gitbutler-testsupport",
  "gitbutler-url",
  "gitbutler-user",
@@ -2884,20 +2898,6 @@ dependencies = [
  "gitbutler-oxidize",
  "gix",
  "serde",
-]
-
-[[package]]
-name = "gitbutler-settings"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "gitbutler-fs",
- "notify",
- "serde",
- "serde_json",
- "serde_json_lenient",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -2977,6 +2977,7 @@ dependencies = [
  "backtrace",
  "but-core",
  "but-hunk-dependency",
+ "but-settings",
  "but-workspace",
  "console-subscriber",
  "git2",
@@ -2997,7 +2998,6 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-repo-actions",
  "gitbutler-secret",
- "gitbutler-settings",
  "gitbutler-stack",
  "gitbutler-sync",
  "gitbutler-user",
@@ -3036,6 +3036,7 @@ name = "gitbutler-testsupport"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-settings",
  "git2",
  "gitbutler-branch",
  "gitbutler-branch-actions",
@@ -3045,7 +3046,6 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
- "gitbutler-settings",
  "gitbutler-stack",
  "gitbutler-storage",
  "gitbutler-url",
@@ -3095,6 +3095,7 @@ dependencies = [
  "anyhow",
  "backoff",
  "but-core",
+ "but-settings",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
  "gitbutler-diff",
@@ -3104,7 +3105,6 @@ dependencies = [
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
- "gitbutler-settings",
  "gitbutler-sync",
  "gitbutler-user",
  "gix",
@@ -3120,6 +3120,7 @@ name = "gitbutler-workspace"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-settings",
  "git2",
  "gitbutler-branch",
  "gitbutler-branch-actions",
@@ -3129,7 +3130,6 @@ dependencies = [
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-repo",
- "gitbutler-settings",
  "gitbutler-stack",
  "gitbutler-testsupport",
  "gitbutler-workspace",

@@ -1,5 +1,5 @@
 pub mod commands {
-    use gitbutler_settings::AppSettingsWithDiskSync;
+    use but_settings::AppSettingsWithDiskSync;
     use std::collections::HashMap;
     use tauri::State;
 

@@ -6,13 +6,13 @@ use but_core::unified_diff::DiffHunk;
 use but_core::RepositoryExt;
 use but_rebase::commit::CommitterMode;
 use but_rebase::RebaseOutput;
-use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_stack::VirtualBranchesState;
+use gitbutler_stack::{StackId, VirtualBranchesHandle, VirtualBranchesState};
 use gix::prelude::ObjectIdExt as _;
 use gix::refs::transaction::PreviousValue;
 use serde::{Deserialize, Serialize};
 
 mod tree;
+use crate::commit_engine::reference_frame::InferenceMode;
 use tree::{create_tree, CreateTreeOutcome};
 
 mod index;
@@ -230,7 +230,7 @@ pub fn create_commit(
 
 /// All information to know where in the commit-graph the rewritten commit is located to figure out
 /// which descendant commits to rewrite.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct ReferenceFrame {
     /// The commit that merges all stacks together for a unified view.
     pub workspace_tip: Option<gix::ObjectId>,
@@ -422,41 +422,68 @@ pub fn create_commit_and_update_refs(
 
 /// Like [`create_commit_and_update_refs()`], but integrates with an existing GitButler `project`
 /// if present. Alternatively it uses the current `HEAD` as only reference point.
-/// Note that virtual branches will not be written back after this call.
+/// Note that virtual branches will be updated and written back after this call, which will obtain
+/// an exclusive workspace lock as well.
 pub fn create_commit_and_update_refs_with_project(
     repo: &gix::Repository,
-    project: Option<(
-        ReferenceFrame,
-        &mut VirtualBranchesState,
-        &mut WorktreeWritePermission,
-    )>,
+    project: Option<(&gitbutler_project::Project, Option<StackId>)>,
     destination: Destination,
     move_source: Option<MoveSourceCommit>,
     changes: Vec<DiffSpec>,
     context_lines: u32,
 ) -> anyhow::Result<CreateCommitOutcome> {
-    let mut vbs_storage = VirtualBranchesState::default();
-    let (frame, vb) = if let Some((frame, vb, _perm)) = project {
-        (frame, vb)
-    } else {
-        (
+    match project {
+        Some((project, maybe_stackid)) => {
+            let _guard = project.exclusive_worktree_access();
+            let vbh = VirtualBranchesHandle::new(project.gb_dir());
+            let mut vb = vbh.read_file()?;
+            let frame = match maybe_stackid {
+                None => {
+                    let maybe_commit_id = match &destination {
+                        Destination::NewCommit {
+                            parent_commit_id, ..
+                        } => *parent_commit_id,
+                        Destination::AmendCommit(commit_id) => Some(*commit_id),
+                    };
+                    match maybe_commit_id {
+                        None => ReferenceFrame::default(),
+                        Some(commit_id) => ReferenceFrame::infer(
+                            repo,
+                            &vb,
+                            InferenceMode::CommitIdInStack(commit_id),
+                        )?,
+                    }
+                }
+                Some(stack_id) => {
+                    ReferenceFrame::infer(repo, &vb, InferenceMode::StackId(stack_id))?
+                }
+            };
+            let out = create_commit_and_update_refs(
+                repo,
+                frame,
+                &mut vb,
+                destination,
+                move_source,
+                changes,
+                context_lines,
+            )?;
+
+            vbh.write_file(&vb)?;
+            Ok(out)
+        }
+        None => create_commit_and_update_refs(
+            repo,
             ReferenceFrame {
                 workspace_tip: None,
                 branch_tip: repo.head_id()?.detach().into(),
             },
-            &mut vbs_storage,
-        )
-    };
-
-    create_commit_and_update_refs(
-        repo,
-        frame,
-        vb,
-        destination,
-        move_source,
-        changes,
-        context_lines,
-    )
+            &mut VirtualBranchesState::default(),
+            destination,
+            move_source,
+            changes,
+            context_lines,
+        ),
+    }
 }
 
 /// Create a commit exactly as specified, and sign it depending on Git and GitButler specific Git configuration.

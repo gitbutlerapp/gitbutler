@@ -1,6 +1,6 @@
+use but_settings::AppSettingsWithDiskSync;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
-use gitbutler_settings::AppSettingsWithDiskSync;
 use tauri::State;
 use tracing::instrument;
 
