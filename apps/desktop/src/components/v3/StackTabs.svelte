@@ -104,7 +104,11 @@
 		pointer-events: none;
 		opacity: 0;
 		left: 0;
-		background: linear-gradient(to right, var(--clr-bg-2) 0%, transparent 100%);
+		background: linear-gradient(
+			to right,
+			var(--clr-bg-3) 0%,
+			oklch(from var(--clr-bg-3) l c h / 0) 100%
+		);
 		transition: opacity var(--transition-fast);
 
 		&.scrolled {
@@ -116,7 +120,11 @@
 		pointer-events: none;
 		opacity: 0;
 		right: 0;
-		background: linear-gradient(to left, var(--clr-bg-2) 0%, transparent 100%);
+		background: linear-gradient(
+			to left,
+			var(--clr-bg-3) 0%,
+			oklch(from var(--clr-bg-3) l c h / 0) 100%
+		);
 		transition: opacity var(--transition-fast);
 
 		&.scrollable {
