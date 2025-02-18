@@ -119,13 +119,13 @@ pub(crate) mod function {
         let (base, theirs) = if to_rebase.is_conflicted() {
             let base = to_rebase
                 .tree_id_by_kind(TreeKind::Base)?
-                .expect("A conflicted tree always has a base");
+                .expect("A conflicted tree always has a base (of the original commit to rebase)");
             // TODO: as long as only cherry-picking is creating these trees, THEIRS
             //       is the original 'to_rebase'. However, if that changes we must know
             //       what created the special merge commit.
-            let theirs = to_rebase
-                .tree_id_by_kind(TreeKind::Theirs)?
-                .expect("A conflicted tree always has 'our' side");
+            let theirs = to_rebase.tree_id_by_kind(TreeKind::Theirs)?.expect(
+                "A conflicted tree always has 'their' side (which is our side in a cherry-pick)",
+            );
             (base, theirs)
         } else {
             let base = match to_rebase.parents.first() {

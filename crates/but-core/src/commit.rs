@@ -22,6 +22,59 @@ pub struct HeadersV2 {
     pub conflicted: Option<u64>,
 }
 
+impl HeadersV2 {
+    /// Extract header information from the given `commit`, or return `None` if not present.
+    pub fn try_from_commit(commit: &gix::objs::Commit) -> Option<Self> {
+        if let Some(header) = commit.extra_headers().find(HEADERS_VERSION_FIELD) {
+            let version = header.to_owned();
+
+            if version == HEADERS_VERSION {
+                let change_id = commit.extra_headers().find(HEADERS_CHANGE_ID_FIELD)?;
+                let change_id = change_id.to_str().ok()?.to_string();
+
+                let conflicted = commit
+                    .extra_headers()
+                    .find(HEADERS_CONFLICTED_FIELD)
+                    .and_then(|value| value.to_str().ok()?.parse::<u64>().ok());
+
+                Some(HeadersV2 {
+                    change_id,
+                    conflicted,
+                })
+            } else {
+                tracing::warn!(
+                    "Ignoring unknown commit header version '{version}' in commit {commit:?}",
+                );
+                None
+            }
+        } else {
+            // Parse v1 headers
+            let change_id = commit.extra_headers().find("change-id")?;
+            let change_id = change_id.to_str().ok()?.to_string();
+            let headers = HeadersV1 { change_id };
+            Some(headers.into())
+        }
+    }
+
+    /// Write the values from this instance to the given `commit`,  fully replacing any header
+    /// that might have been there before.
+    pub fn set_in_commit(&self, commit: &mut gix::objs::Commit) {
+        for field in [
+            HEADERS_VERSION_FIELD,
+            HEADERS_CHANGE_ID_FIELD,
+            HEADERS_CONFLICTED_FIELD,
+        ] {
+            if let Some(pos) = commit.extra_headers().find_pos(field) {
+                commit.extra_headers.remove(pos);
+            }
+        }
+
+        commit
+            .extra_headers
+            .extend(Vec::<(BString, BString)>::from(self));
+    }
+}
+
 impl Default for HeadersV2 {
     fn default() -> Self {
         HeadersV2 {
@@ -123,18 +176,7 @@ impl<'repo> Commit<'repo> {
 impl Commit<'_> {
     /// Set this commit to use the given `headers`, completely replacing the ones it might currently have.
     pub fn set_headers(&mut self, header: &HeadersV2) {
-        for field in [
-            HEADERS_VERSION_FIELD,
-            HEADERS_CHANGE_ID_FIELD,
-            HEADERS_CONFLICTED_FIELD,
-        ] {
-            if let Some(pos) = self.extra_headers().find_pos(field) {
-                self.extra_headers.remove(pos);
-            }
-        }
-
-        self.extra_headers
-            .extend(Vec::<(BString, BString)>::from(header));
+        header.set_in_commit(self)
     }
 }
 
@@ -203,36 +245,6 @@ impl<'repo> Commit<'repo> {
 
     /// Return our custom headers, of present.
     pub fn headers(&self) -> Option<HeadersV2> {
-        let decoded = &self.inner;
-        if let Some(header) = decoded.extra_headers().find(HEADERS_VERSION_FIELD) {
-            let version = header.to_owned();
-
-            if version == HEADERS_VERSION {
-                let change_id = decoded.extra_headers().find(HEADERS_CHANGE_ID_FIELD)?;
-                let change_id = change_id.to_str().ok()?.to_string();
-
-                let conflicted = decoded
-                    .extra_headers()
-                    .find(HEADERS_CONFLICTED_FIELD)
-                    .and_then(|value| value.to_str().ok()?.parse::<u64>().ok());
-
-                Some(HeadersV2 {
-                    change_id,
-                    conflicted,
-                })
-            } else {
-                tracing::warn!(
-                    "Ignoring unknown commit header version '{version}' in commit {}",
-                    self.id
-                );
-                None
-            }
-        } else {
-            // Parse v1 headers
-            let change_id = decoded.extra_headers().find("change-id")?;
-            let change_id = change_id.to_str().ok()?.to_string();
-            let headers = HeadersV1 { change_id };
-            Some(headers.into())
-        }
+        HeadersV2::try_from_commit(&self.inner)
     }
 }

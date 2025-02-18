@@ -556,7 +556,7 @@ fn insert_commits_into_workspace() -> anyhow::Result<()> {
 
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
-    *   b085f24 (HEAD -> merge, s1) Merge branch 'A' into merge
+    *   e36e980 (HEAD -> merge, s1) Merge branch 'A' into merge
     |\  
     | * 3538622 (A) add 10 to the beginning
     * | 893bbf4 (s1-b/init, B) add 10 more lines at end
@@ -682,7 +682,7 @@ fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
 
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
-    *   c9384a5 (HEAD -> merge) Merge branch 'A' into merge
+    *   bf1b6e1 (HEAD -> merge) Merge branch 'A' into merge
     |\  
     | * 226e422 (s1-b/top, s1, A) remove 5 lines from beginning
     | * eede47d add 10 to the beginning
@@ -766,7 +766,7 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
 
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
-    *   1c92a36 (HEAD -> merge) Merge branch 'A' into merge
+    *   982dbb6 (HEAD -> merge) Merge branch 'A' into merge
     |\  
     | * 2c1fb47 (s1-b/top, s1, A) remove 5 lines from beginning
     | * 7f389ed add 10 to the beginning
@@ -844,7 +844,7 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
 
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
-    *   5e714c1 (HEAD -> merge) Merge branch 'A' into merge
+    *   e594e07 (HEAD -> merge) Merge branch 'A' into merge
     |\  
     | * 8a04055 (s1-b/top, s1, A) add 10 to the beginning
     * | 91ef6f6 (B) add 10 to the end

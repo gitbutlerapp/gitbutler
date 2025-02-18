@@ -75,6 +75,9 @@ pub fn octopus(
         ours = merge.tree.write()?.detach();
     }
     target_merge_commit.tree = ours;
+    if but_core::commit::HeadersV2::try_from_commit(&target_merge_commit).is_none() {
+        but_core::commit::HeadersV2::default().set_in_commit(&mut target_merge_commit);
+    }
     if target_merge_commit
         .extra_headers()
         .pgp_signature()
