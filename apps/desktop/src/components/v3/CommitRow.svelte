@@ -1,7 +1,5 @@
 <script lang="ts">
 	import CommitLine from '$components/v3/CommitLine.svelte';
-	import { CommitSelection } from '$components/v3/selectedCommit.svelte';
-	import { getContext } from 'svelte';
 	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
 
 	interface Props {
@@ -9,11 +7,12 @@
 		first?: boolean;
 		last?: boolean;
 		lastBranch?: boolean;
+		selectedCommitId?: string;
 	}
 
-	const { first, commit, last, lastBranch }: Props = $props();
+	let { first, commit, last, lastBranch, selectedCommitId = $bindable() }: Props = $props();
 
-	let selectedCommit = getContext<CommitSelection>('_selectedCommit');
+	$inspect('commit.selectedCommitId', selectedCommitId);
 </script>
 
 <button
@@ -21,9 +20,13 @@
 	class="commit"
 	class:first
 	class:last
-	class:selected={selectedCommit.state === commit.id}
+	class:selected={selectedCommitId === commit.id}
 	onclick={() => {
-		selectedCommit.setSelection(commit.id);
+		if (selectedCommitId && selectedCommitId === commit.id) {
+			selectedCommitId = undefined;
+		} else {
+			selectedCommitId = commit.id;
+		}
 	}}
 >
 	<CommitLine {commit} {last} {lastBranch} />
@@ -34,6 +37,7 @@
 	.commit {
 		position: relative;
 		display: flex;
+		align-items: center;
 		height: 100%;
 
 		&:not(.last) {
