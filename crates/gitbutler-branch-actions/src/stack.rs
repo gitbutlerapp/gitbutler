@@ -49,14 +49,7 @@ pub fn create_series(
     if let Some(target_patch) = req.target_patch {
         stack.add_series(
             ctx,
-            StackBranch {
-                head: target_patch,
-                name: normalized_head_name,
-                description: req.description,
-                pr_number: Default::default(),
-                archived: Default::default(),
-                review_id: None,
-            },
+            StackBranch::new(target_patch, normalized_head_name, req.description),
             req.preceding_head,
         )
     } else {
@@ -208,7 +201,7 @@ pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> 
             // Already integrated, nothing to push
             continue;
         }
-        let push_details = stack.push_details(ctx, branch.name)?;
+        let push_details = stack.push_details(ctx, branch.name())?;
         ctx.push(
             push_details.head,
             &push_details.remote_refname,
@@ -424,7 +417,7 @@ fn stack_branch_to_api_branch(
     }
     Ok((
         PatchSeries {
-            name: stack_branch.name,
+            name: stack_branch.name(),
             description: stack_branch.description,
             upstream_reference,
             patches,

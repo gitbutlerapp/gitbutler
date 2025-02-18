@@ -56,7 +56,7 @@ pub fn rewrite(
                             updated_refs.push(UpdatedReference {
                                 old_commit_id: old,
                                 new_commit_id: new,
-                                reference: but_core::Reference::Virtual(branch.name.clone()),
+                                reference: but_core::Reference::Virtual(branch.name()),
                             });
                         }
                     }
@@ -70,7 +70,7 @@ pub fn rewrite(
                             updated_refs.push(UpdatedReference {
                                 old_commit_id: old,
                                 new_commit_id: new,
-                                reference: but_core::Reference::Virtual(branch.name.clone()),
+                                reference: but_core::Reference::Virtual(branch.name()),
                             });
                         }
                     }

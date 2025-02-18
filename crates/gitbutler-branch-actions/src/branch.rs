@@ -137,14 +137,14 @@ pub fn list_branches(
             let head_matches_stack_name = stack
                 .branches()
                 .iter()
-                .any(|branch| branch.name == normalized_name);
+                .any(|branch| branch.name() == normalized_name);
 
             !head_matches_stack_name
         })
         .flat_map(|s| {
             s.branches()
                 .into_iter()
-                .map(|b| BString::from(b.name))
+                .map(|b| BString::from(b.name()))
                 .collect_vec()
         })
         .collect_vec();
@@ -271,12 +271,12 @@ fn branch_group_to_branch(
             .branches()
             .iter()
             .rev()
-            .map(|b| b.name.clone())
+            .map(|b| b.name())
             .collect_vec(),
         pull_requests: stack
             .branches()
             .iter()
-            .filter_map(|b| b.pr_number.map(|pr| (b.name.clone(), pr)))
+            .filter_map(|b| b.pr_number.map(|pr| (b.name(), pr)))
             .collect(),
     });
 

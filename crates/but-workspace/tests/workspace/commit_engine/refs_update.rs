@@ -931,14 +931,11 @@ mod utils {
     }
 
     fn new_stack_branch(name: &str, head: gix::ObjectId) -> gitbutler_stack::StackBranch {
-        gitbutler_stack::StackBranch {
-            head: CommitOrChangeId::CommitId(head.to_string()),
-            name: name.into(),
-            description: None,
-            pr_number: None,
-            archived: false,
-            review_id: None,
-        }
+        gitbutler_stack::StackBranch::new(
+            CommitOrChangeId::CommitId(head.to_string()),
+            name.into(),
+            None,
+        )
     }
 
     /// Turn all heads from `vbranches` into an aptly named standard reference.
@@ -959,7 +956,7 @@ mod utils {
                 };
                 let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes())?;
                 repo.reference(
-                    format!("refs/heads/{}", branch.name),
+                    format!("refs/heads/{}", branch.name()),
                     commit_id,
                     PreviousValue::Any,
                     "create branch head for visualization",

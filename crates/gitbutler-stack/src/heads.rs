@@ -10,7 +10,7 @@ pub(crate) fn get_head(heads: &[StackBranch], name: &str) -> Result<(usize, Stac
     let (idx, head) = heads
         .iter()
         .enumerate()
-        .find(|(_, h)| h.name == name)
+        .find(|(_, h)| h.name() == name)
         .ok_or_else(|| anyhow!("Series with name {} not found", name))?;
     Ok((idx, head.clone()))
 }
@@ -123,7 +123,7 @@ pub(crate) fn add_head(
             if last_head.head != last_patch.clone() {
                 // error - invalid state - this would result in orphaned patches
                 bail!(
-                    "The newest head must point to the newest patch in the stack. The newest patch is {}, while the newest head with name {} points patch {}", last_patch, last_head.name, last_head.head
+                    "The newest head must point to the newest patch in the stack. The newest patch is {}, while the newest head with name {} points patch {}", last_patch, last_head.name(), last_head.head
                 );
             }
         } else {
@@ -144,31 +144,23 @@ mod test {
     use super::*;
     #[test]
     fn add_head_with_archived_bottom_head() -> Result<()> {
-        let head_1_archived = StackBranch {
-            head: CommitOrChangeId::CommitId("328447a2-08aa-4c4d-a1bc-08d5cd82bcd4".to_string()),
-            name: "kv-branch-3".to_string(),
-            description: None,
-            pr_number: None,
-            archived: true,
-            review_id: None,
-        };
-        let head_2 = StackBranch {
-            head: CommitOrChangeId::CommitId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
-            name: "more-on-top".to_string(),
-            description: None,
-            pr_number: None,
-            archived: false,
-            review_id: None,
-        };
+        let mut head_1_archived = StackBranch::new(
+            CommitOrChangeId::CommitId("328447a2-08aa-4c4d-a1bc-08d5cd82bcd4".to_string()),
+            "kv-branch-3".to_string(),
+            None,
+        );
+        head_1_archived.archived = true;
+        let head_2 = StackBranch::new(
+            CommitOrChangeId::CommitId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
+            "more-on-top".to_string(),
+            None,
+        );
         let existing_heads = vec![head_1_archived.clone(), head_2.clone()];
-        let new_head = StackBranch {
-            head: CommitOrChangeId::CommitId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
-            name: "abcd".to_string(),
-            description: None,
-            pr_number: None,
-            archived: false,
-            review_id: None,
-        };
+        let new_head = StackBranch::new(
+            CommitOrChangeId::CommitId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
+            "abcd".to_string(),
+            None,
+        );
         let patches = vec![
             CommitOrChangeId::CommitId("92a89ae608d77ff75c1ce52ea9dccc0bccd577e9".to_string()),
             CommitOrChangeId::CommitId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),

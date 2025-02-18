@@ -202,7 +202,7 @@ pub fn commits_order(stack_context: &StackContext, stack: &Stack) -> Result<Stac
         .rev()
         .map(|b| {
             Ok(SeriesOrder {
-                name: b.name.clone(),
+                name: b.name(),
                 commit_ids: b
                     .commits(stack_context, stack)?
                     .local_commits

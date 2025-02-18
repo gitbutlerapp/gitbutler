@@ -339,7 +339,7 @@ fn convert(
         .ok()
         .map(|_| stack_branch.remote_reference(remote.as_str()));
     Ok(Branch {
-        name: stack_branch.name.into(),
+        name: stack_branch.name().into(),
         remote_tracking_branch: upstream_reference.map(Into::into),
         description: stack_branch.description,
         pr_number: stack_branch.pr_number,
