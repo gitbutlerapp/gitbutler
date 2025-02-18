@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { CommitService } from '$lib/commits/commitService.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { stackPath } from '$lib/routes/routes.svelte';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
@@ -17,7 +16,6 @@
 	const { projectId, stackId }: { projectId: string; stackId: string } = $props();
 
 	const stackService = getContext(StackService);
-	const commitService = getContext(CommitService);
 
 	const baseBranchService = getContext(BaseBranchService);
 	const base = $derived(baseBranchService.base);
@@ -59,7 +57,7 @@
 
 	function createCommit() {
 		try {
-			commitService.createCommit(projectId, {
+			stackService.createCommit(projectId, {
 				message: commitMessage,
 				parentId: commitParent!,
 				stackId,
