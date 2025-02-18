@@ -14,14 +14,15 @@
 		selected: boolean;
 	};
 
-	let kebabMenuTrigger = $state<HTMLElement>();
-	let contextMenuEl = $state<ContextMenu>();
-	let isContextMenuOpen = $state(false);
-
 	const { projectId, tab, first, last, selected }: Props = $props();
+
+	let kebabMenuTrigger = $state<HTMLElement>();
+	let contextMenu = $state<ContextMenu>();
+	let isContextMenuOpen = $state(false);
 </script>
 
 <a
+	data-sveltekit-keepfocus
 	href={stackPath(projectId, tab.id)}
 	class="tab"
 	class:first
@@ -30,11 +31,7 @@
 	class:menu-open={isContextMenuOpen}
 >
 	<div class="icon">
-		{#if tab.anchors.length > 0}
-			<Icon name="chain-link" verticalAlign="top" />
-		{:else}
-			<Icon name="branch-small" verticalAlign="top" />
-		{/if}
+		<Icon name={tab.anchors.length > 0 ? 'chain-link' : 'branch-small'} verticalAlign="top" />
 	</div>
 	<div class="content">
 		<div class="text-12 text-semibold name">
@@ -47,7 +44,7 @@
 				onclick={(e) => {
 					e.preventDefault();
 					e.stopPropagation();
-					contextMenuEl?.toggle();
+					contextMenu?.toggle();
 				}}
 				bind:this={kebabMenuTrigger}
 				type="button"
@@ -59,7 +56,7 @@
 </a>
 
 <ContextMenu
-	bind:this={contextMenuEl}
+	bind:this={contextMenu}
 	leftClickTrigger={kebabMenuTrigger}
 	ontoggle={(isOpen) => (isContextMenuOpen = isOpen)}
 	side="bottom"
@@ -69,14 +66,14 @@
 			label="Unapply Stack"
 			keyboardShortcut="$mod+X"
 			onclick={() => {
-				contextMenuEl?.close();
+				contextMenu?.close();
 			}}
 		/>
 		<ContextMenuItem
 			label="Rename"
 			keyboardShortcut="$mod+R"
 			onclick={() => {
-				contextMenuEl?.close();
+				contextMenu?.close();
 			}}
 		/>
 	</ContextMenuSection>
@@ -93,6 +90,8 @@
 		border-right: 1px solid var(--clr-border-2);
 		overflow: hidden;
 		min-width: 100px;
+		flex: 0 0 auto;
+		scroll-snap-align: start;
 
 		&::after {
 			content: '';
@@ -115,6 +114,7 @@
 
 	.content {
 		display: flex;
+		flex-grow: 1;
 		align-items: center;
 		overflow: hidden;
 		position: relative;
@@ -186,6 +186,7 @@
 	}
 
 	.name {
+		width: 100%;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		overflow: hidden;
