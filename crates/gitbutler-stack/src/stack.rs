@@ -305,41 +305,41 @@ impl Stack {
     ) -> Result<StackBranch> {
         let commit = ctx.repo().find_commit(self.head())?;
 
-        let mut reference = StackBranch {
-            head: commit.into(),
-            name: if let Some(refname) = self.upstream.as_ref() {
+        let mut reference = StackBranch::new(
+            commit.into(),
+            if let Some(refname) = self.upstream.as_ref() {
                 refname.branch().to_string()
             } else {
                 let (author, _committer) = ctx.repo().signatures()?;
                 generate_branch_name(author)?
             },
-            description: None,
-            pr_number: Default::default(),
-            archived: Default::default(),
-            review_id: None,
-        };
+            None,
+        );
         let state = branch_state(ctx);
 
         let is_duplicate = |reference: &StackBranch| -> Result<bool> {
             Ok(if allow_duplicate_refs {
-                patch_reference_exists(&state, &reference.name)?
+                patch_reference_exists(&state, reference.name())?
             } else {
                 let repository = ctx.gix_repository()?;
-                patch_reference_exists(&state, &reference.name)?
-                    || local_reference_exists(&repository, &reference.name)?
+                patch_reference_exists(&state, reference.name())?
+                    || local_reference_exists(&repository, reference.name())?
                     || remote_reference_exists(&repository, &state, reference)?
             })
         };
 
         while is_duplicate(&reference)? {
             // keep incrementing the suffix until the name is unique
-            let mut split = reference.name.split('-');
+            let name = reference.name();
+            let mut split = name.split('-');
             let left = split.clone().take(split.clone().count() - 1).join("-");
-            reference.name = split
-                .next_back()
-                .and_then(|last| last.parse::<u32>().ok())
-                .map(|last| format!("{}-{}", left, last + 1)) //take everything except last, and append last + 1
-                .unwrap_or_else(|| format!("{}-1", reference.name));
+            reference.set_name(
+                split
+                    .next_back()
+                    .and_then(|last| last.parse::<u32>().ok())
+                    .map(|last| format!("{}-{}", left, last + 1)) //take everything except last, and append last + 1
+                    .unwrap_or_else(|| format!("{}-1", reference.name())),
+            );
         }
         validate_name(&reference, &state)?;
 
@@ -393,15 +393,8 @@ impl Stack {
         let current_top_head = self.heads.last().ok_or(anyhow!(
             "Stack is in an invalid state - heads list is empty"
         ))?;
-        let new_head = StackBranch {
-            head: current_top_head.head.clone(),
-            name,
-            description,
-            pr_number: Default::default(),
-            archived: Default::default(),
-            review_id: None,
-        };
-        self.add_series(ctx, new_head, Some(current_top_head.name.clone()))
+        let new_head = StackBranch::new(current_top_head.head().to_owned(), name, description);
+        self.add_series(ctx, new_head, Some(current_top_head.name().clone()))
     }
 
     /// Removes a branch from the Stack.
@@ -442,9 +435,9 @@ impl Stack {
             let mut new_head = updated_heads
                 .clone()
                 .into_iter()
-                .find(|h| h.name == branch_name)
+                .find(|h| *h.name() == branch_name)
                 .ok_or_else(|| anyhow!("Series with name {} not found", branch_name))?;
-            new_head.head = target_update.target.clone();
+            new_head.set_head(target_update.target.clone());
             validate_target(&new_head, ctx.repo(), self.head(), &state)?;
             let preceding_head = if let Some(preceding_head_name) = update
                 .target_update
@@ -461,7 +454,7 @@ impl Stack {
             // drop the old head and add the new one
             let (idx, _) = get_head(&updated_heads, &branch_name)?;
             updated_heads.remove(idx);
-            if patches.last() != updated_heads.last().map(|h| &h.head) {
+            if patches.last() != updated_heads.last().map(|h| h.head()) {
                 bail!("This update would cause orphaned patches, which is disallowed");
             }
             updated_heads = add_head(
@@ -476,9 +469,9 @@ impl Stack {
         if let Some(name) = update.name.clone() {
             let head = updated_heads
                 .iter_mut()
-                .find(|h: &&mut StackBranch| h.name == branch_name);
+                .find(|h: &&mut StackBranch| *h.name() == branch_name);
             if let Some(head) = head {
-                head.name = name;
+                head.set_name(name);
                 validate_name(head, &state)?;
                 head.pr_number = None; // reset pr_number
             }
@@ -486,7 +479,7 @@ impl Stack {
 
         // Handle description updates
         if let Some(description) = update.description.clone() {
-            let head = updated_heads.iter_mut().find(|h| h.name == branch_name);
+            let head = updated_heads.iter_mut().find(|h| *h.name() == branch_name);
             if let Some(head) = head {
                 head.description = description;
             }
@@ -523,7 +516,7 @@ impl Stack {
             .heads
             .last_mut()
             .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
-        head.head = commit.into();
+        head.set_head(commit.into());
         validate_target(head, ctx.repo(), stack_head, &state)?;
         state.set_stack(self.clone())
     }
@@ -536,7 +529,7 @@ impl Stack {
         let state = branch_state(ctx);
         let commit_ids = self.stack_patches(&ctx.to_stack_context()?, false)?;
         for head in self.heads.iter_mut() {
-            if !commit_ids.contains(&head.head) {
+            if !commit_ids.contains(head.head()) {
                 head.archived = true;
             }
         }
@@ -560,7 +553,7 @@ impl Stack {
         self.ensure_initialized()?;
         let (_, reference) = get_head(&self.heads, &branch_name)?;
         let commit = commit_by_oid_or_change_id(
-            &reference.head,
+            reference.head(),
             ctx.repo(),
             self.head(),
             self.merge_base(&ctx.to_stack_context()?)?,
@@ -609,9 +602,9 @@ impl Stack {
             .heads
             .iter()
             .filter(|h| {
-                h.head == CommitOrChangeId::CommitId(from.id().to_string())
+                *h.head() == CommitOrChangeId::CommitId(from.id().to_string())
                     || from.change_id().is_some_and(|change_id| {
-                        h.head == CommitOrChangeId::ChangeId(change_id.clone())
+                        *h.head() == CommitOrChangeId::ChangeId(change_id.clone())
                     })
             })
             .cloned()
@@ -632,7 +625,7 @@ impl Stack {
             } else {
                 // new head target from the 'to' commit
                 let mut new_head = head.clone();
-                new_head.head = to.clone().into();
+                new_head.set_head(to.clone().into());
                 // validate the updated head
                 validate_target(&new_head, ctx.repo(), self.head(), &state)?;
                 // add it to the list of updated heads
@@ -642,7 +635,11 @@ impl Stack {
 
         if !updated_heads.is_empty() {
             for updated_head in updated_heads {
-                if let Some(head) = self.heads.iter_mut().find(|h| h.name == updated_head.name) {
+                if let Some(head) = self
+                    .heads
+                    .iter_mut()
+                    .find(|h| h.name() == updated_head.name())
+                {
                     // find set the corresponding head in the mutable self
                     *head = updated_head;
                 }
@@ -668,7 +665,7 @@ impl Stack {
             .heads
             .iter()
             .filter(|h| !h.archived)
-            .map(|h| &h.name)
+            .map(|h| h.name())
             .collect::<HashSet<_>>()
             != new_heads.keys().collect::<HashSet<_>>()
         {
@@ -676,13 +673,11 @@ impl Stack {
         }
         let stack_head = self.head();
         for head in &mut self.heads {
-            if let Some(commit) = new_heads.get(&head.name) {
-                let updated = StackBranch {
-                    head: commit.clone().into(),
-                    ..head.clone()
-                };
+            if let Some(commit) = new_heads.get(head.name()) {
+                let mut updated = head.clone();
+                updated.set_head(commit.clone().into());
                 validate_target(&updated, ctx.repo(), stack_head, &state)?;
-                head.head = commit.clone().into();
+                head.set_head(commit.clone().into());
             }
         }
         state.set_stack(self.clone())?;
@@ -702,7 +697,7 @@ impl Stack {
         new_pr_number: Option<usize>,
     ) -> Result<()> {
         self.ensure_initialized()?;
-        match self.heads.iter_mut().find(|r| r.name == series_name) {
+        match self.heads.iter_mut().find(|r| r.name() == series_name) {
             Some(head) => {
                 head.pr_number = new_pr_number;
                 branch_state(ctx).set_stack(self.clone())
@@ -716,19 +711,19 @@ impl Stack {
     }
 
     pub fn heads(&self) -> Vec<String> {
-        self.heads.iter().map(|h| h.name.clone()).collect()
+        self.heads.iter().map(|h| h.name().clone()).collect()
     }
 
     pub fn heads_by_commit(&self, commit: Commit<'_>) -> Vec<String> {
         // let id: CommitOrChangeId = commit.into();
         self.heads
             .iter()
-            .filter(|h| match h.head.clone() {
+            .filter(|h| match h.head().to_owned() {
                 CommitOrChangeId::CommitId(x) => commit.id().to_string() == x,
                 #[allow(deprecated)]
                 CommitOrChangeId::ChangeId(x) => commit.change_id() == Some(x), // todo:bug
             })
-            .map(|h| h.name.clone())
+            .map(|h| h.name().clone())
             .collect_vec()
     }
 
@@ -808,7 +803,7 @@ fn validate_target(
 ) -> Result<()> {
     let default_target = state.get_default_target()?;
     let merge_base = repo.merge_base(stack_head, default_target.sha)?;
-    let commit = commit_by_oid_or_change_id(&reference.head, repo, stack_head, merge_base)?.head;
+    let commit = commit_by_oid_or_change_id(reference.head(), repo, stack_head, merge_base)?.head;
 
     let merge_base = repo.merge_base(stack_head, default_target.sha)?;
     let mut stack_commits = repo
@@ -832,16 +827,16 @@ fn validate_target(
 ///  - not the same as any existing local git reference (it is permitted for the name to match an existing remote reference)
 ///  - not including the `refs/heads/` prefix
 fn validate_name(reference: &StackBranch, state: &VirtualBranchesHandle) -> Result<()> {
-    if reference.name.starts_with("refs/heads") {
+    if reference.name().starts_with("refs/heads") {
         return Err(anyhow!("Stack head name cannot start with 'refs/heads'"));
     }
     // assert that the name is a valid branch name
-    name_partial(reference.name.as_str().into()).context("Invalid branch name")?;
+    name_partial(reference.name().as_str().into()).context("Invalid branch name")?;
     // assert that there are no existing patch references with this name
-    if patch_reference_exists(state, &reference.name)? {
+    if patch_reference_exists(state, reference.name())? {
         return Err(anyhow!(
             "A patch reference with the name {} exists",
-            &reference.name
+            &reference.name()
         ));
     }
 
@@ -925,7 +920,7 @@ fn patch_reference_exists(state: &VirtualBranchesHandle, name: &str) -> Result<b
         .list_stacks_in_workspace()?
         .iter()
         .flat_map(|b| b.heads.iter())
-        .any(|r| r.name == name))
+        .any(|r| r.name() == name))
 }
 
 fn generate_branch_name(author: git2::Signature) -> Result<String> {

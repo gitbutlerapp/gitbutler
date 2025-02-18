@@ -16,10 +16,10 @@ use crate::{commit_by_oid_or_change_id, stack_context::StackContext, Stack};
 pub struct StackBranch {
     /// The target of the reference - this can be a commit or a change that points to a commit.
     #[serde(alias = "target")]
-    pub head: CommitOrChangeId,
+    head: CommitOrChangeId,
     /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
     /// The name must be unique within the repository.
-    pub name: String,
+    name: String,
     /// Optional description of the series. This could be markdown or anything our hearts desire.
     pub description: Option<String>,
     /// The pull request associated with the branch, or None if a pull request has not been created.
@@ -74,6 +74,33 @@ impl RepositoryExt for git2::Repository {
 }
 
 impl StackBranch {
+    pub fn new(head: CommitOrChangeId, name: String, description: Option<String>) -> Self {
+        StackBranch {
+            head,
+            name,
+            description,
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }
+    }
+
+    pub fn head(&self) -> &CommitOrChangeId {
+        &self.head
+    }
+
+    pub fn set_head(&mut self, head: CommitOrChangeId) {
+        self.head = head;
+    }
+
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
     pub fn head_oid(&self, stack_context: &StackContext, stack: &Stack) -> Result<Oid> {
         match self.head.clone() {
             CommitOrChangeId::CommitId(id) => id.parse().map_err(Into::into),

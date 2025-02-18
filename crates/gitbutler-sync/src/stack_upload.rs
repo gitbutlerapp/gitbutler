@@ -90,7 +90,7 @@ fn branch_heads(
     // found branch, so we iterate in reverse.
     for head in stack.heads.iter_mut().rev() {
         if !top_head_found {
-            if head.name == top_branch {
+            if head.name() == &top_branch {
                 top_head_found = true;
             } else {
                 continue;
@@ -107,7 +107,7 @@ fn branch_heads(
         heads.push(BranchHead {
             id: head_oid,
             review_id: review_id.clone(),
-            name: head.name.to_owned(),
+            name: head.name().to_owned(),
         })
     }
 

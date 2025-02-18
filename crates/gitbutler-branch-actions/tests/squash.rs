@@ -469,13 +469,13 @@ fn test_ctx<'a>(ctx: &'a CommandContext, stack_ctx: &'a StackContext) -> Result<
     let stacks = handle.list_all_stacks()?;
     let stack = stacks.iter().find(|b| b.name == "my_stack").unwrap();
     let branches = stack.branches();
-    let branch_1 = branches.iter().find(|b| b.name == "a-branch-1").unwrap();
+    let branch_1 = branches.iter().find(|b| b.name() == "a-branch-1").unwrap();
     let commit_1 = branch_1.commits(stack_ctx, stack)?.local_commits[0].clone();
-    let branch_2 = branches.iter().find(|b| b.name == "a-branch-2").unwrap();
+    let branch_2 = branches.iter().find(|b| b.name() == "a-branch-2").unwrap();
     let commit_2 = branch_2.commits(stack_ctx, stack)?.local_commits[0].clone();
     let commit_3 = branch_2.commits(stack_ctx, stack)?.local_commits[1].clone();
     let commit_4 = branch_2.commits(stack_ctx, stack)?.local_commits[2].clone();
-    let branch_3 = branches.iter().find(|b| b.name == "a-branch-3").unwrap();
+    let branch_3 = branches.iter().find(|b| b.name() == "a-branch-3").unwrap();
     let commit_5 = branch_3.commits(stack_ctx, stack)?.local_commits[0].clone();
     Ok(TestContext {
         stack: stack.clone(),

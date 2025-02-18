@@ -42,9 +42,9 @@ pub fn rewrite(
                 });
             }
             for branch in stack.heads.iter_mut() {
-                match &mut branch.head {
+                match &mut branch.head() {
                     CommitOrChangeId::CommitId(id_hex) => {
-                        let Some((id, branch_target_id_hex)) =
+                        let Some((id, _branch_target_id_hex)) =
                             gix::ObjectId::from_hex(id_hex.as_bytes())
                                 .ok()
                                 .map(|id| (id, id_hex))
@@ -52,11 +52,11 @@ pub fn rewrite(
                             continue;
                         };
                         if id == old {
-                            *branch_target_id_hex = new.to_string();
+                            branch.set_head(CommitOrChangeId::CommitId(new.to_string()));
                             updated_refs.push(UpdatedReference {
                                 old_commit_id: old,
                                 new_commit_id: new,
-                                reference: but_core::Reference::Virtual(branch.name.clone()),
+                                reference: but_core::Reference::Virtual(branch.name().clone()),
                             });
                         }
                     }
@@ -66,11 +66,11 @@ pub fn rewrite(
                             continue;
                         };
                         if *commit_id == old {
-                            branch.head = CommitOrChangeId::CommitId(new.to_string());
+                            branch.set_head(CommitOrChangeId::CommitId(new.to_string()));
                             updated_refs.push(UpdatedReference {
                                 old_commit_id: old,
                                 new_commit_id: new,
-                                reference: but_core::Reference::Virtual(branch.name.clone()),
+                                reference: but_core::Reference::Virtual(branch.name().clone()),
                             });
                         }
                     }
