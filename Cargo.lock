@@ -740,7 +740,9 @@ dependencies = [
  "gitbutler-repo",
  "gix",
  "insta",
+ "serde",
  "tempfile",
+ "toml 0.8.19",
  "tracing",
 ]
 

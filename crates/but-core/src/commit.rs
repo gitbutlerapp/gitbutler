@@ -59,12 +59,17 @@ impl From<HeadersV1> for HeadersV2 {
 
 const HEADERS_VERSION_FIELD: &str = "gitbutler-headers-version";
 const HEADERS_CHANGE_ID_FIELD: &str = "gitbutler-change-id";
-const HEADERS_CONFLICTED_FIELD: &str = "gitbutler-conflicted";
+/// The name of the header field that stores the amount of conflicted files.
+pub const HEADERS_CONFLICTED_FIELD: &str = "gitbutler-conflicted";
+const HEADERS_VERSION: &str = "2";
 
-impl From<HeadersV2> for Vec<(BString, BString)> {
-    fn from(hdr: HeadersV2) -> Self {
+impl From<&HeadersV2> for Vec<(BString, BString)> {
+    fn from(hdr: &HeadersV2) -> Self {
         let mut out = vec![
-            (BString::from(HEADERS_VERSION_FIELD), BString::from("2")),
+            (
+                BString::from(HEADERS_VERSION_FIELD),
+                BString::from(HEADERS_VERSION),
+            ),
             (HEADERS_CHANGE_ID_FIELD.into(), hdr.change_id.clone().into()),
         ];
 
@@ -91,6 +96,18 @@ pub enum TreeKind {
     AutoResolution,
 }
 
+impl TreeKind {
+    /// Return then name of the entry this tree would take in the 'meta' tree that captures cherry-pick conflicts.
+    pub fn as_tree_entry_name(&self) -> &'static str {
+        match self {
+            TreeKind::Ours => ".conflict-side-0",
+            TreeKind::Theirs => ".conflict-side-1",
+            TreeKind::Base => ".conflict-base-0",
+            TreeKind::AutoResolution => ".auto-resolution",
+        }
+    }
+}
+
 /// Instantiation
 impl<'repo> Commit<'repo> {
     /// Decode the object at `commit_id` and keep its data for later query.
@@ -103,11 +120,50 @@ impl<'repo> Commit<'repo> {
     }
 }
 
+impl Commit<'_> {
+    /// Set this commit to use the given `headers`, completely replacing the ones it might currently have.
+    pub fn set_headers(&mut self, header: &HeadersV2) {
+        for field in [
+            HEADERS_VERSION_FIELD,
+            HEADERS_CHANGE_ID_FIELD,
+            HEADERS_CONFLICTED_FIELD,
+        ] {
+            if let Some(pos) = self.extra_headers().find_pos(field) {
+                self.extra_headers.remove(pos);
+            }
+        }
+
+        self.extra_headers
+            .extend(Vec::<(BString, BString)>::from(header));
+    }
+}
+
+impl std::ops::Deref for Commit<'_> {
+    type Target = gix::objs::Commit;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl std::ops::DerefMut for Commit<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
+impl HeadersV2 {
+    /// Return `true` if this commit contains a tree that is conflicted.
+    pub fn is_conflicted(&self) -> bool {
+        self.conflicted.is_some()
+    }
+}
+
 /// Access
 impl<'repo> Commit<'repo> {
     /// Return `true` if this commit contains a tree that is conflicted.
     pub fn is_conflicted(&self) -> bool {
-        self.headers().is_some_and(|hdr| hdr.conflicted.is_some())
+        self.headers().is_some_and(|hdr| hdr.is_conflicted())
     }
 
     /// Return the hash of *our* tree, even if this commit is conflicted.
@@ -127,12 +183,7 @@ impl<'repo> Commit<'repo> {
                 .attach(self.id.repo)
                 .object()?
                 .into_tree()
-                .find_entry(match kind {
-                    TreeKind::Ours => ".conflict-side-0",
-                    TreeKind::Theirs => ".conflict-side-1",
-                    TreeKind::Base => ".conflict-base-0",
-                    TreeKind::AutoResolution => ".auto-resolution",
-                })
+                .find_entry(kind.as_tree_entry_name())
                 .with_context(|| format!("Unexpected tree in conflicting commit {}", self.id))?
                 .id();
             Some(our_tree)
@@ -156,7 +207,7 @@ impl<'repo> Commit<'repo> {
         if let Some(header) = decoded.extra_headers().find(HEADERS_VERSION_FIELD) {
             let version = header.to_owned();
 
-            if version == "2" {
+            if version == HEADERS_VERSION {
                 let change_id = decoded.extra_headers().find(HEADERS_CHANGE_ID_FIELD)?;
                 let change_id = change_id.to_str().ok()?.to_string();
 

@@ -504,7 +504,7 @@ fn create_possibly_signed_commit(
         committer,
         encoding: None,
         parents: parents.into_iter().map(Into::into).collect(),
-        extra_headers: commit_headers.unwrap_or_default().into(),
+        extra_headers: (&commit_headers.unwrap_or_default()).into(),
     };
     but_rebase::commit::create(repo, commit, CommitterMode::Keep)
 }

@@ -8,16 +8,40 @@ pub fn project_from_path(path: &Path) -> anyhow::Result<Project> {
 
 pub fn project_repo(path: &Path) -> anyhow::Result<gix::Repository> {
     let project = project_from_path(path)?;
-    Ok(gix::open(project.worktree_path())?)
+    configured_repo(
+        gix::open(project.worktree_path())?,
+        RepositoryOpenMode::General,
+    )
+}
+
+pub enum RepositoryOpenMode {
+    Merge,
+    General,
+}
+
+fn configured_repo(
+    mut repo: gix::Repository,
+    mode: RepositoryOpenMode,
+) -> anyhow::Result<gix::Repository> {
+    match mode {
+        RepositoryOpenMode::Merge => {
+            let bytes = repo.compute_object_cache_size_for_tree_diffs(&***repo.index_or_empty()?);
+            repo.object_cache_size_if_unset(bytes);
+        }
+        RepositoryOpenMode::General => {
+            repo.object_cache_size_if_unset(512 * 1024);
+        }
+    }
+    Ok(repo)
 }
 
 /// Operate like GitButler would in the future, on a Git repository and optionally with additional metadata as obtained
 /// from the previously added project.
 pub fn repo_and_maybe_project(
     args: &super::Args,
+    mode: RepositoryOpenMode,
 ) -> anyhow::Result<(gix::Repository, Option<Project>)> {
-    let mut repo = gix::discover(&args.current_dir)?;
-    repo.object_cache_size_if_unset(512 * 1024);
+    let repo = configured_repo(gix::discover(&args.current_dir)?, mode)?;
     let res = if let Some((projects, work_dir)) =
         project_controller(args.app_suffix.as_deref(), args.app_data_dir.as_deref())
             .ok()

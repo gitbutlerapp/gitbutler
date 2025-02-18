@@ -19,6 +19,8 @@ gitbutler-error.workspace = true
 bstr.workspace = true
 git2.workspace = true
 tempfile.workspace = true
+serde = { version = "1.0.217", features = ["derive"] }
+toml.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true

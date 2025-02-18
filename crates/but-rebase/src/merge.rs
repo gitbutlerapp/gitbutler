@@ -44,8 +44,11 @@ pub fn octopus(
     let mut trees_to_merge = parents_to_merge
         .clone()
         .map(|commit_id| -> Result<_> {
+            // TODO: as long as only cherry-picking is creating these trees, THEIRS
+            //       is the original 'to_rebase'. However, if that changes we must know
+            //       what created the special merge commit.
             Ok(but_core::Commit::from_id(commit_id.attach(repo))?
-                .tree_id_by_kind_or_ours(TreeKind::Ours)?
+                .tree_id_by_kind_or_ours(TreeKind::Theirs)?
                 .detach())
         })
         .collect::<Result<Vec<_>, _>>()?

@@ -6,9 +6,13 @@
 use crate::commit::CommitterMode;
 use anyhow::{anyhow, bail, Context, Ok, Result};
 use bstr::{BString, ByteSlice};
-use gitbutler_oxidize::{ObjectIdExt as _, OidExt};
 use gix::objs::Exists;
 use gix::prelude::ObjectIdExt;
+
+/// Types for use with cherry-picking
+pub mod cherry_pick;
+use crate::cherry_pick::{EmptyCommit, PickMode};
+pub use cherry_pick::function::{cherry_pick_many, cherry_pick_one};
 
 /// Utilities to create commits (and deal with signing)
 pub mod commit;
@@ -225,7 +229,6 @@ fn rebase(
     steps: Vec<RebaseStep>,
     rebase_noops: bool,
 ) -> Result<RebaseOutput> {
-    let git2_repo = git2::Repository::open(repo.path())?;
     let (mut references, mut commit_mapping) = (
         vec![],
         Vec::<(Option<gix::ObjectId>, gix::ObjectId, gix::ObjectId)>::new(),
@@ -267,14 +270,18 @@ fn rebase(
                 } else {
                     match &mut cursor {
                         Some(cursor) => {
-                            let mut new_commit = gitbutler_repo::rebase::cherry_rebase_group(
-                                &git2_repo,
-                                cursor.to_git2(),
-                                &[commit_id.to_git2()],
-                                rebase_noops,
-                                true,
-                            )?
-                            .to_gix();
+                            let pick_mode = if rebase_noops {
+                                PickMode::Unconditionally
+                            } else {
+                                PickMode::SkipIfNoop
+                            };
+                            let mut new_commit = cherry_pick_one(
+                                repo,
+                                *cursor,
+                                commit_id,
+                                pick_mode,
+                                EmptyCommit::Keep,
+                            )?;
                             if let Some(new_message) = new_message {
                                 new_commit = reword_commit(repo, new_commit, new_message.clone())?;
                             }
@@ -319,18 +326,16 @@ fn rebase(
                 };
                 last_seen_commit = Some(commit_id);
                 let base_commit = repo.find_commit(*cursor)?;
-                let new_commit = gitbutler_repo::rebase::cherry_rebase_group(
-                    &git2_repo,
-                    cursor.to_git2(),
-                    &[commit_id.to_git2()],
-                    true,
-                    true,
-                )?
-                .to_gix();
+                let new_commit = cherry_pick_one(
+                    repo,
+                    *cursor,
+                    commit_id,
+                    PickMode::Unconditionally,
+                    EmptyCommit::Keep,
+                )?;
 
                 // Now, lets pretend the base didn't exist by swapping parent with the parent of the base
-                let commit = repo.find_commit(new_commit)?;
-                let mut new_commit = commit.decode()?.to_owned();
+                let mut new_commit = repo.find_commit(new_commit)?.decode()?.to_owned();
                 new_commit.parents = base_commit.parent_ids().map(|id| id.detach()).collect();
                 if let Some(new_message) = new_message {
                     new_commit.message = new_message;

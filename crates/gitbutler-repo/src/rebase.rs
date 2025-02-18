@@ -419,7 +419,7 @@ pub fn gitbutler_merge_commits<'repository>(
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ConflictEntries {
-    ancestor_entries: Vec<PathBuf>,
+    pub ancestor_entries: Vec<PathBuf>,
     our_entries: Vec<PathBuf>,
     their_entries: Vec<PathBuf>,
 }

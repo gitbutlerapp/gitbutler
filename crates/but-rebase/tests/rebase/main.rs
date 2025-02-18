@@ -222,7 +222,7 @@ fn reorder_with_conflict_and_remerge() -> Result<()> {
         .rebase()?;
     insta::assert_debug_snapshot!(out, @r"
     RebaseOutput {
-        top_commit: Sha1(bd766f8c4da714cc2de511e50d1e011adbf66b82),
+        top_commit: Sha1(68691619d227cba38210e9f208d35f665c1da26f),
         references: [],
         commit_mapping: [
             (
@@ -251,13 +251,13 @@ fn reorder_with_conflict_and_remerge() -> Result<()> {
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(134887021e06909021776c023a608f8ef179e859),
-                Sha1(bd766f8c4da714cc2de511e50d1e011adbf66b82),
+                Sha1(68691619d227cba38210e9f208d35f665c1da26f),
             ),
         ],
     }
     ");
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    *-.   bd766f8 Re-merge branches 'A', 'B' and 'C'
+    *-.   6869161 Re-merge branches 'A', 'B' and 'C'
     |\ \  
     | | * 4e3b7bf C~1
     | | * 6844bf4 C
@@ -277,9 +277,9 @@ fn reorder_with_conflict_and_remerge() -> Result<()> {
 
     // The auto-resolution towards *ours* causes new-file to look different.
     insta::assert_snapshot!(visualize_tree(&repo, &out ), @r#"
-    37f8adc
+    6abc3da
     ├── file:100644:06581b4 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n61\n62\n63\n64\n65\n66\n67\n68\n69\n70\n71\n72\n73\n74\n75\n76\n77\n78\n79\n80\n"
-    └── new-file:100644:213ec44 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n"
+    └── new-file:100644:0ff3bbb "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n"
     "#);
     Ok(())
 }

@@ -67,7 +67,7 @@ pub fn create(
 }
 
 /// Update the commiter of `commit` to be the current one.
-pub fn update_committer(
+pub(crate) fn update_committer(
     repo: &gix::Repository,
     commit: &mut gix::objs::Commit,
 ) -> anyhow::Result<()> {

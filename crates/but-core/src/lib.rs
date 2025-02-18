@@ -44,6 +44,7 @@
 use bstr::{BStr, BString};
 use gix::object::tree::EntryKind;
 use serde::Serialize;
+use std::path::Path;
 
 /// Functions to obtain changes between various items.
 pub mod diff;
@@ -102,6 +103,16 @@ pub enum Reference {
     /// A reference not visible in Git, managed by GitButler.
     // TODO: ideally this isn't needed anymore in the final version as all refs are 'real'.
     Virtual(String),
+}
+
+/// Open a repository in such a way that the object cache is set to accelerate merge operations.
+///
+/// As it depends on the size of the tree, the index will be loaded for that.
+pub fn open_repo_for_merging(path: &Path) -> anyhow::Result<gix::Repository> {
+    let mut repo = gix::open(path)?;
+    let bytes = repo.compute_object_cache_size_for_tree_diffs(&***repo.index_or_empty()?);
+    repo.object_cache_size_if_unset(bytes);
+    Ok(repo)
 }
 
 /// An entry in the worktree that changed and thus is eligible to being committed.
