@@ -101,7 +101,7 @@
 	const desktopRouteService = new DesktopRoutesService();
 	const diffService = new DiffService(clientState);
 	const shortcutService = new ShortcutService(data.tauri);
-	const commitService = new CommitService(clientState);
+	const commitService = new CommitService();
 
 	shortcutService.listen();
 
