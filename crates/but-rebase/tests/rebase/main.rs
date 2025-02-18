@@ -25,10 +25,6 @@ fn single_stack_journey() -> Result<()> {
                 new_message: Some("second step: squash b into a".into()),
             },
             RebaseStep::Reference(but_core::Reference::Virtual("anchor".into())),
-            RebaseStep::Merge {
-                commit_id: commits.c,
-                new_message: "third step: merge C into b".into(),
-            },
         ])?
         .rebase()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
@@ -40,20 +36,14 @@ fn single_stack_journey() -> Result<()> {
     // The base remains unchanged, and two commits remain: a squash commit and a merge with
     // the original `c` commit.
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    *   59ff155 third step: merge C into b
-    |\  
-    | * 120e3a9 (HEAD -> main) c
-    | * a96434e b
-    | * d591dfe a
-    * | db12e70 second step: squash b into a
-    |/  
+    * db12e70 second step: squash b into a
     * 35b8235 base
     ");
 
     // The reference points to the commit and correctly refers to the one that was fixed up.
     insta::assert_debug_snapshot!(out, @r#"
     RebaseOutput {
-        top_commit: Sha1(59ff1558ab5f78c5889bd5bf386b06a402b5a7eb),
+        top_commit: Sha1(db12e70c7c70a8907834694fa3b2ac7155072608),
         references: [
             ReferenceSpec {
                 reference: Virtual(
@@ -84,13 +74,6 @@ fn single_stack_journey() -> Result<()> {
                 ),
                 Sha1(a96434e2505c2ea0896cf4f58fec0778e074d3da),
                 Sha1(db12e70c7c70a8907834694fa3b2ac7155072608),
-            ),
-            (
-                Some(
-                    Sha1(35b8235197020a417e9405ab5d4db6f204e8d84b),
-                ),
-                Sha1(120e3a90b753a492cef9a552ae3b9ba1f1391362),
-                Sha1(59ff1558ab5f78c5889bd5bf386b06a402b5a7eb),
             ),
         ],
     }

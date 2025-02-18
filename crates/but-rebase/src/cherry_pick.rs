@@ -33,39 +33,13 @@ pub(crate) mod function {
     use serde::Serialize;
     use std::collections::HashSet;
     use std::path::PathBuf;
-    use tracing::instrument;
 
-    /// Place `commits_to_rebase` onto `base` in-order, i.e. `base -> 0 -> 1 -> N`, so that that last
-    /// commit in `commits_to_rebase` is the last commit to rebase.
-    /// If `commits_to_rebase` is empty, `base` is returned unaltered.
+    /// Place `commit_to_rebase` onto `base`.
     ///
     /// `pick_mode` and `empty_commit` control how to deal with no-ops and epty commits.
+    /// Returns the id of the cherry-picked commit.
     ///
-    /// Returns the id of the top-most, rebased commit.
-    ///
-    /// Note that each rewritten commit will have headers injected, among which is a change id.
-    #[instrument(level = tracing::Level::DEBUG, skip(repo, commits_to_rebase))]
-    pub fn cherry_pick_many(
-        repo: &gix::Repository,
-        base: gix::ObjectId,
-        commits_to_rebase: impl IntoIterator<Item = gix::ObjectId>,
-        pick_mode: PickMode,
-        empty_commit: EmptyCommit,
-    ) -> anyhow::Result<gix::ObjectId> {
-        let mut cursor = but_core::Commit::from_id(base.attach(repo))?;
-        for to_rebase_id in commits_to_rebase {
-            let to_rebase = but_core::Commit::from_id(to_rebase_id.attach(repo))?;
-            cursor = but_core::Commit::from_id(cherry_pick_one_inner(
-                cursor,
-                to_rebase,
-                pick_mode,
-                empty_commit,
-            )?)?;
-        }
-        Ok(cursor.id.detach())
-    }
-
-    /// Like [`cherry_pick_many()`], but only handles a single `commit_to_rebase` onto `base`.
+    /// Note that the rewritten commit will have headers injected, among which is a change id.
     pub fn cherry_pick_one(
         repo: &gix::Repository,
         base: gix::ObjectId,
