@@ -1,9 +1,10 @@
 use crate::commit_engine::utils::{
-    assure_stable_env, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace,
+    commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace,
     read_only_in_memory_scenario, to_change_specs_all_hunks,
     to_change_specs_all_hunks_with_context_lines, to_change_specs_whole_file, visualize_tree,
     writable_scenario, writable_scenario_with_ssh_key, write_sequence, CONTEXT_LINES,
 };
+use but_testsupport::assure_stable_env;
 use but_workspace::commit_engine;
 use but_workspace::commit_engine::{Destination, DiffSpec};
 use gix::prelude::ObjectIdExt;
@@ -26,7 +27,7 @@ fn from_unborn_head() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(5e2d025d182645489ec761af73f565f41ab5eccc),
+            Sha1(209c17a41b38f51f76d9912e2c62f008969774f3),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(861d6e23ee6a2d7276618bb78700354a3506bd71),
@@ -69,7 +70,7 @@ fn from_unborn_head() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(83f954427c5d4e0dadfdaa32069300d02c4190ee),
+            Sha1(40051c4ef1ec3214b32312b5a7db410c13fc35a1),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(a0044697412bfa8432298d6bd6a2ad0dbd655c9f),
@@ -379,7 +380,7 @@ fn commit_to_one_below_tip_with_three_context_lines() -> anyhow::Result<()> {
 
         assert_eq!(
             outcome.new_commit.map(|id| id.to_string()),
-            Some("e973f53830337edae78ba3cb1c45272ecb5f9f61".to_string())
+            Some("d5e787a63a63186f5a65403c5814148b8bbb54f7".to_string())
         );
         let tree = visualize_tree(&repo, &outcome)?;
         assert_eq!(
@@ -576,7 +577,7 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(d58e3930fa21fdcd35f7447baa2f097c15ce38e8),
+            Sha1(e0f2b2cd094c6b390abf9859cdc250e10510fd1a),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(d5949f12727c8e89e1351b89e8e510dfa1e2adc9),
@@ -614,7 +615,7 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(f2f38d7d25b69f7a122342538bc807a1796c5111),
+            Sha1(ccc603e141a363a98221cb365fb9695cc3348088),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(cef74127e0e9f4c46b5ff360d6208ee0cc839eba),

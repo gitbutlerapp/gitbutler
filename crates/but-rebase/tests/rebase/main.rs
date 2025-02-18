@@ -1,11 +1,10 @@
 use crate::utils::{
-    assure_nonconflicting, assure_stable_env, conflicted, fixture_writable, four_commits_writable,
-    visualize_tree,
+    assure_nonconflicting, conflicted, fixture_writable, four_commits_writable, visualize_tree,
 };
 use anyhow::Result;
 use bstr::ByteSlice;
 use but_rebase::{Rebase, RebaseStep};
-use but_testsupport::visualize_commit_graph;
+use but_testsupport::{assure_stable_env, visualize_commit_graph};
 use gix::prelude::ObjectIdExt;
 
 mod error_handling;
@@ -37,20 +36,20 @@ fn single_stack_journey() -> Result<()> {
     // The base remains unchanged, and two commits remain: a squash commit and a merge with
     // the original `c` commit.
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    * db12e70 second step: squash b into a
+    * a466bf8 second step: squash b into a
     * 35b8235 base
     ");
 
     // The reference points to the commit and correctly refers to the one that was fixed up.
     insta::assert_debug_snapshot!(out, @r#"
     RebaseOutput {
-        top_commit: Sha1(db12e70c7c70a8907834694fa3b2ac7155072608),
+        top_commit: Sha1(a466bf82eed2e6aa725eb61a85cc73281fc02960),
         references: [
             ReferenceSpec {
                 reference: Virtual(
                     "anchor",
                 ),
-                commit_id: Sha1(db12e70c7c70a8907834694fa3b2ac7155072608),
+                commit_id: Sha1(a466bf82eed2e6aa725eb61a85cc73281fc02960),
                 previous_commit_id: Sha1(a96434e2505c2ea0896cf4f58fec0778e074d3da),
             },
         ],
@@ -60,21 +59,21 @@ fn single_stack_journey() -> Result<()> {
                     Sha1(35b8235197020a417e9405ab5d4db6f204e8d84b),
                 ),
                 Sha1(d591dfed1777b8f00f5b7b6f427537eeb5878178),
-                Sha1(f60c5fc0acd40bd60d3b1d7a0680acaeb7a38623),
+                Sha1(5c028a33efc5184dc46db016d9567ab79bc3e348),
             ),
             (
                 Some(
                     Sha1(35b8235197020a417e9405ab5d4db6f204e8d84b),
                 ),
                 Sha1(a96434e2505c2ea0896cf4f58fec0778e074d3da),
-                Sha1(db12e70c7c70a8907834694fa3b2ac7155072608),
+                Sha1(a466bf82eed2e6aa725eb61a85cc73281fc02960),
             ),
             (
                 Some(
                     Sha1(35b8235197020a417e9405ab5d4db6f204e8d84b),
                 ),
                 Sha1(a96434e2505c2ea0896cf4f58fec0778e074d3da),
-                Sha1(db12e70c7c70a8907834694fa3b2ac7155072608),
+                Sha1(a466bf82eed2e6aa725eb61a85cc73281fc02960),
             ),
         ],
     }
@@ -124,9 +123,9 @@ fn amended_commit() -> Result<()> {
         .rebase()?;
     // Note how the `C` isn't visible anymore as we don't rewrite reference here.
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    *-.   4d62e85 Merge branches 'A', 'B' and 'C' - rewritten
+    *-.   7997ae5 Merge branches 'A', 'B' and 'C' - rewritten
     |\ \  
-    | | * 2d75f8b C: add another 10 lines to new file - amended
+    | | * 39bb1d3 C: add another 10 lines to new file - amended
     | | * 68a2fc3 C: add 10 lines to new file
     | | * 984fd1c C: new file with 10 lines
     | * | a748762 (B) B: another 10 lines at the bottom
@@ -139,7 +138,7 @@ fn amended_commit() -> Result<()> {
     // This time without anchor.
     insta::assert_debug_snapshot!(out, @r"
     RebaseOutput {
-        top_commit: Sha1(4d62e85b0b09ee7a7152a517d358922eca8dfbe0),
+        top_commit: Sha1(7997ae52819cc4ceb88e2e675453bbfb4dd8cd46),
         references: [],
         commit_mapping: [
             (
@@ -147,14 +146,14 @@ fn amended_commit() -> Result<()> {
                     Sha1(68a2fc349e13a186e6d65871a31bad244d25e6f4),
                 ),
                 Sha1(930563a048351f05b14cc7b9c0a48640e5a306b0),
-                Sha1(2d75f8bfde82379541e8a0fe78c05d5abd87e4bc),
+                Sha1(39bb1d32a72c9aead133a0d867879e88ca724fcb),
             ),
             (
                 Some(
                     Sha1(68a2fc349e13a186e6d65871a31bad244d25e6f4),
                 ),
                 Sha1(134887021e06909021776c023a608f8ef179e859),
-                Sha1(4d62e85b0b09ee7a7152a517d358922eca8dfbe0),
+                Sha1(7997ae52819cc4ceb88e2e675453bbfb4dd8cd46),
             ),
         ],
     }
@@ -206,7 +205,7 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
         .rebase()?;
     insta::assert_debug_snapshot!(out, @r"
     RebaseOutput {
-        top_commit: Sha1(751de6c996294f391cbcb6eaba1db83990b436f7),
+        top_commit: Sha1(49915cc7bbd6cf82a009f34b66272766441bc392),
         references: [],
         commit_mapping: [
             (
@@ -214,38 +213,38 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(984fd1c6d3975901147b1f02aae6ef0a16e5904e),
-                Sha1(010a2c6ea3c64bd0076965fc334f278bac6a5aa3),
+                Sha1(da071f9661f4894bd5ea699590940764365fa0f4),
             ),
             (
                 Some(
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(930563a048351f05b14cc7b9c0a48640e5a306b0),
-                Sha1(ea7cc6f97abe553c1f6c533630a5da987d282bae),
+                Sha1(9b5f097bef4a78ed114ca1e0a095e552ef3c2ac2),
             ),
             (
                 Some(
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(68a2fc349e13a186e6d65871a31bad244d25e6f4),
-                Sha1(284e6112ce457925b4c163e55b75430f3548c9c4),
+                Sha1(a9bf1a73aab4f4a54f748c487a277f84e341aaf2),
             ),
             (
                 Some(
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(134887021e06909021776c023a608f8ef179e859),
-                Sha1(751de6c996294f391cbcb6eaba1db83990b436f7),
+                Sha1(49915cc7bbd6cf82a009f34b66272766441bc392),
             ),
         ],
     }
     ");
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    *-.   751de6c Re-merge branches 'A', 'B' and 'C'
+    *-.   49915cc Re-merge branches 'A', 'B' and 'C'
     |\ \  
-    | | * 284e611 C~1
-    | | * ea7cc6f C
-    | | * 010a2c6 C~2
+    | | * a9bf1a7 C~1
+    | | * 9b5f097 C
+    | | * da071f9 C~2
     | * | a748762 (B) B: another 10 lines at the bottom
     | * | 62e05ba B: 10 lines at the bottom
     | |/  
@@ -288,9 +287,9 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
     // gitbutler headers were added here to indicate conflict (change-id is frozen for testing)
     insta::assert_snapshot!(conflict_commit_id.object()?.data.as_bstr(), @r"
     tree db4a5b82b209e5165cdf8d04ff4328ec1fc2526d
-    parent ea7cc6f97abe553c1f6c533630a5da987d282bae
+    parent 9b5f097bef4a78ed114ca1e0a095e552ef3c2ac2
     author author <author@example.com> 946684800 +0000
-    committer Committer <committer@example.com> 946684800 +0000
+    committer Committer (Memory Override) <committer@example.com> 946684800 +0000
     gitbutler-headers-version 2
     gitbutler-change-id change-id
     gitbutler-conflicted 1
@@ -303,9 +302,9 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
     tree 6abc3da6f1642bfd5543ef97f98b924f4f232a96
     parent add59d26b2ffd7468fcb44c2db48111dd8f481e5
     parent a7487625f079bedf4d20e48f052312c010117b38
-    parent 284e6112ce457925b4c163e55b75430f3548c9c4
+    parent a9bf1a73aab4f4a54f748c487a277f84e341aaf2
     author author <author@example.com> 946684800 +0000
-    committer Committer <committer@example.com> 946684800 +0000
+    committer Committer (Memory Override) <committer@example.com> 946684800 +0000
     gitbutler-headers-version 2
     gitbutler-change-id change-id
 
@@ -318,7 +317,7 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
     tree fa799da5c8300f1e8f8d89f1c5989a8f03ccd852
     parent 8f0d33828e5c859c95fb9e9fc063374fdd482536
     author author <author@example.com> 946684800 +0000
-    committer Committer <committer@example.com> 946684800 +0000
+    committer Committer (Memory Override) <committer@example.com> 946684800 +0000
     gitbutler-headers-version 2
     gitbutler-change-id change-id
 
@@ -452,11 +451,11 @@ fn reversible_conflicts() -> anyhow::Result<()> {
 
     let conflict_tip = repo.rev_parse_single(format!("{}^3", out.top_commit).as_str())?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    *-.   751de6c Re-merge branches 'A', 'B' and 'C'
+    *-.   49915cc Re-merge branches 'A', 'B' and 'C'
     |\ \  
-    | | * 284e611 C~1
-    | | * ea7cc6f C
-    | | * 010a2c6 C~2
+    | | * a9bf1a7 C~1
+    | | * 9b5f097 C
+    | | * da071f9 C~2
     | * | a748762 (B) B: another 10 lines at the bottom
     | * | 62e05ba B: 10 lines at the bottom
     | |/  
@@ -522,21 +521,21 @@ fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
             },
         ])?
         .rebase()?;
-    insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @"* f1c9b38 reworded base after squash");
+    insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @"* 9078131 reworded base after squash");
     insta::assert_debug_snapshot!(out, @r"
     RebaseOutput {
-        top_commit: Sha1(f1c9b383cd5e1c95b2d948e537dc723c6c9c52b3),
+        top_commit: Sha1(9078131ba71afab019afd55f9dbce97c80858a42),
         references: [],
         commit_mapping: [
             (
                 None,
                 Sha1(35b8235197020a417e9405ab5d4db6f204e8d84b),
-                Sha1(99f9822f74bda4b33ecdf2323e92a3fe40dce851),
+                Sha1(12381f6556a7a8cf9f132a5f930ca9f109f3d0f2),
             ),
             (
                 None,
                 Sha1(d591dfed1777b8f00f5b7b6f427537eeb5878178),
-                Sha1(f1c9b383cd5e1c95b2d948e537dc723c6c9c52b3),
+                Sha1(9078131ba71afab019afd55f9dbce97c80858a42),
             ),
         ],
     }
@@ -626,25 +625,6 @@ pub mod utils {
             },
             tmp,
         ))
-    }
-
-    /// Sets and environment that assures commits are reproducible.
-    /// This needs the `testing` feature enabled in `but-core` as well to work.
-    /// This changes the process environment, be aware.
-    pub fn assure_stable_env() {
-        let env = gix_testtools::Env::new()
-            // TODO(gix): once everything is ported, the only variable needed here
-            //            is CHANGE_ID, and even that could be a global. Call `but_testsupport::open_repo()`
-            //            for basic settings.
-            .set("GIT_AUTHOR_DATE", "2000-01-01 00:00:00 +0000")
-            .set("GIT_AUTHOR_EMAIL", "author@example.com")
-            .set("GIT_AUTHOR_NAME", "author")
-            .set("GIT_COMMITTER_DATE", "2000-01-02 00:00:00 +0000")
-            .set("GIT_COMMITTER_EMAIL", "committer@example.com")
-            .set("GIT_COMMITTER_NAME", "committer")
-            .set("CHANGE_ID", "change-id");
-        // assure it doesn't get racy.
-        std::mem::forget(env);
     }
 
     pub fn assure_nonconflicting(repo: &gix::Repository, out: &RebaseOutput) -> Result<()> {
