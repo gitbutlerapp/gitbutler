@@ -34,7 +34,7 @@ pub(crate) fn remove_head(
         let prior_head = heads
             .get_mut(idx - 1)
             .ok_or_else(|| anyhow!("Cannot get the head before the head being removed"))?;
-        prior_head.head = head.head.clone();
+        prior_head.set_head(head.head().to_owned());
         moved_another_reference = true;
     }
     heads.remove(idx);
@@ -56,7 +56,7 @@ pub(crate) fn add_head(
     // If there are multiple heads that point to the same patch, the order is disambiguated by specifying the `preceding_head`
     // If `preceding_head` is specified, it must be in the list of existing heads, and it must be a head for the same patch as the `new_head`
     if let Some(preceding_head) = &preceding_head {
-        if preceding_head.head != new_head.head {
+        if preceding_head.head() != new_head.head() {
             return Err(anyhow!(
                 "Preceding head needs to be one that point to the same patch as new_head"
             ));
@@ -69,12 +69,12 @@ pub(crate) fn add_head(
     }
     let archived_heads = existing_heads
         .iter()
-        .filter(|h| !patches.contains(&h.head))
+        .filter(|h| !patches.contains(h.head()))
         .cloned()
         .collect_vec();
     let mut existing_heads = existing_heads
         .iter()
-        .filter(|h| patches.contains(&h.head))
+        .filter(|h| patches.contains(h.head()))
         .cloned()
         .collect_vec();
     let mut updated_heads: Vec<StackBranch> = vec![];
@@ -86,8 +86,7 @@ pub(crate) fn add_head(
             match (existing_head, &new_head) {
                 // Both the new head and the next existing head reference the patch as a target
                 (Some(existing_head), Some(new_head_ref))
-                    if existing_head.head == patch.clone()
-                        && new_head_ref.head == patch.clone() =>
+                    if existing_head.head() == patch && new_head_ref.head() == patch =>
                 {
                     if preceding_head.is_none() {
                         updated_heads.push(new_head_ref.clone()); // no preceding head specified, so add the new head first
@@ -101,12 +100,12 @@ pub(crate) fn add_head(
                     }
                 }
                 // Only the next existing head matches the patch as a target
-                (Some(existing_head), _) if existing_head.head == patch.clone() => {
+                (Some(existing_head), _) if existing_head.head() == patch => {
                     updated_heads.push(existing_head.clone()); // add the nex existing head as the next entry
                     existing_heads.remove(0); // consume the next in line from the existing heads
                 }
                 // Only the new head matches the patch as a target
-                (_, Some(new_head_ref)) if new_head_ref.head == patch.clone() => {
+                (_, Some(new_head_ref)) if new_head_ref.head() == patch => {
                     updated_heads.push(new_head_ref.clone()); // add the new head as the next entry
                     new_head = None; // the `new_head` is now consumed
                 }
@@ -120,10 +119,10 @@ pub(crate) fn add_head(
     // the last head must point to the last commit in the stack of patches
     if let Some(last_head) = updated_heads.last() {
         if let Some(last_patch) = patches.last() {
-            if last_head.head != last_patch.clone() {
+            if last_head.head() != last_patch {
                 // error - invalid state - this would result in orphaned patches
                 bail!(
-                    "The newest head must point to the newest patch in the stack. The newest patch is {}, while the newest head with name {} points patch {}", last_patch, last_head.name(), last_head.head
+                    "The newest head must point to the newest patch in the stack. The newest patch is {}, while the newest head with name {} points patch {}", last_patch, last_head.name(), last_head.head()
                 );
             }
         } else {

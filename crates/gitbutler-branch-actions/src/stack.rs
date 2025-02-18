@@ -193,7 +193,7 @@ pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> 
             // Nothing to push for this one
             continue;
         }
-        if branch.head == merge_base {
+        if *branch.head() == merge_base {
             // Nothing to push for this one
             continue;
         }

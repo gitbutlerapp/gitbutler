@@ -951,7 +951,7 @@ mod utils {
                 "create stack head for visualization",
             )?;
             for branch in &stack.heads {
-                let CommitOrChangeId::CommitId(commit_id) = &branch.head else {
+                let CommitOrChangeId::CommitId(commit_id) = branch.head() else {
                     continue;
                 };
                 let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes())?;

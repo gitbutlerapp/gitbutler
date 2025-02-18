@@ -393,7 +393,7 @@ impl Stack {
         let current_top_head = self.heads.last().ok_or(anyhow!(
             "Stack is in an invalid state - heads list is empty"
         ))?;
-        let new_head = StackBranch::new(current_top_head.head.clone(), name, description);
+        let new_head = StackBranch::new(current_top_head.head().to_owned(), name, description);
         self.add_series(ctx, new_head, Some(current_top_head.name().clone()))
     }
 
@@ -437,7 +437,7 @@ impl Stack {
                 .into_iter()
                 .find(|h| h.name() == branch_name)
                 .ok_or_else(|| anyhow!("Series with name {} not found", branch_name))?;
-            new_head.head = target_update.target.clone();
+            new_head.set_head(target_update.target.clone());
             validate_target(&new_head, ctx.repo(), self.head(), &state)?;
             let preceding_head = if let Some(preceding_head_name) = update
                 .target_update
@@ -454,7 +454,7 @@ impl Stack {
             // drop the old head and add the new one
             let (idx, _) = get_head(&updated_heads, &branch_name)?;
             updated_heads.remove(idx);
-            if patches.last() != updated_heads.last().map(|h| &h.head) {
+            if patches.last() != updated_heads.last().map(|h| h.head()) {
                 bail!("This update would cause orphaned patches, which is disallowed");
             }
             updated_heads = add_head(
@@ -516,7 +516,7 @@ impl Stack {
             .heads
             .last_mut()
             .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
-        head.head = commit.into();
+        head.set_head(commit.into());
         validate_target(head, ctx.repo(), stack_head, &state)?;
         state.set_stack(self.clone())
     }
@@ -529,7 +529,7 @@ impl Stack {
         let state = branch_state(ctx);
         let commit_ids = self.stack_patches(&ctx.to_stack_context()?, false)?;
         for head in self.heads.iter_mut() {
-            if !commit_ids.contains(&head.head) {
+            if !commit_ids.contains(head.head()) {
                 head.archived = true;
             }
         }
@@ -553,7 +553,7 @@ impl Stack {
         self.ensure_initialized()?;
         let (_, reference) = get_head(&self.heads, &branch_name)?;
         let commit = commit_by_oid_or_change_id(
-            &reference.head,
+            reference.head(),
             ctx.repo(),
             self.head(),
             self.merge_base(&ctx.to_stack_context()?)?,
@@ -602,9 +602,9 @@ impl Stack {
             .heads
             .iter()
             .filter(|h| {
-                h.head == CommitOrChangeId::CommitId(from.id().to_string())
+                *h.head() == CommitOrChangeId::CommitId(from.id().to_string())
                     || from.change_id().is_some_and(|change_id| {
-                        h.head == CommitOrChangeId::ChangeId(change_id.clone())
+                        *h.head() == CommitOrChangeId::ChangeId(change_id.clone())
                     })
             })
             .cloned()
@@ -625,7 +625,7 @@ impl Stack {
             } else {
                 // new head target from the 'to' commit
                 let mut new_head = head.clone();
-                new_head.head = to.clone().into();
+                new_head.set_head(to.clone().into());
                 // validate the updated head
                 validate_target(&new_head, ctx.repo(), self.head(), &state)?;
                 // add it to the list of updated heads
@@ -675,9 +675,9 @@ impl Stack {
         for head in &mut self.heads {
             if let Some(commit) = new_heads.get(&head.name()) {
                 let mut updated = head.clone();
-                updated.head = commit.clone().into();
+                updated.set_head(commit.clone().into());
                 validate_target(&updated, ctx.repo(), stack_head, &state)?;
-                head.head = commit.clone().into();
+                head.set_head(commit.clone().into());
             }
         }
         state.set_stack(self.clone())?;
@@ -718,7 +718,7 @@ impl Stack {
         // let id: CommitOrChangeId = commit.into();
         self.heads
             .iter()
-            .filter(|h| match h.head.clone() {
+            .filter(|h| match h.head().to_owned() {
                 CommitOrChangeId::CommitId(x) => commit.id().to_string() == x,
                 #[allow(deprecated)]
                 CommitOrChangeId::ChangeId(x) => commit.change_id() == Some(x), // todo:bug
@@ -803,7 +803,7 @@ fn validate_target(
 ) -> Result<()> {
     let default_target = state.get_default_target()?;
     let merge_base = repo.merge_base(stack_head, default_target.sha)?;
-    let commit = commit_by_oid_or_change_id(&reference.head, repo, stack_head, merge_base)?.head;
+    let commit = commit_by_oid_or_change_id(reference.head(), repo, stack_head, merge_base)?.head;
 
     let merge_base = repo.merge_base(stack_head, default_target.sha)?;
     let mut stack_commits = repo
