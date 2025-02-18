@@ -2,14 +2,17 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import Branch from '$components/v3/Branch.svelte';
+	import StackCommitDetails from '$components/v3/StackCommitDetails.svelte';
 	import StackContentIllustration, {
 		PreviewMode
 	} from '$components/v3/StackContentIllustration.svelte';
 	import { isStackedBranch } from '$components/v3/lib';
+	import { CommitSelection } from '$components/v3/selectedCommit.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
+	import { setContext } from 'svelte';
 
 	interface Props {
 		stackId: string;
@@ -37,6 +40,9 @@
 
 		return PreviewMode.SelectToPreview;
 	});
+
+	const selectedCommit = new CommitSelection();
+	setContext('_selectedCommit', selectedCommit);
 </script>
 
 <div class="wrapper">
@@ -62,7 +68,11 @@
 		</ReduxResult>
 	</div>
 
-	<StackContentIllustration mode={stackContentMode} />
+	{#if selectedCommit.state}
+		<StackCommitDetails />
+	{:else}
+		<StackContentIllustration mode={stackContentMode} />
+	{/if}
 </div>
 
 <style>
