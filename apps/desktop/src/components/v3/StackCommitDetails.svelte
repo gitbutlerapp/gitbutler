@@ -1,5 +1,11 @@
 <script lang="ts">
-	import Button from '@gitbutler/ui/Button.svelte';
+	import StackDetailsCommitHeader from './StackDetailsCommitHeader.svelte';
+	import StackDetailsFileList from './StackDetailsFileList.svelte';
+	import { Commit } from '$lib/commits/commit';
+	import { CommitService } from '$lib/commits/commitService.svelte';
+	import { ProjectService } from '$lib/project/projectService';
+	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { getContext } from 'svelte';
 
 	interface Props {
 		selectedCommitId: string | undefined;
@@ -7,37 +13,55 @@
 
 	let { selectedCommitId = $bindable() }: Props = $props();
 
-	$inspect('stackCommitDetails.selectedCommit', selectedCommitId);
+	const projectService = getContext<ProjectService>(ProjectService);
+	const projectId = projectService.projectId;
+	const commitService = getContext<CommitService>(CommitService);
+	$inspect('stackCommitDetails.selectedCommit', projectId, selectedCommitId);
+	let commit = $state<Commit>();
+
+	async function getCommitData() {
+		if (selectedCommitId) {
+			commit = await commitService.find(projectId, selectedCommitId);
+		}
+	}
+
+	$effect(() => {
+		getCommitData();
+	});
+
+	$inspect('stackCommitDetails.commit', commit);
 </script>
 
 <div class="wrapper">
-	<div class="header">
-		<Button
-			class=""
-			kind="ghost"
-			size="tag"
-			icon="cross"
-			onclick={() => (selectedCommitId = undefined)}
-		/>
+	<div>
+		<button type="button" class="exit-btn" onclick={() => (selectedCommitId = undefined)}>
+			<Icon name="cross" />
+		</button>
+		{#if commit}
+			<StackDetailsCommitHeader {commit} />
+		{/if}
 	</div>
 	<div class="body">
-		<div>{selectedCommitId}</div>
+		<StackDetailsFileList {commit} />
 	</div>
 </div>
 
 <style>
 	.wrapper {
+		position: relative;
 		flex: 1;
 		display: flex;
 		flex-direction: column;
 
-		background-color: white;
+		background-color: var(--clr-bg-1);
 	}
-	.header {
-		display: flex;
-		justify-content: flex-end;
-		padding: 2px 4px;
+
+	.exit-btn {
+		position: absolute;
+		top: 8px;
+		right: 8px;
 	}
+
 	.body {
 		display: flex;
 		flex-direction: column;
