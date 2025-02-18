@@ -5,9 +5,10 @@
 	interface Props {
 		commits: Commits;
 		lastBranch?: boolean;
+		selectedCommitId?: string;
 	}
 
-	const { commits, lastBranch }: Props = $props();
+	let { commits, lastBranch, selectedCommitId = $bindable() }: Props = $props();
 
 	const localAndRemoteCommits = $derived(commits.localAndRemote);
 	const upstreamOnlyCommits = $derived(commits.upstreamOnly);
@@ -17,13 +18,13 @@
 	{#each upstreamOnlyCommits as commit, i (commit.id)}
 		{@const first = i === 0}
 		{@const last = i === upstreamOnlyCommits.length - 1}
-		<CommitRow {first} {last} {commit} />
+		<CommitRow {first} {last} {commit} bind:selectedCommitId />
 	{/each}
 
 	{#each localAndRemoteCommits as commit, i (commit.id)}
 		{@const first = i === 0}
 		{@const last = i === localAndRemoteCommits.length - 1}
-		<CommitRow {first} {last} {commit} {lastBranch} />
+		<CommitRow {first} {last} {commit} {lastBranch} bind:selectedCommitId />
 	{/each}
 </div>
 

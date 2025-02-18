@@ -1,13 +1,28 @@
 <script lang="ts">
-	import { CommitSelection } from '$components/v3/selectedCommit.svelte';
-	import { getContext } from 'svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 
-	let selectedCommit = getContext<CommitSelection>('_selectedCommit');
-	$inspect('stackCommitDetails.selectedCommit', selectedCommit);
+	interface Props {
+		selectedCommitId: string | undefined;
+	}
+
+	let { selectedCommitId = $bindable() }: Props = $props();
+
+	$inspect('stackCommitDetails.selectedCommit', selectedCommitId);
 </script>
 
 <div class="wrapper">
-	<pre>commit: {selectedCommit.state}</pre>
+	<div class="header">
+		<Button
+			class=""
+			kind="ghost"
+			size="tag"
+			icon="cross"
+			onclick={() => (selectedCommitId = undefined)}
+		/>
+	</div>
+	<div class="body">
+		<div>{selectedCommitId}</div>
+	</div>
 </div>
 
 <style>
@@ -15,5 +30,17 @@
 		flex: 1;
 		display: flex;
 		flex-direction: column;
+
+		background-color: white;
+	}
+	.header {
+		display: flex;
+		justify-content: flex-end;
+		padding: 2px 4px;
+	}
+	.body {
+		display: flex;
+		flex-direction: column;
+		padding: 4px;
 	}
 </style>
