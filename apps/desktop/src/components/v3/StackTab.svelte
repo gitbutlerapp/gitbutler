@@ -90,8 +90,8 @@
 		border-right: 1px solid var(--clr-border-2);
 		overflow: hidden;
 		min-width: 100px;
-		flex: 0 0 auto;
 		scroll-snap-align: start;
+		flex-shrink: 0;
 
 		&::after {
 			content: '';
