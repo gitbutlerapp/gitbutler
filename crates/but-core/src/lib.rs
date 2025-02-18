@@ -44,6 +44,8 @@
 use bstr::{BStr, BString};
 use gix::object::tree::EntryKind;
 use serde::Serialize;
+use std::any::Any;
+use std::ops::{Deref, DerefMut};
 use std::path::Path;
 
 /// Functions to obtain changes between various items.
@@ -66,6 +68,199 @@ pub use settings::git::GitConfigSettings;
 
 mod repo_ext;
 pub use repo_ext::RepositoryExt;
+
+/// Various types
+pub mod ref_metadata {
+
+    /// Basic information to know about an reference we store with the metadata system.
+    #[derive(Debug, Clone)]
+    pub struct RefInfo {
+        /// The time of creation, if we created the reference.
+        pub create_at: Option<gix::date::Time>,
+        /// The time at which the reference was last modified, if we modified it.
+        pub updated_at: Option<gix::date::Time>,
+        /// The name under which we last knew the reference.
+        ///
+        /// This is normally the name under which this piece of metadata was stored,
+        /// and thus is redundant, but is useful as back-pointer to a now possibly removed
+        /// reference.
+        /// As such, it's essential to be able to re-associate metadata with renamed references.
+        pub last_known_name: gix::refs::FullName,
+    }
+
+    /// Metadata about workspaces, associated with references that designate the *workspace commit*.
+    #[derive(Debug, Clone)]
+    pub struct Workspace {
+        /// Standard data we want to know about any ref.
+        pub ref_info: RefInfo,
+
+        /// An array entry for each parent of the workspace merge commit, in the same order,
+        /// with the reference names we expect to be present from the tip of the stack to the
+        /// merge-base with the target-branch, if present, or between all merge stacks.
+        ///
+        /// This order is needed to which ref comes first even if some point to the same commit.
+        pub branch_order_per_stack: Vec<Vec<gix::refs::FullName>>,
+
+        /// The name of the reference to integrate with, if present.
+        ///
+        /// If there is no target name, this is a local workspace.
+        pub target_ref: Option<gix::refs::FullName>,
+    }
+
+    /// Metadata about branches, associated with any Git branch.
+    #[derive(Debug, Clone)]
+    pub struct Review {
+        /// The number for the PR that was associated with this branch.
+        pub pull_request: Option<usize>,
+        /// A handle to the review created with the GitButler review system.
+        pub review_id: Option<String>,
+    }
+
+    /// Metadata about branches, associated with any Git branch.
+    #[derive(Debug, Clone)]
+    pub struct Branch {
+        /// Standard data we want to know about any ref.
+        pub ref_info: RefInfo,
+        /// More details about the branch.
+        pub description: Option<String>,
+        /// Information about possibly ongoing reviews in various forges.
+        pub review: Review,
+    }
+
+    /// Additional information about the RefMetadata value itself.
+    pub trait ValueInfo {
+        /// Return `true` if the value didn't exist for a given `ref_name` and thus was defaulted.
+        fn is_default(&self) -> bool;
+    }
+
+    mod virtual_branches_toml {
+        use crate::ref_metadata::{Branch, ValueInfo, Workspace};
+        use crate::RefMetadata;
+        use gix::refs::{FullName, FullNameRef};
+        use std::any::Any;
+        use std::ops::{Deref, DerefMut};
+        use std::path::PathBuf;
+
+        /// An implementation to read and write metadata from the `virtual_branches.toml` file.
+        pub struct VBTomlMetadata {
+            _path: PathBuf,
+        }
+
+        impl RefMetadata for VBTomlMetadata {
+            type Handle<T> = VBTomlMetadataHandle<T>;
+
+            fn iter(&self) -> impl Iterator<Item = (FullName, Box<dyn Any>)> + '_ {
+                vec![].into_iter()
+            }
+
+            fn workspace(
+                &self,
+                _ref_name: &FullNameRef,
+            ) -> anyhow::Result<Self::Handle<Workspace>> {
+                todo!()
+            }
+
+            fn branch(&self, _ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Branch>> {
+                todo!()
+            }
+
+            fn set_workspace(
+                &self,
+                _ref_name: &FullNameRef,
+                _value: &Self::Handle<Workspace>,
+            ) -> anyhow::Result<()> {
+                todo!()
+            }
+
+            fn set_branch(
+                &self,
+                _ref_name: &FullNameRef,
+                _value: &Self::Handle<Branch>,
+            ) -> anyhow::Result<()> {
+                todo!()
+            }
+
+            fn remove(&self, _ref_name: &FullNameRef) -> anyhow::Result<Box<dyn Any>> {
+                todo!()
+            }
+        }
+
+        pub struct VBTomlMetadataHandle<T> {
+            is_default: bool,
+            value: T,
+        }
+
+        impl<T> Deref for VBTomlMetadataHandle<T> {
+            type Target = T;
+
+            fn deref(&self) -> &Self::Target {
+                &self.value
+            }
+        }
+
+        impl<T> DerefMut for VBTomlMetadataHandle<T> {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                &mut self.value
+            }
+        }
+
+        impl<T> ValueInfo for VBTomlMetadataHandle<T> {
+            fn is_default(&self) -> bool {
+                self.is_default
+            }
+        }
+    }
+    pub use virtual_branches_toml::VBTomlMetadata;
+}
+
+/// A trait to associate arbitrary metadata with any *Git reference name*.
+/// Note that a single reference name can have multiple distinct pieces of metadata associated with it.
+pub trait RefMetadata {
+    /// An implementation-defined wrapper for all data to keep additional information that it might need
+    /// to more easily store the data.
+    type Handle<T>: Deref<Target = T> + DerefMut + ref_metadata::ValueInfo;
+
+    /// Traverse all available metadata entries and see if their names still exist in the Git ref database.
+    ///
+    /// If not, they are dangling, and can then be downcast to their actual type to deal with them in some way,
+    /// either by [removing](Self::remove) them, or by re-associating them with an existing reference.
+    fn iter(&self) -> impl Iterator<Item = (gix::refs::FullName, Box<dyn Any>)> + '_;
+
+    /// Retrieve workspace metadata for `ref_name` or create it if it wasn't present yet.
+    fn workspace(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Self::Handle<ref_metadata::Workspace>>;
+
+    /// Retrieve branch metadata for `ref_name` or create it if it wasn't present yet.
+    fn branch(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Self::Handle<ref_metadata::Branch>>;
+
+    /// Set workspace metadata for `ref_name` to `Some(_)` or create it.
+    ///
+    /// It's not an error if the `ref_name` has no data in case `value` is `None`.
+    fn set_workspace(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+        value: &Self::Handle<ref_metadata::Workspace>,
+    ) -> anyhow::Result<()>;
+
+    /// Set branch metadata for `ref_name` to `Some(_)` or create it.
+    ///
+    /// It's not an error if the `ref_name` has no data in case `value` is `None`.
+    fn set_branch(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+        value: &Self::Handle<ref_metadata::Branch>,
+    ) -> anyhow::Result<()>;
+
+    /// Delete the metadata associated with the given `ref_name` and return it.
+    ///
+    /// It is OK to delete something that doesn't exist
+    fn remove(&self, ref_name: &gix::refs::FullNameRef) -> anyhow::Result<Box<dyn Any>>;
+}
 
 /// A decoded commit object with easy access to additional GitButler information.
 pub struct Commit<'repo> {
