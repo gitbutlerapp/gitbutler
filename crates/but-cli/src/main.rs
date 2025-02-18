@@ -2,7 +2,7 @@
 use anyhow::Result;
 
 mod args;
-use crate::command::repo_and_maybe_project;
+use crate::command::{repo_and_maybe_project, RepositoryOpenMode};
 use args::Args;
 
 mod command;
@@ -21,7 +21,7 @@ fn main() -> Result<()> {
             amend,
             parent,
         } => {
-            let (repo, project) = repo_and_maybe_project(&args)?;
+            let (repo, project) = repo_and_maybe_project(&args, RepositoryOpenMode::Merge)?;
             command::commit(repo, project, message.as_deref(), *amend, parent.as_deref())
         }
         args::Subcommands::HunkDependency => command::diff::locks(&args.current_dir),

@@ -24,10 +24,12 @@ pub fn open_repo(path: &Path) -> anyhow::Result<gix::Repository> {
         gix::open::Options::isolated()
             .lossy_config(false)
             .config_overrides([
-                gix::config::tree::Author::NAME.validated_assignment("Author".into())?,
+                gix::config::tree::Author::NAME
+                    .validated_assignment("Author (Memory Override)".into())?,
                 gix::config::tree::Author::EMAIL
                     .validated_assignment("author@example.com".into())?,
-                gix::config::tree::Committer::NAME.validated_assignment("Committer".into())?,
+                gix::config::tree::Committer::NAME
+                    .validated_assignment("Committer (Memory Override)".into())?,
                 gix::config::tree::Committer::EMAIL
                     .validated_assignment("committer@example.com".into())?,
                 gix::config::tree::gitoxide::Commit::COMMITTER_DATE
@@ -36,6 +38,25 @@ pub fn open_repo(path: &Path) -> anyhow::Result<gix::Repository> {
     )?;
     repo.object_cache_size_if_unset(512 * 1024);
     Ok(repo)
+}
+
+/// Sets and environment that assures commits are reproducible.
+/// This needs the `testing` feature enabled in `but-core` as well to work.
+/// This changes the process environment, be aware.
+pub fn assure_stable_env() {
+    let env = gix_testtools::Env::new()
+        // TODO(gix): once everything is ported, the only variable needed here
+        //            is CHANGE_ID, and even that could be a global. Call `but_testsupport::open_repo()`
+        //            for basic settings.
+        .set("GIT_AUTHOR_DATE", "2000-01-01 00:00:00 +0000")
+        .set("GIT_AUTHOR_EMAIL", "author@example.com")
+        .set("GIT_AUTHOR_NAME", "author (From Env)")
+        .set("GIT_COMMITTER_DATE", "2000-01-02 00:00:00 +0000")
+        .set("GIT_COMMITTER_EMAIL", "committer@example.com")
+        .set("GIT_COMMITTER_NAME", "committer (From Env)")
+        .set("CHANGE_ID", "change-id");
+    // assure it doesn't get racy.
+    std::mem::forget(env);
 }
 
 /// Utilities for the [`git()`] command.
