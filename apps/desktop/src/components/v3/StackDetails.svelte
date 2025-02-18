@@ -7,12 +7,10 @@
 		PreviewMode
 	} from '$components/v3/StackContentIllustration.svelte';
 	import { isStackedBranch } from '$components/v3/lib';
-	import { CommitSelection } from '$components/v3/selectedCommit.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { setContext } from 'svelte';
 
 	interface Props {
 		stackId: string;
@@ -41,8 +39,8 @@
 		return PreviewMode.SelectToPreview;
 	});
 
-	const selectedCommit = new CommitSelection();
-	setContext('_selectedCommit', selectedCommit);
+	let selectedCommitId = $state<string>();
+	$inspect('stackDetails.selectedCommitId', selectedCommitId);
 </script>
 
 <div class="wrapper">
@@ -61,15 +59,15 @@
 					{#each result as branch, i (branch.name)}
 						{@const first = i === 0}
 						{@const last = i === result.length - 1}
-						<Branch {branch} {first} {last} />
+						<Branch {branch} {first} {last} bind:selectedCommitId />
 					{/each}
 				{/if}
 			{/snippet}
 		</ReduxResult>
 	</div>
 
-	{#if selectedCommit.state}
-		<StackCommitDetails />
+	{#if selectedCommitId}
+		<StackCommitDetails bind:selectedCommitId />
 	{:else}
 		<StackContentIllustration mode={stackContentMode} />
 	{/if}
