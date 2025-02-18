@@ -93,8 +93,8 @@ impl StackBranch {
         self.head = head;
     }
 
-    pub fn name(&self) -> String {
-        self.name.clone()
+    pub fn name(&self) -> &String {
+        &self.name
     }
 
     pub fn set_name(&mut self, name: String) {

@@ -39,7 +39,7 @@ pub fn integrate_upstream_commits_for_series(
 
     let subject_branch = branches
         .iter()
-        .find(|branch| branch.name() == series_name)
+        .find(|branch| branch.name() == &series_name)
         .ok_or(anyhow!("Series not found"))?;
     let upstream_reference = subject_branch.remote_reference(remote.as_str());
     let remote_head = repo.find_reference(&upstream_reference)?.peel_to_commit()?;
@@ -62,7 +62,7 @@ pub fn integrate_upstream_commits_for_series(
         target_branch_head: default_target.sha,
         branch_head: stack.head(),
         branch_tree: stack.tree,
-        branch_name: &subject_branch.name(),
+        branch_name: subject_branch.name(),
         remote_head: remote_head.id(),
         remote_branch_name: &subject_branch.remote_reference(&remote),
         strategy,

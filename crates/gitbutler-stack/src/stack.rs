@@ -319,11 +319,11 @@ impl Stack {
 
         let is_duplicate = |reference: &StackBranch| -> Result<bool> {
             Ok(if allow_duplicate_refs {
-                patch_reference_exists(&state, &reference.name())?
+                patch_reference_exists(&state, reference.name())?
             } else {
                 let repository = ctx.gix_repository()?;
-                patch_reference_exists(&state, &reference.name())?
-                    || local_reference_exists(&repository, &reference.name())?
+                patch_reference_exists(&state, reference.name())?
+                    || local_reference_exists(&repository, reference.name())?
                     || remote_reference_exists(&repository, &state, reference)?
             })
         };
@@ -435,7 +435,7 @@ impl Stack {
             let mut new_head = updated_heads
                 .clone()
                 .into_iter()
-                .find(|h| h.name() == branch_name)
+                .find(|h| *h.name() == branch_name)
                 .ok_or_else(|| anyhow!("Series with name {} not found", branch_name))?;
             new_head.set_head(target_update.target.clone());
             validate_target(&new_head, ctx.repo(), self.head(), &state)?;
@@ -469,7 +469,7 @@ impl Stack {
         if let Some(name) = update.name.clone() {
             let head = updated_heads
                 .iter_mut()
-                .find(|h: &&mut StackBranch| h.name() == branch_name);
+                .find(|h: &&mut StackBranch| *h.name() == branch_name);
             if let Some(head) = head {
                 head.set_name(name);
                 validate_name(head, &state)?;
@@ -479,7 +479,7 @@ impl Stack {
 
         // Handle description updates
         if let Some(description) = update.description.clone() {
-            let head = updated_heads.iter_mut().find(|h| h.name() == branch_name);
+            let head = updated_heads.iter_mut().find(|h| *h.name() == branch_name);
             if let Some(head) = head {
                 head.description = description;
             }
@@ -667,13 +667,13 @@ impl Stack {
             .filter(|h| !h.archived)
             .map(|h| h.name())
             .collect::<HashSet<_>>()
-            != new_heads.keys().cloned().collect::<HashSet<_>>()
+            != new_heads.keys().collect::<HashSet<_>>()
         {
             return Err(anyhow!("The new head names do not match the current heads"));
         }
         let stack_head = self.head();
         for head in &mut self.heads {
-            if let Some(commit) = new_heads.get(&head.name()) {
+            if let Some(commit) = new_heads.get(head.name()) {
                 let mut updated = head.clone();
                 updated.set_head(commit.clone().into());
                 validate_target(&updated, ctx.repo(), stack_head, &state)?;
@@ -711,7 +711,7 @@ impl Stack {
     }
 
     pub fn heads(&self) -> Vec<String> {
-        self.heads.iter().map(|h| h.name()).collect()
+        self.heads.iter().map(|h| h.name().clone()).collect()
     }
 
     pub fn heads_by_commit(&self, commit: Commit<'_>) -> Vec<String> {
@@ -723,7 +723,7 @@ impl Stack {
                 #[allow(deprecated)]
                 CommitOrChangeId::ChangeId(x) => commit.change_id() == Some(x), // todo:bug
             })
-            .map(|h| h.name())
+            .map(|h| h.name().clone())
             .collect_vec()
     }
 
@@ -833,7 +833,7 @@ fn validate_name(reference: &StackBranch, state: &VirtualBranchesHandle) -> Resu
     // assert that the name is a valid branch name
     name_partial(reference.name().as_str().into()).context("Invalid branch name")?;
     // assert that there are no existing patch references with this name
-    if patch_reference_exists(state, &reference.name())? {
+    if patch_reference_exists(state, reference.name())? {
         return Err(anyhow!(
             "A patch reference with the name {} exists",
             &reference.name()

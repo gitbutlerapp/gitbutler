@@ -232,7 +232,7 @@ fn get_stack_status(
             && branch_integrated(&mut check_commit, branch, &stack_context, stack)?
         {
             branch_statuses.push(NameAndStatus {
-                name: branch.name(),
+                name: branch.name().to_owned(),
                 status: BranchStatus::Integrated,
             });
 
@@ -250,7 +250,7 @@ fn get_stack_status(
 
         if commits.local_commits.is_empty() {
             branch_statuses.push(NameAndStatus {
-                name: branch.name(),
+                name: branch.name().to_owned(),
                 status: BranchStatus::Empty,
             });
 
@@ -275,7 +275,7 @@ fn get_stack_status(
         let any_conflicted = rebased_commits.iter().any(|commit| commit.is_conflicted());
 
         branch_statuses.push(NameAndStatus {
-            name: branch.name(),
+            name: branch.name().to_owned(),
             status: if any_conflicted {
                 BranchStatus::Conflicted { rebasable: false }
             } else {

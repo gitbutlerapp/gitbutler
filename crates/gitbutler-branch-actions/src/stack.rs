@@ -201,7 +201,7 @@ pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> 
             // Already integrated, nothing to push
             continue;
         }
-        let push_details = stack.push_details(ctx, branch.name())?;
+        let push_details = stack.push_details(ctx, branch.name().to_owned())?;
         ctx.push(
             push_details.head,
             &push_details.remote_refname,
@@ -417,7 +417,7 @@ fn stack_branch_to_api_branch(
     }
     Ok((
         PatchSeries {
-            name: stack_branch.name(),
+            name: stack_branch.name().to_owned(),
             description: stack_branch.description,
             upstream_reference,
             patches,
