@@ -43,7 +43,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     );
 
     // The head was updated, along with the ref that it points to.
-    insta::assert_snapshot!(visualize_commit_graph(&repo, new_commit_id)?, @"* 4f950d2 (HEAD -> main) initial commit");
+    insta::assert_snapshot!(visualize_commit_graph(&repo, new_commit_id)?, @"* 22df372 (HEAD -> main) initial commit");
     insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
     861d6e2
     └── not-yet-tracked:100644:d95f3ad "content\n"
@@ -68,8 +68,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     )?;
     // The HEAD reference was updated.
     insta::assert_snapshot!(graph_commit_outcome(&repo, &outcome)?, @r"
-    * 775de8d (HEAD -> main) second commit
-    * 4f950d2 initial commit
+    * c8ae897 (HEAD -> main) second commit
+    * 22df372 initial commit
     ");
 
     // Create another tip at the same location as head to see if it gets updated as well.
@@ -107,9 +107,9 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     // The HEAD reference was updated, along with all other tag-references that pointed to it.
     let new_commit = outcome.new_commit.expect("a new commit was created");
     insta::assert_snapshot!(visualize_commit_graph(&repo, new_commit)?, @r"
-    * 0a284ea (HEAD -> main, another-tip) third commit
-    * 775de8d (tag: tag-that-should-not-move) second commit
-    * 4f950d2 initial commit
+    * d757709 (HEAD -> main, another-tip) third commit
+    * c8ae897 (tag: tag-that-should-not-move) second commit
+    * 22df372 initial commit
     ");
 
     write_worktree_file(&repo, "new-file", "yet another change")?;
@@ -129,9 +129,9 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     assure_no_worktree_changes(&repo)?;
     // The top commit has a different hash now thanks to amending.
     insta::assert_snapshot!(graph_commit_outcome(&repo, &outcome)?, @r"
-    * 5f18e8a (HEAD -> main, another-tip) third commit
-    * 775de8d (tag: tag-that-should-not-move) second commit
-    * 4f950d2 initial commit
+    * b0283a3 (HEAD -> main, another-tip) third commit
+    * c8ae897 (tag: tag-that-should-not-move) second commit
+    * 22df372 initial commit
     ");
 
     assert_eq!(vb, VirtualBranchesState::default(), "Nothing changed yet");
@@ -182,7 +182,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(87d5ad67aa21618d45b58577bb11e680358c86d5),
+            Sha1(602a3b0cbc0df0bc773cc0a8d12acf1b32e71ad8),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(273aeca7ca98af0f7972af6e7859a3ae7fde497a),
@@ -192,29 +192,29 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
                 reference: Virtual(
                     "s1",
                 ),
-                old_commit_id: Sha1(5f18e8a125a8ece0b6a6fbd96c5bbdfaca2ddbe7),
-                new_commit_id: Sha1(87d5ad67aa21618d45b58577bb11e680358c86d5),
+                old_commit_id: Sha1(b0283a3ea59bd43a5cee56b8b0aeb24ee4ea818e),
+                new_commit_id: Sha1(602a3b0cbc0df0bc773cc0a8d12acf1b32e71ad8),
             },
             UpdatedReference {
                 reference: Virtual(
                     "s1-b/second",
                 ),
-                old_commit_id: Sha1(5f18e8a125a8ece0b6a6fbd96c5bbdfaca2ddbe7),
-                new_commit_id: Sha1(87d5ad67aa21618d45b58577bb11e680358c86d5),
+                old_commit_id: Sha1(b0283a3ea59bd43a5cee56b8b0aeb24ee4ea818e),
+                new_commit_id: Sha1(602a3b0cbc0df0bc773cc0a8d12acf1b32e71ad8),
             },
             UpdatedReference {
                 reference: Virtual(
                     "s2",
                 ),
-                old_commit_id: Sha1(5f18e8a125a8ece0b6a6fbd96c5bbdfaca2ddbe7),
-                new_commit_id: Sha1(87d5ad67aa21618d45b58577bb11e680358c86d5),
+                old_commit_id: Sha1(b0283a3ea59bd43a5cee56b8b0aeb24ee4ea818e),
+                new_commit_id: Sha1(602a3b0cbc0df0bc773cc0a8d12acf1b32e71ad8),
             },
             UpdatedReference {
                 reference: Virtual(
                     "s2-b/second",
                 ),
-                old_commit_id: Sha1(5f18e8a125a8ece0b6a6fbd96c5bbdfaca2ddbe7),
-                new_commit_id: Sha1(87d5ad67aa21618d45b58577bb11e680358c86d5),
+                old_commit_id: Sha1(b0283a3ea59bd43a5cee56b8b0aeb24ee4ea818e),
+                new_commit_id: Sha1(602a3b0cbc0df0bc773cc0a8d12acf1b32e71ad8),
             },
             UpdatedReference {
                 reference: Git(
@@ -222,8 +222,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
                         "refs/heads/another-tip",
                     ),
                 ),
-                old_commit_id: Sha1(5f18e8a125a8ece0b6a6fbd96c5bbdfaca2ddbe7),
-                new_commit_id: Sha1(87d5ad67aa21618d45b58577bb11e680358c86d5),
+                old_commit_id: Sha1(b0283a3ea59bd43a5cee56b8b0aeb24ee4ea818e),
+                new_commit_id: Sha1(602a3b0cbc0df0bc773cc0a8d12acf1b32e71ad8),
             },
             UpdatedReference {
                 reference: Git(
@@ -231,8 +231,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
                         "refs/heads/main",
                     ),
                 ),
-                old_commit_id: Sha1(5f18e8a125a8ece0b6a6fbd96c5bbdfaca2ddbe7),
-                new_commit_id: Sha1(87d5ad67aa21618d45b58577bb11e680358c86d5),
+                old_commit_id: Sha1(b0283a3ea59bd43a5cee56b8b0aeb24ee4ea818e),
+                new_commit_id: Sha1(602a3b0cbc0df0bc773cc0a8d12acf1b32e71ad8),
             },
         ],
         rebase_output: None,
@@ -242,10 +242,10 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     write_vrbranches_to_refs(&vb, &repo)?;
     // It updates stack heads and stack branch heads.
     insta::assert_snapshot!(graph_commit_outcome(&repo, &outcome)?, @r"
-    * 87d5ad6 (HEAD -> main, s2-b/second, s2, s1-b/second, s1, another-tip) fourth commit
-    * 5f18e8a third commit
-    * 775de8d (tag: tag-that-should-not-move, s2-b/first, s1-b/first) second commit
-    * 4f950d2 (s2-b/init, s1-b/init) initial commit
+    * 602a3b0 (HEAD -> main, s2-b/second, s2, s1-b/second, s1, another-tip) fourth commit
+    * b0283a3 third commit
+    * c8ae897 (tag: tag-that-should-not-move, s2-b/first, s1-b/first) second commit
+    * 22df372 (s2-b/init, s1-b/init) initial commit
     ");
     insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
     273aeca
@@ -298,8 +298,8 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
     write_vrbranches_to_refs(&vb, &repo)?;
     let rewritten_head_id = repo.head_id()?.detach();
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
-    * b861ac3 (HEAD -> main, s1) insert 10 lines to the top
-    * 9fd4d2c (s1-b/init, first-commit) between initial and former first
+    * 47524c7 (HEAD -> main, s1) insert 10 lines to the top
+    * c7d67d8 (s1-b/init, first-commit) between initial and former first
     * ecd6722 (tag: first-commit) init
     ");
     insta::assert_snapshot!(but_testsupport::visualize_tree(rewritten_head_id.attach(&repo)), @r#"
@@ -314,7 +314,7 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(9fd4d2c10083dbac2a0b20deaf83b750174a67d5),
+            Sha1(c7d67d8f4b0747f5101ef1fc15d51d2bfaf39ede),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(5fdd31363b3f0987135feaa00a734ca31e1652d6),
@@ -325,7 +325,7 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
                     "s1",
                 ),
                 old_commit_id: Sha1(8b9db8455554fe317ea3ab86b9a042805326b493),
-                new_commit_id: Sha1(b861ac3e3f8a737972034c4763825f250f3a8bf1),
+                new_commit_id: Sha1(47524c74f51ca8c43f08115606fe986878821892),
             },
             UpdatedReference {
                 reference: Git(
@@ -334,14 +334,14 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
                     ),
                 ),
                 old_commit_id: Sha1(8b9db8455554fe317ea3ab86b9a042805326b493),
-                new_commit_id: Sha1(b861ac3e3f8a737972034c4763825f250f3a8bf1),
+                new_commit_id: Sha1(47524c74f51ca8c43f08115606fe986878821892),
             },
             UpdatedReference {
                 reference: Virtual(
                     "s1-b/init",
                 ),
                 old_commit_id: Sha1(ecd67221705b069c4f46365a46c8f2cd8a97ec19),
-                new_commit_id: Sha1(9fd4d2c10083dbac2a0b20deaf83b750174a67d5),
+                new_commit_id: Sha1(c7d67d8f4b0747f5101ef1fc15d51d2bfaf39ede),
             },
             UpdatedReference {
                 reference: Git(
@@ -350,20 +350,20 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
                     ),
                 ),
                 old_commit_id: Sha1(ecd67221705b069c4f46365a46c8f2cd8a97ec19),
-                new_commit_id: Sha1(9fd4d2c10083dbac2a0b20deaf83b750174a67d5),
+                new_commit_id: Sha1(c7d67d8f4b0747f5101ef1fc15d51d2bfaf39ede),
             },
         ],
         rebase_output: Some(
             RebaseOutput {
-                top_commit: Sha1(b861ac3e3f8a737972034c4763825f250f3a8bf1),
+                top_commit: Sha1(47524c74f51ca8c43f08115606fe986878821892),
                 references: [],
                 commit_mapping: [
                     (
                         Some(
-                            Sha1(9fd4d2c10083dbac2a0b20deaf83b750174a67d5),
+                            Sha1(c7d67d8f4b0747f5101ef1fc15d51d2bfaf39ede),
                         ),
                         Sha1(8b9db8455554fe317ea3ab86b9a042805326b493),
-                        Sha1(b861ac3e3f8a737972034c4763825f250f3a8bf1),
+                        Sha1(47524c74f51ca8c43f08115606fe986878821892),
                     ),
                 ],
             },
@@ -397,8 +397,8 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
     )?;
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
-    * 4e8b9bc (HEAD -> main, s1) insert 10 lines to the top
-    * ac01a66 (s1-b/init, first-commit) between initial and former first
+    * acde574 (HEAD -> main, s1) insert 10 lines to the top
+    * 4325d33 (s1-b/init, first-commit) between initial and former first
     * ecd6722 (tag: first-commit) init
     ");
     insta::assert_snapshot!(but_testsupport::visualize_tree(rewritten_head_id), @r#"
@@ -452,8 +452,8 @@ fn branch_tip_below_non_merge_workspace_commit() -> anyhow::Result<()> {
 
     write_vrbranches_to_refs(&vb, &repo)?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, repo.head_id()?)?, @r"
-    * 403cc44 (HEAD -> main, s1) insert 20 lines to the top
-    * a5a034f (s1-b/init) extend lines to 110
+    * e72da55 (HEAD -> main, s1) insert 20 lines to the top
+    * 5425b41 (s1-b/init) extend lines to 110
     * 4342edf (tag: first-commit) init
     ");
 
@@ -556,10 +556,10 @@ fn insert_commits_into_workspace() -> anyhow::Result<()> {
 
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
-    *   e767fa6 (HEAD -> merge, s1) Merge branch 'A' into merge
+    *   b085f24 (HEAD -> merge, s1) Merge branch 'A' into merge
     |\  
     | * 3538622 (A) add 10 to the beginning
-    * | 059d194 (s1-b/init, B) add 10 more lines at end
+    * | 893bbf4 (s1-b/init, B) add 10 more lines at end
     * | e81b470 add 10 to the end
     |/  
     * 9cf2979 (main) init
@@ -682,9 +682,9 @@ fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
 
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
-    *   b241c3c (HEAD -> merge) Merge branch 'A' into merge
+    *   c9384a5 (HEAD -> merge) Merge branch 'A' into merge
     |\  
-    | * d6a5f3e (s1-b/top, s1, A) remove 5 lines from beginning
+    | * 226e422 (s1-b/top, s1, A) remove 5 lines from beginning
     | * eede47d add 10 to the beginning
     * | 16fe86e (B) add 10 to the end
     |/  
@@ -766,9 +766,9 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
 
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
-    *   5530fb1 (HEAD -> merge) Merge branch 'A' into merge
+    *   1c92a36 (HEAD -> merge) Merge branch 'A' into merge
     |\  
-    | * 0c031f9 (s1-b/top, s1, A) remove 5 lines from beginning
+    | * 2c1fb47 (s1-b/top, s1, A) remove 5 lines from beginning
     | * 7f389ed add 10 to the beginning
     * | 91ef6f6 (B) add 10 to the end
     |/  
