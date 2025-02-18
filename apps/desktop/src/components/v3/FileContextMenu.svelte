@@ -12,7 +12,7 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+	import FileListItem from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import { join } from '@tauri-apps/api/path';
 	import type { Writable } from 'svelte/store';
