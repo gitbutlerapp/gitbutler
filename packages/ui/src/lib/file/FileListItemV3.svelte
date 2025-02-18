@@ -102,13 +102,15 @@
 			{fileInfo.filename}
 		</span>
 
-		<div class="path-container">
-			<Tooltip text={filePath} delay={1200}>
-				<span class="text-12 path truncate">
-					{fileInfo.path}
-				</span>
-			</Tooltip>
-		</div>
+		{#if fileInfo.path}
+			<div class="path-container">
+				<Tooltip text={filePath} delay={1200}>
+					<span class="text-12 path truncate">
+						{fileInfo.path}
+					</span>
+				</Tooltip>
+			</div>
+		{/if}
 	</div>
 
 	<div class="details">
@@ -181,15 +183,6 @@
 		outline: none;
 		background: transparent;
 		border-bottom: 1px solid var(--clr-border-3);
-		/* background-color: var(--clr-bg-2); */
-
-		/* &:last-child {
-			border-bottom: none;
-		} */
-
-		/* &:not(:last-child) {
-			border-bottom: 1px solid var(--clr-border-3);
-		} */
 	}
 
 	.file-list-item.clickable {
@@ -261,8 +254,8 @@
 		flex-shrink: 0;
 		flex-grow: 1;
 		flex-basis: 0px;
-		min-width: 50px;
 		text-align: left;
+		min-width: 16px;
 		overflow: hidden;
 	}
 
@@ -271,7 +264,6 @@
 		color: var(--clt-text-1);
 		line-height: 120%;
 		opacity: 0.3;
-		transition: opacity var(--transition-fast);
 		max-width: 100%;
 		text-align: left;
 	}
