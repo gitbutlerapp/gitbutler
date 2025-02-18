@@ -10,7 +10,7 @@
 	import { key } from '$lib/selection/key';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
-	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+	import FileListItem from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { Snippet } from 'svelte';
 
@@ -94,7 +94,12 @@
 		{onkeydown}
 		locked={false}
 		conflicted={false}
-		{onclick}
+		onclick={(e) => {
+			onclick(e);
+		}}
+		ondblclick={() => {
+			open = !open;
+		}}
 		oncheck={onCheck}
 		oncontextmenu={(e) => {
 			const changes = idSelection.treeChanges(projectId);
@@ -107,12 +112,13 @@
 	/>
 </div>
 {#if open}
-	<div class="diff">
+	<div class:diff-selected={selected}>
 		{@render children()}
 	</div>
 {/if}
 
 <style lang="postcss">
-	.diff {
+	.diff-selected {
+		background-color: var(--clr-theme-pop-bg-muted);
 	}
 </style>
