@@ -414,7 +414,7 @@ impl Stack {
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
     pub fn remove_series(&mut self, ctx: &CommandContext, branch_name: String) -> Result<()> {
         self.ensure_initialized()?;
-        (self.heads, _) = remove_head(self.heads.clone(), branch_name)?;
+        (self.heads, _) = remove_head(self.heads.clone(), branch_name, &ctx.gix_repository()?)?;
         let state = branch_state(ctx);
         state.set_stack(self.clone())
     }
@@ -446,7 +446,7 @@ impl Stack {
                 .into_iter()
                 .find(|h| *h.name() == branch_name)
                 .ok_or_else(|| anyhow!("Series with name {} not found", branch_name))?;
-            new_head.set_head(target_update.target.clone());
+            new_head.set_head(target_update.target.clone(), &ctx.gix_repository()?)?;
             validate_target(&new_head, ctx.repo(), self.head(), &state)?;
             let preceding_head = if let Some(preceding_head_name) = update
                 .target_update
@@ -525,7 +525,7 @@ impl Stack {
             .heads
             .last_mut()
             .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
-        head.set_head(commit.into());
+        head.set_head(commit.into(), &ctx.gix_repository()?)?;
         validate_target(head, ctx.repo(), stack_head, &state)?;
         state.set_stack(self.clone())
     }
@@ -627,6 +627,7 @@ impl Stack {
         let state = branch_state(ctx);
         let mut updated_heads: Vec<StackBranch> = vec![];
 
+        let gix_repo = ctx.gix_repository()?;
         for head in matching_heads {
             if self.heads.last().cloned() == Some(head.clone()) {
                 // the head is the stack head - update it accordingly
@@ -634,7 +635,7 @@ impl Stack {
             } else {
                 // new head target from the 'to' commit
                 let mut new_head = head.clone();
-                new_head.set_head(to.clone().into());
+                new_head.set_head(to.clone().into(), &gix_repo)?;
                 // validate the updated head
                 validate_target(&new_head, ctx.repo(), self.head(), &state)?;
                 // add it to the list of updated heads
@@ -681,12 +682,13 @@ impl Stack {
             return Err(anyhow!("The new head names do not match the current heads"));
         }
         let stack_head = self.head();
+        let gix_repo = ctx.gix_repository()?;
         for head in &mut self.heads {
             if let Some(commit) = new_heads.get(head.name()) {
                 let mut updated = head.clone();
-                updated.set_head(commit.clone().into());
+                updated.set_head(commit.clone().into(), &gix_repo)?;
                 validate_target(&updated, ctx.repo(), stack_head, &state)?;
-                head.set_head(commit.clone().into());
+                head.set_head(commit.clone().into(), &gix_repo)?;
             }
         }
         state.set_stack(self.clone())?;

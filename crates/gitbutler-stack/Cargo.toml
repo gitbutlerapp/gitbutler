@@ -27,6 +27,7 @@ gitbutler-repo.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-oxidize.workspace = true
 uuid.workspace = true
+bstr.workspace = true
 
 [[test]]
 name = "stack"
