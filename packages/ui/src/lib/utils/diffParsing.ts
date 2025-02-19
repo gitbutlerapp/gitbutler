@@ -73,6 +73,8 @@ export type Row = {
 	size: number;
 	isLast: boolean;
 	isSelected?: boolean;
+	isFirstOfSelectionGroup?: boolean;
+	isLastOfSelectionGroup?: boolean;
 };
 
 enum Operation {
@@ -330,21 +332,35 @@ function isLineEmpty(lines: Line[]) {
 	return false;
 }
 
-function isLineSelected(line: Line, selectedLines: LineSelector[] | undefined) {
+type SelectionParams = {
+	isSelected?: boolean;
+	isFirstOfSelectionGroup?: boolean;
+	isLastOfSelectionGroup?: boolean;
+};
+
+function getSelectionParams(
+	line: Line,
+	selectedLines: LineSelector[] | undefined
+): SelectionParams {
 	if (!selectedLines) {
-		return false;
+		return {};
 	}
 
-	return selectedLines.some((selectedLine) => {
-		if (
+	const selectedLine = selectedLines.find(
+		(selectedLine) =>
 			selectedLine.oldLine === line.beforeLineNumber &&
 			selectedLine.newLine === line.afterLineNumber
-		) {
-			return true;
-		}
+	);
 
-		return false;
-	});
+	if (!selectedLine) {
+		return {};
+	}
+
+	return {
+		isSelected: true,
+		isFirstOfSelectionGroup: selectedLine.isFirstOfGroup,
+		isLastOfSelectionGroup: selectedLine.isLastOfGroup
+	};
 }
 
 function createRowData(
@@ -365,7 +381,7 @@ function createRowData(
 			type: section.sectionType,
 			size: line.content.length,
 			isLast: false,
-			isSelected: isLineSelected(line, selectedLines)
+			...getSelectionParams(line, selectedLines)
 		};
 	});
 }
@@ -414,7 +430,7 @@ function computeWordDiff(
 			type: prevSection.sectionType,
 			size: oldLine.content.length,
 			isLast: false,
-			isSelected: isLineSelected(oldLine, selectedLines)
+			...getSelectionParams(oldLine, selectedLines)
 		};
 		const nextSectionRow = {
 			beforeLineNumber: newLine.beforeLineNumber,
@@ -423,7 +439,7 @@ function computeWordDiff(
 			type: nextSection.sectionType,
 			size: newLine.content.length,
 			isLast: false,
-			isSelected: isLineSelected(newLine, selectedLines)
+			...getSelectionParams(newLine, selectedLines)
 		};
 
 		const diff = charDiff(oldLine.content, newLine.content);
@@ -475,7 +491,7 @@ function computeInlineWordDiff(
 			type: nextSection.sectionType,
 			size: newLine.content.length,
 			isLast: false,
-			isSelected: isLineSelected(newLine, selectedLines)
+			...getSelectionParams(newLine, selectedLines)
 		};
 
 		const diff = charDiff(oldLine.content, newLine.content);
@@ -505,6 +521,14 @@ function computeInlineWordDiff(
 export interface LineSelector {
 	oldLine: number | undefined;
 	newLine: number | undefined;
+	/**
+	 * Whether this is the first line in any selection group.
+	 */
+	isFirstOfGroup: boolean;
+	/**
+	 * Whether this is the last line in any selection group.
+	 */
+	isLastOfGroup: boolean;
 }
 
 export function generateRows(

@@ -76,7 +76,11 @@
 				class:is-last={row.isLast}
 			>
 				{#if row.isSelected}
-					<div class="table__selected-row-overlay"></div>
+					<div
+						class="table__selected-row-overlay"
+						class:is-first={row.isFirstOfSelectionGroup}
+						class:is-last={row.isLastOfSelectionGroup}
+					></div>
 				{/if}
 
 				{@html row.tokens.join('')}
@@ -121,6 +125,7 @@
 	}
 
 	.table__selected-row-overlay {
+		z-index: var(--z-floating);
 		position: absolute;
 		pointer-events: none;
 		top: 0;
@@ -134,6 +139,14 @@
 
 		background: color-mix(in srgb, var(--clr-btn-warn-outline-bg), transparent 30%);
 		mix-blend-mode: multiply;
+
+		&.is-first {
+			border-top: 1px solid var(--clr-theme-warn-element);
+		}
+
+		&.is-last {
+			border-bottom: 1px solid var(--clr-theme-warn-element);
+		}
 	}
 
 	.table__numberColumn {

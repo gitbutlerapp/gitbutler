@@ -15,13 +15,19 @@ function createDiffLineKey(
 	return `${index}-${oldLine ?? ''}-${newLine ?? ''}` as DiffLineKey;
 }
 
-function readDiffLineKey(key: DiffLineKey): [number, number | undefined, number | undefined] {
+type ParsedDiffLineKey = {
+	index: number;
+	oldLine: number | undefined;
+	newLine: number | undefined;
+};
+
+function readDiffLineKey(key: DiffLineKey): ParsedDiffLineKey {
 	const [index, oldLine, newLine] = key.split('-');
-	return [
-		parseInt(index),
-		oldLine === '' ? undefined : parseInt(oldLine),
-		newLine === '' ? undefined : parseInt(newLine)
-	];
+	return {
+		index: parseInt(index),
+		oldLine: oldLine === '' ? undefined : parseInt(oldLine),
+		newLine: newLine === '' ? undefined : parseInt(newLine)
+	};
 }
 
 function createDiffFileHunkKey(fileName: string, hunkIndex: number): DiffFileHunkKey {
@@ -79,15 +85,45 @@ export function encodeLineSelection(
 	return `${firstLine}-${lastLine}` as DiffLineSelectionString;
 }
 
+function calculateSelectedLines(selectedDiffLines: SvelteSet<DiffLineKey>): DiffLineSelected[] {
+	const parsedLines = Array.from(selectedDiffLines).map((key) => readDiffLineKey(key));
+
+	if (parsedLines.length === 0) return [];
+	if (parsedLines.length === 1)
+		return [
+			{
+				...parsedLines[0],
+				isFirstOfGroup: true,
+				isLastOfGroup: true
+			}
+		];
+
+	const sortedLines = parsedLines.sort((a, b) => a.index - b.index);
+	const result: DiffLineSelected[] = [];
+
+	for (let i = 0; i < sortedLines.length; i++) {
+		const current = sortedLines[i];
+		const prev = sortedLines[i - 1];
+		const next = sortedLines[i + 1];
+
+		const isFirstOfGroup = !prev || current.index - prev.index > 1;
+		const isLastOfGroup = !next || next.index - current.index > 1;
+
+		result.push({
+			...current,
+			isFirstOfGroup,
+			isLastOfGroup
+		});
+	}
+	return result;
+}
+
 export default class DiffLineSelection {
 	private _diffSha = $state<string>();
 	private _selectedDiffLines = new SvelteSet<DiffLineKey>();
-	private _selectedLines: DiffLineSelected[] = $derived.by(() => {
-		return Array.from(this._selectedDiffLines).map((key) => {
-			const [index, oldLine, newLine] = readDiffLineKey(key);
-			return { index, oldLine, newLine };
-		});
-	});
+	private _selectedLines: DiffLineSelected[] = $derived(
+		calculateSelectedLines(this._selectedDiffLines)
+	);
 	private _selectedDiffFileHunk = $state<DiffFileHunkKey>();
 
 	clear() {
