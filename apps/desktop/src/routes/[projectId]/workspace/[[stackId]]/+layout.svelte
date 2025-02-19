@@ -6,7 +6,6 @@
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { createKeybind } from '$lib/utils/hotkeys';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
@@ -52,16 +51,6 @@
 
 	let resizeViewport = $state<HTMLElement>();
 
-	const handleKeyDown = createKeybind({
-		p: () => ($previewing = true)
-	});
-	const handleKeyUp = createKeybind({
-		p: () => ($previewing = false)
-	});
-	function handleBlur() {
-		$previewing = false;
-	}
-
 	/** Offset width for tabs component. */
 	let width: number | undefined = $state();
 	/** Content area on the right for stack details. */
@@ -83,8 +72,6 @@
 		};
 	});
 </script>
-
-<svelte:window onkeydown={handleKeyDown} onkeyup={handleKeyUp} onblur={handleBlur} />
 
 <div class="workspace">
 	<div class="left">
