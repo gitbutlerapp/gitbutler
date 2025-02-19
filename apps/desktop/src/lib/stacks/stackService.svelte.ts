@@ -67,9 +67,18 @@ export class StackService {
 	/**
 	 * Does not support merge commits, i.e. 2 parent oldCommitId's yet
 	 */
-	commitChanges(projectId: string, oldCommitId: string, newCommitId: string) {
-		const { commitChanges } = this.api.endpoints;
-		const result = $derived(commitChanges.useQuery({ projectId, oldCommitId, newCommitId }));
+	getCommitChanges(projectId: string, oldCommitId: string, newCommitId: string) {
+		const { getCommitChanges } = this.api.endpoints;
+		const result = $derived(getCommitChanges.useQuery({ projectId, oldCommitId, newCommitId }));
+		return result;
+	}
+
+	// eslint-disable-next-line @typescript-eslint/promise-function-async
+	updateCommitMessage(projectId: string, branchId: string, commitOid: string, message: string) {
+		const { updateCommitMessage } = this.api.endpoints;
+		const result = $derived(
+			updateCommitMessage.useMutation({ projectId, branchId, commitOid, message })
+		);
 		return result;
 	}
 }
@@ -111,7 +120,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			/**
 			 * Does not support merge commits, i.e. 2 parent oldCommitId's yet
 			 */
-			commitChanges: build.query<
+			getCommitChanges: build.query<
 				TreeChange[],
 				{ projectId: string; oldCommitId: string; newCommitId: string }
 			>({
