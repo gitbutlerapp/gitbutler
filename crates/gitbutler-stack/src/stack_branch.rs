@@ -1,9 +1,12 @@
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use bstr::BString;
 use git2::{Commit, Oid};
 use gitbutler_commit::commit_ext::CommitVecExt;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
-use gix::refs::transaction::PreviousValue;
+use gix::refs::{
+    transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
+    Target,
+};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, str::FromStr};
@@ -107,8 +110,48 @@ impl StackBranch {
         &self.name
     }
 
-    pub fn set_name(&mut self, name: String) {
+    pub fn set_name(&mut self, name: String, repo: &gix::Repository) -> Result<()> {
+        let current_name: BString = qualified_reference_name(self.name()).into();
+
+        let oid = match self.head.clone() {
+            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(&id)?,
+            CommitOrChangeId::ChangeId(_) => return Ok(()), // noop
+        };
+
+        if let Some(reference) = repo.try_find_reference(&current_name)? {
+            let delete = RefEdit {
+                change: Change::Delete {
+                    expected: PreviousValue::MustExistAndMatch(oid.into()),
+                    log: RefLog::AndReference,
+                },
+                name: reference.name().into(),
+                deref: false,
+            };
+            let create = RefEdit {
+                change: Change::Update {
+                    log: LogChange {
+                        mode: RefLog::AndReference,
+                        force_create_reflog: false,
+                        message: "GitButler reference".into(),
+                    },
+                    expected: PreviousValue::ExistingMustMatch(oid.into()),
+                    new: Target::Object(oid),
+                },
+                name: qualified_reference_name(&name).try_into()?,
+                deref: false,
+            };
+            repo.edit_references([delete, create])?;
+        } else {
+            repo.reference(
+                qualified_reference_name(&name),
+                oid,
+                PreviousValue::MustNotExist,
+                "GitButler reference",
+            )?;
+        };
+
         self.name = name;
+        Ok(())
     }
 
     /// Creates or updates a real git reference using the head information (target commit, name)
