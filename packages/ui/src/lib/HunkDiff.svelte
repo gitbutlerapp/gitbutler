@@ -6,7 +6,12 @@
 <script lang="ts">
 	import Checkbox from './Checkbox.svelte';
 	import HunkDiffBody from './hunkDiff/HunkDiffBody.svelte';
-	import { getHunkLineInfo, type LineSelector, parseHunk } from '$lib/utils/diffParsing';
+	import {
+		type ContentSection,
+		getHunkLineInfo,
+		type LineSelector,
+		parseHunk
+	} from '$lib/utils/diffParsing';
 	interface Props {
 		filePath: string;
 		hunkStr: string;
@@ -20,6 +25,8 @@
 		onchange?: (selected: boolean) => void;
 		selectedLines?: LineSelector[];
 		onLineClick?: (params: LineSelectionParams) => void;
+		onQuoteSelection?: () => void;
+		onCopySelection?: (contentSections: ContentSection[]) => void;
 	}
 
 	const {
@@ -34,7 +41,9 @@
 		selected,
 		onchange,
 		selectedLines,
-		onLineClick
+		onLineClick,
+		onCopySelection,
+		onQuoteSelection
 	}: Props = $props();
 
 	const BORDER_WIDTH = 1;
@@ -45,6 +54,10 @@
 
 	const hunk = $derived(parseHunk(hunkStr));
 	const hunkLineInfo = $derived(getHunkLineInfo(hunk.contentSections));
+
+	function handleCopySelection() {
+		onCopySelection?.(hunk.contentSections);
+	}
 </script>
 
 <div
@@ -95,6 +108,9 @@
 			{inlineUnifiedDiffs}
 			{selectedLines}
 			{diffContrast}
+			{numberHeaderWidth}
+			onCopySelection={onCopySelection && handleCopySelection}
+			{onQuoteSelection}
 		/>
 	</table>
 </div>

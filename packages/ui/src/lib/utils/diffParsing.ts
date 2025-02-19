@@ -75,6 +75,7 @@ export type Row = {
 	isSelected?: boolean;
 	isFirstOfSelectionGroup?: boolean;
 	isLastOfSelectionGroup?: boolean;
+	isLastSelected?: boolean;
 };
 
 enum Operation {
@@ -336,6 +337,7 @@ type SelectionParams = {
 	isSelected?: boolean;
 	isFirstOfSelectionGroup?: boolean;
 	isLastOfSelectionGroup?: boolean;
+	isLastSelected?: boolean;
 };
 
 function getSelectionParams(
@@ -359,7 +361,8 @@ function getSelectionParams(
 	return {
 		isSelected: true,
 		isFirstOfSelectionGroup: selectedLine.isFirstOfGroup,
-		isLastOfSelectionGroup: selectedLine.isLastOfGroup
+		isLastOfSelectionGroup: selectedLine.isLastOfGroup,
+		isLastSelected: selectedLine.isLast
 	};
 }
 
@@ -529,6 +532,10 @@ export interface LineSelector {
 	 * Whether this is the last line in any selection group.
 	 */
 	isLastOfGroup: boolean;
+	/**
+	 * Whether is the very last line in the selection.
+	 */
+	isLast: boolean;
 }
 
 export function generateRows(

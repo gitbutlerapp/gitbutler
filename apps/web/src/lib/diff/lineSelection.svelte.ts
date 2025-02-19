@@ -1,7 +1,8 @@
+import { copyToClipboard } from '@gitbutler/shared/clipboard';
 import { SvelteSet } from 'svelte/reactivity';
 import type { BrandedId } from '@gitbutler/shared/utils/branding';
 import type { LineClickParams } from '@gitbutler/ui/HunkDiff.svelte';
-import type { LineSelector } from '@gitbutler/ui/utils/diffParsing';
+import type { ContentSection, LineSelector } from '@gitbutler/ui/utils/diffParsing';
 
 type DiffLineKey = BrandedId<'DiffLine'>;
 type DiffFileHunkKey = BrandedId<'DiffFileHunk'>;
@@ -94,7 +95,8 @@ function calculateSelectedLines(selectedDiffLines: SvelteSet<DiffLineKey>): Diff
 			{
 				...parsedLines[0],
 				isFirstOfGroup: true,
-				isLastOfGroup: true
+				isLastOfGroup: true,
+				isLast: true
 			}
 		];
 
@@ -108,17 +110,20 @@ function calculateSelectedLines(selectedDiffLines: SvelteSet<DiffLineKey>): Diff
 
 		const isFirstOfGroup = !prev || current.index - prev.index > 1;
 		const isLastOfGroup = !next || next.index - current.index > 1;
+		const isLast = i === sortedLines.length - 1;
 
 		result.push({
 			...current,
 			isFirstOfGroup,
-			isLastOfGroup
+			isLastOfGroup,
+			isLast
 		});
 	}
 	return result;
 }
 
 export default class DiffLineSelection {
+	private _quote = $state<boolean>(false);
 	private _diffSha = $state<string>();
 	private _selectedDiffLines = new SvelteSet<DiffLineKey>();
 	private _selectedLines: DiffLineSelected[] = $derived(
@@ -130,6 +135,7 @@ export default class DiffLineSelection {
 		this._selectedDiffLines.clear();
 		this._selectedDiffFileHunk = undefined;
 		this._diffSha = undefined;
+		this._quote = false;
 	}
 
 	toggle(fileName: string, hunkIndex: number, diffSha: string, params: LineClickParams) {
@@ -156,17 +162,46 @@ export default class DiffLineSelection {
 		}
 	}
 
+	quote() {
+		this._quote = true;
+	}
+
+	copy(sections: ContentSection[]) {
+		const selectedLines = this.selectedLines;
+		if (selectedLines.length === 0) return;
+
+		const flatSectionLines = sections.flatMap((section) => section.lines);
+
+		const buffer: string[] = [];
+		for (const line of selectedLines) {
+			const sectionLine = flatSectionLines.find(
+				(sectionLine) =>
+					sectionLine.beforeLineNumber === line.oldLine &&
+					sectionLine.afterLineNumber === line.newLine
+			);
+
+			if (!sectionLine) continue;
+
+			buffer.push(sectionLine.content);
+		}
+
+		const copyString = buffer.join('\n');
+		copyToClipboard(copyString);
+	}
+
 	get selectedLines() {
 		return this._selectedLines;
 	}
 
 	get diffSelection(): DiffSelection | undefined {
 		if (
+			!this._quote ||
 			!this._selectedDiffFileHunk ||
 			this._selectedLines.length === 0 ||
 			this._diffSha === undefined
 		)
 			return;
+
 		const [fileName, hunkIndex] = readDiffFileHunkKey(this._selectedDiffFileHunk);
 
 		return {

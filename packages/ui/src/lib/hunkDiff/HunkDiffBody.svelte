@@ -1,5 +1,6 @@
 <script lang="ts">
 	import LineSelection from './lineSelection.svelte';
+	import Button from '$lib/Button.svelte';
 	import {
 		type ContentSection,
 		CountColumnSide,
@@ -21,6 +22,9 @@
 		selectedLines?: LineSelector[];
 		diffContrast?: 'light' | 'medium' | 'strong';
 		onLineClick?: (params: LineSelectionParams) => void;
+		onQuoteSelection?: () => void;
+		onCopySelection?: () => void;
+		numberHeaderWidth?: number;
 	}
 
 	const {
@@ -32,7 +36,10 @@
 		tabSize = 4,
 		inlineUnifiedDiffs = false,
 		selectedLines,
-		diffContrast = 'medium'
+		diffContrast = 'medium',
+		numberHeaderWidth,
+		onCopySelection,
+		onQuoteSelection
 	}: Props = $props();
 
 	const lineSelection = $derived(new LineSelection(onLineClick));
@@ -81,6 +88,32 @@
 						class:is-first={row.isFirstOfSelectionGroup}
 						class:is-last={row.isLastOfSelectionGroup}
 					></div>
+				{/if}
+
+				{#if row.isLastSelected}
+					<div
+						class="table__selected-row-overflow-menu"
+						style="--number-col-width: {numberHeaderWidth}px;"
+					>
+						<div class="button-wrapper">
+							<Button
+								icon="text-quote"
+								style="neutral"
+								kind="ghost"
+								size="button"
+								onclick={onQuoteSelection}
+							/>
+						</div>
+						<div class="button-wrapper">
+							<Button
+								icon="copy-small"
+								style="neutral"
+								kind="ghost"
+								size="button"
+								onclick={onCopySelection}
+							/>
+						</div>
+					</div>
 				{/if}
 
 				{@html row.tokens.join('')}
@@ -146,6 +179,35 @@
 
 		&.is-last {
 			border-bottom: 1px solid var(--clr-theme-warn-element);
+		}
+	}
+
+	tbody:hover .table__selected-row-overflow-menu {
+		opacity: 1;
+		pointer-events: all;
+	}
+
+	.table__selected-row-overflow-menu {
+		z-index: var(--z-modal);
+		position: absolute;
+		bottom: 4px;
+		left: calc(var(--number-col-width) + 4px);
+
+		display: flex;
+		pointer-events: none;
+		gap: 0;
+		background: var(--clr-bg-1);
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+
+		/* shadow/s */
+		box-shadow: 0px 4px 14px 0px rgba(0, 0, 0, 0.06);
+
+		opacity: 0;
+		transition: opacity var(--transition-medium);
+
+		.button-wrapper:not(:last-child) {
+			border-right: 1px solid var(--clr-border-2);
 		}
 	}
 
