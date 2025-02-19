@@ -120,6 +120,16 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					params: { projectId, oldCommitId, newCommitId }
 				}),
 				providesTags: [ReduxTag.CommitChanges]
+			}),
+			updateCommitMessage: build.mutation<
+				void,
+				{ projectId: string; branchId: string; commitOid: string; message: string }
+			>({
+				query: ({ projectId, branchId, commitOid, message }) => ({
+					command: 'update_commit_message',
+					params: { projectId, branchId, commitOid, message }
+				}),
+				invalidatesTags: [ReduxTag.StackBranches]
 			})
 		})
 	});
