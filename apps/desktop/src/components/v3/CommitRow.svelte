@@ -12,7 +12,11 @@
 
 	let { first, commit, last, lastBranch, selectedCommitId = $bindable() }: Props = $props();
 
-	$inspect('commit.selectedCommitId', selectedCommitId);
+	const commitTitle = $derived(
+		commit.message.includes('\n\n')
+			? commit.message.substring(0, commit.message.indexOf('\n\n'))
+			: commit.message
+	);
 </script>
 
 <button
@@ -30,7 +34,9 @@
 	}}
 >
 	<CommitLine {commit} {last} {lastBranch} />
-	<div class="commit-content text-13 text-semibold">{commit.message}</div>
+	<div class="commit-content text-13 text-semibold">
+		{commitTitle}
+	</div>
 </button>
 
 <style>

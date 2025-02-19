@@ -75,9 +75,17 @@
 </script>
 
 <div class="wrapper">
-	<div class="title text-16 text-bold">{commit.description}</div>
-	<div class="description text-12">{commit.description}</div>
+	<div class="message text-12">{commit.description}</div>
 	<div class="metadata text-11 text-semibold">
+		{#if commit.conflicted}
+			<Tooltip
+				text={"Conflicted commits must be resolved before they can be amended or squashed.\nPlease resolve conflicts using the 'Resolve conflicts' button"}
+			>
+				<span class="conflicted text-13">Conflicted</span>
+			</Tooltip>
+
+			<span class="divider">•</span>
+		{/if}
 		<Tooltip text={commit.author.name}>
 			<img class="avatar" src={commit.author.gravatarUrl} alt={`${commit.author.name} Avatar`} />
 		</Tooltip>
@@ -186,6 +194,16 @@
 		padding: 14px 14px 16px 14px;
 	}
 
+	.message {
+		white-space: pre-wrap;
+		line-height: 18px;
+
+		&::first-line {
+			font-size: 16px;
+			font-weight: 500;
+		}
+	}
+
 	.metadata {
 		display: flex;
 		align-items: center;
@@ -215,6 +233,8 @@
 		display: flex;
 		align-items: center;
 		gap: 2px;
+
+		/* `underline dashed` broken on Linux */
 		text-decoration-line: underline;
 		text-underline-offset: 2px;
 		text-decoration-style: dashed;
@@ -224,5 +244,9 @@
 		display: flex;
 		align-items: center;
 		gap: 2px;
+	}
+
+	.conflicted {
+		color: var(--clr-theme-err-element);
 	}
 </style>
