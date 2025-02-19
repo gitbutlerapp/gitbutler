@@ -153,21 +153,20 @@
 		{#if fileStatus}
 			<FileStatusBadge status={fileStatus} style={fileStatusStyle} />
 		{/if}
+		{#if open !== undefined}
+			<button
+				class="chevron"
+				type="button"
+				onclick={(e) => {
+					open = !open;
+					e.stopPropagation();
+					e.preventDefault();
+				}}
+			>
+				<Icon name={open ? 'chevron-up-small' : 'chevron-down-small'} />
+			</button>
+		{/if}
 	</div>
-
-	{#if open !== undefined}
-		<button
-			class="chevron"
-			type="button"
-			onclick={(e) => {
-				open = !open;
-				e.stopPropagation();
-				e.preventDefault();
-			}}
-		>
-			<Icon name={open ? 'chevron-up-small' : 'chevron-down-small'} />
-		</button>
-	{/if}
 </div>
 
 <style lang="postcss">
@@ -237,6 +236,7 @@
 		flex-shrink: 1;
 		min-width: 32px;
 		gap: 6px;
+		width: 100%;
 		overflow: hidden;
 	}
 
@@ -301,6 +301,7 @@
 		padding-left: 10px;
 		padding-right: 10px;
 		height: 28px;
+		margin-left: -8px;
 		margin-right: -12px;
 		transition: opacity var(--transition-fast);
 
