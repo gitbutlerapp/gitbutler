@@ -4,8 +4,8 @@
 	import { Commit } from '$lib/commits/commit';
 	import { CommitService } from '$lib/commits/commitService.svelte';
 	import { ProjectService } from '$lib/project/projectService';
+	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { getContext } from 'svelte';
 
 	interface Props {
 		selectedCommitId: string | undefined;
@@ -13,9 +13,8 @@
 
 	let { selectedCommitId = $bindable() }: Props = $props();
 
-	const projectService = getContext<ProjectService>(ProjectService);
+	const [projectService, commitService] = inject(ProjectService, CommitService);
 	const projectId = projectService.projectId;
-	const commitService = getContext<CommitService>(CommitService);
 	let commit = $state<Commit>();
 
 	async function getCommitData() {
