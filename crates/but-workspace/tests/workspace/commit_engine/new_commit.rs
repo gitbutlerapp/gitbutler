@@ -6,7 +6,7 @@ use crate::commit_engine::utils::{
 };
 use but_testsupport::assure_stable_env;
 use but_workspace::commit_engine;
-use but_workspace::commit_engine::{Destination, DiffSpec};
+use commit_engine::{Destination, DiffSpec};
 use gix::prelude::ObjectIdExt;
 
 mod with_refs_update {}
@@ -154,7 +154,7 @@ fn unborn_with_added_submodules() -> anyhow::Result<()> {
 
     let (repo, _tmp) = writable_scenario("unborn-with-submodules");
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
-    let outcome = but_workspace::commit_engine::create_commit(
+    let outcome = commit_engine::create_commit(
         &repo,
         Destination::NewCommit {
             parent_commit_id: None,
@@ -303,7 +303,7 @@ fn submodule_typechanges() -> anyhow::Result<()> {
         },
     ]
     "#);
-    let outcome = but_workspace::commit_engine::create_commit(
+    let outcome = commit_engine::create_commit(
         &repo,
         Destination::NewCommit {
             parent_commit_id: Some(repo.rev_parse_single("HEAD")?.into()),
@@ -366,7 +366,7 @@ fn commit_to_one_below_tip_with_three_context_lines() -> anyhow::Result<()> {
                 .into(),
         };
 
-        let outcome = but_workspace::commit_engine::create_commit(
+        let outcome = commit_engine::create_commit(
             &repo,
             first_commit,
             None,

@@ -21,12 +21,18 @@ pub fn rewrite(
     updated_refs: &mut Vec<UpdatedReference>,
 ) -> anyhow::Result<()> {
     let mut ref_edits = Vec::new();
+    let changed_commits: Vec<_> = changed_commits.into_iter().collect();
     let change_id_to_id_map = generate_change_ids_to_commit_mapping(repo, &*state, workspace_tip)?;
     let mut branches_ordered: Vec<_> = state.branches.values_mut().collect();
     branches_ordered.sort_by(|a, b| a.name.cmp(&b.name));
+    // Only one commit is created? Then it's on top of something, with special behaviour for stack-branches (ordered).
+    let only_top_most_stack_branch = changed_commits
+        .len()
+        .saturating_sub(usize::from(workspace_tip.is_some()))
+        == 1;
     for (old, new) in changed_commits {
         let old_git2 = old.to_git2();
-        for stack in &mut branches_ordered {
+        'stacks: for stack in &mut branches_ordered {
             if stack.head == old_git2 {
                 stack.head = new.to_git2();
                 stack.tree = new
@@ -41,38 +47,31 @@ pub fn rewrite(
                     reference: but_core::Reference::Virtual(stack.name.clone()),
                 });
             }
-            for branch in stack.heads.iter_mut() {
-                match &mut branch.head() {
+            for branch in stack.heads.iter_mut().rev() {
+                let id = match &mut branch.head() {
                     CommitOrChangeId::CommitId(id_hex) => {
-                        let Some((id, _branch_target_id_hex)) =
-                            gix::ObjectId::from_hex(id_hex.as_bytes())
-                                .ok()
-                                .map(|id| (id, id_hex))
-                        else {
+                        let Some(id) = gix::ObjectId::from_hex(id_hex.as_bytes()).ok() else {
                             continue;
                         };
-                        if id == old {
-                            branch.set_head(CommitOrChangeId::CommitId(new.to_string()));
-                            updated_refs.push(UpdatedReference {
-                                old_commit_id: old,
-                                new_commit_id: new,
-                                reference: but_core::Reference::Virtual(branch.name().clone()),
-                            });
-                        }
+                        id
                     }
                     #[allow(deprecated)]
                     CommitOrChangeId::ChangeId(change_id) => {
-                        let Some(commit_id) = change_id_to_id_map.get(change_id) else {
+                        let Some(id) = change_id_to_id_map.get(change_id) else {
                             continue;
                         };
-                        if *commit_id == old {
-                            branch.set_head(CommitOrChangeId::CommitId(new.to_string()));
-                            updated_refs.push(UpdatedReference {
-                                old_commit_id: old,
-                                new_commit_id: new,
-                                reference: but_core::Reference::Virtual(branch.name().clone()),
-                            });
-                        }
+                        *id
+                    }
+                };
+                if id == old {
+                    branch.set_head(CommitOrChangeId::CommitId(new.to_string()));
+                    updated_refs.push(UpdatedReference {
+                        old_commit_id: old,
+                        new_commit_id: new,
+                        reference: but_core::Reference::Virtual(branch.name().clone()),
+                    });
+                    if only_top_most_stack_branch {
+                        continue 'stacks;
                     }
                 }
             }
