@@ -74,7 +74,7 @@
 	</div>
 
 	{#if selectedCommitId}
-		<StackCommitDetails bind:selectedCommitId />
+		<StackCommitDetails bind:selectedCommitId {stackId} />
 	{:else}
 		<StackContentIllustration mode={stackContentMode} />
 	{/if}
