@@ -129,7 +129,7 @@ impl StackBranch {
             CommitOrChangeId::ChangeId(_) => return Ok(None), // noop
         };
         let reference = repo.reference(
-            self.qualified_reference_name(),
+            qualified_reference_name(self.name()),
             new_oid,
             PreviousValue::ExistingMustMatch(old_oid.into()),
             "GitButler reference",
@@ -151,11 +151,6 @@ impl StackBranch {
                 Ok(head_commit)
             }
         }
-    }
-
-    /// Returns a fully qualified reference name e.g. `refs/heads/my-branch`
-    fn qualified_reference_name(&self) -> String {
-        format!("refs/heads/{}", self.name.trim_matches('/'))
     }
 
     /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
@@ -253,6 +248,11 @@ impl StackBranch {
 /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
 pub fn remote_reference(name: &String, remote: &str) -> String {
     format!("refs/remotes/{}/{}", remote, name)
+}
+
+/// Returns a fully qualified reference name e.g. `refs/heads/my-branch`
+fn qualified_reference_name(name: &str) -> String {
+    format!("refs/heads/{}", name.trim_matches('/'))
 }
 
 /// Represents the commits that belong to a `Branch` within a `Stack`.
