@@ -129,6 +129,36 @@ pub mod object_id {
     }
 }
 
+pub mod object_id_vec {
+    use serde::{Deserialize, Deserializer, Serialize};
+    use std::str::FromStr;
+
+    /// serialize an object ID as hex-string.
+    pub fn serialize<S>(v: &[gix::ObjectId], s: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let vec: Vec<String> = v.iter().map(|v| v.to_string()).collect();
+        vec.serialize(s)
+    }
+
+    /// deserialize an object ID from hex-string.
+    pub fn deserialize<'de, D>(d: D) -> Result<Vec<gix::ObjectId>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let hex = <Vec<String> as Deserialize>::deserialize(d)?;
+        let hex: Result<Vec<gix::ObjectId>, D::Error> = hex
+            .into_iter()
+            .map(|v| {
+                gix::ObjectId::from_str(v.as_ref())
+                    .map_err(|err| serde::de::Error::custom(err.to_string()))
+            })
+            .collect();
+        hex
+    }
+}
+
 pub mod oid_vec {
     use serde::{Deserialize, Deserializer, Serialize};
 

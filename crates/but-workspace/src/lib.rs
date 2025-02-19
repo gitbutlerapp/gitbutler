@@ -124,6 +124,9 @@ pub struct Commit {
     /// The OID of the commit.
     #[serde(with = "gitbutler_serde::object_id")]
     pub id: gix::ObjectId,
+    /// The parent OIDs of the commit.
+    #[serde(with = "gitbutler_serde::object_id_vec")]
+    pub parent_ids: Vec<gix::ObjectId>,
     /// The message of the commit.
     #[serde(with = "gitbutler_serde::bstring_lossy")]
     pub message: BString,
@@ -300,6 +303,7 @@ fn convert(
 
         let api_commit = Commit {
             id: commit.id().to_gix(),
+            parent_ids: commit.parents().map(|p| p.id().to_gix()).collect(),
             message: commit.message_bstr().into(),
             has_conflicts: commit.is_conflicted(),
             state,

@@ -63,6 +63,8 @@ export type Commits = {
 export type Commit = {
 	/** The OID of the commit.*/
 	readonly id: string;
+	/** The parent OIDs of the commit. */
+	readonly parentIds: string[];
 	/** The message of the commit.*/
 	readonly message: string;
 	/**
