@@ -2906,6 +2906,7 @@ name = "gitbutler-stack"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "bstr",
  "git2",
  "gitbutler-command-context",
  "gitbutler-commit",

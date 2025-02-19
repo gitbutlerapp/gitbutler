@@ -20,6 +20,7 @@ pub(crate) fn get_head(heads: &[StackBranch], name: &str) -> Result<(usize, Stac
 pub(crate) fn remove_head(
     mut heads: Vec<StackBranch>,
     name: String,
+    repo: &gix::Repository,
 ) -> Result<(Vec<StackBranch>, bool)> {
     // find the head that corresponds to the supplied name, together with its index
     let (idx, head) = get_head(&heads, &name)?;
@@ -34,7 +35,7 @@ pub(crate) fn remove_head(
         let prior_head = heads
             .get_mut(idx - 1)
             .ok_or_else(|| anyhow!("Cannot get the head before the head being removed"))?;
-        prior_head.set_head(head.head().to_owned());
+        prior_head.set_head(head.head().to_owned(), repo)?;
         moved_another_reference = true;
     }
     heads.remove(idx);

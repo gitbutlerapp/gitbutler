@@ -1,10 +1,12 @@
 use anyhow::Result;
+use bstr::BString;
 use git2::{Commit, Oid};
 use gitbutler_commit::commit_ext::CommitVecExt;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
+use gix::refs::transaction::PreviousValue;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
 
 use crate::{commit_by_oid_or_change_id, stack_context::StackContext, Stack};
 
@@ -89,8 +91,16 @@ impl StackBranch {
         &self.head
     }
 
-    pub fn set_head(&mut self, head: CommitOrChangeId) {
+    /// This will update the commit that this points to (the virtual reference in virtual_branches.toml) as well as update of create a real git reference.
+    /// If this points to a change id, it's a noop operation. In practice, moving forward, new CommitOrChangeId entries will always be CommitId and ChangeId may only appear in deserialized data.
+    pub fn set_head(
+        &mut self,
+        head: CommitOrChangeId,
+        repo: &gix::Repository,
+    ) -> Result<Option<BString>> {
+        let refname = self.set_real_reference(repo, &head)?;
         self.head = head;
+        Ok(refname)
     }
 
     pub fn name(&self) -> &String {
@@ -99,6 +109,32 @@ impl StackBranch {
 
     pub fn set_name(&mut self, name: String) {
         self.name = name;
+    }
+
+    /// Creates or updates a real git reference using the head information (target commit, name)
+    /// NB: If the operation is an update of an existing reference, the operation will only succeed if the old reference matches the expected value.
+    ///     Therefore this should be invoked before `self.head` has been updated.
+    /// If the head is expressed as a change id, this is a noop
+    fn set_real_reference(
+        &self,
+        repo: &gix::Repository,
+        new_head: &CommitOrChangeId,
+    ) -> Result<Option<BString>> {
+        let new_oid = match new_head {
+            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(id)?,
+            CommitOrChangeId::ChangeId(_) => return Ok(None), // noop
+        };
+        let old_oid: gix::ObjectId = match self.head.clone() {
+            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(&id)?,
+            CommitOrChangeId::ChangeId(_) => return Ok(None), // noop
+        };
+        let reference = repo.reference(
+            self.qualified_reference_name(),
+            new_oid,
+            PreviousValue::ExistingMustMatch(old_oid.into()),
+            "GitButler reference",
+        )?;
+        Ok(Some(reference.name().as_bstr().to_owned()))
     }
 
     pub fn head_oid(&self, stack_context: &StackContext, stack: &Stack) -> Result<Oid> {
@@ -115,6 +151,11 @@ impl StackBranch {
                 Ok(head_commit)
             }
         }
+    }
+
+    /// Returns a fully qualified reference name e.g. `refs/heads/my-branch`
+    fn qualified_reference_name(&self) -> String {
+        format!("refs/heads/{}", self.name.trim_matches('/'))
     }
 
     /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
