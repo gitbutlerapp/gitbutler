@@ -2,8 +2,9 @@ import { ClientState } from '$lib/state/clientState.svelte';
 import { ReduxTag } from '$lib/state/tags';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { Commit, WorkspaceBranch } from '$lib/branches/v3';
+import type { TreeChange } from '$lib/hunks/change';
 import type { HunkHeader } from '$lib/hunks/hunk';
-import type { Stack } from './stack';
+import type { Stack } from '$lib/stacks/stack';
 
 type CreateBranchRequest = { name?: string; ownership?: string; order?: number };
 
@@ -62,6 +63,15 @@ export class StackService {
 		const result = $derived(this.api.endpoints.createCommit.useMutation({ projectId, ...request }));
 		return result;
 	}
+
+	/**
+	 * Does not support merge commits, i.e. 2 parent oldCommitId's yet
+	 */
+	commitChanges(projectId: string, oldCommitId: string, newCommitId: string) {
+		const { commitChanges } = this.api.endpoints;
+		const result = $derived(commitChanges.useQuery({ projectId, oldCommitId, newCommitId }));
+		return result;
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -97,6 +107,19 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					params: { projectId, ...commitData }
 				}),
 				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commit]
+			}),
+			/**
+			 * Does not support merge commits, i.e. 2 parent oldCommitId's yet
+			 */
+			commitChanges: build.query<
+				TreeChange[],
+				{ projectId: string; oldCommitId: string; newCommitId: string }
+			>({
+				query: ({ projectId, oldCommitId, newCommitId }) => ({
+					command: 'commit_changes',
+					params: { projectId, oldCommitId, newCommitId }
+				}),
+				providesTags: [ReduxTag.CommitChanges]
 			})
 		})
 	});
