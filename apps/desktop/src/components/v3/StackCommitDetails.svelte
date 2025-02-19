@@ -9,9 +9,10 @@
 
 	interface Props {
 		selectedCommitId: string | undefined;
+		stackId: string;
 	}
 
-	let { selectedCommitId = $bindable() }: Props = $props();
+	let { selectedCommitId = $bindable(), stackId }: Props = $props();
 
 	const [projectService, commitService] = inject(ProjectService, CommitService);
 	const projectId = projectService.projectId;
@@ -34,7 +35,7 @@
 			<Icon name="cross" />
 		</button>
 		{#if commit}
-			<StackDetailsCommitHeader {commit} />
+			<StackDetailsCommitHeader {commit} {stackId} {projectId} />
 		{/if}
 	</div>
 	<div class="body">

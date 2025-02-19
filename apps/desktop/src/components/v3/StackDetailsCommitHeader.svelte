@@ -1,27 +1,49 @@
 <script lang="ts">
+	import CommitMessageInput from '$components/v3/CommitMessageInput.svelte';
 	import { Commit } from '$lib/commits/commit';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 
 	interface Props {
 		commit: Commit;
+		stackId: string;
+		projectId: string;
 	}
 
-	const { commit }: Props = $props();
+	const { commit, stackId, projectId }: Props = $props();
 
+	const [stackService] = inject(StackService);
 	const commitShortSha = $derived(commit.id.substring(0, 7));
+
+	let conflictResolutionConfirmationModal: ReturnType<typeof Modal> | undefined;
+	let commitMessageModal: ReturnType<typeof Modal> | undefined;
+	let commitMessageValid = $state(false);
+	let description = $state('');
 
 	// let isUndoable = commit instanceof DetailedCommit && type !== 'remote' && type !== 'integrated';
 	let isUndoable = true;
 
+	function submitCommitMessageModal() {
+		commit.description = description;
+
+		if (stackId) {
+			stackService.updateCommitMessage(projectId, stackId, commit.id, description);
+		}
+
+		commitMessageModal?.close();
+	}
+
 	function openCommitMessageModal(e: MouseEvent) {
 		e.stopPropagation();
-		// description = commit.description;
-		// commitMessageModal?.show();
+		description = commit.description;
+		commitMessageModal?.show();
 	}
 
 	function handleUncommit(e: MouseEvent) {
@@ -123,6 +145,37 @@
 		{/if}
 	</div>
 </div>
+
+<Modal bind:this={commitMessageModal} width="small" onSubmit={submitCommitMessageModal}>
+	{#snippet children(_, close)}
+		<CommitMessageInput
+			bind:commitMessage={description}
+			bind:valid={commitMessageValid}
+			existingCommit={commit}
+			isExpanded={true}
+			cancel={close}
+			commit={submitCommitMessageModal}
+		/>
+	{/snippet}
+	{#snippet controls(close)}
+		<Button kind="outline" onclick={close}>Cancel</Button>
+		<Button style="neutral" type="submit" grow disabled={!commitMessageValid}>Submit</Button>
+	{/snippet}
+</Modal>
+
+<Modal bind:this={conflictResolutionConfirmationModal} width="small" onSubmit={editPatch}>
+	{#snippet children()}
+		<div>
+			<p>It's generally better to start resolving conflicts from the bottom up.</p>
+			<br />
+			<p>Are you sure you want to resolve conflicts for this commit?</p>
+		</div>
+	{/snippet}
+	{#snippet controls(close)}
+		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
+		<Button style="pop" type="submit">Yes</Button>
+	{/snippet}
+</Modal>
 
 <style>
 	.wrapper {
