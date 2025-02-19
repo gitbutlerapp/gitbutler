@@ -1,9 +1,10 @@
 <script lang="ts">
+	import ChatDiffLineSelection from './ChatDiffLineSelection.svelte';
 	import MentionSuggestions from './MentionSuggestions.svelte';
 	import MessageHandler from '$lib/chat/message.svelte';
 	import RichText from '$lib/chat/richText.svelte';
 	import SuggestionsHandler from '$lib/chat/suggestions.svelte';
-	import { encodeLineSelection, type DiffSelection } from '$lib/diff/lineSelection.svelte';
+	import { type DiffSelection } from '$lib/diff/lineSelection.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
@@ -16,7 +17,6 @@
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
 	import RichTextEditor, { type EditorInstance } from '@gitbutler/ui/RichTextEditor.svelte';
-	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
 	import { env } from '$env/dynamic/public';
 
 	interface Props {
@@ -193,12 +193,7 @@
 		/>
 		<div class="text-input chat-input__content-container">
 			{#if diffSelection}
-				<div class="chat-input__diff-selection">
-					<FileIcon fileName={diffSelection.fileName} size={16} />
-					<p class="text-12 text-body file-name">
-						{`${diffSelection.fileName}:${encodeLineSelection(diffSelection.lines)}`}
-					</p>
-				</div>
+				<ChatDiffLineSelection {diffSelection} {clearDiffSelection} />
 			{/if}
 			<RichTextEditor
 				bind:this={richText.richTextEditor}
@@ -287,19 +282,6 @@
 		flex-direction: column;
 		padding: 16px;
 		border-top: 1px solid var(--clr-border-2);
-	}
-
-	.chat-input__diff-selection {
-		display: flex;
-		align-items: center;
-		padding: 6px;
-		margin: 6px 6px 0;
-		gap: 8px;
-		align-self: stretch;
-
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
 	}
 
 	.chat-input__content-container {
