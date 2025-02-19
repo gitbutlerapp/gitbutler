@@ -42,7 +42,7 @@
 	$effect(() => lineSelection.setRows(renderRows));
 </script>
 
-{#snippet countColumn(row: Row, side: CountColumnSide)}
+{#snippet countColumn(row: Row, side: CountColumnSide, idx: number)}
 	<td
 		class="table__numberColumn"
 		data-no-drag
@@ -52,6 +52,9 @@
 		align="center"
 		class:is-last={row.isLast}
 		class:is-before={side === CountColumnSide.Before}
+		onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
+		onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
+		onmouseup={() => lineSelection.onEnd()}
 	>
 		{side === CountColumnSide.Before ? row.beforeLineNumber : row.afterLineNumber}
 	</td>
@@ -59,15 +62,9 @@
 
 <tbody class="contrast-{diffContrast}" style="--diff-font: {diffFont};">
 	{#each renderRows as row, idx}
-		<tr
-			class="table__row"
-			data-no-drag
-			onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
-			onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
-			onmouseup={() => lineSelection.onEnd()}
-		>
-			{@render countColumn(row, CountColumnSide.Before)}
-			{@render countColumn(row, CountColumnSide.After)}
+		<tr class="table__row" data-no-drag>
+			{@render countColumn(row, CountColumnSide.Before, idx)}
+			{@render countColumn(row, CountColumnSide.After, idx)}
 			<td
 				class="table__textContent"
 				style="--tab-size: {tabSize}; --wrap: {wrapText ? 'wrap' : 'nowrap'}"

@@ -64,6 +64,7 @@ export default class LineSelection {
 	}
 
 	onMoveOver(ev: MouseEvent, row: Row, index: number) {
+		if (this._lastSelected === index) return;
 		if (ev.buttons === 1) {
 			toggleLine: {
 				if (this._lastSelected !== undefined && this._selectionDirection !== undefined) {
