@@ -11,6 +11,7 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
+	import { page } from '$app/state';
 
 	interface Props {
 		stackId: string;
@@ -40,7 +41,13 @@
 	});
 
 	let selectedCommitId = $state<string>();
-	$inspect('stackDetails.selectedCommitId', selectedCommitId);
+
+	// When changing paths, i.e. another stack tab, close the StackDetails
+	$effect(() => {
+		if (page.url.pathname) {
+			selectedCommitId = undefined;
+		}
+	});
 </script>
 
 <div class="wrapper">
