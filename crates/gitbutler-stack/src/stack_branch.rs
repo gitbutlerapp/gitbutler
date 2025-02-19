@@ -116,9 +116,10 @@ impl StackBranch {
             }
         }
     }
+
     /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
     pub fn remote_reference(&self, remote: &str) -> String {
-        format!("refs/remotes/{}/{}", remote, self.name)
+        remote_reference(self.name(), remote)
     }
 
     /// Returns `true` if the reference is pushed to the provided remote
@@ -206,6 +207,11 @@ impl StackBranch {
             upstream_only: upstream_only_patches,
         })
     }
+}
+
+/// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
+pub fn remote_reference(name: &String, remote: &str) -> String {
+    format!("refs/remotes/{}/{}", remote, name)
 }
 
 /// Represents the commits that belong to a `Branch` within a `Stack`.
