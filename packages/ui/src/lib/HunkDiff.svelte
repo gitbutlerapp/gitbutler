@@ -135,7 +135,7 @@
 	.table__section {
 		width: 100%;
 		font-family: var(--diff-font);
-		border-collapse: separate;
+		border-collapse: collapse;
 		border-spacing: 0;
 	}
 
