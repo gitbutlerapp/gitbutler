@@ -1,6 +1,12 @@
 import { embedUserMention } from './mentions';
+import { encodeLineSelection, type DiffSelection } from '$lib/diff/lineSelection.svelte';
 import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
 import type { EditorInstance } from '@gitbutler/ui/RichTextEditor.svelte';
+
+export interface SendParams {
+	issue?: boolean;
+	diffSelection?: DiffSelection;
+}
 
 export default class MessageHandler {
 	private _message = $state<string>();
@@ -40,10 +46,14 @@ export default class MessageHandler {
 		});
 	}
 
-	async send(issue?: boolean) {
+	async send(params: SendParams) {
 		if (this._message === undefined || this._message.trim() === '') {
 			return;
 		}
+
+		const diffRange = params.diffSelection?.lines
+			? encodeLineSelection(params.diffSelection.lines)
+			: undefined;
 
 		await this.chatChannelService.sendChatMessage({
 			projectId: this.projectId,
@@ -51,7 +61,10 @@ export default class MessageHandler {
 			changeId: this.changeId,
 			chat: this._message,
 			displayableText: this._displayMessage,
-			issue
+			issue: params.issue,
+			diffPath: params.diffSelection?.fileName,
+			diffSha: params.diffSelection?.diffSha,
+			range: diffRange
 		});
 	}
 
