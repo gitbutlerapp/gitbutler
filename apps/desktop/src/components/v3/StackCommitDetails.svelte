@@ -16,7 +16,6 @@
 	const projectService = getContext<ProjectService>(ProjectService);
 	const projectId = projectService.projectId;
 	const commitService = getContext<CommitService>(CommitService);
-	$inspect('stackCommitDetails.selectedCommit', projectId, selectedCommitId);
 	let commit = $state<Commit>();
 
 	async function getCommitData() {
@@ -28,8 +27,6 @@
 	$effect(() => {
 		getCommitData();
 	});
-
-	$inspect('stackCommitDetails.commit', commit);
 </script>
 
 <div class="wrapper">
@@ -42,7 +39,9 @@
 		{/if}
 	</div>
 	<div class="body">
-		<StackDetailsFileList {commit} />
+		{#if commit}
+			<StackDetailsFileList {commit} />
+		{/if}
 	</div>
 </div>
 
@@ -65,6 +64,5 @@
 	.body {
 		display: flex;
 		flex-direction: column;
-		padding: 4px;
 	}
 </style>
