@@ -368,7 +368,10 @@ fn update_series_name_fails_validation() -> Result<()> {
     let result = test_ctx
         .stack
         .update_series(&ctx, "a-branch-2".into(), &update);
-    assert_eq!(result.err().unwrap().to_string(), "Invalid branch name");
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        "A reference must be a valid tag name as well"
+    );
     Ok(())
 }
 

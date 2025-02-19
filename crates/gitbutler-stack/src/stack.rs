@@ -480,7 +480,7 @@ impl Stack {
                 .iter_mut()
                 .find(|h: &&mut StackBranch| *h.name() == branch_name);
             if let Some(head) = head {
-                head.set_name(name);
+                head.set_name(name, &ctx.gix_repository()?)?;
                 validate_name(head, &state)?;
                 head.pr_number = None; // reset pr_number
             }
