@@ -4,5 +4,6 @@ export enum ReduxTag {
 	Commit = 'Commit',
 	Stacks = 'Stacks',
 	WorktreeChanges = 'WorktreeChanges',
-	StackBranches = 'StackBranches'
+	StackBranches = 'StackBranches',
+	CommitChanges = 'CommitChanges'
 }
