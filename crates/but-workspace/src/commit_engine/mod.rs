@@ -368,7 +368,6 @@ pub fn create_commit_and_update_refs(
                 }
                 builder.rebase()?
             };
-
             refs::rewrite(
                 repo,
                 vb,

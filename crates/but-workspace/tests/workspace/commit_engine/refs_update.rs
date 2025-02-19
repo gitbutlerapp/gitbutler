@@ -739,7 +739,13 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
 
     let branch_a = repo.rev_parse_single("A")?.detach();
     let mut vb = VirtualBranchesState::default();
-    let stack = stack_with_branches("s1", branch_a, [("s1-b/top", branch_a)]);
+    let stack = stack_with_branches(
+        "s1",
+        branch_a,
+        // The order indicates which one actually is on top, even though they both point to the
+        // same commit.
+        [("s1-b/below-top", branch_a), ("s1-b/top", branch_a)],
+    );
     vb.branches.insert(stack.id, stack);
 
     // initial is 1-30, make a change that transfers correctly to A where it is 5-20.
@@ -769,7 +775,7 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     *   5c49248 (HEAD -> merge) Merge branch 'A' into merge
     |\  
     | * 10bb1a3 (s1-b/top, s1, A) remove 5 lines from beginning
-    | * 7f389ed add 10 to the beginning
+    | * 7f389ed (s1-b/below-top) add 10 to the beginning
     * | 91ef6f6 (B) add 10 to the end
     |/  
     * ff045ef (main) init
