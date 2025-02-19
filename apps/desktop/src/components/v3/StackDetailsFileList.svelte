@@ -16,23 +16,27 @@
 	const projectId = projectService.projectId;
 
 	const commitChangesQuery = $derived(
-		stackService.commitChanges(projectId, commit?.parentIds[0], commit?.id)
+		commit?.parentIds[0] && commit?.id
+			? stackService.getCommitChanges(projectId, commit?.parentIds[0], commit?.id)
+			: undefined
 	);
 </script>
 
 <div class="wrapper">
 	<div class="header text-13 text-bold">Changed files</div>
-	<ReduxResult result={commitChangesQuery.current}>
-		{#snippet children(changes)}
-			<FileList {projectId} {changes} />
-		{/snippet}
-		{#snippet empty()}
-			<div class="text-12 text-body helper-text">
-				<div>You're all caught up!</div>
-				<div>No files need committing</div>
-			</div>
-		{/snippet}
-	</ReduxResult>
+	{#if commitChangesQuery}
+		<ReduxResult result={commitChangesQuery.current}>
+			{#snippet children(changes)}
+				<FileList {projectId} {changes} />
+			{/snippet}
+			{#snippet empty()}
+				<div class="text-12 text-body helper-text">
+					<div>You're all caught up!</div>
+					<div>No files need committing</div>
+				</div>
+			{/snippet}
+		</ReduxResult>
+	{/if}
 </div>
 
 <style>
