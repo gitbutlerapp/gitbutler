@@ -48,7 +48,6 @@
 		data-no-drag
 		class:diff-line-deletion={row.type === SectionType.RemovedLines}
 		class:diff-line-addition={row.type === SectionType.AddedLines}
-		class:selected={row.isSelected}
 		class:clickable={onLineClick}
 		align="center"
 		class:is-last={row.isLast}
@@ -61,6 +60,7 @@
 <tbody class="contrast-{diffContrast}" style="--diff-font: {diffFont};">
 	{#each renderRows as row, idx}
 		<tr
+			class="table__row"
 			data-no-drag
 			onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
 			onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
@@ -78,6 +78,10 @@
 				class:selected={row.isSelected}
 				class:is-last={row.isLast}
 			>
+				{#if row.isSelected}
+					<div class="table__selected-row-overlay"></div>
+				{/if}
+
 				{@html row.tokens.join('')}
 			</td>
 		</tr>
@@ -93,6 +97,10 @@
 	tr {
 		padding: 0;
 		margin: 0;
+	}
+
+	.table__row {
+		position: relative;
 	}
 
 	.table__textContent {
@@ -113,11 +121,22 @@
 		cursor: text;
 		text-wrap: var(--wrap);
 		border-left: 1px solid var(--clr-border-2);
+	}
 
-		&.selected {
-			/* box-sizing: border-box;
-			border: 1px solid aqua; */
-		}
+	.table__selected-row-overlay {
+		position: absolute;
+		pointer-events: none;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		box-sizing: border-box;
+
+		border-left: 1px solid var(--clr-theme-warn-element);
+		border-right: 1px solid var(--clr-theme-warn-element);
+
+		background: color-mix(in srgb, var(--clr-btn-warn-outline-bg), transparent 30%);
+		mix-blend-mode: multiply;
 	}
 
 	.table__numberColumn {
