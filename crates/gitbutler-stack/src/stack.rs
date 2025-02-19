@@ -22,6 +22,7 @@ use serde::{Deserialize, Serialize};
 use crate::heads::add_head;
 use crate::heads::get_head;
 use crate::heads::remove_head;
+use crate::stack_branch::remote_reference;
 use crate::stack_branch::RepositoryExt as _;
 use crate::stack_context::CommandContextExt;
 use crate::stack_context::StackContext;
@@ -304,46 +305,54 @@ impl Stack {
         allow_duplicate_refs: bool,
     ) -> Result<StackBranch> {
         let commit = ctx.repo().find_commit(self.head())?;
+        let state = branch_state(ctx);
 
-        let mut reference = StackBranch::new(
-            commit.into(),
+        let name = Stack::next_available_name(
+            ctx,
+            &state,
             if let Some(refname) = self.upstream.as_ref() {
                 refname.branch().to_string()
             } else {
                 let (author, _committer) = ctx.repo().signatures()?;
                 generate_branch_name(author)?
             },
-            None,
-        );
-        let state = branch_state(ctx);
+            allow_duplicate_refs,
+        )?;
 
-        let is_duplicate = |reference: &StackBranch| -> Result<bool> {
-            Ok(if allow_duplicate_refs {
-                patch_reference_exists(&state, reference.name())?
-            } else {
-                let repository = ctx.gix_repository()?;
-                patch_reference_exists(&state, reference.name())?
-                    || local_reference_exists(&repository, reference.name())?
-                    || remote_reference_exists(&repository, &state, reference)?
-            })
-        };
-
-        while is_duplicate(&reference)? {
-            // keep incrementing the suffix until the name is unique
-            let name = reference.name();
-            let mut split = name.split('-');
-            let left = split.clone().take(split.clone().count() - 1).join("-");
-            reference.set_name(
-                split
-                    .next_back()
-                    .and_then(|last| last.parse::<u32>().ok())
-                    .map(|last| format!("{}-{}", left, last + 1)) //take everything except last, and append last + 1
-                    .unwrap_or_else(|| format!("{}-1", reference.name())),
-            );
-        }
+        let reference = StackBranch::new(commit.into(), name, None);
         validate_name(&reference, &state)?;
 
         Ok(reference)
+    }
+
+    fn next_available_name(
+        ctx: &CommandContext,
+        state: &VirtualBranchesHandle,
+        mut name: String,
+        allow_duplicate_refs: bool,
+    ) -> Result<String> {
+        let is_duplicate = |name: &String| -> Result<bool> {
+            Ok(if allow_duplicate_refs {
+                patch_reference_exists(state, name)?
+            } else {
+                let repository = ctx.gix_repository()?;
+                patch_reference_exists(state, name)?
+                    || local_reference_exists(&repository, name)?
+                    || remote_reference_exists(&repository, state, name)?
+            })
+        };
+        while is_duplicate(&name)? {
+            // keep incrementing the suffix until the name is unique
+            // let name = reference.name();
+            let mut split = name.split('-');
+            let left = split.clone().take(split.clone().count() - 1).join("-");
+            name = split
+                .next_back()
+                .and_then(|last| last.parse::<u32>().ok())
+                .map(|last| format!("{}-{}", left, last + 1)) //take everything except last, and append last + 1
+                .unwrap_or_else(|| format!("{}-1", name));
+        }
+        Ok(name)
     }
 
     /// Adds a new "Branch" to the Stack.
@@ -948,12 +957,13 @@ fn local_reference_exists(repository: &gix::Repository, name: &str) -> Result<bo
 fn remote_reference_exists(
     repository: &gix::Repository,
     state: &VirtualBranchesHandle,
-    branch: &StackBranch,
+    name: &String,
 ) -> Result<bool> {
-    local_reference_exists(
-        repository,
-        &branch.remote_reference(state.get_default_target()?.push_remote_name().as_str()),
-    )
+    let remote_ref = remote_reference(
+        name,
+        state.get_default_target()?.push_remote_name().as_str(),
+    );
+    local_reference_exists(repository, &remote_ref)
 }
 
 #[cfg(test)]
