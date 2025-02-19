@@ -4,7 +4,7 @@
 	import { Commit } from '$lib/commits/commit';
 	import { ProjectService } from '$lib/project/projectService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getContext } from 'svelte';
+	import { inject } from '@gitbutler/shared/context';
 
 	interface Props {
 		commit: Commit;
@@ -12,10 +12,8 @@
 
 	const { commit }: Props = $props();
 
-	const projectService = getContext<ProjectService>(ProjectService);
+	const [projectService, stackService] = inject(ProjectService, StackService);
 	const projectId = projectService.projectId;
-
-	const stackService = getContext<StackService>(StackService);
 
 	const commitChangesQuery = $derived(
 		stackService.commitChanges(projectId, commit?.parentIds[0], commit?.id)
