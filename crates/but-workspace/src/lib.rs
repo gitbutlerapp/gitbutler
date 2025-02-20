@@ -44,6 +44,20 @@ mod integrated;
 
 pub mod commit_engine;
 
+/// utilities for applying and unapplying branches.
+pub mod branch;
+
+mod commit;
+
+/// A representation of the commit that is the tip of the workspace, and the commit that
+/// binds 1 or more stacks together.
+pub struct WorkspaceCommit<'repo> {
+    /// The id of the commit itself.
+    pub id: gix::Id<'repo>,
+    /// The decoded commit for direct access.
+    pub inner: gix::objs::Commit,
+}
+
 /// An ID uniquely identifying stacks.
 pub use gitbutler_stack::StackId;
 

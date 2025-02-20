@@ -383,3 +383,6 @@ fn alter_parentage(
     ));
     Ok(repository.write_object(to_rewrite)?.into())
 }
+
+/// Additional functionality for the [`VirtualBranches`] structure.
+mod state_extensions {}
