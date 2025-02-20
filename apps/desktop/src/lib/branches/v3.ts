@@ -17,46 +17,13 @@ export type WorkspaceBranch = {
 	/** A unique identifier for the GitButler review associated with the branch, if any. */
 	readonly reviewId: string | null;
 	/**
-	 * A stack branch can be either in the stack or archived, which is what this field represents.
-	 * Only branches that are currently in the stacked state will provide lists of commits.
-	 */
-	readonly state: State;
-};
-
-/** Represents the state of a branch in a stack. */
-export type State =
-	/**
-	 * Archived indicates that the branch was previously part of a stack but it has since been integrated.
+	 *
+	 * Indicates that the branch was previously part of a stack but it has since been integrated.
 	 * In other words, the merge base of the stack is now above this branch.
 	 * This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
+	 * An archived branch will not have any commits associated with it.
 	 */
-	| { readonly type: 'Archived' }
-	/** Indicates that the branch is considered to be part of a stack and has commits associated with it. */
-	| { readonly type: 'Stacked'; readonly subject: Commits };
-
-/** List of commits beloning to this branch. Ordered from newest to oldest (child-most to parent-most). */
-export type Commits = {
-	/**
-	 * Commits that are currently part of the workspace (applied).
-	 * Created from the local pseudo branch (head currently stored in the TOML file)
-	 *
-	 * When there is only one branch in the stack, this includes the commits
-	 * from the tip of the stack to the merge base with the trunk / target branch (not including the merge base).
-	 *
-	 * When there are multiple branches in the stack, this includes the commits from the branch head to the next branch in the stack.
-	 *
-	 * In either case this is effectively a list of commits that in the working copy which may or may not have been pushed to the remote.
-	 */
-	readonly localAndRemote: Commit[];
-
-	/**
-	 * List of commits that exist **only** on the upstream branch. Ordered from newest to oldest.
-	 * Created from the tip of the local tracking branch eg. refs/remotes/origin/my-branch -> refs/heads/my-branch
-	 *
-	 * This does **not** include the commits that are in the commits list (local)
-	 * This is effectively the list of commits that are on the remote branch but are not in the working copy.
-	 */
-	readonly upstreamOnly: UpstreamCommit[];
+	archive: boolean;
 };
 
 /** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.*/
