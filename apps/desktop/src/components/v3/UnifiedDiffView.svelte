@@ -89,26 +89,24 @@
 	<ReduxResult result={diffQuery}>
 		{#snippet children(diff)}
 			{#if diff.type === 'Patch'}
-				{#if diff.subject.hunks.length}
-					{#each diff.subject.hunks as hunk}
-						<HunkDiff
-							filePath={change.path}
-							hunkStr={hunk.diff}
-							selected={selectable
-								? selection &&
-									(selection.type === 'full' ||
-										selection.hunks.some((h) => h.newStart === hunk.newStart))
-									? true
-									: false
-								: undefined}
-							onchange={(selected) => {
-								onchange(hunk, selected, diff.subject.hunks);
-							}}
-						/>
-					{/each}
+				{#each diff.subject.hunks as hunk}
+					<HunkDiff
+						filePath={change.path}
+						hunkStr={hunk.diff}
+						selected={selectable
+							? selection &&
+								(selection.type === 'full' ||
+									selection.hunks.some((h) => h.newStart === hunk.newStart))
+								? true
+								: false
+							: undefined}
+						onchange={(selected) => {
+							onchange(hunk, selected, diff.subject.hunks);
+						}}
+					/>
 				{:else}
 					<span class="text-14 hunk-content-warning">No content</span>
-				{/if}
+				{/each}
 			{:else if diff.type === 'TooLarge'}
 				Too large!
 			{:else if diff.type === 'Binary'}
