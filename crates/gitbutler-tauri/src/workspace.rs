@@ -35,6 +35,34 @@ pub fn stack_branches(
     but_workspace::stack_branches(stack_id, &ctx).map_err(Into::into)
 }
 
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn stack_branch_local_and_remote_commits(
+    projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+    stack_id: String,
+    name: String,
+) -> Result<Vec<but_workspace::Commit>, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    but_workspace::stack_branch_local_and_remote_commits(stack_id, name, &ctx).map_err(Into::into)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn stack_branch_upstream_only_commits(
+    projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+    stack_id: String,
+    name: String,
+) -> Result<Vec<but_workspace::UpstreamCommit>, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    but_workspace::stack_branch_upstream_only_commits(stack_id, name, &ctx).map_err(Into::into)
+}
+
 /// Retrieve all changes in the workspace and associate them with commits in the Workspace of `project_id`.
 /// NOTE: right now there is no way to keep track of unassociated hunks.
 // TODO: This probably has to change a lot once it's clear how the UI is going to use it.
