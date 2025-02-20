@@ -10,9 +10,10 @@
 		branch: WorkspaceBranch;
 		first: boolean;
 		last: boolean;
+		selectedCommitId?: string;
 	}
 
-	const { branch, first, last }: Props = $props();
+	let { branch, first, last, selectedCommitId = $bindable() }: Props = $props();
 
 	const localAndRemoteCommits = $derived(
 		isStackedBranch(branch.state) ? branch.state.subject.localAndRemote : []
@@ -31,7 +32,7 @@
 		<EmptyBranch {last} />
 	{/if}
 	{#if isStackedBranch(branch.state)}
-		<BranchCommitList commits={branch.state.subject} lastBranch={last} />
+		<BranchCommitList commits={branch.state.subject} lastBranch={last} bind:selectedCommitId />
 	{/if}
 </div>
 

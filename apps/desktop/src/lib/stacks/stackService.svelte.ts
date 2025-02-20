@@ -2,8 +2,9 @@ import { ClientState } from '$lib/state/clientState.svelte';
 import { ReduxTag } from '$lib/state/tags';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { Commit, WorkspaceBranch } from '$lib/branches/v3';
+import type { TreeChange } from '$lib/hunks/change';
 import type { HunkHeader } from '$lib/hunks/hunk';
-import type { Stack } from './stack';
+import type { Stack } from '$lib/stacks/stack';
 
 type CreateBranchRequest = { name?: string; ownership?: string; order?: number };
 
@@ -62,6 +63,21 @@ export class StackService {
 		const result = $derived(this.api.endpoints.createCommit.useMutation({ projectId, ...request }));
 		return result;
 	}
+
+	getCommitChanges(projectId: string, commitId: string) {
+		const { getCommitChanges } = this.api.endpoints;
+		const result = $derived(getCommitChanges.useQuery({ projectId, commitId }));
+		return result;
+	}
+
+	// eslint-disable-next-line @typescript-eslint/promise-function-async
+	updateCommitMessage(projectId: string, branchId: string, commitOid: string, message: string) {
+		const { updateCommitMessage } = this.api.endpoints;
+		const result = $derived(
+			updateCommitMessage.useMutation({ projectId, branchId, commitOid, message })
+		);
+		return result;
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -97,6 +113,23 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					params: { projectId, ...commitData }
 				}),
 				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commit]
+			}),
+			getCommitChanges: build.query<TreeChange[], { projectId: string; commitId: string }>({
+				query: ({ projectId, commitId }) => ({
+					command: 'changes_in_commit',
+					params: { projectId, commitId }
+				}),
+				providesTags: [ReduxTag.CommitChanges]
+			}),
+			updateCommitMessage: build.mutation<
+				void,
+				{ projectId: string; branchId: string; commitOid: string; message: string }
+			>({
+				query: ({ projectId, branchId, commitOid, message }) => ({
+					command: 'update_commit_message',
+					params: { projectId, branchId, commitOid, message }
+				}),
+				invalidatesTags: [ReduxTag.StackBranches]
 			})
 		})
 	});

@@ -7,23 +7,60 @@
 		first?: boolean;
 		last?: boolean;
 		lastBranch?: boolean;
+		selectedCommitId?: string;
 	}
 
-	const { first, commit, last, lastBranch }: Props = $props();
+	let { first, commit, last, lastBranch, selectedCommitId = $bindable() }: Props = $props();
+
+	const commitTitle = $derived(
+		commit.message.includes('\n\n')
+			? commit.message.substring(0, commit.message.indexOf('\n\n'))
+			: commit.message
+	);
 </script>
 
-<div class="commit" class:first class:last>
+<button
+	type="button"
+	class="commit"
+	class:first
+	class:last
+	class:selected={selectedCommitId === commit.id}
+	onclick={() => {
+		if (selectedCommitId && selectedCommitId === commit.id) {
+			selectedCommitId = undefined;
+		} else {
+			selectedCommitId = commit.id;
+		}
+	}}
+>
 	<CommitLine {commit} {last} {lastBranch} />
-	<div class="commit-content text-13 text-semibold">{commit.message}</div>
-</div>
+	<div class="commit-content text-13 text-semibold">
+		{commitTitle}
+	</div>
+</button>
 
 <style>
 	.commit {
+		position: relative;
 		display: flex;
+		align-items: center;
 		height: 100%;
 
 		&:not(.last) {
 			border-bottom: 1px solid var(--clr-border-2);
+		}
+
+		&.selected::before {
+			content: '';
+			position: absolute;
+			left: 0;
+			width: 2px;
+			height: 100%;
+			background-color: var(--clr-theme-pop-element);
+		}
+
+		&.last.selected::before {
+			border-radius: 0 0 0 var(--radius-m);
 		}
 	}
 

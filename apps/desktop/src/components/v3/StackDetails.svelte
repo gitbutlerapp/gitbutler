@@ -2,14 +2,17 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import Branch from '$components/v3/Branch.svelte';
+	import StackCommitDetails from '$components/v3/StackCommitDetails.svelte';
 	import StackContentIllustration, {
 		PreviewMode
 	} from '$components/v3/StackContentIllustration.svelte';
 	import { isStackedBranch } from '$components/v3/lib';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
+	import type { Commit, WorkspaceBranch } from '$lib/branches/v3';
+	import { page } from '$app/state';
 
 	interface Props {
 		stackId: string;
@@ -23,7 +26,7 @@
 	const stackBranchWidthKey = $derived('defaultStackBranchWidth_ ' + projectId);
 	let stackBranchWidth = $derived(persisted<number>(22.5, stackBranchWidthKey));
 
-	const stackService = getContext(StackService);
+	const [stackService] = inject(StackService);
 	const result = $derived(stackService.getStackBranches(projectId, stackId));
 	const stackData = $derived(result.current.data?.[0]);
 
@@ -36,6 +39,36 @@
 		}
 
 		return PreviewMode.SelectToPreview;
+	});
+
+	let selectedCommitId = $state<string>();
+	let selectedCommitDetails = $state<Commit>();
+	let selectedBranchDetails = $state<WorkspaceBranch>();
+
+	$effect(() => {
+		if (!selectedCommitId) return;
+
+		// TODO: Figure out a better way to get the currentBranch
+		// and currentCommit than looping through all the
+		// branches/commits in the active stack.
+		result.current.data?.find((branch) => {
+			if (isStackedBranch(branch.state)) {
+				branch.state.subject?.localAndRemote.find((commit) => {
+					if (commit.id === selectedCommitId) {
+						selectedCommitDetails = commit;
+						selectedBranchDetails = branch;
+					}
+				});
+			}
+		});
+	});
+
+	// When changing paths, i.e. another stack tab, close the
+	// StackDetails by "unselecting" the commitId.
+	$effect(() => {
+		if (page.url.pathname) {
+			selectedCommitId = undefined;
+		}
 	});
 </script>
 
@@ -55,14 +88,23 @@
 					{#each result as branch, i (branch.name)}
 						{@const first = i === 0}
 						{@const last = i === result.length - 1}
-						<Branch {branch} {first} {last} />
+						<Branch {branch} {first} {last} bind:selectedCommitId />
 					{/each}
 				{/if}
 			{/snippet}
 		</ReduxResult>
 	</div>
 
-	<StackContentIllustration mode={stackContentMode} />
+	{#if selectedCommitId}
+		<StackCommitDetails
+			bind:selectedCommitId
+			{stackId}
+			{selectedCommitDetails}
+			{selectedBranchDetails}
+		/>
+	{:else}
+		<StackContentIllustration mode={stackContentMode} />
+	{/if}
 </div>
 
 <style>

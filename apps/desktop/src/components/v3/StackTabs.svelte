@@ -18,7 +18,7 @@
 	const stackService = getContext(StackService);
 	const result = $derived(stackService.getStacks(projectId));
 
-	let inner = $state<HTMLDivElement>();
+	let tabs = $state<HTMLDivElement>();
 	let scroller = $state<HTMLDivElement>();
 
 	let scrollable = $state(false);
@@ -35,17 +35,17 @@
 	onMount(() => {
 		const observer = new ResizeObserver(() => {
 			scrollable = scroller ? scroller.scrollWidth > scroller.offsetWidth : false;
-			width = inner?.offsetWidth;
+			width = tabs?.offsetWidth;
 		});
-		observer.observe(inner!);
+		observer.observe(tabs!);
 		return () => {
 			observer.disconnect();
 		};
 	});
 </script>
 
-<div class="tabs">
-	<div class="inner" bind:this={inner}>
+<div class="tabs" bind:this={tabs}>
+	<div class="inner">
 		<div class="scroller" bind:this={scroller} class:scrolled {onscroll}>
 			<ReduxResult result={result.current}>
 				{#snippet children(result)}

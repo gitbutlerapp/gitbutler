@@ -72,7 +72,7 @@
 							selectFilesInList(e, change, visibleFiles, idSelection, true, commitId);
 						}}
 					>
-						<UnifiedDiffView {projectId} path={change.path} {commitId} selectable />
+						<UnifiedDiffView {projectId} {change} selectable />
 					</FileListItemWrapper>
 				{/each}
 			</LazyloadContainer>
