@@ -1,10 +1,10 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import FileList from '$components/v3/FileList.svelte';
-	import { Commit } from '$lib/commits/commit';
 	import { ProjectService } from '$lib/project/projectService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import type { Commit } from '$lib/branches/v3';
 
 	interface Props {
 		commit: Commit;

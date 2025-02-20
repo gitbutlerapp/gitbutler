@@ -66,7 +66,7 @@ export type Commit = {
 	/** The parent OIDs of the commit. */
 	readonly parentIds: string[];
 	/** The message of the commit.*/
-	readonly message: string;
+	message: string;
 	/**
 	 * Whether the commit is in a conflicted state.
 	 * Conflicted state of a commit is a GitButler concept.
