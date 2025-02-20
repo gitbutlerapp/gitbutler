@@ -44,7 +44,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			 * entity entity adapter to create the necessary selectors.
 			 */
 			getChanges: build.query<EntityState<TreeChange, string>, { projectId: string }>({
-				query: ({ projectId }) => ({ command: 'worktree_changes', params: { projectId } }),
+				query: ({ projectId }) => ({ command: 'changes_in_worktree', params: { projectId } }),
 				/** Invalidating tags causes data to be refreshed. */
 				providesTags: [ReduxTag.WorktreeChanges],
 				/**

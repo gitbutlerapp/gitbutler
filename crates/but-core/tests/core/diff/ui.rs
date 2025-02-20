@@ -376,7 +376,6 @@ fn commit_to_commit() -> anyhow::Result<()> {
     let actual =
         serde_json::to_string_pretty(&but_core::diff::ui::commit_changes_by_worktree_dir(
             worktree_dir,
-            Some(repo.rev_parse_single("@~1")?.into()),
             repo.rev_parse_single("@")?.into(),
         )?)?;
     insta::assert_snapshot!(actual, @r#"
