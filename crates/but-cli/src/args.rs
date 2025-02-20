@@ -61,6 +61,8 @@ pub enum Subcommands {
     Stacks,
     /// Return all stack branches related to the given `id`.
     StackBranches { id: String },
+    /// Returns all commits for the branch with the given `name` in the stack with the given `id`.
+    StackBranchCommits { id: String, name: String },
 }
 
 #[cfg(test)]
