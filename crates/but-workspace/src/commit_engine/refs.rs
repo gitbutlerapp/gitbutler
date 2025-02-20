@@ -32,6 +32,7 @@ pub fn rewrite(
         == 1;
     for (old, new) in changed_commits {
         let old_git2 = old.to_git2();
+        let mut already_updated_refs: Vec<bstr::BString> = Vec::new();
         'stacks: for stack in &mut branches_ordered {
             if stack.head == old_git2 {
                 stack.head = new.to_git2();
@@ -64,7 +65,11 @@ pub fn rewrite(
                     }
                 };
                 if id == old {
-                    branch.set_head(CommitOrChangeId::CommitId(new.to_string()));
+                    if let Some(refname) =
+                        branch.set_head(CommitOrChangeId::CommitId(new.to_string()), repo)?
+                    {
+                        already_updated_refs.push(refname)
+                    }
                     updated_refs.push(UpdatedReference {
                         old_commit_id: old,
                         new_commit_id: new,
@@ -82,6 +87,9 @@ pub fn rewrite(
         };
 
         for name in refs_to_rewrite {
+            if already_updated_refs.iter().any(|r| name.as_bstr() == r) {
+                continue;
+            }
             use gix::refs::{
                 transaction::{Change, LogChange, RefEdit, RefLog},
                 Target,
