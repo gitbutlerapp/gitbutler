@@ -64,12 +64,9 @@ export class StackService {
 		return result;
 	}
 
-	/**
-	 * Does not support merge commits, i.e. 2 parent oldCommitId's yet.
-	 */
-	getCommitChanges(projectId: string, oldCommitId: string, newCommitId: string) {
+	getCommitChanges(projectId: string, commitId: string) {
 		const { getCommitChanges } = this.api.endpoints;
-		const result = $derived(getCommitChanges.useQuery({ projectId, oldCommitId, newCommitId }));
+		const result = $derived(getCommitChanges.useQuery({ projectId, commitId }));
 		return result;
 	}
 
@@ -117,16 +114,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commit]
 			}),
-			/**
-			 * Does not support merge commits, i.e. 2 parent oldCommitId's yet.
-			 */
-			getCommitChanges: build.query<
-				TreeChange[],
-				{ projectId: string; oldCommitId: string; newCommitId: string }
-			>({
-				query: ({ projectId, oldCommitId, newCommitId }) => ({
-					command: 'commit_changes',
-					params: { projectId, oldCommitId, newCommitId }
+			getCommitChanges: build.query<TreeChange[], { projectId: string; commitId: string }>({
+				query: ({ projectId, commitId }) => ({
+					command: 'changes_in_commit',
+					params: { projectId, commitId }
 				}),
 				providesTags: [ReduxTag.CommitChanges]
 			}),
