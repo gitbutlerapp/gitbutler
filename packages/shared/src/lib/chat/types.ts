@@ -2,10 +2,17 @@ import { apiToUserSimple, type ApiUserSimple, type UserSimple } from '$lib/users
 import type { LoadableData } from '$lib/network/types';
 import type { BrandedId } from '$lib/utils/branding';
 
+export type ApiDiffPatch = {
+	type: 'context' | 'added' | 'removed';
+	left?: number;
+	right?: number;
+	line: string;
+};
+
 export type ApiChatMessage = {
 	comment: string;
 	mentions: ApiUserSimple[];
-	diff_patch_array: string[] | null;
+	diff_patch_array: ApiDiffPatch[] | null;
 	diff_path: string | null;
 	diff_sha: string | null;
 	issue: boolean;
@@ -18,10 +25,17 @@ export type ApiChatMessage = {
 	user: ApiUserSimple;
 };
 
+export type DiffPatch = {
+	type: 'context' | 'added' | 'removed';
+	left?: number;
+	right?: number;
+	line: string;
+};
+
 export type ChatMessage = {
 	comment: string;
 	mentions: UserSimple[];
-	diffPatchArray: string[] | undefined;
+	diffPatchArray: DiffPatch[] | undefined;
 	diffPath: string | undefined;
 	diffSha: string | undefined;
 	issue: boolean;

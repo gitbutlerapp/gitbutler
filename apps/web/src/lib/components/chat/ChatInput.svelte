@@ -1,8 +1,10 @@
 <script lang="ts">
+	import ChatDiffLineSelection from './ChatDiffLineSelection.svelte';
 	import MentionSuggestions from './MentionSuggestions.svelte';
 	import MessageHandler from '$lib/chat/message.svelte';
 	import RichText from '$lib/chat/richText.svelte';
 	import SuggestionsHandler from '$lib/chat/suggestions.svelte';
+	import { type DiffSelection } from '$lib/diff/lineSelection.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
@@ -24,10 +26,20 @@
 		changeId: string;
 		isPatchAuthor: boolean | undefined;
 		isUserLoggedIn: boolean | undefined;
+		diffSelection: DiffSelection | undefined;
+		clearDiffSelection: () => void;
 	}
 
-	let { branchUuid, projectId, branchId, changeId, isPatchAuthor, isUserLoggedIn }: Props =
-		$props();
+	let {
+		branchUuid,
+		projectId,
+		branchId,
+		changeId,
+		isPatchAuthor,
+		isUserLoggedIn,
+		diffSelection,
+		clearDiffSelection
+	}: Props = $props();
 
 	const newUserService = getContext(NewUserService);
 	const userService = getContext(UserService);
@@ -67,11 +79,12 @@
 		if (isSendingMessage) return;
 		isSendingMessage = true;
 		try {
-			await messageHandler.send(issue);
+			await messageHandler.send({ issue, diffSelection });
 		} finally {
 			const editor = richText.richTextEditor?.getEditor();
 			editor?.commands.clearContent(true);
 			isSendingMessage = false;
+			clearDiffSelection();
 		}
 	}
 
@@ -92,6 +105,20 @@
 				() => commands.splitBlock()
 			]);
 			return true;
+		}
+
+		if (event.key === 'Escape' && !richText.suggestions) {
+			// Clear diff selection on escape only if the mention suggestions
+			// are not open
+			clearDiffSelection();
+			return false;
+		}
+
+		if (event.key === 'Backspace' && !richText.suggestions && !messageHandler.message) {
+			// Clear diff selection on delete only if the mention suggestions
+			// are not open and the input is empty
+			clearDiffSelection();
+			return false;
 		}
 
 		return false;
@@ -165,6 +192,9 @@
 			selectSuggestion={richText.selectSuggestion}
 		/>
 		<div class="text-input chat-input__content-container">
+			{#if diffSelection}
+				<ChatDiffLineSelection {diffSelection} {clearDiffSelection} />
+			{/if}
 			<RichTextEditor
 				bind:this={richText.richTextEditor}
 				getSuggestionItems={(q) => suggestions.getSuggestionItems(q)}

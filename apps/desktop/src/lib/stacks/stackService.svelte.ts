@@ -1,10 +1,22 @@
 import { ClientState } from '$lib/state/clientState.svelte';
 import { ReduxTag } from '$lib/state/tags';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
-import type { WorkspaceBranch } from '$lib/branches/v3';
+import type { Commit, WorkspaceBranch } from '$lib/branches/v3';
+import type { HunkHeader } from '$lib/hunks/hunk';
 import type { Stack } from './stack';
 
 type CreateBranchRequest = { name?: string; ownership?: string; order?: number };
+
+type CreateCommitRequest = {
+	stackId: string;
+	message: string;
+	parentId: string;
+	worktreeChanges: {
+		previousPathBytes?: number[];
+		pathBytes: number[];
+		hunkHeaders: HunkHeader[];
+	}[];
+};
 
 export class StackService {
 	private api: ReturnType<typeof injectEndpoints>;
@@ -44,6 +56,12 @@ export class StackService {
 		);
 		return result;
 	}
+
+	// eslint-disable-next-line @typescript-eslint/promise-function-async
+	createCommit(projectId: string, request: CreateCommitRequest) {
+		const result = $derived(this.api.endpoints.createCommit.useMutation({ projectId, ...request }));
+		return result;
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -72,6 +90,13 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				transformResponse(response: WorkspaceBranch[]) {
 					return branchAdapter.addMany(branchAdapter.getInitialState(), response);
 				}
+			}),
+			createCommit: build.mutation<Commit, { projectId: string } & CreateCommitRequest>({
+				query: ({ projectId, ...commitData }) => ({
+					command: 'create_commit_from_worktree_changes',
+					params: { projectId, ...commitData }
+				}),
+				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commit]
 			})
 		})
 	});

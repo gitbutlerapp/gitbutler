@@ -5,10 +5,15 @@
 
 use crate::commit::CommitterMode;
 use anyhow::{anyhow, bail, Context, Ok, Result};
-use bstr::{BString, ByteSlice};
-use gitbutler_oxidize::{ObjectIdExt as _, OidExt};
+use bstr::BString;
 use gix::objs::Exists;
 use gix::prelude::ObjectIdExt;
+use tracing::instrument;
+
+/// Types for use with cherry-picking
+pub mod cherry_pick;
+use crate::cherry_pick::{EmptyCommit, PickMode};
+pub use cherry_pick::function::cherry_pick_one;
 
 /// Utilities to create commits (and deal with signing)
 pub mod commit;
@@ -27,14 +32,6 @@ pub enum RebaseStep {
         // TODO: add `base: Option<ObjectId>` to allow restarting the sequence at a new base
         //       for multi-branch rebasing. It would keep the previous cursor, to allow the last
         //       branch to contain a pick of the merge commit on top, which it can then correctly re-merge.
-    },
-    /// Merge an existing commit and it's parents producing a new merge commit.
-    // TODO: figure out what this is used for, and add tests for it/port it over.
-    Merge {
-        /// Id of an already existing commit
-        commit_id: gix::ObjectId,
-        /// Message to use for newly produced commit
-        new_message: BString,
     },
     /// Squashes an existing commit into the one in the first `Pick` or `Merge` RebaseStep that precedes it.
     ///
@@ -59,7 +56,6 @@ impl RebaseStep {
     fn commit_id(&self) -> Option<&gix::oid> {
         match self {
             RebaseStep::Pick { commit_id, .. }
-            | RebaseStep::Merge { commit_id, .. }
             | RebaseStep::SquashIntoPreceding { commit_id, .. } => Some(commit_id),
             RebaseStep::Reference { .. } => None,
         }
@@ -141,12 +137,17 @@ impl<'repo> Rebase<'repo> {
         if self.steps.is_empty() {
             return Err(anyhow!("No rebase steps provided"));
         }
+        let pick_mode = if self.rebase_noops {
+            PickMode::Unconditionally
+        } else {
+            PickMode::SkipIfNoop
+        };
         rebase(
             self.repo,
             self.base,
             self.base_substitute,
             std::mem::take(&mut self.steps),
-            self.rebase_noops,
+            pick_mode,
         )
     }
 }
@@ -172,12 +173,6 @@ impl Rebase<'_> {
                 new_message: _,
             } => {
                 self.assure_unique_step_and_existing_non_base(commit_id, "Picked")?;
-            }
-            RebaseStep::Merge {
-                commit_id,
-                new_message: _,
-            } => {
-                self.assure_unique_step_and_existing_non_base(commit_id, "Merge")?;
             }
             RebaseStep::SquashIntoPreceding {
                 commit_id,
@@ -218,14 +213,14 @@ impl Rebase<'_> {
     }
 }
 
+#[instrument(level = tracing::Level::DEBUG, skip(repo))]
 fn rebase(
     repo: &gix::Repository,
     base: Option<gix::ObjectId>,
     base_substitute: Option<gix::ObjectId>,
     steps: Vec<RebaseStep>,
-    rebase_noops: bool,
+    pick_mode: PickMode,
 ) -> Result<RebaseOutput> {
-    let git2_repo = git2::Repository::open(repo.path())?;
     let (mut references, mut commit_mapping) = (
         vec![],
         Vec::<(Option<gix::ObjectId>, gix::ObjectId, gix::ObjectId)>::new(),
@@ -267,14 +262,13 @@ fn rebase(
                 } else {
                     match &mut cursor {
                         Some(cursor) => {
-                            let mut new_commit = gitbutler_repo::rebase::cherry_rebase_group(
-                                &git2_repo,
-                                cursor.to_git2(),
-                                &[commit_id.to_git2()],
-                                rebase_noops,
-                                true,
-                            )?
-                            .to_gix();
+                            let mut new_commit = cherry_pick_one(
+                                repo,
+                                *cursor,
+                                commit_id,
+                                pick_mode,
+                                EmptyCommit::Keep,
+                            )?;
                             if let Some(new_message) = new_message {
                                 new_commit = reword_commit(repo, new_commit, new_message.clone())?;
                             }
@@ -295,21 +289,6 @@ fn rebase(
                 }
                 last_seen_commit = Some(commit_id);
             }
-            RebaseStep::Merge {
-                commit_id,
-                new_message,
-            } => {
-                let Some(cursor) = &mut cursor else {
-                    bail!("Can't merge without history present yet");
-                };
-                last_seen_commit = Some(commit_id);
-                *cursor = gitbutler_repo::rebase::merge_commits(
-                    repo,
-                    *cursor,
-                    commit_id,
-                    &new_message.to_str_lossy(),
-                )?;
-            }
             RebaseStep::SquashIntoPreceding {
                 commit_id,
                 new_message,
@@ -319,18 +298,16 @@ fn rebase(
                 };
                 last_seen_commit = Some(commit_id);
                 let base_commit = repo.find_commit(*cursor)?;
-                let new_commit = gitbutler_repo::rebase::cherry_rebase_group(
-                    &git2_repo,
-                    cursor.to_git2(),
-                    &[commit_id.to_git2()],
-                    true,
-                    true,
-                )?
-                .to_gix();
+                let new_commit = cherry_pick_one(
+                    repo,
+                    *cursor,
+                    commit_id,
+                    PickMode::Unconditionally,
+                    EmptyCommit::Keep,
+                )?;
 
                 // Now, lets pretend the base didn't exist by swapping parent with the parent of the base
-                let commit = repo.find_commit(new_commit)?;
-                let mut new_commit = commit.decode()?.to_owned();
+                let mut new_commit = repo.find_commit(new_commit)?.decode()?.to_owned();
                 new_commit.parents = base_commit.parent_ids().map(|id| id.detach()).collect();
                 if let Some(new_message) = new_message {
                     new_commit.message = new_message;

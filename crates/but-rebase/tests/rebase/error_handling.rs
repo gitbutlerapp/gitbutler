@@ -34,21 +34,6 @@ fn non_existing_commit_in_pick_step() -> anyhow::Result<()> {
 }
 
 #[test]
-fn non_existing_commit_in_merge_step() -> anyhow::Result<()> {
-    let (repo, commits) = four_commits()?;
-    let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps([RebaseStep::Merge {
-        commit_id: non_existing_commit(),
-        new_message: "merge commit".into(),
-    }]);
-    assert_eq!(
-        result.unwrap_err().to_string(),
-        "An object with id eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee could not be found"
-    );
-    Ok(())
-}
-
-#[test]
 fn non_existing_commit_in_fixup_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
@@ -74,21 +59,6 @@ fn using_base_in_pick_step() -> anyhow::Result<()> {
     assert_eq!(
         result.unwrap_err().to_string(),
         "Fixup commit cannot be the base commit"
-    );
-    Ok(())
-}
-
-#[test]
-fn using_base_in_merge_step() -> anyhow::Result<()> {
-    let (repo, commits) = four_commits()?;
-    let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps([RebaseStep::Merge {
-        commit_id: commits.base,
-        new_message: "merge commit".into(),
-    }]);
-    assert_eq!(
-        result.unwrap_err().to_string(),
-        "Merge commit cannot be the base commit"
     );
     Ok(())
 }
@@ -130,27 +100,6 @@ fn using_picked_commit_in_a_pick_step() -> anyhow::Result<()> {
 }
 
 #[test]
-fn using_merged_commit_in_a_pick_step() -> anyhow::Result<()> {
-    let (repo, commits) = four_commits()?;
-    let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps([
-        RebaseStep::Merge {
-            commit_id: commits.a,
-            new_message: "merge commit".into(),
-        },
-        RebaseStep::Pick {
-            commit_id: commits.a,
-            new_message: None,
-        },
-    ]);
-    assert_eq!(
-        result.unwrap_err().to_string(),
-        "Picked commit already exists in a previous step"
-    );
-    Ok(())
-}
-
-#[test]
 fn using_fixup_commit_in_a_pick_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
@@ -176,73 +125,6 @@ fn using_fixup_commit_in_a_pick_step() -> anyhow::Result<()> {
 }
 
 #[test]
-fn using_picked_commit_in_a_merge_step() -> anyhow::Result<()> {
-    let (repo, commits) = four_commits()?;
-    let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps([
-        RebaseStep::Pick {
-            commit_id: commits.a,
-            new_message: None,
-        },
-        RebaseStep::Merge {
-            commit_id: commits.a,
-            new_message: "merge commit".into(),
-        },
-    ]);
-    assert_eq!(
-        result.unwrap_err().to_string(),
-        "Picked commit already exists in a previous step"
-    );
-    Ok(())
-}
-
-#[test]
-fn using_merged_commit_in_a_merge_step() -> anyhow::Result<()> {
-    let (repo, commits) = four_commits()?;
-    let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps([
-        RebaseStep::Merge {
-            commit_id: commits.a,
-            new_message: "merge commit".into(),
-        },
-        RebaseStep::Merge {
-            commit_id: commits.a,
-            new_message: "merge commit".into(),
-        },
-    ]);
-    assert_eq!(
-        result.unwrap_err().to_string(),
-        "Picked commit already exists in a previous step"
-    );
-    Ok(())
-}
-
-#[test]
-fn using_fixup_commit_in_a_merge_step() -> anyhow::Result<()> {
-    let (repo, commits) = four_commits()?;
-    let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps([
-        RebaseStep::Pick {
-            commit_id: commits.a,
-            new_message: None,
-        },
-        RebaseStep::SquashIntoPreceding {
-            commit_id: commits.b,
-            new_message: None,
-        },
-        RebaseStep::Merge {
-            commit_id: commits.b,
-            new_message: "merge commit".into(),
-        },
-    ]);
-    assert_eq!(
-        result.unwrap_err().to_string(),
-        "Picked commit already exists in a previous step"
-    );
-    Ok(())
-}
-
-#[test]
 fn using_picked_commit_in_a_fixup_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
@@ -250,27 +132,6 @@ fn using_picked_commit_in_a_fixup_step() -> anyhow::Result<()> {
         RebaseStep::Pick {
             commit_id: commits.a,
             new_message: None,
-        },
-        RebaseStep::SquashIntoPreceding {
-            commit_id: commits.a,
-            new_message: None,
-        },
-    ]);
-    assert_eq!(
-        result.unwrap_err().to_string(),
-        "Picked commit already exists in a previous step"
-    );
-    Ok(())
-}
-
-#[test]
-fn using_merged_commit_in_a_fixup_step() -> anyhow::Result<()> {
-    let (repo, commits) = four_commits()?;
-    let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps([
-        RebaseStep::Merge {
-            commit_id: commits.a,
-            new_message: "merge commit".into(),
         },
         RebaseStep::SquashIntoPreceding {
             commit_id: commits.a,

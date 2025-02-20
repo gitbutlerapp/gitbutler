@@ -72,6 +72,10 @@ export type Row = {
 	type: SectionType;
 	size: number;
 	isLast: boolean;
+	isSelected?: boolean;
+	isFirstOfSelectionGroup?: boolean;
+	isLastOfSelectionGroup?: boolean;
+	isLastSelected?: boolean;
 };
 
 enum Operation {
@@ -92,7 +96,7 @@ export enum CountColumnSide {
 	After
 }
 
-type Line = {
+export type Line = {
 	readonly beforeLineNumber?: number;
 	readonly afterLineNumber?: number;
 	readonly content: string;
@@ -329,7 +333,44 @@ function isLineEmpty(lines: Line[]) {
 	return false;
 }
 
-function createRowData(section: ContentSection, parser: Parser | undefined): Row[] {
+type SelectionParams = {
+	isSelected?: boolean;
+	isFirstOfSelectionGroup?: boolean;
+	isLastOfSelectionGroup?: boolean;
+	isLastSelected?: boolean;
+};
+
+function getSelectionParams(
+	line: Line,
+	selectedLines: LineSelector[] | undefined
+): SelectionParams {
+	if (!selectedLines) {
+		return {};
+	}
+
+	const selectedLine = selectedLines.find(
+		(selectedLine) =>
+			selectedLine.oldLine === line.beforeLineNumber &&
+			selectedLine.newLine === line.afterLineNumber
+	);
+
+	if (!selectedLine) {
+		return {};
+	}
+
+	return {
+		isSelected: true,
+		isFirstOfSelectionGroup: selectedLine.isFirstOfGroup,
+		isLastOfSelectionGroup: selectedLine.isLastOfGroup,
+		isLastSelected: selectedLine.isLast
+	};
+}
+
+function createRowData(
+	section: ContentSection,
+	parser: Parser | undefined,
+	selectedLines: LineSelector[] | undefined
+): Row[] {
 	return section.lines.map((line) => {
 		// if (line.content === '') {
 		// 	// Add extra \n for empty lines for correct copy/pasting output
@@ -342,7 +383,8 @@ function createRowData(section: ContentSection, parser: Parser | undefined): Row
 			tokens: toTokens(line.content, parser),
 			type: section.sectionType,
 			size: line.content.length,
-			isLast: false
+			isLast: false,
+			...getSelectionParams(line, selectedLines)
 		};
 	});
 }
@@ -370,7 +412,8 @@ function toTokens(inputLine: string, parser: Parser | undefined): string[] {
 function computeWordDiff(
 	prevSection: ContentSection,
 	nextSection: ContentSection,
-	parser: Parser | undefined
+	parser: Parser | undefined,
+	selectedLines: LineSelector[] | undefined
 ): DiffRows {
 	const numberOfLines = nextSection.lines.length;
 	const returnRows: DiffRows = {
@@ -389,7 +432,8 @@ function computeWordDiff(
 			tokens: [] as string[],
 			type: prevSection.sectionType,
 			size: oldLine.content.length,
-			isLast: false
+			isLast: false,
+			...getSelectionParams(oldLine, selectedLines)
 		};
 		const nextSectionRow = {
 			beforeLineNumber: newLine.beforeLineNumber,
@@ -397,7 +441,8 @@ function computeWordDiff(
 			tokens: [] as string[],
 			type: nextSection.sectionType,
 			size: newLine.content.length,
-			isLast: false
+			isLast: false,
+			...getSelectionParams(newLine, selectedLines)
 		};
 
 		const diff = charDiff(oldLine.content, newLine.content);
@@ -429,7 +474,8 @@ function computeWordDiff(
 function computeInlineWordDiff(
 	prevSection: ContentSection,
 	nextSection: ContentSection,
-	parser: Parser | undefined
+	parser: Parser | undefined,
+	selectedLines: LineSelector[] | undefined
 ): Row[] {
 	const numberOfLines = nextSection.lines.length;
 
@@ -447,7 +493,8 @@ function computeInlineWordDiff(
 			tokens: [] as string[],
 			type: nextSection.sectionType,
 			size: newLine.content.length,
-			isLast: false
+			isLast: false,
+			...getSelectionParams(newLine, selectedLines)
 		};
 
 		const diff = charDiff(oldLine.content, newLine.content);
@@ -474,44 +521,67 @@ function computeInlineWordDiff(
 	return rows;
 }
 
+export interface LineSelector {
+	oldLine: number | undefined;
+	newLine: number | undefined;
+	/**
+	 * Whether this is the first line in any selection group.
+	 */
+	isFirstOfGroup: boolean;
+	/**
+	 * Whether this is the last line in any selection group.
+	 */
+	isLastOfGroup: boolean;
+	/**
+	 * Whether is the very last line in the selection.
+	 */
+	isLast: boolean;
+}
+
 export function generateRows(
 	subsections: ContentSection[],
 	inlineUnifiedDiffs: boolean,
-	parser: Parser | undefined
+	parser: Parser | undefined,
+	selectedLines: LineSelector[] | undefined
 ) {
 	const rows = subsections.reduce((acc, nextSection, i) => {
 		const prevSection = subsections[i - 1];
 
 		// Filter out section for which we don't need to compute word diffs
 		if (!prevSection || nextSection.sectionType === SectionType.Context) {
-			acc.push(...createRowData(nextSection, parser));
+			acc.push(...createRowData(nextSection, parser, selectedLines));
 			return acc;
 		}
 
 		if (prevSection.sectionType === SectionType.Context) {
-			acc.push(...createRowData(nextSection, parser));
+			acc.push(...createRowData(nextSection, parser, selectedLines));
 			return acc;
 		}
 
 		if (prevSection.lines.length !== nextSection.lines.length) {
-			acc.push(...createRowData(nextSection, parser));
+			acc.push(...createRowData(nextSection, parser, selectedLines));
 			return acc;
 		}
 
 		if (isLineEmpty(prevSection.lines)) {
-			acc.push(...createRowData(nextSection, parser));
+			acc.push(...createRowData(nextSection, parser, selectedLines));
 			return acc;
 		}
 
 		if (inlineUnifiedDiffs) {
-			const rows = computeInlineWordDiff(prevSection, nextSection, parser);
+			const rows = computeInlineWordDiff(prevSection, nextSection, parser, selectedLines);
 
 			acc.splice(-prevSection.lines.length);
 
 			acc.push(...rows);
 			return acc;
 		} else {
-			const { prevRows, nextRows } = computeWordDiff(prevSection, nextSection, parser);
+			const { prevRows, nextRows } = computeWordDiff(
+				prevSection,
+				nextSection,
+				parser,
+				selectedLines
+			);
 
 			// Insert returned row datastructures into the correct place
 			// Find and replace previous rows with tokenized version

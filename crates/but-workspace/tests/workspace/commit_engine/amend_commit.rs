@@ -1,8 +1,9 @@
 use crate::commit_engine::utils::{
-    assure_stable_env, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace,
+    commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace,
     read_only_in_memory_scenario, visualize_commit, visualize_tree, writable_scenario,
     writable_scenario_with_ssh_key, write_local_config, write_sequence,
 };
+use but_testsupport::assure_stable_env;
 use but_workspace::commit_engine::Destination;
 
 #[test]
@@ -25,7 +26,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(aacf6391c96a59461df0a241caad4ad24368f542),
+            Sha1(7d6c00efe8bf6abb4db3952325e0cf71add9a873),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(0236fb167942f3665aa348c514e8d272a6581ad5),
@@ -45,7 +46,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     insta::assert_snapshot!(visualize_commit(&repo, &outcome)?, @r"
     tree 0236fb167942f3665aa348c514e8d272a6581ad5
     author author <author@example.com> 946684800 +0000
-    committer committer <committer@example.com> 946771200 +0000
+    committer committer (From Env) <committer@example.com> 946771200 +0000
 
     init
     ");
@@ -74,7 +75,7 @@ fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
     parent 91ef6f6fc0a8b97fb456886c1cc3b2a3536ea2eb
     parent 7f389eda1b366f3d56ecc1300b3835727c3309b6
     author author <author@example.com> 946684800 +0000
-    committer committer <committer@example.com> 946771200 +0000
+    committer committer (From Env) <committer@example.com> 946771200 +0000
 
     Merge branch 'A' into merge
     ");

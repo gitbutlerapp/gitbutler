@@ -69,7 +69,7 @@ pub fn create_commit_from_worktree_changes(
     message: String,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = projects.get(project_id)?;
-    let repo = gix::open(project.worktree_path()).map_err(anyhow::Error::from)?;
+    let repo = but_core::open_repo_for_merging(&project.worktree_path())?;
     Ok(commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         Some((&project, Some(stack_id))),
@@ -100,7 +100,7 @@ pub fn amend_commit_from_worktree_changes(
     worktree_changes: Vec<commit_engine::ui::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = projects.get(project_id)?;
-    let repo = gix::open(project.worktree_path()).map_err(anyhow::Error::from)?;
+    let repo = but_core::open_repo_for_merging(&project.worktree_path())?;
     Ok(commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         Some((&project, Some(stack_id))),
