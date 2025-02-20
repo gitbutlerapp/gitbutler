@@ -186,39 +186,6 @@ pub struct Branch {
     pub archived: bool,
 }
 
-/// List of commits beloning to this branch. Ordered from newest to oldest (child-most to parent-most).
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Commits {
-    /// Commits that are currently part of the workspace (applied).
-    /// Created from the local pseudo branch (head currently stored in the TOML file)
-    ///
-    /// When there is only one branch in the stack, this includes the commits
-    /// from the tip of the stack to the merge base with the trunk / target branch (not including the merge base).
-    ///
-    /// When there are multiple branches in the stack, this includes the commits from the branch head to the next branch in the stack.
-    ///
-    /// In either case this is effectively a list of commits that in the working copy which may or may not have been pushed to the remote.
-    pub local_and_remote: Vec<Commit>,
-    /// List of commits that exist **only** on the upstream branch. Ordered from newest to oldest.
-    /// Created from the tip of the local tracking branch eg. refs/remotes/origin/my-branch -> refs/heads/my-branch
-    /// This does **not** include the commits that are in the commits list (local)
-    /// This is effectively the list of commits that are on the remote branch but are not in the working copy.
-    pub upstream_only: Vec<UpstreamCommit>,
-}
-
-/// Represents the state of a branch in a stack.
-#[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type", content = "subject")]
-pub enum State {
-    /// Indicates that the branch is considered to be part of a stack
-    Stacked(Commits),
-    /// Indicates that the branch was previously part of a stack but it has since been integrated.
-    /// In other words, the merge base of the stack is now above this branch.
-    /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
-    Archived,
-}
-
 /// Returns the branches that belong to a particular [`gitbutler_stack::Stack`]
 /// The entries are ordered from newest to oldest.
 pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Branch>> {
