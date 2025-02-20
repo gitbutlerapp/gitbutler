@@ -30,7 +30,8 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_id::id::Id;
 use gitbutler_oxidize::{git2_signature_to_gix_signature, OidExt};
-use gitbutler_stack::{stack_context::StackContext, Stack, Target, VirtualBranchesHandle};
+use gitbutler_stack::stack_context::CommandContextExt;
+use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use integrated::IsCommitIntegrated;
 use itertools::Itertools;
 use serde::Serialize;
@@ -249,15 +250,108 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
     Ok(stack_branches)
 }
 
-fn convert(
-    ctx: &StackContext<'_>,
+/// Returns a list of commits beloning to this branch. Ordered from newest to oldest (child-most to parent-most).
+///
+/// These are the commits that are currently part of the workspace (applied).
+/// Created from the local pseudo branch (head currently stored in the TOML file)
+///
+/// When there is only one branch in the stack, this includes the commits
+/// from the tip of the stack to the merge base with the trunk / target branch (not including the merge base).
+///
+/// When there are multiple branches in the stack, this includes the commits from the branch head to the next branch in the stack.
+///
+/// In either case this is effectively a list of commits that in the working copy which may or may not have been pushed to the remote.
+pub fn stack_branch_local_and_remote_commits(
+    stack_id: String,
+    branch_name: String,
+    ctx: &CommandContext,
+) -> Result<Vec<Commit>> {
+    let state = state_handle(&ctx.project().gb_dir());
+    let stack = state.get_stack(Id::from_str(&stack_id)?)?;
+
+    let branches = stack.branches();
+    let branch = branches.iter().find(|b| b.name() == &branch_name).unwrap(); //todo
+    if branch.archived {
+        return Ok(vec![]);
+    }
+    local_and_remote_commits(ctx, branch.clone(), &stack)
+}
+
+/// Returns a fift of commits beloning to this branch. Ordered from newest to oldest (child-most to parent-most).
+///
+/// These are the commits that exist **only** on the upstream branch. Ordered from newest to oldest.
+/// Created from the tip of the local tracking branch eg. refs/remotes/origin/my-branch -> refs/heads/my-branch
+///
+/// This does **not** include the commits that are in the commits list (local)
+/// This is effectively the list of commits that are on the remote branch but are not in the working copy.
+pub fn stack_branch_upstream_only_commits(
+    stack_id: String,
+    branch_name: String,
+    ctx: &CommandContext,
+) -> Result<Vec<UpstreamCommit>> {
+    let state = state_handle(&ctx.project().gb_dir());
+    let stack = state.get_stack(Id::from_str(&stack_id)?)?;
+
+    let branches = stack.branches();
+    let branch = branches.iter().find(|b| b.name() == &branch_name).unwrap(); //todo
+    if branch.archived {
+        return Ok(vec![]);
+    }
+    upstream_only_commits(ctx, branch.clone(), &stack)
+}
+
+fn upstream_only_commits(
+    ctx: &CommandContext,
     stack_branch: gitbutler_stack::StackBranch,
     stack: &Stack,
-    default_target: &Target,
-    check_commit: &mut IsCommitIntegrated<'_, '_, '_>,
-) -> Result<Branch> {
-    let branch_commits = stack_branch.commits(ctx, stack)?;
-    let remote = default_target.push_remote_name();
+) -> Result<Vec<UpstreamCommit>> {
+    let stack_ctx = ctx.to_stack_context()?;
+    let branch_commits = stack_branch.commits(&stack_ctx, stack)?;
+    let local_and_remote = local_and_remote_commits(ctx, stack_branch, stack)?;
+
+    // Upstream only
+    let mut upstream_only = vec![];
+    for commit in branch_commits.upstream_only.iter() {
+        let matches_known_commit = local_and_remote.iter().any(|c| {
+            if let CommitState::LocalAndRemote(remote_id) = &c.state {
+                remote_id == &commit.id().to_gix()
+            } else {
+                false
+            }
+        });
+        // Ignore commits that strictly speaking are remote only but they match a known local commit (rebase etc)
+        if !matches_known_commit {
+            let created_at = u128::try_from(commit.time().seconds())? * 1000;
+            let upstream_commit = UpstreamCommit {
+                id: commit.id().to_gix(),
+                message: commit.message_bstr().into(),
+                created_at,
+                author: commit.author().into(),
+            };
+            upstream_only.push(upstream_commit);
+        }
+    }
+    upstream_only.reverse();
+
+    Ok(upstream_only)
+}
+
+fn local_and_remote_commits(
+    ctx: &CommandContext,
+    stack_branch: gitbutler_stack::StackBranch,
+    stack: &Stack,
+) -> Result<Vec<Commit>> {
+    let state = state_handle(&ctx.project().gb_dir());
+    let default_target = state
+        .get_default_target()
+        .context("failed to get default target")?;
+    let repo = ctx.gix_repository()?;
+    let cache = repo.commit_graph_if_enabled()?;
+    let mut graph = repo.revision_graph(cache.as_ref());
+    let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, &repo, &mut graph)?;
+
+    let stack_ctx = ctx.to_stack_context()?;
+    let branch_commits = stack_branch.commits(&stack_ctx, stack)?;
     let mut local_and_remote: Vec<Commit> = vec![];
     let mut is_integrated = false;
 
@@ -315,43 +409,7 @@ fn convert(
         local_and_remote.push(api_commit);
     }
 
-    // Upstream only
-    let mut upstream_only = vec![];
-    for commit in branch_commits.upstream_only.iter() {
-        let matches_known_commit = local_and_remote.iter().any(|c| {
-            if let CommitState::LocalAndRemote(remote_id) = &c.state {
-                remote_id == &commit.id().to_gix()
-            } else {
-                false
-            }
-        });
-        // Ignore commits that strictly speaking are remote only but they match a known local commit (rebase etc)
-        if !matches_known_commit {
-            let created_at = u128::try_from(commit.time().seconds())? * 1000;
-            let upstream_commit = UpstreamCommit {
-                id: commit.id().to_gix(),
-                message: commit.message_bstr().into(),
-                created_at,
-                author: commit.author().into(),
-            };
-            upstream_only.push(upstream_commit);
-        }
-    }
-    upstream_only.reverse();
-
-    let upstream_reference = ctx
-        .repository()
-        .find_reference(&stack_branch.remote_reference(remote.as_str()))
-        .ok()
-        .map(|_| stack_branch.remote_reference(remote.as_str()));
-    Ok(Branch {
-        name: stack_branch.name().to_owned().into(),
-        remote_tracking_branch: upstream_reference.map(Into::into),
-        description: stack_branch.description,
-        pr_number: stack_branch.pr_number,
-        review_id: stack_branch.review_id,
-        archived: stack_branch.archived,
-    })
+    Ok(local_and_remote)
 }
 
 fn state_handle(gb_state_path: &Path) -> VirtualBranchesHandle {
