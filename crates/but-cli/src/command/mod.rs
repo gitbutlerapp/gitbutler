@@ -102,7 +102,9 @@ pub mod stacks {
     use std::path::Path;
 
     use but_settings::AppSettings;
-    use but_workspace::stack_branches;
+    use but_workspace::{
+        stack_branch_local_and_remote_commits, stack_branch_upstream_only_commits, stack_branches,
+    };
     use gitbutler_command_context::CommandContext;
 
     use crate::command::{debug_print, project_from_path};
@@ -116,5 +118,16 @@ pub mod stacks {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
         debug_print(stack_branches(id.to_string(), &ctx))
+    }
+
+    pub fn branch_commits(id: &str, name: &str, current_dir: &Path) -> anyhow::Result<()> {
+        let project = project_from_path(current_dir)?;
+        let ctx = CommandContext::open(&project, AppSettings::default())?;
+        let local_and_remote =
+            stack_branch_local_and_remote_commits(id.to_string(), name.to_string(), &ctx);
+        debug_print(local_and_remote)?;
+        let upstream_only =
+            stack_branch_upstream_only_commits(id.to_string(), name.to_string(), &ctx);
+        debug_print(upstream_only)
     }
 }
