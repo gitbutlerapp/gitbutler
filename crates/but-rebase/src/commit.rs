@@ -83,8 +83,7 @@ fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BString>
     // check git config for gpg.signingkey
     // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
     let config = repo.config_snapshot();
-    let signing_key = config.string("user.signingkey");
-    let Some(signing_key) = signing_key else {
+    let Some(signing_key) = config.string("user.signingkey") else {
         bail!("No signing key found");
     };
     let signing_key = signing_key.to_str().context("non-utf8 signing key")?;
@@ -134,7 +133,11 @@ fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BString>
                 .arg("-U")
                 .arg(buffer_file_to_sign_path.to_path_buf())
         } else {
-            cmd.arg(signing_key)
+            let signing_key = config
+                .trusted_path("user.signingkey")
+                .transpose()?
+                .with_context(|| format!("Didn't trust 'ssh.signingKey': {signing_key}"))?;
+            cmd.arg(signing_key.into_owned())
                 .arg(buffer_file_to_sign_path.to_path_buf())
         };
         let output = into_command(signing_cmd)
