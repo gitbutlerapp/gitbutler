@@ -16,9 +16,7 @@
 	const projectId = projectService.projectId;
 
 	const commitChangesQuery = $derived(
-		commit?.parentIds[0] && commit?.id
-			? stackService.getCommitChanges(projectId, commit?.parentIds[0], commit?.id)
-			: undefined
+		commit?.id ? stackService.getCommitChanges(projectId, commit?.id) : undefined
 	);
 </script>
 
