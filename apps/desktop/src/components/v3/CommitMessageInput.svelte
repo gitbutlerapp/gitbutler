@@ -1,9 +1,6 @@
 <script lang="ts">
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService, type DiffInput } from '$lib/ai/service';
-	// import { BranchStack } from '$lib/branches/branch';
-	// import { SelectedOwnership } from '$lib/branches/ownership';
-	// import { DetailedCommit, Commit } from '$lib/commits/commit';
 	import {
 		projectAiGenEnabled,
 		projectCommitGenerationExtraConcise,
@@ -16,7 +13,6 @@
 	import { Project } from '$lib/project/project';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { KeyName } from '$lib/utils/hotkeys';
-	// import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -31,7 +27,7 @@
 	import type { Commit } from '$lib/branches/v3';
 
 	interface Props {
-		existingCommit?: Commit;
+		existingCommit: Commit;
 		isExpanded: boolean;
 		commitMessage: string;
 		branchName?: string;
@@ -50,8 +46,6 @@
 		cancel
 	}: Props = $props();
 
-	// const selectedOwnership = getContextStore(SelectedOwnership);
-	// const stack = getContextStore(BranchStack);
 	const aiService = getContext(AIService);
 	const project = getContext(Project);
 	const promptService = getContext(PromptService);
@@ -83,19 +77,6 @@
 	}
 
 	async function getDiffInput(): Promise<DiffInput[]> {
-		// TODO: there's no SelectedOwnership in this tree, so investigate
-		//			 whether this is required or if we can replace it with something, etc.
-		// if (!existingCommit) {
-		// 	return $stack.files.flatMap((f) =>
-		// 		f.hunks
-		// 			.filter((h) => $selectedOwnership.isSelected(f.id, h.id))
-		// 			.map((h) => ({
-		// 				filePath: f.path,
-		// 				diff: h.diff
-		// 			}))
-		// 	);
-		// }
-
 		const files = await fileService.listCommitFiles(project.id, existingCommit.id);
 		return files.flatMap((file) =>
 			file.hunks.map((hunk) => ({

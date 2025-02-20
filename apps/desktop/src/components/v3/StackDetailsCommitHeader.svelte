@@ -42,13 +42,12 @@
 
 	function openCommitMessageModal(e: MouseEvent) {
 		e.stopPropagation();
-		// message = commit.message;
 		commitMessageModal?.show();
 	}
 
 	function handleUncommit(e: MouseEvent) {
 		e.stopPropagation();
-		// TODO: Wire up
+		// TODO: Wire up uncommit btn.
 		// currentCommitMessage.set(commit.description);
 		// undoCommit(commit);
 	}
@@ -111,6 +110,7 @@
 			class="open-external-btn"
 			onclick={(e) => {
 				e.stopPropagation();
+				// TODO: Generate commitUrl.
 				// if (commitUrl) openExternalUrl(commitUrl);
 			}}
 		>
