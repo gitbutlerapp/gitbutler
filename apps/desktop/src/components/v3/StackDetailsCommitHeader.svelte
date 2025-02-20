@@ -1,8 +1,8 @@
 <script lang="ts">
 	import CommitMessageInput from '$components/v3/CommitMessageInput.svelte';
-	import { Commit } from '$lib/commits/commit';
+	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { openExternalUrl } from '$lib/utils/url';
+	// import { openExternalUrl } from '$lib/utils/url';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -10,31 +10,31 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import type { Commit, WorkspaceBranch } from '$lib/branches/v3';
 
 	interface Props {
 		commit: Commit;
 		stackId: string;
 		projectId: string;
+		selectedBranchDetails?: WorkspaceBranch;
 	}
 
-	const { commit, stackId, projectId }: Props = $props();
+	const { commit, stackId, projectId, selectedBranchDetails }: Props = $props();
 
-	const [stackService] = inject(StackService);
+	const [stackService, modeService] = inject(StackService, ModeService);
 	const commitShortSha = $derived(commit.id.substring(0, 7));
+	const commitMessage = $derived(commit.message.trim());
 
 	let conflictResolutionConfirmationModal: ReturnType<typeof Modal> | undefined;
 	let commitMessageModal: ReturnType<typeof Modal> | undefined;
 	let commitMessageValid = $state(false);
-	let description = $state('');
+	let message = $state(commit.message);
 
-	// let isUndoable = commit instanceof DetailedCommit && type !== 'remote' && type !== 'integrated';
-	let isUndoable = true;
+	let isUndoable = commit.state.type !== 'Integrated';
 
 	function submitCommitMessageModal() {
-		commit.description = description;
-
 		if (stackId) {
-			stackService.updateCommitMessage(projectId, stackId, commit.id, description);
+			stackService.updateCommitMessage(projectId, stackId, commit.id, message);
 		}
 
 		commitMessageModal?.close();
@@ -42,42 +42,44 @@
 
 	function openCommitMessageModal(e: MouseEvent) {
 		e.stopPropagation();
-		description = commit.description;
+		// message = commit.message;
 		commitMessageModal?.show();
 	}
 
 	function handleUncommit(e: MouseEvent) {
 		e.stopPropagation();
+		// TODO: Wire up
 		// currentCommitMessage.set(commit.description);
 		// undoCommit(commit);
 	}
 
 	function canEdit() {
-		// if (isUnapplied) return false;
-		// if (!modeService) return false;
-		// if (!branch) return false;
+		if (!modeService) return false;
+		if (!stackId) return false;
 
 		return true;
 	}
 
 	async function editPatch() {
 		if (!canEdit()) return;
-		// modeService!.enterEditMode(commit.id, branch!.refname);
+		if (selectedBranchDetails?.name) {
+			modeService!.enterEditMode(commit.id, `refs/heads/${selectedBranchDetails.name}`);
+		}
 	}
 
 	async function handleEditPatch() {
-		// if (conflicted && !isAncestorMostConflicted) {
-		// 	conflictResolutionConfirmationModal?.show();
-		// 	return;
-		// }
+		if (!commit.hasConflicts) {
+			conflictResolutionConfirmationModal?.show();
+			return;
+		}
 		await editPatch();
 	}
 </script>
 
 <div class="wrapper">
-	<div class="message text-12">{commit.description}</div>
+	<div class="message text-12">{commitMessage}</div>
 	<div class="metadata text-11 text-semibold">
-		{#if commit.conflicted}
+		{#if commit.hasConflicts}
 			<Tooltip
 				text={"Conflicted commits must be resolved before they can be amended or squashed.\nPlease resolve conflicts using the 'Resolve conflicts' button"}
 			>
@@ -131,7 +133,7 @@
 					openCommitMessageModal(e);
 				}}>Edit message</Button
 			>
-			{#if !commit.conflicted}
+			{#if !commit.hasConflicts}
 				<Button
 					size="tag"
 					kind="outline"
@@ -144,7 +146,7 @@
 		{/if}
 		{#if canEdit()}
 			<Button size="tag" kind="outline" onclick={handleEditPatch}>
-				{#if commit.conflicted}
+				{#if commit.hasConflicts}
 					Resolve conflicts
 				{:else}
 					Edit commit
@@ -157,8 +159,9 @@
 <Modal bind:this={commitMessageModal} width="small" onSubmit={submitCommitMessageModal}>
 	{#snippet children(_, close)}
 		<CommitMessageInput
-			bind:commitMessage={description}
+			bind:commitMessage={message}
 			bind:valid={commitMessageValid}
+			branchName={selectedBranchDetails?.name}
 			existingCommit={commit}
 			isExpanded={true}
 			cancel={close}
@@ -234,7 +237,7 @@
 		align-items: center;
 		gap: 2px;
 
-		/* `underline dashed` broken on Linux */
+		/* TODO: `underline dashed` broken on Linux */
 		text-decoration-line: underline;
 		text-underline-offset: 2px;
 		text-decoration-style: dashed;

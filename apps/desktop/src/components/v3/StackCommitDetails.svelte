@@ -1,32 +1,27 @@
 <script lang="ts">
 	import StackDetailsCommitHeader from './StackDetailsCommitHeader.svelte';
 	import StackDetailsFileList from './StackDetailsFileList.svelte';
-	import { Commit } from '$lib/commits/commit';
-	import { CommitService } from '$lib/commits/commitService.svelte';
 	import { ProjectService } from '$lib/project/projectService';
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import type { Commit, WorkspaceBranch } from '$lib/branches/v3';
 
 	interface Props {
-		selectedCommitId: string | undefined;
 		stackId: string;
+		selectedCommitId: string | undefined;
+		selectedCommitDetails?: Commit;
+		selectedBranchDetails?: WorkspaceBranch;
 	}
 
-	let { selectedCommitId = $bindable(), stackId }: Props = $props();
+	let {
+		selectedCommitId = $bindable(),
+		stackId,
+		selectedCommitDetails: commit,
+		selectedBranchDetails
+	}: Props = $props();
 
-	const [projectService, commitService] = inject(ProjectService, CommitService);
+	const [projectService] = inject(ProjectService);
 	const projectId = projectService.projectId;
-	let commit = $state<Commit>();
-
-	async function getCommitData() {
-		if (selectedCommitId) {
-			commit = await commitService.find(projectId, selectedCommitId);
-		}
-	}
-
-	$effect(() => {
-		getCommitData();
-	});
 </script>
 
 <div class="wrapper">
@@ -35,7 +30,7 @@
 			<Icon name="cross" />
 		</button>
 		{#if commit}
-			<StackDetailsCommitHeader {commit} {stackId} {projectId} />
+			<StackDetailsCommitHeader {commit} {stackId} {projectId} {selectedBranchDetails} />
 		{/if}
 	</div>
 	<div class="body">
