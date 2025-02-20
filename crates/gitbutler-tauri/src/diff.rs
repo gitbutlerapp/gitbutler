@@ -24,19 +24,14 @@ pub fn tree_change_diffs(
 
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
-pub fn commit_changes(
+pub fn changes_in_commit(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     project_id: ProjectId,
-    old_commit_id: Option<HexHash>,
-    new_commit_id: HexHash,
+    commit_id: HexHash,
 ) -> anyhow::Result<Vec<TreeChange>, Error> {
     let project = projects.get(project_id)?;
-    but_core::diff::ui::commit_changes_by_worktree_dir(
-        project.path,
-        old_commit_id.map(Into::into),
-        new_commit_id.into(),
-    )
-    .map_err(Into::into)
+    but_core::diff::ui::commit_changes_by_worktree_dir(project.path, commit_id.into())
+        .map_err(Into::into)
 }
 
 /// This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in
@@ -50,7 +45,7 @@ pub fn commit_changes(
 /// All ignored status changes are also provided so they can be displayed separately.
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
-pub fn worktree_changes(
+pub fn changes_in_worktree(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     project_id: ProjectId,
 ) -> anyhow::Result<WorktreeChanges, Error> {
