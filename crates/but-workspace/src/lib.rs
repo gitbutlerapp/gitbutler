@@ -30,7 +30,6 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_id::id::Id;
 use gitbutler_oxidize::{git2_signature_to_gix_signature, OidExt};
-use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::{stack_context::StackContext, Stack, Target, VirtualBranchesHandle};
 use integrated::IsCommitIntegrated;
 use itertools::Itertools;
@@ -179,9 +178,11 @@ pub struct Branch {
     pub pr_number: Option<usize>,
     /// A unique identifier for the GitButler review associated with the branch, if any.
     pub review_id: Option<String>,
-    /// A stack branch can be either in the stack or archived, which is what this field represents.
-    /// Only branches that are currently in the stacked state will provide lists of commits.
-    pub state: State,
+    /// Indicates that the branch was previously part of a stack but it has since been integrated.
+    /// In other words, the merge base of the stack is now above this branch.
+    /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
+    /// An archived branch will not have any commits associated with it.
+    pub archived: bool,
 }
 
 /// List of commits beloning to this branch. Ordered from newest to oldest (child-most to parent-most).
@@ -221,26 +222,27 @@ pub enum State {
 /// The entries are ordered from newest to oldest.
 pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Branch>> {
     let state = state_handle(&ctx.project().gb_dir());
-    let default_target = state
+    let remote = state
         .get_default_target()
-        .context("failed to get default target")?;
-    let stack_ctx = &ctx.to_stack_context()?;
-
-    let repo = ctx.gix_repository()?;
-    let cache = repo.commit_graph_if_enabled()?;
-    let mut graph = repo.revision_graph(cache.as_ref());
-    let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, &repo, &mut graph)?;
+        .context("failed to get default target")?
+        .push_remote_name();
 
     let mut stack_branches = vec![];
     let stack = state.get_stack(Id::from_str(&stack_id)?)?;
     for internal in stack.branches() {
-        let result = convert(
-            stack_ctx,
-            internal,
-            &stack,
-            &default_target,
-            &mut check_commit,
-        )?;
+        let upstream_reference = ctx
+            .repo()
+            .find_reference(&internal.remote_reference(remote.as_str()))
+            .ok()
+            .map(|_| internal.remote_reference(remote.as_str()));
+        let result = Branch {
+            name: internal.name().to_owned().into(),
+            remote_tracking_branch: upstream_reference.map(Into::into),
+            description: internal.description,
+            pr_number: internal.pr_number,
+            review_id: internal.review_id,
+            archived: internal.archived,
+        };
         stack_branches.push(result);
     }
     stack_branches.reverse();
@@ -348,14 +350,7 @@ fn convert(
         description: stack_branch.description,
         pr_number: stack_branch.pr_number,
         review_id: stack_branch.review_id,
-        state: if stack_branch.archived {
-            State::Archived
-        } else {
-            State::Stacked(Commits {
-                local_and_remote,
-                upstream_only,
-            })
-        },
+        archived: stack_branch.archived,
     })
 }
 
