@@ -3,7 +3,7 @@
 	import { AIService, type DiffInput } from '$lib/ai/service';
 	// import { BranchStack } from '$lib/branches/branch';
 	// import { SelectedOwnership } from '$lib/branches/ownership';
-	import { DetailedCommit, Commit } from '$lib/commits/commit';
+	// import { DetailedCommit, Commit } from '$lib/commits/commit';
 	import {
 		projectAiGenEnabled,
 		projectCommitGenerationExtraConcise,
@@ -28,11 +28,13 @@
 	import * as toasts from '@gitbutler/ui/toasts';
 	import { isWhiteSpaceString } from '@gitbutler/ui/utils/string';
 	import { onMount, tick } from 'svelte';
+	import type { Commit } from '$lib/branches/v3';
 
 	interface Props {
-		existingCommit?: DetailedCommit | Commit;
+		existingCommit?: Commit;
 		isExpanded: boolean;
 		commitMessage: string;
+		branchName?: string;
 		valid?: boolean;
 		commit?: (() => void) | undefined;
 		cancel: () => void;
@@ -42,6 +44,7 @@
 		isExpanded,
 		existingCommit,
 		commitMessage = $bindable(),
+		branchName,
 		valid = $bindable(false),
 		commit = undefined,
 		cancel
@@ -116,9 +119,7 @@
 				useEmojiStyle: $commitGenerationUseEmojis,
 				useBriefStyle: $commitGenerationExtraConcise,
 				commitTemplate: prompt,
-				// TODO: Pass correct branch name
-				branchName: '',
-				// branchName: $stack.series[0]?.name,
+				branchName,
 				onToken: (t) => {
 					if (firstToken) {
 						commitMessage = '';

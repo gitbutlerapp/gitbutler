@@ -9,8 +9,9 @@
 	import { isStackedBranch } from '$components/v3/lib';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
+	import type { Commit, WorkspaceBranch } from '$lib/branches/v3';
 	import { page } from '$app/state';
 
 	interface Props {
@@ -25,7 +26,7 @@
 	const stackBranchWidthKey = $derived('defaultStackBranchWidth_ ' + projectId);
 	let stackBranchWidth = $derived(persisted<number>(22.5, stackBranchWidthKey));
 
-	const stackService = getContext(StackService);
+	const [stackService] = inject(StackService);
 	const result = $derived(stackService.getStackBranches(projectId, stackId));
 	const stackData = $derived(result.current.data?.[0]);
 
@@ -41,8 +42,29 @@
 	});
 
 	let selectedCommitId = $state<string>();
+	let selectedCommitDetails = $state<Commit>();
+	let selectedBranchDetails = $state<WorkspaceBranch>();
 
-	// When changing paths, i.e. another stack tab, close the StackDetails
+	$effect(() => {
+		if (!selectedCommitId) return;
+
+		// TODO: Figure out a better way to get the currentBranch
+		// and currentCommit than looping through all the
+		// branches/commits in the active stack.
+		result.current.data?.find((branch) => {
+			if (isStackedBranch(branch.state)) {
+				branch.state.subject?.localAndRemote.find((commit) => {
+					if (commit.id === selectedCommitId) {
+						selectedCommitDetails = commit;
+						selectedBranchDetails = branch;
+					}
+				});
+			}
+		});
+	});
+
+	// When changing paths, i.e. another stack tab, close the
+	// StackDetails by "unselecting" the commitId.
 	$effect(() => {
 		if (page.url.pathname) {
 			selectedCommitId = undefined;
@@ -74,7 +96,12 @@
 	</div>
 
 	{#if selectedCommitId}
-		<StackCommitDetails bind:selectedCommitId {stackId} />
+		<StackCommitDetails
+			bind:selectedCommitId
+			{stackId}
+			{selectedCommitDetails}
+			{selectedBranchDetails}
+		/>
 	{:else}
 		<StackContentIllustration mode={stackContentMode} />
 	{/if}
