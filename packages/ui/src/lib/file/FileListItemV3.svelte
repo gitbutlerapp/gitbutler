@@ -1,6 +1,7 @@
 <script lang="ts">
 	import FileStatusBadge from './FileStatusBadge.svelte';
 	import Badge from '$lib/Badge.svelte';
+	import Button from '$lib/Button.svelte';
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
@@ -128,17 +129,19 @@
 					<Badge style="success">Resolved</Badge>
 				</Tooltip>
 			{:else}
-				<button
+				<Button
 					type="button"
+					kind="outline"
 					class="mark-resolved-btn"
+					size="tag"
 					onclick={(e) => {
 						e.stopPropagation();
 						onresolveclick?.(e);
 					}}
+					icon="tick-small"
 				>
-					<span class="text-11 text-semibold">Mark as resolved</span>
-					<Icon name="tick-small" opacity={0.5} />
-				</button>
+					Mark as resolved
+				</Button>
 			{/if}
 		{/if}
 
@@ -182,6 +185,10 @@
 		outline: none;
 		background: transparent;
 		border-bottom: 1px solid var(--clr-border-3);
+
+		& :global(.mark-resolved-btn) {
+			margin: 0 4px;
+		}
 	}
 
 	.file-list-item.clickable {
@@ -211,7 +218,7 @@
 		margin-right: -12px;
 		transition: opacity var(--transition-fast);
 	}
-
+	/* 
 	.mark-resolved-btn {
 		display: flex;
 		align-items: center;
@@ -228,7 +235,7 @@
 		&:hover {
 			background-color: var(--clr-bg-1);
 		}
-	}
+	} */
 
 	.info {
 		display: flex;
