@@ -12,6 +12,8 @@ git init remote
 export GITBUTLER_CLI_DATA_DIR=../user/gitbutler/app-data
 git clone remote multiple-commits 
 (cd multiple-commits
+  git config user.name "Author"
+  git config user.email "author@example.com"
   git branch existing-branch
   $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
 
