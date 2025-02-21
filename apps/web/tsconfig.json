@@ -31,8 +31,6 @@
 		"src/**/*.svelte",
 		"tests/**/*.js",
 		"tests/**/*.ts",
-		"tests/**/*.svelte",
-		"../../packages/shared/src/lib/actionCable/utils.ts",
-		"../../packages/shared/src/lib/actionCable/utils.ts"
+		"tests/**/*.svelte"
 	]
 }
