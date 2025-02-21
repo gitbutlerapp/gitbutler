@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CommitMessageEditor from './editor/CommitMessageEditor.svelte';
 	import EditorFooter from './editor/EditorFooter.svelte';
 	import EditorHeader from './editor/EditorHeader.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
@@ -6,41 +7,9 @@
 	import { stackPath } from '$lib/routes/routes.svelte';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { standardConfig } from '$lib/textEditor/config/config';
-	import { standardTheme } from '$lib/textEditor/config/theme';
-	import { emojiTextNodeTransform } from '$lib/textEditor/plugins/emojiPlugin';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import {
-		$convertToMarkdownString as convertToMarkdownString,
-		$convertFromMarkdownString as convertFromMarkdownString
-	} from '@lexical/markdown';
-	import {
-		$createParagraphNode as createParagraphNode,
-		$createTextNode as createTextNode,
-		$getRoot as getRoot,
-		TextNode
-	} from 'lexical';
-	import { onMount } from 'svelte';
-	import {
-		Composer,
-		ContentEditable,
-		RichTextPlugin,
-		SharedHistoryPlugin,
-		ListPlugin,
-		CheckListPlugin,
-		AutoFocusPlugin,
-		PlaceHolder,
-		HashtagPlugin,
-		PlainTextPlugin,
-		AutoLinkPlugin,
-		FloatingLinkEditorPlugin,
-		CodeHighlightPlugin,
-		CodeActionMenuPlugin,
-		MarkdownShortcutPlugin,
-		ALL_TRANSFORMERS
-	} from 'svelte-lexical';
 	import { goto } from '$app/navigation';
 
 	const { projectId, stackId }: { projectId: string; stackId: string } = $props();
@@ -53,39 +22,16 @@
 	const selection = $derived(changeSelection.list().current);
 
 	/**
-	 * The stackId parameter is currently optional, mainly so that we don't
-	 *
-	 * TODO: Figure out if we can show markdown rendered placeholder text.
-	 */
-	const placeholder = 'Your commit summary';
-
-	/**
-	 * Instance of the lexical composer, used for manipulating the contents of the editor
-	 * programatically.
-	 */
-	let composer: Composer;
-
-	/**
 	 * Toggles use of markdown on/off in the message editor.
 	 */
-	let useMarkdown = persisted(true, 'useMarkdown__' + projectId);
-
-	/** Standard configuration for our commit message editor. */
-	const initialConfig = standardConfig({
-		theme: standardTheme,
-		onError: (error: unknown) => {
-			showError('Editor error', error);
-		}
-	});
+	let markdown = persisted(true, 'useMarkdown__' + projectId);
 
 	/**
 	 * Commit message placeholder text.
 	 *
 	 * TODO: Make stackId required.
 	 */
-	const branch = $derived(
-		stackId ? stackService.getBranchByIndex(projectId, stackId, 0).current : undefined
-	);
+	const branch = $derived(stackService.getBranchByIndex(projectId, stackId, 0).current);
 
 	/**
 	 * TODO: Find a better way of accessing top commit.
@@ -102,12 +48,13 @@
 	 * TODO: Implement according to design.
 	 */
 	const commitParent = $derived(commit ? commit.id : $base?.baseSha);
+	const composer: CommitMessageEditor | undefined = $state();
 
 	/**
 	 * TODO: Is there a way of getting the value synchronously?
 	 */
 	function createCommit() {
-		getPlaintext((message) => {
+		composer?.getPlaintext((message) => {
 			try {
 				_createCommit(message);
 			} catch (err: unknown) {
@@ -136,75 +83,11 @@
 		});
 		goto(stackPath(projectId, stackId));
 	}
-
-	onMount(() => {
-		const unlistenEmoji = composer
-			.getEditor()
-			.registerNodeTransform(TextNode, emojiTextNodeTransform);
-		return () => {
-			unlistenEmoji();
-		};
-	});
-
-	let editorDiv: HTMLDivElement | undefined = $state();
-
-	$effect(() => {
-		const editor = composer.getEditor();
-		if ($useMarkdown) {
-			editor.update(() => {
-				convertFromMarkdownString(getRoot().getTextContent(), ALL_TRANSFORMERS);
-			});
-		} else {
-			getPlaintext((text) => {
-				editor.update(() => {
-					const root = getRoot();
-					root.clear();
-					const paragraph = createParagraphNode();
-					paragraph.append(createTextNode(text));
-					root.append(paragraph);
-				});
-			});
-		}
-	});
-
-	function getPlaintext(callback: (text: string) => void) {
-		const editor = composer.getEditor();
-		const state = editor.getEditorState();
-		state.read(() => {
-			const markdown = convertToMarkdownString(ALL_TRANSFORMERS);
-			callback(markdown);
-		});
-	}
 </script>
 
 <div class="new-commit">
-	<EditorHeader title="New commit" onRichTextEditorSwitch={(bool) => ($useMarkdown = bool)} />
-	<Composer {initialConfig} bind:this={composer}>
-		<div class="editor-container" bind:this={editorDiv}>
-			<div class="editor-scroller">
-				<div class="editor">
-					<ContentEditable />
-					<PlaceHolder>{placeholder}</PlaceHolder>
-				</div>
-			</div>
-
-			{#if $useMarkdown}
-				<AutoFocusPlugin />
-				<AutoLinkPlugin />
-				<CheckListPlugin />
-				<CodeActionMenuPlugin anchorElem={editorDiv} />
-				<CodeHighlightPlugin />
-				<FloatingLinkEditorPlugin anchorElem={editorDiv} />
-				<HashtagPlugin />
-				<ListPlugin />
-				<MarkdownShortcutPlugin transformers={ALL_TRANSFORMERS} />
-				<RichTextPlugin />
-				<SharedHistoryPlugin />
-			{:else}
-				<PlainTextPlugin />
-			{/if}
-		</div>
-	</Composer>
+	<EditorHeader title="New commit" bind:markdown={$markdown} />
+	<CommitMessageEditor bind:markdown={$markdown} />
 	<EditorFooter onCancel={() => goto(stackPath(projectId, stackId))}>
 		<Button style="pop" onclick={createCommit} wide>Create commit</Button>
 	</EditorFooter>
@@ -217,16 +100,5 @@
 		flex-grow: 1;
 		height: 100%;
 		background: var(--clr-bg-1);
-	}
-
-	.editor-container {
-		flex-grow: 1;
-		background-color: var(--clr-bg-1);
-		position: relative;
-		display: block;
-	}
-
-	.editor-scroller {
-		height: 100%;
 	}
 </style>
