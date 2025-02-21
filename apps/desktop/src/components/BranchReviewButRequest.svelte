@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { ProjectService } from '$lib/project/projectService';
 	import { sleep } from '$lib/utils/sleep';
+	import BranchStatusBadge from '@gitbutler/shared/branches/BranchStatusBadge.svelte';
 	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
+	import { getContributorsWithAvatars } from '@gitbutler/shared/branches/types';
 	import { inject } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { and, combine, isFound, isNotFound, map } from '@gitbutler/shared/network/loadable';
@@ -12,6 +14,8 @@
 	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
+	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { untrack } from 'svelte';
 
@@ -103,6 +107,12 @@
 			}
 		});
 	}
+
+	const contributors = $derived(
+		isFound(cloudBranch?.current)
+			? getContributorsWithAvatars(cloudBranch.current.value)
+			: Promise.resolve([])
+	);
 </script>
 
 {#if $project?.api?.repository_id}
@@ -113,17 +123,76 @@
 		])}
 	>
 		{#snippet children([cloudBranch, cloudProject])}
-			<Link
-				target="_blank"
-				rel="noreferrer"
-				href={webRoutes.projectReviewBranchUrl({
-					ownerSlug: cloudProject.owner,
-					projectSlug: cloudProject.slug,
-					branchId: cloudBranch.branchId
-				})}
-			>
-				Open review</Link
-			>
+			<div class="br-overview">
+				<div class="br-row">
+					<Icon name="bowtie" />
+					<Link
+						target="_blank"
+						rel="noreferrer"
+						href={webRoutes.projectReviewBranchUrl({
+							ownerSlug: cloudProject.owner,
+							projectSlug: cloudProject.slug,
+							branchId: cloudBranch.branchId
+						})}
+						externalIcon={false}
+						class="br-link text-13">BR #{cloudBranch.branchId.slice(0, 4)}</Link
+					>
+					<BranchStatusBadge branch={cloudBranch}></BranchStatusBadge>
+				</div>
+				<div class="br-row">
+					<div class="factoid text-12">
+						<span class="label">Reviewers:</span>
+						<div class="avatar-group-container">
+							{#await contributors then contributors}
+								<AvatarGroup avatars={contributors}></AvatarGroup>
+							{/await}
+						</div>
+					</div>
+					<span class="seperator">•</span>
+					<div class="factoid text-12">
+						<span class="label">Version:</span>
+						{cloudBranch.version}
+					</div>
+				</div>
+			</div>
 		{/snippet}
 	</Loading>
 {/if}
+
+<style lang="postcss">
+	:global(.br-link) {
+		text-decoration-style: dotted;
+		text-decoration-thickness: 2px;
+	}
+
+	.br-overview {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.br-row {
+		display: flex;
+		gap: 8px;
+		align-items: center;
+	}
+
+	.factoid {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+
+		> .label {
+			color: var(--clr-text-2);
+		}
+	}
+
+	.seperator {
+		transform: translateY(-1.5px);
+		color: var(--clr-text-3);
+	}
+
+	.avatar-group-container {
+		padding-right: 2px;
+	}
+</style>
