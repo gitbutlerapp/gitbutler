@@ -320,8 +320,8 @@ impl Stack {
             allow_duplicate_refs,
         )?;
 
+        validate_name(&name, &state)?;
         let reference = StackBranch::new(commit.into(), name, None, &repo)?;
-        validate_name(reference.name(), &state)?;
 
         Ok(reference)
     }
@@ -482,8 +482,8 @@ impl Stack {
                 .iter_mut()
                 .find(|h: &&mut StackBranch| *h.name() == branch_name);
             if let Some(head) = head {
+                validate_name(&name, &state)?;
                 head.set_name(name, &ctx.gix_repository()?)?;
-                validate_name(head.name(), &state)?;
                 head.pr_number = None; // reset pr_number
             }
         }
