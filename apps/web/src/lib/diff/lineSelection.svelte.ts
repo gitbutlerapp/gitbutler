@@ -105,6 +105,7 @@ export default class DiffLineSelection {
 			this._selectedDiffLines.size === 1 && this._selectedDiffLines.has(key);
 
 		if (params.resetSelection && !isOnlyOneSelected) {
+			this._quote = false;
 			this._selectedDiffLines.clear();
 		}
 
@@ -140,9 +141,11 @@ export default class DiffLineSelection {
 
 		const copyString = buffer.join('\n');
 		copyToClipboard(copyString);
+		this.clear();
 	}
 
 	get selectedLines() {
+		if (this._quote) return [];
 		return this._selectedLines;
 	}
 
