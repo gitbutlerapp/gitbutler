@@ -1,6 +1,7 @@
 import { embedUserMention } from './mentions';
-import { encodeLineSelection, type DiffSelection } from '$lib/diff/lineSelection.svelte';
+import { type DiffLineSelected, type DiffSelection } from '$lib/diff/lineSelection.svelte';
 import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
+import { encodeDiffLineRange } from '@gitbutler/ui/utils/diffParsing';
 import type { EditorInstance } from '@gitbutler/ui/RichTextEditor.svelte';
 
 export interface SendParams {
@@ -46,14 +47,19 @@ export default class MessageHandler {
 		});
 	}
 
+	private getDiffRange(lines: DiffLineSelected[] | undefined) {
+		if (!lines) {
+			return undefined;
+		}
+
+		const sortedLines = lines.sort((a, b) => a.index - b.index);
+		return encodeDiffLineRange(sortedLines);
+	}
+
 	async send(params: SendParams) {
 		if (this._message === undefined || this._message.trim() === '') {
 			return;
 		}
-
-		const diffRange = params.diffSelection?.lines
-			? encodeLineSelection(params.diffSelection.lines)
-			: undefined;
 
 		await this.chatChannelService.sendChatMessage({
 			projectId: this.projectId,
@@ -64,7 +70,7 @@ export default class MessageHandler {
 			issue: params.issue,
 			diffPath: params.diffSelection?.fileName,
 			diffSha: params.diffSelection?.diffSha,
-			range: diffRange
+			range: this.getDiffRange(params.diffSelection?.lines)
 		});
 	}
 

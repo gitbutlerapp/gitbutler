@@ -1,9 +1,16 @@
+<script lang="ts" module>
+	export function getHunkLineId(rowEncodedId: DiffFileLineId): string {
+		return `hunk-line-${rowEncodedId}`;
+	}
+</script>
+
 <script lang="ts">
 	import LineSelection from './lineSelection.svelte';
 	import Button from '$lib/Button.svelte';
 	import {
 		type ContentSection,
 		CountColumnSide,
+		type DiffFileLineId,
 		generateRows,
 		type LineSelector,
 		parserFromFilename,
@@ -44,7 +51,9 @@
 
 	const lineSelection = $derived(new LineSelection(onLineClick));
 	const parser = $derived(parserFromFilename(filePath));
-	const renderRows = $derived(generateRows(content, inlineUnifiedDiffs, parser, selectedLines));
+	const renderRows = $derived(
+		generateRows(filePath, content, inlineUnifiedDiffs, parser, selectedLines)
+	);
 
 	$effect(() => lineSelection.setRows(renderRows));
 </script>
@@ -69,7 +78,7 @@
 
 <tbody class="contrast-{diffContrast}" style="--diff-font: {diffFont};">
 	{#each renderRows as row, idx}
-		<tr class="table__row" data-no-drag>
+		<tr id={getHunkLineId(row.encodedLineId)} class="table__row" data-no-drag>
 			{@render countColumn(row, CountColumnSide.Before, idx)}
 			{@render countColumn(row, CountColumnSide.After, idx)}
 			<td

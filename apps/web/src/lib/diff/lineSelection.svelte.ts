@@ -1,44 +1,17 @@
 import { copyToClipboard } from '@gitbutler/shared/clipboard';
+import {
+	readDiffLineKey,
+	type DiffLineKey,
+	type DiffFileHunkKey,
+	createDiffFileHunkKey,
+	createDiffLineKey,
+	readDiffFileHunkKey,
+	encodeDiffFileLine
+} from '@gitbutler/ui/utils/diffParsing';
 import { SvelteSet } from 'svelte/reactivity';
-import type { BrandedId } from '@gitbutler/shared/utils/branding';
+import type { DiffPatch } from '@gitbutler/shared/chat/types';
 import type { LineClickParams } from '@gitbutler/ui/HunkDiff.svelte';
-import type { ContentSection, LineSelector } from '@gitbutler/ui/utils/diffParsing';
-
-type DiffLineKey = BrandedId<'DiffLine'>;
-type DiffFileHunkKey = BrandedId<'DiffFileHunk'>;
-type DiffLineSelectionString = BrandedId<'DiffLineSelection'>;
-
-function createDiffLineKey(
-	index: number,
-	oldLine: number | undefined,
-	newLine: number | undefined
-): DiffLineKey {
-	return `${index}-${oldLine ?? ''}-${newLine ?? ''}` as DiffLineKey;
-}
-
-type ParsedDiffLineKey = {
-	index: number;
-	oldLine: number | undefined;
-	newLine: number | undefined;
-};
-
-function readDiffLineKey(key: DiffLineKey): ParsedDiffLineKey {
-	const [index, oldLine, newLine] = key.split('-');
-	return {
-		index: parseInt(index),
-		oldLine: oldLine === '' ? undefined : parseInt(oldLine),
-		newLine: newLine === '' ? undefined : parseInt(newLine)
-	};
-}
-
-function createDiffFileHunkKey(fileName: string, hunkIndex: number): DiffFileHunkKey {
-	return `${fileName}-${hunkIndex}` as DiffFileHunkKey;
-}
-
-function readDiffFileHunkKey(key: DiffFileHunkKey): [string, number] {
-	const [fileName, hunkIndex] = key.split('-');
-	return [fileName, parseInt(hunkIndex)];
-}
+import type { ContentSection, DiffFileLineId, LineSelector } from '@gitbutler/ui/utils/diffParsing';
 
 export interface DiffLineSelected extends LineSelector {
 	index: number;
@@ -51,43 +24,23 @@ export interface DiffSelection {
 	lines: DiffLineSelected[];
 }
 
-function encodeSingleLineSelection(line: DiffLineSelected): DiffLineSelectionString | undefined {
-	if (line.newLine !== undefined) {
-		return `R${line.newLine}` as DiffLineSelectionString;
-	}
-
-	if (line.oldLine !== undefined) {
-		return `L${line.oldLine}` as DiffLineSelectionString;
-	}
-
-	return undefined;
-}
-
 /**
- * Encode the lines selected from the diff into a string.
+ * Create a diff line selection string out of a diff patch array.
  *
- * This function expects to receive a continues selection of lines.
+ * @note - This function assumes that the diff patch array is an ordered & continues selection of lines.
  */
-export function encodeLineSelection(
-	lineSelection: DiffLineSelected[]
-): DiffLineSelectionString | undefined {
-	if (lineSelection.length === 0) return undefined;
-	if (lineSelection.length === 1) return encodeSingleLineSelection(lineSelection[0]);
-
-	const sortedLines = lineSelection.sort((a, b) => a.index - b.index);
-	const firstLine = encodeSingleLineSelection(sortedLines[0]);
-	const lastLine = encodeSingleLineSelection(sortedLines[sortedLines.length - 1]);
-
-	if (firstLine === undefined || lastLine === undefined) {
-		// This should never happen unless data is corrupted
-		throw new Error('Invalid line selection: ' + JSON.stringify(lineSelection));
-	}
-
-	return `${firstLine}-${lastLine}` as DiffLineSelectionString;
+export function parseDiffPatchToEncodedSelection(
+	fileName: string,
+	diffPatchArray: DiffPatch[]
+): DiffFileLineId | undefined {
+	if (diffPatchArray.length === 0) return undefined;
+	return encodeDiffFileLine(fileName, diffPatchArray[0].left, diffPatchArray[0].right);
 }
 
 function calculateSelectedLines(selectedDiffLines: SvelteSet<DiffLineKey>): DiffLineSelected[] {
-	const parsedLines = Array.from(selectedDiffLines).map((key) => readDiffLineKey(key));
+	const parsedLines = Array.from(selectedDiffLines)
+		.map((key) => readDiffLineKey(key))
+		.filter((l): l is DiffLineSelected => !!l);
 
 	if (parsedLines.length === 0) return [];
 	if (parsedLines.length === 1)
@@ -202,7 +155,9 @@ export default class DiffLineSelection {
 		)
 			return;
 
-		const [fileName, hunkIndex] = readDiffFileHunkKey(this._selectedDiffFileHunk);
+		const parsed = readDiffFileHunkKey(this._selectedDiffFileHunk);
+		if (!parsed) return;
+		const [fileName, hunkIndex] = parsed;
 
 		return {
 			diffSha: this._diffSha,

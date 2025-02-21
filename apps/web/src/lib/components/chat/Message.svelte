@@ -12,6 +12,7 @@
 	import MessageDiffSection from './MessageDiffSection.svelte';
 	import MessageMarkdown from './MessageMarkdown.svelte';
 	import { parseDiffPatchToContentSection } from '$lib/chat/diffPatch';
+	import { parseDiffPatchToEncodedSelection } from '$lib/diff/lineSelection.svelte';
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -30,6 +31,16 @@
 	const timestamp = $derived(eventTimeStamp(event));
 
 	const content = $derived(parseDiffPatchToContentSection(message.diffPatchArray));
+	const diffSelectionString = $derived.by(() => {
+		if (message.diffPatchArray === undefined || message.diffPath === undefined) return undefined;
+		return parseDiffPatchToEncodedSelection(message.diffPath, message.diffPatchArray);
+	});
+
+	function handleGoToDiff() {
+		if (!diffSelectionString) return;
+		const rowElement = document.getElementById(`hunk-line-${diffSelectionString}`);
+		if (rowElement) rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	}
 </script>
 
 <div
@@ -71,7 +82,7 @@
 		</div>
 
 		{#if message.diffPatchArray && message.diffPatchArray.length > 0 && message.diffPath}
-			<MessageDiffSection diffPath={message.diffPath} {content} />
+			<MessageDiffSection diffPath={message.diffPath} {content} onGoToDiff={handleGoToDiff} />
 		{/if}
 
 		<div class="chat-message-content">
