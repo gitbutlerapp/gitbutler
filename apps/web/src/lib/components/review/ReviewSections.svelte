@@ -7,6 +7,7 @@
 	interface Props {
 		patch: Patch;
 		patchSections: Section[] | undefined;
+		selectedSha: string | undefined;
 		selectedLines: LineSelector[];
 		clearLineSelection: () => void;
 		toggleDiffLine: (
@@ -22,6 +23,7 @@
 	const {
 		patch,
 		patchSections,
+		selectedSha,
 		selectedLines,
 		clearLineSelection,
 		toggleDiffLine,
@@ -43,6 +45,7 @@
 			<SectionComponent
 				{section}
 				{toggleDiffLine}
+				{selectedSha}
 				{selectedLines}
 				{onCopySelection}
 				{onQuoteSelection}

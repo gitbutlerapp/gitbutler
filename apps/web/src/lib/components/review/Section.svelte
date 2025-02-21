@@ -6,6 +6,7 @@
 
 	interface Props {
 		section: Section;
+		selectedSha: string | undefined;
 		selectedLines: LineSelector[];
 		clearLineSelection: () => void;
 		toggleDiffLine: (
@@ -21,6 +22,7 @@
 	const {
 		section,
 		toggleDiffLine,
+		selectedSha,
 		selectedLines,
 		onCopySelection,
 		onQuoteSelection,
@@ -32,6 +34,7 @@
 	<DiffSection
 		{section}
 		{toggleDiffLine}
+		{selectedSha}
 		{selectedLines}
 		{onCopySelection}
 		{onQuoteSelection}

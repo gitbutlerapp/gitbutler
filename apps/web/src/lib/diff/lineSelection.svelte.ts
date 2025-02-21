@@ -149,6 +149,10 @@ export default class DiffLineSelection {
 		return this._selectedLines;
 	}
 
+	get selectedSha() {
+		return this._diffSha;
+	}
+
 	get diffSelection(): DiffSelection | undefined {
 		if (
 			!this._quote ||

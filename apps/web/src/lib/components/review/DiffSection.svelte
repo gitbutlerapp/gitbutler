@@ -7,6 +7,7 @@
 
 	interface Props {
 		section: DiffSection;
+		selectedSha: string | undefined;
 		selectedLines: LineSelector[];
 		clearLineSelection: () => void;
 		toggleDiffLine: (
@@ -21,7 +22,8 @@
 	const {
 		section,
 		toggleDiffLine,
-		selectedLines,
+		selectedSha,
+		selectedLines: lines,
 		onCopySelection,
 		onQuoteSelection,
 		clearLineSelection
@@ -33,6 +35,8 @@
 	function handleLineClick(index: number, params: LineClickParams) {
 		toggleDiffLine(section.newPath || 'unknown', index, section.diffSha, params);
 	}
+
+	const selectedLines = $derived(selectedSha === section.diffSha ? lines : []);
 </script>
 
 <div class="diff-section">
