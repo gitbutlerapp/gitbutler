@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { getContext } from '@gitbutler/shared/context';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
+	import { marked } from '@gitbutler/ui/utils/marked';
 	import hljs from 'highlight.js';
-	import { marked } from 'marked';
 	import { onMount } from 'svelte';
 	import { env } from '$env/dynamic/public';
 
@@ -59,7 +59,7 @@
 					// render markdowns
 					let markdowns = document.querySelectorAll('.markdown');
 					markdowns.forEach((markdown) => {
-						markdown.innerHTML = marked(markdown.innerHTML, { async: false });
+						markdown.innerHTML = marked(markdown.innerHTML);
 					});
 				}, 10);
 			});
