@@ -140,6 +140,7 @@
 					selectedLines={diffLineSelection.selectedLines}
 					onCopySelection={(sections) => diffLineSelection.copy(sections)}
 					onQuoteSelection={() => diffLineSelection.quote()}
+					clearLineSelection={() => diffLineSelection.clear()}
 				/>
 			</div>
 

@@ -8,6 +8,7 @@
 		patch: Patch;
 		patchSections: Section[] | undefined;
 		selectedLines: LineSelector[];
+		clearLineSelection: () => void;
 		toggleDiffLine: (
 			fileName: string,
 			hunkIndex: number,
@@ -22,6 +23,7 @@
 		patch,
 		patchSections,
 		selectedLines,
+		clearLineSelection,
 		toggleDiffLine,
 		onCopySelection,
 		onQuoteSelection
@@ -44,6 +46,7 @@
 				{selectedLines}
 				{onCopySelection}
 				{onQuoteSelection}
+				{clearLineSelection}
 			/>
 		{/each}
 	{/if}

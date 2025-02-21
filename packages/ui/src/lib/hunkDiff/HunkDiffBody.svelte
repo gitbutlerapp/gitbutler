@@ -7,6 +7,7 @@
 <script lang="ts">
 	import LineSelection from './lineSelection.svelte';
 	import Button from '$lib/Button.svelte';
+	import { clickOutside } from '$lib/utils/clickOutside';
 	import {
 		type ContentSection,
 		CountColumnSide,
@@ -29,6 +30,7 @@
 		selectedLines?: LineSelector[];
 		diffContrast?: 'light' | 'medium' | 'strong';
 		onLineClick?: (params: LineSelectionParams) => void;
+		clearLineSelection?: () => void;
 		onQuoteSelection?: () => void;
 		onCopySelection?: () => void;
 		numberHeaderWidth?: number;
@@ -39,6 +41,7 @@
 		filePath,
 		content,
 		onLineClick,
+		clearLineSelection,
 		wrapText = true,
 		tabSize = 4,
 		inlineUnifiedDiffs = false,
@@ -78,7 +81,14 @@
 
 <tbody class="contrast-{diffContrast}" style="--diff-font: {diffFont};">
 	{#each renderRows as row, idx}
-		<tr id={getHunkLineId(row.encodedLineId)} class="table__row" data-no-drag>
+		<tr
+			id={getHunkLineId(row.encodedLineId)}
+			class="table__row"
+			data-no-drag
+			use:clickOutside={{
+				handler: () => row.isSelected && clearLineSelection?.()
+			}}
+		>
 			{@render countColumn(row, CountColumnSide.Before, idx)}
 			{@render countColumn(row, CountColumnSide.After, idx)}
 			<td

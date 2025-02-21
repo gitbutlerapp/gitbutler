@@ -8,6 +8,7 @@
 	interface Props {
 		section: DiffSection;
 		selectedLines: LineSelector[];
+		clearLineSelection: () => void;
 		toggleDiffLine: (
 			fileName: string,
 			hunkIndex: number,
@@ -17,8 +18,14 @@
 		onCopySelection: (contentSections: ContentSection[]) => void;
 		onQuoteSelection: () => void;
 	}
-	const { section, toggleDiffLine, selectedLines, onCopySelection, onQuoteSelection }: Props =
-		$props();
+	const {
+		section,
+		toggleDiffLine,
+		selectedLines,
+		onCopySelection,
+		onQuoteSelection,
+		clearLineSelection
+	}: Props = $props();
 
 	const hunks = $derived(section.diffPatch ? splitDiffIntoHunks(section.diffPatch) : []);
 	const filePath = $derived(section.newPath || 'unknown');
@@ -42,6 +49,7 @@
 			onLineClick={(p) => handleLineClick(idx, p)}
 			{onCopySelection}
 			{onQuoteSelection}
+			{clearLineSelection}
 		/>
 	{/each}
 </div>
