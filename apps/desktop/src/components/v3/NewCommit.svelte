@@ -11,6 +11,7 @@
 	import { emojiTextNodeTransform } from '$lib/textEditor/plugins/emojiPlugin';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import {
 		$convertToMarkdownString as convertToMarkdownString,
 		$convertFromMarkdownString as convertFromMarkdownString
@@ -204,11 +205,9 @@
 			{/if}
 		</div>
 	</Composer>
-	<EditorFooter
-		SubmitButtonLabel="Create commit!"
-		onSubmit={createCommit}
-		onCancel={() => goto(stackPath(projectId, stackId))}
-	/>
+	<EditorFooter onCancel={() => goto(stackPath(projectId, stackId))}>
+		<Button style="pop" onclick={createCommit} wide>Create commit</Button>
+	</EditorFooter>
 </div>
 
 <style>

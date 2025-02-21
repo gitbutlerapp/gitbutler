@@ -1,19 +1,19 @@
 <script lang="ts">
 	import Button from '@gitbutler/ui/Button.svelte';
+	import { type Snippet } from 'svelte';
 
 	interface Props {
-		SubmitButtonLabel: string;
 		CancelButtonLabel?: string;
-		onSubmit: () => void;
 		onCancel: () => void;
+		children: Snippet;
 	}
 
-	const { SubmitButtonLabel, CancelButtonLabel = 'Cancel', onSubmit, onCancel }: Props = $props();
+	const { children, CancelButtonLabel = 'Cancel', onCancel }: Props = $props();
 </script>
 
 <div class="editor-footer">
 	<Button kind="outline" style="neutral" onclick={onCancel} width={94}>{CancelButtonLabel}</Button>
-	<Button style="pop" onclick={onSubmit} wide>{SubmitButtonLabel}</Button>
+	{@render children()}
 </div>
 
 <style lang="postcss">
