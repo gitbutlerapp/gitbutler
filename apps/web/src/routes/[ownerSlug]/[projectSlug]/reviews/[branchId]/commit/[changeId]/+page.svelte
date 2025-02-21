@@ -137,9 +137,11 @@
 					{patch}
 					patchSections={patchSections?.current}
 					toggleDiffLine={(f, h, s, p) => diffLineSelection.toggle(f, h, s, p)}
+					selectedSha={diffLineSelection.selectedSha}
 					selectedLines={diffLineSelection.selectedLines}
 					onCopySelection={(sections) => diffLineSelection.copy(sections)}
 					onQuoteSelection={() => diffLineSelection.quote()}
+					clearLineSelection={() => diffLineSelection.clear()}
 				/>
 			</div>
 

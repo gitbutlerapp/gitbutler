@@ -9,13 +9,13 @@
 
 <script lang="ts">
 	import MessageActions from './MessageActions.svelte';
+	import MessageDiffSection from './MessageDiffSection.svelte';
 	import MessageMarkdown from './MessageMarkdown.svelte';
 	import { parseDiffPatchToContentSection } from '$lib/chat/diffPatch';
+	import { parseDiffPatchToEncodedSelection } from '$lib/diff/lineSelection.svelte';
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
-	import HunkDiffBody from '@gitbutler/ui/hunkDiff/HunkDiffBody.svelte';
 	import type { ChatEvent } from '@gitbutler/shared/branches/types';
 
 	const UNKNOWN_AUTHOR = 'Unknown author';
@@ -31,6 +31,16 @@
 	const timestamp = $derived(eventTimeStamp(event));
 
 	const content = $derived(parseDiffPatchToContentSection(message.diffPatchArray));
+	const diffSelectionString = $derived.by(() => {
+		if (message.diffPatchArray === undefined || message.diffPath === undefined) return undefined;
+		return parseDiffPatchToEncodedSelection(message.diffPath, message.diffPatchArray);
+	});
+
+	function handleGoToDiff() {
+		if (!diffSelectionString) return;
+		const rowElement = document.getElementById(`hunk-line-${diffSelectionString}`);
+		if (rowElement) rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	}
 </script>
 
 <div
@@ -72,18 +82,7 @@
 		</div>
 
 		{#if message.diffPatchArray && message.diffPatchArray.length > 0 && message.diffPath}
-			<div class="chat-message__diff-section">
-				<div class="chat-message__diff-section__header">
-					<FileIcon fileName={message.diffPath} size={16} />
-					<p title={message.diffPath} class="text-12 text-body file-name">{message.diffPath}</p>
-				</div>
-
-				<div class="chat-message__diff-content">
-					<table class="table__section">
-						<HunkDiffBody filePath={message.diffPath} {content} />
-					</table>
-				</div>
-			</div>
+			<MessageDiffSection diffPath={message.diffPath} {content} onGoToDiff={handleGoToDiff} />
 		{/if}
 
 		<div class="chat-message-content">
@@ -172,38 +171,6 @@
 		flex-direction: column;
 		width: 100%;
 		gap: 12px;
-	}
-
-	table,
-	.table__section {
-		width: 100%;
-		border-collapse: separate;
-		border-spacing: 0;
-	}
-
-	.chat-message__diff-content {
-		overflow: hidden;
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-diff-count-border);
-	}
-
-	.chat-message__diff-section {
-		display: flex;
-		flex-direction: column;
-		padding: 6px;
-		gap: 8px;
-		align-self: stretch;
-
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
-	}
-
-	.chat-message__diff-section__header {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		align-self: stretch;
 	}
 
 	.chat-message__header {

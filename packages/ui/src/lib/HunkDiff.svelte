@@ -25,6 +25,7 @@
 		onchange?: (selected: boolean) => void;
 		selectedLines?: LineSelector[];
 		onLineClick?: (params: LineSelectionParams) => void;
+		clearLineSelection?: () => void;
 		onQuoteSelection?: () => void;
 		onCopySelection?: (contentSections: ContentSection[]) => void;
 	}
@@ -42,6 +43,7 @@
 		onchange,
 		selectedLines,
 		onLineClick,
+		clearLineSelection,
 		onCopySelection,
 		onQuoteSelection
 	}: Props = $props();
@@ -103,6 +105,7 @@
 			{filePath}
 			content={hunk.contentSections}
 			{onLineClick}
+			{clearLineSelection}
 			{wrapText}
 			{tabSize}
 			{inlineUnifiedDiffs}

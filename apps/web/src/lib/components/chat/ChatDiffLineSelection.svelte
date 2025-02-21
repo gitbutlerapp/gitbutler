@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { encodeLineSelection, type DiffSelection } from '$lib/diff/lineSelection.svelte';
+	import { type DiffLineSelected, type DiffSelection } from '$lib/diff/lineSelection.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
+	import { encodeDiffLineRange } from '@gitbutler/ui/utils/diffParsing';
 
 	interface Props {
 		diffSelection: DiffSelection;
@@ -10,8 +11,13 @@
 
 	const { diffSelection, clearDiffSelection }: Props = $props();
 
+	function getLineSelectionEncoding(lines: DiffLineSelected[]) {
+		const sortedLines = lines.sort((a, b) => a.index - b.index);
+		return encodeDiffLineRange(sortedLines);
+	}
+
 	const selectionLabel = $derived(
-		`${diffSelection.fileName}:${encodeLineSelection(diffSelection.lines)}`
+		`${diffSelection.fileName}:${getLineSelectionEncoding(diffSelection.lines)}`
 	);
 </script>
 

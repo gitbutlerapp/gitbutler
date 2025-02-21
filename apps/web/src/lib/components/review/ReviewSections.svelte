@@ -7,7 +7,9 @@
 	interface Props {
 		patch: Patch;
 		patchSections: Section[] | undefined;
+		selectedSha: string | undefined;
 		selectedLines: LineSelector[];
+		clearLineSelection: () => void;
 		toggleDiffLine: (
 			fileName: string,
 			hunkIndex: number,
@@ -21,7 +23,9 @@
 	const {
 		patch,
 		patchSections,
+		selectedSha,
 		selectedLines,
+		clearLineSelection,
 		toggleDiffLine,
 		onCopySelection,
 		onQuoteSelection
@@ -41,9 +45,11 @@
 			<SectionComponent
 				{section}
 				{toggleDiffLine}
+				{selectedSha}
 				{selectedLines}
 				{onCopySelection}
 				{onQuoteSelection}
+				{clearLineSelection}
 			/>
 		{/each}
 	{/if}

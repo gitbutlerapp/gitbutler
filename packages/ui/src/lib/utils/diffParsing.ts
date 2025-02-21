@@ -17,6 +17,7 @@ import { ruby } from '@codemirror/legacy-modes/mode/ruby';
 import { NodeType, Tree, Parser } from '@lezer/common';
 import { tags, highlightTree } from '@lezer/highlight';
 import diff_match_patch from 'diff-match-patch';
+import type { BrandedId } from './branding';
 
 export function parseHunk(hunkStr: string): Hunk {
 	const lines = hunkStr.trim().split('\n');
@@ -66,6 +67,7 @@ export function parseHunk(hunkStr: string): Hunk {
 }
 
 export type Row = {
+	encodedLineId: DiffFileLineId;
 	beforeLineNumber?: number;
 	afterLineNumber?: number;
 	tokens: string[];
@@ -316,6 +318,110 @@ class CodeHighlighter {
 	}
 }
 
+export type DiffLineKey = BrandedId<'DiffLine'>;
+export type DiffFileHunkKey = BrandedId<'DiffFileHunk'>;
+export type DiffLineRange = BrandedId<'DiffLineRange'>;
+export type DiffFileLineId = BrandedId<'DiffFileLineId'>;
+
+export function createDiffLineKey(
+	index: number,
+	oldLine: number | undefined,
+	newLine: number | undefined
+): DiffLineKey {
+	return `${index}-${oldLine ?? ''}-${newLine ?? ''}` as DiffLineKey;
+}
+
+export type ParsedDiffLineKey = {
+	index: number;
+	oldLine: number | undefined;
+	newLine: number | undefined;
+};
+
+export function readDiffLineKey(key: DiffLineKey): ParsedDiffLineKey | undefined {
+	const [index, oldLine, newLine] = key.split('-');
+
+	if (index === undefined || oldLine === undefined || newLine === undefined) {
+		return undefined;
+	}
+
+	return {
+		index: parseInt(index),
+		oldLine: oldLine === '' ? undefined : parseInt(oldLine),
+		newLine: newLine === '' ? undefined : parseInt(newLine)
+	};
+}
+
+export function createDiffFileHunkKey(fileName: string, hunkIndex: number): DiffFileHunkKey {
+	return `${fileName}-${hunkIndex}` as DiffFileHunkKey;
+}
+
+export function readDiffFileHunkKey(key: DiffFileHunkKey): [string, number] | undefined {
+	const [fileName, hunkIndex] = key.split('-');
+
+	if (fileName === undefined || hunkIndex === undefined) {
+		return undefined;
+	}
+
+	return [fileName, parseInt(hunkIndex)];
+}
+
+export function encodeSingleDiffLine(
+	oldLine: number | undefined,
+	newLine: number | undefined
+): DiffLineRange | undefined {
+	if (newLine !== undefined) {
+		return `R${newLine}` as DiffLineRange;
+	}
+
+	if (oldLine !== undefined) {
+		return `L${oldLine}` as DiffLineRange;
+	}
+
+	return undefined;
+}
+
+export type DiffLine = {
+	oldLine: number | undefined;
+	newLine: number | undefined;
+};
+
+/**
+ * Encode the lines selected from the diff into a string.
+ *
+ * This function expects to receive a continues selection of lines.
+ */
+export function encodeDiffLineRange(lineSelection: DiffLine[]): DiffLineRange | undefined {
+	if (lineSelection.length === 0) return undefined;
+	if (lineSelection.length === 1)
+		return encodeSingleDiffLine(lineSelection[0]!.oldLine, lineSelection[0]!.newLine);
+
+	const firstLine = encodeSingleDiffLine(lineSelection[0]!.oldLine, lineSelection[0]!.newLine);
+	const lastLine = encodeSingleDiffLine(
+		lineSelection[lineSelection.length - 1]!.oldLine,
+		lineSelection[lineSelection.length - 1]!.newLine
+	);
+
+	if (firstLine === undefined || lastLine === undefined) {
+		// This should never happen unless data is corrupted
+		throw new Error('Invalid line selection: ' + JSON.stringify(lineSelection));
+	}
+
+	return `${firstLine}-${lastLine}` as DiffLineRange;
+}
+
+export function encodeDiffFileLine(
+	fileName: string,
+	oldLine: number | undefined,
+	newLine: number | undefined
+): DiffFileLineId {
+	const encodedLineNumber = encodeSingleDiffLine(oldLine, newLine);
+	if (encodedLineNumber === undefined) {
+		throw new Error('Invalid line number: ' + JSON.stringify({ oldLine, newLine }));
+	}
+
+	return `${fileName}:${encodedLineNumber}` as DiffFileLineId;
+}
+
 function charDiff(text1: string, text2: string): { 0: number; 1: string }[] {
 	const differ = new diff_match_patch();
 	const diff = differ.diff_main(text1, text2);
@@ -367,6 +473,7 @@ function getSelectionParams(
 }
 
 function createRowData(
+	fileName: string,
 	section: ContentSection,
 	parser: Parser | undefined,
 	selectedLines: LineSelector[] | undefined
@@ -378,6 +485,7 @@ function createRowData(
 		// }
 
 		return {
+			encodedLineId: encodeDiffFileLine(fileName, line.beforeLineNumber, line.afterLineNumber),
 			beforeLineNumber: line.beforeLineNumber,
 			afterLineNumber: line.afterLineNumber,
 			tokens: toTokens(line.content, parser),
@@ -410,6 +518,7 @@ function toTokens(inputLine: string, parser: Parser | undefined): string[] {
 }
 
 function computeWordDiff(
+	filenName: string,
 	prevSection: ContentSection,
 	nextSection: ContentSection,
 	parser: Parser | undefined,
@@ -427,6 +536,11 @@ function computeWordDiff(
 		const oldLine = prevSection.lines[i] as Line;
 		const newLine = nextSection.lines[i] as Line;
 		const prevSectionRow = {
+			encodedLineId: encodeDiffFileLine(
+				filenName,
+				oldLine.beforeLineNumber,
+				oldLine.afterLineNumber
+			),
 			beforeLineNumber: oldLine.beforeLineNumber,
 			afterLineNumber: oldLine.afterLineNumber,
 			tokens: [] as string[],
@@ -436,6 +550,11 @@ function computeWordDiff(
 			...getSelectionParams(oldLine, selectedLines)
 		};
 		const nextSectionRow = {
+			encodedLineId: encodeDiffFileLine(
+				filenName,
+				newLine.beforeLineNumber,
+				newLine.afterLineNumber
+			),
 			beforeLineNumber: newLine.beforeLineNumber,
 			afterLineNumber: newLine.afterLineNumber,
 			tokens: [] as string[],
@@ -472,6 +591,7 @@ function computeWordDiff(
 }
 
 function computeInlineWordDiff(
+	fileName: string,
 	prevSection: ContentSection,
 	nextSection: ContentSection,
 	parser: Parser | undefined,
@@ -488,6 +608,11 @@ function computeInlineWordDiff(
 		const newLine = nextSection.lines[i] as Line;
 
 		const sectionRow = {
+			encodedLineId: encodeDiffFileLine(
+				fileName,
+				newLine.beforeLineNumber,
+				newLine.afterLineNumber
+			),
 			beforeLineNumber: newLine.beforeLineNumber,
 			afterLineNumber: newLine.afterLineNumber,
 			tokens: [] as string[],
@@ -539,6 +664,7 @@ export interface LineSelector {
 }
 
 export function generateRows(
+	filePath: string,
 	subsections: ContentSection[],
 	inlineUnifiedDiffs: boolean,
 	parser: Parser | undefined,
@@ -549,27 +675,27 @@ export function generateRows(
 
 		// Filter out section for which we don't need to compute word diffs
 		if (!prevSection || nextSection.sectionType === SectionType.Context) {
-			acc.push(...createRowData(nextSection, parser, selectedLines));
+			acc.push(...createRowData(filePath, nextSection, parser, selectedLines));
 			return acc;
 		}
 
 		if (prevSection.sectionType === SectionType.Context) {
-			acc.push(...createRowData(nextSection, parser, selectedLines));
+			acc.push(...createRowData(filePath, nextSection, parser, selectedLines));
 			return acc;
 		}
 
 		if (prevSection.lines.length !== nextSection.lines.length) {
-			acc.push(...createRowData(nextSection, parser, selectedLines));
+			acc.push(...createRowData(filePath, nextSection, parser, selectedLines));
 			return acc;
 		}
 
 		if (isLineEmpty(prevSection.lines)) {
-			acc.push(...createRowData(nextSection, parser, selectedLines));
+			acc.push(...createRowData(filePath, nextSection, parser, selectedLines));
 			return acc;
 		}
 
 		if (inlineUnifiedDiffs) {
-			const rows = computeInlineWordDiff(prevSection, nextSection, parser, selectedLines);
+			const rows = computeInlineWordDiff(filePath, prevSection, nextSection, parser, selectedLines);
 
 			acc.splice(-prevSection.lines.length);
 
@@ -577,6 +703,7 @@ export function generateRows(
 			return acc;
 		} else {
 			const { prevRows, nextRows } = computeWordDiff(
+				filePath,
 				prevSection,
 				nextSection,
 				parser,

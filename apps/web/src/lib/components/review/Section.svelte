@@ -6,7 +6,9 @@
 
 	interface Props {
 		section: Section;
+		selectedSha: string | undefined;
 		selectedLines: LineSelector[];
+		clearLineSelection: () => void;
 		toggleDiffLine: (
 			fileName: string,
 			hunkIndex: number,
@@ -17,10 +19,25 @@
 		onQuoteSelection: () => void;
 	}
 
-	const { section, toggleDiffLine, selectedLines, onCopySelection, onQuoteSelection }: Props =
-		$props();
+	const {
+		section,
+		toggleDiffLine,
+		selectedSha,
+		selectedLines,
+		onCopySelection,
+		onQuoteSelection,
+		clearLineSelection
+	}: Props = $props();
 </script>
 
 {#if section.sectionType === 'diff'}
-	<DiffSection {section} {toggleDiffLine} {selectedLines} {onCopySelection} {onQuoteSelection} />
+	<DiffSection
+		{section}
+		{toggleDiffLine}
+		{selectedSha}
+		{selectedLines}
+		{onCopySelection}
+		{onQuoteSelection}
+		{clearLineSelection}
+	/>
 {/if}
