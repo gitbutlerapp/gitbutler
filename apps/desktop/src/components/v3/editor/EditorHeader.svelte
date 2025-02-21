@@ -4,23 +4,19 @@
 
 	interface Props {
 		title: string;
-		onRichTextEditorSwitch: (bool: boolean) => void;
+		markdown: boolean;
 	}
 
-	const { title, onRichTextEditorSwitch }: Props = $props();
+	let { title, markdown = $bindable() }: Props = $props();
 </script>
 
 <div class="editor-header">
 	<h1 class="text-14 text-semibold">{title}</h1>
 
 	<SegmentControl
-		defaultIndex={1}
+		defaultIndex={markdown ? 1 : 0}
 		onselect={(id) => {
-			if (id === 'plain') {
-				onRichTextEditorSwitch(false);
-			} else {
-				onRichTextEditorSwitch(true);
-			}
+			markdown = id === 'richtext';
 		}}
 	>
 		<Segment id="plain">Plain</Segment>
