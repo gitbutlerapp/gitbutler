@@ -118,6 +118,32 @@ impl StackBranch {
     }
 
     pub fn set_name(&mut self, name: String, repo: &gix::Repository) -> Result<()> {
+        self.rename_real_reference(&name, repo)?;
+        self.name = name;
+        Ok(())
+    }
+
+    pub fn delete_reference(&self, repo: &gix::Repository) -> Result<()> {
+        let oid = match self.head.clone() {
+            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(&id)?,
+            CommitOrChangeId::ChangeId(_) => return Ok(()), // noop
+        };
+        let current_name: BString = qualified_reference_name(self.name()).into();
+        if let Some(reference) = repo.try_find_reference(&current_name)? {
+            let delete = RefEdit {
+                change: Change::Delete {
+                    expected: PreviousValue::MustExistAndMatch(oid.into()),
+                    log: RefLog::AndReference,
+                },
+                name: reference.name().into(),
+                deref: false,
+            };
+            repo.edit_references([delete])?;
+        }
+        Ok(())
+    }
+
+    fn rename_real_reference(&self, name: &str, repo: &gix::Repository) -> Result<()> {
         let current_name: BString = qualified_reference_name(self.name()).into();
 
         let oid = match self.head.clone() {
@@ -144,40 +170,18 @@ impl StackBranch {
                     expected: PreviousValue::ExistingMustMatch(oid.into()),
                     new: Target::Object(oid),
                 },
-                name: qualified_reference_name(&name).try_into()?,
+                name: qualified_reference_name(name).try_into()?,
                 deref: false,
             };
             repo.edit_references([delete, create])?;
         } else {
             repo.reference(
-                qualified_reference_name(&name),
+                qualified_reference_name(name),
                 oid,
                 PreviousValue::MustNotExist,
                 "GitButler reference",
             )?;
         };
-
-        self.name = name;
-        Ok(())
-    }
-
-    pub fn delete_reference(&self, repo: &gix::Repository) -> Result<()> {
-        let oid = match self.head.clone() {
-            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(&id)?,
-            CommitOrChangeId::ChangeId(_) => return Ok(()), // noop
-        };
-        let current_name: BString = qualified_reference_name(self.name()).into();
-        if let Some(reference) = repo.try_find_reference(&current_name)? {
-            let delete = RefEdit {
-                change: Change::Delete {
-                    expected: PreviousValue::MustExistAndMatch(oid.into()),
-                    log: RefLog::AndReference,
-                },
-                name: reference.name().into(),
-                deref: false,
-            };
-            repo.edit_references([delete])?;
-        }
         Ok(())
     }
 
