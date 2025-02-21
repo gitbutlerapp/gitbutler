@@ -1,5 +1,4 @@
 <script lang="ts">
-	import SelectionView from '$components/SelectionView.svelte';
 	import StackDetails from '$components/v3/StackDetails.svelte';
 	import type { PageData } from './$types';
 	import { page } from '$app/state';
@@ -12,9 +11,4 @@
 
 {#if stackId}
 	<StackDetails {projectId} {stackId} />
-{:else}
-	<SelectionView {projectId} />
 {/if}
-
-<style>
-</style>
