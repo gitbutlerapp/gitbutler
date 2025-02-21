@@ -46,7 +46,7 @@ pub(crate) fn remove_head(
 /// Returns new, updated list of heads with the new head added in the correct position.
 /// If there are multiple heads pointing to the same patch, it uses `preceding_head` to disambiguate the order.
 // TODO: when there is a patch reference for a commit ID and a patch reference for a change ID, recognize if they are equivalent (i.e. point to the same commit)
-pub(crate) fn add_head(
+pub fn add_head(
     existing_heads: Vec<StackBranch>,
     new_head: StackBranch,
     preceding_head: Option<StackBranch>,
@@ -137,42 +137,4 @@ pub(crate) fn add_head(
         bail!("Error while adding head - there must be at least one head in an initialized stack");
     }
     Ok(updated_heads)
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    #[test]
-    fn add_head_with_archived_bottom_head() -> Result<()> {
-        let mut head_1_archived = StackBranch::new(
-            CommitOrChangeId::CommitId("328447a2-08aa-4c4d-a1bc-08d5cd82bcd4".to_string()),
-            "kv-branch-3".to_string(),
-            None,
-        );
-        head_1_archived.archived = true;
-        let head_2 = StackBranch::new(
-            CommitOrChangeId::CommitId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
-            "more-on-top".to_string(),
-            None,
-        );
-        let existing_heads = vec![head_1_archived.clone(), head_2.clone()];
-        let new_head = StackBranch::new(
-            CommitOrChangeId::CommitId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
-            "abcd".to_string(),
-            None,
-        );
-        let patches = vec![
-            CommitOrChangeId::CommitId("92a89ae608d77ff75c1ce52ea9dccc0bccd577e9".to_string()),
-            CommitOrChangeId::CommitId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
-        ];
-
-        let updated_heads = add_head(
-            existing_heads,
-            new_head.clone(),
-            Some(head_2.clone()),
-            patches,
-        )?;
-        assert_eq!(updated_heads, vec![head_1_archived, head_2, new_head]);
-        Ok(())
-    }
 }

@@ -306,9 +306,10 @@ impl Stack {
     ) -> Result<StackBranch> {
         let commit = ctx.repo().find_commit(self.head())?;
         let state = branch_state(ctx);
+        let repo = ctx.gix_repository()?;
 
         let name = Stack::next_available_name(
-            ctx,
+            &repo,
             &state,
             if let Some(refname) = self.upstream.as_ref() {
                 refname.branch().to_string()
@@ -319,14 +320,14 @@ impl Stack {
             allow_duplicate_refs,
         )?;
 
-        let reference = StackBranch::new(commit.into(), name, None);
+        let reference = StackBranch::new(commit.into(), name, None, &repo)?;
         validate_name(&reference, &state)?;
 
         Ok(reference)
     }
 
     fn next_available_name(
-        ctx: &CommandContext,
+        repo: &gix::Repository,
         state: &VirtualBranchesHandle,
         mut name: String,
         allow_duplicate_refs: bool,
@@ -335,10 +336,9 @@ impl Stack {
             Ok(if allow_duplicate_refs {
                 patch_reference_exists(state, name)?
             } else {
-                let repository = ctx.gix_repository()?;
                 patch_reference_exists(state, name)?
-                    || local_reference_exists(&repository, name)?
-                    || remote_reference_exists(&repository, state, name)?
+                    || local_reference_exists(repo, name)?
+                    || remote_reference_exists(repo, state, name)?
             })
         };
         while is_duplicate(&name)? {
@@ -402,7 +402,9 @@ impl Stack {
         let current_top_head = self.heads.last().ok_or(anyhow!(
             "Stack is in an invalid state - heads list is empty"
         ))?;
-        let new_head = StackBranch::new(current_top_head.head().to_owned(), name, description);
+        let repo = ctx.gix_repository()?;
+        let new_head =
+            StackBranch::new(current_top_head.head().to_owned(), name, description, &repo)?;
         self.add_series(ctx, new_head, Some(current_top_head.name().clone()))
     }
 

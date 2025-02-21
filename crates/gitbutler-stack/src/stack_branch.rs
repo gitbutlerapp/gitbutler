@@ -79,15 +79,22 @@ impl RepositoryExt for git2::Repository {
 }
 
 impl StackBranch {
-    pub fn new(head: CommitOrChangeId, name: String, description: Option<String>) -> Self {
-        StackBranch {
+    pub fn new(
+        head: CommitOrChangeId,
+        name: String,
+        description: Option<String>,
+        repo: &gix::Repository,
+    ) -> Result<Self> {
+        let branch = StackBranch {
             head,
             name,
             description,
             pr_number: None,
             archived: false,
             review_id: None,
-        }
+        };
+        branch.set_real_reference(repo, &branch.head)?;
+        Ok(branch)
     }
 
     pub fn head(&self) -> &CommitOrChangeId {

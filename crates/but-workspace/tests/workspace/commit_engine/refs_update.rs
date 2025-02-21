@@ -144,6 +144,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
             ("s1-b/first", repo.rev_parse_single("@~1")?.detach()),
             ("s1-b/init", repo.rev_parse_single("@~2")?.detach()),
         ],
+        &repo,
     );
     vb.branches.insert(stack.id, stack);
 
@@ -155,6 +156,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
             ("s2-b/first", repo.rev_parse_single("@~1")?.detach()),
             ("s2-b/init", repo.rev_parse_single("@~2")?.detach()),
         ],
+        &repo,
     );
     vb.branches.insert(stack.id, stack);
 
@@ -274,7 +276,12 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
     * ecd6722 (tag: first-commit, first-commit) init
     ");
 
-    let stack = stack_with_branches("s1", head_commit_id, [("s1-b/init", initial_commit_id)]);
+    let stack = stack_with_branches(
+        "s1",
+        head_commit_id,
+        [("s1-b/init", initial_commit_id)],
+        &repo,
+    );
     vb.branches.insert(stack.id, stack);
     // Add 10 lines to the end.
     write_sequence(&repo, "file", [(30, None)])?;
@@ -430,7 +437,12 @@ fn branch_tip_below_non_merge_workspace_commit() -> anyhow::Result<()> {
     * 4342edf (tag: first-commit) init
     ");
 
-    let stack = stack_with_branches("s1", head_commit_id, [("s1-b/init", initial_commit_id)]);
+    let stack = stack_with_branches(
+        "s1",
+        head_commit_id,
+        [("s1-b/init", initial_commit_id)],
+        &repo,
+    );
     vb.branches.insert(stack.id, stack);
 
     write_sequence(&repo, "file", [(110, None)])?;
@@ -529,7 +541,7 @@ fn insert_commits_into_workspace() -> anyhow::Result<()> {
 
     let mut vb = VirtualBranchesState::default();
     let stack1_head = repo.rev_parse_single("merge^1")?.detach();
-    let stack = stack_with_branches("s1", head_commit_id, [("s1-b/init", stack1_head)]);
+    let stack = stack_with_branches("s1", head_commit_id, [("s1-b/init", stack1_head)], &repo);
     vb.branches.insert(stack.id, stack);
 
     // another 10 to the end (HEAD range is 1-30).
@@ -657,7 +669,7 @@ fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
 
     let branch_a = repo.rev_parse_single("A")?.detach();
     let mut vb = VirtualBranchesState::default();
-    let stack = stack_with_branches("s1", branch_a, [("s1-b/top", branch_a)]);
+    let stack = stack_with_branches("s1", branch_a, [("s1-b/top", branch_a)], &repo);
     vb.branches.insert(stack.id, stack);
 
     // initial is 1-30, remove first 5
@@ -745,6 +757,7 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
         // The order indicates which one actually is on top, even though they both point to the
         // same commit.
         [("s1-b/below-top", branch_a), ("s1-b/top", branch_a)],
+        &repo,
     );
     vb.branches.insert(stack.id, stack);
 
@@ -826,7 +839,7 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
 
     let branch_a = repo.rev_parse_single("A")?.detach();
     let mut vb = VirtualBranchesState::default();
-    let stack = stack_with_branches("s1", branch_a, [("s1-b/top", branch_a)]);
+    let stack = stack_with_branches("s1", branch_a, [("s1-b/top", branch_a)], &repo);
     vb.branches.insert(stack.id, stack);
 
     // initial is 1-30, make a change that transfers correctly to A where it is 5-20.
@@ -910,6 +923,7 @@ mod utils {
         name: &str,
         tip: gix::ObjectId,
         branches: impl IntoIterator<Item = (&'static str, gix::ObjectId)>,
+        repo: &gix::Repository,
     ) -> gitbutler_stack::Stack {
         gitbutler_stack::Stack {
             id: Default::default(),
@@ -918,7 +932,8 @@ mod utils {
             head: tip.to_git2(),
             heads: branches
                 .into_iter()
-                .map(|(name, target_id)| new_stack_branch(name, target_id))
+                .map(|(name, target_id)| new_stack_branch(name, target_id, repo))
+                .filter_map(Result::ok)
                 .collect(),
             notes: String::new(),
             source_refname: None,
@@ -936,11 +951,16 @@ mod utils {
         }
     }
 
-    fn new_stack_branch(name: &str, head: gix::ObjectId) -> gitbutler_stack::StackBranch {
+    fn new_stack_branch(
+        name: &str,
+        head: gix::ObjectId,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<gitbutler_stack::StackBranch> {
         gitbutler_stack::StackBranch::new(
             CommitOrChangeId::CommitId(head.to_string()),
             name.into(),
             None,
+            repo,
         )
     }
 

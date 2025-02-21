@@ -45,11 +45,12 @@ pub fn create_series(
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&req.name)?;
+    let repo = ctx.gix_repository()?;
     // If target_patch is None, create a new head that points to the top of the stack (most recent patch)
     if let Some(target_patch) = req.target_patch {
         stack.add_series(
             ctx,
-            StackBranch::new(target_patch, normalized_head_name, req.description),
+            StackBranch::new(target_patch, normalized_head_name, req.description, &repo)?,
             req.preceding_head,
         )
     } else {
