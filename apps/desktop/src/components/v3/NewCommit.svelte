@@ -48,12 +48,13 @@
 	 * TODO: Implement according to design.
 	 */
 	const commitParent = $derived(commit ? commit.id : $base?.baseSha);
-	const composer: CommitMessageEditor | undefined = $state();
+	let composer: CommitMessageEditor | undefined = $state();
 
 	/**
 	 * TODO: Is there a way of getting the value synchronously?
 	 */
 	function createCommit() {
+		console.log(composer);
 		composer?.getPlaintext((message) => {
 			try {
 				_createCommit(message);
@@ -64,6 +65,7 @@
 	}
 
 	function _createCommit(message: string) {
+		console.log(message, commitParent, selection);
 		stackService.createCommit(projectId, {
 			stackId,
 			parentId: commitParent!,
@@ -87,7 +89,7 @@
 
 <div class="new-commit">
 	<EditorHeader title="New commit" bind:markdown={$markdown} />
-	<CommitMessageEditor bind:markdown={$markdown} />
+	<CommitMessageEditor bind:this={composer} bind:markdown={$markdown} />
 	<EditorFooter onCancel={() => goto(stackPath(projectId, stackId))}>
 		<Button style="pop" onclick={createCommit} wide>Create commit</Button>
 	</EditorFooter>
