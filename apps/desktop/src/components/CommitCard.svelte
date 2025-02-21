@@ -28,6 +28,7 @@
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import { marked } from 'marked';
 	import { type Snippet } from 'svelte';
 
 	const userService = getContext(UserService);
@@ -377,7 +378,7 @@
 				<div class="commit__details">
 					{#if commit.descriptionBody}
 						<span class="commit__description text-12 text-body">
-							{commit.descriptionBody}
+							{@html marked(commit.descriptionBody)}
 						</span>
 					{/if}
 
