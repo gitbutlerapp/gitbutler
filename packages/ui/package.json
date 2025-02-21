@@ -68,6 +68,7 @@
 		"cpy-cli": "^5.0.0",
 		"dayjs": "^1.11.13",
 		"diff-match-patch": "^1.0.5",
+		"isomorphic-dompurify": "^2.22.0",
 		"marked": "catalog:",
 		"playwright": "1.47.0",
 		"postcss": "^8.4.49",

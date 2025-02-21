@@ -27,8 +27,8 @@
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
+	import { marked } from '@gitbutler/ui/utils/marked';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
-	import { marked } from 'marked';
 	import { type Snippet } from 'svelte';
 
 	const userService = getContext(UserService);

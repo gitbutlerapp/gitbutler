@@ -9,8 +9,8 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import { marked } from '@gitbutler/ui/utils/marked';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
-	import { marked } from 'marked';
 	import type { Commit, WorkspaceBranch } from '$lib/branches/v3';
 
 	interface Props {

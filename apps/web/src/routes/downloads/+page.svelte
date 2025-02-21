@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { marked } from 'marked';
+	import { marked } from '@gitbutler/ui/utils/marked';
 	import type { Build, Release } from '$lib/types/releases';
 
 	interface Props {
