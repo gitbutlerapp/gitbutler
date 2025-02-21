@@ -52,15 +52,7 @@
 		// undoCommit(commit);
 	}
 
-	function canEdit() {
-		if (!modeService) return false;
-		if (!stackId) return false;
-
-		return true;
-	}
-
 	async function editPatch() {
-		if (!canEdit()) return;
 		if (selectedBranchDetails?.name) {
 			modeService!.enterEditMode(commit.id, `refs/heads/${selectedBranchDetails.name}`);
 		}
@@ -144,15 +136,13 @@
 				>
 			{/if}
 		{/if}
-		{#if canEdit()}
-			<Button size="tag" kind="outline" onclick={handleEditPatch}>
-				{#if commit.hasConflicts}
-					Resolve conflicts
-				{:else}
-					Edit commit
-				{/if}
-			</Button>
-		{/if}
+		<Button size="tag" kind="outline" onclick={handleEditPatch}>
+			{#if commit.hasConflicts}
+				Resolve conflicts
+			{:else}
+				Edit commit
+			{/if}
+		</Button>
 	</div>
 </div>
 
