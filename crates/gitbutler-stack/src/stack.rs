@@ -321,7 +321,7 @@ impl Stack {
         )?;
 
         let reference = StackBranch::new(commit.into(), name, None, &repo)?;
-        validate_name(&reference, &state)?;
+        validate_name(reference.name(), &state)?;
 
         Ok(reference)
     }
@@ -384,7 +384,7 @@ impl Stack {
         };
         let state = branch_state(ctx);
         let patches = self.stack_patches(&ctx.to_stack_context()?, true)?;
-        validate_name(&new_head, &state)?;
+        validate_name(new_head.name(), &state)?;
         validate_target(new_head.head(), ctx.repo(), self.head(), &state)?;
         let updated_heads = add_head(self.heads.clone(), new_head, preceding_head, patches)?;
         self.heads = updated_heads;
@@ -483,7 +483,7 @@ impl Stack {
                 .find(|h: &&mut StackBranch| *h.name() == branch_name);
             if let Some(head) = head {
                 head.set_name(name, &ctx.gix_repository()?)?;
-                validate_name(head, &state)?;
+                validate_name(head.name(), &state)?;
                 head.pr_number = None; // reset pr_number
             }
         }
@@ -838,18 +838,15 @@ fn validate_target(
 ///  - unique within all stacks
 ///  - not the same as any existing local git reference (it is permitted for the name to match an existing remote reference)
 ///  - not including the `refs/heads/` prefix
-fn validate_name(reference: &StackBranch, state: &VirtualBranchesHandle) -> Result<()> {
-    if reference.name().starts_with("refs/heads") {
+fn validate_name(name: &str, state: &VirtualBranchesHandle) -> Result<()> {
+    if name.starts_with("refs/heads") {
         return Err(anyhow!("Stack head name cannot start with 'refs/heads'"));
     }
     // assert that the name is a valid branch name
-    name_partial(reference.name().as_str().into()).context("Invalid branch name")?;
+    name_partial(name.into()).context("Invalid branch name")?;
     // assert that there are no existing patch references with this name
-    if patch_reference_exists(state, reference.name())? {
-        return Err(anyhow!(
-            "A patch reference with the name {} exists",
-            &reference.name()
-        ));
+    if patch_reference_exists(state, name)? {
+        return Err(anyhow!("A patch reference with the name {} exists", name));
     }
 
     Ok(())
