@@ -12,11 +12,7 @@
 
 	let { first, commit, last, lastBranch, selectedCommitId = $bindable() }: Props = $props();
 
-	const commitTitle = $derived(
-		commit.message.includes('\n\n')
-			? commit.message.substring(0, commit.message.indexOf('\n\n'))
-			: commit.message.trim()
-	);
+	const commitTitle = $derived(commit.message.split('\n')[0]);
 </script>
 
 <button
