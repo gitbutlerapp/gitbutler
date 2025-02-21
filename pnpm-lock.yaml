@@ -9,6 +9,9 @@ catalogs:
     '@vitest/ui':
       specifier: 3.0.5
       version: 3.0.5
+    marked:
+      specifier: 15.0.7
+      version: 15.0.7
     vite:
       specifier: 6.1.0
       version: 6.1.0
@@ -245,6 +248,9 @@ importers:
       lscache:
         specifier: ^1.3.2
         version: 1.3.2
+      marked:
+        specifier: 'catalog:'
+        version: 15.0.7
       mocha:
         specifier: ^10.7.0
         version: 10.7.0
@@ -318,8 +324,8 @@ importers:
         specifier: ^11.10.0
         version: 11.10.0
       marked:
-        specifier: ^10.0.0
-        version: 10.0.0
+        specifier: 'catalog:'
+        version: 15.0.7
       satori:
         specifier: ^0.12.1
         version: 0.12.1
@@ -662,9 +668,6 @@ importers:
       '@types/diff-match-patch':
         specifier: ^1.0.36
         version: 1.0.36
-      '@types/marked':
-        specifier: ^5.0.2
-        version: 5.0.2
       '@types/postcss-pxtorem':
         specifier: ^6.1.0
         version: 6.1.0
@@ -684,8 +687,8 @@ importers:
         specifier: ^1.0.5
         version: 1.0.5
       marked:
-        specifier: ^10.0.0
-        version: 10.0.0
+        specifier: 'catalog:'
+        version: 15.0.7
       playwright:
         specifier: 1.47.0
         version: 1.47.0
@@ -2676,9 +2679,6 @@ packages:
 
   '@types/markdown-it@14.1.2':
     resolution: {integrity: sha512-promo4eFwuiW+TfGxhi+0x3czqTYJkG8qB17ZUJiVF10Xm7NLVRSLUsfRTU/6h1e24VvRnXCx+hG7li58lkzog==}
-
-  '@types/marked@5.0.2':
-    resolution: {integrity: sha512-OucS4KMHhFzhz27KxmWg7J+kIYqyqoW5kdIEI319hqARQQUTqhao3M/F+uFnDXD0Rg72iDDZxZNxq5gvctmLlg==}
 
   '@types/mdurl@2.0.0':
     resolution: {integrity: sha512-RGdgjQUZba5p6QEFAVx2OGb8rQDL/cPRG7GiedRzMcJ1tYnUANBncjbSB1NRGwbvjcPeikRABz2nshyPk1bhWg==}
@@ -5222,8 +5222,8 @@ packages:
     resolution: {integrity: sha512-a54IwgWPaeBCAAsv13YgmALOF1elABB08FxO9i+r4VFk5Vl4pKokRPeX8u5TCgSsPi6ec1otfLjdOpVcgbpshg==}
     hasBin: true
 
-  marked@10.0.0:
-    resolution: {integrity: sha512-YiGcYcWj50YrwBgNzFoYhQ1hT6GmQbFG8SksnYJX1z4BXTHSOrz1GB5/Jm2yQvMg4nN1FHP4M6r03R10KrVUiA==}
+  marked@15.0.7:
+    resolution: {integrity: sha512-dgLIeKGLx5FwziAnsk4ONoGwHwGPJzselimvlVskE9XLN4Orv9u2VA3GWw/lYUqjfA0rUT/6fqKwfZJapP9BEg==}
     engines: {node: '>= 18'}
     hasBin: true
 
@@ -9722,8 +9722,6 @@ snapshots:
       '@types/linkify-it': 5.0.0
       '@types/mdurl': 2.0.0
 
-  '@types/marked@5.0.2': {}
-
   '@types/mdurl@2.0.0': {}
 
   '@types/mdx@2.0.13': {}
@@ -12812,7 +12810,7 @@ snapshots:
       punycode.js: 2.3.1
       uc.micro: 2.1.0
 
-  marked@10.0.0: {}
+  marked@15.0.7: {}
 
   math-intrinsics@1.1.0:
     optional: true

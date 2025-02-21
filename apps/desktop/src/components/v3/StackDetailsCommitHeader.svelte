@@ -10,6 +10,7 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import { marked } from 'marked';
 	import type { Commit, WorkspaceBranch } from '$lib/branches/v3';
 
 	interface Props {
@@ -68,7 +69,7 @@
 </script>
 
 <div class="wrapper">
-	<div class="message text-12">{commitMessage}</div>
+	<div class="message text-12">{@html marked(commitMessage)}</div>
 	<div class="metadata text-11 text-semibold">
 		{#if commit.hasConflicts}
 			<Tooltip

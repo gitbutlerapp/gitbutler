@@ -59,7 +59,7 @@
 					// render markdowns
 					let markdowns = document.querySelectorAll('.markdown');
 					markdowns.forEach((markdown) => {
-						markdown.innerHTML = marked(markdown.innerHTML);
+						markdown.innerHTML = marked(markdown.innerHTML, { async: false });
 					});
 				}, 10);
 			});

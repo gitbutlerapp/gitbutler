@@ -7,6 +7,7 @@ catalog:
   'vite': '6.1.0'
   'vitest': '3.0.5'
   '@vitest/ui': '3.0.5'
+  'marked': '15.0.7'
 catalogs:
   svelte:
     'svelte': '5.19.7'

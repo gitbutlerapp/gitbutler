@@ -66,6 +66,7 @@
 		"postcss-nesting": "^12.1.5",
 		"postcss-pxtorem": "^6.1.0",
 		"posthog-js": "1.136.4",
+		"marked": "catalog:",
 		"reflect-metadata": "^0.2.2",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
