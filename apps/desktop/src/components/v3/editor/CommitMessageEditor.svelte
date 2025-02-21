@@ -1,4 +1,5 @@
 <script lang="ts">
+	import GiphyPlugin from '../GiphyPlugin.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { standardConfig } from '$lib/textEditor/config/config';
 	import { standardTheme } from '$lib/textEditor/config/theme';
@@ -121,6 +122,7 @@
 			<MarkdownShortcutPlugin transformers={ALL_TRANSFORMERS} />
 			<RichTextPlugin />
 			<SharedHistoryPlugin />
+			<GiphyPlugin />
 		{:else}
 			<PlainTextPlugin />
 		{/if}
