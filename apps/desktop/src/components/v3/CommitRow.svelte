@@ -15,7 +15,7 @@
 	const commitTitle = $derived(
 		commit.message.includes('\n\n')
 			? commit.message.substring(0, commit.message.indexOf('\n\n'))
-			: commit.message
+			: commit.message.trim()
 	);
 </script>
 
