@@ -39,6 +39,7 @@ pub(crate) fn remove_head(
         moved_another_reference = true;
     }
     heads.remove(idx);
+    head.delete_reference(repo)?;
     Ok((heads, moved_another_reference))
 }
 

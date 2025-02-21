@@ -161,6 +161,26 @@ impl StackBranch {
         Ok(())
     }
 
+    pub fn delete_reference(&self, repo: &gix::Repository) -> Result<()> {
+        let oid = match self.head.clone() {
+            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(&id)?,
+            CommitOrChangeId::ChangeId(_) => return Ok(()), // noop
+        };
+        let current_name: BString = qualified_reference_name(self.name()).into();
+        if let Some(reference) = repo.try_find_reference(&current_name)? {
+            let delete = RefEdit {
+                change: Change::Delete {
+                    expected: PreviousValue::MustExistAndMatch(oid.into()),
+                    log: RefLog::AndReference,
+                },
+                name: reference.name().into(),
+                deref: false,
+            };
+            repo.edit_references([delete])?;
+        }
+        Ok(())
+    }
+
     /// Creates or updates a real git reference using the head information (target commit, name)
     /// NB: If the operation is an update of an existing reference, the operation will only succeed if the old reference matches the expected value.
     ///     Therefore this should be invoked before `self.head` has been updated.
