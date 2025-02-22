@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FormattingPopup from './FormattingPopup.svelte';
 	import GiphyPlugin from '../GiphyPlugin.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { standardConfig } from '$lib/textEditor/config/config';
@@ -100,6 +101,8 @@
 		});
 	}
 </script>
+
+<FormattingPopup />
 
 <Composer {initialConfig} bind:this={composer}>
 	<div class="editor-container" bind:this={editorDiv}>
