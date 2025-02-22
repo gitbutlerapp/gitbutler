@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Button from '@gitbutler/ui/Button.svelte';
 
-	type FormattingAction =
+	type FormattingOptionType =
 		| 'bold'
 		| 'italic'
 		| 'underline'
@@ -17,7 +17,7 @@
 		| 'number-list'
 		| 'checkbox-list';
 	interface Props {
-		onClick: (action: FormattingAction) => void;
+		onClick: (action: FormattingOptionType) => void;
 	}
 
 	let { onClick }: Props = $props();

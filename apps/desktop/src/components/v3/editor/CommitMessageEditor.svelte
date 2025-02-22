@@ -102,7 +102,11 @@
 	}
 </script>
 
-<FormattingPopup />
+<FormattingPopup
+	onClick={(option) => {
+		console.log(option);
+	}}
+/>
 
 <Composer {initialConfig} bind:this={composer}>
 	<div class="editor-container" bind:this={editorDiv}>
