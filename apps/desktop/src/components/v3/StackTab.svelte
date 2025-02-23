@@ -91,7 +91,6 @@
 		overflow: hidden;
 		min-width: 100px;
 		scroll-snap-align: start;
-		flex-shrink: 0;
 
 		&::after {
 			content: '';
