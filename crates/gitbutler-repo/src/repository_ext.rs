@@ -1,7 +1,7 @@
 use crate::Config;
 use crate::SignaturePurpose;
 use anyhow::{anyhow, bail, Context, Result};
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BStr, BString};
 use git2::Tree;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_config::git::{GbConfig, GitConfig};
@@ -12,15 +12,8 @@ use gitbutler_oxidize::{
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::objs::WriteTo;
 use gix::status::index_worktree;
-use std::borrow::Cow;
 use std::collections::HashSet;
-use std::ffi::OsString;
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
-use std::path::Path;
-use std::{io::Write, process::Stdio, str};
+use std::str;
 use tracing::instrument;
 
 /// Extension trait for `git2::Repository`.
@@ -358,124 +351,7 @@ impl RepositoryExt for git2::Repository {
     }
 
     fn sign_buffer(&self, buffer: &[u8]) -> Result<BString> {
-        // check git config for gpg.signingkey
-        // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
-        let repo = gix::open(self.path())?;
-        let config = repo.config_snapshot();
-        let signing_key = config.string("user.signingkey");
-        let Some(signing_key) = signing_key else {
-            bail!("No signing key found");
-        };
-        let signing_key = signing_key.to_str().context("non-utf8 signing key")?;
-        let sign_format = config.string("gpg.format");
-        let is_ssh = if let Some(sign_format) = sign_format {
-            sign_format.as_ref() == "ssh"
-        } else {
-            false
-        };
-
-        if is_ssh {
-            // write commit data to a temp file so we can sign it
-            let mut signature_storage = tempfile::NamedTempFile::new()?;
-            signature_storage.write_all(buffer)?;
-            let buffer_file_to_sign_path = signature_storage.into_temp_path();
-
-            let gpg_program = config
-                .trusted_program("gpg.ssh.program")
-                .filter(|program| !program.is_empty())
-                .map_or_else(
-                    || Path::new("ssh-keygen").into(),
-                    |program| Cow::Owned(program.into_owned().into()),
-                );
-
-            let cmd = prepare_with_shell(gpg_program.into_owned())
-                .args(["-Y", "sign", "-n", "git", "-f"]);
-
-            // Write the key to a temp file. This is needs to be created in the
-            // same scope where its used; IE: in the command, otherwise the
-            // tmpfile will get garbage collected
-            let mut key_storage = tempfile::NamedTempFile::new()?;
-            // support literal ssh key
-            let signing_cmd = if let (true, signing_key) = is_literal_ssh_key(signing_key) {
-                key_storage.write_all(signing_key.as_bytes())?;
-
-                // if on unix
-                #[cfg(unix)]
-                {
-                    // make sure the tempfile permissions are acceptable for a private ssh key
-                    let mut permissions = key_storage.as_file().metadata()?.permissions();
-                    permissions.set_mode(0o600);
-                    key_storage.as_file().set_permissions(permissions)?;
-                }
-
-                cmd.arg(key_storage.path())
-                    .arg("-U")
-                    .arg(buffer_file_to_sign_path.to_path_buf())
-            } else {
-                cmd.arg(signing_key)
-                    .arg(buffer_file_to_sign_path.to_path_buf())
-            };
-            let output = into_command(signing_cmd)
-                .stderr(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stdin(Stdio::null())
-                .output()?;
-
-            if output.status.success() {
-                // read signed_storage path plus .sig
-                let signature_path = buffer_file_to_sign_path.with_extension("sig");
-                let sig_data = std::fs::read(signature_path)?;
-                let signature = BString::new(sig_data);
-                Ok(signature)
-            } else {
-                let stderr = BString::new(output.stderr);
-                let stdout = BString::new(output.stdout);
-                let std_both = format!("{} {}", stdout, stderr);
-                bail!("Failed to sign SSH: {}", std_both);
-            }
-        } else {
-            let gpg_program = config
-                .trusted_program("gpg.program")
-                .filter(|program| !program.is_empty())
-                .map_or_else(
-                    || Path::new("gpg").into(),
-                    |program| Cow::Owned(program.into_owned().into()),
-                );
-
-            let mut cmd = into_command(prepare_with_shell(gpg_program.as_ref()).args([
-                "--status-fd=2",
-                "-bsau",
-                signing_key,
-                "-",
-            ]));
-            cmd.stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .stdin(Stdio::piped());
-
-            let mut child = match cmd.spawn() {
-                Ok(child) => child,
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                    bail!("Could not find '{}'. Please make sure it is in your `PATH` or configure the full path using `gpg.program` in the Git configuration", gpg_program.display())
-                }
-                Err(err) => {
-                    return Err(err)
-                        .context(format!("Could not execute GPG program using {:?}", cmd))
-                }
-            };
-            child.stdin.take().expect("configured").write_all(buffer)?;
-
-            let output = child.wait_with_output()?;
-            if output.status.success() {
-                // read stdout
-                let signature = BString::new(output.stdout);
-                Ok(signature)
-            } else {
-                let stderr = BString::new(output.stderr);
-                let stdout = BString::new(output.stdout);
-                let std_both = format!("{} {}", stdout, stderr);
-                bail!("Failed to sign GPG: {}", std_both);
-            }
-        }
+        but_rebase::commit::sign_buffer(&gix::open(self.path())?, buffer)
     }
 
     fn remotes_as_string(&self) -> Result<Vec<String>> {
@@ -534,38 +410,6 @@ impl RepositoryExt for git2::Repository {
 
         Ok(output)
     }
-}
-
-fn prepare_with_shell(program: impl Into<OsString>) -> gix::command::Prepare {
-    let prepare = gix::command::prepare(program);
-    if cfg!(windows) {
-        prepare
-            .command_may_be_shell_script_disallow_manual_argument_splitting()
-            // On Windows, this yields the Git-bundled `sh.exe`, which is what we want.
-            .with_shell_program(gix::path::env::shell())
-            // force using a shell, we want access to additional programs here
-            .with_shell()
-            .with_quoted_command()
-    } else {
-        prepare
-    }
-}
-
-fn into_command(prepare: gix::command::Prepare) -> std::process::Command {
-    let cmd: std::process::Command = prepare.into();
-    tracing::debug!(?cmd, "command to produce commit signature");
-    cmd
-}
-
-/// Signs the buffer with the configured gpg key, returning the signature.
-pub fn is_literal_ssh_key(string: &str) -> (bool, &str) {
-    if let Some(key) = string.strip_prefix("key::") {
-        return (true, key);
-    }
-    if string.starts_with("ssh-") {
-        return (true, string);
-    }
-    (false, string)
 }
 
 pub struct CheckoutTreeBuidler<'a> {

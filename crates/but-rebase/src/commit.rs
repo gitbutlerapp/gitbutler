@@ -79,7 +79,8 @@ pub(crate) fn update_committer(
     Ok(())
 }
 
-fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BString> {
+/// Sign the given `buffer` using configuration from `repo`, just like Git would.
+pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BString> {
     // check git config for gpg.signingkey
     // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
     let config = repo.config_snapshot();
