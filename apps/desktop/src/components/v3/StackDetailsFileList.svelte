@@ -1,29 +1,24 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import FileList from '$components/v3/FileList.svelte';
-	import { ProjectService } from '$lib/project/projectService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import type { Commit } from '$lib/branches/v3';
 
 	interface Props {
+		projectId: string;
 		commit: Commit;
 	}
 
-	const { commit }: Props = $props();
-
-	const [projectService, stackService] = inject(ProjectService, StackService);
-	const projectId = projectService.projectId;
-
-	const commitChangesQuery = $derived(
-		commit?.id ? stackService.getCommitChanges(projectId, commit?.id) : undefined
-	);
+	const { projectId, commit }: Props = $props();
+	const [stackService] = inject(StackService);
+	const changesResults = $derived(stackService.commitChanges(projectId, commit.id).current);
 </script>
 
 <div class="wrapper">
 	<div class="header text-13 text-bold">Changed files</div>
-	{#if commitChangesQuery}
-		<ReduxResult result={commitChangesQuery.current}>
+	{#if changesResults}
+		<ReduxResult result={changesResults}>
 			{#snippet children(changes)}
 				<FileList {projectId} {changes} />
 			{/snippet}

@@ -3,6 +3,13 @@ import { splitMessage } from '$lib/utils/commitMessage';
 import { Transform } from 'class-transformer';
 import 'reflect-metadata';
 
+export type CommitKey = {
+	stackId: string;
+	branchName: string;
+	commitId: string;
+	upstream: boolean;
+};
+
 export class DetailedCommit {
 	id!: string;
 	author!: Author;

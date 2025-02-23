@@ -1,6 +1,6 @@
 <script lang="ts" generics="A">
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { QueryStatus } from '@reduxjs/toolkit/query';
+	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import type { Snippet } from 'svelte';
 
 	type Result<A> = {
@@ -22,7 +22,7 @@
 
 {#if status === 'fulfilled'}
 	<!-- Show empty message if data is an empty array. -->
-	{#if data !== undefined && (!Array.isArray(data) || data.length > 0)}
+	{#if data !== undefined}
 		{@render children(data)}
 	{:else}
 		{@render empty?.()}

@@ -1,7 +1,7 @@
 <script lang="ts" module>
 	// eslint-disable-next-line svelte/valid-compile
 	export enum PreviewMode {
-		EmptyBranch,
+		NewStack,
 		SelectToPreview,
 		Tip1,
 		Tip2,
@@ -15,7 +15,7 @@
 	}
 
 	const modeMap = {
-		[PreviewMode.EmptyBranch]: {
+		[PreviewMode.NewStack]: {
 			svg: EmptyStack,
 			type: PlaceholderType.Placeholder,
 			title: 'This is a new stack',
@@ -161,6 +161,7 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
+		align-items: center;
 
 		gap: 24px;
 		padding: 48px;

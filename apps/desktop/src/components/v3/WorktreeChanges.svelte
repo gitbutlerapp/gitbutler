@@ -3,7 +3,7 @@
 	import FileList from '$components/v3/FileList.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
-	import { commitPath, DesktopRoutesService } from '$lib/routes/routes.svelte';
+	import { createCommitPath, DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -12,10 +12,11 @@
 
 	type Props = {
 		projectId: string;
-		stackId?: string;
+		stackId: string;
+		branchName: string;
 	};
 
-	const { projectId, stackId }: Props = $props();
+	const { projectId, stackId, branchName }: Props = $props();
 
 	const changeSelection = getContext(ChangeSelectionService);
 	const worktreeService = getContext(WorktreeService);
@@ -39,32 +40,33 @@
 
 <ReduxResult result={changesQuery.current}>
 	{#snippet children(changes)}
-		<div class="uncommitted-changes">
-			<FileList {projectId} {changes} showCheckboxes={disabled} />
-			<div class="start-commit">
-				<Button
-					kind={disabled ? 'outline' : 'solid'}
-					type="button"
-					size="cta"
-					wide
-					{disabled}
-					onclick={() => {
-						if (stackId) {
-							goto(commitPath(projectId, stackId));
-						}
-					}}
-				>
-					Start a commit…
-				</Button>
+		{#if changes.length > 0}
+			<div class="uncommitted-changes">
+				<FileList {projectId} {changes} showCheckboxes={disabled} />
+				<div class="start-commit">
+					<Button
+						kind={disabled ? 'outline' : 'solid'}
+						type="button"
+						size="cta"
+						wide
+						{disabled}
+						onclick={() => {
+							if (stackId) {
+								goto(createCommitPath(projectId, stackId, branchName));
+							}
+						}}
+					>
+						Start a commit…
+					</Button>
+				</div>
 			</div>
-		</div>
-	{/snippet}
-	{#snippet empty()}
-		<div class="text-12 text-body helper-text">
-			{@html noChanges}
-			<div>You're all caught up!</div>
-			<div>No files need committing</div>
-		</div>
+		{:else}
+			<div class="text-12 text-body helper-text">
+				{@html noChanges}
+				<div>You're all caught up!</div>
+				<div>No files need committing</div>
+			</div>
+		{/if}
 	{/snippet}
 </ReduxResult>
 

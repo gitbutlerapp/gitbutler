@@ -11,32 +11,31 @@
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { marked } from '@gitbutler/ui/utils/marked';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
-	import type { Commit, WorkspaceBranch } from '$lib/branches/v3';
+	import type { Commit } from '$lib/branches/v3';
+	import type { CommitKey } from '$lib/commits/commit';
 
 	interface Props {
-		commit: Commit;
-		stackId: string;
 		projectId: string;
-		selectedBranchDetails?: WorkspaceBranch;
+		commitKey: CommitKey;
+		commit: Commit;
 	}
 
-	const { commit, stackId, projectId, selectedBranchDetails }: Props = $props();
+	const { projectId, commitKey, commit }: Props = $props();
+	const { stackId, branchName } = $derived(commitKey);
 
 	const [stackService, modeService] = inject(StackService, ModeService);
 	const commitShortSha = $derived(commit.id.substring(0, 7));
-	const commitMessage = $derived(commit.message.trim());
+	const commitMessage = $derived(commit.message);
 
 	let conflictResolutionConfirmationModal: ReturnType<typeof Modal> | undefined;
 	let commitMessageModal: ReturnType<typeof Modal> | undefined;
 	let commitMessageValid = $state(false);
 	let message = $state(commit.message);
 
-	let isUndoable = commit.state.type !== 'Integrated';
+	let isUndoable = $derived(commit.state.type !== 'Integrated');
 
 	function submitCommitMessageModal() {
-		if (stackId) {
-			stackService.updateCommitMessage(projectId, stackId, commit.id, message);
-		}
+		stackService.updateCommitMessage(projectId, stackId, commit.id, message);
 
 		commitMessageModal?.close();
 	}
@@ -54,8 +53,8 @@
 	}
 
 	async function editPatch() {
-		if (selectedBranchDetails?.name) {
-			modeService!.enterEditMode(commit.id, `refs/heads/${selectedBranchDetails.name}`);
+		if (branchName) {
+			modeService!.enterEditMode(commit.id, `refs/heads/${branchName}`);
 		}
 	}
 
@@ -152,7 +151,7 @@
 		<CommitMessageInput
 			bind:commitMessage={message}
 			bind:valid={commitMessageValid}
-			branchName={selectedBranchDetails?.name}
+			{branchName}
 			existingCommit={commit}
 			isExpanded={true}
 			cancel={close}

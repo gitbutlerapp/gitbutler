@@ -2,14 +2,14 @@
 	import { getColorFromBranchType } from '$components/v3/lib';
 
 	interface Props {
-		last?: boolean;
+		lastBranch?: boolean;
 	}
 
-	const { last }: Props = $props();
+	const { lastBranch }: Props = $props();
 </script>
 
 <div class="empty-series" style:--commit-color={getColorFromBranchType('LocalOnly')}>
-	<div class="commit-line" class:dashed={last}></div>
+	<div class="commit-line" class:dashed={lastBranch}></div>
 	<div class="text-13 text-body empty-series__label">
 		This is an empty branch.
 		<br />

@@ -2,6 +2,7 @@ import { tauriBaseQuery } from './backendQuery';
 import { butlerModule } from './butlerModule';
 import { ReduxTag } from './tags';
 import { changeSelectionSlice } from '$lib/selection/changeSelection.svelte';
+import { commitSelectionSlice } from '$lib/selection/commitSelection.svelte';
 import { configureStore } from '@reduxjs/toolkit';
 import { buildCreateApi, coreModule, type RootState } from '@reduxjs/toolkit/query';
 import type { Tauri } from '$lib/backend/tauri';
@@ -18,7 +19,8 @@ export class ClientState {
 	// value in the constructor such that we can inject dependencies. The
 	// incorrect casting `as` seems difficult to avoid.
 	rootState = $state.raw({} as ReturnType<typeof this.store.getState>);
-	readonly selectionState = $derived(this.rootState.changeSelection);
+	readonly changeSelection = $derived(this.rootState.changeSelection);
+	readonly commitSelection = $derived(this.rootState.commitSelection);
 
 	/** rtk-query api for communicating with the back end. */
 	readonly backendApi: ReturnType<typeof createApi>;
@@ -52,7 +54,8 @@ function createStore(tauri: Tauri, backend: ReturnType<typeof createApi>) {
 			// RTK Query API for the back end.
 			[backend.reducerPath]: backend.reducer,
 			// File and hunk selection state.
-			[changeSelectionSlice.reducerPath]: changeSelectionSlice.reducer
+			[changeSelectionSlice.reducerPath]: changeSelectionSlice.reducer,
+			[commitSelectionSlice.reducerPath]: commitSelectionSlice.reducer
 		},
 		middleware: (getDefaultMiddleware) => {
 			return getDefaultMiddleware({
