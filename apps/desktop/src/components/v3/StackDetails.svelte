@@ -3,9 +3,7 @@
 	import Resizer from '$components/Resizer.svelte';
 	import Branch from '$components/v3/Branch.svelte';
 	import StackCommitDetails from '$components/v3/StackCommitDetails.svelte';
-	import StackContentIllustration, {
-		PreviewMode
-	} from '$components/v3/StackContentIllustration.svelte';
+	import StackContentPlaceholder from '$components/v3/StackContentPlaceholder.svelte';
 	import { isStackedBranch } from '$components/v3/lib';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -30,15 +28,15 @@
 	const result = $derived(stackService.getStackBranches(projectId, stackId));
 	const stackData = $derived(result.current.data?.[0]);
 
-	const stackContentMode = $derived.by<PreviewMode>(() => {
+	const isNewStack = $derived.by(() => {
 		if (
 			!stackData ||
 			(isStackedBranch(stackData.state) && stackData.state.subject.localAndRemote.length === 0)
 		) {
-			return PreviewMode.EmptyBranch;
+			return true;
 		}
 
-		return PreviewMode.SelectToPreview;
+		return false;
 	});
 
 	let selectedCommitId = $state<string>();
@@ -97,13 +95,15 @@
 
 	{#if selectedCommitId}
 		<StackCommitDetails
-			bind:selectedCommitId
 			{stackId}
 			{selectedCommitDetails}
 			{selectedBranchDetails}
+			onClose={() => {
+				selectedCommitId = undefined;
+			}}
 		/>
 	{:else}
-		<StackContentIllustration mode={stackContentMode} />
+		<StackContentPlaceholder {isNewStack} />
 	{/if}
 </div>
 
