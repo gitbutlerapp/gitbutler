@@ -15,7 +15,7 @@
 			style: 'neutral',
 			kind: 'solid',
 			solidBackground: false,
-			helpShowDelay: 1200,
+			tooltipDelay: 1200,
 			id: 'button',
 			tabindex: 0,
 			type: 'button',
