@@ -136,12 +136,12 @@
 				<ReviewSections
 					{patch}
 					patchSections={patchSections?.current}
-					toggleDiffLine={(f, h, s, p) => diffLineSelection.toggle(f, h, s, p)}
+					toggleDiffLine={(f, s, p) => diffLineSelection.toggle(f, s, p)}
 					selectedSha={diffLineSelection.selectedSha}
 					selectedLines={diffLineSelection.selectedLines}
 					onCopySelection={(sections) => diffLineSelection.copy(sections)}
 					onQuoteSelection={() => diffLineSelection.quote()}
-					clearLineSelection={() => diffLineSelection.clear()}
+					clearLineSelection={(fileName) => diffLineSelection.clear(fileName)}
 				/>
 			</div>
 

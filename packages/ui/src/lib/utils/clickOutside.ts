@@ -1,4 +1,4 @@
-export type ClickOpts = { excludeElement?: Element; handler: () => void };
+export type ClickOpts = { excludeElement?: Element; handler: (event: MouseEvent) => void };
 
 export function clickOutside(node: HTMLElement, params: ClickOpts) {
 	function onClick(event: MouseEvent) {
@@ -7,7 +7,7 @@ export function clickOutside(node: HTMLElement, params: ClickOpts) {
 			!node.contains(event.target as HTMLElement) &&
 			!params.excludeElement?.contains(event.target as HTMLElement)
 		) {
-			params.handler();
+			params.handler(event);
 		}
 	}
 	document.addEventListener('pointerdown', onClick, true);

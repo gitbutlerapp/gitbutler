@@ -2,7 +2,7 @@ import { copyToClipboard } from '@gitbutler/shared/clipboard';
 import {
 	readDiffLineKey,
 	type DiffLineKey,
-	type DiffFileHunkKey,
+	type DiffFileKey,
 	createDiffFileHunkKey,
 	createDiffLineKey,
 	readDiffFileHunkKey,
@@ -20,7 +20,6 @@ export interface DiffLineSelected extends LineSelector {
 export interface DiffSelection {
 	diffSha: string;
 	fileName: string;
-	hunkIndex: number;
 	lines: DiffLineSelected[];
 }
 
@@ -77,27 +76,33 @@ function calculateSelectedLines(selectedDiffLines: SvelteSet<DiffLineKey>): Diff
 
 export default class DiffLineSelection {
 	private _quote = $state<boolean>(false);
-	private _diffSha = $state<string>();
 	private _selectedDiffLines = new SvelteSet<DiffLineKey>();
 	private _selectedLines: DiffLineSelected[] = $derived(
 		calculateSelectedLines(this._selectedDiffLines)
 	);
-	private _selectedDiffFileHunk = $state<DiffFileHunkKey>();
+	private _selectedDiffFile = $state<DiffFileKey>();
 
-	clear() {
+	clear(fileName?: string) {
+		if (fileName && this._selectedDiffFile) {
+			const parsed = readDiffFileHunkKey(this._selectedDiffFile);
+			if (!parsed) return; // This should never happen
+
+			const [selectedFileName, _] = parsed;
+
+			if (selectedFileName !== fileName) return;
+		}
+
 		this._selectedDiffLines.clear();
-		this._selectedDiffFileHunk = undefined;
-		this._diffSha = undefined;
+		this._selectedDiffFile = undefined;
 		this._quote = false;
 	}
 
-	toggle(fileName: string, hunkIndex: number, diffSha: string, params: LineClickParams) {
-		this._diffSha = diffSha;
-		const diffFileHunkKey = createDiffFileHunkKey(fileName, hunkIndex);
+	toggle(fileName: string, diffSha: string, params: LineClickParams) {
+		const diffFileHunkKey = createDiffFileHunkKey(fileName, diffSha);
 
-		if (this._selectedDiffFileHunk !== diffFileHunkKey) {
+		if (this._selectedDiffFile !== diffFileHunkKey) {
 			this._selectedDiffLines.clear();
-			this._selectedDiffFileHunk = diffFileHunkKey;
+			this._selectedDiffFile = diffFileHunkKey;
 		}
 
 		const key = createDiffLineKey(params.index, params.oldLine, params.newLine);
@@ -150,26 +155,25 @@ export default class DiffLineSelection {
 	}
 
 	get selectedSha() {
-		return this._diffSha;
+		if (!this._selectedDiffFile) return;
+
+		const parsed = readDiffFileHunkKey(this._selectedDiffFile);
+		if (!parsed) return;
+
+		const [_, sha] = parsed;
+		return sha;
 	}
 
 	get diffSelection(): DiffSelection | undefined {
-		if (
-			!this._quote ||
-			!this._selectedDiffFileHunk ||
-			this._selectedLines.length === 0 ||
-			this._diffSha === undefined
-		)
-			return;
+		if (!this._quote || !this._selectedDiffFile || this._selectedLines.length === 0) return;
 
-		const parsed = readDiffFileHunkKey(this._selectedDiffFileHunk);
+		const parsed = readDiffFileHunkKey(this._selectedDiffFile);
 		if (!parsed) return;
-		const [fileName, hunkIndex] = parsed;
+		const [fileName, diffSha] = parsed;
 
 		return {
-			diffSha: this._diffSha,
+			diffSha,
 			fileName,
-			hunkIndex,
 			lines: this._selectedLines
 		};
 	}

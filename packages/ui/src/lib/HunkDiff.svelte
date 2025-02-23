@@ -25,7 +25,7 @@
 		onchange?: (selected: boolean) => void;
 		selectedLines?: LineSelector[];
 		onLineClick?: (params: LineSelectionParams) => void;
-		clearLineSelection?: () => void;
+		clearLineSelection?: (fileName: string) => void;
 		onQuoteSelection?: () => void;
 		onCopySelection?: (contentSections: ContentSection[]) => void;
 	}
@@ -105,7 +105,7 @@
 			{filePath}
 			content={hunk.contentSections}
 			{onLineClick}
-			{clearLineSelection}
+			clearLineSelection={() => clearLineSelection?.(filePath)}
 			{wrapText}
 			{tabSize}
 			{inlineUnifiedDiffs}

@@ -8,13 +8,8 @@
 		section: Section;
 		selectedSha: string | undefined;
 		selectedLines: LineSelector[];
-		clearLineSelection: () => void;
-		toggleDiffLine: (
-			fileName: string,
-			hunkIndex: number,
-			diffSha: string,
-			params: LineClickParams
-		) => void;
+		clearLineSelection: (fileName: string) => void;
+		toggleDiffLine: (fileName: string, diffSha: string, params: LineClickParams) => void;
 		onCopySelection: (contentSections: ContentSection[]) => void;
 		onQuoteSelection: () => void;
 	}
