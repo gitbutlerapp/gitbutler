@@ -92,10 +92,8 @@
 				copyToClipboard(commit.id);
 			}}
 		>
-			<span class="">{commitShortSha}</span>
-			<div class="">
-				<Icon name="copy-small" />
-			</div>
+			<span>{commitShortSha}</span>
+			<Icon name="copy-small" />
 		</button>
 		<span class="divider">•</span>
 		<button
@@ -109,12 +107,12 @@
 		>
 			<span>Open</span>
 
-			<div class="">
+			<div>
 				<Icon name="open-link" />
 			</div>
 		</button>
 		<span class="divider">•</span>
-		<span class="">{getTimeAgo(new Date(commit.createdAt))}</span>
+		<span>{getTimeAgo(new Date(commit.createdAt))}</span>
 	</div>
 	<div class="actions">
 		{#if isUndoable}
