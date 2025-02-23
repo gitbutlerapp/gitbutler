@@ -13,6 +13,7 @@ pub use state::{VirtualBranches as VirtualBranchesState, VirtualBranchesHandle};
 pub use target::Target;
 
 mod heads;
+pub use heads::add_head;
 pub use stack::{commit_by_oid_or_change_id, CommitsForId, PatchReferenceUpdate, TargetUpdate};
 
 // This is here because CommitOrChangeId::ChangeId is deprecated, for some reason allow cant be done on the CommitOrChangeId struct

@@ -306,9 +306,10 @@ impl Stack {
     ) -> Result<StackBranch> {
         let commit = ctx.repo().find_commit(self.head())?;
         let state = branch_state(ctx);
+        let repo = ctx.gix_repository()?;
 
         let name = Stack::next_available_name(
-            ctx,
+            &repo,
             &state,
             if let Some(refname) = self.upstream.as_ref() {
                 refname.branch().to_string()
@@ -319,14 +320,14 @@ impl Stack {
             allow_duplicate_refs,
         )?;
 
-        let reference = StackBranch::new(commit.into(), name, None);
-        validate_name(&reference, &state)?;
+        validate_name(&name, &state)?;
+        let reference = StackBranch::new(commit.into(), name, None, &repo)?;
 
         Ok(reference)
     }
 
     fn next_available_name(
-        ctx: &CommandContext,
+        repo: &gix::Repository,
         state: &VirtualBranchesHandle,
         mut name: String,
         allow_duplicate_refs: bool,
@@ -335,10 +336,9 @@ impl Stack {
             Ok(if allow_duplicate_refs {
                 patch_reference_exists(state, name)?
             } else {
-                let repository = ctx.gix_repository()?;
                 patch_reference_exists(state, name)?
-                    || local_reference_exists(&repository, name)?
-                    || remote_reference_exists(&repository, state, name)?
+                    || local_reference_exists(repo, name)?
+                    || remote_reference_exists(repo, state, name)?
             })
         };
         while is_duplicate(&name)? {
@@ -384,8 +384,8 @@ impl Stack {
         };
         let state = branch_state(ctx);
         let patches = self.stack_patches(&ctx.to_stack_context()?, true)?;
-        validate_name(&new_head, &state)?;
-        validate_target(&new_head, ctx.repo(), self.head(), &state)?;
+        validate_name(new_head.name(), &state)?;
+        validate_target(new_head.head(), ctx.repo(), self.head(), &state)?;
         let updated_heads = add_head(self.heads.clone(), new_head, preceding_head, patches)?;
         self.heads = updated_heads;
         state.set_stack(self.clone())
@@ -402,7 +402,9 @@ impl Stack {
         let current_top_head = self.heads.last().ok_or(anyhow!(
             "Stack is in an invalid state - heads list is empty"
         ))?;
-        let new_head = StackBranch::new(current_top_head.head().to_owned(), name, description);
+        let repo = ctx.gix_repository()?;
+        let new_head =
+            StackBranch::new(current_top_head.head().to_owned(), name, description, &repo)?;
         self.add_series(ctx, new_head, Some(current_top_head.name().clone()))
     }
 
@@ -414,7 +416,7 @@ impl Stack {
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
     pub fn remove_series(&mut self, ctx: &CommandContext, branch_name: String) -> Result<()> {
         self.ensure_initialized()?;
-        (self.heads, _) = remove_head(self.heads.clone(), branch_name)?;
+        (self.heads, _) = remove_head(self.heads.clone(), branch_name, &ctx.gix_repository()?)?;
         let state = branch_state(ctx);
         state.set_stack(self.clone())
     }
@@ -446,8 +448,8 @@ impl Stack {
                 .into_iter()
                 .find(|h| *h.name() == branch_name)
                 .ok_or_else(|| anyhow!("Series with name {} not found", branch_name))?;
-            new_head.set_head(target_update.target.clone());
-            validate_target(&new_head, ctx.repo(), self.head(), &state)?;
+            new_head.set_head(target_update.target.clone(), &ctx.gix_repository()?)?;
+            validate_target(new_head.head(), ctx.repo(), self.head(), &state)?;
             let preceding_head = if let Some(preceding_head_name) = update
                 .target_update
                 .clone()
@@ -480,8 +482,8 @@ impl Stack {
                 .iter_mut()
                 .find(|h: &&mut StackBranch| *h.name() == branch_name);
             if let Some(head) = head {
-                head.set_name(name);
-                validate_name(head, &state)?;
+                validate_name(&name, &state)?;
+                head.set_name(name, &ctx.gix_repository()?)?;
                 head.pr_number = None; // reset pr_number
             }
         }
@@ -525,8 +527,8 @@ impl Stack {
             .heads
             .last_mut()
             .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
-        head.set_head(commit.into());
-        validate_target(head, ctx.repo(), stack_head, &state)?;
+        head.set_head(commit.into(), &ctx.gix_repository()?)?;
+        validate_target(head.head(), ctx.repo(), stack_head, &state)?;
         state.set_stack(self.clone())
     }
 
@@ -627,6 +629,7 @@ impl Stack {
         let state = branch_state(ctx);
         let mut updated_heads: Vec<StackBranch> = vec![];
 
+        let gix_repo = ctx.gix_repository()?;
         for head in matching_heads {
             if self.heads.last().cloned() == Some(head.clone()) {
                 // the head is the stack head - update it accordingly
@@ -634,9 +637,9 @@ impl Stack {
             } else {
                 // new head target from the 'to' commit
                 let mut new_head = head.clone();
-                new_head.set_head(to.clone().into());
+                new_head.set_head(to.clone().into(), &gix_repo)?;
                 // validate the updated head
-                validate_target(&new_head, ctx.repo(), self.head(), &state)?;
+                validate_target(new_head.head(), ctx.repo(), self.head(), &state)?;
                 // add it to the list of updated heads
                 updated_heads.push(new_head);
             }
@@ -681,12 +684,12 @@ impl Stack {
             return Err(anyhow!("The new head names do not match the current heads"));
         }
         let stack_head = self.head();
+        let gix_repo = ctx.gix_repository()?;
         for head in &mut self.heads {
             if let Some(commit) = new_heads.get(head.name()) {
-                let mut updated = head.clone();
-                updated.set_head(commit.clone().into());
-                validate_target(&updated, ctx.repo(), stack_head, &state)?;
-                head.set_head(commit.clone().into());
+                let new_head = commit.clone().into();
+                validate_target(&new_head, ctx.repo(), stack_head, &state)?;
+                head.set_head(commit.clone().into(), &gix_repo)?;
             }
         }
         state.set_stack(self.clone())?;
@@ -805,14 +808,14 @@ impl TryFrom<&Stack> for VirtualRefname {
 /// If the patch reference is a commit ID, it must be the case that the commit has no change ID associated with it.
 /// In other words, change IDs are enforced to be preferred over commit IDs when available.
 fn validate_target(
-    reference: &StackBranch,
+    reference: &CommitOrChangeId,
     repo: &git2::Repository,
     stack_head: git2::Oid,
     state: &VirtualBranchesHandle,
 ) -> Result<()> {
     let default_target = state.get_default_target()?;
     let merge_base = repo.merge_base(stack_head, default_target.sha)?;
-    let commit = commit_by_oid_or_change_id(reference.head(), repo, stack_head, merge_base)?.head;
+    let commit = commit_by_oid_or_change_id(reference, repo, stack_head, merge_base)?.head;
 
     let merge_base = repo.merge_base(stack_head, default_target.sha)?;
     let mut stack_commits = repo
@@ -835,18 +838,15 @@ fn validate_target(
 ///  - unique within all stacks
 ///  - not the same as any existing local git reference (it is permitted for the name to match an existing remote reference)
 ///  - not including the `refs/heads/` prefix
-fn validate_name(reference: &StackBranch, state: &VirtualBranchesHandle) -> Result<()> {
-    if reference.name().starts_with("refs/heads") {
+fn validate_name(name: &str, state: &VirtualBranchesHandle) -> Result<()> {
+    if name.starts_with("refs/heads") {
         return Err(anyhow!("Stack head name cannot start with 'refs/heads'"));
     }
     // assert that the name is a valid branch name
-    name_partial(reference.name().as_str().into()).context("Invalid branch name")?;
+    name_partial(name.into()).context("Invalid branch name")?;
     // assert that there are no existing patch references with this name
-    if patch_reference_exists(state, reference.name())? {
-        return Err(anyhow!(
-            "A patch reference with the name {} exists",
-            &reference.name()
-        ));
+    if patch_reference_exists(state, name)? {
+        return Err(anyhow!("A patch reference with the name {} exists", name));
     }
 
     Ok(())

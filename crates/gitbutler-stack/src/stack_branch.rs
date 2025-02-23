@@ -1,10 +1,15 @@
-use anyhow::Result;
+use anyhow::{Ok, Result};
+use bstr::BString;
 use git2::{Commit, Oid};
 use gitbutler_commit::commit_ext::CommitVecExt;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
+use gix::refs::{
+    transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
+    Target,
+};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
 
 use crate::{commit_by_oid_or_change_id, stack_context::StackContext, Stack};
 
@@ -74,31 +79,139 @@ impl RepositoryExt for git2::Repository {
 }
 
 impl StackBranch {
-    pub fn new(head: CommitOrChangeId, name: String, description: Option<String>) -> Self {
-        StackBranch {
+    pub fn new(
+        head: CommitOrChangeId,
+        name: String,
+        description: Option<String>,
+        repo: &gix::Repository,
+    ) -> Result<Self> {
+        let branch = StackBranch {
             head,
             name,
             description,
             pr_number: None,
             archived: false,
             review_id: None,
-        }
+        };
+        branch.set_real_reference(repo, &branch.head)?;
+        Ok(branch)
     }
 
     pub fn head(&self) -> &CommitOrChangeId {
         &self.head
     }
 
-    pub fn set_head(&mut self, head: CommitOrChangeId) {
+    /// This will update the commit that this points to (the virtual reference in virtual_branches.toml) as well as update of create a real git reference.
+    /// If this points to a change id, it's a noop operation. In practice, moving forward, new CommitOrChangeId entries will always be CommitId and ChangeId may only appear in deserialized data.
+    pub fn set_head(
+        &mut self,
+        head: CommitOrChangeId,
+        repo: &gix::Repository,
+    ) -> Result<Option<BString>> {
+        let refname = self.set_real_reference(repo, &head)?;
         self.head = head;
+        Ok(refname)
     }
 
     pub fn name(&self) -> &String {
         &self.name
     }
 
-    pub fn set_name(&mut self, name: String) {
+    pub fn set_name(&mut self, name: String, repo: &gix::Repository) -> Result<()> {
+        self.rename_real_reference(&name, repo)?;
         self.name = name;
+        Ok(())
+    }
+
+    pub fn delete_reference(&self, repo: &gix::Repository) -> Result<()> {
+        let oid = match self.head.clone() {
+            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(&id)?,
+            CommitOrChangeId::ChangeId(_) => return Ok(()), // noop
+        };
+        let current_name: BString = qualified_reference_name(self.name()).into();
+        if let Some(reference) = repo.try_find_reference(&current_name)? {
+            let delete = RefEdit {
+                change: Change::Delete {
+                    expected: PreviousValue::MustExistAndMatch(oid.into()),
+                    log: RefLog::AndReference,
+                },
+                name: reference.name().into(),
+                deref: false,
+            };
+            repo.edit_reference(delete)?;
+        }
+        Ok(())
+    }
+
+    fn rename_real_reference(&self, name: &str, repo: &gix::Repository) -> Result<()> {
+        if self.name == name {
+            return Ok(()); // noop
+        }
+        let current_name: BString = qualified_reference_name(self.name()).into();
+
+        let oid = match self.head.clone() {
+            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(&id)?,
+            CommitOrChangeId::ChangeId(_) => return Ok(()), // noop
+        };
+
+        if let Some(reference) = repo.try_find_reference(&current_name)? {
+            let delete = RefEdit {
+                change: Change::Delete {
+                    expected: PreviousValue::MustExistAndMatch(oid.into()),
+                    log: RefLog::AndReference,
+                },
+                name: reference.name().into(),
+                deref: false,
+            };
+            let create = RefEdit {
+                change: Change::Update {
+                    log: LogChange {
+                        mode: RefLog::AndReference,
+                        force_create_reflog: false,
+                        message: "GitButler reference".into(),
+                    },
+                    expected: PreviousValue::ExistingMustMatch(oid.into()),
+                    new: Target::Object(oid),
+                },
+                name: qualified_reference_name(name).try_into()?,
+                deref: false,
+            };
+            repo.edit_references([delete, create])?;
+        } else {
+            repo.reference(
+                qualified_reference_name(name),
+                oid,
+                PreviousValue::MustNotExist,
+                "GitButler reference",
+            )?;
+        };
+        Ok(())
+    }
+
+    /// Creates or updates a real git reference using the head information (target commit, name)
+    /// NB: If the operation is an update of an existing reference, the operation will only succeed if the old reference matches the expected value.
+    ///     Therefore this should be invoked before `self.head` has been updated.
+    /// If the head is expressed as a change id, this is a noop
+    fn set_real_reference(
+        &self,
+        repo: &gix::Repository,
+        new_head: &CommitOrChangeId,
+    ) -> Result<Option<BString>> {
+        let new_oid = match new_head {
+            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(id)?,
+            CommitOrChangeId::ChangeId(_) => return Ok(None), // noop
+        };
+        let old_oid: gix::ObjectId = match self.head.clone() {
+            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(&id)?,
+            CommitOrChangeId::ChangeId(_) => return Ok(None), // noop
+        };
+        let reference = repo.reference(
+            qualified_reference_name(self.name()),
+            new_oid,
+            PreviousValue::ExistingMustMatch(old_oid.into()),
+            "GitButler reference",
+        )?;
+        Ok(Some(reference.name().as_bstr().to_owned()))
     }
 
     pub fn head_oid(&self, stack_context: &StackContext, stack: &Stack) -> Result<Oid> {
@@ -212,6 +325,11 @@ impl StackBranch {
 /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
 pub fn remote_reference(name: &String, remote: &str) -> String {
     format!("refs/remotes/{}/{}", remote, name)
+}
+
+/// Returns a fully qualified reference name e.g. `refs/heads/my-branch`
+fn qualified_reference_name(name: &str) -> String {
+    format!("refs/heads/{}", name.trim_matches('/'))
 }
 
 /// Represents the commits that belong to a `Branch` within a `Stack`.
