@@ -138,12 +138,15 @@ impl StackBranch {
                 name: reference.name().into(),
                 deref: false,
             };
-            repo.edit_references([delete])?;
+            repo.edit_reference(delete)?;
         }
         Ok(())
     }
 
     fn rename_real_reference(&self, name: &str, repo: &gix::Repository) -> Result<()> {
+        if self.name == name {
+            return Ok(()); // noop
+        }
         let current_name: BString = qualified_reference_name(self.name()).into();
 
         let oid = match self.head.clone() {

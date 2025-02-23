@@ -32,7 +32,7 @@ pub fn rewrite(
         == 1;
     for (old, new) in changed_commits {
         let old_git2 = old.to_git2();
-        let mut already_updated_refs: Vec<bstr::BString> = Vec::new();
+        let mut already_updated_refs = vec![];
         'stacks: for stack in &mut branches_ordered {
             if stack.head == old_git2 {
                 stack.head = new.to_git2();
