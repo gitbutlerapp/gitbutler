@@ -1,9 +1,9 @@
 <script lang="ts">
 	import EmptyStack from '$lib/assets/illustrations/empty-stack-placeholder.svg?raw';
 	import SelectACommitSVG from '$lib/assets/illustrations/select-a-commit-preview.svg?raw';
-	import CommitAndPush from '$lib/assets/illustrations/tip-commit-and-push.svg?raw';
-	import ManageCommits from '$lib/assets/illustrations/tip-manage-commits.svg?raw';
-	import WhatIsAStack from '$lib/assets/illustrations/tip-what-is-a-stack.svg?raw';
+	import CommitAndPushSVG from '$lib/assets/illustrations/tip-commit-and-push.svg?raw';
+	import ManageCommitsSVG from '$lib/assets/illustrations/tip-manage-commits.svg?raw';
+	import WhatIsAStackSVG from '$lib/assets/illustrations/tip-what-is-a-stack.svg?raw';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { slide } from 'svelte/transition';
@@ -34,7 +34,7 @@
 		},
 		tip1: {
 			placeholder: true,
-			svg: WhatIsAStack,
+			svg: WhatIsAStackSVG,
 			title: 'What is a stack',
 			body: `
 				Stack is a workflow where branches are built sequentially,
@@ -44,7 +44,7 @@
 		},
 		tip2: {
 			placeholder: true,
-			svg: CommitAndPush,
+			svg: CommitAndPushSVG,
 			title: 'Commit and push',
 			body: `
 				File changes can be committed in any stack unless already
@@ -55,7 +55,7 @@
 		},
 		tip3: {
 			placeholder: true,
-			svg: ManageCommits,
+			svg: ManageCommitsSVG,
 			title: 'Manage commits',
 			body: `
 				File changes can be committed in any stack unless already
@@ -216,6 +216,7 @@
 	.tip-section {
 		display: flex;
 		align-items: center;
+		justify-content: center;
 		width: 100%;
 		height: 100%;
 
@@ -225,7 +226,7 @@
 	}
 
 	.tip-section__content-wrap {
-		max-width: 560px;
+		max-width: 600px;
 		padding: 48px;
 	}
 
