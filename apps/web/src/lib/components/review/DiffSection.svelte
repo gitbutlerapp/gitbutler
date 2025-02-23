@@ -9,13 +9,8 @@
 		section: DiffSection;
 		selectedSha: string | undefined;
 		selectedLines: LineSelector[];
-		clearLineSelection: () => void;
-		toggleDiffLine: (
-			fileName: string,
-			hunkIndex: number,
-			diffSha: string,
-			params: LineClickParams
-		) => void;
+		clearLineSelection: (fileName: string) => void;
+		toggleDiffLine: (fileName: string, diffSha: string, params: LineClickParams) => void;
 		onCopySelection: (contentSections: ContentSection[]) => void;
 		onQuoteSelection: () => void;
 	}
@@ -32,8 +27,8 @@
 	const hunks = $derived(section.diffPatch ? splitDiffIntoHunks(section.diffPatch) : []);
 	const filePath = $derived(section.newPath || 'unknown');
 
-	function handleLineClick(index: number, params: LineClickParams) {
-		toggleDiffLine(section.newPath || 'unknown', index, section.diffSha, params);
+	function handleLineClick(params: LineClickParams) {
+		toggleDiffLine(section.newPath || 'unknown', section.diffSha, params);
 	}
 
 	const selectedLines = $derived(selectedSha === section.diffSha ? lines : []);
@@ -44,13 +39,13 @@
 		<FileIcon fileName={filePath} size={16} />
 		<p title={filePath} class="text-12 text-body file-name">{filePath}</p>
 	</div>
-	{#each hunks as hunkStr, idx}
+	{#each hunks as hunkStr}
 		<HunkDiff
 			filePath={section.newPath || 'unknown'}
 			{hunkStr}
 			diffLigatures={false}
 			{selectedLines}
-			onLineClick={(p) => handleLineClick(idx, p)}
+			onLineClick={handleLineClick}
 			{onCopySelection}
 			{onQuoteSelection}
 			{clearLineSelection}

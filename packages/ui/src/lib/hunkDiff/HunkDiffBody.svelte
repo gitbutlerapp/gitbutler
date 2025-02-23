@@ -59,6 +59,8 @@
 	);
 
 	$effect(() => lineSelection.setRows(renderRows));
+
+	const hasSelectedLines = $derived(renderRows.filter((row) => row.isSelected).length > 0);
 </script>
 
 {#snippet countColumn(row: Row, side: CountColumnSide, idx: number)}
@@ -79,16 +81,17 @@
 	</td>
 {/snippet}
 
-<tbody class="contrast-{diffContrast}" style="--diff-font: {diffFont};">
+<tbody
+	class="contrast-{diffContrast}"
+	style="--diff-font: {diffFont};"
+	use:clickOutside={{
+		handler: () => {
+			if (hasSelectedLines) clearLineSelection?.();
+		}
+	}}
+>
 	{#each renderRows as row, idx}
-		<tr
-			id={getHunkLineId(row.encodedLineId)}
-			class="table__row"
-			data-no-drag
-			use:clickOutside={{
-				handler: () => row.isSelected && clearLineSelection?.()
-			}}
-		>
+		<tr id={getHunkLineId(row.encodedLineId)} class="table__row" data-no-drag>
 			{@render countColumn(row, CountColumnSide.Before, idx)}
 			{@render countColumn(row, CountColumnSide.After, idx)}
 			<td
@@ -100,6 +103,9 @@
 				class:diff-line-addition={row.type === SectionType.AddedLines}
 				class:selected={row.isSelected}
 				class:is-last={row.isLast}
+				onclick={() => {
+					if (!row.isSelected && hasSelectedLines) clearLineSelection?.();
+				}}
 			>
 				{#if row.isSelected}
 					<div

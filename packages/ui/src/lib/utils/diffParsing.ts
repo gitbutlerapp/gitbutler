@@ -319,7 +319,7 @@ class CodeHighlighter {
 }
 
 export type DiffLineKey = BrandedId<'DiffLine'>;
-export type DiffFileHunkKey = BrandedId<'DiffFileHunk'>;
+export type DiffFileKey = BrandedId<'DiffFile'>;
 export type DiffLineRange = BrandedId<'DiffLineRange'>;
 export type DiffFileLineId = BrandedId<'DiffFileLineId'>;
 
@@ -351,18 +351,18 @@ export function readDiffLineKey(key: DiffLineKey): ParsedDiffLineKey | undefined
 	};
 }
 
-export function createDiffFileHunkKey(fileName: string, hunkIndex: number): DiffFileHunkKey {
-	return `${fileName}-${hunkIndex}` as DiffFileHunkKey;
+export function createDiffFileHunkKey(fileName: string, diffSha: string): DiffFileKey {
+	return `${fileName}-${diffSha}` as DiffFileKey;
 }
 
-export function readDiffFileHunkKey(key: DiffFileHunkKey): [string, number] | undefined {
-	const [fileName, hunkIndex] = key.split('-');
+export function readDiffFileHunkKey(key: DiffFileKey): [string, string] | undefined {
+	const [fileName, diffSha] = key.split('-');
 
-	if (fileName === undefined || hunkIndex === undefined) {
+	if (fileName === undefined || diffSha === undefined) {
 		return undefined;
 	}
 
-	return [fileName, parseInt(hunkIndex)];
+	return [fileName, diffSha];
 }
 
 export function encodeSingleDiffLine(
