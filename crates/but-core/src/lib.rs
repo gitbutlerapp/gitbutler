@@ -83,13 +83,9 @@ pub trait RefMetadata {
     ///
     /// If not, they are dangling, and can then be downcast to their actual type to deal with them in some way,
     /// either by [removing](Self::remove) them, or by re-associating them with an existing reference.
-    fn iter(&self) -> impl Iterator<Item = (gix::refs::FullName, Box<dyn Any>)> + '_;
-
-    /// Retrieve metadata for the branch to integrate with.
-    ///
-    /// Just for compatibility, as we should store the global value in `GITBUTLER_TARGET` or
-    /// per-workspace values in the workspace configuration of a workspace ref.
-    fn target(&self) -> anyhow::Result<Self::Handle<ref_metadata::Target>>;
+    fn iter(
+        &self,
+    ) -> impl Iterator<Item = anyhow::Result<(gix::refs::FullName, Box<dyn Any>)>> + '_;
 
     /// Retrieve workspace metadata for `ref_name` or create it if it wasn't present yet.
     fn workspace(
@@ -121,10 +117,10 @@ pub trait RefMetadata {
         value: &Self::Handle<ref_metadata::Branch>,
     ) -> anyhow::Result<()>;
 
-    /// Delete the metadata associated with the given `ref_name` and return it.
+    /// Delete the metadata associated with the given `ref_name` and return `true` if it existed, or `false` otherwise.
     ///
-    /// It is OK to delete something that doesn't exist
-    fn remove(&mut self, ref_name: &gix::refs::FullNameRef) -> anyhow::Result<Box<dyn Any>>;
+    /// It is OK to delete something that doesn't exist.
+    fn remove(&mut self, ref_name: &gix::refs::FullNameRef) -> anyhow::Result<bool>;
 }
 
 /// A decoded commit object with easy access to additional GitButler information.

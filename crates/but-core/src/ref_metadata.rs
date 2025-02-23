@@ -11,7 +11,7 @@
 /// We would have to detect this case by validating parents, and the refs pointing to it, before
 /// using the metadata, or at least have a way to communicate possible states when trying to use
 /// this information.
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct Workspace {
     /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
@@ -22,13 +22,15 @@ pub struct Workspace {
     pub stacks: Vec<WorkspaceStack>,
 
     /// The name of the reference to integrate with, if present.
+    /// Fetch its metadata for more inforamtion.
     ///
-    /// If there is no target name, this is a local workspace.
+    /// If there is no target name, this is a local workspace (and if no global target is set).
+    /// Note that even though this is per workspace, the implementation can fill in global information at will.
     pub target_ref: Option<gix::refs::FullName>,
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Branch {
     /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
@@ -36,34 +38,37 @@ pub struct Branch {
     pub description: Option<String>,
     /// Information about possibly ongoing reviews in various forges.
     pub review: Review,
-    /// If `true`, this means we created the branch as part of creating a new stack.
-    /// This means we may also remove it and its remote tracking branch if it's removed
-    /// from the stack *and* integrated.
-    pub is_managed: bool,
+    /// Archived represents the state when series/branch has been integrated and is *below the merge base* of the branch.
+    /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
+    ///
+    /// This flag is a cache to help prevent us from having to figure this out again.
+    pub archived: bool,
 }
 
-/// Metadata about the repository Target.
+/// Basic information to know about a reference we store with the metadata system.
 ///
-/// This is only needed while we have to be compatible with the TOML file,
-/// and otherwise is associated with `GITBUTLER_TARGET`.
-#[derive(Debug, Clone)]
-pub struct Target {
-    /// The configured target, as read from the TOML file.
-    pub ref_name: Option<gix::refs::FullName>,
-}
-
-/// Basic information to know about an reference we store with the metadata system.
-// TODO: is this really needed?
-#[derive(Debug, Clone)]
+/// It allows to keep track of when it changed, but also if we created it initially, a useful
+/// bit of information.
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct RefInfo {
-    /// The time of creation, if we created the reference.
-    pub create_at: Option<gix::date::Time>,
+    /// The time of creation, *if we created the reference*.
+    pub created_at: Option<gix::date::Time>,
     /// The time at which the reference was last modified, if we modified it.
     pub updated_at: Option<gix::date::Time>,
 }
 
+/// Access
+impl RefInfo {
+    /// If `true`, this means we created the branch as part of creating a new stack.
+    /// This means we may also remove it and its remote tracking branch if it's removed
+    /// from the stack *and* integrated.
+    pub fn is_managed(&self) -> bool {
+        self.created_at.is_some()
+    }
+}
+
 /// A stack that was applied to the workspace, i.e. a parent of the *workspace commit*.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WorkspaceStack {
     /// All refs that were reachable from the tip of the stack that at the time it was merged into
     /// the *workspace commit*.
@@ -82,7 +87,7 @@ impl WorkspaceStack {
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Review {
     /// The number for the PR that was associated with this branch.
     pub pull_request: Option<usize>,
@@ -95,83 +100,3 @@ pub trait ValueInfo {
     /// Return `true` if the value didn't exist for a given `ref_name` and thus was defaulted.
     fn is_default(&self) -> bool;
 }
-
-mod virtual_branches_toml {
-    use crate::ref_metadata::{Branch, Target, ValueInfo, Workspace};
-    use crate::RefMetadata;
-    use gix::refs::{FullName, FullNameRef};
-    use std::any::Any;
-    use std::ops::{Deref, DerefMut};
-    use std::path::PathBuf;
-
-    /// An implementation to read and write metadata from the `virtual_branches.toml` file.
-    pub struct VirtualBranchesTomlMetadata {
-        _path: PathBuf,
-    }
-
-    impl RefMetadata for VirtualBranchesTomlMetadata {
-        type Handle<T> = VBTomlMetadataHandle<T>;
-
-        fn iter(&self) -> impl Iterator<Item = (FullName, Box<dyn Any>)> + '_ {
-            vec![].into_iter()
-        }
-
-        fn target(&self) -> anyhow::Result<Self::Handle<Target>> {
-            todo!()
-        }
-
-        fn workspace(&self, _ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Workspace>> {
-            todo!()
-        }
-
-        fn branch(&self, _ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Branch>> {
-            todo!()
-        }
-
-        fn set_workspace(
-            &mut self,
-            _ref_name: &FullNameRef,
-            _value: &Self::Handle<Workspace>,
-        ) -> anyhow::Result<()> {
-            todo!()
-        }
-
-        fn set_branch(
-            &mut self,
-            _ref_name: &FullNameRef,
-            _value: &Self::Handle<Branch>,
-        ) -> anyhow::Result<()> {
-            todo!()
-        }
-
-        fn remove(&mut self, _ref_name: &FullNameRef) -> anyhow::Result<Box<dyn Any>> {
-            todo!()
-        }
-    }
-
-    pub struct VBTomlMetadataHandle<T> {
-        is_default: bool,
-        value: T,
-    }
-
-    impl<T> Deref for VBTomlMetadataHandle<T> {
-        type Target = T;
-
-        fn deref(&self) -> &Self::Target {
-            &self.value
-        }
-    }
-
-    impl<T> DerefMut for VBTomlMetadataHandle<T> {
-        fn deref_mut(&mut self) -> &mut Self::Target {
-            &mut self.value
-        }
-    }
-
-    impl<T> ValueInfo for VBTomlMetadataHandle<T> {
-        fn is_default(&self) -> bool {
-            self.is_default
-        }
-    }
-}
-pub use virtual_branches_toml::VirtualBranchesTomlMetadata;
