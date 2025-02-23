@@ -43,6 +43,14 @@
 //!     - Are listed in such a way that they don't repeat across multiple stacks, i.e. only commits that aren't in
 //!      any of the other stacks or in the target branch (if present).
 //!
+//! TODO:
+//!  - sketch for detached HEAD, unapply last branch. Then applying another branch checks that out.
+//!  - unapplying everything with target should go to the tip of target
+//!  - how about a workspace that has a shared commit so assignment isn't clear
+//!  - About reference points for rev-walks (WMB, TMB, auto-target when branch has PR with target to merge into)
+//!    Without reference points, walks will be indefinite.
+//!  - What happens if the user points to a merge commit? Can they use GitButler to more easily see what's going on?
+//!
 //! ## Operations
 //!
 //! * **add branch from workspace**
@@ -318,7 +326,7 @@
 //!  │   │                                         Now there are new changes, WTC2       switches back
 //!  └───┘
 //! ```
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::RefMetadata;
 use gix::prelude::ObjectIdExt;
