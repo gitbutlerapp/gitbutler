@@ -29,7 +29,7 @@
 		tooltip?: string;
 		tooltipPosition?: TooltipPosition;
 		tooltipAlign?: TooltipAlign;
-		helpShowDelay?: number;
+		tooltipDelay?: number;
 		testId?: string;
 		// Events
 		onclick?: (e: MouseEvent) => void;
@@ -76,6 +76,7 @@
 		tooltip,
 		tooltipPosition,
 		tooltipAlign,
+		tooltipDelay,
 		onclick,
 		onmousedown,
 		oncontextmenu,
@@ -93,7 +94,7 @@
 	}
 </script>
 
-<Tooltip text={tooltip} align={tooltipAlign} position={tooltipPosition}>
+<Tooltip text={tooltip} align={tooltipAlign} position={tooltipPosition} delay={tooltipDelay}>
 	<button
 		bind:this={el}
 		class={[

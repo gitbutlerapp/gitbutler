@@ -32,7 +32,7 @@
 		tooltip?: string;
 		tooltipPosition?: TooltipPosition;
 		tooltipAlign?: TooltipAlign;
-		helpShowDelay?: number;
+		tooltipDelay?: number;
 		testId?: string;
 		// Snippets
 		children?: Snippet;
