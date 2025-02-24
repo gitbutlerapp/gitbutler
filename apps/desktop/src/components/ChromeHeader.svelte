@@ -6,14 +6,13 @@
 	import { platformName } from '$lib/platform/platform';
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
-	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
+	import { projectPath } from '$lib/routes/routes.svelte';
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import NotificationButton from '@gitbutler/ui/NotificationButton.svelte';
 	import { goto } from '$app/navigation';
 
-	const routes = getContext(DesktopRoutesService);
 	const projectsService = getContext(ProjectsService);
 	const project = maybeGetContext(Project);
 
@@ -50,7 +49,7 @@
 			disabled={newProjectLoading || cloneProjectLoading}
 			onselect={(value: string) => {
 				selectedProjectId = value;
-				goto(routes.projectPath(selectedProjectId));
+				goto(projectPath(selectedProjectId));
 			}}
 			popupAlign="center"
 			customWidth={300}

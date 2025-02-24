@@ -36,7 +36,6 @@
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { PromptService } from '$lib/prompt/promptService';
 	import { RemotesService } from '$lib/remotes/remotesService';
-	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
@@ -98,7 +97,6 @@
 	const repositoryIdLookupService = new RepositoryIdLookupService(data.cloud, appState.appDispatch);
 	const latestBranchLookupService = new LatestBranchLookupService(data.cloud, appState.appDispatch);
 	const webRoutesService = new WebRoutesService(env.PUBLIC_CLOUD_BASE_URL);
-	const desktopRouteService = new DesktopRoutesService();
 	const diffService = new DiffService(clientState);
 	const shortcutService = new ShortcutService(data.tauri);
 	const commitService = new CommitService();
@@ -120,7 +118,6 @@
 	setContext(RepositoryIdLookupService, repositoryIdLookupService);
 	setContext(LatestBranchLookupService, latestBranchLookupService);
 	setContext(WebRoutesService, webRoutesService);
-	setContext(DesktopRoutesService, desktopRouteService);
 	setContext(HooksService, data.hooksService);
 	setContext(SettingsService, data.settingsService);
 	setContext(FileService, data.fileService);

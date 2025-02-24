@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { workspacePath } from '$lib/routes/routes.svelte';
 	import { goto } from '$app/navigation';
 
 	type Props = {
@@ -9,10 +8,9 @@
 		selected: boolean;
 	};
 	const { projectId, count, selected }: Props = $props();
-	const routes = getContext(DesktopRoutesService);
 
 	async function addNew() {
-		goto(routes.workspacePath(projectId));
+		goto(workspacePath(projectId));
 	}
 </script>
 

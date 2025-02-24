@@ -2,7 +2,18 @@
 	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import { Project } from '$lib/project/project';
-	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
+	import {
+		branchesPath,
+		historyPath,
+		isBranchesPath,
+		isHistoryPath,
+		isProjectSettingsPath,
+		isTargetPath,
+		isWorkspacePath,
+		projectSettingsPath,
+		targetPath,
+		workspacePath
+	} from '$lib/routes/routes.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { User } from '$lib/user/user';
 	import { UserService } from '$lib/user/userService';
@@ -18,7 +29,6 @@
 	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
-	const routes = getContext(DesktopRoutesService);
 	const project = getContext(Project);
 	const user = getContextStore(User);
 
@@ -34,14 +44,14 @@
 <div class="sidebar">
 	<div class="top">
 		<div>
-			{#if routes.isWorkspacePath}
+			{#if isWorkspacePath()}
 				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 			{/if}
 			<Button
 				kind="outline"
-				onclick={() => goto(routes.workspacePath(project.id))}
+				onclick={() => goto(workspacePath(project.id))}
 				width={34}
-				class={['btn-square', routes.isWorkspacePath && 'btn-active']}
+				class={['btn-square', isWorkspacePath() && 'btn-active']}
 				tooltip="Workspace"
 			>
 				<svg viewBox="0 0 16 13" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -60,14 +70,14 @@
 			</Button>
 		</div>
 		<div>
-			{#if routes.isBranchesPath}
+			{#if isBranchesPath()}
 				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 			{/if}
 			<Button
 				kind="outline"
-				onclick={() => goto(routes.branchesPath(project.id))}
+				onclick={() => goto(branchesPath(project.id))}
 				width={34}
-				class={['btn-square', routes.isBranchesPath && 'btn-active']}
+				class={['btn-square', isBranchesPath() && 'btn-active']}
 				tooltip="Branches"
 			>
 				<svg viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -111,14 +121,14 @@
 			</Button>
 		</div>
 		<div>
-			{#if routes.isTargetPath}
+			{#if isTargetPath()}
 				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 			{/if}
 			<Button
 				kind="outline"
-				onclick={() => goto(routes.targetPath(project.id))}
+				onclick={() => goto(targetPath(project.id))}
 				width={34}
-				class={['btn-square', routes.isTargetPath && 'btn-active']}
+				class={['btn-square', isTargetPath() && 'btn-active']}
 				tooltip="Target"
 			>
 				<svg viewBox="0 0 18 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -139,14 +149,14 @@
 			</Button>
 		</div>
 		<div>
-			{#if routes.isHistoryPath}
+			{#if isHistoryPath()}
 				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 			{/if}
 			<Button
 				kind="outline"
-				onclick={() => goto(routes.historyPath(project.id))}
+				onclick={() => goto(historyPath(project.id))}
 				width={34}
-				class={['btn-square', routes.isHistoryPath && 'btn-active']}
+				class={['btn-square', isHistoryPath() && 'btn-active']}
 				tooltip="History"
 			>
 				<svg
@@ -171,15 +181,15 @@
 	<div class="bottom">
 		<div class="bottom__primary-actions">
 			<div>
-				{#if routes.isProjectSettingsPath}
+				{#if isProjectSettingsPath()}
 					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 				{/if}
 				<Button
 					icon="settings"
 					kind="outline"
-					onclick={() => goto(routes.projectSettingsPath(project.id))}
+					onclick={() => goto(projectSettingsPath(project.id))}
 					width={34}
-					class={['btn-square', routes.isProjectSettingsPath && 'btn-active']}
+					class={['btn-square', isProjectSettingsPath() && 'btn-active']}
 					tooltipPosition="top"
 					tooltipAlign="start"
 					tooltip="Project settings"
