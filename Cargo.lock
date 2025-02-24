@@ -779,6 +779,7 @@ dependencies = [
  "git2",
  "gitbutler-command-context",
  "gitbutler-commit",
+ "gitbutler-fs",
  "gitbutler-id",
  "gitbutler-oxidize",
  "gitbutler-project",
@@ -789,7 +790,10 @@ dependencies = [
  "insta",
  "itertools 0.14.0",
  "md5",
+ "regex",
  "serde",
+ "toml 0.8.19",
+ "tracing",
  "url",
 ]
 
