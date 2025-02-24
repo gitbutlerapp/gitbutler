@@ -4,7 +4,6 @@
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { type Patch } from '@gitbutler/shared/branches/types';
 	import { getContext } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
@@ -107,28 +106,26 @@
 </script>
 
 {#if userAction === 'approved'}
-	<div class="revert-approval-wrap approved">
-		<span class="text-12">You approved this</span>
+	<div class="my-status-wrap approved">
+		<div class="text-12 my-status approved">
+			<span>You approved this</span><Icon name="tick-small" />
+		</div>
 
-		<button class="text-12 revert-approval-btn" type="button" onclick={handleRequestChanges}>
-			<span> Request changes</span>
+		<button class="text-12 change-status-btn" type="button" onclick={handleRequestChanges}>
+			<span>Change status</span>
 			<Icon name="refresh-small" />
 		</button>
 	</div>
 {:else if userAction === 'requested-changes'}
 	<div class="my-status-wrap">
-		<div class="user-status-label requested-changes">
-			<span class="text-12">You requested changes</span>
+		<div class="text-12 my-status requested-changes">
+			<span>You requested changes</span><Icon name="refresh-small" />
 		</div>
-		<Button
-			loading={isExecuting}
-			icon="tick-small"
-			style="success"
-			class="my-status-btn"
-			onclick={handleApprove}
-		>
-			Approve
-		</Button>
+
+		<button class="text-12 change-status-btn" type="button" onclick={handleApprove}>
+			<span>Change status</span>
+			<Icon name="tick-small" />
+		</button>
 	</div>
 {:else}
 	<DropDownButton
@@ -169,19 +166,21 @@
 	.my-status-wrap {
 		display: flex;
 		align-items: center;
+		gap: 12px;
 	}
 
-	.user-status-label {
-		user-select: none;
+	.my-status {
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		padding: 0 12px;
+		gap: 6px;
+		padding: 4px 8px;
 		height: 100%;
-		font-style: italic;
-		border-radius: var(--radius-m) 0 0 var(--radius-m);
+		border-radius: var(--radius-m);
 
-		color: var(--clr-text-2);
+		&.approved {
+			background-color: var(--clr-theme-succ-soft);
+			color: var(--clr-theme-succ-on-soft);
+		}
 
 		&.requested-changes {
 			background-color: var(--clr-theme-warn-soft);
@@ -189,28 +188,16 @@
 		}
 	}
 
-	.revert-approval-wrap {
+	.change-status-btn {
 		display: flex;
 		align-items: center;
-		background-color: var(--clr-theme-succ-soft);
-		color: var(--clr-theme-succ-on-soft);
-		border-radius: var(--radius-m);
-		padding: 0 8px 0 10px;
-	}
-
-	.revert-approval-btn {
-		display: flex;
-		align-items: center;
+		gap: 4px;
+		color: var(--clr-text-2);
 
 		& span {
-			font-style: italic;
-			margin-right: 4px;
-			text-decoration: dotted underline;
-			margin-left: 6px;
+			text-decoration: underline;
+			text-decoration-style: dotted;
+			text-underline-offset: 3px;
 		}
-	}
-
-	:global(.my-status-wrap .my-status-btn) {
-		border-radius: 0 var(--radius-m) var(--radius-m) 0;
 	}
 </style>
