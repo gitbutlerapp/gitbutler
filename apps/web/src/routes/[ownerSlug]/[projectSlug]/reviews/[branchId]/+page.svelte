@@ -2,9 +2,9 @@
 	import ChangeIndexCard from '$lib/components/changes/ChangeIndexCard.svelte';
 	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
-	import BranchStatusBadge from '$lib/components/review/BranchStatusBadge.svelte';
 	import CommitsGraph from '$lib/components/review/CommitsGraph.svelte';
 	import { UserService } from '$lib/user/userService';
+	import BranchStatusBadge from '@gitbutler/shared/branches/BranchStatusBadge.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';

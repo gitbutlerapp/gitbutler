@@ -376,13 +376,11 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
+		gap: 12px;
 	}
 
 	.pr-header-title {
 		color: var(--clr-scale-ntrl-0);
-		padding: 14px 14px 12px 14px;
 		user-select: text;
 		cursor: text;
 	}
@@ -390,14 +388,12 @@
 	.pr-header-tags {
 		display: flex;
 		gap: 4px;
-		padding: 0 14px 12px 14px;
 	}
 
 	.pr-header-actions {
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-		padding: 0 14px 12px 14px;
 
 		/* don't display if empty */
 		&:empty {

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import BranchStatusBadge from '../review/BranchStatusBadge.svelte';
 	import CommitsGraph from '../review/CommitsGraph.svelte';
+	import BranchStatusBadge from '@gitbutler/shared/branches/BranchStatusBadge.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { getContributorsWithAvatars } from '@gitbutler/shared/branches/types';

@@ -102,11 +102,19 @@
 <div class="branch-action">
 	{@render branchLine()}
 	<div class="branch-action__body">
-		{#if pr.current}
-			{@render pullRequestCard(pr.current)}
-		{/if}
-		{#if branch.reviewId}
-			<BranchReviewButRequest reviewId={branch.reviewId} />
+		{#if pr.current || branch.reviewId}
+			<div class="status-cards">
+				{#if pr.current}
+					<div>
+						{@render pullRequestCard(pr.current)}
+					</div>
+				{/if}
+				{#if branch.reviewId}
+					<div>
+						<BranchReviewButRequest reviewId={branch.reviewId} />
+					</div>
+				{/if}
+			</div>
 		{/if}
 
 		{@render branchStatus()}
@@ -179,5 +187,21 @@
 
 	.branch-action:not(:has(> .branch-action__body > *)) {
 		padding: 0;
+	}
+
+	.status-cards {
+		display: flex;
+		flex-direction: column;
+
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+
+		> div {
+			padding: 14px;
+
+			&:not(:last-child) {
+				border-bottom: 1px solid var(--clr-border-2);
+			}
+		}
 	}
 </style>
