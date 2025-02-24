@@ -14,8 +14,8 @@
 </script>
 
 {#if projectId && stackId}
-	{@const branchQuery = stackService.branches(projectId, stackId, { index: 0 }).current}
-	<ReduxResult result={branchQuery}>
+	{@const result = stackService.branches(projectId, stackId, { index: 0 }).current}
+	<ReduxResult {result}>
 		{#snippet children(branch)}
 			{#if branch}
 				{goto(branchPath(projectId, stackId, branch.name))}

@@ -3,7 +3,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import CommitRow from '$components/v3/CommitRow.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { combineQueries } from '$lib/state/helpers';
+	import { combineResults } from '$lib/state/helpers';
 	import { inject } from '@gitbutler/shared/context';
 
 	interface Props {
@@ -26,7 +26,7 @@
 	);
 </script>
 
-<ReduxResult result={combineQueries(upstreamOnlyCommits, localAndRemoteCommits)}>
+<ReduxResult result={combineResults(upstreamOnlyCommits, localAndRemoteCommits)}>
 	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits])}
 		{#if !upstreamOnlyCommits.length && !localAndRemoteCommits.length}
 			<EmptyBranch {lastBranch} />

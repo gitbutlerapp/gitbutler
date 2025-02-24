@@ -4,7 +4,7 @@
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { combineQueries } from '$lib/state/helpers';
+	import { combineResults } from '$lib/state/helpers';
 	import { inject } from '@gitbutler/shared/context';
 
 	interface Props {
@@ -28,11 +28,11 @@
 	}: Props = $props();
 
 	const [stackService] = inject(StackService);
-	const branchQuery = stackService.branchByName(projectId, stackId, branchName).current;
-	const commitQuery = $derived(stackService.commits(projectId, stackId, branchName).current);
+	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName).current);
+	const commitsResult = $derived(stackService.commits(projectId, stackId, branchName).current);
 </script>
 
-<ReduxResult result={combineQueries(branchQuery, commitQuery)}>
+<ReduxResult result={combineResults(branchResult, commitsResult)}>
 	{#snippet children([branch, commits])}
 		{#if !first}
 			<BranchDividerLine topPatchStatus={commits.at(0)?.state.type ?? 'Error'} />
