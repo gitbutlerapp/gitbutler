@@ -133,6 +133,7 @@
 		font-family: var(--diff-font);
 		border-collapse: collapse;
 		border-spacing: 0;
+		user-select: none;
 	}
 
 	thead {
