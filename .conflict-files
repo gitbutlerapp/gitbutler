@@ -1,3 +1,3 @@
-ancestorEntries = ["apps/desktop/src/lib/routes/routes.svelte.ts"]
-ourEntries = ["apps/desktop/src/lib/routes/routes.svelte.ts"]
-theirEntries = ["apps/desktop/src/lib/routes/routes.svelte.ts"]
+ancestorEntries = ["apps/desktop/src/lib/stacks/stackService.svelte.ts"]
+ourEntries = ["apps/desktop/src/lib/stacks/stackService.svelte.ts"]
+theirEntries = ["apps/desktop/src/lib/stacks/stackService.svelte.ts"]

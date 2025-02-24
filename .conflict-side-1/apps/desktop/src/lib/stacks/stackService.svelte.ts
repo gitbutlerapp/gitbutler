@@ -64,7 +64,8 @@ export class StackService {
 			this.api.endpoints.stackBranches.useQuery(
 				{ projectId, stackId },
 				{
-					transform: (branches) => branchSelectors.selectAll(branches)
+					transform: (branches) =>
+						branchSelectors.selectAll(branches).filter((branch) => !branch.archive)
 				}
 			)
 		);

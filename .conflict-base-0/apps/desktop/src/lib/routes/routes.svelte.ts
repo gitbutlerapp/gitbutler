@@ -55,7 +55,9 @@ export function isHistoryPath() {
 }
 
 export function isCommitPath() {
-	return isUrl<{ projectId: string; stackId: string }>('/[projectId]/workspace/[[stackId]]/commit');
+	return isUrl<{ projectId: string; stackId: string }>(
+		'/[projectId]/workspace/[stackId]/[branchName]/commit'
+	);
 }
 
 export function settingsPath() {
@@ -66,8 +68,14 @@ export function stackPath(projectId: string, stackId: string) {
 	return `/${projectId}/workspace/${stackId}`;
 }
 
-export function createCommitPath(projectId: string, stackId: string, branchName: string) {
-	return `/${projectId}/workspace/${stackId}/${branchName}/commit`;
+export function createCommitPath(
+	projectId: string,
+	stackId: string,
+	branchName: string,
+	commitId?: string
+) {
+	const url = `/${projectId}/workspace/${stackId}/${branchName}/commit`;
+	return commitId ? url + '?commitId=' + commitId : url;
 }
 
 export function clonePath() {
