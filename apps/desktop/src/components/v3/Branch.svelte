@@ -29,13 +29,13 @@
 
 	const [stackService] = inject(StackService);
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName).current);
-	const commitsResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0).current);
+	const commitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0).current);
 </script>
 
-<ReduxResult result={combineResults(branchResult, commitsResult)}>
-	{#snippet children([branch, commits])}
+<ReduxResult result={combineResults(branchResult, commitResult)}>
+	{#snippet children([branch, commit])}
 		{#if !first}
-			<BranchDividerLine topPatchStatus={commits?.state.type ?? 'Error'} />
+			<BranchDividerLine topPatchStatus={commit?.state.type ?? 'Error'} />
 		{/if}
 		<div class="branch" class:selected data-series-name={branchName}>
 			<BranchHeader {projectId} {stackId} {branch} isTopBranch={first} />
