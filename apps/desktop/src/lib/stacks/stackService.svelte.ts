@@ -42,7 +42,7 @@ export class StackService {
 				{
 					transform: (stacks) =>
 						options?.index !== undefined
-							? stackSelectors.selectAll(stacks).at(options.index)
+							? stackSelectors.selectNth(stacks, options.index)
 							: stackSelectors.selectAll(stacks)
 				}
 			)
@@ -71,7 +71,7 @@ export class StackService {
 				{
 					transform: (branches) =>
 						options?.index !== undefined
-							? branchSelectors.selectAll(branches).at(options.index)
+							? branchSelectors.selectNth(branches, options.index)
 							: branchSelectors.selectAll(branches)
 				}
 			)
@@ -101,7 +101,7 @@ export class StackService {
 				{
 					transform: (result) => {
 						return options?.index !== undefined
-							? commitSelectors.selectAll(result).at(options.index) || null
+							? commitSelectors.selectNth(result, options.index) || null
 							: commitSelectors.selectAll(result);
 					}
 				}
@@ -138,7 +138,7 @@ export class StackService {
 				{
 					transform: (result) => {
 						return options?.index !== undefined
-							? commitSelectors.selectAll(result).at(options.index) || null
+							? commitSelectors.selectNth(result, options.index) || null
 							: commitSelectors.selectAll(result);
 					}
 				}
@@ -154,8 +154,8 @@ export class StackService {
 	}
 
 	commitChanges(projectId: string, commitId: string) {
-		const { commitChanges: getCommitChanges } = this.api.endpoints;
-		const result = $derived(getCommitChanges.useQuery({ projectId, commitId }));
+		const { commitChanges } = this.api.endpoints;
+		const result = $derived(commitChanges.useQuery({ projectId, commitId }));
 		return result;
 	}
 
