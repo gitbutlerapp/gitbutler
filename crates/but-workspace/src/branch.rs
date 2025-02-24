@@ -11,6 +11,8 @@
 //! The following rules and values govern how certain operations work. Ideally, everything that is written here can be
 //! reproduced by extrapolating them.
 //!
+//! CTO: Not mentioned here, but I presume there is a "remove target reference"
+//!     which would be something like origin/master?
 //! * `HEAD` always points to a workspace.
 //!     - **Implicit Workspace**
 //!          - a commit (zero, one or more parents) created by the user, possibly pointed to by a branch.
@@ -20,13 +22,29 @@
 //!          - a *workspace commit* with `gitbutler/workspace/name` reference pointing to it.
 //!          - always has two or more parents, otherwise it has no reason to exist.
 //! * _Optional_ *Target branches* are implied, globally explicit or don't exist at all
+//!     CTO later on: Reading more, are "target branches" what we are comparing
+//!         other branches to? How can there be more then one, and how can it
+//!         not exist?
+//!
+//!         Surly the point of having some remote reference like `origin/main`
+//!         to compare against is so that we have some way of understanding
+//!         what is contained in a given stack.
+//!     CTO: From what I gather a "target branch" is a reference to the top of a stack?
 //!     - If they exist, allow computing the highest/most-recent *target merge-base* that *stacks* in the
 //!       *workspace* are forked-off from.
 //!     - The *target merge-base* informs about how many commits we are behind *or* ahead.
 //!     - The whole workspace can be made to include more recent (or older) versions of the *target branch*
 //!     - A *target branch* is typically initialized from the remote tracking branch of the current branch at `HEAD`.
+//!         CTO: If creating a new "target branch" means creating a new empty
+//!             tab and making new commits, then should we not be creating
+//!             those commits off of the highest merge-base among all the
+//!             applied branches?
+//!             The `HEAD` commit would be committing on top of the merge of
+//!             all the existing brances?
 //!     - Alternatively it's configured for the whole project.
 //!  * *Target merge bases* _should_ not change implicitly
+//!     CTO: As I read, the "target merge bases" means, the fork-points between
+//!         each individual "applied branch" and the "remote target reference"
 //!     - This merge-base is the 'view of the world' for the user as it's the *most recent merge-base with the target branch available in the worktree*.
 //!       Hence, it should remain stable.
 //!     - Adding branches to the workspace with *their* *target merge base* in our *past* is OK.
@@ -34,6 +52,14 @@
 //!       unless the user allows it, or…
 //!        - We may try to *rebase* branches from the future onto our *target merge base*
 //!          if they have no remote tracking branch.
+//!         - CTO: Why is this not OK?
+//!            Sure, if there is a branch whose forkpoint is above one of the
+//!            other applied branches forkpoints, it may introduce future
+//!            changes from the target branch, but, why is that a problem?
+//!
+//!            If we communicate the ahead/behind status relative to the
+//!             branch on a branch by branch basis, the user should be
+//!            able to rationalize about that.
 //!  * *Workspace Merge Base*
 //!     - Is automatically the *Target Merge Base* if there is just a single branch.
 //!     - Is the octopus merge-base between all stacks in a workspace, i.e. a commit reachable from the tips of all stacks.
@@ -46,12 +72,16 @@
 //! ## Operations
 //!
 //! * **add branch from workspace**
+//!    - CTO: Presumibly, if there are no branches in the workspace
+//!       (IE, origin/master is checked out in a detached state) then one case
+//!       here is to simply checkout that branch
 //!    - Add a branch to a *workspace commit* so it also includes the tip of the branch.
 //! * **remove branch from workspace**
 //!    - Remove a branch from a *workspace commit*
 //!    - Alternatively, checkout the *target branch*
 //! * **switch**
 //!    - Switch between branches of any kind, similar to `git switch`, but with automatic worktree stashing.
+//!    CTO: What is a switch if not removing one branch from the workspace, and then adding in another?
 //! * **stash changes**
 //!    - Implicit, causes worktree changes to be raised into their own tree and commit on top of `HEAD`.
 //! * **apply stashed changes**
@@ -64,9 +94,14 @@
 //! a full reference name.
 //!
 //! ## Target Branch
+//! CTO: Having "target branches" (applied branches) and a "target branch" is VERY confusing.
 //!
 //! The branch that every branch in a workspace wants to get integrated with,
 //! either by merging or by being rebased onto it.
+//! CTO: Is this true? Sure, the "remote tracking branch" is what we compare
+//!     against and informs the fork-point and in turn, how many commits we log,
+//!     but I could have a branch with no common history that is destined to be
+//!     merged into some other distinct remote branch
 //!
 //! The target branch is always a *remote tracking branch*, and as such it's not expected to be checked out
 //! nor would it be committed into directly.
@@ -168,6 +203,13 @@
 //!  ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 //!  │                                                      WMB: Workspace Merge Base                                                       │
 //!  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+//! CTO: FWIW, I find these diagrams quite hard to read
+//!
+//! I started going through these, but I'm now realising that the RTB, is the remote version if an individual pushed branch...
+//! My understanding was that we made sense of the universe by comparing it to the I guess "GT" (where the TMB and WMB are derived
+//! state by comparing a stack head and the global target).
+//!
+//! I'm not going to try reading into these further because I'm really strugging...
 //!
 //!           ████████████████████ Apply feat ██████████████████████████████████████  Unapply main ████████████████████████████
 //! ┌───┐
@@ -179,15 +221,36 @@
 //! │ u │    T:RTB/main                 T:RTB/main ──┐        └──┘                               T:RTB/main
 //! │ g │         │                                  │          ▲                                     │
 //! │ h │         │                                  │   ┌──────┴─────┐                               │            ┌────H:ws/1
-//! │ t │         ▼  H:S:main                        │   │            │                               ▼            ▼
-//! │   │        ┌─┐     │    ┌─┐                    │  ┌─┐          ┌─┐                             ┌─┐          ┌─┐
-//! │ U │        TMB◀────┘    └─┘◀── feat            └─▶TMB◀─S:foo   └─┘◀┬─S:feat                    └─┘◀─ foo    └─┘◀─S:feat⇕⇡1⇣1
+//! │ t │         ▼  H:S:foo                         │   │            │                               ▼            ▼
+//! │   │        B─┐     │    ┌─┐                    │  B─┐          C─┐                             B─┐          C─┐
+//! │ U │        TMB◀────┘    C─┘◀── feat            └─▶TMB◀─S:foo   └─┘◀┬─S:feat                    └─┘◀─ foo    └─┘◀─S:feat⇕⇡1⇣1
 //! │ p │         │            │                         │            │  │                            │            │
 //! │   │         │            │                         │            │  │                            │            │
 //! │   │         │            │                         │           RTB/feat                         │            │
-//! │   │        ┌─┐           │                        ┌─┐           │                              ┌─┐           │
+//! │   │        A─┐           │                        A─┐           │                              A─┐           │
 //! │   │        WMB───────────┘                        WMB───────────┘                              WMB───────────┘
 //! └───┘                                                                                            TMB
+//! Setup has foo === origin/main
+//!
+//! Step 1:
+//! Tab: foo
+//! - Listing no commits
+//! B is both TMB & WMB
+//! A is irrelavant
+//! C is irrelavant
+//!
+//! Step 2:
+//! Tab foo: 0 up, 0 down
+//! - Listing no commits
+//! Tab feat: 1 up, 1 down
+//! - Listing a commit
+//! B is TMB for foo
+//! A is TMB for feat
+//! A is WMB
+//! C is not interesting
+//!
+//! Step 3:
+//! LGTM
 //!
 //!
 //!           ████████████████████ Apply feat ██████████████████████████████████████  Unapply main ████████████████████████████
@@ -208,25 +271,39 @@
 //! │   │        ┌─┐           │                        ┌─┐           │                              ┌─┐           │
 //! └───┘        └─┘───────────┘                        WMB───────────┘                              └─┘───────────┘
 //!
-//!
+//! What is a missing WMB? Is it not derived between the remote tracking branch and each individual applied branch?
 //!
 //!           ████████████████████ Apply feat ██████████████████████████████████████████████ FF main in Git ██████████████████████ Unapply feat ████████
 //! ┌───┐
 //! │   │    GT:RTB/main
 //! │ T │         │                                           ┌──┐                S:main ─┐       ┌──┐                  H:S:main─┐        - It goes back to the ref
-//! │ a │         ▼                                     ┌─┐   │WS│◀──H:ws/1               │ ┌─┐   │WS│◀──H:ws/1                  │ ┌─┐    - TMB moved
-//! │ r │        ┌─┐                       GT:RTB/main─▶└─┘   └──┘            GT:RTB/main─┴▶└─┘   └──┘               GT:RTB/main─┴▶TMB
-//! │ g │        └─┘                                     │      ▲                            │      ▲                               │           ┌─┐
+//! │ a │         ▼                                     C─┐   │WS│◀──H:ws/1               │ C─┐   │WS│◀──H:ws/1                  │ C─┐    - TMB moved
+//! │ r │        C─┐                       GT:RTB/main─▶└─┘   └──┘            GT:RTB/main─┴▶└─┘   └──┘               GT:RTB/main─┴▶TMB
+//! │ g │        └─┘                                     │      ▲                            │      ▲                               │           D─┐
 //! │ e │         │                                      ├──────┴─────┐                      ├──────┴─────┐                         │           └─┘◀── feat
 //! │ t │         │  H:S:main⇕⇣1             S:main⇕⇣1   │            │                      │            │                         │            │
-//! │   │        ┌─┐      │   ┌─┐                │      ┌─┐          ┌─┐                    ┌─┐          ┌─┐                       ┌─┐           │
+//! │   │        B─┐      │   D─┐                │      B─┐          D─┐                    B─┐          D─┐                       B─┐           │
 //! │ A │        TMB◀─────┘   └─┘◀── feat        └─────▶TMB          └─┘◀──S:feat           TMB          └─┘◀──S:feat              └─┘           │
 //! │ h │         │            │                         │            │                      │            │                         │            │
 //! │ e │         │            │                         │            │                      │            │                         │            │
 //! │ a │         │            │                         │            │                      │            │                         │            │
-//! │ d │        ┌─┐           │                        ┌─┐           │                     ┌─┐           │                        ┌─┐           │
+//! │ d │        A─┐           │                        A─┐           │                     A─┐           │                        A─┐           │
 //! │   │        └─┘───────────┘                        WMB───────────┘                     WMB───────────┘                        └─┘───────────┘
 //! └───┘
+//!
+//! Step 1:
+//! B is also WMB?
+//! Tab Main would appear as empty in the client
+//!
+//! Step 2:
+//! Tab feat would only contain D
+//! rest looks good
+//!
+//! Step 3:
+//! I really don't know how this state would be represented in the client...
+//! Surly the first thing the client would try and do would be to correct the
+//! workspace commit such that it is merging the latest `heads/main` and
+//! `heads/feat`
 //!
 //! ┌───┐
 //! │ W │     ███████████ Create Commit ██████████████ Push to remote ██████████ Create commit ████████████ Push to remote ████████████
