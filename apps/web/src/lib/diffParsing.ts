@@ -1,13 +1,25 @@
 export function splitDiffIntoHunks(diff: string): string[] {
-	const hunkRegex = /(@@[^@]*@@)/g;
-	const matches = diff.split(hunkRegex);
+	const lines = diff.split('\n');
+
 	const hunks: string[] = [];
 
-	for (let i = 0; i < matches.length; i++) {
-		if (matches[i].startsWith('@@')) {
-			const hunkHeader = matches[i];
-			const hunkBody = matches[i + 1] || '';
-			hunks.push(hunkHeader + hunkBody);
+	// The only time we should see a line start with @@ in a diff or patch, is
+	// when there ia a hunk header.
+	for (const line of lines) {
+		if (line.startsWith('@@')) {
+			hunks.push('');
+		}
+
+		const lastIndex = hunks.length - 1;
+		if (lastIndex >= 0) {
+			hunks[lastIndex] = `${hunks[lastIndex]}${line}\n`;
+		}
+	}
+
+	// Remove trailing newlines
+	for (const index in hunks) {
+		if (hunks[index].endsWith('\n')) {
+			hunks[index] = hunks[index].slice(0, -1);
 		}
 	}
 
