@@ -14,7 +14,7 @@ import { StackPublishingService } from '$lib/history/stackPublishingService';
 import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { ModeService } from '$lib/mode/modeService';
-import { TemplateService } from '$lib/pr/templateService';
+import { TemplateService } from '$lib/forge/templateService';
 import { type Project } from '$lib/project/project';
 import { ProjectService } from '$lib/project/projectService';
 import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
