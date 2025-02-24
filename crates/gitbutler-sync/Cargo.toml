@@ -25,3 +25,4 @@ gitbutler-oxidize.workspace = true
 gitbutler-repo.workspace = true
 gitbutler-commit.workspace = true
 uuid.workspace = true
+rand = "0.9"

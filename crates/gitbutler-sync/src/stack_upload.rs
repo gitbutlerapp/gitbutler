@@ -14,6 +14,7 @@ use gitbutler_stack::{
 };
 use gitbutler_user::User;
 use gix::bstr::ByteSlice;
+use rand::Rng;
 
 use crate::cloud::{push_to_gitbutler_server, remote, RemoteKind};
 
@@ -73,6 +74,14 @@ struct BranchHead {
     id: gix::ObjectId,
 }
 
+/// The worlds most secure random string generator because uuids are "not cool"
+fn generate_review_id() -> String {
+    let mut rng = rand::rng();
+    (0..11)
+        .map(|_| rng.sample(rand::distr::Alphanumeric) as char)
+        .collect::<String>()
+}
+
 /// Fetch the stack heads in order and attach a review_id if not already present.
 fn branch_heads(
     vb_state: &VirtualBranchesHandle,
@@ -98,10 +107,7 @@ fn branch_heads(
         }
 
         let head_oid = head.head_oid(stack_context, &stack_clone)?.to_gix();
-        let review_id = head
-            .review_id
-            .clone()
-            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        let review_id = head.review_id.clone().unwrap_or_else(generate_review_id);
         head.review_id = Some(review_id.clone());
 
         heads.push(BranchHead {
