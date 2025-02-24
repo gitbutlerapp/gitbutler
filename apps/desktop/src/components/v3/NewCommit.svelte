@@ -45,17 +45,17 @@
 	 * TODO: Is there a way of getting the value synchronously?
 	 */
 	function createCommit() {
-		composer?.getPlaintext((message) => {
+		composer?.getPlaintext(async (message) => {
 			try {
-				_createCommit(message);
+				await _createCommit(message);
 			} catch (err: unknown) {
 				showError('Failed to commit', err);
 			}
 		});
 	}
 
-	function _createCommit(message: string) {
-		stackService.createCommit(projectId, {
+	async function _createCommit(message: string) {
+		await stackService.createCommit(projectId, {
 			stackId,
 			parentId: commitParent!,
 			message: message,
