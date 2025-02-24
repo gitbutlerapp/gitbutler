@@ -16,12 +16,8 @@
 </script>
 
 {#if projectId && stackId && branchName}
-	{@const firstLocalAndRemote = stackService.commits(projectId, stackId, branchName, {
-		index: 0
-	}).current}
-	{@const firstUpstream = stackService.upstreamCommits(projectId, stackId, branchName, {
-		index: 0
-	}).current}
+	{@const firstLocalAndRemote = stackService.commitAt(projectId, stackId, branchName, 0).current}
+	{@const firstUpstream = stackService.upstreamCommitAt(projectId, stackId, branchName, 0).current}
 
 	<ReduxResult result={combineResults(firstLocalAndRemote, firstUpstream)}>
 		{#snippet children([firstLocalAndRemote, firstUpstream])}

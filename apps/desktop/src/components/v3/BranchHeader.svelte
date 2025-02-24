@@ -21,7 +21,7 @@
 	const [stackService] = inject(StackService);
 
 	const topCommitResult = $derived(
-		stackService.commits(projectId, stackId, branch.name, { index: 0 }).current
+		stackService.commitAt(projectId, stackId, branch.name, 0).current
 	);
 
 	let seriesDescriptionEl = $state<HTMLTextAreaElement>();

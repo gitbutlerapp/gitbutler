@@ -2,14 +2,11 @@ import { ClientState } from '$lib/state/clientState.svelte';
 import { createSelectNth } from '$lib/state/customSelectors';
 import { ReduxTag } from '$lib/state/tags';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
-import type { BranchStack } from '$lib/branches/branch';
-import type { Commit, StackBranch } from '$lib/branches/v3';
+import type { Commit, StackBranch, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
 import type { TreeChange } from '$lib/hunks/change';
 import type { HunkHeader } from '$lib/hunks/hunk';
 import type { Stack } from '$lib/stacks/stack';
-import type { CustomQuery, CustomResult } from '$lib/state/butlerModule';
-import type { Reactive } from '@gitbutler/shared/storeUtils';
 
 type CreateBranchRequest = { name?: string; ownership?: string; order?: number };
 
@@ -31,23 +28,28 @@ export class StackService {
 		this.api = injectEndpoints(state.backendApi);
 	}
 
-	stacks<T extends number | undefined = undefined>(
-		projectId: string,
-		options?: { index?: T }
-	): Reactive<CustomResult<CustomQuery<T extends number ? Stack | undefined : Stack[]>>> {
-		const { stacks: getStacks } = this.api.endpoints;
+	stacks(projectId: string) {
 		const result = $derived(
-			getStacks.useQuery(
+			this.api.endpoints.stacks.useQuery(
 				{ projectId },
 				{
-					transform: (stacks) =>
-						options?.index !== undefined
-							? stackSelectors.selectNth(stacks, options.index)
-							: stackSelectors.selectAll(stacks)
+					transform: (stacks) => stackSelectors.selectAll(stacks)
 				}
 			)
 		);
-		return result as any;
+		return result;
+	}
+
+	stackAt(projectId: string, index: number) {
+		const result = $derived(
+			this.api.endpoints.stacks.useQuery(
+				{ projectId },
+				{
+					transform: (stacks) => stackSelectors.selectNth(stacks, index)
+				}
+			)
+		);
+		return result;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/promise-function-async
@@ -57,26 +59,28 @@ export class StackService {
 		return result;
 	}
 
-	branches<T extends number | undefined = undefined>(
-		projectId: string,
-		stackId: string,
-		options?: { index?: T }
-	): Reactive<
-		CustomResult<CustomQuery<T extends number ? BranchStack | undefined : BranchStack[]>>
-	> {
-		const { stackBranches: getStackBranches } = this.api.endpoints;
+	branches(projectId: string, stackId: string) {
 		const result = $derived(
-			getStackBranches.useQuery(
+			this.api.endpoints.stackBranches.useQuery(
 				{ projectId, stackId },
 				{
-					transform: (branches) =>
-						options?.index !== undefined
-							? branchSelectors.selectNth(branches, options.index)
-							: branchSelectors.selectAll(branches)
+					transform: (branches) => branchSelectors.selectAll(branches)
 				}
 			)
 		);
-		return result as any;
+		return result;
+	}
+
+	branchAt(projectId: string, stackId: string, index: number) {
+		const result = $derived(
+			this.api.endpoints.stackBranches.useQuery(
+				{ projectId, stackId },
+				{
+					transform: (branches) => branchSelectors.selectNth(branches, index)
+				}
+			)
+		);
+		return result;
 	}
 
 	branchByName(projectId: string, stackId: string, name: string) {
@@ -89,62 +93,74 @@ export class StackService {
 		return result;
 	}
 
-	commits<T extends number | undefined = undefined>(
-		projectId: string,
-		stackId: string,
-		branchName: string,
-		options?: { index?: T }
-	): Reactive<CustomResult<CustomQuery<T extends number ? Commit | null : Commit[]>>> {
+	commits(projectId: string, stackId: string, branchName: string) {
 		const result = $derived(
 			this.api.endpoints.localAndRemoteCommits.useQuery(
 				{ projectId, stackId, branchName },
 				{
-					transform: (result) => {
-						return options?.index !== undefined
-							? commitSelectors.selectNth(result, options.index) || null
-							: commitSelectors.selectAll(result);
-					}
+					transform: (result) => commitSelectors.selectAll(result)
 				}
 			)
-		);
-		return result as any;
-	}
-
-	commitById(projectId: string, commitKey: CommitKey) {
-		const { stackId, branchName, commitId, upstream } = commitKey;
-		const result = $derived(
-			upstream
-				? this.api.endpoints.upstreamCommits.useQuery(
-						{ projectId, stackId, branchName },
-						{ transform: (result) => commitSelectors.selectById(result, commitId) }
-					)
-				: this.api.endpoints.localAndRemoteCommits.useQuery(
-						{ projectId, stackId, branchName },
-						{ transform: (result) => commitSelectors.selectById(result, commitId) }
-					)
 		);
 		return result;
 	}
 
-	upstreamCommits<T extends number | undefined = undefined>(
-		projectId: string,
-		stackId: string,
-		branchName: string,
-		options?: { index?: T }
-	): Reactive<CustomResult<CustomQuery<T extends number ? Commit | null : Commit[]>>> {
+	commitAt(projectId: string, stackId: string, branchName: string, index: number) {
+		const result = $derived(
+			this.api.endpoints.localAndRemoteCommits.useQuery(
+				{ projectId, stackId, branchName },
+				{
+					transform: (result) => commitSelectors.selectNth(result, index) || null
+				}
+			)
+		);
+		return result;
+	}
+
+	commitById(projectId: string, commitKey: CommitKey) {
+		const { stackId, branchName, commitId } = commitKey;
+		const result = $derived(
+			this.api.endpoints.localAndRemoteCommits.useQuery(
+				{ projectId, stackId, branchName },
+				{ transform: (result) => commitSelectors.selectById(result, commitId) }
+			)
+		);
+		return result;
+	}
+
+	upstreamCommits(projectId: string, stackId: string, branchName: string) {
 		const result = $derived(
 			this.api.endpoints.upstreamCommits.useQuery(
 				{ projectId, stackId, branchName },
 				{
-					transform: (result) => {
-						return options?.index !== undefined
-							? commitSelectors.selectNth(result, options.index) || null
-							: commitSelectors.selectAll(result);
-					}
+					transform: (result) => upstreamCommitSelectors.selectAll(result)
 				}
 			)
 		);
-		return result as any;
+		return result;
+	}
+
+	upstreamCommitAt(projectId: string, stackId: string, branchName: string, index: number) {
+		const result = $derived(
+			this.api.endpoints.upstreamCommits.useQuery(
+				{ projectId, stackId, branchName },
+				{
+					transform: (result) => upstreamCommitSelectors.selectNth(result, index)
+				}
+			)
+		);
+		return result;
+	}
+
+	upstreamCommitById(projectId: string, commitKey: CommitKey) {
+		const { stackId, branchName, commitId } = commitKey;
+		const result = $derived(
+			this.api.endpoints.upstreamCommits.useQuery(
+				{ projectId, stackId, branchName },
+				{ transform: (result) => upstreamCommitSelectors.selectById(result, commitId) }
+			)
+		);
+		return result;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/promise-function-async
@@ -154,16 +170,19 @@ export class StackService {
 	}
 
 	commitChanges(projectId: string, commitId: string) {
-		const { commitChanges } = this.api.endpoints;
-		const result = $derived(commitChanges.useQuery({ projectId, commitId }));
+		const result = $derived(this.api.endpoints.commitChanges.useQuery({ projectId, commitId }));
 		return result;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/promise-function-async
 	updateCommitMessage(projectId: string, branchId: string, commitOid: string, message: string) {
-		const { updateCommitMessage } = this.api.endpoints;
 		const result = $derived(
-			updateCommitMessage.useMutation({ projectId, branchId, commitOid, message })
+			this.api.endpoints.updateCommitMessage.useMutation({
+				projectId,
+				branchId,
+				commitOid,
+				message
+			})
 		);
 		return result;
 	}
@@ -213,7 +232,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			}),
 			upstreamCommits: build.query<
-				EntityState<Commit, string>,
+				EntityState<UpstreamCommit, string>,
 				{ projectId: string; stackId: string; branchName: string }
 			>({
 				query: ({ projectId, stackId, branchName }) => ({
@@ -221,8 +240,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					params: { projectId, stackId, branchName }
 				}),
 				providesTags: [ReduxTag.Commits],
-				transformResponse(response: Commit[]) {
-					return commitAdapter.addMany(commitAdapter.getInitialState(), response);
+				transformResponse(response: UpstreamCommit[]) {
+					return upstreamCommitAdapter.addMany(upstreamCommitAdapter.getInitialState(), response);
 				}
 			}),
 			createCommit: build.mutation<Commit, { projectId: string } & CreateCommitRequest>({
@@ -256,16 +275,25 @@ function injectEndpoints(api: ClientState['backendApi']) {
 const stackAdapter = createEntityAdapter<Stack, string>({
 	selectId: (stack) => stack.id
 });
+const stackSelectors = { ...stackAdapter.getSelectors(), selectNth: createSelectNth<Stack>() };
+
 const branchAdapter = createEntityAdapter<StackBranch, string>({
 	selectId: (branch) => branch.name
 });
-const commitAdapter = createEntityAdapter<Commit, string>({
-	selectId: (commit) => commit.id
-});
-
-const stackSelectors = { ...stackAdapter.getSelectors(), selectNth: createSelectNth<Stack>() };
 const branchSelectors = {
 	...branchAdapter.getSelectors(),
 	selectNth: createSelectNth<StackBranch>()
 };
+
+const commitAdapter = createEntityAdapter<Commit, string>({
+	selectId: (commit) => commit.id
+});
 const commitSelectors = { ...commitAdapter.getSelectors(), selectNth: createSelectNth<Commit>() };
+
+const upstreamCommitAdapter = createEntityAdapter<UpstreamCommit, string>({
+	selectId: (commit) => commit.id
+});
+const upstreamCommitSelectors = {
+	...upstreamCommitAdapter.getSelectors(),
+	selectNth: createSelectNth<UpstreamCommit>()
+};

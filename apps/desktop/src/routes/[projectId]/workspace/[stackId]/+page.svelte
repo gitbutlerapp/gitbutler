@@ -14,7 +14,7 @@
 </script>
 
 {#if projectId && stackId}
-	{@const result = stackService.branches(projectId, stackId, { index: 0 }).current}
+	{@const result = stackService.branchAt(projectId, stackId, 0).current}
 	<ReduxResult {result}>
 		{#snippet children(branch)}
 			{#if branch}

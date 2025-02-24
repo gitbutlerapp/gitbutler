@@ -12,7 +12,7 @@
 </script>
 
 {#if projectId}
-	{@const result = stackService.stacks(projectId, { index: 0 }).current}
+	{@const result = stackService.stackAt(projectId, 0).current}
 	<ReduxResult {result}>
 		{#snippet children(stack)}
 			{#if stack}
