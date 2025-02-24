@@ -12,9 +12,10 @@
 		branchName: string;
 		lastBranch?: boolean;
 		selectedCommitId?: string;
+		onclick?: (commitId: string) => void;
 	}
 
-	let { projectId, stackId, branchName, lastBranch, selectedCommitId }: Props = $props();
+	let { projectId, stackId, branchName, lastBranch, selectedCommitId, onclick }: Props = $props();
 
 	const [stackService] = inject(StackService);
 
@@ -37,7 +38,7 @@
 					{@const last = i === upstreamOnlyCommits.length - 1}
 					{@const commitKey = { stackId, branchName, commitId: commit.id, upstream: true }}
 					{@const selected = selectedCommitId === commit.id}
-					<CommitRow {projectId} {commitKey} {first} {last} {commit} {selected} />
+					<CommitRow {projectId} {commitKey} {first} {last} {commit} {selected} {onclick} />
 				{/each}
 
 				{#each localAndRemoteCommits as commit, i (commit.id)}
@@ -45,7 +46,16 @@
 					{@const last = i === localAndRemoteCommits.length - 1}
 					{@const commitKey = { stackId, branchName, commitId: commit.id, upstream: false }}
 					{@const selected = selectedCommitId === commit.id}
-					<CommitRow {projectId} {commitKey} {first} {last} {commit} {lastBranch} {selected} />
+					<CommitRow
+						{projectId}
+						{commitKey}
+						{first}
+						{last}
+						{commit}
+						{lastBranch}
+						{selected}
+						{onclick}
+					/>
 				{/each}
 			</div>
 		{/if}
