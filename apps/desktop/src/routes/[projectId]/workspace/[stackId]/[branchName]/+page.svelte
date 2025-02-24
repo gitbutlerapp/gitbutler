@@ -4,7 +4,7 @@
 	import StackContentPlaceholder from '$components/v3/StackContentPlaceholder.svelte';
 	import { branchPath, commitPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { combineQueries } from '$lib/state/helpers';
+	import { combineResults } from '$lib/state/helpers';
 	import { getContext } from '@gitbutler/shared/context';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -23,7 +23,7 @@
 		index: 0
 	}).current}
 
-	<ReduxResult result={combineQueries(firstLocalAndRemote, firstUpstream)}>
+	<ReduxResult result={combineResults(firstLocalAndRemote, firstUpstream)}>
 		{#snippet children([firstLocalAndRemote, firstUpstream])}
 			{@const firstCommitId = firstLocalAndRemote ? firstLocalAndRemote.id : firstUpstream?.id}
 			{@const upstream = !firstLocalAndRemote && !!firstUpstream}

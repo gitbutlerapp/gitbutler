@@ -23,12 +23,12 @@
 	const desktopRouteService = getContext(DesktopRoutesService);
 	createCommitStore(undefined);
 
-	const changesQuery = $derived(worktreeService.getChanges(projectId));
+	const result = $derived(worktreeService.getChanges(projectId).current);
 	const disabled = $derived(!!desktopRouteService.isCommitPath);
 
 	/** Clear any selected changes that no longer exist. */
 	$effect(() => {
-		const affectedPaths = changesQuery.current.data?.map((c) => c.path);
+		const affectedPaths = result.data?.map((c) => c.path);
 		changeSelection.retain(affectedPaths);
 	});
 </script>
@@ -38,7 +38,7 @@
 	<Button kind="ghost" icon="sidebar-unfold" />
 </div>
 
-<ReduxResult result={changesQuery.current}>
+<ReduxResult {result}>
 	{#snippet children(changes)}
 		{#if changes.length > 0}
 			<div class="uncommitted-changes">

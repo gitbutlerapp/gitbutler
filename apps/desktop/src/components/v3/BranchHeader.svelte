@@ -20,7 +20,9 @@
 
 	const [stackService] = inject(StackService);
 
-	const commitsQuery = $derived(stackService.commits(projectId, stackId, branch.name).current);
+	const topCommitResult = $derived(
+		stackService.commits(projectId, stackId, branch.name, { index: 0 }).current
+	);
 
 	let seriesDescriptionEl = $state<HTMLTextAreaElement>();
 
@@ -38,9 +40,9 @@
 </script>
 
 <a href={branchPath(projectId, stackId, branch.name)} class="branch-header">
-	<ReduxResult result={commitsQuery}>
-		{#snippet children(commits)}
-			{@const branchType: CommitStateType = commits.at(0)?.state.type ?? 'LocalOnly'}
+	<ReduxResult result={topCommitResult}>
+		{#snippet children(commit)}
+			{@const branchType: CommitStateType = commit?.state.type ?? 'LocalOnly'}
 			{@const lineColor = getColorFromBranchType(branchType)}
 			<div class="branch-info">
 				<SeriesHeaderStatusIcon

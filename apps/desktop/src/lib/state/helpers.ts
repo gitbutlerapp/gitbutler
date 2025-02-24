@@ -30,7 +30,7 @@ export function isMutationDefinition(
  * An example of where this becomes relevant is when transforming the result
  * using selectNth.
  */
-export function combineQueries<T extends [...CustomResult<any>[]]>(
+export function combineResults<T extends [...CustomResult<any>[]]>(
 	...results: T
 ): CustomResult<CustomQuery<{ [K in keyof T]: Exclude<T[K]['data'], undefined> }>> {
 	const data = results.every((r) => r.status === QueryStatus.fulfilled)

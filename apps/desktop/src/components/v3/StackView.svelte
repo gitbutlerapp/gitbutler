@@ -24,11 +24,11 @@
 	let stackBranchWidth = $derived(persisted<number>(22.5, stackBranchWidthKey));
 
 	const [stackService] = inject(StackService);
-	const branchesQuery = $derived(stackService.branches(projectId, stackId));
+	const result = $derived(stackService.branches(projectId, stackId).current);
 </script>
 
 <div class="stack-view">
-	<ReduxResult result={branchesQuery.current}>
+	<ReduxResult {result}>
 		{#snippet children(branches)}
 			<div class="branches" bind:this={resizeStackBranches} style:width={$stackBranchWidth + 'rem'}>
 				<Resizer

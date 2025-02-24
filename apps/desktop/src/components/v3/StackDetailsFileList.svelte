@@ -12,13 +12,13 @@
 
 	const { projectId, commit }: Props = $props();
 	const [stackService] = inject(StackService);
-	const changesQuery = $derived(stackService.commitChanges(projectId, commit.id).current);
+	const result = $derived(stackService.commitChanges(projectId, commit.id).current);
 </script>
 
 <div class="wrapper">
 	<div class="header text-13 text-bold">Changed files</div>
-	{#if changesQuery}
-		<ReduxResult result={changesQuery}>
+	{#if result}
+		<ReduxResult {result}>
 			{#snippet children(changes)}
 				{#if changes.length > 0}
 					<FileList {projectId} {changes} />
