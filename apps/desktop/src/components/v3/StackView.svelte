@@ -1,89 +1,122 @@
 <script lang="ts">
-	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import Branch from '$components/v3/Branch.svelte';
+	import StackTabs from '$components/v3/StackTabs.svelte';
+	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
+	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import type { Snippet } from 'svelte';
+	import { onMount, setContext, type Snippet } from 'svelte';
 
 	interface Props {
 		stackId: string;
 		projectId: string;
-		selectedBranchName: string;
-		selectedCommitId: string | undefined;
+		branchName: string;
 		children: Snippet;
 	}
 
-	const { stackId, projectId, selectedBranchName, selectedCommitId, children }: Props = $props();
+	const { stackId, projectId, branchName, children }: Props = $props();
+
+	const worktreeService = getContext(WorktreeService);
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-	let resizeStackBranches = $state<HTMLElement>();
-	const stackBranchWidthKey = $derived('defaultStackBranchWidth_ ' + projectId);
-	let stackBranchWidth = $derived(persisted<number>(22.5, stackBranchWidthKey));
+	const idSelection = new IdSelection(worktreeService);
+	setContext(IdSelection, idSelection);
 
-	const [stackService] = inject(StackService);
-	const result = $derived(stackService.branches(projectId, stackId).current);
+	const trayWidthKey = $derived('defaulTrayWidth_ ' + projectId);
+	const trayWidth = $derived(persisted<number>(240, trayWidthKey));
+
+	const previewingKey = $derived('previewing_' + projectId);
+	const previewing = $derived(persisted<boolean>(false, previewingKey));
+
+	let resizeViewport = $state<HTMLElement>();
+
+	/** Offset width for tabs component. */
+	let width = $state<number>();
+	/** Content area on the right for stack details. */
+	let rightEl = $state<HTMLDivElement>();
+	/** Width of content area on the right. */
+	let rightWidth = $state<number>();
+	/** True if content area should be rounded. */
+	const rounded = $derived(rightWidth !== width);
+
+	onMount(() => {
+		const observer = new ResizeObserver(() => (rightWidth = rightEl?.offsetWidth));
+		observer.observe(rightEl!);
+		return () => {
+			observer.disconnect();
+		};
+	});
 </script>
 
-<div class="stack-view">
-	<ReduxResult {result}>
-		{#snippet children(branches)}
-			<div class="branches" bind:this={resizeStackBranches} style:width={$stackBranchWidth + 'rem'}>
-				<Resizer
-					viewport={resizeStackBranches}
-					direction="right"
-					minWidth={22.5}
-					onWidth={(value) => {
-						$stackBranchWidth = value / (16 * $userSettings.zoom);
-					}}
-				/>
-				{#if stackId && branches.length >= 0}
-					{#each branches as branch, i (branch.name)}
-						{@const first = i === 0}
-						{@const last = i === branches.length - 1}
-						<Branch
-							{projectId}
-							{stackId}
-							branchName={branch.name}
-							selected={selectedBranchName === branch.name}
-							{selectedCommitId}
-							{first}
-							{last}
-						/>
-					{/each}
-				{/if}
-			</div>
-		{/snippet}
-	</ReduxResult>
-	{@render children()}
+<div class="workspace">
+	<div class="left">
+		<div class="resizable-area" bind:this={resizeViewport} style:width={$trayWidth + 'rem'}>
+			<WorktreeChanges {projectId} {stackId} {branchName} />
+		</div>
+		<Resizer
+			viewport={resizeViewport}
+			direction="right"
+			minWidth={36}
+			onWidth={(value) => {
+				$trayWidth = value / (16 * $userSettings.zoom);
+			}}
+		/>
+	</div>
+	<div class="right" bind:this={rightEl}>
+		<StackTabs {projectId} selectedId={stackId} previewing={$previewing} bind:width />
+		<div class="contents" class:rounded>
+			{@render children()}
+		</div>
+	</div>
 </div>
 
 <style>
-	.stack-view {
-		position: relative;
-		height: 100%;
-		flex-grow: 1;
+	.workspace {
 		display: flex;
-		border-radius: 0 var(--radius-ml) var(--radius-ml);
+		flex: 1;
+		align-items: stretch;
+		height: 100%;
+		width: 100%;
+		position: relative;
 	}
 
-	.branches {
-		position: relative;
+	.left {
 		display: flex;
-		width: 22.5rem;
 		flex-direction: column;
-		padding: 16px;
+		justify-content: flex-start;
+		overflow: hidden;
+		position: relative;
+		padding-right: 8px;
+	}
+
+	.resizable-area {
+		display: flex;
+		flex-direction: column;
+		background-color: var(--clr-bg-1);
+		border-radius: var(--radius-ml);
+		border: 1px solid var(--clr-border-2);
+		height: 100%;
+	}
+
+	.right {
+		display: flex;
+		flex: 1;
+		margin-left: 6px;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.right .contents {
+		display: flex;
+		border: 1px solid var(--clr-border-2);
+		flex: 1;
+		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 		overflow: hidden;
 
-		background-color: transparent;
-		opacity: 1;
-		background-image: radial-gradient(
-			oklch(from var(--clr-scale-ntrl-50) l c h / 0.5) 0.6px,
-			#ffffff00 0.6px
-		);
-		background-size: 6px 6px;
-		border-right: 1px solid var(--clr-border-2);
+		&.rounded {
+			border-radius: 0 var(--radius-ml) var(--radius-ml) var(--radius-ml);
+		}
 	}
 </style>
