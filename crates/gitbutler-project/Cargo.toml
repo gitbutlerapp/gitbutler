@@ -14,7 +14,6 @@ gitbutler-error.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-id.workspace = true
 gitbutler-storage.workspace = true
-gitbutler-forge.workspace = true
 git2.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 uuid.workspace = true
