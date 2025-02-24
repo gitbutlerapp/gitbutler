@@ -49,16 +49,17 @@
 		<div class="scroller" bind:this={scroller} class:scrolled {onscroll}>
 			<ReduxResult result={result.current}>
 				{#snippet children(result)}
-					{@const tabs = stacksToTabs(result)}
-					{#each tabs as tab, i (tab.name)}
-						{@const first = i === 0}
-						{@const last = i === tabs.length - 1}
-						{@const selected = tab.id === selectedId}
-						<StackTab {projectId} {tab} {first} {last} {selected} />
-					{/each}
-				{/snippet}
-				{#snippet empty()}
-					no stacks
+					{#if result.length > 0}
+						{@const tabs = stacksToTabs(result)}
+						{#each tabs as tab, i (tab.name)}
+							{@const first = i === 0}
+							{@const last = i === tabs.length - 1}
+							{@const selected = tab.id === selectedId}
+							<StackTab {projectId} {tab} {first} {last} {selected} />
+						{/each}
+					{:else}
+						no stacks
+					{/if}
 				{/snippet}
 			</ReduxResult>
 		</div>

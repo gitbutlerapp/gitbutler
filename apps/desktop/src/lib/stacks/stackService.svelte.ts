@@ -1,10 +1,15 @@
 import { ClientState } from '$lib/state/clientState.svelte';
+import { createSelectNth } from '$lib/state/customSelectors';
 import { ReduxTag } from '$lib/state/tags';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
-import type { Commit, WorkspaceBranch } from '$lib/branches/v3';
+import type { BranchStack } from '$lib/branches/branch';
+import type { Commit, StackBranch } from '$lib/branches/v3';
+import type { CommitKey } from '$lib/commits/commit';
 import type { TreeChange } from '$lib/hunks/change';
 import type { HunkHeader } from '$lib/hunks/hunk';
 import type { Stack } from '$lib/stacks/stack';
+import type { CustomQuery, CustomResult } from '$lib/state/butlerModule';
+import type { Reactive } from '@gitbutler/shared/storeUtils';
 
 type CreateBranchRequest = { name?: string; ownership?: string; order?: number };
 
@@ -26,10 +31,23 @@ export class StackService {
 		this.api = injectEndpoints(state.backendApi);
 	}
 
-	getStacks(projectId: string) {
-		const { getStacks } = this.api.endpoints;
-		const result = $derived(getStacks.useQuery({ projectId }));
-		return result;
+	stacks<T extends number | undefined = undefined>(
+		projectId: string,
+		options?: { index?: T }
+	): Reactive<CustomResult<CustomQuery<T extends number ? Stack | undefined : Stack[]>>> {
+		const { stacks: getStacks } = this.api.endpoints;
+		const result = $derived(
+			getStacks.useQuery(
+				{ projectId },
+				{
+					transform: (stacks) =>
+						options?.index !== undefined
+							? stackSelectors.selectAll(stacks).at(options.index)
+							: stackSelectors.selectAll(stacks)
+				}
+			)
+		);
+		return result as any;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/promise-function-async
@@ -39,23 +57,94 @@ export class StackService {
 		return result;
 	}
 
-	getStackBranches(projectId: string, stackId: string) {
-		const { getStackBranches } = this.api.endpoints;
+	branches<T extends number | undefined = undefined>(
+		projectId: string,
+		stackId: string,
+		options?: { index?: T }
+	): Reactive<
+		CustomResult<CustomQuery<T extends number ? BranchStack | undefined : BranchStack[]>>
+	> {
+		const { stackBranches: getStackBranches } = this.api.endpoints;
 		const result = $derived(
-			getStackBranches.useQuery({ projectId, stackId }, { transform: branchSelectors.selectAll })
+			getStackBranches.useQuery(
+				{ projectId, stackId },
+				{
+					transform: (branches) =>
+						options?.index !== undefined
+							? branchSelectors.selectAll(branches).at(options.index)
+							: branchSelectors.selectAll(branches)
+				}
+			)
+		);
+		return result as any;
+	}
+
+	branchByName(projectId: string, stackId: string, name: string) {
+		const result = $derived(
+			this.api.endpoints.stackBranches.useQuery(
+				{ projectId, stackId },
+				{ transform: (result) => branchSelectors.selectById(result, name) }
+			)
 		);
 		return result;
 	}
 
-	getBranchByIndex(projectId: string, stackId: string, index: number) {
-		const { getStackBranches } = this.api.endpoints;
+	commits<T extends number | undefined = undefined>(
+		projectId: string,
+		stackId: string,
+		branchName: string,
+		options?: { index?: T }
+	): Reactive<CustomResult<CustomQuery<T extends number ? Commit | null : Commit[]>>> {
 		const result = $derived(
-			getStackBranches.useQuery(
-				{ projectId, stackId },
-				{ transform: (result) => branchSelectors.selectAll(result).at(index) }
+			this.api.endpoints.localAndRemoteCommits.useQuery(
+				{ projectId, stackId, branchName },
+				{
+					transform: (result) => {
+						return options?.index !== undefined
+							? commitSelectors.selectAll(result).at(options.index) || null
+							: commitSelectors.selectAll(result);
+					}
+				}
 			)
 		);
+		return result as any;
+	}
+
+	commitById(projectId: string, commitKey: CommitKey) {
+		const { stackId, branchName, commitId, upstream } = commitKey;
+		const result = $derived(
+			upstream
+				? this.api.endpoints.upstreamCommits.useQuery(
+						{ projectId, stackId, branchName },
+						{ transform: (result) => commitSelectors.selectById(result, commitId) }
+					)
+				: this.api.endpoints.localAndRemoteCommits.useQuery(
+						{ projectId, stackId, branchName },
+						{ transform: (result) => commitSelectors.selectById(result, commitId) }
+					)
+		);
 		return result;
+	}
+
+	upstreamCommits<T extends number | undefined = undefined>(
+		projectId: string,
+		stackId: string,
+		branchName: string,
+		options?: { index?: T }
+	): Reactive<CustomResult<CustomQuery<T extends number ? Commit | null : Commit[]>>> {
+		const result = $derived(
+			this.api.endpoints.upstreamCommits.useQuery(
+				{ projectId, stackId, branchName },
+				{
+					transform: (result) => {
+						return options?.index !== undefined
+							? commitSelectors.selectAll(result).at(options.index) || null
+							: commitSelectors.selectAll(result);
+					}
+				}
+			)
+		);
+		return result as any;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/promise-function-async
@@ -64,8 +153,8 @@ export class StackService {
 		return result;
 	}
 
-	getCommitChanges(projectId: string, commitId: string) {
-		const { getCommitChanges } = this.api.endpoints;
+	commitChanges(projectId: string, commitId: string) {
+		const { commitChanges: getCommitChanges } = this.api.endpoints;
 		const result = $derived(getCommitChanges.useQuery({ projectId, commitId }));
 		return result;
 	}
@@ -83,9 +172,12 @@ export class StackService {
 function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			getStacks: build.query<Stack[], { projectId: string }>({
+			stacks: build.query<EntityState<Stack, string>, { projectId: string }>({
 				query: ({ projectId }) => ({ command: 'stacks', params: { projectId } }),
-				providesTags: [ReduxTag.Stacks]
+				providesTags: [ReduxTag.Stacks],
+				transformResponse(response: Stack[]) {
+					return stackAdapter.addMany(stackAdapter.getInitialState(), response);
+				}
 			}),
 			createStack: build.mutation<Stack, { projectId: string; branch: CreateBranchRequest }>({
 				query: ({ projectId, branch }) => ({
@@ -94,8 +186,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: [ReduxTag.Stacks]
 			}),
-			getStackBranches: build.query<
-				EntityState<WorkspaceBranch, string>,
+			stackBranches: build.query<
+				EntityState<StackBranch, string>,
 				{ projectId: string; stackId: string }
 			>({
 				query: ({ projectId, stackId }) => ({
@@ -103,8 +195,34 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					params: { projectId, stackId }
 				}),
 				providesTags: [ReduxTag.StackBranches],
-				transformResponse(response: WorkspaceBranch[]) {
+				transformResponse(response: StackBranch[]) {
 					return branchAdapter.addMany(branchAdapter.getInitialState(), response);
+				}
+			}),
+			localAndRemoteCommits: build.query<
+				EntityState<Commit, string>,
+				{ projectId: string; stackId: string; branchName: string }
+			>({
+				query: ({ projectId, stackId, branchName }) => ({
+					command: 'stack_branch_local_and_remote_commits',
+					params: { projectId, stackId, branchName }
+				}),
+				providesTags: [ReduxTag.Commits],
+				transformResponse(response: Commit[]) {
+					return commitAdapter.addMany(commitAdapter.getInitialState(), response);
+				}
+			}),
+			upstreamCommits: build.query<
+				EntityState<Commit, string>,
+				{ projectId: string; stackId: string; branchName: string }
+			>({
+				query: ({ projectId, stackId, branchName }) => ({
+					command: 'stack_branch_upstream_only_commits',
+					params: { projectId, stackId, branchName }
+				}),
+				providesTags: [ReduxTag.Commits],
+				transformResponse(response: Commit[]) {
+					return commitAdapter.addMany(commitAdapter.getInitialState(), response);
 				}
 			}),
 			createCommit: build.mutation<Commit, { projectId: string } & CreateCommitRequest>({
@@ -114,7 +232,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commit]
 			}),
-			getCommitChanges: build.query<TreeChange[], { projectId: string; commitId: string }>({
+			commitChanges: build.query<TreeChange[], { projectId: string; commitId: string }>({
 				query: ({ projectId, commitId }) => ({
 					command: 'changes_in_commit',
 					params: { projectId, commitId }
@@ -135,9 +253,19 @@ function injectEndpoints(api: ClientState['backendApi']) {
 	});
 }
 
-const branchAdapter = createEntityAdapter<WorkspaceBranch, WorkspaceBranch['name']>({
-	selectId: (change) => change.name,
-	sortComparer: (a, b) => a.name.localeCompare(b.name)
+const stackAdapter = createEntityAdapter<Stack, string>({
+	selectId: (stack) => stack.id
+});
+const branchAdapter = createEntityAdapter<StackBranch, string>({
+	selectId: (branch) => branch.name
+});
+const commitAdapter = createEntityAdapter<Commit, string>({
+	selectId: (commit) => commit.id
 });
 
-const branchSelectors = branchAdapter.getSelectors();
+const stackSelectors = { ...stackAdapter.getSelectors(), selectNth: createSelectNth<Stack>() };
+const branchSelectors = {
+	...branchAdapter.getSelectors(),
+	selectNth: createSelectNth<StackBranch>()
+};
+const commitSelectors = { ...commitAdapter.getSelectors(), selectNth: createSelectNth<Commit>() };

@@ -104,20 +104,21 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 /**
  * Custom return type for the `QueryHooks` extensions.
  */
-type CustomResult<T extends QueryDefinition<any, any, any, any>> = QueryResultSelectorResult<T> & {
-	/**
-	 * Allows using the result from one query in the arguments to another.
-	 *
-	 * Example: ```
-	 *   const result = $derived(
-	 *     someService
-	 *       .getData(someId).current
-	 *       .andThen((data) => anotherService.getData(data.id)).current
-	 *   );
-	 * ```
-	 */
-	andThen<S extends (arg1: ResultTypeFrom<T>) => any>(fn: S): ReturnType<S>;
-};
+export type CustomResult<T extends QueryDefinition<any, any, any, any>> =
+	QueryResultSelectorResult<T> & {
+		/**
+		 * Allows using the result from one query in the arguments to another.
+		 *
+		 * Example: ```
+		 *   const result = $derived(
+		 *     someService
+		 *       .getData(someId).current
+		 *       .andThen((data) => anotherService.getData(data.id)).current
+		 *   );
+		 * ```
+		 */
+		andThen<S extends (arg1: ResultTypeFrom<T>) => any>(fn: S): ReturnType<S>;
+	};
 
 /**
  * It would be great to understand why it is necessary to set the args type

@@ -3,7 +3,7 @@
  * It contains commits derived from the local pseudo branch and it's respective remote.
  * This is distinct from a git branch in the sense that it has no local reference - something that we may want to change in the future.
  */
-export type WorkspaceBranch = {
+export type StackBranch = {
 	/** The name of the branch */
 	readonly name: string;
 	readonly remoteTrackingBranch: string | null;

@@ -1,6 +1,6 @@
 <script lang="ts" generics="A">
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { QueryStatus } from '@reduxjs/toolkit/query';
+	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import type { Snippet } from 'svelte';
 
 	type Result<A> = {
@@ -16,16 +16,14 @@
 	};
 
 	// eslint-disable-next-line no-undef
-	const { result, children, empty }: Props<A> = $props();
+	const { result, children }: Props<A> = $props();
 	const { data, status, error } = $derived(result);
 </script>
 
 {#if status === 'fulfilled'}
 	<!-- Show empty message if data is an empty array. -->
-	{#if data !== undefined && (!Array.isArray(data) || data.length > 0)}
+	{#if data !== undefined}
 		{@render children(data)}
-	{:else}
-		{@render empty?.()}
 	{/if}
 {:else if status === 'pending'}
 	<div class="loading-spinner">

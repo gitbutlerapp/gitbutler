@@ -5,12 +5,11 @@
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { onMount, setContext, type Snippet } from 'svelte';
-	import type { PageData } from './$types';
+	import type { PageData } from '../$types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
@@ -20,22 +19,14 @@
 
 	const { data, children }: { data: PageData; children: Snippet } = $props();
 
-	const projectId = $derived(data.projectId);
-	const stackId = $derived(page.params.stackId);
-	const stackService = getContext(StackService);
-	const result = $derived(stackService.getStacks(projectId));
+	const projectId = $derived(data.projectId!);
+	const stackId = $derived(page.params.stackId!);
+	const branchName = $derived(page.params.branchName!);
 
 	// Redirect to board if we have switched away from V3 feature.
 	$effect(() => {
 		if ($settingsStore && !$settingsStore.featureFlags.v3) {
 			goto(`/${data.projectId}/board`);
-		}
-	});
-
-	$effect(() => {
-		if (!stackId && result.current.data?.[0]) {
-			const firstStackId = result.current.data?.[0]?.id;
-			goto(`/${data.projectId}/workspace/${firstStackId}`);
 		}
 	});
 
@@ -76,7 +67,7 @@
 <div class="workspace">
 	<div class="left">
 		<div class="resizable-area" bind:this={resizeViewport} style:width={$trayWidth + 'rem'}>
-			<WorktreeChanges {projectId} {stackId} />
+			<WorktreeChanges {projectId} {stackId} {branchName} />
 		</div>
 		<Resizer
 			viewport={resizeViewport}
@@ -132,6 +123,7 @@
 	}
 
 	.right .contents {
+		display: flex;
 		border: 1px solid var(--clr-border-2);
 		flex: 1;
 		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
