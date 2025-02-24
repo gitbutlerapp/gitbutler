@@ -5,13 +5,6 @@ export function projectHttpsWarningBannerDismissed(projectId: string): Persisted
 	return persisted(false, key + projectId);
 }
 
-export function projectDeleteBranchesOnMergeWarningDismissed(
-	projectId: string
-): Persisted<boolean> {
-	const key = 'projectDeleteBranchesOnMergeWarningDismissed_';
-	return persisted(false, key + projectId);
-}
-
 export function projectCommitGenerationExtraConcise(projectId: string): Persisted<boolean> {
 	const key = 'projectCommitGenerationExtraConcise_';
 	return persisted(false, key + projectId);
@@ -50,6 +43,11 @@ export function projectLaneCollapsed(projectId: string, laneId: string): Persist
 
 export function persistedCommitMessage(projectId: string, branchId: string): Persisted<string> {
 	return persisted('', 'projectCurrentCommitMessage_' + projectId + '_' + branchId);
+}
+
+export function projectDeleteRemoteBranchAfterMerge(projectId: string): Persisted<boolean> {
+	const key = 'projectDeleteRemoteBranchAfterMerge_';
+	return persisted(false, key + projectId);
 }
 
 export const showHistoryView = persisted(false, 'showHistoryView');
