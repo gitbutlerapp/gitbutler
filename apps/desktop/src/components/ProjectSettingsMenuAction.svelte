@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { showHistoryView } from '$lib/config/config';
 	import { Project } from '$lib/project/project';
-	import { DesktopRoutesService } from '$lib/routes/routes.svelte';
+	import { projectSettingsPath } from '$lib/routes/routes.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import * as events from '$lib/utils/events';
@@ -16,10 +16,9 @@
 	const project = getContext(Project);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const shortcutService = getContext(ShortcutService);
-	const routes = getContext(DesktopRoutesService);
 
 	shortcutService.on('project-settings', () => {
-		goto(routes.projectSettingsPath(project.id));
+		goto(projectSettingsPath(project.id));
 	});
 
 	shortcutService.on('open-in-vscode', () => {

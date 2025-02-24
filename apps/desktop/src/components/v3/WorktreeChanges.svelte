@@ -3,7 +3,7 @@
 	import FileList from '$components/v3/FileList.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
-	import { createCommitPath, DesktopRoutesService } from '$lib/routes/routes.svelte';
+	import { createCommitPath, isCommitPath } from '$lib/routes/routes.svelte';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -20,11 +20,10 @@
 
 	const changeSelection = getContext(ChangeSelectionService);
 	const worktreeService = getContext(WorktreeService);
-	const desktopRouteService = getContext(DesktopRoutesService);
 	createCommitStore(undefined);
 
 	const result = $derived(worktreeService.getChanges(projectId).current);
-	const disabled = $derived(!!desktopRouteService.isCommitPath);
+	const disabled = $derived(!!isCommitPath);
 
 	/** Clear any selected changes that no longer exist. */
 	$effect(() => {

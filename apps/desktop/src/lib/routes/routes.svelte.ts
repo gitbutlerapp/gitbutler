@@ -5,44 +5,57 @@ function isUrl<T>(id: string): T | undefined {
 		return page.params as T;
 	}
 }
-export class DesktopRoutesService {
-	constructor() {}
 
-	projectPath(projectId: string) {
-		return `/${projectId}`;
-	}
-	isProjectPath = $derived(isUrl<{ projectId: string }>('/[projectId]'));
+export function projectPath(projectId: string) {
+	return `/${projectId}`;
+}
 
-	projectSettingsPath(projectId: string) {
-		return `/${projectId}/settings`;
-	}
-	isProjectSettingsPath = $derived(isUrl<{ projectId: string }>('/[projectId]/settings'));
+export function isProjectPath() {
+	return isUrl<{ projectId: string }>('/[projectId]');
+}
 
-	workspacePath(projectId: string) {
-		return `/${projectId}/workspace`;
-	}
-	isWorkspacePath = $derived(
-		isUrl<{ projectId: string; branchId?: string }>('/[projectId]/workspace/[[stackId]]')
-	);
+export function projectSettingsPath(projectId: string) {
+	return `/${projectId}/settings`;
+}
 
-	branchesPath(projectId: string) {
-		return `/${projectId}/branches`;
-	}
-	isBranchesPath = $derived(isUrl<{ projectId: string }>('/[projectId]/branches'));
+export function isProjectSettingsPath() {
+	return isUrl<{ projectId: string }>('/[projectId]/settings');
+}
 
-	targetPath(projectId: string) {
-		return `/${projectId}/target`;
-	}
-	isTargetPath = $derived(isUrl<{ projectId: string }>('/[projectId]/target'));
+export function workspacePath(projectId: string) {
+	return `/${projectId}/workspace`;
+}
 
-	historyPath(projectId: string) {
-		return `/${projectId}/history`;
-	}
-	isHistoryPath = $derived(isUrl<{ projectId: string }>('/[projectId]/history'));
+export function isWorkspacePath() {
+	return isUrl<{ projectId: string; branchId?: string }>('/[projectId]/workspace/[[stackId]]');
+}
 
-	isCommitPath = $derived(
-		isUrl<{ projectId: string; stackId: string }>('/[projectId]/workspace/[[stackId]]/commit')
-	);
+export function branchesPath(projectId: string) {
+	return `/${projectId}/branches`;
+}
+
+export function isBranchesPath() {
+	return isUrl<{ projectId: string }>('/[projectId]/branches');
+}
+
+export function targetPath(projectId: string) {
+	return `/${projectId}/target`;
+}
+
+export function isTargetPath() {
+	return isUrl<{ projectId: string }>('/[projectId]/target');
+}
+
+export function historyPath(projectId: string) {
+	return `/${projectId}/history`;
+}
+
+export function isHistoryPath() {
+	return isUrl<{ projectId: string }>('/[projectId]/history');
+}
+
+export function isCommitPath() {
+	return isUrl<{ projectId: string; stackId: string }>('/[projectId]/workspace/[[stackId]]/commit');
 }
 
 export function settingsPath() {
