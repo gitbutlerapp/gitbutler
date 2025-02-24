@@ -3,9 +3,9 @@
 	import { BranchStack, type PatchSeries } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import { cloudReviewFunctionality } from '$lib/config/uiFeatureFlags';
+	import { getPr } from '$lib/forge/getPr.svelte';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
-	import { getPr } from '$lib/pr/getPr.svelte';
 	import { getContextStore, inject } from '@gitbutler/shared/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';

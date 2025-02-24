@@ -26,11 +26,11 @@
 	import { createForgeListingServiceStore } from '$lib/forge/interface/forgeListingService';
 	import { createForgePrServiceStore } from '$lib/forge/interface/forgePrService';
 	import { createForgeRepoServiceStore } from '$lib/forge/interface/forgeRepoService';
+	import { TemplateService } from '$lib/forge/templateService';
 	import { HistoryService } from '$lib/history/history';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 	import { ModeService } from '$lib/mode/modeService';
-	import { TemplateService } from '$lib/pr/templateService';
 	import { Project } from '$lib/project/project';
 	import { projectCloudSync } from '$lib/project/projectCloudSync.svelte';
 	import { ProjectService } from '$lib/project/projectService';
