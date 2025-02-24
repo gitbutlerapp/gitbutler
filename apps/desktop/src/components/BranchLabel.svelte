@@ -39,52 +39,56 @@
 >
 	{editableName}
 </span>
-<input
-	type="text"
-	{disabled}
-	{readonly}
-	bind:this={inputEl}
-	bind:value={editableName}
-	onchange={(e) => {
-		const value = e.currentTarget.value.trim();
-		if (value === name) return;
-		if (value === '') {
+{#if readonly}
+	{name}
+{:else}
+	<input
+		type="text"
+		{disabled}
+		{readonly}
+		bind:this={inputEl}
+		bind:value={editableName}
+		onchange={(e) => {
+			const value = e.currentTarget.value.trim();
+			if (value === name) return;
+			if (value === '') {
+				editableName = name;
+				return;
+			}
+			onChange?.(value);
+		}}
+		title={editableName}
+		class="branch-name-input text-14 text-bold"
+		ondblclick={(e) => {
+			e.stopPropagation();
+			if (readonly) {
+				onDblClick?.();
+			}
+		}}
+		oncontextmenu={(e) => {
+			e.stopPropagation();
+		}}
+		onclick={(e) => {
+			e.stopPropagation();
+			inputEl?.focus();
+			if ($autoSelectBranchNameFeature) {
+				inputEl?.select();
+			}
+		}}
+		onfocus={() => {
 			editableName = name;
-			return;
-		}
-		onChange?.(value);
-	}}
-	title={editableName}
-	class="branch-name-input text-14 text-bold"
-	ondblclick={(e) => {
-		e.stopPropagation();
-		if (readonly) {
-			onDblClick?.();
-		}
-	}}
-	oncontextmenu={(e) => {
-		e.stopPropagation();
-	}}
-	onclick={(e) => {
-		e.stopPropagation();
-		inputEl?.focus();
-		if ($autoSelectBranchNameFeature) {
-			inputEl?.select();
-		}
-	}}
-	onfocus={() => {
-		editableName = name;
-	}}
-	onkeydown={(e) => {
-		if (e.key === 'Enter' || e.key === 'Escape') {
-			inputEl?.blur();
-		}
-	}}
-	autocomplete="off"
-	autocorrect="off"
-	spellcheck="false"
-	style:width={nameWidthPx}
-/>
+		}}
+		onkeydown={(e) => {
+			if (e.key === 'Enter' || e.key === 'Escape') {
+				inputEl?.blur();
+			}
+		}}
+		autocomplete="off"
+		autocorrect="off"
+		spellcheck="false"
+		style:width={nameWidthPx}
+	/>
+{/if}
 
 <style lang="postcss">
 	.branch-name-measure-el,
