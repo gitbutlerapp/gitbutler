@@ -23,7 +23,7 @@
 	createCommitStore(undefined);
 
 	const result = $derived(worktreeService.getChanges(projectId).current);
-	const disabled = $derived(!!isCommitPath);
+	const disabled = $derived(!!isCommitPath());
 
 	/** Clear any selected changes that no longer exist. */
 	$effect(() => {
