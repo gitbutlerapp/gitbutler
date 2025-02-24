@@ -30,6 +30,8 @@ export default class LineSelection {
 	}
 
 	onStart(ev: MouseEvent, row: Row, index: number) {
+		ev.preventDefault();
+		ev.stopPropagation();
 		this._selectionStart = index;
 		this._lastSelected = index;
 		this.onLineClick?.({
@@ -66,6 +68,8 @@ export default class LineSelection {
 	onMoveOver(ev: MouseEvent, row: Row, index: number) {
 		if (this._lastSelected === index) return;
 		if (ev.buttons === 1) {
+			ev.preventDefault();
+			ev.stopPropagation();
 			toggleLine: {
 				if (this._lastSelected !== undefined && this._selectionDirection !== undefined) {
 					if (this.isReversedDragSelection(index, this._lastSelected, this._selectionDirection)) {
