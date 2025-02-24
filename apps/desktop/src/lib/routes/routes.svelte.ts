@@ -41,7 +41,9 @@ export class DesktopRoutesService {
 	isHistoryPath = $derived(isUrl<{ projectId: string }>('/[projectId]/history'));
 
 	isCommitPath = $derived(
-		isUrl<{ projectId: string; stackId: string }>('/[projectId]/workspace/[[stackId]]/commit')
+		isUrl<{ projectId: string; stackId: string }>(
+			'/[projectId]/workspace/[stackId]/[branchName]/commit'
+		)
 	);
 }
 
@@ -53,8 +55,14 @@ export function stackPath(projectId: string, stackId: string) {
 	return `/${projectId}/workspace/${stackId}`;
 }
 
-export function createCommitPath(projectId: string, stackId: string, branchName: string) {
-	return `/${projectId}/workspace/${stackId}/${branchName}/commit`;
+export function createCommitPath(
+	projectId: string,
+	stackId: string,
+	branchName: string,
+	commitId?: string
+) {
+	const url = `/${projectId}/workspace/${stackId}/${branchName}/commit`;
+	return commitId ? url + '?commitId=' + commitId : url;
 }
 
 export function clonePath() {
@@ -62,7 +70,6 @@ export function clonePath() {
 }
 
 export function branchPath(projectId: string, stackId: string, branchName: string) {
-	console.log(stackId, branchName);
 	return `/${projectId}/workspace/${stackId}/${branchName}`;
 }
 
