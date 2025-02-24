@@ -50,7 +50,7 @@
 	});
 </script>
 
-<div class="workspace">
+<div class="stack-view">
 	<div class="left">
 		<div class="resizable-area" bind:this={resizeViewport} style:width={$trayWidth + 'rem'}>
 			<WorktreeChanges {projectId} {stackId} {branchName} />
@@ -73,7 +73,7 @@
 </div>
 
 <style>
-	.workspace {
+	.stack-view {
 		display: flex;
 		flex: 1;
 		align-items: stretch;

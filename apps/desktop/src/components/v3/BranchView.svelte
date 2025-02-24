@@ -28,7 +28,7 @@
 	let stackBranchWidth = $derived(persisted<number>(22.5, stackBranchWidthKey));
 </script>
 
-<div class="stack-view">
+<div class="branch-view">
 	<ReduxResult {result}>
 		{#snippet children(branches)}
 			<div class="branches" bind:this={resizeStackBranches} style:width={$stackBranchWidth + 'rem'}>
@@ -62,7 +62,7 @@
 </div>
 
 <style>
-	.stack-view {
+	.branch-view {
 		position: relative;
 		height: 100%;
 		flex-grow: 1;
