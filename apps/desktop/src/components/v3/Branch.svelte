@@ -1,46 +1,57 @@
 <script lang="ts">
 	import BranchDividerLine from './BranchDividerLine.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
-	import EmptyBranch from '$components/v3/EmptyBranch.svelte';
-	import { isStackedBranch } from '$components/v3/lib';
-	import type { WorkspaceBranch } from '$lib/branches/v3';
+	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { combineQueries } from '$lib/state/helpers';
+	import { inject } from '@gitbutler/shared/context';
 
 	interface Props {
-		branch: WorkspaceBranch;
+		projectId: string;
+		stackId: string;
+		branchName: string;
 		first: boolean;
 		last: boolean;
+		selected: boolean;
 		selectedCommitId?: string;
 	}
 
-	let { branch, first, last, selectedCommitId = $bindable() }: Props = $props();
+	let {
+		projectId,
+		stackId,
+		branchName,
+		first,
+		last,
+		selected,
+		selectedCommitId = $bindable()
+	}: Props = $props();
 
-	const localAndRemoteCommits = $derived(
-		isStackedBranch(branch.state) ? branch.state.subject.localAndRemote : []
-	);
-	const upstreamOnlyCommits = $derived(
-		isStackedBranch(branch.state) ? branch.state.subject.upstreamOnly : []
-	);
+	const [stackService] = inject(StackService);
+	const branchQuery = stackService.branchByName(projectId, stackId, branchName).current;
+	const commitQuery = $derived(stackService.commits(projectId, stackId, branchName).current);
 </script>
 
-{#if !first}
-	<BranchDividerLine topPatchStatus={localAndRemoteCommits[0]?.state.type ?? 'Error'} />
-{/if}
-<div class="branch" data-series-name={branch.name}>
-	<BranchHeader {branch} isTopBranch={first} />
-	{#if !localAndRemoteCommits.length && !upstreamOnlyCommits.length}
-		<EmptyBranch {last} />
-	{/if}
-	{#if isStackedBranch(branch.state)}
-		<BranchCommitList commits={branch.state.subject} lastBranch={last} bind:selectedCommitId />
-	{/if}
-</div>
+<ReduxResult result={combineQueries(branchQuery, commitQuery)}>
+	{#snippet children([branch, commits])}
+		{#if !first}
+			<BranchDividerLine topPatchStatus={commits.at(0)?.state.type ?? 'Error'} />
+		{/if}
+		<div class="branch" class:selected data-series-name={branchName}>
+			<BranchHeader {projectId} {stackId} {branch} isTopBranch={first} />
+			<BranchCommitList {projectId} {stackId} {branchName} lastBranch={last} {selectedCommitId} />
+		</div>
+	{/snippet}
+</ReduxResult>
 
 <style>
 	.branch {
 		position: relative;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
-		background: var(--clr-bg-1);
+		background: var(--clr-bg-2);
+		&.selected {
+			background: var(--clr-bg-1);
+		}
 	}
 </style>

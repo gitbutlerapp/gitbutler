@@ -82,9 +82,9 @@
 
 	const appState = new AppState();
 	const clientState = new ClientState(data.tauri);
-	const selectionState = $derived(clientState.selectionState);
-	const changeSelection = new ChangeSelectionService(
-		reactive(() => selectionState),
+	const changeSelection = $derived(clientState.changeSelection);
+	const changeSelectionService = new ChangeSelectionService(
+		reactive(() => changeSelection),
 		clientState.dispatch
 	);
 	const stackService = new StackService(clientState);
@@ -109,7 +109,7 @@
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
-	setContext(ChangeSelectionService, changeSelection);
+	setContext(ChangeSelectionService, changeSelectionService);
 	setContext(ClientState, clientState);
 	setContext(FeedService, feedService);
 	setContext(OrganizationService, organizationService);

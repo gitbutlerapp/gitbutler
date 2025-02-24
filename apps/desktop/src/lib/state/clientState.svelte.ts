@@ -18,7 +18,7 @@ export class ClientState {
 	// value in the constructor such that we can inject dependencies. The
 	// incorrect casting `as` seems difficult to avoid.
 	rootState = $state.raw({} as ReturnType<typeof this.store.getState>);
-	readonly selectionState = $derived(this.rootState.changeSelection);
+	readonly changeSelection = $derived(this.rootState.changeSelection);
 
 	/** rtk-query api for communicating with the back end. */
 	readonly backendApi: ReturnType<typeof createApi>;

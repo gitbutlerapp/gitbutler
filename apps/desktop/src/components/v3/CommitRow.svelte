@@ -1,39 +1,37 @@
 <script lang="ts">
 	import CommitLine from '$components/v3/CommitLine.svelte';
+	import { commitPath } from '$lib/routes/routes.svelte';
 	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
+	import type { CommitKey } from '$lib/commits/commit';
 
 	interface Props {
+		projectId: string;
+		commitKey: CommitKey;
 		commit: Commit | UpstreamCommit;
 		first?: boolean;
 		last?: boolean;
 		lastBranch?: boolean;
-		selectedCommitId?: string;
+		selected: boolean;
 	}
 
-	let { first, commit, last, lastBranch, selectedCommitId = $bindable() }: Props = $props();
+	const { projectId, commitKey, commit, first, last, lastBranch, selected }: Props = $props();
 
 	const commitTitle = $derived(commit.message.split('\n')[0]);
 </script>
 
-<button
+<a
 	type="button"
 	class="commit"
 	class:first
 	class:last
-	class:selected={selectedCommitId === commit.id}
-	onclick={() => {
-		if (selectedCommitId && selectedCommitId === commit.id) {
-			selectedCommitId = undefined;
-		} else {
-			selectedCommitId = commit.id;
-		}
-	}}
+	class:selected
+	href={commitPath(projectId, commitKey)}
 >
 	<CommitLine {commit} {last} {lastBranch} />
 	<div class="commit-content text-13 text-semibold">
 		{commitTitle}
 	</div>
-</button>
+</a>
 
 <style>
 	.commit {
@@ -61,8 +59,10 @@
 	}
 
 	.commit-content {
-		flex: 1;
-		display: flex;
-		align-items: center;
+		padding: 14px 14px 14px 0;
+		flex-grow: 1;
+		text-overflow: ellipsis;
+		overflow: hidden;
+		white-space: nowrap;
 	}
 </style>

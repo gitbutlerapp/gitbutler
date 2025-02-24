@@ -42,11 +42,12 @@ pub fn stack_branch_local_and_remote_commits(
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     stack_id: String,
-    name: String,
+    branch_name: String,
 ) -> Result<Vec<but_workspace::Commit>, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    but_workspace::stack_branch_local_and_remote_commits(stack_id, name, &ctx).map_err(Into::into)
+    but_workspace::stack_branch_local_and_remote_commits(stack_id, branch_name, &ctx)
+        .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -56,11 +57,12 @@ pub fn stack_branch_upstream_only_commits(
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     stack_id: String,
-    name: String,
+    branch_name: String,
 ) -> Result<Vec<but_workspace::UpstreamCommit>, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    but_workspace::stack_branch_upstream_only_commits(stack_id, name, &ctx).map_err(Into::into)
+    but_workspace::stack_branch_upstream_only_commits(stack_id, branch_name, &ctx)
+        .map_err(Into::into)
 }
 
 /// Retrieve all changes in the workspace and associate them with commits in the Workspace of `project_id`.

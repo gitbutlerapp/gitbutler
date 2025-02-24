@@ -19,11 +19,11 @@
 		showCheckboxes?: boolean;
 	}
 
-	const { changes: files, projectId, commitId, showCheckboxes }: Props = $props();
+	const { changes, projectId, commitId, showCheckboxes }: Props = $props();
 
 	let currentDisplayIndex = $state(0);
 
-	const fileChunks: TreeChange[][] = $derived(chunk(sortLikeFileTree(files), 100));
+	const fileChunks: TreeChange[][] = $derived(chunk(sortLikeFileTree(changes), 100));
 	const visibleFiles: TreeChange[] = $derived(fileChunks.slice(0, currentDisplayIndex + 1).flat());
 	const idSelection = getContext(IdSelection);
 
@@ -56,7 +56,6 @@
 			<LazyloadContainer
 				minTriggerCount={80}
 				ontrigger={() => {
-					console.log('loading more files...');
 					loadMore();
 				}}
 				role="listbox"

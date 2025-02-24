@@ -7,6 +7,7 @@
 
 	const projectId = $derived(data.projectId);
 	const stackId = $derived(page.params.stackId!);
+	const branchName = $derived(page.params.branchName!);
 </script>
 
-<NewCommit {projectId} {stackId} />
+<NewCommit {projectId} {stackId} {branchName} />

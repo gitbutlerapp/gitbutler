@@ -43,14 +43,6 @@ export class DesktopRoutesService {
 	isCommitPath = $derived(
 		isUrl<{ projectId: string; stackId: string }>('/[projectId]/workspace/[[stackId]]/commit')
 	);
-
-	changeProjectPath(targetProjectId: string) {
-		if (!page.route.id) {
-			return '/';
-		}
-		const targetRestPath = page.route.id?.replace('/[projectId]/', '');
-		return `/${targetProjectId}/${targetRestPath}`;
-	}
 }
 
 export function settingsPath() {
@@ -61,10 +53,24 @@ export function stackPath(projectId: string, stackId: string) {
 	return `/${projectId}/workspace/${stackId}`;
 }
 
-export function commitPath(projectId: string, stackId: string) {
-	return `/${projectId}/workspace/${stackId}/commit`;
+export function createCommitPath(projectId: string, stackId: string, branchName: string) {
+	return `/${projectId}/workspace/${stackId}/${branchName}/commit`;
 }
 
 export function clonePath() {
 	return '/onboarding/clone';
+}
+
+export function branchPath(projectId: string, stackId: string, branchName: string) {
+	console.log(stackId, branchName);
+	return `/${projectId}/workspace/${stackId}/${branchName}`;
+}
+
+export function commitPath(
+	projectId: string,
+	commitKey: { stackId: string; branchName: string; commitId: string; upstream: boolean }
+) {
+	const { stackId, branchName, commitId, upstream } = commitKey;
+	const url = `/${projectId}/workspace/${stackId}/${branchName}?commitId=${commitId}`;
+	return upstream ? url + '&upstream' : url;
 }

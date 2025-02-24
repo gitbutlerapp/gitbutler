@@ -12,7 +12,8 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 
-	const { projectId, stackId }: { projectId: string; stackId: string } = $props();
+	type Props = { projectId: string; stackId: string; branchName: string };
+	const { projectId, stackId, branchName }: Props = $props();
 
 	const baseBranchService = getContext(BaseBranchService);
 	const stackService = getContext(StackService);
@@ -26,35 +27,24 @@
 	 */
 	let markdown = persisted(true, 'useMarkdown__' + projectId);
 
-	/**
-	 * Commit message placeholder text.
-	 *
-	 * TODO: Make stackId required.
-	 */
-	const branch = $derived(stackService.getBranchByIndex(projectId, stackId, 0).current);
-
-	/**
-	 * TODO: Find a better way of accessing top commit.
-	 */
-	const commit = $derived(
-		branch && branch.data?.state.type === 'Stacked'
-			? branch.data.state.subject.localAndRemote.at(0)
-			: undefined
+	const commitsQuery = $derived(
+		stackService.commits(projectId, stackId, branchName, { index: 0 }).current
 	);
+
+	const topCommit = $derived(commitsQuery.data);
 
 	/**
 	 * At the moment this code can only commit to the tip of the stack.
 	 *
 	 * TODO: Implement according to design.
 	 */
-	const commitParent = $derived(commit ? commit.id : $base?.baseSha);
+	const commitParent = $derived(topCommit ? topCommit.id : $base?.baseSha);
 	let composer: CommitMessageEditor | undefined = $state();
 
 	/**
 	 * TODO: Is there a way of getting the value synchronously?
 	 */
 	function createCommit() {
-		console.log(composer);
 		composer?.getPlaintext((message) => {
 			try {
 				_createCommit(message);
@@ -65,7 +55,6 @@
 	}
 
 	function _createCommit(message: string) {
-		console.log(message, commitParent, selection);
 		stackService.createCommit(projectId, {
 			stackId,
 			parentId: commitParent!,

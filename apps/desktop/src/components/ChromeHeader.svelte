@@ -50,7 +50,7 @@
 			disabled={newProjectLoading || cloneProjectLoading}
 			onselect={(value: string) => {
 				selectedProjectId = value;
-				goto(routes.changeProjectPath(selectedProjectId));
+				goto(routes.projectPath(selectedProjectId));
 			}}
 			popupAlign="center"
 			customWidth={300}
