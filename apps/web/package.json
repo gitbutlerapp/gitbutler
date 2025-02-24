@@ -10,7 +10,8 @@
 		"prepare": "svelte-kit sync",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
-		"test:e2e:web": "playwright test"
+		"test:e2e:web": "playwright test",
+		"test": "vitest run --mode development"
 	},
 	"devDependencies": {
 		"@csstools/postcss-global-data": "^3.0.0",
@@ -35,7 +36,10 @@
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
 		"svelte-french-toast": "^1.2.0",
-		"vite": "catalog:"
+		"vite": "catalog:",
+		"vitest": "catalog:",
+		"@testing-library/jest-dom": "^6.6.3",
+		"@testing-library/svelte": "5.2.5"
 	},
 	"dependencies": {
 		"@ethercorps/sveltekit-og": "^3.0.0",
