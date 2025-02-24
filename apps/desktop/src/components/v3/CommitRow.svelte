@@ -12,33 +12,35 @@
 		last?: boolean;
 		lastBranch?: boolean;
 		selected: boolean;
+		onclick?: (commitId: string) => void;
 	}
 
-	const { projectId, commitKey, commit, first, last, lastBranch, selected }: Props = $props();
+	const { projectId, commitKey, commit, first, last, lastBranch, selected, onclick }: Props =
+		$props();
 
 	const commitTitle = $derived(commit.message.split('\n')[0]);
 </script>
 
-<a
+<button
 	type="button"
 	class="commit"
 	class:first
 	class:last
 	class:selected
-	href={commitPath(projectId, commitKey)}
+	onclick={() => onclick?.(commit.id)}
 >
 	<CommitLine {commit} {last} {lastBranch} />
 	<div class="commit-content text-13 text-semibold">
 		{commitTitle}
 	</div>
-</a>
+</button>
 
 <style>
 	.commit {
 		position: relative;
 		display: flex;
 		align-items: center;
-		height: 100%;
+		text-align: left;
 
 		&:not(.last) {
 			border-bottom: 1px solid var(--clr-border-2);

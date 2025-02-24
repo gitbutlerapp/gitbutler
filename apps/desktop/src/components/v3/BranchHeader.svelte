@@ -4,7 +4,6 @@
 	import SeriesDescription from '$components/SeriesDescription.svelte';
 	import SeriesHeaderStatusIcon from '$components/SeriesHeaderStatusIcon.svelte';
 	import { getColorFromBranchType } from '$components/v3/lib';
-	import { branchPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import type { CommitStateType, StackBranch } from '$lib/branches/v3';
@@ -14,9 +13,11 @@
 		stackId: string;
 		branch: StackBranch;
 		isTopBranch: boolean;
+		readonly: boolean;
+		onclick?: () => void;
 	}
 
-	const { projectId, stackId, branch, isTopBranch }: Props = $props();
+	const { projectId, stackId, branch, isTopBranch, readonly, onclick }: Props = $props();
 
 	const [stackService] = inject(StackService);
 
@@ -39,7 +40,7 @@
 	}
 </script>
 
-<a href={branchPath(projectId, stackId, branch.name)} class="branch-header">
+<button type="button" {onclick} class="branch-header" disabled={!onclick}>
 	<ReduxResult result={topCommitResult}>
 		{#snippet children(commit)}
 			{@const branchType: CommitStateType = commit?.state.type ?? 'LocalOnly'}
@@ -61,7 +62,7 @@
 						<BranchLabel
 							name={branch.name}
 							onChange={(name) => editTitle(name)}
-							readonly={!!branch.remoteTrackingBranch}
+							readonly={readonly || !!branch.remoteTrackingBranch}
 							onDblClick={() => {
 								if (branchType !== 'Integrated') {
 									// stackingContextMenu?.showSeriesRenameModal?.(branch.name);
@@ -84,7 +85,7 @@
 			</div>
 		{/snippet}
 	</ReduxResult>
-</a>
+</button>
 
 <style lang="postcss">
 	.branch-header {
