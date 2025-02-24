@@ -4,7 +4,6 @@ export function createSelectNth<T>() {
 	return createSelector(
 		[(state: EntityState<T, number | string>) => state, (state_, index: number) => index],
 		(state, index) => {
-			console.log(state);
 			if (state.ids.length > 0) {
 				const id = state.ids[index];
 				if (id) {

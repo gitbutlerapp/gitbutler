@@ -75,7 +75,6 @@ export function clonePath() {
 }
 
 export function branchPath(projectId: string, stackId: string, branchName: string) {
-	console.log(stackId, branchName);
 	return `/${projectId}/workspace/${stackId}/${branchName}`;
 }
 
