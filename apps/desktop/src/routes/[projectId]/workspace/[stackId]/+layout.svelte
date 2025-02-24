@@ -43,17 +43,13 @@
 	let resizeViewport = $state<HTMLElement>();
 
 	/** Offset width for tabs component. */
-	let width: number | undefined = $state();
+	let width = $state<number>();
 	/** Content area on the right for stack details. */
 	let rightEl = $state<HTMLDivElement>();
 	/** Width of content area on the right. */
-	let rightWidth: number | undefined = $state();
+	let rightWidth = $state<number>();
 	/** True if content area should be rounded. */
-	let rounded = $state(false);
-
-	$effect(() => {
-		rounded = rightWidth !== width;
-	});
+	const rounded = $derived(rightWidth !== width);
 
 	onMount(() => {
 		const observer = new ResizeObserver(() => (rightWidth = rightEl?.offsetWidth));
