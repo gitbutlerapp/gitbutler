@@ -22,10 +22,10 @@
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { type DetailedPullRequest, type PullRequest } from '$lib/forge/interface/types';
+	import { ReactivePRBody, ReactivePRTitle } from '$lib/forge/prContents';
 	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
+	import { TemplateService } from '$lib/forge/templateService';
 	import { showError, showToast } from '$lib/notifications/toasts';
-	import { ReactivePRBody, ReactivePRTitle } from '$lib/pr/prContent.svelte';
-	import { TemplateService } from '$lib/pr/templateService';
 	import { Project } from '$lib/project/project';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
