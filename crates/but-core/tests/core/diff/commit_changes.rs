@@ -106,6 +106,16 @@ fn without_previous_tree() -> anyhow::Result<()> {
             },
         },
         TreeChange {
+            path: "dir/nested",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
+                    kind: Blob,
+                },
+                is_untracked: false,
+            },
+        },
+        TreeChange {
             path: "executable-bit-added",
             status: Addition {
                 state: ChangeState {
@@ -178,8 +188,8 @@ fn changes_between_conflicted_and_normal_commit() -> anyhow::Result<()> {
         "#);
     Ok(())
 }
-#[test]
 
+#[test]
 fn changes_between_conflicted_and_conflicted_commit() -> anyhow::Result<()> {
     let repo = conflict_repo("normal-and-artificial")?;
     let changes = but_core::diff::commit_changes(
