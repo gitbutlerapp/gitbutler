@@ -19,6 +19,3 @@
 	selectedCommitId={commitId}
 	{children}
 />
-
-<style>
-</style>
