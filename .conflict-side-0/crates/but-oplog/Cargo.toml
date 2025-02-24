@@ -1,0 +1,23 @@
+[package]
+name = "but-oplog"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+description = "An implementation of an undo queue implemented via restore-points"
+
+[lib]
+doctest = false
+
+[features]
+legacy = ["dep:gitbutler-oplog"]
+
+[dependencies]
+but-ctx.workspace = true
+but-oxidize.workspace = true
+
+gitbutler-oplog = { workspace = true, optional = true }
+
+gix.workspace = true
+anyhow = "1.0.100"

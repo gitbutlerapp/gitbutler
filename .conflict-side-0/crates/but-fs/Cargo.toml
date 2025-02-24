@@ -1,0 +1,20 @@
+[package]
+name = "but-fs"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+
+[lib]
+doctest = false
+
+[features]
+legacy = []
+
+[dependencies]
+serde.workspace = true
+anyhow.workspace = true
+gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
+walkdir = "2.5.0"
+toml.workspace = true
