@@ -48,8 +48,6 @@
 	let rowElement = $state<HTMLTableRowElement>();
 	let overflowMenuHeight = $state<number>(0);
 
-	const rowLeft = $derived(rowElement?.getBoundingClientRect().left);
-	const rowTop = $derived(rowElement?.getBoundingClientRect().top);
 	const rowWidth = $derived(rowElement?.getBoundingClientRect().width);
 	const rowHeight = $derived(rowElement?.getBoundingClientRect().height);
 </script>
@@ -94,44 +92,46 @@
 			if (!row.isSelected && hasSelectedLines) clearLineSelection?.();
 		}}
 	>
-		{#if row.isSelected}
-			<div
-				class="table__selected-row-overlay"
-				class:is-first={row.isFirstOfSelectionGroup}
-				class:is-last={row.isLastOfSelectionGroup}
-				style="--top: {rowTop}px; --left: {rowLeft}px; --width: {rowWidth}px; --height: {rowHeight}px;"
-			></div>
-		{/if}
+		<div class="table__row-header">
+			{#if row.isSelected}
+				<div
+					class="table__selected-row-overlay"
+					class:is-first={row.isFirstOfSelectionGroup}
+					class:is-last={row.isLastOfSelectionGroup}
+					style="--number-col-width: {numberHeaderWidth}px; --width: {rowWidth}px; --height: {rowHeight}px;"
+				></div>
+			{/if}
 
-		{#if row.isLastSelected}
-			<div
-				bind:clientHeight={overflowMenuHeight}
-				class="table__selected-row-overflow-menu"
-				class:hovered={hoveringOverTable}
-				style="--number-col-width: {numberHeaderWidth}px; --top: {rowTop}px; --left: {rowLeft}px; --height: {rowHeight}px; --overflow-menu-height: {overflowMenuHeight}px;"
-			>
-				<div class="button-wrapper">
-					<Button
-						icon="text-quote"
-						style="neutral"
-						kind="ghost"
-						size="button"
-						onclick={onQuoteSelection}
-					/>
+			{#if row.isLastSelected}
+				<div
+					bind:clientHeight={overflowMenuHeight}
+					class="table__selected-row-overflow-menu"
+					class:hovered={hoveringOverTable}
+					style="--number-col-width: {numberHeaderWidth}px; --height: {rowHeight}px; --overflow-menu-height: {overflowMenuHeight}px;"
+				>
+					<div class="button-wrapper">
+						<Button
+							icon="text-quote"
+							style="neutral"
+							kind="ghost"
+							size="button"
+							onclick={onQuoteSelection}
+						/>
+					</div>
+					<div class="button-wrapper">
+						<Button
+							icon="copy-small"
+							style="neutral"
+							kind="ghost"
+							size="button"
+							onclick={onCopySelection}
+						/>
+					</div>
 				</div>
-				<div class="button-wrapper">
-					<Button
-						icon="copy-small"
-						style="neutral"
-						kind="ghost"
-						size="button"
-						onclick={onCopySelection}
-					/>
-				</div>
-			</div>
-		{/if}
+			{/if}
 
-		{@html row.tokens.join('')}
+			{@html row.tokens.join('')}
+		</div>
 	</td>
 </tr>
 
@@ -163,12 +163,20 @@
 		border-left: 1px solid var(--clr-border-2);
 	}
 
+	.table__row-header {
+		position: relative;
+	}
+
 	.table__selected-row-overlay {
 		z-index: var(--z-floating);
 		position: absolute;
 		pointer-events: none;
-		top: var(--top);
-		left: var(--left);
+		top: 0;
+
+		/* border + left padding + number column width */
+		--offset: calc(1px + 4px + var(--number-col-width));
+
+		left: calc(var(--offset) * -1);
 		width: var(--width);
 		height: var(--height);
 		box-sizing: border-box;
@@ -191,8 +199,8 @@
 	.table__selected-row-overflow-menu {
 		z-index: var(--z-modal);
 		position: absolute;
-		top: calc(var(--top) + var(--height) - var(--overflow-menu-height) - 4px);
-		left: calc(var(--left) + var(--number-col-width) + 4px);
+		top: calc(var(--height) - var(--overflow-menu-height) - 4px);
+		left: 0;
 
 		display: flex;
 		pointer-events: none;
