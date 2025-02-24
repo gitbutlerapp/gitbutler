@@ -201,14 +201,10 @@ impl StackBranch {
             CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(id)?,
             CommitOrChangeId::ChangeId(_) => return Ok(None), // noop
         };
-        let old_oid: gix::ObjectId = match self.head.clone() {
-            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(&id)?,
-            CommitOrChangeId::ChangeId(_) => return Ok(None), // noop
-        };
         let reference = repo.reference(
             qualified_reference_name(self.name()),
             new_oid,
-            PreviousValue::ExistingMustMatch(old_oid.into()),
+            PreviousValue::Any,
             "GitButler reference",
         )?;
         Ok(Some(reference.name().as_bstr().to_owned()))
