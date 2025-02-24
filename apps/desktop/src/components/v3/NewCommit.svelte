@@ -27,10 +27,7 @@
 	 */
 	let markdown = persisted(true, 'useMarkdown__' + projectId);
 
-	const commitsResult = $derived(
-		stackService.commits(projectId, stackId, branchName, { index: 0 }).current
-	);
-
+	const commitsResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0).current);
 	const topCommit = $derived(commitsResult.data);
 
 	/**
