@@ -48,7 +48,9 @@ EOF
 
 git init many-in-tree
 (cd many-in-tree
+  mkdir dir
   touch removed \
+        dir/nested \
         modified \
         executable-bit-added \
         file-to-link

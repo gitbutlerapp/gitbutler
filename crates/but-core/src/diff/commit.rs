@@ -29,7 +29,11 @@ pub fn commit_changes(
         .map(|obj| obj.into_tree())?;
 
     let changes = repo.diff_tree_to_tree(lhs_tree.as_ref(), &rhs_tree, None)?;
-    let mut out: Vec<TreeChange> = changes.into_iter().map(Into::into).collect();
+    let mut out: Vec<TreeChange> = changes
+        .into_iter()
+        .filter(|c| !c.entry_mode().is_tree())
+        .map(Into::into)
+        .collect();
     out.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(out)
 }
