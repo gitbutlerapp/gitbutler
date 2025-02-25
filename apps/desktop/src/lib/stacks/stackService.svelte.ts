@@ -186,6 +186,17 @@ export class StackService {
 		);
 		return result;
 	}
+
+	async newBranch(projectId: string, stackId: string, name: string) {
+		const result = $derived(
+			this.api.endpoints.newBranch.useMutation({
+				projectId,
+				stackId,
+				request: { targetPatch: undefined, name }
+			})
+		);
+		return await result;
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -268,6 +279,16 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: ({ projectId, branchId, commitOid, message }) => ({
 					command: 'update_commit_message',
 					params: { projectId, branchId, commitOid, message }
+				}),
+				invalidatesTags: [ReduxTag.StackBranches]
+			}),
+			newBranch: build.mutation<
+				void,
+				{ projectId: string; stackId: string; request: { targetPatch?: string; name: string } }
+			>({
+				query: ({ projectId, stackId, request: { targetPatch, name } }) => ({
+					command: 'create_series',
+					params: { projectId, stackId, request: { targetPatch, name } }
 				}),
 				invalidatesTags: [ReduxTag.StackBranches]
 			})
