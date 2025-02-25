@@ -43,6 +43,7 @@
 
 use bstr::{BStr, BString};
 use gix::object::tree::EntryKind;
+use gix::refs::FullNameRef;
 use serde::Serialize;
 use std::any::Any;
 use std::ops::{Deref, DerefMut};
@@ -77,7 +78,7 @@ pub mod ref_metadata;
 pub trait RefMetadata {
     /// An implementation-defined wrapper for all data to keep additional information that it might need
     /// to more easily store the data.
-    type Handle<T>: Deref<Target = T> + DerefMut + ref_metadata::ValueInfo;
+    type Handle<T>: Deref<Target = T> + DerefMut + ref_metadata::ValueInfo + AsRef<FullNameRef>;
 
     /// Traverse all available metadata entries and see if their names still exist in the Git ref database.
     ///
@@ -99,23 +100,14 @@ pub trait RefMetadata {
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Self::Handle<ref_metadata::Branch>>;
 
-    /// Set workspace metadata for `ref_name` to `Some(_)` or create it.
-    ///
-    /// It's not an error if the `ref_name` has no data in case `value` is `None`.
+    /// Set workspace metadata to match `value`.
     fn set_workspace(
         &mut self,
-        ref_name: &gix::refs::FullNameRef,
         value: &Self::Handle<ref_metadata::Workspace>,
     ) -> anyhow::Result<()>;
 
-    /// Set branch metadata for `ref_name` to `Some(_)` or create it.
-    ///
-    /// It's not an error if the `ref_name` has no data in case `value` is `None`.
-    fn set_branch(
-        &mut self,
-        ref_name: &gix::refs::FullNameRef,
-        value: &Self::Handle<ref_metadata::Branch>,
-    ) -> anyhow::Result<()>;
+    /// Set branch metadata to match `value`.
+    fn set_branch(&mut self, value: &Self::Handle<ref_metadata::Branch>) -> anyhow::Result<()>;
 
     /// Delete the metadata associated with the given `ref_name` and return `true` if it existed, or `false` otherwise.
     ///

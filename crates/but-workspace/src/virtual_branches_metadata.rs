@@ -8,6 +8,7 @@ use gix::date::SecondsSinceUnixEpoch;
 use gix::refs::{FullName, FullNameRef};
 use std::any::Any;
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -135,6 +136,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             let value = Self::workspace_from_data(&self.snapshot.content);
             Ok(VBTomlMetadataHandle {
                 is_default: value == default_workspace(),
+                ref_name: ref_name.to_owned(),
                 stack_id: None.into(),
                 value,
             })
@@ -153,6 +155,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
         }) else {
             return Ok(VBTomlMetadataHandle {
                 is_default: true,
+                ref_name: ref_name.to_owned(),
                 stack_id: None.into(),
                 value: Branch::default(),
             });
@@ -164,11 +167,12 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             created_at: None,
             updated_at: Some(gix::date::Time {
                 seconds: (stack.updated_timestamp_ms / 1000) as SecondsSinceUnixEpoch,
-                ..gix::date::Time::now_local_or_utc()
+                ..gix::date::Time::now_utc()
             }),
         };
         Ok(VBTomlMetadataHandle {
             is_default: false,
+            ref_name: ref_name.to_owned(),
             stack_id: Some(stack.id).into(),
             value: Branch {
                 ref_info,
@@ -181,73 +185,109 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
         })
     }
 
-    fn set_workspace(
-        &mut self,
-        ref_name: &FullNameRef,
-        value: &Self::Handle<Workspace>,
-    ) -> anyhow::Result<()> {
+    fn set_workspace(&mut self, value: &Self::Handle<Workspace>) -> anyhow::Result<()> {
+        let ref_name = value.ref_name.as_ref();
         if !is_workspace_ref(ref_name) {
             bail!("This backend doesn't support arbitrary workspaces");
         }
 
         // Find exactly one stack-id per branch name, and assign all branches to it.
         // `stacks` is the target state, and we have to make an actual stack look like it.
+        let mut seen_stack_ids = HashSet::new();
         for stack in &value.stacks {
             let stack_branches = &stack.branches;
-            let mut branches_without_data = Vec::new();
+            let mut branches_to_create = Vec::new();
             let mut stack_id = None::<StackId>;
             for stack_branch in stack_branches {
                 let branch = self.branch(stack_branch.ref_name.as_ref())?;
                 if branch.is_default() {
-                    branches_without_data.push(stack_branch);
+                    branches_to_create.push(stack_branch);
                     continue;
+                }
+                if let Some(stack_id) = *branch.stack_id.borrow() {
+                    seen_stack_ids.insert(stack_id);
                 }
                 if stack_id.is_none() {
                     stack_id = *branch.stack_id.borrow();
                 } else if stack_id != *branch.stack_id.borrow() {
-                    *branch.stack_id.borrow_mut() = stack_id;
-                    self.set_branch(stack_branch.ref_name.as_ref(), &branch)?;
+                    bail!(
+                        "Inconsistent stack detected, wanted {:?}, but got {:?}",
+                        stack_id,
+                        branch.stack_id.borrow()
+                    )
                 }
             }
 
             let stack = match stack_id {
                 None => {
-                    todo!("create a new stack with all ref-names")
-                }
-                Some(stack_id) => {
+                    let branch_for_stack = match stack_branches.iter().find(|branch| {
+                        !branches_to_create
+                            .iter()
+                            .any(|other_branch| other_branch.ref_name.eq(&branch.ref_name))
+                    }) {
+                        Some(branch) => branch,
+                        None => branches_to_create.pop().context(
+                            "BUG: do not pop off the last branch, remove the whole stack",
+                        )?,
+                    };
+
+                    let branch = self.branch(branch_for_stack.ref_name.as_ref())?;
+                    self.set_branch(&branch)?;
+                    let new_stack_id = branch.stack_id.borrow().expect("was just created");
                     let stack = self
                         .snapshot
                         .content
                         .branches
-                        .get_mut(&stack_id)
-                        .expect("we just looked it up");
-
-                    for branch in branches_without_data {
-                        stack.heads.push(branch_to_stack_branch(
-                            branch.ref_name.as_ref(),
-                            &Branch::default(),
-                            branch.archived,
-                        ))
-                    }
-                    stack.in_workspace = !stack.heads.is_empty();
+                        .get_mut(&new_stack_id)
+                        .expect("just added");
+                    seen_stack_ids.insert(new_stack_id);
                     stack
                 }
+                Some(stack_id) => self
+                    .snapshot
+                    .content
+                    .branches
+                    .get_mut(&stack_id)
+                    .expect("we just looked it up"),
             };
+            for branch in branches_to_create {
+                stack.heads.push(branch_to_stack_branch(
+                    branch.ref_name.as_ref(),
+                    &Branch::default(),
+                    branch.archived,
+                ))
+            }
+            stack.in_workspace = !stack.heads.is_empty();
             stack.heads.sort_by_key(|head| {
                 stack_branches.iter().enumerate().find_map(|(idx, branch)| {
                     (branch.ref_name.shorten() == head.name().as_str()).then_some(idx)
                 })
             });
+
+            // remove heads that aren't there anymore.
+            stack.heads.retain(|head| {
+                stack_branches
+                    .iter()
+                    .any(|branch| branch.ref_name.shorten() == head.name())
+            });
+            // branches now match our order
+            for (vb_stack, stack) in stack.heads.iter_mut().zip(stack_branches.iter()) {
+                vb_stack.archived = stack.archived;
+            }
             stack.heads.reverse()
+        }
+
+        for (key, stack) in &mut self.snapshot.content.branches {
+            if seen_stack_ids.contains(key) {
+                continue;
+            }
+            stack.in_workspace = false;
         }
         Ok(())
     }
 
-    fn set_branch(
-        &mut self,
-        ref_name: &FullNameRef,
-        value: &Self::Handle<Branch>,
-    ) -> anyhow::Result<()> {
+    fn set_branch(&mut self, value: &Self::Handle<Branch>) -> anyhow::Result<()> {
+        let ref_name = value.ref_name.as_ref();
         let stack_id = *value.stack_id.borrow();
         let ws = self.workspace(INTEGRATION_BRANCH.try_into().unwrap())?;
         match stack_id {
@@ -260,36 +300,34 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     .with_context(|| format!("Couldn't find stack with id {stack_id}"))?;
 
                 let short_name = ref_name.shorten();
-                match stack
+                let gitbutler_stack::StackBranch {
+                    description,
+                    pr_number,
+                    archived,
+                    review_id,
+                    ..
+                } = stack
                     .heads
                     .iter_mut()
                     .find(|b| short_name == b.name().as_str())
-                {
-                    None => {
-                        todo!("insert into existing stack")
-                    }
-                    Some(gitbutler_stack::StackBranch {
-                        description,
-                        pr_number,
-                        archived,
-                        review_id,
-                        ..
-                    }) => {
-                        let stack_branch = ws.find_branch(ref_name);
-                        self.snapshot.changed_at = Some(Instant::now());
-                        *description = value.description.clone();
-                        *pr_number = value.review.pull_request;
-                        *review_id = value.review.review_id.clone();
-                        stack.in_workspace = stack_branch.is_some();
-                        if let Some(stack_branch) = stack_branch {
-                            *archived = stack_branch.archived;
-                        }
-                        Ok(())
-                    }
+                    .expect(
+                        "It's not possible anymore to place values at any ref \
+                    - one first has to get them, which binds values to their name.",
+                    );
+
+                let stack_branch = ws.find_branch(ref_name);
+                self.snapshot.changed_at = Some(Instant::now());
+                *description = value.description.clone();
+                *pr_number = value.review.pull_request;
+                *review_id = value.review.review_id.clone();
+                stack.in_workspace = stack_branch.is_some();
+                if let Some(stack_branch) = stack_branch {
+                    *archived = stack_branch.archived;
                 }
+                Ok(())
             }
             None => {
-                let now_ms = (gix::date::Time::now_local_or_utc().seconds * 1000) as u128;
+                let now_ms = (gix::date::Time::now_utc().seconds * 1000) as u128;
                 let stack = gitbutler_stack::Stack {
                     id: StackId::default(),
                     created_timestamp_ms: now_ms,
@@ -419,10 +457,17 @@ impl VirtualBranchesTomlMetadata {
 
 pub struct VBTomlMetadataHandle<T> {
     is_default: bool,
+    ref_name: gix::refs::FullName,
     // Allow faster lookup next time. This is more like a PoC,
     // other storage backends like database may have similar handles to avoid searches by name.
     stack_id: RefCell<Option<StackId>>,
     value: T,
+}
+
+impl<T> AsRef<FullNameRef> for VBTomlMetadataHandle<T> {
+    fn as_ref(&self) -> &FullNameRef {
+        self.ref_name.as_ref()
+    }
 }
 
 impl<T> Deref for VBTomlMetadataHandle<T> {
