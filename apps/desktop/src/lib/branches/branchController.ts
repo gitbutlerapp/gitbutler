@@ -107,14 +107,14 @@ export class BranchController {
 	}
 
 	async createPatchSeries(
-		branchId: string,
+		stackId: string,
 		referenceName: string,
 		commitIdOrChangeId?: CommitIdOrChangeId
 	) {
 		try {
 			await invoke<void>('create_series', {
 				projectId: this.projectId,
-				branchId: branchId,
+				stackId,
 				request: {
 					target_patch: commitIdOrChangeId,
 					name: referenceName
