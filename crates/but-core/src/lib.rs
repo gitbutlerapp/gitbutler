@@ -43,7 +43,10 @@
 
 use bstr::{BStr, BString};
 use gix::object::tree::EntryKind;
+use gix::refs::FullNameRef;
 use serde::Serialize;
+use std::any::Any;
+use std::ops::{Deref, DerefMut};
 use std::path::Path;
 
 /// Functions to obtain changes between various items.
@@ -66,6 +69,51 @@ pub use settings::git::GitConfigSettings;
 
 mod repo_ext;
 pub use repo_ext::RepositoryExt;
+
+/// Various types
+pub mod ref_metadata;
+
+/// A trait to associate arbitrary metadata with any *Git reference name*.
+/// Note that a single reference name can have multiple distinct pieces of metadata associated with it.
+pub trait RefMetadata {
+    /// An implementation-defined wrapper for all data to keep additional information that it might need
+    /// to more easily store the data.
+    type Handle<T>: Deref<Target = T> + DerefMut + ref_metadata::ValueInfo + AsRef<FullNameRef>;
+
+    /// Traverse all available metadata entries and see if their names still exist in the Git ref database.
+    ///
+    /// If not, they are dangling, and can then be downcast to their actual type to deal with them in some way,
+    /// either by [removing](Self::remove) them, or by re-associating them with an existing reference.
+    fn iter(
+        &self,
+    ) -> impl Iterator<Item = anyhow::Result<(gix::refs::FullName, Box<dyn Any>)>> + '_;
+
+    /// Retrieve workspace metadata for `ref_name` or create it if it wasn't present yet.
+    fn workspace(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Self::Handle<ref_metadata::Workspace>>;
+
+    /// Retrieve branch metadata for `ref_name` or create it if it wasn't present yet.
+    fn branch(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Self::Handle<ref_metadata::Branch>>;
+
+    /// Set workspace metadata to match `value`.
+    fn set_workspace(
+        &mut self,
+        value: &Self::Handle<ref_metadata::Workspace>,
+    ) -> anyhow::Result<()>;
+
+    /// Set branch metadata to match `value`.
+    fn set_branch(&mut self, value: &Self::Handle<ref_metadata::Branch>) -> anyhow::Result<()>;
+
+    /// Delete the metadata associated with the given `ref_name` and return `true` if it existed, or `false` otherwise.
+    ///
+    /// It is OK to delete something that doesn't exist.
+    fn remove(&mut self, ref_name: &gix::refs::FullNameRef) -> anyhow::Result<bool>;
+}
 
 /// A decoded commit object with easy access to additional GitButler information.
 pub struct Commit<'repo> {
