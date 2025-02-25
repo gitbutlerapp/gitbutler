@@ -1,0 +1,47 @@
+@font-face {
+	font-family: 'PP Editorial New';
+	src: url('/fonts/PPEditorialNew-Regular.woff2') format('woff2');
+	font-weight: 400;
+	font-style: normal;
+	unicode-range: U+000-5FF; /* Latin glyphs */
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'PP Editorial New';
+	src: url('/fonts/PPEditorialNew-Italic.woff2') format('woff2');
+	font-weight: 400;
+	font-style: italic;
+	unicode-range: U+000-5FF;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Spline Sans Mono';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('/fonts/SplineSansMono-Regular.woff2') format('woff2');
+	unicode-range: U+000-5FF;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Spline Sans Mono';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url('/fonts/SplineSansMono-Medium.woff2') format('woff2');
+	unicode-range: U+000-5FF;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Spline Sans Mono';
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url('/fonts/SplineSansMono-Semibold.woff2') format('woff2');
+	unicode-range: U+000-5FF;
+	font-display: swap;
+}

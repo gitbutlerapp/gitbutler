@@ -28,11 +28,12 @@
 	let isNotificationsUnread = $state(false);
 
 	function login() {
-		window.location.href = `${env.PUBLIC_APP_HOST}/cloud/login?callback=${window.location.href}`;
+		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`;
 	}
+
 	function logout() {
 		authService.clearToken();
-		window.location.href = `${env.PUBLIC_APP_HOST}/cloud/logout`;
+		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout?returnTo=${window.location.href}`;
 	}
 </script>
 

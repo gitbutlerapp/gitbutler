@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { isMobile } from '$lib/utils/isMobile';
+	import { run } from 'svelte/legacy';
+
+	import { isMobile } from '$home/lib/utils/isMobile';
 	import { smoothScroll } from '$lib/utils/smoothScroll';
 	import { onMount } from 'svelte';
 
@@ -11,31 +13,38 @@
 		readMoreUrl: string;
 	}
 
-	let { videoUrl, posterUrl, title, description, readMoreUrl }: Props = $props();
+	let {
+		videoUrl,
+		posterUrl,
+		title,
+		description,
+		readMoreUrl
+	}: Props = $props();
 
-	let videoElement = $state<HTMLVideoElement>();
-	let posterElement = $state<HTMLDivElement>();
-	let videoCurrentTime = $state<number>();
+	let videoElement: HTMLVideoElement = $state();
+	let posterElement: HTMLDivElement = $state();
+	let videoCurrentTime: number = $state();
 	let progressScaleProcentage = $state(0);
 	let windowWidth = $state(0);
 	let isMobileBrekpoint = $derived(isMobile(windowWidth));
 	let isVideoPlayingOnMobile = $state(false);
+	
 
 	function handleMouseEnter() {
 		if (isMobileBrekpoint) return;
 
-		videoElement?.play();
+		videoElement.play();
 	}
 
 	function handleMouseLeave() {
 		if (isMobileBrekpoint) return;
 
-		videoElement?.pause();
+		videoElement.pause();
 	}
 
-	$effect(() => {
+	run(() => {
 		if (videoCurrentTime) {
-			const videoDuration = videoElement?.duration ?? 1;
+			const videoDuration = videoElement.duration;
 			progressScaleProcentage = (videoCurrentTime / videoDuration) * 100;
 		}
 	});
@@ -55,19 +64,21 @@
 					if (!isMobileBrekpoint) return;
 
 					isVideoPlayingOnMobile = true;
-					videoElement?.play();
+
+					// console.log('play');
+					videoElement.play();
 				} else {
 					if (!isMobileBrekpoint) return;
 
 					isVideoPlayingOnMobile = false;
-					videoElement?.pause();
+
+					// console.log('pause');
+					videoElement.pause();
 				}
 			});
 		}, ioOptions);
 
-		if (videoElement) {
-			io.observe(videoElement);
-		}
+		io.observe(videoElement);
 
 		return () => {
 			io.disconnect();
