@@ -64,7 +64,7 @@ export class StackService {
 				{ projectId, stackId },
 				{
 					transform: (branches) =>
-						branchSelectors.selectAll(branches).filter((branch) => !branch.archive)
+						branchSelectors.selectAll(branches).filter((branch) => !branch.archived)
 				}
 			)
 		);
