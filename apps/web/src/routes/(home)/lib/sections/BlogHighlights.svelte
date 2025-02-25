@@ -1,12 +1,33 @@
 <script lang="ts">
-	import { formatDate } from '$lib/utils/formatDate';
-	import { type PostOrPage } from '@tryghost/content-api';
+	import { formatDate } from '$home/lib/utils/formatDate';
+	import GhostContentAPI from '@tryghost/content-api';
 
-	interface Props {
-		posts: PostOrPage[];
+	interface Post {
+		feature_image: string;
+		published_at: string;
+		title: string;
+		url: string;
+		primary_author: {
+			name: string;
+		};
+		custom_excerpt: string;
 	}
 
-	let { posts }: Props = $props();
+	const GHOST_URL = 'https://gitbutler.ghost.io';
+	const GHOST_KEY = '80bbdca8b933f3d98780c7cc1b';
+	const GHOST_VERSION = 'v5.0';
+	let posts = $state<Post[]>();
+
+	$effect(() => {
+		const api = GhostContentAPI({
+			url: GHOST_URL,
+			key: GHOST_KEY,
+			version: GHOST_VERSION
+		});
+		api.posts.browse({ limit: 3, include: 'authors' }).then((data) => {
+			posts = data;
+		});
+	});
 </script>
 
 <section class="posts-preview" id="blog">
@@ -14,42 +35,39 @@
 		<h2 class="title">From the blog</h2>
 		<p class="caption">Recent news & whatnot from the GitButler team.</p>
 
-		<a class="main-post" href={posts[0].url}>
-			<img src={posts[0].feature_image} alt="" class="main-post__image" />
+		<a class="main-post" href={posts?.[0]?.url}>
+			<img src={posts?.[0]?.feature_image} alt="" class="main-post__image" />
 			<div class="main-post__content">
 				<div class="main-post__content__title-wrap">
 					<h3 class="post-title">
-						{posts[0].title}
+						{posts?.[0]?.title}
 					</h3>
 					<span class="post-title-caption"
-						>{posts[0].published_at ? formatDate(posts[0].published_at) : ''} by {posts[0]
-							.primary_author?.name ?? ''}</span
+						>{formatDate(posts?.[0]?.published_at)} by {posts?.[0]?.primary_author.name}</span
 					>
 				</div>
 				<div class="main-post__content__caption-wrap">
-					<p class="post-caption">{posts[0].custom_excerpt}</p>
+					<p class="post-caption">{posts?.[0]?.custom_excerpt}</p>
 				</div>
 			</div>
 		</a>
 	</div>
 	<div class="posts-right">
-		<a class="secondary-post" href={posts[1].url}>
-			<img src={posts[1].feature_image} alt="" class="secondary-post__image" />
+		<a class="secondary-post" href={posts?.[1]?.url}>
+			<img src={posts?.[1]?.feature_image} alt="" class="secondary-post__image" />
 			<div class="secondary-post__content">
-				<h3 class="post-title">{posts[1].title}</h3>
+				<h3 class="post-title">{posts?.[1]?.title}</h3>
 				<span class="post-title-caption"
-					>{posts[1].published_at ? formatDate(posts[1].published_at) : ''} by {posts[1]
-						.primary_author?.name ?? ''}</span
+					>{formatDate(posts?.[1]?.published_at)} by {posts?.[1]?.primary_author.name}</span
 				>
 			</div>
 		</a>
-		<a class="secondary-post" href={posts[2].url}>
-			<img src={posts[2].feature_image} alt="" class="secondary-post__image" />
+		<a class="secondary-post" href={posts?.[2]?.url}>
+			<img src={posts?.[2]?.feature_image} alt="" class="secondary-post__image" />
 			<div class="secondary-post__content">
-				<h3 class="post-title">{posts[2].title}</h3>
+				<h3 class="post-title">{posts?.[2]?.title}</h3>
 				<span class="post-title-caption"
-					>{posts[2].published_at ? formatDate(posts[2].published_at) : ''} by {posts[2]
-						.primary_author?.name ?? ''}</span
+					>{formatDate(posts?.[2]?.published_at)} by {posts?.[2]?.primary_author.name}</span
 				>
 			</div>
 		</a>

@@ -1,14 +1,15 @@
 <script>
-	import Footer from '$home/sections/Footer.svelte';
-	import { page } from '$app/stores';
+	import Footer from '$home/lib/sections/Footer.svelte';
+	import { page } from '$app/state';
 </script>
 
 <section class="wrapper">
 	<div class="title">
-		{$page.status}
+		{page.status}
 	</div>
 	<div class="subtitle">Error</div>
 </section>
+
 <Footer />
 
 <style lang="scss">

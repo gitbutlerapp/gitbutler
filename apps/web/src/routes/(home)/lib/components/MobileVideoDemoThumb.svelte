@@ -1,8 +1,10 @@
 <script lang="ts">
-	import * as jsonLinks from '$lib/data/links.json';
+	import * as jsonLinks from '$home/lib/data/links.json';
 	import { onMount } from 'svelte';
 
-	let videoElement = $state<HTMLVideoElement>();
+	// HANDLE VIDEO
+	let videoElement: HTMLVideoElement = $state();
+
 	let io: IntersectionObserver;
 
 	onMount(() => {
@@ -15,16 +17,16 @@
 		io = new IntersectionObserver((entries) => {
 			entries.forEach((entry) => {
 				if (entry.isIntersecting) {
-					videoElement?.play();
+					// console.log('play');
+					videoElement.play();
 				} else {
-					videoElement?.pause();
+					// console.log('pause');
+					videoElement.pause();
 				}
 			});
 		}, ioOptions);
 
-		if (videoElement) {
-			io.observe(videoElement);
-		}
+		io.observe(videoElement);
 
 		return () => {
 			io.disconnect();
@@ -43,17 +45,12 @@
 		loop
 		muted
 		playsinline
-		disablePictureInPicture={true}
 		preload="auto"
 		src="/images/video-thumb/video-thumb-loop.mp4#t=0.1"
 	></video>
 </a>
 
 <style lang="scss">
-	video::-webkit-media-controls-panel {
-		display: none !important;
-		opacity: 1 !important;
-	}
 	.yt-preview {
 		position: relative;
 		display: flex;
@@ -66,7 +63,6 @@
 		border-radius: 10px;
 		overflow: hidden;
 		transition: transform 0.2s ease-in-out;
-		pointer-events: none;
 
 		&__btn {
 			position: absolute;
@@ -93,7 +89,6 @@
 			z-index: 0;
 			width: calc(100% + 4px);
 			object-fit: cover;
-			pointer-events: none;
 		}
 
 		@media (min-width: 500px) {

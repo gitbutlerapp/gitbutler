@@ -1,19 +1,20 @@
-<script lang="ts">
-	import HeaderLink from '$home/components/HeaderLink.svelte';
-	import HeaderMobileLink from '$home/components/HeaderMobileLink.svelte';
+<script>
+	import HeaderLink from './HeaderLink.svelte';
+	import HeaderMobileLink from './HeaderMobileLink.svelte';
+	import * as jsonLinks from '$home/lib/data/links.json';
 	import { AuthService } from '$lib/auth/authService.svelte';
-	import * as jsonLinks from '$lib/data/links.json';
 	import { getContext } from '@gitbutler/shared/context';
 	import { fly } from 'svelte/transition';
+	import { env } from '$env/dynamic/public';
 
 	let isMobileMenuOpen = $state(false);
-
-	const authService = getContext(AuthService);
-	const token = $derived(authService.tokenReadable);
 
 	function handleBurgerClick() {
 		isMobileMenuOpen = !isMobileMenuOpen;
 	}
+
+	const authService = getContext(AuthService);
+	let token = $derived(authService.tokenReadable);
 </script>
 
 <header class="header">
@@ -92,6 +93,14 @@
 			</HeaderLink>
 			<HeaderLink label="Blog" href={jsonLinks.resources.blog.url} />
 			<HeaderLink label="Jobs" href={jsonLinks.resources.jobs.url} />
+			{#if $token}
+				<HeaderLink label="Dashboard" href={'/'} />
+			{:else}
+				<HeaderLink
+					label="Login"
+					href={`${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`}
+				/>
+			{/if}
 		</section>
 
 		<section class="navigation-section">
@@ -109,12 +118,15 @@
 				href={jsonLinks.social.discord.url}
 				hrefTarget="_blank"
 			/>
-			<HeaderLink label={$token ? 'Log Out' : 'Log In'} href="/auth" />
 		</section>
 	</nav>
 
 	<section class="navigation-mobile">
-		<button type="button" aria-label="burger menu" class="burger" onclick={handleBurgerClick}
+		<button
+			aria-label="Hamburger Menu Toggle"
+			type="button"
+			class="burger"
+			onclick={handleBurgerClick}
 		></button>
 
 		{#if isMobileMenuOpen}
@@ -152,7 +164,6 @@
 					href={jsonLinks.social.discord.url}
 					hrefTarget="_blank"
 				/>
-				<HeaderMobileLink label="Login" href="/auth" />
 			</nav>
 		{/if}
 	</section>

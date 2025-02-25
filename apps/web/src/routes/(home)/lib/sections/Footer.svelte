@@ -1,5 +1,5 @@
 <script>
-	import CtaBlock from '$lib/components/CtaBlock.svelte';
+	import CtaBlock from '$home/lib/components/CtaBlock.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
 </script>
 

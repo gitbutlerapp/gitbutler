@@ -1,5 +1,5 @@
 <script>
-	import FAQItem from '$home/components/FAQItem.svelte';
+	import FAQItem from '$home/lib/components/FAQItem.svelte';
 
 	const faqItems = [
 		{
@@ -38,6 +38,8 @@
 			bgIndex: '0'
 		}
 	];
+
+	let isOpen = false;
 </script>
 
 <section class="faq-section" id="faq">
