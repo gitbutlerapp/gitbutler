@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { isMobile } from '$home/lib/utils/isMobile';
 	import { smoothScroll } from '$lib/utils/smoothScroll';
 	import { onMount } from 'svelte';
@@ -15,9 +13,8 @@
 
 	let { videoUrl, posterUrl, title, description, readMoreUrl }: Props = $props();
 
-	let videoElement: HTMLVideoElement = $state();
-	let posterElement: HTMLDivElement = $state();
-	let videoCurrentTime: number = $state();
+	let videoElement = $state<HTMLVideoElement>();
+	let videoCurrentTime = $state<number>();
 	let progressScaleProcentage = $state(0);
 	let windowWidth = $state(0);
 	let isMobileBrekpoint = $derived(isMobile(windowWidth));
@@ -26,18 +23,18 @@
 	function handleMouseEnter() {
 		if (isMobileBrekpoint) return;
 
-		videoElement.play();
+		videoElement?.play();
 	}
 
 	function handleMouseLeave() {
 		if (isMobileBrekpoint) return;
 
-		videoElement.pause();
+		videoElement?.pause();
 	}
 
-	run(() => {
+	$effect(() => {
 		if (videoCurrentTime) {
-			const videoDuration = videoElement.duration;
+			const videoDuration = videoElement?.duration ?? 1;
 			progressScaleProcentage = (videoCurrentTime / videoDuration) * 100;
 		}
 	});
@@ -58,20 +55,18 @@
 
 					isVideoPlayingOnMobile = true;
 
-					// console.log('play');
-					videoElement.play();
+					videoElement?.play();
 				} else {
 					if (!isMobileBrekpoint) return;
 
 					isVideoPlayingOnMobile = false;
 
-					// console.log('pause');
-					videoElement.pause();
+					videoElement?.pause();
 				}
 			});
 		}, ioOptions);
 
-		io.observe(videoElement);
+		io.observe(videoElement as Element);
 
 		return () => {
 			io.disconnect();
@@ -93,7 +88,6 @@
 				class="video-poster"
 				class:hidePoster={isVideoPlayingOnMobile}
 				style={`background-image: url(${posterUrl})`}
-				bind:this={posterElement}
 			>
 				<svg
 					width="33"

@@ -14,25 +14,27 @@
 
 	let { tweet }: Props = $props();
 
-	let textElement: HTMLParagraphElement = $state();
+	let textElement = $state<HTMLParagraphElement>();
 
 	onMount(() => {
-		const text = textElement.innerText;
-		const textArray = text.split(' ');
+		if (textElement) {
+			const text = textElement.innerText;
+			const textArray = text.split(' ');
 
-		function handleLink(word: string) {
-			const isHandle = word.startsWith('@') || word.startsWith('#');
+			function handleLink(word: string) {
+				const isHandle = word.startsWith('@') || word.startsWith('#');
 
-			if (isHandle) {
-				return `<span style="color: #356FDF">${word}</span>`;
+				if (isHandle) {
+					return `<span style="color: #356FDF">${word}</span>`;
+				}
+
+				return word;
 			}
 
-			return word;
+			const textWithLinks = textArray.map((word) => handleLink(word)).join(' ');
+
+			textElement.innerHTML = textWithLinks;
 		}
-
-		const textWithLinks = textArray.map((word) => handleLink(word)).join(' ');
-
-		textElement.innerHTML = textWithLinks;
 	});
 </script>
 
