@@ -176,6 +176,10 @@
 		&.column {
 			flex-direction: column;
 		}
+
+		@media (--tablet-viewport) {
+			flex-direction: column;
+		}
 	}
 
 	.review-main-content {
@@ -188,6 +192,10 @@
 		&.expand {
 			max-width: 100%;
 			flex-grow: 1;
+		}
+
+		@media (--tablet-viewport) {
+			max-width: 100%;
 		}
 	}
 
@@ -204,6 +212,10 @@
 	.review-main-content__patch-navigator {
 		display: flex;
 		gap: 6px;
+		@media (--tablet-viewport) {
+			flex-wrap: wrap;
+			gap: 12px;
+		}
 	}
 
 	.review-main-content-description {
@@ -226,8 +238,6 @@
 
 		&.minimized {
 			height: fit-content;
-			--top-nav-offset: 84px;
-			--bottom-margin: 10px;
 			position: sticky;
 			top: unset;
 			bottom: var(--top-nav-offset);
@@ -235,6 +245,16 @@
 
 			justify-content: flex-end;
 			align-items: center;
+			box-shadow: var(--fx-shadow-s);
+		}
+
+		@media (--tablet-viewport) {
+			height: 50vh;
+			position: sticky;
+			top: unset;
+			bottom: var(--bottom-margin);
+			z-index: var(--z-floating);
+			box-shadow: var(--fx-shadow-s);
 		}
 	}
 </style>
