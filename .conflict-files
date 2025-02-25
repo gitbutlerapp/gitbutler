@@ -1,3 +1,3 @@
-ancestorEntries = []
-ourEntries = ["apps/desktop/src/components/v3/Branch.svelte", "apps/desktop/src/components/v3/BranchCommitList.svelte", "apps/desktop/src/components/v3/BranchHeader.svelte", "apps/desktop/src/components/v3/CommitRow.svelte", "apps/desktop/src/components/v3/NewCommit.svelte", "apps/desktop/src/routes/[projectId]/workspace/[stackId]/[branchName]/commit/+page@[stackId].svelte"]
-theirEntries = ["apps/desktop/src/components/v3/Branch.svelte", "apps/desktop/src/components/v3/BranchCommitList.svelte", "apps/desktop/src/components/v3/BranchHeader.svelte", "apps/desktop/src/components/v3/CommitRow.svelte", "apps/desktop/src/components/v3/NewCommit.svelte", "apps/desktop/src/routes/[projectId]/workspace/[stackId]/[branchName]/commit/+page@[stackId].svelte"]
+ancestorEntries = ["apps/desktop/src/lib/stacks/stackService.svelte.ts"]
+ourEntries = ["apps/desktop/src/lib/stacks/stackService.svelte.ts"]
+theirEntries = ["apps/desktop/src/lib/stacks/stackService.svelte.ts"]

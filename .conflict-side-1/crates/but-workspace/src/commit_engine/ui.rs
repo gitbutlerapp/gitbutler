@@ -35,6 +35,7 @@ impl From<DiffSpec> for super::DiffSpec {
 /// The JSON serializable type of [super::CreateCommitOutcome].
 // TODO(ST): this type should contain mappings from old to new commits so that the UI knows what state to update, maybe.
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateCommitOutcome {
     /// Paths that contained at least one rejected hunk, i.e. a change that didn't apply.
     pub paths_to_rejected_changes: Vec<BStringForFrontend>,
