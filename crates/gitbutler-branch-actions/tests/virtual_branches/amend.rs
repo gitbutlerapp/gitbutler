@@ -247,7 +247,7 @@ fn non_existing_ownership() {
             gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, &to_amend)
                 .unwrap_err()
                 .to_string(),
-            "target ownership not found"
+            "Failed to amend with commit engine. Rejected specs: [DiffSpec { previous_path: None, path: \"file2.txt\", hunk_headers: [] }]"
         );
     }
 }

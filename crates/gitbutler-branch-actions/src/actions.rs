@@ -1,6 +1,7 @@
 use super::r#virtual as vbranch;
 use crate::branch_upstream_integration;
 use crate::branch_upstream_integration::IntegrationStrategy;
+use crate::conflicts::RepoConflictsExt;
 use crate::move_commits;
 use crate::r#virtual::StackListResult;
 use crate::reorder::{self, StackOrder};
@@ -18,8 +19,9 @@ use crate::{
     remote::{RemoteBranchData, RemoteCommit},
     VirtualBranchesExt,
 };
-use anyhow::{Context, Result};
-use but_workspace::StackEntry;
+use anyhow::{bail, Context, Result};
+use but_workspace::commit_engine::{DiffSpec, HunkHeader};
+use but_workspace::{commit_engine, StackEntry};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
@@ -28,12 +30,13 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt, SnapshotExt,
 };
-use gitbutler_oxidize::OidExt;
+use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{BranchOwnershipClaims, StackId};
+use gitbutler_stack::{BranchOwnershipClaims, OwnershipClaim, StackId};
+
 use std::path::PathBuf;
 use tracing::instrument;
 
@@ -304,18 +307,67 @@ pub fn amend(
 ) -> Result<git2::Oid> {
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Amending a commit requires open workspace mode")?;
-    let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
-        SnapshotDetails::new(OperationKind::AmendCommit),
-        guard.write_permission(),
-    );
-    vbranch::amend(
-        ctx,
-        stack_id,
-        commit_oid,
-        ownership,
-        guard.write_permission(),
-    )
+    {
+        // commit_engine::create_commit_and_update_refs_with_project is also doing a write lock, so we want to allow this gurd to be dropped first
+        let mut guard = ctx.project().exclusive_worktree_access();
+        let _ = ctx.project().create_snapshot(
+            SnapshotDetails::new(OperationKind::AmendCommit),
+            guard.write_permission(),
+        );
+        ctx.assure_resolved()?;
+    }
+    amend_with_commit_engine(ctx, stack_id, commit_oid, ownership)
+}
+
+/// This is backported version of amending using the new commit engine, in the old API
+fn amend_with_commit_engine(
+    ctx: &CommandContext,
+    stack_id: StackId,
+    commit_oid: git2::Oid,
+    ownership: &BranchOwnershipClaims,
+) -> Result<git2::Oid> {
+    let changes: Vec<DiffSpec> = ownership.claims.iter().map(claim_to_diffspec).collect();
+
+    let vb_state = ctx.project().virtual_branches();
+    let stack = vb_state.get_stack(stack_id)?;
+
+    if stack.upstream.is_some() && !stack.allow_rebasing {
+        // amending to a pushed head commit will cause a force push that is not allowed
+        bail!("force-push is not allowed");
+    }
+
+    let outcome = commit_engine::create_commit_and_update_refs_with_project(
+        &ctx.gix_repository()?,
+        Some((ctx.project(), Some(stack_id))),
+        commit_engine::Destination::AmendCommit(commit_oid.to_gix()),
+        None,
+        changes,
+        3, // for the old API this is hardcoded
+    )?;
+    let new_commit = outcome.new_commit.ok_or(anyhow::anyhow!(
+        "Failed to amend with commit engine. Rejected specs: {:?}",
+        outcome.rejected_specs
+    ))?;
+    Ok(new_commit.to_git2())
+}
+
+fn claim_to_diffspec(claim: &OwnershipClaim) -> DiffSpec {
+    let path = gix::path::into_bstr(claim.file_path.clone()).into_owned();
+    DiffSpec {
+        previous_path: None,
+        path,
+        hunk_headers: claim
+            .hunks
+            .iter()
+            .filter_map(|h| h.hunk_header.clone())
+            .map(|h| HunkHeader {
+                old_start: h.old_start,
+                old_lines: h.old_lines,
+                new_start: h.new_start,
+                new_lines: h.new_lines,
+            })
+            .collect(),
+    }
 }
 
 pub fn move_commit_file(
