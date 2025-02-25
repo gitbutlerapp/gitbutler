@@ -18,12 +18,12 @@ pub fn create_series(
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
-    branch_id: StackId,
+    stack_id: StackId,
     request: CreateSeriesRequest,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::create_series(&ctx, branch_id, request)?;
+    gitbutler_branch_actions::stack::create_series(&ctx, stack_id, request)?;
     emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }

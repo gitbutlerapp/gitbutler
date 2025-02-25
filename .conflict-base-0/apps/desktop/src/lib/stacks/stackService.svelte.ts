@@ -54,8 +54,7 @@ export class StackService {
 
 	// eslint-disable-next-line @typescript-eslint/promise-function-async
 	newStack(projectId: string, branch: CreateBranchRequest) {
-		const { createStack } = this.api.endpoints;
-		const result = $derived(createStack.useMutation({ projectId, branch }));
+		const result = $derived(this.api.endpoints.createStack.useMutation({ projectId, branch }));
 		return result;
 	}
 
@@ -245,12 +244,15 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					return upstreamCommitAdapter.addMany(upstreamCommitAdapter.getInitialState(), response);
 				}
 			}),
-			createCommit: build.mutation<Commit, { projectId: string } & CreateCommitRequest>({
+			createCommit: build.mutation<
+				{ newCommit: string; pathsToRejectedChanges: string[] },
+				{ projectId: string } & CreateCommitRequest
+			>({
 				query: ({ projectId, ...commitData }) => ({
 					command: 'create_commit_from_worktree_changes',
 					params: { projectId, ...commitData }
 				}),
-				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commit]
+				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commits]
 			}),
 			commitChanges: build.query<TreeChange[], { projectId: string; commitId: string }>({
 				query: ({ projectId, commitId }) => ({
