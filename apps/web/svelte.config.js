@@ -7,7 +7,7 @@ const config = {
 	kit: {
 		adapter: adapter(),
 		alias: {
-			$home: 'src/routes/home'
+			$home: 'src/routes/(home)'
 		}
 	},
 	compilerOptions: {

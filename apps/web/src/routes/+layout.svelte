@@ -1,5 +1,11 @@
 <script lang="ts">
-	import '$lib/styles/global.css';
+	import Header from '$home/lib/components/Header.svelte';
+	import BlogHighlights from '$home/lib/sections/BlogHighlights.svelte';
+	import DevelopersReview from '$home/lib/sections/DevelopersReview.svelte';
+	import FAQ from '$home/lib/sections/FAQ.svelte';
+	import Features from '$home/lib/sections/Features.svelte';
+	import HomeFooter from '$home/lib/sections/Footer.svelte';
+	import Hero from '$home/lib/sections/Hero.svelte';
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
@@ -23,7 +29,9 @@
 	import { get } from 'svelte/store';
 	import { Toaster } from 'svelte-french-toast';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
+	import '$lib/styles/global.css';
+	import '$home/styles/styles.css';
 	import { env } from '$env/dynamic/public';
 
 	interface Props {
@@ -34,7 +42,28 @@
 
 	const authService = new AuthService();
 	setContext(AuthService, authService);
-	let token = $derived(authService.tokenReadable);
+	let token = $state<string | null>();
+
+	// Parse searchParams for token
+	const searchParams = $derived(page.url.searchParams);
+
+	$effect(() => {
+		token = get(authService.tokenReadable) || searchParams.get('gb_access_token');
+		if (token) {
+			authService.setToken(token);
+
+			if (page.url.searchParams.has('gb_access_token')) {
+				page.url.searchParams.delete('gb_access_token');
+				goto(`?${page.url.searchParams.toString()}`);
+			}
+		}
+	});
+
+	$effect(() => {
+		if (!token) {
+			goto('/');
+		}
+	});
 
 	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.tokenReadable);
 	setContext(HttpClient, httpClient);
@@ -83,34 +112,28 @@
 			location.href = href;
 		}
 	});
-
-	$effect(() => {
-		const token = get(authService.tokenReadable) || $page.url.searchParams.get('gb_access_token');
-		if (token) {
-			authService.setToken(token);
-
-			if ($page.url.searchParams.has('gb_access_token')) {
-				$page.url.searchParams.delete('gb_access_token');
-				goto(`?${$page.url.searchParams.toString()}`);
-			}
-		}
-	});
 </script>
 
 <Toaster />
 
-{#if (!$token && $page.url.pathname === '/') || $page.url.pathname === '/home'}
-	<section class="page-wrapper">
-		{@render children()}
-	</section>
-{:else}
+{#if token}
 	<div class="app">
 		<Navigation />
 		<main>
-			{@render children()}
+			{@render children?.()}
 		</main>
 		<Footer />
 	</div>
+{:else}
+	<section class="page-wrapper">
+		<Header />
+		<Hero />
+		<Features />
+		<DevelopersReview />
+		<BlogHighlights />
+		<FAQ />
+		<HomeFooter />
+	</section>
 {/if}
 
 <style lang="postcss">
@@ -143,7 +166,7 @@
 		width: 100%;
 	}
 
-	.page-wrapper {
+	:global(.page-wrapper) {
 		display: flex;
 		flex-direction: column;
 		max-width: 1280px;

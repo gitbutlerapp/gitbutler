@@ -3,22 +3,22 @@
 
 	interface Props {
 		tweet: {
-			authorName: string;
-			authorHandle: string;
-			authorAvatar: string;
-			content: string;
-			date: string;
-			link: string;
-		};
+		authorName: string;
+		authorHandle: string;
+		authorAvatar: string;
+		content: string;
+		date: string;
+		link: string;
+	};
 	}
 
 	let { tweet }: Props = $props();
 
-	let textElement = $state<HTMLParagraphElement>();
+	let textElement: HTMLParagraphElement = $state();
 
 	onMount(() => {
-		const text = textElement?.innerText;
-		const textArray = text?.split(' ');
+		const text = textElement.innerText;
+		const textArray = text.split(' ');
 
 		function handleLink(word: string) {
 			const isHandle = word.startsWith('@') || word.startsWith('#');
@@ -30,11 +30,9 @@
 			return word;
 		}
 
-		const textWithLinks = textArray?.map((word) => handleLink(word)).join(' ');
+		const textWithLinks = textArray.map((word) => handleLink(word)).join(' ');
 
-		if (textElement) {
-			textElement.innerHTML = textWithLinks ?? '';
-		}
+		textElement.innerHTML = textWithLinks;
 	});
 </script>
 
