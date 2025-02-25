@@ -42,12 +42,12 @@ We won't touch the working directory in an unexpected way, so whatever you commi
 
 ## Git Add and the Index
 
-If you attempt to modify the index directly (running `git add` or `git rm`), GitButler won't notice or care. It will simply overwrite it with whatever it needs during it's operations, so while I wouldn't do it, there is also not a lot of danger.
+If you attempt to modify the index directly (running `git add` or `git rm`), GitButler won't notice or care. It will simply overwrite it with whatever it needs during its operations, so while I wouldn't do it, there is also not a lot of danger.
 
 The worst that would happen is that you do some complex `git add -i` patch staging and then we wipe it out by rewriting the index. But again, you shouldn't be using stock Git commands related to committing or branching. You gotta choose one or the other for now, you can't go back and forth super easily.
 
 ## Recovering or Stopping GitButler Usage
 
-If you want to stop using GitButler and go back to using stock Git commands for committing and branching, simply check out another branch. GitButler will realize that you've changed it's branch and stop functioning until you reset it.
+If you want to stop using GitButler and go back to using stock Git commands for committing and branching, simply check out another branch. GitButler will realize that you've changed its branch and stop functioning until you reset it.
 
-To help with remembering where you were, the integration commit should have the branch name and commit SHA that you were on when GitButler was initially activated. You should be able to easily go back to that branch and it's last known commit state.
+To help with remembering where you were, the integration commit should have the branch name and commit SHA that you were on when GitButler was initially activated. You should be able to easily go back to that branch and its last known commit state.
