@@ -75,6 +75,7 @@ function calculateSelectedLines(selectedDiffLines: SvelteSet<DiffLineKey>): Diff
 }
 
 export default class DiffLineSelection {
+	private startIndex: number | undefined;
 	private _quote = $state<boolean>(false);
 	private _selectedDiffLines = new SvelteSet<DiffLineKey>();
 	private _selectedLines: DiffLineSelected[] = $derived(
@@ -94,7 +95,23 @@ export default class DiffLineSelection {
 
 		this._selectedDiffLines.clear();
 		this._selectedDiffFile = undefined;
+		this.startIndex = undefined;
 		this._quote = false;
+	}
+
+	private setSelectedDiffLines(start: number, end: number, params: LineClickParams) {
+		const startIndex = Math.min(start, params.index);
+		const endIndex = Math.max(start, params.index);
+
+		if (params.rows) {
+			this._selectedDiffLines.clear();
+
+			for (let i = startIndex; i <= endIndex; i++) {
+				const row = params.rows[i];
+				const key = createDiffLineKey(i, row.beforeLineNumber, row.afterLineNumber);
+				this._selectedDiffLines.add(key);
+			}
+		}
 	}
 
 	toggle(fileName: string, diffSha: string, params: LineClickParams) {
@@ -109,27 +126,27 @@ export default class DiffLineSelection {
 		const isOnlyOneSelected =
 			this._selectedDiffLines.size === 1 && this._selectedDiffLines.has(key);
 
+		if (this.startIndex === undefined && !params.shift) {
+			this.startIndex = params.startIndex;
+		}
+
+		// Handle shift selection
+		if (params.shift && this.startIndex !== undefined) {
+			this.setSelectedDiffLines(this.startIndex, params.index, params);
+			return;
+		}
+
 		// Handle new selection.
 		// We can tell is a new selection if the index is the same as the start index.
 		if (params.index === params.startIndex && !isOnlyOneSelected) {
 			this._quote = false;
 			this._selectedDiffLines.clear();
+			this.startIndex = params.startIndex;
 		}
 
 		// Handle drag selection.
 		if (params.index !== params.startIndex) {
-			const startIndex = Math.min(params.startIndex, params.index);
-			const endIndex = Math.max(params.startIndex, params.index);
-
-			if (params.rows) {
-				this._selectedDiffLines.clear();
-
-				for (let i = startIndex; i <= endIndex; i++) {
-					const row = params.rows[i];
-					const key = createDiffLineKey(i, row.beforeLineNumber, row.afterLineNumber);
-					this._selectedDiffLines.add(key);
-				}
-			}
+			this.setSelectedDiffLines(params.startIndex, params.index, params);
 			return;
 		}
 
