@@ -3,9 +3,9 @@ use crate::commit_engine::refs_update::utils::{
     write_vrbranches_to_refs, write_worktree_file,
 };
 use crate::commit_engine::utils::{
-    read_only_in_memory_scenario, to_change_specs_all_hunks, to_change_specs_whole_file,
-    visualize_index, visualize_tree, writable_scenario, writable_scenario_with_ssh_key,
-    write_sequence, CONTEXT_LINES,
+    CONTEXT_LINES, read_only_in_memory_scenario, to_change_specs_all_hunks,
+    to_change_specs_whole_file, visualize_index, visualize_tree, writable_scenario,
+    writable_scenario_with_ssh_key, write_sequence,
 };
 use but_testsupport::{assure_stable_env, visualize_commit_graph};
 use but_workspace::commit_engine::{Destination, ReferenceFrame};

@@ -159,8 +159,8 @@ fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
 
 mod util {
     use but_hunk_dependency::ui::{
-        hunk_dependencies_for_workspace_changes_by_worktree_dir, HunkDependencies, HunkHash,
-        HunkLock,
+        HunkDependencies, HunkHash, HunkLock,
+        hunk_dependencies_for_workspace_changes_by_worktree_dir,
     };
     use gitbutler_stack::StackId;
     use itertools::Itertools;

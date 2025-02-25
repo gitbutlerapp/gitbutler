@@ -548,8 +548,8 @@ pub mod utils {
     use anyhow::Result;
     use but_rebase::RebaseOutput;
     use but_testsupport::gix_testtools;
-    use gix::prelude::ObjectIdExt;
     use gix::ObjectId;
+    use gix::prelude::ObjectIdExt;
 
     /// Returns a fixture that may not be written to, objects will never touch disk either.
     pub fn fixture(fixture_name: &str) -> Result<gix::Repository> {

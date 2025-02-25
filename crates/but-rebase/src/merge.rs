@@ -1,5 +1,5 @@
 use crate::commit::CommitterMode;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use but_core::commit::TreeKind;
 use gitbutler_oxidize::GixRepositoryExt;
 use gix::prelude::ObjectIdExt;

@@ -2,7 +2,7 @@
 use anyhow::Result;
 
 mod args;
-use crate::command::{repo_and_maybe_project, RepositoryOpenMode};
+use crate::command::{RepositoryOpenMode, repo_and_maybe_project};
 use args::Args;
 
 mod command;
@@ -48,9 +48,9 @@ fn main() -> Result<()> {
 
 mod trace {
     use tracing::metadata::LevelFilter;
+    use tracing_subscriber::Layer;
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::util::SubscriberInitExt;
-    use tracing_subscriber::Layer;
 
     pub fn init() -> anyhow::Result<()> {
         tracing_subscriber::registry()

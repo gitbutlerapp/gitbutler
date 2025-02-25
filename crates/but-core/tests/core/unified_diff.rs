@@ -1,4 +1,4 @@
-use but_core::{unified_diff, ChangeState, UnifiedDiff};
+use but_core::{ChangeState, UnifiedDiff, unified_diff};
 use gix::object::tree::EntryKind;
 
 #[test]

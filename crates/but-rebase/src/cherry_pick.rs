@@ -25,9 +25,9 @@ pub enum EmptyCommit {
 pub(crate) mod function {
     use crate::cherry_pick::{EmptyCommit, PickMode};
     use crate::commit::CommitterMode;
-    use anyhow::{bail, Context};
+    use anyhow::{Context, bail};
     use bstr::BString;
-    use but_core::commit::{HeadersV2, TreeKind, HEADERS_CONFLICTED_FIELD};
+    use but_core::commit::{HEADERS_CONFLICTED_FIELD, HeadersV2, TreeKind};
     use gix::object::tree::EntryKind;
     use gix::prelude::ObjectIdExt;
     use serde::Serialize;
@@ -83,7 +83,9 @@ pub(crate) mod function {
         new_parent: gix::ObjectId,
     ) -> anyhow::Result<()> {
         if to_rebase.parents.len() > 1 {
-            bail!("Cherry picks can only be done for single-parent commits. Merge-commits need to be re-merged")
+            bail!(
+                "Cherry picks can only be done for single-parent commits. Merge-commits need to be re-merged"
+            )
         }
         to_rebase.parents.clear();
         to_rebase.parents.push(new_parent);

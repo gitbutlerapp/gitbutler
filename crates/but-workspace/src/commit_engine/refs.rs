@@ -91,8 +91,8 @@ pub fn rewrite(
                 continue;
             }
             use gix::refs::{
-                transaction::{Change, LogChange, RefEdit, RefLog},
                 Target,
+                transaction::{Change, LogChange, RefEdit, RefLog},
             };
             updated_refs.push(UpdatedReference {
                 old_commit_id: old,

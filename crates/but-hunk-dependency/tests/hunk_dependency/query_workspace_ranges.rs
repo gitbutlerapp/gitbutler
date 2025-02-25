@@ -176,8 +176,8 @@ fn remove_single_line() -> anyhow::Result<()> {
 }
 
 mod util {
-    use crate::{intersect_workspace_ranges, WorkspaceDigest};
-    use but_hunk_dependency::{tree_changes_to_input_files, InputCommit, InputStack};
+    use crate::{WorkspaceDigest, intersect_workspace_ranges};
+    use but_hunk_dependency::{InputCommit, InputStack, tree_changes_to_input_files};
 
     pub fn repo(name: &str) -> anyhow::Result<gix::Repository> {
         let worktree_dir = gix_testtools::scripted_fixture_read_only("branch-states.sh")

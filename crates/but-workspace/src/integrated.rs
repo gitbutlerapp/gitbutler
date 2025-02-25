@@ -6,10 +6,10 @@ use anyhow::anyhow;
 use anyhow::{Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt};
+use gitbutler_oxidize::{GixRepositoryExt, git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_repo::{
-    logging::{LogUntil, RepositoryExt},
     RepositoryExt as _,
+    logging::{LogUntil, RepositoryExt},
 };
 use gitbutler_stack::Target;
 use itertools::Itertools;

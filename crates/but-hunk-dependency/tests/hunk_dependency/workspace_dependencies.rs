@@ -878,7 +878,7 @@ fn dependencies_handle_complex_branch_checkout() -> anyhow::Result<()> {
 }
 
 mod util {
-    use crate::{intersect_workspace_ranges, WorkspaceDigest};
+    use crate::{WorkspaceDigest, intersect_workspace_ranges};
     use gitbutler_oxidize::OidExt;
     use gitbutler_stack::VirtualBranchesHandle;
 

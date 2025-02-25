@@ -1,11 +1,11 @@
 //! The machinery used to alter and mutate commits in various ways whilst adjusting descendant commits within a [reference frame](ReferenceFrame).
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use bstr::BString;
-use but_core::unified_diff::DiffHunk;
 use but_core::RepositoryExt;
-use but_rebase::commit::CommitterMode;
+use but_core::unified_diff::DiffHunk;
 use but_rebase::RebaseOutput;
+use but_rebase::commit::CommitterMode;
 use gitbutler_stack::{StackId, VirtualBranchesHandle, VirtualBranchesState};
 use gix::prelude::ObjectIdExt as _;
 use gix::refs::transaction::PreviousValue;
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 mod tree;
 use crate::commit_engine::reference_frame::InferenceMode;
-use tree::{create_tree, CreateTreeOutcome};
+use tree::{CreateTreeOutcome, create_tree};
 
 mod index;
 /// Utility types

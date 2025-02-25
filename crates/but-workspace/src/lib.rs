@@ -29,7 +29,7 @@ use bstr::{BStr, BString};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_id::id::Id;
-use gitbutler_oxidize::{git2_signature_to_gix_signature, OidExt};
+use gitbutler_oxidize::{OidExt, git2_signature_to_gix_signature};
 use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use integrated::IsCommitIntegrated;
