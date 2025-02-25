@@ -5,7 +5,7 @@
 	import { goto } from '$app/navigation';
 
 	const shortcutService = getContext(ShortcutService);
-	shortcutService.on('settings', () => {
+	shortcutService.on('global-settings', () => {
 		goto(settingsPath());
 	});
 </script>
