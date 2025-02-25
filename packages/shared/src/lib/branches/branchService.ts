@@ -24,6 +24,8 @@ type BranchUpdateParams = {
 	status?: BranchStatus.Active | BranchStatus.Closed;
 	title?: string;
 	description?: string;
+	forgeUrl?: string;
+	forgeDescription?: string;
 };
 
 export class BranchService {
@@ -125,7 +127,13 @@ export class BranchService {
 
 	async updateBranch(uuid: string, params: BranchUpdateParams): Promise<Branch> {
 		const apiBranch = await this.httpClient.patch<ApiBranch>(`patch_stack/${uuid}`, {
-			body: params
+			body: {
+				status: params.status,
+				title: params.title,
+				description: params.description,
+				forge_url: params.forgeUrl,
+				forge_description: params.forgeDescription
+			}
 		});
 		const branch = apiToBranch(apiBranch);
 
