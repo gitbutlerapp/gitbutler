@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 tracing.workspace = true
-anyhow = "1.0.95"
+anyhow = "1.0.96"
 git2.workspace = true
 gix = { workspace = true, features = ["blob-diff", "revision", "merge"] }
 tokio.workspace = true
@@ -37,7 +37,7 @@ but-core.workspace = true
 serde = { workspace = true, features = ["std"] }
 serde-error = "0.1.3"
 bstr.workspace = true
-diffy = "0.4.0"
+diffy = "0.4.2"
 hex = "0.4.3"
 git2-hooks = "0.4"
 url = { version = "2.5.4", features = ["serde"] }
