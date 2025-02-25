@@ -5,7 +5,7 @@
 	import EditorHeader from './editor/EditorHeader.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { showError } from '$lib/notifications/toasts';
-	import { createCommitPath, stackPath } from '$lib/routes/routes.svelte';
+	import { commitPath, stackPath } from '$lib/routes/routes.svelte';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -65,7 +65,7 @@
 		if (!parentId) {
 			throw new Error('No parent id provided.');
 		}
-		await stackService.createCommit(projectId, {
+		const response = await stackService.createCommit(projectId, {
 			stackId,
 			parentId,
 			message: message,
@@ -82,7 +82,13 @@
 						}
 			)
 		});
-		goto(stackPath(projectId, stackId));
+		if (response.error) {
+			throw response.error;
+		}
+		const newId = response.data?.newCommit;
+		if (newId) {
+			goto(commitPath(projectId, { stackId, branchName, commitId: newId, upstream: false }));
+		}
 	}
 </script>
 
