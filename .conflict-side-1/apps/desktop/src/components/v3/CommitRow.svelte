@@ -10,11 +10,24 @@
 		first?: boolean;
 		last?: boolean;
 		lastBranch?: boolean;
-		selected: boolean;
+		selected?: boolean;
+		lineColor?: string;
+		opacity?: number;
+		borderTop?: boolean;
 		onclick?: (commitId: string) => void;
 	}
 
-	const { commit, first, last, lastBranch, selected, onclick }: Props = $props();
+	const {
+		commit,
+		first,
+		last,
+		lastBranch,
+		selected,
+		lineColor,
+		opacity,
+		borderTop,
+		onclick
+	}: Props = $props();
 
 	const commitTitle = $derived(commit.message.split('\n')[0]);
 </script>
@@ -25,9 +38,11 @@
 	class:first
 	class:last
 	class:selected
+	style:opacity
+	class:border-top={borderTop || first}
 	onclick={() => onclick?.(commit.id)}
 >
-	<CommitLine {commit} {last} {lastBranch} />
+	<CommitLine {commit} {last} {lastBranch} {lineColor} />
 	<div class="commit-content text-13 text-semibold">
 		{commitTitle}
 	</div>
@@ -39,9 +54,13 @@
 		display: flex;
 		align-items: center;
 		text-align: left;
+		width: 100%;
 
 		&:not(.last) {
 			border-bottom: 1px solid var(--clr-border-2);
+		}
+		&.border-top {
+			border-top: 1px solid var(--clr-border-2);
 		}
 
 		&.selected::before {

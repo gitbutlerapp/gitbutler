@@ -14,10 +14,11 @@
 		branch: StackBranch;
 		isTopBranch: boolean;
 		readonly: boolean;
+		lineColor?: string;
 		onclick?: () => void;
 	}
 
-	const { projectId, stackId, branch, isTopBranch, readonly, onclick }: Props = $props();
+	const { projectId, stackId, branch, isTopBranch, readonly, lineColor, onclick }: Props = $props();
 
 	const [stackService] = inject(StackService);
 
@@ -44,13 +45,13 @@
 	<ReduxResult result={topCommitResult}>
 		{#snippet children(commit)}
 			{@const branchType: CommitStateType = commit?.state.type ?? 'LocalOnly'}
-			{@const lineColor = getColorFromBranchType(branchType)}
+			{@const color = lineColor || getColorFromBranchType(branchType)}
 			<div class="branch-info">
 				<SeriesHeaderStatusIcon
 					lineTop={isTopBranch ? false : true}
 					icon={branchType === 'Integrated' ? 'tick-small' : 'branch-small'}
 					iconColor="var(--clr-core-ntrl-100)"
-					color={lineColor}
+					{color}
 				/>
 				<div class="branch-info__content">
 					<div class="text-14 text-bold branch-info__name">
@@ -72,7 +73,7 @@
 					</div>
 					{#if branch.description}
 						<div class="branch-info__description">
-							<div class="branch-info__line" style:--bg-color={lineColor}></div>
+							<div class="branch-info__line" style:--bg-color={color}></div>
 							<SeriesDescription
 								bind:textAreaEl={seriesDescriptionEl}
 								value={branch.description || ''}
@@ -137,6 +138,7 @@
 		gap: 6px;
 		padding: 14px 0;
 		margin-left: -2px;
+		text-overflow: ellipsis;
 	}
 
 	.branch-info__line {

@@ -8,14 +8,16 @@
 		commit: Commit | UpstreamCommit;
 		last?: boolean;
 		lastBranch?: boolean;
+		lineColor?: string;
 	}
 
-	const { commit, last, lastBranch }: Props = $props();
+	const { commit, last, lastBranch, lineColor }: Props = $props();
 
-	const lineColor = $derived(
-		isUpstreamCommit(commit)
-			? 'var(--clr-commit-upstream)'
-			: getColorFromBranchType(commit.state?.type ?? 'LocalOnly')
+	const color = $derived(
+		lineColor ||
+			(isUpstreamCommit(commit)
+				? 'var(--clr-commit-upstream)'
+				: getColorFromBranchType(commit.state?.type ?? 'LocalOnly'))
 	);
 	const dotRhombus = $derived(!isUpstreamCommit(commit) && commit.state.type === 'LocalAndRemote');
 
@@ -24,7 +26,7 @@
 	);
 </script>
 
-<div class="commit-lines" style:--commit-color={lineColor}>
+<div class="commit-lines" style:--commit-color={color}>
 	<div class="commit-line__top"></div>
 	<Tooltip text={tooltipText}>
 		<div class="commit-line__center" class:rhombus={dotRhombus}></div>
