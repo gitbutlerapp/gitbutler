@@ -13,19 +13,25 @@
 
 	type Props = {
 		projectId: string;
+		// Currently selected stack id.
+		stackId: string;
 		overflow?: boolean;
 	};
 
-	const { projectId, overflow = false }: Props = $props();
+	const { projectId, stackId, overflow = false }: Props = $props();
 	const stackService = getContext(StackService);
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
-
 	let createRefName: string | undefined = $state();
+	let createRefType: 'stack' | 'dependent' = $state('stack');
+
 	const slugifiedRefName = $derived(createRefName && slugify(createRefName));
 	const generatedNameDiverges = $derived(!!createRefName && slugifiedRefName !== createRefName);
 
-	let createRefType: 'stack' | 'dependent' = $state('stack');
+	const firstBranchResult = $derived(
+		stackId ? stackService.branchAt(projectId, stackId, 0).current : undefined
+	);
+	const firstBranchName = $derived(firstBranchResult ? firstBranchResult.data?.name : undefined);
 
 	function handleOptionSelect(event: Event) {
 		const target = event.target as HTMLInputElement;
@@ -42,9 +48,17 @@
 				showError('Failed to add new stack', error);
 			}
 		} else {
-			// TODO: add dependent branch
-			showError('Not implemented', 'Adding dependent branches is not yet implemented');
-			createRefModal?.close();
+			if (!createRefName) {
+				// TODO: Add input validation.
+				return;
+			}
+			const { error } = await stackService.newBranch(projectId, stackId, createRefName);
+			if (error) {
+				showError('Failed to add new branch', error);
+			} else {
+				goto(stackPath(projectId, stackId));
+				createRefModal?.close();
+			}
 		}
 	}
 
@@ -201,7 +215,7 @@
 		<span class="text-12 text-body radio-aditional-info"
 			>{createRefType === 'stack'
 				? '└ Stacks that are currently applied will remain in the workspace.'
-				: `└ The new branch will be added on top of 'branch-name'`}</span
+				: `└ The new branch will be added on top of \`${firstBranchName}\``}</span
 		>
 	</div>
 
