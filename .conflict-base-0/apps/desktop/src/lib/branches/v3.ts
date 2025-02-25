@@ -23,7 +23,7 @@ export type StackBranch = {
 	 * This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
 	 * An archived branch will not have any commits associated with it.
 	 */
-	archive: boolean;
+	archived: boolean;
 };
 
 /** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.*/
