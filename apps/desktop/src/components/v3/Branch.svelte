@@ -35,7 +35,7 @@
 <ReduxResult result={combineResults(branchResult, commitResult)}>
 	{#snippet children([branch, commit])}
 		{#if !first}
-			<BranchDividerLine topPatchStatus={commit?.state.type ?? 'Error'} />
+			<BranchDividerLine topPatchStatus={commit?.state.type ?? 'LocalOnly'} />
 		{/if}
 		<div class="branch" class:selected data-series-name={branchName}>
 			<BranchHeader {projectId} {stackId} {branch} isTopBranch={first} />
