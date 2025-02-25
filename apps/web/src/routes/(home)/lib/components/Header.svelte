@@ -6,6 +6,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { fly } from 'svelte/transition';
 	import { env } from '$env/dynamic/public';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	let isMobileMenuOpen = $state(false);
 
@@ -92,15 +93,6 @@
 				{/snippet}
 			</HeaderLink>
 			<HeaderLink label="Blog" href={jsonLinks.resources.blog.url} />
-			<HeaderLink label="Jobs" href={jsonLinks.resources.jobs.url} />
-			{#if $token}
-				<HeaderLink label="Dashboard" href={'/'} />
-			{:else}
-				<HeaderLink
-					label="Login"
-					href={`${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`}
-				/>
-			{/if}
 		</section>
 
 		<section class="navigation-section">
@@ -118,6 +110,18 @@
 				href={jsonLinks.social.discord.url}
 				hrefTarget="_blank"
 			/>
+		</section>
+		<section class="navigation-section">
+			{#if $token}
+				<HeaderLink label="My Dashboard" href={'/'} />
+				<Icon name="dashboard" />
+			{:else}
+				<HeaderLink
+					label="Sign up / Log in"
+					href={`${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`}
+				/>
+				<Icon name="signin" />
+			{/if}
 		</section>
 	</nav>
 
@@ -151,7 +155,6 @@
 					{/snippet}
 				</HeaderMobileLink>
 				<HeaderMobileLink label="Blog" href={jsonLinks.resources.blog.url} />
-				<HeaderMobileLink label="Jobs" href={jsonLinks.resources.jobs.url} />
 				<HeaderMobileLink
 					label="Source"
 					icon="github"
@@ -164,6 +167,18 @@
 					href={jsonLinks.social.discord.url}
 					hrefTarget="_blank"
 				/>
+				<section class="navigation-section">
+					{#if $token}
+						<HeaderMobileLink label="My Dashboard" href={'/'} />
+						<Icon name="dashboard" />
+					{:else}
+						<HeaderMobileLink
+							label="Sign up / Log in"
+							href={`${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`}
+						/>
+						<Icon name="signin" />
+					{/if}
+				</section>
 			</nav>
 		{/if}
 	</section>
@@ -261,7 +276,7 @@
 	.navigation-desktop {
 		display: flex;
 		align-items: center;
-		gap: 60px;
+		gap: 40px;
 
 		@media (max-width: 1100px) {
 			display: none;

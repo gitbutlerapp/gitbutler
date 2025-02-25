@@ -169,7 +169,7 @@
 	.page-wrapper {
 		display: flex;
 		flex-direction: column;
-		max-width: 1280px;
+		max-width: 1440px;
 		margin: 0 auto;
 	}
 </style>
