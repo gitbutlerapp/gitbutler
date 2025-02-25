@@ -116,15 +116,7 @@
 
 <Toaster />
 
-{#if token}
-	<div class="app">
-		<Navigation />
-		<main>
-			{@render children?.()}
-		</main>
-		<Footer />
-	</div>
-{:else}
+{#if !token || page.route.id === '/home'}
 	<section class="page-wrapper">
 		<Header />
 		<Hero />
@@ -134,6 +126,14 @@
 		<FAQ />
 		<HomeFooter />
 	</section>
+{:else}
+	<div class="app">
+		<Navigation />
+		<main>
+			{@render children?.()}
+		</main>
+		<Footer />
+	</div>
 {/if}
 
 <style lang="postcss">
@@ -166,7 +166,7 @@
 		width: 100%;
 	}
 
-	:global(.page-wrapper) {
+	.page-wrapper {
 		display: flex;
 		flex-direction: column;
 		max-width: 1280px;
