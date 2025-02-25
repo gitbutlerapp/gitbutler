@@ -5,6 +5,7 @@
 	import { cloudReviewFunctionality } from '$lib/config/uiFeatureFlags';
 	import { getPr } from '$lib/forge/getPr.svelte';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	import { syncPrToBr } from '$lib/forge/prToBrSync.svelte';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { getContextStore, inject } from '@gitbutler/shared/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
@@ -97,6 +98,8 @@
 	);
 
 	let dropDownButton = $state<DropDownButton>();
+
+	syncPrToBr(reactive(() => branch));
 </script>
 
 <div class="branch-action">
