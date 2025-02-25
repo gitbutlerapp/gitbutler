@@ -174,10 +174,10 @@
 		top: 0;
 
 		/* border + left padding + number column width */
-		--offset: calc(1px + 4px + var(--number-col-width));
+		--offset: calc(2px + 4px + var(--number-col-width));
 
 		left: calc(var(--offset) * -1);
-		width: var(--width);
+		width: calc(var(--width) + 1px);
 		height: var(--height);
 		box-sizing: border-box;
 
