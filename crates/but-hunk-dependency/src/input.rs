@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use but_core::TreeStatusKind;
 use but_workspace::StackId;
 use gix::bstr::BString;
@@ -50,9 +49,9 @@ pub struct InputDiffHunk {
 impl InputDiffHunk {
     /// Compute the amount of lines that are left when substracting old-lines from new-lines.
     pub fn net_lines(&self) -> anyhow::Result<i32> {
-        self.new_lines
-            .checked_signed_diff(self.old_lines)
-            .ok_or(anyhow!("u32 -> i32 conversion overflow"))
+        let old_lines = i32::try_from(self.old_lines)?;
+        let new_lines = i32::try_from(self.new_lines)?;
+        Ok(new_lines - old_lines)
     }
 }
 
