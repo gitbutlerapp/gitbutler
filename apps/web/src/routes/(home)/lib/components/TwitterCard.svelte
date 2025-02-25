@@ -3,13 +3,13 @@
 
 	interface Props {
 		tweet: {
-		authorName: string;
-		authorHandle: string;
-		authorAvatar: string;
-		content: string;
-		date: string;
-		link: string;
-	};
+			authorName: string;
+			authorHandle: string;
+			authorAvatar: string;
+			content: string;
+			date: string;
+			link: string;
+		};
 	}
 
 	let { tweet }: Props = $props();
