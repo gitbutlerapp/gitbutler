@@ -1,5 +1,5 @@
-use crate::commit::TreeKind;
 use crate::GitConfigSettings;
+use crate::commit::TreeKind;
 use anyhow::Context;
 use gitbutler_error::error::Code;
 use gix::prelude::ObjectIdExt;

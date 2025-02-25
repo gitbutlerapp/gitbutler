@@ -1,4 +1,4 @@
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use gitbutler_project::Project;
 use std::path::Path;
 

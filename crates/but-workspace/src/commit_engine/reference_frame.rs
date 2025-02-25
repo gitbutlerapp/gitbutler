@@ -1,5 +1,5 @@
-use crate::commit_engine::{reference_frame, ReferenceFrame};
-use anyhow::{bail, Context};
+use crate::commit_engine::{ReferenceFrame, reference_frame};
+use anyhow::{Context, bail};
 use gitbutler_oxidize::OidExt;
 use gitbutler_stack::{StackId, VirtualBranchesState};
 use gix::prelude::ObjectIdExt;

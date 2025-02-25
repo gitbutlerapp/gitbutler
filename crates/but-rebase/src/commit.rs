@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Context};
+use anyhow::{Context, anyhow, bail};
 use bstr::{BString, ByteSlice};
 use but_core::cmd::prepare_with_shell_on_windows;
 use but_core::{GitConfigSettings, RepositoryExt};
@@ -181,10 +181,13 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
         let mut child = match cmd.spawn() {
             Ok(child) => child,
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                bail!("Could not find '{}'. Please make sure it is in your `PATH` or configure the full path using `gpg.program` in the Git configuration", gpg_program.display())
+                bail!(
+                    "Could not find '{}'. Please make sure it is in your `PATH` or configure the full path using `gpg.program` in the Git configuration",
+                    gpg_program.display()
+                )
             }
             Err(err) => {
-                return Err(err).context(format!("Could not execute GPG program using {:?}", cmd))
+                return Err(err).context(format!("Could not execute GPG program using {:?}", cmd));
             }
         };
         child.stdin.take().expect("configured").write_all(buffer)?;

@@ -5,7 +5,7 @@ use std::{
 
 use crate::utils::PaniclessSubtraction;
 use crate::{HunkRange, InputDiffHunk};
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use but_core::TreeStatusKind;
 use but_workspace::StackId;
 

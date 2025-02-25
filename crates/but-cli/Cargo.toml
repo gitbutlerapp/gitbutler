@@ -1,10 +1,9 @@
 [package]
 name = "but-cli"
 version = "0.0.0"
-edition = "2021"
+edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
-rust-version = "1.74"
 
 [[bin]]
 name = "but-cli"

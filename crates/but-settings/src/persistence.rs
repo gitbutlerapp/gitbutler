@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use crate::json::{json_difference, merge_non_null_json_value};
 use crate::AppSettings;
+use crate::json::{json_difference, merge_non_null_json_value};
 use anyhow::Result;
 use serde_json::json;
 use serde_json_lenient::to_string_pretty;
@@ -59,10 +59,16 @@ mod tests {
         let app_settings: Result<super::AppSettings, serde_json::Error> =
             serde_json::from_value(settings.clone());
         if app_settings.is_err() {
-            println!("\n===========================================================================================");
+            println!(
+                "\n==========================================================================================="
+            );
             println!("Not all AppSettings have default values.");
-            println!("Make sure to update the defaults file in 'crates/gitbutler-settings/assets/defaults.jsonc'.");
-            println!("===========================================================================================\n");
+            println!(
+                "Make sure to update the defaults file in 'crates/gitbutler-settings/assets/defaults.jsonc'."
+            );
+            println!(
+                "===========================================================================================\n"
+            );
         }
         assert!(app_settings.is_ok())
     }

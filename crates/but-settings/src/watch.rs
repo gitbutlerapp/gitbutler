@@ -1,11 +1,11 @@
 use crate::AppSettings;
 use anyhow::Result;
-use notify::{event::ModifyKind, Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher, event::ModifyKind};
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use std::{
     path::PathBuf,
-    sync::{mpsc, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, mpsc},
     time::Duration,
 };
 

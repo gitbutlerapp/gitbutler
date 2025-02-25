@@ -1,7 +1,7 @@
 use bstr::ByteSlice;
 use but_core::TreeStatus;
 use but_testsupport::gix_testtools;
-use but_testsupport::gix_testtools::{tempfile, Creation};
+use but_testsupport::gix_testtools::{Creation, tempfile};
 use but_workspace::commit_engine::{Destination, DiffSpec};
 use gix::prelude::ObjectIdExt;
 use std::fs::Permissions;

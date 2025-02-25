@@ -1,8 +1,8 @@
 use super::{ChangeState, UnifiedDiff};
 use bstr::{BStr, BString, ByteSlice};
+use gix::diff::blob::ResourceKind;
 use gix::diff::blob::platform::prepare_diff::Operation;
 use gix::diff::blob::unified_diff::ContextSize;
-use gix::diff::blob::ResourceKind;
 use serde::Serialize;
 
 /// A hunk as used in a [UnifiedDiff], which also contains all added and removed lines.
@@ -154,7 +154,9 @@ impl UnifiedDiff {
                 }
             }
             Operation::ExternalCommand { .. } => {
-                unreachable!("BUG: `gix` disables this, as it knows we always need to be able to run our own diff machinery")
+                unreachable!(
+                    "BUG: `gix` disables this, as it knows we always need to be able to run our own diff machinery"
+                )
             }
             Operation::SourceOrDestinationIsBinary => {
                 use gix::diff::blob::platform::resource::Data;

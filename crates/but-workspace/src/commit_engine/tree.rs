@@ -1,5 +1,5 @@
 use crate::commit_engine::{Destination, DiffSpec, HunkHeader, MoveSourceCommit};
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use bstr::{BString, ByteSlice};
 use but_core::{RepositoryExt, UnifiedDiff};
 use gix::filter::plumbing::driver::apply::{Delay, MaybeDelayed};
@@ -56,7 +56,9 @@ pub fn create_tree(
     let mut changes: Vec<_> = changes.into_iter().map(Ok).collect();
     let (new_tree, changed_tree_pre_cherry_pick) = 'retry: loop {
         let (maybe_new_tree, actual_base_tree) = if let Some(_source) = move_source {
-            todo!("get base tree and apply changes by cherry-picking, probably can all be done by one function, but optimizations are different")
+            todo!(
+                "get base tree and apply changes by cherry-picking, probably can all be done by one function, but optimizations are different"
+            )
         } else {
             let changes_base_tree = repo.head()?.id().and_then(|id| {
                 id.object()

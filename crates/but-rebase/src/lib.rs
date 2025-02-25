@@ -4,7 +4,7 @@
 #![deny(rust_2018_idioms, missing_docs)]
 
 use crate::commit::CommitterMode;
-use anyhow::{anyhow, bail, Context, Ok, Result};
+use anyhow::{Context, Ok, Result, anyhow, bail};
 use bstr::BString;
 use gix::objs::Exists;
 use gix::prelude::ObjectIdExt;
@@ -283,7 +283,9 @@ fn rebase(
                         }
                         None => {
                             // TODO: should this be supported? This would be as easy as forgetting its parents.
-                            bail!("Cannot currently rebase a commit so that it becomes the first commit in the history")
+                            bail!(
+                                "Cannot currently rebase a commit so that it becomes the first commit in the history"
+                            )
                         }
                     }
                 }
