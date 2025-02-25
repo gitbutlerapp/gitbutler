@@ -1,9 +1,10 @@
 <script lang="ts">
 	import BranchDividerLine from './BranchDividerLine.svelte';
+	import CommitRow from './CommitRow.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
-	import { branchPath } from '$lib/routes/routes.svelte';
+	import { branchPath, commitPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { inject } from '@gitbutler/shared/context';
@@ -48,7 +49,30 @@
 				readonly={false}
 				onclick={() => goto(branchPath(projectId, stackId, branch.name))}
 			/>
-			<BranchCommitList {projectId} {stackId} {branchName} lastBranch={last} {selectedCommitId} />
+			<BranchCommitList {projectId} {stackId} {branchName} lastBranch={last} {selectedCommitId}>
+				{#snippet upstreamTemplate({ commit, commitKey, first, last, selected })}
+					<CommitRow
+						{projectId}
+						{commitKey}
+						{first}
+						{last}
+						{commit}
+						{selected}
+						onclick={() => goto(commitPath(projectId, commitKey))}
+					/>
+				{/snippet}
+				{#snippet localAndRemoteTemplate({ commit, commitKey, first, last, selected })}
+					<CommitRow
+						{projectId}
+						{commitKey}
+						{first}
+						{last}
+						{commit}
+						{selected}
+						onclick={() => goto(commitPath(projectId, commitKey))}
+					/>
+				{/snippet}
+			</BranchCommitList>
 		</div>
 	{/snippet}
 </ReduxResult>
@@ -61,8 +85,5 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background: var(--clr-bg-2);
-		&.selected {
-			background: var(--clr-bg-1);
-		}
 	}
 </style>

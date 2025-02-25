@@ -1,10 +1,12 @@
 <script lang="ts">
 	import EmptyBranch from './EmptyBranch.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import CommitRow from '$components/v3/CommitRow.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { inject } from '@gitbutler/shared/context';
+	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
+	import type { CommitKey } from '$lib/commits/commit';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		projectId: string;
@@ -12,10 +14,31 @@
 		branchName: string;
 		lastBranch?: boolean;
 		selectedCommitId?: string;
-		onclick?: (commitId: string) => void;
+		upstreamTemplate?: Snippet<
+			[
+				{
+					commit: UpstreamCommit;
+					commitKey: CommitKey;
+					first: boolean;
+					last: boolean;
+					selected: boolean;
+				}
+			]
+		>;
+		localAndRemoteTemplate?: Snippet<
+			[{ commit: Commit; commitKey: CommitKey; first: boolean; last: boolean; selected: boolean }]
+		>;
 	}
 
-	let { projectId, stackId, branchName, lastBranch, selectedCommitId, onclick }: Props = $props();
+	let {
+		projectId,
+		stackId,
+		branchName,
+		lastBranch,
+		selectedCommitId,
+		localAndRemoteTemplate,
+		upstreamTemplate
+	}: Props = $props();
 
 	const [stackService] = inject(StackService);
 
@@ -33,30 +56,25 @@
 			<EmptyBranch {lastBranch} />
 		{:else}
 			<div class="commit-list">
-				{#each upstreamOnlyCommits as commit, i (commit.id)}
-					{@const first = i === 0}
-					{@const last = i === upstreamOnlyCommits.length - 1}
-					{@const commitKey = { stackId, branchName, commitId: commit.id, upstream: true }}
-					{@const selected = selectedCommitId === commit.id}
-					<CommitRow {projectId} {commitKey} {first} {last} {commit} {selected} {onclick} />
-				{/each}
+				{#if upstreamTemplate}
+					{#each upstreamOnlyCommits as commit, i (commit.id)}
+						{@const first = i === 0}
+						{@const last = i === upstreamOnlyCommits.length - 1}
+						{@const commitKey = { stackId, branchName, commitId: commit.id, upstream: true }}
+						{@const selected = selectedCommitId === commit.id}
+						{@render upstreamTemplate({ commit, commitKey, first, last, selected })}
+					{/each}
+				{/if}
 
-				{#each localAndRemoteCommits as commit, i (commit.id)}
-					{@const first = i === 0}
-					{@const last = i === localAndRemoteCommits.length - 1}
-					{@const commitKey = { stackId, branchName, commitId: commit.id, upstream: false }}
-					{@const selected = selectedCommitId === commit.id}
-					<CommitRow
-						{projectId}
-						{commitKey}
-						{first}
-						{last}
-						{commit}
-						{lastBranch}
-						{selected}
-						{onclick}
-					/>
-				{/each}
+				{#if localAndRemoteTemplate}
+					{#each localAndRemoteCommits as commit, i (commit.id)}
+						{@const first = i === 0}
+						{@const last = i === localAndRemoteCommits.length - 1}
+						{@const commitKey = { stackId, branchName, commitId: commit.id, upstream: false }}
+						{@const selected = selectedCommitId === commit.id}
+						{@render localAndRemoteTemplate({ commit, commitKey, first, last, selected })}
+					{/each}
+				{/if}
 			</div>
 		{/if}
 	{/snippet}
