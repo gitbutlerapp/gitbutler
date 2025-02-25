@@ -9,7 +9,7 @@
 
 	type Props = {
 		projectId: string;
-		selectedId: string | undefined;
+		selectedId: string;
 		previewing: boolean;
 		width: number | undefined;
 	};
@@ -66,7 +66,7 @@
 		<div class="shadow shadow-left" class:scrolled></div>
 		<div class="shadow shadow-right" class:scrollable class:scrolled-end={scrolledEnd}></div>
 	</div>
-	<StackTabNew {projectId} />
+	<StackTabNew {projectId} stackId={selectedId} />
 </div>
 
 <style lang="postcss">
