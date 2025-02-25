@@ -17,6 +17,8 @@
 		"store:default",
 		"updater:default",
 		"http:allow-fetch",
+		"notification:allow-is-permission-granted",
+		"notification:default",
 		{
 			"identifier": "http:default",
 			"allow": [

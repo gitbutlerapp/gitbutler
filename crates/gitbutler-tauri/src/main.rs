@@ -159,6 +159,7 @@ fn main() {
                 .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
                 .plugin(tauri_plugin_updater::Builder::new().build())
                 .plugin(tauri_plugin_dialog::init())
+                .plugin(tauri_plugin_notification::init())
                 .plugin(tauri_plugin_fs::init())
                 // .plugin(tauri_plugin_context_menu::init())
                 .plugin(tauri_plugin_store::Builder::default().build())
