@@ -64,7 +64,8 @@ pub struct DiffSpec {
     pub path: BString,
     /// If one or more hunks are specified, match them with actual changes currently in the worktree.
     /// Failure to match them will lead to the change being dropped.
-    /// If empty, the whole file is taken as is.
+    /// If empty, the whole file is taken as is if this seems to be an addition.
+    /// Otherwise, the whole file is being deleted.
     pub hunk_headers: Vec<HunkHeader>,
 }
 

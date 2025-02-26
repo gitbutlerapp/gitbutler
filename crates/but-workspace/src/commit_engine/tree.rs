@@ -183,6 +183,7 @@ fn apply_worktree_changes<'repo>(
             Err(err) => return Err(err.into()),
         };
         if change_request.hunk_headers.is_empty() {
+            // NOTE: See copy below!
             if let Some(previous_path) = change_request.previous_path.as_ref().map(|p| p.as_bstr())
             {
                 base_tree_editor.remove(previous_path)?;
@@ -214,7 +215,25 @@ fn apply_worktree_changes<'repo>(
             }
             let base_rela_path = previous_path.unwrap_or(change_request.path.as_bstr());
             let Some(entry) = base_tree.lookup_entry(base_rela_path.split(|b| *b == b'/'))? else {
-                into_err_spec(possible_change);
+                // Assume the file is untracked, so no entry exists yet. Handle it as if there were no hunks,
+                // assuming there is only one.
+                if change_request.hunk_headers.len() == 1 {
+                    // NOTE: See copy above!
+                    if let Some(previous_path) =
+                        change_request.previous_path.as_ref().map(|p| p.as_bstr())
+                    {
+                        base_tree_editor.remove(previous_path)?;
+                    }
+                    let rela_path = change_request.path.as_bstr();
+                    match pipeline.worktree_file_to_object(rela_path, &index)? {
+                        Some((id, kind, _fs_metadata)) => {
+                            base_tree_editor.upsert(rela_path, kind, id)?;
+                        }
+                        None => into_err_spec(possible_change),
+                    }
+                } else {
+                    into_err_spec(possible_change);
+                }
                 continue;
             };
 
