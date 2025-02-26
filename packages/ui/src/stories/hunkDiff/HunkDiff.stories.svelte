@@ -14,20 +14,6 @@
 		argTypes: {}
 	});
 
-	const testHunk = {
-		id: '59-66',
-		hash: 'test',
-		modifiedAt: new Date(),
-		lockedTo: [],
-		locked: false,
-		poisoned: false,
-		changeType: 'modified',
-		diff: '',
-		filePath: 'test',
-		new_start: 59,
-		new_lines: 7
-	};
-
 	const hunkStr = {
 		diff: '@@ -140,7 +140,7 @@ \n <Modal\n \tbind:this={modal}\n \twidth="small"\n-\ttitle="Git fetch requires input"\n+\ttitle="Git --ds--tch requires input"\n…',
 		newLines: 7,
