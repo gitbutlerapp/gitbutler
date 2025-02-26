@@ -1,10 +1,10 @@
 use crate::commit_engine::utils::{
-    commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace,
+    CONTEXT_LINES, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace,
     read_only_in_memory_scenario, visualize_commit, visualize_tree, writable_scenario,
     writable_scenario_with_ssh_key, write_local_config, write_sequence,
 };
 use but_testsupport::assure_stable_env;
-use but_workspace::commit_engine::Destination;
+use but_workspace::commit_engine::{Destination, DiffSpec, HunkHeader};
 
 #[test]
 fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
@@ -95,6 +95,66 @@ fn new_file_and_deletion_onto_merge_commit() -> anyhow::Result<()> {
         &repo,
         Destination::AmendCommit(repo.rev_parse_single("merge")?.detach()),
     )?;
+    let tree = visualize_tree(&repo, &outcome)?;
+    insta::assert_snapshot!(tree, @r#"
+    f8009d7
+    └── new-file:100644:f00c965 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
+    "#);
+    Ok(())
+}
+
+#[test]
+fn make_a_file_empty() -> anyhow::Result<()> {
+    assure_stable_env();
+
+    let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
+    // Empty the file
+    std::fs::write(repo.work_dir().expect("non-bare").join("file"), "")?;
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
+        &repo,
+        Destination::AmendCommit(repo.rev_parse_single("merge")?.detach()),
+    )?;
+    let tree = visualize_tree(&repo, &outcome)?;
+    insta::assert_snapshot!(tree, @r#"
+    df2b8fc
+    └── file:100644:e69de29 ""
+    "#);
+    Ok(())
+}
+
+#[test]
+fn new_file_and_deletion_onto_merge_commit_with_hunks() -> anyhow::Result<()> {
+    assure_stable_env();
+
+    let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
+    // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
+    write_sequence(&repo, "new-file", [(10, None)])?;
+    std::fs::remove_file(repo.work_dir().expect("non-bare").join("file"))?;
+
+    let outcome = but_workspace::commit_engine::create_commit(
+        &repo,
+        Destination::AmendCommit(repo.rev_parse_single("merge")?.detach()),
+        None,
+        vec![
+            DiffSpec {
+                previous_path: None,
+                path: "file".into(),
+                hunk_headers: vec![],
+            },
+            DiffSpec {
+                previous_path: None,
+                path: "new-file".into(),
+                hunk_headers: vec![HunkHeader {
+                    old_start: 1,
+                    old_lines: 0,
+                    new_start: 1,
+                    new_lines: 10,
+                }],
+            },
+        ],
+        CONTEXT_LINES,
+    )?;
+    assert_eq!(outcome.rejected_specs, vec![]);
     let tree = visualize_tree(&repo, &outcome)?;
     insta::assert_snapshot!(tree, @r#"
     f8009d7
