@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Header from '$home/components/Header.svelte';
+	import * as jsonLinks from '$home/data/links.json';
 	import BlogHighlights from '$home/sections/BlogHighlights.svelte';
 	import DevelopersReview from '$home/sections/DevelopersReview.svelte';
 	import FAQ from '$home/sections/FAQ.svelte';
@@ -24,11 +25,11 @@
 	setContext(AuthService, authService);
 	let token = $state<string | null>();
 
-	// Parse searchParams for token
-	const searchParams = $derived(page.url.searchParams);
+	const publicRouteIds = ['/(app)/downloads'];
+	const isPublicRoute = $derived(publicRouteIds.includes(page.route.id));
 
 	$effect(() => {
-		token = get(authService.tokenReadable) || searchParams.get('gb_access_token');
+		token = get(authService.tokenReadable) || page.url.searchParams.get('gb_access_token');
 		if (token) {
 			authService.setToken(token);
 
@@ -40,14 +41,19 @@
 	});
 
 	$effect(() => {
-		$inspect('rootLayout.token', token);
-		if (!token) {
+		if (page.route.id === '/privacy') {
+			window.location = jsonLinks.legal.privacyPolicy.url;
+		}
+
+		if (!token && !isPublicRoute) {
 			goto('/');
 		}
 	});
 </script>
 
-{#if !token || page.route.id === '/(app)/home'}
+{#if isPublicRoute || token}
+	{@render children?.()}
+{:else if !token || page.route.id === '/(app)/home'}
 	<section class="page-wrapper">
 		<Header />
 		<Hero />
@@ -57,6 +63,4 @@
 		<FAQ />
 		<HomeFooter />
 	</section>
-{:else}
-	{@render children?.()}
 {/if}

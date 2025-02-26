@@ -20,10 +20,7 @@
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
 	import { setExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
 	import { setContext, type Snippet } from 'svelte';
-	import { get } from 'svelte/store';
 	import { Toaster } from 'svelte-french-toast';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
 	import '$lib/styles/global.css';
 	import '$home/styles/styles.css';
 	import { env } from '$env/dynamic/public';
@@ -35,28 +32,6 @@
 	const { children }: Props = $props();
 
 	const authService = getContext(AuthService);
-	let token = $state<string | null>();
-
-	// Parse searchParams for token
-	const searchParams = $derived(page.url.searchParams);
-
-	$effect(() => {
-		token = get(authService.tokenReadable) || searchParams.get('gb_access_token');
-		if (token) {
-			authService.setToken(token);
-
-			if (page.url.searchParams.has('gb_access_token')) {
-				page.url.searchParams.delete('gb_access_token');
-				goto(`?${page.url.searchParams.toString()}`);
-			}
-		}
-	});
-
-	$effect(() => {
-		if (!token) {
-			goto('/');
-		}
-	});
 
 	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.tokenReadable);
 	setContext(HttpClient, httpClient);
