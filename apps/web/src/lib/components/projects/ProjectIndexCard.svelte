@@ -51,19 +51,14 @@
 
 <style lang="postcss">
 	.row {
-		/*
-			This is a magical incantation that lets the divs take up the full
-			height of the cell. Nobody knows why this makes any difference
-			because it's completly ingnored, but it does!
-		*/
-		height: 1px;
+		min-height: 50px;
 
 		> td {
 			padding: 0;
-			/* This is also part of the magical spell. */
-			height: 1px;
+			height: 100%;
 
 			> div {
+				min-height: 50px;
 				height: 100%;
 
 				background-color: var(--clr-bg-1);
