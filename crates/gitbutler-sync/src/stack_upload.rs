@@ -77,9 +77,11 @@ struct BranchHead {
 /// The worlds most secure random string generator because uuids are "not cool"
 fn generate_review_id() -> String {
     let mut rng = rand::rng();
-    (0..11)
+    let digit = rng.sample(rand::distr::Uniform::new_inclusive(0, 9).unwrap());
+    let letters = (0..8)
         .map(|_| rng.sample(rand::distr::Alphanumeric) as char)
-        .collect::<String>()
+        .collect::<String>();
+    format!("{}{}", digit, letters)
 }
 
 /// Fetch the stack heads in order and attach a review_id if not already present.
