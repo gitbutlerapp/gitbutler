@@ -10,6 +10,16 @@ export function getCursorPosition() {
 	}
 }
 
+export function getFormatterPosition() {
+	const nativeSelection = window.getSelection();
+	const domRect = nativeSelection?.getRangeAt(0).getBoundingClientRect();
+	console.log(domRect);
+
+	if (domRect) {
+		return { left: domRect.left, top: domRect.top };
+	}
+}
+
 /**
  * Replace a section of text leading up to current caret
  * position. Note that we do not perform any checks here,
