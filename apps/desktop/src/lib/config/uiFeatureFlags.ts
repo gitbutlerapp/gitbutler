@@ -7,10 +7,3 @@
 import { persisted } from '@gitbutler/shared/persisted';
 
 export const autoSelectBranchNameFeature = persisted(false, 'autoSelectBranchLaneContentsFeature');
-
-export const cloudFunctionality = persisted(false, 'featureFlag--cloudFunctionality');
-export const cloudReviewFunctionality = persisted(false, 'featureFlag--cloudReviewFunctionality');
-export const cloudCommunicationFunctionality = persisted(
-	false,
-	'featureFlag--cloudCommunicationFunctionality'
-);

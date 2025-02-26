@@ -5,7 +5,6 @@
 	import { BranchController } from '$lib/branches/branchController';
 	import { SelectedOwnership } from '$lib/branches/ownership';
 	import { persistedCommitMessage, projectRunCommitHooks } from '$lib/config/config';
-	import { cloudCommunicationFunctionality } from '$lib/config/uiFeatureFlags';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { showError } from '$lib/notifications/toasts';
@@ -36,7 +35,6 @@
 	const selectedOwnership = getContextStore(SelectedOwnership);
 	const stack = getContextStore(BranchStack);
 	const commitMessage = persistedCommitMessage(projectId, $stack.id);
-	const canShowCommitAndPublish = $derived($cloudCommunicationFunctionality && $canTakeSnapshot);
 	const runHooks = projectRunCommitHooks(projectId);
 
 	let commitMessageInput = $state<CommitMessageInput>();
@@ -140,7 +138,7 @@
 				<Button style="neutral" kind="outline" id="commit-to-branch" onclick={close}>Cancel</Button>
 			</div>
 		{/if}
-		{#if $expanded && canShowCommitAndPublish}
+		{#if $expanded && $canTakeSnapshot}
 			<DropDownButton
 				bind:this={commitButton}
 				onclick={() => {

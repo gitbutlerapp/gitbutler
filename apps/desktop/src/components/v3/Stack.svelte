@@ -11,7 +11,6 @@
 	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import { DetailedCommit } from '$lib/commits/commit';
-	import { cloudReviewFunctionality } from '$lib/config/uiFeatureFlags';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { Project } from '$lib/project/project';
@@ -102,7 +101,6 @@
 	}
 
 	async function pushButlerReviewStacks() {
-		if (!$cloudReviewFunctionality) return;
 		const topPushableBranch = stack.validSeries.find((series) => series.reviewId);
 		if (!topPushableBranch) return;
 

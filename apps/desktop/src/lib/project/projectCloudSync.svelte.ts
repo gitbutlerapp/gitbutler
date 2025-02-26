@@ -52,7 +52,8 @@ export function projectCloudSync(
 			created_at: cloudProject.createdAt,
 			updated_at: cloudProject.updatedAt,
 			sync: mutableProject.api?.sync ?? false,
-			sync_code: mutableProject.api?.sync_code ?? false
+			sync_code: mutableProject.api?.sync_code ?? false,
+			reviews: mutableProject.api?.reviews ?? false
 		};
 
 		if (shallowCompare(newDetails, mutableProject.api)) {

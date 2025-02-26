@@ -1,13 +1,11 @@
 <script lang="ts">
 	import Branches from '$components/Branches.svelte';
 	import EditButton from '$components/EditButton.svelte';
-	import FeedButton from '$components/FeedButton.svelte';
 	import Footer from '$components/Footer.svelte';
 	import ProjectSelector from '$components/ProjectSelector.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import TargetCard from '$components/TargetCard.svelte';
 	import WorkspaceButton from '$components/WorkspaceButton.svelte';
-	import { cloudCommunicationFunctionality } from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/mode/modeService';
 	import { platformName } from '$lib/platform/platform';
 	import { ProjectService } from '$lib/project/projectService';
@@ -119,9 +117,6 @@
 						<WorkspaceButton href={`/${projectId}/board`} isNavCollapsed={$isNavCollapsed} />
 					{:else if $mode?.type === 'Edit'}
 						<EditButton href={`/${projectId}/edit`} isNavCollapsed={$isNavCollapsed} />
-					{/if}
-					{#if $cloudCommunicationFunctionality}
-						<FeedButton href={`/${projectId}/feed`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 				</div>
 			</div>
