@@ -45,12 +45,8 @@
 //!  * *Stack Segment* - a set of connected commits between reference name and another reference name, or the lower bound of the stack.
 //!
 //! TODO:
-//!  - sketch for detached HEAD, unapply last branch. Then applying another branch checks that out.
-//!  - unapplying everything with target should go to the tip of target
-//!  - how about a workspace that has a shared commit so assignment isn't clear
 //!  - About reference points for rev-walks (WMB, TMB, auto-target when branch has PR with target to merge into)
 //!    Without reference points, walks will be indefinite.
-//!  - What happens if the user points to a merge commit? Can they use GitButler to more easily see what's going on?
 //!
 //! ## Operations
 //!
@@ -317,7 +313,7 @@
 //!  │ a │         │         │                            │          │                        │         │                            │         │
 //!  │ l │         │         │                            │          │                        │         │                            │         │
 //!  │   │        ┌─┐        │                           ┌─┐         │                       ┌─┐        │                           ┌─┐        │
-//!  │ S │        └─┘────────┘                           └─┘─────────┘                       └─┘────────┘                           └─┘────────┘
+//!  │ S │        └─┘────────┘                           WMB─────────┘                       └─┘────────┘                           └─┘────────┘
 //!  │ t │
 //!  │ a │                                                                               Some worktree changes only fit       stashed WTC were auto-applied
 //!  │ s │                                         stash was raised from main,           onto feat, so they have been         upon switch.
@@ -326,6 +322,94 @@
 //!  │   │                                                                               It will be applied once the user
 //!  │   │                                         Now there are new changes, WTC2       switches back
 //!  └───┘
+//!
+//!
+//!
+//!
+//!  ┌───┐     ██████████████████ Unapply the last Stack (main) ████████████████████████ Apply main (or switch to it) ████████
+//!  │   │
+//!  │   │         H:S:main                           main                                        H:S:main
+//!  │ D │             │                                │                                             │
+//!  │ e │             ▼                                ▼                                             ▼
+//!  │ t │            ┌─┐                              ┌─┐                                           ┌─┐
+//!  │ a │            └─┘                      HEAD ──▶└─┘                                           └─┘
+//!  │ c │             │                                │                                             │
+//!  │ h │             │                                │                                             │
+//!  │   │             │                                │                                             │
+//!  │ H │            ┌─┐                              ┌─┐                                           ┌─┐
+//!  │ E │            └─┘                              └─┘                                           └─┘
+//!  │ A │
+//!  │ D │                              Unapplying the last stack from a
+//!  │   │                              workspace detaches the HEAD.
+//!  │   │
+//!  └───┘                              No stack is available now.
+//!
+//!
+//!
+//!  ┌───┐     ██████████████████ Unapply the last Stack (main) ████████████████████████ Apply main (or switch to it) ████████
+//!  │   │
+//!  │   │         H:S:main                           main                                        H:S:main
+//!  │ D │             │                                │                                             │
+//!  │ e │             ▼                                ▼                                             ▼
+//!  │ t │            ┌─┐                              ┌─┐                                           ┌─┐
+//!  │ a │            └─┘                      HEAD ──▶└─┘                                           └─┘
+//!  │ c │             │                                │                                             │
+//!  │ h │             │                                │                                             │
+//!  │   │             │                                │                                             │
+//!  │ H │            ┌─┐                              ┌─┐                                           ┌─┐
+//!  │ E │            └─┘                              └─┘                                           └─┘
+//!  │ A │
+//!  │ D │                              Unapplying the last stack from a             Now the HEAD isn't detached anymore.
+//!  │   │                              workspace detaches the HEAD.
+//!  │   │
+//!  └───┘                              No stack is available now.
+//!
+//!
+//!  ┌───┐     ██████████████████ List Stack Commits in WS ██████████
+//!  │   │                  ┌──┐
+//!  │ L │        H:ws/1 ──▶│WS│
+//!  │ a │                  └──┘
+//!  │ n │                    │                      ┌───┐┌───┐┌───┐
+//!  │ e │             ┌──────┼──────┐               │ A ││ B ││ C │
+//!  │   │             │      │      │               │┌─┐││┌─┐││┌─┐│
+//!  │ C │            ┌─┐    ┌─┐    ┌─┐              │└2┘││└4┘││└5┘│
+//!  │ o │   S:A   ──▶└2┘  ┌▶└4┘    └5┘◀─┐           │   ││┌─┐││   │
+//!  │ m │             │   │  │      │   │           │   ││└3┘││   │
+//!  │ m │             │   │  └─┬────┘   │           └───┘└───┘└───┘
+//!  │ i │             │ S:B    │      S:C
+//!  │ t │             │       ┌─┐          Each commit is only listed once, and
+//!  │ s │             │       └3┘          consistently based on an algorithm.
+//!  │   │             │        │
+//!  │   │            ┌─┐       │           This also means that one has to handle
+//!  └───┘            WMB───────┘           all commits at once.
+//!
+//!
+//!
+//!  ┌───┐     ██████████████████ Lis Commits in ordinary Merge ██████████████
+//!  │   │                   ┌─┐
+//!  │ L │       H:S:main──▶ └3┘
+//!  │ a │                    │
+//!  │ n │             ┌──────┼──────┐               main┐
+//!  │ e │             │      │      │               │┌─┐│
+//!  │   │             │      │      │               │└3┘│
+//!  │ C │            ┌─┐    ┌─┐    ┌─┐              │┌─┐│
+//!  │ o │            └2┘    └4┘    └5┘              │└2┘│
+//!  │ m │             │      │      │               │┌─┐│
+//!  │ m │             │      └─┬────┘               │└1┘│
+//!  │ i │             │        │                    └───┘
+//!  │ t │             │       ┌─┐
+//!  │ s │             │       └6┘       First parent only traversal of merge
+//!  │   │             │        │        commits.
+//!  │   │            ┌─┐       │
+//!  └───┘            └1┘───────┘        Problem is that lanes wouldn't have
+//!                                      names otherwise.
+//!
+//!                                      Maybe one day we figure out something
+//!                                      else, but this is safe.
+//!
+//!                                      One could imagine allowing to 'switch
+//!                                      junctions', decide which parent to
+//!                                      walk along.
 //! ```
 use anyhow::{Context, bail};
 use bstr::BString;
