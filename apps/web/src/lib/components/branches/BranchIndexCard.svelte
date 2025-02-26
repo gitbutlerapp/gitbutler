@@ -68,7 +68,7 @@
 	.uuid {
 		font-size: 0.8em;
 		color: var(--clr-text-2);
-		font-family: var(--font-mono);
+		font-family: var(--fontfamily-mono);
 	}
 
 	.norm {
