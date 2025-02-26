@@ -75,7 +75,6 @@
 		margin: 0 auto;
 		padding: 0 60px;
 
-		background-color: var(--clr-bg);
 		font-family: 'Spline Sans Mono', monospace;
 
 		/* optimise font rendering */
