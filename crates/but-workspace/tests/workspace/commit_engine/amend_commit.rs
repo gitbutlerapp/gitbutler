@@ -83,6 +83,27 @@ fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
 }
 
 #[test]
+fn new_file_and_deletion_onto_merge_commit() -> anyhow::Result<()> {
+    assure_stable_env();
+
+    let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
+    // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
+    write_sequence(&repo, "new-file", [(10, None)])?;
+    std::fs::remove_file(repo.work_dir().expect("non-bare").join("file"))?;
+
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
+        &repo,
+        Destination::AmendCommit(repo.rev_parse_single("merge")?.detach()),
+    )?;
+    let tree = visualize_tree(&repo, &outcome)?;
+    insta::assert_snapshot!(tree, @r#"
+    f8009d7
+    └── new-file:100644:f00c965 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
+    "#);
+    Ok(())
+}
+
+#[test]
 fn signatures_are_redone() -> anyhow::Result<()> {
     assure_stable_env();
 
