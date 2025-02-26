@@ -84,6 +84,13 @@ pub struct BaseBranchResolution {
     approach: BaseBranchResolutionApproach,
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct IntegrationOutcome {
+    /// This is the list of branch names that have become archived as a result of the upstream integration
+    archived_branches: Vec<String>,
+}
+
 impl StackStatus {
     fn create(tree_status: TreeStatus, branch_statuses: Vec<NameAndStatus>) -> Result<Self> {
         if branch_statuses.is_empty() {
@@ -364,7 +371,7 @@ pub(crate) fn integrate_upstream(
     resolutions: &[Resolution],
     base_branch_resolution: Option<BaseBranchResolution>,
     permission: &mut WorktreeWritePermission,
-) -> Result<()> {
+) -> Result<IntegrationOutcome> {
     let (target_commit_oid, base_branch_resolution_approach) = base_branch_resolution
         .map(|r| (Some(r.target_commit_oid), Some(r.approach)))
         .unwrap_or((None, None));
@@ -372,6 +379,8 @@ pub(crate) fn integrate_upstream(
     let context = UpstreamIntegrationContext::open(command_context, target_commit_oid, permission)?;
     let virtual_branches_state = VirtualBranchesHandle::new(command_context.project().gb_dir());
     let default_target = virtual_branches_state.get_default_target()?;
+
+    let mut newly_archived_branches = vec![];
 
     // Ensure resolutions match current statuses
     {
@@ -467,7 +476,8 @@ pub(crate) fn integrate_upstream(
             };
 
             stack.set_stack_head(command_context, *head, Some(*tree))?;
-            stack.archive_integrated_heads(command_context)?;
+            let mut archived_branches = stack.archive_integrated_heads(command_context)?;
+            newly_archived_branches.append(&mut archived_branches);
         }
 
         // checkout_branch_trees won't checkout anything if there are no
@@ -490,7 +500,9 @@ pub(crate) fn integrate_upstream(
         crate::integration::update_workspace_commit(&virtual_branches_state, command_context)?;
     }
 
-    Ok(())
+    Ok(IntegrationOutcome {
+        archived_branches: newly_archived_branches,
+    })
 }
 
 pub(crate) fn resolve_upstream_integration(

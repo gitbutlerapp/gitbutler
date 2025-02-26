@@ -533,8 +533,10 @@ impl Stack {
     }
 
     /// Removes any heads that are refering to commits that are no longer between the stack head and the merge base
-    pub fn archive_integrated_heads(&mut self, ctx: &CommandContext) -> Result<()> {
+    pub fn archive_integrated_heads(&mut self, ctx: &CommandContext) -> Result<Vec<String>> {
         self.ensure_initialized()?;
+
+        let mut newly_archived_branches = vec![];
 
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         let state = branch_state(ctx);
@@ -542,6 +544,7 @@ impl Stack {
         for head in self.heads.iter_mut() {
             if !commit_ids.contains(head.head()) {
                 head.archived = true;
+                newly_archived_branches.push(head.name().clone());
             }
         }
 
@@ -555,7 +558,9 @@ impl Stack {
             self.heads.push(new_head);
         }
 
-        state.set_stack(self.clone())
+        state.set_stack(self.clone())?;
+
+        Ok(newly_archived_branches)
     }
 
     /// Prepares push details according to the series to be pushed (picking out the correct sha and remote refname)

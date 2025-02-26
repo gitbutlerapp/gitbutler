@@ -6,8 +6,8 @@ use crate::move_commits;
 use crate::r#virtual::StackListResult;
 use crate::reorder::{self, StackOrder};
 use crate::upstream_integration::{
-    self, BaseBranchResolution, BaseBranchResolutionApproach, Resolution, StackStatuses,
-    UpstreamIntegrationContext,
+    self, BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
+    StackStatuses, UpstreamIntegrationContext,
 };
 use crate::VirtualBranchHunkRangeMap;
 use crate::{
@@ -612,7 +612,7 @@ pub fn integrate_upstream(
     ctx: &CommandContext,
     resolutions: &[Resolution],
     base_branch_resolution: Option<BaseBranchResolution>,
-) -> Result<()> {
+) -> Result<IntegrationOutcome> {
     let mut guard = ctx.project().exclusive_worktree_access();
 
     let _ = ctx.project().create_snapshot(
