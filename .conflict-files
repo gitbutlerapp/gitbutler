@@ -1,3 +1,0 @@
-ancestorEntries = []
-ourEntries = ["apps/desktop/src/components/v3/Branch.svelte", "apps/desktop/src/components/v3/BranchHeader.svelte", "apps/desktop/src/components/v3/CommitLine.svelte", "apps/desktop/src/components/v3/CommitRow.svelte"]
-theirEntries = ["apps/desktop/src/components/v3/Branch.svelte", "apps/desktop/src/components/v3/BranchHeader.svelte", "apps/desktop/src/components/v3/CommitLine.svelte", "apps/desktop/src/components/v3/CommitRow.svelte"]
