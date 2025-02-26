@@ -33,11 +33,3 @@ body:has(.marketing-page)::-webkit-scrollbar {
 body:has(.marketing-page)::-webkit-scrollbar-thumb {
 	background: color-mix(in srgb, var(--clr-accent) 96%, var(--clr-black));
 }
-
-.marketing-page h1 {
-	font-family: 'PP Editorial New', serif;
-	font-size: 86px;
-	font-weight: 400;
-	line-height: 92%;
-	margin: 0;
-}
