@@ -39,7 +39,7 @@
 
 <div class="navigation">
 	<div class="main-links">
-		<a href={routes.projectsPath()} class="logo" aria-label="main nav" title="Home">
+		<a href={routes.homePath()} class="logo" aria-label="main nav" title="Home">
 			<svg
 				width="23"
 				height="22"

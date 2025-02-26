@@ -46,8 +46,15 @@ export class WebRoutesService {
 		return `${this.baseUrl}${path}`;
 	}
 
+	homePath() {
+		return `/`;
+	}
+	homeUrl() {
+		return this.toUrl(this.homePath());
+	}
+
 	projectsPath() {
-		return `/projects`;
+		return `/`;
 	}
 	projectsUrl() {
 		return this.toUrl(this.projectsPath());
