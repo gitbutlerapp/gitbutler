@@ -65,6 +65,10 @@ export type BaseBranchResolution = {
 	approach: { type: BaseBranchResolutionApproach };
 };
 
+export type IntegrationOutcome = {
+	archivedBranches: string[];
+};
+
 export function getBaseBranchResolution(
 	targetCommitOid: string | undefined,
 	approach: BaseBranchResolutionApproach
@@ -149,8 +153,11 @@ export class UpstreamIntegrationService {
 		return stackStatusesWithBranches;
 	}
 
-	async integrateUpstream(resolutions: Resolution[], baseBranchResolution?: BaseBranchResolution) {
-		return await invoke('integrate_upstream', {
+	async integrateUpstream(
+		resolutions: Resolution[],
+		baseBranchResolution?: BaseBranchResolution
+	): Promise<IntegrationOutcome> {
+		return await invoke<IntegrationOutcome>('integrate_upstream', {
 			projectId: this.project.id,
 			resolutions,
 			baseBranchResolution
