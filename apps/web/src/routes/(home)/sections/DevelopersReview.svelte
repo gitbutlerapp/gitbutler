@@ -1,5 +1,5 @@
 <script lang="ts">
-	import TwitterCard from '$home/lib/components/TwitterCard.svelte';
+	import TwitterCard from '$home/components/TwitterCard.svelte';
 </script>
 
 <section class="reviews-wrapper" id="developers-preview">

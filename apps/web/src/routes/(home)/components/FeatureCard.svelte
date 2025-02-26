@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { isMobile } from '$home/lib/utils/isMobile';
+	import { isMobile } from '$home/utils/isMobile';
 	import { smoothScroll } from '$lib/utils/smoothScroll';
 	import { onMount } from 'svelte';
 

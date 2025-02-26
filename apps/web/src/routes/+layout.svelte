@@ -1,11 +1,11 @@
 <script lang="ts">
-	import Header from '$home/lib/components/Header.svelte';
-	import BlogHighlights from '$home/lib/sections/BlogHighlights.svelte';
-	import DevelopersReview from '$home/lib/sections/DevelopersReview.svelte';
-	import FAQ from '$home/lib/sections/FAQ.svelte';
-	import Features from '$home/lib/sections/Features.svelte';
-	import HomeFooter from '$home/lib/sections/Footer.svelte';
-	import Hero from '$home/lib/sections/Hero.svelte';
+	import Header from '$home/components/Header.svelte';
+	import BlogHighlights from '$home/sections/BlogHighlights.svelte';
+	import DevelopersReview from '$home/sections/DevelopersReview.svelte';
+	import FAQ from '$home/sections/FAQ.svelte';
+	import Features from '$home/sections/Features.svelte';
+	import HomeFooter from '$home/sections/Footer.svelte';
+	import Hero from '$home/sections/Hero.svelte';
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';

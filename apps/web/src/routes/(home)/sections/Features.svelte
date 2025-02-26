@@ -1,6 +1,6 @@
 <script>
-	import FeatureCard from '$home/lib/components/FeatureCard.svelte';
-	import MobileVideoDemoThumb from '$home/lib/components/MobileVideoDemoThumb.svelte';
+	import FeatureCard from '$home/components/FeatureCard.svelte';
+	import MobileVideoDemoThumb from '$home/components/MobileVideoDemoThumb.svelte';
 </script>
 
 <section class="features" id="features">

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as jsonLinks from '$home/lib/data/links.json';
+	import * as jsonLinks from '$home/data/links.json';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
