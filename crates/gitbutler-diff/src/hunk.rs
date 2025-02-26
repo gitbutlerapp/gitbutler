@@ -16,6 +16,27 @@ pub struct Hunk {
     pub start: u32,
     /// The index of *one past* the last line this hunk is representing.
     pub end: u32,
+    /// Only set by the frontend when amending
+    pub hunk_header: Option<HunkHeader>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct HunkHeader {
+    pub old_start: u32,
+    pub old_lines: u32,
+    pub new_start: u32,
+    pub new_lines: u32,
+}
+
+impl From<&diff::GitHunk> for HunkHeader {
+    fn from(hunk: &diff::GitHunk) -> Self {
+        HunkHeader {
+            old_start: hunk.old_start,
+            old_lines: hunk.old_lines,
+            new_start: hunk.new_start,
+            new_lines: hunk.new_lines,
+        }
+    }
 }
 
 impl From<&diff::GitHunk> for Hunk {
@@ -24,6 +45,7 @@ impl From<&diff::GitHunk> for Hunk {
             start: hunk.new_start,
             end: hunk.new_start + hunk.new_lines,
             hash: Some(Hunk::hash_diff(&hunk.diff_lines)),
+            hunk_header: Some(hunk.into()),
         }
     }
 }
@@ -50,6 +72,7 @@ impl From<RangeInclusive<u32>> for Hunk {
             start: *range.start(),
             end: *range.end(),
             hash: None,
+            hunk_header: None,
         }
     }
 }
@@ -107,7 +130,12 @@ impl Hunk {
         if start > end {
             Err(anyhow!("invalid range: {}-{}", start, end))
         } else {
-            Ok(Hunk { hash, start, end })
+            Ok(Hunk {
+                hash,
+                start,
+                end,
+                hunk_header: None,
+            })
         }
     }
 

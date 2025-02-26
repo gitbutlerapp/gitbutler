@@ -8,7 +8,7 @@ use crate::{
     remote::branch_to_remote_branch,
     stack::stack_series,
     status::{get_applied_status, get_applied_status_cached},
-    Get, RemoteBranchData, VirtualBranchHunkRange, VirtualBranchHunkRangeMap, VirtualBranchesExt,
+    RemoteBranchData, VirtualBranchHunkRange, VirtualBranchHunkRangeMap, VirtualBranchesExt,
 };
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice};
@@ -1303,138 +1303,6 @@ pub(crate) fn move_commit_file(
     // if that rebase worked, update the branch head and the gitbutler workspace
     if let Some(new_head) = new_head {
         target_stack.set_stack_head(ctx, new_head, None)?;
-        crate::integration::update_workspace_commit(&vb_state, ctx)?;
-        Ok(commit_oid)
-    } else {
-        Err(anyhow!("rebase failed"))
-    }
-}
-
-// takes a list of file ownership and a commit oid and rewrites that commit to
-// add the file changes. The branch is then rebased onto the new commit
-// and the respective branch head is updated
-pub(crate) fn amend(
-    ctx: &CommandContext,
-    stack_id: StackId,
-    commit_oid: git2::Oid,
-    target_ownership: &BranchOwnershipClaims,
-    _perm: &mut WorktreeWritePermission,
-) -> Result<git2::Oid> {
-    ctx.assure_resolved()?;
-    let vb_state = ctx.project().virtual_branches();
-
-    let stacks = vb_state
-        .list_stacks_in_workspace()
-        .context("failed to read virtual branches")?;
-
-    if !stacks.iter().any(|b| b.id == stack_id) {
-        bail!("could not find applied branch with id {stack_id} to amend to");
-    }
-
-    let default_target = vb_state.get_default_target()?;
-
-    let mut applied_statuses = get_applied_status(ctx, None)?.branches;
-
-    let (ref mut target_branch, target_status) = applied_statuses
-        .iter_mut()
-        .find(|(b, _)| b.id == stack_id)
-        .ok_or_else(|| anyhow!("could not find branch {stack_id} in status list"))?;
-
-    if target_branch.upstream.is_some() && !target_branch.allow_rebasing {
-        // amending to a pushed head commit will cause a force push that is not allowed
-        bail!("force-push is not allowed");
-    }
-
-    if ctx
-        .repo()
-        .l(
-            target_branch.head(),
-            LogUntil::Commit(default_target.sha),
-            false,
-        )?
-        .is_empty()
-    {
-        bail!("branch has no commits - there is nothing to amend to");
-    }
-
-    // find commit oid
-    let amend_commit = ctx
-        .repo()
-        .find_commit(commit_oid)
-        .context("failed to find commit")?;
-
-    let diffs_to_amend = target_ownership
-        .claims
-        .iter()
-        .filter_map(|file_ownership| {
-            let hunks = target_status
-                .get(&file_ownership.file_path)
-                .map(|file| {
-                    file.hunks
-                        .iter()
-                        .filter(|hunk| {
-                            let hunk: GitHunk = (*hunk).clone().into();
-                            file_ownership.hunks.iter().any(|owned_hunk| {
-                                owned_hunk.start == hunk.new_start
-                                    && owned_hunk.end == hunk.new_start + hunk.new_lines
-                            })
-                        })
-                        .cloned()
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default();
-            if hunks.is_empty() {
-                None
-            } else {
-                Some((file_ownership.file_path.clone(), hunks))
-            }
-        })
-        .collect::<HashMap<_, _>>();
-
-    if diffs_to_amend.is_empty() {
-        bail!("target ownership not found");
-    }
-
-    // apply diffs_to_amend to the commit tree
-    let new_tree_oid = gitbutler_diff::write::hunks_onto_commit(ctx, commit_oid, &diffs_to_amend)?;
-    let new_tree = ctx
-        .repo()
-        .find_tree(new_tree_oid)
-        .context("failed to find new tree")?;
-
-    let parents: Vec<_> = amend_commit.parents().collect();
-    let commit_oid = ctx
-        .repo()
-        .commit_with_signature(
-            None,
-            &amend_commit.author(),
-            &amend_commit.committer(),
-            &amend_commit.message_bstr().to_str_lossy(),
-            &new_tree,
-            &parents.iter().collect::<Vec<_>>(),
-            amend_commit.gitbutler_headers(),
-        )
-        .context("failed to create commit")?;
-
-    // now rebase upstream commits, if needed
-    let upstream_commits = ctx.repo().l(
-        target_branch.head(),
-        LogUntil::Commit(amend_commit.id()),
-        false,
-    )?;
-    // if there are no upstream commits, we're done
-    if upstream_commits.is_empty() {
-        target_branch.set_stack_head(ctx, commit_oid, None)?;
-        crate::integration::update_workspace_commit(&vb_state, ctx)?;
-        return Ok(commit_oid);
-    }
-
-    let last_commit = upstream_commits.first().cloned().unwrap();
-
-    let new_head = cherry_rebase(ctx, commit_oid, amend_commit.id(), last_commit)?;
-
-    if let Some(new_head) = new_head {
-        target_branch.set_stack_head(ctx, new_head, None)?;
         crate::integration::update_workspace_commit(&vb_state, ctx)?;
         Ok(commit_oid)
     } else {

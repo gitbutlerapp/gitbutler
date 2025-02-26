@@ -45,8 +45,10 @@
 		changeType: 'modified',
 		diff: '',
 		filePath: 'test',
-		new_start: 59,
-		new_lines: 7
+		oldStart: 59,
+		oldLines: 7,
+		newStart: 59,
+		newLines: 7
 	};
 
 	// prettier-ignore

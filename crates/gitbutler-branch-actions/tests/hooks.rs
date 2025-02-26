@@ -76,6 +76,7 @@ fi
                     start: 1,
                     end: 2,
                     hash: None,
+                    hunk_header: None,
                 }],
             }],
         };

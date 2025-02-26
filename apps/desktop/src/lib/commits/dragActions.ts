@@ -1,6 +1,6 @@
 import { Commit, type DetailedCommit } from './commit';
 import { type BranchStack } from '$lib/branches/branch';
-import { filesToOwnership, filesToSimpleOwnership } from '$lib/branches/ownership';
+import { filesToSimpleOwnership } from '$lib/branches/ownership';
 import { CommitDropData, FileDropData, HunkDropData } from '$lib/dragging/draggables';
 import { RemoteFile } from '$lib/files/file';
 import { LocalFile } from '$lib/files/file';
@@ -49,13 +49,31 @@ export class CommitDragActions {
 
 	onAmend(dropData: unknown): void {
 		if (dropData instanceof HunkDropData) {
-			const newOwnership = `${dropData.hunk.filePath}:${dropData.hunk.id}`;
-			this.branchController.amendBranch(this.stack.id, this.commit.id, newOwnership);
+			// const newOwnership = `${dropData.hunk.filePath}:${dropData.hunk.id}`;
+			this.branchController.amendBranch(this.stack.id, this.commit.id, [
+				{
+					previousPathBytes: null, // We dont have this, right?
+					pathBytes: dropData.hunk.filePath, // Can we get the path in bytes here?
+					hunkHeaders: [
+						{
+							oldStart: dropData.hunk.oldStart,
+							oldLines: dropData.hunk.oldLines,
+							newStart: dropData.hunk.newStart,
+							newLines: dropData.hunk.newLines
+						}
+					]
+				}
+			]);
 		} else if (dropData instanceof FileDropData) {
 			if (dropData.file instanceof LocalFile) {
 				// this is an uncommitted file change being amended to a previous commit
-				const newOwnership = filesToOwnership(dropData.files);
-				this.branchController.amendBranch(this.stack.id, this.commit.id, newOwnership);
+				this.branchController.amendBranch(this.stack.id, this.commit.id, [
+					{
+						previousPathBytes: null,
+						pathBytes: dropData.file.path, // Can we get the path in bytes here?
+						hunkHeaders: [] // An empty list of hunk headers means use everything for the file
+					}
+				]);
 			} else if (dropData.file instanceof RemoteFile) {
 				// this is a file from a commit, rather than an uncommitted file
 				const newOwnership = filesToSimpleOwnership(dropData.files);

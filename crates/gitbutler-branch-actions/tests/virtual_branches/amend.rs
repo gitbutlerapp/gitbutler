@@ -1,6 +1,6 @@
+use but_workspace::commit_engine::{DiffSpec, HunkHeader};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::list_commit_files;
-use gitbutler_stack::BranchOwnershipClaims;
 
 use super::*;
 
@@ -47,8 +47,18 @@ fn forcepush_allowed() -> anyhow::Result<()> {
     {
         // amend another hunk
         fs::write(repository.path().join("file2.txt"), "content2").unwrap();
-        let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
-        gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_id, &to_amend).unwrap();
+        // let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
+        let to_amend = vec![DiffSpec {
+            previous_path: None,
+            path: "file2.txt".into(),
+            hunk_headers: vec![HunkHeader {
+                old_start: 1,
+                old_lines: 0,
+                new_start: 1,
+                new_lines: 1,
+            }],
+        }];
+        gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_id, to_amend).unwrap();
 
         let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
             .unwrap()
@@ -100,9 +110,19 @@ fn forcepush_forbidden() {
 
     {
         fs::write(repository.path().join("file2.txt"), "content2").unwrap();
-        let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
+        // let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
+        let to_amend = vec![DiffSpec {
+            previous_path: None,
+            path: "file2.txt".into(),
+            hunk_headers: vec![HunkHeader {
+                old_start: 1,
+                old_lines: 0,
+                new_start: 1,
+                new_lines: 1,
+            }],
+        }];
         assert_eq!(
-            gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, &to_amend)
+            gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, to_amend)
                 .unwrap_err()
                 .to_string(),
             "force-push is not allowed"
@@ -140,8 +160,18 @@ fn non_locked_hunk() -> anyhow::Result<()> {
     {
         // amend another hunk
         fs::write(repository.path().join("file2.txt"), "content2").unwrap();
-        let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
-        gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, &to_amend).unwrap();
+        // let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
+        let to_amend = vec![DiffSpec {
+            previous_path: None,
+            path: "file2.txt".into(),
+            hunk_headers: vec![HunkHeader {
+                old_start: 1,
+                old_lines: 0,
+                new_start: 1,
+                new_lines: 1,
+            }],
+        }];
+        gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, to_amend).unwrap();
 
         let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
             .unwrap()
@@ -193,8 +223,18 @@ fn locked_hunk() -> anyhow::Result<()> {
     {
         // amend another hunk
         fs::write(repository.path().join("file.txt"), "more content").unwrap();
-        let to_amend: BranchOwnershipClaims = "file.txt:1-2".parse().unwrap();
-        gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, &to_amend).unwrap();
+        // let to_amend: BranchOwnershipClaims = "file.txt:1-2".parse().unwrap();
+        let to_amend = vec![DiffSpec {
+            previous_path: None,
+            path: "file.txt".into(),
+            hunk_headers: vec![HunkHeader {
+                old_start: 1,
+                old_lines: 1,
+                new_start: 1,
+                new_lines: 1,
+            }],
+        }];
+        gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, to_amend).unwrap();
 
         let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
             .unwrap()
@@ -242,12 +282,22 @@ fn non_existing_ownership() {
 
     {
         // amend non existing hunk
-        let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
+        // let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
+        let to_amend = vec![DiffSpec {
+            previous_path: None,
+            path: "file2.txt".into(),
+            hunk_headers: vec![HunkHeader {
+                old_start: 1,
+                old_lines: 0,
+                new_start: 1,
+                new_lines: 1,
+            }],
+        }];
         assert_eq!(
-            gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, &to_amend)
+            gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, to_amend)
                 .unwrap_err()
                 .to_string(),
-            "target ownership not found"
+            "Failed to amend with commit engine. Rejected specs: [DiffSpec { previous_path: None, path: \"file2.txt\", hunk_headers: [HunkHeader { old_start: 1, old_lines: 0, new_start: 1, new_lines: 1 }] }]",
         );
     }
 }

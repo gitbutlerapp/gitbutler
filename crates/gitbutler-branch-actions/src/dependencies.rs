@@ -43,8 +43,8 @@ pub fn compute_workspace_dependencies(
                             change_type: hunk.change_type,
                             old_start: hunk.old_start,
                             old_lines: hunk.old_lines,
-                            new_start: hunk.start,
-                            new_lines: hunk.end - hunk.start,
+                            new_start: hunk.new_start,
+                            new_lines: hunk.new_lines,
                         })
                         .collect::<Vec<_>>(),
                 };

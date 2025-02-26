@@ -5,8 +5,10 @@ import 'reflect-metadata';
 export class RemoteHunk {
 	diff!: string;
 	hash?: string;
-	new_start!: number;
-	new_lines!: number;
+	oldStart!: number;
+	oldLines!: number;
+	newStart!: number;
+	newLines!: number;
 	changeType!: ChangeType;
 
 	get id(): string {
@@ -42,14 +44,25 @@ export class Hunk {
 	/// Indicates that the hunk depends on multiple branches. In this case the hunk cant be moved or comitted.
 	poisoned!: boolean;
 	changeType!: ChangeType;
-	new_start!: number;
-	new_lines!: number;
+	oldStart!: number;
+	oldLines!: number;
+	newStart!: number;
+	newLines!: number;
 }
 
 export class HunkLock {
 	branchId!: string;
 	commitId!: string;
 }
+
+export type DiffSpec = {
+	/** lossless version of `previous_path` if this was a rename. */
+	readonly previousPathBytes: string | null;
+	/** lossless version of `path`. */
+	readonly pathBytes: string;
+	/** The headers of the hunks to use, or empty if all changes are to be used. */
+	readonly hunkHeaders: HunkHeader[];
+};
 
 export type HunkHeader = {
 	/** The 1-based line number at which the previous version of the file started.*/

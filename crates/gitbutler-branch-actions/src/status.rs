@@ -128,6 +128,7 @@ pub fn get_applied_status_cached(
                                     start: git_diff_hunk.new_start,
                                     end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
                                     hash: Some(hash),
+                                    hunk_header: None,
                                 };
                                 git_diff_hunks.remove(i);
                                 return Some(updated_hunk);

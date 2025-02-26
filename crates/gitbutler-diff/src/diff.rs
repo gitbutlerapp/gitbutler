@@ -45,6 +45,7 @@ impl From<git2::Delta> for ChangeType {
 /// A description of a hunk, as identified by its line number and the amount of lines it spans
 /// before and after the change.
 #[derive(Debug, PartialEq, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GitHunk {
     pub old_start: u32,
     pub old_lines: u32,
@@ -54,7 +55,6 @@ pub struct GitHunk {
     #[serde(rename = "diff")]
     pub diff_lines: BStringForFrontend,
     pub binary: bool,
-    #[serde(rename = "changeType")]
     pub change_type: ChangeType,
 }
 
