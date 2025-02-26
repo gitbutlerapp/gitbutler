@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as jsonLinks from '$home/data/links.json';
-	import { clickOutside } from '$home/hooks/clickOutside';
+	import { clickOutside } from '$lib/hooks/clickOutside';
 	import { targetDownload } from '$lib/store';
 	import { latestClientVersion } from '$lib/store';
 	import { quadIn } from 'svelte/easing';
@@ -42,8 +42,7 @@
 		showSelect = false;
 	}
 
-	function handleClickOutside(e: MouseEvent) {
-		e.stopPropagation();
+	function handleClickOutside() {
 		showSelect = false;
 	}
 </script>
@@ -60,7 +59,7 @@
 				onintrostart={() => {
 					selectElement?.focus();
 				}}
-				use:clickOutside={handleClickOutside}
+				use:clickOutside={{ handler: handleClickOutside }}
 			>
 				<div class="os-select__section">
 					<img
