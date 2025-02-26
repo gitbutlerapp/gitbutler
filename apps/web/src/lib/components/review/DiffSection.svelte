@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { isLockfile } from '$lib/diff/lockfiles';
 	import { splitDiffIntoHunks } from '$lib/diffParsing';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import HunkDiff, { type LineClickParams } from '@gitbutler/ui/HunkDiff.svelte';
 	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
 	import type { DiffSection } from '@gitbutler/shared/branches/types';
@@ -48,27 +47,21 @@
 		<FileIcon fileName={filePath} size={16} />
 		<p title={filePath} class="text-12 text-body file-name">{filePath}</p>
 	</div>
-	{#if !lockFile || displayLockHunks}
-		{#each hunks as hunkStr}
-			<HunkDiff
-				filePath={section.newPath || 'unknown'}
-				{hunkStr}
-				diffLigatures={false}
-				{selectedLines}
-				onLineClick={handleLineClick}
-				{onCopySelection}
-				{onQuoteSelection}
-				{clearLineSelection}
-			/>
-		{/each}
-	{:else}
-		<div class="lock-files-hidden-by-default">
-			<p class="text-12 text-body hidden-lock-file-message">Lock files are hidden by default.</p>
-			<Button style="pop" kind="outline" onclick={() => (displayLockHunks = true)}>
-				Show file diff
-			</Button>
-		</div>
-	{/if}
+	{#each hunks as hunkStr}
+		<HunkDiff
+			filePath={section.newPath || 'unknown'}
+			{hunkStr}
+			diffLigatures={false}
+			{selectedLines}
+			onLineClick={handleLineClick}
+			{onCopySelection}
+			{onQuoteSelection}
+			{clearLineSelection}
+			isHidden={!lockFile && !displayLockHunks}
+			whyHidden="Lock files are hidden by default"
+			onShowDiffClick={() => (displayLockHunks = true)}
+		/>
+	{/each}
 </div>
 
 <style lang="postcss">
