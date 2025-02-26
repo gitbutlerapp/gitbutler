@@ -21,6 +21,7 @@
 	.empty-series {
 		position: relative;
 		display: flex;
+		border-top: 1px solid var(--clr-border-2);
 	}
 	.empty-series__label {
 		color: var(--clr-text-2);
