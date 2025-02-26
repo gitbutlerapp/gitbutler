@@ -409,7 +409,7 @@
 		<Modal
 			width="small"
 			type="warning"
-			title="Create pull request"
+			title="Create Pull Request"
 			bind:this={confirmCreatePrModal}
 			onSubmit={confirmCreatePR}
 		>
@@ -423,7 +423,7 @@
 			{/snippet}
 			{#snippet controls(close)}
 				<Button kind="outline" onclick={close}>Cancel</Button>
-				<Button style="warning" type="submit">Create pull request</Button>
+				<Button style="warning" type="submit">Create Pull Request</Button>
 			{/snippet}
 		</Modal>
 	</Dropzones>

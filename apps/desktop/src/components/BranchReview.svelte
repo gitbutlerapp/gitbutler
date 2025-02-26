@@ -51,8 +51,8 @@
 	}
 
 	const creationActionsDisplay = {
-		[CreationAction.CreateBR]: 'Create butler review',
-		[CreationAction.CreatePR]: 'Create pull request'
+		[CreationAction.CreateBR]: 'Create Butler Review',
+		[CreationAction.CreatePR]: 'Create Pull Request'
 	};
 
 	let selectedAction = $state<CreationAction>();
