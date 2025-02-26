@@ -66,3 +66,16 @@
 {:else}
 	{@render children?.()}
 {/if}
+
+<style>
+	.page-wrapper {
+		display: flex;
+		flex-direction: column;
+		max-width: 1440px;
+		margin: 0 auto;
+
+		@media (--desktop-viewport) {
+			overflow: hidden;
+		}
+	}
+</style>
