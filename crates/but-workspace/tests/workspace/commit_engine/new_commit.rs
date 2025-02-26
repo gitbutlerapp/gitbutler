@@ -469,7 +469,11 @@ fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
             },
         )?;
         assert_eq!(
-            outcome.rejected_specs,
+            outcome
+                .rejected_specs
+                .into_iter()
+                .map(|t| t.1)
+                .collect::<Vec<_>>(),
             to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
             "It shouldn't produce a commit and clearly mark the conflicting specs"
         );
@@ -513,7 +517,11 @@ fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() ->
             },
         )?;
         assert_eq!(
-            outcome.rejected_specs,
+            outcome
+                .rejected_specs
+                .iter()
+                .map(|t| t.1.clone())
+                .collect::<Vec<_>>(),
             Vec::from_iter(
                 to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?
                     .first()
@@ -714,11 +722,14 @@ fn validate_no_change_on_noop() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(&outcome, @r#"
     CreateCommitOutcome {
         rejected_specs: [
-            DiffSpec {
-                previous_path: None,
-                path: "file",
-                hunk_headers: [],
-            },
+            (
+                NoEffectiveChanges,
+                DiffSpec {
+                    previous_path: None,
+                    path: "file",
+                    hunk_headers: [],
+                },
+            ),
         ],
         new_commit: None,
         changed_tree_pre_cherry_pick: None,
