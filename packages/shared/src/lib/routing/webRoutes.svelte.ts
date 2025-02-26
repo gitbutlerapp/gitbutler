@@ -63,8 +63,8 @@ export class WebRoutesService {
 	ownerUrl(parameters: OwnerParameters) {
 		return this.toUrl(this.ownerPath(parameters));
 	}
-	isOwnerPage = $derived(isUrl<OwnerParameters>(this.isWeb, '/[ownerSlug]'));
-	isOwnerPageSubset = $derived(isUrlSubset<OwnerParameters>(this.isWeb, '/[ownerSlug]'));
+	isOwnerPage = $derived(isUrl<OwnerParameters>(this.isWeb, '/(app)/[ownerSlug]'));
+	isOwnerPageSubset = $derived(isUrlSubset<OwnerParameters>(this.isWeb, '/(app)/[ownerSlug]'));
 
 	projectPath(parameters: ProjectParameters) {
 		return `/${parameters.ownerSlug}/${parameters.projectSlug}`;
@@ -72,9 +72,11 @@ export class WebRoutesService {
 	projectUrl(parameters: ProjectParameters) {
 		return this.toUrl(this.projectPath(parameters));
 	}
-	isProjectPage = $derived(isUrl<ProjectParameters>(this.isWeb, '/[ownerSlug]/[projectSlug]'));
+	isProjectPage = $derived(
+		isUrl<ProjectParameters>(this.isWeb, '/(app)/[ownerSlug]/[projectSlug]')
+	);
 	isProjectPageSubset = $derived(
-		isUrlSubset<ProjectParameters>(this.isWeb, '/[ownerSlug]/[projectSlug]')
+		isUrlSubset<ProjectParameters>(this.isWeb, '/(app)/[ownerSlug]/[projectSlug]')
 	);
 
 	projectReviewPath(parameters: ProjectParameters) {
@@ -84,10 +86,10 @@ export class WebRoutesService {
 		return this.toUrl(this.projectReviewPath(parameters));
 	}
 	isProjectReviewPage = $derived(
-		isUrl<ProjectParameters>(this.isWeb, '/[ownerSlug]/[projectSlug]/reviews')
+		isUrl<ProjectParameters>(this.isWeb, '/(app)/[ownerSlug]/[projectSlug]/reviews')
 	);
 	isProjectReviewPageSubset = $derived(
-		isUrlSubset<ProjectParameters>(this.isWeb, '/[ownerSlug]/[projectSlug]/reviews')
+		isUrlSubset<ProjectParameters>(this.isWeb, '/(app)/[ownerSlug]/[projectSlug]/reviews')
 	);
 
 	projectReviewBranchPath(parameters: ProjectReviewParameters) {
@@ -97,12 +99,15 @@ export class WebRoutesService {
 		return this.toUrl(this.projectReviewBranchPath(parameters));
 	}
 	isProjectReviewBranchPage = $derived(
-		isUrl<ProjectReviewParameters>(this.isWeb, '/[ownerSlug]/[projectSlug]/reviews/[branchId]')
+		isUrl<ProjectReviewParameters>(
+			this.isWeb,
+			'/(app)/[ownerSlug]/[projectSlug]/reviews/[branchId]'
+		)
 	);
 	isProjectReviewBranchPageSubset = $derived(
 		isUrlSubset<ProjectReviewParameters>(
 			this.isWeb,
-			'/[ownerSlug]/[projectSlug]/reviews/[branchId]'
+			'/(app)/[ownerSlug]/[projectSlug]/reviews/[branchId]'
 		)
 	);
 
@@ -115,13 +120,13 @@ export class WebRoutesService {
 	isProjectReviewBranchCommitPage = $derived(
 		isUrl<ProjectReviewCommitParameters>(
 			this.isWeb,
-			'/[ownerSlug]/[projectSlug]/reviews/[branchId]/commit/[changeId]'
+			'/(app)/[ownerSlug]/[projectSlug]/reviews/[branchId]/commit/[changeId]'
 		)
 	);
 	isProjectReviewBranchCommitPageSubset = $derived(
 		isUrlSubset<ProjectReviewCommitParameters>(
 			this.isWeb,
-			'/[ownerSlug]/[projectSlug]/reviews/[branchId]/commit/[changeId]'
+			'/(app)/[ownerSlug]/[projectSlug]/reviews/[branchId]/commit/[changeId]'
 		)
 	);
 }
