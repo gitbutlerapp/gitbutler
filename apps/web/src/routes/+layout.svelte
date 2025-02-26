@@ -49,10 +49,6 @@
 		if (page.url.pathname === '/privacy') {
 			window.location.href = jsonLinks.legal.privacyPolicy.url;
 		}
-
-		if (!token && !isPublicRoute) {
-			goto('/');
-		}
 	});
 </script>
 
