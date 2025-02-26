@@ -92,10 +92,14 @@
 		margin-top: 30px;
 		margin-bottom: 40px;
 
+		font-family:
+			PP Editorial New,
+			serif;
+		line-height: 92%;
+
 		@media (max-width: 700px) {
 			font-size: 16cqw;
 			margin-bottom: 30px;
-			// margin-top: 20px;
 		}
 	}
 
@@ -114,7 +118,6 @@
 
 		@media (max-width: 500px) {
 			font-size: 18px;
-			// margin-bottom: 50px;
 		}
 	}
 
