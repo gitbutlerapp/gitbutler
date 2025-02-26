@@ -1,10 +1,9 @@
 <script lang="ts">
 	import * as jsonLinks from '$home/data/links.json';
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 
 	onMount(() => {
-		goto(jsonLinks.legal.privacyPolicy.url);
+		window.location = jsonLinks.legal.privacyPolicy.url;
 	});
 </script>
 
