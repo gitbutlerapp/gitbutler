@@ -46,7 +46,7 @@
 	});
 
 	$effect(() => {
-		if (page.route.id === '/privacy') {
+		if (page.url.pathname === '/privacy') {
 			window.location = jsonLinks.legal.privacyPolicy.url;
 		}
 
@@ -56,9 +56,9 @@
 	});
 </script>
 
-{#if isPublicRoute || token}
+{#if isPublicRoute || (token && page.route.id !== '/(app)/home')}
 	{@render children?.()}
-{:else if !token || page.route.id === '/(app)/home'}
+{:else}
 	<section class="page-wrapper">
 		<Header />
 		<Hero />
