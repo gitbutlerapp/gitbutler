@@ -23,12 +23,14 @@
 	import { type CommitStatus } from '$lib/commits/commit';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { FileService } from '$lib/files/fileService';
+	import { closedStateSync } from '$lib/forge/closedStateSync.svelte';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { ProjectService } from '$lib/project/projectService';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -251,6 +253,8 @@
 		// that these two things are not happening at the same time.
 		setTimeout(() => handleOpenPR(), 250);
 	}
+
+	closedStateSync(reactive(() => branch));
 </script>
 
 <AddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={branch.name} />
