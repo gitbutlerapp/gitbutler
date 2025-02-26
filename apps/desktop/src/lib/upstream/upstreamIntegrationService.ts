@@ -65,7 +65,7 @@ export type BaseBranchResolution = {
 	approach: { type: BaseBranchResolutionApproach };
 };
 
-export function getBaseBrancheResolution(
+export function getBaseBranchResolution(
 	targetCommitOid: string | undefined,
 	approach: BaseBranchResolutionApproach
 ): BaseBranchResolution | undefined {

@@ -340,6 +340,8 @@ export type ApiBranch = {
 	branch_stack_order?: number;
 	permissions: ApiPermissions;
 	owner_login?: string;
+	forge_url: string | undefined;
+	forge_description: string | undefined;
 };
 
 export type Branch = {
@@ -360,6 +362,8 @@ export type Branch = {
 	stackId: string;
 	stackOrder: number;
 	permissions: Permissions;
+	forgeUrl: string | undefined;
+	forgeDescription: string | undefined;
 };
 
 export type LoadableBranch = LoadableData<Branch, Branch['uuid']>;
@@ -383,7 +387,9 @@ export function apiToBranch(api: ApiBranch): Branch {
 		// Its good enough
 		stackId: api.branch_stack_id || String(Math.random()),
 		stackOrder: api.branch_stack_order || 1,
-		permissions: apiToPermissions(api.permissions)
+		permissions: apiToPermissions(api.permissions),
+		forgeUrl: api.forge_url,
+		forgeDescription: api.forge_description
 	};
 }
 

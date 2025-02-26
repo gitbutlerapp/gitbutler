@@ -27,6 +27,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
+	import Link from '@gitbutler/ui/link/Link.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import toasts from '@gitbutler/ui/toasts';
 	import dayjs from 'dayjs';
@@ -172,10 +173,15 @@
 					</div>
 				</div>
 				<InfoFlexRow>
+					<Factoid label="Status"><BranchStatusBadge {branch} /></Factoid>
 					<Factoid label="Commits">
 						<CommitsGraph {branch} />
 					</Factoid>
-					<Factoid label="Status"><BranchStatusBadge {branch} /></Factoid>
+					{#if branch.forgeUrl}
+						<Factoid label="PR"
+							><Link href={branch.forgeUrl}>{branch.forgeDescription || '#unknown'}</Link></Factoid
+						>
+					{/if}
 					<Factoid label="Authors">
 						{#await contributors then contributors}
 							<AvatarGroup avatars={contributors}></AvatarGroup>

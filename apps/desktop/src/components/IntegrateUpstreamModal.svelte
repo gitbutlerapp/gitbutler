@@ -6,7 +6,7 @@
 	import { BranchStack } from '$lib/branches/branch';
 	import { getForge } from '$lib/forge/interface/forge';
 	import {
-		getBaseBrancheResolution,
+		getBaseBranchResolution,
 		getResolutionApproach,
 		sortStatusInfo,
 		UpstreamIntegrationService,
@@ -107,10 +107,11 @@
 	async function integrate() {
 		integratingUpstream = 'loading';
 		await tick();
-		const baseResolution = getBaseBrancheResolution(
+		const baseResolution = getBaseBranchResolution(
 			targetCommitOid,
 			baseResolutionApproach || 'hardReset'
 		);
+
 		await upstreamIntegrationService.integrateUpstream(
 			Array.from(results.values()),
 			baseResolution
