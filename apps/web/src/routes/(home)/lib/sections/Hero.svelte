@@ -1,6 +1,6 @@
 <script lang="ts">
-	import CtaBlock from '$home/lib/components/CtaBlock.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
+	import CtaBlock from '$home/lib/components/CtaBlock.svelte';
 </script>
 
 <section class="hero" id="hero">
@@ -126,7 +126,7 @@
 	.video,
 	.video-shadow {
 		position: absolute;
-		width: 860px;
+		min-width: 860px;
 		height: 555px;
 		border-radius: 12px;
 	}
