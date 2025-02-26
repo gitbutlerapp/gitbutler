@@ -29,7 +29,8 @@ export class StackPublishingService {
 		});
 	}
 
-	async upsertStack(stackId: string, topBranch: string): Promise<void> {
+	// Returns the reviewID of the pushed branch...
+	async upsertStack(stackId: string, topBranch: string): Promise<string> {
 		// Take a snapshot
 		const { user, project } = get(this.#joinedUserAndProject);
 
@@ -38,7 +39,7 @@ export class StackPublishingService {
 			throw new Error('Cannot publish branch');
 		}
 
-		await this.commandService.invoke<string>('push_stack_to_review', {
+		return await this.commandService.invoke<string>('push_stack_to_review', {
 			projectId: project!.id,
 			user: user!,
 			stackId,

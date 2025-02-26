@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
 	import { ProjectService } from '$lib/project/projectService';
 	import { sleep } from '$lib/utils/sleep';
 	import BranchStatusBadge from '@gitbutler/shared/branches/BranchStatusBadge.svelte';
@@ -31,14 +32,16 @@
 		cloudProjectService,
 		latestBranchLookupService,
 		cloudBranchService,
-		webRoutes
+		webRoutes,
+		butRequestDetailsService
 	] = inject(
 		ProjectService,
 		AppState,
 		CloudProjectService,
 		LatestBranchLookupService,
 		CloudBranchService,
-		WebRoutesService
+		WebRoutesService,
+		ButRequestDetailsService
 	);
 
 	const project = projectService.project;
@@ -78,6 +81,17 @@
 		return () => {
 			options.keepPolling = false;
 		};
+	});
+
+	$effect(() => {
+		if (!isFound(cloudProject?.current)) return;
+		if (!isFound(cloudBranch?.current)) return;
+
+		butRequestDetailsService.updateDetails(
+			cloudProject.current.value.owner,
+			cloudProject.current.value.slug,
+			cloudBranch.current.value.branchId
+		);
 	});
 
 	async function pollWhileNotFound(reviewId: string, options: { keepPolling: boolean }) {
