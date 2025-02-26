@@ -183,9 +183,8 @@ function create(code: string, parser: Parser | undefined): CodeHighlighter {
 	return new CodeHighlighter(code, tree);
 }
 
-export function parserFromFilename(filename: string): Parser | undefined {
-	const ext = filename.split('.').pop();
-	switch (ext) {
+export function parserFromExtension(extension: string): Parser | undefined {
+	switch (extension) {
 		case 'jsx':
 		case 'js':
 			// We intentionally allow JSX in normal .js as well as .jsx files,
@@ -284,6 +283,12 @@ export function parserFromFilename(filename: string): Parser | undefined {
 		default:
 			return undefined;
 	}
+}
+
+export function parserFromFilename(filename: string): Parser | undefined {
+	const ext = filename.split('.').pop();
+	if (!ext) return undefined;
+	return parserFromExtension(ext);
 }
 
 class CodeHighlighter {
@@ -515,6 +520,11 @@ function toTokens(inputLine: string, parser: Parser | undefined): string[] {
 	});
 
 	return tokens;
+}
+
+export function codeContentToTokens(content: string, parser: Parser | undefined): string[][] {
+	const lines = content.split('\n');
+	return lines.map((line) => toTokens(line, parser));
 }
 
 function computeWordDiff(

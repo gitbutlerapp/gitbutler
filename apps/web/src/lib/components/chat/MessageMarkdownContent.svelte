@@ -1,10 +1,10 @@
 <script lang="ts">
+	import MessageCode from './MessageCode.svelte';
 	import MessageText from './MessageText.svelte';
 	import Self from '$lib/components/chat/MessageMarkdownContent.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import Blockquote from '@gitbutler/ui/markdown/markdownRenderers/Blockquote.svelte';
 	import Br from '@gitbutler/ui/markdown/markdownRenderers/Br.svelte';
-	import Code from '@gitbutler/ui/markdown/markdownRenderers/Code.svelte';
 	import Codespan from '@gitbutler/ui/markdown/markdownRenderers/Codespan.svelte';
 	import Em from '@gitbutler/ui/markdown/markdownRenderers/Em.svelte';
 	import Heading from '@gitbutler/ui/markdown/markdownRenderers/Heading.svelte';
@@ -24,7 +24,7 @@
 		link: Link,
 		image: Image,
 		blockquote: Blockquote,
-		code: Code,
+		code: MessageCode,
 		codespan: Codespan,
 		text: MessageText,
 		html: Html,

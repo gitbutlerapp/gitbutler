@@ -106,6 +106,9 @@
 
 	$effect(() => {
 		editor = new Editor({
+			parseOptions: {
+				preserveWhitespace: 'full'
+			},
 			element: element,
 			editorProps: {
 				handleKeyDown(_, event) {
