@@ -297,7 +297,7 @@ fn non_existing_ownership() {
             gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, to_amend)
                 .unwrap_err()
                 .to_string(),
-            "Failed to amend with commit engine. Rejected specs: [DiffSpec { previous_path: None, path: \"file2.txt\", hunk_headers: [HunkHeader { old_start: 1, old_lines: 0, new_start: 1, new_lines: 1 }] }]",
+            r#"Failed to amend with commit engine. Rejected specs: [(NoEffectiveChanges, DiffSpec { previous_path: None, path: "file2.txt", hunk_headers: [HunkHeader { old_start: 1, old_lines: 0, new_start: 1, new_lines: 1 }] })]"#,
         );
     }
 }

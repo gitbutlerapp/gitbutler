@@ -1,4 +1,4 @@
-use crate::commit_engine::{Destination, DiffSpec, HunkHeader, MoveSourceCommit};
+use crate::commit_engine::{Destination, DiffSpec, HunkHeader, MoveSourceCommit, RejectionReason};
 use anyhow::{Context, bail};
 use bstr::{BString, ByteSlice};
 use but_core::{RepositoryExt, UnifiedDiff};
@@ -15,7 +15,7 @@ pub struct CreateTreeOutcome {
     /// Changes that were removed from `new_tree` because they caused conflicts when rebasing dependent commits,
     /// when merging the workspace commit, or because the specified hunks didn't match exactly due to changes
     /// that happened in the meantime, or if a file without a change was specified.
-    pub rejected_specs: Vec<DiffSpec>,
+    pub rejected_specs: Vec<(RejectionReason, DiffSpec)>,
     /// The newly created seen from tree that acts as the destination of the changes, or `None` if no commit could be
     /// created as all changes-requests were rejected.
     pub destination_tree: Option<gix::ObjectId>,
@@ -76,7 +76,9 @@ pub fn create_tree(
         let Some(tree_with_changes) =
             maybe_new_tree.filter(|tree_with_changes| *tree_with_changes != target_tree)
         else {
-            changes.iter_mut().for_each(into_err_spec);
+            changes
+                .iter_mut()
+                .for_each(|c| into_err_spec(c, RejectionReason::NoEffectiveChanges));
             break 'retry (None, None);
         };
         let tree_with_changes_without_cherry_pick = tree_with_changes.detach();
@@ -108,7 +110,7 @@ pub fn create_tree(
                         .ok()
                         .is_some_and(|change| unresolved_conflicts.contains(&change.path.as_bstr()))
                 }) {
-                    into_err_spec(change);
+                    into_err_spec(change, RejectionReason::CherryPickMergeConflict);
                 }
                 continue 'retry;
             }
@@ -126,15 +128,15 @@ pub fn create_tree(
     })
 }
 
-fn into_err_spec(input: &mut PossibleChange) {
+fn into_err_spec(input: &mut PossibleChange, reason: RejectionReason) {
     *input = match std::mem::replace(input, Ok(Default::default())) {
         // What we thought was a good change turned out to be a no-op, rejected.
-        Ok(inner) => Err(inner),
+        Ok(inner) => Err((reason, inner)),
         Err(inner) => Err(inner),
     };
 }
 
-type PossibleChange = Result<DiffSpec, DiffSpec>;
+type PossibleChange = Result<DiffSpec, (RejectionReason, DiffSpec)>;
 
 /// Apply `changes` to `changes_base_tree` and return the newly written tree as `(maybe_new_tree, actual_base_tree, maybe_new_index)`.
 /// All `changes` are expected to originate from `changes_base_tree`, and will be applied `changes_base_tree`.
@@ -193,7 +195,10 @@ fn apply_worktree_changes<'repo>(
                 Some((id, kind, _fs_metadata)) => {
                     base_tree_editor.upsert(rela_path, kind, id)?;
                 }
-                None => into_err_spec(possible_change),
+                None => into_err_spec(
+                    possible_change,
+                    RejectionReason::WorktreeFileMissingForObjectConversion,
+                ),
             }
         } else if let Some(worktree_changes) = &worktree_changes {
             let Some(worktree_change) = worktree_changes.iter().find(|c| {
@@ -201,12 +206,12 @@ fn apply_worktree_changes<'repo>(
                     && c.previous_path()
                         == change_request.previous_path.as_ref().map(|p| p.as_bstr())
             }) else {
-                into_err_spec(possible_change);
+                into_err_spec(possible_change, RejectionReason::NoEffectiveChanges);
                 continue;
             };
             let UnifiedDiff::Patch { hunks } = worktree_change.unified_diff(repo, context_lines)?
             else {
-                into_err_spec(possible_change);
+                into_err_spec(possible_change, RejectionReason::FileToLargeOrBinary);
                 continue;
             };
             let previous_path = worktree_change.previous_path();
@@ -229,10 +234,13 @@ fn apply_worktree_changes<'repo>(
                         Some((id, kind, _fs_metadata)) => {
                             base_tree_editor.upsert(rela_path, kind, id)?;
                         }
-                        None => into_err_spec(possible_change),
+                        None => into_err_spec(
+                            possible_change,
+                            RejectionReason::WorktreeFileMissingForObjectConversion,
+                        ),
                     }
                 } else {
-                    into_err_spec(possible_change);
+                    into_err_spec(possible_change, RejectionReason::PathNotFoundInBaseTree);
                 }
                 continue;
             };
@@ -247,7 +255,7 @@ fn apply_worktree_changes<'repo>(
                 }
             } else {
                 // This could be a fifo (skip) or a repository. But that wouldn't have hunks.
-                into_err_spec(possible_change);
+                into_err_spec(possible_change, RejectionReason::UnsupportedDirectoryEntry);
                 continue;
             };
 
@@ -273,7 +281,7 @@ fn apply_worktree_changes<'repo>(
                 }
             } else {
                 // defensive: assure file wasn't swapped with something we can't handle
-                into_err_spec(possible_change);
+                into_err_spec(possible_change, RejectionReason::UnsupportedTreeEntry);
                 continue;
             };
 
@@ -297,7 +305,7 @@ fn apply_worktree_changes<'repo>(
                 if !worktree_hunks.contains(selected_hunk)
                     || has_zero_based_line_numbers(selected_hunk)
                 {
-                    into_err_spec(possible_change);
+                    into_err_spec(possible_change, RejectionReason::MissingDiffSpecAssociation);
                     // TODO: only skip this one hunk, but collect skipped hunks into a new err-spec.
                     continue 'each_change;
                 }

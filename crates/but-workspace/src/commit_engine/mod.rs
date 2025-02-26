@@ -122,7 +122,7 @@ pub struct CreateCommitOutcome {
     /// Changes that were removed from a commit because they caused conflicts when rebasing dependent commits,
     /// when merging the workspace commit, or because the specified hunks didn't match exactly due to changes
     /// that happened in the meantime, or if a file without a change was specified.
-    pub rejected_specs: Vec<DiffSpec>,
+    pub rejected_specs: Vec<(RejectionReason, DiffSpec)>,
     /// The newly created commit, or `None` if no commit could be created as all changes-requests were rejected.
     pub new_commit: Option<gix::ObjectId>,
     /// If `new_commit` is `Some(_)`, this field is `Some(_)` as well and denotes the base-tree + all changes.
@@ -140,6 +140,38 @@ pub struct CreateCommitOutcome {
     /// `unpack_trees` just yet.
     /// The index wasn't written yet, but could be to match `HEAD^{commit}`.
     pub index: Option<gix::index::File>,
+}
+
+/// Provide a description of why a [`DiffSpec`] was rejected for application to the tree of a commit.
+#[derive(Default, Debug, Copy, Clone, PartialEq)]
+pub enum RejectionReason {
+    /// All changes were applied, but they didn't end up effectively change the tree to something differing from the target tree.
+    /// This means the changes were a no-op.
+    /// Is that even possible? The code says so, for good measure.
+    // We don't really have a default, this is just for convenience
+    #[default]
+    NoEffectiveChanges,
+    /// The final cherry-pick to bring the new tree down onto the target tree (merge it in) failed with a conflict.
+    CherryPickMergeConflict,
+    /// This is just a theoretical possibility that *could* happen if somebody deletes a file that was there before *right after* we checked its
+    /// metadata and found that it still exists.
+    /// So if you see this, you could also have won the lottery.
+    WorktreeFileMissingForObjectConversion,
+    /// When performing a unified diff, it had to refused as the file was too large or turned out to be binary.
+    /// Note that this only happens for binary files if there is no `diff.<name>.textconv` filters configured.
+    FileToLargeOrBinary,
+    /// A change with multiple hunks to be applied wasn't present in the base-tree.
+    /// Previously this was possible when untracked files were added with their single hunk specified, but now this shouldn't be happening anymore.
+    PathNotFoundInBaseTree,
+    /// There was a change, but the path pointed to something that wasn't a file or a link.
+    /// You would see this if also in case of submodules or repositories to be added with hunks, which shouldn't be easy to do accidentally even.
+    UnsupportedDirectoryEntry,
+    /// The base version of a file to apply worktree changes to as present in a Git tree had an undiffable entry type.
+    /// This can happen if the target tree has an entry that isn't of the same type as the source worktree changes.
+    UnsupportedTreeEntry,
+    /// The DiffSpec points to an actual change, or a subset of that change using a file path and optionally hunks into that file.
+    /// However, the actual change wasn't found or didn't match up in turn of hunks.
+    MissingDiffSpecAssociation,
 }
 
 /// Alter the single `destination` in a given `frame` with as many `changes` as possible and write new objects into `repo`,
