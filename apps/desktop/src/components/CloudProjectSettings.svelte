@@ -90,7 +90,8 @@
 			created_at: fetchedCloudProject.createdAt,
 			updated_at: fetchedCloudProject.updatedAt,
 			sync: false,
-			sync_code: false
+			sync_code: false,
+			reviews: false
 		};
 		await projectsService.updateProject(mutableProject);
 	}
@@ -104,6 +105,14 @@
 		mutableProject.api = undefined;
 		mutableProject.unset_api = true;
 		await projectsService.updateProject(mutableProject);
+	}
+
+	async function onReviewsChange(reviews: boolean) {
+		if (!$project?.api) return;
+
+		const mutableProject = structuredClone($project);
+		mutableProject.api!.reviews = reviews;
+		projectsService.updateProject(mutableProject);
 	}
 
 	async function onSyncChange(sync: boolean) {
@@ -130,6 +139,18 @@
 		{/snippet}
 
 		{#snippet children()}
+			<SectionCard labelFor="reviews" orientation="row">
+				{#snippet caption()}
+					Use GitButler Reviews with this project.
+				{/snippet}
+				{#snippet actions()}
+					<Toggle
+						id="reviews"
+						checked={$project?.api?.reviews || false}
+						onclick={async () => await onReviewsChange(!$project?.api?.reviews)}
+					/>
+				{/snippet}
+			</SectionCard>
 			<SectionCard labelFor="historySync" orientation="row">
 				{#snippet caption()}
 					Sync this project's operations log with GitButler Web services. The operations log
