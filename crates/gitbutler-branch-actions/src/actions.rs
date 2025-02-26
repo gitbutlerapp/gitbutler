@@ -20,7 +20,7 @@ use crate::{
     VirtualBranchesExt,
 };
 use anyhow::{bail, Context, Result};
-use but_workspace::commit_engine::{DiffSpec, HunkHeader};
+use but_workspace::commit_engine::DiffSpec;
 use but_workspace::{commit_engine, StackEntry};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
@@ -35,7 +35,7 @@ use gitbutler_project::FetchResult;
 use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{BranchOwnershipClaims, OwnershipClaim, StackId};
+use gitbutler_stack::{BranchOwnershipClaims, StackId};
 
 use std::path::PathBuf;
 use tracing::instrument;
@@ -303,7 +303,7 @@ pub fn amend(
     ctx: &CommandContext,
     stack_id: StackId,
     commit_oid: git2::Oid,
-    ownership: &BranchOwnershipClaims,
+    worktree_changes: Vec<DiffSpec>,
 ) -> Result<git2::Oid> {
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Amending a commit requires open workspace mode")?;
@@ -316,7 +316,7 @@ pub fn amend(
         );
         ctx.assure_resolved()?;
     }
-    amend_with_commit_engine(ctx, stack_id, commit_oid, ownership)
+    amend_with_commit_engine(ctx, stack_id, commit_oid, worktree_changes)
 }
 
 /// This is backported version of amending using the new commit engine, in the old API
@@ -324,9 +324,9 @@ fn amend_with_commit_engine(
     ctx: &CommandContext,
     stack_id: StackId,
     commit_oid: git2::Oid,
-    ownership: &BranchOwnershipClaims,
+    worktree_changes: Vec<DiffSpec>,
 ) -> Result<git2::Oid> {
-    let changes: Vec<DiffSpec> = ownership.claims.iter().map(claim_to_diffspec).collect();
+    // let changes: Vec<DiffSpec> = ownership.claims.iter().map(claim_to_diffspec).collect();
 
     let vb_state = ctx.project().virtual_branches();
     let stack = vb_state.get_stack(stack_id)?;
@@ -341,7 +341,7 @@ fn amend_with_commit_engine(
         Some((ctx.project(), Some(stack_id))),
         commit_engine::Destination::AmendCommit(commit_oid.to_gix()),
         None,
-        changes,
+        worktree_changes,
         3, // for the old API this is hardcoded
     )?;
     let new_commit = outcome.new_commit.ok_or(anyhow::anyhow!(
@@ -349,25 +349,6 @@ fn amend_with_commit_engine(
         outcome.rejected_specs
     ))?;
     Ok(new_commit.to_git2())
-}
-
-fn claim_to_diffspec(claim: &OwnershipClaim) -> DiffSpec {
-    let path = gix::path::into_bstr(claim.file_path.clone()).into_owned();
-    DiffSpec {
-        previous_path: None,
-        path,
-        hunk_headers: claim
-            .hunks
-            .iter()
-            .filter_map(|h| h.hunk_header.clone())
-            .map(|h| HunkHeader {
-                old_start: h.old_start,
-                old_lines: h.old_lines,
-                new_start: h.new_start,
-                new_lines: h.new_lines,
-            })
-            .collect(),
-    }
 }
 
 pub fn move_commit_file(
