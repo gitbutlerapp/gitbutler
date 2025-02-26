@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as jsonLinks from '$home/lib/data/links.json';
-	import { clickOutside } from '$home/lib/hooks/clickOutside';
+	import * as jsonLinks from '$home/data/links.json';
+	import { clickOutside } from '$home/hooks/clickOutside';
 	import { targetDownload } from '$lib/store';
 	import { latestClientVersion } from '$lib/store';
 	import { quadIn } from 'svelte/easing';

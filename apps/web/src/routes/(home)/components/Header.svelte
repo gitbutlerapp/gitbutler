@@ -1,11 +1,11 @@
 <script>
-	import HeaderLink from './HeaderLink.svelte';
-	import HeaderMobileLink from './HeaderMobileLink.svelte';
+	import HeaderLink from '$home/components/HeaderLink.svelte';
+	import HeaderMobileLink from '$home/components/HeaderMobileLink.svelte';
+	import * as jsonLinks from '$home/data/links.json';
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { fly } from 'svelte/transition';
 	import { env } from '$env/dynamic/public';
-	import * as jsonLinks from '$home/lib/data/links.json';
 
 	let isMobileMenuOpen = $state(false);
 
