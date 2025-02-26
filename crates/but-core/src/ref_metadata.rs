@@ -113,6 +113,7 @@ pub struct WorkspaceStackBranch {
     /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
     ///
     /// Note that this is a cache to help speed up certain operations.
+    /// NOTE: This is more like a proof of concept and for backwards compatibility - maybe we will make it go away.
     // TODO: given that most operations require a graph walk, will this really be necessary if a graph cache is used consistently?
     //       Staleness can be a problem if targets can be changed after the fact. At least we'd need to recompute it.
     pub archived: bool,
