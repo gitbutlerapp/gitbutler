@@ -8,6 +8,7 @@
 	import HomeFooter from '$home/sections/Footer.svelte';
 	import Hero from '$home/sections/Hero.svelte';
 	import { AuthService } from '$lib/auth/authService.svelte';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { setContext, type Snippet } from 'svelte';
 	import { get } from 'svelte/store';
 	import { goto } from '$app/navigation';
@@ -21,8 +22,12 @@
 
 	const { children }: Props = $props();
 
+	const routesService = new WebRoutesService(location.protocol + '//' + location.host, true);
+	setContext(WebRoutesService, routesService);
+
 	const authService = new AuthService();
 	setContext(AuthService, authService);
+
 	let token = $state<string | null>();
 
 	const publicRouteIds = ['/(app)/downloads'];
