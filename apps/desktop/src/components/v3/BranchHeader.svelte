@@ -95,10 +95,6 @@
 		align-items: center;
 		flex-direction: column;
 
-		&:not(:last-child) {
-			border-bottom: 1px solid var(--clr-border-2);
-		}
-
 		&:hover,
 		&:focus-within {
 			& :global(.branch-actions-menu) {
