@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { getFormatterPosition } from '$lib/textEditor/selection';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
+	import { portal } from '@gitbutler/ui/utils/portal';
 	import { TOGGLE_LINK_COMMAND } from '@lexical/link';
 	import {
 		INSERT_CHECK_LIST_COMMAND,
@@ -11,12 +14,17 @@
 		$createHeadingNode as createHeadingNode
 	} from '@lexical/rich-text';
 	import { $setBlocksType as setBlocksType } from '@lexical/selection';
-	import { FORMAT_TEXT_COMMAND } from 'lexical';
+	import {
+		$isRangeSelection as isRangeSelection,
+		COMMAND_PRIORITY_CRITICAL,
+		FORMAT_TEXT_COMMAND,
+		SELECTION_CHANGE_COMMAND
+	} from 'lexical';
 	import {
 		$getSelection as getSelection,
 		$createParagraphNode as createParagraphNode
 	} from 'lexical';
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import { getEditor } from 'svelte-lexical';
 	import type { Writable } from 'svelte/store';
 
@@ -30,6 +38,7 @@
 	const isStrikethrough: Writable<boolean> = getContext('isStrikethrough');
 	const isCode: Writable<boolean> = getContext('isCode');
 	const isLink: Writable<boolean> = getContext('isLink');
+	const blockType: Writable<keyof typeof blockMap> = getContext('blockType');
 
 	const blockMap = {
 		h1: () => createHeadingNode('h1'),
@@ -39,6 +48,11 @@
 		quote: createQuoteNode
 	};
 
+	// Top left corner of selection box.
+	let position: { left: number; top: number } | undefined = $state();
+	// Height of the menu element.
+	let offsetHeight = $state(0);
+
 	function formatBlock(type: keyof typeof blockMap) {
 		editor.update(() => {
 			const selection = getSelection();
@@ -46,149 +60,183 @@
 		});
 	}
 
-	const blockType: Writable<keyof typeof blockMap> = getContext('blockType');
+	function nonZeroRange() {
+		const selection = getSelection();
+		return (
+			isRangeSelection(selection) &&
+			(selection.anchor.key !== selection.focus.key ||
+				selection.anchor.offset !== selection.focus.offset)
+		);
+	}
+
+	function onSelectionChange() {
+		if (nonZeroRange()) {
+			position = getFormatterPosition();
+		} else {
+			position = undefined;
+		}
+		return true;
+	}
+
+	onMount(() => {
+		const unregister = editor.registerCommand(
+			SELECTION_CHANGE_COMMAND,
+			onSelectionChange,
+			COMMAND_PRIORITY_CRITICAL
+		);
+		return unregister;
+	});
 </script>
 
-<div class="formatting-popup">
-	<div class="formatting__options" style:width="{optionsRefWidth}px">
-		<div class="formatting__options-wrap" class:scrolled={isScrollToSecondGroup}>
-			<div class="formatting__group" bind:clientWidth={optionsRefWidth}>
-				<Button
-					kind="solid"
-					size="tag"
-					icon="text-bold"
-					activated={$isBold}
-					onclick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold')}
-					tooltip={'Bold'}
-				/>
-				<Button
-					kind="solid"
-					size="tag"
-					icon="text-italic"
-					activated={$isItalic}
-					onclick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic')}
-					tooltip={'Italic'}
-				/>
-				<Button
-					kind="solid"
-					size="tag"
-					icon="text-underline"
-					activated={$isUnderline}
-					onclick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline')}
-					tooltip={'Underline'}
-				/>
-				<Button
-					kind="solid"
-					size="tag"
-					icon="text-strikethrough"
-					activated={$isStrikethrough}
-					onclick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'strikethrough')}
-					tooltip={'Strikethrough'}
-				/>
-				<Button
-					kind="solid"
-					size="tag"
-					icon="text-code"
-					activated={$isCode}
-					onclick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'code')}
-					tooltip={'Code'}
-				/>
-				<Button
-					kind="solid"
-					size="tag"
-					icon="text-quote"
-					activated={$blockType === 'quote'}
-					onclick={() => formatBlock('quote')}
-					tooltip={'Quote'}
-				/>
-				<Button
-					kind="solid"
-					size="tag"
-					icon="text-link"
-					activated={$isLink}
-					onclick={() => editor.dispatchCommand(TOGGLE_LINK_COMMAND, '')}
-					tooltip={'Link'}
-				/>
-			</div>
-			<div class="formatting__group">
-				<Button
-					kind="solid"
-					size="tag"
-					icon="text"
-					activated={$blockType === 'paragraph'}
-					onclick={() => formatBlock('paragraph')}
-					tooltip={'Normal text'}
-				/>
-				<Button
-					kind="solid"
-					size="tag"
-					icon="text-h1"
-					activated={$blockType === 'h1'}
-					onclick={() => formatBlock('h1')}
-					tooltip={'Heading 1'}
-				/>
-				<Button
-					kind="solid"
-					size="tag"
-					icon="text-h2"
-					activated={$blockType === 'h2'}
-					onclick={() => formatBlock('h2')}
-					tooltip={'Heading 2'}
-				/>
-				<Button
-					kind="solid"
-					size="tag"
-					icon="text-h3"
-					activated={$blockType === 'h3'}
-					onclick={() => formatBlock('h3')}
-					tooltip={'Heading 3'}
-				/>
-				<Button
-					kind="solid"
-					size="tag"
-					icon="bullet-list"
-					onclick={() => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined)}
-					tooltip={'Unordered list'}
-				/>
-				<Button
-					kind="solid"
-					size="tag"
-					icon="number-list"
-					onclick={() => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined)}
-					tooltip={'Ordered list'}
-				/>
-				<Button
-					kind="solid"
-					size="tag"
-					icon="checklist"
-					onclick={() => editor.dispatchCommand(INSERT_CHECK_LIST_COMMAND, undefined)}
-					tooltip={'Check list'}
-				/>
+{#if position}
+	<div
+		class="formatting-popup"
+		style:left={position.left + 'px'}
+		style:top={position.top - offsetHeight - 6 + 'px'}
+		bind:offsetHeight
+		use:portal={'body'}
+		use:clickOutside={{ handler: () => (position = undefined) }}
+	>
+		<div class="formatting__options" style:width="{optionsRefWidth}px">
+			<div class="formatting__options-wrap" class:scrolled={isScrollToSecondGroup}>
+				<div class="formatting__group" bind:clientWidth={optionsRefWidth}>
+					<Button
+						kind="solid"
+						size="tag"
+						icon="text-bold"
+						activated={$isBold}
+						onclick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold')}
+						tooltip={'Bold'}
+					/>
+					<Button
+						kind="solid"
+						size="tag"
+						icon="text-italic"
+						activated={$isItalic}
+						onclick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic')}
+						tooltip={'Italic'}
+					/>
+					<Button
+						kind="solid"
+						size="tag"
+						icon="text-underline"
+						activated={$isUnderline}
+						onclick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline')}
+						tooltip={'Underline'}
+					/>
+					<Button
+						kind="solid"
+						size="tag"
+						icon="text-strikethrough"
+						activated={$isStrikethrough}
+						onclick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'strikethrough')}
+						tooltip={'Strikethrough'}
+					/>
+					<Button
+						kind="solid"
+						size="tag"
+						icon="text-code"
+						activated={$isCode}
+						onclick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'code')}
+						tooltip={'Code'}
+					/>
+					<Button
+						kind="solid"
+						size="tag"
+						icon="text-quote"
+						activated={$blockType === 'quote'}
+						onclick={() => formatBlock('quote')}
+						tooltip={'Quote'}
+					/>
+					<Button
+						kind="solid"
+						size="tag"
+						icon="text-link"
+						activated={$isLink}
+						onclick={() => editor.dispatchCommand(TOGGLE_LINK_COMMAND, '')}
+						tooltip={'Link'}
+					/>
+				</div>
+				<div class="formatting__group">
+					<Button
+						kind="solid"
+						size="tag"
+						icon="text"
+						activated={$blockType === 'paragraph'}
+						onclick={() => formatBlock('paragraph')}
+						tooltip={'Normal text'}
+					/>
+					<Button
+						kind="solid"
+						size="tag"
+						icon="text-h1"
+						activated={$blockType === 'h1'}
+						onclick={() => formatBlock('h1')}
+						tooltip={'Heading 1'}
+					/>
+					<Button
+						kind="solid"
+						size="tag"
+						icon="text-h2"
+						activated={$blockType === 'h2'}
+						onclick={() => formatBlock('h2')}
+						tooltip={'Heading 2'}
+					/>
+					<Button
+						kind="solid"
+						size="tag"
+						icon="text-h3"
+						activated={$blockType === 'h3'}
+						onclick={() => formatBlock('h3')}
+						tooltip={'Heading 3'}
+					/>
+					<Button
+						kind="solid"
+						size="tag"
+						icon="bullet-list"
+						onclick={() => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined)}
+						tooltip={'Unordered list'}
+					/>
+					<Button
+						kind="solid"
+						size="tag"
+						icon="number-list"
+						onclick={() => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined)}
+						tooltip={'Ordered list'}
+					/>
+					<Button
+						kind="solid"
+						size="tag"
+						icon="checklist"
+						onclick={() => editor.dispatchCommand(INSERT_CHECK_LIST_COMMAND, undefined)}
+						tooltip={'Check list'}
+					/>
+				</div>
 			</div>
 		</div>
+		<div class="formatting__next">
+			<Button
+				kind="solid"
+				size="tag"
+				tooltip="More options"
+				tooltipDelay={1200}
+				icon={isScrollToSecondGroup ? 'chevron-left' : 'chevron-right'}
+				onclick={() => {
+					isScrollToSecondGroup = !isScrollToSecondGroup;
+				}}
+			/>
+		</div>
 	</div>
-	<div class="formatting__next">
-		<Button
-			kind="solid"
-			size="tag"
-			tooltip="More options"
-			tooltipDelay={1200}
-			icon={isScrollToSecondGroup ? 'chevron-left' : 'chevron-right'}
-			onclick={() => {
-				isScrollToSecondGroup = !isScrollToSecondGroup;
-			}}
-		/>
-	</div>
-</div>
+{/if}
 
 <style lang="postcss">
 	.formatting-popup {
 		display: flex;
+		position: absolute;
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-theme-ntrl-element);
 		box-shadow: var(--shadow-m);
 		border: 1px solid var(--clr-border-2);
-		margin: 10px;
 		box-shadow: var(--fx-shadow-m);
 		width: fit-content;
 	}
