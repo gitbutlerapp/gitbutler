@@ -59,6 +59,7 @@ export class WebRoutesService {
 	projectsUrl() {
 		return this.toUrl(this.projectsPath());
 	}
+
 	// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 	isProjectsPage = $derived(isUrl<{}>(this.isWeb, '/projects'));
 	// eslint-disable-next-line @typescript-eslint/no-empty-object-type
