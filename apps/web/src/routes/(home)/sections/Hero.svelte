@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as jsonLinks from '$lib/data/links.json';
-	import CtaBlock from '$home/lib/components/CtaBlock.svelte';
+	import CtaBlock from '$home/components/CtaBlock.svelte';
 </script>
 
 <section class="hero" id="hero">

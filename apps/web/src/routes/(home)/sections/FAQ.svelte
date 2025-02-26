@@ -1,5 +1,5 @@
 <script>
-	import FAQItem from '$home/lib/components/FAQItem.svelte';
+	import FAQItem from '$home/components/FAQItem.svelte';
 
 	const faqItems = [
 		{

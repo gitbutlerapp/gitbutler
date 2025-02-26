@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatDate } from '$home/lib/utils/formatDate';
+	import { formatDate } from '$home/utils/formatDate';
 	import GhostContentAPI, { type PostsOrPages } from '@tryghost/content-api';
 
 	const GHOST_URL = 'https://gitbutler.ghost.io';
