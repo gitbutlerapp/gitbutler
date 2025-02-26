@@ -121,7 +121,7 @@
 					<td>
 						<div class="table__hiddenRows__content">
 							<p class="text-12 table__hiddenRows__caption">
-								{#if isHidden}
+								{#if whyHidden}
 									{whyHidden}
 								{:else}
 									Diff is too large to display
