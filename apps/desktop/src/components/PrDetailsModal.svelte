@@ -470,19 +470,19 @@
 				onclick={async () => await handleCreatePR(close)}
 			>
 				{pushBeforeCreate ? 'Push & ' : ''}
-				{$createDraft ? 'Create draft pull request' : `Create pull request`}
+				{$createDraft ? 'Create draft pull request' : `Create Pull Request`}
 
 				{#snippet contextMenuSlot()}
 					<ContextMenuSection>
 						<ContextMenuItem
-							label="Create pull request"
+							label="Create Pull Request"
 							onclick={() => {
 								createDraft.set(false);
 								createPrDropDown?.close();
 							}}
 						/>
 						<ContextMenuItem
-							label="Create draft pull request"
+							label="Create Draft Pull Request"
 							onclick={() => {
 								createDraft.set(true);
 								createPrDropDown?.close();
