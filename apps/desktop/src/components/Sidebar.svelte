@@ -1,8 +1,9 @@
 <script lang="ts">
 	import SupportersBanner from './SupportersBanner.svelte';
-	import { cloudFunctionality } from '$lib/config/uiFeatureFlags';
 	import { platformName } from '$lib/platform/platform';
+	import { User } from '$lib/user/user';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { goto } from '$app/navigation';
@@ -11,6 +12,7 @@
 	const currentSection: string | undefined = $derived(getPageName($page.url.pathname));
 
 	const settingsPageRegExp = /\/settings\/(.*?)(?:$|\/)/;
+	const user = getContextStore(User);
 
 	function getPageName(pathname: string) {
 		const matches = pathname.match(settingsPageRegExp);
@@ -127,7 +129,7 @@
 						<span class="text-14 text-semibold">Experimental</span>
 					</button>
 				</li>
-				{#if $cloudFunctionality}
+				{#if $user?.role === 'admin'}
 					<li>
 						<button
 							type="button"

@@ -9,6 +9,7 @@ import {
 } from '$lib/branches/types';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable, isFound } from '$lib/network/loadable';
+import { playSound } from '$lib/sounds';
 import { asyncToSyncSignals, writableDerived } from '$lib/storeUtils';
 import { createConsumer } from '@rails/actioncable';
 import { type Readable } from 'svelte/store';
@@ -30,6 +31,8 @@ function getActionCableEndpoint(token: string | undefined, baseUrl: string): str
 }
 
 export class PatchEventsService {
+	private userId: number | undefined;
+	private chatSoundUrl: string | undefined;
 	private readonly patchEventsInterestStore = new InterestStore<{
 		changeId: string;
 		projectId: string;
@@ -43,6 +46,14 @@ export class PatchEventsService {
 		private readonly patchService: PatchService,
 		private readonly websocketBase: string
 	) {}
+
+	setUserId(userId: number) {
+		this.userId = userId;
+	}
+
+	setChatSoundUrl(chatSoundUrl: string) {
+		this.chatSoundUrl = chatSoundUrl;
+	}
 
 	patchEventsInterest(projectId: string, changeId: string): Interest {
 		// Using writableDerived over derived because derived's start stop
@@ -84,6 +95,14 @@ export class PatchEventsService {
 			.createInterest();
 	}
 
+	private shouldPlayChatSound(patchEvent: PatchEvent): boolean {
+		if (patchEvent.user?.id === undefined || this.userId === undefined) {
+			return false;
+		}
+
+		return patchEvent.user.id !== this.userId && patchEvent.eventType === 'chat';
+	}
+
 	private handlePatchEventData(projectId: string, changeId: string, data: ApiPatchEvent) {
 		const key = createPatchEventChannelKey(projectId, changeId);
 		const eventChannel = patchEventsSelectors.selectById(this.appState.patchEvents, key);
@@ -103,6 +122,10 @@ export class PatchEventsService {
 		// change is propogated elsewhere.
 		if (data.event_type === 'patch_version' || data.event_type === 'issue_status') {
 			this.patchService.refreshPatchWithSections(changeId);
+		}
+
+		if (this.shouldPlayChatSound(patchEvent) && this.chatSoundUrl) {
+			playSound(this.chatSoundUrl);
 		}
 	}
 

@@ -23,6 +23,7 @@
 		WebRoutesService,
 		type ProjectReviewCommitParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { goto } from '$app/navigation';
 
@@ -87,6 +88,26 @@
 		})
 	);
 
+	let header = $state<HTMLDivElement>();
+	let headerIsStuck = $state(false);
+
+	window.onscroll = () => {
+		if (header) {
+			const top = header.getBoundingClientRect().top;
+			if (!headerIsStuck && top <= 0) {
+				headerIsStuck = true;
+			}
+
+			if (headerIsStuck && top > 0) {
+				headerIsStuck = false;
+			}
+		}
+	};
+
+	function scrollToTop() {
+		window.scrollTo({ top: 0, behavior: 'smooth' });
+	}
+
 	function goToPatch(changeId: string) {
 		const url = routes.projectReviewBranchCommitPath({
 			ownerSlug: data.ownerSlug,
@@ -114,8 +135,13 @@
 	<Loading loadable={combine([patch?.current, repositoryId.current, branchUuid?.current])}>
 		{#snippet children([patch, repositoryId, branchUuid])}
 			<div class="review-main-content" class:expand={chatMinimizer.value}>
-				<div class="review-main__header">
-					<h3 class="text-18 text-bold review-main-content-title">{patch.title}</h3>
+				<div class="review-main__header" bind:this={header}>
+					<div class="review-main__title-wrapper">
+						{#if headerIsStuck}
+							<Button kind="outline" icon="arrow-top" onclick={scrollToTop} />
+						{/if}
+						<h3 class="text-18 text-bold review-main-content-title">{patch.title}</h3>
+					</div>
 
 					<div class="review-main-content__patch-navigator">
 						{#if patchIds !== undefined}
@@ -146,7 +172,11 @@
 			</div>
 
 			{#if branchUuid !== undefined}
-				<div class="review-chat" class:minimized={chatMinimizer.value}>
+				<div
+					class="review-chat"
+					class:minimized={chatMinimizer.value}
+					class:full-screen={!chatMinimizer.value && headerIsStuck}
+				>
 					<ChatComponent
 						{isPatchAuthor}
 						isUserLoggedIn={!!$user}
@@ -203,6 +233,21 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
+
+		z-index: var(--z-floating);
+		position: sticky;
+		top: 0;
+
+		background-color: var(--clr-bg);
+		margin-top: -24px;
+		padding-top: 24px;
+		padding-bottom: 8px;
+	}
+
+	.review-main__title-wrapper {
+		display: flex;
+		align-items: center;
+		gap: 16px;
 	}
 
 	.review-main-content-title {
@@ -235,7 +280,6 @@
 		display: flex;
 		height: calc(100vh - var(--top-nav-offset) - var(--bottom-margin));
 		position: sticky;
-
 		&.minimized {
 			height: fit-content;
 			position: sticky;
@@ -255,6 +299,14 @@
 			bottom: var(--bottom-margin);
 			z-index: var(--z-floating);
 			box-shadow: var(--fx-shadow-s);
+		}
+
+		@media not (--tablet-viewport) {
+			&.full-screen {
+				--top-nav-offset: 20px;
+				top: var(--top-nav-offset);
+				height: calc(100dvh - var(--top-nav-offset) - var(--bottom-margin));
+			}
 		}
 	}
 </style>

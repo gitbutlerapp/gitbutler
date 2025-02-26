@@ -12,17 +12,13 @@
 	import TabList from '$components/TabList.svelte';
 	import TabTrigger from '$components/TabTrigger.svelte';
 	import Tabs from '$components/Tabs.svelte';
-	import { cloudFunctionality } from '$lib/config/uiFeatureFlags';
 </script>
 
 <SettingsPage title="Project settings">
 	<Tabs defaultSelected="project">
 		<TabList>
 			<TabTrigger value="project">Project</TabTrigger>
-
-			{#if $cloudFunctionality}
-				<TabTrigger value="cloud">Gitbutler Server</TabTrigger>
-			{/if}
+			<TabTrigger value="cloud">Server</TabTrigger>
 			<TabTrigger value="git">Git</TabTrigger>
 			<TabTrigger value="ai">AI</TabTrigger>
 			<TabTrigger value="feature-flags">Experimental</TabTrigger>

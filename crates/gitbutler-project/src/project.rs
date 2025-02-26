@@ -38,6 +38,9 @@ pub struct ApiProject {
     /// Determines if the project code will be synched with the GitButHub
     #[serde(default)]
     pub sync_code: bool,
+    // if this project is using gitbutler reviews
+    #[serde(default)]
+    pub reviews: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

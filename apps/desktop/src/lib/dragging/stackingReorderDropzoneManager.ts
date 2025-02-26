@@ -104,12 +104,14 @@ export function buildNewStackOrder(
 	actorCommitId: string,
 	targetCommitId: string
 ): StackOrder | undefined {
-	const patchSeries = allSeries.map((s) => ({
-		name: s.name,
-		commitIds: s.patches.map((p) => p.id)
-	}));
+	const branches = allSeries
+		.filter((s) => !s.archived)
+		.map((s) => ({
+			name: s.name,
+			commitIds: s.patches.map((p) => p.id)
+		}));
 
-	const allCommitIds = patchSeries.flatMap((s) => s.commitIds);
+	const allCommitIds = branches.flatMap((s) => s.commitIds);
 
 	if (
 		targetCommitId !== 'top' &&
@@ -118,15 +120,15 @@ export function buildNewStackOrder(
 		throw new Error('Commit not found in series');
 	}
 
-	const currentSeriesIndex = patchSeries.findIndex((s) => s.name === currentSeries.name);
+	const currentSeriesIndex = branches.findIndex((s) => s.name === currentSeries.name);
 	if (currentSeriesIndex === -1) return undefined;
 
 	// Remove actorCommitId from its current position
-	patchSeries.forEach((s) => {
+	branches.forEach((s) => {
 		s.commitIds = s.commitIds.filter((id) => id !== actorCommitId);
 	});
 
-	const updatedCurrentSeries = patchSeries[currentSeriesIndex];
+	const updatedCurrentSeries = branches[currentSeriesIndex];
 	if (!updatedCurrentSeries) return undefined;
 
 	// Put actorCommtId in its new position
@@ -137,10 +139,10 @@ export function buildNewStackOrder(
 		updatedCurrentSeries.commitIds.splice(targetIndex + 1, 0, actorCommitId);
 	}
 
-	patchSeries[currentSeriesIndex] = updatedCurrentSeries;
+	branches[currentSeriesIndex] = updatedCurrentSeries;
 
 	return {
-		series: patchSeries
+		series: branches
 	};
 }
 

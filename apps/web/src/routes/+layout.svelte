@@ -14,7 +14,6 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import '$lib/styles/global.css';
-	import '$home/styles/styles.css';
 
 	interface Props {
 		children: Snippet;
@@ -29,9 +28,6 @@
 	setContext(AuthService, authService);
 
 	let token = $state<string | null>();
-
-	const publicRouteIds = ['/(app)/downloads'];
-	const isPublicRoute = $derived(publicRouteIds.includes(page.route.id ?? ''));
 
 	$effect(() => {
 		token = get(authService.tokenReadable) || page.url.searchParams.get('gb_access_token');
@@ -50,16 +46,14 @@
 			window.location.href = jsonLinks.legal.privacyPolicy.url;
 		}
 
-		if (!token && !isPublicRoute) {
+		if (!token && page.route.id === '/(app)/home') {
 			goto('/');
 		}
 	});
 </script>
 
-{#if isPublicRoute || (token && page.route.id !== '/(app)/home')}
-	{@render children?.()}
-{:else}
-	<section class="page-wrapper">
+{#if (page.route.id === '/(app)' && !token) || page.route.id === '/(app)/home'}
+	<section class="marketing-page">
 		<Header />
 		<Hero />
 		<Features />
@@ -68,4 +62,40 @@
 		<FAQ />
 		<HomeFooter />
 	</section>
+{:else}
+	{@render children?.()}
 {/if}
+
+<style>
+	.marketing-page {
+		display: flex;
+		flex-direction: column;
+		max-width: 1440px;
+		width: 100%;
+		margin: 0 auto;
+		padding: 0 60px;
+
+		font-family: 'Spline Sans Mono', monospace;
+
+		/* optimise font rendering */
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+		color: var(--clr-black);
+
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		text-rendering: optimizeLegibility;
+
+		@media (--mobile-viewport) {
+			padding: 0 20px;
+		}
+
+		@media (--desktop-small-viewport) {
+			padding: 0 40px;
+		}
+
+		@media (--desktop-viewport) {
+			overflow-x: hidden;
+		}
+	}
+</style>

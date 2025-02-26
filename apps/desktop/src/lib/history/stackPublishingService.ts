@@ -47,6 +47,6 @@ export class StackPublishingService {
 	}
 
 	private canPublishStack(user: User | undefined, project: Project | undefined) {
-		return user !== undefined && !!project?.api;
+		return user !== undefined && !!project?.api && !!project?.api.reviews;
 	}
 }

@@ -2,7 +2,6 @@
 	import BranchReviewButRequest from '$components/BranchReviewButRequest.svelte';
 	import { BranchStack, type PatchSeries } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
-	import { cloudReviewFunctionality } from '$lib/config/uiFeatureFlags';
 	import { syncBrToPr } from '$lib/forge/brToPrSync.svelte';
 	import { getPr } from '$lib/forge/getPr.svelte';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
@@ -52,18 +51,20 @@
 	}
 
 	const creationActionsDisplay = {
-		[CreationAction.CreateBR]: 'Create butler review',
-		[CreationAction.CreatePR]: 'Create pull request'
+		[CreationAction.CreateBR]: 'Create Butler Review',
+		[CreationAction.CreatePR]: 'Create Pull Request'
 	};
 
 	let selectedAction = $state<CreationAction>();
+
+	const canPublish = stackPublishingService.canPublish;
 
 	const actions = $derived.by(() => {
 		const out: CreationAction[] = [];
 		if ($prService && !pr.current) {
 			out.push(CreationAction.CreatePR);
 		}
-		if (stackPublishingService.canPublish && !branch.reviewId && $cloudReviewFunctionality) {
+		if ($canPublish && !branch.reviewId) {
 			out.push(CreationAction.CreateBR);
 		}
 		return out;

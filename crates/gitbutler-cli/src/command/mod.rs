@@ -57,6 +57,7 @@ pub mod ownership {
                     hash: None,
                     start: from_line,
                     end: to_line,
+                    hunk_header: None,
                 }],
             }],
         };

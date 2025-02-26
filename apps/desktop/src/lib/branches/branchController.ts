@@ -5,7 +5,7 @@ import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import type { BranchListingService } from '$lib/branches/branchListing';
 import type { LocalFile } from '$lib/files/file';
-import type { Hunk } from '$lib/hunks/hunk';
+import type { DiffSpec, Hunk } from '$lib/hunks/hunk';
 import type { StackOrder } from './branch';
 import type { VirtualBranchService } from './virtualBranchService';
 
@@ -449,13 +449,13 @@ export class BranchController {
 		}
 	}
 
-	async amendBranch(branchId: string, commitOid: string, ownership: string) {
+	async amendBranch(branchId: string, commitOid: string, worktreeChanges: DiffSpec[]) {
 		try {
 			await invoke<void>('amend_virtual_branch', {
 				projectId: this.projectId,
 				branchId,
 				commitOid,
-				ownership
+				worktreeChanges
 			});
 		} catch (err: any) {
 			showError('Failed to amend commit', err);

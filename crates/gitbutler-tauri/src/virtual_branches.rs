@@ -1,6 +1,7 @@
 pub mod commands {
     use anyhow::{anyhow, Context};
     use but_settings::AppSettingsWithDiskSync;
+    use but_workspace::commit_engine::ui::DiffSpec;
     use but_workspace::StackEntry;
     use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
     use gitbutler_branch_actions::branch_upstream_integration::IntegrationStrategy;
@@ -376,12 +377,17 @@ pub mod commands {
         project_id: ProjectId,
         branch_id: StackId,
         commit_oid: String,
-        ownership: BranchOwnershipClaims,
+        worktree_changes: Vec<DiffSpec>,
     ) -> Result<String, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        let oid = gitbutler_branch_actions::amend(&ctx, branch_id, commit_oid, &ownership)?;
+        let oid = gitbutler_branch_actions::amend(
+            &ctx,
+            branch_id,
+            commit_oid,
+            worktree_changes.into_iter().map(Into::into).collect(),
+        )?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(oid.to_string())
     }

@@ -25,11 +25,13 @@ fn reconcile_ownership_simple() {
                     start: 1,
                     end: 3,
                     hash: Some(Hunk::hash("1,3")),
+                    hunk_header: None,
                 },
                 Hunk {
                     start: 4,
                     end: 6,
                     hash: Some(Hunk::hash("4,6")),
+                    hunk_header: None,
                 },
             ],
         }],
@@ -56,6 +58,7 @@ fn reconcile_ownership_simple() {
                 start: 7,
                 end: 9,
                 hash: Some(Hunk::hash("7,9")),
+                hunk_header: None,
             }],
         }],
     };
@@ -70,11 +73,13 @@ fn reconcile_ownership_simple() {
                 start: 4,
                 end: 6,
                 hash: Some(Hunk::hash("4,6")),
+                hunk_header: None,
             },
             Hunk {
                 start: 7,
                 end: 9,
                 hash: Some(Hunk::hash("9,7")),
+                hunk_header: None,
             },
         ],
     }];
@@ -92,6 +97,7 @@ fn reconcile_ownership_simple() {
                     start: 1,
                     end: 3,
                     hash: Some(Hunk::hash("1,3")),
+                    hunk_header: None,
                 },],
             }],
         }
@@ -107,11 +113,13 @@ fn reconcile_ownership_simple() {
                         start: 4,
                         end: 6,
                         hash: Some(Hunk::hash("4,6")),
+                        hunk_header: None,
                     },
                     Hunk {
                         start: 7,
                         end: 9,
                         hash: Some(Hunk::hash("9,7")),
+                        hunk_header: None,
                     },
                 ],
             }],

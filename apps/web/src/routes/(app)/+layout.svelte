@@ -21,8 +21,9 @@
 	import { setContext, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import '$lib/styles/global.css';
-	import '$home/styles/styles.css';
 	import { env } from '$env/dynamic/public';
+
+	const CHAT_NOTFICATION_SOUND = '/sounds/pop.mp3';
 
 	interface Props {
 		children: Snippet;
@@ -50,16 +51,26 @@
 	setContext(NewUserService, newUserService);
 	const branchService = new BranchService(httpClient, appState.appDispatch);
 	setContext(BranchService, branchService);
-	const patchSerice = new PatchService(httpClient, appState.appDispatch);
-	setContext(PatchService, patchSerice);
+	const patchService = new PatchService(httpClient, appState.appDispatch);
+	setContext(PatchService, patchService);
 	const patchEventsService = new PatchEventsService(
 		httpClient,
 		appState,
 		appState.appDispatch,
 		authService.tokenReadable,
-		patchSerice,
+		patchService,
 		env.PUBLIC_APP_HOST
 	);
+
+	const user = $derived(userService.user);
+
+	$effect(() => {
+		if ($user) {
+			patchEventsService.setUserId($user.id);
+			patchEventsService.setChatSoundUrl(CHAT_NOTFICATION_SOUND);
+		}
+	});
+
 	setContext(PatchEventsService, patchEventsService);
 	const chatChannelService = new ChatChannelsService(httpClient, appState.appDispatch);
 	setContext(ChatChannelsService, chatChannelService);
@@ -117,12 +128,5 @@
 		flex-direction: column;
 		margin: 0 auto;
 		width: 100%;
-	}
-
-	.page-wrapper {
-		display: flex;
-		flex-direction: column;
-		max-width: 1440px;
-		margin: 0 auto;
 	}
 </style>
