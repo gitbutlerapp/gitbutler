@@ -36,13 +36,13 @@
 		<table class="commits-table">
 			<thead>
 				<tr>
-					<th><div>Status</div></th>
-					<th><div>Name</div></th>
-					<th><div>UUID</div></th>
-					<th><div>Branch commits</div></th>
-					<th><div>Last update</div></th>
-					<th><div>Authors</div></th>
-					<th><div>Version</div></th>
+					<th style="width:8%;"><div>Status</div></th>
+					<th style="width:auto;"><div>Name</div></th>
+					<th style="width:7%;"><div>UUID</div></th>
+					<th style="width:10%;"><div>Branch commits</div></th>
+					<th style="width:10%;"><div>Last update</div></th>
+					<th style="width:8%;"><div>Authors</div></th>
+					<th style="width:7%;"><div>Version</div></th>
 				</tr>
 			</thead>
 			<tbody class="pretty">

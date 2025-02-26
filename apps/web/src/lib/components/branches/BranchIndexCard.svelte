@@ -43,8 +43,11 @@
 		<tr class:rounded-top={roundedTop} class:rounded-bottom={roundedBottom} class="row">
 			<td><div><BranchStatusBadge {branch} /></div></td>
 			<td>
-				<div class="text-13 text-bold">
-					<a href={routes.projectReviewBranchPath({ ...linkParams, branchId: branch.branchId })}>
+				<div class="text-13 text-bold title-column">
+					<a
+						title={branch.title}
+						href={routes.projectReviewBranchPath({ ...linkParams, branchId: branch.branchId })}
+					>
 						{branch.title || '-'}
 					</a>
 				</div>
@@ -76,6 +79,10 @@
 		color: var(--clr-text-2);
 	}
 
+	.title-column {
+		width: auto;
+	}
+
 	.row {
 		min-height: 50px;
 
@@ -92,6 +99,10 @@
 
 				border-top: none;
 				border-bottom: 1px solid var(--clr-border-2);
+
+				white-space: nowrap;
+				text-overflow: ellipsis;
+				overflow: hidden;
 			}
 
 			&:first-child > div {

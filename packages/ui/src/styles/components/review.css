@@ -1,7 +1,7 @@
 .commits-table {
-	width: 100%;
 	color: var(--clr-text-1);
 	font-size: 0.9rem;
+	table-layout: fixed;
 
 	.row-placeholder {
 		pointer-events: none;
@@ -10,19 +10,22 @@
 		white-space: nowrap;
 	}
 
-	tbody.pretty > tr:first-child > td {
-		padding-top: 10px; /* Simulates a top margin */
-		> div {
+	tbody.pretty>tr:first-child>td {
+		padding-top: 10px;
+
+		/* Simulates a top margin */
+		>div {
 			border-top: 1px solid var(--clr-border-2);
 		}
 
 		&:first-child {
-			> div {
+			>div {
 				border-top-left-radius: var(--radius-m);
 			}
 		}
+
 		&:last-child {
-			> div {
+			>div {
 				border-top-right-radius: var(--radius-m);
 			}
 		}
@@ -32,7 +35,7 @@
 		padding: 0;
 		color: var(--clr-text-2);
 
-		> div {
+		>div {
 			font-weight: 100;
 			font-size: 0.8em;
 			text-align: left;
@@ -45,7 +48,7 @@
 		}
 
 		&:first-child {
-			> div {
+			>div {
 				border-left: 1px solid var(--clr-border-2);
 				border-top-left-radius: var(--radius-m);
 				border-bottom-left-radius: var(--radius-m);
@@ -53,7 +56,7 @@
 		}
 
 		&:last-child {
-			> div {
+			>div {
 				border-right: 1px solid var(--clr-border-2);
 				border-top-right-radius: var(--radius-m);
 				border-bottom-right-radius: var(--radius-m);

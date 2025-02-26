@@ -33,9 +33,12 @@
 				<div>{project.activeReviewsCount}</div>
 			</td>
 			<td>
-				<div>
-					<a href={projectRoute({ ownerSlug: project.owner, projectSlug: project.slug })}>
-						<p class="slug">{project.owner}/<strong>{project.slug}</strong></p>
+				<div class="slug">
+					<a
+						title={`${project.owner}/${project.slug}`}
+						href={projectRoute({ ownerSlug: project.owner, projectSlug: project.slug })}
+					>
+						{project.owner}/<strong>{project.slug}</strong>
 					</a>
 				</div>
 			</td>
@@ -52,6 +55,7 @@
 <style lang="postcss">
 	.row {
 		min-height: 50px;
+		width: 100%;
 
 		> td {
 			padding: 0;
@@ -66,6 +70,10 @@
 
 				border-top: none;
 				border-bottom: 1px solid var(--clr-border-2);
+
+				white-space: nowrap;
+				text-overflow: ellipsis;
+				overflow: hidden;
 			}
 
 			&:first-child > div {

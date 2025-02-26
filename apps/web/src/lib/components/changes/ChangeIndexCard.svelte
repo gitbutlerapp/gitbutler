@@ -49,7 +49,9 @@
 			<td> <div><CommitStatusBadge status={getPatchStatus(patch)} /></div></td>
 			<td
 				><div title={patch.title}>
-					<a href={routes.projectReviewBranchCommitPath({ ...params, changeId: patch.changeId })}
+					<a
+						title={patch.title}
+						href={routes.projectReviewBranchCommitPath({ ...params, changeId: patch.changeId })}
 						><p class="text-13 text-bold patch-name">{patch.title}</p></a
 					>
 				</div></td
@@ -104,6 +106,10 @@
 
 				border-top: none;
 				border-bottom: 1px solid var(--clr-border-2);
+
+				white-space: nowrap;
+				text-overflow: ellipsis;
+				overflow: hidden;
 			}
 
 			&:first-child > div {
