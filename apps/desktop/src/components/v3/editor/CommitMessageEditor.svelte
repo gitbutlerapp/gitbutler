@@ -32,7 +32,10 @@
 		CodeHighlightPlugin,
 		CodeActionMenuPlugin,
 		MarkdownShortcutPlugin,
-		ALL_TRANSFORMERS
+		ALL_TRANSFORMERS,
+		Toolbar,
+		StateStoreRichTextUpdator,
+		LinkPlugin
 	} from 'svelte-lexical';
 
 	type Props = {
@@ -102,13 +105,12 @@
 	}
 </script>
 
-<FormattingPopup
-	onClick={(option) => {
-		console.log(option);
-	}}
-/>
-
 <Composer {initialConfig} bind:this={composer}>
+	<Toolbar>
+		<StateStoreRichTextUpdator />
+		<FormattingPopup />
+	</Toolbar>
+
 	<div class="editor-container" bind:this={editorDiv}>
 		<div class="editor-scroller">
 			<div class="editor">
@@ -126,6 +128,7 @@
 			<FloatingLinkEditorPlugin anchorElem={editorDiv} />
 			<HashtagPlugin />
 			<ListPlugin />
+			<LinkPlugin />
 			<MarkdownShortcutPlugin transformers={ALL_TRANSFORMERS} />
 			<RichTextPlugin />
 			<SharedHistoryPlugin />
