@@ -5,8 +5,10 @@ import 'reflect-metadata';
 export class RemoteHunk {
 	diff!: string;
 	hash?: string;
-	new_start!: number;
-	new_lines!: number;
+	oldStart!: number;
+	oldLines!: number;
+	newStart!: number;
+	newLines!: number;
 	changeType!: ChangeType;
 
 	get id(): string {
@@ -42,8 +44,10 @@ export class Hunk {
 	/// Indicates that the hunk depends on multiple branches. In this case the hunk cant be moved or comitted.
 	poisoned!: boolean;
 	changeType!: ChangeType;
-	new_start!: number;
-	new_lines!: number;
+	oldStart!: number;
+	oldLines!: number;
+	newStart!: number;
+	newLines!: number;
 }
 
 export class HunkLock {
