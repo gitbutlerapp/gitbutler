@@ -57,12 +57,14 @@
 
 	let selectedAction = $state<CreationAction>();
 
+	const canPublish = stackPublishingService.canPublish;
+
 	const actions = $derived.by(() => {
 		const out: CreationAction[] = [];
 		if ($prService && !pr.current) {
 			out.push(CreationAction.CreatePR);
 		}
-		if (stackPublishingService.canPublish && !branch.reviewId) {
+		if ($canPublish && !branch.reviewId) {
 			out.push(CreationAction.CreateBR);
 		}
 		return out;
