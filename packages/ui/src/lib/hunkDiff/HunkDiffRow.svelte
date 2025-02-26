@@ -144,17 +144,10 @@
 	}
 
 	.table__textContent {
-		z-index: var(--z-lifted);
 		width: 100%;
-
-		color: var(--clr-text-1, #1a1614);
-		font-family: 'Geist Mono';
 		font-size: 12px;
-		font-style: normal;
-		font-weight: 400;
-		line-height: 120%; /* 14.4px */
-
 		padding-left: 4px;
+		line-height: 1.25;
 		tab-size: var(--tab-size);
 		white-space: pre;
 		user-select: text;
@@ -201,17 +194,13 @@
 		position: absolute;
 		top: calc(var(--height) - var(--overflow-menu-height) - 4px);
 		left: 0;
-
 		display: flex;
 		pointer-events: none;
 		gap: 0;
 		background: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
-
-		/* shadow/s */
-		box-shadow: 0px 4px 14px 0px rgba(0, 0, 0, 0.06);
-
+		box-shadow: var(--fx-shadow-s);
 		opacity: 0;
 		transition: opacity var(--transition-medium);
 
@@ -226,22 +215,22 @@
 	}
 
 	.table__numberColumn {
-		color: var(--clr-diff-count-text, #b4afac);
-		font-family: 'Geist Mono';
-		font-size: 11px;
-		font-style: normal;
-		font-weight: 400;
-		line-height: 120%; /* 13.2px */
-
+		color: var(--clr-diff-count-text);
 		border-color: var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
+		font-size: 11px;
+		text-align: center;
 		padding: 0 4px;
 		text-align: right;
 		vertical-align: top;
 		user-select: none;
 
-		box-sizing: border-box;
 		position: sticky;
+		left: calc(var(--number-col-width));
+		width: var(--number-col-width);
+		min-width: var(--number-col-width);
+
+		border-right: 1px solid var(--clr-border-2);
 
 		&.diff-line-addition {
 			background-color: var(--clr-diff-addition-count-bg);
@@ -265,6 +254,8 @@
 	}
 
 	.table__numberColumn:first-of-type {
+		width: var(--number-col-width);
+		min-width: var(--number-col-width);
 		left: 0px;
 	}
 

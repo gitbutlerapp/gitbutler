@@ -1,7 +1,22 @@
 @font-face {
 	font-family: 'PP Editorial New';
-	src: url('pp-editorial/PPEditorialNew-Regular.woff2') format('woff2');
+	src: url('/fonts/PPEditorialNew-Regular.woff2') format('woff2');
+	font-weight: 400;
+	font-style: normal;
+	unicode-range: U+000-5FF;
+	/* Latin glyphs */
+	font-display: swap;
 }
+
+@font-face {
+	font-family: 'PP Editorial New';
+	src: url('/fonts/PPEditorialNew-Italic.woff2') format('woff2');
+	font-weight: 400;
+	font-style: italic;
+	unicode-range: U+000-5FF;
+	font-display: swap;
+}
+
 @font-face {
 	font-family: 'Geist Mono';
 	font-style: normal;
@@ -9,6 +24,7 @@
 	font-display: swap;
 	src: url('geist-mono/GeistMono-Regular.woff2') format('woff2');
 }
+
 @font-face {
 	font-family: 'Geist Mono';
 	font-style: normal;
@@ -16,6 +32,7 @@
 	font-display: swap;
 	src: url('geist-mono/GeistMono-Medium.woff2') format('woff2');
 }
+
 @font-face {
 	font-family: 'Geist Mono';
 	font-style: normal;
@@ -31,6 +48,7 @@
 	font-display: swap;
 	src: url('inter/Inter-Regular.woff2') format('woff2');
 }
+
 @font-face {
 	font-family: 'Inter';
 	font-style: italic;
@@ -38,6 +56,7 @@
 	font-display: swap;
 	src: url('inter/Inter-Italic.woff2') format('woff2');
 }
+
 @font-face {
 	font-family: 'Inter';
 	font-style: normal;
@@ -45,6 +64,7 @@
 	font-display: swap;
 	src: url('inter/Inter-Medium.woff2') format('woff2');
 }
+
 @font-face {
 	font-family: 'Inter';
 	font-style: italic;
@@ -52,6 +72,7 @@
 	font-display: swap;
 	src: url('inter/Inter-MediumItalic.woff2') format('woff2');
 }
+
 @font-face {
 	font-family: 'Inter';
 	font-style: normal;
@@ -59,6 +80,7 @@
 	font-display: swap;
 	src: url('inter/Inter-SemiBold.woff2') format('woff2');
 }
+
 @font-face {
 	font-family: 'Inter';
 	font-style: italic;
@@ -66,6 +88,7 @@
 	font-display: swap;
 	src: url('inter/Inter-SemiBoldItalic.woff2') format('woff2');
 }
+
 @font-face {
 	font-family: 'Inter';
 	font-style: normal;
@@ -73,10 +96,41 @@
 	font-display: swap;
 	src: url('inter/Inter-Bold.woff2') format('woff2');
 }
+
 @font-face {
 	font-family: 'Inter';
 	font-style: italic;
 	font-weight: 700;
 	font-display: swap;
 	src: url('inter/Inter-BoldItalic.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Spline Sans Mono';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('/fonts/SplineSansMono-Regular.woff2') format('woff2');
+	unicode-range: U+000-5FF;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Spline Sans Mono';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url('/fonts/SplineSansMono-Medium.woff2') format('woff2');
+	unicode-range: U+000-5FF;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Spline Sans Mono';
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url('/fonts/SplineSansMono-Semibold.woff2') format('woff2');
+	unicode-range: U+000-5FF;
+	font-display: swap;
 }

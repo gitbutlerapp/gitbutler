@@ -225,9 +225,9 @@ pub fn commit_whole_files_and_all_hunks_from_workspace(
             .rejected_specs
             .iter()
             .cloned()
-            .map(|mut spec| {
+            .map(|(reason, mut spec)| {
                 spec.hunk_headers.clear();
-                spec
+                (reason, spec)
             })
             .collect::<Vec<_>>(),
         whole_file_output.rejected_specs,

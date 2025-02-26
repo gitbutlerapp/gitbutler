@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isLockfile } from '$lib/diff/lockfiles';
 	import { splitDiffIntoHunks } from '$lib/diffParsing';
 	import HunkDiff, { type LineClickParams } from '@gitbutler/ui/HunkDiff.svelte';
 	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
@@ -24,6 +25,11 @@
 		clearLineSelection
 	}: Props = $props();
 
+	const lockFile = $derived.by(() => {
+		if (!section.newPath) return false;
+		return isLockfile(section.newPath);
+	});
+
 	const hunks = $derived(section.diffPatch ? splitDiffIntoHunks(section.diffPatch) : []);
 	const filePath = $derived(section.newPath || 'unknown');
 
@@ -32,6 +38,8 @@
 	}
 
 	const selectedLines = $derived(selectedSha === section.diffSha ? lines : []);
+
+	let displayLockHunks = $state<boolean>(false);
 </script>
 
 <div class="diff-section">
@@ -49,6 +57,9 @@
 			{onCopySelection}
 			{onQuoteSelection}
 			{clearLineSelection}
+			isHidden={!lockFile && !displayLockHunks}
+			whyHidden="Lock files are hidden by default"
+			onShowDiffClick={() => (displayLockHunks = true)}
 		/>
 	{/each}
 </div>
@@ -75,5 +86,21 @@
 
 	.file-name {
 		color: var(--clr-text-1);
+	}
+
+	.lock-files-hidden-by-default {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		padding: 16px 8px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-s);
+	}
+
+	.hidden-lock-file-message {
+		color: var(--clr-text-2);
 	}
 </style>

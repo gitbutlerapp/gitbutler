@@ -13,7 +13,6 @@
 	import { get } from 'svelte/store';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import '$home/styles/styles.css';
 	import '$lib/styles/global.css';
 
 	interface Props {
@@ -54,7 +53,7 @@
 </script>
 
 {#if (page.route.id === '/(app)' && !token) || page.route.id === '/(app)/home'}
-	<section class="page-wrapper">
+	<section class="marketing-page">
 		<Header />
 		<Hero />
 		<Features />
@@ -66,3 +65,37 @@
 {:else}
 	{@render children?.()}
 {/if}
+
+<style>
+	.marketing-page {
+		display: flex;
+		flex-direction: column;
+		max-width: 1440px;
+		width: 100%;
+		margin: 0 auto;
+		padding: 0 60px;
+
+		font-family: 'Spline Sans Mono', monospace;
+
+		/* optimise font rendering */
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+		color: var(--clr-black);
+
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		text-rendering: optimizeLegibility;
+
+		@media (--mobile-viewport) {
+			padding: 0 20px;
+		}
+
+		@media (--desktop-small-viewport) {
+			padding: 0 40px;
+		}
+
+		@media (--desktop-viewport) {
+			overflow-x: hidden;
+		}
+	}
+</style>

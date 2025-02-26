@@ -21,7 +21,6 @@
 	import { setContext, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import '$lib/styles/global.css';
-	import '$home/styles/styles.css';
 	import { env } from '$env/dynamic/public';
 
 	const CHAT_NOTFICATION_SOUND = '/sounds/pop.mp3';
@@ -129,12 +128,5 @@
 		flex-direction: column;
 		margin: 0 auto;
 		width: 100%;
-	}
-
-	.page-wrapper {
-		display: flex;
-		flex-direction: column;
-		max-width: 1440px;
-		margin: 0 auto;
 	}
 </style>

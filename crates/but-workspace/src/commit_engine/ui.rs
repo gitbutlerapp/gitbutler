@@ -60,7 +60,7 @@ impl From<super::CreateCommitOutcome> for CreateCommitOutcome {
         CreateCommitOutcome {
             paths_to_rejected_changes: rejected_specs
                 .into_iter()
-                .map(|spec| spec.path.into())
+                .map(|(_reason, spec)| spec.path.into())
                 .collect(),
             new_commit,
         }
