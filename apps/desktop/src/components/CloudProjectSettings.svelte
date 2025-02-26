@@ -3,8 +3,9 @@
 	import Section from '$components/Section.svelte';
 	import { ProjectService } from '$lib/project/projectService';
 	import { ProjectsService } from '$lib/project/projectsService';
+	import { User } from '$lib/user/user';
 	import { UserService } from '$lib/user/userService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound, map } from '@gitbutler/shared/network/loadable';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
@@ -15,13 +16,11 @@
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import type { Project as BackendProject } from '$lib/project/project';
 	import type { Project } from '@gitbutler/shared/organizations/types';
-
 	const appState = getContext(AppState);
 	const projectsService = getContext(ProjectsService);
 	const projectService = getContext(ProjectService);
@@ -33,6 +32,7 @@
 
 	const project = projectService.project;
 	const userLogin = userService.userLogin;
+	const user = getContextStore(User);
 
 	const cloudProject = $derived(
 		$project?.api?.repository_id
@@ -107,6 +107,14 @@
 		await projectsService.updateProject(mutableProject);
 	}
 
+	async function toggleProject() {
+		if ($project?.api?.repository_id) {
+			detachProject();
+		} else {
+			createProject();
+		}
+	}
+
 	async function onReviewsChange(reviews: boolean) {
 		if (!$project?.api) return;
 
@@ -132,16 +140,38 @@
 	}
 </script>
 
-{#if cloudProject}
-	<Section>
+<Section>
+	<SectionCard orientation="row" labelFor="signCommits">
 		{#snippet title()}
-			Full data synchronization
+			GitButler Server Features
 		{/snippet}
+		{#snippet caption()}
+			Enabling this allows you to turn on various hosted features for this project on gitbutler.com,
+			including reviews, history sync, and branch sync.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle id="signCommits" checked={!!$project?.api} onclick={toggleProject} />
+		{/snippet}
+	</SectionCard>
+</Section>
 
+{#if cloudProject}
+	<br />
+	<Section gap={0}>
 		{#snippet children()}
-			<SectionCard labelFor="reviews" orientation="row">
+			<SectionCard
+				labelFor="reviews"
+				orientation="row"
+				roundedTop={true}
+				roundedBottom={$user?.role !== 'admin'}
+			>
+				{#snippet title()}
+					Use GitButler Review
+				{/snippet}
 				{#snippet caption()}
-					Use GitButler Reviews with this project.
+					Use GitButler Reviews with this project. Reviews is a commit based code review tool that
+					helps your team review series of patches.
+					<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
 				{/snippet}
 				{#snippet actions()}
 					<Toggle
@@ -151,31 +181,46 @@
 					/>
 				{/snippet}
 			</SectionCard>
-			<SectionCard labelFor="historySync" orientation="row">
-				{#snippet caption()}
-					Sync this project's operations log with GitButler Web services. The operations log
-					includes snapshots of the repository state, including non-committed code changes.
-				{/snippet}
-				{#snippet actions()}
-					<Toggle
-						id="historySync"
-						checked={$project?.api?.sync || false}
-						onclick={async () => await onSyncChange(!$project?.api?.sync)}
-					/>
-				{/snippet}
-			</SectionCard>
-			<SectionCard labelFor="branchesySync" orientation="row">
-				{#snippet caption()}
-					Sync this repository's branches with the GitButler Remote.
-				{/snippet}
-				{#snippet actions()}
-					<Toggle
-						id="branchesySync"
-						checked={$project?.api?.sync_code || false}
-						onclick={async () => await onSyncCodeChange(!$project?.api?.sync_code)}
-					/>
-				{/snippet}
-			</SectionCard>
+			{#if $user?.role === 'admin'}
+				<SectionCard
+					labelFor="historySync"
+					roundedBottom={false}
+					roundedTop={false}
+					orientation="row"
+				>
+					{#snippet title()}
+						Timeline Backup
+					{/snippet}
+					{#snippet caption()}
+						Sync this project's operations log (timeline) to GitButler servers. The operations log
+						includes snapshots of the repository state, including non-committed code changes.
+					{/snippet}
+					{#snippet actions()}
+						<Toggle
+							id="historySync"
+							checked={$project?.api?.sync || false}
+							onclick={async () => await onSyncChange(!$project?.api?.sync)}
+						/>
+					{/snippet}
+				</SectionCard>
+				<SectionCard labelFor="branchesySync" roundedTop={false} orientation="row">
+					{#snippet title()}
+						Code Hosting
+					{/snippet}
+					{#snippet caption()}
+						Push this project's branches to a hosted GitButler repository.
+					{/snippet}
+					{#snippet actions()}
+						<Toggle
+							id="branchesySync"
+							checked={$project?.api?.sync_code || false}
+							onclick={async () => await onSyncCodeChange(!$project?.api?.sync_code)}
+						/>
+					{/snippet}
+				</SectionCard>
+			{/if}
+
+			<br />
 
 			<Loading loadable={cloudProject.current}>
 				{#snippet children(cloudProject)}
@@ -186,7 +231,7 @@
 							href={webRoutes.projectUrl({
 								ownerSlug: cloudProject.owner,
 								projectSlug: cloudProject.slug
-							})}>Go to GitButler Cloud Project</Link
+							})}>Go to GitButler Server Project</Link
 						>
 					</div>
 				{/snippet}
@@ -194,54 +239,46 @@
 		{/snippet}
 	</Section>
 
-	<Loading loadable={cloudProject.current}>
-		{#snippet children(cloudProject)}
-			{#if !cloudProject.parentProjectRepositoryId}
-				<Section>
-					{#snippet title()}
-						Link your project with an organization
-					{/snippet}
+	{#if $user?.role === 'admin'}
+		<Loading loadable={cloudProject.current}>
+			{#snippet children(cloudProject)}
+				{#if !cloudProject.parentProjectRepositoryId}
+					<Section>
+						{#snippet title()}
+							Link your project with an organization
+						{/snippet}
 
-					<div bind:this={organizationsList}>
-						{#each usersOrganizations.current as loadableOrganization, index}
-							<SectionCard
-								roundedBottom={index === usersOrganizations.current.length - 1}
-								roundedTop={index === 0}
-								orientation="row"
-								centerAlign
-							>
-								{#snippet children()}
-									<Loading loadable={loadableOrganization}>
-										{#snippet children(organization)}
-											<h5 class="text-15 text-bold flex-grow">
-												{organization.name || organization.slug}
-											</h5>
-										{/snippet}
-									</Loading>
-								{/snippet}
-								{#snippet actions()}
-									<ProjectConnectModal
-										organizationSlug={loadableOrganization.id}
-										projectRepositoryId={cloudProject.repositoryId}
-									/>
-								{/snippet}
-							</SectionCard>
-						{/each}
-					</div>
-				</Section>
-			{/if}
-		{/snippet}
-	</Loading>
-
-	<div>
-		<AsyncButton kind="outline" action={detachProject}>Disable cloud functionality</AsyncButton>
-	</div>
-{:else if !$project?.api?.repository_id}
-	<Section>
-		<AsyncButton action={createProject}>Enable cloud functionality</AsyncButton>
-	</Section>
-{:else}
-	<p>Loading...</p>
+						<div bind:this={organizationsList}>
+							{#each usersOrganizations.current as loadableOrganization, index}
+								<SectionCard
+									roundedBottom={index === usersOrganizations.current.length - 1}
+									roundedTop={index === 0}
+									orientation="row"
+									centerAlign
+								>
+									{#snippet children()}
+										<Loading loadable={loadableOrganization}>
+											{#snippet children(organization)}
+												<h5 class="text-15 text-bold flex-grow">
+													{organization.name || organization.slug}
+												</h5>
+											{/snippet}
+										</Loading>
+									{/snippet}
+									{#snippet actions()}
+										<ProjectConnectModal
+											organizationSlug={loadableOrganization.id}
+											projectRepositoryId={cloudProject.repositoryId}
+										/>
+									{/snippet}
+								</SectionCard>
+							{/each}
+						</div>
+					</Section>
+				{/if}
+			{/snippet}
+		</Loading>
+	{/if}
 {/if}
 
 <style>
