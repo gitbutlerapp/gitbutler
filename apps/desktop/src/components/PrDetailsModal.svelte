@@ -22,7 +22,7 @@
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { type DetailedPullRequest, type PullRequest } from '$lib/forge/interface/types';
-	import { ReactivePRBody, ReactivePRTitle } from '$lib/forge/prContents';
+	import { ReactivePRBody, ReactivePRTitle } from '$lib/forge/prContents.svelte';
 	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
 	import { TemplateService } from '$lib/forge/templateService';
 	import { showError, showToast } from '$lib/notifications/toasts';
