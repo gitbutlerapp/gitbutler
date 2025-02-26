@@ -30,9 +30,6 @@
 
 	let token = $state<string | null>();
 
-	const publicRouteIds = ['/(app)/downloads'];
-	const isPublicRoute = $derived(publicRouteIds.includes(page.route.id ?? ''));
-
 	$effect(() => {
 		token = get(authService.tokenReadable) || page.url.searchParams.get('gb_access_token');
 		if (token) {
@@ -49,12 +46,14 @@
 		if (page.url.pathname === '/privacy') {
 			window.location.href = jsonLinks.legal.privacyPolicy.url;
 		}
+
+		if (!token && page.route.id === '/(app)/home') {
+			goto('/');
+		}
 	});
 </script>
 
-{#if isPublicRoute || (token && page.route.id !== '/(app)/home')}
-	{@render children?.()}
-{:else}
+{#if (page.route.id === '/(app)' && !token) || page.route.id === '/(app)/home'}
 	<section class="page-wrapper">
 		<Header />
 		<Hero />
@@ -64,4 +63,6 @@
 		<FAQ />
 		<HomeFooter />
 	</section>
+{:else}
+	{@render children?.()}
 {/if}
