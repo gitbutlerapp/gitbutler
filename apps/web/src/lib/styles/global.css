@@ -9,3 +9,35 @@ body {
 	min-height: 100vh;
 	background: var(--clr-bg-2);
 }
+
+body:has(.marketing-page) {
+	--off-white: #f5f5f3;
+	--clr-bg: var(--off-white);
+	/* gray */
+	--clr-white: #ffffff;
+	--clr-black: #000000;
+	--clr-dark-gray: #707070;
+	--clr-gray: #d0cfcb;
+	--clr-light-gray: #f1f1ed;
+	/* accent */
+	--clr-accent: #97eae5;
+}
+
+body:has(.marketing-page)::-webkit-scrollbar {
+	/* For vertical scrollbars */
+	width: 8px;
+	/* For horizontal scrollbars */
+	height: 8px;
+}
+
+body:has(.marketing-page)::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--clr-accent) 96%, var(--clr-black));
+}
+
+.marketing-page h1 {
+	font-family: 'PP Editorial New', serif;
+	font-size: 86px;
+	font-weight: 400;
+	line-height: 92%;
+	margin: 0;
+}

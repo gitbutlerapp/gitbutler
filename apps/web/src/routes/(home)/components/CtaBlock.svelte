@@ -563,4 +563,22 @@
 	.second-button__arrow {
 		transition: transform 0.1s ease-in-out;
 	}
+
+	.btn-blue {
+		background-color: var(--clr-accent);
+		transition: background-color 0.1s ease-in-out;
+
+		&:hover {
+			background-color: color-mix(in srgb, var(--clr-accent) 95%, var(--clr-black));
+		}
+	}
+
+	.btn-white {
+		background-color: var(--clr-white);
+		transition: background-color 0.1s ease-in-out;
+
+		&:hover {
+			background-color: var(--clr-light-gray);
+		}
+	}
 </style>
