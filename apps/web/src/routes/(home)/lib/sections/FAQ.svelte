@@ -38,8 +38,6 @@
 			bgIndex: '0'
 		}
 	];
-
-	let isOpen = false;
 </script>
 
 <section class="faq-section" id="faq">

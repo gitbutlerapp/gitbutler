@@ -1,12 +1,11 @@
 <script>
 	import HeaderLink from './HeaderLink.svelte';
 	import HeaderMobileLink from './HeaderMobileLink.svelte';
-	import * as jsonLinks from '$home/lib/data/links.json';
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { fly } from 'svelte/transition';
 	import { env } from '$env/dynamic/public';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import * as jsonLinks from '$home/lib/data/links.json';
 
 	let isMobileMenuOpen = $state(false);
 
@@ -113,14 +112,13 @@
 		</section>
 		<section class="navigation-section">
 			{#if $token}
-				<HeaderLink label="My Dashboard" href={'/'} />
-				<Icon name="dashboard" />
+				<HeaderLink label="My Dashboard" href={'/'} icon="dashboard" />
 			{:else}
 				<HeaderLink
 					label="Sign up / Log in"
 					href={`${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`}
+					icon="login"
 				/>
-				<Icon name="signin" />
 			{/if}
 		</section>
 	</nav>
@@ -169,14 +167,13 @@
 				/>
 				<section class="navigation-section">
 					{#if $token}
-						<HeaderMobileLink label="My Dashboard" href={'/'} />
-						<Icon name="dashboard" />
+						<HeaderMobileLink label="My Dashboard" href={'/'} icon="dashboard" />
 					{:else}
 						<HeaderMobileLink
 							label="Sign up / Log in"
 							href={`${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`}
+							icon="login"
 						/>
-						<Icon name="signin" />
 					{/if}
 				</section>
 			</nav>
@@ -276,9 +273,9 @@
 	.navigation-desktop {
 		display: flex;
 		align-items: center;
-		gap: 40px;
+		gap: 32px;
 
-		@media (max-width: 1100px) {
+		@media (max-width: 1280px) {
 			display: none;
 		}
 	}
@@ -286,13 +283,13 @@
 	.navigation-section {
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: 4px;
 	}
 
 	.navigation-mobile {
 		display: none;
 
-		@media (max-width: 1100px) {
+		@media (max-width: 1280px) {
 			display: flex;
 			align-items: center;
 			gap: 60px;
