@@ -123,15 +123,6 @@ pub struct Commit<'repo> {
     pub inner: gix::objs::Commit,
 }
 
-/// A representation of the commit that is the tip of the workspace, i.e. usually what `HEAD` points to,
-/// possibly in its managed form in which it merges two or more stacks together, and we can rewrite it at will.
-pub struct WorkspaceCommit<'repo> {
-    /// The id of the commit itself.
-    pub id: gix::Id<'repo>,
-    /// The decoded commit for direct access.
-    pub inner: gix::objs::Commit,
-}
-
 /// A patch in unified diff format to show how a resource changed or now looks like (in case it was newly added),
 /// or how it previously looked like in case of a deletion.
 #[derive(Debug, Clone, Serialize)]

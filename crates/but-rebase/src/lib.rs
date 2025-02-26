@@ -6,7 +6,6 @@
 use crate::commit::CommitterMode;
 use anyhow::{Context, Ok, Result, anyhow, bail};
 use bstr::BString;
-use but_core::WorkspaceCommit;
 use gix::objs::Exists;
 use gix::prelude::ObjectIdExt;
 use tracing::instrument;
@@ -236,12 +235,7 @@ fn rebase(
                 new_message,
             } => {
                 let commit = to_commit(repo, commit_id)?;
-                if commit.parents.len() > 1
-                    // The re-merge is done to re-do what we'd normally do, but only if this is our commit.
-                    // Any other merge HAS to be cherry-picked as only that way will it pick up possible
-                    // conflict resolutions and thus be equivalent.
-                    && WorkspaceCommit::from_id(commit_id.attach(repo))?.is_managed()
-                {
+                if commit.parents.len() > 1 {
                     let mut merge_commit = commit;
                     if let Some(new_message) = new_message {
                         merge_commit.message = new_message;
@@ -270,7 +264,6 @@ fn rebase(
                         Some(cursor) => {
                             let mut new_commit = cherry_pick_one(
                                 repo,
-                                last_seen_commit,
                                 *cursor,
                                 commit_id,
                                 pick_mode,
@@ -305,16 +298,15 @@ fn rebase(
                 let Some(cursor) = &mut cursor else {
                     bail!("Can't squash if previous commit is missing");
                 };
+                last_seen_commit = Some(commit_id);
                 let base_commit = repo.find_commit(*cursor)?;
                 let new_commit = cherry_pick_one(
                     repo,
-                    last_seen_commit,
                     *cursor,
                     commit_id,
                     PickMode::Unconditionally,
                     EmptyCommit::Keep,
                 )?;
-                last_seen_commit = Some(commit_id);
 
                 // Now, lets pretend the base didn't exist by swapping parent with the parent of the base
                 let mut new_commit = repo.find_commit(new_commit)?.decode()?.to_owned();

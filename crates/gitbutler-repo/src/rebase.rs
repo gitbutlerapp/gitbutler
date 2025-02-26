@@ -94,17 +94,8 @@ fn cherry_pick_many(
     empty_commit: EmptyCommit,
 ) -> anyhow::Result<gix::ObjectId> {
     let mut cursor = base;
-    let mut maybe_previous_base = None;
     for to_rebase_id in commits_to_rebase.rev() {
-        cursor = but_rebase::cherry_pick_one(
-            repo,
-            maybe_previous_base,
-            cursor,
-            to_rebase_id,
-            pick_mode,
-            empty_commit,
-        )?;
-        maybe_previous_base = Some(to_rebase_id);
+        cursor = but_rebase::cherry_pick_one(repo, cursor, to_rebase_id, pick_mode, empty_commit)?;
     }
     Ok(cursor)
 }
