@@ -25,7 +25,7 @@ pub enum EmptyCommit {
 pub(crate) mod function {
     use crate::cherry_pick::{EmptyCommit, PickMode};
     use crate::commit::CommitterMode;
-    use anyhow::{Context, bail};
+    use anyhow::Context;
     use bstr::BString;
     use but_core::commit::{HEADERS_CONFLICTED_FIELD, HeadersV2, TreeKind};
     use gix::object::tree::EntryKind;
@@ -36,12 +36,19 @@ pub(crate) mod function {
 
     /// Place `commit_to_rebase` onto `base`.
     ///
+    /// `maybe_previous_base` is essentially the `base` that we sit on currently, if it's known or applicable.
+    ///
+    /// If given, and it actually is in the parents-list of `commit_to_rebase`, we know which commit to replace with
+    /// the new `base` *if* `commit_to_rebase` is also a merge-commit. If it's not there, because the merge-commit
+    /// is picked to a disjoint spot in the graph, existing parents are cleared, making `base` the sole parent.
+    ///
     /// `pick_mode` and `empty_commit` control how to deal with no-ops and epty commits.
     /// Returns the id of the cherry-picked commit.
     ///
     /// Note that the rewritten commit will have headers injected, among which is a change id.
     pub fn cherry_pick_one(
         repo: &gix::Repository,
+        maybe_previous_base: Option<gix::ObjectId>,
         base: gix::ObjectId,
         commit_to_rebase: gix::ObjectId,
         pick_mode: PickMode,
@@ -49,18 +56,23 @@ pub(crate) mod function {
     ) -> anyhow::Result<gix::ObjectId> {
         let base = but_core::Commit::from_id(base.attach(repo))?;
         let to_rebase = but_core::Commit::from_id(commit_to_rebase.attach(repo))?;
-        Ok(cherry_pick_one_inner(base, to_rebase, pick_mode, empty_commit)?.detach())
+        Ok(cherry_pick_one_inner(
+            maybe_previous_base,
+            base,
+            to_rebase,
+            pick_mode,
+            empty_commit,
+        )?
+        .detach())
     }
 
     fn cherry_pick_one_inner<'repo>(
+        maybe_previous_base: Option<gix::ObjectId>,
         base: but_core::Commit<'repo>,
         commit_to_rebase: but_core::Commit<'repo>,
         pick_mode: PickMode,
         empty_commit: EmptyCommit,
     ) -> anyhow::Result<gix::Id<'repo>> {
-        if commit_to_rebase.parents.len() > 1 {
-            bail!("Cannot yet cherry-pick merge-commits - use rebasing for that")
-        }
         if matches!(pick_mode, PickMode::SkipIfNoop)
             && commit_to_rebase.parents.contains(&base.id.detach())
         {
@@ -72,23 +84,43 @@ pub(crate) mod function {
 
         let conflict_kind = gix::merge::tree::TreatAsUnresolved::forced_resolution();
         if cherry_pick.has_unresolved_conflicts(conflict_kind) {
-            commit_from_conflicted_tree(base, commit_to_rebase, tree_id, cherry_pick, conflict_kind)
+            commit_from_conflicted_tree(
+                maybe_previous_base,
+                base,
+                commit_to_rebase,
+                tree_id,
+                cherry_pick,
+                conflict_kind,
+            )
         } else {
-            commit_from_unconflicted_tree(base, commit_to_rebase, tree_id, empty_commit)
+            commit_from_unconflicted_tree(
+                maybe_previous_base,
+                base,
+                commit_to_rebase,
+                tree_id,
+                empty_commit,
+            )
         }
     }
 
     fn set_parent(
         to_rebase: &mut gix::objs::Commit,
         new_parent: gix::ObjectId,
+        maybe_previous_base: Option<gix::ObjectId>,
     ) -> anyhow::Result<()> {
-        if to_rebase.parents.len() > 1 {
-            bail!(
-                "Cherry picks can only be done for single-parent commits. Merge-commits need to be re-merged"
-            )
+        match to_rebase
+            .parents
+            .iter_mut()
+            .find(|p| Some(**p) == maybe_previous_base)
+        {
+            None => {
+                to_rebase.parents.clear();
+                to_rebase.parents.push(new_parent);
+            }
+            Some(existing) => {
+                *existing = new_parent;
+            }
         }
-        to_rebase.parents.clear();
-        to_rebase.parents.push(new_parent);
         Ok(())
     }
 
@@ -142,6 +174,7 @@ pub(crate) mod function {
     }
 
     fn commit_from_unconflicted_tree<'repo>(
+        maybe_previous_base: Option<gix::ObjectId>,
         head: but_core::Commit<'repo>,
         to_rebase: but_core::Commit<'repo>,
         resolved_tree_id: gix::Id<'repo>,
@@ -173,11 +206,12 @@ pub(crate) mod function {
                 .extra_headers
                 .extend(Vec::<(BString, BString)>::from(&HeadersV2::default()));
         }
-        set_parent(&mut new_commit, head.id.detach())?;
+        set_parent(&mut new_commit, head.id.detach(), maybe_previous_base)?;
         Ok(crate::commit::create(repo, new_commit, CommitterMode::Update)?.attach(repo))
     }
 
     fn commit_from_conflicted_tree<'repo>(
+        maybe_previous_base: Option<gix::ObjectId>,
         head: but_core::Commit<'repo>,
         mut to_rebase: but_core::Commit<'repo>,
         resolved_tree_id: gix::Id<'repo>,
@@ -228,7 +262,7 @@ pub(crate) mod function {
         let mut headers = to_rebase.headers().unwrap_or_default();
         headers.conflicted = conflicted_files.conflicted_header_field();
         to_rebase.tree = tree.write().context("failed to write tree")?.detach();
-        set_parent(&mut to_rebase, head.id.detach())?;
+        set_parent(&mut to_rebase, head.id.detach(), maybe_previous_base)?;
 
         to_rebase.set_headers(&headers);
         Ok(crate::commit::create(repo, to_rebase.inner, CommitterMode::Update)?.attach(repo))

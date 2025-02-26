@@ -359,7 +359,7 @@ pub fn add_branch_to_workspace(
     target_tip: Option<gix::ObjectId>,
     metadata: &mut impl RefMetadata,
 ) -> anyhow::Result<ApplyOutcome> {
-    if crate::WorkspaceCommit::from_id(branch_tip.attach(repo))?.is_managed() {
+    if but_core::WorkspaceCommit::from_id(branch_tip.attach(repo))?.is_managed() {
         bail!("Cannot bring a workspace into another one")
     }
 

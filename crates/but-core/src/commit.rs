@@ -1,4 +1,4 @@
-use crate::Commit;
+use crate::{Commit, WorkspaceCommit};
 use anyhow::Context;
 use bstr::{BString, ByteSlice};
 use gix::prelude::ObjectIdExt;
@@ -246,5 +246,47 @@ impl<'repo> Commit<'repo> {
     /// Return our custom headers, of present.
     pub fn headers(&self) -> Option<HeadersV2> {
         HeadersV2::try_from_commit(&self.inner)
+    }
+}
+
+/// Construction
+impl<'repo> WorkspaceCommit<'repo> {
+    const GITBUTLER_INTEGRATION_COMMIT_TITLE: &'static str = "GitButler Integration Commit";
+    /// The known title of the workspace commit, currently used as ID.
+    pub const GITBUTLER_WORKSPACE_COMMIT_TITLE: &'static str = "GitButler Workspace Commit";
+
+    /// Decode the object at `commit_id` and keep its data for later query.
+    pub fn from_id(commit_id: gix::Id<'repo>) -> anyhow::Result<Self> {
+        let commit = commit_id.object()?.try_into_commit()?.decode()?.into();
+        Ok(WorkspaceCommit {
+            id: commit_id,
+            inner: commit,
+        })
+    }
+}
+
+/// Query
+impl WorkspaceCommit<'_> {
+    /// Return `true` if this commit is managed by GitButler.
+    /// If `false`, this is the tip of the stack itself which will be put underneath a *managed* workspace commit
+    /// once another branch is added to the workspace.
+    pub fn is_managed(&self) -> bool {
+        let message = gix::objs::commit::MessageRef::from_bytes(&self.message);
+        message.title == Self::GITBUTLER_INTEGRATION_COMMIT_TITLE
+            || message.title == Self::GITBUTLER_WORKSPACE_COMMIT_TITLE
+    }
+}
+
+impl std::ops::Deref for WorkspaceCommit<'_> {
+    type Target = gix::objs::Commit;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl std::ops::DerefMut for WorkspaceCommit<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
     }
 }

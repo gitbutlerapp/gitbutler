@@ -48,18 +48,10 @@ pub mod commit_engine;
 pub mod branch;
 
 mod commit;
+pub use commit::create_workspace_commit_from_vb_state;
 
 mod virtual_branches_metadata;
 pub use virtual_branches_metadata::VirtualBranchesTomlMetadata;
-
-/// A representation of the commit that is the tip of the workspace, i.e. usually what `HEAD` points to,
-/// possibly in its managed form in which it merges two or more stacks together and we can rewrite it at will.
-pub struct WorkspaceCommit<'repo> {
-    /// The id of the commit itself.
-    pub id: gix::Id<'repo>,
-    /// The decoded commit for direct access.
-    pub inner: gix::objs::Commit,
-}
 
 /// An ID uniquely identifying stacks.
 pub use gitbutler_stack::StackId;
