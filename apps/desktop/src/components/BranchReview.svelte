@@ -2,7 +2,6 @@
 	import BranchReviewButRequest from '$components/BranchReviewButRequest.svelte';
 	import { BranchStack, type PatchSeries } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
-	import { cloudReviewFunctionality } from '$lib/config/uiFeatureFlags';
 	import { syncBrToPr } from '$lib/forge/brToPrSync.svelte';
 	import { getPr } from '$lib/forge/getPr.svelte';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
@@ -63,7 +62,7 @@
 		if ($prService && !pr.current) {
 			out.push(CreationAction.CreatePR);
 		}
-		if (stackPublishingService.canPublish && !branch.reviewId && $cloudReviewFunctionality) {
+		if (stackPublishingService.canPublish && !branch.reviewId) {
 			out.push(CreationAction.CreateBR);
 		}
 		return out;

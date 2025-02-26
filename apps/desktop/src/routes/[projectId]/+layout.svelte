@@ -17,7 +17,6 @@
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showHistoryView } from '$lib/config/config';
-	import { cloudFunctionality } from '$lib/config/uiFeatureFlags';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { UncommitedFilesWatcher } from '$lib/files/watcher';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory';
@@ -197,8 +196,6 @@
 	const settingsStore = settingsService.appSettings;
 
 	$effect(() => {
-		if (!$cloudFunctionality) return;
-
 		projectCloudSync(
 			appState,
 			data.projectsService,
