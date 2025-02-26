@@ -1,9 +1,13 @@
 import { invoke } from '$lib/backend/ipc';
 import { VirtualBranchService } from '$lib/branches/virtualBranchService';
+import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
+import { BranchStatus as CloudBranchStatus } from '@gitbutler/shared/branches/types';
+import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { get } from 'svelte/store';
-import type { BranchStack } from '$lib/branches/branch';
+import type { BranchStack, PatchSeries } from '$lib/branches/branch';
 import type { Project } from '$lib/project/project';
+import type { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 
 export type StackStatus = {
 	treeStatus: TreeStatus;
@@ -65,6 +69,10 @@ export type BaseBranchResolution = {
 	approach: { type: BaseBranchResolutionApproach };
 };
 
+export type IntegrationOutcome = {
+	archivedBranches: string[];
+};
+
 export function getBaseBranchResolution(
 	targetCommitOid: string | undefined,
 	approach: BaseBranchResolutionApproach
@@ -116,7 +124,10 @@ type BranchStatusesResponse =
 export class UpstreamIntegrationService {
 	constructor(
 		private project: Project,
-		private virtualBranchService: VirtualBranchService
+		private virtualBranchService: VirtualBranchService,
+		private cloudBranchService: CloudBranchService,
+		private cloudProjectService: CloudProjectService,
+		private latestBranchLookupService: LatestBranchLookupService
 	) {}
 
 	async upstreamStatuses(targetCommitOid?: string): Promise<StackStatusesWithBranches | undefined> {
@@ -149,12 +160,20 @@ export class UpstreamIntegrationService {
 		return stackStatusesWithBranches;
 	}
 
-	async integrateUpstream(resolutions: Resolution[], baseBranchResolution?: BaseBranchResolution) {
-		return await invoke('integrate_upstream', {
+	async integrateUpstream(
+		resolutions: Resolution[],
+		baseBranchResolution?: BaseBranchResolution
+	): Promise<IntegrationOutcome> {
+		const outcome = await invoke<IntegrationOutcome>('integrate_upstream', {
 			projectId: this.project.id,
 			resolutions,
 			baseBranchResolution
 		});
+
+		// We don't want to await this
+		this.closeArchivedButRequests(outcome.archivedBranches);
+
+		return outcome;
 	}
 
 	async resolveUpstreamIntegration(type: BaseBranchResolutionApproach) {
@@ -162,5 +181,35 @@ export class UpstreamIntegrationService {
 			projectId: this.project.id,
 			resolutionApproach: { type }
 		});
+	}
+
+	private async closeArchivedButRequests(archivedBranches: string[]) {
+		if (!this.project.api) return;
+		const project = await this.cloudProjectService.getProject(this.project.api.repository_id);
+		if (!project) return;
+
+		const stacks = get(this.virtualBranchService.branches);
+		if (!stacks) return;
+
+		for (const archivedBranchName of archivedBranches) {
+			const branch = this.findBranchWithName(stacks, archivedBranchName);
+			if (!branch || !branch.reviewId) continue;
+			const cloudBranch = await this.latestBranchLookupService.getBranch(
+				project.owner,
+				project.slug,
+				branch.reviewId
+			);
+			if (!cloudBranch) continue;
+			this.cloudBranchService.updateBranch(cloudBranch.uuid, { status: CloudBranchStatus.Closed });
+		}
+	}
+
+	private findBranchWithName(stacks: BranchStack[], name: string): PatchSeries | undefined {
+		for (const stack of stacks) {
+			for (const branch of stack.series) {
+				if (branch instanceof Error) continue;
+				if (branch.name === name) return branch;
+			}
+		}
 	}
 }

@@ -17,7 +17,6 @@ import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { ModeService } from '$lib/mode/modeService';
 import { type Project } from '$lib/project/project';
 import { ProjectService } from '$lib/project/projectService';
-import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
 
@@ -83,7 +82,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	);
 
 	const uncommitedFileWatcher = new UncommitedFilesWatcher(project);
-	const upstreamIntegrationService = new UpstreamIntegrationService(project, vbranchService);
 	const syncedSnapshotService = new SyncedSnapshotService(
 		commandService,
 		userService.user,
@@ -108,7 +106,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		projectMetrics,
 		modeService,
 		fetchSignal,
-		upstreamIntegrationService,
 
 		// These observables are provided for convenience
 		branchDragActionsFactory,

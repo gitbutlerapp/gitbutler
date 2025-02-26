@@ -35,6 +35,8 @@
 	import { ProjectService } from '$lib/project/projectService';
 	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
 	import { debounce } from '$lib/utils/debounce';
+	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
+	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
@@ -69,6 +71,20 @@
 	const baseError = $derived(baseBranchService.error);
 	const projectError = $derived(projectsService.error);
 
+	const cloudBranchService = getContext(CloudBranchService);
+	const cloudProjectService = getContext(CloudProjectService);
+	const latestBranchLookupService = getContext(LatestBranchLookupService);
+	$effect(() => {
+		const upstreamIntegrationService = new UpstreamIntegrationService(
+			project,
+			vbranchService,
+			cloudBranchService,
+			cloudProjectService,
+			latestBranchLookupService
+		);
+		setContext(UpstreamIntegrationService, upstreamIntegrationService);
+	});
+
 	$effect.pre(() => {
 		setContext(HistoryService, data.historyService);
 		setContext(VirtualBranchService, data.vbranchService);
@@ -84,7 +100,6 @@
 		setContext(BranchListingService, data.branchListingService);
 		setContext(ModeService, data.modeService);
 		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
-		setContext(UpstreamIntegrationService, data.upstreamIntegrationService);
 		setContext(ProjectService, data.projectService);
 
 		// Cloud related services
@@ -189,7 +204,6 @@
 	}
 
 	const appState = getContext(AppState);
-	const cloudProjectService = getContext(CloudProjectService);
 	const httpClient = getContext(HttpClient);
 
 	const settingsService = getContext(SettingsService);
