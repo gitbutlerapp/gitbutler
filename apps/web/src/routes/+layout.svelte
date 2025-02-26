@@ -13,8 +13,8 @@
 	import { get } from 'svelte/store';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import '$lib/styles/global.css';
 	import '$home/styles/styles.css';
+	import '$lib/styles/global.css';
 
 	interface Props {
 		children: Snippet;
