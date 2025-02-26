@@ -120,7 +120,7 @@
 
 <style lang="postcss">
 	.table__wrapper {
-		border-radius: var(--radius-s);
+		border-radius: var(--radius-m);
 		background-color: var(--clr-diff-line-bg);
 		border: 1px solid var(--clr-border-2);
 		overflow-x: auto;
@@ -160,7 +160,7 @@
 		border-right: 1px solid var(--clr-border-2);
 		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-diff-count-bg);
-		border-top-left-radius: var(--radius-s);
+		border-top-left-radius: var(--radius-m);
 		box-sizing: border-box;
 
 		&.selected {
@@ -193,7 +193,7 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		border-radius: var(--radius-s);
+		border-radius: var(--radius-m);
 		opacity: 0;
 		transform: scale(0.9);
 		transform-origin: top right;
@@ -213,7 +213,7 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		border-radius: var(--radius-s);
+		border-radius: var(--radius-m);
 		pointer-events: none;
 		color: var(--clr-text-2);
 		transition: transform var(--transition-medium);
