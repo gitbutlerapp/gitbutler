@@ -24,7 +24,7 @@ export const load: PageLoad = async () => {
 	let latestReleaseBuilds: { [key: string]: Build | unknown } = {};
 
 	const releaseResponse = await fetch(
-		'https://app.gitbutler.com/api/downloads?limit=4&channel=release'
+		'https://app.gitbutler.com/api/downloads?limit=10&channel=release'
 	);
 	releases = getValidReleases(await releaseResponse.json());
 	const latestRelease = releases[0];
@@ -43,7 +43,7 @@ export const load: PageLoad = async () => {
 	};
 
 	const nightlyResponse = await fetch(
-		'https://app.gitbutler.com/api/downloads?limit=9&channel=nightly'
+		'https://app.gitbutler.com/api/downloads?limit=15&channel=nightly'
 	);
 	nightlies = getValidReleases(await nightlyResponse.json());
 	nightlies.forEach((nightlyRelease) => {
