@@ -1,6 +1,6 @@
 import { Commit, type DetailedCommit } from './commit';
 import { type BranchStack } from '$lib/branches/branch';
-import { filesToOwnership, filesToSimpleOwnership } from '$lib/branches/ownership';
+import { filesToSimpleOwnership } from '$lib/branches/ownership';
 import { CommitDropData, FileDropData, HunkDropData } from '$lib/dragging/draggables';
 import { RemoteFile } from '$lib/files/file';
 import { LocalFile } from '$lib/files/file';
