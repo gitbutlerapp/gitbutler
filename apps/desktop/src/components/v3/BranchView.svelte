@@ -75,7 +75,7 @@
 		display: flex;
 		width: 22.5rem;
 		flex-direction: column;
-		padding: 16px;
+		padding: 14px;
 		overflow: hidden;
 
 		background-color: transparent;
