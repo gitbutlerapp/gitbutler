@@ -13,10 +13,9 @@ export function getCursorPosition() {
 export function getFormatterPosition() {
 	const nativeSelection = window.getSelection();
 	const domRect = nativeSelection?.getRangeAt(0).getBoundingClientRect();
-	console.log(domRect);
 
 	if (domRect) {
-		return { left: domRect.left, top: domRect.top };
+		return { left: domRect.left - 10, top: domRect.top };
 	}
 }
 
