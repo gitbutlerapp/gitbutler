@@ -80,9 +80,14 @@
 			transition: transform var(--transition-fast);
 		}
 
+		&:last-child {
+			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+		}
+
 		&:not(.lastCommit) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
+
 		&.border-top {
 			border-top: 1px solid var(--clr-border-2);
 		}
