@@ -69,6 +69,7 @@
 			stackId,
 			parentId,
 			message: message,
+			stackSegmentShortName: "top",
 			worktreeChanges: selection.map((item) =>
 				item.type === 'full'
 					? {
