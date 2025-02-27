@@ -109,15 +109,18 @@
 					class:hovered={hoveringOverTable}
 					style="--number-col-width: {numberHeaderWidth}px; --height: {rowHeight}px; --overflow-menu-height: {overflowMenuHeight}px;"
 				>
-					<div class="button-wrapper">
-						<Button
-							icon="text-quote"
-							style="neutral"
-							kind="ghost"
-							size="button"
-							onclick={onQuoteSelection}
-						/>
-					</div>
+					{#if onQuoteSelection}
+						<div class="button-wrapper">
+							<Button
+								icon="text-quote"
+								style="neutral"
+								kind="ghost"
+								size="button"
+								onclick={onQuoteSelection}
+							/>
+						</div>
+					{/if}
+
 					<div class="button-wrapper">
 						<Button
 							icon="copy-small"
