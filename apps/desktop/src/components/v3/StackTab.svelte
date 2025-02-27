@@ -81,10 +81,12 @@
 
 <style lang="postcss">
 	.tab {
+		--menu-btn-size: 20px;
+
 		display: flex;
 		align-items: center;
 		position: relative;
-		padding: 0 14px;
+		padding: 0 12px 0 14px;
 		height: 48px;
 		background: var(--clr-stack-tab-inactive);
 		border-right: 1px solid var(--clr-border-2);
@@ -106,7 +108,6 @@
 	.first {
 		border-radius: var(--radius-ml) 0 0 0;
 	}
-
 	.last {
 		border-right: none;
 	}
@@ -121,31 +122,32 @@
 
 	.menu-button-wrap {
 		position: relative;
+		overflow: hidden;
 		width: 0;
+		/* background-color: aqua; */
 	}
 
 	.tab:hover .name,
 	.menu-open .name {
 		/* Shrinks name to make room for hover button. */
-		width: calc(100% - 32px);
+		width: calc(100% - var(--menu-btn-size));
 	}
 
 	.tab:hover .menu-button-wrap,
 	.menu-open .menu-button-wrap {
 		opacity: 1;
-		width: 32px;
+		width: var(--menu-btn-size);
 		/* We want the container to not take up extra space. */
-		margin-left: -32px;
+		margin-left: calc(var(--menu-btn-size) * -1);
 		/* But still be visible where it would normally display. */
-		transform: translateX(32px);
+		transform: translateX(calc(var(--menu-btn-size) + 20%));
 	}
 
 	.menu-button {
 		display: flex;
-		align-items: center;
-		justify-content: center;
 		color: var(--clr-text-2);
-		padding: 8px;
+		padding: 4px 2px;
+		margin-left: -2px;
 
 		&.menu-open,
 		&:hover {
@@ -175,11 +177,12 @@
 
 	.icon {
 		color: var(--clr-text-2);
-		display: inline-block;
-		border: 1px solid var(--clr-border-2);
+		display: flex;
+		align-items: center;
+		box-shadow: inset 0 0 0 1px var(--clr-border-2);
 		border-radius: var(--radius-s);
-		width: 18px;
-		height: 18px;
+		width: 16px;
+		height: 16px;
 		line-height: 16px;
 		margin-right: 8px;
 	}
