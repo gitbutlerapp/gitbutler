@@ -48,9 +48,9 @@
 		<tr class="row text-12" class:rounded-bottom={last}>
 			<td> <div><CommitStatusBadge status={getPatchStatus(patch)} /></div></td>
 			<td
-				><div class="text-13 text-bold">
+				><div title={patch.title}>
 					<a href={routes.projectReviewBranchCommitPath({ ...params, changeId: patch.changeId })}
-						>{patch.title}</a
+						><p class="text-13 text-bold patch-name">{patch.title}</p></a
 					>
 				</div></td
 			>
@@ -159,5 +159,11 @@
 		color: var(--clr-theme-err-element);
 		text-align: right;
 		padding-left: 6px;
+	}
+
+	.patch-name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 </style>
