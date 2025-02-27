@@ -6,12 +6,12 @@
 
 	interface Props {
 		commit: Commit | UpstreamCommit;
-		last?: boolean;
+		lastCommit?: boolean;
 		lastBranch?: boolean;
 		lineColor?: string;
 	}
 
-	const { commit, last, lastBranch, lineColor }: Props = $props();
+	const { commit, lastCommit, lastBranch, lineColor }: Props = $props();
 
 	const color = $derived(
 		lineColor ||
@@ -31,7 +31,7 @@
 	<Tooltip text={tooltipText}>
 		<div class="commit-line__center" class:rhombus={dotRhombus}></div>
 	</Tooltip>
-	<div class="commit-line__bottom" class:dashed={last && lastBranch}></div>
+	<div class="commit-line__bottom" class:dashed={lastCommit && lastBranch}></div>
 </div>
 
 <style>
