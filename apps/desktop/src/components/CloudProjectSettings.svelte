@@ -138,6 +138,8 @@
 		mutableProject.api!.sync_code = sync_code;
 		projectsService.updateProject(mutableProject);
 	}
+
+	let cloudFeatureFlag = $user?.role === 'admin';
 </script>
 
 <Section>
@@ -146,8 +148,7 @@
 			GitButler Server Features
 		{/snippet}
 		{#snippet caption()}
-			Enabling this allows you to turn on various hosted features for this project on gitbutler.com,
-			including reviews, history sync, and branch sync.
+			Enabling this allows you to turn on various hosted features for this project on gitbutler.com.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle id="signCommits" checked={!!$project?.api} onclick={toggleProject} />
@@ -163,13 +164,13 @@
 				labelFor="reviews"
 				orientation="row"
 				roundedTop={true}
-				roundedBottom={$user?.role !== 'admin'}
+				roundedBottom={!cloudFeatureFlag}
 			>
 				{#snippet title()}
-					Use GitButler Review
+					Use Butler Review
 				{/snippet}
 				{#snippet caption()}
-					Use GitButler Reviews with this project. Reviews is a commit based code review tool that
+					Use Butler Review with this project. Butler Review is a commit based code review tool that
 					helps your team review series of patches.
 					<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
 				{/snippet}
@@ -181,7 +182,7 @@
 					/>
 				{/snippet}
 			</SectionCard>
-			{#if $user?.role === 'admin'}
+			{#if cloudFeatureFlag}
 				<SectionCard
 					labelFor="historySync"
 					roundedBottom={false}
@@ -239,7 +240,7 @@
 		{/snippet}
 	</Section>
 
-	{#if $user?.role === 'admin'}
+	{#if cloudFeatureFlag}
 		<Loading loadable={cloudProject.current}>
 			{#snippet children(cloudProject)}
 				{#if !cloudProject.parentProjectRepositoryId}
