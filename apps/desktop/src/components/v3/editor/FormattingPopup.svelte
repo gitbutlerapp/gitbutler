@@ -26,6 +26,7 @@
 		$createParagraphNode as createParagraphNode
 	} from 'lexical';
 	import { getContext, onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
 	import { getEditor } from 'svelte-lexical';
 	import type { Writable } from 'svelte/store';
 
@@ -97,6 +98,7 @@
 		bind:offsetHeight
 		use:portal={'body'}
 		use:clickOutside={{ handler: () => (position = undefined) }}
+		transition:fly={{ y: 5, duration: 120 }}
 	>
 		<div class="formatting__options" style:width="{optionsRefWidth}px">
 			<div class="formatting__options-wrap" class:scrolled={isScrollToSecondGroup}>
