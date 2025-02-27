@@ -147,7 +147,6 @@
 
 <Loading loadable={and([branchUuid?.current, branch?.current])}>
 	{#snippet children(branch)}
-		{console.log(branch)}
 		<div class="layout">
 			<div class="information">
 				<div class="heading">
@@ -227,7 +226,7 @@
 				</div>
 			</div>
 
-			<div>
+			<div class="commits-table-wrapper">
 				<table class="commits-table">
 					<thead>
 						<tr>
@@ -263,7 +262,9 @@
 		gap: var(--layout-col-gap);
 
 		@media (--desktop-small-viewport) {
-			grid-template-columns: 1fr;
+			grid-template-columns: unset;
+			display: flex;
+			flex-direction: column;
 		}
 	}
 
@@ -303,5 +304,15 @@
 
 	.header-right {
 		text-align: right;
+	}
+
+	.commits-table-wrapper {
+		display: flex;
+		width: 100%;
+	}
+
+	.commits-table {
+		table-layout: fixed;
+		width: 100%;
 	}
 </style>
