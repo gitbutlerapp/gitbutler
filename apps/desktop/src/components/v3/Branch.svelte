@@ -25,7 +25,7 @@
 		stackId,
 		branchName,
 		first,
-		last,
+		last: lastBranch,
 		selected,
 		selectedCommitId = $bindable()
 	}: Props = $props();
@@ -49,24 +49,25 @@
 				readonly={false}
 				onclick={() => goto(branchPath(projectId, stackId, branch.name))}
 			/>
-			<BranchCommitList {projectId} {stackId} {branchName} lastBranch={last} {selectedCommitId}>
-				{#snippet upstreamTemplate({ commit, commitKey, first, last, selected })}
+			<BranchCommitList {projectId} {stackId} {branchName} {lastBranch} {selectedCommitId}>
+				{#snippet upstreamTemplate({ commit, commitKey, first, last: lastCommit, selected })}
 					<CommitRow
 						{projectId}
 						{commitKey}
 						{first}
-						{last}
+						{lastCommit}
 						{commit}
 						{selected}
 						onclick={() => goto(commitPath(projectId, commitKey))}
 					/>
 				{/snippet}
-				{#snippet localAndRemoteTemplate({ commit, commitKey, first, last, selected })}
+				{#snippet localAndRemoteTemplate({ commit, commitKey, first, last: lastCommit, selected })}
 					<CommitRow
 						{projectId}
 						{commitKey}
 						{first}
-						{last}
+						{lastCommit}
+						{lastBranch}
 						{commit}
 						{selected}
 						onclick={() => goto(commitPath(projectId, commitKey))}

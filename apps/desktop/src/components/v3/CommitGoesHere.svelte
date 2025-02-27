@@ -82,8 +82,8 @@
 									{projectId}
 									{commitKey}
 									{first}
-									{last}
 									{commit}
+									lastCommit={last}
 									lineColor="var(--clr-commit-local)"
 									opacity={0.4}
 									borderTop={selected}
