@@ -31,6 +31,11 @@ pub enum Subcommands {
         /// The message of the new commit.
         #[clap(long, short = 'm')]
         message: Option<String>,
+        /// The name of the reference that the commit should be in.
+        ///
+        /// If there is ambiguity, this is what makes it ambiguous.
+        #[clap(long, short = 's')]
+        stack_segment_ref: Option<String>,
         /// Amend to the current or given commit.
         #[clap(long)]
         amend: bool,
