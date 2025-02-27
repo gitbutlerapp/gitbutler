@@ -83,7 +83,7 @@
 		flex-direction: column;
 		position: relative;
 		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-ml);
 		background: var(--clr-bg-1);
 	}
 </style>
