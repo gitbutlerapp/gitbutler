@@ -10,6 +10,7 @@ pub fn commit(
     message: Option<&str>,
     amend: bool,
     parent_revspec: Option<&str>,
+    stack_segment_ref: Option<&str>,
 ) -> anyhow::Result<()> {
     if message.is_none() && !amend {
         bail!("Need a message when creating a new commit");
@@ -31,6 +32,7 @@ pub fn commit(
                 but_workspace::commit_engine::Destination::NewCommit {
                     parent_commit_id: Some(parent_id),
                     message: message.unwrap_or_default().to_owned(),
+                    stack_segment_ref: stack_segment_ref.map(|rn| rn.try_into()).transpose()?,
                 }
             },
             None,

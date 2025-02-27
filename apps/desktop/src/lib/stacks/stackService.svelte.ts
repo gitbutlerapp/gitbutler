@@ -14,6 +14,7 @@ type CreateCommitRequest = {
 	stackId: string;
 	message: string;
 	parentId: string;
+	stackSegmentShortName: string,
 	worktreeChanges: {
 		previousPathBytes?: number[];
 		pathBytes: number[];
