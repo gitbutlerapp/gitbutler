@@ -42,9 +42,9 @@
 		class:last={args.last}
 		onclick={() => goto(createCommitPath(projectId, stackId, branchName, args.commitId))}
 	>
-		<div class="move-line"></div>
-		<div class="move-label text-11 text-semibold">commit here</div>
-		<div class="move-line"></div>
+		<div class="commit-here__circle"></div>
+		<div class="commit-here__line"></div>
+		<div class="commit-here__label text-11 text-semibold">Commit here</div>
 	</button>
 {/snippet}
 <div class="commit-goes-here">
@@ -172,6 +172,8 @@
 			border-radius: 0 0 var(--radius-l) var(--radius-l);
 		}
 	}
+
+	/* COMMIT HERE */
 	.commit-here {
 		width: 100%;
 		position: absolute;
@@ -189,18 +191,31 @@
 			top: unset;
 		}
 	}
-	.move-line {
+	.commit-here__circle {
+		position: absolute;
+		left: 16px;
+		top: 50%;
+		transform: translateY(-50%);
+		border-radius: 100%;
+		width: 10px;
+		height: 10px;
+		background-color: var(--clr-theme-pop-element);
+		outline: 2px solid var(--clr-bg-2);
+	}
+	.commit-here__line {
 		background-color: var(--clr-theme-pop-element);
 		height: 2px;
 		flex-grow: 1;
-		&:first-child {
-			margin-left: -15px;
-		}
+		margin-left: -15px;
 	}
-	.move-label {
-		padding: 0px 6px;
-		border-radius: var(--radius-m);
+	.commit-here__label {
+		position: absolute;
+		top: 50%;
+		left: 38px;
+		transform: translateY(-50%);
+		padding: 2px 6px;
+		border-radius: var(--radius-ml);
 		background-color: var(--clr-theme-pop-element);
-		color: white;
+		color: var(--clr-core-ntrl-100);
 	}
 </style>
