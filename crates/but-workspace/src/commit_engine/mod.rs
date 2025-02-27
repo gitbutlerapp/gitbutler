@@ -36,11 +36,24 @@ pub enum Destination {
         ///
         /// To create a commit at the position of the first commit of a branch, the parent has to be the merge-base with the *target branch*.
         parent_commit_id: Option<gix::ObjectId>,
+        /// The name of the ref pointing to the tip of the stack segment the commit is supposed to go into. It is necessary to disambiguate the reference update.
+        stack_segment_ref: Option<gix::refs::FullName>,
         /// Use `message` as commit message for the new commit.
         message: String,
     },
     /// Amend all changes to the given commit, leaving all other aspects of the commit unchanged.
     AmendCommit(gix::ObjectId),
+}
+
+impl Destination {
+    pub(self) fn stack_segment(&self) -> Option<&gix::refs::FullName> {
+        match self {
+            Destination::NewCommit {
+                stack_segment_ref, ..
+            } => stack_segment_ref.as_ref(),
+            Destination::AmendCommit(..) => None,
+        }
+    }
 }
 
 /// Identify the commit that contains the patches to be moved, along with the branch that should be rewritten.
@@ -226,6 +239,7 @@ pub fn create_commit(
             Destination::NewCommit {
                 message,
                 parent_commit_id: _,
+                stack_segment_ref: _,
             } => {
                 let (author, committer) = repo.commit_signatures()?;
                 let new_commit = create_possibly_signed_commit(
@@ -263,11 +277,12 @@ pub fn create_commit(
 
 /// All information to know where in the commit-graph the rewritten commit is located to figure out
 /// which descendant commits to rewrite.
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ReferenceFrame {
     /// The commit that merges all stacks together for a unified view.
+    /// It includes the `branch_tip` naturally, if provided.
     pub workspace_tip: Option<gix::ObjectId>,
-    /// If given, and if rebases are necessary, this is the tip (commit) whose ancestry contains
+    /// If given, and if rebases are necessary, this is the tip (top-most commit) whose ancestry contains
     /// the commit which is committed onto, or amended to.
     ///
     /// Note that in case of moves, right now the source *and* destination need to be contained.
@@ -348,6 +363,7 @@ pub fn create_commit_and_update_refs(
                 all_refs_by_id,
                 [(commit_in_graph, new_commit)],
                 &mut out.references,
+                destination.stack_segment(),
             )?;
         } else {
             let Some(branch_tip) = frame.branch_tip else {
@@ -412,6 +428,7 @@ pub fn create_commit_and_update_refs(
                     .map(|(_base, old, new)| (*old, *new))
                     .chain(Some((commit_in_graph, new_commit))),
                 &mut out.references,
+                destination.stack_segment(),
             )?;
             out.rebase_output = Some(rebase);
         }
