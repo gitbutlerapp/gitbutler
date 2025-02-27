@@ -234,7 +234,7 @@
 		flex-direction: column;
 		gap: 12px;
 
-		z-index: var(--z-floating);
+		z-index: var(--z-blocker);
 		position: sticky;
 		top: 0;
 

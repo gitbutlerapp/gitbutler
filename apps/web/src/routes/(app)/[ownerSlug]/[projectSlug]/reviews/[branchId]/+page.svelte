@@ -230,13 +230,13 @@
 				<table class="commits-table">
 					<thead>
 						<tr>
-							<th><div>Status</div></th>
+							<th class="table-header l"><div>Status</div></th>
 							<th><div>Name</div></th>
-							<th><div class="header-right">Changes</div></th>
-							<th><div>Last update</div></th>
-							<th><div>Authors</div></th>
-							<th><div>Reviewers</div></th>
-							<th><div>Comments</div></th>
+							<th class="table-header l"><div>Changes</div></th>
+							<th class="table-header m"><div>Last update</div></th>
+							<th class="table-header s"><div>Authors</div></th>
+							<th class="table-header s"><div>Reviewers</div></th>
+							<th class="table-header m"><div>Comments</div></th>
 						</tr>
 					</thead>
 					<tbody class="pretty">
@@ -302,10 +302,6 @@
 		gap: 12px;
 	}
 
-	.header-right {
-		text-align: right;
-	}
-
 	.commits-table-wrapper {
 		display: flex;
 		flex-direction: column;
@@ -315,5 +311,23 @@
 	.commits-table {
 		table-layout: fixed;
 		width: 100%;
+	}
+
+	.table-header {
+		&.s {
+			width: 90px;
+		}
+
+		&.m {
+			width: 100px;
+		}
+
+		&.l {
+			width: 130px;
+		}
+
+		& > div {
+			text-align: start;
+		}
 	}
 </style>
