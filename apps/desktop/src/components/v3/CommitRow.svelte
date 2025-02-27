@@ -55,7 +55,7 @@
 	</div>
 </button>
 
-<style>
+<style lang="postcss">
 	.commit {
 		position: relative;
 		display: flex;
@@ -63,6 +63,11 @@
 		text-align: left;
 		width: 100%;
 		overflow: hidden;
+		transition: background-color var(--transition-fast);
+
+		&:hover {
+			background-color: var(--clr-bg-1-muted);
+		}
 
 		&::before {
 			content: '';

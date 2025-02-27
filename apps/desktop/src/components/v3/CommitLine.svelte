@@ -45,7 +45,7 @@
 
 	.commit-line__top,
 	.commit-line__bottom {
-		height: 15px;
+		height: 14px;
 		width: 2px;
 		background-color: var(--commit-color);
 
@@ -62,10 +62,10 @@
 		background-color: var(--commit-color);
 
 		&.rhombus {
-			width: 9px;
-			height: 9px;
+			width: 10px;
+			height: 10px;
 			border-radius: 2px;
-			transform: translateX(0.5px) rotate(45deg);
+			transform: rotate(45deg) scale(0.86);
 		}
 	}
 </style>
