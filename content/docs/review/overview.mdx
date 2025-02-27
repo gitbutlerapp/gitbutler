@@ -1,0 +1,139 @@
+---
+title: Overview
+---
+
+import ImageSection from "@/components/ImageSection"
+import { Callout } from "fumadocs-ui/components/callout"
+
+# Butler Review
+
+Butler Review is a new approach to code review that focuses on reviewing code
+as a series of evolving patches rather than a unified diff of a whole branch.
+
+<ImageSection
+  alt="Butler Review"
+  src="/review/branch.png"
+  subtitle="A patch series in Butler Review"
+/>
+
+## Why Butler Review?
+
+Traditional code review tools like GitHub and GitLab show changes as a single
+diff of the entire branch. This makes it hard to review changes in a branch
+incrementally, especially when the branch is large. It also discourages creating
+good commit or commit messages, since they are all sqaushed in review and
+messages are difficult to find and unrelated to the code review UI.
+
+Butler Review approaches the problem differently, by making it easy to review
+individual commits as patches and tracking changes to the series when you rebase
+or amend the branch.
+
+This makes it easier to review changes incrementally and evolve a series rather
+than pushing poor commits to the branch to address feedback.
+
+## Enabling Butler Review
+
+To start using Butler Reviews, you need to enable the feature in your GitButler
+client in the project settings. Click the gear icon in the bottom left corner of
+the GitButler client and go to the Server tab.
+
+<ImageSection alt="Review Setting" src="/review/settings.png" subtitle="Turning on Butler Review" />
+
+Once you enable Butler Review, you can start creating reviews for your branches.
+
+## Creating a Review
+
+Once you have enabled Butler Review for a project, you can create a review for
+a branch by clicking the new "Create Butler Review" button in the branch header card.
+
+<ImageSection
+  alt="Create Review"
+  src="/review/create-review.png"
+  subtitle="Creating a Butler Review"
+/>
+
+Once you create a review, you will see a new card in the branch header that
+shows the status of the review.
+
+<ImageSection
+  alt="Butler Review Card"
+  src="/review/review-card.png"
+  subtitle="Butler Review Card"
+/>
+
+If you have GitHub integration enabled, you will see a dropdown to let you choose
+to create a PR or a Butler Review. You can also create both, in either order and
+they will be linked together.
+
+<ImageSection
+  alt="Butler Review Card"
+  src="/review/review-card-both.png"
+  subtitle="Branch header card with both PR and BR status"
+/>
+
+Once a Review has been opened, you will have a URL that you can share with your
+team to get feedback on your changes.
+
+## Reviewing a Series
+
+When a reviewer opens a review, they will see a list of patches that make up the branch.
+
+<ImageSection
+  alt="Butler Review"
+  src="/review/branch.png"
+  subtitle="A patch series in Butler Review"
+/>
+
+<Callout type="warn">
+  Currently, all reviews are "unlisted", meaning that anyone with the URL can see the review.
+  In the future, we will implement fully public and fully private reviews, but currently all reviews
+  are unlisted.
+
+However, if someone has the URL, they will only be able to see the patch data,
+they will not have access to all of your source code, nor will they be able to make changes,
+only approve or request changes.
+
+</Callout>
+
+Now the reviewer can hit "Start Review" to start reviewing the patches in the series.
+It will start them at the "bottom", the first patch and they can work their way up.
+The reviewer can also click on a patch to go directly to it.
+
+## Reviewing a Patch
+
+Once a reviewer starts reviewing a patch, they will see the changes in the commit
+and a chat window to leave comments.
+
+<ImageSection alt="Reviewing a Patch" src="/review/patch2.png" subtitle="Reviewing a Patch" />
+
+The reviewer can leave comments on the patch, approve the patch, or request changes.
+The chat discussion is real time, so reviewers can discuss the changes with the author
+as they review the patch.
+
+You can also select lines of code to comment on. This will highlight the line in the
+diff and show the comment in the chat window.
+
+Every patch needs to be approved before the branch is considered approved.
+
+## Requesting Changes
+
+A reviewer can either approve a patch or request changes. If they request changes,
+the author can amend that specific commit and publish the changes to the review.
+
+Reviewers will be able to see in the chat that a new version of the patch has been
+published and they can review the changes again.
+
+<Callout>
+  Currently we don't have interdiffs, so reviewers will need to review the entire patch again. We
+  plan to add interdiffs in the very near future.
+</Callout>
+
+## Approving a Patch
+
+Once a reviewer is happy with a patch, they can approve it. This will mark the patch
+as approved and move the reviewer to the next patch in the series.
+
+## Closing a Review
+
+Once the branch has been merged, it will automatically mark the review as closed.
+The author can also manually close the review if they decide to abandon the series.
