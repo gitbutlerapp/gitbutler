@@ -91,6 +91,8 @@ pub mod workspace {
                 approach,
             })
             .collect();
-        gitbutler_branch_actions::integrate_upstream(&ctx, &resolutions, None)
+        gitbutler_branch_actions::integrate_upstream(&ctx, &resolutions, None)?;
+
+        Ok(())
     }
 }
