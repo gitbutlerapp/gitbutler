@@ -1,5 +1,5 @@
 import { setSentryUser } from '$lib/analytics/sentry';
-import { writable, type Writable } from 'svelte/store';
+import { get, writable, type Writable } from 'svelte/store';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 
 export interface User {
@@ -26,7 +26,21 @@ export class UserService {
 
 	readonly error = writable();
 
-	constructor(private readonly httpClient: HttpClient) {}
+	constructor(private readonly httpClient: HttpClient) {
+		httpClient.authenticationAvailable.subscribe((available) => {
+			if (available && get(this.user) === undefined) {
+				// If the authentication availability changes, refetch the use
+				this.fetchUser()
+					.then((data) => {
+						this.error.set(undefined);
+						this.user.set(data);
+					})
+					.catch((err) => {
+						this.error.set(err);
+					});
+			}
+		});
+	}
 
 	private async fetchUser() {
 		const user = await this.httpClient.get<User>('/api/user');
