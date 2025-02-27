@@ -9,7 +9,7 @@
 		commitKey: CommitKey;
 		commit: Commit | UpstreamCommit;
 		first?: boolean;
-		last?: boolean;
+		lastCommit?: boolean;
 		lastBranch?: boolean;
 		selected?: boolean;
 		lineColor?: string;
@@ -21,7 +21,7 @@
 	const {
 		commit,
 		first,
-		last,
+		lastCommit,
 		lastBranch,
 		selected,
 		lineColor,
@@ -37,13 +37,13 @@
 	type="button"
 	class="commit"
 	class:first
-	class:last
+	class:lastCommit
 	class:selected
 	style:opacity
 	class:border-top={borderTop || first}
 	onclick={() => onclick?.(commit.id)}
 >
-	<CommitLine {commit} {last} {lastBranch} {lineColor} />
+	<CommitLine {commit} {lastCommit} {lastBranch} {lineColor} />
 	<div class="commit-content">
 		<span class="commit-title text-13 text-semibold">
 			{commitTitle}
@@ -80,7 +80,7 @@
 			transition: transform var(--transition-fast);
 		}
 
-		&:not(.last) {
+		&:not(.lastCommit) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
 		&.border-top {
