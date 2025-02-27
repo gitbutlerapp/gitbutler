@@ -57,7 +57,7 @@
 			{onCopySelection}
 			{onQuoteSelection}
 			{clearLineSelection}
-			isHidden={!lockFile && !displayLockHunks}
+			isHidden={lockFile && !displayLockHunks}
 			whyHidden="Lock files are hidden by default"
 			onShowDiffClick={() => (displayLockHunks = true)}
 		/>
