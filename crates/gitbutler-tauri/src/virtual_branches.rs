@@ -7,7 +7,8 @@ pub mod commands {
     use gitbutler_branch_actions::branch_upstream_integration::IntegrationStrategy;
     use gitbutler_branch_actions::internal::StackListResult;
     use gitbutler_branch_actions::upstream_integration::{
-        BaseBranchResolution, BaseBranchResolutionApproach, Resolution, StackStatuses,
+        BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
+        StackStatuses,
     };
     use gitbutler_branch_actions::{
         BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranchData,
@@ -667,14 +668,18 @@ pub mod commands {
         project_id: ProjectId,
         resolutions: Vec<Resolution>,
         base_branch_resolution: Option<BaseBranchResolution>,
-    ) -> Result<(), Error> {
+    ) -> Result<IntegrationOutcome, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        gitbutler_branch_actions::integrate_upstream(&ctx, &resolutions, base_branch_resolution)?;
+        let outcome = gitbutler_branch_actions::integrate_upstream(
+            &ctx,
+            &resolutions,
+            base_branch_resolution,
+        )?;
 
         emit_vbranches(&windows, project_id, ctx.app_settings());
 
-        Ok(())
+        Ok(outcome)
     }
 
     #[tauri::command(async)]

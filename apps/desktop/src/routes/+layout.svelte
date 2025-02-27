@@ -24,6 +24,7 @@
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { FileService } from '$lib/files/fileService';
+	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
 	import {
 		createGitHubUserServiceStore as createGitHubUserServiceStore,
 		GitHubAuthenticationService,
@@ -100,6 +101,10 @@
 	const diffService = new DiffService(clientState);
 	const shortcutService = new ShortcutService(data.tauri);
 	const commitService = new CommitService();
+	const butRequestDetailsService = new ButRequestDetailsService(
+		cloudBranchService,
+		latestBranchLookupService
+	);
 
 	shortcutService.listen();
 
@@ -122,6 +127,7 @@
 	setContext(SettingsService, data.settingsService);
 	setContext(FileService, data.fileService);
 	setContext(CommitService, commitService);
+	setContext(ButRequestDetailsService, butRequestDetailsService);
 
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);

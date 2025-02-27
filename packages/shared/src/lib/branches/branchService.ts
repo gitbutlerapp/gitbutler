@@ -92,6 +92,32 @@ export class BranchService {
 			.createInterest();
 	}
 
+	async getBranch(uuid: string): Promise<Branch | undefined> {
+		try {
+			const apiBranch = await this.httpClient.get<ApiBranch>(`patch_stack/${uuid}`);
+			const loadableBranch: LoadableBranch = {
+				status: 'found',
+				id: apiBranch.uuid,
+				value: apiToBranch(apiBranch)
+			};
+
+			const patches = apiBranch.patches.map(
+				(api): LoadablePatch => ({
+					status: 'found',
+					id: api.change_id,
+					value: apiToPatch(api)
+				})
+			);
+
+			this.appDispatch.dispatch(upsertBranch(loadableBranch));
+			this.appDispatch.dispatch(upsertPatches(patches));
+
+			return apiToBranch(apiBranch);
+		} catch (_: unknown) {
+			/* empty */
+		}
+	}
+
 	getBranchInterest(uuid: string): Interest {
 		return this.branchInterests
 			.findOrCreateSubscribable({ uuid }, async () => {

@@ -24,7 +24,7 @@ pub fn push_stack_to_review(
     user: &User,
     stack_id: StackId,
     top_branch: String,
-) -> Result<()> {
+) -> Result<String> {
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let mut stack = vb_state.get_stack(stack_id)?;
     let repository = ctx.gix_repository()?;
@@ -61,7 +61,11 @@ pub fn push_stack_to_review(
     let remote = remote(ctx, RemoteKind::Oplog)?;
     push_to_gitbutler_server(ctx, Some(user), &[&refspec], remote)?;
 
-    Ok(())
+    let Some(head_review) = branch_heads.first() else {
+        bail!("No head review id. Congratuations, this is not possible")
+    };
+
+    Ok(head_review.review_id.clone())
 }
 
 fn format_refspec(sha: &gix::ObjectId) -> String {

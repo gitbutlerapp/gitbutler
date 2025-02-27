@@ -6,7 +6,12 @@ import {
 	upsertProject,
 	upsertProjects
 } from '$lib/organizations/projectsSlice';
-import { type ApiProject, apiToProject, type LoadableProject } from '$lib/organizations/types';
+import {
+	type ApiProject,
+	apiToProject,
+	type LoadableProject,
+	type Project
+} from '$lib/organizations/types';
 import { POLLING_GLACIALLY, POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { ShareLevel } from '$lib/permissions';
@@ -62,6 +67,20 @@ export class ProjectService {
 				}
 			})
 			.createInterest();
+	}
+
+	async getProject(repositoryId: string): Promise<Project | undefined> {
+		try {
+			const apiProject = await this.httpClient.get<ApiProject>(`projects/${repositoryId}`);
+
+			this.appDispatch.dispatch(
+				upsertProject({ status: 'found', id: repositoryId, value: apiToProject(apiProject) })
+			);
+
+			return apiToProject(apiProject);
+		} catch (_: unknown) {
+			/* empty */
+		}
 	}
 
 	getAllProjectsInterest(): Interest {

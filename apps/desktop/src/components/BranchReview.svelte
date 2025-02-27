@@ -1,13 +1,13 @@
 <script lang="ts">
 	import BranchReviewButRequest from '$components/BranchReviewButRequest.svelte';
-	import { BranchStack, type PatchSeries } from '$lib/branches/branch';
-	import { BranchController } from '$lib/branches/branchController';
+	import ButRequestCreationModal from '$components/ButRequestCreationModal.svelte';
+	import { type PatchSeries } from '$lib/branches/branch';
 	import { syncBrToPr } from '$lib/forge/brToPrSync.svelte';
 	import { getPr } from '$lib/forge/getPr.svelte';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { syncPrToBr } from '$lib/forge/prToBrSync.svelte';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
-	import { getContextStore, inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -31,16 +31,7 @@
 	const { pullRequestCard, branchStatus, branchLine, branch, openForgePullRequest }: Props =
 		$props();
 
-	const stack = getContextStore(BranchStack);
-	const [stackPublishingService, branchController] = inject(
-		StackPublishingService,
-		BranchController
-	);
-
-	async function publishReview() {
-		await branchController.pushBranch($stack.id, true);
-		await stackPublishingService.upsertStack($stack.id, branch.name);
-	}
+	const [stackPublishingService] = inject(StackPublishingService);
 
 	const prService = getForgePrService();
 	const pr = getPr(reactive(() => branch));
@@ -86,7 +77,7 @@
 					await openForgePullRequest();
 					break;
 				case CreationAction.CreateBR:
-					await publishReview();
+					butRequestCreationModal?.show();
 					break;
 			}
 		} finally {
@@ -103,7 +94,11 @@
 
 	syncPrToBr(reactive(() => branch));
 	syncBrToPr(reactive(() => branch));
+
+	let butRequestCreationModal = $state<ButRequestCreationModal>();
 </script>
+
+<ButRequestCreationModal bind:this={butRequestCreationModal} branchTitle={branch.name} />
 
 <div class="branch-action">
 	{@render branchLine()}
