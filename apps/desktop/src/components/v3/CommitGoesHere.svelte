@@ -27,8 +27,8 @@
 {#snippet indicator(args?: { last?: boolean; first?: boolean })}
 	<div class="indicator" class:first={args?.first} class:last={args?.last}>
 		<div class="pin">
-			<div class="line"></div>
-			<div class="circle"></div>
+			<div class="pin__line"></div>
+			<div class="pin__circle"></div>
 		</div>
 		<div>
 			<Badge size="tag" style="pop">Your commit goes here</Badge>
@@ -152,16 +152,16 @@
 		margin-left: -15px;
 		position: relative;
 	}
-	.line {
+	.pin__line {
 		flex-grow: 1;
 		height: 2px;
 		background-color: var(--clr-theme-pop-element);
 	}
-	.circle {
+	.pin__circle {
 		border-radius: 100%;
 		width: 10px;
 		height: 10px;
-		border: 2px solid var(--clr-theme-pop-element);
+		outline: 2px solid var(--clr-theme-pop-element);
 	}
 	.commit-wrapper {
 		position: relative;
