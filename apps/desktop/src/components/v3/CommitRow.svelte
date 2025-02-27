@@ -87,11 +87,6 @@
 			border-top: 1px solid var(--clr-border-2);
 		}
 
-		&.last {
-			border-bottom-left-radius: var(--radius-ml);
-			border-bottom-right-radius: var(--radius-ml);
-		}
-
 		&.selected {
 			background-color: var(--clr-bg-1-muted);
 		}
@@ -106,10 +101,6 @@
 			transition:
 				margin-right var(--transition-medium),
 				opacity var(--transition-medium) 0.05s;
-		}
-
-		&.last.selected::before {
-			border-radius: 0 0 0 var(--radius-ml);
 		}
 	}
 

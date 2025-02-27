@@ -85,6 +85,7 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		border-radius: 0 0 var(--radius-m) var(--radius-m);
+		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+		overflow: hidden;
 	}
 </style>
