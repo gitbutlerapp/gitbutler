@@ -33,5 +33,10 @@
 	.commit-line {
 		position: absolute;
 		left: 20px;
+		opacity: 0.4;
+
+		&.selected {
+			opacity: 1;
+		}
 	}
 </style>

@@ -22,8 +22,10 @@
 	};
 	const { projectId, stackId, branchName, commitId }: Props = $props();
 
-	const baseBranchService = getContext(BaseBranchService);
 	const stackService = getContext(StackService);
+	const branchesResult = $derived(stackService.branches(projectId, stackId).current);
+	const branches = $derived(branchesResult.data);
+	const baseBranchService = getContext(BaseBranchService);
 	const base = $derived(baseBranchService.base);
 
 	const changeSelection = getContext(ChangeSelectionService);
@@ -39,7 +41,30 @@
 
 	const baseSha = $derived($base?.baseSha);
 	const defaultParentId = $derived(commit ? commit.id : baseSha);
-	const parentId = $derived(commitId ? commitId : defaultParentId);
+
+	const parentId = $derived.by(() => {
+		// If commitId is explicitly provided, use it
+		if (commitId) return commitId;
+
+		// Try to find parent based on branch position in stack
+		if (branches?.length) {
+			const currentBranchIndex = branches.findIndex((b) => b.name === branchName);
+
+			// If this branch has a "parent" branch in the stack
+			if (currentBranchIndex >= 0 && currentBranchIndex < branches.length - 1) {
+				const parentBranch = branches[currentBranchIndex + 1];
+				if (parentBranch?.name) {
+					const parentCommit = stackService.commitAt(projectId, stackId, parentBranch.name, 0)
+						.current.data;
+
+					if (parentCommit?.id) return parentCommit.id;
+				}
+			}
+		}
+
+		// Fall back to default (either current commit or base SHA)
+		return defaultParentId;
+	});
 
 	/**
 	 * At the moment this code can only commit to the tip of the stack.
@@ -69,7 +94,7 @@
 			stackId,
 			parentId,
 			message: message,
-			stackSegmentShortName: "top",
+			stackSegmentShortName: branchName,
 			worktreeChanges: selection.map((item) =>
 				item.type === 'full'
 					? {
@@ -121,7 +146,7 @@
 		background: var(--clr-bg-1);
 	}
 	.right {
-		width: 300px;
+		width: 310px;
 		background-image: radial-gradient(
 			oklch(from var(--clr-scale-ntrl-50) l c h / 0.5) 0.6px,
 			#ffffff00 0.6px

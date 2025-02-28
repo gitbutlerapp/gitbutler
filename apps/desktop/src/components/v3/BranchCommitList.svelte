@@ -13,6 +13,7 @@
 		stackId: string;
 		branchName: string;
 		lastBranch?: boolean;
+		selectedBranchName?: string;
 		selectedCommitId?: string;
 		upstreamTemplate?: Snippet<
 			[
@@ -28,6 +29,7 @@
 		localAndRemoteTemplate?: Snippet<
 			[{ commit: Commit; commitKey: CommitKey; first: boolean; last: boolean; selected: boolean }]
 		>;
+		emptyBranchCommitHere?: Snippet;
 	}
 
 	let {
@@ -35,9 +37,11 @@
 		stackId,
 		branchName,
 		lastBranch,
+		selectedBranchName,
 		selectedCommitId,
 		localAndRemoteTemplate,
-		upstreamTemplate
+		upstreamTemplate,
+		emptyBranchCommitHere
 	}: Props = $props();
 
 	const [stackService] = inject(StackService);
@@ -53,7 +57,15 @@
 <ReduxResult result={combineResults(upstreamOnlyCommits, localAndRemoteCommits)}>
 	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits])}
 		{#if !upstreamOnlyCommits.length && !localAndRemoteCommits.length}
-			<EmptyBranch {lastBranch} />
+			{#if selectedBranchName === branchName}
+				<div class="empty-branch-commit-here">
+					{#if emptyBranchCommitHere}
+						{@render emptyBranchCommitHere()}
+					{/if}
+				</div>
+			{:else}
+				<EmptyBranch {lastBranch} selected={selectedBranchName !== branchName} />
+			{/if}
 		{:else}
 			<div class="commit-list">
 				{#if upstreamTemplate}
@@ -81,11 +93,11 @@
 </ReduxResult>
 
 <style lang="postcss">
+	.empty-branch-commit-here,
 	.commit-list {
 		position: relative;
 		display: flex;
 		flex-direction: column;
 		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
-		/* overflow: hidden; */
 	}
 </style>
