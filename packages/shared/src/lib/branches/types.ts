@@ -183,6 +183,7 @@ export type ApiPatch = {
 	sections?: ApiSection[];
 	created_at: string;
 	updated_at: string;
+	previous_version_sha: string | undefined;
 };
 
 export type Patch = {
@@ -201,6 +202,7 @@ export type Patch = {
 	sectionIds?: number[];
 	createdAt: string;
 	updatedAt: string;
+	previousVersionSha: string | undefined;
 };
 
 export function getPatchStatus(
@@ -309,7 +311,8 @@ export function apiToPatch(api: ApiPatch): Patch {
 		reviewAll: apiToPatchReview(api.review_all),
 		sectionIds: api.sections?.map((section) => section.id),
 		createdAt: api.created_at,
-		updatedAt: api.updated_at
+		updatedAt: api.updated_at,
+		previousVersionSha: api.previous_version_sha
 	};
 }
 
