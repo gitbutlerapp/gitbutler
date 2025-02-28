@@ -1,14 +1,18 @@
+<script lang="ts" module>
+	export type CommitStatusType =
+		| 'unreviewed'
+		| 'in-discussion'
+		| 'approved'
+		| 'changes-requested'
+		| 'closed'
+		| 'loading';
+</script>
+
 <script lang="ts">
 	import Icon from '$lib/Icon.svelte';
 
 	type Props = {
-		status:
-			| 'unreviewed'
-			| 'in-discussion'
-			| 'approved'
-			| 'changes-requested'
-			| 'closed'
-			| 'loading';
+		status: CommitStatusType;
 		kind?: 'icon' | 'text';
 	};
 

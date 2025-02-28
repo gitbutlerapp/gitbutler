@@ -1,5 +1,6 @@
 <script lang="ts">
-	import ChangeIndexCard from '$lib/components/changes/ChangeIndexCard.svelte';
+	import BracnhCommitsTable from '$lib/components/changes/BracnhCommitsTable.svelte';
+	// import BracnhCommitsRow from '$lib/components/changes/BracnhCommitsRow.svelte';
 	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
 	import CommitsGraph from '$lib/components/review/CommitsGraph.svelte';
@@ -226,20 +227,20 @@
 				</div>
 			</div>
 
-			<div class="commits-table-wrapper">
-				<table class="commits-table">
+			<BracnhCommitsTable {branch} {data} />
+			<!-- <table class="commits-table">
 					<thead>
 						<tr>
-							<th class="table-header l"><div>Status</div></th>
+							<th class="table-header"><div>Status</div></th>
 							<th><div>Name</div></th>
-							<th class="table-header l"><div>Changes</div></th>
-							<th class="table-header m"><div>Last update</div></th>
-							<th class="table-header s"><div>Authors</div></th>
-							<th class="table-header s"><div>Reviewers</div></th>
-							<th class="table-header m"><div>Comments</div></th>
+							<th class="table-header"><div>Changes</div></th>
+							<th class="table-header"><div>Last update</div></th>
+							<th class="table-header"><div>Authors</div></th>
+							<th class="table-header"><div>Reviewers</div></th>
+							<th class="table-header"><div>Comments</div></th>
 						</tr>
 					</thead>
-					<tbody class="pretty">
+					<tbody>
 						{#each branch.patchIds || [] as changeId, index}
 							<ChangeIndexCard
 								{changeId}
@@ -249,8 +250,7 @@
 							/>
 						{/each}
 					</tbody>
-				</table>
-			</div>
+				</table> -->
 		</div>
 	{/snippet}
 </Loading>
@@ -311,23 +311,5 @@
 	.commits-table {
 		table-layout: fixed;
 		width: 100%;
-	}
-
-	.table-header {
-		&.s {
-			width: 90px;
-		}
-
-		&.m {
-			width: 100px;
-		}
-
-		&.l {
-			width: 130px;
-		}
-
-		& > div {
-			text-align: start;
-		}
 	}
 </style>
