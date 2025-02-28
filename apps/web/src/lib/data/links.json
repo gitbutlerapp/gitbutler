@@ -37,11 +37,6 @@
 			"url": "https://docs.gitbutler.com",
 			"label": "Documentation"
 		},
-		"jobs": {
-			"id": "jobs",
-			"url": "https://gitbutler.homerun.co",
-			"label": "Jobs"
-		},
 		"blog": {
 			"id": "blog",
 			"url": "https://blog.gitbutler.com",
