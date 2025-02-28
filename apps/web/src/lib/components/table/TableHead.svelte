@@ -5,6 +5,7 @@
 		columns: Array<{
 			key: keyof ColumnTypes;
 			value?: string;
+			tooltip?: string;
 		}>;
 	};
 
@@ -13,9 +14,9 @@
 
 <thead class="dynthead">
 	<tr>
-		{#each columns as { key, value }}
+		{#each columns as { key, value, tooltip }}
 			<th>
-				<div class="text-12 dynthead-title dynthead_{key}">
+				<div class="text-12 dynthead-title dynthead_{key}" title={tooltip}>
 					{value}
 				</div>
 			</th>
@@ -53,7 +54,8 @@
 	}
 
 	/* MODIFIERS */
-	.dynthead_changes {
+	.dynthead_changes,
+	.dynthead_number {
 		text-align: right;
 	}
 </style>

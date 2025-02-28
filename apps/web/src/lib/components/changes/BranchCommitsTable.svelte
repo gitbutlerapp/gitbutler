@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BracnhCommitsRow from './BracnhCommitsRow.svelte';
+	import BranchCommitsRow from './BranchCommitsRow.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { type Branch } from '@gitbutler/shared/branches/types';
 	import { type ProjectReviewParameters } from '@gitbutler/shared/routing/webRoutes.svelte';
@@ -13,7 +13,6 @@
 </script>
 
 <table class="commits-table">
-	<!-- <Table headColumns={['Status', 'Name', 'Changes', 'Last Updated', 'Authors', 'Reviewers', 'Comments']}> -->
 	<Table
 		headColumns={[
 			{ key: 'status', value: 'Status' },
@@ -27,7 +26,7 @@
 	>
 		{#snippet body()}
 			{#each branch.patchIds || [] as changeId, index}
-				<BracnhCommitsRow
+				<BranchCommitsRow
 					{changeId}
 					params={data}
 					branchUuid={branch.uuid}

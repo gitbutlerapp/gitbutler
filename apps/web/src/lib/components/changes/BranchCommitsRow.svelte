@@ -80,6 +80,3 @@
 		/>
 	{/snippet}
 </Loading>
-
-<style lang="postcss">
-</style>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BracnhCommitsTable from '$lib/components/changes/BracnhCommitsTable.svelte';
+	import BranchCommitsTable from '$lib/components/changes/BranchCommitsTable.svelte';
 	// import BracnhCommitsRow from '$lib/components/changes/BracnhCommitsRow.svelte';
 	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
@@ -227,30 +227,7 @@
 				</div>
 			</div>
 
-			<BracnhCommitsTable {branch} {data} />
-			<!-- <table class="commits-table">
-					<thead>
-						<tr>
-							<th class="table-header"><div>Status</div></th>
-							<th><div>Name</div></th>
-							<th class="table-header"><div>Changes</div></th>
-							<th class="table-header"><div>Last update</div></th>
-							<th class="table-header"><div>Authors</div></th>
-							<th class="table-header"><div>Reviewers</div></th>
-							<th class="table-header"><div>Comments</div></th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each branch.patchIds || [] as changeId, index}
-							<ChangeIndexCard
-								{changeId}
-								params={data}
-								branchUuid={branch.uuid}
-								last={index === branch.patchIds.length - 1}
-							/>
-						{/each}
-					</tbody>
-				</table> -->
+			<BranchCommitsTable {branch} {data} />
 		</div>
 	{/snippet}
 </Loading>

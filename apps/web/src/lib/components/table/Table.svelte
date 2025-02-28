@@ -4,7 +4,7 @@
 	import { type Snippet } from 'svelte';
 
 	type Props = {
-		headColumns?: Array<{ key: keyof ColumnTypes; value?: string }>;
+		headColumns?: Array<{ key: keyof ColumnTypes; value?: string; tooltip?: string }>;
 		body: Snippet;
 	};
 
