@@ -44,7 +44,7 @@
 	const userService = getContext(UserService);
 	const user = $derived(userService.user);
 	const chatMinimizer = new ChatMinimize();
-	const diffLineSelection = new DiffLineSelection();
+	const diffLineSelection = new DiffLineSelection(chatMinimizer);
 
 	const repositoryId = $derived(
 		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
@@ -90,15 +90,16 @@
 
 	let header = $state<HTMLDivElement>();
 	let headerIsStuck = $state(false);
+	const HEADER_STUCK_THRESHOLD = 4;
 
 	window.onscroll = () => {
 		if (header) {
 			const top = header.getBoundingClientRect().top;
-			if (!headerIsStuck && top <= 0) {
+			if (!headerIsStuck && top <= HEADER_STUCK_THRESHOLD) {
 				headerIsStuck = true;
 			}
 
-			if (headerIsStuck && top > 0) {
+			if (headerIsStuck && top > HEADER_STUCK_THRESHOLD) {
 				headerIsStuck = false;
 			}
 		}
@@ -234,7 +235,7 @@
 		flex-direction: column;
 		gap: 12px;
 
-		z-index: var(--z-floating);
+		z-index: var(--z-blocker);
 		position: sticky;
 		top: 0;
 

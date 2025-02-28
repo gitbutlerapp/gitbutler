@@ -9,6 +9,7 @@ import {
 	encodeDiffFileLine
 } from '@gitbutler/ui/utils/diffParsing';
 import { SvelteSet } from 'svelte/reactivity';
+import type { ChatMinimize } from '$lib/chat/minimize.svelte';
 import type { DiffPatch } from '@gitbutler/shared/chat/types';
 import type { LineClickParams } from '@gitbutler/ui/HunkDiff.svelte';
 import type { ContentSection, DiffFileLineId, LineSelector } from '@gitbutler/ui/utils/diffParsing';
@@ -82,6 +83,8 @@ export default class DiffLineSelection {
 		calculateSelectedLines(this._selectedDiffLines)
 	);
 	private _selectedDiffFile = $state<DiffFileKey>();
+
+	constructor(private readonly chatMinimizer: ChatMinimize) {}
 
 	clear(fileName?: string) {
 		if (fileName && this._selectedDiffFile) {
@@ -159,6 +162,7 @@ export default class DiffLineSelection {
 	}
 
 	quote() {
+		this.chatMinimizer.expand();
 		this._quote = true;
 	}
 

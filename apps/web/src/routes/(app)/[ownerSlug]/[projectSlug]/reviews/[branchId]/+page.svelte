@@ -1,5 +1,6 @@
 <script lang="ts">
-	import ChangeIndexCard from '$lib/components/changes/ChangeIndexCard.svelte';
+	import BranchCommitsTable from '$lib/components/changes/BranchCommitsTable.svelte';
+	// import BracnhCommitsRow from '$lib/components/changes/BracnhCommitsRow.svelte';
 	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
 	import CommitsGraph from '$lib/components/review/CommitsGraph.svelte';
@@ -226,31 +227,7 @@
 				</div>
 			</div>
 
-			<div class="commits-table-wrapper">
-				<table class="commits-table">
-					<thead>
-						<tr>
-							<th><div>Status</div></th>
-							<th><div>Name</div></th>
-							<th><div class="header-right">Changes</div></th>
-							<th><div>Last update</div></th>
-							<th><div>Authors</div></th>
-							<th><div>Reviewers</div></th>
-							<th><div>Comments</div></th>
-						</tr>
-					</thead>
-					<tbody class="pretty">
-						{#each branch.patchIds || [] as changeId, index}
-							<ChangeIndexCard
-								{changeId}
-								params={data}
-								branchUuid={branch.uuid}
-								last={index === branch.patchIds.length - 1}
-							/>
-						{/each}
-					</tbody>
-				</table>
-			</div>
+			<BranchCommitsTable {branch} {data} />
 		</div>
 	{/snippet}
 </Loading>
@@ -292,7 +269,7 @@
 	}
 
 	.summary-text {
-		line-height: 160%; /* 20.8px */
+		line-height: 160%;
 	}
 
 	.summary-placeholder {
@@ -300,20 +277,5 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 12px;
-	}
-
-	.header-right {
-		text-align: right;
-	}
-
-	.commits-table-wrapper {
-		display: flex;
-		flex-direction: column;
-		width: 100%;
-	}
-
-	.commits-table {
-		table-layout: fixed;
-		width: 100%;
 	}
 </style>
