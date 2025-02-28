@@ -12,3 +12,6 @@
 /all-file-types-renamed-and-modified.tar
 /merge-with-two-branches-auto-resolved-merge.tar
 /two-commits-three-buckets.tar
+/one-commit-detached.tar
+/single-branch-10-commits.tar
+/single-branch-10-commits-multi-segment.tar

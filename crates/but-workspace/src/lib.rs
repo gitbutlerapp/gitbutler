@@ -44,10 +44,41 @@ mod integrated;
 
 pub mod commit_engine;
 
-/// utilities for applying and unapplying branches.
+/// 🚧utilities for applying and unapplying branches 🚧.
 pub mod branch;
 
+/// 🚧Deal with worktree changes 🚧.
+mod stash {
+    /// Information about a stash which is associated with the tip of a stack.
+    #[derive(Debug, Copy, Clone)]
+    pub enum StashStatus {
+        /// The parent reference is still present, but it doesn't point to the first parent of the *stash commit* anymore.
+        Desynced,
+        /// The parent reference could not be found. Maybe it was removed, maybe it was renamed.
+        Orphaned,
+    }
+}
+pub use stash::StashStatus;
+
 mod commit;
+
+/// Types used only when obtaining head-information.
+///
+/// Note that many of these types should eventually end up in the crate root.
+pub mod head_info;
+pub use head_info::function::head_info;
+
+/// Information about where the user is currently looking at.
+#[derive(Debug, Clone)]
+pub struct HeadInfo {
+    /// The stacks visible in the current workspace.
+    ///
+    /// This is an empty array if the `HEAD` is detached.
+    /// Otherwise, there is one or more stacks.
+    pub stacks: Vec<branch::Stack>,
+    /// The full name to the target reference that we should integrate with, if present.
+    pub target_ref: Option<gix::refs::FullName>,
+}
 
 mod virtual_branches_metadata;
 pub use virtual_branches_metadata::VirtualBranchesTomlMetadata;
