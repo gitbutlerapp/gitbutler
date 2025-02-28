@@ -44,7 +44,7 @@
 	const userService = getContext(UserService);
 	const user = $derived(userService.user);
 	const chatMinimizer = new ChatMinimize();
-	const diffLineSelection = new DiffLineSelection();
+	const diffLineSelection = new DiffLineSelection(chatMinimizer);
 
 	const repositoryId = $derived(
 		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
