@@ -2,6 +2,7 @@
 	import BranchCommitList from './BranchCommitList.svelte';
 	import BranchHeader from './BranchHeader.svelte';
 	import CommitRow from './CommitRow.svelte';
+	import ScrollableContainer from '../ScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { createCommitPath } from '$lib/routes/routes.svelte';
@@ -35,77 +36,90 @@
 		</div>
 	</div>
 {/snippet}
-{#snippet commitHere(args: { commitId: string; last?: boolean })}
+
+{#snippet commitHere(args: { commitId: string; last?: boolean; branchName: string })}
 	<button
 		class="commit-here"
 		type="button"
 		class:last={args.last}
-		onclick={() => goto(createCommitPath(projectId, stackId, branchName, args.commitId))}
+		onclick={() => goto(createCommitPath(projectId, stackId, args.branchName, args.commitId))}
 	>
 		<div class="commit-here__circle"></div>
 		<div class="commit-here__line"></div>
 		<div class="commit-here__label text-11 text-semibold">Commit here</div>
 	</button>
 {/snippet}
-<div class="commit-goes-here">
-	<ReduxResult result={branchesResult.current}>
-		{#snippet children(branches)}
-			{#each branches as branch, i}
-				{@const lastBranch = i === branches.length - 1}
-				<div class="branch" class:selected={branch.name === branchName}>
-					<div class="header-wrapper">
-						<BranchHeader
+
+<ScrollableContainer>
+	<div class="commit-goes-here">
+		<ReduxResult result={branchesResult.current}>
+			{#snippet children(branches)}
+				{#each branches as branch, i}
+					{@const lastBranch = i === branches.length - 1}
+					<div class="branch" class:selected={branch.name === branchName}>
+						<div class="header-wrapper">
+							<BranchHeader
+								{projectId}
+								{stackId}
+								{branch}
+								onclick={() => {
+									goto(createCommitPath(projectId, stackId, branch.name), {
+										replaceState: true
+									});
+								}}
+								isTopBranch={i === 0}
+								lineColor="var(--clr-commit-local)"
+								readonly
+							/>
+						</div>
+						<BranchCommitList
 							{projectId}
 							{stackId}
-							{branch}
-							isTopBranch={i === 0}
-							lineColor="var(--clr-commit-local)"
-							readonly
-						/>
+							branchName={branch.name}
+							selectedBranchName={branchName}
+							selectedCommitId={parentId}
+						>
+							{#snippet emptyBranchCommitHere()}
+								{@render indicator({ first: true })}
+							{/snippet}
+							{#snippet localAndRemoteTemplate({ commit, commitKey, first, last, selected })}
+								{@const baseSha = $baseBranch?.baseSha}
+								{#if selected && branchName === branch.name}
+									{@render indicator({ first })}
+								{/if}
+								<div class="commit-wrapper" class:last>
+									{#if !selected}
+										{@render commitHere({ commitId: commit.id, branchName: branch.name })}
+									{/if}
+									<CommitRow
+										{projectId}
+										{commitKey}
+										{first}
+										{commit}
+										lastCommit={last}
+										lineColor="var(--clr-commit-local)"
+										opacity={0.4}
+										borderTop={selected}
+										onclick={() =>
+											goto(createCommitPath(projectId, stackId, branch.name, commit.id), {
+												replaceState: true
+											})}
+									/>
+									{#if lastBranch && last && baseSha && parentId !== baseSha}
+										{@render commitHere({ commitId: baseSha, last: true, branchName: branch.name })}
+									{/if}
+								</div>
+								{#if lastBranch && last && parentId === baseSha}
+									{@render indicator({ last: true })}
+								{/if}
+							{/snippet}
+						</BranchCommitList>
 					</div>
-					<BranchCommitList
-						{projectId}
-						{stackId}
-						branchName={branch.name}
-						selectedCommitId={parentId}
-					>
-						{#snippet localAndRemoteTemplate({ commit, commitKey, first, last, selected })}
-							{@const baseSha = $baseBranch?.baseSha}
-							{#if selected}
-								{@render indicator({ first })}
-							{/if}
-							<div class="commit-wrapper" class:last>
-								{#if !selected}
-									{@render commitHere({ commitId: commit.id })}
-								{/if}
-								<CommitRow
-									{projectId}
-									{commitKey}
-									{first}
-									{commit}
-									lastCommit={last}
-									lineColor="var(--clr-commit-local)"
-									opacity={0.4}
-									borderTop={selected}
-									onclick={() =>
-										goto(createCommitPath(projectId, stackId, branchName, commit.id), {
-											replaceState: true
-										})}
-								/>
-								{#if lastBranch && last && baseSha && parentId !== baseSha}
-									{@render commitHere({ commitId: baseSha, last: true })}
-								{/if}
-							</div>
-							{#if lastBranch && last && parentId === baseSha}
-								{@render indicator({ last: true })}
-							{/if}
-						{/snippet}
-					</BranchCommitList>
-				</div>
-			{/each}
-		{/snippet}
-	</ReduxResult>
-</div>
+				{/each}
+			{/snippet}
+		</ReduxResult>
+	</div>
+</ScrollableContainer>
 
 <style lang="postcss">
 	.commit-goes-here {
@@ -124,6 +138,11 @@
 			background-color: var(--clr-bg-1);
 		}
 	}
+
+	.branch .empty-branch-commit-here .indicator {
+		border-radius: 0 0 var(--radius-l) var(--radius-l);
+	}
+
 	.header-wrapper {
 		opacity: 0.4;
 	}
@@ -142,6 +161,7 @@
 		}
 		&.last {
 			border-bottom: none;
+			border-radius: 0 0 var(--radius-l) var(--radius-l);
 		}
 	}
 	.pin {
@@ -168,9 +188,14 @@
 		display: flex;
 		width: 100%;
 		background-color: var(--clr-bg-2);
-		&.last {
+
+		&.last:not(:has(~ .indicator)) {
 			border-radius: 0 0 var(--radius-l) var(--radius-l);
 		}
+	}
+
+	.last .indicator {
+		border-radius: 0 0 var(--radius-l) var(--radius-l);
 	}
 
 	/* COMMIT HERE */

@@ -90,6 +90,7 @@
 
 <style lang="postcss">
 	.branch-header {
+		width: 100%;
 		position: relative;
 		display: flex;
 		align-items: center;

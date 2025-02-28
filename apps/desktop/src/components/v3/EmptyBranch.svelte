@@ -3,13 +3,14 @@
 
 	interface Props {
 		lastBranch?: boolean;
+		selected?: boolean;
 	}
 
-	const { lastBranch }: Props = $props();
+	const { lastBranch, selected }: Props = $props();
 </script>
 
 <div class="empty-series" style:--commit-color={getColorFromBranchType('LocalOnly')}>
-	<div class="commit-line" class:dashed={lastBranch}></div>
+	<div class="commit-line" class:selected class:dashed={lastBranch}></div>
 	<div class="text-13 text-body empty-series__label">
 		This is an empty branch.
 		<br />
@@ -33,5 +34,10 @@
 	.commit-line {
 		position: absolute;
 		left: 20px;
+		opacity: 0.4;
+
+		&.selected {
+			opacity: 1;
+		}
 	}
 </style>
