@@ -8,6 +8,7 @@
 	import type { ContentSection, LineSelector } from '@gitbutler/ui/utils/diffParsing';
 
 	interface Props {
+		isLoggedIn: boolean;
 		section: DiffSection;
 		selectedSha: string | undefined;
 		selectedLines: LineSelector[];
@@ -17,6 +18,7 @@
 		onQuoteSelection: () => void;
 	}
 	const {
+		isLoggedIn,
 		section,
 		toggleDiffLine,
 		selectedSha,
@@ -67,7 +69,7 @@
 				{selectedLines}
 				onLineClick={handleLineClick}
 				{onCopySelection}
-				{onQuoteSelection}
+				onQuoteSelection={isLoggedIn ? onQuoteSelection : undefined}
 				{clearLineSelection}
 			/>
 		{/each}

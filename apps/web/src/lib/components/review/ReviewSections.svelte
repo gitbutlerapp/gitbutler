@@ -1,5 +1,7 @@
 <script lang="ts">
 	import SectionComponent from './Section.svelte';
+	import { UserService } from '$lib/user/userService';
+	import { getContext } from '@gitbutler/shared/context';
 	import type { Patch, Section } from '@gitbutler/shared/branches/types';
 	import type { LineClickParams } from '@gitbutler/ui/HunkDiff.svelte';
 	import type { ContentSection, LineSelector } from '@gitbutler/ui/utils/diffParsing';
@@ -25,6 +27,11 @@
 		onCopySelection,
 		onQuoteSelection
 	}: Props = $props();
+
+	const userService = getContext(UserService);
+	const user = $derived(userService.user);
+
+	const isLoggedIn = $derived(!!$user);
 </script>
 
 <div class="review-sections-card">
@@ -38,6 +45,7 @@
 	{#if patchSections !== undefined}
 		{#each patchSections as section}
 			<SectionComponent
+				{isLoggedIn}
 				{section}
 				{toggleDiffLine}
 				{selectedSha}

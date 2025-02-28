@@ -86,6 +86,6 @@
 		display: flex;
 		flex-direction: column;
 		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
-		overflow: hidden;
+		/* overflow: hidden; */
 	}
 </style>
