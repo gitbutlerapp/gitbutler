@@ -52,6 +52,10 @@
 	const hasSelectedLines = $derived(renderRows.filter((row) => row.isSelected).length > 0);
 
 	let hoveringOverTable = $state(false);
+	function handleClearSelection() {
+		if (hasSelectedLines) clearLineSelection?.();
+		lineSelection.onEnd();
+	}
 </script>
 
 <tbody
@@ -61,9 +65,7 @@
 	ontouchmove={(ev) => lineSelection.onTouchMove(ev)}
 	ontouchend={() => lineSelection.onEnd()}
 	use:clickOutside={{
-		handler: () => {
-			if (hasSelectedLines) clearLineSelection?.();
-		}
+		handler: handleClearSelection
 	}}
 >
 	{#each renderRows as row, idx}
@@ -74,10 +76,10 @@
 			{lineSelection}
 			{tabSize}
 			{wrapText}
-			{hasSelectedLines}
 			{numberHeaderWidth}
 			{onQuoteSelection}
 			{onCopySelection}
+			clearLineSelection={handleClearSelection}
 			{hoveringOverTable}
 		/>
 	{/each}
