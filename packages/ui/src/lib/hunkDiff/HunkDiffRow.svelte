@@ -25,7 +25,6 @@
 		lineSelection: LineSelection;
 		tabSize: number;
 		wrapText: boolean;
-		hasSelectedLines: boolean;
 		numberHeaderWidth?: number;
 		onQuoteSelection?: () => void;
 		onCopySelection?: () => void;
@@ -39,7 +38,6 @@
 		lineSelection,
 		tabSize,
 		wrapText,
-		hasSelectedLines,
 		clearLineSelection,
 		numberHeaderWidth,
 		onQuoteSelection,
@@ -125,7 +123,7 @@
 		class:selected={row.isSelected}
 		class:is-last={row.isLast}
 		onclick={() => {
-			if (!row.isSelected && hasSelectedLines) clearLineSelection?.();
+			if (!row.isSelected) clearLineSelection?.();
 		}}
 	>
 		<div class="table__row-header">
