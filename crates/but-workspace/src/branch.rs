@@ -411,6 +411,7 @@
 //!                                      junctions', decide which parent to
 //!                                      walk along.
 //! ```
+use crate::StashStatus;
 use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::RefMetadata;
@@ -489,6 +490,7 @@ pub fn remove_branch_from_workspace(
 /// more information about a Stack.
 ///
 /// Mote that a stack is also used to represent detached heads, which is far-fetched but necessary
+// TODO: move this to the crate root once the 'old' implementation isn't used anymore.
 #[derive(Debug, Clone)]
 pub struct Stack {
     /// The index into the parents-array of its [`WorkspaceCommit`](crate::WorkspaceCommit), but for our
@@ -498,10 +500,11 @@ pub struct Stack {
     /// if the stack is merged at all.
     pub index: usize,
     /// The commit that the tip of the stack is pointing to.
-    pub tip: gix::ObjectId,
-    /// The reference name that points to the tip of the stack, i.e. the top-most known commit.
-    /// It is `None` if the `HEAD` is detached.
-    pub ref_name: Option<gix::refs::FullName>,
+    /// It is `None` if there is no commit as this repository is newly initialized.
+    pub tip: Option<gix::ObjectId>,
+    /// The branch-name denoted segments of the stack from its tip to the point of reference, typically a merge-base.
+    /// This array is never empty.
+    pub segments: Vec<StackSegment>,
     /// Additional information about possibly still available stashes, sitting on top of this stack.
     ///
     /// This means the stash is still there to be applied, something that can happen if the user switches branches
@@ -522,34 +525,53 @@ pub struct BranchCommit {
     pub committed_date: gix::date::Time,
 }
 
-/// A more detailed specification of a reference associated with a workspace.
-#[derive(Debug, Clone)]
-pub enum BranchRefLocation {
+impl TryFrom<gix::Id<'_>> for BranchCommit {
+    type Error = anyhow::Error;
+
+    fn try_from(value: gix::Id<'_>) -> Result<Self, Self::Error> {
+        let commit = value.object()?.into_commit();
+        // Decode efficiently, no need to own this.
+        let commit = commit.decode()?;
+        Ok(BranchCommit {
+            id: value.detach(),
+            title: commit.message().title.to_owned(),
+            committed_date: commit.committer.time,
+        })
+    }
+}
+
+/// A more detailed specification of a reference associated with a workspace, and it's location in comparison to a named reference point.
+#[derive(Debug, Clone, Copy)]
+pub enum RefLocation {
     /// The workspace commit can reach the given reference using a graph-walk.
     ///
     /// This is the common case.
-    ReachableFromWorkspaceCommit(gix::refs::FullName),
+    ReachableFromWorkspaceCommit,
     /// The given reference can reach into this workspace segment, but isn't inside of it.
     ///
     /// This happens if someone checked out the reference directly and commited into it.
-    OutsideOfWorkspace(gix::refs::FullName),
+    OutsideOfWorkspace,
+    /// `HEAD` points directly to the
+    AtHead,
 }
 
 /// A list of all commits in a stack segment of a [`Stack`].
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct StackSegment {
     /// The name of the branch at the tip of it, and the starting point of the walk.
     ///
     /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
     /// a commit anymore that was reached by our rev-walk.
     /// This can happen if the ref is deleted, or if it was advanced by other means.
-    pub ref_name: Option<BranchRefLocation>,
+    pub ref_name: Option<gix::refs::FullName>,
+    /// Specify where the `ref_name` is specifically, or `None` if there is no ref-name.
+    pub ref_location: Option<RefLocation>,
     /// The portion of commits that can be reached from the tip of the *branch* downwards, so that they are unique
     /// for that stack segment and not included in any other stack or the *target branch*.
     ///
     /// The list could be empty.
     pub commits_unique_from_tip: Vec<BranchCommit>,
-    /// The comits that are reachable from this branch, but not from the tip of the *Stack*.
+    /// The commits that are reachable from this branch, but not from the tip of the *Stack*.
     /// This happens if the branch is advanced/moved by other means.
     pub commits_unintegratd_local: Vec<BranchCommit>,
     /// Commits that are reachable from the remote-tracking branch associated with this branch,
@@ -558,45 +580,10 @@ pub struct StackSegment {
     /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
     /// Its presence means that a remote is configured and that the stack content
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
-    /// Metadata with additional information.
-    pub metadata: but_core::ref_metadata::Branch,
-}
-
-/// Information about a stash which is associated with the tip of a stack.
-#[derive(Debug, Copy, Clone)]
-pub enum StashStatus {
-    /// The parent reference is still present, but it doesn't point to the first parent of the *stash commit* anymore.
-    Desynced,
-    /// The parent reference could not be found. Maybe it was removed, maybe it was renamed.
-    Orphaned,
-}
-
-/// Further clarify where a workspace reference was located.
-#[derive(Debug, Clone)]
-pub enum WorkspaceRefLocation {
-    /// The given workspace can reach `HEAD^{commit}` through its worktree commits.
-    Reachable(gix::refs::FullName),
-    /// `HEAD` is pointing to the given workspace ref directly.
-    Head(gix::refs::FullName),
-}
-
-/// Information about where the user is currently looking at.
-#[derive(Debug, Clone)]
-pub struct HeadInfo {
-    /// Set if `HEAD` points to a GitButler reference, `refs/heads/gitbutler/workspace/<name>`.
-    pub workspace_ref: Option<WorkspaceRefLocation>,
-    /// The stacks visible in the current workspace.
-    pub stacks: Vec<Stack>,
-    /// The full name to the target reference that we should integrate with, if present.
-    pub target_ref: Option<gix::refs::FullName>,
-}
-
-/// Gather information about the current `HEAD` and the workspace that might be associated with it.
-pub fn head_info(
-    repo: &gix::Repository,
-    metadata: &mut impl but_core::RefMetadata,
-) -> anyhow::Result<HeadInfo> {
-    todo!()
+    /// Metadata with additional information, or `None` if nothing was present.
+    ///
+    /// Primary use for this is the consumer, as edits are forced to be made on 'connected' data, so refetching is necessary.
+    pub metadata: Option<but_core::ref_metadata::Branch>,
 }
 
 /// Return all stack segments within the given `stack`.
