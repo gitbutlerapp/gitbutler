@@ -20,9 +20,17 @@ fn main() -> Result<()> {
             message,
             amend,
             parent,
+            stack_segment_ref,
         } => {
             let (repo, project) = repo_and_maybe_project(&args, RepositoryOpenMode::Merge)?;
-            command::commit(repo, project, message.as_deref(), *amend, parent.as_deref())
+            command::commit(
+                repo,
+                project,
+                message.as_deref(),
+                *amend,
+                parent.as_deref(),
+                stack_segment_ref.as_deref(),
+            )
         }
         args::Subcommands::HunkDependency => command::diff::locks(&args.current_dir),
         args::Subcommands::Status { unified_diff } => {
