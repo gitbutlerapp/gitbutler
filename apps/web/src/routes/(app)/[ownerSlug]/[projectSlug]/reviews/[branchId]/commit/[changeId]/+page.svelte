@@ -90,15 +90,16 @@
 
 	let header = $state<HTMLDivElement>();
 	let headerIsStuck = $state(false);
+	const HEADER_STUCK_THRESHOLD = 4;
 
 	window.onscroll = () => {
 		if (header) {
 			const top = header.getBoundingClientRect().top;
-			if (!headerIsStuck && top <= 0) {
+			if (!headerIsStuck && top <= HEADER_STUCK_THRESHOLD) {
 				headerIsStuck = true;
 			}
 
-			if (headerIsStuck && top > 0) {
+			if (headerIsStuck && top > HEADER_STUCK_THRESHOLD) {
 				headerIsStuck = false;
 			}
 		}
