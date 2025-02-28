@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
+	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import Branch from '$components/v3/Branch.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -36,24 +37,29 @@
 					viewport={resizeStackBranches}
 					direction="right"
 					minWidth={22.5}
+					zIndex="var(--z-modal)"
 					onWidth={(value) => {
 						$stackBranchWidth = value / (16 * $userSettings.zoom);
 					}}
 				/>
 				{#if stackId && branches.length >= 0}
-					{#each branches as branch, i (branch.name)}
-						{@const first = i === 0}
-						{@const last = i === branches.length - 1}
-						<Branch
-							{projectId}
-							{stackId}
-							branchName={branch.name}
-							selected={selectedBranchName === branch.name}
-							{selectedCommitId}
-							{first}
-							{last}
-						/>
-					{/each}
+					<ScrollableContainer wide>
+						<div class="branch-scroll-container">
+							{#each branches as branch, i (branch.name)}
+								{@const first = i === 0}
+								{@const last = i === branches.length - 1}
+								<Branch
+									{projectId}
+									{stackId}
+									branchName={branch.name}
+									selected={selectedBranchName === branch.name}
+									{selectedCommitId}
+									{first}
+									{last}
+								/>
+							{/each}
+						</div>
+					</ScrollableContainer>
 				{/if}
 			</div>
 		{/snippet}
@@ -75,7 +81,6 @@
 		display: flex;
 		width: 22.5rem;
 		flex-direction: column;
-		padding: 14px;
 		overflow: hidden;
 
 		background-color: transparent;
@@ -86,5 +91,9 @@
 		);
 		background-size: 6px 6px;
 		border-right: 1px solid var(--clr-border-2);
+	}
+
+	.branch-scroll-container {
+		padding: 14px;
 	}
 </style>
