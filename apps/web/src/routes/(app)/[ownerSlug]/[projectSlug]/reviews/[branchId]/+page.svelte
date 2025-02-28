@@ -269,7 +269,7 @@
 	}
 
 	.summary-text {
-		line-height: 160%; /* 20.8px */
+		line-height: 160%;
 	}
 
 	.summary-placeholder {
@@ -277,16 +277,5 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 12px;
-	}
-
-	.commits-table-wrapper {
-		display: flex;
-		flex-direction: column;
-		width: 100%;
-	}
-
-	.commits-table {
-		table-layout: fixed;
-		width: 100%;
 	}
 </style>
