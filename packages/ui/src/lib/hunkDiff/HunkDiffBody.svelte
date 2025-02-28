@@ -57,6 +57,9 @@
 <tbody
 	onmouseenter={() => (hoveringOverTable = true)}
 	onmouseleave={() => (hoveringOverTable = false)}
+	ontouchstart={(ev) => lineSelection.onTouchStart(ev)}
+	ontouchmove={(ev) => lineSelection.onTouchMove(ev)}
+	ontouchend={() => lineSelection.onEnd()}
 	use:clickOutside={{
 		handler: () => {
 			if (hasSelectedLines) clearLineSelection?.();

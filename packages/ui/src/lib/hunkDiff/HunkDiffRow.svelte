@@ -1,4 +1,6 @@
 <script lang="ts" module>
+	import { isTouchDevice } from '$lib/utils/browserAgent';
+
 	export function getHunkLineId(rowEncodedId: DiffFileLineId): string {
 		return `hunk-line-${rowEncodedId}`;
 	}
@@ -45,11 +47,45 @@
 		hoveringOverTable
 	}: Props = $props();
 
+	const touchDevice = isTouchDevice();
+
 	let rowElement = $state<HTMLTableRowElement>();
 	let overflowMenuHeight = $state<number>(0);
 
+	const rowTop = $derived(rowElement?.getBoundingClientRect().top);
+	const rowLeft = $derived(rowElement?.getBoundingClientRect().left);
 	const rowWidth = $derived(rowElement?.getBoundingClientRect().width);
 	const rowHeight = $derived(rowElement?.getBoundingClientRect().height);
+
+	$effect(() => {
+		if (
+			lineSelection.touchStart !== undefined &&
+			rowTop !== undefined &&
+			rowLeft !== undefined &&
+			numberHeaderWidth !== undefined &&
+			rowHeight !== undefined
+		) {
+			const rowTouchStartY =
+				lineSelection.touchStart.y > rowTop && lineSelection.touchStart.y < rowTop + rowHeight;
+			const rowTouchStartX =
+				lineSelection.touchStart.x > rowLeft &&
+				lineSelection.touchStart.x < rowLeft + numberHeaderWidth;
+			if (rowTouchStartY && rowTouchStartX) {
+				lineSelection.touchSelectionStart(row, idx);
+			}
+
+			if (lineSelection.touchMove !== undefined) {
+				const rowTouchEndsY =
+					lineSelection.touchMove.y > rowTop && lineSelection.touchMove.y < rowTop + rowHeight;
+				const rowTouchEndsX =
+					lineSelection.touchMove.x > rowLeft &&
+					lineSelection.touchMove.x < rowLeft + numberHeaderWidth;
+				if (rowTouchEndsY && rowTouchEndsX) {
+					lineSelection.touchSelectionEnd(row, idx);
+				}
+			}
+		}
+	});
 </script>
 
 {#snippet countColumn(row: Row, side: CountColumnSide, idx: number)}
@@ -106,7 +142,7 @@
 				<div
 					bind:clientHeight={overflowMenuHeight}
 					class="table__selected-row-overflow-menu"
-					class:hovered={hoveringOverTable}
+					class:visible={hoveringOverTable || touchDevice}
 					style="--number-col-width: {numberHeaderWidth}px; --height: {rowHeight}px; --overflow-menu-height: {overflowMenuHeight}px;"
 				>
 					{#if onQuoteSelection}
@@ -211,7 +247,7 @@
 			border-right: 1px solid var(--clr-border-2);
 		}
 
-		&.hovered {
+		&.visible {
 			opacity: 1;
 			pointer-events: all;
 		}
@@ -227,6 +263,7 @@
 		text-align: right;
 		vertical-align: top;
 		user-select: none;
+		touch-action: none;
 
 		position: sticky;
 		left: calc(var(--number-col-width));
