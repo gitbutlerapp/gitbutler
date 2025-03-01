@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ChatMinimize } from '$lib/chat/minimize.svelte';
 	import ChatComponent from '$lib/components/ChatComponent.svelte';
+	import Navigation from '$lib/components/Navigation.svelte';
 	import ChangeActionButton from '$lib/components/review/ChangeActionButton.svelte';
 	import ChangeNavigator from '$lib/components/review/ChangeNavigator.svelte';
 	import ReviewInfo from '$lib/components/review/ReviewInfo.svelte';
@@ -88,13 +89,17 @@
 		})
 	);
 
-	let header = $state<HTMLDivElement>();
+	let headerEl = $state<HTMLDivElement>();
+	let headerHeight = $state(0);
 	let headerIsStuck = $state(false);
+	let metaSectionHidden = $state(false);
 	const HEADER_STUCK_THRESHOLD = 4;
 
-	window.onscroll = () => {
-		if (header) {
-			const top = header.getBoundingClientRect().top;
+	let metaSectionEl = $state<HTMLDivElement>();
+
+	function handleScroll() {
+		if (headerEl) {
+			const top = headerEl.getBoundingClientRect().top;
 			if (!headerIsStuck && top <= HEADER_STUCK_THRESHOLD) {
 				headerIsStuck = true;
 			}
@@ -103,7 +108,15 @@
 				headerIsStuck = false;
 			}
 		}
-	};
+
+		if (metaSectionEl && headerEl) {
+			metaSectionHidden =
+				metaSectionEl.getBoundingClientRect().top -
+					headerEl.clientHeight +
+					metaSectionEl.clientHeight <
+				0;
+		}
+	}
 
 	function scrollToTop() {
 		window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -130,38 +143,63 @@
 	}
 </script>
 
-<svelte:window onkeydown={handleKeyDown} />
+<svelte:window onkeydown={handleKeyDown} onscroll={handleScroll} />
 
 <div class="review-page" class:column={chatMinimizer.value}>
 	<Loading loadable={combine([patch?.current, repositoryId.current, branchUuid?.current])}>
 		{#snippet children([patch, repositoryId, branchUuid])}
-			<div class="review-main-content" class:expand={chatMinimizer.value}>
-				<div class="review-main__header" bind:this={header}>
+			<div class="review-main" class:expand={chatMinimizer.value}>
+				<Navigation />
+
+				<div
+					class="review-main__header"
+					bind:this={headerEl}
+					bind:clientHeight={headerHeight}
+					class:stucked={headerIsStuck}
+					class:bottom-line={headerIsStuck && !metaSectionHidden}
+				>
 					<div class="review-main__title-wrapper">
 						{#if headerIsStuck}
-							<Button kind="outline" icon="arrow-top" onclick={scrollToTop} />
+							<div class="scroll-to-top">
+								<Button kind="outline" icon="arrow-top" onclick={scrollToTop} />
+							</div>
 						{/if}
-						<h3 class="text-18 text-bold review-main-content-title">{patch.title}</h3>
+						<h3 class="text-18 text-bold review-main-title">{patch.title}</h3>
 					</div>
 
-					<div class="review-main-content__patch-navigator">
-						{#if patchIds !== undefined}
-							<ChangeNavigator {goToPatch} currentPatchId={patch.changeId} {patchIds} />
-						{/if}
+					<!-- {#if !headerIsStuck}
+						<div class="review-main__patch-navigator">
+							{#if patchIds !== undefined}
+								<ChangeNavigator {goToPatch} currentPatchId={patch.changeId} {patchIds} />
+							{/if}
 
-						{#if branchUuid !== undefined && isPatchAuthor === false}
-							<ChangeActionButton {branchUuid} {patch} isUserLoggedIn={!!$user} />
-						{/if}
-					</div>
+							{#if branchUuid !== undefined && isPatchAuthor === false}
+								<ChangeActionButton {branchUuid} {patch} isUserLoggedIn={!!$user} />
+							{/if}
+						</div>
+					{/if} -->
 				</div>
 
-				<p class="review-main-content-description">
-					<Markdown content={patch.description?.trim() || DESCRIPTION_PLACE_HOLDER} />
-				</p>
+				<div class="review-main__patch-navigator">
+					{#if patchIds !== undefined}
+						<ChangeNavigator {goToPatch} currentPatchId={patch.changeId} {patchIds} />
+					{/if}
 
-				<ReviewInfo projectId={repositoryId} {patch} />
+					{#if branchUuid !== undefined && isPatchAuthor === false}
+						<ChangeActionButton {branchUuid} {patch} isUserLoggedIn={!!$user} />
+					{/if}
+				</div>
+
+				<div class="review-main__meta" bind:this={metaSectionEl}>
+					<p class="review-main-description">
+						<Markdown content={patch.description?.trim() || DESCRIPTION_PLACE_HOLDER} />
+					</p>
+					<ReviewInfo projectId={repositoryId} {patch} />
+				</div>
+
 				<ReviewSections
 					{patch}
+					headerShift={headerHeight}
 					patchSections={patchSections?.current}
 					toggleDiffLine={(f, s, p) => diffLineSelection.toggle(f, s, p)}
 					selectedSha={diffLineSelection.selectedSha}
@@ -173,11 +211,7 @@
 			</div>
 
 			{#if branchUuid !== undefined}
-				<div
-					class="review-chat"
-					class:minimized={chatMinimizer.value}
-					class:full-screen={!chatMinimizer.value && headerIsStuck}
-				>
+				<div class="review-chat" class:minimized={chatMinimizer.value}>
 					<ChatComponent
 						{isPatchAuthor}
 						isUserLoggedIn={!!$user}
@@ -213,10 +247,9 @@
 		}
 	}
 
-	.review-main-content {
+	.review-main {
 		display: flex;
 		flex-direction: column;
-		gap: 24px;
 		width: 100%;
 		max-width: 50%;
 
@@ -231,18 +264,46 @@
 	}
 
 	.review-main__header {
+		z-index: var(--z-ground);
+		position: sticky;
+		top: 0;
+
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
 
-		z-index: var(--z-blocker);
-		position: sticky;
-		top: 0;
-
-		background-color: var(--clr-bg);
+		background-color: var(--clr-bg-2);
 		margin-top: -24px;
-		padding-top: 24px;
-		padding-bottom: 8px;
+		padding: 24px 0 12px;
+		border-bottom: 1px solid transparent;
+
+		transition:
+			border-bottom var(--transition-medium),
+			padding var(--transition-medium);
+
+		&.bottom-line {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
+
+		&.stucked {
+			padding: 16px 0;
+		}
+	}
+
+	.scroll-to-top {
+		display: flex;
+		animation: fadeInScrollButton var(--transition-medium) forwards;
+	}
+
+	@keyframes fadeInScrollButton {
+		from {
+			opacity: 0;
+			width: 0;
+		}
+		to {
+			opacity: 1;
+			min-width: var(--size-button);
+		}
 	}
 
 	.review-main__title-wrapper {
@@ -251,36 +312,47 @@
 		gap: 16px;
 	}
 
-	.review-main-content-title {
+	.review-main-title {
 		color: var(--clr-text-1);
 	}
 
-	.review-main-content__patch-navigator {
+	.review-main__patch-navigator {
 		display: flex;
 		gap: 6px;
+		padding-bottom: 24px;
+
 		@media (--tablet-viewport) {
 			flex-wrap: wrap;
 			gap: 12px;
 		}
 	}
 
-	.review-main-content-description {
-		color: var(--text-1, #1a1614);
-		font-family: var(--fontfamily-mono, 'Geist Mono');
+	.review-main__meta {
+		display: flex;
+		flex-direction: column;
+		gap: 24px;
+		margin-bottom: 40px;
+	}
+
+	.review-main-description {
+		color: var(--text-1);
+		font-family: var(--fontfamily-mono);
 		font-size: 12px;
 		font-style: normal;
-		font-weight: var(--weight-regular, 400);
-		line-height: 160%; /* 19.2px */
+		line-height: 160%;
 	}
 
 	.review-chat {
-		width: 100%;
-		--top-nav-offset: 84px;
-		--bottom-margin: 10px;
-		top: var(--top-nav-offset);
+		--top-nav-offset: 0;
+		--bottom-margin: 44px;
+
 		display: flex;
-		height: calc(100vh - var(--top-nav-offset) - var(--bottom-margin));
 		position: sticky;
+		top: 24px;
+		width: 100%;
+		height: calc(100vh - var(--bottom-margin));
+		/* background-color: rgb(139, 81, 81); */
+
 		&.minimized {
 			height: fit-content;
 			position: sticky;
@@ -300,14 +372,6 @@
 			bottom: var(--bottom-margin);
 			z-index: var(--z-floating);
 			box-shadow: var(--fx-shadow-s);
-		}
-
-		@media not (--tablet-viewport) {
-			&.full-screen {
-				--top-nav-offset: 20px;
-				top: var(--top-nav-offset);
-				height: calc(100dvh - var(--top-nav-offset) - var(--bottom-margin));
-			}
 		}
 	}
 </style>

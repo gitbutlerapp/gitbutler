@@ -1,6 +1,5 @@
 <script lang="ts">
 	import BranchCommitsTable from '$lib/components/changes/BranchCommitsTable.svelte';
-	// import BracnhCommitsRow from '$lib/components/changes/BracnhCommitsRow.svelte';
 	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
 	import CommitsGraph from '$lib/components/review/CommitsGraph.svelte';
