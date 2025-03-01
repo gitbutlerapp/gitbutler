@@ -1,0 +1,15 @@
+[package]
+name = "gitbutler-command-context"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+anyhow = "1.0.95"
+git2.workspace = true
+gix.workspace = true
+tracing.workspace = true
+gitbutler-project.workspace = true
+but-settings.workspace = true
+bstr = "1.11.1"
