@@ -132,19 +132,19 @@
 
 <svelte:window onkeydown={handleKeyDown} />
 
-<div class="review-page" class:column={chatMinimizer.value}>
+<main class="review-page" class:column={chatMinimizer.value}>
 	<Loading loadable={combine([patch?.current, repositoryId.current, branchUuid?.current])}>
 		{#snippet children([patch, repositoryId, branchUuid])}
-			<div class="review-main-content" class:expand={chatMinimizer.value}>
+			<div class="review-main" class:expand={chatMinimizer.value}>
 				<div class="review-main__header" bind:this={header}>
 					<div class="review-main__title-wrapper">
 						{#if headerIsStuck}
 							<Button kind="outline" icon="arrow-top" onclick={scrollToTop} />
 						{/if}
-						<h3 class="text-18 text-bold review-main-content-title">{patch.title}</h3>
+						<h3 class="text-18 text-bold review-main-title">{patch.title}</h3>
 					</div>
 
-					<div class="review-main-content__patch-navigator">
+					<div class="review-main__patch-navigator">
 						{#if patchIds !== undefined}
 							<ChangeNavigator {goToPatch} currentPatchId={patch.changeId} {patchIds} />
 						{/if}
@@ -155,11 +155,14 @@
 					</div>
 				</div>
 
-				<p class="review-main-content-description">
-					<Markdown content={patch.description?.trim() || DESCRIPTION_PLACE_HOLDER} />
-				</p>
+				<div class="review-main__meta">
+					<p class="review-main-description">
+						<Markdown content={patch.description?.trim() || DESCRIPTION_PLACE_HOLDER} />
+					</p>
 
-				<ReviewInfo projectId={repositoryId} {patch} />
+					<ReviewInfo projectId={repositoryId} {patch} />
+				</div>
+
 				<ReviewSections
 					{patch}
 					patchSections={patchSections?.current}
@@ -195,7 +198,7 @@
 			{/if}
 		{/snippet}
 	</Loading>
-</div>
+</main>
 
 <style lang="postcss">
 	.review-page {
@@ -213,10 +216,9 @@
 		}
 	}
 
-	.review-main-content {
+	.review-main {
 		display: flex;
 		flex-direction: column;
-		gap: 24px;
 		width: 100%;
 		max-width: 50%;
 
@@ -239,10 +241,10 @@
 		position: sticky;
 		top: 0;
 
-		background-color: var(--clr-bg);
+		background-color: var(--clr-bg-2);
 		margin-top: -24px;
 		padding-top: 24px;
-		padding-bottom: 8px;
+		padding-bottom: 24px;
 	}
 
 	.review-main__title-wrapper {
@@ -251,11 +253,11 @@
 		gap: 16px;
 	}
 
-	.review-main-content-title {
+	.review-main-title {
 		color: var(--clr-text-1);
 	}
 
-	.review-main-content__patch-navigator {
+	.review-main__patch-navigator {
 		display: flex;
 		gap: 6px;
 		@media (--tablet-viewport) {
@@ -264,13 +266,19 @@
 		}
 	}
 
-	.review-main-content-description {
-		color: var(--text-1, #1a1614);
-		font-family: var(--fontfamily-mono, 'Geist Mono');
+	.review-main__meta {
+		display: flex;
+		flex-direction: column;
+		gap: 24px;
+		margin-bottom: 40px;
+	}
+
+	.review-main-description {
+		color: var(--text-1);
+		font-family: var(--fontfamily-mono);
 		font-size: 12px;
 		font-style: normal;
-		font-weight: var(--weight-regular, 400);
-		line-height: 160%; /* 19.2px */
+		line-height: 160%;
 	}
 
 	.review-chat {

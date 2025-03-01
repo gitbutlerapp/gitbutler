@@ -310,7 +310,7 @@
 		align-self: flex-start;
 		padding: 6px 6px 6px 8px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg);
+		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
 		user-select: text;
 	}
