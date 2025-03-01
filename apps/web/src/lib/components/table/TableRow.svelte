@@ -26,8 +26,6 @@
 		event.preventDefault();
 		goto(href);
 	}
-
-	console.log(columns);
 </script>
 
 <tr
