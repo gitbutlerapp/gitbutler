@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
@@ -20,6 +21,7 @@
 	const stackPublishingService = getContext(StackPublishingService);
 	const branchController = getContext(BranchController);
 	const butRequestDetailsService = getContext(ButRequestDetailsService);
+	const posthog = getContext(PostHogWrapper);
 
 	let modal = $state<Modal>();
 
@@ -29,8 +31,8 @@
 	async function publishReview() {
 		await branchController.pushBranch($stack.id, true);
 		const reviewId = await stackPublishingService.upsertStack($stack.id, branchTitle);
-		console.log(reviewId);
 		butRequestDetailsService.setDetails(reviewId, title, description);
+		posthog.capture('Butler Review Created');
 		modal?.close();
 	}
 
