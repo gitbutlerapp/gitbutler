@@ -9,7 +9,7 @@ publish = false
 doctest = false
 
 [dependencies]
-anyhow = "1.0.95"
+anyhow = "1.0.96"
 itertools = "0.14.0"
 serde.workspace = true
 gix = { workspace = true, features = [] }
@@ -23,7 +23,7 @@ gitbutler-repo.workspace = true
 gitbutler-oxidize.workspace = true
 
 # For `ui` module
-rustc-hash = "2.1.0"
+rustc-hash = "2.1.1"
 gitbutler-stack.workspace = true
 
 [dev-dependencies]
@@ -32,4 +32,4 @@ gitbutler-testsupport.workspace = true
 gitbutler-oxidize.workspace = true
 itertools = "0.14.0"
 insta.workspace = true
-serde_json = "1.0.138"
+serde_json = "1.0.139"

@@ -3,7 +3,7 @@ members = ["crates/gitbutler-*", "crates/but-*"]
 resolver = "2"
 
 [workspace.dependencies]
-bstr = "1.11.1"
+bstr = "1.11.3"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "b4fe425a1a7823790fab592c84aa8494d295640d", default-features = false, features = [
 ] }
@@ -13,23 +13,23 @@ git2 = { version = "0.20.0", features = [
     "vendored-openssl",
     "vendored-libgit2",
 ] }
-uuid = { version = "1.11.0", features = ["v4", "serde"] }
+uuid = { version = "1.15.1", features = ["v4", "serde"] }
 serde = { version = "1.0", features = ["derive"] }
-thiserror = "2.0.9"
-tokio = { version = "1.42.0", default-features = false }
+thiserror = "2.0.11"
+tokio = { version = "1.43.0", default-features = false }
 keyring = { version = "3.6.1", features = [
     "apple-native",
     "windows-native",
     "linux-native",
     "crypto-rust",
 ] }
-anyhow = "1.0.95"
+anyhow = "1.0.96"
 parking_lot = "0.12.3"
 futures = "0.3.31"
 toml = "0.8.13"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
-tempfile = "3.14"
+tempfile = "3.17"
 rand = "0.9.0"
 
 gitbutler-id = { path = "crates/gitbutler-id" }
