@@ -7,7 +7,6 @@
 #![deny(missing_docs, unsafe_code)]
 #![allow(async_fn_in_trait)]
 #![allow(unknown_lints)]
-#![cfg_attr(windows, feature(windows_by_handle))]
 
 #[cfg(all(
     not(debug_assertions),

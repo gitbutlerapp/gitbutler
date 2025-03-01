@@ -9,7 +9,7 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
         {
           "diffs": [
             [
-              3708607749576748282,
+              15989967088397270668,
               [
                 {
                   "stackId": "stack_1",
@@ -18,7 +18,7 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
               ]
             ],
             [
-              2434601357784245452,
+              8240534308515296008,
               [
                 {
                   "stackId": "stack_1",
@@ -35,7 +35,7 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
               ]
             ],
             [
-              16712260417274738957,
+              18120254504138851193,
               [
                 {
                   "stackId": "stack_1",
@@ -58,7 +58,7 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
         StableHunkDependencies {
             diffs: [
                 (
-                    15941114795339476802,
+                    5660422847701176503,
                     [
                         HunkLock {
                             stack_id: stack_1,
@@ -67,7 +67,7 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                     ],
                 ),
                 (
-                    17676568081731369438,
+                    6048968734524995517,
                     [
                         HunkLock {
                             stack_id: stack_1,
@@ -94,7 +94,7 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
         StableHunkDependencies {
             diffs: [
                 (
-                    2434601357784245452,
+                    8240534308515296008,
                     [
                         HunkLock {
                             stack_id: stack_1,
@@ -111,7 +111,7 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                     ],
                 ),
                 (
-                    3708607749576748282,
+                    15989967088397270668,
                     [
                         HunkLock {
                             stack_id: stack_1,
@@ -120,7 +120,7 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                     ],
                 ),
                 (
-                    16712260417274738957,
+                    18120254504138851193,
                     [
                         HunkLock {
                             stack_id: stack_1,
@@ -142,7 +142,7 @@ fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
         StableHunkDependencies {
             diffs: [
                 (
-                    12435379862484897562,
+                    2654316029522724523,
                     [
                         HunkLock {
                             stack_id: stack_1,
