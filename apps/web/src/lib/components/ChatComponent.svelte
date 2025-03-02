@@ -22,8 +22,7 @@
 		minimized: boolean;
 		isUserLoggedIn: boolean | undefined;
 		isTabletMode: boolean;
-		isFullScreenMode: boolean;
-		toggleMinimized: () => void;
+		onMinimizeToggle: () => void;
 		diffSelection: DiffSelection | undefined;
 		clearDiffSelection: () => void;
 	}
@@ -38,8 +37,7 @@
 		isPatchAuthor,
 		isUserLoggedIn,
 		isTabletMode,
-		isFullScreenMode = $bindable(),
-		toggleMinimized,
+		onMinimizeToggle,
 		diffSelection,
 		clearDiffSelection
 	}: Props = $props();
@@ -65,10 +63,6 @@
 		}, delay);
 	}
 
-	function toggleFullScreenMode() {
-		isFullScreenMode = !isFullScreenMode;
-	}
-
 	$effect(() => {
 		if (messageUuid && isFound(patchEvents.current)) {
 			scrollToMessageWithDelay(messageUuid, 300);
@@ -77,7 +71,7 @@
 </script>
 
 {#if minimized}
-	<ShowChatButton onclick={toggleMinimized} />
+	<ShowChatButton onclick={onMinimizeToggle} />
 {:else}
 	<div class="chat-wrapper" class:tablet-mode={isTabletMode}>
 		<div class="chat-header">
@@ -87,16 +81,8 @@
 					icon="minus-small"
 					kind="ghost"
 					tooltip="Hide discussion"
-					onclick={toggleMinimized}
+					onclick={onMinimizeToggle}
 				/>
-				{#if isTabletMode}
-					<Button
-						icon={!isFullScreenMode ? 'fullscreen-resize-enter' : 'fullscreen-resize-exit'}
-						kind="ghost"
-						tooltip="Chat fullscreen"
-						onclick={toggleFullScreenMode}
-					/>
-				{/if}
 			</div>
 		</div>
 

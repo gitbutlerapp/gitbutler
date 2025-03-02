@@ -49,6 +49,7 @@
 
 	const chatTabletModeBreakpoint = 1024;
 	let isChatTabletMode = $state(window.innerWidth < chatTabletModeBreakpoint);
+	let isTabletModeEntered = $state(false);
 
 	const repositoryId = $derived(
 		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
@@ -100,8 +101,6 @@
 
 	let metaSectionEl = $state<HTMLDivElement>();
 
-	let isFullScreenMode = $state(false);
-
 	function handleScroll() {
 		if (headerEl) {
 			const top = headerEl.getBoundingClientRect().top;
@@ -149,7 +148,6 @@
 
 	function handleResize() {
 		isChatTabletMode = window.innerWidth < chatTabletModeBreakpoint;
-		console.log(isChatTabletMode);
 	}
 
 	$effect(() => {
@@ -158,6 +156,16 @@
 			document.body.style.overflow = 'hidden';
 		} else {
 			document.body.style.overflow = '';
+		}
+	});
+
+	$effect(() => {
+		if (isChatTabletMode && !isTabletModeEntered) {
+			isTabletModeEntered = true;
+			chatMinimizer.minimize();
+		} else if (!isChatTabletMode && isTabletModeEntered) {
+			isTabletModeEntered = false;
+			chatMinimizer.maximize();
 		}
 	});
 </script>
@@ -222,27 +230,24 @@
 					class="review-chat"
 					class:minimized={chatMinimizer.value}
 					class:tablet-mode={isChatTabletMode}
-					class:fullscreen={isFullScreenMode}
 				>
 					<ChatComponent
 						{isPatchAuthor}
 						isUserLoggedIn={!!$user}
 						{branchUuid}
-						bind:isFullScreenMode
 						isTabletMode={isChatTabletMode}
 						messageUuid={data.messageUuid}
 						projectId={repositoryId}
 						branchId={data.branchId}
 						changeId={data.changeId}
 						minimized={chatMinimizer.value}
-						toggleMinimized={() => chatMinimizer.toggle()}
+						onMinimizeToggle={() => {
+							chatMinimizer.toggle();
+							console.log('chat minimized', chatMinimizer.value);
+						}}
 						diffSelection={diffLineSelection.diffSelection}
 						clearDiffSelection={() => diffLineSelection.clear()}
 					/>
-
-					{#if isChatTabletMode && !chatMinimizer.value}
-						<div class="review-chat-tablet-bg-overlay"></div>
-					{/if}
 				</div>
 			{/if}
 		{/snippet}
@@ -385,25 +390,11 @@
 		&.tablet-mode {
 			z-index: var(--z-floating);
 			position: fixed;
-			height: 70vh;
+			height: 100vh;
 			top: unset;
 			left: 0;
 			bottom: 0;
 			box-shadow: var(--fx-shadow-s);
-
-			&.fullscreen {
-				height: 100vh;
-			}
-		}
-
-		.review-chat-tablet-bg-overlay {
-			position: fixed;
-			top: 0;
-			left: 0;
-			width: 100%;
-			height: 100%;
-			background-color: var(--clr-overlay-bg);
-			z-index: -1;
 		}
 	}
 </style>
