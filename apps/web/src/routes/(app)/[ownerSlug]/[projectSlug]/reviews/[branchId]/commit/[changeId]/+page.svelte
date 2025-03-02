@@ -151,7 +151,6 @@
 	}
 
 	$effect(() => {
-		// remove body scroll when chat is open
 		if (isChatTabletMode && !chatMinimizer.value) {
 			document.body.style.overflow = 'hidden';
 		} else {
