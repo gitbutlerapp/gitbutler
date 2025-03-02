@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 git2.workspace = true
 gix.workspace = true
-anyhow = "1.0.95"
+anyhow = "1.0.96"
 tracing.workspace = true
 serde = { workspace = true, features = ["std"]}
 gitbutler-project.workspace = true

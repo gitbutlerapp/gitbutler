@@ -13,7 +13,7 @@ gitbutler-branch-actions.workspace = true
 gitbutler-sync.workspace = true
 gitbutler-oplog.workspace = true
 thiserror.workspace = true
-anyhow = "1.0.95"
+anyhow = "1.0.96"
 tokio = { workspace = true, features = ["macros"] }
 tokio-util = "0.7.13"
 tracing.workspace = true
