@@ -25,6 +25,12 @@
 </thead>
 
 <style lang="postcss">
+	.dynthead {
+		@media (--mobile-viewport) {
+			display: none;
+		}
+	}
+
 	.dynthead th {
 		border: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-2);
