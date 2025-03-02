@@ -8,7 +8,6 @@ mod virtual_branches_toml {
     use but_core::ref_metadata::{ValueInfo, WorkspaceStack, WorkspaceStackBranch};
     use but_testsupport::gix_testtools::tempfile::{TempDir, tempdir};
     use but_workspace::VirtualBranchesTomlMetadata;
-    use std::mem::ManuallyDrop;
     use std::ops::Deref;
     use std::path::PathBuf;
 
@@ -897,11 +896,24 @@ mod virtual_branches_toml {
             "BUG: do not pop off the last branch, remove the whole stack"
         );
         ws.stacks.pop();
+        assert_eq!(ws.stacks.len(), 1);
+
+        // The workspace is empty now, no sack left
+        ws.stacks.pop();
         store.set_workspace(&ws)?;
 
         let stored_ws = store.workspace(workspace_name)?;
-        assert_eq!(stored_ws.deref(), ws.deref());
+        assert_eq!(
+            stored_ws.deref(),
+            ws.deref(),
+            "this state reproduces when queried"
+        );
 
+        let toml_path = store.path().to_owned();
+        drop(store);
+
+        // Stacks are still there, but not in workspace, they carry data. But can't test it due to hashmap-instability.
+        let store = VirtualBranchesTomlMetadata::from_path(toml_path)?;
         let below_top: &gix::refs::FullNameRef = "refs/heads/one-below-top".try_into()?;
         let branch = store.branch(below_top)?;
         assert!(
@@ -913,15 +925,6 @@ mod virtual_branches_toml {
 
     fn vb_fixture(name: &str) -> PathBuf {
         format!("tests/fixtures/{name}.toml").into()
-    }
-
-    /// A store that won't write itself back.
-    // TODO: use it or remove it.
-    #[allow(dead_code)]
-    fn vb_store_ro(name: &str) -> anyhow::Result<ManuallyDrop<VirtualBranchesTomlMetadata>> {
-        Ok(ManuallyDrop::new(VirtualBranchesTomlMetadata::from_path(
-            vb_fixture(name),
-        )?))
     }
 
     fn vb_store_rw(name: &str) -> anyhow::Result<(VirtualBranchesTomlMetadata, TempDir)> {
