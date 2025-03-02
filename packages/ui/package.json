@@ -63,7 +63,7 @@
 		"@terrazzo/plugin-css": "0.6.0",
 		"@types/diff-match-patch": "^1.0.36",
 		"@types/postcss-pxtorem": "^6.1.0",
-		"@vitest/browser": "^3.0.3",
+		"@vitest/browser": "^3.0.4",
 		"autoprefixer": "^10.4.20",
 		"cpy-cli": "^5.0.0",
 		"dayjs": "^1.11.13",
