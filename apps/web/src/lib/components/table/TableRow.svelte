@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { type ColumnTypes, type AvatarsType, type ChangesType } from './types';
+	import Factoid from '$lib/components/infoFlexRow//Factoid.svelte';
+	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
 	import CommitsGraph from '$lib/components/review/CommitsGraph.svelte';
 	import CommitStatusBadge, { type CommitStatusType } from '@gitbutler/ui/CommitStatusBadge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -20,6 +22,8 @@
 	};
 
 	let { columns, href, separatedTop, separatedBottom }: Props = $props();
+	let tableMobileBreakpoint = 800;
+	let isTableMobileBreakpoint = $state(window.innerWidth < tableMobileBreakpoint);
 
 	function handleLinkClick(event: MouseEvent | KeyboardEvent) {
 		if (!href) return;
@@ -27,6 +31,10 @@
 		goto(href);
 	}
 </script>
+
+<svelte:window
+	on:resize={() => (isTableMobileBreakpoint = window.innerWidth < tableMobileBreakpoint)}
+/>
 
 <tr
 	class="text-12 dynrow"
@@ -37,76 +45,186 @@
 	class:dynrow-separatedTop={separatedTop}
 	class:dynrow-separatedBottom={separatedBottom}
 >
-	{#each columns as { key, value, tooltip }}
-		<td class={[`truncate dynclmn-td dynclmn-${key}-td`]}>
-			<div
-				class={[
-					'dynclmn',
-					`dynclmn-${key}`,
-					{ 'text-13 text-bold truncate': key === 'title' },
-					{ 'text-12 truncate': key === 'string' },
-					{ 'dynclmn-number': key === 'number' }
-				]}
-				title={tooltip}
-			>
-				{#if key === 'title'}
-					<div class="truncate" title={tooltip}>
+	{#if !isTableMobileBreakpoint}
+		{#each columns as { key, value, tooltip }}
+			<td class={[`truncate dynclmn-td dynclmn-${key}-td`]}>
+				<div
+					class={[
+						'dynclmn',
+						`dynclmn-${key}`,
+						{ 'text-13 text-bold truncate': key === 'title' },
+						{ 'text-12 truncate': key === 'string' },
+						{ 'dynclmn-number': key === 'number' }
+					]}
+					title={tooltip}
+				>
+					{#if key === 'title'}
+						<div class="truncate" title={tooltip}>
+							{value}
+						</div>
+					{:else if key === 'number'}
 						{value}
+					{:else if key === 'commitGraph'}
+						<CommitsGraph branch={value as Branch} />
+					{:else if key === 'avatars'}
+						<AvatarGroup avatars={value as Array<AvatarsType>}></AvatarGroup>
+					{:else if key === 'reviewers'}
+						<div class="dynclmn-reviewers">
+							{#if (value as { approvers: Array<AvatarsType> }).approvers.length > 0 || (value as { rejectors: Array<AvatarsType> }).rejectors.length > 0}
+								<AvatarGroup
+									avatars={(value as { approvers: Array<AvatarsType> }).approvers}
+									maxAvatars={2}
+									icon="tick-small"
+									iconColor="success"
+								/>
+								<AvatarGroup
+									avatars={(value as { rejectors: Array<AvatarsType> }).rejectors}
+									maxAvatars={2}
+									icon="refresh-small"
+									iconColor="warning"
+								/>
+							{:else}
+								<span class="dynclmn-placeholder">No reviews</span>
+							{/if}
+						</div>
+					{:else if key === 'date'}
+						{dayjs(value as Date).fromNow()}
+					{:else if key === 'status'}
+						<CommitStatusBadge status={value as CommitStatusType} />
+					{:else if key === 'changes'}
+						<div class="dynclmn-changes">
+							<span class="dynclmn-changes_additions">+{(value as ChangesType).additions}</span>
+							<span class="dynclmn-changes_deletions">-{(value as ChangesType).deletions}</span>
+						</div>
+					{:else if key === 'comments'}
+						<div class="text-12 dynclmn-comments" class:dynclmn-placeholder={!value}>
+							<span>{value}</span>
+							<div class="dynclmn-comments-icon"><Icon name="comments-small" /></div>
+						</div>
+					{:else}
+						{value}
+					{/if}
+				</div>
+			</td>
+		{/each}
+	{:else}
+		<td class="dyncell-td">
+			<div class="dyncell">
+				{#if columns.find((col) => col.key === 'status')}
+					<div class="dyncell-status">
+						<CommitStatusBadge
+							status={columns.find((col) => col.key === 'status')?.value as CommitStatusType}
+						/>
 					</div>
-				{:else if key === 'number'}
-					{value}
-				{:else if key === 'commitGraph'}
-					<CommitsGraph branch={value as Branch} />
-				{:else if key === 'avatars'}
-					<AvatarGroup avatars={value as Array<AvatarsType>}></AvatarGroup>
-				{:else if key === 'reviewers'}
-					<div class="dynclmn-reviewers">
-						{#if (value as { approvers: Array<AvatarsType> }).approvers.length > 0 || (value as { rejectors: Array<AvatarsType> }).rejectors.length > 0}
-							<AvatarGroup
-								avatars={(value as { approvers: Array<AvatarsType> }).approvers}
-								maxAvatars={2}
-								icon="tick-small"
-								iconColor="success"
-							/>
-							<AvatarGroup
-								avatars={(value as { rejectors: Array<AvatarsType> }).rejectors}
-								maxAvatars={2}
-								icon="refresh-small"
-								iconColor="warning"
-							/>
-						{:else}
-							<span class="dynclmn-placeholder">No reviews</span>
-						{/if}
-					</div>
-				{:else if key === 'date'}
-					{dayjs(value as Date).fromNow()}
-				{:else if key === 'status'}
-					<CommitStatusBadge status={value as CommitStatusType} />
-				{:else if key === 'changes'}
-					<div class="dynclmn-changes">
-						<span class="dynclmn-changes_additions">+{(value as ChangesType).additions}</span>
-						<span class="dynclmn-changes_deletions">-{(value as ChangesType).deletions}</span>
-					</div>
-				{:else if key === 'comments'}
-					<div class="text-12 dynclmn-comments" class:dynclmn-placeholder={!value}>
-						<span>{value}</span>
-						<div class="dynclmn-comments-icon"><Icon name="comments-small" /></div>
-					</div>
-				{:else}
-					{value}
 				{/if}
+
+				{#if columns.find((col) => col.key === 'title')}
+					<div class="dyncell-title">
+						<div class="text-13 text-bold">
+							{columns.find((col) => col.key === 'title')?.value}
+						</div>
+					</div>
+				{/if}
+
+				<InfoFlexRow>
+					{#if columns.find((col) => col.key === 'changes')}
+						<Factoid label="Changes">
+							<div class="dynclmn-changes">
+								<span class="dynclmn-changes_additions">
+									+{(columns.find((col) => col.key === 'changes')?.value as ChangesType).additions}
+								</span>
+								<span class="dynclmn-changes_deletions">
+									-{(columns.find((col) => col.key === 'changes')?.value as ChangesType).deletions}
+								</span>
+							</div>
+						</Factoid>
+					{/if}
+
+					{#if columns.find((col) => col.key === 'comments')}
+						<Factoid label="Comments" placeholderText="No comments">
+							{columns.find((col) => col.key === 'comments')?.value}
+						</Factoid>
+					{/if}
+
+					{#if columns.find((col) => col.key === 'reviewers')}
+						<Factoid label="Reviewers" placeholderText="No reviews">
+							{@const reviewers = columns.find((col) => col.key === 'reviewers')?.value as {
+								approvers: Array<AvatarsType>;
+								rejectors: Array<AvatarsType>;
+							}}
+							{#if reviewers.approvers.length > 0 || reviewers.rejectors.length > 0}
+								<div class="dynclmn-reviewers">
+									<AvatarGroup
+										avatars={reviewers.approvers}
+										maxAvatars={2}
+										icon="tick-small"
+										iconColor="success"
+									/>
+									<AvatarGroup
+										avatars={reviewers.rejectors}
+										maxAvatars={2}
+										icon="refresh-small"
+										iconColor="warning"
+									/>
+								</div>
+							{/if}
+						</Factoid>
+					{/if}
+
+					{#if columns.find((col) => col.key === 'date')}
+						<Factoid label="Date">
+							{dayjs(columns.find((col) => col.key === 'date')?.value as Date).fromNow()}
+						</Factoid>
+					{/if}
+
+					{#if columns.find((col) => col.key === 'number')}
+						<Factoid label="Number">
+							{columns.find((col) => col.key === 'number')?.value}
+						</Factoid>
+					{/if}
+
+					{#if columns.find((col) => col.key === 'commitGraph')}
+						<Factoid label="Commits">
+							<CommitsGraph
+								branch={columns.find((col) => col.key === 'commitGraph')?.value as Branch}
+							/>
+						</Factoid>
+					{/if}
+
+					{#if columns.find((col) => col.key === 'avatars')}
+						<Factoid label="Authors">
+							<AvatarGroup
+								avatars={columns.find((col) => col.key === 'avatars')?.value as Array<AvatarsType>}
+							/>
+						</Factoid>
+					{/if}
+				</InfoFlexRow>
 			</div>
 		</td>
-	{/each}
+	{/if}
 </tr>
 
 <style lang="postcss">
 	.dynrow {
 		cursor: pointer;
-		transition: background-color var(--transition-fast);
+
+		&:not(:last-child) .dyncell-td {
+			border-bottom: none;
+		}
+
+		&:first-child .dyncell-td {
+			border-top-left-radius: var(--radius-ml);
+			border-top-right-radius: var(--radius-ml);
+		}
+
+		&:last-child .dyncell-td {
+			border-bottom-left-radius: var(--radius-ml);
+			border-bottom-right-radius: var(--radius-ml);
+		}
 
 		&:hover {
-			.dynclmn {
+			.dynclmn,
+			.dyncell-td {
 				background-color: var(--clr-bg-1-muted);
 			}
 		}
@@ -141,6 +259,7 @@
 		color: var(--clr-text-2);
 		background-color: var(--clr-bg-1);
 		border-bottom: 1px solid var(--clr-border-2);
+		transition: background-color var(--transition-fast);
 	}
 
 	/* CHNAGES CLMN */
@@ -193,6 +312,28 @@
 
 	.dynclmn-commitGraph-td {
 		min-width: 120px;
+	}
+
+	/* MOBILE CELL */
+	.dyncell-td {
+		padding: 0;
+		border: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-1);
+		transition: background-color var(--transition-fast);
+	}
+
+	.dyncell {
+		display: flex;
+		flex-direction: column;
+		padding: 20px;
+	}
+
+	.dyncell-status {
+		margin-bottom: 12px;
+	}
+
+	.dyncell-title {
+		margin-bottom: 20px;
 	}
 
 	/* MODIFIERS */
