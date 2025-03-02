@@ -47,6 +47,9 @@
 	const chatMinimizer = new ChatMinimize();
 	const diffLineSelection = new DiffLineSelection(chatMinimizer);
 
+	const chatTabletModeBreakpoint = 1024;
+	let isChatTabletMode = $state(window.innerWidth < chatTabletModeBreakpoint);
+
 	const repositoryId = $derived(
 		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
 	);
@@ -97,6 +100,8 @@
 
 	let metaSectionEl = $state<HTMLDivElement>();
 
+	let isFullScreenMode = $state(false);
+
 	function handleScroll() {
 		if (headerEl) {
 			const top = headerEl.getBoundingClientRect().top;
@@ -141,9 +146,23 @@
 			return;
 		}
 	}
+
+	function handleResize() {
+		isChatTabletMode = window.innerWidth < chatTabletModeBreakpoint;
+		console.log(isChatTabletMode);
+	}
+
+	$effect(() => {
+		// remove body scroll when chat is open
+		if (isChatTabletMode && !chatMinimizer.value) {
+			document.body.style.overflow = 'hidden';
+		} else {
+			document.body.style.overflow = '';
+		}
+	});
 </script>
 
-<svelte:window onkeydown={handleKeyDown} onscroll={handleScroll} />
+<svelte:window onkeydown={handleKeyDown} onscroll={handleScroll} onresize={handleResize} />
 
 <div class="review-page" class:column={chatMinimizer.value}>
 	<Loading loadable={combine([patch?.current, repositoryId.current, branchUuid?.current])}>
@@ -166,18 +185,6 @@
 						{/if}
 						<h3 class="text-18 text-bold review-main-title">{patch.title}</h3>
 					</div>
-
-					<!-- {#if !headerIsStuck}
-						<div class="review-main__patch-navigator">
-							{#if patchIds !== undefined}
-								<ChangeNavigator {goToPatch} currentPatchId={patch.changeId} {patchIds} />
-							{/if}
-
-							{#if branchUuid !== undefined && isPatchAuthor === false}
-								<ChangeActionButton {branchUuid} {patch} isUserLoggedIn={!!$user} />
-							{/if}
-						</div>
-					{/if} -->
 				</div>
 
 				<div class="review-main__patch-navigator">
@@ -211,11 +218,18 @@
 			</div>
 
 			{#if branchUuid !== undefined}
-				<div class="review-chat" class:minimized={chatMinimizer.value}>
+				<div
+					class="review-chat"
+					class:minimized={chatMinimizer.value}
+					class:tablet-mode={isChatTabletMode}
+					class:fullscreen={isFullScreenMode}
+				>
 					<ChatComponent
 						{isPatchAuthor}
 						isUserLoggedIn={!!$user}
 						{branchUuid}
+						bind:isFullScreenMode
+						isTabletMode={isChatTabletMode}
 						messageUuid={data.messageUuid}
 						projectId={repositoryId}
 						branchId={data.branchId}
@@ -225,6 +239,10 @@
 						diffSelection={diffLineSelection.diffSelection}
 						clearDiffSelection={() => diffLineSelection.clear()}
 					/>
+
+					{#if isChatTabletMode && !chatMinimizer.value}
+						<div class="review-chat-tablet-bg-overlay"></div>
+					{/if}
 				</div>
 			{/if}
 		{/snippet}
@@ -351,7 +369,6 @@
 		top: 24px;
 		width: 100%;
 		height: calc(100vh - var(--bottom-margin));
-		/* background-color: rgb(139, 81, 81); */
 
 		&.minimized {
 			height: fit-content;
@@ -365,13 +382,28 @@
 			box-shadow: var(--fx-shadow-s);
 		}
 
-		@media (--tablet-viewport) {
-			height: 50vh;
-			position: sticky;
-			top: unset;
-			bottom: var(--bottom-margin);
+		&.tablet-mode {
 			z-index: var(--z-floating);
+			position: fixed;
+			height: 70vh;
+			top: unset;
+			left: 0;
+			bottom: 0;
 			box-shadow: var(--fx-shadow-s);
+
+			&.fullscreen {
+				height: 100vh;
+			}
+		}
+
+		.review-chat-tablet-bg-overlay {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background-color: var(--clr-overlay-bg);
+			z-index: -1;
 		}
 	}
 </style>
