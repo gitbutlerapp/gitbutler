@@ -162,7 +162,7 @@ export default class DiffLineSelection {
 	}
 
 	quote() {
-		this.chatMinimizer.expand();
+		this.chatMinimizer.maximize();
 		this._quote = true;
 	}
 

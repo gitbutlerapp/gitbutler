@@ -47,6 +47,10 @@
 	const chatMinimizer = new ChatMinimize();
 	const diffLineSelection = new DiffLineSelection(chatMinimizer);
 
+	const chatTabletModeBreakpoint = 1024;
+	let isChatTabletMode = $state(window.innerWidth < chatTabletModeBreakpoint);
+	let isTabletModeEntered = $state(false);
+
 	const repositoryId = $derived(
 		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
 	);
@@ -141,9 +145,31 @@
 			return;
 		}
 	}
+
+	function handleResize() {
+		isChatTabletMode = window.innerWidth < chatTabletModeBreakpoint;
+	}
+
+	$effect(() => {
+		if (isChatTabletMode && !chatMinimizer.value) {
+			document.body.style.overflow = 'hidden';
+		} else {
+			document.body.style.overflow = '';
+		}
+	});
+
+	$effect(() => {
+		if (isChatTabletMode && !isTabletModeEntered) {
+			isTabletModeEntered = true;
+			chatMinimizer.minimize();
+		} else if (!isChatTabletMode && isTabletModeEntered) {
+			isTabletModeEntered = false;
+			chatMinimizer.maximize();
+		}
+	});
 </script>
 
-<svelte:window onkeydown={handleKeyDown} onscroll={handleScroll} />
+<svelte:window onkeydown={handleKeyDown} onscroll={handleScroll} onresize={handleResize} />
 
 <div class="review-page" class:column={chatMinimizer.value}>
 	<Loading loadable={combine([patch?.current, repositoryId.current, branchUuid?.current])}>
@@ -166,18 +192,6 @@
 						{/if}
 						<h3 class="text-18 text-bold review-main-title">{patch.title}</h3>
 					</div>
-
-					<!-- {#if !headerIsStuck}
-						<div class="review-main__patch-navigator">
-							{#if patchIds !== undefined}
-								<ChangeNavigator {goToPatch} currentPatchId={patch.changeId} {patchIds} />
-							{/if}
-
-							{#if branchUuid !== undefined && isPatchAuthor === false}
-								<ChangeActionButton {branchUuid} {patch} isUserLoggedIn={!!$user} />
-							{/if}
-						</div>
-					{/if} -->
 				</div>
 
 				<div class="review-main__patch-navigator">
@@ -211,17 +225,25 @@
 			</div>
 
 			{#if branchUuid !== undefined}
-				<div class="review-chat" class:minimized={chatMinimizer.value}>
+				<div
+					class="review-chat"
+					class:minimized={chatMinimizer.value}
+					class:tablet-mode={isChatTabletMode}
+				>
 					<ChatComponent
 						{isPatchAuthor}
 						isUserLoggedIn={!!$user}
 						{branchUuid}
+						isTabletMode={isChatTabletMode}
 						messageUuid={data.messageUuid}
 						projectId={repositoryId}
 						branchId={data.branchId}
 						changeId={data.changeId}
 						minimized={chatMinimizer.value}
-						toggleMinimized={() => chatMinimizer.toggle()}
+						onMinimizeToggle={() => {
+							chatMinimizer.toggle();
+							console.log('chat minimized', chatMinimizer.value);
+						}}
 						diffSelection={diffLineSelection.diffSelection}
 						clearDiffSelection={() => diffLineSelection.clear()}
 					/>
@@ -351,7 +373,6 @@
 		top: 24px;
 		width: 100%;
 		height: calc(100vh - var(--bottom-margin));
-		/* background-color: rgb(139, 81, 81); */
 
 		&.minimized {
 			height: fit-content;
@@ -365,12 +386,13 @@
 			box-shadow: var(--fx-shadow-s);
 		}
 
-		@media (--tablet-viewport) {
-			height: 50vh;
-			position: sticky;
-			top: unset;
-			bottom: var(--bottom-margin);
+		&.tablet-mode {
 			z-index: var(--z-floating);
+			position: fixed;
+			height: 100vh;
+			top: unset;
+			left: 0;
+			bottom: 0;
 			box-shadow: var(--fx-shadow-s);
 		}
 	}

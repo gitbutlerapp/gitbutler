@@ -21,12 +21,13 @@
 		changeId: string;
 		minimized: boolean;
 		isUserLoggedIn: boolean | undefined;
-		toggleMinimized: () => void;
+		isTabletMode: boolean;
+		onMinimizeToggle: () => void;
 		diffSelection: DiffSelection | undefined;
 		clearDiffSelection: () => void;
 	}
 
-	const {
+	let {
 		messageUuid,
 		projectId,
 		changeId,
@@ -35,7 +36,8 @@
 		minimized,
 		isPatchAuthor,
 		isUserLoggedIn,
-		toggleMinimized,
+		isTabletMode,
+		onMinimizeToggle,
 		diffSelection,
 		clearDiffSelection
 	}: Props = $props();
@@ -69,9 +71,9 @@
 </script>
 
 {#if minimized}
-	<ShowChatButton onclick={toggleMinimized} />
+	<ShowChatButton onclick={onMinimizeToggle} />
 {:else}
-	<div class="chat-wrapper">
+	<div class="chat-wrapper" class:tablet-mode={isTabletMode}>
 		<div class="chat-header">
 			<h3 class="text-13 text-bold">Discussion</h3>
 			<div class="chat-header-actions">
@@ -79,7 +81,7 @@
 					icon="minus-small"
 					kind="ghost"
 					tooltip="Hide discussion"
-					onclick={toggleMinimized}
+					onclick={onMinimizeToggle}
 				/>
 			</div>
 		</div>
@@ -133,7 +135,12 @@
 		border-radius: var(--radius-ml, 10px);
 		border: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
+
+		&.tablet-mode {
+			border-radius: 0;
+		}
 	}
+
 	.chat-card {
 		width: 100%;
 		height: 100%;
@@ -153,7 +160,7 @@
 
 	.chat-header-actions {
 		display: flex;
-		gap: 4px;
+		gap: 2px;
 	}
 
 	.chat-messages {
