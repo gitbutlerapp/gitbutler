@@ -1,4 +1,3 @@
-#![feature(unsigned_signed_diff)]
 pub(crate) mod hunk;
 pub mod input;
 pub mod locks;
