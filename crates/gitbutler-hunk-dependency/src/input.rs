@@ -37,9 +37,9 @@ pub struct InputDiff {
 
 impl InputDiff {
     pub fn net_lines(&self) -> anyhow::Result<i32> {
-        self.new_lines
-            .checked_signed_diff(self.old_lines)
-            .ok_or(anyhow!("u32 -> i32 conversion overflow"))
+        let old_lines = i32::try_from(self.old_lines)?;
+        let new_lines = i32::try_from(self.new_lines)?;
+        Ok(new_lines - old_lines)
     }
 }
 
