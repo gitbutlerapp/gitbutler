@@ -1,5 +1,5 @@
 import { apiToChatMessage, type ApiChatMessage, type ChatMessage } from '$lib/chat/types';
-import { apiToPatch, type ApiPatch, type Patch } from '$lib/patches/types';
+import { apiToPatch, type ApiPatchCommit, type PatchCommit } from '$lib/patches/types';
 import {
 	apiToUserSimple,
 	isApiUserSimple,
@@ -40,13 +40,13 @@ export function isApiChatEvent(data: unknown): data is ApiChatEvent {
 
 export type ApiPatchVersionEvent = ApiPatchEventBase & {
 	event_type: 'patch_version';
-	object: ApiPatch;
+	object: ApiPatchCommit;
 };
 
 export type ApiPatchStatusEvent = ApiPatchEventBase & {
 	data: { status: boolean; message: string | null };
 	event_type: 'patch_status';
-	object: ApiPatch;
+	object: ApiPatchCommit;
 };
 
 export function isApiPatchVersionEvent(data: unknown): data is ApiPatchVersionEvent {
@@ -114,13 +114,13 @@ export type ChatEvent = PatchEventBase & {
 
 export type PatchVersionEvent = PatchEventBase & {
 	eventType: 'patch_version';
-	object: Patch;
+	object: PatchCommit;
 };
 
 export type PatchStatusEvent = PatchEventBase & {
 	data: { status: boolean; message: string | undefined };
 	eventType: 'patch_status';
-	object: Patch;
+	object: PatchCommit;
 };
 
 export function apiToPatchStatusData(api: ApiPatchStatusEvent['data']): PatchStatusEvent['data'] {

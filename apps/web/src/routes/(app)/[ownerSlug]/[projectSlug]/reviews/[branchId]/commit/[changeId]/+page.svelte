@@ -248,7 +248,7 @@
 				</div>
 
 				<div class="review-main__meta" bind:this={metaSectionEl}>
-					<ReviewInfo projectId={repositoryId} patch={patchCommit} />
+					<ReviewInfo projectId={repositoryId} {patchCommit} />
 					<div class="review-main-description">
 						<span class="text-12 review-main-description__caption">Commit message:</span>
 						<p class="review-main-description__markdown">

@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { getPatchStatus, type Patch } from '@gitbutler/shared/patches/types';
+	import { getPatchStatus, type PatchCommit } from '@gitbutler/shared/patches/types';
 	import CommitStatusBadge from '@gitbutler/ui/CommitStatusBadge.svelte';
 
 	interface Props {
-		patch: Patch;
+		patchCommit: PatchCommit;
 	}
 
-	const { patch }: Props = $props();
+	const { patchCommit }: Props = $props();
 
-	const status = $derived(getPatchStatus(patch));
+	const status = $derived(getPatchStatus(patchCommit));
 </script>
 
 <CommitStatusBadge {status} />

@@ -3,7 +3,7 @@
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
-	import { type Patch } from '@gitbutler/shared/patches/types';
+	import { type PatchCommit } from '@gitbutler/shared/patches/types';
 	import CommitStatusBadge from '@gitbutler/ui/CommitStatusBadge.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
@@ -11,7 +11,7 @@
 
 	interface Props {
 		branchUuid: string;
-		patch: Patch;
+		patch: PatchCommit;
 		isUserLoggedIn: boolean;
 	}
 

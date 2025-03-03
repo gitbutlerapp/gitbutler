@@ -14,6 +14,7 @@
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { PatchEventsService } from '@gitbutler/shared/patchEvents/patchEventsService';
 	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
+	import { PatchIdableService } from '@gitbutler/shared/patches/patchIdableService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { NotificationSettingsService } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
@@ -62,6 +63,8 @@
 		patchService,
 		env.PUBLIC_APP_HOST
 	);
+	const patchIdableService = new PatchIdableService(httpClient, appState.appDispatch);
+	setContext(PatchIdableService, patchIdableService);
 
 	const user = $derived(userService.user);
 

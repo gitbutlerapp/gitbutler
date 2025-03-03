@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Branch } from '@gitbutler/shared/branches/types';
-	import type { Patch } from '@gitbutler/shared/patches/types';
+	import type { PatchCommit } from '@gitbutler/shared/patches/types';
 
 	type Props = {
 		branch: Branch;
@@ -8,21 +8,21 @@
 
 	const { branch }: Props = $props();
 
-	const patches = branch.patches;
+	const patchCommits = branch.patches;
 
-	function getClass(patch: Patch) {
+	function getClass(patchCommit: PatchCommit) {
 		if (
-			patch.commentCount > 0 &&
-			patch.reviewAll.signedOff.length === 0 &&
-			patch.reviewAll.rejected.length === 0
+			patchCommit.commentCount > 0 &&
+			patchCommit.reviewAll.signedOff.length === 0 &&
+			patchCommit.reviewAll.rejected.length === 0
 		) {
 			return 'in-discussion';
 		}
 
-		if (patch.reviewAll.rejected.length > 0) {
+		if (patchCommit.reviewAll.rejected.length > 0) {
 			return 'changes-requested';
 		}
-		if (patch.reviewAll.signedOff.length > 0) {
+		if (patchCommit.reviewAll.signedOff.length > 0) {
 			return 'approved';
 		}
 	}
@@ -31,7 +31,7 @@
 <div class="commit-graph-wrap">
 	<p class="text-12 fact">{branch.stackSize}</p>
 	<div class="commits">
-		{#each patches as patch}
+		{#each patchCommits as patch}
 			<div class={['commit-block', getClass(patch)]}></div>
 		{/each}
 	</div>

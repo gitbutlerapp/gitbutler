@@ -74,7 +74,7 @@ export function apiToBranch(api: ApiBranch): Branch {
 		stackSize: api.stack_size,
 		contributors: api.contributors.map(apiToUserMaybe),
 		patchCommitIds: api.patches.map((patch) => patch.change_id),
-		patches: api.patches.map(apiToPatch),
+		patches: api.patches.map((api) => apiToPatch(api)),
 		reviewStatus: api.review_status,
 		repositoryId: api.repository_id,
 		// Its good enough
