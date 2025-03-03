@@ -87,8 +87,11 @@ pub fn hunk_dependencies_for_workspace_changes(
 /// All `changes` are meant to be relative to the worktree.
 /// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
 /// hunks would fail.
+/// `stack_segment_short_name` is the short name of the reference that the UI knows is present in a given segment.
+/// It is needed to insert the new commit into the right bucket.
 #[tauri::command(async)]
 #[instrument(skip(projects, settings), err(Debug))]
+#[allow(clippy::too_many_arguments)]
 pub fn create_commit_from_worktree_changes(
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
@@ -97,6 +100,7 @@ pub fn create_commit_from_worktree_changes(
     parent_id: Option<HexHash>,
     worktree_changes: Vec<commit_engine::ui::DiffSpec>,
     message: String,
+    stack_segment_short_name: String,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = projects.get(project_id)?;
     let repo = but_core::open_repo_for_merging(&project.worktree_path())?;
@@ -106,6 +110,11 @@ pub fn create_commit_from_worktree_changes(
         commit_engine::Destination::NewCommit {
             parent_commit_id: parent_id.map(Into::into),
             message,
+            stack_segment_ref: Some(
+                format!("refs/heads/{stack_segment_short_name}")
+                    .try_into()
+                    .map_err(anyhow::Error::from)?,
+            ),
         },
         None,
         worktree_changes.into_iter().map(Into::into).collect(),

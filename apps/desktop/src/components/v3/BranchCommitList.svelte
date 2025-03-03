@@ -1,5 +1,4 @@
 <script lang="ts">
-	import EmptyBranch from './EmptyBranch.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
@@ -13,6 +12,7 @@
 		stackId: string;
 		branchName: string;
 		lastBranch?: boolean;
+		selectedBranchName?: string;
 		selectedCommitId?: string;
 		upstreamTemplate?: Snippet<
 			[
@@ -28,16 +28,17 @@
 		localAndRemoteTemplate?: Snippet<
 			[{ commit: Commit; commitKey: CommitKey; first: boolean; last: boolean; selected: boolean }]
 		>;
+		empty?: Snippet;
 	}
 
 	let {
 		projectId,
 		stackId,
 		branchName,
-		lastBranch,
 		selectedCommitId,
 		localAndRemoteTemplate,
-		upstreamTemplate
+		upstreamTemplate,
+		empty
 	}: Props = $props();
 
 	const [stackService] = inject(StackService);
@@ -53,7 +54,7 @@
 <ReduxResult result={combineResults(upstreamOnlyCommits, localAndRemoteCommits)}>
 	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits])}
 		{#if !upstreamOnlyCommits.length && !localAndRemoteCommits.length}
-			<EmptyBranch {lastBranch} />
+			{@render empty?.()}
 		{:else}
 			<div class="commit-list">
 				{#if upstreamTemplate}
@@ -86,6 +87,5 @@
 		display: flex;
 		flex-direction: column;
 		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
-		/* overflow: hidden; */
 	}
 </style>

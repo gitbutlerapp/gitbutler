@@ -1,4 +1,5 @@
 use crate::commit_engine::UpdatedReference;
+use bstr::BString;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_stack::{CommitOrChangeId, VirtualBranchesState};
 use gix::prelude::ObjectIdExt as _;
@@ -19,21 +20,17 @@ pub fn rewrite(
     mut refs_by_commit_id: gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>,
     changed_commits: impl IntoIterator<Item = (gix::ObjectId, gix::ObjectId)>,
     updated_refs: &mut Vec<UpdatedReference>,
+    stack_segment_ref: Option<&gix::refs::FullName>,
 ) -> anyhow::Result<()> {
     let mut ref_edits = Vec::new();
     let changed_commits: Vec<_> = changed_commits.into_iter().collect();
     let change_id_to_id_map = generate_change_ids_to_commit_mapping(repo, &*state, workspace_tip)?;
-    let mut branches_ordered: Vec<_> = state.branches.values_mut().collect();
-    branches_ordered.sort_by(|a, b| a.name.cmp(&b.name));
-    // Only one commit is created? Then it's on top of something, with special behaviour for stack-branches (ordered).
-    let only_top_most_stack_branch = changed_commits
-        .len()
-        .saturating_sub(usize::from(workspace_tip.is_some()))
-        == 1;
+    let mut stacks_ordered: Vec<_> = state.branches.values_mut().collect();
+    stacks_ordered.sort_by(|a, b| a.name.cmp(&b.name));
     for (old, new) in changed_commits {
         let old_git2 = old.to_git2();
-        let mut already_updated_refs = vec![];
-        'stacks: for stack in &mut branches_ordered {
+        let mut already_updated_refs = Vec::<BString>::new();
+        for stack in &mut stacks_ordered {
             if stack.head == old_git2 {
                 stack.head = new.to_git2();
                 stack.tree = new
@@ -48,7 +45,16 @@ pub fn rewrite(
                     reference: but_core::Reference::Virtual(stack.name.clone()),
                 });
             }
-            for branch in stack.heads.iter_mut().rev() {
+            let update_up_to_idx = stack_segment_ref.and_then(|up_to_ref| {
+                let short_name = up_to_ref.shorten();
+                stack
+                    .heads
+                    .iter()
+                    .rev()
+                    .enumerate()
+                    .find_map(|(idx, h)| (h.name == short_name).then_some(idx))
+            });
+            for (idx, branch) in stack.heads.iter_mut().rev().enumerate() {
                 let id = match &mut branch.head() {
                     CommitOrChangeId::CommitId(id_hex) => {
                         let Some(id) = gix::ObjectId::from_hex(id_hex.as_bytes()).ok() else {
@@ -65,19 +71,21 @@ pub fn rewrite(
                     }
                 };
                 if id == old {
-                    if let Some(refname) =
+                    if update_up_to_idx.is_some() && Some(idx) > update_up_to_idx {
+                        // Make sure the actual refs also don't update (later)
+                        already_updated_refs.push(format!("refs/heads/{}", branch.name()).into());
+                        continue;
+                    }
+                    if let Some(full_refname) =
                         branch.set_head(CommitOrChangeId::CommitId(new.to_string()), repo)?
                     {
-                        already_updated_refs.push(refname)
+                        already_updated_refs.push(full_refname)
                     }
                     updated_refs.push(UpdatedReference {
                         old_commit_id: old,
                         new_commit_id: new,
                         reference: but_core::Reference::Virtual(branch.name().clone()),
                     });
-                    if only_top_most_stack_branch {
-                        continue 'stacks;
-                    }
                 }
             }
         }
