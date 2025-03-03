@@ -18,6 +18,7 @@
 		content: ContentSection[];
 		tabSize?: number;
 		wrapText?: boolean;
+		diffFont?: string;
 		inlineUnifiedDiffs?: boolean;
 		selectedLines?: LineSelector[];
 		onLineClick?: (params: LineSelectionParams) => void;
@@ -33,6 +34,7 @@
 		onLineClick,
 		clearLineSelection,
 		wrapText = true,
+		diffFont,
 		tabSize = 4,
 		inlineUnifiedDiffs = false,
 		selectedLines,
@@ -76,6 +78,7 @@
 			{lineSelection}
 			{tabSize}
 			{wrapText}
+			{diffFont}
 			{numberHeaderWidth}
 			{onQuoteSelection}
 			{onCopySelection}
