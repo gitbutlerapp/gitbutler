@@ -82,7 +82,7 @@ pub fn hunk_dependencies_for_workspace_changes(
 }
 
 /// Create a new commit with `message` on top of `parent_id` that contains all `changes`.
-/// If `parent_id` is `None`, there is not a single commit as the repository is unborn.
+/// If `parent_id` is `None`, this API will infer the parent to be the head of the provided `stack_branch_name`.
 /// `stack_id` is the stack that contains the `parent_id`, and it's fatal if that's not the case.
 /// All `changes` are meant to be relative to the worktree.
 /// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
