@@ -130,6 +130,7 @@
 
 	const actionLabels = {
 		approve: 'Approve commit',
+		openIssue: 'Open issue',
 		requestChanges: 'Request changes'
 	} as const;
 
@@ -148,7 +149,12 @@
 	}
 
 	async function requestChanges() {
-		await patchService.updatePatch(branchUuid, changeId, { signOff: false });
+		await patchService.updatePatch(branchUuid, changeId, {
+			signOff: false,
+			message: messageHandler.message
+		});
+		const editor = richText.richTextEditor?.getEditor();
+		editor?.commands.clearContent(true);
 	}
 
 	async function handleActionClick() {
@@ -160,8 +166,10 @@
 					await approve();
 					break;
 				case 'requestChanges':
-					await handleSendMessage(true);
 					await requestChanges();
+					break;
+				case 'openIssue':
+					await handleSendMessage(true);
 					break;
 			}
 		} finally {
@@ -251,6 +259,13 @@
 										label={actionLabels.requestChanges}
 										onclick={() => {
 											action = 'requestChanges';
+											dropDownButton?.close();
+										}}
+									/>
+									<ContextMenuItem
+										label={actionLabels.openIssue}
+										onclick={() => {
+											action = 'openIssue';
 											dropDownButton?.close();
 										}}
 									/>
