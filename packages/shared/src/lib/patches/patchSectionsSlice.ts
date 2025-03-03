@@ -1,5 +1,5 @@
 import { createEntityAdapter, createSlice } from '@reduxjs/toolkit';
-import type { Section } from '$lib/branches/types';
+import type { Section } from '$lib/patches/types';
 
 const patchSectionsAdapter = createEntityAdapter<Section, Section['id']>({
 	selectId: (patchSection: Section) => patchSection.id

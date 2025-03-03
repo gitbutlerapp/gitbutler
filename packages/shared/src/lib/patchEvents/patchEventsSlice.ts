@@ -1,5 +1,5 @@
-import { type LoadablePatchEventChannel } from './types';
 import { loadableUpsert, loadableUpsertMany } from '$lib/network/loadable';
+import { type LoadablePatchEventChannel } from '$lib/patchEvents/types';
 import { createEntityAdapter, createSlice } from '@reduxjs/toolkit';
 
 const patchEventsAdapter = createEntityAdapter<

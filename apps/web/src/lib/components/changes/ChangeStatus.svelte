@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getPatchStatus, type Patch } from '@gitbutler/shared/branches/types';
+	import { getPatchStatus, type Patch } from '@gitbutler/shared/patches/types';
 	import CommitStatusBadge from '@gitbutler/ui/CommitStatusBadge.svelte';
 
 	interface Props {

@@ -4,7 +4,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import HunkDiff, { type LineClickParams } from '@gitbutler/ui/HunkDiff.svelte';
 	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
-	import type { DiffSection } from '@gitbutler/shared/branches/types';
+	import type { DiffSection } from '@gitbutler/shared/patches/types';
 	import type { ContentSection, LineSelector } from '@gitbutler/ui/utils/diffParsing';
 
 	interface Props {

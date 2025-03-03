@@ -16,7 +16,7 @@
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { ChatEvent } from '@gitbutler/shared/branches/types';
+	import type { ChatEvent } from '@gitbutler/shared/patchEvents/types';
 
 	const UNKNOWN_AUTHOR = 'Unknown author';
 

@@ -1,21 +1,17 @@
-import { patchEventsSelectors } from './patchEventsSlice';
-import { patchSectionsSelectors } from '$lib/branches/patchSectionsSlice';
-import { patchesSelectors } from '$lib/branches/patchesSlice';
-import {
-	createPatchEventChannelKey,
-	type LoadablePatch,
-	type LoadablePatchEventChannel,
-	type Section
-} from '$lib/branches/types';
+import { patchEventsSelectors } from '../patchEvents/patchEventsSlice';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
-import type { PatchService } from '$lib/branches/patchService';
+import { createPatchEventChannelKey, type LoadablePatchEventChannel } from '$lib/patchEvents/types';
+import { patchSectionsSelectors } from '$lib/patches/patchSectionsSlice';
+import { patchesSelectors } from '$lib/patches/patchesSlice';
+import type { PatchService } from '$lib/patches/patchService';
+import type { LoadablePatch, Section } from '$lib/patches/types';
 import type {
 	AppPatchesState,
 	AppPatchEventsState,
 	AppPatchSectionsState
 } from '$lib/redux/store.svelte';
 import type { Reactive } from '$lib/storeUtils';
-import type { PatchEventsService } from './patchEventsService';
+import type { PatchEventsService } from '../patchEvents/patchEventsService';
 
 export function getPatch(
 	appState: AppPatchesState,

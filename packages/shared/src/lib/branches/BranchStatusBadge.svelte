@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { BranchStatus, type Branch, type Patch } from '@gitbutler/shared/branches/types';
+	import { BranchStatus, type Branch } from '@gitbutler/shared/branches/types';
 	import CommitStatusBadge from '@gitbutler/ui/CommitStatusBadge.svelte';
+	import type { Patch } from '$lib/patches/types';
 
 	type Props = {
 		branch: Branch;

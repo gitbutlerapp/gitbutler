@@ -1,15 +1,15 @@
 import { branchReviewListingsReducer } from '$lib/branches/branchReviewListingsSlice';
 import { branchesReducer } from '$lib/branches/branchesSlice';
 import { latestBranchLookupsReducer } from '$lib/branches/latestBranchLookupSlice';
-import { patchEventsReducer } from '$lib/branches/patchEventsSlice';
-import { patchSectionsReducer } from '$lib/branches/patchSectionsSlice';
-import { patchesReducer } from '$lib/branches/patchesSlice';
 import { chatChannelsReducer } from '$lib/chat/chatChannelsSlice';
 import { feedsReducer } from '$lib/feeds/feedsSlice';
 import { postsReducer } from '$lib/feeds/postsSlice';
 import { organizationsReducer } from '$lib/organizations/organizationsSlice';
 import { projectsReducer } from '$lib/organizations/projectsSlice';
 import { repositoryIdLookupsReducer } from '$lib/organizations/repositoryIdLookupsSlice';
+import { patchEventsReducer } from '$lib/patchEvents/patchEventsSlice';
+import { patchSectionsReducer } from '$lib/patches/patchSectionsSlice';
+import { patchesReducer } from '$lib/patches/patchesSlice';
 import { exampleReducer } from '$lib/redux/example';
 import { notificationSettingsReducer } from '$lib/settings/notificationSetttingsSlice';
 import { usersByLoginReducer, usersReducer } from '$lib/users/usersSlice';

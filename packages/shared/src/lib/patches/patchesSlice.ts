@@ -1,6 +1,6 @@
 import { loadableUpsert, loadableUpsertMany } from '$lib/network/loadable';
 import { createEntityAdapter, createSlice } from '@reduxjs/toolkit';
-import type { LoadablePatch } from '$lib/branches/types';
+import type { LoadablePatch } from '$lib/patches/types';
 
 const patchesAdapter = createEntityAdapter<LoadablePatch, LoadablePatch['id']>({
 	selectId: (patch: LoadablePatch) => patch.id

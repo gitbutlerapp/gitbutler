@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { TextSection } from '@gitbutler/shared/branches/types';
+	import type { TextSection } from '@gitbutler/shared/patches/types';
 
 	interface Props {
 		section: TextSection;
