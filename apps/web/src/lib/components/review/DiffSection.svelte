@@ -97,6 +97,7 @@
 	}
 
 	.diff-section__header {
+		width: 100%;
 		display: flex;
 		align-items: center;
 		gap: 8px;
@@ -104,6 +105,11 @@
 
 	.file-name {
 		color: var(--clr-text-1);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		direction: rtl;
+		text-align: left;
 	}
 
 	.lock-files-hidden-by-default {
