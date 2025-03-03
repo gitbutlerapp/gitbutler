@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { MentionNodeAttrs } from '@gitbutler/ui/RichTextEditor.svelte';
+	import type { MentionNodeAttrs } from '@gitbutler/ui/old_RichTextEditor.svelte';
 
 	export interface Props {
 		isLoading: boolean;
