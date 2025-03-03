@@ -386,7 +386,7 @@
 		&.tablet-mode {
 			z-index: var(--z-floating);
 			position: fixed;
-			height: 100vh;
+			height: 100dvh;
 			top: unset;
 			left: 0;
 			bottom: 0;
