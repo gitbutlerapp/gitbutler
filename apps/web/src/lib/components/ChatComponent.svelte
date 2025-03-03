@@ -128,6 +128,7 @@
 
 <style lang="postcss">
 	.chat-wrapper {
+		pointer-events: all;
 		width: 100%;
 		display: flex;
 		flex-direction: column;

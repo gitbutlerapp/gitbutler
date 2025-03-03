@@ -240,10 +240,7 @@
 						branchId={data.branchId}
 						changeId={data.changeId}
 						minimized={chatMinimizer.value}
-						onMinimizeToggle={() => {
-							chatMinimizer.toggle();
-							console.log('chat minimized', chatMinimizer.value);
-						}}
+						onMinimizeToggle={() => chatMinimizer.toggle()}
 						diffSelection={diffLineSelection.diffSelection}
 						clearDiffSelection={() => diffLineSelection.clear()}
 					/>
@@ -393,7 +390,7 @@
 			top: unset;
 			left: 0;
 			bottom: 0;
-			box-shadow: var(--fx-shadow-s);
+			pointer-events: none;
 		}
 	}
 </style>
