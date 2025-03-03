@@ -2,6 +2,7 @@
 	import BranchCommitList from './BranchCommitList.svelte';
 	import BranchHeader from './BranchHeader.svelte';
 	import CommitRow from './CommitRow.svelte';
+	import EmptyBranch from './EmptyBranch.svelte';
 	import ScrollableContainer from '../ScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
@@ -79,8 +80,13 @@
 							selectedBranchName={branchName}
 							selectedCommitId={parentId}
 						>
-							{#snippet emptyBranchCommitHere()}
-								{@render indicator({ first: true })}
+							{@render indicator({ first: true })}
+							{#snippet empty()}
+								{#if branch.name !== branchName}
+									<EmptyBranch />
+								{:else}
+									{@render indicator({ first: true, last: true })}
+								{/if}
 							{/snippet}
 							{#snippet localAndRemoteTemplate({ commit, commitKey, first, last, selected })}
 								{@const baseSha = $baseBranch?.baseSha}
@@ -125,6 +131,7 @@
 	.commit-goes-here {
 		display: flex;
 		flex-direction: column;
+		margin-bottom: 14px;
 	}
 
 	.branch {
@@ -189,6 +196,7 @@
 		width: 100%;
 		background-color: var(--clr-bg-2);
 
+		/* Last commit row which does not have an "Your commit here" indicator after it */
 		&.last:not(:has(~ .indicator)) {
 			border-radius: 0 0 var(--radius-l) var(--radius-l);
 		}

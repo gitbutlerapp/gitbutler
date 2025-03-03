@@ -34,10 +34,8 @@
 	.commit-line {
 		position: absolute;
 		left: 20px;
+	}
+	:global(.commit-goes-here .empty-series .commit-line) {
 		opacity: 0.4;
-
-		&.selected {
-			opacity: 1;
-		}
 	}
 </style>

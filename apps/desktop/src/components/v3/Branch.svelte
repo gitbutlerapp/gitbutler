@@ -9,6 +9,7 @@
 	import { combineResults } from '$lib/state/helpers';
 	import { inject } from '@gitbutler/shared/context';
 	import { goto } from '$app/navigation';
+	import EmptyBranch from './EmptyBranch.svelte';
 
 	interface Props {
 		projectId: string;
@@ -50,6 +51,9 @@
 				onclick={() => goto(branchPath(projectId, stackId, branch.name))}
 			/>
 			<BranchCommitList {projectId} {stackId} {branchName} {lastBranch} {selectedCommitId}>
+				{#snippet empty()}
+					<EmptyBranch {lastBranch} selected={branch.name === branchName} />
+				{/snippet}
 				{#snippet upstreamTemplate({ commit, commitKey, first, last: lastCommit, selected })}
 					<CommitRow
 						{projectId}

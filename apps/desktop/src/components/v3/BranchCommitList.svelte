@@ -1,5 +1,4 @@
 <script lang="ts">
-	import EmptyBranch from './EmptyBranch.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
@@ -29,19 +28,17 @@
 		localAndRemoteTemplate?: Snippet<
 			[{ commit: Commit; commitKey: CommitKey; first: boolean; last: boolean; selected: boolean }]
 		>;
-		emptyBranchCommitHere?: Snippet;
+		empty?: Snippet;
 	}
 
 	let {
 		projectId,
 		stackId,
 		branchName,
-		lastBranch,
-		selectedBranchName,
 		selectedCommitId,
 		localAndRemoteTemplate,
 		upstreamTemplate,
-		emptyBranchCommitHere
+		empty
 	}: Props = $props();
 
 	const [stackService] = inject(StackService);
@@ -57,13 +54,7 @@
 <ReduxResult result={combineResults(upstreamOnlyCommits, localAndRemoteCommits)}>
 	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits])}
 		{#if !upstreamOnlyCommits.length && !localAndRemoteCommits.length}
-			{#if selectedBranchName === branchName && emptyBranchCommitHere}
-				<div class="empty-branch-commit-here">
-					{@render emptyBranchCommitHere()}
-				</div>
-			{:else}
-				<EmptyBranch {lastBranch} selected={selectedBranchName === branchName} />
-			{/if}
+			{@render empty?.()}
 		{:else}
 			<div class="commit-list">
 				{#if upstreamTemplate}
@@ -91,7 +82,6 @@
 </ReduxResult>
 
 <style lang="postcss">
-	.empty-branch-commit-here,
 	.commit-list {
 		position: relative;
 		display: flex;
