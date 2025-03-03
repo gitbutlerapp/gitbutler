@@ -104,11 +104,25 @@ pub fn create_commit_from_worktree_changes(
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = projects.get(project_id)?;
     let repo = but_core::open_repo_for_merging(&project.worktree_path())?;
+    // If parent_id was not set but a stack branch name was provided, pick the current head of that branch as parent.
+    let parent_commit_id: Option<gix::ObjectId> = match parent_id {
+        Some(id) => Some(id.into()),
+        None => {
+            let reference = repo
+                .try_find_reference(&stack_segment_short_name)
+                .map_err(anyhow::Error::from)?;
+            if let Some(mut r) = reference {
+                Some(r.peel_to_commit().map_err(anyhow::Error::from)?.id)
+            } else {
+                None
+            }
+        }
+    };
     Ok(commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         Some((&project, Some(stack_id))),
         commit_engine::Destination::NewCommit {
-            parent_commit_id: parent_id.map(Into::into),
+            parent_commit_id,
             message,
             stack_segment_ref: Some(
                 format!("refs/heads/{stack_segment_short_name}")
