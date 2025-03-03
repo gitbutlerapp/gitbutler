@@ -16,7 +16,7 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
-	import RichTextEditor, { type EditorInstance } from '@gitbutler/ui/RichTextEditor.svelte';
+	import RichTextEditor, { type EditorInstance } from '@gitbutler/ui/old_RichTextEditor.svelte';
 	import { env } from '$env/dynamic/public';
 
 	interface Props {
