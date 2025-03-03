@@ -133,16 +133,22 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 	 * @returns A Promise that resolves to the Response object.
 	 */
 	private async fetchChat(request: OllamaChatRequest): Promise<unknown> {
+		console.log(request);
 		const url = new URL(OllamaAPEndpoint.Chat, this.endpoint);
+		console.log(url);
 		const body = JSON.stringify(request);
+		console.log(body);
 
-		return await fetch(url.toString(), {
+		const response = await fetch(url.toString(), {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
 			},
 			body
-		}).then(async (response) => await response.json());
+		});
+		console.log(response);
+
+		return await response.json();
 	}
 
 	/**
@@ -163,6 +169,7 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 			options,
 			format: 'json'
 		});
+		console.log(result);
 
 		if (!isOllamaChatResponse(result)) {
 			throw new Error('Invalid response\n' + JSON.stringify(result));
