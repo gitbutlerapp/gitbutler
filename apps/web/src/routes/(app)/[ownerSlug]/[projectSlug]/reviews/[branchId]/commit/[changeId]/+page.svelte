@@ -17,8 +17,8 @@
 	import { combine, map } from '@gitbutler/shared/network/loadable';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
-	import { PatchService } from '@gitbutler/shared/patches/patchService';
-	import { getPatch, getPatchSections } from '@gitbutler/shared/patches/patchesPreview.svelte';
+	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
+	import { getPatch, getPatchSections } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		WebRoutesService,
@@ -39,7 +39,7 @@
 	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
 	const latestBranchLookupService = getContext(LatestBranchLookupService);
 	const branchService = getContext(BranchService);
-	const patchService = getContext(PatchService);
+	const patchCommitService = getContext(PatchCommitService);
 	const appState = getContext(AppState);
 	const routes = getContext(WebRoutesService);
 	const userService = getContext(UserService);
@@ -71,16 +71,16 @@
 		})
 	);
 
-	const patchIds = $derived(map(branch?.current, (b) => b.patchIds));
+	const patchCommitIds = $derived(map(branch?.current, (b) => b.patchCommitIds));
 
-	const patch = $derived(
+	const patchCommit = $derived(
 		map(branchUuid?.current, (branchUuid) => {
-			return getPatch(appState, patchService, branchUuid, data.changeId);
+			return getPatch(appState, patchCommitService, branchUuid, data.changeId);
 		})
 	);
 
 	const isPatchAuthor = $derived(
-		map(patch?.current, (patch) => {
+		map(patchCommit?.current, (patch) => {
 			return patch.contributors.some(
 				(contributor) => contributor.user?.id !== undefined && contributor.user?.id === $user?.id
 			);
@@ -89,7 +89,7 @@
 
 	const patchSections = $derived(
 		map(branchUuid?.current, (branchUuid) => {
-			return getPatchSections(appState, patchService, branchUuid, data.changeId);
+			return getPatchSections(appState, patchCommitService, branchUuid, data.changeId);
 		})
 	);
 
@@ -172,7 +172,7 @@
 <svelte:window onkeydown={handleKeyDown} onscroll={handleScroll} onresize={handleResize} />
 
 <div class="review-page" class:column={chatMinimizer.value}>
-	<Loading loadable={combine([patch?.current, repositoryId.current, branchUuid?.current])}>
+	<Loading loadable={combine([patchCommit?.current, repositoryId.current, branchUuid?.current])}>
 		{#snippet children([patch, repositoryId, branchUuid])}
 			<div class="review-main" class:expand={chatMinimizer.value}>
 				<Navigation />
@@ -195,8 +195,12 @@
 				</div>
 
 				<div class="review-main__patch-navigator">
-					{#if patchIds !== undefined}
-						<ChangeNavigator {goToPatch} currentPatchId={patch.changeId} {patchIds} />
+					{#if patchCommitIds !== undefined}
+						<ChangeNavigator
+							{goToPatch}
+							currentPatchId={patch.changeId}
+							patchIds={patchCommitIds}
+						/>
 					{/if}
 
 					{#if branchUuid !== undefined && isPatchAuthor === false}

@@ -58,7 +58,7 @@
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
-	import { PatchService as CloudPatchService } from '@gitbutler/shared/patches/patchService';
+	import { PatchCommitService as CloudPatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
 	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { reactive } from '@gitbutler/shared/storeUtils';
@@ -94,7 +94,7 @@
 	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
 	const cloudProjectService = new CloudProjectService(data.cloud, appState.appDispatch);
 	const cloudBranchService = new CloudBranchService(data.cloud, appState.appDispatch);
-	const cloudPatchService = new CloudPatchService(data.cloud, appState.appDispatch);
+	const cloudPatchService = new CloudPatchCommitService(data.cloud, appState.appDispatch);
 	const repositoryIdLookupService = new RepositoryIdLookupService(data.cloud, appState.appDispatch);
 	const latestBranchLookupService = new LatestBranchLookupService(data.cloud, appState.appDispatch);
 	const webRoutesService = new WebRoutesService(env.PUBLIC_CLOUD_BASE_URL);
@@ -119,7 +119,7 @@
 	setContext(CloudUserService, cloudUserService);
 	setContext(CloudProjectService, cloudProjectService);
 	setContext(CloudBranchService, cloudBranchService);
-	setContext(CloudPatchService, cloudPatchService);
+	setContext(CloudPatchCommitService, cloudPatchService);
 	setContext(RepositoryIdLookupService, repositoryIdLookupService);
 	setContext(LatestBranchLookupService, latestBranchLookupService);
 	setContext(WebRoutesService, webRoutesService);

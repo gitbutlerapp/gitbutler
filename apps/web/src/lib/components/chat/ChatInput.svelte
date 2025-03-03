@@ -9,7 +9,7 @@
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
 	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
 	import { getContext } from '@gitbutler/shared/context';
-	import { PatchService } from '@gitbutler/shared/patches/patchService';
+	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -46,7 +46,7 @@
 	const user = $derived(userService.user);
 
 	const appState = getContext(AppState);
-	const patchService = getContext(PatchService);
+	const patchCommitService = getContext(PatchCommitService);
 	const chatChannelService = getContext(ChatChannelsService);
 	const chatParticipants = $derived(
 		getChatChannelParticipants(appState, chatChannelService, projectId, changeId)
@@ -140,7 +140,7 @@
 	let dropDownButton = $state<ReturnType<typeof DropDownButton>>();
 
 	async function approve() {
-		await patchService.updatePatch(branchUuid, changeId, {
+		await patchCommitService.updatePatch(branchUuid, changeId, {
 			signOff: true,
 			message: messageHandler.message
 		});
@@ -149,7 +149,7 @@
 	}
 
 	async function requestChanges() {
-		await patchService.updatePatch(branchUuid, changeId, {
+		await patchCommitService.updatePatch(branchUuid, changeId, {
 			signOff: false,
 			message: messageHandler.message
 		});

@@ -13,7 +13,7 @@
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { PatchEventsService } from '@gitbutler/shared/patchEvents/patchEventsService';
-	import { PatchService } from '@gitbutler/shared/patches/patchService';
+	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { NotificationSettingsService } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
@@ -52,8 +52,8 @@
 	setContext(NewUserService, newUserService);
 	const branchService = new BranchService(httpClient, appState.appDispatch);
 	setContext(BranchService, branchService);
-	const patchService = new PatchService(httpClient, appState.appDispatch);
-	setContext(PatchService, patchService);
+	const patchService = new PatchCommitService(httpClient, appState.appDispatch);
+	setContext(PatchCommitService, patchService);
 	const patchEventsService = new PatchEventsService(
 		httpClient,
 		appState,

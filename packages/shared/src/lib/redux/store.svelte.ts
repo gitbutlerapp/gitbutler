@@ -8,8 +8,8 @@ import { organizationsReducer } from '$lib/organizations/organizationsSlice';
 import { projectsReducer } from '$lib/organizations/projectsSlice';
 import { repositoryIdLookupsReducer } from '$lib/organizations/repositoryIdLookupsSlice';
 import { patchEventsReducer } from '$lib/patchEvents/patchEventsSlice';
+import { patchCommitsReducer } from '$lib/patches/patchCommitsSlice';
 import { patchSectionsReducer } from '$lib/patches/patchSectionsSlice';
-import { patchesReducer } from '$lib/patches/patchesSlice';
 import { exampleReducer } from '$lib/redux/example';
 import { notificationSettingsReducer } from '$lib/settings/notificationSetttingsSlice';
 import { usersByLoginReducer, usersReducer } from '$lib/users/usersSlice';
@@ -45,7 +45,7 @@ export interface AppProjectsState {
 }
 
 export interface AppPatchesState {
-	readonly patches: ReturnType<typeof patchesReducer>;
+	readonly patches: ReturnType<typeof patchCommitsReducer>;
 }
 
 export interface AppPatchEventsState {
@@ -117,7 +117,7 @@ export class AppState
 			users: usersReducer,
 			usersByLogin: usersByLoginReducer,
 			projects: projectsReducer,
-			patches: patchesReducer,
+			patches: patchCommitsReducer,
 			patchEvents: patchEventsReducer,
 			branches: branchesReducer,
 			patchSections: patchSectionsReducer,
