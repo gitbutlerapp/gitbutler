@@ -28,7 +28,7 @@
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { goto } from '$app/navigation';
 
-	const DESCRIPTION_PLACE_HOLDER = 'No description provided';
+	const DESCRIPTION_PLACE_HOLDER = '_No commit message description provided_';
 
 	interface Props {
 		data: ProjectReviewCommitParameters;
