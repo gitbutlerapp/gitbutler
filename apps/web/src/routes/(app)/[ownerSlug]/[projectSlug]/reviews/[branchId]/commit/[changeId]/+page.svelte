@@ -205,10 +205,10 @@
 				</div>
 
 				<div class="review-main__meta" bind:this={metaSectionEl}>
+					<ReviewInfo projectId={repositoryId} {patch} />
 					<p class="review-main-description">
 						<Markdown content={patch.description?.trim() || DESCRIPTION_PLACE_HOLDER} />
 					</p>
-					<ReviewInfo projectId={repositoryId} {patch} />
 				</div>
 
 				<ReviewSections
@@ -350,15 +350,19 @@
 		display: flex;
 		flex-direction: column;
 		gap: 24px;
-		margin-bottom: 40px;
+		margin-bottom: 20px;
 	}
 
 	.review-main-description {
 		color: var(--text-1);
-		font-family: var(--fontfamily-mono);
-		font-size: 12px;
+		font-size: 13px;
 		font-style: normal;
-		line-height: 160%;
+		line-height: 180%;
+		padding: 20px 25px;
+		background: var(--clr-bg-1);
+		font-family: var(--fontfamily-default);
+		border-radius: 10px;
+		border: 1px solid var(--clr-border-2);
 	}
 
 	.review-chat {
