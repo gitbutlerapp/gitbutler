@@ -1,4 +1,4 @@
-import { apiToPatch, type ApiPatch, type Patch } from '$lib/patches/types';
+import { apiToPatch, type ApiPatchCommit, type PatchCommit } from '$lib/patches/types';
 import { apiToPermissions, type ApiPermissions, type Permissions } from '$lib/permissions';
 import { apiToUserMaybe, type ApiUserMaybe, type UserMaybe } from '$lib/users/types';
 import type { LoadableData } from '$lib/network/types';
@@ -24,7 +24,7 @@ export type ApiBranch = {
 	updated_at: string;
 	stack_size?: number;
 	contributors: ApiUserMaybe[];
-	patches: ApiPatch[];
+	patches: ApiPatchCommit[];
 	repository_id: string;
 	branch_stack_id?: string;
 	branch_stack_order?: number;
@@ -47,8 +47,8 @@ export type Branch = {
 	updatedAt: string;
 	stackSize?: number;
 	contributors: UserMaybe[];
-	patchIds: string[];
-	patches: Patch[];
+	patchCommitIds: string[];
+	patches: PatchCommit[];
 	reviewStatus: string;
 	repositoryId: string;
 	stackId: string;
@@ -73,7 +73,7 @@ export function apiToBranch(api: ApiBranch): Branch {
 		updatedAt: api.updated_at,
 		stackSize: api.stack_size,
 		contributors: api.contributors.map(apiToUserMaybe),
-		patchIds: api.patches.map((patch) => patch.change_id),
+		patchCommitIds: api.patches.map((patch) => patch.change_id),
 		patches: api.patches.map(apiToPatch),
 		reviewStatus: api.review_status,
 		repositoryId: api.repository_id,

@@ -13,8 +13,8 @@ import {
 } from '$lib/branches/types';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
-import { upsertPatches } from '$lib/patches/patchesSlice';
-import { apiToPatch, type LoadablePatch } from '$lib/patches/types';
+import { upsertPatchCommits } from '$lib/patches/patchCommitsSlice';
+import { apiToPatch, type LoadablePatchCommit } from '$lib/patches/types';
 import { POLLING_GLACIALLY, POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
@@ -66,14 +66,14 @@ export class BranchService {
 					const patches = apiBranches
 						.flatMap((branch) => branch.patches)
 						.map(
-							(api): LoadablePatch => ({
+							(api): LoadablePatchCommit => ({
 								status: 'found',
 								id: api.change_id,
 								value: apiToPatch(api)
 							})
 						);
 
-					this.appDispatch.dispatch(upsertPatches(patches));
+					this.appDispatch.dispatch(upsertPatchCommits(patches));
 					this.appDispatch.dispatch(upsertBranches(branches));
 					this.appDispatch.dispatch(
 						upsertBranchReviewListing({
@@ -101,7 +101,7 @@ export class BranchService {
 			};
 
 			const patches = apiBranch.patches.map(
-				(api): LoadablePatch => ({
+				(api): LoadablePatchCommit => ({
 					status: 'found',
 					id: api.change_id,
 					value: apiToPatch(api)
@@ -109,7 +109,7 @@ export class BranchService {
 			);
 
 			this.appDispatch.dispatch(upsertBranch(loadableBranch));
-			this.appDispatch.dispatch(upsertPatches(patches));
+			this.appDispatch.dispatch(upsertPatchCommits(patches));
 
 			return apiToBranch(apiBranch);
 		} catch (_: unknown) {
@@ -130,7 +130,7 @@ export class BranchService {
 					};
 
 					const patches = apiBranch.patches.map(
-						(api): LoadablePatch => ({
+						(api): LoadablePatchCommit => ({
 							status: 'found',
 							id: api.change_id,
 							value: apiToPatch(api)
@@ -138,7 +138,7 @@ export class BranchService {
 					);
 
 					this.appDispatch.dispatch(upsertBranch(branch));
-					this.appDispatch.dispatch(upsertPatches(patches));
+					this.appDispatch.dispatch(upsertPatchCommits(patches));
 				} catch (error: unknown) {
 					this.appDispatch.dispatch(upsertBranch(errorToLoadable(error, uuid)));
 				}
@@ -163,7 +163,7 @@ export class BranchService {
 		const branch = apiToBranch(apiBranch);
 
 		const patches = apiBranch.patches.map(
-			(api): LoadablePatch => ({ status: 'found', id: api.change_id, value: apiToPatch(api) })
+			(api): LoadablePatchCommit => ({ status: 'found', id: api.change_id, value: apiToPatch(api) })
 		);
 
 		this.appDispatch.dispatch(
@@ -173,7 +173,7 @@ export class BranchService {
 				value: branch
 			})
 		);
-		this.appDispatch.dispatch(upsertPatches(patches));
+		this.appDispatch.dispatch(upsertPatchCommits(patches));
 
 		return branch;
 	}

@@ -2,7 +2,7 @@
 	import LoginModal from '$lib/components/LoginModal.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
-	import { PatchService } from '@gitbutler/shared/patches/patchService';
+	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
 	import { type Patch } from '@gitbutler/shared/patches/types';
 	import CommitStatusBadge from '@gitbutler/ui/CommitStatusBadge.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -25,7 +25,7 @@
 
 	const { patch, branchUuid, isUserLoggedIn }: Props = $props();
 
-	const patchService = getContext(PatchService);
+	const patchService = getContext(PatchCommitService);
 	const userService = getContext(UserService);
 	const user = userService.user;
 

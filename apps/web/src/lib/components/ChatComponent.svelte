@@ -8,7 +8,7 @@
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';
 	import { PatchEventsService } from '@gitbutler/shared/patchEvents/patchEventsService';
-	import { getPatchEvents } from '@gitbutler/shared/patches/patchesPreview.svelte';
+	import { getPatchEvents } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 

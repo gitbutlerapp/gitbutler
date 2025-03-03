@@ -14,7 +14,7 @@ import { asyncToSyncSignals, writableDerived } from '$lib/storeUtils';
 import { createConsumer } from '@rails/actioncable';
 import { type Readable } from 'svelte/store';
 import type { HttpClient } from '$lib/network/httpClient';
-import type { PatchService } from '$lib/patches/patchService';
+import type { PatchCommitService } from '$lib/patches/patchCommitService';
 import type { AppDispatch, AppPatchEventsState } from '$lib/redux/store.svelte';
 
 function getActionCableEndpoint(token: string | undefined, baseUrl: string): string {
@@ -43,7 +43,7 @@ export class PatchEventsService {
 		private readonly appState: AppPatchEventsState,
 		private readonly appDispatch: AppDispatch,
 		private readonly token: Readable<string | undefined>,
-		private readonly patchService: PatchService,
+		private readonly patchService: PatchCommitService,
 		private readonly websocketBase: string
 	) {}
 

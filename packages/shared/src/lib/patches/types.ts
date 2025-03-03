@@ -161,17 +161,25 @@ export function apiToPatchReview(api: ApiPatchReview): PatchReview {
 	};
 }
 
-export type ApiPatch = {
+export type ApiBasePatch = {
+	type: string;
+	statistics: ApiPatchStatistics;
+	sections: ApiSection[] | undefined;
+	created_at: string;
+	updated_at: string;
+};
+
+export type ApiPatchCommit = ApiBasePatch & {
+	type: 'PatchCommit';
 	change_id: string;
 	commit_sha: string;
 	// patch_sha: string; Not sure this is real
-	title?: string;
-	description?: string;
-	position?: number;
-	version?: number;
-	comment_count?: number;
+	title: string | undefined;
+	description: string | undefined;
+	position: number | undefined;
+	version: number | undefined;
+	comment_count: number;
 	contributors: ApiUserMaybe[];
-	statistics: ApiPatchStatistics;
 	review: ApiPatchReview;
 	review_all: ApiPatchReview;
 	review_status: string;
@@ -181,17 +189,28 @@ export type ApiPatch = {
 	previous_version_sha: string | undefined;
 };
 
-export type Patch = {
+export type ApiPatch = ApiPatchCommit;
+
+export type BasePatch = {
+	type: string;
+	// patch_sha: string; Not sure this is real
+	statistics: PatchStatistics;
+	sectionIds: number[] | undefined;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type PatchCommit = BasePatch & {
+	type: 'PatchCommit';
 	changeId: string;
 	commitSha: string;
 	// patch_sha: string; Not sure this is real
-	title?: string;
-	description?: string;
-	position?: number;
-	version?: number;
+	title: string | undefined;
+	description: string | undefined;
+	position: number | undefined;
+	version: number | undefined;
 	commentCount: number;
 	contributors: UserMaybe[];
-	statistics: PatchStatistics;
 	review: PatchReview;
 	reviewAll: PatchReview;
 	reviewStatus: string;
@@ -200,6 +219,8 @@ export type Patch = {
 	updatedAt: string;
 	previousVersionSha: string | undefined;
 };
+
+export type Patch = PatchCommit;
 
 export function getPatchStatus(
 	patch: Patch
@@ -210,10 +231,11 @@ export function getPatchStatus(
 	return 'unreviewed';
 }
 
-export type LoadablePatch = LoadableData<Patch, Patch['changeId']>;
+export type LoadablePatchCommit = LoadableData<PatchCommit, Patch['changeId']>;
 
 export function apiToPatch(api: ApiPatch): Patch {
 	return {
+		type: api.type,
 		changeId: api.change_id,
 		commitSha: api.commit_sha,
 		title: api.title,

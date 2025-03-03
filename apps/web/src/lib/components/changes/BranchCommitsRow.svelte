@@ -8,8 +8,8 @@
 	} from '@gitbutler/shared/contributors';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';
-	import { PatchService } from '@gitbutler/shared/patches/patchService';
-	import { getPatch } from '@gitbutler/shared/patches/patchesPreview.svelte';
+	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
+	import { getPatch } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import { getPatchStatus } from '@gitbutler/shared/patches/types';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
@@ -31,7 +31,7 @@
 	const { changeId, params, branchUuid }: Props = $props();
 
 	const appState = getContext(AppState);
-	const patchService = getContext(PatchService);
+	const patchService = getContext(PatchCommitService);
 	const routes = getContext(WebRoutesService);
 
 	const change = $derived(getPatch(appState, patchService, branchUuid, changeId));

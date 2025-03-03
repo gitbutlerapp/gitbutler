@@ -18,8 +18,8 @@
 	import { combine, isFound, map } from '@gitbutler/shared/network/loadable';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
-	import { PatchService } from '@gitbutler/shared/patches/patchService';
-	import { getPatch, getPatchSections } from '@gitbutler/shared/patches/patchesPreview.svelte';
+	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
+	import { getPatch, getPatchSections } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		WebRoutesService,
@@ -40,7 +40,7 @@
 	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
 	const latestBranchLookupService = getContext(LatestBranchLookupService);
 	const branchService = getContext(BranchService);
-	const patchService = getContext(PatchService);
+	const patchCommitService = getContext(PatchCommitService);
 	const appState = getContext(AppState);
 	const routes = getContext(WebRoutesService);
 	const userService = getContext(UserService);
@@ -72,16 +72,16 @@
 		})
 	);
 
-	const patchIds = $derived(map(branch?.current, (b) => b.patchIds));
+	const patchCommitIds = $derived(map(branch?.current, (b) => b.patchCommitIds));
 
-	const patch = $derived(
+	const patchCommit = $derived(
 		map(branchUuid?.current, (branchUuid) => {
-			return getPatch(appState, patchService, branchUuid, data.changeId);
+			return getPatch(appState, patchCommitService, branchUuid, data.changeId);
 		})
 	);
 
 	const isPatchAuthor = $derived(
-		map(patch?.current, (patch) => {
+		map(patchCommit?.current, (patch) => {
 			return patch.contributors.some(
 				(contributor) => contributor.user?.id !== undefined && contributor.user?.id === $user?.id
 			);
@@ -90,7 +90,7 @@
 
 	const patchSections = $derived(
 		map(branchUuid?.current, (branchUuid) => {
-			return getPatchSections(appState, patchService, branchUuid, data.changeId);
+			return getPatchSections(appState, patchCommitService, branchUuid, data.changeId);
 		})
 	);
 
@@ -170,17 +170,17 @@
 	});
 
 	$effect(() => {
-		if (isFound(patch?.current)) {
-			updateFavIcon(patch.current.value?.reviewStatus);
+		if (isFound(patchCommit?.current)) {
+			updateFavIcon(patchCommit.current.value?.reviewStatus);
 		}
 	});
 </script>
 
 <svelte:head>
-	{#if isFound(patch?.current)}
-		<title>🔬{patch.current.value?.title}</title>
-		<meta property="og:title" content="Review: {patch.current.value?.title}" />
-		<meta property="og:description" content={patch.current.value?.description} />
+	{#if isFound(patchCommit?.current)}
+		<title>🔬{patchCommit.current.value?.title}</title>
+		<meta property="og:title" content="Review: {patchCommit.current.value?.title}" />
+		<meta property="og:description" content={patchCommit.current.value?.description} />
 	{:else}
 		<title>GitButler Review</title>
 		<meta property="og:title" content="Butler Review: {data.ownerSlug}/{data.projectSlug}" />
@@ -192,9 +192,14 @@
 
 <div class="review-page" class:column={chatMinimizer.value}>
 	<Loading
-		loadable={combine([patch?.current, repositoryId.current, branchUuid?.current, branch?.current])}
+		loadable={combine([
+			patchCommit?.current,
+			repositoryId.current,
+			branchUuid?.current,
+			branch?.current
+		])}
 	>
-		{#snippet children([patch, repositoryId, branchUuid, branch])}
+		{#snippet children([patchCommit, repositoryId, branchUuid, branch])}
 			<div class="review-main" class:expand={chatMinimizer.value}>
 				<Navigation />
 
@@ -223,28 +228,32 @@
 									})}>{branch.title}</a
 								>
 							</p>
-							<h3 class="text-18 text-bold review-main-title">{patch.title}</h3>
+							<h3 class="text-18 text-bold review-main-title">{patchCommit.title}</h3>
 						</div>
 					</div>
 				</div>
 
 				<div class="review-main__patch-navigator">
-					{#if patchIds !== undefined}
-						<ChangeNavigator {goToPatch} currentPatchId={patch.changeId} {patchIds} />
+					{#if patchCommitIds !== undefined}
+						<ChangeNavigator
+							{goToPatch}
+							currentPatchId={patchCommit.changeId}
+							patchIds={patchCommitIds}
+						/>
 					{/if}
 
 					{#if branchUuid !== undefined && isPatchAuthor === false}
-						<ChangeActionButton {branchUuid} {patch} isUserLoggedIn={!!$user} />
+						<ChangeActionButton {branchUuid} patch={patchCommit} isUserLoggedIn={!!$user} />
 					{/if}
 				</div>
 
 				<div class="review-main__meta" bind:this={metaSectionEl}>
-					<ReviewInfo projectId={repositoryId} {patch} />
+					<ReviewInfo projectId={repositoryId} patch={patchCommit} />
 					<div class="review-main-description">
 						<span class="text-12 review-main-description__caption">Commit message:</span>
 						<p class="review-main-description__markdown">
-							{#if patch.description?.trim()}
-								<Markdown content={patch.description} />
+							{#if patchCommit.description?.trim()}
+								<Markdown content={patchCommit.description} />
 							{:else}
 								<span class="review-main-description__placeholder">
 									{DESCRIPTION_PLACE_HOLDER}</span
@@ -255,7 +264,7 @@
 				</div>
 
 				<ReviewSections
-					{patch}
+					patch={patchCommit}
 					headerShift={headerHeight}
 					patchSections={patchSections?.current}
 					toggleDiffLine={(f, s, p) => diffLineSelection.toggle(f, s, p)}
