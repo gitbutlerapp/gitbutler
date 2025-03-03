@@ -6,10 +6,10 @@
 	import SuggestionsHandler from '$lib/chat/suggestions.svelte';
 	import { type DiffSelection } from '$lib/diff/lineSelection.svelte';
 	import { UserService } from '$lib/user/userService';
-	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
 	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
 	import { getContext } from '@gitbutler/shared/context';
+	import { PatchService } from '@gitbutler/shared/patches/patchService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
 	import Button from '@gitbutler/ui/Button.svelte';

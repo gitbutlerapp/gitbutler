@@ -1,9 +1,9 @@
 <script lang="ts">
 	import LoginModal from '$lib/components/LoginModal.svelte';
 	import { UserService } from '$lib/user/userService';
-	import { PatchService } from '@gitbutler/shared/branches/patchService';
-	import { type Patch } from '@gitbutler/shared/branches/types';
 	import { getContext } from '@gitbutler/shared/context';
+	import { PatchService } from '@gitbutler/shared/patches/patchService';
+	import { type Patch } from '@gitbutler/shared/patches/types';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';

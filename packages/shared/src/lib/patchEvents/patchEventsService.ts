@@ -1,20 +1,20 @@
-import { patchEventsSelectors, upsertPatchEvent } from '$lib/branches/patchEventsSlice';
+import { InterestStore, type Interest } from '$lib/interest/interestStore';
+import { errorToLoadable, isFound } from '$lib/network/loadable';
+import { patchEventsSelectors, upsertPatchEvent } from '$lib/patchEvents/patchEventsSlice';
 import {
-	type ApiPatchEvent,
 	apiToPatchEvent,
 	createPatchEventChannelKey,
 	isApiPatchEvent,
+	type ApiPatchEvent,
 	type LoadablePatchEventChannel,
 	type PatchEvent
-} from '$lib/branches/types';
-import { InterestStore, type Interest } from '$lib/interest/interestStore';
-import { errorToLoadable, isFound } from '$lib/network/loadable';
+} from '$lib/patchEvents/types';
 import { playSound } from '$lib/sounds';
 import { asyncToSyncSignals, writableDerived } from '$lib/storeUtils';
 import { createConsumer } from '@rails/actioncable';
 import { type Readable } from 'svelte/store';
-import type { PatchService } from '$lib/branches/patchService';
 import type { HttpClient } from '$lib/network/httpClient';
+import type { PatchService } from '$lib/patches/patchService';
 import type { AppDispatch, AppPatchEventsState } from '$lib/redux/store.svelte';
 
 function getActionCableEndpoint(token: string | undefined, baseUrl: string): string {

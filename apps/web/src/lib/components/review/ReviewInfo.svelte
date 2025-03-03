@@ -2,16 +2,16 @@
 	import ChangeStatus from '../changes/ChangeStatus.svelte';
 	import Factoid from '../infoFlexRow/Factoid.svelte';
 	import InfoFlexRow from '../infoFlexRow/InfoFlexRow.svelte';
+	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
+	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
+	import { getContext } from '@gitbutler/shared/context';
 	import {
 		getUsersWithAvatars,
 		getPatchApproversWithAvatars,
 		getPatchContributorsWithAvatars,
-		getPatchRejectorsWithAvatars,
-		type Patch
-	} from '@gitbutler/shared/branches/types';
-	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
-	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
-	import { getContext } from '@gitbutler/shared/context';
+		getPatchRejectorsWithAvatars
+	} from '@gitbutler/shared/contributors';
+	import { type Patch } from '@gitbutler/shared/patches/types';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 

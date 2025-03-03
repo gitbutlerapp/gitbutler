@@ -3,7 +3,7 @@
 	import Message from './Message.svelte';
 	import PatchStatus from './PatchStatus.svelte';
 	import PatchVersion from './PatchVersion.svelte';
-	import type { PatchEvent } from '@gitbutler/shared/branches/types';
+	import type { PatchEvent } from '@gitbutler/shared/patchEvents/types';
 
 	interface Props {
 		highlightedMessageUuid: string | undefined;

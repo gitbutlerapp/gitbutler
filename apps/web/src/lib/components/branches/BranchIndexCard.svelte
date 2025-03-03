@@ -3,8 +3,8 @@
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { getBranchStatusBadge } from '@gitbutler/shared/branches/getBranchStatusBadge';
-	import { getContributorsWithAvatars } from '@gitbutler/shared/branches/types';
 	import { getContext } from '@gitbutler/shared/context';
+	import { getContributorsWithAvatars } from '@gitbutler/shared/contributors';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';

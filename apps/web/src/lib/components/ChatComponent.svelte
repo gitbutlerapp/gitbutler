@@ -4,11 +4,11 @@
 	import Event from '$lib/components/chat/Event.svelte';
 	import { type DiffSelection } from '$lib/diff/lineSelection.svelte';
 	import blankChat from '$lib/images/blank-chat.svg?raw';
-	import { PatchEventsService } from '@gitbutler/shared/branches/patchEventsService';
-	import { getPatchEvents } from '@gitbutler/shared/branches/patchesPreview.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';
+	import { PatchEventsService } from '@gitbutler/shared/patchEvents/patchEventsService';
+	import { getPatchEvents } from '@gitbutler/shared/patches/patchesPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 
