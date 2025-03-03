@@ -1,12 +1,14 @@
+use std::collections::HashMap;
+
 use anyhow::{bail, Context as _, Result};
+use but_rebase::RebaseStep;
+use git2::Commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_diff::Hunk;
-use gitbutler_repo::{
-    logging::{LogUntil, RepositoryExt as _},
-    rebase::cherry_rebase_group,
-};
-use gitbutler_stack::{OwnershipClaim, Stack, StackId};
+use gitbutler_oxidize::{ObjectIdExt, OidExt};
+use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_stack::{stack_context::CommandContextExt, OwnershipClaim, Stack, StackId};
 use tracing::instrument;
 
 use crate::VirtualBranchesExt as _;
@@ -22,29 +24,50 @@ use crate::VirtualBranchesExt as _;
 ///
 /// This may create conflicted commits above the commit that is getting
 /// undone.
-#[instrument(level = tracing::Level::DEBUG, skip(ctx))]
+#[instrument(level = tracing::Level::DEBUG, skip(ctx, _perm))]
 pub(crate) fn undo_commit(
     ctx: &CommandContext,
     stack_id: StackId,
     commit_to_remove: git2::Oid,
+    _perm: &mut WorktreeWritePermission,
 ) -> Result<Stack> {
     let vb_state = ctx.project().virtual_branches();
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
 
-    let UndoResult {
-        new_head: new_head_commit,
-        ownership_update,
-    } = rebase_excluding(ctx.repo(), stack.head(), commit_to_remove)?;
+    let stack_ctx = ctx.to_stack_context()?;
+    let merge_base = stack.merge_base(&stack_ctx)?;
+    let steps = stack_as_rebase_steps(ctx, stack.id)?
+        .into_iter()
+        .filter(|s| match s {
+            RebaseStep::Pick {
+                commit_id,
+                new_message: _,
+            } => commit_id != &commit_to_remove.to_gix(),
+            _ => true,
+        })
+        .collect::<Vec<_>>();
 
-    for ownership in ownership_update {
+    let repo = ctx.gix_repository()?;
+    let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base.to_gix()), None)?;
+    rebase.rebase_noops(false);
+    rebase.steps(steps)?;
+    let output = rebase.rebase()?;
+
+    for ownership in ownership_update(ctx.repo(), commit_to_remove)? {
         stack.ownership.put(ownership);
     }
 
-    stack.set_stack_head(ctx, new_head_commit, None)?;
+    let new_head = output.top_commit.to_git2();
+    stack.set_stack_head(ctx, new_head, None)?;
 
-    let removed_commit = ctx.repo().find_commit(commit_to_remove)?;
-    stack.replace_head(ctx, &removed_commit, &removed_commit.parent(0)?)?;
+    let mut new_heads: HashMap<String, Commit<'_>> = HashMap::new();
+    for spec in &output.references {
+        let commit = ctx.repo().find_commit(spec.commit_id.to_git2())?;
+        new_heads.insert(spec.reference.to_string(), commit);
+    }
+
+    stack.set_all_heads(ctx, new_heads)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
@@ -52,17 +75,40 @@ pub(crate) fn undo_commit(
     Ok(stack)
 }
 
-struct UndoResult {
-    new_head: git2::Oid,
-    ownership_update: Vec<OwnershipClaim>,
+fn stack_as_rebase_steps(ctx: &CommandContext, stack_id: StackId) -> Result<Vec<RebaseStep>> {
+    let mut steps: Vec<RebaseStep> = Vec::new();
+    let repo = ctx.gix_repository()?;
+    for branch in but_workspace::stack_branches(stack_id.to_string(), ctx)? {
+        if branch.archived {
+            continue;
+        }
+        let reference_step = if let Some(reference) = repo.try_find_reference(&branch.name)? {
+            RebaseStep::Reference(but_core::Reference::Git(reference.name().to_owned()))
+        } else {
+            RebaseStep::Reference(but_core::Reference::Virtual(branch.name.to_string()))
+        };
+        steps.push(reference_step);
+        let commits = but_workspace::stack_branch_local_and_remote_commits(
+            stack_id.to_string(),
+            branch.name.to_string(),
+            ctx,
+        )?;
+        for commit in commits {
+            let pick_step = RebaseStep::Pick {
+                commit_id: commit.id,
+                new_message: None,
+            };
+            steps.push(pick_step);
+        }
+    }
+    steps.reverse();
+    Ok(steps)
 }
 
-#[instrument(level = tracing::Level::DEBUG, skip(repository))]
-fn rebase_excluding(
+fn ownership_update(
     repository: &git2::Repository,
-    branch_head_commit: git2::Oid,
     commit_to_remove: git2::Oid,
-) -> Result<UndoResult> {
+) -> Result<Vec<OwnershipClaim>> {
     let commit_to_remove = repository.find_commit(commit_to_remove)?;
 
     if commit_to_remove.is_conflicted() {
@@ -93,162 +139,5 @@ fn rebase_excluding(
             Some(OwnershipClaim { file_path, hunks })
         })
         .collect::<Vec<_>>();
-
-    // if commit is the head, just set head to the parent
-    if branch_head_commit == commit_to_remove.id() {
-        return Ok(UndoResult {
-            new_head: commit_to_remove_parent.id(),
-            ownership_update,
-        });
-    };
-
-    let commits_to_rebase = repository.l(
-        branch_head_commit,
-        LogUntil::Commit(commit_to_remove.id()),
-        false,
-    )?;
-
-    let new_head = cherry_rebase_group(
-        repository,
-        commit_to_remove.parent_id(0)?,
-        &commits_to_rebase,
-        false,
-        false,
-    )?;
-
-    Ok(UndoResult {
-        new_head,
-        ownership_update,
-    })
-}
-
-#[cfg(test)]
-mod test {
-    #[cfg(test)]
-    mod inner_undo_commit {
-        use std::path::PathBuf;
-
-        use gitbutler_commit::commit_ext::CommitExt as _;
-        use gitbutler_repo::rebase::gitbutler_merge_commits;
-        use gitbutler_testsupport::testing_repository::{
-            assert_commit_tree_matches, TestingRepository,
-        };
-
-        use crate::undo_commit::{rebase_excluding, UndoResult};
-
-        #[test]
-        fn undoing_conflicted_commit_errors() {
-            let test_repository = TestingRepository::open();
-
-            let a = test_repository.commit_tree(None, &[("foo.txt", "foo")]);
-            let b = test_repository.commit_tree(Some(&a), &[("bar.txt", "bar")]);
-            let c = test_repository.commit_tree(Some(&a), &[("bar.txt", "baz")]);
-
-            let conflicted_commit =
-                gitbutler_merge_commits(&test_repository.repository, b, c, "", "").unwrap();
-
-            // Branch looks like "A -> ConflictedCommit"
-
-            let result = rebase_excluding(
-                &test_repository.repository,
-                conflicted_commit.id(),
-                conflicted_commit.id(),
-            );
-
-            assert!(
-                result.is_err(),
-                "Should error when trying to undo a conflicted commit"
-            );
-        }
-
-        #[test]
-        fn undoing_head_commit() {
-            let test_repository = TestingRepository::open();
-
-            let a = test_repository.commit_tree(None, &[("foo.txt", "foo")]);
-            let b = test_repository.commit_tree(Some(&a), &[("bar.txt", "bar")]);
-            let c = test_repository.commit_tree(Some(&b), &[("baz.txt", "baz")]);
-
-            let UndoResult {
-                new_head,
-                ownership_update,
-            } = rebase_excluding(&test_repository.repository, c.id(), c.id()).unwrap();
-
-            assert_eq!(new_head, b.id(), "The new head should be C's parent");
-            assert_eq!(
-                ownership_update.len(),
-                1,
-                "Should have one ownership update"
-            );
-            assert_eq!(
-                ownership_update[0].file_path,
-                PathBuf::from("baz.txt"),
-                "Ownership update should be for baz.txt"
-            );
-            assert_eq!(
-                ownership_update[0].hunks.len(),
-                1,
-                "Ownership update should have one hunk"
-            );
-        }
-
-        #[test]
-        fn undoing_commits_may_create_conflicts() {
-            let test_repository = TestingRepository::open();
-
-            let a = test_repository.commit_tree(None, &[("foo.txt", "foo")]);
-            let b = test_repository.commit_tree(Some(&a), &[("foo.txt", "bar")]);
-            let c = test_repository.commit_tree(Some(&b), &[("foo.txt", "baz")]);
-
-            // By dropping the "B" commit, we're effectively cherry-picking
-            // C onto A, which in tern is merge trees of:
-            // Base: B (content bar)
-            // Ours: A (content foo)
-            // Theirs: C (content baz)
-            //
-            // As the theirs and ours both are different to the base, it ends up
-            // conflicted.
-            let UndoResult {
-                new_head,
-                ownership_update,
-            } = rebase_excluding(&test_repository.repository, c.id(), b.id()).unwrap();
-
-            let new_head_commit: git2::Commit =
-                test_repository.repository.find_commit(new_head).unwrap();
-
-            assert!(new_head_commit.is_conflicted(), "Should be conflicted");
-
-            assert_commit_tree_matches(
-                &test_repository.repository,
-                &new_head_commit,
-                &[
-                    (".auto-resolution/foo.txt", b"foo"),
-                    (".conflict-base-0/foo.txt", b"bar"), // B is the base
-                    (".conflict-side-0/foo.txt", b"foo"), // "Ours" is A
-                    (".conflict-side-1/foo.txt", b"baz"), // "Theirs" is C
-                ],
-            );
-
-            assert_eq!(
-                new_head_commit.parent_id(0).unwrap(),
-                a.id(),
-                "A should be C prime's parent"
-            );
-            assert_eq!(
-                ownership_update.len(),
-                1,
-                "Should have one ownership update"
-            );
-            assert_eq!(
-                ownership_update[0].file_path,
-                PathBuf::from("foo.txt"),
-                "Ownership update should be for foo.txt"
-            );
-            assert_eq!(
-                ownership_update[0].hunks.len(),
-                1,
-                "Ownership update should have one hunk"
-            );
-        }
-    }
+    Ok(ownership_update)
 }

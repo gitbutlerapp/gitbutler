@@ -153,6 +153,18 @@ pub enum Reference {
     Virtual(String),
 }
 
+impl std::fmt::Display for Reference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Reference::Git(r) => {
+                let s = r.to_string();
+                s.strip_prefix("refs/heads/").unwrap_or_default().fmt(f)
+            }
+            Reference::Virtual(r) => r.fmt(f),
+        }
+    }
+}
+
 /// Open a repository in such a way that the object cache is set to accelerate merge operations.
 ///
 /// As it depends on the size of the tree, the index will be loaded for that.

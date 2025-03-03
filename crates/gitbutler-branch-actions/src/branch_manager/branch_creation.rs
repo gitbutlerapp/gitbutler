@@ -372,8 +372,12 @@ impl BranchManager<'_> {
                 if !potential_wip_commit.is_conflicted() {
                     if let Some(headers) = potential_wip_commit.gitbutler_headers() {
                         if headers.change_id == wip_commit_to_unapply.clone() {
-                            stack =
-                                crate::undo_commit::undo_commit(self.ctx, stack.id, stack.head())?;
+                            stack = crate::undo_commit::undo_commit(
+                                self.ctx,
+                                stack.id,
+                                stack.head(),
+                                perm,
+                            )?;
                         }
                     }
 
