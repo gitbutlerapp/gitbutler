@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { isLockfile } from '$lib/diff/lockfiles';
 	import { splitDiffIntoHunks } from '$lib/diffParsing';
+	import { getFilePathInfo } from '@gitbutler/shared/utils/file';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import HunkDiff, { type LineClickParams } from '@gitbutler/ui/HunkDiff.svelte';
 	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
@@ -40,6 +41,7 @@
 		return splitDiffIntoHunks(section.diffPatch);
 	});
 	const filePath = $derived(section.newPath || 'unknown');
+	const filePathInfo = $derived(getFilePathInfo(filePath));
 
 	function handleLineClick(params: LineClickParams) {
 		toggleDiffLine(section.newPath || 'unknown', section.diffSha, params);
@@ -51,7 +53,13 @@
 <div class="diff-section">
 	<div class="diff-section__header">
 		<FileIcon fileName={filePath} size={16} />
-		<p title={filePath} class="text-12 text-body file-name">{filePath}</p>
+		<p title={filePath} class="text-12 text-body file-path">
+			{#if filePathInfo}
+				<span class="directory-path">{filePathInfo.directoryPath}/</span>{filePathInfo.fileName}
+			{:else}
+				{filePath}
+			{/if}
+		</p>
 	</div>
 	{#if lockFile && !displayLockHunks}
 		<div class="lock-files-hidden-by-default">
@@ -103,13 +111,22 @@
 		gap: 8px;
 	}
 
-	.file-name {
+	.file-path {
 		color: var(--clr-text-1);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		direction: rtl;
 		text-align: left;
+
+		& span {
+			margin: 0;
+			padding: 0;
+		}
+	}
+
+	.directory-path {
+		color: var(--clr-text-2);
 	}
 
 	.lock-files-hidden-by-default {
