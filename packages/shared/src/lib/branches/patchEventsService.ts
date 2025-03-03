@@ -140,6 +140,7 @@ export class PatchEventsService {
 			apiPatchEvents.reverse();
 
 			const events = apiPatchEvents.map(apiToPatchEvent).filter((e): e is PatchEvent => !!e);
+			console.log(events);
 			const patchEventChannel: LoadablePatchEventChannel = createPatchEventChannel(
 				projectId,
 				changeId,
