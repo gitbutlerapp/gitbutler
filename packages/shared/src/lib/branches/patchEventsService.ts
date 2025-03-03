@@ -138,9 +138,9 @@ export class PatchEventsService {
 			// Return the events in reverse order so that
 			// the newest events are at the bottom
 			apiPatchEvents.reverse();
+			asdfasdf;
 
 			const events = apiPatchEvents.map(apiToPatchEvent).filter((e): e is PatchEvent => !!e);
-			console.log(events);
 			const patchEventChannel: LoadablePatchEventChannel = createPatchEventChannel(
 				projectId,
 				changeId,
