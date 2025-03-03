@@ -202,7 +202,7 @@ importers:
         version: 6.6.3
       '@testing-library/svelte':
         specifier: 5.2.5
-        version: 5.2.5(svelte@5.19.7)(vite@6.1.0(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(yaml@2.7.0))
+        version: 5.2.5(svelte@5.19.7)(vite@6.1.0(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0))(vitest@3.0.5)
       '@types/diff-match-patch':
         specifier: ^1.0.36
         version: 1.0.36
@@ -377,7 +377,7 @@ importers:
         version: 6.6.3
       '@testing-library/svelte':
         specifier: 5.2.5
-        version: 5.2.5(svelte@5.19.7)(vite@6.1.0(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(yaml@2.7.0))
+        version: 5.2.5(svelte@5.19.7)(vite@6.1.0(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0))(vitest@3.0.5)
       '@types/diff-match-patch':
         specifier: ^1.0.36
         version: 1.0.36
@@ -562,6 +562,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@lexical/markdown':
+        specifier: 0.17.0
+        version: 0.17.0
       '@tiptap/core':
         specifier: ^2.11.5
         version: 2.11.5(@tiptap/pm@2.11.5)
@@ -583,6 +586,12 @@ importers:
       install:
         specifier: ^0.13.0
         version: 0.13.0
+      lexical:
+        specifier: 0.17.0
+        version: 0.17.0
+      svelte-lexical:
+        specifier: ^0.5.0
+        version: 0.5.0(svelte@5.19.7)
     devDependencies:
       '@codemirror/lang-cpp':
         specifier: ^6.0.2
@@ -658,7 +667,7 @@ importers:
         version: 8.5.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.5.3(prettier@3.3.2))
       '@storybook/experimental-addon-test':
         specifier: ^8.5.3
-        version: 8.5.3(@vitest/browser@3.0.3(@types/node@22.3.0)(playwright@1.47.0)(typescript@5.4.5)(vite@6.1.0(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0))(vitest@3.0.5)(webdriverio@8.40.2))(@vitest/runner@3.0.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.5.3(prettier@3.3.2))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0)(yaml@2.7.0))
+        version: 8.5.3(@vitest/browser@3.0.3)(@vitest/runner@3.0.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.5.3(prettier@3.3.2))(vitest@3.0.5)
       '@storybook/svelte':
         specifier: ^8.5.3
         version: 8.5.3(storybook@8.5.3(prettier@3.3.2))(svelte@5.19.7)
@@ -9244,7 +9253,7 @@ snapshots:
     dependencies:
       storybook: 8.5.3(prettier@3.3.2)
 
-  '@storybook/experimental-addon-test@8.5.3(@vitest/browser@3.0.3(@types/node@22.3.0)(playwright@1.47.0)(typescript@5.4.5)(vite@6.1.0(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0))(vitest@3.0.5)(webdriverio@8.40.2))(@vitest/runner@3.0.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.5.3(prettier@3.3.2))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0)(yaml@2.7.0))':
+  '@storybook/experimental-addon-test@8.5.3(@vitest/browser@3.0.3)(@vitest/runner@3.0.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.5.3(prettier@3.3.2))(vitest@3.0.5)':
     dependencies:
       '@storybook/csf': 0.1.12
       '@storybook/global': 5.0.0
@@ -9613,21 +9622,13 @@ snapshots:
       lodash: 4.17.21
       redent: 3.0.0
 
-  '@testing-library/svelte@5.2.5(svelte@5.19.7)(vite@6.1.0(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(yaml@2.7.0))':
+  '@testing-library/svelte@5.2.5(svelte@5.19.7)(vite@6.1.0(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0))(vitest@3.0.5)':
     dependencies:
       '@testing-library/dom': 10.4.0
       svelte: 5.19.7
     optionalDependencies:
       vite: 6.1.0(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0)
       vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(yaml@2.7.0)
-
-  '@testing-library/svelte@5.2.5(svelte@5.19.7)(vite@6.1.0(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(yaml@2.7.0))':
-    dependencies:
-      '@testing-library/dom': 10.4.0
-      svelte: 5.19.7
-    optionalDependencies:
-      vite: 6.1.0(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0)
-      vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(yaml@2.7.0)
 
   '@testing-library/user-event@14.5.2(@testing-library/dom@10.4.0)':
     dependencies:
@@ -10140,7 +10141,7 @@ snapshots:
       sirv: 3.0.0
       tinyglobby: 0.2.10
       tinyrainbow: 2.0.0
-      vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(yaml@2.7.0)
+      vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0)(yaml@2.7.0)
 
   '@vitest/utils@2.0.5':
     dependencies:
@@ -11404,7 +11405,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0(eslint-plugin-import-x@4.6.1(eslint@9.18.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.18.0))(eslint@9.18.0):
+  eslint-module-utils@2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0)(eslint@9.18.0):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
@@ -11446,7 +11447,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.18.0
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0(eslint-plugin-import-x@4.6.1(eslint@9.18.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.18.0))(eslint@9.18.0)
+      eslint-module-utils: 2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0)(eslint@9.18.0)
       hasown: 2.0.2
       is-core-module: 2.15.1
       is-glob: 4.0.3

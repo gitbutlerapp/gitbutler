@@ -116,12 +116,15 @@
 		"./dist/*.woff2"
 	],
 	"dependencies": {
+		"@lexical/markdown": "0.17.0",
 		"@tiptap/core": "^2.11.5",
 		"@tiptap/extension-document": "^2.11.5",
 		"@tiptap/extension-mention": "^2.11.5",
 		"@tiptap/extension-paragraph": "^2.11.5",
 		"@tiptap/extension-text": "^2.11.5",
 		"@tiptap/pm": "^2.11.5",
-		"install": "^0.13.0"
+		"install": "^0.13.0",
+		"lexical": "0.17.0",
+		"svelte-lexical": "^0.5.0"
 	}
 }
