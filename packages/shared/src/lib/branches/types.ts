@@ -30,6 +30,7 @@ export type ApiBranch = {
 	branch_stack_order?: number;
 	permissions: ApiPermissions;
 	owner_login?: string;
+	review_status: string;
 	forge_url: string | undefined;
 	forge_description: string | undefined;
 };
@@ -48,6 +49,7 @@ export type Branch = {
 	contributors: UserMaybe[];
 	patchIds: string[];
 	patches: Patch[];
+	reviewStatus: string;
 	repositoryId: string;
 	stackId: string;
 	stackOrder: number;
@@ -73,6 +75,7 @@ export function apiToBranch(api: ApiBranch): Branch {
 		contributors: api.contributors.map(apiToUserMaybe),
 		patchIds: api.patches.map((patch) => patch.change_id),
 		patches: api.patches.map(apiToPatch),
+		reviewStatus: api.review_status,
 		repositoryId: api.repository_id,
 		// Its good enough
 		stackId: api.branch_stack_id || String(Math.random()),
