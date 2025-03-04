@@ -136,8 +136,6 @@
 		&.highlight {
 			animation: temporary-highlight 2s ease-out;
 		}
-
-		overflow: hidden;
 	}
 
 	.chat-message__issue-icon {
@@ -178,6 +176,7 @@
 		width: 100%;
 		gap: 12px;
 		flex-grow: 0;
+		min-width: 0;
 	}
 
 	.chat-message__header {

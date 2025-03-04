@@ -24,18 +24,21 @@
 
 <style>
 	.code-wrapper {
-		width: 100%;
 		display: flex;
+		min-width: 0;
+		overflow-x: scroll;
+		border-radius: var(--radius-s);
+
+		border: 1px solid var(--clr-border-2);
+		padding: 4px 8px;
 	}
 	.code {
 		width: 100%;
-		border-radius: var(--radius-s);
-		background-color: var(--clr-diff-line-bg);
-		border: 1px solid var(--clr-border-2);
-		overflow-x: scroll;
-		padding: 4px 8px;
+		max-width: 100%;
 		font-family: var(--fontfamily-mono);
 		box-sizing: border-box;
+		background-color: var(--clr-diff-line-bg);
+		border: none;
 	}
 
 	.line {
