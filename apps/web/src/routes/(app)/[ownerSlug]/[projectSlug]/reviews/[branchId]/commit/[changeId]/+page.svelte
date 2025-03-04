@@ -225,13 +225,18 @@
 
 				<div class="review-main__meta" bind:this={metaSectionEl}>
 					<ReviewInfo projectId={repositoryId} {patch} />
-					<p class="review-main-description">
-						{#if patch.description?.trim()}
-							<Markdown content={patch.description} />
-						{:else}
-							<span class="review-main-description__placeholder"> {DESCRIPTION_PLACE_HOLDER}</span>
-						{/if}
-					</p>
+					<div class="review-main-description">
+						<span class="text-12 review-main-description__caption">Commit message:</span>
+						<p class="review-main-description__markdown">
+							{#if patch.description?.trim()}
+								<Markdown content={patch.description} />
+							{:else}
+								<span class="review-main-description__placeholder">
+									{DESCRIPTION_PLACE_HOLDER}</span
+								>
+							{/if}
+						</p>
+					</div>
 				</div>
 
 				<ReviewSections
@@ -381,6 +386,9 @@
 	}
 
 	.review-main-description {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
 		color: var(--text-1);
 		font-size: 13px;
 		font-style: normal;
@@ -395,6 +403,10 @@
 	.review-main-description__placeholder {
 		color: var(--clr-text-3);
 		font-style: italic;
+	}
+
+	.review-main-description__caption {
+		color: var(--clr-text-2);
 	}
 
 	.review-chat {
