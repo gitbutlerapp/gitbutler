@@ -434,10 +434,10 @@ fn stack_branch_to_api_branch(
 
 pub(crate) fn stack_as_rebase_steps(
     ctx: &CommandContext,
+    repo: &gix::Repository,
     stack_id: StackId,
 ) -> Result<Vec<RebaseStep>> {
     let mut steps: Vec<RebaseStep> = Vec::new();
-    let repo = ctx.gix_repository()?;
     for branch in but_workspace::stack_branches(stack_id.to_string(), ctx)? {
         if branch.archived {
             continue;
@@ -452,6 +452,7 @@ pub(crate) fn stack_as_rebase_steps(
             stack_id.to_string(),
             branch.name.to_string(),
             ctx,
+            repo,
         )?;
         for commit in commits {
             let pick_step = RebaseStep::Pick {

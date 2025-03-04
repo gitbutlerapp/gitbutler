@@ -123,11 +123,12 @@ pub mod stacks {
     pub fn branch_commits(id: &str, name: &str, current_dir: &Path) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
+        let repo = ctx.gix_repository()?;
         let local_and_remote =
-            stack_branch_local_and_remote_commits(id.to_string(), name.to_string(), &ctx);
+            stack_branch_local_and_remote_commits(id.to_string(), name.to_string(), &ctx, &repo);
         debug_print(local_and_remote)?;
         let upstream_only =
-            stack_branch_upstream_only_commits(id.to_string(), name.to_string(), &ctx);
+            stack_branch_upstream_only_commits(id.to_string(), name.to_string(), &ctx, &repo);
         debug_print(upstream_only)
     }
 }

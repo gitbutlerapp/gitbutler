@@ -37,7 +37,8 @@ pub(crate) fn undo_commit(
 
     let stack_ctx = ctx.to_stack_context()?;
     let merge_base = stack.merge_base(&stack_ctx)?;
-    let steps = stack_as_rebase_steps(ctx, stack.id)?
+    let repo = ctx.gix_repository()?;
+    let steps = stack_as_rebase_steps(ctx, &repo, stack.id)?
         .into_iter()
         .filter(|s| match s {
             RebaseStep::Pick {
@@ -48,7 +49,6 @@ pub(crate) fn undo_commit(
         })
         .collect::<Vec<_>>();
 
-    let repo = ctx.gix_repository()?;
     let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base.to_gix()), None)?;
     rebase.rebase_noops(false);
     rebase.steps(steps)?;
