@@ -1,14 +1,13 @@
 import type { CellType } from '$lib/commitLines/types';
 
 const colorMap = {
-	local: 'var(--clr-commit-local)',
-	localAndRemote: 'var(--clr-commit-remote)',
-	localAndShadow: 'var(--clr-commit-remote)',
-	remote: 'var(--clr-commit-upstream)',
-	integrated: 'var(--clr-commit-integrated)',
-	error: 'var(--clr-theme-err-element)'
+	LocalOnly: 'var(--clr-commit-local)',
+	LocalAndRemote: 'var(--clr-commit-remote)',
+	Remote: 'var(--clr-commit-upstream)',
+	Integrated: 'var(--clr-commit-integrated)',
+	Error: 'var(--clr-theme-err-element)'
 };
 
-export function getColorFromBranchType(type: CellType | 'error'): string {
+export function getColorFromBranchType(type: CellType | 'Error'): string {
 	return colorMap[type];
 }

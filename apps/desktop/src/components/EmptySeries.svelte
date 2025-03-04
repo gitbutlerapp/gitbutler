@@ -7,7 +7,7 @@
 	const { isBottomBranch }: Props = $props();
 </script>
 
-<div class="empty-series" style:--commit-color={getColorFromBranchType('local')}>
+<div class="empty-series" style:--commit-color={getColorFromBranchType('LocalOnly')}>
 	<div class="commit-line" class:dashed={isBottomBranch}></div>
 	<div class="text-13 text-body empty-series__label">
 		This is an empty branch.

@@ -11,7 +11,7 @@
 
 	const { line, isBottom = false }: Props = $props();
 
-	const lineType = $derived<CellType>(line.type ?? 'local');
+	const lineType = $derived<CellType>(line.type ?? 'LocalOnly');
 </script>
 
 <div class="line" style:--commit-color={getColorFromBranchType(lineType)}>

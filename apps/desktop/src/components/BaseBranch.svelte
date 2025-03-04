@@ -209,7 +209,7 @@
 				{commit}
 				isUnapplied={true}
 				commitUrl={$forge?.commitUrl(commit.id)}
-				type="remote"
+				type="Remote"
 				disableCommitActions={true}
 			>
 				{#snippet lines()}
@@ -219,7 +219,7 @@
 		{/each}
 
 		{#if base.diverged}
-			<CommitAction type={'remote'}>
+			<CommitAction type="Remote">
 				{#snippet action()}
 					<Button
 						wide
@@ -246,7 +246,7 @@
 				{commit}
 				isUnapplied={true}
 				commitUrl={$forge?.commitUrl(commit.id)}
-				type="local"
+				type="LocalOnly"
 				disableCommitActions={true}
 			>
 				{#snippet lines()}
@@ -255,7 +255,7 @@
 			</CommitCard>
 		{/each}
 
-		<CommitAction type={'local'}>
+		<CommitAction type={'LocalOnly'}>
 			{#snippet action()}
 				<div class="local-actions-wrapper">
 					<Button
@@ -297,7 +297,7 @@
 			{commit}
 			isUnapplied={true}
 			commitUrl={$forge?.commitUrl(commit.id)}
-			type="localAndRemote"
+			type="LocalAndRemote"
 			disableCommitActions={true}
 		>
 			{#snippet lines()}

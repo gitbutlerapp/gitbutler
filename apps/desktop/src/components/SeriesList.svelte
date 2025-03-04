@@ -66,7 +66,7 @@
 	{@const isBottomBranch = idx === nonArchivedSeries.length - 1}
 	{#if !isTopBranch}
 		<SeriesDividerLine
-			topPatchStatus={isPatchSeries(currentSeries) ? currentSeries?.patches?.[0]?.status : 'error'}
+			topPatchStatus={isPatchSeries(currentSeries) ? currentSeries?.patches?.[0]?.status : 'Error'}
 		/>
 	{/if}
 

@@ -65,10 +65,10 @@ export class DetailedCommit {
 	dependentDiffs!: string[];
 
 	get status(): CommitStatus {
-		if (this.isIntegrated) return 'integrated';
-		if (this.isLocalAndRemote) return 'localAndRemote';
-		if (this.isRemote) return 'remote';
-		return 'local';
+		if (this.isIntegrated) return 'Integrated';
+		if (this.isLocalAndRemote) return 'LocalAndRemote';
+		if (this.isRemote) return 'Remote';
+		return 'LocalOnly';
 	}
 
 	get descriptionTitle(): string | undefined {
@@ -112,7 +112,7 @@ export class Commit {
 	}
 
 	get status(): CommitStatus {
-		return 'remote';
+		return 'Remote';
 	}
 
 	isMergeCommit() {
@@ -132,4 +132,4 @@ export interface Author {
 	gravatarUrl?: string;
 	isBot?: boolean;
 }
-export type CommitStatus = 'local' | 'localAndRemote' | 'integrated' | 'remote';
+export type CommitStatus = 'LocalOnly' | 'LocalAndRemote' | 'Integrated' | 'Remote';

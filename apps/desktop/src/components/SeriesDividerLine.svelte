@@ -2,7 +2,7 @@
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import type { CommitStatus } from '$lib/commits/commit';
 
-	type SeriesStatus = CommitStatus | 'error';
+	type SeriesStatus = CommitStatus | 'Error';
 
 	interface Props {
 		topPatchStatus?: SeriesStatus;
@@ -10,7 +10,7 @@
 
 	const { topPatchStatus }: Props = $props();
 
-	const branchType = $derived<SeriesStatus>(topPatchStatus ?? 'local');
+	const branchType = $derived<SeriesStatus>(topPatchStatus ?? 'LocalOnly');
 	const lineColor = $derived(getColorFromBranchType(branchType));
 </script>
 

@@ -60,17 +60,17 @@
 	const forge = getForge();
 
 	const localAndRemoteCommits = $derived(
-		currentSeries.patches.filter((patch) => patch.status === 'localAndRemote')
+		currentSeries.patches.filter((patch) => patch.status === 'LocalAndRemote')
 	);
 	const lastDivergentCommit = $derived(
 		findLastDivergentCommit(currentSeries.upstreamPatches, localAndRemoteCommits)
 	);
 
 	const remoteOnlyPatches = $derived(
-		currentSeries.upstreamPatches.filter((patch) => patch.status !== 'integrated')
+		currentSeries.upstreamPatches.filter((patch) => patch.status !== 'Integrated')
 	);
 	const remoteIntegratedPatches = $derived(
-		currentSeries.upstreamPatches.filter((patch) => patch.status === 'integrated')
+		currentSeries.upstreamPatches.filter((patch) => patch.status === 'Integrated')
 	);
 
 	// A local or localAndRemote commit probably shouldn't every be integrated,
@@ -79,10 +79,10 @@
 	const lineManager = $derived(
 		lineManagerFactory.build({
 			remoteCommits: remoteOnlyPatches,
-			localCommits: currentSeries.patches.filter((patch) => patch.status === 'local'),
+			localCommits: currentSeries.patches.filter((patch) => patch.status === 'LocalOnly'),
 			localAndRemoteCommits: localAndRemoteCommits,
 			integratedCommits: [
-				...currentSeries.patches.filter((patch) => patch.status === 'integrated'),
+				...currentSeries.patches.filter((patch) => patch.status === 'Integrated'),
 				...remoteIntegratedPatches
 			]
 		})
@@ -151,7 +151,7 @@
 				{/snippet}
 				{#each remoteOnlyPatches as commit, idx (commit.id)}
 					<CommitCard
-						type="remote"
+						type="Remote"
 						branch={$stack}
 						{commit}
 						{isUnapplied}
@@ -169,7 +169,7 @@
 					</CommitCard>
 				{/each}
 
-				<CommitAction type="remote" isLast={!hasCommits}>
+				<CommitAction type="Remote" isLast={!hasCommits}>
 					{#snippet action()}
 						{@render integrateUpstreamButton('default')}
 					{/snippet}
@@ -218,7 +218,7 @@
 
 					<!-- RESET TO REMOTE BUTTON -->
 					{#if isResetAction}
-						<CommitAction type="local" isLast={idx === currentSeries.patches.length - 1}>
+						<CommitAction type="LocalOnly" isLast={idx === currentSeries.patches.length - 1}>
 							{#snippet action()}
 								{@render integrateUpstreamButton('reset')}
 							{/snippet}
