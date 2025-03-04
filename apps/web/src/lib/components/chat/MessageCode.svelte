@@ -28,6 +28,7 @@
 		border: 1px solid var(--clr-border-2);
 		overflow-x: scroll;
 		padding: 4px 8px;
+		font-family: var(--fontfamily-mono);
 		white-space: pre;
 	}
 
