@@ -51,7 +51,7 @@
 			</svg>
 		</a>
 
-		<Breadcrumbs isUserLoggedIn={!!$user} />
+		<Breadcrumbs />
 	</div>
 
 	<div class="other-links">
