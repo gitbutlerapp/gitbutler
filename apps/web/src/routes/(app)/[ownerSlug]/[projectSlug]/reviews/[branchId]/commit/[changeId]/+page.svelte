@@ -271,6 +271,7 @@
 		flex-direction: column;
 		width: 100%;
 		max-width: 50%;
+		flex-shrink: 0;
 
 		&.expand {
 			max-width: 100%;
@@ -373,10 +374,12 @@
 		position: sticky;
 		top: 24px;
 		width: 100%;
+		max-width: 50%;
 		height: calc(100vh - var(--bottom-margin));
 
 		&.minimized {
 			height: fit-content;
+			max-width: unset;
 			position: sticky;
 			top: unset;
 			bottom: var(--top-nav-offset);
@@ -390,6 +393,7 @@
 		&.tablet-mode {
 			z-index: var(--z-floating);
 			position: fixed;
+			max-width: unset;
 			height: 100dvh;
 			top: unset;
 			left: 0;
