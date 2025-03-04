@@ -370,7 +370,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 24px;
-		margin-bottom: 20px;
+		margin-bottom: 10px;
 	}
 
 	.review-main-description {
