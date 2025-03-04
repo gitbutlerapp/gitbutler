@@ -1,10 +1,13 @@
-use crate::stack::branch_integrated;
+use crate::stack::{branch_integrated, stack_as_rebase_steps};
 use crate::{r#virtual::IsCommitIntegrated, BranchManagerExt, VirtualBranchesExt as _};
 use anyhow::{anyhow, bail, Context, Result};
+use but_rebase::RebaseStep;
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
-use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt};
+use gitbutler_oxidize::{
+    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt,
+};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::logging::RepositoryExt as _;
 use gitbutler_repo::RepositoryExt as _;
@@ -159,6 +162,8 @@ pub struct UpstreamIntegrationContext<'a> {
     stacks_in_workspace: Vec<Stack>,
     new_target: git2::Commit<'a>,
     target: Target,
+    ctx: &'a CommandContext,
+    gix_repo: &'a gix::Repository,
 }
 
 impl<'a> UpstreamIntegrationContext<'a> {
@@ -166,6 +171,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
         command_context: &'a CommandContext,
         target_commit_oid: Option<git2::Oid>,
         permission: &'a mut WorktreeWritePermission,
+        gix_repo: &'a gix::Repository,
     ) -> Result<Self> {
         let virtual_branches_handle = command_context.project().virtual_branches();
         let target = virtual_branches_handle.get_default_target()?;
@@ -187,6 +193,8 @@ impl<'a> UpstreamIntegrationContext<'a> {
             new_target,
             target: target.clone(),
             stacks_in_workspace,
+            ctx: command_context,
+            gix_repo,
         })
     }
 }
@@ -376,7 +384,13 @@ pub(crate) fn integrate_upstream(
         .map(|r| (Some(r.target_commit_oid), Some(r.approach)))
         .unwrap_or((None, None));
 
-    let context = UpstreamIntegrationContext::open(command_context, target_commit_oid, permission)?;
+    let gix_repo = command_context.gix_repository()?;
+    let context = UpstreamIntegrationContext::open(
+        command_context,
+        target_commit_oid,
+        permission,
+        &gix_repo,
+    )?;
     let virtual_branches_state = VirtualBranchesHandle::new(command_context.project().gb_dir());
     let default_target = virtual_branches_state.get_default_target()?;
 
@@ -510,7 +524,8 @@ pub(crate) fn resolve_upstream_integration(
     resolution_approach: BaseBranchResolutionApproach,
     permission: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
-    let context = UpstreamIntegrationContext::open(command_context, None, permission)?;
+    let gix_repo = command_context.gix_repository()?;
+    let context = UpstreamIntegrationContext::open(command_context, None, permission, &gix_repo)?;
     let repo = command_context.repo();
     let new_target_id = context.new_target.id();
     let old_target_id = context.target.sha;
@@ -630,33 +645,37 @@ fn compute_resolutions(
                         new_target.id()
                     };
 
-                    // Rebase virtual branches' commits
-                    let virtual_branch_commits = repository.log(
-                        branch_stack.head(),
-                        LogUntil::Commit(lower_bound),
-                        false,
-                    )?;
-
+                    let steps =
+                        stack_as_rebase_steps(context.ctx, context.gix_repo, branch_stack.id)?;
                     // Filter out any integrated commits
-                    let virtual_branch_commits = virtual_branch_commits
+                    let steps = steps
                         .into_iter()
-                        .filter_map(|commit| {
-                            let is_integrated = check_commit.is_integrated(&commit).ok()?;
-                            if is_integrated {
-                                None
-                            } else {
-                                Some(commit.id())
+                        .filter_map(|s| match s {
+                            RebaseStep::Pick {
+                                commit_id,
+                                new_message: _,
+                            } => {
+                                let commit = repository.find_commit(commit_id.to_git2()).ok()?;
+                                let is_integrated = check_commit.is_integrated(&commit).ok()?;
+                                if is_integrated {
+                                    None
+                                } else {
+                                    Some(s)
+                                }
                             }
+                            _ => Some(s),
                         })
                         .collect::<Vec<_>>();
 
-                    let new_head = cherry_rebase_group(
-                        repository,
-                        new_target.id(),
-                        &virtual_branch_commits,
-                        false,
-                        false,
+                    let mut rebase = but_rebase::Rebase::new(
+                        context.gix_repo,
+                        Some(lower_bound.to_gix()),
+                        None,
                     )?;
+                    rebase.rebase_noops(false);
+                    rebase.steps(steps)?;
+                    let output = rebase.rebase()?;
+                    let new_head = output.top_commit.to_git2();
 
                     // Get the updated tree oid
                     let BranchHeadAndTree {

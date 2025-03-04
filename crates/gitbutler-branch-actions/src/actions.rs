@@ -604,8 +604,13 @@ pub fn upstream_integration_statuses(
 ) -> Result<StackStatuses> {
     let mut guard = ctx.project().exclusive_worktree_access();
 
-    let context =
-        UpstreamIntegrationContext::open(ctx, target_commit_oid, guard.write_permission())?;
+    let gix_repo = ctx.gix_repository()?;
+    let context = UpstreamIntegrationContext::open(
+        ctx,
+        target_commit_oid,
+        guard.write_permission(),
+        &gix_repo,
+    )?;
 
     upstream_integration::upstream_integration_statuses(&context)
 }
