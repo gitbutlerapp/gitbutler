@@ -6,17 +6,17 @@
 	import SuggestionsHandler from '$lib/chat/suggestions.svelte';
 	import { type DiffSelection } from '$lib/diff/lineSelection.svelte';
 	import { UserService } from '$lib/user/userService';
-	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
 	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
 	import { getContext } from '@gitbutler/shared/context';
+	import { PatchService } from '@gitbutler/shared/patches/patchService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
-	import RichTextEditor, { type EditorInstance } from '@gitbutler/ui/RichTextEditor.svelte';
+	import RichTextEditor, { type EditorInstance } from '@gitbutler/ui/old_RichTextEditor.svelte';
 	import { env } from '$env/dynamic/public';
 
 	interface Props {
@@ -130,6 +130,7 @@
 
 	const actionLabels = {
 		approve: 'Approve commit',
+		openIssue: 'Open issue',
 		requestChanges: 'Request changes'
 	} as const;
 
@@ -148,7 +149,12 @@
 	}
 
 	async function requestChanges() {
-		await patchService.updatePatch(branchUuid, changeId, { signOff: false });
+		await patchService.updatePatch(branchUuid, changeId, {
+			signOff: false,
+			message: messageHandler.message
+		});
+		const editor = richText.richTextEditor?.getEditor();
+		editor?.commands.clearContent(true);
 	}
 
 	async function handleActionClick() {
@@ -160,8 +166,10 @@
 					await approve();
 					break;
 				case 'requestChanges':
-					await handleSendMessage(true);
 					await requestChanges();
+					break;
+				case 'openIssue':
+					await handleSendMessage(true);
 					break;
 			}
 		} finally {
@@ -251,6 +259,13 @@
 										label={actionLabels.requestChanges}
 										onclick={() => {
 											action = 'requestChanges';
+											dropDownButton?.close();
+										}}
+									/>
+									<ContextMenuItem
+										label={actionLabels.openIssue}
+										onclick={() => {
+											action = 'openIssue';
 											dropDownButton?.close();
 										}}
 									/>

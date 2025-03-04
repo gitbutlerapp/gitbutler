@@ -42,6 +42,7 @@
 //!  * *Stacks* and their commits
 //!     - Are listed in such a way that they don't repeat across multiple stacks, i.e. only commits that aren't in
 //!      any of the other stacks or in the target branch (if present).
+//!  * *Stack Segment* - a set of connected commits between reference name and another reference name, or the lower bound of the stack.
 //!
 //! TODO:
 //!  - sketch for detached HEAD, unapply last branch. Then applying another branch checks that out.
@@ -450,17 +451,17 @@ pub enum BranchRefLocation {
     OutsideOfWorkspace(gix::refs::FullName),
 }
 
-/// A list of all commits in a branch segment of a [`Stack`].
+/// A list of all commits in a stack segment of a [`Stack`].
 #[derive(Debug, Clone)]
-pub struct BranchSegment {
+pub struct StackSegment {
     /// The name of the branch at the tip of it, and the starting point of the walk.
     ///
-    /// It is `None` if this branch is the top-most branch segment and the `ref_name` wasn't pointing to
+    /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
     /// a commit anymore that was reached by our rev-walk.
     /// This can happen if the ref is deleted, or if it was advanced by other means.
     pub ref_name: Option<BranchRefLocation>,
     /// The portion of commits that can be reached from the tip of the *branch* downwards, so that they are unique
-    /// for that branch segment and not included in any other stack or the *target branch*.
+    /// for that stack segment and not included in any other stack or the *target branch*.
     ///
     /// The list could be empty.
     pub commits_unique_from_tip: Vec<BranchCommit>,
@@ -514,7 +515,7 @@ pub fn head_info(
     todo!()
 }
 
-/// Return all branch segments within the given `stack`.
-pub fn stack_branch_segments(stack: Stack) -> anyhow::Result<Vec<BranchSegment>> {
+/// Return all stack segments within the given `stack`.
+pub fn stack_segments(stack: Stack) -> anyhow::Result<Vec<StackSegment>> {
     todo!()
 }

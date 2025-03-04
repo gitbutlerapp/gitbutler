@@ -25,6 +25,7 @@
 		lineSelection: LineSelection;
 		tabSize: number;
 		wrapText: boolean;
+		diffFont?: string;
 		numberHeaderWidth?: number;
 		onQuoteSelection?: () => void;
 		onCopySelection?: () => void;
@@ -38,6 +39,7 @@
 		lineSelection,
 		tabSize,
 		wrapText,
+		diffFont = 'var(--fontfamily-mono)',
 		clearLineSelection,
 		numberHeaderWidth,
 		onQuoteSelection,
@@ -110,6 +112,7 @@
 	class="table__row"
 	class:selected={row.isSelected}
 	data-no-drag
+	style="--diff-font: {diffFont};"
 >
 	{@render countColumn(row, CountColumnSide.Before, idx)}
 	{@render countColumn(row, CountColumnSide.After, idx)}
@@ -178,6 +181,7 @@
 		padding: 0;
 		margin: 0;
 		user-select: none;
+		font-family: var(--diff-font);
 	}
 
 	.table__textContent {

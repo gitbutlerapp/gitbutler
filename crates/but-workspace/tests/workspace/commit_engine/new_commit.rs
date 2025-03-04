@@ -21,6 +21,7 @@ fn from_unborn_head() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: None,
             message: "the commit message".into(),
+            stack_segment_ref: None,
         },
     )?;
     insta::assert_debug_snapshot!(&outcome, @r"
@@ -63,6 +64,7 @@ fn from_unborn_head() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(new_commit_id),
             message: "the second commit".into(),
+            stack_segment_ref: None,
         },
     )?;
 
@@ -100,6 +102,7 @@ fn from_unborn_head_all_file_types() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: None,
             message: "the commit message".into(),
+            stack_segment_ref: None,
         },
     )?;
 
@@ -135,6 +138,7 @@ fn from_first_commit_all_file_types_changed() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(repo.rev_parse_single("HEAD")?.into()),
             message: "the commit message".into(),
+            stack_segment_ref: None,
         },
     )?;
 
@@ -162,6 +166,7 @@ fn unborn_with_added_submodules() -> anyhow::Result<()> {
                 "submodules have to be given as whole files but can then be handled correctly \
             (but without Git's special handling)"
                     .into(),
+            stack_segment_ref: None,
         },
         None,
         to_change_specs_whole_file(worktree_changes),
@@ -203,6 +208,7 @@ fn deletions() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(head_commit.into()),
             message: "deletions maybe a bit special".into(),
+            stack_segment_ref: None,
         },
     )?;
 
@@ -235,6 +241,7 @@ fn renames() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(head_commit.into()),
             message: "renames need special care to delete the source".into(),
+            stack_segment_ref: None,
         },
     )?;
 
@@ -311,6 +318,7 @@ fn submodule_typechanges() -> anyhow::Result<()> {
                 "submodules have to be given as whole files but can then be handled correctly \
             (but without Git's special handling)"
                     .into(),
+            stack_segment_ref: None,
         },
         None,
         to_change_specs_whole_file(worktree_changes),
@@ -342,6 +350,7 @@ fn commit_to_one_below_tip() -> anyhow::Result<()> {
     let first_commit = Destination::NewCommit {
         parent_commit_id: Some(repo.rev_parse_single("first-commit")?.into()),
         message: "we apply a change with line offsets on top of the first commit, so the patch wouldn't apply cleanly.".into(),
+        stack_segment_ref: None,
     };
 
     let outcome = commit_whole_files_and_all_hunks_from_workspace(&repo, first_commit)?;
@@ -364,6 +373,7 @@ fn commit_to_one_below_tip_with_three_context_lines() -> anyhow::Result<()> {
             parent_commit_id: Some(repo.rev_parse_single("first-commit")?.into()),
             message: "When using context lines, we'd still think this works just like before"
                 .into(),
+            stack_segment_ref: None,
         };
 
         let outcome = commit_engine::create_commit(
@@ -418,6 +428,7 @@ fn commit_to_branches_below_merge_commit() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(repo.rev_parse_single("B")?.into()),
             message: "a new commit onto B, changing only the lines that it wrote".into(),
+            stack_segment_ref: None,
         },
     )?;
 
@@ -433,6 +444,7 @@ fn commit_to_branches_below_merge_commit() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(repo.rev_parse_single("A")?.into()),
             message: "a new commit onto A, changing only the lines that it wrote".into(),
+            stack_segment_ref: None,
         },
     )?;
 
@@ -466,6 +478,7 @@ fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
                 message: "this commit can't be done as it covers multiple commits, \
             which will conflict on cherry-picking"
                     .into(),
+                stack_segment_ref: None,
             },
         )?;
         assert_eq!(
@@ -484,6 +497,7 @@ fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(repo.head_id()?.into()),
             message: "but it can be applied directly to the tip, the merge commit itself, it always works".into(),
+            stack_segment_ref: None,
         },
     )?;
     let tree = visualize_tree(&repo, &outcome)?;
@@ -514,6 +528,7 @@ fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() ->
                 message: "this commit can't be done as it covers multiple commits, \
             which will conflict on cherry-picking"
                     .into(),
+                stack_segment_ref: None,
             },
         )?;
         assert_eq!(
@@ -558,6 +573,7 @@ fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() ->
             message: "but it can be applied directly to the tip, \
             the merge commit itself, it always works"
                 .into(),
+            stack_segment_ref: None,
         },
     )?;
     let tree = visualize_tree(&repo, &outcome)?;
@@ -579,6 +595,7 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
         Destination::NewCommit {
             parent_commit_id: None,
             message: "the commit message".into(),
+            stack_segment_ref: None,
         },
     )?;
     insta::assert_debug_snapshot!(&outcome, @r"
@@ -616,6 +633,7 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
         Destination::NewCommit {
             parent_commit_id: Some(new_commit_id),
             message: "the second commit".into(),
+            stack_segment_ref: None,
         },
     )?;
 
@@ -665,6 +683,7 @@ fn signatures_are_redone() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(head_id),
             message: "a commit with signature".into(),
+            stack_segment_ref: None,
         },
     )?;
 
@@ -710,6 +729,7 @@ fn validate_no_change_on_noop() -> anyhow::Result<()> {
             message: "the file has no worktree changes even though we claim it - \
         so it's rejected and no new commit is created"
                 .into(),
+            stack_segment_ref: None,
         },
         None,
         specs.clone(),

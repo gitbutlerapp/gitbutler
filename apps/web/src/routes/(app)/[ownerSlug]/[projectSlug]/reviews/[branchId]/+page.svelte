@@ -9,13 +9,10 @@
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
-	import {
-		BranchStatus,
-		getContributorsWithAvatars,
-		type Branch
-	} from '@gitbutler/shared/branches/types';
+	import { BranchStatus, type Branch } from '@gitbutler/shared/branches/types';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
+	import { getContributorsWithAvatars } from '@gitbutler/shared/contributors';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound, and, map } from '@gitbutler/shared/network/loadable';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';

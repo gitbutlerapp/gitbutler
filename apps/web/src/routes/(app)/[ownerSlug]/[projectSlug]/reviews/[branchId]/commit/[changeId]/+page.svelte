@@ -12,13 +12,13 @@
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
-	import { PatchService } from '@gitbutler/shared/branches/patchService';
-	import { getPatch, getPatchSections } from '@gitbutler/shared/branches/patchesPreview.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { combine, map } from '@gitbutler/shared/network/loadable';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
+	import { PatchService } from '@gitbutler/shared/patches/patchService';
+	import { getPatch, getPatchSections } from '@gitbutler/shared/patches/patchesPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		WebRoutesService,
@@ -28,7 +28,7 @@
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { goto } from '$app/navigation';
 
-	const DESCRIPTION_PLACE_HOLDER = 'No description provided';
+	const DESCRIPTION_PLACE_HOLDER = '_No commit message description provided_';
 
 	interface Props {
 		data: ProjectReviewCommitParameters;
@@ -205,10 +205,10 @@
 				</div>
 
 				<div class="review-main__meta" bind:this={metaSectionEl}>
+					<ReviewInfo projectId={repositoryId} {patch} />
 					<p class="review-main-description">
 						<Markdown content={patch.description?.trim() || DESCRIPTION_PLACE_HOLDER} />
 					</p>
-					<ReviewInfo projectId={repositoryId} {patch} />
 				</div>
 
 				<ReviewSections
@@ -240,10 +240,7 @@
 						branchId={data.branchId}
 						changeId={data.changeId}
 						minimized={chatMinimizer.value}
-						onMinimizeToggle={() => {
-							chatMinimizer.toggle();
-							console.log('chat minimized', chatMinimizer.value);
-						}}
+						onMinimizeToggle={() => chatMinimizer.toggle()}
 						diffSelection={diffLineSelection.diffSelection}
 						clearDiffSelection={() => diffLineSelection.clear()}
 					/>
@@ -274,6 +271,7 @@
 		flex-direction: column;
 		width: 100%;
 		max-width: 50%;
+		flex-shrink: 0;
 
 		&.expand {
 			max-width: 100%;
@@ -353,15 +351,19 @@
 		display: flex;
 		flex-direction: column;
 		gap: 24px;
-		margin-bottom: 40px;
+		margin-bottom: 20px;
 	}
 
 	.review-main-description {
 		color: var(--text-1);
-		font-family: var(--fontfamily-mono);
-		font-size: 12px;
+		font-size: 13px;
 		font-style: normal;
-		line-height: 160%;
+		line-height: 180%;
+		padding: 20px 25px;
+		background: var(--clr-bg-1);
+		font-family: var(--fontfamily-default);
+		border-radius: 10px;
+		border: 1px solid var(--clr-border-2);
 	}
 
 	.review-chat {
@@ -372,10 +374,12 @@
 		position: sticky;
 		top: 24px;
 		width: 100%;
+		max-width: 50%;
 		height: calc(100vh - var(--bottom-margin));
 
 		&.minimized {
 			height: fit-content;
+			max-width: unset;
 			position: sticky;
 			top: unset;
 			bottom: var(--top-nav-offset);
@@ -389,11 +393,12 @@
 		&.tablet-mode {
 			z-index: var(--z-floating);
 			position: fixed;
-			height: 100vh;
+			max-width: unset;
+			height: 100dvh;
 			top: unset;
 			left: 0;
 			bottom: 0;
-			box-shadow: var(--fx-shadow-s);
+			pointer-events: none;
 		}
 	}
 </style>

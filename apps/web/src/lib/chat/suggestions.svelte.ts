@@ -1,7 +1,7 @@
 import type { User } from '$lib/user/userService';
 import type { UserSimple } from '@gitbutler/shared/users/types';
 import type { UserService } from '@gitbutler/shared/users/userService';
-import type { MentionNodeAttrs } from '@gitbutler/ui/RichTextEditor.svelte';
+import type { MentionNodeAttrs } from '@gitbutler/ui/old_RichTextEditor.svelte';
 
 export default class SuggestionsHandler {
 	private _isLoading = $state<boolean>(false);

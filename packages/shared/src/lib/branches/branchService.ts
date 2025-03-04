@@ -3,19 +3,18 @@ import {
 	upsertBranchReviewListing
 } from '$lib/branches/branchReviewListingsSlice';
 import { addBranch, upsertBranch, upsertBranches } from '$lib/branches/branchesSlice';
-import { upsertPatches } from '$lib/branches/patchesSlice';
 import {
 	apiToBranch,
-	apiToPatch,
 	BranchStatus,
 	toCombineSlug,
 	type ApiBranch,
 	type Branch,
-	type LoadableBranch,
-	type LoadablePatch
+	type LoadableBranch
 } from '$lib/branches/types';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
+import { upsertPatches } from '$lib/patches/patchesSlice';
+import { apiToPatch, type LoadablePatch } from '$lib/patches/types';
 import { POLLING_GLACIALLY, POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';

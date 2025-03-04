@@ -1,9 +1,9 @@
 <script lang="ts">
 	import {
 		getPatchApproversAllWithAvatars,
-		getPatchRejectorsAllWithAvatars,
-		type Patch
-	} from '@gitbutler/shared/branches/types';
+		getPatchRejectorsAllWithAvatars
+	} from '@gitbutler/shared/contributors';
+	import { type Patch } from '@gitbutler/shared/patches/types';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 
 	type Props = {

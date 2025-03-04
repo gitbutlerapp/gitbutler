@@ -1,18 +1,16 @@
 <script lang="ts">
 	import TableRow from '$lib/components/table/TableRow.svelte';
-	import { PatchService } from '@gitbutler/shared/branches/patchService';
-	import { getPatch } from '@gitbutler/shared/branches/patchesPreview.svelte';
+	import { getContext } from '@gitbutler/shared/context';
 	import {
 		getPatchContributorsWithAvatars,
-		getPatchStatus
-	} from '@gitbutler/shared/branches/types';
-	import {
 		getPatchApproversAllWithAvatars,
 		getPatchRejectorsAllWithAvatars
-	} from '@gitbutler/shared/branches/types';
-	import { getContext } from '@gitbutler/shared/context';
+	} from '@gitbutler/shared/contributors';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';
+	import { PatchService } from '@gitbutler/shared/patches/patchService';
+	import { getPatch } from '@gitbutler/shared/patches/patchesPreview.svelte';
+	import { getPatchStatus } from '@gitbutler/shared/patches/types';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		WebRoutesService,

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { Branch, Patch } from '@gitbutler/shared/branches/types';
+	import type { Branch } from '@gitbutler/shared/branches/types';
+	import type { Patch } from '@gitbutler/shared/patches/types';
 
 	type Props = {
 		branch: Branch;

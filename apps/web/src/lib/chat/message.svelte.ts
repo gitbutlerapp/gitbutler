@@ -2,7 +2,7 @@ import { embedUserMention } from './mentions';
 import { type DiffLineSelected, type DiffSelection } from '$lib/diff/lineSelection.svelte';
 import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
 import { encodeDiffLineRange } from '@gitbutler/ui/utils/diffParsing';
-import type { EditorInstance } from '@gitbutler/ui/RichTextEditor.svelte';
+import type { EditorInstance } from '@gitbutler/ui/old_RichTextEditor.svelte';
 
 export interface SendParams {
 	issue?: boolean;

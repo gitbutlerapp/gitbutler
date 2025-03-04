@@ -1,6 +1,6 @@
 import type MentionSuggestions from '$lib/components/chat/MentionSuggestions.svelte';
-import type { MentionNodeAttrs, SuggestionProps } from '@gitbutler/ui/RichTextEditor.svelte';
-import type RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
+import type { MentionNodeAttrs, SuggestionProps } from '@gitbutler/ui/old_RichTextEditor.svelte';
+import type RichTextEditor from '@gitbutler/ui/old_RichTextEditor.svelte';
 
 export default class RichText {
 	private _richTextEditor = $state<ReturnType<typeof RichTextEditor>>();

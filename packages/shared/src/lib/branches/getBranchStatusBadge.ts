@@ -1,5 +1,6 @@
-import { BranchStatus, type Branch, type Patch } from '@gitbutler/shared/branches/types';
+import { BranchStatus, type Branch } from '$lib/branches/types';
 import { type CommitStatusType } from '@gitbutler/ui/CommitStatusBadge.svelte';
+import type { Patch } from '$lib/patches/types';
 
 function getPatches(branch: Branch): Patch[] {
 	return branch.patches;

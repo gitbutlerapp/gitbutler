@@ -13,7 +13,9 @@ type CreateBranchRequest = { name?: string; ownership?: string; order?: number }
 type CreateCommitRequest = {
 	stackId: string;
 	message: string;
-	parentId: string;
+	/** Undefined means that the backend will infer the parent to be the current head of stackBranchName */
+	parentId: string | undefined;
+	stackBranchName: string;
 	worktreeChanges: {
 		previousPathBytes?: number[];
 		pathBytes: number[];

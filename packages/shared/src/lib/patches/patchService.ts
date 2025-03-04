@@ -1,8 +1,8 @@
-import { upsertPatchSections } from '$lib/branches/patchSectionsSlice';
-import { addPatch, upsertPatch } from '$lib/branches/patchesSlice';
-import { apiToPatch, apiToSection, type ApiPatch, type Patch } from '$lib/branches/types';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
+import { upsertPatchSections } from '$lib/patches/patchSectionsSlice';
+import { addPatch, upsertPatch } from '$lib/patches/patchesSlice';
+import { apiToPatch, apiToSection, type ApiPatch, type Patch } from '$lib/patches/types';
 import { POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';

@@ -62,13 +62,11 @@
 	}
 
 	async function _createCommit(message: string) {
-		if (!parentId) {
-			throw new Error('No parent id provided.');
-		}
 		const response = await stackService.createCommit(projectId, {
 			stackId,
 			parentId,
 			message: message,
+			stackBranchName: branchName,
 			worktreeChanges: selection.map((item) =>
 				item.type === 'full'
 					? {
