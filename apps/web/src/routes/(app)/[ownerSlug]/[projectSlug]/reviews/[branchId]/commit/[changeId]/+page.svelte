@@ -29,7 +29,7 @@
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { goto } from '$app/navigation';
 
-	const DESCRIPTION_PLACE_HOLDER = '_No commit message description provided_';
+	const DESCRIPTION_PLACE_HOLDER = 'No commit message description provided';
 
 	interface Props {
 		data: ProjectReviewCommitParameters;
@@ -226,7 +226,11 @@
 				<div class="review-main__meta" bind:this={metaSectionEl}>
 					<ReviewInfo projectId={repositoryId} {patch} />
 					<p class="review-main-description">
-						<Markdown content={patch.description?.trim() || DESCRIPTION_PLACE_HOLDER} />
+						{#if patch.description?.trim()}
+							<Markdown content={patch.description} />
+						{:else}
+							<span class="review-main-description__placeholder"> {DESCRIPTION_PLACE_HOLDER}</span>
+						{/if}
 					</p>
 				</div>
 
@@ -383,6 +387,11 @@
 		font-family: var(--fontfamily-default);
 		border-radius: 10px;
 		border: 1px solid var(--clr-border-2);
+	}
+
+	.review-main-description__placeholder {
+		color: var(--clr-text-3);
+		font-style: italic;
 	}
 
 	.review-chat {
