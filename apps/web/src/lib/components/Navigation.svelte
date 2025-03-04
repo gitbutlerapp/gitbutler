@@ -189,7 +189,6 @@
 
 	/* override profile button */
 	:global(.navigation .user-btn) {
-		border-radius: var(--radius-ml);
 		padding: 0;
 	}
 
@@ -216,7 +215,7 @@
 	.user-icon {
 		width: 20px;
 		height: 20px;
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-s);
 		overflow: hidden;
 	}
 
