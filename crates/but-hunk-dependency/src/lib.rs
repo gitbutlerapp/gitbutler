@@ -1,4 +1,3 @@
-#![feature(unsigned_signed_diff)]
 #![deny(missing_docs, rust_2018_idioms)]
 
 //! ## Module Guidelines
