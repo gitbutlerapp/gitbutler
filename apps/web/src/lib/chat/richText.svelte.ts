@@ -1,18 +1,25 @@
 import type MentionSuggestions from '$lib/components/chat/MentionSuggestions.svelte';
+import type RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 import type { MentionNodeAttrs, SuggestionProps } from '@gitbutler/ui/old_RichTextEditor.svelte';
-import type RichTextEditor from '@gitbutler/ui/old_RichTextEditor.svelte';
+import type OldRichTextEditor from '@gitbutler/ui/old_RichTextEditor.svelte';
 
 export default class RichText {
+	private _oldRichTextEditor = $state<ReturnType<typeof OldRichTextEditor>>();
 	private _richTextEditor = $state<ReturnType<typeof RichTextEditor>>();
 	private _mentionSuggestions = $state<ReturnType<typeof MentionSuggestions>>();
 	private _suggestions = $state<MentionNodeAttrs[]>();
 	private _selectSuggestion = $state<(id: MentionNodeAttrs) => void>();
 
 	reset() {
-		const editor = this._richTextEditor?.getEditor();
+		const editor = this._oldRichTextEditor?.getEditor();
 		editor?.commands.clearContent();
 		this._suggestions = undefined;
 		this._selectSuggestion = undefined;
+	}
+
+	clearEditor() {
+		const editor = this._richTextEditor;
+		editor?.clear();
 	}
 
 	onSuggestionStart(props: SuggestionProps) {

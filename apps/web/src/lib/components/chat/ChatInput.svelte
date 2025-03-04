@@ -16,7 +16,7 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
-	import RichTextEditor, { type EditorInstance } from '@gitbutler/ui/old_RichTextEditor.svelte';
+	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import { env } from '$env/dynamic/public';
 
 	interface Props {
@@ -81,47 +81,35 @@
 		try {
 			await messageHandler.send({ issue, diffSelection });
 		} finally {
-			const editor = richText.richTextEditor?.getEditor();
-			editor?.commands.clearContent(true);
+			richText.clearEditor();
 			isSendingMessage = false;
 			clearDiffSelection();
 		}
 	}
 
-	function handleKeyDown(event: KeyboardEvent): boolean {
+	function handleKeyDown(event: KeyboardEvent) {
 		if (event.key === 'Enter' && !event.shiftKey && richText.suggestions === undefined) {
 			event.preventDefault();
 			event.stopPropagation();
 			handleSendMessage();
-			return true;
-		}
-
-		const editor = richText.richTextEditor?.getEditor();
-		if (event.key === 'Enter' && event.shiftKey && editor) {
-			editor.commands.first(({ commands }) => [
-				() => commands.newlineInCode(),
-				() => commands.createParagraphNear(),
-				() => commands.liftEmptyBlock(),
-				() => commands.splitBlock()
-			]);
-			return true;
+			return;
 		}
 
 		if (event.key === 'Escape' && !richText.suggestions) {
 			// Clear diff selection on escape only if the mention suggestions
 			// are not open
 			clearDiffSelection();
-			return false;
+			return;
 		}
 
 		if (event.key === 'Backspace' && !richText.suggestions && !messageHandler.message) {
 			// Clear diff selection on delete only if the mention suggestions
 			// are not open and the input is empty
 			clearDiffSelection();
-			return false;
+			return;
 		}
 
-		return false;
+		return;
 	}
 
 	async function handleClickSend() {
@@ -144,8 +132,7 @@
 			signOff: true,
 			message: messageHandler.message
 		});
-		const editor = richText.richTextEditor?.getEditor();
-		editor?.commands.clearContent(true);
+		richText.clearEditor();
 	}
 
 	async function requestChanges() {
@@ -153,8 +140,7 @@
 			signOff: false,
 			message: messageHandler.message
 		});
-		const editor = richText.richTextEditor?.getEditor();
-		editor?.commands.clearContent(true);
+		richText.clearEditor();
 	}
 
 	async function handleActionClick() {
@@ -182,10 +168,6 @@
 		return actionLabels[action] + suffix;
 	});
 
-	function onEditorUpdate(editor: EditorInstance) {
-		messageHandler.update(editor);
-	}
-
 	function login() {
 		window.location.href = `${env.PUBLIC_APP_HOST}/cloud/login?callback=${window.location.href}`;
 	}
@@ -205,13 +187,11 @@
 			{/if}
 			<RichTextEditor
 				bind:this={richText.richTextEditor}
-				getSuggestionItems={(q) => suggestions.getSuggestionItems(q)}
-				onSuggestionStart={(p) => richText.onSuggestionStart(p)}
-				onSuggestionUpdate={(p) => richText.onSuggestionUpdate(p)}
-				onSuggestionExit={() => richText.onSuggestionExit()}
-				onSuggestionKeyDown={(event) => richText.onSuggestionKeyDown(event)}
+				markdown={false}
+				namespace="ChatInput"
+				onError={console.error}
+				onChange={(text) => messageHandler.update(text)}
 				onKeyDown={handleKeyDown}
-				onUpdate={onEditorUpdate}
 			/>
 			<div class="chat-input__actions">
 				<div class="chat-input__secondary-actions">
@@ -304,6 +284,7 @@
 		display: flex;
 		flex-direction: column;
 		padding: 0;
+		overflow: hidden;
 	}
 
 	.chat-input__actions {

@@ -82,13 +82,19 @@
 		markdownTransitionPlugin.setMarkdown(markdown);
 	});
 
-
 	export function getPlaintext(): Promise<string | undefined> {
 		return new Promise((resolve) => {
 			editor?.read(() => {
 				const text = getRoot().getTextContent();
 				resolve(text);
 			});
+		});
+	}
+
+	export function clear() {
+		editor?.update(() => {
+			const root = getRoot();
+			root.clear();
 		});
 	}
 </script>

@@ -21,6 +21,7 @@ export default class MessageHandler {
 	) {}
 
 	private updateMessage(editor: EditorInstance) {
+		// TODO: this depends on actually implementing the mentions first
 		this._message = editor?.getText({
 			textSerializers: {
 				mention: ({ node }) => {
@@ -37,6 +38,7 @@ export default class MessageHandler {
 	}
 
 	private updateDisplayMessage(editor: EditorInstance) {
+		// TODO: this depends on actually implementing the mentions first
 		this._displayMessage = editor?.getText({
 			textSerializers: {
 				mention: ({ node }) => {
@@ -74,9 +76,9 @@ export default class MessageHandler {
 		});
 	}
 
-	update(editor: EditorInstance) {
-		this.updateMessage(editor);
-		this.updateDisplayMessage(editor);
+	update(text: string) {
+		this._message = text;
+		this._displayMessage = text;
 	}
 
 	get message() {
