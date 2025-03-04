@@ -8,9 +8,11 @@
 	import HomeFooter from '$home/sections/Footer.svelte';
 	import Hero from '$home/sections/Hero.svelte';
 	import { AuthService } from '$lib/auth/authService.svelte';
+	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { setContext, type Snippet } from 'svelte';
 	import { get } from 'svelte/store';
+	import { beforeNavigate } from '$app/navigation';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import '$lib/styles/global.css';
@@ -49,6 +51,10 @@
 		if (!token && page.route.id === '/(app)/home') {
 			goto('/');
 		}
+	});
+
+	beforeNavigate(() => {
+		updateFavIcon(); // reset the icon
 	});
 </script>
 

@@ -7,6 +7,7 @@
 	import ReviewInfo from '$lib/components/review/ReviewInfo.svelte';
 	import ReviewSections from '$lib/components/review/ReviewSections.svelte';
 	import DiffLineSelection from '$lib/diff/lineSelection.svelte';
+	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import { UserService } from '$lib/user/userService';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
@@ -14,7 +15,7 @@
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { combine, map } from '@gitbutler/shared/network/loadable';
+	import { combine, isFound, map } from '@gitbutler/shared/network/loadable';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { PatchService } from '@gitbutler/shared/patches/patchService';
@@ -167,7 +168,25 @@
 			chatMinimizer.maximize();
 		}
 	});
+
+	$effect(() => {
+		if (isFound(patch?.current)) {
+			updateFavIcon(patch.current.value?.reviewStatus);
+		}
+	});
 </script>
+
+<svelte:head>
+	{#if isFound(patch?.current)}
+		<title>🔬{patch.current.value?.title}</title>
+		<meta property="og:title" content="Review: {patch.current.value?.title}" />
+		<meta property="og:description" content={patch.current.value?.description} />
+	{:else}
+		<title>GitButler Review</title>
+		<meta property="og:title" content="Butler Review: {data.ownerSlug}/{data.projectSlug}" />
+		<meta property="og:description" content="GitButler code review" />
+	{/if}
+</svelte:head>
 
 <svelte:window onkeydown={handleKeyDown} onscroll={handleScroll} onresize={handleResize} />
 

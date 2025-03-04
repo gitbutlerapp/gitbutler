@@ -3,6 +3,7 @@
 	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
 	import CommitsGraph from '$lib/components/review/CommitsGraph.svelte';
+	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import { UserService } from '$lib/user/userService';
 	import BranchStatusBadge from '@gitbutler/shared/branches/BranchStatusBadge.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
@@ -128,6 +129,12 @@
 	function copyLocation() {
 		copyToClipboard(location.href);
 	}
+
+	$effect(() => {
+		if (isFound(branch?.current)) {
+			updateFavIcon(branch.current.value?.reviewStatus);
+		}
+	});
 </script>
 
 {#snippet startReview(branch: Branch)}
@@ -137,9 +144,15 @@
 {/snippet}
 
 <svelte:head>
-	<title>Review: {data.ownerSlug}/{data.projectSlug}</title>
-	<meta property="og:title" content="GitButler Review: {data.ownerSlug}/{data.projectSlug}" />
-	<meta property="og:description" content="GitButler code review" />
+	{#if isFound(branch?.current)}
+		<title>{branch.current.value?.title}</title>
+		<meta property="og:title" content="GitButler Review: {branch.current.value?.title}" />
+		<meta property="og:description" content="GitButler code review" />
+	{:else}
+		<title>{data.ownerSlug}/{data.projectSlug}</title>
+		<meta property="og:title" content="GitButler Review: {data.ownerSlug}/{data.projectSlug}" />
+		<meta property="og:description" content="GitButler code review" />
+	{/if}
 </svelte:head>
 
 <Loading loadable={and([branchUuid?.current, branch?.current])}>
