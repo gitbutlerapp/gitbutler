@@ -69,7 +69,13 @@
 						branchName={branch.name}
 						selectedCommitId={parentId}
 					>
-						{#snippet localAndRemoteTemplate({ commit, commitKey, first, last, selected })}
+						{#snippet localAndRemoteTemplate({
+							commit,
+							commitKey,
+							first,
+							lastCommit: last,
+							selected
+						})}
 							{@const baseSha = $baseBranch?.baseSha}
 							{#if selected}
 								{@render indicator({ first })}
@@ -116,7 +122,7 @@
 	.branch {
 		display: flex;
 		flex-direction: column;
-		margin: 14px 14px 0 14px;
+		margin-bottom: 14px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-2);

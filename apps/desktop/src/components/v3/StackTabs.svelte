@@ -9,7 +9,7 @@
 
 	type Props = {
 		projectId: string;
-		selectedId: string;
+		selectedId?: string;
 		previewing: boolean;
 		width: number | undefined;
 	};
@@ -52,10 +52,9 @@
 					{#if result.length > 0}
 						{@const tabs = stacksToTabs(result)}
 						{#each tabs as tab, i (tab.name)}
-							{@const first = i === 0}
 							{@const last = i === tabs.length - 1}
 							{@const selected = tab.id === selectedId}
-							<StackTab {projectId} {tab} {first} {last} {selected} />
+							<StackTab {projectId} {tab} {last} {selected} />
 						{/each}
 					{:else}
 						no stacks
