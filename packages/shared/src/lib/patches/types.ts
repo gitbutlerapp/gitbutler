@@ -174,6 +174,7 @@ export type ApiPatch = {
 	statistics: ApiPatchStatistics;
 	review: ApiPatchReview;
 	review_all: ApiPatchReview;
+	review_status: string;
 	sections?: ApiSection[];
 	created_at: string;
 	updated_at: string;
@@ -193,6 +194,7 @@ export type Patch = {
 	statistics: PatchStatistics;
 	review: PatchReview;
 	reviewAll: PatchReview;
+	reviewStatus: string;
 	sectionIds?: number[];
 	createdAt: string;
 	updatedAt: string;
@@ -223,6 +225,7 @@ export function apiToPatch(api: ApiPatch): Patch {
 		statistics: apiToPatchStatistics(api.statistics),
 		review: apiToPatchReview(api.review),
 		reviewAll: apiToPatchReview(api.review_all),
+		reviewStatus: api.review_status,
 		sectionIds: api.sections?.map((section) => section.id),
 		createdAt: api.created_at,
 		updatedAt: api.updated_at,
