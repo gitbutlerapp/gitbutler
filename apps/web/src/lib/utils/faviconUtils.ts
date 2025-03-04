@@ -1,6 +1,6 @@
 export function updateFavIcon(reviewStatus?: string) {
 	// defaults
-	let faviconUrlPng = '/favicon/favicon-64x64.png';
+	let faviconUrlPng = '/favicon/favicon-64.png';
 	let faviconUrlSvg = '/favicon/favicon.svg';
 
 	// status icons
