@@ -281,13 +281,29 @@ fn get_stack_status(
 
         let rebase_base = last_head;
 
-        let new_head_oid =
-            cherry_rebase_group(repository, rebase_base, &local_commit_ids, false, false)?;
-        let rebased_commits = repository.log(new_head_oid, LogUntil::Commit(rebase_base), false)?;
+        let steps: Vec<RebaseStep> = local_commit_ids
+            .iter()
+            .rev()
+            .map(|commit_id| RebaseStep::Pick {
+                commit_id: commit_id.to_gix(),
+                new_message: None,
+            })
+            .collect();
+        let mut rebase = but_rebase::Rebase::new(gix_repository, Some(rebase_base.to_gix()), None)?;
+        rebase.rebase_noops(false);
+        rebase.steps(steps)?;
+        let output = rebase.rebase()?;
+        let new_head_oid = output.top_commit.to_git2();
+
+        let any_conflicted = output.commit_mapping.iter().any(|(_base, _old, new)| {
+            if let Ok(commit) = gix_repository.find_commit(*new) {
+                commit.is_conflicted()
+            } else {
+                false
+            }
+        });
 
         last_head = new_head_oid;
-
-        let any_conflicted = rebased_commits.iter().any(|commit| commit.is_conflicted());
 
         branch_statuses.push(NameAndStatus {
             name: branch.name().to_owned(),
