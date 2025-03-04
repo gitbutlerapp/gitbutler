@@ -93,7 +93,7 @@
 	let contextMenuOpened = $state(false);
 
 	const topPatch = $derived(branch?.patches[0]);
-	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
+	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'LocalOnly');
 	const lineColor = $derived(getColorFromBranchType(branchType));
 	const hasNoCommits = $derived(branch.upstreamPatches.length === 0 && branch.patches.length === 0);
 	const parentIsPushed = $derived(!!parent?.upstreamReference);
@@ -333,7 +333,7 @@
 		<div class="branch-info">
 			<SeriesHeaderStatusIcon
 				lineTop={isTopBranch ? false : true}
-				icon={branchType === 'integrated' ? 'tick-small' : 'branch-small'}
+				icon={branchType === 'Integrated' ? 'tick-small' : 'branch-small'}
 				iconColor="var(--clr-core-ntrl-100)"
 				color={lineColor}
 			/>
@@ -349,7 +349,7 @@
 						onChange={(name) => editTitle(name)}
 						readonly={!!forgeBranch}
 						onDblClick={() => {
-							if (branchType !== 'integrated') {
+							if (branchType !== 'Integrated') {
 								stackingContextMenu?.showSeriesRenameModal?.(branch.name);
 							}
 						}}

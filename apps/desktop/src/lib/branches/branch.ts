@@ -131,15 +131,15 @@ export class PatchSeries {
 	reviewId?: string;
 
 	get localCommits() {
-		return this.patches.filter((c) => c.status === 'local');
+		return this.patches.filter((c) => c.status === 'LocalOnly');
 	}
 
 	get remoteCommits() {
-		return this.patches.filter((c) => c.status === 'localAndRemote');
+		return this.patches.filter((c) => c.status === 'LocalAndRemote');
 	}
 
 	get integratedCommits() {
-		return this.patches.filter((c) => c.status === 'integrated');
+		return this.patches.filter((c) => c.status === 'Integrated');
 	}
 
 	get branchName() {

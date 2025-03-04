@@ -7,7 +7,7 @@ describe.concurrent('camelCaseToTitleCase with valid inputs', () => {
 	});
 
 	test('local', () => {
-		expect(camelCaseToTitleCase('local')).toEqual('Local');
+		expect(camelCaseToTitleCase('localOnly')).toEqual('Local Only');
 	});
 
 	test('remote', () => {

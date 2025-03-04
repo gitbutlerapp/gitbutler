@@ -149,7 +149,7 @@
 				}}
 			/>
 		{/if}
-		{#if branchType !== 'integrated'}
+		{#if branchType !== 'Integrated'}
 			<ContextMenuItem
 				label="Rename"
 				onclick={async () => {

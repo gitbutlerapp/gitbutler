@@ -53,7 +53,7 @@
 
 			localCommits.set(localPatches);
 			localAndRemoteCommits.set(upstreamPatches);
-			integratedCommits.set(localPatches.filter((p) => p.status === 'integrated'));
+			integratedCommits.set(localPatches.filter((p) => p.status === 'Integrated'));
 		}
 	});
 

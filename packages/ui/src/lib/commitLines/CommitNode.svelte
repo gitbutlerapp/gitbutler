@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Tooltip from '$lib/Tooltip.svelte';
-	import { camelCaseToTitleCase } from '$lib/utils/string';
 	import type { CellType, CommitNodeData } from '$lib/commitLines/types';
 
 	interface Props {
@@ -10,11 +9,11 @@
 
 	const { commitNode }: Props = $props();
 
-	const tooltipText = $derived(camelCaseToTitleCase(commitNode.type ?? 'local'));
+	const tooltipText = $derived(commitNode.type ?? 'LocalOnly');
 </script>
 
 <div class="container">
-	{#if commitNode.type === 'local' && commitNode.commit?.remoteCommitId}
+	{#if commitNode.type === 'LocalOnly' && commitNode.commit?.remoteCommitId}
 		<div class="local-shadow-commit-dot">
 			<Tooltip text={commitNode.commit?.remoteCommitId.substring(0, 7) ?? 'Diverged'}>
 				<svg class="shadow-dot" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
@@ -33,7 +32,7 @@
 				</svg>
 			</Tooltip>
 		</div>
-	{:else if commitNode.type === 'local'}
+	{:else if commitNode.type === 'LocalOnly'}
 		<Tooltip text={tooltipText}>
 			<svg
 				class="local-commit-dot"

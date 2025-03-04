@@ -15,7 +15,7 @@
 	}
 
 	const { currentSeries, children }: Props = $props();
-	const seriesType = currentSeries.patches[0] ? currentSeries.patches[0].status : 'local';
+	const seriesType = currentSeries.patches[0] ? currentSeries.patches[0].status : 'LocalOnly';
 
 	const localCommits = createLocalCommitsContextStore([]);
 	const localAndRemoteCommits = createLocalAndRemoteCommitsContextStore([]);
@@ -25,7 +25,7 @@
 		localCommits.set(currentSeries.patches);
 		localAndRemoteCommits.set(currentSeries.upstreamPatches);
 		integratedCommits.set(
-			currentSeries.patches.filter((p: DetailedCommit) => p.status === 'integrated')
+			currentSeries.patches.filter((p: DetailedCommit) => p.status === 'Integrated')
 		);
 	});
 </script>

@@ -105,7 +105,7 @@
 									last={index === remoteCommits.length - 1}
 									{commit}
 									commitUrl={$forge?.commitUrl(commit.id)}
-									type="remote"
+									type="Remote"
 									disableCommitActions={true}
 								>
 									{#snippet lines()}
@@ -121,7 +121,7 @@
 									last={index === localCommits.length - 1}
 									{commit}
 									commitUrl={$forge?.commitUrl(commit.id)}
-									type="local"
+									type="LocalOnly"
 									disableCommitActions={true}
 								>
 									{#snippet lines()}
@@ -137,7 +137,7 @@
 									last={index === localAndRemoteCommits.length - 1}
 									{commit}
 									commitUrl={$forge?.commitUrl(commit.id)}
-									type="localAndRemote"
+									type="LocalAndRemote"
 									disableCommitActions={true}
 								>
 									{#snippet lines()}
