@@ -249,6 +249,7 @@ pub fn stack_branch_local_and_remote_commits(
     stack_id: String,
     branch_name: String,
     ctx: &CommandContext,
+    repo: &gix::Repository,
 ) -> Result<Vec<Commit>> {
     let state = state_handle(&ctx.project().gb_dir());
     let stack = state.get_stack(Id::from_str(&stack_id)?)?;
@@ -258,7 +259,7 @@ pub fn stack_branch_local_and_remote_commits(
     if branch.archived {
         return Ok(vec![]);
     }
-    local_and_remote_commits(ctx, branch.clone(), &stack)
+    local_and_remote_commits(ctx, repo, branch.clone(), &stack)
 }
 
 /// Returns a fift of commits beloning to this branch. Ordered from newest to oldest (child-most to parent-most).
@@ -272,6 +273,7 @@ pub fn stack_branch_upstream_only_commits(
     stack_id: String,
     branch_name: String,
     ctx: &CommandContext,
+    repo: &gix::Repository,
 ) -> Result<Vec<UpstreamCommit>> {
     let state = state_handle(&ctx.project().gb_dir());
     let stack = state.get_stack(Id::from_str(&stack_id)?)?;
@@ -281,17 +283,18 @@ pub fn stack_branch_upstream_only_commits(
     if branch.archived {
         return Ok(vec![]);
     }
-    upstream_only_commits(ctx, branch.clone(), &stack)
+    upstream_only_commits(ctx, repo, branch.clone(), &stack)
 }
 
 fn upstream_only_commits(
     ctx: &CommandContext,
+    repo: &gix::Repository,
     stack_branch: gitbutler_stack::StackBranch,
     stack: &Stack,
 ) -> Result<Vec<UpstreamCommit>> {
     let stack_ctx = ctx.to_stack_context()?;
     let branch_commits = stack_branch.commits(&stack_ctx, stack)?;
-    let local_and_remote = local_and_remote_commits(ctx, stack_branch, stack)?;
+    let local_and_remote = local_and_remote_commits(ctx, repo, stack_branch, stack)?;
 
     // Upstream only
     let mut upstream_only = vec![];
@@ -322,6 +325,7 @@ fn upstream_only_commits(
 
 fn local_and_remote_commits(
     ctx: &CommandContext,
+    repo: &gix::Repository,
     stack_branch: gitbutler_stack::StackBranch,
     stack: &Stack,
 ) -> Result<Vec<Commit>> {
@@ -329,10 +333,9 @@ fn local_and_remote_commits(
     let default_target = state
         .get_default_target()
         .context("failed to get default target")?;
-    let repo = ctx.gix_repository()?;
     let cache = repo.commit_graph_if_enabled()?;
     let mut graph = repo.revision_graph(cache.as_ref());
-    let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, &repo, &mut graph)?;
+    let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, repo, &mut graph)?;
 
     let stack_ctx = ctx.to_stack_context()?;
     let branch_commits = stack_branch.commits(&stack_ctx, stack)?;

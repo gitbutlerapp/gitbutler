@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
+use but_rebase::RebaseStep;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
@@ -429,4 +430,38 @@ fn stack_branch_to_api_branch(
         },
         requires_force,
     ))
+}
+
+pub(crate) fn stack_as_rebase_steps(
+    ctx: &CommandContext,
+    repo: &gix::Repository,
+    stack_id: StackId,
+) -> Result<Vec<RebaseStep>> {
+    let mut steps: Vec<RebaseStep> = Vec::new();
+    for branch in but_workspace::stack_branches(stack_id.to_string(), ctx)? {
+        if branch.archived {
+            continue;
+        }
+        let reference_step = if let Some(reference) = repo.try_find_reference(&branch.name)? {
+            RebaseStep::Reference(but_core::Reference::Git(reference.name().to_owned()))
+        } else {
+            RebaseStep::Reference(but_core::Reference::Virtual(branch.name.to_string()))
+        };
+        steps.push(reference_step);
+        let commits = but_workspace::stack_branch_local_and_remote_commits(
+            stack_id.to_string(),
+            branch.name.to_string(),
+            ctx,
+            repo,
+        )?;
+        for commit in commits {
+            let pick_step = RebaseStep::Pick {
+                commit_id: commit.id,
+                new_message: None,
+            };
+            steps.push(pick_step);
+        }
+    }
+    steps.reverse();
+    Ok(steps)
 }

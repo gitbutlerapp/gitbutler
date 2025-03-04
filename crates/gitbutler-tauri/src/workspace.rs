@@ -46,7 +46,8 @@ pub fn stack_branch_local_and_remote_commits(
 ) -> Result<Vec<but_workspace::Commit>, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    but_workspace::stack_branch_local_and_remote_commits(stack_id, branch_name, &ctx)
+    let repo = ctx.gix_repository()?;
+    but_workspace::stack_branch_local_and_remote_commits(stack_id, branch_name, &ctx, &repo)
         .map_err(Into::into)
 }
 
@@ -61,7 +62,8 @@ pub fn stack_branch_upstream_only_commits(
 ) -> Result<Vec<but_workspace::UpstreamCommit>, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    but_workspace::stack_branch_upstream_only_commits(stack_id, branch_name, &ctx)
+    let repo = ctx.gix_repository()?;
+    but_workspace::stack_branch_upstream_only_commits(stack_id, branch_name, &ctx, &repo)
         .map_err(Into::into)
 }
 
