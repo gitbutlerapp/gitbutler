@@ -370,7 +370,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 24px;
-		margin-bottom: 20px;
+		margin-bottom: 10px;
 	}
 
 	.review-main-description {
@@ -378,7 +378,7 @@
 		font-size: 13px;
 		font-style: normal;
 		line-height: 180%;
-		padding: 20px 25px;
+		padding: 16px;
 		background: var(--clr-bg-1);
 		font-family: var(--fontfamily-default);
 		border-radius: 10px;
