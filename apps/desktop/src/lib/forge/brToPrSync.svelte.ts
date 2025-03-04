@@ -10,7 +10,7 @@ import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svel
 import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
 import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 import { inject } from '@gitbutler/shared/context';
-import { combine, map } from '@gitbutler/shared/network/loadable';
+import { combine, isFound, map } from '@gitbutler/shared/network/loadable';
 import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 import { readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
@@ -66,11 +66,6 @@ export function syncBrToPr(branch: Reactive<PatchSeries>) {
 		})
 	);
 
-	const contributors = $derived(
-		map(cloudBranch?.current, (cloudBranch) =>
-			cloudBranch.contributors.map((contributor) => contributor.email)
-		)
-	);
 	const butlerRequestUrl = $derived(
 		map(combine([cloudBranch?.current, cloudProject?.current]), ([cloudBranch, cloudProject]) => {
 			return webRoutes.projectReviewBranchUrl({
@@ -83,29 +78,35 @@ export function syncBrToPr(branch: Reactive<PatchSeries>) {
 	const prBody = $derived(pr.current?.body);
 	const prNumber = $derived(pr.current?.number);
 	const bodyChanged = $derived.by(() => {
-		if (!prBody || !butlerRequestUrl || !contributors) return false;
-
-		const formattedBody = formatButRequestDescription(prBody, butlerRequestUrl, contributors);
-		return formattedBody === prBody;
+		if (!butlerRequestUrl) return false;
+		if (isFound(cloudBranch?.current)) {
+			const formattedBody = formatButRequestDescription(
+				prBody || '\r\n',
+				butlerRequestUrl,
+				cloudBranch.current.value
+			);
+			return formattedBody === prBody;
+		}
 	});
 
 	$effect(() => {
-		if (
-			!bodyChanged ||
-			!prBody ||
-			!prNumber ||
-			!butlerRequestUrl ||
-			!contributors ||
-			!prService.current
-		)
-			return;
+		if (isFound(cloudBranch?.current)) {
+			if (
+				!cloudBranch?.current?.value ||
+				!bodyChanged ||
+				!prNumber ||
+				!butlerRequestUrl ||
+				!prService.current
+			)
+				return;
 
-		updateButRequestPrDescription(
-			prService.current,
-			prNumber,
-			prBody,
-			butlerRequestUrl,
-			contributors
-		);
+			updateButRequestPrDescription(
+				prService.current,
+				prNumber,
+				prBody || '\r\n',
+				butlerRequestUrl,
+				cloudBranch.current.value
+			);
+		}
 	});
 }
