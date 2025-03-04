@@ -118,9 +118,8 @@
 		margin: 0 auto;
 		container-type: inline-size;
 
-		@media (--tablet-viewport) {
+		@media (--desktop-small-viewport) {
 			--layout-side-paddings: 40px;
-			padding: 24px var(--layout-side-paddings);
 		}
 
 		@media (--mobile-viewport) {
