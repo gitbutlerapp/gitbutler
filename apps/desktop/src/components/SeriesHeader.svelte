@@ -260,6 +260,7 @@
 <AddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={branch.name} />
 
 <SeriesHeaderContextMenu
+	stackId={stack.id}
 	bind:this={stackingContextMenu}
 	bind:contextMenuEl={kebabContextMenu}
 	leftClickTrigger={kebabContextMenuTrigger}
@@ -350,7 +351,7 @@
 						readonly={!!forgeBranch}
 						onDblClick={() => {
 							if (branchType !== 'Integrated') {
-								stackingContextMenu?.showSeriesRenameModal?.(branch.name);
+								stackingContextMenu?.showSeriesRenameModal?.();
 							}
 						}}
 					/>
@@ -483,21 +484,6 @@
 		gap: 6px;
 		padding: 14px 0;
 		margin-left: -2px;
-	}
-
-	.branch-action {
-		width: 100%;
-		display: flex;
-		justify-content: flex-start;
-		align-items: stretch;
-
-		.branch-action__body {
-			width: 100%;
-			padding: 0 14px 14px 0;
-			display: flex;
-			flex-direction: column;
-			gap: 14px;
-		}
 	}
 
 	.branch-action__line {

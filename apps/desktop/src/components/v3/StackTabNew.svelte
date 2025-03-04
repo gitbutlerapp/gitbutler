@@ -14,7 +14,7 @@
 	type Props = {
 		projectId: string;
 		// Currently selected stack id.
-		stackId: string;
+		stackId?: string;
 		overflow?: boolean;
 	};
 
@@ -48,7 +48,7 @@
 				showError('Failed to add new stack', error);
 			}
 		} else {
-			if (!createRefName) {
+			if (!stackId || !createRefName) {
 				// TODO: Add input validation.
 				return;
 			}

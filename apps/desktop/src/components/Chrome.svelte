@@ -38,6 +38,6 @@
 		padding: 0 14px 14px 0;
 		align-items: self-start;
 		user-select: none;
-		overflow: hidden;
+		overflow: auto;
 	}
 </style>

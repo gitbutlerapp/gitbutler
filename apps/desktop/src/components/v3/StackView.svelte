@@ -1,122 +1,27 @@
 <script lang="ts">
-	import Resizer from '$components/Resizer.svelte';
-	import StackTabs from '$components/v3/StackTabs.svelte';
-	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import { persisted } from '@gitbutler/shared/persisted';
-	import { onMount, setContext, type Snippet } from 'svelte';
+	import BranchList from '$components/v3/BranchList.svelte';
+	import ResizeableSplitLayout from '$components/v3/ResizeableSplitLayout.svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		stackId: string;
 		projectId: string;
-		branchName: string;
+		selectedBranchName: string;
+		selectedCommitId?: string;
 		children: Snippet;
 	}
 
-	const { stackId, projectId, branchName, children }: Props = $props();
-
-	const worktreeService = getContext(WorktreeService);
-
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-	const idSelection = new IdSelection(worktreeService);
-	setContext(IdSelection, idSelection);
-
-	const trayWidthKey = $derived('defaulTrayWidth_ ' + projectId);
-	const trayWidth = $derived(persisted<number>(240, trayWidthKey));
-
-	const previewingKey = $derived('previewing_' + projectId);
-	const previewing = $derived(persisted<boolean>(false, previewingKey));
-
-	let resizeViewport = $state<HTMLElement>();
-
-	/** Offset width for tabs component. */
-	let width = $state<number>();
-	/** Content area on the right for stack details. */
-	let rightEl = $state<HTMLDivElement>();
-	/** Width of content area on the right. */
-	let rightWidth = $state<number>();
-	/** True if content area should be rounded. */
-	const rounded = $derived(rightWidth !== width);
-
-	onMount(() => {
-		const observer = new ResizeObserver(() => (rightWidth = rightEl?.offsetWidth));
-		observer.observe(rightEl!);
-		return () => {
-			observer.disconnect();
-		};
-	});
+	const { stackId, projectId, selectedBranchName, selectedCommitId, children }: Props = $props();
 </script>
 
-<div class="stack-view">
-	<div class="left">
-		<div class="resizable-area" bind:this={resizeViewport} style:width={$trayWidth + 'rem'}>
-			<WorktreeChanges {projectId} {stackId} {branchName} />
-		</div>
-		<Resizer
-			viewport={resizeViewport}
-			direction="right"
-			minWidth={36}
-			onWidth={(value) => {
-				$trayWidth = value / (16 * $userSettings.zoom);
-			}}
-		/>
-	</div>
-	<div class="right" bind:this={rightEl}>
-		<StackTabs {projectId} selectedId={stackId} previewing={$previewing} bind:width />
-		<div class="contents" class:rounded>
-			{@render children()}
-		</div>
-	</div>
-</div>
+<ResizeableSplitLayout {projectId}>
+	{#snippet left()}
+		<BranchList {projectId} {stackId} {selectedBranchName} {selectedCommitId} />
+	{/snippet}
+	{#snippet main()}
+		{@render children()}
+	{/snippet}
+</ResizeableSplitLayout>
 
 <style>
-	.stack-view {
-		display: flex;
-		flex: 1;
-		align-items: stretch;
-		height: 100%;
-		width: 100%;
-		position: relative;
-	}
-
-	.left {
-		display: flex;
-		flex-direction: column;
-		justify-content: flex-start;
-		overflow: hidden;
-		position: relative;
-		padding-right: 8px;
-	}
-
-	.resizable-area {
-		display: flex;
-		flex-direction: column;
-		background-color: var(--clr-bg-1);
-		border-radius: var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
-		height: 100%;
-	}
-
-	.right {
-		display: flex;
-		flex: 1;
-		margin-left: 6px;
-		flex-direction: column;
-		overflow: hidden;
-	}
-
-	.right .contents {
-		display: flex;
-		border: 1px solid var(--clr-border-2);
-		flex: 1;
-		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
-		overflow: hidden;
-
-		&.rounded {
-			border-radius: 0 var(--radius-ml) var(--radius-ml) var(--radius-ml);
-		}
-	}
 </style>

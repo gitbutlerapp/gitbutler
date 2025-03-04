@@ -13,7 +13,7 @@
 	<div class="text-13 text-body empty-series__label">
 		This is an empty branch.
 		<br />
-		Create or drag & drop commits here
+		Create or drag & drop commits here.
 	</div>
 </div>
 

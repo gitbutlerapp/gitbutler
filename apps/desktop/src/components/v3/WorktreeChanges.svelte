@@ -12,8 +12,8 @@
 
 	type Props = {
 		projectId: string;
-		stackId: string;
-		branchName: string;
+		stackId?: string;
+		branchName?: string;
 	};
 
 	const { projectId, stackId, branchName }: Props = $props();
@@ -51,6 +51,9 @@
 						{disabled}
 						onclick={() => {
 							if (stackId) {
+								if (!branchName) {
+									throw new Error('Not implemented!');
+								}
 								goto(createCommitPath(projectId, stackId, branchName));
 							}
 						}}

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import StackView from '$components/v3/StackView.svelte';
+	import WorkspaceView from '$components/v3/WorkspaceView.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { getContext } from '@gitbutler/shared/context';
-	import type { PageData } from '../$types';
+	import type { PageData } from './$types';
 	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -12,9 +12,9 @@
 
 	const { data, children }: { data: PageData; children: Snippet } = $props();
 
-	const projectId = $derived(data.projectId!);
-	const stackId = $derived(page.params.stackId!);
-	const branchName = $derived(page.params.branchName!);
+	const projectId = $derived(page.params.projectId);
+	const stackId = $derived(page.params.stackId);
+	const branchName = $derived(page.params.branchName);
 
 	// Redirect to board if we have switched away from V3 feature.
 	$effect(() => {
@@ -24,4 +24,8 @@
 	});
 </script>
 
-<StackView {children} {projectId} {stackId} {branchName} />
+{#if projectId}
+	<WorkspaceView {projectId} {stackId} {branchName}>
+		{@render children()}
+	</WorkspaceView>
+{/if}

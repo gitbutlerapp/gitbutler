@@ -7,6 +7,7 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import type { CommitStateType, StackBranch } from '$lib/branches/v3';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		projectId: string;
@@ -15,10 +16,20 @@
 		isTopBranch: boolean;
 		readonly: boolean;
 		lineColor?: string;
-		onclick?: () => void;
+		children?: Snippet;
+		onLabelDblClick?: () => void;
 	}
 
-	const { projectId, stackId, branch, isTopBranch, readonly, lineColor, onclick }: Props = $props();
+	const {
+		projectId,
+		stackId,
+		branch,
+		isTopBranch,
+		readonly,
+		lineColor,
+		children,
+		onLabelDblClick
+	}: Props = $props();
 
 	const [stackService] = inject(StackService);
 
@@ -41,7 +52,8 @@
 	}
 </script>
 
-<button type="button" {onclick} class="branch-header" disabled={!onclick}>
+<div class="branch-header">
+	{@render children?.()}
 	<ReduxResult result={topCommitResult}>
 		{#snippet children(commit)}
 			{@const branchType: CommitStateType = commit?.state.type ?? 'LocalOnly'}
@@ -66,7 +78,7 @@
 							readonly={readonly || !!branch.remoteTrackingBranch}
 							onDblClick={() => {
 								if (branchType !== 'Integrated') {
-									// stackingContextMenu?.showSeriesRenameModal?.(branch.name);
+									onLabelDblClick?.();
 								}
 							}}
 						/>
@@ -86,7 +98,7 @@
 			</div>
 		{/snippet}
 	</ReduxResult>
-</button>
+</div>
 
 <style lang="postcss">
 	.branch-header {

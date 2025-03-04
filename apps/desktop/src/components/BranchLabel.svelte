@@ -12,7 +12,7 @@
 
 	const { name, disabled = false, readonly = false, onChange, onDblClick }: Props = $props();
 
-	let inputEl: HTMLInputElement | undefined;
+	let inputEl: HTMLInputElement | undefined = $state();
 	let editableName = $state(name);
 	$effect(() => {
 		editableName = name;

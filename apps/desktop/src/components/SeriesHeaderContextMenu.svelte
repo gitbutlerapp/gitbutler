@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { AIService } from '$lib/ai/service';
-	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import { type CommitStatus } from '$lib/commits/commit';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { Project } from '$lib/project/project';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
-	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -29,6 +28,7 @@
 		description: string;
 		parentIsPushed: boolean;
 		hasParent: boolean;
+		stackId: string;
 		toggleDescription: () => Promise<void>;
 		onGenerateBranchName: () => void;
 		openPrDetailsModal: () => void;
@@ -51,6 +51,7 @@
 		description,
 		parentIsPushed,
 		hasParent,
+		stackId,
 		toggleDescription,
 		onGenerateBranchName,
 		openPrDetailsModal,
@@ -62,7 +63,6 @@
 
 	const project = getContext(Project);
 	const aiService = getContext(AIService);
-	const branchStore = getContextStore(BranchStack);
 	const branchController = getContext(BranchController);
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 
@@ -80,10 +80,8 @@
 		aiConfigurationValid = await aiService.validateConfiguration();
 	}
 
-	const stack = $derived($branchStore);
-
-	export function showSeriesRenameModal(seriesName: string) {
-		renameSeriesModal.show(stack.validSeries.find((s) => s.name === seriesName));
+	export function showSeriesRenameModal() {
+		renameSeriesModal.show();
 	}
 
 	let isOpenedByMouse = $state(false);
@@ -153,7 +151,7 @@
 			<ContextMenuItem
 				label="Rename"
 				onclick={async () => {
-					renameSeriesModal.show(stack);
+					renameSeriesModal.show(stackId);
 					contextMenuEl?.close();
 				}}
 			/>
@@ -162,7 +160,7 @@
 			<ContextMenuItem
 				label="Delete"
 				onclick={() => {
-					deleteSeriesModal.show(stack);
+					deleteSeriesModal.show(stackId);
 					contextMenuEl?.close();
 				}}
 			/>
@@ -213,7 +211,7 @@
 	bind:this={renameSeriesModal}
 	onSubmit={(close) => {
 		if (newHeadName && newHeadName !== headName) {
-			branchController.updateSeriesName(stack.id, headName, newHeadName);
+			branchController.updateSeriesName(stackId, headName, newHeadName);
 		}
 		close();
 	}}
@@ -240,7 +238,7 @@
 	onSubmit={async (close) => {
 		try {
 			isDeleting = true;
-			await branchController.removePatchSeries(stack.id, headName);
+			await branchController.removePatchSeries(stackId, headName);
 			close();
 		} finally {
 			isDeleting = false;
