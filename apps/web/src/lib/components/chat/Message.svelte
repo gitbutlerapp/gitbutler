@@ -109,9 +109,12 @@
 	}
 
 	.chat-message {
+		width: 100%;
 		display: flex;
 		padding: 14px 16px;
 		gap: 12px;
+		box-sizing: border-box;
+		flex-shrink: 0;
 
 		background: var(--clr-bg-1);
 		border-bottom: 1px solid var(--clr-border-3);
@@ -133,6 +136,8 @@
 		&.highlight {
 			animation: temporary-highlight 2s ease-out;
 		}
+
+		overflow: hidden;
 	}
 
 	.chat-message__issue-icon {
@@ -167,10 +172,12 @@
 	}
 
 	.chat-message__data {
+		box-sizing: border-box;
 		display: flex;
 		flex-direction: column;
 		width: 100%;
 		gap: 12px;
+		flex-grow: 0;
 	}
 
 	.chat-message__header {
@@ -197,10 +204,13 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 16px;
-		align-self: stretch;
+		width: 100%;
+		box-sizing: border-box;
 	}
 
 	.chat-message__content-text {
 		color: var(--clr-text-1);
+		width: 100%;
+		box-sizing: border-box;
 	}
 </style>
