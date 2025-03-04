@@ -41,22 +41,16 @@
 		onError: (error: unknown) => void;
 		toolBar?: Snippet;
 		plugins?: Snippet;
+		placeholder?: string;
 	};
 
-	const { namespace, markdown, onError, toolBar, plugins }: Props = $props();
-
-	/**
-	 * The stackId parameter is currently optional, mainly so that we don't
-	 *
-	 * TODO: Figure out if we can show markdown rendered placeholder text.
-	 */
-	const placeholder = 'Your commit summary';
+	const { namespace, markdown, onError, toolBar, plugins, placeholder }: Props = $props();
 
 	/**
 	 * Instance of the lexical composer, used for manipulating the contents of the editor
 	 * programatically.
 	 */
-	let composer: Composer;
+	let composer = $state<ReturnType<typeof Composer>>();
 
 	/** Standard configuration for our commit message editor. */
 	const initialConfig = standardConfig({
@@ -69,22 +63,22 @@
 
 	onMount(() => {
 		const unlistenEmoji = composer
-			.getEditor()
+			?.getEditor()
 			.registerNodeTransform(TextNode, emojiTextNodeTransform);
 		return () => {
-			unlistenEmoji();
+			unlistenEmoji?.();
 		};
 	});
 
 	$effect(() => {
-		const editor = composer.getEditor();
+		const editor = composer?.getEditor();
 		if (markdown) {
-			editor.update(() => {
+			editor?.update(() => {
 				convertFromMarkdownString(getRoot().getTextContent(), ALL_TRANSFORMERS);
 			});
 		} else {
 			getPlaintext((text) => {
-				editor.update(() => {
+				editor?.update(() => {
 					const root = getRoot();
 					root.clear();
 					const paragraph = createParagraphNode();
@@ -96,7 +90,8 @@
 	});
 
 	export function getPlaintext(callback: (text: string) => void) {
-		const editor = composer.getEditor();
+		const editor = composer?.getEditor();
+		if (!editor) return;
 		const state = editor.getEditorState();
 		state.read(() => {
 			const markdown = convertToMarkdownString(ALL_TRANSFORMERS);
@@ -117,7 +112,9 @@
 		<div class="editor-scroller">
 			<div class="editor">
 				<ContentEditable />
-				<PlaceHolder>{placeholder}</PlaceHolder>
+				{#if placeholder}
+					<PlaceHolder>{placeholder}</PlaceHolder>
+				{/if}
 			</div>
 		</div>
 

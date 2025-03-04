@@ -19,6 +19,7 @@
 
 <RichTextEditor
 	namespace="CommitMessageEditor"
+	placeholder="Your commit message"
 	bind:this={composer}
 	{markdown}
 	onError={(e) => showError('Editor error', e)}
