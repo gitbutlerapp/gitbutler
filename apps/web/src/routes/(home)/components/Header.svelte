@@ -352,9 +352,6 @@
 		padding: 120px 40px 40px;
 		background-color: var(--clr-white);
 
-		// opacity: 0;
-		// pointer-events: none;
-
 		@media (max-width: 800px) {
 			padding: 100px 20px 20px;
 		}

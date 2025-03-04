@@ -37,7 +37,7 @@
 	}
 </script>
 
-<div class="navigation">
+<nav class="navigation">
 	<div class="main-links">
 		<a href={routes.homePath()} class="logo" aria-label="main nav" title="Home">
 			<svg
@@ -47,7 +47,7 @@
 				fill="none"
 				xmlns="http://www.w3.org/2000/svg"
 			>
-				<path d="M0 22V0L11.4819 9.63333L23 0V22L11.4819 12.4L0 22Z" fill="#1A1614" />
+				<path d="M0 22V0L11.4819 9.63333L23 0V22L11.4819 12.4L0 22Z" fill="var(--clr-text-1)" />
 			</svg>
 		</a>
 
@@ -55,6 +55,17 @@
 	</div>
 
 	<div class="other-links">
+		{#if routes.isProjectReviewBranchPageSubset}
+			<Button
+				kind="outline"
+				icon="dashboard"
+				reversedDirection
+				onclick={() => goto(routes.projectsPath())}
+			>
+				Dashboard
+			</Button>
+		{/if}
+
 		{#if $user}
 			<NotificationButton
 				hasUnread={isNotificationsUnread}
@@ -99,7 +110,7 @@
 			</div>
 		{/if}
 	</div>
-</div>
+</nav>
 
 <ContextMenu
 	bind:this={ctxMenuUserEl}
@@ -151,6 +162,7 @@
 		justify-content: space-between;
 		width: 100%;
 		padding: 0 0 24px;
+		gap: 16px;
 	}
 
 	.main-links {

@@ -295,6 +295,8 @@
 		width: 100%;
 		max-width: 50%;
 		flex-shrink: 0;
+		container-type: inline-size;
+		container-name: review-main;
 
 		&.expand {
 			max-width: 100%;
