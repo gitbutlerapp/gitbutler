@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BranchView from '$components/v3/BranchView.svelte';
+	import StackView from '$components/v3/StackView.svelte';
 	import { type Snippet } from 'svelte';
 	import type { PageData } from '../$types';
 	import { page } from '$app/state';
@@ -12,10 +12,6 @@
 	const commitId = $derived(page.url.searchParams.get('commitId') || undefined);
 </script>
 
-<BranchView
-	{projectId}
-	{stackId}
-	selectedBranchName={branchName}
-	selectedCommitId={commitId}
-	{children}
-/>
+<StackView {projectId} {stackId} selectedBranchName={branchName} selectedCommitId={commitId}>
+	{@render children()}
+</StackView>

@@ -9,9 +9,9 @@
 	type Props = {
 		projectId: string;
 		tab: Tab;
-		first: boolean;
-		last: boolean;
-		selected: boolean;
+		first?: boolean;
+		last?: boolean;
+		selected?: boolean;
 	};
 
 	const { projectId, tab, first, last, selected }: Props = $props();
