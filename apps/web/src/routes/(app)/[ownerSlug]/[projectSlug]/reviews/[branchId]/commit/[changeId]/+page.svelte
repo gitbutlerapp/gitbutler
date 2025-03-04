@@ -191,8 +191,10 @@
 <svelte:window onkeydown={handleKeyDown} onscroll={handleScroll} onresize={handleResize} />
 
 <div class="review-page" class:column={chatMinimizer.value}>
-	<Loading loadable={combine([patch?.current, repositoryId.current, branchUuid?.current])}>
-		{#snippet children([patch, repositoryId, branchUuid])}
+	<Loading
+		loadable={combine([patch?.current, repositoryId.current, branchUuid?.current, branch?.current])}
+	>
+		{#snippet children([patch, repositoryId, branchUuid, branch])}
 			<div class="review-main" class:expand={chatMinimizer.value}>
 				<Navigation />
 
@@ -203,13 +205,26 @@
 					class:stucked={headerIsStuck}
 					class:bottom-line={headerIsStuck && !metaSectionHidden}
 				>
-					<div class="review-main__title-wrapper">
+					<div class="review-main__title">
 						{#if headerIsStuck}
 							<div class="scroll-to-top">
 								<Button kind="outline" icon="arrow-top" onclick={scrollToTop} />
 							</div>
 						{/if}
-						<h3 class="text-18 text-bold review-main-title">{patch.title}</h3>
+						<div class="review-main__title-wrapper">
+							<p class="text-12 review-main__title-wrapper__branch">
+								<span class="">Branch:</span>
+								<a
+									class="truncate"
+									href={routes.projectReviewBranchPath({
+										ownerSlug: data.ownerSlug,
+										projectSlug: data.projectSlug,
+										branchId: data.branchId
+									})}>{branch.title}</a
+								>
+							</p>
+							<h3 class="text-18 text-bold review-main-title">{patch.title}</h3>
+						</div>
 					</div>
 				</div>
 
@@ -357,10 +372,31 @@
 		}
 	}
 
+	.review-main__title {
+		display: flex;
+		align-items: flex-end;
+		gap: 16px;
+	}
+
 	.review-main__title-wrapper {
 		display: flex;
-		align-items: center;
-		gap: 16px;
+		flex-direction: column;
+		gap: 6px;
+		overflow: hidden;
+	}
+
+	.review-main__title-wrapper__branch {
+		display: flex;
+		gap: 6px;
+
+		& span {
+			color: var(--clr-text-2);
+			opacity: 0.8;
+		}
+
+		& a:hover {
+			text-decoration: underline;
+		}
 	}
 
 	.review-main-title {
