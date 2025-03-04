@@ -11,7 +11,7 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{stack_context::CommandContextExt, OwnershipClaim, Stack, StackId};
 use tracing::instrument;
 
-use crate::VirtualBranchesExt as _;
+use crate::{stack::stack_as_rebase_steps, VirtualBranchesExt as _};
 
 /// Removes a commit from a branch by rebasing all commits _except_ for it
 /// onto it's parent.
@@ -73,36 +73,6 @@ pub(crate) fn undo_commit(
         .context("failed to update gitbutler workspace")?;
 
     Ok(stack)
-}
-
-fn stack_as_rebase_steps(ctx: &CommandContext, stack_id: StackId) -> Result<Vec<RebaseStep>> {
-    let mut steps: Vec<RebaseStep> = Vec::new();
-    let repo = ctx.gix_repository()?;
-    for branch in but_workspace::stack_branches(stack_id.to_string(), ctx)? {
-        if branch.archived {
-            continue;
-        }
-        let reference_step = if let Some(reference) = repo.try_find_reference(&branch.name)? {
-            RebaseStep::Reference(but_core::Reference::Git(reference.name().to_owned()))
-        } else {
-            RebaseStep::Reference(but_core::Reference::Virtual(branch.name.to_string()))
-        };
-        steps.push(reference_step);
-        let commits = but_workspace::stack_branch_local_and_remote_commits(
-            stack_id.to_string(),
-            branch.name.to_string(),
-            ctx,
-        )?;
-        for commit in commits {
-            let pick_step = RebaseStep::Pick {
-                commit_id: commit.id,
-                new_message: None,
-            };
-            steps.push(pick_step);
-        }
-    }
-    steps.reverse();
-    Ok(steps)
 }
 
 fn ownership_update(
