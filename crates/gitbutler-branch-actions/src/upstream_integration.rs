@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use crate::stack::{branch_integrated, stack_as_rebase_steps};
 use crate::{r#virtual::IsCommitIntegrated, BranchManagerExt, VirtualBranchesExt as _};
 use anyhow::{anyhow, bail, Context, Result};
-use but_rebase::RebaseStep;
+use but_rebase::{RebaseOutput, RebaseStep};
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
@@ -151,7 +153,11 @@ pub struct Resolution {
 }
 
 enum IntegrationResult {
-    UpdatedObjects { head: git2::Oid, tree: git2::Oid },
+    UpdatedObjects {
+        head: git2::Oid,
+        tree: git2::Oid,
+        rebase_output: Option<RebaseOutput>,
+    },
     UnapplyBranch,
     DeleteBranch,
 }
@@ -497,7 +503,12 @@ pub(crate) fn integrate_upstream(
 
         // Update branch trees
         for (branch_id, integration_result) in &integration_results {
-            let IntegrationResult::UpdatedObjects { head, tree } = integration_result else {
+            let IntegrationResult::UpdatedObjects {
+                head,
+                tree,
+                rebase_output,
+            } = integration_result
+            else {
                 continue;
             };
 
@@ -506,6 +517,19 @@ pub(crate) fn integrate_upstream(
             };
 
             stack.set_stack_head(command_context, *head, Some(*tree))?;
+
+            // Update the branch heads
+            if let Some(output) = rebase_output {
+                let mut new_heads: HashMap<String, git2::Commit<'_>> = HashMap::new();
+                for spec in &output.references {
+                    let commit = command_context
+                        .repo()
+                        .find_commit(spec.commit_id.to_git2())?;
+                    new_heads.insert(spec.reference.to_string(), commit);
+                }
+                stack.set_all_heads(command_context, new_heads)?;
+            }
+
             let mut archived_branches = stack.archive_integrated_heads(command_context)?;
             newly_archived_branches.append(&mut archived_branches);
         }
@@ -631,6 +655,7 @@ fn compute_resolutions(
                         IntegrationResult::UpdatedObjects {
                             head: new_head,
                             tree: new_tree,
+                            rebase_output: None,
                         },
                     ))
                 }
@@ -704,6 +729,7 @@ fn compute_resolutions(
                         IntegrationResult::UpdatedObjects {
                             head: new_head,
                             tree: new_tree,
+                            rebase_output: Some(output),
                         },
                     ))
                 }
