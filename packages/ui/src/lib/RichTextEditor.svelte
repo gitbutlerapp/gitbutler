@@ -1,18 +1,11 @@
 <script lang="ts">
+	import { updateEditorToMarkdown, updateEditorToPlaintext } from './richText/markdown';
 	import { standardConfig } from '$lib/richText/config/config';
 	import { standardTheme } from '$lib/richText/config/theme';
-	import { emojiTextNodeTransform } from '$lib/richText/plugins/emoji';
-	import {
-		$convertToMarkdownString as convertToMarkdownString,
-		$convertFromMarkdownString as convertFromMarkdownString
-	} from '@lexical/markdown';
-	import {
-		$createParagraphNode as createParagraphNode,
-		$createTextNode as createTextNode,
-		$getRoot as getRoot,
-		TextNode
-	} from 'lexical';
-	import { onMount, type Snippet } from 'svelte';
+	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
+	import OnChangePlugin from '$lib/richText/plugins/onChange.svelte';
+	import { $getRoot as getRoot } from 'lexical';
+	import { type Snippet } from 'svelte';
 	import {
 		Composer,
 		ContentEditable,
@@ -42,15 +35,10 @@
 		toolBar?: Snippet;
 		plugins?: Snippet;
 		placeholder?: string;
+		onChange?: (text: string) => void;
 	};
 
-	const { namespace, markdown, onError, toolBar, plugins, placeholder }: Props = $props();
-
-	/**
-	 * Instance of the lexical composer, used for manipulating the contents of the editor
-	 * programatically.
-	 */
-	let composer = $state<ReturnType<typeof Composer>>();
+	const { namespace, markdown, onError, toolBar, plugins, placeholder, onChange }: Props = $props();
 
 	/** Standard configuration for our commit message editor. */
 	const initialConfig = standardConfig({
@@ -59,43 +47,31 @@
 		onError
 	});
 
-	let editorDiv: HTMLDivElement | undefined = $state();
+	/**
+	 * Instance of the lexical composer, used for manipulating the contents of the editor
+	 * programatically.
+	 */
+	let composer = $state<ReturnType<typeof Composer>>();
 
-	onMount(() => {
-		const unlistenEmoji = composer
-			?.getEditor()
-			.registerNodeTransform(TextNode, emojiTextNodeTransform);
-		return () => {
-			unlistenEmoji?.();
-		};
-	});
+	let editorDiv: HTMLDivElement | undefined = $state();
+	const editor = $derived(composer?.getEditor());
+
+	let onChangeRef = $state<ReturnType<typeof OnChangePlugin>>();
 
 	$effect(() => {
-		const editor = composer?.getEditor();
 		if (markdown) {
-			editor?.update(() => {
-				convertFromMarkdownString(getRoot().getTextContent(), ALL_TRANSFORMERS);
-			});
+			updateEditorToMarkdown(editor);
 		} else {
-			getPlaintext((text) => {
-				editor?.update(() => {
-					const root = getRoot();
-					root.clear();
-					const paragraph = createParagraphNode();
-					paragraph.append(createTextNode(text));
-					root.append(paragraph);
-				});
-			});
+			updateEditorToPlaintext(editor);
 		}
 	});
 
-	export function getPlaintext(callback: (text: string) => void) {
-		const editor = composer?.getEditor();
-		if (!editor) return;
-		const state = editor.getEditorState();
-		state.read(() => {
-			const markdown = convertToMarkdownString(ALL_TRANSFORMERS);
-			callback(markdown);
+	export function getPlaintext(): Promise<string | undefined> {
+		return new Promise((resolve) => {
+			editor?.read(() => {
+				const text = getRoot().getTextContent();
+				resolve(text);
+			});
 		});
 	}
 </script>
@@ -117,6 +93,9 @@
 				{/if}
 			</div>
 		</div>
+
+		<EmojiPlugin />
+		<OnChangePlugin bind:this={onChangeRef} {onChange} />
 
 		{#if markdown}
 			<AutoFocusPlugin />

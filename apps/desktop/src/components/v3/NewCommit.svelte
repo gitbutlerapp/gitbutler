@@ -47,14 +47,15 @@
 	/**
 	 * TODO: Is there a way of getting the value synchronously?
 	 */
-	function createCommit() {
-		composer?.getPlaintext(async (message) => {
-			try {
-				await _createCommit(message);
-			} catch (err: unknown) {
-				showError('Failed to commit', err);
-			}
-		});
+	async function createCommit() {
+		const message = await composer?.getPlaintext();
+		if (!message) return;
+
+		try {
+			await _createCommit(message);
+		} catch (err: unknown) {
+			showError('Failed to commit', err);
+		}
 	}
 
 	async function _createCommit(message: string) {
