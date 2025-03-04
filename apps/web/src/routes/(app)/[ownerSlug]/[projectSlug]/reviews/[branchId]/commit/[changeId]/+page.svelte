@@ -275,16 +275,20 @@
 
 <style lang="postcss">
 	.review-page {
-		display: flex;
+		display: grid;
+		grid-template-columns: 9fr 7fr;
+		gap: var(--layout-col-gap);
 		width: 100%;
 		flex-grow: 1;
 		gap: 20px;
 
 		&.column {
+			display: flex;
 			flex-direction: column;
 		}
 
 		@media (--tablet-viewport) {
+			display: flex;
 			flex-direction: column;
 		}
 	}
@@ -292,11 +296,8 @@
 	.review-main {
 		display: flex;
 		flex-direction: column;
-		width: 100%;
-		max-width: 50%;
 		flex-shrink: 0;
 		container-type: inline-size;
-		container-name: review-main;
 
 		&.expand {
 			max-width: 100%;
@@ -403,8 +404,6 @@
 		display: flex;
 		position: sticky;
 		top: 24px;
-		width: 100%;
-		max-width: 50%;
 		height: calc(100vh - var(--bottom-margin));
 
 		&.minimized {

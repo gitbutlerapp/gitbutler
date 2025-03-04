@@ -131,6 +131,15 @@
 		overflow: hidden;
 		gap: 8px;
 		text-wrap: nowrap;
+
+		@container (max-width: 500px) {
+			& .breadcrumbs__path {
+				display: none;
+			}
+			& .breadcrumbs__back-btn {
+				padding-left: 0;
+			}
+		}
 	}
 
 	.breadcrumbs__path {
@@ -138,10 +147,6 @@
 		align-items: center;
 		gap: 4px;
 		overflow: hidden;
-
-		@container review-main (max-width: 500px) {
-			display: none;
-		}
 	}
 
 	.breadcrumbs_slash {
@@ -170,10 +175,6 @@
 				opacity: 1;
 				transform: translateX(-2px);
 			}
-		}
-
-		@container review-main (max-width: 500px) {
-			padding-left: 0;
 		}
 	}
 
