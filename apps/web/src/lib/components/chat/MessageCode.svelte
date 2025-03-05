@@ -26,6 +26,7 @@
 	.code-wrapper {
 		display: flex;
 		min-width: 0;
+		max-width: 640px;
 		overflow-x: scroll;
 		border-radius: var(--radius-s);
 
