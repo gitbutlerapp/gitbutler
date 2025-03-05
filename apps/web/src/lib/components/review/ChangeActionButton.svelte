@@ -4,10 +4,10 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { PatchService } from '@gitbutler/shared/patches/patchService';
 	import { type Patch } from '@gitbutler/shared/patches/types';
+	import CommitStatusBadge from '@gitbutler/ui/CommitStatusBadge.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	interface Props {
 		branchUuid: string;
@@ -71,7 +71,7 @@
 		await patchService.updatePatch(branchUuid, patch.changeId, { signOff: false });
 	}
 
-	async function handleClick() {
+	async function handleClick(action: Action) {
 		if (!isUserLoggedIn) {
 			loginModal?.show();
 			return;
@@ -94,37 +94,45 @@
 		}
 	}
 
-	function handleRequestChanges() {
-		action = 'requestChanges';
-		handleClick();
+	function showAlertDialog(action: Action) {
+		console.log(action);
+		const message =
+			action === 'requestChanges'
+				? 'You have already approved this commit. Do you want to request changes instead?'
+				: 'You have already requested changes for this commit. Do you want to approve it instead?';
+
+		if (!confirm(message)) return;
 	}
 
-	function handleApprove() {
-		action = 'approve';
-		handleClick();
+	function handleChangeStatus(action: Action) {
+		console.log(action);
+		if (action === 'approve') {
+			showAlertDialog(action);
+		} else {
+			showAlertDialog(action);
+		}
+		handleClick(action);
 	}
 </script>
 
-{#if userAction === 'approved'}
-	<div class="my-status-wrap approved">
-		<div class="text-12 my-status approved">
-			<span>You approved this</span><Icon name="tick-small" />
+{#if userAction === 'approved' || userAction === 'requested-changes'}
+	<div class="my-status">
+		<div class="text-12 my-status-text">
+			{#if userAction === 'approved'}
+				<CommitStatusBadge status="approved" kind="icon" />
+				<span>You approved this</span>
+			{:else}
+				<CommitStatusBadge status="changes-requested" kind="icon" />
+				<span>You requested changes</span>
+			{/if}
 		</div>
 
-		<button class="text-12 change-status-btn" type="button" onclick={handleRequestChanges}>
-			<span>Change status</span>
-			<Icon name="refresh-small" />
-		</button>
-	</div>
-{:else if userAction === 'requested-changes'}
-	<div class="my-status-wrap">
-		<div class="text-12 my-status requested-changes">
-			<span>You requested changes</span><Icon name="refresh-small" />
-		</div>
-
-		<button class="text-12 change-status-btn" type="button" onclick={handleApprove}>
-			<span>Change status</span>
-			<Icon name="tick-small" />
+		<button
+			class="text-12 change-status-btn"
+			type="button"
+			onclick={() => handleChangeStatus(userAction === 'approved' ? 'requestChanges' : 'approve')}
+		>
+			Change status
 		</button>
 	</div>
 {:else}
@@ -134,7 +142,7 @@
 		menuPosition="top"
 		{icon}
 		style={buttonColor}
-		onclick={handleClick}
+		onclick={() => handleClick(action)}
 	>
 		{actionLabels[action]}
 		{#snippet contextMenuSlot()}
@@ -163,41 +171,21 @@
 </LoginModal>
 
 <style lang="postcss">
-	.my-status-wrap {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-	}
-
 	.my-status {
 		display: flex;
 		align-items: center;
+		gap: 8px;
+	}
+
+	.my-status-text {
+		display: flex;
+		align-items: center;
 		gap: 6px;
-		padding: 4px 8px;
-		height: 100%;
-		border-radius: var(--radius-m);
-
-		&.approved {
-			background-color: var(--clr-theme-succ-soft);
-			color: var(--clr-theme-succ-on-soft);
-		}
-
-		&.requested-changes {
-			background-color: var(--clr-theme-warn-soft);
-			color: var(--clr-theme-warn-on-soft);
-		}
+		font-style: italic;
 	}
 
 	.change-status-btn {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		color: var(--clr-text-2);
-
-		& span {
-			text-decoration: underline;
-			text-decoration-style: dotted;
-			text-underline-offset: 3px;
-		}
+		text-decoration: underline;
+		text-decoration-style: dotted;
 	}
 </style>

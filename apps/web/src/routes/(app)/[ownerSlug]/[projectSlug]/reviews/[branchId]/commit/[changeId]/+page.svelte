@@ -405,13 +405,9 @@
 
 	.review-main__patch-navigator {
 		display: flex;
-		gap: 6px;
+		flex-wrap: wrap;
+		gap: 16px 20px;
 		padding-bottom: 24px;
-
-		@media (--tablet-viewport) {
-			flex-wrap: wrap;
-			gap: 12px;
-		}
 	}
 
 	.review-main__meta {
