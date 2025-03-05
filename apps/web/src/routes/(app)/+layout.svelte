@@ -2,6 +2,8 @@
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
+	import { WebState } from '$lib/redux/store.svelte';
+	import { ReviewSectionsService } from '$lib/review/reviewSections.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
@@ -41,29 +43,30 @@
 	const userService = new UserService(httpClient);
 	setContext(UserService, userService);
 
-	const appState = new AppState();
-	setContext(AppState, appState);
-	const feedService = new FeedService(httpClient, appState.appDispatch);
+	const webState = new WebState();
+	setContext(AppState, webState);
+	setContext(WebState, webState);
+	const feedService = new FeedService(httpClient, webState.appDispatch);
 	setContext(FeedService, feedService);
-	const organizationService = new OrganizationService(httpClient, appState.appDispatch);
+	const organizationService = new OrganizationService(httpClient, webState.appDispatch);
 	setContext(OrganizationService, organizationService);
-	const projectService = new ProjectService(httpClient, appState.appDispatch);
+	const projectService = new ProjectService(httpClient, webState.appDispatch);
 	setContext(ProjectService, projectService);
-	const newUserService = new NewUserService(httpClient, appState.appDispatch);
+	const newUserService = new NewUserService(httpClient, webState.appDispatch);
 	setContext(NewUserService, newUserService);
-	const branchService = new BranchService(httpClient, appState.appDispatch);
+	const branchService = new BranchService(httpClient, webState.appDispatch);
 	setContext(BranchService, branchService);
-	const patchService = new PatchCommitService(httpClient, appState.appDispatch);
+	const patchService = new PatchCommitService(httpClient, webState.appDispatch);
 	setContext(PatchCommitService, patchService);
 	const patchEventsService = new PatchEventsService(
 		httpClient,
-		appState,
-		appState.appDispatch,
+		webState,
+		webState.appDispatch,
 		authService.tokenReadable,
 		patchService,
 		env.PUBLIC_APP_HOST
 	);
-	const patchIdableService = new PatchIdableService(httpClient, appState.appDispatch);
+	const patchIdableService = new PatchIdableService(httpClient, webState.appDispatch);
 	setContext(PatchIdableService, patchIdableService);
 
 	const user = $derived(userService.user);
@@ -76,15 +79,15 @@
 	});
 
 	setContext(PatchEventsService, patchEventsService);
-	const chatChannelService = new ChatChannelsService(httpClient, appState.appDispatch);
+	const chatChannelService = new ChatChannelsService(httpClient, webState.appDispatch);
 	setContext(ChatChannelsService, chatChannelService);
-	const repositoryIdLookupService = new RepositoryIdLookupService(httpClient, appState.appDispatch);
+	const repositoryIdLookupService = new RepositoryIdLookupService(httpClient, webState.appDispatch);
 	setContext(RepositoryIdLookupService, repositoryIdLookupService);
-	const latestBranchLookupService = new LatestBranchLookupService(httpClient, appState.appDispatch);
+	const latestBranchLookupService = new LatestBranchLookupService(httpClient, webState.appDispatch);
 	setContext(LatestBranchLookupService, latestBranchLookupService);
 	const notificationSettingsService = new NotificationSettingsService(
 		httpClient,
-		appState.appDispatch
+		webState.appDispatch
 	);
 	setContext(NotificationSettingsService, notificationSettingsService);
 	setExternalLinkService({
@@ -92,6 +95,8 @@
 			location.href = href;
 		}
 	});
+	const reviewSectionsService = new ReviewSectionsService(webState, webState.appDispatch);
+	setContext(ReviewSectionsService, reviewSectionsService);
 
 	const isCommitPage = $derived(page.url.pathname.includes('/commit/'));
 </script>

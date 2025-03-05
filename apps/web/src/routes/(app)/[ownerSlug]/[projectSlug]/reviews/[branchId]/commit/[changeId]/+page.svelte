@@ -19,7 +19,7 @@
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
-	import { getPatch, getPatchSections } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
+	import { getPatch } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		WebRoutesService,
@@ -85,12 +85,6 @@
 			return patch.contributors.some(
 				(contributor) => contributor.user?.id !== undefined && contributor.user?.id === $user?.id
 			);
-		})
-	);
-
-	const patchSections = $derived(
-		map(branchUuid?.current, (branchUuid) => {
-			return getPatchSections(branchUuid, data.changeId);
 		})
 	);
 
@@ -264,9 +258,10 @@
 				</div>
 
 				<ReviewSections
-					patch={patchCommit}
+					{branchUuid}
+					{patchCommit}
+					changeId={data.changeId}
 					headerShift={headerHeight}
-					patchSections={patchSections?.current}
 					toggleDiffLine={(f, s, p) => diffLineSelection.toggle(f, s, p)}
 					selectedSha={diffLineSelection.selectedSha}
 					selectedLines={diffLineSelection.selectedLines}

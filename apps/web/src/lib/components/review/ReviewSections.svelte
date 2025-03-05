@@ -1,14 +1,21 @@
 <script lang="ts">
 	import SectionComponent from './Section.svelte';
+	import { ReviewSectionsService } from '$lib/review/reviewSections.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
-	import type { Patch, Section } from '@gitbutler/shared/patches/types';
+	import { getPatchIdableSections } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
+	import type { PatchCommit } from '@gitbutler/shared/patches/types';
 	import type { LineClickParams } from '@gitbutler/ui/HunkDiff.svelte';
 	import type { ContentSection, LineSelector } from '@gitbutler/ui/utils/diffParsing';
 
 	interface Props {
-		patch: Patch;
-		patchSections: Section[] | undefined;
+		branchUuid: string;
+		changeId: string;
+		patchCommit: PatchCommit;
 		selectedSha: string | undefined;
 		selectedLines: LineSelector[];
 		headerShift: number | undefined;
@@ -19,8 +26,9 @@
 	}
 
 	const {
-		patch,
-		patchSections,
+		branchUuid,
+		changeId,
+		patchCommit,
 		selectedSha,
 		selectedLines,
 		headerShift,
@@ -31,6 +39,7 @@
 	}: Props = $props();
 
 	const userService = getContext(UserService);
+	const reviewSectionsService = getContext(ReviewSectionsService);
 	const user = $derived(userService.user);
 
 	const isLoggedIn = $derived(!!$user);
@@ -42,22 +51,93 @@
 			offsetHeight = headerShift;
 		}
 	});
+
+	const allOptions = $derived(reviewSectionsService.allOptions(branchUuid, changeId));
+
+	const beforeOptions = $derived(allOptions.current.slice(0, -1));
+	const afterOptions = $derived(allOptions.current.slice(1));
+
+	const selected = $derived(reviewSectionsService.currentSelection(branchUuid, changeId));
+
+	$inspect(selected.current);
+
+	const selectedAfter = $derived(selected.current?.selectedAfter ?? 1);
+	const selectedBefore = $derived(selected.current?.selectedBefore ?? -1);
+
+	let beforeButton = $state<DropDownButton>();
+	let afterButton = $state<DropDownButton>();
+
+	const patchSections = $derived(
+		isDefined(selectedAfter)
+			? getPatchIdableSections(
+					branchUuid,
+					changeId,
+					selectedBefore === -1 ? undefined : selectedBefore,
+					selectedAfter
+				)
+			: undefined
+	);
 </script>
 
 <div class="review-sections-card">
 	<div class="review-sections-statistics-wrap" style:--header-shift="{offsetHeight}px">
 		<div class="review-sections-statistics">
-			<p class="text-12 text-bold statistic-files">{patch.statistics.fileCount} files changed</p>
-			<p class="text-12 statistic-added">
-				{patch.statistics.lines - patch.statistics.deletions} additions
+			<p class="text-12 text-bold statistic-files">
+				{patchCommit.statistics.fileCount} files changed
 			</p>
-			<p class="text-12 statistic-deleted">{patch.statistics.deletions} deletions</p>
+			<p class="text-12 statistic-added">
+				{patchCommit.statistics.lines - patchCommit.statistics.deletions} additions
+			</p>
+			<p class="text-12 statistic-deleted">{patchCommit.statistics.deletions} deletions</p>
 		</div>
+	</div>
+	<div class="interdiff-bar">
+		<p class="text-12 text-bold">Compare the versions:</p>
+		<DropDownButton bind:this={beforeButton} kind="outline">
+			{beforeOptions.find((beforeOption) => beforeOption[0] === selectedBefore)?.[1]}
+
+			{#snippet contextMenuSlot()}
+				<ContextMenuSection>
+					{#each beforeOptions as option}
+						<ContextMenuItem
+							label={option[1]}
+							disabled={option[0] >= (selectedAfter || 0)}
+							onclick={() => {
+								reviewSectionsService.setSelection(branchUuid, changeId, {
+									selectedBefore: option[0]
+								});
+								beforeButton?.close();
+							}}
+						/>
+					{/each}
+				</ContextMenuSection>
+			{/snippet}
+		</DropDownButton>
+		<DropDownButton bind:this={afterButton} kind="outline">
+			{afterOptions.find((afterOption) => afterOption[0] === selectedAfter)?.[1]}
+
+			{#snippet contextMenuSlot()}
+				<ContextMenuSection>
+					{#each afterOptions as option}
+						<ContextMenuItem
+							label={option[1]}
+							disabled={option[0] <= (selectedBefore || 0)}
+							onclick={() => {
+								reviewSectionsService.setSelection(branchUuid, changeId, {
+									selectedAfter: option[0]
+								});
+								afterButton?.close();
+							}}
+						/>
+					{/each}
+				</ContextMenuSection>
+			{/snippet}
+		</DropDownButton>
 	</div>
 
 	<div class="review-sections-diffs">
 		{#if patchSections !== undefined}
-			{#each patchSections as section}
+			{#each patchSections.current || [] as section}
 				<SectionComponent
 					{isLoggedIn}
 					{section}
@@ -131,5 +211,19 @@
 		display: flex;
 		flex-direction: column;
 		width: 100%;
+	}
+
+	.interdiff-bar {
+		background-color: var(--clr-bg-1);
+		width: 100%;
+
+		border: 1px solid var(--clr-border-2);
+		border-top: none;
+
+		padding: 16px;
+
+		display: flex;
+		gap: 12px;
+		align-items: center;
 	}
 </style>

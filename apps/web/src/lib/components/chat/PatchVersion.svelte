@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { ReviewSectionsService } from '$lib/review/reviewSections.svelte';
 	import { eventTimeStamp, getMultipleContributorNames } from '@gitbutler/shared/branches/utils';
+	import { getContext } from '@gitbutler/shared/context';
 	import { getPatchContributorsWithAvatars } from '@gitbutler/shared/contributors';
 	import { type PatchVersionEvent } from '@gitbutler/shared/patchEvents/types';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -11,12 +13,22 @@
 
 	const { event }: Props = $props();
 
+	const reviewSectionsService = getContext(ReviewSectionsService);
+
 	const patch = $derived(event.object);
 
 	const authorNames = $derived(getMultipleContributorNames(patch.contributors));
 	const authorAvatars = $derived(getPatchContributorsWithAvatars(patch));
 
 	const timestamp = $derived(eventTimeStamp(event));
+
+	function viewInterdiff() {
+		if (!patch.version) return;
+		reviewSectionsService.setSelection(patch.branchUuid, patch.changeId, {
+			selectedBefore: patch.version - 1,
+			selectedAfter: patch.version
+		});
+	}
 </script>
 
 <div class="patch-version">
@@ -24,6 +36,7 @@
 		<Icon name="patch" />
 	</div>
 
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<div class="patch-version__header">
 		{#if patch.contributors.length > 0}
 			<div class="patch-version__author-avatars">
@@ -35,7 +48,8 @@
 
 		<div class="text-13 text-bold patch-version__author-name">{authorNames}</div>
 
-		<p class="text-12 patch-verssion__message">
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<p class="text-12 patch-verssion__message" onclick={viewInterdiff}>
 			published a new <span class="text-bold">commit version #{patch.version}</span>
 		</p>
 
