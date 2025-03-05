@@ -117,6 +117,8 @@
 	],
 	"dependencies": {
 		"@lexical/markdown": "0.17.0",
+		"@lexical/text": "^0.17.0",
+		"@lexical/utils": "0.17.0",
 		"@tiptap/core": "^2.11.5",
 		"@tiptap/extension-document": "^2.11.5",
 		"@tiptap/extension-mention": "^2.11.5",
