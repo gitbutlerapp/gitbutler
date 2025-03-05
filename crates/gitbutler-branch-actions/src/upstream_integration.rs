@@ -337,12 +337,12 @@ fn get_stack_status(
             .find_commit(new_target_commit_id)?
             .tree_id()?;
         let tree_id = git2_to_gix_object_id(stack.tree);
-        let new_head_commit = repository.find_commit(last_head)?;
+        let new_head_commit = gix_repository.find_commit(last_head.to_gix())?;
         let tree_conflicted = gix_repository
             .merge_trees(
                 tree_merge_base,
                 tree_id,
-                git2_to_gix_object_id(new_head_commit.tree_id()),
+                new_head_commit.tree_id()?,
                 gix_repository.default_merge_labels(),
                 merge_options_fail_fast.clone(),
             )?
