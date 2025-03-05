@@ -11,11 +11,11 @@
 	const stackId = $derived(page.params.stackId);
 
 	const stackService = getContext(StackService);
+	const branchResult = $derived(stackService.branchAt(projectId!, stackId!, 0));
 </script>
 
 {#if projectId && stackId}
-	{@const result = stackService.branchAt(projectId, stackId, 0).current}
-	<ReduxResult {result}>
+	<ReduxResult result={branchResult.current}>
 		{#snippet children(branch)}
 			{#if branch}
 				{goto(branchPath(projectId, stackId, branch.name))}

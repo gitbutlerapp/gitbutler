@@ -14,10 +14,10 @@
 	const { projectId, stackId, selectedBranchName, selectedCommitId }: Props = $props();
 	const [stackService] = inject(StackService);
 
-	const result = $derived(stackService.branches(projectId, stackId).current);
+	const result = $derived(stackService.branches(projectId, stackId));
 </script>
 
-<ReduxResult {result}>
+<ReduxResult result={result.current}>
 	{#snippet children(branches)}
 		{#each branches as branch, i (branch.name)}
 			{@const first = i === 0}

@@ -1,5 +1,6 @@
 <script lang="ts" generics="A">
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import type { Snippet } from 'svelte';
 
@@ -30,7 +31,11 @@
 		<Icon name="spinner" />
 	</div>
 {:else if status === 'rejected'}
-	{String(error)}
+	{#if isErrorlike(error)}
+		{error.message}
+	{:else}
+		{String(error)}
+	{/if}
 {:else if status === 'uninitialized'}
 	Uninitialized...
 {/if}
