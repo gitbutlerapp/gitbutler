@@ -12,25 +12,23 @@
 
 	const { projectId, commit }: Props = $props();
 	const [stackService] = inject(StackService);
-	const result = $derived(stackService.commitChanges(projectId, commit.id).current);
+	const changesResult = $derived(stackService.commitChanges(projectId, commit.id));
 </script>
 
 <div class="wrapper">
 	<div class="header text-13 text-bold">Changed files</div>
-	{#if result}
-		<ReduxResult {result}>
-			{#snippet children(changes)}
-				{#if changes.length > 0}
-					<FileList {projectId} {changes} />
-				{:else}
-					<div class="text-12 text-body helper-text">
-						<div>You're all caught up!</div>
-						<div>No files need committing</div>
-					</div>
-				{/if}
-			{/snippet}
-		</ReduxResult>
-	{/if}
+	<ReduxResult result={changesResult.current}>
+		{#snippet children(changes)}
+			{#if changes.length > 0}
+				<FileList {projectId} {changes} />
+			{:else}
+				<div class="text-12 text-body helper-text">
+					<div>You're all caught up!</div>
+					<div>No files need committing</div>
+				</div>
+			{/if}
+		{/snippet}
+	</ReduxResult>
 </div>
 
 <style>

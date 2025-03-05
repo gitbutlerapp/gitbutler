@@ -23,14 +23,14 @@
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	const stackBranchWidthKey = $derived('defaultStackBranchWidth_ ' + projectId);
-	const result = $derived(stackService.branches(projectId, stackId).current);
+	const branchesResult = $derived(stackService.branches(projectId, stackId));
 
 	let resizeStackBranches = $state<HTMLElement>();
 	let stackBranchWidth = $derived(persisted<number>(22.5, stackBranchWidthKey));
 </script>
 
 <div class="branch-view">
-	<ReduxResult {result}>
+	<ReduxResult result={branchesResult.current}>
 		{#snippet children(branches)}
 			<div class="branches" bind:this={resizeStackBranches} style:width={$stackBranchWidth + 'rem'}>
 				<Resizer
