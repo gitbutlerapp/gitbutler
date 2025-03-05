@@ -48,7 +48,7 @@
 
 	async function updatePermission(
 		repositoryId: string,
-		shareLevel: ShareLevel.Public | ShareLevel.Private
+		shareLevel: ShareLevel.Public | ShareLevel.Private | ShareLevel.Unlisted
 	) {
 		await projectService.updateProject(repositoryId, { shareLevel });
 	}
@@ -67,15 +67,24 @@
 				<div>
 					<p>This project is <b>{project.permissions.shareLevel}</b></p>
 
-					{#if project.permissions.shareLevel === 'public'}
+					{#if project.permissions.shareLevel !== ShareLevel.Private}
 						<AsyncButton
 							action={async () => await updatePermission(repositoryId, ShareLevel.Private)}
-							>Make private</AsyncButton
+							>Make Private</AsyncButton
 						>
-					{:else}
+					{/if}
+
+					{#if project.permissions.shareLevel !== ShareLevel.Unlisted}
+						<AsyncButton
+							action={async () => await updatePermission(repositoryId, ShareLevel.Unlisted)}
+							>Make Unlisted</AsyncButton
+						>
+					{/if}
+
+					{#if project.permissions.shareLevel !== ShareLevel.Public}
 						<AsyncButton
 							action={async () => await updatePermission(repositoryId, ShareLevel.Public)}
-							>Make public</AsyncButton
+							>Make Public</AsyncButton
 						>
 					{/if}
 				</div>
