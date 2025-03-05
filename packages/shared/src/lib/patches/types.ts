@@ -161,48 +161,81 @@ export function apiToPatchReview(api: ApiPatchReview): PatchReview {
 	};
 }
 
-export type ApiPatch = {
+type PatchTypes = 'PatchCommit' | 'PatchIdable';
+
+export type ApiBasePatch = {
+	type: PatchTypes;
+	statistics: ApiPatchStatistics;
+	sections: ApiSection[] | undefined;
+	created_at: string;
+	updated_at: string;
+};
+
+export type ApiPatchCommit = ApiBasePatch & {
+	type: 'PatchCommit';
 	change_id: string;
 	commit_sha: string;
 	// patch_sha: string; Not sure this is real
-	title?: string;
-	description?: string;
-	position?: number;
-	version?: number;
-	comment_count?: number;
+	title: string | undefined;
+	description: string | undefined;
+	position: number | undefined;
+	version: number | undefined;
+	comment_count: number;
 	contributors: ApiUserMaybe[];
-	statistics: ApiPatchStatistics;
 	review: ApiPatchReview;
 	review_all: ApiPatchReview;
 	review_status: string;
 	sections?: ApiSection[];
 	created_at: string;
 	updated_at: string;
-	previous_version_sha: string | undefined;
+	branch_uuid: string;
 };
 
-export type Patch = {
+export type ApiPatchIdable = ApiBasePatch & {
+	type: 'PatchIdable';
+	patch_id: string;
+};
+
+export type ApiPatch = ApiPatchCommit | ApiPatchIdable;
+
+export type BasePatch = {
+	type: PatchTypes;
+	// patch_sha: string; Not sure this is real
+	statistics: PatchStatistics;
+	sectionIds: number[] | undefined;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type PatchCommit = BasePatch & {
+	type: 'PatchCommit';
 	changeId: string;
 	commitSha: string;
 	// patch_sha: string; Not sure this is real
-	title?: string;
-	description?: string;
-	position?: number;
-	version?: number;
+	title: string | undefined;
+	description: string | undefined;
+	position: number | undefined;
+	version: number | undefined;
 	commentCount: number;
 	contributors: UserMaybe[];
-	statistics: PatchStatistics;
 	review: PatchReview;
 	reviewAll: PatchReview;
 	reviewStatus: string;
 	sectionIds?: number[];
 	createdAt: string;
 	updatedAt: string;
-	previousVersionSha: string | undefined;
+	branchUuid: string;
 };
 
+export type PatchIdable = BasePatch & {
+	type: 'PatchIdable';
+	patchId: string;
+};
+
+export type Patch = PatchCommit | PatchIdable;
+
 export function getPatchStatus(
-	patch: Patch
+	patch: PatchCommit
 ): 'approved' | 'changes-requested' | 'unreviewed' | 'in-discussion' {
 	if (patch.reviewAll.rejected.length > 0) return 'changes-requested';
 	if (patch.reviewAll.signedOff.length > 0) return 'approved';
@@ -210,25 +243,56 @@ export function getPatchStatus(
 	return 'unreviewed';
 }
 
-export type LoadablePatch = LoadableData<Patch, Patch['changeId']>;
+export type LoadablePatchCommit = LoadableData<PatchCommit, PatchCommit['changeId']>;
+export type LoadablePatchIdable = LoadableData<PatchIdable, string>;
 
+export function patchIdableId({
+	branchUuid,
+	changeId,
+	oldVersion,
+	newVersion
+}: {
+	branchUuid: string;
+	changeId: string;
+	oldVersion?: number;
+	newVersion: number;
+}) {
+	return `${branchUuid}|${changeId}|${oldVersion}|${newVersion}`;
+}
+
+export function apiToPatch(api: ApiPatchCommit): PatchCommit;
+export function apiToPatch(api: ApiPatchIdable): PatchIdable;
 export function apiToPatch(api: ApiPatch): Patch {
-	return {
-		changeId: api.change_id,
-		commitSha: api.commit_sha,
-		title: api.title,
-		description: api.description,
-		position: api.position,
-		version: api.version,
-		commentCount: api.comment_count || 0,
-		contributors: api.contributors.map(apiToUserMaybe),
-		statistics: apiToPatchStatistics(api.statistics),
-		review: apiToPatchReview(api.review),
-		reviewAll: apiToPatchReview(api.review_all),
-		reviewStatus: api.review_status,
-		sectionIds: api.sections?.map((section) => section.id),
-		createdAt: api.created_at,
-		updatedAt: api.updated_at,
-		previousVersionSha: api.previous_version_sha
-	};
+	if (api.type === 'PatchCommit') {
+		return {
+			type: api.type,
+			changeId: api.change_id,
+			commitSha: api.commit_sha,
+			title: api.title,
+			description: api.description,
+			position: api.position,
+			version: api.version,
+			commentCount: api.comment_count || 0,
+			contributors: api.contributors.map(apiToUserMaybe),
+			statistics: apiToPatchStatistics(api.statistics),
+			review: apiToPatchReview(api.review),
+			reviewAll: apiToPatchReview(api.review_all),
+			reviewStatus: api.review_status,
+			sectionIds: api.sections?.map((section) => section.id),
+			createdAt: api.created_at,
+			updatedAt: api.updated_at,
+			branchUuid: api.branch_uuid
+		};
+	} else if (api.type === 'PatchIdable') {
+		return {
+			type: api.type,
+			statistics: apiToPatchStatistics(api.statistics),
+			sectionIds: api.sections?.map((section) => section.id),
+			createdAt: api.created_at,
+			updatedAt: api.updated_at,
+			patchId: api.patch_id
+		} as PatchIdable;
+	} else {
+		throw new Error('Unreachable');
+	}
 }

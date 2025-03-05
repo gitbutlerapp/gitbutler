@@ -6,9 +6,9 @@
 	import { getOrganizationBySlug } from '$lib/organizations/organizationsPreview.svelte';
 	import { ProjectService } from '$lib/organizations/projectService';
 	import { getProjectByRepositoryId } from '$lib/organizations/projectsPreview.svelte';
-	import { AppState } from '$lib/redux/store.svelte';
 	import { UserService } from '$lib/users/userService';
 	import { getUserByLogin } from '$lib/users/usersPreview.svelte';
+	import { AppState } from '$lib/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';

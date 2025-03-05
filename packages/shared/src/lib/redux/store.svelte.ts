@@ -8,8 +8,9 @@ import { organizationsReducer } from '$lib/organizations/organizationsSlice';
 import { projectsReducer } from '$lib/organizations/projectsSlice';
 import { repositoryIdLookupsReducer } from '$lib/organizations/repositoryIdLookupsSlice';
 import { patchEventsReducer } from '$lib/patchEvents/patchEventsSlice';
+import { patchCommitsReducer } from '$lib/patches/patchCommitsSlice';
+import { patchIdablesReducer } from '$lib/patches/patchIdablesSlice';
 import { patchSectionsReducer } from '$lib/patches/patchSectionsSlice';
-import { patchesReducer } from '$lib/patches/patchesSlice';
 import { exampleReducer } from '$lib/redux/example';
 import { notificationSettingsReducer } from '$lib/settings/notificationSetttingsSlice';
 import { usersByLoginReducer, usersReducer } from '$lib/users/usersSlice';
@@ -19,66 +20,70 @@ import { configureStore, createSelector } from '@reduxjs/toolkit';
 // By specifying only the interfaces you need, IE:
 // `appState: AppPostState & AppExampleState`, it means there is less mocking
 // needed when testing.
-export interface AppExampleState {
+export type AppExampleState = {
 	readonly example: ReturnType<typeof exampleReducer>;
-}
+};
 
-export interface AppPostsState {
+export type AppPostsState = {
 	readonly posts: ReturnType<typeof postsReducer>;
-}
+};
 
-export interface AppFeedsState {
+export type AppFeedsState = {
 	readonly feeds: ReturnType<typeof feedsReducer>;
-}
+};
 
-export interface AppOrganizationsState {
+export type AppOrganizationsState = {
 	readonly organizations: ReturnType<typeof organizationsReducer>;
-}
+};
 
-export interface AppUsersState {
+export type AppUsersState = {
 	readonly users: ReturnType<typeof usersReducer>;
 	readonly usersByLogin: ReturnType<typeof usersByLoginReducer>;
-}
+};
 
-export interface AppProjectsState {
+export type AppProjectsState = {
 	readonly projects: ReturnType<typeof projectsReducer>;
-}
+};
 
-export interface AppPatchesState {
-	readonly patches: ReturnType<typeof patchesReducer>;
-}
+export type AppPatchesState = {
+	readonly patches: ReturnType<typeof patchCommitsReducer>;
+};
 
-export interface AppPatchEventsState {
+export type AppPatchEventsState = {
 	readonly patchEvents: ReturnType<typeof patchEventsReducer>;
-}
+};
 
-export interface AppBranchesState {
+export type AppBranchesState = {
 	readonly branches: ReturnType<typeof branchesReducer>;
-}
+};
 
-export interface AppPatchSectionsState {
+export type AppPatchSectionsState = {
 	readonly patchSections: ReturnType<typeof patchSectionsReducer>;
-}
+};
 
-export interface AppChatChannelsState {
+export type AppChatChannelsState = {
 	readonly chatChannels: ReturnType<typeof chatChannelsReducer>;
-}
+};
 
-export interface AppRepositoryIdLookupsState {
+export type AppRepositoryIdLookupsState = {
 	readonly repositoryIdLookups: ReturnType<typeof repositoryIdLookupsReducer>;
-}
+};
 
-export interface AppLatestBranchLookupsState {
+export type AppLatestBranchLookupsState = {
 	readonly latestBranchLookups: ReturnType<typeof latestBranchLookupsReducer>;
-}
+};
 
-export interface AppBranchReviewListingsState {
+export type AppBranchReviewListingsState = {
 	readonly branchReviewListings: ReturnType<typeof branchReviewListingsReducer>;
-}
+};
 
-export interface AppNotificationSettingsState {
+export type AppNotificationSettingsState = {
 	readonly notificationSettings: ReturnType<typeof notificationSettingsReducer>;
-}
+};
+
+export type AppPatchIdablesState = {
+	readonly patchIdables: ReturnType<typeof patchIdablesReducer>;
+};
 
 export class AppDispatch {
 	constructor(readonly dispatch: typeof AppState.prototype._store.dispatch) {}
@@ -100,7 +105,8 @@ export class AppState
 		AppRepositoryIdLookupsState,
 		AppLatestBranchLookupsState,
 		AppBranchReviewListingsState,
-		AppNotificationSettingsState
+		AppNotificationSettingsState,
+		AppPatchIdablesState
 {
 	/**
 	 * The base store.
@@ -117,7 +123,7 @@ export class AppState
 			users: usersReducer,
 			usersByLogin: usersByLoginReducer,
 			projects: projectsReducer,
-			patches: patchesReducer,
+			patches: patchCommitsReducer,
 			patchEvents: patchEventsReducer,
 			branches: branchesReducer,
 			patchSections: patchSectionsReducer,
@@ -125,7 +131,8 @@ export class AppState
 			repositoryIdLookups: repositoryIdLookupsReducer,
 			latestBranchLookups: latestBranchLookupsReducer,
 			branchReviewListings: branchReviewListingsReducer,
-			notificationSettings: notificationSettingsReducer
+			notificationSettings: notificationSettingsReducer,
+			patchIdables: patchIdablesReducer
 		}
 	});
 
@@ -195,6 +202,10 @@ export class AppState
 		[this.selectSelf],
 		(rootState) => rootState.notificationSettings
 	);
+	private readonly selectPatchIdables = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.patchIdables
+	);
 
 	readonly example = $derived(this.selectExample(this.rootState));
 	readonly posts = $derived(this.selectPosts(this.rootState));
@@ -212,6 +223,7 @@ export class AppState
 	readonly latestBranchLookups = $derived(this.selectLatestBranchLookups(this.rootState));
 	readonly branchReviewListings = $derived(this.selectBranchReviewListings(this.rootState));
 	readonly notificationSettings = $derived(this.selectNotificationSettings(this.rootState));
+	readonly patchIdables = $derived(this.selectPatchIdables(this.rootState));
 
 	constructor() {
 		$effect(() => {

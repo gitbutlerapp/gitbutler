@@ -1,7 +1,7 @@
 import { filterWithRest } from '$lib/utils/array';
 import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 import type { Branch } from '$lib/branches/types';
-import type { Patch } from '$lib/patches/types';
+import type { PatchCommit } from '$lib/patches/types';
 import type { UserMaybe } from '$lib/users/types';
 
 export type Commenter = {
@@ -51,35 +51,35 @@ export async function getContributorsWithAvatars(branch: Branch) {
 	return await getAvatarsForContributors(branch.contributors);
 }
 
-export async function getPatchContributorsWithAvatars(patch: Patch) {
+export async function getPatchContributorsWithAvatars(patch: PatchCommit) {
 	return await getAvatarsForContributors(patch.contributors);
 }
 
-export async function getPatchApproversWithAvatars(patch: Patch) {
+export async function getPatchApproversWithAvatars(patch: PatchCommit) {
 	return await getUsersWithAvatars(patch.review.signedOff);
 }
 
-export async function getPatchApproversAllWithAvatars(patch: Patch) {
+export async function getPatchApproversAllWithAvatars(patch: PatchCommit) {
 	return await getUsersWithAvatars(patch.reviewAll.signedOff);
 }
 
-export async function getPatchRejectorsWithAvatars(patch: Patch) {
+export async function getPatchRejectorsWithAvatars(patch: PatchCommit) {
 	return await getUsersWithAvatars(patch.review.rejected);
 }
 
-export async function getPatchRejectorsAllWithAvatars(patch: Patch) {
+export async function getPatchRejectorsAllWithAvatars(patch: PatchCommit) {
 	return await getUsersWithAvatars(patch.reviewAll.rejected);
 }
 
-export async function getPatchViewersWithAvatars(patch: Patch) {
+export async function getPatchViewersWithAvatars(patch: PatchCommit) {
 	return await getUsersWithAvatars(patch.review.viewed);
 }
 
-export async function getPatchReviewersAllWithAvatars(patch: Patch) {
+export async function getPatchReviewersAllWithAvatars(patch: PatchCommit) {
 	const reviewers = patch.reviewAll.signedOff.concat(patch.reviewAll.rejected);
 	return await getUsersWithAvatars(reviewers);
 }
 
-export async function getPatchViewersAllWithAvatars(patch: Patch) {
+export async function getPatchViewersAllWithAvatars(patch: PatchCommit) {
 	return await getUsersWithAvatars(patch.reviewAll.viewed);
 }

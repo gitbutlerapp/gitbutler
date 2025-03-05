@@ -1,8 +1,8 @@
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
+import { addPatchCommit, upsertPatchCommit } from '$lib/patches/patchCommitsSlice';
 import { upsertPatchSections } from '$lib/patches/patchSectionsSlice';
-import { addPatch, upsertPatch } from '$lib/patches/patchesSlice';
-import { apiToPatch, apiToSection, type ApiPatch, type Patch } from '$lib/patches/types';
+import { apiToPatch, apiToSection, type ApiPatchCommit, type Patch } from '$lib/patches/types';
 import { POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
@@ -13,7 +13,7 @@ type PatchUpdateParams = {
 	message?: string;
 };
 
-export class PatchService {
+export class PatchCommitService {
 	private readonly patchInterests = new InterestStore<{ changeId: string }>(POLLING_REGULAR);
 
 	constructor(
@@ -24,9 +24,9 @@ export class PatchService {
 	getPatchWithSectionsInterest(branchUuid: string, changeId: string): Interest {
 		return this.patchInterests
 			.findOrCreateSubscribable({ changeId }, async () => {
-				this.appDispatch.dispatch(addPatch({ status: 'loading', id: changeId }));
+				this.appDispatch.dispatch(addPatchCommit({ status: 'loading', id: changeId }));
 				try {
-					const apiPatch = await this.httpClient.get<ApiPatch>(
+					const apiPatch = await this.httpClient.get<ApiPatchCommit>(
 						`patch_stack/${branchUuid}/patch/${changeId}`
 					);
 
@@ -39,9 +39,11 @@ export class PatchService {
 						this.appDispatch.dispatch(upsertPatchSections(sections));
 					}
 
-					this.appDispatch.dispatch(upsertPatch({ status: 'found', id: changeId, value: patch }));
+					this.appDispatch.dispatch(
+						upsertPatchCommit({ status: 'found', id: changeId, value: patch })
+					);
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(upsertPatch(errorToLoadable(error, changeId)));
+					this.appDispatch.dispatch(upsertPatchCommit(errorToLoadable(error, changeId)));
 				}
 			})
 			.createInterest();
@@ -56,7 +58,7 @@ export class PatchService {
 		changeId: string,
 		params: PatchUpdateParams
 	): Promise<Patch> {
-		const apiPatch = await this.httpClient.patch<ApiPatch>(
+		const apiPatch = await this.httpClient.patch<ApiPatchCommit>(
 			`patch_stack/${branchUuid}/patch/${changeId}`,
 			{
 				body: {
@@ -68,7 +70,7 @@ export class PatchService {
 		);
 
 		const patch = apiToPatch(apiPatch);
-		this.appDispatch.dispatch(upsertPatch({ status: 'found', id: changeId, value: patch }));
+		this.appDispatch.dispatch(upsertPatchCommit({ status: 'found', id: changeId, value: patch }));
 
 		// This will always be here, but this makes the typescript
 		// compiler happy
