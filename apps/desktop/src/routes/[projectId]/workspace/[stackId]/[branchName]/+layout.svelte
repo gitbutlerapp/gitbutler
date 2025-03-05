@@ -1,7 +1,7 @@
 <script lang="ts">
 	import StackView from '$components/v3/StackView.svelte';
 	import { type Snippet } from 'svelte';
-	import type { PageData } from '../$types';
+	import type { PageData } from './$types';
 	import { page } from '$app/state';
 
 	const { data, children }: { data: PageData; children: Snippet } = $props();

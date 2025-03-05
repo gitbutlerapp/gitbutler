@@ -28,15 +28,15 @@
 	const base = $derived(baseBranchService.base);
 
 	const changeSelection = getContext(ChangeSelectionService);
-	const selection = $derived(changeSelection.list().current);
+	const selection = $derived(changeSelection.list());
 
 	/**
 	 * Toggles use of markdown on/off in the message editor.
 	 */
 	let markdown = persisted(true, 'useMarkdown__' + projectId);
 
-	const commitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0).current);
-	const commit = $derived(commitResult.data);
+	const commitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
+	const commit = $derived(commitResult.current.data);
 
 	const baseSha = $derived($base?.baseSha);
 	const defaultParentId = $derived(commit ? commit.id : baseSha);
@@ -63,7 +63,7 @@
 			parentId,
 			message: message,
 			stackBranchName: branchName,
-			worktreeChanges: selection.map((item) =>
+			worktreeChanges: selection.current.map((item) =>
 				item.type === 'full'
 					? {
 							pathBytes: item.pathBytes,

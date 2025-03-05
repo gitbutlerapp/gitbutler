@@ -16,10 +16,10 @@
 	const { projectId, commitKey, onClose }: Props = $props();
 
 	const [stackService] = inject(StackService);
-	const commit = $derived(stackService.commitById(projectId, commitKey).current);
+	const commitResult = $derived(stackService.commitById(projectId, commitKey));
 </script>
 
-<ReduxResult result={commit}>
+<ReduxResult result={commitResult.current}>
 	{#snippet children(commit)}
 		<div class="commit-view">
 			<div>

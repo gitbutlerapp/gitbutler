@@ -41,9 +41,9 @@
 
 	const [stackService] = inject(StackService);
 
-	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName).current);
-	const branchesResult = $derived(stackService.branches(projectId, stackId).current);
-	const commitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0).current);
+	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
+	const branchesResult = $derived(stackService.branches(projectId, stackId));
+	const commitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
 
 	const forge = getForge();
 	const forgeBranch = $derived($forge?.branch(branchName));
@@ -68,7 +68,9 @@
 	}
 </script>
 
-<ReduxResult result={combineResults(branchResult, branchesResult, commitResult)}>
+<ReduxResult
+	result={combineResults(branchResult.current, branchesResult.current, commitResult.current)}
+>
 	{#snippet children([branch, branches, commit])}
 		{@const parentIsPushed = !!parent}
 		{@const hasParent = !!parent}

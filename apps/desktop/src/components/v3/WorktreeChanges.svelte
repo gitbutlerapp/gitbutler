@@ -22,12 +22,12 @@
 	const worktreeService = getContext(WorktreeService);
 	createCommitStore(undefined);
 
-	const result = $derived(worktreeService.getChanges(projectId).current);
+	const changesResult = $derived(worktreeService.getChanges(projectId));
 	const disabled = $derived(!!isCommitPath());
 
 	/** Clear any selected changes that no longer exist. */
 	$effect(() => {
-		const affectedPaths = result.data?.map((c) => c.path);
+		const affectedPaths = changesResult.current.data?.map((c) => c.path);
 		changeSelection.retain(affectedPaths);
 	});
 </script>
@@ -37,7 +37,7 @@
 	<Button kind="ghost" icon="sidebar-unfold" />
 </div>
 
-<ReduxResult {result}>
+<ReduxResult result={changesResult.current}>
 	{#snippet children(changes)}
 		{#if changes.length > 0}
 			<div class="uncommitted-changes">
