@@ -67,8 +67,6 @@
 	let editorDiv: HTMLDivElement | undefined = $state();
 	const editor = $derived(composer?.getEditor());
 
-	let onChangeRef = $state<ReturnType<typeof OnChangePlugin>>();
-
 	// TODO: Change this plugin in favor of a toggle button.
 	const markdownTransitionPlugin = new MarkdownTransitionPlugin(markdown);
 
