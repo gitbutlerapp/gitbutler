@@ -188,6 +188,7 @@ export type ApiPatchCommit = ApiBasePatch & {
 	sections?: ApiSection[];
 	created_at: string;
 	updated_at: string;
+	branch_uuid: string;
 };
 
 export type ApiPatchIdable = ApiBasePatch & {
@@ -223,6 +224,7 @@ export type PatchCommit = BasePatch & {
 	sectionIds?: number[];
 	createdAt: string;
 	updatedAt: string;
+	branchUuid: string;
 };
 
 export type PatchIdable = BasePatch & {
@@ -242,7 +244,21 @@ export function getPatchStatus(
 }
 
 export type LoadablePatchCommit = LoadableData<PatchCommit, PatchCommit['changeId']>;
-export type LoadablePatchIdable = LoadableData<PatchIdable, PatchIdable['patchId']>;
+export type LoadablePatchIdable = LoadableData<PatchIdable, string>;
+
+export function patchIdableId({
+	branchUuid,
+	changeId,
+	oldVersion,
+	newVersion
+}: {
+	branchUuid: string;
+	changeId: string;
+	oldVersion?: number;
+	newVersion: number;
+}) {
+	return `${branchUuid}|${changeId}|${oldVersion}|${newVersion}`;
+}
 
 export function apiToPatch(api: ApiPatchCommit): PatchCommit;
 export function apiToPatch(api: ApiPatchIdable): PatchIdable;
@@ -264,7 +280,8 @@ export function apiToPatch(api: ApiPatch): Patch {
 			reviewStatus: api.review_status,
 			sectionIds: api.sections?.map((section) => section.id),
 			createdAt: api.created_at,
-			updatedAt: api.updated_at
+			updatedAt: api.updated_at,
+			branchUuid: api.branch_uuid
 		};
 	} else if (api.type === 'PatchIdable') {
 		return {

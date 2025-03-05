@@ -90,7 +90,7 @@
 
 	const patchSections = $derived(
 		map(branchUuid?.current, (branchUuid) => {
-			return getPatchSections(appState, patchCommitService, branchUuid, data.changeId);
+			return getPatchSections(branchUuid, data.changeId);
 		})
 	);
 
