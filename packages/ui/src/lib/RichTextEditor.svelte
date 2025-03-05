@@ -4,8 +4,7 @@
 	import { standardTheme } from '$lib/richText/config/theme';
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
 	import OnChangePlugin from '$lib/richText/plugins/onChange.svelte';
-	import OnKeyDownPlugin from '$lib/richText/plugins/onKeyDown.svelte';
-	import { $getRoot as getRoot } from 'lexical';
+	import { COMMAND_PRIORITY_CRITICAL, $getRoot as getRoot, KEY_DOWN_COMMAND } from 'lexical';
 	import { type Snippet } from 'svelte';
 	import {
 		Composer,
@@ -37,7 +36,7 @@
 		plugins?: Snippet;
 		placeholder?: string;
 		onChange?: (text: string) => void;
-		onKeyDown?: (event: KeyboardEvent) => void;
+		onKeyDown?: (event: KeyboardEvent | null) => boolean;
 	};
 
 	const {
@@ -80,6 +79,18 @@
 		markdownTransitionPlugin.setMarkdown(markdown);
 	});
 
+	$effect(() => {
+		if (editor) {
+			return editor.registerCommand<KeyboardEvent | null>(
+				KEY_DOWN_COMMAND,
+				(e) => {
+					return onKeyDown?.(e) ?? false;
+				},
+				COMMAND_PRIORITY_CRITICAL
+			);
+		}
+	});
+
 	export function getPlaintext(): Promise<string | undefined> {
 		return new Promise((resolve) => {
 			editor?.read(() => {
@@ -116,8 +127,7 @@
 		</div>
 
 		<EmojiPlugin />
-		<OnChangePlugin bind:this={onChangeRef} {onChange} />
-		<OnKeyDownPlugin {onKeyDown} />
+		<OnChangePlugin {onChange} />
 
 		{#if markdown}
 			<AutoFocusPlugin />
@@ -132,11 +142,12 @@
 			<MarkdownShortcutPlugin transformers={ALL_TRANSFORMERS} />
 			<RichTextPlugin />
 			<SharedHistoryPlugin />
-			{#if plugins}
-				{@render plugins()}
-			{/if}
 		{:else}
 			<PlainTextPlugin />
+		{/if}
+
+		{#if plugins}
+			{@render plugins()}
 		{/if}
 	</div>
 </Composer>
