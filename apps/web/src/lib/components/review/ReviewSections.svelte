@@ -78,8 +78,6 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		align-items: flex-start;
-		align-self: stretch;
 	}
 
 	.review-sections-statistics-wrap {

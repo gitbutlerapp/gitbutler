@@ -43,7 +43,7 @@
 	.patch-status {
 		display: flex;
 		padding: 14px 16px;
-		padding-left: 10px;
+		padding-left: 12px;
 		gap: 12px;
 
 		border-left: 4px solid var(--clr-theme-succ-element);

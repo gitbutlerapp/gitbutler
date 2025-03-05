@@ -29,7 +29,7 @@
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { goto } from '$app/navigation';
 
-	const DESCRIPTION_PLACE_HOLDER = '_No commit message description provided_';
+	const DESCRIPTION_PLACE_HOLDER = 'No commit message description provided';
 
 	interface Props {
 		data: ProjectReviewCommitParameters;
@@ -191,8 +191,10 @@
 <svelte:window onkeydown={handleKeyDown} onscroll={handleScroll} onresize={handleResize} />
 
 <div class="review-page" class:column={chatMinimizer.value}>
-	<Loading loadable={combine([patch?.current, repositoryId.current, branchUuid?.current])}>
-		{#snippet children([patch, repositoryId, branchUuid])}
+	<Loading
+		loadable={combine([patch?.current, repositoryId.current, branchUuid?.current, branch?.current])}
+	>
+		{#snippet children([patch, repositoryId, branchUuid, branch])}
 			<div class="review-main" class:expand={chatMinimizer.value}>
 				<Navigation />
 
@@ -203,13 +205,26 @@
 					class:stucked={headerIsStuck}
 					class:bottom-line={headerIsStuck && !metaSectionHidden}
 				>
-					<div class="review-main__title-wrapper">
+					<div class="review-main__title">
 						{#if headerIsStuck}
 							<div class="scroll-to-top">
 								<Button kind="outline" icon="arrow-top" onclick={scrollToTop} />
 							</div>
 						{/if}
-						<h3 class="text-18 text-bold review-main-title">{patch.title}</h3>
+						<div class="review-main__title-wrapper">
+							<p class="text-12 review-main__title-wrapper__branch">
+								<span class="">Branch:</span>
+								<a
+									class="truncate"
+									href={routes.projectReviewBranchPath({
+										ownerSlug: data.ownerSlug,
+										projectSlug: data.projectSlug,
+										branchId: data.branchId
+									})}>{branch.title}</a
+								>
+							</p>
+							<h3 class="text-18 text-bold review-main-title">{patch.title}</h3>
+						</div>
 					</div>
 				</div>
 
@@ -225,9 +240,18 @@
 
 				<div class="review-main__meta" bind:this={metaSectionEl}>
 					<ReviewInfo projectId={repositoryId} {patch} />
-					<p class="review-main-description">
-						<Markdown content={patch.description?.trim() || DESCRIPTION_PLACE_HOLDER} />
-					</p>
+					<div class="review-main-description">
+						<span class="text-12 review-main-description__caption">Commit message:</span>
+						<p class="review-main-description__markdown">
+							{#if patch.description?.trim()}
+								<Markdown content={patch.description} />
+							{:else}
+								<span class="review-main-description__placeholder">
+									{DESCRIPTION_PLACE_HOLDER}</span
+								>
+							{/if}
+						</p>
+					</div>
 				</div>
 
 				<ReviewSections
@@ -271,16 +295,20 @@
 
 <style lang="postcss">
 	.review-page {
-		display: flex;
+		display: grid;
+		grid-template-columns: 9fr 7fr;
+		gap: var(--layout-col-gap);
 		width: 100%;
 		flex-grow: 1;
 		gap: 20px;
 
 		&.column {
+			display: flex;
 			flex-direction: column;
 		}
 
 		@media (--tablet-viewport) {
+			display: flex;
 			flex-direction: column;
 		}
 	}
@@ -288,9 +316,8 @@
 	.review-main {
 		display: flex;
 		flex-direction: column;
-		width: 100%;
-		max-width: 50%;
 		flex-shrink: 0;
+		container-type: inline-size;
 
 		&.expand {
 			max-width: 100%;
@@ -345,10 +372,31 @@
 		}
 	}
 
+	.review-main__title {
+		display: flex;
+		align-items: flex-end;
+		gap: 16px;
+	}
+
 	.review-main__title-wrapper {
 		display: flex;
-		align-items: center;
-		gap: 16px;
+		flex-direction: column;
+		gap: 6px;
+		overflow: hidden;
+	}
+
+	.review-main__title-wrapper__branch {
+		display: flex;
+		gap: 6px;
+
+		& span {
+			color: var(--clr-text-2);
+			opacity: 0.8;
+		}
+
+		& a:hover {
+			text-decoration: underline;
+		}
 	}
 
 	.review-main-title {
@@ -357,13 +405,9 @@
 
 	.review-main__patch-navigator {
 		display: flex;
-		gap: 6px;
+		flex-wrap: wrap;
+		gap: 16px 20px;
 		padding-bottom: 24px;
-
-		@media (--tablet-viewport) {
-			flex-wrap: wrap;
-			gap: 12px;
-		}
 	}
 
 	.review-main__meta {
@@ -374,6 +418,9 @@
 	}
 
 	.review-main-description {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
 		color: var(--text-1);
 		font-size: 13px;
 		font-style: normal;
@@ -385,6 +432,15 @@
 		border: 1px solid var(--clr-border-2);
 	}
 
+	.review-main-description__placeholder {
+		color: var(--clr-text-3);
+		font-style: italic;
+	}
+
+	.review-main-description__caption {
+		color: var(--clr-text-2);
+	}
+
 	.review-chat {
 		--top-nav-offset: 0;
 		--bottom-margin: 44px;
@@ -392,8 +448,6 @@
 		display: flex;
 		position: sticky;
 		top: 24px;
-		width: 100%;
-		max-width: 50%;
 		height: calc(100vh - var(--bottom-margin));
 
 		&.minimized {

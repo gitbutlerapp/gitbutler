@@ -116,10 +116,10 @@
 		max-width: calc(1440px + var(--layout-side-paddings) * 2);
 		padding: 24px var(--layout-side-paddings);
 		margin: 0 auto;
+		container-type: inline-size;
 
-		@media (--tablet-viewport) {
+		@media (--desktop-small-viewport) {
 			--layout-side-paddings: 40px;
-			padding: 24px var(--layout-side-paddings);
 		}
 
 		@media (--mobile-viewport) {

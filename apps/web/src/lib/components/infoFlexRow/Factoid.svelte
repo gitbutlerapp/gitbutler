@@ -33,6 +33,7 @@
 
 	.flexrow-item__content {
 		display: flex;
+		gap: 8px;
 	}
 
 	/* Show placeholder if empty */

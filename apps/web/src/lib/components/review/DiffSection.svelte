@@ -135,7 +135,7 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 8px;
+		gap: 14px;
 		padding: 40px 24px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
