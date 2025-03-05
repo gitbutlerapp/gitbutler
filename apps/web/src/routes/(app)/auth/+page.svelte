@@ -7,8 +7,6 @@
 	const authService = getContext(AuthService);
 	const token = $derived(authService.tokenReadable);
 
-	$inspect('app/auth.$token', $token);
-
 	if ($token) {
 		// goto('/');
 		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`;
