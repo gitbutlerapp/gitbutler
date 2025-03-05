@@ -72,6 +72,7 @@
 		return () => {
 			// Cleanup once the change ID changes
 			richText.reset();
+			suggestions.reset();
 		};
 	});
 
@@ -88,21 +89,21 @@
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {
-		if (event.key === 'Enter' && !event.shiftKey && richText.suggestions === undefined) {
+		if (event.key === 'Enter' && !event.shiftKey && suggestions.suggestions === undefined) {
 			event.preventDefault();
 			event.stopPropagation();
 			handleSendMessage();
 			return;
 		}
 
-		if (event.key === 'Escape' && !richText.suggestions) {
+		if (event.key === 'Escape' && !suggestions.suggestions) {
 			// Clear diff selection on escape only if the mention suggestions
 			// are not open
 			clearDiffSelection();
 			return;
 		}
 
-		if (event.key === 'Backspace' && !richText.suggestions && !messageHandler.message) {
+		if (event.key === 'Backspace' && !suggestions.suggestions && !messageHandler.message) {
 			// Clear diff selection on delete only if the mention suggestions
 			// are not open and the input is empty
 			clearDiffSelection();
@@ -176,10 +177,10 @@
 {#if isUserLoggedIn}
 	<div class="chat-input">
 		<MentionSuggestions
-			bind:this={richText.mentionSuggestions}
+			bind:this={suggestions.mentionSuggestions}
 			isLoading={suggestions.isLoading}
-			suggestions={richText.suggestions}
-			selectSuggestion={richText.selectSuggestion}
+			suggestions={suggestions.suggestions}
+			selectSuggestion={suggestions.selectSuggestion}
 		/>
 		<div class="text-input chat-input__content-container">
 			{#if diffSelection}
