@@ -68,6 +68,18 @@ export function stackPath(projectId: string, stackId: string) {
 	return `/${projectId}/workspace/${stackId}`;
 }
 
+export function toggleBoolQueryParam(param: string) {
+	const url = new URL(page.url);
+	const searchParams = url.searchParams;
+
+	if (searchParams.has(param)) {
+		url.searchParams.delete(param);
+	} else {
+		url.searchParams.set(param, 'true');
+	}
+	return url.toString();
+}
+
 export function createCommitPath(
 	projectId: string,
 	stackId: string,

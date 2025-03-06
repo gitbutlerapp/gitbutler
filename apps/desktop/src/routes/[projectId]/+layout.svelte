@@ -33,8 +33,10 @@
 	import { Project } from '$lib/project/project';
 	import { projectCloudSync } from '$lib/project/projectCloudSync.svelte';
 	import { ProjectService } from '$lib/project/projectService';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
 	import { debounce } from '$lib/utils/debounce';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { getContext } from '@gitbutler/shared/context';
@@ -106,6 +108,10 @@
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
 		setContext(StackPublishingService, data.stackPublishingService);
 	});
+
+	const worktreeService = getContext(WorktreeService);
+	const idSelection = new IdSelection(worktreeService);
+	setContext(IdSelection, idSelection);
 
 	let intervalId: any;
 

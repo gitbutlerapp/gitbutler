@@ -1,11 +1,14 @@
 <script lang="ts">
+	import StackTabMenu from './StackTabMenu.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import StackTab from '$components/v3/StackTab.svelte';
 	import StackTabNew from '$components/v3/StackTabNew.svelte';
+	import { toggleBoolQueryParam, stackPath } from '$lib/routes/routes.svelte';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { stacksToTabs } from '$lib/tabs/mapping';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 
 	type Props = {
 		projectId: string;
@@ -15,8 +18,9 @@
 	};
 	let { projectId, selectedId, width = $bindable() }: Props = $props();
 
-	const stackService = getContext(StackService);
+	const [stackService, idSelection] = inject(StackService, IdSelection);
 	const result = $derived(stackService.stacks(projectId));
+	const selection = $derived(idSelection.values());
 
 	let tabs = $state<HTMLDivElement>();
 	let scroller = $state<HTMLDivElement>();
@@ -47,14 +51,31 @@
 <div class="tabs" bind:this={tabs}>
 	<div class="inner">
 		<div class="scroller" bind:this={scroller} class:scrolled {onscroll}>
+			{#if selection.length > 0}
+				<StackTab
+					href={toggleBoolQueryParam('preview')}
+					name="Preview"
+					first
+					selected={page.url.searchParams.has('preview')}
+				/>
+			{/if}
 			<ReduxResult result={result.current}>
 				{#snippet children(result)}
 					{#if result.length > 0}
-						{@const tabs = stacksToTabs(result)}
-						{#each tabs as tab, i (tab.name)}
-							{@const last = i === tabs.length - 1}
+						{#each result as tab, i (tab.branchNames[0])}
+							{@const last = i === result.length - 1}
 							{@const selected = tab.id === selectedId}
-							<StackTab {projectId} {tab} {last} {selected} />
+							<StackTab
+								name={tab.branchNames[0]!}
+								href={stackPath(projectId, tab.id)}
+								anchors={tab.branchNames.slice(1)}
+								{last}
+								{selected}
+							>
+								{#snippet menu()}
+									<StackTabMenu />
+								{/snippet}
+							</StackTab>
 						{/each}
 					{:else}
 						no stacks
