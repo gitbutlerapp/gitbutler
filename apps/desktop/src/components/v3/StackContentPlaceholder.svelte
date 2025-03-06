@@ -1,9 +1,8 @@
 <script lang="ts">
-	import EmptyStack from '$lib/assets/illustrations/empty-stack-placeholder.svg?raw';
+	import DependentBranchTipSVG from '$lib/assets/illustrations/dependent-branch-tip.svg?raw';
+	import IndependentBranchTipSVG from '$lib/assets/illustrations/independent-branch-tip.svg?raw';
+	import NewBranchSVG from '$lib/assets/illustrations/new-branch.svg?raw';
 	import SelectACommitSVG from '$lib/assets/illustrations/select-a-commit-preview.svg?raw';
-	import CommitAndPushSVG from '$lib/assets/illustrations/tip-commit-and-push.svg?raw';
-	import ManageCommitsSVG from '$lib/assets/illustrations/tip-manage-commits.svg?raw';
-	import WhatIsAStackSVG from '$lib/assets/illustrations/tip-what-is-a-stack.svg?raw';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { slide } from 'svelte/transition';
@@ -15,62 +14,85 @@
 	let { isNewStack }: Props = $props();
 
 	type tipType = {
-		placeholder: boolean;
-		svg: string;
 		title: string;
-		body: string;
+		body?: string;
+		svg?: string;
+		linkLabel?: string;
+		subsections?: Record<string, { title: string; body: string }>;
 	};
 
-	const tipsContent = {
-		newStack: {
-			placeholder: false,
-			svg: EmptyStack,
-			title: 'This is a new stack',
-			body: `
-				Stack is a workflow for building branches sequentially to break
-				features into smaller parts. You can also choose a regular 
-				single-branch flow.
-			`
+	const newStackTip: tipType = {
+		svg: NewBranchSVG,
+		title: 'This is a new branch',
+		body: 'You can commit your changes here. Additional branches can be stacked on top of this one or applied independently to the workspace.'
+	};
+
+	const dragndropTipSubsection = {
+		amend: {
+			title: 'Amend',
+			body: 'Amend commits by dragging and dropping files or specific changes, keeping your history clean and organized.'
 		},
-		tip1: {
-			placeholder: true,
-			svg: WhatIsAStackSVG,
-			title: 'What is a stack',
-			body: `
-				Stack is a workflow where branches are built sequentially,
-				breaking large features into smaller parts. Each branch depends
-				on the previous one. You can also choose a single-branch flow.
-			`
+		reorder: {
+			title: 'Reorder',
+			body: 'Reorder commits by dragging and dropping them. This works even across stacked branches, giving you full control over the commit sequence.'
 		},
-		tip2: {
-			placeholder: true,
-			svg: CommitAndPushSVG,
-			title: 'Commit and push',
-			body: `
-				File changes can be committed in any stack unless already
-				committed in another, as they are dependent on a branch.
-				When the dependent branch is selected, you can commit
-				“locked” files. All branches in a stack are pushed together.
-			`
+		squash: {
+			title: 'Squash',
+			body: 'Squash commits into others simply by dragging and dropping them. This helps keep your history clean by combining multiple changes into a single commit.'
 		},
-		tip3: {
-			placeholder: true,
-			svg: ManageCommitsSVG,
-			title: 'Manage commits',
-			body: `
-				File changes can be committed in any stack unless already
-				committed in another, as they are dependent on a branch.
-				When the dependent branch is selected, you can commit
-				“locked” files. All branches in a stack are pushed together.
-			`
+		move: {
+			title: 'Move',
+			body: 'Reassign a commit to a different branch by dragging it over to its corresponding tab. This streamlines your workflow by moving commits across independent branches.'
 		}
 	};
 
-	let selectedTipKey = $state<keyof typeof tipsContent | undefined>();
+	// WORK IN PROGRESS: Add illustrations for the subsections
+	// when we decide how V3 layout will look like
+
+	const tipsContent = {
+		tip1: {
+			svg: DependentBranchTipSVG,
+			linkLabel: 'Dependent branches',
+			title: 'Dependent (stacked) branches',
+			body: 'GitButler lets you create a stack of branches where each branch depends on the previous one. This is useful when you have interdependent changesets that should be reviewed and merged separately (and sequentially).'
+		} as tipType,
+		tip2: {
+			svg: IndependentBranchTipSVG,
+			linkLabel: 'Independent branches',
+			title: 'Independent (concurrent) branches',
+			body: 'GitButler lets you apply multiple independent branches (or stacks) to the workspace at the same time. This is useful when you have separate changesets that need to be reviewed and merged independently.'
+		} as tipType,
+		tip3: {
+			linkLabel: 'Drag & Drop Commits',
+			title: 'Drag & Drop Commit Management',
+			subsections: dragndropTipSubsection
+		} as tipType
+	};
+
+	let selectedTipKey = $state<keyof typeof tipsContent | undefined>('tip3');
+	let selectedDragndropTip = $state<keyof typeof dragndropTipSubsection>('amend');
 </script>
 
-{#snippet tipButton(key: keyof typeof tipsContent)}
-	{@const data = tipsContent[key]}
+{#snippet subSectionMenu({
+	key,
+	label
+}: {
+	key: keyof typeof dragndropTipSubsection;
+	label: string;
+})}
+	{@const selected = selectedDragndropTip === key}
+	<button
+		type="button"
+		class="text-13 text-semibold text-body tip-button"
+		class:selected
+		onclick={() => (selectedDragndropTip = key)}
+	>
+		{label}
+	</button>
+{/snippet}
+
+{#snippet tipButton(props: { key: keyof typeof tipsContent; label: string })}
+	{@const { key, label } = props}
 	{@const selected = selectedTipKey === key}
 	<button
 		type="button"
@@ -81,12 +103,13 @@
 		{#if selected}
 			<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 		{/if}
-		{data.title}
+		{label}
 	</button>
 {/snippet}
 
-{#snippet tipSection(data: tipType)}
-	<div class="tip-section" class:is-placeholder={!data.placeholder}>
+{#snippet tipSection(props: { data: tipType; placeholder?: boolean })}
+	{@const { data, placeholder } = props}
+	<div class="tip-section" class:is-placeholder={placeholder}>
 		<div class="tip-section__content-wrap">
 			<div class="tip-section__illustration">
 				{@html data.svg}
@@ -95,9 +118,29 @@
 			<h3 class="text-18 text-semibold tip-section__title">
 				{data.title}
 			</h3>
-			<p class="text-13 text-body tip-section__body">
-				{data.body}
-			</p>
+
+			{#if data.body}
+				<p class="text-13 text-body tip-section__body">
+					{data.body}
+				</p>
+			{/if}
+
+			{#if data.subsections}
+				<div class="tip-section__subsection">
+					{#each Object.entries(data.subsections) as [key, subsection]}
+						{@render subSectionMenu({
+							key: key as keyof typeof dragndropTipSubsection,
+							label: subsection.title
+						})}
+					{/each}
+
+					{#if data.subsections[selectedDragndropTip]}
+						<p class="text-16 text-semibold">
+							{data.subsections?.[selectedDragndropTip]?.body}
+						</p>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</div>
 {/snippet}
@@ -113,7 +156,10 @@
 					<span class="text-13 select-commit-state__caption">Select a commit to preview</span>
 				</div>
 			{:else}
-				{@render tipSection(tipsContent.newStack)}
+				{@render tipSection({
+					data: newStackTip,
+					placeholder: true
+				})}
 			{/if}
 		{:else}
 			<Button
@@ -123,16 +169,28 @@
 				icon="cross"
 				onclick={() => (selectedTipKey = undefined)}
 			></Button>
-			{@render tipSection(tipsContent[selectedTipKey])}
+			{@render tipSection({
+				data: tipsContent[selectedTipKey]!,
+				placeholder: false
+			})}
 		{/if}
 	</div>
 	<div class="stack-placeholder__footer">
 		<div class="stack-placeholder__footer__group">
 			<h3 class="text-16 text-semibold stack-placeholder__footer__group-title">Tips</h3>
 			<div class="stack-placeholder__footer__group-list">
-				{@render tipButton('tip1')}
-				{@render tipButton('tip2')}
-				{@render tipButton('tip3')}
+				{@render tipButton({
+					key: 'tip1',
+					label: 'Dependent branches'
+				})}
+				{@render tipButton({
+					key: 'tip2',
+					label: 'Independent branches'
+				})}
+				{@render tipButton({
+					key: 'tip3',
+					label: 'Drag & Drop Commits'
+				})}
 			</div>
 		</div>
 		<div class="stack-placeholder__footer__group">
