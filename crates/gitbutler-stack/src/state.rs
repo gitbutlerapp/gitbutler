@@ -373,9 +373,12 @@ fn alter_parentage(
     let decoded = repository.find_commit(to_rewrite)?;
     let decoded = decoded.decode()?;
     let mut message = CommitMessage::new(decoded.clone());
-    message.trailers.push(("Base-Commit".into(), "".into()));
+    message
+        .trailers
+        .push(("Base-Commit".into(), to_rewrite.to_hex().to_string().into()));
     let mut to_rewrite: gix::objs::Commit = decoded.into();
     to_rewrite.parents = new_parents.into();
+    to_rewrite.message = message.to_bstring();
     to_rewrite.extra_headers.retain(|entry| entry.0 != "gpgsig");
     to_rewrite.extra_headers.push((
         LAST_PUSHED_BASE_VERSION_HEADER.into(),
