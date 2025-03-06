@@ -1,10 +1,10 @@
 <script lang="ts" module>
-	import type { MentionNodeAttrs } from '@gitbutler/ui/old_RichTextEditor.svelte';
+	import type { MentionSuggestion } from '@gitbutler/ui/richText/plugins/Mention.svelte';
 
 	export interface Props {
 		isLoading: boolean;
-		suggestions: MentionNodeAttrs[] | undefined;
-		selectSuggestion?: (suggestion: MentionNodeAttrs) => void;
+		suggestions: MentionSuggestion[] | undefined;
+		selectSuggestion?: (suggestion: MentionSuggestion) => void;
 	}
 </script>
 
@@ -71,7 +71,7 @@
 	<!-- Empty div needed for the position calculation -->
 	<div></div>
 
-	{#if suggestions}
+	{#if suggestions !== undefined}
 		<div
 			use:setPosition={{ targetEl, position: 'top', align: 'center', gap: 2 }}
 			transition:flyScale

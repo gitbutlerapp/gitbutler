@@ -1,4 +1,5 @@
 import { EmojiNode } from '../node/emoji';
+import { MentionNode } from '../node/mention';
 import {
 	HeadingNode,
 	QuoteNode,
@@ -47,7 +48,8 @@ export function standardConfig(args: {
 			HashtagNode,
 			CodeHighlightNode,
 			EmojiNode,
-			KeywordNode
+			KeywordNode,
+			MentionNode
 		]
 	};
 }

@@ -1,18 +1,11 @@
 <script lang="ts">
+	import MarkdownTransitionPlugin from './richText/plugins/markdownTransition.svelte';
 	import { standardConfig } from '$lib/richText/config/config';
 	import { standardTheme } from '$lib/richText/config/theme';
-	import { emojiTextNodeTransform } from '$lib/richText/plugins/emoji';
-	import {
-		$convertToMarkdownString as convertToMarkdownString,
-		$convertFromMarkdownString as convertFromMarkdownString
-	} from '@lexical/markdown';
-	import {
-		$createParagraphNode as createParagraphNode,
-		$createTextNode as createTextNode,
-		$getRoot as getRoot,
-		TextNode
-	} from 'lexical';
-	import { onMount, type Snippet } from 'svelte';
+	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
+	import OnChangePlugin from '$lib/richText/plugins/onChange.svelte';
+	import { COMMAND_PRIORITY_CRITICAL, $getRoot as getRoot, KEY_DOWN_COMMAND } from 'lexical';
+	import { type Snippet } from 'svelte';
 	import {
 		Composer,
 		ContentEditable,
@@ -42,15 +35,20 @@
 		toolBar?: Snippet;
 		plugins?: Snippet;
 		placeholder?: string;
+		onChange?: (text: string) => void;
+		onKeyDown?: (event: KeyboardEvent | null) => boolean;
 	};
 
-	const { namespace, markdown, onError, toolBar, plugins, placeholder }: Props = $props();
-
-	/**
-	 * Instance of the lexical composer, used for manipulating the contents of the editor
-	 * programatically.
-	 */
-	let composer = $state<ReturnType<typeof Composer>>();
+	const {
+		namespace,
+		markdown,
+		onError,
+		toolBar,
+		plugins,
+		placeholder,
+		onChange,
+		onKeyDown
+	}: Props = $props();
 
 	/** Standard configuration for our commit message editor. */
 	const initialConfig = standardConfig({
@@ -59,43 +57,53 @@
 		onError
 	});
 
-	let editorDiv: HTMLDivElement | undefined = $state();
+	/**
+	 * Instance of the lexical composer, used for manipulating the contents of the editor
+	 * programatically.
+	 */
+	let composer = $state<ReturnType<typeof Composer>>();
 
-	onMount(() => {
-		const unlistenEmoji = composer
-			?.getEditor()
-			.registerNodeTransform(TextNode, emojiTextNodeTransform);
-		return () => {
-			unlistenEmoji?.();
-		};
-	});
+	let editorDiv: HTMLDivElement | undefined = $state();
+	const editor = $derived(composer?.getEditor());
+
+	// TODO: Change this plugin in favor of a toggle button.
+	const markdownTransitionPlugin = new MarkdownTransitionPlugin(markdown);
 
 	$effect(() => {
-		const editor = composer?.getEditor();
-		if (markdown) {
-			editor?.update(() => {
-				convertFromMarkdownString(getRoot().getTextContent(), ALL_TRANSFORMERS);
-			});
-		} else {
-			getPlaintext((text) => {
-				editor?.update(() => {
-					const root = getRoot();
-					root.clear();
-					const paragraph = createParagraphNode();
-					paragraph.append(createTextNode(text));
-					root.append(paragraph);
-				});
-			});
+		if (editor) {
+			markdownTransitionPlugin.setEditor(editor);
 		}
 	});
 
-	export function getPlaintext(callback: (text: string) => void) {
-		const editor = composer?.getEditor();
-		if (!editor) return;
-		const state = editor.getEditorState();
-		state.read(() => {
-			const markdown = convertToMarkdownString(ALL_TRANSFORMERS);
-			callback(markdown);
+	$effect(() => {
+		markdownTransitionPlugin.setMarkdown(markdown);
+	});
+
+	$effect(() => {
+		if (editor) {
+			return editor.registerCommand<KeyboardEvent | null>(
+				KEY_DOWN_COMMAND,
+				(e) => {
+					return onKeyDown?.(e) ?? false;
+				},
+				COMMAND_PRIORITY_CRITICAL
+			);
+		}
+	});
+
+	export function getPlaintext(): Promise<string | undefined> {
+		return new Promise((resolve) => {
+			editor?.read(() => {
+				const text = getRoot().getTextContent();
+				resolve(text);
+			});
+		});
+	}
+
+	export function clear() {
+		editor?.update(() => {
+			const root = getRoot();
+			root.clear();
 		});
 	}
 </script>
@@ -118,6 +126,9 @@
 			</div>
 		</div>
 
+		<EmojiPlugin />
+		<OnChangePlugin {onChange} />
+
 		{#if markdown}
 			<AutoFocusPlugin />
 			<AutoLinkPlugin />
@@ -131,11 +142,12 @@
 			<MarkdownShortcutPlugin transformers={ALL_TRANSFORMERS} />
 			<RichTextPlugin />
 			<SharedHistoryPlugin />
-			{#if plugins}
-				{@render plugins()}
-			{/if}
 		{:else}
 			<PlainTextPlugin />
+		{/if}
+
+		{#if plugins}
+			{@render plugins()}
 		{/if}
 	</div>
 </Composer>

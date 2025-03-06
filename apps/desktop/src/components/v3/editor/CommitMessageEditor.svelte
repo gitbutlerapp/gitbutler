@@ -12,8 +12,8 @@
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
 
-	export function getPlaintext(callback: (text: string) => void) {
-		composer?.getPlaintext(callback);
+	export async function getPlaintext(): Promise<string | undefined> {
+		return composer?.getPlaintext();
 	}
 </script>
 

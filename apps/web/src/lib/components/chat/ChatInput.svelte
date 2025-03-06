@@ -16,7 +16,8 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
-	import RichTextEditor, { type EditorInstance } from '@gitbutler/ui/old_RichTextEditor.svelte';
+	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
+	import MentionsPlugin from '@gitbutler/ui/richText/plugins/Mention.svelte';
 	import { env } from '$env/dynamic/public';
 
 	interface Props {
@@ -51,19 +52,16 @@
 	const chatParticipants = $derived(
 		getChatChannelParticipants(appState, chatChannelService, projectId, changeId)
 	);
-	const suggestions = $derived(
-		new SuggestionsHandler(newUserService, chatParticipants.current, $user)
-	);
-
-	const messageHandler = $derived(
-		new MessageHandler(chatChannelService, projectId, branchId, changeId)
-	);
 
 	let isSendingMessage = $state(false);
 	let isExecuting = $state(false);
 
-	// Rich text editor
 	const richText = new RichText();
+	const messageHandler = new MessageHandler();
+	const suggestions = new SuggestionsHandler();
+
+	$effect(() => messageHandler.init(chatChannelService, projectId, branchId, changeId));
+	$effect(() => suggestions.init(newUserService, chatParticipants.current, $user));
 	$effect(() => {
 		if (changeId) {
 			// Just here to track the changeId
@@ -71,7 +69,8 @@
 
 		return () => {
 			// Cleanup once the change ID changes
-			richText.reset();
+			richText.clearEditor();
+			suggestions.reset();
 		};
 	});
 
@@ -81,40 +80,34 @@
 		try {
 			await messageHandler.send({ issue, diffSelection });
 		} finally {
-			const editor = richText.richTextEditor?.getEditor();
-			editor?.commands.clearContent(true);
+			richText.clearEditor();
 			isSendingMessage = false;
 			clearDiffSelection();
 		}
 	}
 
-	function handleKeyDown(event: KeyboardEvent): boolean {
-		if (event.key === 'Enter' && !event.shiftKey && richText.suggestions === undefined) {
+	function handleKeyDown(event: KeyboardEvent | null): boolean {
+		if (event === null) return false;
+
+		if (suggestions.suggestions !== undefined) {
+			return suggestions.onSuggestionKeyDown(event);
+		}
+
+		if (event.key === 'Enter' && !event.shiftKey && suggestions.suggestions === undefined) {
 			event.preventDefault();
 			event.stopPropagation();
 			handleSendMessage();
 			return true;
 		}
 
-		const editor = richText.richTextEditor?.getEditor();
-		if (event.key === 'Enter' && event.shiftKey && editor) {
-			editor.commands.first(({ commands }) => [
-				() => commands.newlineInCode(),
-				() => commands.createParagraphNear(),
-				() => commands.liftEmptyBlock(),
-				() => commands.splitBlock()
-			]);
-			return true;
-		}
-
-		if (event.key === 'Escape' && !richText.suggestions) {
+		if (event.key === 'Escape') {
 			// Clear diff selection on escape only if the mention suggestions
 			// are not open
 			clearDiffSelection();
 			return false;
 		}
 
-		if (event.key === 'Backspace' && !richText.suggestions && !messageHandler.message) {
+		if (event.key === 'Backspace' && !messageHandler.message) {
 			// Clear diff selection on delete only if the mention suggestions
 			// are not open and the input is empty
 			clearDiffSelection();
@@ -144,8 +137,7 @@
 			signOff: true,
 			message: messageHandler.message
 		});
-		const editor = richText.richTextEditor?.getEditor();
-		editor?.commands.clearContent(true);
+		richText.clearEditor();
 	}
 
 	async function requestChanges() {
@@ -153,8 +145,7 @@
 			signOff: false,
 			message: messageHandler.message
 		});
-		const editor = richText.richTextEditor?.getEditor();
-		editor?.commands.clearContent(true);
+		richText.clearEditor();
 	}
 
 	async function handleActionClick() {
@@ -182,10 +173,6 @@
 		return actionLabels[action] + suffix;
 	});
 
-	function onEditorUpdate(editor: EditorInstance) {
-		messageHandler.update(editor);
-	}
-
 	function login() {
 		window.location.href = `${env.PUBLIC_APP_HOST}/cloud/login?callback=${window.location.href}`;
 	}
@@ -194,10 +181,10 @@
 {#if isUserLoggedIn}
 	<div class="chat-input">
 		<MentionSuggestions
-			bind:this={richText.mentionSuggestions}
+			bind:this={suggestions.mentionSuggestions}
 			isLoading={suggestions.isLoading}
-			suggestions={richText.suggestions}
-			selectSuggestion={richText.selectSuggestion}
+			suggestions={suggestions.suggestions}
+			selectSuggestion={(s) => suggestions.selectSuggestion(s)}
 		/>
 		<div class="text-input chat-input__content-container">
 			{#if diffSelection}
@@ -205,14 +192,21 @@
 			{/if}
 			<RichTextEditor
 				bind:this={richText.richTextEditor}
-				getSuggestionItems={(q) => suggestions.getSuggestionItems(q)}
-				onSuggestionStart={(p) => richText.onSuggestionStart(p)}
-				onSuggestionUpdate={(p) => richText.onSuggestionUpdate(p)}
-				onSuggestionExit={() => richText.onSuggestionExit()}
-				onSuggestionKeyDown={(event) => richText.onSuggestionKeyDown(event)}
+				markdown={false}
+				namespace="ChatInput"
+				onError={console.error}
+				onChange={(text) => messageHandler.update(text)}
 				onKeyDown={handleKeyDown}
-				onUpdate={onEditorUpdate}
-			/>
+			>
+				{#snippet plugins()}
+					<MentionsPlugin
+						bind:this={suggestions.mentionPlugin}
+						getSuggestionItems={(q) => suggestions.getSuggestionItems(q)}
+						onUpdateSuggestion={(p) => suggestions.onSuggestionUpdate(p)}
+						onExitSuggestion={() => suggestions.onSuggestionExit()}
+					/>
+				{/snippet}
+			</RichTextEditor>
 			<div class="chat-input__actions">
 				<div class="chat-input__secondary-actions">
 					<Button
@@ -304,6 +298,7 @@
 		display: flex;
 		flex-direction: column;
 		padding: 0;
+		overflow: hidden;
 	}
 
 	.chat-input__actions {
