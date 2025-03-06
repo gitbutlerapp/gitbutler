@@ -1,133 +1,20 @@
 <script lang="ts">
+	import EmojiSuggestions, { type EmojiSuggestion } from './EmojiSuggestions.svelte';
+	import TypeAheadPlugin from './TypeAhead.svelte';
 	import { getEditor } from '../context';
-	import { $createEmojiNode as createEmojiNode } from '../node/emoji';
-	import emojiData from 'emojibase-data/en/compact.json';
-	import emojiByHexcode from 'emojibase-data/en/shortcodes/github.json';
-	import { TextNode } from 'lexical';
+	import {
+		findAndReplaceShortCodeEmoji,
+		searchThroughEmojis,
+		getShortCodeSearchMatch,
+		insertEmoji,
+		type ShortCodeSearchMatch
+	} from '../node/emoji';
+	import { TextNode, $getSelection as getSelection } from 'lexical';
 	import type { CompactEmoji } from 'emojibase';
 
-	const emojis: Map<string, [string, string]> = new Map([
-		[':)', ['emoji happysmile', '🙂']],
-		[':D', ['emoji veryhappysmile', '😀']],
-		[':(', ['emoji unhappysmile', '🙁']],
-		['<3', ['emoji heart', '\u{2764}']],
-		[':P', ['emoji tongue', '😛']],
-		[':O', ['emoji surprised', '😲']],
-		[':|', ['emoji neutral', '😐']],
-		[':/', ['emoji unsure', '😕']],
-		[':S', ['emoji confused', '😕']],
-		[':X', ['emoji lipssealed', '🤐']],
-		[':*', ['emoji kiss', '😘']],
-		[':o', ['emoji shocked', '😮']],
-		[':s', ['emoji smile', '😊']],
-		[':x', ['emoji angry', '😠']],
-		[':p', ['emoji cheeky', '😜']],
-		[':]', ['emoji evil', '😈']],
-		[':(', ['emoji sad', '😞']],
-		[':)', ['emoji happy', '😊']],
-		[':D', ['emoji bigsmile', '😃']],
-		[':o', ['emoji wow', '😮']],
-		[':O', ['emoji wow', '😮']],
-		[':P', ['emoji cheeky', '😜']],
-		[':p', ['emoji cheeky', '😜']],
-		[':s', ['emoji smile', '😊']],
-		[':S', ['emoji smile', '😊']],
-		[':x', ['emoji angry', '😠']],
-		[':X', ['emoji angry', '😠']],
-		[':|', ['emoji neutral', '😐']],
-		[':/', ['emoji unsure', '😕']],
-		[':]', ['emoji evil', '😈']],
-		[':(', ['emoji sad', '😞']]
-	]);
-
-	const EMOJI_SHORTCODE_REGEX = /(^|\s):([0-9a-z+_-]+):$/g;
-
-	function findEmojiByShortcode(shortcode: string): CompactEmoji | undefined {
-		const emoji = Object.entries(emojiByHexcode).find(([_, shortCodes]) => {
-			if (Array.isArray(shortCodes)) {
-				return shortCodes.includes(shortcode);
-			}
-			return shortCodes === shortcode;
-		});
-
-		if (!emoji) {
-			return undefined;
-		}
-
-		const compactEmoji = emojiData.find((e) => e.hexcode === emoji[0]);
-		return compactEmoji;
-	}
-
-	type EmojiMatch = {
-		start: number;
-		end: number;
-		shortCode: string;
-	};
-
-	function getShortCodeMonitorMatch(text: string): EmojiMatch | null {
-		const testResult = EMOJI_SHORTCODE_REGEX.exec(text);
-
-		if (!testResult) {
-			return null;
-		}
-
-		const shortCode = testResult[2];
-		const start = testResult.index + testResult[1].length;
-		const end = start + shortCode.length + 2; // Account for the colons
-
-		return { start, end, shortCode };
-	}
-
-	function getNodeToReplace(node: TextNode, index: number, length: number): TextNode {
-		if (index === 0) {
-			const [targetNode] = node.splitText(length);
-			return targetNode;
-		}
-
-		const [, targetNode] = node.splitText(index, index + length);
-		return targetNode;
-	}
-
-	function findShortCodeEmoji(node: TextNode): TextNode | undefined {
-		const text = node.getTextContent();
-
-		const shortCodeMatch = getShortCodeMonitorMatch(text);
-		if (!shortCodeMatch) {
-			return undefined;
-		}
-
-		const match = findEmojiByShortcode(shortCodeMatch.shortCode);
-
-		if (!match) {
-			return undefined;
-		}
-
-		const emojiNode = createEmojiNode('emoji', match.unicode);
-
-		const targetNode = getNodeToReplace(node, shortCodeMatch.start, shortCodeMatch.end);
-		targetNode.replace(emojiNode);
-		return emojiNode;
-	}
-
-	function findAndTransformEmoji(node: TextNode): TextNode | undefined {
-		const text = node.getTextContent();
-
-		for (let i = 0; i < text.length; i++) {
-			const emojiData = emojis.get(text[i]!) || emojis.get(text.slice(i, i + 2));
-
-			if (emojiData !== undefined) {
-				const [emojiStyle, emojiText] = emojiData;
-				const targetNode = getNodeToReplace(node, i, 2);
-
-				const emojiNode = createEmojiNode(emojiStyle, emojiText);
-				targetNode.replace(emojiNode);
-				return emojiNode;
-			}
-		}
-
-		return undefined;
-	}
-
+	/**
+	 * Transforms a text node to replace emoji shortcodes with emoji nodes.
+	 */
 	function emojiTextNodeTransform(node: TextNode): void {
 		let targetNode: TextNode | undefined = node;
 
@@ -136,10 +23,7 @@
 				return;
 			}
 
-			let newTargetNode = findAndTransformEmoji(targetNode);
-			newTargetNode ??= findShortCodeEmoji(targetNode);
-
-			targetNode = newTargetNode;
+			targetNode = findAndReplaceShortCodeEmoji(targetNode);
 		}
 	}
 
@@ -151,4 +35,51 @@
 			unregister?.();
 		};
 	});
+
+	let suggestedEmojis = $state<CompactEmoji[]>();
+	let currentShortCodeMatch = $state<ShortCodeSearchMatch>();
+
+	function onExit() {
+		suggestedEmojis = undefined;
+		currentShortCodeMatch = undefined;
+	}
+
+	function onMatch(shortCodeMatch: ShortCodeSearchMatch) {
+		currentShortCodeMatch = shortCodeMatch;
+		const emojis = searchThroughEmojis(currentShortCodeMatch.searchQuery);
+		if (emojis.length === 0) {
+			onExit();
+			return;
+		}
+
+		suggestedEmojis = emojis.slice(0, 20);
+	}
+
+	function onSelectEmojiSuggestion(emoji: EmojiSuggestion) {
+		if (currentShortCodeMatch) {
+			const start = currentShortCodeMatch.start;
+			const end = currentShortCodeMatch.end;
+			// Replace the search text with the selected emoji
+			editor.update(() => {
+				const selection = getSelection();
+				insertEmoji({
+					selection,
+					start,
+					end,
+					unicode: emoji.unicode
+				});
+			});
+		}
+		onExit();
+	}
+
+	/**
+	 * Returns whether the emoji plugin is currently busy fetching suggestions.
+	 */
+	export function isBusy(): boolean {
+		return suggestedEmojis !== undefined;
+	}
 </script>
+
+<EmojiSuggestions {suggestedEmojis} selectSuggestion={onSelectEmojiSuggestion} exit={onExit} />
+<TypeAheadPlugin {onExit} {onMatch} testMatch={getShortCodeSearchMatch} />

@@ -10,7 +10,7 @@ export function getCursorPosition() {
 	}
 }
 
-export function getFormatterPosition() {
+export function getSelectionPosition() {
 	const nativeSelection = window.getSelection();
 	const domRect = nativeSelection?.getRangeAt(0).getBoundingClientRect();
 
