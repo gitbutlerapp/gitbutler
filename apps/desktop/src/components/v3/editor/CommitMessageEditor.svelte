@@ -31,4 +31,3 @@
 		<GiphyPlugin />
 	{/snippet}
 </RichTextEditor>
-+
