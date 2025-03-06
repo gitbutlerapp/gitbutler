@@ -69,11 +69,6 @@
 				/>
 				<div class="right">
 					<div class="combined-name text-14 text-bold">
-						{#if branch.remoteTrackingBranch}
-							<span class="remote-name">
-								{branch.remoteTrackingBranch}
-							</span>
-						{/if}
 						<BranchLabel
 							name={branch.name}
 							onChange={(name) => editTitle(name)}
