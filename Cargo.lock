@@ -673,6 +673,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-project",
+ "gitbutler-stack",
  "gix",
  "itertools 0.14.0",
  "tracing",

@@ -16,6 +16,7 @@ testing = ["dep:gitbutler-commit"]
 
 [dependencies]
 gitbutler-command-context.workspace = true
+gitbutler-stack.workspace = true
 gitbutler-project.workspace = true
 but-settings.workspace = true
 but-core.workspace = true

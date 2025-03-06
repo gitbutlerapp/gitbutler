@@ -122,7 +122,8 @@ pub fn create_commit_from_worktree_changes(
     };
     Ok(commit_engine::create_commit_and_update_refs_with_project(
         &repo,
-        Some((&project, Some(stack_id))),
+        &project,
+        Some(stack_id),
         commit_engine::Destination::NewCommit {
             parent_commit_id,
             message,
@@ -158,7 +159,8 @@ pub fn amend_commit_from_worktree_changes(
     let repo = but_core::open_repo_for_merging(&project.worktree_path())?;
     Ok(commit_engine::create_commit_and_update_refs_with_project(
         &repo,
-        Some((&project, Some(stack_id))),
+        &project,
+        Some(stack_id),
         commit_engine::Destination::AmendCommit(commit_id.into()),
         None,
         worktree_changes.into_iter().map(Into::into).collect(),

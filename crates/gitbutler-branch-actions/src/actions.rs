@@ -338,7 +338,8 @@ fn amend_with_commit_engine(
 
     let outcome = commit_engine::create_commit_and_update_refs_with_project(
         &ctx.gix_repository()?,
-        Some((ctx.project(), Some(stack_id))),
+        ctx.project(),
+        Some(stack_id),
         commit_engine::Destination::AmendCommit(commit_oid.to_gix()),
         None,
         worktree_changes,

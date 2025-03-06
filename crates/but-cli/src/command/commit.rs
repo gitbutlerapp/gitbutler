@@ -1,8 +1,9 @@
 use crate::command::debug_print;
 use anyhow::bail;
 use but_core::TreeChange;
-use but_workspace::commit_engine::DiffSpec;
+use but_workspace::commit_engine::{DiffSpec, ReferenceFrame, create_commit_and_update_refs};
 use gitbutler_project::Project;
+use gitbutler_stack::VirtualBranchesState;
 
 pub fn commit(
     repo: gix::Repository,
@@ -19,27 +20,46 @@ pub fn commit(
         .map(|revspec| repo.rev_parse_single(revspec).map_err(anyhow::Error::from))
         .unwrap_or_else(|| Ok(repo.head_id()?))?
         .detach();
-    debug_print(
-        but_workspace::commit_engine::create_commit_and_update_refs_with_project(
+
+    let destination = if amend {
+        if message.is_some() {
+            bail!("Messages aren't used when amending");
+        }
+        but_workspace::commit_engine::Destination::AmendCommit(parent_id)
+    } else {
+        but_workspace::commit_engine::Destination::NewCommit {
+            parent_commit_id: Some(parent_id),
+            message: message.unwrap_or_default().to_owned(),
+            stack_segment_ref: stack_segment_ref.map(|rn| rn.try_into()).transpose()?,
+        }
+    };
+    let changes = to_whole_file_diffspec(but_core::diff::worktree_changes(&repo)?.changes);
+    if let Some(project) = project.as_ref() {
+        debug_print(
+            but_workspace::commit_engine::create_commit_and_update_refs_with_project(
+                &repo,
+                project,
+                None,
+                destination,
+                None,
+                changes,
+                0, /* context-lines */
+            )?,
+        )?;
+    } else {
+        debug_print(create_commit_and_update_refs(
             &repo,
-            project.as_ref().map(|p| (p, None)),
-            if amend {
-                if message.is_some() {
-                    bail!("Messages aren't used when amending");
-                }
-                but_workspace::commit_engine::Destination::AmendCommit(parent_id)
-            } else {
-                but_workspace::commit_engine::Destination::NewCommit {
-                    parent_commit_id: Some(parent_id),
-                    message: message.unwrap_or_default().to_owned(),
-                    stack_segment_ref: stack_segment_ref.map(|rn| rn.try_into()).transpose()?,
-                }
+            ReferenceFrame {
+                workspace_tip: None,
+                branch_tip: repo.head_id()?.detach().into(),
             },
+            &mut VirtualBranchesState::default(),
+            destination,
             None,
-            to_whole_file_diffspec(but_core::diff::worktree_changes(&repo)?.changes),
-            0, /* context-lines */
-        )?,
-    )?;
+            changes,
+            0,
+        )?)?;
+    }
     Ok(())
 }
 
