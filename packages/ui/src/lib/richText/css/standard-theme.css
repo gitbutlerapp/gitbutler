@@ -10,7 +10,7 @@
 	margin: 0;
 	position: relative;
 	font-family: var(--fontfamily-default);
-	font-size: 13px;
+	font-size: var(--lexical-default-font-size);
 	font-weight: var(--text-weight-regular);
 	line-height: var(--text-lineheight-body);
 }
@@ -19,7 +19,7 @@
 	margin: 0;
 	margin-left: 20px;
 	margin-bottom: 10px;
-	font-size: 15px;
+	font-size: 13px;
 	color: rgb(101, 103, 107);
 	border-left-color: rgb(206, 208, 212);
 	border-left-width: 4px;

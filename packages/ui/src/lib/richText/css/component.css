@@ -1,23 +1,40 @@
-/* Necessary to make editor full height */
+/* STYLE CONTEXT */
+
+.lexical-client-editor {
+	--lexical-input-padding: 16px;
+
+	& .ContentEditable__root {
+		height: 100%;
+	}
+}
+
+.lexical-chat-input {
+	--lexical-input-padding: 12px;
+
+	& .ContentEditable__root {
+		min-height: 40px;
+	}
+}
+
+/* GENERAL */
+
+.lexical-container {
+	--lexical-default-font-size: 13px;
+}
+
 .ContentEditable__root {
-	height: 100%;
+	padding: var(--lexical-input-padding);
 }
 
-.editor-scroller {
-	border: 0;
-	display: flex;
-	position: relative;
-	outline: 0;
-	z-index: 0;
-	overflow: auto;
+.Placeholder__root {
+	color: var(--clr-text-3) !important;
+	font-size: var(--lexical-default-font-size) !important;
+	top: var(--lexical-input-padding) !important;
+	left: var(--lexical-input-padding) !important;
+	line-height: var(--text-lineheight-body);
 }
 
-.editor {
-	flex: auto;
-	position: relative;
-	resize: vertical;
-	z-index: -1;
-}
+/* REST UNREVIWED STYLES */
 
 .link-editor .button.active,
 .toolbar .button.active {
