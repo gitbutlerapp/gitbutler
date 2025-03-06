@@ -4,17 +4,17 @@ packages:
   - 'crates/*'
 
 catalog:
-  'vite': '6.1.0'
-  'vitest': '3.0.5'
-  '@vitest/ui': '3.0.5'
+  'vite': '6.2.0'
+  'vitest': '3.0.7'
+  '@vitest/ui': '3.0.7'
   'marked': '15.0.7'
 catalogs:
   svelte:
-    'svelte': '5.19.7'
+    'svelte': '5.22.5'
     '@sveltejs/kit': '2.17.1'
     'svelte-check': '4.1.4'
     '@sveltejs/vite-plugin-svelte': '5.0.3'
     '@sveltejs/adapter-static': '3.0.8'
-    '@sentry/sveltekit': '8.54.0'
+    '@sentry/sveltekit': '8.55.0'
   redux:
-    '@reduxjs/toolkit': '^2.5.0'
+    '@reduxjs/toolkit': '^2.6.0'
