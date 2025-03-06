@@ -1,8 +1,8 @@
 <script lang="ts">
-	import FormattingPopup from './FormattingPopup.svelte';
-	import GiphyPlugin from '../GiphyPlugin.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
+	import GiphyPlugin from '@gitbutler/ui/richText/plugins/GiphyPlugin.svelte';
+	import FormattingPopup from '@gitbutler/ui/richText/tools/FormattingPopup.svelte';
 
 	interface Props {
 		markdown: boolean;
@@ -31,3 +31,4 @@
 		<GiphyPlugin />
 	{/snippet}
 </RichTextEditor>
++

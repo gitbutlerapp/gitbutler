@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FormattingButton from './FormattingButton.svelte';
-	import { getFormatterPosition } from '$lib/textEditor/selection';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import { getFormatterPosition } from '@gitbutler/ui/richText/selection';
 	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
 	import { portal } from '@gitbutler/ui/utils/portal';
 	import { TOGGLE_LINK_COMMAND } from '@lexical/link';
