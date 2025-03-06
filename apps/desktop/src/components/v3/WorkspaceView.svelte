@@ -1,13 +1,14 @@
 <script lang="ts">
+	import SelectionView from './SelectionView.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import StackTabs from '$components/v3/StackTabs.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { onMount, setContext, type Snippet } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
+	import { page } from '$app/state';
 
 	interface Props {
 		projectId: string;
@@ -18,11 +19,7 @@
 
 	const { stackId, projectId, branchName, children }: Props = $props();
 
-	const worktreeService = getContext(WorktreeService);
-
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-	const idSelection = new IdSelection(worktreeService);
-	setContext(IdSelection, idSelection);
 
 	const trayWidthKey = $derived('defaulTrayWidth_ ' + projectId);
 	const trayWidth = $derived(persisted<number>(240, trayWidthKey));
@@ -40,6 +37,10 @@
 	let rightWidth = $state<number>();
 	/** True if content area should be rounded. */
 	const rounded = $derived(rightWidth !== width);
+
+	const [selection] = inject(IdSelection);
+	const selectedIds = $derived(selection.values());
+	const previewMode = $derived(page.url.searchParams.get('preview') && selectedIds.length > 0);
 
 	onMount(() => {
 		const observer = new ResizeObserver(() => (rightWidth = rightEl?.offsetWidth));
@@ -67,7 +68,11 @@
 	<div class="right" bind:this={rightEl}>
 		<StackTabs {projectId} selectedId={stackId} previewing={$previewing} bind:width />
 		<div class="contents" class:rounded>
-			{@render children()}
+			{#if previewMode}
+				<SelectionView {projectId} />
+			{:else}
+				{@render children()}
+			{/if}
 		</div>
 	</div>
 </div>

@@ -1,83 +1,48 @@
 <script lang="ts">
-	import { stackPath } from '$lib/routes/routes.svelte';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { Tab } from '$lib/tabs/tab';
+	import type { Snippet } from 'svelte';
 
 	type Props = {
-		projectId: string;
-		tab: Tab;
+		name: string;
+		anchors?: string[];
 		first?: boolean;
 		last?: boolean;
 		selected?: boolean;
+		href?: string;
+		menu?: Snippet;
 	};
 
-	const { projectId, tab, first, last, selected }: Props = $props();
+	const { name, anchors, first, last, selected, href, menu }: Props = $props();
 
-	let kebabMenuTrigger = $state<HTMLElement>();
-	let contextMenu = $state<ContextMenu>();
-	let isContextMenuOpen = $state(false);
+	let isOpen = $state(false);
 </script>
 
 <a
 	data-sveltekit-keepfocus
-	href={stackPath(projectId, tab.id)}
+	{href}
 	class="tab"
 	class:first
 	class:last
 	class:selected
-	class:menu-open={isContextMenuOpen}
+	class:has-menu={!!menu}
+	class:menu-open={isOpen}
 >
-	<div class="icon">
-		<Icon name={tab.anchors.length > 0 ? 'chain-link' : 'branch-small'} verticalAlign="top" />
-	</div>
+	{#if anchors}
+		<div class="icon">
+			<Icon name={anchors.length > 0 ? 'chain-link' : 'branch-small'} verticalAlign="top" />
+		</div>
+	{/if}
 	<div class="content">
 		<div class="text-12 text-semibold name">
-			{tab.name}
+			{name}
 		</div>
-		<div class="menu-button-wrap">
-			<button
-				class="menu-button"
-				class:menu-open={isContextMenuOpen}
-				onclick={(e) => {
-					e.preventDefault();
-					e.stopPropagation();
-					contextMenu?.toggle();
-				}}
-				bind:this={kebabMenuTrigger}
-				type="button"
-			>
-				<Icon name="kebab" />
-			</button>
-		</div>
+		{#if menu}
+			<div class="menu-button-wrap">
+				{@render menu?.()}
+			</div>
+		{/if}
 	</div>
 </a>
-
-<ContextMenu
-	bind:this={contextMenu}
-	leftClickTrigger={kebabMenuTrigger}
-	ontoggle={(isOpen) => (isContextMenuOpen = isOpen)}
-	side="bottom"
->
-	<ContextMenuSection>
-		<ContextMenuItem
-			label="Unapply Stack"
-			keyboardShortcut="$mod+X"
-			onclick={() => {
-				contextMenu?.close();
-			}}
-		/>
-		<ContextMenuItem
-			label="Rename"
-			keyboardShortcut="$mod+R"
-			onclick={() => {
-				contextMenu?.close();
-			}}
-		/>
-	</ContextMenuSection>
-</ContextMenu>
 
 <style lang="postcss">
 	.tab {
@@ -91,8 +56,12 @@
 		background: var(--clr-stack-tab-inactive);
 		border-right: 1px solid var(--clr-border-2);
 		overflow: hidden;
-		min-width: 100px;
+		min-width: 40px;
 		scroll-snap-align: start;
+
+		&.has-menu {
+			min-width: 80px;
+		}
 
 		&::after {
 			content: '';
@@ -127,13 +96,13 @@
 		/* background-color: aqua; */
 	}
 
-	.tab:hover .name,
+	.has-menu:hover .name,
 	.menu-open .name {
 		/* Shrinks name to make room for hover button. */
 		width: calc(100% - var(--menu-btn-size));
 	}
 
-	.tab:hover .menu-button-wrap,
+	.has-menu:hover .menu-button-wrap,
 	.menu-open .menu-button-wrap {
 		opacity: 1;
 		width: var(--menu-btn-size);
@@ -141,18 +110,6 @@
 		margin-left: calc(var(--menu-btn-size) * -1);
 		/* But still be visible where it would normally display. */
 		transform: translateX(calc(var(--menu-btn-size) + 20%));
-	}
-
-	.menu-button {
-		display: flex;
-		color: var(--clr-text-2);
-		padding: 4px 2px;
-		margin-left: -2px;
-
-		&.menu-open,
-		&:hover {
-			color: var(--clr-text-1);
-		}
 	}
 
 	.tab:not(.selected):hover,
