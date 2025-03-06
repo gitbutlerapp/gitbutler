@@ -53,12 +53,12 @@
 		}
 	});
 
-	const allOptions = $derived(reviewSectionsService.allOptions(branchUuid, changeId));
+	const allOptions = $derived(reviewSectionsService.allOptions(changeId));
 
 	const beforeOptions = $derived(allOptions.current.slice(0, -1));
 	const afterOptions = $derived(allOptions.current.slice(1));
 
-	const selected = $derived(reviewSectionsService.currentSelection(branchUuid, changeId));
+	const selected = $derived(reviewSectionsService.currentSelection(changeId));
 
 	const selectedAfter = $derived(selected.current?.selectedAfter ?? 1);
 	const selectedBefore = $derived(selected.current?.selectedBefore ?? -1);
@@ -102,7 +102,7 @@
 							label={option[1]}
 							disabled={option[0] >= (selectedAfter || 0)}
 							onclick={() => {
-								reviewSectionsService.setSelection(branchUuid, changeId, {
+								reviewSectionsService.setSelection(changeId, {
 									selectedBefore: option[0]
 								});
 								beforeButton?.close();
@@ -122,7 +122,7 @@
 							label={option[1]}
 							disabled={option[0] <= (selectedBefore || 0)}
 							onclick={() => {
-								reviewSectionsService.setSelection(branchUuid, changeId, {
+								reviewSectionsService.setSelection(changeId, {
 									selectedAfter: option[0]
 								});
 								afterButton?.close();

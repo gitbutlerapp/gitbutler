@@ -8,8 +8,8 @@ import type { PatchCommit } from '@gitbutler/shared/patches/types';
 import type { AppDispatch } from '@gitbutler/shared/redux/store.svelte';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 
-function reviewSectionKey(branchUuid: string, changeId: string): string {
-	return `${branchUuid}/${changeId}`;
+function reviewSectionKey(changeId: string): string {
+	return `${changeId}`;
 }
 
 type ReviewSectionData = {
@@ -59,7 +59,7 @@ export class ReviewSectionsService {
 
 	private handlePatchUpdate(patchCommit: PatchCommit) {
 		if (!patchCommit.version) return;
-		const key = reviewSectionKey(patchCommit.branchUuid, patchCommit.changeId);
+		const key = reviewSectionKey(patchCommit.changeId);
 		const reviewSection = reviewSectionSelectors.selectById(
 			untrack(() => this.webState.reviewSections),
 			key
@@ -89,8 +89,8 @@ export class ReviewSectionsService {
 		return updatedReviewSection;
 	}
 
-	allOptions(branchUuid: string, changeId: string): Reactive<[number, string][]> {
-		const key = reviewSectionKey(branchUuid, changeId);
+	allOptions(changeId: string): Reactive<[number, string][]> {
+		const key = reviewSectionKey(changeId);
 		const reviewSection = $derived(
 			reviewSectionSelectors.selectById(this.webState.reviewSections, key)
 		);
@@ -109,22 +109,17 @@ export class ReviewSectionsService {
 	}
 
 	currentSelection(
-		branchUuid: string,
 		changeId: string
 	): Reactive<{ selectedBefore: number; selectedAfter: number } | undefined> {
-		const key = reviewSectionKey(branchUuid, changeId);
+		const key = reviewSectionKey(changeId);
 		const reviewSection = $derived(
 			reviewSectionSelectors.selectById(this.webState.reviewSections, key)
 		);
 		return reactive(() => reviewSection);
 	}
 
-	setSelection(
-		branchUuid: string,
-		changeId: string,
-		params: { selectedBefore?: number; selectedAfter?: number }
-	) {
-		const key = reviewSectionKey(branchUuid, changeId);
+	setSelection(changeId: string, params: { selectedBefore?: number; selectedAfter?: number }) {
+		const key = reviewSectionKey(changeId);
 		const changes: Partial<ReviewSectionData> = {};
 		if (params.selectedAfter) changes.selectedAfter = params.selectedAfter;
 		if (params.selectedBefore) changes.selectedBefore = params.selectedBefore;
