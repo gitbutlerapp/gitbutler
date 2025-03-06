@@ -11,6 +11,8 @@
 		onclose?: () => void;
 		onopen?: () => void;
 		ontoggle?: (isOpen: boolean, isLeftClick: boolean) => void;
+		onclick?: () => void;
+		onkeypress?: () => void;
 	}
 
 	type HorizontalProps = BaseProps & {
@@ -36,7 +38,9 @@
 		children,
 		onclose,
 		onopen,
-		ontoggle
+		ontoggle,
+		onclick,
+		onkeypress
 	}: Props = $props();
 
 	let menuContainer: HTMLElement | undefined = $state();
@@ -219,6 +223,8 @@
 		}}
 		bind:clientHeight={contextMenuHeight}
 		bind:clientWidth={contextMenuWidth}
+		{onclick}
+		{onkeypress}
 		class="context-menu"
 		class:top-oriented={side === 'top'}
 		class:bottom-oriented={side === 'bottom'}
@@ -228,6 +234,7 @@
 		style:left="{menuPosition.x}px"
 		style:transform-origin={setTransformOrigin()}
 		style:--animation-transform-y-shift={side === 'top' ? '6px' : side === 'bottom' ? '-6px' : '0'}
+		role="menu"
 	>
 		{@render children(item)}
 	</div>
