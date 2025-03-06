@@ -9,7 +9,12 @@
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import { getForge } from '$lib/forge/interface/forge';
-	import { createBrPath, createCommitPath, createPrPath } from '$lib/routes/routes.svelte';
+	import {
+		commitPath,
+		createBrPath,
+		createCommitPath,
+		createPrPath
+	} from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -146,15 +151,17 @@
 					/>
 				{/snippet}
 				{#snippet actions()}
-					<CreateReviewButton
-						onclick={(action) => {
-							if (action === Action.CreateButlerReview) {
-								goto(createBrPath(projectId, stackId, branchName));
-							} else if (action === Action.CreatePullRequest) {
-								goto(createPrPath(projectId, stackId, branchName));
-							}
-						}}
-					/>
+					{#if commit}
+						<CreateReviewButton
+							onclick={(action) => {
+								if (action === Action.CreateButlerReview) {
+									goto(createBrPath(projectId, stackId, branchName));
+								} else if (action === Action.CreatePullRequest) {
+									goto(createPrPath(projectId, stackId, branchName));
+								}
+							}}
+						/>
+					{/if}
 				{/snippet}
 			</BranchHeader>
 			<BranchCommitList {projectId} {stackId} {branchName} {selectedCommitId}>
