@@ -28,6 +28,52 @@
 	let updatingReceiveIssueResolutionEmails = $state(false);
 	let updatingReceiveReviewBranchEmails = $state(false);
 	let updatingReceiveSignOffEmails = $state(false);
+	let updatingName = $state(false);
+	let nameValue = $state('');
+	let emailValue = $state('');
+	let userPicture = $state('');
+
+	$effect(() => {
+		if ($user) {
+			nameValue = $user.name;
+			emailValue = $user.email;
+			userPicture = $user.picture;
+		}
+	});
+
+	function onPictureChange(e: Event) {
+		const target = e.target as HTMLInputElement;
+		const file = target.files?.[0];
+		const fileTypes = ['image/jpeg', 'image/png'];
+
+		if (file && fileTypes.includes(file.type)) {
+			userPicture = URL.createObjectURL(file);
+			updateProfilePicture(file);
+		} else {
+			userPicture = $user?.picture || '';
+			// TODO: Add toast notification for invalid file type
+		}
+	}
+
+	async function updateProfilePicture(file: File) {
+		try {
+			await userService.updateUser({ picture: file });
+		} catch (error) {
+			console.error('Failed to update profile picture:', error);
+			userPicture = $user?.picture || '';
+			// TODO: Add toast notification for error
+		}
+	}
+
+	async function updateName() {
+		if (nameValue === $user?.name) return;
+		updatingName = true;
+		try {
+			await userService.updateUser({ name: nameValue });
+		} finally {
+			updatingName = false;
+		}
+	}
 
 	async function updateReceiveChatMentionEmails(value: boolean) {
 		updatingReceiveChatMentionEmails = true;
@@ -72,149 +118,398 @@
 	<title>GitButler | User</title>
 </svelte:head>
 
-{#if !$token}
-	<p>Unauthorized</p>
-{:else if !$user?.id}
-	<p>Loading...</p>
-{:else}
-	<div class="profile">
-		<h1>Your Profile</h1>
-		<div><b>Login</b>: {$user?.login}</div>
-		<div><b>Email</b>: {$user?.email}</div>
-		<div><b>Joined</b>: {$user?.created_at}</div>
-		<div><b>Supporter</b>: {$user?.supporter}</div>
+<div class="profile-page">
+	<div class="content">
+		{#if !$token}
+			<p>Unauthorized</p>
+		{:else if !$user?.id}
+			<p>Loading...</p>
+		{:else}
+			<h1 class="title">Profile</h1>
+
+			<SectionCard>
+				<div class="profile-form">
+					<label id="profile-picture" class="profile-pic-wrapper" for="picture">
+						<input
+							type="file"
+							id="picture"
+							name="picture"
+							accept="image/jpeg,image/png"
+							class="hidden-input"
+							onchange={onPictureChange}
+						/>
+						{#if userPicture}
+							<img class="profile-pic" src={userPicture} alt="" referrerpolicy="no-referrer" />
+						{/if}
+						<span class="profile-pic__edit-label">Edit</span>
+					</label>
+
+					<div class="contact-info">
+						<div class="contact-info__fields">
+							<div class="info-field">
+								<label for="full-name">Full name</label>
+								<input
+									id="full-name"
+									type="text"
+									bind:value={nameValue}
+									readonly={updatingName}
+									onblur={updateName}
+									onkeydown={(e) => e.key === 'Enter' && updateName()}
+								/>
+							</div>
+							<div class="info-field">
+								<label for="email">Email</label>
+								<input id="email" type="email" bind:value={emailValue} readonly={true} />
+							</div>
+						</div>
+					</div>
+				</div>
+			</SectionCard>
+
+			<h2 class="section-title">Notification settings</h2>
+
+			<Loading loadable={notificationSettings.current}>
+				{#snippet children(notificationSettings)}
+					<SectionCard>
+						<div class="notification-settings">
+							<div class="notification-option">
+								<label class="checkbox-label" for="receive-chat-mention-emails">
+									<input
+										type="checkbox"
+										id="receive-chat-mention-emails"
+										checked={notificationSettings.receiveChatMentionEmails}
+										disabled={updatingReceiveChatMentionEmails}
+										onchange={() =>
+											updateReceiveChatMentionEmails(
+												!notificationSettings.receiveChatMentionEmails
+											)}
+									/>
+									<div class="checkbox-content">
+										<span class="checkbox-title">Chat message mention emails</span>
+										<span class="checkbox-caption">Emails when you are mentioned in a message.</span
+										>
+									</div>
+								</label>
+							</div>
+
+							<div class="notification-option">
+								<label class="checkbox-label" for="receive-issue-creation-emails">
+									<input
+										type="checkbox"
+										id="receive-issue-creation-emails"
+										checked={notificationSettings.receiveIssueCreationEmails}
+										disabled={updatingReceiveIssueCreationEmails}
+										onchange={() =>
+											updateReceiveIssueCreationEmails(
+												!notificationSettings.receiveIssueCreationEmails
+											)}
+									/>
+									<div class="checkbox-content">
+										<span class="checkbox-title">Issue creation emails</span>
+										<span class="checkbox-caption"
+											>Emails for new issues created in changes you are involved in.</span
+										>
+									</div>
+								</label>
+							</div>
+
+							<div class="notification-option">
+								<label class="checkbox-label" for="receive-issue-resolution-emails">
+									<input
+										type="checkbox"
+										id="receive-issue-resolution-emails"
+										checked={notificationSettings.receiveIssueResolutionEmails}
+										disabled={updatingReceiveIssueResolutionEmails}
+										onchange={() =>
+											updateReceiveIssueResolutionEmails(
+												!notificationSettings.receiveIssueResolutionEmails
+											)}
+									/>
+									<div class="checkbox-content">
+										<span class="checkbox-title">Issue status emails</span>
+										<span class="checkbox-caption"
+											>Emails for status updates of issues in changes you are involved in.</span
+										>
+									</div>
+								</label>
+							</div>
+
+							<div class="notification-option">
+								<label class="checkbox-label" for="receive-review-branch-emails">
+									<input
+										type="checkbox"
+										id="receive-review-branch-emails"
+										checked={notificationSettings.receiveReviewBranchEmails}
+										disabled={updatingReceiveReviewBranchEmails}
+										onchange={() =>
+											updateReceiveReviewBranchEmails(
+												!notificationSettings.receiveReviewBranchEmails
+											)}
+									/>
+									<div class="checkbox-content">
+										<span class="checkbox-title">Branch version update emails</span>
+										<span class="checkbox-caption"
+											>Emails when a new review branch version is created.</span
+										>
+									</div>
+								</label>
+							</div>
+
+							<div class="notification-option">
+								<label class="checkbox-label" for="receive-sign-off-emails">
+									<input
+										type="checkbox"
+										id="receive-sign-off-emails"
+										checked={notificationSettings.receiveSignOffEmails}
+										disabled={updatingReceiveSignOffEmails}
+										onchange={() =>
+											updateReceiveSignOffEmails(!notificationSettings.receiveSignOffEmails)}
+									/>
+									<div class="checkbox-content">
+										<span class="checkbox-title">Change status update emails</span>
+										<span class="checkbox-caption"
+											>Emails for updates on the review status of changes you are involved in.</span
+										>
+									</div>
+								</label>
+							</div>
+						</div>
+					</SectionCard>
+				{/snippet}
+			</Loading>
+
+			<h2 class="section-title">Experimental settings</h2>
+
+			<SectionCard labelFor="showOrganizations" orientation="row">
+				{#snippet title()}Organizations{/snippet}
+				{#snippet caption()}
+					Organizations are a way of linking together projects.
+				{/snippet}
+				{#snippet actions()}
+					<Toggle
+						id="showOrganizations"
+						checked={$featureShowOrganizations}
+						onclick={() => ($featureShowOrganizations = !$featureShowOrganizations)}
+					/>
+				{/snippet}
+			</SectionCard>
+
+			<SectionCard labelFor="showProjectPage" orientation="row">
+				{#snippet title()}Project Page{/snippet}
+				{#snippet caption()}
+					The project page provides an overview of the project.
+				{/snippet}
+				{#snippet actions()}
+					<Toggle
+						id="showProjectPage"
+						checked={$featureShowProjectPage}
+						onclick={() => ($featureShowProjectPage = !$featureShowProjectPage)}
+					/>
+				{/snippet}
+			</SectionCard>
+		{/if}
 	</div>
-{/if}
-
-<div class="settings-section">
-	<h1>Notification settings</h1>
-
-	<Loading loadable={notificationSettings.current}>
-		{#snippet children(notificationSettings)}
-			<SectionCard labelFor="receive-chat-mention-emails" orientation="row">
-				{#snippet title()}Receive chat message mention emails{/snippet}
-				{#snippet caption()}
-					Receive emails everytime you are mentioned in a message.
-				{/snippet}
-				{#snippet actions()}
-					<Toggle
-						id="receive-chat-mention-emails"
-						checked={notificationSettings.receiveChatMentionEmails}
-						disabled={updatingReceiveChatMentionEmails}
-						onclick={() =>
-							updateReceiveChatMentionEmails(!notificationSettings.receiveChatMentionEmails)}
-					/>
-				{/snippet}
-			</SectionCard>
-
-			<SectionCard labelFor="receive-issue-creation-emails" orientation="row">
-				{#snippet title()}Receive issue creation emails{/snippet}
-				{#snippet caption()}
-					Receive emails for every new issue created in changes you are involved in.
-				{/snippet}
-				{#snippet actions()}
-					<Toggle
-						id="receive-issue-creation-emails"
-						checked={notificationSettings.receiveIssueCreationEmails}
-						disabled={updatingReceiveIssueCreationEmails}
-						onclick={() =>
-							updateReceiveIssueCreationEmails(!notificationSettings.receiveIssueCreationEmails)}
-					/>
-				{/snippet}
-			</SectionCard>
-
-			<SectionCard labelFor="receive-issue-resolution-emails" orientation="row">
-				{#snippet title()}Receive issue status emails{/snippet}
-				{#snippet caption()}
-					Receive emails for every status update of issues in changes you are involved in.
-				{/snippet}
-				{#snippet actions()}
-					<Toggle
-						id="receive-issue-resolution-emails"
-						checked={notificationSettings.receiveIssueResolutionEmails}
-						disabled={updatingReceiveIssueResolutionEmails}
-						onclick={() =>
-							updateReceiveIssueResolutionEmails(
-								!notificationSettings.receiveIssueResolutionEmails
-							)}
-					/>
-				{/snippet}
-			</SectionCard>
-
-			<SectionCard labelFor="receive-review-branch-emails" orientation="row">
-				{#snippet title()}Receive branch version update emails{/snippet}
-				{#snippet caption()}
-					Receive emails for every time a new review branch version is created.
-				{/snippet}
-				{#snippet actions()}
-					<Toggle
-						id="receive-review-branch-emails"
-						checked={notificationSettings.receiveReviewBranchEmails}
-						disabled={updatingReceiveReviewBranchEmails}
-						onclick={() =>
-							updateReceiveReviewBranchEmails(!notificationSettings.receiveReviewBranchEmails)}
-					/>
-				{/snippet}
-			</SectionCard>
-
-			<SectionCard labelFor="receive-sign-off-emails" orientation="row">
-				{#snippet title()}Receive change status update emails{/snippet}
-				{#snippet caption()}
-					Receive emails for every update on the review status of changes your involved in.
-				{/snippet}
-				{#snippet actions()}
-					<Toggle
-						id="receive-sign-off-emails"
-						checked={notificationSettings.receiveSignOffEmails}
-						disabled={updatingReceiveSignOffEmails}
-						onclick={() => updateReceiveSignOffEmails(!notificationSettings.receiveSignOffEmails)}
-					/>
-				{/snippet}
-			</SectionCard>
-		{/snippet}
-	</Loading>
 </div>
 
-<div class="settings-section">
-	<h1>Experimental settings</h1>
-	<SectionCard labelFor="showOrganizations" orientation="row">
-		{#snippet title()}Organizations{/snippet}
-		{#snippet caption()}
-			Organizations are a way of linking together projects.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="showOrganizations"
-				checked={$featureShowOrganizations}
-				onclick={() => ($featureShowOrganizations = !$featureShowOrganizations)}
-			/>
-		{/snippet}
-	</SectionCard>
-	<SectionCard labelFor="showProjectPage" orientation="row">
-		{#snippet title()}Project Page{/snippet}
-		{#snippet caption()}
-			The project page provides an overview of the project.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="showProjectPage"
-				checked={$featureShowProjectPage}
-				onclick={() => ($featureShowProjectPage = !$featureShowProjectPage)}
-			/>
-		{/snippet}
-	</SectionCard>
-</div>
-
-<style>
-	h1 {
-		font-size: 1.5rem;
-		margin-bottom: 10px;
+<style lang="postcss">
+	.profile-page {
+		width: 100%;
+		min-height: 100vh;
+		background-color: var(--clr-bg-2);
 	}
-	.profile,
-	.settings-section {
+
+	.content {
+		padding: 48px 32px;
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
-		padding: 32px;
+		gap: 16px;
+		max-width: 640px;
+		width: 100%;
+		min-height: 100vh;
+		margin: auto;
+	}
+
+	.title {
+		color: var(--clr-scale-ntrl-0);
+		font-size: 24px;
+		font-weight: 600;
+		align-self: flex-start;
+	}
+
+	.section-title {
+		color: var(--clr-scale-ntrl-0);
+		font-size: 18px;
+		font-weight: 600;
+		margin-top: 24px;
+	}
+
+	.profile-form {
+		display: flex;
+		gap: 24px;
+	}
+
+	.profile-pic-wrapper {
+		position: relative;
+		width: 100px;
+		height: 100px;
+		border-radius: var(--radius-m);
+		overflow: hidden;
+		background-color: var(--clr-scale-pop-70);
+		transition: opacity var(--transition-medium);
+		cursor: pointer;
+
+		&:hover {
+			& .profile-pic__edit-label {
+				opacity: 1;
+			}
+
+			& .profile-pic {
+				opacity: 0.8;
+			}
+		}
+	}
+
+	.profile-pic {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		background-color: var(--clr-scale-pop-70);
+	}
+
+	.profile-pic__edit-label {
+		position: absolute;
+		bottom: 8px;
+		left: 8px;
+		color: var(--clr-core-ntrl-100);
+		background-color: var(--clr-scale-ntrl-20);
+		padding: 4px 6px;
+		border-radius: var(--radius-m);
+		opacity: 0;
+		transition: opacity var(--transition-medium);
+		font-size: 11px;
+		font-weight: 600;
+	}
+
+	.contact-info {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+	}
+
+	.contact-info__fields {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.info-field {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+
+		label {
+			color: var(--clr-scale-ntrl-30);
+			font-size: 14px;
+		}
+
+		input {
+			padding: 8px 12px;
+			border-radius: var(--radius-m);
+			border: 1px solid var(--clr-border-2);
+			background-color: var(--clr-bg-1);
+			color: var(--clr-scale-ntrl-0);
+			font-size: 14px;
+
+			&:read-only {
+				opacity: 0.7;
+				cursor: not-allowed;
+			}
+
+			&:not(:read-only) {
+				&:focus {
+					border-color: var(--clr-scale-pop-70);
+					outline: none;
+				}
+			}
+		}
+	}
+
+	.hidden-input {
+		cursor: pointer;
+		z-index: var(--z-ground);
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		opacity: 0;
+	}
+
+	.notification-settings {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.notification-option {
+		display: flex;
+		align-items: flex-start;
+	}
+
+	.checkbox-label {
+		display: flex;
+		gap: 12px;
+		cursor: pointer;
+		user-select: none;
+
+		input[type='checkbox'] {
+			margin-top: 4px;
+			width: 16px;
+			height: 16px;
+			border-radius: var(--radius-s);
+			border: 1px solid var(--clr-border-2);
+			background-color: var(--clr-bg-1);
+			cursor: pointer;
+
+			&:checked {
+				background-color: var(--clr-scale-pop-70);
+				border-color: var(--clr-scale-pop-70);
+
+				&::after {
+					content: '';
+					position: absolute;
+					left: 5px;
+					top: 2px;
+					width: 4px;
+					height: 8px;
+					border: solid white;
+					border-width: 0 2px 2px 0;
+					transform: rotate(45deg);
+				}
+			}
+
+			&:disabled {
+				opacity: 0.5;
+				cursor: not-allowed;
+			}
+		}
+	}
+
+	.checkbox-content {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.checkbox-title {
+		color: var(--clr-scale-ntrl-0);
+		font-size: 14px;
+		font-weight: 500;
+	}
+
+	.checkbox-caption {
+		color: var(--clr-scale-ntrl-30);
+		font-size: 13px;
+		line-height: 1.4;
 	}
 </style>
