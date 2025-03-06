@@ -1,6 +1,5 @@
 <script lang="ts">
 	import CommitLine from '$components/v3/CommitLine.svelte';
-	import { setQueryParam } from '$lib/routes/routes.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
 	import type { CommitKey } from '$lib/commits/commit';
@@ -16,7 +15,7 @@
 		lineColor?: string;
 		opacity?: number;
 		borderTop?: boolean;
-		link?: boolean;
+		href?: string;
 	}
 
 	const {
@@ -28,7 +27,7 @@
 		lineColor,
 		opacity,
 		borderTop,
-		link
+		href
 	}: Props = $props();
 
 	const commitTitle = $derived(commit.message.split('\n')[0]);
@@ -42,7 +41,7 @@
 	class:selected
 	style:opacity
 	class:border-top={borderTop || first}
-	href={link ? setQueryParam('commitId', commit.id) : undefined}
+	{href}
 >
 	<CommitLine {commit} {lastCommit} {lastBranch} {lineColor} />
 	<div class="commit-content">
