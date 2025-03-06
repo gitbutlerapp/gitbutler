@@ -48,11 +48,6 @@
 		height: 14px;
 		width: 2px;
 		background-color: var(--commit-color);
-
-		&.dashed {
-			background: linear-gradient(to bottom, var(--commit-color) 50%, transparent 50%);
-			background-size: 4px 4px;
-		}
 	}
 
 	.commit-line__center {
