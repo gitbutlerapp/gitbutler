@@ -10,8 +10,6 @@
 -->
 <script lang="ts">
 	import Resizer from '$components/Resizer.svelte';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import type { Snippet } from 'svelte';
 
@@ -24,9 +22,8 @@
 
 	const { main, left, right, projectId }: Props = $props();
 
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const resizerId = `sideResizer_${projectId}`;
-	const persistedWidth = persisted(20, resizerId);
+	const width = persisted(20, resizerId);
 
 	let leftViewport: HTMLDivElement | undefined = $state();
 	let rightViewport: HTMLDivElement | undefined = $state();
@@ -34,14 +31,12 @@
 
 <div class="common-editor-layout">
 	{#if left}
-		<div class="left" bind:this={leftViewport} style:width={$persistedWidth + 'rem'}>
+		<div class="left" bind:this={leftViewport} style:width={$width + 'rem'}>
 			<Resizer
 				viewport={leftViewport}
 				direction="right"
-				minWidth={240}
-				onWidth={(value) => {
-					$persistedWidth = value / (16 * $userSettings.zoom);
-				}}
+				minWidth={15}
+				onWidth={(value) => ($width = value)}
 			/>
 			{@render left()}
 		</div>
@@ -50,14 +45,12 @@
 		{@render main()}
 	</div>
 	{#if right}
-		<div class="right" bind:this={rightViewport} style:width={$persistedWidth + 'rem'}>
+		<div class="right" bind:this={rightViewport} style:width={$width + 'rem'}>
 			<Resizer
 				viewport={rightViewport}
 				direction="left"
-				minWidth={240}
-				onWidth={(value) => {
-					$persistedWidth = value / (16 * $userSettings.zoom);
-				}}
+				minWidth={15}
+				onWidth={(value) => ($width = value)}
 			/>
 			{@render right()}
 		</div>

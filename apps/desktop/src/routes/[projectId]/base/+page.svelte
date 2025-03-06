@@ -6,14 +6,12 @@
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import lscache from 'lscache';
-	import { onMount, setContext } from 'svelte';
+	import { getContext } from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
+	import { setContext } from 'svelte';
 
-	const defaultBranchWidthRem = 30;
-	const laneWidthKey = 'historyLaneWidth';
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const laneWidthKey = 'baseLaneWidth';
+	const width = persisted<number>(20, laneWidthKey);
 
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
@@ -27,13 +25,8 @@
 	const selected = $derived($selectedFile?.file);
 
 	let rsViewport = $state<HTMLDivElement>();
-	let laneWidth = $state<number>();
 
 	const error = baseBranchService.error;
-
-	onMount(() => {
-		laneWidth = lscache.get(laneWidthKey);
-	});
 </script>
 
 {#if $error}
@@ -42,11 +35,7 @@
 	<FullviewLoading />
 {:else}
 	<div class="base">
-		<div
-			class="base__left"
-			bind:this={rsViewport}
-			style:width={`${laneWidth || defaultBranchWidthRem}rem`}
-		>
+		<div class="base__left" bind:this={rsViewport} style:width={$width + 'rem'}>
 			<ScrollableContainer>
 				<div class="card">
 					<BaseBranch base={$baseBranch} />
@@ -55,11 +44,8 @@
 			<Resizer
 				viewport={rsViewport}
 				direction="right"
-				minWidth={320}
-				onWidth={(value) => {
-					laneWidth = value / (16 * $userSettings.zoom);
-					lscache.set(laneWidthKey, laneWidth, 7 * 1440); // 7 day ttl
-				}}
+				minWidth={20}
+				onWidth={(value) => ($width = value)}
 			/>
 		</div>
 		<div class="base__right">

@@ -4,8 +4,7 @@
 	import StackTabs from '$components/v3/StackTabs.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { onMount, type Snippet } from 'svelte';
 	import { page } from '$app/state';
@@ -19,10 +18,8 @@
 
 	const { stackId, projectId, branchName, children }: Props = $props();
 
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-
 	const trayWidthKey = $derived('defaulTrayWidth_ ' + projectId);
-	const trayWidth = $derived(persisted<number>(240, trayWidthKey));
+	const leftWidth = $derived(persisted<number>(240, trayWidthKey));
 
 	const previewingKey = $derived('previewing_' + projectId);
 	const previewing = $derived(persisted<boolean>(false, previewingKey));
@@ -52,15 +49,13 @@
 </script>
 
 <div class="stack-view">
-	<div class="left" bind:this={resizeViewport} style:width={$trayWidth + 'rem'}>
+	<div class="left" bind:this={resizeViewport} style:width={$leftWidth + 'rem'}>
 		<WorktreeChanges {projectId} {stackId} {branchName} />
 		<Resizer
 			viewport={resizeViewport}
 			direction="right"
-			minWidth={240}
-			onWidth={(value) => {
-				$trayWidth = value / (16 * $userSettings.zoom);
-			}}
+			minWidth={14}
+			onWidth={(value) => ($leftWidth = value)}
 		/>
 	</div>
 	<div class="right" bind:this={rightEl}>

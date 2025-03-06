@@ -8,14 +8,8 @@
 	import { RemoteFile } from '$lib/files/file';
 	import { Project } from '$lib/project/project';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import {
-		getContext,
-		getContextStoreBySymbol,
-		createContextStore
-	} from '@gitbutler/shared/context';
-	import { persisted } from '@gitbutler/shared/persisted';
-	import lscache from 'lscache';
+	import { getContext, createContextStore } from '@gitbutler/shared/context';
+	import { persisted, persistWithExpiration } from '@gitbutler/shared/persisted';
 	import { setContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { writable } from 'svelte/store';
@@ -48,16 +42,10 @@
 		fileIdSelection.setUncommittedFiles($uncommittedFiles);
 	});
 
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-
 	let rsViewport: HTMLElement | undefined = $state();
 
 	const commitBoxOpen = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
-	const defaultFileWidthRem = persisted<number | undefined>(30, 'defaulFileWidth' + project.id);
-	const fileWidthKey = 'fileWidth_';
-	let fileWidth: number | undefined = $state(undefined);
-
-	fileWidth = lscache.get(fileWidthKey + branch.id);
+	let width = persistWithExpiration(25, 'fileWidth_' + branch.id, 7 * 1440);
 
 	let isLaneCollapsed = $state(projectLaneCollapsed(project.id, branch.id));
 	$effect(() => {
@@ -75,7 +63,7 @@
 			class="file-preview"
 			bind:this={rsViewport}
 			in:slide={{ duration: 180, easing: quintOut, axis: 'x' }}
-			style:width={`${fileWidth || $defaultFileWidthRem}rem`}
+			style:width={$width + 'rem'}
 		>
 			<FileCard
 				isUnapplied={false}
@@ -91,13 +79,9 @@
 			<Resizer
 				viewport={rsViewport}
 				direction="right"
-				minWidth={400}
+				minWidth={25}
 				defaultLineColor="var(--clr-border-2)"
-				onWidth={(value) => {
-					fileWidth = value / (16 * $userSettings.zoom);
-					lscache.set(fileWidthKey + branch.id, fileWidth, 7 * 1440); // 7 day ttl
-					$defaultFileWidthRem = fileWidth;
-				}}
+				onWidth={(value) => ($width = value)}
 			/>
 		</div>
 	{/if}
