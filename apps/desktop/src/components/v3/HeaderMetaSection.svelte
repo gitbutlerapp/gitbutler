@@ -61,10 +61,4 @@
 		gap: 8px;
 		padding: 12px;
 	}
-
-	.stack-meta-bottom {
-		width: 100%;
-		display: flex;
-		padding: 0 12px 12px 12px;
-	}
 </style>

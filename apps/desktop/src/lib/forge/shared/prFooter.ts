@@ -43,7 +43,7 @@ export function formatButRequestDescription(
 	butRequestUrl: string,
 	butReview: Branch
 ): string {
-	const seriesSize = butReview.patchIds.length;
+	const seriesSize = butReview.patches.length;
 	const patches = butReview.patches
 		.map(
 			(patch) =>
