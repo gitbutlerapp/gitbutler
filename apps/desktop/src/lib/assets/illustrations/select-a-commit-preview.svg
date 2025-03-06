@@ -1,13 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 223 151">
-  <path stroke="#867E79" stroke-width="1.2" d="M101.407 76.601V150.4m0-73.798h121m-121 0v-19.5m0-56.5v56.5m0 0h121m-201 93.298h180.861c11.046 0 20-8.954 20-20V20.601c0-11.046-8.954-20-20-20H21.407c-11.046 0-20 8.954-20 20V130.4c0 11.046 8.954 20 20 20Z" opacity=".3"/>
-  <rect width="83.321" height="38.809" x="11.406" y="11.25" stroke="#867E79" stroke-width="1.2" opacity=".45" rx="9.4"/>
-  <path fill="#8FD6D2" d="M11.407 83.601h83v18h-83z" opacity=".5"/>
-  <path stroke="#867E79" stroke-width="1.2" d="M11.406 68.65a9.4 9.4 0 0 1 9.4-9.4h64.521a9.4 9.4 0 0 1 9.4 9.4v60.008a9.4 9.4 0 0 1-9.4 9.4H20.806a9.4 9.4 0 0 1-9.4-9.4z" opacity=".45"/>
-  <g fill="#867E79" opacity=".6">
-    <rect width="76" height="3" x="116.407" y="65.601" opacity=".7" rx="1.5"/>
-    <rect width="88.136" height="6.771" x="116.661" y="15.835" opacity=".7" rx="3.385"/>
-    <rect width="88.136" height="4.237" x="116.661" y="31.345" opacity=".7" rx="2.119"/>
-    <rect width="71.186" height="4.237" x="116.661" y="39.82" opacity=".7" rx="2.119"/>
-  </g>
-  <path stroke="#867E79" stroke-width="1.2" d="m148.18 92.601-14.773 19.5 14.773 19.5m5.604 0 12.736-39m6.113 0 14.774 19.5-14.774 19.5" opacity=".4"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="223" height="152" viewBox="0 0 223 152" fill="none">
+<g id="4786:21597">
+<path id="4786:22137" opacity="0.3" d="M101 77V150.798M101 77H222M101 77V57.5M101 1V57.5M101 57.5H222M21 150.798H201.862C212.907 150.798 221.862 141.844 221.862 130.798V21C221.862 9.9543 212.907 1 201.862 1H21C9.95431 1 1 9.95431 1 21V130.798C1 141.844 9.95429 150.798 21 150.798Z" stroke="var(--clr-core-ntrl-50)" stroke-width="1.2"/>
+<rect id="4786:21573" opacity="0.45" x="10.9994" y="11.649" width="83.3211" height="38.8085" rx="9.4" stroke="var(--clr-core-ntrl-50)" stroke-width="1.2"/>
+<path id="4786:21899" opacity="0.5" d="M11 84H94V102H11V84Z" fill="var(--clr-core-pop-60)"/>
+<path id="4786:22181" opacity="0.45" d="M10.9994 69.0489C10.9994 63.8575 15.2079 59.649 20.3994 59.649H84.9205C90.112 59.649 94.3205 63.8575 94.3205 69.049V129.057C94.3205 134.249 90.112 138.457 84.9205 138.457H20.3994C15.2079 138.457 10.9994 134.249 10.9994 129.057V69.0489Z" stroke="var(--clr-core-ntrl-50)" stroke-width="1.2"/>
+<g id="4786:21593" opacity="0.6">
+<rect id="4786:21624" opacity="0.7" x="116" y="66" width="76" height="3" rx="1.5" fill="var(--clr-core-ntrl-50)"/>
+<rect id="4786:21592" opacity="0.7" x="116.254" y="16.2334" width="88.1356" height="6.77052" rx="3.38526" fill="var(--clr-core-ntrl-50)"/>
+<rect id="4786:21594" opacity="0.7" x="116.255" y="31.7443" width="88.1356" height="4.23729" rx="2.11864" fill="var(--clr-core-ntrl-50)"/>
+<rect id="4786:21595" opacity="0.7" x="116.255" y="40.2189" width="71.1864" height="4.23729" rx="2.11864" fill="var(--clr-core-ntrl-50)"/>
+</g>
+<path id="4786:21804" opacity="0.4" d="M147.774 93L133 112.5L147.774 132M153.377 132L166.113 93M172.226 93L187 112.5L172.226 132" stroke="var(--clr-core-ntrl-50)" stroke-width="1.2"/>
+</g>
 </svg>
