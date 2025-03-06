@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BranchDividerLine from './BranchDividerLine.svelte';
 	import CommitRow from './CommitRow.svelte';
+	import CreateReviewButton, { Action } from './CreateReviewButton.svelte';
 	import EmptyBranch from './EmptyBranch.svelte';
 	import NewBranchModal from './NewBranchModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
@@ -8,7 +9,7 @@
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import { getForge } from '$lib/forge/interface/forge';
-	import { commitPath, createCommitPath } from '$lib/routes/routes.svelte';
+	import { createBrPath, createCommitPath, createPrPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -16,7 +17,6 @@
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
-	import type { StackBranch } from '$lib/branches/v3';
 	import { goto } from '$app/navigation';
 
 	interface Props {
@@ -48,24 +48,13 @@
 	const forge = getForge();
 	const forgeBranch = $derived($forge?.branch(branchName));
 
-	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
-	let stackingContextMenu = $state<ReturnType<typeof SeriesHeaderContextMenu>>();
+	let headerContextMenu = $state<ReturnType<typeof SeriesHeaderContextMenu>>();
 	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
+
+	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
 	let branchElement = $state<HTMLDivElement>();
 	let contextMenuOpened = $state(false);
-
-	export function allPreviousSeriesHavePrNumber(
-		_seriesName: string,
-		_validSeries: StackBranch[]
-	): boolean {
-		// Stub as a reminder this must be implemented.
-		throw new Error('Not implemented!');
-	}
-	async function generateBranchName(_branch: StackBranch) {
-		// Stub as a reminder this must be implemented.
-		throw new Error('Not implemented!');
-	}
 </script>
 
 <ReduxResult
@@ -84,7 +73,7 @@
 				{branch}
 				isTopBranch={first}
 				readonly={!!forgeBranch}
-				onLabelDblClick={() => stackingContextMenu?.showSeriesRenameModal?.()}
+				onLabelDblClick={() => headerContextMenu?.showSeriesRenameModal?.()}
 			>
 				{#snippet children()}
 					<PopoverActionsContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
@@ -125,7 +114,7 @@
 					/>
 
 					<SeriesHeaderContextMenu
-						bind:this={stackingContextMenu}
+						bind:this={headerContextMenu}
 						bind:contextMenuEl={kebabContextMenu}
 						{stackId}
 						leftClickTrigger={kebabContextMenuTrigger}
@@ -135,7 +124,9 @@
 						isTopBranch={true}
 						toggleDescription={async () => {}}
 						description={branch.description ?? ''}
-						onGenerateBranchName={() => generateBranchName(branch)}
+						onGenerateBranchName={() => {
+							throw new Error('Not implemented!');
+						}}
 						onAddDependentSeries={() => newBranchModal?.show()}
 						onOpenInBrowser={() => {
 							const url = forgeBranch?.url;
@@ -154,21 +145,24 @@
 						{hasParent}
 					/>
 				{/snippet}
+				{#snippet actions()}
+					<CreateReviewButton
+						onclick={(action) => {
+							if (action === Action.CreateButlerReview) {
+								goto(createBrPath(projectId, stackId, branchName));
+							} else if (action === Action.CreatePullRequest) {
+								goto(createPrPath(projectId, stackId, branchName));
+							}
+						}}
+					/>
+				{/snippet}
 			</BranchHeader>
 			<BranchCommitList {projectId} {stackId} {branchName} {selectedCommitId}>
 				{#snippet emptyPlaceholder()}
 					<EmptyBranch {lastBranch} />
 				{/snippet}
 				{#snippet upstreamTemplate({ commit, commitKey, first, lastCommit, selected })}
-					<CommitRow
-						{projectId}
-						{commitKey}
-						{first}
-						{lastCommit}
-						{commit}
-						{selected}
-						onclick={() => goto(commitPath(projectId, commitKey))}
-					/>
+					<CommitRow {projectId} {commitKey} {first} {lastCommit} {commit} {selected} link />
 				{/snippet}
 				{#snippet localAndRemoteTemplate({
 					commit,
@@ -185,7 +179,7 @@
 						{lastBranch}
 						{commit}
 						{selected}
-						onclick={() => goto(commitPath(projectId, commitKey))}
+						link
 					/>
 				{/snippet}
 			</BranchCommitList>

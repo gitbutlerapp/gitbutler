@@ -80,6 +80,12 @@ export function toggleBoolQueryParam(param: string) {
 	return url.toString();
 }
 
+export function setQueryParam(param: string, value: string) {
+	const url = new URL(page.url);
+	url.searchParams.set(param, value);
+	return url.toString();
+}
+
 export function createCommitPath(
 	projectId: string,
 	stackId: string,
@@ -88,6 +94,14 @@ export function createCommitPath(
 ) {
 	const url = `/${projectId}/workspace/${stackId}/${branchName}/commit`;
 	return commitId ? url + '?commitId=' + commitId : url;
+}
+
+export function createBrPath(projectId: string, stackId: string, branchName: string) {
+	return `/${projectId}/workspace/${stackId}/${branchName}/butler-review`;
+}
+
+export function createPrPath(projectId: string, stackId: string, branchName: string) {
+	return `/${projectId}/workspace/${stackId}/${branchName}/pull-request`;
 }
 
 export function clonePath() {

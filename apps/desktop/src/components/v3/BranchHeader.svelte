@@ -17,6 +17,7 @@
 		readonly: boolean;
 		lineColor?: string;
 		children?: Snippet;
+		actions?: Snippet;
 		onLabelDblClick?: () => void;
 	}
 
@@ -28,6 +29,7 @@
 		readonly,
 		lineColor,
 		children,
+		actions,
 		onLabelDblClick
 	}: Props = $props();
 
@@ -94,6 +96,9 @@
 							/>
 						</div>
 					{/if}
+					{#if actions}
+						{@render actions()}
+					{/if}
 				</div>
 			</div>
 		{/snippet}
@@ -143,7 +148,7 @@
 		width: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: 10px;
 		padding: 14px 0;
 		margin-left: -2px;
 		text-overflow: ellipsis;

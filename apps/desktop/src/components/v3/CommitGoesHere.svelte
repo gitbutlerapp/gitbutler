@@ -93,10 +93,7 @@
 									lineColor="var(--clr-commit-local)"
 									opacity={0.4}
 									borderTop={selected}
-									onclick={() =>
-										goto(createCommitPath(projectId, stackId, branchName, commit.id), {
-											replaceState: true
-										})}
+									link
 								/>
 								{#if lastBranch && last && baseSha && parentId !== baseSha}
 									{@render commitHere({ commitId: baseSha, last: true })}
