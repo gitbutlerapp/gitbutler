@@ -68,7 +68,7 @@
 			/>
 
 			{#if error}
-				<div class="error2">{error}</div>
+				<div class="error-key">{error}</div>
 			{/if}
 		</div>
 	{/snippet}
@@ -80,12 +80,8 @@
 </Modal>
 
 <style lang="postcss">
-	.error2 {
+	.error-key {
 		color: red;
-	}
-
-	.pk-label {
-		color: var(--clr-scale-ntrl-50);
 	}
 
 	.container {
@@ -98,38 +94,5 @@
 		color: var(--clr-scale-ntrl-30);
 		font-size: 14px;
 		line-height: 1.5;
-	}
-
-	.field {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-
-		label {
-			color: var(--clr-scale-ntrl-30);
-			font-size: 14px;
-		}
-
-		textarea {
-			padding: 8px 12px;
-			border-radius: var(--radius-m);
-			border: 1px solid var(--clr-border-2);
-			background-color: var(--clr-bg-1);
-			color: var(--clr-scale-ntrl-0);
-			font-size: 14px;
-			font-family: monospace;
-			min-height: 100px;
-			resize: vertical;
-
-			&:focus {
-				border-color: var(--clr-scale-pop-70);
-				outline: none;
-			}
-		}
-	}
-
-	.error {
-		color: var(--clr-scale-error-70);
-		font-size: 14px;
 	}
 </style>
