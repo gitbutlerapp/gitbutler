@@ -1,9 +1,5 @@
 import type { UserSimple } from '@gitbutler/shared/users/types';
 
-export function embedUserMention(username: string): string {
-	return `<<@${username}>>`;
-}
-
 export interface MentionMatch {
 	user: UserSimple;
 	prefix: MentionMatch | string;
