@@ -3,6 +3,7 @@
 	import { ReviewSectionsService } from '$lib/review/reviewSections.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
+	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { getPatchIdableSections } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
@@ -134,20 +135,22 @@
 	</div>
 
 	<div class="review-sections-diffs">
-		{#if patchSections !== undefined}
-			{#each patchSections.current || [] as section}
-				<SectionComponent
-					{isLoggedIn}
-					{section}
-					{toggleDiffLine}
-					{selectedSha}
-					{selectedLines}
-					{onCopySelection}
-					{onQuoteSelection}
-					{clearLineSelection}
-				/>
-			{/each}
-		{/if}
+		<Loading loadable={patchSections?.current}>
+			{#snippet children(patchSections)}
+				{#each patchSections || [] as section}
+					<SectionComponent
+						{isLoggedIn}
+						{section}
+						{toggleDiffLine}
+						{selectedSha}
+						{selectedLines}
+						{onCopySelection}
+						{onQuoteSelection}
+						{clearLineSelection}
+					/>
+				{/each}
+			{/snippet}
+		</Loading>
 	</div>
 </div>
 
