@@ -9,9 +9,8 @@
 .StandardTheme__paragraph {
 	margin: 0;
 	position: relative;
-
 	font-family: var(--fontfamily-default);
-	font-size: 0.8125rem;
+	font-size: 13px;
 	font-weight: var(--text-weight-regular);
 	line-height: var(--text-lineheight-body);
 }
