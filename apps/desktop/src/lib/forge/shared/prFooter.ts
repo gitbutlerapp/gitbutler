@@ -1,45 +1,77 @@
 import type { ForgePrService } from '../interface/forgePrService';
+import type { Branch } from '@gitbutler/shared/branches/types';
+import type { PatchReview } from '@gitbutler/shared/patches/types';
+import type { UserSimple } from '@gitbutler/shared/users/types';
 
 export const STACKING_FOOTER_BOUNDARY_TOP = '<!-- GitButler Footer Boundary Top -->';
 export const STACKING_FOOTER_BOUNDARY_BOTTOM = '<!-- GitButler Footer Boundary Bottom -->';
 
-export const BUT_REQUEST_FOOTER_BOUNDARY_TOP = '<!-- GitButler But Request Footer Boundary Top -->';
-export const BUT_REQUEST_FOOTER_BOUNDARY_BOTTOM =
-	'<!-- GitButler But Request Footer Boundary Bottom -->';
-
-// ["caleb", "scott", "corbob"]
-// caleb, scott, and corbob
-function joinEnglishly(target: string[]): string {
-	if (target.length === 0) return '';
-	if (target.length === 1) return target[0] as string;
-
-	const end = [target.at(-2), target.at(-1)].join(', and ');
-	return [...target.slice(0, -2), end].join(', ');
-}
+export const BUT_REVIEW_FOOTER_BOUNDARY_TOP = '<!-- GitButler Review Footer Boundary Top -->';
+export const BUT_REVIEW_FOOTER_BOUNDARY_BOTTOM = '<!-- GitButler Review Footer Boundary Bottom -->';
 
 export async function updateButRequestPrDescription(
 	prService: ForgePrService,
 	prNumber: number,
 	prBody: string,
 	butRequestUrl: string,
-	participants: string[]
+	butReview: Branch
 ) {
 	await prService.update(prNumber, {
-		description: formatButRequestDescription(prBody, butRequestUrl, participants)
+		description: formatButRequestDescription(prBody, butRequestUrl, butReview)
 	});
+}
+
+function reviewStatusToIcon(status: string) {
+	if (status === 'approved') {
+		return '✅';
+	} else if (status === 'in-discussion') {
+		return '💬';
+	} else if (status === 'changes-requested') {
+		return '⚠️';
+	}
+	return '⏳';
+}
+
+function reviewAllToAvatars(reviewAll: PatchReview) {
+	return reviewAll.viewed
+		.map((user: UserSimple) => `<img width="20" height="20" src="${user.avatarUrl}">`)
+		.join(', ');
 }
 
 export function formatButRequestDescription(
 	prBody: string,
 	butRequestUrl: string,
-	participants: string[]
+	butReview: Branch
 ): string {
-	const formatedPatricipats = joinEnglishly(participants);
-	const description = `There is an associated [Butler Request](${butRequestUrl}). ${formatedPatricipats} has left feedback.`;
+	const seriesSize = butReview.patchIds.length;
+	const patches = butReview.patches
+		.map(
+			(patch) =>
+				`| ${seriesSize - (patch.position || 0)}/${seriesSize} | [${patch.title}](${butRequestUrl}/commit/${patch.changeId}) | ${reviewStatusToIcon(patch.reviewStatus)} | ${reviewAllToAvatars(patch.reviewAll)} |`
+		)
+		.join('\n');
+
+	let summary = `**${butReview.title}**\n`;
+	if (butReview.description) {
+		summary += `\n\n${butReview.description}`;
+	}
+
+	const description = `---
+⧓ Review in [Butler Review \`#0aHp6xmQG\`](${butRequestUrl})
+
+${summary}
+
+${seriesSize} commit series (version ${butReview.version || 1})
+
+| Series | Commit Title | Status | Reviewers | 
+| --- | --- | --- | --- |
+${patches}
+
+_Please leave review feedback in the [Butler Review](${butRequestUrl})_`;
 
 	const newPrDescription = upsertDescription(
-		BUT_REQUEST_FOOTER_BOUNDARY_TOP,
-		BUT_REQUEST_FOOTER_BOUNDARY_BOTTOM,
+		BUT_REVIEW_FOOTER_BOUNDARY_TOP,
+		BUT_REVIEW_FOOTER_BOUNDARY_BOTTOM,
 		prBody,
 		description
 	);
