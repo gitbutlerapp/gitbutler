@@ -35,6 +35,7 @@ pub fn commit(
     };
     let changes = to_whole_file_diffspec(but_core::diff::worktree_changes(&repo)?.changes);
     if let Some(project) = project.as_ref() {
+        let mut guard = project.exclusive_worktree_access();
         debug_print(
             but_workspace::commit_engine::create_commit_and_update_refs_with_project(
                 &repo,
@@ -44,6 +45,7 @@ pub fn commit(
                 None,
                 changes,
                 0, /* context-lines */
+                guard.write_permission(),
             )?,
         )?;
     } else {

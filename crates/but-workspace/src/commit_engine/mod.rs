@@ -6,6 +6,7 @@ use but_core::RepositoryExt;
 use but_core::unified_diff::DiffHunk;
 use but_rebase::RebaseOutput;
 use but_rebase::commit::CommitterMode;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{StackId, VirtualBranchesHandle, VirtualBranchesState};
 use gix::prelude::ObjectIdExt as _;
 use gix::refs::transaction::PreviousValue;
@@ -473,6 +474,7 @@ pub fn create_commit_and_update_refs(
 /// if present. Alternatively it uses the current `HEAD` as only reference point.
 /// Note that virtual branches will be updated and written back after this call, which will obtain
 /// an exclusive workspace lock as well.
+#[allow(clippy::too_many_arguments)]
 pub fn create_commit_and_update_refs_with_project(
     repo: &gix::Repository,
     project: &gitbutler_project::Project,
@@ -481,8 +483,8 @@ pub fn create_commit_and_update_refs_with_project(
     move_source: Option<MoveSourceCommit>,
     changes: Vec<DiffSpec>,
     context_lines: u32,
+    _perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<CreateCommitOutcome> {
-    let _guard = project.exclusive_worktree_access();
     let vbh = VirtualBranchesHandle::new(project.gb_dir());
     let mut vb = vbh.read_file()?;
     let frame = match maybe_stackid {

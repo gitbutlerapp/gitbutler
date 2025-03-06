@@ -120,6 +120,7 @@ pub fn create_commit_from_worktree_changes(
             }
         }
     };
+    let guard = project.exclusive_worktree_access();
     Ok(commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         &project,
@@ -136,6 +137,7 @@ pub fn create_commit_from_worktree_changes(
         None,
         worktree_changes.into_iter().map(Into::into).collect(),
         settings.get()?.context_lines,
+        guard,
     )?
     .into())
 }
@@ -156,6 +158,7 @@ pub fn amend_commit_from_worktree_changes(
     worktree_changes: Vec<commit_engine::ui::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = projects.get(project_id)?;
+    let mut guard = project.exclusive_worktree_access();
     let repo = but_core::open_repo_for_merging(&project.worktree_path())?;
     Ok(commit_engine::create_commit_and_update_refs_with_project(
         &repo,
@@ -165,6 +168,7 @@ pub fn amend_commit_from_worktree_changes(
         None,
         worktree_changes.into_iter().map(Into::into).collect(),
         settings.get()?.context_lines,
+        guard.write_permission(),
     )?
     .into())
 }
