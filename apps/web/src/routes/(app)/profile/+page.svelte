@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { AuthService } from '$lib/auth/authService.svelte';
+	import AddSshKeyModal from '$lib/components/AddSshKeyModal.svelte';
 	import { featureShowOrganizations, featureShowProjectPage } from '$lib/featureFlags';
+	import { SshKeyService, type SshKey } from '$lib/sshKeyService';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
@@ -14,6 +16,7 @@
 	const userService = getContext(UserService);
 	const appState = getContext(AppState);
 	const notificationSettingsService = getContext(NotificationSettingsService);
+	const sshKeyService = getContext(SshKeyService);
 
 	const notificationSettings = getNotificationSettingsInterest(
 		appState,
@@ -32,12 +35,16 @@
 	let nameValue = $state('');
 	let emailValue = $state('');
 	let userPicture = $state('');
+	let sshKeys = $state<SshKey[]>([]);
+	let loadingSshKeys = $state(true);
+	let addKeyModal = $state<AddSshKeyModal>();
 
 	$effect(() => {
 		if ($user) {
 			nameValue = $user.name;
 			emailValue = $user.email;
 			userPicture = $user.picture;
+			loadSshKeys();
 		}
 	});
 
@@ -111,6 +118,36 @@
 		updatingReceiveSignOffEmails = true;
 		await notificationSettingsService.updateNotificationSettings({ receiveSignOffEmails: value });
 		updatingReceiveSignOffEmails = false;
+	}
+
+	async function loadSshKeys() {
+		try {
+			sshKeys = await sshKeyService.getSshKeys();
+		} catch (error) {
+			console.error('Failed to load SSH keys:', error);
+		} finally {
+			loadingSshKeys = false;
+		}
+	}
+
+	async function deleteSshKey(fingerprint: string) {
+		const key = sshKeys.find((k) => k.fingerprint === fingerprint);
+		if (!key) return;
+
+		const confirmed = confirm(`Are you sure you want to delete the SSH key "${key.name}"?`);
+		if (!confirmed) return;
+
+		try {
+			await sshKeyService.deleteSshKey(key.fingerprint);
+			sshKeys = sshKeys.filter((key) => key.fingerprint !== fingerprint);
+		} catch (error) {
+			console.error('Failed to delete SSH key:', error);
+		}
+	}
+
+	async function onAddKeyModalClose() {
+		console.log('Modal closed, refreshing keys...');
+		await loadSshKeys();
 	}
 </script>
 
@@ -277,6 +314,40 @@
 					</SectionCard>
 				{/snippet}
 			</Loading>
+
+			<h2 class="section-title">SSH Keys</h2>
+
+			<SectionCard>
+				<div class="ssh-keys">
+					{#if loadingSshKeys}
+						<div class="loading">Loading SSH keys...</div>
+					{:else if sshKeys.length === 0}
+						<div class="no-keys">No SSH keys added yet</div>
+					{:else}
+						{#each sshKeys as key}
+							<div class="ssh-key">
+								<div class="ssh-key-info">
+									<span class="ssh-key-name">{key.name}</span>
+									<span class="ssh-key-fingerprint">{key.fingerprint}</span>
+								</div>
+								<button
+									type="button"
+									class="delete-button"
+									title="Delete key"
+									onclick={() => deleteSshKey(key.fingerprint)}>×</button
+								>
+							</div>
+						{/each}
+					{/if}
+
+					<button type="button" class="add-key-button" onclick={() => addKeyModal?.show()}>
+						<span class="add-key-icon">+</span>
+						<span>Add SSH Key</span>
+					</button>
+				</div>
+			</SectionCard>
+
+			<AddSshKeyModal bind:this={addKeyModal} onClose={onAddKeyModalClose} />
 
 			<h2 class="section-title">Experimental settings</h2>
 
@@ -511,5 +582,93 @@
 		color: var(--clr-scale-ntrl-30);
 		font-size: 13px;
 		line-height: 1.4;
+	}
+
+	.ssh-keys {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.ssh-key {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 12px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
+		border: 1px solid var(--clr-border-2);
+	}
+
+	.ssh-key-info {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.ssh-key-name {
+		color: var(--clr-scale-ntrl-0);
+		font-size: 14px;
+		font-weight: 500;
+	}
+
+	.ssh-key-fingerprint {
+		color: var(--clr-scale-ntrl-30);
+		font-size: 13px;
+		font-family: monospace;
+	}
+
+	.delete-button {
+		width: 24px;
+		height: 24px;
+		border-radius: var(--radius-s);
+		border: 1px solid var(--clr-border-2);
+		background-color: transparent;
+		color: var(--clr-scale-ntrl-30);
+		font-size: 18px;
+		line-height: 1;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all var(--transition-medium);
+
+		&:hover {
+			background-color: var(--clr-scale-ntrl-10);
+			border-color: var(--clr-scale-ntrl-30);
+			color: var(--clr-scale-ntrl-50);
+		}
+	}
+
+	.add-key-button {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 12px;
+		border-radius: var(--radius-m);
+		border: 1px dashed var(--clr-border-2);
+		background-color: transparent;
+		color: var(--clr-scale-ntrl-50);
+		font-size: 14px;
+		cursor: pointer;
+		transition: all var(--transition-medium);
+
+		&:hover {
+			border-color: var(--clr-scale-pop-70);
+			color: var(--clr-scale-pop-70);
+		}
+	}
+
+	.add-key-icon {
+		font-size: 18px;
+		line-height: 1;
+	}
+
+	.loading,
+	.no-keys {
+		color: var(--clr-scale-ntrl-30);
+		font-size: 14px;
+		text-align: center;
+		padding: 24px;
 	}
 </style>
