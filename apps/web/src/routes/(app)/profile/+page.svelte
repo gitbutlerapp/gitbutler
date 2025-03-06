@@ -170,88 +170,110 @@
 
 			<Loading loadable={notificationSettings.current}>
 				{#snippet children(notificationSettings)}
-					<SectionCard labelFor="receive-chat-mention-emails" orientation="row">
-						{#snippet title()}Receive chat message mention emails{/snippet}
-						{#snippet caption()}
-							Receive emails everytime you are mentioned in a message.
-						{/snippet}
-						{#snippet actions()}
-							<Toggle
-								id="receive-chat-mention-emails"
-								checked={notificationSettings.receiveChatMentionEmails}
-								disabled={updatingReceiveChatMentionEmails}
-								onclick={() =>
-									updateReceiveChatMentionEmails(!notificationSettings.receiveChatMentionEmails)}
-							/>
-						{/snippet}
-					</SectionCard>
+					<SectionCard>
+						<div class="notification-settings">
+							<div class="notification-option">
+								<label class="checkbox-label" for="receive-chat-mention-emails">
+									<input
+										type="checkbox"
+										id="receive-chat-mention-emails"
+										checked={notificationSettings.receiveChatMentionEmails}
+										disabled={updatingReceiveChatMentionEmails}
+										onchange={() =>
+											updateReceiveChatMentionEmails(
+												!notificationSettings.receiveChatMentionEmails
+											)}
+									/>
+									<div class="checkbox-content">
+										<span class="checkbox-title">Chat message mention emails</span>
+										<span class="checkbox-caption">Emails when you are mentioned in a message.</span
+										>
+									</div>
+								</label>
+							</div>
 
-					<SectionCard labelFor="receive-issue-creation-emails" orientation="row">
-						{#snippet title()}Receive issue creation emails{/snippet}
-						{#snippet caption()}
-							Receive emails for every new issue created in changes you are involved in.
-						{/snippet}
-						{#snippet actions()}
-							<Toggle
-								id="receive-issue-creation-emails"
-								checked={notificationSettings.receiveIssueCreationEmails}
-								disabled={updatingReceiveIssueCreationEmails}
-								onclick={() =>
-									updateReceiveIssueCreationEmails(
-										!notificationSettings.receiveIssueCreationEmails
-									)}
-							/>
-						{/snippet}
-					</SectionCard>
+							<div class="notification-option">
+								<label class="checkbox-label" for="receive-issue-creation-emails">
+									<input
+										type="checkbox"
+										id="receive-issue-creation-emails"
+										checked={notificationSettings.receiveIssueCreationEmails}
+										disabled={updatingReceiveIssueCreationEmails}
+										onchange={() =>
+											updateReceiveIssueCreationEmails(
+												!notificationSettings.receiveIssueCreationEmails
+											)}
+									/>
+									<div class="checkbox-content">
+										<span class="checkbox-title">Issue creation emails</span>
+										<span class="checkbox-caption"
+											>Emails for new issues created in changes you are involved in.</span
+										>
+									</div>
+								</label>
+							</div>
 
-					<SectionCard labelFor="receive-issue-resolution-emails" orientation="row">
-						{#snippet title()}Receive issue status emails{/snippet}
-						{#snippet caption()}
-							Receive emails for every status update of issues in changes you are involved in.
-						{/snippet}
-						{#snippet actions()}
-							<Toggle
-								id="receive-issue-resolution-emails"
-								checked={notificationSettings.receiveIssueResolutionEmails}
-								disabled={updatingReceiveIssueResolutionEmails}
-								onclick={() =>
-									updateReceiveIssueResolutionEmails(
-										!notificationSettings.receiveIssueResolutionEmails
-									)}
-							/>
-						{/snippet}
-					</SectionCard>
+							<div class="notification-option">
+								<label class="checkbox-label" for="receive-issue-resolution-emails">
+									<input
+										type="checkbox"
+										id="receive-issue-resolution-emails"
+										checked={notificationSettings.receiveIssueResolutionEmails}
+										disabled={updatingReceiveIssueResolutionEmails}
+										onchange={() =>
+											updateReceiveIssueResolutionEmails(
+												!notificationSettings.receiveIssueResolutionEmails
+											)}
+									/>
+									<div class="checkbox-content">
+										<span class="checkbox-title">Issue status emails</span>
+										<span class="checkbox-caption"
+											>Emails for status updates of issues in changes you are involved in.</span
+										>
+									</div>
+								</label>
+							</div>
 
-					<SectionCard labelFor="receive-review-branch-emails" orientation="row">
-						{#snippet title()}Receive branch version update emails{/snippet}
-						{#snippet caption()}
-							Receive emails for every time a new review branch version is created.
-						{/snippet}
-						{#snippet actions()}
-							<Toggle
-								id="receive-review-branch-emails"
-								checked={notificationSettings.receiveReviewBranchEmails}
-								disabled={updatingReceiveReviewBranchEmails}
-								onclick={() =>
-									updateReceiveReviewBranchEmails(!notificationSettings.receiveReviewBranchEmails)}
-							/>
-						{/snippet}
-					</SectionCard>
+							<div class="notification-option">
+								<label class="checkbox-label" for="receive-review-branch-emails">
+									<input
+										type="checkbox"
+										id="receive-review-branch-emails"
+										checked={notificationSettings.receiveReviewBranchEmails}
+										disabled={updatingReceiveReviewBranchEmails}
+										onchange={() =>
+											updateReceiveReviewBranchEmails(
+												!notificationSettings.receiveReviewBranchEmails
+											)}
+									/>
+									<div class="checkbox-content">
+										<span class="checkbox-title">Branch version update emails</span>
+										<span class="checkbox-caption"
+											>Emails when a new review branch version is created.</span
+										>
+									</div>
+								</label>
+							</div>
 
-					<SectionCard labelFor="receive-sign-off-emails" orientation="row">
-						{#snippet title()}Receive change status update emails{/snippet}
-						{#snippet caption()}
-							Receive emails for every update on the review status of changes your involved in.
-						{/snippet}
-						{#snippet actions()}
-							<Toggle
-								id="receive-sign-off-emails"
-								checked={notificationSettings.receiveSignOffEmails}
-								disabled={updatingReceiveSignOffEmails}
-								onclick={() =>
-									updateReceiveSignOffEmails(!notificationSettings.receiveSignOffEmails)}
-							/>
-						{/snippet}
+							<div class="notification-option">
+								<label class="checkbox-label" for="receive-sign-off-emails">
+									<input
+										type="checkbox"
+										id="receive-sign-off-emails"
+										checked={notificationSettings.receiveSignOffEmails}
+										disabled={updatingReceiveSignOffEmails}
+										onchange={() =>
+											updateReceiveSignOffEmails(!notificationSettings.receiveSignOffEmails)}
+									/>
+									<div class="checkbox-content">
+										<span class="checkbox-title">Change status update emails</span>
+										<span class="checkbox-caption"
+											>Emails for updates on the review status of changes you are involved in.</span
+										>
+									</div>
+								</label>
+							</div>
+						</div>
 					</SectionCard>
 				{/snippet}
 			</Loading>
@@ -421,5 +443,73 @@
 		width: 100%;
 		height: 100%;
 		opacity: 0;
+	}
+
+	.notification-settings {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.notification-option {
+		display: flex;
+		align-items: flex-start;
+	}
+
+	.checkbox-label {
+		display: flex;
+		gap: 12px;
+		cursor: pointer;
+		user-select: none;
+
+		input[type='checkbox'] {
+			margin-top: 4px;
+			width: 16px;
+			height: 16px;
+			border-radius: var(--radius-s);
+			border: 1px solid var(--clr-border-2);
+			background-color: var(--clr-bg-1);
+			cursor: pointer;
+
+			&:checked {
+				background-color: var(--clr-scale-pop-70);
+				border-color: var(--clr-scale-pop-70);
+
+				&::after {
+					content: '';
+					position: absolute;
+					left: 5px;
+					top: 2px;
+					width: 4px;
+					height: 8px;
+					border: solid white;
+					border-width: 0 2px 2px 0;
+					transform: rotate(45deg);
+				}
+			}
+
+			&:disabled {
+				opacity: 0.5;
+				cursor: not-allowed;
+			}
+		}
+	}
+
+	.checkbox-content {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.checkbox-title {
+		color: var(--clr-scale-ntrl-0);
+		font-size: 14px;
+		font-weight: 500;
+	}
+
+	.checkbox-caption {
+		color: var(--clr-scale-ntrl-30);
+		font-size: 13px;
+		line-height: 1.4;
 	}
 </style>
