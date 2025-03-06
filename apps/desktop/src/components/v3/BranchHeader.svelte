@@ -58,15 +58,15 @@
 		{#snippet children(commit)}
 			{@const branchType: CommitStateType = commit?.state.type ?? 'LocalOnly'}
 			{@const color = lineColor || getColorFromBranchType(branchType)}
-			<div class="branch-info">
+			<div class="first-row">
 				<SeriesHeaderStatusIcon
 					lineTop={isTopBranch ? false : true}
 					icon={branchType === 'Integrated' ? 'tick-small' : 'branch-small'}
 					iconColor="var(--clr-core-ntrl-100)"
 					{color}
 				/>
-				<div class="branch-info__content">
-					<div class="text-14 text-bold branch-info__name">
+				<div class="right">
+					<div class="combined-name text-14 text-bold">
 						{#if branch.remoteTrackingBranch}
 							<span class="remote-name">
 								{branch.remoteTrackingBranch}
@@ -84,8 +84,8 @@
 						/>
 					</div>
 					{#if branch.description}
-						<div class="branch-info__description">
-							<div class="branch-info__line" style:--bg-color={color}></div>
+						<div class="description">
+							<div class="line" style:--bg-color={color}></div>
 							<SeriesDescription
 								bind:textAreaEl={seriesDescriptionEl}
 								value={branch.description || ''}
@@ -115,7 +115,7 @@
 		}
 	}
 
-	.branch-info {
+	.first-row {
 		width: 100%;
 		padding-right: 14px;
 		display: flex;
@@ -129,7 +129,7 @@
 		}
 	}
 
-	.branch-info__name {
+	.combined-name {
 		display: flex;
 		align-items: center;
 		justify-content: flex-start;
@@ -137,7 +137,7 @@
 		flex-grow: 1;
 	}
 
-	.branch-info__content {
+	.right {
 		overflow: hidden;
 		flex: 1;
 		width: 100%;
@@ -149,7 +149,7 @@
 		text-overflow: ellipsis;
 	}
 
-	.branch-info__line {
+	.line {
 		min-width: 2px;
 		margin: 0 22px;
 		background-color: var(--bg-color, var(--clr-border-3));
