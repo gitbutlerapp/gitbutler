@@ -21,6 +21,7 @@
 {:else if loadable.status === 'not-found'}
 	<span>Not found</span>
 {:else if loadable.status === 'error'}
+	<span>{loadable.error.name}</span>
 	<span>{loadable.error.message}</span>
 {:else}
 	<span>Unknown state</span>
