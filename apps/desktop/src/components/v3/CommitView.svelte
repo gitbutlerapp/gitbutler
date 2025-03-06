@@ -4,16 +4,14 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import type { CommitKey } from '$lib/commits/commit';
 
 	type Props = {
 		projectId: string;
 		commitKey: CommitKey;
-		onClose: () => void;
 	};
 
-	const { projectId, commitKey, onClose }: Props = $props();
+	const { projectId, commitKey }: Props = $props();
 
 	const [stackService] = inject(StackService);
 	const commitResult = $derived(stackService.commitById(projectId, commitKey));
@@ -23,14 +21,6 @@
 	{#snippet children(commit)}
 		<div class="commit-view">
 			<div>
-				<Button
-					type="button"
-					kind="ghost"
-					class="exit-btn"
-					icon="cross"
-					size="tag"
-					onclick={onClose}
-				/>
 				<StackDetailsCommitHeader {projectId} {commitKey} {commit} />
 			</div>
 			<div class="body">
