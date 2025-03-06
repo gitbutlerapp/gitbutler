@@ -8,6 +8,7 @@
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound, map } from '@gitbutler/shared/network/loadable';
+	import PermissionsSelector from '@gitbutler/shared/organizations/PermissionsSelector.svelte';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { getOrganizations } from '@gitbutler/shared/organizations/organizationsPreview.svelte';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
@@ -21,6 +22,7 @@
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import type { Project as BackendProject } from '$lib/project/project';
 	import type { Project } from '@gitbutler/shared/organizations/types';
+
 	const appState = getContext(AppState);
 	const projectsService = getContext(ProjectsService);
 	const projectService = getContext(ProjectService);
@@ -227,19 +229,6 @@
 							{/snippet}
 						</SectionCard>
 					{/if}
-
-					<br />
-
-					<div class="api-link text-12">
-						<Link
-							target="_blank"
-							rel="noreferrer"
-							href={webRoutes.projectUrl({
-								ownerSlug: cloudProject.owner,
-								projectSlug: cloudProject.slug
-							})}>Go to GitButler Server Project</Link
-						>
-					</div>
 				{/snippet}
 			</Section>
 
@@ -279,6 +268,35 @@
 					</Section>
 				{/if}
 			{/if}
+
+			<br />
+
+			<SectionCard orientation="row" centerAlign>
+				{#snippet title()}
+					Project visibility
+				{/snippet}
+				{#snippet caption()}
+					Choose your project's visiblility. Public projects will get indexed, unlisted projects can
+					only be found by direct link, and private projects can only be seen by organization
+					members.
+				{/snippet}
+				{#snippet actions()}
+					<PermissionsSelector repositoryId={cloudProject.repositoryId} />
+				{/snippet}
+			</SectionCard>
+
+			<br />
+
+			<div class="api-link text-12">
+				<Link
+					target="_blank"
+					rel="noreferrer"
+					href={webRoutes.projectUrl({
+						ownerSlug: cloudProject.owner,
+						projectSlug: cloudProject.slug
+					})}>Go to GitButler Server Project</Link
+				>
+			</div>
 		{/snippet}
 	</Loading>
 {/if}
