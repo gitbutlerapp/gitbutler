@@ -43,7 +43,8 @@ export class WebRoutesService {
 	}
 
 	private toUrl(path: string) {
-		return `${this.baseUrl}${path}`;
+		const baseUrl = this.baseUrl.replace(/\/$/, '');
+		return `${baseUrl}${path}`;
 	}
 
 	homePath() {
