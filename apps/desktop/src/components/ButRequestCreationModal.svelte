@@ -44,7 +44,7 @@
 	}
 </script>
 
-<Modal bind:this={modal} title="Create a Butler Request">
+<Modal bind:this={modal} title="Create a Butler Review">
 	{#snippet children()}
 		<div class="container">
 			<Textbox bind:value={title} placeholder="Add title..." />
@@ -54,7 +54,7 @@
 
 	{#snippet controls()}
 		<Button onclick={() => modal?.close()} kind="outline">Cancel</Button>
-		<AsyncButton action={publishReview} style="pop">Publish Butler Request</AsyncButton>
+		<AsyncButton action={publishReview} style="pop">Publish Butler Review</AsyncButton>
 	{/snippet}
 </Modal>
 

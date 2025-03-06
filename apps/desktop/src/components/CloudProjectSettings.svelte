@@ -139,11 +139,11 @@
 		projectsService.updateProject(mutableProject);
 	}
 
-	let cloudFeatureFlag = $user?.role === 'admin';
+	let cloudFeatureFlag = $derived($user?.role === 'admin');
 </script>
 
 <Section>
-	<SectionCard orientation="row" labelFor="signCommits">
+	<SectionCard orientation="row" labelFor="serverFeatures">
 		{#snippet title()}
 			GitButler Server Features
 		{/snippet}
@@ -151,80 +151,85 @@
 			Enabling this allows you to turn on various hosted features for this project on gitbutler.com.
 		{/snippet}
 		{#snippet actions()}
-			<Toggle id="signCommits" checked={!!$project?.api} onclick={toggleProject} />
+			{#if $project?.api && !cloudProject}
+				<p>Loading...</p>
+			{:else}
+				<Toggle id="serverFeatures" checked={!!$project?.api} onclick={toggleProject} />
+			{/if}
 		{/snippet}
 	</SectionCard>
 </Section>
 
 {#if cloudProject}
-	<br />
-	<Section gap={0}>
-		{#snippet children()}
-			<SectionCard
-				labelFor="reviews"
-				orientation="row"
-				roundedTop={true}
-				roundedBottom={!cloudFeatureFlag}
-			>
-				{#snippet title()}
-					Use Butler Review
-				{/snippet}
-				{#snippet caption()}
-					Use Butler Review with this project. Butler Review is a commit based code review tool that
-					helps your team review series of patches.
-					<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
-				{/snippet}
-				{#snippet actions()}
-					<Toggle
-						id="reviews"
-						checked={$project?.api?.reviews || false}
-						onclick={async () => await onReviewsChange(!$project?.api?.reviews)}
-					/>
-				{/snippet}
-			</SectionCard>
-			{#if cloudFeatureFlag}
-				<SectionCard
-					labelFor="historySync"
-					roundedBottom={false}
-					roundedTop={false}
-					orientation="row"
-				>
-					{#snippet title()}
-						Timeline Backup
-					{/snippet}
-					{#snippet caption()}
-						Sync this project's operations log (timeline) to GitButler servers. The operations log
-						includes snapshots of the repository state, including non-committed code changes.
-					{/snippet}
-					{#snippet actions()}
-						<Toggle
-							id="historySync"
-							checked={$project?.api?.sync || false}
-							onclick={async () => await onSyncChange(!$project?.api?.sync)}
-						/>
-					{/snippet}
-				</SectionCard>
-				<SectionCard labelFor="branchesySync" roundedTop={false} orientation="row">
-					{#snippet title()}
-						Code Hosting
-					{/snippet}
-					{#snippet caption()}
-						Push this project's branches to a hosted GitButler repository.
-					{/snippet}
-					{#snippet actions()}
-						<Toggle
-							id="branchesySync"
-							checked={$project?.api?.sync_code || false}
-							onclick={async () => await onSyncCodeChange(!$project?.api?.sync_code)}
-						/>
-					{/snippet}
-				</SectionCard>
-			{/if}
-
+	<Loading loadable={cloudProject.current}>
+		{#snippet children(cloudProject)}
 			<br />
+			<Section gap={0}>
+				{#snippet children()}
+					<SectionCard
+						labelFor="reviews"
+						orientation="row"
+						roundedTop={true}
+						roundedBottom={!cloudFeatureFlag}
+					>
+						{#snippet title()}
+							Use Butler Review
+						{/snippet}
+						{#snippet caption()}
+							Use Butler Review with this project. Butler Review is a commit based code review tool
+							that helps your team review series of patches.
+							<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
+						{/snippet}
+						{#snippet actions()}
+							<Toggle
+								id="reviews"
+								checked={$project?.api?.reviews || false}
+								onclick={async () => await onReviewsChange(!$project?.api?.reviews)}
+							/>
+						{/snippet}
+					</SectionCard>
+					{#if cloudFeatureFlag}
+						<SectionCard
+							labelFor="historySync"
+							roundedBottom={false}
+							roundedTop={false}
+							orientation="row"
+						>
+							{#snippet title()}
+								Timeline Backup
+							{/snippet}
+							{#snippet caption()}
+								Sync this project's operations log (timeline) to GitButler servers. The operations
+								log includes snapshots of the repository state, including non-committed code
+								changes.
+							{/snippet}
+							{#snippet actions()}
+								<Toggle
+									id="historySync"
+									checked={$project?.api?.sync || false}
+									onclick={async () => await onSyncChange(!$project?.api?.sync)}
+								/>
+							{/snippet}
+						</SectionCard>
+						<SectionCard labelFor="branchesySync" roundedTop={false} orientation="row">
+							{#snippet title()}
+								Code Hosting
+							{/snippet}
+							{#snippet caption()}
+								Push this project's branches to a hosted GitButler repository.
+							{/snippet}
+							{#snippet actions()}
+								<Toggle
+									id="branchesySync"
+									checked={$project?.api?.sync_code || false}
+									onclick={async () => await onSyncCodeChange(!$project?.api?.sync_code)}
+								/>
+							{/snippet}
+						</SectionCard>
+					{/if}
 
-			<Loading loadable={cloudProject.current}>
-				{#snippet children(cloudProject)}
+					<br />
+
 					<div class="api-link text-12">
 						<Link
 							target="_blank"
@@ -236,13 +241,9 @@
 						>
 					</div>
 				{/snippet}
-			</Loading>
-		{/snippet}
-	</Section>
+			</Section>
 
-	{#if cloudFeatureFlag}
-		<Loading loadable={cloudProject.current}>
-			{#snippet children(cloudProject)}
+			{#if cloudFeatureFlag}
 				{#if !cloudProject.parentProjectRepositoryId}
 					<Section>
 						{#snippet title()}
@@ -277,9 +278,9 @@
 						</div>
 					</Section>
 				{/if}
-			{/snippet}
-		</Loading>
-	{/if}
+			{/if}
+		{/snippet}
+	</Loading>
 {/if}
 
 <style>
