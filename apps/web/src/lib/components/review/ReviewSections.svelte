@@ -59,8 +59,6 @@
 
 	const selected = $derived(reviewSectionsService.currentSelection(branchUuid, changeId));
 
-	$inspect(selected.current);
-
 	const selectedAfter = $derived(selected.current?.selectedAfter ?? 1);
 	const selectedBefore = $derived(selected.current?.selectedBefore ?? -1);
 
