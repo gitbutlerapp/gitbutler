@@ -2,11 +2,11 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { combine, map } from '@gitbutler/shared/network/loadable';
+	import PermissionsSelector from '@gitbutler/shared/organizations/PermissionsSelector.svelte';
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
-	import { ShareLevel } from '@gitbutler/shared/permissions';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		WebRoutesService,
@@ -45,13 +45,6 @@
 		await projectService.deleteProject(repositoryId);
 		goto(routes.projectsPath());
 	}
-
-	async function updatePermission(
-		repositoryId: string,
-		shareLevel: ShareLevel.Public | ShareLevel.Private
-	) {
-		await projectService.updateProject(repositoryId, { shareLevel });
-	}
 </script>
 
 <h2>Project page: {data.ownerSlug}/{data.projectSlug}</h2>
@@ -67,17 +60,7 @@
 				<div>
 					<p>This project is <b>{project.permissions.shareLevel}</b></p>
 
-					{#if project.permissions.shareLevel === 'public'}
-						<AsyncButton
-							action={async () => await updatePermission(repositoryId, ShareLevel.Private)}
-							>Make private</AsyncButton
-						>
-					{:else}
-						<AsyncButton
-							action={async () => await updatePermission(repositoryId, ShareLevel.Public)}
-							>Make public</AsyncButton
-						>
-					{/if}
+					<PermissionsSelector repositoryId={project.repositoryId} />
 				</div>
 
 				<AsyncButton style="error" action={async () => await deleteProject(repositoryId)}

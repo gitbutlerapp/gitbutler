@@ -21,14 +21,14 @@ type UpdateParams = {
 	slug?: string;
 	name?: string;
 	description?: string;
-	shareLevel?: ShareLevel.Public | ShareLevel.Private;
+	shareLevel?: ShareLevel;
 };
 
 type ApiUpdateParams = {
 	slug?: string;
 	name?: string;
 	description?: string;
-	share_level?: ShareLevel.Public | ShareLevel.Private;
+	share_level?: ShareLevel;
 };
 
 function toApiUpdateParams(real: UpdateParams): ApiUpdateParams {
