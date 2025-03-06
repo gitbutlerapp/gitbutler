@@ -6,6 +6,7 @@ use but_hunk_dependency::ui::{
 use but_settings::AppSettingsWithDiskSync;
 use but_workspace::{commit_engine, StackEntry};
 use gitbutler_command_context::CommandContext;
+use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
@@ -120,12 +121,15 @@ pub fn create_commit_from_worktree_changes(
             }
         }
     };
-    Ok(commit_engine::create_commit_and_update_refs_with_project(
+    let mut guard = project.exclusive_worktree_access();
+    let snapshot_tree = project.prepare_snapshot(guard.read_permission());
+    let outcome = commit_engine::create_commit_and_update_refs_with_project(
         &repo,
-        Some((&project, Some(stack_id))),
+        &project,
+        Some(stack_id),
         commit_engine::Destination::NewCommit {
             parent_commit_id,
-            message,
+            message: message.clone(),
             stack_segment_ref: Some(
                 format!("refs/heads/{stack_branch_name}")
                     .try_into()
@@ -135,8 +139,19 @@ pub fn create_commit_from_worktree_changes(
         None,
         worktree_changes.into_iter().map(Into::into).collect(),
         settings.get()?.context_lines,
-    )?
-    .into())
+        guard.write_permission(),
+    );
+    let _ = snapshot_tree.and_then(|snapshot_tree| {
+        project.snapshot_commit_creation(
+            snapshot_tree,
+            outcome.as_ref().err(),
+            message.to_owned(),
+            None,
+            guard.write_permission(),
+        )
+    });
+
+    Ok(outcome?.into())
 }
 
 /// Amend all `changes` to `commit_id`, keeping its commit message exactly as is.
@@ -155,14 +170,17 @@ pub fn amend_commit_from_worktree_changes(
     worktree_changes: Vec<commit_engine::ui::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = projects.get(project_id)?;
+    let mut guard = project.exclusive_worktree_access();
     let repo = but_core::open_repo_for_merging(&project.worktree_path())?;
     Ok(commit_engine::create_commit_and_update_refs_with_project(
         &repo,
-        Some((&project, Some(stack_id))),
+        &project,
+        Some(stack_id),
         commit_engine::Destination::AmendCommit(commit_id.into()),
         None,
         worktree_changes.into_iter().map(Into::into).collect(),
         settings.get()?.context_lines,
+        guard.write_permission(),
     )?
     .into())
 }

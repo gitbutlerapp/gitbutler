@@ -326,7 +326,7 @@ fn amend_with_commit_engine(
     commit_oid: git2::Oid,
     worktree_changes: Vec<DiffSpec>,
 ) -> Result<git2::Oid> {
-    // let changes: Vec<DiffSpec> = ownership.claims.iter().map(claim_to_diffspec).collect();
+    let mut guard = ctx.project().exclusive_worktree_access();
 
     let vb_state = ctx.project().virtual_branches();
     let stack = vb_state.get_stack(stack_id)?;
@@ -338,11 +338,13 @@ fn amend_with_commit_engine(
 
     let outcome = commit_engine::create_commit_and_update_refs_with_project(
         &ctx.gix_repository()?,
-        Some((ctx.project(), Some(stack_id))),
+        ctx.project(),
+        Some(stack_id),
         commit_engine::Destination::AmendCommit(commit_oid.to_gix()),
         None,
         worktree_changes,
         3, // for the old API this is hardcoded
+        guard.write_permission(),
     )?;
     let new_commit = outcome.new_commit.ok_or(anyhow::anyhow!(
         "Failed to amend with commit engine. Rejected specs: {:?}",

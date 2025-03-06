@@ -6,6 +6,7 @@ use but_core::RepositoryExt;
 use but_core::unified_diff::DiffHunk;
 use but_rebase::RebaseOutput;
 use but_rebase::commit::CommitterMode;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{StackId, VirtualBranchesHandle, VirtualBranchesState};
 use gix::prelude::ObjectIdExt as _;
 use gix::refs::transaction::PreviousValue;
@@ -473,66 +474,48 @@ pub fn create_commit_and_update_refs(
 /// if present. Alternatively it uses the current `HEAD` as only reference point.
 /// Note that virtual branches will be updated and written back after this call, which will obtain
 /// an exclusive workspace lock as well.
+#[allow(clippy::too_many_arguments)]
 pub fn create_commit_and_update_refs_with_project(
     repo: &gix::Repository,
-    project: Option<(&gitbutler_project::Project, Option<StackId>)>,
+    project: &gitbutler_project::Project,
+    maybe_stackid: Option<StackId>,
     destination: Destination,
     move_source: Option<MoveSourceCommit>,
     changes: Vec<DiffSpec>,
     context_lines: u32,
+    _perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<CreateCommitOutcome> {
-    match project {
-        Some((project, maybe_stackid)) => {
-            let _guard = project.exclusive_worktree_access();
-            let vbh = VirtualBranchesHandle::new(project.gb_dir());
-            let mut vb = vbh.read_file()?;
-            let frame = match maybe_stackid {
-                None => {
-                    let maybe_commit_id = match &destination {
-                        Destination::NewCommit {
-                            parent_commit_id, ..
-                        } => *parent_commit_id,
-                        Destination::AmendCommit(commit_id) => Some(*commit_id),
-                    };
-                    match maybe_commit_id {
-                        None => ReferenceFrame::default(),
-                        Some(commit_id) => ReferenceFrame::infer(
-                            repo,
-                            &vb,
-                            InferenceMode::CommitIdInStack(commit_id),
-                        )?,
-                    }
-                }
-                Some(stack_id) => {
-                    ReferenceFrame::infer(repo, &vb, InferenceMode::StackId(stack_id))?
-                }
+    let vbh = VirtualBranchesHandle::new(project.gb_dir());
+    let mut vb = vbh.read_file()?;
+    let frame = match maybe_stackid {
+        None => {
+            let maybe_commit_id = match &destination {
+                Destination::NewCommit {
+                    parent_commit_id, ..
+                } => *parent_commit_id,
+                Destination::AmendCommit(commit_id) => Some(*commit_id),
             };
-            let out = create_commit_and_update_refs(
-                repo,
-                frame,
-                &mut vb,
-                destination,
-                move_source,
-                changes,
-                context_lines,
-            )?;
-
-            vbh.write_file(&vb)?;
-            Ok(out)
+            match maybe_commit_id {
+                None => ReferenceFrame::default(),
+                Some(commit_id) => {
+                    ReferenceFrame::infer(repo, &vb, InferenceMode::CommitIdInStack(commit_id))?
+                }
+            }
         }
-        None => create_commit_and_update_refs(
-            repo,
-            ReferenceFrame {
-                workspace_tip: None,
-                branch_tip: repo.head_id()?.detach().into(),
-            },
-            &mut VirtualBranchesState::default(),
-            destination,
-            move_source,
-            changes,
-            context_lines,
-        ),
-    }
+        Some(stack_id) => ReferenceFrame::infer(repo, &vb, InferenceMode::StackId(stack_id))?,
+    };
+    let out = create_commit_and_update_refs(
+        repo,
+        frame,
+        &mut vb,
+        destination,
+        move_source,
+        changes,
+        context_lines,
+    )?;
+
+    vbh.write_file(&vb)?;
+    Ok(out)
 }
 
 /// Create a commit exactly as specified, and sign it depending on Git and GitButler specific Git configuration.
