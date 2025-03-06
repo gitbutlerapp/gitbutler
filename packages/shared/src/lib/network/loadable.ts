@@ -117,6 +117,16 @@ export function map<T, R>(
 	return undefined;
 }
 
+export function mapL<T, R>(
+	loadable: Loadable<T> | undefined,
+	digger: (current: T) => R
+): Loadable<R> {
+	if (isFound(loadable)) {
+		return { status: 'found', value: digger(loadable.value) };
+	}
+	return loadable as Loadable<R>;
+}
+
 export function combine<A extends [...unknown[]]>(loadables: {
 	[K in keyof A]: Loadable<A[K]> | undefined;
 }): Loadable<A> {

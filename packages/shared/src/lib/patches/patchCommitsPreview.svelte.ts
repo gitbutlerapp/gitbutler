@@ -1,13 +1,14 @@
 import { patchEventsSelectors } from '../patchEvents/patchEventsSlice';
 import { getContext } from '$lib/context';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
-import { map } from '$lib/network/loadable';
+import { mapL } from '$lib/network/loadable';
 import { createPatchEventChannelKey, type LoadablePatchEventChannel } from '$lib/patchEvents/types';
 import { PatchCommitService } from '$lib/patches/patchCommitService';
 import { patchCommitsSelector } from '$lib/patches/patchCommitsSlice';
 import { getPatchIdable } from '$lib/patches/patchIdablesPreview.svelte';
 import { patchSectionsSelectors } from '$lib/patches/patchSectionsSlice';
 import { AppState, type AppPatchesState, type AppPatchEventsState } from '$lib/redux/store.svelte';
+import type { Loadable } from '$lib/network/types';
 import type { LoadablePatchCommit, Section } from '$lib/patches/types';
 import type { Reactive } from '$lib/storeUtils';
 import type { PatchEventsService } from '../patchEvents/patchEventsService';
@@ -62,12 +63,12 @@ export function getPatchIdableSections(
 	changeId: string,
 	oldVersion: number | undefined,
 	newVersion: number
-): Reactive<Section[] | undefined> {
+): Reactive<Loadable<Section[]>> {
 	const appState = getContext(AppState);
 
 	const patch = getPatchIdable(branchUuid, changeId, oldVersion, newVersion);
 	const sections = $derived(
-		map(patch.current, (patch) => {
+		mapL(patch.current, (patch) => {
 			return (patch.sectionIds || [])
 				.map((id) => patchSectionsSelectors.selectById(appState.patchSections, id))
 				.filter((a) => a) as Section[];
