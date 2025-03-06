@@ -162,7 +162,15 @@
 					<EmptyBranch {lastBranch} />
 				{/snippet}
 				{#snippet upstreamTemplate({ commit, commitKey, first, lastCommit, selected })}
-					<CommitRow {projectId} {commitKey} {first} {lastCommit} {commit} {selected} link />
+					<CommitRow
+						{projectId}
+						{commitKey}
+						{first}
+						{lastCommit}
+						{commit}
+						{selected}
+						href={commitPath(projectId, commitKey)}
+					/>
 				{/snippet}
 				{#snippet localAndRemoteTemplate({
 					commit,
@@ -179,7 +187,7 @@
 						{lastBranch}
 						{commit}
 						{selected}
-						link
+						href={commitPath(projectId, commitKey)}
 					/>
 				{/snippet}
 			</BranchCommitList>
