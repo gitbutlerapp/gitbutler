@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { getCursorPosition, insertImageAtCaret } from '$lib/textEditor/selection';
+	import Icon from '$lib/Icon.svelte';
+	import { getCursorPosition, insertImageAtCaret } from '$lib/richText/selection';
+	import { clickOutside } from '$lib/utils/clickOutside';
+	import { portal } from '$lib/utils/portal';
 	import { debounce } from '$lib/utils/debounce';
 	import { gifPaginator, GiphyFetch } from '@giphy/js-fetch-api';
 	import { Gif } from '@giphy/svelte-components';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
-	import { portal } from '@gitbutler/ui/utils/portal';
-	import {} from '@lexical/markdown';
 	import { onMount } from 'svelte';
 	import { getEditor } from 'svelte-lexical';
 	import type { IGif } from '@giphy/js-types';

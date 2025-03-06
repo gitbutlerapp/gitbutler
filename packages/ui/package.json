@@ -116,7 +116,14 @@
 		"./dist/*.woff2"
 	],
 	"dependencies": {
+		"@giphy/js-fetch-api": "^5.6.0",
+		"@giphy/js-types": "^5.1.0",
+		"@giphy/svelte-components": "^1.1.0",
+		"@lexical/link": "^0.17.0",
+		"@lexical/list": "^0.17.0",
 		"@lexical/markdown": "0.17.0",
+		"@lexical/rich-text": "^0.17.0",
+		"@lexical/selection": "^0.17.0",
 		"@lexical/text": "^0.17.0",
 		"@lexical/utils": "0.17.0",
 		"install": "^0.13.0",
