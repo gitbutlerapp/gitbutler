@@ -27,7 +27,7 @@ export function workspacePath(projectId: string) {
 }
 
 export function isWorkspacePath() {
-	return isUrl<{ projectId: string; branchId?: string }>('/[projectId]/workspace/[[stackId]]');
+	return isUrl<{ projectId: string; branchId?: string }>('/[projectId]/workspace/');
 }
 
 export function branchesPath(projectId: string) {

@@ -4,8 +4,8 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		stackId: string;
 		projectId: string;
+		stackId: string;
 		selectedBranchName: string;
 		selectedCommitId?: string;
 		children: Snippet;
@@ -22,6 +22,3 @@
 		{@render children()}
 	{/snippet}
 </ResizeableSplitLayout>
-
-<style>
-</style>
