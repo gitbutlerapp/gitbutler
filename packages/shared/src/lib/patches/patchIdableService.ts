@@ -17,6 +17,7 @@ export class PatchIdableService {
 	// We don't want to specify a polling frequency, because diffs are constat data.
 	private readonly patchIntrests = new InterestStore<{
 		branchUuid: string;
+		changeId: string;
 		oldVersion?: number;
 		newVersion: number;
 	}>();
@@ -28,7 +29,7 @@ export class PatchIdableService {
 
 	getPatchIdableInterest({ branchUuid, changeId, oldVersion, newVersion }: PatchIdableParams) {
 		return this.patchIntrests
-			.findOrCreateSubscribable({ branchUuid, oldVersion, newVersion }, async () => {
+			.findOrCreateSubscribable({ branchUuid, changeId, oldVersion, newVersion }, async () => {
 				const key = patchIdableId({ branchUuid, changeId, oldVersion, newVersion });
 				this.appDispatch.dispatch(addPatchIdable({ status: 'loading', id: key }));
 
