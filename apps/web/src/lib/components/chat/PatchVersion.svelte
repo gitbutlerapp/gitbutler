@@ -24,7 +24,7 @@
 
 	function viewInterdiff() {
 		if (!patch.version) return;
-		reviewSectionsService.setSelection(patch.branchUuid, patch.changeId, {
+		reviewSectionsService.setSelection(patch.changeId, {
 			selectedBefore: patch.version - 1,
 			selectedAfter: patch.version
 		});

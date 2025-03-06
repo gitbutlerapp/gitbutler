@@ -9,6 +9,7 @@ import {
 	type LoadablePatchEventChannel,
 	type PatchEvent
 } from '$lib/patchEvents/types';
+import { upsertPatchCommit } from '$lib/patches/patchCommitsSlice';
 import { playSound } from '$lib/sounds';
 import { asyncToSyncSignals, writableDerived } from '$lib/storeUtils';
 import { createConsumer } from '@rails/actioncable';
@@ -120,7 +121,15 @@ export class PatchEventsService {
 
 		// If a chat event has appeared, then we want to make sure that the
 		// change is propogated elsewhere.
-		if (data.event_type === 'patch_version' || data.event_type === 'issue_status') {
+		if (patchEvent.eventType === 'patch_version') {
+			this.appDispatch.dispatch(
+				upsertPatchCommit({
+					status: 'found',
+					id: patchEvent.object.changeId,
+					value: patchEvent.object
+				})
+			);
+		} else if (patchEvent.eventType === 'issue_status') {
 			this.patchService.refreshPatchWithSections(changeId);
 		}
 
