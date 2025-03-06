@@ -15,15 +15,12 @@
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { Project } from '$lib/project/project';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
-	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import { persisted } from '@gitbutler/shared/persisted';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
-	import lscache from 'lscache';
-	import { onMount } from 'svelte';
 	import { type Writable } from 'svelte/store';
 
 	const {
@@ -39,12 +36,9 @@
 	const stack = $derived($branchStore);
 	const stackPublishingService = getContext(StackPublishingService);
 
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
+	const width = persistWithExpiration<number>(24, 'stackWidth_' + project.id, 7 * 1440);
 	let lastPush = $state<Date | undefined>();
 
-	const laneWidthKey = 'laneWidth_';
-	let laneWidth: number | undefined = $state();
 	let rsViewport = $state<HTMLElement>();
 
 	const branchHasFiles = $derived(stack.files !== undefined && stack.files.length > 0);
@@ -54,10 +48,6 @@
 		if ($commitBoxOpen && stack.files.length === 0) {
 			commitBoxOpen.set(false);
 		}
-	});
-
-	onMount(() => {
-		laneWidth = lscache.get(laneWidthKey + stack.id);
 	});
 
 	let scrollEndVisible = $state(true);
@@ -123,11 +113,7 @@
 					bottom: 12
 				}}
 			>
-				<div
-					bind:this={rsViewport}
-					style:width={`${laneWidth || $defaultBranchWidthRem}rem`}
-					class="branch-card__contents"
-				>
+				<div bind:this={rsViewport} style:width={`${$width}rem`} class="branch-card__contents">
 					<StackHeader
 						{stack}
 						onCollapseButtonClick={() => {
@@ -212,14 +198,10 @@
 					<Resizer
 						viewport={rsViewport}
 						direction="right"
-						minWidth={380}
+						minWidth={25}
 						sticky
 						defaultLineColor={$fileIdSelection.length === 1 ? 'transparent' : 'var(--clr-border-2)'}
-						onWidth={(value) => {
-							laneWidth = value / (16 * $userSettings.zoom);
-							lscache.set(laneWidthKey + stack.id, laneWidth, 7 * 1440); // 7 day ttl
-							$defaultBranchWidthRem = laneWidth;
-						}}
+						onWidth={(value) => ($width = value)}
 					/>
 				{/if}
 			</div>
