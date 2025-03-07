@@ -8,7 +8,7 @@ use crate::commit_engine::utils::{
     writable_scenario_with_ssh_key, write_sequence,
 };
 use but_testsupport::{assure_stable_env, visualize_commit_graph};
-use but_workspace::commit_engine::{Destination, ReferenceFrame};
+use but_workspace::commit_engine::{Destination, ReferenceFrame, StackSegmentId};
 use gitbutler_stack::VirtualBranchesState;
 use gix::prelude::ObjectIdExt;
 use gix::refs::transaction::PreviousValue;
@@ -29,7 +29,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: None,
             message: "initial commit".to_string(),
-            stack_segment_ref: None,
+            stack_segment: None,
         },
         None,
         to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
@@ -62,7 +62,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(new_commit_id),
             message: "second commit".to_string(),
-            stack_segment_ref: None,
+            stack_segment: None,
         },
         None,
         to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
@@ -100,7 +100,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(new_commit_id),
             message: "third commit".to_string(),
-            stack_segment_ref: None,
+            stack_segment: None,
         },
         None,
         to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
@@ -175,7 +175,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(new_commit),
             message: "fourth commit".to_string(),
-            stack_segment_ref: None,
+            stack_segment: None,
         },
         None,
         to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
@@ -299,7 +299,7 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(initial_commit_id),
             message: "between initial and former first".to_string(),
-            stack_segment_ref: None,
+            stack_segment: None,
         },
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
@@ -461,7 +461,7 @@ fn branch_tip_below_non_merge_workspace_commit() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(initial_commit_id),
             message: "extend lines to 110".into(),
-            stack_segment_ref: None,
+            stack_segment: None,
         },
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
@@ -514,7 +514,7 @@ fn deletions() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(head_commit.into()),
             message: "deletions maybe a bit special".into(),
-            stack_segment_ref: None,
+            stack_segment: None,
         },
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
@@ -564,7 +564,7 @@ fn insert_commits_into_workspace() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(branch_b),
             message: "add 10 more lines at end".into(),
-            stack_segment_ref: None,
+            stack_segment: None,
         },
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
@@ -621,7 +621,7 @@ fn workspace_commit_with_merge_conflict() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(branch_b),
             message: "rewrite with 30 - 40".into(),
-            stack_segment_ref: None,
+            stack_segment: None,
         },
         Destination::AmendCommit(branch_b),
     ] {
@@ -693,7 +693,7 @@ fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(branch_a),
             message: "remove 5 lines from beginning".into(),
-            stack_segment_ref: None,
+            stack_segment: None,
         },
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
@@ -762,7 +762,7 @@ fn two_commits_three_buckets_disambiguate_insertion_position_to_one_below_top() 
         ],
         &repo,
     );
-    vb.branches.insert(stack.id, stack);
+    vb.branches.insert(stack.id, stack.clone());
 
     insta::assert_snapshot!(visualize_commit_graph(&repo, branch_b)?, @r"
     * e399378 (HEAD -> main, C, B) 2
@@ -778,7 +778,10 @@ fn two_commits_three_buckets_disambiguate_insertion_position_to_one_below_top() 
             parent_commit_id: Some(branch_b),
             message: "replace 'file' with 5 lines".into(),
             // This needs us to update B & C
-            stack_segment_ref: Some("refs/heads/B".try_into()?),
+            stack_segment: Some(StackSegmentId {
+                segment_ref: "refs/heads/B".try_into()?,
+                stack_id: stack.id,
+            }),
         },
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
@@ -817,7 +820,7 @@ fn two_commits_three_buckets_disambiguate_insertion_position_to_top() -> anyhow:
         ],
         &repo,
     );
-    vb.branches.insert(stack.id, stack);
+    vb.branches.insert(stack.id, stack.clone());
 
     insta::assert_snapshot!(visualize_commit_graph(&repo, branch_b)?, @r"
     * e399378 (HEAD -> main, C, B) 2
@@ -833,7 +836,10 @@ fn two_commits_three_buckets_disambiguate_insertion_position_to_top() -> anyhow:
             parent_commit_id: Some(branch_b),
             message: "replace 'file' with 5 lines".into(),
             // This needs us to update C only, leaving B in place, also the default which is tested elsewhere.
-            stack_segment_ref: Some("refs/heads/C".try_into()?),
+            stack_segment: Some(StackSegmentId {
+                segment_ref: "refs/heads/C".try_into()?,
+                stack_id: stack.id,
+            }),
         },
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
@@ -880,7 +886,7 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
         [("s1-b/below-top", branch_a), ("s1-b/top", branch_a)],
         &repo,
     );
-    vb.branches.insert(stack.id, stack);
+    vb.branches.insert(stack.id, stack.clone());
 
     // initial is 1-30, make a change that transfers correctly to A where it is 5-20.
     // This forces us to handle the index update (more) correctly, but also shows
@@ -896,7 +902,10 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
         Destination::NewCommit {
             parent_commit_id: Some(branch_a),
             message: "remove 5 lines from beginning".into(),
-            stack_segment_ref: Some("refs/heads/s1-b/top".try_into()?),
+            stack_segment: Some(StackSegmentId {
+                segment_ref: "refs/heads/s1-b/top".try_into()?,
+                stack_id: stack.id,
+            }),
         },
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,

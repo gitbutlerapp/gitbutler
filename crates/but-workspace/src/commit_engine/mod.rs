@@ -37,8 +37,8 @@ pub enum Destination {
         ///
         /// To create a commit at the position of the first commit of a branch, the parent has to be the merge-base with the *target branch*.
         parent_commit_id: Option<gix::ObjectId>,
-        /// The name of the ref pointing to the tip of the stack segment the commit is supposed to go into. It is necessary to disambiguate the reference update.
-        stack_segment_ref: Option<gix::refs::FullName>,
+        /// The stack and reference the commit is supposed to go into. It is necessary to disambiguate the reference update.
+        stack_segment: Option<StackSegmentId>,
         /// Use `message` as commit message for the new commit.
         message: String,
     },
@@ -46,12 +46,19 @@ pub enum Destination {
     AmendCommit(gix::ObjectId),
 }
 
+/// The stack and the branch the commit is supposed to go into.
+#[derive(Debug, Clone)]
+pub struct StackSegmentId {
+    /// Identifies the stack the commit is destined to (without it, ambiguity is still possible, e.g. when all stacks have no commits)
+    pub stack_id: StackId,
+    /// The name of the ref pointing to the tip of the stack segment the commit is supposed to go into. It is necessary to disambiguate the reference update.
+    pub segment_ref: gix::refs::FullName,
+}
+
 impl Destination {
-    pub(self) fn stack_segment(&self) -> Option<&gix::refs::FullName> {
+    pub(self) fn stack_segment(&self) -> Option<&StackSegmentId> {
         match self {
-            Destination::NewCommit {
-                stack_segment_ref, ..
-            } => stack_segment_ref.as_ref(),
+            Destination::NewCommit { stack_segment, .. } => stack_segment.as_ref(),
             Destination::AmendCommit(..) => None,
         }
     }
@@ -240,7 +247,7 @@ pub fn create_commit(
             Destination::NewCommit {
                 message,
                 parent_commit_id: _,
-                stack_segment_ref: _,
+                stack_segment: _,
             } => {
                 let (author, committer) = repo.commit_signatures()?;
                 let new_commit = create_possibly_signed_commit(
