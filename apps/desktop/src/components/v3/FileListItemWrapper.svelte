@@ -45,21 +45,31 @@
 	let draggableEl: HTMLDivElement | undefined = $state();
 	let open = $state(false);
 
-	const selection = $derived(changeSelection.getById(change.path).current);
-	let indeterminate = $derived(selection && selection.type === 'partial');
+	const selection = $derived(changeSelection.getById(change.path));
+	const indeterminate = $derived(selection.current && selection.current.type === 'partial');
+	const selectedChanges = $derived(idSelection.treeChanges(projectId));
 
 	function onCheck() {
-		if (selection) {
+		if (selection.current) {
 			changeSelection.remove(change.path);
 		} else {
-			const { path, pathBytes, previousPathBytes } = change;
+			const { path, pathBytes } = change;
 			changeSelection.add({
 				type: 'full',
 				path,
-				pathBytes,
-				previousPathBytes
+				pathBytes
 			});
 		}
+	}
+
+	function onContextMenu(e: MouseEvent) {
+		if (selectedChanges.current.isSuccess && idSelection.has(change.path, commitId)) {
+			const changes: TreeChange[] = selectedChanges.current.data;
+			contextMenu?.open(e, { changes });
+			return;
+		}
+
+		contextMenu?.open(e, { changes: [change] });
 	}
 </script>
 
@@ -88,7 +98,7 @@
 		fileStatus={computeChangeStatus(change)}
 		{selected}
 		{showCheckbox}
-		checked={!!selection}
+		checked={!!selection.current}
 		{indeterminate}
 		draggable={true}
 		{onkeydown}
@@ -101,14 +111,7 @@
 			open = !open;
 		}}
 		oncheck={onCheck}
-		oncontextmenu={(e) => {
-			const changes = idSelection.treeChanges(projectId);
-			if (idSelection.has(change.path, commitId)) {
-				contextMenu?.open(e, { files: changes });
-			} else {
-				contextMenu?.open(e, { files: [change] });
-			}
-		}}
+		oncontextmenu={onContextMenu}
 	/>
 </div>
 {#if open}

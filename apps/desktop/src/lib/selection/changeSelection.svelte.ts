@@ -40,7 +40,6 @@ type SelectedHunk = HunkHeader &
 type FileHeader = {
 	path: string;
 	pathBytes: number[];
-	previousPathBytes: number[];
 };
 
 /**

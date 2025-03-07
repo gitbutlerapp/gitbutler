@@ -32,6 +32,18 @@ export class WorktreeService {
 		);
 		return result;
 	}
+
+	/** Gets a set of changes by the given paths */
+	getChangesById(projectId: string, paths: string[]) {
+		const { getChanges } = this.api.endpoints;
+		const result = $derived(
+			getChanges.useQueryState(
+				{ projectId },
+				{ transform: (res) => paths.map((path) => selectById(res, path)!) }
+			)
+		);
+		return result;
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {

@@ -1,5 +1,4 @@
 import { key, splitKey } from './key';
-import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 
 /**
@@ -81,15 +80,15 @@ export class IdSelection {
 	 * TODO: Should this be able to load even if listing hasn't happened?
 	 */
 	treeChanges(projectId: string) {
-		return this.state
-			.map((id) => {
-				const file = splitKey(id);
-				if (file.commitId !== 'undefined') {
-					throw new Error('Changes for commits not implemented');
-				}
-				return this.worktreeService.getChange(projectId, file.path);
-			})
-			.filter(isDefined);
+		const filePaths = this.state.map((id) => {
+			const file = splitKey(id);
+			if (file.commitId !== 'undefined') {
+				throw new Error('Changes for commits not implemented');
+			}
+			return file.path;
+		});
+
+		return this.worktreeService.getChangesById(projectId, filePaths);
 	}
 
 	get length() {

@@ -21,11 +21,22 @@ export type TreeChange = {
 	 * This is neccessary because the path string conversion is lossy.
 	 */
 	readonly pathBytes: number[];
-	/** Previous path bytes if the change is a rename. */
-	readonly previousPathBytes: number[];
 	/** The specific information about this change.*/
 	readonly status: Status;
 };
+
+export function isTreeChange(something: unknown): something is TreeChange {
+	return (
+		typeof something === 'object' &&
+		something !== null &&
+		'path' in something &&
+		typeof something['path'] === 'string' &&
+		'pathBytes' in something &&
+		Array.isArray(something['pathBytes']) &&
+		'status' in something &&
+		isChangeStatus(something['status'])
+	);
+}
 
 export type Flags =
 	| 'ExecutableBitAdded'
@@ -40,6 +51,15 @@ export type Status =
 	| { readonly type: 'Modification'; readonly subject: Modification }
 	| { readonly type: 'Rename'; readonly subject: Rename };
 /** Something was added or scheduled to be added.*/
+
+export function isChangeStatus(something: unknown): something is Status {
+	return (
+		typeof something === 'object' &&
+		something !== null &&
+		'type' in something &&
+		typeof something['type'] === 'string'
+	);
+}
 
 export type Addition = {
 	/** @private */

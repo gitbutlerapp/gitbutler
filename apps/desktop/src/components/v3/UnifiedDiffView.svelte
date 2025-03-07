@@ -20,8 +20,7 @@
 	const selection = $derived(changeSelection.getById(change.path).current);
 	const pathData = $derived({
 		path: change.path,
-		pathBytes: change!.pathBytes,
-		previousPathBytes: change!.previousPathBytes
+		pathBytes: change!.pathBytes
 	});
 
 	function onchange(hunk: DiffHunk, selected: boolean, allHunks: DiffHunk[]) {
