@@ -8,7 +8,6 @@
 	import { sortLikeFileTree } from '$lib/files/filetree';
 	import { FileIdSelection, stringifyKey } from '$lib/selection/fileIdSelection';
 	import { chunk } from '$lib/utils/array';
-	import { KeyName } from '$lib/utils/hotkeys';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { updateSelection } from '$lib/utils/selection';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
@@ -16,6 +15,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+	import { KeyName } from '@gitbutler/ui/utils/hotkeys';
 	import type { ConflictEntries } from '$lib/files/conflicts';
 	import type { AnyFile } from '$lib/files/file';
 	import type { Writable } from 'svelte/store';

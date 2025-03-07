@@ -2,8 +2,6 @@
 	import GithubIntegration from '$components/GithubIntegration.svelte';
 	import Login from '$components/Login.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
-	import Select from '$components/Select.svelte';
-	import SelectItem from '$components/SelectItem.svelte';
 	import SetupFeature from '$components/SetupFeature.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { platformName } from '$lib/platform/platform';
@@ -15,6 +13,8 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import Select from '@gitbutler/ui/select/Select.svelte';
+	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranchService';
 	import { goto } from '$app/navigation';
 

@@ -58,21 +58,6 @@ export const shortcuts = {
 	}
 };
 
-export enum KeyName {
-	Space = ' ',
-	Meta = 'Meta',
-	Alt = 'Alt',
-	Ctrl = 'Ctrl',
-	Enter = 'Enter',
-	Escape = 'Escape',
-	Tab = 'Tab',
-	Up = 'ArrowUp',
-	Down = 'ArrowDown',
-	Left = 'ArrowLeft',
-	Right = 'ArrowRight',
-	Delete = 'Backspace'
-}
-
 export function createKeybind(keybinds: KeybindDefinitions) {
 	const keys: KeybindDefinitions = {
 		// Ignore backspace keydown events always
@@ -96,12 +81,4 @@ export function createKeybind(keybinds: KeybindDefinitions) {
 	}
 
 	return createKeybindingsHandler(keys);
-}
-
-export function onMetaEnter(callback: () => void) {
-	return (e: KeyboardEvent) => {
-		if (e.key === KeyName.Enter && (e.metaKey || e.ctrlKey)) {
-			callback();
-		}
-	};
 }

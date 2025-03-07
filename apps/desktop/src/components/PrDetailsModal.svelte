@@ -29,7 +29,6 @@
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
-	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
 	import { sleep } from '$lib/utils/sleep';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
@@ -44,6 +43,7 @@
 	import ToggleButton from '@gitbutler/ui/ToggleButton.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { error } from '@gitbutler/ui/toasts';
+	import { KeyName, onMetaEnter } from '@gitbutler/ui/utils/hotkeys';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { tick } from 'svelte';
 

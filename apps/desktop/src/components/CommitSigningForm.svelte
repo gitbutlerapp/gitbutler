@@ -2,8 +2,6 @@
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import Section from '$components/Section.svelte';
 	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
-	import Select from '$components/Select.svelte';
-	import SelectItem from '$components/SelectItem.svelte';
 	import { invoke } from '$lib/backend/ipc';
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { Project } from '$lib/project/project';
@@ -13,6 +11,8 @@
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
+	import Select from '@gitbutler/ui/select/Select.svelte';
+	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { onMount } from 'svelte';
 
 	const project = getContext(Project);
@@ -131,6 +131,15 @@
 					<SelectItem selected={item.value === signingFormat} {highlighted}>
 						{item.label}
 					</SelectItem>
+					<!-- test -->
+					<SelectItem selected={item.value === signingFormat} {highlighted}>Apple</SelectItem>
+					<SelectItem selected={item.value === signingFormat} {highlighted}>Banana</SelectItem>
+					<SelectItem selected={item.value === signingFormat} {highlighted}>Cherry</SelectItem>
+					<SelectItem selected={item.value === signingFormat} {highlighted}>Dragonfruit</SelectItem>
+					<SelectItem selected={item.value === signingFormat} {highlighted}>Elderberry</SelectItem>
+					<SelectItem selected={item.value === signingFormat} {highlighted}>Fig</SelectItem>
+					<SelectItem selected={item.value === signingFormat} {highlighted}>Guava</SelectItem>
+					<SelectItem selected={item.value === signingFormat} {highlighted}>Honeydew</SelectItem>
 				{/snippet}
 			</Select>
 
