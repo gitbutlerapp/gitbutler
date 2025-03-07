@@ -1,5 +1,5 @@
 <script lang="ts">
-	import EmojiSuggestions, { type EmojiSuggestion } from './EmojiSuggestions.svelte';
+	import EmojiSuggestions from './EmojiSuggestions.svelte';
 	import TypeAheadPlugin from './TypeAhead.svelte';
 	import { getEditor } from '../context';
 	import {
@@ -7,10 +7,11 @@
 		searchThroughEmojis,
 		getShortCodeSearchMatch,
 		insertEmoji,
-		type ShortCodeSearchMatch
+		type ShortCodeSearchMatch,
+		type EmojiInfo,
+		markRecentlyUsedEmoji
 	} from '../node/emoji';
 	import { TextNode, $getSelection as getSelection } from 'lexical';
-	import type { CompactEmoji } from 'emojibase';
 
 	/**
 	 * Transforms a text node to replace emoji shortcodes with emoji nodes.
@@ -36,7 +37,7 @@
 		};
 	});
 
-	let suggestedEmojis = $state<CompactEmoji[]>();
+	let suggestedEmojis = $state<EmojiInfo[]>();
 	let currentShortCodeMatch = $state<ShortCodeSearchMatch>();
 
 	function onExit() {
@@ -55,7 +56,7 @@
 		suggestedEmojis = emojis.slice(0, 20);
 	}
 
-	function onSelectEmojiSuggestion(emoji: EmojiSuggestion) {
+	function onSelectEmojiSuggestion(emoji: EmojiInfo) {
 		if (currentShortCodeMatch) {
 			const start = currentShortCodeMatch.start;
 			const end = currentShortCodeMatch.end;
@@ -69,6 +70,8 @@
 					unicode: emoji.unicode
 				});
 			});
+
+			markRecentlyUsedEmoji(emoji);
 		}
 		onExit();
 	}

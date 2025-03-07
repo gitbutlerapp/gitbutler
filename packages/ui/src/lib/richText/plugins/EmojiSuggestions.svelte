@@ -1,10 +1,3 @@
-<script lang="ts" module>
-	export type EmojiSuggestion = {
-		unicode: string;
-		label: string;
-	};
-</script>
-
 <script lang="ts">
 	import { getEditor } from '../context';
 	import { getSelectionPosition } from '../selection';
@@ -18,10 +11,11 @@
 		KEY_ESCAPE_COMMAND
 	} from 'lexical';
 	import { fly } from 'svelte/transition';
+	import type { EmojiInfo } from '../node/emoji';
 
 	type Props = {
-		suggestedEmojis: EmojiSuggestion[] | undefined;
-		selectSuggestion: (suggestion: EmojiSuggestion) => void;
+		suggestedEmojis: EmojiInfo[] | undefined;
+		selectSuggestion: (suggestion: EmojiInfo) => void;
 		exit: () => void;
 	};
 
