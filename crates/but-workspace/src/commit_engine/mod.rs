@@ -56,11 +56,9 @@ pub struct StackSegmentId {
 }
 
 impl Destination {
-    pub(self) fn stack_segment(&self) -> Option<&gix::refs::FullName> {
+    pub(self) fn stack_segment(&self) -> Option<&StackSegmentId> {
         match self {
-            Destination::NewCommit { stack_segment, .. } => {
-                stack_segment.as_ref().map(|s| &s.segment_ref)
-            }
+            Destination::NewCommit { stack_segment, .. } => stack_segment.as_ref(),
             Destination::AmendCommit(..) => None,
         }
     }
