@@ -5,7 +5,7 @@
  * being the type change from `AnyFile` to `TreeChange`.
  */
 import { getSelectionDirection } from '$lib/utils/getSelectionDirection';
-import { KeyName } from '$lib/utils/hotkeys';
+import { KeyName } from '@gitbutler/ui/utils/hotkeys';
 import type { TreeChange } from '$lib/hunks/change';
 import type { IdSelection } from './idSelection.svelte';
 import type { SelectedFile } from './key';

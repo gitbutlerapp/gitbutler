@@ -1,7 +1,5 @@
 <script lang="ts">
 	import OptionsGroup from '$components/OptionsGroup.svelte';
-	import Select from '$components/Select.svelte';
-	import SelectItem from '$components/SelectItem.svelte';
 	import SyncButton from '$components/SyncButton.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { Project } from '$lib/project/project';
@@ -11,6 +9,8 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import NotificationButton from '@gitbutler/ui/NotificationButton.svelte';
+	import Select from '@gitbutler/ui/select/Select.svelte';
+	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { goto } from '$app/navigation';
 
 	const projectsService = getContext(ProjectsService);
@@ -65,6 +65,9 @@
 				<SelectItem selected={item.value === selectedProjectId} {highlighted}>
 					{item.label}
 				</SelectItem>
+				<!-- test -->
+				<SelectItem>Apple</SelectItem>
+				<SelectItem>Banana</SelectItem>
 			{/snippet}
 
 			<OptionsGroup>
