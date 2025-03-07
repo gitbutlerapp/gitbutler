@@ -68,7 +68,6 @@
 				item.type === 'full'
 					? {
 							pathBytes: item.pathBytes,
-							previousPathBytes: item.previousPathBytes,
 							hunkHeaders: []
 						}
 					: {
