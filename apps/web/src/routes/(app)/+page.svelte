@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DashboardLayout from '$lib/components/dashboard/DashboardLayout.svelte';
 	import OrganizationProjects from '$lib/components/projects/OrganizationProjects.svelte';
 	import ProjectIndexCard from '$lib/components/projects/ProjectIndexCard.svelte';
 	import { UserService } from '$lib/user/userService';
@@ -26,40 +27,46 @@
 	const organizations = getOrganizations(appState, organizationService);
 </script>
 
-<table class="commits-table">
-	<thead>
-		<tr>
-			<th><div>Active Reviews</div></th>
-			<th><div>Project</div></th>
-			<th><div>Created</div></th>
-			<th><div>Updated</div></th>
-		</tr>
-	</thead>
-	<tbody>
-		{#if userProjects === undefined || userProjects.current.length === 0}
-			<LoadingState />
-		{:else}
-			{#each userProjects.current as project, index}
-				<ProjectIndexCard
-					roundedTop={index === 0}
-					roundedBottom={index === userProjects.current.length - 1}
-					projectId={project.id}
-				/>
-			{/each}
-		{/if}
+<DashboardLayout>
+	<table class="commits-table">
+		<thead>
+			<tr>
+				<th><div>Active Reviews</div></th>
+				<th><div>Project</div></th>
+				<th><div>Created</div></th>
+				<th><div>Updated</div></th>
+			</tr>
+		</thead>
+		<tbody>
+			{#if userProjects === undefined || userProjects.current.length === 0}
+				<LoadingState />
+			{:else}
+				{#each userProjects.current as project, index}
+					<ProjectIndexCard
+						roundedTop={index === 0}
+						roundedBottom={index === userProjects.current.length - 1}
+						projectId={project.id}
+					/>
+				{/each}
+			{/if}
 
-		{#each organizations.current as organization (organization.id)}
-			<Loading loadable={organization}>
-				{#snippet children(organization)}
-					<h2>{organization.slug}</h2>
-					<OrganizationProjects slug={organization.slug} />
-				{/snippet}
-			</Loading>
-		{/each}
-	</tbody>
-</table>
+			{#each organizations.current as organization (organization.id)}
+				<Loading loadable={organization}>
+					{#snippet children(organization)}
+						<h2>{organization.slug}</h2>
+						<OrganizationProjects slug={organization.slug} />
+					{/snippet}
+				</Loading>
+			{/each}
+		</tbody>
+	</table>
+</DashboardLayout>
 
 <style>
+	.commits-table {
+		width: 100%;
+	}
+
 	h2 {
 		margin-top: 16px;
 		font-weight: bold;

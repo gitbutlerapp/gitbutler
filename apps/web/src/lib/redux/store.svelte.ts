@@ -1,3 +1,4 @@
+import { dashboardSidebarReducer } from '$lib/dashboard/sidebar.svelte';
 import { branchReviewListingsReducer } from '@gitbutler/shared/branches/branchReviewListingsSlice';
 import { branchesReducer } from '@gitbutler/shared/branches/branchesSlice';
 import { latestBranchLookupsReducer } from '@gitbutler/shared/branches/latestBranchLookupSlice';
@@ -15,9 +16,13 @@ import { exampleReducer } from '@gitbutler/shared/redux/example';
 import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 import { notificationSettingsReducer } from '@gitbutler/shared/settings/notificationSetttingsSlice';
 import { usersReducer, usersByLoginReducer } from '@gitbutler/shared/users/usersSlice';
-import { configureStore } from '@reduxjs/toolkit';
+import { configureStore, createSelector } from '@reduxjs/toolkit';
 
-export class WebState extends AppState {
+export type WebDashboardSidebarState = {
+	readonly dashboardSidebar: ReturnType<typeof dashboardSidebarReducer>;
+};
+
+export class WebState extends AppState implements WebDashboardSidebarState {
 	/**
 	 * The base store.
 	 *
@@ -42,7 +47,8 @@ export class WebState extends AppState {
 			latestBranchLookups: latestBranchLookupsReducer,
 			branchReviewListings: branchReviewListingsReducer,
 			notificationSettings: notificationSettingsReducer,
-			patchIdables: patchIdablesReducer
+			patchIdables: patchIdablesReducer,
+			dashboardSidebar: dashboardSidebarReducer
 		}
 	});
 
@@ -57,4 +63,11 @@ export class WebState extends AppState {
 	protected selectSelf(state: ReturnType<typeof this._store.getState>) {
 		return state;
 	}
+
+	private readonly selectDashboardSidebar = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.dashboardSidebar
+	);
+
+	readonly dashboardSidebar = $derived(this.selectDashboardSidebar(this.rootState));
 }
