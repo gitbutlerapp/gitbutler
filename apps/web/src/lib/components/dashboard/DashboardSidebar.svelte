@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DashboardSidebarProjects from '$lib/components/dashboard/DashboardSidebarProjects.svelte';
 	import { dashboardSidebarSetTab, type SidebarTab } from '$lib/dashboard/sidebar.svelte';
 	import { WebState } from '$lib/redux/store.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -20,7 +21,7 @@
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<div
-				class="tab"
+				class="text-13 text-bold tab"
 				class:current={currentTab === tab.key}
 				onclick={() => {
 					webDispatch.dispatch(dashboardSidebarSetTab(tab.key));
@@ -30,7 +31,11 @@
 			</div>
 		{/each}
 	</div>
-	<div class="content"></div>
+	<div class="content">
+		{#if currentTab === 'projects'}
+			<DashboardSidebarProjects />
+		{/if}
+	</div>
 </div>
 
 <style lang="postcss">
@@ -69,7 +74,9 @@
 	}
 
 	.content {
-		max-height: 70vh;
+		max-height: calc(75vh - 100px);
 		min-height: 24px;
+
+		overflow-x: auto;
 	}
 </style>

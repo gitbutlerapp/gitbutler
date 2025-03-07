@@ -2,13 +2,11 @@
 	import { ProjectService } from '$lib/project/projectService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
-	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import {
 		getFeedIdentityForRepositoryId,
 		getParentForRepositoryId
 	} from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
@@ -19,24 +17,18 @@
 
 	const { replyTo }: Props = $props();
 
-	const appState = getContext(AppState);
 	const feedService = getContext(FeedService);
 	const projectService = getContext(ProjectService);
 	const project = projectService.project;
-	const cloudProjectService = getContext(CloudProjectService);
 
 	const fileTypes = ['image/jpeg', 'image/png'];
 
 	const parentProject = $derived(
-		$project?.api
-			? getParentForRepositoryId(appState, cloudProjectService, $project.api.repository_id)
-			: undefined
+		$project?.api ? getParentForRepositoryId($project.api.repository_id) : undefined
 	);
 
 	const feedIdentity = $derived(
-		$project?.api
-			? getFeedIdentityForRepositoryId(appState, cloudProjectService, $project.api.repository_id)
-			: undefined
+		$project?.api ? getFeedIdentityForRepositoryId($project.api.repository_id) : undefined
 	);
 
 	let pictureObjectUrl = $state<string>();

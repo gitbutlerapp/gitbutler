@@ -1,23 +1,24 @@
+import { getContext } from '$lib/context';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { isFound } from '$lib/network/loadable';
+import { OrganizationService } from '$lib/organizations/organizationService';
 import {
 	getOrganizationProjects,
 	getOrganizations
 } from '$lib/organizations/organizationsPreview.svelte';
+import { ProjectService } from '$lib/organizations/projectService';
 import { projectsSelectors } from '$lib/organizations/projectsSlice';
+import { AppState } from '$lib/redux/store.svelte';
 import type { Loadable } from '$lib/network/types';
-import type { OrganizationService } from '$lib/organizations/organizationService';
-import type { ProjectService } from '$lib/organizations/projectService';
 import type { LoadableOrganization, LoadableProject } from '$lib/organizations/types';
-import type { AppOrganizationsState, AppProjectsState } from '$lib/redux/store.svelte';
 import type { Reactive } from '$lib/storeUtils';
 
 export function getProjectByRepositoryId(
-	appState: AppProjectsState,
-	projectService: ProjectService,
 	projectRepositoryId: string,
 	inView?: InView
 ): Reactive<LoadableProject | undefined> {
+	const appState = getContext(AppState);
+	const projectService = getContext(ProjectService);
 	registerInterest(projectService.getProjectInterest(projectRepositoryId), inView);
 	const current = $derived(projectsSelectors.selectById(appState.projects, projectRepositoryId));
 
@@ -28,12 +29,9 @@ export function getProjectByRepositoryId(
 	};
 }
 
-export function getAllUserProjects(
-	user: string,
-	appState: AppProjectsState,
-	projectService: ProjectService,
-	inView?: InView
-): Reactive<LoadableProject[]> {
+export function getAllUserProjects(user: string, inView?: InView): Reactive<LoadableProject[]> {
+	const appState = getContext(AppState);
+	const projectService = getContext(ProjectService);
 	registerInterest(projectService.getAllProjectsInterest(), inView);
 	const current = $derived.by(() => {
 		const allProjects = projectsSelectors.selectAll(appState.projects);
@@ -48,12 +46,12 @@ export function getAllUserProjects(
 }
 
 export function getAllUserRelatedProjects(
-	appState: AppProjectsState & AppOrganizationsState,
-	projectService: ProjectService,
-	organizationService: OrganizationService,
 	user: string,
 	inView?: InView
 ): Reactive<LoadableProject[]> {
+	const appState = getContext(AppState);
+	const projectService = getContext(ProjectService);
+	const organizationService = getContext(OrganizationService);
 	registerInterest(projectService.getAllProjectsInterest(), inView);
 	const userProjects = $derived.by(() => {
 		const allProjects = projectsSelectors.selectAll(appState.projects);
@@ -94,22 +92,15 @@ export function getAllUserRelatedProjects(
 }
 
 export function getParentForRepositoryId(
-	appState: AppProjectsState & AppOrganizationsState,
-	projectService: ProjectService,
 	projectRepositoryId: string,
 	inView?: InView
 ): Reactive<LoadableProject | undefined> {
 	const current = $derived.by(() => {
-		const project = getProjectByRepositoryId(appState, projectService, projectRepositoryId, inView);
+		const project = getProjectByRepositoryId(projectRepositoryId, inView);
 
 		if (!isFound(project.current) || !project.current.value.parentProjectRepositoryId) return;
 
-		return getProjectByRepositoryId(
-			appState,
-			projectService,
-			project.current.value.parentProjectRepositoryId,
-			inView
-		);
+		return getProjectByRepositoryId(project.current.value.parentProjectRepositoryId, inView);
 	});
 
 	return {
@@ -120,14 +111,10 @@ export function getParentForRepositoryId(
 }
 
 export function getFeedIdentityForRepositoryId(
-	appState: AppProjectsState & AppOrganizationsState,
-	projectService: ProjectService,
 	projectRepositoryId: string,
 	inView?: InView
 ): Reactive<Loadable<string>> {
-	const parentProject = $derived(
-		getParentForRepositoryId(appState, projectService, projectRepositoryId, inView)
-	);
+	const parentProject = $derived(getParentForRepositoryId(projectRepositoryId, inView));
 
 	const current = $derived.by<Loadable<string>>(() => {
 		if (!isFound(parentProject.current)) return parentProject.current || { status: 'loading' };
