@@ -6,7 +6,7 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
 [dependencies]
-anyhow = "1.0.95"
+anyhow = "1.0.97"
 tracing.workspace = true
 itertools = "0.14"
 git2.workspace = true

@@ -35,7 +35,7 @@ tracing.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true
-insta = "1.42.1"
+insta = "1.42.2"
 but-core = { workspace = true, features = ["testing"] }
 # for stable hashes in `gitbuter-` crates while we use them.
 # TODO: remove once `gitbutler-repo` isn't needed anymore.
