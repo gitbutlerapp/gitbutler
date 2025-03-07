@@ -22,6 +22,7 @@
 		align-items: center;
 		gap: 6px;
 		padding: 16px;
+		background: var(--clr-bg-1);
 		border-top: 1px solid var(--clr-border-2);
 	}
 </style>

@@ -191,6 +191,8 @@
 				<ChatDiffLineSelection {diffSelection} {clearDiffSelection} />
 			{/if}
 			<RichTextEditor
+				styleContext="chat-input"
+				placeholder="Write your message"
 				bind:this={richText.richTextEditor}
 				markdown={false}
 				namespace="ChatInput"
@@ -299,6 +301,7 @@
 		flex-direction: column;
 		padding: 0;
 		overflow: hidden;
+		border-radius: var(--radius-m);
 	}
 
 	.chat-input__actions {

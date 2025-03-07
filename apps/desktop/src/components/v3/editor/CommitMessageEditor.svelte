@@ -18,6 +18,7 @@
 </script>
 
 <RichTextEditor
+	styleContext="client-editor"
 	namespace="CommitMessageEditor"
 	placeholder="Your commit message"
 	bind:this={composer}

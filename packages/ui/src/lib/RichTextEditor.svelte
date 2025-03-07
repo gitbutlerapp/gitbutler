@@ -32,6 +32,7 @@
 		namespace: string;
 		markdown: boolean;
 		onError: (error: unknown) => void;
+		styleContext: 'client-editor' | 'chat-input';
 		toolBar?: Snippet;
 		plugins?: Snippet;
 		placeholder?: string;
@@ -43,6 +44,7 @@
 		namespace,
 		markdown,
 		onError,
+		styleContext,
 		toolBar,
 		plugins,
 		placeholder,
@@ -121,7 +123,7 @@
 		</Toolbar>
 	{/if}
 
-	<div class="editor-container" bind:this={editorDiv}>
+	<div class="lexical-container lexical-{styleContext}" bind:this={editorDiv}>
 		<div class="editor-scroller">
 			<div class="editor">
 				<ContentEditable />
@@ -157,8 +159,8 @@
 	</div>
 </Composer>
 
-<style>
-	.editor-container {
+<style lang="postcss">
+	.lexical-container {
 		flex-grow: 1;
 		background-color: var(--clr-bg-1);
 		position: relative;
@@ -166,8 +168,21 @@
 	}
 
 	.editor-scroller {
+		border: 0;
+		display: flex;
+		position: relative;
+		outline: 0;
+		z-index: 0;
+		overflow: auto;
 		height: 100%;
 		/* It's unclear why the resizer is on by default on this element. */
 		resize: none;
+	}
+
+	.editor {
+		flex: auto;
+		position: relative;
+		resize: vertical;
+		z-index: -1;
 	}
 </style>
