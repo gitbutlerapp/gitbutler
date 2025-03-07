@@ -5,6 +5,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { getPatchIdableSections } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
@@ -47,6 +48,8 @@
 
 	let offsetHeight = $state(0);
 
+	let isInterdiffBarVisible = $state(true);
+
 	$effect(() => {
 		if (headerShift) {
 			offsetHeight = headerShift;
@@ -81,58 +84,71 @@
 <div class="review-sections-card">
 	<div class="review-sections-statistics-wrap" style:--header-shift="{offsetHeight}px">
 		<div class="review-sections-statistics">
-			<p class="text-12 text-bold statistic-files">
-				{patchCommit.statistics.fileCount} files changed
-			</p>
-			<p class="text-12 statistic-added">
-				{patchCommit.statistics.lines - patchCommit.statistics.deletions} additions
-			</p>
-			<p class="text-12 statistic-deleted">{patchCommit.statistics.deletions} deletions</p>
+			<div class="review-sections-statistics__metadata">
+				<p class="text-12 text-bold statistic-files">
+					{patchCommit.statistics.fileCount} files changed
+				</p>
+				<p class="text-12 statistic-added">
+					{patchCommit.statistics.lines - patchCommit.statistics.deletions} additions
+				</p>
+				<p class="text-12 statistic-deleted">{patchCommit.statistics.deletions} deletions</p>
+			</div>
+			<div class="review-sections-statistics__actions">
+				<Button
+					tooltip="Show interdiff"
+					kind="ghost"
+					icon={isInterdiffBarVisible ? 'interdiff-fill' : 'interdiff'}
+					onclick={() => (isInterdiffBarVisible = !isInterdiffBarVisible)}
+				/>
+			</div>
 		</div>
 	</div>
-	<div class="interdiff-bar">
-		<p class="text-12 text-bold">Compare the versions:</p>
-		<DropDownButton bind:this={beforeButton} kind="outline">
-			{beforeOptions.find((beforeOption) => beforeOption[0] === selectedBefore)?.[1]}
 
-			{#snippet contextMenuSlot()}
-				<ContextMenuSection>
-					{#each beforeOptions as option}
-						<ContextMenuItem
-							label={option[1]}
-							disabled={option[0] >= (selectedAfter || 0)}
-							onclick={() => {
-								reviewSectionsService.setSelection(changeId, {
-									selectedBefore: option[0]
-								});
-								beforeButton?.close();
-							}}
-						/>
-					{/each}
-				</ContextMenuSection>
-			{/snippet}
-		</DropDownButton>
-		<DropDownButton bind:this={afterButton} kind="outline">
-			{afterOptions.find((afterOption) => afterOption[0] === selectedAfter)?.[1]}
+	{#if isInterdiffBarVisible}
+		<div class="interdiff-bar">
+			<p class="text-12 text-bold">Compare versions:</p>
+			<DropDownButton bind:this={beforeButton} kind="outline">
+				{beforeOptions.find((beforeOption) => beforeOption[0] === selectedBefore)?.[1]}
 
-			{#snippet contextMenuSlot()}
-				<ContextMenuSection>
-					{#each afterOptions as option}
-						<ContextMenuItem
-							label={option[1]}
-							disabled={option[0] <= (selectedBefore || 0)}
-							onclick={() => {
-								reviewSectionsService.setSelection(changeId, {
-									selectedAfter: option[0]
-								});
-								afterButton?.close();
-							}}
-						/>
-					{/each}
-				</ContextMenuSection>
-			{/snippet}
-		</DropDownButton>
-	</div>
+				{#snippet contextMenuSlot()}
+					<ContextMenuSection>
+						{#each beforeOptions as option}
+							<ContextMenuItem
+								label={option[1]}
+								disabled={option[0] >= (selectedAfter || 0)}
+								onclick={() => {
+									reviewSectionsService.setSelection(changeId, {
+										selectedBefore: option[0]
+									});
+									beforeButton?.close();
+								}}
+							/>
+						{/each}
+					</ContextMenuSection>
+				{/snippet}
+			</DropDownButton>
+			<DropDownButton bind:this={afterButton} kind="outline">
+				{afterOptions.find((afterOption) => afterOption[0] === selectedAfter)?.[1]}
+
+				{#snippet contextMenuSlot()}
+					<ContextMenuSection>
+						{#each afterOptions as option}
+							<ContextMenuItem
+								label={option[1]}
+								disabled={option[0] <= (selectedBefore || 0)}
+								onclick={() => {
+									reviewSectionsService.setSelection(changeId, {
+										selectedAfter: option[0]
+									});
+									afterButton?.close();
+								}}
+							/>
+						{/each}
+					</ContextMenuSection>
+				{/snippet}
+			</DropDownButton>
+		</div>
+	{/if}
 
 	<div class="review-sections-diffs">
 		<Loading loadable={patchSections?.current}>
@@ -182,17 +198,25 @@
 	}
 
 	.review-sections-statistics {
-		height: 48px;
 		width: 100%;
 		display: flex;
-		gap: 8px;
-		padding: 17px 16px;
+		justify-content: space-between;
 		align-items: center;
-		align-self: stretch;
+		padding: 10px 10px 10px 14px;
 		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
 		border-top-left-radius: var(--radius-ml);
 		border-top-right-radius: var(--radius-ml);
+	}
+
+	.review-sections-statistics__metadata {
+		display: flex;
+		gap: 8px;
+	}
+
+	.review-sections-statistics__actions {
+		display: flex;
+		gap: 2px;
 	}
 
 	.statistic-files {
@@ -214,17 +238,19 @@
 		width: 100%;
 	}
 
+	/* INTERDIFF */
+
 	.interdiff-bar {
-		background-color: var(--clr-bg-1);
+		display: flex;
+		gap: 12px;
+		align-items: center;
+
+		background-color: var(--clr-bg-1-muted);
 		width: 100%;
 
 		border: 1px solid var(--clr-border-2);
 		border-top: none;
 
 		padding: 16px;
-
-		display: flex;
-		gap: 12px;
-		align-items: center;
 	}
 </style>
