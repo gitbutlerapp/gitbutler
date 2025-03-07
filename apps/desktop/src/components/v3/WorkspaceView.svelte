@@ -10,6 +10,8 @@
 	import { onMount, type Snippet } from 'svelte';
 	import { page } from '$app/state';
 
+	const DEFAULT_TRAY_WIDTH_REM = 24;
+
 	interface Props {
 		projectId: string;
 		stackId?: string;
@@ -22,7 +24,7 @@
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	const trayWidthKey = $derived('defaulTrayWidth_ ' + projectId);
-	const trayWidth = $derived(persisted<number>(240, trayWidthKey));
+	const trayWidth = $derived(persisted<number>(DEFAULT_TRAY_WIDTH_REM, trayWidthKey));
 
 	const previewingKey = $derived('previewing_' + projectId);
 	const previewing = $derived(persisted<boolean>(false, previewingKey));
@@ -103,6 +105,8 @@
 		border-radius: var(--radius-ml);
 		border: 1px solid var(--clr-border-2);
 		height: 100%;
+		max-width: 90vw;
+		min-width: 300px;
 	}
 
 	.right {
