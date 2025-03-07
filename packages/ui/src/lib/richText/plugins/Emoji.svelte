@@ -1,49 +1,30 @@
 <script lang="ts">
+	import EmojiSuggestions from './EmojiSuggestions.svelte';
+	import TypeAheadPlugin from './TypeAhead.svelte';
 	import { getEditor } from '../context';
-	import { $createEmojiNode as createEmojiNode } from '../node/emoji';
-	import { TextNode } from 'lexical';
+	import {
+		findAndReplaceShortCodeEmoji,
+		searchThroughEmojis,
+		getShortCodeSearchMatch,
+		insertEmoji,
+		type ShortCodeSearchMatch,
+		type EmojiInfo,
+		markRecentlyUsedEmoji
+	} from '../node/emoji';
+	import { TextNode, $getSelection as getSelection } from 'lexical';
 
-	const emojis: Map<string, [string, string]> = new Map([
-		[':)', ['emoji happysmile', '🙂']],
-		[':D', ['emoji veryhappysmile', '😀']],
-		[':(', ['emoji unhappysmile', '🙁']],
-		['<3', ['emoji heart', '❤']]
-	]);
-
-	function findAndTransformEmoji(node: TextNode): null | TextNode {
-		const text = node.getTextContent();
-
-		for (let i = 0; i < text.length; i++) {
-			const emojiData = emojis.get(text[i]!) || emojis.get(text.slice(i, i + 2));
-
-			if (emojiData !== undefined) {
-				const [emojiStyle, emojiText] = emojiData;
-				let targetNode;
-
-				if (i === 0) {
-					[targetNode] = node.splitText(i + 2);
-				} else {
-					[, targetNode] = node.splitText(i, i + 2);
-				}
-
-				const emojiNode = createEmojiNode(emojiStyle, emojiText);
-				targetNode!.replace(emojiNode);
-				return emojiNode;
-			}
-		}
-
-		return null;
-	}
-
+	/**
+	 * Transforms a text node to replace emoji shortcodes with emoji nodes.
+	 */
 	function emojiTextNodeTransform(node: TextNode): void {
-		let targetNode: TextNode | null = node;
+		let targetNode: TextNode | undefined = node;
 
-		while (targetNode !== null) {
+		while (targetNode !== undefined) {
 			if (!targetNode.isSimpleText()) {
 				return;
 			}
 
-			targetNode = findAndTransformEmoji(targetNode);
+			targetNode = findAndReplaceShortCodeEmoji(targetNode);
 		}
 	}
 
@@ -55,4 +36,53 @@
 			unregister?.();
 		};
 	});
+
+	let suggestedEmojis = $state<EmojiInfo[]>();
+	let currentShortCodeMatch = $state<ShortCodeSearchMatch>();
+
+	function onExit() {
+		suggestedEmojis = undefined;
+		currentShortCodeMatch = undefined;
+	}
+
+	function onMatch(shortCodeMatch: ShortCodeSearchMatch) {
+		currentShortCodeMatch = shortCodeMatch;
+		const emojis = searchThroughEmojis(currentShortCodeMatch.searchQuery);
+		if (emojis.length === 0) {
+			onExit();
+			return;
+		}
+
+		suggestedEmojis = emojis.slice(0, 20);
+	}
+
+	function onSelectEmojiSuggestion(emoji: EmojiInfo) {
+		if (currentShortCodeMatch) {
+			const start = currentShortCodeMatch.start;
+			const end = currentShortCodeMatch.end;
+			// Replace the search text with the selected emoji
+			editor.update(() => {
+				const selection = getSelection();
+				insertEmoji({
+					selection,
+					start,
+					end,
+					unicode: emoji.unicode
+				});
+			});
+
+			markRecentlyUsedEmoji(emoji);
+		}
+		onExit();
+	}
+
+	/**
+	 * Returns whether the emoji plugin is currently busy fetching suggestions.
+	 */
+	export function isBusy(): boolean {
+		return suggestedEmojis !== undefined;
+	}
 </script>
+
+<EmojiSuggestions {suggestedEmojis} selectSuggestion={onSelectEmojiSuggestion} exit={onExit} />
+<TypeAheadPlugin {onExit} {onMatch} testMatch={getShortCodeSearchMatch} />

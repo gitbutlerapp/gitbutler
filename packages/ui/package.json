@@ -126,6 +126,8 @@
 		"@lexical/selection": "^0.17.0",
 		"@lexical/text": "^0.17.0",
 		"@lexical/utils": "0.17.0",
+		"emojibase": "^16.0.0",
+		"emojibase-data": "^16.0.2",
 		"install": "^0.13.0",
 		"lexical": "0.17.0",
 		"svelte-lexical": "^0.5.0"

@@ -66,6 +66,8 @@
 	let editorDiv: HTMLDivElement | undefined = $state();
 	const editor = $derived(composer?.getEditor());
 
+	let emojiPlugin = $state<ReturnType<typeof EmojiPlugin>>();
+
 	// TODO: Change this plugin in favor of a toggle button.
 	const markdownTransitionPlugin = new MarkdownTransitionPlugin(markdown);
 
@@ -84,6 +86,9 @@
 			return editor.registerCommand<KeyboardEvent | null>(
 				KEY_DOWN_COMMAND,
 				(e) => {
+					if (emojiPlugin?.isBusy()) {
+						return false;
+					}
 					return onKeyDown?.(e) ?? false;
 				},
 				COMMAND_PRIORITY_CRITICAL
@@ -126,7 +131,7 @@
 			</div>
 		</div>
 
-		<EmojiPlugin />
+		<EmojiPlugin bind:this={emojiPlugin} />
 		<OnChangePlugin {onChange} />
 
 		{#if markdown}
