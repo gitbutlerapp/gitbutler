@@ -230,7 +230,7 @@
 					: undefined}
 				style:max-height={maxHeightState && `${maxHeightState}px`}
 			>
-				<ScrollableContainer initiallyVisible whenToShow="scroll">
+				<ScrollableContainer whenToShow="scroll">
 					{#if searchable && options.length > 5}
 						<SearchItem bind:searchValue />
 					{/if}

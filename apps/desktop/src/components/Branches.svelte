@@ -3,7 +3,7 @@
 	import BranchListingSidebarEntry from '$components/BranchListingSidebarEntry.svelte';
 	import ChunkyList from '$components/ChunkyList.svelte';
 	import PullRequestSidebarEntry from '$components/PullRequestSidebarEntry.svelte';
-	// import ScrollableContainer from '$components/ScrollableContainer.svelte';
+	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import {
 		CombinedBranchListingService,
@@ -13,7 +13,6 @@
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import ScrollableContainer from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
 	import { writable } from 'svelte/store';
