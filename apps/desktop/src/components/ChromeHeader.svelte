@@ -65,9 +65,6 @@
 				<SelectItem selected={item.value === selectedProjectId} {highlighted}>
 					{item.label}
 				</SelectItem>
-				<!-- test -->
-				<SelectItem>Apple</SelectItem>
-				<SelectItem>Banana</SelectItem>
 			{/snippet}
 
 			<OptionsGroup>
