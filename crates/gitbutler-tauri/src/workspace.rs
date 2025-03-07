@@ -4,6 +4,7 @@ use but_hunk_dependency::ui::{
     hunk_dependencies_for_workspace_changes_by_worktree_dir, HunkDependencies,
 };
 use but_settings::AppSettingsWithDiskSync;
+use but_workspace::commit_engine::StackSegmentId;
 use but_workspace::{commit_engine, StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::{OplogExt, SnapshotExt};
@@ -130,11 +131,12 @@ pub fn create_commit_from_worktree_changes(
         commit_engine::Destination::NewCommit {
             parent_commit_id,
             message: message.clone(),
-            stack_segment_ref: Some(
-                format!("refs/heads/{stack_branch_name}")
+            stack_segment: Some(StackSegmentId {
+                stack_id,
+                segment_ref: format!("refs/heads/{stack_branch_name}")
                     .try_into()
                     .map_err(anyhow::Error::from)?,
-            ),
+            }),
         },
         None,
         worktree_changes.into_iter().map(Into::into).collect(),
