@@ -131,15 +131,6 @@
 					<SelectItem selected={item.value === signingFormat} {highlighted}>
 						{item.label}
 					</SelectItem>
-					<!-- test -->
-					<SelectItem selected={item.value === signingFormat} {highlighted}>Apple</SelectItem>
-					<SelectItem selected={item.value === signingFormat} {highlighted}>Banana</SelectItem>
-					<SelectItem selected={item.value === signingFormat} {highlighted}>Cherry</SelectItem>
-					<SelectItem selected={item.value === signingFormat} {highlighted}>Dragonfruit</SelectItem>
-					<SelectItem selected={item.value === signingFormat} {highlighted}>Elderberry</SelectItem>
-					<SelectItem selected={item.value === signingFormat} {highlighted}>Fig</SelectItem>
-					<SelectItem selected={item.value === signingFormat} {highlighted}>Guava</SelectItem>
-					<SelectItem selected={item.value === signingFormat} {highlighted}>Honeydew</SelectItem>
 				{/snippet}
 			</Select>
 
