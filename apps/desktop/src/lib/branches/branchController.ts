@@ -5,6 +5,7 @@ import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import type { BranchListingService } from '$lib/branches/branchListing';
 import type { LocalFile } from '$lib/files/file';
+import type { TreeChange } from '$lib/hunks/change';
 import type { DiffSpec, Hunk } from '$lib/hunks/hunk';
 import type { StackOrder } from './branch';
 import type { VirtualBranchService } from './virtualBranchService';
@@ -298,6 +299,20 @@ export class BranchController {
 			});
 		} catch (err) {
 			showError('Failed to unapply file changes', err);
+		}
+	}
+
+	async unapplyChanges(branchId: string | undefined, changes: TreeChange[]) {
+		// TODO: this won't for changes.
+		// There are some changes required on the rust side to make this work.
+		try {
+			await invoke<void>('reset_files', {
+				projectId: this.projectId,
+				branchId,
+				files: changes.map((c) => c.path)
+			});
+		} catch (err) {
+			showError('Failed to unapply changes', err);
 		}
 	}
 
