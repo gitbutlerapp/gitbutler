@@ -6,14 +6,10 @@ import type { Project } from '$lib/project/project';
 import type { ProjectsService } from '$lib/project/projectsService';
 import type { ProjectService } from './projectService';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
-import type { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
-import type { AppProjectsState } from '@gitbutler/shared/redux/store.svelte';
 
 export function projectCloudSync(
-	appState: AppProjectsState,
 	projectsService: ProjectsService,
 	projectService: ProjectService,
-	cloudProjectService: CloudProjectService,
 	httpClient: HttpClient
 ) {
 	const project = readableToReactive(projectService.project);
@@ -21,7 +17,7 @@ export function projectCloudSync(
 
 	const loadableCloudProject = $derived(
 		project.current?.api && authentictionAvailable
-			? getProjectByRepositoryId(appState, cloudProjectService, project.current.api.repository_id)
+			? getProjectByRepositoryId(project.current.api.repository_id)
 			: undefined
 	);
 

@@ -4,7 +4,6 @@
 	import { isFound } from '$lib/network/loadable';
 	import { OrganizationService } from '$lib/organizations/organizationService';
 	import { getOrganizationBySlug } from '$lib/organizations/organizationsPreview.svelte';
-	import { ProjectService } from '$lib/organizations/projectService';
 	import { getProjectByRepositoryId } from '$lib/organizations/projectsPreview.svelte';
 	import { UserService } from '$lib/users/userService';
 	import { getUserByLogin } from '$lib/users/usersPreview.svelte';
@@ -23,7 +22,6 @@
 
 	const appState = getContext(AppState);
 	const organizationService = getContext(OrganizationService);
-	const projectService = getContext(ProjectService);
 	const userService = getContext(UserService);
 
 	const organization = $derived(getOrganizationBySlug(appState, organizationService, slug));
@@ -79,7 +77,7 @@
 				<h5 class="text-15 text-bold">Projects:</h5>
 				<div>
 					{#each organization.projectRepositoryIds as repositoryId, index}
-						{@const project = getProjectByRepositoryId(appState, projectService, repositoryId)}
+						{@const project = getProjectByRepositoryId(repositoryId)}
 
 						<SectionCard
 							roundedBottom={index + 1 === organization.projectRepositoryIds.length}

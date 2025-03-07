@@ -42,7 +42,6 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { onDestroy, setContext, type Snippet } from 'svelte';
 	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import type { LayoutData } from './$types';
@@ -209,20 +208,13 @@
 		if (intervalId) clearInterval(intervalId);
 	}
 
-	const appState = getContext(AppState);
 	const httpClient = getContext(HttpClient);
 
 	const settingsService = getContext(SettingsService);
 	const settingsStore = settingsService.appSettings;
 
 	$effect(() => {
-		projectCloudSync(
-			appState,
-			data.projectsService,
-			data.projectService,
-			cloudProjectService,
-			httpClient
-		);
+		projectCloudSync(data.projectsService, data.projectService, httpClient);
 	});
 
 	onDestroy(() => {

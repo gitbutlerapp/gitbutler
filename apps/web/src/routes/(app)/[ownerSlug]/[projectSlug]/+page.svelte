@@ -33,9 +33,7 @@
 	);
 
 	const project = $derived(
-		map(repositoryId.current, (repositoryId) =>
-			getProjectByRepositoryId(appState, projectService, repositoryId)
-		)
+		map(repositoryId.current, (repositoryId) => getProjectByRepositoryId(repositoryId))
 	);
 
 	async function deleteProject(repositoryId: string) {
