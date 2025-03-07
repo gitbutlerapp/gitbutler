@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { BranchController } from '$lib/branches/branchController';
 	import { isCommit, type Commit, type UpstreamCommit } from '$lib/branches/v3';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
@@ -10,11 +10,12 @@
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 
 	interface Props {
+		projectId: string;
 		menu: ReturnType<typeof ContextMenu> | undefined;
 		leftClickTrigger: HTMLElement | undefined;
 		rightClickTrigger: HTMLElement | undefined;
 		baseBranch: BaseBranch;
-		stackId: string | undefined;
+		branchId: string | undefined;
 		commit: Commit | UpstreamCommit;
 		commitUrl: string | undefined;
 		onUncommitClick: (event: MouseEvent) => void;
@@ -25,11 +26,12 @@
 	}
 
 	let {
+		projectId,
 		menu = $bindable(),
 		leftClickTrigger,
 		rightClickTrigger,
 		baseBranch,
-		stackId,
+		branchId,
 		commit,
 		commitUrl,
 		onUncommitClick,
@@ -39,14 +41,14 @@
 		onToggle
 	}: Props = $props();
 
-	const branchController = getContext(BranchController);
+	const stackService = getContext(StackService);
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
-		if (!stackId || !baseBranch) {
-			console.error('Unable to insert commit');
+		if (!branchId || !baseBranch) {
+			console.error('Unable to insert commit', { branchId, baseBranch });
 			return;
 		}
-		branchController.insertBlankCommit(stackId, commitId, location === 'above' ? -1 : 1);
+		stackService.insertBlankCommit(projectId, branchId, commitId, location === 'above' ? -1 : 1);
 	}
 
 	const isRemote = $derived(!isCommit(commit));
@@ -68,15 +70,19 @@
 					menu?.close();
 				}}
 			/>
+			<!-- TODO: Re-enable the option once it works -->
 			<ContextMenuItem
 				label="Edit commit message"
+				disabled
 				onclick={(e: MouseEvent) => {
 					onEditMessageClick(e);
 					menu?.close();
 				}}
 			/>
+			<!-- TODO: Re-enable the option once it works -->
 			<ContextMenuItem
 				label="Edit commit"
+				disabled
 				onclick={(e: MouseEvent) => {
 					onPatchEditClick(e);
 					menu?.close();

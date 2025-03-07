@@ -199,6 +199,25 @@ export class StackService {
 		);
 		return await result;
 	}
+
+	async uncommit(projectId: string, branchId: string, commitOid: string) {
+		const result = await this.api.endpoints.uncommit.useMutation({
+			projectId,
+			branchId,
+			commitOid
+		});
+		return result;
+	}
+
+	async insertBlankCommit(projectId: string, branchId: string, commitOid: string, offset: number) {
+		const result = await this.api.endpoints.insertBlankCommit.useMutation({
+			projectId,
+			branchId,
+			commitOid,
+			offset
+		});
+		return result;
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -293,6 +312,23 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					params: { projectId, stackId, request: { targetPatch, name } }
 				}),
 				invalidatesTags: [ReduxTag.StackBranches]
+			}),
+			uncommit: build.mutation<void, { projectId: string; branchId: string; commitOid: string }>({
+				query: ({ projectId, branchId, commitOid }) => ({
+					command: 'undo_commit',
+					params: { projectId, branchId, commitOid }
+				}),
+				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commits]
+			}),
+			insertBlankCommit: build.mutation<
+				void,
+				{ projectId: string; branchId: string; commitOid: string; offset: number }
+			>({
+				query: ({ projectId, branchId, commitOid, offset }) => ({
+					command: 'insert_blank_commit',
+					params: { projectId, branchId, commitOid, offset }
+				}),
+				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commits]
 			})
 		})
 	});

@@ -2,8 +2,9 @@
 	import CommitContextMenu from '$components/v3/CommitContextMenu.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { BranchController } from '$lib/branches/branchController';
 	import { ModeService } from '$lib/mode/modeService';
+	import { showError } from '$lib/notifications/toasts';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext, getContextStore, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
@@ -32,8 +33,8 @@
 	};
 
 	const {
+		projectId,
 		stackId,
-		branchName,
 		commit,
 		first,
 		lastCommit,
@@ -47,7 +48,7 @@
 	}: Props = $props();
 
 	const baseBranch = getContextStore(BaseBranch);
-	const branchController = getContext(BranchController);
+	const stackService = getContext(StackService);
 	const modeService = maybeGetContext(ModeService);
 
 	const commitTitle = $derived(commit.message.split('\n')[0]);
@@ -64,12 +65,16 @@
 
 	let isOpenedByKebabButton = $state(false);
 
-	function handleUncommit() {
+	async function handleUncommit() {
 		if (!$baseBranch) {
 			console.error('Unable to undo commit');
 			return;
 		}
-		branchController.undoCommit(stackId, branchName, commit.id);
+		const { error } = await stackService.uncommit(projectId, stackId, commit.id);
+		if (error) {
+			showError('Failed to uncommit', error);
+			console.error('Failed to uncommit', error);
+		}
 	}
 
 	function openCommitMessageModal() {
@@ -160,6 +165,7 @@
 </Modal>
 
 <CommitContextMenu
+	{projectId}
 	leftClickTrigger={kebabMenuTrigger}
 	rightClickTrigger={commitRowElement}
 	onToggle={(isOpen, isLeftClick) => {
@@ -169,7 +175,7 @@
 	}}
 	bind:menu={contextMenu}
 	baseBranch={$baseBranch}
-	{stackId}
+	branchId={stackId}
 	{commit}
 	{commitUrl}
 	onUncommitClick={handleUncommit}
