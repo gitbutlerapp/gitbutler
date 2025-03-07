@@ -37,6 +37,8 @@
 					<BranchCommitList {projectId} {stackId} branchName={branch.name}>
 						{#snippet localAndRemoteTemplate({ commit, commitKey, first, lastCommit })}
 							<CommitRow
+								{stackId}
+								{branchName}
 								{projectId}
 								{commitKey}
 								{first}

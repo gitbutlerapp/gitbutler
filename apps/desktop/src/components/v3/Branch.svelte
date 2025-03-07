@@ -170,6 +170,8 @@
 				{/snippet}
 				{#snippet upstreamTemplate({ commit, commitKey, first, lastCommit, selected })}
 					<CommitRow
+						{stackId}
+						{branchName}
 						{projectId}
 						{commitKey}
 						{first}
@@ -187,6 +189,8 @@
 					selected
 				})}
 					<CommitRow
+						{stackId}
+						{branchName}
 						{projectId}
 						{commitKey}
 						{first}

@@ -68,6 +68,10 @@ export type UpstreamCommit = {
 	readonly author: Author;
 };
 
+export function isCommit(something: Commit | UpstreamCommit): something is Commit {
+	return 'state' in something;
+}
+
 /** Represents the author of a commit. */
 export type Author = {
 	/** The name from the git commit signature */

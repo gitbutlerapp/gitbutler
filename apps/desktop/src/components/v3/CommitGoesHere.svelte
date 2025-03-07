@@ -89,6 +89,8 @@
 									{commitKey}
 									{first}
 									{commit}
+									{stackId}
+									{branchName}
 									lastCommit={last}
 									lineColor="var(--clr-commit-local)"
 									opacity={0.4}

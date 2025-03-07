@@ -49,15 +49,13 @@
 
 	const [stackService] = inject(StackService);
 
-	const localAndRemoteCommits = $derived(
-		stackService.commits(projectId, stackId, branchName).current
-	);
+	const localAndRemoteCommits = $derived(stackService.commits(projectId, stackId, branchName));
 	const upstreamOnlyCommits = $derived(
-		stackService.upstreamCommits(projectId, stackId, branchName).current
+		stackService.upstreamCommits(projectId, stackId, branchName)
 	);
 </script>
 
-<ReduxResult result={combineResults(upstreamOnlyCommits, localAndRemoteCommits)}>
+<ReduxResult result={combineResults(upstreamOnlyCommits.current, localAndRemoteCommits.current)}>
 	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits])}
 		{#if emptyPlaceholder && !upstreamOnlyCommits.length && !localAndRemoteCommits.length}
 			{@render emptyPlaceholder()}
