@@ -24,7 +24,7 @@
 		 * Callback to be called when the modal is closed by clicking outside the modal.
 		 */
 		onClickOutside?: () => void;
-		onSubmit?: (close: () => void) => void;
+		onSubmit?: (close: () => void, item: any) => void;
 		onKeyDown?: (e: KeyboardEvent) => void;
 		children: Snippet<[item: any, close: () => void]>;
 		controls?: Snippet<[close: () => void, item: any]>;
@@ -121,7 +121,7 @@
 			<form
 				onsubmit={(e) => {
 					e.preventDefault();
-					onSubmit?.(close);
+					onSubmit?.(close, item);
 				}}
 			>
 				{#if closeButton}
