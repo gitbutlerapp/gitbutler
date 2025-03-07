@@ -1,8 +1,6 @@
 <script lang="ts">
 	import HunkDiff from '$components/HunkDiff.svelte';
 	import RadioButton from '$components/RadioButton.svelte';
-	import Select from '$components/Select.svelte';
-	import SelectItem from '$components/SelectItem.svelte';
 	import SettingsPage from '$components/SettingsPage.svelte';
 	import ThemeSelector from '$components/ThemeSelector.svelte';
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
@@ -17,6 +15,8 @@
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import Select from '@gitbutler/ui/select/Select.svelte';
+	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import type { ContentSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
 
@@ -247,7 +247,7 @@
 					onselect={(value) => {
 						userSettings.update((s) => ({
 							...s,
-							diffContrast: value
+							diffContrast: value as 'strong' | 'medium' | 'light'
 						}));
 					}}
 				>

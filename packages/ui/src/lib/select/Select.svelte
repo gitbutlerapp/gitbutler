@@ -8,18 +8,18 @@
 	};
 </script>
 
-<script lang="ts" generics="T extends string">
+<script lang="ts">
 	import OptionsGroup from './OptionsGroup.svelte';
 	import SearchItem from './SearchItem.svelte';
-	import ScrollableContainer from '$components/ScrollableContainer.svelte';
+	import Textbox from '$lib/Textbox.svelte';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
+	import { portal } from '$lib/utils/portal';
+	import { pxToRem } from '$lib/utils/pxToRem';
+	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { KeyName } from '$lib/utils/hotkeys';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import { portal } from '@gitbutler/ui/utils/portal';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
 
-	interface SelectProps {
+	interface Props {
 		id?: string;
 		label?: string;
 		disabled?: boolean;
@@ -61,7 +61,7 @@
 		children,
 		onselect,
 		ontoggle
-	}: SelectProps = $props();
+	}: Props = $props();
 
 	let selectWrapperEl: HTMLElement;
 	let optionsGroupEl = $state<HTMLElement>();
@@ -230,7 +230,7 @@
 					: undefined}
 				style:max-height={maxHeightState && `${maxHeightState}px`}
 			>
-				<ScrollableContainer initiallyVisible>
+				<ScrollableContainer whenToShow="scroll">
 					{#if searchable && options.length > 5}
 						<SearchItem bind:searchValue />
 					{/if}

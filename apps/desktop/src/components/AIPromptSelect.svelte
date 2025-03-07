@@ -1,9 +1,9 @@
 <script lang="ts">
-	import Select from '$components/Select.svelte';
-	import SelectItem from '$components/SelectItem.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
+	import Select from '@gitbutler/ui/select/Select.svelte';
+	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { onMount } from 'svelte';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
 	import type { Persisted } from '@gitbutler/shared/persisted';

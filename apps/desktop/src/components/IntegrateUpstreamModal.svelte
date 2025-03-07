@@ -1,7 +1,5 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
-	import Select from '$components/Select.svelte';
-	import SelectItem from '$components/SelectItem.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { BranchStack } from '$lib/branches/branch';
 	import { getForge } from '$lib/forge/interface/forge';
@@ -26,11 +24,14 @@
 	import IntegrationSeriesRow from '@gitbutler/ui/IntegrationSeriesRow.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import SimpleCommitRow from '@gitbutler/ui/SimpleCommitRow.svelte';
+	import Select from '@gitbutler/ui/select/Select.svelte';
+	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 
 	type OperationState = 'inert' | 'loading' | 'completed';
+	type OperationType = 'rebase' | 'merge' | 'unapply' | 'delete';
 
 	interface Props {
 		onClose?: () => void;
@@ -100,8 +101,8 @@
 		}
 	});
 
-	function handleBaseResolutionSelection(resolution: BaseBranchResolutionApproach) {
-		baseResolutionApproach = resolution;
+	function handleBaseResolutionSelection(value: string) {
+		baseResolutionApproach = value as BaseBranchResolutionApproach;
 	}
 
 	async function integrate() {
@@ -187,7 +188,7 @@
 					onselect={(value) => {
 						const result = results.get(stack.id)!;
 
-						results.set(stack.id, { ...result, approach: { type: value } });
+						results.set(stack.id, { ...result, approach: { type: value as OperationType } });
 					}}
 					options={integrationOptions(stackStatus)}
 				>

@@ -4,8 +4,8 @@
  * TODO: Remove this file once V3 has shipped.
  */
 import { getSelectionDirection } from './getSelectionDirection';
-import { KeyName } from './hotkeys';
 import { stringifyKey, unstringifyFileKey } from '$lib/selection/fileIdSelection';
+import { KeyName } from '@gitbutler/ui/utils/hotkeys';
 import type { AnyFile } from '$lib/files/file';
 import type { FileIdSelection } from '$lib/selection/fileIdSelection';
 

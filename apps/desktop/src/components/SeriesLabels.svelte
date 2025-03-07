@@ -1,9 +1,9 @@
 <script lang="ts">
-	import Select from '$components/Select.svelte';
 	import { isPatchSeries } from '$lib/branches/branch';
 	import { PatchSeries } from '$lib/branches/branch';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
+	import Select from '@gitbutler/ui/select/Select.svelte';
 	import { isError } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {

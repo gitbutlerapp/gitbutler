@@ -1,11 +1,11 @@
 <script lang="ts">
-	import Select from '$components/Select.svelte';
-	import SelectItem from '$components/SelectItem.svelte';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { TemplateService } from '$lib/forge/templateService';
 	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
+	import Select from '@gitbutler/ui/select/Select.svelte';
+	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 
 	interface Props {
 		templates: string[];
