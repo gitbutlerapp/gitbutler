@@ -31,6 +31,7 @@
 	import { SvelteMap } from 'svelte/reactivity';
 
 	type OperationState = 'inert' | 'loading' | 'completed';
+	type OperationType = 'rebase' | 'merge' | 'unapply' | 'delete';
 
 	interface Props {
 		onClose?: () => void;
@@ -100,8 +101,8 @@
 		}
 	});
 
-	function handleBaseResolutionSelection(resolution: BaseBranchResolutionApproach) {
-		baseResolutionApproach = resolution;
+	function handleBaseResolutionSelection(value: string) {
+		baseResolutionApproach = value as BaseBranchResolutionApproach;
 	}
 
 	async function integrate() {
@@ -187,7 +188,7 @@
 					onselect={(value) => {
 						const result = results.get(stack.id)!;
 
-						results.set(stack.id, { ...result, approach: { type: value } });
+						results.set(stack.id, { ...result, approach: { type: value as OperationType } });
 					}}
 					options={integrationOptions(stackStatus)}
 				>

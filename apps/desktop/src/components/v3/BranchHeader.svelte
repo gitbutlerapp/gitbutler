@@ -121,12 +121,6 @@
 		display: flex;
 		justify-content: flex-start;
 		align-items: center;
-
-		.remote-name {
-			min-width: max-content;
-			padding: 0 0 0 2px;
-			color: var(--clr-scale-ntrl-60);
-		}
 	}
 
 	.combined-name {
