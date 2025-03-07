@@ -1,5 +1,6 @@
 <!-- TODO: Delete this file after V3 has shipped. -->
 <script lang="ts">
+	import { writeClipboard } from '$lib/backend/clipboard';
 	import { BranchController } from '$lib/branches/branchController';
 	import { LocalFile } from '$lib/files/file';
 	import { isAnyFile } from '$lib/files/file';
@@ -80,7 +81,7 @@
 							try {
 								if (!project) return;
 								const absPath = await join(project.path, item.files[0].path);
-								navigator.clipboard.writeText(absPath);
+								writeClipboard(absPath);
 								contextMenu.close();
 								// dismiss();
 							} catch (err) {
@@ -94,7 +95,7 @@
 						onclick={() => {
 							try {
 								if (!project) return;
-								navigator.clipboard.writeText(item.files[0].path);
+								writeClipboard(item.files[0].path);
 								contextMenu.close();
 							} catch (err) {
 								console.error('Failed to copy relative path', err);

@@ -106,6 +106,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@tauri-apps/plugin-clipboard-manager':
+        specifier: ^2.2.1
+        version: 2.2.1
       dayjs:
         specifier: ^1.11.13
         version: 1.11.13
@@ -2495,6 +2498,9 @@ packages:
     resolution: {integrity: sha512-fCheW0iWYWUtFV3ui3HlMhk3ZJpAQ5KJr7B7UmfhDzBSy1h5JBdrCtvDwy+3AcPN+Fg5Ey3JciF8zEP8eBx+vQ==}
     engines: {node: '>= 10'}
     hasBin: true
+
+  '@tauri-apps/plugin-clipboard-manager@2.2.1':
+    resolution: {integrity: sha512-+7YDULB9Bk4fejxYrVNBQcxs3KsjPA3A3r53wwn7K8zOQvxjNBSYBRx/FW1OUBPGzm8BrreJFBkPVzQZSF2R4A==}
 
   '@tauri-apps/plugin-dialog@2.0.1':
     resolution: {integrity: sha512-fnUrNr6EfvTqdls/ufusU7h6UbNFzLKvHk/zTuOiBq01R3dTODqwctZlzakdbfSp/7pNwTKvgKTAgl/NAP/Z0Q==}
@@ -9455,6 +9461,10 @@ snapshots:
       '@tauri-apps/cli-win32-ia32-msvc': 2.0.1
       '@tauri-apps/cli-win32-x64-msvc': 2.0.1
 
+  '@tauri-apps/plugin-clipboard-manager@2.2.1':
+    dependencies:
+      '@tauri-apps/api': 2.0.3
+
   '@tauri-apps/plugin-dialog@2.0.1':
     dependencies:
       '@tauri-apps/api': 2.0.3
@@ -10025,7 +10035,7 @@ snapshots:
       sirv: 3.0.0
       tinyglobby: 0.2.10
       tinyrainbow: 2.0.0
-      vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0)(yaml@2.7.0)
+      vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(yaml@2.7.0)
 
   '@vitest/utils@2.0.5':
     dependencies:
