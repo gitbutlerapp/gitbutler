@@ -11,6 +11,7 @@
 	import PrTemplateSection from './PrTemplateSection.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { AIService } from '$lib/ai/service';
+	import { writeClipboard } from '$lib/backend/clipboard';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BranchStack } from '$lib/branches/branch';
 	import { PatchSeries } from '$lib/branches/branch';
@@ -320,9 +321,7 @@
 
 	let prLinkCopied = $state(false);
 	function handlePrLinkCopied(link: string) {
-		if (!navigator.clipboard) return;
-
-		navigator.clipboard.writeText(link);
+		writeClipboard(link);
 		prLinkCopied = true;
 
 		setTimeout(() => {
