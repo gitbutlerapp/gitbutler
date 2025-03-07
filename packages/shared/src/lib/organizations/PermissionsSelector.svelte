@@ -4,7 +4,6 @@
 	import { ProjectService } from '$lib/organizations/projectService';
 	import { getProjectByRepositoryId } from '$lib/organizations/projectsPreview.svelte';
 	import { ShareLevel } from '$lib/permissions';
-	import { AppState } from '$lib/redux/store.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
@@ -15,10 +14,9 @@
 
 	const { repositoryId }: Props = $props();
 
-	const appState = getContext(AppState);
 	const projectService = getContext(ProjectService);
 
-	const project = $derived(getProjectByRepositoryId(appState, projectService, repositoryId));
+	const project = $derived(getProjectByRepositoryId(repositoryId));
 
 	const options = [
 		{

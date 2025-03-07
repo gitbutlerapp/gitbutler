@@ -8,21 +8,17 @@
 	import LoadingState from '@gitbutler/shared/network/LoadingState.svelte';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { getOrganizations } from '@gitbutler/shared/organizations/organizationsPreview.svelte';
-	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { getAllUserProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 
 	const appState = getContext(AppState);
-	const projectService = getContext(ProjectService);
 	const organizationService = getContext(OrganizationService);
 	const userService = getContext(UserService);
 
 	const user = $derived(userService.user);
 	const username = $derived($user?.login);
 
-	const userProjects = $derived(
-		username !== undefined ? getAllUserProjects(username, appState, projectService) : undefined
-	);
+	const userProjects = $derived(username !== undefined ? getAllUserProjects(username) : undefined);
 
 	const organizations = getOrganizations(appState, organizationService);
 </script>

@@ -11,7 +11,6 @@
 	import { getContributorsWithAvatars } from '@gitbutler/shared/contributors';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { and, combine, isFound, isNotFound, map } from '@gitbutler/shared/network/loadable';
-	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
@@ -29,7 +28,6 @@
 	const [
 		projectService,
 		appState,
-		cloudProjectService,
 		latestBranchLookupService,
 		cloudBranchService,
 		webRoutes,
@@ -37,7 +35,6 @@
 	] = inject(
 		ProjectService,
 		AppState,
-		CloudProjectService,
 		LatestBranchLookupService,
 		CloudBranchService,
 		WebRoutesService,
@@ -47,9 +44,7 @@
 	const project = projectService.project;
 
 	const cloudProject = $derived(
-		$project?.api?.repository_id
-			? getProjectByRepositoryId(appState, cloudProjectService, $project.api.repository_id)
-			: undefined
+		$project?.api?.repository_id ? getProjectByRepositoryId($project.api.repository_id) : undefined
 	);
 
 	const cloudBranchUuid = $derived(
