@@ -1,3 +1,4 @@
+import { dashboardSidebarReducer } from '$lib/dashboard/sidebar.svelte';
 import { reviewSectionsReducer } from '$lib/review/reviewSections.svelte';
 import { branchReviewListingsReducer } from '@gitbutler/shared/branches/branchReviewListingsSlice';
 import { branchesReducer } from '@gitbutler/shared/branches/branchesSlice';
@@ -22,7 +23,11 @@ export type WebReviewSectionsState = {
 	readonly reviewSections: ReturnType<typeof reviewSectionsReducer>;
 };
 
-export class WebState extends AppState implements WebReviewSectionsState {
+export type WebDashboardSidebarState = {
+	readonly dashboardSidebar: ReturnType<typeof dashboardSidebarReducer>;
+};
+
+export class WebState extends AppState implements WebReviewSectionsState, WebDashboardSidebarState {
 	/**
 	 * The base store.
 	 *
@@ -48,7 +53,8 @@ export class WebState extends AppState implements WebReviewSectionsState {
 			branchReviewListings: branchReviewListingsReducer,
 			notificationSettings: notificationSettingsReducer,
 			patchIdables: patchIdablesReducer,
-			reviewSections: reviewSectionsReducer
+			reviewSections: reviewSectionsReducer,
+			dashboardSidebar: dashboardSidebarReducer
 		}
 	});
 
@@ -68,6 +74,11 @@ export class WebState extends AppState implements WebReviewSectionsState {
 		[this.selectSelf],
 		(rootState) => rootState.reviewSections
 	);
+	private readonly selectDashboardSidebar = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.dashboardSidebar
+	);
 
 	readonly reviewSections = $derived(this.selectReviewSections(this.rootState));
+	readonly dashboardSidebar = $derived(this.selectDashboardSidebar(this.rootState));
 }

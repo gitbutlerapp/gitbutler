@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DashboardLayout from '$lib/components/dashboard/DashboardLayout.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { combine, map } from '@gitbutler/shared/network/loadable';
@@ -47,29 +48,32 @@
 	}
 </script>
 
-<h2>Project page: {data.ownerSlug}/{data.projectSlug}</h2>
+<DashboardLayout>
+	<h2>Project page: {data.ownerSlug}/{data.projectSlug}</h2>
 
-<div class="flow">
-	<Button style="pop" onclick={() => goto(routes.projectReviewPath(data))}>Project Reviews</Button>
-	<Loading loadable={combine([repositoryId.current, project?.current])}>
-		{#snippet children([repositoryId, project])}
-			{#if project.permissions.canWrite}
-				<hr />
-				<p data-info="https://youtu.be/siwpn14IE7E">The danger zone</p>
+	<div class="flow">
+		<Button style="pop" onclick={() => goto(routes.projectReviewPath(data))}>Project Reviews</Button
+		>
+		<Loading loadable={combine([repositoryId.current, project?.current])}>
+			{#snippet children([repositoryId, project])}
+				{#if project.permissions.canWrite}
+					<hr />
+					<p data-info="https://youtu.be/siwpn14IE7E">The danger zone</p>
 
-				<div>
-					<p>This project is <b>{project.permissions.shareLevel}</b></p>
+					<div>
+						<p>This project is <b>{project.permissions.shareLevel}</b></p>
 
-					<PermissionsSelector repositoryId={project.repositoryId} />
-				</div>
+						<PermissionsSelector repositoryId={project.repositoryId} />
+					</div>
 
-				<AsyncButton style="error" action={async () => await deleteProject(repositoryId)}
-					>Delete</AsyncButton
-				>
-			{/if}
-		{/snippet}
-	</Loading>
-</div>
+					<AsyncButton style="error" action={async () => await deleteProject(repositoryId)}
+						>Delete</AsyncButton
+					>
+				{/if}
+			{/snippet}
+		</Loading>
+	</div>
+</DashboardLayout>
 
 <style lang="postcss">
 	.flow {
