@@ -1,4 +1,5 @@
 import { hasTauriExtra } from '$lib/state/backendQuery';
+import { createSelectByIds } from '$lib/state/customSelectors';
 import { ReduxTag } from '$lib/state/tags';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { TreeChange, WorktreeChanges } from '$lib/hunks/change';
@@ -37,10 +38,7 @@ export class WorktreeService {
 	getChangesById(projectId: string, paths: string[]) {
 		const { getChanges } = this.api.endpoints;
 		const result = $derived(
-			getChanges.useQueryState(
-				{ projectId },
-				{ transform: (res) => paths.map((path) => selectById(res, path)!) }
-			)
+			getChanges.useQueryState({ projectId }, { transform: (res) => selectByIds(res, paths) })
 		);
 		return result;
 	}
@@ -100,3 +98,4 @@ const worktreeAdapter = createEntityAdapter<TreeChange, TreeChange['path']>({
 });
 
 const { selectAll, selectById } = worktreeAdapter.getSelectors();
+const selectByIds = createSelectByIds<TreeChange>();
