@@ -5,6 +5,7 @@ import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 export interface User {
 	id: number;
 	login: string | undefined;
+	avatar_url: string | undefined;
 	name: string;
 	email: string;
 	created_at: Date;
