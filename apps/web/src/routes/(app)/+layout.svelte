@@ -19,6 +19,7 @@
 	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
 	import { PatchIdableService } from '@gitbutler/shared/patches/patchIdableService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { NotificationSettingsService } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
 	import { setExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
@@ -96,7 +97,8 @@
 			location.href = href;
 		}
 	});
-	const reviewSectionsService = new ReviewSectionsService(webState, webState.appDispatch);
+	const routes = getContext(WebRoutesService);
+	const reviewSectionsService = new ReviewSectionsService(webState, webState.appDispatch, routes);
 	setContext(ReviewSectionsService, reviewSectionsService);
 
 	const sshKeyService = new SshKeyService(httpClient);
