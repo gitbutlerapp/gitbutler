@@ -49,19 +49,6 @@
 
 	let isInterdiffBarVisible = $state(false);
 
-	$effect(() => {
-		if (headerShift) {
-			offsetHeight = headerShift;
-		}
-
-		if (selected.current && !initialSelection) {
-			initialSelection = {
-				selectedBefore: selected.current.selectedBefore,
-				selectedAfter: selected.current.selectedAfter
-			};
-		}
-	});
-
 	const allOptions = $derived(reviewSectionsService.allOptions(changeId));
 
 	const beforeOptions = $derived(
@@ -75,6 +62,13 @@
 
 	const selected = $derived(reviewSectionsService.currentSelection(changeId));
 	let initialSelection: { selectedBefore: number; selectedAfter: number } | undefined = $state();
+	const isInitialSelection = $derived.by(
+		() =>
+			initialSelection &&
+			selected.current &&
+			initialSelection.selectedBefore === selected.current.selectedBefore &&
+			initialSelection.selectedAfter === selected.current.selectedAfter
+	);
 
 	const selectedAfter = $derived(selected.current?.selectedAfter ?? 1);
 	const selectedBefore = $derived(selected.current?.selectedBefore ?? -1);
@@ -89,6 +83,19 @@
 				)
 			: undefined
 	);
+
+	$effect(() => {
+		if (headerShift) {
+			offsetHeight = headerShift;
+		}
+
+		if (selected.current && !initialSelection) {
+			initialSelection = {
+				selectedBefore: selected.current.selectedBefore,
+				selectedAfter: selected.current.selectedAfter
+			};
+		}
+	});
 </script>
 
 <div class="review-sections-card">
@@ -105,10 +112,8 @@
 			</div>
 			<div class="review-sections-statistics__actions">
 				<div class="review-sections-statistics__actions__interdiff">
-					{#if initialSelection && selected.current}
-						{#if initialSelection.selectedBefore !== selected.current.selectedBefore || initialSelection.selectedAfter !== selected.current.selectedAfter}
-							<div class="review-sections-statistics__actions__interdiff-changed"></div>
-						{/if}
+					{#if !isInitialSelection}
+						<div class="review-sections-statistics__actions__interdiff-changed"></div>
 					{/if}
 					<Button
 						tooltip="Show interdiff"
@@ -125,55 +130,73 @@
 		<div class="interdiff-bar">
 			<p class="text-12 text-bold">Compare versions:</p>
 
-			<Select
-				searchable
-				options={beforeOptions}
-				value={selectedBefore.toString()}
-				onselect={(value) => {
-					reviewSectionsService.setSelection(changeId, {
-						selectedBefore: parseInt(value)
-					});
-				}}
-				autoWidth
-				popupAlign="right"
-			>
-				{#snippet customSelectButton()}
-					<Button kind="outline" icon="select-chevron" size="tag">
-						{beforeOptions.find((option) => option.value === selectedBefore.toString())?.label}
-					</Button>
-				{/snippet}
-				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === selectedBefore.toString()} {highlighted}>
-						{item.label}
-					</SelectItem>
-				{/snippet}
-			</Select>
+			<div class="interdiff-bar__selects">
+				<Select
+					searchable
+					options={beforeOptions}
+					value={selectedBefore.toString()}
+					onselect={(value) => {
+						reviewSectionsService.setSelection(changeId, {
+							selectedBefore: parseInt(value)
+						});
+					}}
+					autoWidth
+					popupAlign="right"
+				>
+					{#snippet customSelectButton()}
+						<Button kind="outline" icon="select-chevron" size="tag">
+							{beforeOptions.find((option) => option.value === selectedBefore.toString())?.label}
+						</Button>
+					{/snippet}
+					{#snippet itemSnippet({ item, highlighted })}
+						<SelectItem selected={item.value === selectedBefore.toString()} {highlighted}>
+							{item.label}
+						</SelectItem>
+					{/snippet}
+				</Select>
 
-			<div class="interdiff-bar__arrow">→</div>
+				<div class="interdiff-bar__arrow">→</div>
 
-			<Select
-				searchable
-				options={afterOptions}
-				value={selectedAfter.toString()}
-				onselect={(value) => {
-					reviewSectionsService.setSelection(changeId, {
-						selectedAfter: parseInt(value)
-					});
-				}}
-				autoWidth
-				popupAlign="right"
-			>
-				{#snippet customSelectButton()}
-					<Button kind="outline" icon="select-chevron" size="tag">
-						{afterOptions.find((option) => option.value === selectedAfter.toString())?.label}
+				<Select
+					searchable
+					options={afterOptions}
+					value={selectedAfter.toString()}
+					onselect={(value) => {
+						reviewSectionsService.setSelection(changeId, {
+							selectedAfter: parseInt(value)
+						});
+					}}
+					autoWidth
+					popupAlign="right"
+				>
+					{#snippet customSelectButton()}
+						<Button kind="outline" icon="select-chevron" size="tag">
+							{afterOptions.find((option) => option.value === selectedAfter.toString())?.label}
+						</Button>
+					{/snippet}
+					{#snippet itemSnippet({ item, highlighted })}
+						<SelectItem selected={item.value === selectedAfter.toString()} {highlighted}>
+							{item.label}
+						</SelectItem>
+					{/snippet}
+				</Select>
+
+				{#if !isInitialSelection}
+					<Button
+						kind="ghost"
+						icon="undo-small"
+						size="tag"
+						tooltip="Reset to initial selection"
+						onclick={() => {
+							if (initialSelection) {
+								reviewSectionsService.setSelection(changeId, initialSelection);
+							}
+						}}
+					>
+						Reset
 					</Button>
-				{/snippet}
-				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === selectedAfter.toString()} {highlighted}>
-						{item.label}
-					</SelectItem>
-				{/snippet}
-			</Select>
+				{/if}
+			</div>
 		</div>
 	{/if}
 
@@ -222,11 +245,6 @@
 			z-index: -1;
 			background-color: var(--clr-bg-2);
 		}
-	}
-
-	.interdiff-bar__arrow {
-		color: var(--clr-text-2);
-		margin: 0 -6px;
 	}
 
 	.review-sections-statistics {
@@ -284,6 +302,21 @@
 		border-top: none;
 
 		padding: 14px;
+
+		@container (max-width: 500px) {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 8px;
+		}
+	}
+
+	.interdiff-bar__selects {
+		display: flex;
+		gap: 6px;
+	}
+
+	.interdiff-bar__arrow {
+		color: var(--clr-text-2);
 	}
 
 	.review-sections-statistics__actions {
