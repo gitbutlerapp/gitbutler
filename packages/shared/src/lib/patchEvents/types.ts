@@ -54,6 +54,22 @@ export function isApiChatReactionEvent(data: unknown): data is ApiChatReactionEv
 	);
 }
 
+export type ApiChatReplyEvent = ApiPatchEventBase & {
+	event_type: 'chat_reply';
+	object: ApiChatMessage;
+	data: { in_reply_to: string };
+};
+
+export function isApiChatReplyEvent(data: unknown): data is ApiChatReplyEvent {
+	return (
+		isApiPatchEventBase(data) &&
+		(data as any).event_type === 'chat_reply' &&
+		typeof (data as any).data === 'object' &&
+		(data as any).data !== null &&
+		typeof (data as any).data.in_reply_to === 'string'
+	);
+}
+
 export type ApiPatchVersionEvent = ApiPatchEventBase & {
 	event_type: 'patch_version';
 	object: ApiPatchCommit;
@@ -101,6 +117,7 @@ export function isApiIssueUpdateEvent(data: unknown): data is ApiIssueUpdateEven
 export type ApiPatchEvent =
 	| ApiChatEvent
 	| ApiChatReactionEvent
+	| ApiChatReplyEvent
 	| ApiPatchVersionEvent
 	| ApiPatchStatusEvent
 	| ApiIssueUpdateEvent;
@@ -109,6 +126,7 @@ export function isApiPatchEvent(data: unknown): data is ApiPatchEvent {
 	return (
 		isApiChatEvent(data) ||
 		isApiChatReactionEvent(data) ||
+		isApiChatReplyEvent(data) ||
 		isApiPatchVersionEvent(data) ||
 		isApiPatchStatusEvent(data) ||
 		isApiIssueUpdateEvent(data)
@@ -134,6 +152,12 @@ export type ChatReactionEvent = PatchEventBase & {
 	eventType: 'chat_reaction';
 	object: ChatMessage;
 	data: { reaction: string };
+};
+
+export type ChatReplyEvent = PatchEventBase & {
+	eventType: 'chat_reply';
+	object: ChatMessage;
+	data: { inReplyTo: string };
 };
 
 export type PatchVersionEvent = PatchEventBase & {
@@ -196,6 +220,7 @@ export type IssueUpdateEvent = PatchEventBase & {
 export type PatchEvent =
 	| ChatEvent
 	| ChatReactionEvent
+	| ChatReplyEvent
 	| PatchVersionEvent
 	| PatchStatusEvent
 	| IssueUpdateEvent;
@@ -219,6 +244,16 @@ export function apiToPatchEvent(api: ApiPatchEvent): PatchEvent | null {
 				uuid: api.uuid,
 				user: api.user ? apiToUserSimple(api.user) : undefined,
 				data: { reaction: api.data.reaction },
+				object: apiToChatMessage(api.object),
+				createdAt: api.created_at,
+				updatedAt: api.updated_at
+			};
+		case 'chat_reply':
+			return {
+				eventType: api.event_type,
+				uuid: api.uuid,
+				user: api.user ? apiToUserSimple(api.user) : undefined,
+				data: { inReplyTo: api.data.in_reply_to },
 				object: apiToChatMessage(api.object),
 				createdAt: api.created_at,
 				updatedAt: api.updated_at
