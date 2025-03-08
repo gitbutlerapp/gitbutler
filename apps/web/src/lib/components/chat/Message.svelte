@@ -17,6 +17,7 @@
 	import { UserService } from '$lib/user/userService';
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
 	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
+	import { type ChatMessageReaction } from '@gitbutler/shared/chat/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -49,9 +50,13 @@
 	const reactionSet = new SvelteSet<string>();
 
 	const message = $derived(event.object);
-	const emojiReactions = $derived(
-		message.emojiReactions.filter((reaction) => reaction.users.length > 0)
-	);
+	let optimisticEmojiReactions = $state<ChatMessageReaction[]>();
+
+	$effect(() => {
+		if (message.emojiReactions) {
+			optimisticEmojiReactions = message.emojiReactions;
+		}
+	});
 
 	const authorName = $derived(
 		message.user.login ?? message.user.name ?? message.user.email ?? UNKNOWN_AUTHOR
@@ -76,6 +81,64 @@
 		recentlyUsedEmojis = emojis.slice(0, 3);
 	}
 
+	function reactButDoItOptimisticaly(emoji: EmojiInfo) {
+		if (!$user || !optimisticEmojiReactions) return;
+		const login = $user.login;
+		const hasReaction = optimisticEmojiReactions.some(
+			(reaction) =>
+				reaction.reaction === emoji.unicode &&
+				reaction.users.some((user) => !!user.login && user.login === login)
+		);
+
+		const newOptimisticEmojiReactions = structuredClone($state.snapshot(optimisticEmojiReactions));
+
+		if (hasReaction) {
+			// Remove reaction
+			optimisticEmojiReactions = newOptimisticEmojiReactions.map((reaction) => {
+				if (reaction.reaction === emoji.unicode) {
+					reaction.users = reaction.users.filter((user) => !!user.login && user.login !== login);
+				}
+				return reaction;
+			});
+			return;
+		}
+
+		// Add reaction
+		const existingUnicode = newOptimisticEmojiReactions.find(
+			(reaction) => reaction.reaction === emoji.unicode
+		);
+
+		if (existingUnicode) {
+			optimisticEmojiReactions = newOptimisticEmojiReactions.map((reaction) => {
+				if (reaction.reaction === emoji.unicode) {
+					reaction.users.push({
+						id: $user.id,
+						login: login,
+						avatarUrl: $user.avatar_url,
+						email: $user.email,
+						name: $user.name
+					});
+				}
+				return reaction;
+			});
+			return;
+		}
+
+		newOptimisticEmojiReactions.push({
+			reaction: emoji.unicode,
+			users: [
+				{
+					id: $user.id,
+					login: login,
+					avatarUrl: $user.avatar_url,
+					email: $user.email,
+					name: $user.name
+				}
+			]
+		});
+		optimisticEmojiReactions = newOptimisticEmojiReactions;
+	}
+
 	async function handleReaction(emoji: EmojiInfo) {
 		if (reactionSet.has(emoji.unicode)) return;
 		reactionSet.add(emoji.unicode);
@@ -86,6 +149,7 @@
 				messageUuid: message.uuid,
 				reaction: emoji.unicode
 			});
+			reactButDoItOptimisticaly(emoji);
 			markRecentlyUsedEmoji(emoji);
 		} catch (error) {
 			console.error('Failed to add reaction', error);
@@ -170,9 +234,9 @@
 			<MessageActions {projectId} {changeId} {message} />
 		</div>
 
-		{#if emojiReactions.length > 0}
+		{#if optimisticEmojiReactions && optimisticEmojiReactions.length > 0}
 			<div class="chat-message__reactions">
-				{#each emojiReactions as reaction}
+				{#each optimisticEmojiReactions as reaction}
 					{@const reacted = thisUserReacted(reaction.users)}
 					<Button
 						style="neutral"
@@ -200,7 +264,7 @@
 					<PopoverActionsItem
 						tooltip={emoji.label}
 						thin
-						disabled={!$user}
+						disabled={!$user || reactionSet.has(emoji.unicode)}
 						onclick={() => handleReaction(emoji)}
 					>
 						<p class="text-13" style="padding: 2px;">
