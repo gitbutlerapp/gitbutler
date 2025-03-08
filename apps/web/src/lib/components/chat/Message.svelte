@@ -4,6 +4,7 @@
 		projectId: string;
 		changeId?: string;
 		event: ChatEvent;
+		disableActions?: boolean;
 	}
 </script>
 
@@ -13,16 +14,49 @@
 	import MessageMarkdown from './MessageMarkdown.svelte';
 	import { parseDiffPatchToContentSection } from '$lib/chat/diffPatch';
 	import { parseDiffPatchToEncodedSelection } from '$lib/diff/lineSelection.svelte';
+	import { UserService } from '$lib/user/userService';
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
+	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
+	import { type ChatMessageReaction } from '@gitbutler/shared/chat/types';
+	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import {
+		findEmojiByUnicode,
+		getInitialEmojis,
+		markRecentlyUsedEmoji,
+		type EmojiInfo
+	} from '@gitbutler/ui/emoji/utils';
+	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
+	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import type { ChatEvent } from '@gitbutler/shared/patchEvents/types';
+	import type { UserSimple } from '@gitbutler/shared/users/types';
 
 	const UNKNOWN_AUTHOR = 'Unknown author';
 
-	const { event, projectId, changeId, highlight }: MessageProps = $props();
+	const { event, projectId, changeId, highlight, disableActions }: MessageProps = $props();
+
+	const chatChannelService = getContext(ChatChannelsService);
+	const userService = getContext(UserService);
+	const user = $derived(userService.user);
+
+	let kebabMenuTrigger = $state<HTMLButtonElement>();
+	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let isOpenedByKebabButton = $state(false);
+	let recentlyUsedEmojis = $state<EmojiInfo[]>([]);
+	const reactionSet = new SvelteSet<string>();
 
 	const message = $derived(event.object);
+	let optimisticEmojiReactions = $state<ChatMessageReaction[]>();
+
+	$effect(() => {
+		if (message.emojiReactions) {
+			optimisticEmojiReactions = message.emojiReactions;
+		}
+	});
 
 	const authorName = $derived(
 		message.user.login ?? message.user.name ?? message.user.email ?? UNKNOWN_AUTHOR
@@ -41,14 +75,121 @@
 		const rowElement = document.getElementById(`hunk-line-${diffSelectionString}`);
 		if (rowElement) rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
 	}
+
+	function setRecentlyUsedEmojis() {
+		const emojis = getInitialEmojis();
+		recentlyUsedEmojis = emojis.slice(0, 3);
+	}
+
+	function reactButDoItOptimisticaly(emoji: EmojiInfo) {
+		if (!$user || !optimisticEmojiReactions) return;
+		const login = $user.login;
+		const hasReaction = optimisticEmojiReactions.some(
+			(reaction) =>
+				reaction.reaction === emoji.unicode &&
+				reaction.users.some((user) => !!user.login && user.login === login)
+		);
+
+		const newOptimisticEmojiReactions = structuredClone($state.snapshot(optimisticEmojiReactions));
+
+		if (hasReaction) {
+			// Remove reaction
+			optimisticEmojiReactions = newOptimisticEmojiReactions.map((reaction) => {
+				if (reaction.reaction === emoji.unicode) {
+					reaction.users = reaction.users.filter((user) => !!user.login && user.login !== login);
+				}
+				return reaction;
+			});
+			return;
+		}
+
+		// Add reaction
+		const existingUnicode = newOptimisticEmojiReactions.find(
+			(reaction) => reaction.reaction === emoji.unicode
+		);
+
+		if (existingUnicode) {
+			optimisticEmojiReactions = newOptimisticEmojiReactions.map((reaction) => {
+				if (reaction.reaction === emoji.unicode) {
+					reaction.users.push({
+						id: $user.id,
+						login: login,
+						avatarUrl: $user.avatar_url,
+						email: $user.email,
+						name: $user.name
+					});
+				}
+				return reaction;
+			});
+			return;
+		}
+
+		newOptimisticEmojiReactions.push({
+			reaction: emoji.unicode,
+			users: [
+				{
+					id: $user.id,
+					login: login,
+					avatarUrl: $user.avatar_url,
+					email: $user.email,
+					name: $user.name
+				}
+			]
+		});
+		optimisticEmojiReactions = newOptimisticEmojiReactions;
+	}
+
+	async function handleReaction(emoji: EmojiInfo) {
+		if (reactionSet.has(emoji.unicode)) return;
+		reactionSet.add(emoji.unicode);
+		try {
+			await chatChannelService.patchChatMessage({
+				projectId,
+				changeId,
+				messageUuid: message.uuid,
+				reaction: emoji.unicode
+			});
+			reactButDoItOptimisticaly(emoji);
+			markRecentlyUsedEmoji(emoji);
+		} catch (error) {
+			console.error('Failed to add reaction', error);
+		}
+		reactionSet.delete(emoji.unicode);
+	}
+
+	async function handleClickOnExistingReaction(unicode: string) {
+		const emojiInfo = findEmojiByUnicode(unicode);
+		if (!emojiInfo) return;
+		await handleReaction(emojiInfo);
+	}
+
+	function getReactionTooltip(users: UserSimple[]) {
+		const thisUsername = $user?.login;
+		if (users.length === 0) return '';
+		const formatted = users.map((user) => (user.login === thisUsername ? 'You' : user.login));
+		if (formatted.length < 4) return formatted.map((user) => user).join(', ');
+		return (
+			formatted
+				.slice(0, 3)
+				.map((user) => user)
+				.join(', ') + ` and ${formatted.length - 3} more`
+		);
+	}
+
+	function thisUserReacted(users: UserSimple[]) {
+		const thisUsername = $user?.login;
+		return users.some((user) => user.login === thisUsername);
+	}
 </script>
 
 <div
+	role="listitem"
 	id="chat-message-{message.uuid}"
 	class="chat-message"
 	class:highlight
 	class:open-issue={message.issue && !message.resolved}
 	class:resolved={message.issue && message.resolved}
+	onmouseenter={setRecentlyUsedEmojis}
 >
 	{#if message.issue}
 		<div class="chat-message__issue-icon" class:resolved={message.resolved}>
@@ -92,7 +233,59 @@
 
 			<MessageActions {projectId} {changeId} {message} />
 		</div>
+
+		{#if optimisticEmojiReactions && optimisticEmojiReactions.length > 0}
+			<div class="chat-message__reactions">
+				{#each optimisticEmojiReactions as reaction}
+					{@const reacted = thisUserReacted(reaction.users)}
+					<Button
+						style="neutral"
+						kind={reacted ? 'ghost' : 'outline'}
+						size="tag"
+						loading={reactionSet.has(reaction.reaction)}
+						disabled={!$user}
+						tooltip={getReactionTooltip(reaction.users)}
+						customStyle={reacted ? 'background: var(--clr-theme-pop-soft);' : undefined}
+						onclick={() => handleClickOnExistingReaction(reaction.reaction)}
+					>
+						<div class="text-13">
+							{reaction.reaction + ' ' + reaction.users.length}
+						</div>
+					</Button>
+				{/each}
+			</div>
+		{/if}
 	</div>
+
+	{#if !disableActions}
+		<PopoverActionsContainer class="message-actions-menu" thin stayOpen={isOpenedByKebabButton}>
+			{#if recentlyUsedEmojis.length > 0}
+				{#each recentlyUsedEmojis as emoji}
+					<PopoverActionsItem
+						tooltip={emoji.label}
+						thin
+						disabled={!$user || reactionSet.has(emoji.unicode)}
+						onclick={() => handleReaction(emoji)}
+					>
+						<p class="text-13" style="padding: 2px;">
+							{emoji.unicode}
+						</p>
+					</PopoverActionsItem>
+				{/each}
+			{/if}
+			<PopoverActionsItem
+				bind:el={kebabMenuTrigger}
+				activated={isOpenedByKebabButton}
+				icon="kebab"
+				tooltip="More options"
+				thin
+				disabled
+				onclick={() => {
+					contextMenu?.toggle();
+				}}
+			/>
+		</PopoverActionsContainer>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -109,6 +302,7 @@
 	}
 
 	.chat-message {
+		position: relative;
 		width: 100%;
 		display: flex;
 		padding: 14px 16px;
@@ -135,6 +329,10 @@
 
 		&.highlight {
 			animation: temporary-highlight 2s ease-out;
+		}
+
+		&:hover :global(.message-actions-menu) {
+			--show: true;
 		}
 	}
 
@@ -211,5 +409,10 @@
 		color: var(--clr-text-1);
 		width: 100%;
 		box-sizing: border-box;
+	}
+
+	.chat-message__reactions {
+		display: flex;
+		gap: 2px;
 	}
 </style>

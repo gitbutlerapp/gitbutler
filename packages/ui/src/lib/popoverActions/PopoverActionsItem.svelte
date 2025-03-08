@@ -2,25 +2,38 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		el?: HTMLButtonElement;
-		icon: keyof typeof iconsJson;
+		icon?: keyof typeof iconsJson;
 		tooltip: string;
 		thin?: boolean;
 		activated?: boolean;
+		disabled?: boolean;
 		onclick: (e: MouseEvent) => void;
+		children?: Snippet;
 	}
 
-	let { el = $bindable(), icon, tooltip, thin, activated, onclick }: Props = $props();
+	let {
+		el = $bindable(),
+		icon,
+		tooltip,
+		thin,
+		activated,
+		onclick,
+		disabled,
+		children
+	}: Props = $props();
 </script>
 
-<Tooltip disabled={activated} text={tooltip} position="top" delay={200}>
+<Tooltip disabled={activated || disabled} text={tooltip} position="top" delay={200}>
 	<button
 		type="button"
 		bind:this={el}
 		data-clickable="true"
 		class="overflow-actions-btn focus-state"
+		{disabled}
 		class:thin
 		class:activated
 		onclick={(e) => {
@@ -30,9 +43,14 @@
 		}}
 		oncontextmenu={(e) => e.preventDefault()}
 	>
-		<div class="overflow-actions-btn__icon">
-			<Icon name={icon} />
-		</div>
+		{#if icon}
+			<div class="overflow-actions-btn__icon">
+				<Icon name={icon} />
+			</div>
+		{/if}
+		{#if children}
+			{@render children()}
+		{/if}
 	</button>
 </Tooltip>
 
@@ -60,13 +78,17 @@
 			background-color var(--transition-fast),
 			opacity var(--transition-fast);
 
-		&:hover,
-		&.activated {
+		&:hover:not(:disabled),
+		&.activated:not(:disabled) {
 			--opacity-btn-bg: var(--opacity-btn-outline-bg-hover);
 
 			.overflow-actions-btn__icon {
 				--icon-opacity: var(--opacity-btn-icon-outline-hover);
 			}
+		}
+
+		&:disabled {
+			--icon-opacity: 0.5;
 		}
 	}
 

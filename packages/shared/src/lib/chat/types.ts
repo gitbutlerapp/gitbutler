@@ -9,9 +9,15 @@ export type ApiDiffPatch = {
 	line: string;
 };
 
+export type ApiChatMessageReaction = {
+	reaction: string;
+	users: ApiUserSimple[];
+};
+
 export type ApiChatMessage = {
 	comment: string;
 	mentions: ApiUserSimple[];
+	emoji_reactions: ApiChatMessageReaction[];
 	diff_patch_array: ApiDiffPatch[] | null;
 	diff_path: string | null;
 	diff_sha: string | null;
@@ -32,9 +38,22 @@ export type DiffPatch = {
 	line: string;
 };
 
+export type ChatMessageReaction = {
+	reaction: string;
+	users: UserSimple[];
+};
+
+export function apiToChatMessageReaction(apiReaction: ApiChatMessageReaction): ChatMessageReaction {
+	return {
+		reaction: apiReaction.reaction,
+		users: apiReaction.users.map(apiToUserSimple)
+	};
+}
+
 export type ChatMessage = {
 	comment: string;
 	mentions: UserSimple[];
+	emojiReactions: ChatMessageReaction[];
 	diffPatchArray: DiffPatch[] | undefined;
 	diffPath: string | undefined;
 	diffSha: string | undefined;
@@ -75,6 +94,7 @@ export function apiToChatMessage(apiChatMessage: ApiChatMessage): ChatMessage {
 	return {
 		comment: apiChatMessage.comment,
 		mentions: apiChatMessage.mentions.map(apiToUserSimple),
+		emojiReactions: apiChatMessage.emoji_reactions.map(apiToChatMessageReaction),
 		diffPatchArray: apiChatMessage.diff_patch_array ?? undefined,
 		diffPath: apiChatMessage.diff_path ?? undefined,
 		diffSha: apiChatMessage.diff_sha ?? undefined,
@@ -187,7 +207,11 @@ export type ApiPatchChatMessageParams = {
 	/**
 	 * Chat message issue is resolved
 	 */
-	resolved: boolean;
+	resolved?: boolean;
+	/**
+	 * Emoji reaction to add or, if present, remove
+	 */
+	reaction?: string;
 };
 
 export type PatchChatMessageParams = {
@@ -197,7 +221,11 @@ export type PatchChatMessageParams = {
 	/**
 	 * Chat message issue is resolved
 	 */
-	resolved: boolean;
+	resolved?: boolean;
+	/**
+	 * Emoji reaction to add or, if present, remove
+	 */
+	reaction?: string;
 };
 
 export function toApiPatchChatMessageParams(
@@ -205,6 +233,7 @@ export function toApiPatchChatMessageParams(
 ): ApiPatchChatMessageParams {
 	return {
 		chat_uuid: params.messageUuid,
-		resolved: params.resolved
+		resolved: params.resolved,
+		reaction: params.reaction
 	};
 }

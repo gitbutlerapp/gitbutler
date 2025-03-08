@@ -131,6 +131,8 @@ export class PatchEventsService {
 			);
 		} else if (patchEvent.eventType === 'issue_status') {
 			this.patchService.refreshPatchWithSections(changeId);
+		} else if (patchEvent.eventType === 'chat_reaction') {
+			this.fetchInitialPatchEvents(projectId, changeId);
 		}
 
 		if (this.shouldPlayChatSound(patchEvent) && this.chatSoundUrl) {

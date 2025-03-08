@@ -91,7 +91,7 @@
 				<Loading loadable={patchEvents.current}>
 					{#snippet children(patchEvents)}
 						{#if patchEvents.events.length > 0}
-							{#each patchEvents.events as event}
+							{#each patchEvents.events as event (event.uuid)}
 								<Event {projectId} {changeId} {event} highlightedMessageUuid={messageUuid} />
 							{/each}
 						{:else}
