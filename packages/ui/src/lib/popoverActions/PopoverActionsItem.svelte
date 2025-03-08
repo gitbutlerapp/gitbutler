@@ -9,18 +9,20 @@
 		tooltip: string;
 		thin?: boolean;
 		activated?: boolean;
+		disabled?: boolean;
 		onclick: (e: MouseEvent) => void;
 	}
 
-	let { el = $bindable(), icon, tooltip, thin, activated, onclick }: Props = $props();
+	let { el = $bindable(), icon, tooltip, thin, activated, onclick, disabled }: Props = $props();
 </script>
 
-<Tooltip disabled={activated} text={tooltip} position="top" delay={200}>
+<Tooltip disabled={activated || disabled} text={tooltip} position="top" delay={200}>
 	<button
 		type="button"
 		bind:this={el}
 		data-clickable="true"
 		class="overflow-actions-btn focus-state"
+		{disabled}
 		class:thin
 		class:activated
 		onclick={(e) => {
@@ -60,13 +62,17 @@
 			background-color var(--transition-fast),
 			opacity var(--transition-fast);
 
-		&:hover,
-		&.activated {
+		&:hover:not(:disabled),
+		&.activated:not(:disabled) {
 			--opacity-btn-bg: var(--opacity-btn-outline-bg-hover);
 
 			.overflow-actions-btn__icon {
 				--icon-opacity: var(--opacity-btn-icon-outline-hover);
 			}
+		}
+
+		&:disabled {
+			--icon-opacity: 0.5;
 		}
 	}
 
