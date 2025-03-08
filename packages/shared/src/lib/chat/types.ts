@@ -187,7 +187,11 @@ export type ApiPatchChatMessageParams = {
 	/**
 	 * Chat message issue is resolved
 	 */
-	resolved: boolean;
+	resolved?: boolean;
+	/**
+	 * Emoji reaction to add or, if present, remove
+	 */
+	reaction?: string;
 };
 
 export type PatchChatMessageParams = {
@@ -197,7 +201,11 @@ export type PatchChatMessageParams = {
 	/**
 	 * Chat message issue is resolved
 	 */
-	resolved: boolean;
+	resolved?: boolean;
+	/**
+	 * Emoji reaction to add or, if present, remove
+	 */
+	reaction?: string;
 };
 
 export function toApiPatchChatMessageParams(
@@ -205,6 +213,7 @@ export function toApiPatchChatMessageParams(
 ): ApiPatchChatMessageParams {
 	return {
 		chat_uuid: params.messageUuid,
-		resolved: params.resolved
+		resolved: params.resolved,
+		reaction: params.reaction
 	};
 }

@@ -4,6 +4,7 @@
 		projectId: string;
 		changeId?: string;
 		event: ChatEvent;
+		disableActions?: boolean;
 	}
 </script>
 
@@ -14,13 +15,30 @@
 	import { parseDiffPatchToContentSection } from '$lib/chat/diffPatch';
 	import { parseDiffPatchToEncodedSelection } from '$lib/diff/lineSelection.svelte';
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
+	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
+	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import {
+		getInitialEmojis,
+		markRecentlyUsedEmoji,
+		type EmojiInfo
+	} from '@gitbutler/ui/emoji/utils';
+	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
+	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import type { ChatEvent } from '@gitbutler/shared/patchEvents/types';
 
 	const UNKNOWN_AUTHOR = 'Unknown author';
 
-	const { event, projectId, changeId, highlight }: MessageProps = $props();
+	const { event, projectId, changeId, highlight, disableActions }: MessageProps = $props();
+
+	const chatChannelService = getContext(ChatChannelsService);
+
+	let kebabMenuTrigger = $state<HTMLButtonElement>();
+	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let isOpenedByKebabButton = $state(false);
+	let recentlyUsedEmojis = $state<EmojiInfo[]>([]);
 
 	const message = $derived(event.object);
 
@@ -41,14 +59,35 @@
 		const rowElement = document.getElementById(`hunk-line-${diffSelectionString}`);
 		if (rowElement) rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
 	}
+
+	function setRecentlyUsedEmojis() {
+		const emojis = getInitialEmojis();
+		recentlyUsedEmojis = emojis.slice(0, 3);
+	}
+
+	async function handleReaction(emoji: EmojiInfo) {
+		try {
+			await chatChannelService.patchChatMessage({
+				projectId,
+				changeId,
+				messageUuid: message.uuid,
+				reaction: emoji.unicode
+			});
+		} catch (error) {
+			console.error('Failed to add reaction', error);
+		}
+		markRecentlyUsedEmoji(emoji);
+	}
 </script>
 
 <div
+	role="listitem"
 	id="chat-message-{message.uuid}"
 	class="chat-message"
 	class:highlight
 	class:open-issue={message.issue && !message.resolved}
 	class:resolved={message.issue && message.resolved}
+	onmouseenter={setRecentlyUsedEmojis}
 >
 	{#if message.issue}
 		<div class="chat-message__issue-icon" class:resolved={message.resolved}>
@@ -93,6 +132,31 @@
 			<MessageActions {projectId} {changeId} {message} />
 		</div>
 	</div>
+
+	{#if !disableActions}
+		<PopoverActionsContainer class="message-actions-menu" thin stayOpen={isOpenedByKebabButton}>
+			{#if recentlyUsedEmojis.length > 0}
+				{#each recentlyUsedEmojis as emoji}
+					<PopoverActionsItem tooltip={emoji.label} thin onclick={() => handleReaction(emoji)}>
+						<p class="text-13" style="padding: 2px;">
+							{emoji.unicode}
+						</p>
+					</PopoverActionsItem>
+				{/each}
+			{/if}
+			<PopoverActionsItem
+				bind:el={kebabMenuTrigger}
+				activated={isOpenedByKebabButton}
+				icon="kebab"
+				tooltip="More options"
+				thin
+				disabled
+				onclick={() => {
+					contextMenu?.toggle();
+				}}
+			/>
+		</PopoverActionsContainer>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -109,6 +173,7 @@
 	}
 
 	.chat-message {
+		position: relative;
 		width: 100%;
 		display: flex;
 		padding: 14px 16px;
@@ -135,6 +200,10 @@
 
 		&.highlight {
 			animation: temporary-highlight 2s ease-out;
+		}
+
+		&:hover :global(.message-actions-menu) {
+			--show: true;
 		}
 	}
 
