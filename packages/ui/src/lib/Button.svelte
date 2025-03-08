@@ -24,6 +24,10 @@
 		solidBackground?: boolean;
 		class?: string | (string | undefined)[] | Record<string, string>;
 		iconClass?: string;
+		/**
+		 * Custom style to be applied to the button.
+		 */
+		customStyle?: string;
 		// Additional elements
 		icon?: keyof typeof iconsJson | undefined;
 		tooltip?: string;
@@ -71,6 +75,7 @@
 		solidBackground = false,
 		class: className = '',
 		iconClass = '',
+		customStyle,
 		testId,
 		icon,
 		tooltip,
@@ -119,6 +124,7 @@
 				: width
 			: undefined}
 		style:max-width={maxWidth !== undefined ? pxToRem(maxWidth) : undefined}
+		style={customStyle}
 		disabled={disabled || loading}
 		onclick={handleAction}
 		{onmousedown}
