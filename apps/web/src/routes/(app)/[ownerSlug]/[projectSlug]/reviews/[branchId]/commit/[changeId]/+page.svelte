@@ -452,7 +452,7 @@
 		display: flex;
 		position: sticky;
 		top: 24px;
-		height: calc(100vh - var(--bottom-margin));
+		height: calc(100dvh - var(--bottom-margin));
 
 		&.minimized {
 			height: fit-content;
@@ -470,6 +470,7 @@
 		&.tablet-mode {
 			z-index: var(--z-floating);
 			position: fixed;
+			width: 100%;
 			max-width: unset;
 			height: 100dvh;
 			top: unset;
