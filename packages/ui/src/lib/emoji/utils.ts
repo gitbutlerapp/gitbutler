@@ -124,7 +124,7 @@ export function markRecentlyUsedEmoji(emoji: EmojiInfo): void {
 
 export function getInitialEmojis(): EmojiInfo[] {
 	const recentEmojis = getRecentEmojis() ?? [];
-	return [...recentEmojis, ...DEFAULT_EMOJI];
+	return deduplicateEmojis([...recentEmojis, ...DEFAULT_EMOJI]);
 }
 
 function deduplicateEmojis(emojis: EmojiInfo[]): EmojiInfo[] {
