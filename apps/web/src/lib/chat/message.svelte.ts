@@ -6,6 +6,7 @@ import { encodeDiffLineRange } from '@gitbutler/ui/utils/diffParsing';
 export interface SendParams {
 	issue?: boolean;
 	diffSelection?: DiffSelection;
+	inReplyTo?: string;
 }
 
 export default class MessageHandler {
@@ -106,7 +107,8 @@ export default class MessageHandler {
 			issue: params.issue,
 			diffPath: params.diffSelection?.fileName,
 			diffSha: params.diffSelection?.diffSha,
-			range: this.getDiffRange(params.diffSelection?.lines)
+			range: this.getDiffRange(params.diffSelection?.lines),
+			inReplyTo: params.inReplyTo
 		});
 	}
 

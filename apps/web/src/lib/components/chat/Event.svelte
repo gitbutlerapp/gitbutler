@@ -3,16 +3,19 @@
 	import Message from './Message.svelte';
 	import PatchStatus from './PatchStatus.svelte';
 	import PatchVersion from './PatchVersion.svelte';
-	import type { PatchEvent } from '@gitbutler/shared/patchEvents/types';
+	import type { ChatEvent, PatchEvent } from '@gitbutler/shared/patchEvents/types';
 
 	interface Props {
 		highlightedMessageUuid: string | undefined;
 		projectId: string;
 		changeId: string;
 		event: PatchEvent;
+		replyTo: (chatEvent: ChatEvent) => void;
+		scrollToMessage: (uuid: string) => void;
 	}
 
-	const { event, projectId, changeId, highlightedMessageUuid }: Props = $props();
+	const { event, projectId, changeId, highlightedMessageUuid, replyTo, scrollToMessage }: Props =
+		$props();
 </script>
 
 {#if event.eventType === 'chat'}
@@ -21,6 +24,8 @@
 		{changeId}
 		{event}
 		highlight={highlightedMessageUuid === event.object.uuid}
+		onReply={() => replyTo(event)}
+		{scrollToMessage}
 	/>
 {:else if event.eventType === 'issue_status'}
 	<IssueUpdate {event} />

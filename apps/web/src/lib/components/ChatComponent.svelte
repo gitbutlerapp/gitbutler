@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ReplyHandler from '$lib/chat/reply.svelte';
 	import ShowChatButton from '$lib/components/ShowChatButton.svelte';
 	import ChatInput from '$lib/components/chat/ChatInput.svelte';
 	import Event from '$lib/components/chat/Event.svelte';
@@ -12,7 +13,7 @@
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 
-	interface Props {
+	type Props = {
 		messageUuid: string | undefined;
 		isPatchAuthor: boolean | undefined;
 		branchUuid: string;
@@ -25,7 +26,7 @@
 		onMinimizeToggle: () => void;
 		diffSelection: DiffSelection | undefined;
 		clearDiffSelection: () => void;
-	}
+	};
 
 	let {
 		messageUuid,
@@ -44,14 +45,27 @@
 
 	const appState = getContext(AppState);
 	const patchEventsService = getContext(PatchEventsService);
+	const replyToHandler = new ReplyHandler();
+
+	let highlightedMessageUuid = $state<string>();
+
+	$effect(() => {
+		if (changeId) {
+			// Just here to track the changeId
+		}
+		return () => {
+			// Cleanup
+			replyToHandler.clear();
+		};
+	});
 
 	const patchEvents = $derived(getPatchEvents(appState, patchEventsService, projectId, changeId));
 	// This shouldn't be reactive as is just to check if the message was scrolled to already.
 	// Only a hard reload should trigger the scroll again.
 	const scrolledMessages = new Set<string>();
 
-	function scrollToMessageWithDelay(uuid: string, delay: number) {
-		if (scrolledMessages.has(uuid)) {
+	function scrollToMessageWithDelay(uuid: string, delay: number, force?: boolean) {
+		if (scrolledMessages.has(uuid) && !force) {
 			return;
 		}
 		setTimeout(() => {
@@ -59,6 +73,7 @@
 			if (element) {
 				element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 				scrolledMessages.add(uuid);
+				highlightedMessageUuid = uuid;
 			}
 		}, delay);
 	}
@@ -92,7 +107,14 @@
 					{#snippet children(patchEvents)}
 						{#if patchEvents.events.length > 0}
 							{#each patchEvents.events as event (event.uuid)}
-								<Event {projectId} {changeId} {event} highlightedMessageUuid={messageUuid} />
+								<Event
+									{projectId}
+									{changeId}
+									{event}
+									{highlightedMessageUuid}
+									replyTo={(event) => replyToHandler.replyTo(event.object)}
+									scrollToMessage={(uuid) => scrollToMessageWithDelay(uuid, 0, true)}
+								/>
 							{/each}
 						{:else}
 							<div class="blank-state">
@@ -121,6 +143,8 @@
 				{isPatchAuthor}
 				{diffSelection}
 				{clearDiffSelection}
+				replyingTo={replyToHandler.inReplyTo}
+				clearReply={() => replyToHandler.clear()}
 			/>
 		</div>
 	</div>

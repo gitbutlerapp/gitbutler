@@ -5,10 +5,13 @@
 		changeId?: string;
 		event: ChatEvent;
 		disableActions?: boolean;
+		onReply: () => void;
+		scrollToMessage: (uuid: string) => void;
 	}
 </script>
 
 <script lang="ts">
+	import ChatInReplyTo from './ChatInReplyTo.svelte';
 	import MessageActions from './MessageActions.svelte';
 	import MessageDiffSection from './MessageDiffSection.svelte';
 	import MessageMarkdown from './MessageMarkdown.svelte';
@@ -38,7 +41,15 @@
 
 	const UNKNOWN_AUTHOR = 'Unknown author';
 
-	const { event, projectId, changeId, highlight, disableActions }: MessageProps = $props();
+	const {
+		event,
+		projectId,
+		changeId,
+		highlight,
+		disableActions,
+		onReply,
+		scrollToMessage
+	}: MessageProps = $props();
 
 	const chatChannelService = getContext(ChatChannelsService);
 	const userService = getContext(UserService);
@@ -171,6 +182,12 @@
 			</div>
 		</div>
 
+		{#if message.inReplyTo}
+			<button type="button" onclick={() => scrollToMessage(message.inReplyTo!.uuid)}>
+				<ChatInReplyTo message={message.inReplyTo} clickable />
+			</button>
+		{/if}
+
 		{#if message.diffPatchArray && message.diffPatchArray.length > 0 && message.diffPath}
 			<MessageDiffSection diffPath={message.diffPath} {content} onGoToDiff={handleGoToDiff} />
 		{/if}
@@ -206,8 +223,10 @@
 		{/if}
 	</div>
 
+	<!-- Message actions -->
 	{#if !disableActions}
 		<PopoverActionsContainer class="message-actions-menu" thin stayOpen={isOpenedByKebabButton}>
+			<!-- Emoji Reactions -->
 			{#if recentlyUsedEmojis.length > 0}
 				{#each recentlyUsedEmojis as emoji}
 					<PopoverActionsItem
@@ -222,6 +241,11 @@
 					</PopoverActionsItem>
 				{/each}
 			{/if}
+
+			<!-- Reply -->
+			<PopoverActionsItem icon="reply" tooltip="Reply" thin onclick={() => onReply()} />
+
+			<!-- Kebab menu -->
 			<PopoverActionsItem
 				bind:el={kebabMenuTrigger}
 				activated={isOpenedByKebabButton}
