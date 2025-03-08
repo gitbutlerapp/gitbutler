@@ -105,21 +105,18 @@
 
 	const anthropicModelOptions = [
 		{
-			label: 'Sonnet',
-			value: AnthropicModelName.Sonnet
-		},
-		{
-			label: 'Opus',
-			value: AnthropicModelName.Opus
-		},
-		{
 			label: 'Haiku',
 			value: AnthropicModelName.Haiku
 		},
 		{
-			label: 'Sonnet 3.5 (recommended)',
+			label: 'Sonnet 3.5',
 			value: AnthropicModelName.Sonnet35
-		}
+		},
+		{
+			label: 'Sonnet 3.7 (recommended)',
+			value: AnthropicModelName.Sonnet37
+		},
+
 	];
 
 	let form = $state<HTMLFormElement>();
