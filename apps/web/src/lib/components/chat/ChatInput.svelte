@@ -83,7 +83,7 @@
 		if (isSendingMessage) return;
 		isSendingMessage = true;
 		try {
-			await messageHandler.send({ issue, diffSelection });
+			await messageHandler.send({ issue, diffSelection, inReplyTo: replyingTo?.uuid });
 		} finally {
 			richText.clearEditor();
 			isSendingMessage = false;
@@ -208,9 +208,9 @@
 		/>
 		<div class="text-input chat-input__content-container">
 			{#if replyingTo}
-			<div class="chat-input__reply">
-				<ChatInReplyTo message={replyingTo} {clearReply} />
-			</div>
+				<div class="chat-input__reply">
+					<ChatInReplyTo message={replyingTo} {clearReply} />
+				</div>
 			{/if}
 
 			{#if diffSelection}
@@ -320,6 +320,10 @@
 		flex-direction: column;
 		padding: 16px;
 		border-top: 1px solid var(--clr-border-2);
+	}
+
+	.chat-input__reply {
+		padding: 6px 6px 0;
 	}
 
 	.chat-input__content-container {

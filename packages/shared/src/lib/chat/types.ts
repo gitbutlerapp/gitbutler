@@ -190,6 +190,10 @@ export type ApiCreateChatMessageParams = {
 	 * Range of Diff to comment on (ex: L15 or L15-R50)
 	 */
 	range?: string;
+	/**
+	 * UUID of chat message to reply to
+	 */
+	in_reply_to?: string;
 };
 
 export type SendChatMessageParams = {
@@ -226,6 +230,10 @@ export type SendChatMessageParams = {
 	 * Range of Diff to comment on (ex: L15 or L15-R50)
 	 */
 	range?: string;
+	/**
+	 * UUID of chat message to reply to
+	 */
+	inReplyTo?: string;
 };
 
 export function toApiCreateChatMessageParams(
@@ -240,7 +248,8 @@ export function toApiCreateChatMessageParams(
 		issue: params.issue,
 		diff_path: params.diffPath,
 		diff_sha: params.diffSha,
-		range: params.range
+		range: params.range,
+		in_reply_to: params.inReplyTo
 	};
 }
 
