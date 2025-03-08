@@ -6,10 +6,12 @@
 		event: ChatEvent;
 		disableActions?: boolean;
 		onReply: () => void;
+		scrollToMessage: (uuid: string) => void;
 	}
 </script>
 
 <script lang="ts">
+	import ChatInReplyTo from './ChatInReplyTo.svelte';
 	import MessageActions from './MessageActions.svelte';
 	import MessageDiffSection from './MessageDiffSection.svelte';
 	import MessageMarkdown from './MessageMarkdown.svelte';
@@ -39,7 +41,15 @@
 
 	const UNKNOWN_AUTHOR = 'Unknown author';
 
-	const { event, projectId, changeId, highlight, disableActions, onReply }: MessageProps = $props();
+	const {
+		event,
+		projectId,
+		changeId,
+		highlight,
+		disableActions,
+		onReply,
+		scrollToMessage
+	}: MessageProps = $props();
 
 	const chatChannelService = getContext(ChatChannelsService);
 	const userService = getContext(UserService);
@@ -171,6 +181,12 @@
 				{timestamp}
 			</div>
 		</div>
+
+		{#if message.inReplyTo}
+			<button type="button" onclick={() => scrollToMessage(message.inReplyTo!.uuid)}>
+				<ChatInReplyTo message={message.inReplyTo} clickable />
+			</button>
+		{/if}
 
 		{#if message.diffPatchArray && message.diffPatchArray.length > 0 && message.diffPath}
 			<MessageDiffSection diffPath={message.diffPath} {content} onGoToDiff={handleGoToDiff} />

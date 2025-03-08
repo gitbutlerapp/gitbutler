@@ -11,9 +11,11 @@
 		changeId: string;
 		event: PatchEvent;
 		replyTo: (chatEvent: ChatEvent) => void;
+		scrollToMessage: (uuid: string) => void;
 	}
 
-	const { event, projectId, changeId, highlightedMessageUuid, replyTo }: Props = $props();
+	const { event, projectId, changeId, highlightedMessageUuid, replyTo, scrollToMessage }: Props =
+		$props();
 </script>
 
 {#if event.eventType === 'chat'}
@@ -23,6 +25,7 @@
 		{event}
 		highlight={highlightedMessageUuid === event.object.uuid}
 		onReply={() => replyTo(event)}
+		{scrollToMessage}
 	/>
 {:else if event.eventType === 'issue_status'}
 	<IssueUpdate {event} />

@@ -47,6 +47,8 @@
 	const patchEventsService = getContext(PatchEventsService);
 	const replyToHandler = new ReplyHandler();
 
+	let highlightedMessageUuid = $state<string>();
+
 	$effect(() => {
 		if (changeId) {
 			// Just here to track the changeId
@@ -62,8 +64,8 @@
 	// Only a hard reload should trigger the scroll again.
 	const scrolledMessages = new Set<string>();
 
-	function scrollToMessageWithDelay(uuid: string, delay: number) {
-		if (scrolledMessages.has(uuid)) {
+	function scrollToMessageWithDelay(uuid: string, delay: number, force?: boolean) {
+		if (scrolledMessages.has(uuid) && !force) {
 			return;
 		}
 		setTimeout(() => {
@@ -71,6 +73,7 @@
 			if (element) {
 				element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 				scrolledMessages.add(uuid);
+				highlightedMessageUuid = uuid;
 			}
 		}, delay);
 	}
@@ -108,8 +111,9 @@
 									{projectId}
 									{changeId}
 									{event}
-									highlightedMessageUuid={messageUuid}
+									{highlightedMessageUuid}
 									replyTo={(event) => replyToHandler.replyTo(event.object)}
+									scrollToMessage={(uuid) => scrollToMessageWithDelay(uuid, 0, true)}
 								/>
 							{/each}
 						{:else}

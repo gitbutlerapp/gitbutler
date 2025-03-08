@@ -1,5 +1,6 @@
 <script lang="ts" module>
 	export type ReplyToMessage = {
+		uuid: string;
 		user: UserSimple;
 		comment: string;
 	};
@@ -13,17 +14,18 @@
 
 	type Props = {
 		message: ReplyToMessage;
+		clickable?: boolean;
 		clearReply?: () => void;
 	};
 
-	const { message, clearReply }: Props = $props();
+	const { message, clearReply, clickable }: Props = $props();
 
 	const authorName = $derived(
 		message.user.login ?? message.user.name ?? message.user.email ?? UNKNOWN_AUTHOR
 	);
 </script>
 
-<div class="reply">
+<div class="reply" class:clickable>
 	<div class="reply__content">
 		<img class="reply__avatar" src={message.user.avatarUrl} alt={authorName} />
 		<p class="text-11 text-body reply_text">
@@ -47,6 +49,10 @@
 
 		border-radius: var(--radius-m);
 		background: var(--clr-bg-2);
+
+		&.clickable:hover {
+			background: var(--clr-bg-2-muted);
+		}
 	}
 
 	.reply__content {
