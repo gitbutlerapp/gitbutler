@@ -88,29 +88,19 @@
 						<ContextMenuItem
 							label="Copy Path"
 							onclick={async () => {
-								try {
-									if (!project) return;
-									const absPath = await join(project.path, changes[0]!.path);
-									writeClipboard(absPath);
-									contextMenu.close();
-									// dismiss();
-								} catch (err) {
-									console.error('Failed to copy path', err);
-									toasts.error('Failed to copy path');
-								}
+								if (!project) return;
+								const absPath = await join(project.path, changes[0]!.path);
+								await writeClipboard(absPath, 'Failed to copy path');
+								contextMenu.close();
+								// dismiss();
 							}}
 						/>
 						<ContextMenuItem
 							label="Copy Relative Path"
-							onclick={() => {
-								try {
-									if (!project) return;
-									writeClipboard(changes[0]!.path);
-									contextMenu.close();
-								} catch (err) {
-									console.error('Failed to copy relative path', err);
-									toasts.error('Failed to copy relative path');
-								}
+							onclick={async () => {
+								if (!project) return;
+								await writeClipboard(changes[0]!.path, 'Failed to copy relative path');
+								contextMenu.close();
 							}}
 						/>
 					{/if}
