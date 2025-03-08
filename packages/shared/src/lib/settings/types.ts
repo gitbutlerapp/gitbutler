@@ -2,6 +2,7 @@ import type { LoadableData } from '$lib/network/types';
 
 export type ApiNotificationSettings = {
 	receive_chat_mention_emails: boolean;
+	receive_chat_reply_emails: boolean;
 	receive_issue_resolution_emails: boolean;
 	receive_issue_creation_emails: boolean;
 	receive_review_branch_emails: boolean;
@@ -10,6 +11,7 @@ export type ApiNotificationSettings = {
 
 export type NotificationSettings = {
 	receiveChatMentionEmails: boolean;
+	receiveChatReplyEmails: boolean;
 	receiveIssueResolutionEmails: boolean;
 	receiveIssueCreationEmails: boolean;
 	receiveReviewBranchEmails: boolean;
@@ -21,6 +23,7 @@ export function apiToNotificationSettings(
 ): NotificationSettings {
 	return {
 		receiveChatMentionEmails: apiSettings.receive_chat_mention_emails,
+		receiveChatReplyEmails: apiSettings.receive_chat_reply_emails,
 		receiveIssueResolutionEmails: apiSettings.receive_issue_resolution_emails,
 		receiveIssueCreationEmails: apiSettings.receive_issue_creation_emails,
 		receiveReviewBranchEmails: apiSettings.receive_review_branch_emails,
@@ -37,6 +40,7 @@ export type LoadableNotificationSettings = LoadableData<
 
 export type PatchNotificationSettingsParams = {
 	receiveChatMentionEmails?: boolean;
+	receiveChatReplyEmails?: boolean;
 	receiveIssueResolutionEmails?: boolean;
 	receiveIssueCreationEmails?: boolean;
 	receiveReviewBranchEmails?: boolean;
@@ -45,6 +49,7 @@ export type PatchNotificationSettingsParams = {
 
 export type ApiPatchNotificationSettingsParams = {
 	receive_chat_mention_emails?: boolean;
+	receive_chat_reply_emails?: boolean;
 	receive_issue_resolution_emails?: boolean;
 	receive_issue_creation_emails?: boolean;
 	receive_review_branch_emails?: boolean;
@@ -56,6 +61,7 @@ export function notificationSettingsToApi(
 ): ApiPatchNotificationSettingsParams {
 	return {
 		receive_chat_mention_emails: settings.receiveChatMentionEmails,
+		receive_chat_reply_emails: settings.receiveChatReplyEmails,
 		receive_issue_resolution_emails: settings.receiveIssueResolutionEmails,
 		receive_issue_creation_emails: settings.receiveIssueCreationEmails,
 		receive_review_branch_emails: settings.receiveReviewBranchEmails,
