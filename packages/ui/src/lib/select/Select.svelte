@@ -326,7 +326,7 @@
 		box-shadow: var(--fx-shadow-s);
 		overflow: hidden;
 		transform-origin: top;
-		width: 100%;
+		min-width: 80px;
 
 		animation: fadeIn 0.16s ease-out forwards;
 	}
