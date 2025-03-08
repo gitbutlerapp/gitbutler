@@ -2,18 +2,29 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		el?: HTMLButtonElement;
-		icon: keyof typeof iconsJson;
+		icon?: keyof typeof iconsJson;
 		tooltip: string;
 		thin?: boolean;
 		activated?: boolean;
 		disabled?: boolean;
 		onclick: (e: MouseEvent) => void;
+		children?: Snippet;
 	}
 
-	let { el = $bindable(), icon, tooltip, thin, activated, onclick, disabled }: Props = $props();
+	let {
+		el = $bindable(),
+		icon,
+		tooltip,
+		thin,
+		activated,
+		onclick,
+		disabled,
+		children
+	}: Props = $props();
 </script>
 
 <Tooltip disabled={activated || disabled} text={tooltip} position="top" delay={200}>
@@ -32,9 +43,14 @@
 		}}
 		oncontextmenu={(e) => e.preventDefault()}
 	>
-		<div class="overflow-actions-btn__icon">
-			<Icon name={icon} />
-		</div>
+		{#if icon}
+			<div class="overflow-actions-btn__icon">
+				<Icon name={icon} />
+			</div>
+		{/if}
+		{#if children}
+			{@render children()}
+		{/if}
 	</button>
 </Tooltip>
 
