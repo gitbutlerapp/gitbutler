@@ -13,6 +13,7 @@
 	import MessageDiffSection from './MessageDiffSection.svelte';
 	import MessageMarkdown from './MessageMarkdown.svelte';
 	import { parseDiffPatchToContentSection } from '$lib/chat/diffPatch';
+	import { updateReactions } from '$lib/chat/reactions';
 	import { parseDiffPatchToEncodedSelection } from '$lib/diff/lineSelection.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
@@ -83,60 +84,8 @@
 
 	function reactButDoItOptimisticaly(emoji: EmojiInfo) {
 		if (!$user || !optimisticEmojiReactions) return;
-		const login = $user.login;
-		const hasReaction = optimisticEmojiReactions.some(
-			(reaction) =>
-				reaction.reaction === emoji.unicode &&
-				reaction.users.some((user) => !!user.login && user.login === login)
-		);
-
-		const newOptimisticEmojiReactions = structuredClone($state.snapshot(optimisticEmojiReactions));
-
-		if (hasReaction) {
-			// Remove reaction
-			optimisticEmojiReactions = newOptimisticEmojiReactions.map((reaction) => {
-				if (reaction.reaction === emoji.unicode) {
-					reaction.users = reaction.users.filter((user) => !!user.login && user.login !== login);
-				}
-				return reaction;
-			});
-			return;
-		}
-
-		// Add reaction
-		const existingUnicode = newOptimisticEmojiReactions.find(
-			(reaction) => reaction.reaction === emoji.unicode
-		);
-
-		if (existingUnicode) {
-			optimisticEmojiReactions = newOptimisticEmojiReactions.map((reaction) => {
-				if (reaction.reaction === emoji.unicode) {
-					reaction.users.push({
-						id: $user.id,
-						login: login,
-						avatarUrl: $user.avatar_url,
-						email: $user.email,
-						name: $user.name
-					});
-				}
-				return reaction;
-			});
-			return;
-		}
-
-		newOptimisticEmojiReactions.push({
-			reaction: emoji.unicode,
-			users: [
-				{
-					id: $user.id,
-					login: login,
-					avatarUrl: $user.avatar_url,
-					email: $user.email,
-					name: $user.name
-				}
-			]
-		});
-		optimisticEmojiReactions = newOptimisticEmojiReactions;
+		const newReactions = structuredClone($state.snapshot(optimisticEmojiReactions));
+		optimisticEmojiReactions = updateReactions($user, emoji, newReactions);
 	}
 
 	async function handleReaction(emoji: EmojiInfo) {
