@@ -149,7 +149,12 @@
 						</Button>
 					{/snippet}
 					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem selected={item.value === selectedBefore.toString()} {highlighted}>
+						{@const isSelected = item.value === selectedBefore.toString()}
+						<SelectItem
+							selected={isSelected}
+							{highlighted}
+							disabled={!isSelected && item.value >= selectedAfter.toString()}
+						>
 							{item.label}
 						</SelectItem>
 					{/snippet}
@@ -175,7 +180,12 @@
 						</Button>
 					{/snippet}
 					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem selected={item.value === selectedAfter.toString()} {highlighted}>
+						{@const isSelected = item.value === selectedAfter.toString()}
+						<SelectItem
+							selected={isSelected}
+							{highlighted}
+							disabled={!isSelected && item.value <= selectedBefore.toString()}
+						>
 							{item.label}
 						</SelectItem>
 					{/snippet}
