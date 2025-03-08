@@ -27,6 +27,7 @@
 	const token = $derived(authService.tokenReadable);
 
 	let updatingReceiveChatMentionEmails = $state(false);
+	let updatingReceiveChatReplyEmails = $state(false);
 	let updatingReceiveIssueCreationEmails = $state(false);
 	let updatingReceiveIssueResolutionEmails = $state(false);
 	let updatingReceiveReviewBranchEmails = $state(false);
@@ -88,6 +89,14 @@
 			receiveChatMentionEmails: value
 		});
 		updatingReceiveChatMentionEmails = false;
+	}
+
+	async function updateReceiveChatReplyEmails(value: boolean) {
+		updatingReceiveChatReplyEmails = true;
+		await notificationSettingsService.updateNotificationSettings({
+			receiveChatReplyEmails: value
+		});
+		updatingReceiveChatReplyEmails = false;
 	}
 
 	async function updateReceiveIssueCreationEmails(value: boolean) {
@@ -224,6 +233,25 @@
 									<div class="checkbox-content">
 										<span class="checkbox-title">Chat message mention emails</span>
 										<span class="checkbox-caption">Emails when you are mentioned in a message.</span
+										>
+									</div>
+								</label>
+							</div>
+
+							<div class="notification-option">
+								<label class="checkbox-label" for="receive-chat-reply-emails">
+									<input
+										type="checkbox"
+										id="receive-chat-reply-emails"
+										checked={notificationSettings.receiveChatReplyEmails}
+										disabled={updatingReceiveChatReplyEmails}
+										onchange={() =>
+											updateReceiveChatReplyEmails(!notificationSettings.receiveChatReplyEmails)}
+									/>
+									<div class="checkbox-content">
+										<span class="checkbox-title">Chat message reply emails</span>
+										<span class="checkbox-caption"
+											>Emails when you receive a reply to a chat message.</span
 										>
 									</div>
 								</label>
