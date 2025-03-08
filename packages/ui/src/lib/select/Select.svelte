@@ -6,9 +6,32 @@
 		value: T;
 		selectable?: boolean;
 	};
+
+	interface Props {
+		id?: string;
+		label?: string;
+		disabled?: boolean;
+		loading?: boolean;
+		wide?: boolean;
+		maxWidth?: number;
+		customWidth?: number;
+		autoWidth?: boolean;
+		flex?: string;
+		options: readonly SelectItem<T>[];
+		value?: T;
+		placeholder?: string;
+		maxHeight?: number;
+		searchable?: boolean;
+		popupAlign?: 'left' | 'right' | 'center';
+		customSelectButton?: Snippet;
+		itemSnippet: Snippet<[{ item: SelectItem<T>; highlighted: boolean; idx: number }]>;
+		children?: Snippet;
+		onselect?: (value: T) => void;
+		ontoggle?: (isOpen: boolean) => void;
+	}
 </script>
 
-<script lang="ts">
+<script lang="ts" generics="T extends string">
 	import OptionsGroup from './OptionsGroup.svelte';
 	import SearchItem from './SearchItem.svelte';
 	import Textbox from '$lib/Textbox.svelte';
@@ -19,28 +42,6 @@
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { type Snippet } from 'svelte';
 
-	interface Props {
-		id?: string;
-		label?: string;
-		disabled?: boolean;
-		loading?: boolean;
-		wide?: boolean;
-		maxWidth?: number;
-		flex?: string;
-		options: readonly SelectItem<T>[];
-		value?: T;
-		placeholder?: string;
-		maxHeight?: number;
-		searchable?: boolean;
-		customWidth?: number;
-		popupAlign?: 'left' | 'right' | 'center';
-		customSelectButton?: Snippet;
-		itemSnippet: Snippet<[{ item: SelectItem<T>; highlighted: boolean; idx: number }]>;
-		children?: Snippet;
-		onselect?: (value: T) => void;
-		ontoggle?: (isOpen: boolean) => void;
-	}
-
 	const {
 		id,
 		label,
@@ -48,13 +49,14 @@
 		loading,
 		wide,
 		maxWidth,
+		customWidth,
+		autoWidth,
 		flex,
 		options = [],
 		value,
 		placeholder = 'Select an option...',
 		maxHeight,
 		searchable,
-		customWidth,
 		popupAlign = 'left',
 		customSelectButton,
 		itemSnippet,
@@ -115,8 +117,8 @@
 		else openList();
 	}
 
-	function handleSelect(item: SelectItem<T>) {
-		const value = item.value;
+	function handleSelect(item: SelectItem<string>) {
+		const value = item.value as T;
 		onselect?.(value);
 		closeList();
 	}
@@ -170,6 +172,38 @@
 				break;
 		}
 	}
+
+	function getTopStyle() {
+		if (inputBoundingRect?.top) {
+			return `${inputBoundingRect.top + inputBoundingRect.height}px`;
+		}
+	}
+
+	function getLeftStyle() {
+		if (inputBoundingRect?.left && popupAlign === 'left') {
+			return `${inputBoundingRect.left}px`;
+		}
+
+		if (optionsGroupBoundingRect && inputBoundingRect && popupAlign === 'center') {
+			return `${window.innerWidth / 2 - optionsGroupBoundingRect.width / 2}px`;
+		}
+
+		if (inputBoundingRect?.left && optionsGroupBoundingRect && popupAlign === 'right') {
+			return `${inputBoundingRect.left + inputBoundingRect.width - optionsGroupBoundingRect.width}px`;
+		}
+	}
+
+	function getPopupWidthStyle() {
+		if (customWidth) {
+			return '100%';
+		}
+
+		if (autoWidth) {
+			return 'fit-content';
+		}
+
+		return `${inputBoundingRect?.width}px`;
+	}
 </script>
 
 <div
@@ -183,9 +217,14 @@
 		<label for={id} class="select__label text-13 text-body text-semibold">{label}</label>
 	{/if}
 	{#if customSelectButton}
-		<button type="button" onmousedown={toggleList} onkeydown={(ev) => handleKeyDown(ev)}>
+		<div
+			role="presentation"
+			class="select__custom-button"
+			onmousedown={toggleList}
+			onkeydown={(ev) => handleKeyDown(ev)}
+		>
 			{@render customSelectButton()}
-		</button>
+		</div>
 	{:else}
 		<Textbox
 			{id}
@@ -215,19 +254,10 @@
 			<div
 				class="options card"
 				bind:this={optionsGroupEl}
-				style:width={customWidth ? '100%' : `${inputBoundingRect?.width}px`}
+				style:width={getPopupWidthStyle()}
 				style:max-width={customWidth && pxToRem(customWidth)}
-				style:top={inputBoundingRect?.top
-					? `${inputBoundingRect.top + inputBoundingRect.height}px`
-					: undefined}
-				style:left={inputBoundingRect?.left && popupAlign === 'left'
-					? `${inputBoundingRect.left}px`
-					: optionsGroupBoundingRect && inputBoundingRect && popupAlign === 'center'
-						? `${window.innerWidth / 2 - optionsGroupBoundingRect.width / 2}px`
-						: undefined}
-				style:right={inputBoundingRect?.right && popupAlign === 'right'
-					? `${window.innerWidth - inputBoundingRect.right}px`
-					: undefined}
+				style:top={getTopStyle()}
+				style:left={getLeftStyle()}
 				style:max-height={maxHeightState && `${maxHeightState}px`}
 			>
 				<ScrollableContainer whenToShow="scroll">
@@ -263,11 +293,17 @@
 		flex-direction: column;
 		gap: 6px;
 		height: fit-content;
+		width: fit-content;
 	}
 
 	.select__label {
 		text-align: left;
 		color: var(--clr-scale-ntrl-50);
+	}
+
+	.select__custom-button {
+		display: flex;
+		width: fit-content;
 	}
 
 	.overlay-wrapper {
@@ -290,7 +326,7 @@
 		box-shadow: var(--fx-shadow-s);
 		overflow: hidden;
 		transform-origin: top;
-		width: 100%;
+		min-width: 80px;
 
 		animation: fadeIn 0.16s ease-out forwards;
 	}
