@@ -1,9 +1,9 @@
 <script lang="ts">
+	import Icon from '$lib/Icon.svelte';
 	import { clickOutside } from '$lib/utils/clickOutside';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
+	import { pxToRem } from '$lib/utils/pxToRem';
 	import { onMount, tick } from 'svelte';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
+	import type iconsJson from '$lib/data/icons.json';
 
 	interface Props {
 		element?: HTMLElement;
