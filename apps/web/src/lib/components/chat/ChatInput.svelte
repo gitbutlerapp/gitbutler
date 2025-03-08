@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ChatDiffLineSelection from './ChatDiffLineSelection.svelte';
+	import ChatInReplyTo, { type ReplyToMessage } from './ChatInReplyTo.svelte';
 	import MentionSuggestions from './MentionSuggestions.svelte';
 	import MessageHandler from '$lib/chat/message.svelte';
 	import RichText from '$lib/chat/richText.svelte';
@@ -29,6 +30,8 @@
 		isUserLoggedIn: boolean | undefined;
 		diffSelection: DiffSelection | undefined;
 		clearDiffSelection: () => void;
+		replyingTo: ReplyToMessage | undefined;
+		clearReply: () => void;
 	}
 
 	let {
@@ -39,7 +42,9 @@
 		isPatchAuthor,
 		isUserLoggedIn,
 		diffSelection,
-		clearDiffSelection
+		clearDiffSelection,
+		replyingTo,
+		clearReply
 	}: Props = $props();
 
 	const newUserService = getContext(NewUserService);
@@ -83,6 +88,7 @@
 			richText.clearEditor();
 			isSendingMessage = false;
 			clearDiffSelection();
+			clearReply();
 		}
 	}
 
@@ -93,6 +99,8 @@
 			return suggestions.onSuggestionKeyDown(event);
 		}
 
+		const metaKey = event.metaKey || event.ctrlKey;
+
 		if (event.key === 'Enter' && !event.shiftKey && suggestions.suggestions === undefined) {
 			event.preventDefault();
 			event.stopPropagation();
@@ -101,6 +109,12 @@
 		}
 
 		if (event.key === 'Escape') {
+			if (!diffSelection || metaKey) {
+				// Clear reply only if the diff selection is not open
+				// or if the meta key is pressed
+				clearReply();
+			}
+
 			// Clear diff selection on escape only if the mention suggestions
 			// are not open
 			clearDiffSelection();
@@ -108,6 +122,12 @@
 		}
 
 		if (event.key === 'Backspace' && !messageHandler.message) {
+			if (!diffSelection || metaKey) {
+				// Clear reply only if the diff selection is not open
+				// or if the meta key is pressed
+				clearReply();
+			}
+
 			// Clear diff selection on delete only if the mention suggestions
 			// are not open and the input is empty
 			clearDiffSelection();
@@ -187,9 +207,16 @@
 			selectSuggestion={(s) => suggestions.selectSuggestion(s)}
 		/>
 		<div class="text-input chat-input__content-container">
+			{#if replyingTo}
+			<div class="chat-input__reply">
+				<ChatInReplyTo message={replyingTo} {clearReply} />
+			</div>
+			{/if}
+
 			{#if diffSelection}
 				<ChatDiffLineSelection {diffSelection} {clearDiffSelection} />
 			{/if}
+
 			<RichTextEditor
 				styleContext="chat-input"
 				placeholder="Write your message"

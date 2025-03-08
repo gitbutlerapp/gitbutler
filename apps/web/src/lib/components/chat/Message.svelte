@@ -5,6 +5,7 @@
 		changeId?: string;
 		event: ChatEvent;
 		disableActions?: boolean;
+		onReply: () => void;
 	}
 </script>
 
@@ -38,7 +39,7 @@
 
 	const UNKNOWN_AUTHOR = 'Unknown author';
 
-	const { event, projectId, changeId, highlight, disableActions }: MessageProps = $props();
+	const { event, projectId, changeId, highlight, disableActions, onReply }: MessageProps = $props();
 
 	const chatChannelService = getContext(ChatChannelsService);
 	const userService = getContext(UserService);
@@ -206,8 +207,10 @@
 		{/if}
 	</div>
 
+	<!-- Message actions -->
 	{#if !disableActions}
 		<PopoverActionsContainer class="message-actions-menu" thin stayOpen={isOpenedByKebabButton}>
+			<!-- Emoji Reactions -->
 			{#if recentlyUsedEmojis.length > 0}
 				{#each recentlyUsedEmojis as emoji}
 					<PopoverActionsItem
@@ -222,6 +225,11 @@
 					</PopoverActionsItem>
 				{/each}
 			{/if}
+
+			<!-- Reply -->
+			<PopoverActionsItem icon="reply" tooltip="Reply" thin onclick={() => onReply()} />
+
+			<!-- Kebab menu -->
 			<PopoverActionsItem
 				bind:el={kebabMenuTrigger}
 				activated={isOpenedByKebabButton}
