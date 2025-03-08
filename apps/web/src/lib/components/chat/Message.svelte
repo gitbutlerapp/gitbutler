@@ -14,33 +14,44 @@
 	import MessageMarkdown from './MessageMarkdown.svelte';
 	import { parseDiffPatchToContentSection } from '$lib/chat/diffPatch';
 	import { parseDiffPatchToEncodedSelection } from '$lib/diff/lineSelection.svelte';
+	import { UserService } from '$lib/user/userService';
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
 	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import {
+		findEmojiByUnicode,
 		getInitialEmojis,
 		markRecentlyUsedEmoji,
 		type EmojiInfo
 	} from '@gitbutler/ui/emoji/utils';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import type { ChatEvent } from '@gitbutler/shared/patchEvents/types';
+	import type { UserSimple } from '@gitbutler/shared/users/types';
 
 	const UNKNOWN_AUTHOR = 'Unknown author';
 
 	const { event, projectId, changeId, highlight, disableActions }: MessageProps = $props();
 
 	const chatChannelService = getContext(ChatChannelsService);
+	const userService = getContext(UserService);
+	const user = $derived(userService.user);
 
 	let kebabMenuTrigger = $state<HTMLButtonElement>();
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let isOpenedByKebabButton = $state(false);
 	let recentlyUsedEmojis = $state<EmojiInfo[]>([]);
+	const reactionSet = new SvelteSet<string>();
 
 	const message = $derived(event.object);
+	const emojiReactions = $derived(
+		message.emojiReactions.filter((reaction) => reaction.users.length > 0)
+	);
 
 	const authorName = $derived(
 		message.user.login ?? message.user.name ?? message.user.email ?? UNKNOWN_AUTHOR
@@ -66,6 +77,8 @@
 	}
 
 	async function handleReaction(emoji: EmojiInfo) {
+		if (reactionSet.has(emoji.unicode)) return;
+		reactionSet.add(emoji.unicode);
 		try {
 			await chatChannelService.patchChatMessage({
 				projectId,
@@ -73,10 +86,35 @@
 				messageUuid: message.uuid,
 				reaction: emoji.unicode
 			});
+			markRecentlyUsedEmoji(emoji);
 		} catch (error) {
 			console.error('Failed to add reaction', error);
 		}
-		markRecentlyUsedEmoji(emoji);
+		reactionSet.delete(emoji.unicode);
+	}
+
+	async function handleClickOnExistingReaction(unicode: string) {
+		const emojiInfo = findEmojiByUnicode(unicode);
+		if (!emojiInfo) return;
+		await handleReaction(emojiInfo);
+	}
+
+	function getReactionTooltip(users: UserSimple[]) {
+		const thisUsername = $user?.login;
+		if (users.length === 0) return '';
+		const formatted = users.map((user) => (user.login === thisUsername ? 'You' : user.login));
+		if (formatted.length < 4) return formatted.map((user) => user).join(', ');
+		return (
+			formatted
+				.slice(0, 3)
+				.map((user) => user)
+				.join(', ') + ` and ${formatted.length - 3} more`
+		);
+	}
+
+	function thisUserReacted(users: UserSimple[]) {
+		const thisUsername = $user?.login;
+		return users.some((user) => user.login === thisUsername);
 	}
 </script>
 
@@ -131,13 +169,40 @@
 
 			<MessageActions {projectId} {changeId} {message} />
 		</div>
+
+		{#if emojiReactions.length > 0}
+			<div class="chat-message__reactions">
+				{#each emojiReactions as reaction}
+					{@const reacted = thisUserReacted(reaction.users)}
+					<Button
+						style="neutral"
+						kind={reacted ? 'ghost' : 'outline'}
+						size="tag"
+						loading={reactionSet.has(reaction.reaction)}
+						disabled={!$user}
+						tooltip={getReactionTooltip(reaction.users)}
+						customStyle={reacted ? 'background: var(--clr-theme-pop-soft);' : undefined}
+						onclick={() => handleClickOnExistingReaction(reaction.reaction)}
+					>
+						<div class="text-13">
+							{reaction.reaction + ' ' + reaction.users.length}
+						</div>
+					</Button>
+				{/each}
+			</div>
+		{/if}
 	</div>
 
 	{#if !disableActions}
 		<PopoverActionsContainer class="message-actions-menu" thin stayOpen={isOpenedByKebabButton}>
 			{#if recentlyUsedEmojis.length > 0}
 				{#each recentlyUsedEmojis as emoji}
-					<PopoverActionsItem tooltip={emoji.label} thin onclick={() => handleReaction(emoji)}>
+					<PopoverActionsItem
+						tooltip={emoji.label}
+						thin
+						disabled={!$user}
+						onclick={() => handleReaction(emoji)}
+					>
 						<p class="text-13" style="padding: 2px;">
 							{emoji.unicode}
 						</p>
@@ -280,5 +345,10 @@
 		color: var(--clr-text-1);
 		width: 100%;
 		box-sizing: border-box;
+	}
+
+	.chat-message__reactions {
+		display: flex;
+		gap: 2px;
 	}
 </style>
