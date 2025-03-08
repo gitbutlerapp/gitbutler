@@ -69,8 +69,7 @@
 			}
 		}
 		&:disabled {
-			background-color: var(--clr-bg-2);
-			color: var(--clr-scale-ntrl-50);
+			opacity: 0.4;
 		}
 		& .icon {
 			display: flex;
