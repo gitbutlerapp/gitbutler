@@ -4,13 +4,11 @@
 	import { getEditor } from '../context';
 	import {
 		findAndReplaceShortCodeEmoji,
-		searchThroughEmojis,
 		getShortCodeSearchMatch,
 		insertEmoji,
-		type ShortCodeSearchMatch,
-		type EmojiInfo,
-		markRecentlyUsedEmoji
+		type ShortCodeSearchMatch
 	} from '../node/emoji';
+	import { markRecentlyUsedEmoji, searchThroughEmojis, type EmojiInfo } from '$lib/emoji/utils';
 	import { TextNode, $getSelection as getSelection } from 'lexical';
 
 	/**

@@ -11,7 +11,7 @@
 		KEY_ESCAPE_COMMAND
 	} from 'lexical';
 	import { fly } from 'svelte/transition';
-	import type { EmojiInfo } from '../node/emoji';
+	import type { EmojiInfo } from '$lib/emoji/utils';
 
 	type Props = {
 		suggestedEmojis: EmojiInfo[] | undefined;
