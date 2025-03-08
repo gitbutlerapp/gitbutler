@@ -6,9 +6,8 @@
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { getPatchIdableSections } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
+	import Select from '@gitbutler/ui/select/Select.svelte';
+	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { PatchCommit } from '@gitbutler/shared/patches/types';
 	import type { LineClickParams } from '@gitbutler/ui/HunkDiff.svelte';
@@ -48,26 +47,37 @@
 
 	let offsetHeight = $state(0);
 
-	let isInterdiffBarVisible = $state(true);
+	let isInterdiffBarVisible = $state(false);
 
 	$effect(() => {
 		if (headerShift) {
 			offsetHeight = headerShift;
 		}
+
+		if (selected.current && !initialSelection) {
+			initialSelection = {
+				selectedBefore: selected.current.selectedBefore,
+				selectedAfter: selected.current.selectedAfter
+			};
+		}
 	});
 
 	const allOptions = $derived(reviewSectionsService.allOptions(changeId));
 
-	const beforeOptions = $derived(allOptions.current.slice(0, -1));
-	const afterOptions = $derived(allOptions.current.slice(1));
+	const beforeOptions = $derived(
+		allOptions.current
+			.slice(0, -1)
+			.map((option) => ({ value: option[0].toString(), label: option[1] }))
+	);
+	const afterOptions = $derived(
+		allOptions.current.slice(1).map((option) => ({ value: option[0].toString(), label: option[1] }))
+	);
 
 	const selected = $derived(reviewSectionsService.currentSelection(changeId));
+	let initialSelection: { selectedBefore: number; selectedAfter: number } | undefined = $state();
 
 	const selectedAfter = $derived(selected.current?.selectedAfter ?? 1);
 	const selectedBefore = $derived(selected.current?.selectedBefore ?? -1);
-
-	let beforeButton = $state<DropDownButton>();
-	let afterButton = $state<DropDownButton>();
 
 	const patchSections = $derived(
 		isDefined(selectedAfter)
@@ -94,12 +104,19 @@
 				<p class="text-12 statistic-deleted">{patchCommit.statistics.deletions} deletions</p>
 			</div>
 			<div class="review-sections-statistics__actions">
-				<Button
-					tooltip="Show interdiff"
-					kind="ghost"
-					icon={isInterdiffBarVisible ? 'interdiff-fill' : 'interdiff'}
-					onclick={() => (isInterdiffBarVisible = !isInterdiffBarVisible)}
-				/>
+				<div class="review-sections-statistics__actions__interdiff">
+					{#if initialSelection && selected.current}
+						{#if initialSelection.selectedBefore !== selected.current.selectedBefore || initialSelection.selectedAfter !== selected.current.selectedAfter}
+							<div class="review-sections-statistics__actions__interdiff-changed"></div>
+						{/if}
+					{/if}
+					<Button
+						tooltip="Show interdiff"
+						kind="ghost"
+						icon={isInterdiffBarVisible ? 'interdiff-fill' : 'interdiff'}
+						onclick={() => (isInterdiffBarVisible = !isInterdiffBarVisible)}
+					/>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -107,46 +124,56 @@
 	{#if isInterdiffBarVisible}
 		<div class="interdiff-bar">
 			<p class="text-12 text-bold">Compare versions:</p>
-			<DropDownButton bind:this={beforeButton} kind="outline">
-				{beforeOptions.find((beforeOption) => beforeOption[0] === selectedBefore)?.[1]}
 
-				{#snippet contextMenuSlot()}
-					<ContextMenuSection>
-						{#each beforeOptions as option}
-							<ContextMenuItem
-								label={option[1]}
-								disabled={option[0] >= (selectedAfter || 0)}
-								onclick={() => {
-									reviewSectionsService.setSelection(changeId, {
-										selectedBefore: option[0]
-									});
-									beforeButton?.close();
-								}}
-							/>
-						{/each}
-					</ContextMenuSection>
+			<Select
+				searchable
+				options={beforeOptions}
+				value={selectedBefore.toString()}
+				onselect={(value) => {
+					reviewSectionsService.setSelection(changeId, {
+						selectedBefore: parseInt(value)
+					});
+				}}
+				autoWidth
+				popupAlign="right"
+			>
+				{#snippet customSelectButton()}
+					<Button kind="outline" icon="select-chevron" size="tag">
+						{beforeOptions.find((option) => option.value === selectedBefore.toString())?.label}
+					</Button>
 				{/snippet}
-			</DropDownButton>
-			<DropDownButton bind:this={afterButton} kind="outline">
-				{afterOptions.find((afterOption) => afterOption[0] === selectedAfter)?.[1]}
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === selectedBefore.toString()} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
 
-				{#snippet contextMenuSlot()}
-					<ContextMenuSection>
-						{#each afterOptions as option}
-							<ContextMenuItem
-								label={option[1]}
-								disabled={option[0] <= (selectedBefore || 0)}
-								onclick={() => {
-									reviewSectionsService.setSelection(changeId, {
-										selectedAfter: option[0]
-									});
-									afterButton?.close();
-								}}
-							/>
-						{/each}
-					</ContextMenuSection>
+			<div class="interdiff-bar__arrow">→</div>
+
+			<Select
+				searchable
+				options={afterOptions}
+				value={selectedAfter.toString()}
+				onselect={(value) => {
+					reviewSectionsService.setSelection(changeId, {
+						selectedAfter: parseInt(value)
+					});
+				}}
+				autoWidth
+				popupAlign="right"
+			>
+				{#snippet customSelectButton()}
+					<Button kind="outline" icon="select-chevron" size="tag">
+						{afterOptions.find((option) => option.value === selectedAfter.toString())?.label}
+					</Button>
 				{/snippet}
-			</DropDownButton>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === selectedAfter.toString()} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
 		</div>
 	{/if}
 
@@ -195,6 +222,11 @@
 			z-index: -1;
 			background-color: var(--clr-bg-2);
 		}
+	}
+
+	.interdiff-bar__arrow {
+		color: var(--clr-text-2);
+		margin: 0 -6px;
 	}
 
 	.review-sections-statistics {
@@ -251,6 +283,26 @@
 		border: 1px solid var(--clr-border-2);
 		border-top: none;
 
-		padding: 16px;
+		padding: 14px;
+	}
+
+	.review-sections-statistics__actions {
+		display: flex;
+		gap: 2px;
+	}
+
+	.review-sections-statistics__actions__interdiff {
+		position: relative;
+		display: flex;
+	}
+
+	.review-sections-statistics__actions__interdiff-changed {
+		position: absolute;
+		top: 2px;
+		right: 2px;
+		width: 7px;
+		height: 7px;
+		background-color: var(--clr-theme-pop-element);
+		border-radius: 50%;
 	}
 </style>
