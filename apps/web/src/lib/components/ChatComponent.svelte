@@ -153,9 +153,11 @@
 <style lang="postcss">
 	.chat-wrapper {
 		pointer-events: all;
+		height: 100%;
 		width: 100%;
 		display: flex;
 		flex-direction: column;
+		overflow: hidden;
 
 		border-radius: var(--radius-ml, 10px);
 		border: 1px solid var(--clr-border-2);
@@ -181,6 +183,8 @@
 		align-items: center;
 		padding: 10px 10px 10px 16px;
 		border-bottom: 1px solid var(--clr-border-2);
+		position: sticky;
+		top: 0;
 	}
 
 	.chat-header-actions {
