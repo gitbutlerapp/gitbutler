@@ -9,10 +9,8 @@ export enum ModelKind {
 
 // https://platform.openai.com/docs/models
 export enum OpenAIModelName {
-	GPT35Turbo = 'gpt-3.5-turbo',
-	GPT4 = 'gpt-4',
-	GPT4Turbo = 'gpt-4-turbo',
-	GPT4o = 'gpt-4o',
+	O3mini = 'o3-mini',
+	O1mini = 'o1-mini',
 	GPT4oMini = 'gpt-4o-mini'
 }
 
