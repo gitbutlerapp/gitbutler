@@ -34,7 +34,7 @@ import type { SecretsService } from '$lib/secrets/secretsService';
 const defaultGitConfig = Object.freeze({
 	[GitAIConfigKey.ModelProvider]: ModelKind.OpenAI,
 	[GitAIConfigKey.OpenAIKeyOption]: KeyOption.ButlerAPI,
-	[GitAIConfigKey.OpenAIModelName]: OpenAIModelName.GPT35Turbo,
+	[GitAIConfigKey.OpenAIModelName]: OpenAIModelName.O3mini,
 	[GitAIConfigKey.AnthropicKeyOption]: KeyOption.ButlerAPI,
 	[GitAIConfigKey.AnthropicModelName]: AnthropicModelName.Haiku
 });
