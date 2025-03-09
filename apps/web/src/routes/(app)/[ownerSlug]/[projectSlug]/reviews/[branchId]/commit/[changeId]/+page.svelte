@@ -464,19 +464,20 @@
 
 			justify-content: flex-end;
 			align-items: center;
-			box-shadow: var(--fx-shadow-s);
 		}
 
 		&.tablet-mode {
 			z-index: var(--z-floating);
-			position: fixed;
 			width: 100%;
 			max-width: unset;
 			height: 100dvh;
-			top: unset;
+			top: 0;
 			left: 0;
-			bottom: 0;
+			bottom: var(--top-nav-offset);
 			pointer-events: none;
+			display: flex;
+			justify-content: flex-end;
+			align-items: end;
 		}
 	}
 </style>
