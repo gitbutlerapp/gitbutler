@@ -62,9 +62,7 @@
 <style lang="postcss">
 	.show-chat {
 		pointer-events: all;
-		position: fixed;
-		bottom: 20px;
-		right: 20px;
+		margin: 20px;
 		display: flex;
 		flex-direction: column;
 		background-color: var(--clr-bg-1);
