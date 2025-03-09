@@ -115,8 +115,7 @@
 		{
 			label: 'Sonnet 3.7 (recommended)',
 			value: AnthropicModelName.Sonnet37
-		},
-
+		}
 	];
 
 	let form = $state<HTMLFormElement>();
