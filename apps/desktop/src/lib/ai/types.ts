@@ -18,10 +18,9 @@ export enum OpenAIModelName {
 
 // https://docs.anthropic.com/en/docs/about-claude/models
 export enum AnthropicModelName {
-	Opus = 'claude-3-opus-20240229',
-	Sonnet = 'claude-3-sonnet-20240229',
-	Haiku = 'claude-3-haiku-20240307',
-	Sonnet35 = 'claude-3-5-sonnet-20240620'
+	Haiku = 'claude-3-5-haiku-latest',
+	Sonnet35 = 'claude-3-5-sonnet-latest',
+	Sonnet37 = 'claude-3-7-sonnet-latest'
 }
 
 export enum MessageRole {
