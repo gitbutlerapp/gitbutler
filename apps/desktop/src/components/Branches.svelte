@@ -142,7 +142,7 @@
 	{#if $branchListings.length > 0}
 		{#if $searchedBranches.length > 0 || $searchTerm === undefined}
 			<div class="branch-entries-list">
-				<ScrollableContainer fillViewport={$searchedBranches.length === 0}>
+				<ScrollableContainer>
 					{#if $searchTerm}
 						<div class="group">
 							{#each $searchedBranches as sidebarEntrySubject}
