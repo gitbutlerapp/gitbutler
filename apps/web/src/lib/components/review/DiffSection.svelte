@@ -96,9 +96,9 @@
 		background-color: var(--clr-bg-1);
 		border-left: 1px solid var(--clr-border-2);
 		border-right: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-border-2);
 
 		&:last-child {
-			border-bottom: 1px solid var(--clr-border-2);
 			border-bottom-right-radius: var(--radius-ml);
 			border-bottom-left-radius: var(--radius-ml);
 		}
