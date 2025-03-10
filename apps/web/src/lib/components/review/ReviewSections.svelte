@@ -1,12 +1,11 @@
 <script lang="ts">
 	import SectionComponent from './Section.svelte';
-	import { ReviewSectionsService } from '$lib/review/reviewSections.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { getPatchIdableSections } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
+	import Select, { type SelectItem as SelectItemT } from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { PatchCommit } from '@gitbutler/shared/patches/types';
@@ -40,36 +39,34 @@
 	}: Props = $props();
 
 	const userService = getContext(UserService);
-	const reviewSectionsService = getContext(ReviewSectionsService);
 	const user = $derived(userService.user);
 
 	const isLoggedIn = $derived(!!$user);
 
 	let isInterdiffBarVisible = $state(false);
 
-	const allOptions = $derived(reviewSectionsService.allOptions(changeId));
+	const allOptions: readonly SelectItemT<string>[] = $derived.by(() => {
+		const out = [{ value: '-1', label: 'Base' }];
 
-	const beforeOptions = $derived(
-		allOptions.current
-			.slice(0, -1)
-			.map((option) => ({ value: option[0].toString(), label: option[1] }))
-	);
-	const afterOptions = $derived(
-		allOptions.current.slice(1).map((option) => ({ value: option[0].toString(), label: option[1] }))
-	);
+		if (!isDefined(patchCommit.version)) return out;
 
-	const selected = $derived(reviewSectionsService.currentSelection(changeId));
-	let initialSelection: { selectedBefore: number; selectedAfter: number } | undefined = $state();
-	const isInitialSelection = $derived.by(
-		() =>
-			initialSelection &&
-			selected.current &&
-			initialSelection.selectedBefore === selected.current.selectedBefore &&
-			initialSelection.selectedAfter === selected.current.selectedAfter
-	);
+		for (let i = 1; i <= patchCommit.version; ++i) {
+			const last = i + 1 === patchCommit.version;
 
-	const selectedAfter = $derived(selected.current?.selectedAfter ?? 1);
-	const selectedBefore = $derived(selected.current?.selectedBefore ?? -1);
+			out.push({
+				value: i.toString(),
+				label: `v${i}${last ? ' (latest)' : ''}`
+			});
+		}
+
+		return out;
+	});
+
+	const beforeOptions = $derived(allOptions.slice(0, -1));
+	const afterOptions = $derived(allOptions.slice(1));
+
+	const selectedAfter = -1;
+	const selectedBefore = $derived(patchCommit.version || 1);
 
 	const patchSections = $derived(
 		isDefined(selectedAfter)
@@ -81,15 +78,6 @@
 				)
 			: undefined
 	);
-
-	$effect(() => {
-		if (selected.current && !initialSelection) {
-			initialSelection = {
-				selectedBefore: selected.current.selectedBefore,
-				selectedAfter: selected.current.selectedAfter
-			};
-		}
-	});
 </script>
 
 <div class="review-sections-card" style:--commit-header-height="{commitPageHeaderHeight}px">
@@ -106,7 +94,7 @@
 			</div>
 			<div class="review-sections-statistics__actions">
 				<div class="review-sections-statistics__actions__interdiff">
-					{#if !isInitialSelection}
+					{#if !true}
 						<div class="review-sections-statistics__actions__interdiff-changed"></div>
 					{/if}
 					<Button
@@ -129,10 +117,8 @@
 					searchable
 					options={beforeOptions}
 					value={selectedBefore.toString()}
-					onselect={(value) => {
-						reviewSectionsService.setSelection(changeId, {
-							selectedBefore: parseInt(value)
-						});
+					onselect={(_value) => {
+						// TODO: selection
 					}}
 					autoWidth
 					popupAlign="right"
@@ -160,10 +146,8 @@
 					searchable
 					options={afterOptions}
 					value={selectedAfter.toString()}
-					onselect={(value) => {
-						reviewSectionsService.setSelection(changeId, {
-							selectedAfter: parseInt(value)
-						});
+					onselect={(_value) => {
+						// TODO: selection
 					}}
 					autoWidth
 					popupAlign="right"
@@ -185,16 +169,14 @@
 					{/snippet}
 				</Select>
 
-				{#if !isInitialSelection}
+				{#if !true}
 					<Button
 						kind="ghost"
 						icon="undo-small"
 						size="tag"
 						tooltip="Reset to initial selection"
 						onclick={() => {
-							if (initialSelection) {
-								reviewSectionsService.setSelection(changeId, initialSelection);
-							}
+							// TODO: Rest selection
 						}}
 					>
 						Reset

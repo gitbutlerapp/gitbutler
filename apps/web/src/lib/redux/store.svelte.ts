@@ -1,4 +1,3 @@
-import { reviewSectionsReducer } from '$lib/review/reviewSections.svelte';
 import { branchReviewListingsReducer } from '@gitbutler/shared/branches/branchReviewListingsSlice';
 import { branchesReducer } from '@gitbutler/shared/branches/branchesSlice';
 import { latestBranchLookupsReducer } from '@gitbutler/shared/branches/latestBranchLookupSlice';
@@ -16,13 +15,9 @@ import { exampleReducer } from '@gitbutler/shared/redux/example';
 import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 import { notificationSettingsReducer } from '@gitbutler/shared/settings/notificationSetttingsSlice';
 import { usersReducer, usersByLoginReducer } from '@gitbutler/shared/users/usersSlice';
-import { configureStore, createSelector } from '@reduxjs/toolkit';
+import { configureStore } from '@reduxjs/toolkit';
 
-export type WebReviewSectionsState = {
-	readonly reviewSections: ReturnType<typeof reviewSectionsReducer>;
-};
-
-export class WebState extends AppState implements WebReviewSectionsState {
+export class WebState extends AppState {
 	/**
 	 * The base store.
 	 *
@@ -47,8 +42,7 @@ export class WebState extends AppState implements WebReviewSectionsState {
 			latestBranchLookups: latestBranchLookupsReducer,
 			branchReviewListings: branchReviewListingsReducer,
 			notificationSettings: notificationSettingsReducer,
-			patchIdables: patchIdablesReducer,
-			reviewSections: reviewSectionsReducer
+			patchIdables: patchIdablesReducer
 		}
 	});
 
@@ -63,11 +57,4 @@ export class WebState extends AppState implements WebReviewSectionsState {
 	protected selectSelf(state: ReturnType<typeof this._store.getState>) {
 		return state;
 	}
-
-	private readonly selectReviewSections = createSelector(
-		[this.selectSelf],
-		(rootState) => rootState.reviewSections
-	);
-
-	readonly reviewSections = $derived(this.selectReviewSections(this.rootState));
 }
