@@ -1,9 +1,9 @@
 <script lang="ts">
 	import BranchPreviewHeader from '$components/BranchPreviewHeader.svelte';
 	import CommitCard from '$components/CommitCard.svelte';
+	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FileCard from '$components/FileCard.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { BranchData } from '$lib/branches/branch';
 	import { transformAnyCommit } from '$lib/commits/transformers';
 	import { getForge } from '$lib/forge/interface/forge';

@@ -1,8 +1,8 @@
 <script lang="ts">
+	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FileCard from '$components/FileCard.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
-	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import SnapshotCard from '$components/SnapshotCard.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { RemoteFile } from '$lib/files/file';

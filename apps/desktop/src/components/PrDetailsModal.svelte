@@ -9,7 +9,7 @@
 <script lang="ts">
 	import PrDetailsModalHeader from './PrDetailsModalHeader.svelte';
 	import PrTemplateSection from './PrTemplateSection.svelte';
-	import ScrollableContainer from '$components/ScrollableContainer.svelte';
+	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';

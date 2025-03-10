@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ScrollableContainer from '$components/ScrollableContainer.svelte';
+	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { SelectedOwnership } from '$lib/branches/ownership';
 	import { type Hunk } from '$lib/hunks/hunk';
 	import {
