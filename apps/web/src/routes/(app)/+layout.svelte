@@ -2,6 +2,7 @@
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
+	import { OwnerService } from '$lib/owner/ownerService';
 	import { WebState } from '$lib/redux/store.svelte';
 	import { SshKeyService } from '$lib/sshKeyService';
 	import { UserService } from '$lib/user/userService';
@@ -101,6 +102,9 @@
 	setContext(SshKeyService, sshKeyService);
 	const uploadsService = new UploadsService(httpClient);
 	setContext(UploadsService, uploadsService);
+
+	const ownerService = new OwnerService(httpClient);
+	setContext(OwnerService, ownerService);
 
 	const isCommitPage = $derived(page.url.pathname.includes('/commit/'));
 </script>

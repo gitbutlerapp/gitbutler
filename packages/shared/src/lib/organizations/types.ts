@@ -7,6 +7,7 @@ export type ApiProject = {
 	parent_project?: ApiProject;
 	name: string;
 	description: string;
+	readme?: string;
 
 	active_reviews_count: number;
 
@@ -31,6 +32,7 @@ export type Project = {
 	activeReviewsCount?: number;
 	name: string;
 	description: string;
+	readme?: string;
 
 	codeRepositoryId: string;
 	gitUrl: string;
@@ -58,7 +60,8 @@ export function apiToProject(apiProject: ApiProject): Project {
 		codeGitUrl: apiProject.code_git_url,
 		permissions: apiToPermissions(apiProject.permissions),
 		createdAt: apiProject.created_at,
-		updatedAt: apiProject.updated_at
+		updatedAt: apiProject.updated_at,
+		readme: apiProject.readme
 	};
 }
 
