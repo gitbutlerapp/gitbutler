@@ -1,20 +1,17 @@
 <script lang="ts">
-	import DashboardLayout from '$lib/components/dashboard/DashboardLayout.svelte';
+	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
+	import { getTimeSince } from '$lib/utils/dateUtils';
 	import { getContext } from '@gitbutler/shared/context';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { combine, map } from '@gitbutler/shared/network/loadable';
 	import PermissionsSelector from '@gitbutler/shared/organizations/PermissionsSelector.svelte';
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
-	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
-	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
-	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		WebRoutesService,
 		type ProjectParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
+	import toasts from '@gitbutler/ui/toasts';
 	import { goto } from '$app/navigation';
 
 	interface Props {
@@ -22,15 +19,34 @@
 	}
 
 	let { data }: Props = $props();
-
 	const projectService = getContext(ProjectService);
-	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
-	const appState = getContext(AppState);
 	const routes = getContext(WebRoutesService);
 
-	const repositoryId = $derived(
-		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
-	);
+	// Store project data in a reactive variable
+	let projectData = $state<any>(null);
+
+	// Create a promise for the project data
+	const projectSlug = `${data.ownerSlug}/${data.projectSlug}`;
+	const projectPromise = projectService.getProjectBySlug(projectSlug).then((result) => {
+		if (result) {
+			projectData = result;
+		}
+		return result;
+	});
+
+	// Create a promise for the patch stacks data
+	let patchStacksData = $state<any[]>([]);
+	const patchStacksPromise = projectService.getProjectPatchStacks(projectSlug).then((result) => {
+		if (result) {
+			patchStacksData = result;
+		}
+		return result;
+	});
+
+	// README editing state
+	let editingReadme = $state(false);
+	let readmeContent = $state('');
+	let isSavingReadme = $state(false);
 
 	const project = $derived(
 		map(repositoryId.current, (repositoryId) => getProjectByRepositoryId(repositoryId))
@@ -46,41 +62,411 @@
 	}
 </script>
 
-<DashboardLayout>
-	<h2>Project page: {data.ownerSlug}/{data.projectSlug}</h2>
-
-	<div class="flow">
-		<Button style="pop" onclick={() => goto(routes.projectReviewPath(data))}>Project Reviews</Button
-		>
-		<Loading loadable={combine([repositoryId.current, project?.current])}>
-			{#snippet children([repositoryId, project])}
-				{#if project.permissions.canWrite}
-					<hr />
-					<p data-info="https://youtu.be/siwpn14IE7E">The danger zone</p>
-
-					<div>
-						<p>This project is <b>{project.permissions.shareLevel}</b></p>
-
-						<PermissionsSelector repositoryId={project.repositoryId} />
-					</div>
-
-					<AsyncButton style="error" action={async () => await deleteProject(repositoryId)}
-						>Delete</AsyncButton
-					>
-				{/if}
-			{/snippet}
-		</Loading>
+{#await projectPromise}
+	<div class="loading-container">
+		<p>Loading project...</p>
 	</div>
-</DashboardLayout>
+{:then _projectData}
+	{#if _projectData}
+		<div class="project-page">
+			<header class="project-header">
+				<div class="breadcrumb">
+					<a href={routes.projectPath({ ownerSlug: data.ownerSlug, projectSlug: '' })}>
+						{data.ownerSlug}
+					</a>
+					<span>/</span>
+					<h1>{data.projectSlug}</h1>
+				</div>
+			</header>
+
+			<div class="project-grid">
+				<div class="main-content">
+					<!-- Reviews section using the ReviewsSection component -->
+					{#await patchStacksPromise}
+						<ReviewsSection reviews={[]} status="loading" sectionTitle="Active Reviews" />
+					{:then _}
+						<ReviewsSection
+							reviews={patchStacksData || []}
+							status={patchStacksData && patchStacksData.length > 0 ? 'found' : 'not-found'}
+							sectionTitle="Active Reviews"
+							allReviewsUrl={routes.projectReviewPath(data)}
+							reviewsCount={projectData.activeReviewsCount || 0}
+						/>
+					{:catch error}
+						<ReviewsSection reviews={[]} status="error" sectionTitle="Active Reviews" />
+						<div class="error-text">
+							Error loading reviews: {error.message || 'Unknown error'}
+						</div>
+					{/await}
+
+					<section class="card">
+						<div class="readme-header">
+							<h2 class="card-title">README</h2>
+							{#if projectData.permissions?.canWrite}
+								<div class="readme-actions">
+									{#if editingReadme}
+										<AsyncButton
+											style="primary"
+											action={() => saveReadme(projectData.repositoryId)}
+											disabled={isSavingReadme}
+										>
+											Save
+										</AsyncButton>
+										<Button
+											type="button"
+											style="secondary"
+											onclick={cancelEditingReadme}
+											disabled={isSavingReadme}
+										>
+											Cancel
+										</Button>
+									{:else}
+										<Button
+											type="button"
+											style="secondary"
+											onclick={() => startEditingReadme((projectData as any).readme)}
+										>
+											Edit README
+										</Button>
+									{/if}
+								</div>
+							{/if}
+						</div>
+						<div class="card-content readme">
+							{#if editingReadme}
+								<textarea
+									bind:value={readmeContent}
+									class="readme-editor"
+									rows="15"
+									placeholder="Enter markdown content for the README..."
+									disabled={isSavingReadme}
+								></textarea>
+								<div class="readme-preview">
+									<h3 class="preview-title">Preview</h3>
+									<Markdown content={readmeContent} />
+								</div>
+							{:else if (projectData as any).readme}
+								<Markdown content={(projectData as any).readme} />
+							{:else}
+								<div class="no-readme">
+									{#if projectData.permissions?.canWrite}
+										<p>No README available for this project. Click "Edit README" to create one.</p>
+									{:else}
+										<p>No README available for this project.</p>
+									{/if}
+								</div>
+							{/if}
+						</div>
+					</section>
+				</div>
+
+				<div class="sidebar">
+					<section class="card">
+						<div class="card-content">
+							{#if projectData.description}
+								<h3 class="sidebar-section-title">Description</h3>
+								<p class="description">
+									{projectData.description}
+								</p>
+							{/if}
+
+							<h3 class="sidebar-section-title">Last Updated</h3>
+							<p class="description">{getTimeSince(projectData.updatedAt)}</p>
+
+							<div class="meta-info">
+								<div class="meta-item clone-url-container">
+									<h3 class="sidebar-section-title">Clone URL</h3>
+									<div class="clone-url">
+										<code>{projectData.gitUrl}</code>
+										<Button
+											type="button"
+											style="pop"
+											onclick={() => {
+												navigator.clipboard.writeText(projectData.gitUrl);
+												toasts.success('copied to clipboard');
+											}}
+										>
+											Copy
+										</Button>
+									</div>
+								</div>
+
+								{#if projectData.parentProjectRepositoryId}
+									<div class="meta-item">
+										<span class="label">Parent:</span>
+										<a
+											href={routes.projectPath({
+												ownerSlug: data.ownerSlug,
+												projectSlug: projectData.parentProjectRepositoryId
+											})}
+										>
+											View Parent Project
+										</a>
+									</div>
+								{/if}
+							</div>
+						</div>
+					</section>
+
+					{#if projectData.permissions?.canWrite}
+						<section class="card">
+							<h2 class="card-title">Permissions</h2>
+							<div class="card-content gap-2">
+								<p>This project is <b>{projectData.permissions.shareLevel}</b></p>
+								<PermissionsSelector repositoryId={projectData.repositoryId} />
+							</div>
+						</section>
+
+						<section class="card danger-zone">
+							<h2 class="card-title danger-title">Danger Zone</h2>
+							<div class="card-content">
+								<AsyncButton
+									style="error"
+									action={async () => await deleteProject(projectData.repositoryId)}
+								>
+									Delete Project
+								</AsyncButton>
+							</div>
+						</section>
+					{/if}
+				</div>
+			</div>
+		</div>
+	{:else}
+		<div class="error-message">
+			<h2>Project Not Found</h2>
+			<p>The project you requested could not be found. Please check the URL and try again.</p>
+			<Button onclick={() => goto(routes.projectsPath())}>Return to Projects</Button>
+		</div>
+	{/if}
+{:catch error}
+	<div class="error-message">
+		<h2>Error Loading Project</h2>
+		<p>There was a problem loading the project: {error.message || 'Unknown error'}</p>
+		<Button onclick={() => goto(routes.projectsPath())}>Return to Projects</Button>
+	</div>
+{/await}
 
 <style lang="postcss">
-	.flow {
-		> :global(*) {
-			margin-bottom: 16px;
+	.loading-container {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		height: 200px;
+		font-size: 1.2rem;
+		color: var(--text-muted, #666);
+	}
+
+	.error-text {
+		color: var(--error, #dc3545);
+		text-align: center;
+		padding: 1rem 0;
+	}
+
+	.error-message {
+		max-width: 600px;
+		margin: 2rem auto;
+		text-align: center;
+		padding: 2rem;
+		background-color: var(--background, #fff);
+		border-radius: 8px;
+		border: 1px solid var(--border-color, #eaeaea);
+
+		h2 {
+			color: var(--error, #dc3545);
+			margin: 0 0 1rem;
 		}
 
-		> :global(*:last-child) {
-			margin-bottom: 0px;
+		p {
+			margin-bottom: 1.5rem;
+		}
+	}
+
+	.project-page {
+		padding: 1rem;
+	}
+
+	.project-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 2rem;
+	}
+
+	.breadcrumb {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 1.2rem;
+
+		a {
+			color: var(--text-muted, #666);
+			text-decoration: none;
+
+			&:hover {
+				text-decoration: underline;
+			}
+		}
+
+		h1 {
+			margin: 0;
+		}
+	}
+
+	.project-grid {
+		display: grid;
+		grid-template-columns: 2fr 1fr;
+		gap: 1.5rem;
+	}
+
+	.main-content {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.sidebar {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.card {
+		background-color: white;
+		border-radius: 8px;
+		overflow: hidden;
+		border: 1px solid color(srgb 0.831373 0.815686 0.807843);
+	}
+
+	.card-title {
+		font-size: 0.8em;
+		margin: 0;
+		padding: 12px 15px;
+		border-bottom: 1px solid color(srgb 0.831373 0.815686 0.807843);
+		background-color: #f3f3f2;
+		color: color(srgb 0.52549 0.494118 0.47451);
+	}
+
+	.readme-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		border-bottom: 1px solid color(srgb 0.831373 0.815686 0.807843);
+		background-color: #f3f3f2;
+	}
+
+	.readme-header .card-title {
+		border-bottom: none;
+	}
+
+	.readme-actions {
+		display: flex;
+		gap: 0.5rem;
+		padding-right: 15px;
+	}
+
+	.readme-editor {
+		width: 100%;
+		min-height: 200px;
+		padding: 0.75rem;
+		margin-bottom: 1rem;
+		border: 1px solid var(--border-color, #eaeaea);
+		border-radius: 4px;
+		font-family: monospace;
+		resize: vertical;
+	}
+
+	.readme-preview {
+		border-top: 1px solid var(--border-color, #eaeaea);
+		padding-top: 1rem;
+		margin-top: 1rem;
+	}
+
+	.preview-title {
+		font-size: 1rem;
+		margin: 0 0 0.75rem 0;
+		color: var(--text-muted, #666);
+	}
+
+	.card-content {
+		padding: 1rem;
+	}
+
+	.meta-info {
+		margin-top: 1.5rem;
+	}
+
+	.meta-item {
+		margin-bottom: 1rem;
+		display: flex;
+		align-items: flex-start;
+
+		.label {
+			font-weight: bold;
+			min-width: 7rem;
+		}
+	}
+
+	.sidebar-section-title {
+		font-size: 1rem;
+		margin: 0 0 0.5rem 0;
+		color: var(--text-muted, #666);
+	}
+
+	.description {
+		margin-bottom: 1.5rem;
+		line-height: 1.4;
+	}
+
+	.clone-url-container {
+		display: block;
+	}
+
+	.clone-url {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		width: 100%;
+
+		code {
+			background: var(--background-alt, #f5f5f5);
+			padding: 0.25rem 0.5rem;
+			border-radius: 4px;
+			font-family: monospace;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			flex: 1;
+		}
+	}
+
+	.readme {
+		font-size: 0.95rem;
+		line-height: 1.5;
+	}
+
+	.danger-title {
+		color: var(--error, #dc3545);
+	}
+
+	.danger-zone {
+		margin-top: auto;
+	}
+
+	.gap-2 {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.no-readme {
+		color: #718096;
+		padding: 0.5rem 0;
+		text-align: center;
+	}
+
+	@media (max-width: 768px) {
+		.project-grid {
+			grid-template-columns: 1fr;
 		}
 	}
 </style>
