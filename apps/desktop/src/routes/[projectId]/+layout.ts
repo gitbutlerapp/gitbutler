@@ -38,6 +38,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	try {
 		project = await projectsService.getProject(projectId);
 		await invoke('set_project_active', { id: projectId });
+		await projectsService.reload();
 	} catch (err: any) {
 		const errorCode = getUserErrorCode(err);
 		throw error(400, {

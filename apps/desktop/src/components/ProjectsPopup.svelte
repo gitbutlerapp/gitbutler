@@ -7,7 +7,6 @@
 	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
 
 	interface ItemSnippetProps {
 		label: string;
@@ -109,13 +108,10 @@
 				<ScrollableContainer maxHeight="20rem">
 					<div class="popup__projects">
 						{#each $projects as project}
-							{@const selected =
-								project.id === $page.params.projectId ||
-								$projects.some((p) => p.is_open && p.id === project.id)}
 							{@render itemSnippet({
 								label: project.title,
-								selected,
-								icon: selected ? 'tick' : undefined,
+								selected: project.is_open,
+								icon: project.is_open ? 'tick' : undefined,
 								onclick: async (event: any) => {
 									if (event.altKey) {
 										await projectsService.openProjectInNewWindow(project.id);
