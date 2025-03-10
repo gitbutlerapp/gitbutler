@@ -39,7 +39,7 @@ pub(crate) fn remove_head(
         moved_another_reference = true;
     }
     heads.remove(idx);
-    head.delete_reference(repo)?;
+    let _ = head.delete_reference(repo); // TODO: In the future, make this error out. For now, ignoring, since references are not yet 100% authoritative
     Ok((heads, moved_another_reference))
 }
 
