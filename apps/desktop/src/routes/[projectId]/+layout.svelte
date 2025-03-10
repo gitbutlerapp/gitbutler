@@ -228,6 +228,10 @@
 	onDestroy(() => {
 		clearFetchInterval();
 	});
+
+	$effect(() => {
+		projectsService.setActiveProject(projectId);
+	});
 </script>
 
 <!-- forces components to be recreated when projectId changes -->

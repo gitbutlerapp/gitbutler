@@ -40,6 +40,11 @@ export class ProjectsService {
 		this.projects.set(await this.loadAll());
 	}
 
+	async setActiveProject(projectId: string): Promise<void> {
+		await invoke('set_project_active', { id: projectId });
+		await this.reload();
+	}
+
 	async getProject(projectId: string, noValidation?: boolean) {
 		return plainToInstance(Project, await invoke('get_project', { id: projectId, noValidation }));
 	}
