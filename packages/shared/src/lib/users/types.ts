@@ -65,6 +65,11 @@ export type ApiUser = ApiUserSimple & {
 	created_at: string;
 	supporter?: boolean;
 	role?: string;
+	website?: string;
+	twitter?: string;
+	bluesky?: string;
+	timezone?: string;
+	location?: string;
 };
 
 export type User = {
@@ -73,6 +78,11 @@ export type User = {
 	name?: string;
 	email?: string;
 	avatarUrl?: string;
+	website?: string;
+	twitter?: string;
+	bluesky?: string;
+	timezone?: string;
+	location?: string;
 };
 
 export type LoadableUser = LoadableData<User, User['id']>;
@@ -81,7 +91,12 @@ export type LoadableUserIdByLogin = LoadableData<number, string>;
 
 export function apiToUser(apiUser: ApiUser): User {
 	return {
-		...apiToUserSimple(apiUser)
+		...apiToUserSimple(apiUser),
+		website: apiUser.website,
+		twitter: apiUser.twitter,
+		bluesky: apiUser.bluesky,
+		timezone: apiUser.timezone,
+		location: apiUser.location
 	};
 }
 

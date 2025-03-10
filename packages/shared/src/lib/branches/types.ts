@@ -33,6 +33,8 @@ export type ApiBranch = {
 	review_status: string;
 	forge_url: string | undefined;
 	forge_description: string | undefined;
+	review_url: string | undefined;
+	project_full_slug: string;
 };
 
 export type Branch = {
@@ -56,6 +58,8 @@ export type Branch = {
 	permissions: Permissions;
 	forgeUrl: string | undefined;
 	forgeDescription: string | undefined;
+	reviewUrl: string | undefined;
+	projectFullSlug: string;
 };
 
 export type LoadableBranch = LoadableData<Branch, Branch['uuid']>;
@@ -82,7 +86,9 @@ export function apiToBranch(api: ApiBranch): Branch {
 		stackOrder: api.branch_stack_order || 1,
 		permissions: apiToPermissions(api.permissions),
 		forgeUrl: api.forge_url,
-		forgeDescription: api.forge_description
+		forgeDescription: api.forge_description,
+		reviewUrl: api.review_url,
+		projectFullSlug: api.project_full_slug
 	};
 }
 
