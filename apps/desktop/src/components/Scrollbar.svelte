@@ -4,8 +4,7 @@
 	import Scrollbar, { type ScrollbarPaddingType } from '@gitbutler/ui/scroll/Scrollbar.svelte';
 
 	interface Props {
-		viewport: Element;
-		contents: Element;
+		viewport: HTMLDivElement;
 		initiallyVisible?: boolean;
 		thickness?: string;
 		padding?: ScrollbarPaddingType;
@@ -18,7 +17,6 @@
 
 	const {
 		viewport,
-		contents,
 		initiallyVisible = false,
 		thickness = '0.563rem',
 		padding = {},
@@ -34,7 +32,6 @@
 
 <Scrollbar
 	{viewport}
-	{contents}
 	{initiallyVisible}
 	{thickness}
 	{padding}
