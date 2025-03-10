@@ -17,6 +17,7 @@
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
@@ -144,23 +145,48 @@
 	let cloudFeatureFlag = $derived($user?.role === 'admin');
 </script>
 
-<Section>
-	<SectionCard orientation="row" labelFor="serverFeatures">
-		{#snippet title()}
-			GitButler Server Features
-		{/snippet}
-		{#snippet caption()}
-			Enabling this allows you to turn on various hosted features for this project on gitbutler.com.
-		{/snippet}
-		{#snippet actions()}
-			{#if $project?.api && !cloudProject}
-				<p>Loading...</p>
-			{:else}
-				<Toggle id="serverFeatures" checked={!!$project?.api} onclick={toggleProject} />
-			{/if}
-		{/snippet}
-	</SectionCard>
-</Section>
+{#if $userLogin}
+	<Section>
+		<SectionCard orientation="row" labelFor="serverFeatures">
+			{#snippet title()}
+				GitButler Server Features
+			{/snippet}
+			{#snippet caption()}
+				Enabling this allows you to turn on various hosted features for this project on
+				gitbutler.com.
+			{/snippet}
+			{#snippet actions()}
+				{#if $project?.api && !cloudProject}
+					<p>Loading...</p>
+				{:else}
+					<Toggle id="serverFeatures" checked={!!$project?.api} onclick={toggleProject} />
+				{/if}
+			{/snippet}
+		</SectionCard>
+	</Section>
+{:else}
+	<Section>
+		<SectionCard orientation="row">
+			{#snippet title()}
+				GitButler Server Features
+			{/snippet}
+			{#snippet caption()}
+				<div>Please log in to access GitButler Server Features.</div>
+			{/snippet}
+			{#snippet actions()}
+				<AsyncButton
+					style="pop"
+					icon="signin"
+					action={async () => {
+						await userService.login();
+					}}
+				>
+					Sign up or Log in
+				</AsyncButton>
+			{/snippet}
+		</SectionCard>
+	</Section>
+{/if}
 
 {#if cloudProject}
 	<Loading loadable={cloudProject.current}>
