@@ -11,8 +11,7 @@
 	import { pxToRem } from '$lib/utils/pxToRem';
 
 	interface Props {
-		viewport: Element;
-		contents: Element;
+		viewport: HTMLElement;
 		initiallyVisible?: boolean;
 		thickness?: string;
 		padding?: ScrollbarPaddingType;
@@ -26,7 +25,6 @@
 
 	const {
 		viewport,
-		contents,
 		initiallyVisible = false,
 		thickness = '0.563rem',
 		padding = {},
@@ -49,10 +47,6 @@
 
 		if (track) {
 			setupTrack(track);
-		}
-
-		if (contents) {
-			setupContents(contents);
 		}
 	});
 
@@ -79,8 +73,8 @@
 	let wholeWidth = $state(viewport?.scrollWidth ?? 0);
 	let scrollTop = $state(viewport?.scrollTop ?? 0);
 	let scrollLeft = $state(viewport?.scrollLeft ?? 0);
-	let trackHeight = $state(viewport?.clientHeight ?? 0);
-	let trackWidth = $state(viewport?.clientHeight ?? 0);
+	let trackHeight = $state(viewport?.offsetHeight ?? 0);
+	let trackWidth = $state(viewport?.offsetWidth ?? 0);
 
 	const thumbHeight = $derived(wholeHeight > 0 ? (trackHeight / wholeHeight) * trackHeight : 0);
 	const thumbWidth = $derived(wholeWidth > 0 ? (trackWidth / wholeWidth) * trackWidth : 0);
@@ -144,31 +138,32 @@
 			throw new Error('window.ResizeObserver is missing.');
 		}
 
-		const observer = new ResizeObserver((entries) => {
-			for (const _entry of entries) {
-				wholeHeight = viewport?.scrollHeight ?? 0;
-				wholeWidth = viewport?.scrollWidth ?? 0;
-				trackHeight = viewport?.clientHeight ?? 0;
-				trackWidth = viewport?.clientWidth;
-			}
-		});
+		const observerSize = new ResizeObserver(updateTrack);
+		observerSize.observe(viewport);
 
-		observer.observe(viewport);
+		const observerMutations = new MutationObserver(updateTrack);
+		observerMutations.observe(viewport, { childList: true, subtree: true });
+
 		viewport.addEventListener('scroll', onScroll, { passive: true });
 		viewport.addEventListener('mouseenter', onViewportMouseEnter);
 		viewport.addEventListener('mouseleave', onViewportMouseLeave);
 
 		return () => {
-			observer.disconnect();
+			observerSize.disconnect();
+			observerMutations.disconnect();
 			viewport.removeEventListener('scroll', onScroll);
 			viewport.removeEventListener('mouseenter', onViewportMouseEnter);
 			viewport.removeEventListener('mouseleave', onViewportMouseLeave);
 		};
 	}
 
-	//////////////////
-	// TRACK EVENTS //
-	//////////////////
+	function updateTrack() {
+		wholeHeight = viewport?.scrollHeight ?? 0;
+		wholeWidth = viewport?.scrollWidth ?? 0;
+		trackHeight = viewport?.clientHeight ?? 0;
+		trackWidth = viewport?.clientWidth ?? 0;
+	}
+
 	function onTrackEnter() {
 		if (shouldShowOnHover || shouldAlwaysShow) return;
 		clearTimer();
@@ -204,25 +199,6 @@
 		thumb.addEventListener('mousedown', onThumbClick, { passive: true });
 		return () => {
 			thumb.removeEventListener('mousedown', onThumbClick);
-		};
-	}
-
-	function setupContents(contents: Element) {
-		if (!contents) return;
-
-		if (typeof window.ResizeObserver === 'undefined') {
-			throw new Error('window.ResizeObserver is missing.');
-		}
-		const observer = new ResizeObserver((entries) => {
-			for (const _entry of entries) {
-				wholeHeight = viewport?.scrollHeight ?? 0;
-				wholeWidth = viewport?.scrollWidth ?? 0;
-			}
-		});
-		observer.observe(contents);
-
-		return () => {
-			observer.disconnect();
 		};
 	}
 
