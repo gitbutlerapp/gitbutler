@@ -73,7 +73,7 @@
 		<div class="scroll-contents" bind:this={contents}>
 			<Board />
 		</div>
-		<Scrollbar {viewport} {contents} horz />
+		<Scrollbar {viewport} horz />
 	</div>
 </div>
 

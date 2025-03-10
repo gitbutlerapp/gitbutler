@@ -7,7 +7,6 @@
 
 	interface Props {
 		height?: string;
-		fillViewport?: boolean;
 		maxHeight?: string;
 		initiallyVisible?: boolean;
 		wide?: boolean;
@@ -23,7 +22,6 @@
 
 	const {
 		height,
-		fillViewport,
 		maxHeight,
 		initiallyVisible,
 		wide,
@@ -42,7 +40,6 @@
 
 <ScrollableContainer
 	{height}
-	{fillViewport}
 	{maxHeight}
 	{initiallyVisible}
 	{wide}

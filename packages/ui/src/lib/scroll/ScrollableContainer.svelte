@@ -1,11 +1,9 @@
 <script lang="ts">
 	import Scrollbar, { type ScrollbarPaddingType } from './Scrollbar.svelte';
 	import { type Snippet } from 'svelte';
-	import { onDestroy, onMount } from 'svelte';
 
 	interface Props {
 		height?: string;
-		fillViewport?: boolean;
 		maxHeight?: string;
 		initiallyVisible?: boolean;
 		wide?: boolean;
@@ -22,7 +20,6 @@
 
 	const {
 		height,
-		fillViewport,
 		maxHeight,
 		initiallyVisible,
 		wide,
@@ -38,23 +35,7 @@
 	}: Props = $props();
 
 	let viewport = $state<HTMLDivElement>();
-	let contents = $state<HTMLDivElement>();
-	let scrollable = $state<boolean>();
 	let scrollEndVisible = $state<boolean>(false);
-
-	let observer: ResizeObserver;
-
-	onMount(() => {
-		observer = new ResizeObserver(() => {
-			if (viewport && contents) {
-				scrollable = viewport.offsetHeight < contents.offsetHeight;
-			}
-		});
-		if (viewport) observer.observe(viewport);
-		if (contents) observer.observe(contents);
-	});
-
-	onDestroy(() => observer.disconnect());
 
 	$effect(() => {
 		if (scrollEndVisible) {
@@ -70,7 +51,7 @@
 		bind:this={viewport}
 		class="viewport hide-native-scrollbar"
 		style:height
-		style:overflow-y={scrollable ? 'auto' : 'hidden'}
+		style:overflow-y="auto"
 		onscroll={(e) => {
 			const target = e.target as HTMLDivElement;
 			scrollEndVisible = target.scrollTop + target.clientHeight >= target.scrollHeight;
@@ -78,13 +59,10 @@
 			onscroll?.(e);
 		}}
 	>
-		<div bind:this={contents} class="contents" class:fill-viewport={fillViewport}>
-			{@render children()}
-		</div>
+		{@render children()}
 		<Scrollbar
 			{whenToShow}
 			{viewport}
-			{contents}
 			{initiallyVisible}
 			{padding}
 			{shift}
@@ -106,17 +84,5 @@
 	.viewport {
 		height: 100%;
 		width: 100%;
-	}
-	.contents {
-		display: flex;
-		flex-direction: column;
-		min-height: 100%;
-		min-width: 100%;
-	}
-
-	/* MODIFIERS */
-	.fill-viewport {
-		min-height: 100%;
-		min-width: 100%;
 	}
 </style>
