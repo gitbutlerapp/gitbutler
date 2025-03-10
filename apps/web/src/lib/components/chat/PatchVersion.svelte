@@ -1,7 +1,5 @@
 <script lang="ts">
-	import { ReviewSectionsService } from '$lib/review/reviewSections.svelte';
 	import { eventTimeStamp, getMultipleContributorNames } from '@gitbutler/shared/branches/utils';
-	import { getContext } from '@gitbutler/shared/context';
 	import { getPatchContributorsWithAvatars } from '@gitbutler/shared/contributors';
 	import { type PatchVersionEvent } from '@gitbutler/shared/patchEvents/types';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -13,8 +11,6 @@
 
 	const { event }: Props = $props();
 
-	const reviewSectionsService = getContext(ReviewSectionsService);
-
 	const patch = $derived(event.object);
 
 	const authorNames = $derived(getMultipleContributorNames(patch.contributors));
@@ -24,10 +20,7 @@
 
 	function viewInterdiff() {
 		if (!patch.version) return;
-		reviewSectionsService.setSelection(patch.changeId, {
-			selectedBefore: patch.version - 1,
-			selectedAfter: patch.version
-		});
+		// TODO: change query string thing
 	}
 </script>
 
