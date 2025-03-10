@@ -89,12 +89,9 @@
 	);
 
 	let headerEl = $state<HTMLDivElement>();
-	let headerHeight = $state(0);
-	let headerIsStuck = $state(false);
-	let metaSectionHidden = $state(false);
-	const HEADER_STUCK_THRESHOLD = 4;
 
-	let metaSectionEl = $state<HTMLDivElement>();
+	let headerIsStuck = $state(false);
+	const HEADER_STUCK_THRESHOLD = 4;
 
 	function handleScroll() {
 		if (headerEl) {
@@ -106,14 +103,6 @@
 			if (headerIsStuck && top > HEADER_STUCK_THRESHOLD) {
 				headerIsStuck = false;
 			}
-		}
-
-		if (metaSectionEl && headerEl) {
-			metaSectionHidden =
-				metaSectionEl.getBoundingClientRect().top -
-					headerEl.clientHeight +
-					metaSectionEl.clientHeight <
-				0;
 		}
 	}
 
@@ -197,13 +186,7 @@
 			<div class="review-main" class:expand={chatMinimizer.value}>
 				<Navigation />
 
-				<div
-					class="review-main__header"
-					bind:this={headerEl}
-					bind:clientHeight={headerHeight}
-					class:stucked={headerIsStuck}
-					class:bottom-line={headerIsStuck && !metaSectionHidden}
-				>
+				<div class="review-main__header" bind:this={headerEl} class:bottom-line={headerIsStuck}>
 					<div class="review-main__title">
 						{#if headerIsStuck}
 							<div class="scroll-to-top">
@@ -241,7 +224,7 @@
 					{/if}
 				</div>
 
-				<div class="review-main__meta" bind:this={metaSectionEl}>
+				<div class="review-main__meta">
 					<ReviewInfo projectId={repositoryId} {patchCommit} />
 					<div class="review-main-description">
 						<span class="text-12 review-main-description__caption">Commit message:</span>
@@ -261,7 +244,7 @@
 					{branchUuid}
 					{patchCommit}
 					changeId={data.changeId}
-					headerShift={headerHeight}
+					commitPageHeaderHeight={headerEl?.clientHeight}
 					toggleDiffLine={(f, s, p) => diffLineSelection.toggle(f, s, p)}
 					selectedSha={diffLineSelection.selectedSha}
 					selectedLines={diffLineSelection.selectedLines}
@@ -343,8 +326,8 @@
 		gap: 12px;
 
 		background-color: var(--clr-bg-2);
-		margin-top: -24px;
-		padding: 24px 0 12px;
+		margin-top: -14px;
+		padding: 16px 0;
 		border-bottom: 1px solid transparent;
 
 		transition:
@@ -353,10 +336,6 @@
 
 		&.bottom-line {
 			border-bottom: 1px solid var(--clr-border-2);
-		}
-
-		&.stucked {
-			padding: 16px 0;
 		}
 	}
 
