@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FileCard from '$components/FileCard.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import Stack from '$components/v3/Stack.svelte';
+	import Stack from '$components/Stack.svelte';
 	import { BranchStack } from '$lib/branches/branch';
 	import { SelectedOwnership } from '$lib/branches/ownership';
 	import { projectLaneCollapsed } from '$lib/config/config';
