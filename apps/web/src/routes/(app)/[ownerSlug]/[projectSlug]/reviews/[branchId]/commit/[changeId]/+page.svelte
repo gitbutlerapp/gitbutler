@@ -362,18 +362,6 @@
 
 	.scroll-to-top {
 		display: flex;
-		animation: fadeInScrollButton var(--transition-medium) forwards;
-	}
-
-	@keyframes fadeInScrollButton {
-		from {
-			opacity: 0;
-			width: 0;
-		}
-		to {
-			opacity: 1;
-			min-width: var(--size-button);
-		}
 	}
 
 	.review-main__title {
