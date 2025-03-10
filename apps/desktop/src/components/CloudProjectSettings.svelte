@@ -38,9 +38,7 @@
 	const user = getContextStore(User);
 
 	const cloudProject = $derived(
-		$project?.api?.repository_id
-			? getProjectByRepositoryId(appState, cloudProjectService, $project.api.repository_id)
-			: undefined
+		$project?.api?.repository_id ? getProjectByRepositoryId($project.api.repository_id) : undefined
 	);
 
 	let organizationsList = $state<HTMLElement>();
@@ -55,7 +53,7 @@
 	);
 	const existingProject = $derived(
 		map(existingProjectRepositoryId?.current, (repositoryId) =>
-			getProjectByRepositoryId(appState, cloudProjectService, repositoryId)
+			getProjectByRepositoryId(repositoryId)
 		)
 	);
 

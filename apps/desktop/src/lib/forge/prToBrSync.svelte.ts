@@ -6,7 +6,6 @@ import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchL
 import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 import { inject } from '@gitbutler/shared/context';
 import { isFound, map } from '@gitbutler/shared/network/loadable';
-import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 import { readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { AppState } from '@gitbutler/shared/redux/store.svelte';
@@ -16,16 +15,9 @@ import type { Reactive } from '@gitbutler/shared/storeUtils';
 export function syncPrToBr(branch: Reactive<PatchSeries>) {
 	const pr = getPr(branch);
 
-	const [
-		projectService,
-		appState,
-		cloudProjectService,
-		latestBranchLookupService,
-		cloudBranchService
-	] = inject(
+	const [projectService, appState, latestBranchLookupService, cloudBranchService] = inject(
 		ProjectService,
 		AppState,
-		CloudProjectService,
 		LatestBranchLookupService,
 		CloudBranchService
 	);
@@ -33,7 +25,7 @@ export function syncPrToBr(branch: Reactive<PatchSeries>) {
 
 	const cloudProject = $derived(
 		project.current?.api?.repository_id
-			? getProjectByRepositoryId(appState, cloudProjectService, project.current.api.repository_id)
+			? getProjectByRepositoryId(project.current.api.repository_id)
 			: undefined
 	);
 

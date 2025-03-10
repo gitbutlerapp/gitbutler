@@ -2,9 +2,7 @@
 	import { featureShowProjectPage } from '$lib/featureFlags';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
@@ -18,11 +16,9 @@
 
 	const { projectId, roundedTop, roundedBottom }: Props = $props();
 
-	const appState = getContext(AppState);
-	const projectService = getContext(ProjectService);
 	const routes = getContext(WebRoutesService);
 
-	const project = getProjectByRepositoryId(appState, projectService, projectId);
+	const project = getProjectByRepositoryId(projectId);
 	const projectRoute = $featureShowProjectPage ? routes.projectPath : routes.projectReviewPath;
 </script>
 
