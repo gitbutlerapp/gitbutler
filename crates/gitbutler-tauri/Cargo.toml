@@ -18,7 +18,7 @@ test = false
 tauri-build = { version = "2.0.3", features = [] }
 
 [dependencies]
-anyhow = "1.0.95"
+anyhow = "1.0.97"
 backtrace = { version = "0.3.74", optional = true }
 console-subscriber = "0.4.1"
 git2.workspace = true
@@ -33,15 +33,15 @@ serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
 tauri = { version = "^2.1.1", features = ["unstable"] }
 tauri-plugin-dialog = "2.2.0"
 tauri-plugin-fs = "2.0.3"
-tauri-plugin-http = "2.2.0"
-tauri-plugin-log = "2.2.0"
-tauri-plugin-os = "2.2.0"
+tauri-plugin-http = "2.4.0"
+tauri-plugin-log = "2.2.2"
+tauri-plugin-os = "2.2.1"
 tauri-plugin-process = "2.2.0"
 tauri-plugin-shell = "2.2.0"
-tauri-plugin-single-instance = "2.2.0"
+tauri-plugin-single-instance = "2.2.2"
 tauri-plugin-store = "2.2.0"
-tauri-plugin-updater = "2.3.0"
-tauri-plugin-window-state = "2.2.0"
+tauri-plugin-updater = "2.6.0"
+tauri-plugin-window-state = "2.2.1"
 
 parking_lot.workspace = true
 log = "^0.4"
@@ -78,7 +78,7 @@ but-core.workspace = true
 but-hunk-dependency.workspace = true
 open = "5"
 url = "2.5.4"
-tauri-plugin-clipboard-manager = "2.2.1"
+tauri-plugin-clipboard-manager = "2.2.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-plugin-trafficlights-positioner = { git = "https://github.com/gitbutlerapp/tauri-plugin-trafficlights-positioner", branch = "v2"}
