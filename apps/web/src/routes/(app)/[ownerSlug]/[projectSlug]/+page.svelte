@@ -43,14 +43,45 @@
 		return result;
 	});
 
+	// Start editing the README
+	function startEditingReadme(currentReadme: string | undefined) {
+		readmeContent = currentReadme || '';
+		editingReadme = true;
+	}
+
+	// Cancel editing the README
+	function cancelEditingReadme() {
+		editingReadme = false;
+	}
+
+	// Save the README
+	async function saveReadme(repositoryId: string) {
+		try {
+			isSavingReadme = true;
+			// Use a type assertion since readme isn't part of UpdateParams
+			await projectService.updateProject(repositoryId, { readme: readmeContent } as any);
+
+			// Update the local project data with the new README
+			projectData = {
+				...projectData,
+				readme: readmeContent
+			};
+
+			editingReadme = false;
+			toasts.success('README updated successfully');
+		} catch (error) {
+			toasts.error(
+				`Failed to update README: ${error instanceof Error ? error.message : 'Unknown error'}`
+			);
+		} finally {
+			isSavingReadme = false;
+		}
+	}
+
 	// README editing state
 	let editingReadme = $state(false);
 	let readmeContent = $state('');
 	let isSavingReadme = $state(false);
-
-	const project = $derived(
-		map(repositoryId.current, (repositoryId) => getProjectByRepositoryId(repositoryId))
-	);
 
 	async function deleteProject(repositoryId: string) {
 		if (!confirm('Are you sure you want to delete this project?')) {
@@ -177,12 +208,12 @@
 								<div class="meta-item clone-url-container">
 									<h3 class="sidebar-section-title">Clone URL</h3>
 									<div class="clone-url">
-										<code>{projectData.gitUrl}</code>
+										<code>{projectData.codeGitUrl}</code>
 										<Button
 											type="button"
 											style="pop"
 											onclick={() => {
-												navigator.clipboard.writeText(projectData.gitUrl);
+												navigator.clipboard.writeText(projectData.codeGitUrl);
 												toasts.success('copied to clipboard');
 											}}
 										>
