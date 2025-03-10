@@ -43,6 +43,7 @@
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { ClientState } from '$lib/state/clientState.svelte';
+	import { UiStateService } from '$lib/state/uiState.svelte';
 	import { UpdaterService } from '$lib/updater/updater';
 	import { User } from '$lib/user/user';
 	import { UserService } from '$lib/user/userService';
@@ -87,6 +88,11 @@
 		reactive(() => changeSelection),
 		clientState.dispatch
 	);
+	const uiState = $derived(clientState.uiState);
+	const uiStateService = new UiStateService(
+		reactive(() => uiState),
+		clientState.dispatch
+	);
 	const stackService = new StackService(clientState);
 	const worktreeService = new WorktreeService(clientState);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
@@ -113,6 +119,7 @@
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
 	setContext(ChangeSelectionService, changeSelectionService);
+	setContext(UiStateService, uiStateService);
 	setContext(ClientState, clientState);
 	setContext(FeedService, feedService);
 	setContext(OrganizationService, organizationService);
