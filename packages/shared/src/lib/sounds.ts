@@ -1,4 +1,8 @@
-export function playSound(soundUrl: string) {
+import { debouncePromise } from '$lib/utils/misc';
+
+async function playSoundImpl(soundUrl: string) {
 	const audio = new Audio(soundUrl);
-	audio.play();
+	await audio.play();
 }
+
+export const playSound = debouncePromise(playSoundImpl, 1000);
