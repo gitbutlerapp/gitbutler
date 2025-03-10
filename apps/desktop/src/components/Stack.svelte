@@ -1,6 +1,6 @@
 <script lang="ts">
-	import SeriesList from '../SeriesList.svelte';
-	import UncommittedChanges from '../UncommittedChanges.svelte';
+	import SeriesList from './SeriesList.svelte';
+	import UncommittedChanges from './UncommittedChanges.svelte';
 	import CollapsedLane from '$components/CollapsedLane.svelte';
 	import Dropzones from '$components/Dropzones.svelte';
 	import Resizer from '$components/Resizer.svelte';
@@ -72,9 +72,12 @@
 	});
 
 	const canPush = $derived.by(() => {
-		if (upstreamPatches.filter((p) => !p.isIntegrated).length > 0) return true;
-		if (branchPatches.some((p) => !['localAndRemote', 'integrated'].includes(p.status)))
+		if (upstreamPatches.filter((p) => !p.isIntegrated).length > 0) {
 			return true;
+		}
+		if (branchPatches.some((p) => p.status === 'LocalOnly' || p.status === 'Remote')) {
+			return true;
+		}
 		return false;
 	});
 
