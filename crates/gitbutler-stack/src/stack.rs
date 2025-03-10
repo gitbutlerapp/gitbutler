@@ -541,6 +541,14 @@ impl Stack {
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         let state = branch_state(ctx);
         let commit_ids = self.stack_patches(&ctx.to_stack_context()?, false)?;
+
+        // Store the name of the first non-archived branch before we archive it
+        let original_branch_name = self
+            .heads
+            .iter()
+            .find(|head| !head.archived)
+            .map(|head| head.name().clone());
+
         for head in self.heads.iter_mut() {
             if !commit_ids.contains(head.head()) {
                 head.archived = true;
@@ -554,8 +562,18 @@ impl Stack {
                 head.pr_number = None;
             }
 
-            let new_head = self.make_new_empty_reference(ctx, false)?;
-            self.heads.push(new_head);
+            // Use the original branch name if available, otherwise create a new one
+            if let Some(name) = original_branch_name {
+                // Create a new empty reference with the original name
+                let commit = ctx.repo().find_commit(self.head())?;
+                let repo = ctx.gix_repository()?;
+                let reference = StackBranch::new(commit.into(), name, None, &repo)?;
+                self.heads.push(reference);
+            } else {
+                // Fall back to creating a new empty reference with a new name
+                let new_head = self.make_new_empty_reference(ctx, false)?;
+                self.heads.push(new_head);
+            }
         }
 
         state.set_stack(self.clone())?;
