@@ -327,7 +327,7 @@ pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
                 open::that("https://github.com/gitbutlerapp/gitbutler/releases")
             }
             "help/report-issue" => {
-                open::that("https://github.com/gitbutlerapp/gitbutler/issues/new")
+                open::that("https://github.com/gitbutlerapp/gitbutler/issues/new/choose")
             }
             "help/discord" => open::that("https://discord.com/invite/MmFkmaJ42D"),
             "help/youtube" => open::that("https://www.youtube.com/@gitbutlerapp"),
