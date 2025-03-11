@@ -48,7 +48,7 @@ export type Commit = {
 	 */
 	readonly state: CommitState;
 	/** Commit creation time in Epoch milliseconds. */
-	readonly createdAt: string;
+	readonly createdAt: number;
 	/** The author of the commit. */
 	readonly author: Author;
 };
