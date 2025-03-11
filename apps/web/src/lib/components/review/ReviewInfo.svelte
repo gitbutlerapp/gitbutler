@@ -68,4 +68,7 @@
 			{/if}
 		{/await}
 	</Factoid>
+	<Factoid label="Version">
+		v{patchCommit.version}
+	</Factoid>
 </InfoFlexRow>
