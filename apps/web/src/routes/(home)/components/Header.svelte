@@ -92,6 +92,7 @@
 				{/snippet}
 			</HeaderLink>
 			<HeaderLink label="Blog" href={jsonLinks.resources.blog.url} />
+			<HeaderLink label="Jobs" href={jsonLinks.resources.jobs.url} />
 		</section>
 
 		<section class="navigation-section">
