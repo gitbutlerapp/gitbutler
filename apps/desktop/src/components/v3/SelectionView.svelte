@@ -4,6 +4,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 
@@ -13,15 +14,21 @@
 
 	const { projectId }: Props = $props();
 
-	const [idSelection, worktreeService] = inject(IdSelection, WorktreeService);
+	const [idSelection, stackService, worktreeService] = inject(
+		IdSelection,
+		StackService,
+		WorktreeService
+	);
 	const selection = $derived(idSelection.values());
 </script>
 
 <div class="selection-view">
 	<ScrollableContainer wide>
 		{#each selection as selectedFile (selectedFile.path)}
-			{@const changeResult = worktreeService.getChange(projectId, selectedFile.path).current}
-			<ReduxResult result={changeResult}>
+			{@const changeResult = selectedFile.commitId
+				? stackService.commitChange(projectId, selectedFile.commitId, selectedFile.path)
+				: worktreeService.getChange(projectId, selectedFile.path)}
+			<ReduxResult result={changeResult.current}>
 				{#snippet children(change)}
 					<FileListItemWrapper {projectId} {change} sticky />
 					<UnifiedDiffView {projectId} {change} selectable />

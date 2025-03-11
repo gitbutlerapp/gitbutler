@@ -3,7 +3,6 @@
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
 	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
-	import UnifiedDiffView from '$components/v3/UnifiedDiffView.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
 	import { chunk } from '$lib/utils/array';
@@ -14,7 +13,6 @@
 	interface Props {
 		changes: TreeChange[];
 		projectId: string;
-		/** The commit ID these changes belong to, if any. */
 		commitId?: string;
 		showCheckboxes?: boolean;
 	}
@@ -68,11 +66,10 @@
 						showCheckbox={showCheckboxes}
 						selected={idSelection.has(change.path, commitId)}
 						onclick={(e) => {
+							console.log(change, commitId);
 							selectFilesInList(e, change, visibleFiles, idSelection, true, commitId);
 						}}
-					>
-						<UnifiedDiffView {projectId} {change} selectable />
-					</FileListItemWrapper>
+					></FileListItemWrapper>
 				{/each}
 			</LazyloadContainer>
 		</ScrollableContainer>

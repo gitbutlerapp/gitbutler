@@ -3,27 +3,33 @@
 	import FileList from '$components/v3/FileList.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
-	import { createCommitPath, isCommitPath } from '$lib/routes/routes.svelte';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
+	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import { goto } from '$app/navigation';
 
 	type Props = {
 		projectId: string;
-		stackId?: string;
-		branchName?: string;
 	};
 
-	const { projectId, stackId, branchName }: Props = $props();
+	const { projectId }: Props = $props();
 
-	const changeSelection = getContext(ChangeSelectionService);
-	const worktreeService = getContext(WorktreeService);
+	const [changeSelection, worktreeService, uiState] = inject(
+		ChangeSelectionService,
+		WorktreeService,
+		UiState
+	);
+
+	const projectState = $derived(uiState.project(projectId));
+	const drawerPage = $derived(projectState.drawerPage.get());
+	const isCommitting = $derived(drawerPage.current === 'new-commit');
+
+	// TODO: Make this go away.
 	createCommitStore(undefined);
 
 	const changesResult = $derived(worktreeService.getChanges(projectId));
-	const disabled = $derived(!!isCommitPath());
 
 	/** Clear any selected changes that no longer exist. */
 	$effect(() => {
@@ -32,31 +38,23 @@
 	});
 </script>
 
-<div class="worktree-header">
-	<div class="text-14 text-semibold">Uncommitted changes</div>
-	<Button kind="ghost" icon="sidebar-unfold" />
-</div>
-
 <ReduxResult result={changesResult.current}>
 	{#snippet children(changes)}
+		<div class="worktree-header text-14 text-semibold">
+			<span>Uncommitted changes</span>
+			<Badge>{changes.length}</Badge>
+		</div>
 		{#if changes.length > 0}
 			<div class="uncommitted-changes">
-				<FileList {projectId} {changes} showCheckboxes={disabled} />
+				<FileList {projectId} {changes} showCheckboxes={isCommitting} />
 				<div class="start-commit">
 					<Button
-						kind={disabled ? 'outline' : 'solid'}
+						kind={isCommitting ? 'outline' : 'solid'}
 						type="button"
 						size="cta"
 						wide
-						{disabled}
-						onclick={() => {
-							if (stackId) {
-								if (!branchName) {
-									throw new Error('Not implemented!');
-								}
-								goto(createCommitPath(projectId, stackId, branchName));
-							}
-						}}
+						disabled={isCommitting}
+						onclick={() => projectState.drawerPage.set('new-commit')}
 					>
 						Start a commit…
 					</Button>
@@ -74,21 +72,13 @@
 
 <style>
 	.worktree-header {
-		width: 100%;
 		display: flex;
-
-		align-items: center;
-		justify-content: space-between;
 		padding: 10px 8px 10px 14px;
+		width: 100%;
+		gap: 4px;
+		align-items: center;
 		text-wrap: nowrap;
 		overflow: hidden;
-
-		& > div {
-			width: 100%;
-			overflow: hidden;
-			white-space: nowrap;
-			text-overflow: ellipsis;
-		}
 	}
 
 	.uncommitted-changes {

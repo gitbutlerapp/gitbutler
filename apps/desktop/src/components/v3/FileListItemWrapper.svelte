@@ -10,19 +10,18 @@
 	import { key } from '$lib/selection/key';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
-	import FileListItem from '@gitbutler/ui/file/FileListItemV3.svelte';
+	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
-	import type { Snippet } from 'svelte';
 
 	interface Props {
+		projectId: string;
 		change: TreeChange;
 		commitId?: string;
-		projectId: string;
-		selected: boolean;
+		selected?: boolean;
 		showCheckbox?: boolean;
-		onclick: (e: MouseEvent) => void;
+		sticky?: boolean;
+		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
-		children: Snippet;
 	}
 
 	const {
@@ -31,9 +30,9 @@
 		projectId,
 		selected,
 		showCheckbox,
+		sticky,
 		onclick,
-		onkeydown,
-		children
+		onkeydown
 	}: Props = $props();
 
 	const stack = maybeGetContextStore(BranchStack);
@@ -75,6 +74,7 @@
 
 <div
 	bind:this={draggableEl}
+	class:sticky
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
@@ -91,7 +91,7 @@
 		isBinary={false}
 	/>
 
-	<FileListItem
+	<FileListItemV3
 		bind:open
 		id={key(change.path, commitId)}
 		filePath={change.path}
@@ -105,7 +105,7 @@
 		locked={false}
 		conflicted={false}
 		onclick={(e) => {
-			onclick(e);
+			onclick?.(e);
 		}}
 		ondblclick={() => {
 			open = !open;
@@ -114,14 +114,12 @@
 		oncontextmenu={onContextMenu}
 	/>
 </div>
-{#if open}
-	<div class:diff-selected={selected}>
-		{@render children()}
-	</div>
-{/if}
 
 <style lang="postcss">
-	.diff-selected {
-		background-color: var(--clr-theme-pop-bg-muted);
+	.sticky {
+		position: sticky;
+		top: 0;
+		z-index: var(--z-lifted);
+		background-color: var(--clr-bg-1);
 	}
 </style>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CommitHeader from './CommitHeader.svelte';
 	import CommitContextMenu from '$components/v3/CommitContextMenu.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
@@ -8,7 +9,6 @@
 	import { getContext, getContextStore, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
@@ -28,12 +28,13 @@
 		lineColor?: string;
 		opacity?: number;
 		borderTop?: boolean;
-		href?: string;
 		disableCommitActions?: boolean;
+		onclick?: () => void;
 	};
 
 	const {
 		projectId,
+		commitKey,
 		stackId,
 		commit,
 		first,
@@ -43,22 +44,21 @@
 		lineColor,
 		opacity,
 		borderTop,
-		href,
-		disableCommitActions = false
+		disableCommitActions = false,
+		onclick
 	}: Props = $props();
 
 	const baseBranch = getContextStore(BaseBranch);
 	const stackService = getContext(StackService);
 	const modeService = maybeGetContext(ModeService);
 
-	const commitTitle = $derived(commit.message.split('\n')[0]);
 	const commitUrl = undefined;
 	const conflicted = false; // TODO
 	const isAncestorMostConflicted = false; // TODO
 	const isUnapplied = false; // TODO
 	const branchRefName = undefined;
 
-	let commitRowElement = $state<HTMLAnchorElement>();
+	let commitRowElement = $state<HTMLDivElement>();
 	let kebabMenuTrigger = $state<HTMLButtonElement>();
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let conflictResolutionConfirmationModal = $state<ReturnType<typeof Modal>>();
@@ -102,11 +102,11 @@
 	}
 </script>
 
-<a
+<div
 	bind:this={commitRowElement}
-	type="button"
+	role="listitem"
 	class="commit"
-	{href}
+	class:last={lastCommit}
 	oncontextmenu={(e) => {
 		e.preventDefault();
 		isOpenedByKebabButton = false;
@@ -116,7 +116,6 @@
 	<div
 		class="commit-row__main"
 		class:first
-		class:lastCommit
 		class:selected
 		style:opacity
 		class:border-top={borderTop || first}
@@ -124,13 +123,7 @@
 		<CommitLine {commit} {lastCommit} {lastBranch} {lineColor} />
 
 		<div class="commit-content">
-			<span class="commit-title text-13 text-semibold">
-				{commitTitle}
-			</span>
-
-			<div class="commit-arrow">
-				<Icon name="chevron-right" />
-			</div>
+			<CommitHeader {projectId} {commitKey} {commit} {onclick} />
 		</div>
 	</div>
 
@@ -148,7 +141,7 @@
 			/>
 		</PopoverActionsContainer>
 	{/if}
-</a>
+</div>
 
 <Modal bind:this={conflictResolutionConfirmationModal} width="small" onSubmit={editPatch}>
 	{#snippet children()}
@@ -189,16 +182,18 @@
 		display: flex;
 		align-items: center;
 		width: 100%;
+		overflow: hiddend;
 
 		&:hover :global(.commit-row-actions-menu) {
 			--show: true;
+		}
+		&:not(.last) {
+			border-bottom: 1px solid var(--clr-border-2);
 		}
 	}
 	.commit-row__main {
 		position: relative;
 		display: flex;
-		align-items: center;
-		text-align: left;
 		width: 100%;
 		overflow: hidden;
 		transition: background-color var(--transition-fast);
@@ -218,58 +213,26 @@
 			transition: transform var(--transition-fast);
 		}
 
-		&:last-child {
-			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
-		}
-
-		&:not(.lastCommit) {
-			border-bottom: 1px solid var(--clr-border-2);
-		}
-
 		&.border-top {
-			border-top: 1px solid var(--clr-border-2);
+			/* border-top: 1px solid var(--clr-border-2); */
 		}
 
 		&.selected {
-			background-color: var(--clr-bg-1-muted);
+			/* background-color: var(--clr-bg-1-muted); */
 		}
 
 		&.selected::before {
 			transform: none;
 		}
-
-		&.selected .commit-arrow {
-			margin-right: -6px;
-			opacity: 0.3;
-			transition:
-				margin-right var(--transition-medium),
-				opacity var(--transition-medium) 0.05s;
-		}
 	}
 
 	.commit-content {
 		display: flex;
-		gap: 4px;
-		align-items: center;
+		flex-direction: column;
+		position: relative;
+		gap: 6px;
 		width: 100%;
 		padding: 14px 14px 14px 0;
 		overflow: hidden;
-	}
-
-	.commit-title {
-		flex-grow: 1;
-		text-overflow: ellipsis;
-		overflow: hidden;
-		white-space: nowrap;
-	}
-
-	.commit-arrow {
-		display: flex;
-		align-items: center;
-		opacity: 0;
-		margin-right: -20px;
-		transition:
-			margin-right var(--transition-medium) 0.05s,
-			opacity var(--transition-medium);
 	}
 </style>

@@ -11,7 +11,10 @@ export function key(path: string, commitId?: string) {
 	return `${path}:${commitId}`;
 }
 
-export function splitKey(key: string) {
+export function splitKey(key: string): SelectedFile {
 	const [path, commitId] = key.split(':');
-	return { path, commitId } as SelectedFile;
+	if (commitId === 'undefined') {
+		return { path: path! };
+	}
+	return { path: path!, commitId };
 }

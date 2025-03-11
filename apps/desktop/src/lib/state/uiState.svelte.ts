@@ -61,7 +61,7 @@ export class UiState {
 	 * parameter value, with types corresponding to their default values.
 	 */
 	private buildGlobalProps<T extends DefaultConfig>(param: T): GlobalStore<T> {
-		const props = {} as GlobalStore<DefaultConfig>;
+		const props: GlobalStore<DefaultConfig> = {};
 		for (const [key, defaultValue] of Object.entries(param)) {
 			props[key] = {
 				get: () => this.getById(key, defaultValue),
@@ -78,7 +78,7 @@ export class UiState {
 	 */
 	private buildScopedProps<T extends DefaultConfig>(param: T): (id: string) => GlobalStore<T> {
 		return (id: string) => {
-			const props = {} as GlobalStore<DefaultConfig>;
+			const props: GlobalStore<DefaultConfig> = {};
 			for (const [key, defaultValue] of Object.entries(param)) {
 				props[key] = {
 					get: () => this.getById(`${id}:${key}`, defaultValue),

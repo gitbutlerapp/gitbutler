@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getColorFromBranchType, isUpstreamCommit } from '$components/v3/lib';
+	import { getColorFromBranchType, isLocalAndRemoteCommit } from '$components/v3/lib';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { camelCaseToTitleCase } from '@gitbutler/ui/utils/string';
 	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
@@ -15,14 +15,16 @@
 
 	const color = $derived(
 		lineColor ||
-			(isUpstreamCommit(commit)
-				? 'var(--clr-commit-upstream)'
-				: getColorFromBranchType(commit.state?.type ?? 'LocalOnly'))
+			(isLocalAndRemoteCommit(commit)
+				? getColorFromBranchType(commit.state?.type ?? 'LocalOnly')
+				: 'var(--clr-commit-upstream)')
 	);
-	const dotRhombus = $derived(!isUpstreamCommit(commit) && commit.state.type === 'LocalAndRemote');
+	const dotRhombus = $derived(
+		isLocalAndRemoteCommit(commit) && commit.state.type === 'LocalAndRemote'
+	);
 
 	const tooltipText = $derived(
-		isUpstreamCommit(commit) ? 'Upstream' : camelCaseToTitleCase(commit.state.type)
+		!isLocalAndRemoteCommit(commit) ? 'Upstream' : camelCaseToTitleCase(commit.state.type)
 	);
 </script>
 

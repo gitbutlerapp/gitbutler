@@ -30,6 +30,7 @@
 					commit: Commit;
 					commitKey: CommitKey;
 					first: boolean;
+					last: boolean;
 					lastCommit: boolean;
 					selected: boolean;
 				}
@@ -81,6 +82,7 @@
 							commit,
 							commitKey,
 							first,
+							last,
 							lastCommit: last,
 							selected
 						})}

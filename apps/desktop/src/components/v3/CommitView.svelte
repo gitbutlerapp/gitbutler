@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ChangedFiles from './ChangedFiles.svelte';
 	import CommitHeader from './CommitHeader.svelte';
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -9,38 +10,39 @@
 	type Props = {
 		projectId: string;
 		commitKey: CommitKey;
+		onclick?: () => void;
 	};
 
-	const { projectId, commitKey }: Props = $props();
+	const { projectId, commitKey, onclick }: Props = $props();
 
 	const [stackService] = inject(StackService);
-	const commitResult = $derived(stackService.commitById(projectId, commitKey));
+	const commitResult = $derived(
+		commitKey.upstream
+			? stackService.upstreamCommitById(projectId, commitKey)
+			: stackService.commitById(projectId, commitKey)
+	);
 </script>
 
 <ReduxResult result={commitResult.current}>
 	{#snippet children(commit)}
-		<div class="commit-view">
-			<div>
+		<ConfigurableScrollableContainer>
+			<div class="commit-view">
 				<CommitHeader {projectId} {commitKey} {commit} {onclick} />
+				<ChangedFiles {projectId} commitId={commitKey.commitId} />
 			</div>
-			<div class="body">
-				<ChangedFiles {projectId} {commit} />
-			</div>
-		</div>
+		</ConfigurableScrollableContainer>
 	{/snippet}
 </ReduxResult>
 
 <style>
 	.commit-view {
 		position: relative;
+		padding: 14px 16px;
+		min-height: 100%;
 		flex: 1;
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
-	}
-
-	.body {
-		display: flex;
-		flex-direction: column;
+		background-color: var(--clr-bg-1);
 	}
 </style>
