@@ -48,6 +48,7 @@
 	const replyToHandler = new ReplyHandler();
 
 	let highlightedMessageUuid = $state<string>();
+	let chatInput = $state<ReturnType<typeof ChatInput>>();
 
 	$effect(() => {
 		if (changeId) {
@@ -83,6 +84,10 @@
 			scrollToMessageWithDelay(messageUuid, 300);
 		}
 	});
+
+	export function focus() {
+		chatInput?.focusInput();
+	}
 </script>
 
 {#if minimized}
@@ -135,6 +140,7 @@
 				</Loading>
 			</div>
 			<ChatInput
+				bind:this={chatInput}
 				{isUserLoggedIn}
 				{branchUuid}
 				{projectId}
