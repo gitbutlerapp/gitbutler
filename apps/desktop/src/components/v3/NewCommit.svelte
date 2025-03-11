@@ -1,32 +1,28 @@
 <script lang="ts">
-	import CommitGoesHere from './CommitGoesHere.svelte';
 	import CommitMessageEditor from './editor/CommitMessageEditor.svelte';
 	import EditorFooter from './editor/EditorFooter.svelte';
 	import EditorHeader from './editor/EditorHeader.svelte';
-	import ResizeableSplitLayout from '$components/v3/ResizeableSplitLayout.svelte';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { showError } from '$lib/notifications/toasts';
-	import { commitPath, stackPath } from '$lib/routes/routes.svelte';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { UiState } from '$lib/state/uiState.svelte';
+	import { getContext, inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import { goto } from '$app/navigation';
 
 	type Props = {
 		projectId: string;
 		stackId: string;
-		branchName: string;
-		// The parent of the new commit.
-		commitId?: string;
 	};
-	const { projectId, stackId, branchName, commitId }: Props = $props();
+	const { projectId, stackId }: Props = $props();
 
-	const baseBranchService = getContext(BaseBranchService);
 	const stackService = getContext(StackService);
-	const base = $derived(baseBranchService.base);
+	const [uiState] = inject(UiState);
 
+	const selected = $derived(uiState.stack(stackId).selection.get());
+	const branchName = $derived(selected.current?.branchName);
+	const commitId = $derived(selected.current?.commitId);
+	const canCommit = $derived(branchName && commitId);
 	const changeSelection = getContext(ChangeSelectionService);
 	const selection = $derived(changeSelection.list());
 
@@ -34,13 +30,6 @@
 	 * Toggles use of markdown on/off in the message editor.
 	 */
 	let markdown = persisted(true, 'useMarkdown__' + projectId);
-
-	const commitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
-	const commit = $derived(commitResult.current.data);
-
-	const baseSha = $derived($base?.baseSha);
-	const defaultParentId = $derived(commit ? commit.id : baseSha);
-	const parentId = $derived(commitId ? commitId : defaultParentId!);
 
 	let composer: CommitMessageEditor | undefined = $state();
 
@@ -59,9 +48,15 @@
 	}
 
 	async function _createCommit(message: string) {
+		if (!branchName) {
+			throw new Error('No branch selected!');
+		}
+		if (!commitId) {
+			throw new Error('No commit selected!');
+		}
 		const response = await stackService.createCommit(projectId, {
 			stackId,
-			parentId,
+			parentId: commitId,
 			message: message,
 			stackBranchName: branchName,
 			worktreeChanges: selection.current.map((item) =>
@@ -81,20 +76,14 @@
 		}
 		const newId = response.data?.newCommit;
 		if (newId) {
-			goto(commitPath(projectId, { stackId, branchName, commitId: newId, upstream: false }));
+			uiState.project(projectId).drawerPage.set(undefined);
+			uiState.stack(stackId).selection.set({ branchName, commitId: newId });
 		}
 	}
 </script>
 
-<ResizeableSplitLayout {projectId}>
-	{#snippet main()}
-		<EditorHeader title="New commit" bind:markdown={$markdown} />
-		<CommitMessageEditor bind:this={composer} bind:markdown={$markdown} />
-		<EditorFooter onCancel={() => goto(stackPath(projectId, stackId))}>
-			<Button style="pop" onclick={createCommit} wide>Create commit</Button>
-		</EditorFooter>
-	{/snippet}
-	{#snippet right()}
-		<CommitGoesHere {projectId} {stackId} {branchName} {parentId} />
-	{/snippet}
-</ResizeableSplitLayout>
+<EditorHeader title="New commit" bind:markdown={$markdown} />
+<CommitMessageEditor bind:this={composer} bind:markdown={$markdown} />
+<EditorFooter onCancel={() => uiState.project(projectId).drawerPage.set(undefined)}>
+	<Button style="pop" onclick={createCommit} wide disabled={!canCommit}>Create commit</Button>
+</EditorFooter>

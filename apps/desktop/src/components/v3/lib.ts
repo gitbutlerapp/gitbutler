@@ -14,3 +14,7 @@ export function getColorFromBranchType(type: CommitStateType | 'Error'): string 
 export function isUpstreamCommit(commit: Commit | UpstreamCommit): commit is UpstreamCommit {
 	return !('state' in commit);
 }
+
+export function isLocalAndRemoteCommit(commit: Commit | UpstreamCommit): commit is Commit {
+	return 'state' in commit;
+}

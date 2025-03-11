@@ -13,11 +13,13 @@
 		projectId: string;
 		stackId: string;
 		branch: StackBranch;
+		selected: boolean;
 		isTopBranch: boolean;
 		readonly: boolean;
 		lineColor?: string;
 		children?: Snippet;
 		actions?: Snippet;
+		onclick: () => void;
 		onLabelDblClick?: () => void;
 	}
 
@@ -28,8 +30,10 @@
 		isTopBranch,
 		readonly,
 		lineColor,
+		selected,
 		children,
 		actions,
+		onclick,
 		onLabelDblClick
 	}: Props = $props();
 
@@ -54,13 +58,13 @@
 	}
 </script>
 
-<div class="branch-header">
+<div class="branch-header" class:selected>
 	{@render children?.()}
 	<ReduxResult result={topCommitResult}>
 		{#snippet children(commit)}
 			{@const branchType: CommitStateType = commit?.state.type ?? 'LocalOnly'}
 			{@const color = lineColor || getColorFromBranchType(branchType)}
-			<div class="first-row">
+			<div class="first-row" {onclick} role="button" onkeypress={onclick} tabindex="0">
 				<SeriesHeaderStatusIcon
 					lineTop={isTopBranch ? false : true}
 					icon={branchType === 'Integrated' ? 'tick-small' : 'branch-small'}
@@ -106,6 +110,7 @@
 		display: flex;
 		align-items: center;
 		flex-direction: column;
+		color: var(--clr-text-3);
 
 		&:hover,
 		&:focus-within {
@@ -113,6 +118,10 @@
 				--show: true;
 			}
 		}
+	}
+
+	.selected {
+		color: var(--clr-text-2);
 	}
 
 	.first-row {

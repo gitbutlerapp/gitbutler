@@ -54,6 +54,18 @@ export class StackService {
 		return result;
 	}
 
+	stackById(projectId: string, id: string) {
+		const result = $derived(
+			this.api.endpoints.stacks.useQuery(
+				{ projectId },
+				{
+					transform: (stacks) => stackSelectors.selectById(stacks, id)
+				}
+			)
+		);
+		return result;
+	}
+
 	// eslint-disable-next-line @typescript-eslint/promise-function-async
 	newStack(projectId: string, branch: CreateBranchRequest) {
 		const result = $derived(this.api.endpoints.createStack.useMutation({ projectId, branch }));
@@ -124,7 +136,11 @@ export class StackService {
 		const result = $derived(
 			this.api.endpoints.localAndRemoteCommits.useQuery(
 				{ projectId, stackId, branchName },
-				{ transform: (result) => commitSelectors.selectById(result, commitId) }
+				{
+					transform: (result) => {
+						return commitSelectors.selectById(result, commitId);
+					}
+				}
 			)
 		);
 		return result;
@@ -172,7 +188,22 @@ export class StackService {
 	}
 
 	commitChanges(projectId: string, commitId: string) {
-		const result = $derived(this.api.endpoints.commitChanges.useQuery({ projectId, commitId }));
+		const result = $derived(
+			this.api.endpoints.commitChanges.useQuery(
+				{ projectId, commitId },
+				{ transform: (result) => changesSelectors.selectAll(result) }
+			)
+		);
+		return result;
+	}
+
+	commitChange(projectId: string, commitId: string, path: string) {
+		const result = $derived(
+			this.api.endpoints.commitChanges.useQuery(
+				{ projectId, commitId },
+				{ transform: (result) => changesSelectors.selectById(result, path) }
+			)
+		);
 		return result;
 	}
 
@@ -286,12 +317,18 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commits]
 			}),
-			commitChanges: build.query<TreeChange[], { projectId: string; commitId: string }>({
+			commitChanges: build.query<
+				EntityState<TreeChange, string>,
+				{ projectId: string; commitId: string }
+			>({
 				query: ({ projectId, commitId }) => ({
 					command: 'changes_in_commit',
 					params: { projectId, commitId }
 				}),
-				providesTags: [ReduxTag.CommitChanges]
+				providesTags: [ReduxTag.CommitChanges],
+				transformResponse(changes: TreeChange[]) {
+					return changesAdapter.addMany(changesAdapter.getInitialState(), changes);
+				}
 			}),
 			updateCommitMessage: build.mutation<
 				void,
@@ -359,3 +396,9 @@ const upstreamCommitSelectors = {
 	...upstreamCommitAdapter.getSelectors(),
 	selectNth: createSelectNth<UpstreamCommit>()
 };
+
+const changesAdapter = createEntityAdapter<TreeChange, string>({
+	selectId: (change) => change.path
+});
+
+const changesSelectors = changesAdapter.getSelectors();

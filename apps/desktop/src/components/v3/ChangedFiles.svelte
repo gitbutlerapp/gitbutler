@@ -4,16 +4,15 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
-	import type { Commit } from '$lib/branches/v3';
 
 	interface Props {
 		projectId: string;
-		commit: Commit;
+		commitId: string;
 	}
 
-	const { projectId, commit }: Props = $props();
+	const { projectId, commitId }: Props = $props();
 	const [stackService] = inject(StackService);
-	const changesResult = $derived(stackService.commitChanges(projectId, commit.id));
+	const changesResult = $derived(stackService.commitChanges(projectId, commitId));
 </script>
 
 <div class="changed-files">
@@ -24,7 +23,7 @@
 				<Badge>{changes.length}</Badge>
 			</div>
 			{#if changes.length > 0}
-				<FileList {projectId} {changes} />
+				<FileList {projectId} {changes} {commitId} />
 			{:else}
 				<div class="text-12 text-body helper-text">(no changed files)</div>
 			{/if}

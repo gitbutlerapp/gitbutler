@@ -1,152 +1,58 @@
 <script lang="ts">
-	import BranchCommitList from './BranchCommitList.svelte';
-	import BranchHeader from './BranchHeader.svelte';
-	import CommitRow from './CommitRow.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { createCommitPath } from '$lib/routes/routes.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
-	import { goto } from '$app/navigation';
 
 	type Props = {
-		projectId: string;
-		stackId: string;
-		branchName: string;
-		parentId: string;
+		commitId: string;
+		first: boolean;
+		last: boolean;
+		selected: boolean;
+		onclick: () => void;
 	};
 
-	const { projectId, stackId, branchName, parentId }: Props = $props();
-	const [stackService, baseBranchService] = inject(StackService, BaseBranchService);
-
-	const branchesResult = $derived(stackService.branches(projectId, stackId));
-	const baseBranch = $derived(baseBranchService.base);
+	const { commitId, first, last, selected, onclick }: Props = $props();
 </script>
 
-{#snippet indicator(args?: { last?: boolean; first?: boolean })}
+{#snippet indicator(args?: { last: boolean; first: boolean })}
 	<div class="indicator" class:first={args?.first} class:last={args?.last}>
 		<div class="pin">
 			<div class="pin__line"></div>
 			<div class="pin__circle"></div>
 		</div>
 		<div>
-			<Badge size="tag" style="pop">Your commit goes here</Badge>
+			<Badge size="tag" style="pop">Your commit goes here {last}</Badge>
 		</div>
 	</div>
 {/snippet}
 {#snippet commitHere(args: { commitId: string; last?: boolean })}
-	<button
-		class="commit-here"
-		type="button"
-		class:last={args.last}
-		onclick={() => goto(createCommitPath(projectId, stackId, branchName, args.commitId))}
-	>
+	<button class="commit-here" type="button" class:last={args.last} {onclick}>
 		<div class="commit-here__circle"></div>
 		<div class="commit-here__line"></div>
 		<div class="commit-here__label text-11 text-semibold">Commit here</div>
 	</button>
 {/snippet}
-<div class="commit-goes-here">
-	<ReduxResult result={branchesResult.current}>
-		{#snippet children(branches)}
-			{#each branches as branch, i}
-				{@const lastBranch = i === branches.length - 1}
-				<div class="branch" class:selected={branch.name === branchName}>
-					<div class="header-wrapper">
-						<BranchHeader
-							{projectId}
-							{stackId}
-							{branch}
-							isTopBranch={i === 0}
-							lineColor="var(--clr-commit-local)"
-							readonly
-						/>
-					</div>
-					<BranchCommitList
-						{projectId}
-						{stackId}
-						branchName={branch.name}
-						selectedCommitId={parentId}
-					>
-						{#snippet localAndRemoteTemplate({
-							commit,
-							commitKey,
-							first,
-							lastCommit: last,
-							selected
-						})}
-							{@const baseSha = $baseBranch?.baseSha}
-							{#if selected}
-								{@render indicator({ first })}
-							{/if}
-							<div class="commit-wrapper" class:last>
-								{#if !selected}
-									{@render commitHere({ commitId: commit.id })}
-								{/if}
-								<CommitRow
-									{projectId}
-									{commitKey}
-									{first}
-									{commit}
-									{stackId}
-									{branchName}
-									lastCommit={last}
-									lineColor="var(--clr-commit-local)"
-									opacity={0.4}
-									borderTop={selected}
-									href={createCommitPath(projectId, stackId, branchName, commit.id)}
-								/>
-								{#if lastBranch && last && baseSha && parentId !== baseSha}
-									{@render commitHere({ commitId: baseSha, last: true })}
-								{/if}
-							</div>
-							{#if lastBranch && last && parentId === baseSha}
-								{@render indicator({ last: true })}
-							{/if}
-						{/snippet}
-					</BranchCommitList>
-				</div>
-			{/each}
-		{/snippet}
-	</ReduxResult>
-</div>
+
+{#if selected}
+	{@render indicator({ first, last })}
+{/if}
+{#if !selected}
+	{@render commitHere({ commitId })}
+{/if}
 
 <style lang="postcss">
-	.commit-goes-here {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.branch {
-		display: flex;
-		flex-direction: column;
-		margin-bottom: 14px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-l);
-		background-color: var(--clr-bg-2);
-		&.selected {
-			background-color: var(--clr-bg-1);
-		}
-	}
-	.header-wrapper {
-		opacity: 0.4;
-	}
-	.selected .header-wrapper {
-		opacity: 1;
-	}
 	.indicator {
 		padding: 12px 0;
 		display: flex;
 		gap: 12px;
 		align-items: center;
 		background-color: var(--clr-bg-1);
-		&.first,
-		&.last {
+		border-bottom: 1px solid var(--clr-border-2);
+		&.first {
 			border-top: 1px solid var(--clr-border-2);
 		}
 		&.last {
+			border-top: 1px solid var(--clr-border-2);
 			border-bottom: none;
+			border-radius: 0 0 var(--radius-l) var(--radius-l);
 		}
 	}
 	.pin {
@@ -168,22 +74,14 @@
 		height: 10px;
 		outline: 2px solid var(--clr-theme-pop-element);
 	}
-	.commit-wrapper {
-		position: relative;
-		display: flex;
-		width: 100%;
-		background-color: var(--clr-bg-2);
-		&.last {
-			border-radius: 0 0 var(--radius-l) var(--radius-l);
-		}
-	}
 
 	/* COMMIT HERE */
 	.commit-here {
 		width: 100%;
-		position: absolute;
-		height: 100%;
-		top: -50%;
+		position: relative;
+		height: 20px;
+		margin-top: -10px;
+		margin-bottom: -10px;
 		display: flex;
 		align-items: center;
 		opacity: 0;
@@ -192,8 +90,6 @@
 			opacity: 1;
 		}
 		&.last {
-			bottom: -50%;
-			top: unset;
 		}
 	}
 	.commit-here__circle {

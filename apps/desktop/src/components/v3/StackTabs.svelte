@@ -3,24 +3,21 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import StackTab from '$components/v3/StackTab.svelte';
 	import StackTabNew from '$components/v3/StackTabNew.svelte';
-	import { toggleBoolQueryParam, stackPath } from '$lib/routes/routes.svelte';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { stackPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
-	import { page } from '$app/state';
 
 	type Props = {
 		projectId: string;
 		selectedId?: string;
-		previewing: boolean;
+		previewing?: boolean;
 		width: number | undefined;
 	};
 	let { projectId, selectedId, width = $bindable() }: Props = $props();
 
-	const [stackService, idSelection] = inject(StackService, IdSelection);
+	const [stackService] = inject(StackService);
 	const result = $derived(stackService.stacks(projectId));
-	const selection = $derived(idSelection.values());
 
 	let tabs = $state<HTMLDivElement>();
 	let scroller = $state<HTMLDivElement>();
@@ -51,14 +48,6 @@
 <div class="tabs" bind:this={tabs}>
 	<div class="inner">
 		<div class="scroller" bind:this={scroller} class:scrolled {onscroll}>
-			{#if selection.length > 0}
-				<StackTab
-					href={toggleBoolQueryParam('preview')}
-					name="Preview"
-					first
-					selected={page.url.searchParams.has('preview')}
-				/>
-			{/if}
 			<ReduxResult result={result.current}>
 				{#snippet children(result)}
 					{#if result.length > 0}

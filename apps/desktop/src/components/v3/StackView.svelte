@@ -1,24 +1,23 @@
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import BranchList from '$components/v3/BranchList.svelte';
-	import ResizeableSplitLayout from '$components/v3/ResizeableSplitLayout.svelte';
-	import type { Snippet } from 'svelte';
 
 	interface Props {
 		projectId: string;
 		stackId: string;
-		selectedBranchName: string;
-		selectedCommitId?: string;
-		children: Snippet;
 	}
 
-	const { stackId, projectId, selectedBranchName, selectedCommitId, children }: Props = $props();
+	const { stackId, projectId }: Props = $props();
 </script>
 
-<ResizeableSplitLayout {projectId}>
-	{#snippet left()}
-		<BranchList {projectId} {stackId} {selectedBranchName} {selectedCommitId} />
-	{/snippet}
-	{#snippet main()}
-		{@render children()}
-	{/snippet}
-</ResizeableSplitLayout>
+<ConfigurableScrollableContainer wide>
+	<div class="inner">
+		<BranchList {projectId} {stackId} />
+	</div>
+</ConfigurableScrollableContainer>
+
+<style>
+	.inner {
+		padding: 14px;
+	}
+</style>
