@@ -16,19 +16,59 @@ import {
 	TableNode,
 	TableCellNode,
 	TableRowNode,
-	type EditorThemeClasses
+	type EditorThemeClasses,
+	$createParagraphNode,
+	$createTextNode,
+	$getRoot
 } from 'svelte-lexical';
+import type {
+	EditorState,
+	HTMLConfig,
+	Klass,
+	LexicalEditor,
+	LexicalNode,
+	LexicalNodeReplacement
+} from 'lexical';
+
+export type InitialEditorStateType =
+	| null
+	| string
+	| EditorState
+	| ((editor: LexicalEditor) => void);
+
+export type InitialConfigType = Readonly<{
+	editor__DEPRECATED?: LexicalEditor | null;
+	namespace: string;
+	nodes?: ReadonlyArray<Klass<LexicalNode> | LexicalNodeReplacement>;
+	onError: (error: Error, editor: LexicalEditor) => void;
+	editable?: boolean;
+	theme?: EditorThemeClasses;
+	editorState?: InitialEditorStateType;
+	html?: HTMLConfig;
+}>;
 
 export function standardConfig(args: {
+	initialText?: string;
 	namespace: string;
 	theme: EditorThemeClasses;
 	onError: (error: unknown) => void;
-}) {
-	const { namespace, theme, onError } = args;
+}): InitialConfigType {
+	const { namespace, theme, onError, initialText } = args;
 	return {
 		theme,
 		namespace,
 		onError,
+		editorState: (editor) => {
+			if (initialText) {
+				editor.update(() => {
+					const paragraph = $createParagraphNode();
+					const text = $createTextNode(initialText);
+					paragraph.append(text);
+					$getRoot().append(paragraph);
+					$getRoot().selectEnd();
+				});
+			}
+		},
 		nodes: [
 			LinkNode,
 			AutoLinkNode,

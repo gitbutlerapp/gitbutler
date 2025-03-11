@@ -38,6 +38,7 @@
 		placeholder?: string;
 		onChange?: (text: string) => void;
 		onKeyDown?: (event: KeyboardEvent | null) => boolean;
+		initialText?: string;
 	};
 
 	const {
@@ -49,11 +50,13 @@
 		plugins,
 		placeholder,
 		onChange,
-		onKeyDown
+		onKeyDown,
+		initialText
 	}: Props = $props();
 
 	/** Standard configuration for our commit message editor. */
 	const initialConfig = standardConfig({
+		initialText,
 		namespace,
 		theme: standardTheme,
 		onError
