@@ -4,6 +4,12 @@
 	export function getHunkLineId(rowEncodedId: DiffFileLineId): string {
 		return `hunk-line-${rowEncodedId}`;
 	}
+
+	export type ContextMenuParams = {
+		event: MouseEvent;
+		beforeLineNumber: number | undefined;
+		afterLineNumber: number | undefined;
+	};
 </script>
 
 <script lang="ts">
@@ -34,6 +40,7 @@
 		hoveringOverTable: boolean;
 		staged?: boolean;
 		onToggleStage?: () => void;
+		handleLineContextMenu?: (params: ContextMenuParams) => void;
 	}
 
 	const {
@@ -50,7 +57,8 @@
 		onCopySelection,
 		hoveringOverTable,
 		staged,
-		onToggleStage
+		onToggleStage,
+		handleLineContextMenu
 	}: Props = $props();
 
 	const touchDevice = isTouchDevice();
@@ -166,6 +174,15 @@
 		class:is-last={row.isLast}
 		onclick={() => {
 			if (!row.isSelected) clearLineSelection?.();
+		}}
+		oncontextmenu={(ev) => {
+			ev.preventDefault();
+			ev.stopPropagation();
+			handleLineContextMenu?.({
+				event: ev,
+				beforeLineNumber: row.beforeLineNumber,
+				afterLineNumber: row.afterLineNumber
+			});
 		}}
 	>
 		<div class="table__row-header">
