@@ -164,7 +164,7 @@
 
 	async function editPatch() {
 		if (!canEdit()) return;
-		modeService!.enterEditMode(commit.id, branch!.refname);
+		modeService!.enterEditMode(commit.id, branch!.id);
 	}
 
 	async function handleEditPatch() {
