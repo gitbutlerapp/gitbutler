@@ -123,7 +123,7 @@ export class AIService {
 	async getOpenAIModleName() {
 		return await this.gitConfig.getWithDefault<OpenAIModelName>(
 			GitAIConfigKey.OpenAIModelName,
-			OpenAIModelName.GPT35Turbo
+			OpenAIModelName.GPT4oMini
 		);
 	}
 

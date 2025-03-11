@@ -82,20 +82,12 @@
 
 	const openAIModelOptions = [
 		{
-			label: 'GPT 3.5 Turbo',
-			value: OpenAIModelName.GPT35Turbo
+			label: 'o3 Mini',
+			value: OpenAIModelName.O3mini
 		},
 		{
-			label: 'GPT 4',
-			value: OpenAIModelName.GPT4
-		},
-		{
-			label: 'GPT 4 Turbo',
-			value: OpenAIModelName.GPT4Turbo
-		},
-		{
-			label: 'GPT 4o',
-			value: OpenAIModelName.GPT4o
+			label: 'o1 Mini',
+			value: OpenAIModelName.O1mini
 		},
 		{
 			label: 'GPT 4o mini (recommended)',
