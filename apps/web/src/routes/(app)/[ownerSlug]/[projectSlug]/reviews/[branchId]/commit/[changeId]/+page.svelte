@@ -18,7 +18,6 @@
 	import { combine, isFound, map } from '@gitbutler/shared/network/loadable';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
-	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
 	import { getPatch } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
@@ -40,7 +39,6 @@
 	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
 	const latestBranchLookupService = getContext(LatestBranchLookupService);
 	const branchService = getContext(BranchService);
-	const patchCommitService = getContext(PatchCommitService);
 	const appState = getContext(AppState);
 	const routes = getContext(WebRoutesService);
 	const userService = getContext(UserService);
@@ -76,7 +74,7 @@
 
 	const patchCommit = $derived(
 		map(branchUuid?.current, (branchUuid) => {
-			return getPatch(appState, patchCommitService, branchUuid, data.changeId);
+			return getPatch(branchUuid, data.changeId);
 		})
 	);
 

@@ -1,7 +1,10 @@
 <script lang="ts">
+	import { setAfterVersion, setBeforeVersion } from '$lib/interdiffRangeQuery.svelte';
 	import { eventTimeStamp, getMultipleContributorNames } from '@gitbutler/shared/branches/utils';
 	import { getPatchContributorsWithAvatars } from '@gitbutler/shared/contributors';
+	import { isFound } from '@gitbutler/shared/network/loadable';
 	import { type PatchVersionEvent } from '@gitbutler/shared/patchEvents/types';
+	import { getPatch } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 
@@ -17,10 +20,15 @@
 	const authorAvatars = $derived(getPatchContributorsWithAvatars(patch));
 
 	const timestamp = $derived(eventTimeStamp(event));
+	const latestPatchCommit = $derived(getPatch(patch.branchUuid, patch.changeId));
 
-	function viewInterdiff() {
-		if (!patch.version) return;
-		// TODO: change query string thing
+	// NOTE: Because this is working with the query params this MUST NOT be
+	// called if the `<ReviewSections>` of a different patchComit are currently
+	// displayed. Doing so will cause it to show a potentially broken range.
+	async function viewInterdiff() {
+		if (!isFound(latestPatchCommit.current)) return;
+		await setBeforeVersion(patch.version - 1);
+		await setAfterVersion(latestPatchCommit.current.value.version, patch.version);
 	}
 </script>
 

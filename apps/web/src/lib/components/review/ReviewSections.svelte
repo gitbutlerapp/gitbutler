@@ -1,5 +1,16 @@
 <script lang="ts">
+	/**
+	 * NOTE: This component MOST only ever be rendered ONCE on the page at one
+	 * time. This is because it is working directly with the query paramaters
+	 * and has no idea if it will conflict or not.
+	 */
 	import SectionComponent from './Section.svelte';
+	import {
+		setBeforeVersion,
+		setAfterVersion,
+		getBeforeVersion,
+		getAfterVersion
+	} from '$lib/interdiffRangeQuery.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
@@ -51,7 +62,7 @@
 		if (!isDefined(patchCommit.version)) return out;
 
 		for (let i = 1; i <= patchCommit.version; ++i) {
-			const last = i + 1 === patchCommit.version;
+			const last = i === patchCommit.version;
 
 			out.push({
 				value: i.toString(),
@@ -65,8 +76,8 @@
 	const beforeOptions = $derived(allOptions.slice(0, -1));
 	const afterOptions = $derived(allOptions.slice(1));
 
-	const selectedAfter = -1;
-	const selectedBefore = $derived(patchCommit.version || 1);
+	const selectedBefore = $derived(getBeforeVersion().current);
+	const selectedAfter = $derived(getAfterVersion(patchCommit.version).current);
 
 	const patchSections = $derived(
 		isDefined(selectedAfter)
@@ -78,6 +89,15 @@
 				)
 			: undefined
 	);
+
+	const interdiffActive = $derived(selectedBefore !== -1 || selectedAfter !== patchCommit.version);
+
+	$effect(() => {
+		// If the user starts to view an interdiff range, open the interdiff bar
+		if (interdiffActive) {
+			isInterdiffBarVisible = true;
+		}
+	});
 </script>
 
 <div class="review-sections-card" style:--commit-header-height="{commitPageHeaderHeight}px">
@@ -94,7 +114,7 @@
 			</div>
 			<div class="review-sections-statistics__actions">
 				<div class="review-sections-statistics__actions__interdiff">
-					{#if !true}
+					{#if interdiffActive}
 						<div class="review-sections-statistics__actions__interdiff-changed"></div>
 					{/if}
 					<Button
@@ -117,8 +137,8 @@
 					searchable
 					options={beforeOptions}
 					value={selectedBefore.toString()}
-					onselect={(_value) => {
-						// TODO: selection
+					onselect={(value) => {
+						setBeforeVersion(parseInt(value));
 					}}
 					autoWidth
 					popupAlign="right"
@@ -146,8 +166,8 @@
 					searchable
 					options={afterOptions}
 					value={selectedAfter.toString()}
-					onselect={(_value) => {
-						// TODO: selection
+					onselect={(value) => {
+						setAfterVersion(patchCommit.version, parseInt(value));
 					}}
 					autoWidth
 					popupAlign="right"
@@ -169,14 +189,15 @@
 					{/snippet}
 				</Select>
 
-				{#if !true}
+				{#if interdiffActive}
 					<Button
 						kind="ghost"
 						icon="undo-small"
 						size="tag"
 						tooltip="Reset to initial selection"
-						onclick={() => {
-							// TODO: Rest selection
+						onclick={async () => {
+							await setBeforeVersion(-1);
+							await setAfterVersion(patchCommit.version, patchCommit.version);
 						}}
 					>
 						Reset

@@ -8,10 +8,8 @@
 	} from '@gitbutler/shared/contributors';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';
-	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
 	import { getPatch } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import { getPatchStatus } from '@gitbutler/shared/patches/types';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		WebRoutesService,
 		type ProjectReviewParameters
@@ -30,11 +28,9 @@
 
 	const { changeId, params, branchUuid }: Props = $props();
 
-	const appState = getContext(AppState);
-	const patchService = getContext(PatchCommitService);
 	const routes = getContext(WebRoutesService);
 
-	const change = $derived(getPatch(appState, patchService, branchUuid, changeId));
+	const change = $derived(getPatch(branchUuid, changeId));
 	let contributors = $state<Array<{ srcUrl: string; name: string }>>([]);
 	let approvers = $state<Array<{ srcUrl: string; name: string }>>([]);
 	let rejectors = $state<Array<{ srcUrl: string; name: string }>>([]);

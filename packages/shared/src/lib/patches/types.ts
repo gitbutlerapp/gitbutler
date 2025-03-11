@@ -179,7 +179,7 @@ export type ApiPatchCommit = ApiBasePatch & {
 	title: string | undefined;
 	description: string | undefined;
 	position: number | undefined;
-	version: number | undefined;
+	version: number;
 	comment_count: number;
 	contributors: ApiUserMaybe[];
 	review: ApiPatchReview;
@@ -215,7 +215,7 @@ export type PatchCommit = BasePatch & {
 	title: string | undefined;
 	description: string | undefined;
 	position: number | undefined;
-	version: number | undefined;
+	version: number;
 	commentCount: number;
 	contributors: UserMaybe[];
 	review: PatchReview;
