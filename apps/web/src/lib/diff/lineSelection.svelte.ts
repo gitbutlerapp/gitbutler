@@ -191,7 +191,6 @@ export default class DiffLineSelection {
 	}
 
 	get selectedLines() {
-		if (this._quote) return [];
 		return this._selectedLines;
 	}
 
