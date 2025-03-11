@@ -14,6 +14,7 @@
 		type LineSelector,
 		parseHunk
 	} from '$lib/utils/diffParsing';
+	import type { ContextMenuParams } from './hunkDiff/HunkDiffRow.svelte';
 	interface Props {
 		filePath: string;
 		hunkStr: string;
@@ -33,6 +34,7 @@
 		clearLineSelection?: (fileName: string) => void;
 		onQuoteSelection?: () => void;
 		onCopySelection?: (contentSections: ContentSection[]) => void;
+		handleLineContextMenu?: (params: ContextMenuParams) => void;
 	}
 
 	const {
@@ -53,7 +55,8 @@
 		onLineClick,
 		clearLineSelection,
 		onCopySelection,
-		onQuoteSelection
+		onQuoteSelection,
+		handleLineContextMenu
 	}: Props = $props();
 
 	const BORDER_WIDTH = 1;
@@ -155,6 +158,7 @@
 				{onQuoteSelection}
 				{staged}
 				onToggleStage={() => onChangeStage?.(!staged)}
+				{handleLineContextMenu}
 			/>
 		{/if}
 	</table>

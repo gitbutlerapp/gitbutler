@@ -1,8 +1,10 @@
 <script lang="ts">
+	import HunkContextMenu from './HunkContextMenu.svelte';
 	import ReduxResult from '../ReduxResult.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { Project } from '$lib/project/project';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { getContext, inject } from '@gitbutler/shared/context';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { DiffHunk } from '$lib/hunks/hunk';
@@ -14,6 +16,10 @@
 	};
 
 	const { projectId, selectable = false, change }: Props = $props();
+	const project = getContext(Project);
+	let contextMenu = $state<ReturnType<typeof HunkContextMenu>>();
+	let viewport = $state<HTMLDivElement>();
+
 	const [diffService, changeSelection] = inject(DiffService, ChangeSelectionService);
 	const diffResult = $derived(diffService.getDiff(projectId, change));
 
@@ -23,7 +29,7 @@
 		pathBytes: change!.pathBytes
 	});
 
-	function onchange(hunk: DiffHunk, selected: boolean, allHunks: DiffHunk[]) {
+	function stage(hunk: DiffHunk, selected: boolean, allHunks: DiffHunk[]) {
 		if (selection) {
 			if (selection.type === 'full') {
 				if (selected) {
@@ -84,7 +90,15 @@
 	}
 </script>
 
-<div class="diff-section">
+<HunkContextMenu
+	bind:this={contextMenu}
+	trigger={viewport}
+	projectPath={project.vscodePath}
+	filePath={change.path}
+	readonly={false}
+/>
+
+<div class="diff-section" bind:this={viewport}>
 	<ReduxResult result={diffResult.current}>
 		{#snippet children(diff)}
 			{#if diff.type === 'Patch'}
@@ -100,7 +114,14 @@
 								: false
 							: undefined}
 						onChangeStage={(selected) => {
-							onchange(hunk, selected, diff.subject.hunks);
+							stage(hunk, selected, diff.subject.hunks);
+						}}
+						handleLineContextMenu={(params) => {
+							contextMenu?.open(params.event, {
+								hunk,
+								beforeLineNumber: params.beforeLineNumber,
+								afterLineNumber: params.afterLineNumber
+							});
 						}}
 					/>
 				{:else}

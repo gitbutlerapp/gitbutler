@@ -93,11 +93,29 @@ export type DiffHunk = HunkHeader & {
 	 * Note that the file-portion of the header isn't used here.
 	 */
 	readonly diff: string;
-}; /**
+};
+
+export function isDiffHunk(something: unknown): something is DiffHunk {
+	return (
+		typeof something === 'object' &&
+		something !== null &&
+		'oldStart' in something &&
+		typeof (something as any).oldStart === 'number' &&
+		'oldLines' in something &&
+		typeof (something as any).oldLines === 'number' &&
+		'newStart' in something &&
+		typeof (something as any).newStart === 'number' &&
+		'newLines' in something &&
+		typeof (something as any).newLines === 'number' &&
+		'diff' in something &&
+		typeof (something as any).diff === 'string'
+	);
+}
+
+/**
  * A patch that if applied to the previous state of the resource would yield the current state.
  * Includes all non-overlapping hunks, including their context lines.
  */
-
 export type Patch = {
 	/** All non-overlapping hunks, including their context lines. */
 	readonly hunks: DiffHunk[];
