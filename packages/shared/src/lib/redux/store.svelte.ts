@@ -6,6 +6,8 @@ import { feedsReducer } from '$lib/feeds/feedsSlice';
 import { postsReducer } from '$lib/feeds/postsSlice';
 import { organizationsReducer } from '$lib/organizations/organizationsSlice';
 import { projectsReducer } from '$lib/organizations/projectsSlice';
+import { recentlyInteractedProjectIdsReducer } from '$lib/organizations/recentlyInteractedProjectIds';
+import { recentlyPushedProjectIdsReducer } from '$lib/organizations/recentlyPushedProjectIds';
 import { repositoryIdLookupsReducer } from '$lib/organizations/repositoryIdLookupsSlice';
 import { patchEventsReducer } from '$lib/patchEvents/patchEventsSlice';
 import { patchCommitsReducer } from '$lib/patches/patchCommitsSlice';
@@ -85,6 +87,14 @@ export type AppPatchIdablesState = {
 	readonly patchIdables: ReturnType<typeof patchIdablesReducer>;
 };
 
+export type AppRecentlyInteractedProjectIds = {
+	readonly recentlyInteractedProjectIds: ReturnType<typeof recentlyInteractedProjectIdsReducer>;
+};
+
+export type AppRecentlyPushedProjectIds = {
+	readonly recentlyPushedProjectIds: ReturnType<typeof recentlyPushedProjectIdsReducer>;
+};
+
 export class AppDispatch {
 	constructor(readonly dispatch: typeof AppState.prototype._store.dispatch) {}
 }
@@ -106,7 +116,9 @@ export class AppState
 		AppLatestBranchLookupsState,
 		AppBranchReviewListingsState,
 		AppNotificationSettingsState,
-		AppPatchIdablesState
+		AppPatchIdablesState,
+		AppRecentlyInteractedProjectIds,
+		AppRecentlyPushedProjectIds
 {
 	/**
 	 * The base store.
@@ -132,7 +144,9 @@ export class AppState
 			latestBranchLookups: latestBranchLookupsReducer,
 			branchReviewListings: branchReviewListingsReducer,
 			notificationSettings: notificationSettingsReducer,
-			patchIdables: patchIdablesReducer
+			patchIdables: patchIdablesReducer,
+			recentlyInteractedProjectIds: recentlyInteractedProjectIdsReducer,
+			recentlyPushedProjectIds: recentlyPushedProjectIdsReducer
 		}
 	});
 
@@ -206,6 +220,14 @@ export class AppState
 		[this.selectSelf],
 		(rootState) => rootState.patchIdables
 	);
+	private readonly selectRecentlyInteractedProjectIds = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.recentlyInteractedProjectIds
+	);
+	private readonly selectRecentlyPushedProjectIds = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.recentlyPushedProjectIds
+	);
 
 	readonly example = $derived(this.selectExample(this.rootState));
 	readonly posts = $derived(this.selectPosts(this.rootState));
@@ -224,6 +246,10 @@ export class AppState
 	readonly branchReviewListings = $derived(this.selectBranchReviewListings(this.rootState));
 	readonly notificationSettings = $derived(this.selectNotificationSettings(this.rootState));
 	readonly patchIdables = $derived(this.selectPatchIdables(this.rootState));
+	readonly recentlyInteractedProjectIds = $derived(
+		this.selectRecentlyInteractedProjectIds(this.rootState)
+	);
+	readonly recentlyPushedProjectIds = $derived(this.selectRecentlyPushedProjectIds(this.rootState));
 
 	constructor() {
 		$effect(() => {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import DashboardSidebarProjects from '$lib/components/dashboard/DashboardSidebarProjects.svelte';
+	import DashboardSidebarReviews from '$lib/components/dashboard/DashboardSidebarReviews.svelte';
 	import { dashboardSidebarSetTab, type SidebarTab } from '$lib/dashboard/sidebar.svelte';
 	import { WebState } from '$lib/redux/store.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -34,6 +35,8 @@
 	<div class="content">
 		{#if currentTab === 'projects'}
 			<DashboardSidebarProjects />
+		{:else if currentTab === 'reviews'}
+			<DashboardSidebarReviews />
 		{/if}
 	</div>
 </div>

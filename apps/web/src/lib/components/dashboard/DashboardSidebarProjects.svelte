@@ -6,7 +6,10 @@
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { getOrganizations } from '@gitbutler/shared/organizations/organizationsPreview.svelte';
-	import { getAllUserProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
+	import {
+		getAllUserProjects,
+		getRecentlyPushedProjects
+	} from '@gitbutler/shared/organizations/projectsPreview.svelte';
 
 	const webState = getContext(WebState);
 	const organizationService = getContext(OrganizationService);
@@ -15,15 +18,31 @@
 	const user = $derived(userService.user);
 	const username = $derived($user?.login);
 
-	const userProjects = $derived(username !== undefined ? getAllUserProjects(username) : undefined);
-
 	const organizations = getOrganizations(webState, organizationService);
+
+	const recentProjects = getRecentlyPushedProjects();
+	const latestRecentProjects = $derived(recentProjects.current.slice(0, 3));
+	const userProjects = $derived(username !== undefined ? getAllUserProjects(username) : undefined);
+	const filtedUserProjects = $derived(
+		(userProjects?.current || []).filter((project) =>
+			latestRecentProjects.every((recentProject) => recentProject.id !== project.id)
+		)
+	);
 </script>
+
+{#if recentProjects.current.length > 0}
+	<div class="group">
+		<p class="text-13 text-bold title">Recent projects</p>
+		{#each latestRecentProjects as project}
+			<DashboardSidebarProject repositoryId={project.id} showOwner />
+		{/each}
+	</div>
+{/if}
 
 <div class="group">
 	<p class="text-13 text-bold title">{username}</p>
-	{#each userProjects?.current || [] as project}
-		<DashboardSidebarProject repositoryId={project.id} />
+	{#each filtedUserProjects as project}
+		<DashboardSidebarProject repositoryId={project.id} inRecentSection={false} />
 	{/each}
 </div>
 
@@ -33,7 +52,7 @@
 			{#snippet children(organization)}
 				<p class="text-13 text-bold title">{organization.name}</p>
 				{#each organization.projectRepositoryIds || [] as repositoryId}
-					<DashboardSidebarProject {repositoryId} />
+					<DashboardSidebarProject {repositoryId} inRecentSection={false} />
 				{/each}
 			{/snippet}
 		</Loading>

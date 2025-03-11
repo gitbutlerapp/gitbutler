@@ -6,6 +6,8 @@ import {
 	upsertProject,
 	upsertProjects
 } from '$lib/organizations/projectsSlice';
+import { updateRecentlyInteractedProjectIds } from '$lib/organizations/recentlyInteractedProjectIds';
+import { updateRecentlyPushedProjectIds } from '$lib/organizations/recentlyPushedProjectIds';
 import {
 	type ApiProject,
 	apiToProject,
@@ -43,6 +45,12 @@ function toApiUpdateParams(real: UpdateParams): ApiUpdateParams {
 export class ProjectService {
 	private readonly projectInterests = new InterestStore<{ repositoryId: string }>(POLLING_REGULAR);
 	private readonly userProjectsInterests = new InterestStore<{ unused: 'unused' }>(
+		POLLING_GLACIALLY
+	);
+	private readonly recentProjectsInterests = new InterestStore<{ unused: 'unused' }>(
+		POLLING_GLACIALLY
+	);
+	private readonly recentlyPushedProjectsInterests = new InterestStore<{ unused: 'unused' }>(
 		POLLING_GLACIALLY
 	);
 
@@ -95,6 +103,44 @@ export class ProjectService {
 				}));
 
 				this.appDispatch.dispatch(upsertProjects(projects));
+			})
+			.createInterest();
+	}
+
+	getRecentProjectsInterest(): Interest {
+		return this.recentProjectsInterests
+			.findOrCreateSubscribable({ unused: 'unused' }, async () => {
+				const apiProjects = await this.httpClient.get<ApiProject[]>('projects/recently_interacted');
+
+				const projects: LoadableProject[] = apiProjects.map((apiProject) => ({
+					status: 'found',
+					id: apiProject.repository_id,
+					value: apiToProject(apiProject)
+				}));
+
+				this.appDispatch.dispatch(upsertProjects(projects));
+				this.appDispatch.dispatch(
+					updateRecentlyInteractedProjectIds(projects.map((project) => project.id))
+				);
+			})
+			.createInterest();
+	}
+
+	getRecentlyPushedProjectsInterest(): Interest {
+		return this.recentlyPushedProjectsInterests
+			.findOrCreateSubscribable({ unused: 'unused' }, async () => {
+				const apiProjects = await this.httpClient.get<ApiProject[]>('projects/recently_pushed');
+
+				const projects: LoadableProject[] = apiProjects.map((apiProject) => ({
+					status: 'found',
+					id: apiProject.repository_id,
+					value: apiToProject(apiProject)
+				}));
+
+				this.appDispatch.dispatch(upsertProjects(projects));
+				this.appDispatch.dispatch(
+					updateRecentlyPushedProjectIds(projects.map((project) => project.id))
+				);
 			})
 			.createInterest();
 	}

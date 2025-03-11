@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
+	import { isFound } from '@gitbutler/shared/network/loadable';
+	import {
+		getProjectByRepositoryId,
+		getRecentlyPushedProjects
+	} from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { goto } from '$app/navigation';
@@ -9,14 +13,32 @@
 	type Props = {
 		showOwner?: boolean;
 		repositoryId: string;
+		inRecentSection?: boolean;
 	};
 
-	const { showOwner = false, repositoryId }: Props = $props();
+	const { showOwner = false, repositoryId, inRecentSection = true }: Props = $props();
 
 	const routes = getContext(WebRoutesService);
 
 	const project = $derived(getProjectByRepositoryId(repositoryId));
 	const projectPageParams = $derived(routes.isProjectPageSubset);
+
+	const recentProjects = getRecentlyPushedProjects();
+	const focused = $derived.by(() => {
+		if (!projectPageParams) return false;
+		if (!isFound(project.current)) return;
+		const projectIsRecentlyPushed = recentProjects.current.some(
+			(recentProject) => recentProject.id === repositoryId
+		);
+		const sectionIsSelected =
+			projectPageParams.ownerSlug === project.current.value.owner &&
+			projectPageParams.projectSlug === project.current.value.slug;
+
+		if (projectIsRecentlyPushed && inRecentSection && sectionIsSelected) return true;
+		if (projectIsRecentlyPushed && !inRecentSection && sectionIsSelected) return false;
+
+		return sectionIsSelected;
+	});
 </script>
 
 <Loading loadable={project.current}>
@@ -25,16 +47,14 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<div
 			class="project"
-			class:current={projectPageParams &&
-				projectPageParams.ownerSlug === project.owner &&
-				projectPageParams.projectSlug === project.slug}
+			class:current={focused}
 			onclick={() => {
 				goto(routes.projectReviewPath({ ownerSlug: project.owner, projectSlug: project.slug }));
 			}}
 		>
 			<div class="pip"></div>
 			<div class="link-container">
-				<p class="text-13">{showOwner ? `${project.owner}` : `${project.slug}`}</p>
+				<p class="text-13">{showOwner ? `${project.owner}/${project.slug}` : `${project.slug}`}</p>
 				<div class="icon">
 					<Icon name="chevron-right"></Icon>
 				</div>

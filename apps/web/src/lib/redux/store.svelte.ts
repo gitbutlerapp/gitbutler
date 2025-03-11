@@ -7,6 +7,8 @@ import { feedsReducer } from '@gitbutler/shared/feeds/feedsSlice';
 import { postsReducer } from '@gitbutler/shared/feeds/postsSlice';
 import { organizationsReducer } from '@gitbutler/shared/organizations/organizationsSlice';
 import { projectsReducer } from '@gitbutler/shared/organizations/projectsSlice';
+import { recentlyInteractedProjectIdsReducer } from '@gitbutler/shared/organizations/recentlyInteractedProjectIds';
+import { recentlyPushedProjectIdsReducer } from '@gitbutler/shared/organizations/recentlyPushedProjectIds';
 import { repositoryIdLookupsReducer } from '@gitbutler/shared/organizations/repositoryIdLookupsSlice';
 import { patchEventsReducer } from '@gitbutler/shared/patchEvents/patchEventsSlice';
 import { patchCommitsReducer } from '@gitbutler/shared/patches/patchCommitsSlice';
@@ -48,6 +50,8 @@ export class WebState extends AppState implements WebDashboardSidebarState {
 			branchReviewListings: branchReviewListingsReducer,
 			notificationSettings: notificationSettingsReducer,
 			patchIdables: patchIdablesReducer,
+			recentlyInteractedProjectIds: recentlyInteractedProjectIdsReducer,
+			recentlyPushedProjectIds: recentlyPushedProjectIdsReducer,
 			dashboardSidebar: dashboardSidebarReducer
 		}
 	});

@@ -9,6 +9,7 @@ import {
 import { ProjectService } from '$lib/organizations/projectService';
 import { projectsSelectors } from '$lib/organizations/projectsSlice';
 import { AppState } from '$lib/redux/store.svelte';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { Loadable } from '$lib/network/types';
 import type { LoadableOrganization, LoadableProject } from '$lib/organizations/types';
 import type { Reactive } from '$lib/storeUtils';
@@ -37,6 +38,40 @@ export function getAllUserProjects(user: string, inView?: InView): Reactive<Load
 		const allProjects = projectsSelectors.selectAll(appState.projects);
 		return allProjects.filter((project) => isFound(project) && project.value.owner === user);
 	});
+
+	return {
+		get current() {
+			return current;
+		}
+	};
+}
+
+export function getRecentlyInteractedProjects(inView?: InView): Reactive<LoadableProject[]> {
+	const appState = getContext(AppState);
+	const projectService = getContext(ProjectService);
+	registerInterest(projectService.getRecentProjectsInterest(), inView);
+	const current = $derived(
+		appState.recentlyInteractedProjectIds.recentlyInteractedProjectIds
+			.map((recentProjectId) => projectsSelectors.selectById(appState.projects, recentProjectId))
+			.filter(isDefined)
+	);
+
+	return {
+		get current() {
+			return current;
+		}
+	};
+}
+
+export function getRecentlyPushedProjects(inView?: InView): Reactive<LoadableProject[]> {
+	const appState = getContext(AppState);
+	const projectService = getContext(ProjectService);
+	registerInterest(projectService.getRecentlyPushedProjectsInterest(), inView);
+	const current = $derived(
+		appState.recentlyPushedProjectIds.recentlyPushedProjectIds
+			.map((recentProjectId) => projectsSelectors.selectById(appState.projects, recentProjectId))
+			.filter(isDefined)
+	);
 
 	return {
 		get current() {
