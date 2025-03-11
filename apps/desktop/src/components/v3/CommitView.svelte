@@ -36,8 +36,7 @@
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-
-		background-color: var(--clr-bg-1);
+		gap: 14px;
 	}
 
 	.body {
