@@ -243,6 +243,7 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		box-shadow: var(--fx-shadow-s);
+		opacity: 0;
 		transition: opacity var(--transition-medium);
 
 		.button-wrapper:not(:last-child) {
