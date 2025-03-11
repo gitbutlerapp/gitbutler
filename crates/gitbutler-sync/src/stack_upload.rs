@@ -6,7 +6,7 @@ use anyhow::{bail, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::HasCommitHeaders as _;
 use gitbutler_oplog::reflog::{set_reference_to_oplog, ReflogCommits};
-use gitbutler_oxidize::{git2_signature_to_gix_signature, OidExt as _};
+use gitbutler_oxidize::{git2_signature_to_gix_signature, ObjectIdExt, OidExt as _};
 use gitbutler_repo::{commit_message::CommitMessage, signature};
 use gitbutler_stack::{
     stack_context::{CommandContextExt, StackContext},
@@ -44,13 +44,12 @@ pub fn push_stack_to_review(
     set_reference_to_oplog(&ctx.project().path, ReflogCommits::new(ctx.project())?)?;
 
     let target_commit_id = vb_state.get_default_target()?.sha.to_gix();
-    let commits = repository
-        .rev_walk([top_branch.id])
-        .first_parent_only()
-        .with_boundary([target_commit_id])
-        .sorting(gix::revision::walk::Sorting::BreadthFirst)
-        .all()?
-        .filter_map(|e| Some(e.ok()?.id().detach()))
+    let git2_repository = ctx.repo();
+    let mut revwalk = git2_repository.revwalk()?;
+    revwalk.push(top_branch.id.to_git2())?;
+    revwalk.hide(target_commit_id.to_git2())?;
+    let commits = revwalk
+        .filter_map(|commit| Some(commit.ok()?.to_gix()))
         .collect::<Vec<_>>();
 
     let review_head =
