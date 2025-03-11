@@ -51,7 +51,7 @@
 
 	const orientation = $derived(['left', 'right'].includes(direction) ? 'horizontal' : 'vertical');
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-	const base = $userSettings.zoom * 16;
+	const base = $derived($userSettings.zoom * 16);
 
 	let initial = 0;
 	let dragging = $state(false);
@@ -79,13 +79,13 @@
 	function onMouseMove(e: MouseEvent) {
 		dragging = true;
 		if (direction === 'down') {
-			let height = e.clientY - initial;
+			let height = (e.clientY - initial) / base;
 			onHeight?.(Math.max(height, minHeight));
 
 			onOverflowValue(height, minHeight);
 		}
 		if (direction === 'up') {
-			let height = document.body.scrollHeight - e.clientY - initial;
+			let height = (document.body.scrollHeight - e.clientY - initial) / base;
 			onHeight?.(Math.max(height, minHeight));
 
 			onOverflowValue(height, minHeight);
