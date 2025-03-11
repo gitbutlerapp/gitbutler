@@ -1,6 +1,6 @@
 use anyhow::{Context, anyhow, bail};
 use bstr::{BString, ByteSlice};
-use but_core::cmd::prepare_with_shell_on_windows;
+use but_core::cmd::prepare_with_shell;
 use but_core::{GitConfigSettings, RepositoryExt};
 use gitbutler_error::error::Code;
 use gix::objs::WriteTo;
@@ -81,7 +81,6 @@ pub(crate) fn update_committer(
 
 /// Sign the given `buffer` using configuration from `repo`, just like Git would.
 pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BString> {
-    // check git config for gpg.signingkey
     // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
     let config = repo.config_snapshot();
     let Some(signing_key) = config.string("user.signingkey") else {
@@ -109,14 +108,13 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
                 |program| Cow::Owned(program.into_owned().into()),
             );
 
-        let cmd = prepare_with_shell_on_windows(gpg_program.into_owned())
-            .args(["-Y", "sign", "-n", "git", "-f"]);
+        let cmd =
+            prepare_with_shell(gpg_program.into_owned()).args(["-Y", "sign", "-n", "git", "-f"]);
 
         // Write the key to a temp file. This is needs to be created in the
         // same scope where its used; IE: in the command, otherwise the
-        // tmpfile will get garbage collected
+        // tmpfile will get removed too early.
         let mut key_storage = tempfile::NamedTempFile::new()?;
-        // support literal ssh key
         let signing_cmd = if let Some(signing_key) = as_literal_key(signing_key) {
             key_storage.write_all(signing_key.as_bytes())?;
 
@@ -168,7 +166,7 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
                 |program| Cow::Owned(program.into_owned().into()),
             );
 
-        let mut cmd = into_command(prepare_with_shell_on_windows(gpg_program.as_ref()).args([
+        let mut cmd = into_command(prepare_with_shell(gpg_program.as_ref()).args([
             "--status-fd=2",
             "-bsau",
             signing_key,
