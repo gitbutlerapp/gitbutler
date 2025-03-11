@@ -141,7 +141,7 @@
 	.diff-section__header {
 		top: 0;
 		position: sticky;
-		z-index: 1;
+		z-index: var(--z-floating);
 		top: var(--commit-header-height, 0);
 		width: 100%;
 		display: flex;
@@ -234,7 +234,6 @@
 
 	/* MODIFIERS */
 	.diff-section__header_sticked {
-		/* background-color: red; */
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 </style>
