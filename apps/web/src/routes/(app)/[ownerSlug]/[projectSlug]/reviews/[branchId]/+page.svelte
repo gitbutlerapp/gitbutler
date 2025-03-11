@@ -21,16 +21,23 @@
 		WebRoutesService,
 		type ProjectReviewParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
+	import FileUploadPlugin, {
+		type DropFileResult
+	} from '@gitbutler/ui/richText/plugins/FileUpload.svelte';
 	import toasts from '@gitbutler/ui/toasts';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
 	import { goto } from '$app/navigation';
+
+	const ACCEPTED_FILE_TYPES = ['image/*', 'application/*', 'text/*', 'audio/*', 'video/*'];
 
 	dayjs.extend(relativeTime);
 
@@ -45,6 +52,7 @@
 	const appState = getContext(AppState);
 	const routes = getContext(WebRoutesService);
 	const userService = getContext(UserService);
+	const uploadsService = getContext(UploadsService);
 	const user = $derived(userService.user);
 
 	const branchUuid = $derived(
@@ -132,6 +140,24 @@
 		copyToClipboard(location.href);
 	}
 
+	function isAcceptedFileType(file: File): boolean {
+		const type = file.type.split('/')[0];
+		return ACCEPTED_FILE_TYPES.some((acceptedType) => acceptedType.startsWith(type));
+	}
+
+	async function handleDropFiles(files: FileList | undefined): Promise<DropFileResult[]> {
+		if (files === undefined) return [];
+		const uploads = Array.from(files)
+			.filter(isAcceptedFileType)
+			.map(async (file) => {
+				const upload = await uploadsService.uploadFile(file);
+				return { name: file.name, url: upload.url, isImage: upload.isImage };
+			});
+		const settled = await Promise.allSettled(uploads);
+		const successful = settled.filter((result) => result.status === 'fulfilled');
+		return successful.map((result) => result.value);
+	}
+
 	$effect(() => {
 		if (isFound(branch?.current)) {
 			updateFavIcon(branch.current.value?.reviewStatus);
@@ -207,7 +233,21 @@
 				</InfoFlexRow>
 				<div class="summary">
 					{#if editingSummary}
-						<Textarea minRows={6} bind:value={summary}></Textarea>
+						<div class="summary-wrapper">
+							<RichTextEditor
+								namespace="review-description"
+								markdown={false}
+								onError={console.error}
+								styleContext="chat-input"
+								initialText={branch.description}
+								onChange={(text) => (summary = text)}
+							>
+								{#snippet plugins()}
+									<FileUploadPlugin onDrop={handleDropFiles} />
+								{/snippet}
+							</RichTextEditor>
+						</div>
+
 						<div class="summary-actions">
 							<Button kind="outline" onclick={abortEditingSummary}>Cancel</Button>
 							<AsyncButton style="pop" action={saveSummary}>Save</AsyncButton>
@@ -288,5 +328,13 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 12px;
+	}
+
+	.summary-wrapper {
+		flex-shrink: 0;
+		background-color: var(--clr-bg-1);
+		padding: 6px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
 	}
 </style>
