@@ -16,7 +16,7 @@ export async function setBeforeVersion(before: number) {
 	} else {
 		params.set('beforeVersion', before.toString());
 	}
-	await goto(`?${params.toString()}`, { replaceState: false, noScroll: true, keepFocus: true });
+	await goto(`?${params.toString()}`, { replaceState: true, noScroll: true, keepFocus: true });
 }
 
 /**
@@ -32,7 +32,7 @@ export async function setAfterVersion(latestVersion: number, after: number) {
 	} else {
 		params.set('afterVersion', after.toString());
 	}
-	await goto(`?${params.toString()}`, { replaceState: false, noScroll: true, keepFocus: true });
+	await goto(`?${params.toString()}`, { replaceState: true, noScroll: true, keepFocus: true });
 }
 
 export function getBeforeVersion(): Reactive<number> {
