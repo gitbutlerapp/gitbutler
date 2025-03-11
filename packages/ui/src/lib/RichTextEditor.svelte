@@ -113,6 +113,10 @@
 			root.clear();
 		});
 	}
+
+	export function focus() {
+		editor?.focus();
+	}
 </script>
 
 <Composer {initialConfig} bind:this={composer}>

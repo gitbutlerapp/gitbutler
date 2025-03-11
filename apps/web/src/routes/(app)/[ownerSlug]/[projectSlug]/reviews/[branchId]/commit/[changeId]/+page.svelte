@@ -51,6 +51,7 @@
 	const chatTabletModeBreakpoint = 1024;
 	let isChatTabletMode = $state(window.innerWidth < chatTabletModeBreakpoint);
 	let isTabletModeEntered = $state(false);
+	let chatComponent = $state<ReturnType<typeof ChatComponent>>();
 
 	const repositoryId = $derived(
 		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
@@ -255,7 +256,10 @@
 					selectedSha={diffLineSelection.selectedSha}
 					selectedLines={diffLineSelection.selectedLines}
 					onCopySelection={(sections) => diffLineSelection.copy(sections)}
-					onQuoteSelection={() => diffLineSelection.quote()}
+					onQuoteSelection={() => {
+						diffLineSelection.quote();
+						chatComponent?.focus();
+					}}
 					clearLineSelection={(fileName) => diffLineSelection.clear(fileName)}
 				/>
 			</div>
@@ -267,6 +271,7 @@
 					class:tablet-mode={isChatTabletMode}
 				>
 					<ChatComponent
+						bind:this={chatComponent}
 						{isPatchAuthor}
 						isUserLoggedIn={!!$user}
 						{branchUuid}

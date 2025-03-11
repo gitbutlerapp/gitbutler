@@ -196,6 +196,10 @@
 	function login() {
 		window.location.href = `${env.PUBLIC_APP_HOST}/cloud/login?callback=${window.location.href}`;
 	}
+
+	export function focusInput() {
+		richText.richTextEditor?.focus();
+	}
 </script>
 
 {#if isUserLoggedIn}
