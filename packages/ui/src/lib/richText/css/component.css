@@ -5,15 +5,12 @@
 
 	& .ContentEditable__root {
 		height: 100%;
+		min-height: unset;
 	}
 }
 
 .lexical-chat-input {
 	--lexical-input-padding: 12px;
-
-	& .ContentEditable__root {
-		min-height: 40px;
-	}
 }
 
 /* GENERAL */
@@ -24,6 +21,8 @@
 
 .ContentEditable__root {
 	padding: var(--lexical-input-padding);
+	/* Override css from svelte-lexical. */
+	min-height: unset;
 }
 
 .Placeholder__root {
