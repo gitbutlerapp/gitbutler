@@ -82,7 +82,7 @@
 
 	const openAIModelOptions = [
 		{
-			label: 'o3 Mini (recommended)',
+			label: 'o3 Mini',
 			value: OpenAIModelName.O3mini
 		},
 		{
@@ -90,7 +90,7 @@
 			value: OpenAIModelName.O1mini
 		},
 		{
-			label: 'GPT 4o mini',
+			label: 'GPT 4o mini (recommended)',
 			value: OpenAIModelName.GPT4oMini
 		}
 	];
