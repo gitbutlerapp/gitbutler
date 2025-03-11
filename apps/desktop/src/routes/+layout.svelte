@@ -43,6 +43,7 @@
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { ClientState } from '$lib/state/clientState.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { UpdaterService } from '$lib/updater/updater';
 	import { User } from '$lib/user/user';
 	import { UserService } from '$lib/user/userService';
@@ -105,6 +106,13 @@
 		cloudBranchService,
 		latestBranchLookupService
 	);
+
+	const uiStateSlice = $derived(clientState.uiState);
+	const uiState = new UiState(
+		reactive(() => uiStateSlice),
+		clientState.dispatch
+	);
+	setContext(UiState, uiState);
 
 	shortcutService.listen();
 
