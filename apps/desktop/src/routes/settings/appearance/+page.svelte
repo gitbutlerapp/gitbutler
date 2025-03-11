@@ -1,10 +1,8 @@
 <script lang="ts">
-	import HunkDiff from '$components/HunkDiff.svelte';
 	import RadioButton from '$components/RadioButton.svelte';
 	import SettingsPage from '$components/SettingsPage.svelte';
 	import ThemeSelector from '$components/ThemeSelector.svelte';
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
-	import { type Hunk } from '$lib/hunks/hunk';
 	import {
 		SETTINGS,
 		type Settings,
@@ -12,12 +10,12 @@
 		type CodeEditorSettings
 	} from '$lib/settings/userSettings';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
-	import type { ContentSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
 
 	const editorOptions: CodeEditorSettings[] = [
@@ -34,32 +32,17 @@
 	}));
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
-
-	const testHunk: Hunk = {
-		id: '59-66',
-		hash: 'test',
-		modifiedAt: new Date(),
-		lockedTo: [],
-		locked: false,
-		poisoned: false,
-		changeType: 'modified',
-		diff: '',
-		filePath: 'test',
-		oldStart: 59,
-		oldLines: 7,
-		newStart: 59,
-		newLines: 7
-	};
-
-	// prettier-ignore
-	const hunkSubsections: ContentSection[] = [
-		{expanded: true, lines: [{beforeLineNumber: 56, afterLineNumber: 56, content: "\t\t\t// Diff example"}], sectionType: 2, maxLineNumber: 55},
-		{expanded: true, lines: [{beforeLineNumber: 57, afterLineNumber: 57, content: "\t\t\tprojectName={project.title}"}, {beforeLineNumber: 58, afterLineNumber: 58, content: "\t\t\t{remoteBranches}"}, {beforeLineNumber: 59, afterLineNumber: 59, content: "\t\t\ton:branchSelected={async (e) => {"}], sectionType: 2, maxLineNumber: 59},
-		{expanded: true, lines: [{beforeLineNumber: 61, afterLineNumber: undefined, content: "\t\t\t\tselectedBranch = e.detail;"}], sectionType: 2, maxLineNumber: 60},
-		{expanded: true, lines: [{beforeLineNumber: 62, afterLineNumber: undefined, content: "\t\t\t\tif ($platformName === 'win32') {"}], sectionType: 1, maxLineNumber: 61},
-		{expanded: true, lines: [{beforeLineNumber: undefined, afterLineNumber: 61, content: "\t\t\t\tif ($platformName === 'win64') {"}], sectionType: 0, maxLineNumber: 61},
-		{expanded: true, lines: [{beforeLineNumber: 63, afterLineNumber: 62, content: "\t\t\t\t\tsetTarget();"}, {beforeLineNumber: 64, afterLineNumber: 63, content: "\t\t\t\t}"}, {beforeLineNumber: 65, afterLineNumber: 64, content: "\t\t\t}}"}], sectionType: 2, maxLineNumber: 65}
-	];
+	const diff = `@@ -56,10 +56,9 @@
+			// Diff example
+			projectName={project.title}
+			{remoteBranches}
+			on:branchSelected={async (e) => {
+-				selectedBranch = e.detail;
+-				if ($platformName === 'win32') {
++				if ($platformName === 'win64') {
+					setTarget();
+				}
+			}}`;
 
 	function onScrollbarFormChange(form: HTMLFormElement) {
 		const formData = new FormData(form);
@@ -114,22 +97,14 @@
 			{/snippet}
 
 			<HunkDiff
-				readonly
 				filePath="test.tsx"
-				minWidth={1.25}
-				selectable={false}
-				draggingDisabled
 				tabSize={$userSettings.tabSize}
 				wrapText={$userSettings.wrapText}
 				diffFont={$userSettings.diffFont}
 				diffLigatures={$userSettings.diffLigatures}
 				diffContrast={$userSettings.diffContrast}
 				inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
-				hunk={testHunk}
-				subsections={hunkSubsections}
-				onclick={() => {}}
-				handleSelected={() => {}}
-				handleLineContextMenu={() => {}}
+				hunkStr={diff}
 			/>
 		</SectionCard>
 
