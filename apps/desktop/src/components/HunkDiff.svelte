@@ -1,4 +1,3 @@
-
 <!-- DEPRECATED! -->
 <!-- This component is only being used in v2, and will be completely replaced in v3 -->
 <!-- by the HunkDiff component inside the @gitbutler/ui package. -->

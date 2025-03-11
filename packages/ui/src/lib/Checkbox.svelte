@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type CheckboxStyle = 'default' | 'neutral';
+	export type CheckboxStyle = 'default' | 'neutral' | 'ghost';
 	export interface Props {
 		name?: string;
 		small?: boolean;
@@ -104,7 +104,7 @@
 			left: 50%;
 			transform: translate(-50%, -50%);
 		}
-
+		&.ghost:indeterminate,
 		&.default:indeterminate {
 			background-color: var(--clr-theme-pop-element);
 			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element);
@@ -143,6 +143,11 @@
 				filter: brightness(2);
 				transform: scale(1);
 			}
+		}
+
+		&.ghost:checked {
+			background-color: transparent;
+			box-shadow: none;
 		}
 
 		&.default:checked {
