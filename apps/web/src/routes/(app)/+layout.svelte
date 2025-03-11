@@ -3,7 +3,6 @@
 	import Footer from '$lib/components/Footer.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import { WebState } from '$lib/redux/store.svelte';
-	import { ReviewSectionsService } from '$lib/review/reviewSections.svelte';
 	import { SshKeyService } from '$lib/sshKeyService';
 	import { UserService } from '$lib/user/userService';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
@@ -96,8 +95,6 @@
 			location.href = href;
 		}
 	});
-	const reviewSectionsService = new ReviewSectionsService(webState, webState.appDispatch);
-	setContext(ReviewSectionsService, reviewSectionsService);
 
 	const sshKeyService = new SshKeyService(httpClient);
 	setContext(SshKeyService, sshKeyService);

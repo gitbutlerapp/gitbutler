@@ -7,19 +7,19 @@ import { PatchCommitService } from '$lib/patches/patchCommitService';
 import { patchCommitsSelector } from '$lib/patches/patchCommitsSlice';
 import { getPatchIdable } from '$lib/patches/patchIdablesPreview.svelte';
 import { patchSectionsSelectors } from '$lib/patches/patchSectionsSlice';
-import { AppState, type AppPatchesState, type AppPatchEventsState } from '$lib/redux/store.svelte';
+import { AppState, type AppPatchEventsState } from '$lib/redux/store.svelte';
 import type { Loadable } from '$lib/network/types';
 import type { LoadablePatchCommit, Section } from '$lib/patches/types';
 import type { Reactive } from '$lib/storeUtils';
 import type { PatchEventsService } from '../patchEvents/patchEventsService';
 
 export function getPatch(
-	appState: AppPatchesState,
-	patchService: PatchCommitService,
 	branchUuid: string,
 	changeId: string,
 	inView?: InView
 ): Reactive<LoadablePatchCommit | undefined> {
+	const patchService = getContext(PatchCommitService);
+	const appState = getContext(AppState);
 	const patchInterest = patchService.getPatchWithSectionsInterest(branchUuid, changeId);
 	registerInterest(patchInterest, inView);
 
