@@ -79,7 +79,7 @@
 			<Resizer
 				viewport={rsViewport}
 				direction="right"
-				minWidth={25}
+				minWidth={20}
 				defaultLineColor="var(--clr-border-2)"
 				onWidth={(value) => ($width = value)}
 			/>
