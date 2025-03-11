@@ -9,6 +9,7 @@
 		section: Section;
 		selectedSha: string | undefined;
 		selectedLines: LineSelector[];
+		commitPageHeaderHeight: number;
 		clearLineSelection: (fileName: string) => void;
 		toggleDiffLine: (fileName: string, diffSha: string, params: LineClickParams) => void;
 		onCopySelection: (contentSections: ContentSection[]) => void;
@@ -21,6 +22,7 @@
 		toggleDiffLine,
 		selectedSha,
 		selectedLines,
+		commitPageHeaderHeight,
 		onCopySelection,
 		onQuoteSelection,
 		clearLineSelection
@@ -34,6 +36,7 @@
 		{toggleDiffLine}
 		{selectedSha}
 		{selectedLines}
+		{commitPageHeaderHeight}
 		{onCopySelection}
 		{onQuoteSelection}
 		{clearLineSelection}

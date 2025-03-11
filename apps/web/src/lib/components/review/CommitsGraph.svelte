@@ -44,34 +44,38 @@
 		align-items: center;
 		color: var(--clr-text-2);
 		width: -webkit-fill-available;
-	}
 
-	.fact {
-		color: var(--clr-text-2);
-		min-width: 10px;
-		text-align: right;
-	}
+		& .fact {
+			color: var(--clr-text-2);
+			min-width: 10px;
+			text-align: right;
+		}
 
-	.commits {
-		display: flex;
-		gap: 1px;
-		width: 100%;
-		min-width: 50px;
-	}
+		& .fact:empty {
+			display: none;
+		}
 
-	.commit-block {
-		flex: 1;
-		height: 12px;
-		background-color: var(--clr-br-commit-unreviewed-bg);
-	}
+		& .commits {
+			display: flex;
+			gap: 1px;
+			width: 100%;
+			min-width: 50px;
+		}
 
-	.changes-requested {
-		background-color: var(--clr-br-commit-changes-requested-bg);
-	}
-	.approved {
-		background-color: var(--clr-br-commit-approved-bg);
-	}
-	.in-discussion {
-		background-color: var(--clr-br-commit-in-discussion-bg);
+		& .commit-block {
+			flex: 1;
+			height: 12px;
+			background-color: var(--clr-br-commit-unreviewed-bg);
+		}
+
+		& .changes-requested {
+			background-color: var(--clr-br-commit-changes-requested-bg);
+		}
+		& .approved {
+			background-color: var(--clr-br-commit-approved-bg);
+		}
+		& .in-discussion {
+			background-color: var(--clr-br-commit-in-discussion-bg);
+		}
 	}
 </style>
