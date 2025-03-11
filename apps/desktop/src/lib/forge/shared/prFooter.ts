@@ -12,10 +12,11 @@ export const BUT_REVIEW_FOOTER_BOUNDARY_BOTTOM = '<!-- GitButler Review Footer B
 export async function updateButRequestPrDescription(
 	prService: ForgePrService,
 	prNumber: number,
-	prBody: string,
 	butRequestUrl: string,
 	butReview: Branch
 ) {
+	const pr = await prService.get(prNumber);
+	const prBody = pr.body || '\r\n';
 	await prService.update(prNumber, {
 		description: formatButRequestDescription(prBody, butRequestUrl, butReview)
 	});
@@ -57,7 +58,7 @@ export function formatButRequestDescription(
 	}
 
 	const description = `---
-⧓ Review in [Butler Review \`#0aHp6xmQG\`](${butRequestUrl})
+⧓ Review in [Butler Review \`#${butReview.branchId}\`](${butRequestUrl})
 
 ${summary}
 
