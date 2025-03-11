@@ -153,7 +153,7 @@
 						<SelectItem
 							selected={isSelected}
 							{highlighted}
-							disabled={!isSelected && item.value >= selectedAfter.toString()}
+							disabled={!isSelected && parseInt(item.value) >= selectedAfter}
 						>
 							{item.label}
 						</SelectItem>
@@ -182,7 +182,7 @@
 						<SelectItem
 							selected={isSelected}
 							{highlighted}
-							disabled={!isSelected && item.value <= selectedBefore.toString()}
+							disabled={!isSelected && parseInt(item.value) <= selectedBefore}
 						>
 							{item.label}
 						</SelectItem>
