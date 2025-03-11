@@ -29,7 +29,7 @@
 	let rightViewport: HTMLDivElement | undefined = $state();
 </script>
 
-<div class="common-editor-layout">
+<div class="resizeable-layout">
 	{#if left}
 		<div class="left" bind:this={leftViewport} style:width={$width + 'rem'}>
 			<Resizer
@@ -58,7 +58,7 @@
 </div>
 
 <style>
-	.common-editor-layout {
+	.resizeable-layout {
 		display: flex;
 		flex-grow: 1;
 		max-width: 100%;
