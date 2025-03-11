@@ -19,6 +19,7 @@
 	import { PatchIdableService } from '@gitbutler/shared/patches/patchIdableService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { NotificationSettingsService } from '@gitbutler/shared/settings/notificationSettingsService';
+	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
 	import { setExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
 	import { setContext, type Snippet } from 'svelte';
@@ -98,6 +99,8 @@
 
 	const sshKeyService = new SshKeyService(httpClient);
 	setContext(SshKeyService, sshKeyService);
+	const uploadsService = new UploadsService(httpClient);
+	setContext(UploadsService, uploadsService);
 
 	const isCommitPage = $derived(page.url.pathname.includes('/commit/'));
 </script>
