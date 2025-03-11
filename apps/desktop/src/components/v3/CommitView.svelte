@@ -1,6 +1,6 @@
 <script lang="ts">
-	import StackDetailsCommitHeader from './StackDetailsCommitHeader.svelte';
-	import StackDetailsFileList from './StackDetailsFileList.svelte';
+	import ChangedFiles from './ChangedFiles.svelte';
+	import CommitHeader from './CommitHeader.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -21,10 +21,10 @@
 	{#snippet children(commit)}
 		<div class="commit-view">
 			<div>
-				<StackDetailsCommitHeader {projectId} {commitKey} {commit} />
+				<CommitHeader {projectId} {commitKey} {commit} {onclick} />
 			</div>
 			<div class="body">
-				<StackDetailsFileList {projectId} {commit} />
+				<ChangedFiles {projectId} {commit} />
 			</div>
 		</div>
 	{/snippet}

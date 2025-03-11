@@ -18,19 +18,22 @@
 		projectId: string;
 		commitKey: CommitKey;
 		commit: Commit;
+		href?: string;
+		onclick?: () => void;
 	}
 
-	const { projectId, commitKey, commit }: Props = $props();
+	const { projectId, commitKey, commit, onclick }: Props = $props();
 	const { stackId, branchName } = $derived(commitKey);
 
 	const [stackService, modeService] = inject(StackService, ModeService);
 	const commitShortSha = $derived(commit.id.substring(0, 7));
-	const commitMessage = $derived(commit.message);
 
 	let conflictResolutionConfirmationModal: ReturnType<typeof Modal> | undefined;
 	let commitMessageModal: ReturnType<typeof Modal> | undefined;
 	let commitMessageValid = $state(false);
-	let message = $state(commit.message);
+	const message = $derived(commit.message);
+	const title = $derived(message.slice(0, message.indexOf('\n')));
+	const description = $derived(message.slice(message.indexOf('\n') + 1).trim());
 
 	let isUndoable = $derived(commit.state.type !== 'Integrated');
 
@@ -67,8 +70,13 @@
 	}
 </script>
 
-<div class="wrapper">
-	<div class="message text-12">{@html marked(commitMessage)}</div>
+<div class="commit-header" role="button" {onclick} onkeypress={onclick} tabindex="0">
+	<div class="commit-title text-13 text-semibold">
+		{title}
+	</div>
+	<div class="commit-description text-12">
+		{@html marked(description)}
+	</div>
 	<div class="metadata text-11 text-semibold">
 		{#if commit.hasConflicts}
 			<Tooltip
@@ -147,7 +155,7 @@
 <Modal bind:this={commitMessageModal} width="small" onSubmit={submitCommitMessageModal}>
 	{#snippet children(_, close)}
 		<CommitMessageInput
-			bind:commitMessage={message}
+			bind:commitMessage={commit.message}
 			bind:valid={commitMessageValid}
 			{branchName}
 			existingCommit={commit}
@@ -177,22 +185,17 @@
 </Modal>
 
 <style>
-	.wrapper {
+	.commit-header {
 		display: flex;
 		flex-direction: column;
-		border-bottom: 1px solid var(--clr-border-2);
 		gap: 8px;
-		padding: 14px 14px 16px 14px;
 	}
 
-	.message {
-		white-space: pre-wrap;
-		line-height: 18px;
-
-		&::first-line {
-			font-size: 16px;
-			font-weight: 500;
-		}
+	.commit-title {
+		flex-grow: 1;
+		text-overflow: ellipsis;
+		overflow: hidden;
+		white-space: nowrap;
 	}
 
 	.metadata {
