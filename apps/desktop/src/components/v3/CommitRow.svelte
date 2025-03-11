@@ -90,7 +90,7 @@
 
 	async function editPatch() {
 		if (!canEdit() || !branchRefName) return;
-		modeService!.enterEditMode(commit.id, branchRefName);
+		modeService!.enterEditMode(commit.id, stackId);
 	}
 
 	async function handleEditPatch() {

@@ -44,11 +44,11 @@ export class ModeService {
 		this.headAndMode.set({ head, operatingMode });
 	}
 
-	async enterEditMode(commitOid: string, branchReference: string) {
+	async enterEditMode(commitOid: string, stackId: string) {
 		await invoke('enter_edit_mode', {
 			projectId: this.projectId,
 			commitOid,
-			branchReference
+			stackId
 		});
 	}
 

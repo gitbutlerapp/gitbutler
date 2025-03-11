@@ -54,7 +54,7 @@
 
 	async function editPatch() {
 		if (branchName) {
-			modeService!.enterEditMode(commit.id, `refs/heads/${branchName}`);
+			modeService!.enterEditMode(commit.id, stackId);
 		}
 	}
 
