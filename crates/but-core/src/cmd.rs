@@ -8,7 +8,9 @@ pub fn prepare_with_shell(program: impl Into<OsString>) -> gix::command::Prepare
         // On Windows, this means a shell will always be used.
         .command_may_be_shell_script_disallow_manual_argument_splitting()
         // On Windows, this yields the Git-bundled `sh.exe`, which is what we want.
-        .with_shell_program(gix::path::env::shell())
+        .with_shell_program(
+            std::env::var_os("SHELL").unwrap_or_else(|| gix::path::env::shell().into()),
+        )
         // force using a shell, we want access to additional programs here
         .with_shell()
         // We know `program` is a path, so quote it.
