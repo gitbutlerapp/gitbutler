@@ -153,6 +153,7 @@
 								style="neutral"
 								kind="ghost"
 								size="button"
+								tooltip="Quote"
 								onclick={onQuoteSelection}
 							/>
 						</div>
@@ -164,6 +165,7 @@
 							style="neutral"
 							kind="ghost"
 							size="button"
+							tooltip="Copy"
 							onclick={onCopySelection}
 						/>
 					</div>
@@ -202,7 +204,7 @@
 	}
 
 	.table__selected-row-overlay {
-		z-index: var(--z-floating);
+		z-index: var(--z-lifted);
 		position: absolute;
 		pointer-events: none;
 		top: 0;
@@ -231,13 +233,12 @@
 	}
 
 	.table__selected-row-overflow-menu {
-		z-index: var(--z-modal);
+		z-index: var(--z-lifted);
 		position: absolute;
-		top: calc(var(--height) - var(--overflow-menu-height) - 4px);
+		top: calc(var(--height) - var(--overflow-menu-height) - 6px);
 		left: 0;
 		display: flex;
 		pointer-events: none;
-		gap: 0;
 		background: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
@@ -253,6 +254,10 @@
 			opacity: 1;
 			pointer-events: all;
 		}
+	}
+
+	.button-wrapper {
+		display: flex;
 	}
 
 	.table__numberColumn {

@@ -19,7 +19,7 @@
 		patchCommit: PatchCommit;
 		selectedSha: string | undefined;
 		selectedLines: LineSelector[];
-		headerShift: number | undefined;
+		commitPageHeaderHeight: number;
 		clearLineSelection: (fileName: string) => void;
 		toggleDiffLine: (fileName: string, diffSha: string, params: LineClickParams) => void;
 		onCopySelection: (contentSections: ContentSection[]) => void;
@@ -32,7 +32,7 @@
 		patchCommit,
 		selectedSha,
 		selectedLines,
-		headerShift,
+		commitPageHeaderHeight,
 		clearLineSelection,
 		toggleDiffLine,
 		onCopySelection,
@@ -44,8 +44,6 @@
 	const user = $derived(userService.user);
 
 	const isLoggedIn = $derived(!!$user);
-
-	let offsetHeight = $state(0);
 
 	let isInterdiffBarVisible = $state(false);
 
@@ -85,10 +83,6 @@
 	);
 
 	$effect(() => {
-		if (headerShift) {
-			offsetHeight = headerShift;
-		}
-
 		if (selected.current && !initialSelection) {
 			initialSelection = {
 				selectedBefore: selected.current.selectedBefore,
@@ -98,8 +92,8 @@
 	});
 </script>
 
-<div class="review-sections-card">
-	<div class="review-sections-statistics-wrap" style:--header-shift="{offsetHeight}px">
+<div class="review-sections-card" style:--commit-header-height="{commitPageHeaderHeight}px">
+	<div class="review-sections-statistics-wrap">
 		<div class="review-sections-statistics">
 			<div class="review-sections-statistics__metadata">
 				<p class="text-12 text-bold statistic-files">
@@ -220,6 +214,7 @@
 						{toggleDiffLine}
 						{selectedSha}
 						{selectedLines}
+						{commitPageHeaderHeight}
 						{onCopySelection}
 						{onQuoteSelection}
 						{clearLineSelection}
@@ -232,29 +227,14 @@
 
 <style>
 	.review-sections-card {
-		position: relative;
 		display: flex;
 		flex-direction: column;
+		contain: paint;
 	}
 
 	.review-sections-statistics-wrap {
-		position: relative;
 		display: flex;
 		width: 100%;
-		z-index: var(--z-ground);
-		position: sticky;
-		top: var(--header-shift, 0);
-
-		&::after {
-			content: '';
-			position: absolute;
-			top: 0;
-			left: 0;
-			width: 100%;
-			height: 20px;
-			z-index: -1;
-			background-color: var(--clr-bg-2);
-		}
 	}
 
 	.review-sections-statistics {
