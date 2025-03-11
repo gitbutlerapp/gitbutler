@@ -53,13 +53,13 @@
 
 	let diffFolded = $state(false);
 
+	let commitHeaderHeight = $derived(commitPageHeaderHeight);
 	let diffHeaderEl: HTMLDivElement | null = $state(null);
 	let isHeaderSticked = $state(false);
-	let headerHeight = $state(0);
 	let windowHeight = $state(0);
 
 	$effect(() => {
-		if (!diffHeaderEl || !commitPageHeaderHeight) return;
+		if (!diffHeaderEl || !commitHeaderHeight) return;
 
 		const observer = new IntersectionObserver(
 			(entries) => {
@@ -69,7 +69,7 @@
 			},
 			{
 				root: null,
-				rootMargin: `0px 0px -${windowHeight - commitPageHeaderHeight}px`,
+				rootMargin: `0px 0px -${windowHeight - commitHeaderHeight}px`,
 				threshold: 0
 			}
 		);
@@ -87,7 +87,6 @@
 <div
 	class="diff-section__header"
 	bind:this={diffHeaderEl}
-	bind:clientHeight={headerHeight}
 	class:diff-section__header_sticked={isHeaderSticked}
 >
 	<div class="diff-section__header__file-info">

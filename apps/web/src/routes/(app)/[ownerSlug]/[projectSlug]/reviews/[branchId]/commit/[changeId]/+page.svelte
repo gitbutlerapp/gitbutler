@@ -89,6 +89,7 @@
 	);
 
 	let headerEl = $state<HTMLDivElement>();
+	let headerHeight = $state(0);
 
 	let headerIsStuck = $state(false);
 	const HEADER_STUCK_THRESHOLD = 4;
@@ -186,7 +187,12 @@
 			<div class="review-main" class:expand={chatMinimizer.value}>
 				<Navigation />
 
-				<div class="review-main__header" bind:this={headerEl} class:bottom-line={headerIsStuck}>
+				<div
+					class="review-main__header"
+					bind:this={headerEl}
+					bind:clientHeight={headerHeight}
+					class:bottom-line={headerIsStuck}
+				>
 					<div class="review-main__title">
 						{#if headerIsStuck}
 							<div class="scroll-to-top">
@@ -244,7 +250,7 @@
 					{branchUuid}
 					{patchCommit}
 					changeId={data.changeId}
-					commitPageHeaderHeight={headerEl?.clientHeight}
+					commitPageHeaderHeight={headerHeight}
 					toggleDiffLine={(f, s, p) => diffLineSelection.toggle(f, s, p)}
 					selectedSha={diffLineSelection.selectedSha}
 					selectedLines={diffLineSelection.selectedLines}
