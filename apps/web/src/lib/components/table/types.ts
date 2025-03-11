@@ -13,6 +13,7 @@ export type ChangesType = {
 
 export type ColumnTypes = {
 	status: CommitStatusType;
+	version: string;
 	changes: ChangesType;
 	title: string;
 	string: string;

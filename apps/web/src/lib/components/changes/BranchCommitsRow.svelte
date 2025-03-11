@@ -62,6 +62,7 @@
 			href={routes.projectReviewBranchCommitPath({ ...params, changeId: patch.changeId })}
 			columns={[
 				{ key: 'status', value: getPatchStatus(patch) },
+				{ key: 'version', value: `v${patch.version}`, tooltip: 'Patch Version' },
 				{ key: 'title', value: patch.title, tooltip: patch.title },
 				{
 					key: 'changes',

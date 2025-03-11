@@ -16,6 +16,7 @@
 	<Table
 		headColumns={[
 			{ key: 'status', value: 'Status' },
+			{ key: 'version', value: 'Ver.' },
 			{ key: 'string', value: 'Name' },
 			{ key: 'changes', value: 'Changes' },
 			{ key: 'date', value: 'Updated' },
