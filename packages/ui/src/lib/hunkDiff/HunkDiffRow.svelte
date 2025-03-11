@@ -153,6 +153,7 @@
 								style="neutral"
 								kind="ghost"
 								size="button"
+								tooltip="Quote"
 								onclick={onQuoteSelection}
 							/>
 						</div>
@@ -164,6 +165,7 @@
 							style="neutral"
 							kind="ghost"
 							size="button"
+							tooltip="Copy"
 							onclick={onCopySelection}
 						/>
 					</div>
