@@ -8,6 +8,8 @@
 
 <script lang="ts">
 	import Button from '$lib/Button.svelte';
+	import Checkbox from '$lib/Checkbox.svelte';
+	import Icon from '$lib/Icon.svelte';
 	import {
 		CountColumnSide,
 		SectionType,
@@ -30,6 +32,8 @@
 		onQuoteSelection?: () => void;
 		onCopySelection?: () => void;
 		hoveringOverTable: boolean;
+		staged?: boolean;
+		onToggleStage?: () => void;
 	}
 
 	const {
@@ -44,13 +48,16 @@
 		numberHeaderWidth,
 		onQuoteSelection,
 		onCopySelection,
-		hoveringOverTable
+		hoveringOverTable,
+		staged,
+		onToggleStage
 	}: Props = $props();
 
 	const touchDevice = isTouchDevice();
 
 	let rowElement = $state<HTMLTableRowElement>();
 	let overflowMenuHeight = $state<number>(0);
+	let stagingColumnWidth = $state<number>(0);
 
 	const rowTop = $derived(rowElement?.getBoundingClientRect().top);
 	const rowLeft = $derived(rowElement?.getBoundingClientRect().left);
@@ -89,6 +96,8 @@
 </script>
 
 {#snippet countColumn(row: Row, side: CountColumnSide, idx: number)}
+	{@const isDeltaLine =
+		row.type === SectionType.AddedLines || row.type === SectionType.RemovedLines}
 	<td
 		class="table__numberColumn"
 		data-no-drag
@@ -98,6 +107,9 @@
 		align="center"
 		class:is-last={row.isLast}
 		class:is-before={side === CountColumnSide.Before}
+		class:staged={staged && isDeltaLine}
+		style="--staging-column-width: {stagingColumnWidth}px;"
+		class:stagable={staged !== undefined}
 		onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
 		onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
 		onmouseup={() => lineSelection.onEnd()}
@@ -114,6 +126,33 @@
 	data-no-drag
 	style="--diff-font: {diffFont};"
 >
+	{#if staged !== undefined}
+		{@const isDeltaLine =
+			row.type === SectionType.AddedLines || row.type === SectionType.RemovedLines}
+		<td
+			bind:clientWidth={stagingColumnWidth}
+			class="table__numberColumn"
+			data-no-drag
+			class:diff-line-deletion={row.type === SectionType.RemovedLines}
+			class:diff-line-addition={row.type === SectionType.AddedLines}
+			class:clickable={onToggleStage}
+			align="center"
+			class:is-last={row.isLast}
+			class:staged={staged && isDeltaLine}
+			onclick={onToggleStage}
+		>
+			{#if isDeltaLine}
+				<div class="table__row-checkbox">
+					{#if staged}
+						<Checkbox checked={staged} small style="ghost" />
+					{:else}
+						<Icon name="minus-small" />
+					{/if}
+				</div>
+			{/if}
+		</td>
+	{/if}
+
 	{@render countColumn(row, CountColumnSide.Before, idx)}
 	{@render countColumn(row, CountColumnSide.After, idx)}
 	<td
@@ -298,6 +337,16 @@
 		&.clickable {
 			cursor: pointer;
 		}
+
+		&.stagable {
+			min-width: var(--staging-column-width);
+		}
+
+		&.staged {
+			background-color: var(--clr-diff-selected-count-bg);
+			border-color: var(--clr-diff-selected-count-border);
+			color: var(--clr-diff-selected-count-text);
+		}
 	}
 
 	.table__numberColumn:first-of-type {
@@ -313,5 +362,20 @@
 
 	.diff-line-deletion {
 		background-color: var(--clr-diff-deletion-line-bg);
+	}
+
+	.table__row-checkbox {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		box-sizing: border-box;
+		flex-shrink: 0;
+		pointer-events: none;
+
+		color: var(--clr-diff-count-checkmark);
+		margin: 0;
+		padding: 0;
+		width: 18px;
+		height: 18px;
 	}
 </style>

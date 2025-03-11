@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FileCardHeader from './FileCardHeader.svelte';
 	import FileDiff from './FileDiff.svelte';
-	import ScrollableContainer from '$components/ScrollableContainer.svelte';
+	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { BranchController } from '$lib/branches/branchController';
 	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
 	import { getContext } from '@gitbutler/shared/context';

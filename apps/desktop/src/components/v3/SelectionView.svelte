@@ -1,7 +1,7 @@
 <script lang="ts">
 	import UnifiedDiffView from './UnifiedDiffView.svelte';
+	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';

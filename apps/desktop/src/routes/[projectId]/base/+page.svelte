@@ -1,9 +1,9 @@
 <script lang="ts">
 	import BaseBranch from '$components/BaseBranch.svelte';
+	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FileCard from '$components/FileCard.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { getContext } from '@gitbutler/shared/context';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ScrollableContainer from '$components/ScrollableContainer.svelte';
+	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { type Snippet } from 'svelte';
 
 	interface Props {

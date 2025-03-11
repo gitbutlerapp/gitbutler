@@ -1,7 +1,7 @@
 <script lang="ts">
+	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import Branch from '$components/v3/Branch.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';

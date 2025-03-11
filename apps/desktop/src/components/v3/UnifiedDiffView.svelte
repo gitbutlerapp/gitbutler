@@ -92,14 +92,14 @@
 					<HunkDiff
 						filePath={change.path}
 						hunkStr={hunk.diff}
-						selected={selectable
+						staged={selectable
 							? selection &&
 								(selection.type === 'full' ||
 									selection.hunks.some((h) => h.newStart === hunk.newStart))
 								? true
 								: false
 							: undefined}
-						onchange={(selected) => {
+						onChangeStage={(selected) => {
 							onchange(hunk, selected, diff.subject.hunks);
 						}}
 					/>

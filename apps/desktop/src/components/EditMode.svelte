@@ -1,6 +1,6 @@
 <script lang="ts">
+	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FileContextMenu from '$components/FileContextMenu.svelte';
-	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { Commit } from '$lib/commits/commit';
 	import { CommitService } from '$lib/commits/commitService.svelte';
 	import {

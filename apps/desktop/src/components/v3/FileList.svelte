@@ -1,7 +1,7 @@
 <!-- This is a V3 replacement for `BranchFileList.svelte` -->
 <script lang="ts">
+	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
-	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
 	import UnifiedDiffView from '$components/v3/UnifiedDiffView.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';

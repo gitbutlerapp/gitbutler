@@ -26,6 +26,8 @@
 		onQuoteSelection?: () => void;
 		onCopySelection?: () => void;
 		numberHeaderWidth?: number;
+		staged?: boolean;
+		onToggleStage?: () => void;
 	}
 
 	const {
@@ -40,7 +42,9 @@
 		selectedLines,
 		numberHeaderWidth,
 		onCopySelection,
-		onQuoteSelection
+		onQuoteSelection,
+		staged,
+		onToggleStage
 	}: Props = $props();
 
 	const lineSelection = $derived(new LineSelection(onLineClick));
@@ -84,6 +88,8 @@
 			{onCopySelection}
 			clearLineSelection={handleClearSelection}
 			{hoveringOverTable}
+			{staged}
+			{onToggleStage}
 		/>
 	{/each}
 </tbody>

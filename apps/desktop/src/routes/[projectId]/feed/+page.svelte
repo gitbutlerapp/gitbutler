@@ -1,7 +1,7 @@
 <script lang="ts">
+	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import CreatePost from '$components/CreatePost.svelte';
 	import Post from '$components/Post.svelte';
-	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { ProjectService } from '$lib/project/projectService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getFeed, getFeedLastPost } from '@gitbutler/shared/feeds/feedsPreview.svelte';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ScrollableContainer from '$components/ScrollableContainer.svelte';
+	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { BranchStack } from '$lib/branches/branch';
 	import { getForge } from '$lib/forge/interface/forge';
