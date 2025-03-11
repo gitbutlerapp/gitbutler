@@ -8,4 +8,10 @@
 	const { href = '', title = undefined, text = '' }: Props = $props();
 </script>
 
-<img src={href} {title} alt={text} />
+<img src={href} {title} alt={text} class="markdown__img" />
+
+<style>
+	.markdown__img {
+		max-width: 300px;
+	}
+</style>
