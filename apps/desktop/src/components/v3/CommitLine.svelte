@@ -27,11 +27,11 @@
 </script>
 
 <div class="commit-lines" style:--commit-color={color}>
-	<div class="commit-line__top"></div>
+	<div class="top"></div>
 	<Tooltip text={tooltipText}>
-		<div class="commit-line__center" class:rhombus={dotRhombus}></div>
+		<div class="middle" class:rhombus={dotRhombus}></div>
 	</Tooltip>
-	<div class="commit-line__bottom" class:dashed={lastCommit && lastBranch}></div>
+	<div class="bottom" class:dashed={lastCommit && lastBranch}></div>
 </div>
 
 <style>
@@ -43,14 +43,21 @@
 		gap: 3px;
 	}
 
-	.commit-line__top,
-	.commit-line__bottom {
-		height: 14px;
+	.top,
+	.bottom {
 		width: 2px;
 		background-color: var(--commit-color);
 	}
 
-	.commit-line__center {
+	.top {
+		height: 14px;
+	}
+
+	.bottom {
+		flex-grow: 1;
+	}
+
+	.middle {
 		border-radius: 100%;
 		width: 10px;
 		height: 10px;
