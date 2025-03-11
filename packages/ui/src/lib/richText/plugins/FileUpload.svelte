@@ -55,4 +55,9 @@
 			COMMAND_PRIORITY_CRITICAL
 		);
 	});
+
+	export async function handleFileUpload(files: FileList | null) {
+		if (!files) return;
+		await handleDrop(files);
+	}
 </script>

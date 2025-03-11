@@ -10,6 +10,7 @@
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
 	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
 	import { getContext } from '@gitbutler/shared/context';
+	import { uploadFiles } from '@gitbutler/shared/dom';
 	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
@@ -24,6 +25,8 @@
 	} from '@gitbutler/ui/richText/plugins/FileUpload.svelte';
 	import MentionsPlugin from '@gitbutler/ui/richText/plugins/Mention.svelte';
 	import { env } from '$env/dynamic/public';
+
+	const ACCEPTED_FILE_TYPES = ['image/*', 'application/*', 'text/*', 'audio/*', 'video/*'];
 
 	interface Props {
 		projectId: string;
@@ -65,6 +68,7 @@
 
 	let isSendingMessage = $state(false);
 	let isExecuting = $state(false);
+	let fileUploadPlugin = $state<ReturnType<typeof FileUploadPlugin>>();
 
 	const richText = new RichText();
 	const messageHandler = new MessageHandler();
@@ -202,15 +206,29 @@
 		window.location.href = `${env.PUBLIC_APP_HOST}/cloud/login?callback=${window.location.href}`;
 	}
 
+	function isAcceptedFileType(file: File): boolean {
+		const type = file.type.split('/')[0];
+		return ACCEPTED_FILE_TYPES.some((acceptedType) => acceptedType.startsWith(type));
+	}
+
 	async function handleDropFiles(files: FileList | undefined): Promise<DropFileResult[]> {
 		if (files === undefined) return [];
-		const uploads = Array.from(files).map(async (file) => {
-			const upload = await uploadsService.uploadFile(file);
-			return { name: file.name, url: upload.url, isImage: upload.isImage };
-		});
+		const uploads = Array.from(files)
+			.filter(isAcceptedFileType)
+			.map(async (file) => {
+				const upload = await uploadsService.uploadFile(file);
+				return { name: file.name, url: upload.url, isImage: upload.isImage };
+			});
 		const settled = await Promise.allSettled(uploads);
 		const successful = settled.filter((result) => result.status === 'fulfilled');
 		return successful.map((result) => result.value);
+	}
+
+	async function attachFiles() {
+		richText.richTextEditor?.focus();
+		const files = await uploadFiles(ACCEPTED_FILE_TYPES.join(','));
+		if (!files) return;
+		await fileUploadPlugin?.handleFileUpload(files);
 	}
 
 	export function focusInput() {
@@ -254,7 +272,7 @@
 						onUpdateSuggestion={(p) => suggestions.onSuggestionUpdate(p)}
 						onExitSuggestion={() => suggestions.onSuggestionExit()}
 					/>
-					<FileUploadPlugin onDrop={handleDropFiles} />
+					<FileUploadPlugin bind:this={fileUploadPlugin} onDrop={handleDropFiles} />
 				{/snippet}
 			</RichTextEditor>
 			<div class="chat-input__actions">
@@ -264,10 +282,7 @@
 						tooltip="Attach files"
 						tooltipPosition="top"
 						kind="ghost"
-						disabled
-						onclick={() => {
-							// TODO: Implement
-						}}
+						onclick={attachFiles}
 					/>
 					<Button
 						icon="smile"
