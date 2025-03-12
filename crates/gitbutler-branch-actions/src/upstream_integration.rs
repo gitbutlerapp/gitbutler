@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::stack::{branch_integrated, stack_as_rebase_steps};
 use crate::{r#virtual::IsCommitIntegrated, BranchManagerExt, VirtualBranchesExt as _};
 use anyhow::{anyhow, bail, Context, Result};
+use but_core::Reference;
 use but_rebase::{RebaseOutput, RebaseStep};
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
@@ -157,6 +158,7 @@ enum IntegrationResult {
         head: git2::Oid,
         tree: git2::Oid,
         rebase_output: Option<RebaseOutput>,
+        for_archival: Vec<Reference>,
     },
     UnapplyBranch,
     DeleteBranch,
@@ -507,6 +509,7 @@ pub(crate) fn integrate_upstream(
                 head,
                 tree,
                 rebase_output,
+                for_archival,
             } = integration_result
             else {
                 continue;
@@ -530,7 +533,8 @@ pub(crate) fn integrate_upstream(
                 stack.set_all_heads(command_context, new_heads)?;
             }
 
-            let mut archived_branches = stack.archive_integrated_heads(command_context)?;
+            let mut archived_branches =
+                stack.archive_integrated_heads(command_context, for_archival)?;
             newly_archived_branches.append(&mut archived_branches);
         }
 
@@ -656,6 +660,7 @@ fn compute_resolutions(
                             head: new_head,
                             tree: new_tree,
                             rebase_output: None,
+                            for_archival: vec![],
                         },
                     ))
                 }
@@ -686,10 +691,11 @@ fn compute_resolutions(
                         new_target.id()
                     };
 
-                    let steps =
+                    let all_steps =
                         stack_as_rebase_steps(context.ctx, context.gix_repo, branch_stack.id)?;
+                    let branches_before = as_buckets(all_steps.clone());
                     // Filter out any integrated commits
-                    let steps = steps
+                    let steps = all_steps
                         .into_iter()
                         .filter_map(|s| match s {
                             RebaseStep::Pick {
@@ -707,6 +713,22 @@ fn compute_resolutions(
                             _ => Some(s),
                         })
                         .collect::<Vec<_>>();
+
+                    let branches_after = as_buckets(steps.clone());
+
+                    // Branches that used to have commits but now don't are marked for archival
+                    let mut for_archival = vec![];
+                    for (ref_before, steps_before) in branches_before {
+                        if let Some((_, steps_after)) = branches_after
+                            .iter()
+                            .find(|(ref_after, _)| ref_after == &ref_before)
+                        {
+                            // if there were steps before and now there are none, this should be marked for archival
+                            if !steps_before.is_empty() && steps_after.is_empty() {
+                                for_archival.push(ref_before);
+                            }
+                        }
+                    }
 
                     let mut rebase = but_rebase::Rebase::new(
                         context.gix_repo,
@@ -730,6 +752,7 @@ fn compute_resolutions(
                             head: new_head,
                             tree: new_tree,
                             rebase_output: Some(output),
+                            for_archival,
                         },
                     ))
                 }
@@ -738,4 +761,20 @@ fn compute_resolutions(
         .collect::<Result<Vec<_>>>()?;
 
     Ok(results)
+}
+
+fn as_buckets(steps: Vec<RebaseStep>) -> Vec<(but_core::Reference, Vec<RebaseStep>)> {
+    let mut buckets = vec![];
+    let mut current_steps = vec![];
+    for step in steps {
+        match step {
+            RebaseStep::Reference(reference) => {
+                buckets.push((reference, std::mem::take(&mut current_steps)));
+            }
+            step => {
+                current_steps.push(step);
+            }
+        }
+    }
+    buckets
 }
