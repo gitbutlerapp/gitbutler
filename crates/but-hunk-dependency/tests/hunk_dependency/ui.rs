@@ -207,7 +207,7 @@ mod util {
         ctx: &TestContext,
     ) -> anyhow::Result<HunkDependencies> {
         hunk_dependencies_for_workspace_changes_by_worktree_dir(
-            ctx.repo.work_dir().expect("We don't support bare repos"),
+            ctx.repo.workdir().expect("We don't support bare repos"),
             &ctx.gitbutler_dir,
         )
     }

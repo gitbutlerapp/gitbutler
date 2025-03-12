@@ -42,7 +42,7 @@ pub fn writable_scenario(name: &str) -> (gix::Repository, tempfile::TempDir) {
 pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile::TempDir) {
     let (mut repo, tmp) = writable_scenario_inner(name, Creation::CopyFromReadOnly)
         .expect("fixtures will yield valid repositories");
-    let signing_key_path = repo.work_dir().expect("non-bare").join("signature.key");
+    let signing_key_path = repo.workdir().expect("non-bare").join("signature.key");
     assert!(
         signing_key_path.is_file(),
         "Expecting signing key at '{}'",
@@ -149,7 +149,7 @@ pub fn write_sequence(
         }
     }
     std::fs::write(
-        repo.work_dir().expect("non-bare").join(filename),
+        repo.workdir().expect("non-bare").join(filename),
         out.as_bytes(),
     )?;
     Ok(())

@@ -9,7 +9,7 @@ use std::path::Path;
 /// While `gix` can't (or can't conveniently) do everything, let's make using `git` easier.
 pub fn git(repo: &gix::Repository) -> std::process::Command {
     let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
-    cmd.current_dir(repo.work_dir().expect("non-bare"));
+    cmd.current_dir(repo.workdir().expect("non-bare"));
     cmd
 }
 

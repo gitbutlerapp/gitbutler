@@ -68,7 +68,7 @@ impl UnifiedDiff {
                 old_root: None,
                 new_root: current_state
                     .filter(|state| state.id.is_null())
-                    .and_then(|_| repo.work_dir().map(ToOwned::to_owned)),
+                    .and_then(|_| repo.workdir().map(ToOwned::to_owned)),
             },
         )?;
 

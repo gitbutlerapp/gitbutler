@@ -169,7 +169,7 @@ fn apply_worktree_changes<'repo>(
         .transpose()?;
     let mut current_worktree = Vec::new();
 
-    let work_dir = repo.work_dir().expect("non-bare repo");
+    let work_dir = repo.workdir().expect("non-bare repo");
     'each_change: for possible_change in changes.iter_mut() {
         let change_request = match possible_change {
             Ok(change) => change,

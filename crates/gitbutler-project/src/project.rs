@@ -105,7 +105,7 @@ impl Project {
     /// Search upwards from `path` to discover a Git worktree.
     pub fn from_path(path: &Path) -> anyhow::Result<Project> {
         let worktree_dir = gix::discover(path)?
-            .work_dir()
+            .workdir()
             .context("Bare repositories aren't supported")?
             .to_owned();
         Ok(Project {
