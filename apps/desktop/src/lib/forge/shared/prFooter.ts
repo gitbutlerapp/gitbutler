@@ -20,9 +20,14 @@ export async function updateButRequestPrDescription(
 	butReview: Branch
 ) {
 	const pr = await prService.get(prNumber);
-	const prBody = pr.body || '\n';
+	const prBody = unixifyNewlines(pr.body || '\n');
+
+	const newBody = unixifyNewlines(formatButRequestDescription(prBody, butRequestUrl, butReview));
+
+	if (prBody === newBody) return;
+
 	await prService.update(prNumber, {
-		description: formatButRequestDescription(prBody, butRequestUrl, butReview)
+		description: newBody
 	});
 }
 
@@ -89,7 +94,7 @@ function upsertDescription(
 	prDescription: string,
 	injectable: string
 ): string {
-	const descriptionLines = prDescription.split(/\r?\n/);
+	const descriptionLines = prDescription.split('\n');
 	const before = [];
 	const after = [];
 

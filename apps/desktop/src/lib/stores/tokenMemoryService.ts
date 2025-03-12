@@ -1,8 +1,8 @@
-import { writable } from 'svelte/store';
+import { persisted } from '@gitbutler/shared/persisted';
 
 /** Holds the logged in user's token in memory */
 export class TokenMemoryService {
-	#token = writable<string | undefined>(undefined);
+	#token = persisted<string | undefined>(undefined, 'TokenMemoryService-authToken');
 
 	get token() {
 		return this.#token;

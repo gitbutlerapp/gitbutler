@@ -1,36 +1,34 @@
 import { getPr } from '$lib/forge/getPr.svelte';
 import { getForgePrService } from '$lib/forge/interface/forgePrService';
-import {
-	formatButRequestDescription,
-	unixifyNewlines,
-	updateButRequestPrDescription
-} from '$lib/forge/shared/prFooter';
+import { updateButRequestPrDescription } from '$lib/forge/shared/prFooter';
 import { ProjectService } from '$lib/project/projectService';
 import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
 import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
 import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
-import { inject } from '@gitbutler/shared/context';
-import { combine, isFound, map } from '@gitbutler/shared/network/loadable';
+import { getContext, inject } from '@gitbutler/shared/context';
+import { isFound, map } from '@gitbutler/shared/network/loadable';
 import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 import { readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { AppState } from '@gitbutler/shared/redux/store.svelte';
 import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+import { untrack } from 'svelte';
+import { get } from 'svelte/store';
 import type { PatchSeries } from '$lib/branches/branch';
+import type { DetailedPullRequest } from '$lib/forge/interface/types';
+import type { Branch as CloudBranch } from '@gitbutler/shared/branches/types';
+import type { Project as CloudProject } from '@gitbutler/shared/organizations/types';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 
 export function syncBrToPr(branch: Reactive<PatchSeries>) {
 	const pr = getPr(branch);
 
-	const [projectService, appState, latestBranchLookupService, cloudBranchService, webRoutes] =
-		inject(
-			ProjectService,
-			AppState,
-			LatestBranchLookupService,
-			CloudBranchService,
-			WebRoutesService
-		);
-	const prService = readableToReactive(getForgePrService());
+	const [projectService, appState, latestBranchLookupService, cloudBranchService] = inject(
+		ProjectService,
+		AppState,
+		LatestBranchLookupService,
+		CloudBranchService
+	);
 	const project = readableToReactive(projectService.project);
 
 	const cloudProject = $derived(
@@ -59,49 +57,27 @@ export function syncBrToPr(branch: Reactive<PatchSeries>) {
 		})
 	);
 
-	const butlerRequestUrl = $derived(
-		map(combine([cloudBranch?.current, cloudProject?.current]), ([cloudBranch, cloudProject]) => {
-			return webRoutes.projectReviewBranchUrl({
-				branchId: cloudBranch.branchId,
-				projectSlug: cloudProject.slug,
-				ownerSlug: cloudProject.owner
-			});
-		})
-	);
-
-	const prBody = $derived(pr.current?.body);
-	const prNumber = $derived(pr.current?.number);
-
-	const bodyChanged = $derived.by(() => {
-		if (!butlerRequestUrl) return false;
-		if (isFound(cloudBranch?.current)) {
-			const formattedBody = formatButRequestDescription(
-				prBody || '\n',
-				butlerRequestUrl,
-				cloudBranch.current.value
-			);
-
-			return unixifyNewlines(formattedBody) !== unixifyNewlines(prBody || '');
-		}
-	});
-
 	$effect(() => {
-		if (isFound(cloudBranch?.current)) {
-			if (
-				!cloudBranch?.current?.value ||
-				!bodyChanged ||
-				!prNumber ||
-				!butlerRequestUrl ||
-				!prService.current
-			)
-				return;
+		if (isFound(cloudProject?.current) && isFound(cloudBranch?.current) && pr.current) {
+			const cloudProjectValue = cloudProject.current.value;
+			const cloudBranchValue = cloudBranch.current.value;
+			const prValue = pr.current;
 
-			updateButRequestPrDescription(
-				prService.current,
-				prNumber,
-				butlerRequestUrl,
-				cloudBranch.current.value
-			);
+			untrack(() => untrackedUpdate(prValue, cloudProjectValue, cloudBranchValue));
 		}
 	});
+}
+
+function untrackedUpdate(pr: DetailedPullRequest, project: CloudProject, branch: CloudBranch) {
+	const prService = get(getForgePrService());
+	const webRoutes = getContext(WebRoutesService);
+	if (!prService) return;
+
+	const butlerRequestUrl = webRoutes.projectReviewBranchUrl({
+		branchId: branch.branchId,
+		projectSlug: project.slug,
+		ownerSlug: project.owner
+	});
+
+	updateButRequestPrDescription(prService, pr.number, butlerRequestUrl, branch);
 }
