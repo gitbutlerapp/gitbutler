@@ -1,5 +1,7 @@
 <script lang="ts">
+	import IntegrateUpstreamModal from '$components/IntegrateUpstreamModal.svelte';
 	import SyncButton from '$components/SyncButton.svelte';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { platformName } from '$lib/platform/platform';
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
@@ -14,9 +16,14 @@
 	import { goto } from '$app/navigation';
 
 	const projectsService = getContext(ProjectsService);
+	const baseBranchService = getContext(BaseBranchService);
 	const project = maybeGetContext(Project);
 
 	const projects = $derived(projectsService.projects);
+	const base = $derived(baseBranchService.base);
+	const upstreamCommits = $derived($base?.behind ?? 0);
+
+	let modal = $state<ReturnType<typeof IntegrateUpstreamModal>>();
 
 	const mappedProjects = $derived(
 		$projects?.map((project) => ({
@@ -31,13 +38,21 @@
 	let cloneProjectLoading = $state(false);
 
 	let isNotificationsUnread = $state(false);
+
+	function openModal() {
+		modal?.show();
+	}
 </script>
+
+<IntegrateUpstreamModal bind:this={modal} />
 
 <div class="header" class:mac={platformName === 'macos'}>
 	<div class="left">
 		<div class="left-buttons" class:macos={platformName === 'macos'}>
 			<SyncButton size="button" />
-			<Button style="pop">3 upstream commits</Button>
+			{#if upstreamCommits > 0}
+				<Button style="pop" onclick={openModal}>{upstreamCommits} upstream commits</Button>
+			{/if}
 		</div>
 	</div>
 	<div class="center">
