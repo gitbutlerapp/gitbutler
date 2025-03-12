@@ -45,6 +45,7 @@
 	import { ClientState } from '$lib/state/clientState.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { UpdaterService } from '$lib/updater/updater';
+	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService.svelte';
 	import { User } from '$lib/user/user';
 	import { UserService } from '$lib/user/userService';
 	import * as events from '$lib/utils/events';
@@ -94,6 +95,7 @@
 	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
 	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
 	const cloudProjectService = new CloudProjectService(data.cloud, appState.appDispatch);
+
 	const cloudBranchService = new CloudBranchService(data.cloud, appState.appDispatch);
 	const cloudPatchService = new CloudPatchCommitService(data.cloud, appState.appDispatch);
 	const repositoryIdLookupService = new RepositoryIdLookupService(data.cloud, appState.appDispatch);
@@ -103,6 +105,14 @@
 	const shortcutService = new ShortcutService(data.tauri);
 	const commitService = new CommitService();
 	const butRequestDetailsService = new ButRequestDetailsService(
+		cloudBranchService,
+		latestBranchLookupService
+	);
+	const upstreamIntegrationService = new UpstreamIntegrationService(
+		clientState,
+		stackService,
+		data.projectsService,
+		cloudProjectService,
 		cloudBranchService,
 		latestBranchLookupService
 	);
@@ -156,6 +166,7 @@
 	setContext(AppSettings, data.appSettings);
 	setContext(GitHubAuthenticationService, data.githubAuthenticationService);
 	setContext(StackService, stackService);
+	setContext(UpstreamIntegrationService, upstreamIntegrationService);
 	setContext(WorktreeService, worktreeService);
 	setContext(ShortcutService, shortcutService);
 	setContext(DiffService, diffService);
