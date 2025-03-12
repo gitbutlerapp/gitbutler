@@ -74,7 +74,7 @@
 				{projectId}
 				{stackId}
 				{branch}
-				{selected}
+				selected={selected && selection.current?.commitId === undefined}
 				isTopBranch={first}
 				readonly={!!forgeBranch}
 				onclick={() => {

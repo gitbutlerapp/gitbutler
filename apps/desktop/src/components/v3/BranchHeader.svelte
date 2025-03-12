@@ -111,6 +111,9 @@
 		align-items: center;
 		flex-direction: column;
 		color: var(--clr-text-3);
+		border-top-right-radius: var(--radius-ml);
+		border-top-left-radius: var(--radius-ml);
+		border-bottom: 1px solid var(--clr-border-2);
 
 		&:hover,
 		&:focus-within {
@@ -118,10 +121,14 @@
 				--show: true;
 			}
 		}
-	}
 
-	.selected {
-		color: var(--clr-text-2);
+		&:hover {
+			background-color: var(--clr-bg-1-muted);
+		}
+
+		&.selected {
+			background-color: var(--clr-bg-2);
+		}
 	}
 
 	.first-row {
