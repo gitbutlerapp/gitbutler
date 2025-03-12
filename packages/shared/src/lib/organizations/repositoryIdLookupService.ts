@@ -1,6 +1,6 @@
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
-import { addRepositoryId, upsertRepositoryId } from '$lib/organizations/repositoryIdLookupsSlice';
+import { repositoryIdLookupTable } from '$lib/organizations/repositoryIdLookupsSlice';
 import { stringifyProjectIdentity } from '$lib/organizations/types';
 import { POLLING_GLACIALLY } from '$lib/polling';
 import type { HttpClient } from '$lib/network/httpClient';
@@ -20,7 +20,9 @@ export class RepositoryIdLookupService {
 		const identity = stringifyProjectIdentity(owner, slug);
 		return this.projectLookupInterests
 			.findOrCreateSubscribable({ identity }, async () => {
-				this.appDispatch.dispatch(addRepositoryId({ status: 'loading', id: identity }));
+				this.appDispatch.dispatch(
+					repositoryIdLookupTable.addOne({ status: 'loading', id: identity })
+				);
 
 				try {
 					const { repository_id: repositoryId } = await this.httpClient.get<{
@@ -28,14 +30,16 @@ export class RepositoryIdLookupService {
 					}>(`projects/lookup/${owner}/${slug}`);
 
 					this.appDispatch.dispatch(
-						upsertRepositoryId({
+						repositoryIdLookupTable.upsertOne({
 							status: 'found',
 							id: identity,
 							value: repositoryId
 						})
 					);
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(upsertRepositoryId(errorToLoadable(error, identity)));
+					this.appDispatch.dispatch(
+						repositoryIdLookupTable.upsertOne(errorToLoadable(error, identity))
+					);
 				}
 			})
 			.createInterest();

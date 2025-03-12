@@ -1,7 +1,7 @@
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { map } from '$lib/network/loadable';
-import { organizationsSelectors } from '$lib/organizations/organizationsSlice';
-import { projectsSelectors } from '$lib/organizations/projectsSlice';
+import { organizationTable } from '$lib/organizations/organizationsSlice';
+import { projectTable } from '$lib/organizations/projectsSlice';
 import type { OrganizationService } from '$lib/organizations/organizationService';
 import type { LoadableOrganization, LoadableProject } from '$lib/organizations/types';
 import type { AppOrganizationsState, AppProjectsState } from '$lib/redux/store.svelte';
@@ -13,7 +13,7 @@ export function getOrganizations(
 	inView?: InView
 ): Reactive<LoadableOrganization[]> {
 	registerInterest(organizationService.getOrganizationListingInterest(), inView);
-	const current = $derived(organizationsSelectors.selectAll(appState.organizations));
+	const current = $derived(organizationTable.selectors.selectAll(appState.organizations));
 
 	return {
 		get current() {
@@ -29,7 +29,7 @@ export function getOrganizationBySlug(
 	inView?: InView
 ): Reactive<LoadableOrganization | undefined> {
 	registerInterest(organizationService.getOrganizationWithDetailsInterest(slug), inView);
-	const current = $derived(organizationsSelectors.selectById(appState.organizations, slug));
+	const current = $derived(organizationTable.selectors.selectById(appState.organizations, slug));
 
 	return {
 		get current() {
@@ -45,13 +45,15 @@ export function getOrganizationProjects(
 	inView?: InView
 ): Reactive<LoadableProject[] | undefined> {
 	registerInterest(organizationService.getOrganizationWithDetailsInterest(slug), inView);
-	const organization = $derived(organizationsSelectors.selectById(appState.organizations, slug));
+	const organization = $derived(
+		organizationTable.selectors.selectById(appState.organizations, slug)
+	);
 	const projects = $derived(
 		map(
 			organization,
 			(organization) =>
 				(organization.projectRepositoryIds || [])
-					.map((id) => projectsSelectors.selectById(appState.projects, id))
+					.map((id) => projectTable.selectors.selectById(appState.projects, id))
 					.filter((a) => a !== undefined) as LoadableProject[]
 		)
 	);

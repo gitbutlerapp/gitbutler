@@ -5,7 +5,7 @@ import { InterestStore } from '$lib/interest/interestStore';
 import { POLLING_FAST, POLLING_REGULAR } from '$lib/polling';
 import { guardReadableTrue } from '$lib/storeUtils';
 import { apiToUser, type LoadableUser } from '$lib/users/types';
-import { upsertUsers } from '$lib/users/usersSlice';
+import { userTable } from '$lib/users/usersSlice';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
@@ -49,7 +49,7 @@ export class FeedService {
 				id: apiPost.user.id
 			})
 		);
-		this.appDispatch.dispatch(upsertUsers(users));
+		this.appDispatch.dispatch(userTable.upsertMany(users));
 
 		const actionArguments = { identifier, postIds: apiFeed.map((post) => post.uuid) };
 		if (lastPostTimestamp) {
@@ -117,6 +117,6 @@ export class FeedService {
 				value: apiToUser(apiPost.user)
 			})
 		);
-		this.appDispatch.dispatch(upsertUsers(users));
+		this.appDispatch.dispatch(userTable.upsertMany(users));
 	}
 }

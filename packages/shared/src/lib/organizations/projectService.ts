@@ -1,12 +1,7 @@
 import { apiToBranch } from '$lib/branches/types';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
-import {
-	addProject,
-	removeProject,
-	upsertProject,
-	upsertProjects
-} from '$lib/organizations/projectsSlice';
+import { projectTable } from '$lib/organizations/projectsSlice';
 import { updateRecentlyInteractedProjectIds } from '$lib/organizations/recentlyInteractedProjectIds';
 import { updateRecentlyPushedProjectIds } from '$lib/organizations/recentlyPushedProjectIds';
 import {
@@ -67,16 +62,20 @@ export class ProjectService {
 	getProjectInterest(repositoryId: string): Interest {
 		return this.projectInterests
 			.findOrCreateSubscribable({ repositoryId }, async () => {
-				this.appDispatch.dispatch(addProject({ status: 'loading', id: repositoryId }));
+				this.appDispatch.dispatch(projectTable.addOne({ status: 'loading', id: repositoryId }));
 
 				try {
 					const apiProject = await this.httpClient.get<ApiProject>(`projects/${repositoryId}`);
 
 					this.appDispatch.dispatch(
-						upsertProject({ status: 'found', id: repositoryId, value: apiToProject(apiProject) })
+						projectTable.upsertOne({
+							status: 'found',
+							id: repositoryId,
+							value: apiToProject(apiProject)
+						})
 					);
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(upsertProject(errorToLoadable(error, repositoryId)));
+					this.appDispatch.dispatch(projectTable.upsertOne(errorToLoadable(error, repositoryId)));
 				}
 			})
 			.createInterest();
@@ -87,7 +86,11 @@ export class ProjectService {
 			const apiProject = await this.httpClient.get<ApiProject>(`projects/${repositoryId}`);
 
 			this.appDispatch.dispatch(
-				upsertProject({ status: 'found', id: repositoryId, value: apiToProject(apiProject) })
+				projectTable.upsertOne({
+					status: 'found',
+					id: repositoryId,
+					value: apiToProject(apiProject)
+				})
 			);
 
 			return apiToProject(apiProject);
@@ -101,7 +104,7 @@ export class ProjectService {
 			const apiProject = await this.httpClient.get<ApiProject>(`projects/full/${slug}`);
 
 			this.appDispatch.dispatch(
-				upsertProject({
+				projectTable.upsertOne({
 					status: 'found',
 					id: apiProject.repository_id,
 					value: apiToProject(apiProject)
@@ -141,7 +144,7 @@ export class ProjectService {
 					value: apiToProject(apiProject)
 				}));
 
-				this.appDispatch.dispatch(upsertProjects(projects));
+				this.appDispatch.dispatch(projectTable.upsertMany(projects));
 			})
 			.createInterest();
 	}
@@ -157,7 +160,7 @@ export class ProjectService {
 					value: apiToProject(apiProject)
 				}));
 
-				this.appDispatch.dispatch(upsertProjects(projects));
+				this.appDispatch.dispatch(projectTable.upsertMany(projects));
 				this.appDispatch.dispatch(
 					updateRecentlyInteractedProjectIds(projects.map((project) => project.id))
 				);
@@ -176,7 +179,7 @@ export class ProjectService {
 					value: apiToProject(apiProject)
 				}));
 
-				this.appDispatch.dispatch(upsertProjects(projects));
+				this.appDispatch.dispatch(projectTable.upsertMany(projects));
 				this.appDispatch.dispatch(
 					updateRecentlyPushedProjectIds(projects.map((project) => project.id))
 				);
@@ -191,7 +194,7 @@ export class ProjectService {
 		const project = apiToProject(apiProject);
 
 		this.appDispatch.dispatch(
-			upsertProject({ status: 'found', id: project.repositoryId, value: project })
+			projectTable.upsertOne({ status: 'found', id: project.repositoryId, value: project })
 		);
 
 		return project;
@@ -211,7 +214,7 @@ export class ProjectService {
 		const project = apiToProject(apiProject);
 
 		this.appDispatch.dispatch(
-			upsertProject({ status: 'found', id: project.repositoryId, value: project })
+			projectTable.upsertOne({ status: 'found', id: project.repositoryId, value: project })
 		);
 
 		return project;
@@ -220,7 +223,7 @@ export class ProjectService {
 	async deleteProject(repositoryId: string) {
 		await this.httpClient.delete(`projects/${repositoryId}`);
 
-		this.appDispatch.dispatch(removeProject(repositoryId));
+		this.appDispatch.dispatch(projectTable.removeOne(repositoryId));
 	}
 
 	async updateProject(repositoryId: string, params: UpdateParams) {
@@ -230,7 +233,7 @@ export class ProjectService {
 		const project = apiToProject(apiProject);
 
 		this.appDispatch.dispatch(
-			upsertProject({ status: 'found', id: project.repositoryId, value: project })
+			projectTable.upsertOne({ status: 'found', id: project.repositoryId, value: project })
 		);
 		return project;
 	}

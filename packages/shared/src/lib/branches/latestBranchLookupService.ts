@@ -1,4 +1,4 @@
-import { addBranchUuid, upsertBranchUuid } from '$lib/branches/latestBranchLookupSlice';
+import { latestBranchLookupTable } from '$lib/branches/latestBranchLookupSlice';
 import { apiToBranch, type ApiBranch, type Branch } from '$lib/branches/types';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
@@ -17,7 +17,9 @@ export class LatestBranchLookupService {
 	getBranchUuidInterest(ownerSlug: string, projectSlug: string, branchId: string): Interest {
 		return this.branchLookupInterests
 			.findOrCreateSubscribable({ branchId }, async () => {
-				this.appDispatch.dispatch(addBranchUuid({ status: 'loading', id: branchId }));
+				this.appDispatch.dispatch(
+					latestBranchLookupTable.addOne({ status: 'loading', id: branchId })
+				);
 
 				try {
 					const branch = await this.httpClient.get<ApiBranch>(
@@ -25,14 +27,16 @@ export class LatestBranchLookupService {
 					);
 
 					this.appDispatch.dispatch(
-						upsertBranchUuid({
+						latestBranchLookupTable.upsertOne({
 							status: 'found',
 							id: branchId,
 							value: branch.uuid
 						})
 					);
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(upsertBranchUuid(errorToLoadable(error, branchId)));
+					this.appDispatch.dispatch(
+						latestBranchLookupTable.upsertOne(errorToLoadable(error, branchId))
+					);
 				}
 			})
 			.createInterest();
@@ -49,7 +53,7 @@ export class LatestBranchLookupService {
 			);
 
 			this.appDispatch.dispatch(
-				upsertBranchUuid({
+				latestBranchLookupTable.upsertOne({
 					status: 'found',
 					id: branchId,
 					value: branch.uuid

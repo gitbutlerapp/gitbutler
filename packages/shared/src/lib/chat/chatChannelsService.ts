@@ -1,4 +1,4 @@
-import { upsertChatChannel } from './chatChannelsSlice';
+import { chatChannelTable } from '$lib/chat/chatChannelsSlice';
 import {
 	apiToChatMessage,
 	createChannelKey,
@@ -30,6 +30,9 @@ export class ChatChannelsService {
 		return this.chatMessagesInterests
 			.findOrCreateSubscribable({ projectId, changeId }, async () => {
 				const chatChannelKey = createChannelKey(projectId, changeId);
+				this.appDispatch.dispatch(
+					chatChannelTable.addOne({ status: 'loading', id: chatChannelKey })
+				);
 				try {
 					const apiChatMessages = await this.httpClient.get<ApiChatMessage[]>(
 						`chat_messages/${projectId}/chats/${changeId ?? ''}`
@@ -50,9 +53,11 @@ export class ChatChannelsService {
 						}
 					};
 
-					this.appDispatch.dispatch(upsertChatChannel(chatChannel));
+					this.appDispatch.dispatch(chatChannelTable.upsertOne(chatChannel));
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(upsertChatChannel(errorToLoadable(error, chatChannelKey)));
+					this.appDispatch.dispatch(
+						chatChannelTable.upsertOne(errorToLoadable(error, chatChannelKey))
+					);
 				}
 			})
 			.createInterest();

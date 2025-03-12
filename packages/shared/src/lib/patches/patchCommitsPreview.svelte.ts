@@ -4,7 +4,7 @@ import { registerInterest, type InView } from '$lib/interest/registerInterestFun
 import { mapL } from '$lib/network/loadable';
 import { createPatchEventChannelKey, type LoadablePatchEventChannel } from '$lib/patchEvents/types';
 import { PatchCommitService } from '$lib/patches/patchCommitService';
-import { patchCommitsSelector } from '$lib/patches/patchCommitsSlice';
+import { patchCommitTable } from '$lib/patches/patchCommitsSlice';
 import { getPatchIdable } from '$lib/patches/patchIdablesPreview.svelte';
 import { patchSectionsSelectors } from '$lib/patches/patchSectionsSlice';
 import { AppState, type AppPatchEventsState } from '$lib/redux/store.svelte';
@@ -23,7 +23,7 @@ export function getPatch(
 	const patchInterest = patchService.getPatchWithSectionsInterest(branchUuid, changeId);
 	registerInterest(patchInterest, inView);
 
-	const patch = $derived(patchCommitsSelector.selectById(appState.patches, changeId));
+	const patch = $derived(patchCommitTable.selectors.selectById(appState.patches, changeId));
 
 	return {
 		get current() {
@@ -42,7 +42,7 @@ export function getPatchSections(
 	const patchInterest = patchService.getPatchWithSectionsInterest(branchUuid, changeId);
 	registerInterest(patchInterest, inView);
 
-	const patch = $derived(patchCommitsSelector.selectById(appState.patches, changeId));
+	const patch = $derived(patchCommitTable.selectors.selectById(appState.patches, changeId));
 	const sections = $derived.by(() => {
 		if (patch?.status !== 'found') return;
 
