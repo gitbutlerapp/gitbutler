@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
+	import { featureShowProjectPage } from '$lib/featureFlags';
 	import { getTimeSince } from '$lib/utils/dateUtils';
 	import { getContext } from '@gitbutler/shared/context';
 	import PermissionsSelector from '@gitbutler/shared/organizations/PermissionsSelector.svelte';
@@ -21,6 +22,12 @@
 	let { data }: Props = $props();
 	const projectService = getContext(ProjectService);
 	const routes = getContext(WebRoutesService);
+
+	$effect(() => {
+		if (!$featureShowProjectPage) {
+			goto(routes.homePath());
+		}
+	});
 
 	// Store project data in a reactive variable
 	let projectData = $state<any>(null);

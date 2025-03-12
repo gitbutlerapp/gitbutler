@@ -1,9 +1,20 @@
 <script lang="ts">
 	import OrganizationProfile from '$lib/components/OrganizationProfile.svelte';
 	import UserProfile from '$lib/components/UserProfile.svelte';
+	import { featureShowProjectPage } from '$lib/featureFlags';
 	import { OwnerService } from '$lib/owner/ownerService';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { getContext } from 'svelte';
 	import type { OwnerParameters } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { goto } from '$app/navigation';
+
+	const routes = getContext(WebRoutesService) as WebRoutesService;
+
+	$effect(() => {
+		if (!$featureShowProjectPage) {
+			goto(routes.homePath());
+		}
+	});
 
 	interface Props {
 		data: OwnerParameters;
