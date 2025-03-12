@@ -145,10 +145,26 @@ export class UserService {
 		return await this.httpClient.get('user.json');
 	}
 
-	async updateUser(params: { name?: string; picture?: File }): Promise<any> {
+	async updateUser(params: {
+		name?: string;
+		picture?: File;
+		website?: string;
+		twitter?: string;
+		bluesky?: string;
+		timezone?: string;
+		location?: string;
+		emailShare?: boolean;
+	}): Promise<any> {
 		const formData = new FormData();
 		if (params.name) formData.append('name', params.name);
 		if (params.picture) formData.append('avatar', params.picture);
+		if (params.website !== undefined) formData.append('website', params.website);
+		if (params.twitter !== undefined) formData.append('twitter', params.twitter);
+		if (params.bluesky !== undefined) formData.append('bluesky', params.bluesky);
+		if (params.timezone !== undefined) formData.append('timezone', params.timezone);
+		if (params.location !== undefined) formData.append('location', params.location);
+		if (params.emailShare !== undefined)
+			formData.append('email_share', params.emailShare.toString());
 
 		// Content Type must be unset for the right form-data border to be set automatically
 		return await this.httpClient.put('user.json', {

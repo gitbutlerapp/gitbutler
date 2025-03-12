@@ -1,3 +1,4 @@
+import { apiToBranch } from '$lib/branches/types';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
 import {
@@ -15,6 +16,7 @@ import {
 	type Project
 } from '$lib/organizations/types';
 import { POLLING_GLACIALLY, POLLING_REGULAR } from '$lib/polling';
+import type { Branch, ApiBranch } from '$lib/branches/types';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { ShareLevel } from '$lib/permissions';
 import type { AppDispatch } from '$lib/redux/store.svelte';
@@ -24,6 +26,7 @@ type UpdateParams = {
 	name?: string;
 	description?: string;
 	shareLevel?: ShareLevel;
+	readme?: string;
 };
 
 type ApiUpdateParams = {
@@ -31,6 +34,7 @@ type ApiUpdateParams = {
 	name?: string;
 	description?: string;
 	share_level?: ShareLevel;
+	readme?: string;
 };
 
 function toApiUpdateParams(real: UpdateParams): ApiUpdateParams {
@@ -38,6 +42,7 @@ function toApiUpdateParams(real: UpdateParams): ApiUpdateParams {
 		slug: real.slug,
 		name: real.name,
 		description: real.description,
+		readme: real.readme,
 		share_level: real.shareLevel
 	};
 }
@@ -88,6 +93,40 @@ export class ProjectService {
 			return apiToProject(apiProject);
 		} catch (_: unknown) {
 			/* empty */
+		}
+	}
+
+	async getProjectBySlug(slug: string): Promise<Project | undefined> {
+		try {
+			const apiProject = await this.httpClient.get<ApiProject>(`projects/full/${slug}`);
+
+			this.appDispatch.dispatch(
+				upsertProject({
+					status: 'found',
+					id: apiProject.repository_id,
+					value: apiToProject(apiProject)
+				})
+			);
+
+			return apiToProject(apiProject);
+		} catch (_: unknown) {
+			/* empty */
+		}
+	}
+
+	/**
+	 * Get patch stacks for a project by its full slug
+	 * @param slug The project's full slug (owner/project)
+	 * @returns Array of Branch objects
+	 */
+	async getProjectPatchStacks(slug: string): Promise<Branch[]> {
+		try {
+			const apiBranches = await this.httpClient.get<ApiBranch[]>(`patch_stack/${slug}`);
+			console.log('apiBranches', apiBranches);
+			return apiBranches.map(apiToBranch);
+		} catch (error) {
+			console.error(`Error fetching patch stacks for ${slug}:`, error);
+			return [];
 		}
 	}
 

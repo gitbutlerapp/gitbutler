@@ -40,11 +40,27 @@
 	let loadingSshKeys = $state(true);
 	let addKeyModal = $state<AddSshKeyModal>();
 
+	// New state variables for additional profile fields
+	let websiteValue = $state('');
+	let twitterValue = $state('');
+	let blueskyValue = $state('');
+	let locationValue = $state('');
+	let timezoneValue = $state('');
+	let emailShareValue = $state(false);
+	let updatingAdditionalInfo = $state(false);
+
 	$effect(() => {
 		if ($user) {
 			nameValue = $user.name;
 			emailValue = $user.email;
 			userPicture = $user.picture;
+			// Initialize additional profile fields if they exist on the user object
+			websiteValue = $user.website || '';
+			twitterValue = $user.twitter || '';
+			blueskyValue = $user.bluesky || '';
+			locationValue = $user.location || '';
+			timezoneValue = $user.timezone || '';
+			emailShareValue = $user.emailShare || false;
 			loadSshKeys();
 		}
 	});
@@ -80,6 +96,22 @@
 			await userService.updateUser({ name: nameValue });
 		} finally {
 			updatingName = false;
+		}
+	}
+
+	async function updateAdditionalInfo() {
+		updatingAdditionalInfo = true;
+		try {
+			await userService.updateUser({
+				website: websiteValue,
+				twitter: twitterValue,
+				bluesky: blueskyValue,
+				location: locationValue,
+				timezone: timezoneValue,
+				emailShare: emailShareValue
+			});
+		} finally {
+			updatingAdditionalInfo = false;
 		}
 	}
 
@@ -171,7 +203,7 @@
 		{:else if !$user?.id}
 			<p>Loading...</p>
 		{:else}
-			<h1 class="title">Profile</h1>
+			<h1 class="title">My Preferences</h1>
 
 			<SectionCard>
 				<div class="profile-form">
@@ -208,6 +240,85 @@
 								<input id="email" type="email" bind:value={emailValue} readonly={true} />
 							</div>
 						</div>
+					</div>
+				</div>
+			</SectionCard>
+
+			<h2 class="section-title">Contact Info</h2>
+
+			<SectionCard>
+				<div class="additional-info">
+					<div class="additional-info__fields">
+						<div class="info-field">
+							<label for="website">Website</label>
+							<input
+								id="website"
+								type="url"
+								placeholder="https://example.com"
+								bind:value={websiteValue}
+								readonly={updatingAdditionalInfo}
+							/>
+						</div>
+
+						<div class="info-field">
+							<label for="twitter">Twitter</label>
+							<input
+								id="twitter"
+								type="text"
+								placeholder="@username"
+								bind:value={twitterValue}
+								readonly={updatingAdditionalInfo}
+							/>
+						</div>
+
+						<div class="info-field">
+							<label for="bluesky">Bluesky</label>
+							<input
+								id="bluesky"
+								type="text"
+								placeholder="@handle.bsky.social"
+								bind:value={blueskyValue}
+								readonly={updatingAdditionalInfo}
+							/>
+						</div>
+
+						<div class="info-field">
+							<label for="location">Location</label>
+							<input
+								id="location"
+								type="text"
+								placeholder="City, Country"
+								bind:value={locationValue}
+								readonly={updatingAdditionalInfo}
+							/>
+						</div>
+
+						<div class="notification-option">
+							<label class="checkbox-label" for="email-share">
+								<input
+									type="checkbox"
+									id="email-share"
+									checked={emailShareValue}
+									disabled={updatingAdditionalInfo}
+									onchange={() => (emailShareValue = !emailShareValue)}
+								/>
+								<div class="checkbox-content">
+									<span class="checkbox-title">Share my email</span>
+									<span class="checkbox-caption">
+										Allow other users to see your email address.
+									</span>
+								</div>
+							</label>
+						</div>
+
+						<button
+							type="button"
+							class="save-button"
+							disabled={updatingAdditionalInfo}
+							onclick={updateAdditionalInfo}
+						>
+							{updatingAdditionalInfo ? 'Saving...' : 'Save Changes'}
+						</button>
 					</div>
 				</div>
 			</SectionCard>
@@ -394,9 +505,9 @@
 			</SectionCard>
 
 			<SectionCard labelFor="showProjectPage" orientation="row">
-				{#snippet title()}Project Page{/snippet}
+				{#snippet title()}User / Organization / Project Pages{/snippet}
 				{#snippet caption()}
-					The project page provides an overview of the project.
+					This will show the stub landing pages for orgs, users and projects.
 				{/snippet}
 				{#snippet actions()}
 					<Toggle
@@ -698,5 +809,41 @@
 		font-size: 14px;
 		text-align: center;
 		padding: 24px;
+	}
+
+	.additional-info {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+	}
+
+	.additional-info__fields {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.save-button {
+		align-self: flex-end;
+		margin-top: 16px;
+		padding: 8px 16px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-scale-pop-70);
+		color: var(--clr-core-ntrl-100);
+		font-size: 14px;
+		font-weight: 500;
+		border: none;
+		cursor: pointer;
+		transition: background-color var(--transition-medium);
+
+		&:hover:not(:disabled) {
+			background-color: var(--clr-scale-pop-60);
+		}
+
+		&:disabled {
+			opacity: 0.7;
+			cursor: not-allowed;
+		}
 	}
 </style>

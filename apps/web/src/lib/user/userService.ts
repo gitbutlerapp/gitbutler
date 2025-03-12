@@ -1,6 +1,9 @@
 import { setSentryUser } from '$lib/analytics/sentry';
+import { apiToBranch } from '@gitbutler/shared/branches/types';
 import { get, writable, type Writable } from 'svelte/store';
+import type { ApiBranch, Branch } from '@gitbutler/shared/branches/types';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
+import type { Loadable } from '@gitbutler/shared/network/types';
 
 export interface User {
 	id: number;
@@ -11,7 +14,16 @@ export interface User {
 	created_at: Date;
 	picture: string;
 	supporter: boolean;
+	website: string;
+	twitter: string;
+	bluesky: string;
+	timezone: string;
+	location: string;
+	emailShare: boolean;
 }
+
+// Define the LoadablePatchStacks type using the shared Loadable type
+export type LoadablePatchStacks = Loadable<Branch[]> & { ownerSlug: string };
 
 export class UserService {
 	user: Writable<User | undefined> = writable<User | undefined>(undefined, (set) => {
@@ -27,7 +39,14 @@ export class UserService {
 
 	readonly error = writable();
 
+	// Patch stack cache for storing user patch stack stores
+	private patchStackCache: Map<string, Writable<LoadablePatchStacks>> = new Map();
+
 	constructor(private readonly httpClient: HttpClient) {
+		if (!httpClient) {
+			console.error('[UserService] HttpClient was not provided in constructor');
+		}
+
 		httpClient.authenticationAvailable.subscribe((available) => {
 			if (available && get(this.user) === undefined) {
 				// If the authentication availability changes, refetch the use
@@ -45,6 +64,7 @@ export class UserService {
 
 	private async fetchUser() {
 		const user = await this.httpClient.get<User>('/api/user');
+		console.log('[UserService] Fetched user:', user);
 		setSentryUser(user);
 
 		return user;
@@ -54,15 +74,120 @@ export class UserService {
 		this.user.set(undefined);
 	}
 
-	async updateUser(params: { name?: string; picture?: File }): Promise<any> {
+	async updateUser(params: {
+		name?: string;
+		picture?: File;
+		website?: string;
+		twitter?: string;
+		bluesky?: string;
+		timezone?: string;
+		location?: string;
+		emailShare?: boolean;
+		readme?: string;
+	}): Promise<any> {
 		const formData = new FormData();
 		if (params.name) formData.append('name', params.name);
 		if (params.picture) formData.append('avatar', params.picture);
+		if (params.website !== undefined) formData.append('website', params.website);
+		if (params.twitter !== undefined) formData.append('twitter', params.twitter);
+		if (params.bluesky !== undefined) formData.append('bluesky', params.bluesky);
+		if (params.timezone !== undefined) formData.append('timezone', params.timezone);
+		if (params.location !== undefined) formData.append('location', params.location);
+		if (params.emailShare !== undefined)
+			formData.append('email_share', params.emailShare.toString());
+		if (params.readme !== undefined) formData.append('readme', params.readme);
 
 		// Content Type must be unset for the right form-data border to be set automatically
 		return await this.httpClient.put('user.json', {
 			body: formData,
 			headers: { 'Content-Type': undefined }
 		});
+	}
+
+	/**
+	 * Gets a store for a user's patch stacks by slug. The store will be populated when accessed.
+	 * @param ownerSlug The user slug to fetch patch stacks for
+	 * @returns A readable store containing the patch stacks
+	 */
+	getPatchStacks(ownerSlug: string): Writable<LoadablePatchStacks> {
+		if (!this.patchStackCache.has(ownerSlug)) {
+			// Create a new store for this user's patch stacks
+			const store = writable<LoadablePatchStacks>({ status: 'loading', ownerSlug }, (set) => {
+				// Fetch data when the store is first subscribed to
+				this.fetchPatchStacks(ownerSlug)
+					.then((data) => {
+						set({ status: 'found', ownerSlug, value: data } as LoadablePatchStacks);
+					})
+					.catch((error) => {
+						if (error.response?.status === 404) {
+							set({
+								status: 'not-found',
+								ownerSlug
+							} as LoadablePatchStacks);
+						} else {
+							set({
+								status: 'error',
+								ownerSlug,
+								error: error.message || 'Unknown error occurred'
+							} as LoadablePatchStacks);
+						}
+					});
+			});
+
+			this.patchStackCache.set(ownerSlug, store);
+		}
+
+		return this.patchStackCache.get(ownerSlug)!;
+	}
+
+	/**
+	 * Manually fetch patch stacks from the API
+	 * @param ownerSlug The user slug to fetch patch stacks for
+	 * @returns Array of patch stacks converted to Branch format
+	 */
+	async fetchPatchStacks(ownerSlug: string): Promise<Branch[]> {
+		// Check if httpClient is defined
+		if (!this.httpClient) {
+			console.error('[UserService] HttpClient is undefined');
+			return [];
+		}
+
+		const endpoint = `user/${ownerSlug}/patch_stacks`;
+
+		console.log(`[UserService] Fetching patch stacks for user: ${ownerSlug}`);
+
+		try {
+			console.log(`[UserService] Trying API URL: ${endpoint}`);
+			const response = await this.httpClient.get<ApiBranch[]>(endpoint);
+			console.log(`[UserService] API response successful for ${endpoint}:`, response);
+
+			// Convert ApiBranch objects to Branch objects
+			return response.map(apiToBranch);
+		} catch (error: any) {
+			console.error(`[UserService] Error with endpoint ${endpoint}:`, error);
+
+			// If this is not a 404 error (which likely means wrong endpoint), rethrow it
+			if (error.response && error.response.status !== 404) {
+				throw error;
+			}
+
+			// If it's a 404, return empty array
+			console.log(`[UserService] Endpoint ${endpoint} returned 404, returning empty array`);
+			return [];
+		}
+	}
+
+	/**
+	 * Fetches the recent projects for a specific user
+	 * @param login The user's login/username
+	 * @returns Promise with the user's recent projects
+	 */
+	async recentProjects(login: string): Promise<any[]> {
+		try {
+			return await this.httpClient.get<any[]>(`/api/user/${login}/projects`);
+		} catch (error) {
+			console.error('Failed to fetch recent projects:', error);
+			return [];
+		}
 	}
 }
