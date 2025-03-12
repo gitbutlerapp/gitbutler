@@ -45,7 +45,7 @@ pub fn repo_and_maybe_project(
     let res = if let Some((projects, work_dir)) =
         project_controller(args.app_suffix.as_deref(), args.app_data_dir.as_deref())
             .ok()
-            .zip(repo.work_dir())
+            .zip(repo.workdir())
     {
         let work_dir = gix::path::realpath(work_dir)?;
         (
