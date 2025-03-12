@@ -24,3 +24,14 @@ pub fn commit_changes_by_worktree_dir(
     super::commit_changes(&repo, parent_id, commit_id)
         .map(|c| c.into_iter().map(Into::into).collect())
 }
+
+/// See [`super::commit_changes()`].
+pub fn changes_in_commit_range(
+    worktree_dir: PathBuf,
+    commit_id: gix::ObjectId,
+    base: gix::ObjectId,
+) -> anyhow::Result<Vec<TreeChange>> {
+    let repo = gix::open(worktree_dir)?;
+    super::commit_changes(&repo, Some(base), commit_id)
+        .map(|c| c.into_iter().map(Into::into).collect())
+}

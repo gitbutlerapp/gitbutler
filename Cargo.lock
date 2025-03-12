@@ -3067,6 +3067,7 @@ dependencies = [
  "gitbutler-id",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
+ "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
