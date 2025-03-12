@@ -16,15 +16,21 @@
 
 	const requiredFieldsFilled = $derived(!!(name && sluggifiedSlug));
 	let modalCreationState: 'inert' | 'loading' | 'complete' = $state('inert');
+	let submitAttempted = $state(false);
 
 	function onModalClose() {
 		name = '';
 		slug = '';
 		description = '';
 		modalCreationState = 'inert';
+		submitAttempted = false;
 	}
 
 	async function create(close: () => void) {
+		submitAttempted = true;
+
+		if (!requiredFieldsFilled) return;
+
 		modalCreationState = 'loading';
 		await organizationService.createOrganization(sluggifiedSlug, name, description);
 		modalCreationState = 'complete';
@@ -39,13 +45,20 @@
 </script>
 
 <Modal bind:this={modal} onClose={onModalClose}>
-	<Textbox bind:value={name} label="Name" required></Textbox>
-	<Textbox bind:value={slug} label="Slug" required></Textbox>
-	{#if slug !== sluggifiedSlug}
-		<p>Slug will be save as: {sluggifiedSlug}</p>
-	{/if}
+	<div class="form-container">
+		<h2>Create a new Organization</h2>
+		<p>
+			Organizations are a way to group projects and collaborate with your team. You can create as
+			many organizations as you want.
+		</p>
+		<Textbox bind:value={name} label="Name" required={submitAttempted}></Textbox>
+		<Textbox bind:value={slug} label="Slug" required={submitAttempted}></Textbox>
+		{#if slug !== sluggifiedSlug}
+			<p>Slug will be save as: {sluggifiedSlug}</p>
+		{/if}
 
-	<Textarea bind:value={description} label="Description"></Textarea>
+		<Textarea bind:value={description} label="Description"></Textarea>
+	</div>
 
 	{#snippet controls(close)}
 		<Button
@@ -55,3 +68,17 @@
 		>
 	{/snippet}
 </Modal>
+
+<style>
+	h2 {
+		font-size: 20px;
+		font-weight: 600;
+		margin-bottom: 10px;
+	}
+
+	.form-container {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+</style>

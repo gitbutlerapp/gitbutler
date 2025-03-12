@@ -22,11 +22,18 @@
 		joiningState = 'completed';
 		close();
 	}
+
+	export function show() {
+		modal?.show();
+	}
 </script>
 
 <Modal bind:this={modal} title="Join an organization" width="small">
 	{#snippet children()}
+		<p>To join an organization, you need to have a join code and an organization slug.</p>
+		<br />
 		<Textbox bind:value={organizationSlug} label="Organization slug" />
+		<br />
 		<Textbox bind:value={joinCode} label="Join code" />
 	{/snippet}
 
@@ -38,5 +45,3 @@
 		>
 	{/snippet}
 </Modal>
-
-<Button onclick={() => modal?.show()}>Join organization</Button>
