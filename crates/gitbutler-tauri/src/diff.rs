@@ -1,7 +1,11 @@
 use crate::error::Error;
 use crate::from_json::HexHash;
 use but_core::ui::{TreeChange, WorktreeChanges};
+use but_workspace::StackId;
+use gitbutler_command_context::CommandContext;
+use gitbutler_oxidize::OidExt;
 use gitbutler_project::ProjectId;
+use gitbutler_stack::{stack_context::CommandContextExt, VirtualBranchesHandle};
 use tracing::instrument;
 
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
@@ -32,6 +36,63 @@ pub fn changes_in_commit(
     let project = projects.get(project_id)?;
     but_core::diff::ui::commit_changes_by_worktree_dir(project.path, commit_id.into())
         .map_err(Into::into)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn changes_in_branch(
+    projects: tauri::State<'_, gitbutler_project::Controller>,
+    settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+    stack_id: StackId,
+    branch_name: String,
+) -> anyhow::Result<Vec<TreeChange>, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    changes_in_branch_inner(ctx, branch_name, stack_id).map_err(Into::into)
+}
+
+fn changes_in_branch_inner(
+    ctx: CommandContext,
+    branch_name: String,
+    stack_id: StackId,
+) -> anyhow::Result<Vec<TreeChange>> {
+    let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let stack = state.get_stack(stack_id)?;
+
+    // Find the branch head and the one before it
+    let heads = stack.heads();
+    let (start, end) = heads
+        .iter()
+        .rev()
+        .fold((None, None), |(start, end), branch| {
+            if start.is_some() && end.is_none() {
+                (start, Some(branch))
+            } else if branch == &branch_name {
+                (Some(branch), None)
+            } else {
+                (start, end)
+            }
+        });
+    let repo = ctx.gix_repository()?;
+
+    // Find the head that matches the branch name - the commit contained is our commit_id
+    let start_commit_id = repo
+        .find_reference(start.ok_or_else(|| anyhow::anyhow!("Branch {} not found", branch_name))?)?
+        .peel_to_commit()?
+        .id;
+
+    // Now, find the preceding head in the stack. If it is not present, use the stack merge base
+    let base_commit_id = match end {
+        Some(end) => repo.find_reference(end)?.peel_to_commit()?.id,
+        None => stack.merge_base(&ctx.to_stack_context()?)?.to_gix(),
+    };
+
+    but_core::diff::ui::changes_in_commit_range(
+        ctx.project().path.clone(),
+        start_commit_id,
+        base_commit_id,
+    )
 }
 
 /// This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in

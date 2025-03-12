@@ -330,6 +330,19 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					return changesAdapter.addMany(changesAdapter.getInitialState(), changes);
 				}
 			}),
+			branchChanges: build.query<
+				EntityState<TreeChange, string>,
+				{ projectId: string; stackId: string; branchName: string }
+			>({
+				query: ({ projectId, stackId, branchName }) => ({
+					command: 'changes_in_branch',
+					params: { projectId, stackId, branchName }
+				}),
+				providesTags: [ReduxTag.BranchChanges],
+				transformResponse(changes: TreeChange[]) {
+					return changesAdapter.addMany(changesAdapter.getInitialState(), changes);
+				}
+			}),
 			updateCommitMessage: build.mutation<
 				void,
 				{ projectId: string; branchId: string; commitOid: string; message: string }
