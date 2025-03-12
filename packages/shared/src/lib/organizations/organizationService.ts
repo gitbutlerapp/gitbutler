@@ -2,12 +2,8 @@ import { apiToBranch } from '$lib/branches/types';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { type HttpClient } from '$lib/network/httpClient';
 import { errorToLoadable } from '$lib/network/loadable';
-import {
-	addOrganization,
-	upsertOrganization,
-	upsertOrganizations
-} from '$lib/organizations/organizationsSlice';
-import { upsertProjects } from '$lib/organizations/projectsSlice';
+import { organizationTable } from '$lib/organizations/organizationsSlice';
+import { projectTable } from '$lib/organizations/projectsSlice';
 import {
 	apiToOrganization,
 	apiToProject,
@@ -47,7 +43,7 @@ export class OrganizationService {
 					value: apiToOrganization(apiOrganizations)
 				}));
 
-				this.appDispatch.dispatch(upsertOrganizations(organizations));
+				this.appDispatch.dispatch(organizationTable.upsertMany(organizations));
 			})
 			.createInterest();
 	}
@@ -55,7 +51,7 @@ export class OrganizationService {
 	getOrganizationWithDetailsInterest(slug: string): Interest {
 		return this.orgnaizationInterests
 			.findOrCreateSubscribable({ slug }, async () => {
-				this.appDispatch.dispatch(addOrganization({ status: 'loading', id: slug }));
+				this.appDispatch.dispatch(organizationTable.addOne({ status: 'loading', id: slug }));
 
 				try {
 					const apiOrganization = await this.httpClient.get<ApiOrganizationWithDetails>(
@@ -67,17 +63,17 @@ export class OrganizationService {
 						id: apiProject.repository_id,
 						value: apiToProject(apiProject)
 					}));
-					this.appDispatch.dispatch(upsertProjects(projects));
+					this.appDispatch.dispatch(projectTable.upsertMany(projects));
 
 					this.appDispatch.dispatch(
-						upsertOrganization({
+						organizationTable.upsertOne({
 							status: 'found',
 							id: slug,
 							value: apiToOrganization(apiOrganization)
 						})
 					);
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(upsertOrganization(errorToLoadable(error, slug)));
+					this.appDispatch.dispatch(organizationTable.upsertOne(errorToLoadable(error, slug)));
 				}
 			})
 			.createInterest();
@@ -97,7 +93,7 @@ export class OrganizationService {
 		});
 		const organization = apiToOrganization(apiOrganization);
 		this.appDispatch.dispatch(
-			upsertOrganization({ status: 'found', id: slug, value: organization })
+			organizationTable.upsertOne({ status: 'found', id: slug, value: organization })
 		);
 
 		return organization;
@@ -113,7 +109,7 @@ export class OrganizationService {
 
 		const organization = apiToOrganization(apiOrganization);
 		this.appDispatch.dispatch(
-			upsertOrganization({ status: 'found', id: slug, value: organization })
+			organizationTable.upsertOne({ status: 'found', id: slug, value: organization })
 		);
 
 		return organization;

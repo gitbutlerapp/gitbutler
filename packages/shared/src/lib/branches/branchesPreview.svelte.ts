@@ -1,5 +1,5 @@
-import { branchReviewListingsSelectors } from '$lib/branches/branchReviewListingsSlice';
-import { branchesSelectors } from '$lib/branches/branchesSlice';
+import { branchReviewListingTable } from '$lib/branches/branchReviewListingsSlice';
+import { branchTable } from '$lib/branches/branchesSlice';
 import { BranchStatus, toCombineSlug, type Branch, type LoadableBranch } from '$lib/branches/types';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { isFound } from '$lib/network/loadable';
@@ -21,7 +21,7 @@ export function getBranchReviewsForRepository(
 	registerInterest(branchReviewsInterest, inView);
 
 	const branchListing = $derived(
-		branchReviewListingsSelectors.selectById(
+		branchReviewListingTable.selectors.selectById(
 			appState.branchReviewListings,
 			toCombineSlug(ownerSlug, projectSlug)
 		)
@@ -33,7 +33,7 @@ export function getBranchReviewsForRepository(
 		const groupedBranches = new Map<string, Branch[]>();
 
 		branchListing.value.forEach((branchId) => {
-			const loadableBranch = branchesSelectors.selectById(appState.branches, branchId);
+			const loadableBranch = branchTable.selectors.selectById(appState.branches, branchId);
 
 			if (!isFound(loadableBranch) || loadableBranch.value.status === BranchStatus.Previous) {
 				return;
@@ -70,7 +70,7 @@ export function getBranchReview(
 	const branchReviewInterest = branchService.getBranchInterest(uuid);
 	registerInterest(branchReviewInterest, inView);
 
-	const branchReview = $derived(branchesSelectors.selectById(appState.branches, uuid));
+	const branchReview = $derived(branchTable.selectors.selectById(appState.branches, uuid));
 
 	return {
 		get current() {

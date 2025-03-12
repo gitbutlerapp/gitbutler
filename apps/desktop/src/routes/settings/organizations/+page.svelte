@@ -8,7 +8,7 @@
 	import JoinOrganizationModal from '@gitbutler/shared/organizations/JoinOrganizationModal.svelte';
 	import OrganizationModal from '@gitbutler/shared/organizations/OrganizationModal.svelte';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
-	import { organizationsSelectors } from '@gitbutler/shared/organizations/organizationsSlice';
+	import { organizationTable } from '@gitbutler/shared/organizations/organizationsSlice';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
@@ -19,7 +19,7 @@
 	const authenticated = httpClient.authenticationAvailable;
 
 	const organizationsInterest = organizationService.getOrganizationListingInterest();
-	const organizations = $derived(organizationsSelectors.selectAll(appState.organizations));
+	const organizations = $derived(organizationTable.selectors.selectAll(appState.organizations));
 
 	let createOrganizationModal = $state<CreateOrganizationModal>();
 </script>

@@ -1,6 +1,6 @@
 import { InterestStore } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
-import { addPatchIdable, upsertPatchIdable } from '$lib/patches/patchIdablesSlice';
+import { patchIdableTable } from '$lib/patches/patchIdablesSlice';
 import { upsertPatchSections } from '$lib/patches/patchSectionsSlice';
 import { apiToPatch, apiToSection, patchIdableId, type ApiPatchIdable } from '$lib/patches/types';
 import type { HttpClient } from '$lib/network/httpClient';
@@ -31,7 +31,7 @@ export class PatchIdableService {
 		return this.patchIntrests
 			.findOrCreateSubscribable({ branchUuid, changeId, oldVersion, newVersion }, async () => {
 				const key = patchIdableId({ branchUuid, changeId, oldVersion, newVersion });
-				this.appDispatch.dispatch(addPatchIdable({ status: 'loading', id: key }));
+				this.appDispatch.dispatch(patchIdableTable.addOne({ status: 'loading', id: key }));
 
 				try {
 					let queryString = `?version_new=${newVersion}`;
@@ -52,9 +52,11 @@ export class PatchIdableService {
 						this.appDispatch.dispatch(upsertPatchSections(sections));
 					}
 
-					this.appDispatch.dispatch(upsertPatchIdable({ status: 'found', id: key, value: patch }));
+					this.appDispatch.dispatch(
+						patchIdableTable.upsertOne({ status: 'found', id: key, value: patch })
+					);
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(upsertPatchIdable(errorToLoadable(error, key)));
+					this.appDispatch.dispatch(patchIdableTable.upsertOne(errorToLoadable(error, key)));
 				}
 			})
 			.createInterest();

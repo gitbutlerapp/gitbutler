@@ -1,6 +1,6 @@
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
-import { addPatchCommit, upsertPatchCommit } from '$lib/patches/patchCommitsSlice';
+import { patchCommitTable } from '$lib/patches/patchCommitsSlice';
 import { upsertPatchSections } from '$lib/patches/patchSectionsSlice';
 import { apiToPatch, apiToSection, type ApiPatchCommit, type Patch } from '$lib/patches/types';
 import { POLLING_REGULAR } from '$lib/polling';
@@ -24,7 +24,7 @@ export class PatchCommitService {
 	getPatchWithSectionsInterest(branchUuid: string, changeId: string): Interest {
 		return this.patchInterests
 			.findOrCreateSubscribable({ changeId }, async () => {
-				this.appDispatch.dispatch(addPatchCommit({ status: 'loading', id: changeId }));
+				this.appDispatch.dispatch(patchCommitTable.addOne({ status: 'loading', id: changeId }));
 				try {
 					const apiPatch = await this.httpClient.get<ApiPatchCommit>(
 						`patch_stack/${branchUuid}/patch/${changeId}`
@@ -40,10 +40,10 @@ export class PatchCommitService {
 					}
 
 					this.appDispatch.dispatch(
-						upsertPatchCommit({ status: 'found', id: changeId, value: patch })
+						patchCommitTable.upsertOne({ status: 'found', id: changeId, value: patch })
 					);
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(upsertPatchCommit(errorToLoadable(error, changeId)));
+					this.appDispatch.dispatch(patchCommitTable.upsertOne(errorToLoadable(error, changeId)));
 				}
 			})
 			.createInterest();
@@ -70,7 +70,9 @@ export class PatchCommitService {
 		);
 
 		const patch = apiToPatch(apiPatch);
-		this.appDispatch.dispatch(upsertPatchCommit({ status: 'found', id: changeId, value: patch }));
+		this.appDispatch.dispatch(
+			patchCommitTable.upsertOne({ status: 'found', id: changeId, value: patch })
+		);
 
 		// This will always be here, but this makes the typescript
 		// compiler happy

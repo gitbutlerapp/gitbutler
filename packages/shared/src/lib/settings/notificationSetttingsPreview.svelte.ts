@@ -1,4 +1,4 @@
-import { notificationSettingsSelectors } from './notificationSetttingsSlice';
+import { notificationSettingsTable } from './notificationSetttingsSlice';
 import { NOTIFICATION_SETTINGS_KEY, type LoadableNotificationSettings } from './types';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import type { AppNotificationSettingsState } from '$lib/redux/store.svelte';
@@ -15,7 +15,7 @@ export function getNotificationSettingsInterest(
 	registerInterest(notificationSettingsInterest, inView);
 
 	const notificationSettings = $derived(
-		notificationSettingsSelectors.selectById(
+		notificationSettingsTable.selectors.selectById(
 			appState.notificationSettings,
 			NOTIFICATION_SETTINGS_KEY
 		)

@@ -1,4 +1,4 @@
-import { upsertNotificationSettings } from './notificationSetttingsSlice';
+import { notificationSettingsTable } from './notificationSetttingsSlice';
 import {
 	apiToNotificationSettings,
 	NOTIFICATION_SETTINGS_KEY,
@@ -26,6 +26,9 @@ export class NotificationSettingsService {
 	getNotificationSettingsInterest(): Interest {
 		return this.notificationSettingsInterest
 			.findOrCreateSubscribable({ key: NOTIFICATION_SETTINGS_KEY }, async () => {
+				this.appDispatch.dispatch(
+					notificationSettingsTable.addOne({ status: 'loading', id: NOTIFICATION_SETTINGS_KEY })
+				);
 				try {
 					const apiNotificationSettings =
 						await this.httpClient.get<ApiNotificationSettings>('settings/notifications');
@@ -36,10 +39,10 @@ export class NotificationSettingsService {
 						value: apiToNotificationSettings(apiNotificationSettings)
 					};
 
-					this.appDispatch.dispatch(upsertNotificationSettings(notificationSettings));
+					this.appDispatch.dispatch(notificationSettingsTable.upsertOne(notificationSettings));
 				} catch (error: unknown) {
 					this.appDispatch.dispatch(
-						upsertNotificationSettings(errorToLoadable(error, NOTIFICATION_SETTINGS_KEY))
+						notificationSettingsTable.upsertOne(errorToLoadable(error, NOTIFICATION_SETTINGS_KEY))
 					);
 				}
 			})

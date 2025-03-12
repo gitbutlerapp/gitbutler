@@ -7,7 +7,7 @@ import {
 	getOrganizations
 } from '$lib/organizations/organizationsPreview.svelte';
 import { ProjectService } from '$lib/organizations/projectService';
-import { projectsSelectors } from '$lib/organizations/projectsSlice';
+import { projectTable } from '$lib/organizations/projectsSlice';
 import { AppState } from '$lib/redux/store.svelte';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { Loadable } from '$lib/network/types';
@@ -21,7 +21,9 @@ export function getProjectByRepositoryId(
 	const appState = getContext(AppState);
 	const projectService = getContext(ProjectService);
 	registerInterest(projectService.getProjectInterest(projectRepositoryId), inView);
-	const current = $derived(projectsSelectors.selectById(appState.projects, projectRepositoryId));
+	const current = $derived(
+		projectTable.selectors.selectById(appState.projects, projectRepositoryId)
+	);
 
 	return {
 		get current() {
@@ -35,7 +37,7 @@ export function getAllUserProjects(user: string, inView?: InView): Reactive<Load
 	const projectService = getContext(ProjectService);
 	registerInterest(projectService.getAllProjectsInterest(), inView);
 	const current = $derived.by(() => {
-		const allProjects = projectsSelectors.selectAll(appState.projects);
+		const allProjects = projectTable.selectors.selectAll(appState.projects);
 		return allProjects.filter((project) => isFound(project) && project.value.owner === user);
 	});
 
@@ -52,7 +54,9 @@ export function getRecentlyInteractedProjects(inView?: InView): Reactive<Loadabl
 	registerInterest(projectService.getRecentProjectsInterest(), inView);
 	const current = $derived(
 		appState.recentlyInteractedProjectIds.recentlyInteractedProjectIds
-			.map((recentProjectId) => projectsSelectors.selectById(appState.projects, recentProjectId))
+			.map((recentProjectId) =>
+				projectTable.selectors.selectById(appState.projects, recentProjectId)
+			)
 			.filter(isDefined)
 	);
 
@@ -69,7 +73,9 @@ export function getRecentlyPushedProjects(inView?: InView): Reactive<LoadablePro
 	registerInterest(projectService.getRecentlyPushedProjectsInterest(), inView);
 	const current = $derived(
 		appState.recentlyPushedProjectIds.recentlyPushedProjectIds
-			.map((recentProjectId) => projectsSelectors.selectById(appState.projects, recentProjectId))
+			.map((recentProjectId) =>
+				projectTable.selectors.selectById(appState.projects, recentProjectId)
+			)
 			.filter(isDefined)
 	);
 
@@ -89,7 +95,7 @@ export function getAllUserRelatedProjects(
 	const organizationService = getContext(OrganizationService);
 	registerInterest(projectService.getAllProjectsInterest(), inView);
 	const userProjects = $derived.by(() => {
-		const allProjects = projectsSelectors.selectAll(appState.projects);
+		const allProjects = projectTable.selectors.selectAll(appState.projects);
 		return allProjects.filter(
 			(project) => isFound(project) && project.value.owner === user
 		) as LoadableProject[];

@@ -1,4 +1,4 @@
-import { chatChannelsSelectors } from './chatChannelsSlice';
+import { chatChannelTable } from '$lib/chat/chatChannelsSlice';
 import { createChannelKey, type LoadableChatChannel } from '$lib/chat/types';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { map } from '$lib/network/loadable';
@@ -20,7 +20,7 @@ export function getChatChannel(
 
 	const chatChannelKey = createChannelKey(projectId, changeId);
 	const chatChannel = $derived(
-		chatChannelsSelectors.selectById(appState.chatChannels, chatChannelKey)
+		chatChannelTable.selectors.selectById(appState.chatChannels, chatChannelKey)
 	);
 
 	return {
@@ -42,7 +42,7 @@ export function getChatChannelParticipants(
 
 	const chatChannelKey = createChannelKey(projectId, changeId);
 	const chatChannelParticipants = $derived.by(() => {
-		const channel = chatChannelsSelectors.selectById(appState.chatChannels, chatChannelKey);
+		const channel = chatChannelTable.selectors.selectById(appState.chatChannels, chatChannelKey);
 		return map(channel, (channel) =>
 			deduplicateBy(
 				channel.messages.map((message) => message.user),

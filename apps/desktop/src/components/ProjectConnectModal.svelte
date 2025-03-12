@@ -3,9 +3,9 @@
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
-	import { organizationsSelectors } from '@gitbutler/shared/organizations/organizationsSlice';
+	import { organizationTable } from '@gitbutler/shared/organizations/organizationsSlice';
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
-	import { projectsSelectors } from '@gitbutler/shared/organizations/projectsSlice';
+	import { projectTable } from '@gitbutler/shared/organizations/projectsSlice';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -28,17 +28,17 @@
 	const projectInterest = $derived(projectsService.getProjectInterest(projectRepositoryId));
 
 	const chosenOrganization = $derived(
-		organizationsSelectors.selectById(appState.organizations, organizationSlug)
+		organizationTable.selectors.selectById(appState.organizations, organizationSlug)
 	);
 	const targetProject = $derived(
-		projectsSelectors.selectById(appState.projects, projectRepositoryId)
+		projectTable.selectors.selectById(appState.projects, projectRepositoryId)
 	);
 
 	const organizationProjects = $derived.by(() => {
 		if (chosenOrganization?.status !== 'found') return [];
 		return (
 			chosenOrganization.value.projectRepositoryIds?.map((repositoryId) => ({
-				project: projectsSelectors.selectById(appState.projects, repositoryId),
+				project: projectTable.selectors.selectById(appState.projects, repositoryId),
 				interest: projectsService.getProjectInterest(repositoryId)
 			})) || []
 		);

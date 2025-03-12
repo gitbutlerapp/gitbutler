@@ -10,13 +10,7 @@ import {
 	type SearchUsersApiParams,
 	type UserSimple
 } from '$lib/users/types';
-import {
-	addUser,
-	upsertUser,
-	upsertUserByLogin,
-	upsertUsers,
-	upsertUsersByLogin
-} from '$lib/users/usersSlice';
+import { userTable, userByLoginTable } from '$lib/users/usersSlice';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
@@ -32,7 +26,7 @@ export class UserService {
 	getUserInterest(id: number): Interest {
 		return this.userInterests
 			.findOrCreateSubscribable({ id }, async () => {
-				this.appDispatch.dispatch(addUser({ status: 'loading', id }));
+				this.appDispatch.dispatch(userTable.addOne({ status: 'loading', id }));
 
 				try {
 					const apiUsers = await this.httpClient.post<ApiUser[]>(`user_search`, {
@@ -40,7 +34,7 @@ export class UserService {
 					});
 
 					if (apiUsers.length === 0) {
-						this.appDispatch.dispatch(upsertUser({ status: 'not-found', id }));
+						this.appDispatch.dispatch(userTable.upsertOne({ status: 'not-found', id }));
 						return;
 					}
 
@@ -51,14 +45,14 @@ export class UserService {
 
 					const apiUser = apiUsers[0]!;
 					const user = apiToUser(apiUser);
-					this.appDispatch.dispatch(upsertUser({ status: 'found', id, value: user }));
+					this.appDispatch.dispatch(userTable.upsertOne({ status: 'found', id, value: user }));
 					if (user.login) {
 						this.appDispatch.dispatch(
-							upsertUserByLogin({ status: 'found', id: user.login, value: user.id })
+							userByLoginTable.upsertOne({ status: 'found', id: user.login, value: user.id })
 						);
 					}
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(upsertUser(errorToLoadable(error, id)));
+					this.appDispatch.dispatch(userTable.upsertOne(errorToLoadable(error, id)));
 				}
 			})
 			.createInterest();
@@ -73,7 +67,9 @@ export class UserService {
 					});
 
 					if (apiUsers.length === 0) {
-						this.appDispatch.dispatch(upsertUserByLogin({ status: 'not-found', id: login }));
+						this.appDispatch.dispatch(
+							userByLoginTable.upsertOne({ status: 'not-found', id: login })
+						);
 						return;
 					}
 
@@ -85,11 +81,13 @@ export class UserService {
 					const apiUser = apiUsers[0]!;
 					const user = apiToUser(apiUser);
 					this.appDispatch.dispatch(
-						upsertUserByLogin({ status: 'found', id: login, value: user.id })
+						userByLoginTable.upsertOne({ status: 'found', id: login, value: user.id })
 					);
-					this.appDispatch.dispatch(upsertUser({ status: 'found', id: user.id, value: user }));
+					this.appDispatch.dispatch(
+						userTable.upsertOne({ status: 'found', id: user.id, value: user })
+					);
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(upsertUserByLogin(errorToLoadable(error, login)));
+					this.appDispatch.dispatch(userByLoginTable.upsertOne(errorToLoadable(error, login)));
 				}
 			})
 			.createInterest();
@@ -106,7 +104,7 @@ export class UserService {
 		const loadableUsers = users.map(
 			(user): LoadableUser => ({ status: 'found', id: user.id, value: user })
 		);
-		this.appDispatch.dispatch(upsertUsers(loadableUsers));
+		this.appDispatch.dispatch(userTable.upsertMany(loadableUsers));
 
 		const loadableUsersByLogin = users
 			.map((user): LoadableUserIdByLogin | undefined => {
@@ -115,7 +113,7 @@ export class UserService {
 			})
 			.filter((loadable): loadable is LoadableUserIdByLogin => !!loadable);
 
-		this.appDispatch.dispatch(upsertUsersByLogin(loadableUsersByLogin));
+		this.appDispatch.dispatch(userByLoginTable.upsertMany(loadableUsersByLogin));
 
 		return apiUsers.map(apiToUserSimple);
 	}

@@ -5,7 +5,7 @@ import {
 	registerInterestInView
 } from '$lib/interest/registerInterestFunction.svelte';
 import { isFound } from '$lib/network/loadable';
-import { usersByLoginSelectors, usersSelectors } from '$lib/users/usersSlice';
+import { userByLoginTable, userTable } from '$lib/users/usersSlice';
 import type { FeedService } from '$lib/feeds/service';
 import type { Feed, Post } from '$lib/feeds/types';
 import type { Loadable } from '$lib/network/types';
@@ -87,14 +87,14 @@ export function getPostAuthor(
 			registerInterest(userByLoginInterest);
 		}
 
-		return usersByLoginSelectors.selectById(appState.usersByLogin, post.userLogin);
+		return userByLoginTable.selectors.selectById(appState.usersByLogin, post.userLogin);
 	});
 
 	const current = $derived.by(() => {
 		if (!currentUserId) return undefined;
 		if (!isFound(currentUserId)) return currentUserId;
 		const id = currentUserId.value;
-		return usersSelectors.selectById(appState.users, id);
+		return userTable.selectors.selectById(appState.users, id);
 	});
 
 	return {
