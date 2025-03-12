@@ -2,6 +2,7 @@ import { getPr } from '$lib/forge/getPr.svelte';
 import { getForgePrService } from '$lib/forge/interface/forgePrService';
 import {
 	formatButRequestDescription,
+	unixifyNewlines,
 	updateButRequestPrDescription
 } from '$lib/forge/shared/prFooter';
 import { ProjectService } from '$lib/project/projectService';
@@ -75,12 +76,12 @@ export function syncBrToPr(branch: Reactive<PatchSeries>) {
 		if (!butlerRequestUrl) return false;
 		if (isFound(cloudBranch?.current)) {
 			const formattedBody = formatButRequestDescription(
-				prBody || '\r\n',
+				prBody || '\n',
 				butlerRequestUrl,
 				cloudBranch.current.value
 			);
 
-			return formattedBody !== prBody;
+			return unixifyNewlines(formattedBody) !== unixifyNewlines(prBody || '');
 		}
 	});
 

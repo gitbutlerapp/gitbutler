@@ -9,6 +9,10 @@ export const STACKING_FOOTER_BOUNDARY_BOTTOM = '<!-- GitButler Footer Boundary B
 export const BUT_REVIEW_FOOTER_BOUNDARY_TOP = '<!-- GitButler Review Footer Boundary Top -->';
 export const BUT_REVIEW_FOOTER_BOUNDARY_BOTTOM = '<!-- GitButler Review Footer Boundary Bottom -->';
 
+export function unixifyNewlines(target: string): string {
+	return target.split(/\r?\n/).join('\n');
+}
+
 export async function updateButRequestPrDescription(
 	prService: ForgePrService,
 	prNumber: number,
@@ -16,7 +20,7 @@ export async function updateButRequestPrDescription(
 	butReview: Branch
 ) {
 	const pr = await prService.get(prNumber);
-	const prBody = pr.body || '\r\n';
+	const prBody = pr.body || '\n';
 	await prService.update(prNumber, {
 		description: formatButRequestDescription(prBody, butRequestUrl, butReview)
 	});
@@ -85,7 +89,7 @@ function upsertDescription(
 	prDescription: string,
 	injectable: string
 ): string {
-	const descriptionLines = prDescription.split('\r\n');
+	const descriptionLines = prDescription.split(/\r?\n/);
 	const before = [];
 	const after = [];
 
@@ -114,7 +118,7 @@ function upsertDescription(
 		}
 	}
 
-	return `${before.join('\r\n')}\r\n${header}\r\n${injectable}\r\n${footer}\r\n${after.join('\r\n')}`;
+	return `${before.join('\n')}\n${header}\n${injectable}\n${footer}\n${after.join('\n')}`;
 }
 
 /**
