@@ -2,7 +2,7 @@ use crate::commit_engine::refs_update::utils::{
     assure_no_worktree_changes, graph_commit_outcome, has_signature, stack_with_branches,
     write_vrbranches_to_refs, write_worktree_file,
 };
-use crate::commit_engine::utils::{
+use crate::utils::{
     CONTEXT_LINES, read_only_in_memory_scenario, to_change_specs_all_hunks,
     to_change_specs_whole_file, visualize_index, visualize_tree, writable_scenario,
     writable_scenario_with_ssh_key, write_sequence,

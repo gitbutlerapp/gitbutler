@@ -1,4 +1,4 @@
-use crate::commit_engine::utils::{
+use crate::utils::{
     CONTEXT_LINES, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace,
     read_only_in_memory_scenario, to_change_specs_all_hunks,
     to_change_specs_all_hunks_with_context_lines, to_change_specs_whole_file, visualize_tree,

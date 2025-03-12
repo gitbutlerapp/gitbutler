@@ -1,4 +1,4 @@
-use crate::commit_engine::utils::{
+use crate::utils::{
     CONTEXT_LINES, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace,
     read_only_in_memory_scenario, visualize_commit, visualize_tree, writable_scenario,
     writable_scenario_with_ssh_key, write_local_config, write_sequence,
