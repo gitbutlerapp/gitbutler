@@ -87,7 +87,6 @@ pub mod workspace {
             .into_iter()
             .map(|b| upstream_integration::Resolution {
                 branch_id: b.id,
-                branch_tree: b.tree,
                 approach,
             })
             .collect();

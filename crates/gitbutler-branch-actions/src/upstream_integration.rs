@@ -147,9 +147,6 @@ impl StackStatus {
 pub struct Resolution {
     // TODO(CTO): Rename to stack_id
     pub branch_id: StackId,
-    /// Used to ensure a given branch hasn't changed since the UI issued the command.
-    #[serde(with = "gitbutler_serde::oid")]
-    pub branch_tree: git2::Oid,
     pub approach: ResolutionApproach,
 }
 
@@ -437,19 +434,6 @@ pub(crate) fn integrate_upstream(
         }
 
         let all_resolutions_are_up_to_date = resolutions.iter().all(|resolution| {
-            // This is O(n^2), in reality, n is unlikly to be more than 3 or 4
-            let Some(branch) = context
-                .stacks_in_workspace
-                .iter()
-                .find(|branch| branch.id == resolution.branch_id)
-            else {
-                return false;
-            };
-
-            if resolution.branch_tree != branch.tree {
-                return false;
-            };
-
             let Some(status) = statuses
                 .iter()
                 .find(|status| status.0 == resolution.branch_id)

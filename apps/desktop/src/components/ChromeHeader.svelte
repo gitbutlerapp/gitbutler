@@ -1,6 +1,6 @@
 <script lang="ts">
-	import IntegrateUpstreamModal from '$components/IntegrateUpstreamModal.svelte';
 	import SyncButton from '$components/SyncButton.svelte';
+	import IntegrateUpstreamModal from '$components/v3/IntegrateUpstreamModal.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { platformName } from '$lib/platform/platform';
 	import { Project } from '$lib/project/project';
@@ -32,7 +32,7 @@
 		})) || []
 	);
 
-	let selectedProjectId: string | undefined = $state(project ? project.id : undefined);
+	const selectedProjectId: string | undefined = $derived(project ? project.id : undefined);
 
 	let newProjectLoading = $state(false);
 	let cloneProjectLoading = $state(false);
@@ -44,14 +44,18 @@
 	}
 </script>
 
-<IntegrateUpstreamModal bind:this={modal} />
+{#if selectedProjectId}
+	<IntegrateUpstreamModal bind:this={modal} projectId={selectedProjectId} />
+{/if}
 
 <div class="header" class:mac={platformName === 'macos'}>
 	<div class="left">
 		<div class="left-buttons" class:macos={platformName === 'macos'}>
 			<SyncButton size="button" />
 			{#if upstreamCommits > 0}
-				<Button style="pop" onclick={openModal}>{upstreamCommits} upstream commits</Button>
+				<Button style="pop" onclick={openModal} disabled={!selectedProjectId}
+					>{upstreamCommits} upstream commits</Button
+				>
 			{/if}
 		</div>
 	</div>
@@ -63,8 +67,7 @@
 			loading={newProjectLoading || cloneProjectLoading}
 			disabled={newProjectLoading || cloneProjectLoading}
 			onselect={(value: string) => {
-				selectedProjectId = value;
-				goto(projectPath(selectedProjectId));
+				goto(projectPath(value));
 			}}
 			popupAlign="center"
 			customWidth={300}

@@ -1,21 +1,21 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { BranchStack } from '$lib/branches/branch';
 	import { getForge } from '$lib/forge/interface/forge';
+	import { type Stack } from '$lib/stacks/stack';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import {
 		getBaseBranchResolution,
-		getResolutionApproach,
-		sortStatusInfo,
 		type BaseBranchResolutionApproach,
-		type StackStatusesWithBranches,
-		type StackStatusInfo,
 		type Resolution,
 		type StackStatus,
 		stackFullyIntegrated,
-		type BranchStatus
+		type BranchStatus,
+		sortStatusInfoV3,
+		getResolutionApproachV3,
+		type StackStatusInfoV3
 	} from '$lib/upstream/types';
-	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
+	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
@@ -34,39 +34,52 @@
 	type OperationType = 'rebase' | 'merge' | 'unapply' | 'delete';
 
 	interface Props {
+		projectId: string;
 		onClose?: () => void;
 	}
 
-	const { onClose }: Props = $props();
+	const { projectId, onClose }: Props = $props();
 
-	const forge = getForge();
+	const stackService = getContext(StackService);
 	const upstreamIntegrationService = getContext(UpstreamIntegrationService);
-	let branchStatuses = $state<StackStatusesWithBranches | undefined>();
+	const forge = getForge();
+	// let branchStatuses = $state<StackStatusesWithBranchesV3 | undefined>();
 	const baseBranchService = getContext(BaseBranchService);
 	const base = baseBranchService.base;
 
 	let modal = $state<Modal>();
 	let integratingUpstream = $state<OperationState>('inert');
 	let results = $state(new SvelteMap<string, Resolution>());
-	let statuses = $state<StackStatusInfo[]>([]);
+	let statuses = $state<StackStatusInfoV3[]>([]);
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
 	let targetCommitOid = $state<string | undefined>(undefined);
 
 	const isDivergedResolved = $derived($base?.diverged && !baseResolutionApproach);
 
+	const stacks = $derived.by(() => {
+		const response = stackService.stacks(projectId);
+		if (!response.current.isSuccess) return undefined;
+		return response.current.data;
+	});
+
+	// Will re-fetch upstream statuses if the target commit oid changes
+	const branchStatuses = $derived(
+		upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid)
+	);
+
 	$effect(() => {
-		if (branchStatuses?.type !== 'updatesRequired') {
+		if (branchStatuses.current?.type !== 'updatesRequired') {
 			statuses = [];
 			return;
 		}
 
-		const statusesTmp = [...branchStatuses.subject];
-		statusesTmp.sort(sortStatusInfo);
+		const statusesTmp = [...branchStatuses.current.subject];
+		statusesTmp.sort(sortStatusInfoV3);
 
 		// Side effect, refresh results
 		results = new SvelteMap(
 			statusesTmp.map((status) => {
-				const defaultApproach = getResolutionApproach(status);
+				const defaultApproach = getResolutionApproachV3(status);
 
 				return [
 					status.stack.id,
@@ -81,22 +94,15 @@
 		statuses = statusesTmp;
 	});
 
-	// Re-fetch upstream statuses if the target commit oid changes
-	$effect(() => {
-		if (targetCommitOid) {
-			upstreamIntegrationService.upstreamStatuses(targetCommitOid).then((statuses) => {
-				branchStatuses = statuses;
-			});
-		}
-	});
-
 	// Resolve the target commit oid if the base branch diverged and the the resolution
 	// approach is changed
 	$effect(() => {
 		if ($base?.diverged && baseResolutionApproach) {
-			upstreamIntegrationService.resolveUpstreamIntegration(baseResolutionApproach).then((Oid) => {
-				targetCommitOid = Oid;
-			});
+			upstreamIntegrationService
+				.resolveUpstreamIntegration(projectId, baseResolutionApproach)
+				.then((Oid) => {
+					targetCommitOid = Oid;
+				});
 		}
 	});
 
@@ -105,6 +111,7 @@
 	}
 
 	async function integrate() {
+		if (!stacks) return;
 		integratingUpstream = 'loading';
 		await tick();
 		const baseResolution = getBaseBranchResolution(
@@ -113,7 +120,9 @@
 		);
 
 		await upstreamIntegrationService.integrateUpstream(
+			projectId,
 			Array.from(results.values()),
+			stacks,
 			baseResolution
 		);
 		await baseBranchService.refresh();
@@ -124,9 +133,10 @@
 
 	export async function show() {
 		integratingUpstream = 'inert';
-		branchStatuses = undefined;
+		// branchStatuses = undefined;
 		modal?.show();
-		branchStatuses = await upstreamIntegrationService.upstreamStatuses();
+		targetCommitOid = undefined;
+		// branchStatuses = await upstreamIntegrationService.upstreamStatuses();
 	}
 
 	export const imports = {
@@ -178,7 +188,7 @@
 	}
 </script>
 
-{#snippet stackStatus(stack: BranchStack, stackStatus: StackStatus)}
+{#snippet stackStatus(stack: Stack, stackStatus: StackStatus)}
 	<IntegrationSeriesRow series={integrationRowSeries(stackStatus)}>
 		{#snippet select()}
 			{#if !stackFullyIntegrated(stackStatus) && results.get(stack.id)}
@@ -288,7 +298,8 @@
 				type="submit"
 				style="pop"
 				disabled={isDivergedResolved || !branchStatuses}
-				loading={integratingUpstream === 'loading' || !branchStatuses}>Update workspace</Button
+				loading={integratingUpstream === 'loading' || !branchStatuses || !stacks}
+				>Update workspace</Button
 			>
 		</div>
 	{/snippet}
