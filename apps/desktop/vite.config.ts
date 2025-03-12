@@ -72,8 +72,7 @@ export default defineConfig({
  */
 function debounceReload(): Plugin {
 	let timeout: NodeJS.Timeout | undefined;
-	let mustReload = false;
-	let longDelay = false;
+	let restartTimeout: NodeJS.Timeout | undefined;
 
 	return {
 		name: 'debounce-reload',
@@ -82,26 +81,66 @@ function debounceReload(): Plugin {
 		 * gets called as expected, but that fails to prevent the reload.
 		 */
 		hotUpdate({ server, file }) {
-			if (!file.includes('apps/desktop')) {
+			let mustReload = false;
+			let longDelay = false;
+			let serverRestart = false;
+
+			if (isLocalPackageFile(file)) {
+				mustReload = true;
+				serverRestart = true;
+				longDelay = true;
+			} else if (isNotInDesktopApp(file)) {
 				mustReload = true;
 				longDelay = true;
-			} else if (file.includes('.svelte-kit')) {
+			} else if (isSvelteKitFile(file)) {
 				mustReload = true;
 			}
+
 			if (mustReload) {
-				clearTimeout(timeout);
-				timeout = setTimeout(
-					() => {
+				server.hot.send('gb:reload');
+				const delay = getReloadDelay(longDelay);
+
+				// If the server should restart, or the if it should reload but there's already a restart scheduled.
+				if (mustReload && (serverRestart || restartTimeout !== undefined)) {
+					clearTimeout(restartTimeout);
+					clearTimeout(timeout);
+					restartTimeout = setTimeout(() => {
+						restartTimeout = undefined;
+						timeout = undefined;
+						server.restart();
+					}, delay);
+					return []; // Prevent immediate reload.
+				}
+
+				// Simple reload.
+				if (mustReload) {
+					clearTimeout(timeout);
+					timeout = setTimeout(() => {
 						timeout = undefined;
 						mustReload = false;
 						longDelay = false;
 						server.hot.send({ type: 'full-reload' });
-					},
-					longDelay ? 5000 : 250
-				);
-				server.hot.send('gb:reload');
-				return []; // Prevent immediate reload.
+					}, delay);
+					return []; // Prevent immediate reload.
+				}
 			}
 		}
 	};
+}
+function isLocalPackageFile(file: string) {
+	return ['gitbutler/packages/shared/dist', 'gitbutler/packages/ui/dist'].some((pkg) =>
+		file.includes(pkg)
+	);
+}
+
+function isSvelteKitFile(file: string) {
+	return file.includes('.svelte-kit');
+}
+
+function isNotInDesktopApp(file: string) {
+	return !file.includes('apps/desktop');
+}
+
+function getReloadDelay(longDelay: boolean): number | undefined {
+	return longDelay ? 500 : 250;
 }
