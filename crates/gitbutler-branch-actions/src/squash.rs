@@ -138,9 +138,13 @@ fn do_squash_commits(
     let final_tree = squash_tree(ctx, &source_commits, destination_commit)?;
 
     // Squash commit messages string separating with newlines
-    let source_messages = source_commits
-        .iter()
-        .map(|c| c.message().unwrap_or_default())
+    let new_message = Some(destination_commit)
+        .into_iter()
+        .chain(source_commits.iter())
+        .filter_map(|c| {
+            let msg = c.message().unwrap_or_default();
+            (!msg.trim().is_empty()).then_some(msg)
+        })
         .collect::<Vec<_>>()
         .join("\n");
     let parents: Vec<_> = destination_commit.parents().collect();
@@ -152,7 +156,7 @@ fn do_squash_commits(
             None,
             &destination_commit.author(),
             &destination_commit.author(),
-            &format!("{}\n{}", destination_commit.message_bstr(), source_messages),
+            &new_message,
             &final_tree,
             &parents.iter().collect::<Vec<_>>(),
             destination_commit.gitbutler_headers(),
