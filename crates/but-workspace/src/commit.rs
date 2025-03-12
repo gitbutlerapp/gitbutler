@@ -1,4 +1,4 @@
-use crate::{StackEntry, WorkspaceCommit};
+use crate::WorkspaceCommit;
 use bstr::ByteSlice;
 
 /// Construction
@@ -22,7 +22,7 @@ impl<'repo> WorkspaceCommit<'repo> {
     ///
     /// `object_hash` is needed to create an empty tree hash.
     pub fn create_commit_from_vb_state(
-        stacks: &[StackEntry],
+        stacks: &[crate::ui::StackEntry],
         object_hash: gix::hash::Kind,
     ) -> gix::objs::Commit {
         // message that says how to get back to where they were

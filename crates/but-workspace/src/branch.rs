@@ -498,6 +498,7 @@ pub struct Stack {
     ///
     /// The actual index is dependent on the order in which they are merged into the workspace commit,
     /// if the stack is merged at all.
+    // TODO: find a way to map this to (or provide) legacy StackIDs
     pub index: usize,
     /// The commit that the tip of the stack is pointing to.
     /// It is `None` if there is no commit as this repository is newly initialized.

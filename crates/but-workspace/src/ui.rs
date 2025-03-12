@@ -1,0 +1,239 @@
+use bstr::{BStr, BString};
+use serde::Serialize;
+
+/// This code is a fork of [`gitbutler_branch_actions::author`] to avoid depending on the `gitbutler_branch_actions` crate.
+mod author {
+    use bstr::ByteSlice;
+    use serde::Serialize;
+
+    /// Represents the author of a commit.
+    #[derive(Debug, Serialize, Hash, Clone, PartialEq, Eq)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Author {
+        /// The name from the git commit signature
+        pub name: String,
+        /// The email from the git commit signature
+        pub email: String,
+        /// A URL to a gravatar image for the email from the commit signature
+        pub gravatar_url: url::Url,
+    }
+
+    impl From<git2::Signature<'_>> for Author {
+        fn from(value: git2::Signature<'_>) -> Self {
+            let name = value.name().unwrap_or_default().to_string();
+            let email = value.email().unwrap_or_default().to_string();
+            let gravatar_url = gravatar_url_from_email(email.as_str());
+            Author {
+                name,
+                email,
+                gravatar_url,
+            }
+        }
+    }
+
+    impl From<gix::actor::SignatureRef<'_>> for Author {
+        fn from(value: gix::actor::SignatureRef<'_>) -> Self {
+            let gravatar_url = gravatar_url_from_email(&value.email.to_str_lossy());
+
+            Author {
+                name: value.name.to_string(),
+                email: value.email.to_string(),
+                gravatar_url,
+            }
+        }
+    }
+
+    pub fn gravatar_url_from_email(email: &str) -> url::Url {
+        let gravatar_url = format!(
+            "https://www.gravatar.com/avatar/{:x}?s=100&r=g&d=retro",
+            md5::compute(email.to_lowercase())
+        );
+        url::Url::parse(gravatar_url.as_str()).expect("an MD5 as part of the URl is always valid")
+    }
+}
+pub use author::Author;
+use gitbutler_stack::{Stack, StackId};
+
+/// The information about the branch inside a stack
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StackHeadInfo {
+    /// The name of the branch.
+    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    pub name: BString,
+    /// The tip of the branch.
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub tip: gix::ObjectId,
+}
+
+/// Represents a lightweight version of a [`gitbutler_stack::Stack`] for listing.
+/// NOTE: this is a UI type mostly because it's still modeled after the legacy stack with StackId, something that doesn't exist anymore.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StackEntry {
+    /// The ID of the stack.
+    pub id: StackId,
+    /// The list of the branch information that are part of the stack.
+    /// The list is never empty.
+    /// The first entry in the list is always the most recent branch on top the stack.
+    pub heads: Vec<StackHeadInfo>,
+    /// The tip of the top-most branch, i.e. the most recent commit that would become the parent of new commits of the topmost stack branch.
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub tip: gix::ObjectId,
+}
+
+impl StackEntry {
+    /// The name of the stack, which is the name of the top-most branch.
+    pub fn name(&self) -> Option<&BStr> {
+        self.heads
+            .first()
+            .map(|head| AsRef::<BStr>::as_ref(&head.name))
+    }
+}
+
+impl StackEntry {
+    pub(crate) fn try_new(repo: &gix::Repository, stack: &Stack) -> anyhow::Result<Self> {
+        Ok(StackEntry {
+            id: stack.id,
+            heads: crate::stack_heads_info(stack, repo)?,
+            tip: stack.head_oid(repo)?,
+        })
+    }
+}
+
+/// Represents the state a commit could be in.
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", content = "subject")]
+pub enum CommitState {
+    /// The commit is only local
+    LocalOnly,
+    /// The commit is also present at the remote tracking branch.
+    /// This is the commit state if:
+    ///  - The commit has been pushed to the remote
+    ///  - The commit has been copied from a remote commit (when applying a remote branch)
+    ///
+    /// This variant carries the remote commit id.
+    /// The `remote_commit_id` may be the same as the `id` or it may be different if the local commit has been rebased or updated in another way.
+    #[serde(with = "gitbutler_serde::object_id")]
+    LocalAndRemote(gix::ObjectId),
+    /// The commit is considered integrated.
+    /// This should happen when this commit or the contents of this commit is already part of the base.
+    Integrated,
+}
+
+/// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Commit {
+    /// The OID of the commit.
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub id: gix::ObjectId,
+    /// The parent OIDs of the commit.
+    #[serde(with = "gitbutler_serde::object_id_vec")]
+    pub parent_ids: Vec<gix::ObjectId>,
+    /// The message of the commit.
+    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    pub message: BString,
+    /// Whether the commit is in a conflicted state.
+    /// The Conflicted state of a commit is a GitButler concept.
+    /// GitButler will perform rebasing/reordering etc without interruptions and flag commits as conflicted if needed.
+    /// Conflicts are resolved via the Edit Mode mechanism.
+    pub has_conflicts: bool,
+    /// Represents whether the commit is considered integrated, local only,
+    /// or local and remote with respect to the branch it belongs to.
+    /// Note that remote only commits in the context of a branch are expressed with the [`UpstreamCommit`] struct instead of this.
+    pub state: CommitState,
+    /// Commit creation time in Epoch milliseconds.
+    pub created_at: u128,
+    /// The author of the commit.
+    pub author: Author,
+}
+
+/// Commit that is only at the remote.
+/// Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpstreamCommit {
+    /// The OID of the commit.
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub id: gix::ObjectId,
+    /// The message of the commit.
+    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    pub message: BString,
+    /// Commit creation time in Epoch milliseconds.
+    pub created_at: u128,
+    /// The author of the commit.
+    pub author: Author,
+}
+
+/// Represents the pushable status for the current stack.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PushStatus {
+    /// Can push, but there are no changes to be pushed
+    NothingToPush,
+    /// Can push. This is the case when there are local changes that can be pushed to the remote.
+    UnpushedCommits,
+    /// Can push, but requires a force push to the remote because commits were rewritten.
+    UnpushedCommitsRequiringForce,
+    /// Completely unpushed
+    CompletelyUnpushed,
+    /// Fully integrated, no changes to push.
+    Integrated,
+}
+
+/// Information about the current state of a branch.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BranchDetails {
+    /// The name of the branch.
+    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    pub name: BString,
+    /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
+    #[serde(with = "gitbutler_serde::bstring_opt_lossy")]
+    pub remote_tracking_branch: Option<BString>,
+    /// Description of the branch.
+    /// Can include arbitrary utf8 data, eg. markdown etc.
+    pub description: Option<String>,
+    /// The pull(merge) request associated with the branch, or None if no such entity has not been created.
+    pub pr_number: Option<usize>,
+    /// A unique identifier for the GitButler review associated with the branch, if any.
+    pub review_id: Option<String>,
+    /// This is the last commit in the branch, aka the tip of the branch.
+    /// If this is the only branch in the stack or the top-most branch, this is the tip of the stack.
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub tip: gix::ObjectId,
+    /// This is the base commit from the perspective of this branch.
+    /// If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
+    /// If this branch is at the bottom of the stack, this is the merge base of the stack.
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub base_commit: gix::ObjectId,
+    /// The pushable status for the branch
+    pub push_status: PushStatus,
+    /// Last time, the branch was updated in Epoch milliseconds.
+    pub last_updated_at: Option<u128>,
+    /// All authors of the commits in the branch.
+    pub authors: Vec<Author>,
+    /// Whether the branch is conflicted.
+    pub is_conflicted: bool,
+    /// The commits contained in the branch, excluding the upstream commits.
+    pub commits: Vec<Commit>,
+    /// The commits that are only at the remote.
+    pub upstream_commits: Vec<UpstreamCommit>,
+    /// Whether it's representing a remote head
+    pub is_remote_head: bool,
+}
+
+/// Information about the current state of a stack
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StackDetails {
+    /// This is the name of the top-most branch, provided by the API for convenience
+    pub derived_name: String,
+    /// The pushable status for the stack
+    pub push_status: PushStatus,
+    /// The details about the contained branches
+    pub branch_details: Vec<BranchDetails>,
+    /// Whether the stack is conflicted.
+    pub is_conflicted: bool,
+}

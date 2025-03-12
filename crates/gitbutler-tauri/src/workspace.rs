@@ -6,7 +6,7 @@ use but_hunk_dependency::ui::{
 };
 use but_settings::AppSettingsWithDiskSync;
 use but_workspace::commit_engine::StackSegmentId;
-use but_workspace::{commit_engine, StackEntry};
+use but_workspace::{commit_engine, ui::StackEntry};
 use gitbutler_branch_actions::BranchManagerExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
@@ -39,7 +39,7 @@ pub fn stack_details(
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     stack_id: StackId,
-) -> Result<but_workspace::StackDetails, Error> {
+) -> Result<but_workspace::ui::StackDetails, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     but_workspace::stack_details(&project.gb_dir(), stack_id, &ctx).map_err(Into::into)
@@ -53,7 +53,7 @@ pub fn branch_details(
     project_id: ProjectId,
     branch_name: &str,
     remote: Option<&str>,
-) -> Result<but_workspace::BranchDetails, Error> {
+) -> Result<but_workspace::ui::BranchDetails, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     but_workspace::branch_details(&project.gb_dir(), branch_name, remote, &ctx).map_err(Into::into)
@@ -85,7 +85,7 @@ pub fn hunk_dependencies_for_workspace_changes(
 /// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
 /// hunks would fail.
 /// `stack_branch_name` is the short name of the reference that the UI knows is present in a given segment.
-/// It is needed to insert the new commit into the right bucket.
+/// It is necessary to insert the new commit into the right bucket.
 #[tauri::command(async)]
 #[instrument(skip(projects, settings), err(Debug))]
 #[allow(clippy::too_many_arguments)]
@@ -322,7 +322,7 @@ pub fn target_commits(
     project_id: ProjectId,
     last_commit_id: Option<HexHash>,
     page_size: Option<usize>,
-) -> Result<Vec<but_workspace::Commit>, Error> {
+) -> Result<Vec<but_workspace::ui::Commit>, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     but_workspace::log_target_first_parent(

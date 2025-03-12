@@ -910,7 +910,7 @@ mod util {
     pub struct TestContext {
         pub repo: gix::Repository,
         /// All the stacks in the workspace
-        pub stacks_entries: Vec<but_workspace::StackEntry>,
+        pub stacks_entries: Vec<but_workspace::ui::StackEntry>,
         /// The tip of the local branch that tracks the upstream one.
         pub common_merge_base: gix::ObjectId,
     }

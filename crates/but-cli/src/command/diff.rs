@@ -83,13 +83,14 @@ pub fn locks(current_dir: &Path, simple: bool, use_json: bool) -> anyhow::Result
     )?;
     let ranges = but_hunk_dependency::WorkspaceRanges::try_from_stacks(input_stacks)?;
 
-    match simple {
-        true => process_simple_dependencies(use_json, &repo, worktree_changes, ranges),
-        false => debug_print(intersect_workspace_ranges(
+    if simple {
+        process_simple_dependencies(use_json, &repo, worktree_changes, ranges)
+    } else {
+        debug_print(intersect_workspace_ranges(
             &repo,
             ranges,
             worktree_changes.changes,
-        )?),
+        )?)
     }
 }
 

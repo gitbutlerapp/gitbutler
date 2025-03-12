@@ -20,7 +20,7 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use but_workspace::commit_engine::DiffSpec;
-use but_workspace::{commit_engine, stack_heads_info, StackEntry};
+use but_workspace::{commit_engine, stack_heads_info, ui};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
@@ -101,14 +101,14 @@ pub fn list_virtual_branches_cached(
 pub fn create_virtual_branch(
     ctx: &CommandContext,
     create: &BranchCreateRequest,
-) -> Result<StackEntry> {
+) -> Result<ui::StackEntry> {
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Creating a branch requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
     let branch_manager = ctx.branch_manager();
     let stack = branch_manager.create_virtual_branch(create, guard.write_permission())?;
     let repo = ctx.gix_repo()?;
-    Ok(StackEntry {
+    Ok(ui::StackEntry {
         id: stack.id,
         heads: stack_heads_info(&stack, &repo)?,
         tip: stack.head_oid(&repo)?,
@@ -563,7 +563,7 @@ pub fn get_uncommited_files(ctx: &CommandContext) -> Result<Vec<RemoteBranchFile
 }
 
 /// Like [`get_uncommited_files()`], but returns a type that can be re-used with
-/// [`crate::list_virtual_branches()`].
+/// [`list_virtual_branches()`].
 pub fn get_uncommited_files_reusable(ctx: &CommandContext) -> Result<DiffByPathMap> {
     let guard = ctx.project().exclusive_worktree_access();
     crate::branch::get_uncommited_files_raw(ctx, guard.read_permission())
