@@ -1,3 +1,4 @@
+import { dashboardSidebarReducer } from '$lib/dashboard/sidebar.svelte';
 import { branchReviewListingsReducer } from '@gitbutler/shared/branches/branchReviewListingsSlice';
 import { branchesReducer } from '@gitbutler/shared/branches/branchesSlice';
 import { latestBranchLookupsReducer } from '@gitbutler/shared/branches/latestBranchLookupSlice';
@@ -6,6 +7,8 @@ import { feedsReducer } from '@gitbutler/shared/feeds/feedsSlice';
 import { postsReducer } from '@gitbutler/shared/feeds/postsSlice';
 import { organizationsReducer } from '@gitbutler/shared/organizations/organizationsSlice';
 import { projectsReducer } from '@gitbutler/shared/organizations/projectsSlice';
+import { recentlyInteractedProjectIdsReducer } from '@gitbutler/shared/organizations/recentlyInteractedProjectIds';
+import { recentlyPushedProjectIdsReducer } from '@gitbutler/shared/organizations/recentlyPushedProjectIds';
 import { repositoryIdLookupsReducer } from '@gitbutler/shared/organizations/repositoryIdLookupsSlice';
 import { patchEventsReducer } from '@gitbutler/shared/patchEvents/patchEventsSlice';
 import { patchCommitsReducer } from '@gitbutler/shared/patches/patchCommitsSlice';
@@ -15,9 +18,13 @@ import { exampleReducer } from '@gitbutler/shared/redux/example';
 import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 import { notificationSettingsReducer } from '@gitbutler/shared/settings/notificationSetttingsSlice';
 import { usersReducer, usersByLoginReducer } from '@gitbutler/shared/users/usersSlice';
-import { configureStore } from '@reduxjs/toolkit';
+import { configureStore, createSelector } from '@reduxjs/toolkit';
 
-export class WebState extends AppState {
+export type WebDashboardSidebarState = {
+	readonly dashboardSidebar: ReturnType<typeof dashboardSidebarReducer>;
+};
+
+export class WebState extends AppState implements WebDashboardSidebarState {
 	/**
 	 * The base store.
 	 *
@@ -42,7 +49,10 @@ export class WebState extends AppState {
 			latestBranchLookups: latestBranchLookupsReducer,
 			branchReviewListings: branchReviewListingsReducer,
 			notificationSettings: notificationSettingsReducer,
-			patchIdables: patchIdablesReducer
+			patchIdables: patchIdablesReducer,
+			recentlyInteractedProjectIds: recentlyInteractedProjectIdsReducer,
+			recentlyPushedProjectIds: recentlyPushedProjectIdsReducer,
+			dashboardSidebar: dashboardSidebarReducer
 		}
 	});
 
@@ -57,4 +67,11 @@ export class WebState extends AppState {
 	protected selectSelf(state: ReturnType<typeof this._store.getState>) {
 		return state;
 	}
+
+	private readonly selectDashboardSidebar = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.dashboardSidebar
+	);
+
+	readonly dashboardSidebar = $derived(this.selectDashboardSidebar(this.rootState));
 }
