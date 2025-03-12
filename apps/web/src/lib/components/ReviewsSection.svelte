@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { getRelativeTime } from '$lib/utils/dateUtils';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import CommitStatusBadge, { type CommitStatusType } from '@gitbutler/ui/CommitStatusBadge.svelte';
+	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import type { Branch } from '@gitbutler/shared/branches/types';
 	import { goto } from '$app/navigation';
 
@@ -17,6 +19,7 @@
 		stackSize?: number;
 		updatedAt: string;
 		contributors: Contributor[];
+		reviewStatus: string;
 		version?: number;
 	}
 
@@ -57,14 +60,18 @@
 				: 'Untitled Review';
 	}
 
-	function getStatus(review: Review): string {
-		return 'status' in review ? review.status || 'open' : 'open';
-	}
-
 	function getReviewUrl(review: Review): string {
 		return 'reviewUrl' in review && review.reviewUrl
 			? review.reviewUrl
 			: `/${review.projectFullSlug}/review/${review.uuid}`;
+	}
+
+	// Helper function to convert contributors to AvatarGroup format
+	function getContributorAvatars(contributors: Contributor[]) {
+		return contributors.map((contributor) => ({
+			srcUrl: contributor.user?.avatarUrl || '/images/default-avatar.png',
+			name: contributor.user?.name || 'User'
+		}));
 	}
 </script>
 
@@ -85,7 +92,6 @@
 					<th>Status</th>
 					<th>Project</th>
 					<th>Name</th>
-					<th>UUID</th>
 					<th>Commits</th>
 					<th>Update</th>
 					<th>Authors</th>
@@ -100,9 +106,7 @@
 							: ''}"
 					>
 						<td>
-							<span class="review-status status-{getStatus(review)}">
-								{getStatus(review)}
-							</span>
+							<CommitStatusBadge status={review.reviewStatus as CommitStatusType} />
 						</td>
 						<td>
 							<a href={`/${review.projectFullSlug}`}>{review.projectFullSlug}</a>
@@ -112,21 +116,12 @@
 								{getTitle(review)}
 							</a>
 						</td>
-						<td>{review.uuid.slice(0, 6)}</td>
 						<td>{review.stackSize || '-'}</td>
 						<td>{getRelativeTime(review.updatedAt)}</td>
 						<td>
-							{#each review.contributors as contributor}
-								<div class="author-avatar">
-									<img
-										src={contributor.user?.avatarUrl || '/images/default-avatar.png'}
-										alt="{contributor.user?.name || 'User'}'s avatar"
-										class="mini-avatar"
-									/>
-								</div>
-							{/each}
+							<AvatarGroup avatars={getContributorAvatars(review.contributors)} />
 						</td>
-						<td>{review.version || '-'}</td>
+						<td>v{review.version || '-'}</td>
 					</tr>
 				{/each}
 			</tbody>
@@ -166,17 +161,6 @@
 		margin: 0;
 		padding: 12px 15px;
 		color: color(srgb 0.52549 0.494118 0.47451);
-	}
-
-	.all-reviews-link {
-		font-size: 0.8em;
-		color: #2563eb;
-		text-decoration: none;
-		padding: 0 15px;
-	}
-
-	.all-reviews-link:hover {
-		text-decoration: underline;
 	}
 
 	/* Reviews Table */
@@ -229,7 +213,8 @@
 	.reviews-table {
 		width: 100%;
 		border-collapse: collapse;
-		font-size: 0.9rem;
+		font-size: 13px;
+		color: var(--clr-text-2);
 	}
 
 	.reviews-table thead {
@@ -246,7 +231,7 @@
 	}
 
 	.reviews-table td {
-		padding: 12px 15px;
+		padding: 18px 15px;
 		border-bottom: 1px solid #e2e8f0;
 		vertical-align: middle;
 	}
@@ -277,9 +262,9 @@
 	}
 
 	.review-title-link {
-		color: #2563eb;
+		color: #000;
 		text-decoration: none;
-		font-weight: 500;
+		font-weight: 800;
 		display: block;
 		white-space: nowrap;
 		overflow: hidden;
@@ -289,18 +274,6 @@
 
 	.review-title-link:hover {
 		text-decoration: underline;
-	}
-
-	.author-avatar {
-		display: flex;
-		align-items: center;
-	}
-
-	.author-avatar .mini-avatar {
-		width: 24px;
-		height: 24px;
-		border-radius: 50%;
-		object-fit: cover;
 	}
 
 	.review-status {
