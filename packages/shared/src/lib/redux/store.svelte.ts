@@ -120,6 +120,28 @@ export class AppState
 		AppRecentlyInteractedProjectIds,
 		AppRecentlyPushedProjectIds
 {
+	protected readonly reducers = {
+		examples: exampleReducer,
+		posts: postsReducer,
+		feeds: feedsReducer,
+		orgnaizations: organizationsReducer,
+		users: usersReducer,
+		usersByLogin: usersByLoginReducer,
+		projects: projectsReducer,
+		patches: patchCommitsReducer,
+		patchEvents: patchEventsReducer,
+		branches: branchesReducer,
+		patchSections: patchSectionsReducer,
+		chatChannels: chatChannelsReducer,
+		repositoryIdLookups: repositoryIdLookupsReducer,
+		latestBranchLookups: latestBranchLookupsReducer,
+		branchReviewListings: branchReviewListingsReducer,
+		notificationSettings: notificationSettingsReducer,
+		patchIdables: patchIdablesReducer,
+		recentlyInteractedProjectIds: recentlyInteractedProjectIdsReducer,
+		recentlyPushedProjectIds: recentlyPushedProjectIdsReducer
+	};
+
 	/**
 	 * The base store.
 	 *
@@ -127,27 +149,7 @@ export class AppState
 	 * @private
 	 */
 	readonly _store = configureStore({
-		reducer: {
-			examples: exampleReducer,
-			posts: postsReducer,
-			feeds: feedsReducer,
-			orgnaizations: organizationsReducer,
-			users: usersReducer,
-			usersByLogin: usersByLoginReducer,
-			projects: projectsReducer,
-			patches: patchCommitsReducer,
-			patchEvents: patchEventsReducer,
-			branches: branchesReducer,
-			patchSections: patchSectionsReducer,
-			chatChannels: chatChannelsReducer,
-			repositoryIdLookups: repositoryIdLookupsReducer,
-			latestBranchLookups: latestBranchLookupsReducer,
-			branchReviewListings: branchReviewListingsReducer,
-			notificationSettings: notificationSettingsReducer,
-			patchIdables: patchIdablesReducer,
-			recentlyInteractedProjectIds: recentlyInteractedProjectIdsReducer,
-			recentlyPushedProjectIds: recentlyPushedProjectIdsReducer
-		}
+		reducer: this.reducers
 	});
 
 	readonly appDispatch = new AppDispatch(this._store.dispatch);
