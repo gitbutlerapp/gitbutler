@@ -232,6 +232,11 @@ pub struct Branch {
     /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
     /// An archived branch will not have any commits associated with it.
     pub archived: bool,
+    /// This is the base commit from the perspective of this branch.
+    /// If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
+    /// If this branch is at the bottom of the stack, this is the merge base of the stack.
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub base_commit: gix::ObjectId,
 }
 
 /// Returns the branches that belong to a particular [`gitbutler_stack::Stack`]
@@ -245,6 +250,8 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
 
     let mut stack_branches = vec![];
     let stack = state.get_stack(Id::from_str(&stack_id)?)?;
+    let stack_ctx = ctx.to_stack_context()?;
+    let mut current_base = stack.merge_base(&stack_ctx)?.to_gix();
     for internal in stack.branches() {
         let upstream_reference = ctx
             .repo()
@@ -254,11 +261,13 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
         let result = Branch {
             name: internal.name().to_owned().into(),
             remote_tracking_branch: upstream_reference.map(Into::into),
-            description: internal.description,
+            description: internal.description.clone(),
             pr_number: internal.pr_number,
-            review_id: internal.review_id,
+            review_id: internal.review_id.clone(),
             archived: internal.archived,
+            base_commit: current_base,
         };
+        current_base = internal.head_oid(&stack_ctx, &stack)?.to_gix();
         stack_branches.push(result);
     }
     stack_branches.reverse();
