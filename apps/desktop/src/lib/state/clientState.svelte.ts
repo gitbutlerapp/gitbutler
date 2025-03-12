@@ -1,11 +1,13 @@
 import { tauriBaseQuery } from './backendQuery';
 import { butlerModule } from './butlerModule';
+import { githubBaseQuery } from './githubQuery';
 import { ReduxTag } from './tags';
 import { uiStateSlice } from './uiState.svelte';
 import { changeSelectionSlice } from '$lib/selection/changeSelection.svelte';
 import { configureStore } from '@reduxjs/toolkit';
 import { buildCreateApi, coreModule, type RootState } from '@reduxjs/toolkit/query';
 import type { Tauri } from '$lib/backend/tauri';
+import type { GitHubClient } from '$lib/forge/githubClient';
 import type { HookContext } from './context';
 
 /**
@@ -23,16 +25,25 @@ export class ClientState {
 	readonly uiState = $derived(this.rootState.uiState);
 
 	/** rtk-query api for communicating with the back end. */
-	readonly backendApi: ReturnType<typeof createApi>;
+	readonly backendApi: ReturnType<typeof createBackendApi>;
 
-	constructor(readonly tauri: Tauri) {
-		this.backendApi = createApi({
+	/** rtk-query api for communicating with GitHub. */
+	readonly githubApi: ReturnType<typeof createGitHubApi>;
+
+	constructor(tauri: Tauri, github: GitHubClient) {
+		this.backendApi = createBackendApi({
 			// Reactive loop without nested function.
 			// TODO: Can it be done without nesting?
 			getState: () => () => this.rootState as any as RootState<any, any, any>,
 			getDispatch: () => this.dispatch
 		});
-		this.store = createStore(tauri, this.backendApi);
+		this.githubApi = createGitHubApi({
+			// Reactive loop without nested function.
+			// TODO: Can it be done without nesting?
+			getState: () => () => this.rootState as any as RootState<any, any, any>,
+			getDispatch: () => this.dispatch
+		});
+		this.store = createStore(tauri, github, this.backendApi);
 		this.dispatch = this.store.dispatch;
 		this.rootState = this.store.getState();
 
@@ -48,7 +59,11 @@ export class ClientState {
  * We need this function in order to declare the store type in `DesktopState`
  * and then assign the value in the constructor.
  */
-function createStore(tauri: Tauri, backend: ReturnType<typeof createApi>) {
+function createStore(
+	tauri: Tauri,
+	github: GitHubClient,
+	backend: ReturnType<typeof createBackendApi>
+) {
 	return configureStore({
 		reducer: {
 			// RTK Query API for the back end.
@@ -59,7 +74,7 @@ function createStore(tauri: Tauri, backend: ReturnType<typeof createApi>) {
 		},
 		middleware: (getDefaultMiddleware) => {
 			return getDefaultMiddleware({
-				thunk: { extraArgument: { tauri } }
+				thunk: { extraArgument: { tauri, github } }
 			}).concat(backend.middleware);
 		}
 	});
@@ -74,7 +89,7 @@ function createStore(tauri: Tauri, backend: ReturnType<typeof createApi>) {
  * Unlike with React, it isn't possible to access the Svelte context
  * during event handling.
  */
-export function createApi(ctx: HookContext) {
+export function createBackendApi(ctx: HookContext) {
 	return buildCreateApi(
 		coreModule(),
 		butlerModule(ctx)
@@ -82,6 +97,20 @@ export function createApi(ctx: HookContext) {
 		reducerPath: 'backend',
 		tagTypes: Object.values(ReduxTag),
 		baseQuery: tauriBaseQuery,
+		endpoints: (_) => {
+			return {};
+		}
+	});
+}
+
+export function createGitHubApi(ctx: HookContext) {
+	return buildCreateApi(
+		coreModule(),
+		butlerModule(ctx)
+	)({
+		reducerPath: 'github',
+		tagTypes: Object.values(ReduxTag),
+		baseQuery: githubBaseQuery,
 		endpoints: (_) => {
 			return {};
 		}

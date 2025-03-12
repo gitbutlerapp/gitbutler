@@ -31,6 +31,7 @@
 		GitHubUserService
 	} from '$lib/forge/github/githubUserService';
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
+	import { GitHubClient } from '$lib/forge/githubClient';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { platformName } from '$lib/platform/platform';
@@ -82,7 +83,8 @@
 	setContext(SETTINGS, userSettings);
 
 	const appState = new AppState();
-	const clientState = new ClientState(data.tauri);
+	const github = new GitHubClient();
+	const clientState = new ClientState(data.tauri, github);
 	const changeSelection = $derived(clientState.changeSelection);
 	const changeSelectionService = new ChangeSelectionService(
 		reactive(() => changeSelection),
