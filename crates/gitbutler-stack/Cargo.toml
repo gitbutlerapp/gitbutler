@@ -17,6 +17,7 @@ toml.workspace = true
 tracing.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-id.workspace = true
+but-core.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-time.workspace = true
 gitbutler-diff.workspace = true

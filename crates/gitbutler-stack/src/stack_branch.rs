@@ -101,6 +101,12 @@ impl StackBranch {
         &self.head
     }
 
+    pub fn full_name(&self) -> Result<gix::refs::FullName> {
+        qualified_reference_name(&self.name)
+            .try_into()
+            .map_err(Into::into)
+    }
+
     /// This will update the commit that this points to (the virtual reference in virtual_branches.toml) as well as update of create a real git reference.
     /// If this points to a change id, it's a noop operation. In practice, moving forward, new CommitOrChangeId entries will always be CommitId and ChangeId may only appear in deserialized data.
     pub fn set_head(

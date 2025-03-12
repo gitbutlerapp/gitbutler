@@ -6,6 +6,7 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
+use but_core::Reference;
 use git2::Commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -533,16 +534,23 @@ impl Stack {
     }
 
     /// Removes any heads that are refering to commits that are no longer between the stack head and the merge base
-    pub fn archive_integrated_heads(&mut self, ctx: &CommandContext) -> Result<Vec<String>> {
+    pub fn archive_integrated_heads(
+        &mut self,
+        ctx: &CommandContext,
+        for_archival: &[Reference],
+    ) -> Result<Vec<String>> {
         self.ensure_initialized()?;
 
         let mut newly_archived_branches = vec![];
 
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         let state = branch_state(ctx);
-        let commit_ids = self.stack_patches(&ctx.to_stack_context()?, false)?;
         for head in self.heads.iter_mut() {
-            if !commit_ids.contains(head.head()) {
+            let full_name = head.full_name()?;
+            if for_archival.iter().any(|reference| match reference {
+                Reference::Git(r) => r == &full_name,
+                Reference::Virtual(r) => r == head.name(),
+            }) {
                 head.archived = true;
                 newly_archived_branches.push(head.name().clone());
             }

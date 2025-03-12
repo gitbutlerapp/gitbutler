@@ -21,7 +21,7 @@ pub mod commit;
 pub mod merge;
 
 /// An instruction for [`RebaseBuilder::rebase()`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RebaseStep {
     /// Pick an existing commit and place it on top of `base` and optionally reword it.
     Pick {
