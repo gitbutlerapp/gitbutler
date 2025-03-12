@@ -7,7 +7,6 @@
 		getBaseBranchResolution,
 		getResolutionApproach,
 		sortStatusInfo,
-		UpstreamIntegrationService,
 		type BaseBranchResolutionApproach,
 		type StackStatusesWithBranches,
 		type StackStatusInfo,
@@ -15,7 +14,8 @@
 		type StackStatus,
 		stackFullyIntegrated,
 		type BranchStatus
-	} from '$lib/upstream/upstreamIntegrationService';
+	} from '$lib/upstream/types';
+	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
@@ -72,7 +72,6 @@
 					status.stack.id,
 					{
 						branchId: status.stack.id,
-						branchTree: status.stack.tree,
 						approach: defaultApproach
 					}
 				];
