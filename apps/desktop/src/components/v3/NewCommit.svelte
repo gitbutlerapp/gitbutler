@@ -22,7 +22,7 @@
 	const selected = $derived(uiState.stack(stackId).selection.get());
 	const branchName = $derived(selected.current?.branchName);
 	const commitId = $derived(selected.current?.commitId);
-	const canCommit = $derived(branchName && commitId);
+	const canCommit = $derived(branchName);
 	const changeSelection = getContext(ChangeSelectionService);
 	const selection = $derived(changeSelection.list());
 
@@ -31,28 +31,11 @@
 	 */
 	let markdown = persisted(true, 'useMarkdown__' + projectId);
 
-	let composer: CommitMessageEditor | undefined = $state();
+	let composer = $state<ReturnType<typeof CommitMessageEditor>>();
 
-	/**
-	 * TODO: Is there a way of getting the value synchronously?
-	 */
-	async function createCommit() {
-		const message = await composer?.getPlaintext();
-		if (!message) return;
-
-		try {
-			await _createCommit(message);
-		} catch (err: unknown) {
-			showError('Failed to commit', err);
-		}
-	}
-
-	async function _createCommit(message: string) {
+	async function createCommit(message: string) {
 		if (!branchName) {
 			throw new Error('No branch selected!');
-		}
-		if (!commitId) {
-			throw new Error('No commit selected!');
 		}
 		const response = await stackService.createCommit(projectId, {
 			stackId,
@@ -71,13 +54,27 @@
 						}
 			)
 		});
-		if (response.error) {
+
+		if (!response.data) {
 			throw response.error;
 		}
-		const newId = response.data?.newCommit;
+
+		const newId = response.data.newCommit;
+
 		if (newId) {
 			uiState.project(projectId).drawerPage.set(undefined);
 			uiState.stack(stackId).selection.set({ branchName, commitId: newId });
+		}
+	}
+
+	async function hanldleCommitCreation() {
+		const message = await composer?.getPlaintext();
+		if (!message) return;
+
+		try {
+			await createCommit(message);
+		} catch (err: unknown) {
+			showError('Failed to commit', err);
 		}
 	}
 </script>
@@ -85,5 +82,7 @@
 <EditorHeader title="New commit" bind:markdown={$markdown} />
 <CommitMessageEditor bind:this={composer} bind:markdown={$markdown} />
 <EditorFooter onCancel={() => uiState.project(projectId).drawerPage.set(undefined)}>
-	<Button style="pop" onclick={createCommit} wide disabled={!canCommit}>Create commit</Button>
+	<Button style="pop" onclick={hanldleCommitCreation} wide disabled={!canCommit}
+		>Create commit</Button
+	>
 </EditorFooter>
