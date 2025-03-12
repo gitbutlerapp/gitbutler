@@ -92,10 +92,10 @@
 
 	let dropDownButton = $state<DropDownButton>();
 
+	let butRequestCreationModal = $state<ButRequestCreationModal>();
+
 	syncPrToBr(reactive(() => branch));
 	syncBrToPr(reactive(() => branch));
-
-	let butRequestCreationModal = $state<ButRequestCreationModal>();
 </script>
 
 <ButRequestCreationModal bind:this={butRequestCreationModal} branchTitle={branch.name} />

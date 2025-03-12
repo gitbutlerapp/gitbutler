@@ -75,8 +75,10 @@ export function syncBrToPr(branch: Reactive<PatchSeries>) {
 			});
 		})
 	);
+
 	const prBody = $derived(pr.current?.body);
 	const prNumber = $derived(pr.current?.number);
+
 	const bodyChanged = $derived.by(() => {
 		if (!butlerRequestUrl) return false;
 		if (isFound(cloudBranch?.current)) {
@@ -85,7 +87,8 @@ export function syncBrToPr(branch: Reactive<PatchSeries>) {
 				butlerRequestUrl,
 				cloudBranch.current.value
 			);
-			return formattedBody === prBody;
+
+			return formattedBody !== prBody;
 		}
 	});
 
@@ -103,7 +106,6 @@ export function syncBrToPr(branch: Reactive<PatchSeries>) {
 			updateButRequestPrDescription(
 				prService.current,
 				prNumber,
-				prBody || '\r\n',
 				butlerRequestUrl,
 				cloudBranch.current.value
 			);
