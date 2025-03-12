@@ -109,12 +109,26 @@
 		<div class="project-page">
 			<header class="project-header">
 				<div class="breadcrumb">
+					{console.log('data', projectData)}
 					<a href={routes.projectPath({ ownerSlug: data.ownerSlug, projectSlug: '' })}>
 						{data.ownerSlug}
 					</a>
 					<span>/</span>
 					<h1>{data.projectSlug}</h1>
 				</div>
+				{#if projectData.parentProject}
+					<div class="parent-project-info">
+						<span class="label">Parent Project:</span>
+						<a
+							href={routes.projectPath({
+								ownerSlug: projectData.parentProject.owner,
+								projectSlug: projectData.parentProject.slug
+							})}
+						>
+							{projectData.parentProject.owner}/{projectData.parentProject.slug}
+						</a>
+					</div>
+				{/if}
 			</header>
 
 			<div class="project-grid">
@@ -320,15 +334,20 @@
 		}
 	}
 
-	.project-page {
-		padding: 1rem;
-	}
-
 	.project-header {
 		display: flex;
+		flex-direction: column;
 		justify-content: space-between;
-		align-items: center;
 		margin-bottom: 2rem;
+	}
+
+	.parent-project-info {
+		margin-top: 10px;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 13px;
+		color: var(--text-muted, #666);
 	}
 
 	.breadcrumb {

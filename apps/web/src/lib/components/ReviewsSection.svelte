@@ -79,9 +79,7 @@
 	<div class="section-header">
 		<h2 class="section-title">{sectionTitle}</h2>
 		{#if allReviewsUrl && reviewsCount > 0}
-			<Button onclick={() => goto(allReviewsUrl)} style="pop">
-				All Reviews ({reviewsCount})
-			</Button>
+			<Button onclick={() => goto(allReviewsUrl)} style="pop">All Reviews</Button>
 		{/if}
 	</div>
 
@@ -274,28 +272,5 @@
 
 	.review-title-link:hover {
 		text-decoration: underline;
-	}
-
-	.review-status {
-		display: inline-block;
-		font-size: 0.75rem;
-		padding: 0.2rem 0.5rem;
-		border-radius: 9999px;
-		font-weight: 500;
-	}
-
-	.status-open {
-		background-color: #ebf8ff;
-		color: #2b6cb0;
-	}
-
-	.status-merged {
-		background-color: #e6fffa;
-		color: #2c7a7b;
-	}
-
-	.status-closed {
-		background-color: #fed7d7;
-		color: #c53030;
 	}
 </style>
