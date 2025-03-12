@@ -58,7 +58,7 @@
 	class="branch-name-input text-14 text-bold"
 	ondblclick={(e) => {
 		e.stopPropagation();
-		if (readonly) {
+		if (!readonly) {
 			onDblClick?.();
 		}
 	}}
@@ -114,7 +114,7 @@
 		width: 100%;
 		border-radius: var(--radius-s);
 		color: var(--clr-scale-ntrl-0);
-		background-color: var(--clr-bg-1);
+		background-color: transparent;
 		outline: none;
 
 		/* not readonly */
