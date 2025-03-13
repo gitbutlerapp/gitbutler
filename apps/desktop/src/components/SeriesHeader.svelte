@@ -6,8 +6,8 @@
 	import SeriesDescription from './SeriesDescription.svelte';
 	import SeriesHeaderStatusIcon from './SeriesHeaderStatusIcon.svelte';
 	import BranchReview from '$components/BranchReview.svelte';
-	import PrDetailsModal from '$components/PrDetailsModal.svelte';
 	import PullRequestCard from '$components/PullRequestCard.svelte';
+	import ReviewDetailsModal from '$components/ReviewDetailsModal.svelte';
 	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
@@ -83,7 +83,7 @@
 	);
 
 	let stackingAddSeriesModal = $state<ReturnType<typeof AddSeriesModal>>();
-	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
+	let prDetailsModal = $state<ReturnType<typeof ReviewDetailsModal>>();
 	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let stackingContextMenu = $state<ReturnType<typeof SeriesHeaderContextMenu>>();
 	let confirmCreatePrModal = $state<ReturnType<typeof Modal>>();
@@ -169,7 +169,7 @@
 		prDetailsModal?.show();
 	}
 
-	function handleOpenPR() {
+	function handleOpenBranchReview() {
 		if (!previousSeriesHavePrNumber) {
 			confirmCreatePrModal?.show();
 			return;
@@ -251,7 +251,7 @@
 		// Display create pr modal after a slight delay, this prevents
 		// interference with the closing context menu. It also feels nice
 		// that these two things are not happening at the same time.
-		setTimeout(() => handleOpenPR(), 250);
+		setTimeout(() => handleOpenBranchReview(), 250);
 	}
 
 	closedStateSync(reactive(() => branch));
@@ -278,7 +278,7 @@
 	}}
 	hasForgeBranch={!!forgeBranch}
 	pr={$pr}
-	openPrDetailsModal={handleOpenPR}
+	openPrDetailsModal={handleOpenBranchReview}
 	{branchType}
 	onMenuToggle={(isOpen, isLeftClick) => {
 		if (isLeftClick) {
@@ -370,7 +370,7 @@
 			</div>
 		</div>
 		{#if !hasNoCommits}
-			<BranchReview {branch} openForgePullRequest={handleOpenPR}>
+			<BranchReview {branch} openForgePullRequest={handleOpenBranchReview}>
 				{#snippet branchLine()}
 					<div class="branch-action__line" style:--bg-color={lineColor}></div>
 				{/snippet}
@@ -378,7 +378,7 @@
 					<PullRequestCard
 						reloadPR={handleReloadPR}
 						reopenPr={handleReopenPr}
-						openPrDetailsModal={handleOpenPR}
+						openPrDetailsModal={handleOpenBranchReview}
 						{pr}
 						{checksMonitor}
 						{prMonitor}
@@ -400,16 +400,7 @@
 			</BranchReview>
 		{/if}
 
-		{#if $pr}
-			<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} currentSeries={branch} />
-		{:else}
-			<PrDetailsModal
-				bind:this={prDetailsModal}
-				type="preview"
-				currentSeries={branch}
-				stackId={stack.id}
-			/>
-		{/if}
+		<ReviewDetailsModal bind:this={prDetailsModal} currentSeries={branch} stackId={stack.id} />
 
 		<Modal
 			width="small"

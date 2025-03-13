@@ -5,14 +5,18 @@ import type { PatchSeries } from '$lib/branches/branch';
 import type { DetailedPullRequest } from '$lib/forge/interface/types';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 
-export function getPr(branch: Reactive<PatchSeries>): Reactive<DetailedPullRequest | undefined> {
+export function getPr(
+	branch: Reactive<PatchSeries | undefined>
+): Reactive<DetailedPullRequest | undefined> {
 	const prService = $derived(readableToReactive(getForgePrService()));
 	const forgeListing = $derived(readableToReactive(getForgeListingService()));
 	const prs = $derived(readableToReactive(forgeListing.current?.prs));
 
-	const upstreamName = $derived(branch.current.upstreamReference ? branch.current.name : undefined);
+	const upstreamName = $derived(
+		branch.current?.upstreamReference ? branch.current.name : undefined
+	);
 	const listedPr = $derived(prs.current?.find((pr) => pr.sourceBranch === upstreamName));
-	const prNumber = $derived(branch.current.prNumber || listedPr?.number);
+	const prNumber = $derived(branch.current?.prNumber || listedPr?.number);
 
 	const prMonitor = $derived(prNumber ? prService.current?.prMonitor(prNumber) : undefined);
 	const pr = $derived(readableToReactive(prMonitor?.pr));
