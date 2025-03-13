@@ -25,7 +25,7 @@ export class OpenAIClient implements AIClient {
 
 	async evaluate(prompt: Prompt, options?: AIEvalOptions): Promise<string> {
 		const response = await this.client.chat.completions.create({
-			max_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
+			max_completion_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
 			messages: prompt,
 			model: this.modelName,
 			stream: true
