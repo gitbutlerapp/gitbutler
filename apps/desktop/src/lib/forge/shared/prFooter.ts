@@ -43,9 +43,9 @@ function reviewStatusToIcon(status: string) {
 }
 
 function reviewAllToAvatars(reviewAll: PatchReview) {
-	return reviewAll.viewed
+	return [...reviewAll.signedOff, ...reviewAll.rejected]
 		.map((user: UserSimple) => `<img width="20" height="20" src="${user.avatarUrl}">`)
-		.join(', ');
+		.join(' ');
 }
 
 export function formatButRequestDescription(
