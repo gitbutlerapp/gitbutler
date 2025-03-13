@@ -15,10 +15,20 @@ export function unixifyNewlines(target: string): string {
 
 export async function updateButRequestPrDescription(
 	prService: ForgePrService,
+	cachedBody: string,
 	prNumber: number,
 	butRequestUrl: string,
 	butReview: Branch
 ) {
+	// First check to see if cached value differs
+	const cachedUnixedBody = unixifyNewlines(cachedBody || '\n');
+	const newCachedBody = unixifyNewlines(
+		formatButRequestDescription(cachedBody, butRequestUrl, butReview)
+	);
+
+	if (cachedUnixedBody === newCachedBody) return;
+
+	// Then we can do a more accurate comparison of the latest body
 	const pr = await prService.get(prNumber);
 	const prBody = unixifyNewlines(pr.body || '\n');
 
