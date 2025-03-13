@@ -157,31 +157,28 @@ export class OrganizationService {
 	 * @returns Array of patch stacks converted to Branch format
 	 */
 	async fetchPatchStacks(ownerSlug: string): Promise<Branch[]> {
-		// Try different API endpoint patterns since we're not sure about the exact one
-		const possibleEndpoints = [`organization/${ownerSlug}/patch_stacks`];
-
 		console.log(`[OrganizationService] Fetching patch stacks for org: ${ownerSlug}`);
 
-		// Try each endpoint until one works
-		for (const endpoint of possibleEndpoints) {
-			try {
-				console.log(`[OrganizationService] Trying API URL: ${endpoint}`);
-				const response = await this.httpClient.get<ApiBranch[]>(endpoint);
-				console.log(`[OrganizationService] API response successful for ${endpoint}:`, response);
+		// Try different API endpoint patterns since we're not sure about the exact one
+		const endpoint = `organization/${ownerSlug}/patch_stacks`;
 
-				// Convert ApiBranch objects to Branch objects
-				return response.map(apiToBranch);
-			} catch (error: any) {
-				console.error(`[OrganizationService] Error with endpoint ${endpoint}:`, error);
+		try {
+			console.log(`[OrganizationService] Trying API URL: ${endpoint}`);
+			const response = await this.httpClient.get<ApiBranch[]>(endpoint);
+			console.log(`[OrganizationService] API response successful for ${endpoint}:`, response);
 
-				// If this is not a 404 error (which likely means wrong endpoint), rethrow it
-				if (error.response && error.response.status !== 404) {
-					throw error;
-				}
+			// Convert ApiBranch objects to Branch objects
+			return response.map(apiToBranch);
+		} catch (error: any) {
+			console.error(`[OrganizationService] Error with endpoint ${endpoint}:`, error);
 
-				// If it's a 404, we'll try the next endpoint
-				console.log(`[OrganizationService] Endpoint ${endpoint} returned 404, trying next...`);
+			// If this is not a 404 error (which likely means wrong endpoint), rethrow it
+			if (error.response && error.response.status !== 404) {
+				throw error;
 			}
+
+			// If it's a 404, we'll try the next endpoint
+			console.log(`[OrganizationService] Endpoint ${endpoint} returned 404, trying next...`);
 		}
 
 		// If we've tried all endpoints and none worked, return empty array

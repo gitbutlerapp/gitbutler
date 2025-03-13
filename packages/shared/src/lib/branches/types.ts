@@ -12,6 +12,24 @@ export enum BranchStatus {
 	Previous = 'previous'
 }
 
+/*
+	ALL optional
+	expose :owner_login
+	expose :oplog_sha
+	expose :description
+	expose :reviewers, using: Butler::API::Entities::UserSimple
+	expose :repository_id
+	expose :branch_stack_id
+	expose :branch_stack_order
+	expose :permissions, using: Butler::API::Entities::Permission
+	expose :patches do |status, options|
+		Butler::API::Entities::Patch.represent(status.patches.order(position: :asc), options)
+	end
+	expose :forge_description
+	expose :forge_url
+	expose :created_at
+*/
+
 export type ApiBranch = {
 	branch_id: string;
 	oplog_sha?: string;
@@ -20,19 +38,19 @@ export type ApiBranch = {
 	description?: string;
 	status?: BranchStatus;
 	version?: number;
-	created_at: string;
+	created_at?: string;
 	updated_at: string;
 	stack_size?: number;
 	contributors: ApiUserMaybe[];
-	patches: ApiPatchCommit[];
-	repository_id: string;
+	patches?: ApiPatchCommit[];
+	repository_id?: string;
 	branch_stack_id?: string;
 	branch_stack_order?: number;
 	permissions: ApiPermissions;
 	owner_login?: string;
 	review_status: string;
-	forge_url: string | undefined;
-	forge_description: string | undefined;
+	forge_url?: string | undefined;
+	forge_description?: string | undefined;
 	review_url: string | undefined;
 	project_full_slug: string;
 };
@@ -45,19 +63,19 @@ export type Branch = {
 	description?: string;
 	status?: BranchStatus;
 	version?: number;
-	createdAt: string;
+	createdAt?: string;
 	updatedAt: string;
 	stackSize?: number;
 	contributors: UserMaybe[];
 	patchCommitIds: string[];
-	patches: PatchCommit[];
+	patches?: PatchCommit[];
 	reviewStatus: string;
-	repositoryId: string;
+	repositoryId?: string;
 	stackId: string;
 	stackOrder: number;
 	permissions: Permissions;
-	forgeUrl: string | undefined;
-	forgeDescription: string | undefined;
+	forgeUrl?: string | undefined;
+	forgeDescription?: string | undefined;
 	reviewUrl: string | undefined;
 	projectFullSlug: string;
 };
@@ -77,8 +95,8 @@ export function apiToBranch(api: ApiBranch): Branch {
 		updatedAt: api.updated_at,
 		stackSize: api.stack_size,
 		contributors: api.contributors.map(apiToUserMaybe),
-		patchCommitIds: api.patches.map((patch) => patch.change_id),
-		patches: api.patches.map((api) => apiToPatch(api)),
+		patchCommitIds: api.patches?.map((patch) => patch.change_id) || [],
+		patches: api.patches?.map((api) => apiToPatch(api)) || [],
 		reviewStatus: api.review_status,
 		repositoryId: api.repository_id,
 		// Its good enough
