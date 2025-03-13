@@ -3,7 +3,7 @@ import { type CommitStatusType } from '@gitbutler/ui/CommitStatusBadge.svelte';
 import type { PatchCommit } from '$lib/patches/types';
 
 function getPatches(branch: Branch): PatchCommit[] {
-	return branch.patches;
+	return branch.patches ?? [];
 }
 
 function anyRejected(patches: PatchCommit[]): boolean {

@@ -135,5 +135,6 @@ export type SearchUsersApiQuery = {
 };
 
 export type SearchUsersApiParams = {
+	has_projects?: boolean;
 	query: SearchUsersApiQuery;
 };

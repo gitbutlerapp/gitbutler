@@ -1,3 +1,4 @@
+import { deduplicateBy } from '@gitbutler/shared/utils/array';
 import type MentionSuggestions from '$lib/components/chat/MentionSuggestions.svelte';
 import type { User } from '$lib/user/userService';
 import type { UserSimple } from '@gitbutler/shared/users/types';
@@ -8,6 +9,42 @@ import type {
 	MentionSuggestionUpdate
 } from '@gitbutler/ui/richText/plugins/Mention.svelte';
 
+const RECENTLY_MENTIONED_USERS_KEY = 'chat-recently_mentioned_users';
+
+type MentionSuggestionWithTimestamp = MentionSuggestion & { timestamp: string; count: number };
+
+function getRecentlyMentionedUsers(): MentionSuggestionWithTimestamp[] | undefined {
+	const stored = localStorage.getItem(RECENTLY_MENTIONED_USERS_KEY);
+	if (!stored) return undefined;
+	const parsed = JSON.parse(stored);
+	return parsed.sort((a: MentionSuggestionWithTimestamp, b: MentionSuggestionWithTimestamp) => {
+		return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+	});
+}
+
+function storeRecentlyMentionedUsers(users: MentionSuggestionWithTimestamp[]) {
+	localStorage.setItem(RECENTLY_MENTIONED_USERS_KEY, JSON.stringify(users));
+}
+
+function addRecentlyMentionedUser(user: MentionSuggestion) {
+	const stored = getRecentlyMentionedUsers() ?? [];
+	const existing = stored.find((item) => item.id === user.id);
+	if (existing) {
+		const storedWithoutExisting = stored.filter((item) => item.id !== user.id);
+		existing.count++;
+		existing.timestamp = new Date().toISOString();
+		storeRecentlyMentionedUsers([existing, ...storedWithoutExisting]);
+		return;
+	}
+
+	const newUser: MentionSuggestionWithTimestamp = {
+		...user,
+		timestamp: new Date().toISOString(),
+		count: 1
+	};
+	storeRecentlyMentionedUsers([newUser, ...stored]);
+}
+
 export default class SuggestionsHandler {
 	private _isLoading = $state<boolean>(false);
 	private _suggestions = $state<MentionSuggestion[]>();
@@ -16,16 +53,19 @@ export default class SuggestionsHandler {
 
 	private userService: UserService | undefined;
 	private chatParticipants: UserSimple[] | undefined;
+	private patchAuthors: UserSimple[] | undefined;
 	private currentUser: User | undefined;
 
 	init(
 		userService: UserService,
 		chatParticipants: UserSimple[] | undefined,
+		patchAuthors: UserSimple[] | undefined,
 		currentUser: User | undefined
 	) {
 		this.userService = userService;
 		this.chatParticipants = chatParticipants;
 		this.currentUser = currentUser;
+		this.patchAuthors = patchAuthors;
 	}
 
 	reset() {
@@ -35,6 +75,7 @@ export default class SuggestionsHandler {
 	private async searchUsers(query: string): Promise<UserSimple[]> {
 		this._isLoading = true;
 		const results = await this.userService?.searchUsers({
+			has_projects: true,
 			query: {
 				filters: [
 					{
@@ -58,7 +99,7 @@ export default class SuggestionsHandler {
 	private async getSuggestionItemsForQuery(query: string): Promise<MentionSuggestion[]> {
 		const results = await this.searchUsers(query);
 
-		const users = results
+		const usersSearchResults = results
 			.map((item) => {
 				if (!item.login) return undefined;
 				if (item.login === this.currentUser?.login) return undefined;
@@ -66,18 +107,30 @@ export default class SuggestionsHandler {
 			})
 			.filter((item): item is MentionSuggestion => !!item);
 
+		let recentlyMentionedUsers = getRecentlyMentionedUsers() ?? [];
+		recentlyMentionedUsers = recentlyMentionedUsers.filter((item) => item.label.startsWith(query));
+
+		const users = deduplicateBy([...usersSearchResults, ...recentlyMentionedUsers], 'id');
+
 		return users;
 	}
 
 	private async getInitialSuggestionItems(): Promise<MentionSuggestion[]> {
 		const participants: UserSimple[] = this.chatParticipants ?? [];
-		return participants
+		const authors: UserSimple[] = this.patchAuthors ?? [];
+
+		const allUSers = deduplicateBy([...participants, ...authors], 'id');
+
+		const allUserMentions = allUSers
 			.map((participant) => {
 				if (!participant.login) return undefined;
 				if (participant.login === this.currentUser?.login) return undefined;
 				return { id: participant.id.toString(), label: participant.login };
 			})
 			.filter((item): item is MentionSuggestion => !!item);
+
+		const recentlyMentionedUsers = getRecentlyMentionedUsers() ?? [];
+		return deduplicateBy([...allUserMentions, ...recentlyMentionedUsers], 'id');
 	}
 
 	async getSuggestionItems(query: string): Promise<MentionSuggestion[]> {
@@ -152,5 +205,6 @@ export default class SuggestionsHandler {
 
 	selectSuggestion(suggestion: MentionSuggestion) {
 		this._mentionPlugin?.selectMentionSuggestion(suggestion);
+		addRecentlyMentionedUser(suggestion);
 	}
 }

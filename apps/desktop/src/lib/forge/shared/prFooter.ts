@@ -15,10 +15,20 @@ export function unixifyNewlines(target: string): string {
 
 export async function updateButRequestPrDescription(
 	prService: ForgePrService,
+	cachedBody: string,
 	prNumber: number,
 	butRequestUrl: string,
 	butReview: Branch
 ) {
+	// First check to see if cached value differs
+	const cachedUnixedBody = unixifyNewlines(cachedBody || '\n');
+	const newCachedBody = unixifyNewlines(
+		formatButRequestDescription(cachedBody, butRequestUrl, butReview)
+	);
+
+	if (cachedUnixedBody === newCachedBody) return;
+
+	// Then we can do a more accurate comparison of the latest body
 	const pr = await prService.get(prNumber);
 	const prBody = unixifyNewlines(pr.body || '\n');
 
@@ -43,9 +53,9 @@ function reviewStatusToIcon(status: string) {
 }
 
 function reviewAllToAvatars(reviewAll: PatchReview) {
-	return reviewAll.viewed
+	return [...reviewAll.signedOff, ...reviewAll.rejected]
 		.map((user: UserSimple) => `<img width="20" height="20" src="${user.avatarUrl}">`)
-		.join(', ');
+		.join(' ');
 }
 
 export function formatButRequestDescription(
@@ -53,9 +63,9 @@ export function formatButRequestDescription(
 	butRequestUrl: string,
 	butReview: Branch
 ): string {
-	const seriesSize = butReview.patches.length;
+	const seriesSize = butReview.patches?.length || 0;
 	const patches = butReview.patches
-		.map(
+		?.map(
 			(patch) =>
 				`| ${seriesSize - (patch.position || 0)}/${seriesSize} | [${patch.title}](${butRequestUrl}/commit/${patch.changeId}) | ${reviewStatusToIcon(patch.reviewStatus)} | ${reviewAllToAvatars(patch.reviewAll)} |`
 		)

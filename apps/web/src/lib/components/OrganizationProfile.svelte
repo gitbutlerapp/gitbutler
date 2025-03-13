@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InviteLink from '$lib/components/InviteLink.svelte';
 	import ProjectsSection from '$lib/components/ProjectsSection.svelte';
 	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
@@ -60,6 +61,15 @@
 		</div>
 
 		<div class="side-column">
+			{#if organization.inviteCode}
+				<div class="section-card invite-code-section">
+					<h2 class="section-title">Invite Code</h2>
+					<div class="invite-link-wrapper">
+						<InviteLink organizationSlug={ownerSlug} inviteCode={organization.inviteCode} />
+					</div>
+				</div>
+			{/if}
+
 			{#if organization.members && organization.members.length > 0}
 				<div class="section-card members-section">
 					<h2 class="section-title">Members</h2>

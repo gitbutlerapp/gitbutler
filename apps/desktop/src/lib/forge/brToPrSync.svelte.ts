@@ -79,5 +79,5 @@ function untrackedUpdate(pr: DetailedPullRequest, project: CloudProject, branch:
 		ownerSlug: project.owner
 	});
 
-	updateButRequestPrDescription(prService, pr.number, butlerRequestUrl, branch);
+	updateButRequestPrDescription(prService, pr.body || '\n', pr.number, butlerRequestUrl, branch);
 }

@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::from_json::HexHash;
+use anyhow::Context;
 use but_core::ui::{TreeChange, WorktreeChanges};
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
@@ -78,7 +79,7 @@ fn changes_in_branch_inner(
 
     // Find the head that matches the branch name - the commit contained is our commit_id
     let start_commit_id = repo
-        .find_reference(start.ok_or_else(|| anyhow::anyhow!("Branch {} not found", branch_name))?)?
+        .find_reference(start.with_context(|| format!("Branch {} not found", branch_name))?)?
         .peel_to_commit()?
         .id;
 

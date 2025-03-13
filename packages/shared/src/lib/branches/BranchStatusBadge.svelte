@@ -10,17 +10,18 @@
 	const { branch }: Props = $props();
 
 	const patches = $derived(branch.patches);
-
 	const anyRejected = $derived(
-		patches.some((patch: PatchCommit) => patch.reviewAll.rejected.length > 0)
+		patches?.some((patch: PatchCommit) => patch.reviewAll.rejected.length > 0)
 	);
 	const someApproved = $derived(
-		patches.some((patch: PatchCommit) => patch.reviewAll.signedOff.length > 0)
+		patches?.some((patch: PatchCommit) => patch.reviewAll.signedOff.length > 0)
 	);
 	const allApproved = $derived(
-		!patches.some((patch: PatchCommit) => patch.reviewAll.signedOff.length === 0)
+		!patches?.some((patch: PatchCommit) => patch.reviewAll.signedOff.length === 0)
 	);
-	const hasComments = $derived(patches.some((patch: PatchCommit) => patch.commentCount > 0));
+	const hasComments = $derived(
+		patches?.some((patch: PatchCommit) => patch.commentCount > 0) ?? false
+	);
 
 	const status = $derived.by(() => {
 		if (branch.status === BranchStatus.Closed) {
