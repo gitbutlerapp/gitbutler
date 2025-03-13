@@ -24,6 +24,10 @@ export class OpenAIClient implements AIClient {
 	}
 
 	async evaluate(prompt: Prompt, options?: AIEvalOptions): Promise<string> {
+		// The 'max_tokens' parameter has been renamed to 'max_completion_tokens' in the OpenAI API.
+		// This change aligns with the updated API specification where 'max_completion_tokens'
+		// specifically controls the maximum number of tokens for the completion portion of the response.
+		// https://platform.openai.com/docs/api-reference/completions/create
 		const response = await this.client.chat.completions.create({
 			max_completion_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
 			messages: prompt,
