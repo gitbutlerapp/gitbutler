@@ -585,7 +585,7 @@
 						style="pop"
 						action={() => createReview(close)}
 						disabled={canPublishBR && canPublishPR && !$createButlerRequest && !$createPullRequest}
-						>Create Review</AsyncButton
+						>Submit for Review</AsyncButton
 					>
 				</div>
 			</div>

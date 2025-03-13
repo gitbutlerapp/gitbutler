@@ -13,7 +13,7 @@
 <!-- MAIN -->
 <div class="pr-header">
 	<div class="pr-header__row">
-		<h3 class="text-14 text-body text-semibold pr-title">Create a pull request</h3>
+		<h3 class="text-14 text-body text-semibold pr-title">Submit code for review</h3>
 
 		<SegmentControl
 			defaultIndex={isDisplay ? 1 : 0}

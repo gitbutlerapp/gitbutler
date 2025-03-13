@@ -68,7 +68,7 @@
 
 		{#if showCreateButton}
 			<Button onclick={openForgePullRequest} kind="outline" {disabled} {tooltip}
-				>{canPublish ? 'Create Review' : 'Create Pull Request'}</Button
+				>Submit for Review</Button
 			>
 		{/if}
 	</div>
