@@ -77,6 +77,6 @@
 	"dependencies": {
 		"@tauri-apps/plugin-clipboard-manager": "^2.2.1",
 		"dayjs": "^1.11.13",
-		"openai": "^4.47.3"
+		"openai": "^4.87.3"
 	}
 }
