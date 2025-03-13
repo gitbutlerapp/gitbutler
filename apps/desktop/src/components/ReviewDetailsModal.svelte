@@ -189,7 +189,7 @@
 		if ((canPublishPR && $createPullRequest) || !canPublishBR) {
 			await createPr({
 				title: prTitle.value,
-				body: canPublishBR ? '' : prBody.value,
+				body: $createButlerRequest ? '' : prBody.value,
 				draft: $createDraft,
 				upstreamBranchName
 			});
