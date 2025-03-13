@@ -31,8 +31,8 @@
 <div class="commit-graph-wrap">
 	<p class="text-12 fact">{branch.stackSize}</p>
 	<div class="commits">
-		{#each patchCommits as patch}
-			<div class={['commit-block', getClass(patch)]}></div>
+		{#each patchCommits ?? [] as patch}
+			<div class={['commit-block', getClass(patch as PatchCommit)]}></div>
 		{/each}
 	</div>
 </div>

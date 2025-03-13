@@ -65,13 +65,14 @@ export class BranchService {
 
 					const patches = apiBranches
 						.flatMap((branch) => branch.patches)
-						.map(
-							(api): LoadablePatchCommit => ({
+						.map((api): LoadablePatchCommit => {
+							if (!api) return { status: 'not-found', id: '' };
+							return {
 								status: 'found',
 								id: api.change_id,
 								value: apiToPatch(api)
-							})
-						);
+							};
+						});
 
 					this.appDispatch.dispatch(patchCommitTable.upsertMany(patches));
 					this.appDispatch.dispatch(branchTable.upsertMany(branches));
@@ -102,16 +103,17 @@ export class BranchService {
 				value: apiToBranch(apiBranch)
 			};
 
-			const patches = apiBranch.patches.map(
+			const patches = apiBranch.patches?.map(
 				(api): LoadablePatchCommit => ({
 					status: 'found',
 					id: api.change_id,
 					value: apiToPatch(api)
 				})
 			);
-
 			this.appDispatch.dispatch(branchTable.upsertOne(loadableBranch));
-			this.appDispatch.dispatch(patchCommitTable.upsertMany(patches));
+			if (patches) {
+				this.appDispatch.dispatch(patchCommitTable.upsertMany(patches));
+			}
 
 			return apiToBranch(apiBranch);
 		} catch (_: unknown) {
@@ -131,16 +133,17 @@ export class BranchService {
 						value: apiToBranch(apiBranch)
 					};
 
-					const patches = apiBranch.patches.map(
+					const patches = apiBranch.patches?.map(
 						(api): LoadablePatchCommit => ({
 							status: 'found',
 							id: api.change_id,
 							value: apiToPatch(api)
 						})
 					);
-
 					this.appDispatch.dispatch(branchTable.upsertOne(branch));
-					this.appDispatch.dispatch(patchCommitTable.upsertMany(patches));
+					if (patches) {
+						this.appDispatch.dispatch(patchCommitTable.upsertMany(patches));
+					}
 				} catch (error: unknown) {
 					this.appDispatch.dispatch(branchTable.upsertOne(errorToLoadable(error, uuid)));
 				}
@@ -164,7 +167,7 @@ export class BranchService {
 		});
 		const branch = apiToBranch(apiBranch);
 
-		const patches = apiBranch.patches.map(
+		const patches = apiBranch.patches?.map(
 			(api): LoadablePatchCommit => ({ status: 'found', id: api.change_id, value: apiToPatch(api) })
 		);
 
@@ -175,7 +178,7 @@ export class BranchService {
 				value: branch
 			})
 		);
-		this.appDispatch.dispatch(patchCommitTable.upsertMany(patches));
+		this.appDispatch.dispatch(patchCommitTable.upsertMany(patches ?? []));
 
 		return branch;
 	}
