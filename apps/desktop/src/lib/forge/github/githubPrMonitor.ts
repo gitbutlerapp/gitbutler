@@ -5,7 +5,7 @@ import { derived, writable } from 'svelte/store';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHubPrService } from './githubPrService';
 
-export const PR_SERVICE_INTERVAL = 20 * 60 * 1000;
+export const PR_SERVICE_INTERVAL = 120 * 60 * 1000;
 const MAX_POLL_ATTEMPTS = 6;
 
 export class GitHubPrMonitor implements ForgePrMonitor {
