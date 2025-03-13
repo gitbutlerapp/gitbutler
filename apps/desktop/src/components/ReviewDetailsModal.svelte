@@ -3,6 +3,7 @@
 		title: string;
 		body: string;
 		draft: boolean;
+		upstreamBranchName: string | undefined;
 	}
 </script>
 
@@ -18,14 +19,17 @@
 	import { BranchController } from '$lib/branches/branchController';
 	import { parentBranch } from '$lib/branches/virtualBranchService';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
+	import { getPr } from '$lib/forge/getPr.svelte';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
-	import { type DetailedPullRequest, type PullRequest } from '$lib/forge/interface/types';
+	import { type PullRequest } from '$lib/forge/interface/types';
 	import { ReactivePRBody, ReactivePRTitle } from '$lib/forge/prContents.svelte';
 	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
 	import { TemplateService } from '$lib/forge/templateService';
+	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
@@ -33,31 +37,27 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
+	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import ToggleButton from '@gitbutler/ui/ToggleButton.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
+	import Select from '@gitbutler/ui/select/Select.svelte';
+	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { error } from '@gitbutler/ui/toasts';
 	import { KeyName, onMetaEnter } from '@gitbutler/ui/utils/hotkeys';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { tick } from 'svelte';
 
-	type Props =
-		| {
-				type: 'preview';
-				currentSeries: PatchSeries;
-				stackId: string;
-		  }
-		| {
-				type: 'display';
-				currentSeries: PatchSeries;
-				pr: DetailedPullRequest;
-		  };
+	type Props = {
+		currentSeries: PatchSeries;
+		stackId: string;
+	};
 
 	let props: Props = $props();
 
@@ -71,22 +71,26 @@
 	const forge = getForge();
 	const forgeListingService = getForgeListingService();
 	const templateService = getContext(TemplateService);
+	const stackPublishingService = getContext(StackPublishingService);
+	const butRequestDetailsService = getContext(ButRequestDetailsService);
+
+	const canPublish = stackPublishingService.canPublish;
+
+	const pr = $derived(getPr(reactive(() => props.currentSeries)));
 
 	const stack = $derived($branchStore);
-	const commits = $derived(
-		props.type === 'preview'
-			? props.currentSeries.patches
-			: [...props.currentSeries.patches, ...props.currentSeries.upstreamPatches]
-	);
-	const upstreamName = $derived(
-		props.type === 'preview' ? props.currentSeries.name : stack.upstreamName
-	);
+	const commits = $derived([
+		...props.currentSeries.patches,
+		...props.currentSeries.upstreamPatches
+	]);
+	const upstreamName = $derived(props.currentSeries.name);
 	const forgeBranch = $derived(upstreamName ? $forge?.branch(upstreamName) : undefined);
 	const baseBranchName = $derived($baseBranch.shortName);
-	const currentSeries = $derived(props.type === 'preview' ? props.currentSeries : undefined);
+	const currentSeries = $derived(props.currentSeries);
 
-	let createPrDropDown = $state<ReturnType<typeof DropDownButton>>();
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
+	const createButlerRequest = persisted<boolean>(false, 'createButlerRequest');
+	const createPullRequest = persisted<boolean>(false, 'createPullRequest');
 
 	let modal = $state<ReturnType<typeof Modal>>();
 	let isEditing = $state<boolean>(true);
@@ -105,11 +109,13 @@
 
 	const canUseAI = $derived(aiConfigurationValid && $aiGenEnabled);
 
+	const isDisplay = $derived(!!(pr.current && props.currentSeries.reviewId));
+
 	const prTitle = $derived(
 		new ReactivePRTitle(
 			project.id,
-			props.type === 'display',
-			props.type === 'display' ? props.pr.title : undefined,
+			isDisplay,
+			isDisplay ? pr.current?.title : undefined,
 			commits,
 			currentSeries?.name ?? ''
 		)
@@ -118,9 +124,9 @@
 	const prBody = $derived(
 		new ReactivePRBody(
 			project.id,
-			props.type === 'display',
+			isDisplay,
 			currentSeries?.description ?? '',
-			props.type === 'display' ? props.pr.body : undefined,
+			isDisplay ? pr.current?.body : undefined,
 			commits,
 			templateBody,
 			currentSeries?.name ?? ''
@@ -147,6 +153,53 @@
 		}
 	});
 
+	async function pushIfNeeded(): Promise<string | undefined> {
+		let upstreamBranchName: string | undefined = upstreamName;
+		if (pushBeforeCreate) {
+			const firstPush = !stack.upstream;
+			const pushResult = await branchController.pushBranch(stack.id, stack.requiresForce);
+
+			if (pushResult) {
+				upstreamBranchName = getBranchNameFromRef(pushResult.refname, pushResult.remote);
+			}
+
+			if (firstPush) {
+				// TODO: fix this hack for reactively available prService.
+				await sleep(500);
+			}
+		}
+
+		return upstreamBranchName;
+	}
+
+	const canPublishBR = $derived(!!($canPublish && currentSeries?.name && !currentSeries.reviewId));
+	const canPublishPR = $derived(!!($forge && !pr.current));
+
+	export async function createReview(close: () => void) {
+		isLoading = true;
+
+		const upstreamBranchName = await pushIfNeeded();
+
+		// Even if createButlerRequest is false, if we _cant_ create a PR, then
+		// We want to always create the BR, and vice versa.
+		if ((canPublishBR && $createButlerRequest) || !canPublishPR) {
+			const reviewId = await stackPublishingService.upsertStack(stack.id, currentSeries.name);
+			butRequestDetailsService.setDetails(reviewId, prTitle.value, prBody.value);
+		}
+		if ((canPublishPR && $createPullRequest) || !canPublishBR) {
+			await createPr({
+				title: prTitle.value,
+				body: canPublishBR ? '' : prBody.value,
+				draft: $createDraft,
+				upstreamBranchName
+			});
+		}
+
+		isLoading = false;
+
+		close();
+	}
+
 	export async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
 		if (!$forge) {
 			error('Pull request service not available');
@@ -159,30 +212,13 @@
 		// All ids that existed prior to creating a new one (including archived).
 		const prNumbers = stack.validSeries.map((series) => series.prNumber);
 
-		isLoading = true;
 		try {
-			let upstreamBranchName = upstreamName;
-
-			if (pushBeforeCreate) {
-				const firstPush = !stack.upstream;
-				const pushResult = await branchController.pushBranch(stack.id, stack.requiresForce);
-
-				if (pushResult) {
-					upstreamBranchName = getBranchNameFromRef(pushResult.refname, pushResult.remote);
-				}
-
-				if (firstPush) {
-					// TODO: fix this hack for reactively available prService.
-					await sleep(500);
-				}
-			}
-
 			if (!baseBranchName) {
 				error('No base branch name determined');
 				return;
 			}
 
-			if (!upstreamBranchName) {
+			if (!params.upstreamBranchName) {
 				error('No upstream branch name determined');
 				return;
 			}
@@ -213,7 +249,7 @@
 				body: params.body,
 				draft: params.draft,
 				baseBranchName: base,
-				upstreamName: upstreamBranchName
+				upstreamName: params.upstreamBranchName
 			});
 
 			// Store the new pull request number with the branch data.
@@ -233,23 +269,28 @@
 			const toast = mapErrorToToast(err);
 			if (toast) showToast(toast);
 			else showError('Error while creating pull request', err);
-		} finally {
-			isLoading = false;
 		}
 	}
 
 	async function handleCreatePR(close: () => void) {
-		if (props.type === 'display') return;
+		if (isDisplay) return;
+		if (!canPublishPR) return;
+		isLoading = true;
+
+		const upstreamBranchName = await pushIfNeeded();
 		await createPr({
 			title: prTitle.value,
 			body: prBody.value,
-			draft: $createDraft
+			draft: $createDraft,
+			upstreamBranchName
 		});
+		isLoading = false;
+
 		close();
 	}
 
 	async function handleAIButtonPressed() {
-		if (props.type === 'display') return;
+		if (isDisplay) return;
 		if (!aiGenEnabled) return;
 
 		aiIsLoading = true;
@@ -338,8 +379,6 @@
 			return modal?.imports.open;
 		}
 	};
-
-	const isDisplay = props.type === 'display';
 </script>
 
 <Modal bind:this={modal} width={580} noPadding {onClose} onKeyDown={handleModalKeydown}>
@@ -457,58 +496,86 @@
 	<!-- FOOTER -->
 
 	{#snippet controls(close)}
-		{#if props.type !== 'display'}
-			<Button kind="outline" onclick={close}>Cancel</Button>
-
-			<DropDownButton
-				bind:this={createPrDropDown}
-				style="pop"
-				disabled={isLoading || aiIsLoading || !prTitle.value}
-				loading={isLoading}
-				type="submit"
-				onclick={async () => await handleCreatePR(close)}
-			>
-				{pushBeforeCreate ? 'Push & ' : ''}
-				{$createDraft ? 'Create draft pull request' : `Create Pull Request`}
-
-				{#snippet contextMenuSlot()}
-					<ContextMenuSection>
-						<ContextMenuItem
-							label="Create Pull Request"
-							onclick={() => {
-								createDraft.set(false);
-								createPrDropDown?.close();
-							}}
-						/>
-						<ContextMenuItem
-							label="Create Draft Pull Request"
-							onclick={() => {
-								createDraft.set(true);
-								createPrDropDown?.close();
-							}}
-						/>
-					</ContextMenuSection>
-				{/snippet}
-			</DropDownButton>
-		{:else}
+		{#if isDisplay}
 			<div class="pr-footer__actions">
-				<Button
-					kind="outline"
-					icon={prLinkCopied ? 'tick-small' : 'copy-small'}
-					disabled={prLinkCopied}
-					onclick={() => {
-						handlePrLinkCopied(props.pr.htmlUrl);
-					}}>{prLinkCopied ? 'Link copied!' : 'Copy PR link'}</Button
-				>
-				<Button
-					kind="outline"
-					icon="open-link"
-					onclick={() => {
-						openExternalUrl(props.pr.htmlUrl);
-					}}>Open in browser</Button
-				>
+				{#if pr.current}
+					<Button
+						kind="outline"
+						icon={prLinkCopied ? 'tick-small' : 'copy-small'}
+						disabled={prLinkCopied}
+						onclick={() => {
+							if (!pr.current) return;
+							handlePrLinkCopied(pr.current.htmlUrl);
+						}}>{prLinkCopied ? 'Link copied!' : 'Copy PR link'}</Button
+					>
+					<Button
+						kind="outline"
+						icon="open-link"
+						onclick={() => {
+							if (!pr.current) return;
+							openExternalUrl(pr.current.htmlUrl);
+						}}>Open in browser</Button
+					>
+				{/if}
 			</div>
 			<Button kind="outline" onclick={close}>Close</Button>
+		{:else}
+			<div class="combined-controls">
+				{#if canPublishBR && canPublishPR}
+					<div class="options">
+						{#if canPublishBR}
+							<div class="option">
+								<p class="text-13">Create Butler Review</p>
+								<Toggle bind:checked={$createButlerRequest} />
+							</div>
+						{/if}
+						{#if canPublishPR}
+							<div class="stacked-options">
+								<div class="option">
+									<p class="text-13">Create Pull Request</p>
+									<Toggle bind:checked={$createPullRequest} />
+								</div>
+
+								{#if $createPullRequest}
+									<div class="option">
+										<p class="text-13">Pull Request Kind</p>
+										<Select
+											options={[
+												{ label: 'Draft PR', value: 'draft' },
+												{ label: 'PR', value: 'regular' }
+											]}
+											value={$createDraft ? 'draft' : 'regular'}
+											autoWidth
+											onselect={(value) => {
+												$createDraft = value === 'draft';
+											}}
+										>
+											{#snippet customSelectButton()}
+												<Button kind="outline" icon="select-chevron" size="tag">
+													{$createDraft ? 'Draft PR' : 'PR'}
+												</Button>
+											{/snippet}
+											{#snippet itemSnippet({ item, highlighted })}
+												<SelectItem {highlighted}>{item.label}</SelectItem>
+											{/snippet}
+										</Select>
+									</div>
+								{/if}
+							</div>
+						{/if}
+					</div>
+					<Spacer dotted margin={0} />
+				{/if}
+				<div class="actions">
+					<Button kind="outline" onclick={close}>Cancel</Button>
+					<AsyncButton
+						style="pop"
+						action={() => createReview(close)}
+						disabled={canPublishBR && canPublishPR && !$createButlerRequest && !$createPullRequest}
+						>Create Review</AsyncButton
+					>
+				</div>
+			</div>
 		{/if}
 	{/snippet}
 </Modal>
@@ -590,5 +657,40 @@
 			background-color: var(--clr-bg-1-muted);
 			border-radius: var(--radius-m);
 		}
+	}
+
+	.combined-controls {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		width: 100%;
+	}
+
+	.actions {
+		width: 100%;
+		display: flex;
+		justify-content: flex-end;
+		gap: 12px;
+	}
+
+	.options {
+		width: 100%;
+		display: flex;
+		gap: 12px;
+		align-items: flex-start;
+		justify-content: space-around;
+	}
+
+	.stacked-options {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.option {
+		display: flex;
+		gap: 12px;
+		align-items: center;
+		justify-content: space-between;
 	}
 </style>
