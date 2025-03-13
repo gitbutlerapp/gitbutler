@@ -12,6 +12,7 @@
 	import { getPatchEvents } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import type { PatchCommit } from '@gitbutler/shared/patches/types';
 
 	type Props = {
 		messageUuid: string | undefined;
@@ -20,6 +21,7 @@
 		projectId: string;
 		branchId: string;
 		changeId: string;
+		patchCommit: PatchCommit;
 		minimized: boolean;
 		isUserLoggedIn: boolean | undefined;
 		isTabletMode: boolean;
@@ -33,6 +35,7 @@
 		projectId,
 		changeId,
 		branchId,
+		patchCommit,
 		branchUuid,
 		minimized,
 		isPatchAuthor,
@@ -146,6 +149,7 @@
 				{projectId}
 				{branchId}
 				{changeId}
+				{patchCommit}
 				{isPatchAuthor}
 				{diffSelection}
 				{clearDiffSelection}
