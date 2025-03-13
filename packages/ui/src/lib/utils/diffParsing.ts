@@ -356,12 +356,14 @@ export function readDiffLineKey(key: DiffLineKey): ParsedDiffLineKey | undefined
 	};
 }
 
+const DIFF_FILE_KEY_SEPARATOR = '%%-%%';
+
 export function createDiffFileHunkKey(fileName: string, diffSha: string): DiffFileKey {
-	return `${fileName}-${diffSha}` as DiffFileKey;
+	return `${fileName}${DIFF_FILE_KEY_SEPARATOR}${diffSha}` as DiffFileKey;
 }
 
 export function readDiffFileHunkKey(key: DiffFileKey): [string, string] | undefined {
-	const [fileName, diffSha] = key.split('-');
+	const [fileName, diffSha] = key.split(DIFF_FILE_KEY_SEPARATOR);
 
 	if (fileName === undefined || diffSha === undefined) {
 		return undefined;
