@@ -63,9 +63,9 @@ export function formatButRequestDescription(
 	butRequestUrl: string,
 	butReview: Branch
 ): string {
-	const seriesSize = butReview.patches.length;
+	const seriesSize = butReview.patches?.length || 0;
 	const patches = butReview.patches
-		.map(
+		?.map(
 			(patch) =>
 				`| ${seriesSize - (patch.position || 0)}/${seriesSize} | [${patch.title}](${butRequestUrl}/commit/${patch.changeId}) | ${reviewStatusToIcon(patch.reviewStatus)} | ${reviewAllToAvatars(patch.reviewAll)} |`
 		)
