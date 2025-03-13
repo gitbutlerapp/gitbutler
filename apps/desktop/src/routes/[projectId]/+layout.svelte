@@ -25,6 +25,7 @@
 	import { createForgeListingServiceStore } from '$lib/forge/interface/forgeListingService';
 	import { createForgePrServiceStore } from '$lib/forge/interface/forgePrService';
 	import { createForgeRepoServiceStore } from '$lib/forge/interface/forgeRepoService';
+	import { BrToPrService } from '$lib/forge/shared/prFooter';
 	import { TemplateService } from '$lib/forge/templateService';
 	import { HistoryService } from '$lib/history/history';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
@@ -42,6 +43,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { onDestroy, setContext, type Snippet } from 'svelte';
 	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import type { LayoutData } from './$types';
@@ -212,6 +214,15 @@
 
 	const settingsService = getContext(SettingsService);
 	const settingsStore = settingsService.appSettings;
+
+	const webRoutesService = getContext(WebRoutesService);
+	const brToPrService = new BrToPrService(
+		webRoutesService,
+		cloudProjectService,
+		latestBranchLookupService,
+		prService
+	);
+	setContext(BrToPrService, brToPrService);
 
 	$effect(() => {
 		projectCloudSync(data.projectsService, data.projectService, httpClient);

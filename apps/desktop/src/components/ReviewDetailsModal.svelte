@@ -27,11 +27,14 @@
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { type PullRequest } from '$lib/forge/interface/types';
 	import { ReactivePRBody, ReactivePRTitle } from '$lib/forge/prContents.svelte';
-	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
+	import {
+		BrToPrService,
+		updatePrDescriptionTables as updatePrStackInfo
+	} from '$lib/forge/shared/prFooter';
 	import { TemplateService } from '$lib/forge/templateService';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { showError, showToast } from '$lib/notifications/toasts';
-	import { Project } from '$lib/project/project';
+	import { ProjectService } from '$lib/project/projectService';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { sleep } from '$lib/utils/sleep';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -61,18 +64,20 @@
 
 	let props: Props = $props();
 
-	const project = getContext(Project);
+	const projectService = getContext(ProjectService);
+	const project = projectService.project;
 	const baseBranch = getContextStore(BaseBranch);
 	const branchStore = getContextStore(BranchStack);
 	const branchController = getContext(BranchController);
 	const prService = getForgePrService();
 	const aiService = getContext(AIService);
-	const aiGenEnabled = projectAiGenEnabled(project.id);
+	const aiGenEnabled = projectAiGenEnabled($project!.id);
 	const forge = getForge();
 	const forgeListingService = getForgeListingService();
 	const templateService = getContext(TemplateService);
 	const stackPublishingService = getContext(StackPublishingService);
 	const butRequestDetailsService = getContext(ButRequestDetailsService);
+	const brToPrService = getContext(BrToPrService);
 
 	const canPublish = stackPublishingService.canPublish;
 
@@ -103,7 +108,7 @@
 	const pushBeforeCreate = $derived(!forgeBranch || commits.some((c) => !c.isRemote));
 
 	// Displays template select component when true.
-	let useTemplate = persisted(false, `use-template-${project.id}`);
+	let useTemplate = persisted(false, `use-template-${$project!.id}`);
 	// Available pull request templates.
 	let templates = $state<string[]>([]);
 
@@ -113,7 +118,7 @@
 
 	const prTitle = $derived(
 		new ReactivePRTitle(
-			project.id,
+			$project!.id,
 			isDisplay,
 			isDisplay ? pr.current?.title : undefined,
 			commits,
@@ -123,7 +128,7 @@
 
 	const prBody = $derived(
 		new ReactivePRBody(
-			project.id,
+			$project!.id,
 			isDisplay,
 			currentSeries?.description ?? '',
 			isDisplay ? pr.current?.body : undefined,
@@ -180,19 +185,27 @@
 
 		const upstreamBranchName = await pushIfNeeded();
 
+		let reviewId: string | undefined;
+		let prNumber: number | undefined;
+
 		// Even if createButlerRequest is false, if we _cant_ create a PR, then
 		// We want to always create the BR, and vice versa.
 		if ((canPublishBR && $createButlerRequest) || !canPublishPR) {
-			const reviewId = await stackPublishingService.upsertStack(stack.id, currentSeries.name);
+			reviewId = await stackPublishingService.upsertStack(stack.id, currentSeries.name);
 			butRequestDetailsService.setDetails(reviewId, prTitle.value, prBody.value);
 		}
 		if ((canPublishPR && $createPullRequest) || !canPublishBR) {
-			await createPr({
+			const pr = await createPr({
 				title: prTitle.value,
 				body: $createButlerRequest ? '' : prBody.value,
 				draft: $createDraft,
 				upstreamBranchName
 			});
+			prNumber = pr?.number;
+		}
+
+		if (reviewId && prNumber && $project?.api?.repository_id) {
+			brToPrService.refreshButRequestPrDescription(prNumber, reviewId, $project.api.repository_id);
 		}
 
 		isLoading = false;
@@ -572,7 +585,7 @@
 						style="pop"
 						action={() => createReview(close)}
 						disabled={canPublishBR && canPublishPR && !$createButlerRequest && !$createPullRequest}
-						>Create Review</AsyncButton
+						>Submit for Review</AsyncButton
 					>
 				</div>
 			</div>

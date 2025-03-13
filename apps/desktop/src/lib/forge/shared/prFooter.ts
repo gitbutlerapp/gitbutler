@@ -1,3 +1,9 @@
+import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
+import { InterestStore } from '@gitbutler/shared/interest/interestStore';
+import { ProjectService } from '@gitbutler/shared/organizations/projectService';
+import { POLLING_REGULAR } from '@gitbutler/shared/polling';
+import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+import { get, type Readable } from 'svelte/store';
 import type { ForgePrService } from '../interface/forgePrService';
 import type { Branch } from '@gitbutler/shared/branches/types';
 import type { PatchReview } from '@gitbutler/shared/patches/types';
@@ -13,32 +19,62 @@ export function unixifyNewlines(target: string): string {
 	return target.split(/\r?\n/).join('\n');
 }
 
-export async function updateButRequestPrDescription(
-	prService: ForgePrService,
-	cachedBody: string,
-	prNumber: number,
-	butRequestUrl: string,
-	butReview: Branch
-) {
-	// First check to see if cached value differs
-	const cachedUnixedBody = unixifyNewlines(cachedBody || '\n');
-	const newCachedBody = unixifyNewlines(
-		formatButRequestDescription(cachedBody, butRequestUrl, butReview)
-	);
+export class BrToPrService {
+	constructor(
+		private readonly webRoutes: WebRoutesService,
+		private readonly projectService: ProjectService,
+		private readonly latestBranchLookupService: LatestBranchLookupService,
+		private readonly prService: Readable<ForgePrService | undefined>
+	) {}
 
-	if (cachedUnixedBody === newCachedBody) return;
+	private readonly butRequestUpdateInterests = new InterestStore<{
+		prNumber: number;
+		branchId: string;
+		repositoryId: string;
+	}>(POLLING_REGULAR);
 
-	// Then we can do a more accurate comparison of the latest body
-	const pr = await prService.get(prNumber);
-	const prBody = unixifyNewlines(pr.body || '\n');
+	refreshButRequestPrDescription(prNumber: number, branchId: string, repositoryId: string) {
+		this.butRequestUpdateInterests.invalidate({ prNumber, branchId, repositoryId });
+	}
 
-	const newBody = unixifyNewlines(formatButRequestDescription(prBody, butRequestUrl, butReview));
+	updateButRequestPrDescription(prNumber: number, branchId: string, repositoryId: string) {
+		return this.butRequestUpdateInterests
+			.findOrCreateSubscribable({ prNumber, branchId, repositoryId }, async () => {
+				const prService = get(this.prService);
+				if (!prService) return;
 
-	if (prBody === newBody) return;
+				const project = await this.projectService.getProject(repositoryId);
+				if (!project) return;
 
-	await prService.update(prNumber, {
-		description: newBody
-	});
+				const butReview = await this.latestBranchLookupService.getBranch(
+					project.owner,
+					project.slug,
+					branchId
+				);
+				if (!butReview) return;
+
+				const butlerRequestUrl = this.webRoutes.projectReviewBranchUrl({
+					branchId,
+					projectSlug: project.slug,
+					ownerSlug: project.owner
+				});
+
+				// Then we can do a more accurate comparison of the latest body
+				const pr = await prService.get(prNumber);
+				const prBody = unixifyNewlines(pr.body || '\n');
+
+				const newBody = unixifyNewlines(
+					formatButRequestDescription(prBody, butlerRequestUrl, butReview)
+				);
+
+				if (prBody === newBody) return;
+
+				await prService.update(prNumber, {
+					description: newBody
+				});
+			})
+			.createInterest();
+	}
 }
 
 function reviewStatusToIcon(status: string) {

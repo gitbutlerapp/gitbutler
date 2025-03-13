@@ -134,7 +134,7 @@
 	$effect(() => {
 		if (!lastPush) return;
 		if (!lastSeenPush || lastPush > lastSeenPush) {
-			updateStatusAndChecks();
+			// updateStatusAndChecks();
 		}
 		lastSeenPush = lastPush;
 	});
