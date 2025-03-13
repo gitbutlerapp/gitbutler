@@ -178,7 +178,7 @@
 	}
 
 	const canPublishBR = $derived(!!($canPublish && currentSeries?.name && !currentSeries.reviewId));
-	const canPublishPR = $derived(!!($forge && !pr.current));
+	const canPublishPR = $derived(!!($prService && !pr.current));
 
 	export async function createReview(close: () => void) {
 		isLoading = true;
