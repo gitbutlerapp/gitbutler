@@ -56,6 +56,7 @@ export class OwnerService {
 					createdAt: response.created_at,
 					avatarUrl: response.avatar_url,
 					projects: response.projects,
+					inviteCode: response.invite_code,
 					members: response.members
 				};
 
