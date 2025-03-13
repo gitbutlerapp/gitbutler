@@ -184,7 +184,7 @@ export class UserService {
 	 */
 	async recentProjects(login: string): Promise<any[]> {
 		try {
-			return await this.httpClient.get<any[]>(`/api/user/${login}/projects`);
+			return await this.httpClient.get<any[]>(`/api/user/${login}/projects?limit=6`);
 		} catch (error) {
 			console.error('Failed to fetch recent projects:', error);
 			return [];
