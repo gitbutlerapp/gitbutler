@@ -273,6 +273,7 @@
 						{isPatchAuthor}
 						isUserLoggedIn={!!$user}
 						{branchUuid}
+						{patchCommit}
 						isTabletMode={isChatTabletMode}
 						messageUuid={data.messageUuid}
 						projectId={repositoryId}

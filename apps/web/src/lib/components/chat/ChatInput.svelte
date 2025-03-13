@@ -24,6 +24,8 @@
 		type DropFileResult
 	} from '@gitbutler/ui/richText/plugins/FileUpload.svelte';
 	import MentionsPlugin from '@gitbutler/ui/richText/plugins/Mention.svelte';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
+	import type { PatchCommit } from '@gitbutler/shared/patches/types';
 	import { env } from '$env/dynamic/public';
 
 	const ACCEPTED_FILE_TYPES = ['image/*', 'application/*', 'text/*', 'audio/*', 'video/*'];
@@ -33,6 +35,7 @@
 		branchId: string;
 		branchUuid: string;
 		changeId: string;
+		patchCommit: PatchCommit;
 		isPatchAuthor: boolean | undefined;
 		isUserLoggedIn: boolean | undefined;
 		diffSelection: DiffSelection | undefined;
@@ -46,6 +49,7 @@
 		projectId,
 		branchId,
 		changeId,
+		patchCommit,
 		isPatchAuthor,
 		isUserLoggedIn,
 		diffSelection,
@@ -62,6 +66,7 @@
 	const patchCommitService = getContext(PatchCommitService);
 	const chatChannelService = getContext(ChatChannelsService);
 	const uploadsService = getContext(UploadsService);
+	const contributors = $derived(patchCommit.contributors.map((c) => c.user).filter(isDefined));
 	const chatParticipants = $derived(
 		getChatChannelParticipants(appState, chatChannelService, projectId, changeId)
 	);
@@ -75,7 +80,7 @@
 	const suggestions = new SuggestionsHandler();
 
 	$effect(() => messageHandler.init(chatChannelService, projectId, branchId, changeId));
-	$effect(() => suggestions.init(newUserService, chatParticipants.current, $user));
+	$effect(() => suggestions.init(newUserService, chatParticipants.current, contributors, $user));
 	$effect(() => {
 		if (changeId) {
 			// Just here to track the changeId
