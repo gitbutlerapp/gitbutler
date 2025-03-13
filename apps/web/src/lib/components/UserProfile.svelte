@@ -91,6 +91,10 @@
 		}
 	});
 
+	function hasContactInfo(user: ExtendedUser) {
+		return user.email || user.website || user.twitter || user.bluesky || user.location;
+	}
+
 	// Use real data if available, otherwise use the fetched projects data
 	let projects = $derived(projectsData);
 	// Only show actual patch stacks, don't fall back to mock data
@@ -176,60 +180,62 @@
 			</div>
 
 			<!-- Contact & Info Section -->
-			<div class="section-card contact-info-section">
-				<h2 class="section-title">Contact & Info</h2>
-				<div class="contact-info-list">
-					{#if user?.email}
-						<div class="info-item">
-							<span class="info-icon">✉️</span>
-							<span class="value"><a href={`mailto:${user.email}`}>{user.email}</a></span>
-						</div>
-					{/if}
-					{#if user.website}
-						<div class="info-item">
-							<span class="info-icon">🌐</span>
-							<a href={user.website} target="_blank" rel="noopener noreferrer" class="info-value">
-								{user.website.replace(/^https?:\/\//, '')}
-							</a>
-						</div>
-					{/if}
+			{#if hasContactInfo(user)}
+				<div class="section-card contact-info-section">
+					<h2 class="section-title">Contact & Info</h2>
+					<div class="contact-info-list">
+						{#if user.email}
+							<div class="info-item">
+								<span class="info-icon">✉️</span>
+								<span class="value"><a href={`mailto:${user.email}`}>{user.email}</a></span>
+							</div>
+						{/if}
+						{#if user.website}
+							<div class="info-item">
+								<span class="info-icon">🌐</span>
+								<a href={user.website} target="_blank" rel="noopener noreferrer" class="info-value">
+									{user.website.replace(/^https?:\/\//, '')}
+								</a>
+							</div>
+						{/if}
 
-					{#if user.twitter}
-						<div class="info-item">
-							<span class="info-icon">𝕏</span>
-							<a
-								href={`https://twitter.com/${user.twitter}`}
-								target="_blank"
-								rel="noopener noreferrer"
-								class="info-value"
-							>
-								@{user.twitter}
-							</a>
-						</div>
-					{/if}
+						{#if user.twitter}
+							<div class="info-item">
+								<span class="info-icon">𝕏</span>
+								<a
+									href={`https://twitter.com/${user.twitter}`}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="info-value"
+								>
+									@{user.twitter}
+								</a>
+							</div>
+						{/if}
 
-					{#if user.bluesky}
-						<div class="info-item">
-							<span class="info-icon">🦋</span>
-							<a
-								href={`https://bsky.app/profile/${user.bluesky}`}
-								target="_blank"
-								rel="noopener noreferrer"
-								class="info-value"
-							>
-								{user.bluesky}
-							</a>
-						</div>
-					{/if}
+						{#if user.bluesky}
+							<div class="info-item">
+								<span class="info-icon">🦋</span>
+								<a
+									href={`https://bsky.app/profile/${user.bluesky}`}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="info-value"
+								>
+									{user.bluesky}
+								</a>
+							</div>
+						{/if}
 
-					{#if user.location}
-						<div class="info-item">
-							<span class="info-icon">📍</span>
-							<span class="info-value">{user.location}</span>
-						</div>
-					{/if}
+						{#if user.location}
+							<div class="info-item">
+								<span class="info-icon">📍</span>
+								<span class="info-value">{user.location}</span>
+							</div>
+						{/if}
+					</div>
 				</div>
-			</div>
+			{/if}
 
 			<!-- Organizations Section -->
 			{#if user?.organizations && user.organizations.length > 0}
