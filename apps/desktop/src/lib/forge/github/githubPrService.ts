@@ -16,6 +16,7 @@ import type { Octokit } from '@octokit/rest';
 
 export class GitHubPrService implements ForgePrService {
 	loading = writable(false);
+	private readonly prMonitors = new Map<number, GitHubPrMonitor>();
 
 	constructor(
 		private octokit: Octokit,
@@ -96,7 +97,13 @@ export class GitHubPrService implements ForgePrService {
 	}
 
 	prMonitor(prNumber: number): GitHubPrMonitor {
-		return new GitHubPrMonitor(this, this.repo, prNumber, this.baseBranch);
+		let prMonitor = this.prMonitors.get(prNumber);
+		if (prMonitor) {
+			return prMonitor;
+		}
+		prMonitor = new GitHubPrMonitor(this, this.repo, prNumber, this.baseBranch);
+		this.prMonitors.set(prNumber, prMonitor);
+		return prMonitor;
 	}
 
 	async update(
