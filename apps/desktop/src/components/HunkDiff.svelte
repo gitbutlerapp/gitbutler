@@ -257,6 +257,15 @@
 				return acc;
 			}
 
+			// Don't do word diff on super long lines
+			if (
+				prevSection.lines.some((line) => line.content.length > 300) ||
+				nextSection.lines.some((line) => line.content.length > 300)
+			) {
+				acc.push(...createRowData(nextSection));
+				return acc;
+			}
+
 			if (inlineUnifiedDiffs) {
 				const rows = computeInlineWordDiff(prevSection, nextSection);
 
