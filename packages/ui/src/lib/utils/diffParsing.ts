@@ -704,6 +704,15 @@ export function generateRows(
 			return acc;
 		}
 
+		// Don't do word diff on super long lines
+		if (
+			prevSection.lines.some((line) => line.content.length > 300) ||
+			nextSection.lines.some((line) => line.content.length > 300)
+		) {
+			acc.push(...createRowData(filePath, nextSection, parser, selectedLines));
+			return acc;
+		}
+
 		if (inlineUnifiedDiffs) {
 			const rows = computeInlineWordDiff(filePath, prevSection, nextSection, parser, selectedLines);
 
