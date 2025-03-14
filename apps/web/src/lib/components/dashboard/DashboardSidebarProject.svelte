@@ -68,6 +68,7 @@
 		display: flex;
 
 		align-items: center;
+		cursor: pointer;
 
 		gap: 9px;
 
