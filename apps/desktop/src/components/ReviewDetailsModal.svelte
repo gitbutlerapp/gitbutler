@@ -12,6 +12,7 @@
 	import PrTemplateSection from './PrTemplateSection.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { AIService } from '$lib/ai/service';
+	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BranchStack } from '$lib/branches/branch';
@@ -79,6 +80,7 @@
 	const stackPublishingService = getContext(StackPublishingService);
 	const butRequestDetailsService = getContext(ButRequestDetailsService);
 	const brToPrService = getContext(BrToPrService);
+	const posthog = getContext(PostHogWrapper);
 
 	const canPublish = stackPublishingService.canPublish;
 
@@ -193,6 +195,7 @@
 		// We want to always create the BR, and vice versa.
 		if ((canPublishBR && $createButlerRequest) || !canPublishPR) {
 			reviewId = await stackPublishingService.upsertStack(stack.id, currentSeries.name);
+			posthog.capture('Butler Review Created');
 			butRequestDetailsService.setDetails(reviewId, prTitle.value, prBody.value);
 		}
 		if ((canPublishPR && $createPullRequest) || !canPublishBR) {
@@ -202,6 +205,7 @@
 				draft: $createDraft,
 				upstreamBranchName
 			});
+			posthog.capture('Pull Request Created');
 			prNumber = pr?.number;
 		}
 
@@ -299,6 +303,8 @@
 			upstreamBranchName
 		});
 		isLoading = false;
+
+		posthog.capture('Pull Request Created');
 
 		close();
 	}
