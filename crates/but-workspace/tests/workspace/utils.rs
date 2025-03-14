@@ -39,6 +39,12 @@ pub fn writable_scenario(name: &str) -> (gix::Repository, tempfile::TempDir) {
         .expect("fixtures will yield valid repositories")
 }
 
+/// It's slow because it has to re-execute the script, certain things can't be copied.
+pub fn writable_scenario_slow(name: &str) -> (gix::Repository, tempfile::TempDir) {
+    writable_scenario_inner(name, Creation::ExecuteScript)
+        .expect("fixtures will yield valid repositories")
+}
+
 pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile::TempDir) {
     let (mut repo, tmp) = writable_scenario_inner(name, Creation::CopyFromReadOnly)
         .expect("fixtures will yield valid repositories");

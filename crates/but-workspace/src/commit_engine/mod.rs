@@ -16,7 +16,7 @@ mod tree;
 use crate::commit_engine::reference_frame::InferenceMode;
 use tree::{CreateTreeOutcome, create_tree};
 
-mod index;
+pub(crate) mod index;
 /// Utility types
 pub mod reference_frame;
 mod refs;
