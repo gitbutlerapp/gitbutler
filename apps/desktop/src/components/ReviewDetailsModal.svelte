@@ -49,6 +49,7 @@
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import ToggleButton from '@gitbutler/ui/ToggleButton.svelte';
+	import Link from '@gitbutler/ui/link/Link.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
@@ -537,9 +538,14 @@
 				{#if canPublishBR && canPublishPR}
 					<div class="options">
 						{#if canPublishBR}
-							<div class="option">
-								<p class="text-13">Create Butler Review</p>
-								<Toggle bind:checked={$createButlerRequest} />
+							<div class="stacked-options">
+								<div class="option">
+									<p class="text-13">Create Butler Review</p>
+									<Toggle bind:checked={$createButlerRequest} />
+								</div>
+								<div class="option text-13">
+									<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
+								</div>
 							</div>
 						{/if}
 						{#if canPublishPR}
@@ -578,6 +584,17 @@
 						{/if}
 					</div>
 					<Spacer dotted margin={0} />
+				{:else if canPublishBR}
+					<div class="options">
+						<div class="option text-13">
+							Creates a Butler Review for this branch.
+							<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
+						</div>
+					</div>
+				{:else if canPublishPR}
+					<div class="options">
+						<div class="option text-13">Creates a Pull Request for this branch.</div>
+					</div>
 				{/if}
 				<div class="actions">
 					<Button kind="outline" onclick={close}>Cancel</Button>
