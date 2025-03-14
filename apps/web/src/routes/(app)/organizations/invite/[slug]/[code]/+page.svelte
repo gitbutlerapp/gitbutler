@@ -51,7 +51,24 @@
 				goto(routes.ownerPath({ ownerSlug: slug }));
 			}, 1500);
 		} catch (error: any) {
-			joinError = error.message || 'Failed to join organization';
+			// Try to extract error message from JSON response if available
+			let errorMessage = 'Failed to join organization';
+			try {
+				// Check if error has a response with JSON data
+				if (error.response && error.response.data) {
+					// Extract error message from JSON response
+					errorMessage = error.response.data.error || errorMessage;
+				} else if (typeof error.message === 'string') {
+					// Try to parse error message as JSON if it's a string
+					const errorJson = JSON.parse(error.message.replace(/^[^{]*/, ''));
+					errorMessage = errorJson.error || errorMessage;
+				}
+			} catch (_) {
+				// If JSON parsing fails, use the original error message
+				errorMessage = error.message || errorMessage;
+			}
+
+			joinError = errorMessage;
 			isJoining = false;
 		}
 	}

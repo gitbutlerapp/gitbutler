@@ -197,4 +197,46 @@ export class OrganizationService {
 			this.patchStackCache.clear();
 		}
 	}
+
+	async removeUser(slug: string, login: string): Promise<Organization> {
+		const apiOrganization = await this.httpClient.post<ApiOrganizationWithDetails>(
+			`organization/${slug}/remove?login=${login}`,
+			{}
+		);
+
+		const organization = apiToOrganization(apiOrganization);
+		this.appDispatch.dispatch(
+			organizationTable.upsertOne({ status: 'found', id: slug, value: organization })
+		);
+
+		return organization;
+	}
+
+	async resetInviteCode(slug: string): Promise<Organization> {
+		const apiOrganization = await this.httpClient.post<ApiOrganizationWithDetails>(
+			`organization/${slug}/reset_invite_code`,
+			{}
+		);
+
+		const organization = apiToOrganization(apiOrganization);
+		this.appDispatch.dispatch(
+			organizationTable.upsertOne({ status: 'found', id: slug, value: organization })
+		);
+
+		return organization;
+	}
+
+	async changeUserRole(slug: string, login: string, role: string): Promise<Organization> {
+		const apiOrganization = await this.httpClient.put<ApiOrganizationWithDetails>(
+			`organization/${slug}/${login}?role=${role}`,
+			{}
+		);
+
+		const organization = apiToOrganization(apiOrganization);
+		this.appDispatch.dispatch(
+			organizationTable.upsertOne({ status: 'found', id: slug, value: organization })
+		);
+
+		return organization;
+	}
 }
