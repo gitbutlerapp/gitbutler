@@ -205,7 +205,6 @@
 				draft: $createDraft,
 				upstreamBranchName
 			});
-			posthog.capture('Pull Request Created');
 			prNumber = pr?.number;
 		}
 
@@ -303,8 +302,6 @@
 			upstreamBranchName
 		});
 		isLoading = false;
-
-		posthog.capture('Pull Request Created');
 
 		close();
 	}
