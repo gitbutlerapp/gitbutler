@@ -2,7 +2,6 @@
 	import TableRow from '$lib/components/table/TableRow.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
-	import { getBranchStatusBadge } from '@gitbutler/shared/branches/getBranchStatusBadge';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContributorsWithAvatars } from '@gitbutler/shared/contributors';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
@@ -48,7 +47,7 @@
 		<TableRow
 			href={routes.projectReviewBranchPath({ ...linkParams, branchId: branch.branchId })}
 			columns={[
-				{ key: 'status', value: getBranchStatusBadge(branch) },
+				{ key: 'status', value: branch.reviewStatus },
 				{ key: 'title', value: branch.title || '-', tooltip: branch.title },
 				{ key: 'number', value: branch.branchId.slice(0, 7), tooltip: branch.branchId },
 				{ key: 'commitGraph', value: branch },
