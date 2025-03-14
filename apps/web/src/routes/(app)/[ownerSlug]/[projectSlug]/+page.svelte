@@ -98,6 +98,26 @@
 		await projectService.deleteProject(repositoryId);
 		goto(routes.projectsPath());
 	}
+
+	async function handleDisconnectFromParent() {
+		if (!confirm('Are you sure you want to disconnect this project from its parent?')) {
+			return;
+		}
+
+		try {
+			await projectService.disconnectProject(projectData.repositoryId);
+			projectData = {
+				...projectData,
+				parentProject: undefined,
+				parentProjectRepositoryId: undefined
+			};
+			toasts.success('Project unlinked from parent');
+		} catch (error) {
+			toasts.error(
+				`Failed to unlink project: ${error instanceof Error ? error.message : 'Unknown error'}`
+			);
+		}
+	}
 </script>
 
 {#await projectPromise}
@@ -242,23 +262,37 @@
 										</Button>
 									</div>
 								</div>
-
-								{#if projectData.parentProjectRepositoryId}
-									<div class="meta-item">
-										<span class="label">Parent:</span>
-										<a
-											href={routes.projectPath({
-												ownerSlug: data.ownerSlug,
-												projectSlug: projectData.parentProjectRepositoryId
-											})}
-										>
-											View Parent Project
-										</a>
-									</div>
-								{/if}
 							</div>
 						</div>
 					</section>
+
+					{#if projectData.parentProject}
+						<section class="card">
+							<h2 class="card-title">Parent Project</h2>
+							<div class="card-content">
+								<div class="parent-project-info-card">
+									<p>
+										This project is linked to a parent project:
+										<a
+											href={routes.projectPath({
+												ownerSlug: projectData.parentProject?.owner || data.ownerSlug,
+												projectSlug: projectData.parentProject?.slug || ''
+											})}
+										>
+											{projectData.parentProject?.owner || data.ownerSlug}/{projectData
+												.parentProject?.slug || projectData.parentProjectRepositoryId}
+										</a>
+									</p>
+
+									{#if projectData.permissions?.canWrite}
+										<Button style="error" onclick={handleDisconnectFromParent}>
+											Disconnect from Parent
+										</Button>
+									{/if}
+								</div>
+							</div>
+						</section>
+					{/if}
 
 					{#if projectData.permissions?.canWrite}
 						<section class="card">
@@ -493,6 +527,28 @@
 			overflow: hidden;
 			text-overflow: ellipsis;
 			flex: 1;
+		}
+	}
+
+	.parent-project-info-card {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+
+		p {
+			margin: 0;
+			line-height: 1.4;
+		}
+
+		a {
+			display: inline-block;
+			margin-top: 0.25rem;
+			color: var(--clr-core-pop-50);
+			font-weight: 500;
+
+			&:hover {
+				text-decoration: underline;
+			}
 		}
 	}
 

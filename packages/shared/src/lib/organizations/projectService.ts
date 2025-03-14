@@ -237,4 +237,16 @@ export class ProjectService {
 		);
 		return project;
 	}
+
+	async disconnectProject(repositoryId: string) {
+		const apiProject = await this.httpClient.post<ApiProject>(
+			`projects/${repositoryId}/disconnect`
+		);
+		const project = apiToProject(apiProject);
+
+		this.appDispatch.dispatch(
+			projectTable.upsertOne({ status: 'found', id: project.repositoryId, value: project })
+		);
+		return project;
+	}
 }
