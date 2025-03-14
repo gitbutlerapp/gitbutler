@@ -90,6 +90,13 @@ pub fn visualize_commit_graph(
     Ok(log.stdout.to_str().expect("no illformed UTF-8").to_string())
 }
 
+/// Run a condensed status on `repo`.
+pub fn git_status(repo: &gix::Repository) -> std::io::Result<String> {
+    let out = git(repo).args(["status", "--porcelain"]).output()?;
+    assert!(out.status.success(), "STDERR: {}", out.stderr.as_bstr());
+    Ok(out.stdout.to_str().expect("no illformed UTF-8").to_string())
+}
+
 /// Display a Git tree in the style of the `tree` CLI program, but include blob contents and usful Git metadata.
 pub fn visualize_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
     fn visualize_tree(
@@ -140,4 +147,52 @@ pub fn visualize_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
         Ok(tree)
     }
     visualize_tree(tree_id.object().unwrap().peel_to_tree().unwrap().id(), None).unwrap()
+}
+
+/// Visualize a tree on disk with mode information.
+/// For convenience, skip `.git` and don't display the root.
+///
+/// # IMPORTANT: Portability
+///
+/// As it's intended for tests, this can't be called on Windows were modes don't exist.
+/// Further, be sure to set the `umask` of the process to something explicit, or else it may differ
+/// between runs and cause failures.
+#[cfg(unix)]
+pub fn visualize_disk_tree_skip_dot_git(root: &Path) -> anyhow::Result<termtree::Tree<String>> {
+    use std::os::unix::fs::MetadataExt;
+    fn label(p: &Path, md: &std::fs::Metadata) -> String {
+        format!(
+            "{name}:{mode:o}",
+            name = p.file_name().unwrap().to_str().unwrap(),
+            mode = md.mode(),
+        )
+    }
+
+    fn tree(p: &Path, show_label: bool) -> std::io::Result<termtree::Tree<String>> {
+        let mut cur = termtree::Tree::new(if show_label {
+            label(p, &p.symlink_metadata()?)
+        } else {
+            ".".into()
+        });
+
+        let mut entries: Vec<_> = std::fs::read_dir(p)?.filter_map(|e| e.ok()).collect();
+        entries.sort_by_key(|e| e.file_name());
+        for entry in entries {
+            let md = entry.metadata()?;
+            if md.is_dir() && entry.file_name() != ".git" {
+                cur.push(tree(&entry.path(), true)?);
+            } else {
+                cur.push(termtree::Tree::new(label(&entry.path(), &md)));
+            }
+        }
+        Ok(cur)
+    }
+
+    Ok(tree(root, false)?)
+}
+
+/// Windows dummy
+#[cfg(not(unix))]
+pub fn visualize_disk_tree_skip_dot_git(_root: &Path) -> anyhow::Result<termtree::Tree<String>> {
+    anyhow::bail!("BUG: must not run on Windows - results won't be desirable");
 }
