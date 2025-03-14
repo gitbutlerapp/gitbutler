@@ -72,7 +72,7 @@
 		</div>
 
 		<div class="meta-links">
-			<span class="meta-links__copyright">©2023 GitButler. All rights reserved.</span>
+			<span class="meta-links__copyright">©{new Date().getFullYear()} GitButler. All rights reserved.</span>
 			<span class="meta-links__legal">
 				<a href="/privacy">
 					{jsonLinks.legal.privacyPolicy.label}
