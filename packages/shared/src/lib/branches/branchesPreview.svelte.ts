@@ -1,11 +1,16 @@
 import { branchReviewListingTable } from '$lib/branches/branchReviewListingsSlice';
+import { BranchService } from '$lib/branches/branchService';
 import { branchTable } from '$lib/branches/branchesSlice';
 import { BranchStatus, toCombineSlug, type Branch, type LoadableBranch } from '$lib/branches/types';
+import { getContext } from '$lib/context';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { isFound } from '$lib/network/loadable';
-import type { BranchService } from '$lib/branches/branchService';
+import {
+	AppState,
+	type AppBranchesState,
+	type AppBranchReviewListingsState
+} from '$lib/redux/store.svelte';
 import type { Loadable } from '$lib/network/types';
-import type { AppBranchesState, AppBranchReviewListingsState } from '$lib/redux/store.svelte';
 import type { Reactive } from '$lib/storeUtils';
 
 /** Returns a 2D List of branches. Branches grouped in a sub-array are stack*/
@@ -62,11 +67,11 @@ export function getBranchReviewsForRepository(
 }
 
 export function getBranchReview(
-	appState: AppBranchesState,
-	branchService: BranchService,
 	uuid: string,
 	inView?: InView
 ): Reactive<LoadableBranch | undefined> {
+	const branchService = getContext(BranchService);
+	const appState = getContext(AppState);
 	const branchReviewInterest = branchService.getBranchInterest(uuid);
 	registerInterest(branchReviewInterest, inView);
 
