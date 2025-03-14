@@ -96,7 +96,7 @@
 
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
 	const createButlerRequest = persisted<boolean>(false, 'createButlerRequest');
-	const createPullRequest = persisted<boolean>(false, 'createPullRequest');
+	const createPullRequest = persisted<boolean>(true, 'createPullRequest');
 
 	let modal = $state<ReturnType<typeof Modal>>();
 	let isEditing = $state<boolean>(true);
