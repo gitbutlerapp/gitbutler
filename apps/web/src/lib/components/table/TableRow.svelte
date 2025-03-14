@@ -65,7 +65,7 @@
 					{:else if key === 'number'}
 						{value}
 					{:else if key === 'commitGraph'}
-						<CommitsGraph branch={value as Branch} />
+						<CommitsGraph branchUuid={(value as Branch).uuid} />
 					{:else if key === 'avatars'}
 						<AvatarGroup avatars={value as Array<AvatarsType>}></AvatarGroup>
 					{:else if key === 'reviewers'}
@@ -186,7 +186,8 @@
 					{#if columns.find((col) => col.key === 'commitGraph')}
 						<Factoid label="Commits">
 							<CommitsGraph
-								branch={columns.find((col) => col.key === 'commitGraph')?.value as Branch}
+								branchUuid={(columns.find((col) => col.key === 'commitGraph')?.value as Branch)
+									.uuid}
 							/>
 						</Factoid>
 					{/if}
