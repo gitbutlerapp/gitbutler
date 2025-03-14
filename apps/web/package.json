@@ -19,12 +19,14 @@
 		"@gitbutler/ui": "workspace:*",
 		"@playwright/test": "1.47.0",
 		"@reduxjs/toolkit": "catalog:redux",
-		"@sveltejs/adapter-auto": "^3.0.0",
+		"@sveltejs/adapter-vercel": "^5.6.3",
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
+		"@testing-library/jest-dom": "^6.6.3",
+		"@testing-library/svelte": "5.2.5",
+		"@types/diff-match-patch": "^1.0.36",
 		"@types/node": "^22.3.0",
 		"@types/postcss-pxtorem": "^6.0.3",
-		"@types/diff-match-patch": "^1.0.36",
 		"autoprefixer": "^10.4.19",
 		"diff-match-patch": "^1.0.5",
 		"path": "^0.12.7",
@@ -37,9 +39,7 @@
 		"svelte-check": "catalog:svelte",
 		"svelte-french-toast": "^1.2.0",
 		"vite": "catalog:",
-		"vitest": "catalog:",
-		"@testing-library/jest-dom": "^6.6.3",
-		"@testing-library/svelte": "5.2.5"
+		"vitest": "catalog:"
 	},
 	"dependencies": {
 		"@ethercorps/sveltekit-og": "^3.0.0",
