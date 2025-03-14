@@ -77,21 +77,14 @@ export class UpstreamIntegrationService {
 		projectId: string,
 		type: BaseBranchResolutionApproach
 	): Promise<string | undefined> {
-		const response = await this.api.endpoints.resolveUpstreamIntegration.useMutation({
-			projectId,
-			resolutionApproach: { type }
-		});
+		const result = await this.api.endpoints.resolveUpstreamIntegration
+			.useMutation()
+			.current.triggerMutation({
+				projectId,
+				resolutionApproach: { type }
+			});
 
-		const result = $derived.by(() => {
-			if (!response.data) {
-				console.error(response.error);
-				return;
-			}
-
-			return response.data;
-		});
-
-		return result;
+		return result.data;
 	}
 
 	async integrateUpstream(
@@ -100,27 +93,19 @@ export class UpstreamIntegrationService {
 		stacks: Stack[],
 		baseBranchResolution?: BaseBranchResolution
 	): Promise<IntegrationOutcome | undefined> {
-		const outcomeResponse = await this.api.endpoints.integrateUpstream.useMutation({
+		const response = this.api.endpoints.integrateUpstream.useMutation();
+
+		const { triggerMutation } = response.current;
+
+		const result = await triggerMutation({
 			projectId,
 			resolutions,
 			baseBranchResolution
 		});
 
-		const result = $derived.by(() => {
-			// if (!stacks.current.isSuccess) return;
-			if (!outcomeResponse.data) {
-				console.error(outcomeResponse.error);
-				return;
-			}
+		if (result.data) this.closeArchivedButRequests(projectId, result.data.archivedBranches, stacks);
 
-			const outcome = outcomeResponse.data;
-			// We don't want to await this
-			this.closeArchivedButRequests(projectId, outcome.archivedBranches, stacks);
-
-			return outcome;
-		});
-
-		return result;
+		return result.data;
 	}
 
 	private async closeArchivedButRequests(
