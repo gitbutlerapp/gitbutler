@@ -15,6 +15,7 @@
 <table class="commits-table">
 	<Table
 		headColumns={[
+			{ key: 'position', value: '' },
 			{ key: 'status', value: 'Status' },
 			{ key: 'version', value: 'Ver.' },
 			{ key: 'string', value: 'Name' },
