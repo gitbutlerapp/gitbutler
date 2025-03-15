@@ -1,12 +1,16 @@
+import { showToast } from '$lib/notifications/toasts';
 import { ClientState } from '$lib/state/clientState.svelte';
 import { createSelectNth } from '$lib/state/customSelectors';
 import { ReduxTag } from '$lib/state/tags';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
+import type { PostHogWrapper } from '$lib/analytics/posthog';
+import type { BranchPushResult } from '$lib/branches/branchController';
 import type { Commit, StackBranch, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
 import type { TreeChange } from '$lib/hunks/change';
 import type { HunkHeader } from '$lib/hunks/hunk';
 import type { Stack } from '$lib/stacks/stack';
+import type { TauriCommandError } from '$lib/state/backendQuery';
 
 type CreateBranchRequest = { name?: string; ownership?: string; order?: number };
 
@@ -23,11 +27,50 @@ type CreateCommitRequest = {
 	}[];
 };
 
+type StackAction = 'push';
+
+type StackErrorInfo = {
+	title: string;
+	codeInfo: Record<string, string>;
+	defaultInfo: string;
+};
+
+const ERROR_INFO: Record<StackAction, StackErrorInfo> = {
+	push: {
+		title: 'Git push failed',
+		codeInfo: {
+			['errors.git.authentication']: 'an authentication failure'
+		},
+		defaultInfo: 'an unforeseen error'
+	}
+};
+
+function surfaceStackError(action: StackAction, errorCode: string, errorMessage: string): boolean {
+	const reason = ERROR_INFO[action].codeInfo[errorCode] ?? ERROR_INFO[action].defaultInfo;
+	const title = ERROR_INFO[action].title;
+	switch (action) {
+		case 'push': {
+			showToast({
+				title,
+				message: `
+Your branch cannot be pushed due to ${reason}.
+
+Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
+on fetching and pushing for ways to resolve the problem.
+			`.trim(),
+				error: errorMessage,
+				style: 'error'
+			});
+
+			return true;
+		}
+	}
+}
 export class StackService {
 	private api: ReturnType<typeof injectEndpoints>;
 
-	constructor(state: ClientState) {
-		this.api = injectEndpoints(state.backendApi);
+	constructor(state: ClientState, posthog: PostHogWrapper) {
+		this.api = injectEndpoints(state.backendApi, posthog);
 	}
 
 	stacks(projectId: string) {
@@ -161,6 +204,10 @@ export class StackService {
 		return result;
 	}
 
+	pushStack() {
+		return this.api.endpoints.pushStack.useMutation();
+	}
+
 	createCommit() {
 		return this.api.endpoints.createCommit.useMutation();
 	}
@@ -202,7 +249,7 @@ export class StackService {
 	}
 }
 
-function injectEndpoints(api: ClientState['backendApi']) {
+function injectEndpoints(api: ClientState['backendApi'], posthog: PostHogWrapper) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			stacks: build.query<EntityState<Stack, string>, { projectId: string }>({
@@ -256,6 +303,26 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				providesTags: [ReduxTag.Commits],
 				transformResponse(response: UpstreamCommit[]) {
 					return upstreamCommitAdapter.addMany(upstreamCommitAdapter.getInitialState(), response);
+				}
+			}),
+			pushStack: build.mutation<
+				BranchPushResult,
+				{ projectId: string; stackId: string; withForce: boolean }
+			>({
+				query: ({ projectId, stackId, withForce }) => ({
+					command: 'push_stack',
+					params: { projectId, branchId: stackId, withForce }
+				}),
+				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commits],
+				transformResponse(response: BranchPushResult) {
+					posthog.capture('Push Successful');
+					return response;
+				},
+				transformErrorResponse(commandError: TauriCommandError) {
+					const { code, message } = commandError;
+					posthog.capture('Push Failed', { error: { code, message } });
+					surfaceStackError('push', code ?? '', message);
+					return commandError;
 				}
 			}),
 			createCommit: build.mutation<

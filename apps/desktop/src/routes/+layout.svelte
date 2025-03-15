@@ -89,7 +89,7 @@
 		reactive(() => changeSelection),
 		clientState.dispatch
 	);
-	const stackService = new StackService(clientState);
+	const stackService = new StackService(clientState, data.posthog);
 	const worktreeService = new WorktreeService(clientState);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
 	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
