@@ -169,7 +169,7 @@ fn apply_worktree_changes<'repo>(
         .transpose()?;
     let mut current_worktree = Vec::new();
 
-    let work_dir = repo.work_dir().expect("non-bare repo");
+    let work_dir = repo.workdir().expect("non-bare repo");
     'each_change: for possible_change in changes.iter_mut() {
         let change_request = match possible_change {
             Ok(change) => change,
@@ -263,6 +263,7 @@ fn apply_worktree_changes<'repo>(
                 entry.object()?.detach().data
             } else if entry.mode().is_blob() {
                 let mut obj_in_git = entry.object()?;
+
                 match pipeline.convert_to_worktree(
                     &obj_in_git.data,
                     base_rela_path,

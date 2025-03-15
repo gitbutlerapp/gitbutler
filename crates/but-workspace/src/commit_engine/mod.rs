@@ -16,7 +16,7 @@ mod tree;
 use crate::commit_engine::reference_frame::InferenceMode;
 use tree::{CreateTreeOutcome, create_tree};
 
-mod index;
+pub(crate) mod index;
 /// Utility types
 pub mod reference_frame;
 mod refs;
@@ -445,7 +445,7 @@ pub fn create_commit_and_update_refs(
         let tree_index = repo.index_from_tree(&repo.head_tree_id()?)?;
         let mut disk_index = repo.open_index()?;
         index::apply_lhs_to_rhs(
-            repo.work_dir().expect("non-bare"),
+            repo.workdir().expect("non-bare"),
             &tree_index,
             &mut disk_index,
         )?;
