@@ -2,9 +2,13 @@
 	import InviteLink from '$lib/components/InviteLink.svelte';
 	import ProjectsSection from '$lib/components/ProjectsSection.svelte';
 	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
+	import { OwnerService } from '$lib/owner/ownerService';
+	import { UserService } from '$lib/user/userService';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { getContext } from 'svelte';
-	import type { ExtendedOrganization } from '$lib/owner/types';
+	import type { ExtendedOrganization, OrganizationMember } from '$lib/owner/types';
 	import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import type { AppDispatch } from '@gitbutler/shared/redux/store.svelte';
 
@@ -23,27 +27,149 @@
 			getContext('AppDispatch') as AppDispatch
 		);
 
+	// Get user service from context
+	const userService = getContext(UserService) as UserService;
+
+	// Get owner service to refresh organization data
+	const ownerService = getContext(OwnerService) as OwnerService;
+
 	let patchStacksStore = $state(organizationService.getPatchStacks(ownerSlug));
 	let patchStacks = $derived($patchStacksStore);
 	let patchStacksData = $derived(patchStacks.status === 'found' ? patchStacks.value || [] : []);
+
+	// Create a local mutable copy of the organization for updates
+	let localOrganization = $state(organization);
+
+	// Get current user information
+	let currentUser = $state(userService.user);
+	let currentUserLogin = $derived($currentUser?.login);
+
+	// Role constants
+	const ROLE_OWNER = 'owner';
+
+	// Modals for confirmation
+	let confirmRemoveUserModal = $state<Modal>();
+	let confirmMakeOwnerModal = $state<Modal>();
+	let userToRemove = $state<string | null>(null);
+	let userToPromote = $state<string | null>(null);
+	let isRemoving = $state(false);
+	let isPromoting = $state(false);
+
+	// Function to refresh organization data
+	async function refreshOrganizationData() {
+		// Refresh patch stacks
+		patchStacksStore = organizationService.getPatchStacks(ownerSlug);
+
+		// Directly fetch the updated organization data to reflect changes immediately
+		try {
+			const response = await ownerService.fetchOwner(ownerSlug);
+			if (response.type === 'organization') {
+				// Update our local copy
+				localOrganization = response.data;
+			}
+		} catch (error) {
+			console.error('Failed to refresh organization data:', error);
+		}
+	}
+
+	// Function to handle removal of a user
+	async function removeUser() {
+		if (!userToRemove || !ownerSlug) return;
+
+		isRemoving = true;
+		try {
+			await organizationService.removeUser(ownerSlug, userToRemove);
+
+			// Remove the user locally to update UI immediately
+			if (localOrganization.members) {
+				localOrganization.members = localOrganization.members.filter(
+					(member) => member.login !== userToRemove
+				);
+			}
+
+			// Refresh data from server to ensure consistency
+			await refreshOrganizationData();
+		} catch (error) {
+			console.error('Failed to remove user:', error);
+		} finally {
+			isRemoving = false;
+			userToRemove = null;
+			confirmRemoveUserModal?.close();
+		}
+	}
+
+	// Function to handle making a user an owner
+	async function makeUserOwner() {
+		if (!userToPromote || !ownerSlug) return;
+
+		isPromoting = true;
+		try {
+			await organizationService.changeUserRole(ownerSlug, userToPromote, ROLE_OWNER);
+
+			// Update the user's role locally for immediate UI feedback
+			if (localOrganization.members) {
+				localOrganization.members = localOrganization.members.map((member) => {
+					if (member.login === userToPromote) {
+						return { ...member, role: ROLE_OWNER };
+					}
+					return member;
+				});
+			}
+
+			// Refresh data from server to ensure consistency
+			await refreshOrganizationData();
+		} catch (error) {
+			console.error('Failed to make user an owner:', error);
+		} finally {
+			isPromoting = false;
+			userToPromote = null;
+			confirmMakeOwnerModal?.close();
+		}
+	}
+
+	// Function to open removal confirmation modal
+	function confirmRemoveUserDialog(login: string) {
+		userToRemove = login;
+		confirmRemoveUserModal?.show();
+	}
+
+	// Function to open make owner confirmation modal
+	function confirmMakeOwnerDialog(login: string) {
+		userToPromote = login;
+		confirmMakeOwnerModal?.show();
+	}
+
+	// Helper function to check if a member is an owner
+	function isOwner(member: OrganizationMember) {
+		return member.role === ROLE_OWNER;
+	}
 
 	$effect(() => {
 		if (ownerSlug) {
 			patchStacksStore = organizationService.getPatchStacks(ownerSlug);
 		}
 	});
+
+	// Update local organization when props change
+	$effect(() => {
+		localOrganization = organization;
+	});
 </script>
 
 <div class="org-landing-page">
 	<div class="header-section">
 		<div class="org-header">
-			{#if organization.avatarUrl}
-				<img src={organization.avatarUrl} alt="{organization.name}'s logo" class="avatar" />
+			{#if localOrganization.avatarUrl}
+				<img
+					src={localOrganization.avatarUrl}
+					alt="{localOrganization.name}'s logo"
+					class="avatar"
+				/>
 			{/if}
 			<div class="org-title">
-				<h1>{organization.name}</h1>
-				{#if organization.description}
-					<p class="description">{organization.description}</p>
+				<h1>{localOrganization.name}</h1>
+				{#if localOrganization.description}
+					<p class="description">{localOrganization.description}</p>
 				{/if}
 			</div>
 		</div>
@@ -52,8 +178,8 @@
 	<div class="content-columns">
 		<div class="main-column">
 			<!-- Projects Section -->
-			{#if organization.projects && organization.projects.length > 0}
-				<ProjectsSection projects={organization.projects} {ownerSlug} />
+			{#if localOrganization.projects && localOrganization.projects.length > 0}
+				<ProjectsSection projects={localOrganization.projects} {ownerSlug} />
 			{/if}
 
 			<!-- Reviews Section -->
@@ -61,20 +187,20 @@
 		</div>
 
 		<div class="side-column">
-			{#if organization.inviteCode}
+			{#if localOrganization.inviteCode}
 				<div class="section-card invite-code-section">
 					<h2 class="section-title">Invite Code</h2>
 					<div class="invite-link-wrapper">
-						<InviteLink organizationSlug={ownerSlug} inviteCode={organization.inviteCode} />
+						<InviteLink organizationSlug={ownerSlug} inviteCode={localOrganization.inviteCode} />
 					</div>
 				</div>
 			{/if}
 
-			{#if organization.members && organization.members.length > 0}
+			{#if localOrganization.members && localOrganization.members.length > 0}
 				<div class="section-card members-section">
 					<h2 class="section-title">Members</h2>
 					<div class="members-list">
-						{#each organization.members as member}
+						{#each localOrganization.members as member}
 							<div class="member-card">
 								<a href="/{member.login}" class="member-link">
 									<img
@@ -84,9 +210,36 @@
 									/>
 									<div class="member-info">
 										<span class="member-login">{member.login}</span>
-										<span class="member-role">{member.name}</span>
+										<span class="member-role">
+											{member.name}
+											{#if isOwner(member)}
+												<span class="badge owner-badge">Owner</span>
+											{/if}
+										</span>
 									</div>
 								</a>
+
+								<div class="member-actions">
+									{#if localOrganization.inviteCode && !isOwner(member)}
+										<Button
+											kind="outline"
+											style="neutral"
+											onclick={() => confirmMakeOwnerDialog(member.login)}
+										>
+											Make Owner
+										</Button>
+									{/if}
+
+									{#if localOrganization.inviteCode || member.login === currentUserLogin}
+										<Button
+											kind="outline"
+											style="error"
+											onclick={() => confirmRemoveUserDialog(member.login)}
+										>
+											Remove
+										</Button>
+									{/if}
+								</div>
 							</div>
 						{/each}
 					</div>
@@ -95,6 +248,28 @@
 		</div>
 	</div>
 </div>
+
+<!-- Remove User Confirmation Modal -->
+<Modal bind:this={confirmRemoveUserModal} width="small" onSubmit={removeUser}>
+	<p>Are you sure you want to remove this user from the organization?</p>
+	{#snippet controls(close)}
+		<Button kind="outline" onclick={close}>Cancel</Button>
+		<Button style="error" type="submit" loading={isRemoving}>Remove</Button>
+	{/snippet}
+</Modal>
+
+<!-- Make Owner Confirmation Modal -->
+<Modal bind:this={confirmMakeOwnerModal} width="small" onSubmit={makeUserOwner}>
+	<p>Are you sure you want to make this user an owner?</p>
+	<p class="modal-note">
+		Owners have full administrative access to the organization, including managing members,
+		projects, and settings.
+	</p>
+	{#snippet controls(close)}
+		<Button kind="outline" onclick={close}>Cancel</Button>
+		<Button style="pop" type="submit" loading={isPromoting}>Make Owner</Button>
+	{/snippet}
+</Modal>
 
 <style>
 	.org-landing-page {
@@ -165,6 +340,9 @@
 	.member-card {
 		padding: 0.75rem;
 		border-bottom: 1px solid #e2e8f0;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
 	}
 
 	.member-card:last-child {
@@ -177,6 +355,7 @@
 		gap: 0.75rem;
 		color: inherit;
 		text-decoration: none;
+		flex: 1;
 	}
 
 	.member-avatar {
@@ -199,6 +378,34 @@
 	.member-role {
 		font-size: 0.8rem;
 		color: #718096;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.badge {
+		display: inline-block;
+		padding: 0.15rem 0.5rem;
+		border-radius: 10px;
+		font-size: 0.7rem;
+		font-weight: bold;
+		text-transform: uppercase;
+	}
+
+	.owner-badge {
+		background-color: #ebf8ff;
+		color: #3182ce;
+	}
+
+	.member-actions {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.modal-note {
+		font-size: 0.85rem;
+		color: #718096;
+		margin-top: 0.5rem;
 	}
 
 	@media (max-width: 768px) {
@@ -218,6 +425,17 @@
 
 		.org-title {
 			align-items: center;
+		}
+
+		.member-card {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.75rem;
+		}
+
+		.member-actions {
+			width: 100%;
+			justify-content: flex-end;
 		}
 	}
 </style>

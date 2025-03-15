@@ -5,6 +5,7 @@ import {
 	type ApiEndpointQuery,
 	type CoreModule,
 	type EndpointDefinitions,
+	type MutationActionCreatorResult,
 	type MutationDefinition,
 	type RootState
 } from '@reduxjs/toolkit/query';
@@ -77,27 +78,65 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 	api,
 	endpointName,
-	ctx: { getDispatch }
+	ctx: { getState, getDispatch }
 }: {
 	api: Api<any, Definitions, any, any, CoreModule>;
 	endpointName: string;
 	ctx: HookContext;
 }) {
 	const endpoint = api.endpoints[endpointName]!;
+	const state = getState() as any as () => RootState<any, any, any>;
 
-	const { initiate } = endpoint as ApiEndpointMutation<
+	const { initiate, select } = endpoint as ApiEndpointMutation<
 		MutationDefinition<any, any, any, any, any>,
 		Definitions
 	>;
 
 	/**
-	 * TODO: Introduce similar functionality to useMutation in the react hooks.
+	 * Use mutation hook.
+	 *
+	 * @returns A reactive object containing the result of the mutation, a function to trigger the mutation and another one
+	 * to reset it.
+	 *
+	 * Replicate the behavior of `useMutation` from RTK Query.
+	 * @see: https://github.com/reduxjs/redux-toolkit/blob/637b0cad2b227079ccd0c5a3073c09ace6d8759e/packages/toolkit/src/query/react/buildHooks.ts#L867-L935
 	 */
-	// eslint-disable-next-line @typescript-eslint/promise-function-async
-	function useMutation(queryArg: unknown) {
+	function useMutation(fixedCacheKey?: string) {
 		const dispatch = getDispatch();
-		const result = dispatch(initiate(queryArg));
-		return result;
+
+		let promise =
+			$state<MutationActionCreatorResult<MutationDefinition<any, any, any, any, any>>>();
+
+		async function triggerMutation(queryArg: unknown) {
+			const dispatchResult = dispatch(initiate(queryArg, { fixedCacheKey }));
+			promise = dispatchResult;
+			return await dispatchResult;
+		}
+
+		function reset() {
+			const requestId = promise?.requestId;
+			if (promise) {
+				promise = undefined;
+			}
+			if (fixedCacheKey) {
+				dispatch(api.internalActions.removeMutationResult({ requestId, fixedCacheKey }));
+			}
+		}
+
+		const selector = $derived(select({ requestId: promise?.requestId, fixedCacheKey }));
+		const result = $derived(selector(state()));
+
+		$effect(() => {
+			return () => {
+				if (promise && !promise.arg.fixedCacheKey) {
+					// If there is no fixedCacheKey,
+					// reset the mutation subscription on unmount.
+					promise.reset();
+				}
+			};
+		});
+
+		return reactive(() => ({ result, triggerMutation, reset }));
 	}
 
 	return {

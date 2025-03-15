@@ -61,7 +61,7 @@
 
 	const cloudBranch = $derived(
 		map(cloudBranchUuid?.current, (cloudBranchUuid) => {
-			return getBranchReview(appState, cloudBranchService, cloudBranchUuid);
+			return getBranchReview(cloudBranchUuid);
 		})
 	);
 

@@ -90,9 +90,17 @@
 		return true;
 	}
 
+	let windowScrollY = $state(window.scrollY);
+	const selectionPosition = $derived(getSelectionPosition(windowScrollY));
+
 	$effect(() => {
 		if (suggestedEmojis !== undefined && suggestedEmojis.length > 0) {
-			position = getSelectionPosition();
+			position = selectionPosition;
+		}
+	});
+
+	$effect(() => {
+		if (suggestedEmojis !== undefined && suggestedEmojis.length > 0) {
 			selectedSuggestionIndex = 0;
 
 			const unregisterArrowUp = editor.registerCommand(
@@ -130,6 +138,8 @@
 		position = undefined;
 	});
 </script>
+
+<svelte:window bind:scrollY={windowScrollY} />
 
 {#if position && suggestedEmojis !== undefined}
 	<div

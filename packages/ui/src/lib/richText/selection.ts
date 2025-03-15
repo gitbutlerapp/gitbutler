@@ -10,12 +10,14 @@ export function getCursorPosition() {
 	}
 }
 
-export function getSelectionPosition() {
+export function getSelectionPosition(windowScrollY?: number) {
 	const nativeSelection = window.getSelection();
 	const domRect = nativeSelection?.getRangeAt(0).getBoundingClientRect();
 
 	if (domRect) {
-		return { left: domRect.left - 10, top: domRect.top };
+		const top = domRect.top + (windowScrollY ?? 0);
+		const left = domRect.left - 10;
+		return { left, top };
 	}
 }
 

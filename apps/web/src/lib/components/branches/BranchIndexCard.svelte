@@ -1,13 +1,10 @@
 <script lang="ts">
 	import TableRow from '$lib/components/table/TableRow.svelte';
-	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
-	import { getBranchStatusBadge } from '@gitbutler/shared/branches/getBranchStatusBadge';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContributorsWithAvatars } from '@gitbutler/shared/contributors';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		WebRoutesService,
 		type ProjectParameters
@@ -26,11 +23,9 @@
 
 	const { uuid, linkParams, roundedTop, roundedBottom }: Props = $props();
 
-	const appState = getContext(AppState);
-	const branchService = getContext(BranchService);
 	const routes = getContext(WebRoutesService);
 
-	const branch = $derived(getBranchReview(appState, branchService, uuid));
+	const branch = $derived(getBranchReview(uuid));
 
 	let contributors = $state<Array<{ srcUrl: string; name: string }>>([]);
 
@@ -48,7 +43,7 @@
 		<TableRow
 			href={routes.projectReviewBranchPath({ ...linkParams, branchId: branch.branchId })}
 			columns={[
-				{ key: 'status', value: getBranchStatusBadge(branch) },
+				{ key: 'status', value: branch.reviewStatus },
 				{ key: 'title', value: branch.title || '-', tooltip: branch.title },
 				{ key: 'number', value: branch.branchId.slice(0, 7), tooltip: branch.branchId },
 				{ key: 'commitGraph', value: branch },

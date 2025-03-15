@@ -9,7 +9,6 @@
 	import DiffLineSelection from '$lib/diff/lineSelection.svelte';
 	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import { UserService } from '$lib/user/userService';
-	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
@@ -38,7 +37,6 @@
 
 	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
 	const latestBranchLookupService = getContext(LatestBranchLookupService);
-	const branchService = getContext(BranchService);
 	const appState = getContext(AppState);
 	const routes = getContext(WebRoutesService);
 	const userService = getContext(UserService);
@@ -67,7 +65,7 @@
 
 	const branch = $derived(
 		map(branchUuid?.current, (branchUuid) => {
-			return getBranchReview(appState, branchService, branchUuid);
+			return getBranchReview(branchUuid);
 		})
 	);
 

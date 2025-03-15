@@ -2,6 +2,11 @@ import { Tauri } from '$lib/backend/tauri';
 import { isBackendError } from '$lib/error/typeguards';
 import { type BaseQueryApi, type QueryReturnValue } from '@reduxjs/toolkit/query';
 
+export type TauriBaseQueryFn = (
+	args: ApiArgs,
+	api: BaseQueryApi
+) => Promise<QueryReturnValue<unknown, TauriCommandError, undefined>>;
+
 export async function tauriBaseQuery(
 	args: ApiArgs,
 	api: BaseQueryApi

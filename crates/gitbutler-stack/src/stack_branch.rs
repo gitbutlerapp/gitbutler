@@ -225,7 +225,6 @@ impl StackBranch {
                 let merge_base = stack.merge_base(stack_context)?;
                 let head_commit =
                     commit_by_oid_or_change_id(&self.head, repository, stack.head(), merge_base)?
-                        .head
                         .id();
                 Ok(head_commit)
             }
@@ -262,7 +261,7 @@ impl StackBranch {
                 upstream_only: vec![],
             });
         }
-        let head_commit = head_commit?.head.id();
+        let head_commit = head_commit?.id();
 
         // Find the previous head in the stack - if it is not archived, use it as base
         // Otherwise use the merge base
@@ -271,7 +270,7 @@ impl StackBranch {
             .filter(|predacessor| !predacessor.archived)
             .map_or(merge_base, |predacessor| {
                 commit_by_oid_or_change_id(&predacessor.head, repository, stack.head(), merge_base)
-                    .map(|commit| commit.head.id())
+                    .map(|commit| commit.id())
                     .unwrap_or(merge_base)
             });
 

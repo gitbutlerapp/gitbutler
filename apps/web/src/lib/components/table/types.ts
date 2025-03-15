@@ -26,4 +26,5 @@ export type ColumnTypes = {
 		approvers: Array<AvatarsType>;
 		rejectors: Array<AvatarsType>;
 	};
+	position: string;
 };

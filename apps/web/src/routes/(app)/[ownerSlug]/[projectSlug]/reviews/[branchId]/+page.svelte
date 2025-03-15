@@ -67,7 +67,7 @@
 
 	const branch = $derived(
 		map(branchUuid?.current, (branchUuid) => {
-			return getBranchReview(appState, branchService, branchUuid);
+			return getBranchReview(branchUuid);
 		})
 	);
 
@@ -212,7 +212,7 @@
 				<InfoFlexRow>
 					<Factoid label="Status"><BranchStatusBadge {branch} /></Factoid>
 					<Factoid label="Commits">
-						<CommitsGraph {branch} />
+						<CommitsGraph branchUuid={branch.uuid} />
 					</Factoid>
 					{#if branch.forgeUrl}
 						<Factoid label="PR"

@@ -581,8 +581,7 @@ impl Stack {
             ctx.repo(),
             self.head(),
             self.merge_base(&ctx.to_stack_context()?)?,
-        )?
-        .head;
+        )?;
         let remote_name = branch_state(ctx).get_default_target()?.push_remote_name();
         let upstream_refname =
             RemoteRefname::from_str(&reference.remote_reference(remote_name.as_str()))?;
@@ -828,7 +827,7 @@ fn validate_target(
 ) -> Result<()> {
     let default_target = state.get_default_target()?;
     let merge_base = repo.merge_base(stack_head, default_target.sha)?;
-    let commit = commit_by_oid_or_change_id(reference, repo, stack_head, merge_base)?.head;
+    let commit = commit_by_oid_or_change_id(reference, repo, stack_head, merge_base)?;
 
     let merge_base = repo.merge_base(stack_head, default_target.sha)?;
     let mut stack_commits = repo
@@ -875,7 +874,7 @@ fn commit_by_branch_id_and_change_id<'a>(
     stack_head: git2::Oid, // branch.head
     merge_base: git2::Oid,
     change_id: &str,
-) -> Result<CommitsForId<'a>> {
+) -> Result<Commit<'a>> {
     let commits = if stack_head == merge_base {
         vec![repo.find_commit(stack_head)?]
     } else {
@@ -890,11 +889,7 @@ fn commit_by_branch_id_and_change_id<'a>(
         .filter(|c| c.change_id().as_deref() == Some(change_id))
         .collect_vec();
     if let Some(head) = commits.first() {
-        let commits_for_id = CommitsForId {
-            head: head.clone(),
-            tail: commits.iter().skip(1).cloned().collect_vec(),
-        };
-        Ok(commits_for_id)
+        Ok(head.clone())
     } else {
         Err(anyhow!("No commit with change id {} found", change_id))
     }
@@ -912,29 +907,14 @@ pub fn commit_by_oid_or_change_id<'a>(
     repo: &'a git2::Repository,
     stack_head: git2::Oid,
     merge_base: git2::Oid,
-) -> Result<CommitsForId<'a>> {
+) -> Result<Commit<'a>> {
     Ok(match reference_target {
-        CommitOrChangeId::CommitId(commit_id) => CommitsForId {
-            head: repo.find_commit(commit_id.parse()?)?,
-            tail: vec![],
-        },
+        CommitOrChangeId::CommitId(commit_id) => repo.find_commit(commit_id.parse()?)?,
         #[allow(deprecated)]
         CommitOrChangeId::ChangeId(change_id) => {
             commit_by_branch_id_and_change_id(repo, stack_head, merge_base, change_id)?
         }
     })
-}
-
-/// Returns the commits associated with a id.
-/// In most cases this is exactly one commit. Hoever there is an error state where it is possible to have
-/// multiple commits with the same change id on the same stack.
-#[derive(Debug, Clone)]
-pub struct CommitsForId<'a> {
-    /// The newest commit with the change id.
-    pub head: Commit<'a>,
-    /// There may be multiple commits with the same change id - if so they are ordered newest to oldest.
-    /// The tails does not include the head.
-    pub tail: Vec<Commit<'a>>,
 }
 
 fn patch_reference_exists(state: &VirtualBranchesHandle, name: &str) -> Result<bool> {

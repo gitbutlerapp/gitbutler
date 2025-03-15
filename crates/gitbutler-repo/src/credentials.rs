@@ -35,7 +35,7 @@ impl From<Credential> for git2::RemoteCallbacks<'_> {
                 key_path,
                 passphrase,
             }) => {
-                remote_callbacks.credentials(move |url, _username_from_url, _allowed_types| {
+                remote_callbacks.credentials(move |url, username_from_url, _allowed_types| {
                     use resolve_path::PathResolveExt;
                     let key_path = key_path.resolve();
                     tracing::info!(
@@ -43,7 +43,12 @@ impl From<Credential> for git2::RemoteCallbacks<'_> {
                         url,
                         key_path.display()
                     );
-                    git2::Cred::ssh_key("git", None, &key_path, passphrase.as_deref())
+                    git2::Cred::ssh_key(
+                        username_from_url.unwrap_or("git"),
+                        None,
+                        &key_path,
+                        passphrase.as_deref(),
+                    )
                 });
             }
             Credential::Https(HttpsCredential::CredentialHelper { username, password }) => {

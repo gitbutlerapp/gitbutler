@@ -40,38 +40,44 @@ export class BrToPrService {
 	updateButRequestPrDescription(prNumber: number, branchId: string, repositoryId: string) {
 		return this.butRequestUpdateInterests
 			.findOrCreateSubscribable({ prNumber, branchId, repositoryId }, async () => {
-				const prService = get(this.prService);
-				if (!prService) return;
+				try {
+					const prService = get(this.prService);
+					if (!prService) return;
 
-				const project = await this.projectService.getProject(repositoryId);
-				if (!project) return;
+					const project = await this.projectService.getProject(repositoryId);
+					if (!project) return;
 
-				const butReview = await this.latestBranchLookupService.getBranch(
-					project.owner,
-					project.slug,
-					branchId
-				);
-				if (!butReview) return;
+					const butReview = await this.latestBranchLookupService.getBranch(
+						project.owner,
+						project.slug,
+						branchId
+					);
+					if (!butReview) return;
 
-				const butlerRequestUrl = this.webRoutes.projectReviewBranchUrl({
-					branchId,
-					projectSlug: project.slug,
-					ownerSlug: project.owner
-				});
+					const butlerRequestUrl = this.webRoutes.projectReviewBranchUrl({
+						branchId,
+						projectSlug: project.slug,
+						ownerSlug: project.owner
+					});
 
-				// Then we can do a more accurate comparison of the latest body
-				const pr = await prService.get(prNumber);
-				const prBody = unixifyNewlines(pr.body || '\n');
+					// Then we can do a more accurate comparison of the latest body
+					const pr = await prService.get(prNumber);
+					const prBody = unixifyNewlines(pr.body || '\n');
 
-				const newBody = unixifyNewlines(
-					formatButRequestDescription(prBody, butlerRequestUrl, butReview)
-				);
+					const newBody = unixifyNewlines(
+						formatButRequestDescription(prBody, butlerRequestUrl, butReview)
+					);
 
-				if (prBody === newBody) return;
+					if (prBody === newBody) return;
 
-				await prService.update(prNumber, {
-					description: newBody
-				});
+					await prService.update(prNumber, {
+						description: newBody
+					});
+				} catch (error: unknown) {
+					// This is not an essential function so we can let it
+					// quietly fail
+					console.error(error);
+				}
 			})
 			.createInterest();
 	}
