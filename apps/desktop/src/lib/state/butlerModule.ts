@@ -185,7 +185,7 @@ type CustomMutation<Definition extends MutationDefinition<any, any, string, any>
 	 *
 	 * This contains the result (if any yet) of the mutation plus additional information about its state.
 	 */
-	result: CustomMutationResult<Definition>;
+	result: Reactive<CustomMutationResult<Definition>>;
 	/**
 	 * A method to reset the hook back to its original state and remove the current result from the cache.
 	 */
@@ -205,5 +205,5 @@ type CustomMutation<Definition extends MutationDefinition<any, any, string, any>
  */
 type MutationHooks<Definition extends MutationDefinition<any, any, string, any>> = {
 	/** Execute query and return results. */
-	useMutation: (fixedCacheKey?: string) => Reactive<Prettify<CustomMutation<Definition>>>;
+	useMutation: (fixedCacheKey?: string) => Prettify<CustomMutation<Definition>>;
 };

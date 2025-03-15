@@ -95,7 +95,7 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 	/**
 	 * Use mutation hook.
 	 *
-	 * @returns A reactive object containing the result of the mutation, a function to trigger the mutation and another one
+	 * @returns An object containing the reactive result of the mutation, a function to trigger the mutation and another one
 	 * to reset it.
 	 *
 	 * Replicate the behavior of `useMutation` from RTK Query.
@@ -136,7 +136,7 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 			};
 		});
 
-		return reactive(() => ({ result, triggerMutation, reset }));
+		return { result: reactive(() => result), triggerMutation, reset };
 	}
 
 	return {
