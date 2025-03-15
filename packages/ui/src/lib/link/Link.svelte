@@ -13,6 +13,7 @@
 		underline?: boolean;
 		externalIcon?: boolean;
 		disabled?: boolean;
+		bypassExternalLinkService?: boolean;
 	}
 
 	const {
@@ -24,6 +25,7 @@
 		underline = true,
 		externalIcon = true,
 		disabled = false,
+		bypassExternalLinkService,
 		children
 	}: Props = $props();
 
@@ -49,7 +51,7 @@
 	class:disabled
 	class:underline
 	onclick={(e) => {
-		if (href && isExternal) {
+		if (href && isExternal && !bypassExternalLinkService) {
 			e.preventDefault();
 			e.stopPropagation();
 			externalLinkService.open(href);

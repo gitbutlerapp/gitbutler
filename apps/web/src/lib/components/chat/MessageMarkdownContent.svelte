@@ -2,7 +2,6 @@
 	import MessageCode from './MessageCode.svelte';
 	import MessageText from './MessageText.svelte';
 	import Self from '$lib/components/chat/MessageMarkdownContent.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
 	import Blockquote from '@gitbutler/ui/markdown/markdownRenderers/Blockquote.svelte';
 	import Br from '@gitbutler/ui/markdown/markdownRenderers/Br.svelte';
 	import Codespan from '@gitbutler/ui/markdown/markdownRenderers/Codespan.svelte';
@@ -10,6 +9,7 @@
 	import Heading from '@gitbutler/ui/markdown/markdownRenderers/Heading.svelte';
 	import Html from '@gitbutler/ui/markdown/markdownRenderers/Html.svelte';
 	import Image from '@gitbutler/ui/markdown/markdownRenderers/Image.svelte';
+	import Link from '@gitbutler/ui/markdown/markdownRenderers/Link.svelte';
 	import List from '@gitbutler/ui/markdown/markdownRenderers/List.svelte';
 	import ListItem from '@gitbutler/ui/markdown/markdownRenderers/ListItem.svelte';
 	import Paragraph from '@gitbutler/ui/markdown/markdownRenderers/Paragraph.svelte';
