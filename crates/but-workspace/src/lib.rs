@@ -249,7 +249,7 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
         .push_remote_name();
 
     let mut stack_branches = vec![];
-    let stack = state.get_stack(Id::from_str(&stack_id)?)?;
+    let mut stack = state.get_stack(Id::from_str(&stack_id)?)?;
     let stack_ctx = ctx.to_stack_context()?;
     let mut current_base = stack.merge_base(&stack_ctx)?.to_gix();
     for internal in stack.branches() {
@@ -270,6 +270,7 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
         current_base = internal.head_oid(&stack_ctx, &stack)?.to_gix();
         stack_branches.push(result);
     }
+    _ = stack.migrate_change_ids(ctx); // If it fails thats ok - best effort migration
     stack_branches.reverse();
     Ok(stack_branches)
 }
