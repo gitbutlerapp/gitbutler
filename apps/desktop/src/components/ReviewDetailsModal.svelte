@@ -538,10 +538,10 @@
 			<Button kind="outline" onclick={close}>Close</Button>
 		{:else}
 			<div class="combined-controls">
-				{#if canPublishBR && canPublishPR}
-					<div class="options">
-						{#if canPublishBR}
-							<div class="stacked-options">
+				<div class="options">
+					{#if canPublishBR}
+						<div class="stacked-options">
+							{#if canPublishPR}
 								<div class="option">
 									<p class="text-13">Create Butler Review</p>
 									<Toggle bind:checked={$createButlerRequest} />
@@ -549,56 +549,53 @@
 								<div class="option text-13">
 									<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
 								</div>
-							</div>
-						{/if}
-						{#if canPublishPR}
-							<div class="stacked-options">
+							{:else}
+								<div class="option text-13">
+									Creates a Butler Review <Link href="https://docs.gitbutler.com/review/overview"
+										>Learn more</Link
+									>
+								</div>
+							{/if}
+						</div>
+					{/if}
+					{#if canPublishPR}
+						<div class="stacked-options">
+							{#if canPublishBR}
 								<div class="option">
 									<p class="text-13">Create Pull Request</p>
 									<Toggle bind:checked={$createPullRequest} />
 								</div>
+							{/if}
 
-								{#if $createPullRequest}
-									<div class="option">
-										<p class="text-13">Pull Request Kind</p>
-										<Select
-											options={[
-												{ label: 'Draft PR', value: 'draft' },
-												{ label: 'PR', value: 'regular' }
-											]}
-											value={$createDraft ? 'draft' : 'regular'}
-											autoWidth
-											onselect={(value) => {
-												$createDraft = value === 'draft';
-											}}
-										>
-											{#snippet customSelectButton()}
-												<Button kind="outline" icon="select-chevron" size="tag">
-													{$createDraft ? 'Draft PR' : 'PR'}
-												</Button>
-											{/snippet}
-											{#snippet itemSnippet({ item, highlighted })}
-												<SelectItem {highlighted}>{item.label}</SelectItem>
-											{/snippet}
-										</Select>
-									</div>
-								{/if}
-							</div>
-						{/if}
-					</div>
-					<Spacer dotted margin={0} />
-				{:else if canPublishBR}
-					<div class="options">
-						<div class="option text-13">
-							Creates a Butler Review for this branch.
-							<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
+							{#if $createPullRequest}
+								<div class="option">
+									<p class="text-13">Pull Request Kind:</p>
+									<Select
+										options={[
+											{ label: 'Draft PR', value: 'draft' },
+											{ label: 'PR', value: 'regular' }
+										]}
+										value={$createDraft ? 'draft' : 'regular'}
+										autoWidth
+										onselect={(value) => {
+											$createDraft = value === 'draft';
+										}}
+									>
+										{#snippet customSelectButton()}
+											<Button kind="outline" icon="select-chevron" size="tag">
+												{$createDraft ? 'Draft PR' : 'PR'}
+											</Button>
+										{/snippet}
+										{#snippet itemSnippet({ item, highlighted })}
+											<SelectItem {highlighted}>{item.label}</SelectItem>
+										{/snippet}
+									</Select>
+								</div>
+							{/if}
 						</div>
-					</div>
-				{:else if canPublishPR}
-					<div class="options">
-						<div class="option text-13">Creates a Pull Request for this branch.</div>
-					</div>
-				{/if}
+					{/if}
+				</div>
+				<Spacer dotted margin={0} />
 				<div class="actions">
 					<Button kind="outline" onclick={close}>Cancel</Button>
 					<AsyncButton
