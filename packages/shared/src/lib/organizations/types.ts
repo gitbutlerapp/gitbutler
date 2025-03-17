@@ -4,6 +4,7 @@ import type { LoadableData } from '$lib/network/types';
 export type ApiProject = {
 	slug: string;
 	owner: string;
+	owner_type: string;
 	parent_project?: ApiProject;
 	name: string;
 	description: string;
@@ -28,6 +29,7 @@ export type Project = {
 
 	slug: string;
 	owner: string;
+	ownerType: string;
 
 	parentProject?: Project;
 	parentProjectRepositoryId?: string;
@@ -54,6 +56,7 @@ export function apiToProject(apiProject: ApiProject): Project {
 		repositoryId: apiProject.repository_id,
 		slug: apiProject.slug,
 		owner: apiProject.owner,
+		ownerType: apiProject.owner_type,
 		parentProject: apiProject.parent_project ? apiToProject(apiProject.parent_project) : undefined,
 		parentProjectRepositoryId: apiProject.parent_project?.repository_id,
 		activeReviewsCount: apiProject.active_reviews_count,

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ProjectConnectModal from '$lib/components/ProjectConnectModal.svelte';
 	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
 	import { featureShowProjectPage } from '$lib/featureFlags';
 	import { getTimeSince } from '$lib/utils/dateUtils';
@@ -118,6 +119,8 @@
 			);
 		}
 	}
+
+	let connectModal = $state<ReturnType<typeof ProjectConnectModal> | undefined>(undefined);
 </script>
 
 {#await projectPromise}
@@ -129,7 +132,6 @@
 		<div class="project-page">
 			<header class="project-header">
 				<div class="breadcrumb">
-					{console.log('data', projectData)}
 					<a href={routes.projectPath({ ownerSlug: data.ownerSlug, projectSlug: '' })}>
 						{data.ownerSlug}
 					</a>
@@ -292,6 +294,23 @@
 								</div>
 							</div>
 						</section>
+					{:else if projectData.ownerType === 'user' && projectData.permissions?.canWrite}
+						<section class="card">
+							<h2 class="card-title">Connect to Organization</h2>
+							<div class="card-content">
+								<div class="connect-org-card">
+									<p>Connect this project to an organization to enable team collaboration.</p>
+									<Button style="pop" onclick={() => connectModal?.show()}>
+										Connect to Organization
+									</Button>
+								</div>
+							</div>
+						</section>
+
+						<ProjectConnectModal
+							bind:this={connectModal}
+							projectRepositoryId={projectData.repositoryId}
+						/>
 					{/if}
 
 					{#if projectData.permissions?.canWrite}
@@ -575,6 +594,17 @@
 		color: #718096;
 		padding: 0.5rem 0;
 		text-align: center;
+	}
+
+	.connect-org-card {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+
+		p {
+			margin: 0;
+			line-height: 1.4;
+		}
 	}
 
 	@media (max-width: 768px) {
