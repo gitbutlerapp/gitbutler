@@ -73,39 +73,15 @@ export class UpstreamIntegrationService {
 		};
 	}
 
-	async resolveUpstreamIntegration(
-		projectId: string,
-		type: BaseBranchResolutionApproach
-	): Promise<string | undefined> {
-		const result = await this.api.endpoints.resolveUpstreamIntegration
-			.useMutation()
-			.current.triggerMutation({
-				projectId,
-				resolutionApproach: { type }
-			});
-
-		return result.data;
+	resolveUpstreamIntegration() {
+		return this.api.endpoints.resolveUpstreamIntegration.useMutation();
 	}
 
-	async integrateUpstream(
-		projectId: string,
-		resolutions: Resolution[],
-		stacks: Stack[],
-		baseBranchResolution?: BaseBranchResolution
-	): Promise<IntegrationOutcome | undefined> {
-		const response = this.api.endpoints.integrateUpstream.useMutation();
-
-		const { triggerMutation } = response.current;
-
-		const result = await triggerMutation({
-			projectId,
-			resolutions,
-			baseBranchResolution
+	integrateUpstream(projectId: string, stacks: Stack[]) {
+		return this.api.endpoints.integrateUpstream.useMutation({
+			sideEffect: async (data) =>
+				await this.closeArchivedButRequests(projectId, data.archivedBranches, stacks)
 		});
-
-		if (result.data) this.closeArchivedButRequests(projectId, result.data.archivedBranches, stacks);
-
-		return result.data;
 	}
 
 	private async closeArchivedButRequests(

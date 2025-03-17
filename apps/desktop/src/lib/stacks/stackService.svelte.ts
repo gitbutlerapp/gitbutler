@@ -57,12 +57,8 @@ export class StackService {
 		);
 	}
 
-	async newStack(projectId: string, branch: CreateBranchRequest) {
-		const result = await this.api.endpoints.createStack.useMutation().current.triggerMutation({
-			projectId,
-			branch
-		});
-		return result;
+	newStack() {
+		return this.api.endpoints.createStack.useMutation();
 	}
 
 	branches(projectId: string, stackId: string) {
@@ -165,11 +161,8 @@ export class StackService {
 		return result;
 	}
 
-	async createCommit(projectId: string, request: CreateCommitRequest) {
-		const result = await this.api.endpoints.createCommit
-			.useMutation()
-			.current.triggerMutation({ projectId, ...request });
-		return result;
+	createCommit() {
+		return this.api.endpoints.createCommit.useMutation();
 	}
 
 	commitChanges(projectId: string, commitId: string) {
@@ -192,43 +185,20 @@ export class StackService {
 		return result;
 	}
 
-	async updateCommitMessage(
-		projectId: string,
-		branchId: string,
-		commitOid: string,
-		message: string
-	) {
-		return await this.api.endpoints.updateCommitMessage.useMutation().current.triggerMutation({
-			projectId,
-			branchId,
-			commitOid,
-			message
-		});
+	updateCommitMessage() {
+		return this.api.endpoints.updateCommitMessage.useMutation();
 	}
 
-	async newBranch(projectId: string, stackId: string, name: string) {
-		return await this.api.endpoints.newBranch.useMutation().current.triggerMutation({
-			projectId,
-			stackId,
-			request: { targetPatch: undefined, name }
-		});
+	newBranch() {
+		return this.api.endpoints.newBranch.useMutation();
 	}
 
-	async uncommit(projectId: string, branchId: string, commitOid: string) {
-		return await this.api.endpoints.uncommit.useMutation().current.triggerMutation({
-			projectId,
-			branchId,
-			commitOid
-		});
+	uncommit() {
+		return this.api.endpoints.uncommit.useMutation();
 	}
 
-	async insertBlankCommit(projectId: string, branchId: string, commitOid: string, offset: number) {
-		return await this.api.endpoints.insertBlankCommit.useMutation().current.triggerMutation({
-			projectId,
-			branchId,
-			commitOid,
-			offset
-		});
+	insertBlankCommit() {
+		return this.api.endpoints.insertBlankCommit.useMutation();
 	}
 }
 
