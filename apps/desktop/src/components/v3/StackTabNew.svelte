@@ -20,6 +20,8 @@
 
 	const { projectId, stackId, overflow = false }: Props = $props();
 	const stackService = getContext(StackService);
+	const { result: stackCreation, triggerMutation: createNewStack } = stackService.newStack();
+	const { result: branchCreation, triggerMutation: createNewBranch } = stackService.newBranch();
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName: string | undefined = $state();
@@ -40,7 +42,7 @@
 
 	async function addNew() {
 		if (createRefType === 'stack') {
-			const { data, error } = await stackService.newStack(projectId, { name: createRefName });
+			const { data, error } = await createNewStack({ projectId, branch: { name: createRefName } });
 			if (data) {
 				goto(stackPath(projectId, data.id));
 				createRefModal?.close();
@@ -52,7 +54,11 @@
 				// TODO: Add input validation.
 				return;
 			}
-			const { error } = await stackService.newBranch(projectId, stackId, createRefName);
+			const { error } = await createNewBranch({
+				projectId,
+				stackId,
+				request: { targetPatch: undefined, name: createRefName }
+			});
 			if (error) {
 				showError('Failed to add new branch', error);
 			} else {
@@ -61,6 +67,8 @@
 			}
 		}
 	}
+
+	const isAddingNew = $derived(stackCreation.current.isLoading || branchCreation.current.isLoading);
 
 	// TODO: it would be nice to remember the last selected option for the next time the modal is opened
 </script>
@@ -232,7 +240,13 @@
 
 			<div class="footer__controls">
 				<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-				<Button style="pop" type="submit" onclick={addNew} disabled={!createRefName}>
+				<Button
+					style="pop"
+					type="submit"
+					onclick={addNew}
+					disabled={!createRefName}
+					loading={isAddingNew}
+				>
 					{#if createRefType === 'stack'}
 						Add new stack
 					{:else}

@@ -18,6 +18,8 @@
 
 	const stackService = getContext(StackService);
 	const [uiState] = inject(UiState);
+	const { result: commitCreation, triggerMutation: createCommitInStack } =
+		stackService.createCommit();
 
 	const selected = $derived(uiState.stack(stackId).selection.get());
 	const branchName = $derived(selected.current?.branchName);
@@ -37,7 +39,8 @@
 		if (!branchName) {
 			throw new Error('No branch selected!');
 		}
-		const response = await stackService.createCommit(projectId, {
+		const response = await createCommitInStack({
+			projectId,
 			stackId,
 			parentId: commitId,
 			message: message,
@@ -82,7 +85,11 @@
 <EditorHeader title="New commit" bind:markdown={$markdown} />
 <CommitMessageEditor bind:this={composer} bind:markdown={$markdown} />
 <EditorFooter onCancel={() => uiState.project(projectId).drawerPage.set(undefined)}>
-	<Button style="pop" onclick={hanldleCommitCreation} wide disabled={!canCommit}
-		>Create commit</Button
+	<Button
+		style="pop"
+		onclick={hanldleCommitCreation}
+		wide
+		disabled={!canCommit}
+		loading={commitCreation.current.isLoading}>Create commit</Button
 	>
 </EditorFooter>
