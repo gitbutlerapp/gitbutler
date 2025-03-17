@@ -66,14 +66,14 @@ export class CommitDragActions {
 			]);
 		} else if (dropData instanceof FileDropData) {
 			if (dropData.file instanceof LocalFile) {
-				// this is an uncommitted file change being amended to a previous commit
-				this.branchController.amendBranch(this.stack.id, this.commit.id, [
-					{
+				const worktreeChanges = dropData.files.map((file) => {
+					return {
 						previousPathBytes: null,
-						pathBytes: dropData.file.path, // Can we get the path in bytes here?
+						pathBytes: file.path, // Can we get the path in bytes here?
 						hunkHeaders: [] // An empty list of hunk headers means use everything for the file
-					}
-				]);
+					};
+				});
+				this.branchController.amendBranch(this.stack.id, this.commit.id, worktreeChanges);
 			} else if (dropData.file instanceof RemoteFile) {
 				// this is a file from a commit, rather than an uncommitted file
 				const newOwnership = filesToSimpleOwnership(dropData.files);
