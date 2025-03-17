@@ -1,0 +1,38 @@
+[package]
+name = "gitbutler-watcher"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+gitbutler-branch-actions.workspace = true
+gitbutler-sync.workspace = true
+gitbutler-oplog.workspace = true
+thiserror.workspace = true
+anyhow = "1.0.95"
+tokio = { workspace = true, features = ["macros"] }
+tokio-util = "0.7.13"
+tracing.workspace = true
+gix = { workspace = true, features = ["excludes"] }
+gitbutler-command-context.workspace = true
+gitbutler-project.workspace = true
+gitbutler-diff.workspace = true
+gitbutler-user.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-error.workspace = true
+gitbutler-operating-modes.workspace = true
+but-core.workspace = true
+but-settings.workspace = true
+
+backoff = "0.4.0"
+notify = { version = "6.0.1" }
+gitbutler-notify-debouncer.path = "vendor/debouncer"
+
+[lints.clippy]
+all = "deny"
+perf = "deny"
+correctness = "deny"
