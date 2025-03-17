@@ -12,6 +12,7 @@
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import toasts from '@gitbutler/ui/toasts';
 	import { goto } from '$app/navigation';
@@ -90,6 +91,61 @@
 	let editingReadme = $state(false);
 	let readmeContent = $state('');
 	let isSavingReadme = $state(false);
+
+	// Project edit state and modal reference
+	let editProjectModal = $state<ReturnType<typeof Modal> | undefined>(undefined);
+	let editedName = $state('');
+	let editedSlug = $state('');
+	let editedDescription = $state('');
+	let isUpdatingProject = $state(false);
+
+	// Open edit project modal
+	function openEditProjectModal() {
+		editedName = projectData.name || '';
+		editedSlug = projectData.slug || '';
+		editedDescription = projectData.description || '';
+		editProjectModal?.show();
+	}
+
+	// Save project edits
+	async function saveProjectEdits(repositoryId: string) {
+		try {
+			isUpdatingProject = true;
+
+			const updateParams = {
+				name: editedName,
+				slug: editedSlug,
+				description: editedDescription
+			};
+
+			const updatedProject = await projectService.updateProject(repositoryId, updateParams);
+
+			// Update the local project data
+			projectData = {
+				...projectData,
+				...updatedProject
+			};
+
+			editProjectModal?.close();
+			toasts.success('Project updated successfully');
+
+			// If the slug changed, redirect to the new URL
+			if (editedSlug !== data.projectSlug) {
+				goto(
+					routes.projectPath({
+						ownerSlug: data.ownerSlug,
+						projectSlug: editedSlug
+					})
+				);
+			}
+		} catch (error) {
+			toasts.error(
+				`Failed to update project: ${error instanceof Error ? error.message : 'Unknown error'}`
+			);
+		} finally {
+			isUpdatingProject = false;
+		}
+	}
 
 	async function deleteProject(repositoryId: string) {
 		if (!confirm('Are you sure you want to delete this project?')) {
@@ -236,7 +292,26 @@
 
 				<div class="sidebar">
 					<section class="card">
+						<div class="card-header">
+							<h2 class="card-title">Project Details</h2>
+							{#if projectData.permissions?.canWrite}
+								<Button
+									type="button"
+									style="pop"
+									onclick={openEditProjectModal}
+									class="edit-project-btn"
+								>
+									Edit Project
+								</Button>
+							{/if}
+						</div>
 						<div class="card-content">
+							{#if projectData.name}
+								<h3 class="sidebar-section-title">Name</h3>
+								<p class="description">
+									{projectData.name}
+								</p>
+							{/if}
 							{#if projectData.description}
 								<h3 class="sidebar-section-title">Description</h3>
 								<p class="description">
@@ -337,6 +412,73 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- Edit Project Modal -->
+		<Modal
+			bind:this={editProjectModal}
+			title="Edit Project"
+			onClose={() => {
+				isUpdatingProject = false;
+			}}
+		>
+			<form class="edit-project-form">
+				<div class="form-group">
+					<label for="project-name">Project Name</label>
+					<input
+						id="project-name"
+						type="text"
+						bind:value={editedName}
+						placeholder="Project name"
+						required
+						disabled={isUpdatingProject}
+					/>
+				</div>
+
+				<div class="form-group">
+					<label for="project-slug">Project Slug</label>
+					<input
+						id="project-slug"
+						type="text"
+						bind:value={editedSlug}
+						placeholder="project-slug"
+						required
+						disabled={isUpdatingProject}
+						pattern="[a-z0-9-]+"
+						title="Lowercase letters, numbers, and hyphens only"
+					/>
+					<small>Only lowercase letters, numbers, and hyphens are allowed</small>
+				</div>
+
+				<div class="form-group">
+					<label for="project-description">Description</label>
+					<textarea
+						id="project-description"
+						bind:value={editedDescription}
+						placeholder="Project description"
+						rows="4"
+						disabled={isUpdatingProject}
+					></textarea>
+				</div>
+
+				<div class="form-actions">
+					<Button
+						type="button"
+						style="secondary"
+						onclick={() => editProjectModal?.close()}
+						disabled={isUpdatingProject}
+					>
+						Cancel
+					</Button>
+					<AsyncButton
+						style="primary"
+						action={() => saveProjectEdits(projectData.repositoryId)}
+						disabled={isUpdatingProject}
+					>
+						Save Changes
+					</AsyncButton>
+				</div>
+			</form>
+		</Modal>
 	{:else}
 		<div class="error-message">
 			<h2>Project Not Found</h2>
@@ -448,6 +590,15 @@
 		border: 1px solid color(srgb 0.831373 0.815686 0.807843);
 	}
 
+	.card-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		border-bottom: 1px solid color(srgb 0.831373 0.815686 0.807843);
+		background-color: #f3f3f2;
+		padding-right: 15px;
+	}
+
 	.card-title {
 		font-size: 0.8em;
 		margin: 0;
@@ -455,6 +606,10 @@
 		border-bottom: 1px solid color(srgb 0.831373 0.815686 0.807843);
 		background-color: #f3f3f2;
 		color: color(srgb 0.52549 0.494118 0.47451);
+	}
+
+	.card-header .card-title {
+		border-bottom: none;
 	}
 
 	.readme-header {
@@ -605,6 +760,42 @@
 			margin: 0;
 			line-height: 1.4;
 		}
+	}
+
+	.edit-project-form {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.form-group {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.form-group label {
+		font-weight: 500;
+	}
+
+	.form-group input,
+	.form-group textarea {
+		padding: 0.5rem;
+		border: 1px solid color(srgb 0.831373 0.815686 0.807843);
+		border-radius: 4px;
+		font-size: 14px;
+	}
+
+	.form-group small {
+		font-size: 12px;
+		color: var(--text-muted, #666);
+	}
+
+	.form-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
+		margin-top: 1rem;
 	}
 
 	@media (max-width: 768px) {
