@@ -11,12 +11,11 @@
 	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import { DetailedCommit } from '$lib/commits/commit';
-	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
-	import { Project } from '$lib/project/project';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
-	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { getContextStore, inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
@@ -24,34 +23,37 @@
 	import { type Writable } from 'svelte/store';
 
 	const {
+		projectId,
 		isLaneCollapsed,
 		commitBoxOpen
-	}: { isLaneCollapsed: Writable<boolean>; commitBoxOpen: Writable<boolean> } = $props();
+	}: { projectId: string; isLaneCollapsed: Writable<boolean>; commitBoxOpen: Writable<boolean> } =
+		$props();
 
-	const branchController = getContext(BranchController);
-	const fileIdSelection = getContext(FileIdSelection);
-	const branchStore = getContextStore(BranchStack);
-	const project = getContext(Project);
-	const listingService = getForgeListingService();
-	const stack = $derived($branchStore);
-	const stackPublishingService = getContext(StackPublishingService);
+	const [branchController, fileIdSelection, forge, stackPublishingService] = inject(
+		BranchController,
+		FileIdSelection,
+		DefaultForgeFactory,
+		StackPublishingService
+	);
 
-	const width = persistWithExpiration<number>(24, 'stackWidth_' + project.id, 7 * 1440);
-	let lastPush = $state<Date | undefined>();
+	const listingService = $derived(forge.current.listService);
 
-	let rsViewport = $state<HTMLElement>();
+	const stackStore = getContextStore(BranchStack);
+	const stack = $derived($stackStore);
 
+	const width = persistWithExpiration<number>(24, 'stackWidth_' + projectId, 7 * 1440);
 	const branchHasFiles = $derived(stack.files !== undefined && stack.files.length > 0);
 	const branchHasNoCommits = $derived(stack.validSeries.flatMap((s) => s.patches).length === 0);
+
+	let rsViewport = $state<HTMLElement>();
+	let scrollEndVisible = $state(true);
+	let isPushingCommits = $state(false);
 
 	$effect(() => {
 		if ($commitBoxOpen && stack.files.length === 0) {
 			commitBoxOpen.set(false);
 		}
 	});
-
-	let scrollEndVisible = $state(true);
-	let isPushingCommits = $state(false);
 
 	const { upstreamPatches, branchPatches, hasConflicts } = $derived.by(() => {
 		let hasConflicts = false;
@@ -85,8 +87,8 @@
 		isPushingCommits = true;
 		try {
 			await branchController.pushBranch(stack.id, stack.requiresForce);
-			$listingService?.refresh();
-			lastPush = new Date();
+			listingService?.refresh();
+			// TODO: Refresh affected PR cards.
 			await pushButlerReviewStacks();
 		} finally {
 			isPushingCommits = false;
@@ -153,7 +155,7 @@
 						<Spacer dotted />
 						<div style:position="relative">
 							<div class="lane-branches">
-								<SeriesList {stack} {lastPush} />
+								<SeriesList {projectId} {stack} />
 							</div>
 							{#if canPush}
 								<div

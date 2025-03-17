@@ -31,7 +31,7 @@ export function isError(value: unknown): value is Error {
 	return value instanceof Error;
 }
 
-interface Errorlike {
+export interface ErrorLike {
 	message: string;
 }
 
@@ -40,7 +40,7 @@ interface Errorlike {
  * @param value - The value to be checked.
  * @returns A boolean indicating whether the value is an Error.
  */
-export function isErrorlike(target: unknown): target is Errorlike {
+export function isErrorlike(target: unknown): target is ErrorLike {
 	return (
 		(typeof target === 'object' &&
 			target &&

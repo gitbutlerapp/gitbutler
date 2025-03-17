@@ -1,4 +1,3 @@
-import { buildContextStore } from '@gitbutler/shared/context';
 import type { ChecksStatus } from './types';
 import type { Readable } from 'svelte/store';
 
@@ -10,7 +9,3 @@ export interface ForgeChecksMonitor {
 	update(): Promise<void>;
 	stop(): void;
 }
-
-export const [getForgeChecksMonitor, createForgeChecksMonitorStore] = buildContextStore<
-	ForgeChecksMonitor | undefined
->('checksMonitor');

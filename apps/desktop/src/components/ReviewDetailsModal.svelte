@@ -21,11 +21,8 @@
 	import { parentBranch } from '$lib/branches/virtualBranchService';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
-	import { getPr } from '$lib/forge/getPr.svelte';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
-	import { getForge } from '$lib/forge/interface/forge';
-	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
-	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { type PullRequest } from '$lib/forge/interface/types';
 	import { ReactivePRBody, ReactivePRTitle } from '$lib/forge/prContents.svelte';
 	import {
@@ -41,7 +38,6 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -61,21 +57,20 @@
 
 	type Props = {
 		currentSeries: PatchSeries;
-		stackId: string;
 	};
 
-	let props: Props = $props();
+	const { currentSeries }: Props = $props();
 
 	const projectService = getContext(ProjectService);
 	const project = projectService.project;
 	const baseBranch = getContextStore(BaseBranch);
 	const branchStore = getContextStore(BranchStack);
 	const branchController = getContext(BranchController);
-	const prService = getForgePrService();
 	const aiService = getContext(AIService);
 	const aiGenEnabled = projectAiGenEnabled($project!.id);
-	const forge = getForge();
-	const forgeListingService = getForgeListingService();
+	const forge = getContext(DefaultForgeFactory);
+	const forgeListingService = $derived(forge.current.listService);
+	const prService = $derived(forge.current.prService);
 	const templateService = getContext(TemplateService);
 	const stackPublishingService = getContext(StackPublishingService);
 	const butRequestDetailsService = getContext(ButRequestDetailsService);
@@ -83,18 +78,16 @@
 	const posthog = getContext(PostHogWrapper);
 
 	const canPublish = stackPublishingService.canPublish;
+	const prNumber = $derived(currentSeries.prNumber);
 
-	const pr = $derived(getPr(reactive(() => props.currentSeries)));
+	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
+	const pr = $derived(prResult?.current.data);
 
 	const stack = $derived($branchStore);
-	const commits = $derived([
-		...props.currentSeries.patches,
-		...props.currentSeries.upstreamPatches
-	]);
-	const upstreamName = $derived(props.currentSeries.name);
-	const forgeBranch = $derived(upstreamName ? $forge?.branch(upstreamName) : undefined);
+	const commits = $derived([...currentSeries.patches, ...currentSeries.upstreamPatches]);
+	const upstreamName = $derived(currentSeries.name);
+	const forgeBranch = $derived(upstreamName ? forge.current.branch(upstreamName) : undefined);
 	const baseBranchName = $derived($baseBranch.shortName);
-	const currentSeries = $derived(props.currentSeries);
 
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
 	const createButlerRequest = persisted<boolean>(false, 'createButlerRequest');
@@ -117,13 +110,13 @@
 
 	const canUseAI = $derived(aiConfigurationValid && $aiGenEnabled);
 
-	const isDisplay = $derived(!!(pr.current && props.currentSeries.reviewId));
+	const isDisplay = $derived(!!(pr && currentSeries.reviewId));
 
 	const prTitle = $derived(
 		new ReactivePRTitle(
 			$project!.id,
 			isDisplay,
-			isDisplay ? pr.current?.title : undefined,
+			isDisplay ? pr?.title : undefined,
 			commits,
 			currentSeries?.name ?? ''
 		)
@@ -134,7 +127,7 @@
 			$project!.id,
 			isDisplay,
 			currentSeries?.description ?? '',
-			isDisplay ? pr.current?.body : undefined,
+			isDisplay ? pr?.body : undefined,
 			commits,
 			templateBody,
 			currentSeries?.name ?? ''
@@ -153,11 +146,9 @@
 			aiService.validateConfiguration().then((valid) => {
 				aiConfigurationValid = valid;
 			});
-			if ($forge) {
-				templateService.getAvailable($forge.name).then((availableTemplates) => {
-					templates = availableTemplates;
-				});
-			}
+			templateService.getAvailable(forge.current.name).then((availableTemplates) => {
+				templates = availableTemplates;
+			});
 		}
 	});
 
@@ -181,7 +172,7 @@
 	}
 
 	const canPublishBR = $derived(!!($canPublish && currentSeries?.name && !currentSeries.reviewId));
-	const canPublishPR = $derived(!!($prService && !pr.current));
+	const canPublishPR = $derived(!!(prService && !pr));
 
 	export async function createReview(close: () => void) {
 		isLoading = true;
@@ -218,7 +209,7 @@
 	}
 
 	export async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
-		if (!$forge) {
+		if (!forge) {
 			error('Pull request service not available');
 			return;
 		}
@@ -240,7 +231,7 @@
 				return;
 			}
 
-			if (!$prService) {
+			if (!prService) {
 				error('Pull request service not available');
 				return;
 			}
@@ -261,7 +252,7 @@
 				base = parent.branchName;
 			}
 
-			const pr = await $prService.createPr({
+			const pr = await prService.createPr({
 				title: params.title,
 				body: params.body,
 				draft: params.draft,
@@ -276,11 +267,11 @@
 			prNumbers[currentIndex] = pr.number;
 			const definedPrNumbers = prNumbers.filter(isDefined);
 			if (definedPrNumbers.length > 0) {
-				updatePrStackInfo($prService, definedPrNumbers);
+				updatePrStackInfo(prService, definedPrNumbers);
 			}
 
 			// Refresh store
-			$forgeListingService?.refresh();
+			forgeListingService?.refresh();
 		} catch (err: any) {
 			console.error(err);
 			const toast = mapErrorToToast(err);
@@ -515,22 +506,22 @@
 	{#snippet controls(close)}
 		{#if isDisplay}
 			<div class="pr-footer__actions">
-				{#if pr.current}
+				{#if pr}
 					<Button
 						kind="outline"
 						icon={prLinkCopied ? 'tick-small' : 'copy-small'}
 						disabled={prLinkCopied}
 						onclick={() => {
-							if (!pr.current) return;
-							handlePrLinkCopied(pr.current.htmlUrl);
+							if (!pr) return;
+							handlePrLinkCopied(pr.htmlUrl);
 						}}>{prLinkCopied ? 'Link copied!' : 'Copy PR link'}</Button
 					>
 					<Button
 						kind="outline"
 						icon="open-link"
 						onclick={() => {
-							if (!pr.current) return;
-							openExternalUrl(pr.current.htmlUrl);
+							if (!pr) return;
+							openExternalUrl(pr.htmlUrl);
 						}}>Open in browser</Button
 					>
 				{/if}

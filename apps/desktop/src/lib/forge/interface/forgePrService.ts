@@ -1,15 +1,17 @@
-import { buildContextStore } from '@gitbutler/shared/context';
-import type { ForgePrMonitor } from './forgePrMonitor';
+import type { ReactiveResult } from '$lib/state/butlerModule';
 import type { CreatePullRequestArgs, DetailedPullRequest, MergeMethod, PullRequest } from './types';
+import type { MergeResult, UpdateResult } from '../github/types';
+import type { Reactive } from '@gitbutler/shared/storeUtils';
+import type { SubscriptionOptions } from '@reduxjs/toolkit/query';
 import type { Writable } from 'svelte/store';
-
-export const [getForgePrService, createForgePrServiceStore] = buildContextStore<
-	ForgePrService | undefined
->('forgePrService');
 
 export interface ForgePrService {
 	loading: Writable<boolean>;
-	get(prNumber: number): Promise<DetailedPullRequest>;
+	get(
+		prNumber: number,
+		options?: Reactive<SubscriptionOptions>
+	): ReactiveResult<DetailedPullRequest>;
+	fetch(prNumber: number): Promise<DetailedPullRequest>;
 	createPr({
 		title,
 		body,
@@ -17,11 +19,10 @@ export interface ForgePrService {
 		baseBranchName,
 		upstreamName
 	}: CreatePullRequestArgs): Promise<PullRequest>;
-	merge(method: MergeMethod, prNumber: number): Promise<void>;
-	reopen(prNumber: number): Promise<void>;
-	prMonitor(prNumber: number): ForgePrMonitor;
+	merge(method: MergeMethod, prNumber: number): Promise<MergeResult>;
+	reopen(prNumber: number): Promise<UpdateResult>;
 	update(
 		prNumber: number,
 		details: { description?: string; state?: 'open' | 'closed'; targetBase?: string }
-	): Promise<void>;
+	): Promise<UpdateResult>;
 }

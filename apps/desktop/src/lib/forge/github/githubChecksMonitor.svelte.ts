@@ -1,11 +1,11 @@
+import { ghQuery } from './ghQuery';
 import { scurveBackoff } from '$lib/backoff/scurve';
-import { DEFAULT_HEADERS } from '$lib/forge/github/headers';
-import { parseGitHubCheckSuites } from '$lib/forge/github/types';
+import { type ChecksResult, type SuitesResult } from '$lib/forge/github/types';
+import { ReduxTag } from '$lib/state/tags';
 import { sleep } from '$lib/utils/sleep';
-import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { writable } from 'svelte/store';
-import type { CheckSuites, ChecksStatus } from '$lib/forge/interface/types';
-import type { RepoInfo } from '$lib/url/gitUrl';
+import type { ChecksStatus } from '$lib/forge/interface/types';
+import type { GitHubApi } from '$lib/state/clientState.svelte';
 import type { ForgeChecksMonitor } from '../interface/forgeChecksMonitor';
 
 export const MIN_COMPLETED_AGE = 20000;
@@ -27,11 +27,14 @@ export class GitHubChecksMonitor implements ForgeChecksMonitor {
 	private timeout: any;
 	private hasCheckSuites: boolean | undefined;
 
+	private api: ReturnType<typeof injectEndpoints>;
+
 	constructor(
-		private octokit: Octokit,
-		private repo: RepoInfo,
+		gitHubApi: GitHubApi,
 		private sourceBranch: string
-	) {}
+	) {
+		this.api = injectEndpoints(gitHubApi);
+	}
 
 	async start() {
 		this.update();
@@ -48,9 +51,11 @@ export class GitHubChecksMonitor implements ForgeChecksMonitor {
 
 		try {
 			const checks = await this.fetchChecksWithRetries(this.sourceBranch, 5, 2000);
-			const status = parseChecks(checks);
-			this.status.set(status);
-			this._status = status;
+			if (checks) {
+				const status = parseChecks(checks);
+				this.status.set(status);
+				this._status = status;
+			}
 		} catch (e: any) {
 			console.error(e);
 			this.error.set(e.message);
@@ -86,20 +91,24 @@ export class GitHubChecksMonitor implements ForgeChecksMonitor {
 
 	private async fetchChecksWithRetries(ref: string, retries: number, delayMs: number) {
 		let checks = await this.fetchChecks(ref);
+		if (!checks) {
+			return;
+		}
+
 		if (checks.total_count > 0) {
 			this.hasCheckSuites = true;
 			return checks;
 		}
 
 		if (this.hasCheckSuites === undefined) {
-			const suites = await this.getCheckSuites();
-			this.hasCheckSuites = suites.count > 0;
+			const result = await this.getCheckSuites();
+			this.hasCheckSuites = (result?.total_count || 0) > 0;
 		}
 
 		if (!this.hasCheckSuites) return checks;
 
 		let attempts = 0;
-		while (checks.total_count === 0 && attempts < retries) {
+		while (checks?.total_count === 0 && attempts < retries) {
 			attempts++;
 			await sleep(delayMs);
 			checks = await this.fetchChecks(ref);
@@ -107,30 +116,18 @@ export class GitHubChecksMonitor implements ForgeChecksMonitor {
 		return checks;
 	}
 
-	private async getCheckSuites(): Promise<CheckSuites> {
-		const resp = await this.octokit.checks.listSuitesForRef({
-			headers: DEFAULT_HEADERS,
-			owner: this.repo.owner,
-			repo: this.repo.name,
-			ref: this.sourceBranch
-		});
-		return { count: resp.data.total_count, items: parseGitHubCheckSuites(resp.data) };
+	private async getCheckSuites() {
+		const result = this.api.endpoints.listSuites.fetch(this.sourceBranch);
+		return await result;
 	}
 
 	private async fetchChecks(ref: string) {
-		const resp = await this.octokit.checks.listForRef({
-			headers: DEFAULT_HEADERS,
-			owner: this.repo.owner,
-			repo: this.repo.name,
-			ref: ref
-		});
-		return resp.data;
+		const result = this.api.endpoints.listChecks.fetch(ref);
+		return await result;
 	}
 }
 
-function parseChecks(
-	data: RestEndpointMethodTypes['checks']['listForRef']['response']['data']
-): ChecksStatus | null {
+function parseChecks(data: ChecksResult): ChecksStatus | null {
 	// Fetch with retries since checks might not be available _right_ after
 	// the pull request has been created.
 
@@ -159,4 +156,35 @@ function parseChecks(
 		success,
 		completed
 	};
+}
+
+function injectEndpoints(api: GitHubApi) {
+	return api.injectEndpoints({
+		endpoints: (build) => ({
+			listChecks: build.query<ChecksResult, string>({
+				queryFn: async (ref, api) =>
+					await ghQuery({
+						domain: 'checks',
+						action: 'listForRef',
+						extra: api.extra,
+						parameters: {
+							ref
+						}
+					}),
+				providesTags: [ReduxTag.PullRequests]
+			}),
+			listSuites: build.query<SuitesResult, string>({
+				queryFn: async (ref, api) =>
+					await ghQuery({
+						domain: 'checks',
+						action: 'listSuitesForRef',
+						extra: api.extra,
+						parameters: {
+							ref
+						}
+					}),
+				providesTags: [ReduxTag.PullRequests]
+			})
+		})
+	});
 }

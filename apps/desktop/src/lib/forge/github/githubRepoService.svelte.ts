@@ -1,26 +1,22 @@
 import { ghQuery } from './ghQuery';
 import { ReduxTag } from '$lib/state/tags';
+import type { ReactiveResult } from '$lib/state/butlerModule';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
-import type { RepoInfo } from '$lib/url/gitUrl';
 import type { RepoResult } from './types';
-import type { ForgeRepoService } from '../interface/forgeRepoService';
+import type { ForgeRepoService, RepoDetailedInfo } from '../interface/forgeRepoService';
 
 export class GitHubRepoService implements ForgeRepoService {
-	readonly info: any;
 	private api: ReturnType<typeof injectEndpoints>;
 
-	constructor(
-		gitHubApi: GitHubApi,
-		private repo: RepoInfo
-	) {
+	constructor(gitHubApi: GitHubApi) {
 		this.api = injectEndpoints(gitHubApi);
 	}
 
-	getInfo() {
+	getInfo(): ReactiveResult<RepoDetailedInfo> {
 		const result = $derived(
-			this.api.endpoints.getRepoInfo.useQuery(undefined, {
-				transform: (info) => ({
-					deleteBranchAfterMerge: !!info.delete_branch_on_merge
+			this.api.endpoints.getRepos.useQuery(undefined, {
+				transform: (result) => ({
+					deleteBranchAfterMerge: result.delete_branch_on_merge
 				})
 			})
 		);
@@ -31,7 +27,7 @@ export class GitHubRepoService implements ForgeRepoService {
 function injectEndpoints(api: GitHubApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			getRepoInfo: build.query<RepoResult, void>({
+			getRepos: build.query<RepoResult, void>({
 				queryFn: async (_, api) =>
 					await ghQuery({
 						domain: 'repos',

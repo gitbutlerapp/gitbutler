@@ -409,15 +409,15 @@ function injectEndpoints(api: ClientState['backendApi'], posthog: PostHogWrapper
 					{ type: ReduxTag.StackInfo, id: args.stackId }
 				]
 			}),
-			uncommit: build.mutation<void, { projectId: string; branchId: string; commitOid: string }>({
-				query: ({ projectId, branchId, commitOid }) => ({
+			uncommit: build.mutation<void, { projectId: string; stackId: string; commitId: string }>({
+				query: ({ projectId, stackId: branchId, commitId: commitOid }) => ({
 					command: 'undo_commit',
 					params: { projectId, branchId, commitOid }
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					ReduxTag.StackBranches,
 					ReduxTag.Commits,
-					{ type: ReduxTag.StackInfo, id: args.branchId }
+					{ type: ReduxTag.StackInfo, id: args.stackId }
 				]
 			}),
 			insertBlankCommit: build.mutation<

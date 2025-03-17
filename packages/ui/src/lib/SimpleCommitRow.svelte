@@ -5,8 +5,9 @@
 		sha: string;
 		date: Date;
 		author?: string;
+		url?: string;
 		onCopy?: () => void;
-		onUrlOpen?: () => void;
+		onOpen?: (url: string) => void;
 	}
 </script>
 
@@ -14,7 +15,7 @@
 	import Icon from '$lib/Icon.svelte';
 	import { getTimeAndAuthor } from '$lib/utils/getTimeAndAuthor';
 
-	const { title, sha, author, date, onCopy, onUrlOpen }: Props = $props();
+	const { title, sha, author, date, url, onCopy, onOpen }: Props = $props();
 </script>
 
 <div class="simple-commit-item no-select">
@@ -29,10 +30,12 @@
 				<Icon name="copy-small" />
 			</button>
 			<span class="details-divider">•</span>
-			<button type="button" class="details-btn link-btn" onclick={onUrlOpen}>
-				<span>Open</span>
-				<Icon name="open-link" />
-			</button>
+			{#if url && onOpen}
+				<button type="button" class="details-btn link-btn" onclick={() => onOpen(url)}>
+					<span>Open</span>
+					<Icon name="open-link" />
+				</button>
+			{/if}
 
 			<span class="details-divider">•</span>
 			<span class="truncate">{getTimeAndAuthor(date, author)}</span>

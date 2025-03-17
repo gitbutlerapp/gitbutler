@@ -1,16 +1,17 @@
 import { GitHub } from './github';
-import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
+import { setupMockGitHubApi } from '$lib/testing/mockGitHubApi.svelte';
+import { type RestEndpointMethodTypes } from '@octokit/rest';
 import { expect, test, describe, vi, beforeEach } from 'vitest';
 import type { ForgePrService as GitHubPrService } from '../interface/forgePrService';
 
 // TODO: Rewrite this proof-of-concept into something valuable.
-describe.concurrent('GitHubPrService', () => {
-	let octokit: Octokit;
+describe('GitHubPrService', () => {
 	let gh: GitHub;
 	let service: GitHubPrService | undefined;
 
+	const { gitHubApi, octokit } = setupMockGitHubApi();
+
 	beforeEach(() => {
-		octokit = new Octokit();
 		gh = new GitHub({
 			repo: {
 				domain: 'github.com',
@@ -18,9 +19,9 @@ describe.concurrent('GitHubPrService', () => {
 				owner: 'test-owner'
 			},
 			baseBranch: 'main',
-			octokit
+			gitHubApi
 		});
-		service = gh.prService();
+		service = gh.prService;
 	});
 
 	test('test parsing response', async () => {
@@ -30,7 +31,7 @@ describe.concurrent('GitHubPrService', () => {
 				data: { title }
 			} as RestEndpointMethodTypes['pulls']['get']['response'])
 		);
-		const pr = await service?.get(123);
+		const pr = await service?.fetch(123);
 		expect(pr?.title).equal(title);
 	});
 });

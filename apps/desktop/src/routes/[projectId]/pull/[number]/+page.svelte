@@ -6,15 +6,16 @@
 	// It may also display details about a cooresponding pr if they exist
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import PullRequestPreview from '$components/PullRequestPreview.svelte';
-	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
-	import type { PullRequest } from '$lib/forge/interface/types';
-	import type { Readable } from 'svelte/store';
-	import { page } from '$app/stores';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { getContext } from '@gitbutler/shared/context';
+	import { page } from '$app/state';
 
-	const forgeListing = getForgeListingService();
-	const prs = $derived<Readable<PullRequest[]> | undefined>($forgeListing?.prs);
-	const pr = $derived<PullRequest | undefined>(
-		$prs?.find((b) => b.number.toString() === $page.params.number)
+	const projectId = page.params.projectId!;
+	const forge = getContext(DefaultForgeFactory);
+	const forgeListing = $derived(forge.current.listService);
+	const prsResult = $derived(forgeListing?.list(projectId));
+	const pr = $derived(
+		prsResult?.current.data?.find((b) => b.number.toString() === page.params.number)
 	);
 </script>
 

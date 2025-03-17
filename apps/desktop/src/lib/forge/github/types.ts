@@ -1,40 +1,58 @@
 import { parseRemoteUrl } from '$lib/url/gitUrl';
+import type { GhResponse } from './ghQuery';
 import type { CheckSuite, DetailedPullRequest, Label, PullRequest } from '../interface/types';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 
 export type DetailedGitHubPullRequest = RestEndpointMethodTypes['pulls']['get']['response']['data'];
+export type MergeResult = RestEndpointMethodTypes['pulls']['merge']['response']['data'];
+export type CreatePrResult = RestEndpointMethodTypes['pulls']['create']['response']['data'];
+export type CreateIssueResult = RestEndpointMethodTypes['issues']['create']['response']['data'];
+export type UpdateResult = RestEndpointMethodTypes['pulls']['update']['response']['data'];
+
+export type PullRequestListItem =
+	| RestEndpointMethodTypes['pulls']['create']['response']['data']
+	| RestEndpointMethodTypes['pulls']['list']['response']['data'][number];
+
+export type ChecksResult = RestEndpointMethodTypes['checks']['listForRef']['response']['data'];
+export type SuitesResult =
+	RestEndpointMethodTypes['checks']['listSuitesForRef']['response']['data'];
+export type RepoResult = RestEndpointMethodTypes['repos']['get']['response']['data'];
 
 export function parseGitHubDetailedPullRequest(
-	data: DetailedGitHubPullRequest
-): DetailedPullRequest {
+	response: GhResponse<DetailedGitHubPullRequest>
+): GhResponse<DetailedPullRequest> {
+	if (response.error) {
+		return response;
+	}
+	const data = response.data;
+
 	return {
-		id: data.id,
-		number: data.number,
-		title: data.title,
-		body: data.body ?? undefined,
-		baseRepo: parseRemoteUrl(data.base?.repo.git_url),
-		baseBranch: data.base?.ref,
-		sourceBranch: data.head?.ref,
-		draft: data.draft,
-		htmlUrl: data.html_url,
-		createdAt: new Date(data.created_at),
-		mergedAt: data.merged_at ? new Date(data.merged_at) : undefined,
-		closedAt: data.closed_at ? new Date(data.closed_at) : undefined,
-		merged: data.merged,
-		mergeable: !!data.mergeable,
-		mergeableState: data.mergeable_state,
-		rebaseable: !!data.rebaseable,
-		squashable: !!data.mergeable, // Enabled whenever merge is enabled
-		state: data.state,
-		fork: data.head?.repo?.fork ?? false
+		data: {
+			id: data.id,
+			number: data.number,
+			title: data.title,
+			body: data.body ?? undefined,
+			baseRepo: parseRemoteUrl(data.base?.repo.git_url),
+			baseBranch: data.base?.ref,
+			sourceBranch: data.head?.ref,
+			draft: data.draft,
+			htmlUrl: data.html_url,
+			createdAt: data.created_at,
+			mergedAt: data.merged_at || undefined,
+			closedAt: data.closed_at || undefined,
+			updatedAt: data.updated_at,
+			merged: data.merged,
+			mergeable: !!data.mergeable,
+			mergeableState: data.mergeable_state,
+			rebaseable: !!data.rebaseable,
+			squashable: !!data.mergeable, // Enabled whenever merge is enabled
+			state: data.state,
+			fork: data.head?.repo?.fork ?? false
+		}
 	};
 }
 
-export function ghResponseToInstance(
-	pr:
-		| RestEndpointMethodTypes['pulls']['create']['response']['data']
-		| RestEndpointMethodTypes['pulls']['list']['response']['data'][number]
-): PullRequest {
+export function ghResponseToInstance(pr: PullRequestListItem): PullRequest {
 	const labels: Label[] = pr.labels?.map((label) => ({
 		name: label.name,
 		description: label.description || undefined,
@@ -56,13 +74,13 @@ export function ghResponseToInstance(
 			: null,
 		labels: labels,
 		draft: pr.draft || false,
-		createdAt: new Date(pr.created_at),
-		modifiedAt: new Date(pr.created_at),
+		createdAt: pr.created_at,
+		modifiedAt: pr.created_at,
 		sourceBranch: pr.head?.ref,
 		targetBranch: pr.base?.ref,
 		sha: pr.head?.sha,
-		mergedAt: pr.merged_at ? new Date(pr.merged_at) : undefined,
-		closedAt: pr.closed_at ? new Date(pr.closed_at) : undefined,
+		mergedAt: pr.merged_at || undefined,
+		closedAt: pr.closed_at || undefined,
 		repoOwner: pr.head?.repo?.owner.login,
 		repositorySshUrl: pr.head?.repo?.ssh_url,
 		repositoryHttpsUrl: pr.head?.repo?.clone_url

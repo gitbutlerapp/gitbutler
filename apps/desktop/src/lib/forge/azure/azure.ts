@@ -34,19 +34,19 @@ export class AzureDevOps implements Forge {
 		return `${this.baseUrl}/commit/${id}`;
 	}
 
-	listService() {
+	get listService() {
 		return undefined;
 	}
 
-	issueService() {
+	get issueService() {
 		return undefined;
 	}
 
-	prService() {
+	get prService() {
 		return undefined;
 	}
 
-	repoService(): ForgeRepoService | undefined {
+	get repoService(): ForgeRepoService | undefined {
 		return undefined;
 	}
 

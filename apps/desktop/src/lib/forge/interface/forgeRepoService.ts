@@ -1,5 +1,4 @@
-import { buildContextStore } from '@gitbutler/shared/context';
-import type { Readable } from 'svelte/store';
+import type { ReactiveResult } from '$lib/state/butlerModule';
 
 export interface RepoDetailedInfo {
 	/**
@@ -10,10 +9,6 @@ export interface RepoDetailedInfo {
 	deleteBranchAfterMerge: boolean | undefined;
 }
 
-export const [getForgeRepoService, createForgeRepoServiceStore] = buildContextStore<
-	ForgeRepoService | undefined
->('forgeRepoService');
-
-export interface ForgeRepoService {
-	info: Readable<RepoDetailedInfo | undefined>;
-}
+export type ForgeRepoService = {
+	getInfo(): ReactiveResult<RepoDetailedInfo>;
+};

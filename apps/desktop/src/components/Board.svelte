@@ -15,6 +15,8 @@
 	import { flip } from 'svelte/animate';
 	import type { BranchStack } from '$lib/branches/branch';
 
+	const { projectId }: { projectId: string } = $props();
+
 	const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
 	const posthog = getContext(PostHogWrapper);
@@ -128,7 +130,7 @@
 						clone?.remove();
 					}}
 				>
-					<BranchLane stack={branch} />
+					<BranchLane {projectId} stack={branch} />
 				</div>
 			{/each}
 		</div>

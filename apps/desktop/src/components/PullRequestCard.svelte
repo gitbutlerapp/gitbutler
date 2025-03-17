@@ -1,17 +1,16 @@
 <script lang="ts">
+	import PullRequestPolling from './PullRequestPolling.svelte';
 	import MergeButton from '$components/MergeButton.svelte';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { type ForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
-	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
-	import { getForgePrService } from '$lib/forge/interface/forgePrService';
-	import { getForgeRepoService } from '$lib/forge/interface/forgeRepoService';
 	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
-	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
@@ -19,35 +18,30 @@
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import type { MessageStyle } from '$components/InfoMessage.svelte';
 	import type { PatchSeries } from '$lib/branches/branch';
-	import type { ForgePrMonitor } from '$lib/forge/interface/forgePrMonitor';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
 
 	interface Props {
 		pr: DetailedPullRequest;
+		poll: boolean;
 		isPushed: boolean;
 		hasParent: boolean;
 		parentIsPushed: boolean;
 		child?: PatchSeries;
 		checksMonitor?: ForgeChecksMonitor;
-		prMonitor?: ForgePrMonitor;
-		reloadPR: () => void;
-		reopenPr: () => Promise<void>;
 		openPrDetailsModal: () => void;
 	}
 
 	const {
+		pr,
+		poll,
 		checksMonitor,
 		child,
 		hasParent,
 		isPushed,
 		openPrDetailsModal,
-		parentIsPushed,
-		pr,
-		prMonitor,
-		reloadPR,
-		reopenPr
+		parentIsPushed
 	}: Props = $props();
 
 	type StatusInfo = {
@@ -61,18 +55,22 @@
 	let contextMenuEl = $state<ReturnType<typeof ContextMenu>>();
 	let contextMenuTarget = $state<HTMLElement>();
 
-	const vbranchService = getContext(VirtualBranchService);
-	const baseBranchService = getContext(BaseBranchService);
-	const baseBranch = getContextStore(BaseBranch);
-	const repoService = getForgeRepoService();
-	const project = getContext(Project);
+	const [project, vbranchService, baseBranchService, forge] = inject(
+		Project,
+		VirtualBranchService,
+		BaseBranchService,
+		DefaultForgeFactory
+	);
 
-	const forgeListingService = getForgeListingService();
-	const prService = getForgePrService();
+	// TODO: Make these props so we don't need `!`.
+	const repoService = $derived(forge.current.repoService!);
+	const prService = $derived(forge.current.prService!);
 
+	const baseBranch = $derived(baseBranchService.base);
+	const repoResult = $derived(repoService.getInfo());
 	const checks = $derived(checksMonitor?.status);
-	const repoInfoStore = $derived($repoService?.info);
-	const repoInfo = $derived(repoInfoStore && $repoInfoStore);
+	const repoInfo = $derived(repoResult?.current.data);
+
 	let shouldUpdateTargetBaseBranch = $state(false);
 	$effect(() => {
 		shouldUpdateTargetBaseBranch = repoInfo?.deleteBranchAfterMerge === false && !!child?.prNumber;
@@ -81,29 +79,18 @@
 	const baseBranchRepo = $derived(baseBranchService.repo);
 	const baseIsTargetBranch = $derived(
 		pr
-			? $baseBranch.shortName === pr.baseBranch && $baseBranchRepo?.hash === pr?.baseRepo?.hash
+			? $baseBranch?.shortName === pr.baseBranch && $baseBranchRepo?.hash === pr.baseRepo?.hash
 			: false
 	);
 
-	// While the pr monitor is set to fetch updates by interval, we want
-	// frequent updates while checks are running.
-	$effect(() => {
-		if ($checks) {
-			prMonitor?.refresh();
-		}
-	});
-
 	let isMerging = $state(false);
 
-	const mrLoading = $derived(prMonitor?.loading);
+	const prLoading = $state(false);
 	const checksLoading = $derived(checksMonitor?.loading);
-	let loading = $state(false);
-
 	const checksError = $derived(checksMonitor?.error);
-	const detailsError = $derived(prMonitor?.error);
 
 	const checksTagInfo: StatusInfo = $derived.by(() => {
-		if (!checksMonitor && pr.fork) {
+		if (!checksMonitor && pr?.fork) {
 			return {
 				style: 'neutral',
 				icon: 'info',
@@ -112,7 +99,7 @@
 			};
 		}
 
-		if ($checksError || $detailsError) {
+		if ($checksError) {
 			return { style: 'error', icon: 'warning-small', text: 'Failed to load' };
 		}
 
@@ -165,7 +152,7 @@
 			tooltip = 'Remote parent branch seems to have been deleted';
 		} else if (!baseIsTargetBranch) {
 			tooltip = 'Pull request is not next in stack';
-		} else if ($mrLoading) {
+		} else if (prLoading) {
 			tooltip = 'Reloading pull request data';
 		} else if ($checksLoading) {
 			tooltip = 'Reloading checks data';
@@ -197,114 +184,121 @@
 		}
 		return { disabled, tooltip };
 	});
+
+	async function handleReopenPr() {
+		await prService?.reopen(pr.number);
+	}
 </script>
 
-{#if pr}
-	<ContextMenu bind:this={contextMenuEl} rightClickTrigger={contextMenuTarget}>
-		<ContextMenuSection>
-			<ContextMenuItem
-				label="Open in browser"
+{#if poll}
+	<PullRequestPolling number={pr.number} />
+{/if}
+
+<ContextMenu bind:this={contextMenuEl} rightClickTrigger={contextMenuTarget}>
+	<ContextMenuSection>
+		<ContextMenuItem
+			label="Open in browser"
+			onclick={() => {
+				openExternalUrl(pr.htmlUrl);
+				contextMenuEl?.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="Copy link"
+			onclick={() => {
+				copyToClipboard(pr.htmlUrl);
+				contextMenuEl?.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="Show details"
+			onclick={() => {
+				openPrDetailsModal();
+				contextMenuEl?.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="Refetch status"
+			onclick={() => {
+				prService?.fetch(pr.number);
+				contextMenuEl?.close();
+			}}
+		/>
+	</ContextMenuSection>
+	{#if checksTagInfo}
+		{#if checksTagInfo.text !== 'No PR checks' && checksTagInfo.text !== 'Checks'}
+			<ContextMenuSection>
+				<ContextMenuItem
+					label="Open checks"
+					onclick={() => {
+						openExternalUrl(`${pr.htmlUrl}/checks`);
+						contextMenuEl?.close();
+					}}
+				/>
+				<ContextMenuItem
+					label="Copy checks"
+					onclick={() => {
+						copyToClipboard(`${pr.htmlUrl}/checks`);
+						contextMenuEl?.close();
+					}}
+				/>
+			</ContextMenuSection>
+		{/if}
+	{/if}
+</ContextMenu>
+
+<div
+	bind:this={contextMenuTarget}
+	role="article"
+	class="pr-header"
+	oncontextmenu={(e: MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		contextMenuEl?.open(e);
+	}}
+>
+	<div class="text-13 text-semibold pr-header-title">
+		<span style="color: var(--clr-scale-ntrl-50)">PR #{pr?.number}:</span>
+		<span>{pr?.title}</span>
+	</div>
+	<div class="pr-header-tags">
+		<Badge
+			reversedDirection
+			size="tag"
+			icon={prStatusInfo.icon}
+			style={prStatusInfo.style}
+			kind="soft"
+			tooltip="PR status"
+		>
+			{prStatusInfo.text}
+		</Badge>
+		{#if !pr.closedAt && checksTagInfo}
+			<Badge
+				size="tag"
+				icon={checksTagInfo.icon}
+				style={checksTagInfo.style}
+				kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
+				tooltip={checksTagInfo.tooltip}
+			>
+				{checksTagInfo.text}
+			</Badge>
+		{/if}
+		{#if pr.htmlUrl}
+			<Button
+				icon="open-link"
+				size="tag"
+				kind="outline"
+				tooltip="Open in browser"
 				onclick={() => {
 					openExternalUrl(pr.htmlUrl);
-					contextMenuEl?.close();
 				}}
-			/>
-			<ContextMenuItem
-				label="Copy link"
-				onclick={() => {
-					copyToClipboard(pr.htmlUrl);
-					contextMenuEl?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Show details"
-				onclick={() => {
-					openPrDetailsModal();
-					contextMenuEl?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Refetch status"
-				onclick={() => {
-					reloadPR();
-					contextMenuEl?.close();
-				}}
-			/>
-		</ContextMenuSection>
-		{#if checksTagInfo}
-			{#if checksTagInfo.text !== 'No PR checks' && checksTagInfo.text !== 'Checks'}
-				<ContextMenuSection>
-					<ContextMenuItem
-						label="Open checks"
-						onclick={() => {
-							openExternalUrl(`${pr.htmlUrl}/checks`);
-							contextMenuEl?.close();
-						}}
-					/>
-					<ContextMenuItem
-						label="Copy checks"
-						onclick={() => {
-							copyToClipboard(`${pr.htmlUrl}/checks`);
-							contextMenuEl?.close();
-						}}
-					/>
-				</ContextMenuSection>
-			{/if}
-		{/if}
-	</ContextMenu>
-
-	<div
-		bind:this={contextMenuTarget}
-		role="article"
-		class="pr-header"
-		oncontextmenu={(e: MouseEvent) => {
-			e.preventDefault();
-			e.stopPropagation();
-			contextMenuEl?.open(e);
-		}}
-	>
-		<div class="text-13 text-semibold pr-header-title">
-			<span style="color: var(--clr-scale-ntrl-50)">PR #{pr?.number}:</span>
-			<span>{pr?.title}</span>
-		</div>
-		<div class="pr-header-tags">
-			<Badge
-				reversedDirection
-				size="tag"
-				icon={prStatusInfo.icon}
-				style={prStatusInfo.style}
-				kind="soft"
-				tooltip="PR status"
 			>
-				{prStatusInfo.text}
-			</Badge>
-			{#if !pr.closedAt && checksTagInfo}
-				<Badge
-					size="tag"
-					icon={checksTagInfo.icon}
-					style={checksTagInfo.style}
-					kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
-					tooltip={checksTagInfo.tooltip}
-				>
-					{checksTagInfo.text}
-				</Badge>
-			{/if}
-			{#if pr.htmlUrl}
-				<Button
-					icon="open-link"
-					size="tag"
-					kind="outline"
-					tooltip="Open in browser"
-					onclick={() => {
-						openExternalUrl(pr.htmlUrl);
-					}}
-				>
-					View PR
-				</Button>
-			{/if}
-		</div>
+				View PR
+			</Button>
+		{/if}
+	</div>
 
-		<!--
+	<!--
         We can't show the merge button until we've waited for checks
 
         We use a octokit.checks.listForRef to find checks running for a PR, but right after
@@ -312,64 +306,53 @@
         determining "no checks will run for this PR" such that we can show the merge button
         immediately.
         -->
-		<div class="pr-header-actions">
-			{#if pr.state === 'open'}
-				<MergeButton
-					wide
-					projectId={project.id}
-					disabled={mergeStatus.disabled}
-					tooltip={mergeStatus.tooltip}
-					loading={isMerging}
-					onclick={async (method) => {
-						if (!pr) return;
-						isMerging = true;
-						try {
-							await $prService?.merge(method, pr.number);
+	<div class="pr-header-actions">
+		{#if pr.state === 'open'}
+			<MergeButton
+				wide
+				projectId={project.id}
+				disabled={mergeStatus.disabled}
+				tooltip={mergeStatus.tooltip}
+				loading={isMerging}
+				onclick={async (method) => {
+					if (!pr) return;
+					isMerging = true;
+					try {
+						await prService?.merge(method, pr.number);
 
-							// In a stack, after merging, update the new bottom PR target
-							// base branch to master if necessary
-							if (shouldUpdateTargetBaseBranch && $prService && child?.prNumber) {
-								const targetBase = $baseBranch.branchName.replace(`${$baseBranch.remoteName}/`, '');
-								await $prService.update(child.prNumber, { targetBase });
-							}
+						// In a stack, after merging, update the new bottom PR target
+						// base branch to master if necessary
+						if ($baseBranch && shouldUpdateTargetBaseBranch && prService && child?.prNumber) {
+							const targetBase = $baseBranch.branchName.replace(`${$baseBranch.remoteName}/`, '');
+							await prService.update(child.prNumber, { targetBase });
+						}
 
-							await Promise.all([
-								baseBranchService.fetchFromRemotes(),
-								prMonitor?.refresh(),
-								$forgeListingService?.refresh(),
-								vbranchService.refresh(),
-								baseBranchService.refresh(),
-								checksMonitor?.update()
-							]);
-						} catch (err) {
-							console.error(err);
-							showError('Failed to merge PR', err);
-						} finally {
-							isMerging = false;
-						}
-					}}
-				/>
-			{:else if !pr.merged}
-				<Button
-					kind="outline"
-					disabled={reopenStatus.disabled}
-					tooltip={reopenStatus.tooltip}
-					{loading}
-					onclick={async () => {
-						loading = true;
-						try {
-							await reopenPr?.();
-						} finally {
-							loading = false;
-						}
-					}}
-				>
-					Reopen pull request
-				</Button>
-			{/if}
-		</div>
+						await Promise.all([
+							baseBranchService.fetchFromRemotes(),
+							vbranchService.refresh(),
+							baseBranchService.refresh(),
+							checksMonitor?.update()
+						]);
+					} catch (err) {
+						console.error(err);
+						showError('Failed to merge PR', err);
+					} finally {
+						isMerging = false;
+					}
+				}}
+			/>
+		{:else if !pr.merged}
+			<AsyncButton
+				kind="outline"
+				disabled={reopenStatus.disabled}
+				tooltip={reopenStatus.tooltip}
+				action={handleReopenPr}
+			>
+				Reopen pull request
+			</AsyncButton>
+		{/if}
 	</div>
-{/if}
+</div>
 
 <style lang="postcss">
 	.pr-header {

@@ -1,5 +1,9 @@
 import dayjs from 'dayjs';
 
+export function parseDate(dateStr?: string) {
+	return dateStr ? new Date(dateStr) : undefined;
+}
+
 export function toHumanReadableTime(d: Date) {
 	return d.toLocaleTimeString('en-US', {
 		hour: 'numeric',

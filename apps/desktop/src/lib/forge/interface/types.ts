@@ -18,10 +18,10 @@ export interface PullRequest {
 	sourceBranch: string;
 	targetBranch: string;
 	sha: string;
-	createdAt: Date;
-	modifiedAt: Date;
-	mergedAt?: Date;
-	closedAt?: Date;
+	createdAt: string;
+	modifiedAt: string;
+	mergedAt?: string;
+	closedAt?: string;
 	repositorySshUrl?: string;
 	repositoryHttpsUrl?: string;
 	repoOwner?: string;
@@ -35,9 +35,10 @@ export interface DetailedPullRequest {
 	sourceBranch: string;
 	draft?: boolean;
 	fork?: boolean;
-	createdAt: Date;
-	mergedAt?: Date;
-	closedAt?: Date;
+	createdAt: string;
+	mergedAt?: string;
+	closedAt?: string;
+	updatedAt: string;
 	htmlUrl: string;
 	merged: boolean;
 	mergeable: boolean;

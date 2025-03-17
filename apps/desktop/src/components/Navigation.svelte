@@ -115,7 +115,7 @@
 			</div>
 
 			{#if !$isNavCollapsed}
-				<Branches />
+				<Branches {projectId} />
 			{/if}
 			<Footer {projectId} isNavCollapsed={$isNavCollapsed} />
 		{/if}

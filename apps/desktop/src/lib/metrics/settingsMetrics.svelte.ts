@@ -12,11 +12,15 @@ export class SettingsMetrics {
 		$effect(() => {
 			if (!project.current) return;
 			if (project.current.api) {
-				this.projectMetrics.setMetric('cloudFunctionalityEnabled', 1);
-				this.projectMetrics.setMetric('bulterReviewEnabled', project.current.api.reviews ? 1 : 0);
+				this.projectMetrics.setMetric(project.current.id, 'cloudFunctionalityEnabled', 1);
+				this.projectMetrics.setMetric(
+					project.current.id,
+					'bulterReviewEnabled',
+					project.current.api.reviews ? 1 : 0
+				);
 			} else {
-				this.projectMetrics.setMetric('cloudFunctionalityEnabled', 0);
-				this.projectMetrics.setMetric('bulterReviewEnabled', 0);
+				this.projectMetrics.setMetric(project.current.id, 'cloudFunctionalityEnabled', 0);
+				this.projectMetrics.setMetric(project.current.id, 'bulterReviewEnabled', 0);
 			}
 		});
 	}

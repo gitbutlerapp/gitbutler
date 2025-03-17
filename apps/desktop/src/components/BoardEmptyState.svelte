@@ -2,7 +2,7 @@
 	import zenSvg from '$lib/assets/dzen-pc.svg?raw';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BranchController } from '$lib/branches/branchController';
-	import { getForge } from '$lib/forge/interface/forge';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
@@ -10,7 +10,7 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { Writable } from 'svelte/store';
 
-	const forge = getForge();
+	const forge = getContext(DefaultForgeFactory);
 	const baseBranch = getContextStore(BaseBranch);
 	const branchController = getContext(BranchController);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
@@ -86,7 +86,7 @@
 						{#each ($baseBranch?.recentCommits || []).slice(0, 4) as commit}
 							<a
 								class="empty-board__suggestions__link"
-								href={$forge?.commitUrl(commit.id)}
+								href={forge.current.commitUrl(commit.id)}
 								target="_blank"
 								rel="noreferrer"
 								title="Open in browser"

@@ -1,5 +1,4 @@
 import { GitLabBranch } from './gitlabBranch';
-import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Forge, ForgeName } from '../interface/forge';
 import type { DetailedPullRequest, ForgeArguments } from '../interface/types';
 
@@ -19,13 +18,11 @@ export const GITLAB_SUB_DOMAIN = 'gitlab'; // For self hosted instance of Gitlab
 export class GitLab implements Forge {
 	readonly name: ForgeName = 'gitlab';
 	private baseUrl: string;
-	private repo: RepoInfo;
 	private baseBranch: string;
 	private forkStr?: string;
 
 	constructor({ repo, baseBranch, forkStr }: ForgeArguments) {
 		this.baseUrl = `https://${repo.domain}/${repo.owner}/${repo.name}`;
-		this.repo = repo;
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;
 	}
@@ -38,19 +35,19 @@ export class GitLab implements Forge {
 		return `${this.baseUrl}/-/commit/${id}`;
 	}
 
-	listService() {
+	get listService() {
 		return undefined;
 	}
 
-	issueService() {
+	get issueService() {
 		return undefined;
 	}
 
-	prService() {
+	get prService() {
 		return undefined;
 	}
 
-	repoService() {
+	get repoService() {
 		return undefined;
 	}
 

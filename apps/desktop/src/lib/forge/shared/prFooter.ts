@@ -3,10 +3,12 @@ import { InterestStore } from '@gitbutler/shared/interest/interestStore';
 import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 import { POLLING_REGULAR } from '@gitbutler/shared/polling';
 import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
-import { get, type Readable } from 'svelte/store';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
+import type { Forge } from '$lib/forge/interface/forge';
 import type { ForgePrService } from '../interface/forgePrService';
 import type { Branch } from '@gitbutler/shared/branches/types';
 import type { PatchReview } from '@gitbutler/shared/patches/types';
+import type { Reactive } from '@gitbutler/shared/storeUtils';
 import type { UserSimple } from '@gitbutler/shared/users/types';
 
 export const STACKING_FOOTER_BOUNDARY_TOP = '<!-- GitButler Footer Boundary Top -->';
@@ -24,7 +26,7 @@ export class BrToPrService {
 		private readonly webRoutes: WebRoutesService,
 		private readonly projectService: ProjectService,
 		private readonly latestBranchLookupService: LatestBranchLookupService,
-		private readonly prService: Readable<ForgePrService | undefined>
+		private readonly forge: Reactive<Forge>
 	) {}
 
 	private readonly butRequestUpdateInterests = new InterestStore<{
@@ -41,7 +43,7 @@ export class BrToPrService {
 		return this.butRequestUpdateInterests
 			.findOrCreateSubscribable({ prNumber, branchId, repositoryId }, async () => {
 				try {
-					const prService = get(this.prService);
+					const prService = this.forge.current.prService;
 					if (!prService) return;
 
 					const project = await this.projectService.getProject(repositoryId);
@@ -61,7 +63,7 @@ export class BrToPrService {
 					});
 
 					// Then we can do a more accurate comparison of the latest body
-					const pr = await prService.get(prNumber);
+					const pr = await prService.fetch(prNumber);
 					const prBody = unixifyNewlines(pr.body || '\n');
 
 					const newBody = unixifyNewlines(
@@ -184,8 +186,8 @@ function upsertDescription(
  */
 export async function updatePrDescriptionTables(prService: ForgePrService, prNumbers: number[]) {
 	if (prService && prNumbers.length > 1) {
-		const prs = await Promise.all(prNumbers.map(async (id) => await prService.get(id)));
-		const updates = prs.map((pr) => ({
+		const prs = await Promise.all(prNumbers.map(async (id) => await prService.fetch(id)));
+		const updates = prs.filter(isDefined).map((pr) => ({
 			prNumber: pr.number,
 			description: updateBody(pr.body, pr.number, prNumbers)
 		}));

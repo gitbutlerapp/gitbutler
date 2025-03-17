@@ -2,8 +2,7 @@ import { type ForgePrMonitor } from '../interface/forgePrMonitor';
 import { type DetailedPullRequest } from '$lib/forge/interface/types';
 import { sleep } from '$lib/utils/sleep';
 import { derived, writable } from 'svelte/store';
-import type { RepoInfo } from '$lib/url/gitUrl';
-import type { GitHubPrService } from './githubPrService';
+import type { ForgePrService } from '../interface/forgePrService';
 
 export const PR_SERVICE_INTERVAL = 120 * 60 * 1000;
 const MAX_POLL_ATTEMPTS = 6;
@@ -18,17 +17,14 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 
 	readonly loading = writable(false);
 	readonly error = writable<any>();
-	readonly mergedIncorrectly = writable<boolean>(false);
 
 	readonly mergeableState = derived(this.pr, (pr) => pr?.mergeableState);
 
 	private intervalId: any;
 
 	constructor(
-		private prService: GitHubPrService,
-		private repo: RepoInfo,
-		private prNumber: number,
-		private baseBranch: string
+		private prService: ForgePrService,
+		private prNumber: number
 	) {}
 
 	private start() {
@@ -67,19 +63,23 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 	 * to be known.
 	 */
 	private async loadPrWithRetries(prNumber: number): Promise<void> {
-		const request = async () => await this.prService.get(prNumber);
+		const request = async () => {
+			return await this.prService.fetch(prNumber);
+		};
 		let lastError: any;
 		let attempt = 0;
 		while (attempt++ < MAX_POLL_ATTEMPTS) {
 			try {
 				const pr = await request();
 				this.pr.set(pr);
-				this.updateFlags(pr);
-
-				// Stop polling polling if merged or mergeable state known.
+				if (!pr) {
+					continue;
+				}
 				if (pr.mergeableState !== 'unknown' || pr.merged) {
 					return;
 				}
+
+				// Stop polling polling if merged or mergeable state known.
 			} catch (err: any) {
 				if (err.status !== 422) throw err;
 				lastError = err;
@@ -91,11 +91,5 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 		}
 		// The end of the function is reached if the pull request has an
 		// unknown mergeable state after retries.
-	}
-
-	updateFlags(pr: DetailedPullRequest) {
-		this.mergedIncorrectly.set(
-			pr.merged && (pr.baseRepo?.hash !== this.repo.hash || pr.baseBranch !== this.baseBranch)
-		);
 	}
 }

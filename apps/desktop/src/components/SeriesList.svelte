@@ -19,33 +19,33 @@
 	import { isError } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
+		projectId: string;
 		stack: BranchStack;
-		lastPush: Date | undefined;
 	}
 
-	const { stack: branch, lastPush }: Props = $props();
+	const { projectId, stack }: Props = $props();
 
 	const branchController = getContext(BranchController);
 
 	// Must contain the errored series in order to render them in the list in the correct spot
 	const nonArchivedSeries = $derived(
-		branch.series.filter((s) => {
+		stack.series.filter((s) => {
 			if (isError(s)) return s;
 			return !s.archived;
 		})
 	);
 
 	// All non-errored non-archived series for consumption elsewhere
-	const nonArchivedValidSeries = $derived(branch.validSeries.filter((s) => !s.archived));
+	const nonArchivedValidSeries = $derived(stack.validSeries.filter((s) => !s.archived));
 
 	const stackingReorderDropzoneManagerFactory = getContext(StackingReorderDropzoneManagerFactory);
 	const stackingReorderDropzoneManager = $derived(
-		stackingReorderDropzoneManagerFactory.build(branch)
+		stackingReorderDropzoneManagerFactory.build(stack)
 	);
 
 	function accepts(data: unknown) {
 		if (!(data instanceof CommitDropData)) return false;
-		if (data.branchId !== branch.id) return false;
+		if (data.branchId !== stack.id) return false;
 
 		return true;
 	}
@@ -72,7 +72,7 @@
 
 	{#if !isError(currentSeries)}
 		<CurrentSeries {currentSeries}>
-			<SeriesHeader branch={currentSeries} {isTopBranch} {lastPush} />
+			<SeriesHeader {projectId} branch={currentSeries} {isTopBranch} />
 
 			{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
 				<div>
@@ -92,7 +92,7 @@
 				<CommitList
 					{currentSeries}
 					isUnapplied={false}
-					isBottom={idx === branch.series.length - 1}
+					isBottom={idx === stack.series.length - 1}
 					{stackingReorderDropzoneManager}
 				/>
 			{/if}

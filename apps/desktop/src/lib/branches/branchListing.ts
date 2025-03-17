@@ -131,11 +131,11 @@ export class CombinedBranchListingService {
 	// Contains entries grouped by date for the unsearched sidebar entries
 	groupedSidebarEntries: Readable<GroupedSidebarEntries>;
 	// Whether or not to show the pull request tab in the sidebar
-	pullRequestsListed: Readable<boolean>;
+	pullRequestsListed: boolean;
 
 	constructor(
 		branchListingService: BranchListingService,
-		forgeListingService: Readable<ForgeListingService | undefined>,
+		forgeListingService: ForgeListingService | undefined,
 		projectId: string
 	) {
 		this.selectedOption = persisted<'all' | 'pullRequest' | 'local'>(
@@ -144,28 +144,24 @@ export class CombinedBranchListingService {
 		);
 
 		// Get a readable store of pull requeests
-		this.pullRequests = readable([] as PullRequest[], (set) => {
-			const unsubscribeListingService = forgeListingService.subscribe((forgeListingService) => {
-				if (!forgeListingService) return;
+		this.pullRequests = readable([] as PullRequest[]);
+		this.pullRequestsListed = !!forgeListingService;
 
-				const unsubscribePullRequests = forgeListingService.prs.subscribe((prs) => {
-					set(prs);
-				});
+		// 	(set) => {
+		// 	const unsubscribeListingService = forgeListingService.subscribe((forgeListingService) => {
+		// 		if (!forgeListingService) return;
 
-				return unsubscribePullRequests;
-			});
+		// 		const unsubscribePullRequests = forgeListingService.prs.subscribe((prs) => {
+		// 			set(prs);
+		// 		});
 
-			return unsubscribeListingService;
-		});
+		// 		return unsubscribePullRequests;
+		// 	});
+
+		// 	return unsubscribeListingService;
+		// });
 
 		// Whether or not to show the pull request tab in the sidebar
-		this.pullRequestsListed = derived(
-			forgeListingService,
-			(forgeListingService) => {
-				return !!forgeListingService;
-			},
-			false
-		);
 
 		// Derive the combined sidebar entries
 		this.combinedSidebarEntries = debouncedDerive(
@@ -461,7 +457,9 @@ export type SidebarEntrySubject =
 	  };
 
 export function getEntryUpdatedDate(entry: SidebarEntrySubject) {
-	return entry.type === 'branchListing' ? entry.subject.updatedAt : entry.subject.modifiedAt;
+	return new Date(
+		entry.type === 'branchListing' ? entry.subject.updatedAt : entry.subject.modifiedAt
+	);
 }
 
 export function getEntryName(entry: SidebarEntrySubject) {

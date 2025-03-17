@@ -1,4 +1,3 @@
-import { buildContextStore } from '@gitbutler/shared/context';
 import type { ForgeIssueService } from '$lib/forge/interface/forgeIssueService';
 import type { ForgeBranch } from './forgeBranch';
 import type { ForgeChecksMonitor } from './forgeChecksMonitor';
@@ -6,20 +5,20 @@ import type { ForgeListingService } from './forgeListingService';
 import type { ForgePrService } from './forgePrService';
 import type { ForgeRepoService } from './forgeRepoService';
 
-export type ForgeName = 'github' | 'gitlab' | 'bitbucket' | 'azure';
+export type ForgeName = 'github' | 'gitlab' | 'bitbucket' | 'azure' | 'default';
 
 export interface Forge {
 	readonly name: ForgeName;
 	// Lists PRs for the repo.
-	listService(): ForgeListingService | undefined;
+	get listService(): ForgeListingService | undefined;
 
-	issueService(): ForgeIssueService | undefined;
+	get issueService(): ForgeIssueService | undefined;
 
 	// Detailed information about a specific PR.
-	prService(): ForgePrService | undefined;
+	get prService(): ForgePrService | undefined;
 
 	// Detailed information about the repo.
-	repoService(): ForgeRepoService | undefined;
+	get repoService(): ForgeRepoService | undefined;
 
 	// Results from CI check-runs.
 	checksMonitor(branchName: string): ForgeChecksMonitor | undefined;
@@ -28,7 +27,5 @@ export interface Forge {
 	branch(name: string): ForgeBranch | undefined;
 
 	// Web URL for a commit.
-	commitUrl(id: string): string;
+	commitUrl(id: string): string | undefined;
 }
-
-export const [getForge, createForgeStore] = buildContextStore<Forge | undefined>('githubService');

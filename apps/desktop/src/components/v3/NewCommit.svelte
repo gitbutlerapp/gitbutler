@@ -58,11 +58,7 @@
 			)
 		});
 
-		if (!response.data) {
-			throw response.error;
-		}
-
-		const newId = response.data.newCommit;
+		const newId = response.newCommit;
 
 		if (newId) {
 			uiState.project(projectId).drawerPage.set(undefined);
