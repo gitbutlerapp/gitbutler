@@ -30,6 +30,41 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 
 	const { initiate, select } = endpoint as ApiEndpointQuery<CustomQuery<any>, Definitions>;
 
+	function useQueries(queryArgs: Array<unknown>) {
+		const dispatch = getDispatch();
+		$effect(() => {
+			// dispatch all queries
+			// eslint-disable-next-line @typescript-eslint/promise-function-async
+			const dispatchResults = queryArgs.map((arg) => dispatch(initiate(arg)));
+
+			return () => {
+				dispatchResults.forEach((dispatchResult) => {
+					dispatchResult.unsubscribe();
+				});
+			};
+		});
+
+		// select all query results
+		const results = $derived(
+			queryArgs.map((queryArg) => {
+				const selector = select(queryArg);
+				const result = selector(state());
+
+				function andThen(fn: (arg: any) => any) {
+					if (result.data) {
+						return fn(result.data);
+					} else {
+						return result;
+					}
+				}
+
+				return { ...result, andThen };
+			})
+		);
+
+		return reactive(() => results);
+	}
+
 	function useQuery<T extends (arg: any) => any>(queryArg: unknown, options?: { transform?: T }) {
 		const dispatch = getDispatch();
 		$effect(() => {
@@ -69,7 +104,8 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 
 	return {
 		useQuery,
-		useQueryState
+		useQueryState,
+		useQueries
 	};
 }
 
