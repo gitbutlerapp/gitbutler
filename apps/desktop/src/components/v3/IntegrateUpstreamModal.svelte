@@ -46,6 +46,8 @@
 	// let branchStatuses = $state<StackStatusesWithBranchesV3 | undefined>();
 	const baseBranchService = getContext(BaseBranchService);
 	const base = baseBranchService.base;
+	const { triggerMutation: resolveUpstreamIntegration } =
+		upstreamIntegrationService.resolveUpstreamIntegration();
 
 	let modal = $state<Modal>();
 	let integratingUpstream = $state<OperationState>('inert');
@@ -61,6 +63,10 @@
 		if (!response.current.isSuccess) return undefined;
 		return response.current.data;
 	});
+
+	const { triggerMutation: integrateUpstream } = $derived(
+		upstreamIntegrationService.integrateUpstream(projectId, stacks ?? [])
+	);
 
 	// Will re-fetch upstream statuses if the target commit oid changes
 	const branchStatuses = $derived(
@@ -98,11 +104,16 @@
 	// approach is changed
 	$effect(() => {
 		if ($base?.diverged && baseResolutionApproach) {
-			upstreamIntegrationService
-				.resolveUpstreamIntegration(projectId, baseResolutionApproach)
-				.then((Oid) => {
-					targetCommitOid = Oid;
-				});
+			resolveUpstreamIntegration({
+				projectId,
+				resolutionApproach: { type: baseResolutionApproach }
+			}).then((result) => {
+				if (result.error) {
+					console.error('Failed to resolve upstream integration', result.error);
+					return;
+				}
+				targetCommitOid = result.data;
+			});
 		}
 	});
 
@@ -119,12 +130,12 @@
 			baseResolutionApproach || 'hardReset'
 		);
 
-		await upstreamIntegrationService.integrateUpstream(
+		await integrateUpstream({
 			projectId,
-			Array.from(results.values()),
-			stacks,
-			baseResolution
-		);
+			resolutions: Array.from(results.values()),
+			baseBranchResolution: baseResolution
+		});
+
 		await baseBranchService.refresh();
 		integratingUpstream = 'completed';
 
@@ -133,10 +144,8 @@
 
 	export async function show() {
 		integratingUpstream = 'inert';
-		// branchStatuses = undefined;
 		modal?.show();
 		targetCommitOid = undefined;
-		// branchStatuses = await upstreamIntegrationService.upstreamStatuses();
 	}
 
 	export const imports = {

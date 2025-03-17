@@ -23,6 +23,7 @@
 	const { projectId, stackId, parentSeriesName }: Props = $props();
 
 	const stackService = getContext(StackService);
+	const { result: branchCreation, triggerMutation: createNewBranch } = stackService.newBranch();
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName: string | undefined = $state();
@@ -36,7 +37,12 @@
 			return;
 		}
 
-		await stackService.newBranch(projectId, stackId, slugifiedRefName);
+		await createNewBranch({
+			projectId,
+			stackId,
+			request: { targetPatch: undefined, name: slugifiedRefName }
+		});
+
 		createRefModal?.close();
 	}
 
@@ -77,7 +83,12 @@
 	{/snippet}
 	{#snippet controls(close)}
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" type="submit" disabled={!createRefName}>Add new branch</Button>
+		<Button
+			style="pop"
+			type="submit"
+			disabled={!createRefName}
+			loading={branchCreation.current.isLoading}>Add new branch</Button
+		>
 	{/snippet}
 </Modal>
 

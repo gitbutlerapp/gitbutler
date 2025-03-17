@@ -22,6 +22,8 @@
 	const { stackId, branchName } = $derived(commitKey);
 
 	const [stackService, modeService] = inject(StackService, ModeService);
+	const { result: commitMessageUpdate, triggerMutation: updateCommitMessage } =
+		stackService.updateCommitMessage();
 
 	let conflictResolutionConfirmationModal: ReturnType<typeof Modal> | undefined;
 	let commitMessageModal: ReturnType<typeof Modal> | undefined;
@@ -31,8 +33,12 @@
 	let isUndoable = $derived(commit.state.type !== 'Integrated');
 
 	function submitCommitMessageModal() {
-		stackService.updateCommitMessage(projectId, stackId, commit.id, message);
-
+		updateCommitMessage({
+			projectId,
+			branchId: stackId,
+			commitOid: commit.id,
+			message
+		});
 		commitMessageModal?.close();
 	}
 
@@ -114,7 +120,13 @@
 	{/snippet}
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="neutral" type="submit" grow disabled={!commitMessageValid}>Submit</Button>
+		<Button
+			style="neutral"
+			type="submit"
+			grow
+			disabled={!commitMessageValid}
+			loading={commitMessageUpdate.current.isLoading}>Submit</Button
+		>
 	{/snippet}
 </Modal>
 

@@ -52,6 +52,8 @@
 	const stackService = getContext(StackService);
 	const modeService = maybeGetContext(ModeService);
 
+	const { triggerMutation: uncommit } = stackService.uncommit();
+
 	const commitUrl = undefined;
 	const conflicted = false; // TODO
 	const isAncestorMostConflicted = false; // TODO
@@ -70,7 +72,7 @@
 			console.error('Unable to undo commit');
 			return;
 		}
-		const { error } = await stackService.uncommit(projectId, stackId, commit.id);
+		const { error } = await uncommit({ projectId, branchId: stackId, commitOid: commit.id });
 		if (error) {
 			showError('Failed to uncommit', error);
 			console.error('Failed to uncommit', error);

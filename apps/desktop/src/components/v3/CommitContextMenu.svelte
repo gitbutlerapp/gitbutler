@@ -42,13 +42,20 @@
 	}: Props = $props();
 
 	const stackService = getContext(StackService);
+	const { result: commitInsertion, triggerMutation: insertBlankCommitInBranch } =
+		stackService.insertBlankCommit();
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
 		if (!branchId || !baseBranch) {
 			console.error('Unable to insert commit', { branchId, baseBranch });
 			return;
 		}
-		stackService.insertBlankCommit(projectId, branchId, commitId, location === 'above' ? -1 : 1);
+		insertBlankCommitInBranch({
+			projectId,
+			branchId,
+			commitOid: commitId,
+			offset: location === 'above' ? -1 : 1
+		});
 	}
 
 	const isRemote = $derived(!isCommit(commit));
@@ -119,6 +126,7 @@
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Add empty commit above"
+				disabled={commitInsertion.current.isLoading}
 				onclick={() => {
 					insertBlankCommit(commit.id, 'above');
 					menu?.close();
@@ -126,6 +134,7 @@
 			/>
 			<ContextMenuItem
 				label="Add empty commit below"
+				disabled={commitInsertion.current.isLoading}
 				onclick={() => {
 					insertBlankCommit(commit.id, 'below');
 					menu?.close();
