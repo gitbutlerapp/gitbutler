@@ -1,4 +1,8 @@
-import { buildMutationHooks, buildQueryHooks } from './customHooks.svelte';
+import {
+	buildMutationHooks,
+	buildQueryHooks,
+	type UseMutationHookParams
+} from './customHooks.svelte';
 import { isMutationDefinition, isQueryDefinition } from './helpers';
 import { type Reactive } from '@gitbutler/shared/storeUtils';
 import {
@@ -205,5 +209,5 @@ type CustomMutation<Definition extends MutationDefinition<any, any, string, any>
  */
 type MutationHooks<Definition extends MutationDefinition<any, any, string, any>> = {
 	/** Execute query and return results. */
-	useMutation: (fixedCacheKey?: string) => Prettify<CustomMutation<Definition>>;
+	useMutation: (params?: UseMutationHookParams<Definition>) => Prettify<CustomMutation<Definition>>;
 };

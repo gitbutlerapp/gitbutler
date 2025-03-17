@@ -7,6 +7,7 @@ import {
 	type EndpointDefinitions,
 	type MutationActionCreatorResult,
 	type MutationDefinition,
+	type ResultTypeFrom,
 	type RootState
 } from '@reduxjs/toolkit/query';
 import type { CustomQuery } from './butlerModule';
@@ -72,6 +73,11 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 	};
 }
 
+export type UseMutationHookParams<Definition extends MutationDefinition<any, any, string, any>> = {
+	fixedCacheKey?: string;
+	sideEffect?: (data: ResultTypeFrom<Definition>) => void;
+};
+
 /**
  * Returns implementations for custom endpoint methods defined in `ButlerModule`.
  */
@@ -101,7 +107,10 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 	 * Replicate the behavior of `useMutation` from RTK Query.
 	 * @see: https://github.com/reduxjs/redux-toolkit/blob/637b0cad2b227079ccd0c5a3073c09ace6d8759e/packages/toolkit/src/query/react/buildHooks.ts#L867-L935
 	 */
-	function useMutation(fixedCacheKey?: string) {
+	function useMutation(
+		params?: UseMutationHookParams<MutationDefinition<any, any, any, any, any>>
+	) {
+		const { fixedCacheKey, sideEffect } = params || {};
 		const dispatch = getDispatch();
 
 		let promise =
@@ -110,6 +119,9 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 		async function triggerMutation(queryArg: unknown) {
 			const dispatchResult = dispatch(initiate(queryArg, { fixedCacheKey }));
 			promise = dispatchResult;
+			promise.then((result) => {
+				if (result.data) sideEffect?.(result.data);
+			});
 			return await dispatchResult;
 		}
 
