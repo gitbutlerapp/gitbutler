@@ -268,6 +268,7 @@ fn main() {
                     settings::update_telemetry,
                     settings::update_feature_flags,
                     workspace::stacks,
+                    workspace::stack_info,
                     workspace::stack_branches,
                     workspace::stack_branch_local_and_remote_commits,
                     workspace::stack_branch_upstream_only_commits,
