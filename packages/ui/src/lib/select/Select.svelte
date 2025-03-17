@@ -293,7 +293,6 @@
 		flex-direction: column;
 		gap: 6px;
 		height: fit-content;
-		width: fit-content;
 	}
 
 	.select__label {

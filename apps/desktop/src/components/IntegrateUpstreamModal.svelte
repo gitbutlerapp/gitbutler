@@ -211,22 +211,24 @@
 				</h3>
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight={pxToRem(268)}>
-						{#each $base.upstreamCommits as commit}
-							<SimpleCommitRow
-								title={commit.descriptionTitle ?? ''}
-								sha={commit.id}
-								date={commit.createdAt}
-								author={commit.author.name}
-								onUrlOpen={() => {
-									if ($forge) {
-										openExternalUrl($forge.commitUrl(commit.id));
-									}
-								}}
-								onCopy={() => {
-									copyToClipboard(commit.id);
-								}}
-							/>
-						{/each}
+						<div>
+							{#each $base.upstreamCommits as commit}
+								<SimpleCommitRow
+									title={commit.descriptionTitle ?? ''}
+									sha={commit.id}
+									date={commit.createdAt}
+									author={commit.author.name}
+									onUrlOpen={() => {
+										if ($forge) {
+											openExternalUrl($forge.commitUrl(commit.id));
+										}
+									}}
+									onCopy={() => {
+										copyToClipboard(commit.id);
+									}}
+								/>
+							{/each}
+						</div>
 					</ScrollableContainer>
 				</div>
 			</div>
@@ -271,9 +273,11 @@
 				<h3 class="text-14 text-semibold">To be updated:</h3>
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight={pxToRem(240)}>
-						{#each statuses as { stack, status }}
-							{@render stackStatus(stack, status)}
-						{/each}
+						<div>
+							{#each statuses as { stack, status }}
+								{@render stackStatus(stack, status)}
+							{/each}
+						</div>
 					</ScrollableContainer>
 				</div>
 			</div>
@@ -303,14 +307,14 @@
 		gap: 14px;
 		border-bottom: 1px solid var(--clr-border-2);
 
-		&:last-child {
-			border-bottom: none;
-		}
-
-		.scroll-wrap {
+		& .scroll-wrap {
 			border-radius: var(--radius-m);
 			border: 1px solid var(--clr-border-2);
 			overflow: hidden;
+		}
+
+		&:nth-last-child(2) {
+			border-bottom: none;
 		}
 	}
 
