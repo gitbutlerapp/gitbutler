@@ -121,6 +121,7 @@
 			<Select
 				value={signingFormat}
 				options={signingFormatOptions}
+				wide
 				label="Signing format"
 				onselect={(value: string) => {
 					signingFormat = value;

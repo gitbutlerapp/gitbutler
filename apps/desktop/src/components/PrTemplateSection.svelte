@@ -59,7 +59,7 @@
 		value={$lastTemplate}
 		options={templates.map((value) => ({ label: value, value }))}
 		placeholder={templates.length > 0 ? 'Choose template' : 'No PR templates found ¯_(ツ)_/¯'}
-		flex="1"
+		wide
 		searchable
 		disabled={templates.length === 0}
 		onselect={setTemplate}

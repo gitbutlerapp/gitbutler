@@ -71,6 +71,7 @@
 			<Select
 				value={selectedBranch.name}
 				options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
+				wide
 				onselect={(value) => {
 					selectedBranch = { name: value };
 				}}
@@ -89,6 +90,7 @@
 				<Select
 					value={selectedRemote.name}
 					options={uniqueRemotes(remoteBranches).map((r) => ({ label: r.name!, value: r.name! }))}
+					wide
 					onselect={(value) => {
 						selectedRemote = { name: value };
 					}}

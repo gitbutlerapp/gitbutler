@@ -285,7 +285,7 @@
 	class:horz
 	class:vert
 	class:show-scrollbar={visible}
-	class:thumb-dragging={isDragging}
+	class:thumb-dragging={isDragging && visible}
 	style:width={vert ? thickness : `100%`}
 	style:height={vert ? `100%` : thickness}
 	style:z-index={zIndex}
