@@ -116,3 +116,11 @@ export type LoadableBranchReviewListing = LoadableData<string[], string>;
 export function toCombineSlug(ownerSlug: string, projectSlug: string) {
 	return `${ownerSlug}/${projectSlug}`;
 }
+
+export function branchReviewListingKey(
+	ownerSlug: string,
+	projectSlug: string,
+	branchStatus: BranchStatus
+) {
+	return `${ownerSlug}/${projectSlug}:${branchStatus}`;
+}
