@@ -708,6 +708,40 @@ impl Stack {
         Ok(())
     }
 
+    /// Migrates all change IDs in stack heads to commit IDs.
+    #[allow(deprecated)]
+    pub fn migrate_change_ids(&mut self, ctx: &CommandContext) -> Result<()> {
+        // If all of the heads are already commit IDs, there is nothing to do
+        if self
+            .heads
+            .iter()
+            .all(|h| matches!(h.head(), CommitOrChangeId::CommitId(_)))
+        {
+            return Ok(());
+        }
+
+        let stack_head = self.head();
+        let stack_ctx = ctx.to_stack_context()?;
+        let merge_base = self.merge_base(&stack_ctx)?;
+
+        for head in self.heads.iter_mut() {
+            #[allow(deprecated)]
+            if let CommitOrChangeId::ChangeId(_) = &head.head {
+                if let Ok(commit) = commit_by_oid_or_change_id(
+                    &head.head.clone(),
+                    ctx.repo(),
+                    stack_head,
+                    merge_base,
+                ) {
+                    head.head = CommitOrChangeId::CommitId(commit.id().to_string());
+                };
+            }
+        }
+
+        let state = branch_state(ctx);
+        state.set_stack(self.clone())
+    }
+
     /// Sets the forge identifier for a given series/branch.
     /// Existing value is overwritten - passing `None` sets the forge identifier to `None`.
     ///
