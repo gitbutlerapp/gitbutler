@@ -9,7 +9,7 @@ import type { Commit, StackBranch, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
 import type { TreeChange } from '$lib/hunks/change';
 import type { HunkHeader } from '$lib/hunks/hunk';
-import type { Stack } from '$lib/stacks/stack';
+import type { Stack, StackInfo } from '$lib/stacks/stack';
 import type { TauriCommandError } from '$lib/state/backendQuery';
 
 type CreateBranchRequest = { name?: string; ownership?: string; order?: number };
@@ -98,6 +98,10 @@ export class StackService {
 				transform: (stacks) => stackSelectors.selectById(stacks, id)
 			}
 		);
+	}
+
+	stackInfo(projectId: string, stackId: string) {
+		return this.api.endpoints.stackInfo.useQuery({ projectId, stackId });
 	}
 
 	newStack() {
@@ -264,7 +268,10 @@ function injectEndpoints(api: ClientState['backendApi'], posthog: PostHogWrapper
 					command: 'create_virtual_branch',
 					params: { projectId, branch }
 				}),
-				invalidatesTags: [ReduxTag.Stacks]
+				invalidatesTags: (result, _error) => [
+					ReduxTag.Stacks,
+					{ type: ReduxTag.StackInfo, id: result?.id }
+				]
 			}),
 			stackBranches: build.query<
 				EntityState<StackBranch, string>,
@@ -278,6 +285,13 @@ function injectEndpoints(api: ClientState['backendApi'], posthog: PostHogWrapper
 				transformResponse(response: StackBranch[]) {
 					return branchAdapter.addMany(branchAdapter.getInitialState(), response);
 				}
+			}),
+			stackInfo: build.query<StackInfo, { projectId: string; stackId: string }>({
+				query: ({ projectId, stackId }) => ({
+					command: 'stack_info',
+					params: { projectId, stackId }
+				}),
+				providesTags: (_result, _error, { stackId }) => [{ type: ReduxTag.StackInfo, id: stackId }]
 			}),
 			localAndRemoteCommits: build.query<
 				EntityState<Commit, string>,
@@ -313,7 +327,11 @@ function injectEndpoints(api: ClientState['backendApi'], posthog: PostHogWrapper
 					command: 'push_stack',
 					params: { projectId, branchId: stackId, withForce }
 				}),
-				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commits],
+				invalidatesTags: (_result, _error, args) => [
+					ReduxTag.StackBranches,
+					ReduxTag.Commits,
+					{ type: ReduxTag.StackInfo, id: args.stackId }
+				],
 				transformResponse(response: BranchPushResult) {
 					posthog.capture('Push Successful');
 					return response;
@@ -333,7 +351,11 @@ function injectEndpoints(api: ClientState['backendApi'], posthog: PostHogWrapper
 					command: 'create_commit_from_worktree_changes',
 					params: { projectId, ...commitData }
 				}),
-				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commits]
+				invalidatesTags: (_result, _error, args) => [
+					ReduxTag.StackBranches,
+					ReduxTag.Commits,
+					{ type: ReduxTag.StackInfo, id: args.stackId }
+				]
 			}),
 			commitChanges: build.query<
 				EntityState<TreeChange, string>,
@@ -369,7 +391,10 @@ function injectEndpoints(api: ClientState['backendApi'], posthog: PostHogWrapper
 					command: 'update_commit_message',
 					params: { projectId, branchId, commitOid, message }
 				}),
-				invalidatesTags: [ReduxTag.StackBranches]
+				invalidatesTags: (_result, _error, args) => [
+					ReduxTag.StackBranches,
+					{ type: ReduxTag.StackInfo, id: args.branchId }
+				]
 			}),
 			newBranch: build.mutation<
 				void,
@@ -379,14 +404,21 @@ function injectEndpoints(api: ClientState['backendApi'], posthog: PostHogWrapper
 					command: 'create_series',
 					params: { projectId, stackId, request: { targetPatch, name } }
 				}),
-				invalidatesTags: [ReduxTag.StackBranches]
+				invalidatesTags: (_result, _error, args) => [
+					ReduxTag.StackBranches,
+					{ type: ReduxTag.StackInfo, id: args.stackId }
+				]
 			}),
 			uncommit: build.mutation<void, { projectId: string; branchId: string; commitOid: string }>({
 				query: ({ projectId, branchId, commitOid }) => ({
 					command: 'undo_commit',
 					params: { projectId, branchId, commitOid }
 				}),
-				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commits]
+				invalidatesTags: (_result, _error, args) => [
+					ReduxTag.StackBranches,
+					ReduxTag.Commits,
+					{ type: ReduxTag.StackInfo, id: args.branchId }
+				]
 			}),
 			insertBlankCommit: build.mutation<
 				void,
@@ -396,7 +428,11 @@ function injectEndpoints(api: ClientState['backendApi'], posthog: PostHogWrapper
 					command: 'insert_blank_commit',
 					params: { projectId, branchId, commitOid, offset }
 				}),
-				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Commits]
+				invalidatesTags: (_result, _error, args) => [
+					ReduxTag.StackBranches,
+					ReduxTag.Commits,
+					{ type: ReduxTag.StackInfo, id: args.branchId }
+				]
 			})
 		})
 	});

@@ -137,7 +137,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: `integrate_upstream`,
 					params: { projectId, resolutions, baseBranchResolution }
 				}),
-				invalidatesTags: [ReduxTag.Stacks, ReduxTag.StackBranches]
+				invalidatesTags: [ReduxTag.Stacks, ReduxTag.StackBranches, ReduxTag.StackInfo]
 			}),
 			resolveUpstreamIntegration: build.mutation<
 				string,
