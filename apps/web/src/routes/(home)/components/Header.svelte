@@ -166,6 +166,7 @@
 					href={jsonLinks.social.discord.url}
 					hrefTarget="_blank"
 				/>
+				<HeaderMobileLink label="Jobs" href={jsonLinks.resources.jobs.url} />
 				<section class="navigation-section">
 					{#if $token}
 						<HeaderMobileLink label="My Dashboard" href={'/'} icon="dashboard" />
