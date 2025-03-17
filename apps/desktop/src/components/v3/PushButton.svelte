@@ -46,7 +46,7 @@
 >
 	<div class="push-button__inner">
 		<Button
-			style="neutral"
+			style="pop"
 			wide
 			{loading}
 			disabled={stackInfo?.isConflicted || !stackInfo?.isDirty}
