@@ -224,7 +224,7 @@
 			height: 20px;
 			--line-color: var(--clr-border-2);
 			--line-bounding-box: 12px;
-			--line-horiz-offset: -2px;
+			--line-horiz-offset: 0;
 
 			&::before {
 				content: '';
