@@ -2,8 +2,8 @@ import { branchReviewListingTable } from '$lib/branches/branchReviewListingsSlic
 import { branchTable } from '$lib/branches/branchesSlice';
 import {
 	apiToBranch,
+	branchReviewListingKey,
 	BranchStatus,
-	toCombineSlug,
 	type ApiBranch,
 	type Branch,
 	type LoadableBranch
@@ -46,7 +46,7 @@ export class BranchService {
 			.findOrCreateSubscribable({ ownerSlug, projectSlug, branchStatus }, async () => {
 				this.appDispatch.dispatch(
 					branchReviewListingTable.addOne({
-						id: toCombineSlug(ownerSlug, projectSlug),
+						id: branchReviewListingKey(ownerSlug, projectSlug, branchStatus),
 						status: 'loading'
 					})
 				);
@@ -78,7 +78,7 @@ export class BranchService {
 					this.appDispatch.dispatch(branchTable.upsertMany(branches));
 					this.appDispatch.dispatch(
 						branchReviewListingTable.upsertOne({
-							id: toCombineSlug(ownerSlug, projectSlug),
+							id: branchReviewListingKey(ownerSlug, projectSlug, branchStatus),
 							status: 'found',
 							value: apiBranches.map((branch) => branch.uuid)
 						})
@@ -86,7 +86,7 @@ export class BranchService {
 				} catch (error: unknown) {
 					this.appDispatch.dispatch(
 						branchReviewListingTable.upsertOne(
-							errorToLoadable(error, toCombineSlug(ownerSlug, projectSlug))
+							errorToLoadable(error, branchReviewListingKey(ownerSlug, projectSlug, branchStatus))
 						)
 					);
 				}
