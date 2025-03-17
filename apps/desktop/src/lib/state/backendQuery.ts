@@ -29,7 +29,7 @@ type ApiArgs = {
 	params: Record<string, unknown>;
 };
 
-type TauriCommandError = { message: string; code?: string };
+export type TauriCommandError = { message: string; code?: string };
 
 /**
  * Typeguard for accessing injected Tauri dependency safely.
