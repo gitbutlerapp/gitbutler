@@ -1,5 +1,6 @@
 <script lang="ts">
 	import InviteLink from '$lib/components/InviteLink.svelte';
+	import OrganizationEditModal from '$lib/components/OrganizationEditModal.svelte';
 	import ProjectsSection from '$lib/components/ProjectsSection.svelte';
 	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
 	import { OwnerService } from '$lib/owner/ownerService';
@@ -50,8 +51,9 @@
 	// Modals for confirmation
 	let confirmRemoveUserModal = $state<Modal>();
 	let confirmMakeOwnerModal = $state<Modal>();
-	let userToRemove = $state<string | null>(null);
-	let userToPromote = $state<string | null>(null);
+	let organizationEditModal = $state<ReturnType<typeof OrganizationEditModal>>();
+	let userToRemove = $state<string | undefined>(undefined);
+	let userToPromote = $state<string | undefined>(undefined);
 	let isRemoving = $state(false);
 	let isPromoting = $state(false);
 
@@ -70,6 +72,26 @@
 		} catch (error) {
 			console.error('Failed to refresh organization data:', error);
 		}
+	}
+
+	// Function to check if current user is an admin/owner of this organization
+	function currentUserIsAdmin(): boolean {
+		if (!currentUserLogin || !localOrganization.members) return false;
+
+		const currentMember = localOrganization.members.find(
+			(member) => member.login === currentUserLogin
+		);
+		return currentMember ? isOwner(currentMember) : false;
+	}
+
+	// Function to handle organization update from edit modal
+	async function handleOrganizationUpdate(newSlug: string) {
+		// Refresh the organization data
+		if (newSlug === ownerSlug) {
+			// If slug didn't change, just refresh the data
+			await refreshOrganizationData();
+		}
+		// If slug changed, the page will be redirected by the edit modal
 	}
 
 	// Function to handle removal of a user
@@ -93,7 +115,7 @@
 			console.error('Failed to remove user:', error);
 		} finally {
 			isRemoving = false;
-			userToRemove = null;
+			userToRemove = undefined;
 			confirmRemoveUserModal?.close();
 		}
 	}
@@ -122,7 +144,7 @@
 			console.error('Failed to make user an owner:', error);
 		} finally {
 			isPromoting = false;
-			userToPromote = null;
+			userToPromote = undefined;
 			confirmMakeOwnerModal?.close();
 		}
 	}
@@ -172,6 +194,14 @@
 					<p class="description">{localOrganization.description}</p>
 				{/if}
 			</div>
+
+			{#if currentUserIsAdmin()}
+				<div class="org-actions">
+					<Button style="pop" onclick={() => organizationEditModal?.show()}>
+						Edit Organization
+					</Button>
+				</div>
+			{/if}
 		</div>
 	</div>
 
@@ -271,6 +301,13 @@
 	{/snippet}
 </Modal>
 
+<!-- Organization Edit Modal -->
+<OrganizationEditModal
+	bind:this={organizationEditModal}
+	organizationSlug={ownerSlug}
+	onUpdate={handleOrganizationUpdate}
+/>
+
 <style>
 	.org-landing-page {
 		color: #333;
@@ -285,6 +322,11 @@
 		align-items: center;
 		gap: 1.5rem;
 		margin-bottom: 1.5rem;
+		width: 100%;
+	}
+
+	.org-actions {
+		margin-left: auto;
 	}
 
 	.avatar {
@@ -355,7 +397,6 @@
 		gap: 0.75rem;
 		color: inherit;
 		text-decoration: none;
-		flex: 1;
 	}
 
 	.member-avatar {
@@ -378,34 +419,6 @@
 	.member-role {
 		font-size: 0.8rem;
 		color: #718096;
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.badge {
-		display: inline-block;
-		padding: 0.15rem 0.5rem;
-		border-radius: 10px;
-		font-size: 0.7rem;
-		font-weight: bold;
-		text-transform: uppercase;
-	}
-
-	.owner-badge {
-		background-color: #ebf8ff;
-		color: #3182ce;
-	}
-
-	.member-actions {
-		display: flex;
-		gap: 0.5rem;
-	}
-
-	.modal-note {
-		font-size: 0.85rem;
-		color: #718096;
-		margin-top: 0.5rem;
 	}
 
 	@media (max-width: 768px) {
@@ -425,17 +438,6 @@
 
 		.org-title {
 			align-items: center;
-		}
-
-		.member-card {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: 0.75rem;
-		}
-
-		.member-actions {
-			width: 100%;
-			justify-content: flex-end;
 		}
 	}
 </style>
