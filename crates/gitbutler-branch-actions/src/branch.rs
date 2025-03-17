@@ -270,6 +270,7 @@ fn branch_group_to_branch(
         stack_branches: stack
             .branches()
             .iter()
+            .filter(|b| !b.archived)
             .rev()
             .map(|b| b.name())
             .cloned()
@@ -277,6 +278,7 @@ fn branch_group_to_branch(
         pull_requests: stack
             .branches()
             .iter()
+            .filter(|b| !b.archived)
             .filter_map(|b| b.pr_number.map(|pr| (b.name().to_owned(), pr)))
             .collect(),
     });
