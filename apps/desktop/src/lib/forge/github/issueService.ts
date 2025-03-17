@@ -1,29 +1,34 @@
+import { ghQuery } from './ghQuery';
+import { ReduxTag } from '$lib/state/tags';
 import type { ForgeIssueService } from '$lib/forge/interface/forgeIssueService';
-import type { RepoInfo } from '$lib/url/gitUrl';
-import type { Octokit } from '@octokit/rest';
+import type { GitHubApi } from '$lib/state/clientState.svelte';
+import type { CreateIssueResult } from './types';
 
 export class GitHubIssueService implements ForgeIssueService {
-	constructor(
-		private octokit: Octokit,
-		private repository: RepoInfo
-	) {}
+	private api: ReturnType<typeof injectEndpoints>;
 
-	async create(title: string, body: string, labels: string[]): Promise<void> {
-		await this.octokit.rest.issues.create({
-			repo: this.repository.name,
-			owner: this.repository.owner,
-			title,
-			body,
-			labels
-		});
+	constructor(gitHubApi: GitHubApi) {
+		this.api = injectEndpoints(gitHubApi);
 	}
 
-	async listLabels(): Promise<string[]> {
-		const result = await this.octokit.paginate(this.octokit.rest.issues.listLabelsForRepo, {
-			repo: this.repository.name,
-			owner: this.repository.owner
-		});
-
-		return result.map((label) => label.name);
+	async create(title: string, body: string, labels: string[]) {
+		return await this.api.endpoints.create.useMutation().triggerMutation({ title, body, labels });
 	}
+}
+
+function injectEndpoints(api: GitHubApi) {
+	return api.injectEndpoints({
+		endpoints: (build) => ({
+			create: build.mutation<CreateIssueResult, { title: string; body: string; labels: string[] }>({
+				queryFn: async ({ title, body, labels }, api) =>
+					await ghQuery({
+						domain: 'issues',
+						action: 'create',
+						parameters: { title, body, labels },
+						extra: api.extra
+					}),
+				invalidatesTags: [ReduxTag.PullRequests]
+			})
+		})
+	});
 }

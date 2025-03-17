@@ -4,16 +4,18 @@
 	import PageLoadFailed from '$components/PageLoadFailed.svelte';
 	import { BranchData } from '$lib/branches/branch';
 	import { GitBranchService } from '$lib/branches/gitBranch';
-	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
-	import { getContext } from '@gitbutler/shared/context';
-	import { page } from '$app/stores';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { inject } from '@gitbutler/shared/context';
+	import { page } from '$app/state';
 
-	const gitBranchService = getContext(GitBranchService);
+	const projectId = $derived(page.params.projectId!);
 
-	const forgeListingService = getForgeListingService();
-	const name = $derived($page.params.name);
-	const prs = $derived($forgeListingService?.prs);
-	const pr = $derived($prs?.find((pr) => pr.sourceBranch === name));
+	const [gitBranchService, forge] = inject(GitBranchService, DefaultForgeFactory);
+
+	const name = $derived(page.params.name!);
+	const forgeListingService = $derived(forge.current.listService);
+	const prResult = $derived(forgeListingService?.getByBranch(projectId, name));
+	const pr = $derived(prResult?.current.data);
 
 	let localBranch = $state<BranchData>();
 	let remoteBranches = $state<BranchData[]>([]);

@@ -1,13 +1,12 @@
 import { GitHubBranch } from './githubBranch';
-import { GitHubChecksMonitor } from './githubChecksMonitor';
-import { GitHubListingService } from './githubListingService';
-import { GitHubPrService } from './githubPrService';
-import { GitHubRepoService } from './githubRepoService';
+import { GitHubChecksMonitor } from './githubChecksMonitor.svelte';
+import { GitHubListingService } from './githubListingService.svelte';
+import { GitHubPrService } from './githubPrService.svelte';
+import { GitHubRepoService } from './githubRepoService.svelte';
 import { GitHubIssueService } from '$lib/forge/github/issueService';
-import { Octokit } from '@octokit/rest';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
-import type { RepoInfo } from '$lib/url/gitUrl';
+import type { GitHubApi } from '$lib/state/clientState.svelte';
 import type { Forge, ForgeName } from '../interface/forge';
 import type { ForgeArguments } from '../interface/types';
 
@@ -16,74 +15,46 @@ export const GITHUB_DOMAIN = 'github.com';
 export class GitHub implements Forge {
 	readonly name: ForgeName = 'github';
 	private baseUrl: string;
-	private repo: RepoInfo;
-	private baseBranch: string;
-	private forkStr?: string;
-	private octokit?: Octokit;
-	private projectMetrics?: ProjectMetrics;
-	private posthog?: PostHogWrapper;
 
-	constructor({
-		repo,
-		baseBranch,
-		forkStr,
-		octokit,
-		projectMetrics,
-		posthog
-	}: ForgeArguments & {
-		posthog?: PostHogWrapper;
-		octokit?: Octokit;
-		projectMetrics?: ProjectMetrics;
-	}) {
-		this.baseUrl = `https://${GITHUB_DOMAIN}/${repo.owner}/${repo.name}`;
-		this.repo = repo;
-		this.baseBranch = baseBranch;
-		this.forkStr = forkStr;
-		this.octokit = octokit;
-		this.projectMetrics = projectMetrics;
-		this.posthog = posthog;
+	constructor(
+		private params: ForgeArguments & {
+			posthog?: PostHogWrapper;
+			projectMetrics?: ProjectMetrics;
+			gitHubApi: GitHubApi;
+		}
+	) {
+		const { owner, name } = params.repo;
+		this.baseUrl = `https://${GITHUB_DOMAIN}/${owner}/${name}`;
 	}
 
-	listService() {
-		if (!this.octokit) {
-			return;
-		}
-		return new GitHubListingService(this.octokit, this.repo, this.projectMetrics);
+	get listService() {
+		const { gitHubApi, projectMetrics } = this.params;
+		return new GitHubListingService(gitHubApi, projectMetrics);
 	}
 
-	prService() {
-		if (!this.octokit) {
-			return;
-		}
-		return new GitHubPrService(this.octokit, this.repo, this.baseBranch, this.posthog);
+	get prService() {
+		const { gitHubApi, posthog } = this.params;
+		return new GitHubPrService(gitHubApi, posthog);
 	}
 
-	repoService() {
-		if (!this.octokit) {
-			return;
-		}
-		return new GitHubRepoService(this.octokit, this.repo);
+	get repoService() {
+		return new GitHubRepoService(this.params.gitHubApi);
 	}
 
-	issueService() {
-		if (!this.octokit) {
-			return;
-		}
-		return new GitHubIssueService(this.octokit, this.repo);
+	get issueService() {
+		return new GitHubIssueService(this.params.gitHubApi);
 	}
 
 	checksMonitor(sourceBranch: string) {
-		if (!this.octokit) {
-			return;
-		}
-		return new GitHubChecksMonitor(this.octokit, this.repo, sourceBranch);
+		return new GitHubChecksMonitor(this.params.gitHubApi, sourceBranch);
 	}
 
 	branch(name: string) {
-		if (!this.baseBranch) {
+		const { baseBranch, forkStr } = this.params;
+		if (!baseBranch) {
 			return;
 		}
-		return new GitHubBranch(name, this.baseBranch, this.baseUrl, this.forkStr);
+		return new GitHubBranch(name, baseBranch, this.baseUrl, forkStr);
 	}
 
 	commitUrl(id: string): string {

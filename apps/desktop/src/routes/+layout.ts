@@ -8,8 +8,8 @@ import { loadAppSettings } from '$lib/config/appSettings';
 import { SettingsService } from '$lib/config/appSettingsV2';
 import { GitConfigService } from '$lib/config/gitConfigService';
 import { FileService } from '$lib/files/fileService';
-import { GitHubAuthenticationService } from '$lib/forge/github/githubUserService';
 import { HooksService } from '$lib/hooks/hooksService';
+import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { ProjectsService } from '$lib/project/projectsService';
 import { PromptService } from '$lib/prompt/promptService';
 import { RemotesService } from '$lib/remotes/remotesService';
@@ -65,7 +65,7 @@ export const load: LayoutLoad = async () => {
 	const fileService = new FileService(tauri);
 	const hooksService = new HooksService(tauri);
 	const settingsService = new SettingsService(tauri);
-	const githubAuthenticationService = new GitHubAuthenticationService(tauri);
+	const projectMetrics = new ProjectMetrics();
 
 	return {
 		commandService,
@@ -88,6 +88,6 @@ export const load: LayoutLoad = async () => {
 		fileService,
 		hooksService,
 		settingsService,
-		githubAuthenticationService
+		projectMetrics
 	};
 };

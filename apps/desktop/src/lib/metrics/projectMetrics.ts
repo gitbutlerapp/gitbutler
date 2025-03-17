@@ -10,7 +10,7 @@ type ProjectMetric = {
 	maxValue: number;
 };
 
-const REPORT_PREFIX = 'lastReport';
+const REPORT_KEY = 'metricsReport';
 const STORAGE_EXPIRY_MINUTES = 24 * 60;
 
 /**
@@ -19,29 +19,36 @@ const STORAGE_EXPIRY_MINUTES = 24 * 60;
  * component.
  */
 export class ProjectMetrics {
-	private report: MetricsReport = {};
-	private reportKey: string;
+	private reports: Record<string, MetricsReport> = {};
 
-	constructor(readonly projectId: string) {
-		this.reportKey = `${REPORT_PREFIX}-${this.projectId}`;
+	project(id: string) {
+		let project = this.reports[id];
+		if (project) return project;
+		project = {};
+		this.reports[id] = project;
+		return project;
 	}
 
-	setMetric(key: string, value: number) {
+	get reportKey() {
+		return `${REPORT_KEY}`;
+	}
+
+	setMetric(projectId: string, key: string, value: number) {
 		// Guard against upstream bugs feeding bad values.
 		if (typeof value !== 'number' || !Number.isFinite(value) || Number.isNaN(value)) {
 			console.warn(`Ignoring ${key} metric, bad value: ${value}`);
 			return;
 		}
-		const oldEntry = this.report[key];
+		const oldEntry = this.project(projectId)[key];
 		if (oldEntry) {
 			const { maxValue, minValue } = oldEntry;
-			this.report[key] = {
+			this.project(projectId)[key] = {
 				value,
 				maxValue: Math.max(value, maxValue),
 				minValue: Math.min(value, minValue)
 			};
 		} else {
-			this.report[key] = {
+			this.project(projectId)[key] = {
 				value,
 				maxValue: value,
 				minValue: value
@@ -50,23 +57,26 @@ export class ProjectMetrics {
 	}
 
 	saveToLocalStorage() {
-		setEphemeralStorageItem(this.reportKey, this.report, STORAGE_EXPIRY_MINUTES);
+		setEphemeralStorageItem(this.reportKey, this.reports, STORAGE_EXPIRY_MINUTES);
 	}
 
 	loadFromLocalStorage() {
-		const report = getEphemeralStorageItem(this.reportKey) as MetricsReport | undefined;
-		if (report) {
-			this.report = report;
+		const reports = getEphemeralStorageItem(this.reportKey) as
+			| Record<string, MetricsReport>
+			| undefined;
+		if (reports) {
+			this.reports = reports;
 		}
 	}
 
-	getReport(): MetricsReport {
+	getReport(projectId: string): MetricsReport {
 		// Return a copy since we keep mutating the metrics object,
 		// and a report is specific to a point in time.
-		return structuredClone(this.report);
+		console.log(this.reports);
+		return structuredClone(this.project(projectId));
 	}
 
-	resetMetric(key: string) {
-		delete this.report[key];
+	resetMetric(projectId: string, key: string) {
+		delete this.project(projectId)[key];
 	}
 }

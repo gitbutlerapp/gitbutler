@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { BranchController } from '$lib/branches/branchController';
 	import { BranchListingService } from '$lib/branches/branchListing';
-	import { getForge } from '$lib/forge/interface/forge';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
 	import { Project } from '$lib/project/project';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -27,13 +27,16 @@
 	const branch = $derived(remoteBranch || localBranch!);
 	const upstream = $derived(remoteBranch?.givenName);
 
-	const branchController = getContext(BranchController);
-	const branchListingService = getContext(BranchListingService);
-	const project = getContext(Project);
-	const forge = getForge();
-	const modeSerivce = getContext(ModeService);
+	const [branchController, branchListingService, project, forge, modeSerivce] = inject(
+		BranchController,
+		BranchListingService,
+		Project,
+		DefaultForgeFactory,
+		ModeService
+	);
+
 	const mode = modeSerivce.mode;
-	const forgeBranch = $derived(upstream ? $forge?.branch(upstream) : undefined);
+	const forgeBranch = $derived(upstream ? forge.current.branch(upstream) : undefined);
 
 	const listingDetails = $derived(branchListingService.getBranchListingDetails(branch.givenName));
 	const stackBranchNames = $derived.by(() => {

@@ -144,11 +144,12 @@ Path: ${e.path}`);
 			const validUnarchivedSeriesLengths = branches.map(
 				(b) => b.validSeries.filter((series) => !series.archived).length
 			);
-			this.projectMetrics.setMetric('hunk_count', hunks.length);
-			this.projectMetrics.setMetric('locked_hunk_count', lockedHunks.length);
-			this.projectMetrics.setMetric('file_count', files.length);
-			this.projectMetrics.setMetric('virtual_branch_count', branches.length);
+			this.projectMetrics.setMetric(this.projectId, 'hunk_count', hunks.length);
+			this.projectMetrics.setMetric(this.projectId, 'locked_hunk_count', lockedHunks.length);
+			this.projectMetrics.setMetric(this.projectId, 'file_count', files.length);
+			this.projectMetrics.setMetric(this.projectId, 'virtual_branch_count', branches.length);
 			this.projectMetrics.setMetric(
+				this.projectId,
 				'max_stack_count',
 				branches.length > 0 ? Math.max(...validUnarchivedSeriesLengths) : 0
 			);

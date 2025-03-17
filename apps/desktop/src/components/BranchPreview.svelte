@@ -6,7 +6,7 @@
 	import Resizer from '$components/Resizer.svelte';
 	import { BranchData } from '$lib/branches/branch';
 	import { transformAnyCommit } from '$lib/commits/transformers';
-	import { getForge } from '$lib/forge/interface/forge';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
@@ -24,7 +24,7 @@
 
 	const { localBranch = undefined, remoteBranch = undefined, pr }: Props = $props();
 
-	const forge = getForge();
+	const forge = getContext(DefaultForgeFactory);
 
 	const fileIdSelection = new FileIdSelection();
 	setContext(FileIdSelection, fileIdSelection);
@@ -33,7 +33,7 @@
 	const commitId = $derived($selectedFile?.commitId);
 	const selected = $derived($selectedFile?.file);
 
-	const width = persistWithExpiration(30, 'branchPreviewLaneWidth', 7 * 1440);
+	const width = persistWithExpiration<number>(30, 'branchPreviewLaneWidth', 7 * 1440);
 	const lineManagerFactory = getContext(LineManagerFactory);
 
 	const remoteCommitShas = $derived(
@@ -92,7 +92,7 @@
 									isUnapplied
 									last={index === remoteCommits.length - 1}
 									{commit}
-									commitUrl={$forge?.commitUrl(commit.id)}
+									commitUrl={forge.current.commitUrl(commit.id)}
 									type="Remote"
 									disableCommitActions={true}
 								>
@@ -108,7 +108,7 @@
 									isUnapplied
 									last={index === localCommits.length - 1}
 									{commit}
-									commitUrl={$forge?.commitUrl(commit.id)}
+									commitUrl={forge.current.commitUrl(commit.id)}
 									type="LocalOnly"
 									disableCommitActions={true}
 								>
@@ -124,7 +124,7 @@
 									isUnapplied
 									last={index === localAndRemoteCommits.length - 1}
 									{commit}
-									commitUrl={$forge?.commitUrl(commit.id)}
+									commitUrl={forge.current.commitUrl(commit.id)}
 									type="LocalAndRemote"
 									disableCommitActions={true}
 								>

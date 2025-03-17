@@ -2,10 +2,9 @@
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
-	import type { Readable } from 'svelte/store';
 
 	interface Props {
-		mergedIncorrectly?: Readable<boolean>;
+		mergedIncorrectly: boolean;
 		isPushed: boolean;
 		hasParent: boolean;
 		parentIsPushed: boolean;
@@ -31,7 +30,7 @@
 	> for support.
 {/snippet}
 
-{#if $mergedIncorrectly}
+{#if mergedIncorrectly}
 	{#if hasParent && parentIsIntegrated}
 		<InfoMessage style="warning" filled outlined={false}>
 			{#snippet content()}

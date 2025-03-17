@@ -79,8 +79,8 @@ export function getEphemeralStorageItem(key: string): unknown {
 /**
  * Create a persisted store that expires after a certain amount of time (in minutes).
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export function persistWithExpiration<T extends {}>(
+
+export function persistWithExpiration<T>(
 	initial: T,
 	key: string,
 	expirationInMinutes: number

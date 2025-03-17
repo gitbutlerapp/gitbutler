@@ -10,7 +10,7 @@
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { getForge } from '$lib/forge/interface/forge';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -30,10 +30,11 @@
 
 	let { projectId, stackId, branchName, first, last: lastBranch }: Props = $props();
 
-	const [stackService, baseBranchService, uiState] = inject(
+	const [stackService, baseBranchService, uiState, forge] = inject(
 		StackService,
 		BaseBranchService,
-		UiState
+		UiState,
+		DefaultForgeFactory
 	);
 
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
@@ -47,8 +48,7 @@
 	const selection = $derived(uiState.stack(stackId).selection.get());
 	const selectedCommitId = $derived(selection.current?.commitId);
 
-	const forge = getForge();
-	const forgeBranch = $derived($forge?.branch(branchName));
+	const forgeBranch = $derived(forge.current?.branch(branchName));
 
 	let headerContextMenu = $state<ReturnType<typeof SeriesHeaderContextMenu>>();
 	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();

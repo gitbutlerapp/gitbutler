@@ -2,6 +2,7 @@
 	import Chrome from '$components/Chrome.svelte';
 	import FileMenuAction from '$components/FileMenuAction.svelte';
 	import History from '$components/History.svelte';
+	import MetricsReporter from '$components/MetricsReporter.svelte';
 	import Navigation from '$components/Navigation.svelte';
 	import NoBaseBranch from '$components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$components/NotOnGitButlerBranch.svelte';
@@ -19,12 +20,8 @@
 	import { showHistoryView } from '$lib/config/config';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { UncommitedFilesWatcher } from '$lib/files/watcher';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory';
-	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
-	import { createForgeStore } from '$lib/forge/interface/forge';
-	import { createForgeListingServiceStore } from '$lib/forge/interface/forgeListingService';
-	import { createForgePrServiceStore } from '$lib/forge/interface/forgePrService';
-	import { createForgeRepoServiceStore } from '$lib/forge/interface/forgeRepoService';
+	import { DefaultForgeFactory, type ForgeConfig } from '$lib/forge/forgeFactory.svelte';
+	import { GitHubClient } from '$lib/forge/github/githubClient';
 	import { BrToPrService } from '$lib/forge/shared/prFooter';
 	import { TemplateService } from '$lib/forge/templateService';
 	import { HistoryService } from '$lib/history/history';
@@ -71,6 +68,11 @@
 	const forkInfo = $derived(baseBranchService.pushRepo);
 	const user = $derived(userService.user);
 	const accessToken = $derived($user?.github_access_token);
+
+	const gitHubClient = getContext(GitHubClient);
+	$effect(() => gitHubClient.setToken(accessToken));
+	$effect(() => gitHubClient.setRepo({ owner: $repoInfo?.owner, repo: $repoInfo?.name }));
+
 	const baseError = $derived(baseBranchService.error);
 	const projectError = $derived(projectsService.error);
 
@@ -116,19 +118,13 @@
 
 	let intervalId: any;
 
-	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
-	const forgeFactory = $derived(new DefaultForgeFactory(octokit, posthog, projectMetrics));
 	const baseBranchName = $derived($baseBranch?.shortName);
 
-	const listServiceStore = createForgeListingServiceStore(undefined);
-	const forgeStore = createForgeStore(undefined);
-	const prService = createForgePrServiceStore(undefined);
-	const repoService = createForgeRepoServiceStore(undefined);
-
+	const forgeFactory = getContext(DefaultForgeFactory);
 	$effect.pre(() => {
 		const combinedBranchListingService = new CombinedBranchListingService(
 			data.branchListingService,
-			listServiceStore,
+			forgeFactory.current.listService,
 			projectId
 		);
 
@@ -157,15 +153,27 @@
 	});
 
 	$effect(() => {
-		const forge =
-			$repoInfo && baseBranchName
-				? forgeFactory.build($repoInfo, baseBranchName, $forkInfo)
-				: undefined;
-		const ghListService = forge?.listService();
-		listServiceStore.set(ghListService);
-		forgeStore.set(forge);
-		prService.set(forge ? forge.prService() : undefined);
-		repoService.set(forge ? forge.repoService() : undefined);
+		console.log('updating config', {
+			repo: $repoInfo,
+			pushRepo: $forkInfo,
+			baseBranch: baseBranchName
+		});
+		setConfig({
+			repo: $repoInfo,
+			pushRepo: $forkInfo,
+			baseBranch: baseBranchName
+		});
+	});
+
+	let number = 0;
+	function setConfig(config: ForgeConfig) {
+		number++;
+		if (number < 8) {
+			return forgeFactory.setConfig(config);
+		}
+	}
+
+	$effect(() => {
 		posthog.setPostHogRepo($repoInfo);
 		return () => {
 			posthog.setPostHogRepo(undefined);
@@ -220,7 +228,7 @@
 		webRoutesService,
 		cloudProjectService,
 		latestBranchLookupService,
-		prService
+		forgeFactory
 	);
 	setContext(BrToPrService, brToPrService);
 
@@ -272,6 +280,9 @@
 		{/if}
 	{/if}
 {/key}
+
+<!-- Mounting metrics reporter in the board ensures dependent services are subscribed to. -->
+<MetricsReporter {projectId} {projectMetrics} />
 
 <style>
 	.view-wrap {

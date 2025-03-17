@@ -13,9 +13,12 @@
 	import { onMount } from 'svelte';
 	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 
-	const { projectMetrics }: { projectMetrics: ProjectMetrics } = $props();
+	type Props = {
+		projectId: string;
+		projectMetrics: ProjectMetrics;
+	};
+	const { projectId, projectMetrics }: Props = $props();
 
-	const projectId = projectMetrics.projectId;
 	const posthog = getContext(PostHogWrapper);
 	const lastReportMs = persisted<number | undefined>(undefined, `lastMetricsTs-${projectId}`);
 	const projectService = getContext(ProjectService);
@@ -30,7 +33,7 @@
 		// So we know if we should run on next onMount.
 		lastReportMs.set(Date.now());
 
-		const report = projectMetrics.getReport();
+		const report = projectMetrics.project(projectId);
 		if (!report) return;
 
 		// Capture only individual changes.
@@ -41,7 +44,7 @@
 			});
 			// We don't want to report the same static value over and over
 			// again, so after successfully reporting a metric we reset it.
-			projectMetrics.resetMetric(name);
+			projectMetrics.resetMetric(projectId, name);
 		}
 	}
 

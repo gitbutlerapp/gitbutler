@@ -1,4 +1,4 @@
-import { reactive } from '@gitbutler/shared/storeUtils';
+import { reactive, type Reactive } from '@gitbutler/shared/storeUtils';
 import {
 	type Api,
 	type ApiEndpointMutation,
@@ -7,6 +7,7 @@ import {
 	type EndpointDefinitions,
 	type MutationActionCreatorResult,
 	type MutationDefinition,
+	type QueryActionCreatorResult,
 	type ResultTypeFrom,
 	type RootState
 } from '@reduxjs/toolkit/query';
@@ -30,11 +31,46 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 
 	const { initiate, select } = endpoint as ApiEndpointQuery<CustomQuery<any>, Definitions>;
 
-	function useQuery<T extends (arg: any) => any>(queryArg: unknown, options?: { transform?: T }) {
+	async function fetch<T extends (arg: any) => any>(
+		queryArg: unknown,
+		options?: { transform?: T }
+	) {
 		const dispatch = getDispatch();
+		const result = await dispatch(initiate(queryArg, { forceRefetch: true }));
+		let data = result.data;
+		if (options?.transform && data) {
+			data = options.transform(data);
+		}
+		return data;
+	}
+
+	function useQuery<T extends (arg: any) => any>(
+		queryArg: unknown,
+		options?: { transform?: T; subscribe?: Reactive<{ pollingInterval?: number }> }
+	) {
+		const dispatch = getDispatch();
+		let subscription: QueryActionCreatorResult<any>;
 		$effect(() => {
-			const { unsubscribe } = dispatch(initiate(queryArg));
-			return unsubscribe;
+			console.log('INITIATING');
+			subscription = dispatch(
+				initiate(queryArg, { subscriptionOptions: { pollingInterval: 5000 } })
+			);
+			return subscription.unsubscribe;
+		});
+		$effect(() => {
+			console.log('hello world', subscription);
+		});
+
+		$effect(() => {
+			// console.log(options);
+			// console.log(options?.subscribe?.current.pollingInterval);
+			// console.log('subscription', subscription);
+			// if (options?.subscribe?.current) {
+			// 	console.log('updating subscription', options?.subscribe);
+			// 	subscription.updateSubscriptionOptions({
+			// 		pollingInterval: options?.subscribe?.current.pollingInterval
+			// 	});
+			// }
 		});
 		const result = $derived(useQueryState(queryArg, options));
 		return result;
@@ -68,6 +104,7 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 	}
 
 	return {
+		fetch,
 		useQuery,
 		useQueryState
 	};
@@ -122,7 +159,11 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 			promise.then((result) => {
 				if (result.data) sideEffect?.(result.data);
 			});
-			return await dispatchResult;
+			const result = await promise;
+			if (result.error) {
+				throw result.error;
+			}
+			return result.data;
 		}
 
 		function reset() {

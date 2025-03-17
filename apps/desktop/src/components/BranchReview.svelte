@@ -2,8 +2,7 @@
 	import BranchReviewButRequest from '$components/BranchReviewButRequest.svelte';
 	import { type PatchSeries } from '$lib/branches/branch';
 	import { syncBrToPr } from '$lib/forge/brToPrSync.svelte';
-	import { getPr } from '$lib/forge/getPr.svelte';
-	import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { syncPrToBr } from '$lib/forge/prToBrSync.svelte';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { inject } from '@gitbutler/shared/context';
@@ -26,34 +25,37 @@
 	const { pullRequestCard, branchStatus, branchLine, branch, openForgePullRequest }: Props =
 		$props();
 
-	const [stackPublishingService] = inject(StackPublishingService);
+	const [stackPublishingService, forge] = inject(StackPublishingService, DefaultForgeFactory);
 
-	const prService = getForgePrService();
-	const pr = getPr(reactive(() => branch));
+	const prNumber = $derived(branch.prNumber);
+	const prService = $derived(forge.current.prService);
+	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
+	const pr = $derived(prResult?.current.data);
 
 	const canPublish = stackPublishingService.canPublish;
 
-	const showCreateButton = $derived(
-		($prService && !pr.current) || ($canPublish && !branch.reviewId)
-	);
+	const showCreateButton = $derived((prService && !pr) || ($canPublish && !branch.reviewId));
 
 	const disabled = $derived(branch.patches.length === 0 || branch.conflicted);
 	const tooltip = $derived(
 		branch.conflicted ? 'Please resolve the conflicts before creating a PR' : undefined
 	);
 
-	syncPrToBr(reactive(() => branch));
+	syncPrToBr(
+		reactive(() => prNumber || undefined),
+		reactive(() => branch.reviewId)
+	);
 	syncBrToPr(reactive(() => branch));
 </script>
 
 <div class="branch-action">
 	{@render branchLine()}
 	<div class="branch-action__body">
-		{#if pr.current || branch.reviewId}
+		{#if pr || branch.reviewId}
 			<div class="status-cards">
-				{#if pr.current}
+				{#if pr}
 					<div>
-						{@render pullRequestCard(pr.current)}
+						{@render pullRequestCard(pr)}
 					</div>
 				{/if}
 				{#if branch.reviewId}
@@ -67,9 +69,9 @@
 		{@render branchStatus()}
 
 		{#if showCreateButton}
-			<Button onclick={openForgePullRequest} kind="outline" {disabled} {tooltip}
-				>Submit for Review</Button
-			>
+			<Button onclick={openForgePullRequest} kind="outline" {disabled} {tooltip}>
+				Submit for Review
+			</Button>
 		{/if}
 	</div>
 </div>

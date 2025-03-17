@@ -5,10 +5,10 @@
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { transformAnyCommit } from '$lib/commits/transformers';
-	import { getForge } from '$lib/forge/interface/forge';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
 	import { groupByCondition } from '$lib/utils/array';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Line from '@gitbutler/ui/commitLines/Line.svelte';
@@ -50,10 +50,12 @@
 
 	type ResetBaseStrategy = keyof typeof resetBaseTo;
 
-	const baseBranchService = getContext(BaseBranchService);
-	const modeService = getContext(ModeService);
-	const forge = getForge();
-	const lineManagerFactory = getContext(LineManagerFactory);
+	const [baseBranchService, modeService, forge, lineManagerFactory] = inject(
+		BaseBranchService,
+		ModeService,
+		DefaultForgeFactory,
+		LineManagerFactory
+	);
 
 	const mode = $derived(modeService.mode);
 
@@ -208,7 +210,7 @@
 			<CommitCard
 				{commit}
 				isUnapplied={true}
-				commitUrl={$forge?.commitUrl(commit.id)}
+				commitUrl={forge.current.commitUrl(commit.id)}
 				type="Remote"
 				disableCommitActions={true}
 			>
@@ -245,7 +247,7 @@
 			<CommitCard
 				{commit}
 				isUnapplied={true}
-				commitUrl={$forge?.commitUrl(commit.id)}
+				commitUrl={forge.current.commitUrl(commit.id)}
 				type="LocalOnly"
 				disableCommitActions={true}
 			>
@@ -296,7 +298,7 @@
 		<CommitCard
 			{commit}
 			isUnapplied={true}
-			commitUrl={$forge?.commitUrl(commit.id)}
+			commitUrl={forge.current.commitUrl(commit.id)}
 			type="LocalAndRemote"
 			disableCommitActions={true}
 		>

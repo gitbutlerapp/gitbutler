@@ -13,7 +13,6 @@ import { TemplateService } from '$lib/forge/templateService';
 import { HistoryService } from '$lib/history/history';
 import { StackPublishingService } from '$lib/history/stackPublishingService';
 import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
-import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { ModeService } from '$lib/mode/modeService';
 import { type Project } from '$lib/project/project';
 import { ProjectService } from '$lib/project/projectService';
@@ -24,7 +23,7 @@ export const prerender = false;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async ({ params, parent }) => {
-	const { projectsService, commandService, userService, posthog } = await parent();
+	const { projectsService, commandService, userService, posthog, projectMetrics } = await parent();
 
 	const projectId = params.projectId;
 	projectsService.setLastOpenedProject(projectId);
@@ -46,8 +45,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	}
 
 	const projectService = new ProjectService(projectsService, projectId);
-
-	const projectMetrics = new ProjectMetrics(projectId);
 
 	const modeService = new ModeService(projectId);
 	const fetchSignal = new FetchSignal(projectId);

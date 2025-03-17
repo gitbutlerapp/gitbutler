@@ -5,7 +5,6 @@ import type { Readable } from 'svelte/store';
 export interface ForgePrMonitor {
 	pr: Readable<DetailedPullRequest | undefined>;
 	loading?: Readable<boolean>;
-	mergedIncorrectly?: Readable<boolean>;
 	error: Readable<any>;
 	refresh(): Promise<void>;
 }

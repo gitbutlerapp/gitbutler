@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
-	import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { updatePrDescriptionTables } from '$lib/forge/shared/prFooter';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
@@ -29,7 +29,8 @@
 
 	const branchStore = getContextStore(BranchStack);
 	const branchController = getContext(BranchController);
-	const prService = getForgePrService();
+	const forge = getContext(DefaultForgeFactory);
+	const prService = $derived(forge.current.prService);
 	const user = getContextStore(User);
 
 	let deleteBranchModal: Modal;
@@ -128,9 +129,9 @@
 				label="Update PR footers"
 				disabled={allPrIds.length === 0}
 				onclick={() => {
-					if ($prService && stack) {
+					if (prService && stack) {
 						const allPrIds = stack.validSeries.map((series) => series.prNumber).filter(isDefined);
-						updatePrDescriptionTables($prService, allPrIds);
+						updatePrDescriptionTables(prService, allPrIds);
 					}
 					contextMenuEl?.close();
 				}}

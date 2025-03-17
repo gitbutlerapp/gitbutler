@@ -5,7 +5,7 @@
 		type BranchListing
 	} from '$lib/branches/branchListing';
 	import { GitConfigService } from '$lib/config/gitConfigService';
-	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { Project } from '$lib/project/project';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
@@ -16,10 +16,11 @@
 	import { page } from '$app/stores';
 
 	interface Props {
+		projectId: string;
 		branchListing: BranchListing;
 	}
 
-	const { branchListing }: Props = $props();
+	const { branchListing, projectId }: Props = $props();
 
 	const unknownName = 'unknown';
 	const unknownEmail = 'example@example.com';
@@ -28,9 +29,12 @@
 	const project = getContext(Project);
 	const gitConfigService = getContext(GitConfigService);
 
-	const forgeListingService = getForgeListingService();
-	const prs = $derived($forgeListingService?.prs);
-	const pr = $derived($prs?.find((pr) => branchListing.containsPullRequestBranch(pr.sourceBranch)));
+	const forge = getContext(DefaultForgeFactory);
+	const forgeListingService = $derived(forge.current.listService);
+	const prsResult = $derived(forgeListingService?.list(projectId));
+	const pr = $derived(
+		prsResult?.current.data?.find((pr) => branchListing.containsPullRequestBranch(pr.sourceBranch))
+	);
 
 	const userService = getContext(UserService);
 	const user = userService.user;

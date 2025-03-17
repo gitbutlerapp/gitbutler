@@ -25,12 +25,9 @@
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { FileService } from '$lib/files/fileService';
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
-	import {
-		createGitHubUserServiceStore as createGitHubUserServiceStore,
-		GitHubAuthenticationService,
-		GitHubUserService
-	} from '$lib/forge/github/githubUserService';
-	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { GitHubClient } from '$lib/forge/github/githubClient';
+	import { GitHubUserService } from '$lib/forge/github/githubUserService';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { platformName } from '$lib/platform/platform';
@@ -83,7 +80,15 @@
 	setContext(SETTINGS, userSettings);
 
 	const appState = new AppState();
-	const clientState = new ClientState(data.tauri);
+
+	const github = new GitHubClient();
+	setContext(GitHubClient, github);
+	const user = data.userService.user;
+	const accessToken = $derived($user?.github_access_token);
+	$effect(() => github.setToken(accessToken));
+
+	const clientState = new ClientState(data.tauri, github);
+
 	const changeSelection = $derived(clientState.changeSelection);
 	const changeSelectionService = new ChangeSelectionService(
 		reactive(() => changeSelection),
@@ -123,6 +128,13 @@
 		clientState.dispatch
 	);
 	setContext(UiState, uiState);
+
+	const forgeFactory = new DefaultForgeFactory(
+		clientState['githubApi'],
+		data.posthog,
+		data.projectMetrics
+	);
+	setContext(DefaultForgeFactory, forgeFactory);
 
 	shortcutService.listen();
 
@@ -164,7 +176,6 @@
 	setContext(LineManagerFactory, data.lineManagerFactory);
 	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
 	setContext(AppSettings, data.appSettings);
-	setContext(GitHubAuthenticationService, data.githubAuthenticationService);
 	setContext(StackService, stackService);
 	setContext(UpstreamIntegrationService, upstreamIntegrationService);
 	setContext(WorktreeService, worktreeService);
@@ -176,10 +187,6 @@
 	const settingsService = data.settingsService;
 	const settingsStore = settingsService.appSettings;
 
-	const user = data.userService.user;
-	const accessToken = $derived($user?.github_access_token);
-	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
-
 	// Special initialization to capture pageviews for single page apps.
 	if (browser) {
 		beforeNavigate(() => data.posthog.capture('$pageleave'));
@@ -189,11 +196,8 @@
 	// This store is literally only used once, on GitHub oauth, to set the
 	// gh username on the user object. Furthermore, it isn't used anywhere.
 	// TODO: Remove the gh username completely?
-	const githubUserService = $derived(octokit ? new GitHubUserService(octokit) : undefined);
-	const ghUserServiceStore = createGitHubUserServiceStore(undefined);
-	$effect(() => {
-		ghUserServiceStore.set(githubUserService);
-	});
+	const githubUserService = new GitHubUserService(data.tauri, clientState['githubApi']);
+	setContext(GitHubUserService, githubUserService);
 
 	let shareIssueModal: ShareIssueModal;
 

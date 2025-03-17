@@ -17,6 +17,8 @@
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
 	import { writable } from 'svelte/store';
 
+	const { projectId }: { projectId: string } = $props();
+
 	const combinedBranchListingService = getContext(CombinedBranchListingService);
 
 	let searchEl: HTMLInputElement;
@@ -57,7 +59,7 @@
 	const pullRequestsListed = combinedBranchListingService.pullRequestsListed;
 
 	const filterOptions = $derived.by(() => {
-		if ($pullRequestsListed) {
+		if (pullRequestsListed) {
 			return {
 				all: 'All',
 				pullRequest: 'PRs',
@@ -87,7 +89,7 @@
 
 {#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
 	{#if sidebarEntrySubject.type === 'branchListing'}
-		<BranchListingSidebarEntry branchListing={sidebarEntrySubject.subject} />
+		<BranchListingSidebarEntry {projectId} branchListing={sidebarEntrySubject.subject} />
 	{:else}
 		<PullRequestSidebarEntry pullRequest={sidebarEntrySubject.subject} />
 	{/if}
@@ -147,7 +149,10 @@
 						<div class="group">
 							{#each $searchedBranches as sidebarEntrySubject}
 								{#if sidebarEntrySubject.type === 'branchListing'}
-									<BranchListingSidebarEntry branchListing={sidebarEntrySubject.subject} />
+									<BranchListingSidebarEntry
+										{projectId}
+										branchListing={sidebarEntrySubject.subject}
+									/>
 								{:else}
 									<PullRequestSidebarEntry pullRequest={sidebarEntrySubject.subject} />
 								{/if}

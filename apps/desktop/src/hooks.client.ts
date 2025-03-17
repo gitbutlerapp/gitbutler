@@ -21,7 +21,7 @@ export function handleError({
 
 // Handler for unhandled errors inside promises.
 window.onunhandledrejection = (e: PromiseRejectionEvent) => {
-	logError(e.reason);
+	logError(e);
 };
 
 function logError(error: unknown) {

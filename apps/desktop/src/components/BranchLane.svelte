@@ -15,20 +15,20 @@
 	import { writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 
-	const { stack: branch }: { stack: BranchStack } = $props();
+	const { projectId, stack }: { projectId: string; stack: BranchStack } = $props();
 
 	// BRANCH
-	const branchStore = createContextStore(BranchStack, branch);
+	const branchStore = createContextStore(BranchStack, stack);
 	const selectedOwnershipStore = createContextStore(
 		SelectedOwnership,
-		SelectedOwnership.fromBranch(branch)
+		SelectedOwnership.fromBranch(stack)
 	);
-	const uncommittedFiles = writable(branch.files);
+	const uncommittedFiles = writable(stack.files);
 
 	$effect(() => {
-		branchStore.set(branch);
-		selectedOwnershipStore.update((o) => o?.update(branch));
-		uncommittedFiles.set(branch.files);
+		branchStore.set(stack);
+		selectedOwnershipStore.update((o) => o?.update(stack));
+		uncommittedFiles.set(stack.files);
 	});
 
 	const project = getContext(Project);
@@ -44,10 +44,10 @@
 
 	let rsViewport: HTMLElement | undefined = $state();
 
-	const commitBoxOpen = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
-	let width = persistWithExpiration(25, 'fileWidth_' + branch.id, 7 * 1440);
+	const commitBoxOpen = persisted<boolean>(false, 'commitBoxExpanded_' + stack.id);
+	let width = persistWithExpiration(25, 'fileWidth_' + stack.id, 7 * 1440);
 
-	let isLaneCollapsed = $state(projectLaneCollapsed(project.id, branch.id));
+	let isLaneCollapsed = $state(projectLaneCollapsed(project.id, stack.id));
 	$effect(() => {
 		if ($isLaneCollapsed) {
 			fileIdSelection.clear();
@@ -56,7 +56,7 @@
 </script>
 
 <div class="wrapper">
-	<Stack {commitBoxOpen} {isLaneCollapsed} />
+	<Stack {projectId} {commitBoxOpen} {isLaneCollapsed} />
 
 	{#if selected}
 		<div

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getForge } from '$lib/forge/interface/forge';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { TemplateService } from '$lib/forge/templateService';
 	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
@@ -14,7 +14,7 @@
 
 	const { templates, onselected }: Props = $props();
 
-	const forge = getForge();
+	const forge = getContext(DefaultForgeFactory);
 	// TODO: Rename or refactor this service.
 	const templateService = getContext(TemplateService);
 	const project = getContext(Project);
@@ -24,15 +24,13 @@
 	const lastTemplate = persisted<string | undefined>(undefined, `last-template-${project.id}`);
 
 	async function setTemplate(path: string) {
-		if ($forge) {
-			lastTemplate.set(path);
-			loadAndEmit(path);
-		}
+		lastTemplate.set(path);
+		loadAndEmit(path);
 	}
 
 	async function loadAndEmit(path: string) {
-		if (path && $forge) {
-			const template = await templateService.getContent($forge.name, path);
+		if (path) {
+			const template = await templateService.getContent(forge.current.name, path);
 			if (template) {
 				onselected(template);
 			}

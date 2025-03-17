@@ -4,7 +4,6 @@
 	import CommitLine from '$components/v3/CommitLine.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { ModeService } from '$lib/mode/modeService';
-	import { showError } from '$lib/notifications/toasts';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext, getContextStore, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -52,7 +51,7 @@
 	const stackService = getContext(StackService);
 	const modeService = maybeGetContext(ModeService);
 
-	const { triggerMutation: uncommit } = stackService.uncommit();
+	const uncommitHook = stackService.uncommit();
 
 	const commitUrl = undefined;
 	const conflicted = false; // TODO
@@ -72,11 +71,7 @@
 			console.error('Unable to undo commit');
 			return;
 		}
-		const { error } = await uncommit({ projectId, branchId: stackId, commitOid: commit.id });
-		if (error) {
-			showError('Failed to uncommit', error);
-			console.error('Failed to uncommit', error);
-		}
+		await uncommitHook.triggerMutation({ projectId, stackId, commitId: commit.id });
 	}
 
 	function openCommitMessageModal() {

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Project } from '$lib/project/project';
 	import { UserService } from '$lib/user/userService';
+	import { parseDate } from '$lib/utils/time';
 	import { getContext } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import type { PullRequest } from '$lib/forge/interface/types';
@@ -44,7 +45,7 @@
 	applied={false}
 	lastCommitDetails={{
 		authorName: pullRequest.author?.name || 'Unknown',
-		lastCommitAt: pullRequest.modifiedAt
+		lastCommitAt: parseDate(pullRequest.modifiedAt)
 	}}
 	pullRequestDetails={pullRequest && {
 		title: pullRequest.title,

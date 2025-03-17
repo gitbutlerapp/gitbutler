@@ -17,9 +17,11 @@ import {
 	type MutationDefinition,
 	type QueryResultSelectorResult,
 	type ApiModules,
-	type MutationResultSelectorResult
+	type MutationResultSelectorResult,
+	type QueryActionCreatorResult,
+	type SubscriptionOptions
 } from '@reduxjs/toolkit/query';
-import type { TauriBaseQueryFn } from './backendQuery';
+import type { tauriBaseQuery, TauriBaseQueryFn } from './backendQuery';
 import type { HookContext } from './context';
 import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
 
@@ -61,7 +63,7 @@ type CustomEndpoints<T> = {
 };
 
 type ExtensionDefinitions = ApiModules<
-	BaseQueryFn,
+	typeof tauriBaseQuery,
 	CustomEndpoints<
 		QueryHooks<CustomQuery<any>> & MutationHooks<MutationDefinition<any, any, any, any>>
 	>,
@@ -85,11 +87,12 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 				injectEndpoint(endpointName, definition) {
 					const endpoint = anyApi.endpoints[endpointName]!; // Known to exist.
 					if (isQueryDefinition(definition)) {
-						const { useQuery, useQueryState } = buildQueryHooks({
+						const { fetch, useQuery, useQueryState } = buildQueryHooks({
 							endpointName,
 							api,
 							ctx
 						});
+						endpoint.fetch = fetch;
 						endpoint.useQuery = useQuery;
 						endpoint.useQueryState = useQueryState;
 					} else if (isMutationDefinition(definition)) {
@@ -126,6 +129,17 @@ export type CustomResult<T extends QueryDefinition<any, any, any, any>> =
 	};
 
 /**
+ * Shorthand useful for service interfaces.
+ */
+export type SubscribeResult<T> = Reactive<QueryActionCreatorResult<CustomQuery<T>>>;
+export type ReactiveResult<T> = Reactive<CustomResult<CustomQuery<T>>>;
+export type AsyncResult<T> = Promise<CustomResult<CustomQuery<T>>>;
+/**
+ * Shorthand useful for service interfaces.
+ */
+export type FetchResult<T> = ResultTypeFrom<CustomQuery<T>>;
+
+/**
  * It would be great to understand why it is necessary to set the args type
  * to `any`, anything else results in quite a number of type errors.
  */
@@ -160,9 +174,21 @@ export type CustomQuery<T> = QueryDefinition<CustomArgs, TauriBaseQueryFn, strin
  */
 type QueryHooks<D extends CustomQuery<unknown>> = {
 	/** Execute query and return results. */
-	useQuery: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
+	subscribe: (
+		args: QueryArgFrom<D>,
+		options: SubscriptionOptions & { forceRefetch: boolean }
+	) => QueryActionCreatorResult<CustomQuery<ResultTypeFrom<D>>>;
+	/** Execute query and return results. */
+	fetch: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
 		args: QueryArgFrom<D>,
 		options?: { transform?: T }
+	) => Promise<
+		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>['data']
+	>;
+	/** Execute query and return results. */
+	useQuery: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
+		args: QueryArgFrom<D>,
+		options?: { transform?: T; subscribe?: Reactive<SubscriptionOptions> }
 	) => Reactive<
 		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>
 	>;
@@ -175,10 +201,7 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 	>;
 };
 
-export type MutationResult<T> = { error: unknown; data: undefined } | { error: undefined; data: T };
-
-type CustomMutationTriggerResult<Definition extends MutationDefinition<any, any, string, any>> =
-	MutationResult<ResultTypeFrom<Definition>>;
+export type MutationResult<T> = { data: T; error: undefined } | { data: undefined; error: unknown };
 
 export type CustomMutationResult<Definition extends MutationDefinition<any, any, string, any>> =
 	Prettify<MutationResultSelectorResult<Definition>>;
@@ -198,16 +221,19 @@ type CustomMutation<Definition extends MutationDefinition<any, any, string, any>
 	 * Trigger the mutation with the given arguments.
 	 *
 	 * If awaited, the result will contain the mutation result.
+	 *
+	 * Note: The result type discriminated union return type does not work
+	 * if not inlined.
 	 */
-	triggerMutation: (
-		args: QueryArgFrom<Definition>
-	) => Promise<Prettify<CustomMutationTriggerResult<Definition>>>;
+	triggerMutation: (args: QueryArgFrom<Definition>) => Promise<ResultTypeFrom<Definition>>;
 };
+
+export type TriggerResult<T> = { data: T; error: undefined } | { error: unknown; data: undefined };
 
 /**
  * Declaration of custom methods for mutations.
  */
-type MutationHooks<Definition extends MutationDefinition<any, any, string, any>> = {
+type MutationHooks<Definition extends MutationDefinition<unknown, any, string, unknown>> = {
 	/** Execute query and return results. */
 	useMutation: (params?: UseMutationHookParams<Definition>) => Prettify<CustomMutation<Definition>>;
 };

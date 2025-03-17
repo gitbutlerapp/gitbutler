@@ -1,4 +1,4 @@
-import { getPr } from '$lib/forge/getPr.svelte';
+import { DefaultForgeFactory } from './forgeFactory.svelte';
 import { ProjectService } from '$lib/project/projectService';
 import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
 import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
@@ -9,18 +9,23 @@ import { isFound, map } from '@gitbutler/shared/network/loadable';
 import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 import { readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { AppState } from '@gitbutler/shared/redux/store.svelte';
-import type { PatchSeries } from '$lib/branches/branch';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 
-export function syncPrToBr(branch: Reactive<PatchSeries>) {
-	const pr = getPr(branch);
-
-	const [projectService, appState, latestBranchLookupService, cloudBranchService] = inject(
+export function syncPrToBr(
+	prNumber: Reactive<number | undefined>,
+	reviewId: Reactive<string | undefined>
+) {
+	const [projectService, appState, latestBranchLookupService, cloudBranchService, forge] = inject(
 		ProjectService,
 		AppState,
 		LatestBranchLookupService,
-		CloudBranchService
+		CloudBranchService,
+		DefaultForgeFactory
 	);
+
+	const prNumber2 = $derived(prNumber.current);
+	const prResult = $derived(prNumber2 ? forge.current.prService?.get(prNumber2) : undefined);
+	const pr = $derived(prResult?.current.data);
 	const project = readableToReactive(projectService.project);
 
 	const cloudProject = $derived(
@@ -31,14 +36,14 @@ export function syncPrToBr(branch: Reactive<PatchSeries>) {
 
 	const cloudBranchUuid = $derived(
 		map(cloudProject?.current, (cloudProject) => {
-			if (!branch.current.reviewId) return;
+			if (!reviewId.current) return;
 
 			return lookupLatestBranchUuid(
 				appState,
 				latestBranchLookupService,
 				cloudProject.owner,
 				cloudProject.slug,
-				branch.current.reviewId
+				reviewId.current
 			);
 		})
 	);
@@ -51,13 +56,13 @@ export function syncPrToBr(branch: Reactive<PatchSeries>) {
 
 	$effect(() => {
 		if (!project.current?.api) return;
-		if (!pr.current) return;
+		if (!pr) return;
 		if (!isFound(cloudBranch?.current)) return;
 		if (cloudBranch.current.value.forgeUrl) return;
 
 		cloudBranchService.updateBranch(cloudBranch.current.id, {
-			forgeUrl: pr.current.htmlUrl,
-			forgeDescription: `#${pr.current.number}`
+			forgeUrl: pr.htmlUrl,
+			forgeDescription: `#${pr.number}`
 		});
 	});
 }

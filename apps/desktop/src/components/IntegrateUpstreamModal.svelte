@@ -2,7 +2,7 @@
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { BranchStack } from '$lib/branches/branch';
-	import { getForge } from '$lib/forge/interface/forge';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import {
 		getBaseBranchResolution,
 		getResolutionApproach,
@@ -39,7 +39,7 @@
 
 	const { onClose }: Props = $props();
 
-	const forge = getForge();
+	const forge = getContext(DefaultForgeFactory);
 	const upstreamIntegrationService = getContext(UpstreamIntegrationService);
 	let branchStatuses = $state<StackStatusesWithBranches | undefined>();
 	const baseBranchService = getContext(BaseBranchService);
@@ -211,24 +211,18 @@
 				</h3>
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight={pxToRem(268)}>
-						<div>
-							{#each $base.upstreamCommits as commit}
-								<SimpleCommitRow
-									title={commit.descriptionTitle ?? ''}
-									sha={commit.id}
-									date={commit.createdAt}
-									author={commit.author.name}
-									onUrlOpen={() => {
-										if ($forge) {
-											openExternalUrl($forge.commitUrl(commit.id));
-										}
-									}}
-									onCopy={() => {
-										copyToClipboard(commit.id);
-									}}
-								/>
-							{/each}
-						</div>
+						{#each $base.upstreamCommits as commit}
+							{@const commitUrl = forge.current.commitUrl(commit.id)}
+							<SimpleCommitRow
+								title={commit.descriptionTitle ?? ''}
+								sha={commit.id}
+								date={commit.createdAt}
+								author={commit.author.name}
+								url={commitUrl}
+								onOpen={(url) => openExternalUrl(url)}
+								onCopy={() => copyToClipboard(commit.id)}
+							/>
+						{/each}
 					</ScrollableContainer>
 				</div>
 			</div>

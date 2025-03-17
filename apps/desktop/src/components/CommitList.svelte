@@ -13,7 +13,7 @@
 		StackingReorderDropzoneManager,
 		type StackingReorderDropzone
 	} from '$lib/dragging/stackingReorderDropzoneManager';
-	import { getForge } from '$lib/forge/interface/forge';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -57,7 +57,7 @@
 	const branchController = getContext(BranchController);
 	const lineManagerFactory = getContext(LineManagerFactory);
 
-	const forge = getForge();
+	const forge = getContext(DefaultForgeFactory);
 
 	const localAndRemoteCommits = $derived(
 		currentSeries.patches.filter((patch) => patch.status === 'LocalAndRemote')
@@ -157,7 +157,7 @@
 						{isUnapplied}
 						{currentSeries}
 						noBorder={idx === currentSeries.upstreamPatches.length - 1}
-						commitUrl={$forge?.commitUrl(commit.id)}
+						commitUrl={forge.current.commitUrl(commit.id)}
 						isHeadCommit={commit.id === headCommit?.id}
 					>
 						{#snippet lines()}
@@ -201,7 +201,7 @@
 							noBorder={idx === currentSeries.patches.length - 1}
 							last={idx === currentSeries.patches.length - 1 && !isResetAction}
 							isHeadCommit={commit.id === headCommit?.id}
-							commitUrl={$forge?.commitUrl(commit.id)}
+							commitUrl={forge.current.commitUrl(commit.id)}
 						>
 							{#snippet lines()}
 								<Line
@@ -254,7 +254,7 @@
 						noBorder={idx === remoteIntegratedPatches.length - 1}
 						last={idx === remoteIntegratedPatches.length - 1}
 						isHeadCommit={commit.id === headCommit?.id}
-						commitUrl={$forge?.commitUrl(commit.id)}
+						commitUrl={forge.current.commitUrl(commit.id)}
 						disableCommitActions={true}
 					>
 						{#snippet lines()}

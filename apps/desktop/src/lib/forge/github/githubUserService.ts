@@ -1,6 +1,10 @@
-import { buildContextStore } from '@gitbutler/shared/context';
+import { ghQuery } from './ghQuery';
+import { ReduxTag } from '$lib/state/tags';
 import type { Tauri } from '$lib/backend/tauri';
-import type { Octokit } from '@octokit/rest';
+import type { GitHubApi } from '$lib/state/clientState.svelte';
+import type { RestEndpointMethodTypes } from '@octokit/rest';
+
+type IsAuthenticated = RestEndpointMethodTypes['users']['getAuthenticated']['response']['data'];
 
 type Verification = {
 	user_code: string;
@@ -8,21 +12,19 @@ type Verification = {
 };
 
 export class GitHubUserService {
-	constructor(private octokit: Octokit) {}
+	private api: ReturnType<typeof injectEndpoints>;
 
-	async fetchGitHubLogin(): Promise<string> {
-		try {
-			const rsp = await this.octokit.users.getAuthenticated();
-			return rsp.data.login;
-		} catch (e) {
-			console.error(e);
-			throw e;
-		}
+	constructor(
+		private tauri: Tauri,
+		gitHubApi: GitHubApi
+	) {
+		this.api = injectEndpoints(gitHubApi);
 	}
-}
 
-export class GitHubAuthenticationService {
-	constructor(private readonly tauri: Tauri) {}
+	async fetchGitHubLogin() {
+		const result = $derived(this.api.endpoints.getAuthenticated.useQuery());
+		return result;
+	}
 
 	async initDeviceOauth() {
 		return await this.tauri.invoke<Verification>('init_device_oauth');
@@ -33,6 +35,18 @@ export class GitHubAuthenticationService {
 	}
 }
 
-export const [getGitHubUserServiceStore, createGitHubUserServiceStore] = buildContextStore<
-	GitHubUserService | undefined
->('githubUserService');
+function injectEndpoints(api: GitHubApi) {
+	return api.injectEndpoints({
+		endpoints: (build) => ({
+			getAuthenticated: build.query<IsAuthenticated, void>({
+				queryFn: async (_, api) =>
+					await ghQuery({
+						domain: 'users',
+						action: 'getAuthenticated',
+						extra: api.extra
+					}),
+				providesTags: [ReduxTag.PullRequests]
+			})
+		})
+	});
+}
