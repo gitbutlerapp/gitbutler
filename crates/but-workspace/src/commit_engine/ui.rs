@@ -5,7 +5,7 @@ use gitbutler_serde::BStringForFrontend;
 use serde::{Deserialize, Serialize};
 
 /// The JSON serializable type of [super::DiffSpec].
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiffSpec {
     /// lossless version of `previous_path` if this was a rename.
@@ -27,6 +27,22 @@ impl From<DiffSpec> for super::DiffSpec {
         super::DiffSpec {
             previous_path: previous_path_bytes,
             path: path_bytes,
+            hunk_headers,
+        }
+    }
+}
+
+impl From<super::DiffSpec> for DiffSpec {
+    fn from(
+        super::DiffSpec {
+            path,
+            hunk_headers,
+            previous_path,
+        }: super::DiffSpec,
+    ) -> Self {
+        DiffSpec {
+            previous_path_bytes: previous_path,
+            path_bytes: path,
             hunk_headers,
         }
     }

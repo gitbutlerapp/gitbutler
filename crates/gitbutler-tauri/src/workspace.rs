@@ -199,3 +199,33 @@ pub fn amend_commit_from_worktree_changes(
     )?
     .into())
 }
+
+/// Discard all worktree changes that match the specs in `worktree_changes`.
+///
+/// If whole files should be discarded, be sure to not pass any [hunks](but_workspace::discard::ui::DiscardSpec::hunk_headers)
+///
+/// Returns the `worktree_changes` that couldn't be applied,
+#[tauri::command(async)]
+#[instrument(skip(projects), err(Debug))]
+pub fn discard_worktree_changes(
+    projects: State<'_, projects::Controller>,
+    project_id: ProjectId,
+    worktree_changes: Vec<but_workspace::discard::ui::DiscardSpec>,
+) -> Result<Vec<but_workspace::discard::ui::DiscardSpec>, Error> {
+    let project = projects.get(project_id)?;
+    let repo = but_core::open_repo(&project.worktree_path())?;
+    let _guard = project.exclusive_worktree_access();
+
+    let refused = but_workspace::discard_workspace_changes(
+        &repo,
+        worktree_changes.into_iter().map(|change| {
+            but_workspace::discard::DiscardSpec::from(but_workspace::commit_engine::DiffSpec::from(
+                change,
+            ))
+        }),
+    )?;
+    Ok(refused
+        .into_iter()
+        .map(|change| commit_engine::DiffSpec::from(change).into())
+        .collect())
+}

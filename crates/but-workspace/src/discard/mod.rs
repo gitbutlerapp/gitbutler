@@ -22,4 +22,15 @@ impl Deref for DiscardSpec {
     }
 }
 
+impl From<DiscardSpec> for DiffSpec {
+    fn from(value: DiscardSpec) -> Self {
+        value.0
+    }
+}
+
 pub(super) mod function;
+#[allow(missing_docs)]
+pub mod ui {
+    /// A specification of which worktree-change to discard.
+    pub type DiscardSpec = crate::commit_engine::ui::DiffSpec;
+}
