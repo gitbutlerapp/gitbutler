@@ -14,7 +14,6 @@
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
-	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
@@ -29,7 +28,6 @@
 	const projectService = getContext(ProjectService);
 	const cloudProjectService = getContext(CloudProjectService);
 	const organizationService = getContext(OrganizationService);
-	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
 	const userService = getContext(UserService);
 	const webRoutes = getContext(WebRoutesService);
 
@@ -47,9 +45,7 @@
 	);
 
 	const existingProjectRepositoryId = $derived(
-		$userLogin && $project?.title
-			? lookupProject(appState, repositoryIdLookupService, $userLogin, $project.title)
-			: undefined
+		$userLogin && $project?.title ? lookupProject($userLogin, $project.title) : undefined
 	);
 	const existingProject = $derived(
 		map(existingProjectRepositoryId?.current, (repositoryId) =>

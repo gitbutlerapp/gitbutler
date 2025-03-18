@@ -5,8 +5,8 @@
 	import { getBranchReviewsForRepository } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { BranchStatus } from '@gitbutler/shared/branches/types';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
+	import { getProject } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { type ProjectParameters } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
@@ -28,6 +28,8 @@
 	const brancheses = $derived(
 		getBranchReviewsForRepository(data.ownerSlug, data.projectSlug, filterStatus)
 	);
+
+	const project = $derived(getProject(data.ownerSlug, data.projectSlug));
 </script>
 
 <svelte:head>
@@ -59,8 +61,11 @@
 		{#snippet children(brancheses)}
 			<div class="header">
 				<div class="title">
-					<div class="text-16 text-bold">Branches shared for review</div>
-					<Badge>{brancheses.length || 0}</Badge>
+					<Loading loadable={project.current}>
+						{#snippet children(project)}
+							<div class="text-16 text-bold">{project.name}</div>
+						{/snippet}
+					</Loading>
 				</div>
 				{@render filters()}
 			</div>
