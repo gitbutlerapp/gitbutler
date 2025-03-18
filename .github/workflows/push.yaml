@@ -108,28 +108,44 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
       CARGO_TERM_COLOR: always
-    strategy:
-      matrix:
-        # Specifies which features should be applied when running the checks and tests
-        # '' indicates no flags relating to features passed
-        # [] indicates --no-default-features flag passed
-        # '*' indicates --all-features passed
-        # [entry1, entry2] indicates --features entry1 entry2
-        features:
-          - ''
-          - '*'
-          - []
-          - [tokio]
-          - [devtools]
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/check-crate
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.7.3
         with:
-          features: ${{ toJson(matrix.features) }}
+          shared-key: unix-rust-testing-v2
+      - run: |
+          sudo apt update
+          sudo apt install libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            cmake
+        name: Install Dependencies
+      - run: |
+          cargo test --workspace
+        env:
+          GITBUTLER_TESTS_NO_CLEANUP: '1'
+        name: cargo test
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+        name: cargo clippy
+      - run: |
+          set -e
+          cargo check -p gitbutler-tauri --no-default-features
+          for feature in devtools custom-protocol error-context; do
+            cargo check -p gitbutler-tauri --no-default-features --features "$feature"
+          done
+        name: Check Tauri App
 
   check-rust:
     if: always()
@@ -160,6 +176,5 @@ jobs:
         uses: Swatinem/rust-cache@v2.7.7
         with:
           shared-key: windows-rust-testing
-          key: ${{ inputs.features }}
       - name: 'cargo check'
         run: cargo check --workspace --all-targets --features windows
