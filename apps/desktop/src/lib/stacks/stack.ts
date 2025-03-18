@@ -16,19 +16,19 @@ export type PushStatus =
 	/**
 	 * Can push, but there are no changes to be pushed
 	 */
-	| 'NothingToPush'
+	| 'nothingToPush'
 	/**
 	 * Can push. This is the case when there are local changes that can be pushed to the remote.
 	 */
-	| 'UnpushedCommits'
+	| 'unpushedCommits'
 	/**
 	 * Can push, but requires a force push to the remote because commits were rewritten.
 	 */
-	| 'UnpushedCommitsRequiringForce'
+	| 'unpushedCommitsRequiringForce'
 	/**
 	 * Cannot push. This is the case when the stack contains at least one conflicted commit.
 	 */
-	| 'ConflictedCommits';
+	| 'conflictedCommits';
 
 export type StackInfo = {
 	/**
@@ -40,3 +40,17 @@ export type StackInfo = {
 	 */
 	pushStatus: PushStatus;
 };
+
+export function stackRequiresForcePush(stack: StackInfo): boolean {
+	return stack.pushStatus === 'unpushedCommitsRequiringForce';
+}
+
+export function stackHasConflicts(stack: StackInfo): boolean {
+	return stack.pushStatus === 'conflictedCommits';
+}
+
+export function stackHasUnpushedCommits(stack: StackInfo): boolean {
+	return (
+		stack.pushStatus === 'unpushedCommits' || stack.pushStatus === 'unpushedCommitsRequiringForce'
+	);
+}
