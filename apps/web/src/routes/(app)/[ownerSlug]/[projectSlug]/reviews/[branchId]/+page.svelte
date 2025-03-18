@@ -2,7 +2,7 @@
 	import BranchCommitsTable from '$lib/components/changes/BranchCommitsTable.svelte';
 	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
-	import CommitsGraph from '$lib/components/review/CommitsGraph.svelte';
+	import Minimap from '$lib/components/review/Minimap.svelte';
 	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import { UserService } from '$lib/user/userService';
 	import BranchStatusBadge from '@gitbutler/shared/branches/BranchStatusBadge.svelte';
@@ -212,7 +212,12 @@
 				<InfoFlexRow>
 					<Factoid label="Status"><BranchStatusBadge {branch} /></Factoid>
 					<Factoid label="Commits">
-						<CommitsGraph branchUuid={branch.uuid} />
+						<Minimap
+							branchUuid={branch.uuid}
+							ownerSlug={data.ownerSlug}
+							projectSlug={data.projectSlug}
+							horizontal
+						/>
 					</Factoid>
 					{#if branch.forgeUrl}
 						<Factoid label="PR"

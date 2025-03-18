@@ -4,6 +4,7 @@
 	import Navigation from '$lib/components/Navigation.svelte';
 	import ChangeActionButton from '$lib/components/review/ChangeActionButton.svelte';
 	import ChangeNavigator from '$lib/components/review/ChangeNavigator.svelte';
+	import Minimap from '$lib/components/review/Minimap.svelte';
 	import ReviewInfo from '$lib/components/review/ReviewInfo.svelte';
 	import ReviewSections from '$lib/components/review/ReviewSections.svelte';
 	import DiffLineSelection from '$lib/diff/lineSelection.svelte';
@@ -177,6 +178,8 @@
 		])}
 	>
 		{#snippet children([patchCommit, repositoryId, branchUuid, branch])}
+			<Minimap {branchUuid} ownerSlug={data.ownerSlug} projectSlug={data.projectSlug} />
+
 			<div class="review-main" class:expand={chatMinimizer.value}>
 				<Navigation />
 
