@@ -7,7 +7,6 @@
 	import SelectionView from './SelectionView.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { type Snippet } from 'svelte';
@@ -20,11 +19,10 @@
 
 	const { stackId, projectId, right }: Props = $props();
 
-	const [uiState, idSelection] = inject(UiState, IdSelection);
+	const [uiState] = inject(UiState);
 	const drawerPage = $derived(uiState.project(projectId).drawerPage.get());
 	const selected = $derived(uiState.stack(stackId!).selection.get());
 	const branchName = $derived(selected.current?.branchName);
-	const hasFileSelection = $derived(idSelection.length > 0);
 
 	const leftWidth = $state(uiState.global.leftWidth.get());
 	const rightWidth = $state(uiState.global.rightWidth.get());
@@ -47,19 +45,13 @@
 		/>
 	</div>
 	<div class="middle">
-		{#if hasFileSelection}
-			<SelectionView {projectId} />
-		{/if}
-		<div
-			class="drawer"
-			bind:this={drawerDiv}
-			style:height={hasFileSelection ? 'min(' + height.current + 'rem, 80%)' : undefined}
-			style:flex-grow={hasFileSelection ? undefined : '1'}
-		>
+		<SelectionView {projectId} />
+
+		<div class="drawer" bind:this={drawerDiv} style:height={height.current + 'rem'}>
 			{#if stackId}
 				{#if drawerPage.current === 'new-commit'}
 					<NewCommit {projectId} {stackId} />
-				{:else if drawerPage.current === 'branch'}
+				{:else if drawerPage.current === 'branch' && branchName}
 					<BranchView {stackId} {projectId} {branchName} />
 				{:else if drawerPage.current === 'pr'}
 					<NewPullRequest {stackId} {projectId} />
@@ -77,14 +69,13 @@
 					/>
 				{/if}
 			{/if}
-			{#if hasFileSelection}
-				<Resizer
-					direction="up"
-					viewport={drawerDiv}
-					minHeight={11}
-					onHeight={(value) => uiState.global.drawerHeight.set(value)}
-				/>
-			{/if}
+
+			<Resizer
+				direction="up"
+				viewport={drawerDiv}
+				minHeight={11}
+				onHeight={(value) => uiState.global.drawerHeight.set(value)}
+			/>
 		</div>
 	</div>
 	<div class="right" bind:this={rightDiv} style:width={rightWidth.current + 'rem'}>
@@ -139,7 +130,6 @@
 		flex-direction: column;
 		flex-grow: 1;
 		border-radius: var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
 		overflow: hidden;
 	}
 
@@ -148,5 +138,6 @@
 		display: flex;
 		flex-direction: column;
 		flex-shrink: 0;
+		flex-grow: 1;
 	}
 </style>
