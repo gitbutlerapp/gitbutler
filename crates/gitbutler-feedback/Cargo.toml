@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 anyhow = "1.0.95"
-zip = "0.6.5"
+zip = "2.2.0"
 walkdir = "2.5.0"
 sha2 = "0.10.8"
 gitbutler-project.workspace = true

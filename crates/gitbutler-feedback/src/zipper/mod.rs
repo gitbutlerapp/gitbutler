@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};
 use walkdir::{DirEntry, WalkDir};
-use zip::{result::ZipError, write, CompressionMethod, ZipWriter};
+use zip::{result::ZipError, write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
 #[derive(Clone)]
 pub struct Zipper {
@@ -70,7 +70,7 @@ where
     T: io::Write + io::Seek,
 {
     let mut zip = ZipWriter::new(writer);
-    let options = write::FileOptions::default()
+    let options = SimpleFileOptions::default()
         .compression_method(method)
         .unix_permissions(0o755);
 
