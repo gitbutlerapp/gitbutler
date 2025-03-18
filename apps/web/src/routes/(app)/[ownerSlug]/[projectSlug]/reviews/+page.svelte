@@ -65,52 +65,59 @@
 				{@render filters()}
 			</div>
 
-			<Table
-				headColumns={[
-					{
-						key: 'status',
-						value: 'Status'
-					},
-					{
-						key: 'title',
-						value: 'Name'
-					},
-					{
-						key: 'number',
-						value: 'UUID'
-					},
-					{
-						key: 'number',
-						value: 'Commits'
-					},
-					{
-						key: 'date',
-						value: 'Update'
-					},
-					{
-						key: 'avatars',
-						value: 'Authors'
-					},
-					{
-						key: 'number',
-						value: 'Ver.',
-						tooltip: 'Commit version'
-					}
-				]}
-			>
-				{#snippet body()}
-					{#each brancheses as branches, i}
-						{#each branches as branch, j}
-							<BranchIndexCard
-								linkParams={data}
-								uuid={branch.uuid}
-								roundedTop={j === 0 && i !== 0}
-								roundedBottom={j === branches.length - 1}
-							/>
+			{#if brancheses.length === 0}
+				<div class="empty-state">
+					<h3>No branches found</h3>
+					<p>There are no branches matching your current filter.</p>
+				</div>
+			{:else}
+				<Table
+					headColumns={[
+						{
+							key: 'status',
+							value: 'Status'
+						},
+						{
+							key: 'title',
+							value: 'Name'
+						},
+						{
+							key: 'number',
+							value: 'UUID'
+						},
+						{
+							key: 'number',
+							value: 'Commits'
+						},
+						{
+							key: 'date',
+							value: 'Update'
+						},
+						{
+							key: 'avatars',
+							value: 'Authors'
+						},
+						{
+							key: 'number',
+							value: 'Ver.',
+							tooltip: 'Commit version'
+						}
+					]}
+				>
+					{#snippet body()}
+						{#each brancheses as branches, i}
+							{#each branches as branch, j}
+								<BranchIndexCard
+									linkParams={data}
+									uuid={branch.uuid}
+									roundedTop={j === 0 && i !== 0}
+									roundedBottom={j === branches.length - 1}
+								/>
+							{/each}
 						{/each}
-					{/each}
-				{/snippet}
-			</Table>
+					{/snippet}
+				</Table>
+			{/if}
 		{/snippet}
 	</Loading>
 </DashboardLayout>
@@ -128,5 +135,28 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
+	}
+
+	.empty-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+		padding: 64px 0;
+		background-color: #fff;
+		border-radius: 12px;
+		border: 1px solid #ddd;
+	}
+
+	.empty-state h3 {
+		margin: 16px 0 8px;
+		font-size: 18px;
+		font-weight: 600;
+	}
+
+	.empty-state p {
+		margin: 0 0 24px;
+		color: var(--color-text-secondary);
 	}
 </style>
