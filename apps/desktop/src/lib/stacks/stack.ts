@@ -11,19 +11,32 @@ export function getStackName(stack: Stack): string | undefined {
 	return lastBranch;
 }
 
+/** Represents the pushable status for the current stack */
+export type PushStatus =
+	/**
+	 * Can push, but there are no changes to be pushed
+	 */
+	| 'NothingToPush'
+	/**
+	 * Can push. This is the case when there are local changes that can be pushed to the remote.
+	 */
+	| 'UnpushedCommits'
+	/**
+	 * Can push, but requires a force push to the remote because commits were rewritten.
+	 */
+	| 'UnpushedCommitsRequiringForce'
+	/**
+	 * Cannot push. This is the case when the stack contains at least one conflicted commit.
+	 */
+	| 'ConflictedCommits';
+
 export type StackInfo = {
-	id: string;
-	name: string;
 	/**
-	 * Whether the stack contains any conflicted changes.
+	 * This is the name of the top-most branch, provided by the API for convinience
 	 */
-	isConflicted: boolean;
+	derivedName: string;
 	/**
-	 * Whether there are local changes that can be pushed to the remote.
+	 * The pushable status for the stack
 	 */
-	isDirty: boolean;
-	/**
-	 * Whether the stack requires a force push to the remote.
-	 */
-	requiresForce: boolean;
+	pushStatus: PushStatus;
 };

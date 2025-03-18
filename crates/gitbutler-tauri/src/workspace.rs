@@ -31,10 +31,10 @@ pub fn stack_info(
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     stack_id: StackId,
-) -> Result<but_workspace::StackInfo, Error> {
+) -> Result<but_workspace::StackDetails, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    but_workspace::get_stack_info(&project.gb_dir(), stack_id, &ctx).map_err(Into::into)
+    but_workspace::stack_info(&project.gb_dir(), stack_id, &ctx).map_err(Into::into)
 }
 
 #[tauri::command(async)]
