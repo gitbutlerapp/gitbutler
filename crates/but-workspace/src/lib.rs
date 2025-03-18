@@ -352,7 +352,7 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
         current_base = internal.head_oid(&stack_ctx, &stack)?.to_gix();
         stack_branches.push(result);
     }
-    _ = stack.migrate_change_ids(ctx); // If it fails thats ok - best effort migration
+    stack.migrate_change_ids(ctx).ok(); // If it fails thats ok - best effort migration
     stack_branches.reverse();
     Ok(stack_branches)
 }
