@@ -50,7 +50,7 @@ export class UpstreamIntegrationService {
 
 			const stackStatusesWithBranches: StackStatusesWithBranchesV3 = {
 				type: 'updatesRequired',
-				subject: branchStatusesData.subject
+				subject: branchStatusesData.subject.statuses
 					.map((status) => {
 						const stack = stackData.find((appliedBranch) => appliedBranch.id === status[0]);
 

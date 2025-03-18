@@ -62,7 +62,11 @@ pub enum BranchStatus {
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
 pub enum StackStatuses {
     UpToDate,
-    UpdatesRequired(Vec<(StackId, StackStatus)>),
+    UpdatesRequired {
+        #[serde(rename = "worktreeConflicted")]
+        worktree_conflicted: bool,
+        statuses: Vec<(StackId, StackStatus)>,
+    },
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -376,6 +380,44 @@ pub fn upstream_integration_statuses(
         return Ok(StackStatuses::UpToDate);
     };
 
+    // The merge base tree of all of the applied stacks plus the new target
+    let merge_base_tree = gix_repository
+        .merge_base_octopus(
+            stacks_in_workspace
+                .iter()
+                .map(|b| b.head().to_gix())
+                .chain(Some(new_target.id().to_gix())),
+        )?
+        .object()?
+        .into_commit()
+        .tree_id()?;
+
+    // The working directory tree
+    let workdir_tree = context
+        .ctx
+        .repo()
+        .create_wd_tree(gitbutler_project::AUTO_TRACK_LIMIT_BYTES)?
+        .id()
+        .to_gix();
+
+    // The target tree
+    let target_tree = gix_repository
+        .find_commit(new_target.id().to_gix())?
+        .tree_id()?;
+
+    let (merge_options_fail_fast, conflict_kind) =
+        gix_repository.merge_options_no_rewrites_fail_fast()?;
+
+    let worktree_conflicted = gix_repository
+        .merge_trees(
+            merge_base_tree,
+            workdir_tree,
+            target_tree,
+            gix_repository.default_merge_labels(),
+            merge_options_fail_fast.clone(),
+        )?
+        .has_unresolved_conflicts(conflict_kind);
+
     let statuses = stacks_in_workspace
         .iter()
         .map(|stack| {
@@ -392,7 +434,10 @@ pub fn upstream_integration_statuses(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    Ok(StackStatuses::UpdatesRequired(statuses))
+    Ok(StackStatuses::UpdatesRequired {
+        worktree_conflicted,
+        statuses,
+    })
 }
 
 pub(crate) fn integrate_upstream(
@@ -421,7 +466,7 @@ pub(crate) fn integrate_upstream(
     {
         let statuses = upstream_integration_statuses(&context)?;
 
-        let StackStatuses::UpdatesRequired(statuses) = statuses else {
+        let StackStatuses::UpdatesRequired { statuses, .. } = statuses else {
             bail!("Branches are all up to date")
         };
 
