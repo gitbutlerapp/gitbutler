@@ -51,27 +51,10 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 		const dispatch = getDispatch();
 		let subscription: QueryActionCreatorResult<any>;
 		$effect(() => {
-			console.log('INITIATING');
-			subscription = dispatch(
-				initiate(queryArg, { subscriptionOptions: { pollingInterval: 5000 } })
-			);
+			subscription = dispatch(initiate(queryArg));
 			return subscription.unsubscribe;
 		});
-		$effect(() => {
-			console.log('hello world', subscription);
-		});
 
-		$effect(() => {
-			// console.log(options);
-			// console.log(options?.subscribe?.current.pollingInterval);
-			// console.log('subscription', subscription);
-			// if (options?.subscribe?.current) {
-			// 	console.log('updating subscription', options?.subscribe);
-			// 	subscription.updateSubscriptionOptions({
-			// 		pollingInterval: options?.subscribe?.current.pollingInterval
-			// 	});
-			// }
-		});
 		const result = $derived(useQueryState(queryArg, options));
 		return result;
 	}
