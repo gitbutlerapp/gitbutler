@@ -182,6 +182,14 @@ impl Stack {
         self.head = head;
     }
 
+    /// This is the name of the top-most branch, provided by the API for convinience
+    pub fn derived_name(&self) -> Result<String> {
+        self.heads
+            .last()
+            .map(|head| head.name.clone())
+            .ok_or_else(|| anyhow!("Stack is uninitialized"))
+    }
+
     // TODO: When this is stable, make it error out on initialization failure
     /// Constructs and initializes a new Stack.
     /// If initialization fails, a warning is logged and the stack is returned as is.

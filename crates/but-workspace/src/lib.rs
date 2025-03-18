@@ -138,30 +138,38 @@ pub fn stacks(gb_dir: &Path) -> Result<Vec<StackEntry>> {
         .collect())
 }
 
+/// Represents the pushable status for the current stack.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PushStatus {
+    /// Can push, but there are no changes to be pushed
+    NothingToPush,
+    /// Can push. This is the case when there are local changes that can be pushed to the remote.
+    UnpushedCommits,
+    /// Can push, but requires a force push to the remote because commits were rewritten.
+    UnpushedCommitsRequiringForce,
+    /// Cannot push. This is the case when the stack contains at least one conflicted commit.
+    ConflictedCommits,
+}
+
 /// Information about the current state of a stack
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StackInfo {
-    /// The ID of the stack.
-    pub id: StackId,
-    /// Stack name.
-    pub name: BString,
-    /// Whether the stack contains any conflicted changes.
-    pub is_conflicted: bool,
-    /// Whether there are local changes that can be pushed to the remote.
-    pub is_dirty: bool,
-    /// Whether the stack requires a force push to the remote.
-    pub requires_force: bool,
+pub struct StackDetails {
+    /// This is the name of the top-most branch, provided by the API for convinience
+    pub derived_name: String,
+    /// The pushable status for the stack
+    pub push_status: PushStatus,
 }
 
-fn is_requires_force(ctx: &CommandContext, stack: &Stack) -> Result<bool> {
-    let upstream = if let Some(upstream) = &stack.upstream {
-        upstream
+fn requires_force(ctx: &CommandContext, stack: &Stack, remote: String) -> Result<bool> {
+    let upstream = if let Some(top_most_branch) = stack.branches().last() {
+        top_most_branch.remote_reference(remote.as_str())
     } else {
         return Ok(false);
     };
 
-    let reference = match ctx.repo().refname_to_id(&upstream.to_string()) {
+    let reference = match ctx.repo().refname_to_id(&upstream) {
         Ok(reference) => reference,
         Err(err) if err.code() == git2::ErrorCode::NotFound => return Ok(false),
         Err(other) => return Err(other).context("failed to find upstream reference"),
@@ -183,11 +191,15 @@ fn is_requires_force(ctx: &CommandContext, stack: &Stack) -> Result<bool> {
 /// - `gb_dir`: The path to the GitButler state for the project. Normally this is `.git/gitbutler` in the project's repository.
 /// - `stack_id`: The ID of the stack to get information about.
 /// - `ctx`: The command context for the project.
-pub fn get_stack_info(gb_dir: &Path, stack_id: StackId, ctx: &CommandContext) -> Result<StackInfo> {
+pub fn stack_info(gb_dir: &Path, stack_id: StackId, ctx: &CommandContext) -> Result<StackDetails> {
     let state = state_handle(gb_dir);
     let stack = state.get_stack(stack_id)?;
     let branches = stack.branches();
     let repo = ctx.gix_repository()?;
+    let remote = state
+        .get_default_target()
+        .context("failed to get default target")?
+        .push_remote_name();
 
     let mut is_conflicted = false;
     let mut is_dirty = false;
@@ -207,14 +219,18 @@ pub fn get_stack_info(gb_dir: &Path, stack_id: StackId, ctx: &CommandContext) ->
         }
     }
 
-    let requires_force = is_requires_force(ctx, &stack)?;
+    let requires_force = requires_force(ctx, &stack, remote)?;
 
-    Ok(StackInfo {
-        id: stack.id,
-        name: stack.name.to_owned().into(),
-        is_conflicted,
-        is_dirty,
-        requires_force,
+    let push_status = match (is_conflicted, is_dirty, requires_force) {
+        (true, _, _) => PushStatus::ConflictedCommits,
+        (_, true, true) => PushStatus::UnpushedCommitsRequiringForce,
+        (_, true, false) => PushStatus::UnpushedCommits,
+        (_, false, _) => PushStatus::NothingToPush,
+    };
+
+    Ok(StackDetails {
+        derived_name: stack.derived_name()?,
+        push_status,
     })
 }
 

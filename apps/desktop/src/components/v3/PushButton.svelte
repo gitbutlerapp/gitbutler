@@ -1,4 +1,9 @@
 <script lang="ts">
+	import {
+		stackHasConflicts,
+		stackHasUnpushedCommits,
+		stackRequiresForcePush
+	} from '$lib/stacks/stack';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { inject } from '@gitbutler/shared/context';
@@ -18,9 +23,13 @@
 	const [pushStack, pushResult] = stackService.pushStack();
 	let scrollEndVisible = $state(true);
 
+	const requiresForce = $derived(stackInfo && stackRequiresForcePush(stackInfo));
+	const hasThingsToPush = $derived(stackInfo && stackHasUnpushedCommits(stackInfo));
+	const hasConflicts = $derived(stackInfo && stackHasConflicts(stackInfo));
+
 	function push() {
-		if (!stackInfo) return;
-		pushStack({ projectId, stackId, withForce: stackInfo.requiresForce });
+		if (requiresForce === undefined) return;
+		pushStack({ projectId, stackId, withForce: requiresForce });
 	}
 
 	const loading = $derived(pushResult.current.isLoading || stackInfoResult.current.isLoading);
@@ -49,13 +58,13 @@
 			style="pop"
 			wide
 			{loading}
-			disabled={stackInfo?.isConflicted || !stackInfo?.isDirty}
-			tooltip={stackInfo?.isConflicted
+			disabled={!hasThingsToPush || hasConflicts}
+			tooltip={hasConflicts
 				? 'In order to push, please resolve any conflicted commits.'
 				: undefined}
 			onclick={push}
 		>
-			{stackInfo?.requiresForce ? 'Force push' : multipleBranches ? 'Push All' : 'Push'}
+			{requiresForce ? 'Force push' : multipleBranches ? 'Push All' : 'Push'}
 		</Button>
 	</div>
 </div>
