@@ -83,6 +83,8 @@
 				{ key: 'reviewers', value: { approvers, rejectors } },
 				{ key: 'comments', value: patch.commentCount, tooltip: 'Comments' }
 			]}
+			isTopEntry={currentPosition === branch.patches?.length}
+			separatedBottom={currentPosition === 1}
 		/>
 	{/snippet}
 </Loading>

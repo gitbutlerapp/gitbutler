@@ -115,6 +115,7 @@
 								<BranchIndexCard
 									linkParams={data}
 									uuid={branch.uuid}
+									isTopEntry={i + j === 0}
 									roundedTop={j === 0 && i !== 0}
 									roundedBottom={j === branches.length - 1}
 								/>
