@@ -350,7 +350,12 @@
 			</div>
 		</div>
 		{#if !hasNoCommits}
-			<BranchReview {branch} openForgePullRequest={handleOpenBranchReview}>
+			<BranchReview
+				{projectId}
+				stackId={stack.id}
+				branchName={branch.name}
+				openForgePullRequest={handleOpenBranchReview}
+			>
 				{#snippet branchLine()}
 					<div class="branch-action__line" style:--bg-color={lineColor}></div>
 				{/snippet}

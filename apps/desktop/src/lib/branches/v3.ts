@@ -13,7 +13,7 @@ export type StackBranch = {
 	 */
 	readonly description: string | null;
 	/** The pull(merge) request associated with the branch, or None if no such entity has not been created. */
-	readonly prNumber: string | null;
+	readonly prNumber: number | null;
 	/** A unique identifier for the GitButler review associated with the branch, if any. */
 	readonly reviewId: string | null;
 	/**
