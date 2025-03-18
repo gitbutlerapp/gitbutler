@@ -6,4 +6,4 @@ set -eu -o pipefail
 
 git init
 touch file && git add . && git commit -m "init"
-git checkout @
+git checkout --detach HEAD

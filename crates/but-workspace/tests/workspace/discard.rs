@@ -40,7 +40,6 @@ fn all_file_types_added_to_index() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn all_file_types_deleted_in_worktree() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario("delete-all-file-types-valid-submodule");
     insta::assert_snapshot!(git_status(&repo)?, @r"
     D .gitmodules
@@ -82,7 +81,6 @@ fn all_file_types_deleted_in_worktree() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn replace_dir_with_file_discard_all_in_order_in_worktree() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario("replace-dir-with-submodule-with-file");
     insta::assert_snapshot!(git_status(&repo)?, @r"
      D dir/executable
@@ -129,7 +127,6 @@ fn replace_dir_with_file_discard_all_in_order_in_worktree() -> anyhow::Result<()
 #[test]
 #[cfg(unix)]
 fn replace_dir_with_file_discard_all_in_order_in_index() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario("replace-dir-with-submodule-with-file");
     git(&repo).args(["add", "."]).run();
     insta::assert_snapshot!(git_status(&repo)?, @r"
@@ -177,7 +174,6 @@ fn replace_dir_with_file_discard_all_in_order_in_index() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn replace_dir_with_file_discard_just_the_file_in_worktree() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario("replace-dir-with-submodule-with-file");
     insta::assert_snapshot!(git_status(&repo)?, @r"
      D dir/executable
@@ -220,7 +216,6 @@ fn replace_dir_with_file_discard_just_the_file_in_worktree() -> anyhow::Result<(
 #[test]
 #[cfg(unix)]
 fn conflicts_are_invisible() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-conflict");
     insta::assert_snapshot!(git_status(&repo)?, @"UU file");
     insta::assert_snapshot!(visualize_index(&**repo.index()?), @r"
@@ -254,7 +249,6 @@ fn conflicts_are_invisible() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn replace_dir_with_file_discard_just_the_file_in_index() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario("replace-dir-with-submodule-with-file");
     git(&repo).args(["add", "."]).run();
     insta::assert_snapshot!(git_status(&repo)?, @r"
@@ -298,7 +292,6 @@ fn replace_dir_with_file_discard_just_the_file_in_index() -> anyhow::Result<()> 
 #[test]
 #[cfg(unix)]
 fn all_file_types_modified_in_worktree() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario_slow("all-file-types-changed");
     insta::assert_snapshot!(git_status(&repo)?, @r"
     M soon-executable
@@ -338,7 +331,6 @@ fn all_file_types_modified_in_worktree() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn all_file_types_modified_in_index() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario_slow("all-file-types-changed");
     git(&repo).args(["add", "."]).run();
     insta::assert_snapshot!(git_status(&repo)?, @r"
@@ -379,7 +371,6 @@ fn all_file_types_modified_in_index() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn modified_submodule_and_embedded_repo_in_worktree() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario("modified-submodule-and-embedded-repo");
     insta::assert_snapshot!(git_status(&repo)?, @r"
     M embedded-repository
@@ -435,7 +426,6 @@ fn modified_submodule_and_embedded_repo_in_worktree() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn modified_submodule_and_embedded_repo_in_index() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario("modified-submodule-and-embedded-repo");
     git(&repo).args(["add", "."]).run();
     insta::assert_snapshot!(git_status(&repo)?, @r"
@@ -465,7 +455,6 @@ fn modified_submodule_and_embedded_repo_in_index() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn all_file_types_renamed_and_modified_in_worktree() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario_slow("all-file-types-renamed-and-modified");
     // Git doesn't detect renames between index/worktree, but we do.
     insta::assert_snapshot!(git_status(&repo)?, @r"
@@ -509,7 +498,6 @@ fn all_file_types_renamed_and_modified_in_worktree() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn all_file_types_renamed_modified_in_index() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario_slow("all-file-types-renamed-and-modified");
     git(&repo).args(["add", "."]).run();
     insta::assert_snapshot!(git_status(&repo)?, @r"
@@ -556,7 +544,6 @@ fn all_file_types_renamed_modified_in_index() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn all_file_types_renamed_overwriting_existing_and_modified_in_worktree() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario_slow("all-file-types-renamed-and-overwriting-existing");
     // This is actually misleading as `file-to-be-dir` seems missing even though it's now
     // a directory. It's untracked-state isn't visible.
@@ -623,7 +610,6 @@ fn all_file_types_renamed_overwriting_existing_and_modified_in_worktree() -> any
 #[test]
 #[cfg(unix)]
 fn all_file_types_renamed_overwriting_existing_and_modified_in_index() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario_slow("all-file-types-renamed-and-overwriting-existing");
     git(&repo).args(["add", "."]).run();
     // This is actually misleading as `file-to-be-dir` seems missing even though it's now
@@ -693,7 +679,6 @@ fn all_file_types_renamed_overwriting_existing_and_modified_in_index() -> anyhow
 #[cfg(unix)]
 fn all_file_types_renamed_overwriting_existing_and_modified_in_worktree_discard_selectively()
 -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario_slow("all-file-types-renamed-and-overwriting-existing");
     // This is actually misleading as `file-to-be-dir` seems missing even though it's now
     // a directory. It's untracked-state isn't visible.
@@ -788,7 +773,6 @@ fn all_file_types_renamed_overwriting_existing_and_modified_in_worktree_discard_
 #[test]
 #[cfg(unix)]
 fn folder_with_all_file_types_moved_upwards_in_worktree() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario_slow("move-directory-into-sibling-file");
     insta::assert_snapshot!(git_status(&repo)?, @r"
     D a/b/executable
@@ -839,7 +823,6 @@ fn folder_with_all_file_types_moved_upwards_in_worktree() -> anyhow::Result<()> 
 #[test]
 #[cfg(unix)]
 fn folder_with_all_file_types_moved_upwards_in_worktree_discard_selected() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario_slow("move-directory-into-sibling-file");
     insta::assert_snapshot!(git_status(&repo)?, @r"
     D a/b/executable
@@ -888,7 +871,6 @@ fn folder_with_all_file_types_moved_upwards_in_worktree_discard_selected() -> an
 #[test]
 #[cfg(unix)]
 fn folder_with_all_file_types_moved_upwards_in_index() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario_slow("move-directory-into-sibling-file");
     git(&repo).args(["add", "."]).run();
     insta::assert_snapshot!(git_status(&repo)?, @r"
@@ -925,7 +907,6 @@ fn folder_with_all_file_types_moved_upwards_in_index() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn all_file_types_deleted_in_index() -> anyhow::Result<()> {
-    util::control_umask();
     let (repo, _tmp) = writable_scenario("delete-all-file-types-valid-submodule");
     insta::assert_snapshot!(git_status(&repo)?, @r"
     D .gitmodules
@@ -991,13 +972,6 @@ mod util {
             hunk_headers: vec![],
         }
         .into()
-    }
-
-    /// Set the process umask to a known value so filesystem listings will be as we expect on all machines.
-    #[cfg(unix)]
-    pub fn control_umask() {
-        use rustix::fs::Mode;
-        rustix::process::umask(Mode::from_bits(0o022).unwrap());
     }
 
     pub fn worktree_changes_to_discard_specs(

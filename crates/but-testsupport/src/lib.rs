@@ -154,17 +154,29 @@ pub fn visualize_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
 ///
 /// # IMPORTANT: Portability
 ///
-/// As it's intended for tests, this can't be called on Windows were modes don't exist.
-/// Further, be sure to set the `umask` of the process to something explicit, or else it may differ
-/// between runs and cause failures.
+/// * As it's intended for tests, this can't be called on Windows were modes don't exist.
+///   Further, be sure to set the `umask` of the process to something explicit, or else it may differ
+///   between runs and cause failures.
+/// * To avoid umask-specific errors across different systems, which may or may not use it for all operations,
+///   we 'normalize' umasks to what Git would track. This normalisation may need adjustments as different systems
+///   are encountered.
 #[cfg(unix)]
 pub fn visualize_disk_tree_skip_dot_git(root: &Path) -> anyhow::Result<termtree::Tree<String>> {
     use std::os::unix::fs::MetadataExt;
+    fn normalize_mode(mode: u32) -> u32 {
+        match mode {
+            0o40777 => 0o40755,
+            0o100666 => 0o100644,
+            0o100777 => 0o100755,
+            0o120777 => 0o120755,
+            other => other,
+        }
+    }
     fn label(p: &Path, md: &std::fs::Metadata) -> String {
         format!(
             "{name}:{mode:o}",
             name = p.file_name().unwrap().to_str().unwrap(),
-            mode = md.mode(),
+            mode = normalize_mode(md.mode()),
         )
     }
 
