@@ -28,7 +28,7 @@
 		<ConfigurableScrollableContainer>
 			<div class="commit-view">
 				<CommitHeader {projectId} {commitKey} {commit} {onclick} />
-				<ChangedFiles {projectId} commitId={commitKey.commitId} />
+				<ChangedFiles type="commit" {projectId} commitId={commitKey.commitId} />
 			</div>
 		</ConfigurableScrollableContainer>
 	{/snippet}

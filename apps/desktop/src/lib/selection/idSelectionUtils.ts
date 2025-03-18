@@ -4,11 +4,11 @@
  * This file replaces `$lib/utils/selection.ts`, with the main difference
  * being the type change from `AnyFile` to `TreeChange`.
  */
+import { type SelectedFile, type SelectionParameters } from './key';
 import { getSelectionDirection } from '$lib/utils/getSelectionDirection';
 import { KeyName } from '@gitbutler/ui/utils/hotkeys';
 import type { TreeChange } from '$lib/hunks/change';
 import type { IdSelection } from './idSelection.svelte';
-import type { SelectedFile } from './key';
 
 function getFile(files: TreeChange[], id: string): TreeChange | undefined {
 	return files.find((f) => f.path === id);
@@ -16,12 +16,17 @@ function getFile(files: TreeChange[], id: string): TreeChange | undefined {
 
 function getNextFile(files: TreeChange[], currentId: string): TreeChange | undefined {
 	const fileIndex = files.findIndex((f) => f.path === currentId);
-	return fileIndex !== -1 && fileIndex + 1 < files.length ? files[fileIndex + 1] : undefined;
+	if (fileIndex === -1) return undefined;
+
+	const nextFileIndex = (fileIndex + 1) % files.length;
+	return files[nextFileIndex];
 }
 
 function getPreviousFile(files: TreeChange[], currentId: string): TreeChange | undefined {
 	const fileIndex = files.findIndex((f) => f.path === currentId);
-	return fileIndex > 0 ? files[fileIndex - 1] : undefined;
+	if (fileIndex === -1) return undefined;
+	const previousFileIndex = (fileIndex - 1 + files.length) % files.length;
+	return files[previousFileIndex];
 }
 
 function getTopFile(files: TreeChange[], selectedFileIds: SelectedFile[]): TreeChange | undefined {
@@ -55,7 +60,7 @@ interface UpdateSelectionParams {
 	files: TreeChange[];
 	selectedFileIds: SelectedFile[];
 	fileIdSelection: IdSelection;
-	commitId?: string;
+	selectionParams: SelectionParameters;
 	preventDefault: () => void;
 }
 
@@ -68,7 +73,7 @@ export function updateSelection({
 	files,
 	selectedFileIds,
 	fileIdSelection,
-	commitId,
+	selectionParams,
 	preventDefault
 }: UpdateSelectionParams) {
 	if (!selectedFileIds[0] || selectedFileIds.length === 0) return;
@@ -95,7 +100,9 @@ export function updateSelection({
 				return;
 			}
 
-			fileIdSelection.add(file.path, commitId);
+			const fileIndex = files.findIndex((f) => f.path === file.path);
+			if (fileIndex === -1) return; // should never happen
+			fileIdSelection.add(file.path, selectionParams, fileIndex);
 		}
 	}
 
@@ -105,7 +112,9 @@ export function updateSelection({
 	) {
 		const file = getFileFunc?.(files, id) ?? getFile(files, id);
 		if (file) {
-			fileIdSelection.set(file.path, commitId);
+			const fileIndex = files.findIndex((f) => f.path === file.path);
+			if (fileIndex === -1) return; // should never happen
+			fileIdSelection.set(file.path, selectionParams, fileIndex);
 		}
 	}
 
@@ -113,8 +122,9 @@ export function updateSelection({
 		case 'a':
 			if (allowMultiple && metaKey) {
 				preventDefault();
-				for (const file of files) {
-					fileIdSelection.add(file.path, commitId);
+				for (let i = 0; i < files.length; i++) {
+					const file = files[i]!;
+					fileIdSelection.add(file.path, selectionParams, i);
 				}
 			}
 			break;
@@ -127,7 +137,7 @@ export function updateSelection({
 				if (selectedFileIds.length === 1) {
 					selectionDirection = 'up';
 				} else if (selectionDirection === 'down') {
-					fileIdSelection.remove(lastFileId, commitId);
+					fileIdSelection.remove(lastFileId, selectionParams);
 				}
 				getAndAddFile(lastFileId, getPreviousFile);
 			} else {
@@ -152,7 +162,7 @@ export function updateSelection({
 				if (selectedFileIds.length === 1) {
 					selectionDirection = 'down';
 				} else if (selectionDirection === 'up') {
-					fileIdSelection.remove(lastFileId, commitId);
+					fileIdSelection.remove(lastFileId, selectionParams);
 				}
 
 				getAndAddFile(lastFileId, getNextFile);
@@ -182,53 +192,32 @@ export function selectFilesInList(
 	sortedFiles: TreeChange[],
 	idSelection: IdSelection,
 	allowMultiple: boolean,
-	commitId: string | undefined
+	index: number,
+	selectionParams: SelectionParameters
 ) {
 	e.stopPropagation();
-	const isAlreadySelected = idSelection.has(change.path, commitId);
+	const isAlreadySelected = idSelection.has(change.path, selectionParams);
+	const isTheOnlyOneSelected = idSelection.length === 1 && isAlreadySelected;
+	const lastAddedIndex = idSelection.lastAddedIndex;
 
 	if (e.ctrlKey || e.metaKey) {
 		if (isAlreadySelected) {
-			idSelection.remove(change.path, commitId);
+			idSelection.remove(change.path, selectionParams);
 		} else {
-			idSelection.add(change.path, commitId);
+			idSelection.add(change.path, selectionParams, index);
 		}
-	} else if (e.shiftKey && allowMultiple) {
-		// TODO(CTO): Not sure that this is accurate.
-		// TODO(mattias): I think you're right.
-		const initiallySelectedIndex = sortedFiles.findIndex((f) => f.path === idSelection.firstPath());
+	} else if (e.shiftKey && allowMultiple && lastAddedIndex !== undefined) {
+		const start = Math.min(lastAddedIndex, index);
+		const end = Math.max(lastAddedIndex, index);
 
-		// detect the direction of the selection
-		const selectionDirection = getSelectionDirection(
-			initiallySelectedIndex,
-			sortedFiles.findIndex((f) => f.path === change.path)
-		);
-
-		const updatedSelection = sortedFiles.slice(
-			Math.min(
-				initiallySelectedIndex,
-				sortedFiles.findIndex((f) => f.path === change.path)
-			),
-			Math.max(
-				initiallySelectedIndex,
-				sortedFiles.findIndex((f) => f.path === change.path)
-			) + 1
-		);
-
-		// if the selection is in the opposite direction, reverse the selection
-		if (selectionDirection === 'down') {
-			idSelection.reverse();
-		}
-		idSelection.addMany(
-			updatedSelection.map((c) => c.path),
-			commitId
-		);
+		const filePaths = sortedFiles.slice(start, end + 1).map((f) => f.path);
+		idSelection.addMany(filePaths, selectionParams, index);
 	} else {
 		// if only one file is selected and it is already selected, unselect it
-		if (idSelection.length === 1 && isAlreadySelected) {
+		if (isTheOnlyOneSelected) {
 			idSelection.clear();
 		} else {
-			idSelection.set(change.path, commitId);
+			idSelection.set(change.path, selectionParams, index);
 		}
 	}
 }

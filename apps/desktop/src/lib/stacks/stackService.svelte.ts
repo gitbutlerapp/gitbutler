@@ -220,7 +220,7 @@ export class StackService {
 		const result = $derived(
 			this.api.endpoints.commitChanges.useQuery(
 				{ projectId, commitId },
-				{ transform: (result) => changesSelectors.selectAll(result) }
+				{ transform: (result) => commitChangesSelectors.selectAll(result) }
 			)
 		);
 		return result;
@@ -230,10 +230,24 @@ export class StackService {
 		const result = $derived(
 			this.api.endpoints.commitChanges.useQuery(
 				{ projectId, commitId },
-				{ transform: (result) => changesSelectors.selectById(result, path) }
+				{ transform: (result) => commitChangesSelectors.selectById(result, path) }
 			)
 		);
 		return result;
+	}
+
+	branchChanges(projectId: string, stackId: string, branchName: string) {
+		return this.api.endpoints.branchChanges.useQuery(
+			{ projectId, stackId, branchName },
+			{ transform: (result) => branchChangesSelectors.selectAll(result) }
+		);
+	}
+
+	branchChange(projectId: string, stackId: string, branchName: string, path: string) {
+		return this.api.endpoints.branchChanges.useQuery(
+			{ projectId, stackId, branchName },
+			{ transform: (result) => branchChangesSelectors.selectById(result, path) }
+		);
 	}
 
 	updateCommitMessage() {
@@ -367,7 +381,7 @@ function injectEndpoints(api: ClientState['backendApi'], posthog: PostHogWrapper
 				}),
 				providesTags: [ReduxTag.CommitChanges],
 				transformResponse(changes: TreeChange[]) {
-					return changesAdapter.addMany(changesAdapter.getInitialState(), changes);
+					return commitChangesAdapter.addMany(commitChangesAdapter.getInitialState(), changes);
 				}
 			}),
 			branchChanges: build.query<
@@ -380,7 +394,7 @@ function injectEndpoints(api: ClientState['backendApi'], posthog: PostHogWrapper
 				}),
 				providesTags: [ReduxTag.BranchChanges],
 				transformResponse(changes: TreeChange[]) {
-					return changesAdapter.addMany(changesAdapter.getInitialState(), changes);
+					return branchChangesAdapter.addMany(branchChangesAdapter.getInitialState(), changes);
 				}
 			}),
 			updateCommitMessage: build.mutation<
@@ -464,8 +478,14 @@ const upstreamCommitSelectors = {
 	selectNth: createSelectNth<UpstreamCommit>()
 };
 
-const changesAdapter = createEntityAdapter<TreeChange, string>({
+const commitChangesAdapter = createEntityAdapter<TreeChange, string>({
 	selectId: (change) => change.path
 });
 
-const changesSelectors = changesAdapter.getSelectors();
+const commitChangesSelectors = commitChangesAdapter.getSelectors();
+
+const branchChangesAdapter = createEntityAdapter<TreeChange, string>({
+	selectId: (change) => change.path
+});
+
+const branchChangesSelectors = branchChangesAdapter.getSelectors();

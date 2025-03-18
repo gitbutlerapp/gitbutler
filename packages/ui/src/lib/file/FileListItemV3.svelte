@@ -17,6 +17,7 @@
 		fileStatusStyle?: 'dot' | 'full';
 		draggable?: boolean;
 		selected?: boolean;
+		focused?: boolean;
 		clickable?: boolean;
 		showCheckbox?: boolean;
 		checked?: boolean;
@@ -45,6 +46,7 @@
 		fileStatusStyle = 'dot',
 		draggable = false,
 		selected = false,
+		focused = false,
 		clickable = true,
 		showCheckbox = false,
 		checked = $bindable(),
@@ -72,6 +74,7 @@
 	class:selected
 	class:clickable
 	class:draggable
+	class:focused
 	aria-selected={selected}
 	role="option"
 	tabindex="-1"
@@ -178,7 +181,7 @@
 	.file-list-item.clickable {
 		cursor: pointer;
 
-		&:not(.selected-draggable):hover {
+		&:not(.selected):hover {
 			background-color: var(--clr-bg-1-muted);
 		}
 	}
@@ -257,6 +260,10 @@
 	}
 
 	.selected {
+		background-color: var(--clr-selected-not-in-focus-bg);
+	}
+
+	.selected.focused {
 		background-color: var(--clr-selected-in-focus-bg);
 	}
 </style>

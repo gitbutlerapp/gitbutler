@@ -12,7 +12,7 @@
 
 	const { children, minTriggerCount, role, ontrigger, onkeydown }: Props = $props();
 
-	let lazyContainerEl: HTMLDivElement | undefined;
+	let lazyContainerEl = $state<HTMLDivElement>();
 
 	const mutuationObserver = new MutationObserver(attachIntersectionObserver);
 	$effect(() => {
@@ -51,6 +51,13 @@
 			mutuationObserver.disconnect();
 		};
 	});
+
+	export function hasFocus() {
+		return (
+			document.activeElement === lazyContainerEl ||
+			lazyContainerEl?.contains(document.activeElement)
+		);
+	}
 </script>
 
 <div class="lazy-container" {role} bind:this={lazyContainerEl} {onkeydown}>

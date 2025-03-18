@@ -1,11 +1,7 @@
 <script lang="ts">
-	import UnifiedDiffView from './UnifiedDiffView.svelte';
+	import SelectedChange from './SelectedChange.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 
 	type Props = {
@@ -14,26 +10,14 @@
 
 	const { projectId }: Props = $props();
 
-	const [idSelection, stackService, worktreeService] = inject(
-		IdSelection,
-		StackService,
-		WorktreeService
-	);
+	const [idSelection] = inject(IdSelection);
 	const selection = $derived(idSelection.values());
 </script>
 
 <div class="selection-view">
 	<ScrollableContainer wide>
-		{#each selection as selectedFile (selectedFile.path)}
-			{@const changeResult = selectedFile.commitId
-				? stackService.commitChange(projectId, selectedFile.commitId, selectedFile.path)
-				: worktreeService.getChange(projectId, selectedFile.path)}
-			<ReduxResult result={changeResult.current}>
-				{#snippet children(change)}
-					<FileListItemWrapper {projectId} {change} sticky />
-					<UnifiedDiffView {projectId} {change} selectable />
-				{/snippet}
-			</ReduxResult>
+		{#each selection as selectedFile, index ('selection-view-' + selectedFile.path + index)}
+			<SelectedChange {projectId} {selectedFile} {index} />
 		{/each}
 	</ScrollableContainer>
 </div>
@@ -41,8 +25,8 @@
 <style>
 	.selection-view {
 		flex-grow: 1;
+		height: 100%;
 		overflow: hidden;
-		border-bottom: 1px solid var(--clr-border-2);
 		background-image: radial-gradient(
 			oklch(from var(--clr-scale-ntrl-50) l c h / 0.5) 0.6px,
 			#ffffff00 0.6px
