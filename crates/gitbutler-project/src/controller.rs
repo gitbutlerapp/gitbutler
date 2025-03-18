@@ -46,7 +46,7 @@ impl Controller {
                 };
             }
             Ok(repo) => {
-                match repo.work_dir() {
+                match repo.workdir() {
                     None => bail!("Cannot add non-bare repositories without a workdir"),
                     Some(wd) => {
                         if !wd.join(".git").is_dir() {

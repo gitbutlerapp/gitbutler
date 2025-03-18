@@ -56,7 +56,7 @@ fn from_unborn_head() -> anyhow::Result<()> {
     "#);
 
     std::fs::write(
-        repo.work_dir().expect("non-bare").join("new-untracked"),
+        repo.workdir().expect("non-bare").join("new-untracked"),
         "new-content",
     )?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
@@ -625,7 +625,7 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
     "#);
 
     std::fs::write(
-        repo.work_dir().expect("non-bare").join("new-untracked"),
+        repo.workdir().expect("non-bare").join("new-untracked"),
         "one\r\ntwo\r\n",
     )?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(

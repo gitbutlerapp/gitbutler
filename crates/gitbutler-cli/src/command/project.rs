@@ -26,7 +26,7 @@ pub fn add(
     refname: Option<RemoteRefname>,
 ) -> Result<()> {
     let path = gix::discover(path)?
-        .work_dir()
+        .workdir()
         .context("Only non-bare repositories can be added")?
         .to_owned()
         .canonicalize()?;

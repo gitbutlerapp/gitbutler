@@ -56,7 +56,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
         })
         .into_iter(None)?;
 
-    let work_dir = repo.work_dir().context("need non-bare repository")?;
+    let work_dir = repo.workdir().context("need non-bare repository")?;
     let mut tmp = Vec::new();
     let mut ignored_changes = Vec::new();
     for change in status_changes {

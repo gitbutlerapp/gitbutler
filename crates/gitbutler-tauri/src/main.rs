@@ -275,6 +275,7 @@ fn main() {
                     workspace::hunk_dependencies_for_workspace_changes,
                     workspace::create_commit_from_worktree_changes,
                     workspace::amend_commit_from_worktree_changes,
+                    workspace::discard_worktree_changes,
                     diff::changes_in_worktree,
                     diff::changes_in_commit,
                     diff::changes_in_branch,

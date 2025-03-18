@@ -4,7 +4,6 @@ use but_testsupport::gix_testtools;
 use but_testsupport::gix_testtools::{Creation, tempfile};
 use but_workspace::commit_engine::{Destination, DiffSpec};
 use gix::prelude::ObjectIdExt;
-use std::fs::Permissions;
 
 pub const CONTEXT_LINES: u32 = 0;
 
@@ -39,10 +38,16 @@ pub fn writable_scenario(name: &str) -> (gix::Repository, tempfile::TempDir) {
         .expect("fixtures will yield valid repositories")
 }
 
+/// It's slow because it has to re-execute the script, certain things can't be copied.
+pub fn writable_scenario_slow(name: &str) -> (gix::Repository, tempfile::TempDir) {
+    writable_scenario_inner(name, Creation::ExecuteScript)
+        .expect("fixtures will yield valid repositories")
+}
+
 pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile::TempDir) {
     let (mut repo, tmp) = writable_scenario_inner(name, Creation::CopyFromReadOnly)
         .expect("fixtures will yield valid repositories");
-    let signing_key_path = repo.work_dir().expect("non-bare").join("signature.key");
+    let signing_key_path = repo.workdir().expect("non-bare").join("signature.key");
     assert!(
         signing_key_path.is_file(),
         "Expecting signing key at '{}'",
@@ -53,7 +58,7 @@ pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile:
     {
         use std::os::unix::fs::PermissionsExt;
         let key = std::fs::File::open(&signing_key_path).expect("file exists");
-        key.set_permissions(Permissions::from_mode(0o400))
+        key.set_permissions(std::fs::Permissions::from_mode(0o400))
             .expect("must assure permissions are 400");
     }
 
@@ -149,7 +154,7 @@ pub fn write_sequence(
         }
     }
     std::fs::write(
-        repo.work_dir().expect("non-bare").join(filename),
+        repo.workdir().expect("non-bare").join(filename),
         out.as_bytes(),
     )?;
     Ok(())

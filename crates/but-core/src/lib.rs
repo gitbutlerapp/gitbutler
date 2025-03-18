@@ -175,6 +175,15 @@ pub fn open_repo_for_merging(path: &Path) -> anyhow::Result<gix::Repository> {
     Ok(repo)
 }
 
+/// A central place for opening a standard repository at `path` configured for any operation.
+/// Note that there may be more specialized versions of `open_repo_*` that might be more suitable for
+/// specific use-cases.
+///
+/// Note that the repository isn't discovered, but must exist at `path`.
+pub fn open_repo(path: &Path) -> anyhow::Result<gix::Repository> {
+    Ok(gix::open(path)?)
+}
+
 /// An entry in the worktree that changed and thus is eligible to being committed.
 ///
 /// It either lives (or lived) in the in `.git/index`, or in the `worktree`.

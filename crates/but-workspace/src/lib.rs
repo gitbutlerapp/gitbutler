@@ -43,6 +43,8 @@ mod author;
 mod integrated;
 
 pub mod commit_engine;
+pub mod discard;
+pub use discard::function::discard_workspace_changes;
 
 /// 🚧utilities for applying and unapplying branches 🚧.
 pub mod branch;

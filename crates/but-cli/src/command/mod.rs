@@ -1,5 +1,6 @@
 use anyhow::{Context, bail};
 use gitbutler_project::Project;
+use gix::bstr::BString;
 use std::path::Path;
 
 pub fn project_from_path(path: &Path) -> anyhow::Result<Project> {
@@ -45,7 +46,7 @@ pub fn repo_and_maybe_project(
     let res = if let Some((projects, work_dir)) =
         project_controller(args.app_suffix.as_deref(), args.app_data_dir.as_deref())
             .ok()
-            .zip(repo.work_dir())
+            .zip(repo.workdir())
     {
         let work_dir = gix::path::realpath(work_dir)?;
         (
@@ -131,4 +132,34 @@ pub mod stacks {
             stack_branch_upstream_only_commits(id.to_string(), name.to_string(), &ctx, &repo);
         debug_print(upstream_only)
     }
+}
+
+pub(crate) fn discard_change(
+    cwd: &Path,
+    current_rela_path: &Path,
+    previous_rela_path: Option<&Path>,
+) -> anyhow::Result<()> {
+    let repo = gix::discover(cwd)?;
+
+    let spec = but_workspace::commit_engine::DiffSpec {
+        previous_path: previous_rela_path.map(path_to_rela_path).transpose()?,
+        path: path_to_rela_path(current_rela_path)?,
+        hunk_headers: vec![],
+    };
+    debug_print(but_workspace::discard_workspace_changes(
+        &repo,
+        Some(spec.into()),
+    )?)
+}
+
+fn path_to_rela_path(path: &Path) -> anyhow::Result<BString> {
+    if !path.is_relative() {
+        bail!(
+            "Can't currently convert absolute path to relative path (but this could be done via gix, just not as easily as I'd like right now"
+        );
+    }
+    let rela_path =
+        gix::path::to_unix_separators_on_windows(gix::path::os_str_into_bstr(path.as_os_str())?)
+            .into_owned();
+    Ok(rela_path)
 }

@@ -16,6 +16,10 @@ fn main() -> Result<()> {
     let _op_span = tracing::info_span!("cli-op").entered();
 
     match &args.cmd {
+        args::Subcommands::DiscardChange {
+            current_path,
+            previous_path,
+        } => command::discard_change(&args.current_dir, current_path, previous_path.as_deref()),
         args::Subcommands::Commit {
             message,
             amend,

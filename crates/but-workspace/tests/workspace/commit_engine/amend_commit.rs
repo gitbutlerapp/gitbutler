@@ -89,7 +89,7 @@ fn new_file_and_deletion_onto_merge_commit() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
     write_sequence(&repo, "new-file", [(10, None)])?;
-    std::fs::remove_file(repo.work_dir().expect("non-bare").join("file"))?;
+    std::fs::remove_file(repo.workdir().expect("non-bare").join("file"))?;
 
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
@@ -109,7 +109,7 @@ fn make_a_file_empty() -> anyhow::Result<()> {
 
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Empty the file
-    std::fs::write(repo.work_dir().expect("non-bare").join("file"), "")?;
+    std::fs::write(repo.workdir().expect("non-bare").join("file"), "")?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::AmendCommit(repo.rev_parse_single("merge")?.detach()),
@@ -129,7 +129,7 @@ fn new_file_and_deletion_onto_merge_commit_with_hunks() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
     write_sequence(&repo, "new-file", [(10, None)])?;
-    std::fs::remove_file(repo.work_dir().expect("non-bare").join("file"))?;
+    std::fs::remove_file(repo.workdir().expect("non-bare").join("file"))?;
 
     let outcome = but_workspace::commit_engine::create_commit(
         &repo,

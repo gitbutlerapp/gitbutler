@@ -52,6 +52,7 @@ pub fn apply_lhs_to_rhs(
                     &md,
                     id.into_owned(),
                     entry_mode,
+                    gix::index::entry::Flags::empty(),
                     &mut num_sorted_entries,
                 )?;
             }
@@ -72,12 +73,13 @@ pub fn apply_lhs_to_rhs(
 // TODO(gix): this could be a platform in Gix which supports these kinds of edits while assuring
 //       consistency. It could use some tricks to not have worst-case performance like this has.
 //       It really is index-add that we need.
-fn upsert_index_entry(
+pub fn upsert_index_entry(
     index: &mut gix::index::State,
     rela_path: &BStr,
     md: &gix::index::fs::Metadata,
     id: gix::ObjectId,
     mode: gix::index::entry::Mode,
+    add_flags: gix::index::entry::Flags,
     num_sorted_entries: &mut usize,
 ) -> anyhow::Result<bool> {
     use gix::index::entry::Stage;
@@ -100,6 +102,7 @@ fn upsert_index_entry(
         //       This basically forces it to look closely, bad for performance, but at
         //       least correct. Usually it fixes itself as well.
         entry.stat = Default::default();
+        entry.flags |= add_flags;
         entry.id = id;
         entry.mode = mode;
         false
@@ -107,7 +110,7 @@ fn upsert_index_entry(
         index.dangerously_push_entry(
             gix::index::entry::Stat::from_fs(md)?,
             id,
-            gix::index::entry::Flags::empty(),
+            add_flags,
             mode,
             rela_path,
         );
