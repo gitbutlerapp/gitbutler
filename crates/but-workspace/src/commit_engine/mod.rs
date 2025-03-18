@@ -91,7 +91,7 @@ pub struct DiffSpec {
 }
 
 /// The header of a hunk that represents a change to a file.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HunkHeader {
     /// The 1-based line number at which the previous version of the file started.

@@ -38,6 +38,7 @@ pub mod ui {
 }
 
 mod file;
+mod hunk;
 
 #[cfg(unix)]
 fn locked_resource_at(

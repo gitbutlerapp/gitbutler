@@ -1,5 +1,5 @@
 use crate::discard::{DiscardSpec, file};
-use anyhow::Context;
+use anyhow::{Context, bail};
 use bstr::ByteSlice;
 use but_core::{ChangeState, TreeStatus};
 
@@ -115,7 +115,34 @@ pub fn discard_workspace_changes(
                 }
             }
         } else {
-            todo!("hunk-based undo")
+            match wt_change.status {
+                TreeStatus::Addition { .. } | TreeStatus::Deletion { .. } => {
+                    bail!(
+                        "Deletions or additions aren't well-defined for hunk-based operations - use the whole-file mode instead: '{}'",
+                        wt_change.path
+                    )
+                }
+                TreeStatus::Modification {
+                    previous_state: _,
+                    state: _,
+                    ..
+                }
+                | TreeStatus::Rename {
+                    previous_state: _,
+                    state: _,
+                    ..
+                } => {
+                    // hunk::restore_state_to_worktree(
+                    //     wt_change,
+                    //     &mut pipeline,
+                    //     previous_state,
+                    //     state,
+                    //     &mut path_check,
+                    //     &mut initial_entries_len,
+                    // )?;
+                    todo!("hunk-based discard")
+                }
+            }
         }
     }
 
