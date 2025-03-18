@@ -43,11 +43,18 @@ pub enum Subcommands {
         #[clap(long)]
         parent: Option<String>,
     },
-    /// Update the local workspace against an updated remote or target branch.
+    /// List all uncommitted working tree changes.
     Status {
         /// Also compute unified diffs for each tree-change.
         #[clap(long, short = 'd')]
         unified_diff: bool,
+    },
+    /// Discard the specified worktree change.
+    DiscardChange {
+        /// The repo-relative path to the changed file to discard.
+        current_path: PathBuf,
+        /// If the change is a rename, identify the repo-relative path of the source.
+        previous_path: Option<PathBuf>,
     },
     /// Calculate the changes between two commits.
     CommitChanges {
