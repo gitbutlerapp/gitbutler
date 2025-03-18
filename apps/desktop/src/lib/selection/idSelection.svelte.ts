@@ -1,76 +1,54 @@
-import { key, splitKey } from './key';
+import { key, readKey, type SelectedFileKey, type SelectionParameters } from './key';
+import { SvelteSet } from 'svelte/reactivity';
 import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 
 /**
  * File selection mechanism based on strings id's.
  */
 export class IdSelection {
-	private state = $state([] as string[]);
+	private _lastAddedIndex = $state<number>();
+	private selection: SvelteSet<SelectedFileKey>;
 
-	/**
-	 * Each rendered file will check if it's selected when the selction
-	 * changes so it's best we make the `has()` lookup O(1).
-	 */
-	private map = $derived(
-		this.state.reduce(
-			(acc, obj) => {
-				acc[obj] = true;
-				return acc;
-			},
-			{} as Record<string, boolean>
-		)
-	);
-
-	constructor(private worktreeService: WorktreeService) {}
-
-	add(path: string, commitId?: string) {
-		const id = key(path, commitId);
-		if (this.map[id]) return;
-		this.state.push(id);
+	constructor(private worktreeService: WorktreeService) {
+		this.selection = new SvelteSet<SelectedFileKey>();
 	}
 
-	addMany(paths: string[], commitId?: string) {
+	add(path: string, params: SelectionParameters, index: number) {
+		const id = key({ ...params, path });
+		this._lastAddedIndex = index;
+		this.selection.add(id);
+	}
+
+	addMany(paths: string[], params: SelectionParameters, index: number) {
 		for (const path of paths) {
-			this.add(path, commitId);
+			this.add(path, params, index);
 		}
 	}
 
-	has(path: string, commitId?: string) {
-		return this.map[key(path, commitId)] ?? false;
+	has(path: string, params: SelectionParameters) {
+		return this.selection.has(key({ path, ...params }));
 	}
 
-	set(path: string, commitId?: string) {
-		this.state = [];
-		this.state.push(key(path, commitId));
+	set(path: string, params: SelectionParameters, index: number) {
+		this.selection.clear();
+		this.add(path, params, index);
 	}
 
-	remove(path: string, commitId?: string) {
-		this.state.splice(
-			this.state.findIndex((k) => k === key(path, commitId)),
-			1
-		);
-	}
-
-	reverse() {
-		this.state.reverse();
+	remove(path: string, params: SelectionParameters) {
+		const selectionKey = key({ path, ...params });
+		this.selection.delete(selectionKey);
 	}
 
 	clear() {
-		this.state = [];
+		this.selection.clear();
 	}
 
-	// TODO: Perhaps remove this? Goto reference for more info.
-	firstPath() {
-		const key = this.state.at(0);
-		if (key) {
-			return splitKey(key).path;
-		}
+	keys() {
+		return Array.from(this.selection);
 	}
 
 	values() {
-		return [...this.state].map((c) => {
-			return splitKey(c);
-		});
+		return this.keys().map((key) => readKey(key));
 	}
 
 	/**
@@ -80,18 +58,21 @@ export class IdSelection {
 	 * TODO: Should this be able to load even if listing hasn't happened?
 	 */
 	treeChanges(projectId: string) {
-		const filePaths = this.state.map((id) => {
-			const file = splitKey(id);
-			if (file.commitId !== 'undefined') {
-				throw new Error('Changes for commits not implemented');
+		const filePaths = this.values().map((fileSelection) => {
+			if (fileSelection.type !== 'worktree') {
+				throw new Error('???');
 			}
-			return file.path;
+			return fileSelection.path;
 		});
 
 		return this.worktreeService.getChangesById(projectId, filePaths);
 	}
 
 	get length() {
-		return this.state.length;
+		return this.selection.size;
+	}
+
+	get lastAddedIndex() {
+		return this._lastAddedIndex;
 	}
 }
