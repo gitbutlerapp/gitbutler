@@ -141,6 +141,7 @@ fn from_first_commit_all_file_types_changed() -> anyhow::Result<()> {
             stack_segment: None,
         },
     )?;
+    assert_eq!(outcome.rejected_specs, []);
 
     let tree = visualize_tree(&repo, &outcome)?;
     insta::assert_snapshot!(tree, @r#"

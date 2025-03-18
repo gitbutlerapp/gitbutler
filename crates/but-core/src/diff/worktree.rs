@@ -805,7 +805,7 @@ impl TreeChange {
         let mut diff_filter = crate::unified_diff::filter_from_state(
             repo,
             self.status.state(),
-            gix::diff::blob::pipeline::Mode::ToGitUnlessBinaryToTextIsPresent,
+            UnifiedDiff::CONVERSION_MODE,
         )?;
         self.unified_diff_with_filter(repo, context_lines, &mut diff_filter)
     }

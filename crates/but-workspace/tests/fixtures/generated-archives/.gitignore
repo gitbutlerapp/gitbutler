@@ -21,3 +21,5 @@
 /all-file-types-renamed-and-overwriting-existing.tar
 /move-directory-into-sibling-file.tar
 /merge-with-two-branches-conflict.tar
+/deletion-addition-untracked.tar
+/mixed-hunk-modifications.tar

@@ -1,14 +1,18 @@
-use crate::discard::{DiscardSpec, file};
-use anyhow::Context;
+use crate::discard::{DiscardSpec, file, hunk};
+use anyhow::{Context, bail};
 use bstr::ByteSlice;
 use but_core::{ChangeState, TreeStatus};
 
 /// Discard the given `changes` in the worktree of `repo`. If a change could not be matched with an actual worktree change, for
-/// instance due to a race, that's not an error, instead it will be returned in the result Vec.
+/// instance due to a race, that's not an error, instead it will be returned in the result Vec, along with all hunks that couldn't
+/// be matched.
 /// The returned Vec is typically empty, meaning that all `changes` could be discarded.
 ///
+/// `context_lines` is the amount of context lines we should assume when obtaining hunks of worktree changes to match against
+/// the ones we have specified in the hunks contained within `changes`.
+///
 /// Discarding a change is really more of an 'undo' of a change as it will restore the previous state to the desired extent - Git
-/// doesn't have a notion of this.
+/// doesn't have a notion of this on a whole-file basis.
 ///
 /// Each of the `changes` will be matched against actual worktree changes to make this operation as safe as possible, after all, it
 /// discards changes without recovery.
@@ -19,6 +23,7 @@ use but_core::{ChangeState, TreeStatus};
 pub fn discard_workspace_changes(
     repo: &gix::Repository,
     changes: impl IntoIterator<Item = DiscardSpec>,
+    context_lines: u32,
 ) -> anyhow::Result<Vec<DiscardSpec>> {
     let wt_changes = but_core::diff::worktree_changes(repo)?;
     let mut dropped = Vec::new();
@@ -30,7 +35,7 @@ pub fn discard_workspace_changes(
     let mut path_check = gix::status::plumbing::SymlinkCheck::new(
         repo.workdir().context("non-bare repository")?.into(),
     );
-    for spec in changes {
+    for mut spec in changes {
         let Some(wt_change) = wt_changes.changes.iter().find(|c| {
             c.path == spec.path
                 && c.previous_path() == spec.previous_path.as_ref().map(|p| p.as_bstr())
@@ -115,7 +120,43 @@ pub fn discard_workspace_changes(
                 }
             }
         } else {
-            todo!("hunk-based undo")
+            match wt_change.status {
+                TreeStatus::Addition { .. } | TreeStatus::Deletion { .. } => {
+                    bail!(
+                        "Deletions or additions aren't well-defined for hunk-based operations - use the whole-file mode instead: '{}'",
+                        wt_change.path
+                    )
+                }
+                TreeStatus::Modification {
+                    previous_state,
+                    flags,
+                    ..
+                }
+                | TreeStatus::Rename {
+                    previous_state,
+                    flags,
+                    ..
+                } => {
+                    if flags.is_some_and(|f| f.is_typechange()) {
+                        bail!(
+                            "Type-changed items can't be discard by hunks - use the whole-file mode isntead"
+                        )
+                    }
+                    hunk::restore_state_to_worktree(
+                        wt_change,
+                        previous_state,
+                        &mut spec.hunk_headers,
+                        &mut path_check,
+                        &mut pipeline,
+                        &index,
+                        context_lines,
+                    )?;
+                    if !spec.hunk_headers.is_empty() {
+                        dropped.push(spec);
+                        continue;
+                    }
+                }
+            }
         }
     }
 
