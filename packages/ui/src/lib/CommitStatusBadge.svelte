@@ -14,9 +14,16 @@
 	type Props = {
 		status: CommitStatusType;
 		kind?: 'icon' | 'text' | 'both';
+		lineTop?: boolean;
+		lineBottom?: boolean;
 	};
 
-	const { status = 'unreviewed', kind = 'text' }: Props = $props();
+	const {
+		status = 'unreviewed',
+		kind = 'text',
+		lineTop = false,
+		lineBottom = false
+	}: Props = $props();
 
 	function getIconName() {
 		if (status === 'approved') {
@@ -31,55 +38,92 @@
 			return 'dotted-circle';
 		}
 	}
+
+	function statusClasses(type: 'icon' | 'text') {
+		return {
+			'status-badge': true,
+			'status-badge_icon': type === 'icon',
+			'status-badge_approved': status === 'approved',
+			'status-badge_closed': status === 'closed',
+			'status-badge_loading': status === 'loading',
+			'status-badge_changes-requested': status === 'changes-requested',
+			'status-badge_in-discussion': status === 'in-discussion',
+			'status-badge_unreviewed': status === 'unreviewed'
+		};
+	}
 </script>
 
-<div class="status-badges">
-	{#if kind === 'icon' || kind === 'both'}
-		<div
-			class="status-badge"
-			class:status-badge_icon={true}
-			class:status-badge_approved={status === 'approved'}
-			class:status-badge_closed={status === 'closed'}
-			class:status-badge_loading={status === 'loading'}
-			class:status-badge_changes-requested={status === 'changes-requested'}
-			class:status-badge_in-discussion={status === 'in-discussion'}
-			class:status-badge_unreviewed={status === 'unreviewed'}
-		>
-			<Icon name={getIconName()} />
-		</div>
-	{/if}
+{#snippet icon()}
+	<div class={statusClasses('icon')}>
+		<Icon name={getIconName()} />
+	</div>
+{/snippet}
 
-	{#if kind === 'text' || kind === 'both'}
-		<div
-			class="status-badge"
-			class:status-badge_icon={false}
-			class:status-badge_approved={status === 'approved'}
-			class:status-badge_closed={status === 'closed'}
-			class:status-badge_loading={status === 'loading'}
-			class:status-badge_changes-requested={status === 'changes-requested'}
-			class:status-badge_in-discussion={status === 'in-discussion'}
-			class:status-badge_unreviewed={status === 'unreviewed'}
-		>
-			<span class="text-10 text-bold status-badge__text">
-				{#if status === 'closed'}
-					Closed
-				{:else if status === 'loading'}
-					Processing
-				{:else if status === 'changes-requested'}
-					Changes requested
-				{:else if status === 'approved'}
-					Approved
-				{:else if status === 'in-discussion'}
-					In discussion
-				{:else}
-					Unreviewed
-				{/if}
-			</span>
+{#snippet text()}
+	<div class={statusClasses('text')}>
+		<span class="text-10 text-bold status-badge__text">
+			{#if status === 'closed'}
+				Closed
+			{:else if status === 'loading'}
+				Processing
+			{:else if status === 'changes-requested'}
+				Changes requested
+			{:else if status === 'approved'}
+				Approved
+			{:else if status === 'in-discussion'}
+				In discussion
+			{:else}
+				Unreviewed
+			{/if}
+		</span>
+	</div>
+{/snippet}
+
+{#if lineTop || lineBottom}
+	<div class="has-lines">
+		<div class="line-container" class:line-visible={lineTop}><div></div></div>
+		<div class="status-badges">
+			{#if kind === 'icon' || kind === 'both'}
+				{@render icon()}
+			{/if}
+
+			{#if kind === 'text' || kind === 'both'}
+				{@render text()}
+			{/if}
 		</div>
-	{/if}
-</div>
+		<div class="line-container" class:line-visible={lineBottom}><div></div></div>
+	</div>
+{:else}
+	<div class="status-badges">
+		{#if kind === 'icon' || kind === 'both'}
+			{@render icon()}
+		{/if}
+
+		{#if kind === 'text' || kind === 'both'}
+			{@render text()}
+		{/if}
+	</div>
+{/if}
 
 <style lang="postcss">
+	.line-container {
+		flex-grow: 1;
+	}
+
+	.line-visible {
+		> div {
+			width: 8px;
+			height: 100%;
+			border-right: 1px solid var(--clr-border-2);
+		}
+	}
+
+	.has-lines {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+
 	.status-badges {
 		display: flex;
 		gap: 10px;

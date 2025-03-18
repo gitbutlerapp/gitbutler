@@ -16,11 +16,12 @@
 			tooltip?: string;
 		}[];
 		href?: string;
+		isTopEntry?: boolean;
 		separatedTop?: boolean;
 		separatedBottom?: boolean;
 	};
 
-	let { columns, href, separatedTop, separatedBottom }: Props = $props();
+	let { columns, href, isTopEntry = false, separatedTop, separatedBottom }: Props = $props();
 	let tableMobileBreakpoint = 800;
 	let isTableMobileBreakpoint = $state(window.innerWidth < tableMobileBreakpoint);
 
@@ -97,7 +98,12 @@
 					{:else if key === 'date'}
 						{dayjs(value as Date).fromNow()}
 					{:else if key === 'status'}
-						<CommitStatusBadge status={value as CommitStatusType} kind="both" />
+						<CommitStatusBadge
+							status={value as CommitStatusType}
+							kind="both"
+							lineTop={!isTopEntry && !separatedTop}
+							lineBottom={!separatedBottom}
+						/>
 					{:else if key === 'changes'}
 						<div class="dynclmn-changes">
 							<span class="dynclmn-changes_additions">+{(value as ChangesType).additions}</span>

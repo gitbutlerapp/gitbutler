@@ -17,11 +17,12 @@
 	type Props = {
 		uuid: string;
 		linkParams: ProjectParameters;
+		isTopEntry: boolean;
 		roundedTop: boolean;
 		roundedBottom: boolean;
 	};
 
-	const { uuid, linkParams, roundedTop, roundedBottom }: Props = $props();
+	const { uuid, linkParams, isTopEntry, roundedTop, roundedBottom }: Props = $props();
 
 	const routes = getContext(WebRoutesService);
 
@@ -51,6 +52,7 @@
 				{ key: 'avatars', value: contributors },
 				{ key: 'number', value: branch.version || 0 }
 			]}
+			{isTopEntry}
 			separatedTop={roundedTop}
 			separatedBottom={roundedBottom}
 		/>
