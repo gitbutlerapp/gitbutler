@@ -125,6 +125,8 @@
 
 			flex-direction: row-reverse;
 
+			gap: 1px;
+
 			.erectangle {
 				width: 0px !important;
 				flex-grow: 1;
