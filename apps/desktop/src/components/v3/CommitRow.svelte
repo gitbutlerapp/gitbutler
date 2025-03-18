@@ -51,7 +51,7 @@
 	const stackService = getContext(StackService);
 	const modeService = maybeGetContext(ModeService);
 
-	const uncommitHook = stackService.uncommit();
+	const [uncommit] = stackService.uncommit();
 
 	const commitUrl = undefined;
 	const conflicted = false; // TODO
@@ -71,7 +71,7 @@
 			console.error('Unable to undo commit');
 			return;
 		}
-		await uncommitHook.triggerMutation({ projectId, stackId, commitId: commit.id });
+		await uncommit({ projectId, stackId, commitId: commit.id });
 	}
 
 	function openCommitMessageModal() {

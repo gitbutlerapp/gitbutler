@@ -212,7 +212,7 @@ type CustomMutation<Definition extends MutationDefinition<any, any, string, any>
 	 *
 	 * If awaited, the result will contain the mutation result.
 	 */
-	(args: QueryArgFrom<Definition>) => Promise<Prettify<CustomMutationTriggerResult<Definition>>>,
+	(args: QueryArgFrom<Definition>) => Promise<Prettify<MutationResult<Definition>>>,
 	/**
 	 * The reactive state of the mutation.
 	 *

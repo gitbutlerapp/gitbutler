@@ -18,8 +18,7 @@
 
 	const stackService = getContext(StackService);
 	const [uiState] = inject(UiState);
-	const { result: commitCreation, triggerMutation: createCommitInStack } =
-		stackService.createCommit();
+	const [createCommitInStack, commitCreation] = stackService.createCommit();
 
 	const selected = $derived(uiState.stack(stackId).selection.get());
 	const branchName = $derived(selected.current?.branchName);

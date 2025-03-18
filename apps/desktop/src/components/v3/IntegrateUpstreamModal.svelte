@@ -46,7 +46,7 @@
 	// let branchStatuses = $state<StackStatusesWithBranchesV3 | undefined>();
 	const baseBranchService = getContext(BaseBranchService);
 	const base = baseBranchService.base;
-	const resolveUpstreamHook = upstreamIntegrationService.resolveUpstreamIntegration();
+	const [resolveUpstreamIntegration] = upstreamIntegrationService.resolveUpstreamIntegration();
 
 	let modal = $state<Modal>();
 	let integratingUpstream = $state<OperationState>('inert');
@@ -63,7 +63,7 @@
 		return response.current.data;
 	});
 
-	const { triggerMutation: integrateUpstream } = $derived(
+	const [integrateUpstream] = $derived(
 		upstreamIntegrationService.integrateUpstream(projectId, stacks ?? [])
 	);
 
@@ -103,14 +103,12 @@
 	// approach is changed
 	$effect(() => {
 		if ($base?.diverged && baseResolutionApproach) {
-			resolveUpstreamHook
-				.triggerMutation({
-					projectId,
-					resolutionApproach: { type: baseResolutionApproach }
-				})
-				.then((result) => {
-					targetCommitOid = result;
-				});
+			resolveUpstreamIntegration({
+				projectId,
+				resolutionApproach: { type: baseResolutionApproach }
+			}).then((result) => {
+				targetCommitOid = result;
+			});
 		}
 	});
 
