@@ -46,7 +46,7 @@
 		</div>
 		{#if changes.length > 0}
 			<div class="uncommitted-changes">
-				<FileList {projectId} {changes} showCheckboxes={isCommitting} />
+				<FileList type="worktree" {projectId} {changes} showCheckboxes={isCommitting} />
 				<div class="start-commit">
 					<Button
 						kind={isCommitting ? 'outline' : 'solid'}
