@@ -80,6 +80,8 @@
 			observer.disconnect();
 		};
 	});
+
+	const chatPanel = $derived(document.getElementById('chat-panel') ?? undefined);
 </script>
 
 <svelte:window bind:innerHeight={windowHeight} />
@@ -130,6 +132,7 @@
 					{onCopySelection}
 					onQuoteSelection={isLoggedIn ? onQuoteSelection : undefined}
 					{clearLineSelection}
+					clickOutsideExcludeElement={chatPanel}
 				/>
 			{/each}
 		{/if}

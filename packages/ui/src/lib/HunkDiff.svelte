@@ -35,6 +35,7 @@
 		onQuoteSelection?: () => void;
 		onCopySelection?: (contentSections: ContentSection[]) => void;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
+		clickOutsideExcludeElement?: HTMLElement;
 	}
 
 	const {
@@ -56,7 +57,8 @@
 		clearLineSelection,
 		onCopySelection,
 		onQuoteSelection,
-		handleLineContextMenu
+		handleLineContextMenu,
+		clickOutsideExcludeElement
 	}: Props = $props();
 
 	const BORDER_WIDTH = 1;
@@ -159,6 +161,7 @@
 				{staged}
 				onToggleStage={() => onChangeStage?.(!staged)}
 				{handleLineContextMenu}
+				{clickOutsideExcludeElement}
 			/>
 		{/if}
 	</table>

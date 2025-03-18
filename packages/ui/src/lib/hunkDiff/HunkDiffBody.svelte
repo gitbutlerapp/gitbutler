@@ -29,6 +29,7 @@
 		staged?: boolean;
 		onToggleStage?: () => void;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
+		clickOutsideExcludeElement?: HTMLElement;
 	}
 
 	const {
@@ -46,7 +47,8 @@
 		onQuoteSelection,
 		staged,
 		onToggleStage,
-		handleLineContextMenu
+		handleLineContextMenu,
+		clickOutsideExcludeElement
 	}: Props = $props();
 
 	const lineSelection = $derived(new LineSelection(onLineClick));
@@ -73,7 +75,8 @@
 	ontouchmove={(ev) => lineSelection.onTouchMove(ev)}
 	ontouchend={() => lineSelection.onEnd()}
 	use:clickOutside={{
-		handler: handleClearSelection
+		handler: handleClearSelection,
+		excludeElement: clickOutsideExcludeElement
 	}}
 >
 	{#each renderRows as row, idx}
