@@ -75,7 +75,7 @@
 		align-items: flex-start;
 		gap: 16px;
 		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
+		border-radius: var(--radius-m);
 
 		padding: 14px;
 	}
