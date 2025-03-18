@@ -201,34 +201,27 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 	>;
 };
 
-export type MutationResult<T> = { data: T; error: undefined } | { data: undefined; error: unknown };
-
 export type CustomMutationResult<Definition extends MutationDefinition<any, any, string, any>> =
 	Prettify<MutationResultSelectorResult<Definition>>;
 
-type CustomMutation<Definition extends MutationDefinition<any, any, string, any>> = {
+type CustomMutation<Definition extends MutationDefinition<any, any, string, any>> = readonly [
+	/**
+	 * Trigger the mutation with the given arguments.
+	 *
+	 * If awaited, the result will contain the mutation result.
+	 */
+	(args: QueryArgFrom<Definition>) => Promise<Prettify<ResultTypeFrom<Definition>>>,
 	/**
 	 * The reactive state of the mutation.
 	 *
 	 * This contains the result (if any yet) of the mutation plus additional information about its state.
 	 */
-	result: Reactive<CustomMutationResult<Definition>>;
+	Reactive<CustomMutationResult<Definition>>,
 	/**
 	 * A method to reset the hook back to its original state and remove the current result from the cache.
 	 */
-	reset: () => void;
-	/**
-	 * Trigger the mutation with the given arguments.
-	 *
-	 * If awaited, the result will contain the mutation result.
-	 *
-	 * Note: The result type discriminated union return type does not work
-	 * if not inlined.
-	 */
-	triggerMutation: (args: QueryArgFrom<Definition>) => Promise<ResultTypeFrom<Definition>>;
-};
-
-export type TriggerResult<T> = { data: T; error: undefined } | { error: unknown; data: undefined };
+	() => void
+];
 
 /**
  * Declaration of custom methods for mutations.

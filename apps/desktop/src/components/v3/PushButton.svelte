@@ -15,12 +15,12 @@
 	const [stackService] = inject(StackService);
 	const stackInfoResult = $derived(stackService.stackInfo(projectId, stackId));
 	const stackInfo = $derived(stackInfoResult.current.data);
-	const { result: pushResult, triggerMutation: triggerMutation } = stackService.pushStack();
+	const [pushStack, pushResult] = stackService.pushStack();
 	let scrollEndVisible = $state(true);
 
 	function push() {
 		if (!stackInfo) return;
-		triggerMutation({ projectId, stackId, withForce: stackInfo.requiresForce });
+		pushStack({ projectId, stackId, withForce: stackInfo.requiresForce });
 	}
 
 	const loading = $derived(pushResult.current.isLoading || stackInfoResult.current.isLoading);

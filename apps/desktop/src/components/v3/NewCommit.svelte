@@ -18,8 +18,7 @@
 
 	const stackService = getContext(StackService);
 	const [uiState] = inject(UiState);
-	const { result: commitCreation, triggerMutation: createCommitInStack } =
-		stackService.createCommit();
+	const [createCommitInStack, commitCreation] = stackService.createCommit();
 
 	const selected = $derived(uiState.stack(stackId).selection.get());
 	const branchName = $derived(selected.current?.branchName);
@@ -60,10 +59,8 @@
 
 		const newId = response.newCommit;
 
-		if (newId) {
-			uiState.project(projectId).drawerPage.set(undefined);
-			uiState.stack(stackId).selection.set({ branchName, commitId: newId });
-		}
+		uiState.project(projectId).drawerPage.set(undefined);
+		uiState.stack(stackId).selection.set({ branchName, commitId: newId });
 	}
 
 	async function hanldleCommitCreation() {

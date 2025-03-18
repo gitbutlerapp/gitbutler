@@ -22,8 +22,7 @@
 	const { stackId, branchName } = $derived(commitKey);
 
 	const [stackService, modeService] = inject(StackService, ModeService);
-	const { result: commitMessageUpdate, triggerMutation: updateCommitMessage } =
-		stackService.updateCommitMessage();
+	const [updateCommitMessage, commitMessageUpdate] = stackService.updateCommitMessage();
 
 	let conflictResolutionConfirmationModal: ReturnType<typeof Modal> | undefined;
 	let commitMessageModal: ReturnType<typeof Modal> | undefined;

@@ -19,8 +19,8 @@
 
 	const { projectId, stackId, overflow = false }: Props = $props();
 	const stackService = getContext(StackService);
-	const newStackHook = stackService.newStack();
-	const newBranchHook = stackService.newBranch();
+	const [createNewStack, stackCreation] = stackService.newStack();
+	const [createNewBranch, branchCreation] = stackService.newBranch();
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName: string | undefined = $state();
@@ -41,7 +41,7 @@
 
 	async function addNew() {
 		if (createRefType === 'stack') {
-			const data = await newStackHook.triggerMutation({
+			const data = await createNewStack({
 				projectId,
 				branch: { name: createRefName }
 			});
@@ -52,7 +52,7 @@
 				// TODO: Add input validation.
 				return;
 			}
-			await newBranchHook.triggerMutation({
+			await createNewBranch({
 				projectId,
 				stackId,
 				request: { targetPatch: undefined, name: createRefName }
@@ -62,9 +62,7 @@
 		}
 	}
 
-	const isAddingNew = $derived(
-		newStackHook.result.current.isLoading || newBranchHook.result.current.isLoading
-	);
+	const isAddingNew = $derived(stackCreation.current.isLoading || branchCreation.current.isLoading);
 
 	// TODO: it would be nice to remember the last selected option for the next time the modal is opened
 </script>

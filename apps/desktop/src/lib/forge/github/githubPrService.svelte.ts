@@ -41,7 +41,7 @@ export class GitHubPrService implements ForgePrService {
 	}: CreatePullRequestArgs): Promise<PullRequest> {
 		this.loading.set(true);
 		const request = async () => {
-			const result = await this.api.endpoints.createPr.useMutation().triggerMutation({
+			const result = await this.api.endpoints.createPr.useMutation()[0]({
 				head: upstreamName,
 				base: baseBranchName,
 				title,
@@ -88,20 +88,21 @@ export class GitHubPrService implements ForgePrService {
 	}
 
 	async merge(method: MergeMethod, number: number) {
-		return await this.api.endpoints.mergePr.useMutation().triggerMutation({ method, number });
+		return await this.api.endpoints.mergePr.useMutation()[0]({ method, number });
 	}
 
 	async reopen(number: number) {
-		return await this.api.endpoints.updatePr
-			.useMutation()
-			.triggerMutation({ number, update: { state: 'open' } });
+		return await this.api.endpoints.updatePr.useMutation()[0]({
+			number,
+			update: { state: 'open' }
+		});
 	}
 
 	async update(
 		number: number,
 		update: { description?: string; state?: 'open' | 'closed'; targetBase?: string }
 	) {
-		return await this.api.endpoints.updatePr.useMutation().triggerMutation({ number, update });
+		return await this.api.endpoints.updatePr.useMutation()[0]({ number, update });
 	}
 }
 

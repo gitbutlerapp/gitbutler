@@ -96,6 +96,7 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 export type UseMutationHookParams<Definition extends MutationDefinition<any, any, string, any>> = {
 	fixedCacheKey?: string;
 	sideEffect?: (data: ResultTypeFrom<Definition>) => void;
+	onError?: (error: unknown) => void;
 };
 
 /**
@@ -130,7 +131,7 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 	function useMutation(
 		params?: UseMutationHookParams<MutationDefinition<any, any, any, any, any>>
 	) {
-		const { fixedCacheKey, sideEffect } = params || {};
+		const { fixedCacheKey, sideEffect, onError } = params || {};
 		const dispatch = getDispatch();
 
 		let promise =
@@ -139,13 +140,20 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 		async function triggerMutation(queryArg: unknown) {
 			const dispatchResult = dispatch(initiate(queryArg, { fixedCacheKey }));
 			promise = dispatchResult;
-			promise.then((result) => {
-				if (result.data) sideEffect?.(result.data);
-			});
 			const result = await promise;
-			if (result.error) {
+
+			if (result.data) {
+				sideEffect?.(result.data);
+			}
+
+			if (result.error && !onError) {
 				throw result.error;
 			}
+
+			if (result.error && onError) {
+				onError(result.error);
+			}
+
 			return result.data;
 		}
 
@@ -172,7 +180,7 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 			};
 		});
 
-		return { result: reactive(() => result), triggerMutation, reset };
+		return [triggerMutation, reactive(() => result), reset] as const;
 	}
 
 	return {

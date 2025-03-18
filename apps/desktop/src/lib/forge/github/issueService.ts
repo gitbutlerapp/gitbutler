@@ -12,7 +12,7 @@ export class GitHubIssueService implements ForgeIssueService {
 	}
 
 	async create(title: string, body: string, labels: string[]) {
-		return await this.api.endpoints.create.useMutation().triggerMutation({ title, body, labels });
+		return await this.api.endpoints.create.useMutation()[0]({ title, body, labels });
 	}
 }
 
