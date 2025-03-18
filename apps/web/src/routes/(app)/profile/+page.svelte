@@ -9,8 +9,10 @@
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { NotificationSettingsService } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { getNotificationSettingsInterest } from '@gitbutler/shared/settings/notificationSetttingsPreview.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import { env } from '$env/dynamic/public';
 
 	const authService = getContext(AuthService);
 	const userService = getContext(UserService);
@@ -244,8 +246,24 @@
 				</div>
 			</SectionCard>
 
-			<h2 class="section-title">Contact Info</h2>
+			{#if $user?.supporter}
+				<div class="supporter-card">
+					<div class="supporter-card__content">
+						<h3 class="supporter-card__title">🎉 Thank you for being a supporter!</h3>
+						<p class="supporter-card__description">
+							Your support helps us build a better GitButler. We appreciate your contribution.
+						</p>
+						<Button
+							style="pop"
+							onclick={() => (window.location.href = `${env.PUBLIC_APP_HOST}supporter/portal`)}
+						>
+							Manage your subscription
+						</Button>
+					</div>
+				</div>
+			{/if}
 
+			<h2 class="section-title">Contact Info</h2>
 			<SectionCard>
 				<div class="additional-info">
 					<div class="additional-info__fields">
@@ -556,6 +574,43 @@
 	.profile-form {
 		display: flex;
 		gap: 24px;
+	}
+
+	.supporter-card__content {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		padding: 16px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-scale-pop-95);
+		border: 1px solid var(--clr-scale-pop-80);
+	}
+
+	.supporter-card__title {
+		color: var(--clr-scale-pop-40);
+		font-size: 18px;
+		font-weight: 600;
+	}
+
+	.supporter-card__description {
+		color: var(--clr-scale-ntrl-0);
+		font-size: 14px;
+		line-height: 1.5;
+	}
+
+	.supporter-card__link {
+		align-self: flex-start;
+		padding: 8px 16px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-scale-pop-70);
+		color: var(--clr-core-ntrl-100);
+		font-size: 14px;
+		font-weight: 500;
+		text-decoration: none;
+	}
+
+	.supporter-card__link:hover {
+		background-color: var(--clr-scale-pop-60);
 	}
 
 	.profile-pic-wrapper {
