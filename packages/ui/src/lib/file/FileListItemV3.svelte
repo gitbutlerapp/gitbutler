@@ -181,7 +181,7 @@
 	.file-list-item.clickable {
 		cursor: pointer;
 
-		&:not(.selected-draggable):hover {
+		&:not(.selected):hover {
 			background-color: var(--clr-bg-1-muted);
 		}
 	}
@@ -260,6 +260,10 @@
 	}
 
 	.selected {
+		background-color: var(--clr-selected-not-in-focus-bg);
+	}
+
+	.selected.focused {
 		background-color: var(--clr-selected-in-focus-bg);
 	}
 </style>
