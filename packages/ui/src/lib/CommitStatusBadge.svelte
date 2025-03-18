@@ -13,7 +13,7 @@
 
 	type Props = {
 		status: CommitStatusType;
-		kind?: 'icon' | 'text';
+		kind?: 'icon' | 'text' | 'both';
 	};
 
 	const { status = 'unreviewed', kind = 'text' }: Props = $props();
@@ -33,38 +33,58 @@
 	}
 </script>
 
-<div
-	class="status-badge"
-	class:status-badge_icon={kind === 'icon'}
-	class:status-badge_approved={status === 'approved'}
-	class:status-badge_closed={status === 'closed'}
-	class:status-badge_loading={status === 'loading'}
-	class:status-badge_changes-requested={status === 'changes-requested'}
-	class:status-badge_in-discussion={status === 'in-discussion'}
-	class:status-badge_unreviewed={status === 'unreviewed'}
->
-	{#if kind === 'icon'}
-		<Icon name={getIconName()} />
-	{:else}
-		<span class="text-10 text-bold status-badge__text">
-			{#if status === 'closed'}
-				Closed
-			{:else if status === 'loading'}
-				Processing
-			{:else if status === 'changes-requested'}
-				Changes requested
-			{:else if status === 'approved'}
-				Approved
-			{:else if status === 'in-discussion'}
-				In discussion
-			{:else}
-				Unreviewed
-			{/if}
-		</span>
+<div class="status-badges">
+	{#if kind === 'icon' || kind === 'both'}
+		<div
+			class="status-badge"
+			class:status-badge_icon={true}
+			class:status-badge_approved={status === 'approved'}
+			class:status-badge_closed={status === 'closed'}
+			class:status-badge_loading={status === 'loading'}
+			class:status-badge_changes-requested={status === 'changes-requested'}
+			class:status-badge_in-discussion={status === 'in-discussion'}
+			class:status-badge_unreviewed={status === 'unreviewed'}
+		>
+			<Icon name={getIconName()} />
+		</div>
+	{/if}
+
+	{#if kind === 'text' || kind === 'both'}
+		<div
+			class="status-badge"
+			class:status-badge_icon={false}
+			class:status-badge_approved={status === 'approved'}
+			class:status-badge_closed={status === 'closed'}
+			class:status-badge_loading={status === 'loading'}
+			class:status-badge_changes-requested={status === 'changes-requested'}
+			class:status-badge_in-discussion={status === 'in-discussion'}
+			class:status-badge_unreviewed={status === 'unreviewed'}
+		>
+			<span class="text-10 text-bold status-badge__text">
+				{#if status === 'closed'}
+					Closed
+				{:else if status === 'loading'}
+					Processing
+				{:else if status === 'changes-requested'}
+					Changes requested
+				{:else if status === 'approved'}
+					Approved
+				{:else if status === 'in-discussion'}
+					In discussion
+				{:else}
+					Unreviewed
+				{/if}
+			</span>
+		</div>
 	{/if}
 </div>
 
 <style lang="postcss">
+	.status-badges {
+		display: flex;
+		gap: 10px;
+	}
+
 	.status-badge {
 		display: flex;
 		align-items: center;

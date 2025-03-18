@@ -97,7 +97,7 @@
 					{:else if key === 'date'}
 						{dayjs(value as Date).fromNow()}
 					{:else if key === 'status'}
-						<CommitStatusBadge status={value as CommitStatusType} />
+						<CommitStatusBadge status={value as CommitStatusType} kind="both" />
 					{:else if key === 'changes'}
 						<div class="dynclmn-changes">
 							<span class="dynclmn-changes_additions">+{(value as ChangesType).additions}</span>
