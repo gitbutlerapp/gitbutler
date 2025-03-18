@@ -59,12 +59,14 @@
 			<ContextMenuItem
 				label="Commit and bleep"
 				onclick={() => {
+					// eslint-disable-next-line no-console
 					console.log('Commit and bleep');
 				}}
 			/>
 			<ContextMenuItem
 				label="Commit"
 				onclick={() => {
+					// eslint-disable-next-line no-console
 					console.log('Commit and bleep');
 				}}
 			/>
@@ -73,12 +75,14 @@
 			<ContextMenuItem
 				label="Another commit"
 				onclick={() => {
+					// eslint-disable-next-line no-console
 					console.log('Commit and bleep');
 				}}
 			/>
 			<ContextMenuItem
 				label="Amend"
 				onclick={() => {
+					// eslint-disable-next-line no-console
 					console.log('Commit and bleep');
 				}}
 			/>

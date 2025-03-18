@@ -69,7 +69,6 @@ export function focusTrap(node: HTMLElement, params: focusParams = { focusOnFirs
 
 	// focus on the specified element
 	if (params.focusOnElement) {
-		console.log('focusOnElement', params.focusOnElement);
 		params.focusOnElement.focus();
 	}
 

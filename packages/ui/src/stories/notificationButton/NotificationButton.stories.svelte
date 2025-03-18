@@ -8,6 +8,7 @@
 		args: {
 			hasUnread: true,
 			onclick: () => {
+				// eslint-disable-next-line no-console
 				console.log('Button clicked');
 			}
 		}

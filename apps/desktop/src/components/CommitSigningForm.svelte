@@ -68,7 +68,6 @@
 			})
 			.catch((err) => {
 				console.error('Error checking signing:', err);
-				console.log(err.message);
 				errorMessage = err.message;
 				signCheckResult = false;
 			});

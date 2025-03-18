@@ -38,6 +38,7 @@
 		defaultIndex={args.defaultIndex}
 		fullWidth={args.fullWidth}
 		onselect={(id) => {
+			// eslint-disable-next-line no-console
 			console.log('Selected index:', id);
 		}}
 	>

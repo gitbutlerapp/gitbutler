@@ -46,15 +46,15 @@
 	let seriesDescriptionEl = $state<HTMLTextAreaElement>();
 
 	function editTitle(title: string) {
-		console.log('FIXME', title);
+		console.error('FIXME', title);
 	}
 
 	function editDescription(description: string | null | undefined) {
-		console.log('FIXME', description);
+		console.error('FIXME', description);
 	}
 
 	function toggleDescription() {
-		console.log('FIXME');
+		console.error('FIXME');
 	}
 </script>
 

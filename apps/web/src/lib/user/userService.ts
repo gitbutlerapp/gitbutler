@@ -64,7 +64,6 @@ export class UserService {
 
 	private async fetchUser() {
 		const user = await this.httpClient.get<User>('/api/user');
-		console.log('[UserService] Fetched user:', user);
 		setSentryUser(user);
 
 		return user;
@@ -154,12 +153,8 @@ export class UserService {
 
 		const endpoint = `user/${ownerSlug}/patch_stacks`;
 
-		console.log(`[UserService] Fetching patch stacks for user: ${ownerSlug}`);
-
 		try {
-			console.log(`[UserService] Trying API URL: ${endpoint}`);
 			const response = await this.httpClient.get<ApiBranch[]>(endpoint);
-			console.log(`[UserService] API response successful for ${endpoint}:`, response);
 
 			// Convert ApiBranch objects to Branch objects
 			return response.map(apiToBranch);
@@ -172,7 +167,6 @@ export class UserService {
 			}
 
 			// If it's a 404, return empty array
-			console.log(`[UserService] Endpoint ${endpoint} returned 404, returning empty array`);
 			return [];
 		}
 	}

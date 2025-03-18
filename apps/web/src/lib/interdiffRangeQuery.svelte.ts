@@ -38,7 +38,6 @@ export async function setAfterVersion(latestVersion: number, after: number) {
 export function getBeforeVersion(): Reactive<number> {
 	const current = $derived.by(() => {
 		const param = page.url.searchParams.get('beforeVersion');
-		console.log(param);
 		if (isDefined(param)) {
 			return parseInt(param);
 		} else {

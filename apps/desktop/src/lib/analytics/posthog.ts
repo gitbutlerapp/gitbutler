@@ -20,7 +20,7 @@ export class PostHogWrapper {
 			request_batching: true,
 			persistence: 'localStorage',
 			on_xhr_error: (e) => {
-				console.log('posthog error', e);
+				console.error('posthog error', e);
 			}
 		});
 		posthog.register({

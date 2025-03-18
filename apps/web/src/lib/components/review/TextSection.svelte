@@ -7,24 +7,24 @@
 
 	const { section }: Props = $props();
 
-	function addSection(position: number | undefined) {
-		console.log('addSection', position);
+	function addSection(_position: number | undefined) {
+		// console.log('addSection', position);
 	}
 
-	function editSection(code: string | undefined) {
-		console.log('editSection', code);
+	function editSection(_code: string | undefined) {
+		// console.log('editSection', code);
 	}
 
-	function deleteSection(code: string | undefined) {
-		console.log('deleteSection', code);
+	function deleteSection(_code: string | undefined) {
+		// console.log('deleteSection', code);
 	}
 
-	function moveSection(position: number | undefined, direction: number) {
-		console.log('moveSection', position, direction);
+	function moveSection(_position: number | undefined, _direction: number) {
+		// console.log('moveSection', position, direction);
 	}
 
-	function saveSection(code: string | undefined) {
-		console.log('saveSection', code);
+	function saveSection(_code: string | undefined) {
+		// console.log('saveSection', code);
 	}
 </script>
 
