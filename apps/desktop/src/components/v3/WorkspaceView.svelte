@@ -93,7 +93,7 @@
 	.workspace-view {
 		display: flex;
 		flex: 1;
-		gap: 14px;
+		gap: 8px;
 		align-items: stretch;
 		height: 100%;
 		width: 100%;
