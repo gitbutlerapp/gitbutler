@@ -10,6 +10,8 @@
 		{#each recentProjects?.current || [] as project}
 			<DashboardSidebarProject repositoryId={project.id} showOwner />
 		{/each}
+	{:else}
+		<div class="empty">No recent projects</div>
 	{/if}
 </div>
 
@@ -17,5 +19,10 @@
 	.container {
 		width: 100%;
 		padding: 12px 0;
+	}
+
+	.empty {
+		color: var(--clr-text-muted);
+		text-align: center;
 	}
 </style>
