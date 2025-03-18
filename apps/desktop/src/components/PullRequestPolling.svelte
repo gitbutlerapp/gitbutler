@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import { reactive } from '@gitbutler/shared/storeUtils';
 
 	type Props = {
 		number: number;
@@ -11,12 +10,13 @@
 	const [forge] = inject(DefaultForgeFactory);
 	const prService = $derived(forge.current.prService);
 
-	let lastUpdatedMs: number | undefined = $state();
+	let lastUpdatedStr: string | undefined = $state();
 
 	let pollingInterval = $derived.by(() => {
-		if (!lastUpdatedMs) {
+		if (!lastUpdatedStr) {
 			return 5000;
 		}
+		const lastUpdatedMs = Date.parse(lastUpdatedStr);
 		const elapsedMs = Date.now() - lastUpdatedMs;
 		if (elapsedMs < 60 * 1000) {
 			return 5 * 1000;
@@ -28,10 +28,12 @@
 		return 30 * 60 * 1000;
 	});
 
-	const subscriptionOptions = reactive(() => ({ pollingInterval: pollingInterval }));
+	const prResult = $derived(prService?.get(number, { pollingInterval }));
 
-	const prResult = $derived.by(() => {
-		return prService?.get(number, subscriptionOptions);
+	$effect(() => {
+		const updatedAtStr = prResult?.current.data?.updatedAt;
+		if (updatedAtStr) {
+			lastUpdatedStr = updatedAtStr;
+		}
 	});
-	$inspect(prResult);
 </script>

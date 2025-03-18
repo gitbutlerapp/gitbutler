@@ -18,7 +18,6 @@ import { writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { ForgePrService } from '$lib/forge/interface/forgePrService';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
-import type { Reactive } from '@gitbutler/shared/storeUtils';
 import type { SubscriptionOptions } from '@reduxjs/toolkit/query';
 
 export class GitHubPrService implements ForgePrService {
@@ -80,10 +79,10 @@ export class GitHubPrService implements ForgePrService {
 		throw new Error('Invalid response!');
 	}
 
-	get(number: number, subscribe?: Reactive<SubscriptionOptions>) {
-		const result = $derived.by(() => {
-			return this.api.endpoints.getPr.useQuery({ number }, { subscribe });
-		});
+	get(number: number, subscriptionOptions?: SubscriptionOptions) {
+		const result = $derived.by(() =>
+			this.api.endpoints.getPr.useQuery({ number }, { subscriptionOptions })
+		);
 		return result;
 	}
 
