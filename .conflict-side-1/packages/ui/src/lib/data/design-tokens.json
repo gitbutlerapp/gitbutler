@@ -1,0 +1,6590 @@
+{
+	"clr-core": {
+		"ntrl": {
+			"0": {
+				"$type": "color",
+				"$value": "#0a0a0a",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:24:9922",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"5": {
+				"$type": "color",
+				"$value": "#1a1614",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2:37",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"10": {
+				"$type": "color",
+				"$value": "#272321",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2:36",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"20": {
+				"$type": "color",
+				"$value": "#383433",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2:35",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"30": {
+				"$type": "color",
+				"$value": "#4f4b48",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2:34",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"40": {
+				"$type": "color",
+				"$value": "#67635e",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2:33",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"45": {
+				"$type": "color",
+				"$value": "#7a736f",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:6056:4822",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"50": {
+				"$type": "color",
+				"$value": "#867e79",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2:32",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"55": {
+				"$type": "color",
+				"$value": "#9a928d",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:6122:11588",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"60": {
+				"$type": "color",
+				"$value": "#b4afac",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2:31",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"70": {
+				"$type": "color",
+				"$value": "#d4d0ce",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2:30",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"80": {
+				"$type": "color",
+				"$value": "#eae9e8",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2:29",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"90": {
+				"$type": "color",
+				"$value": "#f3f3f2",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2:28",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"95": {
+				"$type": "color",
+				"$value": "#f8f8f7",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2:27",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"100": {
+				"$type": "color",
+				"$value": "#ffffff",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:7:1584",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			}
+		},
+		"pop": {
+			"5": {
+				"$type": "color",
+				"$value": "#0e2a29",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4:685",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"10": {
+				"$type": "color",
+				"$value": "#174543",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4:684",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"20": {
+				"$type": "color",
+				"$value": "#1c5451",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4:683",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"30": {
+				"$type": "color",
+				"$value": "#256f6b",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4:682",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"40": {
+				"$type": "color",
+				"$value": "#2a928d",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4:681",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"45": {
+				"$type": "color",
+				"$value": "#24a69f",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:6056:4823",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"50": {
+				"$type": "color",
+				"$value": "#24b4ad",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4:680",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"55": {
+				"$type": "color",
+				"$value": "#59beb9",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:6122:11592",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"60": {
+				"$type": "color",
+				"$value": "#8fd6d2",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4:678",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"70": {
+				"$type": "color",
+				"$value": "#c1ebe9",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4:677",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"80": {
+				"$type": "color",
+				"$value": "#d7f4f2",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4:674",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"90": {
+				"$type": "color",
+				"$value": "#e7f8f7",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4:673",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"95": {
+				"$type": "color",
+				"$value": "#f3fcfb",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2:39",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			}
+		},
+		"err": {
+			"5": {
+				"$type": "color",
+				"$value": "#260d0f",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:79:11017",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"10": {
+				"$type": "color",
+				"$value": "#4c1a1f",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1964",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"20": {
+				"$type": "color",
+				"$value": "#6b242b",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1963",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"30": {
+				"$type": "color",
+				"$value": "#95323c",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1962",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"40": {
+				"$type": "color",
+				"$value": "#bd4852",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1961",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"45": {
+				"$type": "color",
+				"$value": "#d1525d",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:6056:4824",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"50": {
+				"$type": "color",
+				"$value": "#dc606b",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1960",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"55": {
+				"$type": "color",
+				"$value": "#e5737d",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:6122:11596",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"60": {
+				"$type": "color",
+				"$value": "#eb98a6",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1959",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"70": {
+				"$type": "color",
+				"$value": "#ffc9cf",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1958",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"80": {
+				"$type": "color",
+				"$value": "#fbdde0",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1957",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"90": {
+				"$type": "color",
+				"$value": "#fdf1f4",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1956",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"95": {
+				"$type": "color",
+				"$value": "#fffafc",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:79:11018",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			}
+		},
+		"warn": {
+			"5": {
+				"$type": "color",
+				"$value": "#261b0b",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:79:11019",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"10": {
+				"$type": "color",
+				"$value": "#432c0d",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1992",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"20": {
+				"$type": "color",
+				"$value": "#603f11",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1991",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"30": {
+				"$type": "color",
+				"$value": "#8a550b",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1990",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"40": {
+				"$type": "color",
+				"$value": "#be7105",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1989",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"45": {
+				"$type": "color",
+				"$value": "#db8e09",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:6056:4825",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"50": {
+				"$type": "color",
+				"$value": "#e89910",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1988",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"55": {
+				"$type": "color",
+				"$value": "#f0aa32",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:6122:11600",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"60": {
+				"$type": "color",
+				"$value": "#f4c26c",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1987",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"70": {
+				"$type": "color",
+				"$value": "#fee1ae",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1986",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"80": {
+				"$type": "color",
+				"$value": "#ffecc7",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1985",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"90": {
+				"$type": "color",
+				"$value": "#fff7e0",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:1984",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"95": {
+				"$type": "color",
+				"$value": "#fdf9ed",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:79:11020",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			}
+		},
+		"succ": {
+			"5": {
+				"$type": "color",
+				"$value": "#0d261a",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:79:11021",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"10": {
+				"$type": "color",
+				"$value": "#1c402f",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:2020",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"20": {
+				"$type": "color",
+				"$value": "#22533c",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:2019",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"30": {
+				"$type": "color",
+				"$value": "#287b55",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:2018",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"40": {
+				"$type": "color",
+				"$value": "#3c9a6f",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:2017",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"45": {
+				"$type": "color",
+				"$value": "#45a879",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:6056:4826",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"50": {
+				"$type": "color",
+				"$value": "#4ab582",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:2016",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"55": {
+				"$type": "color",
+				"$value": "#60c394",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:6122:11604",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"60": {
+				"$type": "color",
+				"$value": "#92ddba",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:2015",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"70": {
+				"$type": "color",
+				"$value": "#c2f0da",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:2014",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"80": {
+				"$type": "color",
+				"$value": "#d2f4e4",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:2013",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"90": {
+				"$type": "color",
+				"$value": "#e7f9f0",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:9:2012",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"95": {
+				"$type": "color",
+				"$value": "#f6fcfb",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:79:11022",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			}
+		},
+		"purp": {
+			"5": {
+				"$type": "color",
+				"$value": "#281d44",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2696:25270",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"10": {
+				"$type": "color",
+				"$value": "#3f2c68",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2696:25269",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"20": {
+				"$type": "color",
+				"$value": "#4b3479",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2696:25268",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"30": {
+				"$type": "color",
+				"$value": "#5e429a",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2696:25267",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"40": {
+				"$type": "color",
+				"$value": "#7657b7",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2696:25266",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"45": {
+				"$type": "color",
+				"$value": "#8669c2",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:6056:4827",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"50": {
+				"$type": "color",
+				"$value": "#9978dd",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2696:25265",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"55": {
+				"$type": "color",
+				"$value": "#aa8aeb",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:6122:11608",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"60": {
+				"$type": "color",
+				"$value": "#c2acf1",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2696:25264",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"70": {
+				"$type": "color",
+				"$value": "#dfd3f8",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2696:25263",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"80": {
+				"$type": "color",
+				"$value": "#e9e0fa",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2696:25262",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"90": {
+				"$type": "color",
+				"$value": "#f2edfc",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2696:25261",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			},
+			"95": {
+				"$type": "color",
+				"$value": "#f9f6fd",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:2696:25260",
+						"collection": {
+							"id": "VariableCollectionId:2:26",
+							"name": "clr-core",
+							"defaultModeId": "2:0"
+						}
+					}
+				}
+			}
+		}
+	},
+	"clr": {
+		"bg": {
+			"1": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.100}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.100}",
+						"dark": "{clr-core.ntrl.10}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:8:1869",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"2": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.90}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.90}",
+						"dark": "{clr-core.ntrl.5}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:15:2092",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"3": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.80}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.80}",
+						"dark": "{clr-core.ntrl.0}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3323:6808",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"1-muted": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.95}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.95}",
+						"dark": "{clr-core.ntrl.20}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3382:22886",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"2-muted": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.80}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.80}",
+						"dark": "{clr-core.ntrl.10}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3382:22972",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"3-muted": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.70}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.70}",
+						"dark": "{clr-core.ntrl.5}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3382:22973",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			}
+		},
+		"theme": {
+			"pop": {
+				"element": {
+					"$type": "color",
+					"$value": "{clr-core.pop.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.50}",
+							"dark": "{clr-core.pop.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1874",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"on-element": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.100}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.100}",
+							"dark": "{clr-core.ntrl.100}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1875",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"bg": {
+					"$type": "color",
+					"$value": "{clr-core.pop.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.95}",
+							"dark": "{clr-core.pop.5}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1876",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"on-soft": {
+					"$type": "color",
+					"$value": "{clr-core.pop.20}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.20}",
+							"dark": "{clr-core.pop.90}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1877",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"soft": {
+					"$type": "color",
+					"$value": "{clr-core.pop.80}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.80}",
+							"dark": "{clr-core.pop.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3324:20927",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"element-hover": {
+					"$type": "color",
+					"$value": "{clr-core.pop.45}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.45}",
+							"dark": "{clr-core.pop.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3521:13885",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"soft-hover": {
+					"$type": "color",
+					"$value": "{clr-core.pop.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.70}",
+							"dark": "{clr-core.pop.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3521:14391",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"bg-muted": {
+					"$type": "color",
+					"$value": "{clr-core.pop.90}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.90}",
+							"dark": "{clr-core.pop.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5795:12040",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"err": {
+				"element": {
+					"$type": "color",
+					"$value": "{clr-core.err.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.50}",
+							"dark": "{clr-core.err.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1888",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"on-element": {
+					"$type": "color",
+					"$value": "{clr-core.err.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.95}",
+							"dark": "{clr-core.err.95}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1889",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"bg": {
+					"$type": "color",
+					"$value": "{clr-core.err.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.95}",
+							"dark": "{clr-core.err.5}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1890",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"on-soft": {
+					"$type": "color",
+					"$value": "{clr-core.err.20}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.20}",
+							"dark": "{clr-core.err.90}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1891",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"soft": {
+					"$type": "color",
+					"$value": "{clr-core.err.80}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.80}",
+							"dark": "{clr-core.err.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3324:20973",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"soft-hover": {
+					"$type": "color",
+					"$value": "{clr-core.err.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.70}",
+							"dark": "{clr-core.err.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3521:14579",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"element-hover": {
+					"$type": "color",
+					"$value": "{clr-core.err.45}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.45}",
+							"dark": "{clr-core.err.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3521:14580",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"bg-muted": {
+					"$type": "color",
+					"$value": "{clr-core.err.90}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.90}",
+							"dark": "{clr-core.err.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5795:12041",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"warn": {
+				"element": {
+					"$type": "color",
+					"$value": "{clr-core.warn.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.50}",
+							"dark": "{clr-core.warn.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1900",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"on-element": {
+					"$type": "color",
+					"$value": "{clr-core.warn.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.95}",
+							"dark": "{clr-core.warn.90}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1901",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"bg": {
+					"$type": "color",
+					"$value": "{clr-core.warn.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.95}",
+							"dark": "{clr-core.warn.5}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1902",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"on-soft": {
+					"$type": "color",
+					"$value": "{clr-core.warn.20}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.20}",
+							"dark": "{clr-core.warn.90}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1903",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"soft": {
+					"$type": "color",
+					"$value": "{clr-core.warn.80}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.80}",
+							"dark": "{clr-core.warn.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3324:21001",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"element-hover": {
+					"$type": "color",
+					"$value": "{clr-core.warn.45}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.45}",
+							"dark": "{clr-core.warn.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3521:15497",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"soft-hover": {
+					"$type": "color",
+					"$value": "{clr-core.warn.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.70}",
+							"dark": "{clr-core.warn.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3521:15498",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"bg-muted": {
+					"$type": "color",
+					"$value": "{clr-core.warn.90}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.90}",
+							"dark": "{clr-core.warn.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5795:12042",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"succ": {
+				"element": {
+					"$type": "color",
+					"$value": "{clr-core.succ.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.50}",
+							"dark": "{clr-core.succ.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1912",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"on-element": {
+					"$type": "color",
+					"$value": "{clr-core.succ.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.95}",
+							"dark": "{clr-core.succ.90}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1913",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"bg": {
+					"$type": "color",
+					"$value": "{clr-core.succ.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.95}",
+							"dark": "{clr-core.succ.5}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1914",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"on-soft": {
+					"$type": "color",
+					"$value": "{clr-core.succ.20}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.20}",
+							"dark": "{clr-core.succ.90}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:8:1915",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"soft": {
+					"$type": "color",
+					"$value": "{clr-core.succ.80}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.80}",
+							"dark": "{clr-core.succ.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3324:21002",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"element-hover": {
+					"$type": "color",
+					"$value": "{clr-core.succ.45}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.45}",
+							"dark": "{clr-core.succ.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3521:15529",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"soft-hover": {
+					"$type": "color",
+					"$value": "{clr-core.succ.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.70}",
+							"dark": "{clr-core.succ.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3521:15530",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"bg-muted": {
+					"$type": "color",
+					"$value": "{clr-core.succ.90}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.90}",
+							"dark": "{clr-core.succ.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5795:12043",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"purp": {
+				"element": {
+					"$type": "color",
+					"$value": "{clr-core.purp.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.50}",
+							"dark": "{clr-core.purp.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2696:25446",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"on-element": {
+					"$type": "color",
+					"$value": "{clr-core.purp.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.95}",
+							"dark": "{clr-core.purp.90}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2696:25449",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"bg": {
+					"$type": "color",
+					"$value": "{clr-core.purp.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.95}",
+							"dark": "{clr-core.purp.5}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2696:25450",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"on-soft": {
+					"$type": "color",
+					"$value": "{clr-core.purp.20}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.20}",
+							"dark": "{clr-core.purp.90}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2696:25452",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"soft": {
+					"$type": "color",
+					"$value": "{clr-core.purp.80}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.80}",
+							"dark": "{clr-core.purp.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3324:21003",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"element-hover": {
+					"$type": "color",
+					"$value": "{clr-core.purp.45}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.45}",
+							"dark": "{clr-core.purp.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3521:15653",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"soft-hover": {
+					"$type": "color",
+					"$value": "{clr-core.purp.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.70}",
+							"dark": "{clr-core.purp.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3521:15654",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"bg-muted": {
+					"$type": "color",
+					"$value": "{clr-core.purp.90}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.90}",
+							"dark": "{clr-core.purp.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5795:12044",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"ntrl": {
+				"element": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.30}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.30}",
+							"dark": "{clr-core.ntrl.80}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3522:15807",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"element-hover": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.20}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.20}",
+							"dark": "{clr-core.ntrl.95}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3522:15808",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"on-element": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.100}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.100}",
+							"dark": "{clr-core.ntrl.0}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3522:15809",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"soft": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.90}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.90}",
+							"dark": "{clr-core.ntrl.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3522:15810",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"soft-hover": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.80}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.80}",
+							"dark": "{clr-core.ntrl.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3522:15811",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"on-soft": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.0}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.0}",
+							"dark": "{clr-core.ntrl.90}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3522:15812",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			}
+		},
+		"border": {
+			"1": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.60}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.60}",
+						"dark": "{clr-core.ntrl.40}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3338:21407",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"2": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.70}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.70}",
+						"dark": "{clr-core.ntrl.30}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:8:1934",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"3": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.80}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.80}",
+						"dark": "{clr-core.ntrl.20}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3289:74413",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			}
+		},
+		"scale": {
+			"ntrl": {
+				"0": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.0}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.0}",
+							"dark": "{clr-core.ntrl.100}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13320",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"5": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.5}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.5}",
+							"dark": "{clr-core.ntrl.95}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2996:13971",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"10": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.10}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.10}",
+							"dark": "{clr-core.ntrl.90}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13319",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"20": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.20}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.20}",
+							"dark": "{clr-core.ntrl.80}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13318",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"30": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.30}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.30}",
+							"dark": "{clr-core.ntrl.70}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13317",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"40": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.40}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.40}",
+							"dark": "{clr-core.ntrl.60}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13316",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"50": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.50}",
+							"dark": "{clr-core.ntrl.50}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13315",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"60": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.60}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.60}",
+							"dark": "{clr-core.ntrl.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13314",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"70": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.70}",
+							"dark": "{clr-core.ntrl.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13313",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"80": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.80}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.80}",
+							"dark": "{clr-core.ntrl.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13312",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"90": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.90}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.90}",
+							"dark": "{clr-core.ntrl.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13311",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"95": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.95}",
+							"dark": "{clr-core.ntrl.5}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2996:13972",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"100": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.100}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.100}",
+							"dark": "{clr-core.ntrl.0}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13310",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"pop": {
+				"5": {
+					"$type": "color",
+					"$value": "{clr-core.pop.5}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.5}",
+							"dark": "{clr-core.pop.95}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2996:13973",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"10": {
+					"$type": "color",
+					"$value": "{clr-core.pop.10}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.10}",
+							"dark": "{clr-core.pop.90}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13329",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"20": {
+					"$type": "color",
+					"$value": "{clr-core.pop.20}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.20}",
+							"dark": "{clr-core.pop.80}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13328",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"30": {
+					"$type": "color",
+					"$value": "{clr-core.pop.30}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.30}",
+							"dark": "{clr-core.pop.70}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13327",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"40": {
+					"$type": "color",
+					"$value": "{clr-core.pop.40}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.40}",
+							"dark": "{clr-core.pop.60}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13326",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"50": {
+					"$type": "color",
+					"$value": "{clr-core.pop.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.50}",
+							"dark": "{clr-core.pop.50}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13325",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"60": {
+					"$type": "color",
+					"$value": "{clr-core.pop.60}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.60}",
+							"dark": "{clr-core.pop.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13324",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"70": {
+					"$type": "color",
+					"$value": "{clr-core.pop.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.70}",
+							"dark": "{clr-core.pop.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13323",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"80": {
+					"$type": "color",
+					"$value": "{clr-core.pop.80}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.80}",
+							"dark": "{clr-core.pop.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13322",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"90": {
+					"$type": "color",
+					"$value": "{clr-core.pop.90}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.90}",
+							"dark": "{clr-core.pop.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13321",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"95": {
+					"$type": "color",
+					"$value": "{clr-core.pop.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.95}",
+							"dark": "{clr-core.pop.5}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2996:13979",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"err": {
+				"5": {
+					"$type": "color",
+					"$value": "{clr-core.err.5}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.5}",
+							"dark": "{clr-core.err.95}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2996:13974",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"10": {
+					"$type": "color",
+					"$value": "{clr-core.err.10}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.10}",
+							"dark": "{clr-core.err.90}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13338",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"20": {
+					"$type": "color",
+					"$value": "{clr-core.err.20}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.20}",
+							"dark": "{clr-core.err.80}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13337",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"30": {
+					"$type": "color",
+					"$value": "{clr-core.err.30}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.30}",
+							"dark": "{clr-core.err.70}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13336",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"40": {
+					"$type": "color",
+					"$value": "{clr-core.err.40}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.40}",
+							"dark": "{clr-core.err.60}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13335",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"50": {
+					"$type": "color",
+					"$value": "{clr-core.err.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.50}",
+							"dark": "{clr-core.err.50}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13334",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"60": {
+					"$type": "color",
+					"$value": "{clr-core.err.60}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.60}",
+							"dark": "{clr-core.err.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13333",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"70": {
+					"$type": "color",
+					"$value": "{clr-core.err.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.70}",
+							"dark": "{clr-core.err.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13332",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"80": {
+					"$type": "color",
+					"$value": "{clr-core.err.80}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.80}",
+							"dark": "{clr-core.err.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13331",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"90": {
+					"$type": "color",
+					"$value": "{clr-core.err.90}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.90}",
+							"dark": "{clr-core.err.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13330",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"95": {
+					"$type": "color",
+					"$value": "{clr-core.err.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.95}",
+							"dark": "{clr-core.err.5}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2996:13980",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"warn": {
+				"5": {
+					"$type": "color",
+					"$value": "{clr-core.warn.5}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.5}",
+							"dark": "{clr-core.warn.95}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2996:13975",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"10": {
+					"$type": "color",
+					"$value": "{clr-core.warn.10}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.10}",
+							"dark": "{clr-core.warn.90}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13347",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"20": {
+					"$type": "color",
+					"$value": "{clr-core.warn.20}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.20}",
+							"dark": "{clr-core.warn.80}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13346",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"30": {
+					"$type": "color",
+					"$value": "{clr-core.warn.30}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.30}",
+							"dark": "{clr-core.warn.70}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13345",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"40": {
+					"$type": "color",
+					"$value": "{clr-core.warn.40}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.40}",
+							"dark": "{clr-core.warn.60}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13344",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"50": {
+					"$type": "color",
+					"$value": "{clr-core.warn.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.50}",
+							"dark": "{clr-core.warn.50}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13343",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"60": {
+					"$type": "color",
+					"$value": "{clr-core.warn.60}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.60}",
+							"dark": "{clr-core.warn.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13342",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"70": {
+					"$type": "color",
+					"$value": "{clr-core.warn.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.70}",
+							"dark": "{clr-core.warn.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13341",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"80": {
+					"$type": "color",
+					"$value": "{clr-core.warn.80}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.80}",
+							"dark": "{clr-core.warn.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13340",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"90": {
+					"$type": "color",
+					"$value": "{clr-core.warn.90}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.90}",
+							"dark": "{clr-core.warn.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13339",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"95": {
+					"$type": "color",
+					"$value": "{clr-core.warn.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.95}",
+							"dark": "{clr-core.warn.5}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2996:13981",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"succ": {
+				"5": {
+					"$type": "color",
+					"$value": "{clr-core.succ.5}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.5}",
+							"dark": "{clr-core.succ.95}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2996:13976",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"10": {
+					"$type": "color",
+					"$value": "{clr-core.succ.10}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.10}",
+							"dark": "{clr-core.succ.90}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13356",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"20": {
+					"$type": "color",
+					"$value": "{clr-core.succ.20}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.20}",
+							"dark": "{clr-core.succ.80}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13355",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"30": {
+					"$type": "color",
+					"$value": "{clr-core.succ.30}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.30}",
+							"dark": "{clr-core.succ.70}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13354",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"40": {
+					"$type": "color",
+					"$value": "{clr-core.succ.40}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.40}",
+							"dark": "{clr-core.succ.60}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13353",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"50": {
+					"$type": "color",
+					"$value": "{clr-core.succ.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.50}",
+							"dark": "{clr-core.succ.50}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13352",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"60": {
+					"$type": "color",
+					"$value": "{clr-core.succ.60}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.60}",
+							"dark": "{clr-core.succ.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13351",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"70": {
+					"$type": "color",
+					"$value": "{clr-core.succ.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.70}",
+							"dark": "{clr-core.succ.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13350",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"80": {
+					"$type": "color",
+					"$value": "{clr-core.succ.80}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.80}",
+							"dark": "{clr-core.succ.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13349",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"90": {
+					"$type": "color",
+					"$value": "{clr-core.succ.90}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.90}",
+							"dark": "{clr-core.succ.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:137:13348",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"95": {
+					"$type": "color",
+					"$value": "{clr-core.succ.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.95}",
+							"dark": "{clr-core.succ.5}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2996:13982",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"purp": {
+				"5": {
+					"$type": "color",
+					"$value": "{clr-core.purp.5}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.5}",
+							"dark": "{clr-core.purp.95}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2996:13978",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"10": {
+					"$type": "color",
+					"$value": "{clr-core.purp.10}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.10}",
+							"dark": "{clr-core.purp.90}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2696:25280",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"20": {
+					"$type": "color",
+					"$value": "{clr-core.purp.20}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.20}",
+							"dark": "{clr-core.purp.80}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2696:25279",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"30": {
+					"$type": "color",
+					"$value": "{clr-core.purp.30}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.30}",
+							"dark": "{clr-core.purp.70}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2696:25278",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"40": {
+					"$type": "color",
+					"$value": "{clr-core.purp.40}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.40}",
+							"dark": "{clr-core.purp.60}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2696:25277",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"50": {
+					"$type": "color",
+					"$value": "{clr-core.purp.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.50}",
+							"dark": "{clr-core.purp.50}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2696:25276",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"60": {
+					"$type": "color",
+					"$value": "{clr-core.purp.60}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.60}",
+							"dark": "{clr-core.purp.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2696:25275",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"70": {
+					"$type": "color",
+					"$value": "{clr-core.purp.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.70}",
+							"dark": "{clr-core.purp.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2696:25274",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"80": {
+					"$type": "color",
+					"$value": "{clr-core.purp.80}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.80}",
+							"dark": "{clr-core.purp.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2696:25273",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"90": {
+					"$type": "color",
+					"$value": "{clr-core.purp.90}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.90}",
+							"dark": "{clr-core.purp.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2696:25272",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"95": {
+					"$type": "color",
+					"$value": "{clr-core.purp.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.95}",
+							"dark": "{clr-core.purp.5}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:2996:13983",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			}
+		},
+		"overlay-bg": {
+			"$type": "color",
+			"$value": "#d6d6d666",
+			"$description": "",
+			"$extensions": {
+				"mode": {
+					"light": "#d6d6d666",
+					"dark": "#00000059"
+				},
+				"figma": {
+					"codeSyntax": {},
+					"variableId": "VariableID:2946:12411",
+					"collection": {
+						"id": "VariableCollectionId:8:1868",
+						"name": "clr",
+						"defaultModeId": "8:5"
+					}
+				}
+			}
+		},
+		"illustration": {
+			"bg": {
+				"$type": "color",
+				"$value": "#d6f0ee",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "#d6f0ee",
+						"dark": "#214f4d"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3009:10775",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"outline": {
+				"$type": "color",
+				"$value": "#475050",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "#475050",
+						"dark": "#142222"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3009:10776",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"fill": {
+				"$type": "color",
+				"$value": "#fcfcf1",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "#fcfcf1",
+						"dark": "#d8e3c1"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3030:14388",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			}
+		},
+		"commit": {
+			"upstream": {
+				"$type": "color",
+				"$value": "{clr-core.warn.50}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.warn.50}",
+						"dark": "{clr-core.warn.50}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3171:9427",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"local": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.50}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.50}",
+						"dark": "{clr-core.ntrl.50}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3171:9428",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"remote": {
+				"$type": "color",
+				"$value": "{clr-core.pop.50}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.pop.50}",
+						"dark": "{clr-core.pop.50}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3171:9429",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"shadow": {
+				"$type": "color",
+				"$value": "{clr-core.pop.60}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.pop.60}",
+						"dark": "{clr-core.pop.30}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3172:9430",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"integrated": {
+				"$type": "color",
+				"$value": "{clr-core.purp.50}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.purp.50}",
+						"dark": "{clr-core.purp.40}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4666:4125",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			}
+		},
+		"text": {
+			"1": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.5}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.5}",
+						"dark": "{clr-core.ntrl.95}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3338:21262",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"2": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.50}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.50}",
+						"dark": "{clr-core.ntrl.60}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3338:21263",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"3": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.60}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.60}",
+						"dark": "{clr-core.ntrl.40}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3338:21264",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			}
+		},
+		"diff": {
+			"line-bg": {
+				"$type": "color",
+				"$value": "{clr.bg.1}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr.bg.1}",
+						"dark": "{clr.bg.1}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3935:248",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"count-bg": {
+				"$type": "color",
+				"$value": "#f7f7f6",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "#f7f7f6",
+						"dark": "#302c2b"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3935:249",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"count-border": {
+				"$type": "color",
+				"$value": "{clr.border.2}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr.border.2}",
+						"dark": "{clr.border.2}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3935:250",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"selected": {
+				"count-bg": {
+					"$type": "color",
+					"$value": "{clr-core.pop.55}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.55}",
+							"dark": "{clr-core.pop.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3935:251",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-border": {
+					"$type": "color",
+					"$value": "{clr-core.pop.45}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.45}",
+							"dark": "{clr-core.pop.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3935:253",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-text": {
+					"$type": "color",
+					"$value": "{clr-core.pop.90}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.90}",
+							"dark": "{clr-core.pop.55}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3935:254",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-checkmark": {
+					"$type": "color",
+					"$value": "{clr-core.pop.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.95}",
+							"dark": "{clr-core.pop.60}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6122:18931",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-bg-hover": {
+					"$type": "color",
+					"$value": "{clr-core.pop.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.50}",
+							"dark": "{clr-core.pop.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6122:18987",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"count-text": {
+				"$type": "color",
+				"$value": "{clr.text.3}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr.text.3}",
+						"dark": "{clr.text.3}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:3935:252",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"deletion": {
+				"line-bg": {
+					"$type": "color",
+					"$value": "#fff0f2",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#fff0f2",
+							"dark": "#3c131b"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3935:255",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"line-highlight": {
+					"$type": "color",
+					"$value": "#fdd2da",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#fdd2da",
+							"dark": "#78061c"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3935:257",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-bg": {
+					"$type": "color",
+					"$value": "#fcdfe4",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#fcdfe4",
+							"dark": "#53131e"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3935:10972",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-border": {
+					"$type": "color",
+					"$value": "#deb4b4",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#deb4b4",
+							"dark": "#8e3c3c"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3935:12107",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-text": {
+					"$type": "color",
+					"$value": "#b69292",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#b69292",
+							"dark": "#b36773"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3935:12108",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-checkmark": {
+					"$type": "color",
+					"$value": "#886262",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#886262",
+							"dark": "#d07c8a"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6122:18924",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-bg-hover": {
+					"$type": "color",
+					"$value": "#facfd6",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#facfd6",
+							"dark": "#691e2c"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6122:18969",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"addition": {
+				"line-highlight": {
+					"$type": "color",
+					"$value": "#b6edd6",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#b6edd6",
+							"dark": "#075445"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3976:12110",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-bg": {
+					"$type": "color",
+					"$value": "#cbf4e3",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#cbf4e3",
+							"dark": "#0c4538"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3976:12111",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-border": {
+					"$type": "color",
+					"$value": "#a6cdbd",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#a6cdbd",
+							"dark": "#2b6e53"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3976:12112",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-text": {
+					"$type": "color",
+					"$value": "#87a89a",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#87a89a",
+							"dark": "#689e88"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3976:12113",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"line-bg": {
+					"$type": "color",
+					"$value": "#e0fbf0",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#e0fbf0",
+							"dark": "#0e2f25"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:3976:12114",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-checkmark": {
+					"$type": "color",
+					"$value": "#4c816b",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#4c816b",
+							"dark": "#93c9b3"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6122:18920",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-bg-hover": {
+					"$type": "color",
+					"$value": "#b4edd5",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#b4edd5",
+							"dark": "#115745"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6122:18951",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"addition-contrast-2": {
+				"line-bg": {
+					"$type": "color",
+					"$value": "#ccfae7",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#ccfae7",
+							"dark": "#15483c"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5373:19049",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"line-highlight": {
+					"$type": "color",
+					"$value": "#9aecca",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#9aecca",
+							"dark": "#157b67"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5373:19050",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-bg": {
+					"$type": "color",
+					"$value": "#bdf3dd",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#bdf3dd",
+							"dark": "#1e574a"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5373:19051",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-border": {
+					"$type": "color",
+					"$value": "#8bcaaf",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#8bcaaf",
+							"dark": "#508b73"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5373:19052",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-text": {
+					"$type": "color",
+					"$value": "#638b7a",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#638b7a",
+							"dark": "#7fbfb2"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5373:19053",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-bg-hover": {
+					"$type": "color",
+					"$value": "#a8eacf",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#a8eacf",
+							"dark": "#266657"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6131:10051",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"deletion-contrast-2": {
+				"line-bg": {
+					"$type": "color",
+					"$value": "#ffe5e8",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#ffe5e8",
+							"dark": "#551723"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5373:19250",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"line-highlight": {
+					"$type": "color",
+					"$value": "#fcc5d0",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#fcc5d0",
+							"dark": "#9e2c42"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5373:19251",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-bg": {
+					"$type": "color",
+					"$value": "#ffd7dd",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#ffd7dd",
+							"dark": "#702330"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5373:19252",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-border": {
+					"$type": "color",
+					"$value": "#e8b7b7",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#e8b7b7",
+							"dark": "#a65454"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5373:19253",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-text": {
+					"$type": "color",
+					"$value": "#9e7272",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#9e7272",
+							"dark": "#e994a2"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5373:19254",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-bg-hover": {
+					"$type": "color",
+					"$value": "#fac8d1",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#fac8d1",
+							"dark": "#8f3242"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6131:10102",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"count-text-contrast-2": {
+				"$type": "color",
+				"$value": "#9c928c",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "#9c928c",
+						"dark": "#807b74"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:5373:19261",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"addition-contrast-3": {
+				"line-bg": {
+					"$type": "color",
+					"$value": "#c2f9e3",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#c2f9e3",
+							"dark": "#225e51"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5375:19592",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"line-highlight": {
+					"$type": "color",
+					"$value": "#85edc1",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#85edc1",
+							"dark": "#28937e"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5375:19593",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-bg": {
+					"$type": "color",
+					"$value": "#a6efd1",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#a6efd1",
+							"dark": "#196956"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5375:19594",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-border": {
+					"$type": "color",
+					"$value": "#84d1b0",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#84d1b0",
+							"dark": "#56947b"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5375:19595",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-text": {
+					"$type": "color",
+					"$value": "#4c816b",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#4c816b",
+							"dark": "#93c9b3"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5375:19596",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-bg-hover": {
+					"$type": "color",
+					"$value": "#91e3c1",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#91e3c1",
+							"dark": "#2b7a68"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6131:10083",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"deletion-contrast-3": {
+				"line-bg": {
+					"$type": "color",
+					"$value": "#ffe0e4",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#ffe0e4",
+							"dark": "#5e202c"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5375:19695",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"line-highlight": {
+					"$type": "color",
+					"$value": "#f7bcc7",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#f7bcc7",
+							"dark": "#a3344a"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5375:19696",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-bg": {
+					"$type": "color",
+					"$value": "#ffced7",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#ffced7",
+							"dark": "#822c3b"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5375:19697",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-border": {
+					"$type": "color",
+					"$value": "#e0afaf",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#e0afaf",
+							"dark": "#b56060"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5375:19698",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-text": {
+					"$type": "color",
+					"$value": "#886262",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#886262",
+							"dark": "#f29aa8"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5375:19699",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-bg-hover": {
+					"$type": "color",
+					"$value": "#f7c1cb",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#f7c1cb",
+							"dark": "#9c3a4b"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6131:10106",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"count-text-contrast-3": {
+				"$type": "color",
+				"$value": "#8c847e",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "#8c847e",
+						"dark": "#99938b"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:5375:19700",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"count-bg-hover": {
+				"$type": "color",
+				"$value": "#ececeb",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "#ececeb",
+						"dark": "#3d3938"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:6097:8269",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"count-hover-overlay": {
+				"$type": "color",
+				"$value": "#0000000d",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "#0000000d",
+						"dark": "#ffffff0f"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:6097:8580",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"count-checkmark": {
+				"$type": "color",
+				"$value": "{clr.text.2}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr.text.2}",
+						"dark": "{clr.text.2}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:6122:18916",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"locked": {
+				"count-bg": {
+					"$type": "color",
+					"$value": "#fdedcd",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#fdedcd",
+							"dark": "#604216"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6148:7079",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-border": {
+					"$type": "color",
+					"$value": "#efcd92",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#efcd92",
+							"dark": "#87632f"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6148:7081",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"count-text": {
+					"$type": "color",
+					"$value": "#d38f19",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#d38f19",
+							"dark": "#ebbb68"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6148:7082",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			}
+		},
+		"tooltip": {
+			"border": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.10}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.10}",
+						"dark": "{clr-core.ntrl.30}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4330:3683",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"bg": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.10}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.10}",
+						"dark": "{clr-core.ntrl.10}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4330:3697",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			}
+		},
+		"stack-tab": {
+			"active": {
+				"$type": "color",
+				"$value": "{clr.bg.1}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr.bg.1}",
+						"dark": "{clr.bg.1}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4766:20135",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"inactive": {
+				"$type": "color",
+				"$value": "{clr.bg.2}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr.bg.2}",
+						"dark": "{clr.bg.2}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4766:20450",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"inactive-hover": {
+				"$type": "color",
+				"$value": "{clr.scale.ntrl.95}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr.scale.ntrl.95}",
+						"dark": "{clr-core.ntrl.10}"
+					},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:4766:20452",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			}
+		},
+		"btn": {
+			"ntrl": {
+				"outline": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.50}",
+							"dark": "{clr-core.ntrl.50}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5540:5556",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-bg": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.70}",
+							"dark": "{clr-core.ntrl.45}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5620:6199",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-text": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.10}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.10}",
+							"dark": "{clr-core.ntrl.100}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5620:6214",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-text-hover": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.10}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.10}",
+							"dark": "{clr-core.ntrl.100}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5620:6219",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"err": {
+				"outline-text": {
+					"$type": "color",
+					"$value": "{clr-core.err.40}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.40}",
+							"dark": "{clr-core.err.60}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5617:9560",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-text-hover": {
+					"$type": "color",
+					"$value": "{clr-core.err.30}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.30}",
+							"dark": "{clr-core.err.70}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5617:10949",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline": {
+					"$type": "color",
+					"$value": "{clr-core.err.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.50}",
+							"dark": "{clr-core.err.50}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5617:19690",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-bg": {
+					"$type": "color",
+					"$value": "{clr-core.err.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.err.70}",
+							"dark": "{clr-core.err.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5620:6201",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"pop": {
+				"outline-text": {
+					"$type": "color",
+					"$value": "{clr-core.pop.40}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.40}",
+							"dark": "{clr-core.pop.60}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5617:11095",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-text-hover": {
+					"$type": "color",
+					"$value": "{clr-core.pop.30}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.30}",
+							"dark": "{clr-core.pop.70}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5617:11096",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline": {
+					"$type": "color",
+					"$value": "{clr-core.pop.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.50}",
+							"dark": "{clr-core.pop.50}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5617:19689",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-bg": {
+					"$type": "color",
+					"$value": "{clr-core.pop.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.70}",
+							"dark": "{clr-core.pop.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5620:6200",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"warn": {
+				"outline": {
+					"$type": "color",
+					"$value": "{clr-core.warn.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.50}",
+							"dark": "{clr-core.warn.50}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5617:19692",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-bg": {
+					"$type": "color",
+					"$value": "{clr-core.warn.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.70}",
+							"dark": "{clr-core.warn.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5620:6205",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-text-hover": {
+					"$type": "color",
+					"$value": "{clr-core.warn.30}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.30}",
+							"dark": "{clr-core.warn.70}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5620:6225",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-text": {
+					"$type": "color",
+					"$value": "{clr-core.warn.40}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.warn.40}",
+							"dark": "{clr-core.warn.60}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5620:6226",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"succ": {
+				"outline": {
+					"$type": "color",
+					"$value": "{clr-core.succ.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.50}",
+							"dark": "{clr-core.succ.50}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5617:19693",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-bg": {
+					"$type": "color",
+					"$value": "{clr-core.succ.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.70}",
+							"dark": "{clr-core.succ.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5620:6209",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-text-hover": {
+					"$type": "color",
+					"$value": "{clr-core.succ.30}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.30}",
+							"dark": "{clr-core.succ.70}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5620:6303",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-text": {
+					"$type": "color",
+					"$value": "{clr-core.succ.40}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.succ.40}",
+							"dark": "{clr-core.succ.60}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5620:6304",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"purp": {
+				"outline": {
+					"$type": "color",
+					"$value": "{clr-core.purp.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.50}",
+							"dark": "{clr-core.purp.50}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5617:19694",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-bg": {
+					"$type": "color",
+					"$value": "{clr-core.purp.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.70}",
+							"dark": "{clr-core.purp.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5620:6213",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-text-hover": {
+					"$type": "color",
+					"$value": "{clr-core.purp.30}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.30}",
+							"dark": "{clr-core.purp.70}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5620:6310",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"outline-text": {
+					"$type": "color",
+					"$value": "{clr-core.purp.40}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.purp.40}",
+							"dark": "{clr-core.purp.60}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5620:6311",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			}
+		},
+		"br-commit": {
+			"approved": {
+				"bg": {
+					"$type": "color",
+					"$value": "{clr.theme.succ.element}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.succ.element}",
+							"dark": "{clr.theme.succ.element}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5849:4645",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"text": {
+					"$type": "color",
+					"$value": "{clr.theme.succ.on-element}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.succ.on-element}",
+							"dark": "{clr.theme.succ.on-element}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5852:120",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"in-discussion": {
+				"bg": {
+					"$type": "color",
+					"$value": "{clr-core.pop.70}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.70}",
+							"dark": "{clr-core.pop.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5849:4780",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"text": {
+					"$type": "color",
+					"$value": "{clr.theme.pop.on-soft}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.pop.on-soft}",
+							"dark": "{clr.theme.pop.on-soft}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5852:583",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"changes-requested": {
+				"bg": {
+					"$type": "color",
+					"$value": "{clr.theme.warn.element}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.warn.element}",
+							"dark": "{clr.theme.warn.element}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5849:4788",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"text": {
+					"$type": "color",
+					"$value": "{clr.theme.warn.on-element}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.warn.on-element}",
+							"dark": "{clr.theme.warn.on-element}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5852:587",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"unreviewed": {
+				"bg": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.80}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.80}",
+							"dark": "{clr-core.ntrl.30}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5849:4789",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"text": {
+					"$type": "color",
+					"$value": "{clr.theme.ntrl.on-soft}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.ntrl.on-soft}",
+							"dark": "{clr.theme.ntrl.on-soft}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5852:663",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"closed": {
+				"bg": {
+					"$type": "color",
+					"$value": "{clr.theme.purp.element}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.purp.element}",
+							"dark": "{clr.theme.purp.element}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5952:5346",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"text": {
+					"$type": "color",
+					"$value": "{clr.theme.purp.on-element}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr.theme.purp.on-element}",
+							"dark": "{clr.theme.purp.on-element}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5953:5487",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			}
+		},
+		"selected": {
+			"in-focus": {
+				"bg": {
+					"$type": "color",
+					"$value": "{clr-core.pop.90}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.90}",
+							"dark": "{clr-core.pop.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6414:4411",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"element": {
+					"$type": "color",
+					"$value": "{clr-core.pop.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.50}",
+							"dark": "{clr-core.pop.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6414:4412",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"not-in-focus": {
+				"bg": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.95}",
+							"dark": "{clr-core.ntrl.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6414:5527",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"element": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.60}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.60}",
+							"dark": "{clr-core.ntrl.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6414:5528",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"size": {
+		"icon": {
+			"$type": "dimension",
+			"$value": "16px",
+			"$description": "",
+			"$extensions": {
+				"mode": {},
+				"figma": {
+					"codeSyntax": {},
+					"variableId": "VariableID:3030:14766",
+					"collection": {
+						"id": "VariableCollectionId:98:591",
+						"name": "size",
+						"defaultModeId": "98:0"
+					}
+				}
+			}
+		},
+		"tag": {
+			"$type": "dimension",
+			"$value": "22px",
+			"$description": "",
+			"$extensions": {
+				"mode": {},
+				"figma": {
+					"codeSyntax": {},
+					"variableId": "VariableID:3030:14767",
+					"collection": {
+						"id": "VariableCollectionId:98:591",
+						"name": "size",
+						"defaultModeId": "98:0"
+					}
+				}
+			}
+		},
+		"button": {
+			"$type": "dimension",
+			"$value": "28px",
+			"$description": "",
+			"$extensions": {
+				"mode": {},
+				"figma": {
+					"codeSyntax": {},
+					"variableId": "VariableID:3030:14768",
+					"collection": {
+						"id": "VariableCollectionId:98:591",
+						"name": "size",
+						"defaultModeId": "98:0"
+					}
+				}
+			}
+		},
+		"cta": {
+			"$type": "dimension",
+			"$value": "32px",
+			"$description": "",
+			"$extensions": {
+				"mode": {},
+				"figma": {
+					"codeSyntax": {},
+					"variableId": "VariableID:3030:14769",
+					"collection": {
+						"id": "VariableCollectionId:98:591",
+						"name": "size",
+						"defaultModeId": "98:0"
+					}
+				}
+			}
+		},
+		"card-padding": {
+			"$type": "dimension",
+			"$value": "14px",
+			"$description": "",
+			"$extensions": {
+				"mode": {},
+				"figma": {
+					"codeSyntax": {},
+					"variableId": "VariableID:3030:14772",
+					"collection": {
+						"id": "VariableCollectionId:98:591",
+						"name": "size",
+						"defaultModeId": "98:0"
+					}
+				}
+			}
+		}
+	},
+	"radius": {
+		"s": {
+			"$type": "dimension",
+			"$value": "4px",
+			"$description": "",
+			"$extensions": {
+				"mode": {},
+				"figma": {
+					"codeSyntax": {},
+					"variableId": "VariableID:137:11512",
+					"collection": {
+						"id": "VariableCollectionId:137:11511",
+						"name": "radius",
+						"defaultModeId": "137:3"
+					}
+				}
+			}
+		},
+		"m": {
+			"$type": "dimension",
+			"$value": "6px",
+			"$description": "",
+			"$extensions": {
+				"mode": {},
+				"figma": {
+					"codeSyntax": {},
+					"variableId": "VariableID:137:11513",
+					"collection": {
+						"id": "VariableCollectionId:137:11511",
+						"name": "radius",
+						"defaultModeId": "137:3"
+					}
+				}
+			}
+		},
+		"l": {
+			"$type": "dimension",
+			"$value": "12px",
+			"$description": "",
+			"$extensions": {
+				"mode": {},
+				"figma": {
+					"codeSyntax": {},
+					"variableId": "VariableID:137:11514",
+					"collection": {
+						"id": "VariableCollectionId:137:11511",
+						"name": "radius",
+						"defaultModeId": "137:3"
+					}
+				}
+			}
+		},
+		"ml": {
+			"$type": "dimension",
+			"$value": "10px",
+			"$description": "",
+			"$extensions": {
+				"mode": {},
+				"figma": {
+					"codeSyntax": {},
+					"variableId": "VariableID:4733:2863",
+					"collection": {
+						"id": "VariableCollectionId:137:11511",
+						"name": "radius",
+						"defaultModeId": "137:3"
+					}
+				}
+			}
+		}
+	},
+	"text": {
+		"weight": {
+			"regular": {
+				"$type": "string",
+				"$value": "400",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:5260:10128",
+						"collection": {
+							"id": "VariableCollectionId:5260:10127",
+							"name": "text",
+							"defaultModeId": "5260:0"
+						}
+					}
+				}
+			},
+			"semibold": {
+				"$type": "string",
+				"$value": "500",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:5260:10129",
+						"collection": {
+							"id": "VariableCollectionId:5260:10127",
+							"name": "text",
+							"defaultModeId": "5260:0"
+						}
+					}
+				}
+			},
+			"bold": {
+				"$type": "string",
+				"$value": "600",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:5260:10131",
+						"collection": {
+							"id": "VariableCollectionId:5260:10127",
+							"name": "text",
+							"defaultModeId": "5260:0"
+						}
+					}
+				}
+			}
+		},
+		"lineheight": {
+			"body": {
+				"$type": "string",
+				"$value": "160%",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:5286:1828",
+						"collection": {
+							"id": "VariableCollectionId:5260:10127",
+							"name": "text",
+							"defaultModeId": "5260:0"
+						}
+					}
+				}
+			},
+			"default": {
+				"$type": "string",
+				"$value": "120%",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:5287:519",
+						"collection": {
+							"id": "VariableCollectionId:5260:10127",
+							"name": "text",
+							"defaultModeId": "5260:0"
+						}
+					}
+				}
+			}
+		},
+		"fontfamily": {
+			"default": {
+				"$type": "string",
+				"$value": "Inter",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:5286:1830",
+						"collection": {
+							"id": "VariableCollectionId:5260:10127",
+							"name": "text",
+							"defaultModeId": "5260:0"
+						}
+					}
+				}
+			},
+			"mono": {
+				"$type": "string",
+				"$value": "Geist Mono",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:5286:1832",
+						"collection": {
+							"id": "VariableCollectionId:5260:10127",
+							"name": "text",
+							"defaultModeId": "5260:0"
+						}
+					}
+				}
+			},
+			"accent": {
+				"$type": "string",
+				"$value": "PP Editorial New",
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:5286:1833",
+						"collection": {
+							"id": "VariableCollectionId:5260:10127",
+							"name": "text",
+							"defaultModeId": "5260:0"
+						}
+					}
+				}
+			}
+		}
+	},
+	"opacity": {
+		"btn": {
+			"icon": {
+				"outline": {
+					"$type": "number",
+					"$value": 0.7,
+					"$description": "",
+					"$extensions": {
+						"mode": {},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5553:9635",
+							"collection": {
+								"id": "VariableCollectionId:5553:9634",
+								"name": "opacity",
+								"defaultModeId": "5553:0"
+							}
+						}
+					}
+				},
+				"outline-hover": {
+					"$type": "number",
+					"$value": 0.8,
+					"$description": "",
+					"$extensions": {
+						"mode": {},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5553:9636",
+							"collection": {
+								"id": "VariableCollectionId:5553:9634",
+								"name": "opacity",
+								"defaultModeId": "5553:0"
+							}
+						}
+					}
+				},
+				"solid": {
+					"$type": "number",
+					"$value": 0.8,
+					"$description": "",
+					"$extensions": {
+						"mode": {},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5553:9637",
+							"collection": {
+								"id": "VariableCollectionId:5553:9634",
+								"name": "opacity",
+								"defaultModeId": "5553:0"
+							}
+						}
+					}
+				},
+				"solid-hover": {
+					"$type": "number",
+					"$value": 0.9,
+					"$description": "",
+					"$extensions": {
+						"mode": {},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:5553:9638",
+							"collection": {
+								"id": "VariableCollectionId:5553:9634",
+								"name": "opacity",
+								"defaultModeId": "5553:0"
+							}
+						}
+					}
+				}
+			},
+			"outline-bg-hover": {
+				"$type": "number",
+				"$value": 0.2,
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:5617:11090",
+						"collection": {
+							"id": "VariableCollectionId:5553:9634",
+							"name": "opacity",
+							"defaultModeId": "5553:0"
+						}
+					}
+				}
+			},
+			"outline": {
+				"$type": "number",
+				"$value": 0.4,
+				"$description": "",
+				"$extensions": {
+					"mode": {},
+					"figma": {
+						"codeSyntax": {},
+						"variableId": "VariableID:5617:11091",
+						"collection": {
+							"id": "VariableCollectionId:5553:9634",
+							"name": "opacity",
+							"defaultModeId": "5553:0"
+						}
+					}
+				}
+			}
+		}
+	},
+	"fx": {
+		"shadow": {
+			"s": {
+				"$type": "shadow",
+				"$value": [
+					{
+						"inset": false,
+						"color": "#0000000f",
+						"offsetX": "0px",
+						"offsetY": "4px",
+						"blur": "14px",
+						"spread": "0px"
+					}
+				]
+			},
+			"m": {
+				"$type": "shadow",
+				"$value": [
+					{
+						"inset": false,
+						"color": "#00000014",
+						"offsetX": "0px",
+						"offsetY": "6px",
+						"blur": "30px",
+						"spread": "0px"
+					}
+				]
+			},
+			"l": {
+				"$type": "shadow",
+				"$value": [
+					{
+						"inset": false,
+						"color": "#0000001a",
+						"offsetX": "0px",
+						"offsetY": "10px",
+						"blur": "40px",
+						"spread": "0px"
+					}
+				]
+			}
+		}
+	},
+	"$extensions": {
+		"tokens-bruecke-meta": {
+			"useDTCGKeys": true,
+			"colorMode": "hex",
+			"variableCollections": ["clr-core", "clr", "size", "radius", "text", "opacity"],
+			"createdAt": "2025-03-18T13:21:15.702Z"
+		}
+	}
+}
