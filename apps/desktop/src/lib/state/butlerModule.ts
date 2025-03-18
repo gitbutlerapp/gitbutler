@@ -201,8 +201,6 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 	>;
 };
 
-export type MutationResult<T> = { data: T; error: undefined } | { data: undefined; error: unknown };
-
 export type CustomMutationResult<Definition extends MutationDefinition<any, any, string, any>> =
 	Prettify<MutationResultSelectorResult<Definition>>;
 
@@ -212,7 +210,7 @@ type CustomMutation<Definition extends MutationDefinition<any, any, string, any>
 	 *
 	 * If awaited, the result will contain the mutation result.
 	 */
-	(args: QueryArgFrom<Definition>) => Promise<Prettify<MutationResult<Definition>>>,
+	(args: QueryArgFrom<Definition>) => Promise<Prettify<ResultTypeFrom<Definition>>>,
 	/**
 	 * The reactive state of the mutation.
 	 *
@@ -224,8 +222,6 @@ type CustomMutation<Definition extends MutationDefinition<any, any, string, any>
 	 */
 	() => void
 ];
-
-export type TriggerResult<T> = { data: T; error: undefined } | { error: unknown; data: undefined };
 
 /**
  * Declaration of custom methods for mutations.

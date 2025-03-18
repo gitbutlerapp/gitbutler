@@ -59,10 +59,8 @@
 
 		const newId = response.newCommit;
 
-		if (newId) {
-			uiState.project(projectId).drawerPage.set(undefined);
-			uiState.stack(stackId).selection.set({ branchName, commitId: newId });
-		}
+		uiState.project(projectId).drawerPage.set(undefined);
+		uiState.stack(stackId).selection.set({ branchName, commitId: newId });
 	}
 
 	async function hanldleCommitCreation() {
