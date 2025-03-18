@@ -258,6 +258,7 @@
 
 			{#if branchUuid !== undefined}
 				<div
+					id="chat-panel"
 					class="review-chat"
 					class:minimized={chatMinimizer.value}
 					class:tablet-mode={isChatTabletMode}
