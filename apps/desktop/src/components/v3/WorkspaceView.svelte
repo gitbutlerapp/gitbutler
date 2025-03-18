@@ -34,8 +34,8 @@
 	let drawerDiv: HTMLDivElement | undefined = $state();
 </script>
 
-<div class="workspace-view">
-	<div class="left" bind:this={leftDiv} style:width={leftWidth.current + 'rem'}>
+<div class="workspace">
+	<div class="changed-files-view" bind:this={leftDiv} style:width={leftWidth.current + 'rem'}>
 		<WorktreeChanges {projectId} />
 		<Resizer
 			viewport={leftDiv}
@@ -44,7 +44,7 @@
 			onWidth={(value) => uiState.global.leftWidth.set(value)}
 		/>
 	</div>
-	<div class="middle">
+	<div class="main-view">
 		<SelectionView {projectId} />
 
 		<div class="drawer" bind:this={drawerDiv} style:height={height.current + 'rem'}>
@@ -78,7 +78,7 @@
 			/>
 		</div>
 	</div>
-	<div class="right" bind:this={rightDiv} style:width={rightWidth.current + 'rem'}>
+	<div class="stacks-view" bind:this={rightDiv} style:width={rightWidth.current + 'rem'}>
 		{@render right({ viewportWidth: rightWidth.current })}
 		<Resizer
 			viewport={rightDiv}
@@ -90,7 +90,7 @@
 </div>
 
 <style>
-	.workspace-view {
+	.workspace {
 		display: flex;
 		flex: 1;
 		gap: 8px;
@@ -100,7 +100,7 @@
 		position: relative;
 	}
 
-	.left {
+	.changed-files-view {
 		height: 100%;
 		display: flex;
 		flex-direction: column;
@@ -114,7 +114,7 @@
 		flex-shrink: 0;
 	}
 
-	.right {
+	.stacks-view {
 		height: 100%;
 		display: flex;
 		flex-direction: column;
@@ -125,7 +125,7 @@
 		flex-shrink: 0;
 	}
 
-	.middle {
+	.main-view {
 		display: flex;
 		flex-direction: column;
 		flex-grow: 1;
