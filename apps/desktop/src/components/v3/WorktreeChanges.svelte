@@ -42,7 +42,9 @@
 	{#snippet children(changes)}
 		<div class="worktree-header text-14 text-semibold">
 			<h3>Uncommitted changes</h3>
-			<Badge>{changes.length}</Badge>
+			{#if changes.length > 0}
+				<Badge>{changes.length}</Badge>
+			{/if}
 		</div>
 		{#if changes.length > 0}
 			<div class="uncommitted-changes">
