@@ -239,4 +239,63 @@ export class OrganizationService {
 
 		return organization;
 	}
+
+	async getOrganizationBySlug(slug: string): Promise<Organization | undefined> {
+		try {
+			const apiOrganization = await this.httpClient.get<ApiOrganizationWithDetails>(
+				`organization/${slug}`
+			);
+
+			// Convert API format to application format
+			const organization = apiToOrganization(apiOrganization);
+
+			// Update the organization in the store
+			this.appDispatch.dispatch(
+				organizationTable.upsertOne({ status: 'found', id: slug, value: organization })
+			);
+
+			return organization;
+		} catch (error: any) {
+			if (error.response && error.response.status === 404) {
+				return undefined;
+			}
+
+			// Rethrow other errors
+			throw error;
+		}
+	}
+
+	async updateOrganization(
+		slug: string,
+		params: { name?: string; new_slug?: string; description?: string }
+	): Promise<Organization> {
+		const apiOrganization = await this.httpClient.put<ApiOrganizationWithDetails>(
+			`organization/${slug}`,
+			{
+				body: {
+					name: params.name,
+					new_slug: params.new_slug,
+					description: params.description
+				}
+			}
+		);
+
+		// Convert API format to application format
+		const organization = apiToOrganization(apiOrganization);
+
+		// If the slug was updated, we need to update the ID in the store
+		const newSlug = params.new_slug || slug;
+
+		// Update the organization in the store
+		this.appDispatch.dispatch(
+			organizationTable.upsertOne({ status: 'found', id: newSlug, value: organization })
+		);
+
+		// If slug was changed, remove the old entry
+		if (newSlug !== slug) {
+			this.appDispatch.dispatch(organizationTable.removeOne(slug));
+		}
+
+		return organization;
+	}
 }
