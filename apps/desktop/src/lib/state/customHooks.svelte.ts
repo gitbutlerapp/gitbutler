@@ -172,7 +172,7 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 			};
 		});
 
-		return { result: reactive(() => result), triggerMutation, reset };
+		return [triggerMutation, reactive(() => result), reset] as const;
 	}
 
 	return {
