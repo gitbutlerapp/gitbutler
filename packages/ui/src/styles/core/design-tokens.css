@@ -326,6 +326,10 @@
 	--clr-scale-warn-80: var(--clr-core-warn-80);
 	--clr-scale-warn-90: var(--clr-core-warn-90);
 	--clr-scale-warn-95: var(--clr-core-warn-95);
+	--clr-selected-in-focus-bg: var(--clr-core-pop-90);
+	--clr-selected-in-focus-element: var(--clr-core-pop-50);
+	--clr-selected-not-in-focus-bg: var(--clr-core-ntrl-95);
+	--clr-selected-not-in-focus-element: var(--clr-core-ntrl-60);
 	--clr-stack-tab-active: var(--clr-bg-1);
 	--clr-stack-tab-inactive: var(--clr-bg-2);
 	--clr-stack-tab-inactive-hover: var(--clr-scale-ntrl-95);
@@ -433,7 +437,7 @@
 	--clr-btn-err-outline-text: var(--clr-core-err-60);
 	--clr-btn-err-outline-text-hover: var(--clr-core-err-70);
 	--clr-btn-ntrl-outline: var(--clr-core-ntrl-50);
-	--clr-btn-ntrl-outline-bg: var(--clr-core-ntrl-50);
+	--clr-btn-ntrl-outline-bg: var(--clr-core-ntrl-45);
 	--clr-btn-ntrl-outline-text: var(--clr-core-ntrl-100);
 	--clr-btn-ntrl-outline-text-hover: var(--clr-core-ntrl-100);
 	--clr-btn-pop-outline: var(--clr-core-pop-50);
@@ -670,6 +674,10 @@
 	--clr-scale-warn-80: var(--clr-core-warn-20);
 	--clr-scale-warn-90: var(--clr-core-warn-10);
 	--clr-scale-warn-95: var(--clr-core-warn-5);
+	--clr-selected-in-focus-bg: var(--clr-core-pop-10);
+	--clr-selected-in-focus-element: var(--clr-core-pop-40);
+	--clr-selected-not-in-focus-bg: var(--clr-core-ntrl-20);
+	--clr-selected-not-in-focus-element: var(--clr-core-ntrl-40);
 	--clr-stack-tab-active: var(--clr-bg-1);
 	--clr-stack-tab-inactive: var(--clr-bg-2);
 	--clr-stack-tab-inactive-hover: var(--clr-core-ntrl-10);

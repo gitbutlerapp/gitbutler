@@ -41,7 +41,7 @@
 <ReduxResult result={changesResult.current}>
 	{#snippet children(changes)}
 		<div class="worktree-header text-14 text-semibold">
-			<span>Uncommitted changes</span>
+			<h3>Uncommitted changes</h3>
 			<Badge>{changes.length}</Badge>
 		</div>
 		{#if changes.length > 0}
@@ -61,10 +61,12 @@
 				</div>
 			</div>
 		{:else}
-			<div class="text-12 text-body helper-text">
+			<div class="empty-state">
 				{@html noChanges}
-				<div>You're all caught up!</div>
-				<div>No files need committing</div>
+				<p class="text-13 text-body empty-state-text">
+					You're all caught up!<br />
+					No files need committing
+				</p>
 			</div>
 		{/if}
 	{/snippet}
@@ -94,14 +96,22 @@
 		overflow: hidden;
 	}
 
-	.helper-text {
-		text-align: center;
-		color: var(--clr-text-2);
-		opacity: 0.6;
-		margin-top: 10px;
-	}
-
 	.start-commit {
 		padding: 16px;
+	}
+
+	.empty-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 20px;
+		padding: 0 20px 40px;
+		height: 100%;
+	}
+
+	.empty-state-text {
+		text-align: center;
+		color: var(--clr-text-3);
 	}
 </style>

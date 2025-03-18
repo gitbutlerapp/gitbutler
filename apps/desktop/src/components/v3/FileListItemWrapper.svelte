@@ -42,7 +42,6 @@
 
 	let contextMenu = $state<ReturnType<typeof FileContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
-	let open = $state(false);
 
 	const selection = $derived(changeSelection.getById(change.path));
 	const indeterminate = $derived(selection.current && selection.current.type === 'partial');
@@ -92,7 +91,6 @@
 	/>
 
 	<FileListItemV3
-		bind:open
 		id={key(change.path, commitId)}
 		filePath={change.path}
 		fileStatus={computeChangeStatus(change)}
@@ -106,9 +104,6 @@
 		conflicted={false}
 		onclick={(e) => {
 			onclick?.(e);
-		}}
-		ondblclick={() => {
-			open = !open;
 		}}
 		oncheck={onCheck}
 		oncontextmenu={onContextMenu}

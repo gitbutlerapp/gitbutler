@@ -5363,7 +5363,7 @@
 					"$extensions": {
 						"mode": {
 							"light": "{clr-core.ntrl.70}",
-							"dark": "{clr-core.ntrl.50}"
+							"dark": "{clr-core.ntrl.45}"
 						},
 						"figma": {
 							"codeSyntax": {},
@@ -6039,6 +6039,92 @@
 					}
 				}
 			}
+		},
+		"selected": {
+			"in-focus": {
+				"bg": {
+					"$type": "color",
+					"$value": "{clr-core.pop.90}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.90}",
+							"dark": "{clr-core.pop.10}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6414:4411",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"element": {
+					"$type": "color",
+					"$value": "{clr-core.pop.50}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.pop.50}",
+							"dark": "{clr-core.pop.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6414:4412",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			},
+			"not-in-focus": {
+				"bg": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.95}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.95}",
+							"dark": "{clr-core.ntrl.20}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6414:5527",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"element": {
+					"$type": "color",
+					"$value": "{clr-core.ntrl.60}",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "{clr-core.ntrl.60}",
+							"dark": "{clr-core.ntrl.40}"
+						},
+						"figma": {
+							"codeSyntax": {},
+							"variableId": "VariableID:6414:5528",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				}
+			}
 		}
 	},
 	"size": {
@@ -6498,7 +6584,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius", "text", "opacity"],
-			"createdAt": "2025-02-20T13:29:54.627Z"
+			"createdAt": "2025-03-18T13:21:15.702Z"
 		}
 	}
 }
