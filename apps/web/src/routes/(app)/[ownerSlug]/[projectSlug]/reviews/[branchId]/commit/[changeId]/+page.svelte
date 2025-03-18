@@ -16,7 +16,6 @@
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { combine, isFound, map } from '@gitbutler/shared/network/loadable';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
-	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { getPatch } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
@@ -35,7 +34,6 @@
 
 	let { data }: Props = $props();
 
-	const repositoryIdLookupService = getContext(RepositoryIdLookupService);
 	const latestBranchLookupService = getContext(LatestBranchLookupService);
 	const appState = getContext(AppState);
 	const routes = getContext(WebRoutesService);
@@ -49,9 +47,7 @@
 	let isTabletModeEntered = $state(false);
 	let chatComponent = $state<ReturnType<typeof ChatComponent>>();
 
-	const repositoryId = $derived(
-		lookupProject(appState, repositoryIdLookupService, data.ownerSlug, data.projectSlug)
-	);
+	const repositoryId = $derived(lookupProject(data.ownerSlug, data.projectSlug));
 
 	const branchUuid = $derived(
 		lookupLatestBranchUuid(

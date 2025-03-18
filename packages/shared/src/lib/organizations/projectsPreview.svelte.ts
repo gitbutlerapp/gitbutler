@@ -1,13 +1,27 @@
 import { getContext } from '$lib/context';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
-import { isFound } from '$lib/network/loadable';
+import { isFound, map } from '$lib/network/loadable';
 import { ProjectService } from '$lib/organizations/projectService';
 import { projectTable } from '$lib/organizations/projectsSlice';
+import { lookupProject } from '$lib/organizations/repositoryIdLookupPreview.svelte';
+import { reactive, type Reactive } from '$lib/storeUtils';
 import { AppState } from '$lib/redux/store.svelte';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { Loadable } from '$lib/network/types';
 import type { LoadableProject } from '$lib/organizations/types';
-import type { Reactive } from '$lib/storeUtils';
+
+export function getProject(
+	ownerSlug: string,
+	projectSlug: string,
+	inView?: InView
+): Reactive<LoadableProject | undefined> {
+	const repositoryId = lookupProject(ownerSlug, projectSlug, inView);
+	const current = $derived(
+		map(repositoryId.current, (repositoryId) => getProjectByRepositoryId(repositoryId, inView))
+	);
+
+	return reactive(() => current?.current);
+}
 
 export function getProjectByRepositoryId(
 	projectRepositoryId: string,
@@ -20,11 +34,7 @@ export function getProjectByRepositoryId(
 		projectTable.selectors.selectById(appState.projects, projectRepositoryId)
 	);
 
-	return {
-		get current() {
-			return current;
-		}
-	};
+	return reactive(() => current);
 }
 
 export function getAllUserProjects(user: string, inView?: InView): Reactive<LoadableProject[]> {
@@ -36,11 +46,7 @@ export function getAllUserProjects(user: string, inView?: InView): Reactive<Load
 		return allProjects.filter((project) => isFound(project) && project.value.owner === user);
 	});
 
-	return {
-		get current() {
-			return current;
-		}
-	};
+	return reactive(() => current);
 }
 
 export function getRecentlyInteractedProjects(inView?: InView): Reactive<LoadableProject[]> {
@@ -55,11 +61,7 @@ export function getRecentlyInteractedProjects(inView?: InView): Reactive<Loadabl
 			.filter(isDefined)
 	);
 
-	return {
-		get current() {
-			return current;
-		}
-	};
+	return reactive(() => current);
 }
 
 export function getRecentlyPushedProjects(inView?: InView): Reactive<LoadableProject[]> {
@@ -74,11 +76,7 @@ export function getRecentlyPushedProjects(inView?: InView): Reactive<LoadablePro
 			.filter(isDefined)
 	);
 
-	return {
-		get current() {
-			return current;
-		}
-	};
+	return reactive(() => current);
 }
 
 export function getParentForRepositoryId(
@@ -93,11 +91,7 @@ export function getParentForRepositoryId(
 		return getProjectByRepositoryId(project.current.value.parentProjectRepositoryId, inView);
 	});
 
-	return {
-		get current() {
-			return current?.current;
-		}
-	};
+	return reactive(() => current?.current);
 }
 
 export function getFeedIdentityForRepositoryId(
@@ -115,9 +109,5 @@ export function getFeedIdentityForRepositoryId(
 		};
 	});
 
-	return {
-		get current() {
-			return current;
-		}
-	};
+	return reactive(() => current);
 }
