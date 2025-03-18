@@ -2,20 +2,19 @@
 	import { type ColumnTypes, type AvatarsType, type ChangesType } from './types';
 	import Factoid from '$lib/components/infoFlexRow//Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
-	import CommitsGraph from '$lib/components/review/CommitsGraph.svelte';
+	import Minimap from '$lib/components/review/Minimap.svelte';
 	import CommitStatusBadge, { type CommitStatusType } from '@gitbutler/ui/CommitStatusBadge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import dayjs from 'dayjs';
-	import type { Branch } from '@gitbutler/shared/branches/types';
 	import { goto } from '$app/navigation';
 
 	type Props = {
-		columns: Array<{
+		columns: {
 			key: keyof ColumnTypes;
 			value?: ColumnTypes[keyof ColumnTypes];
 			tooltip?: string;
-		}>;
+		}[];
 		href?: string;
 		separatedTop?: boolean;
 		separatedBottom?: boolean;
@@ -65,7 +64,15 @@
 					{:else if key === 'number'}
 						{value}
 					{:else if key === 'commitGraph'}
-						<CommitsGraph branchUuid={(value as Branch).uuid} />
+						{@const params = columns.find((col) => col.key === 'commitGraph')
+							?.value as ColumnTypes['commitGraph']}
+
+						<Minimap
+							branchUuid={params.branch.uuid}
+							projectSlug={params.projectSlug}
+							ownerSlug={params.ownerSlug}
+							horizontal
+						/>
 					{:else if key === 'avatars'}
 						<AvatarGroup avatars={value as Array<AvatarsType>}></AvatarGroup>
 					{:else if key === 'reviewers'}
@@ -185,9 +192,14 @@
 
 					{#if columns.find((col) => col.key === 'commitGraph')}
 						<Factoid label="Commits">
-							<CommitsGraph
-								branchUuid={(columns.find((col) => col.key === 'commitGraph')?.value as Branch)
-									.uuid}
+							{@const props = columns.find((col) => col.key === 'commitGraph')
+								?.value as ColumnTypes['commitGraph']}
+
+							<Minimap
+								branchUuid={props.branch.uuid}
+								projectSlug={props.projectSlug}
+								ownerSlug={props.ownerSlug}
+								horizontal
 							/>
 						</Factoid>
 					{/if}
@@ -313,6 +325,7 @@
 
 	.dynclmn-commitGraph-td {
 		min-width: 120px;
+		overflow: visible;
 	}
 
 	/* MOBILE CELL */

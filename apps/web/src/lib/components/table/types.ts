@@ -20,11 +20,11 @@ export type ColumnTypes = {
 	comments: string;
 	number: number;
 	date: Date;
-	commitGraph: Branch;
-	avatars: Array<AvatarsType>;
+	commitGraph: { branch: Branch; projectSlug: string; ownerSlug: string };
+	avatars: AvatarsType[];
 	reviewers: {
-		approvers: Array<AvatarsType>;
-		rejectors: Array<AvatarsType>;
+		approvers: AvatarsType[];
+		rejectors: AvatarsType[];
 	};
 	position: string;
 };
