@@ -2,7 +2,6 @@
 	import BranchDividerLine from './BranchDividerLine.svelte';
 	import CommitGoesHere from './CommitGoesHere.svelte';
 	import CommitRow from './CommitRow.svelte';
-	import CreateReviewButton, { Action } from './CreateReviewButton.svelte';
 	import EmptyBranch from './EmptyBranch.svelte';
 	import NewBranchModal from './NewBranchModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
@@ -152,19 +151,6 @@
 						{parentIsPushed}
 						{hasParent}
 					/>
-				{/snippet}
-				{#snippet actions()}
-					{#if commit}
-						<CreateReviewButton
-							onclick={(action) => {
-								if (action === Action.CreateButlerReview) {
-									uiState.project(projectId).drawerPage.set('br');
-								} else if (action === Action.CreatePullRequest) {
-									uiState.project(projectId).drawerPage.set('pr');
-								}
-							}}
-						/>
-					{/if}
 				{/snippet}
 			</BranchHeader>
 			<BranchCommitList {projectId} {stackId} {branchName} {selectedCommitId}>
