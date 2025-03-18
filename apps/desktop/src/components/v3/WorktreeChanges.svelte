@@ -75,7 +75,7 @@
 <style>
 	.worktree-header {
 		display: flex;
-		padding: 10px 8px 10px 14px;
+		padding: 14px 8px 12px 14px;
 		width: 100%;
 		gap: 4px;
 		align-items: center;
