@@ -83,7 +83,7 @@
 		<Resizer
 			viewport={rightDiv}
 			direction="left"
-			minWidth={14}
+			minWidth={16}
 			onWidth={(value) => uiState.global.rightWidth.set(value)}
 		/>
 	</div>
