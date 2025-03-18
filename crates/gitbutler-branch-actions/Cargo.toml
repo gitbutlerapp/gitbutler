@@ -37,8 +37,6 @@ but-core.workspace = true
 serde = { workspace = true, features = ["std"] }
 serde-error = "0.1.3"
 bstr.workspace = true
-diffy = "0.4.0"
-hex = "0.4.3"
 git2-hooks = "0.4"
 url = { version = "2.5.4", features = ["serde"] }
 md5 = "0.7.0"
@@ -46,25 +44,11 @@ itertools = "0.14"
 gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
 toml.workspace = true
-uuid.workspace = true
 
 [dev-dependencies]
-once_cell = "1.20"
 pretty_assertions = "1.4"
 gitbutler-testsupport.workspace = true
 gitbutler-workspace.workspace = true
 gix = { workspace = true, features = [] }
-gitbutler-git = { workspace = true, features = ["test-askpass-path"] }
 glob = "0.3.2"
-serial_test = "3.2.0"
 tempfile.workspace = true
-criterion = "0.5.1"
-uuid.workspace = true
-
-[features]
-## Only enabled when benchmark runs are performed.
-benches = ["gitbutler-git/benches"]
-
-[[bench]]
-name = "branches"
-harness = false
