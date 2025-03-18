@@ -144,7 +144,7 @@
 	.erectangle {
 		width: 10px;
 		height: 16px;
-		background-color: var(--clr-br-commit-unreviewed-bg);
+		background-color: var(--clr-core-ntrl-70);
 
 		transition: width 0.5s;
 
