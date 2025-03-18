@@ -188,7 +188,7 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 	/** Execute query and return results. */
 	useQuery: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
 		args: QueryArgFrom<D>,
-		options?: { transform?: T; subscribe?: Reactive<SubscriptionOptions> }
+		options?: { transform?: T; subscriptionOptions?: SubscriptionOptions }
 	) => Reactive<
 		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>
 	>;

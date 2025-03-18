@@ -1,4 +1,4 @@
-import { reactive, type Reactive } from '@gitbutler/shared/storeUtils';
+import { reactive } from '@gitbutler/shared/storeUtils';
 import {
 	type Api,
 	type ApiEndpointMutation,
@@ -9,7 +9,8 @@ import {
 	type MutationDefinition,
 	type QueryActionCreatorResult,
 	type ResultTypeFrom,
-	type RootState
+	type RootState,
+	type SubscriptionOptions
 } from '@reduxjs/toolkit/query';
 import type { CustomQuery } from './butlerModule';
 import type { HookContext } from './context';
@@ -46,13 +47,17 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 
 	function useQuery<T extends (arg: any) => any>(
 		queryArg: unknown,
-		options?: { transform?: T; subscribe?: Reactive<{ pollingInterval?: number }> }
+		options?: { transform?: T; subscriptionOptions?: SubscriptionOptions }
 	) {
 		const dispatch = getDispatch();
 		let subscription: QueryActionCreatorResult<any>;
 		$effect(() => {
-			subscription = dispatch(initiate(queryArg));
-			return subscription.unsubscribe;
+			subscription = dispatch(
+				initiate(queryArg, { subscribe: true, subscriptionOptions: options?.subscriptionOptions })
+			);
+			return () => {
+				subscription.unsubscribe();
+			};
 		});
 
 		const result = $derived(useQueryState(queryArg, options));
