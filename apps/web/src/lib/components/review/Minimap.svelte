@@ -112,7 +112,7 @@
 
 <style lang="postcss">
 	.minimap {
-		position: absolute;
+		position: fixed;
 		left: 0px;
 		top: 100px;
 
