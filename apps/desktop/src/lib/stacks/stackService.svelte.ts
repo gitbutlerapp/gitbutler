@@ -103,6 +103,13 @@ export class StackService {
 		);
 	}
 
+	defaultBranch(projectId: string, stackId: string) {
+		return this.api.endpoints.stackBranches.useQuery(
+			{ projectId, stackId },
+			{ transform: (branches) => branchSelectors.selectNth(branches, 0) }
+		);
+	}
+
 	stackInfo(projectId: string, stackId: string) {
 		return this.api.endpoints.stackInfo.useQuery(
 			{ projectId, stackId },
