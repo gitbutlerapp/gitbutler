@@ -70,7 +70,8 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 		let attempt = 0;
 		while (attempt++ < MAX_POLL_ATTEMPTS) {
 			try {
-				const pr = await request();
+				const prResult = await request();
+				const pr = prResult.data;
 				this.pr.set(pr);
 				if (!pr) {
 					continue;

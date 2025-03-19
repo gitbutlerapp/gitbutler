@@ -117,13 +117,15 @@ export class GitHubChecksMonitor implements ForgeChecksMonitor {
 	}
 
 	private async getCheckSuites() {
-		const result = this.api.endpoints.listSuites.fetch(this.sourceBranch);
-		return await result;
+		const result = await this.api.endpoints.listSuites.fetch(this.sourceBranch, {
+			forceRefetch: true
+		});
+		return result.data;
 	}
 
 	private async fetchChecks(ref: string) {
-		const result = this.api.endpoints.listChecks.fetch(ref);
-		return await result;
+		const result = await this.api.endpoints.listChecks.fetch(ref, { forceRefetch: true });
+		return result.data;
 	}
 }
 
