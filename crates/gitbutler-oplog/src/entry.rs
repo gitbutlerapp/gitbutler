@@ -179,11 +179,11 @@ impl fmt::Display for OperationKind {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize)]
-pub struct Version(u32);
+#[derive(Debug, PartialEq, Clone, Copy, Serialize)]
+pub struct Version(pub u32);
 impl Default for Version {
     fn default() -> Self {
-        Version(2)
+        Version(3)
     }
 }
 

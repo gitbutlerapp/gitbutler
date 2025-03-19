@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use crate::reflog::ReflogCommits;
+use crate::{entry::Version, reflog::ReflogCommits};
 
 use super::{
     entry::{OperationKind, Snapshot, SnapshotDetails, Trailer},
@@ -17,8 +17,9 @@ use anyhow::{anyhow, bail, Context, Result};
 use git2::FileMode;
 use gitbutler_command_context::RepositoryExtLite;
 use gitbutler_diff::{hunks_by_filepath, FileDiff};
+use gitbutler_oxidize::ObjectIdExt as _;
 use gitbutler_oxidize::{
-    git2_to_gix_object_id, gix_time_to_git2, gix_to_git2_oid, GixRepositoryExt,
+    git2_to_gix_object_id, gix_time_to_git2, gix_to_git2_oid, GixRepositoryExt, OidExt,
 };
 use gitbutler_project::{
     access::{WorktreeReadPermission, WorktreeWritePermission},
@@ -27,9 +28,9 @@ use gitbutler_project::{
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::SignaturePurpose;
 use gitbutler_stack::{Stack, VirtualBranchesHandle, VirtualBranchesState};
-use gix::bstr::ByteSlice;
 use gix::object::tree::diff::Change;
 use gix::prelude::ObjectIdExt;
+use gix::{bstr::ByteSlice, ObjectId};
 use tracing::instrument;
 
 /// The Oplog allows for crating snapshots of the current state of the project as well as restoring to a previous snapshot.
@@ -48,7 +49,8 @@ use tracing::instrument;
 /// │   └── [branch-id]
 /// │       ├── commit-message.txt
 /// │       └── tree (subtree)
-/// └── virtual_branches.toml
+/// ├── virtual_branches.toml
+/// └── worktree/…
 /// ```
 pub trait OplogExt {
     /// Prepares a snapshot of the current state of the working directory as well as GitButler data.
@@ -216,7 +218,11 @@ impl OplogExt for Project {
             }
 
             // Get tree id from cache or calculate it
-            let wd_tree = get_workdir_tree(&mut wd_trees_cache, commit_id, &repo)?;
+            let wd_tree = repo.find_tree(get_workdir_tree(
+                Some(&mut wd_trees_cache),
+                commit_id,
+                &repo,
+            )?)?;
 
             let commit_id = gix_to_git2_oid(commit_id);
             let details = commit
@@ -232,7 +238,11 @@ impl OplogExt for Project {
                 let mut files_changed = Vec::new();
                 let mut resource_cache = repo.diff_resource_cache_for_tree_diff()?;
                 let (mut lines_added, mut lines_removed) = (0, 0);
-                let parent_tree = get_workdir_tree(&mut wd_trees_cache, parent_id, &repo)?;
+                let parent_tree = repo.find_tree(get_workdir_tree(
+                    Some(&mut wd_trees_cache),
+                    parent_id,
+                    &repo,
+                )?)?;
                 parent_tree
                     .changes()?
                     .options(|opts| {
@@ -345,21 +355,48 @@ impl OplogExt for Project {
 }
 
 /// Get a tree of the working dir (applied branches merged)
-fn get_workdir_tree<'a>(
-    wd_trees_cache: &mut HashMap<gix::ObjectId, gix::ObjectId>,
+fn get_workdir_tree(
+    wd_trees_cache: Option<&mut HashMap<gix::ObjectId, gix::ObjectId>>,
     commit_id: impl Into<gix::ObjectId>,
-    repo: &'a gix::Repository,
-) -> Result<gix::Tree<'a>, anyhow::Error> {
-    let commit_id = commit_id.into();
-    if let Entry::Vacant(e) = wd_trees_cache.entry(commit_id) {
-        if let Ok(wd_tree_id) = tree_from_applied_vbranches(repo, gix_to_git2_oid(commit_id)) {
-            e.insert(git2_to_gix_object_id(wd_tree_id));
+    repo: &gix::Repository,
+) -> Result<ObjectId, anyhow::Error> {
+    let snapshot_commit = repo.find_commit(commit_id.into())?;
+    let details = snapshot_commit
+        .message_raw()?
+        .to_str()
+        .ok()
+        .and_then(|msg| SnapshotDetails::from_str(msg).ok());
+    // In version 3 snapshots, the worktree is stored directly in the snapshot tree
+    if let Some(details) = details {
+        if details.version == Version(3) {
+            let worktree_entry = snapshot_commit
+                .tree()?
+                .lookup_entry_by_path("worktree")?
+                .context(format!(
+                    "no entry at 'worktree' on sha {:?}, version: {:?}",
+                    &snapshot_commit.id(),
+                    &details.version,
+                ))?;
+            let worktree_id = worktree_entry.id().detach();
+            return Ok(worktree_id);
         }
     }
-    let id = wd_trees_cache.get(&commit_id).copied().ok_or(anyhow!(
-        "Could not get a tree of all applied virtual branches merged"
-    ))?;
-    Ok(repo.find_tree(id)?)
+    match wd_trees_cache {
+        Some(cache) => {
+            if let Entry::Vacant(entry) = cache.entry(snapshot_commit.id) {
+                if let Ok(tree_id) =
+                    tree_from_applied_vbranches(repo, gix_to_git2_oid(snapshot_commit.id))
+                {
+                    entry.insert(git2_to_gix_object_id(tree_id));
+                }
+            }
+            cache.get(&snapshot_commit.id).copied().ok_or_else(|| {
+                anyhow!("Could not get a tree of all applied virtual branches merged")
+            })
+        }
+        None => tree_from_applied_vbranches(repo, gix_to_git2_oid(snapshot_commit.id))
+            .map(|x| x.to_gix()),
+    }
 }
 
 fn prepare_snapshot(ctx: &Project, _shared_access: &WorktreeReadPermission) -> Result<git2::Oid> {
@@ -437,6 +474,10 @@ fn prepare_snapshot(ctx: &Project, _shared_access: &WorktreeReadPermission) -> R
             FileMode::Tree.into(),
         )?;
     }
+
+    // Add the worktree tree
+    let worktree = repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?;
+    tree_builder.insert("worktree", worktree.id(), FileMode::Tree.into())?;
 
     // also add the gitbutler/workspace commit to the branches tree
     let head = repo.head()?;
@@ -605,8 +646,9 @@ fn restore_snapshot(
     )?;
 
     let gix_repo = gitbutler_command_context::gix_repository_for_merging(worktree_dir)?;
-    let workdir_tree_id = tree_from_applied_vbranches(&gix_repo, snapshot_commit_id)?;
-    let workdir_tree = repo.find_tree(workdir_tree_id)?;
+
+    let workdir_tree =
+        repo.find_tree(get_workdir_tree(None, snapshot_commit_id.to_gix(), &gix_repo)?.to_git2())?;
 
     repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
 
