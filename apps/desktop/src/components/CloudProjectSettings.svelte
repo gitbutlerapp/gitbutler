@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Login from '$components/Login.svelte';
 	import ProjectConnectModal from '$components/ProjectConnectModal.svelte';
 	import Section from '$components/Section.svelte';
 	import { ProjectService } from '$lib/project/projectService';
@@ -16,7 +17,6 @@
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
@@ -168,15 +168,7 @@
 				<div>Please log in to access GitButler Server Features.</div>
 			{/snippet}
 			{#snippet actions()}
-				<AsyncButton
-					style="pop"
-					icon="signin"
-					action={async () => {
-						await userService.login();
-					}}
-				>
-					Sign up or Log in
-				</AsyncButton>
+				<Login />
 			{/snippet}
 		</SectionCard>
 	</Section>
