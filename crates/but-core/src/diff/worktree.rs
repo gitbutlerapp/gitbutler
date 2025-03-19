@@ -1,6 +1,6 @@
 use crate::{
     ChangeState, IgnoredWorktreeChange, IgnoredWorktreeTreeChangeStatus, ModeFlags, TreeChange,
-    TreeStatus, UnifiedDiff, WorktreeChanges,
+    TreeStatus, TreeStatusKind, UnifiedDiff, WorktreeChanges,
 };
 use anyhow::Context;
 use bstr::{BString, ByteSlice};
@@ -415,9 +415,34 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
     });
 
     let mut last_path = None;
-    let mut changes = Vec::with_capacity(tmp.len());
-    for (_origin, change) in tmp {
+    let mut changes = Vec::<TreeChange>::with_capacity(tmp.len());
+    for (_origin, mut change) in tmp {
         if last_path.as_ref() == Some(&change.path) {
+            // This is usually two modifications, but it's also possible that
+            // This one is a rename. In that case, we want the rename, combined
+            // with the current state pointing to the worktree.
+            if change.status.kind() == TreeStatusKind::Rename {
+                if let TreeChange {
+                    status: TreeStatus::Modification { state, .. },
+                    path: _,
+                } = changes
+                    .last()
+                    .expect("last_path is present, so must be its item")
+                {
+                    if let TreeStatus::Rename {
+                        state: must_be_worktree_change,
+                        ..
+                    } = &mut change.status
+                    {
+                        let state = *state;
+                        changes.pop();
+                        *must_be_worktree_change = state;
+                        changes.push(change);
+                        continue;
+                    }
+                    unreachable!("BUG: we know it's a rename");
+                }
+            }
             ignored_changes.push(IgnoredWorktreeChange {
                 path: change.path,
                 status: IgnoredWorktreeTreeChangeStatus::TreeIndex,
