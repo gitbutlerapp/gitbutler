@@ -8,16 +8,19 @@
 	import WorkspaceButton from '$components/WorkspaceButton.svelte';
 	import { ModeService } from '$lib/mode/modeService';
 	import { platformName } from '$lib/platform/platform';
-	import { ProjectService } from '$lib/project/projectService';
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { env } from '$env/dynamic/public';
 
+	type Props = {
+		projectId: string;
+	};
+
+	const { projectId }: Props = $props();
+
 	const minResizerWidth = 14;
 	const minResizerRatio = 7;
-	const projectService = getContext(ProjectService);
-	const projectId = projectService.projectId;
 	const width = persisted<number | undefined>(25, 'defaultTrayWidth_' + projectId);
 
 	let viewport = $state<HTMLDivElement>();
@@ -105,7 +108,7 @@
 				{/if}
 				<ProjectSelector isNavCollapsed={$isNavCollapsed} />
 				<div class="domains">
-					<TargetCard isNavCollapsed={$isNavCollapsed} />
+					<TargetCard {projectId} isNavCollapsed={$isNavCollapsed} />
 					{#if $mode?.type === 'OpenWorkspace'}
 						<WorkspaceButton href={`/${projectId}/board`} isNavCollapsed={$isNavCollapsed} />
 					{:else if $mode?.type === 'Edit'}

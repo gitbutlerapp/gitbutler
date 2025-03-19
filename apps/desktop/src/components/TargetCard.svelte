@@ -11,10 +11,11 @@
 	import { page } from '$app/stores';
 
 	interface Props {
+		projectId: string;
 		isNavCollapsed: boolean;
 	}
 
-	const { isNavCollapsed }: Props = $props();
+	const { projectId, isNavCollapsed }: Props = $props();
 
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
@@ -69,7 +70,7 @@
 						</div>
 					</Tooltip>
 				{/if}
-				<SyncButton />
+				<SyncButton {projectId} />
 			</div>
 			<div class="base-branch-label">
 				{#if $base?.remoteUrl.includes('github.com')}

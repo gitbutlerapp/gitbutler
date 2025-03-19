@@ -69,7 +69,6 @@
 	const aiService = getContext(AIService);
 	const aiGenEnabled = projectAiGenEnabled($project!.id);
 	const forge = getContext(DefaultForgeFactory);
-	const forgeListingService = $derived(forge.current.listService);
 	const prService = $derived(forge.current.prService);
 	const templateService = getContext(TemplateService);
 	const stackPublishingService = getContext(StackPublishingService);
@@ -269,9 +268,6 @@
 			if (definedPrNumbers.length > 0) {
 				updatePrStackInfo(prService, definedPrNumbers);
 			}
-
-			// Refresh store
-			forgeListingService?.refresh();
 		} catch (err: any) {
 			console.error(err);
 			const toast = mapErrorToToast(err);

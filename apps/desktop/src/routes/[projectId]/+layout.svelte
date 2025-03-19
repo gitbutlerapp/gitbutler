@@ -258,11 +258,11 @@
 		{#if $mode?.type === 'OpenWorkspace' || $mode?.type === 'Edit'}
 			<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
 				{#if $settingsStore?.featureFlags.v3}
-					<Chrome>
+					<Chrome {projectId}>
 						{@render children()}
 					</Chrome>
 				{:else}
-					<Navigation />
+					<Navigation {projectId} />
 					{@render children()}
 				{/if}
 				{#if $showHistoryView}

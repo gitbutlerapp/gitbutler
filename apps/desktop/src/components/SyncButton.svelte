@@ -7,10 +7,11 @@
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
 
 	interface Props {
+		projectId: string;
 		size?: ButtonProps['size'];
 	}
 
-	const { size = 'tag' }: Props = $props();
+	const { projectId, size = 'tag' }: Props = $props();
 
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
@@ -36,7 +37,7 @@
 		try {
 			await baseBranchService.fetchFromRemotes('modal');
 			await Promise.all([
-				listingService?.refresh(),
+				listingService?.refresh(projectId),
 				baseBranchService.refresh(),
 				branchListingService.refresh()
 			]);
