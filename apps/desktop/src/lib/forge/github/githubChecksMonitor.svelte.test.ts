@@ -1,10 +1,9 @@
 import { GitHub } from './github';
-import { MIN_COMPLETED_AGE } from './githubChecksMonitor.svelte';
+import { GitHubChecksMonitor, MIN_COMPLETED_AGE } from './githubChecksMonitor.svelte';
 import { setupMockGitHubApi } from '$lib/testing/mockGitHubApi.svelte';
 import { type RestEndpointMethodTypes } from '@octokit/rest';
 import { flushSync } from 'svelte';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
-import type { ForgeChecksMonitor } from '../interface/forgeChecksMonitor';
 
 type ChecksResponse = RestEndpointMethodTypes['checks']['listForRef']['response'];
 type CheckRuns = RestEndpointMethodTypes['checks']['listForRef']['response']['data']['check_runs'];
@@ -13,23 +12,21 @@ type SuitesResponse = RestEndpointMethodTypes['checks']['listSuitesForRef']['res
 type CheckSuites =
 	RestEndpointMethodTypes['checks']['listSuitesForRef']['response']['data']['check_suites'];
 
-// TODO: Rewrite this proof-of-concept into something valuable.
 describe('GitHubChecksMonitor', () => {
 	let gh: GitHub;
-	let monitor: ForgeChecksMonitor | undefined;
+	let monitor!: GitHubChecksMonitor;
 
-	const { gitHubApi, octokit } = setupMockGitHubApi();
+	const { gitHubApi, octokit, resetGitHubMock } = setupMockGitHubApi();
 
 	beforeEach(() => {
 		vi.useFakeTimers();
 	});
 
-	afterEach(() => {
-		vi.restoreAllMocks();
-		vi.clearAllTimers();
-	});
-
 	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.clearAllTimers();
+		resetGitHubMock();
+
 		gh = new GitHub({
 			repo: {
 				domain: 'github.com',
@@ -40,6 +37,12 @@ describe('GitHubChecksMonitor', () => {
 			gitHubApi
 		});
 		monitor = gh.checksMonitor('upstream-branch');
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		vi.clearAllTimers();
+		monitor.stop();
 	});
 
 	test('fetch once if no check runs  or suites', async () => {
@@ -55,20 +58,13 @@ describe('GitHubChecksMonitor', () => {
 				data: { total_count: 0, check_suites: [] as CheckSuites }
 			} as SuitesResponse)
 		);
-
-		$effect.root(() => {
-			monitor?.update();
-			flushSync();
-			flushSync();
-			flushSync();
-			flushSync();
-		});
+		monitor.start();
 		await vi.advanceTimersByTimeAsync(1000);
+		flushSync();
 		expect(listForRef).toHaveBeenCalledOnce();
 		expect(listSuitesForRef).toHaveBeenCalledOnce();
 
-		// const checks = monitor ? get(monitor?.status) : undefined;
-		// expect(checks).toBeNull();
+		expect(monitor.getLastStatus()).toBeNull();
 	});
 
 	test('fetch until completed', async () => {
@@ -88,19 +84,18 @@ describe('GitHubChecksMonitor', () => {
 				}
 			} as ChecksResponse)
 		);
-		$effect.root(() => {
-			monitor?.update();
-			flushSync();
-		});
+		monitor.start();
+
 		await vi.advanceTimersToNextTimerAsync();
 
 		expect(mock).toHaveBeenCalledOnce();
-
 		let status = monitor?.getLastStatus();
 		expect(status?.completed).toBeFalsy();
 
-		// Verify that checks are re-fetchd after some timeout.
-		await vi.runOnlyPendingTimersAsync();
+		let delay = monitor.getNextDelay();
+		if (delay) await vi.advanceTimersByTimeAsync(delay);
+		await vi.advanceTimersToNextTimerAsync();
+
 		expect(mock).toHaveBeenCalledTimes(2);
 		mock.mockRestore();
 
@@ -123,7 +118,10 @@ describe('GitHubChecksMonitor', () => {
 				}
 			} as ChecksResponse)
 		);
-		await vi.runOnlyPendingTimersAsync();
+
+		delay = monitor.getNextDelay();
+		if (delay) await vi.advanceTimersByTimeAsync(delay);
+
 		expect(mock2).toHaveBeenCalledOnce();
 		status = monitor?.getLastStatus();
 		expect(status?.completed).toBeTruthy();

@@ -76,7 +76,7 @@ export class GitHubChecksMonitor implements ForgeChecksMonitor {
 		return this._status;
 	}
 
-	private getNextDelay() {
+	getNextDelay() {
 		const status = this._status;
 		if (!status || !status.startedAt) return;
 
