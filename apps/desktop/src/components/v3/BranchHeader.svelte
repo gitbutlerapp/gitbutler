@@ -127,7 +127,11 @@
 		}
 
 		&.selected {
-			background-color: var(--clr-bg-2);
+			background-color: var(--clr-selected-not-in-focus-bg);
+		}
+
+		&:focus-within.selected {
+			background-color: var(--clr-selected-in-focus-bg);
 		}
 	}
 
