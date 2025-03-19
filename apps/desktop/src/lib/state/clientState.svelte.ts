@@ -1,10 +1,12 @@
 import { tauriBaseQuery } from './backendQuery';
 import { butlerModule } from './butlerModule';
 import { ReduxTag } from './tags';
-import { uiStateSlice } from './uiState.svelte';
+import { uiStatePersistConfig, uiStateSlice } from './uiState.svelte';
 import { changeSelectionSlice } from '$lib/selection/changeSelection.svelte';
-import { configureStore } from '@reduxjs/toolkit';
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { buildCreateApi, coreModule, type RootState } from '@reduxjs/toolkit/query';
+import { FLUSH, PAUSE, PERSIST, persistReducer, PURGE, REGISTER, REHYDRATE } from 'redux-persist';
+import persistStore from 'redux-persist/lib/persistStore';
 import type { Tauri } from '$lib/backend/tauri';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
 
@@ -65,21 +67,28 @@ function createStore(
 	backendApi: ReturnType<typeof createBackendApi>,
 	githubApi: ReturnType<typeof createGitHubApi>
 ) {
-	return configureStore({
-		reducer: {
-			// RTK Query API for the back end.
-			[backendApi.reducerPath]: backendApi.reducer,
-			[githubApi.reducerPath]: githubApi.reducer,
-			// File and hunk selection state.
-			[changeSelectionSlice.reducerPath]: changeSelectionSlice.reducer,
-			[uiStateSlice.reducerPath]: uiStateSlice.reducer
-		},
+	const reducer = combineReducers({
+		// RTK Query API for the back end.
+		[backendApi.reducerPath]: backendApi.reducer,
+		[githubApi.reducerPath]: githubApi.reducer,
+		// File and hunk selection state.
+		[changeSelectionSlice.reducerPath]: changeSelectionSlice.reducer,
+		[uiStateSlice.reducerPath]: persistReducer(uiStatePersistConfig, uiStateSlice.reducer)
+	});
+
+	const store = configureStore({
+		reducer: reducer,
 		middleware: (getDefaultMiddleware) => {
 			return getDefaultMiddleware({
-				thunk: { extraArgument: { tauri, gitHubClient } }
+				thunk: { extraArgument: { tauri, gitHubClient } },
+				serializableCheck: {
+					ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER]
+				}
 			}).concat(backendApi.middleware, githubApi.middleware);
 		}
 	});
+	persistStore(store);
+	return store;
 }
 
 /**

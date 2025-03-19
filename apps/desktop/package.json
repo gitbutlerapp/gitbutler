@@ -76,7 +76,9 @@
 	},
 	"dependencies": {
 		"@tauri-apps/plugin-clipboard-manager": "^2.2.1",
+		"@types/redux-persist": "^4.3.1",
 		"dayjs": "^1.11.13",
-		"openai": "^4.87.3"
+		"openai": "^4.87.3",
+		"redux-persist": "^6.0.0"
 	}
 }
