@@ -1,4 +1,4 @@
-import AppUpdater from './AppUpdater.svelte';
+import AppUpdater from '$components/AppUpdater.svelte';
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { Tauri } from '$lib/backend/tauri';
 import { UpdaterService } from '$lib/updater/updater';

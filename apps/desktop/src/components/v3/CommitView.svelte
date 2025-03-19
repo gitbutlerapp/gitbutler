@@ -1,10 +1,10 @@
 <script lang="ts">
-	import ChangedFiles from './ChangedFiles.svelte';
-	import CommitDetails from './CommitDetails.svelte';
-	import CommitHeader from './CommitHeader.svelte';
-	import Drawer from './Drawer.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
+	import CommitDetails from '$components/v3/CommitDetails.svelte';
+	import CommitHeader from '$components/v3/CommitHeader.svelte';
+	import Drawer from '$components/v3/Drawer.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import type { CommitKey } from '$lib/commits/commit';

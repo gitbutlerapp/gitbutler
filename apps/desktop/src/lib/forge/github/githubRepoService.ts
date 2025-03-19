@@ -1,9 +1,9 @@
-import { ghQuery } from './ghQuery';
+import { ghQuery } from '$lib/forge/github/ghQuery';
 import { ReduxTag } from '$lib/state/tags';
+import type { RepoResult } from '$lib/forge/github/types';
+import type { ForgeRepoService } from '$lib/forge/interface/forgeRepoService';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { RepoResult } from './types';
-import type { ForgeRepoService } from '../interface/forgeRepoService';
 
 export class GitHubRepoService implements ForgeRepoService {
 	readonly info: any;

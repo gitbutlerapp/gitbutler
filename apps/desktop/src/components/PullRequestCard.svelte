@@ -1,6 +1,6 @@
 <script lang="ts">
-	import PullRequestPolling from './PullRequestPolling.svelte';
 	import MergeButton from '$components/MergeButton.svelte';
+	import PullRequestPolling from '$components/PullRequestPolling.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';

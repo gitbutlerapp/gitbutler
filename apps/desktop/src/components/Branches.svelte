@@ -1,8 +1,8 @@
 <script lang="ts">
-	import GroupHeader from './GroupHeader.svelte';
 	import BranchListingSidebarEntry from '$components/BranchListingSidebarEntry.svelte';
 	import ChunkyList from '$components/ChunkyList.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import GroupHeader from '$components/GroupHeader.svelte';
 	import PullRequestSidebarEntry from '$components/PullRequestSidebarEntry.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import {

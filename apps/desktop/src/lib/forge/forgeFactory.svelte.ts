@@ -1,13 +1,13 @@
-import { AZURE_DOMAIN, AzureDevOps } from './azure/azure';
-import { BitBucket, BITBUCKET_DOMAIN } from './bitbucket/bitbucket';
-import { DefaultForge } from './default.ts/default';
-import { GitHub, GITHUB_DOMAIN } from './github/github';
-import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from './gitlab/gitlab';
+import { AZURE_DOMAIN, AzureDevOps } from '$lib/forge/azure/azure';
+import { BitBucket, BITBUCKET_DOMAIN } from '$lib/forge/bitbucket/bitbucket';
+import { DefaultForge } from '$lib/forge/default.ts/default';
+import { GitHub, GITHUB_DOMAIN } from '$lib/forge/github/github';
+import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from '$lib/forge/gitlab/gitlab';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
+import type { Forge } from '$lib/forge/interface/forge';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { Forge } from './interface/forge';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 
 // Used on a branch level to acquire the right kind of merge request / checks

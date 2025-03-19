@@ -1,5 +1,5 @@
 <script lang="ts">
-	import MessageMarkdownContent from './MessageMarkdownContent.svelte';
+	import MessageMarkdownContent from '$lib/components/chat/MessageMarkdownContent.svelte';
 	import { Lexer } from 'marked';
 	import type { UserSimple } from '@gitbutler/shared/users/types';
 

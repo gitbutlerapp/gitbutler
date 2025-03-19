@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Drawer from './Drawer.svelte';
-	import EditorFooter from './editor/EditorFooter.svelte';
-	import MessageEditor from './editor/MessageEditor.svelte';
-	import TitleInput from './editor/TitleInput.svelte';
+	import Drawer from '$components/v3/Drawer.svelte';
+	import EditorFooter from '$components/v3/editor/EditorFooter.svelte';
+	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
+	import TitleInput from '$components/v3/editor/TitleInput.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';

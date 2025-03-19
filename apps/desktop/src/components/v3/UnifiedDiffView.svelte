@@ -1,6 +1,6 @@
 <script lang="ts">
-	import HunkContextMenu from './HunkContextMenu.svelte';
-	import ReduxResult from '../ReduxResult.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
+	import HunkContextMenu from '$components/v3/HunkContextMenu.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { Project } from '$lib/project/project';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';

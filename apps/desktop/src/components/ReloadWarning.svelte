@@ -1,5 +1,5 @@
 <script lang="ts">
-	import InfoMessage from './InfoMessage.svelte';
+	import InfoMessage from '$components/InfoMessage.svelte';
 
 	// Number of events received.
 	let count = $state(0);

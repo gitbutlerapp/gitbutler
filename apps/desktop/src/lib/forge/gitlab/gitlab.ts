@@ -1,6 +1,6 @@
-import { GitLabBranch } from './gitlabBranch';
-import type { Forge, ForgeName } from '../interface/forge';
-import type { DetailedPullRequest, ForgeArguments } from '../interface/types';
+import { GitLabBranch } from '$lib/forge/gitlab/gitlabBranch';
+import type { Forge, ForgeName } from '$lib/forge/interface/forge';
+import type { DetailedPullRequest, ForgeArguments } from '$lib/forge/interface/types';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };

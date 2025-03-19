@@ -1,13 +1,13 @@
-import { ghQuery } from './ghQuery';
-import { ghResponseToInstance } from './types';
+import { ghQuery } from '$lib/forge/github/ghQuery';
+import { ghResponseToInstance } from '$lib/forge/github/types';
 import { createSelectByIds } from '$lib/state/customSelectors';
 import { ReduxTag } from '$lib/state/tags';
 import { reactive } from '@gitbutler/shared/storeUtils';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
+import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
+import type { PullRequest } from '$lib/forge/interface/types';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
-import type { ForgeListingService } from '../interface/forgeListingService';
-import type { PullRequest } from '../interface/types';
 
 export class GitHubListingService implements ForgeListingService {
 	private api: ReturnType<typeof injectEndpoints>;

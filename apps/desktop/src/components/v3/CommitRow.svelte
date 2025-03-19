@@ -1,6 +1,6 @@
 <script lang="ts">
-	import CommitHeader from './CommitHeader.svelte';
 	import CommitContextMenu from '$components/v3/CommitContextMenu.svelte';
+	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { ModeService } from '$lib/mode/modeService';

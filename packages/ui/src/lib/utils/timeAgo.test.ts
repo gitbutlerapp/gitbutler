@@ -1,4 +1,4 @@
-import { getTimeAgo } from './timeAgo';
+import { getTimeAgo } from '$lib/utils/timeAgo';
 import dayjs from 'dayjs';
 import { describe, it, expect } from 'vitest';
 

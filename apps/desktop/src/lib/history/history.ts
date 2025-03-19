@@ -1,5 +1,5 @@
-import { Snapshot, SnapshotDiff } from './types';
 import { invoke } from '$lib/backend/ipc';
+import { Snapshot, SnapshotDiff } from '$lib/history/types';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';
 

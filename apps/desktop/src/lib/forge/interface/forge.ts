@@ -1,9 +1,9 @@
+import type { ForgeBranch } from '$lib/forge/interface/forgeBranch';
+import type { ForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
 import type { ForgeIssueService } from '$lib/forge/interface/forgeIssueService';
-import type { ForgeBranch } from './forgeBranch';
-import type { ForgeChecksMonitor } from './forgeChecksMonitor';
-import type { ForgeListingService } from './forgeListingService';
-import type { ForgePrService } from './forgePrService';
-import type { ForgeRepoService } from './forgeRepoService';
+import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
+import type { ForgePrService } from '$lib/forge/interface/forgePrService';
+import type { ForgeRepoService } from '$lib/forge/interface/forgeRepoService';
 
 export type ForgeName = 'github' | 'gitlab' | 'bitbucket' | 'azure' | 'default';
 

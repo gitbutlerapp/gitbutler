@@ -1,7 +1,7 @@
 <script lang="ts">
-	import UnifiedDiffView from './UnifiedDiffView.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
+	import UnifiedDiffView from '$components/v3/UnifiedDiffView.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';

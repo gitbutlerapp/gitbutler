@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Tooltip from './Tooltip.svelte';
 	import SeriesLabelsRow from '$lib/SeriesLabelsRow.svelte';
 	import TimeAgo from '$lib/TimeAgo.svelte';
+	import Tooltip from '$lib/Tooltip.svelte';
 	import AvatarGroup from '$lib/avatar/AvatarGroup.svelte';
 	import { onMount } from 'svelte';
 

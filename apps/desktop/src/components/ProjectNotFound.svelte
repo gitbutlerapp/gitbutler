@@ -1,8 +1,8 @@
 <script lang="ts">
-	import DecorativeSplitView from './DecorativeSplitView.svelte';
-	import ProjectSwitcher from './ProjectSwitcher.svelte';
-	import RemoveProjectButton from './RemoveProjectButton.svelte';
+	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import InfoMessage, { type MessageStyle } from '$components/InfoMessage.svelte';
+	import ProjectSwitcher from '$components/ProjectSwitcher.svelte';
+	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
 	import notFoundSvg from '$lib/assets/illustrations/not-found.svg?raw';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';

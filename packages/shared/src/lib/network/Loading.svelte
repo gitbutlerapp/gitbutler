@@ -1,5 +1,5 @@
 <script lang="ts" generics="A">
-	import LoadingState from './LoadingState.svelte';
+	import LoadingState from '$lib/network/LoadingState.svelte';
 	import type { Loadable } from '$lib/network/types';
 	import type { Snippet } from 'svelte';
 

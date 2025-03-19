@@ -1,9 +1,9 @@
-import { notificationSettingsTable } from './notificationSetttingsSlice';
-import { NOTIFICATION_SETTINGS_KEY, type LoadableNotificationSettings } from './types';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
+import { notificationSettingsTable } from '$lib/settings/notificationSetttingsSlice';
+import { NOTIFICATION_SETTINGS_KEY, type LoadableNotificationSettings } from '$lib/settings/types';
 import type { AppNotificationSettingsState } from '$lib/redux/store.svelte';
+import type { NotificationSettingsService } from '$lib/settings/notificationSettingsService';
 import type { Reactive } from '$lib/storeUtils';
-import type { NotificationSettingsService } from './notificationSettingsService';
 
 export function getNotificationSettingsInterest(
 	appState: AppNotificationSettingsState,

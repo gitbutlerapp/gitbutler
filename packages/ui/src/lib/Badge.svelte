@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Tooltip from './Tooltip.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import Tooltip from '$lib/Tooltip.svelte';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType } from '$lib/utils/colorTypes';
 	import type { Snippet } from 'svelte';

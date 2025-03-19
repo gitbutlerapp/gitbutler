@@ -1,6 +1,6 @@
 <script lang="ts">
-	import SelectedChange from './SelectedChange.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import SelectedChange from '$components/v3/SelectedChange.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { inject } from '@gitbutler/shared/context';
 

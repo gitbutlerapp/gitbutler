@@ -1,6 +1,6 @@
-import { fileIcons } from './fileIcons';
-import { symbolFileExtensionsToIcons, symbolFileNamesToIcons } from './typeMap';
-import { convertToBase64 } from '../utils/convertToBase64';
+import { fileIcons } from '$lib/file/fileIcons';
+import { symbolFileExtensionsToIcons, symbolFileNamesToIcons } from '$lib/file/typeMap';
+import { convertToBase64 } from '$lib/utils/convertToBase64';
 
 export function getFileIcon(fileName: string) {
 	fileName = fileName.toLowerCase();

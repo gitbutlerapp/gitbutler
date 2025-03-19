@@ -14,7 +14,7 @@ import type {
 	IntegrationOutcome,
 	Resolution,
 	StackStatusesWithBranchesV3
-} from './types';
+} from '$lib/upstream/types';
 import type { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 

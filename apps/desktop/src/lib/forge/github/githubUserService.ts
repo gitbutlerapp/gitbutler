@@ -1,4 +1,4 @@
-import { ghQuery } from './ghQuery';
+import { ghQuery } from '$lib/forge/github/ghQuery';
 import { ReduxTag } from '$lib/state/tags';
 import type { Tauri } from '$lib/backend/tauri';
 import type { GitHubApi } from '$lib/state/clientState.svelte';

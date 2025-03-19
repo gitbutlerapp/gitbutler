@@ -8,9 +8,9 @@
 </script>
 
 <script lang="ts">
-	import PrDetailsModalHeader from './PrDetailsModalHeader.svelte';
-	import PrTemplateSection from './PrTemplateSection.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import PrDetailsModalHeader from '$components/PrDetailsModalHeader.svelte';
+	import PrTemplateSection from '$components/PrTemplateSection.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { writeClipboard } from '$lib/backend/clipboard';

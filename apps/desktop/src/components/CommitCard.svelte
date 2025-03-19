@@ -1,6 +1,6 @@
 <script lang="ts">
-	import CommitContextMenu from './CommitContextMenu.svelte';
 	import BranchFilesList from '$components/BranchFilesList.svelte';
+	import CommitContextMenu from '$components/CommitContextMenu.svelte';
 	import CommitMessageInput from '$components/CommitMessageInput.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BranchStack } from '$lib/branches/branch';

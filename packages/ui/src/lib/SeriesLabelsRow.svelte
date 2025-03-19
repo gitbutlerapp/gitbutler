@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SeriesIcon from './SeriesIcon.svelte';
+	import SeriesIcon from '$lib/SeriesIcon.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
 
 	interface Props {

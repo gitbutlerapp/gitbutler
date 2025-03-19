@@ -14,7 +14,7 @@ import type {
 	IntegrationOutcome,
 	Resolution,
 	StackStatusesWithBranches
-} from './types';
+} from '$lib/upstream/types';
 import type { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 
 export class UpstreamIntegrationService {

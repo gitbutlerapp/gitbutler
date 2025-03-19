@@ -1,8 +1,8 @@
-import { type ForgePrMonitor } from '../interface/forgePrMonitor';
+import { type ForgePrMonitor } from '$lib/forge/interface/forgePrMonitor';
 import { type DetailedPullRequest } from '$lib/forge/interface/types';
 import { sleep } from '$lib/utils/sleep';
 import { derived, writable } from 'svelte/store';
-import type { ForgePrService } from '../interface/forgePrService';
+import type { ForgePrService } from '$lib/forge/interface/forgePrService';
 
 export const PR_SERVICE_INTERVAL = 120 * 60 * 1000;
 const MAX_POLL_ATTEMPTS = 6;

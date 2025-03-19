@@ -1,4 +1,4 @@
-import * as Filters from './filters';
+import * as Filters from '$lib/utils/filters';
 import { expect, test, describe } from 'vitest';
 
 describe.concurrent('unique', () => {

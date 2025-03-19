@@ -2,8 +2,8 @@
 </script>
 
 <script lang="ts">
-	import HunkDiffRow, { type ContextMenuParams } from './HunkDiffRow.svelte';
-	import LineSelection from './lineSelection.svelte';
+	import HunkDiffRow, { type ContextMenuParams } from '$lib/hunkDiff/HunkDiffRow.svelte';
+	import LineSelection from '$lib/hunkDiff/lineSelection.svelte';
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import {
 		type ContentSection,
@@ -11,7 +11,7 @@
 		type LineSelector,
 		parserFromFilename
 	} from '$lib/utils/diffParsing';
-	import type { LineSelectionParams } from './lineSelection.svelte';
+	import type { LineSelectionParams } from '$lib/hunkDiff/lineSelection.svelte';
 
 	interface Props {
 		filePath: string;

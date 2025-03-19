@@ -1,11 +1,11 @@
 <script lang="ts">
-	import BranchView from './BranchView.svelte';
-	import CommitView from './CommitView.svelte';
-	import NewButlerReview from './NewButlerReview.svelte';
-	import NewCommit from './NewCommit.svelte';
-	import NewPullRequest from './NewPullRequest.svelte';
-	import SelectionView from './SelectionView.svelte';
 	import Resizer from '$components/Resizer.svelte';
+	import BranchView from '$components/v3/BranchView.svelte';
+	import CommitView from '$components/v3/CommitView.svelte';
+	import NewButlerReview from '$components/v3/NewButlerReview.svelte';
+	import NewCommit from '$components/v3/NewCommit.svelte';
+	import NewPullRequest from '$components/v3/NewPullRequest.svelte';
+	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';

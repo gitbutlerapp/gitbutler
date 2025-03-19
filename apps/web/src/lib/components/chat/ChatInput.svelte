@@ -1,10 +1,10 @@
 <script lang="ts">
-	import ChatDiffLineSelection from './ChatDiffLineSelection.svelte';
-	import ChatInReplyTo, { type ReplyToMessage } from './ChatInReplyTo.svelte';
-	import MentionSuggestions from './MentionSuggestions.svelte';
 	import MessageHandler from '$lib/chat/message.svelte';
 	import RichText from '$lib/chat/richText.svelte';
 	import SuggestionsHandler from '$lib/chat/suggestions.svelte';
+	import ChatDiffLineSelection from '$lib/components/chat/ChatDiffLineSelection.svelte';
+	import ChatInReplyTo, { type ReplyToMessage } from '$lib/components/chat/ChatInReplyTo.svelte';
+	import MentionSuggestions from '$lib/components/chat/MentionSuggestions.svelte';
 	import { type DiffSelection } from '$lib/diff/lineSelection.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext, onMount } from 'svelte';
-	import type { SegmentContext } from './segmentTypes';
+	import type { SegmentContext } from '$lib/segmentControl/segmentTypes';
 	import type { Snippet } from 'svelte';
 
 	interface SegmentProps {

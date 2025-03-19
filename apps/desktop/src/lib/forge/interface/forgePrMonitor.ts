@@ -1,5 +1,5 @@
 import { buildContextStore } from '@gitbutler/shared/context';
-import type { DetailedPullRequest } from './types';
+import type { DetailedPullRequest } from '$lib/forge/interface/types';
 import type { Readable } from 'svelte/store';
 
 export interface ForgePrMonitor {

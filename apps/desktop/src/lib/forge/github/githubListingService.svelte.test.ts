@@ -1,5 +1,5 @@
-import { GitHub } from './github';
 import { PostHogWrapper } from '$lib/analytics/posthog';
+import { GitHub } from '$lib/forge/github/github';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { setupMockGitHubApi } from '$lib/testing/mockGitHubApi.svelte';
 import { type RestEndpointMethodTypes } from '@octokit/rest';

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import HeaderControlSection from './HeaderControlSection.svelte';
-	import HeaderMetaSection from './HeaderMetaSection.svelte';
+	import HeaderControlSection from '$components/v3/HeaderControlSection.svelte';
+	import HeaderMetaSection from '$components/v3/HeaderMetaSection.svelte';
 	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import { getContext } from '@gitbutler/shared/context';

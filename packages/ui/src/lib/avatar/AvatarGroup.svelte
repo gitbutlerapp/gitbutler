@@ -14,9 +14,9 @@
 </script>
 
 <script lang="ts">
-	import Avatar from './Avatar.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
+	import Avatar from '$lib/avatar/Avatar.svelte';
 
 	const { avatars, maxAvatars = 3, size = 'medium', icon, iconColor }: Props = $props();
 

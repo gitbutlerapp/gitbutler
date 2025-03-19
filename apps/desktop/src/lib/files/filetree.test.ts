@@ -1,5 +1,5 @@
-import { LocalFile } from './file';
-import { filesToFileTree } from './filetree';
+import { LocalFile } from '$lib/files/file';
+import { filesToFileTree } from '$lib/files/filetree';
 import { plainToInstance } from 'class-transformer';
 import { expect, test } from 'vitest';
 

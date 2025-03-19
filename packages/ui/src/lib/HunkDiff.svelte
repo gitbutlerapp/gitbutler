@@ -4,17 +4,17 @@
 </script>
 
 <script lang="ts">
-	import Button from './Button.svelte';
-	import Checkbox from './Checkbox.svelte';
-	import Icon from './Icon.svelte';
-	import HunkDiffBody from './hunkDiff/HunkDiffBody.svelte';
+	import Button from '$lib/Button.svelte';
+	import Checkbox from '$lib/Checkbox.svelte';
+	import Icon from '$lib/Icon.svelte';
+	import HunkDiffBody from '$lib/hunkDiff/HunkDiffBody.svelte';
 	import {
 		type ContentSection,
 		getHunkLineInfo,
 		type LineSelector,
 		parseHunk
 	} from '$lib/utils/diffParsing';
-	import type { ContextMenuParams } from './hunkDiff/HunkDiffRow.svelte';
+	import type { ContextMenuParams } from '$lib/hunkDiff/HunkDiffRow.svelte';
 	interface Props {
 		filePath: string;
 		hunkStr: string;

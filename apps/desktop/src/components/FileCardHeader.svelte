@@ -1,5 +1,5 @@
 <script lang="ts">
-	import FileStatusTag from './FileStatusTag.svelte';
+	import FileStatusTag from '$components/FileStatusTag.svelte';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import Badge from '@gitbutler/ui/Badge.svelte';

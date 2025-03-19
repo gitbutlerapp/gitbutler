@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getEditor } from '../context';
+	import { getEditor } from '$lib/richText/context';
 	import { $getRoot as getRoot } from 'lexical';
 
 	type OnChangeCallback = (value: string) => void;

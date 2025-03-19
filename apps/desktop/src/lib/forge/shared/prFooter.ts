@@ -5,7 +5,7 @@ import { POLLING_REGULAR } from '@gitbutler/shared/polling';
 import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { Forge } from '$lib/forge/interface/forge';
-import type { ForgePrService } from '../interface/forgePrService';
+import type { ForgePrService } from '$lib/forge/interface/forgePrService';
 import type { Branch } from '@gitbutler/shared/branches/types';
 import type { PatchReview } from '@gitbutler/shared/patches/types';
 import type { Reactive } from '@gitbutler/shared/storeUtils';

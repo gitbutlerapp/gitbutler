@@ -1,5 +1,5 @@
 <script lang="ts">
-	import DomainButton from './DomainButton.svelte';
+	import DomainButton from '$components/DomainButton.svelte';
 	import SyncButton from '$components/SyncButton.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { Project } from '$lib/project/project';

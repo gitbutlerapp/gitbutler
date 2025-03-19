@@ -1,7 +1,7 @@
 <script lang="ts">
-	import ChangeStatus from '../changes/ChangeStatus.svelte';
-	import Factoid from '../infoFlexRow/Factoid.svelte';
-	import InfoFlexRow from '../infoFlexRow/InfoFlexRow.svelte';
+	import ChangeStatus from '$lib/components/changes/ChangeStatus.svelte';
+	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
+	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
 	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
 	import { getContext } from '@gitbutler/shared/context';

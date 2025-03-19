@@ -1,9 +1,9 @@
-import { unstringifyFileKey } from '../selection/fileIdSelection';
+import { unstringifyFileKey } from '$lib/selection/fileIdSelection';
+import type { BranchStack } from '$lib/branches/branch';
 import type { RemoteFile } from '$lib/files/file';
 import type { AnyFile } from '$lib/files/file';
 import type { RemoteHunk } from '$lib/hunks/hunk';
 import type { Hunk } from '$lib/hunks/hunk';
-import type { BranchStack } from './branch';
 import type { Writable } from 'svelte/store';
 
 export function filesToOwnership(files: AnyFile[]) {

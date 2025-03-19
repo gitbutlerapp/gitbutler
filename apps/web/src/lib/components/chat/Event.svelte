@@ -1,8 +1,8 @@
 <script lang="ts">
-	import IssueUpdate from './IssueUpdate.svelte';
-	import Message from './Message.svelte';
-	import PatchStatus from './PatchStatus.svelte';
-	import PatchVersion from './PatchVersion.svelte';
+	import IssueUpdate from '$lib/components/chat/IssueUpdate.svelte';
+	import Message from '$lib/components/chat/Message.svelte';
+	import PatchStatus from '$lib/components/chat/PatchStatus.svelte';
+	import PatchVersion from '$lib/components/chat/PatchVersion.svelte';
 	import type { ChatEvent, PatchEvent } from '@gitbutler/shared/patchEvents/types';
 
 	interface Props {

@@ -9,7 +9,7 @@
 </script>
 
 <script lang="ts">
-	import MentionSuggestionItem from './MentionSuggestionItem.svelte';
+	import MentionSuggestionItem from '$lib/components/chat/MentionSuggestionItem.svelte';
 	import { setPosition } from '@gitbutler/ui/utils/tooltipPosition';
 	import { flyScale } from '@gitbutler/ui/utils/transitions';
 

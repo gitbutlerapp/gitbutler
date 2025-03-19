@@ -1,6 +1,6 @@
-import { Project, type CloudProject } from './project';
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
+import { Project, type CloudProject } from '$lib/project/project';
 import { sleep } from '$lib/utils/sleep';
 import { persisted } from '@gitbutler/shared/persisted';
 import * as toasts from '@gitbutler/ui/toasts';

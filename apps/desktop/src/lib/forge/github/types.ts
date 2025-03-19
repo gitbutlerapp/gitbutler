@@ -1,6 +1,11 @@
 import { parseRemoteUrl } from '$lib/url/gitUrl';
-import type { GhResponse } from './ghQuery';
-import type { CheckSuite, DetailedPullRequest, Label, PullRequest } from '../interface/types';
+import type { GhResponse } from '$lib/forge/github/ghQuery';
+import type {
+	CheckSuite,
+	DetailedPullRequest,
+	Label,
+	PullRequest
+} from '$lib/forge/interface/types';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 
 export type DetailedGitHubPullRequest = RestEndpointMethodTypes['pulls']['get']['response']['data'];

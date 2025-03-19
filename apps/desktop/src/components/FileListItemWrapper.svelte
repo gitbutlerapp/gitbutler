@@ -1,5 +1,5 @@
 <script lang="ts">
-	import FileContextMenu from './FileContextMenu.svelte';
+	import FileContextMenu from '$components/FileContextMenu.svelte';
 	import { BranchStack } from '$lib/branches/branch';
 	import { SelectedOwnership } from '$lib/branches/ownership';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/commits/contexts';

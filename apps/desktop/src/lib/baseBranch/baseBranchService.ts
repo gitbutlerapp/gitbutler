@@ -1,5 +1,5 @@
-import { BaseBranch, NoDefaultTarget } from './baseBranch';
 import { Code, invoke } from '$lib/backend/ipc';
+import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
 import { showError } from '$lib/notifications/toasts';
 import { shallowDeduplicate } from '$lib/stores/shallowDeduplicate';
 import { parseRemoteUrl } from '$lib/url/gitUrl';

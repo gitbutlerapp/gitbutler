@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SnapshotAttachment from './SnapshotAttachment.svelte';
+	import SnapshotAttachment from '$components/SnapshotAttachment.svelte';
 	import { createdOnDay } from '$lib/history/history';
 	import { ModeService } from '$lib/mode/modeService';
 	import { toHumanReadableTime } from '$lib/utils/time';

@@ -1,7 +1,7 @@
-import { DefaultForgeFactory } from './forgeFactory.svelte';
-import { GitHub } from './github/github';
-import { GitLab } from './gitlab/gitlab';
 import { PostHogWrapper } from '$lib/analytics/posthog';
+import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+import { GitHub } from '$lib/forge/github/github';
+import { GitLab } from '$lib/forge/gitlab/gitlab';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { type GitHubApi } from '$lib/state/clientState.svelte';
 import { expect, test, describe } from 'vitest';

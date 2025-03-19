@@ -1,8 +1,8 @@
 <script lang="ts">
-	import DecorativeSplitView from './DecorativeSplitView.svelte';
-	import ProjectSwitcher from './ProjectSwitcher.svelte';
-	import RemoveProjectButton from './RemoveProjectButton.svelte';
+	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
+	import ProjectSwitcher from '$components/ProjectSwitcher.svelte';
+	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
 	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import { BranchController } from '$lib/branches/branchController';
 	import { showError } from '$lib/notifications/toasts';

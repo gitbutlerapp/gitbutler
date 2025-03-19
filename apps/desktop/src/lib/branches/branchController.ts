@@ -3,12 +3,12 @@ import { showError, showToast } from '$lib/notifications/toasts';
 import * as toasts from '@gitbutler/ui/toasts';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+import type { StackOrder } from '$lib/branches/branch';
 import type { BranchListingService } from '$lib/branches/branchListing';
+import type { VirtualBranchService } from '$lib/branches/virtualBranchService';
 import type { LocalFile } from '$lib/files/file';
 import type { TreeChange } from '$lib/hunks/change';
 import type { DiffSpec, Hunk } from '$lib/hunks/hunk';
-import type { StackOrder } from './branch';
-import type { VirtualBranchService } from './virtualBranchService';
 
 export type CommitIdOrChangeId = { CommitId: string } | { ChangeId: string };
 export type SeriesIntegrationStrategy = 'merge' | 'rebase' | 'hardreset';

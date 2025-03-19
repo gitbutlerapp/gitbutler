@@ -1,4 +1,4 @@
-import { getTimeAgo } from './timeAgo';
+import { getTimeAgo } from '$lib/utils/timeAgo';
 
 export function getTimeAndAuthor(createdAt: Date, name: string | undefined): string {
 	const timeAgo = getTimeAgo(createdAt);

@@ -4,7 +4,7 @@
 	 * time. This is because it is working directly with the query paramaters
 	 * and has no idea if it will conflict or not.
 	 */
-	import SectionComponent from './Section.svelte';
+	import SectionComponent from '$lib/components/review/Section.svelte';
 	import {
 		setBeforeVersion,
 		setAfterVersion,

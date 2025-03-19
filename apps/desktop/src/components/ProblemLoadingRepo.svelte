@@ -1,8 +1,8 @@
 <script lang="ts">
-	import DecorativeSplitView from './DecorativeSplitView.svelte';
-	import ProjectSwitcher from './ProjectSwitcher.svelte';
-	import RemoveProjectButton from './RemoveProjectButton.svelte';
+	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
+	import ProjectSwitcher from '$components/ProjectSwitcher.svelte';
+	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 	import { showError } from '$lib/notifications/toasts';

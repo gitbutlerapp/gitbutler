@@ -1,14 +1,14 @@
 <script lang="ts">
-	import EmojiSuggestions from './EmojiSuggestions.svelte';
-	import TypeAheadPlugin from './TypeAhead.svelte';
-	import { getEditor } from '../context';
+	import { markRecentlyUsedEmoji, searchThroughEmojis, type EmojiInfo } from '$lib/emoji/utils';
+	import { getEditor } from '$lib/richText/context';
 	import {
 		findAndReplaceShortCodeEmoji,
 		getShortCodeSearchMatch,
 		insertEmoji,
 		type ShortCodeSearchMatch
-	} from '../node/emoji';
-	import { markRecentlyUsedEmoji, searchThroughEmojis, type EmojiInfo } from '$lib/emoji/utils';
+	} from '$lib/richText/node/emoji';
+	import EmojiSuggestions from '$lib/richText/plugins/EmojiSuggestions.svelte';
+	import TypeAheadPlugin from '$lib/richText/plugins/TypeAhead.svelte';
 	import { TextNode, $getSelection as getSelection } from 'lexical';
 
 	/**

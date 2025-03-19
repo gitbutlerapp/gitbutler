@@ -1,7 +1,7 @@
 <script lang="ts">
-	import WelcomeAction from './WelcomeAction.svelte';
-	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
 	import IconLink from '$components/IconLink.svelte';
+	import WelcomeAction from '$components/WelcomeAction.svelte';
+	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import cloneRepoSvg from '$lib/assets/welcome/clone-repo.svg?raw';
 	import newProjectSvg from '$lib/assets/welcome/new-local-project.svg?raw';
 	import { ProjectsService } from '$lib/project/projectsService';

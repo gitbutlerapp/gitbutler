@@ -1,4 +1,4 @@
-import { isMessageRole, type Prompt } from './types';
+import { isMessageRole, type Prompt } from '$lib/ai/types';
 import { isStr } from '@gitbutler/ui/utils/string';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages.mjs';
 

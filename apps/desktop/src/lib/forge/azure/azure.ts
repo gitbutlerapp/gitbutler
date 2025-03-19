@@ -1,8 +1,8 @@
-import { AzureBranch } from './azureBranch';
+import { AzureBranch } from '$lib/forge/azure/azureBranch';
+import type { Forge, ForgeName } from '$lib/forge/interface/forge';
+import type { ForgeRepoService } from '$lib/forge/interface/forgeRepoService';
+import type { ForgeArguments } from '$lib/forge/interface/types';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { Forge, ForgeName } from '../interface/forge';
-import type { ForgeRepoService } from '../interface/forgeRepoService';
-import type { ForgeArguments } from '../interface/types';
 
 export const AZURE_DOMAIN = 'dev.azure.com';
 

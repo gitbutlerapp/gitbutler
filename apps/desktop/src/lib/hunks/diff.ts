@@ -1,4 +1,4 @@
-import type { Patch } from './hunk';
+import type { Patch } from '$lib/hunks/hunk';
 
 /**
  * A patch in unified diff format to show how a resource changed or now looks

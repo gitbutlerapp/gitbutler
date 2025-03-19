@@ -1,4 +1,4 @@
-import * as FileUtils from './file';
+import * as FileUtils from '$lib/utils/file';
 import { assert, test, describe } from 'vitest';
 
 describe('file utils', () => {

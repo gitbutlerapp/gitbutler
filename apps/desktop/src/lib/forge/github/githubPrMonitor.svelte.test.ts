@@ -1,10 +1,10 @@
-import { GitHub } from './github';
-import { GitHubPrMonitor, PR_SERVICE_INTERVAL } from './githubPrMonitor.svelte';
+import { GitHub } from '$lib/forge/github/github';
+import { GitHubPrMonitor, PR_SERVICE_INTERVAL } from '$lib/forge/github/githubPrMonitor.svelte';
 import { setupMockGitHubApi } from '$lib/testing/mockGitHubApi.svelte';
 import { type RestEndpointMethodTypes } from '@octokit/rest';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
-import type { ForgePrMonitor } from '../interface/forgePrMonitor';
-import type { ForgePrService } from '../interface/forgePrService';
+import type { ForgePrMonitor } from '$lib/forge/interface/forgePrMonitor';
+import type { ForgePrService } from '$lib/forge/interface/forgePrService';
 
 // TODO: Rewrite this proof-of-concept into something valuable.
 describe.concurrent('GitHubPrMonitor', () => {

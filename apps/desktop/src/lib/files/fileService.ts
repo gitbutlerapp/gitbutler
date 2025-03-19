@@ -1,7 +1,7 @@
-import { RemoteFile } from './file';
+import { RemoteFile } from '$lib/files/file';
 import { plainToInstance } from 'class-transformer';
 import type { Tauri } from '$lib/backend/tauri';
-import type { FileInfo } from './file';
+import type { FileInfo } from '$lib/files/file';
 
 export class FileService {
 	constructor(private tauri: Tauri) {}

@@ -1,6 +1,11 @@
+import type { MergeResult, UpdateResult } from '$lib/forge/github/types';
+import type {
+	CreatePullRequestArgs,
+	DetailedPullRequest,
+	MergeMethod,
+	PullRequest
+} from '$lib/forge/interface/types';
 import type { AsyncResult, ReactiveResult } from '$lib/state/butlerModule';
-import type { CreatePullRequestArgs, DetailedPullRequest, MergeMethod, PullRequest } from './types';
-import type { MergeResult, UpdateResult } from '../github/types';
 import type { StartQueryActionCreatorOptions } from '@reduxjs/toolkit/query';
 import type { Writable } from 'svelte/store';
 

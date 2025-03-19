@@ -1,4 +1,4 @@
-import { pxToRem } from './pxToRem';
+import { pxToRem } from '$lib/utils/pxToRem';
 import { cubicOut } from 'svelte/easing';
 import { slide, type SlideParams, type TransitionConfig } from 'svelte/transition';
 

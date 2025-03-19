@@ -1,7 +1,7 @@
-import { patchEventsSelectors } from '../patchEvents/patchEventsSlice';
 import { getContext } from '$lib/context';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { mapL } from '$lib/network/loadable';
+import { patchEventsSelectors } from '$lib/patchEvents/patchEventsSlice';
 import { createPatchEventChannelKey, type LoadablePatchEventChannel } from '$lib/patchEvents/types';
 import { PatchCommitService } from '$lib/patches/patchCommitService';
 import { patchCommitTable } from '$lib/patches/patchCommitsSlice';
@@ -9,9 +9,9 @@ import { getPatchIdable } from '$lib/patches/patchIdablesPreview.svelte';
 import { patchSectionsSelectors } from '$lib/patches/patchSectionsSlice';
 import { AppState, type AppPatchEventsState } from '$lib/redux/store.svelte';
 import type { Loadable } from '$lib/network/types';
+import type { PatchEventsService } from '$lib/patchEvents/patchEventsService';
 import type { LoadablePatchCommit, Section } from '$lib/patches/types';
 import type { Reactive } from '$lib/storeUtils';
-import type { PatchEventsService } from '../patchEvents/patchEventsService';
 
 export function getPatch(
 	branchUuid: string,

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Branch from './Branch.svelte';
-	import PushButton from './PushButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import Branch from '$components/v3/Branch.svelte';
+	import PushButton from '$components/v3/PushButton.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 

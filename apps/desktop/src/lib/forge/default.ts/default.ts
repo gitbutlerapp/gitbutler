@@ -1,10 +1,10 @@
-import type { Forge, ForgeName } from '../interface/forge';
-import type { ForgeBranch } from '../interface/forgeBranch';
-import type { ForgeChecksMonitor } from '../interface/forgeChecksMonitor';
-import type { ForgeIssueService } from '../interface/forgeIssueService';
-import type { ForgeListingService } from '../interface/forgeListingService';
-import type { ForgePrService } from '../interface/forgePrService';
-import type { ForgeRepoService } from '../interface/forgeRepoService';
+import type { Forge, ForgeName } from '$lib/forge/interface/forge';
+import type { ForgeBranch } from '$lib/forge/interface/forgeBranch';
+import type { ForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
+import type { ForgeIssueService } from '$lib/forge/interface/forgeIssueService';
+import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
+import type { ForgePrService } from '$lib/forge/interface/forgePrService';
+import type { ForgeRepoService } from '$lib/forge/interface/forgeRepoService';
 
 export class DefaultForge implements Forge {
 	name: ForgeName;
