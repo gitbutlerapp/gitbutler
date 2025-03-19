@@ -8,7 +8,6 @@ import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 import { Transform, Type, plainToInstance } from 'class-transformer';
 import Fuse from 'fuse.js';
 import { derived, readable, writable, type Readable, type Writable } from 'svelte/store';
-import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
 import type { PullRequest } from '$lib/forge/interface/types';
 
 export class BranchListingService {
@@ -130,14 +129,8 @@ export class CombinedBranchListingService {
 	combinedSidebarEntries: Readable<SidebarEntrySubject[]>;
 	// Contains entries grouped by date for the unsearched sidebar entries
 	groupedSidebarEntries: Readable<GroupedSidebarEntries>;
-	// Whether or not to show the pull request tab in the sidebar
-	pullRequestsListed: boolean;
 
-	constructor(
-		branchListingService: BranchListingService,
-		forgeListingService: ForgeListingService | undefined,
-		projectId: string
-	) {
+	constructor(branchListingService: BranchListingService, projectId: string) {
 		this.selectedOption = persisted<'all' | 'pullRequest' | 'local'>(
 			'all',
 			`branches-selectedOption-${projectId}`
@@ -145,21 +138,6 @@ export class CombinedBranchListingService {
 
 		// Get a readable store of pull requeests
 		this.pullRequests = readable([] as PullRequest[]);
-		this.pullRequestsListed = !!forgeListingService;
-
-		// 	(set) => {
-		// 	const unsubscribeListingService = forgeListingService.subscribe((forgeListingService) => {
-		// 		if (!forgeListingService) return;
-
-		// 		const unsubscribePullRequests = forgeListingService.prs.subscribe((prs) => {
-		// 			set(prs);
-		// 		});
-
-		// 		return unsubscribePullRequests;
-		// 	});
-
-		// 	return unsubscribeListingService;
-		// });
 
 		// Whether or not to show the pull request tab in the sidebar
 
@@ -365,6 +343,10 @@ export class BranchListing {
 	lastCommiter!: Author;
 	/** Whether or not there is a local branch as part of the grouping */
 	hasLocal!: boolean;
+
+	get branchNames() {
+		return [this.name].concat(this.virtualBranch ? this.virtualBranch?.stackBranches : []);
+	}
 
 	containsPullRequestBranch(sourceBranch: string): boolean {
 		if (sourceBranch === this.name) return true;

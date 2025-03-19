@@ -31,10 +31,11 @@
 
 	const forge = getContext(DefaultForgeFactory);
 	const forgeListingService = $derived(forge.current.listService);
-	const prsResult = $derived(forgeListingService?.list(projectId));
-	const pr = $derived(
-		prsResult?.current.data?.find((pr) => branchListing.containsPullRequestBranch(pr.sourceBranch))
+
+	const prResult = $derived(
+		forgeListingService?.filterByBranch(projectId, branchListing.branchNames)
 	);
+	const pr = $derived(prResult?.current?.at(0));
 
 	const userService = getContext(UserService);
 	const user = userService.user;

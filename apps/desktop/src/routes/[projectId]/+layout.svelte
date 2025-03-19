@@ -124,7 +124,6 @@
 	$effect.pre(() => {
 		const combinedBranchListingService = new CombinedBranchListingService(
 			data.branchListingService,
-			forgeFactory.current.listService,
 			projectId
 		);
 
