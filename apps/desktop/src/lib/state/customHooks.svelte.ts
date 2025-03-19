@@ -76,17 +76,9 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 			if (options?.transform && data) {
 				data = options.transform(data);
 			}
-			function andThen(fn: (arg: any) => any) {
-				if (data) {
-					return fn(data);
-				} else {
-					return result;
-				}
-			}
 			return {
 				...result,
-				data,
-				andThen
+				data
 			};
 		});
 		return reactive(() => output);
