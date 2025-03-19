@@ -9,7 +9,7 @@ import type { Commit, StackBranch, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
 import type { TreeChange } from '$lib/hunks/change';
 import type { HunkHeader } from '$lib/hunks/hunk';
-import type { Stack, StackInfo } from '$lib/stacks/stack';
+import type { BranchDetails, Stack, StackInfo } from '$lib/stacks/stack';
 import type { TauriCommandError } from '$lib/state/backendQuery';
 
 type CreateBranchRequest = { name?: string; ownership?: string; order?: number };
@@ -101,7 +101,20 @@ export class StackService {
 	}
 
 	stackInfo(projectId: string, stackId: string) {
-		return this.api.endpoints.stackInfo.useQuery({ projectId, stackId });
+		return this.api.endpoints.stackInfo.useQuery(
+			{ projectId, stackId },
+			{ transform: ([stackInfo]) => stackInfo }
+		);
+	}
+
+	branchDetails(projectId: string, stackId: string, branchName: string) {
+		return this.api.endpoints.stackInfo.useQuery(
+			{ projectId, stackId },
+			{
+				transform: ([, branchDetails]) =>
+					branchDetailsSelectors.selectById(branchDetails, branchName)
+			}
+		);
 	}
 
 	newStack() {
@@ -300,12 +313,22 @@ function injectEndpoints(api: ClientState['backendApi'], posthog: PostHogWrapper
 					return branchAdapter.addMany(branchAdapter.getInitialState(), response);
 				}
 			}),
-			stackInfo: build.query<StackInfo, { projectId: string; stackId: string }>({
+			stackInfo: build.query<
+				[StackInfo, EntityState<BranchDetails, string>],
+				{ projectId: string; stackId: string }
+			>({
 				query: ({ projectId, stackId }) => ({
 					command: 'stack_info',
 					params: { projectId, stackId }
 				}),
-				providesTags: (_result, _error, { stackId }) => [{ type: ReduxTag.StackInfo, id: stackId }]
+				providesTags: (_result, _error, { stackId }) => [{ type: ReduxTag.StackInfo, id: stackId }],
+				transformResponse(response: StackInfo) {
+					const branchDetilsEntity = branchDetailsAdapter.addMany(
+						branchDetailsAdapter.getInitialState(),
+						response.branchDetails
+					);
+					return [response, branchDetilsEntity] as const;
+				}
 			}),
 			localAndRemoteCommits: build.query<
 				EntityState<Commit, string>,
@@ -489,3 +512,9 @@ const branchChangesAdapter = createEntityAdapter<TreeChange, string>({
 });
 
 const branchChangesSelectors = branchChangesAdapter.getSelectors();
+
+const branchDetailsAdapter = createEntityAdapter<BranchDetails, string>({
+	selectId: (branch) => branch.name
+});
+
+const branchDetailsSelectors = branchDetailsAdapter.getSelectors();
