@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { GitHubUserService } from '$lib/forge/github/githubUserService';
-	import { unwrapOrLog } from '$lib/state/helpers';
 	import { UserService } from '$lib/user/userService';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
@@ -55,7 +54,7 @@
 			mutableUser = structuredClone($user);
 			// TODO: Remove setting of gh username since it isn't used anywhere.
 			const githubUsername = await githubUserService.fetchGitHubLogin();
-			mutableUser.github_username = unwrapOrLog(githubUsername)?.name || undefined;
+			mutableUser.github_username = githubUsername.data?.name || undefined;
 			userService.setUser(mutableUser);
 			toasts.success('GitHub authenticated');
 		} catch (err: any) {
