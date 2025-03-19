@@ -1,0 +1,398 @@
+name: 'Publish'
+on:
+  schedule:
+    # every day at 3am
+    - cron: '0 3 * * *'
+  workflow_run:
+    workflows: ['Nightly build']
+    types:
+      - completed
+
+  workflow_dispatch:
+    inputs:
+      channel:
+        type: choice
+        required: true
+        description: channel
+        default: nightly
+        options:
+          - release
+          - nightly
+      bump:
+        type: choice
+        required: true
+        description: update type
+        default: patch
+        options:
+          - undefined
+          - patch
+          - minor
+          - major
+
+jobs:
+  build-sveltekit:
+    runs-on: ubuntu-latest
+    env:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    steps:
+      - name: Trigger Sentry Cron - In Progress
+        if: ${{ github.event_name == 'schedule' }}
+        shell: bash
+        run: curl "${{ secrets.SENTRY_CRONS }}?status=in_progress"
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_JUNON }}
+      - name: Consume input variables
+        shell: bash
+        if: ${{ !github.event.workflow_run }}
+        run: |
+          VITEMODE=nightly
+          if [[ "${{ github.event.inputs.channel }}" == "release" ]]; then
+            VITEMODE=production
+          fi
+
+          echo "vitemode=$VITEMODE" >> $GITHUB_ENV
+          echo "channel=${{ github.event.inputs.channel || 'nightly' }}" >> $GITHUB_ENV
+          echo "bump=${{ github.event.inputs.bump || 'patch' }}" >> $GITHUB_ENV
+      - name: Calculate next version
+        shell: bash
+        run: |
+          CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases/${{ env.channel }}" | jq -r '.version')"
+          NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
+          echo "version=$NEXT_VERSION" >> $GITHUB_ENV
+          mkdir -p release && echo "$NEXT_VERSION" > release/version
+      - name: Init Node Environment
+        uses: ./.github/actions/init-env-node
+      - name: Build SvelteKit
+        run: pnpm build:desktop -- --mode ${{ env.vitemode }}
+        env:
+          SENTRY_RELEASE: ${{ env.version }}
+      - uses: actions/upload-artifact@v4
+        name: Upload pnpm-store contents
+        with:
+          name: pnpm-store
+          path: /home/runner/setup-pnpm/node_modules/.bin/store/v3
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        name: Upload SvelteKit build output
+        with:
+          name: sveltekit-build
+          path: ./apps/desktop/build/
+          retention-days: 1
+          if-no-files-found: error
+
+  build-tauri:
+    needs: build-sveltekit
+    env:
+      CARGO_TERM_COLOR: always
+    strategy:
+      fail-fast: false
+      matrix:
+        # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-private-repositories
+        platform:
+          - macos-13 # [macOs, x64]
+          - macos-latest # [macOs, ARM64]
+          - ubuntu-24.04 # [linux, x64]
+          - windows-latest # [windows, x64]
+
+    runs-on: ${{ matrix.platform }}
+
+    outputs:
+      platform: ${{ matrix.platform }}
+      channel: ${{ env.channel }}
+
+    steps:
+      # Because GitHub broke perl installations sometime in 2022 on Windows.
+      - name: perl -V (before re-install)
+        if: runner.os == 'Windows'
+        run: which perl && perl -V
+      - name: Setup perl
+        if: runner.os == 'Windows'
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: '5.38'
+          distribution: strawberry
+      - name: Set git to use LF
+        if: runner.os == 'Windows'
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+      - name: perl -V
+        if: runner.os == 'Windows'
+        run: which perl && perl -V
+      - name: Ensure we have a working Perl toolchain
+        if: runner.os == 'Windows'
+        run: cpanm ExtUtils::Manifest App::cpanminus Locale::Maketext::Simple
+      - name: Set Perl environment variables
+        if: runner.os == 'Windows'
+        run: |
+          echo "PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          echo "OPENSSL_SRC_PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
+      - name: Init Node Environment
+        uses: ./.github/actions/init-env-node
+
+      - name: Consume input variables
+        shell: bash
+        if: ${{ !github.event.workflow_run }}
+        run: |
+          echo "channel=${{ github.event.inputs.channel || 'nightly' }}" >> $GITHUB_ENV
+          echo "bump=${{ github.event.inputs.bump || 'patch' }}" >> $GITHUB_ENV
+
+      - name: Calculate next version
+        shell: bash
+        run: |
+          CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases/${{ env.channel }}" | jq -r '.version')"
+          NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
+          echo "version=$NEXT_VERSION" >> $GITHUB_ENV
+          mkdir -p release && echo "$NEXT_VERSION" > release/version
+
+      - name: Import GPG key
+        if: runner.os == 'Linux'
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.APPIMAGE_PRIVATE_KEY }}
+          passphrase: ${{ secrets.APPIMAGE_KEY_PASSPHRASE }}
+
+      - name: Install linux dependencies
+        shell: bash
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update;
+          sudo apt install -y \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev \
+            libgtk-3-dev \
+            libappindicator3-dev \
+            librsvg2-dev;
+
+          sudo apt install -y \
+            libwebkit2gtk-4.1-0=2.44.0-2 \
+            libwebkit2gtk-4.1-dev=2.44.0-2 \
+            libjavascriptcoregtk-4.1-0=2.44.0-2 \
+            libjavascriptcoregtk-4.1-dev=2.44.0-2 \
+            gir1.2-javascriptcoregtk-4.1=2.44.0-2 \
+            gir1.2-webkit2-4.1=2.44.0-2;
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: sveltekit-build
+          path: ./apps/desktop/build/
+      - name: Build binary
+        shell: bash
+        run: |
+          ./scripts/release.sh \
+            --sign \
+            --channel                    "${{ env.channel }}" \
+            --dist                       "./release" \
+            --version                    "${{ env.version }}"
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_PROVIDER_SHORT_NAME }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPIMAGE_KEY_ID: ${{ secrets.APPIMAGE_KEY_ID }}
+          APPIMAGE_KEY_PASSPHRASE: ${{ secrets.APPIMAGE_KEY_PASSPHRASE }}
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: '${{ env.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          path: release/
+          if-no-files-found: error
+
+      - name: Prepare Windows Aux Binary Artifacts
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          rm -rf tauri-aux-artifacts
+          mkdir -p tauri-aux-artifacts
+          cp target/release/gitbutler-git-askpass.exe tauri-aux-artifacts/
+
+      - name: Upload Windows Aux Binary Artifacts
+        uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: '${{ env.channel }}-windows-aux-${{ github.run_number }}'
+          path: tauri-aux-artifacts/
+          if-no-files-found: error
+
+  sign-windows:
+    needs: build-tauri
+    runs-on: [self-hosted, evcodesignd]
+    strategy:
+      matrix:
+        platform:
+          - windows-latest # [windows, x64]
+    steps:
+      - name: Clean artifact directory
+        shell: bash
+        run: rm -rf release
+      - name: Download unsigned artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          path: release
+      - name: Sign Windows binary
+        shell: bash
+        run: |
+          find release -name "*.msi" -type f -print0 | xargs -0 -n1 -I{} python3 /sign-with-evcodesignd.py "{}"
+        env:
+          EVCODESIGND_PSK: ${{ secrets.EVCODESIGND_PSK }}
+      - name: Upload signed artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          path: release/
+          if-no-files-found: error
+          overwrite: true
+
+  sign-tauri:
+    needs: [sign-windows, build-tauri]
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        platform:
+          - windows-latest # [windows, x64]
+    steps:
+      - name: Clean artifact directory
+        shell: bash
+        run: rm -rf release
+      - name: Download ev-signed artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          path: release
+      - name: Set file as a variable
+        shell: bash
+        id: set-path
+        run: |
+          msi_file=$(find release -name "*.msi" -type f -printf '%P\n')
+          echo "msi_file=$msi_file" >> $GITHUB_OUTPUT
+      - name: Sign our EV signed file
+        shell: bash
+        run: |
+          set -x
+          curl -O https://gitbutler-public.s3.us-east-1.amazonaws.com/_win/minisign.exe
+          chmod +x minisign.exe  # Add this line to make the file executable
+          echo "sign release/${{ steps.set-path.outputs.msi_file }}"
+          timestamp=$(date +%s)
+          TRUSTED_COMMENT="timestamp:$timestamp	file:${{ steps.set-path.outputs.msi_file }}"
+          UNTRUSTED_COMMENT="signature from tauri secret key"
+          echo "${{ secrets.TAURI_PRIVATE_KEY }}" >> ./minisign.key.b64
+          perl -MMIME::Base64 -ne 'print decode_base64($_)' ./minisign.key.b64 > minisign.key
+          echo ${{ secrets.TAURI_KEY_PASSWORD }} | ./minisign.exe -S -s minisign.key -t "$TRUSTED_COMMENT" -c "$UNTRUSTED_COMMENT" -m "release/${{ steps.set-path.outputs.msi_file }}"
+          perl -MMIME::Base64 -0777 -ne 'print encode_base64($_, "")' < "release/${{ steps.set-path.outputs.msi_file }}.minisig" > "release/${{ steps.set-path.outputs.msi_file }}.sig"
+          rm "release/${{ steps.set-path.outputs.msi_file }}.minisig"
+          rm "release/${{ steps.set-path.outputs.msi_file }}.zip"
+      - name: Compress files into a ZIP archive
+        run: |
+          Compress-Archive -Force -Path "release/${{ steps.set-path.outputs.msi_file }}" -DestinationPath "release/${{ steps.set-path.outputs.msi_file }}.zip"
+      - name: Upload re-signed artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          path: release/
+          if-no-files-found: error
+          overwrite: true
+
+  publish-tauri:
+    needs: [sign-tauri, build-tauri]
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ env.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-private-repositories
+        platform:
+          - macos-13 # [macOs, x64]
+          - macos-latest # [macOs, ARM64]
+          - ubuntu-24.04 # [linux, x64]
+          - windows-latest # [windows, x64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          path: release
+      - name: Extract version
+        shell: bash
+        run: |
+          VERSION="$(cat release/version)"
+          echo "version=$VERSION" >> $GITHUB_ENV
+      - name: Prepare S3 payload
+        shell: bash
+        run: |
+          rm -rf release-s3
+          mkdir -p release-s3
+          rsync -avE --prune-empty-dirs --include-from='.github/workflows/publish.include.txt' --exclude='*' release/ release-s3/
+          bash scripts/normalize-spaces.sh ./release-s3
+      - uses: shallwefootball/s3-upload-action@master
+        name: Upload To S3
+        id: S3
+        with:
+          aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_bucket: 'releases.gitbutler.com'
+          source_dir: 'release-s3/'
+          destination_dir: 'releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}'
+
+      # tell our server to update with the version number
+      - name: Notify GitButler API of new release
+        shell: bash
+        run: |
+          curl 'https://app.gitbutler.com/api/releases' \
+            --fail \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
+            --data '{"channel":"${{ needs.build-tauri.outputs.channel }}","version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'
+
+  create-git-tag:
+    needs: [publish-tauri, build-tauri]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
+      - name: Create git tag
+        shell: bash
+        env:
+          TAG_NAME: '${{ needs.build-tauri.outputs.channel }}/${{ needs.publish-tauri.outputs.version }}'
+        run: |
+          function tag_exists() {
+            git tag --list | grep -q "^$1$"
+          }
+          function fetch_tag() {
+            git fetch origin "refs/tags/$1:refs/tags/$1"
+          }
+          function delete_tag() {
+            git push --delete origin "$1"
+          }
+          function create_tag() {
+            git tag --force "$1"
+            git push --tags
+          }
+
+          fetch_tag "$TAG_NAME" || true
+          if tag_exists "$TAG_NAME"; then
+            delete_tag "$TAG_NAME"
+          fi
+          create_tag "$TAG_NAME"
+      - name: Trigger Sentry Cron - Complete
+        if: ${{ github.event_name == 'schedule' }}
+        shell: bash
+        run: curl "${{ secrets.SENTRY_CRONS }}?status=ok"
