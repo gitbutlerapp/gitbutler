@@ -37,6 +37,14 @@
 	);
 
 	const changesResult = $derived(commitChangesResult?.current ?? branchChangesResult?.current);
+	const headerTitle = $derived.by(() => {
+		switch (props.type) {
+			case 'commit':
+				return 'Changed files';
+			case 'branch':
+				return 'All changed files';
+		}
+	});
 </script>
 
 {#if changesResult}
@@ -44,7 +52,7 @@
 		<ReduxResult result={changesResult}>
 			{#snippet children(changes)}
 				<div class="header text-13 text-bold">
-					<span>Changed files</span>
+					<span>{headerTitle}</span>
 					<Badge>{changes.length}</Badge>
 				</div>
 				{#if changes.length > 0}

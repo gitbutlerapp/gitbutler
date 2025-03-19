@@ -1,9 +1,13 @@
 <script lang="ts">
+	import BranchBadge from './BranchBadge.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { combineResults } from '$lib/state/helpers';
+	import { UserService } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
-	import Badge from '@gitbutler/ui/Badge.svelte';
+	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
+	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 
 	interface Props {
 		stackId: string;
@@ -13,24 +17,57 @@
 
 	const { stackId, projectId, branchName }: Props = $props();
 
-	const [stackService] = inject(StackService);
-	const branchState = 'Unpushed'; // TODO: Get this from the branch
+	const [stackService, userService] = inject(StackService, UserService);
+	const user = $derived(userService.user);
+
+	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
+	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
+
+	function getGravatarUrl(email: string, existingGravatarUrl: string): string {
+		if ($user?.email === undefined) {
+			return existingGravatarUrl;
+		}
+		if (email === $user.email) {
+			return $user.picture ?? existingGravatarUrl;
+		}
+		return existingGravatarUrl;
+	}
 </script>
 
 {#if branchName}
-	{@const branchResult = stackService.branchByName(projectId, stackId, branchName)}
-	<ReduxResult result={branchResult.current}>
-		{#snippet children(branch)}
+	<ReduxResult result={combineResults(branchResult.current, branchDetailsResult.current)}>
+		{#snippet children([branch, branchDetails])}
 			<div class="branch-view">
 				<div class="branch-view__header-container">
 					<div class="branch-view__header-title-row">
-						<Badge>{branchState}</Badge>
+						<BranchBadge pushStatus={branchDetails.pushStatus} />
 						<h3 class="text-15 text-bold">
 							{branch.name}
 						</h3>
 					</div>
 
-					<div class="text-13 branch-view__header-details-row">Contributors: ...</div>
+					<div class="text-13 branch-view__header-details-row">
+						{#if branchDetails.isConflicted}
+							<span class="branch-view__header-details-row-conflict">Has conflicts</span>
+							<span class="branch-view__details-divider">•</span>
+						{/if}
+
+						<span>Contributors:</span>
+
+						<AvatarGroup
+							maxAvatars={2}
+							avatars={branchDetails.authors.map((a) => ({
+								name: a.name,
+								srcUrl: getGravatarUrl(a.email, a.gravatarUrl)
+							}))}
+						/>
+
+						<span class="branch-view__details-divider">•</span>
+
+						<span>Updated {getTimeAgo(new Date(branchDetails.lastUpdatedAt))}</span>
+
+						<span class="branch-view__details-divider">•</span>
+					</div>
 				</div>
 
 				<div class="branch-view__review-card-container">Review card goes here</div>
@@ -78,5 +115,20 @@
 		border-radius: var(--radius-m);
 
 		padding: 14px;
+	}
+
+	.branch-view__header-details-row {
+		color: var(--clr-text-2);
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.branch-view__header-details-row-conflict {
+		color: var(--clr-theme-err-element);
+	}
+
+	.branch-view__details-divider {
+		opacity: 0.4;
 	}
 </style>
