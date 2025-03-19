@@ -39,8 +39,8 @@ export class UiState {
 	/** Properties that are globally scoped. */
 	readonly global = this.buildGlobalProps({
 		drawerHeight: 20,
-		leftWidth: 25,
-		rightWidth: 25
+		leftWidth: 17.5,
+		rightWidth: 21.25
 	});
 
 	constructor(
