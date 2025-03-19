@@ -258,3 +258,8 @@
 	background: var(--clr-theme-pop-bg-muted);
 	color: var(--clr-theme-pop-on-soft);
 }
+
+.ghost-text {
+	opacity: 0.5;
+	color: red;
+}

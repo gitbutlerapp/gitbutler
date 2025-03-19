@@ -2,6 +2,7 @@
 	import { showError } from '$lib/notifications/toasts';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
+	import GhostTextPlugin from '@gitbutler/ui/richText/plugins/GhostText.svelte';
 	import GiphyPlugin from '@gitbutler/ui/richText/plugins/GiphyPlugin.svelte';
 	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
 
@@ -13,9 +14,20 @@
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
 	let formatter = $state<ReturnType<typeof Formatter>>();
+	let ghostTextComponent = $state<ReturnType<typeof GhostTextPlugin>>();
 
 	export async function getPlaintext(): Promise<string | undefined> {
 		return composer?.getPlaintext();
+	}
+
+
+	function handleChange(text:  string) {
+		// console.log('Editor text changed:', text);
+		ghostTextComponent?.setText('This is a ghost text');
+	}
+
+	function onSelectGhostText(text: string) {
+		console.log('Selected ghost text:', text);
 	}
 </script>
 
@@ -50,10 +62,13 @@
 			bind:this={composer}
 			{markdown}
 			onError={(e) => showError('Editor error', e)}
+			onChange={handleChange}
 		>
 			{#snippet plugins()}
 				<Formatter bind:this={formatter} />
 				<GiphyPlugin />
+				<GhostTextPlugin bind:this={ghostTextComponent} onSelection={onSelectGhostText} />
+				<!-- <GiphyPlugin /> -->
 			{/snippet}
 		</RichTextEditor>
 	</div>

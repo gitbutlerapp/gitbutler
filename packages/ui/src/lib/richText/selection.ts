@@ -1,4 +1,4 @@
-import { $isRangeSelection, $getSelection, TextNode, type LexicalEditor } from 'lexical';
+import { $isRangeSelection, $getSelection, TextNode, type LexicalEditor, type LexicalNode } from 'lexical';
 import { ImageNode } from 'svelte-lexical';
 
 export function getCursorPosition() {
@@ -19,6 +19,17 @@ export function getSelectionPosition(windowScrollY?: number) {
 		const left = domRect.left - 10;
 		return { left, top };
 	}
+}
+
+export function insertNodeAtCaret<T extends LexicalNode>(editor: LexicalEditor, insertNode: T) {
+	editor.update(() => {
+		const selection = $getSelection();
+		if (!$isRangeSelection(selection)) {
+			return;
+		}
+
+		selection.insertNodes([insertNode]);
+	});
 }
 
 /**
@@ -74,3 +85,4 @@ export function insertTextAtCaret(editor: LexicalEditor, text: string) {
 		node.spliceText(offset, 0, text);
 	});
 }
+
