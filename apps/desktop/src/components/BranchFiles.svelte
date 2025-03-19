@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BranchFilesList from './BranchFilesList.svelte';
+	import BranchFilesList from '$components/BranchFilesList.svelte';
 	import {
 		createCommitStore,
 		createIntegratedCommitsContextStore,

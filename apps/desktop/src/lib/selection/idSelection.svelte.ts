@@ -1,4 +1,4 @@
-import { key, readKey, type SelectedFileKey, type SelectionParameters } from './key';
+import { key, readKey, type SelectedFileKey, type SelectionParameters } from '$lib/selection/key';
 import { SvelteSet } from 'svelte/reactivity';
 import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 

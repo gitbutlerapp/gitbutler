@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ContextMenu from './ContextMenu.svelte';
+	import ContextMenu from '$lib/ContextMenu.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';

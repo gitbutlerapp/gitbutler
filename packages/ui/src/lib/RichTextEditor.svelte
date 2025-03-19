@@ -1,8 +1,8 @@
 <script lang="ts">
-	import MarkdownTransitionPlugin from './richText/plugins/markdownTransition.svelte';
 	import { standardConfig } from '$lib/richText/config/config';
 	import { standardTheme } from '$lib/richText/config/theme';
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
+	import MarkdownTransitionPlugin from '$lib/richText/plugins/markdownTransition.svelte';
 	import OnChangePlugin from '$lib/richText/plugins/onChange.svelte';
 	import { COMMAND_PRIORITY_CRITICAL, $getRoot as getRoot, KEY_DOWN_COMMAND } from 'lexical';
 	import { type Snippet } from 'svelte';

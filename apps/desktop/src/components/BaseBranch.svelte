@@ -1,8 +1,8 @@
 <script lang="ts">
-	import IntegrateUpstreamModal from './IntegrateUpstreamModal.svelte';
 	import CommitAction from '$components/CommitAction.svelte';
 	import CommitCard from '$components/CommitCard.svelte';
 	import InfoMessage from '$components/InfoMessage.svelte';
+	import IntegrateUpstreamModal from '$components/IntegrateUpstreamModal.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { transformAnyCommit } from '$lib/commits/transformers';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getFileIcon } from './getFileIcon';
+	import { getFileIcon } from '$lib/file/getFileIcon';
 	import { pxToRem } from '$lib/utils/pxToRem';
 
 	interface Props {

@@ -1,5 +1,5 @@
-import { EmojiNode } from '../node/emoji';
-import { MentionNode } from '../node/mention';
+import { EmojiNode } from '$lib/richText/node/emoji';
+import { MentionNode } from '$lib/richText/node/mention';
 import {
 	HeadingNode,
 	QuoteNode,

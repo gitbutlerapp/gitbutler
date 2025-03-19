@@ -1,5 +1,8 @@
-import { GitHub } from './github';
-import { GitHubChecksMonitor, MIN_COMPLETED_AGE } from './githubChecksMonitor.svelte';
+import { GitHub } from '$lib/forge/github/github';
+import {
+	GitHubChecksMonitor,
+	MIN_COMPLETED_AGE
+} from '$lib/forge/github/githubChecksMonitor.svelte';
 import { setupMockGitHubApi } from '$lib/testing/mockGitHubApi.svelte';
 import { type RestEndpointMethodTypes } from '@octokit/rest';
 import { flushSync } from 'svelte';

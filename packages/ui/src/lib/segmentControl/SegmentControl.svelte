@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
-	import type { SegmentContext, SegmentItem } from './segmentTypes';
+	import type { SegmentContext, SegmentItem } from '$lib/segmentControl/segmentTypes';
 	import type { Snippet } from 'svelte';
 
 	interface SegmentProps {

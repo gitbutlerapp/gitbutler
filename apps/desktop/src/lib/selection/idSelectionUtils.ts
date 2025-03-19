@@ -4,11 +4,11 @@
  * This file replaces `$lib/utils/selection.ts`, with the main difference
  * being the type change from `AnyFile` to `TreeChange`.
  */
-import { type SelectedFile, type SelectionParameters } from './key';
+import { type SelectedFile, type SelectionParameters } from '$lib/selection/key';
 import { getSelectionDirection } from '$lib/utils/getSelectionDirection';
 import { KeyName } from '@gitbutler/ui/utils/hotkeys';
 import type { TreeChange } from '$lib/hunks/change';
-import type { IdSelection } from './idSelection.svelte';
+import type { IdSelection } from '$lib/selection/idSelection.svelte';
 
 function getFile(files: TreeChange[], id: string): TreeChange | undefined {
 	return files.find((f) => f.path === id);

@@ -130,8 +130,6 @@ function formatAsNonRelative(absoluteImportPath: string): string | undefined {
 	return newPath;
 }
 
-const message = 'import statements should have an absolute path';
-
 function create(context: any) {
 	return {
 		ImportDeclaration: (node: any) => {
@@ -145,6 +143,7 @@ function create(context: any) {
 				const formattedPath = formatAsNonRelative(absoluteImportPath);
 
 				if (formattedPath) {
+					const message = `Import statements should have an absolute path where possible (${formattedPath})`;
 					context.report({
 						node,
 						message,

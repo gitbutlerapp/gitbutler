@@ -1,5 +1,5 @@
 <script lang="ts">
-	import DiffSection from './DiffSection.svelte';
+	import DiffSection from '$lib/components/review/DiffSection.svelte';
 	import { type Section } from '@gitbutler/shared/patches/types';
 	import type { LineClickParams } from '@gitbutler/ui/HunkDiff.svelte';
 	import type { ContentSection, LineSelector } from '@gitbutler/ui/utils/diffParsing';

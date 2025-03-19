@@ -32,10 +32,10 @@
 </script>
 
 <script lang="ts" generics="T extends string">
-	import OptionsGroup from './OptionsGroup.svelte';
-	import SearchItem from './SearchItem.svelte';
 	import Textbox from '$lib/Textbox.svelte';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
+	import OptionsGroup from '$lib/select/OptionsGroup.svelte';
+	import SearchItem from '$lib/select/SearchItem.svelte';
 	import { portal } from '$lib/utils/portal';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { resizeObserver } from '$lib/utils/resizeObserver';

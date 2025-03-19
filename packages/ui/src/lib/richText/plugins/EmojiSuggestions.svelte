@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { getEditor } from '../context';
-	import { getSelectionPosition } from '../selection';
+	import { getEditor } from '$lib/richText/context';
+	import { getSelectionPosition } from '$lib/richText/selection';
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import { portal } from '$lib/utils/portal';
 	import {

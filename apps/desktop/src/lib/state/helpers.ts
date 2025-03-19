@@ -4,7 +4,7 @@ import {
 	type MutationDefinition,
 	type QueryDefinition
 } from '@reduxjs/toolkit/query';
-import type { CustomQuery, CustomResult } from './butlerModule';
+import type { CustomQuery, CustomResult } from '$lib/state/butlerModule';
 
 /** Copied from redux-toolkit, it isn't exported. */
 export function isQueryDefinition(

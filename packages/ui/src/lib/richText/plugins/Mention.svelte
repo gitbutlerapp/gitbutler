@@ -10,9 +10,9 @@
 </script>
 
 <script lang="ts">
-	import TypeAhead from './TypeAhead.svelte';
-	import { getEditor } from '../context';
-	import { getMentionMatch, insertMention, type MentionMatch } from '../node/mention';
+	import { getEditor } from '$lib/richText/context';
+	import { getMentionMatch, insertMention, type MentionMatch } from '$lib/richText/node/mention';
+	import TypeAhead from '$lib/richText/plugins/TypeAhead.svelte';
 	import { $getSelection as getSelection } from 'lexical';
 
 	type Props = {

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import ProjectSetupTarget from './ProjectSetupTarget.svelte';
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import KeysForm from '$components/KeysForm.svelte';
+	import ProjectSetupTarget from '$components/ProjectSetupTarget.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { BaseBranchService, type RemoteBranchInfo } from '$lib/baseBranch/baseBranchService';

@@ -1,4 +1,4 @@
-import { scurveBackoff } from './scurve';
+import { scurveBackoff } from '$lib/backoff/scurve';
 import { expect, test } from 'vitest';
 
 test('test s-curve backoff 1', () => {

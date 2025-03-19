@@ -1,5 +1,10 @@
 import { writable, type Writable } from 'svelte/store';
-import type { OwnerResponse, LoadableOwner, ExtendedUser, ExtendedOrganization } from './types';
+import type {
+	OwnerResponse,
+	LoadableOwner,
+	ExtendedUser,
+	ExtendedOrganization
+} from '$lib/owner/types';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 
 /**

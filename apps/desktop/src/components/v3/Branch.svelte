@@ -1,13 +1,13 @@
 <script lang="ts">
-	import BranchDividerLine from './BranchDividerLine.svelte';
-	import CommitGoesHere from './CommitGoesHere.svelte';
-	import CommitRow from './CommitRow.svelte';
-	import EmptyBranch from './EmptyBranch.svelte';
-	import NewBranchModal from './NewBranchModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
+	import BranchDividerLine from '$components/v3/BranchDividerLine.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
+	import CommitGoesHere from '$components/v3/CommitGoesHere.svelte';
+	import CommitRow from '$components/v3/CommitRow.svelte';
+	import EmptyBranch from '$components/v3/EmptyBranch.svelte';
+	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';

@@ -17,7 +17,7 @@ import { ruby } from '@codemirror/legacy-modes/mode/ruby';
 import { NodeType, Tree, Parser } from '@lezer/common';
 import { tags, highlightTree } from '@lezer/highlight';
 import diff_match_patch from 'diff-match-patch';
-import type { BrandedId } from './branding';
+import type { BrandedId } from '$lib/utils/branding';
 
 export function parseHunk(hunkStr: string): Hunk {
 	const lines = hunkStr.trim().split('\n');

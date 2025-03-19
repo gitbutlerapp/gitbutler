@@ -1,4 +1,4 @@
-import { DefaultForgeFactory } from './forgeFactory.svelte';
+import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import { ProjectService } from '$lib/project/projectService';
 import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
 import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';

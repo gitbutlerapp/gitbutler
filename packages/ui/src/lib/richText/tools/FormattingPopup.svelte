@@ -1,5 +1,5 @@
 <script lang="ts">
-	import FormattingButton from './FormattingButton.svelte';
+	import FormattingButton from '$lib/richText/tools/FormattingButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { getSelectionPosition } from '@gitbutler/ui/richText/selection';
 	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';

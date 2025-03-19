@@ -46,8 +46,8 @@
 </script>
 
 <script lang="ts">
-	import Tooltip, { type TooltipAlign, type TooltipPosition } from './Tooltip.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import Tooltip, { type TooltipAlign, type TooltipPosition } from '$lib/Tooltip.svelte';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType, ComponentKindType } from '$lib/utils/colorTypes';

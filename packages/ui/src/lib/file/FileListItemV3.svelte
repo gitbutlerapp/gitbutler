@@ -1,13 +1,13 @@
 <script lang="ts">
-	import FileStatusBadge from './FileStatusBadge.svelte';
 	import Badge from '$lib/Badge.svelte';
 	import Button from '$lib/Button.svelte';
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
 	import FileIcon from '$lib/file/FileIcon.svelte';
+	import FileStatusBadge from '$lib/file/FileStatusBadge.svelte';
 	import { splitFilePath } from '$lib/utils/filePath';
-	import type { FileStatus } from './types';
+	import type { FileStatus } from '$lib/file/types';
 
 	interface Props {
 		ref?: HTMLDivElement;

@@ -1,8 +1,8 @@
-import { tauriBaseQuery } from './backendQuery';
-import { butlerModule } from './butlerModule';
-import { ReduxTag } from './tags';
-import { uiStatePersistConfig, uiStateSlice } from './uiState.svelte';
 import { changeSelectionSlice } from '$lib/selection/changeSelection.svelte';
+import { tauriBaseQuery } from '$lib/state/backendQuery';
+import { butlerModule } from '$lib/state/butlerModule';
+import { ReduxTag } from '$lib/state/tags';
+import { uiStatePersistConfig, uiStateSlice } from '$lib/state/uiState.svelte';
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { buildCreateApi, coreModule, type RootState } from '@reduxjs/toolkit/query';
 import { FLUSH, PAUSE, PERSIST, persistReducer, PURGE, REGISTER, REHYDRATE } from 'redux-persist';

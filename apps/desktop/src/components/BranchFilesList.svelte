@@ -1,6 +1,6 @@
 <script lang="ts">
-	import BranchFilesHeader from './BranchFilesHeader.svelte';
-	import FileListItemWrapper from './FileListItemWrapper.svelte';
+	import BranchFilesHeader from '$components/BranchFilesHeader.svelte';
+	import FileListItemWrapper from '$components/FileListItemWrapper.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
 	import { SelectedOwnership, updateOwnership } from '$lib/branches/ownership';
 	import { getCommitStore } from '$lib/commits/contexts';

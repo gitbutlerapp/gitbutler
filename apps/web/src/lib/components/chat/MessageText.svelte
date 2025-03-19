@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Mention from './Mention.svelte';
 	import { getChatMessageWords } from '$lib/chat/mentions';
+	import Mention from '$lib/components/chat/Mention.svelte';
 	import type { UserSimple } from '@gitbutler/shared/users/types';
 
 	interface Props {

@@ -14,7 +14,7 @@
 </script>
 
 <script lang="ts" generics="T extends Match">
-	import { getEditor } from '../context';
+	import { getEditor } from '$lib/richText/context';
 	import {
 		type EditorState,
 		type RangeSelection,

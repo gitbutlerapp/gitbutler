@@ -1,8 +1,12 @@
 <script lang="ts">
-	import { type ColumnTypes, type AvatarsType, type ChangesType } from './types';
 	import Factoid from '$lib/components/infoFlexRow//Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
 	import Minimap from '$lib/components/review/Minimap.svelte';
+	import {
+		type ColumnTypes,
+		type AvatarsType,
+		type ChangesType
+	} from '$lib/components/table/types';
 	import CommitStatusBadge, { type CommitStatusType } from '@gitbutler/ui/CommitStatusBadge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';

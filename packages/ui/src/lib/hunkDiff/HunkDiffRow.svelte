@@ -22,8 +22,8 @@
 		type DiffFileLineId,
 		type Row
 	} from '$lib/utils/diffParsing';
-	import type LineSelection from './lineSelection.svelte';
-	import type { LineSelectionParams } from './lineSelection.svelte';
+	import type LineSelection from '$lib/hunkDiff/lineSelection.svelte';
+	import type { LineSelectionParams } from '$lib/hunkDiff/lineSelection.svelte';
 
 	interface Props {
 		idx: number;

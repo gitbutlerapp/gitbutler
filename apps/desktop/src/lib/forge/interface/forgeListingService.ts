@@ -1,5 +1,5 @@
+import type { PullRequest } from '$lib/forge/interface/types';
 import type { ReactiveResult } from '$lib/state/butlerModule';
-import type { PullRequest } from './types';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 
 export interface ForgeListingService {

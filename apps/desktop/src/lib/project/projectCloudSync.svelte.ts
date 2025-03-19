@@ -3,8 +3,8 @@ import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projec
 import { readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { shallowCompare } from '@gitbutler/shared/shallowCompare';
 import type { Project } from '$lib/project/project';
+import type { ProjectService } from '$lib/project/projectService';
 import type { ProjectsService } from '$lib/project/projectsService';
-import type { ProjectService } from './projectService';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 
 export function projectCloudSync(

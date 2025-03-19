@@ -1,12 +1,12 @@
-import { ghQuery } from './ghQuery';
 import { scurveBackoff } from '$lib/backoff/scurve';
+import { ghQuery } from '$lib/forge/github/ghQuery';
 import { type ChecksResult, type SuitesResult } from '$lib/forge/github/types';
 import { ReduxTag } from '$lib/state/tags';
 import { sleep } from '$lib/utils/sleep';
 import { writable } from 'svelte/store';
+import type { ForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
 import type { ChecksStatus } from '$lib/forge/interface/types';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
-import type { ForgeChecksMonitor } from '../interface/forgeChecksMonitor';
 
 export const MIN_COMPLETED_AGE = 20000;
 

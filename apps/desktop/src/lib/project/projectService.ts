@@ -1,5 +1,5 @@
-import type { Project } from './project';
-import type { ProjectsService } from './projectsService';
+import type { Project } from '$lib/project/project';
+import type { ProjectsService } from '$lib/project/projectsService';
 import type { Readable } from 'svelte/store';
 
 /**

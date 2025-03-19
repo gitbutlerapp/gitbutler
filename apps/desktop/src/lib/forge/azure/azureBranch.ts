@@ -1,4 +1,4 @@
-import type { ForgeBranch } from '../interface/forgeBranch';
+import type { ForgeBranch } from '$lib/forge/interface/forgeBranch';
 
 export class AzureBranch implements ForgeBranch {
 	readonly url: string;

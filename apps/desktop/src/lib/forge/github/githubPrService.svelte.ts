@@ -1,17 +1,17 @@
-import { ghQuery } from './ghQuery';
+import { ghQuery } from '$lib/forge/github/ghQuery';
 import {
 	ghResponseToInstance,
 	parseGitHubDetailedPullRequest,
 	type CreatePrResult,
 	type MergeResult,
 	type UpdateResult
-} from './types';
+} from '$lib/forge/github/types';
 import {
 	MergeMethod,
 	type CreatePullRequestArgs,
 	type DetailedPullRequest,
 	type PullRequest
-} from '../interface/types';
+} from '$lib/forge/interface/types';
 import { ReduxTag } from '$lib/state/tags';
 import { sleep } from '$lib/utils/sleep';
 import { writable } from 'svelte/store';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import DomainButton from './DomainButton.svelte';
+	import DomainButton from '$components/DomainButton.svelte';
 	import UpdateBaseButton from '$components/UpdateBaseButton.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';

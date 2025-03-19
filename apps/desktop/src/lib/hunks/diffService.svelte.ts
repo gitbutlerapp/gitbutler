@@ -1,7 +1,7 @@
 import { ReduxTag } from '$lib/state/tags';
+import type { TreeChange } from '$lib/hunks/change';
+import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { ClientState } from '$lib/state/clientState.svelte';
-import type { TreeChange } from './change';
-import type { UnifiedDiff } from './diff';
 
 export class DiffService {
 	private api: ReturnType<typeof injectEndpoints>;

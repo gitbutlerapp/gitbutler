@@ -1,7 +1,7 @@
-import { User } from './user';
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
+import { User } from '$lib/user/user';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
 import { copyToClipboard } from '@gitbutler/shared/clipboard';

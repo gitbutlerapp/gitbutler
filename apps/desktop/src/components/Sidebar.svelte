@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SupportersBanner from './SupportersBanner.svelte';
+	import SupportersBanner from '$components/SupportersBanner.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { User } from '$lib/user/user';
 	import { openExternalUrl } from '$lib/utils/url';

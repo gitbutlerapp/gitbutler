@@ -1,14 +1,14 @@
 <script lang="ts">
-	import AddSeriesModal from './AddSeriesModal.svelte';
-	import BranchLabel from './BranchLabel.svelte';
-	import BranchStatus from './BranchStatus.svelte';
-	import Dropzones from './Dropzones.svelte';
-	import SeriesDescription from './SeriesDescription.svelte';
-	import SeriesHeaderStatusIcon from './SeriesHeaderStatusIcon.svelte';
+	import AddSeriesModal from '$components/AddSeriesModal.svelte';
+	import BranchLabel from '$components/BranchLabel.svelte';
 	import BranchReview from '$components/BranchReview.svelte';
+	import BranchStatus from '$components/BranchStatus.svelte';
+	import Dropzones from '$components/Dropzones.svelte';
 	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import ReviewDetailsModal from '$components/ReviewDetailsModal.svelte';
+	import SeriesDescription from '$components/SeriesDescription.svelte';
 	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
+	import SeriesHeaderStatusIcon from '$components/SeriesHeaderStatusIcon.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';

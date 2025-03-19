@@ -11,12 +11,12 @@
 </script>
 
 <script lang="ts">
-	import ChatInReplyTo from './ChatInReplyTo.svelte';
-	import MessageActions from './MessageActions.svelte';
-	import MessageDiffSection from './MessageDiffSection.svelte';
-	import MessageMarkdown from './MessageMarkdown.svelte';
 	import { parseDiffPatchToContentSection } from '$lib/chat/diffPatch';
 	import { updateReactions } from '$lib/chat/reactions';
+	import ChatInReplyTo from '$lib/components/chat/ChatInReplyTo.svelte';
+	import MessageActions from '$lib/components/chat/MessageActions.svelte';
+	import MessageDiffSection from '$lib/components/chat/MessageDiffSection.svelte';
+	import MessageMarkdown from '$lib/components/chat/MessageMarkdown.svelte';
 	import { parseDiffPatchToEncodedSelection } from '$lib/diff/lineSelection.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';

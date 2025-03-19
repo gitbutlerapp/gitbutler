@@ -1,4 +1,4 @@
-import { messageParamToPrompt, splitPromptMessages } from './anthropicUtils';
+import { messageParamToPrompt, splitPromptMessages } from '$lib/ai/anthropicUtils';
 import {
 	SHORT_DEFAULT_BRANCH_TEMPLATE,
 	SHORT_DEFAULT_COMMIT_TEMPLATE,

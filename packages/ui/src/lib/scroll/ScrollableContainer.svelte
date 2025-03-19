@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Scrollbar, { type ScrollbarPaddingType } from './Scrollbar.svelte';
+	import Scrollbar, { type ScrollbarPaddingType } from '$lib/scroll/Scrollbar.svelte';
 	import { type Snippet } from 'svelte';
 
 	interface Props {

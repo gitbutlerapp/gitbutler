@@ -1,4 +1,4 @@
-import { ProjectMetrics } from './projectMetrics';
+import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { assert, test, describe } from 'vitest';
 
 const PROJECT_ID = 'test-project';

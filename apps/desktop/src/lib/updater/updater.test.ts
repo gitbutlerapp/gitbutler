@@ -1,6 +1,6 @@
-import { UPDATE_INTERVAL_MS, UpdaterService } from './updater';
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { Tauri } from '$lib/backend/tauri';
+import { UPDATE_INTERVAL_MS, UpdaterService } from '$lib/updater/updater';
 import { get } from 'svelte/store';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
 import type { Update } from '@tauri-apps/plugin-updater';

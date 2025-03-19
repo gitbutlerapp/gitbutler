@@ -1,4 +1,4 @@
-import { updateEditorToMarkdown, updateEditorToPlaintext } from '../markdown';
+import { updateEditorToMarkdown, updateEditorToPlaintext } from '$lib/richText/markdown';
 import type { LexicalEditor } from 'lexical';
 
 export default class MarkdownTransitionPlugin {

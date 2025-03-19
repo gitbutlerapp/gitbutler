@@ -2,8 +2,8 @@ import {
 	buildMutationHooks,
 	buildQueryHooks,
 	type UseMutationHookParams
-} from './customHooks.svelte';
-import { isMutationDefinition, isQueryDefinition } from './helpers';
+} from '$lib/state/customHooks.svelte';
+import { isMutationDefinition, isQueryDefinition } from '$lib/state/helpers';
 import { type Reactive } from '@gitbutler/shared/storeUtils';
 import {
 	type BaseQueryFn,
@@ -22,8 +22,8 @@ import {
 	type SubscriptionOptions,
 	type StartQueryActionCreatorOptions
 } from '@reduxjs/toolkit/query';
-import type { tauriBaseQuery, TauriBaseQueryFn } from './backendQuery';
-import type { HookContext } from './context';
+import type { tauriBaseQuery, TauriBaseQueryFn } from '$lib/state/backendQuery';
+import type { HookContext } from '$lib/state/context';
 import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
 
 /** Gives our module a namespace in the extended `ApiModules` interface. */

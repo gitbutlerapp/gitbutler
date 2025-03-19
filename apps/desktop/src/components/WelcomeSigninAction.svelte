@@ -1,5 +1,5 @@
 <script lang="ts">
-	import WelcomeAction from './WelcomeAction.svelte';
+	import WelcomeAction from '$components/WelcomeAction.svelte';
 	import signinSvg from '$lib/assets/signin.svg?raw';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';

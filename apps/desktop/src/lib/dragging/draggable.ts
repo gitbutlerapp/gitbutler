@@ -1,6 +1,6 @@
-import { FileDropData, ChangeDropData, type DropData } from './draggables';
-import { dropzoneRegistry } from './dropzone';
 import { type CommitStatus } from '$lib/commits/commit';
+import { FileDropData, ChangeDropData, type DropData } from '$lib/dragging/draggables';
+import { dropzoneRegistry } from '$lib/dragging/dropzone';
 import { getFileIcon } from '@gitbutler/ui/file/getFileIcon';
 import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 

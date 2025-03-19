@@ -1,5 +1,5 @@
-import { KNOWN_ERRORS } from './knownErrors';
-import { isBackendError, isHttpError, isPromiseRejection } from './typeguards';
+import { KNOWN_ERRORS } from '$lib/error/knownErrors';
+import { isBackendError, isHttpError, isPromiseRejection } from '$lib/error/typeguards';
 import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 
 export interface ParsedError {

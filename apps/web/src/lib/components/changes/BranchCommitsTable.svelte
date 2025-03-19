@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BranchCommitsRow from './BranchCommitsRow.svelte';
+	import BranchCommitsRow from '$lib/components/changes/BranchCommitsRow.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { type Branch } from '@gitbutler/shared/branches/types';
 	import { type ProjectReviewParameters } from '@gitbutler/shared/routing/webRoutes.svelte';

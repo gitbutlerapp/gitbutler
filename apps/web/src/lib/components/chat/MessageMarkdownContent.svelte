@@ -1,7 +1,7 @@
 <script lang="ts">
-	import MessageCode from './MessageCode.svelte';
-	import MessageText from './MessageText.svelte';
+	import MessageCode from '$lib/components/chat/MessageCode.svelte';
 	import Self from '$lib/components/chat/MessageMarkdownContent.svelte';
+	import MessageText from '$lib/components/chat/MessageText.svelte';
 	import Blockquote from '@gitbutler/ui/markdown/markdownRenderers/Blockquote.svelte';
 	import Br from '@gitbutler/ui/markdown/markdownRenderers/Br.svelte';
 	import Codespan from '@gitbutler/ui/markdown/markdownRenderers/Codespan.svelte';

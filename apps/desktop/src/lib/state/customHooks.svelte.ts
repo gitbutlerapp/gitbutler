@@ -12,9 +12,9 @@ import {
 	type RootState,
 	type StartQueryActionCreatorOptions
 } from '@reduxjs/toolkit/query';
-import type { TauriCommandError } from './backendQuery';
-import type { CustomQuery } from './butlerModule';
-import type { HookContext } from './context';
+import type { TauriCommandError } from '$lib/state/backendQuery';
+import type { CustomQuery } from '$lib/state/butlerModule';
+import type { HookContext } from '$lib/state/context';
 
 /**
  * Returns implementations for custom endpoint methods defined in `ButlerModule`.

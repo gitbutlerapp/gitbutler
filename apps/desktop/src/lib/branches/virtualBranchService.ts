@@ -1,7 +1,7 @@
-import { BranchStack, VirtualBranches } from './branch';
-import { PatchSeries } from './branch';
-import { DependencyError } from './branch';
 import { invoke, listen } from '$lib/backend/ipc';
+import { BranchStack, VirtualBranches } from '$lib/branches/branch';
+import { PatchSeries } from '$lib/branches/branch';
+import { DependencyError } from '$lib/branches/branch';
 import { showError } from '$lib/notifications/toasts';
 import { plainToInstance } from 'class-transformer';
 import { writable } from 'svelte/store';

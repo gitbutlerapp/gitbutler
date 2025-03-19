@@ -1,4 +1,8 @@
-import MetricsReporter, { HOUR_MS, DELAY_MS, INTERVAL_MS } from './MetricsReporter.svelte';
+import MetricsReporter, {
+	HOUR_MS,
+	DELAY_MS,
+	INTERVAL_MS
+} from '$components/MetricsReporter.svelte';
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { ProjectService } from '$lib/project/projectService';

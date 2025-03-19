@@ -1,4 +1,4 @@
-import type { ChecksStatus } from './types';
+import type { ChecksStatus } from '$lib/forge/interface/types';
 import type { Readable } from 'svelte/store';
 
 export interface ForgeChecksMonitor {

@@ -1,4 +1,4 @@
-import { type BranchStack } from './branch';
+import { type BranchStack } from '$lib/branches/branch';
 import { filesToOwnership } from '$lib/branches/ownership';
 import { CommitDropData, HunkDropData, FileDropData } from '$lib/dragging/draggables';
 import { LocalFile } from '$lib/files/file';

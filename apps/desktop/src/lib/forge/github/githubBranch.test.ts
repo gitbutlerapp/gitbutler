@@ -1,4 +1,4 @@
-import { GitHub } from './github';
+import { GitHub } from '$lib/forge/github/github';
 import { setupMockGitHubApi } from '$lib/testing/mockGitHubApi.svelte';
 import { expect, test, describe } from 'vitest';
 

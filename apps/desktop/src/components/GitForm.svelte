@@ -1,5 +1,5 @@
 <script lang="ts">
-	import CommitSigningForm from './CommitSigningForm.svelte';
+	import CommitSigningForm from '$components/CommitSigningForm.svelte';
 	import KeysForm from '$components/KeysForm.svelte';
 	import Section from '$components/Section.svelte';
 	import { platformName } from '$lib/platform/platform';

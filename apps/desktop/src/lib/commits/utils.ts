@@ -1,4 +1,4 @@
-import type { DetailedCommit } from './commit';
+import type { DetailedCommit } from '$lib/commits/commit';
 
 type DivergenceResult =
 	| { type: 'localDiverged'; commit: DetailedCommit }

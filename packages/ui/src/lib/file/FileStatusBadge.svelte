@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Badge from '$lib/Badge.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
+	import type { FileStatus } from '$lib/file/types';
 	import type { ComponentColorType } from '$lib/utils/colorTypes';
-	import type { FileStatus } from './types';
 
 	interface Props {
 		status: FileStatus;

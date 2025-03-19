@@ -1,8 +1,8 @@
-import { ghQuery } from './ghQuery';
+import { ghQuery } from '$lib/forge/github/ghQuery';
 import { ReduxTag } from '$lib/state/tags';
+import type { CreateIssueResult } from '$lib/forge/github/types';
 import type { ForgeIssueService } from '$lib/forge/interface/forgeIssueService';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
-import type { CreateIssueResult } from './types';
 
 export class GitHubIssueService implements ForgeIssueService {
 	private api: ReturnType<typeof injectEndpoints>;

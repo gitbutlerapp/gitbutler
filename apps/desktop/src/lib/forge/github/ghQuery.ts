@@ -1,5 +1,5 @@
-import { GitHubClient } from './githubClient';
-import { DEFAULT_HEADERS } from './headers';
+import { GitHubClient } from '$lib/forge/github/githubClient';
+import { DEFAULT_HEADERS } from '$lib/forge/github/headers';
 import { isErrorlike, type ErrorLike } from '@gitbutler/ui/utils/typeguards';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 

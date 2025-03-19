@@ -1,6 +1,6 @@
 <script lang="ts">
-	import ProjectsPopup from './ProjectsPopup.svelte';
 	import ProjectAvatar from '$components/ProjectAvatar.svelte';
+	import ProjectsPopup from '$components/ProjectsPopup.svelte';
 	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';

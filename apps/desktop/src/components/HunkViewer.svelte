@@ -1,6 +1,6 @@
 <script lang="ts">
-	import HunkDiff from './HunkDiff.svelte';
 	import HunkContextMenu from '$components/HunkContextMenu.svelte';
+	import HunkDiff from '$components/HunkDiff.svelte';
 	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
 	import { BranchStack } from '$lib/branches/branch';
 	import { SelectedOwnership } from '$lib/branches/ownership';

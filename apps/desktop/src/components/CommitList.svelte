@@ -1,8 +1,8 @@
 <script lang="ts">
-	import CommitAction from './CommitAction.svelte';
-	import CommitCard from './CommitCard.svelte';
-	import CommitDragItem from './CommitDragItem.svelte';
-	import CommitsAccordion from './CommitsAccordion.svelte';
+	import CommitAction from '$components/CommitAction.svelte';
+	import CommitCard from '$components/CommitCard.svelte';
+	import CommitDragItem from '$components/CommitDragItem.svelte';
+	import CommitsAccordion from '$components/CommitsAccordion.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import LineOverlay from '$components/LineOverlay.svelte';
 	import { BranchStack } from '$lib/branches/branch';

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import BoardEmptyState from './BoardEmptyState.svelte';
-	import FullviewLoading from './FullviewLoading.svelte';
-	import PageLoadFailed from './PageLoadFailed.svelte';
+	import BoardEmptyState from '$components/BoardEmptyState.svelte';
 	import BranchDropzone from '$components/BranchDropzone.svelte';
 	import BranchLane from '$components/BranchLane.svelte';
+	import FullviewLoading from '$components/FullviewLoading.svelte';
+	import PageLoadFailed from '$components/PageLoadFailed.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { BranchController } from '$lib/branches/branchController';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';

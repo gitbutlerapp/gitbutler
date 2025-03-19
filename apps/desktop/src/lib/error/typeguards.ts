@@ -1,4 +1,4 @@
-import type { HttpError, BackendError, UnhandledPromiseError } from './error';
+import type { HttpError, BackendError, UnhandledPromiseError } from '$lib/error/error';
 
 export function isBackendError(err: unknown): err is BackendError {
 	return (

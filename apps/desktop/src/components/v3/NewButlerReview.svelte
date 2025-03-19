@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Drawer from './Drawer.svelte';
-	import CommitMessageEditor from './editor/CommitMessageEditor.svelte';
-	import EditorFooter from './editor/EditorFooter.svelte';
-	import EditorHeader from './editor/EditorHeader.svelte';
+	import Drawer from '$components/v3/Drawer.svelte';
+	import CommitMessageEditor from '$components/v3/editor/CommitMessageEditor.svelte';
+	import EditorFooter from '$components/v3/editor/EditorFooter.svelte';
+	import EditorHeader from '$components/v3/editor/EditorHeader.svelte';
 	import { stackPath } from '$lib/routes/routes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { writable } from 'svelte/store';

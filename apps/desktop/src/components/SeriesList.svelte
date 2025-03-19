@@ -1,11 +1,11 @@
 <script lang="ts">
-	import CurrentSeries from './CurrentSeries.svelte';
-	import EmptySeries from './EmptySeries.svelte';
-	import ErrorSeries from './ErrorSeries.svelte';
-	import SeriesDividerLine from './SeriesDividerLine.svelte';
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import CommitList from '$components/CommitList.svelte';
+	import CurrentSeries from '$components/CurrentSeries.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
+	import EmptySeries from '$components/EmptySeries.svelte';
+	import ErrorSeries from '$components/ErrorSeries.svelte';
+	import SeriesDividerLine from '$components/SeriesDividerLine.svelte';
 	import SeriesHeader from '$components/SeriesHeader.svelte';
 	import { isPatchSeries, type BranchStack } from '$lib/branches/branch';
 	import { PatchSeries } from '$lib/branches/branch';

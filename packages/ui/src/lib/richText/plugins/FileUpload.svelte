@@ -7,8 +7,8 @@
 </script>
 
 <script lang="ts">
-	import { getEditor } from '../context';
-	import { insertTextAtCaret } from '../selection';
+	import { getEditor } from '$lib/richText/context';
+	import { insertTextAtCaret } from '$lib/richText/selection';
 	import { COMMAND_PRIORITY_CRITICAL, DROP_COMMAND } from 'lexical';
 
 	type Props = {
