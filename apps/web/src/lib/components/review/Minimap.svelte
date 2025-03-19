@@ -113,6 +113,7 @@
 <style lang="postcss">
 	.minimap {
 		position: fixed;
+		z-index: var(--z-lifted);
 		left: 0px;
 		top: 100px;
 
