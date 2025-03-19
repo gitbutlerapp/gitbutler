@@ -50,6 +50,7 @@
 		"svelte-eslint-parser": "^0.43.0",
 		"turbo": "2.3.3",
 		"typescript": "5.4.5",
-		"typescript-eslint": "^8.10.0"
+		"typescript-eslint": "^8.10.0",
+		"@gitbutler/no-relative-imports": "workspace:*"
 	}
 }

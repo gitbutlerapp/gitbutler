@@ -34,7 +34,11 @@
 			"dependsOn": ["package"]
 		},
 		"//#globallint": {
-			"dependsOn": ["@gitbutler/ui#package", "@gitbutler/shared#package"]
+			"dependsOn": [
+				"@gitbutler/ui#package",
+				"@gitbutler/shared#package",
+				"@gitbutler/no-relative-imports#package"
+			]
 		}
 	}
 }
