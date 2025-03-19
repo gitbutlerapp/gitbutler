@@ -7,7 +7,7 @@ import { openExternalUrl } from '$lib/utils/url';
 import { copyToClipboard } from '@gitbutler/shared/clipboard';
 import { type HttpClient } from '@gitbutler/shared/network/httpClient';
 import { plainToInstance } from 'class-transformer';
-import { derived, writable, type Readable } from 'svelte/store';
+import { derived, get, readable, writable, type Readable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import type { ApiUser } from '@gitbutler/shared/users/types';
@@ -83,7 +83,10 @@ export class UserService {
 		resetSentry();
 	}
 
-	private async loginCommon(action: (url: string) => void): Promise<User | undefined> {
+	private async loginCommon(
+		action: (url: string) => void,
+		aborted: Readable<boolean>
+	): Promise<User | undefined> {
 		this.logout();
 		this.loading.set(true);
 		try {
@@ -94,10 +97,7 @@ export class UserService {
 
 			action(url.toString());
 
-			// Assumed min time for login flow
-			await sleep(4000);
-
-			const user = await this.pollForUser(token.token);
+			const user = await this.pollForUser(token.token, aborted);
 			this.tokenMemoryService.setToken(undefined);
 			this.setUser(user);
 
@@ -110,30 +110,36 @@ export class UserService {
 		}
 	}
 
-	async login(): Promise<User | undefined> {
+	async login(aborted: Readable<boolean> = readable(false)): Promise<User | undefined> {
 		return await this.loginCommon((url) => {
 			openExternalUrl(url);
-		});
+		}, aborted);
 	}
 
-	async loginAndCopyLink(): Promise<User | undefined> {
+	async loginAndCopyLink(aborted: Readable<boolean> = readable(false)): Promise<User | undefined> {
 		return await this.loginCommon((url) => {
 			setTimeout(() => {
 				copyToClipboard(url);
 			}, 0);
-		});
+		}, aborted);
 	}
 
-	private async pollForUser(token: string): Promise<User | undefined> {
+	private async pollForUser(token: string, aborted: Readable<boolean>): Promise<User | undefined> {
+		const pollingDuration = 20 * 60 * 1000; // 20 minutes
+		const pollingFrequency = 5 * 1000; // 5 seconds
+
 		let apiUser: User | null;
-		for (let i = 0; i < 120; i++) {
+		for (let i = 0; i < pollingDuration / pollingFrequency; i++) {
+			if (get(aborted)) return;
 			apiUser = await this.getLoginUser(token).catch(() => null);
 			if (apiUser) {
 				this.setUser(apiUser);
 				return apiUser;
 			}
-			await sleep(1000);
+			await sleep(pollingFrequency);
 		}
+
+		throw new Error('Login token expired. Please try loging in again');
 	}
 
 	// TODO: Remove token from URL, we don't want that leaking into logs.

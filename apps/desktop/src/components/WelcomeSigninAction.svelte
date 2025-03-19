@@ -3,7 +3,9 @@
 	import signinSvg from '$lib/assets/signin.svg?raw';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
+	import { writable } from 'svelte/store';
 
 	const {
 		dimMessage,
@@ -12,6 +14,8 @@
 		dimMessage?: boolean;
 		prompt?: string;
 	} = $props();
+
+	const aborted = writable(false);
 
 	const userService = getContext(UserService);
 	const loading = userService.loading;
@@ -23,7 +27,8 @@
 		title="Log in or Sign up"
 		loading={$loading}
 		onclick={async () => {
-			await userService.login();
+			$aborted = false;
+			await userService.login(aborted);
 		}}
 		rowReverse
 		{dimMessage}
@@ -37,11 +42,20 @@
 			<LinkButton
 				icon="copy-small"
 				onclick={async () => {
-					await userService.loginAndCopyLink();
+					$aborted = false;
+					await userService.loginAndCopyLink(aborted);
 				}}
 			>
 				the login link
 			</LinkButton>
 		{/snippet}
 	</WelcomeAction>
+
+	{#if $loading}
+		<div>
+			<Button kind="outline" onclick={() => ($aborted = true)} loading={$aborted}
+				>Cancel login attempt</Button
+			>
+		</div>
+	{/if}
 {/if}
