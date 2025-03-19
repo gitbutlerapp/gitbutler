@@ -18,7 +18,7 @@ import { writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { ForgePrService } from '$lib/forge/interface/forgePrService';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
-import type { SubscriptionOptions } from '@reduxjs/toolkit/query';
+import type { StartQueryActionCreatorOptions } from '@reduxjs/toolkit/query';
 
 export class GitHubPrService implements ForgePrService {
 	loading = writable(false);
@@ -71,18 +71,15 @@ export class GitHubPrService implements ForgePrService {
 		throw lastError;
 	}
 
-	async fetch(number: number) {
-		const result = await this.api.endpoints.getPr.fetch({ number });
-		if (result) {
-			return result;
-		}
-		throw new Error('Invalid response!');
+	async fetch(number: number, options?: { forceRefetch: boolean }) {
+		const result = $derived(
+			this.api.endpoints.getPr.fetch({ number }, { forceRefetch: options?.forceRefetch })
+		);
+		return await result;
 	}
 
-	get(number: number, subscriptionOptions?: SubscriptionOptions) {
-		const result = $derived.by(() =>
-			this.api.endpoints.getPr.useQuery({ number }, { subscriptionOptions })
-		);
+	get(number: number, options?: StartQueryActionCreatorOptions) {
+		const result = $derived(this.api.endpoints.getPr.useQuery({ number }, options));
 		return result;
 	}
 

@@ -19,7 +19,8 @@ import {
 	type ApiModules,
 	type MutationResultSelectorResult,
 	type QueryActionCreatorResult,
-	type SubscriptionOptions
+	type SubscriptionOptions,
+	type StartQueryActionCreatorOptions
 } from '@reduxjs/toolkit/query';
 import type { tauriBaseQuery, TauriBaseQueryFn } from './backendQuery';
 import type { HookContext } from './context';
@@ -136,6 +137,7 @@ export type CustomResult<T extends QueryDefinition<any, any, any, any>> =
 export type SubscribeResult<T> = Reactive<QueryActionCreatorResult<CustomQuery<T>>>;
 export type ReactiveResult<T> = Reactive<CustomResult<CustomQuery<T>>>;
 export type AsyncResult<T> = Promise<CustomResult<CustomQuery<T>>>;
+
 /**
  * Shorthand useful for service interfaces.
  */
@@ -180,17 +182,17 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 		args: QueryArgFrom<D>,
 		options: SubscriptionOptions & { forceRefetch: boolean }
 	) => QueryActionCreatorResult<CustomQuery<ResultTypeFrom<D>>>;
-	/** Execute query and return results. */
+	/** Fetch as promise, non-reactive. */
 	fetch: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
 		args: QueryArgFrom<D>,
-		options?: { transform?: T }
+		options?: { transform?: T; forceRefetch?: boolean }
 	) => Promise<
-		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>['data']
+		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>
 	>;
 	/** Execute query and return results. */
 	useQuery: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
 		args: QueryArgFrom<D>,
-		options?: { transform?: T; subscriptionOptions?: SubscriptionOptions }
+		options?: { transform?: T } & StartQueryActionCreatorOptions
 	) => Reactive<
 		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>
 	>;

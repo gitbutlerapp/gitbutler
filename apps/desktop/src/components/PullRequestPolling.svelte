@@ -28,7 +28,7 @@
 		return 30 * 60 * 1000;
 	});
 
-	const prResult = $derived(prService?.get(number, { pollingInterval }));
+	const prResult = $derived(prService?.get(number, { subscriptionOptions: { pollingInterval } }));
 
 	$effect(() => {
 		const updatedAtStr = prResult?.current.data?.updatedAt;

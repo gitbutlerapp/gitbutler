@@ -1,13 +1,16 @@
-import type { ReactiveResult } from '$lib/state/butlerModule';
+import type { AsyncResult, ReactiveResult } from '$lib/state/butlerModule';
 import type { CreatePullRequestArgs, DetailedPullRequest, MergeMethod, PullRequest } from './types';
 import type { MergeResult, UpdateResult } from '../github/types';
-import type { SubscriptionOptions } from '@reduxjs/toolkit/query';
+import type { StartQueryActionCreatorOptions } from '@reduxjs/toolkit/query';
 import type { Writable } from 'svelte/store';
 
 export interface ForgePrService {
 	loading: Writable<boolean>;
-	get(prNumber: number, options?: SubscriptionOptions): ReactiveResult<DetailedPullRequest>;
-	fetch(prNumber: number): Promise<DetailedPullRequest>;
+	get(
+		prNumber: number,
+		options?: StartQueryActionCreatorOptions
+	): ReactiveResult<DetailedPullRequest>;
+	fetch(prNumber: number): AsyncResult<DetailedPullRequest | undefined>;
 	createPr({
 		title,
 		body,
