@@ -17,7 +17,6 @@
 	type Props = {
 		pullRequestCard?: Snippet<[DetailedPullRequest]>;
 		branchStatus?: Snippet;
-		branchLine?: Snippet;
 		openForgePullRequest: () => void;
 		projectId: string;
 		stackId: string;
@@ -27,7 +26,6 @@
 	const {
 		pullRequestCard,
 		branchStatus,
-		branchLine,
 		openForgePullRequest,
 		projectId,
 		stackId,
@@ -72,51 +70,38 @@
 </script>
 
 <div class="branch-action">
-	{#if branchLine}
-		{@render branchLine()}
+	{#if pr || reviewId}
+		<div class="status-cards">
+			{#if pr && pullRequestCard}
+				<div>
+					{@render pullRequestCard(pr)}
+				</div>
+			{/if}
+			{#if reviewId}
+				<div>
+					<BranchReviewButRequest {reviewId} />
+				</div>
+			{/if}
+		</div>
 	{/if}
-	<div class="branch-action__body">
-		{#if pr || reviewId}
-			<div class="status-cards">
-				{#if pr && pullRequestCard}
-					<div>
-						{@render pullRequestCard(pr)}
-					</div>
-				{/if}
-				{#if reviewId}
-					<div>
-						<BranchReviewButRequest {reviewId} />
-					</div>
-				{/if}
-			</div>
-		{/if}
 
-		{#if branchStatus}
-			{@render branchStatus()}
-		{/if}
+	{#if branchStatus}
+		{@render branchStatus()}
+	{/if}
 
-		{#if showCreateButton}
-			<Button onclick={openForgePullRequest} kind="outline" {disabled} {tooltip}>
-				Submit for Review
-			</Button>
-		{/if}
-	</div>
+	{#if showCreateButton}
+		<Button onclick={openForgePullRequest} kind="outline" {disabled} {tooltip}>
+			Submit for Review
+		</Button>
+	{/if}
 </div>
 
 <style lang="postcss">
 	.branch-action {
 		width: 100%;
 		display: flex;
-		justify-content: flex-start;
-		align-items: stretch;
-
-		.branch-action__body {
-			width: 100%;
-			padding: 0 14px 14px 0;
-			display: flex;
-			flex-direction: column;
-			gap: 14px;
-		}
+		flex-direction: column;
+		gap: 14px;
 	}
 
 	/*
@@ -129,7 +114,7 @@
 		We don't want to use display: none as that breaks things in other strange ways
 	*/
 
-	.branch-action:not(:has(> .branch-action__body > *)) {
+	.branch-action:not(:has(> *)) {
 		padding: 0;
 	}
 

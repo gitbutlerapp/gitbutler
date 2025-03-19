@@ -76,8 +76,7 @@
 						</div>
 					</div>
 
-					<BranchReview openForgePullRequest={() => {}} {stackId} {projectId} {branchName}
-					></BranchReview>
+					<BranchReview openForgePullRequest={() => {}} {stackId} {projectId} {branchName} />
 
 					<ChangedFiles type="branch" {projectId} {stackId} {branchName} />
 				</div>
@@ -106,18 +105,6 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-	}
-
-	.branch-view__review-card-container {
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 16px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
-
-		padding: 14px;
 	}
 
 	.branch-view__header-details-row {
