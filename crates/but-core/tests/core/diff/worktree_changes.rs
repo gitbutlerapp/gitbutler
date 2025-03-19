@@ -1107,7 +1107,7 @@ fn renamed_in_worktree() -> Result<()> {
                         kind: Blob,
                     },
                     state: ChangeState {
-                        id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
+                        id: Sha1(0000000000000000000000000000000000000000),
                         kind: Blob,
                     },
                     flags: None,
@@ -1143,7 +1143,7 @@ fn renamed_in_worktree_with_executable_bit() -> Result<()> {
                         kind: BlobExecutable,
                     },
                     state: ChangeState {
-                        id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
+                        id: Sha1(0000000000000000000000000000000000000000),
                         kind: BlobExecutable,
                     },
                     flags: None,

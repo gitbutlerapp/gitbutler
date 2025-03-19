@@ -291,7 +291,9 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
             status::Item::IndexWorktree(index_worktree::Item::Rewrite {
                 source,
                 dirwalk_entry,
-                dirwalk_entry_id,
+                // This ID is usually null, but might be set if used for comparisons.
+                // However, this wouldn't mean the object exists.
+                dirwalk_entry_id: _,
                 ..
             }) => {
                 let previous_path: BString = source.rela_path().into();
@@ -317,7 +319,8 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                     },
                 };
                 let state = ChangeState {
-                    id: dirwalk_entry_id,
+                    // Use the worktree version
+                    id: repo.object_hash().null(),
                     kind: match disk_kind_to_entry_kind(
                         dirwalk_entry.disk_kind,
                         dirwalk_entry.index_kind,
