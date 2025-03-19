@@ -157,14 +157,13 @@
 				{#snippet emptyPlaceholder()}
 					<EmptyBranch {lastBranch} />
 				{/snippet}
-				{#snippet upstreamTemplate({ commit, commitKey, first, lastCommit, selected })}
+				{#snippet upstreamTemplate({ commit, first, lastCommit, selected })}
 					{@const commitId = commit.id}
 					{#if !isCommitting}
 						<CommitRow
 							{stackId}
 							{branchName}
 							{projectId}
-							{commitKey}
 							{first}
 							lastCommit={lastCommit && !commit}
 							{commit}
@@ -176,7 +175,7 @@
 						/>
 					{/if}
 				{/snippet}
-				{#snippet localAndRemoteTemplate({ commit, commitKey, first, last, lastCommit, selected })}
+				{#snippet localAndRemoteTemplate({ commit, first, last, lastCommit, selected })}
 					{@const commitId = commit.id}
 					{#if isCommitting}
 						<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
@@ -192,7 +191,6 @@
 						{stackId}
 						{branchName}
 						{projectId}
-						{commitKey}
 						{first}
 						{lastCommit}
 						{lastBranch}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Drawer from './Drawer.svelte';
 	import EditorFooter from './editor/EditorFooter.svelte';
 	import MessageEditor from './editor/MessageEditor.svelte';
 	import TitleInput from './editor/TitleInput.svelte';
@@ -20,7 +21,8 @@
 	const [uiState] = inject(UiState);
 	const [createCommitInStack, commitCreation] = stackService.createCommit();
 
-	const selected = $derived(uiState.stack(stackId).selection.get());
+	const stackState = $derived(uiState.stack(stackId));
+	const selected = $derived(stackState.selection.get());
 	const branchName = $derived(selected.current?.branchName);
 	const commitId = $derived(selected.current?.commitId);
 	const canCommit = $derived(branchName);
@@ -77,18 +79,23 @@
 	}
 </script>
 
-<div class="new-commit-fields">
-	<TitleInput bind:value={titleText} />
-	<MessageEditor bind:this={composer} bind:markdown={$markdown} />
-</div>
-<EditorFooter onCancel={() => uiState.project(projectId).drawerPage.set(undefined)}>
-	<Button
-		style="pop"
-		onclick={hanldleCommitCreation}
-		disabled={!canCommit}
-		loading={commitCreation.current.isLoading}>Create commit</Button
-	>
-</EditorFooter>
+<Drawer>
+	{#snippet header()}
+		<p class="text-14 text-semibold">Create commit</p>
+	{/snippet}
+	<div class="new-commit-fields">
+		<TitleInput bind:value={titleText} />
+		<MessageEditor bind:this={composer} bind:markdown={$markdown} />
+	</div>
+	<EditorFooter onCancel={() => uiState.project(projectId).drawerPage.set(undefined)}>
+		<Button
+			style="pop"
+			onclick={hanldleCommitCreation}
+			disabled={!canCommit}
+			loading={commitCreation.current.isLoading}>Create commit</Button
+		>
+	</EditorFooter>
+</Drawer>
 
 <style lang="postcss">
 	.new-commit-fields {

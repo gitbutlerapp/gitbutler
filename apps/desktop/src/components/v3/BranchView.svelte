@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BranchBadge from './BranchBadge.svelte';
+	import Drawer from './Drawer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -37,43 +38,47 @@
 {#if branchName}
 	<ReduxResult result={combineResults(branchResult.current, branchDetailsResult.current)}>
 		{#snippet children([branch, branchDetails])}
-			<div class="branch-view">
-				<div class="branch-view__header-container">
+			<Drawer>
+				{#snippet header()}
 					<div class="branch-view__header-title-row">
 						<BranchBadge pushStatus={branchDetails.pushStatus} />
 						<h3 class="text-15 text-bold">
 							{branch.name}
 						</h3>
 					</div>
+				{/snippet}
 
-					<div class="text-13 branch-view__header-details-row">
-						{#if branchDetails.isConflicted}
-							<span class="branch-view__header-details-row-conflict">Has conflicts</span>
+				<div class="branch-view">
+					<div class="branch-view__header-container">
+						<div class="text-13 branch-view__header-details-row">
+							{#if branchDetails.isConflicted}
+								<span class="branch-view__header-details-row-conflict">Has conflicts</span>
+								<span class="branch-view__details-divider">•</span>
+							{/if}
+
+							<span>Contributors:</span>
+
+							<AvatarGroup
+								maxAvatars={2}
+								avatars={branchDetails.authors.map((a) => ({
+									name: a.name,
+									srcUrl: getGravatarUrl(a.email, a.gravatarUrl)
+								}))}
+							/>
+
 							<span class="branch-view__details-divider">•</span>
-						{/if}
 
-						<span>Contributors:</span>
+							<span>Updated {getTimeAgo(new Date(branchDetails.lastUpdatedAt))}</span>
 
-						<AvatarGroup
-							maxAvatars={2}
-							avatars={branchDetails.authors.map((a) => ({
-								name: a.name,
-								srcUrl: getGravatarUrl(a.email, a.gravatarUrl)
-							}))}
-						/>
-
-						<span class="branch-view__details-divider">•</span>
-
-						<span>Updated {getTimeAgo(new Date(branchDetails.lastUpdatedAt))}</span>
-
-						<span class="branch-view__details-divider">•</span>
+							<span class="branch-view__details-divider">•</span>
+						</div>
 					</div>
+
+					<div class="branch-view__review-card-container">Review card goes here</div>
+
+					<ChangedFiles type="branch" {projectId} {stackId} {branchName} />
 				</div>
-
-				<div class="branch-view__review-card-container">Review card goes here</div>
-
-				<ChangedFiles type="branch" {projectId} {stackId} {branchName} />
-			</div>
+			</Drawer>
 		{/snippet}
 	</ReduxResult>
 {/if}
@@ -81,15 +86,10 @@
 <style>
 	.branch-view {
 		display: flex;
-		padding: 14px;
 		flex-direction: column;
 		gap: 16px;
 		align-self: stretch;
 		height: 100%;
-
-		border-radius: var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
 	}
 
 	.branch-view__header-container {

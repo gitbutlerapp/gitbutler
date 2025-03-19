@@ -1,6 +1,8 @@
 <script lang="ts">
 	import ChangedFiles from './ChangedFiles.svelte';
+	import CommitDetails from './CommitDetails.svelte';
 	import CommitHeader from './CommitHeader.svelte';
+	import Drawer from './Drawer.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -25,24 +27,27 @@
 
 <ReduxResult result={commitResult.current}>
 	{#snippet children(commit)}
-		<ConfigurableScrollableContainer>
-			<div class="commit-view">
-				<CommitHeader {projectId} {commitKey} {commit} {onclick} />
-				<ChangedFiles type="commit" {projectId} commitId={commitKey.commitId} />
-			</div>
-		</ConfigurableScrollableContainer>
+		<Drawer>
+			{#snippet header()}
+				<CommitHeader {commit} />
+			{/snippet}
+			<ConfigurableScrollableContainer>
+				<div class="commit-view">
+					<CommitDetails {projectId} {commit} {onclick} />
+					<ChangedFiles type="commit" {projectId} commitId={commitKey.commitId} />
+				</div>
+			</ConfigurableScrollableContainer>
+		</Drawer>
 	{/snippet}
 </ReduxResult>
 
 <style>
 	.commit-view {
 		position: relative;
-		padding: 14px 16px;
 		min-height: 100%;
 		flex: 1;
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
-		background-color: var(--clr-bg-1);
 	}
 </style>
