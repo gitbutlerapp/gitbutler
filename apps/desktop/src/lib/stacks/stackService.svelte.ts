@@ -69,8 +69,11 @@ on fetching and pushing for ways to resolve the problem.
 export class StackService {
 	private api: ReturnType<typeof injectEndpoints>;
 
-	constructor(state: ClientState, posthog: PostHogWrapper) {
-		this.api = injectEndpoints(state.backendApi, posthog);
+	constructor(
+		state: ClientState,
+		private readonly posthog: PostHogWrapper
+	) {
+		this.api = injectEndpoints(state.backendApi);
 	}
 
 	stacks(projectId: string) {
@@ -222,7 +225,14 @@ export class StackService {
 	}
 
 	pushStack() {
-		return this.api.endpoints.pushStack.useMutation();
+		return this.api.endpoints.pushStack.useMutation({
+			sideEffect: () => this.posthog.capture('Push Successful'),
+			onError: (commandError: TauriCommandError) => {
+				const { code, message } = commandError;
+				this.posthog.capture('Push Failed', { error: { code, message } });
+				surfaceStackError('push', code ?? '', message);
+			}
+		});
 	}
 
 	createCommit() {
@@ -280,7 +290,7 @@ export class StackService {
 	}
 }
 
-function injectEndpoints(api: ClientState['backendApi'], posthog: PostHogWrapper) {
+function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			stacks: build.query<EntityState<Stack, string>, { projectId: string }>({
@@ -368,17 +378,7 @@ function injectEndpoints(api: ClientState['backendApi'], posthog: PostHogWrapper
 					ReduxTag.StackBranches,
 					ReduxTag.Commits,
 					{ type: ReduxTag.StackInfo, id: args.stackId }
-				],
-				transformResponse(response: BranchPushResult) {
-					posthog.capture('Push Successful');
-					return response;
-				},
-				transformErrorResponse(commandError: TauriCommandError) {
-					const { code, message } = commandError;
-					posthog.capture('Push Failed', { error: { code, message } });
-					surfaceStackError('push', code ?? '', message);
-					return commandError;
-				}
+				]
 			}),
 			createCommit: build.mutation<
 				{ newCommit: string; pathsToRejectedChanges: string[] },

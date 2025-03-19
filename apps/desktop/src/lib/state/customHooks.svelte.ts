@@ -12,6 +12,7 @@ import {
 	type RootState,
 	type SubscriptionOptions
 } from '@reduxjs/toolkit/query';
+import type { TauriCommandError } from './backendQuery';
 import type { CustomQuery } from './butlerModule';
 import type { HookContext } from './context';
 
@@ -101,7 +102,7 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 export type UseMutationHookParams<Definition extends MutationDefinition<any, any, string, any>> = {
 	fixedCacheKey?: string;
 	sideEffect?: (data: ResultTypeFrom<Definition>) => void;
-	onError?: (error: unknown) => void;
+	onError?: (error: TauriCommandError) => void;
 };
 
 /**
