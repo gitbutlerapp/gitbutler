@@ -326,6 +326,10 @@
 
 	.summary-text {
 		line-height: 160%;
+		border: 1px solid #ddd;
+		border-radius: 9px;
+		padding: 12px;
+		background-color: #fff;
 	}
 
 	.summary-placeholder {
