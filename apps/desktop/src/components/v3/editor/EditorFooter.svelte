@@ -12,7 +12,7 @@
 </script>
 
 <div class="editor-footer">
-	<Button kind="outline" style="neutral" onclick={onCancel} width={94}>{CancelButtonLabel}</Button>
+	<Button kind="outline" style="neutral" onclick={onCancel}>{CancelButtonLabel}</Button>
 	{@render children()}
 </div>
 
@@ -20,9 +20,8 @@
 	.editor-footer {
 		display: flex;
 		align-items: center;
+		justify-content: flex-end;
 		gap: 6px;
-		padding: 16px;
-		background: var(--clr-bg-1);
-		border-top: 1px solid var(--clr-border-2);
+		margin-top: 14px;
 	}
 </style>
