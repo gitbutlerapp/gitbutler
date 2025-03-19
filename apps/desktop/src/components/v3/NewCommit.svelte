@@ -1,7 +1,7 @@
 <script lang="ts">
-	import CommitMessageEditor from './editor/CommitMessageEditor.svelte';
 	import EditorFooter from './editor/EditorFooter.svelte';
-	import EditorHeader from './editor/EditorHeader.svelte';
+	import MessageEditor from './editor/MessageEditor.svelte';
+	import TitleInput from './editor/TitleInput.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -27,12 +27,14 @@
 	const changeSelection = getContext(ChangeSelectionService);
 	const selection = $derived(changeSelection.list());
 
+	let titleText = $state<string>();
+
 	/**
 	 * Toggles use of markdown on/off in the message editor.
 	 */
 	let markdown = persisted(true, 'useMarkdown__' + projectId);
 
-	let composer = $state<ReturnType<typeof CommitMessageEditor>>();
+	let composer = $state<ReturnType<typeof MessageEditor>>();
 
 	async function createCommit(message: string) {
 		if (!branchName) {
@@ -75,14 +77,24 @@
 	}
 </script>
 
-<EditorHeader title="New commit" bind:markdown={$markdown} />
-<CommitMessageEditor bind:this={composer} bind:markdown={$markdown} />
+<div class="new-commit-fields">
+	<TitleInput bind:value={titleText} />
+	<MessageEditor bind:this={composer} bind:markdown={$markdown} />
+</div>
 <EditorFooter onCancel={() => uiState.project(projectId).drawerPage.set(undefined)}>
 	<Button
 		style="pop"
 		onclick={hanldleCommitCreation}
-		wide
 		disabled={!canCommit}
 		loading={commitCreation.current.isLoading}>Create commit</Button
 	>
 </EditorFooter>
+
+<style lang="postcss">
+	.new-commit-fields {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+</style>

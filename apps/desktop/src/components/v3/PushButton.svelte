@@ -21,7 +21,7 @@
 	const stackInfoResult = $derived(stackService.stackInfo(projectId, stackId));
 	const stackInfo = $derived(stackInfoResult.current.data);
 	const [pushStack, pushResult] = stackService.pushStack();
-	let scrollEndVisible = $state(true);
+	let isSticked = $state(true);
 
 	const requiresForce = $derived(stackInfo && stackRequiresForcePush(stackInfo));
 	const hasThingsToPush = $derived(stackInfo && stackHasUnpushedCommits(stackInfo));
@@ -37,25 +37,24 @@
 
 <div
 	class="push-button"
-	class:scroll-end-visible={scrollEndVisible}
+	class:is-sticked={isSticked}
 	use:intersectionObserver={{
 		callback: (entry) => {
 			if (entry?.isIntersecting) {
-				scrollEndVisible = false;
+				isSticked = false;
 			} else {
-				scrollEndVisible = true;
+				isSticked = true;
 			}
 		},
 		options: {
 			root: null,
-			rootMargin: `-100% 0px 0px 0px`,
-			threshold: 0
+			threshold: 1
 		}
 	}}
 >
 	<div class="push-button__inner">
 		<Button
-			style="pop"
+			style="neutral"
 			wide
 			{loading}
 			disabled={!hasThingsToPush || hasConflicts}
@@ -73,34 +72,37 @@
 	.push-button {
 		z-index: var(--z-lifted);
 		position: sticky;
-		padding: 20px 12px 12px;
-		bottom: 0;
-
-		transition: background-color var(--transition-fast);
-
-		&:global(.merge-all > button:not(:last-child)) {
-			margin-bottom: 8px;
-		}
+		padding: 8px 0 8px;
+		margin-bottom: -9px;
+		bottom: -1px;
+		transition: padding var(--transition-medium);
 
 		&:after {
 			content: '';
 			display: block;
 			position: absolute;
 			bottom: 0;
-			left: 0;
-			height: calc(100% + 12px);
-			width: 100%;
+			left: -14px;
+			height: calc(100% + 8px);
+			width: calc(100% + 28px);
 			z-index: -1;
 			background-color: var(--clr-bg-1);
 			border-top: 1px solid var(--clr-border-2);
 
-			transform: translateY(0);
+			transform: translateY(10%);
 			opacity: 0;
-			transition: opacity var(--transition-fast);
+			transition:
+				opacity var(--transition-fast),
+				transform var(--transition-medium);
 		}
 
-		&:not(.scroll-end-visible):after {
+		&.is-sticked {
+			padding-bottom: 14px;
+		}
+
+		&.is-sticked:after {
 			opacity: 1;
+			transform: translateY(0);
 		}
 	}
 

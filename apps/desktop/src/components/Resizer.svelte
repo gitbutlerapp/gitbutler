@@ -38,7 +38,7 @@
 		sticky = false,
 		zIndex = 'var(--z-lifted)',
 		minWidth = 0,
-		maxWidth = 80,
+		maxWidth = 40,
 		minHeight = 0,
 
 		onHeight,

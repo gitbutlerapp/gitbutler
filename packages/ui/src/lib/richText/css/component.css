@@ -1,7 +1,8 @@
 /* STYLE CONTEXT */
 
 .lexical-client-editor {
-	--lexical-input-padding: 16px;
+	--lexical-input-padding: 12px;
+	height: 100%;
 
 	& .ContentEditable__root {
 		height: 100%;
