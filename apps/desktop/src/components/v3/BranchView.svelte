@@ -41,7 +41,6 @@
 			<Drawer>
 				{#snippet header()}
 					<div class="branch-view__header-title-row">
-						<BranchBadge pushStatus={branchDetails.pushStatus} />
 						<h3 class="text-15 text-bold">
 							{branch.name}
 						</h3>
@@ -51,6 +50,8 @@
 				<div class="branch-view">
 					<div class="branch-view__header-container">
 						<div class="text-13 branch-view__header-details-row">
+							<BranchBadge pushStatus={branchDetails.pushStatus} />
+
 							{#if branchDetails.isConflicted}
 								<span class="branch-view__header-details-row-conflict">Has conflicts</span>
 								<span class="branch-view__details-divider">•</span>
