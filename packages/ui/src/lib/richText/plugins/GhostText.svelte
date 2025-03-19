@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { getEditor } from '../context';
-	import { createGhostTextNode } from '../node/ghostText';
-	import { insertNodeAtCaret, insertTextAtCaret } from '../selection';
-	import { COMMAND_PRIORITY_CRITICAL, KEY_ESCAPE_COMMAND, KEY_TAB_COMMAND } from 'lexical';
+	import { insertGhostTextAtCaret, removeAllGhostText, replaceGhostTextWithText } from '../selection';
+	import { CLICK_COMMAND, COMMAND_PRIORITY_CRITICAL, KEY_DOWN_COMMAND } from 'lexical';
 
 	type Props = {
-		onSelection: (text: string) => void;
+		onSelection?: (text: string) => void;
 	};
 
 	const { onSelection }: Props = $props();
@@ -14,12 +13,17 @@
 
 	const editor = getEditor();
 
+	export function reset() {
+		textContent = undefined;
+		removeAllGhostText(editor);
+	}
+
 	function handleEscape(event: KeyboardEvent): boolean {
 		if (!textContent) {
 			return false;
 		}
 
-		textContent = undefined;
+		reset();
 
 		event.preventDefault();
 		event.stopPropagation();
@@ -31,38 +35,72 @@
 			return false;
 		}
 
-		onSelection(textContent);
-    textContent = undefined;
+		onSelection?.(textContent);
+		replaceGhostTextWithText(editor);
+		reset();
 
 		event.preventDefault();
 		event.stopPropagation();
 		return true;
 	}
 
+	function handleKeyDown(event: KeyboardEvent): boolean {
+		if (event.key === 'Escape') {
+			return handleEscape(event);
+		} else if (event.key === 'Tab') {
+			return handleTab(event);
+		}
+
+		if (
+			[
+				'Shift',
+				'Control',
+				'Meta',
+				'Alt',
+				'ArrowUp',
+				'ArrowDown',
+				'ArrowLeft',
+				'ArrowRight',
+			].includes(event.key)
+		) {
+			return false;
+		}
+
+		reset();
+		return false;
+	}
+
+	function handleClick(): boolean {
+		if (!textContent) {
+			return false;
+		}
+		reset();
+		return true;
+	}
+
 	// Register listeners
 	$effect(() => {
-		const unregisterTab = editor.registerCommand(
-			KEY_TAB_COMMAND,
-			handleTab,
+		const unregister = editor.registerCommand(
+			KEY_DOWN_COMMAND,
+			handleKeyDown,
 			COMMAND_PRIORITY_CRITICAL
 		);
 
-		const unregisterEscape = editor.registerCommand(
-			KEY_ESCAPE_COMMAND,
-			handleEscape,
+		const unregisterClick = editor.registerCommand(
+			CLICK_COMMAND,
+			handleClick,
 			COMMAND_PRIORITY_CRITICAL
 		);
 
 		return () => {
-			unregisterTab();
-			unregisterEscape();
+			unregister();
+			unregisterClick();
 		};
 	});
 
 	// Insert the ghost text
 	export function setText(text: string) {
 		textContent = text;
-		// const ghostText = createGhostT-extNode(text);
-		insertTextAtCaret(editor, 'bla');
+		insertGhostTextAtCaret(editor, text);
 	}
 </script>

@@ -92,7 +92,7 @@
 	{/snippet}
 	<div class="new-commit-fields">
 		<Textbox bind:value={titleText} placeholder="Commit title" />
-		<MessageEditor bind:this={composer} bind:markdown={$markdown} />
+		<MessageEditor bind:this={composer} bind:markdown={$markdown} {projectId} {stackId} />
 	</div>
 	<EditorFooter onCancel={cancel}>
 		<Button

@@ -131,5 +131,10 @@
 		"install": "^0.13.0",
 		"lexical": "0.17.0",
 		"svelte-lexical": "^0.5.0"
+	},
+	"resolve": {
+		"alias": {
+			"lexical": "lexical/Lexical.dev.mjs"
+		}
 	}
 }

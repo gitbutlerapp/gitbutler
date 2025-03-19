@@ -1,4 +1,12 @@
-import { $isRangeSelection, $getSelection, TextNode, type LexicalEditor, type LexicalNode } from 'lexical';
+import { createGhostTextNode, GhostText } from './node/ghostText';
+import {
+	$isRangeSelection,
+	$getSelection,
+	TextNode,
+	type LexicalEditor,
+	$nodesOfType,
+	$getRoot
+} from 'lexical';
 import { ImageNode } from 'svelte-lexical';
 
 export function getCursorPosition() {
@@ -21,14 +29,50 @@ export function getSelectionPosition(windowScrollY?: number) {
 	}
 }
 
-export function insertNodeAtCaret<T extends LexicalNode>(editor: LexicalEditor, insertNode: T) {
+export function insertGhostTextAtCaret(editor: LexicalEditor, ghostText: string) {
 	editor.update(() => {
 		const selection = $getSelection();
 		if (!$isRangeSelection(selection)) {
 			return;
 		}
 
+		const currentTextContent = $getRoot().getTextContent();
+		const textToInsert = ghostText.slice(currentTextContent.length);
+
+		const insertNode = createGhostTextNode(textToInsert);
 		selection.insertNodes([insertNode]);
+	});
+}
+
+export function removeAllGhostText(editor: LexicalEditor) {
+	editor.update(() => {
+		const selection = $getSelection();
+		if (!$isRangeSelection(selection)) {
+			return;
+		}
+
+		const nodes = $nodesOfType(GhostText);
+		for (const node of nodes) {
+			node.remove();
+		}
+	});
+}
+
+export function replaceGhostTextWithText(editor: LexicalEditor) {
+	editor.update(() => {
+		const selection = $getSelection();
+		if (!$isRangeSelection(selection)) {
+			return;
+		}
+
+		const nodes = $nodesOfType(GhostText);
+		let lastNode: TextNode | undefined;
+		for (const node of nodes) {
+			const text = node.getHiddenText();
+			lastNode = new TextNode(text);
+			node.replace(lastNode);
+		}
+		lastNode?.selectEnd();
 	});
 }
 
@@ -85,4 +129,3 @@ export function insertTextAtCaret(editor: LexicalEditor, text: string) {
 		node.spliceText(offset, 0, text);
 	});
 }
-

@@ -16,6 +16,7 @@ import {
 	type Prompt
 } from '$lib/ai/types';
 import { splitMessage } from '$lib/utils/commitMessage';
+import { devLog } from '@gitbutler/shared/logging';
 import { get } from 'svelte/store';
 import type { GitConfigService } from '$lib/config/gitConfigService';
 import type { SecretsService } from '$lib/secrets/secretsService';
@@ -317,6 +318,50 @@ export class AIService {
 
 		const { title, description } = splitMessage(message);
 		return description ? `${title}\n\n${description}` : title;
+	}
+
+	private formatStagedChanges(stagedChanges: { path: string; diff: string[] }[]): string {
+		return stagedChanges
+			.map((change) => {
+				return `### ${change.path}\n${change.diff.join('\n')}`;
+			})
+			.join('\n');
+	}
+
+	async autoCompleteCommitMessage({
+		currentValue,
+		stagedChanges
+	}: {
+		currentValue: string;
+		stagedChanges: { path: string; diff: string[] }[];
+	}): Promise<string | undefined> {
+		const aiClient = await this.buildClient();
+		if (!aiClient) return;
+
+		const prompt: PromptMessage[] = [];
+
+		const systemContent = `You are a developer working on a new feature. You have made some changes to the code and are documenting them.
+ONLY complete the sentence bellow replacing the <<<<FILL>>>> marker.
+Return the commit message that you would use to describe the changes you made.
+DON'T change any part of the existing message.
+User the following staged changes as context:
+
+${this.formatStagedChanges(stagedChanges)}`;
+
+		devLog(systemContent);
+
+		prompt.push({
+			role: MessageRole.System,
+			content: systemContent
+		});
+
+		prompt.push({
+			role: MessageRole.User,
+			content: `${currentValue}<<<<<FILL>>>>>`
+		});
+
+		const message = (await aiClient.evaluate(prompt)).trim();
+		return message;
 	}
 
 	async summarizeBranch({
