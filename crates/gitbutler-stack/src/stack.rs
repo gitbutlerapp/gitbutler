@@ -703,12 +703,9 @@ impl Stack {
         {
             return Err(anyhow!("The new head names do not match the current heads"));
         }
-        let stack_head = self.head();
         let gix_repo = ctx.gix_repository()?;
         for head in &mut self.heads {
             if let Some(commit) = new_heads.get(head.name()) {
-                let new_head = commit.clone().into();
-                validate_target(&new_head, ctx.repo(), stack_head, &state)?;
                 head.set_head(commit.clone().into(), &gix_repo)?;
             }
         }

@@ -554,8 +554,6 @@ pub(crate) fn integrate_upstream(
                 continue;
             };
 
-            stack.set_stack_head(command_context, *head, Some(*tree))?;
-
             // Update the branch heads
             if let Some(output) = rebase_output {
                 let mut new_heads: HashMap<String, git2::Commit<'_>> = HashMap::new();
@@ -567,6 +565,7 @@ pub(crate) fn integrate_upstream(
                 }
                 stack.set_all_heads(command_context, new_heads)?;
             }
+            stack.set_stack_head(command_context, *head, Some(*tree))?;
 
             let mut archived_branches =
                 stack.archive_integrated_heads(command_context, for_archival)?;
