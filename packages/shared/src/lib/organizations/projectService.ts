@@ -125,7 +125,6 @@ export class ProjectService {
 	async getProjectPatchStacks(slug: string): Promise<Branch[]> {
 		try {
 			const apiBranches = await this.httpClient.get<ApiBranch[]>(`patch_stack/${slug}`);
-			console.log('apiBranches', apiBranches);
 			return apiBranches.map(apiToBranch);
 		} catch (error) {
 			console.error(`Error fetching patch stacks for ${slug}:`, error);

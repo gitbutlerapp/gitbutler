@@ -9,12 +9,14 @@
 
 	function handleDescriptionKeyDown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
+			// eslint-disable-next-line no-console
 			console.log('keyboard', e.key);
 			e.preventDefault();
 			return;
 		}
 
 		if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+			// eslint-disable-next-line no-console
 			console.log('keyboard', e.key);
 			e.preventDefault();
 			return;
@@ -37,6 +39,7 @@
 			{...args}
 			onkeydown={handleDescriptionKeyDown}
 			onfocus={(e) => {
+				// eslint-disable-next-line no-console
 				console.log('focus', e);
 			}}
 		/>

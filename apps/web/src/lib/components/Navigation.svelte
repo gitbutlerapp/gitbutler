@@ -71,7 +71,6 @@
 				hasUnread={isNotificationsUnread}
 				onclick={() => {
 					// TODO: implement notifications
-					console.log('Example of the button animation');
 					isNotificationsUnread = !isNotificationsUnread;
 				}}
 			/>

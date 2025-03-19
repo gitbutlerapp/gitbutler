@@ -189,7 +189,6 @@
 	}
 
 	async function onAddKeyModalClose() {
-		console.log('Modal closed, refreshing keys...');
 		await loadSshKeys();
 	}
 </script>

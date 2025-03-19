@@ -72,7 +72,6 @@ export class ProjectMetrics {
 	getReport(projectId: string): MetricsReport {
 		// Return a copy since we keep mutating the metrics object,
 		// and a report is specific to a point in time.
-		console.log(this.reports);
 		return structuredClone(this.project(projectId));
 	}
 

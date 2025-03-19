@@ -14,6 +14,7 @@
 			tooltip: 'Tooltip',
 			id: 'id',
 			onclick: (e: MouseEvent) => {
+				// eslint-disable-next-line no-console
 				console.log('clicked', e);
 			}
 		},

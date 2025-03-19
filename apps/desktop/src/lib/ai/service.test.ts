@@ -27,7 +27,6 @@ import { Hunk } from '$lib/hunks/hunk';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
 import { plainToInstance } from 'class-transformer';
-import { get } from 'svelte/store';
 import { expect, test, describe, vi } from 'vitest';
 import type { SecretsService } from '$lib/secrets/secretsService';
 
@@ -170,7 +169,6 @@ describe('AIService', () => {
 	describe('#buildModel', () => {
 		test('With default configuration, When a user token is provided. It returns ButlerAIClient', async () => {
 			tokenMemoryService.setToken('test-token');
-			console.log(get(tokenMemoryService.token));
 			const aiService = buildDefaultAIService();
 
 			expect(await aiService.buildClient()).toBeInstanceOf(ButlerAIClient);

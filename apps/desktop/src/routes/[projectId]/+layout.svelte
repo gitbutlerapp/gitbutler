@@ -153,11 +153,6 @@
 	});
 
 	$effect(() => {
-		console.log('updating config', {
-			repo: $repoInfo,
-			pushRepo: $forkInfo,
-			baseBranch: baseBranchName
-		});
 		setConfig({
 			repo: $repoInfo,
 			pushRepo: $forkInfo,

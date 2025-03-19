@@ -8,6 +8,7 @@
 		args: {
 			icon: 'copy-small',
 			onclick: () => {
+				// eslint-disable-next-line no-console
 				console.log('LinkButton clicked');
 			}
 		},

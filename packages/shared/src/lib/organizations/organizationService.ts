@@ -157,15 +157,11 @@ export class OrganizationService {
 	 * @returns Array of patch stacks converted to Branch format
 	 */
 	async fetchPatchStacks(ownerSlug: string): Promise<Branch[]> {
-		console.log(`[OrganizationService] Fetching patch stacks for org: ${ownerSlug}`);
-
 		// Try different API endpoint patterns since we're not sure about the exact one
 		const endpoint = `organization/${ownerSlug}/patch_stacks`;
 
 		try {
-			console.log(`[OrganizationService] Trying API URL: ${endpoint}`);
 			const response = await this.httpClient.get<ApiBranch[]>(endpoint);
-			console.log(`[OrganizationService] API response successful for ${endpoint}:`, response);
 
 			// Convert ApiBranch objects to Branch objects
 			return response.map(apiToBranch);
@@ -178,7 +174,6 @@ export class OrganizationService {
 			}
 
 			// If it's a 404, we'll try the next endpoint
-			console.log(`[OrganizationService] Endpoint ${endpoint} returned 404, trying next...`);
 		}
 
 		// If we've tried all endpoints and none worked, return empty array
