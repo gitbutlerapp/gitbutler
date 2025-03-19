@@ -19,9 +19,11 @@ use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
 };
 use gitbutler_repo_actions::RepoActionsExt as _;
+use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::stack_context::StackContext;
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
 use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree};
+use gix::merge::tree::TreatAsUnresolved;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, PartialEq, Debug)]
@@ -63,8 +65,8 @@ pub enum BranchStatus {
 pub enum StackStatuses {
     UpToDate,
     UpdatesRequired {
-        #[serde(rename = "worktreeConflicted")]
-        worktree_conflicted: bool,
+        #[serde(rename = "worktreeConflicts")]
+        worktree_conflicts: Vec<BStringForFrontend>,
         statuses: Vec<(StackId, StackStatus)>,
     },
 }
@@ -405,10 +407,10 @@ pub fn upstream_integration_statuses(
         .find_commit(new_target.id().to_gix())?
         .tree_id()?;
 
-    let (merge_options_fail_fast, conflict_kind) =
+    let (merge_options_fail_fast, _conflict_kind) =
         gix_repository.merge_options_no_rewrites_fail_fast()?;
 
-    let worktree_conflicted = gix_repository
+    let worktree_conflicts = gix_repository
         .merge_trees(
             merge_base_tree,
             workdir_tree,
@@ -416,7 +418,11 @@ pub fn upstream_integration_statuses(
             gix_repository.default_merge_labels(),
             merge_options_fail_fast.clone(),
         )?
-        .has_unresolved_conflicts(conflict_kind);
+        .conflicts
+        .iter()
+        .filter(|c| c.is_unresolved(TreatAsUnresolved::git()))
+        .map(|c| c.ours.location().into())
+        .collect::<Vec<BStringForFrontend>>();
 
     let statuses = stacks_in_workspace
         .iter()
@@ -435,7 +441,7 @@ pub fn upstream_integration_statuses(
         .collect::<Result<Vec<_>>>()?;
 
     Ok(StackStatuses::UpdatesRequired {
-        worktree_conflicted,
+        worktree_conflicts,
         statuses,
     })
 }

@@ -152,5 +152,5 @@ export type BranchStatusesResponse =
 	  }
 	| {
 			type: 'updatesRequired';
-			subject: { worktreeConflicted: boolean; statuses: [string, StackStatus][] };
+			subject: { worktreeConflicts: string[]; statuses: [string, StackStatus][] };
 	  };
