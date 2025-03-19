@@ -126,7 +126,8 @@ export type CustomResult<T extends QueryDefinition<any, any, any, any>> =
 		 *   );
 		 * ```
 		 */
-		andThen<S extends (arg1: ResultTypeFrom<T>) => any>(fn: S): ReturnType<S>;
+		// TODO: Remove this since it seems we shouldn't need it?
+		// andThen<S extends (arg1: ResultTypeFrom<T>) => any>(fn: S): ReturnType<S>;
 	};
 
 /**
