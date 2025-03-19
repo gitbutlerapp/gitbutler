@@ -2,22 +2,41 @@
 	import Resizer from '$components/Resizer.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
+		projectId: string;
+		stackId: string;
 		header?: Snippet;
 		children: Snippet;
 	};
 
-	const { header, children }: Props = $props();
+	const { header, children, projectId, stackId }: Props = $props();
 
 	const [uiState] = inject(UiState);
 
-	let height = $derived(uiState.global.drawerHeight.get());
+	const projectUiState = $derived(uiState.project(projectId));
+	const stackUiState = $derived(uiState.stack(stackId));
+
+	const drawerIsFullScreen = $derived(projectUiState.drawerFullScreen.get());
+	const heightRmResult = $derived(uiState.global.drawerHeight.get());
+	const heightRm = $derived(`min(${heightRmResult.current}rem, 80%)`);
+	const height = $derived(drawerIsFullScreen.current ? '100%' : heightRm);
+
 	let drawerDiv = $state<HTMLDivElement>();
+
+	function onToggleExpand() {
+		projectUiState.drawerFullScreen.set(!drawerIsFullScreen.current);
+	}
+
+	export function onClose() {
+		projectUiState.drawerPage.set(undefined);
+		stackUiState.selection.set(undefined);
+	}
 </script>
 
-<div class="drawer" bind:this={drawerDiv} style:height={height.current + 'rem'}>
+<div class="drawer" bind:this={drawerDiv} style:height>
 	<div class="drawer-header">
 		<div class="drawer-header__main">
 			{#if header}
@@ -25,19 +44,29 @@
 			{/if}
 		</div>
 
-		<div class="drawer-header__actions">bla</div>
+		<div class="drawer-header__actions">
+			<Button
+				style="ghost"
+				icon={drawerIsFullScreen.current ? 'chevron-down' : 'chevron-up'}
+				size="icon"
+				onclick={onToggleExpand}
+			/>
+			<Button style="ghost" icon="cross" size="icon" onclick={onClose} />
+		</div>
 	</div>
 
 	{#if children}
 		{@render children()}
 	{/if}
 
-	<Resizer
-		direction="up"
-		viewport={drawerDiv}
-		minHeight={11}
-		onHeight={(value) => uiState.global.drawerHeight.set(value)}
-	/>
+	{#if !drawerIsFullScreen.current}
+		<Resizer
+			direction="up"
+			viewport={drawerDiv}
+			minHeight={11}
+			onHeight={(value) => uiState.global.drawerHeight.set(value)}
+		/>
+	{/if}
 </div>
 
 <style>
@@ -73,6 +102,6 @@
 	.drawer-header__actions {
 		flex-shrink: 0;
 		display: flex;
-		gap: 8px;
+		gap: 6px;
 	}
 </style>

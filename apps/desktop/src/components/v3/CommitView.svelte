@@ -11,11 +11,12 @@
 
 	type Props = {
 		projectId: string;
+		stackId: string;
 		commitKey: CommitKey;
 		onclick?: () => void;
 	};
 
-	const { projectId, commitKey, onclick }: Props = $props();
+	const { projectId, stackId, commitKey, onclick }: Props = $props();
 
 	const [stackService] = inject(StackService);
 	const commitResult = $derived(
@@ -27,7 +28,7 @@
 
 <ReduxResult result={commitResult.current}>
 	{#snippet children(commit)}
-		<Drawer>
+		<Drawer {projectId} {stackId}>
 			{#snippet header()}
 				<CommitHeader {commit} />
 			{/snippet}

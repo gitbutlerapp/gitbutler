@@ -20,6 +20,15 @@ export const uiStatePersistConfig = {
 	storage: storage
 };
 
+type StackUiState = {
+	selection: CommitSelection | undefined;
+};
+
+type ProjectUiState = {
+	drawerPage: DrawerPage;
+	drawerFullScreen: boolean;
+};
+
 /**
  * Stateful properties for the UI, with redux backed fine-grained reactivity.
  */
@@ -27,13 +36,14 @@ export class UiState {
 	private state = $state<EntityState<UiStateVariable, string>>(uiStateSlice.getInitialState());
 
 	/** Properties scoped to a specific stack. */
-	readonly stack = this.buildScopedProps({
-		selection: undefined as CommitSelection | undefined
+	readonly stack = this.buildScopedProps<StackUiState>({
+		selection: undefined
 	});
 
 	/** Properties scoped to a specific project. */
-	readonly project = this.buildScopedProps({
-		drawerPage: undefined as DrawerPage
+	readonly project = this.buildScopedProps<ProjectUiState>({
+		drawerPage: undefined,
+		drawerFullScreen: false
 	});
 
 	/** Properties that are globally scoped. */

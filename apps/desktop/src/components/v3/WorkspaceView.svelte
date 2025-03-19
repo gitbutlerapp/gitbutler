@@ -20,7 +20,9 @@
 	const { stackId, projectId, right }: Props = $props();
 
 	const [uiState] = inject(UiState);
-	const drawerPage = $derived(uiState.project(projectId).drawerPage.get());
+	const projectUiState = $derived(uiState.project(projectId));
+	const drawerPage = $derived(projectUiState.drawerPage.get());
+	const drawerIsFullScreen = $derived(projectUiState.drawerFullScreen.get());
 	const selected = $derived(uiState.stack(stackId!).selection.get());
 	const branchName = $derived(selected.current?.branchName);
 
@@ -42,7 +44,9 @@
 		/>
 	</div>
 	<div class="main-view">
-		<SelectionView {projectId} />
+		{#if !drawerIsFullScreen.current}
+			<SelectionView {projectId} />
+		{/if}
 
 		{#if stackId}
 			{#if drawerPage.current === 'new-commit'}
@@ -53,9 +57,10 @@
 				<NewPullRequest {stackId} {projectId} />
 			{:else if drawerPage.current === 'br'}
 				<NewButlerReview {stackId} {projectId} />
-			{:else if selected.current?.branchName && selected.current.commitId}
+			{:else if selected.current?.branchName && selected.current.commitId && stackId}
 				<CommitView
 					{projectId}
+					{stackId}
 					commitKey={{
 						stackId,
 						branchName: selected.current.branchName,
