@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BranchCommitsTable from '$lib/components/changes/BranchCommitsTable.svelte';
+	import PrivateProjectError from '$lib/components/errors/PrivateProjectError.svelte';
 	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
 	import Minimap from '$lib/components/review/Minimap.svelte';
@@ -15,7 +16,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContributorsWithAvatars } from '@gitbutler/shared/contributors';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { isFound, and, map } from '@gitbutler/shared/network/loadable';
+	import { isFound, and, isError, map } from '@gitbutler/shared/network/loadable';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		WebRoutesService,
@@ -84,6 +85,28 @@
 			? getContributorsWithAvatars(branch.current.value)
 			: Promise.resolve([])
 	);
+
+	// Check if there's a 403 error in either branchUuid or branch
+	function isForbiddenError(data: any) {
+		if (!isError(data)) return false;
+
+		const errorMessage = data.error.message || '';
+		return (
+			(data.error.name === 'ApiError' && errorMessage.includes('403')) ||
+			errorMessage.includes('Forbidden') ||
+			errorMessage.includes('Access denied') ||
+			(typeof errorMessage === 'string' && errorMessage.includes('403'))
+		);
+	}
+
+	// Check if there's a 403 error
+	const hasForbiddenError = $derived(
+		isForbiddenError(branchUuid?.current) || isForbiddenError(branch?.current)
+	);
+
+	// Check for any error in the combined loadable
+	const combinedLoadable = $derived(and([branchUuid?.current, branch?.current]));
+	const hasAnyError = $derived(isError(combinedLoadable));
 
 	function visitFirstCommit(branch: Branch) {
 		if ((branch.patchCommitIds?.length || 0) === 0) return;
@@ -183,110 +206,125 @@
 	{/if}
 </svelte:head>
 
-<Loading loadable={and([branchUuid?.current, branch?.current])}>
-	{#snippet children(branch)}
-		<div class="layout">
-			<div class="information">
-				<div class="heading">
-					{#if editingSummary}
-						<Textarea bind:value={title}></Textarea>
-					{:else}
-						<p class="text-15 text-bold">{branch.title}</p>
-					{/if}
-					<div class="actions">
-						<Button icon="copy-small" kind="outline" onclick={copyLocation}>Share link</Button>
-						{@render startReview(branch)}
-						{#if branch.status === BranchStatus.Closed}
-							<AsyncButton action={async () => updateStatus(BranchStatus.Active)} kind="outline"
-								>Re-open review</AsyncButton
-							>
+{#if hasForbiddenError}
+	<PrivateProjectError />
+{:else if hasAnyError && combinedLoadable}
+	{#if isForbiddenError(combinedLoadable)}
+		<PrivateProjectError />
+	{:else if isError(combinedLoadable)}
+		<div class="error-container">
+			<h2 class="text-15 text-body text-bold">Error loading project data</h2>
+			<p class="text-13 text-body">{combinedLoadable.error.message}</p>
+		</div>
+	{/if}
+{:else}
+	<Loading loadable={combinedLoadable}>
+		{#snippet children(branch)}
+			<div class="layout">
+				<div class="information">
+					<div class="heading">
+						{#if editingSummary}
+							<Textarea bind:value={title}></Textarea>
 						{:else}
-							<AsyncButton
-								style="error"
-								kind="outline"
-								action={async () => updateStatus(BranchStatus.Closed)}>Close review</AsyncButton
+							<p class="text-15 text-bold">{branch.title}</p>
+						{/if}
+						<div class="actions">
+							<Button icon="copy-small" kind="outline" onclick={copyLocation}>Share link</Button>
+							{@render startReview(branch)}
+							{#if branch.status === BranchStatus.Closed}
+								<AsyncButton action={async () => updateStatus(BranchStatus.Active)} kind="outline"
+									>Re-open review</AsyncButton
+								>
+							{:else}
+								<AsyncButton
+									style="error"
+									kind="outline"
+									action={async () => updateStatus(BranchStatus.Closed)}>Close review</AsyncButton
+								>
+							{/if}
+						</div>
+					</div>
+					<InfoFlexRow>
+						<Factoid label="Status"><BranchStatusBadge {branch} /></Factoid>
+						<Factoid label="Commits">
+							<Minimap
+								branchUuid={branch.uuid}
+								ownerSlug={data.ownerSlug}
+								projectSlug={data.projectSlug}
+								horizontal
+							/>
+						</Factoid>
+						{#if branch.forgeUrl}
+							<Factoid label="PR"
+								><Link href={branch.forgeUrl}>{branch.forgeDescription || '#unknown'}</Link
+								></Factoid
 							>
+						{/if}
+						<Factoid label="Authors">
+							{#await contributors then contributors}
+								<AvatarGroup avatars={contributors}></AvatarGroup>
+							{/await}
+						</Factoid>
+						<Factoid label="Updated">
+							{dayjs(branch.updatedAt).fromNow()}
+						</Factoid>
+						<Factoid label="Version">
+							{branch.version}
+						</Factoid>
+					</InfoFlexRow>
+					<div class="summary">
+						{#if editingSummary}
+							<div class="summary-wrapper">
+								<RichTextEditor
+									namespace="review-description"
+									markdown={false}
+									onError={console.error}
+									styleContext="chat-input"
+									initialText={branch.description}
+									onChange={(text) => (summary = text)}
+								>
+									{#snippet plugins()}
+										<FileUploadPlugin onDrop={handleDropFiles} />
+									{/snippet}
+								</RichTextEditor>
+							</div>
+
+							<div class="summary-actions">
+								<Button kind="outline" onclick={abortEditingSummary}>Cancel</Button>
+								<AsyncButton style="pop" action={saveSummary}>Save</AsyncButton>
+							</div>
+						{:else if branch.description}
+							<div class="text-13 summary-text">
+								<Markdown content={branch.description} />
+							</div>
+							{#if branch.permissions.canWrite}
+								<div>
+									<Button kind="outline" onclick={editSummary}>Change details</Button>
+								</div>
+							{/if}
+						{:else}
+							<div class="summary-placeholder">
+								<p class="text-13 text-clr2">No summary provided.</p>
+								{#if branch.permissions.canWrite}
+									<p class="text-12 text-body text-clr2">
+										<em>
+											Summaries provide context on the branch's purpose and helps team members
+											understand it's changes.
+										</em>
+									</p>
+									<Button icon="plus-small" kind="outline" onclick={editSummary}>Add summary</Button
+									>
+								{/if}
+							</div>
 						{/if}
 					</div>
 				</div>
-				<InfoFlexRow>
-					<Factoid label="Status"><BranchStatusBadge {branch} /></Factoid>
-					<Factoid label="Commits">
-						<Minimap
-							branchUuid={branch.uuid}
-							ownerSlug={data.ownerSlug}
-							projectSlug={data.projectSlug}
-							horizontal
-						/>
-					</Factoid>
-					{#if branch.forgeUrl}
-						<Factoid label="PR"
-							><Link href={branch.forgeUrl}>{branch.forgeDescription || '#unknown'}</Link></Factoid
-						>
-					{/if}
-					<Factoid label="Authors">
-						{#await contributors then contributors}
-							<AvatarGroup avatars={contributors}></AvatarGroup>
-						{/await}
-					</Factoid>
-					<Factoid label="Updated">
-						{dayjs(branch.updatedAt).fromNow()}
-					</Factoid>
-					<Factoid label="Version">
-						{branch.version}
-					</Factoid>
-				</InfoFlexRow>
-				<div class="summary">
-					{#if editingSummary}
-						<div class="summary-wrapper">
-							<RichTextEditor
-								namespace="review-description"
-								markdown={false}
-								onError={console.error}
-								styleContext="chat-input"
-								initialText={branch.description}
-								onChange={(text) => (summary = text)}
-							>
-								{#snippet plugins()}
-									<FileUploadPlugin onDrop={handleDropFiles} />
-								{/snippet}
-							</RichTextEditor>
-						</div>
 
-						<div class="summary-actions">
-							<Button kind="outline" onclick={abortEditingSummary}>Cancel</Button>
-							<AsyncButton style="pop" action={saveSummary}>Save</AsyncButton>
-						</div>
-					{:else if branch.description}
-						<div class="text-13 summary-text">
-							<Markdown content={branch.description} />
-						</div>
-						{#if branch.permissions.canWrite}
-							<div>
-								<Button kind="outline" onclick={editSummary}>Change details</Button>
-							</div>
-						{/if}
-					{:else}
-						<div class="summary-placeholder">
-							<p class="text-13 text-clr2">No summary provided.</p>
-							{#if branch.permissions.canWrite}
-								<p class="text-12 text-body text-clr2">
-									<em>
-										Summaries provide context on the branch's purpose and helps team members
-										understand it's changes.
-									</em>
-								</p>
-								<Button icon="plus-small" kind="outline" onclick={editSummary}>Add summary</Button>
-							{/if}
-						</div>
-					{/if}
-				</div>
+				<BranchCommitsTable {branch} {data} />
 			</div>
-
-			<BranchCommitsTable {branch} {data} />
-		</div>
-	{/snippet}
-</Loading>
+		{/snippet}
+	</Loading>
+{/if}
 
 <style lang="postcss">
 	.layout {
