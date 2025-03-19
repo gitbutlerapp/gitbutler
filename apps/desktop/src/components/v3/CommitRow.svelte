@@ -118,7 +118,7 @@
 
 		<div class="commit-content">
 			<button type="button" {onclick}>
-				<CommitHeader {commit} />
+				<CommitHeader {commit} row />
 			</button>
 		</div>
 	</div>

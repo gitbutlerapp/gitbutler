@@ -14,13 +14,17 @@
 	const title = $derived(message.slice(0, endIndex).trim());
 </script>
 
-<div class="commit-title text-14 text-semibold" class:row>
+<p class="text-14 text-semibold commit-title" class:row>
 	{title}
-</div>
+</p>
 
 <style>
 	.commit-title {
 		flex-grow: 1;
+	}
+
+	.row {
+		text-align: left;
 		text-overflow: ellipsis;
 		overflow: hidden;
 		white-space: nowrap;
