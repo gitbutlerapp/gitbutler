@@ -358,6 +358,16 @@ impl TreeStatus {
             TreeStatus::Rename { .. } => TreeStatusKind::Rename,
         }
     }
+
+    /// Return the state in which the change is currently. May be `None` if there is no current state after a deletion.
+    pub fn state(&self) -> Option<ChangeState> {
+        match self {
+            TreeStatus::Addition { state, .. }
+            | TreeStatus::Rename { state, .. }
+            | TreeStatus::Modification { state, .. } => Some(*state),
+            TreeStatus::Deletion { .. } => None,
+        }
+    }
 }
 
 #[cfg(test)]

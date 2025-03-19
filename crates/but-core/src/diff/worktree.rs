@@ -507,43 +507,69 @@ impl TreeChange {
         repo: &gix::Repository,
         context_lines: u32,
     ) -> anyhow::Result<UnifiedDiff> {
+        let mut diff_filter = crate::unified_diff::filter_from_state(
+            repo,
+            self.status.state(),
+            gix::diff::blob::pipeline::Mode::ToGitUnlessBinaryToTextIsPresent,
+        )?;
+        self.unified_diff_with_filter(repo, context_lines, &mut diff_filter)
+    }
+
+    /// Like [`Self::unified_diff()`], but uses `diff_filter` to control the content used for the diff.
+    pub fn unified_diff_with_filter(
+        &self,
+        repo: &gix::Repository,
+        context_lines: u32,
+        diff_filter: &mut gix::diff::blob::Platform,
+    ) -> anyhow::Result<UnifiedDiff> {
         match &self.status {
-            TreeStatus::Deletion { previous_state } => UnifiedDiff::compute(
+            TreeStatus::Deletion { previous_state } => UnifiedDiff::compute_with_filter(
                 repo,
                 self.path.as_bstr(),
                 None,
                 None,
                 *previous_state,
                 context_lines,
+                diff_filter,
             ),
             TreeStatus::Addition {
                 state,
                 is_untracked: _,
-            } => UnifiedDiff::compute(repo, self.path.as_bstr(), None, *state, None, context_lines),
+            } => UnifiedDiff::compute_with_filter(
+                repo,
+                self.path.as_bstr(),
+                None,
+                *state,
+                None,
+                context_lines,
+                diff_filter,
+            ),
             TreeStatus::Modification {
                 state,
                 previous_state,
                 flags: _,
-            } => UnifiedDiff::compute(
+            } => UnifiedDiff::compute_with_filter(
                 repo,
                 self.path.as_bstr(),
                 None,
                 *state,
                 *previous_state,
                 context_lines,
+                diff_filter,
             ),
             TreeStatus::Rename {
                 previous_path,
                 previous_state,
                 state,
                 flags: _,
-            } => UnifiedDiff::compute(
+            } => UnifiedDiff::compute_with_filter(
                 repo,
                 self.path.as_bstr(),
                 Some(previous_path.as_bstr()),
                 *state,
                 *previous_state,
                 context_lines,
+                diff_filter,
             ),
         }
     }
