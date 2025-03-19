@@ -87,7 +87,7 @@
 		isPushingCommits = true;
 		try {
 			await branchController.pushBranch(stack.id, stack.requiresForce);
-			listingService?.refresh();
+			listingService?.refresh(projectId);
 			// TODO: Refresh affected PR cards.
 			await pushButlerReviewStacks();
 		} finally {

@@ -107,7 +107,8 @@
 	const prNumber = $derived(branch.prNumber);
 
 	const prService = $derived(forge.current.prService);
-	const pr = $derived(prNumber ? unwrapOrLog(prService?.get(prNumber)) : undefined);
+	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
+	const pr = $derived(prResult?.current.data);
 	const sourceBranch = $derived(pr?.sourceBranch); // Deduplication.
 	const mergedIncorrectly = $derived(
 		(pr?.merged && pr.baseBranch !== $baseBranch.shortName) || false
@@ -218,7 +219,7 @@
 		// automatically set it back to what it was. If a branch has no
 		// pr attached we look for any open prs with a matching branch
 		// name, and save it to the branch.
-		await forgeListing?.refresh();
+		await forgeListing?.refresh(projectId);
 
 		if (!branch.prNumber) {
 			throw new Error('Failed to discard pr, try reloading the app.');

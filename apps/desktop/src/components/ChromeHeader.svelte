@@ -15,6 +15,12 @@
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { goto } from '$app/navigation';
 
+	type Props = {
+		projectId: string;
+	};
+
+	const { projectId }: Props = $props();
+
 	const projectsService = getContext(ProjectsService);
 	const baseBranchService = getContext(BaseBranchService);
 	const project = maybeGetContext(Project);
@@ -51,7 +57,7 @@
 <div class="header" class:mac={platformName === 'macos'}>
 	<div class="left">
 		<div class="left-buttons" class:macos={platformName === 'macos'}>
-			<SyncButton size="button" />
+			<SyncButton {projectId} size="button" />
 			{#if upstreamCommits > 0}
 				<Button style="pop" onclick={openModal} disabled={!selectedProjectId}
 					>{upstreamCommits} upstream commits</Button

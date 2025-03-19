@@ -1,15 +1,15 @@
 <script lang="ts">
-	import Header from '$components/ChromeHeader.svelte';
-	import Sidebar from '$components/ChromeSidebar.svelte';
+	import ChromeHeader from '$components/ChromeHeader.svelte';
+	import ChromeSidebar from '$components/ChromeSidebar.svelte';
 	import type { Snippet } from 'svelte';
 
-	const { children }: { children: Snippet } = $props();
+	const { projectId, children }: { projectId: string; children: Snippet } = $props();
 </script>
 
 <div class="chrome">
-	<Header />
+	<ChromeHeader {projectId} />
 	<div class="chrome-body">
-		<Sidebar />
+		<ChromeSidebar />
 		<div class="chrome-content">
 			{@render children()}
 		</div>
