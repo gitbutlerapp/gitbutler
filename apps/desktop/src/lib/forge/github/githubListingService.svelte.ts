@@ -41,8 +41,8 @@ export class GitHubListingService implements ForgeListingService {
 		return result;
 	}
 
-	async refresh(): Promise<void> {
-		this.api.endpoints.listPrs.useQuery();
+	async refresh() {
+		await this.api.endpoints.listPrs.fetch();
 	}
 }
 
