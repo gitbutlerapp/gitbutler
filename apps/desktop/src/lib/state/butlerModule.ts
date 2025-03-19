@@ -96,12 +96,13 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 						endpoint.useQuery = useQuery;
 						endpoint.useQueryState = useQueryState;
 					} else if (isMutationDefinition(definition)) {
-						const { useMutation } = buildMutationHooks({
+						const { mutate, useMutation } = buildMutationHooks({
 							endpointName,
 							api,
 							ctx
 						});
 						endpoint.useMutation = useMutation;
+						endpoint.mutate = mutate;
 					}
 				}
 			};
@@ -229,4 +230,5 @@ type CustomMutation<Definition extends MutationDefinition<any, any, string, any>
 type MutationHooks<Definition extends MutationDefinition<unknown, any, string, unknown>> = {
 	/** Execute query and return results. */
 	useMutation: (params?: UseMutationHookParams<Definition>) => Prettify<CustomMutation<Definition>>;
+	mutate: (args: QueryArgFrom<Definition>) => Promise<Prettify<ResultTypeFrom<Definition>>>;
 };
