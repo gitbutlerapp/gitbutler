@@ -25,7 +25,6 @@
 	import { FileService } from '$lib/files/fileService';
 	import { closedStateSync } from '$lib/forge/closedStateSync.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { unwrapOrLog } from '$lib/state/helpers';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContextStore, inject } from '@gitbutler/shared/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
@@ -102,8 +101,10 @@
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
 	const forgeListing = $derived(forge.current.listService);
-	const prs = $derived(unwrapOrLog(forgeListing?.list(projectId)));
-	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
+	const listedPrResult = $derived(
+		upstreamName ? forgeListing?.getByBranch(projectId, upstreamName) : undefined
+	);
+	const listedPr = $derived(listedPrResult?.current.data);
 	const prNumber = $derived(branch.prNumber);
 
 	const prService = $derived(forge.current.prService);

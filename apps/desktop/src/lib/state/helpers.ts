@@ -5,7 +5,6 @@ import {
 	type QueryDefinition
 } from '@reduxjs/toolkit/query';
 import type { CustomQuery, CustomResult } from './butlerModule';
-import type { Reactive } from '@gitbutler/shared/storeUtils';
 
 /** Copied from redux-toolkit, it isn't exported. */
 export function isQueryDefinition(
@@ -47,12 +46,4 @@ export function combineResults<T extends [...CustomResult<any>[]]>(
 		error,
 		data
 	} as CustomResult<CustomQuery<{ [K in keyof T]: Exclude<T[K]['data'], undefined> }>>;
-}
-
-export function unwrapOrLog<T>(result?: Reactive<CustomResult<CustomQuery<T>>>) {
-	const current = result?.current;
-	if (current?.isError) {
-		console.error('Redux result error', current.error);
-	}
-	return current?.data;
 }
