@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BranchBadge from './BranchBadge.svelte';
 	import Drawer from './Drawer.svelte';
+	import BranchReview from '$components/BranchReview.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -75,7 +76,7 @@
 						</div>
 					</div>
 
-					<div class="branch-view__review-card-container">Review card goes here</div>
+					<BranchReview openForgePullRequest={() => {}} {stackId} {projectId} {branchName} />
 
 					<ChangedFiles type="branch" {projectId} {stackId} {branchName} />
 				</div>
@@ -104,18 +105,6 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-	}
-
-	.branch-view__review-card-container {
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 16px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
-
-		padding: 14px;
 	}
 
 	.branch-view__header-details-row {

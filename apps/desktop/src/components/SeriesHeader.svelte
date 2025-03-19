@@ -350,32 +350,39 @@
 			</div>
 		</div>
 		{#if !hasNoCommits}
-			<BranchReview {branch} openForgePullRequest={handleOpenBranchReview}>
-				{#snippet branchLine()}
-					<div class="branch-action__line" style:--bg-color={lineColor}></div>
-				{/snippet}
-				{#snippet pullRequestCard(pr)}
-					<PullRequestCard
-						openPrDetailsModal={handleOpenBranchReview}
-						{pr}
-						{checksMonitor}
-						{isPushed}
-						{child}
-						{hasParent}
-						{parentIsPushed}
-						poll
-					/>
-				{/snippet}
-				{#snippet branchStatus()}
-					<BranchStatus
-						{mergedIncorrectly}
-						{isPushed}
-						{hasParent}
-						{parentIsPushed}
-						{parentIsIntegrated}
-					/>
-				{/snippet}
-			</BranchReview>
+			<div class="branch-review-section">
+				<div class="branch-action__line" style:--bg-color={lineColor}></div>
+				<div class="branch-review-container">
+					<BranchReview
+						{projectId}
+						stackId={stack.id}
+						branchName={branch.name}
+						openForgePullRequest={handleOpenBranchReview}
+					>
+						{#snippet pullRequestCard(pr)}
+							<PullRequestCard
+								openPrDetailsModal={handleOpenBranchReview}
+								{pr}
+								{checksMonitor}
+								{isPushed}
+								{child}
+								{hasParent}
+								{parentIsPushed}
+								poll
+							/>
+						{/snippet}
+						{#snippet branchStatus()}
+							<BranchStatus
+								{mergedIncorrectly}
+								{isPushed}
+								{hasParent}
+								{parentIsPushed}
+								{parentIsIntegrated}
+							/>
+						{/snippet}
+					</BranchReview>
+				</div>
+			</div>
 		{/if}
 
 		<ReviewDetailsModal bind:this={prDetailsModal} currentSeries={branch} />
@@ -404,6 +411,15 @@
 </div>
 
 <style lang="postcss">
+	.branch-review-section {
+		display: flex;
+	}
+
+	.branch-review-container {
+		flex-grow: 1;
+		padding: 0 14px 14px 0;
+	}
+
 	.branch-header {
 		position: relative;
 		display: flex;

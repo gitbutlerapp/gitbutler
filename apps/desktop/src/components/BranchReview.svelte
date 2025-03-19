@@ -1,11 +1,11 @@
 <script lang="ts">
 	import BranchReviewButRequest from '$components/BranchReviewButRequest.svelte';
-	import { type PatchSeries } from '$lib/branches/branch';
 	import { syncBrToPr } from '$lib/forge/brToPrSync.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { syncPrToBr } from '$lib/forge/prToBrSync.svelte';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
-	import { inject } from '@gitbutler/shared/context';
+	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { getContext } from '@gitbutler/shared/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
@@ -15,81 +15,93 @@
 	// reduce the complexity of the forge related functionality.
 
 	type Props = {
-		pullRequestCard: Snippet<[DetailedPullRequest]>;
-		branchStatus: Snippet;
-		branchLine: Snippet;
+		pullRequestCard?: Snippet<[DetailedPullRequest]>;
+		branchStatus?: Snippet;
 		openForgePullRequest: () => void;
-		branch: PatchSeries;
+		projectId: string;
+		stackId: string;
+		branchName: string;
 	};
 
-	const { pullRequestCard, branchStatus, branchLine, branch, openForgePullRequest }: Props =
-		$props();
+	const {
+		pullRequestCard,
+		branchStatus,
+		openForgePullRequest,
+		projectId,
+		stackId,
+		branchName
+	}: Props = $props();
 
-	const [stackPublishingService, forge] = inject(StackPublishingService, DefaultForgeFactory);
+	const forge = getContext(DefaultForgeFactory);
+	const stackPublishingService = getContext(StackPublishingService);
+	const stackService = getContext(StackService);
 
-	const prNumber = $derived(branch.prNumber);
+	const branch = $derived(stackService.branchByName(projectId, stackId, branchName));
+	const commits = $derived(stackService.commits(projectId, stackId, branchName));
+
+	const prNumber = $derived(branch.current.data?.prNumber ?? undefined);
+	const reviewId = $derived(branch.current.data?.reviewId ?? undefined);
+	const branchEmpty = $derived((commits.current.data?.length ?? 0) === 0);
+	const branchConflicted = $derived(
+		commits.current.data?.some((commit) => commit.hasConflicts) || false
+	);
+
 	const prService = $derived(forge.current.prService);
 	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
 	const pr = $derived(prResult?.current.data);
 
 	const canPublish = stackPublishingService.canPublish;
 
-	const showCreateButton = $derived((prService && !pr) || ($canPublish && !branch.reviewId));
+	const showCreateButton = $derived((prService && !pr) || ($canPublish && !reviewId));
 
-	const disabled = $derived(branch.patches.length === 0 || branch.conflicted);
+	const disabled = $derived(branchEmpty || branchConflicted);
 	const tooltip = $derived(
-		branch.conflicted ? 'Please resolve the conflicts before creating a PR' : undefined
+		branchConflicted ? 'Please resolve the conflicts before creating a PR' : undefined
 	);
 
 	syncPrToBr(
 		reactive(() => prNumber || undefined),
-		reactive(() => branch.reviewId)
+		reactive(() => reviewId)
 	);
-	syncBrToPr(reactive(() => branch));
+	syncBrToPr(
+		reactive(() => prNumber),
+		reactive(() => reviewId)
+	);
 </script>
 
 <div class="branch-action">
-	{@render branchLine()}
-	<div class="branch-action__body">
-		{#if pr || branch.reviewId}
-			<div class="status-cards">
-				{#if pr}
-					<div>
-						{@render pullRequestCard(pr)}
-					</div>
-				{/if}
-				{#if branch.reviewId}
-					<div>
-						<BranchReviewButRequest reviewId={branch.reviewId} />
-					</div>
-				{/if}
-			</div>
-		{/if}
+	{#if pr || reviewId}
+		<div class="status-cards">
+			{#if pr && pullRequestCard}
+				<div>
+					{@render pullRequestCard(pr)}
+				</div>
+			{/if}
+			{#if reviewId}
+				<div>
+					<BranchReviewButRequest {reviewId} />
+				</div>
+			{/if}
+		</div>
+	{/if}
 
+	{#if branchStatus}
 		{@render branchStatus()}
+	{/if}
 
-		{#if showCreateButton}
-			<Button onclick={openForgePullRequest} kind="outline" {disabled} {tooltip}>
-				Submit for Review
-			</Button>
-		{/if}
-	</div>
+	{#if showCreateButton}
+		<Button onclick={openForgePullRequest} kind="outline" {disabled} {tooltip}>
+			Submit for Review
+		</Button>
+	{/if}
 </div>
 
 <style lang="postcss">
 	.branch-action {
 		width: 100%;
 		display: flex;
-		justify-content: flex-start;
-		align-items: stretch;
-
-		.branch-action__body {
-			width: 100%;
-			padding: 0 14px 14px 0;
-			display: flex;
-			flex-direction: column;
-			gap: 14px;
-		}
+		flex-direction: column;
+		gap: 14px;
 	}
 
 	/*
@@ -102,7 +114,7 @@
 		We don't want to use display: none as that breaks things in other strange ways
 	*/
 
-	.branch-action:not(:has(> .branch-action__body > *)) {
+	.branch-action:not(:has(> *)) {
 		padding: 0;
 	}
 
