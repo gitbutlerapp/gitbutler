@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Drawer from './Drawer.svelte';
 	import CommitMessageEditor from './editor/CommitMessageEditor.svelte';
 	import EditorFooter from './editor/EditorFooter.svelte';
 	import EditorHeader from './editor/EditorHeader.svelte';
@@ -23,8 +24,10 @@
 	}
 </script>
 
-<EditorHeader title="New pull request" bind:markdown={$markdown} />
-<CommitMessageEditor bind:this={composer} bind:markdown={$markdown} />
-<EditorFooter onCancel={() => goto(stackPath(projectId, stackId))}>
-	<Button style="pop" onclick={createPr} wide>Create pull request</Button>
-</EditorFooter>
+<Drawer>
+	<EditorHeader title="New pull request" bind:markdown={$markdown} />
+	<CommitMessageEditor bind:this={composer} bind:markdown={$markdown} />
+	<EditorFooter onCancel={() => goto(stackPath(projectId, stackId))}>
+		<Button style="pop" onclick={createPr} wide>Create pull request</Button>
+	</EditorFooter>
+</Drawer>

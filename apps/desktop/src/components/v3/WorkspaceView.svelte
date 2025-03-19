@@ -29,14 +29,11 @@
 
 	let leftDiv = $state<HTMLElement>();
 	let rightDiv = $state<HTMLElement>();
-
-	let height = $derived(uiState.global.drawerHeight.get());
-	let drawerDiv: HTMLDivElement | undefined = $state();
 </script>
 
 <div class="workspace">
 	<div class="changed-files-view" bind:this={leftDiv} style:width={leftWidth.current + 'rem'}>
-		<WorktreeChanges {projectId} />
+		<WorktreeChanges {projectId} {stackId} />
 		<Resizer
 			viewport={leftDiv}
 			direction="right"
@@ -47,38 +44,30 @@
 	<div class="main-view">
 		<SelectionView {projectId} />
 
-		<div class="drawer" bind:this={drawerDiv} style:height={height.current + 'rem'}>
-			{#if stackId}
-				{#if drawerPage.current === 'new-commit'}
-					<NewCommit {projectId} {stackId} />
-				{:else if drawerPage.current === 'branch' && branchName}
-					<BranchView {stackId} {projectId} {branchName} />
-				{:else if drawerPage.current === 'pr'}
-					<NewPullRequest {stackId} {projectId} />
-				{:else if drawerPage.current === 'br'}
-					<NewButlerReview {stackId} {projectId} />
-				{:else if selected.current?.branchName && selected.current.commitId}
-					<CommitView
-						{projectId}
-						commitKey={{
-							stackId,
-							branchName: selected.current.branchName,
-							commitId: selected.current.commitId,
-							upstream: !!selected.current.upstream
-						}}
-					/>
-				{/if}
+		{#if stackId}
+			{#if drawerPage.current === 'new-commit'}
+				<NewCommit {projectId} {stackId} />
+			{:else if drawerPage.current === 'branch' && branchName}
+				<BranchView {stackId} {projectId} {branchName} />
+			{:else if drawerPage.current === 'pr'}
+				<NewPullRequest {stackId} {projectId} />
+			{:else if drawerPage.current === 'br'}
+				<NewButlerReview {stackId} {projectId} />
+			{:else if selected.current?.branchName && selected.current.commitId}
+				<CommitView
+					{projectId}
+					commitKey={{
+						stackId,
+						branchName: selected.current.branchName,
+						commitId: selected.current.commitId,
+						upstream: !!selected.current.upstream
+					}}
+				/>
 			{/if}
-
-			<Resizer
-				direction="up"
-				viewport={drawerDiv}
-				minHeight={11}
-				onHeight={(value) => uiState.global.drawerHeight.set(value)}
-			/>
-		</div>
+		{/if}
 	</div>
-	<div class="stacks-view" bind:this={rightDiv} style:width={rightWidth.current + 'rem'}>
+
+	<div class="right" bind:this={rightDiv} style:width={rightWidth.current + 'rem'}>
 		{@render right({ viewportWidth: rightWidth.current })}
 		<Resizer
 			viewport={rightDiv}
@@ -114,7 +103,7 @@
 		flex-shrink: 0;
 	}
 
-	.stacks-view {
+	.right {
 		height: 100%;
 		display: flex;
 		flex-direction: column;
@@ -130,14 +119,6 @@
 		flex-direction: column;
 		flex-grow: 1;
 		border-radius: var(--radius-ml);
-		overflow: hidden;
-	}
-
-	.drawer {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		flex-shrink: 0;
-		flex-grow: 1;
+		gap: 10px;
 	}
 </style>

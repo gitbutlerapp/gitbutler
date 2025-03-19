@@ -12,13 +12,11 @@
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
-	import type { CommitKey } from '$lib/commits/commit';
 
 	type Props = {
 		projectId: string;
 		branchName: string;
 		stackId: string;
-		commitKey: CommitKey;
 		commit: Commit | UpstreamCommit;
 		first?: boolean;
 		lastCommit?: boolean;
@@ -33,7 +31,6 @@
 
 	const {
 		projectId,
-		commitKey,
 		stackId,
 		commit,
 		first,
@@ -120,7 +117,9 @@
 		<CommitLine {commit} {lastCommit} {lastBranch} {lineColor} />
 
 		<div class="commit-content">
-			<CommitHeader {projectId} {commitKey} {commit} {onclick} />
+			<button type="button" {onclick}>
+				<CommitHeader {commit} />
+			</button>
 		</div>
 	</div>
 
@@ -229,7 +228,12 @@
 		position: relative;
 		gap: 6px;
 		width: 100%;
-		padding: 14px 14px 14px 0;
 		overflow: hidden;
+
+		& button {
+			padding: 14px 14px 14px 0;
+			display: flex;
+			justify-items: start;
+		}
 	}
 </style>
