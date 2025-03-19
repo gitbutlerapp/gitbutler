@@ -220,7 +220,7 @@
 		<ContextMenuItem
 			label="Refetch status"
 			onclick={() => {
-				prService?.fetch(pr.number);
+				prService?.get(pr.number, { subscribe: false, forceRefetch: true });
 				contextMenuEl?.close();
 			}}
 		/>

@@ -63,8 +63,9 @@ export class BrToPrService {
 					});
 
 					// Then we can do a more accurate comparison of the latest body
-					const pr = await prService.fetch(prNumber);
-					const prBody = unixifyNewlines(pr.body || '\n');
+					const prResult = await prService.fetch(prNumber);
+					const pr = prResult.data;
+					const prBody = unixifyNewlines(pr?.body || '\n');
 
 					const newBody = unixifyNewlines(
 						formatButRequestDescription(prBody, butlerRequestUrl, butReview)
@@ -186,7 +187,7 @@ function upsertDescription(
  */
 export async function updatePrDescriptionTables(prService: ForgePrService, prNumbers: number[]) {
 	if (prService && prNumbers.length > 1) {
-		const prs = await Promise.all(prNumbers.map(async (id) => await prService.fetch(id)));
+		const prs = await Promise.all(prNumbers.map(async (id) => (await prService.fetch(id)).data));
 		const updates = prs.filter(isDefined).map((pr) => ({
 			prNumber: pr.number,
 			description: updateBody(pr.body, pr.number, prNumbers)

@@ -10,7 +10,7 @@ import {
 	type QueryActionCreatorResult,
 	type ResultTypeFrom,
 	type RootState,
-	type SubscriptionOptions
+	type StartQueryActionCreatorOptions
 } from '@reduxjs/toolkit/query';
 import type { TauriCommandError } from './backendQuery';
 import type { CustomQuery } from './butlerModule';
@@ -35,26 +35,31 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 
 	async function fetch<T extends (arg: any) => any>(
 		queryArg: unknown,
-		options?: { transform?: T }
+		options?: { transform?: T; forceRefetch?: boolean }
 	) {
 		const dispatch = getDispatch();
-		const result = await dispatch(initiate(queryArg, { forceRefetch: true }));
-		let data = result.data;
-		if (options?.transform && data) {
-			data = options.transform(data);
-		}
-		return data;
+		const result = await dispatch(
+			initiate(queryArg, {
+				subscribe: false,
+				forceRefetch: options?.forceRefetch
+			})
+		);
+		return result;
 	}
 
 	function useQuery<T extends (arg: any) => any>(
 		queryArg: unknown,
-		options?: { transform?: T; subscriptionOptions?: SubscriptionOptions }
+		options?: { transform?: T } & StartQueryActionCreatorOptions
 	) {
 		const dispatch = getDispatch();
 		let subscription: QueryActionCreatorResult<any>;
 		$effect(() => {
 			subscription = dispatch(
-				initiate(queryArg, { subscribe: true, subscriptionOptions: options?.subscriptionOptions })
+				initiate(queryArg, {
+					subscribe: options?.subscribe,
+					subscriptionOptions: options?.subscriptionOptions,
+					forceRefetch: options?.forceRefetch
+				})
 			);
 			return () => {
 				subscription.unsubscribe();
