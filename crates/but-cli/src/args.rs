@@ -46,6 +46,9 @@ pub enum Subcommands {
     /// List all uncommitted working tree changes.
     Status {
         /// Also compute unified diffs for each tree-change.
+        #[clap(long, short = 'c', default_value_t = 3)]
+        context_lines: u32,
+        /// Also compute unified diffs for each tree-change.
         #[clap(long, short = 'd')]
         unified_diff: bool,
     },

@@ -1,4 +1,4 @@
-use crate::command::{debug_print, project_from_path, project_repo};
+use crate::command::{UI_CONTEXT_LINES, debug_print, project_from_path, project_repo};
 use gix::bstr::BString;
 use itertools::Itertools;
 use std::path::Path;
@@ -18,18 +18,18 @@ pub fn commit_changes(
         but_core::diff::commit_changes(&repo, previous_commit.map(Into::into), commit.into())?;
 
     if unified_diff {
-        debug_print(unified_diff_for_changes(&repo, changes)?)
+        debug_print(unified_diff_for_changes(&repo, changes, UI_CONTEXT_LINES)?)
     } else {
         debug_print(changes)
     }
 }
 
-pub fn status(current_dir: &Path, unified_diff: bool) -> anyhow::Result<()> {
+pub fn status(current_dir: &Path, unified_diff: bool, context_lines: u32) -> anyhow::Result<()> {
     let repo = project_repo(current_dir)?;
     let worktree = but_core::diff::worktree_changes(&repo)?;
     if unified_diff {
         debug_print((
-            unified_diff_for_changes(&repo, worktree.changes)?,
+            unified_diff_for_changes(&repo, worktree.changes, context_lines)?,
             worktree.ignored_changes,
         ))
     } else {
@@ -57,12 +57,13 @@ pub fn locks(current_dir: &Path) -> anyhow::Result<()> {
 fn unified_diff_for_changes(
     repo: &gix::Repository,
     changes: Vec<but_core::TreeChange>,
+    context_lines: u32,
 ) -> anyhow::Result<Vec<(but_core::TreeChange, but_core::UnifiedDiff)>> {
     changes
         .into_iter()
         .map(|tree_change| {
             tree_change
-                .unified_diff(repo, 3)
+                .unified_diff(repo, context_lines)
                 .map(|diff| (tree_change, diff))
         })
         .collect::<Result<Vec<_>, _>>()
