@@ -29,14 +29,11 @@
 
 	let leftDiv = $state<HTMLElement>();
 	let rightDiv = $state<HTMLElement>();
-
-	let height = $derived(uiState.global.drawerHeight.get());
-	let drawerDiv: HTMLDivElement | undefined = $state();
 </script>
 
 <div class="workspace">
 	<div class="changed-files-view" bind:this={leftDiv} style:width={leftWidth.current + 'rem'}>
-		<WorktreeChanges {projectId} />
+		<WorktreeChanges {projectId} {stackId} />
 		<Resizer
 			viewport={leftDiv}
 			direction="right"

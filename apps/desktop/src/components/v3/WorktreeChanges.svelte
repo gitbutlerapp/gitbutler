@@ -4,6 +4,7 @@
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -12,19 +13,27 @@
 
 	type Props = {
 		projectId: string;
+		stackId?: string;
 	};
 
-	const { projectId }: Props = $props();
+	const { projectId, stackId }: Props = $props();
 
-	const [changeSelection, worktreeService, uiState] = inject(
+	const [changeSelection, worktreeService, uiState, stackService] = inject(
 		ChangeSelectionService,
 		WorktreeService,
-		UiState
+		UiState,
+		StackService
 	);
 
 	const projectState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectState.drawerPage.get());
 	const isCommitting = $derived(drawerPage.current === 'new-commit');
+	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
+	const defaultBranchResult = $derived(
+		stackId !== undefined ? stackService.defaultBranch(projectId, stackId) : undefined
+	);
+	const defaultBranch = $derived(defaultBranchResult?.current.data);
+	const defaultBranchName = $derived(defaultBranch?.name);
 
 	// TODO: Make this go away.
 	createCommitStore(undefined);
@@ -36,6 +45,12 @@
 		const affectedPaths = changesResult.current.data?.map((c) => c.path);
 		changeSelection.retain(affectedPaths);
 	});
+
+	function startCommit() {
+		if (!defaultBranchName) return;
+		stackState?.selection.set({ branchName: defaultBranchName });
+		projectState.drawerPage.set('new-commit');
+	}
 </script>
 
 <ReduxResult result={changesResult.current}>
@@ -56,7 +71,7 @@
 						size="cta"
 						wide
 						disabled={isCommitting}
-						onclick={() => projectState.drawerPage.set('new-commit')}
+						onclick={startCommit}
 					>
 						Start a commit…
 					</Button>
