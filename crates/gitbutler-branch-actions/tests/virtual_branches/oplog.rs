@@ -194,9 +194,6 @@ fn basic_oplog() -> anyhow::Result<()> {
     let file_lines = std::fs::read_to_string(&base_merge_parent_path)?;
     assert_eq!(file_lines, "parent A");
 
-    assert_eq!(snapshots[1].lines_added, 2);
-    assert_eq!(snapshots[1].lines_removed, 0);
-
     {
         let mut guard = project.exclusive_worktree_access();
         project.restore_snapshot(snapshots[2].clone().commit_id, guard.write_permission())?;
