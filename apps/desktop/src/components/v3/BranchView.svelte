@@ -38,7 +38,7 @@
 {#if branchName}
 	<ReduxResult result={combineResults(branchResult.current, branchDetailsResult.current)}>
 		{#snippet children([branch, branchDetails])}
-			<Drawer>
+			<Drawer {projectId} {stackId}>
 				{#snippet header()}
 					<div class="branch-view__header-title-row">
 						<h3 class="text-15 text-bold">

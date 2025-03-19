@@ -37,6 +37,7 @@
 	let markdown = persisted(true, 'useMarkdown__' + projectId);
 
 	let composer = $state<ReturnType<typeof MessageEditor>>();
+	let drawer = $state<ReturnType<typeof Drawer>>();
 
 	async function createCommit(message: string) {
 		if (!branchName) {
@@ -77,9 +78,13 @@
 			showError('Failed to commit', err);
 		}
 	}
+
+	function cancel() {
+		drawer?.onClose();
+	}
 </script>
 
-<Drawer>
+<Drawer bind:this={drawer} {projectId} {stackId}>
 	{#snippet header()}
 		<p class="text-14 text-semibold">Create commit</p>
 	{/snippet}
@@ -87,7 +92,7 @@
 		<TitleInput bind:value={titleText} />
 		<MessageEditor bind:this={composer} bind:markdown={$markdown} />
 	</div>
-	<EditorFooter onCancel={() => uiState.project(projectId).drawerPage.set(undefined)}>
+	<EditorFooter onCancel={cancel}>
 		<Button
 			style="pop"
 			onclick={hanldleCommitCreation}

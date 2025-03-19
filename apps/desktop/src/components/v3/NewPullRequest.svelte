@@ -18,16 +18,22 @@
 
 	let markdown = writable(true);
 	let composer: CommitMessageEditor | undefined = $state();
+	let drawer = $state<ReturnType<typeof Drawer>>();
 
 	function createPr() {
 		throw new Error('Not implemented!');
 	}
+
+	function cancel() {
+		drawer?.onClose();
+		goto(stackPath(projectId, stackId));
+	}
 </script>
 
-<Drawer>
+<Drawer bind:this={drawer} {projectId} {stackId}>
 	<EditorHeader title="New pull request" bind:markdown={$markdown} />
 	<CommitMessageEditor bind:this={composer} bind:markdown={$markdown} />
-	<EditorFooter onCancel={() => goto(stackPath(projectId, stackId))}>
+	<EditorFooter onCancel={cancel}>
 		<Button style="pop" onclick={createPr} wide>Create pull request</Button>
 	</EditorFooter>
 </Drawer>
