@@ -21,6 +21,7 @@ export type ApiProject = {
 
 	created_at: string;
 	updated_at: string;
+	last_pushed_at?: string;
 };
 
 export type Project = {
@@ -47,6 +48,7 @@ export type Project = {
 
 	createdAt: string;
 	updatedAt: string;
+	lastPushedAt?: string;
 };
 
 export type LoadableProject = LoadableData<Project, Project['repositoryId']>;
@@ -68,7 +70,8 @@ export function apiToProject(apiProject: ApiProject): Project {
 		permissions: apiToPermissions(apiProject.permissions),
 		createdAt: apiProject.created_at,
 		updatedAt: apiProject.updated_at,
-		readme: apiProject.readme
+		readme: apiProject.readme,
+		lastPushedAt: apiProject.last_pushed_at
 	};
 }
 
