@@ -15,3 +15,11 @@ export interface BackendError {
 	message: string;
 	code: string;
 }
+
+/**
+ * Error type for unhandled Promise rejections.
+ */
+export interface UnhandledPromiseError {
+	reason: Error;
+	message: string;
+}

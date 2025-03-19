@@ -1,4 +1,4 @@
-import type { HttpError, BackendError } from './error';
+import type { HttpError, BackendError, UnhandledPromiseError } from './error';
 
 export function isBackendError(err: unknown): err is BackendError {
 	return (
@@ -8,6 +8,12 @@ export function isBackendError(err: unknown): err is BackendError {
 		typeof err.message === 'string' &&
 		'code' in err &&
 		typeof err.code === 'string'
+	);
+}
+
+export function isPromiseRejection(err: unknown): err is UnhandledPromiseError {
+	return (
+		typeof err === 'object' && err !== null && 'reason' in err && typeof err.reason === 'object'
 	);
 }
 

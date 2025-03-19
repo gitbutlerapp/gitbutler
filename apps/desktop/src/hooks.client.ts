@@ -33,6 +33,7 @@ function logError(error: unknown) {
 			}
 		});
 		showError('Unhandled exception', error);
+		console.error(error);
 		logErrorToFile(String(error));
 	} catch (err: unknown) {
 		console.error('Error while trying to log error.', err);

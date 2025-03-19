@@ -1,5 +1,5 @@
 import { KNOWN_ERRORS } from './knownErrors';
-import { isBackendError, isHttpError } from './typeguards';
+import { isBackendError, isHttpError, isPromiseRejection } from './typeguards';
 import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 
 export interface ParsedError {
@@ -8,7 +8,9 @@ export interface ParsedError {
 }
 
 export function parseError(error: unknown): ParsedError {
-	if (isBackendError(error) && error.code in KNOWN_ERRORS) {
+	if (isPromiseRejection(error)) {
+		return { message: 'A promise had an unhandled exception.', parsedError: String(error.reason) };
+	} else if (isBackendError(error) && error.code in KNOWN_ERRORS) {
 		return { message: KNOWN_ERRORS[error.code], parsedError: error.message };
 	} else if (isHttpError(error)) {
 		// Silence GitHub octokit.js when disconnected. This should ideally be
