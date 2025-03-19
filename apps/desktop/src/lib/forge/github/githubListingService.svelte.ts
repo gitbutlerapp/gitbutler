@@ -1,6 +1,8 @@
 import { ghQuery } from './ghQuery';
 import { ghResponseToInstance } from './types';
+import { createSelectByIds } from '$lib/state/customSelectors';
 import { ReduxTag } from '$lib/state/tags';
+import { reactive } from '@gitbutler/shared/storeUtils';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
@@ -17,10 +19,11 @@ export class GitHubListingService implements ForgeListingService {
 		this.api = injectEndpoints(gitHubApi);
 	}
 
-	list(projectId: string) {
+	list(projectId: string, pollingInterval?: number) {
 		const result = $derived(
-			this.api.endpoints.listPrs.useQuery(undefined, {
-				transform: (result) => prSelectors.selectAll(result)
+			this.api.endpoints.listPrs.useQuery(projectId, {
+				transform: (result) => prSelectors.selectAll(result),
+				subscriptionOptions: { pollingInterval }
 			})
 		);
 		$effect(() => {
@@ -32,24 +35,34 @@ export class GitHubListingService implements ForgeListingService {
 		return result;
 	}
 
-	getByBranch(branchName: string) {
+	getByBranch(projectId: string, branchName: string) {
 		const result = $derived(
-			this.api.endpoints.listPrs.useQuery(undefined, {
+			this.api.endpoints.listPrs.useQuery(projectId, {
 				transform: (result) => prSelectors.selectById(result, branchName)
 			})
 		);
 		return result;
 	}
 
-	async refresh() {
-		await this.api.endpoints.listPrs.fetch();
+	filterByBranch(projectId: string, branchName: string[]) {
+		const result = $derived(
+			this.api.endpoints.listPrs.useQueryState(projectId, {
+				transform: (result) => prSelectors.selectByIds(result, branchName)
+			})
+		);
+		const data = $derived(result.current.data);
+		return reactive(() => data || []);
+	}
+
+	async refresh(projectId: string): Promise<void> {
+		this.api.endpoints.listPrs.useQuery(projectId, { subscribe: false, forceRefetch: true });
 	}
 }
 
 function injectEndpoints(api: GitHubApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			listPrs: build.query<EntityState<PullRequest, string>, void>({
+			listPrs: build.query<EntityState<PullRequest, string>, string>({
 				queryFn: async (_, api) => {
 					const result = await ghQuery({
 						domain: 'pulls',
@@ -76,7 +89,7 @@ const prAdapter = createEntityAdapter<PullRequest, string>({
 	selectId: (pr) => pr.sourceBranch
 });
 
-const prSelectors = prAdapter.getSelectors();
+const prSelectors = { ...prAdapter.getSelectors(), selectByIds: createSelectByIds<PullRequest>() };
 
 // if (err.message.includes('you appear to have the correct authorization credentials')) {
 // 	this.disabled = true;
