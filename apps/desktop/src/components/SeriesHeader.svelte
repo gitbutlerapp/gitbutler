@@ -110,7 +110,7 @@
 	const pr = $derived(prNumber ? unwrapOrLog(prService?.get(prNumber)) : undefined);
 	const sourceBranch = $derived(pr?.sourceBranch); // Deduplication.
 	const mergedIncorrectly = $derived(
-		(pr?.merged && pr.baseBranch !== $baseBranch.branchName) || false
+		(pr?.merged && pr.baseBranch !== $baseBranch.shortName) || false
 	);
 
 	// Do not create a checks monitor if pull request is merged or from a fork.

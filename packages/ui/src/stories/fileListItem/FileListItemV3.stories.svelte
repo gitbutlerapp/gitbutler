@@ -22,9 +22,11 @@
 		checked: true,
 		lockText: 'Locked by someone',
 		onclick: () => {
+			// eslint-disable-next-line no-console
 			console.log('clicked');
 		},
 		oncheck: (e: Event) => {
+			// eslint-disable-next-line no-console
 			console.log('checked', e);
 		}
 	}}
@@ -41,9 +43,11 @@
 		conflicted: true,
 		checked: true,
 		onclick: () => {
+			// eslint-disable-next-line no-console
 			console.log('clicked');
 		},
 		onresolveclick: () => {
+			// eslint-disable-next-line no-console
 			console.log('resolve clicked');
 		}
 	}}

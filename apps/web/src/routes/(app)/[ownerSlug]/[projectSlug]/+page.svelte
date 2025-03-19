@@ -322,24 +322,26 @@
 							<h3 class="sidebar-section-title">Last Updated</h3>
 							<p class="description">{getTimeSince(projectData.updatedAt)}</p>
 
-							<div class="meta-info">
-								<div class="meta-item clone-url-container">
-									<h3 class="sidebar-section-title">Clone URL</h3>
-									<div class="clone-url">
-										<code>{projectData.codeGitUrl}</code>
-										<Button
-											type="button"
-											style="pop"
-											onclick={() => {
-												navigator.clipboard.writeText(projectData.codeGitUrl);
-												toasts.success('copied to clipboard');
-											}}
-										>
-											Copy
-										</Button>
+							{#if projectData.lastPushedAt}
+								<div class="meta-info">
+									<div class="meta-item clone-url-container">
+										<h3 class="sidebar-section-title">Clone URL</h3>
+										<div class="clone-url">
+											<code>{projectData.codeGitUrl}</code>
+											<Button
+												type="button"
+												style="pop"
+												onclick={() => {
+													navigator.clipboard.writeText(projectData.codeGitUrl);
+													toasts.success('copied to clipboard');
+												}}
+											>
+												Copy
+											</Button>
+										</div>
 									</div>
 								</div>
-							</div>
+							{/if}
 						</div>
 					</section>
 

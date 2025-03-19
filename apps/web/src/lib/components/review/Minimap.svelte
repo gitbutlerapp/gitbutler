@@ -112,7 +112,8 @@
 
 <style lang="postcss">
 	.minimap {
-		position: absolute;
+		position: fixed;
+		z-index: var(--z-lifted);
 		left: 0px;
 		top: 100px;
 
@@ -157,7 +158,6 @@
 
 		&:hover {
 			& .info-card {
-				opacity: 1;
 				display: flex;
 			}
 		}
@@ -169,8 +169,6 @@
 
 	.info-card {
 		position: relative;
-		z-index: var(--z-lifted);
-
 		display: none;
 		flex-direction: column;
 
@@ -183,15 +181,7 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 
-		opacity: 0;
-
 		transition: none;
-		transition: opacity 0.25s ease-in-out;
-
-		transition-behavior: allow-discrete;
-		@starting-style {
-			opacity: 0;
-		}
 	}
 
 	.info-section {

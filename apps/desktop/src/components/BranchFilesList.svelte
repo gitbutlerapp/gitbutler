@@ -138,7 +138,6 @@
 	<LazyloadContainer
 		minTriggerCount={80}
 		ontrigger={() => {
-			console.log('loading more files...');
 			loadMore();
 		}}
 		role="listbox"

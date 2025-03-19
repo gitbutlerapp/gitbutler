@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import path from 'node:path';
 import type { Frameworks } from '@wdio/types';

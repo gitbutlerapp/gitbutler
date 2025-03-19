@@ -354,11 +354,7 @@
 		{/snippet}
 		{#snippet description()}
 			GitButler's AI assistant generates commit messages and branch names. Use default prompts or
-			create your own. Assign prompts in the <button
-				type="button"
-				class="link"
-				onclick={() => console.log('got to project settings')}>project settings</button
-			>.
+			create your own. Assign prompts in the project settings.
 		{/snippet}
 
 		<div class="prompt-groups">

@@ -19,9 +19,11 @@ use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
 };
 use gitbutler_repo_actions::RepoActionsExt as _;
+use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::stack_context::StackContext;
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
 use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree};
+use gix::merge::tree::TreatAsUnresolved;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, PartialEq, Debug)]
@@ -62,7 +64,11 @@ pub enum BranchStatus {
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
 pub enum StackStatuses {
     UpToDate,
-    UpdatesRequired(Vec<(StackId, StackStatus)>),
+    UpdatesRequired {
+        #[serde(rename = "worktreeConflicts")]
+        worktree_conflicts: Vec<BStringForFrontend>,
+        statuses: Vec<(StackId, StackStatus)>,
+    },
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -376,6 +382,48 @@ pub fn upstream_integration_statuses(
         return Ok(StackStatuses::UpToDate);
     };
 
+    // The merge base tree of all of the applied stacks plus the new target
+    let merge_base_tree = gix_repository
+        .merge_base_octopus(
+            stacks_in_workspace
+                .iter()
+                .map(|b| b.head().to_gix())
+                .chain(Some(new_target.id().to_gix())),
+        )?
+        .object()?
+        .into_commit()
+        .tree_id()?;
+
+    // The working directory tree
+    let workdir_tree = context
+        .ctx
+        .repo()
+        .create_wd_tree(gitbutler_project::AUTO_TRACK_LIMIT_BYTES)?
+        .id()
+        .to_gix();
+
+    // The target tree
+    let target_tree = gix_repository
+        .find_commit(new_target.id().to_gix())?
+        .tree_id()?;
+
+    let (merge_options_fail_fast, _conflict_kind) =
+        gix_repository.merge_options_no_rewrites_fail_fast()?;
+
+    let worktree_conflicts = gix_repository
+        .merge_trees(
+            merge_base_tree,
+            workdir_tree,
+            target_tree,
+            gix_repository.default_merge_labels(),
+            merge_options_fail_fast.clone(),
+        )?
+        .conflicts
+        .iter()
+        .filter(|c| c.is_unresolved(TreatAsUnresolved::git()))
+        .map(|c| c.ours.location().into())
+        .collect::<Vec<BStringForFrontend>>();
+
     let statuses = stacks_in_workspace
         .iter()
         .map(|stack| {
@@ -392,7 +440,10 @@ pub fn upstream_integration_statuses(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    Ok(StackStatuses::UpdatesRequired(statuses))
+    Ok(StackStatuses::UpdatesRequired {
+        worktree_conflicts,
+        statuses,
+    })
 }
 
 pub(crate) fn integrate_upstream(
@@ -421,7 +472,7 @@ pub(crate) fn integrate_upstream(
     {
         let statuses = upstream_integration_statuses(&context)?;
 
-        let StackStatuses::UpdatesRequired(statuses) = statuses else {
+        let StackStatuses::UpdatesRequired { statuses, .. } = statuses else {
             bail!("Branches are all up to date")
         };
 
@@ -503,8 +554,6 @@ pub(crate) fn integrate_upstream(
                 continue;
             };
 
-            stack.set_stack_head(command_context, *head, Some(*tree))?;
-
             // Update the branch heads
             if let Some(output) = rebase_output {
                 let mut new_heads: HashMap<String, git2::Commit<'_>> = HashMap::new();
@@ -516,6 +565,7 @@ pub(crate) fn integrate_upstream(
                 }
                 stack.set_all_heads(command_context, new_heads)?;
             }
+            stack.set_stack_head(command_context, *head, Some(*tree))?;
 
             let mut archived_branches =
                 stack.archive_integrated_heads(command_context, for_archival)?;

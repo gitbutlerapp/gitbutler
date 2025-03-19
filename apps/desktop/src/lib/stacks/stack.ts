@@ -1,3 +1,5 @@
+import type { Author } from '$lib/branches/v3';
+
 /**
  * Return type of Tauri `stacks` command.
  */
@@ -26,9 +28,36 @@ export type PushStatus =
 	 */
 	| 'unpushedCommitsRequiringForce'
 	/**
-	 * Cannot push. This is the case when the stack contains at least one conflicted commit.
+	 * No commits have been pushed to the remote.
 	 */
-	| 'conflictedCommits';
+	| 'completelyUnpushed'
+	/**
+	 * Every commit is integrated into the base branch.
+	 */
+	| 'integrated';
+
+export type BranchDetails = {
+	/**
+	 * The name of the branch
+	 */
+	name: string;
+	/**
+	 * The pushable status for the branch
+	 */
+	pushStatus: PushStatus;
+	/**
+	 * The last time the branch was updated in Epoch milliseconds
+	 */
+	lastUpdatedAt: number;
+	/**
+	 * The authors of the commits in the branch
+	 */
+	authors: Author[];
+	/**
+	 * Whether any of the commits contained has conflicts
+	 */
+	isConflicted: boolean;
+};
 
 export type StackInfo = {
 	/**
@@ -39,6 +68,14 @@ export type StackInfo = {
 	 * The pushable status for the stack
 	 */
 	pushStatus: PushStatus;
+	/**
+	 * The branches that make up the stack
+	 */
+	branchDetails: BranchDetails[];
+	/**
+	 * Whether any of the commits contained has conflicts
+	 */
+	isConflicted: boolean;
 };
 
 export function stackRequiresForcePush(stack: StackInfo): boolean {
@@ -46,11 +83,17 @@ export function stackRequiresForcePush(stack: StackInfo): boolean {
 }
 
 export function stackHasConflicts(stack: StackInfo): boolean {
-	return stack.pushStatus === 'conflictedCommits';
+	return stack.isConflicted;
 }
 
 export function stackHasUnpushedCommits(stack: StackInfo): boolean {
 	return (
-		stack.pushStatus === 'unpushedCommits' || stack.pushStatus === 'unpushedCommitsRequiringForce'
+		stack.pushStatus === 'unpushedCommits' ||
+		stack.pushStatus === 'unpushedCommitsRequiringForce' ||
+		stack.pushStatus === 'completelyUnpushed'
 	);
+}
+
+export function stackIsIntegrated(stack: StackInfo): boolean {
+	return stack.pushStatus === 'integrated';
 }

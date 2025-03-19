@@ -30,12 +30,26 @@
 		Show
 	</Button>
 
-	<Modal bind:this={modal} {...args} onSubmit={() => console.log('submitted')}>
+	<Modal
+		bind:this={modal}
+		{...args}
+		onSubmit={() => {
+			// eslint-disable-next-line no-console
+			console.log('submitted');
+		}}
+	>
 		A branch with the same name already exists. Do you want to merge this branch into the current
 		branch?
 		{#snippet controls(close)}
 			<Button kind="outline" onclick={() => close()}>Cancel</Button>
-			<Button style="pop" type="submit" onclick={() => console.log('clicked')}>Merge</Button>
+			<Button
+				style="pop"
+				type="submit"
+				onclick={() => {
+					// eslint-disable-next-line no-console
+					console.log('clicked');
+				}}>Merge</Button
+			>
 		{/snippet}
 	</Modal>
 {/snippet}

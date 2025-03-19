@@ -95,7 +95,6 @@
 	}
 
 	function showAlertDialog(action: Action) {
-		console.log(action);
 		const message =
 			action === 'requestChanges'
 				? 'You have already approved this commit. Do you want to request changes instead?'
@@ -105,7 +104,6 @@
 	}
 
 	function handleChangeStatus(action: Action) {
-		console.log(action);
 		if (action === 'approve') {
 			showAlertDialog(action);
 		} else {

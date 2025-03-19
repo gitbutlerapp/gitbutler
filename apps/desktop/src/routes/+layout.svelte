@@ -216,8 +216,10 @@
 		// This is a debug tool to learn about environment variables actually present - only available if the backend is in debug mode.
 		'e n v': async () => {
 			let env = await invoke('env_vars');
+			// eslint-disable-next-line no-console
 			console.log(env);
 			(window as any).tauriEnv = env;
+			// eslint-disable-next-line no-console
 			console.log('Also written to window.tauriEnv');
 		}
 	});

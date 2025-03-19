@@ -6,13 +6,18 @@ import {
 	type ThunkDispatch,
 	type UnknownAction
 } from '@reduxjs/toolkit';
-
+import storage from 'redux-persist/lib/storage';
 type DrawerPage = 'branch' | 'new-commit' | 'pr' | 'br' | 'branch' | undefined;
 
 type CommitSelection = {
 	branchName: string;
 	commitId?: string;
 	upstream?: boolean;
+};
+
+export const uiStatePersistConfig = {
+	key: 'uiState',
+	storage: storage
 };
 
 /**

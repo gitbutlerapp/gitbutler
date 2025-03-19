@@ -124,6 +124,11 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 		Definitions
 	>;
 
+	async function mutate(queryArg: unknown) {
+		const dispatch = getDispatch();
+		return await dispatch(initiate(queryArg));
+	}
+
 	/**
 	 * Use mutation hook.
 	 *
@@ -189,6 +194,7 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 	}
 
 	return {
+		mutate,
 		useMutation
 	};
 }
