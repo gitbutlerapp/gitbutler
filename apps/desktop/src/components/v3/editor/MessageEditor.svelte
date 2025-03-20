@@ -4,7 +4,6 @@
 	import GiphyPlugin from '@gitbutler/ui/richText/plugins/GiphyPlugin.svelte';
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
 	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
-	// import FormattingPopup from '@gitbutler/ui/richText/tools/FormattingPopup.svelte';
 
 	interface Props {
 		markdown: boolean;
@@ -52,9 +51,6 @@
 			{markdown}
 			onError={(e) => showError('Editor error', e)}
 		>
-			{#snippet toolBar()}
-				<!-- <FormattingPopup /> -->
-			{/snippet}
 			{#snippet plugins()}
 				<Formatter bind:this={formatter} />
 				<GiphyPlugin />
