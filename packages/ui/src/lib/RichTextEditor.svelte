@@ -23,8 +23,6 @@
 		CodeActionMenuPlugin,
 		MarkdownShortcutPlugin,
 		ALL_TRANSFORMERS,
-		Toolbar,
-		StateStoreRichTextUpdator,
 		LinkPlugin
 	} from 'svelte-lexical';
 
@@ -33,7 +31,6 @@
 		markdown: boolean;
 		onError: (error: unknown) => void;
 		styleContext: 'client-editor' | 'chat-input';
-		toolBar?: Snippet;
 		plugins?: Snippet;
 		placeholder?: string;
 		onChange?: (text: string) => void;
@@ -46,7 +43,6 @@
 		markdown,
 		onError,
 		styleContext,
-		toolBar,
 		plugins,
 		placeholder,
 		onChange,
@@ -123,13 +119,6 @@
 </script>
 
 <Composer {initialConfig} bind:this={composer}>
-	{#if toolBar}
-		<Toolbar>
-			<StateStoreRichTextUpdator />
-			{@render toolBar()}
-		</Toolbar>
-	{/if}
-
 	<div class="lexical-container lexical-{styleContext}" bind:this={editorDiv}>
 		<div class="editor-scroller">
 			<div class="editor">

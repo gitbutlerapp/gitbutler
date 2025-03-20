@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { showError } from '$lib/notifications/toasts';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
+	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
 	import GiphyPlugin from '@gitbutler/ui/richText/plugins/GiphyPlugin.svelte';
-	import FormattingPopup from '@gitbutler/ui/richText/tools/FormattingPopup.svelte';
+	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
 
 	interface Props {
 		markdown: boolean;
@@ -11,6 +12,7 @@
 	let { markdown = $bindable() }: Props = $props();
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
+	let formatter = $state<ReturnType<typeof Formatter>>();
 
 	export async function getPlaintext(): Promise<string | undefined> {
 		return composer?.getPlaintext();
@@ -37,6 +39,7 @@
 				}}>Rich-text Editor</button
 			>
 		</div>
+		<FormattingBar bind:formatter />
 	</div>
 
 	<div role="presentation" class="message-editor-wrapper">
@@ -48,10 +51,8 @@
 			{markdown}
 			onError={(e) => showError('Editor error', e)}
 		>
-			{#snippet toolBar()}
-				<FormattingPopup />
-			{/snippet}
 			{#snippet plugins()}
+				<Formatter bind:this={formatter} />
 				<GiphyPlugin />
 			{/snippet}
 		</RichTextEditor>
