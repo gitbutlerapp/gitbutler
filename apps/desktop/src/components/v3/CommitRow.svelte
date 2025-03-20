@@ -117,7 +117,7 @@
 		<CommitLine {commit} {lastCommit} {lastBranch} {lineColor} />
 
 		<div class="commit-content">
-			<button type="button" {onclick}>
+			<button type="button" {onclick} tabindex="0">
 				<CommitHeader {commit} row />
 			</button>
 		</div>
@@ -209,12 +209,16 @@
 			transition: transform var(--transition-fast);
 		}
 
-		&.border-top {
-			/* border-top: 1px solid var(--clr-border-2); */
+		&.selected {
+			background-color: var(--clr-selected-not-in-focus-bg);
 		}
 
-		&.selected {
-			/* background-color: var(--clr-bg-1-muted); */
+		/* &:focus.selected {
+			background-color: var(--clr-selected-in-focus-bg);
+		} */
+
+		&:focus-within.selected {
+			background-color: var(--clr-selected-in-focus-bg);
 		}
 
 		&.selected::before {
