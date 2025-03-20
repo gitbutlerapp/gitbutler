@@ -38,17 +38,15 @@
 	}
 
 	$effect(() => {
-		if (templates) {
-			if ($lastTemplate && templates.includes($lastTemplate)) {
-				loadAndEmit($lastTemplate);
-			} else if (templates.length === 1) {
+		(() => {
+			if (!templates) return;
+			if ($lastTemplate && templates.includes($lastTemplate)) return loadAndEmit($lastTemplate);
+			if (templates.length === 1) {
 				const path = templates.at(0);
-				if (path) {
-					loadAndEmit(path);
-					lastTemplate.set(path);
-				}
+				if (!path) return;
+				return loadAndEmit(path), lastTemplate.set(path);
 			}
-		}
+		})();
 	});
 </script>
 
