@@ -5,9 +5,11 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound, map } from '@gitbutler/shared/network/loadable';
+	import { getPatch } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import CommitStatusBadge from '@gitbutler/ui/CommitStatusBadge.svelte';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { PatchCommit } from '@gitbutler/shared/patches/types';
 	import { goto } from '$app/navigation';
 
@@ -27,7 +29,20 @@
 	let component = $state<HTMLElement>();
 
 	const branch = $derived(getBranchReview(branchUuid, { element: component }));
-	const patchCommits = $derived(map(branch.current, (branch) => branch.patches) || []);
+	const loadablePatchCommits = $derived(
+		map(branch.current, (branch) =>
+			branch.patchCommitIds.map((id) => getPatch(branch.uuid, id, { element: component }))
+		) || []
+	);
+	const patchCommits = $derived(
+		loadablePatchCommits
+			.map((patchCommit) => {
+				if (isFound(patchCommit.current)) {
+					return patchCommit.current.value;
+				}
+			})
+			.filter(isDefined)
+	);
 
 	function getClass(patchCommit: PatchCommit) {
 		if (
