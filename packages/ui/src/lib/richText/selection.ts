@@ -44,12 +44,18 @@ export function insertGhostTextAtCaret(editor: LexicalEditor, ghostText: string)
 
 		const words = textToInsert.split(' ');
 
+		const key = selection.focus.key;
+		const offset = selection.focus.offset;
+		const type = selection.focus.type;
+
 		const nodesToInsert = words.map((word, index) => {
 			const isLast = index === words.length - 1;
 			const wordWithSpace = isLast ? word : `${word} `;
 			return createGhostTextNode(wordWithSpace, index);
 		});
 		selection.insertNodes(nodesToInsert);
+		selection.focus.set(key, offset, type);
+		selection.anchor.set(key, offset, type);
 	});
 }
 
