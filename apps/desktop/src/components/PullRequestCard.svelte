@@ -1,10 +1,10 @@
 <script lang="ts">
+	import ChecksPolling from '$components/ChecksPolling.svelte';
 	import MergeButton from '$components/MergeButton.svelte';
 	import PullRequestPolling from '$components/PullRequestPolling.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { type ForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
 	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -29,20 +29,8 @@
 		hasParent: boolean;
 		parentIsPushed: boolean;
 		child?: PatchSeries;
-		checksMonitor?: ForgeChecksMonitor;
 		openPrDetailsModal: () => void;
 	}
-
-	const {
-		pr,
-		poll,
-		checksMonitor,
-		child,
-		hasParent,
-		isPushed,
-		openPrDetailsModal,
-		parentIsPushed
-	}: Props = $props();
 
 	type StatusInfo = {
 		text: string;
@@ -51,6 +39,9 @@
 		messageStyle?: MessageStyle;
 		tooltip?: string;
 	};
+
+	const { pr, poll, child, hasParent, isPushed, openPrDetailsModal, parentIsPushed }: Props =
+		$props();
 
 	let contextMenuEl = $state<ReturnType<typeof ContextMenu>>();
 	let contextMenuTarget = $state<HTMLElement>();
@@ -68,7 +59,6 @@
 
 	const baseBranch = $derived(baseBranchService.base);
 	const repoResult = $derived(repoService.getInfo());
-	const checks = $derived(checksMonitor?.status);
 	const repoInfo = $derived(repoResult?.current.data);
 
 	let shouldUpdateTargetBaseBranch = $state(false);
@@ -84,46 +74,9 @@
 	);
 
 	let isMerging = $state(false);
+	let hasChecks = $state(false);
 
 	const prLoading = $state(false);
-	const checksLoading = $derived(checksMonitor?.loading);
-	const checksError = $derived(checksMonitor?.error);
-
-	const checksTagInfo: StatusInfo = $derived.by(() => {
-		if (!checksMonitor && pr?.fork) {
-			return {
-				style: 'neutral',
-				icon: 'info',
-				text: 'No PR checks',
-				tooltip: 'Checks for forked repos only available on the web.'
-			};
-		}
-
-		if ($checksError) {
-			return { style: 'error', icon: 'warning-small', text: 'Failed to load' };
-		}
-
-		if ($checks) {
-			const style = $checks.completed ? ($checks.success ? 'success' : 'error') : 'warning';
-			const icon =
-				$checks.completed && !$checksLoading
-					? $checks.success
-						? 'success-small'
-						: 'error-small'
-					: 'spinner';
-			const text = $checks.completed
-				? $checks.success
-					? 'Checks passed'
-					: 'Checks failed'
-				: 'Checks running';
-			return { style, icon, text };
-		}
-		if ($checksLoading) {
-			return { style: 'neutral', icon: 'spinner', text: 'Checks' };
-		}
-
-		return { style: 'neutral', icon: undefined, text: 'No PR checks' };
-	});
 
 	const prStatusInfo: StatusInfo = $derived.by(() => {
 		if (!pr) {
@@ -154,8 +107,6 @@
 			tooltip = 'Pull request is not next in stack';
 		} else if (prLoading) {
 			tooltip = 'Reloading pull request data';
-		} else if ($checksLoading) {
-			tooltip = 'Reloading checks data';
 		} else if (pr?.draft) {
 			tooltip = 'Pull request is a draft';
 		} else if (pr?.mergeableState === 'blocked') {
@@ -220,30 +171,28 @@
 		<ContextMenuItem
 			label="Refetch status"
 			onclick={() => {
-				prService?.get(pr.number, { subscribe: false, forceRefetch: true });
+				prService?.fetch(pr.number, { forceRefetch: true });
 				contextMenuEl?.close();
 			}}
 		/>
 	</ContextMenuSection>
-	{#if checksTagInfo}
-		{#if checksTagInfo.text !== 'No PR checks' && checksTagInfo.text !== 'Checks'}
-			<ContextMenuSection>
-				<ContextMenuItem
-					label="Open checks"
-					onclick={() => {
-						openExternalUrl(`${pr.htmlUrl}/checks`);
-						contextMenuEl?.close();
-					}}
-				/>
-				<ContextMenuItem
-					label="Copy checks"
-					onclick={() => {
-						copyToClipboard(`${pr.htmlUrl}/checks`);
-						contextMenuEl?.close();
-					}}
-				/>
-			</ContextMenuSection>
-		{/if}
+	{#if hasChecks}
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Open checks"
+				onclick={() => {
+					openExternalUrl(`${pr.htmlUrl}/checks`);
+					contextMenuEl?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Copy checks"
+				onclick={() => {
+					copyToClipboard(`${pr.htmlUrl}/checks`);
+					contextMenuEl?.close();
+				}}
+			/>
+		</ContextMenuSection>
 	{/if}
 </ContextMenu>
 
@@ -272,16 +221,13 @@
 		>
 			{prStatusInfo.text}
 		</Badge>
-		{#if !pr.closedAt && checksTagInfo}
-			<Badge
-				size="tag"
-				icon={checksTagInfo.icon}
-				style={checksTagInfo.style}
-				kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
-				tooltip={checksTagInfo.tooltip}
-			>
-				{checksTagInfo.text}
-			</Badge>
+		{#if !pr.closedAt}
+			<ChecksPolling
+				branchName={pr.sourceBranch}
+				isFork={pr.fork}
+				isMerged={pr.merged}
+				bind:hasChecks
+			/>
 		{/if}
 		{#if pr.htmlUrl}
 			<Button
@@ -330,8 +276,7 @@
 						await Promise.all([
 							baseBranchService.fetchFromRemotes(),
 							vbranchService.refresh(),
-							baseBranchService.refresh(),
-							checksMonitor?.update()
+							baseBranchService.refresh()
 						]);
 					} catch (err) {
 						console.error(err);

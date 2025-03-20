@@ -15,7 +15,10 @@ export interface ForgePrService {
 		prNumber: number,
 		options?: StartQueryActionCreatorOptions
 	): ReactiveResult<DetailedPullRequest>;
-	fetch(prNumber: number): AsyncResult<DetailedPullRequest | undefined>;
+	fetch(
+		prNumber: number,
+		options?: StartQueryActionCreatorOptions
+	): AsyncResult<DetailedPullRequest | undefined>;
 	createPr({
 		title,
 		body,

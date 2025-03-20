@@ -1,5 +1,5 @@
 import type { ForgeBranch } from '$lib/forge/interface/forgeBranch';
-import type { ForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
+import type { ChecksService } from '$lib/forge/interface/forgeChecksMonitor';
 import type { ForgeIssueService } from '$lib/forge/interface/forgeIssueService';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
 import type { ForgePrService } from '$lib/forge/interface/forgePrService';
@@ -21,7 +21,7 @@ export interface Forge {
 	get repoService(): ForgeRepoService | undefined;
 
 	// Results from CI check-runs.
-	checksMonitor(branchName: string): ForgeChecksMonitor | undefined;
+	get checks(): ChecksService | undefined;
 
 	// Host specific branch information.
 	branch(name: string): ForgeBranch | undefined;

@@ -51,7 +51,7 @@ export class GitLab implements Forge {
 		return undefined;
 	}
 
-	checksMonitor(_sourceBranch: string) {
+	get checks() {
 		return undefined;
 	}
 

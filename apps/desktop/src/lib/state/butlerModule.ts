@@ -19,7 +19,6 @@ import {
 	type ApiModules,
 	type MutationResultSelectorResult,
 	type QueryActionCreatorResult,
-	type SubscriptionOptions,
 	type StartQueryActionCreatorOptions
 } from '@reduxjs/toolkit/query';
 import type { tauriBaseQuery, TauriBaseQueryFn } from '$lib/state/backendQuery';
@@ -173,6 +172,9 @@ type DefaultTransformer<T extends CustomQuery<any>> = (arg: ResultTypeFrom<T>) =
  */
 export type CustomQuery<T> = QueryDefinition<CustomArgs, TauriBaseQueryFn, string, T>;
 
+/** Options for queries. */
+export type QueryOptions = StartQueryActionCreatorOptions & { forceRefetch?: boolean };
+
 /**
  * Declaration of custom methods for queries.
  */
@@ -180,7 +182,7 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 	/** Execute query and return results. */
 	subscribe: (
 		args: QueryArgFrom<D>,
-		options: SubscriptionOptions & { forceRefetch: boolean }
+		options: QueryOptions
 	) => QueryActionCreatorResult<CustomQuery<ResultTypeFrom<D>>>;
 	/** Fetch as promise, non-reactive. */
 	fetch: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
