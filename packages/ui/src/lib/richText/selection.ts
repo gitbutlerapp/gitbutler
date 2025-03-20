@@ -37,7 +37,10 @@ export function insertGhostTextAtCaret(editor: LexicalEditor, ghostText: string)
 		}
 
 		const currentTextContent = $getRoot().getTextContent();
-		const textToInsert = ghostText.slice(currentTextContent.length);
+		let textToInsert = ghostText;
+		if (ghostText.startsWith(currentTextContent)) {
+			textToInsert = textToInsert.slice(currentTextContent.length);
+		}
 
 		const insertNode = createGhostTextNode(textToInsert);
 		selection.insertNodes([insertNode]);

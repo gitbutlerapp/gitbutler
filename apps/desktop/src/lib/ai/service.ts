@@ -13,7 +13,8 @@ import {
 	AnthropicModelName,
 	ModelKind,
 	MessageRole,
-	type Prompt
+	type Prompt,
+	type PromptMessage
 } from '$lib/ai/types';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { devLog } from '@gitbutler/shared/logging';
@@ -323,20 +324,28 @@ export class AIService {
 	private formatStagedChanges(stagedChanges: { path: string; diff: string[] }[]): string {
 		return stagedChanges
 			.map((change) => {
-				return `### ${change.path}\n${change.diff.join('\n')}`;
+				return `FILE PATH CHANGED: ${change.path}
+
+HUNK DIFFS
+${change.diff.join('\n')}`;
 			})
-			.join('\n');
+			.join('\n\n');
 	}
 
 	async autoCompleteCommitMessage({
 		currentValue,
-		stagedChanges
+		stagedChanges,
+		commitMessages
 	}: {
 		currentValue: string;
+		commitMessages: string[];
 		stagedChanges: { path: string; diff: string[] }[];
 	}): Promise<string | undefined> {
 		const aiClient = await this.buildClient();
 		if (!aiClient) return;
+
+		// Use only messages that are at least 10 characters long
+		const usableCommitMessages = commitMessages.filter((message) => message.length >= 10);
 
 		const prompt: PromptMessage[] = [];
 
@@ -355,12 +364,28 @@ ${this.formatStagedChanges(stagedChanges)}`;
 			content: systemContent
 		});
 
+		// Add fake completions from the existing commit messages
+		usableCommitMessages.forEach((message) => {
+			const halfMessage = message.slice(0, Math.floor(message.length / 2));
+			const otherHalf = message.slice(Math.floor(message.length / 2));
+			prompt.push({
+				role: MessageRole.User,
+				content: `${halfMessage}<<<<<FILL>>>>>`
+			});
+
+			prompt.push({
+				role: MessageRole.Assistant,
+				content: otherHalf
+			});
+		});
+
+		// This is the actual completion trigger
 		prompt.push({
 			role: MessageRole.User,
 			content: `${currentValue}<<<<<FILL>>>>>`
 		});
 
-		const message = (await aiClient.evaluate(prompt)).trim();
+		const message = await aiClient.evaluate(prompt);
 		return message;
 	}
 

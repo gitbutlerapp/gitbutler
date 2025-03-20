@@ -42,17 +42,28 @@
 	);
 
 	const changes = $derived(worktreeService.getChangesById(projectId, selectionPaths));
-	const diffs = $derived.by(() => {
+
+	type ChangeDiff<T> = {
+		path: string;
+		diff: T;
+	};
+
+	let changeDiffs = $state<ChangeDiff<Awaited<ReturnType<typeof diffService.getDiffDirectly>>>[]>();
+
+	$effect(() => {
 		const treeChanges = changes.current.data;
-		if (!treeChanges) return Promise.resolve([]);
-		return Promise.all(
+		if (!treeChanges) return;
+		Promise.all(
 			treeChanges.map((change) =>
 				diffService.getDiffDirectly(projectId, change).then((diff) => ({
 					path: change.path,
 					diff
 				}))
 			)
-		);
+		).then((diffs) => {
+			devLog('update diffs:');
+			changeDiffs = diffs;
+		});
 	});
 
 	const commitsResponse = $derived(
@@ -70,24 +81,26 @@
 	}
 
 	let lastSentMessage = $state<string | undefined>();
+	let lasSelectedGhostText = $state<string | undefined>();
 
-	async function getCleanHunks() {
-		const actualDiffs = await diffs;
-		return actualDiffs
+	function getCleanHunks() {
+		if (!changeDiffs) return [];
+		return changeDiffs
 			.map(({ diff, path }) => {
-				if (!diff) return undefined;
-				if (diff.type !== 'Patch') return undefined;
+				if (!diff.data) return undefined;
+				if (diff.data.type !== 'Patch') return undefined;
 				return {
 					path,
-					diff: diff.subject.hunks.map((hunk) => hunk.diff)
+					diff: diff.data.subject.hunks.map((hunk) => hunk.diff)
 				};
 			})
 			.filter(isDefined);
 	}
 
 	async function handleChange(text: string) {
-		const hunks = await getCleanHunks();
+		const hunks = getCleanHunks();
 
+		if (lasSelectedGhostText && text.endsWith(lasSelectedGhostText)) return;
 		if (lastSentMessage === text) return;
 		if (!text) {
 			ghostTextComponent?.reset();
@@ -97,7 +110,8 @@
 		devLog('Text changed:', text);
 		const autoCompletion = await aiService.autoCompleteCommitMessage({
 			currentValue: text,
-			stagedChanges: hunks
+			stagedChanges: hunks,
+			commitMessages
 		});
 		devLog('Auto completion:', autoCompletion);
 		if (autoCompletion) {
@@ -109,7 +123,7 @@
 
 	function onSelectGhostText(text: string) {
 		devLog('Selected ghost text:', text);
-		lastSentMessage = text;
+		lasSelectedGhostText = text;
 	}
 </script>
 

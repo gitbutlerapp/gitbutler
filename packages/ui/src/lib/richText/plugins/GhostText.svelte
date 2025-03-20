@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { getEditor } from '../context';
-	import { insertGhostTextAtCaret, removeAllGhostText, replaceGhostTextWithText } from '../selection';
+	import {
+		insertGhostTextAtCaret,
+		removeAllGhostText,
+		replaceGhostTextWithText
+	} from '../selection';
 	import { CLICK_COMMAND, COMMAND_PRIORITY_CRITICAL, KEY_DOWN_COMMAND } from 'lexical';
 
 	type Props = {
@@ -35,8 +39,8 @@
 			return false;
 		}
 
-		onSelection?.(textContent);
 		replaceGhostTextWithText(editor);
+		onSelection?.(textContent);
 		reset();
 
 		event.preventDefault();
@@ -60,7 +64,7 @@
 				'ArrowUp',
 				'ArrowDown',
 				'ArrowLeft',
-				'ArrowRight',
+				'ArrowRight'
 			].includes(event.key)
 		) {
 			return false;
@@ -100,6 +104,9 @@
 
 	// Insert the ghost text
 	export function setText(text: string) {
+		if (textContent) {
+			return;
+		}
 		textContent = text;
 		insertGhostTextAtCaret(editor, text);
 	}
