@@ -9,6 +9,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { devLog } from '@gitbutler/shared/logging';
 	import { debouncePromise } from '@gitbutler/shared/utils/misc';
+	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
 	import GhostTextPlugin from '@gitbutler/ui/richText/plugins/GhostText.svelte';
@@ -81,6 +82,9 @@
 		return composer?.getPlaintext();
 	}
 
+	let alwaysAutoComplete = $state(false);
+
+	let editorText = $state<string | undefined>();
 	let lastSentMessage = $state<string | undefined>();
 	let lasSelectedGhostText = $state<string | undefined>();
 
@@ -99,6 +103,10 @@
 	}
 
 	async function handleChange(text: string) {
+		editorText = text;
+		devLog('Text changed:', text);
+		if (!alwaysAutoComplete) return;
+
 		const hunks = getCleanHunks();
 
 		if (lasSelectedGhostText && text.endsWith(lasSelectedGhostText)) return;
@@ -119,6 +127,39 @@
 		if (autoCompletion) {
 			ghostTextComponent?.setText(autoCompletion);
 		}
+	}
+
+	async function suggest(text: string) {
+		const hunks = getCleanHunks();
+
+		if (lasSelectedGhostText && text.endsWith(lasSelectedGhostText)) return;
+		if (lastSentMessage === text) return;
+		if (!text) {
+			ghostTextComponent?.reset();
+			return;
+		}
+		lastSentMessage = text;
+		const autoCompletion = await aiService.autoCompleteCommitMessage({
+			currentValue: text,
+			stagedChanges: hunks,
+			commitMessages,
+			modifierPrompt
+		});
+
+		devLog('Auto completion:', autoCompletion);
+		if (autoCompletion) {
+			ghostTextComponent?.setText(autoCompletion);
+		}
+	}
+
+	function handleKeyDown(event: KeyboardEvent | null): boolean {
+		if (alwaysAutoComplete) return false;
+		if (!event) return false;
+		if (event.key === 'g' && (event.ctrlKey || event.metaKey)) {
+			if (editorText) suggest(editorText);
+			return true;
+		}
+		return false;
 	}
 
 	const debouncedHandleChange = debouncePromise(handleChange, 500);
@@ -149,6 +190,7 @@
 				}}>Rich-text Editor</button
 			>
 		</div>
+		<Checkbox bind:checked={alwaysAutoComplete}  />
 		<FormattingBar bind:formatter />
 	</div>
 
@@ -161,6 +203,7 @@
 			{markdown}
 			onError={(e) => showError('Editor error', e)}
 			onChange={debouncedHandleChange}
+			onKeyDown={handleKeyDown}
 		>
 			{#snippet plugins()}
 				<Formatter bind:this={formatter} />
