@@ -17,6 +17,7 @@ import { sleep } from '$lib/utils/sleep';
 import { writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { ForgePrService } from '$lib/forge/interface/forgePrService';
+import type { QueryOptions } from '$lib/state/butlerModule';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
 import type { StartQueryActionCreatorOptions } from '@reduxjs/toolkit/query';
 
@@ -71,10 +72,8 @@ export class GitHubPrService implements ForgePrService {
 		throw lastError;
 	}
 
-	async fetch(number: number, options?: { forceRefetch: boolean }) {
-		const result = $derived(
-			this.api.endpoints.getPr.fetch({ number }, { forceRefetch: options?.forceRefetch })
-		);
+	async fetch(number: number, options?: QueryOptions) {
+		const result = $derived(this.api.endpoints.getPr.fetch({ number }, options));
 		return await result;
 	}
 

@@ -110,33 +110,9 @@
 	const prService = $derived(forge.current.prService);
 	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
 	const pr = $derived(prResult?.current.data);
-	const sourceBranch = $derived(pr?.sourceBranch); // Deduplication.
 	const mergedIncorrectly = $derived(
 		(pr?.merged && pr.baseBranch !== $baseBranch.shortName) || false
 	);
-
-	// Do not create a checks monitor if pull request is merged or from a fork.
-	// For more information about unavailability of check-runs for forked repos,
-	// see GitHub docs at:
-	// https://docs.github.com/en/rest/checks/runs?apiVersion=2022-11-28#list-check-runs-in-a-check-suite
-	// TODO: Make this forge specific by moving it into ForgePrMonitor.
-	// const shouldCheck = $derived($prResult && !$prResult.fork && !$prResult.merged); // Deduplication.
-	const shouldCheck = false;
-	const checksMonitor = $derived(
-		sourceBranch && shouldCheck ? forge.current.checksMonitor(sourceBranch) : undefined
-	);
-
-	// Without lastSeenPush this code has gone into an infinite loop, where lastPush
-	// seemingly kept updating as a result of calling updateStatusAndChecks.
-	// TODO: Refactor such that we do not need `$effect`.
-	// $effect(() => {
-	// TODO: Invalidate PR cache on push!
-	// if (!lastPush) return;
-	// if (!lastSeenPush || lastPush > lastSeenPush) {
-	// 	updateStatusAndChecks();
-	// }
-	// lastSeenPush = lastPush;
-	// });
 
 	/**
 	 * We are starting to store pull request id's locally so if we find one that does not have
@@ -365,7 +341,6 @@
 							<PullRequestCard
 								openPrDetailsModal={handleOpenBranchReview}
 								{pr}
-								{checksMonitor}
 								{isPushed}
 								{child}
 								{hasParent}

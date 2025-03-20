@@ -34,7 +34,7 @@ export interface DetailedPullRequest {
 	number: number;
 	sourceBranch: string;
 	draft?: boolean;
-	fork?: boolean;
+	fork: boolean;
 	createdAt: string;
 	mergedAt?: string;
 	closedAt?: string;
@@ -51,7 +51,7 @@ export interface DetailedPullRequest {
 }
 
 export type ChecksStatus = {
-	startedAt: Date;
+	startedAt: string;
 	completed: boolean;
 	success: boolean;
 };

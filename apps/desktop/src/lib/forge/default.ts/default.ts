@@ -1,6 +1,6 @@
 import type { Forge, ForgeName } from '$lib/forge/interface/forge';
 import type { ForgeBranch } from '$lib/forge/interface/forgeBranch';
-import type { ForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
+import type { ChecksService } from '$lib/forge/interface/forgeChecksMonitor';
 import type { ForgeIssueService } from '$lib/forge/interface/forgeIssueService';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
 import type { ForgePrService } from '$lib/forge/interface/forgePrService';
@@ -25,7 +25,7 @@ export class DefaultForge implements Forge {
 	get repoService(): ForgeRepoService | undefined {
 		return undefined;
 	}
-	checksMonitor(_branchName: string): ForgeChecksMonitor | undefined {
+	get checks(): ChecksService | undefined {
 		return undefined;
 	}
 	branch(_name: string): ForgeBranch | undefined {

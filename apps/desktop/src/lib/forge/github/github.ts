@@ -45,8 +45,8 @@ export class GitHub implements Forge {
 		return new GitHubIssueService(this.params.gitHubApi);
 	}
 
-	checksMonitor(sourceBranch: string) {
-		return new GitHubChecksMonitor(this.params.gitHubApi, sourceBranch);
+	get checks() {
+		return new GitHubChecksMonitor(this.params.gitHubApi);
 	}
 
 	branch(name: string) {

@@ -50,7 +50,7 @@ export class BitBucket implements Forge {
 		return undefined;
 	}
 
-	checksMonitor(_sourceBranch: string) {
+	get checks() {
 		return undefined;
 	}
 }

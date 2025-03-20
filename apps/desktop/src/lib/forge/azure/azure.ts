@@ -50,7 +50,7 @@ export class AzureDevOps implements Forge {
 		return undefined;
 	}
 
-	checksMonitor(_sourceBranch: string) {
+	get checks() {
 		return undefined;
 	}
 }
