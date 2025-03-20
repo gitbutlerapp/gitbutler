@@ -13,7 +13,7 @@
 	<Textarea
 		{value}
 		autofocus
-		placeholder="Your commit message"
+		placeholder="Your commit title"
 		padding={{
 			top: 8,
 			right: 12,
