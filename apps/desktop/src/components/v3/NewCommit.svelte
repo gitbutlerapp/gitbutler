@@ -70,9 +70,9 @@
 
 	async function hanldleCommitCreation() {
 		const message = await composer?.getPlaintext();
-		if (!message) return;
+		if (!message && !titleText) return;
 
-		const commitMessage = titleText ? `${titleText}\n\n${message}` : message;
+		const commitMessage = [message, titleText].filter((a) => a).join('\n\n');
 
 		try {
 			await createCommit(commitMessage);
