@@ -2,7 +2,6 @@
 	import Drawer from '$components/v3/Drawer.svelte';
 	import EditorFooter from '$components/v3/editor/EditorFooter.svelte';
 	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
-	import TitleInput from '$components/v3/editor/TitleInput.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -10,6 +9,7 @@
 	import { getContext, inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 
 	type Props = {
 		projectId: string;
@@ -91,7 +91,7 @@
 		<p class="text-14 text-semibold">Create commit</p>
 	{/snippet}
 	<div class="new-commit-fields">
-		<TitleInput bind:value={titleText} />
+		<Textbox bind:value={titleText} placeholder="Commit title" />
 		<MessageEditor bind:this={composer} bind:markdown={$markdown} />
 	</div>
 	<EditorFooter onCancel={cancel}>
