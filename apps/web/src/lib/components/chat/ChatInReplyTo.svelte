@@ -28,9 +28,11 @@
 <div class="reply" class:clickable>
 	<div class="reply__content">
 		<img class="reply__avatar" src={message.user.avatarUrl} alt={authorName} />
-		<p class="text-11 text-body reply_text">
-			{message.comment}
-		</p>
+		<div class="reply__text">
+			<span class="text-11 text-body">
+				{message.comment}
+			</span>
+		</div>
 	</div>
 
 	{#if clearReply}
@@ -41,7 +43,6 @@
 <style lang="postcss">
 	.reply {
 		display: flex;
-		padding: 0 8px 0 0;
 		align-self: stretch;
 		justify-content: space-between;
 		align-items: center;
@@ -58,19 +59,26 @@
 	.reply__content {
 		display: flex;
 		align-items: center;
-		gap: 7px;
-
-		padding: 8px 0 8px 12px;
-
+		gap: 8px;
+		padding: 8px;
 		border-left: 4px solid var(--clr-scale-ntrl-60);
+		overflow: hidden;
 	}
 
-	.reply_text {
-		margin: 0;
-		text-overflow: ellipsis;
-		text-wrap: nowrap;
-		overflow-x: hidden;
-		max-width: 320px;
+	.reply__text {
+		display: flex;
+		max-height: 1em;
+		overflow: hidden;
+
+		& > span {
+			display: -webkit-inline-box;
+			-webkit-line-clamp: 1;
+			-webkit-box-orient: vertical;
+			word-break: break-all;
+			white-space: break-spaces;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
 	}
 
 	.reply__avatar {
