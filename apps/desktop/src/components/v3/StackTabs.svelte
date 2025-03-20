@@ -62,7 +62,7 @@
 								{selected}
 							>
 								{#snippet menu()}
-									<StackTabMenu />
+									<StackTabMenu {projectId} stackId={tab.id} />
 								{/snippet}
 							</StackTab>
 						{/each}

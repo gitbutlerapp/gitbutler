@@ -1,8 +1,19 @@
 <script lang="ts">
+	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { getContext } from '@gitbutler/shared/context';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+
+	type Props = {
+		projectId: string;
+		stackId: string;
+	};
+
+	const { projectId, stackId }: Props = $props();
+
+	const stackService = getContext(StackService);
 
 	let trigger = $state<HTMLElement>();
 	let contextMenu = $state<ContextMenu>();
@@ -32,7 +43,8 @@
 		<ContextMenuItem
 			label="Unapply Stack"
 			keyboardShortcut="$mod+X"
-			onclick={() => {
+			onclick={async () => {
+				await stackService.unapply(projectId, stackId);
 				contextMenu?.close();
 			}}
 		/>
