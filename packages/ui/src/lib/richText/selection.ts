@@ -42,8 +42,14 @@ export function insertGhostTextAtCaret(editor: LexicalEditor, ghostText: string)
 			textToInsert = textToInsert.slice(currentTextContent.length);
 		}
 
-		const insertNode = createGhostTextNode(textToInsert);
-		selection.insertNodes([insertNode]);
+		const words = textToInsert.split(' ');
+
+		const nodesToInsert = words.map((word, index) => {
+			const isLast = index === words.length - 1;
+			const wordWithSpace = isLast ? word : `${word} `;
+			return createGhostTextNode(wordWithSpace, index);
+		});
+		selection.insertNodes(nodesToInsert);
 	});
 }
 

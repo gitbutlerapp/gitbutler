@@ -9,11 +9,13 @@ import {
 export type SerializedGhostTextNode = Spread<
 	{
 		type: 'ghostText';
+		index: number | undefined;
 	},
 	SerializedTextNode
 >;
 
 export class GhostText extends TextNode {
+	__index?: number;
 
 	static getType(): string {
 		return 'ghostText';
@@ -23,21 +25,25 @@ export class GhostText extends TextNode {
 		return new GhostText(node.__text, node.__key);
 	}
 
-	constructor(text: string, key?: NodeKey) {
+	constructor(text: string, key?: NodeKey, index?: number) {
 		super(text, key);
+		this.__index = index;
 	}
 
 	createDOM(config: EditorConfig): HTMLElement {
 		const dom = document.createElement('span');
 		const inner = super.createDOM(config);
 		dom.className = 'ghost-text';
+		if (this.__index !== undefined) {
+			dom.style.animationDelay = `${this.__index * 0.1}s`;
+		}
 		inner.className = 'ghost-text-inner';
 		dom.appendChild(inner);
 		return dom;
 	}
 
 	static importJSON(serializedNode: SerializedGhostTextNode): GhostText {
-		const node = createGhostTextNode(serializedNode.text);
+		const node = createGhostTextNode(serializedNode.text, serializedNode.index);
 		node.setFormat(serializedNode.format);
 		node.setDetail(serializedNode.detail);
 		node.setMode(serializedNode.mode);
@@ -45,10 +51,11 @@ export class GhostText extends TextNode {
 		return node;
 	}
 
-	exportJSON(): SerializedTextNode {
+	exportJSON(): SerializedGhostTextNode {
 		return {
 			...super.exportJSON(),
-			type: 'ghostText'
+			type: 'ghostText',
+			index: this.__index
 		};
 	}
 
@@ -83,8 +90,8 @@ export class GhostText extends TextNode {
 	}
 }
 
-export function createGhostTextNode(text: string, key?: NodeKey): GhostText {
-	return new GhostText(text, key).setMode('token');
+export function createGhostTextNode(text: string, index?: number, key?: NodeKey): GhostText {
+	return new GhostText(text, key, index).setMode('token');
 }
 
 export function isGhostTextNode(node: TextNode): node is GhostText {
