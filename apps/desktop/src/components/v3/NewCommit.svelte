@@ -25,9 +25,9 @@
 	const selected = $derived(stackState.selection.get());
 	const branchName = $derived(selected.current?.branchName);
 	const commitId = $derived(selected.current?.commitId);
-	const canCommit = $derived(branchName);
 	const changeSelection = getContext(ChangeSelectionService);
 	const selection = $derived(changeSelection.list());
+	const canCommit = $derived(branchName && selection.current.length > 0);
 
 	let titleText = $state<string>();
 
@@ -72,8 +72,10 @@
 		const message = await composer?.getPlaintext();
 		if (!message) return;
 
+		const commitMessage = titleText ? `${titleText}\n\n${message}` : message;
+
 		try {
-			await createCommit(message);
+			await createCommit(commitMessage);
 		} catch (err: unknown) {
 			showError('Failed to commit', err);
 		}
