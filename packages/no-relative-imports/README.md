@@ -22,3 +22,20 @@ It should be noted that the current implementation does not try to handle all th
 	}
 }
 ```
+
+## Usage
+
+```
+import noRelativeImportPaths from '@gitbutler/no-relative-imports';
+
+export default [
+  {
+    plugins: {
+      'no-relative-import-paths': noRelativeImportPaths,
+    },
+    rules: {
+      'no-relative-import-paths/no-relative-import-paths': 'error',
+    },
+  },
+]
+```
