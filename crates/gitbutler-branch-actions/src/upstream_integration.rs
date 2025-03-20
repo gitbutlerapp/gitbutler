@@ -18,7 +18,6 @@ use gitbutler_repo::{
     logging::LogUntil,
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
 };
-use gitbutler_repo_actions::RepoActionsExt as _;
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::stack_context::StackContext;
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
@@ -154,6 +153,7 @@ pub struct Resolution {
     // TODO(CTO): Rename to stack_id
     pub branch_id: StackId,
     pub approach: ResolutionApproach,
+    pub delete_integrated_branches: bool,
 }
 
 enum IntegrationResult {
@@ -515,7 +515,16 @@ pub(crate) fn integrate_upstream(
 
             let stack = virtual_branches_state.get_stack(*stack_id)?;
             virtual_branches_state.delete_branch_entry(stack_id)?;
-            command_context.delete_branch_reference(&stack)?;
+            let delete_local_refs = resolutions
+                .iter()
+                .find(|r| r.branch_id == *stack_id)
+                .map(|r| r.delete_integrated_branches)
+                .unwrap_or(false);
+            if delete_local_refs {
+                for head in stack.heads {
+                    head.delete_reference(&gix_repo).ok();
+                }
+            }
         }
 
         let permission = context._permission.expect("Permission provided above");
@@ -567,8 +576,18 @@ pub(crate) fn integrate_upstream(
             }
             stack.set_stack_head(command_context, *head, Some(*tree))?;
 
-            let mut archived_branches =
-                stack.archive_integrated_heads(command_context, for_archival)?;
+            let delete_local_refs = resolutions
+                .iter()
+                .find(|r| r.branch_id == *branch_id)
+                .map(|r| r.delete_integrated_branches)
+                .unwrap_or(false);
+
+            let mut archived_branches = stack.archive_integrated_heads(
+                command_context,
+                &gix_repo,
+                for_archival,
+                delete_local_refs,
+            )?;
             newly_archived_branches.append(&mut archived_branches);
         }
 
