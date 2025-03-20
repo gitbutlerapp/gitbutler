@@ -1,5 +1,8 @@
 {
 	"name": "@gitbutler/no-relative-imports",
+	"version": "0.0.1",
+	"license": "MIT",
+	"private": false,
 	"type": "module",
 	"peerDependencies": {
 		"eslint": ">=9.0.0"
