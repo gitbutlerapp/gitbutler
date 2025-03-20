@@ -17,12 +17,13 @@
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
+		modifierPrompt: string | undefined;
 		projectId: string;
 		stackId: string;
 		markdown: boolean;
 	}
 
-	let { markdown = $bindable(), stackId, projectId }: Props = $props();
+	let { markdown = $bindable(), stackId, projectId, modifierPrompt }: Props = $props();
 
 	const [aiService, uiState, stackService, idSelection, worktreeService, diffService] = inject(
 		AIService,
@@ -111,7 +112,8 @@
 		const autoCompletion = await aiService.autoCompleteCommitMessage({
 			currentValue: text,
 			stagedChanges: hunks,
-			commitMessages
+			commitMessages,
+			modifierPrompt
 		});
 		devLog('Auto completion:', autoCompletion);
 		if (autoCompletion) {

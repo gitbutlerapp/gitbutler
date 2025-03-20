@@ -3,17 +3,18 @@
 
 	interface Props {
 		value: string | undefined;
+		placeholder?: string;
 		oninput?: (e: Event) => void;
 	}
 
-	const { value = $bindable(), oninput }: Props = $props();
+	let { value, oninput, placeholder }: Props = $props();
 </script>
 
 <div class="editor-title-input">
 	<Textarea
 		{value}
 		autofocus
-		placeholder="Your commit title"
+		placeholder={placeholder ?? 'Your commit title'}
 		padding={{
 			top: 8,
 			right: 12,

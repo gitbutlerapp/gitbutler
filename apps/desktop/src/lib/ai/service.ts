@@ -333,10 +333,12 @@ ${change.diff.join('\n')}`;
 	}
 
 	async autoCompleteCommitMessage({
+		modifierPrompt,
 		currentValue,
 		stagedChanges,
 		commitMessages
 	}: {
+		modifierPrompt: string | undefined;
 		currentValue: string;
 		commitMessages: string[];
 		stagedChanges: { path: string; diff: string[] }[];
@@ -350,7 +352,7 @@ ${change.diff.join('\n')}`;
 		const prompt: PromptMessage[] = [];
 
 		const systemContent = `You are a developer working on a new feature. You have made some changes to the code and are documenting them.
-ONLY complete the sentence bellow replacing the <<<<FILL>>>> marker.
+${modifierPrompt ? modifierPrompt + '\n' : ''}ONLY complete the sentence bellow replacing the <<<<FILL>>>> marker.
 Return the commit message that you would use to describe the changes you made.
 DON'T change any part of the existing message.
 User the following staged changes as context:
