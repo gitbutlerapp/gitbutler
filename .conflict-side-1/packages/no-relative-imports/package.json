@@ -1,0 +1,26 @@
+{
+	"name": "@gitbutler/no-relative-imports",
+	"type": "module",
+	"peerDependencies": {
+		"eslint": ">=9.0.0"
+	},
+	"devDependencies": {
+		"typescript": "5.4.5"
+	},
+	"scripts": {
+		"package": "tsc"
+	},
+	"exports": {
+		"./*": {
+			"import": "./dist/*.js",
+			"types": "./dist/*.d.ts"
+		},
+		".": {
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		}
+	},
+	"dependencies": {
+		"comment-json": "^4.2.5"
+	}
+}
