@@ -24,6 +24,14 @@
 			? stackService.upstreamCommitById(projectId, commitKey)
 			: stackService.commitById(projectId, commitKey)
 	);
+
+	type Mode = 'view' | 'edit';
+
+	let mode = $state<Mode>('view');
+
+	function setMode(newMode: Mode) {
+		mode = newMode;
+	}
 </script>
 
 <ReduxResult result={commitResult.current}>
@@ -34,7 +42,15 @@
 			{/snippet}
 			<ConfigurableScrollableContainer>
 				<div class="commit-view">
-					<CommitDetails {projectId} {commit} {onclick} />
+					<CommitDetails
+						{projectId}
+						{commit}
+						{stackId}
+						{onclick}
+						onEditCommitMessage={() => {
+							//noop
+						}}
+					/>
 					<ChangedFiles type="commit" {projectId} commitId={commitKey.commitId} />
 				</div>
 			</ConfigurableScrollableContainer>
