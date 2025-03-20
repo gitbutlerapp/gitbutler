@@ -328,15 +328,27 @@ impl RepositoryExt for git2::Repository {
                 Ok(signature) => {
                     commit.extra_headers.push(("gpgsig".into(), signature));
                 }
-                Err(e) => {
+                Err(err) => {
                     // If signing fails, set the "gitbutler.signCommits" config to false before erroring out
-                    self.set_gb_config(GbConfig {
-                        sign_commits: Some(false),
-                        ..GbConfig::default()
-                    })?;
-                    return Err(
-                        anyhow!("Failed to sign commit: {}", e).context(Code::CommitSigningFailed)
-                    );
+                    if repo
+                        .config_snapshot()
+                        .boolean_filter("gitbutler.signCommits", |md| {
+                            md.source != gix::config::Source::Local
+                        })
+                        .is_none()
+                    {
+                        self.set_gb_config(GbConfig {
+                            sign_commits: Some(false),
+                            ..GbConfig::default()
+                        })?;
+                        return Err(anyhow!("Failed to sign commit: {}", err)
+                            .context(Code::CommitSigningFailed));
+                    } else {
+                        tracing::warn!(
+                            "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"
+                        );
+                        return Err(err);
+                    }
                 }
             }
         }

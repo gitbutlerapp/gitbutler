@@ -52,13 +52,26 @@ pub fn create(
             }
             Err(err) => {
                 // If signing fails, turn off signing automatically and let everyone know,
-                repo.set_git_settings(&GitConfigSettings {
-                    gitbutler_sign_commits: Some(false),
-                    ..GitConfigSettings::default()
-                })?;
-                return Err(
-                    anyhow!("Failed to sign commit: {}", err).context(Code::CommitSigningFailed)
-                );
+                // but only if it's not already configured globally (which implies user intervention).
+                if repo
+                    .config_snapshot()
+                    .boolean_filter("gitbutler.signCommits", |md| {
+                        md.source != gix::config::Source::Local
+                    })
+                    .is_none()
+                {
+                    repo.set_git_settings(&GitConfigSettings {
+                        gitbutler_sign_commits: Some(false),
+                        ..GitConfigSettings::default()
+                    })?;
+                    return Err(anyhow!("Failed to sign commit: {}", err)
+                        .context(Code::CommitSigningFailed));
+                } else {
+                    tracing::warn!(
+                        "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"
+                    );
+                    return Err(err);
+                }
             }
         }
     }
