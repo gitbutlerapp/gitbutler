@@ -2,9 +2,9 @@
 
 An eslint rule for enforcing non-relative imports if there are `paths` in your `tsconfig.json` available to you.
 
-## What the rule effects
+## What the rule affects
 
-The rule requires that any import that _could_ be referenced absolutly via an entry in `paths` will provide an error.
+The rule requires that any import that _could_ be referenced absolutely via an entry in `paths` will provide an error.
 
 Even if a sibling import (IE `./foo`) is used, if it could be accessed via a path (IE `$lib/foo`). An error will be provided.
 
