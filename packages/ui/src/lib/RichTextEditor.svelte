@@ -31,7 +31,6 @@
 		markdown: boolean;
 		onError: (error: unknown) => void;
 		styleContext: 'client-editor' | 'chat-input';
-		toolBar?: Snippet;
 		plugins?: Snippet;
 		placeholder?: string;
 		onChange?: (text: string) => void;
@@ -44,7 +43,6 @@
 		markdown,
 		onError,
 		styleContext,
-		toolBar,
 		plugins,
 		placeholder,
 		onChange,

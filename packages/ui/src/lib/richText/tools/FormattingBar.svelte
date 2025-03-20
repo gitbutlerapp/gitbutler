@@ -1,7 +1,7 @@
 <script lang="ts">
-	import FormattingButton from '$lib/richText/tools/FormattingButton.svelte';
 	import Button from '$lib/Button.svelte';
 	import Formatter from '$lib/richText/plugins/Formatter.svelte';
+	import FormattingButton from '$lib/richText/tools/FormattingButton.svelte';
 
 	type Props = {
 		formatter: ReturnType<typeof Formatter> | undefined;
@@ -58,7 +58,6 @@
 							tooltip="Generate message"
 							onclick={() => {
 								// TODO: Implement AI slash command
-								console.log('AI slash command - work in progress');
 							}}
 						/>
 						<FormattingButton
@@ -66,7 +65,6 @@
 							tooltip="Slash commands"
 							onclick={() => {
 								// TODO: Implement slash commands
-								console.log('Slash commands - work in progress');
 							}}
 						/>
 					</div>

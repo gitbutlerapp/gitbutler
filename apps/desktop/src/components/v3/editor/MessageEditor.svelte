@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { showError } from '$lib/notifications/toasts';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
-	import GiphyPlugin from '@gitbutler/ui/richText/plugins/GiphyPlugin.svelte';
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
+	import GiphyPlugin from '@gitbutler/ui/richText/plugins/GiphyPlugin.svelte';
 	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
 
 	interface Props {

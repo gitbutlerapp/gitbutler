@@ -2,12 +2,12 @@
 	import Drawer from '$components/v3/Drawer.svelte';
 	import EditorFooter from '$components/v3/editor/EditorFooter.svelte';
 	import EditorHeader from '$components/v3/editor/EditorHeader.svelte';
+	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
+	import TitleInput from '$components/v3/editor/TitleInput.svelte';
 	import { stackPath } from '$lib/routes/routes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
-	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
-	import TitleInput from '$components/v3/editor/TitleInput.svelte';
 
 	type Props = {
 		projectId: string;

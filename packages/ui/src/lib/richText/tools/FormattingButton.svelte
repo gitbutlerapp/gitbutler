@@ -1,7 +1,5 @@
 <script lang="ts">
 	import Button from '$lib/Button.svelte';
-	import Icon from '$lib/Icon.svelte';
-	import Tooltip from '$lib/Tooltip.svelte';
 	import type iconsJson from '$lib/data/icons.json';
 
 	interface Props {
