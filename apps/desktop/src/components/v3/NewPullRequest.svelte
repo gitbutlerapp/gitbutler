@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Drawer from '$components/v3/Drawer.svelte';
-	import CommitMessageEditor from '$components/v3/editor/CommitMessageEditor.svelte';
 	import EditorFooter from '$components/v3/editor/EditorFooter.svelte';
 	import EditorHeader from '$components/v3/editor/EditorHeader.svelte';
 	import { stackPath } from '$lib/routes/routes.svelte';
@@ -20,7 +19,7 @@
 
 	let titleText = $state<string>();
 	let markdown = writable(true);
-	let composer: CommitMessageEditor | undefined = $state();
+	let composer: MessageEditor | undefined = $state();
 	let drawer = $state<ReturnType<typeof Drawer>>();
 
 	function createPr() {
