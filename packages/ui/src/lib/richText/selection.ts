@@ -1,4 +1,4 @@
-import { createGhostTextNode, GhostText } from './node/ghostText';
+import { createGhostTextNode, GhostText } from '$lib/richText/node/ghostText';
 import {
 	$isRangeSelection,
 	$getSelection,

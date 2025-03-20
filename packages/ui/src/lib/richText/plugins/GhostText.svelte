@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { getEditor } from '../context';
+	import { getEditor } from '$lib/richText/context';
 	import {
 		insertGhostTextAtCaret,
 		removeAllGhostText,
 		replaceGhostTextWithText
-	} from '../selection';
+	} from '$lib/richText/selection';
 	import { CLICK_COMMAND, COMMAND_PRIORITY_CRITICAL, KEY_DOWN_COMMAND } from 'lexical';
 
 	type Props = {

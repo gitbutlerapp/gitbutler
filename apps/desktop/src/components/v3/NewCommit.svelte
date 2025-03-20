@@ -100,10 +100,14 @@
 				titleText = target.value;
 			}}
 		/>
-		<TitleInput placeholder={':)'} value={modifierPrompt} oninput={(e) => {
-			const target = e.target as HTMLInputElement;
-			modifierPrompt = target.value;
-		}} />
+		<TitleInput
+			placeholder={':)'}
+			value={modifierPrompt}
+			oninput={(e) => {
+				const target = e.target as HTMLInputElement;
+				modifierPrompt = target.value;
+			}}
+		/>
 		<MessageEditor
 			bind:this={composer}
 			bind:markdown={$markdown}
