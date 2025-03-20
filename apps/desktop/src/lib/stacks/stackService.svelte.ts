@@ -1,4 +1,5 @@
-import { showToast } from '$lib/notifications/toasts';
+import { invoke } from '$lib/backend/ipc';
+import { showError, showToast } from '$lib/notifications/toasts';
 import { ClientState } from '$lib/state/clientState.svelte';
 import { createSelectNth } from '$lib/state/customSelectors';
 import { ReduxTag } from '$lib/state/tags';
@@ -70,7 +71,7 @@ export class StackService {
 	private api: ReturnType<typeof injectEndpoints>;
 
 	constructor(
-		state: ClientState,
+		private readonly state: ClientState,
 		private readonly posthog: PostHogWrapper
 	) {
 		this.api = injectEndpoints(state.backendApi);
@@ -294,6 +295,18 @@ export class StackService {
 
 	insertBlankCommit() {
 		return this.api.endpoints.insertBlankCommit.useMutation();
+	}
+
+	async unapply(projectId: string, stackId: string) {
+		try {
+			await invoke<void>('save_and_unapply_virtual_branch', {
+				projectId,
+				branch: stackId
+			});
+			this.state.dispatch(this.api.util.invalidateTags([ReduxTag.Stacks]));
+		} catch (err) {
+			showError('Failed to unapply branch', err);
+		}
 	}
 }
 
