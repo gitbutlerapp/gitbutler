@@ -23,8 +23,6 @@
 		CodeActionMenuPlugin,
 		MarkdownShortcutPlugin,
 		ALL_TRANSFORMERS,
-		Toolbar,
-		StateStoreRichTextUpdator,
 		LinkPlugin
 	} from 'svelte-lexical';
 
@@ -123,13 +121,6 @@
 </script>
 
 <Composer {initialConfig} bind:this={composer}>
-	{#if toolBar}
-		<Toolbar>
-			<StateStoreRichTextUpdator />
-			{@render toolBar()}
-		</Toolbar>
-	{/if}
-
 	<div class="lexical-container lexical-{styleContext}" bind:this={editorDiv}>
 		<div class="editor-scroller">
 			<div class="editor">

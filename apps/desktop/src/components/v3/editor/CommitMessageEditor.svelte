@@ -2,7 +2,7 @@
 	import { showError } from '$lib/notifications/toasts';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import GiphyPlugin from '@gitbutler/ui/richText/plugins/GiphyPlugin.svelte';
-	import FormattingPopup from '@gitbutler/ui/richText/tools/FormattingPopup.svelte';
+	// import FormattingPopup from '@gitbutler/ui/richText/tools/FormattingPopup.svelte';
 
 	interface Props {
 		markdown: boolean;
@@ -26,7 +26,7 @@
 	onError={(e) => showError('Editor error', e)}
 >
 	{#snippet toolBar()}
-		<FormattingPopup />
+		<!-- <FormattingPopup /> -->
 	{/snippet}
 	{#snippet plugins()}
 		<GiphyPlugin />
