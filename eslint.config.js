@@ -126,6 +126,7 @@ export default ts.config(
 			'**/node_modules',
 			'**/butler/target',
 			'**/build',
+			'**/static',
 			'**/dist',
 			'.svelte-kit',
 			'**/package',
