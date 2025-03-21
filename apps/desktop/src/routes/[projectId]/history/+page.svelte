@@ -1,4 +1,5 @@
 <script lang="ts">
+	import History from '$components/History.svelte';
 </script>
 
-<div>History Page Placeholder</div>
+<History onHide={() => {}} showInline />
