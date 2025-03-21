@@ -1,5 +1,5 @@
 <script lang="ts">
-	import StackTabs from '$components/v3/StackTabs.svelte';
+	import StackTabs from '$components/v3/stackTabs/StackTabs.svelte';
 	import WorkspaceView from '$components/v3/WorkspaceView.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { StackService } from '$lib/stacks/stackService.svelte';
