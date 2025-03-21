@@ -14,16 +14,18 @@ export const AZURE_DOMAIN = 'dev.azure.com';
  */
 export class AzureDevOps implements Forge {
 	readonly name: ForgeName = 'azure';
+	readonly authenticated: boolean;
 	private baseUrl: string;
 	private repo: RepoInfo;
 	private baseBranch: string;
 	private forkStr?: string;
 
-	constructor({ repo, baseBranch, forkStr }: ForgeArguments) {
+	constructor({ repo, baseBranch, forkStr, authenticated }: ForgeArguments) {
 		this.baseUrl = `https://${AZURE_DOMAIN}/${repo.organization}/${repo.owner}/_git/${repo.name}`;
 		this.repo = repo;
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;
+		this.authenticated = authenticated;
 	}
 
 	branch(name: string) {

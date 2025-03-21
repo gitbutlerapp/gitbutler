@@ -17,14 +17,16 @@ export const GITLAB_SUB_DOMAIN = 'gitlab'; // For self hosted instance of Gitlab
  */
 export class GitLab implements Forge {
 	readonly name: ForgeName = 'gitlab';
+	readonly authenticated: boolean;
 	private baseUrl: string;
 	private baseBranch: string;
 	private forkStr?: string;
 
-	constructor({ repo, baseBranch, forkStr }: ForgeArguments) {
+	constructor({ repo, baseBranch, forkStr, authenticated }: ForgeArguments) {
 		this.baseUrl = `https://${repo.domain}/${repo.owner}/${repo.name}`;
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;
+		this.authenticated = authenticated;
 	}
 
 	branch(name: string) {

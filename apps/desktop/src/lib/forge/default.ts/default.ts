@@ -8,6 +8,7 @@ import type { ForgeRepoService } from '$lib/forge/interface/forgeRepoService';
 
 export class DefaultForge implements Forge {
 	name: ForgeName;
+	authenticated = false;
 
 	constructor() {
 		this.name = 'default';
