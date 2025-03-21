@@ -12,7 +12,7 @@
 	const lines = $derived(codeContentToTokens(text, parser));
 </script>
 
-<div class="code-wrapper">
+<div class="code-wrapper scrollbar">
 	<code class="code">
 		{#each lines as line, i (i)}
 			<p class="line">
@@ -27,11 +27,11 @@
 		display: flex;
 		min-width: 0;
 		max-width: 640px;
-		overflow-x: scroll;
-		border-radius: var(--radius-s);
-
+		overflow-x: auto;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
-		padding: 4px 8px;
+		padding: 8px;
 
 		@media (--tablet-viewport) {
 			max-width: 80vw;
@@ -42,8 +42,8 @@
 		max-width: 100%;
 		font-family: var(--fontfamily-mono);
 		box-sizing: border-box;
-		background-color: var(--clr-diff-line-bg);
 		border: none;
+		padding: 0;
 	}
 
 	.line {

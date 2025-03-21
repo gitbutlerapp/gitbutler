@@ -62,7 +62,7 @@
 	.markdown pre {
 		margin: 1em 0;
 		padding: 1em;
-		background-color: var(--clr-scale-ntrl-90);
+		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-scale-ntrl-70);
 		overflow: auto;
 		border-radius: var(--radius-m);
@@ -70,7 +70,7 @@
 
 	.markdown code {
 		font-family: var(--fontfamily-mono);
-		background-color: var(--clr-scale-ntrl-90);
+		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-scale-ntrl-70);
 		padding: 1px 3px;
 		border-radius: var(--radius-s);
