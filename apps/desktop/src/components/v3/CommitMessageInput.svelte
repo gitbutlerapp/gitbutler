@@ -7,8 +7,8 @@
 
 	type Props = {
 		projectId: string;
-		action: () => void;
 		actionLabel: string;
+		action: () => void;
 		onCancel: () => void;
 		disabledAction?: boolean;
 		loading?: boolean;
@@ -49,7 +49,9 @@
 	<MessageEditor bind:this={composer} bind:markdown={$markdown} {initialValue} />
 </div>
 <EditorFooter {onCancel}>
-	<Button style="pop" onclick={action} disabled={disabledAction} {loading}>{actionLabel}</Button>
+	<Button style="pop" onclick={action} disabled={disabledAction} {loading} width={126}
+		>{actionLabel}</Button
+	>
 </EditorFooter>
 
 <style lang="postcss">

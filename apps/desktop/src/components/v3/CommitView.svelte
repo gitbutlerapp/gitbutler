@@ -73,11 +73,7 @@
 <ReduxResult result={commitResult.current}>
 	{#snippet children(commit)}
 		{#if mode === 'edit'}
-			<Drawer {projectId} {stackId}>
-				{#snippet header()}
-					<p class="text-14 text-semibold">Edit commit message</p>
-				{/snippet}
-
+			<Drawer {projectId} {stackId} title="Edit commit message">
 				<CommitMessageInput
 					bind:this={commitMessageInput}
 					{projectId}

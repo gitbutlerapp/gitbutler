@@ -7,12 +7,14 @@
 
 	type Props = {
 		projectId: string;
+		title?: string;
 		stackId: string;
 		header?: Snippet;
+		extraActions?: Snippet;
 		children: Snippet;
 	};
 
-	const { header, children, projectId, stackId }: Props = $props();
+	const { header, title, extraActions, children, projectId, stackId }: Props = $props();
 
 	const [uiState] = inject(UiState);
 
@@ -39,19 +41,27 @@
 <div class="drawer" bind:this={drawerDiv} style:height>
 	<div class="drawer-header">
 		<div class="drawer-header__main">
+			{#if title}
+				<h3 class="text-15 text-bold">
+					{title}
+				</h3>
+			{/if}
 			{#if header}
 				{@render header()}
 			{/if}
 		</div>
 
 		<div class="drawer-header__actions">
+			{#if extraActions}
+				{@render extraActions()}
+			{/if}
 			<Button
-				style="ghost"
+				kind="ghost"
 				icon={drawerIsFullScreen.current ? 'chevron-down' : 'chevron-up'}
-				size="icon"
+				size="tag"
 				onclick={onToggleExpand}
 			/>
-			<Button style="ghost" icon="cross" size="icon" onclick={onClose} />
+			<Button kind="ghost" icon="cross" size="tag" onclick={onClose} />
 		</div>
 	</div>
 
@@ -102,6 +112,6 @@
 	.drawer-header__actions {
 		flex-shrink: 0;
 		display: flex;
-		gap: 6px;
+		gap: 2px;
 	}
 </style>

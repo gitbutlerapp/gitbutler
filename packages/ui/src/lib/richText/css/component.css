@@ -1,5 +1,25 @@
-/* STYLE CONTEXT */
+/* GENERAL */
+.lexical-container {
+	/* variables */
+	--lexical-default-font-size: 13px;
+}
 
+.ContentEditable__root {
+	padding: var(--lexical-input-padding);
+	font-size: var(--lexical-default-font-size);
+	/* Override css from svelte-lexical. */
+	min-height: unset;
+}
+
+.Placeholder__root {
+	color: var(--clr-text-3) !important;
+	font-size: var(--lexical-default-font-size) !important;
+	top: var(--lexical-input-padding) !important;
+	left: var(--lexical-input-padding) !important;
+	line-height: var(--text-lineheight-body);
+}
+
+/* STYLE CONTEXT */
 .lexical-client-editor {
 	--lexical-input-padding: 12px;
 	height: 100%;
@@ -14,28 +34,7 @@
 	--lexical-input-padding: 12px;
 }
 
-/* GENERAL */
-
-.lexical-container {
-	--lexical-default-font-size: 13px;
-}
-
-.ContentEditable__root {
-	padding: var(--lexical-input-padding);
-	/* Override css from svelte-lexical. */
-	min-height: unset;
-}
-
-.Placeholder__root {
-	color: var(--clr-text-3) !important;
-	font-size: var(--lexical-default-font-size) !important;
-	top: var(--lexical-input-padding) !important;
-	left: var(--lexical-input-padding) !important;
-	line-height: var(--text-lineheight-body);
-}
-
 /* REST UNREVIWED STYLES */
-
 .link-editor .button.active,
 .toolbar .button.active {
 	background-color: rgb(223, 232, 250);
