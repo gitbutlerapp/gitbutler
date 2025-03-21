@@ -1375,7 +1375,7 @@ pub(crate) fn update_commit_message(
     stack_id: StackId,
     commit_id: git2::Oid,
     message: &str,
-) -> Result<()> {
+) -> Result<git2::Oid> {
     if message.is_empty() {
         bail!("commit message can not be empty");
     }
@@ -1442,7 +1442,7 @@ pub(crate) fn update_commit_message(
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
-    Ok(())
+    Ok(new_commit_oid)
 }
 
 // Goes through a set of changes and checks if conflicts are present. If no conflicts
