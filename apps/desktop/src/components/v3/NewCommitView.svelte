@@ -1,15 +1,11 @@
 <script lang="ts">
+	import CommitMessageInput from '$components/v3/CommitMessageInput.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
-	import EditorFooter from '$components/v3/editor/EditorFooter.svelte';
-	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContext, inject } from '@gitbutler/shared/context';
-	import { persisted } from '@gitbutler/shared/persisted';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
 
 	type Props = {
 		projectId: string;
@@ -29,14 +25,7 @@
 	const selection = $derived(changeSelection.list());
 	const canCommit = $derived(branchName && selection.current.length > 0);
 
-	let titleText = $state<string>();
-
-	/**
-	 * Toggles use of markdown on/off in the message editor.
-	 */
-	let markdown = persisted(true, 'useMarkdown__' + projectId);
-
-	let composer = $state<ReturnType<typeof MessageEditor>>();
+	let input = $state<ReturnType<typeof CommitMessageInput>>();
 	let drawer = $state<ReturnType<typeof Drawer>>();
 
 	async function createCommit(message: string) {
@@ -69,10 +58,11 @@
 	}
 
 	async function hanldleCommitCreation() {
-		const message = await composer?.getPlaintext();
+		const titleText = await input?.getTitle();
+		const message = await input?.getPlaintext();
 		if (!message && !titleText) return;
 
-		const commitMessage = [message, titleText].filter((a) => a).join('\n\n');
+		const commitMessage = [titleText, message].filter((a) => a).join('\n\n');
 
 		try {
 			await createCommit(commitMessage);
@@ -90,25 +80,12 @@
 	{#snippet header()}
 		<p class="text-14 text-semibold">Create commit</p>
 	{/snippet}
-	<div class="new-commit-fields">
-		<Textbox bind:value={titleText} placeholder="Commit title" />
-		<MessageEditor bind:this={composer} bind:markdown={$markdown} />
-	</div>
-	<EditorFooter onCancel={cancel}>
-		<Button
-			style="pop"
-			onclick={hanldleCommitCreation}
-			disabled={!canCommit}
-			loading={commitCreation.current.isLoading}>Create commit</Button
-		>
-	</EditorFooter>
+	<CommitMessageInput
+		{projectId}
+		action={hanldleCommitCreation}
+		actionLabel="Commit"
+		onCancel={cancel}
+		disabledAction={!canCommit}
+		loading={commitCreation.current.isLoading}
+	/>
 </Drawer>
-
-<style lang="postcss">
-	.new-commit-fields {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-</style>

@@ -368,7 +368,16 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'stack_branch_local_and_remote_commits',
 					params: { projectId, stackId, branchName }
 				}),
-				providesTags: [ReduxTag.Commits],
+				providesTags: (result, _, args) => {
+					const branchCommitsTag = { type: ReduxTag.Commits, id: args.branchName };
+
+					if (!result) return [branchCommitsTag];
+
+					const allCommits = commitSelectors.selectAll(result);
+					const commitTags = allCommits.map((commit) => ({ type: ReduxTag.Commit, id: commit.id }));
+
+					return [branchCommitsTag, ...commitTags];
+				},
 				transformResponse(response: Commit[]) {
 					return commitAdapter.addMany(commitAdapter.getInitialState(), response);
 				}
@@ -442,15 +451,16 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			updateCommitMessage: build.mutation<
 				void,
-				{ projectId: string; branchId: string; commitOid: string; message: string }
+				{ projectId: string; stackId: string; commitId: string; message: string }
 			>({
-				query: ({ projectId, branchId, commitOid, message }) => ({
+				query: ({ projectId, stackId, commitId, message }) => ({
 					command: 'update_commit_message',
-					params: { projectId, branchId, commitOid, message }
+					params: { projectId, branchId: stackId, commitOid: commitId, message }
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					ReduxTag.StackBranches,
-					{ type: ReduxTag.StackInfo, id: args.branchId }
+					{ type: ReduxTag.Commit, id: args.commitId },
+					{ type: ReduxTag.StackInfo, id: args.stackId }
 				]
 			}),
 			newBranch: build.mutation<
