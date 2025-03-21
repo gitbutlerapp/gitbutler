@@ -5,14 +5,15 @@ use git2::Commit;
 use gitbutler_branch::BranchExt;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oplog::SnapshotExt;
-use gitbutler_oxidize::gix_to_git2_oid;
-use gitbutler_oxidize::{git2_to_gix_object_id, GixRepositoryExt};
+use gitbutler_oxidize::{git2_to_gix_object_id, GixRepositoryExt, OidExt};
+use gitbutler_oxidize::{gix_to_git2_oid, ObjectIdExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, ReferenceName, Refname};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::SignaturePurpose;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{Stack, StackId};
+use gitbutler_workspace::workspace_base;
 use tracing::instrument;
 
 use super::BranchManager;
@@ -95,51 +96,100 @@ impl BranchManager<'_> {
             .mark_as_not_in_workspace(stack.id)
             .context("Failed to remove branch")?;
 
-        // go through the other applied branches and merge them into the final tree
-        // then check that out into the working directory
-        let final_tree = {
-            let _span = tracing::debug_span!(
-                "new tree without deleted branch",
-                num_branches = applied_statuses.len() - 1
-            )
-            .entered();
-            let gix_repo = self.ctx.gix_repository()?;
-            let merge_options = gix_repo.tree_merge_options()?;
-            let final_tree_id = applied_statuses
-                .into_iter()
-                .filter(|(stack, _)| stack.id != stack_id)
-                .try_fold(
-                    git2_to_gix_object_id(target_commit.tree_id()),
-                    |final_tree_id, status| -> Result<_> {
-                        let stack = status.0;
-                        let files = status
-                            .1
-                            .into_iter()
-                            .map(|file| (file.path, file.hunks))
-                            .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
-                        let tree_oid =
-                            gitbutler_diff::write::hunks_onto_oid(self.ctx, stack.head(), files)?;
-                        let mut merge = gix_repo.merge_trees(
-                            git2_to_gix_object_id(base_tree_id),
-                            final_tree_id,
-                            git2_to_gix_object_id(tree_oid),
-                            gix_repo.default_merge_labels(),
-                            merge_options.clone(),
-                        )?;
-                        let final_tree_id = merge.tree.write()?.detach();
-                        Ok(final_tree_id)
-                    },
-                )?;
-            repo.find_tree(gix_to_git2_oid(final_tree_id))?
-        };
+        if self.ctx.app_settings().feature_flags.v3 {
+            // On v3 we want to take the `current_wd_tree` and try to extract
+            // whatever branch we want to unapply. There are a handful of ways
+            // to achieve this, including calculating the inverse diff and
+            // applying that.
+            //
+            // We can however do more or less what `git revert` does, and
+            // perform a three way merge where the `ours` side is the cwdt, the
+            // `theirs` side is the workspace root, and the `base` is the head
+            // of the branch we want to unapply.
+            //
+            // In order to handle locked files, I'm going to choose to
+            // resolve conflicts in the favor of `ours` (the cwdt) which will
+            // keep any locked changes in the cwdt.
 
-        let _span = tracing::debug_span!("checkout final tree").entered();
-        // checkout final_tree into the working directory
-        repo.checkout_tree_builder(&final_tree)
-            .force()
-            .remove_untracked()
-            .checkout()
-            .context("failed to checkout tree")?;
+            let gix_repo = self.ctx.gix_repository()?;
+            let merge_options = gix_repo
+                .tree_merge_options()?
+                .with_file_favor(Some(gix::merge::tree::FileFavor::Ours))
+                .with_tree_favor(Some(gix::merge::tree::TreeFavor::Ours));
+
+            let cwdt = repo.create_wd_tree(0)?.id().to_gix();
+            let workspace_base = gix_repo
+                .find_commit(workspace_base(self.ctx, perm.read_permission())?)?
+                .tree_id()?;
+            let stack_head = gix_repo.find_commit(stack.head().to_gix())?.tree_id()?;
+
+            let mut merge = gix_repo.merge_trees(
+                stack_head,
+                cwdt,
+                workspace_base,
+                gix_repo.default_merge_labels(),
+                merge_options,
+            )?;
+            let tree = merge.tree.write()?;
+            let tree = repo.find_tree(tree.to_git2())?;
+
+            repo.checkout_tree_builder(&tree)
+                .force()
+                .checkout()
+                .context("failed to checkout tree")?;
+        } else {
+            // On v2 we can pretty just gather up the `branch.tree`s of the
+            // remaining branches and check them out.
+
+            // go through the other applied branches and merge them into the final tree
+            // then check that out into the working directory
+            let final_tree = {
+                let _span = tracing::debug_span!(
+                    "new tree without deleted branch",
+                    num_branches = applied_statuses.len() - 1
+                )
+                .entered();
+                let gix_repo = self.ctx.gix_repository()?;
+                let merge_options = gix_repo.tree_merge_options()?;
+                let final_tree_id = applied_statuses
+                    .into_iter()
+                    .filter(|(stack, _)| stack.id != stack_id)
+                    .try_fold(
+                        git2_to_gix_object_id(target_commit.tree_id()),
+                        |final_tree_id, status| -> Result<_> {
+                            let stack = status.0;
+                            let files = status
+                                .1
+                                .into_iter()
+                                .map(|file| (file.path, file.hunks))
+                                .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
+                            let tree_oid = gitbutler_diff::write::hunks_onto_oid(
+                                self.ctx,
+                                stack.head(),
+                                files,
+                            )?;
+                            let mut merge = gix_repo.merge_trees(
+                                git2_to_gix_object_id(base_tree_id),
+                                final_tree_id,
+                                git2_to_gix_object_id(tree_oid),
+                                gix_repo.default_merge_labels(),
+                                merge_options.clone(),
+                            )?;
+                            let final_tree_id = merge.tree.write()?.detach();
+                            Ok(final_tree_id)
+                        },
+                    )?;
+                repo.find_tree(gix_to_git2_oid(final_tree_id))?
+            };
+
+            let _span = tracing::debug_span!("checkout final tree").entered();
+            // checkout final_tree into the working directory
+            repo.checkout_tree_builder(&final_tree)
+                .force()
+                .remove_untracked()
+                .checkout()
+                .context("failed to checkout tree")?;
+        }
 
         if delete_vb_state {
             self.ctx.delete_branch_reference(&stack)?;
@@ -171,7 +221,11 @@ impl BranchManager<'_> {
         stack.source_refname = Some(Refname::try_from(&branch)?);
         vb_state.set_stack(stack.clone())?;
 
-        self.build_wip_commit(stack, &branch)?;
+        // We don't want to write out WIP commits like this in v3 (or
+        // potentially at all in v3)
+        if !self.ctx.app_settings().feature_flags.v3 {
+            self.build_wip_commit(stack, &branch)?;
+        }
 
         Ok(branch)
     }

@@ -3122,6 +3122,7 @@ dependencies = [
  "gitbutler-stack",
  "gitbutler-testsupport",
  "gitbutler-workspace",
+ "gix",
  "tracing",
 ]
 
