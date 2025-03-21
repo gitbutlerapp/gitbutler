@@ -9,15 +9,15 @@
 	type Props = {
 		projectId: string;
 		stackId: string;
+		isOpen?: boolean;
 	};
 
-	const { projectId, stackId }: Props = $props();
+	let { projectId, stackId, isOpen = $bindable() }: Props = $props();
 
 	const stackService = getContext(StackService);
 
 	let trigger = $state<HTMLElement>();
 	let contextMenu = $state<ContextMenu>();
-	let isOpen = $state(false);
 </script>
 
 <button
@@ -33,10 +33,13 @@
 >
 	<Icon name="kebab" />
 </button>
+
 <ContextMenu
 	bind:this={contextMenu}
 	leftClickTrigger={trigger}
-	ontoggle={(isOpen) => (isOpen = isOpen)}
+	ontoggle={(flag) => {
+		isOpen = flag;
+	}}
 	side="bottom"
 >
 	<ContextMenuSection>

@@ -1,20 +1,28 @@
 <script lang="ts">
+	import StackTabMenu from './StackTabMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
 		name: string;
+		projectId: string;
+		stackId: string;
 		anchors?: string[];
 		first?: boolean;
 		last?: boolean;
 		selected?: boolean;
 		href?: string;
-		menu?: Snippet;
 	};
 
-	const { name, anchors, first, last, selected, href, menu }: Props = $props();
+	const { name, projectId, stackId, anchors, first, last, selected, href }: Props = $props();
 
-	let isOpen = $state(false);
+	let isMenuOpen = $state(false);
+
+	$effect(() => {
+		if (isMenuOpen) {
+			console.log('Menu is open');
+		}
+	});
 </script>
 
 <a
@@ -24,8 +32,7 @@
 	class:first
 	class:last
 	class:selected
-	class:has-menu={!!menu}
-	class:menu-open={isOpen}
+	class:menu-open={isMenuOpen}
 >
 	{#if anchors}
 		<div class="icon">
@@ -36,11 +43,9 @@
 		<div class="text-12 text-semibold name">
 			{name}
 		</div>
-		{#if menu}
-			<div class="menu-button-wrap">
-				{@render menu?.()}
-			</div>
-		{/if}
+		<div class="menu-button-wrap">
+			<StackTabMenu {projectId} {stackId} bind:isOpen={isMenuOpen} />
+		</div>
 	</div>
 </a>
 
@@ -58,10 +63,6 @@
 		overflow: hidden;
 		min-width: 40px;
 		scroll-snap-align: start;
-
-		&.has-menu {
-			min-width: 80px;
-		}
 
 		&::after {
 			content: '';
@@ -93,19 +94,21 @@
 		position: relative;
 		overflow: hidden;
 		width: 0;
+
 		/* background-color: aqua; */
 	}
 
-	.has-menu:hover .name,
+	.tab:hover .name,
 	.menu-open .name {
 		/* Shrinks name to make room for hover button. */
 		width: calc(100% - var(--menu-btn-size));
 	}
 
-	.has-menu:hover .menu-button-wrap,
+	.tab:hover .menu-button-wrap,
 	.menu-open .menu-button-wrap {
 		opacity: 1;
 		width: var(--menu-btn-size);
+
 		/* We want the container to not take up extra space. */
 		margin-left: calc(var(--menu-btn-size) * -1);
 		/* But still be visible where it would normally display. */
@@ -125,6 +128,8 @@
 	}
 
 	.selected {
+		background-color: var(--clr-stack-tab-active);
+
 		&::after {
 			transform: translateY(0);
 			background: var(--clr-theme-pop-element);
@@ -149,9 +154,5 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		overflow: hidden;
-	}
-
-	.selected {
-		background-color: var(--clr-stack-tab-active);
 	}
 </style>

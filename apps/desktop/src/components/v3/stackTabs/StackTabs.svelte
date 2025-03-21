@@ -1,7 +1,6 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import StackTab from '$components/v3/stackTabs/StackTab.svelte';
-	import StackTabMenu from './StackTabMenu.svelte';
 	import StackTabNew from './StackTabNew.svelte';
 	import { stackPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -54,17 +53,16 @@
 						{#each result as tab, i (tab.branchNames[0])}
 							{@const last = i === result.length - 1}
 							{@const selected = tab.id === selectedId}
+
 							<StackTab
 								name={tab.branchNames[0]!}
+								{projectId}
+								stackId={tab.id}
 								href={stackPath(projectId, tab.id)}
 								anchors={tab.branchNames.slice(1)}
 								{last}
 								{selected}
-							>
-								{#snippet menu()}
-									<StackTabMenu {projectId} stackId={tab.id} />
-								{/snippet}
-							</StackTab>
+							/>
 						{/each}
 					{:else}
 						no stacks
