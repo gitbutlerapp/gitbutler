@@ -14,17 +14,29 @@ use serde::de::DeserializeOwned;
 use walkdir::WalkDir;
 
 // Returns an ordered list of relative paths for files inside a directory recursively.
-pub fn list_files<P: AsRef<Path>>(dir_path: P, ignore_prefixes: &[P]) -> Result<Vec<PathBuf>> {
+pub fn list_files<P: AsRef<Path>>(
+    dir_path: P,
+    ignore_prefixes: &[P],
+    recursive: bool,
+    remove_prefix: Option<P>,
+) -> Result<Vec<PathBuf>> {
     let mut files = vec![];
     let dir_path = dir_path.as_ref();
     if !dir_path.exists() {
         return Ok(files);
     }
-    for entry in WalkDir::new(dir_path) {
+
+    for entry in WalkDir::new(dir_path).max_depth(if recursive { usize::MAX } else { 1 }) {
         let entry = entry?;
         if !entry.file_type().is_dir() {
             let path = entry.path();
-            let path = path.strip_prefix(dir_path)?;
+
+            let path = if let Some(prefix) = remove_prefix.as_ref() {
+                path.strip_prefix(prefix)?
+            } else {
+                path
+            };
+
             let path = path.to_path_buf();
             if ignore_prefixes
                 .iter()
