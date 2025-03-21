@@ -7,6 +7,7 @@
 	import CommitMessageInput from '$components/v3/CommitMessageInput.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import type { CommitKey } from '$lib/commits/commit';
 
@@ -19,7 +20,10 @@
 
 	const { projectId, stackId, commitKey, onclick }: Props = $props();
 
-	const [stackService] = inject(StackService);
+	const [stackService, uiState] = inject(StackService, UiState);
+	const stackState = $derived(uiState.stack(stackId));
+	const selected = $derived(stackState.selection.get());
+	const branchName = $derived(selected.current?.branchName);
 	const commitResult = $derived(
 		commitKey.upstream
 			? stackService.upstreamCommitById(projectId, commitKey)
@@ -37,6 +41,9 @@
 	}
 
 	async function editCommitMessage() {
+		if (!branchName) {
+			throw new Error('No branch selected!');
+		}
 		if (!commitMessageInput) return;
 		const title = commitMessageInput.getTitle();
 		const message = await commitMessageInput.getPlaintext();
@@ -44,12 +51,14 @@
 
 		const commitMessage = [title, message].filter((a) => a).join('\n\n');
 
-		updateCommitMessage({
+		const newCommitId = await updateCommitMessage({
 			projectId,
 			stackId,
 			commitId: commitKey.commitId,
 			message: commitMessage
 		});
+
+		uiState.stack(stackId).selection.set({ branchName, commitId: newCommitId });
 		setMode('view');
 	}
 
