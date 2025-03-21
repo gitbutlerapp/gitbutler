@@ -618,13 +618,14 @@ pub mod commands {
         branch_id: StackId,
         commit_oid: String,
         message: &str,
-    ) -> Result<(), Error> {
+    ) -> Result<String, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        gitbutler_branch_actions::update_commit_message(&ctx, branch_id, commit_oid, message)?;
+        let new_commit_oid =
+            gitbutler_branch_actions::update_commit_message(&ctx, branch_id, commit_oid, message)?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
-        Ok(())
+        Ok(new_commit_oid.to_string())
     }
 
     #[tauri::command(async)]

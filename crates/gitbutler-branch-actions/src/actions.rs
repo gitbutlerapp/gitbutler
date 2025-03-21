@@ -503,7 +503,7 @@ pub fn update_commit_message(
     stack_id: StackId,
     commit_oid: git2::Oid,
     message: &str,
-) -> Result<()> {
+) -> Result<git2::Oid> {
     ctx.verify()?;
     assure_open_workspace_mode(ctx)
         .context("Updating a commit message requires open workspace mode")?;
