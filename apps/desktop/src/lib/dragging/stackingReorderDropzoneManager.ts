@@ -1,10 +1,11 @@
-import { CommitDropData } from '$lib/dragging/draggables';
+import { CommitDropData } from '$lib/commits/dropHandler';
 import type { BranchStack } from '$lib/branches/branch';
 import type { PatchSeries } from '$lib/branches/branch';
 import type { StackOrder } from '$lib/branches/branch';
 import type { BranchController } from '$lib/branches/branchController';
+import type { DropzoneHandler } from '$lib/dragging/handler';
 
-export class StackingReorderDropzone {
+export class ReorderCommitDzHandler implements DropzoneHandler {
 	constructor(
 		private branchId: string,
 		private branchController: BranchController,
@@ -15,12 +16,12 @@ export class StackingReorderDropzone {
 
 	accepts(data: unknown) {
 		if (!(data instanceof CommitDropData)) return false;
-		if (data.branchId !== this.branchId) return false;
+		if (data.stackId !== this.branchId) return false;
 
 		// Do not show dropzones directly above or below the commit in question
 		const distance = distanceBetweenDropzones(
 			this.series,
-			`${data.seriesName}|${data.commit.id}`,
+			`${data.branchName}|${data.commit.id}`,
 			`${this.currentSeries.name}|${this.commitId}`
 		);
 		if (distance === 0 || distance === 1) return false;
@@ -28,10 +29,7 @@ export class StackingReorderDropzone {
 		return true;
 	}
 
-	onDrop(data: any) {
-		if (!(data instanceof CommitDropData)) return;
-		if (data.branchId !== this.branchId) return;
-
+	ondrop(data: CommitDropData) {
 		const stackOrder = buildNewStackOrder(
 			this.series,
 			this.currentSeries,
@@ -40,12 +38,12 @@ export class StackingReorderDropzone {
 		);
 
 		if (stackOrder) {
-			this.branchController.reorderStackCommit(data.branchId, stackOrder);
+			this.branchController.reorderStackCommit(data.stackId, stackOrder);
 		}
 	}
 }
 
-export class StackingReorderDropzoneManager {
+export class ReorderCommitDzFactory {
 	public series: Map<string, PatchSeries>;
 
 	constructor(
@@ -59,13 +57,13 @@ export class StackingReorderDropzoneManager {
 		this.series = seriesMap;
 	}
 
-	topDropzone(seriesName: string) {
+	top(seriesName: string) {
 		const currentSeries = this.series.get(seriesName);
 		if (!currentSeries) {
 			throw new Error('Series not found');
 		}
 
-		return new StackingReorderDropzone(
+		return new ReorderCommitDzHandler(
 			this.stack.id,
 			this.branchController,
 			currentSeries,
@@ -74,13 +72,13 @@ export class StackingReorderDropzoneManager {
 		);
 	}
 
-	dropzoneBelowCommit(seriesName: string, commitId: string) {
+	belowCommit(seriesName: string, commitId: string) {
 		const currentSeries = this.series.get(seriesName);
 		if (!currentSeries) {
 			throw new Error('Series not found');
 		}
 
-		return new StackingReorderDropzone(
+		return new ReorderCommitDzHandler(
 			this.stack.id,
 			this.branchController,
 			currentSeries,
@@ -94,7 +92,7 @@ export class StackingReorderDropzoneManagerFactory {
 	constructor(private branchController: BranchController) {}
 
 	build(stack: BranchStack) {
-		return new StackingReorderDropzoneManager(this.branchController, stack);
+		return new ReorderCommitDzFactory(this.branchController, stack);
 	}
 }
 

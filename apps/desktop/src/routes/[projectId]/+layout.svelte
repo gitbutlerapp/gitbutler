@@ -12,10 +12,8 @@
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { BranchController } from '$lib/branches/branchController';
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
-	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { GitBranchService } from '$lib/branches/gitBranch';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
-	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showHistoryView } from '$lib/config/config';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
@@ -98,8 +96,6 @@
 		setContext(TemplateService, data.templateService);
 		setContext(BaseBranch, baseBranch);
 		setContext(Project, project);
-		setContext(BranchDragActionsFactory, data.branchDragActionsFactory);
-		setContext(CommitDragActionsFactory, data.commitDragActionsFactory);
 		setContext(StackingReorderDropzoneManagerFactory, data.stackingReorderDropzoneManagerFactory);
 		setContext(GitBranchService, data.gitBranchService);
 		setContext(BranchListingService, data.branchListingService);

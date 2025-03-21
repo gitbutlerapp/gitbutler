@@ -1,10 +1,15 @@
+import type { DropzoneHandler } from '$lib/dragging/handler';
+
+export type HoverArgs = {
+	handler?: DropzoneHandler;
+};
+
 export interface DropzoneConfiguration {
 	disabled: boolean;
-	accepts: (dropData: unknown) => boolean;
-	onDrop: (dropData: unknown) => Promise<void> | void;
+	handlers: DropzoneHandler[];
 	onActivationStart: () => void;
 	onActivationEnd: () => void;
-	onHoverStart: () => void;
+	onHoverStart: (args: HoverArgs) => void;
 	onHoverEnd: () => void;
 	target: string;
 }
@@ -33,18 +38,12 @@ export class Dropzone {
 
 	activate(dropData: unknown) {
 		this.data = dropData;
-
-		if (!this.configuration.accepts(this.data)) return;
-
-		if (this.registered) {
-			this.deactivate();
-		}
+		if (!this.acceptedHandler) return;
+		if (this.registered) this.deactivate();
 
 		this.registered = true;
-
 		this.registerListeners();
 
-		// Mark the dropzone as active
 		setTimeout(() => {
 			this.configuration.onActivationStart();
 			this.activated = true;
@@ -58,17 +57,13 @@ export class Dropzone {
 
 		this.configuration = newConfig;
 		this.setTarget();
+		this.registerListeners();
 
-		if (!this.configuration.accepts(this.data)) {
-			this.registerListeners();
-
-			if (this.activated) {
-				this.configuration.onActivationStart();
-			}
-
-			if (this.hovered) {
-				this.configuration.onHoverStart();
-			}
+		if (this.activated) {
+			this.configuration.onActivationStart();
+		}
+		if (this.hovered) {
+			this.configuration.onHoverStart({ handler: this.acceptedHandler });
 		}
 	}
 
@@ -109,15 +104,14 @@ export class Dropzone {
 	private async onDrop(e: DragEvent) {
 		e.preventDefault();
 		if (!this.activated) return;
-		this.configuration.onDrop(this.data);
+		this.acceptedHandler?.ondrop(this.data);
 	}
 
 	private onDragEnter(e: DragEvent) {
 		e.preventDefault();
 		if (!this.activated) return;
-
 		this.hovered = true;
-		this.configuration.onHoverStart();
+		this.configuration.onHoverStart({ handler: this.acceptedHandler });
 	}
 
 	private onDragLeave(e: DragEvent) {
@@ -126,6 +120,10 @@ export class Dropzone {
 
 		this.hovered = false;
 		this.configuration.onHoverEnd();
+	}
+
+	private get acceptedHandler() {
+		return this.configuration.handlers.find((h) => h.accepts(this.data));
 	}
 }
 

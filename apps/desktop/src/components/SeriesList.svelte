@@ -8,12 +8,10 @@
 	import SeriesDividerLine from '$components/SeriesDividerLine.svelte';
 	import SeriesHeader from '$components/SeriesHeader.svelte';
 	import { isPatchSeries, type BranchStack } from '$lib/branches/branch';
-	import { PatchSeries } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
-	import { CommitDropData } from '$lib/dragging/draggables';
 	import {
-		StackingReorderDropzoneManagerFactory,
-		buildNewStackOrder
+		ReorderCommitDzHandler,
+		StackingReorderDropzoneManagerFactory
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { getContext } from '@gitbutler/shared/context';
 	import { isError } from '@gitbutler/ui/utils/typeguards';
@@ -42,23 +40,6 @@
 	const stackingReorderDropzoneManager = $derived(
 		stackingReorderDropzoneManagerFactory.build(stack)
 	);
-
-	function accepts(data: unknown) {
-		if (!(data instanceof CommitDropData)) return false;
-		if (data.branchId !== stack.id) return false;
-
-		return true;
-	}
-
-	function onDrop(data: CommitDropData, allSeries: PatchSeries[], currentSeries: PatchSeries) {
-		if (!(data instanceof CommitDropData)) return;
-
-		const stackOrder = buildNewStackOrder(allSeries, currentSeries, data.commit.id, 'top');
-
-		if (stackOrder) {
-			branchController.reorderStackCommit(data.branchId, stackOrder);
-		}
-	}
 </script>
 
 {#each nonArchivedSeries as currentSeries, idx ('name' in currentSeries ? currentSeries.name : undefined)}
@@ -75,11 +56,15 @@
 			<SeriesHeader {projectId} branch={currentSeries} {isTopBranch} />
 
 			{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
+				{@const dzHandler = new ReorderCommitDzHandler(
+					stack.id,
+					branchController,
+					currentSeries,
+					nonArchivedValidSeries,
+					'top'
+				)}
 				<div>
-					<Dropzone
-						{accepts}
-						ondrop={(data) => onDrop(data, nonArchivedValidSeries, currentSeries)}
-					>
+					<Dropzone handlers={[dzHandler]}>
 						{#snippet overlay({ hovered, activated })}
 							<CardOverlay {hovered} {activated} label="Move here" />
 						{/snippet}
@@ -90,6 +75,7 @@
 
 			{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
 				<CommitList
+					stackId={stack.id}
 					{currentSeries}
 					isUnapplied={false}
 					isBottom={idx === stack.series.length - 1}
