@@ -451,11 +451,11 @@ export class BranchController {
 		}
 	}
 
-	async squashBranchCommit(branchId: string, sourceCommitOid: string, targetCommitOid: string) {
+	async squashBranchCommit(stackId: string, sourceCommitOid: string, targetCommitOid: string) {
 		try {
 			await invoke<void>('squash_commits', {
 				projectId: this.projectId,
-				branchId,
+				stackId,
 				sourceCommitOids: [sourceCommitOid], // The API has the ability to squash multiple commits, but currently the UI only squashes one at a time
 				targetCommitOid
 			});
@@ -534,13 +534,13 @@ export class BranchController {
 		}
 	}
 
-	async moveCommit(targetBranchId: string, commitOid: string, sourceBranchId: string) {
+	async moveCommit(targetStackId: string, commitOid: string, sourceStackId: string) {
 		try {
 			await invoke<void>('move_commit', {
 				projectId: this.projectId,
-				targetBranchId,
+				targetStackId,
 				commitOid,
-				sourceBranchId
+				sourceStackId
 			});
 		} catch (err: any) {
 			showError('Failed to move commit', err);

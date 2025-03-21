@@ -3,7 +3,8 @@
 	import BranchLabel from '$components/BranchLabel.svelte';
 	import BranchReview from '$components/BranchReview.svelte';
 	import BranchStatus from '$components/BranchStatus.svelte';
-	import Dropzones from '$components/Dropzones.svelte';
+	import CardOverlay from '$components/CardOverlay.svelte';
+	import Dropzone from '$components/Dropzone.svelte';
 	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import ReviewDetailsModal from '$components/ReviewDetailsModal.svelte';
 	import SeriesDescription from '$components/SeriesDescription.svelte';
@@ -21,6 +22,7 @@
 		parentBranch
 	} from '$lib/branches/virtualBranchService';
 	import { type CommitStatus } from '$lib/commits/commit';
+	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { FileService } from '$lib/files/fileService';
 	import { closedStateSync } from '$lib/forge/closedStateSync.svelte';
@@ -213,6 +215,8 @@
 	}
 
 	closedStateSync(reactive(() => branch));
+
+	const dzHandler = $derived(new MoveCommitDzHandler(branchController, stack));
 </script>
 
 <AddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={branch.name} />
@@ -257,7 +261,10 @@
 		kebabContextMenu?.toggle(e);
 	}}
 >
-	<Dropzones type="commit">
+	<Dropzone handlers={[dzHandler]}>
+		{#snippet overlay({ hovered, activated })}
+			<CardOverlay {hovered} {activated} label="Move here" />
+		{/snippet}
 		<PopoverActionsContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
 			{#if isTopBranch}
 				<PopoverActionsItem
@@ -384,7 +391,7 @@
 				<Button style="warning" type="submit">Create Pull Request</Button>
 			{/snippet}
 		</Modal>
-	</Dropzones>
+	</Dropzone>
 </div>
 
 <style lang="postcss">

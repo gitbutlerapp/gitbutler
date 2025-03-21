@@ -524,7 +524,7 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
-        branch_id: StackId,
+        stack_id: StackId,
         source_commit_oids: Vec<String>,
         target_commit_oid: String,
     ) -> Result<(), Error> {
@@ -539,7 +539,7 @@ pub mod commands {
             git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
         gitbutler_branch_actions::squash_commits(
             &ctx,
-            branch_id,
+            stack_id,
             source_commit_oids,
             destination_commit_oid,
         )?;
@@ -592,18 +592,13 @@ pub mod commands {
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         commit_oid: String,
-        target_branch_id: StackId,
-        source_branch_id: StackId,
+        target_stack_id: StackId,
+        source_stack_id: StackId,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        gitbutler_branch_actions::move_commit(
-            &ctx,
-            target_branch_id,
-            commit_oid,
-            source_branch_id,
-        )?;
+        gitbutler_branch_actions::move_commit(&ctx, target_stack_id, commit_oid, source_stack_id)?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }

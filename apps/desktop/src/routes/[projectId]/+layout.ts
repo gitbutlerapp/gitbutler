@@ -2,10 +2,8 @@ import { getUserErrorCode } from '$lib/backend/ipc';
 import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import { BranchController } from '$lib/branches/branchController';
 import { BranchListingService } from '$lib/branches/branchListing';
-import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { GitBranchService } from '$lib/branches/gitBranch';
 import { VirtualBranchService } from '$lib/branches/virtualBranchService';
-import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
 import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
 import { UncommitedFilesWatcher } from '$lib/files/watcher';
@@ -71,8 +69,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		posthog
 	);
 
-	const branchDragActionsFactory = new BranchDragActionsFactory(branchController);
-	const commitDragActionsFactory = new CommitDragActionsFactory(branchController, project);
 	const stackingReorderDropzoneManagerFactory = new StackingReorderDropzoneManagerFactory(
 		branchController
 	);
@@ -104,8 +100,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		fetchSignal,
 
 		// These observables are provided for convenience
-		branchDragActionsFactory,
-		commitDragActionsFactory,
 		stackingReorderDropzoneManagerFactory,
 		branchListingService,
 		uncommitedFileWatcher,
