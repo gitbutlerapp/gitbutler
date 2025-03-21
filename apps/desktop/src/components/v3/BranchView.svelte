@@ -93,12 +93,6 @@
 		gap: 16px;
 	}
 
-	.branch-view__header-title-row {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-	}
-
 	.branch-view__header-details-row {
 		color: var(--clr-text-2);
 		display: flex;
