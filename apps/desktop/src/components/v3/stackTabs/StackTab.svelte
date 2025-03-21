@@ -51,8 +51,8 @@
 		display: flex;
 		align-items: center;
 		position: relative;
-		padding: 0 12px 0 14px;
-		height: 48px;
+		padding: 0 12px;
+		height: 44px;
 		background: var(--clr-stack-tab-inactive);
 		border-right: 1px solid var(--clr-border-2);
 		overflow: hidden;
