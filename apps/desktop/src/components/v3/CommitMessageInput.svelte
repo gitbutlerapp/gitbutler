@@ -12,16 +12,27 @@
 		onCancel: () => void;
 		disabledAction?: boolean;
 		loading?: boolean;
+		initialTitle?: string;
+		initialMessage?: string;
 	};
 
-	const { projectId, actionLabel, action, onCancel, disabledAction, loading }: Props = $props();
+	const {
+		projectId,
+		actionLabel,
+		action,
+		onCancel,
+		disabledAction,
+		loading,
+		initialTitle,
+		initialMessage: initialValue
+	}: Props = $props();
 
 	/**
 	 * Toggles use of markdown on/off in the message editor.
 	 */
 	let markdown = persisted(true, 'useMarkdown__' + projectId);
 
-	let titleText = $state<string>();
+	let titleText = $state<string | undefined>(initialTitle);
 	let composer = $state<ReturnType<typeof MessageEditor>>();
 
 	export function getTitle(): string | undefined {
@@ -35,7 +46,7 @@
 
 <div class="commit-message-input">
 	<Textbox bind:value={titleText} placeholder="Commit title" />
-	<MessageEditor bind:this={composer} bind:markdown={$markdown} />
+	<MessageEditor bind:this={composer} bind:markdown={$markdown} {initialValue} />
 </div>
 <EditorFooter {onCancel}>
 	<Button style="pop" onclick={action} disabled={disabledAction} {loading}>{actionLabel}</Button>
