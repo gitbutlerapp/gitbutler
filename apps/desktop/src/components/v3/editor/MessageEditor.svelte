@@ -1,21 +1,172 @@
 <script lang="ts">
+	import { AIService } from '$lib/ai/service';
+	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { showError } from '$lib/notifications/toasts';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
+	import { inject } from '@gitbutler/shared/context';
+	import { devLog } from '@gitbutler/shared/logging';
+	import { debouncePromise } from '@gitbutler/shared/utils/misc';
+	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
+	import GhostTextPlugin from '@gitbutler/ui/richText/plugins/GhostText.svelte';
 	import GiphyPlugin from '@gitbutler/ui/richText/plugins/GiphyPlugin.svelte';
 	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
+		modifierPrompt: string | undefined;
+		projectId: string;
+		stackId: string;
 		markdown: boolean;
 	}
 
-	let { markdown = $bindable() }: Props = $props();
+	let { markdown = $bindable(), stackId, projectId, modifierPrompt }: Props = $props();
+
+	const [aiService, uiState, stackService, idSelection, worktreeService, diffService] = inject(
+		AIService,
+		UiState,
+		StackService,
+		IdSelection,
+		WorktreeService,
+		DiffService
+	);
+
+	const stackState = $derived(uiState.stack(stackId));
+	const selected = $derived(stackState.selection.get());
+	const branchName = $derived(selected.current?.branchName);
+	const selection = $derived(idSelection.values());
+	const selectionPaths = $derived(
+		selection.map((item) => (item.type === 'worktree' ? item.path : undefined)).filter(isDefined)
+	);
+
+	const changes = $derived(worktreeService.getChangesById(projectId, selectionPaths));
+
+	type ChangeDiff<T> = {
+		path: string;
+		diff: T;
+	};
+
+	let changeDiffs = $state<ChangeDiff<Awaited<ReturnType<typeof diffService.getDiffDirectly>>>[]>();
+
+	$effect(() => {
+		const treeChanges = changes.current.data;
+		if (!treeChanges) return;
+		Promise.all(
+			treeChanges.map((change) =>
+				diffService.getDiffDirectly(projectId, change).then((diff) => ({
+					path: change.path,
+					diff
+				}))
+			)
+		).then((diffs) => {
+			devLog('update diffs:');
+			changeDiffs = diffs;
+		});
+	});
+
+	const commitsResponse = $derived(
+		branchName ? stackService.commits(projectId, stackId, branchName) : undefined
+	);
+	const commits = $derived(commitsResponse?.current.data ?? []);
+	const commitMessages = $derived(commits.map((commit) => commit.message));
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
 	let formatter = $state<ReturnType<typeof Formatter>>();
+	let ghostTextComponent = $state<ReturnType<typeof GhostTextPlugin>>();
 
 	export async function getPlaintext(): Promise<string | undefined> {
 		return composer?.getPlaintext();
+	}
+
+	let alwaysAutoComplete = $state(false);
+
+	let editorText = $state<string | undefined>();
+	let lastSentMessage = $state<string | undefined>();
+	let lasSelectedGhostText = $state<string | undefined>();
+
+	function getCleanHunks() {
+		if (!changeDiffs) return [];
+		return changeDiffs
+			.map(({ diff, path }) => {
+				if (!diff.data) return undefined;
+				if (diff.data.type !== 'Patch') return undefined;
+				return {
+					path,
+					diff: diff.data.subject.hunks.map((hunk) => hunk.diff)
+				};
+			})
+			.filter(isDefined);
+	}
+
+	async function handleChange(text: string) {
+		editorText = text;
+		devLog('Text changed:', text);
+		if (!alwaysAutoComplete) return;
+
+		const hunks = getCleanHunks();
+
+		if (lasSelectedGhostText && text.endsWith(lasSelectedGhostText)) return;
+		if (lastSentMessage === text) return;
+		if (!text) {
+			ghostTextComponent?.reset();
+			return;
+		}
+		lastSentMessage = text;
+		devLog('Text changed:', text);
+		const autoCompletion = await aiService.autoCompleteCommitMessage({
+			currentValue: text,
+			stagedChanges: hunks,
+			commitMessages,
+			modifierPrompt
+		});
+		devLog('Auto completion:', autoCompletion);
+		if (autoCompletion) {
+			ghostTextComponent?.setText(autoCompletion);
+		}
+	}
+
+	async function suggest(text: string) {
+		const hunks = getCleanHunks();
+
+		if (lasSelectedGhostText && text.endsWith(lasSelectedGhostText)) return;
+		if (lastSentMessage === text) return;
+		if (!text) {
+			ghostTextComponent?.reset();
+			return;
+		}
+		lastSentMessage = text;
+		const autoCompletion = await aiService.autoCompleteCommitMessage({
+			currentValue: text,
+			stagedChanges: hunks,
+			commitMessages,
+			modifierPrompt
+		});
+
+		devLog('Auto completion:', autoCompletion);
+		if (autoCompletion) {
+			ghostTextComponent?.setText(autoCompletion);
+		}
+	}
+
+	function handleKeyDown(event: KeyboardEvent | null): boolean {
+		if (alwaysAutoComplete) return false;
+		if (!event) return false;
+		if (event.key === 'g' && (event.ctrlKey || event.metaKey)) {
+			if (editorText) suggest(editorText);
+			return true;
+		}
+		return false;
+	}
+
+	const debouncedHandleChange = debouncePromise(handleChange, 500);
+
+	function onSelectGhostText(text: string) {
+		devLog('Selected ghost text:', text);
+		lasSelectedGhostText = text;
 	}
 </script>
 
@@ -39,6 +190,7 @@
 				}}>Rich-text Editor</button
 			>
 		</div>
+		<Checkbox bind:checked={alwaysAutoComplete}  />
 		<FormattingBar bind:formatter />
 	</div>
 
@@ -50,9 +202,13 @@
 			bind:this={composer}
 			{markdown}
 			onError={(e) => showError('Editor error', e)}
+			onChange={debouncedHandleChange}
+			onKeyDown={handleKeyDown}
 		>
 			{#snippet plugins()}
 				<Formatter bind:this={formatter} />
+				<GiphyPlugin />
+				<GhostTextPlugin bind:this={ghostTextComponent} onSelection={onSelectGhostText} />
 				<GiphyPlugin />
 			{/snippet}
 		</RichTextEditor>

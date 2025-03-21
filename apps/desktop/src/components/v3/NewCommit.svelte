@@ -2,6 +2,7 @@
 	import Drawer from '$components/v3/Drawer.svelte';
 	import EditorFooter from '$components/v3/editor/EditorFooter.svelte';
 	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
+	import TitleInput from '$components/v3/editor/TitleInput.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -30,6 +31,7 @@
 	const canCommit = $derived(branchName && selection.current.length > 0);
 
 	let titleText = $state<string>();
+	let modifierPrompt = $state<string>();
 
 	/**
 	 * Toggles use of markdown on/off in the message editor.
@@ -91,8 +93,28 @@
 		<p class="text-14 text-semibold">Create commit</p>
 	{/snippet}
 	<div class="new-commit-fields">
-		<Textbox bind:value={titleText} placeholder="Commit title" />
-		<MessageEditor bind:this={composer} bind:markdown={$markdown} />
+		<TitleInput
+			value={titleText}
+			oninput={(e) => {
+				const target = e.target as HTMLInputElement;
+				titleText = target.value;
+			}}
+		/>
+		<TitleInput
+			placeholder={':)'}
+			value={modifierPrompt}
+			oninput={(e) => {
+				const target = e.target as HTMLInputElement;
+				modifierPrompt = target.value;
+			}}
+		/>
+		<MessageEditor
+			bind:this={composer}
+			bind:markdown={$markdown}
+			{projectId}
+			{stackId}
+			{modifierPrompt}
+		/>
 	</div>
 	<EditorFooter onCancel={cancel}>
 		<Button

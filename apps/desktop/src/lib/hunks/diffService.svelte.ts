@@ -15,6 +15,11 @@ export class DiffService {
 		const result = $derived(getDiff.useQuery({ projectId, change }));
 		return result;
 	}
+
+	async getDiffDirectly(projectId: string, change: TreeChange) {
+		const { getDiff } = this.api.endpoints;
+		return await getDiff.fetch({ projectId, change });
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {

@@ -13,9 +13,11 @@ import {
 	AnthropicModelName,
 	ModelKind,
 	MessageRole,
-	type Prompt
+	type Prompt,
+	type PromptMessage
 } from '$lib/ai/types';
 import { splitMessage } from '$lib/utils/commitMessage';
+import { devLog } from '@gitbutler/shared/logging';
 import { get } from 'svelte/store';
 import type { GitConfigService } from '$lib/config/gitConfigService';
 import type { SecretsService } from '$lib/secrets/secretsService';
@@ -317,6 +319,76 @@ export class AIService {
 
 		const { title, description } = splitMessage(message);
 		return description ? `${title}\n\n${description}` : title;
+	}
+
+	private formatStagedChanges(stagedChanges: { path: string; diff: string[] }[]): string {
+		return stagedChanges
+			.map((change) => {
+				return `FILE PATH CHANGED: ${change.path}
+
+HUNK DIFFS
+${change.diff.join('\n')}`;
+			})
+			.join('\n\n');
+	}
+
+	async autoCompleteCommitMessage({
+		modifierPrompt,
+		currentValue,
+		stagedChanges,
+		commitMessages
+	}: {
+		modifierPrompt: string | undefined;
+		currentValue: string;
+		commitMessages: string[];
+		stagedChanges: { path: string; diff: string[] }[];
+	}): Promise<string | undefined> {
+		const aiClient = await this.buildClient();
+		if (!aiClient) return;
+
+		// Use only messages that are at least 10 characters long
+		const usableCommitMessages = commitMessages.filter((message) => message.length >= 10);
+
+		const prompt: PromptMessage[] = [];
+
+		const systemContent = `You are a developer working on a new feature. You have made some changes to the code and are documenting them.
+${modifierPrompt ? modifierPrompt + '\n' : ''}ONLY complete the sentence bellow replacing the <<<<FILL>>>> marker.
+Return the commit message that you would use to describe the changes you made.
+DON'T change any part of the existing message.
+User the following staged changes as context:
+
+${this.formatStagedChanges(stagedChanges)}`;
+
+		devLog(systemContent);
+
+		prompt.push({
+			role: MessageRole.System,
+			content: systemContent
+		});
+
+		// Add fake completions from the existing commit messages
+		usableCommitMessages.forEach((message) => {
+			const halfMessage = message.slice(0, Math.floor(message.length / 2));
+			const otherHalf = message.slice(Math.floor(message.length / 2));
+			prompt.push({
+				role: MessageRole.User,
+				content: `${halfMessage}<<<<<FILL>>>>>`
+			});
+
+			prompt.push({
+				role: MessageRole.Assistant,
+				content: otherHalf
+			});
+		});
+
+		// This is the actual completion trigger
+		prompt.push({
+			role: MessageRole.User,
+			content: `${currentValue}<<<<<FILL>>>>>`
+		});
+
+		const message = await aiClient.evaluate(prompt);
+		return message;
 	}
 
 	async summarizeBranch({
