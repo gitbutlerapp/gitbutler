@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::from_json::HexHash;
+use but_core::message_format;
 use but_hunk_dependency::ui::{
     hunk_dependencies_for_workspace_changes_by_worktree_dir, HunkDependencies,
 };
@@ -137,13 +138,15 @@ pub fn create_commit_from_worktree_changes(
     };
     let mut guard = project.exclusive_worktree_access();
     let snapshot_tree = project.prepare_snapshot(guard.read_permission());
+    let formatted_message = message_format::format_for_commit(message.clone());
+
     let outcome = commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         &project,
         Some(stack_id),
         commit_engine::Destination::NewCommit {
             parent_commit_id,
-            message: message.clone(),
+            message: formatted_message.clone(),
             stack_segment: Some(StackSegmentId {
                 stack_id,
                 segment_ref: format!("refs/heads/{stack_branch_name}")
@@ -160,7 +163,7 @@ pub fn create_commit_from_worktree_changes(
         project.snapshot_commit_creation(
             snapshot_tree,
             outcome.as_ref().err(),
-            message.to_owned(),
+            formatted_message.to_owned(),
             None,
             guard.write_permission(),
         )
