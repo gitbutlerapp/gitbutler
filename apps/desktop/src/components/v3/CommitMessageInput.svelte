@@ -8,7 +8,6 @@
 	type Props = {
 		projectId: string;
 		action: () => void;
-		actionLabel: string;
 		onCancel: () => void;
 		disabledAction?: boolean;
 		loading?: boolean;
@@ -18,7 +17,6 @@
 
 	const {
 		projectId,
-		actionLabel,
 		action,
 		onCancel,
 		disabledAction,
@@ -49,7 +47,9 @@
 	<MessageEditor bind:this={composer} bind:markdown={$markdown} {initialValue} />
 </div>
 <EditorFooter {onCancel}>
-	<Button style="pop" onclick={action} disabled={disabledAction} {loading}>{actionLabel}</Button>
+	<Button style="pop" onclick={action} disabled={disabledAction} {loading} width={126}
+		>Create commit</Button
+	>
 </EditorFooter>
 
 <style lang="postcss">

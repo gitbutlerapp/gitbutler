@@ -80,7 +80,6 @@
 	<CommitMessageInput
 		{projectId}
 		action={hanldleCommitCreation}
-		actionLabel="Commit"
 		onCancel={cancel}
 		disabledAction={!canCommit}
 		loading={commitCreation.current.isLoading}
