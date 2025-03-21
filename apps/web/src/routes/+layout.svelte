@@ -58,6 +58,16 @@
 	});
 </script>
 
+<svelte:head>
+	{#if import.meta.env.MODE !== 'development'}
+		<script
+			async
+			src="https://u.gitbutler.com/script.js"
+			data-website-id="c406f339-a2af-4992-9a82-162134323008"
+		></script>
+	{/if}
+</svelte:head>
+
 {#if (page.route.id === '/(app)' && !token) || page.route.id === '/(app)/home'}
 	<section class="marketing-page">
 		<Header />
