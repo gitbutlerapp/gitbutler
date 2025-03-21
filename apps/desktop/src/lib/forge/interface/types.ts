@@ -76,6 +76,7 @@ export type ForgeArguments = {
 	repo: RepoInfo;
 	baseBranch: string;
 	forkStr?: string;
+	authenticated: boolean;
 };
 
 export type CreatePullRequestArgs = {

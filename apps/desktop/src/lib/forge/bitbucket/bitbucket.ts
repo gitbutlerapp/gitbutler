@@ -16,14 +16,16 @@ export const BITBUCKET_DOMAIN = 'bitbucket.org';
  */
 export class BitBucket implements Forge {
 	readonly name: ForgeName = 'bitbucket';
+	readonly authenticated: boolean;
 	private baseUrl: string;
 	private baseBranch: string;
 	private forkStr?: string;
 
-	constructor({ repo, baseBranch, forkStr }: ForgeArguments) {
+	constructor({ repo, baseBranch, forkStr, authenticated }: ForgeArguments) {
 		this.baseUrl = `https://${BITBUCKET_DOMAIN}/${repo.owner}/${repo.name}`;
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;
+		this.authenticated = authenticated;
 	}
 
 	branch(name: string) {
