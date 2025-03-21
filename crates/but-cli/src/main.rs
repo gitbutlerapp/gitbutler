@@ -37,9 +37,10 @@ fn main() -> Result<()> {
             )
         }
         args::Subcommands::HunkDependency => command::diff::locks(&args.current_dir),
-        args::Subcommands::Status { unified_diff } => {
-            command::diff::status(&args.current_dir, *unified_diff)
-        }
+        args::Subcommands::Status {
+            unified_diff,
+            context_lines,
+        } => command::diff::status(&args.current_dir, *unified_diff, *context_lines),
         args::Subcommands::CommitChanges {
             unified_diff,
             current_commit,

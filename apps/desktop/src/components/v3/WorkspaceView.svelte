@@ -3,7 +3,7 @@
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
 	import NewButlerReview from '$components/v3/NewButlerReview.svelte';
-	import NewCommit from '$components/v3/NewCommit.svelte';
+	import NewCommitView from '$components/v3/NewCommitView.svelte';
 	import NewPullRequest from '$components/v3/NewPullRequest.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
@@ -50,7 +50,7 @@
 
 		{#if stackId}
 			{#if drawerPage.current === 'new-commit'}
-				<NewCommit {projectId} {stackId} />
+				<NewCommitView {projectId} {stackId} />
 			{:else if drawerPage.current === 'branch' && branchName}
 				<BranchView {stackId} {projectId} {branchName} />
 			{:else if drawerPage.current === 'pr'}

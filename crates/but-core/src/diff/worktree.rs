@@ -2,16 +2,19 @@ use crate::{
     ChangeState, IgnoredWorktreeChange, IgnoredWorktreeTreeChangeStatus, ModeFlags, TreeChange,
     TreeStatus, UnifiedDiff, WorktreeChanges,
 };
-use anyhow::Context;
-use bstr::{BString, ByteSlice};
+use anyhow::{Context, bail};
+use bstr::{BStr, BString, ByteSlice};
 use gix::dir::entry;
 use gix::dir::walk::EmissionMode;
+use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 use gix::object::tree::EntryKind;
 use gix::status;
 use gix::status::index_worktree;
 use gix::status::index_worktree::RewriteSource;
 use gix::status::plumbing::index_as_worktree::{self, EntryStatus};
 use gix::status::tree_index::TrackRenames;
+use std::cmp::Ordering;
+use std::io::Read;
 use std::path::PathBuf;
 
 /// Identify where a [`TreeChange`] is from.
@@ -291,7 +294,9 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
             status::Item::IndexWorktree(index_worktree::Item::Rewrite {
                 source,
                 dirwalk_entry,
-                dirwalk_entry_id,
+                // This ID is usually null, but might be set if used for comparisons.
+                // However, this wouldn't mean the object exists.
+                dirwalk_entry_id: _,
                 ..
             }) => {
                 let previous_path: BString = source.rela_path().into();
@@ -317,7 +322,8 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                     },
                 };
                 let state = ChangeState {
-                    id: dirwalk_entry_id,
+                    // Use the worktree version
+                    id: repo.object_hash().null(),
                     kind: match disk_kind_to_entry_kind(
                         dirwalk_entry.disk_kind,
                         dirwalk_entry.index_kind,
@@ -408,27 +414,263 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
     }
 
     tmp.sort_by(|(a_origin, a), (b_origin, b)| {
-        a.path.cmp(&b.path).then(a_origin.cmp(b_origin).reverse())
+        cmp_prefer_overlapping(a, b).then(a_origin.cmp(b_origin).reverse())
     });
 
-    let mut last_path = None;
-    let mut changes = Vec::with_capacity(tmp.len());
+    let mut last_change = None::<&TreeChange>;
+    let mut changes = Vec::<TreeChange>::with_capacity(tmp.len());
+    let (mut filter, index) = repo.filter_pipeline(None)?;
+    let mut path_check = gix::status::plumbing::SymlinkCheck::new(
+        repo.workdir().map(ToOwned::to_owned).context("non-bare")?,
+    );
     for (_origin, change) in tmp {
-        if last_path.as_ref() == Some(&change.path) {
+        // At this point we know that the current `change` is the tree/index variant
+        // of a prior change between index/worktree.
+        if last_change
+            .as_ref()
+            .is_some_and(|last_change| cmp_prefer_overlapping(last_change, &change).is_eq())
+        {
+            last_change = None;
+            // This is usually two modifications, but it's also possible that
+            // This one is a rename. In that case, we want the rename, combined
+            // with the current state pointing to the worktree,
+            // which we expect to be a modification
+            let index_wt_change = changes
+                .pop()
+                .expect("the reason we are here is the previous change");
+            let change_path = change.path.clone();
+            let tree_index_change = change;
+            let status = match merge_changes(
+                tree_index_change,
+                index_wt_change,
+                &mut filter,
+                &index,
+                &mut path_check,
+            )? {
+                None => IgnoredWorktreeTreeChangeStatus::TreeIndexWorktreeChangeIneffective,
+                Some(merged) => {
+                    changes.push(merged);
+                    IgnoredWorktreeTreeChangeStatus::TreeIndex
+                }
+            };
             ignored_changes.push(IgnoredWorktreeChange {
-                path: change.path,
-                status: IgnoredWorktreeTreeChangeStatus::TreeIndex,
+                path: change_path,
+                status,
             });
             continue;
         }
-        last_path = Some(change.path.clone());
         changes.push(change);
+        last_change = changes.last();
     }
 
     Ok(WorktreeChanges {
         changes,
         ignored_changes,
     })
+}
+
+fn cmp_prefer_overlapping(a: &TreeChange, b: &TreeChange) -> Ordering {
+    if a.path == b.path
+        || a.previous_path() == Some(b.path.as_bstr())
+        || Some(a.path.as_bstr()) == b.previous_path()
+    {
+        Ordering::Equal
+    } else {
+        a.path.cmp(&b.path)
+    }
+}
+
+/// Merge changes from tree/index into changes of `index_wt` and assure the merged result isn't a no-op,
+/// which is when `None` is returned.
+/// Note that this case is more expensive as we have to hash the worktree version to check for a no-op.
+/// `diff_filter` is used to obtain hashes of worktree content.
+fn merge_changes(
+    mut tree_index: TreeChange,
+    mut index_wt: TreeChange,
+    filter: &mut gix::filter::Pipeline<'_>,
+    index: &gix::index::State,
+    path_check: &mut gix::status::plumbing::SymlinkCheck,
+) -> anyhow::Result<Option<TreeChange>> {
+    let merged = match (&mut tree_index.status, &mut index_wt.status) {
+        (TreeStatus::Modification { .. }, TreeStatus::Addition { .. })
+        | (TreeStatus::Deletion { .. }, TreeStatus::Deletion { .. })
+        | (TreeStatus::Deletion { .. }, TreeStatus::Rename { .. })
+        | (TreeStatus::Deletion { .. }, TreeStatus::Modification { .. })
+        | (
+            TreeStatus::Deletion { .. },
+            TreeStatus::Addition {
+                is_untracked: false,
+                ..
+            },
+        )
+        | (TreeStatus::Addition { .. }, TreeStatus::Addition { .. }) => {
+            bail!(
+                "BUG: entered unreachable code with tree_index_change = {:?} and index_wt_change = {:?}",
+                tree_index.status.kind(),
+                index_wt.status.kind()
+            );
+        }
+        (
+            TreeStatus::Addition {
+                is_untracked,
+                state,
+            },
+            TreeStatus::Modification {
+                state: state_wt, ..
+            },
+        ) => {
+            *is_untracked = true;
+            *state = *state_wt;
+            return Ok(Some(tree_index));
+        }
+        (TreeStatus::Addition { .. }, TreeStatus::Deletion { .. }) => {
+            // keep the most recent known state, which is from the index.
+            return Ok(Some(index_wt));
+        }
+        (
+            TreeStatus::Addition { state, .. },
+            TreeStatus::Rename {
+                previous_state: ps_wt,
+                ..
+            },
+        ) => {
+            // This is conflicting actually, and a little bit unclear what commiting this will do.
+            // Pretend the added file (in index) is the one that was deleted, hence the rename.
+            *ps_wt = *state;
+            // Can't be no-op as this is a rename
+            return Ok(Some(index_wt));
+        }
+        (
+            TreeStatus::Deletion { previous_state, .. },
+            TreeStatus::Addition {
+                is_untracked: true,
+                state,
+            },
+        ) => {
+            index_wt.status = TreeStatus::Modification {
+                previous_state: *previous_state,
+                state: *state,
+                flags: None,
+            };
+            index_wt
+        }
+        (
+            TreeStatus::Modification { previous_state, .. },
+            TreeStatus::Modification {
+                previous_state: ps_wt,
+                ..
+            },
+        ) => {
+            *ps_wt = *previous_state;
+            index_wt
+        }
+        (TreeStatus::Modification { .. }, TreeStatus::Deletion { .. }) => {
+            return Ok(Some(index_wt));
+        }
+        (
+            TreeStatus::Modification { previous_state, .. },
+            TreeStatus::Rename {
+                previous_state: ps_wt,
+                ..
+            },
+        ) => {
+            *ps_wt = *previous_state;
+            index_wt
+        }
+        (TreeStatus::Rename { .. }, TreeStatus::Modification { .. }) => {
+            todo!("rename - mod")
+        }
+        (TreeStatus::Rename { .. }, TreeStatus::Rename { .. }) => {
+            todo!("rename - rename")
+        }
+        (TreeStatus::Rename { .. }, TreeStatus::Deletion { .. }) => {
+            todo!("rename - del")
+        }
+        (TreeStatus::Rename { .. }, TreeStatus::Addition { .. }) => {
+            todo!("rename-add")
+        }
+    };
+
+    let current = id_or_hash_from_worktree(
+        merged.status.state(),
+        merged.path.as_bstr(),
+        filter,
+        index,
+        path_check,
+    )?;
+    let (prev_state, prev_path) = merged
+        .status
+        .previous_state_and_path()
+        .map(|(a, b)| (Some(a), b))
+        .unwrap_or((None, None));
+    let previous = id_or_hash_from_worktree(
+        prev_state,
+        prev_path.unwrap_or(merged.path.as_bstr()),
+        filter,
+        index,
+        path_check,
+    )?;
+    Ok(if current == previous {
+        None
+    } else {
+        Some(merged)
+    })
+}
+
+// TODO(gix): worktree-status already can do hashing and to-git conversions while dealing with links, but it's not exposed.
+//            Make this easier in Gix.
+/// Produces hashes for comparing states, or produce a hash from what's on disk if no hash is available.
+/// Note that null-hash will be returned if no directory entry is available.
+fn id_or_hash_from_worktree(
+    change: Option<ChangeState>,
+    rela_path: &BStr,
+    filter: &mut gix::filter::Pipeline<'_>,
+    index: &gix::index::State,
+    path_check: &mut gix::status::plumbing::SymlinkCheck,
+) -> anyhow::Result<gix::ObjectId> {
+    let Some(change) = change else {
+        return Ok(index.object_hash().null());
+    };
+    if !change.id.is_null() {
+        return Ok(change.id);
+    }
+
+    let path = path_check.verified_path_allow_nonexisting(rela_path)?;
+    let md = path.symlink_metadata()?;
+    let repo = filter.repo;
+    let id = if md.is_file() {
+        let to_git = filter.convert_to_git(
+            std::fs::File::open(path)?,
+            // TODO(gix): definitely use `ToCompoents` here to avoid these conversions.
+            //            Whatever you do, it's never right, so must be abstract.
+            &gix::path::try_from_bstr(rela_path)?,
+            index,
+        )?;
+        match to_git {
+            ToGitOutcome::Unchanged(mut stream) => gix::objs::compute_stream_hash(
+                repo.object_hash(),
+                gix::object::Kind::Blob,
+                &mut stream,
+                md.len(),
+                &mut gix::progress::Discard,
+                &gix::interrupt::IS_INTERRUPTED,
+            )?,
+            ToGitOutcome::Process(mut stream) => {
+                let mut buf = repo.empty_reusable_buffer();
+                stream.read_to_end(&mut buf)?;
+                gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, &buf)
+            }
+            ToGitOutcome::Buffer(buf) => {
+                gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, buf)
+            }
+        }
+    } else if md.is_symlink() {
+        let bytes = gix::path::os_string_into_bstring(std::fs::read_link(path)?.into())?;
+        gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, &bytes)
+    } else {
+        bail!("Cannot hash directory entries that aren't files or symlinks");
+    };
+    Ok(id)
 }
 
 fn into_tree_entry_kind(mode: gix::index::entry::Mode) -> anyhow::Result<EntryKind> {
@@ -479,43 +721,69 @@ impl TreeChange {
         repo: &gix::Repository,
         context_lines: u32,
     ) -> anyhow::Result<UnifiedDiff> {
+        let mut diff_filter = crate::unified_diff::filter_from_state(
+            repo,
+            self.status.state(),
+            gix::diff::blob::pipeline::Mode::ToGitUnlessBinaryToTextIsPresent,
+        )?;
+        self.unified_diff_with_filter(repo, context_lines, &mut diff_filter)
+    }
+
+    /// Like [`Self::unified_diff()`], but uses `diff_filter` to control the content used for the diff.
+    pub fn unified_diff_with_filter(
+        &self,
+        repo: &gix::Repository,
+        context_lines: u32,
+        diff_filter: &mut gix::diff::blob::Platform,
+    ) -> anyhow::Result<UnifiedDiff> {
         match &self.status {
-            TreeStatus::Deletion { previous_state } => UnifiedDiff::compute(
+            TreeStatus::Deletion { previous_state } => UnifiedDiff::compute_with_filter(
                 repo,
                 self.path.as_bstr(),
                 None,
                 None,
                 *previous_state,
                 context_lines,
+                diff_filter,
             ),
             TreeStatus::Addition {
                 state,
                 is_untracked: _,
-            } => UnifiedDiff::compute(repo, self.path.as_bstr(), None, *state, None, context_lines),
+            } => UnifiedDiff::compute_with_filter(
+                repo,
+                self.path.as_bstr(),
+                None,
+                *state,
+                None,
+                context_lines,
+                diff_filter,
+            ),
             TreeStatus::Modification {
                 state,
                 previous_state,
                 flags: _,
-            } => UnifiedDiff::compute(
+            } => UnifiedDiff::compute_with_filter(
                 repo,
                 self.path.as_bstr(),
                 None,
                 *state,
                 *previous_state,
                 context_lines,
+                diff_filter,
             ),
             TreeStatus::Rename {
                 previous_path,
                 previous_state,
                 state,
                 flags: _,
-            } => UnifiedDiff::compute(
+            } => UnifiedDiff::compute_with_filter(
                 repo,
                 self.path.as_bstr(),
                 Some(previous_path.as_bstr()),
                 *state,
                 *previous_state,
                 context_lines,
+                diff_filter,
             ),
         }
     }

@@ -3,6 +3,8 @@ use gitbutler_project::Project;
 use gix::bstr::BString;
 use std::path::Path;
 
+const UI_CONTEXT_LINES: u32 = 3;
+
 pub fn project_from_path(path: &Path) -> anyhow::Result<Project> {
     Project::from_path(path)
 }

@@ -1,4 +1,5 @@
-import { showToast } from '$lib/notifications/toasts';
+import { invoke } from '$lib/backend/ipc';
+import { showError, showToast } from '$lib/notifications/toasts';
 import { ClientState } from '$lib/state/clientState.svelte';
 import { createSelectNth } from '$lib/state/customSelectors';
 import { ReduxTag } from '$lib/state/tags';
@@ -70,7 +71,7 @@ export class StackService {
 	private api: ReturnType<typeof injectEndpoints>;
 
 	constructor(
-		state: ClientState,
+		private readonly state: ClientState,
 		private readonly posthog: PostHogWrapper
 	) {
 		this.api = injectEndpoints(state.backendApi);
@@ -295,6 +296,18 @@ export class StackService {
 	insertBlankCommit() {
 		return this.api.endpoints.insertBlankCommit.useMutation();
 	}
+
+	async unapply(projectId: string, stackId: string) {
+		try {
+			await invoke<void>('save_and_unapply_virtual_branch', {
+				projectId,
+				branch: stackId
+			});
+			this.state.dispatch(this.api.util.invalidateTags([ReduxTag.Stacks]));
+		} catch (err) {
+			showError('Failed to unapply branch', err);
+		}
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -355,7 +368,16 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'stack_branch_local_and_remote_commits',
 					params: { projectId, stackId, branchName }
 				}),
-				providesTags: [ReduxTag.Commits],
+				providesTags: (result, _, args) => {
+					const branchCommitsTag = { type: ReduxTag.Commits, id: args.branchName };
+
+					if (!result) return [branchCommitsTag];
+
+					const allCommits = commitSelectors.selectAll(result);
+					const commitTags = allCommits.map((commit) => ({ type: ReduxTag.Commit, id: commit.id }));
+
+					return [branchCommitsTag, ...commitTags];
+				},
 				transformResponse(response: Commit[]) {
 					return commitAdapter.addMany(commitAdapter.getInitialState(), response);
 				}
@@ -429,15 +451,16 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			updateCommitMessage: build.mutation<
 				void,
-				{ projectId: string; branchId: string; commitOid: string; message: string }
+				{ projectId: string; stackId: string; commitId: string; message: string }
 			>({
-				query: ({ projectId, branchId, commitOid, message }) => ({
+				query: ({ projectId, stackId, commitId, message }) => ({
 					command: 'update_commit_message',
-					params: { projectId, branchId, commitOid, message }
+					params: { projectId, branchId: stackId, commitOid: commitId, message }
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					ReduxTag.StackBranches,
-					{ type: ReduxTag.StackInfo, id: args.branchId }
+					{ type: ReduxTag.Commit, id: args.commitId },
+					{ type: ReduxTag.StackInfo, id: args.stackId }
 				]
 			}),
 			newBranch: build.mutation<

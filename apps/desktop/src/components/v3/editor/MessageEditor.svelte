@@ -7,9 +7,10 @@
 
 	interface Props {
 		markdown: boolean;
+		initialValue?: string;
 	}
 
-	let { markdown = $bindable() }: Props = $props();
+	let { markdown = $bindable(), initialValue }: Props = $props();
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
 	let formatter = $state<ReturnType<typeof Formatter>>();
@@ -50,6 +51,7 @@
 			bind:this={composer}
 			{markdown}
 			onError={(e) => showError('Editor error', e)}
+			initialText={initialValue}
 		>
 			{#snippet plugins()}
 				<Formatter bind:this={formatter} />

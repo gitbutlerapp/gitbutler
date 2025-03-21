@@ -135,7 +135,9 @@ fn add_multiple_series() -> Result<()> {
 
     // archive is noop
     let before_prune = test_ctx.stack.heads.clone();
-    test_ctx.stack.archive_integrated_heads(&ctx, &[])?;
+    test_ctx
+        .stack
+        .archive_integrated_heads(&ctx, &ctx.gix_repository()?, &[], false)?;
     assert_eq!(before_prune, test_ctx.stack.heads);
     Ok(())
 }
@@ -1005,7 +1007,9 @@ fn archive_heads_noop() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     let initial_state = test_ctx.stack.heads.clone();
-    test_ctx.stack.archive_integrated_heads(&ctx, &[])?;
+    test_ctx
+        .stack
+        .archive_integrated_heads(&ctx, &ctx.gix_repository()?, &[], false)?;
     assert_eq!(initial_state, test_ctx.stack.heads);
     // Assert persisted
     assert_eq!(
@@ -1030,9 +1034,12 @@ fn archive_heads_success() -> Result<()> {
         )?,
     );
     assert_eq!(test_ctx.stack.heads.len(), 2);
-    test_ctx
-        .stack
-        .archive_integrated_heads(&ctx, &[Reference::Virtual("foo".to_string())])?;
+    test_ctx.stack.archive_integrated_heads(
+        &ctx,
+        &ctx.gix_repository()?,
+        &[Reference::Virtual("foo".to_string())],
+        false,
+    )?;
     assert_eq!(test_ctx.stack.heads.len(), 2);
     assert!(test_ctx.stack.heads[0].archived);
     assert!(!test_ctx.stack.heads[1].archived);

@@ -35,6 +35,13 @@ pub struct DiffHunk {
 }
 
 impl UnifiedDiff {
+    /// Determine how resources are converted to their form used for diffing.
+    ///
+    /// `ToGit` means that we want to see manifests of `git-lfs` for instance, or generally the result of 'clean' filters.
+    /// Doing so also yields a more 'universal' form that is certainly helpful when displaying it in a user interface.
+    pub const CONVERSION_MODE: gix::diff::blob::pipeline::Mode =
+        gix::diff::blob::pipeline::Mode::ToGitUnlessBinaryToTextIsPresent;
+
     /// Given a worktree-relative `path` to a resource already tracked in Git, or one that is currently untracked,
     /// create a patch in unified diff format that turns `previous_state` into `current_state`, with the given
     /// amount of `context_lines`.
@@ -61,18 +68,34 @@ impl UnifiedDiff {
         context_lines: u32,
     ) -> anyhow::Result<Self> {
         let current_state = current_state.into();
-        let previous_state = previous_state.into();
-        let mut cache = repo.diff_resource_cache(
-            gix::diff::blob::pipeline::Mode::ToGitUnlessBinaryToTextIsPresent,
-            gix::diff::blob::pipeline::WorktreeRoots {
-                old_root: None,
-                new_root: current_state
-                    .filter(|state| state.id.is_null())
-                    .and_then(|_| repo.workdir().map(ToOwned::to_owned)),
-            },
-        )?;
+        let mut cache = filter_from_state(repo, current_state, Self::CONVERSION_MODE)?;
+        Self::compute_with_filter(
+            repo,
+            path,
+            previous_path,
+            current_state,
+            previous_state,
+            context_lines,
+            &mut cache,
+        )
+    }
 
-        cache.set_resource(
+    /// Similar to [`Self::compute()`], but uses `diff_filter` to obtain the diff content.
+    ///
+    /// This is useful to assure it's clear which content is ultimately used for the produced uni-diff,
+    /// as `filter` is responsible for that.
+    pub fn compute_with_filter(
+        repo: &gix::Repository,
+        path: &BStr,
+        previous_path: Option<&BStr>,
+        current_state: impl Into<Option<ChangeState>>,
+        previous_state: impl Into<Option<ChangeState>>,
+        context_lines: u32,
+        diff_filter: &mut gix::diff::blob::Platform,
+    ) -> anyhow::Result<Self> {
+        let current_state = current_state.into();
+        let previous_state = previous_state.into();
+        diff_filter.set_resource(
             current_state.map_or(repo.object_hash().null(), |state| state.id),
             current_state.map_or_else(
                 || {
@@ -86,7 +109,7 @@ impl UnifiedDiff {
             ResourceKind::NewOrDestination,
             repo,
         )?;
-        cache.set_resource(
+        diff_filter.set_resource(
             previous_state.map_or(repo.object_hash().null(), |state| state.id),
             previous_state.map_or_else(
                 || {
@@ -101,7 +124,7 @@ impl UnifiedDiff {
             repo,
         )?;
 
-        let prep = cache.prepare_diff()?;
+        let prep = diff_filter.prepare_diff()?;
         Ok(match prep.operation {
             Operation::InternalDiff { algorithm } => {
                 #[derive(Default)]
@@ -166,7 +189,7 @@ impl UnifiedDiff {
                         Data::Binary { size } => Some(size),
                     }
                 }
-                let (old, new) = cache
+                let (old, new) = diff_filter
                     .resources()
                     .expect("prepare would have failed if a resource is missing");
                 let size = size_for_data(old.data)
@@ -183,4 +206,21 @@ impl UnifiedDiff {
             }
         })
     }
+}
+
+/// Produce a filter from `repo` and `state` using `mode` that is able to perform diffs of `state`.
+pub fn filter_from_state(
+    repo: &gix::Repository,
+    state: Option<ChangeState>,
+    filter_mode: gix::diff::blob::pipeline::Mode,
+) -> anyhow::Result<gix::diff::blob::Platform> {
+    Ok(repo.diff_resource_cache(
+        filter_mode,
+        gix::diff::blob::pipeline::WorktreeRoots {
+            old_root: None,
+            new_root: state
+                .filter(|state| state.id.is_null())
+                .and_then(|_| repo.workdir().map(ToOwned::to_owned)),
+        },
+    )?)
 }
