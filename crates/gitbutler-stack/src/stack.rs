@@ -545,7 +545,9 @@ impl Stack {
     pub fn archive_integrated_heads(
         &mut self,
         ctx: &CommandContext,
+        repo: &gix::Repository,
         for_archival: &[Reference],
+        delete_local_refs: bool,
     ) -> Result<Vec<String>> {
         self.ensure_initialized()?;
 
@@ -561,6 +563,9 @@ impl Stack {
             }) {
                 head.archived = true;
                 newly_archived_branches.push(head.name().clone());
+                if delete_local_refs {
+                    head.delete_reference(repo).ok(); // Fail silently because interrupting this is worse
+                }
             }
         }
 

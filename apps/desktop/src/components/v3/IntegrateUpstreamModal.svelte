@@ -90,7 +90,8 @@
 					status.stack.id,
 					{
 						branchId: status.stack.id,
-						approach: defaultApproach
+						approach: defaultApproach,
+						deleteIntegratedBranches: false // TODO: Take input from the UI
 					}
 				];
 			})

@@ -88,6 +88,7 @@ pub mod workspace {
             .map(|b| upstream_integration::Resolution {
                 branch_id: b.id,
                 approach,
+                delete_integrated_branches: false,
             })
             .collect();
         gitbutler_branch_actions::integrate_upstream(&ctx, &resolutions, None)?;
