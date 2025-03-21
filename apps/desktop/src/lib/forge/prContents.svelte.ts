@@ -15,9 +15,13 @@ function getPersistedTitleKey(projectId: string, branchName: string) {
 	return 'seriesCurrentPRTitle_' + projectId + '_' + branchName;
 }
 
+export function clearPersistedPRBody(projectId: string, branchName: string): void {
+	const key = getPersistedBodyKey(projectId, branchName);
+	return clearEphemeralStorageItem(key);
+}
+
 export function setPersistedPRBody(projectId: string, branchName: string, body: string): void {
 	const key = getPersistedBodyKey(projectId, branchName);
-	if (!body) return clearEphemeralStorageItem(key);
 	setEphemeralStorageItem(key, body, PERSITANCE_TIME_MIN);
 }
 
@@ -124,6 +128,7 @@ export class ReactivePRBody {
 	}
 
 	reset() {
-		this.set('');
+		this._value = '';
+		clearPersistedPRBody(this.projectId, this.branchName);
 	}
 }
