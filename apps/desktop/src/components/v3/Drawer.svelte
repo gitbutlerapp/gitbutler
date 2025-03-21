@@ -10,10 +10,11 @@
 		title?: string;
 		stackId: string;
 		header?: Snippet;
+		extraActions?: Snippet;
 		children: Snippet;
 	};
 
-	const { header, title, children, projectId, stackId }: Props = $props();
+	const { header, title, extraActions, children, projectId, stackId }: Props = $props();
 
 	const [uiState] = inject(UiState);
 
@@ -51,6 +52,9 @@
 		</div>
 
 		<div class="drawer-header__actions">
+			{#if extraActions}
+				{@render extraActions()}
+			{/if}
 			<Button
 				kind="ghost"
 				icon={drawerIsFullScreen.current ? 'chevron-down' : 'chevron-up'}
