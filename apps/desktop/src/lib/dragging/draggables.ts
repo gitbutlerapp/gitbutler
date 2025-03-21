@@ -1,6 +1,7 @@
 import { key, type SelectionParameters } from '$lib/selection/key';
 import { get, type Readable } from 'svelte/store';
-import type { AnyCommit, DetailedCommit } from '$lib/commits/commit';
+import type { AnyCommit } from '$lib/commits/commit';
+import type { CommitDropData } from '$lib/commits/dropHandler';
 import type { AnyFile } from '$lib/files/file';
 import type { TreeChange } from '$lib/hunks/change';
 import type { Hunk, HunkLock } from '$lib/hunks/hunk';
@@ -53,7 +54,7 @@ export class ChangeDropData {
 
 export class FileDropData {
 	constructor(
-		readonly branchId: string,
+		readonly stackId: string,
 		readonly file: AnyFile,
 		readonly commit: AnyCommit | undefined,
 		/**
@@ -78,15 +79,6 @@ export class FileDropData {
 	get isCommitted(): boolean {
 		return !!this.commit;
 	}
-}
-
-export class CommitDropData {
-	constructor(
-		public readonly branchId: string,
-		public readonly commit: DetailedCommit,
-		public readonly isHeadCommit: boolean,
-		public readonly seriesName?: string
-	) {}
 }
 
 export type DropData = FileDropData | HunkDropData | CommitDropData | ChangeDropData;

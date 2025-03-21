@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CollapsedLane from '$components/CollapsedLane.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import Dropzones from '$components/Dropzones.svelte';
+	import Dropzone from '$components/Dropzone.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import SeriesList from '$components/SeriesList.svelte';
 	import UncommittedChanges from '$components/UncommittedChanges.svelte';
@@ -10,6 +10,7 @@
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
+	import { BranchFileDzHandler } from '$lib/branches/dropHandler';
 	import { DetailedCommit } from '$lib/commits/commit';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
@@ -44,6 +45,7 @@
 	const width = persistWithExpiration<number>(24, 'stackWidth_' + projectId, 7 * 1440);
 	const branchHasFiles = $derived(stack.files !== undefined && stack.files.length > 0);
 	const branchHasNoCommits = $derived(stack.validSeries.flatMap((s) => s.patches).length === 0);
+	const dzHandler = $derived(new BranchFileDzHandler(branchController, stack.id, stack.ownership));
 
 	let rsViewport = $state<HTMLElement>();
 	let scrollEndVisible = $state(true);
@@ -128,29 +130,29 @@
 					<div class="card-stacking">
 						{#if branchHasFiles}
 							<UncommittedChanges {commitBoxOpen} />
-						{:else if branchHasNoCommits}
-							<Dropzones type="file">
-								<div class="new-branch">
-									<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
-										{#snippet title()}
-											This is a new lane
-										{/snippet}
-										{#snippet caption()}
-											You can drag and drop files<br />or parts of files here.
-										{/snippet}
-									</EmptyStatePlaceholder>
-								</div>
-							</Dropzones>
 						{:else}
-							<Dropzones type="file">
-								<div class="no-changes">
-									<EmptyStatePlaceholder image={noChangesSvg} width={180}>
-										{#snippet caption()}
-											No uncommitted<br />changes on this lane
-										{/snippet}
-									</EmptyStatePlaceholder>
-								</div>
-							</Dropzones>
+							<Dropzone handlers={[dzHandler]}>
+								{#if branchHasNoCommits}
+									<div class="new-branch">
+										<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
+											{#snippet title()}
+												This is a new lane
+											{/snippet}
+											{#snippet caption()}
+												You can drag and drop files<br />or parts of files here.
+											{/snippet}
+										</EmptyStatePlaceholder>
+									</div>
+								{:else}
+									<div class="no-changes">
+										<EmptyStatePlaceholder image={noChangesSvg} width={180}>
+											{#snippet caption()}
+												No uncommitted<br />changes on this lane
+											{/snippet}
+										</EmptyStatePlaceholder>
+									</div>
+								{/if}
+							</Dropzone>
 						{/if}
 						<Spacer dotted />
 						<div style:position="relative">
