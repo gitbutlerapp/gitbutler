@@ -76,10 +76,7 @@
 	}
 </script>
 
-<Drawer bind:this={drawer} {projectId} {stackId}>
-	{#snippet header()}
-		<p class="text-14 text-semibold">Create commit</p>
-	{/snippet}
+<Drawer bind:this={drawer} {projectId} {stackId} title="Create commit">
 	<CommitMessageInput
 		{projectId}
 		action={hanldleCommitCreation}
