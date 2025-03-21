@@ -41,7 +41,7 @@
 //!     - A list of patches in unified diff format, with easily accessible line number information. It isn't baked into the patch string itself.
 //!
 
-use bstr::{BStr, BString};
+use bstr::BString;
 use gix::object::tree::EntryKind;
 use gix::refs::FullNameRef;
 use serde::Serialize;
@@ -200,18 +200,6 @@ pub struct TreeChange {
     pub status: TreeStatus,
 }
 
-impl TreeChange {
-    /// Return the path at which this directory entry was previously located, if it was renamed.
-    pub fn previous_path(&self) -> Option<&BStr> {
-        match &self.status {
-            TreeStatus::Addition { .. }
-            | TreeStatus::Deletion { .. }
-            | TreeStatus::Modification { .. } => None,
-            TreeStatus::Rename { previous_path, .. } => Some(previous_path.as_ref()),
-        }
-    }
-}
-
 /// Specifically defines a [`TreeChange`].
 #[derive(Debug, Clone)]
 pub enum TreeStatus {
@@ -293,6 +281,9 @@ pub enum IgnoredWorktreeTreeChangeStatus {
     Conflict,
     /// A change in the `.git/index` that was overruled by a change to the same path in the *worktree*.
     TreeIndex,
+    /// A tree-index change was effectively undone by an index-worktree change. Thus, the version in the worktree
+    /// is the same as what Git is currently tracking.
+    TreeIndexWorktreeChangeIneffective,
 }
 
 /// A way to indicate that a path in the index isn't suitable for committing and needs to be dealt with.
@@ -325,96 +316,4 @@ pub enum ModeFlags {
     TypeChangeFileToLink,
     TypeChangeLinkToFile,
     TypeChange,
-}
-
-impl ModeFlags {
-    fn calculate(old: &ChangeState, new: &ChangeState) -> Option<Self> {
-        Self::calculate_inner(old.kind, new.kind)
-    }
-
-    fn calculate_inner(
-        old: gix::object::tree::EntryKind,
-        new: gix::object::tree::EntryKind,
-    ) -> Option<Self> {
-        use gix::object::tree::EntryKind as E;
-        Some(match (old, new) {
-            (E::Blob, E::BlobExecutable) => ModeFlags::ExecutableBitAdded,
-            (E::BlobExecutable, E::Blob) => ModeFlags::ExecutableBitRemoved,
-            (E::Blob | E::BlobExecutable, E::Link) => ModeFlags::TypeChangeFileToLink,
-            (E::Link, E::Blob | E::BlobExecutable) => ModeFlags::TypeChangeLinkToFile,
-            (a, b) if a != b => ModeFlags::TypeChange,
-            _ => return None,
-        })
-    }
-}
-
-impl TreeStatus {
-    /// Learn what kind of status this is, useful if only this information is needed.
-    pub fn kind(&self) -> TreeStatusKind {
-        match self {
-            TreeStatus::Addition { .. } => TreeStatusKind::Addition,
-            TreeStatus::Deletion { .. } => TreeStatusKind::Deletion,
-            TreeStatus::Modification { .. } => TreeStatusKind::Modification,
-            TreeStatus::Rename { .. } => TreeStatusKind::Rename,
-        }
-    }
-
-    /// Return the state in which the change is currently. May be `None` if there is no current state after a deletion.
-    pub fn state(&self) -> Option<ChangeState> {
-        match self {
-            TreeStatus::Addition { state, .. }
-            | TreeStatus::Rename { state, .. }
-            | TreeStatus::Modification { state, .. } => Some(*state),
-            TreeStatus::Deletion { .. } => None,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    mod flags {
-        use crate::ModeFlags;
-        use gix::objs::tree::EntryKind;
-
-        #[test]
-        fn calculate() {
-            for ((old, new), expected) in [
-                ((EntryKind::Blob, EntryKind::Blob), None),
-                (
-                    (EntryKind::Blob, EntryKind::BlobExecutable),
-                    Some(ModeFlags::ExecutableBitAdded),
-                ),
-                (
-                    (EntryKind::BlobExecutable, EntryKind::Blob),
-                    Some(ModeFlags::ExecutableBitRemoved),
-                ),
-                (
-                    (EntryKind::BlobExecutable, EntryKind::Link),
-                    Some(ModeFlags::TypeChangeFileToLink),
-                ),
-                (
-                    (EntryKind::Blob, EntryKind::Link),
-                    Some(ModeFlags::TypeChangeFileToLink),
-                ),
-                (
-                    (EntryKind::Link, EntryKind::BlobExecutable),
-                    Some(ModeFlags::TypeChangeLinkToFile),
-                ),
-                (
-                    (EntryKind::Link, EntryKind::Blob),
-                    Some(ModeFlags::TypeChangeLinkToFile),
-                ),
-                (
-                    (EntryKind::Commit, EntryKind::Blob),
-                    Some(ModeFlags::TypeChange),
-                ),
-                (
-                    (EntryKind::Blob, EntryKind::Commit),
-                    Some(ModeFlags::TypeChange),
-                ),
-            ] {
-                assert_eq!(ModeFlags::calculate_inner(old, new), expected);
-            }
-        }
-    }
 }

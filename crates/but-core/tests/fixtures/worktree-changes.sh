@@ -101,12 +101,113 @@ git init renamed-in-worktree-with-executable-bit
   mv to-be-renamed new-name
 )
 
-git init modified-in-index-and-worktree
-(cd modified-in-index-and-worktree
+git init modified-in-index-and-worktree-mod-mod
+(cd modified-in-index-and-worktree-mod-mod
   echo initial >dual-modified
   git add . && git commit -m "init"
   echo change >>dual-modified && git add dual-modified
   echo second-change >>dual-modified
+)
+
+git init modified-in-index-and-worktree-mod-mod-noop
+(cd modified-in-index-and-worktree-mod-mod-noop
+  echo initial >dual-modified
+  git add . && git commit -m "init"
+  echo change >>dual-modified && git add dual-modified
+  echo initial >dual-modified
+)
+
+git init modified-in-index-and-worktree-mod-mod-symlink
+(cd modified-in-index-and-worktree-mod-mod-symlink
+  ln -s nonexisting-initial link
+  git add . && git commit -m "init"
+  rm link && ln -s nonexisting-index link && git add .
+  rm link && ln -s nonexisting-wt-change link
+)
+
+git init modified-in-index-and-worktree-mod-mod-symlink-noop
+(cd modified-in-index-and-worktree-mod-mod-symlink-noop
+  ln -s nonexisting-initial link
+  git add . && git commit -m "init"
+  rm link && ln -s nonexisting-index link && git add .
+  rm link && ln -s nonexisting-initial link
+)
+
+git init modified-in-index-and-worktree-add-mod
+(cd modified-in-index-and-worktree-add-mod
+  echo initial >file
+  git add .
+  echo wt-change >>file
+)
+
+git init modified-in-index-and-worktree-add-del
+(cd modified-in-index-and-worktree-add-del
+  echo initial >file
+  git add .
+  rm file
+)
+
+git init modified-in-index-and-worktree-del-add
+(cd modified-in-index-and-worktree-del-add
+  echo initial >file && git add . && git commit -m "init"
+  git rm file
+  echo $'initial\nwt-changed' >file
+)
+
+git init modified-in-index-and-worktree-del-add-noop
+(cd modified-in-index-and-worktree-del-add-noop
+  echo initial >file && git add . && git commit -m "init"
+  git rm file
+  echo initial >file
+)
+
+git init modified-in-index-and-worktree-mod-del
+(cd modified-in-index-and-worktree-mod-del
+  echo initial >file && git add . && git commit -m "init"
+  echo index >>file && git add .
+  rm file
+)
+
+git init modified-in-index-and-worktree-rename-mod
+(cd modified-in-index-and-worktree-rename-mod
+  echo initial >file && git add . && git commit -m "init"
+  git mv file file-renamed
+  echo wt-change >>file-renamed
+)
+
+git init modified-in-index-and-worktree-rename-rename
+(cd modified-in-index-and-worktree-rename-rename
+  echo initial >file && git add . && git commit -m "init"
+  git mv file file-renamed-in-index
+  mv file-renamed-in-index file-renamed-in-wt
+)
+
+git init modified-in-index-and-worktree-rename-del
+(cd modified-in-index-and-worktree-rename-del
+  echo initial >file && git add . && git commit -m "init"
+  git mv file file-renamed-in-index
+  rm file-renamed-in-index
+)
+
+git init modified-in-index-and-worktree-mod-rename
+(cd modified-in-index-and-worktree-mod-rename
+  echo initial >file && git add . && git commit -m "init"
+  echo index >>file && git add .
+  echo wt-change >>file
+  mv file file-renamed-in-wt
+)
+
+git init modified-in-index-and-worktree-rename-add
+(cd modified-in-index-and-worktree-rename-add
+  echo initial >file && git add . && git commit -m "init"
+  git mv file file-renamed-in-index
+  echo $'initial\nwt-change' >file
+)
+
+git init modified-in-index-and-worktree-add-rename
+(cd modified-in-index-and-worktree-add-rename
+  echo initial >file && git add .
+  mv file file-renamed-in-wt
 )
 
 git init submodule-added-unborn

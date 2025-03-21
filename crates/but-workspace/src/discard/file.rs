@@ -6,7 +6,6 @@ use but_core::ChangeState;
 use gix::filter::plumbing::driver::apply::Delay;
 use gix::object::tree::EntryKind;
 use gix::prelude::ObjectIdExt;
-use std::borrow::Cow;
 use std::path::Path;
 
 pub enum RestoreMode {
@@ -48,16 +47,7 @@ pub fn restore_state_to_worktree(
 
     let repo = pipeline.repo;
     let wt_root = path_check.inner.root().to_owned();
-    let file_path = path_check
-        .verified_path(&gix::path::from_bstr(rela_path))
-        .map(Cow::Borrowed)
-        .or_else(|err| {
-            if err.kind() == std::io::ErrorKind::NotFound {
-                Ok(Cow::Owned(wt_root.join(gix::path::from_bstr(rela_path))))
-            } else {
-                Err(err)
-            }
-        })?;
+    let file_path = path_check.verified_path_allow_nonexisting(rela_path)?;
     match state.kind {
         EntryKind::Blob | EntryKind::BlobExecutable => {
             let mut dest_lock_file = locked_resource_at(wt_root, &file_path, state.kind)?;
