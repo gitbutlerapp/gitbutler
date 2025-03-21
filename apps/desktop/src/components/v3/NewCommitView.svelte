@@ -62,7 +62,7 @@
 		const message = await input?.getPlaintext();
 		if (!message && !titleText) return;
 
-		const commitMessage = [message, titleText].filter((a) => a).join('\n\n');
+		const commitMessage = [titleText, message].filter((a) => a).join('\n\n');
 
 		try {
 			await createCommit(commitMessage);
