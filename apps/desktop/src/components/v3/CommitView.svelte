@@ -60,7 +60,13 @@
 
 	function getCommitDescription(message: string): string | undefined {
 		// Return undefined if there is no description
-		return message.split('\n').slice(1).join('\n') || undefined;
+		const lines = message.split('\n');
+		for (let i = 1; i < lines.length; i++) {
+			if (lines[i]!.trim()) {
+				return lines.slice(i).join('\n');
+			}
+		}
+		return undefined;
 	}
 </script>
 
