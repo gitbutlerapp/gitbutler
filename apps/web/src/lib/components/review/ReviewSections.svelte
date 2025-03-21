@@ -76,8 +76,11 @@
 	const beforeOptions = $derived(allOptions.slice(0, -1));
 	const afterOptions = $derived(allOptions.slice(1));
 
-	const selectedBefore = $derived(getBeforeVersion().current);
-	const selectedAfter = $derived(getAfterVersion(patchCommit.version).current);
+	const beforeVersionResult = getBeforeVersion();
+	const selectedVersionResult = $derived(getAfterVersion(patchCommit.version));
+
+	const selectedBefore = $derived(beforeVersionResult.current);
+	const selectedAfter = $derived(selectedVersionResult.current);
 
 	const patchSections = $derived(
 		isDefined(selectedAfter)
