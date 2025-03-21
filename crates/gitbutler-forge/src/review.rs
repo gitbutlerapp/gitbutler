@@ -1,4 +1,4 @@
-use std::path::{self, Path};
+use std::path::{self};
 
 use gitbutler_fs::list_files;
 
@@ -11,27 +11,50 @@ pub fn available_review_templates(root_path: &path::Path, forge_name: &ForgeName
     let ReviewTemplateFunctions {
         is_review_template,
         get_root,
+        supported_template_directories,
         ..
     } = get_review_template_functions(forge_name);
 
     let forge_root_path = get_root(root_path);
     let forge_root_path = forge_root_path.as_path();
 
-    let walked_paths = list_files(forge_root_path, &[forge_root_path]).unwrap_or_default();
-
-    let mut available_paths = Vec::new();
-    for entry in walked_paths {
-        let path_entry = entry.as_path();
-        let path_str = path_entry.to_string_lossy();
-
-        if is_review_template(&path_str) {
-            if let Ok(template_path) = forge_root_path.join(path_entry).strip_prefix(root_path) {
-                available_paths.push(template_path.to_string_lossy().to_string());
+    // let walked_paths = list_files(forge_root_path, &[forge_root_path]).unwrap_or_default();
+    let available_paths = supported_template_directories
+        .iter()
+        .flat_map(|dir| match dir {
+            SupportedTemplateDirectory::ProjectRoot => {
+                list_files(root_path, &[root_path], false, Some(root_path)).unwrap_or_default()
             }
-        }
-    }
+            SupportedTemplateDirectory::ForgeRoot => {
+                list_files(forge_root_path, &[root_path], true, Some(root_path)).unwrap_or_default()
+            }
+            SupportedTemplateDirectory::Custom(custom_dir) => {
+                let custom_path = root_path.join(custom_dir);
+                list_files(custom_path.as_path(), &[root_path], true, Some(root_path))
+                    .unwrap_or_default()
+            }
+        })
+        .filter_map(|entry| {
+            let path_entry = entry.as_path();
+            let path_str = path_entry.to_string_lossy();
+            println!("path_str: {}", path_str);
+
+            if is_review_template(&path_str) {
+                return Some(path_str.to_string());
+            }
+            None
+        })
+        .collect();
+
+    println!("available_paths: {:?}", available_paths);
 
     available_paths
+}
+
+pub enum SupportedTemplateDirectory {
+    ProjectRoot,
+    ForgeRoot,
+    Custom(&'static str),
 }
 
 pub struct ReviewTemplateFunctions {
@@ -43,7 +66,9 @@ pub struct ReviewTemplateFunctions {
     ///
     /// First argument is the relative path to the file
     /// Second argument is the root path of the project
-    pub is_valid_review_template_path: fn(&path::Path, &path::Path) -> bool,
+    pub is_valid_review_template_path: fn(&path::Path) -> bool,
+    /// The supported template directories
+    pub supported_template_directories: &'static [SupportedTemplateDirectory],
 }
 
 pub fn get_review_template_functions(forge_name: &ForgeName) -> ReviewTemplateFunctions {
@@ -52,21 +77,29 @@ pub fn get_review_template_functions(forge_name: &ForgeName) -> ReviewTemplateFu
             is_review_template: is_review_template_github,
             get_root: get_github_directory_path,
             is_valid_review_template_path: is_valid_review_template_path_github,
+            supported_template_directories: &[
+                SupportedTemplateDirectory::ForgeRoot,
+                SupportedTemplateDirectory::ProjectRoot,
+                SupportedTemplateDirectory::Custom("docs"),
+            ],
         },
         ForgeName::GitLab => ReviewTemplateFunctions {
             is_review_template: is_review_template_gitlab,
             get_root: get_gitlab_directory_path,
             is_valid_review_template_path: is_valid_review_template_path_gitlab,
+            supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
         },
         ForgeName::Bitbucket => ReviewTemplateFunctions {
             is_review_template: is_review_template_bitbucket,
             get_root: get_bitbucket_directory_path,
             is_valid_review_template_path: is_valid_review_template_path_bitbucket,
+            supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
         },
         ForgeName::Azure => ReviewTemplateFunctions {
             is_review_template: is_review_template_azure,
             get_root: get_azure_directory_path,
             is_valid_review_template_path: is_valid_review_template_path_azure,
+            supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
         },
     }
 }
@@ -80,18 +113,14 @@ fn get_github_directory_path(root_path: &path::Path) -> path::PathBuf {
 fn is_review_template_github(path_str: &str) -> bool {
     path_str == "PULL_REQUEST_TEMPLATE.md"
         || path_str == "pull_request_template.md"
-        || path_str.contains("PULL_REQUEST_TEMPLATE/") && path_str.ends_with(".md")
+        || path_str.contains(".github/PULL_REQUEST_TEMPLATE") && path_str.ends_with(".md")
+        || path_str.contains(".github/pull_request_template") && path_str.ends_with(".md")
+        || path_str.contains("docs/PULL_REQUEST_TEMPLATE") && path_str.ends_with(".md")
+        || path_str.contains("docs/pull_request_template") && path_str.ends_with(".md")
 }
 
-fn is_valid_review_template_path_github(path: &path::Path, root_path: &path::Path) -> bool {
-    let absolute_path = Path::new(root_path).join(path);
-    let forge_root_path = get_github_directory_path(root_path);
-
-    if let Ok(template_path) = absolute_path.strip_prefix(forge_root_path) {
-        is_review_template_github(&template_path.to_string_lossy())
-    } else {
-        false
-    }
+fn is_valid_review_template_path_github(path: &path::Path) -> bool {
+    is_review_template_github(path.to_str().unwrap_or_default())
 }
 
 fn get_gitlab_directory_path(root_path: &path::Path) -> path::PathBuf {
@@ -104,7 +133,7 @@ fn is_review_template_gitlab(_path_str: &str) -> bool {
     false
 }
 
-fn is_valid_review_template_path_gitlab(_path: &path::Path, _root_path: &path::Path) -> bool {
+fn is_valid_review_template_path_gitlab(_path: &path::Path) -> bool {
     // TODO: implement
     false
 }
@@ -119,7 +148,7 @@ fn is_review_template_bitbucket(_path_str: &str) -> bool {
     false
 }
 
-fn is_valid_review_template_path_bitbucket(_path: &path::Path, _root_path: &path::Path) -> bool {
+fn is_valid_review_template_path_bitbucket(_path: &path::Path) -> bool {
     // TODO: implement
     false
 }
@@ -134,46 +163,43 @@ fn is_review_template_azure(_path_str: &str) -> bool {
     false
 }
 
-fn is_valid_review_template_path_azure(_path: &path::Path, _root_path: &path::Path) -> bool {
+fn is_valid_review_template_path_azure(_path: &path::Path) -> bool {
     // TODO: implement
     false
 }
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
 
     #[test]
-    fn test_is_review_template_github() {
-        assert!(is_review_template_github("PULL_REQUEST_TEMPLATE.md"));
-        assert!(is_review_template_github("pull_request_template.md"));
-        assert!(is_review_template_github("PULL_REQUEST_TEMPLATE/other.md"));
-        assert!(!is_review_template_github("README.md"));
-    }
-
-    #[test]
     fn test_is_valid_review_template_path_github() {
-        let root_path = Path::new("/tmp/my-project/");
         let valid_review_template_path_1 = Path::new(".github/PULL_REQUEST_TEMPLATE.md");
         let valid_review_template_path_2 = Path::new(".github/pull_request_template.md");
         let valid_review_template_path_3 = Path::new(".github/PULL_REQUEST_TEMPLATE/something.md");
+        let valid_review_template_path_4 = Path::new(".docs/PULL_REQUEST_TEMPLATE.md");
+        let valid_review_template_path_5 = Path::new("PULL_REQUEST_TEMPLATE.md");
         let invalid_review_template_path = Path::new("README.md");
 
         assert!(is_valid_review_template_path_github(
             valid_review_template_path_1,
-            root_path
         ));
         assert!(is_valid_review_template_path_github(
             valid_review_template_path_2,
-            root_path
         ));
         assert!(is_valid_review_template_path_github(
             valid_review_template_path_3,
-            root_path
+        ));
+        assert!(is_valid_review_template_path_github(
+            valid_review_template_path_4,
+        ));
+        assert!(is_valid_review_template_path_github(
+            valid_review_template_path_5,
         ));
         assert!(!is_valid_review_template_path_github(
             invalid_review_template_path,
-            root_path
         ));
     }
 }
