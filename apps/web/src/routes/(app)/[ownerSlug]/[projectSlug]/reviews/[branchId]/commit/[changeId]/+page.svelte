@@ -191,7 +191,6 @@
 </svelte:head>
 
 <svelte:window onscroll={handleScroll} onresize={handleResize} onkeydown={handleKeyDown} />
-{console.warn('hasAnyError', combinedLoadable)}
 
 {#if hasForbiddenError}
 	<PrivateProjectError />
