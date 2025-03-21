@@ -79,6 +79,7 @@
 <Drawer bind:this={drawer} {projectId} {stackId} title="Create commit">
 	<CommitMessageInput
 		{projectId}
+		actionLabel="Create commit"
 		action={hanldleCommitCreation}
 		onCancel={cancel}
 		disabledAction={!canCommit}

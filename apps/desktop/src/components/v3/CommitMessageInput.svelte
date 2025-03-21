@@ -7,6 +7,7 @@
 
 	type Props = {
 		projectId: string;
+		actionLabel: string;
 		action: () => void;
 		onCancel: () => void;
 		disabledAction?: boolean;
@@ -17,6 +18,7 @@
 
 	const {
 		projectId,
+		actionLabel,
 		action,
 		onCancel,
 		disabledAction,
@@ -48,7 +50,7 @@
 </div>
 <EditorFooter {onCancel}>
 	<Button style="pop" onclick={action} disabled={disabledAction} {loading} width={126}
-		>Create commit</Button
+		>{actionLabel}</Button
 	>
 </EditorFooter>
 
