@@ -1,7 +1,9 @@
 //! Utility types related to discarding changes in the worktree.
 
 use crate::commit_engine::DiffSpec;
+use gix::object::tree::EntryKind;
 use std::ops::Deref;
+use std::path::{Path, PathBuf};
 
 /// A specification of what should be discarded, either changes to the whole file, or a portion of it.
 /// Note that these must match an actual worktree change, but also may only partially match them if individual ranges are chosen
@@ -33,4 +35,36 @@ pub(super) mod function;
 pub mod ui {
     /// A specification of which worktree-change to discard.
     pub type DiscardSpec = crate::commit_engine::ui::DiffSpec;
+}
+
+mod file;
+
+#[cfg(unix)]
+fn locked_resource_at(
+    root: PathBuf,
+    path: &Path,
+    kind: EntryKind,
+) -> anyhow::Result<gix::lock::File> {
+    use std::os::unix::fs::PermissionsExt;
+    Ok(
+        gix::lock::File::acquire_to_update_resource_with_permissions(
+            path,
+            gix::lock::acquire::Fail::Immediately,
+            Some(root),
+            || std::fs::Permissions::from_mode(kind as u32),
+        )?,
+    )
+}
+
+#[cfg(windows)]
+fn locked_resource_at(
+    root: PathBuf,
+    path: &Path,
+    _kind: EntryKind,
+) -> anyhow::Result<gix::lock::File> {
+    Ok(gix::lock::File::acquire_to_update_resource(
+        path,
+        gix::lock::acquire::Fail::Immediately,
+        Some(root),
+    )?)
 }

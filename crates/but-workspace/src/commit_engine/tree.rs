@@ -2,8 +2,7 @@ use crate::commit_engine::{Destination, DiffSpec, HunkHeader, MoveSourceCommit, 
 use anyhow::{Context, bail};
 use bstr::{BString, ByteSlice};
 use but_core::{RepositoryExt, UnifiedDiff};
-use gix::filter::plumbing::driver::apply::{Delay, MaybeDelayed};
-use gix::filter::plumbing::pipeline::convert::{ToGitOutcome, ToWorktreeOutcome};
+use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 use gix::merge::tree::TreatAsUnresolved;
 use gix::object::tree::EntryKind;
 use gix::prelude::ObjectIdExt;
@@ -191,6 +190,8 @@ fn apply_worktree_changes<'repo>(
                 base_tree_editor.remove(previous_path)?;
             }
             let rela_path = change_request.path.as_bstr();
+            // TODO: this is wrong, we know that the diffs were created from the version stored in Git,
+            //       useful for git-lfs I suppose. Fix this conversion so hunks line up.
             match pipeline.worktree_file_to_object(rela_path, &index)? {
                 Some((id, kind, _fs_metadata)) => {
                     base_tree_editor.upsert(rela_path, kind, id)?;
@@ -209,7 +210,18 @@ fn apply_worktree_changes<'repo>(
                 into_err_spec(possible_change, RejectionReason::NoEffectiveChanges);
                 continue;
             };
-            let UnifiedDiff::Patch { hunks } = worktree_change.unified_diff(repo, context_lines)?
+            let mut diff_filter = but_core::unified_diff::filter_from_state(
+                repo,
+                worktree_change.status.state(),
+                UnifiedDiff::CONVERSION_MODE,
+            )?;
+            debug_assert_eq!(
+                UnifiedDiff::CONVERSION_MODE,
+                gix::diff::blob::pipeline::Mode::ToGitUnlessBinaryToTextIsPresent,
+                "BUG: if this changes, the uses of worktree filters need a review"
+            );
+            let UnifiedDiff::Patch { hunks } =
+                worktree_change.unified_diff_with_filter(repo, context_lines, &mut diff_filter)?
             else {
                 into_err_spec(possible_change, RejectionReason::FileToLargeOrBinary);
                 continue;
@@ -259,36 +271,29 @@ fn apply_worktree_changes<'repo>(
                 continue;
             };
 
-            let worktree_base = if entry.mode().is_link() {
+            let worktree_base = if entry.mode().is_link() || entry.mode().is_blob() {
                 entry.object()?.detach().data
-            } else if entry.mode().is_blob() {
-                let mut obj_in_git = entry.object()?;
-
-                match pipeline.convert_to_worktree(
-                    &obj_in_git.data,
-                    base_rela_path,
-                    Delay::Forbid,
-                )? {
-                    ToWorktreeOutcome::Unchanged(_) => obj_in_git.detach().data,
-                    ToWorktreeOutcome::Buffer(buf) => buf.to_owned(),
-                    ToWorktreeOutcome::Process(MaybeDelayed::Immediate(mut stream)) => {
-                        obj_in_git.data.clear();
-                        stream.read_to_end(&mut obj_in_git.data)?;
-                        obj_in_git.detach().data
-                    }
-                    ToWorktreeOutcome::Process(MaybeDelayed::Delayed(_)) => {
-                        unreachable!("We forbade that")
-                    }
-                }
             } else {
                 // defensive: assure file wasn't swapped with something we can't handle
                 into_err_spec(possible_change, RejectionReason::UnsupportedTreeEntry);
                 continue;
             };
 
-            // TODO(performance): find a byte-line buffered reader so it doesn't have to be all in memory.
             current_worktree.clear();
-            std::fs::File::open(path)?.read_to_end(&mut current_worktree)?;
+            let to_git = pipeline.convert_to_git(
+                std::fs::File::open(path)?,
+                &gix::path::from_bstr(base_rela_path),
+                &index,
+            )?;
+            match to_git {
+                ToGitOutcome::Unchanged(mut file) => {
+                    file.read_to_end(&mut current_worktree)?;
+                }
+                ToGitOutcome::Process(mut stream) => {
+                    stream.read_to_end(&mut current_worktree)?;
+                }
+                ToGitOutcome::Buffer(buf) => current_worktree.extend_from_slice(buf),
+            };
 
             let worktree_hunks: Vec<HunkHeader> = hunks.into_iter().map(Into::into).collect();
             let mut worktree_base_cursor = 1; /* 1-based counting */
@@ -343,18 +348,7 @@ fn apply_worktree_changes<'repo>(
                 base_with_patches.extend_from_slice(line);
             }
 
-            let slice_read = &mut base_with_patches.as_slice();
-            let to_git = pipeline.convert_to_git(
-                slice_read,
-                gix::path::from_bstr(&change_request.path).as_ref(),
-                &index,
-            )?;
-
-            let blob_with_selected_patches = match to_git {
-                ToGitOutcome::Unchanged(slice) => repo.write_blob(slice)?,
-                ToGitOutcome::Process(stream) => repo.write_blob_stream(stream)?,
-                ToGitOutcome::Buffer(buf) => repo.write_blob(buf)?,
-            };
+            let blob_with_selected_patches = repo.write_blob(base_with_patches.as_slice())?;
             base_tree_editor.upsert(
                 change_request.path.as_bstr(),
                 current_entry_kind,
