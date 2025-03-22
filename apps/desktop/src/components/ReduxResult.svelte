@@ -18,13 +18,22 @@
 
 	// eslint-disable-next-line no-undef
 	const { result, children }: Props<A> = $props();
+
+	// eslint-disable-next-line no-undef
+	let dataCopy: undefined | Result<A>['data'] = $state(result?.data);
+
+	/**
+	 * To prevent flickering when the input data changes for an already
+	 * rendered component we render the previous result until the next
+	 * result is ready.
+	 */
+	$effect(() => {
+		if (result?.data) dataCopy = result.data;
+	});
 </script>
 
-{#if result?.status === 'fulfilled'}
-	<!-- Show empty message if data is an empty array. -->
-	{#if result.data !== undefined}
-		{@render children(result.data)}
-	{/if}
+{#if dataCopy !== undefined}
+	{@render children(dataCopy)}
 {:else if result?.status === 'pending'}
 	<div class="loading-spinner">
 		<Icon name="spinner" />
