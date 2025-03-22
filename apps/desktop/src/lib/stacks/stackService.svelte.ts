@@ -450,7 +450,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			}),
 			updateCommitMessage: build.mutation<
-				void,
+				string,
 				{ projectId: string; stackId: string; commitId: string; message: string }
 			>({
 				query: ({ projectId, stackId, commitId, message }) => ({

@@ -7,36 +7,17 @@
 	import topSheetSvg from '$lib/assets/new-branch/top-sheet.svg?raw';
 	// import components
 	import { BranchController } from '$lib/branches/branchController';
-	import { filesToOwnership } from '$lib/branches/ownership';
-	import { FileDropData, HunkDropData } from '$lib/dragging/draggables';
+	import { NewStackDzHandler } from '$lib/stacks/dropHandler';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	const branchController = getContext(BranchController);
 
-	function accepts(dropData: unknown) {
-		if (dropData instanceof FileDropData) {
-			return !(dropData.isCommitted || dropData.files.some((f) => f.locked));
-		}
-		if (dropData instanceof HunkDropData) {
-			return !(dropData.isCommitted || dropData.hunk.locked);
-		}
-		return false;
-	}
-
-	function onDrop(data: FileDropData | HunkDropData) {
-		if (data instanceof HunkDropData) {
-			const ownership = `${data.hunk.filePath}:${data.hunk.id}`;
-			branchController.createBranch({ ownership });
-		} else if (data instanceof FileDropData) {
-			const ownership = filesToOwnership(data.files);
-			branchController.createBranch({ ownership });
-		}
-	}
+	const handler = new NewStackDzHandler(branchController);
 </script>
 
 <div class="canvas-dropzone">
-	<Dropzone {accepts} ondrop={onDrop}>
+	<Dropzone handlers={[handler]}>
 		{#snippet overlay({ hovered, activated })}
 			<div class="new-virtual-branch" class:activated class:hovered>
 				<div class="new-virtual-branch__content">
@@ -59,9 +40,9 @@
 						</div>
 					</div>
 
-					<span class="text-13 text-body new-branch-caption"
-						>Drag and drop files<br />to create a new branch</span
-					>
+					<span class="text-13 text-body new-branch-caption">
+						Drag and drop files<br />to create a new branch
+					</span>
 				</div>
 				<div class="new-branch-button">
 					<Button

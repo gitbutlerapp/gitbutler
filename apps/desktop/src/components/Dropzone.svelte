@@ -1,33 +1,30 @@
 <script lang="ts">
-	import { dropzone } from '$lib/dragging/dropzone';
+	import { dropzone, type HoverArgs } from '$lib/dragging/dropzone';
+	import type { DropzoneHandler } from '$lib/dragging/handler';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
 		disabled?: boolean;
 		fillHeight?: boolean;
-		accepts: (data: any) => boolean;
-		ondrop: (data: any) => Promise<void> | void;
-		overlay?: Snippet<[{ hovered: boolean; activated: boolean }]>;
+		handlers: DropzoneHandler[];
+		overlay?: Snippet<[{ hovered: boolean; activated: boolean; handler?: DropzoneHandler }]>;
 		children?: Snippet;
 	}
 
-	const {
-		disabled = false,
-		fillHeight = false,
-		accepts,
-		ondrop,
-		overlay,
-		children
-	}: Props = $props();
+	const { disabled = false, fillHeight = false, handlers, overlay, children }: Props = $props();
 
 	let hovered = $state(false);
+	let hoveredHandler: DropzoneHandler | undefined = $state();
+
 	// When a draggable is being hovered over the dropzone
-	function onHoverStart() {
+	function onHoverStart(args: HoverArgs) {
 		hovered = true;
+		hoveredHandler = args.handler;
 	}
 
 	function onHoverEnd() {
 		hovered = false;
+		hoveredHandler = undefined;
 	}
 
 	let activated = $state(false);
@@ -43,9 +40,8 @@
 
 <div
 	use:dropzone={{
+		handlers,
 		disabled,
-		accepts,
-		onDrop: ondrop,
 		onHoverStart,
 		onHoverEnd,
 		onActivationStart,
@@ -56,7 +52,7 @@
 	class="dropzone-container"
 >
 	{#if overlay}
-		{@render overlay({ hovered, activated })}
+		{@render overlay({ hovered, activated, handler: hoveredHandler })}
 	{/if}
 
 	{#if children}
@@ -73,5 +69,10 @@
 
 	.dropzone-container {
 		position: relative;
+		display: flex;
+		flex-direction: column;
+		position: relative;
+		flex-grow: 1;
+		width: 100%;
 	}
 </style>
