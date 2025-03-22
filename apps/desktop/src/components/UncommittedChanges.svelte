@@ -6,7 +6,7 @@
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
-	import { BranchFileDzHandler } from '$lib/branches/dropHandler';
+	import { BranchFileDzHandler, BranchHunkDzHandler } from '$lib/branches/dropHandler';
 	import { Project } from '$lib/project/project';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import type { Writable } from 'svelte/store';
@@ -24,11 +24,14 @@
 	const stack = $derived($branchStore);
 
 	let commitDialog = $state<ReturnType<typeof CommitDialog>>();
-	const dzHandler = $derived(new BranchFileDzHandler(branchController, stack.id, stack.ownership));
+	const dzFileHandler = $derived(
+		new BranchFileDzHandler(branchController, stack.id, stack.ownership)
+	);
+	const dzHunkHandler = $derived(new BranchHunkDzHandler(branchController, stack));
 </script>
 
 <div class="branch-card__files">
-	<Dropzone handlers={[dzHandler]}>
+	<Dropzone handlers={[dzHunkHandler, dzFileHandler]}>
 		{#snippet overlay({ hovered, activated })}
 			<CardOverlay {hovered} {activated} label="Move here" />
 		{/snippet}
