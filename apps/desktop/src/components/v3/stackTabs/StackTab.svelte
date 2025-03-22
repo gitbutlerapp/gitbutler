@@ -1,7 +1,6 @@
 <script lang="ts">
 	import StackTabMenu from './StackTabMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { Snippet } from 'svelte';
 
 	type Props = {
 		name: string;
@@ -17,12 +16,34 @@
 	const { name, projectId, stackId, anchors, first, last, selected, href }: Props = $props();
 
 	let isMenuOpen = $state(false);
+	let inFocus = $state(false);
 
-	$effect(() => {
-		if (isMenuOpen) {
-			console.log('Menu is open');
+	function handleArrowNavigation(event: KeyboardEvent) {
+		if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+			event.preventDefault();
+			const target = event.currentTarget as HTMLAnchorElement;
+			const nextTab = target.nextElementSibling as HTMLAnchorElement;
+			const prevTab = target.previousElementSibling as HTMLAnchorElement;
+
+			if (event.key === 'ArrowRight' && nextTab) {
+				nextTab.focus();
+			} else if (event.key === 'ArrowLeft' && prevTab) {
+				prevTab.focus();
+			}
+
+			// go to the first tab if we are at the last one
+			if (event.key === 'ArrowRight' && !nextTab) {
+				const firstTab = document.querySelector('.tab:first-child') as HTMLAnchorElement;
+				firstTab?.focus();
+			}
+
+			// go to the last tab if we are at the first one
+			if (event.key === 'ArrowLeft' && !prevTab) {
+				const lastTab = document.querySelector('.tab:last-child') as HTMLAnchorElement;
+				lastTab?.focus();
+			}
 		}
-	});
+	}
 </script>
 
 <a
@@ -33,36 +54,52 @@
 	class:last
 	class:selected
 	class:menu-open={isMenuOpen}
+	id={href}
+	tabindex="0"
+	onfocus={() => (inFocus = true)}
+	onblur={() => (inFocus = false)}
+	onkeydown={handleArrowNavigation}
 >
 	{#if anchors}
-		<div class="icon">
+		<div class="tab-icon">
 			<Icon name={anchors.length > 0 ? 'chain-link' : 'branch-small'} verticalAlign="top" />
 		</div>
 	{/if}
-	<div class="content">
-		<div class="text-12 text-semibold name">
-			{name}
-		</div>
-		<div class="menu-button-wrap">
-			<StackTabMenu {projectId} {stackId} bind:isOpen={isMenuOpen} />
-		</div>
+	<!-- <div class="content"> -->
+	<div class="text-12 text-semibold tab-name">
+		{name}
+	</div>
+	<!-- </div> -->
+
+	<div class="tab-menu-placeholder">
+		<div class="truncation-gradient"></div>
+	</div>
+
+	<div class="menu-wrapper">
+		<div class="truncation-gradient"></div>
+		<StackTabMenu {projectId} {stackId} bind:isOpen={isMenuOpen} />
 	</div>
 </a>
 
 <style lang="postcss">
 	.tab {
 		--menu-btn-size: 20px;
+		--tab-menu-opacity: 0;
+		--truncation-gradient-width-long: 16px;
+		--current-truncation-gradient-color: var(--clr-stack-tab-inactive);
+		--current-tab-background-color: var(--clr-stack-tab-inactive);
 
+		position: relative;
 		display: flex;
 		align-items: center;
-		position: relative;
-		padding: 0 12px;
+		padding: 0 0 0 12px;
 		height: 44px;
-		background: var(--clr-stack-tab-inactive);
+		background: var(--current-tab-background-color);
 		border-right: 1px solid var(--clr-border-2);
 		overflow: hidden;
 		min-width: 40px;
 		scroll-snap-align: start;
+		transition: transform var(--transition-medium);
 
 		&::after {
 			content: '';
@@ -72,72 +109,35 @@
 			width: 100%;
 			height: 2px;
 			transform: translateY(-100%);
-			transition: transform var(--transition-fast);
+			transition: transform var(--transition-medium);
 		}
-	}
-	.first {
-		border-radius: var(--radius-ml) 0 0 0;
-	}
-	.last {
-		border-right: none;
-	}
 
-	.content {
-		display: flex;
-		flex-grow: 1;
-		align-items: center;
-		overflow: hidden;
-		position: relative;
-	}
-
-	.menu-button-wrap {
-		position: relative;
-		overflow: hidden;
-		width: 0;
-
-		/* background-color: aqua; */
-	}
-
-	.tab:hover .name,
-	.menu-open .name {
-		/* Shrinks name to make room for hover button. */
-		width: calc(100% - var(--menu-btn-size));
-	}
-
-	.tab:hover .menu-button-wrap,
-	.menu-open .menu-button-wrap {
-		opacity: 1;
-		width: var(--menu-btn-size);
-
-		/* We want the container to not take up extra space. */
-		margin-left: calc(var(--menu-btn-size) * -1);
-		/* But still be visible where it would normally display. */
-		transform: translateX(calc(var(--menu-btn-size) + 20%));
-	}
-
-	.tab:not(.selected):hover,
-	.tab:not(.selected):focus-within {
-		background: var(--clr-stack-tab-inactive-hover);
-	}
-
-	.tab:not(.selected):focus-within {
-		&::after {
-			transform: translateY(0);
-			background: var(--clr-border-1);
+		/* MODIFIERS */
+		&.first {
+			border-radius: var(--radius-ml) 0 0 0;
+		}
+		&.last {
+			border-right: none;
 		}
 	}
 
 	.selected {
-		background-color: var(--clr-stack-tab-active);
+		--tab-menu-opacity: 1;
+		--current-truncation-gradient-color: var(--clr-stack-tab-active);
+		--current-tab-background-color: var(--clr-stack-tab-active);
 
 		&::after {
 			transform: translateY(0);
-			background: var(--clr-theme-pop-element);
+			background: var(--clr-text-3);
 			z-index: var(--z-ground);
+		}
+
+		.tab-name {
+			margin-right: calc(var(--menu-btn-size) + var(--truncation-gradient-width-long));
 		}
 	}
 
-	.icon {
+	.tab-icon {
 		color: var(--clr-text-2);
 		display: flex;
 		align-items: center;
@@ -149,10 +149,93 @@
 		margin-right: 8px;
 	}
 
-	.name {
+	.tab-name {
+		position: relative;
 		width: 100%;
-		text-overflow: ellipsis;
 		white-space: nowrap;
-		overflow: hidden;
+		margin-right: calc(var(--truncation-gradient-width-long));
+
+		/* overflow: hidden; */
+	}
+
+	/* MENU AND TRUNCATION */
+
+	.menu-wrapper {
+		position: absolute;
+		top: 0;
+		right: 0;
+		padding-right: 10px;
+		display: flex;
+		justify-content: flex-end;
+		align-items: center;
+		height: 100%;
+		opacity: var(--tab-menu-opacity);
+		background-color: var(--current-truncation-gradient-color);
+
+		& .truncation-gradient {
+			position: absolute;
+			top: 0;
+			left: 0;
+			transform: translateX(-100%);
+			/* background-color: red; */
+			/* width: var(--truncation-gradient-width-short); */
+		}
+	}
+
+	.tab-menu-placeholder {
+		pointer-events: none;
+		position: absolute;
+		top: 0;
+		right: 0;
+		display: flex;
+		justify-content: flex-end;
+		width: var(--truncation-gradient-width-long);
+		height: 100%;
+		/* background-color: rgba(0, 255, 0, 0.2); */
+	}
+
+	.truncation-gradient {
+		width: var(--truncation-gradient-width-long);
+		height: 100%;
+		background: linear-gradient(
+			to right,
+			oklch(from var(--current-truncation-gradient-color) l c h / 0) 0%,
+			var(--current-truncation-gradient-color) 80%
+		);
+	}
+
+	/* HOVERS AND STATES */
+	.tab.menu-open,
+	.tab:not(.selected):focus-within,
+	.tab:not(.selected):hover {
+		outline: none;
+		--tab-menu-opacity: 1;
+		--current-truncation-gradient-color: var(--clr-stack-tab-inactive-hover);
+		--current-tab-background-color: var(--clr-stack-tab-inactive-hover);
+
+		&::after {
+			background: var(--clr-text-3);
+			transform: translateY(0);
+		}
+	}
+
+	.tab:focus {
+		outline: none;
+		&::after {
+			background: var(--clr-theme-pop-element);
+			transform: translateY(0);
+		}
+	}
+
+	.tab:not(.selected):active,
+	.tab:not(.selected):focus {
+		--current-truncation-gradient-color: var(--clr-stack-tab-inactive-hover);
+		--current-tab-background-color: var(--clr-stack-tab-inactive-hover);
+	}
+
+	.tab.selected:active,
+	.tab.selected:focus {
+		--current-truncation-gradient-color: var(--clr-stack-tab-active);
+		--current-tab-background-color: var(--clr-stack-tab-active);
 	}
 </style>

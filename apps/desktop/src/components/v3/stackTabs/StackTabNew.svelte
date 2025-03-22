@@ -174,7 +174,7 @@
 		border-bottom: none;
 		border-radius: 0 var(--radius-ml) 0 0;
 		height: 100%;
-		padding: 0 20px;
+		padding: 0 15px;
 		background: var(--clr-stack-tab-inactive);
 		color: var(--clr-text-3);
 		transition:

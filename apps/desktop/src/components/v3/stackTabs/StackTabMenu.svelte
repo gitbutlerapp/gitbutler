@@ -21,6 +21,7 @@
 </script>
 
 <button
+	aria-label="Stack menu"
 	class="menu-button"
 	class:menu-open={isOpen}
 	onclick={(e) => {
@@ -31,7 +32,7 @@
 	bind:this={trigger}
 	type="button"
 >
-	<Icon name="kebab" />
+	<div class="menu-button-dots"></div>
 </button>
 
 <ContextMenu
@@ -64,13 +65,45 @@
 <style lang="postcss">
 	.menu-button {
 		display: flex;
+		width: var(--menu-btn-size);
+		height: var(--menu-btn-size);
+		align-items: center;
+		justify-content: center;
 		color: var(--clr-text-2);
-		padding: 4px 2px;
-		margin-left: -2px;
+		transform: translateX(2px);
 
 		&.menu-open,
 		&:hover {
 			color: var(--clr-text-1);
+		}
+	}
+
+	.menu-button-dots {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%) scale(0.9);
+		width: 3px;
+		height: 3px;
+		border-radius: 50%;
+		background-color: currentColor;
+
+		&::after,
+		&::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			width: 3px;
+			height: 3px;
+			border-radius: 50%;
+			background-color: currentColor;
+		}
+
+		&::after {
+			left: 6px;
+		}
+		&::before {
+			left: -6px;
 		}
 	}
 </style>
