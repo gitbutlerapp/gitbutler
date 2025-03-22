@@ -1,4 +1,6 @@
 <script lang="ts">
+	import CardOverlay from '$components/CardOverlay.svelte';
+	import Dropzone from '$components/Dropzone.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
@@ -8,7 +10,14 @@
 	import CommitRow from '$components/v3/CommitRow.svelte';
 	import EmptyBranch from '$components/v3/EmptyBranch.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
+	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/v3/lib';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BranchController } from '$lib/branches/branchController';
+	import {
+		AmendCommitWithChangeDzHandler,
+		type DzCommitData,
+		SquashCommitDzHandler
+	} from '$lib/commits/dropHandler';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
@@ -29,9 +38,10 @@
 
 	let { projectId, stackId, branchName, first, last: lastBranch }: Props = $props();
 
-	const [stackService, baseBranchService, uiState, forge] = inject(
+	const [stackService, baseBranchService, branchController, uiState, forge] = inject(
 		StackService,
 		BaseBranchService,
+		BranchController,
 		UiState,
 		DefaultForgeFactory
 	);
@@ -187,20 +197,46 @@
 							onclick={() => uiState.stack(stackId).selection.set({ branchName, commitId })}
 						/>
 					{/if}
-					<CommitRow
-						{stackId}
-						{branchName}
-						{projectId}
-						{first}
-						{lastCommit}
-						{lastBranch}
-						{commit}
-						{selected}
-						onclick={() => {
-							uiState.stack(stackId).selection.set({ branchName, commitId });
-							uiState.project(projectId).drawerPage.set(undefined);
-						}}
-					/>
+					{@const dzCommit: DzCommitData = {
+						id: commit.id,
+						isRemote: isUpstreamCommit(commit),
+						isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
+						isConflicted: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
+					}}
+					{@const amendHandler = new AmendCommitWithChangeDzHandler(
+						projectId,
+						stackService,
+						stackId,
+						dzCommit,
+						(newId) => uiState.stack(stackId).selection.set({ branchName, commitId: newId })
+					)}
+					{@const squashHandler = new SquashCommitDzHandler({
+						branchController,
+						stackId,
+						commit: dzCommit
+					})}
+					<Dropzone handlers={[amendHandler, squashHandler]}>
+						{#snippet overlay({ hovered, activated, handler })}
+							{@const label =
+								handler instanceof AmendCommitWithChangeDzHandler ? 'Amend' : 'Squash'}
+							<CardOverlay {hovered} {activated} {label} />
+						{/snippet}
+						<CommitRow
+							{stackId}
+							{branchName}
+							{projectId}
+							{first}
+							{lastCommit}
+							{lastBranch}
+							{commit}
+							{selected}
+							draggable
+							onclick={() => {
+								uiState.stack(stackId).selection.set({ branchName, commitId });
+								uiState.project(projectId).drawerPage.set(undefined);
+							}}
+						/>
+					</Dropzone>
 					{#if isCommitting && last && lastBranch}
 						<CommitGoesHere
 							{commitId}

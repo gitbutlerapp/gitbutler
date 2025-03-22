@@ -2,7 +2,11 @@
 	import CommitContextMenu from '$components/v3/CommitContextMenu.svelte';
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
+	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/v3/lib';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { CommitDropData } from '$lib/commits/dropHandler';
+	import { draggableCommit } from '$lib/dragging/draggable';
+	import { NON_DRAGGABLE } from '$lib/dragging/draggables';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext, getContextStore, maybeGetContext } from '@gitbutler/shared/context';
@@ -11,6 +15,7 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
+	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
 
 	type Props = {
@@ -25,12 +30,14 @@
 		lineColor?: string;
 		opacity?: number;
 		borderTop?: boolean;
+		draggable?: boolean;
 		disableCommitActions?: boolean;
 		onclick?: () => void;
 	};
 
 	const {
 		projectId,
+		branchName,
 		stackId,
 		commit,
 		first,
@@ -40,6 +47,7 @@
 		lineColor,
 		opacity,
 		borderTop,
+		draggable,
 		disableCommitActions = false,
 		onclick
 	}: Props = $props();
@@ -94,6 +102,8 @@
 		}
 		await editPatch();
 	}
+
+	const commitShortSha = commit.id.substring(0, 7);
 </script>
 
 <div
@@ -106,6 +116,28 @@
 		isOpenedByKebabButton = false;
 		contextMenu?.open(e);
 	}}
+	use:draggableCommit={draggable
+		? {
+				disabled: false,
+				label: commit.message.split('\n')[0],
+				sha: commitShortSha,
+				date: getTimeAgo(commit.createdAt),
+				authorImgUrl: undefined,
+				commitType: 'LocalAndRemote',
+				data: new CommitDropData(
+					stackId,
+					{
+						id: commit.id,
+						isRemote: isUpstreamCommit(commit),
+						isConflicted: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
+						isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated'
+					},
+					false,
+					branchName
+				),
+				viewportId: 'board-viewport'
+			}
+		: NON_DRAGGABLE}
 >
 	<div
 		class="commit-row__main"

@@ -9,7 +9,7 @@ import type { BranchPushResult } from '$lib/branches/branchController';
 import type { Commit, StackBranch, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
 import type { TreeChange } from '$lib/hunks/change';
-import type { HunkHeader } from '$lib/hunks/hunk';
+import type { DiffSpec, HunkHeader } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackInfo } from '$lib/stacks/stack';
 import type { TauriCommandError } from '$lib/state/backendQuery';
 
@@ -308,6 +308,10 @@ export class StackService {
 			showError('Failed to unapply branch', err);
 		}
 	}
+
+	amendCommit() {
+		return this.api.endpoints.amendCommit.useMutation();
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -369,14 +373,14 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					params: { projectId, stackId, branchName }
 				}),
 				providesTags: (result, _, args) => {
-					const branchCommitsTag = { type: ReduxTag.Commits, id: args.branchName };
+					const stackCommitsTag = { type: ReduxTag.Commits, id: args.stackId };
 
-					if (!result) return [branchCommitsTag];
+					if (!result) return [stackCommitsTag];
 
 					const allCommits = commitSelectors.selectAll(result);
 					const commitTags = allCommits.map((commit) => ({ type: ReduxTag.Commit, id: commit.id }));
 
-					return [branchCommitsTag, ...commitTags];
+					return [stackCommitsTag, ...commitTags];
 				},
 				transformResponse(response: Commit[]) {
 					return commitAdapter.addMany(commitAdapter.getInitialState(), response);
@@ -486,6 +490,19 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: (_result, _error, args) => [
 					ReduxTag.StackBranches,
 					ReduxTag.Commits,
+					{ type: ReduxTag.StackInfo, id: args.stackId }
+				]
+			}),
+			amendCommit: build.mutation<
+				string /** Return value is the update commit value. */,
+				{ projectId: string; stackId: string; commitId: string; worktreeChanges: DiffSpec[] }
+			>({
+				query: ({ projectId, stackId: stackId, commitId, worktreeChanges }) => ({
+					command: 'amend_virtual_branch',
+					params: { projectId, stackId, commitId, worktreeChanges }
+				}),
+				invalidatesTags: (_result, _error, args) => [
+					{ type: ReduxTag.Commits, id: args.stackId },
 					{ type: ReduxTag.StackInfo, id: args.stackId }
 				]
 			}),
