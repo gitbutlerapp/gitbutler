@@ -39,13 +39,7 @@
 	class="push-button"
 	class:is-sticked={isSticked}
 	use:intersectionObserver={{
-		callback: (entry) => {
-			if (entry?.isIntersecting) {
-				isSticked = false;
-			} else {
-				isSticked = true;
-			}
-		},
+		callback: (entry) => (isSticked = !!entry?.isIntersecting),
 		options: {
 			root: null,
 			threshold: 1

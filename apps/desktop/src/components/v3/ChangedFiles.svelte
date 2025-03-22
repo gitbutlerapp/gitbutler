@@ -25,18 +25,12 @@
 
 	const props: Props = $props();
 	const [stackService] = inject(StackService);
-	const commitChangesResult = $derived(
+	const changesResult = $derived(
 		props.type === 'commit'
 			? stackService.commitChanges(props.projectId, props.commitId)
-			: undefined
-	);
-	const branchChangesResult = $derived(
-		props.type === 'branch'
-			? stackService.branchChanges(props.projectId, props.stackId, props.branchName)
-			: undefined
+			: stackService.branchChanges(props.projectId, props.stackId, props.branchName)
 	);
 
-	const changesResult = $derived(commitChangesResult?.current ?? branchChangesResult?.current);
 	const headerTitle = $derived.by(() => {
 		switch (props.type) {
 			case 'commit':
@@ -49,7 +43,7 @@
 
 {#if changesResult}
 	<div class="changed-files">
-		<ReduxResult result={changesResult}>
+		<ReduxResult result={changesResult.current}>
 			{#snippet children(changes)}
 				<div class="header text-13 text-bold">
 					<span>{headerTitle}</span>

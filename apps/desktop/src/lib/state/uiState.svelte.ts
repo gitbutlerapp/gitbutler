@@ -9,19 +9,19 @@ import {
 import storage from 'redux-persist/lib/storage';
 type DrawerPage = 'branch' | 'new-commit' | 'pr' | 'br' | 'branch' | undefined;
 
-type CommitSelection = {
-	branchName: string;
-	commitId?: string;
-	upstream?: boolean;
-};
-
 export const uiStatePersistConfig = {
 	key: 'uiState',
 	storage: storage
 };
 
 type StackUiState = {
-	selection: CommitSelection | undefined;
+	selection:
+		| {
+				branchName: string;
+				commitId?: string;
+				upstream?: boolean;
+		  }
+		| undefined;
 };
 
 type ProjectUiState = {
