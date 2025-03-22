@@ -18,23 +18,24 @@
 	const [stackService] = inject(StackService);
 	const result = $derived(stackService.stacks(projectId));
 
+	let plusBtnEl = $state<HTMLButtonElement>();
 	let tabs = $state<HTMLDivElement>();
-	let scroller = $state<HTMLDivElement>();
+	let scrollerEl = $state<HTMLDivElement>();
 
 	let scrollable = $state(false);
 	let scrolled = $state(false);
 	let scrolledEnd = $state(false);
 
 	function onscroll() {
-		scrolled = scroller && scroller.scrollLeft > 0 ? true : false;
-		scrolledEnd = scroller
-			? scroller.scrollLeft + scroller.offsetWidth >= scroller.scrollWidth
+		scrolled = scrollerEl && scrollerEl.scrollLeft > 0 ? true : false;
+		scrolledEnd = scrollerEl
+			? scrollerEl.scrollLeft + scrollerEl.offsetWidth >= scrollerEl.scrollWidth
 			: false;
 	}
 
 	onMount(() => {
 		const observer = new ResizeObserver(() => {
-			scrollable = scroller ? scroller.scrollWidth > scroller.offsetWidth : false;
+			scrollable = scrollerEl ? scrollerEl.scrollWidth > scrollerEl.offsetWidth : false;
 			width = tabs?.offsetWidth;
 		});
 		observer.observe(tabs!);
@@ -46,11 +47,12 @@
 
 <div class="tabs" bind:this={tabs}>
 	<div class="inner">
-		<div class="scroller" bind:this={scroller} class:scrolled {onscroll}>
+		<div class="scroller" bind:this={scrollerEl} class:scrolled {onscroll}>
 			<ReduxResult result={result.current}>
 				{#snippet children(result)}
 					{#if result.length > 0}
 						{#each result as tab, i (tab.branchNames[0])}
+							{@const first = i === 0}
 							{@const last = i === result.length - 1}
 							{@const selected = tab.id === selectedId}
 
@@ -60,8 +62,17 @@
 								stackId={tab.id}
 								href={stackPath(projectId, tab.id)}
 								anchors={tab.branchNames.slice(1)}
-								{last}
 								{selected}
+								onNextTab={() => {
+									if (last) {
+										plusBtnEl?.focus();
+									}
+								}}
+								onPrevTab={() => {
+									if (first) {
+										plusBtnEl?.focus();
+									}
+								}}
 							/>
 						{/each}
 					{:else}
@@ -73,7 +84,7 @@
 		<div class="shadow shadow-left" class:scrolled></div>
 		<div class="shadow shadow-right" class:scrollable class:scrolled-end={scrolledEnd}></div>
 	</div>
-	<StackTabNew {projectId} stackId={selectedId} />
+	<StackTabNew bind:el={plusBtnEl} {scrollerEl} {projectId} stackId={selectedId} />
 </div>
 
 <style lang="postcss">

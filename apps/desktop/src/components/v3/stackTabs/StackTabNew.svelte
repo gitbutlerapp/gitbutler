@@ -13,13 +13,15 @@
 	import { goto } from '$app/navigation';
 
 	type Props = {
+		el?: HTMLButtonElement;
+		scrollerEl?: HTMLDivElement;
 		projectId: string;
 		// Currently selected stack id.
 		stackId?: string;
 		overflow?: boolean;
 	};
 
-	const { projectId, stackId, overflow = false }: Props = $props();
+	let { el = $bindable(), scrollerEl, projectId, stackId, overflow = false }: Props = $props();
 	const stackService = getContext(StackService);
 	const [createNewStack, stackCreation] = stackService.newStack();
 	const [createNewBranch, branchCreation] = stackService.newBranch();
@@ -66,6 +68,23 @@
 
 	const isAddingNew = $derived(stackCreation.current.isLoading || branchCreation.current.isLoading);
 
+	function handleArrowNavigation(event: KeyboardEvent) {
+		if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+			event.preventDefault();
+			const target = scrollerEl as HTMLDivElement;
+			// first child
+			const firstChild = target.firstElementChild as HTMLButtonElement;
+			// last child
+			const lastChild = target.lastElementChild as HTMLButtonElement;
+
+			if (event.key === 'ArrowRight') {
+				firstChild.focus();
+			} else if (event.key === 'ArrowLeft') {
+				lastChild.focus();
+			}
+		}
+	}
+
 	// TODO: it would be nice to remember the last selected option for the next time the modal is opened
 </script>
 
@@ -75,6 +94,8 @@
 	class="new-stack-btn"
 	class:overflow
 	onclick={() => createRefModal?.show()}
+	bind:this={el}
+	onkeydown={handleArrowNavigation}
 >
 	<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
 		<path d="M0 10H20M10 0L10 20" stroke="currentColor" stroke-width="1.5" />
@@ -184,6 +205,12 @@
 		&:hover {
 			color: var(--clr-text-2);
 			background: var(--clr-stack-tab-inactive-hover);
+		}
+
+		&:focus {
+			outline: none;
+			color: var(--clr-text-2);
+			background: var(--clr-stack-tab-active);
 		}
 	}
 

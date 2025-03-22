@@ -7,13 +7,15 @@
 		projectId: string;
 		stackId: string;
 		anchors?: string[];
-		first?: boolean;
-		last?: boolean;
+
 		selected?: boolean;
 		href?: string;
+		onNextTab?: () => void;
+		onPrevTab?: () => void;
 	};
 
-	const { name, projectId, stackId, anchors, first, last, selected, href }: Props = $props();
+	const { name, projectId, stackId, anchors, selected, href, onNextTab, onPrevTab }: Props =
+		$props();
 
 	let isMenuOpen = $state(false);
 	let inFocus = $state(false);
@@ -25,22 +27,16 @@
 			const nextTab = target.nextElementSibling as HTMLAnchorElement;
 			const prevTab = target.previousElementSibling as HTMLAnchorElement;
 
-			if (event.key === 'ArrowRight' && nextTab) {
-				nextTab.focus();
-			} else if (event.key === 'ArrowLeft' && prevTab) {
-				prevTab.focus();
-			}
-
-			// go to the first tab if we are at the last one
-			if (event.key === 'ArrowRight' && !nextTab) {
-				const firstTab = document.querySelector('.tab:first-child') as HTMLAnchorElement;
-				firstTab?.focus();
-			}
-
-			// go to the last tab if we are at the first one
-			if (event.key === 'ArrowLeft' && !prevTab) {
-				const lastTab = document.querySelector('.tab:last-child') as HTMLAnchorElement;
-				lastTab?.focus();
+			if (event.key === 'ArrowRight') {
+				onNextTab?.();
+				if (nextTab) {
+					nextTab.focus();
+				}
+			} else if (event.key === 'ArrowLeft') {
+				onPrevTab?.();
+				if (prevTab) {
+					prevTab.focus();
+				}
 			}
 		}
 	}
@@ -50,8 +46,6 @@
 	data-sveltekit-keepfocus
 	{href}
 	class="tab"
-	class:first
-	class:last
 	class:selected
 	class:menu-open={isMenuOpen}
 	id={href}
@@ -65,11 +59,10 @@
 			<Icon name={anchors.length > 0 ? 'chain-link' : 'branch-small'} verticalAlign="top" />
 		</div>
 	{/if}
-	<!-- <div class="content"> -->
+
 	<div class="text-12 text-semibold tab-name">
 		{name}
 	</div>
-	<!-- </div> -->
 
 	<div class="tab-menu-placeholder">
 		<div class="truncation-gradient"></div>
@@ -85,7 +78,8 @@
 	.tab {
 		--menu-btn-size: 20px;
 		--tab-menu-opacity: 0;
-		--truncation-gradient-width-long: 16px;
+		--tab-menu-padding-right: 10px;
+		--truncation-gradient-width: 14px;
 		--current-truncation-gradient-color: var(--clr-stack-tab-inactive);
 		--current-tab-background-color: var(--clr-stack-tab-inactive);
 
@@ -113,10 +107,10 @@
 		}
 
 		/* MODIFIERS */
-		&.first {
+		&:first-child {
 			border-radius: var(--radius-ml) 0 0 0;
 		}
-		&.last {
+		&:last-child {
 			border-right: none;
 		}
 	}
@@ -133,7 +127,10 @@
 		}
 
 		.tab-name {
-			margin-right: calc(var(--menu-btn-size) + var(--truncation-gradient-width-long));
+			margin-right: calc(
+				var(--menu-btn-size) + var(--truncation-gradient-width) + var(--tab-menu-padding-right) -
+					4px
+			);
 		}
 	}
 
@@ -153,7 +150,7 @@
 		position: relative;
 		width: 100%;
 		white-space: nowrap;
-		margin-right: calc(var(--truncation-gradient-width-long));
+		margin-right: calc(var(--truncation-gradient-width));
 
 		/* overflow: hidden; */
 	}
@@ -164,7 +161,7 @@
 		position: absolute;
 		top: 0;
 		right: 0;
-		padding-right: 10px;
+		padding-right: var(--tab-menu-padding-right);
 		display: flex;
 		justify-content: flex-end;
 		align-items: center;
@@ -177,6 +174,7 @@
 			top: 0;
 			left: 0;
 			transform: translateX(-100%);
+
 			/* background-color: red; */
 			/* width: var(--truncation-gradient-width-short); */
 		}
@@ -189,13 +187,13 @@
 		right: 0;
 		display: flex;
 		justify-content: flex-end;
-		width: var(--truncation-gradient-width-long);
+		width: var(--truncation-gradient-width);
 		height: 100%;
 		/* background-color: rgba(0, 255, 0, 0.2); */
 	}
 
 	.truncation-gradient {
-		width: var(--truncation-gradient-width-long);
+		width: var(--truncation-gradient-width);
 		height: 100%;
 		background: linear-gradient(
 			to right,
