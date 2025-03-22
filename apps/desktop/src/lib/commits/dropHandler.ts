@@ -4,6 +4,8 @@ import { ChangeDropData, FileDropData, HunkDropData } from '$lib/dragging/dragga
 import { LocalFile, RemoteFile } from '$lib/files/file';
 import type { BranchController } from '$lib/branches/branchController';
 import type { DropzoneHandler } from '$lib/dragging/handler';
+import type { DiffSpec } from '$lib/hunks/hunk';
+import type { StackService } from '$lib/stacks/stackService.svelte';
 
 /** Details about a commit beloning to a drop zone. */
 export type DzCommitData = {
@@ -44,17 +46,34 @@ export class MoveCommitDzHandler implements DropzoneHandler {
  * Handler that will be able to amend a commit using `TreeChange`.
  */
 export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
+	trigger: ReturnType<StackService['amendCommit']>[0];
+	result: ReturnType<StackService['amendCommit']>[1];
+
 	constructor(
+		private projectId: string,
+		stackService: StackService,
 		private stackId: string,
-		private commit: DzCommitData
-	) {}
+		private commit: DzCommitData,
+		private onresult: (result: typeof this.result.current.data) => void
+	) {
+		const [trigger, result] = stackService.amendCommit();
+		this.trigger = trigger;
+		this.result = result;
+	}
 	accepts(data: unknown): boolean {
 		return (
 			data instanceof ChangeDropData && data.stackId !== this.stackId && !this.commit.isConflicted
 		);
 	}
-	ondrop(_data: ChangeDropData): void {
-		throw new Error('Method not implemented.');
+
+	async ondrop(data: ChangeDropData) {
+		const result = await this.trigger({
+			projectId: this.projectId,
+			stackId: this.stackId,
+			commitId: this.commit.id,
+			worktreeChanges: changesToDiffSpec(data)
+		});
+		this.onresult(result);
 	}
 }
 
@@ -137,14 +156,7 @@ export class AmendCommitDzHandler implements DropzoneHandler {
 	ondrop(data: FileDropData): void {
 		const { branchController, stackId, commit } = this.args;
 		if (data.file instanceof LocalFile) {
-			const worktreeChanges = data.files.map((file) => {
-				return {
-					previousPathBytes: null,
-					pathBytes: file.path, // Can we get the path in bytes here?
-					hunkHeaders: [] // An empty list of hunk headers means use everything for the file
-				};
-			});
-			branchController.amendBranch(stackId, commit.id, worktreeChanges);
+			branchController.amendBranch(stackId, commit.id, filesToDiffSpec(data));
 		} else if (data.file instanceof RemoteFile) {
 			// this is a file from a commit, rather than an uncommitted file
 			const newOwnership = filesToSimpleOwnership(data.files);
@@ -184,4 +196,27 @@ export class SquashCommitDzHandler implements DropzoneHandler {
 			branchController.squashBranchCommit(data.stackId, data.commit.id, commit.id);
 		}
 	}
+}
+
+/** Helper function that converts `FileDropData` to `DiffSpec`. */
+function filesToDiffSpec(data: FileDropData): DiffSpec[] {
+	return data.files.map((file) => {
+		return {
+			previousPathBytes: null,
+			pathBytes: file.path, // Can we get the path in bytes here?
+			hunkHeaders: []
+		};
+	});
+}
+
+/** Helper function that converts `ChangeDropData` to `DiffSpec`. */
+function changesToDiffSpec(data: ChangeDropData): DiffSpec[] {
+	const file = data.file;
+	return [
+		{
+			previousPathBytes: null,
+			pathBytes: file.path, // Can we get the path in bytes here?
+			hunkHeaders: []
+		}
+	];
 }

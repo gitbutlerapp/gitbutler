@@ -27,7 +27,9 @@ function getSecondsUntilUpdate(seconds: number) {
 	}
 }
 
-export function getTimeAgo(date: Date, addSuffix: boolean = true): string {
+export function getTimeAgo(input: Date | number, addSuffix: boolean = true): string {
+	const date = typeof input === 'number' ? new Date(input) : input;
+
 	const seconds = Math.round(Math.abs((new Date().getTime() - date.getTime()) / 1000.0));
 	if (seconds < 10) {
 		return 'just now';
