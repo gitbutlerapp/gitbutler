@@ -23,6 +23,7 @@
 	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
 
 	interface Props {
+		stackId: string;
 		pr: DetailedPullRequest;
 		poll: boolean;
 		isPushed: boolean;
@@ -40,8 +41,16 @@
 		tooltip?: string;
 	};
 
-	const { pr, poll, child, hasParent, isPushed, openPrDetailsModal, parentIsPushed }: Props =
-		$props();
+	const {
+		stackId,
+		pr,
+		poll,
+		child,
+		hasParent,
+		isPushed,
+		openPrDetailsModal,
+		parentIsPushed
+	}: Props = $props();
 
 	let contextMenuEl = $state<ReturnType<typeof ContextMenu>>();
 	let contextMenuTarget = $state<HTMLElement>();
@@ -223,6 +232,7 @@
 		</Badge>
 		{#if !pr.closedAt}
 			<ChecksPolling
+				{stackId}
 				branchName={pr.sourceBranch}
 				isFork={pr.fork}
 				isMerged={pr.merged}

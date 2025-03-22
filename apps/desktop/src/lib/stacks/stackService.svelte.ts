@@ -406,6 +406,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: (_result, _error, args) => [
 					ReduxTag.StackBranches,
 					ReduxTag.Commits,
+					{ type: ReduxTag.Checks, id: args.stackId },
+					{ type: ReduxTag.PullRequests, id: args.stackId },
 					{ type: ReduxTag.StackInfo, id: args.stackId }
 				]
 			}),

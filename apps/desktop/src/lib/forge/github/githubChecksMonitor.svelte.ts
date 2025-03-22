@@ -15,12 +15,15 @@ export class GitHubChecksMonitor implements ChecksService {
 		this.api = injectEndpoints(gitHubApi);
 	}
 
-	get(branch: string, options?: QueryOptions) {
+	get(stackId: string, branchName: string, options?: QueryOptions) {
 		const result = $derived(
-			this.api.endpoints.listChecks.useQuery(branch, {
-				transform: (result) => parseChecks(result),
-				...options
-			})
+			this.api.endpoints.listChecks.useQuery(
+				{ stackId, ref: branchName },
+				{
+					transform: (result) => parseChecks(result),
+					...options
+				}
+			)
 		);
 		return result;
 	}
@@ -33,11 +36,14 @@ export class GitHubChecksMonitor implements ChecksService {
 		return result.data;
 	}
 
-	async fetchChecks(ref: string, options?: QueryOptions) {
-		const result = await this.api.endpoints.listChecks.fetch(ref, {
-			forceRefetch: true,
-			...options
-		});
+	async fetchChecks(stackId: string, ref: string, options?: QueryOptions) {
+		const result = await this.api.endpoints.listChecks.fetch(
+			{ stackId, ref },
+			{
+				forceRefetch: true,
+				...options
+			}
+		);
 		return result.data;
 	}
 }
@@ -76,8 +82,8 @@ function parseChecks(data: ChecksResult): ChecksStatus | null {
 function injectEndpoints(api: GitHubApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			listChecks: build.query<ChecksResult, string>({
-				queryFn: async (ref, api) =>
+			listChecks: build.query<ChecksResult, { stackId: string; ref: string }>({
+				queryFn: async ({ ref }, api) =>
 					await ghQuery({
 						domain: 'checks',
 						action: 'listForRef',
@@ -86,7 +92,10 @@ function injectEndpoints(api: GitHubApi) {
 							ref
 						}
 					}),
-				providesTags: [ReduxTag.PullRequests]
+				providesTags: (_result, _error, args) => [
+					ReduxTag.Checks,
+					{ type: ReduxTag.Checks, id: args.stackId }
+				]
 			}),
 			listSuites: build.query<SuitesResult, string>({
 				queryFn: async (ref, api) =>
@@ -98,7 +107,7 @@ function injectEndpoints(api: GitHubApi) {
 							ref
 						}
 					}),
-				providesTags: [ReduxTag.PullRequests]
+				providesTags: [ReduxTag.Checks]
 			})
 		})
 	});
