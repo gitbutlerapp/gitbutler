@@ -124,6 +124,8 @@
 		flex-direction: column;
 		flex-grow: 1;
 		border-radius: var(--radius-ml);
+		overflow-x: hidden;
+		position: relative;
 		gap: 10px;
 	}
 </style>
