@@ -22,7 +22,7 @@
 
 <button
 	aria-label="Stack menu"
-	class="menu-button"
+	class="menu-button focus-state"
 	class:menu-open={isOpen}
 	onclick={(e) => {
 		e.preventDefault();
@@ -64,16 +64,18 @@
 
 <style lang="postcss">
 	.menu-button {
+		position: relative;
 		display: flex;
 		width: var(--menu-btn-size);
 		height: var(--menu-btn-size);
 		align-items: center;
 		justify-content: center;
 		color: var(--clr-text-2);
-		transform: translateX(2px);
+		border-radius: var(--radius-s);
 
 		&.menu-open,
-		&:hover {
+		&:hover,
+		&:focus-within {
 			color: var(--clr-text-1);
 		}
 	}

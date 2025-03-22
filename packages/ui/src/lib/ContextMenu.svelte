@@ -210,13 +210,21 @@
 	export function isOpen() {
 		return isVisible;
 	}
+
+	function handleKeyNavigation(e: KeyboardEvent) {
+		if (e.key === 'Escape') {
+			close();
+		}
+	}
 </script>
 
 {#snippet contextMenu()}
+	<!-- svelte-ignore a11y_autofocus -->
 	<div
 		bind:this={menuContainer}
 		tabindex="-1"
 		use:focusTrap
+		autofocus
 		use:clickOutside={{
 			excludeElement: !savedMouseEvent ? leftClickTrigger ?? rightClickTrigger : undefined,
 			handler: () => close()
@@ -225,6 +233,7 @@
 		bind:clientWidth={contextMenuWidth}
 		{onclick}
 		{onkeypress}
+		onkeydown={handleKeyNavigation}
 		class="context-menu"
 		class:top-oriented={side === 'top'}
 		class:bottom-oriented={side === 'bottom'}
