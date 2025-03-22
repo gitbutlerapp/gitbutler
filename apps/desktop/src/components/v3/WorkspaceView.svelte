@@ -127,5 +127,6 @@
 		overflow-x: hidden;
 		position: relative;
 		gap: 10px;
+		min-width: 320px;
 	}
 </style>
