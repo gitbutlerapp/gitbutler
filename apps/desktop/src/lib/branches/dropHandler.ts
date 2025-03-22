@@ -6,7 +6,7 @@ import type { BranchController } from '$lib/branches/branchController';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 
 /** Handler that moves uncommitted hunks between stacks. */
-export class BranchDzHandler implements DropzoneHandler {
+export class BranchHunkDzHandler implements DropzoneHandler {
 	constructor(
 		private branchController: BranchController,
 		private stack: BranchStack

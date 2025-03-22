@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CardOverlay from '$components/CardOverlay.svelte';
 	import CollapsedLane from '$components/CollapsedLane.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
@@ -10,7 +11,7 @@
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
-	import { BranchFileDzHandler } from '$lib/branches/dropHandler';
+	import { BranchFileDzHandler, BranchHunkDzHandler } from '$lib/branches/dropHandler';
 	import { DetailedCommit } from '$lib/commits/commit';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
@@ -45,7 +46,10 @@
 	const width = persistWithExpiration<number>(24, 'stackWidth_' + projectId, 7 * 1440);
 	const branchHasFiles = $derived(stack.files !== undefined && stack.files.length > 0);
 	const branchHasNoCommits = $derived(stack.validSeries.flatMap((s) => s.patches).length === 0);
-	const dzHandler = $derived(new BranchFileDzHandler(branchController, stack.id, stack.ownership));
+	const dzFileHandler = $derived(
+		new BranchFileDzHandler(branchController, stack.id, stack.ownership)
+	);
+	const dzHunkHandler = $derived(new BranchHunkDzHandler(branchController, stack));
 
 	let rsViewport = $state<HTMLElement>();
 	let scrollEndVisible = $state(true);
@@ -131,7 +135,10 @@
 						{#if branchHasFiles}
 							<UncommittedChanges {commitBoxOpen} />
 						{:else}
-							<Dropzone handlers={[dzHandler]}>
+							<Dropzone handlers={[dzHunkHandler, dzFileHandler]}>
+								{#snippet overlay({ hovered, activated })}
+									<CardOverlay {hovered} {activated} label="Move here" />
+								{/snippet}
 								{#if branchHasNoCommits}
 									<div class="new-branch">
 										<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
