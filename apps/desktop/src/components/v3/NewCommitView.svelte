@@ -60,7 +60,7 @@
 	async function hanldleCommitCreation() {
 		const titleText = await input?.getTitle();
 		const message = await input?.getPlaintext();
-		if (!message && !titleText) return;
+		if (!titleText) return;
 
 		const commitMessage = [titleText, message].filter((a) => a).join('\n\n');
 
@@ -78,6 +78,7 @@
 
 <Drawer bind:this={drawer} {projectId} {stackId} title="Create commit">
 	<CommitMessageInput
+		bind:this={input}
 		{projectId}
 		actionLabel="Create commit"
 		action={hanldleCommitCreation}
