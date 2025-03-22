@@ -347,6 +347,7 @@
 						{#snippet pullRequestCard(pr)}
 							<PullRequestCard
 								openPrDetailsModal={handleOpenBranchReview}
+								stackId={stack.id}
 								{pr}
 								{isPushed}
 								{child}
