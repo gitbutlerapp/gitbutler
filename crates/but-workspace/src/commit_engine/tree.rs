@@ -220,6 +220,7 @@ fn apply_worktree_changes<'repo>(
                 gix::diff::blob::pipeline::Mode::ToGitUnlessBinaryToTextIsPresent,
                 "BUG: if this changes, the uses of worktree filters need a review"
             );
+            // TODO(perf): avoid computing the unified diff here, we only need hunks with, usually with zero context.
             let UnifiedDiff::Patch { hunks } =
                 worktree_change.unified_diff_with_filter(repo, context_lines, &mut diff_filter)?
             else {
