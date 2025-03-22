@@ -29,19 +29,10 @@ body {
 
 /* FOCUS STATE */
 .focus-state {
-	&:focus-within {
-		outline: 1px solid transaparent;
-		animation: focus-animation var(--transition-fast) forwards;
-	}
-}
+	outline: none;
 
-@keyframes focus-animation {
-	0% {
-		outline-offset: 0;
-	}
-	100% {
-		outline-offset: 2px;
-		outline: 1px solid var(--focus-color);
+	&:focus-within {
+		outline: 2px solid var(--focus-color);
 	}
 }
 

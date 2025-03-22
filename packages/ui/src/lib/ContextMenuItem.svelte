@@ -16,7 +16,7 @@
 	const { onclick, icon, label, disabled, control, keyboardShortcut }: Props = $props();
 </script>
 
-<button type="button" class="menu-item no-select" class:disabled {disabled} {onclick}>
+<button type="button" class="menu-item focus-state no-select" class:disabled {disabled} {onclick}>
 	{#if icon}
 		<Icon name={icon} />
 	{/if}

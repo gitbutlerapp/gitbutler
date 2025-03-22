@@ -4,24 +4,24 @@
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	type Props = {
 		projectId: string;
 		stackId: string;
+		isOpen?: boolean;
 	};
 
-	const { projectId, stackId }: Props = $props();
+	let { projectId, stackId, isOpen = $bindable() }: Props = $props();
 
 	const stackService = getContext(StackService);
 
 	let trigger = $state<HTMLElement>();
 	let contextMenu = $state<ContextMenu>();
-	let isOpen = $state(false);
 </script>
 
 <button
-	class="menu-button"
+	aria-label="Stack menu"
+	class="menu-button focus-state"
 	class:menu-open={isOpen}
 	onclick={(e) => {
 		e.preventDefault();
@@ -31,12 +31,15 @@
 	bind:this={trigger}
 	type="button"
 >
-	<Icon name="kebab" />
+	<div class="menu-button-dots"></div>
 </button>
+
 <ContextMenu
 	bind:this={contextMenu}
 	leftClickTrigger={trigger}
-	ontoggle={(isOpen) => (isOpen = isOpen)}
+	ontoggle={(flag) => {
+		isOpen = flag;
+	}}
 	side="bottom"
 >
 	<ContextMenuSection>
@@ -60,14 +63,48 @@
 
 <style lang="postcss">
 	.menu-button {
+		position: relative;
 		display: flex;
+		width: var(--menu-btn-size);
+		height: var(--menu-btn-size);
+		align-items: center;
+		justify-content: center;
 		color: var(--clr-text-2);
-		padding: 4px 2px;
-		margin-left: -2px;
+		border-radius: var(--radius-s);
 
 		&.menu-open,
-		&:hover {
+		&:hover,
+		&:focus-within {
 			color: var(--clr-text-1);
+		}
+	}
+
+	.menu-button-dots {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%) scale(0.9);
+		width: 3px;
+		height: 3px;
+		border-radius: 50%;
+		background-color: currentColor;
+
+		&::after,
+		&::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			width: 3px;
+			height: 3px;
+			border-radius: 50%;
+			background-color: currentColor;
+		}
+
+		&::after {
+			left: 6px;
+		}
+		&::before {
+			left: -6px;
 		}
 	}
 </style>
