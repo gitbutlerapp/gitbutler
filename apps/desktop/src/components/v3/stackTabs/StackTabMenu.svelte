@@ -4,7 +4,6 @@
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	type Props = {
 		projectId: string;

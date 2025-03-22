@@ -1,7 +1,7 @@
 <script lang="ts">
-	import newStackSvg from './assets/new-stack.svg?raw';
-	import dependentBranchSvg from './assets/dependent-branch.svg?raw';
 	import RadioButton from '$components/RadioButton.svelte';
+	import dependentBranchSvg from '$components/v3/stackTabs/assets/dependent-branch.svg?raw';
+	import newStackSvg from '$components/v3/stackTabs/assets/new-stack.svg?raw';
 	import { stackPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';

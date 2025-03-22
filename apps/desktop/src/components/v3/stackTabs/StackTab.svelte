@@ -1,5 +1,5 @@
 <script lang="ts">
-	import StackTabMenu from './StackTabMenu.svelte';
+	import StackTabMenu from '$components/v3/stackTabs/StackTabMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	type Props = {
@@ -18,7 +18,6 @@
 		$props();
 
 	let isMenuOpen = $state(false);
-	let inFocus = $state(false);
 
 	function handleArrowNavigation(event: KeyboardEvent) {
 		if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
@@ -50,8 +49,6 @@
 	class:menu-open={isMenuOpen}
 	id={href}
 	tabindex="0"
-	onfocus={() => (inFocus = true)}
-	onblur={() => (inFocus = false)}
 	onkeydown={handleArrowNavigation}
 >
 	{#if anchors}

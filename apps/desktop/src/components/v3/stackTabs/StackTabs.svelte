@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import StackTab from '$components/v3/stackTabs/StackTab.svelte';
-	import StackTabNew from './StackTabNew.svelte';
+	import StackTabNew from '$components/v3/stackTabs/StackTabNew.svelte';
 	import { stackPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
