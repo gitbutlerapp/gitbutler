@@ -464,12 +464,12 @@ export class BranchController {
 		}
 	}
 
-	async amendBranch(branchId: string, commitOid: string, worktreeChanges: DiffSpec[]) {
+	async amendBranch(stackId: string, commitId: string, worktreeChanges: DiffSpec[]) {
 		try {
 			await invoke<void>('amend_virtual_branch', {
 				projectId: this.projectId,
-				branchId,
-				commitOid,
+				stackId,
+				commitId,
 				worktreeChanges
 			});
 		} catch (err: any) {

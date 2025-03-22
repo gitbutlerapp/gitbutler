@@ -122,6 +122,7 @@ export class Dropzone {
 		this.configuration.onHoverEnd();
 	}
 
+	/** It is assumed at most one will accept the data. */
 	private get acceptedHandler() {
 		return this.configuration.handlers.find((h) => h.accepts(this.data));
 	}

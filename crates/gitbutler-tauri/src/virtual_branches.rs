@@ -376,16 +376,16 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
-        branch_id: StackId,
-        commit_oid: String,
+        stack_id: StackId,
+        commit_id: String,
         worktree_changes: Vec<DiffSpec>,
     ) -> Result<String, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
+        let commit_oid = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
         let oid = gitbutler_branch_actions::amend(
             &ctx,
-            branch_id,
+            stack_id,
             commit_oid,
             worktree_changes.into_iter().map(Into::into).collect(),
         )?;
