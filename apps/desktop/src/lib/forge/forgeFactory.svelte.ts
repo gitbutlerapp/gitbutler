@@ -20,6 +20,7 @@ export type ForgeConfig = {
 	repo?: RepoInfo;
 	pushRepo?: RepoInfo;
 	baseBranch?: string;
+	githubAuthenticated?: boolean;
 };
 
 export class DefaultForgeFactory implements ForgeFactory, Reactive<Forge> {
@@ -37,9 +38,9 @@ export class DefaultForgeFactory implements ForgeFactory, Reactive<Forge> {
 	}
 
 	setConfig(config: ForgeConfig) {
-		const { repo, pushRepo, baseBranch } = config;
+		const { repo, pushRepo, baseBranch, githubAuthenticated } = config;
 		if (repo && baseBranch) {
-			this._forge = this.build({ repo, pushRepo, baseBranch });
+			this._forge = this.build({ repo, pushRepo, baseBranch, githubAuthenticated });
 		} else {
 			this._forge = this.default;
 		}
@@ -48,33 +49,42 @@ export class DefaultForgeFactory implements ForgeFactory, Reactive<Forge> {
 	build({
 		repo,
 		pushRepo,
-		baseBranch
+		baseBranch,
+		githubAuthenticated
 	}: {
 		repo: RepoInfo;
 		pushRepo?: RepoInfo;
 		baseBranch: string;
+		githubAuthenticated?: boolean;
 	}): Forge {
 		const domain = repo.domain;
 		const forkStr =
 			pushRepo && pushRepo.hash !== repo.hash ? `${pushRepo.owner}:${pushRepo.name}` : undefined;
 
+		const baseParams = {
+			repo,
+			baseBranch,
+			forkStr,
+			authenticated: false
+		};
+
 		if (domain.includes(GITHUB_DOMAIN)) {
 			return new GitHub({
+				...baseParams,
 				gitHubApi: this.gitHubApi,
-				baseBranch,
-				repo,
 				projectMetrics: this.projectMetrics,
-				posthog: this.posthog
+				posthog: this.posthog,
+				authenticated: !!githubAuthenticated
 			});
 		}
 		if (domain === GITLAB_DOMAIN || domain.startsWith(GITLAB_SUB_DOMAIN + '.')) {
-			return new GitLab({ repo, baseBranch, forkStr });
+			return new GitLab(baseParams);
 		}
 		if (domain.includes(BITBUCKET_DOMAIN)) {
-			return new BitBucket({ repo, baseBranch, forkStr });
+			return new BitBucket(baseParams);
 		}
 		if (domain.includes(AZURE_DOMAIN)) {
-			return new AzureDevOps({ repo, baseBranch, forkStr });
+			return new AzureDevOps(baseParams);
 		}
 		return this.default;
 	}

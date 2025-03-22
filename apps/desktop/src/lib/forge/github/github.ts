@@ -14,6 +14,7 @@ export const GITHUB_DOMAIN = 'github.com';
 
 export class GitHub implements Forge {
 	readonly name: ForgeName = 'github';
+	readonly authenticated: boolean;
 	private baseUrl: string;
 
 	constructor(
@@ -24,6 +25,7 @@ export class GitHub implements Forge {
 		}
 	) {
 		const { owner, name } = params.repo;
+		this.authenticated = params.authenticated;
 		this.baseUrl = `https://${GITHUB_DOMAIN}/${owner}/${name}`;
 	}
 
