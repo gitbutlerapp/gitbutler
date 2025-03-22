@@ -54,6 +54,10 @@ export function persisted<T>(initial: T, key: string): Persisted<T> {
 	};
 }
 
+export function clearEphemeralStorageItem(key: string): void {
+	lscache.remove(key);
+}
+
 export function setEphemeralStorageItem(
 	key: string,
 	value: unknown,

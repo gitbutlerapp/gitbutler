@@ -458,6 +458,10 @@
 							placeholder="Add description…"
 							oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 								const target = e.currentTarget as HTMLTextAreaElement;
+								if (!target.value) {
+									prBody.reset();
+									return;
+								}
 								prBody.set(target.value);
 							}}
 						/>
