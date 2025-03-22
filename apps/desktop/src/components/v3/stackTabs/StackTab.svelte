@@ -80,15 +80,16 @@
 		--tab-menu-opacity: 0;
 		--tab-menu-padding-right: 10px;
 		--truncation-gradient-width: 14px;
-		--current-truncation-gradient-color: var(--clr-stack-tab-inactive);
-		--current-tab-background-color: var(--clr-stack-tab-inactive);
+		--truncation-gradient-stop: 70%;
+		--truncation-gradient-color: var(--clr-stack-tab-inactive);
+		--tab-background-color: var(--clr-stack-tab-inactive);
 
 		position: relative;
 		display: flex;
 		align-items: center;
 		padding: 0 0 0 12px;
 		height: 44px;
-		background: var(--current-tab-background-color);
+		background: var(--tab-background-color);
 		border-right: 1px solid var(--clr-border-2);
 		overflow: hidden;
 		min-width: 40px;
@@ -117,8 +118,8 @@
 
 	.selected {
 		--tab-menu-opacity: 1;
-		--current-truncation-gradient-color: var(--clr-stack-tab-active);
-		--current-tab-background-color: var(--clr-stack-tab-active);
+		--truncation-gradient-color: var(--clr-stack-tab-active);
+		--tab-background-color: var(--clr-stack-tab-active);
 
 		&::after {
 			transform: translateY(0);
@@ -157,6 +158,17 @@
 
 	/* MENU AND TRUNCATION */
 
+	.truncation-gradient {
+		width: var(--truncation-gradient-width);
+		transform-origin: right;
+		height: 100%;
+		background: linear-gradient(
+			to right,
+			oklch(from var(--truncation-gradient-color) l c h / 0) 0%,
+			var(--truncation-gradient-color) var(--truncation-gradient-stop)
+		);
+	}
+
 	.menu-wrapper {
 		position: absolute;
 		top: 0;
@@ -167,16 +179,14 @@
 		align-items: center;
 		height: 100%;
 		opacity: var(--tab-menu-opacity);
-		background-color: var(--current-truncation-gradient-color);
+		background-color: var(--truncation-gradient-color);
 
 		& .truncation-gradient {
 			position: absolute;
 			top: 0;
 			left: 0;
 			transform: translateX(-100%);
-
 			/* background-color: red; */
-			/* width: var(--truncation-gradient-width-short); */
 		}
 	}
 
@@ -190,16 +200,15 @@
 		width: var(--truncation-gradient-width);
 		height: 100%;
 		/* background-color: rgba(0, 255, 0, 0.2); */
-	}
 
-	.truncation-gradient {
-		width: var(--truncation-gradient-width);
-		height: 100%;
-		background: linear-gradient(
-			to right,
-			oklch(from var(--current-truncation-gradient-color) l c h / 0) 0%,
-			var(--current-truncation-gradient-color) 80%
-		);
+		& .truncation-gradient {
+			position: absolute;
+			top: 0;
+			left: 0;
+			transform: scaleX(1.5);
+			--truncation-gradient-stop: 60%;
+			/* background-color: blue; */
+		}
 	}
 
 	/* HOVERS AND STATES */
@@ -208,8 +217,8 @@
 	.tab:not(.selected):hover {
 		outline: none;
 		--tab-menu-opacity: 1;
-		--current-truncation-gradient-color: var(--clr-stack-tab-inactive-hover);
-		--current-tab-background-color: var(--clr-stack-tab-inactive-hover);
+		--truncation-gradient-color: var(--clr-stack-tab-inactive-hover);
+		--tab-background-color: var(--clr-stack-tab-inactive-hover);
 
 		&::after {
 			background: var(--clr-text-3);
@@ -227,13 +236,13 @@
 
 	.tab:not(.selected):active,
 	.tab:not(.selected):focus {
-		--current-truncation-gradient-color: var(--clr-stack-tab-inactive-hover);
-		--current-tab-background-color: var(--clr-stack-tab-inactive-hover);
+		--truncation-gradient-color: var(--clr-stack-tab-inactive-hover);
+		--tab-background-color: var(--clr-stack-tab-inactive-hover);
 	}
 
 	.tab.selected:active,
 	.tab.selected:focus {
-		--current-truncation-gradient-color: var(--clr-stack-tab-active);
-		--current-tab-background-color: var(--clr-stack-tab-active);
+		--truncation-gradient-color: var(--clr-stack-tab-active);
+		--tab-background-color: var(--clr-stack-tab-active);
 	}
 </style>
