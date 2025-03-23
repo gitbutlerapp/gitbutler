@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import { writeClipboard } from '$lib/backend/clipboard';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { BranchStack } from '$lib/branches/branch';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -17,7 +18,6 @@
 	} from '$lib/upstream/types';
 	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -221,7 +221,7 @@
 								author={commit.author.name}
 								url={commitUrl}
 								onOpen={(url) => openExternalUrl(url)}
-								onCopy={() => copyToClipboard(commit.id)}
+								onCopy={() => writeClipboard(commit.id)}
 							/>
 						{/each}
 					</ScrollableContainer>

@@ -1,8 +1,8 @@
 <script lang="ts">
+	import { writeClipboard } from '$lib/backend/clipboard';
 	import { GitHubUserService } from '$lib/forge/github/githubUserService';
 	import { UserService } from '$lib/user/userService';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -141,7 +141,7 @@
 						icon="copy"
 						disabled={codeCopied}
 						onclick={() => {
-							copyToClipboard(userCode);
+							writeClipboard(userCode);
 							codeCopied = true;
 						}}
 					>

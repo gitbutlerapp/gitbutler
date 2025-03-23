@@ -2,6 +2,7 @@
 	import BranchFilesHeader from '$components/BranchFilesHeader.svelte';
 	import FileListItemWrapper from '$components/FileListItemWrapper.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
+	import { writeClipboard } from '$lib/backend/clipboard';
 	import { SelectedOwnership, updateOwnership } from '$lib/branches/ownership';
 	import { getCommitStore } from '$lib/commits/contexts';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
@@ -10,7 +11,6 @@
 	import { chunk } from '$lib/utils/array';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { updateSelection } from '$lib/utils/selection';
-	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
@@ -120,7 +120,7 @@
 			<Button
 				icon="copy"
 				kind="outline"
-				onmousedown={() => copyToClipboard(MERGE_DIFF_COMMAND + $commit.id.slice(0, 7))}
+				onmousedown={() => writeClipboard(MERGE_DIFF_COMMAND + $commit.id.slice(0, 7))}
 			/>
 		</div>
 	</div>

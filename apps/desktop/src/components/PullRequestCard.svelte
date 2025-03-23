@@ -2,13 +2,13 @@
 	import ChecksPolling from '$components/ChecksPolling.svelte';
 	import MergeButton from '$components/MergeButton.svelte';
 	import PullRequestPolling from '$components/PullRequestPolling.svelte';
+	import { writeClipboard } from '$lib/backend/clipboard';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Badge from '@gitbutler/ui/Badge.svelte';
@@ -166,7 +166,7 @@
 		<ContextMenuItem
 			label="Copy link"
 			onclick={() => {
-				copyToClipboard(pr.htmlUrl);
+				writeClipboard(pr.htmlUrl);
 				contextMenuEl?.close();
 			}}
 		/>
@@ -197,7 +197,7 @@
 			<ContextMenuItem
 				label="Copy checks"
 				onclick={() => {
-					copyToClipboard(`${pr.htmlUrl}/checks`);
+					writeClipboard(`${pr.htmlUrl}/checks`);
 					contextMenuEl?.close();
 				}}
 			/>

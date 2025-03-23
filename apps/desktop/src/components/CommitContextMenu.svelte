@@ -1,10 +1,10 @@
 <script lang="ts">
+	import { writeClipboard } from '$lib/backend/clipboard';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import { type Commit, type DetailedCommit } from '$lib/commits/commit';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -97,7 +97,7 @@
 			<ContextMenuItem
 				label="Copy commit link"
 				onclick={() => {
-					copyToClipboard(commitUrl);
+					writeClipboard(commitUrl);
 					menu?.close();
 				}}
 			/>
@@ -105,7 +105,7 @@
 		<ContextMenuItem
 			label="Copy commit message"
 			onclick={() => {
-				copyToClipboard(commit.description);
+				writeClipboard(commit.description);
 				menu?.close();
 			}}
 		/>

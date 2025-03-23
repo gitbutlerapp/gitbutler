@@ -1,10 +1,10 @@
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
+import { writeClipboard } from '$lib/backend/clipboard';
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { User } from '$lib/user/user';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
-import { copyToClipboard } from '@gitbutler/shared/clipboard';
 import { type HttpClient } from '@gitbutler/shared/network/httpClient';
 import { plainToInstance } from 'class-transformer';
 import { derived, get, readable, writable, type Readable } from 'svelte/store';
@@ -119,7 +119,7 @@ export class UserService {
 	async loginAndCopyLink(aborted: Readable<boolean> = readable(false)): Promise<User | undefined> {
 		return await this.loginCommon((url) => {
 			setTimeout(() => {
-				copyToClipboard(url);
+				writeClipboard(url);
 			}, 0);
 		}, aborted);
 	}
