@@ -10,14 +10,15 @@ Even if a sibling import (IE `./foo`) is used, if it could be accessed via a pat
 
 ## The `paths` format
 
-It should be noted that the current implementation does not try to handle all the possible `paths` entries. Instead it handles the two common cases:
+It should be noted that the current implementation does not try to handle all the possible `paths` entries. Instead it handles the three common cases:
 
 ```json
 {
 	"compilerOptions": {
 		"paths": {
 			"$lib": "./lib", // Without glob. IE pointing directly to a file
-			"$lib/*": "./lib/*" // With glob, IE anything starting in $lib/
+			"$lib/*": "./lib/*", // Both with glob, IE anything starting in ./lib/... results in $lib/...
+			"$lib": "./lib/*" // Path with, IE anything starting in ./lib/... results in $lib
 		}
 	}
 }

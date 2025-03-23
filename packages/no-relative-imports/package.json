@@ -1,6 +1,6 @@
 {
 	"name": "@gitbutler/no-relative-imports",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"license": "MIT",
 	"private": false,
 	"description": "An ESLint rule for non-relative imports in TypeScript",
@@ -17,16 +17,14 @@
 		"eslint": ">=9.0.0"
 	},
 	"devDependencies": {
-		"typescript": "5.4.5"
+		"typescript": "5.4.5",
+		"vitest": "catalog:"
 	},
 	"scripts": {
-		"package": "tsc"
+		"package": "tsc",
+		"test": "vitest run"
 	},
 	"exports": {
-		"./*": {
-			"import": "./dist/*.js",
-			"types": "./dist/*.d.ts"
-		},
 		".": {
 			"import": "./dist/index.js",
 			"types": "./dist/index.d.ts"
