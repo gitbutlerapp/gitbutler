@@ -1,9 +1,9 @@
 <script lang="ts">
+	import { writeClipboard } from '$lib/backend/clipboard';
 	import { isCommit, type Commit, type UpstreamCommit } from '$lib/branches/v3';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UserService } from '$lib/user/userService';
-	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -76,7 +76,7 @@
 			class="commit-sha-btn"
 			onclick={(e) => {
 				e.stopPropagation();
-				copyToClipboard(commit.id);
+				writeClipboard(commit.id);
 			}}
 		>
 			<span>{commitShortSha}</span>

@@ -1,6 +1,6 @@
 <script lang="ts">
+	import { writeClipboard } from '$lib/backend/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
 
@@ -19,7 +19,7 @@
 			<button
 				type="button"
 				class="error-series__message--copy"
-				onclick={() => copyToClipboard(error.message)}
+				onclick={() => writeClipboard(error.message)}
 			>
 				<Icon name="copy-small" />
 			</button>

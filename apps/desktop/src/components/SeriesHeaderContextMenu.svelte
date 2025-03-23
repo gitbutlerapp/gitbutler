@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { AIService } from '$lib/ai/service';
+	import { writeClipboard } from '$lib/backend/clipboard';
 	import { BranchController } from '$lib/branches/branchController';
 	import { type CommitStatus } from '$lib/commits/commit';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { Project } from '$lib/project/project';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
@@ -125,7 +125,7 @@
 		<ContextMenuItem
 			label="Copy branch name"
 			onclick={() => {
-				copyToClipboard(headName);
+				writeClipboard(headName);
 				contextMenuEl?.close();
 			}}
 		/>
@@ -178,7 +178,7 @@
 			<ContextMenuItem
 				label="Copy PR link"
 				onclick={() => {
-					copyToClipboard(pr.htmlUrl);
+					writeClipboard(pr.htmlUrl);
 					contextMenuEl?.close();
 				}}
 			/>
