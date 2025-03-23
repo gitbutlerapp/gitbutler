@@ -6,10 +6,11 @@
 		icon: keyof typeof iconsJson;
 		activated?: boolean;
 		tooltip: string;
-		onclick: () => void;
+		onclick: (e: MouseEvent) => void;
+		disabled?: boolean;
 	}
 
-	const { icon, activated, tooltip, onclick }: Props = $props();
+	const { icon, activated, tooltip, onclick, disabled }: Props = $props();
 </script>
 
 <Button
@@ -18,6 +19,7 @@
 	kind="ghost"
 	{icon}
 	{activated}
+	{disabled}
 	{onclick}
 	{tooltip}
 	tooltipDelay={500}

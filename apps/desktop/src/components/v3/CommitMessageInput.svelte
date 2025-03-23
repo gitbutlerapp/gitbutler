@@ -7,6 +7,7 @@
 
 	type Props = {
 		projectId: string;
+		stackId: string;
 		actionLabel: string;
 		action: () => void;
 		onCancel: () => void;
@@ -18,6 +19,7 @@
 
 	const {
 		projectId,
+		stackId,
 		actionLabel,
 		action,
 		onCancel,
@@ -46,7 +48,13 @@
 
 <div class="commit-message-input">
 	<Textbox bind:value={titleText} placeholder="Commit title" />
-	<MessageEditor bind:this={composer} bind:markdown={$markdown} {initialValue} />
+	<MessageEditor
+		bind:this={composer}
+		bind:markdown={$markdown}
+		{initialValue}
+		{projectId}
+		{stackId}
+	/>
 </div>
 <EditorFooter {onCancel}>
 	<Button style="pop" onclick={action} disabled={disabledAction} {loading} width={126}

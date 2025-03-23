@@ -63,3 +63,8 @@ export interface Prompts {
 	defaultPrompt: Prompt;
 	userPrompts: Persisted<UserPrompt[]>;
 }
+
+export type FileChange = {
+	path: string;
+	diffs: string[];
+};

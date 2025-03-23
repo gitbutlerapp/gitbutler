@@ -80,6 +80,7 @@
 	<CommitMessageInput
 		bind:this={input}
 		{projectId}
+		{stackId}
 		actionLabel="Create commit"
 		action={hanldleCommitCreation}
 		onCancel={cancel}
