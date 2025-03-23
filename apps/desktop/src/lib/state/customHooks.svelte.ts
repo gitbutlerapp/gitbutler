@@ -16,6 +16,8 @@ import type { TauriCommandError } from '$lib/state/backendQuery';
 import type { CustomQuery } from '$lib/state/butlerModule';
 import type { HookContext } from '$lib/state/context';
 
+type TranformerFn = (data: any, args: any) => any;
+
 /**
  * Returns implementations for custom endpoint methods defined in `ButlerModule`.
  */
@@ -33,7 +35,7 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 
 	const { initiate, select } = endpoint as ApiEndpointQuery<CustomQuery<any>, Definitions>;
 
-	async function fetch<T extends (arg: any) => any>(
+	async function fetch<T extends TranformerFn>(
 		queryArg: unknown,
 		options?: { transform?: T; forceRefetch?: boolean }
 	) {
@@ -47,7 +49,7 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 		return result;
 	}
 
-	function useQuery<T extends (arg: any) => any>(
+	function useQuery<T extends TranformerFn>(
 		queryArg: unknown,
 		options?: { transform?: T } & StartQueryActionCreatorOptions
 	) {
@@ -70,16 +72,53 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 		return result;
 	}
 
-	function useQueryState<T extends (arg: any) => any>(
-		queryArg: unknown,
-		options?: { transform?: T }
+	function useQueries<T extends TranformerFn>(
+		queryArgs: unknown[],
+		options?: { transform?: T } & StartQueryActionCreatorOptions
 	) {
+		const dispatch = getDispatch();
+		let subscriptions: QueryActionCreatorResult<any>[];
+		$effect(() => {
+			// eslint-disable-next-line @typescript-eslint/promise-function-async
+			subscriptions = queryArgs.map((queryArg) =>
+				dispatch(
+					initiate(queryArg, {
+						subscribe: options?.subscribe,
+						subscriptionOptions: options?.subscriptionOptions,
+						forceRefetch: options?.forceRefetch
+					})
+				)
+			);
+			return () => {
+				subscriptions.forEach((subscription) => subscription.unsubscribe());
+			};
+		});
+
+		const results = queryArgs.map((queryArg) => {
+			const selector = $derived(select(queryArg));
+			const result = $derived(selector(state()));
+			const output = $derived.by(() => {
+				let data = result.data;
+				if (options?.transform && data) {
+					data = options.transform(data, queryArg);
+				}
+				return {
+					...result,
+					data
+				};
+			});
+			return output;
+		});
+		return reactive(() => results);
+	}
+
+	function useQueryState<T extends TranformerFn>(queryArg: unknown, options?: { transform?: T }) {
 		const selector = $derived(select(queryArg));
 		const result = $derived(selector(state()));
 		const output = $derived.by(() => {
 			let data = result.data;
 			if (options?.transform && data) {
-				data = options.transform(data);
+				data = options.transform(data, queryArg);
 			}
 			return {
 				...result,
@@ -92,7 +131,8 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 	return {
 		fetch,
 		useQuery,
-		useQueryState
+		useQueryState,
+		useQueries
 	};
 }
 

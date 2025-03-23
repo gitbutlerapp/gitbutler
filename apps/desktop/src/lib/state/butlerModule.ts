@@ -87,7 +87,7 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 				injectEndpoint(endpointName, definition) {
 					const endpoint = anyApi.endpoints[endpointName]!; // Known to exist.
 					if (isQueryDefinition(definition)) {
-						const { fetch, useQuery, useQueryState } = buildQueryHooks({
+						const { fetch, useQuery, useQueryState, useQueries } = buildQueryHooks({
 							endpointName,
 							api,
 							ctx
@@ -95,6 +95,7 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 						endpoint.fetch = fetch;
 						endpoint.useQuery = useQuery;
 						endpoint.useQueryState = useQueryState;
+						endpoint.useQueries = useQueries;
 					} else if (isMutationDefinition(definition)) {
 						const { mutate, useMutation } = buildMutationHooks({
 							endpointName,
@@ -156,7 +157,10 @@ type CustomArgs = any;
  * having two is to be able to use `EntityAdapter`, and then select items
  * using the built-in selectors.
  */
-type Transformer<T extends CustomQuery<any>> = (arg: ResultTypeFrom<T>) => unknown;
+type Transformer<T extends CustomQuery<any>> = (
+	queryResult: ResultTypeFrom<T>,
+	queryArgs: QueryArgFrom<T>
+) => unknown;
 
 /**
  * We need a default transformer because of some typescript weirdness that
@@ -164,7 +168,10 @@ type Transformer<T extends CustomQuery<any>> = (arg: ResultTypeFrom<T>) => unkno
  * call. It works largely the same, except that you must explicitly specify
  * the transformer argument type to avoid inference errors.
  */
-type DefaultTransformer<T extends CustomQuery<any>> = (arg: ResultTypeFrom<T>) => ResultTypeFrom<T>;
+type DefaultTransformer<T extends CustomQuery<any>> = (
+	queryResult: ResultTypeFrom<T>,
+	queryArgs: QueryArgFrom<T>
+) => ResultTypeFrom<T>;
 
 /**
  * A custom defintion of our queries since it needs to be referenced in a few
@@ -204,6 +211,12 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 		options?: { transform?: T }
 	) => Reactive<
 		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>
+	>;
+	useQueries: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
+		queryArgs: QueryArgFrom<D>[],
+		options?: { transform?: T } & StartQueryActionCreatorOptions
+	) => Reactive<
+		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>[]
 	>;
 };
 
