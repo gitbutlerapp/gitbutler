@@ -1,3 +1,7 @@
+<script lang="ts" module>
+	type A = unknown;
+</script>
+
 <script lang="ts" generics="A">
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
@@ -16,10 +20,8 @@
 		empty?: Snippet;
 	};
 
-	// eslint-disable-next-line no-undef
 	const { result, children }: Props<A> = $props();
 
-	// eslint-disable-next-line no-undef
 	let dataCopy: undefined | Result<A>['data'] = $state(result?.data);
 
 	/**
