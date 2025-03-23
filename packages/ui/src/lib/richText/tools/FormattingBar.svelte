@@ -5,9 +5,11 @@
 
 	type Props = {
 		formatter: ReturnType<typeof Formatter> | undefined;
+		onAiButtonClick: (e: MouseEvent) => void;
+		canUseAI: boolean;
 	};
 
-	let { formatter = $bindable() }: Props = $props();
+	let { formatter = $bindable(), onAiButtonClick, canUseAI }: Props = $props();
 
 	let slideWidth = $state(0);
 	let isSecondSlide = $state(false);
@@ -55,10 +57,11 @@
 					<div class="formatting-bar__group">
 						<FormattingButton
 							icon="ai"
-							tooltip="Generate message"
-							onclick={() => {
-								// TODO: Implement AI slash command
-							}}
+							tooltip={canUseAI
+								? 'AI options'
+								: 'You need to enable AI in the project settings to use this feature'}
+							disabled={!canUseAI}
+							onclick={onAiButtonClick}
 						/>
 						<FormattingButton
 							icon="slash-commands"
