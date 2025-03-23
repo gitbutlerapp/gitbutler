@@ -257,3 +257,20 @@
 	background: var(--clr-theme-pop-bg-muted);
 	color: var(--clr-theme-pop-on-soft);
 }
+
+@keyframes ghost-transition-fly {
+	0% {
+		transform: translateY(3px);
+		opacity: 0;
+	}
+	100% {
+		transform: translateY(0);
+		opacity: 0.5;
+	}
+}
+
+.ghost-text {
+	display: inline-block;
+	opacity: 0;
+	animation: ghost-transition-fly 300ms forwards ease-in-out;
+}
