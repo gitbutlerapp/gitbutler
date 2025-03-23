@@ -34,7 +34,7 @@
 <Drawer bind:this={drawer} {projectId} {stackId}>
 	<EditorHeader title="New Butler review" bind:markdown={$markdown} />
 	<TitleInput bind:value={titleText} />
-	<MessageEditor bind:this={composer} bind:markdown={$markdown} />
+	<MessageEditor bind:this={composer} bind:markdown={$markdown} {projectId} {stackId} />
 	<EditorFooter onCancel={cancel}>
 		<Button style="pop" onclick={createPr} wide>Create Butler review</Button>
 	</EditorFooter>

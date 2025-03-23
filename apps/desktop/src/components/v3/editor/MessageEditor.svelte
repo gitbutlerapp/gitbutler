@@ -1,16 +1,66 @@
 <script lang="ts">
+	import AiContextMenu from '$components/v3/editor/AIContextMenu.svelte';
+	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
+	import { AIService } from '$lib/ai/service';
+	import { projectAiGenEnabled } from '$lib/config/config';
+	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { showError } from '$lib/notifications/toasts';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
+	import { inject } from '@gitbutler/shared/context';
+	import { debouncePromise } from '@gitbutler/shared/utils/misc';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
+	import GhostTextPlugin from '@gitbutler/ui/richText/plugins/GhostText.svelte';
 	import GiphyPlugin from '@gitbutler/ui/richText/plugins/GiphyPlugin.svelte';
 	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
+		projectId: string;
+		stackId: string;
 		markdown: boolean;
 		initialValue?: string;
 	}
 
-	let { markdown = $bindable(), initialValue }: Props = $props();
+	let { markdown = $bindable(), projectId, initialValue }: Props = $props();
+
+	const [aiService, idSelection, worktreeService, diffService] = inject(
+		AIService,
+		IdSelection,
+		WorktreeService,
+		DiffService
+	);
+
+	const aiGenEnabled = projectAiGenEnabled(projectId);
+	let aiConfigurationValid = $state(false);
+	const suggestionsHandler = new CommitSuggestions(aiService);
+	const selection = $derived(idSelection.values());
+	const selectionPaths = $derived(
+		selection.map((item) => (item.type === 'worktree' ? item.path : undefined)).filter(isDefined)
+	);
+
+	const changes = $derived(worktreeService.getChangesById(projectId, selectionPaths));
+	const treeChanges = $derived(changes?.current.data);
+	const changeDiffsResponse = $derived(
+		treeChanges ? diffService.getChanges(projectId, treeChanges) : undefined
+	);
+	const changeDiffs = $derived(
+		changeDiffsResponse?.current.map((item) => item.data).filter(isDefined) ?? []
+	);
+
+	$effect(() => {
+		aiService.validateConfiguration().then((valid) => {
+			aiConfigurationValid = valid;
+		});
+	});
+
+	$effect(() => {
+		suggestionsHandler.setStagedChanges(changeDiffs);
+	});
+
+	const canUseAI = $derived($aiGenEnabled && aiConfigurationValid);
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
 	let formatter = $state<ReturnType<typeof Formatter>>();
@@ -18,7 +68,32 @@
 	export async function getPlaintext(): Promise<string | undefined> {
 		return composer?.getPlaintext();
 	}
+
+	async function handleChange(text: string) {
+		await suggestionsHandler.onChange(text);
+	}
+
+	const debouncedHandleChange = debouncePromise(handleChange, 500);
+
+	function handleKeyDown(event: KeyboardEvent | null) {
+		return suggestionsHandler.onKeyDown(event);
+	}
+
+	let aiButton = $state<HTMLElement>();
+	let aiContextMenu = $state<ReturnType<typeof ContextMenu>>();
+
+	function onAiButtonClick(e: MouseEvent) {
+		aiButton = e.currentTarget as HTMLElement;
+		aiContextMenu?.toggle();
+	}
 </script>
+
+<AiContextMenu
+	bind:menu={aiContextMenu}
+	leftClickTrigger={aiButton}
+	onTypeSuggestions={suggestionsHandler.suggestOnType}
+	toggleOnTypeSuggestions={() => suggestionsHandler.toggleSuggestOnType()}
+/>
 
 <div class="editor-wrapper">
 	<div class="editor-header">
@@ -40,7 +115,7 @@
 				}}>Rich-text Editor</button
 			>
 		</div>
-		<FormattingBar bind:formatter />
+		<FormattingBar bind:formatter {onAiButtonClick} {canUseAI} />
 	</div>
 
 	<div role="presentation" class="message-editor-wrapper">
@@ -52,9 +127,16 @@
 			{markdown}
 			onError={(e) => showError('Editor error', e)}
 			initialText={initialValue}
+			onChange={debouncedHandleChange}
+			onKeyDown={handleKeyDown}
 		>
 			{#snippet plugins()}
 				<Formatter bind:this={formatter} />
+				<GiphyPlugin />
+				<GhostTextPlugin
+					bind:this={suggestionsHandler.ghostTextComponent}
+					onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
+				/>
 				<GiphyPlugin />
 			{/snippet}
 		</RichTextEditor>

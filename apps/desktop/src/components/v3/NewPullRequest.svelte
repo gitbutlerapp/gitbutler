@@ -35,7 +35,7 @@
 <Drawer bind:this={drawer} {projectId} {stackId}>
 	<EditorHeader title="New pull request" bind:markdown={$markdown} />
 	<TitleInput bind:value={titleText} />
-	<MessageEditor bind:this={composer} bind:markdown={$markdown} />
+	<MessageEditor bind:this={composer} bind:markdown={$markdown} {projectId} {stackId} />
 	<EditorFooter onCancel={cancel}>
 		<Button style="pop" onclick={createPr} wide>Create pull request</Button>
 	</EditorFooter>

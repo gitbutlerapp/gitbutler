@@ -86,6 +86,7 @@
 				<CommitMessageInput
 					bind:this={commitMessageInput}
 					{projectId}
+					{stackId}
 					action={editCommitMessage}
 					actionLabel="Save"
 					onCancel={() => setMode('view')}
