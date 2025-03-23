@@ -139,7 +139,7 @@
 	let cloudFeatureFlag = $derived($user?.role === 'admin');
 </script>
 
-{#if $userLogin}
+{#if $user}
 	<Section>
 		<SectionCard orientation="row" labelFor="serverFeatures">
 			{#snippet title()}

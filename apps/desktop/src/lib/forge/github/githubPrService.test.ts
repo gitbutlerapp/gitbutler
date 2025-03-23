@@ -19,7 +19,8 @@ describe('GitHubPrService', () => {
 				owner: 'test-owner'
 			},
 			baseBranch: 'main',
-			gitHubApi
+			gitHubApi,
+			authenticated: true
 		});
 		service = gh.prService;
 	});

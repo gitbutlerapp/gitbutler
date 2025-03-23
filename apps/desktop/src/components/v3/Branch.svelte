@@ -151,7 +151,9 @@
 						}}
 						openPrDetailsModal={() => {}}
 						hasForgeBranch={!!forgeBranch}
-						onCreateNewPr={async () => uiState.project(projectId).drawerPage.set('pr')}
+						onCreateNewPr={async () => {
+							uiState.project(projectId).drawerPage.current = 'review';
+						}}
 						branchType={commit?.state.type || 'LocalOnly'}
 						onMenuToggle={(isOpen, isLeftClick) => {
 							if (isLeftClick) {

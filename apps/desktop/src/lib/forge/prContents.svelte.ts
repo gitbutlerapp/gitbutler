@@ -1,5 +1,6 @@
+import { splitMessage } from '$lib/utils/commitMessage';
 import { getEphemeralStorageItem, setEphemeralStorageItem } from '@gitbutler/shared/persisted';
-import type { DetailedCommit } from '$lib/commits/commit';
+import type { Commit } from '$lib/branches/v3';
 
 const PERSITANCE_TIME_MIN = 5;
 
@@ -48,9 +49,8 @@ export class ReactivePRTitle {
 
 	constructor(
 		private projectId: string,
-		private isDisplay: boolean,
 		private existingTitle: string | undefined,
-		private commits: DetailedCommit[],
+		private commits: Commit[],
 		private branchName: string
 	) {
 		const persistedTitle = getPersistedPRTitle(projectId, branchName);
@@ -58,11 +58,10 @@ export class ReactivePRTitle {
 	}
 
 	private getDefaultTitle(): string {
-		if (this.isDisplay) return this.existingTitle ?? '';
 		// In case of a single commit, use the commit summary for the title
 		if (this.commits.length === 1) {
-			const commit = this.commits[0];
-			return commit?.descriptionTitle ?? '';
+			const commit = this.commits[0]!;
+			return splitMessage(commit.message).title;
 		}
 		return this.branchName;
 	}
@@ -82,10 +81,9 @@ export class ReactivePRBody {
 
 	constructor(
 		private projectId: string,
-		private isDisplay: boolean,
 		private branchDescription: string | undefined,
 		private existingBody: string | undefined,
-		private commits: DetailedCommit[],
+		private commits: Commit[],
 		private templateBody: string | undefined,
 		private branchName: string
 	) {
@@ -94,13 +92,12 @@ export class ReactivePRBody {
 	}
 
 	getDefaultBody(): string {
-		if (this.isDisplay) return this.existingBody ?? '';
 		if (this.branchDescription) return this.branchDescription;
 		if (this.templateBody) return this.templateBody;
 		// In case of a single commit, use the commit description for the body
 		if (this.commits.length === 1) {
-			const commit = this.commits[0];
-			return commit?.descriptionBody ?? '';
+			const commit = this.commits[0]!;
+			return splitMessage(commit.message).description;
 		}
 		return '';
 	}

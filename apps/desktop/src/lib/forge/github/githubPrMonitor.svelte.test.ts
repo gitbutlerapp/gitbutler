@@ -30,7 +30,8 @@ describe.concurrent('GitHubPrMonitor', () => {
 				owner: 'test-owner'
 			},
 			baseBranch: 'test-branch',
-			gitHubApi
+			gitHubApi,
+			authenticated: true
 		});
 		service = gh.prService;
 		monitor = new GitHubPrMonitor(service, 123);

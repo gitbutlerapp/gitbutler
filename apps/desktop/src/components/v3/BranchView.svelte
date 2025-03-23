@@ -69,7 +69,7 @@
 							</div>
 						</div>
 
-						<BranchReview openForgePullRequest={() => {}} {stackId} {projectId} {branchName} />
+						<BranchReview {stackId} {projectId} {branchName} />
 
 						<ChangedFiles type="branch" {projectId} {stackId} {branchName} />
 					</div>
