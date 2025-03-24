@@ -17,8 +17,8 @@
 		This section contains a list of feature flags for features that are still in development or in
 	</p>
 
-	{#if $user?.role === 'admin'}
-		<div class="experimental-settings__toggles">
+	<div class="experimental-settings__toggles">
+		{#if $user?.role === 'admin'}
 			<SectionCard orientation="row" centerAlign>
 				{#snippet title()}
 					v3 Design
@@ -36,8 +36,8 @@
 					/>
 				{/snippet}
 			</SectionCard>
-		</div>
-	{/if}
+		{/if}
+	</div>
 </SettingsPage>
 
 <style>

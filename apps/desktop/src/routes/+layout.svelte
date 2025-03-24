@@ -28,6 +28,7 @@
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { GitHubClient } from '$lib/forge/github/githubClient';
 	import { GitHubUserService } from '$lib/forge/github/githubUserService';
+	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { platformName } from '$lib/platform/platform';
@@ -82,12 +83,14 @@
 	const appState = new AppState();
 
 	const github = new GitHubClient();
+	const gitlab = new GitLabClient();
 	setContext(GitHubClient, github);
+	setContext(GitLabClient, gitlab);
 	const user = data.userService.user;
 	const accessToken = $derived($user?.github_access_token);
 	$effect(() => github.setToken(accessToken));
 
-	const clientState = new ClientState(data.tauri, github);
+	const clientState = new ClientState(data.tauri, github, gitlab);
 
 	const changeSelection = $derived(clientState.changeSelection);
 	const changeSelectionService = new ChangeSelectionService(
@@ -131,6 +134,7 @@
 
 	const forgeFactory = new DefaultForgeFactory(
 		clientState['githubApi'],
+		clientState['gitlabApi'],
 		data.posthog,
 		data.projectMetrics
 	);

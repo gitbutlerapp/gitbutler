@@ -9,6 +9,17 @@ export function reactive<T>(fn: () => T): Reactive<T> {
 	};
 }
 
+export function writableReactive<T>(get: () => T, set: (_: T) => void): Reactive<T> {
+	return {
+		get current() {
+			return get();
+		},
+		set current(value: T) {
+			set(value);
+		}
+	};
+}
+
 export function readableToReactive<T>(readable?: Readable<T>): Reactive<T | undefined> {
 	let current = $state<T | undefined>(readable ? get(readable) : undefined);
 

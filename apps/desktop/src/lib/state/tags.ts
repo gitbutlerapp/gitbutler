@@ -9,6 +9,7 @@ export enum ReduxTag {
 	CommitChanges = 'CommitChanges',
 	BranchChanges = 'BranchChanges',
 	PullRequests = 'PullRequests',
+	GitLabPullRequests = 'GitLabPullRequests',
 	Checks = 'Checks',
 	RepoInfo = 'RepoInfo'
 }

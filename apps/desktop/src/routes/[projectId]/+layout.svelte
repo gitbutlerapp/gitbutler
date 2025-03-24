@@ -21,6 +21,8 @@
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { GitHubClient } from '$lib/forge/github/githubClient';
+	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
+	import { GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { BrToPrService } from '$lib/forge/shared/prFooter';
 	import { TemplateService } from '$lib/forge/templateService';
 	import { HistoryService } from '$lib/history/history';
@@ -30,6 +32,7 @@
 	import { Project } from '$lib/project/project';
 	import { projectCloudSync } from '$lib/project/projectCloudSync.svelte';
 	import { ProjectService } from '$lib/project/projectService';
+	import { getSecretsService } from '$lib/secrets/secretsService';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
 	import { debounce } from '$lib/utils/debounce';
@@ -60,6 +63,21 @@
 		posthog,
 		projectMetrics
 	} = $derived(data);
+
+	const secretService = getSecretsService();
+	const gitLabState = $derived(new GitLabState(secretService, projectId));
+	$effect(() => {
+		setContext(GitLabState, gitLabState);
+	});
+
+	const gitLabClient = getContext(GitLabClient);
+	$effect(() => {
+		gitLabClient.set(
+			gitLabState.gitlabProjectId.current,
+			gitLabState.token.current,
+			gitLabState.instanceUrl.current
+		);
+	});
 
 	const branchesError = $derived(vbranchService.branchesError);
 	const baseBranch = $derived(baseBranchService.base);
@@ -156,7 +174,8 @@
 			repo: $repoInfo,
 			pushRepo: $forkInfo,
 			baseBranch: baseBranchName,
-			githubAuthenticated: !!$user?.github_access_token
+			githubAuthenticated: !!$user?.github_access_token,
+			gitlabAuthenticated: !!gitLabState.configured.current
 		});
 	});
 

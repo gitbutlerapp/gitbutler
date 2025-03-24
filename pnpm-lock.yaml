@@ -109,6 +109,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@gitbeaker/rest':
+        specifier: ^42.2.0
+        version: 42.2.0
       '@tauri-apps/plugin-clipboard-manager':
         specifier: ^2.2.1
         version: 2.2.1
@@ -1476,6 +1479,18 @@ packages:
     resolution: {integrity: sha512-hbJZo40EcrlsucX0vyXJXFA+cQ8P64vnHZLrjxdK03WEhmKsV3/6if928RVl8KI6wpzSi0vkPUbxJMbFNLlnWw==}
     peerDependencies:
       svelte: ^3.59.1
+
+  '@gitbeaker/core@42.2.0':
+    resolution: {integrity: sha512-pUFESP5I0/f2bqSNXuI+pM+ZdpipFexIscywTw2M6+N1L4z5hH+ww9KHVl7EdE0r046ZFsVLu4MukQipWCKfLg==}
+    engines: {node: '>=18.20.0'}
+
+  '@gitbeaker/requester-utils@42.2.0':
+    resolution: {integrity: sha512-8p9N2apidpUNwodRWT5/WjfIS9pKJBcoRAud4+qvvRNX99SO3sn9YVDEfA3eIjBHsc7E9soVhGQvvRV2HSP+JA==}
+    engines: {node: '>=18.20.0'}
+
+  '@gitbeaker/rest@42.2.0':
+    resolution: {integrity: sha512-d7LDVuu85/HNVSQajajfTpgDJNaX+/KICyV+Q8mKW8tVTK4K61OTfS05Q0XI4JFHxHNAB1sF+OnvR3C6/jQAJA==}
+    engines: {node: '>=18.20.0'}
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -5978,6 +5993,10 @@ packages:
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
 
+  picomatch-browser@2.2.6:
+    resolution: {integrity: sha512-0ypsOQt9D4e3hziV8O4elD9uN0z/jtUEfxVRtNaAAtXIyUx9m/SzlO020i8YNL2aL/E6blOvvHQcin6HZlFy/w==}
+    engines: {node: '>=8.6'}
+
   picomatch@2.3.1:
     resolution: {integrity: sha512-JU3teHTNjmE2VCGFzuY8EXzCDVwEqB2a8fsIvwaStHhAWJEeVd1o1QD80CU6+ZdEXXSLbSsuLwJjkCBWqRQUVA==}
     engines: {node: '>=8.6'}
@@ -6214,6 +6233,10 @@ packages:
     resolution: {integrity: sha512-ArbnyA3U5SGHokEvkfWjW+O8hOxV1RSJxOgriX/3A4xZRqixt9ZFHD0yPgZQF05Qj0oAqi8H/7stDorjoHY90Q==}
     engines: {node: '>=16.13.2'}
 
+  qs@6.14.0:
+    resolution: {integrity: sha512-YWWTjgABSKcvs/nWBi9PycY/JiPJqOD4JA6o9Sej2AtvSGarXxKC3OQSk4pAarbdQlKAh5D4FCQkJNkW+GAn3w==}
+    engines: {node: '>=0.6'}
+
   query-selector-shadow-dom@1.0.1:
     resolution: {integrity: sha512-lT5yCqEBgfoMYpf3F2xQRK7zEr1rhIIZuceDK6+xRkJQ4NMbHTwXqk4NkwDwQMNqXgG9r9fyHnzwNVs6zV5KRw==}
 
@@ -6232,6 +6255,9 @@ packages:
 
   randombytes@2.1.0:
     resolution: {integrity: sha512-vYl3iOX+4CKUWuxGi9Ukhie6fsqXqS9FE2Zaic4tNFD2N2QQaXOMFbuKK4QmDHC0JO6B1Zp41J0LpT0oR68amQ==}
+
+  rate-limiter-flexible@4.0.1:
+    resolution: {integrity: sha512-2/dGHpDFpeA0+755oUkW+EKyklqLS9lu0go9pDsbhqQjZcxfRyJ6LA4JI0+HAdZ2bemD/oOjUeZQB2lCZqXQfQ==}
 
   react-dom@18.3.1:
     resolution: {integrity: sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==}
@@ -7565,6 +7591,9 @@ packages:
       utf-8-validate:
         optional: true
 
+  xcase@2.0.1:
+    resolution: {integrity: sha512-UmFXIPU+9Eg3E9m/728Bii0lAIuoc+6nbrNUKaRPJOFp91ih44qqGlWtxMB6kXFrRD6po+86ksHM5XHCfk6iPw==}
+
   xml-name-validator@5.0.0:
     resolution: {integrity: sha512-EvGK8EJ3DhaHfbRlETOWAS5pO9MZITeauHKJyb8wyajUfQUenkIg2MvLDTZ4T/TgIcm3HU0TFBgWWboAZ30UHg==}
     engines: {node: '>=18'}
@@ -8384,6 +8413,24 @@ snapshots:
       throttle-debounce: 5.0.0
     transitivePeerDependencies:
       - supports-color
+
+  '@gitbeaker/core@42.2.0':
+    dependencies:
+      '@gitbeaker/requester-utils': 42.2.0
+      qs: 6.14.0
+      xcase: 2.0.1
+
+  '@gitbeaker/requester-utils@42.2.0':
+    dependencies:
+      picomatch-browser: 2.2.6
+      qs: 6.14.0
+      rate-limiter-flexible: 4.0.1
+      xcase: 2.0.1
+
+  '@gitbeaker/rest@42.2.0':
+    dependencies:
+      '@gitbeaker/core': 42.2.0
+      '@gitbeaker/requester-utils': 42.2.0
 
   '@humanfs/core@0.19.1': {}
 
@@ -10463,7 +10510,7 @@ snapshots:
       sirv: 3.0.0
       tinyglobby: 0.2.10
       tinyrainbow: 2.0.0
-      vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0)(yaml@2.7.0)
+      vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(yaml@2.7.0)
 
   '@vitest/utils@2.0.5':
     dependencies:
@@ -11060,7 +11107,6 @@ snapshots:
     dependencies:
       call-bind-apply-helpers: 1.0.2
       get-intrinsic: 1.3.0
-    optional: true
 
   callsites@3.1.0: {}
 
@@ -13530,8 +13576,7 @@ snapshots:
 
   object-inspect@1.13.1: {}
 
-  object-inspect@1.13.4:
-    optional: true
+  object-inspect@1.13.4: {}
 
   object-keys@1.1.1:
     optional: true
@@ -13794,6 +13839,8 @@ snapshots:
   picocolors@1.0.1: {}
 
   picocolors@1.1.1: {}
+
+  picomatch-browser@2.2.6: {}
 
   picomatch@2.3.1: {}
 
@@ -14077,6 +14124,10 @@ snapshots:
       - supports-color
       - utf-8-validate
 
+  qs@6.14.0:
+    dependencies:
+      side-channel: 1.1.0
+
   query-selector-shadow-dom@1.0.1: {}
 
   querystringify@2.2.0: {}
@@ -14090,6 +14141,8 @@ snapshots:
   randombytes@2.1.0:
     dependencies:
       safe-buffer: 5.2.1
+
+  rate-limiter-flexible@4.0.1: {}
 
   react-dom@18.3.1(react@18.3.1):
     dependencies:
@@ -14552,7 +14605,6 @@ snapshots:
     dependencies:
       es-errors: 1.3.0
       object-inspect: 1.13.4
-    optional: true
 
   side-channel-map@1.0.1:
     dependencies:
@@ -14560,7 +14612,6 @@ snapshots:
       es-errors: 1.3.0
       get-intrinsic: 1.3.0
       object-inspect: 1.13.4
-    optional: true
 
   side-channel-weakmap@1.0.2:
     dependencies:
@@ -14569,7 +14620,6 @@ snapshots:
       get-intrinsic: 1.3.0
       object-inspect: 1.13.4
       side-channel-map: 1.0.1
-    optional: true
 
   side-channel@1.1.0:
     dependencies:
@@ -14578,7 +14628,6 @@ snapshots:
       side-channel-list: 1.0.0
       side-channel-map: 1.0.1
       side-channel-weakmap: 1.0.2
-    optional: true
 
   siginfo@2.0.0: {}
 
@@ -15413,48 +15462,6 @@ snapshots:
       - tsx
       - yaml
 
-  vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0)(yaml@2.7.0):
-    dependencies:
-      '@vitest/expect': 3.0.5
-      '@vitest/mocker': 3.0.5(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0))
-      '@vitest/pretty-format': 3.0.5
-      '@vitest/runner': 3.0.5
-      '@vitest/snapshot': 3.0.5
-      '@vitest/spy': 3.0.5
-      '@vitest/utils': 3.0.5
-      chai: 5.1.2
-      debug: 4.4.0
-      expect-type: 1.1.0
-      magic-string: 0.30.17
-      pathe: 2.0.2
-      std-env: 3.8.0
-      tinybench: 2.9.0
-      tinyexec: 0.3.2
-      tinypool: 1.0.2
-      tinyrainbow: 2.0.0
-      vite: 6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0)
-      vite-node: 3.0.5(@types/node@22.3.0)(sass-embedded@1.82.0)(yaml@2.7.0)
-      why-is-node-running: 2.3.0
-    optionalDependencies:
-      '@types/debug': 4.1.12
-      '@types/node': 22.3.0
-      '@vitest/ui': 3.0.5(vitest@3.0.5)
-      happy-dom: 14.12.3
-      jsdom: 26.0.0
-    transitivePeerDependencies:
-      - jiti
-      - less
-      - lightningcss
-      - msw
-      - sass
-      - sass-embedded
-      - stylus
-      - sugarss
-      - supports-color
-      - terser
-      - tsx
-      - yaml
-
   vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(yaml@2.7.0):
     dependencies:
       '@vitest/expect': 3.0.5
@@ -15702,6 +15709,8 @@ snapshots:
   ws@8.16.0: {}
 
   ws@8.18.0: {}
+
+  xcase@2.0.1: {}
 
   xml-name-validator@5.0.0: {}
 
