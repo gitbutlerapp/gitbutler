@@ -71,7 +71,7 @@ pub fn update_branch_description(
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     stack_id: StackId,
-    head_name: String,
+    branch_name: String,
     description: Option<String>,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
@@ -79,7 +79,7 @@ pub fn update_branch_description(
     gitbutler_branch_actions::stack::update_branch_description(
         &ctx,
         stack_id,
-        head_name,
+        branch_name,
         description,
     )?;
     emit_vbranches(&windows, project_id, ctx.app_settings());
