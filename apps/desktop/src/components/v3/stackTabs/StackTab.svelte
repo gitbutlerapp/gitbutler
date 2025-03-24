@@ -216,11 +216,6 @@
 		--tab-menu-opacity: 1;
 		--truncation-gradient-color: var(--clr-stack-tab-inactive-hover);
 		--tab-background-color: var(--clr-stack-tab-inactive-hover);
-
-		&::after {
-			background: var(--clr-text-3);
-			transform: translateY(0);
-		}
 	}
 
 	.tab:focus {
