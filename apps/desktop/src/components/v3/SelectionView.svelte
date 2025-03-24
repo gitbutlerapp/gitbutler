@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import SelectedChange from '$components/v3/SelectedChange.svelte';
-	import SelectToPreviewSVG from '$lib/assets/illustrations/select-to-preview.svg?raw';
+	import StackContentPlaceholder from '$components/v3/StackContentPlaceholder.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { inject } from '@gitbutler/shared/context';
 
@@ -17,12 +17,7 @@
 
 <div class="selection-view">
 	{#if selection.length === 0}
-		<div class="no-content">
-			<div>
-				{@html SelectToPreviewSVG}
-			</div>
-			<div class="selection-view__text text-13">Select a file to preview</div>
-		</div>
+		<StackContentPlaceholder />
 	{:else}
 		<ScrollableContainer wide>
 			{#each selection as selectedFile, index ('selection-view-' + selectedFile.path + index)}
@@ -45,17 +40,5 @@
 		border: 1px solid var(--clr-border-2);
 		align-items: center;
 		justify-content: center;
-	}
-
-	.no-content {
-		display: flex;
-		flex-direction: column;
-		gap: 24px;
-	}
-
-	.selection-view__text {
-		text-align: center;
-		color: var(--clr-text-2);
-		opacity: 0.6;
 	}
 </style>
