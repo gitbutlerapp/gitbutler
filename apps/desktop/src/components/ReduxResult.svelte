@@ -52,10 +52,7 @@
 
 <style>
 	.loading-spinner {
-		position: absolute;
-		left: 50%;
-		transform: translateX(-50%);
 		z-index: var(--z-lifted);
-		margin-top: 24px;
+		position: relative;
 	}
 </style>
