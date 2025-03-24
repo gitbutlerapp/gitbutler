@@ -165,10 +165,13 @@ COMMIT_MESSAGES:
 	}
 ];
 
-export const FILL_MARKER = '<<<<<FILL>>>>>';
+export const FILL_MARKER = '<<<<<FIM>>>>>';
 
 export const AUTOCOMPLETE_SUGGESTION_PROMPT_CONTENT = `You are a developer working on a new feature. You have made some changes to the code and are documenting them.
-ONLY complete the sentence bellow replacing the ${FILL_MARKER} marker.
-Return the commit message that you would use to describe the changes you made.
+Use the Fill-in-the-middle approach to complete the text.
+You'll be given the current text with a marker to indicate where you should continue the text.
+You should only replace the marker with a helpful suggestion.
+This is the marker: ${FILL_MARKER}
+Return only the content to fill in the middle.
 DON'T change any part of the existing message.
 User the following staged changes as context:`;

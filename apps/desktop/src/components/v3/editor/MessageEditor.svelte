@@ -73,8 +73,12 @@
 		return composer?.getPlaintext();
 	}
 
-	async function handleChange(text: string) {
-		await suggestionsHandler.onChange(text);
+	async function handleChange(
+		_text: string,
+		textUpToAnchor: string | undefined,
+		textAfterAnchor: string | undefined
+	) {
+		await suggestionsHandler.onChange(textUpToAnchor, textAfterAnchor);
 	}
 
 	const debouncedHandleChange = debouncePromise(handleChange, 500);
