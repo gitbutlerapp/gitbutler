@@ -6,7 +6,8 @@ import type { ChangeDiff } from '$lib/hunks/diffService.svelte';
 
 export default class CommitSuggestions {
 	private _ghostTextComponent = $state<ReturnType<typeof GhostTextPlugin> | undefined>();
-	private editorText = $state<string | undefined>();
+	private textUpToAnchor = $state<string | undefined>();
+	private textAfterAnchor = $state<string | undefined>();
 	private lastSentMessage = $state<string | undefined>();
 	private lasSelectedGhostText = $state<string | undefined>();
 	private stagedChanges = $state<FileChange[] | undefined>();
@@ -31,18 +32,22 @@ export default class CommitSuggestions {
 			.filter(isDefined);
 	}
 
-	private async suggest(text: string, force?: boolean) {
+	private async suggest(force?: boolean) {
+		const text = this.textUpToAnchor ?? '';
 		if (!this.canUseAI) return;
+		if (!this.stagedChanges || this.stagedChanges.length === 0) return;
 		if (this.lasSelectedGhostText && text.endsWith(this.lasSelectedGhostText)) return;
 		if (this.lastSentMessage === text) return;
 		if (!text && !force) {
 			this._ghostTextComponent?.reset();
 			return;
 		}
+
 		this.lastSentMessage = text;
 		const autoCompletion = await this.aiService.autoCompleteCommitMessage({
 			currentValue: text,
-			stagedChanges: this.stagedChanges ?? []
+			suffix: this.textAfterAnchor ?? '',
+			stagedChanges: this.stagedChanges
 		});
 
 		if (autoCompletion) {
@@ -52,14 +57,16 @@ export default class CommitSuggestions {
 
 	private canSuggestOnType(text: string): boolean {
 		// Only suggest on type enabled and not on new line.
-		return this._suggestOnType && !text.endsWith('\n');
+		return this._suggestOnType && ['\n', '\r', '.'].every((char) => !text.endsWith(char));
 	}
 
-	async onChange(text: string) {
-		this.editorText = text;
+	async onChange(textUpToAnchor: string | undefined, textAfterAnchor: string | undefined) {
+		if (!textUpToAnchor) return;
+		this.textUpToAnchor = textUpToAnchor;
+		this.textAfterAnchor = textAfterAnchor;
 
-		if (this.canSuggestOnType(text)) {
-			this.suggest(text);
+		if (this.canSuggestOnType(this.textUpToAnchor)) {
+			this.suggest();
 		}
 	}
 
@@ -67,7 +74,7 @@ export default class CommitSuggestions {
 		if (this._suggestOnType) return false;
 		if (!event) return false;
 		if (event.key === 'g' && (event.ctrlKey || event.metaKey)) {
-			if (this.editorText) this.suggest(this.editorText, true);
+			this.suggest(true);
 			return true;
 		}
 		return false;

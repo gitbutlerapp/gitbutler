@@ -3,7 +3,7 @@
 	import { standardTheme } from '$lib/richText/config/theme';
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
 	import MarkdownTransitionPlugin from '$lib/richText/plugins/markdownTransition.svelte';
-	import OnChangePlugin from '$lib/richText/plugins/onChange.svelte';
+	import OnChangePlugin, { type OnChangeCallback } from '$lib/richText/plugins/onChange.svelte';
 	import { COMMAND_PRIORITY_CRITICAL, $getRoot as getRoot, KEY_DOWN_COMMAND } from 'lexical';
 	import { type Snippet } from 'svelte';
 	import {
@@ -33,7 +33,7 @@
 		styleContext: 'client-editor' | 'chat-input';
 		plugins?: Snippet;
 		placeholder?: string;
-		onChange?: (text: string) => void;
+		onChange?: OnChangeCallback;
 		onKeyDown?: (event: KeyboardEvent | null) => boolean;
 		initialText?: string;
 	};

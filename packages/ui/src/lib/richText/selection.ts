@@ -1,5 +1,103 @@
-import { $isRangeSelection, $getSelection, TextNode, type LexicalEditor } from 'lexical';
+import {
+	$isRangeSelection,
+	$getSelection,
+	TextNode,
+	type LexicalEditor,
+	type RangeSelection,
+	$nodesOfType
+} from 'lexical';
 import { ImageNode } from 'svelte-lexical';
+
+/**
+ * Get the line text up to the caret position.
+ */
+export function getLineTextUpToAnchor(selection: RangeSelection): string | undefined {
+	const anchor = selection.anchor;
+	if (anchor.type !== 'text') {
+		return undefined;
+	}
+	const anchorNode = anchor.getNode();
+	if (!anchorNode.isSimpleText()) {
+		return undefined;
+	}
+	const anchorOffset = anchor.offset;
+	return anchorNode.getTextContent().slice(0, anchorOffset);
+}
+
+/**
+ * Get the line text after the caret position.
+ */
+export function getLineTextAfterAnchor(selection: RangeSelection): string | undefined {
+	const anchor = selection.anchor;
+	if (anchor.type !== 'text') {
+		return undefined;
+	}
+	const anchorNode = anchor.getNode();
+	if (!anchorNode.isSimpleText()) {
+		return undefined;
+	}
+	const anchorOffset = anchor.offset;
+	return anchorNode.getTextContent().slice(anchorOffset);
+}
+
+/**
+ * Get the text up to the caret position.
+ */
+export function getEditorTextUpToAnchor(selection: RangeSelection): string | undefined {
+	const anchor = selection.anchor;
+
+	if (anchor.type !== 'text') {
+		return undefined;
+	}
+
+	const anchorNode = anchor.getNode();
+	if (!anchorNode.isSimpleText()) {
+		return undefined;
+	}
+	const buffer: string[] = [];
+	const textNodes = $nodesOfType(TextNode);
+	for (const node of textNodes) {
+		if (anchor.key === node.getKey()) {
+			break;
+		}
+		buffer.push(node.getTextContent());
+	}
+	const anchorOffset = anchor.offset;
+	const anchorNodeText = anchorNode.getTextContent().slice(0, anchorOffset);
+	buffer.push(anchorNodeText);
+	return buffer.join('\n');
+}
+
+/**
+ * Get the text after the caret position.
+ */
+export function getEditorTextAfterAnchor(selection: RangeSelection): string | undefined {
+	const anchor = selection.anchor;
+
+	if (anchor.type !== 'text') {
+		return undefined;
+	}
+
+	const anchorNode = anchor.getNode();
+	if (!anchorNode.isSimpleText()) {
+		return undefined;
+	}
+	const buffer: string[] = [];
+	const textNodes = $nodesOfType(TextNode);
+	let found = false;
+	for (const node of textNodes) {
+		if (found) {
+			buffer.push(node.getTextContent());
+		}
+		if (anchor.key === node.getKey()) {
+			found = true;
+		}
+	}
+	const anchorOffset = anchor.offset;
+	const anchorNodeText = anchorNode.getTextContent().slice(anchorOffset);
+	buffer.push(anchorNodeText);
+	return buffer.join('\n');
+}
 
 export function getCursorPosition() {
 	const nativeSelection = window.getSelection();
