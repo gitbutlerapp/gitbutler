@@ -1,14 +1,13 @@
 <!-- This is a V3 replacement for `FileContextMenu.svelte` -->
 <script lang="ts">
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import { BranchController } from '$lib/branches/branchController';
 	import { isTreeChange, type TreeChange } from '$lib/hunks/change';
 	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import { getContext } from '@gitbutler/shared/context';
+	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -17,6 +16,7 @@
 	import FileListItem from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import { join } from '@tauri-apps/api/path';
+	import type { DiffSpec } from '$lib/hunks/hunk';
 	import type { Writable } from 'svelte/store';
 
 	type Props = {
@@ -40,27 +40,33 @@
 		);
 	}
 
-	const { branchId, trigger, isUnapplied, isBinary = false }: Props = $props();
-
-	const branchController = getContext(BranchController);
-	const project = getContext(Project);
+	const { trigger, isUnapplied, isBinary = false }: Props = $props();
+	const [stackService, project] = inject(StackService, Project);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
+	const [discardChanges] = stackService.discardChanges();
 	let confirmationModal: ReturnType<typeof Modal> | undefined;
 	let contextMenu: ReturnType<typeof ContextMenu>;
+	const projectId = $derived(project.id);
 
 	function isDeleted(item: FileItem): boolean {
-		if (!item.changes || !Array.isArray(item.changes)) return false;
-
-		return item.changes.some((f: unknown) => {
-			if (!(typeof f === 'string')) return false;
-			return true;
-			// return computeChangeStatus(f) === 'D';
+		return item.changes.some((change) => {
+			return change.status.type === 'Deletion';
 		});
 	}
 
 	function confirmDiscard(item: FileItem) {
-		branchController.unapplyChanges(branchId, item.changes);
+		const worktreeChanges: DiffSpec[] = item.changes.map((change) => ({
+			previousPathBytes: null,
+			pathBytes: change.path,
+			hunkHeaders: []
+		}));
+
+		discardChanges({
+			projectId,
+			worktreeChanges
+		});
+
 		close();
 	}
 
@@ -72,6 +78,7 @@
 <ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
 	{#snippet children(item: unknown)}
 		{#if isFileItem(item)}
+			{@const deletion = isDeleted(item)}
 			<ContextMenuSection>
 				{#if item.changes.length > 0}
 					{@const changes = item.changes}
@@ -106,7 +113,7 @@
 					{/if}
 					<ContextMenuItem
 						label="Open in {$userSettings.defaultCodeEditor.displayName}"
-						disabled={isDeleted(item)}
+						disabled={deletion}
 						onclick={async () => {
 							try {
 								if (!project) return;
