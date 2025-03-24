@@ -17,7 +17,7 @@ export class SettingsService {
 		this.appSettings.set(settings);
 	}
 
-	private async refresh() {
+	async refresh() {
 		const response = await invoke<AppSettings>('get_app_settings');
 		const settings = response;
 		this.handlePayload(settings);
