@@ -64,6 +64,12 @@
 
 	let selectedTipKey = $state<keyof typeof tipsContent | undefined>(undefined);
 	let selectedDragndropTip = $state<keyof typeof dragndropTipSubsection>('amend');
+
+	function closeTips(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
+			selectedTipKey = undefined;
+		}
+	}
 </script>
 
 {#snippet subSectionMenu({
@@ -89,7 +95,7 @@
 	{@const selected = selectedTipKey === key}
 	<button
 		type="button"
-		class="text-13 text-semibold text-body tip-button"
+		class="focus-state text-13 text-semibold text-body tip-button"
 		class:selected
 		onclick={() => (selectedTipKey = key)}
 	>
@@ -153,13 +159,13 @@
 		type="button"
 		href={props.href}
 		target="_blank"
-		class="text-13 text-semibold text-body external-link"
+		class="focus-state text-13 text-semibold text-body external-link"
 		><Icon name={props.icon} /> <span class="external-link__label">{props.label}</span>
 		<div class="external-link__link-icon"><Icon name="open-link" /></div></a
 	>
 {/snippet}
 
-<div class="file-view-placeholder">
+<div role="presentation" tabindex="-1" class="file-view-placeholder" onkeydown={closeTips}>
 	<div class="file-view-placeholder__top">
 		{#if !selectedTipKey}
 			<div class="select-commit-state">
