@@ -312,6 +312,10 @@ export class StackService {
 	amendCommit() {
 		return this.api.endpoints.amendCommit.useMutation();
 	}
+
+	discardChanges() {
+		return this.api.endpoints.discardChanges.useMutation();
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -519,6 +523,15 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					ReduxTag.Commits,
 					{ type: ReduxTag.StackInfo, id: args.branchId }
 				]
+			}),
+			discardChanges: build.mutation<
+				DiffSpec[],
+				{ projectId: string; worktreeChanges: DiffSpec[] }
+			>({
+				query: ({ projectId, worktreeChanges }) => ({
+					command: 'discard_worktree_changes',
+					params: { projectId, worktreeChanges }
+				})
 			})
 		})
 	});
