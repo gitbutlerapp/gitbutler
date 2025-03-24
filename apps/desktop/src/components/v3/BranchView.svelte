@@ -4,6 +4,7 @@
 	import BranchBadge from '$components/v3/BranchBadge.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
+	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UserService } from '$lib/user/userService';
@@ -24,6 +25,7 @@
 
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
+	const branchCommitsResult = $derived(stackService.commits(projectId, stackId, branchName));
 
 	function getGravatarUrl(email: string, existingGravatarUrl: string): string {
 		if ($user?.email === undefined) {
@@ -40,38 +42,51 @@
 	<ReduxResult result={combineResults(branchResult.current, branchDetailsResult.current)}>
 		{#snippet children([branch, branchDetails])}
 			<Drawer {projectId} {stackId} title={branch.name}>
-				<div class="branch-view">
-					<div class="branch-view__header-container">
-						<div class="text-13 branch-view__header-details-row">
-							<BranchBadge pushStatus={branchDetails.pushStatus} />
-
-							{#if branchDetails.isConflicted}
-								<span class="branch-view__header-details-row-conflict">Has conflicts</span>
+				{#if branchCommitsResult.current.data && branchCommitsResult.current.data.length > 0}
+					<div class="branch-view">
+						<div class="branch-view__header-container">
+							<div class="text-12 branch-view__header-details-row">
+								<BranchBadge pushStatus={branchDetails.pushStatus} />
 								<span class="branch-view__details-divider">•</span>
-							{/if}
 
-							<span>Contributors:</span>
+								{#if branchDetails.isConflicted}
+									<span class="branch-view__header-details-row-conflict">Has conflicts</span>
+									<span class="branch-view__details-divider">•</span>
+								{/if}
 
-							<AvatarGroup
-								maxAvatars={2}
-								avatars={branchDetails.authors.map((a) => ({
-									name: a.name,
-									srcUrl: getGravatarUrl(a.email, a.gravatarUrl)
-								}))}
-							/>
+								<span>Contributors:</span>
+								<AvatarGroup
+									maxAvatars={2}
+									avatars={branchDetails.authors.map((a) => ({
+										name: a.name,
+										srcUrl: getGravatarUrl(a.email, a.gravatarUrl)
+									}))}
+								/>
 
-							<span class="branch-view__details-divider">•</span>
+								<span class="branch-view__details-divider">•</span>
 
-							<span>Updated {getTimeAgo(new Date(branchDetails.lastUpdatedAt))}</span>
-
-							<span class="branch-view__details-divider">•</span>
+								<span>{getTimeAgo(new Date(branchDetails.lastUpdatedAt))}</span>
+							</div>
 						</div>
+
+						<BranchReview openForgePullRequest={() => {}} {stackId} {projectId} {branchName} />
+
+						<ChangedFiles type="branch" {projectId} {stackId} {branchName} />
 					</div>
-
-					<BranchReview openForgePullRequest={() => {}} {stackId} {projectId} {branchName} />
-
-					<ChangedFiles type="branch" {projectId} {stackId} {branchName} />
-				</div>
+				{:else}
+					<div class="branch-view__empty-state">
+						<div class="branch-view__empty-state__image">
+							{@html newBranchSmolSVG}
+						</div>
+						<h3 class="text-18 text-semibold branch-view__empty-state__title">
+							This is a new branch
+						</h3>
+						<p class="text-13 text-body branch-view__empty-state__description">
+							Commit your changes here. You can stack additional branches or apply them
+							independently. You can also drag and drop files to start a new commit.
+						</p>
+					</div>
+				{/if}
 			</Drawer>
 		{/snippet}
 	</ReduxResult>
@@ -105,6 +120,31 @@
 	}
 
 	.branch-view__details-divider {
-		opacity: 0.4;
+		color: var(--clr-text-3);
+	}
+
+	/* EMPTY STATE */
+	.branch-view__empty-state {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		height: 100%;
+		padding: 30px;
+		max-width: 540px;
+		margin: 0 auto;
+	}
+
+	.branch-view__empty-state__image {
+		width: 180px;
+		margin-bottom: 20px;
+	}
+
+	.branch-view__empty-state__title {
+		margin-bottom: 10px;
+	}
+
+	.branch-view__empty-state__description {
+		color: var(--clr-text-2);
+		text-wrap: balance;
 	}
 </style>
