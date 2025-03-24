@@ -15,14 +15,14 @@ describe('GitHubBranch', () => {
 	};
 
 	test('branch compare url', async () => {
-		const gh = new GitHub({ gitHubApi, repo, baseBranch });
+		const gh = new GitHub({ gitHubApi, repo, baseBranch, authenticated: true });
 		const branch = gh.branch(name);
 		expect(branch?.url).toMatch(new RegExp(`...${name}$`));
 	});
 
 	test('fork compare url', async () => {
 		const forkStr = `${repo.owner}:${repo.name}`;
-		const gh = new GitHub({ gitHubApi, repo, baseBranch, forkStr });
+		const gh = new GitHub({ gitHubApi, repo, baseBranch, forkStr, authenticated: true });
 		const branch = gh.branch(name);
 		expect(branch?.url).toMatch(new RegExp(`...${forkStr}:${name}$`));
 	});

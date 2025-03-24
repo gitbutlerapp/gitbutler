@@ -1,4 +1,4 @@
-import { reactive, type Reactive } from '@gitbutler/shared/storeUtils';
+import { reactive, type Reactive, type WritableReactive } from '@gitbutler/shared/storeUtils';
 import {
 	createEntityAdapter,
 	createSlice,
@@ -7,7 +7,8 @@ import {
 	type UnknownAction
 } from '@reduxjs/toolkit';
 import storage from 'redux-persist/lib/storage';
-type DrawerPage = 'branch' | 'new-commit' | 'pr' | 'br' | 'branch' | undefined;
+import type { SelectionId } from '$lib/selection/key';
+type DrawerPage = 'branch' | 'new-commit' | 'review' | 'branch' | undefined;
 
 export const uiStatePersistConfig = {
 	key: 'uiState',
@@ -22,6 +23,7 @@ type StackUiState = {
 				upstream?: boolean;
 		  }
 		| undefined;
+	activeSelectionId: SelectionId;
 };
 
 type ProjectUiState = {
@@ -37,7 +39,8 @@ export class UiState {
 
 	/** Properties scoped to a specific stack. */
 	readonly stack = this.buildScopedProps<StackUiState>({
-		selection: undefined
+		selection: undefined,
+		activeSelectionId: { type: 'worktree' }
 	});
 
 	/** Properties scoped to a specific project. */
@@ -78,9 +81,17 @@ export class UiState {
 	private buildGlobalProps<T extends DefaultConfig>(param: T): GlobalStore<T> {
 		const props: GlobalStore<DefaultConfig> = {};
 		for (const [key, defaultValue] of Object.entries(param)) {
+			const current = this.getById(key, defaultValue);
+			const boundUpdate = this.update.bind(this);
 			props[key] = {
-				get: () => this.getById(key, defaultValue),
-				set: (val: UiStateValue) => this.update(key, val)
+				get: () => current,
+				set: (val: UiStateValue) => this.update(key, val),
+				get current() {
+					return current.current;
+				},
+				set current(value: UiStateValue) {
+					boundUpdate(key, value);
+				}
 			};
 		}
 		return props as GlobalStore<T>;
@@ -95,9 +106,17 @@ export class UiState {
 		return (id: string) => {
 			const props: GlobalStore<DefaultConfig> = {};
 			for (const [key, defaultValue] of Object.entries(param)) {
+				const current = this.getById(`${id}:${key}`, defaultValue);
+				const boundUpdate = this.update.bind(this);
 				props[key] = {
-					get: () => this.getById(`${id}:${key}`, defaultValue),
-					set: (val: UiStateValue) => this.update(`${id}:${key}`, val)
+					get: () => current,
+					set: (val: UiStateValue) => this.update(`${id}:${key}`, val),
+					get current() {
+						return current.current;
+					},
+					set current(value: UiStateValue) {
+						boundUpdate(`${id}:${key}`, value);
+					}
 				};
 			}
 			return props as GlobalStore<T>;
@@ -143,7 +162,7 @@ type DefaultConfig = Record<string, UiStateValue>;
 type GlobalProperty<T> = {
 	get(): Reactive<T>;
 	set(value: T): void;
-};
+} & WritableReactive<T>;
 
 /** Type returned by the build function for global properties. */
 type GlobalStore<T extends DefaultConfig> = {

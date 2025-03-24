@@ -32,7 +32,6 @@
 		registerInterestInView(interest, postCardRef);
 	});
 	const post = $derived(postsSelectors.selectById(appState.posts, postId));
-	$inspect(post);
 
 	const author = $derived(getPostAuthor(appState, feedService, userService, postId));
 

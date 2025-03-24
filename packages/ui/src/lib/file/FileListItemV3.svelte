@@ -27,6 +27,7 @@
 		conflictHint?: string;
 		locked?: boolean;
 		lockText?: string;
+		listActive?: boolean;
 		oncheck?: (
 			e: Event & {
 				currentTarget: EventTarget & HTMLInputElement;
@@ -57,6 +58,7 @@
 		conflictHint,
 		locked,
 		lockText,
+		listActive,
 		oncheck,
 		onclick,
 		ondblclick,
@@ -74,6 +76,7 @@
 	data-file-id={id}
 	class="file-list-item size-{size}"
 	class:selected
+	class:list-active={listActive}
 	class:clickable
 	class:draggable
 	class:focused
@@ -271,7 +274,7 @@
 		background-color: var(--clr-selected-not-in-focus-bg);
 	}
 
-	.selected.focused {
+	.list-active.selected {
 		background-color: var(--clr-selected-in-focus-bg);
 	}
 </style>

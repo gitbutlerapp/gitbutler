@@ -18,7 +18,8 @@
 	import { showHistoryView } from '$lib/config/config';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { UncommitedFilesWatcher } from '$lib/files/watcher';
-	import { DefaultForgeFactory, type ForgeConfig } from '$lib/forge/forgeFactory.svelte';
+	import { FocusManager } from '$lib/focus/focusManager.svelte';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { GitHubClient } from '$lib/forge/github/githubClient';
 	import { BrToPrService } from '$lib/forge/shared/prFooter';
 	import { TemplateService } from '$lib/forge/templateService';
@@ -108,6 +109,9 @@
 		setContext(StackPublishingService, data.stackPublishingService);
 	});
 
+	const focusManager = new FocusManager();
+	setContext(FocusManager, focusManager);
+
 	const worktreeService = getContext(WorktreeService);
 	const idSelection = new IdSelection(worktreeService);
 	setContext(IdSelection, idSelection);
@@ -148,20 +152,13 @@
 	});
 
 	$effect(() => {
-		setConfig({
+		forgeFactory.setConfig({
 			repo: $repoInfo,
 			pushRepo: $forkInfo,
-			baseBranch: baseBranchName
+			baseBranch: baseBranchName,
+			githubAuthenticated: !!$user?.github_access_token
 		});
 	});
-
-	let number = 0;
-	function setConfig(config: ForgeConfig) {
-		number++;
-		if (number < 8) {
-			return forgeFactory.setConfig(config);
-		}
-	}
 
 	$effect(() => {
 		posthog.setPostHogRepo($repoInfo);

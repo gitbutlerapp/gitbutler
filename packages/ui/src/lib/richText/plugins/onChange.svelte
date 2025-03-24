@@ -1,8 +1,19 @@
+<script lang="ts" module>
+	export type OnChangeCallback = (
+		value: string,
+		textUpToAnchor: string | undefined,
+		textAfterAnchor: string | undefined
+	) => void;
+</script>
+
 <script lang="ts">
 	import { getEditor } from '$lib/richText/context';
-	import { $getRoot as getRoot } from 'lexical';
-
-	type OnChangeCallback = (value: string) => void;
+	import { getEditorTextAfterAnchor, getEditorTextUpToAnchor } from '$lib/richText/selection';
+	import {
+		$getRoot as getRoot,
+		$getSelection as getSelection,
+		$isRangeSelection as isRangeSelection
+	} from 'lexical';
 
 	type Props = {
 		onChange?: OnChangeCallback;
@@ -27,7 +38,14 @@
 
 				editorState.read(() => {
 					text = getRoot().getTextContent();
-					onChange?.(text);
+					const selection = getSelection();
+					if (!isRangeSelection(selection)) {
+						return;
+					}
+
+					const textUpToAnchor = getEditorTextUpToAnchor(selection);
+					const textAfterAnchor = getEditorTextAfterAnchor(selection);
+					onChange?.(text, textUpToAnchor, textAfterAnchor);
 				});
 			}
 		);

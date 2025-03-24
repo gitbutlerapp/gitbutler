@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Resizer from '$components/Resizer.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -38,7 +39,12 @@
 	}
 </script>
 
-<div class="drawer" bind:this={drawerDiv} style:height>
+<div
+	class="drawer"
+	bind:this={drawerDiv}
+	style:height
+	use:focusable={{ id: 'commit', parentId: 'main' }}
+>
 	<div class="drawer-header">
 		<div class="drawer-header__main">
 			{#if title}
@@ -90,6 +96,7 @@
 		width: 100%;
 		padding: 14px;
 		box-sizing: border-box;
+		min-height: 0;
 
 		border-radius: var(--radius-ml);
 		border: 1px solid var(--clr-border-2);

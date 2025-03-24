@@ -5,15 +5,14 @@
 	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { chunk } from '$lib/utils/array';
 	import { sortLikeFileTree } from '$lib/worktree/changeTree';
-	import { getContext } from '@gitbutler/shared/context';
+	import { getContext, inject } from '@gitbutler/shared/context';
 	import type { TreeChange } from '$lib/hunks/change';
 
 	interface BaseProps {
 		type: 'commit' | 'branch' | 'worktree';
-		changes: TreeChange[];
-		projectId: string;
 	}
 
 	interface CommitProps extends BaseProps {
@@ -30,16 +29,26 @@
 	interface WorktreeProps extends BaseProps {
 		type: 'worktree';
 		showCheckboxes: boolean;
+		stackId?: string;
 	}
 
-	type Props = CommitProps | BranchProps | WorktreeProps;
+	type Props = {
+		projectId: string;
+		stackId?: string;
+		changes: TreeChange[];
+		selectionId: CommitProps | BranchProps | WorktreeProps;
+	};
 
-	const props: Props = $props();
+	const { projectId, stackId, changes, selectionId }: Props = $props();
 
-	let lazyloadContainer = $state<ReturnType<typeof LazyloadContainer>>();
+	const [uiState] = inject(UiState);
+	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
+	const activeSelection = $derived(stackState?.activeSelectionId.get());
+	const listActive = $derived(activeSelection?.current.type === selectionId.type);
+
 	let currentDisplayIndex = $state(0);
 
-	const fileChunks: TreeChange[][] = $derived(chunk(sortLikeFileTree(props.changes), 100));
+	const fileChunks: TreeChange[][] = $derived(chunk(sortLikeFileTree(changes), 100));
 	const visibleFiles: TreeChange[] = $derived(fileChunks.slice(0, currentDisplayIndex + 1).flat());
 	const idSelection = getContext(IdSelection);
 
@@ -51,9 +60,9 @@
 			key: e.key,
 			targetElement: e.currentTarget as HTMLElement,
 			files: visibleFiles,
-			selectedFileIds: idSelection.values(),
+			selectedFileIds: idSelection.values(selectionId),
 			fileIdSelection: idSelection,
-			selectionParams: props,
+			selectionId: selectionId,
 			preventDefault: () => e.preventDefault()
 		});
 	}
@@ -63,14 +72,9 @@
 		currentDisplayIndex += 1;
 	}
 
-	const projectId = $derived(props.projectId);
-	const showCheckboxes = $derived(props.type === 'worktree' ? props.showCheckboxes : false);
-
-	let containerFocused = $state(false);
-
-	document.addEventListener('focusin', () => {
-		containerFocused = !!lazyloadContainer?.hasFocus();
-	});
+	const showCheckboxes = $derived(
+		selectionId.type === 'worktree' ? selectionId.showCheckboxes : false
+	);
 </script>
 
 {#if visibleFiles.length > 0}
@@ -79,7 +83,6 @@
 			<!-- Maximum amount for initial render is 100 files
 	`minTriggerCount` set to 80 in order to start the loading a bit earlier. -->
 			<LazyloadContainer
-				bind:this={lazyloadContainer}
 				minTriggerCount={80}
 				ontrigger={() => {
 					loadMore();
@@ -89,15 +92,14 @@
 			>
 				{#each visibleFiles as change, idx (change.path)}
 					<FileListItemWrapper
-						index={idx}
-						selectedFile={props}
-						{containerFocused}
+						selectedFile={selectionId}
 						{change}
 						{projectId}
+						{listActive}
 						showCheckbox={showCheckboxes}
-						selected={idSelection.has(change.path, props)}
+						selected={idSelection.has(change.path, selectionId)}
 						onclick={(e) => {
-							selectFilesInList(e, change, visibleFiles, idSelection, true, idx, props);
+							selectFilesInList(e, change, visibleFiles, idSelection, true, idx, selectionId);
 						}}
 					/>
 				{/each}

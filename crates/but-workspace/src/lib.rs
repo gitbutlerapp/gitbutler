@@ -172,8 +172,8 @@ impl From<BranchState> for PushStatus {
         ) {
             (true, _, _, _) => PushStatus::Integrated,
             (_, true, _, false) => PushStatus::CompletelyUnpushed,
-            (_, true, true, _) => PushStatus::UnpushedCommitsRequiringForce,
-            (_, true, false, true) => PushStatus::UnpushedCommits,
+            (_, _, true, _) => PushStatus::UnpushedCommitsRequiringForce,
+            (_, true, _, _) => PushStatus::UnpushedCommits,
             (_, false, _, _) => PushStatus::NothingToPush,
         }
     }

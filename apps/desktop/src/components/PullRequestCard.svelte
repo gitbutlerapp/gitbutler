@@ -7,9 +7,9 @@
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { showError } from '$lib/notifications/toasts';
-	import { Project } from '$lib/project/project';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { inject } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -17,20 +17,14 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import type { MessageStyle } from '$components/InfoMessage.svelte';
-	import type { PatchSeries } from '$lib/branches/branch';
-	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
 
 	interface Props {
+		projectId: string;
 		stackId: string;
-		pr: DetailedPullRequest;
+		branchName: string;
 		poll: boolean;
-		isPushed: boolean;
-		hasParent: boolean;
-		parentIsPushed: boolean;
-		child?: PatchSeries;
-		openPrDetailsModal: () => void;
 	}
 
 	type StatusInfo = {
@@ -41,33 +35,41 @@
 		tooltip?: string;
 	};
 
-	const {
-		stackId,
-		pr,
-		poll,
-		child,
-		hasParent,
-		isPushed,
-		openPrDetailsModal,
-		parentIsPushed
-	}: Props = $props();
+	const { projectId, stackId, poll, branchName }: Props = $props();
 
 	let contextMenuEl = $state<ReturnType<typeof ContextMenu>>();
 	let contextMenuTarget = $state<HTMLElement>();
 
-	const [project, vbranchService, baseBranchService, forge] = inject(
-		Project,
-		VirtualBranchService,
-		BaseBranchService,
-		DefaultForgeFactory
-	);
+	const vbranchService = getContext(VirtualBranchService);
+	const baseBranchService = getContext(BaseBranchService);
+	const forge = getContext(DefaultForgeFactory);
+	const stackService = getContext(StackService);
 
 	// TODO: Make these props so we don't need `!`.
-	const repoService = $derived(forge.current.repoService!);
-	const prService = $derived(forge.current.prService!);
+	const repoService = $derived(forge.current.repoService);
+	const prService = $derived(forge.current.prService);
+
+	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
+	const branch = $derived(branchResult.current.data);
+	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
+	const branchDetails = $derived(branchDetailsResult.current.data);
+	const isPushed = $derived(branchDetails?.pushStatus === 'nothingToPush');
+	const prResult = $derived(branch?.prNumber ? prService?.get(branch?.prNumber) : undefined);
+	const pr = $derived(prResult?.current.data);
+
+	const parentResult = $derived(stackService.branchParentByName(projectId, stackId, branchName));
+	const parent = $derived(parentResult.current.data);
+	const hasParent = $derived(!!parent);
+	const parentBranchDetailsResult = $derived(
+		parent ? stackService.branchDetails(projectId, stackId, parent.name) : undefined
+	);
+	const parentBranchDetails = $derived(parentBranchDetailsResult?.current.data);
+	const parentIsPushed = $derived(parentBranchDetails?.pushStatus === 'completelyUnpushed');
+	const childResult = $derived(stackService.branchChildByName(projectId, stackId, branchName));
+	const child = $derived(childResult.current.data);
 
 	const baseBranch = $derived(baseBranchService.base);
-	const repoResult = $derived(repoService.getInfo());
+	const repoResult = $derived(repoService?.getInfo());
 	const repoInfo = $derived(repoResult?.current.data);
 
 	let shouldUpdateTargetBaseBranch = $state(false);
@@ -146,115 +148,110 @@
 	});
 
 	async function handleReopenPr() {
+		if (!pr) return;
 		await prService?.reopen(pr.number);
 	}
 </script>
 
-{#if poll}
-	<PullRequestPolling number={pr.number} />
-{/if}
+{#if pr}
+	{#if poll}
+		<PullRequestPolling number={pr.number} />
+	{/if}
 
-<ContextMenu bind:this={contextMenuEl} rightClickTrigger={contextMenuTarget}>
-	<ContextMenuSection>
-		<ContextMenuItem
-			label="Open in browser"
-			onclick={() => {
-				openExternalUrl(pr.htmlUrl);
-				contextMenuEl?.close();
-			}}
-		/>
-		<ContextMenuItem
-			label="Copy link"
-			onclick={() => {
-				writeClipboard(pr.htmlUrl);
-				contextMenuEl?.close();
-			}}
-		/>
-		<ContextMenuItem
-			label="Show details"
-			onclick={() => {
-				openPrDetailsModal();
-				contextMenuEl?.close();
-			}}
-		/>
-		<ContextMenuItem
-			label="Refetch status"
-			onclick={() => {
-				prService?.fetch(pr.number, { forceRefetch: true });
-				contextMenuEl?.close();
-			}}
-		/>
-	</ContextMenuSection>
-	{#if hasChecks}
+	<ContextMenu bind:this={contextMenuEl} rightClickTrigger={contextMenuTarget}>
 		<ContextMenuSection>
 			<ContextMenuItem
-				label="Open checks"
+				label="Open in browser"
 				onclick={() => {
-					openExternalUrl(`${pr.htmlUrl}/checks`);
+					openExternalUrl(pr.htmlUrl);
 					contextMenuEl?.close();
 				}}
 			/>
 			<ContextMenuItem
-				label="Copy checks"
+				label="Copy link"
 				onclick={() => {
-					writeClipboard(`${pr.htmlUrl}/checks`);
+					writeClipboard(pr.htmlUrl);
+					contextMenuEl?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Refetch status"
+				onclick={() => {
+					prService?.fetch(pr.number, { forceRefetch: true });
 					contextMenuEl?.close();
 				}}
 			/>
 		</ContextMenuSection>
-	{/if}
-</ContextMenu>
-
-<div
-	bind:this={contextMenuTarget}
-	role="article"
-	class="pr-header"
-	oncontextmenu={(e: MouseEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
-		contextMenuEl?.open(e);
-	}}
->
-	<div class="text-13 text-semibold pr-header-title">
-		<span style="color: var(--clr-scale-ntrl-50)">PR #{pr?.number}:</span>
-		<span>{pr?.title}</span>
-	</div>
-	<div class="pr-header-tags">
-		<Badge
-			reversedDirection
-			size="tag"
-			icon={prStatusInfo.icon}
-			style={prStatusInfo.style}
-			kind="soft"
-			tooltip="PR status"
-		>
-			{prStatusInfo.text}
-		</Badge>
-		{#if !pr.closedAt}
-			<ChecksPolling
-				{stackId}
-				branchName={pr.sourceBranch}
-				isFork={pr.fork}
-				isMerged={pr.merged}
-				bind:hasChecks
-			/>
+		{#if hasChecks}
+			<ContextMenuSection>
+				<ContextMenuItem
+					label="Open checks"
+					onclick={() => {
+						openExternalUrl(`${pr.htmlUrl}/checks`);
+						contextMenuEl?.close();
+					}}
+				/>
+				<ContextMenuItem
+					label="Copy checks"
+					onclick={() => {
+						writeClipboard(`${pr.htmlUrl}/checks`);
+						contextMenuEl?.close();
+					}}
+				/>
+			</ContextMenuSection>
 		{/if}
-		{#if pr.htmlUrl}
-			<Button
-				icon="open-link"
+	</ContextMenu>
+
+	<div
+		bind:this={contextMenuTarget}
+		role="article"
+		class="pr-header"
+		oncontextmenu={(e: MouseEvent) => {
+			e.preventDefault();
+			e.stopPropagation();
+			contextMenuEl?.open(e);
+		}}
+	>
+		<div class="text-13 text-semibold pr-header-title">
+			<span style="color: var(--clr-scale-ntrl-50)">PR #{pr?.number}:</span>
+			<span>{pr?.title}</span>
+		</div>
+		<div class="pr-header-tags">
+			<Badge
+				reversedDirection
 				size="tag"
-				kind="outline"
-				tooltip="Open in browser"
-				onclick={() => {
-					openExternalUrl(pr.htmlUrl);
-				}}
+				icon={prStatusInfo.icon}
+				style={prStatusInfo.style}
+				kind="soft"
+				tooltip="PR status"
 			>
-				View PR
-			</Button>
-		{/if}
-	</div>
+				{prStatusInfo.text}
+			</Badge>
+			{#if !pr.closedAt}
+				<ChecksPolling
+					{stackId}
+					branchName={pr.sourceBranch}
+					isFork={pr.fork}
+					isMerged={pr.merged}
+					bind:hasChecks
+				/>
+			{/if}
+			{#if pr.htmlUrl}
+				<Button
+					icon="open-link"
+					size="tag"
+					kind="outline"
+					tooltip="Open in browser"
+					onclick={() => {
+						openExternalUrl(pr.htmlUrl);
+					}}
+				>
+					View PR
+				</Button>
+			{/if}
+		</div>
 
-	<!--
+		<!--
         We can't show the merge button until we've waited for checks
 
         We use a octokit.checks.listForRef to find checks running for a PR, but right after
@@ -262,52 +259,53 @@
         determining "no checks will run for this PR" such that we can show the merge button
         immediately.
         -->
-	<div class="pr-header-actions">
-		{#if pr.state === 'open'}
-			<MergeButton
-				wide
-				projectId={project.id}
-				disabled={mergeStatus.disabled}
-				tooltip={mergeStatus.tooltip}
-				loading={isMerging}
-				onclick={async (method) => {
-					if (!pr) return;
-					isMerging = true;
-					try {
-						await prService?.merge(method, pr.number);
+		<div class="pr-header-actions">
+			{#if pr.state === 'open'}
+				<MergeButton
+					wide
+					{projectId}
+					disabled={mergeStatus.disabled}
+					tooltip={mergeStatus.tooltip}
+					loading={isMerging}
+					onclick={async (method) => {
+						if (!pr) return;
+						isMerging = true;
+						try {
+							await prService?.merge(method, pr.number);
 
-						// In a stack, after merging, update the new bottom PR target
-						// base branch to master if necessary
-						if ($baseBranch && shouldUpdateTargetBaseBranch && prService && child?.prNumber) {
-							const targetBase = $baseBranch.branchName.replace(`${$baseBranch.remoteName}/`, '');
-							await prService.update(child.prNumber, { targetBase });
+							// In a stack, after merging, update the new bottom PR target
+							// base branch to master if necessary
+							if ($baseBranch && shouldUpdateTargetBaseBranch && prService && child?.prNumber) {
+								const targetBase = $baseBranch.branchName.replace(`${$baseBranch.remoteName}/`, '');
+								await prService.update(child.prNumber, { targetBase });
+							}
+
+							await Promise.all([
+								baseBranchService.fetchFromRemotes(),
+								vbranchService.refresh(),
+								baseBranchService.refresh()
+							]);
+						} catch (err) {
+							console.error(err);
+							showError('Failed to merge PR', err);
+						} finally {
+							isMerging = false;
 						}
-
-						await Promise.all([
-							baseBranchService.fetchFromRemotes(),
-							vbranchService.refresh(),
-							baseBranchService.refresh()
-						]);
-					} catch (err) {
-						console.error(err);
-						showError('Failed to merge PR', err);
-					} finally {
-						isMerging = false;
-					}
-				}}
-			/>
-		{:else if !pr.merged}
-			<AsyncButton
-				kind="outline"
-				disabled={reopenStatus.disabled}
-				tooltip={reopenStatus.tooltip}
-				action={handleReopenPr}
-			>
-				Reopen pull request
-			</AsyncButton>
-		{/if}
+					}}
+				/>
+			{:else if !pr.merged}
+				<AsyncButton
+					kind="outline"
+					disabled={reopenStatus.disabled}
+					tooltip={reopenStatus.tooltip}
+					action={handleReopenPr}
+				>
+					Reopen pull request
+				</AsyncButton>
+			{/if}
+		</div>
 	</div>
-</div>
+{/if}
 
 <style lang="postcss">
 	.pr-header {

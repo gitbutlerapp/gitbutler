@@ -14,6 +14,7 @@
 	let { projectId, stackId, isOpen = $bindable() }: Props = $props();
 
 	const stackService = getContext(StackService);
+	const [unapply] = stackService.unapply;
 
 	let trigger = $state<HTMLElement>();
 	let contextMenu = $state<ContextMenu>();
@@ -53,7 +54,7 @@
 			label="Unapply Stack"
 			keyboardShortcut="$mod+X"
 			onclick={async () => {
-				await stackService.unapply(projectId, stackId);
+				await unapply({ projectId, stackId });
 				contextMenu?.close();
 			}}
 		/>

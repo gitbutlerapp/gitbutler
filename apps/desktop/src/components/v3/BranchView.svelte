@@ -69,9 +69,13 @@
 							</div>
 						</div>
 
-						<BranchReview openForgePullRequest={() => {}} {stackId} {projectId} {branchName} />
+						<BranchReview {stackId} {projectId} {branchName} />
 
-						<ChangedFiles type="branch" {projectId} {stackId} {branchName} />
+						<ChangedFiles
+							{projectId}
+							{stackId}
+							selectionId={{ type: 'branch', branchName, stackId }}
+						/>
 					</div>
 				{:else}
 					<div class="branch-view__empty-state">

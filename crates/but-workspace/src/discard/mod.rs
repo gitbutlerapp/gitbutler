@@ -2,7 +2,7 @@
 
 use crate::commit_engine::DiffSpec;
 use gix::object::tree::EntryKind;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 
 /// A specification of what should be discarded, either changes to the whole file, or a portion of it.
@@ -24,6 +24,12 @@ impl Deref for DiscardSpec {
     }
 }
 
+impl DerefMut for DiscardSpec {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl From<DiscardSpec> for DiffSpec {
     fn from(value: DiscardSpec) -> Self {
         value.0
@@ -38,6 +44,7 @@ pub mod ui {
 }
 
 mod file;
+mod hunk;
 
 #[cfg(unix)]
 fn locked_resource_at(

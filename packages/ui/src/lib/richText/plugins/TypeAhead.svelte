@@ -15,9 +15,9 @@
 
 <script lang="ts" generics="T extends Match">
 	import { getEditor } from '$lib/richText/context';
+	import { getLineTextUpToAnchor } from '$lib/richText/selection';
 	import {
 		type EditorState,
-		type RangeSelection,
 		$isRangeSelection as isRangeSelection,
 		$getSelection as getSelection
 	} from 'lexical';
@@ -27,22 +27,6 @@
 	const editor = getEditor();
 
 	/**
-	 * Get the text up to the caret position.
-	 */
-	function getTextUpToAnchor(selection: RangeSelection): string | null {
-		const anchor = selection.anchor;
-		if (anchor.type !== 'text') {
-			return null;
-		}
-		const anchorNode = anchor.getNode();
-		if (!anchorNode.isSimpleText()) {
-			return null;
-		}
-		const anchorOffset = anchor.offset;
-		return anchorNode.getTextContent().slice(0, anchorOffset);
-	}
-
-	/**
 	 * Match the current editor content against the tester function.
 	 */
 	function matchTheCurrentSelection(editorState: EditorState) {
@@ -50,8 +34,8 @@
 			const selection = getSelection();
 			if (!isRangeSelection(selection)) return;
 
-			const text = getTextUpToAnchor(selection);
-			if (text === null) {
+			const text = getLineTextUpToAnchor(selection);
+			if (text === undefined) {
 				onExit();
 				return;
 			}

@@ -9,8 +9,8 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
-	const settingsService = getContext(SettingsService);
 	const stackService = getContext(StackService);
+	const settingsService = getContext(SettingsService);
 	const settingsStore = settingsService.appSettings;
 
 	const { data, children }: { data: PageData; children: Snippet } = $props();

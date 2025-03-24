@@ -12,7 +12,7 @@
 	const { loadable, children }: Props<A> = $props();
 </script>
 
-{#if !loadable}
+{#if loadable === undefined}
 	<span>Uninitialized...</span>
 {:else if loadable.status === 'found'}
 	{@render children(loadable.value)}

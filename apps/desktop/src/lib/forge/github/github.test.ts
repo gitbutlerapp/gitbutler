@@ -13,7 +13,7 @@ describe('GitHub', () => {
 	};
 
 	test('commit url', async () => {
-		const gh = new GitHub({ repo, baseBranch: id, gitHubApi });
+		const gh = new GitHub({ repo, baseBranch: id, gitHubApi, authenticated: true });
 		const url = gh.commitUrl(id);
 		expect(url).toMatch(new RegExp(`/${id}$`));
 	});

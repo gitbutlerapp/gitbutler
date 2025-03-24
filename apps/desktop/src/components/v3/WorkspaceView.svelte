@@ -2,11 +2,11 @@
 	import Resizer from '$components/Resizer.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
-	import NewButlerReview from '$components/v3/NewButlerReview.svelte';
 	import NewCommitView from '$components/v3/NewCommitView.svelte';
-	import NewPullRequest from '$components/v3/NewPullRequest.svelte';
+	import ReviewView from '$components/v3/ReviewView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { type Snippet } from 'svelte';
@@ -21,31 +21,36 @@
 
 	const [uiState] = inject(UiState);
 	const projectUiState = $derived(uiState.project(projectId));
-	const drawerPage = $derived(projectUiState.drawerPage.get());
-	const drawerIsFullScreen = $derived(projectUiState.drawerFullScreen.get());
-	const selected = $derived(uiState.stack(stackId!).selection.get());
+	const drawerPage = $derived(projectUiState.drawerPage);
+	const drawerIsFullScreen = $derived(projectUiState.drawerFullScreen);
+	const selected = $derived(uiState.stack(stackId!).selection);
 	const branchName = $derived(selected.current?.branchName);
 
-	const leftWidth = $state(uiState.global.leftWidth.get());
-	const rightWidth = $state(uiState.global.rightWidth.get());
+	const leftWidth = $derived(uiState.global.leftWidth);
+	const rightWidth = $derived(uiState.global.rightWidth);
 
 	let leftDiv = $state<HTMLElement>();
 	let rightDiv = $state<HTMLElement>();
 </script>
 
-<div class="workspace">
-	<div class="changed-files-view" bind:this={leftDiv} style:width={leftWidth.current + 'rem'}>
+<div class="workspace" use:focusable={{ id: 'workspace' }}>
+	<div
+		class="changed-files-view"
+		bind:this={leftDiv}
+		style:width={leftWidth.current + 'rem'}
+		use:focusable={{ id: 'left', parentId: 'workspace' }}
+	>
 		<WorktreeChanges {projectId} {stackId} />
 		<Resizer
 			viewport={leftDiv}
 			direction="right"
 			minWidth={14}
-			onWidth={(value) => uiState.global.leftWidth.set(value)}
+			onWidth={(value) => (leftWidth.current = value)}
 		/>
 	</div>
-	<div class="main-view">
+	<div class="main-view" use:focusable={{ id: 'main', parentId: 'workspace' }}>
 		{#if !drawerIsFullScreen.current}
-			<SelectionView {projectId} />
+			<SelectionView {projectId} {stackId} />
 		{/if}
 
 		{#if stackId}
@@ -53,10 +58,8 @@
 				<NewCommitView {projectId} {stackId} />
 			{:else if drawerPage.current === 'branch' && branchName}
 				<BranchView {stackId} {projectId} {branchName} />
-			{:else if drawerPage.current === 'pr'}
-				<NewPullRequest {stackId} {projectId} />
-			{:else if drawerPage.current === 'br'}
-				<NewButlerReview {stackId} {projectId} />
+			{:else if drawerPage.current === 'review' && branchName}
+				<ReviewView {stackId} {projectId} {branchName} />
 			{:else if selected.current?.branchName && selected.current.commitId && stackId}
 				<CommitView
 					{projectId}
@@ -72,13 +75,18 @@
 		{/if}
 	</div>
 
-	<div class="right" bind:this={rightDiv} style:width={rightWidth.current + 'rem'}>
+	<div
+		class="right"
+		bind:this={rightDiv}
+		style:width={rightWidth.current + 'rem'}
+		use:focusable={{ id: 'right', parentId: 'workspace' }}
+	>
 		{@render right({ viewportWidth: rightWidth.current })}
 		<Resizer
 			viewport={rightDiv}
 			direction="left"
 			minWidth={16}
-			onWidth={(value) => uiState.global.rightWidth.set(value)}
+			onWidth={(value) => (rightWidth.current = value)}
 		/>
 	</div>
 </div>

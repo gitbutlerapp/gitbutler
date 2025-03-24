@@ -5,8 +5,9 @@
 		stackRequiresForcePush
 	} from '$lib/stacks/stack';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { UserService } from '$lib/user/userService';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
-	import { inject } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	type Props = {
@@ -17,22 +18,37 @@
 
 	const { projectId, stackId, multipleBranches }: Props = $props();
 
-	const [stackService] = inject(StackService);
+	const stackService = getContext(StackService);
+	const userService = getContext(UserService);
+	const user = userService.user;
 	const stackInfoResult = $derived(stackService.stackInfo(projectId, stackId));
 	const stackInfo = $derived(stackInfoResult.current.data);
+	const branchesResult = $derived(stackService.branches(projectId, stackId));
+	const branches = $derived(branchesResult.current.data || []);
 	const [pushStack, pushResult] = stackService.pushStack();
+	const [publishBranch, publishResult] = stackService.publishBranch;
 	let isSticked = $state(true);
 
 	const requiresForce = $derived(stackInfo && stackRequiresForcePush(stackInfo));
 	const hasThingsToPush = $derived(stackInfo && stackHasUnpushedCommits(stackInfo));
 	const hasConflicts = $derived(stackInfo && stackHasConflicts(stackInfo));
 
-	function push() {
+	async function push() {
 		if (requiresForce === undefined) return;
-		pushStack({ projectId, stackId, withForce: requiresForce });
+		await pushStack({ projectId, stackId, withForce: requiresForce });
+
+		// Update published branches if they have already been published before
+		const topPushedBranch = branches.find((branch) => branch.reviewId && branch.archived);
+		if (topPushedBranch && $user) {
+			await publishBranch({ projectId, stackId, topBranch: topPushedBranch.name, user: $user });
+		}
 	}
 
-	const loading = $derived(pushResult.current.isLoading || stackInfoResult.current.isLoading);
+	const loading = $derived(
+		pushResult.current.isLoading ||
+			stackInfoResult.current.isLoading ||
+			publishResult.current.isLoading
+	);
 </script>
 
 <div

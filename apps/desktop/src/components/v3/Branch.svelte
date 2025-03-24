@@ -151,7 +151,9 @@
 						}}
 						openPrDetailsModal={() => {}}
 						hasForgeBranch={!!forgeBranch}
-						onCreateNewPr={async () => uiState.project(projectId).drawerPage.set('pr')}
+						onCreateNewPr={async () => {
+							uiState.project(projectId).drawerPage.current = 'review';
+						}}
 						branchType={commit?.state.type || 'LocalOnly'}
 						onMenuToggle={(isOpen, isLeftClick) => {
 							if (isLeftClick) {
@@ -232,7 +234,9 @@
 							{selected}
 							draggable
 							onclick={() => {
-								uiState.stack(stackId).selection.set({ branchName, commitId });
+								const stackState = uiState.stack(stackId);
+								stackState.selection.set({ branchName, commitId });
+								stackState.activeSelectionId.set({ type: 'commit', commitId });
 								uiState.project(projectId).drawerPage.set(undefined);
 							}}
 						/>

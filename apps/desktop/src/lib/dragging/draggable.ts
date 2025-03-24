@@ -100,7 +100,7 @@ function setupDragHandlers(
 
 		if (opts.data instanceof ChangeDropData) {
 			selectedElements = [];
-			for (const path of opts.data.changedPaths()) {
+			for (const path of opts.data.changedPaths(opts.data.selectionId)) {
 				// Path is sufficient as a key since we query the parent container.
 				const element = parentNode.querySelector(`[data-file-id="${path}"]`);
 				if (element) {

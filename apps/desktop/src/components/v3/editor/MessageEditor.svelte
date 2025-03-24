@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import AiContextMenu from '$components/v3/editor/AIContextMenu.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
 	import { AIService } from '$lib/ai/service';
@@ -36,7 +37,7 @@
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 	let aiConfigurationValid = $state(false);
 	const suggestionsHandler = new CommitSuggestions(aiService);
-	const selection = $derived(idSelection.values());
+	const selection = $derived(idSelection.values({ type: 'worktree' }));
 	const selectionPaths = $derived(
 		selection.map((item) => (item.type === 'worktree' ? item.path : undefined)).filter(isDefined)
 	);
@@ -73,11 +74,15 @@
 		return composer?.getPlaintext();
 	}
 
-	async function handleChange(text: string) {
-		await suggestionsHandler.onChange(text);
+	async function handleChange(
+		_text: string,
+		textUpToAnchor: string | undefined,
+		textAfterAnchor: string | undefined
+	) {
+		await suggestionsHandler.onChange(textUpToAnchor, textAfterAnchor);
 	}
 
-	const debouncedHandleChange = debouncePromise(handleChange, 500);
+	const debouncedHandleChange = debouncePromise(handleChange, 700);
 
 	function handleKeyDown(event: KeyboardEvent | null) {
 		return suggestionsHandler.onKeyDown(event);
@@ -123,27 +128,31 @@
 	</div>
 
 	<div role="presentation" class="message-editor-wrapper">
-		<RichTextEditor
-			styleContext="client-editor"
-			namespace="CommitMessageEditor"
-			placeholder="Your commit message"
-			bind:this={composer}
-			{markdown}
-			onError={(e) => showError('Editor error', e)}
-			initialText={initialValue}
-			onChange={debouncedHandleChange}
-			onKeyDown={handleKeyDown}
-		>
-			{#snippet plugins()}
-				<Formatter bind:this={formatter} />
-				<GiphyPlugin />
-				<GhostTextPlugin
-					bind:this={suggestionsHandler.ghostTextComponent}
-					onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
-				/>
-				<GiphyPlugin />
-			{/snippet}
-		</RichTextEditor>
+		<ConfigurableScrollableContainer height="100%">
+			<div>
+				<RichTextEditor
+					styleContext="client-editor"
+					namespace="CommitMessageEditor"
+					placeholder="Your commit message"
+					bind:this={composer}
+					{markdown}
+					onError={(e) => showError('Editor error', e)}
+					initialText={initialValue}
+					onChange={debouncedHandleChange}
+					onKeyDown={handleKeyDown}
+				>
+					{#snippet plugins()}
+						<Formatter bind:this={formatter} />
+						<GiphyPlugin />
+						<GhostTextPlugin
+							bind:this={suggestionsHandler.ghostTextComponent}
+							onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
+						/>
+						<GiphyPlugin />
+					{/snippet}
+				</RichTextEditor>
+			</div>
+		</ConfigurableScrollableContainer>
 	</div>
 </div>
 
@@ -153,6 +162,7 @@
 		flex-direction: column;
 		flex: 1;
 		background-color: var(--clr-bg-1);
+		min-height: 0;
 	}
 
 	.editor-header {
@@ -204,6 +214,7 @@
 		border-radius: 0 var(--radius-m) var(--radius-m) var(--radius-m);
 		border: 1px solid var(--clr-border-2);
 		overflow: hidden;
+		min-height: 0;
 
 		&:hover,
 		&:focus-within {

@@ -3,7 +3,10 @@
 	import HunkContextMenu from '$components/v3/HunkContextMenu.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { Project } from '$lib/project/project';
-	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+	import {
+		ChangeSelectionService,
+		type PartiallySelectedFile
+	} from '$lib/selection/changeSelection.svelte';
 	import { getContext, inject } from '@gitbutler/shared/context';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
@@ -23,70 +26,110 @@
 	const [diffService, changeSelection] = inject(DiffService, ChangeSelectionService);
 	const diffResult = $derived(diffService.getDiff(projectId, change));
 
-	const selection = $derived(changeSelection.getById(change.path).current);
+	const changeSelectionResult = $derived(changeSelection.getById(change.path));
+	const selection = $derived(changeSelectionResult.current);
 	const pathData = $derived({
 		path: change.path,
-		pathBytes: change!.pathBytes
+		pathBytes: change.pathBytes
 	});
 
-	function stage(hunk: DiffHunk, selected: boolean, allHunks: DiffHunk[]) {
-		if (selection) {
-			if (selection.type === 'full') {
-				if (selected) {
-					throw new Error('Cannot add to full selection');
-				}
-				const newHunks = allHunks.filter((h) => h !== hunk);
-				changeSelection.update({
-					...pathData,
-					type: 'partial',
-					hunks: newHunks.map((h) => ({
-						type: 'full',
-						...h
-					}))
-				});
-			} else if (selection.type === 'partial') {
-				if (selected) {
-					const newHunks = selection.hunks.slice();
-					newHunks.push({
-						type: 'full',
-						...hunk
-					});
-					if (newHunks.length === allHunks.length) {
-						changeSelection.update({
-							type: 'full',
-							...pathData
-						});
-					} else {
-						changeSelection.update({
-							type: 'partial',
-							...pathData,
-							hunks: newHunks
-						});
-					}
-				} else {
-					const hunks = selection.hunks.filter((h) => {
-						return h.newStart !== hunk.newStart && h.newLines !== hunk.newLines;
-					});
-					if (hunks.length === 0) {
-						changeSelection.remove(change.path);
-					} else {
-						changeSelection.update({
-							type: 'partial',
-							...pathData,
-							hunks
-						});
-					}
-				}
-			}
-		} else if (selected) {
+	function updateStage(hunk: DiffHunk, select: boolean, allHunks: DiffHunk[]) {
+		if (selection?.type === 'full') {
+			handleStageInFullSelection(select, allHunks, hunk);
+			return;
+		}
+
+		if (selection?.type === 'partial') {
+			handleStageInPartialSelection(selection, select, hunk, allHunks);
+			return;
+		}
+
+		if (select) {
 			changeSelection.add({
 				type: 'partial',
 				...pathData,
 				hunks: [{ type: 'full', ...hunk }]
 			});
-		} else {
-			throw new Error('Cannot deselect from an empty selection');
+			return;
 		}
+
+		throw new Error('Cannot deselect from an empty selection');
+	}
+
+	/**
+	 * Handles updating the staging state of a hunk when the file it belongs to is already partially staged.
+	 */
+	function handleStageInPartialSelection(
+		partialSelection: PartiallySelectedFile,
+		select: boolean,
+		hunk: DiffHunk,
+		allHunks: DiffHunk[]
+	) {
+		const newHunks = partialSelection.hunks.slice();
+
+		if (select) {
+			newHunks.push({
+				type: 'full',
+				...hunk
+			});
+
+			if (newHunks.length === allHunks.length) {
+				changeSelection.update({
+					type: 'full',
+					...pathData
+				});
+				return;
+			}
+
+			changeSelection.update({
+				type: 'partial',
+				...pathData,
+				hunks: newHunks
+			});
+
+			return;
+		}
+
+		const hunks = partialSelection.hunks.filter((h) => {
+			return h.newStart !== hunk.newStart && h.newLines !== hunk.newLines;
+		});
+
+		if (hunks.length === 0) {
+			changeSelection.remove(change.path);
+		} else {
+			changeSelection.update({
+				type: 'partial',
+				...pathData,
+				hunks
+			});
+		}
+	}
+
+	/**
+	 * Handles updating the staging state of a hunk when the file it belongs to is already fully staged.
+	 */
+	function handleStageInFullSelection(select: boolean, allHunks: DiffHunk[], hunk: DiffHunk) {
+		if (select) {
+			throw new Error('Cannot add to full selection');
+		}
+		const newHunks = allHunks.filter((h) => h !== hunk);
+		changeSelection.update({
+			...pathData,
+			type: 'partial',
+			hunks: newHunks.map((h) => ({
+				type: 'full',
+				...h
+			}))
+		});
+	}
+
+	function getStageState(hunk: DiffHunk) {
+		if (!selectable) return undefined;
+		if (selection === undefined) return false;
+		if (selection.type === 'full') return true;
+		return selection.hunks.some(
+			(h) => h.newStart === hunk.newStart && h.oldStart === hunk.oldStart
+		);
 	}
 </script>
 
@@ -106,15 +149,9 @@
 					<HunkDiff
 						filePath={change.path}
 						hunkStr={hunk.diff}
-						staged={selectable
-							? selection &&
-								(selection.type === 'full' ||
-									selection.hunks.some((h) => h.newStart === hunk.newStart))
-								? true
-								: false
-							: undefined}
+						staged={getStageState(hunk)}
 						onChangeStage={(selected) => {
-							stage(hunk, selected, diff.subject.hunks);
+							updateStage(hunk, selected, diff.subject.hunks);
 						}}
 						handleLineContextMenu={(params) => {
 							contextMenu?.open(params.event, {

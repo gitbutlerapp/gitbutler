@@ -328,9 +328,11 @@ export class AIService {
 	}
 	async autoCompleteCommitMessage({
 		currentValue,
+		suffix,
 		stagedChanges
 	}: {
 		currentValue: string;
+		suffix: string;
 		stagedChanges: FileChange[];
 	}): Promise<string | undefined> {
 		const aiClient = await this.buildClient();
@@ -348,7 +350,7 @@ export class AIService {
 		// This is the actual completion trigger
 		prompt.push({
 			role: MessageRole.User,
-			content: `${currentValue}${FILL_MARKER}`
+			content: `${currentValue}${FILL_MARKER}${suffix}`
 		});
 
 		const message = await aiClient.evaluate(prompt);
