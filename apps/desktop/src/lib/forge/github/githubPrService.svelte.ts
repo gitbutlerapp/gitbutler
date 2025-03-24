@@ -46,7 +46,8 @@ export class GitHubPrService implements ForgePrService {
 				body,
 				draft
 			});
-			return ghResponseToInstance(result);
+			if (!result.data) throw result.error;
+			return ghResponseToInstance(result.data);
 		};
 
 		let attempts = 0;

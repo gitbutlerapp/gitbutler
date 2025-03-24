@@ -242,11 +242,16 @@ type CustomMutation<Definition extends MutationDefinition<any, any, string, any>
 	() => void
 ];
 
+type Result<A> = {
+	data?: A;
+	error?: unknown;
+};
+
 /**
  * Declaration of custom methods for mutations.
  */
 type MutationHooks<Definition extends MutationDefinition<unknown, any, string, unknown>> = {
 	/** Execute query and return results. */
 	useMutation: (params?: UseMutationHookParams<Definition>) => Prettify<CustomMutation<Definition>>;
-	mutate: (args: QueryArgFrom<Definition>) => Promise<Prettify<ResultTypeFrom<Definition>>>;
+	mutate: (args: QueryArgFrom<Definition>) => Promise<Result<Prettify<ResultTypeFrom<Definition>>>>;
 };
