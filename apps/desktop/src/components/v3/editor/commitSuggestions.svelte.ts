@@ -11,8 +11,13 @@ export default class CommitSuggestions {
 	private lasSelectedGhostText = $state<string | undefined>();
 	private stagedChanges = $state<FileChange[] | undefined>();
 	private _suggestOnType = $state<boolean>(true);
+	private canUseAI = $state<boolean>(false);
 
 	constructor(private readonly aiService: AIService) {}
+
+	setCanUseAI(value: boolean) {
+		this.canUseAI = value;
+	}
 
 	setStagedChanges(changes: ChangeDiff[]) {
 		this.stagedChanges = changes
@@ -26,7 +31,8 @@ export default class CommitSuggestions {
 			.filter(isDefined);
 	}
 
-	async suggest(text: string, force?: boolean) {
+	private async suggest(text: string, force?: boolean) {
+		if (!this.canUseAI) return;
 		if (this.lasSelectedGhostText && text.endsWith(this.lasSelectedGhostText)) return;
 		if (this.lastSentMessage === text) return;
 		if (!text && !force) {

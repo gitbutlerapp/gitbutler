@@ -62,6 +62,10 @@
 
 	const canUseAI = $derived($aiGenEnabled && aiConfigurationValid);
 
+	$effect(() => {
+		suggestionsHandler.setCanUseAI(canUseAI);
+	});
+
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
 	let formatter = $state<ReturnType<typeof Formatter>>();
 
