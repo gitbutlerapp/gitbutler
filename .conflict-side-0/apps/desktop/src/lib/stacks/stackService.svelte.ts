@@ -454,7 +454,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			>({
 				query: ({ projectId, stackId, withForce }) => ({
 					command: 'push_stack',
-					params: { projectId, branchId: stackId, withForce }
+					params: { projectId, stackId, withForce }
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					ReduxTag.StackBranches,
@@ -524,7 +524,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				{ projectId: string; stackId: string; request: { targetPatch?: string; name: string } }
 			>({
 				query: ({ projectId, stackId, request: { targetPatch, name } }) => ({
-					command: 'create_series',
+					command: 'create_branch',
 					params: { projectId, stackId, request: { targetPatch, name } }
 				}),
 				invalidatesTags: (_result, _error, args) => [
@@ -607,11 +607,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			>({
 				query: ({ projectId, stackId, branchName, prNumber }) => ({
-					command: 'update_series_pr_number',
+					command: 'update_branch_pr_number',
 					params: {
 						projectId,
 						stackId,
-						headName: branchName,
+						branchName,
 						prNumber
 					}
 				}),

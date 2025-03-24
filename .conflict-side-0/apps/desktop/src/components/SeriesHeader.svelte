@@ -135,9 +135,9 @@
 		prDetailsModal?.show();
 	}
 
-	function editTitle(title: string) {
+	function updateBranchName(title: string) {
 		if (branch?.name && title !== branch.name) {
-			branchController.updateSeriesName(stack.id, branch.name, title);
+			branchController.updateBranchName(stack.id, branch.name, title);
 		}
 	}
 
@@ -172,13 +172,13 @@
 		let hunks = (await Promise.all(hunk_promises)).flat();
 
 		const prompt = promptService.selectedBranchPrompt(projectId);
-		const message = await aiService.summarizeBranch({
+		const newBranchName = await aiService.summarizeBranch({
 			hunks,
 			branchTemplate: prompt
 		});
 
-		if (message && message !== branch.name) {
-			branchController.updateSeriesName(stack.id, branch.name, message);
+		if (newBranchName && newBranchName !== branch.name) {
+			branchController.updateBranchName(stack.id, branch.name, newBranchName);
 		}
 	}
 
@@ -216,7 +216,7 @@
 	bind:contextMenuEl={kebabContextMenu}
 	leftClickTrigger={kebabContextMenuTrigger}
 	rightClickTrigger={seriesHeaderEl}
-	headName={branch.name}
+	branchName={branch.name}
 	seriesCount={stack.validSeries?.length ?? 0}
 	{isTopBranch}
 	{toggleDescription}
@@ -301,7 +301,7 @@
 					{/if}
 					<BranchLabel
 						name={branch.name}
-						onChange={(name) => editTitle(name)}
+						onChange={(name) => updateBranchName(name)}
 						readonly={!!forgeBranch}
 						onDblClick={() => {
 							if (branchType !== 'Integrated') {

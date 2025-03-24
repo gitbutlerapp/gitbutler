@@ -118,7 +118,7 @@ pub fn update_branch_name(
 pub fn update_branch_description(
     ctx: &CommandContext,
     stack_id: StackId,
-    head_name: String,
+    branch_name: String,
     description: Option<String>,
 ) -> Result<()> {
     ctx.verify()?;
@@ -131,7 +131,7 @@ pub fn update_branch_description(
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     stack.update_branch(
         ctx,
-        head_name,
+        branch_name,
         &PatchReferenceUpdate {
             description: Some(description),
             ..Default::default()

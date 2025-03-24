@@ -480,7 +480,7 @@ export class BranchController {
 		try {
 			await invoke<void>('move_commit_file', {
 				projectId: this.projectId,
-				stackId: stackId,
+				stackId,
 				fromCommitOid,
 				toCommitOid,
 				ownership

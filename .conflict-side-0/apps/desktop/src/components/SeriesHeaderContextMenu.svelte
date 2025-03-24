@@ -19,7 +19,7 @@
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
 		leftClickTrigger?: HTMLElement;
 		rightClickTrigger?: HTMLElement;
-		headName: string;
+		branchName: string;
 		seriesCount: number;
 		isTopBranch: boolean;
 		hasForgeBranch: boolean;
@@ -45,7 +45,7 @@
 		isTopBranch,
 		seriesCount,
 		hasForgeBranch,
-		headName,
+		branchName,
 		pr,
 		branchType,
 		description,
@@ -68,7 +68,7 @@
 
 	let deleteSeriesModal: Modal;
 	let renameSeriesModal: Modal;
-	let newHeadName: string = $state(headName);
+	let newName: string = $state(branchName);
 	let isDeleting = $state(false);
 	let aiConfigurationValid = $state(false);
 
@@ -125,7 +125,7 @@
 		<ContextMenuItem
 			label="Copy branch name"
 			onclick={() => {
-				writeClipboard(headName);
+				writeClipboard(branchName);
 				contextMenuEl?.close();
 			}}
 		/>
@@ -210,13 +210,13 @@
 	type={hasForgeBranch ? 'warning' : 'info'}
 	bind:this={renameSeriesModal}
 	onSubmit={(close) => {
-		if (newHeadName && newHeadName !== headName) {
+		if (newName && newName !== branchName) {
 			branchController.updateSeriesName(stackId, headName, newHeadName);
 		}
 		close();
 	}}
 >
-	<Textbox placeholder="New name" id="newSeriesName" bind:value={newHeadName} autofocus />
+	<Textbox placeholder="New name" id="newSeriesName" bind:value={newName} autofocus />
 
 	{#if hasForgeBranch}
 		<div class="text-12 helper-text">
@@ -246,7 +246,7 @@
 	}}
 >
 	{#snippet children()}
-		Are you sure you want to delete <code class="code-string">{headName}</code>?
+		Are you sure you want to delete <code class="code-string">{branchName}</code>?
 	{/snippet}
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>

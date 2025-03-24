@@ -425,7 +425,7 @@ impl Stack {
     /// those commits are moved to the branch underneath it (or more accurately, the preceding it)
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
-    pub fn remove_series(&mut self, ctx: &CommandContext, branch_name: String) -> Result<()> {
+    pub fn remove_branch(&mut self, ctx: &CommandContext, branch_name: String) -> Result<()> {
         self.ensure_initialized()?;
         (self.heads, _) = remove_head(self.heads.clone(), branch_name, &ctx.gix_repository()?)?;
         let state = branch_state(ctx);
@@ -437,7 +437,7 @@ impl Stack {
     /// If the branch name is updated, the pr_number will be reset to None.
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
-    pub fn update_series(
+    pub fn update_branch(
         &mut self,
         ctx: &CommandContext,
         branch_name: String,
@@ -783,18 +783,18 @@ impl Stack {
     pub fn set_pr_number(
         &mut self,
         ctx: &CommandContext,
-        series_name: &str,
+        branch_name: &str,
         new_pr_number: Option<usize>,
     ) -> Result<()> {
         self.ensure_initialized()?;
-        match self.heads.iter_mut().find(|r| r.name() == series_name) {
+        match self.heads.iter_mut().find(|r| r.name() == branch_name) {
             Some(head) => {
                 head.pr_number = new_pr_number;
                 branch_state(ctx).set_stack(self.clone())
             }
             None => bail!(
                 "Series {} does not exist on stack {}",
-                series_name,
+                branch_name,
                 self.name
             ),
         }
