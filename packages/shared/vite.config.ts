@@ -6,5 +6,8 @@ export default defineConfig({
 	test: {
 		include: ['src/**/*.(test|spec).?(m)[jt]s?(x)'],
 		environment: 'jsdom'
+	},
+	build: {
+		sourcemap: 'inline'
 	}
 });

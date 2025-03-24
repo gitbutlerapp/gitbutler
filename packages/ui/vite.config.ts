@@ -5,5 +5,8 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	test: {
 		include: ['src/**/*.(test|spec).?(m)[jt]s?(x)']
+	},
+	build: {
+		sourcemap: 'inline'
 	}
 });
