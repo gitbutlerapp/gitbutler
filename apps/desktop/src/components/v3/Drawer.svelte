@@ -113,5 +113,7 @@
 		flex-shrink: 0;
 		display: flex;
 		gap: 2px;
+		margin-top: -4px;
+		margin-right: -4px;
 	}
 </style>
