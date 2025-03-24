@@ -50,7 +50,7 @@
 	</div>
 	<div class="main-view" use:focusable={{ id: 'main', parentId: 'workspace' }}>
 		{#if !drawerIsFullScreen.current}
-			<SelectionView {projectId} />
+			<SelectionView {projectId} {stackId} />
 		{/if}
 
 		{#if stackId}

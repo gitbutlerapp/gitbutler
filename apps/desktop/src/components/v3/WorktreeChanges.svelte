@@ -3,6 +3,7 @@
 	import FileList from '$components/v3/FileList.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
+	import { FocusManager } from '$lib/focus/focusManager.svelte';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -18,11 +19,12 @@
 
 	const { projectId, stackId }: Props = $props();
 
-	const [changeSelection, worktreeService, uiState, stackService] = inject(
+	const [changeSelection, worktreeService, uiState, stackService, focus] = inject(
 		ChangeSelectionService,
 		WorktreeService,
 		UiState,
-		StackService
+		StackService,
+		FocusManager
 	);
 
 	const projectState = $derived(uiState.project(projectId));
@@ -46,6 +48,16 @@
 		changeSelection.retain(affectedPaths);
 	});
 
+	const focusedArea = $derived(focus.current);
+
+	$effect(() => {
+		// If the focused area updates and it matches "left" then we update what
+		// selection should be shown in the main view.
+		if (focusedArea === 'left') {
+			stackState?.activeSelectionId.set({ type: 'worktree' });
+		}
+	});
+
 	function startCommit() {
 		if (!defaultBranchName) return;
 		stackState?.selection.set({ branchName: defaultBranchName });
@@ -63,7 +75,12 @@
 		</div>
 		{#if changes.length > 0}
 			<div class="uncommitted-changes">
-				<FileList type="worktree" {projectId} {changes} showCheckboxes={isCommitting} />
+				<FileList
+					selectionId={{ type: 'worktree', showCheckboxes: isCommitting }}
+					{projectId}
+					{stackId}
+					{changes}
+				/>
 				<div class="start-commit">
 					<Button
 						kind={isCommitting ? 'outline' : 'solid'}

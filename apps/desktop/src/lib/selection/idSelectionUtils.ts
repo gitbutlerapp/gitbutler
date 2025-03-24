@@ -4,7 +4,7 @@
  * This file replaces `$lib/utils/selection.ts`, with the main difference
  * being the type change from `AnyFile` to `TreeChange`.
  */
-import { type SelectedFile, type SelectionParameters } from '$lib/selection/key';
+import { type SelectedFile, type SelectionId } from '$lib/selection/key';
 import { getSelectionDirection } from '$lib/utils/getSelectionDirection';
 import { KeyName } from '@gitbutler/ui/utils/hotkeys';
 import type { TreeChange } from '$lib/hunks/change';
@@ -60,7 +60,7 @@ interface UpdateSelectionParams {
 	files: TreeChange[];
 	selectedFileIds: SelectedFile[];
 	fileIdSelection: IdSelection;
-	selectionParams: SelectionParameters;
+	selectionId: SelectionId;
 	preventDefault: () => void;
 }
 
@@ -73,7 +73,7 @@ export function updateSelection({
 	files,
 	selectedFileIds,
 	fileIdSelection,
-	selectionParams,
+	selectionId,
 	preventDefault
 }: UpdateSelectionParams) {
 	if (!selectedFileIds[0] || selectedFileIds.length === 0) return;
@@ -102,7 +102,7 @@ export function updateSelection({
 
 			const fileIndex = files.findIndex((f) => f.path === file.path);
 			if (fileIndex === -1) return; // should never happen
-			fileIdSelection.add(file.path, selectionParams, fileIndex);
+			fileIdSelection.add(file.path, selectionId, fileIndex);
 		}
 	}
 
@@ -114,7 +114,7 @@ export function updateSelection({
 		if (file) {
 			const fileIndex = files.findIndex((f) => f.path === file.path);
 			if (fileIndex === -1) return; // should never happen
-			fileIdSelection.set(file.path, selectionParams, fileIndex);
+			fileIdSelection.set(file.path, selectionId, fileIndex);
 		}
 	}
 
@@ -124,7 +124,7 @@ export function updateSelection({
 				preventDefault();
 				for (let i = 0; i < files.length; i++) {
 					const file = files[i]!;
-					fileIdSelection.add(file.path, selectionParams, i);
+					fileIdSelection.add(file.path, selectionId, i);
 				}
 			}
 			break;
@@ -137,7 +137,7 @@ export function updateSelection({
 				if (selectedFileIds.length === 1) {
 					selectionDirection = 'up';
 				} else if (selectionDirection === 'down') {
-					fileIdSelection.remove(lastFileId, selectionParams);
+					fileIdSelection.remove(lastFileId, selectionId);
 				}
 				getAndAddFile(lastFileId, getPreviousFile);
 			} else {
@@ -162,7 +162,7 @@ export function updateSelection({
 				if (selectedFileIds.length === 1) {
 					selectionDirection = 'down';
 				} else if (selectionDirection === 'up') {
-					fileIdSelection.remove(lastFileId, selectionParams);
+					fileIdSelection.remove(lastFileId, selectionId);
 				}
 
 				getAndAddFile(lastFileId, getNextFile);
@@ -180,7 +180,7 @@ export function updateSelection({
 			break;
 		case KeyName.Escape:
 			preventDefault();
-			fileIdSelection.clear();
+			fileIdSelection.clear(selectionId);
 			targetElement.blur();
 			break;
 	}
@@ -193,31 +193,31 @@ export function selectFilesInList(
 	idSelection: IdSelection,
 	allowMultiple: boolean,
 	index: number,
-	selectionParams: SelectionParameters
+	selectionId: SelectionId
 ) {
-	e.stopPropagation();
-	const isAlreadySelected = idSelection.has(change.path, selectionParams);
-	const isTheOnlyOneSelected = idSelection.length === 1 && isAlreadySelected;
-	const lastAddedIndex = idSelection.lastAddedIndex;
+	// e.stopPropagation();
+	const isAlreadySelected = idSelection.has(change.path, selectionId);
+	const isTheOnlyOneSelected = idSelection.collectionSize(selectionId) === 1 && isAlreadySelected;
+	const lastAddedIndex = idSelection.getById(selectionId).lastAdded;
 
 	if (e.ctrlKey || e.metaKey) {
 		if (isAlreadySelected) {
-			idSelection.remove(change.path, selectionParams);
+			idSelection.remove(change.path, selectionId);
 		} else {
-			idSelection.add(change.path, selectionParams, index);
+			idSelection.add(change.path, selectionId, index);
 		}
 	} else if (e.shiftKey && allowMultiple && lastAddedIndex !== undefined) {
 		const start = Math.min(lastAddedIndex, index);
 		const end = Math.max(lastAddedIndex, index);
 
 		const filePaths = sortedFiles.slice(start, end + 1).map((f) => f.path);
-		idSelection.addMany(filePaths, selectionParams, index);
+		idSelection.addMany(filePaths, selectionId, index);
 	} else {
 		// if only one file is selected and it is already selected, unselect it
 		if (isTheOnlyOneSelected) {
-			idSelection.clear();
+			idSelection.clear(selectionId);
 		} else {
-			idSelection.set(change.path, selectionParams, index);
+			idSelection.set(change.path, selectionId, index);
 		}
 	}
 }

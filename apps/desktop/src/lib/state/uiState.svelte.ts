@@ -7,6 +7,7 @@ import {
 	type UnknownAction
 } from '@reduxjs/toolkit';
 import storage from 'redux-persist/lib/storage';
+import type { SelectionId } from '$lib/selection/key';
 type DrawerPage = 'branch' | 'new-commit' | 'review' | 'branch' | undefined;
 
 export const uiStatePersistConfig = {
@@ -22,6 +23,7 @@ type StackUiState = {
 				upstream?: boolean;
 		  }
 		| undefined;
+	activeSelectionId: SelectionId;
 };
 
 type ProjectUiState = {
@@ -37,7 +39,8 @@ export class UiState {
 
 	/** Properties scoped to a specific stack. */
 	readonly stack = this.buildScopedProps<StackUiState>({
-		selection: undefined
+		selection: undefined,
+		activeSelectionId: { type: 'worktree' }
 	});
 
 	/** Properties scoped to a specific project. */

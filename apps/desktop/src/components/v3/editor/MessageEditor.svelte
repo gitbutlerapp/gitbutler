@@ -37,7 +37,7 @@
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 	let aiConfigurationValid = $state(false);
 	const suggestionsHandler = new CommitSuggestions(aiService);
-	const selection = $derived(idSelection.values());
+	const selection = $derived(idSelection.values({ type: 'worktree' }));
 	const selectionPaths = $derived(
 		selection.map((item) => (item.type === 'worktree' ? item.path : undefined)).filter(isDefined)
 	);

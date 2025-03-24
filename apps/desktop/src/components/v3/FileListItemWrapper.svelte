@@ -7,34 +7,32 @@
 	import { getFilename } from '$lib/files/utils';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
-	import { key, type SelectionParameters } from '$lib/selection/key';
+	import { key, type SelectionId } from '$lib/selection/key';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
 
 	interface Props {
-		containerFocused?: boolean;
-		index: number;
 		projectId: string;
 		change: TreeChange;
-		selectedFile: SelectionParameters;
+		selectedFile: SelectionId;
 		selected?: boolean;
 		showCheckbox?: boolean;
 		isHeader?: boolean;
+		listActive?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 	}
 
 	const {
-		containerFocused,
-		index,
 		change,
 		selectedFile,
 		projectId,
 		selected,
 		showCheckbox,
 		isHeader,
+		listActive,
 		onclick,
 		onkeydown
 	}: Props = $props();
@@ -49,7 +47,7 @@
 
 	const selection = $derived(changeSelection.getById(change.path));
 	const indeterminate = $derived(selection.current && selection.current.type === 'partial');
-	const selectedChanges = $derived(idSelection.treeChanges(projectId));
+	const selectedChanges = $derived(idSelection.treeChanges(projectId, selectedFile));
 
 	function onCheck() {
 		if (selection.current) {
@@ -99,9 +97,9 @@
 		filePath={change.path}
 		fileStatus={computeChangeStatus(change)}
 		{selected}
-		focused={idSelection.lastAddedIndex === index && containerFocused}
 		{showCheckbox}
 		checked={!!selection.current}
+		{listActive}
 		{indeterminate}
 		draggable={true}
 		{onkeydown}

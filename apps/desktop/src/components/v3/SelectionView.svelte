@@ -3,16 +3,20 @@
 	import FileViewPlaceholder from '$components/v3/FileViewPlaceholder.svelte';
 	import SelectedChange from '$components/v3/SelectedChange.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 
 	type Props = {
 		projectId: string;
+		stackId?: string;
 	};
 
-	const { projectId }: Props = $props();
+	const { projectId, stackId }: Props = $props();
 
-	const [idSelection] = inject(IdSelection);
-	const selection = $derived(idSelection.values());
+	const [idSelection, uiState] = inject(IdSelection, UiState);
+	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
+	const selectionId = $derived(stackState?.activeSelectionId.get());
+	const selection = $derived(selectionId?.current ? idSelection.values(selectionId.current) : []);
 </script>
 
 <div class="selection-view">
@@ -20,8 +24,8 @@
 		<FileViewPlaceholder />
 	{:else}
 		<ScrollableContainer wide>
-			{#each selection as selectedFile, index ('selection-view-' + selectedFile.path + index)}
-				<SelectedChange {projectId} {selectedFile} {index} />
+			{#each selection as selectedFile}
+				<SelectedChange {projectId} {selectedFile} />
 			{/each}
 		</ScrollableContainer>
 	{/if}

@@ -1,4 +1,4 @@
-import { key, type SelectionParameters } from '$lib/selection/key';
+import { key, type SelectionId } from '$lib/selection/key';
 import { get, type Readable } from 'svelte/store';
 import type { AnyCommit } from '$lib/commits/commit';
 import type { CommitDropData } from '$lib/commits/dropHandler';
@@ -36,19 +36,19 @@ export class ChangeDropData {
 		 * dragged.
 		 */
 		private selection: IdSelection,
-		readonly selectedFile: SelectionParameters
+		readonly selectionId: SelectionId
 	) {}
 
-	changedPaths(): string[] {
-		if (this.selection.has(this.file.path, this.selectedFile)) {
-			return this.selection.keys();
+	changedPaths(params: SelectionId): string[] {
+		if (this.selection.has(this.file.path, this.selectionId)) {
+			return this.selection.keys(params);
 		} else {
-			return [key({ ...this.selectedFile, path: this.file.path })];
+			return [key({ ...this.selectionId, path: this.file.path })];
 		}
 	}
 
 	get isCommitted(): boolean {
-		return this.selectedFile.type === 'commit' || this.selectedFile.type === 'branch';
+		return this.selectionId.type === 'commit' || this.selectionId.type === 'branch';
 	}
 }
 
