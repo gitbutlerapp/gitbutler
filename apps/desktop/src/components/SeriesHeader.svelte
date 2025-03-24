@@ -5,8 +5,7 @@
 	import BranchStatus from '$components/BranchStatus.svelte';
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
-	import PullRequestCard from '$components/PullRequestCard.svelte';
-	import ReviewDetailsModal from '$components/ReviewDetailsModal.svelte';
+	import ReviewDetailsModal from '$components/ReviewCreation.svelte';
 	import SeriesDescription from '$components/SeriesDescription.svelte';
 	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
 	import SeriesHeaderStatusIcon from '$components/SeriesHeaderStatusIcon.svelte';
@@ -16,11 +15,7 @@
 	import { BranchStack } from '$lib/branches/branch';
 	import { PatchSeries } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
-	import {
-		allPreviousSeriesHavePrNumber,
-		childBranch,
-		parentBranch
-	} from '$lib/branches/virtualBranchService';
+	import { allPreviousSeriesHavePrNumber, parentBranch } from '$lib/branches/virtualBranchService';
 	import { type CommitStatus } from '$lib/commits/commit';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -65,12 +60,6 @@
 			stack.validSeries.filter((b) => b.archived)
 		)
 	);
-	const child = $derived(
-		childBranch(
-			branch,
-			stack.validSeries.filter((b) => !b.archived)
-		)
-	);
 
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
 	const baseBranch = getContextStore(BaseBranch);
@@ -112,6 +101,7 @@
 	const prService = $derived(forge.current.prService);
 	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
 	const pr = $derived(prResult?.current.data);
+	$inspect({ seriesHeader: pr });
 	const mergedIncorrectly = $derived(
 		(pr?.merged && pr.baseBranch !== $baseBranch.shortName) || false
 	);
@@ -338,24 +328,7 @@
 			<div class="branch-review-section">
 				<div class="branch-action__line" style:--bg-color={lineColor}></div>
 				<div class="branch-review-container">
-					<BranchReview
-						{projectId}
-						stackId={stack.id}
-						branchName={branch.name}
-						openForgePullRequest={handleOpenBranchReview}
-					>
-						{#snippet pullRequestCard(pr)}
-							<PullRequestCard
-								openPrDetailsModal={handleOpenBranchReview}
-								stackId={stack.id}
-								{pr}
-								{isPushed}
-								{child}
-								{hasParent}
-								{parentIsPushed}
-								poll
-							/>
-						{/snippet}
+					<BranchReview {projectId} stackId={stack.id} branchName={branch.name}>
 						{#snippet branchStatus()}
 							<BranchStatus
 								{mergedIncorrectly}
@@ -369,8 +342,6 @@
 				</div>
 			</div>
 		{/if}
-
-		<ReviewDetailsModal bind:this={prDetailsModal} currentSeries={branch} />
 
 		<Modal
 			width="small"

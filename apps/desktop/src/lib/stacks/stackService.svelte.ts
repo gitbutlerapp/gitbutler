@@ -1,5 +1,4 @@
-import { invoke } from '$lib/backend/ipc';
-import { showError, showToast } from '$lib/notifications/toasts';
+import { showToast } from '$lib/notifications/toasts';
 import { ClientState } from '$lib/state/clientState.svelte';
 import { createSelectNth } from '$lib/state/customSelectors';
 import { ReduxTag } from '$lib/state/tags';
@@ -12,6 +11,7 @@ import type { TreeChange } from '$lib/hunks/change';
 import type { DiffSpec, HunkHeader } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackInfo } from '$lib/stacks/stack';
 import type { TauriCommandError } from '$lib/state/backendQuery';
+import type { User } from '$lib/user/user';
 
 type CreateBranchRequest = { name?: string; ownership?: string; order?: number };
 
@@ -147,6 +147,39 @@ export class StackService {
 			{ projectId, stackId },
 			{
 				transform: (branches) => branchSelectors.selectNth(branches, index)
+			}
+		);
+	}
+
+	/** Returns the parent of the branch specified by the provided name */
+	branchParentByName(projectId: string, stackId: string, name: string) {
+		return this.api.endpoints.stackBranches.useQuery(
+			{ projectId, stackId },
+			{
+				transform: (result) => {
+					const ids = branchSelectors.selectIds(result);
+					const currentId = ids.findIndex((id) => id === name);
+					// If the branch is the bottom-most branch or not found, return
+					if (currentId === -1 || currentId + 1 === ids.length) return;
+
+					return branchSelectors.selectNth(result, currentId + 1);
+				}
+			}
+		);
+	}
+	/** Returns the child of the branch specified by the provided name */
+	branchChildByName(projectId: string, stackId: string, name: string) {
+		return this.api.endpoints.stackBranches.useQuery(
+			{ projectId, stackId },
+			{
+				transform: (result) => {
+					const ids = branchSelectors.selectIds(result);
+					const currentId = ids.findIndex((id) => id === name);
+					// If the branch is the top-most branch or not found, return
+					if (currentId === -1 || currentId === 0) return;
+
+					return branchSelectors.selectNth(result, currentId - 1);
+				}
 			}
 		);
 	}
@@ -297,16 +330,12 @@ export class StackService {
 		return this.api.endpoints.insertBlankCommit.useMutation();
 	}
 
-	async unapply(projectId: string, stackId: string) {
-		try {
-			await invoke<void>('save_and_unapply_virtual_branch', {
-				projectId,
-				branch: stackId
-			});
-			this.state.dispatch(this.api.util.invalidateTags([ReduxTag.Stacks]));
-		} catch (err) {
-			showError('Failed to unapply branch', err);
-		}
+	get unapply() {
+		return this.api.endpoints.unapply.useMutation();
+	}
+
+	get publishBranch() {
+		return this.api.endpoints.publishBranch.useMutation();
 	}
 
 	amendCommit() {
@@ -315,6 +344,10 @@ export class StackService {
 
 	discardChanges() {
 		return this.api.endpoints.discardChanges.useMutation();
+	}
+
+	get updateBranchPrNumber() {
+		return this.api.endpoints.updateBranchPrNumber.useMutation();
 	}
 }
 
@@ -532,6 +565,44 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'discard_worktree_changes',
 					params: { projectId, worktreeChanges }
 				})
+			}),
+			unapply: build.mutation<void, { projectId: string; stackId: string }>({
+				query: ({ projectId, stackId }) => ({
+					command: 'save_and_unapply_virtual_branch',
+					params: { projectId, branch: stackId }
+				}),
+				invalidatesTags: [ReduxTag.Stacks]
+			}),
+			publishBranch: build.mutation<
+				string,
+				{ projectId: string; stackId: string; user: User; topBranch: string }
+			>({
+				query: ({ projectId, stackId, user, topBranch }) => ({
+					command: 'push_stack_to_review',
+					params: { projectId, stackId, user, topBranch }
+				}),
+				invalidatesTags: [ReduxTag.Stacks, ReduxTag.StackBranches]
+			}),
+			// TODO: Why is this not part of the regular update call?
+			updateBranchPrNumber: build.mutation<
+				void,
+				{
+					projectId: string;
+					stackId: string;
+					branchName: string;
+					prNumber: number;
+				}
+			>({
+				query: ({ projectId, stackId, branchName, prNumber }) => ({
+					command: 'update_series_pr_number',
+					params: {
+						projectId,
+						stackId,
+						headName: branchName,
+						prNumber
+					}
+				}),
+				invalidatesTags: [ReduxTag.StackBranches]
 			})
 		})
 	});

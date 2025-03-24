@@ -31,7 +31,8 @@ describe('GitHubListingService', () => {
 			},
 			baseBranch: 'some-base',
 			projectMetrics,
-			posthog
+			posthog,
+			authenticated: true
 		});
 	});
 
