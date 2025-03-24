@@ -1,4 +1,4 @@
-use crate::utils::{visualize_index, writable_scenario, writable_scenario_slow};
+use crate::utils::{CONTEXT_LINES, visualize_index, writable_scenario, writable_scenario_slow};
 use but_testsupport::{CommandExt, git, git_status, visualize_disk_tree_skip_dot_git};
 use but_workspace::discard_workspace_changes;
 use util::{file_to_spec, renamed_file_to_spec, worktree_changes_to_discard_specs};
@@ -12,7 +12,11 @@ fn all_file_types_from_unborn() -> anyhow::Result<()> {
 ?? untracked-exe
 ");
 
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -29,7 +33,11 @@ A  untracked
 A  untracked-exe
 ");
 
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -48,7 +56,11 @@ D link
 D submodule
 ");
 
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -90,7 +102,11 @@ fn replace_dir_with_file_discard_all_in_order_in_worktree() -> anyhow::Result<()
 ?? dir
 ");
 
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -137,7 +153,11 @@ D  dir/link
 D  dir/submodule
 ");
 
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -183,7 +203,7 @@ fn replace_dir_with_file_discard_just_the_file_in_worktree() -> anyhow::Result<(
 ?? dir
 ");
 
-    let dropped = discard_workspace_changes(&repo, Some(file_to_spec("dir")))?;
+    let dropped = discard_workspace_changes(&repo, Some(file_to_spec("dir")), CONTEXT_LINES)?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -224,7 +244,7 @@ fn conflicts_are_invisible() -> anyhow::Result<()> {
 100644:e33f5e9 file
 ");
 
-    let dropped = discard_workspace_changes(&repo, Some(file_to_spec("file")))?;
+    let dropped = discard_workspace_changes(&repo, Some(file_to_spec("file")), CONTEXT_LINES)?;
     assert_eq!(
         dropped,
         vec![file_to_spec("file")],
@@ -259,7 +279,7 @@ D  dir/link
 D  dir/submodule
 ");
 
-    let dropped = discard_workspace_changes(&repo, Some(file_to_spec("dir")))?;
+    let dropped = discard_workspace_changes(&repo, Some(file_to_spec("dir")), CONTEXT_LINES)?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -307,7 +327,11 @@ M soon-not-executable
 └── soon-not-executable:100644
 ");
 
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -347,7 +371,11 @@ M  soon-not-executable
 └── soon-not-executable:100644
 ");
 
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -395,7 +423,11 @@ M submodule
 160000:a047f81 submodule
 ");
 
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     // The embedded repository we don't currently see due to a `gix` shortcoming - it ignores embedded repos
@@ -438,7 +470,11 @@ MM submodule
 160000:6d5e0a5 submodule
 ");
 
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     // `gix status` is able to see the 'embedded-repository' if it's in the index, and we can reset it as well.
@@ -474,7 +510,11 @@ fn all_file_types_renamed_and_modified_in_worktree() -> anyhow::Result<()> {
 └── link-renamed:120755
 ");
 
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -520,7 +560,11 @@ A  link-renamed
 └── link-renamed:120755
 ");
 
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -579,7 +623,11 @@ fn all_file_types_renamed_overwriting_existing_and_modified_in_worktree() -> any
 └── to-be-overwritten:100644
 ");
 
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -645,7 +693,11 @@ M  to-be-overwritten
 └── to-be-overwritten:100644
 ");
 
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -714,6 +766,7 @@ fn all_file_types_renamed_overwriting_existing_and_modified_in_worktree_discard_
             renamed_file_to_spec("executable", "dir-to-be-file"),
             renamed_file_to_spec("file", "file-to-be-dir/file"),
         ],
+        CONTEXT_LINES,
     )?;
     assert_eq!(dropped, []);
 
@@ -741,7 +794,11 @@ D file-to-be-dir
 
     // Try again with what remains, something that the user will likely do as well, not really knowing
     // why that is.
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @r"");
@@ -797,7 +854,11 @@ D a/sibling
 ");
 
     // This naturally starts with `a/sibling`
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -845,6 +906,7 @@ D a/sibling
             renamed_file_to_spec("a/b/link", "a/sibling/link"),
             file_to_spec("a/sibling"),
         ],
+        CONTEXT_LINES,
     )?;
     assert!(dropped.is_empty());
 
@@ -880,7 +942,11 @@ R  a/b/file -> a/sibling/file
 R  a/b/link -> a/sibling/link
 ");
 
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -916,7 +982,11 @@ D submodule
 ");
     git(&repo).args(["add", "."]).run();
 
-    let dropped = discard_workspace_changes(&repo, worktree_changes_to_discard_specs(&repo))?;
+    let dropped = discard_workspace_changes(
+        &repo,
+        worktree_changes_to_discard_specs(&repo),
+        CONTEXT_LINES,
+    )?;
     assert!(dropped.is_empty());
 
     insta::assert_snapshot!(git_status(&repo)?, @"");

@@ -206,9 +206,10 @@ pub fn amend_commit_from_worktree_changes(
 ///
 /// Returns the `worktree_changes` that couldn't be applied,
 #[tauri::command(async)]
-#[instrument(skip(projects), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn discard_worktree_changes(
     projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     worktree_changes: Vec<but_workspace::discard::ui::DiscardSpec>,
 ) -> Result<Vec<but_workspace::discard::ui::DiscardSpec>, Error> {
@@ -223,6 +224,7 @@ pub fn discard_worktree_changes(
                 change,
             ))
         }),
+        settings.get()?.context_lines,
     )?;
     Ok(refused
         .into_iter()

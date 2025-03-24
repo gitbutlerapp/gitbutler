@@ -80,6 +80,19 @@ impl ModeFlags {
     }
 }
 
+impl ModeFlags {
+    /// Returns `true` if this instance indicates a type-change.
+    /// The only reason this isn't the case is if the executable bit changed.
+    pub fn is_typechange(&self) -> bool {
+        match self {
+            ModeFlags::ExecutableBitAdded | ModeFlags::ExecutableBitRemoved => false,
+            ModeFlags::TypeChangeFileToLink
+            | ModeFlags::TypeChangeLinkToFile
+            | ModeFlags::TypeChange => true,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     mod flags {

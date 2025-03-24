@@ -1,5 +1,6 @@
 //! The machinery used to alter and mutate commits in various ways whilst adjusting descendant commits within a [reference frame](ReferenceFrame).
 
+use crate::commit_engine::reference_frame::InferenceMode;
 use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::RepositoryExt;
@@ -12,14 +13,16 @@ use gix::prelude::ObjectIdExt as _;
 use gix::refs::transaction::PreviousValue;
 use serde::{Deserialize, Serialize};
 
-mod tree;
-use crate::commit_engine::reference_frame::InferenceMode;
+pub(crate) mod tree;
 use tree::{CreateTreeOutcome, create_tree};
 
 pub(crate) mod index;
 /// Utility types
 pub mod reference_frame;
 mod refs;
+
+mod hunks;
+pub use hunks::apply_hunks;
 
 /// Types for use in the frontend with serialization support.
 pub mod ui;
@@ -91,7 +94,7 @@ pub struct DiffSpec {
 }
 
 /// The header of a hunk that represents a change to a file.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HunkHeader {
     /// The 1-based line number at which the previous version of the file started.

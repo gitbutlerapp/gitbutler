@@ -1445,7 +1445,6 @@ fn modified_in_index_and_worktree_mod_del() -> Result<()> {
 }
 
 #[test]
-#[ignore = "TBD later"]
 fn modified_in_index_and_worktree_rename_mod() -> Result<()> {
     let repo = repo("modified-in-index-and-worktree-rename-mod")?;
     let actual = diff::worktree_changes(&repo)?;
@@ -1453,10 +1452,11 @@ fn modified_in_index_and_worktree_rename_mod() -> Result<()> {
     WorktreeChanges {
         changes: [
             TreeChange {
-                path: "dual-modified",
-                status: Modification {
+                path: "file-renamed",
+                status: Rename {
+                    previous_path: "file",
                     previous_state: ChangeState {
-                        id: Sha1(8ea0713f9d637081cc0098035465c365c0c32949),
+                        id: Sha1(e79c5e8f964493290a409888d5413a737e8e5dd5),
                         kind: Blob,
                     },
                     state: ChangeState {
@@ -1469,7 +1469,7 @@ fn modified_in_index_and_worktree_rename_mod() -> Result<()> {
         ],
         ignored_changes: [
             IgnoredWorktreeChange {
-                path: "dual-modified",
+                path: "file-renamed",
                 status: TreeIndex,
             },
         ],
@@ -1480,16 +1480,14 @@ fn modified_in_index_and_worktree_rename_mod() -> Result<()> {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
-    @@ -1,2 +1,3 @@
+    @@ -1,1 +1,2 @@
      initial
-     change
-    +second-change
+    +wt-change
     ");
     Ok(())
 }
 
 #[test]
-#[ignore = "TBD later"]
 fn modified_in_index_and_worktree_rename_rename() -> Result<()> {
     let repo = repo("modified-in-index-and-worktree-rename-rename")?;
     let actual = diff::worktree_changes(&repo)?;
@@ -1497,10 +1495,11 @@ fn modified_in_index_and_worktree_rename_rename() -> Result<()> {
     WorktreeChanges {
         changes: [
             TreeChange {
-                path: "dual-modified",
-                status: Modification {
+                path: "file-renamed-in-wt",
+                status: Rename {
+                    previous_path: "file",
                     previous_state: ChangeState {
-                        id: Sha1(8ea0713f9d637081cc0098035465c365c0c32949),
+                        id: Sha1(e79c5e8f964493290a409888d5413a737e8e5dd5),
                         kind: Blob,
                     },
                     state: ChangeState {
@@ -1513,7 +1512,7 @@ fn modified_in_index_and_worktree_rename_rename() -> Result<()> {
         ],
         ignored_changes: [
             IgnoredWorktreeChange {
-                path: "dual-modified",
+                path: "file-renamed-in-index",
                 status: TreeIndex,
             },
         ],
@@ -1523,17 +1522,15 @@ fn modified_in_index_and_worktree_rename_rename() -> Result<()> {
     let [UnifiedDiff::Patch { ref hunks }] = unified_diffs(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
-    insta::assert_snapshot!(hunks[0].diff, @r"
-    @@ -1,2 +1,3 @@
-     initial
-     change
-    +second-change
-    ");
+    assert_eq!(
+        hunks.len(),
+        0,
+        "This is a rename without any additional change (but still a rename"
+    );
     Ok(())
 }
 
 #[test]
-#[ignore = "TBD later"]
 fn modified_in_index_and_worktree_rename_del() -> Result<()> {
     let repo = repo("modified-in-index-and-worktree-rename-del")?;
     let actual = diff::worktree_changes(&repo)?;
@@ -1541,23 +1538,18 @@ fn modified_in_index_and_worktree_rename_del() -> Result<()> {
     WorktreeChanges {
         changes: [
             TreeChange {
-                path: "dual-modified",
-                status: Modification {
+                path: "file",
+                status: Deletion {
                     previous_state: ChangeState {
-                        id: Sha1(8ea0713f9d637081cc0098035465c365c0c32949),
+                        id: Sha1(e79c5e8f964493290a409888d5413a737e8e5dd5),
                         kind: Blob,
                     },
-                    state: ChangeState {
-                        id: Sha1(0000000000000000000000000000000000000000),
-                        kind: Blob,
-                    },
-                    flags: None,
                 },
             },
         ],
         ignored_changes: [
             IgnoredWorktreeChange {
-                path: "dual-modified",
+                path: "file-renamed-in-index",
                 status: TreeIndex,
             },
         ],
@@ -1568,10 +1560,8 @@ fn modified_in_index_and_worktree_rename_del() -> Result<()> {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
-    @@ -1,2 +1,3 @@
-     initial
-     change
-    +second-change
+    @@ -1,1 +1,0 @@
+    -initial
     ");
     Ok(())
 }
@@ -1621,7 +1611,6 @@ fn modified_in_index_and_worktree_mod_rename() -> Result<()> {
 }
 
 #[test]
-#[ignore = "TBD later"]
 fn modified_in_index_and_worktree_rename_add() -> Result<()> {
     let repo = repo("modified-in-index-and-worktree-rename-add")?;
     let actual = diff::worktree_changes(&repo)?;
@@ -1630,17 +1619,22 @@ fn modified_in_index_and_worktree_rename_add() -> Result<()> {
         changes: [
             TreeChange {
                 path: "file-renamed-in-index",
-                status: Rename {
-                    previous_path: "file",
-                    previous_state: ChangeState {
-                        id: Sha1(0000000000000000000000000000000000000000),
-                        kind: Blob,
-                    },
+                status: Addition {
                     state: ChangeState {
                         id: Sha1(e79c5e8f964493290a409888d5413a737e8e5dd5),
                         kind: Blob,
                     },
-                    flags: None,
+                    is_untracked: true,
+                },
+            },
+            TreeChange {
+                path: "file",
+                status: Addition {
+                    state: ChangeState {
+                        id: Sha1(0000000000000000000000000000000000000000),
+                        kind: Blob,
+                    },
+                    is_untracked: true,
                 },
             },
         ],
@@ -1649,16 +1643,29 @@ fn modified_in_index_and_worktree_rename_add() -> Result<()> {
                 path: "file-renamed-in-index",
                 status: TreeIndex,
             },
+            IgnoredWorktreeChange {
+                path: "file",
+                status: TreeIndex,
+            },
         ],
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks }] = unified_diffs(actual, &repo)?[..] else {
+    let [
+        UnifiedDiff::Patch { hunks: ref hunks1 },
+        UnifiedDiff::Patch { hunks: ref hunks2 },
+    ] = unified_diffs(actual, &repo)?[..]
+    else {
         unreachable!("need hunks")
     };
-    insta::assert_snapshot!(hunks[0].diff, @r"
+    insta::assert_snapshot!(hunks1[0].diff, @r"
     @@ -1,0 +1,1 @@
     +initial
+    ");
+    insta::assert_snapshot!(hunks2[0].diff, @r"
+    @@ -1,0 +1,2 @@
+    +initial
+    +wt-change
     ");
     Ok(())
 }
