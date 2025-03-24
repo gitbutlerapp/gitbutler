@@ -233,10 +233,10 @@
 		&::before {
 			content: '';
 			position: absolute;
-			left: 0;
+			right: 0;
 			width: 3px;
 			height: 100%;
-			transform: translateX(-100%);
+			transform: translateX(100%);
 			background-color: var(--clr-theme-pop-element);
 			transition: transform var(--transition-fast);
 		}
@@ -244,10 +244,6 @@
 		&.selected {
 			background-color: var(--clr-selected-not-in-focus-bg);
 		}
-
-		/* &:focus.selected {
-			background-color: var(--clr-selected-in-focus-bg);
-		} */
 
 		&:focus-within.selected {
 			background-color: var(--clr-selected-in-focus-bg);
