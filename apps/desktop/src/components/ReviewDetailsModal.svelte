@@ -374,6 +374,27 @@
 		}, 2000);
 	}
 
+	function handlePRDescriptionFieldInput(
+		e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }
+	) {
+		const target = e.currentTarget;
+		const isEmpty = !target.value;
+
+		if (isEmpty && $useTemplate && templateBody) {
+			// Force a reset to ensure an update even when the new value equals the current template
+			prBody.reset();
+			prBody.set(templateBody);
+			return;
+		}
+
+		if (isEmpty) {
+			prBody.reset();
+			return;
+		}
+
+		prBody.set(target.value);
+	}
+
 	export function show() {
 		modal?.show();
 	}
@@ -456,10 +477,7 @@
 							autofocus
 							padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
 							placeholder="Add description…"
-							oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
-								const target = e.currentTarget as HTMLTextAreaElement;
-								prBody.set(target.value);
-							}}
+							oninput={handlePRDescriptionFieldInput}
 						/>
 
 						<!-- AI GENRATION -->

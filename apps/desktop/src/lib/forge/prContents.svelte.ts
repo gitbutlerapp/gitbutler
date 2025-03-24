@@ -1,4 +1,8 @@
-import { getEphemeralStorageItem, setEphemeralStorageItem } from '@gitbutler/shared/persisted';
+import {
+	getEphemeralStorageItem,
+	setEphemeralStorageItem,
+	clearEphemeralStorageItem
+} from '@gitbutler/shared/persisted';
 import type { DetailedCommit } from '$lib/commits/commit';
 
 const PERSITANCE_TIME_MIN = 5;
@@ -9,6 +13,11 @@ function getPersistedBodyKey(projectId: string, branchName: string) {
 
 function getPersistedTitleKey(projectId: string, branchName: string) {
 	return 'seriesCurrentPRTitle_' + projectId + '_' + branchName;
+}
+
+export function clearPersistedPRBody(projectId: string, branchName: string): void {
+	const key = getPersistedBodyKey(projectId, branchName);
+	return clearEphemeralStorageItem(key);
 }
 
 export function setPersistedPRBody(projectId: string, branchName: string, body: string): void {
@@ -119,6 +128,7 @@ export class ReactivePRBody {
 	}
 
 	reset() {
-		this.set('');
+		this._value = '';
+		clearPersistedPRBody(this.projectId, this.branchName);
 	}
 }
