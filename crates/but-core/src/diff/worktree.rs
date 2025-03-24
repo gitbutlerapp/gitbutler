@@ -447,10 +447,23 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                 &index,
                 &mut path_check,
             )? {
-                None => IgnoredWorktreeTreeChangeStatus::TreeIndexWorktreeChangeIneffective,
-                Some(merged) => {
+                [None, None] => IgnoredWorktreeTreeChangeStatus::TreeIndexWorktreeChangeIneffective,
+                [Some(merged), None] | [None, Some(merged)] => {
                     changes.push(merged);
                     IgnoredWorktreeTreeChangeStatus::TreeIndex
+                }
+                [Some(first), Some(second)] => {
+                    ignored_changes.push(IgnoredWorktreeChange {
+                        path: first.path.clone(),
+                        status: IgnoredWorktreeTreeChangeStatus::TreeIndex,
+                    });
+                    changes.push(first);
+                    ignored_changes.push(IgnoredWorktreeChange {
+                        path: second.path.clone(),
+                        status: IgnoredWorktreeTreeChangeStatus::TreeIndex,
+                    });
+                    changes.push(second);
+                    continue;
                 }
             };
             ignored_changes.push(IgnoredWorktreeChange {
@@ -481,7 +494,7 @@ fn cmp_prefer_overlapping(a: &TreeChange, b: &TreeChange) -> Ordering {
 }
 
 /// Merge changes from tree/index into changes of `index_wt` and assure the merged result isn't a no-op,
-/// which is when `None` is returned.
+/// which is when `[None, None]` is returned. Otherwise, `[Some(_), None]` or `[Some(_), Some(_)]` are returned.
 /// Note that this case is more expensive as we have to hash the worktree version to check for a no-op.
 /// `diff_filter` is used to obtain hashes of worktree content.
 fn merge_changes(
@@ -490,7 +503,10 @@ fn merge_changes(
     filter: &mut gix::filter::Pipeline<'_>,
     index: &gix::index::State,
     path_check: &mut gix::status::plumbing::SymlinkCheck,
-) -> anyhow::Result<Option<TreeChange>> {
+) -> anyhow::Result<[Option<TreeChange>; 2]> {
+    fn single(change: TreeChange) -> [Option<TreeChange>; 2] {
+        [Some(change), None]
+    }
     let merged = match (&mut tree_index.status, &mut index_wt.status) {
         (TreeStatus::Modification { .. }, TreeStatus::Addition { .. })
         | (TreeStatus::Deletion { .. }, TreeStatus::Deletion { .. })
@@ -521,11 +537,11 @@ fn merge_changes(
         ) => {
             *is_untracked = true;
             *state = *state_wt;
-            return Ok(Some(tree_index));
+            return Ok(single(tree_index));
         }
         (TreeStatus::Addition { .. }, TreeStatus::Deletion { .. }) => {
             // keep the most recent known state, which is from the index.
-            return Ok(Some(index_wt));
+            return Ok(single(index_wt));
         }
         (
             TreeStatus::Addition { state, .. },
@@ -538,7 +554,7 @@ fn merge_changes(
             // Pretend the added file (in index) is the one that was deleted, hence the rename.
             *ps_wt = *state;
             // Can't be no-op as this is a rename
-            return Ok(Some(index_wt));
+            return Ok(single(index_wt));
         }
         (
             TreeStatus::Deletion { previous_state, .. },
@@ -565,7 +581,7 @@ fn merge_changes(
             index_wt
         }
         (TreeStatus::Modification { .. }, TreeStatus::Deletion { .. }) => {
-            return Ok(Some(index_wt));
+            return Ok(single(index_wt));
         }
         (
             TreeStatus::Modification { previous_state, .. },
@@ -577,17 +593,82 @@ fn merge_changes(
             *ps_wt = *previous_state;
             index_wt
         }
-        (TreeStatus::Rename { .. }, TreeStatus::Modification { .. }) => {
-            todo!("rename - mod")
+        (
+            TreeStatus::Rename {
+                state: state_index, ..
+            },
+            TreeStatus::Modification {
+                state: state_wt, ..
+            },
+        ) => {
+            *state_index = *state_wt;
+            return Ok(single(tree_index));
         }
-        (TreeStatus::Rename { .. }, TreeStatus::Rename { .. }) => {
-            todo!("rename - rename")
+        (
+            TreeStatus::Rename {
+                previous_path,
+                previous_state,
+                ..
+            },
+            TreeStatus::Rename {
+                previous_path: pp_wt,
+                previous_state: ps_wt,
+                ..
+            },
+        ) => {
+            // The worktree-rename is dominating, but we can combine both
+            // so there is the indexed version as source, and the one in the worktree
+            // as destination.
+            *pp_wt = std::mem::take(previous_path);
+            *ps_wt = *previous_state;
+            return Ok(single(index_wt));
         }
-        (TreeStatus::Rename { .. }, TreeStatus::Deletion { .. }) => {
-            todo!("rename - del")
+        (
+            TreeStatus::Rename {
+                previous_path,
+                previous_state,
+                ..
+            },
+            TreeStatus::Deletion { .. },
+        ) => {
+            // Destination is deleted as well, so what's left is a deletion of the source.
+            return Ok(single(TreeChange {
+                path: std::mem::take(previous_path),
+                status: TreeStatus::Deletion {
+                    previous_state: *previous_state,
+                },
+            }));
         }
-        (TreeStatus::Rename { .. }, TreeStatus::Addition { .. }) => {
-            todo!("rename-add")
+        (
+            TreeStatus::Rename {
+                state: state_index, ..
+            },
+            TreeStatus::Addition {
+                state: state_wt, ..
+            },
+        ) => {
+            return Ok([
+                Some(TreeChange {
+                    path: tree_index.path,
+                    status: TreeStatus::Addition {
+                        state: *state_index,
+                        // It's untracked as we know the destination isn't in the tree yet.
+                        // It's just in the index, which to us doesn't exist.
+                        is_untracked: true,
+                    },
+                }),
+                Some(TreeChange {
+                    path: index_wt.path,
+                    status: TreeStatus::Addition {
+                        state: *state_wt,
+                        // In theory, this should be considered tracked even though it's object file isn't
+                        // in the index (but in the tree) as this is the source of the rename.
+                        // However, doing so would trip up diffing code that uses this flag to know where to
+                        // read the initial state of a file from.
+                        is_untracked: true,
+                    },
+                }),
+            ]);
         }
     };
 
@@ -611,9 +692,9 @@ fn merge_changes(
         path_check,
     )?;
     Ok(if current == previous {
-        None
+        [None, None]
     } else {
-        Some(merged)
+        single(merged)
     })
 }
 
