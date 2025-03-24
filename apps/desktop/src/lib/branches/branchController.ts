@@ -38,10 +38,10 @@ export class BranchController {
 	/**
 	 * @deprecated
 	 */
-	async resetBranch(branchId: string, targetCommitOid: string) {
+	async resetBranch(stackId: string, targetCommitOid: string) {
 		try {
 			await invoke<void>('reset_virtual_branch', {
-				branchId,
+				stackId,
 				projectId: this.projectId,
 				targetCommitOid
 			});
@@ -69,11 +69,11 @@ export class BranchController {
 	/**
 	 * @deprecated
 	 */
-	async commit(branchId: string, message: string, ownership: string | undefined = undefined) {
+	async commit(stackId: string, message: string, ownership: string | undefined = undefined) {
 		try {
 			await invoke<void>('commit_virtual_branch', {
 				projectId: this.projectId,
-				branch: branchId,
+				stackId,
 				message,
 				ownership
 			});
@@ -85,7 +85,7 @@ export class BranchController {
 	}
 
 	async integrateUpstreamForSeries(
-		branch: string,
+		stackId: string,
 		seriesName: string,
 		strategy?: SeriesIntegrationStrategy
 	) {
@@ -93,26 +93,12 @@ export class BranchController {
 		try {
 			await invoke<void>('integrate_upstream_commits', {
 				projectId: this.projectId,
-				branch,
+				stackId,
 				seriesName,
 				integrationStrategy
 			});
 		} catch (err) {
 			showError('Failed to merge upstream branch', err);
-		}
-	}
-
-	/**
-	 * @deprecated
-	 */
-	async updateBranchName(branchId: string, name: string) {
-		try {
-			await invoke<void>('update_virtual_branch', {
-				projectId: this.projectId,
-				branch: { id: branchId, name }
-			});
-		} catch (err) {
-			showError('Failed to update branch name', err);
 		}
 	}
 
@@ -125,7 +111,7 @@ export class BranchController {
 		commitIdOrChangeId?: CommitIdOrChangeId
 	) {
 		try {
-			await invoke<void>('create_series', {
+			await invoke<void>('create_branch', {
 				projectId: this.projectId,
 				stackId,
 				request: {
@@ -141,12 +127,12 @@ export class BranchController {
 	/**
 	 * @deprecated
 	 */
-	async removePatchSeries(branchId: string, name: string) {
+	async removePatchSeries(stackId: string, branchName: string) {
 		try {
-			await invoke<void>('remove_series', {
+			await invoke<void>('remove_branch', {
 				projectId: this.projectId,
-				branchId,
-				headName: name
+				stackId,
+				branchName
 			});
 		} catch (err) {
 			showError('Failed remove series', err);
@@ -157,13 +143,13 @@ export class BranchController {
 	 * Updates the name of the series and resets the forge id to undefined.
 	 * @note - Ported to redux
 	 */
-	async updateSeriesName(branchId: string, headName: string, newHeadName: string) {
+	async updateBranchName(stackId: string, branchName: string, newBranchName: string) {
 		try {
-			await invoke<void>('update_series_name', {
+			await invoke<void>('update_branch_name', {
 				projectId: this.projectId,
-				branchId,
-				headName,
-				newHeadName
+				stackId,
+				branchName,
+				newBranchName
 			});
 		} catch (err) {
 			showError('Failed to update remote name', err);
@@ -173,18 +159,15 @@ export class BranchController {
 	/**
 	 * Updates the forge identifier for a branch/series.
 	 * This is useful for storing for example the Pull Request Number for a branch.
-	 * @param stackId The stack ID to update.
-	 * @param headName The branch name to update.
-	 * @param prNumber New pull request number to be set for the branch.
 	 *
-	 * @noew - Ported to redux
+	 * @note - Ported to redux
 	 */
-	async updateBranchPrNumber(stackId: string, headName: string, prNumber: number | null) {
+	async updateBranchPrNumber(stackId: string, branchName: string, prNumber: number | null) {
 		try {
-			await invoke<void>('update_series_pr_number', {
+			await invoke<void>('update_branch_pr_number', {
 				projectId: this.projectId,
 				stackId,
-				headName,
+				branchName,
 				prNumber
 			});
 		} catch (err) {
@@ -194,18 +177,15 @@ export class BranchController {
 
 	/**
 	 * Updates the series description.
-	 * @param stackId The stack Id (vbranch.id) which contains the series.
-	 * @param headName The target series.
-	 * @param description The description to set on the series.
 	 *
 	 * @note - Ported to redux
 	 */
-	async updateSeriesDescription(stackId: string, headName: string, description: string) {
+	async updateSeriesDescription(stackId: string, branchName: string, description: string) {
 		try {
-			await invoke<void>('update_series_description', {
+			await invoke<void>('update_branch_description', {
 				projectId: this.projectId,
-				branchId: stackId,
-				headName,
+				stackId,
+				branchName,
 				description
 			});
 		} catch (err) {
@@ -216,11 +196,11 @@ export class BranchController {
 	/**
 	 * @note - Ported to redux
 	 */
-	async reorderStackCommit(branchId: string, stackOrder: StackOrder) {
+	async reorderStackCommit(stackId: string, stackOrder: StackOrder) {
 		try {
 			await invoke<void>('reorder_stack', {
 				projectId: this.projectId,
-				branchId,
+				stackId,
 				stackOrder
 			});
 		} catch (err) {
@@ -231,44 +211,44 @@ export class BranchController {
 	/**
 	 * @deprecated
 	 */
-	async updateBranchRemoteName(branchId: string, upstream: string) {
+	async updateBranchRemoteName(stackId: string, upstream: string) {
 		try {
 			await invoke<void>('update_virtual_branch', {
 				projectId: this.projectId,
-				branch: { id: branchId, upstream }
+				branch: { id: stackId, upstream }
 			});
 		} catch (err) {
 			showError('Failed to update remote name', err);
 		}
 	}
 
-	async updateBranchAllowRebasing(branchId: string, allowRebasing: boolean) {
+	async updateBranchAllowRebasing(stackId: string, allowRebasing: boolean) {
 		try {
 			await invoke<void>('update_virtual_branch', {
 				projectId: this.projectId,
-				branch: { id: branchId, allow_rebasing: allowRebasing }
+				branch: { id: stackId, allow_rebasing: allowRebasing }
 			});
 		} catch (err) {
 			showError('Failed to update branch allow rebasing', err);
 		}
 	}
 
-	async updateBranchNotes(branchId: string, notes: string) {
+	async updateBranchNotes(stackId: string, notes: string) {
 		try {
 			await invoke<void>('update_virtual_branch', {
 				projectId: this.projectId,
-				branch: { id: branchId, notes }
+				branch: { id: stackId, notes }
 			});
 		} catch (err) {
 			showError('Failed to update branch notes', err);
 		}
 	}
 
-	async setSelectedForChanges(branchId: string) {
+	async setSelectedForChanges(stackId: string) {
 		try {
 			await invoke<void>('update_virtual_branch', {
 				projectId: this.projectId,
-				branch: { id: branchId, selected_for_changes: true }
+				branch: { id: stackId, selected_for_changes: true }
 			});
 		} catch (err) {
 			showError('Failed make default target', err);
@@ -283,18 +263,6 @@ export class BranchController {
 			});
 		} catch (err) {
 			showError('Failed to update branch order', err);
-		}
-	}
-
-	/**
-	 * @deprecated
-	 */
-	async applyBranch(branchId: string) {
-		try {
-			// TODO: make this optimistic again.
-			await invoke<void>('apply_branch', { projectId: this.projectId, branch: branchId });
-		} catch (err) {
-			showError('Failed to apply branch', err);
 		}
 	}
 
@@ -328,11 +296,11 @@ export class BranchController {
 	/**
 	 * @deprecated
 	 */
-	async unapplyFiles(branchId: string, files: LocalFile[]) {
+	async unapplyFiles(stackId: string, files: LocalFile[]) {
 		try {
 			await invoke<void>('reset_files', {
 				projectId: this.projectId,
-				branchId,
+				stackId,
 				files: files?.flatMap((f) => f.path) ?? []
 			});
 		} catch (err) {
@@ -343,13 +311,13 @@ export class BranchController {
 	/**
 	 * @deprecated
 	 */
-	async unapplyChanges(branchId: string | undefined, changes: TreeChange[]) {
+	async unapplyChanges(stackId: string | undefined, changes: TreeChange[]) {
 		// TODO: this won't for changes.
 		// There are some changes required on the rust side to make this work.
 		try {
 			await invoke<void>('reset_files', {
 				projectId: this.projectId,
-				branchId,
+				stackId,
 				files: changes.map((c) => c.path)
 			});
 		} catch (err) {
@@ -360,11 +328,11 @@ export class BranchController {
 	/**
 	 * @note Ported to redux
 	 */
-	async saveAndUnapply(branchId: string) {
+	async saveAndUnapply(stackId: string) {
 		try {
 			await invoke<void>('save_and_unapply_virtual_branch', {
 				projectId: this.projectId,
-				branch: branchId
+				stackId
 			});
 			this.branchListingService.refresh();
 		} catch (err) {
@@ -375,11 +343,11 @@ export class BranchController {
 	/**
 	 * @deprecated
 	 */
-	async updateBranchOwnership(branchId: string, ownership: string) {
+	async updateBranchOwnership(stackId: string, ownership: string) {
 		try {
 			await invoke<void>('update_virtual_branch', {
 				projectId: this.projectId,
-				branch: { id: branchId, ownership }
+				branch: { id: stackId, ownership }
 			});
 		} catch (err) {
 			showError('Failed to update hunk ownership', err);
@@ -389,11 +357,11 @@ export class BranchController {
 	/**
 	 * @note - Ported to redux
 	 */
-	async pushBranch(branchId: string, withForce: boolean): Promise<BranchPushResult | undefined> {
+	async pushBranch(stackId: string, withForce: boolean): Promise<BranchPushResult | undefined> {
 		try {
 			const pushResult = await invoke<BranchPushResult | undefined>('push_stack', {
 				projectId: this.projectId,
-				branchId,
+				stackId,
 				withForce
 			});
 			this.posthog.capture('Push Successful');
@@ -436,12 +404,12 @@ export class BranchController {
 	/**
 	 * @note - Ported to redux
 	 */
-	async unapplyWithoutSaving(branchId: string) {
+	async unapplyWithoutSaving(stackId: string) {
 		try {
 			// TODO: make this optimistic again.
 			await invoke<void>('unapply_without_saving_virtual_branch', {
 				projectId: this.projectId,
-				branchId
+				stackId
 			});
 			toasts.success('Branch unapplied successfully');
 		} catch (err) {
@@ -531,7 +499,7 @@ export class BranchController {
 	}
 
 	async moveCommitFile(
-		branchId: string,
+		stackId: string,
 		fromCommitOid: string,
 		toCommitOid: string,
 		ownership: string
@@ -539,7 +507,7 @@ export class BranchController {
 		try {
 			await invoke<void>('move_commit_file', {
 				projectId: this.projectId,
-				branchId,
+				stackId: stackId,
 				fromCommitOid,
 				toCommitOid,
 				ownership
@@ -552,11 +520,11 @@ export class BranchController {
 	/**
 	 * @note - Ported to redux
 	 */
-	async undoCommit(branchId: string, branchName: string, commitOid: string) {
+	async undoCommit(stackId: string, branchName: string, commitOid: string) {
 		try {
 			await invoke<void>('undo_commit', {
 				projectId: this.projectId,
-				branchId,
+				stackId,
 				commitOid
 			});
 		} catch (err: any) {
@@ -567,11 +535,11 @@ export class BranchController {
 	/**
 	 * @note - Ported to redux
 	 */
-	async updateCommitMessage(branchId: string, commitOid: string, message: string) {
+	async updateCommitMessage(stackId: string, commitOid: string, message: string) {
 		try {
 			await invoke<void>('update_commit_message', {
 				projectId: this.projectId,
-				branchId,
+				stackId,
 				commitOid,
 				message
 			});
@@ -583,11 +551,11 @@ export class BranchController {
 	/**
 	 * @note - Ported to redux
 	 */
-	async insertBlankCommit(branchId: string, commitOid: string, offset: number) {
+	async insertBlankCommit(stackId: string, commitOid: string, offset: number) {
 		try {
 			await invoke<void>('insert_blank_commit', {
 				projectId: this.projectId,
-				branchId,
+				stackId,
 				commitOid,
 				offset
 			});

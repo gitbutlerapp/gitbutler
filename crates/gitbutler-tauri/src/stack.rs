@@ -13,7 +13,7 @@ use crate::{error::Error, WindowState};
 
 #[tauri::command(async)]
 #[instrument(skip(projects, windows, settings), err(Debug))]
-pub fn create_series(
+pub fn create_branch(
     windows: State<'_, WindowState>,
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
@@ -23,62 +23,62 @@ pub fn create_series(
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::create_series(&ctx, stack_id, request)?;
+    gitbutler_branch_actions::stack::create_branch(&ctx, stack_id, request)?;
     emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
 
 #[tauri::command(async)]
 #[instrument(skip(projects, windows, settings), err(Debug))]
-pub fn remove_series(
+pub fn remove_branch(
     windows: State<'_, WindowState>,
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
-    branch_id: StackId,
-    head_name: String,
+    stack_id: StackId,
+    branch_name: String,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::remove_series(&ctx, branch_id, head_name)?;
+    gitbutler_branch_actions::stack::remove_branch(&ctx, stack_id, branch_name)?;
     emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
 
 #[tauri::command(async)]
 #[instrument(skip(projects, windows, settings), err(Debug))]
-pub fn update_series_name(
+pub fn update_branch_name(
     windows: State<'_, WindowState>,
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
-    branch_id: StackId,
-    head_name: String,
-    new_head_name: String,
+    stack_id: StackId,
+    branch_name: String,
+    new_name: String,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::update_series_name(&ctx, branch_id, head_name, new_head_name)?;
+    gitbutler_branch_actions::stack::update_branch_name(&ctx, stack_id, branch_name, new_name)?;
     emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
 
 #[tauri::command(async)]
 #[instrument(skip(projects, windows, settings), err(Debug))]
-pub fn update_series_description(
+pub fn update_branch_description(
     windows: State<'_, WindowState>,
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
-    branch_id: StackId,
+    stack_id: StackId,
     head_name: String,
     description: Option<String>,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::update_series_description(
+    gitbutler_branch_actions::stack::update_branch_description(
         &ctx,
-        branch_id,
+        stack_id,
         head_name,
         description,
     )?;
@@ -88,18 +88,23 @@ pub fn update_series_description(
 
 #[tauri::command(async)]
 #[instrument(skip(projects, windows, settings), err(Debug))]
-pub fn update_series_pr_number(
+pub fn update_branch_pr_number(
     windows: State<'_, WindowState>,
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     stack_id: StackId,
-    head_name: String,
+    branch_name: String,
     pr_number: Option<usize>,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::update_series_pr_number(&ctx, stack_id, head_name, pr_number)?;
+    gitbutler_branch_actions::stack::update_branch_pr_number(
+        &ctx,
+        stack_id,
+        branch_name,
+        pr_number,
+    )?;
     emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
@@ -111,12 +116,12 @@ pub fn push_stack(
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
-    branch_id: StackId,
+    stack_id: StackId,
     with_force: bool,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::push_stack(&ctx, branch_id, with_force)?;
+    gitbutler_branch_actions::stack::push_stack(&ctx, stack_id, with_force)?;
     emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
