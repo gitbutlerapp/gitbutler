@@ -7,6 +7,7 @@
 	import NewPullRequest from '$components/v3/NewPullRequest.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { type Snippet } from 'svelte';
@@ -33,8 +34,13 @@
 	let rightDiv = $state<HTMLElement>();
 </script>
 
-<div class="workspace">
-	<div class="changed-files-view" bind:this={leftDiv} style:width={leftWidth.current + 'rem'}>
+<div class="workspace" use:focusable={{ id: 'workspace' }}>
+	<div
+		class="changed-files-view"
+		bind:this={leftDiv}
+		style:width={leftWidth.current + 'rem'}
+		use:focusable={{ id: 'left', parentId: 'workspace' }}
+	>
 		<WorktreeChanges {projectId} {stackId} />
 		<Resizer
 			viewport={leftDiv}
@@ -43,7 +49,7 @@
 			onWidth={(value) => uiState.global.leftWidth.set(value)}
 		/>
 	</div>
-	<div class="main-view">
+	<div class="main-view" use:focusable={{ id: 'main', parentId: 'workspace' }}>
 		{#if !drawerIsFullScreen.current}
 			<SelectionView {projectId} />
 		{/if}
@@ -72,7 +78,12 @@
 		{/if}
 	</div>
 
-	<div class="right" bind:this={rightDiv} style:width={rightWidth.current + 'rem'}>
+	<div
+		class="right"
+		bind:this={rightDiv}
+		style:width={rightWidth.current + 'rem'}
+		use:focusable={{ id: 'right', parentId: 'workspace' }}
+	>
 		{@render right({ viewportWidth: rightWidth.current })}
 		<Resizer
 			viewport={rightDiv}
