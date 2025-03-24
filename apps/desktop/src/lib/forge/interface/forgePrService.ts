@@ -1,4 +1,3 @@
-import type { MergeResult, UpdateResult } from '$lib/forge/github/types';
 import type {
 	CreatePullRequestArgs,
 	DetailedPullRequest,
@@ -26,10 +25,10 @@ export interface ForgePrService {
 		baseBranchName,
 		upstreamName
 	}: CreatePullRequestArgs): Promise<PullRequest>;
-	merge(method: MergeMethod, prNumber: number): Promise<MergeResult>;
-	reopen(prNumber: number): Promise<UpdateResult>;
+	merge(method: MergeMethod, prNumber: number): Promise<void>;
+	reopen(prNumber: number): Promise<void>;
 	update(
 		prNumber: number,
 		details: { description?: string; state?: 'open' | 'closed'; targetBase?: string }
-	): Promise<UpdateResult>;
+	): Promise<void>;
 }

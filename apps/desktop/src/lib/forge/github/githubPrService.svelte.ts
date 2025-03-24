@@ -2,9 +2,7 @@ import { ghQuery } from '$lib/forge/github/ghQuery';
 import {
 	ghResponseToInstance,
 	parseGitHubDetailedPullRequest,
-	type CreatePrResult,
-	type MergeResult,
-	type UpdateResult
+	type CreatePrResult
 } from '$lib/forge/github/types';
 import {
 	MergeMethod,
@@ -48,7 +46,8 @@ export class GitHubPrService implements ForgePrService {
 				body,
 				draft
 			});
-			return ghResponseToInstance(result);
+			if (!result.data) throw result.error;
+			return ghResponseToInstance(result.data);
 		};
 
 		let attempts = 0;
@@ -83,11 +82,11 @@ export class GitHubPrService implements ForgePrService {
 	}
 
 	async merge(method: MergeMethod, number: number) {
-		return await this.api.endpoints.mergePr.mutate({ method, number });
+		await this.api.endpoints.mergePr.mutate({ method, number });
 	}
 
 	async reopen(number: number) {
-		return await this.api.endpoints.updatePr.mutate({
+		await this.api.endpoints.updatePr.mutate({
 			number,
 			update: { state: 'open' }
 		});
@@ -97,7 +96,7 @@ export class GitHubPrService implements ForgePrService {
 		number: number,
 		update: { description?: string; state?: 'open' | 'closed'; targetBase?: string }
 	) {
-		return await this.api.endpoints.updatePr.mutate({ number, update });
+		await this.api.endpoints.updatePr.mutate({ number, update });
 	}
 }
 
@@ -129,18 +128,20 @@ function injectEndpoints(api: GitHubApi) {
 					}),
 				invalidatesTags: [ReduxTag.PullRequests]
 			}),
-			mergePr: build.mutation<MergeResult, { number: number; method: MergeMethod }>({
-				queryFn: async ({ number, method: method }, api) =>
+			mergePr: build.mutation<void, { number: number; method: MergeMethod }>({
+				queryFn: async ({ number, method: method }, api) => {
 					await ghQuery({
 						domain: 'pulls',
 						action: 'merge',
 						parameters: { pull_number: number, merge_method: method },
 						extra: api.extra
-					}),
+					});
+					return { data: undefined };
+				},
 				invalidatesTags: [ReduxTag.PullRequests]
 			}),
 			updatePr: build.mutation<
-				UpdateResult,
+				void,
 				{
 					number: number;
 					update: {
@@ -150,13 +151,15 @@ function injectEndpoints(api: GitHubApi) {
 					};
 				}
 			>({
-				queryFn: async ({ number, update }, api) =>
+				queryFn: async ({ number, update }, api) => {
 					await ghQuery({
 						domain: 'pulls',
 						action: 'update',
 						parameters: { pull_number: number, ...update },
 						extra: api.extra
-					}),
+					});
+					return { data: undefined };
+				},
 				invalidatesTags: [ReduxTag.PullRequests]
 			})
 		})
