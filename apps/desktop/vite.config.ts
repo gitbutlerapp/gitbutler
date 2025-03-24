@@ -56,7 +56,7 @@ export default defineConfig({
 		// minify production builds
 		minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
 		// ship sourcemaps for better sentry error reports
-		sourcemap: true
+		sourcemap: 'inline'
 	},
 	test: {
 		includeSource: ['src/**/*.test.{js,ts}'],
