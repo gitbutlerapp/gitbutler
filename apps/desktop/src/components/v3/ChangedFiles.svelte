@@ -5,34 +5,31 @@
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 
-	interface BaseProps {
-		type: 'commit' | 'branch';
+	type Props = {
 		projectId: string;
-	}
-
-	interface CommitProps extends BaseProps {
-		type: 'commit';
-		commitId: string;
-	}
-
-	interface BranchProps extends BaseProps {
-		type: 'branch';
 		stackId: string;
-		branchName: string;
-	}
+		selectionId:
+			| {
+					type: 'commit';
+					commitId: string;
+			  }
+			| {
+					type: 'branch';
+					stackId: string;
+					branchName: string;
+			  };
+	};
 
-	type Props = CommitProps | BranchProps;
-
-	const props: Props = $props();
+	const { projectId, stackId, selectionId }: Props = $props();
 	const [stackService] = inject(StackService);
 	const changesResult = $derived(
-		props.type === 'commit'
-			? stackService.commitChanges(props.projectId, props.commitId)
-			: stackService.branchChanges(props.projectId, props.stackId, props.branchName)
+		selectionId.type === 'commit'
+			? stackService.commitChanges(projectId, selectionId.commitId)
+			: stackService.branchChanges(projectId, selectionId.stackId, selectionId.branchName)
 	);
 
 	const headerTitle = $derived.by(() => {
-		switch (props.type) {
+		switch (selectionId.type) {
 			case 'commit':
 				return 'Changed files';
 			case 'branch':
@@ -50,7 +47,7 @@
 					<Badge>{changes.length}</Badge>
 				</div>
 				{#if changes.length > 0}
-					<FileList {changes} {...props} />
+					<FileList {projectId} {stackId} {changes} {selectionId} />
 				{:else}
 					<div class="text-12 text-body helper-text">(no changed files)</div>
 				{/if}

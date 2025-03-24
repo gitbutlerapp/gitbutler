@@ -18,6 +18,7 @@
 	import { showHistoryView } from '$lib/config/config';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { UncommitedFilesWatcher } from '$lib/files/watcher';
+	import { FocusManager } from '$lib/focus/focusManager.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { GitHubClient } from '$lib/forge/github/githubClient';
 	import { BrToPrService } from '$lib/forge/shared/prFooter';
@@ -107,6 +108,9 @@
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
 		setContext(StackPublishingService, data.stackPublishingService);
 	});
+
+	const focusManager = new FocusManager();
+	setContext(FocusManager, focusManager);
 
 	const worktreeService = getContext(WorktreeService);
 	const idSelection = new IdSelection(worktreeService);

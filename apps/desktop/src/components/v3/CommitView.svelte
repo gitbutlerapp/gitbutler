@@ -6,6 +6,7 @@
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitMessageInput from '$components/v3/CommitMessageInput.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
+	import { FocusManager } from '$lib/focus/focusManager.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -20,16 +21,26 @@
 
 	const { projectId, stackId, commitKey, onclick }: Props = $props();
 
-	const [stackService, uiState] = inject(StackService, UiState);
+	const [stackService, uiState, focus] = inject(StackService, UiState, FocusManager);
+
 	const stackState = $derived(uiState.stack(stackId));
 	const selected = $derived(stackState.selection.get());
 	const branchName = $derived(selected.current?.branchName);
+
 	const commitResult = $derived(
 		commitKey.upstream
 			? stackService.upstreamCommitById(projectId, commitKey)
 			: stackService.commitById(projectId, commitKey)
 	);
+
 	const [updateCommitMessage, messageUpdateResult] = stackService.updateCommitMessage();
+
+	const focusedArea = $derived(focus.current);
+	$effect(() => {
+		if (focusedArea === 'commit') {
+			stackState.activeSelectionId.set({ type: 'commit', commitId: commitKey.commitId });
+		}
+	});
 
 	type Mode = 'view' | 'edit';
 
@@ -109,7 +120,11 @@
 							{onclick}
 							onEditCommitMessage={() => setMode('edit')}
 						/>
-						<ChangedFiles type="commit" {projectId} commitId={commitKey.commitId} />
+						<ChangedFiles
+							{projectId}
+							{stackId}
+							selectionId={{ type: 'commit', commitId: commitKey.commitId }}
+						/>
 					</div>
 				</ConfigurableScrollableContainer>
 			</Drawer>

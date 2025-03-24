@@ -234,7 +234,9 @@
 							{selected}
 							draggable
 							onclick={() => {
-								uiState.stack(stackId).selection.set({ branchName, commitId });
+								const stackState = uiState.stack(stackId);
+								stackState.selection.set({ branchName, commitId });
+								stackState.activeSelectionId.set({ type: 'commit', commitId });
 								uiState.project(projectId).drawerPage.set(undefined);
 							}}
 						/>

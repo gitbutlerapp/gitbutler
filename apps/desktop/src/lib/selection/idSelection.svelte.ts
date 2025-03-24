@@ -1,4 +1,10 @@
-import { key, readKey, type SelectedFileKey, type SelectionParameters } from '$lib/selection/key';
+import {
+	selectionKey,
+	key,
+	readKey,
+	type SelectedFileKey,
+	type SelectionId
+} from '$lib/selection/key';
 import { SvelteSet } from 'svelte/reactivity';
 import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 
@@ -6,49 +12,77 @@ import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
  * File selection mechanism based on strings id's.
  */
 export class IdSelection {
-	private _lastAddedIndex = $state<number>();
-	private selection: SvelteSet<SelectedFileKey>;
+	private selections: Map<
+		/** Return value of `selectionKey`. */
+		string,
+		{
+			/** This property supports range selection. */
+			lastAdded?: number;
+			entries: SvelteSet<SelectedFileKey>;
+		}
+	>;
 
 	constructor(private worktreeService: WorktreeService) {
-		this.selection = new SvelteSet<SelectedFileKey>();
+		this.selections = new Map();
+		this.selections.set('worktree', {
+			entries: new SvelteSet<SelectedFileKey>()
+		});
 	}
 
-	add(path: string, params: SelectionParameters, index: number) {
-		const id = key({ ...params, path });
-		this._lastAddedIndex = index;
-		this.selection.add(id);
+	getById(id: SelectionId) {
+		const key = selectionKey(id);
+		let set = this.selections.get(key);
+		if (!set) {
+			set = {
+				entries: new SvelteSet<SelectedFileKey>()
+			};
+			this.selections.set(key, set);
+		}
+		return set;
 	}
 
-	addMany(paths: string[], params: SelectionParameters, index: number) {
+	add(path: string, id: SelectionId, index: number) {
+		const selectedKey = key({ ...id, path });
+		const selection = this.getById(id);
+		selection.lastAdded = index;
+		selection.entries.add(selectedKey);
+	}
+
+	addMany(paths: string[], id: SelectionId, index: number) {
 		for (const path of paths) {
-			this.add(path, params, index);
+			this.add(path, id, index);
 		}
 	}
 
-	has(path: string, params: SelectionParameters) {
-		return this.selection.has(key({ path, ...params }));
+	has(path: string, id: SelectionId) {
+		const selection = this.getById(id);
+		return selection.entries.has(key({ path, ...id }));
 	}
 
-	set(path: string, params: SelectionParameters, index: number) {
-		this.selection.clear();
-		this.add(path, params, index);
+	set(path: string, id: SelectionId, index: number) {
+		const selection = this.getById(id);
+		selection.entries.clear();
+		this.add(path, id, index);
 	}
 
-	remove(path: string, params: SelectionParameters) {
-		const selectionKey = key({ path, ...params });
-		this.selection.delete(selectionKey);
+	remove(path: string, id: SelectionId) {
+		const selectionKey = key({ path, ...id });
+		const selection = this.getById(id);
+		selection.entries.delete(selectionKey);
 	}
 
-	clear() {
-		this.selection.clear();
+	clear(selectionId: SelectionId) {
+		const selection = this.getById(selectionId);
+		selection.entries.clear();
 	}
 
-	keys() {
-		return Array.from(this.selection);
+	keys(selectionId: SelectionId) {
+		const selection = this.getById(selectionId);
+		return Array.from(selection.entries);
 	}
 
-	values() {
-		return this.keys().map((key) => readKey(key));
+	values(params: SelectionId) {
+		return this.keys(params).map((key) => readKey(key));
 	}
 
 	/**
@@ -57,8 +91,8 @@ export class IdSelection {
 	 * instead reuses the entry from listing if available.
 	 * TODO: Should this be able to load even if listing hasn't happened?
 	 */
-	treeChanges(projectId: string) {
-		const filePaths = this.values().map((fileSelection) => {
+	treeChanges(projectId: string, params: SelectionId) {
+		const filePaths = this.values(params).map((fileSelection) => {
 			if (fileSelection.type !== 'worktree') {
 				throw new Error('???');
 			}
@@ -69,10 +103,10 @@ export class IdSelection {
 	}
 
 	get length() {
-		return this.selection.size;
+		return this.selections.size;
 	}
 
-	get lastAddedIndex() {
-		return this._lastAddedIndex;
+	collectionSize(params: SelectionId) {
+		return this.getById(params).entries.size;
 	}
 }

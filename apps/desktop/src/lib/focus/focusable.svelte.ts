@@ -39,28 +39,12 @@ export const focusable: Action<HTMLElement, FocusableOptions> = (element, option
 		event.stopPropagation();
 	}
 
-	function handleKeydown(event: KeyboardEvent) {
-		event.stopPropagation();
-		if (event.key === 'Tab') {
-			event.preventDefault();
-			focus.focusSibling(!event.shiftKey);
-		} else if (event.metaKey && event.key === 'ArrowUp') {
-			event.preventDefault();
-			focus.focusParent();
-		} else if (event.metaKey && event.key === 'ArrowDown') {
-			event.preventDefault();
-			focus.focusFirstChild();
-		}
-	}
-
-	const unlistenKeyDown = on(element, 'keydown', handleKeydown);
 	const unlistenClick = on(element, 'click', handleClick);
 	element.tabIndex = 0;
 
 	return {
 		destroy() {
 			focus.unregister(id);
-			unlistenKeyDown();
 			unlistenClick();
 		}
 	};

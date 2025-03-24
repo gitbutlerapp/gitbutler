@@ -8,12 +8,11 @@
 	import type { SelectedFile } from '$lib/selection/key';
 
 	type Props = {
-		index: number;
 		selectedFile: SelectedFile;
 		projectId: string;
 	};
 
-	const { selectedFile, projectId, index }: Props = $props();
+	const { selectedFile, projectId }: Props = $props();
 
 	const [stackService, worktreeService] = inject(StackService, WorktreeService);
 
@@ -36,7 +35,7 @@
 
 <ReduxResult result={changeResult.current}>
 	{#snippet children(change)}
-		<FileListItemWrapper {index} {selectedFile} {projectId} {change} isHeader />
+		<FileListItemWrapper {selectedFile} {projectId} {change} isHeader />
 		<UnifiedDiffView {projectId} {change} selectable />
 	{/snippet}
 </ReduxResult>
