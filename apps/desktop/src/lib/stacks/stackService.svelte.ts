@@ -462,7 +462,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					ReduxTag.StackBranches,
-					ReduxTag.Commits,
+					{ type: ReduxTag.Commits, id: args.stackId },
 					{ type: ReduxTag.StackInfo, id: args.stackId }
 				]
 			}),
@@ -503,6 +503,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: (_result, _error, args) => [
 					ReduxTag.StackBranches,
 					{ type: ReduxTag.Commit, id: args.commitId },
+					{ type: ReduxTag.Commits, id: args.stackId },
 					{ type: ReduxTag.StackInfo, id: args.stackId }
 				]
 			}),
