@@ -485,10 +485,6 @@ pub fn squash_commits(
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Squashing a commit requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
-        SnapshotDetails::new(OperationKind::SquashCommit),
-        guard.write_permission(),
-    );
     crate::squash::squash_commits(
         ctx,
         stack_id,
