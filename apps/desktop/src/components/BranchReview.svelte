@@ -47,8 +47,6 @@
 		commits.current.data?.some((commit) => commit.hasConflicts) || false
 	);
 
-	$inspect(prNumber);
-
 	const prService = $derived(forge.current.prService);
 	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
 	const pr = $derived(prResult?.current.data);
@@ -77,8 +75,6 @@
 		reactive(() => prNumber),
 		reactive(() => reviewId)
 	);
-
-	$inspect({ branchReview: pr });
 </script>
 
 <Modal bind:this={modal} title="Submit changes for review">
