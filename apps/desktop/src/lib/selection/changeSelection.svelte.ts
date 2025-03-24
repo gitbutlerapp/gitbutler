@@ -42,19 +42,19 @@ type FileHeader = {
 	pathBytes: number[];
 };
 
+export type FullySelectedFile = FileHeader & {
+	type: 'full';
+};
+
+export type PartiallySelectedFile = FileHeader & {
+	type: 'partial';
+	hunks: SelectedHunk[];
+};
+
 /**
  * Representation of visually selected file.
  */
-type SelectedFile = FileHeader &
-	(
-		| {
-				type: 'full';
-		  }
-		| {
-				type: 'partial';
-				hunks: SelectedHunk[];
-		  }
-	);
+export type SelectedFile = FullySelectedFile | PartiallySelectedFile;
 
 export const changeSelectionAdapter = createEntityAdapter<SelectedFile, SelectedFile['path']>({
 	selectId: (change) => change.path,
