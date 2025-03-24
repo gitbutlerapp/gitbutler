@@ -47,7 +47,6 @@
 	class="tab"
 	class:selected
 	class:menu-open={isMenuOpen}
-	id={href}
 	tabindex="0"
 	onkeydown={handleArrowNavigation}
 >
