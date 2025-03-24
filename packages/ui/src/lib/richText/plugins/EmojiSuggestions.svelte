@@ -143,7 +143,7 @@
 
 {#if position && suggestedEmojis !== undefined}
 	<div
-		class="floating-popup"
+		class="floating-popup hide-native-scrollbar"
 		style:left={position.left + 'px'}
 		style:top={position.top - offsetHeight - 6 + 'px'}
 		bind:offsetHeight
@@ -156,24 +156,22 @@
 		}}
 		transition:fly={{ y: 5, duration: 120 }}
 	>
-		<div>
-			<ul class="emoji-suggestion__list">
-				{#each suggestedEmojis as emoji, idx}
-					<li role="listitem">
-						<button type="button" onclick={() => selectSuggestion(emoji)}>
-							<div
-								id="emoji-suggestion__item-{idx}"
-								class="emoji-suggestion__item"
-								class:selected={idx === selectedSuggestionIndex}
-							>
-								<p class="text-13">{emoji.unicode}</p>
-								<p class="text-13 emoji-sussestion__name">{emoji.label}</p>
-							</div>
-						</button>
-					</li>
-				{/each}
-			</ul>
-		</div>
+		<ul class="emoji-suggestion__list">
+			{#each suggestedEmojis as emoji, idx}
+				<li role="listitem">
+					<button
+						type="button"
+						onclick={() => selectSuggestion(emoji)}
+						id="emoji-suggestion__item-{idx}"
+						class="emoji-suggestion__item"
+						class:selected={idx === selectedSuggestionIndex}
+					>
+						<p class="text-13">{emoji.unicode}</p>
+						<p class="text-13 emoji-sussestion__name">{emoji.label}</p>
+					</button>
+				</li>
+			{/each}
+		</ul>
 	</div>
 {/if}
 
@@ -187,18 +185,18 @@
 		border: 1px solid var(--clr-border-2);
 		box-shadow: var(--fx-shadow-m);
 		width: fit-content;
-
 		box-shadow: 0px 4px 14px 0px rgba(0, 0, 0, 0.06);
+		overflow-y: auto;
+		z-index: var(--z-ground);
 	}
 
 	.emoji-suggestion__list {
-		padding: 8px 4px;
+		padding: 6px;
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
 
 		max-height: 100px;
-		overflow: scroll;
 
 		&::-webkit-scrollbar {
 			display: none;
@@ -207,10 +205,9 @@
 
 	.emoji-suggestion__item {
 		width: 100%;
-		padding: 2px 8px;
+		padding: 4px;
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
 		gap: 16px;
 
 		&.selected {

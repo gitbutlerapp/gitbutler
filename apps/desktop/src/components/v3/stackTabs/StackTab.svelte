@@ -1,6 +1,7 @@
 <script lang="ts">
 	import StackTabMenu from '$components/v3/stackTabs/StackTabMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { goto } from '$app/navigation';
 
 	type Props = {
 		name: string;
@@ -41,14 +42,21 @@
 	}
 </script>
 
-<a
-	data-sveltekit-keepfocus
-	{href}
+<button
+	type="button"
 	class="tab"
 	class:selected
 	class:menu-open={isMenuOpen}
 	tabindex="0"
 	onkeydown={handleArrowNavigation}
+	data-sveltekit-preload-data="hover"
+	onclick={(e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		if (href) {
+			goto(href, { replaceState: true, keepFocus: true });
+		}
+	}}
 >
 	{#if anchors}
 		<div class="tab-icon">
@@ -68,7 +76,7 @@
 		<div class="truncation-gradient"></div>
 		<StackTabMenu {projectId} {stackId} bind:isOpen={isMenuOpen} />
 	</div>
-</a>
+</button>
 
 <style lang="postcss">
 	.tab {
@@ -225,13 +233,11 @@
 		}
 	}
 
-	.tab:not(.selected):active,
 	.tab:not(.selected):focus {
 		--truncation-gradient-color: var(--clr-stack-tab-inactive-hover);
 		--tab-background-color: var(--clr-stack-tab-inactive-hover);
 	}
 
-	.tab.selected:active,
 	.tab.selected:focus {
 		--truncation-gradient-color: var(--clr-stack-tab-active);
 		--tab-background-color: var(--clr-stack-tab-active);

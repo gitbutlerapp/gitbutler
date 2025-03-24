@@ -127,9 +127,9 @@
 		<FormattingBar bind:formatter {onAiButtonClick} {canUseAI} />
 	</div>
 
-	<div role="presentation" class="message-editor-wrapper">
+	<div role="presentation" class="message-editor">
 		<ConfigurableScrollableContainer height="100%">
-			<div>
+			<div class="message-editor-wrapper">
 				<RichTextEditor
 					styleContext="client-editor"
 					namespace="CommitMessageEditor"
@@ -209,7 +209,7 @@
 		}
 	}
 
-	.message-editor-wrapper {
+	.message-editor {
 		flex: 1;
 		border-radius: 0 var(--radius-m) var(--radius-m) var(--radius-m);
 		border: 1px solid var(--clr-border-2);
@@ -220,5 +220,12 @@
 		&:focus-within {
 			border-color: var(--clr-border-1);
 		}
+	}
+
+	.message-editor-wrapper {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		height: 100%;
 	}
 </style>
