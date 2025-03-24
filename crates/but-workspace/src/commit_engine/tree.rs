@@ -1,6 +1,8 @@
-use crate::commit_engine::{Destination, DiffSpec, HunkHeader, MoveSourceCommit, RejectionReason};
-use anyhow::{Context, bail};
-use bstr::{BString, ByteSlice};
+use crate::commit_engine::{
+    Destination, DiffSpec, HunkHeader, MoveSourceCommit, RejectionReason, apply_hunks,
+};
+use anyhow::bail;
+use bstr::ByteSlice;
 use but_core::{RepositoryExt, UnifiedDiff};
 use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 use gix::merge::tree::TreatAsUnresolved;
@@ -296,17 +298,6 @@ fn apply_worktree_changes<'repo>(
             };
 
             let worktree_hunks: Vec<HunkHeader> = hunks.into_iter().map(Into::into).collect();
-            let mut worktree_base_cursor = 1; /* 1-based counting */
-            let mut old_iter = worktree_base.lines_with_terminator();
-            let mut worktree_actual_cursor = 1; /* 1-based counting */
-            let mut new_iter = current_worktree.lines_with_terminator();
-            let mut base_with_patches: BString = Vec::with_capacity(md.len().try_into()?).into();
-
-            // To each selected hunk, put the old-lines into a buffer.
-            // Skip over the old hunk in old hunk in old lines.
-            // Skip all new lines till the beginning of the new hunk.
-            // Write the new hunk.
-            // Repeat for each hunk, and write all remaining old lines.
             for selected_hunk in &change_request.hunk_headers {
                 if !worktree_hunks.contains(selected_hunk)
                     || has_zero_based_line_numbers(selected_hunk)
@@ -315,39 +306,12 @@ fn apply_worktree_changes<'repo>(
                     // TODO: only skip this one hunk, but collect skipped hunks into a new err-spec.
                     continue 'each_change;
                 }
-                let catchup_base_lines = old_iter.by_ref().take(
-                    (selected_hunk.old_start as usize)
-                        .checked_sub(worktree_base_cursor)
-                        .context("hunks must be in order from top to bottom of the file")?,
-                );
-                for line in catchup_base_lines {
-                    base_with_patches.extend_from_slice(line);
-                }
-                let _consume_old_hunk_to_replace_with_new = old_iter
-                    .by_ref()
-                    .take(selected_hunk.old_lines as usize)
-                    .count();
-                worktree_base_cursor += selected_hunk.old_lines as usize;
-
-                let new_hunk_lines = new_iter
-                    .by_ref()
-                    .skip(
-                        (selected_hunk.new_start as usize)
-                            .checked_sub(worktree_actual_cursor)
-                            .context("hunks for new lines must be in order")?,
-                    )
-                    .take(selected_hunk.new_lines as usize);
-
-                for line in new_hunk_lines {
-                    base_with_patches.extend_from_slice(line);
-                }
-                worktree_actual_cursor += selected_hunk.new_lines as usize;
             }
-
-            for line in old_iter {
-                base_with_patches.extend_from_slice(line);
-            }
-
+            let base_with_patches = apply_hunks(
+                worktree_base.as_bstr(),
+                current_worktree.as_bstr(),
+                &change_request.hunk_headers,
+            )?;
             let blob_with_selected_patches = repo.write_blob(base_with_patches.as_slice())?;
             base_tree_editor.upsert(
                 change_request.path.as_bstr(),

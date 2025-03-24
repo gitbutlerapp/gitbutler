@@ -1,5 +1,6 @@
 //! The machinery used to alter and mutate commits in various ways whilst adjusting descendant commits within a [reference frame](ReferenceFrame).
 
+use crate::commit_engine::reference_frame::InferenceMode;
 use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::RepositoryExt;
@@ -13,13 +14,15 @@ use gix::refs::transaction::PreviousValue;
 use serde::{Deserialize, Serialize};
 
 mod tree;
-use crate::commit_engine::reference_frame::InferenceMode;
 use tree::{CreateTreeOutcome, create_tree};
 
 pub(crate) mod index;
 /// Utility types
 pub mod reference_frame;
 mod refs;
+
+mod hunks;
+pub use hunks::apply_hunks;
 
 /// Types for use in the frontend with serialization support.
 pub mod ui;
