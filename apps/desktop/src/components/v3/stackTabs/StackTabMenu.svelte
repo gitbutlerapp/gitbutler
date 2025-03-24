@@ -23,10 +23,16 @@
 	aria-label="Stack menu"
 	class="menu-button focus-state"
 	class:menu-open={isOpen}
-	onclick={(e) => {
+	onmousedown={(e) => {
 		e.preventDefault();
 		e.stopPropagation();
 		contextMenu?.toggle();
+	}}
+	onclick={(e) => {
+		// prevent focusing on the tab
+		// when the menu is opened
+		e.preventDefault();
+		e.stopPropagation();
 	}}
 	bind:this={trigger}
 	type="button"

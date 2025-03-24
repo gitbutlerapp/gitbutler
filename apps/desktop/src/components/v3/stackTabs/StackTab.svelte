@@ -226,13 +226,11 @@
 		}
 	}
 
-	.tab:not(.selected):active,
 	.tab:not(.selected):focus {
 		--truncation-gradient-color: var(--clr-stack-tab-inactive-hover);
 		--tab-background-color: var(--clr-stack-tab-inactive-hover);
 	}
 
-	.tab.selected:active,
 	.tab.selected:focus {
 		--truncation-gradient-color: var(--clr-stack-tab-active);
 		--tab-background-color: var(--clr-stack-tab-active);
