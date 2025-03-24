@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import FileViewPlaceholder from '$components/v3/FileViewPlaceholder.svelte';
 	import SelectedChange from '$components/v3/SelectedChange.svelte';
-	import StackContentPlaceholder from '$components/v3/StackContentPlaceholder.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { inject } from '@gitbutler/shared/context';
 
@@ -17,7 +17,7 @@
 
 <div class="selection-view">
 	{#if selection.length === 0}
-		<StackContentPlaceholder />
+		<FileViewPlaceholder />
 	{:else}
 		<ScrollableContainer wide>
 			{#each selection as selectedFile, index ('selection-view-' + selectedFile.path + index)}
