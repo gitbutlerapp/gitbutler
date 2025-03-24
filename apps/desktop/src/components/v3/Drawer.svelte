@@ -90,6 +90,7 @@
 		width: 100%;
 		padding: 14px;
 		box-sizing: border-box;
+		min-height: 0;
 
 		border-radius: var(--radius-ml);
 		border: 1px solid var(--clr-border-2);
