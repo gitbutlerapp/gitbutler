@@ -64,8 +64,11 @@ export const load: LayoutLoad = async () => {
 	const stackingLineManagerFactory = new StackingLineManagerFactory();
 	const fileService = new FileService(tauri);
 	const hooksService = new HooksService(tauri);
-	const settingsService = new SettingsService(tauri);
 	const projectMetrics = new ProjectMetrics();
+	const settingsService = new SettingsService(tauri);
+
+	// Await settings to prevent immediate reloads on initial render.
+	await settingsService.refresh();
 
 	return {
 		commandService,
