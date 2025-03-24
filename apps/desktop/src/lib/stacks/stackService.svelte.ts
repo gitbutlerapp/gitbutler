@@ -475,7 +475,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			>({
 				query: ({ projectId, stackId, withForce }) => ({
 					command: 'push_stack',
-					params: { projectId, branchId: stackId, withForce }
+					params: { projectId, stackId, withForce }
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					ReduxTag.StackBranches,
@@ -545,7 +545,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				{ projectId: string; stackId: string; request: { targetPatch?: string; name: string } }
 			>({
 				query: ({ projectId, stackId, request: { targetPatch, name } }) => ({
-					command: 'create_series',
+					command: 'create_branch',
 					params: { projectId, stackId, request: { targetPatch, name } }
 				}),
 				invalidatesTags: (_result, _error, args) => [
@@ -628,11 +628,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			>({
 				query: ({ projectId, stackId, branchName, prNumber }) => ({
-					command: 'update_series_pr_number',
+					command: 'update_branch_pr_number',
 					params: {
 						projectId,
 						stackId,
-						headName: branchName,
+						branchName,
 						prNumber
 					}
 				}),
@@ -648,12 +648,12 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			>({
 				query: ({ projectId, stackId, branchName, newName }) => ({
-					command: 'update_series_name',
+					command: 'update_branch_name',
 					params: {
 						projectId,
-						branchId: stackId,
-						headName: branchName,
-						newHeadName: newName
+						stackId,
+						branchName,
+						newName
 					}
 				}),
 				invalidatesTags: [ReduxTag.StackBranches]
@@ -667,11 +667,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			>({
 				query: ({ projectId, stackId, branchName }) => ({
-					command: 'remove_series',
+					command: 'remove_branch',
 					params: {
 						projectId,
-						branchId: stackId,
-						headName: branchName
+						stackId,
+						branchName
 					}
 				}),
 				invalidatesTags: [ReduxTag.StackBranches]

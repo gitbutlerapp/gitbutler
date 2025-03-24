@@ -134,7 +134,7 @@
 						{stackId}
 						leftClickTrigger={kebabContextMenuTrigger}
 						rightClickTrigger={branchElement}
-						headName={branch.name}
+						branchName={branch.name}
 						seriesCount={branches.length}
 						isTopBranch={true}
 						toggleDescription={async () => {}}
