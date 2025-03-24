@@ -21,7 +21,7 @@
 		selectedFile: SelectionParameters;
 		selected?: boolean;
 		showCheckbox?: boolean;
-		sticky?: boolean;
+		isHeader?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 	}
@@ -34,7 +34,7 @@
 		projectId,
 		selected,
 		showCheckbox,
-		sticky,
+		isHeader,
 		onclick,
 		onkeydown
 	}: Props = $props();
@@ -77,7 +77,7 @@
 
 <div
 	bind:this={draggableEl}
-	class:sticky
+	class:is-header={isHeader}
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
@@ -112,11 +112,12 @@
 		}}
 		oncheck={onCheck}
 		oncontextmenu={onContextMenu}
+		size={isHeader ? 'large' : 'small'}
 	/>
 </div>
 
 <style lang="postcss">
-	.sticky {
+	.is-header {
 		position: sticky;
 		top: 0;
 		z-index: var(--z-lifted);

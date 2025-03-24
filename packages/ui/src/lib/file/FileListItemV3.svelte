@@ -15,6 +15,7 @@
 		filePath: string;
 		fileStatus?: FileStatus;
 		fileStatusStyle?: 'dot' | 'full';
+		size?: 'small' | 'large';
 		draggable?: boolean;
 		selected?: boolean;
 		focused?: boolean;
@@ -44,6 +45,7 @@
 		filePath,
 		fileStatus,
 		fileStatusStyle = 'dot',
+		size = 'small',
 		draggable = false,
 		selected = false,
 		focused = false,
@@ -70,7 +72,7 @@
 	bind:this={ref}
 	data-locked={locked}
 	data-file-id={id}
-	class="file-list-item"
+	class="file-list-item size-{size}"
 	class:selected
 	class:clickable
 	class:draggable
@@ -175,6 +177,12 @@
 
 		& :global(.mark-resolved-btn) {
 			margin: 0 4px;
+		}
+
+		&.size-large {
+			padding: 14px;
+			height: unset;
+			border-bottom: 1px solid var(--clr-border-2);
 		}
 	}
 
