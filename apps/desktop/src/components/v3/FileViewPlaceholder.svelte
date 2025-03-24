@@ -244,8 +244,8 @@
 
 		& :global(.tip-close-btn) {
 			position: absolute;
-			top: 8px;
-			right: 8px;
+			top: 10px;
+			right: 10px;
 		}
 	}
 
