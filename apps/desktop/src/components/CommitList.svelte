@@ -11,6 +11,7 @@
 	import { Commit, DetailedCommit } from '$lib/commits/commit';
 	import {
 		AmendCommitDzHandler,
+		AmendCommitWithHunkDzHandler,
 		SquashCommitDzHandler,
 		type DzCommitData
 	} from '$lib/commits/dropHandler';
@@ -214,7 +215,14 @@
 						stackId,
 						commit: dzCommit
 					})}
-					<Dropzone handlers={[amendHandler, squashHandler]}>
+					{@const hunkHandler = new AmendCommitWithHunkDzHandler({
+						branchController,
+						stackId,
+						commit: dzCommit,
+						// TODO: Use correct value!
+						okWithForce: true
+					})}
+					<Dropzone handlers={[amendHandler, squashHandler, hunkHandler]}>
 						{#snippet overlay({ hovered, activated, handler })}
 							{@const label = handler instanceof AmendCommitDzHandler ? 'Amend' : 'Squash'}
 							<CardOverlay {hovered} {activated} {label} />
