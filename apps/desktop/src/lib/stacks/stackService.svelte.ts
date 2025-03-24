@@ -681,8 +681,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				{ projectId: string; stackId: string; branchName: string; description: string }
 			>({
 				query: ({ projectId, stackId, branchName, description }) => ({
-					command: 'update_series_description',
-					params: { projectId, branchId: stackId, headName: branchName, description }
+					command: 'update_branch_description',
+					params: { projectId, stackId, branchName, description }
 				}),
 				invalidatesTags: [ReduxTag.StackBranches]
 			}),
@@ -690,7 +690,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				{
 					query: ({ projectId, stackId, order }) => ({
 						command: 'reorder_stack',
-						params: { projectId, branchId: stackId, stackOder: order }
+						params: { projectId, stackId, stackOder: order }
 					}),
 					invalidatesTags: (_result, _error, args) => [
 						ReduxTag.Stacks,
