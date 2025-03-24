@@ -21,11 +21,9 @@
 	.empty-series {
 		position: relative;
 		display: flex;
-		border-top: 1px solid var(--clr-border-2);
 	}
 	.empty-series__label {
 		color: var(--clr-text-2);
-
 		width: 100%;
 		padding: 20px 28px 26px 46px;
 		opacity: 0.6;
