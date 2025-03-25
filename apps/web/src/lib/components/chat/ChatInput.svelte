@@ -287,9 +287,18 @@
 				<div class="chat-input__inner-toolbar">
 					<Button kind="ghost" icon="smile" disabled />
 					<div class="chat-input__inner-toolbar__divider"></div>
-					<Button kind="ghost" icon="attachment-small" reversedDirection onclick={attachFiles}>
-						<span style="opacity: 0.4">Drop or click to add files</span>
-					</Button>
+					<div class="chat-input__inner-toolbar__shrinkable">
+						<Button
+							kind="ghost"
+							icon="attachment-small"
+							reversedDirection
+							onclick={attachFiles}
+							shrinkable
+							width="100%"
+						>
+							<span style="opacity: 0.4">Paste or drop to add files</span>
+						</Button>
+					</div>
 				</div>
 
 				<div class="chat-input__action-buttons">
@@ -372,6 +381,7 @@
 		position: relative;
 		flex-grow: 1;
 		display: flex;
+		gap: 12px;
 		padding: 12px;
 		justify-content: space-between;
 
@@ -391,6 +401,7 @@
 		align-items: center;
 		justify-content: flex-start;
 		gap: 6px;
+		overflow: hidden;
 	}
 
 	.chat-input__inner-toolbar__divider {
@@ -402,6 +413,11 @@
 	.chat-input__action-buttons {
 		display: flex;
 		gap: 4px;
+	}
+
+	.chat-input__inner-toolbar__shrinkable {
+		display: grid;
+		overflow: hidden;
 	}
 
 	.chat-input-notlooged {
