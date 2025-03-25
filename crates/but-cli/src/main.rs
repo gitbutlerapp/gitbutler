@@ -17,9 +17,15 @@ fn main() -> Result<()> {
 
     match &args.cmd {
         args::Subcommands::DiscardChange {
+            hunk_indices,
             current_path,
             previous_path,
-        } => command::discard_change(&args.current_dir, current_path, previous_path.as_deref()),
+        } => command::discard_change(
+            &args.current_dir,
+            current_path,
+            previous_path.as_deref(),
+            hunk_indices,
+        ),
         args::Subcommands::Commit {
             message,
             amend,
