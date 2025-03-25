@@ -13,9 +13,9 @@
 	import { BranchController } from '$lib/branches/branchController';
 	import { BranchFileDzHandler, BranchHunkDzHandler } from '$lib/branches/dropHandler';
 	import { DetailedCommit } from '$lib/commits/commit';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { getContextStore, inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
@@ -31,14 +31,12 @@
 	}: { projectId: string; isLaneCollapsed: Writable<boolean>; commitBoxOpen: Writable<boolean> } =
 		$props();
 
-	const [branchController, fileIdSelection, forge, stackPublishingService] = inject(
+	const [branchController, fileIdSelection, stackPublishingService, stackService] = inject(
 		BranchController,
 		FileIdSelection,
-		DefaultForgeFactory,
-		StackPublishingService
+		StackPublishingService,
+		StackService
 	);
-
-	const listingService = $derived(forge.current.listService);
 
 	const stackStore = getContextStore(BranchStack);
 	const stack = $derived($stackStore);
@@ -89,12 +87,12 @@
 		return false;
 	});
 
+	const [pushStack] = stackService.pushStack();
+
 	async function push() {
 		isPushingCommits = true;
 		try {
-			await branchController.pushBranch(stack.id, stack.requiresForce);
-			listingService?.refresh(projectId);
-			// TODO: Refresh affected PR cards.
+			await pushStack({ projectId, stackId: stack.id, withForce: stack.requiresForce });
 			await pushButlerReviewStacks();
 		} finally {
 			isPushingCommits = false;
