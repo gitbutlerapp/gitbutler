@@ -54,8 +54,8 @@
 	<IntegrateUpstreamModal bind:this={modal} projectId={selectedProjectId} />
 {/if}
 
-<div class="header" class:mac={platformName === 'macos'}>
-	<div class="left">
+<div class="header" class:mac={platformName === 'macos'} data-tauri-drag-region>
+	<div class="left" data-tauri-drag-region>
 		<div class="left-buttons" class:macos={platformName === 'macos'}>
 			<SyncButton {projectId} size="button" />
 			{#if upstreamCommits > 0}
@@ -65,7 +65,7 @@
 			{/if}
 		</div>
 	</div>
-	<div class="center">
+	<div class="center" data-tauri-drag-region>
 		<Select
 			searchable
 			value={selectedProjectId}
@@ -123,7 +123,7 @@
 			</OptionsGroup>
 		</Select>
 	</div>
-	<div class="right">
+	<div class="right" data-tauri-drag-region>
 		<NotificationButton
 			hasUnread={isNotificationsUnread}
 			onclick={() => {
