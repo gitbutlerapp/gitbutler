@@ -66,7 +66,7 @@
 
 	let stackingAddSeriesModal = $state<ReturnType<typeof AddSeriesModal>>();
 	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let stackingContextMenu = $state<ReturnType<typeof SeriesHeaderContextMenu>>();
+	let branchContextMenu = $state<ReturnType<typeof SeriesHeaderContextMenu>>();
 	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
 	let seriesHeaderEl = $state<HTMLDivElement>();
 	let seriesDescriptionEl = $state<HTMLTextAreaElement>();
@@ -170,7 +170,7 @@
 
 <SeriesHeaderContextMenu
 	stackId={stack.id}
-	bind:this={stackingContextMenu}
+	bind:this={branchContextMenu}
 	bind:contextMenuEl={kebabContextMenu}
 	leftClickTrigger={kebabContextMenuTrigger}
 	rightClickTrigger={seriesHeaderEl}
@@ -259,7 +259,7 @@
 						readonly={!!forgeBranch}
 						onDblClick={() => {
 							if (branchType !== 'Integrated') {
-								stackingContextMenu?.showSeriesRenameModal?.();
+								branchContextMenu?.showSeriesRenameModal?.();
 							}
 						}}
 					/>
