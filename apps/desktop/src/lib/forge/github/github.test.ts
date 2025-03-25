@@ -3,7 +3,7 @@ import { setupMockGitHubApi } from '$lib/testing/mockGitHubApi.svelte';
 import { expect, test, describe } from 'vitest';
 
 describe('GitHub', () => {
-	const { gitHubApi } = setupMockGitHubApi();
+	const { gitHubApi, gitHubClient } = setupMockGitHubApi();
 
 	const id = 'some-branch';
 	const repo = {
@@ -13,7 +13,13 @@ describe('GitHub', () => {
 	};
 
 	test('commit url', async () => {
-		const gh = new GitHub({ repo, baseBranch: id, gitHubApi, authenticated: true });
+		const gh = new GitHub({
+			api: gitHubApi,
+			client: gitHubClient,
+			repo,
+			baseBranch: id,
+			authenticated: true
+		});
 		const url = gh.commitUrl(id);
 		expect(url).toMatch(new RegExp(`/${id}$`));
 	});

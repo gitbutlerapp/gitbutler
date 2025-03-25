@@ -5,12 +5,14 @@ import { GitLab } from '$lib/forge/gitlab/gitlab';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { type GitHubApi } from '$lib/state/clientState.svelte';
 import { expect, test, describe } from 'vitest';
+import type { GitHubClient } from '$lib/forge/github/githubClient';
+import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
 import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
 
 describe.concurrent('DefaultforgeFactory', () => {
 	const posthog = new PostHogWrapper();
 	const projectMetrics = new ProjectMetrics();
-	const githubApi: GitHubApi = {
+	const gitHubApi: GitHubApi = {
 		endpoints: {},
 		reducerPath: 'github',
 		internalActions: undefined as any,
@@ -20,18 +22,23 @@ describe.concurrent('DefaultforgeFactory', () => {
 		injectEndpoints: undefined as any,
 		enhanceEndpoints: undefined as any
 	};
+	const gitHubClient = { onReset: () => {} } as any as GitHubClient;
+	const gitLabClient = { onReset: () => {} } as any as GitLabClient;
+
 	// TODO: Replace with a better mock.
 	const dispatch = (() => {}) as ThunkDispatch<any, any, UnknownAction>;
-	const gitlabApi: any = {};
+	const gitLabApi: any = {};
 
 	test('Create GitHub service', async () => {
-		const factory = new DefaultForgeFactory(
-			githubApi,
-			gitlabApi,
+		const factory = new DefaultForgeFactory({
+			gitHubClient,
+			gitHubApi,
+			gitLabClient,
+			gitLabApi,
 			posthog,
 			projectMetrics,
 			dispatch
-		);
+		});
 		expect(
 			factory.build({
 				repo: {
@@ -45,13 +52,15 @@ describe.concurrent('DefaultforgeFactory', () => {
 	});
 
 	test('Create self hosted Gitlab service', async () => {
-		const factory = new DefaultForgeFactory(
-			githubApi,
-			gitlabApi,
+		const factory = new DefaultForgeFactory({
+			gitHubClient,
+			gitHubApi,
+			gitLabClient,
+			gitLabApi,
 			posthog,
 			projectMetrics,
 			dispatch
-		);
+		});
 		expect(
 			factory.build({
 				repo: {
@@ -65,13 +74,15 @@ describe.concurrent('DefaultforgeFactory', () => {
 	});
 
 	test('Create Gitlab service', async () => {
-		const factory = new DefaultForgeFactory(
-			githubApi,
-			gitlabApi,
+		const factory = new DefaultForgeFactory({
+			gitHubClient,
+			gitHubApi,
+			gitLabClient,
+			gitLabApi,
 			posthog,
 			projectMetrics,
 			dispatch
-		);
+		});
 		expect(
 			factory.build({
 				repo: {

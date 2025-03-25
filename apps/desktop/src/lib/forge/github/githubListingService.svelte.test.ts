@@ -12,7 +12,7 @@ type PrListResponse = RestEndpointMethodTypes['pulls']['list']['response'];
 const PROJECT_ID = 'some-project';
 
 describe('GitHubListingService', () => {
-	const { gitHubApi, octokit } = setupMockGitHubApi();
+	const { gitHubClient, gitHubApi, octokit } = setupMockGitHubApi();
 
 	let gh: GitHub;
 	let projectMetrics: ProjectMetrics;
@@ -23,7 +23,8 @@ describe('GitHubListingService', () => {
 	beforeEach(() => {
 		projectMetrics = new ProjectMetrics();
 		gh = new GitHub({
-			gitHubApi,
+			api: gitHubApi,
+			client: gitHubClient,
 			repo: {
 				domain: 'github.com',
 				name: 'test-repo',

@@ -1,6 +1,7 @@
 import { GitLabBranch } from '$lib/forge/gitlab/gitlabBranch';
 import { GitLabPrService } from '$lib/forge/gitlab/gitlabPrService.svelte';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
+import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
 import type { Forge, ForgeName } from '$lib/forge/interface/forge';
 import type { DetailedPullRequest, ForgeArguments } from '$lib/forge/interface/types';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
@@ -32,14 +33,18 @@ export class GitLab implements Forge {
 		private params: ForgeArguments & {
 			posthog?: PostHogWrapper;
 			projectMetrics?: ProjectMetrics;
-			gitLabApi: GitLabApi;
+			api: GitLabApi;
+			client: GitLabClient;
 		}
 	) {
-		const { baseBranch, forkStr, authenticated, repo } = this.params;
+		const { api, client, baseBranch, forkStr, authenticated, repo } = this.params;
 		this.baseUrl = `https://${repo.domain}/${repo.owner}/${repo.name}`;
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;
 		this.authenticated = authenticated;
+
+		// Reset the API when the token changes.
+		client.onReset(() => api.util.resetApiState());
 	}
 
 	branch(name: string) {
@@ -59,7 +64,7 @@ export class GitLab implements Forge {
 	}
 
 	get prService() {
-		const { gitLabApi, posthog } = this.params;
+		const { api: gitLabApi, posthog } = this.params;
 		return new GitLabPrService(gitLabApi, posthog);
 	}
 
@@ -76,6 +81,6 @@ export class GitLab implements Forge {
 	}
 
 	invalidate(tags: TagDescription<ReduxTag>[]) {
-		return this.params.gitLabApi.util.invalidateTags(tags);
+		return this.params.api.util.invalidateTags(tags);
 	}
 }

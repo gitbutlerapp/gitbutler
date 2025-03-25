@@ -2,9 +2,11 @@ import { AZURE_DOMAIN, AzureDevOps } from '$lib/forge/azure/azure';
 import { BitBucket, BITBUCKET_DOMAIN } from '$lib/forge/bitbucket/bitbucket';
 import { DefaultForge } from '$lib/forge/default/default';
 import { GitHub, GITHUB_DOMAIN } from '$lib/forge/github/github';
+import { GitHubClient } from '$lib/forge/github/githubClient';
 import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from '$lib/forge/gitlab/gitlab';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
+import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
 import type { Forge } from '$lib/forge/interface/forge';
 import type { GitHubApi, GitLabApi } from '$lib/state/clientState.svelte';
 import type { ReduxTag } from '$lib/state/tags';
@@ -26,11 +28,15 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 	private _forge: Forge | undefined = $state();
 
 	constructor(
-		private gitHubApi: GitHubApi,
-		private gitLabApi: GitLabApi,
-		private posthog: PostHogWrapper,
-		private projectMetrics: ProjectMetrics,
-		private dispatch: ThunkDispatch<any, any, UnknownAction>
+		private params: {
+			gitHubClient: GitHubClient;
+			gitHubApi: GitHubApi;
+			gitLabClient: GitLabClient;
+			gitLabApi: GitLabApi;
+			posthog: PostHogWrapper;
+			projectMetrics: ProjectMetrics;
+			dispatch: ThunkDispatch<any, any, UnknownAction>;
+		}
 	) {}
 
 	get current(): Forge {
@@ -77,18 +83,22 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		};
 
 		if (domain.includes(GITHUB_DOMAIN)) {
+			const { gitHubClient, gitHubApi, posthog, projectMetrics } = this.params;
 			return new GitHub({
 				...baseParams,
-				gitHubApi: this.gitHubApi,
-				projectMetrics: this.projectMetrics,
-				posthog: this.posthog,
+				api: gitHubApi,
+				client: gitHubClient,
+				projectMetrics: projectMetrics,
+				posthog: posthog,
 				authenticated: !!githubAuthenticated
 			});
 		}
 		if (domain === GITLAB_DOMAIN || domain.startsWith(GITLAB_SUB_DOMAIN + '.')) {
+			const { gitLabClient, gitLabApi } = this.params;
 			return new GitLab({
 				...baseParams,
-				gitLabApi: this.gitLabApi,
+				api: gitLabApi,
+				client: gitLabClient,
 				authenticated: !!gitlabAuthenticated
 			});
 		}
@@ -103,8 +113,9 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 
 	invalidate(tags: TagDescription<ReduxTag>[]) {
 		const action = this.current.invalidate(tags);
+		const { dispatch } = this.params;
 		if (action) {
-			this.dispatch(action);
+			dispatch(action);
 		}
 	}
 }
