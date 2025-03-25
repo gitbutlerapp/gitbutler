@@ -38,7 +38,7 @@
 		await pushStack({ projectId, stackId, withForce: requiresForce });
 
 		// Update published branches if they have already been published before
-		const topPushedBranch = branches.find((branch) => branch.reviewId && branch.archived);
+		const topPushedBranch = branches.find((branch) => branch.reviewId && !branch.archived);
 		if (topPushedBranch && $user) {
 			await publishBranch({ projectId, stackId, topBranch: topPushedBranch.name, user: $user });
 		}
