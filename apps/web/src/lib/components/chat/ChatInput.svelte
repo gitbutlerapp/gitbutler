@@ -222,6 +222,7 @@
 			.filter(isAcceptedFileType)
 			.map(async (file) => {
 				const upload = await uploadsService.uploadFile(file);
+
 				return { name: file.name, url: upload.url, isImage: upload.isImage };
 			});
 		const settled = await Promise.allSettled(uploads);
@@ -231,7 +232,9 @@
 
 	async function attachFiles() {
 		richText.richTextEditor?.focus();
+
 		const files = await uploadFiles(ACCEPTED_FILE_TYPES.join(','));
+
 		if (!files) return;
 		await fileUploadPlugin?.handleFileUpload(files);
 	}
@@ -281,25 +284,14 @@
 				{/snippet}
 			</RichTextEditor>
 			<div class="chat-input__actions">
-				<div class="chat-input__secondary-actions">
-					<Button
-						icon="attachment"
-						tooltip="Attach files"
-						tooltipPosition="top"
-						kind="ghost"
-						onclick={attachFiles}
-					/>
-					<Button
-						icon="smile"
-						kind="ghost"
-						tooltipPosition="top"
-						tooltip="Insert emoji"
-						disabled
-						onclick={() => {
-							// TODO: Implement
-						}}
-					/>
+				<div class="chat-input__inner-toolbar">
+					<Button kind="ghost" icon="smile" disabled />
+					<div class="chat-input__inner-toolbar__divider"></div>
+					<Button kind="ghost" icon="attachment-small" reversedDirection onclick={attachFiles}>
+						<span style="opacity: 0.4">Drop or click to add files</span>
+					</Button>
 				</div>
+
 				<div class="chat-input__action-buttons">
 					{#if isPatchAuthor === false}
 						<DropDownButton
@@ -377,15 +369,34 @@
 	}
 
 	.chat-input__actions {
+		position: relative;
 		flex-grow: 1;
 		display: flex;
 		padding: 12px;
-		padding-top: 0;
 		justify-content: space-between;
+
+		&:after {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 12px;
+			width: calc(100% - 24px);
+			height: 1px;
+			background-color: var(--clr-border-3);
+		}
 	}
 
-	.chat-input__secondary-actions {
+	.chat-input__inner-toolbar {
 		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 6px;
+	}
+
+	.chat-input__inner-toolbar__divider {
+		width: 1px;
+		height: 18px;
+		background-color: var(--clr-border-3);
 	}
 
 	.chat-input__action-buttons {

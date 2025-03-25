@@ -152,7 +152,7 @@
 
 <Composer {initialConfig} bind:this={composer}>
 	<div class="lexical-container lexical-{styleContext}" bind:this={editorDiv}>
-		<div class="editor-scroller">
+		<div class="editor-scroller scrollbar">
 			<div class="editor">
 				<ContentEditable />
 				{#if placeholder}
@@ -198,6 +198,7 @@
 	.editor-scroller {
 		border: 0;
 		display: flex;
+		flex-direction: column;
 		position: relative;
 		outline: 0;
 		z-index: 0;

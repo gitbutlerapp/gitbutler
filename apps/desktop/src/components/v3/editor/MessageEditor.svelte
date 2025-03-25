@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import AiContextMenu from '$components/v3/editor/AIContextMenu.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
 	import { AIService } from '$lib/ai/service';
@@ -132,47 +131,43 @@
 		<FormattingBar bind:formatter {onAiButtonClick} {canUseAI} />
 	</div>
 
-	<div role="presentation" class="message-editor">
-		<ConfigurableScrollableContainer height="100%">
-			<div
-				role="presentation"
-				class="message-editor-wrapper"
-				onmouseenter={() => (isEditorHovered = true)}
-				onmouseleave={() => (isEditorHovered = false)}
-			>
-				<RichTextEditor
-					styleContext="client-editor"
-					namespace="CommitMessageEditor"
-					placeholder="Your commit message"
-					bind:this={composer}
-					{markdown}
-					onError={(e) => showError('Editor error', e)}
-					initialText={initialValue}
-					onChange={debouncedHandleChange}
-					onKeyDown={handleKeyDown}
-					onFocus={() => (isEditorFocused = true)}
-					onBlur={() => (isEditorFocused = false)}
-				>
-					{#snippet plugins()}
-						<Formatter bind:this={formatter} />
-						<GiphyPlugin />
-						<GhostTextPlugin
-							bind:this={suggestionsHandler.ghostTextComponent}
-							onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
-						/>
-						<GiphyPlugin />
-					{/snippet}
-				</RichTextEditor>
+	<div
+		role="presentation"
+		class="message-editor"
+		onmouseenter={() => (isEditorHovered = true)}
+		onmouseleave={() => (isEditorHovered = false)}
+	>
+		<RichTextEditor
+			styleContext="client-editor"
+			namespace="CommitMessageEditor"
+			placeholder="Your commit message"
+			bind:this={composer}
+			{markdown}
+			onError={(e) => showError('Editor error', e)}
+			initialText={initialValue}
+			onChange={debouncedHandleChange}
+			onKeyDown={handleKeyDown}
+			onFocus={() => (isEditorFocused = true)}
+			onBlur={() => (isEditorFocused = false)}
+		>
+			{#snippet plugins()}
+				<Formatter bind:this={formatter} />
+				<GiphyPlugin />
+				<GhostTextPlugin
+					bind:this={suggestionsHandler.ghostTextComponent}
+					onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
+				/>
+				<GiphyPlugin />
+			{/snippet}
+		</RichTextEditor>
 
-				<div class="message-editor__extra-options">
-					<Button kind="ghost" icon="smile" />
-					<div class="message-editor__extra-option__divider"></div>
-					<Button kind="ghost" icon="attachment-small" reversedDirection>
-						<span style="opacity: 0.4">Drop or click to add files</span>
-					</Button>
-				</div>
-			</div>
-		</ConfigurableScrollableContainer>
+		<div class="message-editor__inner-toolbar">
+			<Button kind="ghost" icon="smile" />
+			<div class="message-editor__inner-toolbar__divider"></div>
+			<Button kind="ghost" icon="attachment-small" reversedDirection>
+				<span style="opacity: 0.4">Drop or click to add files</span>
+			</Button>
+		</div>
 	</div>
 </div>
 
@@ -182,7 +177,7 @@
 		flex-direction: column;
 		flex: 1;
 		background-color: var(--clr-bg-1);
-		min-height: 0;
+		overflow: auto;
 	}
 
 	.editor-header {
@@ -250,20 +245,13 @@
 		}
 	}
 
-	.message-editor-wrapper {
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		height: 100%;
-	}
-
-	.message-editor__extra-options {
+	.message-editor__inner-toolbar {
 		position: relative;
 		display: flex;
 		align-items: center;
 		justify-content: flex-start;
 		gap: 6px;
-		padding: 12px;
+		padding: 10px 12px;
 
 		&:after {
 			content: '';
@@ -276,7 +264,7 @@
 		}
 	}
 
-	.message-editor__extra-option__divider {
+	.message-editor__inner-toolbar__divider {
 		width: 1px;
 		height: 18px;
 		background-color: var(--clr-border-3);
