@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/lib/forge/forgeFactory.test.ts", "apps/desktop/src/lib/state/clientState.svelte.ts", "apps/desktop/src/routes/+layout.svelte"]
+ourEntries = ["apps/desktop/src/lib/forge/forgeFactory.test.ts", "apps/desktop/src/lib/state/clientState.svelte.ts", "apps/desktop/src/routes/+layout.svelte"]
+theirEntries = ["apps/desktop/src/lib/forge/forgeFactory.test.ts", "apps/desktop/src/lib/state/clientState.svelte.ts", "apps/desktop/src/routes/+layout.svelte"]
