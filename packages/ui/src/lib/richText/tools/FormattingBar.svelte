@@ -17,7 +17,7 @@
 
 <div class="formatting-bar">
 	{#if formatter}
-		<div class="formatting-slides" style:width="{slideWidth}px">
+		<div class="formatting-slides" style:width="calc({slideWidth}px + 0.5rem)">
 			<div class="formatting-slides-scroller" class:formatting-slides--second-slide={isSecondSlide}>
 				<div class="formatting-bar__slide" bind:clientWidth={slideWidth}>
 					<div class="formatting-bar__group">
@@ -141,12 +141,32 @@
 	.formatting-bar {
 		display: flex;
 		align-items: center;
+		width: fit-content;
 	}
 
 	.formatting-slides {
+		position: relative;
 		display: flex;
 		overflow: hidden;
 		margin-right: 6px;
+		padding-left: 8px;
+		margin-left: -8px;
+		/* background-color: antiquewhite; */
+
+		&::after {
+			user-select: none;
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 8px;
+			height: 100%;
+			background: linear-gradient(
+				to right,
+				var(--clr-bg-1) 0%,
+				oklch(from var(--clr-bg-1) l c h / 0) 100%
+			);
+		}
 	}
 
 	.formatting-slides-scroller {
