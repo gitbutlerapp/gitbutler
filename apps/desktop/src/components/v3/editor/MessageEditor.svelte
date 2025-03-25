@@ -70,6 +70,8 @@
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
 	let formatter = $state<ReturnType<typeof Formatter>>();
+	let isEditorHovered = $state(false);
+	let isEditorFocused = $state(false);
 
 	export async function getPlaintext(): Promise<string | undefined> {
 		return composer?.getPlaintext();
@@ -112,6 +114,7 @@
 				type="button"
 				class="text-13 text-semibold editor-tab"
 				class:active={!markdown}
+				class:focused={!markdown && (isEditorFocused || isEditorHovered)}
 				onclick={() => {
 					markdown = false;
 				}}>Plain</button
@@ -120,6 +123,7 @@
 				type="button"
 				class="text-13 text-semibold editor-tab"
 				class:active={markdown}
+				class:focused={markdown && (isEditorFocused || isEditorHovered)}
 				onclick={() => {
 					markdown = true;
 				}}>Rich-text Editor</button
@@ -130,7 +134,12 @@
 
 	<div role="presentation" class="message-editor">
 		<ConfigurableScrollableContainer height="100%">
-			<div class="message-editor-wrapper">
+			<div
+				role="presentation"
+				class="message-editor-wrapper"
+				onmouseenter={() => (isEditorHovered = true)}
+				onmouseleave={() => (isEditorHovered = false)}
+			>
 				<RichTextEditor
 					styleContext="client-editor"
 					namespace="CommitMessageEditor"
@@ -141,6 +150,8 @@
 					initialText={initialValue}
 					onChange={debouncedHandleChange}
 					onKeyDown={handleKeyDown}
+					onFocus={() => (isEditorFocused = true)}
+					onBlur={() => (isEditorFocused = false)}
 				>
 					{#snippet plugins()}
 						<Formatter bind:this={formatter} />
