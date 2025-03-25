@@ -467,7 +467,10 @@ pub fn stack_branch_local_and_remote_commits(
     let stack = state.get_stack(Id::from_str(&stack_id)?)?;
 
     let branches = stack.branches();
-    let branch = branches.iter().find(|b| b.name() == &branch_name).unwrap(); //todo
+    let branch = branches
+        .iter()
+        .find(|b| b.name() == &branch_name)
+        .ok_or(anyhow::anyhow!("Could not find branch {:?}", branch_name))?;
     if branch.archived {
         return Ok(vec![]);
     }
