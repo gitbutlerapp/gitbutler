@@ -133,9 +133,9 @@
 		gap: 1px;
 
 		&.horizontal {
-			position: unset;
+			position: relative;
 			width: 100%;
-
+			top: auto;
 			flex-direction: row-reverse;
 
 			& .erectangle-hover-area {
@@ -147,12 +147,21 @@
 				width: 100%;
 				height: 12px;
 			}
+
+			& .erectangle-hover-area:hover .info-card {
+				position: absolute;
+				display: flex;
+				top: unset;
+				left: 0;
+				top: 18px;
+			}
 		}
 
 		&:not(.horizontal) .erectangle-hover-area:hover {
 			& .erectangle {
 				width: 100%;
 			}
+
 			& .info-card {
 				display: flex;
 			}
