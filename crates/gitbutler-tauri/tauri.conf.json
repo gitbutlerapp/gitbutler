@@ -10,7 +10,7 @@
 	"bundle": {
 		"active": false,
 		"category": "DeveloperTool",
-		"copyright": "Copyright © 2023-2024 GitButler. All rights reserved.",
+		"copyright": "Copyright © 2023-2025 GitButler. All rights reserved.",
 		"createUpdaterArtifacts": "v1Compatible",
 		"targets": [
 			"app",
