@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import AiContextMenu from '$components/v3/editor/AIContextMenu.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
 	import { AIService } from '$lib/ai/service';
@@ -10,6 +9,7 @@
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { debouncePromise } from '@gitbutler/shared/utils/misc';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
@@ -69,6 +69,8 @@
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
 	let formatter = $state<ReturnType<typeof Formatter>>();
+	let isEditorHovered = $state(false);
+	let isEditorFocused = $state(false);
 
 	export async function getPlaintext(): Promise<string | undefined> {
 		return composer?.getPlaintext();
@@ -111,6 +113,7 @@
 				type="button"
 				class="text-13 text-semibold editor-tab"
 				class:active={!markdown}
+				class:focused={!markdown && (isEditorFocused || isEditorHovered)}
 				onclick={() => {
 					markdown = false;
 				}}>Plain</button
@@ -119,6 +122,7 @@
 				type="button"
 				class="text-13 text-semibold editor-tab"
 				class:active={markdown}
+				class:focused={markdown && (isEditorFocused || isEditorHovered)}
 				onclick={() => {
 					markdown = true;
 				}}>Rich-text Editor</button
@@ -127,32 +131,43 @@
 		<FormattingBar bind:formatter {onAiButtonClick} {canUseAI} />
 	</div>
 
-	<div role="presentation" class="message-editor">
-		<ConfigurableScrollableContainer height="100%">
-			<div class="message-editor-wrapper">
-				<RichTextEditor
-					styleContext="client-editor"
-					namespace="CommitMessageEditor"
-					placeholder="Your commit message"
-					bind:this={composer}
-					{markdown}
-					onError={(e) => showError('Editor error', e)}
-					initialText={initialValue}
-					onChange={debouncedHandleChange}
-					onKeyDown={handleKeyDown}
-				>
-					{#snippet plugins()}
-						<Formatter bind:this={formatter} />
-						<GiphyPlugin />
-						<GhostTextPlugin
-							bind:this={suggestionsHandler.ghostTextComponent}
-							onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
-						/>
-						<GiphyPlugin />
-					{/snippet}
-				</RichTextEditor>
-			</div>
-		</ConfigurableScrollableContainer>
+	<div
+		role="presentation"
+		class="message-editor"
+		onmouseenter={() => (isEditorHovered = true)}
+		onmouseleave={() => (isEditorHovered = false)}
+	>
+		<RichTextEditor
+			styleContext="client-editor"
+			namespace="CommitMessageEditor"
+			placeholder="Your commit message"
+			bind:this={composer}
+			{markdown}
+			onError={(e) => showError('Editor error', e)}
+			initialText={initialValue}
+			onChange={debouncedHandleChange}
+			onKeyDown={handleKeyDown}
+			onFocus={() => (isEditorFocused = true)}
+			onBlur={() => (isEditorFocused = false)}
+		>
+			{#snippet plugins()}
+				<Formatter bind:this={formatter} />
+				<GiphyPlugin />
+				<GhostTextPlugin
+					bind:this={suggestionsHandler.ghostTextComponent}
+					onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
+				/>
+				<GiphyPlugin />
+			{/snippet}
+		</RichTextEditor>
+
+		<div class="message-editor__inner-toolbar">
+			<Button kind="ghost" icon="smile" />
+			<div class="message-editor__inner-toolbar__divider"></div>
+			<Button kind="ghost" icon="attachment-small" reversedDirection>
+				<span style="opacity: 0.4">Drop or click to add files</span>
+			</Button>
+		</div>
 	</div>
 </div>
 
@@ -162,7 +177,7 @@
 		flex-direction: column;
 		flex: 1;
 		background-color: var(--clr-bg-1);
-		min-height: 0;
+		overflow: auto;
 	}
 
 	.editor-header {
@@ -185,7 +200,10 @@
 		border: 1px solid transparent;
 		border-bottom: none;
 		border-radius: var(--radius-m) var(--radius-m) 0 0;
-		transition: color var(--transition-fast);
+		transition:
+			color var(--transition-fast),
+			border-color var(--transition-fast),
+			background-color var(--transition-fast);
 
 		&.active {
 			color: var(--clr-text-1);
@@ -204,6 +222,10 @@
 			}
 		}
 
+		&.focused {
+			border-color: var(--clr-border-1);
+		}
+
 		&:hover {
 			color: var(--clr-text-1);
 		}
@@ -215,6 +237,7 @@
 		border: 1px solid var(--clr-border-2);
 		overflow: hidden;
 		min-height: 0;
+		transition: border-color var(--transition-fast);
 
 		&:hover,
 		&:focus-within {
@@ -222,10 +245,28 @@
 		}
 	}
 
-	.message-editor-wrapper {
+	.message-editor__inner-toolbar {
+		position: relative;
 		display: flex;
-		flex-direction: column;
-		flex: 1;
-		height: 100%;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 6px;
+		padding: 10px 12px;
+
+		&:after {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 12px;
+			width: calc(100% - 24px);
+			height: 1px;
+			background-color: var(--clr-border-3);
+		}
+	}
+
+	.message-editor__inner-toolbar__divider {
+		width: 1px;
+		height: 18px;
+		background-color: var(--clr-border-3);
 	}
 </style>

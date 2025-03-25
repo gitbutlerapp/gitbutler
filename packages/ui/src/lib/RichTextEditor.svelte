@@ -4,7 +4,13 @@
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
 	import MarkdownTransitionPlugin from '$lib/richText/plugins/markdownTransition.svelte';
 	import OnChangePlugin, { type OnChangeCallback } from '$lib/richText/plugins/onChange.svelte';
-	import { COMMAND_PRIORITY_CRITICAL, $getRoot as getRoot, KEY_DOWN_COMMAND } from 'lexical';
+	import {
+		COMMAND_PRIORITY_CRITICAL,
+		$getRoot as getRoot,
+		KEY_DOWN_COMMAND,
+		FOCUS_COMMAND,
+		BLUR_COMMAND
+	} from 'lexical';
 	import { type Snippet } from 'svelte';
 	import {
 		Composer,
@@ -33,6 +39,8 @@
 		styleContext: 'client-editor' | 'chat-input';
 		plugins?: Snippet;
 		placeholder?: string;
+		onFocus?: () => void;
+		onBlur?: () => void;
 		onChange?: OnChangeCallback;
 		onKeyDown?: (event: KeyboardEvent | null) => boolean;
 		initialText?: string;
@@ -45,6 +53,8 @@
 		styleContext,
 		plugins,
 		placeholder,
+		onFocus,
+		onBlur,
 		onChange,
 		onKeyDown,
 		initialText
@@ -84,7 +94,7 @@
 
 	$effect(() => {
 		if (editor) {
-			return editor.registerCommand<KeyboardEvent | null>(
+			const unregidterKeyDown = editor.registerCommand<KeyboardEvent | null>(
 				KEY_DOWN_COMMAND,
 				(e) => {
 					if (emojiPlugin?.isBusy()) {
@@ -94,6 +104,28 @@
 				},
 				COMMAND_PRIORITY_CRITICAL
 			);
+			const unregisterFocus = editor.registerCommand(
+				FOCUS_COMMAND,
+				() => {
+					onFocus?.();
+					return false;
+				},
+				COMMAND_PRIORITY_CRITICAL
+			);
+			const unregisterBlur = editor.registerCommand(
+				BLUR_COMMAND,
+				() => {
+					onBlur?.();
+					return false;
+				},
+				COMMAND_PRIORITY_CRITICAL
+			);
+
+			return () => {
+				unregidterKeyDown();
+				unregisterFocus();
+				unregisterBlur();
+			};
 		}
 	});
 
@@ -120,7 +152,7 @@
 
 <Composer {initialConfig} bind:this={composer}>
 	<div class="lexical-container lexical-{styleContext}" bind:this={editorDiv}>
-		<div class="editor-scroller">
+		<div class="editor-scroller scrollbar">
 			<div class="editor">
 				<ContentEditable />
 				{#if placeholder}
@@ -166,6 +198,7 @@
 	.editor-scroller {
 		border: 0;
 		display: flex;
+		flex-direction: column;
 		position: relative;
 		outline: 0;
 		z-index: 0;
