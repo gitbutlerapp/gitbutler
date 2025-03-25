@@ -9,7 +9,7 @@
 <script lang="ts">
 	import { getEditor } from '$lib/richText/context';
 	import { insertTextAtCaret } from '$lib/richText/selection';
-	import { COMMAND_PRIORITY_CRITICAL, DROP_COMMAND } from 'lexical';
+	import { COMMAND_PRIORITY_CRITICAL, DROP_COMMAND, PASTE_COMMAND } from 'lexical';
 
 	type Props = {
 		onDrop: (files: FileList | undefined) => Promise<DropFileResult[]>;
@@ -42,7 +42,7 @@
 	}
 
 	$effect(() => {
-		return editor.registerCommand(
+		const unregidterDrop = editor.registerCommand(
 			DROP_COMMAND,
 			(e) => {
 				e.preventDefault();
@@ -54,6 +54,25 @@
 			},
 			COMMAND_PRIORITY_CRITICAL
 		);
+
+		const unregidterPaste = editor.registerCommand(
+			PASTE_COMMAND,
+			(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+
+				const clipboardEvent = e as ClipboardEvent;
+				const files = clipboardEvent.clipboardData?.files;
+				handleDrop(files);
+				return true;
+			},
+			COMMAND_PRIORITY_CRITICAL
+		);
+
+		return () => {
+			unregidterDrop();
+			unregidterPaste();
+		};
 	});
 
 	export async function handleFileUpload(files: FileList | null) {

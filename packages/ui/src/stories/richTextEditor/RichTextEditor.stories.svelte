@@ -55,4 +55,10 @@
 		max-width: 600px;
 		gap: 10px;
 	}
+
+	.text-input {
+		display: flex;
+		flex-direction: column;
+		height: 140px;
+	}
 </style>

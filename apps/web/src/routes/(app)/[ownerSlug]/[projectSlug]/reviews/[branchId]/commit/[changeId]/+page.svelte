@@ -207,7 +207,9 @@
 	<div class="review-page" class:column={chatMinimizer.value}>
 		<Loading loadable={combinedLoadable}>
 			{#snippet children([patchCommit, repositoryId, branchUuid, branch])}
-				<Minimap {branchUuid} ownerSlug={data.ownerSlug} projectSlug={data.projectSlug} />
+				<div class="review-page__minimap">
+					<Minimap {branchUuid} ownerSlug={data.ownerSlug} projectSlug={data.projectSlug} />
+				</div>
 
 				<div class="review-main" class:expand={chatMinimizer.value}>
 					<Navigation />
@@ -338,6 +340,14 @@
 		}
 	}
 
+	.review-page__minimap {
+		display: contents;
+
+		@media (--mobile-viewport) {
+			display: none;
+		}
+	}
+
 	.error-container {
 		padding: 32px;
 		display: flex;
@@ -345,19 +355,6 @@
 		align-items: center;
 		gap: 12px;
 		width: 100%;
-	}
-
-	.error-message {
-		font-size: 16px;
-		font-weight: bold;
-		color: var(--clr-text-1);
-	}
-
-	.error-details {
-		font-size: 14px;
-		color: var(--clr-text-2);
-		max-width: 800px;
-		text-align: center;
 	}
 
 	.review-main {
