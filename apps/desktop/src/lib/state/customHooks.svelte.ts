@@ -8,6 +8,7 @@ import {
 	type MutationActionCreatorResult,
 	type MutationDefinition,
 	type QueryActionCreatorResult,
+	type QueryArgFrom,
 	type ResultTypeFrom,
 	type RootState,
 	type StartQueryActionCreatorOptions
@@ -138,8 +139,8 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 
 export type UseMutationHookParams<Definition extends MutationDefinition<any, any, string, any>> = {
 	fixedCacheKey?: string;
-	sideEffect?: (data: ResultTypeFrom<Definition>) => void;
-	onError?: (error: TauriCommandError) => void;
+	sideEffect?: (data: ResultTypeFrom<Definition>, queryArgs: QueryArgFrom<Definition>) => void;
+	onError?: (error: TauriCommandError, queryArgs: QueryArgFrom<Definition>) => void;
 };
 
 /**
@@ -191,7 +192,7 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 			const result = await promise;
 
 			if (result.data) {
-				sideEffect?.(result.data);
+				sideEffect?.(result.data, queryArg);
 			}
 
 			if (result.error && !onError) {
@@ -199,7 +200,7 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 			}
 
 			if (result.error && onError) {
-				onError(result.error);
+				onError(result.error, queryArg);
 			}
 
 			return result.data;
