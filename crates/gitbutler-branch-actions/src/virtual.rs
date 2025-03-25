@@ -12,6 +12,8 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice};
+use but_rebase::RebaseStep;
+use but_workspace::stack_ext::StackExt;
 use gitbutler_branch::BranchUpdateRequest;
 use gitbutler_branch::{dedup, dedup_fmt};
 use gitbutler_cherry_pick::RepositoryExt as _;
@@ -23,13 +25,14 @@ use gitbutler_hunk_dependency::RangeCalculationError;
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_oxidize::{
     git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt,
+    ObjectIdExt, OidExt,
 };
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt as _},
-    rebase::{cherry_rebase, cherry_rebase_group},
+    rebase::cherry_rebase,
     RepositoryExt,
 };
 use gitbutler_repo_actions::RepoActionsExt;
@@ -1406,43 +1409,41 @@ pub(crate) fn update_commit_message(
         bail!("force push not allowed");
     }
 
-    let target_commit = ctx
-        .repo()
-        .find_commit(commit_id)
-        .context("failed to find commit")?;
-
-    let parents: Vec<_> = target_commit.parents().collect();
-
-    let new_commit_oid = ctx
-        .repo()
-        .commit_with_signature(
-            None,
-            &target_commit.author(),
-            &target_commit.committer(),
-            message,
-            &target_commit.tree().context("failed to find tree")?,
-            &parents.iter().collect::<Vec<_>>(),
-            target_commit.gitbutler_headers(),
-        )
-        .context("failed to commit")?;
-
-    let ids_to_rebase = {
-        let ids = branch_commit_oids
-            .split(|oid| oid.eq(&commit_id))
-            .collect::<Vec<_>>();
-        ids.first().copied()
+    let gix_repo = ctx.gix_repository()?;
+    let mut steps = stack.as_rebase_steps(ctx, &gix_repo)?;
+    // Update the commit message
+    for step in steps.iter_mut() {
+        if let RebaseStep::Pick {
+            commit_id: id,
+            new_message,
+        } = step
+        {
+            if *id == commit_id.to_gix() {
+                *new_message = Some(message.into());
+            }
+        }
     }
-    .with_context(|| format!("commit {commit_id} not in the branch"))?;
-    let ids_to_rebase = ids_to_rebase.to_vec();
+    let stack_ctx = ctx.to_stack_context()?;
+    let merge_base = stack.merge_base(&stack_ctx)?;
+    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base.to_gix()), None)?;
+    rebase.rebase_noops(false);
+    rebase.steps(steps)?;
+    let output = rebase.rebase()?;
 
-    let new_head_id = cherry_rebase_group(ctx.repo(), new_commit_oid, &ids_to_rebase, false, false)
-        .map_err(|err| err.context("rebase error"))?;
-    // save new branch head
-    stack.set_stack_head(ctx, new_head_id, None)?;
+    let new_head = output.top_commit.to_git2();
+    stack.set_stack_head(ctx, new_head, None)?;
+    stack.set_heads_from_rebase_output(ctx, output.references)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
-    Ok(new_commit_oid)
+
+    output
+        .commit_mapping
+        .iter()
+        .find_map(|(_base, old, new)| (*old == commit_id.to_gix()).then_some(new.to_git2()))
+        .ok_or(anyhow!(
+            "Failed to find the updated commit id after rebasing"
+        ))
 }
 
 // Goes through a set of changes and checks if conflicts are present. If no conflicts
