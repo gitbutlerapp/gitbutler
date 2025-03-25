@@ -3,9 +3,9 @@
 	import { clickOutside } from '$lib/hooks/clickOutside';
 	import { targetDownload } from '$lib/store';
 	import { latestClientVersion } from '$lib/store';
+	import { onMount } from 'svelte';
 	import { quadIn } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
-	import { onMount } from 'svelte';
 
 	let videoElement = $state<HTMLVideoElement>();
 	interface Props {
@@ -57,7 +57,6 @@
 			} else {
 				return jsonLinks.downloads.intelMac;
 			}
-			return;
 		}
 
 		if (platform.includes('win')) {
