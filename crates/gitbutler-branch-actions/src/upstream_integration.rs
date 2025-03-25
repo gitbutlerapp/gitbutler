@@ -100,6 +100,8 @@ pub struct BaseBranchResolution {
 pub struct IntegrationOutcome {
     /// This is the list of branch names that have become archived as a result of the upstream integration
     archived_branches: Vec<String>,
+    /// This is the list of review ids that have been closed as a result of the upstream integration
+    review_ids_to_close: Vec<String>,
 }
 
 impl StackStatus {
@@ -467,6 +469,7 @@ pub(crate) fn integrate_upstream(
     let default_target = virtual_branches_state.get_default_target()?;
 
     let mut newly_archived_branches = vec![];
+    let mut to_be_closed_review_ids = vec![];
 
     // Ensure resolutions match current statuses
     {
@@ -582,13 +585,14 @@ pub(crate) fn integrate_upstream(
                 .map(|r| r.delete_integrated_branches)
                 .unwrap_or(false);
 
-            let mut archived_branches = stack.archive_integrated_heads(
+            let (mut archived_branches, mut review_ids_to_close) = stack.archive_integrated_heads(
                 command_context,
                 &gix_repo,
                 for_archival,
                 delete_local_refs,
             )?;
             newly_archived_branches.append(&mut archived_branches);
+            to_be_closed_review_ids.append(&mut review_ids_to_close);
         }
 
         // checkout_branch_trees won't checkout anything if there are no
@@ -613,6 +617,7 @@ pub(crate) fn integrate_upstream(
 
     Ok(IntegrationOutcome {
         archived_branches: newly_archived_branches,
+        review_ids_to_close: to_be_closed_review_ids,
     })
 }
 
