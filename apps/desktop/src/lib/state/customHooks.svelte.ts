@@ -191,7 +191,7 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 			promise = dispatchResult;
 			const result = await promise;
 
-			if (result.data) {
+			if (!result.error) {
 				sideEffect?.(result.data, queryArg);
 			}
 
