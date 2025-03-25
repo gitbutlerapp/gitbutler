@@ -27,25 +27,6 @@ export class GitHubChecksMonitor implements ChecksService {
 		);
 		return result;
 	}
-
-	async getCheckSuites(ref: string, options?: QueryOptions) {
-		const result = await this.api.endpoints.listSuites.fetch(ref, {
-			forceRefetch: true,
-			...options
-		});
-		return result.data;
-	}
-
-	async fetchChecks(stackId: string, ref: string, options?: QueryOptions) {
-		const result = await this.api.endpoints.listChecks.fetch(
-			{ stackId, ref },
-			{
-				forceRefetch: true,
-				...options
-			}
-		);
-		return result.data;
-	}
 }
 
 function parseChecks(data: ChecksResult): ChecksStatus | null {
@@ -63,14 +44,13 @@ function parseChecks(data: ChecksResult): ChecksStatus | null {
 		.filter((startedAt) => startedAt !== null) as string[];
 	const startTimes = starts.map((startedAt) => new Date(startedAt));
 
-	const queued = checkRuns.filter((c) => c.status === 'queued').length;
 	const failed = checkRuns.filter((c) => c.conclusion === 'failure').length;
 	const actionRequired = checkRuns.filter((c) => c.conclusion === 'action_required').length;
 
 	const firstStart = new Date(Math.min(...startTimes.map((date) => date.getTime())));
 	const completed = checkRuns.every((check) => !!check.completed_at);
 
-	const success = queued === 0 && failed === 0 && actionRequired === 0;
+	const success = completed && failed === 0 && actionRequired === 0;
 
 	return {
 		startedAt: firstStart.toISOString(),
@@ -96,18 +76,6 @@ function injectEndpoints(api: GitHubApi) {
 					ReduxTag.Checks,
 					{ type: ReduxTag.Checks, id: args.stackId }
 				]
-			}),
-			listSuites: build.query<SuitesResult, string>({
-				queryFn: async (ref, api) =>
-					await ghQuery({
-						domain: 'checks',
-						action: 'listSuitesForRef',
-						extra: api.extra,
-						parameters: {
-							ref
-						}
-					}),
-				providesTags: [ReduxTag.Checks]
 			})
 		})
 	});
