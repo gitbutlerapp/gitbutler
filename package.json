@@ -5,7 +5,7 @@
   "scripts": {
     "build:openapi": "node scripts/generate-docs.js",
     "build:llmstxt": "node scripts/generate-llmstxt.js",
-    "build": "pnpm build:openapi && pnpm build:llmstxt && next build",
+    "build": "pnpm build:llmstxt && next build",
     "dev": "next dev",
     "start": "next start"
   },
