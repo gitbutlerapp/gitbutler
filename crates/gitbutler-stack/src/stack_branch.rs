@@ -302,23 +302,36 @@ impl StackBranch {
                 });
         }
 
-        // refs/remotes/origin/my-branch..^refs/heads/my-branch
-        let mut upstream_only_patches: Vec<Commit<'_>> = vec![];
-        if self.pushed(&remote, repository) {
-            let upstream_head = repository
-                .find_reference(self.remote_reference(&remote).as_str())?
-                .peel_to_commit()?;
-            repository
-                .log(upstream_head.id(), LogUntil::Commit(head_commit), false)?
-                .into_iter()
-                .rev()
-                .for_each(|c| upstream_only_patches.push(c));
-        }
+        let upstream_only = if let core::result::Result::Ok(reference) =
+            repository.find_reference(self.remote_reference(&remote).as_str())
+        {
+            let upstream_head = reference.peel_to_commit()?;
+            let mut revwalk = repository.revwalk()?;
+            revwalk.push(upstream_head.id())?;
+            if let Some(pred) = stack.branch_predacessor(self) {
+                let head = repository
+                    .find_reference(pred.remote_reference(&remote).as_str())?
+                    .peel_to_commit()?
+                    .id();
+                revwalk.hide(head)?;
+            }
+            revwalk.hide(previous_head)?;
+            let mut upstream_only = revwalk
+                .filter_map(|c| {
+                    let commit = repository.find_commit(c.ok()?).ok()?;
+                    Some(commit)
+                })
+                .collect::<Vec<_>>();
+            upstream_only.reverse();
+            upstream_only
+        } else {
+            vec![]
+        };
 
         Ok(BranchCommits {
             local_commits: local_patches,
             remote_commits: remote_patches,
-            upstream_only: upstream_only_patches,
+            upstream_only,
         })
     }
 }
