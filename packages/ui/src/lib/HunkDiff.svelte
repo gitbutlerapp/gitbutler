@@ -11,6 +11,7 @@
 	import {
 		type ContentSection,
 		getHunkLineInfo,
+		type LineId,
 		type LineSelector,
 		parseHunk
 	} from '$lib/utils/diffParsing';
@@ -25,6 +26,7 @@
 		inlineUnifiedDiffs?: boolean;
 		diffContrast?: 'light' | 'medium' | 'strong';
 		staged?: boolean;
+		stagedLines?: LineId[];
 		selectedLines?: LineSelector[];
 		isHidden?: boolean;
 		whyHidden?: string;
@@ -48,6 +50,7 @@
 		diffContrast = 'medium',
 		inlineUnifiedDiffs = false,
 		staged,
+		stagedLines,
 		selectedLines,
 		isHidden,
 		whyHidden,
@@ -159,6 +162,7 @@
 				onCopySelection={onCopySelection && handleCopySelection}
 				{onQuoteSelection}
 				{staged}
+				{stagedLines}
 				onToggleStage={() => onChangeStage?.(!staged)}
 				{handleLineContextMenu}
 				{clickOutsideExcludeElement}
