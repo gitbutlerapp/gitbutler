@@ -70,6 +70,9 @@ mod commit;
 pub mod head_info;
 pub use head_info::function::head_info;
 
+/// High level Stack funtions that use primitives from this crate (`but-workspace`)
+pub mod stack_ext;
+
 /// Information about where the user is currently looking at.
 #[derive(Debug, Clone)]
 pub struct HeadInfo {
