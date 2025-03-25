@@ -7,6 +7,8 @@ export class GitLabClient {
 	projectId: string | undefined;
 	instanceUrl: string | undefined;
 
+	private callbacks: (() => void)[] = [];
+
 	set(projectId?: string, token?: string, instanceUrl?: string) {
 		this.projectId = projectId;
 		if (token && instanceUrl) {
@@ -14,11 +16,17 @@ export class GitLabClient {
 		} else {
 			this.api = undefined;
 		}
+		this.callbacks.every((cb) => cb());
+	}
+
+	onReset(fn: () => void) {
+		this.callbacks.push(fn);
+		return () => (this.callbacks = this.callbacks.filter((cb) => cb !== fn));
 	}
 }
 
 export function gitlab(extra: unknown): { api: GitlabInstance; projectId: string } {
-	if (!hasGitLab(extra)) throw new Error('No GitHub client!');
+	if (!hasGitLab(extra)) throw new Error('No GitLab client!');
 	if (!extra.gitLabClient.api) throw new Error('Things are sad');
 	if (!extra.gitLabClient.projectId) throw new Error('Things are sad');
 

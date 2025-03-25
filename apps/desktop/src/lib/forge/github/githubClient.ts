@@ -1,11 +1,13 @@
 import { rateLimit } from '$lib/utils/ratelimit';
 import { Octokit } from '@octokit/rest';
+import type { ApiClient } from '$lib/forge/interface/apiClient';
 
-export class GitHubClient {
+export class GitHubClient implements ApiClient {
 	private _client: Octokit | undefined;
 	private _token: string | undefined;
 	private _owner: string | undefined;
 	private _repo: string | undefined;
+	private subscriptions: (() => void)[] = [];
 
 	constructor(args?: {
 		// Personal access token for use with Octokit, ignored if `client` provided.
@@ -22,6 +24,12 @@ export class GitHubClient {
 		if (this._client) {
 			this._client = undefined;
 		}
+		this.subscriptions.every((cb) => cb());
+	}
+
+	onReset(fn: () => void) {
+		this.subscriptions.push(fn);
+		return () => (this.subscriptions = this.subscriptions.filter((cb) => cb !== fn));
 	}
 
 	setRepo(info: { owner?: string; repo?: string }) {

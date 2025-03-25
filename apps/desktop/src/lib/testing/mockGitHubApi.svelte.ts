@@ -54,11 +54,9 @@ export function setupMockGitHubApi() {
 	}
 
 	return {
-		/** API object required for creating a GitHub forge instace. */
 		gitHubApi,
-		/** GitHub client on which you can mock functions. */
+		gitHubClient,
 		octokit,
-		/** Function that resets mock state. */
 		resetGitHubMock
 	};
 }

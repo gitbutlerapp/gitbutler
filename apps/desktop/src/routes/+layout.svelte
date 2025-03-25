@@ -82,15 +82,15 @@
 
 	const appState = new AppState();
 
-	const github = new GitHubClient();
-	const gitlab = new GitLabClient();
-	setContext(GitHubClient, github);
-	setContext(GitLabClient, gitlab);
+	const gitHubClient = new GitHubClient();
+	const gitLabClient = new GitLabClient();
+	setContext(GitHubClient, gitHubClient);
+	setContext(GitLabClient, gitLabClient);
 	const user = data.userService.user;
 	const accessToken = $derived($user?.github_access_token);
-	$effect(() => github.setToken(accessToken));
+	$effect(() => gitHubClient.setToken(accessToken));
 
-	const clientState = new ClientState(data.tauri, github, gitlab);
+	const clientState = new ClientState(data.tauri, gitHubClient, gitLabClient);
 
 	const changeSelection = $derived(clientState.changeSelection);
 	const changeSelectionService = new ChangeSelectionService(
@@ -98,13 +98,15 @@
 		clientState.dispatch
 	);
 
-	const forgeFactory = new DefaultForgeFactory(
-		clientState['githubApi'],
-		clientState['gitlabApi'],
-		data.posthog,
-		data.projectMetrics,
-		clientState.dispatch
-	);
+	const forgeFactory = new DefaultForgeFactory({
+		gitHubClient,
+		gitLabClient,
+		gitHubApi: clientState['githubApi'],
+		gitLabApi: clientState['gitlabApi'],
+		dispatch: clientState.dispatch,
+		posthog: data.posthog,
+		projectMetrics: data.projectMetrics
+	});
 
 	const stackService = new StackService(clientState['backendApi'], forgeFactory, data.posthog);
 	const worktreeService = new WorktreeService(clientState);

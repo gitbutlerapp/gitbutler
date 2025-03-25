@@ -52,7 +52,7 @@ export class ClientState {
 	/** rtk-query api for communicating with GitLab. */
 	readonly gitlabApi: GitLabApi;
 
-	constructor(tauri: Tauri, github: GitHubClient, gitlab: GitLabClient) {
+	constructor(tauri: Tauri, gitHubClient: GitHubClient, gitLabClient: GitLabClient) {
 		const butlerMod = butlerModule({
 			// Reactive loop without nested function.
 			// TODO: Can it be done without nesting?
@@ -62,14 +62,15 @@ export class ClientState {
 		this.githubApi = createGitHubApi(butlerMod);
 		this.gitlabApi = createGitLabApi(butlerMod);
 		this.backendApi = createBackendApi(butlerMod);
-		this.store = createStore(
+
+		this.store = createStore({
 			tauri,
-			github,
-			gitlab,
-			this.backendApi,
-			this.githubApi,
-			this.gitlabApi
-		);
+			gitHubClient,
+			gitLabClient,
+			backendApi: this.backendApi,
+			githubApi: this.githubApi,
+			gitlabApi: this.gitlabApi
+		});
 		this.dispatch = this.store.dispatch;
 		this.rootState = this.store.getState();
 
@@ -85,14 +86,22 @@ export class ClientState {
  * We need this function in order to declare the store type in `DesktopState`
  * and then assign the value in the constructor.
  */
-function createStore(
-	tauri: Tauri,
-	gitHubClient: GitHubClient,
-	gitLabClient: GitLabClient,
-	backendApi: ReturnType<typeof createBackendApi>,
-	githubApi: ReturnType<typeof createGitHubApi>,
-	gitlabApi: ReturnType<typeof createGitLabApi>
-) {
+function createStore(params: {
+	tauri: Tauri;
+	gitHubClient: GitHubClient;
+	gitLabClient: GitLabClient;
+	backendApi: BackendApi;
+	githubApi: GitHubApi;
+	gitlabApi: GitLabApi;
+}) {
+	const {
+		tauri,
+		gitHubClient: github,
+		gitLabClient: gitlab,
+		backendApi,
+		githubApi,
+		gitlabApi
+	} = params;
 	const reducer = combineReducers({
 		// RTK Query API for the back end.
 		[backendApi.reducerPath]: backendApi.reducer,
@@ -107,13 +116,14 @@ function createStore(
 		reducer: reducer,
 		middleware: (getDefaultMiddleware) => {
 			return getDefaultMiddleware({
-				thunk: { extraArgument: { tauri, gitHubClient, gitLabClient } },
+				thunk: { extraArgument: { tauri, gitHubClient: github, gitLabClient: gitlab } },
 				serializableCheck: {
 					ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER]
 				}
 			}).concat(backendApi.middleware, githubApi.middleware, gitlabApi.middleware);
 		}
 	});
+
 	persistStore(store);
 	return store;
 }
@@ -128,43 +138,49 @@ function createStore(
  * during event handling.
  */
 export function createBackendApi(butlerMod: ReturnType<typeof butlerModule>) {
-	return buildCreateApi(
-		coreModule(),
-		butlerMod
-	)({
-		reducerPath: 'backend',
-		tagTypes: Object.values(ReduxTag),
-		baseQuery: tauriBaseQuery,
-		endpoints: (_) => {
-			return {};
-		}
-	});
+	return {
+		...buildCreateApi(
+			coreModule(),
+			butlerMod
+		)({
+			reducerPath: 'backend',
+			tagTypes: Object.values(ReduxTag),
+			baseQuery: tauriBaseQuery,
+			endpoints: (_) => {
+				return {};
+			}
+		})
+	};
 }
 
 export function createGitHubApi(butlerMod: ReturnType<typeof butlerModule>) {
-	return buildCreateApi(
-		coreModule(),
-		butlerMod
-	)({
-		reducerPath: 'github',
-		tagTypes: Object.values(ReduxTag),
-		baseQuery: tauriBaseQuery,
-		endpoints: (_) => {
-			return {};
-		}
-	});
+	return {
+		...buildCreateApi(
+			coreModule(),
+			butlerMod
+		)({
+			reducerPath: 'github',
+			tagTypes: Object.values(ReduxTag),
+			baseQuery: tauriBaseQuery,
+			endpoints: (_) => {
+				return {};
+			}
+		})
+	};
 }
 
 export function createGitLabApi(butlerMod: ReturnType<typeof butlerModule>) {
-	return buildCreateApi(
-		coreModule(),
-		butlerMod
-	)({
-		reducerPath: 'gitlab',
-		tagTypes: Object.values(ReduxTag),
-		baseQuery: tauriBaseQuery,
-		endpoints: (_) => {
-			return {};
-		}
-	});
+	return {
+		...buildCreateApi(
+			coreModule(),
+			butlerMod
+		)({
+			reducerPath: 'gitlab',
+			tagTypes: Object.values(ReduxTag),
+			baseQuery: tauriBaseQuery,
+			endpoints: (_) => {
+				return {};
+			}
+		})
+	};
 }

@@ -12,7 +12,7 @@ describe.concurrent('GitHubPrMonitor', () => {
 	let service: ForgePrService | undefined;
 	let monitor: ForgePrMonitor | undefined;
 
-	const { gitHubApi, octokit } = setupMockGitHubApi();
+	const { gitHubClient, gitHubApi, octokit } = setupMockGitHubApi();
 
 	beforeEach(() => {
 		vi.useFakeTimers();
@@ -30,7 +30,8 @@ describe.concurrent('GitHubPrMonitor', () => {
 				owner: 'test-owner'
 			},
 			baseBranch: 'test-branch',
-			gitHubApi,
+			api: gitHubApi,
+			client: gitHubClient,
 			authenticated: true
 		});
 		service = gh.prService;

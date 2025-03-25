@@ -9,7 +9,7 @@ describe('GitHubPrService', () => {
 	let gh: GitHub;
 	let service: GitHubPrService | undefined;
 
-	const { gitHubApi, octokit } = setupMockGitHubApi();
+	const { gitHubClient, gitHubApi, octokit } = setupMockGitHubApi();
 
 	beforeEach(() => {
 		gh = new GitHub({
@@ -19,8 +19,9 @@ describe('GitHubPrService', () => {
 				owner: 'test-owner'
 			},
 			baseBranch: 'main',
-			gitHubApi,
-			authenticated: true
+			api: gitHubApi,
+			authenticated: true,
+			client: gitHubClient
 		});
 		service = gh.prService;
 	});
