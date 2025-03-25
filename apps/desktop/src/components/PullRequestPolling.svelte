@@ -10,14 +10,28 @@
 	const [forge] = inject(DefaultForgeFactory);
 	const prService = $derived(forge.current.prService);
 
-	let lastUpdatedStr: string | undefined = $state();
+	let elapsedMs: number | undefined = $state();
+	let isClosed = $state(false);
+	let pollCount = 0;
 
 	let pollingInterval = $derived.by(() => {
-		if (!lastUpdatedStr) {
-			return 5000;
+		// If the PR is closed we update infrequently.
+		if (isClosed) {
+			return 30 * 60 * 1000;
 		}
-		const lastUpdatedMs = Date.parse(lastUpdatedStr);
-		const elapsedMs = Date.now() - lastUpdatedMs;
+		// Right after creating a pull request it might not be returned
+		// by the api for a few seconds. So we poll frequently but stop
+		// after a while.
+		if (!elapsedMs) {
+			if (pollCount < 5) {
+				return 1000;
+			}
+			if (pollCount < 10) {
+				return 2000;
+			}
+			return pollCount < 15 ? 10000 : undefined;
+		}
+
 		if (elapsedMs < 60 * 1000) {
 			return 5 * 1000;
 		} else if (elapsedMs < 10 * 60 * 1000) {
@@ -31,9 +45,17 @@
 	const prResult = $derived(prService?.get(number, { subscriptionOptions: { pollingInterval } }));
 
 	$effect(() => {
-		const updatedAtStr = prResult?.current.data?.updatedAt;
-		if (updatedAtStr) {
-			lastUpdatedStr = updatedAtStr;
+		const result = prResult?.current;
+		const pr = result?.data;
+
+		if (pr) {
+			const lastUpdatedMs = Date.parse(pr.updatedAt);
+			isClosed = pr.state === 'closed';
+			elapsedMs = Date.now() - lastUpdatedMs;
+		}
+
+		if (result?.isLoading) {
+			pollCount += 1;
 		}
 	});
 </script>
