@@ -19,8 +19,9 @@ describe.concurrent('DefaultforgeFactory', () => {
 		injectEndpoints: undefined as any,
 		enhanceEndpoints: undefined as any
 	};
+	const gitlabApi: any = {};
 	test('Create GitHub service', async () => {
-		const factory = new DefaultForgeFactory(githubApi, posthog, projectMetrics);
+		const factory = new DefaultForgeFactory(githubApi, gitlabApi, posthog, projectMetrics);
 		expect(
 			factory.build({
 				repo: {
@@ -34,7 +35,7 @@ describe.concurrent('DefaultforgeFactory', () => {
 	});
 
 	test('Create self hosted Gitlab service', async () => {
-		const factory = new DefaultForgeFactory(githubApi, posthog, projectMetrics);
+		const factory = new DefaultForgeFactory(githubApi, gitlabApi, posthog, projectMetrics);
 		expect(
 			factory.build({
 				repo: {
@@ -48,7 +49,7 @@ describe.concurrent('DefaultforgeFactory', () => {
 	});
 
 	test('Create Gitlab service', async () => {
-		const factory = new DefaultForgeFactory(githubApi, posthog, projectMetrics);
+		const factory = new DefaultForgeFactory(githubApi, gitlabApi, posthog, projectMetrics);
 		expect(
 			factory.build({
 				repo: {

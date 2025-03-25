@@ -9,12 +9,19 @@ import { FLUSH, PAUSE, PERSIST, persistReducer, PURGE, REGISTER, REHYDRATE } fro
 import persistStore from 'redux-persist/lib/persistStore';
 import type { Tauri } from '$lib/backend/tauri';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
+import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
 
 /**
  * GitHub API object that enables the declaration and usage of endpoints
  * colocated with the feature they support.
  */
 export type GitHubApi = ReturnType<typeof createGitHubApi>;
+
+/**
+ * GitLab API object that enables the declaration and usage of endpoints
+ * colocated with the feature they support.
+ */
+export type GitLabApi = ReturnType<typeof createGitLabApi>;
 
 /**
  * A redux store with dependency injection through middleware.
@@ -36,7 +43,10 @@ export class ClientState {
 	/** rtk-query api for communicating with GitHub. */
 	readonly githubApi: ReturnType<typeof createGitHubApi>;
 
-	constructor(tauri: Tauri, github: GitHubClient) {
+	/** rtk-query api for communicating with GitLab. */
+	readonly gitlabApi: ReturnType<typeof createGitLabApi>;
+
+	constructor(tauri: Tauri, github: GitHubClient, gitlab: GitLabClient) {
 		const butlerMod = butlerModule({
 			// Reactive loop without nested function.
 			// TODO: Can it be done without nesting?
@@ -44,8 +54,16 @@ export class ClientState {
 			getDispatch: () => this.dispatch
 		});
 		this.githubApi = createGitHubApi(butlerMod);
+		this.gitlabApi = createGitLabApi(butlerMod);
 		this.backendApi = createBackendApi(butlerMod);
-		this.store = createStore(tauri, github, this.backendApi, this.githubApi);
+		this.store = createStore(
+			tauri,
+			github,
+			gitlab,
+			this.backendApi,
+			this.githubApi,
+			this.gitlabApi
+		);
 		this.dispatch = this.store.dispatch;
 		this.rootState = this.store.getState();
 
@@ -64,13 +82,16 @@ export class ClientState {
 function createStore(
 	tauri: Tauri,
 	gitHubClient: GitHubClient,
+	gitLabClient: GitLabClient,
 	backendApi: ReturnType<typeof createBackendApi>,
-	githubApi: ReturnType<typeof createGitHubApi>
+	githubApi: ReturnType<typeof createGitHubApi>,
+	gitlabApi: ReturnType<typeof createGitLabApi>
 ) {
 	const reducer = combineReducers({
 		// RTK Query API for the back end.
 		[backendApi.reducerPath]: backendApi.reducer,
 		[githubApi.reducerPath]: githubApi.reducer,
+		[gitlabApi.reducerPath]: gitlabApi.reducer,
 		// File and hunk selection state.
 		[changeSelectionSlice.reducerPath]: changeSelectionSlice.reducer,
 		[uiStateSlice.reducerPath]: persistReducer(uiStatePersistConfig, uiStateSlice.reducer)
@@ -80,11 +101,11 @@ function createStore(
 		reducer: reducer,
 		middleware: (getDefaultMiddleware) => {
 			return getDefaultMiddleware({
-				thunk: { extraArgument: { tauri, gitHubClient } },
+				thunk: { extraArgument: { tauri, gitHubClient, gitLabClient } },
 				serializableCheck: {
 					ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER]
 				}
-			}).concat(backendApi.middleware, githubApi.middleware);
+			}).concat(backendApi.middleware, githubApi.middleware, gitlabApi.middleware);
 		}
 	});
 	persistStore(store);
@@ -120,6 +141,20 @@ export function createGitHubApi(butlerMod: ReturnType<typeof butlerModule>) {
 		butlerMod
 	)({
 		reducerPath: 'github',
+		tagTypes: Object.values(ReduxTag),
+		baseQuery: tauriBaseQuery,
+		endpoints: (_) => {
+			return {};
+		}
+	});
+}
+
+export function createGitLabApi(butlerMod: ReturnType<typeof butlerModule>) {
+	return buildCreateApi(
+		coreModule(),
+		butlerMod
+	)({
+		reducerPath: 'gitlab',
 		tagTypes: Object.values(ReduxTag),
 		baseQuery: tauriBaseQuery,
 		endpoints: (_) => {

@@ -75,6 +75,7 @@
 		"vitest": "catalog:"
 	},
 	"dependencies": {
+		"@gitbeaker/rest": "^42.2.0",
 		"@tauri-apps/plugin-clipboard-manager": "^2.2.1",
 		"@types/redux-persist": "^4.3.1",
 		"dayjs": "^1.11.13",

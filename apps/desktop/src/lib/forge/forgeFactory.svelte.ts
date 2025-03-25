@@ -6,7 +6,7 @@ import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from '$lib/forge/gitlab/gitl
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { Forge } from '$lib/forge/interface/forge';
-import type { GitHubApi } from '$lib/state/clientState.svelte';
+import type { GitHubApi, GitLabApi } from '$lib/state/clientState.svelte';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 
@@ -21,6 +21,7 @@ export type ForgeConfig = {
 	pushRepo?: RepoInfo;
 	baseBranch?: string;
 	githubAuthenticated?: boolean;
+	gitlabAuthenticated?: boolean;
 };
 
 export class DefaultForgeFactory implements ForgeFactory, Reactive<Forge> {
@@ -29,6 +30,7 @@ export class DefaultForgeFactory implements ForgeFactory, Reactive<Forge> {
 
 	constructor(
 		private gitHubApi: GitHubApi,
+		private gitLabApi: GitLabApi,
 		private posthog: PostHogWrapper,
 		private projectMetrics: ProjectMetrics
 	) {}
@@ -38,9 +40,15 @@ export class DefaultForgeFactory implements ForgeFactory, Reactive<Forge> {
 	}
 
 	setConfig(config: ForgeConfig) {
-		const { repo, pushRepo, baseBranch, githubAuthenticated } = config;
+		const { repo, pushRepo, baseBranch, githubAuthenticated, gitlabAuthenticated } = config;
 		if (repo && baseBranch) {
-			this._forge = this.build({ repo, pushRepo, baseBranch, githubAuthenticated });
+			this._forge = this.build({
+				repo,
+				pushRepo,
+				baseBranch,
+				githubAuthenticated,
+				gitlabAuthenticated
+			});
 		} else {
 			this._forge = this.default;
 		}
@@ -50,12 +58,14 @@ export class DefaultForgeFactory implements ForgeFactory, Reactive<Forge> {
 		repo,
 		pushRepo,
 		baseBranch,
-		githubAuthenticated
+		githubAuthenticated,
+		gitlabAuthenticated
 	}: {
 		repo: RepoInfo;
 		pushRepo?: RepoInfo;
 		baseBranch: string;
 		githubAuthenticated?: boolean;
+		gitlabAuthenticated?: boolean;
 	}): Forge {
 		const domain = repo.domain;
 		const forkStr =
@@ -78,7 +88,11 @@ export class DefaultForgeFactory implements ForgeFactory, Reactive<Forge> {
 			});
 		}
 		if (domain === GITLAB_DOMAIN || domain.startsWith(GITLAB_SUB_DOMAIN + '.')) {
-			return new GitLab(baseParams);
+			return new GitLab({
+				...baseParams,
+				gitLabApi: this.gitLabApi,
+				authenticated: !!gitlabAuthenticated
+			});
 		}
 		if (domain.includes(BITBUCKET_DOMAIN)) {
 			return new BitBucket(baseParams);

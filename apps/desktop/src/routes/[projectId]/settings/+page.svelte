@@ -3,6 +3,7 @@
 	import CloudForm from '$components/CloudForm.svelte';
 	import CloudProjectSettings from '$components/CloudProjectSettings.svelte';
 	import DetailsForm from '$components/DetailsForm.svelte';
+	import ForgeForm from '$components/ForgeForm.svelte';
 	import GitForm from '$components/GitForm.svelte';
 	import PreferencesForm from '$components/PreferencesForm.svelte';
 	import RemoveProjectForm from '$components/RemoveProjectForm.svelte';
@@ -35,6 +36,7 @@
 				<DetailsForm />
 				<BaseBranchSwitch />
 				<RemoveProjectForm />
+				<ForgeForm />
 			</Section>
 		</TabContent>
 		<TabContent value="cloud">

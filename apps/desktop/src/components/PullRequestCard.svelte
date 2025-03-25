@@ -78,11 +78,12 @@
 	});
 
 	const baseBranchRepo = $derived(baseBranchService.repo);
-	const baseIsTargetBranch = $derived(
-		pr
+	const baseIsTargetBranch = $derived.by(() => {
+		if (forge.current.name === 'gitlab') return true;
+		return pr
 			? $baseBranch?.shortName === pr.baseBranch && $baseBranchRepo?.hash === pr.baseRepo?.hash
-			: false
-	);
+			: false;
+	});
 
 	let isMerging = $state(false);
 	let hasChecks = $state(false);
