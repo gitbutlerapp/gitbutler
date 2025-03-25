@@ -74,6 +74,7 @@ export type BaseBranchResolution = {
 
 export type IntegrationOutcome = {
 	archivedBranches: string[];
+	reviewIdsToClose: string[];
 };
 
 export function getBaseBranchResolution(

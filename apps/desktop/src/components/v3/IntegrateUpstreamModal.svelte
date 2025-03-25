@@ -4,7 +4,6 @@
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { type Stack } from '$lib/stacks/stack';
-	import { StackService } from '$lib/stacks/stackService.svelte';
 	import {
 		getBaseBranchResolution,
 		type BaseBranchResolutionApproach,
@@ -40,10 +39,8 @@
 
 	const { projectId, onClose }: Props = $props();
 
-	const stackService = getContext(StackService);
 	const upstreamIntegrationService = getContext(UpstreamIntegrationService);
 	const forge = getContext(DefaultForgeFactory);
-	// let branchStatuses = $state<StackStatusesWithBranchesV3 | undefined>();
 	const baseBranchService = getContext(BaseBranchService);
 	const base = baseBranchService.base;
 	const [resolveUpstreamIntegration] = upstreamIntegrationService.resolveUpstreamIntegration();
@@ -56,16 +53,7 @@
 	let targetCommitOid = $state<string | undefined>(undefined);
 
 	const isDivergedResolved = $derived($base?.diverged && !baseResolutionApproach);
-
-	const stacks = $derived.by(() => {
-		const response = stackService.stacks(projectId);
-		if (!response.current.isSuccess) return undefined;
-		return response.current.data;
-	});
-
-	const [integrateUpstream] = $derived(
-		upstreamIntegrationService.integrateUpstream(projectId, stacks ?? [])
-	);
+	const [integrateUpstream] = $derived(upstreamIntegrationService.integrateUpstream(projectId));
 
 	// Will re-fetch upstream statuses if the target commit oid changes
 	const branchStatuses = $derived(
@@ -118,7 +106,6 @@
 	}
 
 	async function integrate() {
-		if (!stacks) return;
 		integratingUpstream = 'loading';
 		await tick();
 		const baseResolution = getBaseBranchResolution(
@@ -299,8 +286,7 @@
 				type="submit"
 				style="pop"
 				disabled={isDivergedResolved || !branchStatuses}
-				loading={integratingUpstream === 'loading' || !branchStatuses || !stacks}
-				>Update workspace</Button
+				loading={integratingUpstream === 'loading' || !branchStatuses}>Update workspace</Button
 			>
 		</div>
 	{/snippet}

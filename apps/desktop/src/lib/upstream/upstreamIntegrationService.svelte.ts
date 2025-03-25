@@ -4,7 +4,6 @@ import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/
 import { BranchStatus as CloudBranchStatus } from '@gitbutler/shared/branches/types';
 import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import type { Stack } from '$lib/stacks/stack';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { ClientState } from '$lib/state/clientState.svelte';
 import type {
@@ -77,26 +76,20 @@ export class UpstreamIntegrationService {
 		return this.api.endpoints.resolveUpstreamIntegration.useMutation();
 	}
 
-	integrateUpstream(projectId: string, stacks: Stack[]) {
+	integrateUpstream(projectId: string) {
 		return this.api.endpoints.integrateUpstream.useMutation({
 			sideEffect: async (data) =>
-				await this.closeArchivedButRequests(projectId, data.archivedBranches, stacks)
+				await this.closeArchivedButRequests(projectId, data.reviewIdsToClose)
 		});
 	}
 
-	private async closeArchivedButRequests(
-		projectId: string,
-		archivedBranches: string[],
-		stacks: Stack[]
-	) {
+	private async closeArchivedButRequests(projectId: string, reviewIdsToClose: string[]) {
 		const project = await this.projectsService.getProject(projectId);
 		if (!project.api) return;
 		const cloudProject = await this.cloudProjectService.getProject(project.api.repository_id);
 		if (!cloudProject) return;
 
-		for (const archivedBranchName of archivedBranches) {
-			const reviewId = this.findReviewIdForStack(stacks, archivedBranchName);
-			if (!reviewId) continue;
+		for (const reviewId of reviewIdsToClose) {
 			const cloudBranch = await this.latestBranchLookupService.getBranch(
 				cloudProject.owner,
 				cloudProject.slug,
@@ -105,11 +98,6 @@ export class UpstreamIntegrationService {
 			if (!cloudBranch) continue;
 			this.cloudBranchService.updateBranch(cloudBranch.uuid, { status: CloudBranchStatus.Closed });
 		}
-	}
-
-	private findReviewIdForStack(_stacks: Stack[], _name: string): string | undefined {
-		// TODO: Get the review ID from the stack by its name
-		return undefined;
 	}
 }
 
