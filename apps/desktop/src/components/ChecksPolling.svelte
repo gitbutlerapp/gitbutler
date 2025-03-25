@@ -27,8 +27,10 @@
 	const [forge] = inject(DefaultForgeFactory);
 
 	const checksService = $derived(forge.current.checks);
-	let lastUpdatedStr: string | undefined = $state();
-	let stop = $state(false);
+	let elapsedMs: number | undefined = $state();
+	let isDone = $state(false);
+
+	let pollCount = 0;
 
 	// Do not create a checks monitor if pull request is merged or from a fork.
 	// For more information about unavailability of check-runs for forked repos,
@@ -37,11 +39,20 @@
 	const enabled = $derived(!isFork && !isMerged); // Deduplication.
 
 	let pollingInterval = $derived.by(() => {
-		if (!lastUpdatedStr || !enabled || stop) {
-			return 0; // Means off.
+		if (isDone) {
+			return 0; // Never.
 		}
-		const lastUpdatedMs = Date.parse(lastUpdatedStr);
-		const elapsedMs = Date.now() - lastUpdatedMs;
+
+		if (!elapsedMs) {
+			if (pollCount < 5) {
+				return 1000;
+			}
+			if (pollCount < 10) {
+				return 2000;
+			}
+			return pollCount < 15 ? 10000 : 0;
+		}
+
 		if (elapsedMs < 60 * 1000) {
 			return 5 * 1000;
 		} else if (elapsedMs < 10 * 60 * 1000) {
@@ -52,15 +63,15 @@
 		return 30 * 60 * 1000;
 	});
 
-	const result = $derived(
+	const checksResult = $derived(
 		enabled
 			? checksService?.get(stackId, branchName, { subscriptionOptions: { pollingInterval } })
 			: undefined
 	);
-	const status = $derived(result?.current.data);
-	const loading = $derived(result?.current.isLoading);
 
 	const checksTagInfo: StatusInfo = $derived.by(() => {
+		const loading = checksResult?.current.isLoading;
+		const checks = checksResult?.current.data;
 		if (!checksService && isFork) {
 			return {
 				style: 'neutral',
@@ -70,20 +81,20 @@
 			};
 		}
 
-		if (result?.current.error) {
+		if (checksResult?.current.error) {
 			return { style: 'error', icon: 'warning-small', text: 'Failed to load' };
 		}
 
-		if (status) {
-			const style = status.completed ? (status.success ? 'success' : 'error') : 'warning';
+		if (checks) {
+			const style = checks.completed ? (checks.success ? 'success' : 'error') : 'warning';
 			const icon =
-				status.completed && !loading
-					? status.success
+				checks.completed && !loading
+					? checks.success
 						? 'success-small'
 						: 'error-small'
 					: 'spinner';
-			const text = status.completed
-				? status.success
+			const text = checks.completed
+				? checks.success
 					? 'Checks passed'
 					: 'Checks failed'
 				: 'Checks running';
@@ -97,14 +108,25 @@
 	});
 
 	$effect(() => {
-		if (!status) return;
-		const { startedAt, success } = status;
-		if (startedAt) {
-			hasChecks = true;
-			lastUpdatedStr = startedAt;
+		const result = checksResult?.current;
+		const checks = result?.data;
+
+		if (result?.isLoading) {
+			pollCount += 1;
 		}
-		if (success) {
-			stop = true;
+
+		if (checks?.completed) {
+			isDone = true;
+		}
+
+		if (checks?.startedAt) {
+			const lastUpdatedMs = Date.parse(checks.startedAt);
+			elapsedMs = Date.now() - lastUpdatedMs;
+			hasChecks = true;
+		} else {
+			elapsedMs = undefined;
+			hasChecks = false;
+			isDone = false;
 		}
 	});
 </script>
