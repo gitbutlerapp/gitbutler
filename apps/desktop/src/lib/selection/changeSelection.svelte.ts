@@ -1,4 +1,5 @@
 import { type Reactive, reactive } from '@gitbutler/shared/storeUtils';
+import { type LineId } from '@gitbutler/ui/utils/diffParsing';
 import {
 	createEntityAdapter,
 	createSlice,
@@ -11,11 +12,6 @@ export class HunkSelection {
 	private state = $state([]);
 }
 
-type HunkRange = {
-	start: number;
-	lines: number;
-};
-
 type HunkHeader = {
 	oldStart: number;
 	oldLines: number;
@@ -23,19 +19,19 @@ type HunkHeader = {
 	newLines: number;
 };
 
+export type FullySelectedHunk = HunkHeader & {
+	type: 'full';
+};
+
+export type PartiallySelectedHunk = HunkHeader & {
+	type: 'partial';
+	lines: LineId[];
+};
+
 /**
  * Representation of visually selected hunk.
  */
-type SelectedHunk = HunkHeader &
-	(
-		| {
-				type: 'full';
-		  }
-		| {
-				type: 'partial';
-				hunkRanges: HunkRange[];
-		  }
-	);
+export type SelectedHunk = FullySelectedHunk | PartiallySelectedHunk;
 
 type FileHeader = {
 	path: string;
