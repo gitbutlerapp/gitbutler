@@ -37,7 +37,6 @@ pub fn available_review_templates(root_path: &path::Path, forge_name: &ForgeName
         .filter_map(|entry| {
             let path_entry = entry.as_path();
             let path_str = path_entry.to_string_lossy();
-            println!("path_str: {}", path_str);
 
             if is_review_template(&path_str) {
                 return Some(path_str.to_string());
@@ -45,8 +44,6 @@ pub fn available_review_templates(root_path: &path::Path, forge_name: &ForgeName
             None
         })
         .collect();
-
-    println!("available_paths: {:?}", available_paths);
 
     available_paths
 }
