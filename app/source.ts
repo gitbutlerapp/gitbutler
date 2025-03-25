@@ -8,7 +8,8 @@ export const utils = loader({
   source: createMDXSource(docs, meta),
   pageTree: {
     attachFile
-  }
+  },
+  baseUrl: "/"
 })
 
 export const openapi = createOpenAPI({})
