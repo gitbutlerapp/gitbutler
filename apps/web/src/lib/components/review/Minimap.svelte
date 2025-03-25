@@ -108,14 +108,15 @@
 
 <div bind:this={component} class="minimap" class:horizontal>
 	{#each patchCommits ?? [] as patch}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<div
-			class={['erectangle', getClass(patch)]}
-			class:is-subject={isPageSubject(patch.changeId).current}
-			onclick={() => visitPatch(patch)}
-		>
-			{@render infoCard(patch)}
+		<div class="erectangle-hover-area">
+			<div
+				role="presentation"
+				class={['erectangle', getClass(patch)]}
+				class:is-subject={isPageSubject(patch.changeId).current}
+				onclick={() => visitPatch(patch)}
+			>
+				{@render infoCard(patch)}
+			</div>
 		</div>
 	{/each}
 </div>
@@ -129,6 +130,7 @@
 
 		display: flex;
 		flex-direction: column;
+		gap: 1px;
 
 		&.horizontal {
 			position: unset;
@@ -136,41 +138,39 @@
 
 			flex-direction: row-reverse;
 
-			gap: 1px;
-
-			.erectangle {
-				width: 0px !important;
-				flex-grow: 1;
+			& .erectangle-hover-area {
+				flex: 1;
+				width: auto;
 			}
 
-			.info-card {
-				top: unset;
-				bottom: -28px;
-
-				left: 0px;
+			& .erectangle {
+				width: 100%;
+				height: 12px;
 			}
 		}
+
+		&:not(.horizontal) .erectangle-hover-area:hover {
+			& .erectangle {
+				width: 100%;
+			}
+			& .info-card {
+				display: flex;
+			}
+		}
+	}
+
+	.erectangle-hover-area {
+		position: relative;
+		display: flex;
+		width: 30px;
 	}
 
 	.erectangle {
 		width: 10px;
 		height: 16px;
 		background-color: var(--clr-core-ntrl-70);
-
-		transition: width 0.5s;
-
+		transition: width var(--transition-medium);
 		cursor: pointer;
-
-		&:hover,
-		&.is-subject {
-			width: 30px;
-		}
-
-		&:hover {
-			& .info-card {
-				display: flex;
-			}
-		}
 
 		&.is-subject {
 			cursor: default;
