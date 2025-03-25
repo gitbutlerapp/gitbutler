@@ -5,6 +5,8 @@ import type { Forge, ForgeName } from '$lib/forge/interface/forge';
 import type { DetailedPullRequest, ForgeArguments } from '$lib/forge/interface/types';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { GitLabApi } from '$lib/state/clientState.svelte';
+import type { ReduxTag } from '$lib/state/tags';
+import type { TagDescription } from '@reduxjs/toolkit/query';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
@@ -71,5 +73,9 @@ export class GitLab implements Forge {
 
 	async pullRequestTemplateContent(_path?: string) {
 		return undefined;
+	}
+
+	invalidate(tags: TagDescription<ReduxTag>[]) {
+		return this.params.gitLabApi.util.invalidateTags(tags);
 	}
 }

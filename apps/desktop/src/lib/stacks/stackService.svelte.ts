@@ -1,5 +1,5 @@
 import { showToast } from '$lib/notifications/toasts';
-import { ClientState } from '$lib/state/clientState.svelte';
+import { ClientState, type BackendApi } from '$lib/state/clientState.svelte';
 import { createSelectNth } from '$lib/state/customSelectors';
 import { ReduxTag } from '$lib/state/tags';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
@@ -7,6 +7,7 @@ import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { BranchPushResult } from '$lib/branches/branchController';
 import type { Commit, StackBranch, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
+import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import type { TreeChange } from '$lib/hunks/change';
 import type { DiffSpec, HunkHeader } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackInfo } from '$lib/stacks/stack';
@@ -71,10 +72,11 @@ export class StackService {
 	private api: ReturnType<typeof injectEndpoints>;
 
 	constructor(
-		private readonly state: ClientState,
+		private readonly backendApi: BackendApi,
+		private forgeFactory: DefaultForgeFactory,
 		private readonly posthog: PostHogWrapper
 	) {
-		this.api = injectEndpoints(state.backendApi);
+		this.api = injectEndpoints(backendApi);
 	}
 
 	stacks(projectId: string) {
@@ -267,7 +269,17 @@ export class StackService {
 
 	pushStack() {
 		return this.api.endpoints.pushStack.useMutation({
-			sideEffect: () => this.posthog.capture('Push Successful'),
+			sideEffect: (_, args) => {
+				this.posthog.capture('Push Successful');
+				// Timeout to accomodate eventual consistency.
+				setTimeout(() => {
+					this.forgeFactory.invalidate([
+						{ type: ReduxTag.PullRequests, id: args.stackId },
+						{ type: ReduxTag.Checks, id: args.stackId },
+						ReduxTag.PullRequests
+					]);
+				}, 2000);
+			},
 			onError: (commandError: TauriCommandError) => {
 				const { code, message } = commandError;
 				this.posthog.capture('Push Failed', { error: { code, message } });

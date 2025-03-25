@@ -2,7 +2,9 @@ import { AzureBranch } from '$lib/forge/azure/azureBranch';
 import type { Forge, ForgeName } from '$lib/forge/interface/forge';
 import type { ForgeRepoService } from '$lib/forge/interface/forgeRepoService';
 import type { ForgeArguments } from '$lib/forge/interface/types';
+import type { ReduxTag } from '$lib/state/tags';
 import type { RepoInfo } from '$lib/url/gitUrl';
+import type { TagDescription } from '@reduxjs/toolkit/query';
 
 export const AZURE_DOMAIN = 'dev.azure.com';
 
@@ -53,6 +55,10 @@ export class AzureDevOps implements Forge {
 	}
 
 	get checks() {
+		return undefined;
+	}
+
+	invalidate(_tags: TagDescription<ReduxTag>[]) {
 		return undefined;
 	}
 }

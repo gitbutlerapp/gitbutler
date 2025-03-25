@@ -15,6 +15,12 @@ import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
  * GitHub API object that enables the declaration and usage of endpoints
  * colocated with the feature they support.
  */
+export type BackendApi = ReturnType<typeof createBackendApi>;
+
+/**
+ * GitHub API object that enables the declaration and usage of endpoints
+ * colocated with the feature they support.
+ */
 export type GitHubApi = ReturnType<typeof createGitHubApi>;
 
 /**
@@ -38,13 +44,13 @@ export class ClientState {
 	readonly uiState = $derived(this.rootState.uiState);
 
 	/** rtk-query api for communicating with the back end. */
-	readonly backendApi: ReturnType<typeof createBackendApi>;
+	readonly backendApi: BackendApi;
 
 	/** rtk-query api for communicating with GitHub. */
-	readonly githubApi: ReturnType<typeof createGitHubApi>;
+	readonly githubApi: GitHubApi;
 
 	/** rtk-query api for communicating with GitLab. */
-	readonly gitlabApi: ReturnType<typeof createGitLabApi>;
+	readonly gitlabApi: GitLabApi;
 
 	constructor(tauri: Tauri, github: GitHubClient, gitlab: GitLabClient) {
 		const butlerMod = butlerModule({

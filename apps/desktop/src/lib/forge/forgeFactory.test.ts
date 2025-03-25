@@ -5,6 +5,7 @@ import { GitLab } from '$lib/forge/gitlab/gitlab';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { type GitHubApi } from '$lib/state/clientState.svelte';
 import { expect, test, describe } from 'vitest';
+import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
 
 describe.concurrent('DefaultforgeFactory', () => {
 	const posthog = new PostHogWrapper();
@@ -19,9 +20,18 @@ describe.concurrent('DefaultforgeFactory', () => {
 		injectEndpoints: undefined as any,
 		enhanceEndpoints: undefined as any
 	};
+	// TODO: Replace with a better mock.
+	const dispatch = (() => {}) as ThunkDispatch<any, any, UnknownAction>;
 	const gitlabApi: any = {};
+
 	test('Create GitHub service', async () => {
-		const factory = new DefaultForgeFactory(githubApi, gitlabApi, posthog, projectMetrics);
+		const factory = new DefaultForgeFactory(
+			githubApi,
+			gitlabApi,
+			posthog,
+			projectMetrics,
+			dispatch
+		);
 		expect(
 			factory.build({
 				repo: {
@@ -35,7 +45,13 @@ describe.concurrent('DefaultforgeFactory', () => {
 	});
 
 	test('Create self hosted Gitlab service', async () => {
-		const factory = new DefaultForgeFactory(githubApi, gitlabApi, posthog, projectMetrics);
+		const factory = new DefaultForgeFactory(
+			githubApi,
+			gitlabApi,
+			posthog,
+			projectMetrics,
+			dispatch
+		);
 		expect(
 			factory.build({
 				repo: {
@@ -49,7 +65,13 @@ describe.concurrent('DefaultforgeFactory', () => {
 	});
 
 	test('Create Gitlab service', async () => {
-		const factory = new DefaultForgeFactory(githubApi, gitlabApi, posthog, projectMetrics);
+		const factory = new DefaultForgeFactory(
+			githubApi,
+			gitlabApi,
+			posthog,
+			projectMetrics,
+			dispatch
+		);
 		expect(
 			factory.build({
 				repo: {

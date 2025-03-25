@@ -1,5 +1,5 @@
 import { ghQuery } from '$lib/forge/github/ghQuery';
-import { type ChecksResult, type SuitesResult } from '$lib/forge/github/types';
+import { type ChecksResult } from '$lib/forge/github/types';
 import { ReduxTag } from '$lib/state/tags';
 import type { ChecksService } from '$lib/forge/interface/forgeChecksMonitor';
 import type { ChecksStatus } from '$lib/forge/interface/types';
