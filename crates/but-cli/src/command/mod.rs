@@ -1,9 +1,11 @@
-use anyhow::{Context, bail};
+use anyhow::{Context, anyhow, bail};
+use but_core::UnifiedDiff;
+use but_workspace::commit_engine::HunkHeader;
 use gitbutler_project::Project;
-use gix::bstr::BString;
+use gix::bstr::{BString, ByteSlice};
 use std::path::Path;
 
-const UI_CONTEXT_LINES: u32 = 3;
+pub(crate) const UI_CONTEXT_LINES: u32 = 3;
 
 pub fn project_from_path(path: &Path) -> anyhow::Result<Project> {
     Project::from_path(path)
@@ -140,13 +142,44 @@ pub(crate) fn discard_change(
     cwd: &Path,
     current_rela_path: &Path,
     previous_rela_path: Option<&Path>,
+    hunk_indices: &[usize],
 ) -> anyhow::Result<()> {
     let repo = gix::discover(cwd)?;
 
+    let previous_path = previous_rela_path.map(path_to_rela_path).transpose()?;
+    let path = path_to_rela_path(current_rela_path)?;
+    let hunk_headers = if hunk_indices.is_empty() {
+        vec![]
+    } else {
+        let worktree_changes = but_core::diff::worktree_changes(&repo)?
+            .changes
+            .into_iter()
+            .find(|change| {
+                change.path == path
+                    && change.previous_path() == previous_path.as_ref().map(|p| p.as_bstr())
+            }).with_context(|| format!("Couldn't find worktree change for file at '{path}' (previous-path: {previous_path:?}"))?;
+        let UnifiedDiff::Patch { hunks } =
+            worktree_changes.unified_diff(&repo, UI_CONTEXT_LINES)?
+        else {
+            bail!("No hunks available for given '{path}'")
+        };
+
+        hunk_indices
+            .iter()
+            .map(|idx| {
+                hunks.get(*idx).cloned().map(Into::into).ok_or_else(|| {
+                    anyhow!(
+                        "There was no hunk at index {idx} in '{path}' with {} hunks",
+                        hunks.len()
+                    )
+                })
+            })
+            .collect::<Result<Vec<HunkHeader>, _>>()?
+    };
     let spec = but_workspace::commit_engine::DiffSpec {
-        previous_path: previous_rela_path.map(path_to_rela_path).transpose()?,
-        path: path_to_rela_path(current_rela_path)?,
-        hunk_headers: vec![],
+        previous_path,
+        path,
+        hunk_headers,
     };
     debug_print(but_workspace::discard_workspace_changes(
         &repo,

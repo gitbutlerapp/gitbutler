@@ -46,14 +46,18 @@ pub enum Subcommands {
     /// List all uncommitted working tree changes.
     Status {
         /// Also compute unified diffs for each tree-change.
-        #[clap(long, short = 'c', default_value_t = 3)]
+        #[clap(long, short = 'c', default_value_t = crate::command::UI_CONTEXT_LINES)]
         context_lines: u32,
         /// Also compute unified diffs for each tree-change.
         #[clap(long, short = 'd')]
         unified_diff: bool,
     },
     /// Discard the specified worktree change.
+    #[clap(disable_help_flag(true))]
     DiscardChange {
+        /// The zero-based indices of all hunks to discard.
+        #[clap(long, short = 'h')]
+        hunk_indices: Vec<usize>,
         /// The repo-relative path to the changed file to discard.
         current_path: PathBuf,
         /// If the change is a rename, identify the repo-relative path of the source.
