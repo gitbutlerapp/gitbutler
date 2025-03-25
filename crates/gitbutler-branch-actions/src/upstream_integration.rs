@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::stack::branch_integrated;
 use crate::{r#virtual::IsCommitIntegrated, BranchManagerExt, VirtualBranchesExt as _};
 use anyhow::{anyhow, bail, Context, Result};
@@ -569,14 +567,7 @@ pub(crate) fn integrate_upstream(
 
             // Update the branch heads
             if let Some(output) = rebase_output {
-                let mut new_heads: HashMap<String, git2::Commit<'_>> = HashMap::new();
-                for spec in &output.references {
-                    let commit = command_context
-                        .repo()
-                        .find_commit(spec.commit_id.to_git2())?;
-                    new_heads.insert(spec.reference.to_string(), commit);
-                }
-                stack.set_all_heads(command_context, new_heads)?;
+                stack.set_heads_from_rebase_output(command_context, output.references.clone())?;
             }
             stack.set_stack_head(command_context, *head, Some(*tree))?;
 

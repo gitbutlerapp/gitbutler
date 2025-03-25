@@ -1,9 +1,6 @@
-use std::collections::HashMap;
-
 use anyhow::{bail, Context as _, Result};
 use but_rebase::RebaseStep;
 use but_workspace::stack_ext::StackExt;
-use git2::Commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_diff::Hunk;
@@ -63,13 +60,7 @@ pub(crate) fn undo_commit(
     let new_head = output.top_commit.to_git2();
     stack.set_stack_head(ctx, new_head, None)?;
 
-    let mut new_heads: HashMap<String, Commit<'_>> = HashMap::new();
-    for spec in &output.references {
-        let commit = ctx.repo().find_commit(spec.commit_id.to_git2())?;
-        new_heads.insert(spec.reference.to_string(), commit);
-    }
-
-    stack.set_all_heads(ctx, new_heads)?;
+    stack.set_heads_from_rebase_output(ctx, output.references)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;

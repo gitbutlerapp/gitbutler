@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use anyhow::{bail, Context, Ok, Result};
 use but_rebase::RebaseStep;
 use gitbutler_command_context::CommandContext;
@@ -206,16 +204,7 @@ fn do_squash_commits(
     checkout_branch_trees(ctx, perm)?;
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
-
-    let mut new_heads: HashMap<String, git2::Commit<'_>> = HashMap::new();
-    for reference in output.references {
-        let commit = ctx.repo().find_commit(reference.commit_id.to_git2())?;
-        if let but_core::Reference::Virtual(name) = reference.reference {
-            new_heads.insert(name, commit);
-        }
-    }
-    // Set the series heads accordingly in one go
-    stack.set_all_heads(ctx, new_heads)?;
+    stack.set_heads_from_rebase_output(ctx, output.references)?;
     Ok(())
 }
 

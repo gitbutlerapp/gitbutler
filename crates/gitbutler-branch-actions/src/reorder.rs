@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
 use anyhow::{bail, Context, Result};
 use but_rebase::{RebaseOutput, RebaseStep};
-use git2::{Commit, Oid};
+use git2::Oid;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
@@ -78,15 +76,7 @@ pub fn reorder_stack(
     // Ensure the stack head is set to the new oid after rebasing
     stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;
 
-    let mut new_heads: HashMap<String, Commit<'_>> = HashMap::new();
-    for reference in &output.references {
-        let commit = repo.find_commit(reference.commit_id.to_git2())?;
-        if let but_core::Reference::Virtual(name) = &reference.reference {
-            new_heads.insert(name.clone(), commit);
-        }
-    }
-    // Set the series heads accordingly in one go
-    stack.set_all_heads(ctx, new_heads)?;
+    stack.set_heads_from_rebase_output(ctx, output.references.clone())?;
 
     checkout_branch_trees(ctx, perm)?;
     crate::integration::update_workspace_commit(&state, ctx)
