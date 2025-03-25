@@ -8,8 +8,10 @@
 	import {
 		type ContentSection,
 		generateRows,
+		type LineId,
 		type LineSelector,
-		parserFromFilename
+		parserFromFilename,
+		type Row
 	} from '$lib/utils/diffParsing';
 	import type { LineSelectionParams } from '$lib/hunkDiff/lineSelection.svelte';
 
@@ -27,6 +29,7 @@
 		onCopySelection?: () => void;
 		numberHeaderWidth?: number;
 		staged?: boolean;
+		stagedLines?: LineId[];
 		onToggleStage?: () => void;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
 		clickOutsideExcludeElement?: HTMLElement;
@@ -46,18 +49,21 @@
 		onCopySelection,
 		onQuoteSelection,
 		staged,
+		stagedLines,
 		onToggleStage,
 		handleLineContextMenu,
 		clickOutsideExcludeElement
 	}: Props = $props();
 
-	const lineSelection = $derived(new LineSelection(onLineClick));
+	const lineSelection = new LineSelection();
 	const parser = $derived(parserFromFilename(filePath));
 	const renderRows = $derived(
 		generateRows(filePath, content, inlineUnifiedDiffs, parser, selectedLines)
 	);
+	const clickable = $derived(!!onLineClick);
 
 	$effect(() => lineSelection.setRows(renderRows));
+	$effect(() => lineSelection.setOnLineClick(onLineClick));
 
 	const hasSelectedLines = $derived(renderRows.filter((row) => row.isSelected).length > 0);
 
@@ -65,6 +71,14 @@
 	function handleClearSelection() {
 		if (hasSelectedLines) clearLineSelection?.();
 		lineSelection.onEnd();
+	}
+
+	function getStageState(row: Row): boolean | undefined {
+		if (staged === undefined) return undefined;
+		if (stagedLines === undefined || stagedLines.length === 0) return staged;
+		return stagedLines.some(
+			(line) => line.newLine === row.afterLineNumber && line.oldLine === row.beforeLineNumber
+		);
 	}
 </script>
 
@@ -83,7 +97,7 @@
 		<HunkDiffRow
 			{idx}
 			{row}
-			{onLineClick}
+			{clickable}
 			{lineSelection}
 			{tabSize}
 			{wrapText}
@@ -93,7 +107,7 @@
 			{onCopySelection}
 			clearLineSelection={handleClearSelection}
 			{hoveringOverTable}
-			{staged}
+			staged={getStageState(row)}
 			{onToggleStage}
 			{handleLineContextMenu}
 		/>

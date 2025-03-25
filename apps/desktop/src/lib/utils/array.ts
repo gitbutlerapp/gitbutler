@@ -1,3 +1,5 @@
+import { deduplicateBy } from '@gitbutler/shared/utils/array';
+
 type Predicate<T> = (item: T) => boolean;
 
 type ItemsSatisfyResult = 'all' | 'some' | 'none';
@@ -54,4 +56,53 @@ export function groupByCondition<T>(arr: T[], predicate: Predicate<T>): GroupByR
 
 export function unique<T>(arr: T[]): T[] {
 	return Array.from(new Set(arr));
+}
+
+export function uniqueBy<T, K extends string>(arr: T[], keyFn: (item: T) => K): T[] {
+	type Result = { item: T; key: K };
+	const results: Result[] = arr.map((item) => ({
+		item,
+		key: keyFn(item)
+	}));
+
+	return deduplicateBy(results, 'key').map((r) => r.item);
+}
+
+export function outerJoinBy<T, K extends string>(arrA: T[], arrB: T[], keyFn: (item: T) => K): T[] {
+	const arrMap = new Map<K, T>();
+
+	for (const item of arrA) {
+		const key = keyFn(item);
+		arrMap.set(key, item);
+	}
+
+	for (const item of arrB) {
+		const key = keyFn(item);
+		if (arrMap.has(key)) {
+			arrMap.delete(key);
+			continue;
+		}
+		arrMap.set(key, item);
+	}
+
+	return Array.from(arrMap.values());
+}
+
+export function leftJoinBy<T, K extends string>(arrA: T[], arrB: T[], keyFn: (item: T) => K): T[] {
+	const arrMap = new Map<K, T>();
+
+	for (const item of arrA) {
+		const key = keyFn(item);
+		arrMap.set(key, item);
+	}
+
+	for (const item of arrB) {
+		const key = keyFn(item);
+		if (arrMap.has(key)) {
+			arrMap.delete(key);
+			continue;
+		}
+	}
+
+	return Array.from(arrMap.values());
 }

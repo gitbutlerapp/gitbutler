@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import HunkContextMenu from '$components/v3/HunkContextMenu.svelte';
+	import LineSelection from '$components/v3/unifiedDiffLineSelection.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { Project } from '$lib/project/project';
 	import {
@@ -11,6 +12,7 @@
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { DiffHunk } from '$lib/hunks/hunk';
+	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 
 	type Props = {
 		projectId: string;
@@ -31,6 +33,16 @@
 	const pathData = $derived({
 		path: change.path,
 		pathBytes: change.pathBytes
+	});
+
+	const lineSelection = new LineSelection(changeSelection);
+
+	$effect(() => {
+		lineSelection.setChange(change);
+	});
+
+	$effect(() => {
+		lineSelection.setSelectable(selectable);
 	});
 
 	function updateStage(hunk: DiffHunk, select: boolean, allHunks: DiffHunk[]) {
@@ -123,13 +135,16 @@
 		});
 	}
 
-	function getStageState(hunk: DiffHunk) {
-		if (!selectable) return undefined;
-		if (selection === undefined) return false;
-		if (selection.type === 'full') return true;
-		return selection.hunks.some(
+	function getStageState(hunk: DiffHunk): [boolean | undefined, LineId[] | undefined] {
+		if (!selectable) return [undefined, undefined];
+		if (selection === undefined) return [false, undefined];
+		if (selection.type === 'full') return [true, undefined];
+		const hunkSelected = selection.hunks.find(
 			(h) => h.newStart === hunk.newStart && h.oldStart === hunk.oldStart
 		);
+		const linesSelected = hunkSelected?.type === 'partial' ? hunkSelected?.lines : undefined;
+		const stagedHunk = !!hunkSelected;
+		return [stagedHunk, linesSelected];
 	}
 </script>
 
@@ -146,10 +161,14 @@
 		{#snippet children(diff)}
 			{#if diff.type === 'Patch'}
 				{#each diff.subject.hunks as hunk}
+					{@const [staged, stagedLines] = getStageState(hunk)}
 					<HunkDiff
 						filePath={change.path}
 						hunkStr={hunk.diff}
-						staged={getStageState(hunk)}
+						{staged}
+						{stagedLines}
+						onLineClick={(p) =>
+							lineSelection.toggleStageLines(selection, hunk, p, diff.subject.hunks)}
 						onChangeStage={(selected) => {
 							updateStage(hunk, selected, diff.subject.hunks);
 						}}

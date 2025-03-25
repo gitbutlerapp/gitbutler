@@ -18,17 +18,17 @@
 	import Icon from '$lib/Icon.svelte';
 	import {
 		CountColumnSide,
+		isDeltaLine,
 		SectionType,
 		type DiffFileLineId,
 		type Row
 	} from '$lib/utils/diffParsing';
 	import type LineSelection from '$lib/hunkDiff/lineSelection.svelte';
-	import type { LineSelectionParams } from '$lib/hunkDiff/lineSelection.svelte';
 
 	interface Props {
 		idx: number;
 		row: Row;
-		onLineClick?: (params: LineSelectionParams) => void;
+		clickable?: boolean;
 		clearLineSelection?: () => void;
 		lineSelection: LineSelection;
 		tabSize: number;
@@ -46,7 +46,7 @@
 	const {
 		idx,
 		row,
-		onLineClick,
+		clickable = false,
 		lineSelection,
 		tabSize,
 		wrapText,
@@ -104,18 +104,17 @@
 </script>
 
 {#snippet countColumn(row: Row, side: CountColumnSide, idx: number)}
-	{@const isDeltaLine =
-		row.type === SectionType.AddedLines || row.type === SectionType.RemovedLines}
+	{@const deltaLine = isDeltaLine(row.type)}
 	<td
 		class="table__numberColumn"
 		data-no-drag
 		class:diff-line-deletion={row.type === SectionType.RemovedLines}
 		class:diff-line-addition={row.type === SectionType.AddedLines}
-		class:clickable={onLineClick}
+		class:clickable
 		align="center"
 		class:is-last={row.isLast}
 		class:is-before={side === CountColumnSide.Before}
-		class:staged={staged && isDeltaLine}
+		class:staged={staged && deltaLine}
 		style="--staging-column-width: {stagingColumnWidth}px;"
 		class:stagable={staged !== undefined}
 		onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
@@ -135,21 +134,20 @@
 	style="--diff-font: {diffFont};"
 >
 	{#if staged !== undefined}
-		{@const isDeltaLine =
-			row.type === SectionType.AddedLines || row.type === SectionType.RemovedLines}
+		{@const deltaLine = isDeltaLine(row.type)}
 		<td
 			bind:clientWidth={stagingColumnWidth}
 			class="table__numberColumn"
 			data-no-drag
 			class:diff-line-deletion={row.type === SectionType.RemovedLines}
 			class:diff-line-addition={row.type === SectionType.AddedLines}
-			class:clickable={onToggleStage}
+			class:clickable
 			align="center"
 			class:is-last={row.isLast}
-			class:staged={staged && isDeltaLine}
+			class:staged={staged && deltaLine}
 			onclick={onToggleStage}
 		>
-			{#if isDeltaLine}
+			{#if deltaLine}
 				<div class="table__row-checkbox">
 					{#if staged}
 						<Checkbox checked={staged} small style="ghost" />

@@ -78,6 +78,7 @@ export type Row = {
 	isFirstOfSelectionGroup?: boolean;
 	isLastOfSelectionGroup?: boolean;
 	isLastSelected?: boolean;
+	isDeltaLine: boolean;
 };
 
 enum Operation {
@@ -499,6 +500,7 @@ function createRowData(
 			type: section.sectionType,
 			size: line.content.length,
 			isLast: false,
+			isDeltaLine: isDeltaLine(section.sectionType),
 			...getSelectionParams(line, selectedLines)
 		};
 	});
@@ -559,6 +561,7 @@ function computeWordDiff(
 			type: prevSection.sectionType,
 			size: oldLine.content.length,
 			isLast: false,
+			isDeltaLine: isDeltaLine(prevSection.sectionType),
 			...getSelectionParams(oldLine, selectedLines)
 		};
 		const nextSectionRow = {
@@ -573,6 +576,7 @@ function computeWordDiff(
 			type: nextSection.sectionType,
 			size: newLine.content.length,
 			isLast: false,
+			isDeltaLine: isDeltaLine(nextSection.sectionType),
 			...getSelectionParams(newLine, selectedLines)
 		};
 
@@ -631,6 +635,7 @@ function computeInlineWordDiff(
 			type: nextSection.sectionType,
 			size: newLine.content.length,
 			isLast: false,
+			isDeltaLine: isDeltaLine(nextSection.sectionType),
 			...getSelectionParams(newLine, selectedLines)
 		};
 
@@ -658,9 +663,12 @@ function computeInlineWordDiff(
 	return rows;
 }
 
-export interface LineSelector {
+export interface LineId {
 	oldLine: number | undefined;
 	newLine: number | undefined;
+}
+
+export interface LineSelector extends LineId {
 	/**
 	 * Whether this is the first line in any selection group.
 	 */
@@ -776,4 +784,11 @@ export function getHunkLineInfo(subsections: ContentSection[]): DiffHunkLineInfo
 		afterLineStart,
 		afterLineCount
 	};
+}
+
+/**
+ * Check if a given diff row is a line of actual changed code.
+ */
+export function isDeltaLine(type: SectionType): boolean {
+	return [SectionType.AddedLines, SectionType.RemovedLines].includes(type);
 }
