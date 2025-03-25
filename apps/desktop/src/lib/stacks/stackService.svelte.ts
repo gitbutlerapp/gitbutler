@@ -8,7 +8,7 @@ import type { BranchPushResult } from '$lib/branches/branchController';
 import type { Commit, StackBranch, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
 import type { TreeChange } from '$lib/hunks/change';
-import type { DiffSpec, HunkHeader } from '$lib/hunks/hunk';
+import type { DiffSpec } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackInfo } from '$lib/stacks/stack';
 import type { TauriCommandError } from '$lib/state/backendQuery';
 import type { User } from '$lib/user/user';
@@ -21,11 +21,7 @@ type CreateCommitRequest = {
 	/** Undefined means that the backend will infer the parent to be the current head of stackBranchName */
 	parentId: string | undefined;
 	stackBranchName: string;
-	worktreeChanges: {
-		previousPathBytes?: number[];
-		pathBytes: number[];
-		hunkHeaders: HunkHeader[];
-	}[];
+	worktreeChanges: DiffSpec[];
 };
 
 type StackAction = 'push';
