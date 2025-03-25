@@ -97,7 +97,16 @@
 		reactive(() => changeSelection),
 		clientState.dispatch
 	);
-	const stackService = new StackService(clientState, data.posthog);
+
+	const forgeFactory = new DefaultForgeFactory(
+		clientState['githubApi'],
+		clientState['gitlabApi'],
+		data.posthog,
+		data.projectMetrics,
+		clientState.dispatch
+	);
+
+	const stackService = new StackService(clientState['backendApi'], forgeFactory, data.posthog);
 	const worktreeService = new WorktreeService(clientState);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
 	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
@@ -132,12 +141,6 @@
 	);
 	setContext(UiState, uiState);
 
-	const forgeFactory = new DefaultForgeFactory(
-		clientState['githubApi'],
-		clientState['gitlabApi'],
-		data.posthog,
-		data.projectMetrics
-	);
 	setContext(DefaultForgeFactory, forgeFactory);
 
 	shortcutService.listen();

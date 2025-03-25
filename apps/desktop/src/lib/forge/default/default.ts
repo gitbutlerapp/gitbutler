@@ -5,6 +5,8 @@ import type { ForgeIssueService } from '$lib/forge/interface/forgeIssueService';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
 import type { ForgePrService } from '$lib/forge/interface/forgePrService';
 import type { ForgeRepoService } from '$lib/forge/interface/forgeRepoService';
+import type { ReduxTag } from '$lib/state/tags';
+import type { TagDescription } from '@reduxjs/toolkit/query';
 
 export class DefaultForge implements Forge {
 	name: ForgeName;
@@ -33,6 +35,9 @@ export class DefaultForge implements Forge {
 		return undefined;
 	}
 	commitUrl(_id: string): string | undefined {
+		return undefined;
+	}
+	invalidate(_tags: TagDescription<ReduxTag>[]) {
 		return undefined;
 	}
 }

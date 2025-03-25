@@ -1,20 +1,17 @@
 import { AZURE_DOMAIN, AzureDevOps } from '$lib/forge/azure/azure';
 import { BitBucket, BITBUCKET_DOMAIN } from '$lib/forge/bitbucket/bitbucket';
-import { DefaultForge } from '$lib/forge/default.ts/default';
+import { DefaultForge } from '$lib/forge/default/default';
 import { GitHub, GITHUB_DOMAIN } from '$lib/forge/github/github';
 import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from '$lib/forge/gitlab/gitlab';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { Forge } from '$lib/forge/interface/forge';
 import type { GitHubApi, GitLabApi } from '$lib/state/clientState.svelte';
+import type { ReduxTag } from '$lib/state/tags';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
-
-// Used on a branch level to acquire the right kind of merge request / checks
-// monitoring service.
-export interface ForgeFactory {
-	build(config: { repo: RepoInfo; pushRepo?: RepoInfo; baseBranch: string }): Forge | undefined;
-}
+import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
+import type { TagDescription } from '@reduxjs/toolkit/query';
 
 export type ForgeConfig = {
 	repo?: RepoInfo;
@@ -24,7 +21,7 @@ export type ForgeConfig = {
 	gitlabAuthenticated?: boolean;
 };
 
-export class DefaultForgeFactory implements ForgeFactory, Reactive<Forge> {
+export class DefaultForgeFactory implements Reactive<Forge> {
 	private default = new DefaultForge();
 	private _forge: Forge | undefined = $state();
 
@@ -32,7 +29,8 @@ export class DefaultForgeFactory implements ForgeFactory, Reactive<Forge> {
 		private gitHubApi: GitHubApi,
 		private gitLabApi: GitLabApi,
 		private posthog: PostHogWrapper,
-		private projectMetrics: ProjectMetrics
+		private projectMetrics: ProjectMetrics,
+		private dispatch: ThunkDispatch<any, any, UnknownAction>
 	) {}
 
 	get current(): Forge {
@@ -101,5 +99,12 @@ export class DefaultForgeFactory implements ForgeFactory, Reactive<Forge> {
 			return new AzureDevOps(baseParams);
 		}
 		return this.default;
+	}
+
+	invalidate(tags: TagDescription<ReduxTag>[]) {
+		const action = this.current.invalidate(tags);
+		if (action) {
+			this.dispatch(action);
+		}
 	}
 }

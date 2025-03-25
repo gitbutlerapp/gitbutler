@@ -10,6 +10,7 @@ import type { ForgeArguments } from '$lib/forge/interface/types';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
 import type { ReduxTag } from '$lib/state/tags';
+import type { TagDescription } from '@reduxjs/toolkit/query';
 
 export const GITHUB_DOMAIN = 'github.com';
 
@@ -64,7 +65,7 @@ export class GitHub implements Forge {
 		return `${this.baseUrl}/commit/${id}`;
 	}
 
-	invalidate(tags: ReduxTag[]): void {
-		this.params.gitHubApi.util.invalidateTags(tags);
+	invalidate(tags: TagDescription<ReduxTag>[]) {
+		return this.params.gitHubApi.util.invalidateTags(tags);
 	}
 }
