@@ -232,7 +232,7 @@
 />
 
 <div class="app-root" role="application" oncontextmenu={(e) => !dev && e.preventDefault()}>
-	{#if platformName === 'macos'}
+	{#if platformName === 'macos' && !$settingsStore?.featureFlags.v3}
 		<div class="drag-region" data-tauri-drag-region></div>
 	{/if}
 	{@render children()}
