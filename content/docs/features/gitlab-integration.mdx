@@ -4,26 +4,42 @@ title: GitLab Integration
 
 import ImageSection from "@/components/ImageSection"
 
-Undo nearly any of your actions or go back in time to an earlier state.
+Create your GitLab Merge requests without leaving GitButler.
 
-## How it works
+## Setting up the GitLab Integration
 
-Before GitButler does any major action, it records the state of everything (your virtual branch state, your uncommitted work, conflict state, etc) and stores it in your Git object database as snapshots. You can hit the 'revert' button on any of the entries and it will restore the state of all of these things to what they looked like when they were recorded, letting you go back in time.
+In order to set up the GitLab integration, you will need two things. Firstly, a GitLab Personal Token and the Project ID for your project.
 
-<ImageSection alt="Virtual Branches Example" src="/timeline-01.png" />
+### Creating a GitLab Personal Token
 
-## Pulling Up The History
+To create a GitLab Personal Token, navigate to your GitLab preferences, and then click on the "Access tokens" tab. You will then see an "Add new token" button. Pressing this button will provide you with a form (as captured below) where you can specify the token name, expiration date, and scopes. We currently require the `api` scope. In this example, I've chosen to set the expiration date for the token to a year from now.
 
-There is a small clock-looking logo in the bottom left corner of the app, next to your settings and feedback buttons. Clicking this will bring up the project history timeline sidebar.
+<ImageSection className="mx-auto" src="/gitlab/pat-create.png" />
 
-## Restoring State
+On completion, you will be showen the following screen which contains your GitLab Personal token.
 
-If you hover over any of the entries, you will see a button named "Revert" that will restore the state of things to right before you did that action. So if you revert one that says "Create Commit", it will put you where you were right before you made that commit.
+<ImageSection className="mx-auto" src="/gitlab/pat-created.png" />
 
-<ImageSection alt="Virtual Branches Example" src="/timeline-02.png" />
+### Finding your GitLab Project ID
 
-## Recovering Content
+Navigate to the main page of the repository you want to configure the integration for. On the top left next to the "Fork" button, you will see three dots. Click on those three dots, and click on "Copy project ID". This will copy the GitLab Project ID to your clipboard.
 
-Occasionally, GitButler will also take snapshots of files that were changed recently, even if they weren't committed. If this, or any other action, sees changes in files, you can see which ones and view the change by clicking on the file name.
+<ImageSection className="mx-auto" src="/gitlab/copy-project-id.png" />
 
-<ImageSection alt="Virtual Branches Example" src="/timeline-03.png" />
+### Configuring GitButler
+
+Inside GitButler, navigate to the project settings by clicking on the small cog icon in the bottom left. Scroll down to the bottom of the "Project" tab where you will see a form for entering your GitLab details. The provided GitLab Personal Token will be stored securly in your operating system's keychain.
+
+<ImageSection className="mx-auto" src="/gitlab/configure-gitbutler.png" />
+
+You may also provide a different Instance URL if you are using a self-hosted GitLab instance.
+
+## Usage
+
+You will now have a "Submit for Review" button on each branch which you can use to create a Merge Request.
+
+<ImageSection className="mx-auto" src="/gitlab/submit-for-review.png" />
+
+Once the Merge Request is created you will be able to see the status of it from within the client. Please note that we do not yet integrate with CI status.
+
+<ImageSection className="mx-auto" src="/gitlab/review-card.png" />
