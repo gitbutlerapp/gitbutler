@@ -14,9 +14,9 @@ pub fn apply_hunks(
     new_image: &BStr,
     hunks: &[HunkHeader],
 ) -> anyhow::Result<BString> {
-    let mut worktree_base_cursor = 1; /* 1-based counting */
+    let mut old_cursor = 1; /* 1-based counting */
     let mut old_iter = old_image.lines_with_terminator();
-    let mut worktree_actual_cursor = 1; /* 1-based counting */
+    let mut new_cursor = 1; /* 1-based counting */
     let mut new_iter = new_image.lines_with_terminator();
     let mut result_image: BString = Vec::with_capacity(old_image.len().max(new_image.len())).into();
 
@@ -26,11 +26,10 @@ pub fn apply_hunks(
     // Write the new hunk.
     // Repeat for each hunk, and write all remaining old lines.
     for selected_hunk in hunks {
-        let catchup_base_lines = old_iter.by_ref().take(
-            (selected_hunk.old_start as usize)
-                .checked_sub(worktree_base_cursor)
-                .context("hunks must be in order from top to bottom of the file")?,
-        );
+        let old_skips = (selected_hunk.old_start as usize)
+            .checked_sub(old_cursor)
+            .context("hunks must be in order from top to bottom of the file")?;
+        let catchup_base_lines = old_iter.by_ref().take(old_skips);
         for line in catchup_base_lines {
             result_image.extend_from_slice(line);
         }
@@ -38,21 +37,19 @@ pub fn apply_hunks(
             .by_ref()
             .take(selected_hunk.old_lines as usize)
             .count();
-        worktree_base_cursor += selected_hunk.old_lines as usize;
+        old_cursor += old_skips + selected_hunk.old_lines as usize;
 
+        let new_skips = (selected_hunk.new_start as usize)
+            .checked_sub(new_cursor)
+            .context("hunks for new lines must be in order")?;
         let new_hunk_lines = new_iter
             .by_ref()
-            .skip(
-                (selected_hunk.new_start as usize)
-                    .checked_sub(worktree_actual_cursor)
-                    .context("hunks for new lines must be in order")?,
-            )
+            .skip(new_skips)
             .take(selected_hunk.new_lines as usize);
-
         for line in new_hunk_lines {
-            result_image.extend_from_slice(line);
+            result_image.extend_from_slice(line.as_bstr());
         }
-        worktree_actual_cursor += selected_hunk.new_lines as usize;
+        new_cursor += new_skips + selected_hunk.new_lines as usize;
     }
 
     for line in old_iter {

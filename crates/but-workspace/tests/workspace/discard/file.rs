@@ -969,7 +969,7 @@ R  a/b/link -> a/sibling/link
     Ok(())
 }
 
-// Copy of `all_file_types_deleted_in_worktree`, but can't be loop due to `insta`.
+// Copy of `all_file_types_deleted_in_worktree`, could also be a loop but insta::allow_duplicates!() isn't pretty.
 #[test]
 #[cfg(unix)]
 fn all_file_types_deleted_in_index() -> anyhow::Result<()> {
