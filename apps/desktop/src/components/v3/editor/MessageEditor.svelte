@@ -10,6 +10,7 @@
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { debouncePromise } from '@gitbutler/shared/utils/misc';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
@@ -151,6 +152,14 @@
 						<GiphyPlugin />
 					{/snippet}
 				</RichTextEditor>
+
+				<div class="message-editor__extra-options">
+					<Button kind="ghost" icon="smile" />
+					<div class="message-editor__extra-option__divider"></div>
+					<Button kind="ghost" icon="attachment-small" reversedDirection>
+						<span style="opacity: 0.4">Drop or click to add files</span>
+					</Button>
+				</div>
 			</div>
 		</ConfigurableScrollableContainer>
 	</div>
@@ -185,7 +194,10 @@
 		border: 1px solid transparent;
 		border-bottom: none;
 		border-radius: var(--radius-m) var(--radius-m) 0 0;
-		transition: color var(--transition-fast);
+		transition:
+			color var(--transition-fast),
+			border-color var(--transition-fast),
+			background-color var(--transition-fast);
 
 		&.active {
 			color: var(--clr-text-1);
@@ -204,6 +216,10 @@
 			}
 		}
 
+		&.focused {
+			border-color: var(--clr-border-1);
+		}
+
 		&:hover {
 			color: var(--clr-text-1);
 		}
@@ -215,6 +231,7 @@
 		border: 1px solid var(--clr-border-2);
 		overflow: hidden;
 		min-height: 0;
+		transition: border-color var(--transition-fast);
 
 		&:hover,
 		&:focus-within {
@@ -227,5 +244,30 @@
 		flex-direction: column;
 		flex: 1;
 		height: 100%;
+	}
+
+	.message-editor__extra-options {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 6px;
+		padding: 12px;
+
+		&:after {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 12px;
+			width: calc(100% - 24px);
+			height: 1px;
+			background-color: var(--clr-border-3);
+		}
+	}
+
+	.message-editor__extra-option__divider {
+		width: 1px;
+		height: 18px;
+		background-color: var(--clr-border-3);
 	}
 </style>
