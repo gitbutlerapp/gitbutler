@@ -101,9 +101,7 @@
 		<Checkbox small {checked} {indeterminate} onchange={oncheck} />
 	{/if}
 
-	{#if listMode === 'list'}
-		<FileName {filePath} />
-	{/if}
+	<FileName {filePath} />
 
 	<div class="details">
 		{#if locked}
