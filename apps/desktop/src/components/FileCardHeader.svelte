@@ -3,9 +3,8 @@
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
+	import FileName from '@gitbutler/ui/file/FileName.svelte';
 	import FileStats from '@gitbutler/ui/file/FileStats.svelte';
-	import { splitFilePath } from '@gitbutler/ui/utils/filePath';
 	import type { AnyFile } from '$lib/files/file';
 
 	interface Props {
@@ -18,18 +17,12 @@
 
 	const fileStats = $derived(computeAddedRemovedByFiles(file));
 	const fileStatus = $derived(computeFileStatus(file));
-
-	const fileTitle = $derived(splitFilePath(file.path));
 </script>
 
 <div class="header">
 	<div class="header__inner">
-		<FileIcon fileName={file.path} size={16} />
 		<div class="header__info truncate">
-			<div class="header__filetitle text-13 truncate">
-				<span class="header__filename">{fileTitle.filename}</span>
-				<span class="header__filepath">{fileTitle.path}</span>
-			</div>
+			<FileName filePath={file.path} textSize="13" />
 			<div class="header__tags">
 				<FileStats added={fileStats.added} removed={fileStats.removed} status={fileStatus} />
 
@@ -82,16 +75,5 @@
 	.header__tag-group {
 		display: flex;
 		gap: 4px;
-	}
-	.header__filetitle {
-		width: 100%;
-		user-select: text;
-	}
-	.header__filename {
-		color: var(--clr-scale-ntrl-0);
-		line-height: 120%;
-	}
-	.header__filepath {
-		color: var(--clr-scale-ntrl-50);
 	}
 </style>
