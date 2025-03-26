@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { AIService } from '$lib/ai/service';
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import { BranchController } from '$lib/branches/branchController';
 	import { type CommitStatus } from '$lib/commits/commit';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { Project } from '$lib/project/project';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -53,15 +53,16 @@
 		onMenuToggle
 	}: Props = $props();
 
-	const project = getContext(Project);
-	const aiService = getContext(AIService);
-	const branchController = getContext(BranchController);
-	const aiGenEnabled = projectAiGenEnabled(project.id);
+	const [project, aiService, stackService] = inject(Project, AIService, StackService);
+	const projectId = $derived(project.id);
+	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
+
+	const [renameBranch, branchRenameOp] = stackService.updateBranchName;
+	const [removeBranch, branchRemovalOp] = stackService.removeBranch;
 
 	let deleteSeriesModal: Modal;
 	let renameSeriesModal: Modal;
 	let newHeadName: string = $state(headName);
-	let isDeleting = $state(false);
 	let aiConfigurationValid = $state(false);
 
 	$effect(() => {
@@ -183,9 +184,14 @@
 	title={hasForgeBranch ? 'Branch has already been pushed' : 'Rename branch'}
 	type={hasForgeBranch ? 'warning' : 'info'}
 	bind:this={renameSeriesModal}
-	onSubmit={(close) => {
+	onSubmit={async (close) => {
 		if (newHeadName && newHeadName !== headName) {
-			branchController.updateSeriesName(stackId, headName, newHeadName);
+			await renameBranch({
+				projectId,
+				stackId,
+				branchName: headName,
+				newName: newHeadName
+			});
 		}
 		close();
 	}}
@@ -201,7 +207,7 @@
 
 	{#snippet controls(close)}
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" type="submit">Rename</Button>
+		<Button style="pop" type="submit" loading={branchRenameOp.current.isLoading}>Rename</Button>
 	{/snippet}
 </Modal>
 
@@ -210,13 +216,12 @@
 	title="Delete branch"
 	bind:this={deleteSeriesModal}
 	onSubmit={async (close) => {
-		try {
-			isDeleting = true;
-			await branchController.removePatchSeries(stackId, headName);
-			close();
-		} finally {
-			isDeleting = false;
-		}
+		await removeBranch({
+			projectId,
+			stackId,
+			branchName: headName
+		});
+		close();
 	}}
 >
 	{#snippet children()}
@@ -224,7 +229,7 @@
 	{/snippet}
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit" loading={isDeleting}>Delete</Button>
+		<Button style="error" type="submit" loading={branchRemovalOp.current.isLoading}>Delete</Button>
 	{/snippet}
 </Modal>
 

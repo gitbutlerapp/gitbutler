@@ -361,6 +361,14 @@ export class StackService {
 	get updateBranchPrNumber() {
 		return this.api.endpoints.updateBranchPrNumber.useMutation();
 	}
+
+	get updateBranchName() {
+		return this.api.endpoints.updateBranchName.useMutation();
+	}
+
+	get removeBranch() {
+		return this.api.endpoints.removeBranch.useMutation();
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -613,6 +621,44 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						stackId,
 						headName: branchName,
 						prNumber
+					}
+				}),
+				invalidatesTags: [ReduxTag.StackBranches]
+			}),
+			updateBranchName: build.mutation<
+				void,
+				{
+					projectId: string;
+					stackId: string;
+					branchName: string;
+					newName: string;
+				}
+			>({
+				query: ({ projectId, stackId, branchName, newName }) => ({
+					command: 'update_series_name',
+					params: {
+						projectId,
+						branchId: stackId,
+						headName: branchName,
+						newHeadName: newName
+					}
+				}),
+				invalidatesTags: [ReduxTag.StackBranches]
+			}),
+			removeBranch: build.mutation<
+				void,
+				{
+					projectId: string;
+					stackId: string;
+					branchName: string;
+				}
+			>({
+				query: ({ projectId, stackId, branchName }) => ({
+					command: 'remove_series',
+					params: {
+						projectId,
+						branchId: stackId,
+						headName: branchName
 					}
 				}),
 				invalidatesTags: [ReduxTag.StackBranches]
