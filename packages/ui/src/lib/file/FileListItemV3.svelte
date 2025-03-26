@@ -21,6 +21,7 @@
 		focused?: boolean;
 		clickable?: boolean;
 		showCheckbox?: boolean;
+		listMode: 'list' | 'tree';
 		checked?: boolean;
 		indeterminate?: boolean;
 		conflicted?: boolean;
@@ -59,6 +60,7 @@
 		locked,
 		lockText,
 		listActive,
+		listMode,
 		oncheck,
 		onclick,
 		ondblclick,
@@ -80,6 +82,7 @@
 	class:clickable
 	class:draggable
 	class:focused
+	class:list-mode={listMode === 'list'}
 	aria-selected={selected}
 	role="option"
 	tabindex="-1"
@@ -108,7 +111,7 @@
 			{fileInfo.filename}
 		</span>
 
-		{#if fileInfo.path}
+		{#if listMode === 'list' && fileInfo.path}
 			<div class="path-container">
 				<Tooltip text={filePath} delay={1200}>
 					<span class="text-12 path truncate">
@@ -176,16 +179,21 @@
 		user-select: none;
 		outline: none;
 		background: transparent;
-		border-bottom: 1px solid var(--clr-border-3);
 
 		& :global(.mark-resolved-btn) {
 			margin: 0 4px;
 		}
 
+		&.list-mode {
+			border-bottom: 1px solid var(--clr-border-3);
+		}
+
 		&.size-large {
 			padding: 14px;
 			height: unset;
-			border-bottom: 1px solid var(--clr-border-2);
+			&.list-mode {
+				border-bottom: 1px solid var(--clr-border-2);
+			}
 		}
 	}
 
