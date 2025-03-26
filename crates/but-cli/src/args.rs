@@ -39,6 +39,10 @@ pub enum Subcommands {
         /// Amend to the current or given commit.
         #[clap(long)]
         amend: bool,
+        /// The rev-spec of the tip of the workspace.
+        // TODO: this should be replaced with head-info discovery once available.
+        #[clap(long)]
+        workspace_tip: Option<String>,
         /// The revspec to create the commit on top of, or the commit to amend to.
         #[clap(long)]
         parent: Option<String>,

@@ -14,6 +14,7 @@ pub fn commit(
     amend: bool,
     parent_revspec: Option<&str>,
     stack_segment_ref: Option<&str>,
+    workspace_tip: Option<&str>,
 ) -> anyhow::Result<()> {
     if message.is_none() && !amend {
         bail!("Need a message when creating a new commit");
@@ -80,8 +81,16 @@ pub fn commit(
         debug_print(create_commit_and_update_refs(
             &repo,
             ReferenceFrame {
-                workspace_tip: None,
-                branch_tip: repo.head_id()?.detach().into(),
+                workspace_tip: workspace_tip
+                    .map(|spec| repo.rev_parse_single(spec))
+                    .transpose()?
+                    .map(|id| id.detach()),
+                branch_tip: Some(
+                    stack_segment_ref
+                        .map(|name| repo.find_reference(name).map(|r| r.id().detach()))
+                        .transpose()?
+                        .unwrap_or(repo.head_id()?.detach()),
+                ),
             },
             &mut VirtualBranchesState::default(),
             destination,
