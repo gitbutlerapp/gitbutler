@@ -10,8 +10,8 @@
 	import { key, type SelectionId } from '$lib/selection/key';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
-	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
+	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
 
 	interface Props {
@@ -22,6 +22,8 @@
 		showCheckbox?: boolean;
 		isHeader?: boolean;
 		listActive?: boolean;
+		linesAdded?: number;
+		linesRemoved?: number;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 	}
@@ -34,6 +36,8 @@
 		showCheckbox,
 		isHeader,
 		listActive,
+		linesAdded,
+		linesRemoved,
 		onclick,
 		onkeydown
 	}: Props = $props();
@@ -75,8 +79,9 @@
 </script>
 
 <div
+	class="filelistitem-wrapper"
 	bind:this={draggableEl}
-	class:is-header={isHeader}
+	class:sticky={isHeader}
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
@@ -94,9 +99,18 @@
 	/>
 
 	{#if isHeader}
-		<div class="file-header">
-			<FileIcon fileName={getFilename(change.path) || ''} size={16} />
-		</div>
+		<FileViewHeader
+			filePath={change.path}
+			fileStatus={computeChangeStatus(change)}
+			draggable
+			{linesAdded}
+			{linesRemoved}
+			oncontextmenu={(e) => {
+				e.stopPropagation();
+				e.preventDefault();
+				onContextMenu(e);
+			}}
+		/>
 	{:else}
 		<FileListItemV3
 			id={key({ ...selectedFile, path: change.path })}
@@ -107,7 +121,7 @@
 			checked={!!selection.current}
 			{listActive}
 			{indeterminate}
-			draggable={true}
+			draggable
 			{onkeydown}
 			locked={false}
 			conflicted={false}
@@ -121,10 +135,13 @@
 </div>
 
 <style lang="postcss">
-	.is-header {
-		position: sticky;
-		top: 0;
-		z-index: var(--z-lifted);
-		background-color: var(--clr-bg-1);
+	.filelistitem-wrapper {
+		display: block;
+
+		&.sticky {
+			position: sticky;
+			top: -1px;
+			z-index: 1;
+		}
 	}
 </style>

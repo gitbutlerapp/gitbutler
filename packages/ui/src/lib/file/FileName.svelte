@@ -10,10 +10,9 @@
 		fileStatus?: FileStatus;
 		draggable?: boolean;
 		textSize?: '12' | '13';
-		oncontextmenu?: (e: MouseEvent) => void;
 	}
 
-	let { ref = $bindable(), filePath, textSize = '12', oncontextmenu }: Props = $props();
+	let { ref = $bindable(), filePath, textSize = '12' }: Props = $props();
 	const fileNameAndPath = $derived(splitFilePath(filePath));
 	const filePathParts = $derived({
 		first: fileNameAndPath.path.split('/').slice(0, -1).join('/'),
@@ -21,18 +20,7 @@
 	});
 </script>
 
-<div
-	role="presentation"
-	bind:this={ref}
-	class="file-header"
-	oncontextmenu={(e) => {
-		if (oncontextmenu) {
-			e.preventDefault();
-			e.stopPropagation();
-			oncontextmenu(e);
-		}
-	}}
->
+<div role="presentation" bind:this={ref} class="file-header">
 	<FileIcon fileName={fileNameAndPath.filename} size={16} />
 	<span class="text-{textSize} text-semibold file-header__name truncate">
 		{fileNameAndPath.filename}
