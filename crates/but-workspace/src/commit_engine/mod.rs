@@ -403,7 +403,7 @@ pub fn create_commit_and_update_refs(
                 .collect();
             if !found_marker {
                 bail!(
-                    "Branch tip at {branch_tip} didn't contain the affected commit - cannot rebase"
+                    "Branch tip at {branch_tip} didn't contain the affected commit {commit_in_graph} - cannot rebase"
                 );
             }
 
