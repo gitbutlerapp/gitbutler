@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Board from '$components/Board.svelte';
 	import Scrollbar from '$components/Scrollbar.svelte';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -14,7 +14,8 @@
 	const project = getContext(Project);
 	const forge = getContext(DefaultForgeFactory);
 	const baseBranchService = getContext(BaseBranchService);
-	const baseRepo = $derived(baseBranchService.repo);
+	const baseRepoResponse = $derived(baseBranchService.repo(project.id));
+	const baseRepo = $derived(baseRepoResponse.current.data);
 
 	const settingsService = getContext(SettingsService);
 	const settingsStore = settingsService.appSettings;
@@ -26,7 +27,7 @@
 
 	function shouldShowHttpsWarning() {
 		if (httpsWarningBannerDismissed) return false;
-		if (!$baseRepo?.protocol?.startsWith('https')) return false;
+		if (!baseRepo?.protocol?.startsWith('https')) return false;
 		if (forge?.current.name === 'github') return false;
 		return true;
 	}

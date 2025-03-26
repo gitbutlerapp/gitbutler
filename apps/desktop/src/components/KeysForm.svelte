@@ -7,7 +7,7 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { type Key, type KeyType, Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
-	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
@@ -15,7 +15,7 @@
 
 	const project = $state(getContext(Project));
 
-	const baseBranch = getContextStore(BaseBranch);
+	const baseBranch = getContext(BaseBranch);
 	const projectsService = getContext(ProjectsService);
 
 	interface Props {
@@ -179,8 +179,8 @@
 			<CredentialCheck
 				bind:this={credentialCheck}
 				projectId={project.id}
-				remoteName={remoteName || $baseBranch?.remoteName}
-				branchName={branchName || $baseBranch?.shortName}
+				remoteName={remoteName || baseBranch?.remoteName}
+				branchName={branchName || baseBranch?.shortName}
 			/>
 		</SectionCard>
 	</form>

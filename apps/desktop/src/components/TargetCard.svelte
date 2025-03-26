@@ -1,7 +1,7 @@
 <script lang="ts">
 	import DomainButton from '$components/DomainButton.svelte';
 	import SyncButton from '$components/SyncButton.svelte';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
@@ -17,14 +17,15 @@
 
 	const { projectId, isNavCollapsed }: Props = $props();
 
-	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
+	const baseBranchService = getContext(BaseBranchService);
+	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
+	const base = $derived(baseBranchResponse.current.data);
 
-	const base = baseBranchService.base;
 	const selected = $derived($page.url.href.endsWith('/base'));
-	const baseBranchDiverged = $derived(!!$base?.diverged);
+	const baseBranchDiverged = $derived(!!base?.diverged);
 	const baseBranchAheadOnly = $derived(
-		baseBranchDiverged && !!$base?.divergedBehind?.length === false
+		baseBranchDiverged && !!base?.divergedBehind?.length === false
 	);
 	const divergenceTooltip = $derived(
 		baseBranchAheadOnly
@@ -41,9 +42,9 @@
 	onmousedown={async () => await goto(`/${project.id}/base`)}
 >
 	{#if isNavCollapsed}
-		{#if ($base?.behind || 0) > 0}
+		{#if (base?.behind || 0) > 0}
 			<div class="small-count-badge">
-				<span class="text-10 text-bold">{$base?.behind || 0}</span>
+				<span class="text-10 text-bold">{base?.behind || 0}</span>
 			</div>
 		{/if}
 	{/if}
@@ -55,9 +56,9 @@
 				<Tooltip text="The branch your Workspace branches are based on and merge into.">
 					<span class="text-14 text-semibold trunk-label">Target</span>
 				</Tooltip>
-				{#if ($base?.behind || 0) > 0 && !baseBranchDiverged}
+				{#if (base?.behind || 0) > 0 && !baseBranchDiverged}
 					<Tooltip text="Unmerged upstream commits">
-						<Badge>{$base?.behind || 0}</Badge>
+						<Badge>{base?.behind || 0}</Badge>
 					</Tooltip>
 				{/if}
 				{#if baseBranchDiverged}
@@ -73,7 +74,7 @@
 				<SyncButton {projectId} />
 			</div>
 			<div class="base-branch-label">
-				{#if $base?.remoteUrl.includes('github.com')}
+				{#if base?.remoteUrl.includes('github.com')}
 					<!-- GitHub logo -->
 					<svg
 						class="base-branch-icon"
@@ -101,7 +102,7 @@
 						/>
 					</svg>
 				{/if}
-				<span class="text-12">{$base?.branchName}</span>
+				<span class="text-12">{base?.branchName}</span>
 			</div>
 		</div>
 	{/if}

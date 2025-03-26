@@ -4,7 +4,8 @@
 	import FileCard from '$components/FileCard.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
+	import { Project } from '$lib/project/project';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
@@ -13,8 +14,11 @@
 	const laneWidthKey = 'baseLaneWidth';
 	const width = persisted<number>(20, laneWidthKey);
 
+	const project = getContext(Project);
 	const baseBranchService = getContext(BaseBranchService);
-	const baseBranch = baseBranchService.base;
+	const baseBranchResponse = $derived(baseBranchService.baseBranch(project.id));
+	const baseBranch = $derived(baseBranchResponse.current.data);
+	const baseBranchError = $derived(baseBranchResponse.current.error);
 
 	const fileIdSelection = new FileIdSelection();
 	setContext(FileIdSelection, fileIdSelection);
@@ -25,20 +29,18 @@
 	const selected = $derived($selectedFile?.file);
 
 	let rsViewport = $state<HTMLDivElement>();
-
-	const error = baseBranchService.error;
 </script>
 
-{#if $error}
+{#if baseBranchError}
 	<p>Error...</p>
-{:else if !$baseBranch}
+{:else if !baseBranch}
 	<FullviewLoading />
 {:else}
 	<div class="base">
 		<div class="base__left" bind:this={rsViewport} style:width={$width + 'rem'}>
 			<ScrollableContainer>
 				<div class="card">
-					<BaseBranch base={$baseBranch} />
+					<BaseBranch base={baseBranch} />
 				</div>
 			</ScrollableContainer>
 			<Resizer

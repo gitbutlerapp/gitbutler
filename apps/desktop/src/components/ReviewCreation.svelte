@@ -32,7 +32,7 @@
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { sleep } from '$lib/utils/sleep';
-	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
@@ -55,7 +55,7 @@
 
 	const { projectId, stackId, branchName }: Props = $props();
 
-	const baseBranch = getContextStore(BaseBranch);
+	const baseBranch = getContext(BaseBranch);
 	const aiService = getContext(AIService);
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 	const forge = getContext(DefaultForgeFactory);
@@ -104,7 +104,7 @@
 	const pr = $derived(prResult?.current.data);
 
 	const forgeBranch = $derived(branch?.name ? forge.current.branch(branch?.name) : undefined);
-	const baseBranchName = $derived($baseBranch.shortName);
+	const baseBranchName = $derived(baseBranch.shortName);
 
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
 	const createButlerRequest = persisted<boolean>(false, 'createButlerRequest');
@@ -261,7 +261,7 @@
 
 			// Use base branch as base unless it's part of stack and should be be pointing
 			// to the preceding branch. Ensuring we're not using `archived` branches as base.
-			let base = $baseBranch?.shortName || 'master';
+			let base = baseBranch?.shortName || 'master';
 
 			if (
 				branchParent &&

@@ -22,7 +22,7 @@
 	import { closedStateSync } from '$lib/forge/closedStateSync.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { getContextStore, inject } from '@gitbutler/shared/context';
+	import { getContext, getContextStore, inject } from '@gitbutler/shared/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
@@ -59,7 +59,7 @@
 	);
 
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
-	const baseBranch = getContextStore(BaseBranch);
+	const baseBranch = getContext(BaseBranch);
 
 	const upstreamName = $derived(branch.upstreamReference ? branch.name : undefined);
 	const forgeBranch = $derived(upstreamName ? forge.current.branch(upstreamName) : undefined);
@@ -94,7 +94,7 @@
 	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
 	const pr = $derived(prResult?.current.data);
 	const mergedIncorrectly = $derived(
-		(pr?.merged && pr.baseBranch !== $baseBranch.shortName) || false
+		(pr?.merged && pr.baseBranch !== baseBranch.shortName) || false
 	);
 
 	/**
@@ -250,7 +250,7 @@
 				<div class="text-14 text-bold branch-info__name">
 					{#if forgeBranch}
 						<span class="remote-name">
-							{$baseBranch.pushRemoteName ? `${$baseBranch.pushRemoteName} /` : 'origin /'}
+							{baseBranch.pushRemoteName ? `${baseBranch.pushRemoteName} /` : 'origin /'}
 						</span>
 					{/if}
 					<BranchLabel
