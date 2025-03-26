@@ -4,9 +4,8 @@
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
-	import FileIcon from '$lib/file/FileIcon.svelte';
+	import FileName from '$lib/file/FileName.svelte';
 	import FileStatusBadge from '$lib/file/FileStatusBadge.svelte';
-	import { splitFilePath } from '$lib/utils/filePath';
 	import type { FileStatus } from '$lib/file/types';
 
 	interface Props {
@@ -15,7 +14,6 @@
 		filePath: string;
 		fileStatus?: FileStatus;
 		fileStatusStyle?: 'dot' | 'full';
-		size?: 'small' | 'large';
 		draggable?: boolean;
 		selected?: boolean;
 		focused?: boolean;
@@ -47,7 +45,6 @@
 		filePath,
 		fileStatus,
 		fileStatusStyle = 'dot',
-		size = 'small',
 		draggable = false,
 		selected = false,
 		focused = false,
@@ -68,15 +65,13 @@
 		onkeydown,
 		oncontextmenu
 	}: Props = $props();
-
-	const fileInfo = $derived(splitFilePath(filePath));
 </script>
 
 <div
 	bind:this={ref}
 	data-locked={locked}
 	data-file-id={id}
-	class="file-list-item size-{size}"
+	class="file-list-item"
 	class:selected
 	class:list-active={listActive}
 	class:clickable
@@ -105,22 +100,8 @@
 	{#if showCheckbox}
 		<Checkbox small {checked} {indeterminate} onchange={oncheck} />
 	{/if}
-	<div class="info">
-		<FileIcon fileName={fileInfo.filename} />
-		<span class="text-12 text-semibold name truncate">
-			{fileInfo.filename}
-		</span>
 
-		{#if listMode === 'list' && fileInfo.path}
-			<div class="path-container">
-				<Tooltip text={filePath} delay={1200}>
-					<span class="text-12 path truncate">
-						{fileInfo.path}
-					</span>
-				</Tooltip>
-			</div>
-		{/if}
-	</div>
+	<FileName {filePath} hideFilePath={listMode === 'tree'} />
 
 	<div class="details">
 		{#if locked}
@@ -183,18 +164,6 @@
 		& :global(.mark-resolved-btn) {
 			margin: 0 4px;
 		}
-
-		&.list-mode {
-			border-bottom: 1px solid var(--clr-border-3);
-		}
-
-		&.size-large {
-			padding: 14px;
-			height: unset;
-			&.list-mode {
-				border-bottom: 1px solid var(--clr-border-2);
-			}
-		}
 	}
 
 	.file-list-item.clickable {
@@ -223,44 +192,6 @@
 		margin-left: -14px;
 		margin-right: -12px;
 		transition: opacity var(--transition-fast);
-	}
-
-	.info {
-		display: flex;
-		align-items: center;
-		flex-shrink: 1;
-		min-width: 32px;
-		gap: 6px;
-		width: 100%;
-		overflow: hidden;
-	}
-
-	.name {
-		flex-shrink: 1;
-		flex-grow: 0;
-		min-width: 40px;
-		pointer-events: none;
-		color: var(--clt-text-1);
-	}
-
-	.path-container {
-		display: flex;
-		justify-content: flex-start;
-		flex-shrink: 0;
-		flex-grow: 1;
-		flex-basis: 0px;
-		text-align: left;
-		min-width: 16px;
-		overflow: hidden;
-	}
-
-	.path {
-		display: inline-block;
-		color: var(--clt-text-1);
-		line-height: 120%;
-		opacity: 0.3;
-		max-width: 100%;
-		text-align: left;
 	}
 
 	.details {

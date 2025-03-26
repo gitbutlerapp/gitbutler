@@ -35,7 +35,18 @@
 
 <ReduxResult result={changeResult.current}>
 	{#snippet children(change)}
-		<FileListItemWrapper {selectedFile} {projectId} {change} isHeader listMode="list" />
-		<UnifiedDiffView {projectId} {change} selectable />
+		<div class="selected-change-item">
+			<FileListItemWrapper {selectedFile} {projectId} {change} isHeader listMode="list" />
+			<UnifiedDiffView {projectId} {change} selectable />
+		</div>
 	{/snippet}
 </ReduxResult>
+
+<style>
+	.selected-change-item {
+		display: flex;
+		flex-direction: column;
+		background-color: var(--clr-bg-1);
+		border-bottom: 1px solid var(--clr-border-2);
+	}
+</style>

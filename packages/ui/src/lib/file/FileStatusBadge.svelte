@@ -74,7 +74,7 @@
 		</div>
 	</Tooltip>
 {:else if style === 'full'}
-	<Badge style={getStatusColor(status)}>{getFullStatusText(status)}</Badge>
+	<Badge style={getStatusColor(status)} kind="soft">{getFullStatusText(status)}</Badge>
 {/if}
 
 <style lang="postcss">

@@ -116,15 +116,13 @@
 		/* SIZE */
 		&.icon-size {
 			height: var(--size-icon);
-			min-width: var(--size-icon);
 			padding: 0 3px;
-			gap: 0;
+			gap: 1px;
 		}
 
 		&.tag-size {
 			height: var(--size-tag);
-			min-width: var(--size-tag);
-			padding: 0 6px;
+			padding: 0 5px;
 			gap: 2px;
 		}
 

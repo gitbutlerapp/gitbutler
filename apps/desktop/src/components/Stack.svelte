@@ -16,12 +16,12 @@
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { getContextStore, inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
+	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import { type Writable } from 'svelte/store';
 
 	const {

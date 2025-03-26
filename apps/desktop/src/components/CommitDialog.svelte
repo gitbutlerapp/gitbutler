@@ -8,13 +8,13 @@
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { showError } from '$lib/notifications/toasts';
-	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
+	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import { slideFade } from '@gitbutler/ui/utils/transitions';
 	import { tick } from 'svelte';
 	import type { Writable } from 'svelte/store';
