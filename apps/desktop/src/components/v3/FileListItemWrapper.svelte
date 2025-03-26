@@ -8,6 +8,7 @@
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
@@ -34,7 +35,6 @@
 		selectedFile,
 		projectId,
 		selected,
-		showCheckbox,
 		isHeader,
 		listActive,
 		listMode,
@@ -55,6 +55,12 @@
 	const selection = $derived(changeSelection.getById(change.path));
 	const indeterminate = $derived(selection.current && selection.current.type === 'partial');
 	const selectedChanges = $derived(idSelection.treeChanges(projectId, selectedFile));
+
+	const uiState = getContext(UiState);
+
+	const projectState = $derived(uiState.project(projectId));
+	const drawerPage = $derived(projectState.drawerPage.get());
+	const isCommitting = $derived(drawerPage.current === 'new-commit');
 
 	function onCheck() {
 		if (selection.current) {
@@ -89,7 +95,8 @@
 		filePath: change.path,
 		data: new ChangeDropData(stackId || '', change, idSelection, selectedFile),
 		viewportId: 'board-viewport',
-		selector: '.selected-draggable'
+		selector: '.selected-draggable',
+		disabled: isCommitting
 	}}
 >
 	<FileContextMenu
@@ -99,12 +106,11 @@
 		branchId={$stack?.id}
 		isBinary={false}
 	/>
-
 	{#if isHeader}
 		<FileViewHeader
 			filePath={change.path}
 			fileStatus={computeChangeStatus(change)}
-			draggable
+			draggable={!isCommitting}
 			{linesAdded}
 			{linesRemoved}
 			oncontextmenu={(e) => {
@@ -119,12 +125,12 @@
 			filePath={change.path}
 			fileStatus={computeChangeStatus(change)}
 			{selected}
-			{showCheckbox}
+			showCheckbox={isCommitting}
 			{listMode}
 			checked={!!selection.current}
 			{listActive}
 			{indeterminate}
-			draggable
+			draggable={!isCommitting}
 			{onkeydown}
 			locked={false}
 			conflicted={false}

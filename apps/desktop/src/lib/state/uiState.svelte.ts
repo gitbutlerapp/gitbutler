@@ -8,7 +8,7 @@ import {
 } from '@reduxjs/toolkit';
 import storage from 'redux-persist/lib/storage';
 import type { SelectionId } from '$lib/selection/key';
-type DrawerPage = 'branch' | 'new-commit' | 'review' | 'branch' | undefined;
+export type DrawerPage = 'branch' | 'new-commit' | 'review' | 'branch' | undefined;
 
 export const uiStatePersistConfig = {
 	key: 'uiState',
