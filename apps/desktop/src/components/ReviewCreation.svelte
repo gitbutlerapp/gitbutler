@@ -34,7 +34,6 @@
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
@@ -110,7 +109,6 @@
 	const createButlerRequest = persisted<boolean>(false, 'createButlerRequest');
 	const createPullRequest = persisted<boolean>(true, 'createPullRequest');
 
-	let modal = $state<ReturnType<typeof Modal>>();
 	let aiIsLoading = $state<boolean>(false);
 	let aiConfigurationValid = $state<boolean>(false);
 	let aiDescriptionDirective = $state<string | undefined>(undefined);
@@ -151,14 +149,12 @@
 	}
 
 	$effect(() => {
-		if (modal?.imports.open) {
-			aiService.validateConfiguration().then((valid) => {
-				aiConfigurationValid = valid;
-			});
-			templateService.getAvailable(forge.current.name).then((availableTemplates) => {
-				templates = availableTemplates;
-			});
-		}
+		aiService.validateConfiguration().then((valid) => {
+			aiConfigurationValid = valid;
+		});
+		templateService.getAvailable(forge.current.name).then((availableTemplates) => {
+			templates = availableTemplates;
+		});
 	});
 
 	async function pushIfNeeded(): Promise<string | undefined> {
@@ -333,16 +329,6 @@
 			await tick();
 		}
 	}
-
-	export function show() {
-		modal?.show();
-	}
-
-	export const imports = {
-		get open() {
-			return modal?.imports.open;
-		}
-	};
 </script>
 
 <!-- HEADER -->
@@ -395,6 +381,7 @@
 				unstyled
 				value={prBody.value}
 				minRows={4}
+				maxRows={14}
 				autofocus
 				padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
 				placeholder="Add description…"

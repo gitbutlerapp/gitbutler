@@ -72,8 +72,6 @@
 	result={combineResults(branchResult.current, branchesResult.current, commitResult.current)}
 >
 	{#snippet children([branch, branches, commit])}
-		{@const parentIsPushed = !!parent}
-		{@const hasParent = !!parent}
 		{@const selected = selection.current?.branchName === branch.name}
 		{#if !first}
 			<BranchDividerLine topPatchStatus={commit?.state.type ?? 'LocalOnly'} />
@@ -149,19 +147,13 @@
 							const url = forgeBranch?.url;
 							if (url) openExternalUrl(url);
 						}}
-						openPrDetailsModal={() => {}}
 						hasForgeBranch={!!forgeBranch}
-						onCreateNewPr={async () => {
-							uiState.project(projectId).drawerPage.current = 'review';
-						}}
 						branchType={commit?.state.type || 'LocalOnly'}
 						onMenuToggle={(isOpen, isLeftClick) => {
 							if (isLeftClick) {
 								contextMenuOpened = isOpen;
 							}
 						}}
-						{parentIsPushed}
-						{hasParent}
 					/>
 				{/snippet}
 			</BranchHeader>

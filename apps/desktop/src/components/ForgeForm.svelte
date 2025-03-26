@@ -20,9 +20,14 @@
 				href="https://docs.gitbutler.com/features/gitlab-integration">documentation</Link
 			>
 		</p>
+		<p class="text-13">
+			The Fork Project ID should be the project that your branches get pushed to, and the Upstream
+			Project ID should be project where you want the Merge Requests to be created.
+		</p>
 
 		<Textbox label="Personal Token" bind:value={gitLabState.token.current} />
-		<Textbox label="Project ID" bind:value={gitLabState.gitlabProjectId.current} />
+		<Textbox label="Your Fork's Project ID" bind:value={gitLabState.forkProjectId.current} />
+		<Textbox label="Upstream Project ID" bind:value={gitLabState.upstreamProjectId.current} />
 		<Textbox label="Instance URL" bind:value={gitLabState.instanceUrl.current} />
 	</SectionCard>
 {/if}

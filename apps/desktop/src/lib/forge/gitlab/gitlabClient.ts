@@ -1,18 +1,24 @@
 import { Gitlab } from '@gitbeaker/rest';
+import type { GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
 
 type GitlabInstance = InstanceType<typeof Gitlab<false>>;
 
 export class GitLabClient {
 	api: GitlabInstance | undefined;
-	projectId: string | undefined;
+	forkProjectId: string | undefined;
+	upstreamProjectId: string | undefined;
 	instanceUrl: string | undefined;
 
 	private callbacks: (() => void)[] = [];
 
-	set(projectId?: string, token?: string, instanceUrl?: string) {
-		this.projectId = projectId;
-		if (token && instanceUrl) {
-			this.api = new Gitlab({ token, host: instanceUrl });
+	set(gitlabState: GitLabState) {
+		this.forkProjectId = gitlabState.forkProjectId.current;
+		this.upstreamProjectId = gitlabState.upstreamProjectId.current;
+		if (gitlabState.token.current && gitlabState.instanceUrl.current) {
+			this.api = new Gitlab({
+				token: gitlabState.token.current,
+				host: gitlabState.instanceUrl.current
+			});
 		} else {
 			this.api = undefined;
 		}
@@ -25,15 +31,21 @@ export class GitLabClient {
 	}
 }
 
-export function gitlab(extra: unknown): { api: GitlabInstance; projectId: string } {
-	if (!hasGitLab(extra)) throw new Error('No GitLab client!');
+export function gitlab(extra: unknown): {
+	api: GitlabInstance;
+	forkProjectId: string;
+	upstreamProjectId: string;
+} {
+	if (!hasGitLab(extra)) throw new Error('No GitHub client!');
 	if (!extra.gitLabClient.api) throw new Error('Things are sad');
-	if (!extra.gitLabClient.projectId) throw new Error('Things are sad');
+	if (!extra.gitLabClient.forkProjectId) throw new Error('Things are sad');
+	if (!extra.gitLabClient.upstreamProjectId) throw new Error('Things are sad');
 
 	// Equivalent to using the readable's `get` function
 	return {
 		api: extra.gitLabClient.api!,
-		projectId: extra.gitLabClient.projectId
+		forkProjectId: extra.gitLabClient.forkProjectId,
+		upstreamProjectId: extra.gitLabClient.upstreamProjectId
 	};
 }
 

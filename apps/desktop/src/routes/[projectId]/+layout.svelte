@@ -64,24 +64,20 @@
 		projectMetrics
 	} = $derived(data);
 
+	const repoInfo = $derived(baseBranchService.repo);
+
 	const secretService = getSecretsService();
-	const gitLabState = $derived(new GitLabState(secretService, projectId));
+	const gitLabState = $derived(new GitLabState(secretService, $repoInfo, projectId));
 	$effect(() => {
 		setContext(GitLabState, gitLabState);
 	});
-
 	const gitLabClient = getContext(GitLabClient);
 	$effect(() => {
-		gitLabClient.set(
-			gitLabState.gitlabProjectId.current,
-			gitLabState.token.current,
-			gitLabState.instanceUrl.current
-		);
+		gitLabClient.set(gitLabState);
 	});
 
 	const branchesError = $derived(vbranchService.branchesError);
 	const baseBranch = $derived(baseBranchService.base);
-	const repoInfo = $derived(baseBranchService.repo);
 	const forkInfo = $derived(baseBranchService.pushRepo);
 	const user = $derived(userService.user);
 	const accessToken = $derived($user?.github_access_token);
