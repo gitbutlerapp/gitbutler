@@ -1,14 +1,10 @@
 import { Code, invoke } from '$lib/backend/ipc';
-import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
+import { BaseBranch, NoDefaultTarget, type RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 import { showError } from '$lib/notifications/toasts';
 import { shallowDeduplicate } from '$lib/stores/shallowDeduplicate';
 import { parseRemoteUrl } from '$lib/url/gitUrl';
 import { plainToInstance } from 'class-transformer';
 import { derived, writable } from 'svelte/store';
-
-export interface RemoteBranchInfo {
-	name: string;
-}
 
 export class BaseBranchService {
 	// Primary private writable that this class emits to.
