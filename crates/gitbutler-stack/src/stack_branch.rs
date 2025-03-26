@@ -309,11 +309,11 @@ impl StackBranch {
             let mut revwalk = repository.revwalk()?;
             revwalk.push(upstream_head.id())?;
             if let Some(pred) = stack.branch_predacessor(self) {
-                let head = repository
-                    .find_reference(pred.remote_reference(&remote).as_str())?
-                    .peel_to_commit()?
-                    .id();
-                revwalk.hide(head)?;
+                if let core::result::Result::Ok(head_ref) =
+                    repository.find_reference(pred.remote_reference(&remote).as_str())
+                {
+                    revwalk.hide(head_ref.peel_to_commit()?.id())?;
+                }
             }
             revwalk.hide(previous_head)?;
             let mut upstream_only = revwalk
