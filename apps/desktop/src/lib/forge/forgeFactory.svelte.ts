@@ -88,8 +88,8 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				...baseParams,
 				api: gitHubApi,
 				client: gitHubClient,
-				projectMetrics: projectMetrics,
 				posthog: posthog,
+				projectMetrics: projectMetrics,
 				authenticated: !!githubAuthenticated
 			});
 		}
