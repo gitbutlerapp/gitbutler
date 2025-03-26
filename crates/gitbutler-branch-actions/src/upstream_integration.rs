@@ -160,7 +160,7 @@ pub struct Resolution {
 enum IntegrationResult {
     UpdatedObjects {
         head: git2::Oid,
-        tree: git2::Oid,
+        tree: Option<git2::Oid>,
         rebase_output: Option<RebaseOutput>,
         for_archival: Vec<Reference>,
     },
@@ -569,7 +569,7 @@ pub(crate) fn integrate_upstream(
             if let Some(output) = rebase_output {
                 stack.set_heads_from_rebase_output(command_context, output.references.clone())?;
             }
-            stack.set_stack_head(command_context, *head, Some(*tree))?;
+            stack.set_stack_head(command_context, *head, *tree)?;
 
             let delete_local_refs = resolutions
                 .iter()

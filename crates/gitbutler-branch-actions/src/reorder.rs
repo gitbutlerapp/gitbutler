@@ -74,7 +74,7 @@ pub fn reorder_stack(
     } = compute_updated_branch_head_for_commits(repo, old_head.id(), stack.tree, new_head)?;
 
     // Ensure the stack head is set to the new oid after rebasing
-    stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;
+    stack.set_stack_head(ctx, new_head_oid, new_tree_oid)?;
 
     stack.set_heads_from_rebase_output(ctx, output.references.clone())?;
 

@@ -48,7 +48,7 @@ mod compute_updated_branch_head {
             compute_updated_branch_head(&test_repository.repository, &stack, head.id()).unwrap();
 
         assert_eq!(head, stack.head());
-        assert_eq!(tree, stack.tree);
+        assert_eq!(tree, Some(stack.tree));
     }
 
     /// When the head ID is different from the branch ID, we should rebase the
@@ -78,7 +78,7 @@ mod compute_updated_branch_head {
         assert_eq!(head, new_head.id());
         assert_tree_matches(
             &test_repository.repository,
-            &test_repository.repository.find_tree(tree).unwrap(),
+            &test_repository.repository.find_tree(tree.unwrap()).unwrap(),
             &[("foo.txt", b"new"), ("bar.txt", b"baz")],
         );
     }
@@ -123,11 +123,13 @@ mod compute_updated_branch_head {
         // Tree should be the auto-resolved tree.
         assert_eq!(
             tree,
-            test_repository
-                .repository
-                .find_real_tree(&new_new_head, Default::default())
-                .unwrap()
-                .id()
+            Some(
+                test_repository
+                    .repository
+                    .find_real_tree(&new_new_head, Default::default())
+                    .unwrap()
+                    .id()
+            )
         );
     }
 }

@@ -199,7 +199,7 @@ fn do_squash_commits(
         tree: new_tree_oid,
     } = compute_updated_branch_head(ctx.repo(), &stack, new_stack_head)?;
 
-    stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;
+    stack.set_stack_head(ctx, new_head_oid, new_tree_oid)?;
 
     checkout_branch_trees(ctx, perm)?;
     crate::integration::update_workspace_commit(&vb_state, ctx)

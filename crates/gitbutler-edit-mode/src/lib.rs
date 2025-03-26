@@ -267,7 +267,7 @@ pub(crate) fn save_and_return_to_workspace(
         tree: new_branch_tree,
     } = compute_updated_branch_head(repository, &virtual_branch, new_branch_head)?;
 
-    virtual_branch.set_stack_head(ctx, new_branch_head, Some(new_branch_tree))?;
+    virtual_branch.set_stack_head(ctx, new_branch_head, new_branch_tree)?;
 
     // Switch branch to gitbutler/workspace
     repository

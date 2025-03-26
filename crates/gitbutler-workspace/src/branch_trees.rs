@@ -82,7 +82,7 @@ pub struct BranchHeadAndTree {
     /// This is a tree Oid.
     ///
     /// This should be used as the new tree Oid for the branch.
-    pub tree: git2::Oid,
+    pub tree: Option<git2::Oid>,
 }
 
 /// Given a new head for a branch, this comptues how the tree should be
@@ -140,12 +140,12 @@ pub fn compute_updated_branch_head_for_commits(
 
         Ok(BranchHeadAndTree {
             head: rebased_tree.id(),
-            tree: auto_tree_id,
+            tree: Some(auto_tree_id),
         })
     } else {
         Ok(BranchHeadAndTree {
             head: new_head,
-            tree: rebased_tree.tree_id(),
+            tree: Some(rebased_tree.tree_id()),
         })
     }
 }

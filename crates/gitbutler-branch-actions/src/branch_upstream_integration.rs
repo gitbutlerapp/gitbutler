@@ -72,7 +72,7 @@ pub fn integrate_upstream_commits_for_series(
         integrate_upstream_context.inner_integrate_upstream_commits_for_series(series_head.id())?;
 
     let mut branch = stack.clone();
-    branch.set_stack_head(ctx, head, Some(tree))?;
+    branch.set_stack_head(ctx, head, tree)?;
     checkout_branch_trees(ctx, perm)?;
     branch.replace_head(ctx, &series_head, &repo.find_commit(new_series_head)?)?;
     crate::integration::update_workspace_commit(&vb_state, ctx)?;
@@ -137,7 +137,7 @@ pub fn integrate_upstream_commits(
 
     let mut stack = stack.clone();
 
-    stack.set_stack_head(ctx, head, Some(tree))?;
+    stack.set_stack_head(ctx, head, tree)?;
 
     checkout_branch_trees(ctx, perm)?;
 
