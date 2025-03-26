@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { type Stack } from '$lib/stacks/stack';
 	import {
@@ -42,7 +42,8 @@
 	const upstreamIntegrationService = getContext(UpstreamIntegrationService);
 	const forge = getContext(DefaultForgeFactory);
 	const baseBranchService = getContext(BaseBranchService);
-	const base = baseBranchService.base;
+	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
+	const base = $derived(baseBranchResponse.current.data);
 	const [resolveUpstreamIntegration] = upstreamIntegrationService.resolveUpstreamIntegration();
 
 	let modal = $state<Modal>();
@@ -52,7 +53,7 @@
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
 	let targetCommitOid = $state<string | undefined>(undefined);
 
-	const isDivergedResolved = $derived($base?.diverged && !baseResolutionApproach);
+	const isDivergedResolved = $derived(base?.diverged && !baseResolutionApproach);
 	const [integrateUpstream] = $derived(upstreamIntegrationService.integrateUpstream(projectId));
 
 	// Will re-fetch upstream statuses if the target commit oid changes
@@ -91,7 +92,7 @@
 	// Resolve the target commit oid if the base branch diverged and the the resolution
 	// approach is changed
 	$effect(() => {
-		if ($base?.diverged && baseResolutionApproach) {
+		if (base?.diverged && baseResolutionApproach) {
 			resolveUpstreamIntegration({
 				projectId,
 				resolutionApproach: { type: baseResolutionApproach }
@@ -119,7 +120,7 @@
 			baseBranchResolution: baseResolution
 		});
 
-		await baseBranchService.refresh();
+		await baseBranchService.refreshBaseBranch(projectId);
 		integratingUpstream = 'completed';
 
 		modal?.close();
@@ -206,14 +207,14 @@
 
 <Modal bind:this={modal} {onClose} width={520} noPadding onSubmit={integrate}>
 	<ScrollableContainer maxHeight={'70vh'}>
-		{#if $base}
+		{#if base}
 			<div class="section">
 				<h3 class="text-14 text-semibold section-title">
-					<span>Incoming changes</span><Badge>{$base.upstreamCommits.length}</Badge>
+					<span>Incoming changes</span><Badge>{base.upstreamCommits.length}</Badge>
 				</h3>
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight={pxToRem(268)}>
-						{#each $base.upstreamCommits as commit}
+						{#each base.upstreamCommits as commit}
 							{@const commitUrl = forge.current.commitUrl(commit.id)}
 							<SimpleCommitRow
 								title={commit.descriptionTitle ?? ''}
@@ -230,7 +231,7 @@
 			</div>
 		{/if}
 
-		{#if $base?.diverged}
+		{#if base?.diverged}
 			<div class="target-divergence">
 				<img class="target-icon" src="/images/domain-icons/trunk.svg" alt="" />
 

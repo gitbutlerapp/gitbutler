@@ -1,6 +1,6 @@
 <script lang="ts">
 	// This is always displayed in the context of not having a cooresponding vbranch or remote
-	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchController } from '$lib/branches/branchController';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { showError } from '$lib/notifications/toasts';
@@ -21,9 +21,11 @@
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 	const remotesService = getContext(RemotesService);
-	const baseBranchService = getContext(BaseBranchService);
 	const virtualBranchService = getContext(VirtualBranchService);
-	const baseRepo = $derived(baseBranchService.repo);
+	const baseBranchService = getContext(BaseBranchService);
+	const baseRepoResponse = $derived(baseBranchService.repo(project.id));
+	const baseRepo = $derived(baseRepoResponse.current.data);
+	const [fetchFromRemotes] = baseBranchService.fetchFromRemotes;
 
 	let inputRemoteName = $state<string>(pr.repoOwner || '');
 
@@ -36,10 +38,9 @@
 	}
 
 	function getRemoteUrl() {
-		const repo = $baseRepo;
-		if (!repo) return;
+		if (!baseRepo) return;
 
-		if ($baseRepo?.protocol?.startsWith('http')) {
+		if (baseRepo.protocol?.startsWith('http')) {
 			return pr.repositoryHttpsUrl;
 		} else {
 			return pr.repositorySshUrl;
@@ -58,7 +59,7 @@
 		try {
 			const remoteRef = 'refs/remotes/' + inputRemoteName + '/' + pr.sourceBranch;
 			await remotesService.addRemote(project.id, inputRemoteName, remoteUrl);
-			await baseBranchService.fetchFromRemotes();
+			await fetchFromRemotes({ projectId: project.id });
 			await branchController.createvBranchFromBranch(remoteRef, remoteRef, pr.number);
 			await virtualBranchService.refresh();
 

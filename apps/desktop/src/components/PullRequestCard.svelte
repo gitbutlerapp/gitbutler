@@ -3,7 +3,7 @@
 	import MergeButton from '$components/MergeButton.svelte';
 	import PullRequestPolling from '$components/PullRequestPolling.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { showError } from '$lib/notifications/toasts';
@@ -68,7 +68,11 @@
 	const childResult = $derived(stackService.branchChildByName(projectId, stackId, branchName));
 	const child = $derived(childResult.current.data);
 
-	const baseBranch = $derived(baseBranchService.base);
+	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
+	const baseBranch = $derived(baseBranchResponse.current.data);
+	const baseBranchRepoResponse = $derived(baseBranchService.repo(projectId));
+	const baseBranchRepo = $derived(baseBranchRepoResponse.current.data);
+	const [fetchFromRemotes] = baseBranchService.fetchFromRemotes;
 	const repoResult = $derived(repoService?.getInfo());
 	const repoInfo = $derived(repoResult?.current.data);
 
@@ -77,11 +81,10 @@
 		shouldUpdateTargetBaseBranch = repoInfo?.deleteBranchAfterMerge === false && !!child?.prNumber;
 	});
 
-	const baseBranchRepo = $derived(baseBranchService.repo);
 	const baseIsTargetBranch = $derived.by(() => {
 		if (forge.current.name === 'gitlab') return true;
 		return pr
-			? $baseBranch?.shortName === pr.baseBranch && $baseBranchRepo?.hash === pr.baseRepo?.hash
+			? baseBranch?.shortName === pr.baseBranch && baseBranchRepo?.hash === pr.baseRepo?.hash
 			: false;
 	});
 
@@ -276,15 +279,15 @@
 
 							// In a stack, after merging, update the new bottom PR target
 							// base branch to master if necessary
-							if ($baseBranch && shouldUpdateTargetBaseBranch && prService && child?.prNumber) {
-								const targetBase = $baseBranch.branchName.replace(`${$baseBranch.remoteName}/`, '');
+							if (baseBranch && shouldUpdateTargetBaseBranch && prService && child?.prNumber) {
+								const targetBase = baseBranch.branchName.replace(`${baseBranch.remoteName}/`, '');
 								await prService.update(child.prNumber, { targetBase });
 							}
 
 							await Promise.all([
-								baseBranchService.fetchFromRemotes(),
+								fetchFromRemotes({ projectId }),
 								vbranchService.refresh(),
-								baseBranchService.refresh()
+								baseBranchService.refreshBaseBranch(projectId)
 							]);
 						} catch (err) {
 							console.error(err);

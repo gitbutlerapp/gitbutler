@@ -1,7 +1,7 @@
 <script lang="ts">
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { getRemoteBranches } from '$lib/baseBranch/old_baseBranchService';
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchController } from '$lib/branches/branchController';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { Project } from '$lib/project/project';
@@ -11,12 +11,14 @@
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 
+	const project = getContext(Project);
+	const projectId = $derived(project.id);
 	const baseBranch = getContextStore(BaseBranch);
 	const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
+	const baseBranchService = getContext(BaseBranchService);
+	const remoteBranchesResponse = $derived(baseBranchService.remoteBranches(projectId));
 	const activeBranches = vbranchService.branches;
-
-	let project = getContext(Project);
 
 	let selectedBranch = $state({ name: $baseBranch.branchName });
 	let selectedRemote = $state({ name: $baseBranch.actualPushRemoteName() });
@@ -50,13 +52,14 @@
 	}
 </script>
 
-{#await getRemoteBranches(project.id)}
+{#if remoteBranchesResponse.current.isLoading}
 	<InfoMessage filled outlined={false} icon="info">
 		{#snippet content()}
 			Loading remote branches...
 		{/snippet}
 	</InfoMessage>
-{:then remoteBranches}
+{:else if remoteBranchesResponse.current.isSuccess}
+	{@const remoteBranches = remoteBranchesResponse.current.data}
 	{#if remoteBranches.length > 0}
 		<SectionCard>
 			{#snippet title()}
@@ -129,10 +132,10 @@
 			{/if}
 		</SectionCard>
 	{/if}
-{:catch}
+{:else if remoteBranchesResponse.current.isError}
 	<InfoMessage filled outlined={true} style="error" icon="error">
 		{#snippet title()}
 			We got an error trying to list your remote branches
 		{/snippet}
 	</InfoMessage>
-{/await}
+{/if}

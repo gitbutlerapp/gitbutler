@@ -11,7 +11,7 @@
 	import EmptyBranch from '$components/v3/EmptyBranch.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/v3/lib';
-	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchController } from '$lib/branches/branchController';
 	import {
 		AmendCommitWithChangeDzHandler,
@@ -49,8 +49,9 @@
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
 	const commitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
-	const base = $derived(baseBranchService.base);
-	const baseSha = $derived($base?.baseSha);
+	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
+	const base = $derived(baseBranchResponse.current.data);
+	const baseSha = $derived(base?.baseSha);
 
 	const drawer = $derived(uiState.project(projectId).drawerPage.get());
 	const isCommitting = $derived(drawer.current === 'new-commit');

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import SyncButton from '$components/SyncButton.svelte';
 	import IntegrateUpstreamModal from '$components/v3/IntegrateUpstreamModal.svelte';
-	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
@@ -24,10 +24,14 @@
 	const projectsService = getContext(ProjectsService);
 	const baseBranchService = getContext(BaseBranchService);
 	const project = maybeGetContext(Project);
+	const selectedProjectId: string | undefined = $derived(project ? project.id : undefined);
+	const baseReponse = $derived(
+		selectedProjectId ? baseBranchService.baseBranch(selectedProjectId) : undefined
+	);
+	const base = $derived(baseReponse?.current.data);
 
 	const projects = $derived(projectsService.projects);
-	const base = $derived(baseBranchService.base);
-	const upstreamCommits = $derived($base?.behind ?? 0);
+	const upstreamCommits = $derived(base?.behind ?? 0);
 
 	let modal = $state<ReturnType<typeof IntegrateUpstreamModal>>();
 
@@ -37,8 +41,6 @@
 			label: project.title
 		})) || []
 	);
-
-	const selectedProjectId: string | undefined = $derived(project ? project.id : undefined);
 
 	let newProjectLoading = $state(false);
 	let cloneProjectLoading = $state(false);
