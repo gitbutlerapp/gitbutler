@@ -7,10 +7,12 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use but_core::Reference;
+use but_rebase::ReferenceSpec;
 use git2::Commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_id::id::Id;
+use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
 use gitbutler_repo::logging::LogUntil;
 use gitbutler_repo::logging::RepositoryExt as _;
@@ -721,6 +723,21 @@ impl Stack {
         }
         state.set_stack(self.clone())?;
         Ok(())
+    }
+
+    /// Sets the stack heads according to the output from the rebase of a `but-rebase` rebase operation
+    pub fn set_heads_from_rebase_output(
+        &mut self,
+        ctx: &CommandContext,
+        references: Vec<ReferenceSpec>,
+    ) -> anyhow::Result<()> {
+        let mut new_heads: HashMap<String, Commit<'_>> = HashMap::new();
+        for spec in &references {
+            let commit = ctx.repo().find_commit(spec.commit_id.to_git2())?;
+            new_heads.insert(spec.reference.to_string(), commit);
+        }
+
+        self.set_all_heads(ctx, new_heads)
     }
 
     /// Migrates all change IDs in stack heads to commit IDs.

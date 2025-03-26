@@ -2891,6 +2891,7 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-core",
+ "but-rebase",
  "git2",
  "gitbutler-command-context",
  "gitbutler-commit",
