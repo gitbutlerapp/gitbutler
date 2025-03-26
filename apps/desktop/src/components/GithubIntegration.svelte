@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import { GitHubUserService } from '$lib/forge/github/githubUserService';
+	import { GitHubUserService } from '$lib/forge/github/githubUserService.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext } from '@gitbutler/shared/context';
