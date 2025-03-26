@@ -2,6 +2,11 @@ import { AnthropicAIClient } from '$lib/ai/anthropicClient';
 import { ButlerAIClient } from '$lib/ai/butlerClient';
 import { formatStagedChanges } from '$lib/ai/diffFormatting';
 import {
+	DEFAULT_MLX_ENDPOINT,
+	DEFAULT_MLX_MODEL_NAME,
+	MLXClient
+} from '$lib/ai/mlxClient';
+import {
 	DEFAULT_OLLAMA_ENDPOINT,
 	DEFAULT_OLLAMA_MODEL_NAME,
 	OllamaClient
@@ -51,7 +56,9 @@ export enum GitAIConfigKey {
 	AnthropicModelName = 'gitbutler.aiAnthropicModelName',
 	DiffLengthLimit = 'gitbutler.diffLengthLimit',
 	OllamaEndpoint = 'gitbutler.aiOllamaEndpoint',
-	OllamaModelName = 'gitbutler.aiOllamaModelName'
+	OllamaModelName = 'gitbutler.aiOllamaModelName',
+	MlxModelName = 'gitbutler.aiMlxModelName',
+	MlxEndpoint = 'gitbutler.aiMlxEndpoint'
 }
 
 interface BaseAIServiceOpts {
@@ -189,6 +196,20 @@ export class AIService {
 		);
 	}
 
+	async getMlxEndpoint() {
+		return await this.gitConfig.getWithDefault<string>(
+			GitAIConfigKey.MlxEndpoint,
+			DEFAULT_MLX_ENDPOINT
+		);
+	}
+
+	async getMlxModelName() {
+		return await this.gitConfig.getWithDefault<string>(
+			GitAIConfigKey.MlxModelName,
+			DEFAULT_MLX_MODEL_NAME
+		);
+	}
+
 	async usingGitButlerAPI() {
 		const modelKind = await this.getModelKind();
 		const openAIKeyOption = await this.getOpenAIKeyOption();
@@ -208,6 +229,8 @@ export class AIService {
 		const anthropicKey = await this.getAnthropicKey();
 		const ollamaEndpoint = await this.getOllamaEndpoint();
 		const ollamaModelName = await this.getOllamaModelName();
+		const mlxEndpoint = await this.getMlxEndpoint();
+		const mlxModelName = await this.getMlxModelName();
 
 		if (await this.usingGitButlerAPI()) return !!get(this.tokenMemoryService.token);
 
@@ -215,9 +238,10 @@ export class AIService {
 		const anthropicActiveAndKeyProvided = modelKind === ModelKind.Anthropic && !!anthropicKey;
 		const ollamaActiveAndEndpointProvided =
 			modelKind === ModelKind.Ollama && !!ollamaEndpoint && !!ollamaModelName;
+		const mlxActiveAndEndpointProvided = modelKind === ModelKind.MLX && !!mlxEndpoint && !!mlxModelName;
 
 		return (
-			openAIActiveAndKeyProvided || anthropicActiveAndKeyProvided || ollamaActiveAndEndpointProvided
+			openAIActiveAndKeyProvided || anthropicActiveAndKeyProvided || ollamaActiveAndEndpointProvided || mlxActiveAndEndpointProvided
 		);
 	}
 
@@ -241,6 +265,12 @@ export class AIService {
 			const ollamaEndpoint = await this.getOllamaEndpoint();
 			const ollamaModelName = await this.getOllamaModelName();
 			return new OllamaClient(ollamaEndpoint, ollamaModelName);
+		}
+
+		if (modelKind === ModelKind.MLX) {
+			const mlxEndpoint = await this.getMlxEndpoint();
+			const mlxModelName = await this.getMlxModelName();
+			return ok(new MLXClient(mlxEndpoint, mlxModelName));
 		}
 
 		if (modelKind === ModelKind.OpenAI) {
