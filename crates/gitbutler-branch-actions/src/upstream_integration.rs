@@ -702,7 +702,12 @@ fn compute_resolutions(
                     let BranchHeadAndTree {
                         head: new_head,
                         tree: new_tree,
-                    } = compute_updated_branch_head(repository, branch_stack, new_head.id())?;
+                    } = compute_updated_branch_head(
+                        repository,
+                        branch_stack,
+                        new_head.id(),
+                        context.ctx.app_settings().feature_flags.v3,
+                    )?;
 
                     Ok((
                         branch_stack.id,
@@ -793,7 +798,12 @@ fn compute_resolutions(
                     let BranchHeadAndTree {
                         head: new_head,
                         tree: new_tree,
-                    } = compute_updated_branch_head(repository, branch_stack, new_head)?;
+                    } = compute_updated_branch_head(
+                        repository,
+                        branch_stack,
+                        new_head,
+                        context.ctx.app_settings().feature_flags.v3,
+                    )?;
 
                     Ok((
                         branch_stack.id,

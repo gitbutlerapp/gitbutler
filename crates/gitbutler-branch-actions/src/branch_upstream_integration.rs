@@ -66,6 +66,7 @@ pub fn integrate_upstream_commits_for_series(
         remote_head: remote_head.id(),
         remote_branch_name: &subject_branch.remote_reference(&remote),
         strategy,
+        v3: ctx.app_settings().feature_flags.v3,
     };
 
     let (BranchHeadAndTree { head, tree }, new_series_head) =
@@ -130,6 +131,7 @@ pub fn integrate_upstream_commits(
         remote_head: upstream_branch_head,
         remote_branch_name: upstream_branch.name()?.unwrap_or("Unknown"),
         strategy: integration_strategy,
+        v3: ctx.app_settings().feature_flags.v3,
     };
 
     let BranchHeadAndTree { head, tree } =
@@ -173,6 +175,8 @@ struct IntegrateUpstreamContext<'a, 'b> {
 
     /// Strategy to use when integrating the upstream commits
     strategy: IntegrationStrategy,
+
+    v3: bool,
 }
 
 impl IntegrateUpstreamContext<'_, '_> {
@@ -259,6 +263,7 @@ impl IntegrateUpstreamContext<'_, '_> {
                 self.branch_head,
                 self.branch_tree,
                 new_stack_head,
+                self.v3,
             )?,
             new_series_head,
         ))
@@ -301,6 +306,7 @@ impl IntegrateUpstreamContext<'_, '_> {
             self.branch_head,
             self.branch_tree,
             new_head,
+            self.v3,
         )
     }
 }
@@ -571,6 +577,7 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
+                v3: false,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -626,6 +633,7 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
+                v3: false,
             };
 
             let (BranchHeadAndTree { head, tree: _tree }, new_series_head) = ctx
@@ -695,6 +703,7 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
+                v3: false,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -811,6 +820,7 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
+                v3: false,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -952,6 +962,7 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
+                v3: false,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -1050,6 +1061,7 @@ mod test {
                 remote_head: remote_b.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::HardReset,
+                v3: false,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -1116,6 +1128,7 @@ mod test {
                 remote_head: remote_c.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::HardReset,
+                v3: false,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -1183,6 +1196,7 @@ mod test {
                 remote_head: remote_b.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::HardReset,
+                v3: false,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =

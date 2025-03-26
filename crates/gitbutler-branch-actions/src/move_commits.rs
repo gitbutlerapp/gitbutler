@@ -149,7 +149,12 @@ fn take_commit_from_source_stack(
     let BranchHeadAndTree {
         head: new_head_oid,
         tree: new_tree_oid,
-    } = compute_updated_branch_head(repo, source_stack, new_source_head)?;
+    } = compute_updated_branch_head(
+        repo,
+        source_stack,
+        new_source_head,
+        ctx.app_settings().feature_flags.v3,
+    )?;
 
     source_stack.set_heads_from_rebase_output(ctx, output.references)?;
     source_stack.set_stack_head(ctx, new_head_oid, new_tree_oid)?;
@@ -184,13 +189,14 @@ fn move_commit_to_destination_stack(
     let BranchHeadAndTree {
         head: new_destination_head_oid,
         tree: new_destination_tree_oid,
-    } = compute_updated_branch_head(repo, &destination_stack, new_destination_head_oid)?;
+    } = compute_updated_branch_head(
+        repo,
+        &destination_stack,
+        new_destination_head_oid,
+        ctx.app_settings().feature_flags.v3,
+    )?;
 
     destination_stack.set_heads_from_rebase_output(ctx, output.references)?;
-    destination_stack.set_stack_head(
-        ctx,
-        new_destination_head_oid,
-        new_destination_tree_oid,
-    )?;
+    destination_stack.set_stack_head(ctx, new_destination_head_oid, new_destination_tree_oid)?;
     Ok(())
 }

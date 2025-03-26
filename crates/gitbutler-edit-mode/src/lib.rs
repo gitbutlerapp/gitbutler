@@ -265,7 +265,12 @@ pub(crate) fn save_and_return_to_workspace(
     let BranchHeadAndTree {
         head: new_branch_head,
         tree: new_branch_tree,
-    } = compute_updated_branch_head(repository, &virtual_branch, new_branch_head)?;
+    } = compute_updated_branch_head(
+        repository,
+        &virtual_branch,
+        new_branch_head,
+        ctx.app_settings().feature_flags.v3,
+    )?;
 
     virtual_branch.set_stack_head(ctx, new_branch_head, new_branch_tree)?;
 

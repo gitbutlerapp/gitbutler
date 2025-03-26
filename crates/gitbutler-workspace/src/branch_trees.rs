@@ -93,12 +93,15 @@ pub struct BranchHeadAndTree {
 /// This does not mutate the branch, or update the virtual_branches.toml.
 /// You probably also want to call [`checkout_branch_trees`] after you have
 /// mutated the virtual_branches.toml.
+///
+/// TODO: After v3, this function can be removed
 pub fn compute_updated_branch_head(
     repository: &git2::Repository,
     stack: &Stack,
     new_head: git2::Oid,
+    v3: bool,
 ) -> Result<BranchHeadAndTree> {
-    compute_updated_branch_head_for_commits(repository, stack.head(), stack.tree, new_head)
+    compute_updated_branch_head_for_commits(repository, stack.head(), stack.tree, new_head, v3)
 }
 
 /// Given a new head for a branch, this comptues how the tree should be
@@ -112,12 +115,22 @@ pub fn compute_updated_branch_head(
 /// This does not mutate the branch, or update the virtual_branches.toml.
 /// You probably also want to call [`checkout_branch_trees`] after you have
 /// mutated the virtual_branches.toml.
+///
+/// TODO: After v3, this function can be removed
 pub fn compute_updated_branch_head_for_commits(
     repository: &git2::Repository,
     old_head: git2::Oid,
     old_tree: git2::Oid,
     new_head: git2::Oid,
+    v3: bool,
 ) -> Result<BranchHeadAndTree> {
+    if v3 {
+        return Ok(BranchHeadAndTree {
+            head: new_head,
+            tree: None,
+        });
+    }
+
     let (author, committer) = repository.signatures()?;
 
     let commited_tree = repository.commit_with_signature(

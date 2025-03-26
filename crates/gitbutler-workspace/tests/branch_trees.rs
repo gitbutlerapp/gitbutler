@@ -45,7 +45,8 @@ mod compute_updated_branch_head {
         let stack = make_branch(head.id(), tree.tree_id());
 
         let BranchHeadAndTree { head, tree } =
-            compute_updated_branch_head(&test_repository.repository, &stack, head.id()).unwrap();
+            compute_updated_branch_head(&test_repository.repository, &stack, head.id(), false)
+                .unwrap();
 
         assert_eq!(head, stack.head());
         assert_eq!(tree, Some(stack.tree));
@@ -72,7 +73,7 @@ mod compute_updated_branch_head {
         let new_head = test_repository.commit_tree(Some(&base_commit), &[("foo.txt", "new")]);
 
         let BranchHeadAndTree { head, tree } =
-            compute_updated_branch_head(&test_repository.repository, &stack, new_head.id())
+            compute_updated_branch_head(&test_repository.repository, &stack, new_head.id(), false)
                 .unwrap();
 
         assert_eq!(head, new_head.id());
@@ -102,7 +103,7 @@ mod compute_updated_branch_head {
         let new_head = test_repository.commit_tree(Some(&base_commit), &[("foo.txt", "new")]);
 
         let BranchHeadAndTree { head, tree } =
-            compute_updated_branch_head(&test_repository.repository, &stack, new_head.id())
+            compute_updated_branch_head(&test_repository.repository, &stack, new_head.id(), false)
                 .unwrap();
 
         let new_new_head = test_repository.repository.find_commit(head).unwrap();

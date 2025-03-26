@@ -197,7 +197,12 @@ fn do_squash_commits(
     let BranchHeadAndTree {
         head: new_head_oid,
         tree: new_tree_oid,
-    } = compute_updated_branch_head(ctx.repo(), &stack, new_stack_head)?;
+    } = compute_updated_branch_head(
+        ctx.repo(),
+        &stack,
+        new_stack_head,
+        ctx.app_settings().feature_flags.v3,
+    )?;
 
     stack.set_stack_head(ctx, new_head_oid, new_tree_oid)?;
 

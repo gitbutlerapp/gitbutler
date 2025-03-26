@@ -71,7 +71,13 @@ pub fn reorder_stack(
     let BranchHeadAndTree {
         head: new_head_oid,
         tree: new_tree_oid,
-    } = compute_updated_branch_head_for_commits(repo, old_head.id(), stack.tree, new_head)?;
+    } = compute_updated_branch_head_for_commits(
+        repo,
+        old_head.id(),
+        stack.tree,
+        new_head,
+        ctx.app_settings().feature_flags.v3,
+    )?;
 
     // Ensure the stack head is set to the new oid after rebasing
     stack.set_stack_head(ctx, new_head_oid, new_tree_oid)?;
