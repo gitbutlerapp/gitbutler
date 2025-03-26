@@ -56,7 +56,7 @@
 	<Select
 		value={$lastTemplate}
 		options={templates.map((value) => ({ label: value, value }))}
-		placeholder={templates.length > 0 ? 'Choose template' : 'No PR templates found ¯_(ツ)_/¯'}
+		placeholder={templates.length > 0 ? 'Choose template' : 'No PR templates found ¯\\_(ツ)_/¯'}
 		wide
 		searchable
 		disabled={templates.length === 0}
