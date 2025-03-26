@@ -2,17 +2,14 @@
 	import Tooltip from '$lib/Tooltip.svelte';
 	import FileIcon from '$lib/file/FileIcon.svelte';
 	import { splitFilePath } from '$lib/utils/filePath';
-	import type { FileStatus } from '$lib/file/types';
 
 	interface Props {
-		ref?: HTMLDivElement;
 		filePath: string;
-		fileStatus?: FileStatus;
-		draggable?: boolean;
+		hideFilePath?: boolean;
 		textSize?: '12' | '13';
 	}
 
-	let { ref = $bindable(), filePath, textSize = '12' }: Props = $props();
+	let { filePath, textSize = '12', hideFilePath }: Props = $props();
 	const fileNameAndPath = $derived(splitFilePath(filePath));
 	const filePathParts = $derived({
 		first: fileNameAndPath.path.split('/').slice(0, -1).join('/'),
@@ -20,24 +17,24 @@
 	});
 </script>
 
-<div role="presentation" bind:this={ref} class="file-header">
+<div role="presentation" class="file-name">
 	<FileIcon fileName={fileNameAndPath.filename} size={16} />
-	<span class="text-{textSize} text-semibold file-header__name truncate">
+	<span class="text-{textSize} text-semibold file-name__name truncate">
 		{fileNameAndPath.filename}
 	</span>
 
-	{#if fileNameAndPath.path}
-		<div class="file-header__path-container">
+	{#if fileNameAndPath.path && !hideFilePath}
+		<div class="file-name__path-container">
 			<Tooltip text={filePath} delay={1200}>
-				<p class="text-12 file-header__path truncate">
+				<p class="text-12 file-name__path truncate">
 					{#if filePathParts.first}
-						<span class="file-header__path--first truncate">
+						<span class="file-name__path--first truncate">
 							{filePathParts.first}
 						</span>
 						/
 					{/if}
 
-					<span class="file-header__path--last truncate">
+					<span class="file-name__path--last truncate">
 						{filePathParts.last}
 					</span>
 				</p>
@@ -47,7 +44,7 @@
 </div>
 
 <style lang="postcss">
-	.file-header {
+	.file-name {
 		display: flex;
 		align-items: center;
 		flex-shrink: 1;
@@ -57,7 +54,7 @@
 		overflow: hidden;
 	}
 
-	.file-header__name {
+	.file-name__name {
 		flex-shrink: 1;
 		flex-grow: 0;
 		min-width: 40px;
@@ -65,7 +62,7 @@
 		color: var(--clt-text-1);
 	}
 
-	.file-header__path-container {
+	.file-name__path-container {
 		display: flex;
 		justify-content: flex-start;
 		flex-shrink: 0;
@@ -76,7 +73,7 @@
 		overflow: hidden;
 	}
 
-	.file-header__path {
+	.file-name__path {
 		display: flex;
 		align-items: center;
 		color: var(--clt-text-1);
@@ -86,13 +83,13 @@
 		text-align: left;
 	}
 
-	.file-header__path--first,
-	.file-header__path--last {
+	.file-name__path--first,
+	.file-name__path--last {
 		direction: rtl;
 		min-width: 2ch;
 	}
 
-	.file-header__path--first {
+	.file-name__path--first {
 		flex: 1;
 	}
 </style>

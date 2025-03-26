@@ -101,7 +101,7 @@
 		<Checkbox small {checked} {indeterminate} onchange={oncheck} />
 	{/if}
 
-	<FileName {filePath} />
+	<FileName {filePath} hideFilePath={listMode === 'tree'} />
 
 	<div class="details">
 		{#if locked}
