@@ -11,7 +11,7 @@
 <Story
 	name="Playground"
 	args={{
-		filePath: '/path/to/file.svelte',
+		filePath: 'path/to/components/file.svelte',
 		fileStatus: 'A',
 		fileStatusStyle: 'dot',
 		clickable: true,

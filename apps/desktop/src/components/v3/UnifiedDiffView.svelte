@@ -195,15 +195,13 @@
 <style lang="postcss">
 	.diff-section {
 		display: flex;
-		padding: 14px;
+		padding: 0 14px 14px 14px;
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 14px;
 		align-self: stretch;
 		overflow-x: hidden;
 		max-width: 100%;
-		background-color: var(--clr-bg-1);
-		border-bottom: 1px solid var(--clr-border-2);
 	}
 	.hunk-content-warning {
 		margin-left: 8px;

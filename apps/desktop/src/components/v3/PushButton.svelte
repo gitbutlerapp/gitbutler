@@ -6,9 +6,9 @@
 	} from '$lib/stacks/stack';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UserService } from '$lib/user/userService';
-	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 
 	type Props = {
 		projectId: string;

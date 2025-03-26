@@ -63,7 +63,6 @@
 	.files-list {
 		display: flex;
 		flex-direction: column;
-		align-items: flex-start;
 		overflow: hidden;
 		width: 100%;
 	}
