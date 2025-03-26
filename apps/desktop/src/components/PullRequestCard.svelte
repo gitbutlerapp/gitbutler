@@ -53,7 +53,7 @@
 	const branch = $derived(branchResult.current.data);
 	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const branchDetails = $derived(branchDetailsResult.current.data);
-	const isPushed = $derived(branchDetails?.pushStatus === 'nothingToPush');
+	const isPushed = $derived(branchDetails?.pushStatus !== 'completelyUnpushed');
 	const prResult = $derived(branch?.prNumber ? prService?.get(branch?.prNumber) : undefined);
 	const pr = $derived(prResult?.current.data);
 
@@ -64,7 +64,7 @@
 		parent ? stackService.branchDetails(projectId, stackId, parent.name) : undefined
 	);
 	const parentBranchDetails = $derived(parentBranchDetailsResult?.current.data);
-	const parentIsPushed = $derived(parentBranchDetails?.pushStatus === 'completelyUnpushed');
+	const parentIsPushed = $derived(parentBranchDetails?.pushStatus !== 'completelyUnpushed');
 	const childResult = $derived(stackService.branchChildByName(projectId, stackId, branchName));
 	const child = $derived(childResult.current.data);
 
