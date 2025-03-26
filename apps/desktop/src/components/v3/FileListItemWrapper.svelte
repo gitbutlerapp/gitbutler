@@ -20,7 +20,6 @@
 		change: TreeChange;
 		selectedFile: SelectionId;
 		selected?: boolean;
-		showCheckbox?: boolean;
 		isHeader?: boolean;
 		listActive?: boolean;
 		listMode: 'list' | 'tree';
