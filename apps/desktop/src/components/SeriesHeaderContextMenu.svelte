@@ -26,14 +26,10 @@
 		pr?: DetailedPullRequest;
 		branchType: CommitStatus;
 		description: string;
-		parentIsPushed: boolean;
-		hasParent: boolean;
 		stackId: string;
 		toggleDescription: () => Promise<void>;
 		onGenerateBranchName: () => void;
-		openPrDetailsModal: () => void;
 		onAddDependentSeries?: () => void;
-		onCreateNewPr?: () => Promise<void>;
 		onOpenInBrowser?: () => void;
 		onMenuToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
@@ -49,13 +45,9 @@
 		pr,
 		branchType,
 		description,
-		parentIsPushed,
-		hasParent,
 		stackId,
 		toggleDescription,
 		onGenerateBranchName,
-		openPrDetailsModal,
-		onCreateNewPr,
 		onAddDependentSeries,
 		onOpenInBrowser,
 		onMenuToggle
@@ -180,24 +172,6 @@
 				onclick={() => {
 					writeClipboard(pr.htmlUrl);
 					contextMenuEl?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Show PR details"
-				onclick={() => {
-					openPrDetailsModal();
-					contextMenuEl?.close();
-				}}
-			/>
-		</ContextMenuSection>
-	{/if}
-	{#if onCreateNewPr && pr?.state === 'closed'}
-		<ContextMenuSection>
-			<ContextMenuItem
-				disabled={hasParent && !parentIsPushed}
-				label="Create new PR"
-				onclick={async () => {
-					await onCreateNewPr();
 				}}
 			/>
 		</ContextMenuSection>

@@ -65,6 +65,7 @@
 	);
 
 	let modal = $state<Modal>();
+	let confirmCreatePrModal = $state<ReturnType<typeof Modal>>();
 	let reviewCreation = $state<ReviewCreation>();
 
 	syncPrToBr(
@@ -76,6 +77,29 @@
 		reactive(() => reviewId)
 	);
 </script>
+
+<Modal
+	width="small"
+	type="warning"
+	title="Create Pull Request"
+	bind:this={confirmCreatePrModal}
+	onSubmit={() => {
+		modal?.show();
+	}}
+>
+	{#snippet children()}
+		<p class="text-13 text-body helper-text">
+			It's strongly recommended to create pull requests starting with the branch at the base of the
+			stack.
+			<br />
+			Do you still want to create this pull request?
+		</p>
+	{/snippet}
+	{#snippet controls(close)}
+		<Button kind="outline" onclick={close}>Cancel</Button>
+		<Button style="warning" type="submit">Create Pull Request</Button>
+	{/snippet}
+</Modal>
 
 <Modal bind:this={modal} title="Submit changes for review">
 	<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} />

@@ -5,7 +5,6 @@
 	import BranchStatus from '$components/BranchStatus.svelte';
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
-	import ReviewDetailsModal from '$components/ReviewCreation.svelte';
 	import SeriesDescription from '$components/SeriesDescription.svelte';
 	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
 	import SeriesHeaderStatusIcon from '$components/SeriesHeaderStatusIcon.svelte';
@@ -15,7 +14,7 @@
 	import { BranchStack } from '$lib/branches/branch';
 	import { PatchSeries } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
-	import { allPreviousSeriesHavePrNumber, parentBranch } from '$lib/branches/virtualBranchService';
+	import { parentBranch } from '$lib/branches/virtualBranchService';
 	import { type CommitStatus } from '$lib/commits/commit';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -25,9 +24,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContextStore, inject } from '@gitbutler/shared/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
@@ -66,15 +63,10 @@
 
 	const upstreamName = $derived(branch.upstreamReference ? branch.name : undefined);
 	const forgeBranch = $derived(upstreamName ? forge.current.branch(upstreamName) : undefined);
-	const previousSeriesHavePrNumber = $derived(
-		allPreviousSeriesHavePrNumber(branch.name, stack.validSeries)
-	);
 
 	let stackingAddSeriesModal = $state<ReturnType<typeof AddSeriesModal>>();
-	let prDetailsModal = $state<ReturnType<typeof ReviewDetailsModal>>();
 	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let stackingContextMenu = $state<ReturnType<typeof SeriesHeaderContextMenu>>();
-	let confirmCreatePrModal = $state<ReturnType<typeof Modal>>();
 	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
 	let seriesHeaderEl = $state<HTMLDivElement>();
 	let seriesDescriptionEl = $state<HTMLTextAreaElement>();
@@ -121,19 +113,6 @@
 			branchController.updateBranchPrNumber(stack.id, branch.name, listedPr.number);
 		}
 	});
-
-	function confirmCreatePR(close: () => void) {
-		close();
-		prDetailsModal?.show();
-	}
-
-	function handleOpenBranchReview() {
-		if (!previousSeriesHavePrNumber) {
-			confirmCreatePrModal?.show();
-			return;
-		}
-		prDetailsModal?.show();
-	}
 
 	function editTitle(title: string) {
 		if (branch?.name && title !== branch.name) {
@@ -182,27 +161,6 @@
 		}
 	}
 
-	async function onCreateNewPr() {
-		// Make sure the listing result is up-to-date so that we don't
-		// automatically set it back to what it was. If a branch has no
-		// pr attached we look for any open prs with a matching branch
-		// name, and save it to the branch.
-		await forgeListing?.refresh(projectId);
-
-		if (!branch.prNumber) {
-			throw new Error('Failed to discard pr, try reloading the app.');
-		}
-
-		// Delete the reference stored on disk.
-		branchController.updateBranchPrNumber(stack.id, branch.name, null);
-		kebabContextMenu?.close();
-
-		// Display create pr modal after a slight delay, this prevents
-		// interference with the closing context menu. It also feels nice
-		// that these two things are not happening at the same time.
-		setTimeout(() => handleOpenBranchReview(), 250);
-	}
-
 	closedStateSync(reactive(() => branch));
 
 	const dzHandler = $derived(new MoveCommitDzHandler(branchController, stack));
@@ -229,16 +187,12 @@
 	}}
 	hasForgeBranch={!!forgeBranch}
 	{pr}
-	openPrDetailsModal={handleOpenBranchReview}
 	{branchType}
 	onMenuToggle={(isOpen, isLeftClick) => {
 		if (isLeftClick) {
 			contextMenuOpened = isOpen;
 		}
 	}}
-	{parentIsPushed}
-	{hasParent}
-	{onCreateNewPr}
 />
 
 <div
@@ -341,27 +295,6 @@
 				</div>
 			</div>
 		{/if}
-
-		<Modal
-			width="small"
-			type="warning"
-			title="Create Pull Request"
-			bind:this={confirmCreatePrModal}
-			onSubmit={confirmCreatePR}
-		>
-			{#snippet children()}
-				<p class="text-13 text-body helper-text">
-					It's strongly recommended to create pull requests starting with the branch at the base of
-					the stack.
-					<br />
-					Do you still want to create this pull request?
-				</p>
-			{/snippet}
-			{#snippet controls(close)}
-				<Button kind="outline" onclick={close}>Cancel</Button>
-				<Button style="warning" type="submit">Create Pull Request</Button>
-			{/snippet}
-		</Modal>
 	</Dropzone>
 </div>
 
