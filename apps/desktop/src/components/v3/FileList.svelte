@@ -3,6 +3,8 @@
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
 	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
+	import FileTree from '$components/v3/FileTree.svelte';
+	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -36,10 +38,11 @@
 		projectId: string;
 		stackId?: string;
 		changes: TreeChange[];
+		listMode: 'list' | 'tree';
 		selectionId: CommitProps | BranchProps | WorktreeProps;
 	};
 
-	const { projectId, stackId, changes, selectionId }: Props = $props();
+	const { projectId, stackId, changes, listMode, selectionId }: Props = $props();
 
 	const [uiState] = inject(UiState);
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
@@ -77,6 +80,21 @@
 	);
 </script>
 
+{#snippet fileWrapper(change: TreeChange, idx: number)}
+	<FileListItemWrapper
+		selectedFile={selectionId}
+		{change}
+		{projectId}
+		{listActive}
+		{listMode}
+		showCheckbox={showCheckboxes}
+		selected={idSelection.has(change.path, selectionId)}
+		onclick={(e) => {
+			selectFilesInList(e, change, visibleFiles, idSelection, true, idx, selectionId);
+		}}
+	/>
+{/snippet}
+
 {#if visibleFiles.length > 0}
 	<div class="file-list hide-native-scrollbar">
 		<ScrollableContainer wide>
@@ -90,19 +108,14 @@
 				role="listbox"
 				onkeydown={handleKeyDown}
 			>
-				{#each visibleFiles as change, idx (change.path)}
-					<FileListItemWrapper
-						selectedFile={selectionId}
-						{change}
-						{projectId}
-						{listActive}
-						showCheckbox={showCheckboxes}
-						selected={idSelection.has(change.path, selectionId)}
-						onclick={(e) => {
-							selectFilesInList(e, change, visibleFiles, idSelection, true, idx, selectionId);
-						}}
-					/>
-				{/each}
+				{#if listMode === 'tree'}
+					{@const node = abbreviateFolders(changesToFileTree(changes))}
+					<FileTree {stackId} {changes} {node} expanded {showCheckboxes} {fileWrapper} />
+				{:else}
+					{#each visibleFiles as change, idx (change.path)}
+						{@render fileWrapper(change, idx)}
+					{/each}
+				{/if}
 			</LazyloadContainer>
 		</ScrollableContainer>
 	</div>

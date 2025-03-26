@@ -52,3 +52,14 @@ export function selectSelectNthAfterId<T>() {
 		}
 	);
 }
+
+export function createSelectByPrefix<T>() {
+	return createSelector(
+		[(state: EntityState<T, string>) => state, (state_, prefix: string) => prefix],
+		(state, prefix) =>
+			state.ids
+				.filter((id) => id.startsWith(prefix))
+				.map((id) => state.entities[id])
+				.filter(isDefined)
+	);
+}

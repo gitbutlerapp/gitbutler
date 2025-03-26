@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import FileList from '$components/v3/FileList.svelte';
+	import FileListMode from '$components/v3/FileListMode.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
@@ -50,6 +51,8 @@
 
 	const focusedArea = $derived(focus.current);
 
+	let listMode: 'list' | 'tree' = $state('list');
+
 	$effect(() => {
 		// If the focused area updates and it matches "left" then we update what
 		// selection should be shown in the main view.
@@ -68,10 +71,13 @@
 <ReduxResult result={changesResult.current}>
 	{#snippet children(changes)}
 		<div class="worktree-header text-14 text-semibold">
-			<h3>Uncommitted changes</h3>
-			{#if changes.length > 0}
-				<Badge>{changes.length}</Badge>
-			{/if}
+			<div class="header-left">
+				<h3>Uncommitted changes</h3>
+				{#if changes.length > 0}
+					<Badge>{changes.length}</Badge>
+				{/if}
+			</div>
+			<FileListMode bind:mode={listMode} persist="uncommitted" />
 		</div>
 		{#if changes.length > 0}
 			<div class="uncommitted-changes">
@@ -80,6 +86,7 @@
 					{projectId}
 					{stackId}
 					{changes}
+					{listMode}
 				/>
 				<div class="start-commit">
 					<Button
@@ -111,10 +118,17 @@
 		display: flex;
 		padding: 14px 8px 12px 14px;
 		width: 100%;
-		gap: 4px;
 		align-items: center;
 		text-wrap: nowrap;
 		overflow: hidden;
+		justify-content: space-between;
+		white-space: nowrap;
+	}
+
+	.header-left {
+		display: flex;
+		align-items: center;
+		gap: 4px;
 	}
 
 	.uncommitted-changes {

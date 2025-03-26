@@ -1,3 +1,4 @@
+import { createSelectByPrefix } from '$lib/state/customSelectors';
 import { type Reactive, reactive } from '@gitbutler/shared/storeUtils';
 import { type LineId } from '@gitbutler/ui/utils/diffParsing';
 import {
@@ -58,6 +59,7 @@ export const changeSelectionAdapter = createEntityAdapter<SelectedFile, Selected
 });
 
 const { selectById, selectAll } = changeSelectionAdapter.getSelectors();
+const selectByPrefix = createSelectByPrefix<SelectedFile>();
 
 export const changeSelectionSlice = createSlice({
 	name: 'changeSelection',
@@ -94,6 +96,11 @@ export class ChangeSelectionService {
 
 	getById(path: string): Reactive<SelectedFile | undefined> {
 		const selected = $derived(selectById(this.state, path));
+		return reactive(() => selected);
+	}
+
+	getByPrefix(path: string): Reactive<SelectedFile[]> {
+		const selected = $derived(selectByPrefix(this.state, path));
 		return reactive(() => selected);
 	}
 

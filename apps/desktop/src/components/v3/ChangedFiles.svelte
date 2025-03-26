@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import FileList from '$components/v3/FileList.svelte';
+	import FileListMode from '$components/v3/FileListMode.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
@@ -36,6 +37,8 @@
 				return 'All changed files';
 		}
 	});
+
+	let listMode: 'list' | 'tree' = $state('tree');
 </script>
 
 {#if changesResult}
@@ -43,11 +46,14 @@
 		<ReduxResult result={changesResult.current}>
 			{#snippet children(changes)}
 				<div class="header text-13 text-bold">
-					<span>{headerTitle}</span>
-					<Badge>{changes.length}</Badge>
+					<div class="header-left">
+						<span>{headerTitle}</span>
+						<Badge>{changes.length}</Badge>
+					</div>
+					<FileListMode bind:mode={listMode} persist="committed" />
 				</div>
 				{#if changes.length > 0}
-					<FileList {projectId} {stackId} {changes} {selectionId} />
+					<FileList {projectId} {stackId} {changes} {listMode} {selectionId} />
 				{:else}
 					<div class="text-12 text-body helper-text">(no changed files)</div>
 				{/if}
@@ -69,6 +75,13 @@
 
 	.header {
 		padding: 14px 14px 16px 14px;
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		justify-content: space-between;
+	}
+
+	.header-left {
 		display: flex;
 		align-items: center;
 		gap: 4px;

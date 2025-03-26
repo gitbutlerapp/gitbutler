@@ -35,7 +35,7 @@
 
 <ReduxResult result={changeResult.current}>
 	{#snippet children(change)}
-		<FileListItemWrapper {selectedFile} {projectId} {change} isHeader />
+		<FileListItemWrapper {selectedFile} {projectId} {change} isHeader listMode="list" />
 		<UnifiedDiffView {projectId} {change} selectable />
 	{/snippet}
 </ReduxResult>

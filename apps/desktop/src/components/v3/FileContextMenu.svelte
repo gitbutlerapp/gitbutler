@@ -163,6 +163,7 @@
 							filePath={change.path}
 							fileStatus={computeChangeStatus(change)}
 							clickable={false}
+							listMode="list"
 						/>
 					{/each}
 				</ul>

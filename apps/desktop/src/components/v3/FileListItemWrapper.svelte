@@ -21,6 +21,7 @@
 		showCheckbox?: boolean;
 		isHeader?: boolean;
 		listActive?: boolean;
+		listMode: 'list' | 'tree';
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 	}
@@ -33,6 +34,7 @@
 		showCheckbox,
 		isHeader,
 		listActive,
+		listMode,
 		onclick,
 		onkeydown
 	}: Props = $props();
@@ -74,6 +76,7 @@
 </script>
 
 <div
+	class="file-list-item-wrapper"
 	bind:this={draggableEl}
 	class:is-header={isHeader}
 	use:draggableChips={{
@@ -100,6 +103,7 @@
 		{showCheckbox}
 		checked={!!selection.current}
 		{listActive}
+		{listMode}
 		{indeterminate}
 		draggable={true}
 		{onkeydown}
@@ -115,6 +119,10 @@
 </div>
 
 <style lang="postcss">
+	.file-list-item-wrapper {
+		width: 100%;
+		overflow: hidden;
+	}
 	.is-header {
 		position: sticky;
 		top: 0;
