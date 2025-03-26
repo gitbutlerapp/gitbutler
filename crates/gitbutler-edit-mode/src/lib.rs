@@ -24,7 +24,8 @@ use gitbutler_reference::{ReferenceName, Refname};
 use gitbutler_repo::{rebase::cherry_rebase, RepositoryExt};
 use gitbutler_repo::{signature, SignaturePurpose};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
-use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree};
+#[allow(deprecated)]
+use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head};
 use serde::Serialize;
 
 pub mod commands;
@@ -262,12 +263,15 @@ pub(crate) fn save_and_return_to_workspace(
         .unwrap_or(new_commit_oid);
 
     // Update virtual_branch
-    let BranchHeadAndTree {
-        head: new_branch_head,
-        tree: new_branch_tree,
-    } = compute_updated_branch_head(repository, &virtual_branch, new_branch_head)?;
+    let (new_branch_head, new_branch_tree) = if ctx.app_settings().feature_flags.v3 {
+        (new_branch_head, None)
+    } else {
+        #[allow(deprecated)]
+        let res = compute_updated_branch_head(ctx.repo(), &virtual_branch, new_branch_head)?;
+        (res.head, Some(res.tree))
+    };
 
-    virtual_branch.set_stack_head(ctx, new_branch_head, Some(new_branch_tree))?;
+    virtual_branch.set_stack_head(ctx, new_branch_head, new_branch_tree)?;
 
     // Switch branch to gitbutler/workspace
     repository

@@ -13,7 +13,8 @@ use gitbutler_repo::{
     RepositoryExt as _,
 };
 use gitbutler_stack::{stack_context::CommandContextExt, StackId};
-use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree};
+#[allow(deprecated)]
+use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head};
 use itertools::Itertools;
 
 use crate::{
@@ -194,12 +195,15 @@ fn do_squash_commits(
 
     let new_stack_head = output.top_commit.to_git2();
 
-    let BranchHeadAndTree {
-        head: new_head_oid,
-        tree: new_tree_oid,
-    } = compute_updated_branch_head(ctx.repo(), &stack, new_stack_head)?;
+    let (new_head_oid, new_tree_oid) = if ctx.app_settings().feature_flags.v3 {
+        (new_stack_head, None)
+    } else {
+        #[allow(deprecated)]
+        let res = compute_updated_branch_head(ctx.repo(), &stack, new_stack_head)?;
+        (res.head, Some(res.tree))
+    };
 
-    stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;
+    stack.set_stack_head(ctx, new_head_oid, new_tree_oid)?;
 
     checkout_branch_trees(ctx, perm)?;
     crate::integration::update_workspace_commit(&vb_state, ctx)

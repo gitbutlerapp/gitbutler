@@ -1,3 +1,4 @@
+#[allow(deprecated)]
 mod branch_trees;
 
 mod checkout_branch_trees {
