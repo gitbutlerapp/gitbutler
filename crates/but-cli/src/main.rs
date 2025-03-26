@@ -30,6 +30,7 @@ fn main() -> Result<()> {
             message,
             amend,
             parent,
+            workspace_tip,
             stack_segment_ref,
         } => {
             let (repo, project) = repo_and_maybe_project(&args, RepositoryOpenMode::Merge)?;
@@ -40,6 +41,7 @@ fn main() -> Result<()> {
                 *amend,
                 parent.as_deref(),
                 stack_segment_ref.as_deref(),
+                workspace_tip.as_deref(),
             )
         }
         args::Subcommands::HunkDependency => command::diff::locks(&args.current_dir),

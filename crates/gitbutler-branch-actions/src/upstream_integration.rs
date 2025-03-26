@@ -1,10 +1,9 @@
-use std::collections::HashMap;
-
-use crate::stack::{branch_integrated, stack_as_rebase_steps};
+use crate::stack::branch_integrated;
 use crate::{r#virtual::IsCommitIntegrated, BranchManagerExt, VirtualBranchesExt as _};
 use anyhow::{anyhow, bail, Context, Result};
 use but_core::Reference;
 use but_rebase::{RebaseOutput, RebaseStep};
+use but_workspace::stack_ext::StackExt;
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
@@ -568,14 +567,7 @@ pub(crate) fn integrate_upstream(
 
             // Update the branch heads
             if let Some(output) = rebase_output {
-                let mut new_heads: HashMap<String, git2::Commit<'_>> = HashMap::new();
-                for spec in &output.references {
-                    let commit = command_context
-                        .repo()
-                        .find_commit(spec.commit_id.to_git2())?;
-                    new_heads.insert(spec.reference.to_string(), commit);
-                }
-                stack.set_all_heads(command_context, new_heads)?;
+                stack.set_heads_from_rebase_output(command_context, output.references.clone())?;
             }
             stack.set_stack_head(command_context, *head, Some(*tree))?;
 
@@ -749,8 +741,7 @@ fn compute_resolutions(
                         new_target.id()
                     };
 
-                    let all_steps =
-                        stack_as_rebase_steps(context.ctx, context.gix_repo, branch_stack.id)?;
+                    let all_steps = branch_stack.as_rebase_steps(context.ctx, context.gix_repo)?;
                     let branches_before = as_buckets(all_steps.clone());
                     // Filter out any integrated commits
                     let steps = all_steps

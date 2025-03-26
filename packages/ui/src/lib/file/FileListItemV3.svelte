@@ -19,6 +19,7 @@
 		focused?: boolean;
 		clickable?: boolean;
 		showCheckbox?: boolean;
+		listMode: 'list' | 'tree';
 		checked?: boolean;
 		indeterminate?: boolean;
 		conflicted?: boolean;
@@ -56,6 +57,7 @@
 		locked,
 		lockText,
 		listActive,
+		listMode,
 		oncheck,
 		onclick,
 		ondblclick,
@@ -75,6 +77,7 @@
 	class:clickable
 	class:draggable
 	class:focused
+	class:list-mode={listMode === 'list'}
 	aria-selected={selected}
 	role="option"
 	tabindex="-1"
@@ -98,7 +101,9 @@
 		<Checkbox small {checked} {indeterminate} onchange={oncheck} />
 	{/if}
 
-	<FileName {filePath} />
+	{#if listMode === 'list'}
+		<FileName {filePath} />
+	{/if}
 
 	<div class="details">
 		{#if locked}
@@ -157,7 +162,6 @@
 		user-select: none;
 		outline: none;
 		background: transparent;
-		border-bottom: 1px solid var(--clr-border-3);
 
 		& :global(.mark-resolved-btn) {
 			margin: 0 4px;
@@ -190,44 +194,6 @@
 		margin-left: -14px;
 		margin-right: -12px;
 		transition: opacity var(--transition-fast);
-	}
-
-	.info {
-		display: flex;
-		align-items: center;
-		flex-shrink: 1;
-		min-width: 32px;
-		gap: 6px;
-		width: 100%;
-		overflow: hidden;
-	}
-
-	.name {
-		flex-shrink: 1;
-		flex-grow: 0;
-		min-width: 40px;
-		pointer-events: none;
-		color: var(--clt-text-1);
-	}
-
-	.path-container {
-		display: flex;
-		justify-content: flex-start;
-		flex-shrink: 0;
-		flex-grow: 1;
-		flex-basis: 0px;
-		text-align: left;
-		min-width: 16px;
-		overflow: hidden;
-	}
-
-	.path {
-		display: inline-block;
-		color: var(--clt-text-1);
-		line-height: 120%;
-		opacity: 0.3;
-		max-width: 100%;
-		text-align: left;
 	}
 
 	.details {

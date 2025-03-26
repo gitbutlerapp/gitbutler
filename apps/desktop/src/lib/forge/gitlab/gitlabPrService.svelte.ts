@@ -53,7 +53,7 @@ export class GitLabPrService implements ForgePrService {
 			try {
 				const response = await request();
 				if (!response.data) throw response.error;
-				this.posthog?.capture('PR Successful');
+				this.posthog?.capture('Gitlab MR Successful');
 				return response.data;
 			} catch (err: any) {
 				lastError = err;
@@ -63,6 +63,7 @@ export class GitLabPrService implements ForgePrService {
 				this.loading.set(false);
 			}
 		}
+		this.posthog?.capture('Gitlab MR Failure');
 
 		throw lastError;
 	}
@@ -101,8 +102,8 @@ function injectEndpoints(api: GitLabApi) {
 		endpoints: (build) => ({
 			getPr: build.query<DetailedPullRequest, { number: number }>({
 				queryFn: async (args, query) => {
-					const { api, projectId } = gitlab(query.extra);
-					const mr = await api.MergeRequests.show(projectId, args.number);
+					const { api, upstreamProjectId } = gitlab(query.extra);
+					const mr = await api.MergeRequests.show(upstreamProjectId, args.number);
 					return { data: detailedMrToInstance(mr) };
 				},
 				providesTags: [ReduxTag.GitLabPullRequests]
@@ -112,9 +113,11 @@ function injectEndpoints(api: GitLabApi) {
 				{ head: string; base: string; title: string; body: string; draft: boolean }
 			>({
 				queryFn: async ({ head, base, title, body }, query) => {
-					const { api, projectId } = gitlab(query.extra);
-					const mr = await api.MergeRequests.create(projectId, base, head, title, {
-						description: body
+					const { api, upstreamProjectId, forkProjectId } = gitlab(query.extra);
+					const upstreamProject = await api.Projects.show(upstreamProjectId);
+					const mr = await api.MergeRequests.create(forkProjectId, base, head, title, {
+						description: body,
+						targetProjectId: upstreamProject.id
 					});
 					return { data: mrToInstance(mr) };
 				},
@@ -122,8 +125,8 @@ function injectEndpoints(api: GitLabApi) {
 			}),
 			mergePr: build.mutation<undefined, { number: number; method: MergeMethod }>({
 				queryFn: async ({ number }, query) => {
-					const { api, projectId } = gitlab(query.extra);
-					await api.MergeRequests.merge(projectId, number);
+					const { api, upstreamProjectId } = gitlab(query.extra);
+					await api.MergeRequests.merge(upstreamProjectId, number);
 					return { data: undefined };
 				},
 				invalidatesTags: [ReduxTag.GitLabPullRequests]
@@ -140,8 +143,8 @@ function injectEndpoints(api: GitLabApi) {
 				}
 			>({
 				queryFn: async ({ number, update }, query) => {
-					const { api, projectId } = gitlab(query.extra);
-					await api.MergeRequests.edit(projectId, number, {
+					const { api, upstreamProjectId } = gitlab(query.extra);
+					await api.MergeRequests.edit(upstreamProjectId, number, {
 						targetBranch: update.targetBase,
 						description: update.description
 					});

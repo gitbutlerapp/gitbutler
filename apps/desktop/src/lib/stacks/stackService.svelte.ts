@@ -1,3 +1,4 @@
+import { StackOrder } from '$lib/branches/branch';
 import { showToast } from '$lib/notifications/toasts';
 import { ClientState, type BackendApi } from '$lib/state/clientState.svelte';
 import { createSelectNth } from '$lib/state/customSelectors';
@@ -361,6 +362,26 @@ export class StackService {
 	get updateBranchPrNumber() {
 		return this.api.endpoints.updateBranchPrNumber.useMutation();
 	}
+
+	get updateBranchName() {
+		return this.api.endpoints.updateBranchName.useMutation();
+	}
+
+	get removeBranch() {
+		return this.api.endpoints.removeBranch.useMutation();
+	}
+
+	get updateBranchDescription() {
+		return this.api.endpoints.updateBranchDescription.useMutation();
+	}
+
+	get reorderStack() {
+		return this.api.endpoints.reorderStack.useMutation();
+	}
+
+	get moveCommit() {
+		return this.api.endpoints.moveCommit.useMutation();
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -566,7 +587,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					ReduxTag.StackBranches,
-					ReduxTag.Commits,
+					{ type: ReduxTag.Commits, id: args.branchId },
 					{ type: ReduxTag.StackInfo, id: args.branchId }
 				]
 			}),
@@ -616,6 +637,82 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					}
 				}),
 				invalidatesTags: [ReduxTag.StackBranches]
+			}),
+			updateBranchName: build.mutation<
+				void,
+				{
+					projectId: string;
+					stackId: string;
+					branchName: string;
+					newName: string;
+				}
+			>({
+				query: ({ projectId, stackId, branchName, newName }) => ({
+					command: 'update_series_name',
+					params: {
+						projectId,
+						branchId: stackId,
+						headName: branchName,
+						newHeadName: newName
+					}
+				}),
+				invalidatesTags: [ReduxTag.StackBranches]
+			}),
+			removeBranch: build.mutation<
+				void,
+				{
+					projectId: string;
+					stackId: string;
+					branchName: string;
+				}
+			>({
+				query: ({ projectId, stackId, branchName }) => ({
+					command: 'remove_series',
+					params: {
+						projectId,
+						branchId: stackId,
+						headName: branchName
+					}
+				}),
+				invalidatesTags: [ReduxTag.StackBranches]
+			}),
+			updateBranchDescription: build.mutation<
+				void,
+				{ projectId: string; stackId: string; branchName: string; description: string }
+			>({
+				query: ({ projectId, stackId, branchName, description }) => ({
+					command: 'update_series_description',
+					params: { projectId, branchId: stackId, headName: branchName, description }
+				}),
+				invalidatesTags: [ReduxTag.StackBranches]
+			}),
+			reorderStack: build.mutation<void, { projectId: string; stackId: string; order: StackOrder }>(
+				{
+					query: ({ projectId, stackId, order }) => ({
+						command: 'reorder_stack',
+						params: { projectId, branchId: stackId, stackOder: order }
+					}),
+					invalidatesTags: (_result, _error, args) => [
+						ReduxTag.Stacks,
+						{ type: ReduxTag.Commits, id: args.stackId },
+						ReduxTag.StackBranches
+					]
+				}
+			),
+			moveCommit: build.mutation<
+				void,
+				{ projectId: string; sourceStackId: string; commitId: string; targetStackId: string }
+			>({
+				query: ({ projectId, sourceStackId, commitId, targetStackId }) => ({
+					command: 'move_commit',
+					params: { projectId, sourceStackId, commitOid: commitId, targetStackId }
+				}),
+				invalidatesTags: (_result, _error, args) => [
+					{ type: ReduxTag.Commits, id: args.sourceStackId },
+					{ type: ReduxTag.StackInfo, id: args.sourceStackId },
+					{ type: ReduxTag.Commits, id: args.targetStackId },
+					{ type: ReduxTag.StackInfo, id: args.targetStackId }
+				]
 			})
 		})
 	});

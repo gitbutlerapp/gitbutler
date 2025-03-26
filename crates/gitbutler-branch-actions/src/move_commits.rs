@@ -2,11 +2,13 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, bail};
 use anyhow::{Context, Result};
+use but_rebase::RebaseStep;
+use but_workspace::stack_ext::StackExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
+use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
-use gitbutler_repo::rebase::cherry_rebase_group;
+use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::StackId;
 use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree};
 
@@ -37,7 +39,6 @@ pub(crate) fn move_commit(
     }
 
     let default_target = vb_state.get_default_target()?;
-    let default_target_commit = repo.find_commit(default_target.sha)?;
 
     let mut source_stack = vb_state
         .try_stack(source_stack_id)?
@@ -63,7 +64,6 @@ pub(crate) fn move_commit(
     take_commit_from_source_stack(
         ctx,
         repo,
-        default_target_commit,
         &mut source_stack,
         subject_commit,
         &workspace_dependencies,
@@ -104,7 +104,6 @@ fn get_source_branch_diffs(
 fn take_commit_from_source_stack(
     ctx: &CommandContext,
     repo: &git2::Repository,
-    default_target_commit: git2::Commit<'_>,
     source_stack: &mut gitbutler_stack::Stack,
     subject_commit: git2::Commit<'_>,
     workspace_dependencies: &HunkDependencyResult,
@@ -127,25 +126,32 @@ fn take_commit_from_source_stack(
         bail!("Commit has dependent uncommitted changes");
     }
 
-    let source_merge_base_oid = repo.merge_base(default_target_commit.id(), source_stack.head())?;
-    let source_commits_without_subject =
-        filter_out_commit(repo, source_stack, source_merge_base_oid, &subject_commit)?;
-
-    let new_source_head = cherry_rebase_group(
-        repo,
-        source_merge_base_oid,
-        &source_commits_without_subject,
-        false,
-        false,
-    )?;
+    let stack_ctx = ctx.to_stack_context()?;
+    let merge_base = source_stack.merge_base(&stack_ctx)?;
+    let gix_repo = ctx.gix_repository()?;
+    let steps = source_stack
+        .as_rebase_steps(ctx, &gix_repo)?
+        .into_iter()
+        .filter(|s| match s {
+            RebaseStep::Pick {
+                commit_id,
+                new_message: _,
+            } => commit_id != &subject_commit.id().to_gix(),
+            _ => true,
+        })
+        .collect::<Vec<_>>();
+    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base.to_gix()), None)?;
+    rebase.rebase_noops(false);
+    rebase.steps(steps)?;
+    let output = rebase.rebase()?;
+    let new_source_head = output.top_commit.to_git2();
 
     let BranchHeadAndTree {
         head: new_head_oid,
         tree: new_tree_oid,
     } = compute_updated_branch_head(repo, source_stack, new_source_head)?;
 
-    let subject_parent = subject_commit.parent(0)?;
-    source_stack.replace_head(ctx, &subject_commit, &subject_parent)?;
+    source_stack.set_heads_from_rebase_output(ctx, output.references)?;
     source_stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;
     Ok(())
 }
@@ -157,76 +163,34 @@ fn move_commit_to_destination_stack(
     mut destination_stack: gitbutler_stack::Stack,
     commit_id: git2::Oid,
 ) -> Result<(), anyhow::Error> {
-    let destination_head_commit_oid = destination_stack.head();
-    let new_destination_head_oid = cherry_rebase_group(
-        repo,
-        destination_head_commit_oid,
-        &[commit_id],
-        false,
-        false,
-    )?;
+    let gix_repo = ctx.gix_repository()?;
+    let stack_ctx = ctx.to_stack_context()?;
+    let merge_base = destination_stack.merge_base(&stack_ctx)?;
+    let mut steps = destination_stack.as_rebase_steps(ctx, &gix_repo)?;
+    // TODO: In the future we can make the API provide additional info for exacly where to place the commit on the destination stack
+    steps.insert(
+        steps.len() - 1,
+        RebaseStep::Pick {
+            commit_id: commit_id.to_gix(),
+            new_message: None,
+        },
+    );
+    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base.to_gix()), None)?;
+    rebase.rebase_noops(false);
+    rebase.steps(steps)?;
+    let output = rebase.rebase()?;
+    let new_destination_head_oid = output.top_commit.to_git2();
 
     let BranchHeadAndTree {
         head: new_destination_head_oid,
         tree: new_destination_tree_oid,
     } = compute_updated_branch_head(repo, &destination_stack, new_destination_head_oid)?;
 
+    destination_stack.set_heads_from_rebase_output(ctx, output.references)?;
     destination_stack.set_stack_head(
         ctx,
         new_destination_head_oid,
         Some(new_destination_tree_oid),
     )?;
     Ok(())
-}
-
-struct FilterOutCommitResult {
-    found: bool,
-    source_commits_without_subject: Vec<git2::Oid>,
-}
-
-/// Filter out the commit from the source stack.
-///
-/// Will fail if the commit is not in the source stack.
-fn filter_out_commit(
-    repo: &git2::Repository,
-    source_stack: &gitbutler_stack::Stack,
-    source_merge_base_oid: git2::Oid,
-    subject_commit: &git2::Commit<'_>,
-) -> Result<Vec<git2::Oid>, anyhow::Error> {
-    let FilterOutCommitResult {
-        found,
-        source_commits_without_subject,
-    } = repo
-        .log(
-            source_stack.head(),
-            LogUntil::Commit(source_merge_base_oid),
-            false,
-        )?
-        .iter()
-        .fold(
-            FilterOutCommitResult {
-                found: false,
-                source_commits_without_subject: vec![],
-            },
-            |result, c| {
-                if c.id() == subject_commit.id() {
-                    FilterOutCommitResult {
-                        found: true,
-                        ..result
-                    }
-                } else {
-                    let mut source_commits_without_subject = result.source_commits_without_subject;
-                    source_commits_without_subject.push(c.id());
-                    FilterOutCommitResult {
-                        source_commits_without_subject,
-                        ..result
-                    }
-                }
-            },
-        );
-
-    if !found {
-        return Err(anyhow!("Commit not found in source stack"));
-    }
-    Ok(source_commits_without_subject)
 }

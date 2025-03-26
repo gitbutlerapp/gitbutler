@@ -22,6 +22,7 @@
 		showCheckbox?: boolean;
 		isHeader?: boolean;
 		listActive?: boolean;
+		listMode: 'list' | 'tree';
 		linesAdded?: number;
 		linesRemoved?: number;
 		onclick?: (e: MouseEvent) => void;
@@ -36,6 +37,7 @@
 		showCheckbox,
 		isHeader,
 		listActive,
+		listMode,
 		linesAdded,
 		linesRemoved,
 		onclick,
@@ -118,6 +120,7 @@
 			fileStatus={computeChangeStatus(change)}
 			{selected}
 			{showCheckbox}
+			{listMode}
 			checked={!!selection.current}
 			{listActive}
 			{indeterminate}

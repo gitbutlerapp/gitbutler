@@ -8,6 +8,7 @@
 </script>
 
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import PrTemplateSection from '$components/PrTemplateSection.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
@@ -34,7 +35,6 @@
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
@@ -110,7 +110,6 @@
 	const createButlerRequest = persisted<boolean>(false, 'createButlerRequest');
 	const createPullRequest = persisted<boolean>(true, 'createPullRequest');
 
-	let modal = $state<ReturnType<typeof Modal>>();
 	let aiIsLoading = $state<boolean>(false);
 	let aiConfigurationValid = $state<boolean>(false);
 	let aiDescriptionDirective = $state<string | undefined>(undefined);
@@ -151,14 +150,12 @@
 	}
 
 	$effect(() => {
-		if (modal?.imports.open) {
-			aiService.validateConfiguration().then((valid) => {
-				aiConfigurationValid = valid;
-			});
-			templateService.getAvailable(forge.current.name).then((availableTemplates) => {
-				templates = availableTemplates;
-			});
-		}
+		aiService.validateConfiguration().then((valid) => {
+			aiConfigurationValid = valid;
+		});
+		templateService.getAvailable(forge.current.name).then((availableTemplates) => {
+			templates = availableTemplates;
+		});
 	});
 
 	async function pushIfNeeded(): Promise<string | undefined> {
@@ -333,16 +330,6 @@
 			await tick();
 		}
 	}
-
-	export function show() {
-		modal?.show();
-	}
-
-	export const imports = {
-		get open() {
-			return modal?.imports.open;
-		}
-	};
 </script>
 
 <!-- HEADER -->
@@ -390,19 +377,21 @@
 		{/if}
 
 		<!-- DESCRIPTION FIELD -->
-		<div class="pr-description-field text-input">
-			<Textarea
-				unstyled
-				value={prBody.value}
-				minRows={4}
-				autofocus
-				padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
-				placeholder="Add description…"
-				oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
-					const target = e.currentTarget as HTMLTextAreaElement;
-					prBody.set(target.value);
-				}}
-			/>
+		<div class="text-input pr-description-field">
+			<ConfigurableScrollableContainer>
+				<Textarea
+					unstyled
+					value={prBody.value}
+					minRows={4}
+					autofocus
+					padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
+					placeholder="Add description…"
+					oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
+						const target = e.currentTarget as HTMLTextAreaElement;
+						prBody.set(target.value);
+					}}
+				/>
+			</ConfigurableScrollableContainer>
 
 			<!-- AI GENRATION -->
 			<div class="pr-ai" class:show-ai-box={showAiBox}>
@@ -500,6 +489,7 @@
 	.pr-content {
 		display: flex;
 		flex-direction: column;
+		min-height: 0;
 	}
 
 	/* FIELDS */
@@ -508,6 +498,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
+		min-height: 0;
 	}
 
 	.pr-description-field {
@@ -516,6 +507,7 @@
 		flex-direction: column;
 		/* reset .text-input padding */
 		padding: 0;
+		min-height: 0;
 	}
 
 	/* AI BOX */
