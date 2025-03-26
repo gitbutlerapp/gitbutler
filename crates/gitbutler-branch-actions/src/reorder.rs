@@ -9,9 +9,8 @@ use gitbutler_stack::{
     Stack, StackId,
 };
 
-use gitbutler_workspace::{
-    checkout_branch_trees, compute_updated_branch_head_for_commits, BranchHeadAndTree,
-};
+#[allow(deprecated)]
+use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head_for_commits};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -68,13 +67,17 @@ pub fn reorder_stack(
     let new_head = output.top_commit.to_git2();
 
     // Calculate the new head and tree
-    let BranchHeadAndTree {
-        head: new_head_oid,
-        tree: new_tree_oid,
-    } = compute_updated_branch_head_for_commits(repo, old_head.id(), stack.tree, new_head)?;
+    let (new_head_oid, new_tree_oid) = if ctx.app_settings().feature_flags.v3 {
+        (new_head, None)
+    } else {
+        #[allow(deprecated)]
+        let res =
+            compute_updated_branch_head_for_commits(repo, old_head.id(), stack.tree, new_head)?;
+        (res.head, Some(res.tree))
+    };
 
     // Ensure the stack head is set to the new oid after rebasing
-    stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;
+    stack.set_stack_head(ctx, new_head_oid, new_tree_oid)?;
 
     stack.set_heads_from_rebase_output(ctx, output.references.clone())?;
 
