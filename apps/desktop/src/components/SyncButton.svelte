@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchListingService } from '$lib/branches/branchListing';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { getContext, inject } from '@gitbutler/shared/context';
 	import Button, { type Props as ButtonProps } from '@gitbutler/ui/Button.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
 
@@ -13,9 +13,9 @@
 
 	const { projectId, size = 'tag' }: Props = $props();
 
-	const baseBranchService = getContext(BaseBranchService);
-	const baseBranch = baseBranchService.base;
-	const branchListingService = getContext(BranchListingService);
+	const [baseBranchService, branchListingService] = inject(BaseBranchService, BranchListingService);
+	const baseBranch = baseBranchService.baseBranch(projectId);
+	const [fetchFromRemotes] = baseBranchService.fetchFromRemotes;
 
 	const forge = getContext(DefaultForgeFactory);
 	const listingService = $derived(forge.current.listService);
@@ -35,10 +35,13 @@
 		e.stopPropagation();
 		loading = true;
 		try {
-			await baseBranchService.fetchFromRemotes('modal');
+			await fetchFromRemotes({
+				projectId,
+				action: 'modal'
+			});
 			await Promise.all([
 				listingService?.refresh(projectId),
-				baseBranchService.refresh(),
+				baseBranch.current.refetch(),
 				branchListingService.refresh()
 			]);
 		} finally {
@@ -48,8 +51,8 @@
 >
 	{#if loading}
 		<div class="sync-btn__busy-label">busy…</div>
-	{:else if $baseBranch?.lastFetched}
-		<TimeAgo date={$baseBranch?.lastFetched} addSuffix={true} />
+	{:else if baseBranch.current.data?.lastFetched}
+		<TimeAgo date={baseBranch.current.data.lastFetched} addSuffix={true} />
 	{/if}
 </Button>
 
