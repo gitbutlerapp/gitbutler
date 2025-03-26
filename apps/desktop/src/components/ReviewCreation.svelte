@@ -8,6 +8,7 @@
 </script>
 
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import PrTemplateSection from '$components/PrTemplateSection.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
@@ -376,20 +377,21 @@
 		{/if}
 
 		<!-- DESCRIPTION FIELD -->
-		<div class="pr-description-field text-input">
-			<Textarea
-				unstyled
-				value={prBody.value}
-				minRows={4}
-				maxRows={14}
-				autofocus
-				padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
-				placeholder="Add description…"
-				oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
-					const target = e.currentTarget as HTMLTextAreaElement;
-					prBody.set(target.value);
-				}}
-			/>
+		<div class="text-input pr-description-field">
+			<ConfigurableScrollableContainer>
+				<Textarea
+					unstyled
+					value={prBody.value}
+					minRows={4}
+					autofocus
+					padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
+					placeholder="Add description…"
+					oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
+						const target = e.currentTarget as HTMLTextAreaElement;
+						prBody.set(target.value);
+					}}
+				/>
+			</ConfigurableScrollableContainer>
 
 			<!-- AI GENRATION -->
 			<div class="pr-ai" class:show-ai-box={showAiBox}>
@@ -487,6 +489,7 @@
 	.pr-content {
 		display: flex;
 		flex-direction: column;
+		min-height: 0;
 	}
 
 	/* FIELDS */
@@ -495,6 +498,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
+		min-height: 0;
 	}
 
 	.pr-description-field {
@@ -503,6 +507,7 @@
 		flex-direction: column;
 		/* reset .text-input padding */
 		padding: 0;
+		min-height: 0;
 	}
 
 	/* AI BOX */
