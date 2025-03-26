@@ -115,20 +115,14 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
  * Custom return type for the `QueryHooks` extensions.
  */
 export type CustomResult<T extends QueryDefinition<any, any, any, any>> =
+	QueryResultSelectorResult<T>;
+
+/**
+ * Custom return type for the `QueryHooks` extensions with refetch.
+ */
+export type CustomQueryResult<T extends QueryDefinition<any, any, any, any>> =
 	QueryResultSelectorResult<T> & {
-		/**
-		 * Allows using the result from one query in the arguments to another.
-		 *
-		 * Example: ```
-		 *   const result = $derived(
-		 *     someService
-		 *       .getData(someId).current
-		 *       .andThen((data) => anotherService.getData(data.id)).current
-		 *   );
-		 * ```
-		 */
-		// TODO: Remove this since it seems we shouldn't need it?
-		// andThen<S extends (arg1: ResultTypeFrom<T>) => any>(fn: S): ReturnType<S>;
+		refetch: () => Promise<void>;
 	};
 
 /**
@@ -203,7 +197,7 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 		args: QueryArgFrom<D>,
 		options?: { transform?: T } & StartQueryActionCreatorOptions
 	) => Reactive<
-		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>
+		CustomQueryResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>
 	>;
 	/** Execute query on existing state. */
 	useQueryState: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
