@@ -11,6 +11,7 @@ mod checkout_branch_trees {
     use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
     use gitbutler_repo::RepositoryExt as _;
     use gitbutler_testsupport::{paths, testing_repository::assert_tree_matches, TestProject};
+    #[allow(deprecated)]
     use gitbutler_workspace::checkout_branch_trees;
 
     #[test]
@@ -91,6 +92,7 @@ mod checkout_branch_trees {
 
         let mut guard = project.exclusive_worktree_access();
 
+        #[allow(deprecated)]
         checkout_branch_trees(&ctx, guard.write_permission()).unwrap();
 
         let tree = test_project

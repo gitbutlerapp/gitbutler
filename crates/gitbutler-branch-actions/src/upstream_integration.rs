@@ -20,6 +20,7 @@ use gitbutler_repo::{
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::stack_context::StackContext;
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
+use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 #[allow(deprecated)]
 use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head};
 use gix::merge::tree::TreatAsUnresolved;
@@ -454,6 +455,8 @@ pub(crate) fn integrate_upstream(
     base_branch_resolution: Option<BaseBranchResolution>,
     permission: &mut WorktreeWritePermission,
 ) -> Result<IntegrationOutcome> {
+    let old_workspace = WorkspaceState::create(command_context, permission.read_permission())?;
+
     let (target_commit_oid, base_branch_resolution_approach) = base_branch_resolution
         .map(|r| (Some(r.target_commit_oid), Some(r.approach)))
         .unwrap_or((None, None));
@@ -600,9 +603,22 @@ pub(crate) fn integrate_upstream(
                 .remove_untracked()
                 .checkout()?;
         } else {
-            // Now that we've potentially updated the branch trees, lets checkout
-            // the result of merging them all together.
-            checkout_branch_trees(command_context, permission)?;
+            let new_workspace =
+                WorkspaceState::create(command_context, permission.read_permission())?;
+
+            if command_context.app_settings().feature_flags.v3 {
+                update_uncommited_changes(
+                    command_context,
+                    old_workspace,
+                    new_workspace,
+                    permission,
+                )?;
+            } else {
+                // Now that we've potentially updated the branch trees, lets checkout
+                // the result of merging them all together.
+                #[allow(deprecated)]
+                checkout_branch_trees(command_context, permission)?;
+            }
         }
 
         crate::integration::update_workspace_commit(&virtual_branches_state, command_context)?;

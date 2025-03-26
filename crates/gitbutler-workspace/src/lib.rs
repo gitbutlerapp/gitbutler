@@ -1,4 +1,4 @@
-mod branch_trees;
+pub mod branch_trees;
 
 #[allow(deprecated)]
 pub use branch_trees::{

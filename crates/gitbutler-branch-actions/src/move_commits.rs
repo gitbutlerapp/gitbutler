@@ -10,6 +10,7 @@ use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::StackId;
+use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 #[allow(deprecated)]
 use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head};
 
@@ -28,6 +29,7 @@ pub(crate) fn move_commit(
     source_stack_id: StackId,
 ) -> Result<()> {
     ctx.assure_resolved()?;
+    let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let vb_state = ctx.project().virtual_branches();
     let repo = ctx.repo();
 
@@ -72,7 +74,13 @@ pub(crate) fn move_commit(
 
     move_commit_to_destination_stack(ctx, repo, destination_stack, subject_commit_oid)?;
 
-    checkout_branch_trees(ctx, perm)?;
+    let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
+    if ctx.app_settings().feature_flags.v3 {
+        update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
+    } else {
+        #[allow(deprecated)]
+        checkout_branch_trees(ctx, perm)?;
+    }
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
 
