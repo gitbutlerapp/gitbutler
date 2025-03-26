@@ -93,6 +93,7 @@ pub struct BranchHeadAndTree {
 /// This does not mutate the branch, or update the virtual_branches.toml.
 /// You probably also want to call [`checkout_branch_trees`] after you have
 /// mutated the virtual_branches.toml.
+#[deprecated = "not needed after v3 is out"]
 pub fn compute_updated_branch_head(
     repository: &git2::Repository,
     stack: &Stack,

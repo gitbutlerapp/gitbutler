@@ -20,7 +20,8 @@ use gitbutler_repo::{
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::stack_context::StackContext;
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
-use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree};
+#[allow(deprecated)]
+use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head};
 use gix::merge::tree::TreatAsUnresolved;
 use serde::{Deserialize, Serialize};
 
@@ -160,7 +161,7 @@ pub struct Resolution {
 enum IntegrationResult {
     UpdatedObjects {
         head: git2::Oid,
-        tree: git2::Oid,
+        tree: Option<git2::Oid>,
         rebase_output: Option<RebaseOutput>,
         for_archival: Vec<Reference>,
     },
@@ -569,7 +570,7 @@ pub(crate) fn integrate_upstream(
             if let Some(output) = rebase_output {
                 stack.set_heads_from_rebase_output(command_context, output.references.clone())?;
             }
-            stack.set_stack_head(command_context, *head, Some(*tree))?;
+            stack.set_stack_head(command_context, *head, *tree)?;
 
             let delete_local_refs = resolutions
                 .iter()
@@ -698,11 +699,14 @@ fn compute_resolutions(
                         &incoming_branch_name,
                     )?;
 
-                    // Get the updated tree oid
-                    let BranchHeadAndTree {
-                        head: new_head,
-                        tree: new_tree,
-                    } = compute_updated_branch_head(repository, branch_stack, new_head.id())?;
+                    let (new_head, new_tree) = if context.ctx.app_settings().feature_flags.v3 {
+                        (new_head.id(), None)
+                    } else {
+                        #[allow(deprecated)]
+                        let res =
+                            compute_updated_branch_head(repository, branch_stack, new_head.id())?;
+                        (res.head, Some(res.tree))
+                    };
 
                     Ok((
                         branch_stack.id,
@@ -790,10 +794,13 @@ fn compute_resolutions(
                     let new_head = output.top_commit.to_git2();
 
                     // Get the updated tree oid
-                    let BranchHeadAndTree {
-                        head: new_head,
-                        tree: new_tree,
-                    } = compute_updated_branch_head(repository, branch_stack, new_head)?;
+                    let (new_head, new_tree) = if context.ctx.app_settings().feature_flags.v3 {
+                        (new_head, None)
+                    } else {
+                        #[allow(deprecated)]
+                        let res = compute_updated_branch_head(repository, branch_stack, new_head)?;
+                        (res.head, Some(res.tree))
+                    };
 
                     Ok((
                         branch_stack.id,

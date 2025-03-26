@@ -10,7 +10,8 @@ use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::StackId;
-use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree};
+#[allow(deprecated)]
+use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head};
 
 use crate::dependencies::commit_dependencies_from_workspace;
 use crate::{compute_workspace_dependencies, BranchStatus};
@@ -146,13 +147,16 @@ fn take_commit_from_source_stack(
     let output = rebase.rebase()?;
     let new_source_head = output.top_commit.to_git2();
 
-    let BranchHeadAndTree {
-        head: new_head_oid,
-        tree: new_tree_oid,
-    } = compute_updated_branch_head(repo, source_stack, new_source_head)?;
+    let (new_head_oid, new_tree_oid) = if ctx.app_settings().feature_flags.v3 {
+        (new_source_head, None)
+    } else {
+        #[allow(deprecated)]
+        let res = compute_updated_branch_head(repo, source_stack, new_source_head)?;
+        (res.head, Some(res.tree))
+    };
 
     source_stack.set_heads_from_rebase_output(ctx, output.references)?;
-    source_stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;
+    source_stack.set_stack_head(ctx, new_head_oid, new_tree_oid)?;
     Ok(())
 }
 
@@ -181,16 +185,17 @@ fn move_commit_to_destination_stack(
     let output = rebase.rebase()?;
     let new_destination_head_oid = output.top_commit.to_git2();
 
-    let BranchHeadAndTree {
-        head: new_destination_head_oid,
-        tree: new_destination_tree_oid,
-    } = compute_updated_branch_head(repo, &destination_stack, new_destination_head_oid)?;
+    let (new_destination_head_oid, new_destination_tree_oid) =
+        if ctx.app_settings().feature_flags.v3 {
+            (new_destination_head_oid, None)
+        } else {
+            #[allow(deprecated)]
+            let res =
+                compute_updated_branch_head(repo, &destination_stack, new_destination_head_oid)?;
+            (res.head, Some(res.tree))
+        };
 
     destination_stack.set_heads_from_rebase_output(ctx, output.references)?;
-    destination_stack.set_stack_head(
-        ctx,
-        new_destination_head_oid,
-        Some(new_destination_tree_oid),
-    )?;
+    destination_stack.set_stack_head(ctx, new_destination_head_oid, new_destination_tree_oid)?;
     Ok(())
 }
