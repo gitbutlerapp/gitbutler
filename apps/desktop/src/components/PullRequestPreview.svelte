@@ -1,6 +1,6 @@
 <script lang="ts">
 	// This is always displayed in the context of not having a cooresponding vbranch or remote
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
 	import { BranchController } from '$lib/branches/branchController';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { showError } from '$lib/notifications/toasts';

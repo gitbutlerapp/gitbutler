@@ -2,7 +2,7 @@ import { invoke } from '$lib/backend/ipc';
 import { showError, showToast } from '$lib/notifications/toasts';
 import * as toasts from '@gitbutler/ui/toasts';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
-import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+import type { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
 import type { StackOrder } from '$lib/branches/branch';
 import type { BranchListingService } from '$lib/branches/branchListing';
 import type { VirtualBranchService } from '$lib/branches/virtualBranchService';

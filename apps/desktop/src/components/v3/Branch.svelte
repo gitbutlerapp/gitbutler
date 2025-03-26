@@ -11,7 +11,7 @@
 	import EmptyBranch from '$components/v3/EmptyBranch.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/v3/lib';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
 	import { BranchController } from '$lib/branches/branchController';
 	import {
 		AmendCommitWithChangeDzHandler,

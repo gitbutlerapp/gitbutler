@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
 	import { BranchListingService } from '$lib/branches/branchListing';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { getContext } from '@gitbutler/shared/context';

@@ -3,7 +3,7 @@
 	import MergeButton from '$components/MergeButton.svelte';
 	import PullRequestPolling from '$components/PullRequestPolling.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { showError } from '$lib/notifications/toasts';

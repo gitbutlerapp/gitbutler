@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Board from '$components/Board.svelte';
 	import Scrollbar from '$components/Scrollbar.svelte';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';

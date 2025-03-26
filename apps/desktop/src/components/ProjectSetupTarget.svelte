@@ -15,7 +15,7 @@
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
-	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranchService';
+	import type { RemoteBranchInfo } from '$lib/baseBranch/old_baseBranchService';
 	import { goto } from '$app/navigation';
 
 	interface Props {

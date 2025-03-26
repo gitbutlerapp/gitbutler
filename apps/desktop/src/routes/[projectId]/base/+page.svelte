@@ -4,7 +4,7 @@
 	import FileCard from '$components/FileCard.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';

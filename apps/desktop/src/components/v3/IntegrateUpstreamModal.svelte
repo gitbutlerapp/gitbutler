@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { type Stack } from '$lib/stacks/stack';
 	import {

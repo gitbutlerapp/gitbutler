@@ -9,7 +9,7 @@
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
 	import { BranchController } from '$lib/branches/branchController';
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
 	import { GitBranchService } from '$lib/branches/gitBranch';

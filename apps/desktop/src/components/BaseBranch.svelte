@@ -3,7 +3,7 @@
 	import CommitCard from '$components/CommitCard.svelte';
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import IntegrateUpstreamModal from '$components/IntegrateUpstreamModal.svelte';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
 	import { transformAnyCommit } from '$lib/commits/transformers';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';

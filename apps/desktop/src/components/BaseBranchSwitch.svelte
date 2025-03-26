@@ -1,7 +1,7 @@
 <script lang="ts">
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { getRemoteBranches } from '$lib/baseBranch/baseBranchService';
+	import { getRemoteBranches } from '$lib/baseBranch/old_baseBranchService';
 	import { BranchController } from '$lib/branches/branchController';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { Project } from '$lib/project/project';

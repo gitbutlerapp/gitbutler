@@ -1,7 +1,7 @@
 <script lang="ts">
 	import SyncButton from '$components/SyncButton.svelte';
 	import IntegrateUpstreamModal from '$components/v3/IntegrateUpstreamModal.svelte';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
 	import { platformName } from '$lib/platform/platform';
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';

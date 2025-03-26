@@ -1,5 +1,5 @@
 import { getUserErrorCode } from '$lib/backend/ipc';
-import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+import { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
 import { BranchController } from '$lib/branches/branchController';
 import { BranchListingService } from '$lib/branches/branchListing';
 import { GitBranchService } from '$lib/branches/gitBranch';
