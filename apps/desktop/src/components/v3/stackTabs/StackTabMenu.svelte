@@ -58,13 +58,6 @@
 				contextMenu?.close();
 			}}
 		/>
-		<ContextMenuItem
-			label="Rename"
-			keyboardShortcut="$mod+R"
-			onclick={() => {
-				contextMenu?.close();
-			}}
-		/>
 	</ContextMenuSection>
 </ContextMenu>
 
