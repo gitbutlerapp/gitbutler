@@ -7,7 +7,6 @@ use crate::{
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch::{self, dedup};
-use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::SnapshotExt;
@@ -15,11 +14,7 @@ use gitbutler_oxidize::GixRepositoryExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
-use gitbutler_repo::{
-    rebase::{cherry_rebase_group, gitbutler_merge_commits},
-    RepositoryExt,
-};
+use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
@@ -325,37 +320,6 @@ impl BranchManager<'_> {
                     self.save_and_unapply(stack.id, perm)?;
                 }
             }
-        }
-
-        // Do we need to rebase the branch on top of the default target?
-
-        let has_change_id = repo.find_commit(stack.head())?.change_id().is_some();
-        // If the branch has no change ID for the head commit, we want to rebase it even if the base is the same
-        // This way stacking functionality which relies on change IDs will work as expected
-        if merge_base != default_target.sha || !has_change_id {
-            let new_head = if stack.allow_rebasing {
-                let commits_to_rebase =
-                    repo.l(stack.head(), LogUntil::Commit(merge_base), false)?;
-
-                let head_oid =
-                    cherry_rebase_group(repo, default_target.sha, &commits_to_rebase, true, false)?;
-
-                repo.find_commit(head_oid)?
-            } else {
-                gitbutler_merge_commits(
-                    repo,
-                    repo.find_commit(stack.head())?,
-                    repo.find_commit(default_target.sha)?,
-                    &stack.name,
-                    default_target.branch.branch(),
-                )?
-            };
-
-            stack.set_stack_head(
-                self.ctx,
-                new_head.id(),
-                Some(repo.find_real_tree(&new_head, Default::default())?.id()),
-            )?;
         }
 
         // apply the branch
