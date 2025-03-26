@@ -11,6 +11,7 @@ use gitbutler_repo::{
 };
 use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::StackId;
+use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 #[allow(deprecated)]
 use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head_for_commits};
 use itertools::Itertools;
@@ -27,6 +28,7 @@ pub fn integrate_upstream_commits_for_series(
 ) -> Result<()> {
     conflicts::is_conflicting(ctx, None)?;
 
+    let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let repo = ctx.repo();
     let vb_state = ctx.project().virtual_branches();
 
@@ -73,7 +75,13 @@ pub fn integrate_upstream_commits_for_series(
 
     let mut branch = stack.clone();
     branch.set_stack_head(ctx, head, tree)?;
-    checkout_branch_trees(ctx, perm)?;
+    let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
+    if ctx.app_settings().feature_flags.v3 {
+        update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
+    } else {
+        #[allow(deprecated)]
+        checkout_branch_trees(ctx, perm)?;
+    }
     branch.replace_head(ctx, &series_head, &repo.find_commit(new_series_head)?)?;
     crate::integration::update_workspace_commit(&vb_state, ctx)?;
     Ok(())
@@ -85,12 +93,16 @@ pub fn integrate_upstream_commits_for_series(
 /// of the branch. Any other upstream commits are placed above the local
 /// commits.
 ///
+/// TODO: This is exclusivly used in tests. We should delete this and update
+///     the tests
 pub fn integrate_upstream_commits(
     ctx: &CommandContext,
     stack_id: StackId,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     conflicts::is_conflicting(ctx, None)?;
+
+    let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
 
     let repository = ctx.repo();
     let project = ctx.project();
@@ -139,7 +151,13 @@ pub fn integrate_upstream_commits(
 
     stack.set_stack_head(ctx, head, tree)?;
 
-    checkout_branch_trees(ctx, perm)?;
+    let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
+    if ctx.app_settings().feature_flags.v3 {
+        update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
+    } else {
+        #[allow(deprecated)]
+        checkout_branch_trees(ctx, perm)?;
+    }
 
     crate::integration::update_workspace_commit(&vb_state, ctx)?;
 

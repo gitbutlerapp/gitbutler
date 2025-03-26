@@ -14,7 +14,10 @@ use gitbutler_repo::{
 };
 use gitbutler_stack::{stack_context::CommandContextExt, StackId};
 #[allow(deprecated)]
-use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head};
+use gitbutler_workspace::{
+    branch_trees::{update_uncommited_changes, WorkspaceState},
+    checkout_branch_trees, compute_updated_branch_head,
+};
 use itertools::Itertools;
 
 use crate::{
@@ -50,6 +53,7 @@ fn do_squash_commits(
     desitnation_id: git2::Oid,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
+    let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let vb_state = ctx.project().virtual_branches();
     let stack = vb_state.get_stack_in_workspace(stack_id)?;
     let default_target = vb_state.get_default_target()?;
@@ -205,7 +209,13 @@ fn do_squash_commits(
 
     stack.set_stack_head(ctx, new_head_oid, new_tree_oid)?;
 
-    checkout_branch_trees(ctx, perm)?;
+    let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
+    if ctx.app_settings().feature_flags.v3 {
+        update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
+    } else {
+        #[allow(deprecated)]
+        checkout_branch_trees(ctx, perm)?;
+    }
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
     stack.set_heads_from_rebase_output(ctx, output.references)?;

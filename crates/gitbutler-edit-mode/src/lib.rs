@@ -18,17 +18,20 @@ use gitbutler_operating_modes::{
     operating_mode, read_edit_mode_metadata, write_edit_mode_metadata, EditModeMetadata,
     OperatingMode, EDIT_BRANCH_REF, WORKSPACE_BRANCH_REF,
 };
-use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_index, GixRepositoryExt};
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_index, GixRepositoryExt, OidExt};
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_reference::{ReferenceName, Refname};
 use gitbutler_repo::{rebase::cherry_rebase, RepositoryExt};
 use gitbutler_repo::{signature, SignaturePurpose};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
+use gitbutler_workspace::branch_trees::{update_uncommited_changes_with_tree, WorkspaceState};
 #[allow(deprecated)]
 use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head};
 use serde::Serialize;
 
 pub mod commands;
+
+const UNCOMMITED_CHANGES_REF: &str = "refs/heads/gitbutler/edit-uncommited-changes";
 
 /// Returns an index of the the tree of `commit` if it is unconflicted, *or* produce a merged tree
 /// if `commit` is conflicted. That tree is turned into an index that records the conflicts that occurred
@@ -125,6 +128,35 @@ fn find_or_create_base_commit<'a>(
     Ok(repository.find_commit(base)?)
 }
 
+fn commit_uncommited_changes(ctx: &CommandContext, parent: git2::Oid) -> Result<()> {
+    let repository = ctx.repo();
+    let author_signature = signature(SignaturePurpose::Author)?;
+    let committer_signature = signature(SignaturePurpose::Committer)?;
+    let parent = repository.find_commit(parent)?;
+
+    let uncommited_changes = repository.create_wd_tree(0)?;
+    let uncommited_changes_commit = repository.commit(
+        None,
+        &author_signature,
+        &committer_signature,
+        "Conflict base",
+        &uncommited_changes,
+        &[&parent],
+    )?;
+
+    repository.reference(UNCOMMITED_CHANGES_REF, uncommited_changes_commit, true, "")?;
+    Ok(())
+}
+
+fn get_uncommited_changes(ctx: &CommandContext) -> Result<git2::Oid> {
+    let repository = ctx.repo();
+    let uncommited_changes = repository
+        .find_reference(UNCOMMITED_CHANGES_REF)?
+        .peel_to_tree()?
+        .id();
+    Ok(uncommited_changes)
+}
+
 fn checkout_edit_branch(ctx: &CommandContext, commit: git2::Commit) -> Result<()> {
     let repository = ctx.repo();
 
@@ -191,6 +223,7 @@ pub(crate) fn enter_edit_mode(
         bail!("Can not enter edit mode for a reference which does not have a cooresponding virtual branch")
     }
 
+    commit_uncommited_changes(ctx, commit.id())?;
     write_edit_mode_metadata(ctx, &edit_mode_metadata).context("Failed to persist metadata")?;
     checkout_edit_branch(ctx, commit).context("Failed to checkout edit branch")?;
 
@@ -199,7 +232,7 @@ pub(crate) fn enter_edit_mode(
 
 pub(crate) fn abort_and_return_to_workspace(
     ctx: &CommandContext,
-    perm: &mut WorktreeWritePermission,
+    _perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let repository = ctx.repo();
 
@@ -208,7 +241,13 @@ pub(crate) fn abort_and_return_to_workspace(
         .set_head(WORKSPACE_BRANCH_REF)
         .context("Failed to set head reference")?;
 
-    checkout_branch_trees(ctx, perm)?;
+    let uncommited_changes = get_uncommited_changes(ctx)?;
+    let uncommited_changes = repository.find_tree(uncommited_changes)?;
+
+    repository.checkout_tree(
+        uncommited_changes.as_object(),
+        Some(CheckoutBuilder::new().force().remove_untracked(true)),
+    )?;
 
     Ok(())
 }
@@ -220,6 +259,8 @@ pub(crate) fn save_and_return_to_workspace(
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
     let repository = ctx.repo();
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+
+    let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
 
     // Get important references
     let commit = repository
@@ -278,8 +319,22 @@ pub(crate) fn save_and_return_to_workspace(
         .set_head(WORKSPACE_BRANCH_REF)
         .context("Failed to set head reference")?;
 
-    // Checkout the applied branches
-    checkout_branch_trees(ctx, perm)?;
+    let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
+    let uncommtied_changes = get_uncommited_changes(ctx)?;
+
+    if ctx.app_settings().feature_flags.v3 {
+        update_uncommited_changes_with_tree(
+            ctx,
+            old_workspace,
+            new_workspace,
+            uncommtied_changes.to_gix(),
+            perm,
+        )?;
+    } else {
+        // Checkout the applied branches
+        #[allow(deprecated)]
+        checkout_branch_trees(ctx, perm)?;
+    }
     update_workspace_commit(&vb_state, ctx)?;
     list_virtual_branches(ctx, perm)?;
 

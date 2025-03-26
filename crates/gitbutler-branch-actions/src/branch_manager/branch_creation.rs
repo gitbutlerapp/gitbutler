@@ -21,6 +21,8 @@ use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
+use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
+#[allow(deprecated)]
 use gitbutler_workspace::checkout_branch_trees;
 use tracing::instrument;
 
@@ -277,6 +279,8 @@ impl BranchManager<'_> {
         self.ctx.assure_unconflicted()?;
         let repo = self.ctx.repo();
 
+        let old_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
+
         let vb_state = self.ctx.project().virtual_branches();
         let default_target = vb_state.get_default_target()?;
 
@@ -393,8 +397,15 @@ impl BranchManager<'_> {
             }
         }
 
-        // Now that we've added a branch to the workspace, lets merge together all the trees
-        checkout_branch_trees(self.ctx, perm)?;
+        let new_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
+
+        if self.ctx.app_settings().feature_flags.v3 {
+            update_uncommited_changes(self.ctx, old_workspace, new_workspace, perm)?;
+        } else {
+            // Now that we've added a branch to the workspace, lets merge together all the trees
+            #[allow(deprecated)]
+            checkout_branch_trees(self.ctx, perm)?;
+        }
 
         update_workspace_commit(&vb_state, self.ctx)?;
 

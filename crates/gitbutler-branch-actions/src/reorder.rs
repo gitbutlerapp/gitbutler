@@ -10,7 +10,10 @@ use gitbutler_stack::{
 };
 
 #[allow(deprecated)]
-use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head_for_commits};
+use gitbutler_workspace::{
+    branch_trees::{update_uncommited_changes, WorkspaceState},
+    checkout_branch_trees, compute_updated_branch_head_for_commits,
+};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -33,6 +36,7 @@ pub fn reorder_stack(
     new_order: StackOrder,
     perm: &mut WorktreeWritePermission,
 ) -> Result<RebaseOutput> {
+    let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let state = ctx.project().virtual_branches();
     let repo = ctx.repo();
     let mut stack = state.get_stack(stack_id)?;
@@ -81,7 +85,13 @@ pub fn reorder_stack(
 
     stack.set_heads_from_rebase_output(ctx, output.references.clone())?;
 
-    checkout_branch_trees(ctx, perm)?;
+    let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
+    if ctx.app_settings().feature_flags.v3 {
+        update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
+    } else {
+        #[allow(deprecated)]
+        checkout_branch_trees(ctx, perm)?;
+    }
     crate::integration::update_workspace_commit(&state, ctx)
         .context("failed to update gitbutler workspace")?;
 
