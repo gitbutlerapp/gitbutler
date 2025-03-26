@@ -44,13 +44,7 @@
 		}
 
 		if (!elapsedMs) {
-			if (pollCount < 5) {
-				return 1000;
-			}
-			if (pollCount < 10) {
-				return 2000;
-			}
-			return pollCount < 15 ? 10000 : 0;
+			return pollCount < 5 ? 2000 : 0;
 		}
 
 		if (elapsedMs < 60 * 1000) {
@@ -69,8 +63,19 @@
 			: undefined
 	);
 
+	let timeoutId: any = undefined;
+	let loading = $state(false);
+
+	$effect(() => {
+		if (checksResult?.current.isLoading) {
+			timeoutId = setTimeout(() => (loading = true), 500);
+		} else {
+			if (timeoutId) clearTimeout(timeoutId);
+			loading = false;
+		}
+	});
+
 	const checksTagInfo: StatusInfo = $derived.by(() => {
-		const loading = checksResult?.current.isLoading;
 		const checks = checksResult?.current.data;
 		if (!checksService && isFork) {
 			return {

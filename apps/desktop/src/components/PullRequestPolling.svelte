@@ -23,13 +23,7 @@
 		// by the api for a few seconds. So we poll frequently but stop
 		// after a while.
 		if (!elapsedMs) {
-			if (pollCount < 5) {
-				return 1000;
-			}
-			if (pollCount < 10) {
-				return 2000;
-			}
-			return pollCount < 15 ? 10000 : undefined;
+			return pollCount < 5 ? 2000 : 0;
 		}
 
 		if (elapsedMs < 60 * 1000) {
