@@ -1,10 +1,10 @@
 <script lang="ts">
-	import FileStatusTag from '$components/FileStatusTag.svelte';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
+	import FileStats from '@gitbutler/ui/file/FileStats.svelte';
 	import { splitFilePath } from '@gitbutler/ui/utils/filePath';
 	import type { AnyFile } from '$lib/files/file';
 
@@ -31,6 +31,8 @@
 				<span class="header__filepath">{fileTitle.path}</span>
 			</div>
 			<div class="header__tags">
+				<FileStats added={fileStats.added} removed={fileStats.removed} status={fileStatus} />
+
 				{#if file.conflicted || isFileLocked}
 					<div class="header__tag-group">
 						{#if isFileLocked}
@@ -43,21 +45,10 @@
 							>
 						{/if}
 						{#if file.conflicted}
-							<Badge size="tag" icon="warning-small" style="error">Has conflicts</Badge>
+							<Badge size="icon" style="error">Has conflicts</Badge>
 						{/if}
 					</div>
 				{/if}
-				<div class="header__tag-group">
-					{#if fileStats.added}
-						<Badge size="icon" style="success" kind="soft">+{fileStats.added}</Badge>
-					{/if}
-					{#if fileStats.removed}
-						<Badge size="icon" style="error" kind="soft">-{fileStats.removed}</Badge>
-					{/if}
-					{#if fileStatus}
-						<FileStatusTag status={fileStatus} />
-					{/if}
-				</div>
 			</div>
 		</div>
 	</div>
@@ -90,7 +81,7 @@
 	}
 	.header__tag-group {
 		display: flex;
-		gap: 2px;
+		gap: 4px;
 	}
 	.header__filetitle {
 		width: 100%;

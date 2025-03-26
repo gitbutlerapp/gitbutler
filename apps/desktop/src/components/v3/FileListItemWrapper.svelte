@@ -10,6 +10,7 @@
 	import { key, type SelectionId } from '$lib/selection/key';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
+	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
 
@@ -92,26 +93,31 @@
 		isBinary={false}
 	/>
 
-	<FileListItemV3
-		id={key({ ...selectedFile, path: change.path })}
-		filePath={change.path}
-		fileStatus={computeChangeStatus(change)}
-		{selected}
-		{showCheckbox}
-		checked={!!selection.current}
-		{listActive}
-		{indeterminate}
-		draggable={true}
-		{onkeydown}
-		locked={false}
-		conflicted={false}
-		onclick={(e) => {
-			onclick?.(e);
-		}}
-		oncheck={onCheck}
-		oncontextmenu={onContextMenu}
-		size={isHeader ? 'large' : 'small'}
-	/>
+	{#if isHeader}
+		<div class="file-header">
+			<FileIcon fileName={getFilename(change.path) || ''} size={16} />
+		</div>
+	{:else}
+		<FileListItemV3
+			id={key({ ...selectedFile, path: change.path })}
+			filePath={change.path}
+			fileStatus={computeChangeStatus(change)}
+			{selected}
+			{showCheckbox}
+			checked={!!selection.current}
+			{listActive}
+			{indeterminate}
+			draggable={true}
+			{onkeydown}
+			locked={false}
+			conflicted={false}
+			onclick={(e) => {
+				onclick?.(e);
+			}}
+			oncheck={onCheck}
+			oncontextmenu={onContextMenu}
+		/>
+	{/if}
 </div>
 
 <style lang="postcss">

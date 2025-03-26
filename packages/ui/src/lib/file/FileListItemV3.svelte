@@ -4,9 +4,8 @@
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
-	import FileIcon from '$lib/file/FileIcon.svelte';
+	import FileName from '$lib/file/FileName.svelte';
 	import FileStatusBadge from '$lib/file/FileStatusBadge.svelte';
-	import { splitFilePath } from '$lib/utils/filePath';
 	import type { FileStatus } from '$lib/file/types';
 
 	interface Props {
@@ -15,7 +14,6 @@
 		filePath: string;
 		fileStatus?: FileStatus;
 		fileStatusStyle?: 'dot' | 'full';
-		size?: 'small' | 'large';
 		draggable?: boolean;
 		selected?: boolean;
 		focused?: boolean;
@@ -46,7 +44,6 @@
 		filePath,
 		fileStatus,
 		fileStatusStyle = 'dot',
-		size = 'small',
 		draggable = false,
 		selected = false,
 		focused = false,
@@ -66,15 +63,13 @@
 		onkeydown,
 		oncontextmenu
 	}: Props = $props();
-
-	const fileInfo = $derived(splitFilePath(filePath));
 </script>
 
 <div
 	bind:this={ref}
 	data-locked={locked}
 	data-file-id={id}
-	class="file-list-item size-{size}"
+	class="file-list-item"
 	class:selected
 	class:list-active={listActive}
 	class:clickable
@@ -102,22 +97,8 @@
 	{#if showCheckbox}
 		<Checkbox small {checked} {indeterminate} onchange={oncheck} />
 	{/if}
-	<div class="info">
-		<FileIcon fileName={fileInfo.filename} />
-		<span class="text-12 text-semibold name truncate">
-			{fileInfo.filename}
-		</span>
 
-		{#if fileInfo.path}
-			<div class="path-container">
-				<Tooltip text={filePath} delay={1200}>
-					<span class="text-12 path truncate">
-						{fileInfo.path}
-					</span>
-				</Tooltip>
-			</div>
-		{/if}
-	</div>
+	<FileName {filePath} />
 
 	<div class="details">
 		{#if locked}
@@ -180,12 +161,6 @@
 
 		& :global(.mark-resolved-btn) {
 			margin: 0 4px;
-		}
-
-		&.size-large {
-			padding: 14px;
-			height: unset;
-			border-bottom: 1px solid var(--clr-border-2);
 		}
 	}
 
