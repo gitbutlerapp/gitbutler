@@ -35,6 +35,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @deprecated
+	 */
 	async resetBranch(branchId: string, targetCommitOid: string) {
 		try {
 			await invoke<void>('reset_virtual_branch', {
@@ -63,6 +66,9 @@ export class BranchController {
 		});
 	}
 
+	/**
+	 * @deprecated
+	 */
 	async commit(branchId: string, message: string, ownership: string | undefined = undefined) {
 		try {
 			await invoke<void>('commit_virtual_branch', {
@@ -96,6 +102,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @deprecated
+	 */
 	async updateBranchName(branchId: string, name: string) {
 		try {
 			await invoke<void>('update_virtual_branch', {
@@ -107,6 +116,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @note - Ported to redux
+	 */
 	async createPatchSeries(
 		stackId: string,
 		referenceName: string,
@@ -126,6 +138,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @deprecated
+	 */
 	async removePatchSeries(branchId: string, name: string) {
 		try {
 			await invoke<void>('remove_series', {
@@ -140,6 +155,7 @@ export class BranchController {
 
 	/**
 	 * Updates the name of the series and resets the forge id to undefined.
+	 * @note - Ported to redux
 	 */
 	async updateSeriesName(branchId: string, headName: string, newHeadName: string) {
 		try {
@@ -160,6 +176,8 @@ export class BranchController {
 	 * @param stackId The stack ID to update.
 	 * @param headName The branch name to update.
 	 * @param prNumber New pull request number to be set for the branch.
+	 *
+	 * @noew - Ported to redux
 	 */
 	async updateBranchPrNumber(stackId: string, headName: string, prNumber: number | null) {
 		try {
@@ -179,6 +197,8 @@ export class BranchController {
 	 * @param stackId The stack Id (vbranch.id) which contains the series.
 	 * @param headName The target series.
 	 * @param description The description to set on the series.
+	 *
+	 * @note - Ported to redux
 	 */
 	async updateSeriesDescription(stackId: string, headName: string, description: string) {
 		try {
@@ -193,6 +213,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @note - Ported to redux
+	 */
 	async reorderStackCommit(branchId: string, stackOrder: StackOrder) {
 		try {
 			await invoke<void>('reorder_stack', {
@@ -205,6 +228,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @deprecated
+	 */
 	async updateBranchRemoteName(branchId: string, upstream: string) {
 		try {
 			await invoke<void>('update_virtual_branch', {
@@ -260,6 +286,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @deprecated
+	 */
 	async applyBranch(branchId: string) {
 		try {
 			// TODO: make this optimistic again.
@@ -269,6 +298,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @deprecated
+	 */
 	async unapplyLines(hunk: Hunk, linesToUnapply: { old?: number; new?: number }[]) {
 		const ownership = `${hunk.filePath}:${hunk.id}-${hunk.hash}`;
 		const lines = {
@@ -281,6 +313,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @deprecated
+	 */
 	async unapplyHunk(hunk: Hunk) {
 		const ownership = `${hunk.filePath}:${hunk.id}-${hunk.hash}`;
 		try {
@@ -290,6 +325,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @deprecated
+	 */
 	async unapplyFiles(branchId: string, files: LocalFile[]) {
 		try {
 			await invoke<void>('reset_files', {
@@ -302,6 +340,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @deprecated
+	 */
 	async unapplyChanges(branchId: string | undefined, changes: TreeChange[]) {
 		// TODO: this won't for changes.
 		// There are some changes required on the rust side to make this work.
@@ -316,6 +357,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @note Ported to redux
+	 */
 	async saveAndUnapply(branchId: string) {
 		try {
 			await invoke<void>('save_and_unapply_virtual_branch', {
@@ -328,6 +372,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @deprecated
+	 */
 	async updateBranchOwnership(branchId: string, ownership: string) {
 		try {
 			await invoke<void>('update_virtual_branch', {
@@ -339,6 +386,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @note - Ported to redux
+	 */
 	async pushBranch(branchId: string, withForce: boolean): Promise<BranchPushResult | undefined> {
 		try {
 			const pushResult = await invoke<BranchPushResult | undefined>('push_stack', {
@@ -383,6 +433,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @note - Ported to redux
+	 */
 	async unapplyWithoutSaving(branchId: string) {
 		try {
 			// TODO: make this optimistic again.
@@ -496,6 +549,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @note - Ported to redux
+	 */
 	async undoCommit(branchId: string, branchName: string, commitOid: string) {
 		try {
 			await invoke<void>('undo_commit', {
@@ -508,6 +564,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @note - Ported to redux
+	 */
 	async updateCommitMessage(branchId: string, commitOid: string, message: string) {
 		try {
 			await invoke<void>('update_commit_message', {
@@ -521,6 +580,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @note - Ported to redux
+	 */
 	async insertBlankCommit(branchId: string, commitOid: string, offset: number) {
 		try {
 			await invoke<void>('insert_blank_commit', {
@@ -534,6 +596,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * @note - Ported to redux
+	 */
 	async moveCommit(targetStackId: string, commitOid: string, sourceStackId: string) {
 		try {
 			await invoke<void>('move_commit', {
