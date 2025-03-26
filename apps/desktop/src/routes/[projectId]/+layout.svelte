@@ -66,7 +66,6 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const repoInfoResponse = $derived(baseBranchService.repo(projectId));
 	const repoInfo = $derived(repoInfoResponse.current.data);
-	const [fetchFromRemotes] = baseBranchService.fetchFromRemotes;
 	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
 	const baseBranch = $derived(baseBranchResponse.current.data);
 	const pushRepoResponse = $derived(baseBranchService.pushRepo(projectId));
@@ -211,12 +210,16 @@
 		projectMetrics.loadFromLocalStorage();
 	});
 
+	async function fetchRemoteForProject() {
+		await baseBranchService.refreshRemotes(projectId);
+	}
+
 	function setupFetchInterval() {
-		fetchFromRemotes({ projectId });
+		fetchRemoteForProject();
 		clearFetchInterval();
 		const intervalMs = 15 * 60 * 1000; // 15 minutes
 		intervalId = setInterval(async () => {
-			await fetchFromRemotes({ projectId });
+			await fetchRemoteForProject();
 		}, intervalMs);
 	}
 

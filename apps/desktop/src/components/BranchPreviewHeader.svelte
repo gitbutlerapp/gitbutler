@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchController } from '$lib/branches/branchController';
 	import { BranchListingService } from '$lib/branches/branchListing';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -27,13 +28,15 @@
 	const branch = $derived(remoteBranch || localBranch!);
 	const upstream = $derived(remoteBranch?.givenName);
 
-	const [branchController, branchListingService, project, forge, modeSerivce] = inject(
-		BranchController,
-		BranchListingService,
-		Project,
-		DefaultForgeFactory,
-		ModeService
-	);
+	const [branchController, branchListingService, project, forge, modeSerivce, baseBranchService] =
+		inject(
+			BranchController,
+			BranchListingService,
+			Project,
+			DefaultForgeFactory,
+			ModeService,
+			BaseBranchService
+		);
 
 	const mode = modeSerivce.mode;
 	const forgeBranch = $derived(upstream ? forge.current.branch(upstream) : undefined);
@@ -49,6 +52,16 @@
 	let isApplying = $state(false);
 	let isDeleting = $state(false);
 	let deleteBranchModal = $state<Modal>();
+
+	async function createvBranchFromBranch(branch: string, remote?: string, prNumber?: number) {
+		await branchController.createvBranchFromBranch(branch, remote, prNumber);
+		await baseBranchService.refreshBaseBranch(project.id);
+	}
+
+	async function deleteLocalBranch(refname: string, givenName: string) {
+		await branchController.deleteLocalBranch(refname, givenName);
+		await baseBranchService.refreshBaseBranch(project.id);
+	}
 </script>
 
 <div class="header__wrapper">
@@ -111,16 +124,9 @@
 						isApplying = true;
 						try {
 							if (localBranch) {
-								await branchController.createvBranchFromBranch(
-									localBranch.name,
-									remoteBranch?.name
-								);
+								await createvBranchFromBranch(localBranch.name, remoteBranch?.name);
 							} else {
-								await branchController.createvBranchFromBranch(
-									remoteBranch!.name,
-									undefined,
-									pr?.number
-								);
+								await createvBranchFromBranch(remoteBranch!.name, undefined, pr?.number);
 							}
 							goto(`/${project.id}/board`);
 						} catch (e) {
@@ -160,7 +166,7 @@
 	onSubmit={async (close) => {
 		try {
 			isDeleting = true;
-			await branchController.deleteLocalBranch(branch.name, branch.givenName);
+			await deleteLocalBranch(branch.name, branch.givenName);
 		} catch (e) {
 			const err = 'Failed to delete local branch';
 			error(err);

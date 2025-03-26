@@ -87,6 +87,10 @@ export default class BaseBranchService {
 		});
 	}
 
+	async refreshRemotes(projectId: string) {
+		await this.api.endpoints.fetchFromRemotes.mutate({ projectId });
+	}
+
 	get setTarget() {
 		return this.api.endpoints.setTarget.useMutation();
 	}

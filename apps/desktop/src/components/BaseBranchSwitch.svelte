@@ -2,10 +2,9 @@
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { BranchController } from '$lib/branches/branchController';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { Project } from '$lib/project/project';
-	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
@@ -13,21 +12,20 @@
 
 	const project = getContext(Project);
 	const projectId = $derived(project.id);
-	const baseBranch = getContextStore(BaseBranch);
+	const baseBranch = getContext(BaseBranch);
 	const vbranchService = getContext(VirtualBranchService);
-	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
 	const remoteBranchesResponse = $derived(baseBranchService.remoteBranches(projectId));
 	const activeBranches = vbranchService.branches;
+	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
 
-	let selectedBranch = $state({ name: $baseBranch.branchName });
-	let selectedRemote = $state({ name: $baseBranch.actualPushRemoteName() });
+	let selectedBranch = $state({ name: baseBranch.branchName });
+	let selectedRemote = $state({ name: baseBranch.actualPushRemoteName() });
 	let targetChangeDisabled = $state(false);
 
 	if ($activeBranches) {
 		targetChangeDisabled = $activeBranches.length > 0;
 	}
-	let isSwitching = $state(false);
 
 	function uniqueRemotes(remoteBranches: { name: string }[]) {
 		return Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0]))).map((r) => ({
@@ -35,19 +33,22 @@
 		}));
 	}
 
+	async function switchTarget(branch: string, remote?: string) {
+		await setBaseBranchTarget({
+			projectId: project.id,
+			branch,
+			pushRemote: remote
+		});
+		await vbranchService.refresh();
+	}
+
 	async function onSetBaseBranchClick() {
 		if (!selectedBranch) return;
 
-		isSwitching = true; // Indicate switching in progress
-
 		if (selectedRemote) {
-			await branchController.setTarget(selectedBranch.name, selectedRemote.name).finally(() => {
-				isSwitching = false;
-			});
+			await switchTarget(selectedBranch.name, selectedRemote.name);
 		} else {
-			await branchController.setTarget(selectedBranch.name).finally(() => {
-				isSwitching = false;
-			});
+			await switchTarget(selectedBranch.name);
 		}
 	}
 </script>
@@ -122,12 +123,12 @@
 					kind="outline"
 					onclick={onSetBaseBranchClick}
 					id="set-base-branch"
-					loading={isSwitching}
-					disabled={(selectedBranch.name === $baseBranch.branchName &&
-						selectedRemote.name === $baseBranch.actualPushRemoteName()) ||
+					loading={targetBranchSwitch.current.isLoading}
+					disabled={(selectedBranch.name === baseBranch.branchName &&
+						selectedRemote.name === baseBranch.actualPushRemoteName()) ||
 						targetChangeDisabled}
 				>
-					{isSwitching ? 'Switching branches...' : 'Update configuration'}
+					{targetBranchSwitch.current.isLoading ? 'Switching branches...' : 'Update configuration'}
 				</Button>
 			{/if}
 		</SectionCard>

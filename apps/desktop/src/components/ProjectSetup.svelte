@@ -5,7 +5,7 @@
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { BranchController } from '$lib/branches/branchController';
+	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { platformName } from '$lib/platform/platform';
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
@@ -23,9 +23,10 @@
 	const project = getContext(Project);
 	const projectId = $derived(project.id);
 	const projectsService = getContext(ProjectsService);
-	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
+	const vbranchService = getContext(VirtualBranchService);
 	const posthog = getContext(PostHogWrapper);
+	const [setBaseBranchTarget] = baseBranchService.setTarget;
 
 	let selectedBranch = $state(['', '']);
 	let loading = $state(false);
@@ -41,7 +42,12 @@
 				await projectsService.updateProject(project);
 				await baseBranchService.refreshBaseBranch(projectId);
 			}
-			await branchController.setTarget(selectedBranch[0], selectedBranch[1]);
+			await setBaseBranchTarget({
+				projectId: project.id,
+				branch: selectedBranch[0],
+				pushRemote: selectedBranch[1]
+			});
+			await vbranchService.refresh();
 			goto(`/${project.id}/`, { invalidateAll: true });
 		} finally {
 			posthog.capture('Project Setup Complete');

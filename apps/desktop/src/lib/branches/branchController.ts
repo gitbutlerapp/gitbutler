@@ -2,7 +2,6 @@ import { invoke } from '$lib/backend/ipc';
 import { showError, showToast } from '$lib/notifications/toasts';
 import * as toasts from '@gitbutler/ui/toasts';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
-import type { BaseBranchService } from '$lib/baseBranch/old_baseBranchService';
 import type { StackOrder } from '$lib/branches/branch';
 import type { BranchListingService } from '$lib/branches/branchListing';
 import type { VirtualBranchService } from '$lib/branches/virtualBranchService';
@@ -17,23 +16,9 @@ export class BranchController {
 	constructor(
 		private readonly projectId: string,
 		private readonly vbranchService: VirtualBranchService,
-		private readonly baseBranchService: BaseBranchService,
 		private readonly branchListingService: BranchListingService,
 		private readonly posthog: PostHogWrapper
 	) {}
-
-	async setTarget(branch: string, pushRemote: string | undefined = undefined) {
-		try {
-			await this.baseBranchService.setTarget(branch, pushRemote);
-			return branch;
-			// TODO: Reloading seems to trigger 4 invocations of `list_virtual_branches`
-		} catch (err: any) {
-			showError('Failed to set base branch', err);
-		} finally {
-			this.baseBranchService.refresh();
-			this.vbranchService.refresh();
-		}
-	}
 
 	/**
 	 * @deprecated
@@ -441,7 +426,6 @@ export class BranchController {
 			showError('Failed to create virtual branch', err);
 		} finally {
 			this.branchListingService.refresh();
-			this.baseBranchService.refresh();
 		}
 	}
 
@@ -460,7 +444,6 @@ export class BranchController {
 			showError('Failed to delete local branch', err);
 		} finally {
 			this.branchListingService.refresh();
-			this.baseBranchService.refresh();
 		}
 	}
 

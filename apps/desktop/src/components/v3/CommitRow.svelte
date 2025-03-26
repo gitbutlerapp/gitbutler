@@ -9,7 +9,7 @@
 	import { NON_DRAGGABLE } from '$lib/dragging/draggables';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getContext, getContextStore, maybeGetContext } from '@gitbutler/shared/context';
+	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -52,7 +52,7 @@
 		onclick
 	}: Props = $props();
 
-	const baseBranch = getContextStore(BaseBranch);
+	const baseBranch = getContext(BaseBranch);
 	const stackService = getContext(StackService);
 	const modeService = maybeGetContext(ModeService);
 
@@ -72,7 +72,7 @@
 	let isOpenedByKebabButton = $state(false);
 
 	async function handleUncommit() {
-		if (!$baseBranch) {
+		if (!baseBranch) {
 			console.error('Unable to undo commit');
 			return;
 		}
@@ -195,7 +195,7 @@
 		}
 	}}
 	bind:menu={contextMenu}
-	baseBranch={$baseBranch}
+	{baseBranch}
 	branchId={stackId}
 	{commit}
 	{commitUrl}

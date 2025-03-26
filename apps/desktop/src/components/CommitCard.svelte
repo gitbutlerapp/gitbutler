@@ -20,7 +20,7 @@
 	import { Project } from '$lib/project/project';
 	import { UserService } from '$lib/user/userService';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { getContext, getContextStore, maybeGetContext } from '@gitbutler/shared/context';
+	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -66,7 +66,7 @@
 	}: Props = $props();
 
 	const branchController = getContext(BranchController);
-	const baseBranch = getContextStore(BaseBranch);
+	const baseBranch = getContext(BaseBranch);
 	const project = getContext(Project);
 	const modeService = maybeGetContext(ModeService);
 	const fileService = getContext(FileService);
@@ -113,7 +113,7 @@
 	}
 
 	function undoCommit(commit: DetailedCommit | Commit) {
-		if (!stack || !$baseBranch) {
+		if (!stack || !baseBranch) {
 			console.error('Unable to undo commit');
 			return;
 		}
@@ -222,7 +222,7 @@
 		}
 	}}
 	bind:menu={contextMenu}
-	baseBranch={$baseBranch}
+	{baseBranch}
 	{stack}
 	{commit}
 	isRemote={type === 'Remote'}
