@@ -88,7 +88,29 @@ export default class BaseBranchService {
 	}
 
 	async refreshRemotes(projectId: string) {
-		await this.api.endpoints.fetchFromRemotes.mutate({ projectId });
+		await this.api.endpoints.fetchFromRemotes.mutate(
+			{ projectId },
+			{
+				onError: (error, { action }) => {
+					const { code } = error;
+					if (code === Code.DefaultTargetNotFound) {
+						// Swallow this error since user should be taken to project setup page
+						return;
+					}
+
+					if (code === Code.ProjectsGitAuth) {
+						showError('Failed to authenticate', error);
+						return;
+					}
+
+					if (action !== undefined) {
+						showError('Failed to fetch', error);
+					}
+
+					console.error(error);
+				}
+			}
+		);
 	}
 
 	get setTarget() {
@@ -119,7 +141,11 @@ function injectEndpoints(api: BackendApi) {
 					command: 'fetch_from_remotes',
 					params: { projectId, action: action ?? 'auto' }
 				}),
-				invalidatesTags: [ReduxTag.BaseBranchData, ReduxTag.Stacks, ReduxTag.Commits]
+				invalidatesTags: [ReduxTag.BaseBranchData, ReduxTag.Stacks, ReduxTag.Commits],
+				transformErrorResponse: (error) => {
+					// This is good enough while we check the best way to handle this
+					return error.toString();
+				}
 			}),
 			setTarget: build.mutation<
 				BaseBranch,

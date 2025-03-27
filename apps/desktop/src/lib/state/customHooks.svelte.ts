@@ -180,9 +180,22 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 		Definitions
 	>;
 
-	async function mutate(queryArg: unknown) {
+	async function mutate(
+		queryArg: unknown,
+		options?: UseMutationHookParams<MutationDefinition<any, any, any, any, any>>
+	) {
 		const dispatch = getDispatch();
-		return await dispatch(initiate(queryArg));
+		const { fixedCacheKey, sideEffect, onError } = options ?? {};
+		const result = await dispatch(initiate(queryArg, { fixedCacheKey }));
+		if (!result.error) {
+			sideEffect?.(result.data, queryArg);
+		}
+
+		if (result.error && onError) {
+			onError(result.error, queryArg);
+		}
+
+		return result;
 	}
 
 	/**
