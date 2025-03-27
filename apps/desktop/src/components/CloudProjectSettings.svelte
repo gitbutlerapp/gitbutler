@@ -39,10 +39,7 @@
 		$project?.api?.repository_id ? getProjectByRepositoryId($project.api.repository_id) : undefined
 	);
 
-	let organizationsList = $state<HTMLElement>();
-	const usersOrganizations = $derived(
-		getOrganizations(appState, organizationService, { element: organizationsList })
-	);
+	const usersOrganizations = $derived(getOrganizations(appState, organizationService));
 
 	const existingProjectRepositoryId = $derived(
 		$userLogin && $project?.title ? lookupProject($userLogin, $project.title) : undefined
@@ -251,7 +248,7 @@
 							Link your project with an organization
 						{/snippet}
 
-						<div bind:this={organizationsList}>
+						<div>
 							{#each usersOrganizations.current as loadableOrganization, index}
 								<SectionCard
 									roundedBottom={index === usersOrganizations.current.length - 1}

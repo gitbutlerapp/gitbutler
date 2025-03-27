@@ -25,13 +25,10 @@
 	const userService = getContext(UserService);
 	const user = userService.user;
 
-	let component = $state<HTMLElement>();
-
-	const branch = $derived(getBranchReview(branchUuid, { element: component }));
+	const branch = $derived.by(() => getBranchReview(branchUuid));
 	const loadablePatchCommits = $derived(
-		map(branch.current, (branch) =>
-			branch.patchCommitIds.map((id) => getPatch(branch.uuid, id, { element: component }))
-		) || []
+		map(branch.current, (branch) => branch.patchCommitIds.map((id) => getPatch(branch.uuid, id))) ||
+			[]
 	);
 	const patchCommits = $derived(
 		loadablePatchCommits
@@ -106,7 +103,7 @@
 	</div>
 {/snippet}
 
-<div bind:this={component} class="minimap" class:horizontal>
+<div class="minimap" class:horizontal>
 	{#each patchCommits ?? [] as patch}
 		<div class="erectangle-hover-area">
 			<div
