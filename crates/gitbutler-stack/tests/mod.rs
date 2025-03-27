@@ -67,7 +67,7 @@ fn add_series_top_base() -> Result<()> {
     let mut test_ctx = test_ctx(&ctx)?;
     let merge_base = ctx.repo().find_commit(
         ctx.repo()
-            .merge_base(test_ctx.stack.head(), test_ctx.default_target.sha)?,
+            .merge_base(test_ctx.stack.head()?, test_ctx.default_target.sha)?,
     )?;
     let reference = StackBranch::new(
         CommitOrChangeId::CommitId(merge_base.id().to_string()),
@@ -734,7 +734,7 @@ fn set_stack_head() -> Result<()> {
             .into()
     );
     assert_eq!(
-        test_ctx.stack.head(),
+        test_ctx.stack.head()?,
         test_ctx.other_commits.last().unwrap().id()
     );
     Ok(())
@@ -912,11 +912,11 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
     let target = handle.get_default_target()?;
     let mut branch_commits = ctx
         .repo()
-        .log(stack.head(), LogUntil::Commit(target.sha), false)?;
+        .log(stack.head()?, LogUntil::Commit(target.sha), false)?;
     branch_commits.reverse();
     let mut other_commits =
         ctx.repo()
-            .log(other_stack.head(), LogUntil::Commit(target.sha), false)?;
+            .log(other_stack.head()?, LogUntil::Commit(target.sha), false)?;
     other_commits.reverse();
     Ok(TestContext {
         stack: stack.clone(),

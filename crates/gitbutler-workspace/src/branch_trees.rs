@@ -43,8 +43,12 @@ pub fn checkout_branch_trees<'a>(
         Ok(tree)
     } else {
         let gix_repo = ctx.gix_repository_for_merging()?;
+        let heads = stacks
+            .iter()
+            .map(|b| b.head().map(|h| h.to_gix()))
+            .collect::<Result<Vec<_>>>()?;
         let merge_base_tree_id = gix_repo
-            .merge_base_octopus(stacks.iter().map(|b| git2_to_gix_object_id(b.head())))?
+            .merge_base_octopus(heads)?
             .object()?
             .into_commit()
             .tree_id()?;
@@ -94,7 +98,7 @@ impl WorkspaceState {
             .iter()
             .map(|stack| -> Result<gix::ObjectId> {
                 let tree_id = repository
-                    .find_real_tree(&stack.head().to_gix(), ConflictedTreeKey::AutoResolution)?;
+                    .find_real_tree(&stack.head()?.to_gix(), ConflictedTreeKey::AutoResolution)?;
                 Ok(tree_id.detach())
             })
             .collect::<Result<Vec<_>>>()?;
@@ -235,7 +239,7 @@ pub fn compute_updated_branch_head(
     new_head: git2::Oid,
 ) -> Result<BranchHeadAndTree> {
     #[allow(deprecated)]
-    compute_updated_branch_head_for_commits(repository, stack.head(), stack.tree, new_head)
+    compute_updated_branch_head_for_commits(repository, stack.head()?, stack.tree, new_head)
 }
 
 /// Given a new head for a branch, this comptues how the tree should be

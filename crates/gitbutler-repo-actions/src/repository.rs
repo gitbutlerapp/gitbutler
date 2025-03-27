@@ -82,7 +82,7 @@ impl RepoActionsExt for CommandContext {
         let (should_write, with_force) =
             match self.repo().find_reference(&stack.refname()?.to_string()) {
                 Ok(reference) => match reference.target() {
-                    Some(head_oid) => Ok((head_oid != stack.head(), true)),
+                    Some(head_oid) => Ok((head_oid != stack.head()?, true)),
                     None => Ok((true, true)),
                 },
                 Err(err) => match err.code() {
@@ -96,7 +96,7 @@ impl RepoActionsExt for CommandContext {
             self.repo()
                 .reference(
                     &stack.refname()?.to_string(),
-                    stack.head(),
+                    stack.head()?,
                     with_force,
                     "new vbranch",
                 )

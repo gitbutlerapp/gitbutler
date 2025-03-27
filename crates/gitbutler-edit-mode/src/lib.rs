@@ -299,7 +299,7 @@ pub(crate) fn save_and_return_to_workspace(
         .context("Failed to commit new commit")?;
 
     // Rebase all all commits on top of the new commit and update reference
-    let new_branch_head = cherry_rebase(ctx, new_commit_oid, commit.id(), virtual_branch.head())
+    let new_branch_head = cherry_rebase(ctx, new_commit_oid, commit.id(), virtual_branch.head()?)
         .context("Failed to rebase commits onto new commit")?
         .unwrap_or(new_commit_oid);
 

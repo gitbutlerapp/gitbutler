@@ -49,14 +49,14 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
         let merge_parent = conflicts::merge_parent(ctx)?.ok_or(anyhow!("No merge parent"))?;
         let first_stack = stacks.first().ok_or(anyhow!("No branches"))?;
 
-        let merge_base = repo.merge_base(first_stack.head(), merge_parent)?;
+        let merge_base = repo.merge_base(first_stack.head()?, merge_parent)?;
         workspace_tree = repo.find_commit(merge_base)?.tree()?;
     } else {
         let gix_repo = ctx.gix_repository_for_merging()?;
         let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
         let merge_tree_id = git2_to_gix_object_id(repo.find_commit(target.sha)?.tree_id());
         for stack in stacks.iter_mut() {
-            let branch_head = repo.find_commit(stack.head())?;
+            let branch_head = repo.find_commit(stack.head()?)?;
             let branch_tree_id =
                 git2_to_gix_object_id(repo.find_real_tree(&branch_head, Default::default())?.id());
 
@@ -84,9 +84,9 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
     let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
     let mut heads: Vec<git2::Commit<'_>> = stacks
         .iter()
-        .filter(|b| b.head() != target.sha)
-        .map(|b| repo.find_commit(b.head()))
-        .filter_map(Result::ok)
+        .filter_map(|stack| stack.head().ok())
+        .filter(|h| h != &target.sha)
+        .filter_map(|h| repo.find_commit(h).ok())
         .collect();
 
     if heads.is_empty() {
@@ -196,9 +196,9 @@ pub fn update_workspace_commit(
             message.push_str(format!(" ({})", &branch.refname()?).as_str());
             message.push('\n');
 
-            if branch.head() != target.sha {
+            if branch.head()? != target.sha {
                 message.push_str("   branch head: ");
-                message.push_str(&branch.head().to_string());
+                message.push_str(&branch.head()?.to_string());
                 message.push('\n');
             }
             for file in &branch.ownership.claims {
@@ -253,7 +253,7 @@ pub fn update_workspace_commit(
     // finally, update the refs/gitbutler/ heads to the states of the current virtual branches
     for branch in &virtual_branches {
         let wip_tree = repo.find_tree(branch.tree)?;
-        let mut branch_head = repo.find_commit(branch.head())?;
+        let mut branch_head = repo.find_commit(branch.head()?)?;
         let head_tree = branch_head.tree()?;
 
         // create a wip commit if there is wip
@@ -381,7 +381,7 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
         .context("failed to create virtual branch")?;
 
     // rebasing the extra commits onto the new branch
-    let mut head = new_branch.head();
+    let mut head = new_branch.head()?;
     for commit in extra_commits {
         let new_branch_head = ctx
             .repo()

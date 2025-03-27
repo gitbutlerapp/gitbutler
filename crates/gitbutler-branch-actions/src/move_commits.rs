@@ -92,7 +92,7 @@ fn get_source_branch_diffs(
     source_stack: &gitbutler_stack::Stack,
 ) -> Result<BranchStatus> {
     let repo = ctx.repo();
-    let source_stack_head = repo.find_commit(source_stack.head())?;
+    let source_stack_head = repo.find_commit(source_stack.head()?)?;
     let source_stack_head_tree = source_stack_head.tree()?;
     let uncommitted_changes_tree = repo.find_tree(source_stack.tree)?;
 

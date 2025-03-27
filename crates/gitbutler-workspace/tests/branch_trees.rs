@@ -47,7 +47,7 @@ mod compute_updated_branch_head {
         let BranchHeadAndTree { head, tree } =
             compute_updated_branch_head(&test_repository.repository, &stack, head.id()).unwrap();
 
-        assert_eq!(head, stack.head());
+        assert_eq!(head, stack.head().unwrap());
         assert_eq!(tree, stack.tree);
     }
 

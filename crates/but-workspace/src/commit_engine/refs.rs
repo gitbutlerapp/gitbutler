@@ -34,7 +34,7 @@ pub fn rewrite(
                     continue; // Dont rewrite refs for other stacks
                 }
             }
-            if stack.head() == old_git2 {
+            if stack.head()? == old_git2 {
                 stack.set_head(new.to_git2());
                 stack.tree = new
                     .attach(repo)

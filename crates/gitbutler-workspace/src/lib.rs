@@ -25,7 +25,10 @@ pub fn workspace_base(
     let target_branch_commit = target_branch.get().peel_to_commit()?.id().to_gix();
 
     let stacks = vb_state.list_stacks_in_workspace()?;
-    let stack_heads = stacks.iter().map(|b| b.head().to_gix()).collect::<Vec<_>>();
+    let stack_heads = stacks
+        .iter()
+        .map(|b| b.head().map(|h| h.to_gix()))
+        .collect::<Result<Vec<_>>>()?;
     let merge_base_tree_id = gix_repo
         .merge_base_octopus([stack_heads, vec![target_branch_commit]].concat())?
         .object()?

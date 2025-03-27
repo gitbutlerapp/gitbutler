@@ -176,8 +176,8 @@ impl Stack {
     }
 
     // TODO: derive this from the last head
-    pub fn head(&self) -> git2::Oid {
-        self.head
+    pub fn head(&self) -> Result<git2::Oid> {
+        Ok(self.head)
     }
 
     pub fn set_head(&mut self, head: git2::Oid) {
@@ -240,7 +240,7 @@ impl Stack {
     pub fn commits(&self, stack_context: &StackContext) -> Result<Vec<git2::Oid>> {
         let repository = stack_context.repository();
         let stack_commits = repository.l(
-            self.head(),
+            self.head()?,
             LogUntil::Commit(self.merge_base(stack_context)?),
             false,
         )?;
@@ -271,7 +271,7 @@ impl Stack {
     pub fn merge_base(&self, stack_context: &StackContext) -> Result<git2::Oid> {
         let target = stack_context.target();
         let repository = stack_context.repository();
-        let merge_base = repository.merge_base(self.head(), target.sha)?;
+        let merge_base = repository.merge_base(self.head()?, target.sha)?;
         Ok(merge_base)
     }
 
@@ -315,7 +315,7 @@ impl Stack {
         ctx: &CommandContext,
         allow_duplicate_refs: bool,
     ) -> Result<StackBranch> {
-        let commit = ctx.repo().find_commit(self.head())?;
+        let commit = ctx.repo().find_commit(self.head()?)?;
         let state = branch_state(ctx);
         let repo = ctx.gix_repository()?;
 
@@ -400,7 +400,7 @@ impl Stack {
         validate_target(
             new_head.head_oid(&gix_repo)?,
             ctx.repo(),
-            self.head(),
+            self.head()?,
             &state,
         )?;
         let updated_heads = add_head(
@@ -480,7 +480,7 @@ impl Stack {
             validate_target(
                 new_head.head_oid(&gix_repo)?,
                 ctx.repo(),
-                self.head(),
+                self.head()?,
                 &state,
             )?;
             let preceding_head = if let Some(preceding_head_name) = update
@@ -559,7 +559,7 @@ impl Stack {
         // let patch: CommitOrChangeId = commit.into();
 
         let state = branch_state(ctx);
-        let stack_head = self.head();
+        let stack_head = self.head()?;
         let head = self
             .heads
             .last_mut()
@@ -698,7 +698,7 @@ impl Stack {
             return Ok(());
         }
 
-        let stack_head = self.head();
+        let stack_head = self.head()?;
         let stack_ctx = ctx.to_stack_context()?;
         let merge_base = self.merge_base(&stack_ctx)?;
 

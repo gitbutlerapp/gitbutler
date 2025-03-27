@@ -129,16 +129,19 @@ impl StackEntry {
 /// - `gb_dir`: The path to the GitButler state for the project. Normally this is `.git/gitbutler` in the project's repository.
 pub fn stacks(gb_dir: &Path) -> Result<Vec<StackEntry>> {
     let state = state_handle(gb_dir);
-    Ok(state
+
+    state
         .list_stacks_in_workspace()?
         .into_iter()
         .sorted_by_key(|s| s.order)
-        .map(|stack| StackEntry {
-            id: stack.id,
-            branch_names: stack.heads().into_iter().map(Into::into).collect(),
-            tip: stack.head().to_gix(),
+        .map(|stack| {
+            Ok(StackEntry {
+                id: stack.id,
+                branch_names: stack.heads().into_iter().map(Into::into).collect(),
+                tip: stack.head().map(|h| h.to_gix())?,
+            })
         })
-        .collect())
+        .collect()
 }
 
 /// Represents the pushable status for the current stack.

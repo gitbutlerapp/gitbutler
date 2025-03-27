@@ -57,7 +57,7 @@ fn do_squash_commits(
     let vb_state = ctx.project().virtual_branches();
     let stack = vb_state.get_stack_in_workspace(stack_id)?;
     let default_target = vb_state.get_default_target()?;
-    let merge_base = ctx.repo().merge_base(stack.head(), default_target.sha)?;
+    let merge_base = ctx.repo().merge_base(stack.head()?, default_target.sha)?;
 
     // =========== Step 1: Reorder
 
@@ -103,7 +103,7 @@ fn do_squash_commits(
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     let branch_commit_oids = ctx
         .repo()
-        .l(stack.head(), LogUntil::Commit(merge_base), false)?;
+        .l(stack.head()?, LogUntil::Commit(merge_base), false)?;
 
     let branch_commits = branch_commit_oids
         .iter()

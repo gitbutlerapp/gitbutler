@@ -47,8 +47,8 @@ pub fn reorder_stack(
     let default_target_commit = repo
         .find_reference(&default_target.branch.to_string())?
         .peel_to_commit()?;
-    let old_head = repo.find_commit(stack.head())?;
-    let merge_base = repo.merge_base(default_target_commit.id(), stack.head())?;
+    let old_head = repo.find_commit(stack.head()?)?;
+    let merge_base = repo.merge_base(default_target_commit.id(), stack.head()?)?;
 
     let mut steps: Vec<RebaseStep> = Vec::new();
     for series in new_order.series.iter().rev() {

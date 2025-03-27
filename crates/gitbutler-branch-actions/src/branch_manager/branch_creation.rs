@@ -290,11 +290,11 @@ impl BranchManager<'_> {
         // if not, we need to merge or rebase the branch to get it up to date
 
         let merge_base = repo
-            .merge_base(default_target.sha, stack.head())
+            .merge_base(default_target.sha, stack.head()?)
             .context(format!(
                 "failed to find merge base between {} and {}",
                 default_target.sha,
-                stack.head()
+                stack.head()?
             ))?;
 
         // Branch is out of date, merge or rebase it
@@ -331,7 +331,7 @@ impl BranchManager<'_> {
 
         // Do we need to rebase the branch on top of the default target?
 
-        let has_change_id = repo.find_commit(stack.head())?.change_id().is_some();
+        let has_change_id = repo.find_commit(stack.head()?)?.change_id().is_some();
         // If the branch has no change ID for the head commit, we want to rebase it even if the base is the same
         // This way stacking functionality which relies on change IDs will work as expected
         if merge_base != default_target.sha || !has_change_id {
@@ -349,7 +349,7 @@ impl BranchManager<'_> {
             } else {
                 gitbutler_merge_commits(
                     repo,
-                    repo.find_commit(stack.head())?,
+                    repo.find_commit(stack.head()?)?,
                     repo.find_commit(default_target.sha)?,
                     &stack.name,
                     default_target.branch.branch(),
@@ -375,7 +375,7 @@ impl BranchManager<'_> {
 
         {
             if let Some(wip_commit_to_unapply) = &stack.not_in_workspace_wip_change_id {
-                let potential_wip_commit = repo.find_commit(stack.head())?;
+                let potential_wip_commit = repo.find_commit(stack.head()?)?;
 
                 // Don't try to undo commit if its conflicted
                 if !potential_wip_commit.is_conflicted() {
@@ -384,7 +384,7 @@ impl BranchManager<'_> {
                             stack = crate::undo_commit::undo_commit(
                                 self.ctx,
                                 stack.id,
-                                stack.head(),
+                                stack.head()?,
                                 perm,
                             )?;
                         }
