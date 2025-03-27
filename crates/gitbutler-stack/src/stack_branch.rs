@@ -22,6 +22,7 @@ use crate::{commit_by_oid_or_change_id, stack_context::StackContext, Stack};
 pub struct StackBranch {
     /// The target of the reference - this can be a commit or a change that points to a commit.
     #[serde(alias = "target")]
+    #[deprecated(note = "Use the git reference instead")]
     pub head: CommitOrChangeId,
     /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
     /// The name must be unique within the repository.

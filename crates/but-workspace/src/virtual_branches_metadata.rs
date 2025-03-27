@@ -531,6 +531,7 @@ fn branch_to_stack_branch(
     }: &Branch,
     archived: bool,
 ) -> gitbutler_stack::StackBranch {
+    #[allow(deprecated)]
     gitbutler_stack::StackBranch {
         name: ref_name.shorten().to_string(),
         description: description.clone(),
