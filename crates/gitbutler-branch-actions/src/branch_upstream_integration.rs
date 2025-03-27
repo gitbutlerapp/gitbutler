@@ -1,8 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{anyhow, Result};
+use but_rebase::RebaseStep;
+use but_workspace::stack_ext::StackExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt as _},
@@ -13,10 +16,15 @@ use gitbutler_stack::StackId;
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 #[allow(deprecated)]
 use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head_for_commits};
+use gix::refs::FullName;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use crate::{conflicts, VirtualBranchesExt as _};
+use crate::{
+    conflicts,
+    upstream_integration::{as_buckets, flatten_buckets},
+    VirtualBranchesExt as _,
+};
 
 pub fn integrate_upstream_commits_for_series(
     ctx: &CommandContext,
@@ -57,16 +65,21 @@ pub fn integrate_upstream_commits_for_series(
         }
     });
 
+    let gix_repo = ctx.gix_repository()?;
+
     let integrate_upstream_context = IntegrateUpstreamContext {
         repository: repo,
         target_branch_head: default_target.sha,
         branch_head: stack.head(),
         branch_tree: stack.tree,
         branch_name: subject_branch.name(),
+        branch_full_name: subject_branch.full_name()?,
         remote_head: remote_head.id(),
         remote_branch_name: &subject_branch.remote_reference(&remote),
         strategy,
         v3: ctx.app_settings().feature_flags.v3,
+        stack_steps: stack.as_rebase_steps(ctx, &gix_repo)?,
+        gix_repo: &gix_repo,
     };
 
     let ((head, tree), new_series_head) =
@@ -105,6 +118,7 @@ struct IntegrateUpstreamContext<'a, 'b> {
     branch_tree: git2::Oid,
     /// The name of the local branch
     branch_name: &'b str,
+    branch_full_name: FullName,
 
     /// The remote branch head
     remote_head: git2::Oid,
@@ -116,6 +130,9 @@ struct IntegrateUpstreamContext<'a, 'b> {
 
     /// Whether v3 is enabled
     v3: bool,
+
+    stack_steps: Vec<RebaseStep>,
+    gix_repo: &'a gix::Repository,
 }
 
 impl IntegrateUpstreamContext<'_, '_> {
@@ -153,29 +170,44 @@ impl IntegrateUpstreamContext<'_, '_> {
                     series_head,
                     self.remote_head,
                 )?;
-                // First rebase the series with it's remote commits
-                let new_series_head = cherry_rebase_group(
-                    self.repository,
-                    merge_base,
-                    &ordered_commits,
-                    false,
-                    false,
-                )?;
-                // Get the commits that come after the series head, until the stack head
-                let remaining_ids_to_rebase =
-                    self.repository
-                        .l(self.branch_head, LogUntil::Commit(series_head), false)?;
-                // Rebase the remaining commits on top of the new series head in order to get the new stack head
-                (
-                    cherry_rebase_group(
-                        self.repository,
-                        new_series_head,
-                        &remaining_ids_to_rebase,
-                        false,
-                        false,
-                    )?,
-                    new_series_head,
-                )
+
+                let mut buckets = as_buckets(self.stack_steps.clone());
+                let (_, steps) = buckets
+                    .iter_mut()
+                    .find(|(r, _)| match r {
+                        but_core::Reference::Virtual(name) => name == self.branch_name,
+                        but_core::Reference::Git(name) => name == &self.branch_full_name,
+                    })
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("failed to find branch to rebase in the stack rebase steps")
+                    })?;
+                // replace the steps with the ordered commits
+                *steps = ordered_commits
+                    .iter()
+                    .rev()
+                    .map(|commit_id| RebaseStep::Pick {
+                        commit_id: commit_id.to_gix(),
+                        new_message: None,
+                    })
+                    .collect();
+                let updated_steps = flatten_buckets(buckets);
+                let mut rebase = but_rebase::Rebase::new(self.gix_repo, merge_base.to_gix(), None)?;
+                rebase.steps(updated_steps)?;
+                rebase.rebase_noops(false);
+                let output = rebase.rebase()?;
+                let stack_head = output.top_commit.to_git2();
+                let new_series_head = output
+                    .references
+                    .iter()
+                    .find(|r| match r.reference.clone() {
+                        but_core::Reference::Virtual(name) => name == self.branch_name,
+                        but_core::Reference::Git(name) => name == self.branch_full_name,
+                    })
+                    .map(|r| r.commit_id)
+                    .ok_or_else(|| anyhow!("failed to find the new series head"))?
+                    .to_git2();
+
+                (stack_head, new_series_head)
             }
             IntegrationStrategy::HardReset => {
                 let remote_head_commit = self.repository.find_commit(self.remote_head)?;
@@ -443,6 +475,8 @@ mod test {
     use gitbutler_testsupport::testing_repository::TestingRepository;
 
     mod inner_integrate_upstream_commits {
+        use but_rebase::RebaseStep;
+        use gitbutler_oxidize::OidExt;
         use gitbutler_repo::logging::LogUntil;
         use gitbutler_repo::logging::RepositoryExt as _;
 
@@ -467,6 +501,27 @@ mod test {
             let local_c = test_repository.commit_tree(Some(&local_b), &[("foo.txt", "fooC")]);
             let local_d = test_repository.commit_tree(Some(&local_c), &[("foo.txt", "fooD")]);
 
+            let steps = vec![
+                RebaseStep::Pick {
+                    commit_id: local_a.id().to_gix(),
+                    new_message: None,
+                },
+                RebaseStep::Pick {
+                    commit_id: local_b.id().to_gix(),
+                    new_message: None,
+                },
+                RebaseStep::Reference(but_core::Reference::Virtual("One".to_string())),
+                RebaseStep::Pick {
+                    commit_id: local_c.id().to_gix(),
+                    new_message: None,
+                },
+                RebaseStep::Pick {
+                    commit_id: local_d.id().to_gix(),
+                    new_message: None,
+                },
+                RebaseStep::Reference(but_core::Reference::Virtual("Two".to_string())),
+            ];
+
             let remote_x = test_repository.commit_tree(Some(&local_b), &[("foo.txt", "foo3")]);
             let remote_y = test_repository.commit_tree(Some(&remote_x), &[("foo.txt", "foo4")]);
 
@@ -475,11 +530,14 @@ mod test {
                 target_branch_head: base_commit.id(),
                 branch_head: local_d.id(),
                 branch_tree: local_d.tree_id(),
-                branch_name: "test",
+                branch_name: "One",
+                branch_full_name: "refs/heads/One".try_into().unwrap(),
                 remote_head: remote_y.id(),
-                remote_branch_name: "test",
+                remote_branch_name: "One",
                 strategy: IntegrationStrategy::Rebase,
                 v3: false,
+                stack_steps: steps,
+                gix_repo: &test_repository.gix_repository(),
             };
 
             let ((head, _tree), new_series_head) = ctx
