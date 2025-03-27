@@ -39,7 +39,7 @@
 		onCopySelection?: () => void;
 		hoveringOverTable: boolean;
 		staged?: boolean;
-		onToggleStage?: () => void;
+		hideCheckboxes?: boolean;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
 	}
 
@@ -57,7 +57,7 @@
 		onCopySelection,
 		hoveringOverTable,
 		staged,
-		onToggleStage,
+		hideCheckboxes,
 		handleLineContextMenu
 	}: Props = $props();
 
@@ -142,7 +142,7 @@
 	data-no-drag
 	style="--diff-font: {diffFont};"
 >
-	{#if staged !== undefined}
+	{#if staged !== undefined && !hideCheckboxes}
 		{@const deltaLine = isDeltaLine(row.type)}
 		<td
 			bind:clientWidth={stagingColumnWidth}

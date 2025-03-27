@@ -30,7 +30,7 @@
 		numberHeaderWidth?: number;
 		staged?: boolean;
 		stagedLines?: LineId[];
-		onToggleStage?: () => void;
+		hideCheckboxes?: boolean;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
 		clickOutsideExcludeElement?: HTMLElement;
 	}
@@ -50,7 +50,7 @@
 		onQuoteSelection,
 		staged,
 		stagedLines,
-		onToggleStage,
+		hideCheckboxes,
 		handleLineContextMenu,
 		clickOutsideExcludeElement
 	}: Props = $props();
@@ -108,7 +108,7 @@
 			clearLineSelection={handleClearSelection}
 			{hoveringOverTable}
 			staged={getStageState(row)}
-			{onToggleStage}
+			{hideCheckboxes}
 			{handleLineContextMenu}
 		/>
 	{/each}
