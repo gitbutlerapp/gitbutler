@@ -1,6 +1,10 @@
 import { Commit } from '$lib/commits/commit';
 import { Type } from 'class-transformer';
 
+export interface RemoteBranchInfo {
+	name: string;
+}
+
 export class NoDefaultTarget extends Error {}
 
 export class BaseBranch {

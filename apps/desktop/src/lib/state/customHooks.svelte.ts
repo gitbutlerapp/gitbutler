@@ -55,7 +55,7 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 		options?: { transform?: T } & StartQueryActionCreatorOptions
 	) {
 		const dispatch = getDispatch();
-		let subscription: QueryActionCreatorResult<any>;
+		let subscription: QueryActionCreatorResult<any> | undefined;
 		$effect(() => {
 			subscription = dispatch(
 				initiate(queryArg, {
@@ -65,12 +65,29 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 				})
 			);
 			return () => {
-				subscription.unsubscribe();
+				subscription?.unsubscribe();
 			};
 		});
 
-		const result = $derived(useQueryState(queryArg, options));
-		return result;
+		async function refetch() {
+			await subscription?.refetch();
+		}
+
+		const selector = $derived(select(queryArg));
+		const result = $derived(selector(state()));
+		const output = $derived.by(() => {
+			let data = result.data;
+			if (options?.transform && data) {
+				data = options.transform(data, queryArg);
+			}
+			return {
+				...result,
+				refetch,
+				data
+			};
+		});
+
+		return reactive(() => output);
 	}
 
 	function useQueries<T extends TranformerFn>(

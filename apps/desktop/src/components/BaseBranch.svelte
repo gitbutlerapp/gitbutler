@@ -3,10 +3,11 @@
 	import CommitCard from '$components/CommitCard.svelte';
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import IntegrateUpstreamModal from '$components/IntegrateUpstreamModal.svelte';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { transformAnyCommit } from '$lib/commits/transformers';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
+	import { Project } from '$lib/project/project';
 	import { groupByCondition } from '$lib/utils/array';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -50,11 +51,12 @@
 
 	type ResetBaseStrategy = keyof typeof resetBaseTo;
 
-	const [baseBranchService, modeService, forge, lineManagerFactory] = inject(
+	const [baseBranchService, modeService, forge, lineManagerFactory, project] = inject(
 		BaseBranchService,
 		ModeService,
 		DefaultForgeFactory,
-		LineManagerFactory
+		LineManagerFactory,
+		Project
 	);
 
 	const mode = $derived(modeService.mode);
@@ -67,6 +69,8 @@
 	const confirmResetModalOpen = $derived(!!confirmResetModal?.imports.open);
 	let integrateUpstreamModal = $state<ReturnType<typeof IntegrateUpstreamModal>>();
 	const integrateUpstreamModalOpen = $derived(!!integrateUpstreamModal?.imports.open);
+	const projectId = $derived(project.id);
+	const [pushBase] = baseBranchService.push;
 
 	const pushButtonTooltip = $derived.by(() => {
 		if (onlyLocalAhead) return 'Push your local changes to upstream';
@@ -130,9 +134,9 @@
 
 	async function pushBaseBranch() {
 		baseBranchIsUpdating = true;
-		await baseBranchService.push(!onlyLocalAhead);
+		await pushBase({ projectId, withForce: !onlyLocalAhead });
 		await tick();
-		await baseBranchService.refresh();
+		await baseBranchService.refreshBaseBranch(projectId);
 		baseBranchIsUpdating = false;
 	}
 

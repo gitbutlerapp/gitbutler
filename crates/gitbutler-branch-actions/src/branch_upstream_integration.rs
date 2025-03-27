@@ -11,9 +11,9 @@ use gitbutler_repo::{
 };
 use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::StackId;
-use gitbutler_workspace::{
-    checkout_branch_trees, compute_updated_branch_head_for_commits, BranchHeadAndTree,
-};
+use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
+#[allow(deprecated)]
+use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head_for_commits};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -28,6 +28,7 @@ pub fn integrate_upstream_commits_for_series(
 ) -> Result<()> {
     conflicts::is_conflicting(ctx, None)?;
 
+    let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let repo = ctx.repo();
     let vb_state = ctx.project().virtual_branches();
 
@@ -66,14 +67,21 @@ pub fn integrate_upstream_commits_for_series(
         remote_head: remote_head.id(),
         remote_branch_name: &subject_branch.remote_reference(&remote),
         strategy,
+        v3: ctx.app_settings().feature_flags.v3,
     };
 
-    let (BranchHeadAndTree { head, tree }, new_series_head) =
+    let ((head, tree), new_series_head) =
         integrate_upstream_context.inner_integrate_upstream_commits_for_series(series_head.id())?;
 
     let mut branch = stack.clone();
-    branch.set_stack_head(ctx, head, Some(tree))?;
-    checkout_branch_trees(ctx, perm)?;
+    branch.set_stack_head(ctx, head, tree)?;
+    let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
+    if ctx.app_settings().feature_flags.v3 {
+        update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
+    } else {
+        #[allow(deprecated)]
+        checkout_branch_trees(ctx, perm)?;
+    }
     branch.replace_head(ctx, &series_head, &repo.find_commit(new_series_head)?)?;
     crate::integration::update_workspace_commit(&vb_state, ctx)?;
     Ok(())
@@ -85,12 +93,16 @@ pub fn integrate_upstream_commits_for_series(
 /// of the branch. Any other upstream commits are placed above the local
 /// commits.
 ///
+/// TODO: This is exclusivly used in tests. We should delete this and update
+///     the tests
 pub fn integrate_upstream_commits(
     ctx: &CommandContext,
     stack_id: StackId,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     conflicts::is_conflicting(ctx, None)?;
+
+    let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
 
     let repository = ctx.repo();
     let project = ctx.project();
@@ -130,16 +142,22 @@ pub fn integrate_upstream_commits(
         remote_head: upstream_branch_head,
         remote_branch_name: upstream_branch.name()?.unwrap_or("Unknown"),
         strategy: integration_strategy,
+        v3: ctx.app_settings().feature_flags.v3,
     };
 
-    let BranchHeadAndTree { head, tree } =
-        integrate_upstream_context.inner_integrate_upstream_commits()?;
+    let (head, tree) = integrate_upstream_context.inner_integrate_upstream_commits()?;
 
     let mut stack = stack.clone();
 
-    stack.set_stack_head(ctx, head, Some(tree))?;
+    stack.set_stack_head(ctx, head, tree)?;
 
-    checkout_branch_trees(ctx, perm)?;
+    let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
+    if ctx.app_settings().feature_flags.v3 {
+        update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
+    } else {
+        #[allow(deprecated)]
+        checkout_branch_trees(ctx, perm)?;
+    }
 
     crate::integration::update_workspace_commit(&vb_state, ctx)?;
 
@@ -173,6 +191,9 @@ struct IntegrateUpstreamContext<'a, 'b> {
 
     /// Strategy to use when integrating the upstream commits
     strategy: IntegrationStrategy,
+
+    /// Whether v3 is enabled
+    v3: bool,
 }
 
 impl IntegrateUpstreamContext<'_, '_> {
@@ -181,7 +202,7 @@ impl IntegrateUpstreamContext<'_, '_> {
     fn inner_integrate_upstream_commits_for_series(
         &self,
         series_head: git2::Oid,
-    ) -> Result<(BranchHeadAndTree, git2::Oid)> {
+    ) -> Result<((git2::Oid, Option<git2::Oid>), git2::Oid)> {
         let (new_stack_head, new_series_head) = match self.strategy {
             IntegrationStrategy::Merge => {
                 // If rebase is not allowed AND this is the latest series - create a merge commit on top
@@ -253,18 +274,22 @@ impl IntegrateUpstreamContext<'_, '_> {
             }
         };
         // Find what the new head and branch tree should be
-        Ok((
-            compute_updated_branch_head_for_commits(
+        let head_and_tree = if self.v3 {
+            (new_stack_head, None)
+        } else {
+            #[allow(deprecated)]
+            let res = compute_updated_branch_head_for_commits(
                 self.repository,
                 self.branch_head,
                 self.branch_tree,
                 new_stack_head,
-            )?,
-            new_series_head,
-        ))
+            )?;
+            (res.head, Some(res.tree))
+        };
+        Ok((head_and_tree, new_series_head))
     }
 
-    fn inner_integrate_upstream_commits(&self) -> Result<BranchHeadAndTree> {
+    fn inner_integrate_upstream_commits(&self) -> Result<(git2::Oid, Option<git2::Oid>)> {
         // Find the new branch head after integrating the upstream commits
         let new_head = match self.strategy {
             IntegrationStrategy::Merge => {
@@ -296,12 +321,19 @@ impl IntegrateUpstreamContext<'_, '_> {
         };
 
         // Find what the new head and branch tree should be
-        compute_updated_branch_head_for_commits(
-            self.repository,
-            self.branch_head,
-            self.branch_tree,
-            new_head,
-        )
+        let head_and_tree = if self.v3 {
+            (new_head, None)
+        } else {
+            #[allow(deprecated)]
+            let res = compute_updated_branch_head_for_commits(
+                self.repository,
+                self.branch_head,
+                self.branch_tree,
+                new_head,
+            )?;
+            (res.head, Some(res.tree))
+        };
+        Ok(head_and_tree)
     }
 }
 
@@ -541,7 +573,6 @@ mod test {
         use gitbutler_commit::commit_ext::CommitExt as _;
         use gitbutler_repo::logging::LogUntil;
         use gitbutler_repo::logging::RepositoryExt as _;
-        use gitbutler_workspace::BranchHeadAndTree;
 
         use crate::branch_upstream_integration::IntegrationStrategy;
 
@@ -571,10 +602,10 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
+                v3: false,
             };
 
-            let BranchHeadAndTree { head, tree: _tree } =
-                ctx.inner_integrate_upstream_commits().unwrap();
+            let (head, _tree) = ctx.inner_integrate_upstream_commits().unwrap();
 
             assert_eq!(
                 test_repository
@@ -585,7 +616,7 @@ mod test {
             );
 
             // Also ensure the series implementation does the same thing
-            let (BranchHeadAndTree { head, tree: _tree }, _) = ctx
+            let ((head, _tree), _) = ctx
                 .inner_integrate_upstream_commits_for_series(local_b.id())
                 .unwrap();
             assert_eq!(
@@ -626,9 +657,10 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
+                v3: false,
             };
 
-            let (BranchHeadAndTree { head, tree: _tree }, new_series_head) = ctx
+            let ((head, _tree), new_series_head) = ctx
                 .inner_integrate_upstream_commits_for_series(local_b.id()) // series head is earlier than stack head
                 .unwrap();
             assert_eq!(new_series_head, remote_y.id());
@@ -695,10 +727,10 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
+                v3: false,
             };
 
-            let BranchHeadAndTree { head, tree: _tree } =
-                ctx.inner_integrate_upstream_commits().unwrap();
+            let (head, _tree) = ctx.inner_integrate_upstream_commits().unwrap();
 
             let commits = test_repository
                 .repository
@@ -733,7 +765,7 @@ mod test {
             assert_commit_tree_matches(&test_repository.repository, &new_a, &[("foo.txt", b"foo")]);
 
             // Ensure the series implementation does the same
-            let (BranchHeadAndTree { head, tree: _tree }, _) = ctx
+            let ((head, _tree), _) = ctx
                 .inner_integrate_upstream_commits_for_series(local_b.id())
                 .unwrap();
 
@@ -811,10 +843,10 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
+                v3: false,
             };
 
-            let BranchHeadAndTree { head, tree: _tree } =
-                ctx.inner_integrate_upstream_commits().unwrap();
+            let (head, _tree) = ctx.inner_integrate_upstream_commits().unwrap();
 
             let commits = test_repository
                 .repository
@@ -861,7 +893,7 @@ mod test {
             assert_commit_tree_matches(&test_repository.repository, &new_a, &[("foo.txt", b"foo")]);
 
             // Also ensure the series implementation does the same thing
-            let (BranchHeadAndTree { head, tree: _tree }, _) = ctx
+            let ((head, _tree), _) = ctx
                 .inner_integrate_upstream_commits_for_series(local_b.id())
                 .unwrap();
 
@@ -952,10 +984,10 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
+                v3: false,
             };
 
-            let BranchHeadAndTree { head, tree: _tree } =
-                ctx.inner_integrate_upstream_commits().unwrap();
+            let (head, _tree) = ctx.inner_integrate_upstream_commits().unwrap();
 
             let commits = test_repository
                 .repository
@@ -983,7 +1015,7 @@ mod test {
             assert_commit_tree_matches(&test_repository.repository, &new_a, &[("foo.txt", b"foo")]);
 
             // Also ensure the series implementation does the same thing
-            let (BranchHeadAndTree { head, tree: _tree }, _) = ctx
+            let ((head, _tree), _) = ctx
                 .inner_integrate_upstream_commits_for_series(local_b.id())
                 .unwrap();
 
@@ -1050,10 +1082,10 @@ mod test {
                 remote_head: remote_b.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::HardReset,
+                v3: false,
             };
 
-            let BranchHeadAndTree { head, tree: _tree } =
-                ctx.inner_integrate_upstream_commits().unwrap();
+            let (head, _tree) = ctx.inner_integrate_upstream_commits().unwrap();
 
             let commits = test_repository
                 .repository
@@ -1116,10 +1148,10 @@ mod test {
                 remote_head: remote_c.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::HardReset,
+                v3: false,
             };
 
-            let BranchHeadAndTree { head, tree: _tree } =
-                ctx.inner_integrate_upstream_commits().unwrap();
+            let (head, _tree) = ctx.inner_integrate_upstream_commits().unwrap();
 
             let commits = test_repository
                 .repository
@@ -1183,10 +1215,10 @@ mod test {
                 remote_head: remote_b.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::HardReset,
+                v3: false,
             };
 
-            let BranchHeadAndTree { head, tree: _tree } =
-                ctx.inner_integrate_upstream_commits().unwrap();
+            let (head, _tree) = ctx.inner_integrate_upstream_commits().unwrap();
 
             let commits = test_repository
                 .repository

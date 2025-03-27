@@ -1,5 +1,4 @@
 import { getUserErrorCode } from '$lib/backend/ipc';
-import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import { BranchController } from '$lib/branches/branchController';
 import { BranchListingService } from '$lib/branches/branchListing';
 import { GitBranchService } from '$lib/branches/gitBranch';
@@ -48,7 +47,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const fetchSignal = new FetchSignal(projectId);
 
 	const historyService = new HistoryService(projectId);
-	const baseBranchService = new BaseBranchService(projectId);
 	const templateService = new TemplateService(projectId);
 
 	const branchListingService = new BranchListingService(projectId);
@@ -64,7 +62,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const branchController = new BranchController(
 		projectId,
 		vbranchService,
-		baseBranchService,
 		branchListingService,
 		posthog
 	);
@@ -86,7 +83,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	);
 
 	return {
-		baseBranchService,
 		templateService,
 		branchController,
 		historyService,

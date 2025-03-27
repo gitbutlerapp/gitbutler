@@ -9,7 +9,7 @@
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchController } from '$lib/branches/branchController';
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
 	import { GitBranchService } from '$lib/branches/gitBranch';
@@ -55,7 +55,6 @@
 		project,
 		projectId,
 		projectsService,
-		baseBranchService,
 		branchListingService,
 		modeService,
 		userService,
@@ -64,10 +63,18 @@
 		projectMetrics
 	} = $derived(data);
 
-	const repoInfo = $derived(baseBranchService.repo);
+	const baseBranchService = getContext(BaseBranchService);
+	const repoInfoResponse = $derived(baseBranchService.repo(projectId));
+	const repoInfo = $derived(repoInfoResponse.current.data);
+	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
+	const baseBranch = $derived(baseBranchResponse.current.data);
+	const pushRepoResponse = $derived(baseBranchService.pushRepo(projectId));
+	const forkInfo = $derived(pushRepoResponse.current.data);
+	const baseError = $derived(baseBranchResponse.current.error);
+	const baseBranchName = $derived(baseBranch?.shortName);
 
 	const secretService = getSecretsService();
-	const gitLabState = $derived(new GitLabState(secretService, $repoInfo, projectId));
+	const gitLabState = $derived(new GitLabState(secretService, repoInfo, projectId));
 	$effect(() => {
 		setContext(GitLabState, gitLabState);
 	});
@@ -77,16 +84,13 @@
 	});
 
 	const branchesError = $derived(vbranchService.branchesError);
-	const baseBranch = $derived(baseBranchService.base);
-	const forkInfo = $derived(baseBranchService.pushRepo);
 	const user = $derived(userService.user);
 	const accessToken = $derived($user?.github_access_token);
 
 	const gitHubClient = getContext(GitHubClient);
 	$effect(() => gitHubClient.setToken(accessToken));
-	$effect(() => gitHubClient.setRepo({ owner: $repoInfo?.owner, repo: $repoInfo?.name }));
+	$effect(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
 
-	const baseError = $derived(baseBranchService.error);
 	const projectError = $derived(projectsService.error);
 
 	const cloudBranchService = getContext(CloudBranchService);
@@ -107,7 +111,6 @@
 		setContext(HistoryService, data.historyService);
 		setContext(VirtualBranchService, data.vbranchService);
 		setContext(BranchController, data.branchController);
-		setContext(BaseBranchService, data.baseBranchService);
 		setContext(TemplateService, data.templateService);
 		setContext(BaseBranch, baseBranch);
 		setContext(Project, project);
@@ -132,8 +135,6 @@
 
 	let intervalId: any;
 
-	const baseBranchName = $derived($baseBranch?.shortName);
-
 	const forgeFactory = getContext(DefaultForgeFactory);
 	$effect.pre(() => {
 		const combinedBranchListingService = new CombinedBranchListingService(
@@ -150,7 +151,9 @@
 
 	// TODO: can we eliminate the need to debounce?
 	const fetch = $derived(fetchSignal.event);
-	const debouncedBaseBranchRefresh = debounce(async () => await baseBranchService.refresh(), 500);
+	const debouncedBaseBranchRefresh = debounce(async () => {
+		await baseBranchService.refreshBaseBranch(projectId);
+	}, 500);
 	$effect(() => {
 		if ($fetch || $head) debouncedBaseBranchRefresh();
 	});
@@ -162,13 +165,13 @@
 	);
 
 	$effect(() => {
-		if ($baseBranch || $head || $fetch) debouncedRemoteBranchRefresh();
+		if (baseBranch || $head || $fetch) debouncedRemoteBranchRefresh();
 	});
 
 	$effect(() => {
 		forgeFactory.setConfig({
-			repo: $repoInfo,
-			pushRepo: $forkInfo,
+			repo: repoInfo,
+			pushRepo: forkInfo,
 			baseBranch: baseBranchName,
 			githubAuthenticated: !!$user?.github_access_token,
 			gitlabAuthenticated: !!gitLabState.configured.current
@@ -176,7 +179,7 @@
 	});
 
 	$effect(() => {
-		posthog.setPostHogRepo($repoInfo);
+		posthog.setPostHogRepo(repoInfo);
 		return () => {
 			posthog.setPostHogRepo(undefined);
 		};
@@ -207,12 +210,16 @@
 		projectMetrics.loadFromLocalStorage();
 	});
 
+	async function fetchRemoteForProject() {
+		await baseBranchService.refreshRemotes(projectId);
+	}
+
 	function setupFetchInterval() {
-		baseBranchService.fetchFromRemotes();
+		fetchRemoteForProject();
 		clearFetchInterval();
 		const intervalMs = 15 * 60 * 1000; // 15 minutes
 		intervalId = setInterval(async () => {
-			await baseBranchService.fetchFromRemotes();
+			await fetchRemoteForProject();
 		}, intervalMs);
 	}
 
@@ -254,15 +261,15 @@
 
 	{#if !project}
 		<p>Project not found!</p>
-	{:else if $baseError instanceof NoDefaultTarget}
+	{:else if baseError instanceof NoDefaultTarget}
 		<NoBaseBranch />
-	{:else if $baseError}
-		<ProblemLoadingRepo error={$baseError} />
+	{:else if baseError}
+		<ProblemLoadingRepo error={baseError} />
 	{:else if $branchesError}
 		<ProblemLoadingRepo error={$branchesError} />
 	{:else if $projectError}
 		<ProblemLoadingRepo error={$projectError} />
-	{:else if $baseBranch}
+	{:else if baseBranch}
 		{#if $mode?.type === 'OpenWorkspace' || $mode?.type === 'Edit'}
 			<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
 				{#if $settingsStore?.featureFlags.v3}
@@ -278,7 +285,7 @@
 				{/if}
 			</div>
 		{:else if $mode?.type === 'OutsideWorkspace'}
-			<NotOnGitButlerBranch baseBranch={$baseBranch} />
+			<NotOnGitButlerBranch {baseBranch} />
 		{/if}
 	{/if}
 {/key}

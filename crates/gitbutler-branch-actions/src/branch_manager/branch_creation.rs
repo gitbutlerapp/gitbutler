@@ -5,24 +5,24 @@ use crate::{
     VirtualBranchesExt,
 };
 use anyhow::{anyhow, bail, Context, Result};
+use but_workspace::stack_ext::StackExt;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch::{self, dedup};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::SnapshotExt;
-use gitbutler_oxidize::GixRepositoryExt;
+use gitbutler_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
-use gitbutler_repo::{
-    rebase::{cherry_rebase_group, gitbutler_merge_commits},
-    RepositoryExt,
-};
+use gitbutler_repo::rebase::gitbutler_merge_commits;
+use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
+use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
+#[allow(deprecated)]
 use gitbutler_workspace::checkout_branch_trees;
 use tracing::instrument;
 
@@ -279,6 +279,8 @@ impl BranchManager<'_> {
         self.ctx.assure_unconflicted()?;
         let repo = self.ctx.repo();
 
+        let old_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
+
         let vb_state = self.ctx.project().virtual_branches();
         let default_target = vb_state.get_default_target()?;
 
@@ -333,14 +335,17 @@ impl BranchManager<'_> {
         // If the branch has no change ID for the head commit, we want to rebase it even if the base is the same
         // This way stacking functionality which relies on change IDs will work as expected
         if merge_base != default_target.sha || !has_change_id {
+            let mut rebase_output = None;
             let new_head = if stack.allow_rebasing {
-                let commits_to_rebase =
-                    repo.l(stack.head(), LogUntil::Commit(merge_base), false)?;
-
-                let head_oid =
-                    cherry_rebase_group(repo, default_target.sha, &commits_to_rebase, true, false)?;
-
-                repo.find_commit(head_oid)?
+                let gix_repo = self.ctx.gix_repository()?;
+                let steps = stack.as_rebase_steps(self.ctx, &gix_repo)?;
+                let mut rebase =
+                    but_rebase::Rebase::new(&gix_repo, default_target.sha.to_gix(), None)?;
+                rebase.steps(steps)?;
+                rebase.rebase_noops(true);
+                let output = rebase.rebase()?;
+                rebase_output = Some(output.clone());
+                repo.find_commit(output.top_commit.to_git2())?
             } else {
                 gitbutler_merge_commits(
                     repo,
@@ -356,6 +361,10 @@ impl BranchManager<'_> {
                 new_head.id(),
                 Some(repo.find_real_tree(&new_head, Default::default())?.id()),
             )?;
+
+            if let Some(output) = rebase_output {
+                stack.set_heads_from_rebase_output(self.ctx, output.references)?;
+            }
         }
 
         // apply the branch
@@ -388,8 +397,15 @@ impl BranchManager<'_> {
             }
         }
 
-        // Now that we've added a branch to the workspace, lets merge together all the trees
-        checkout_branch_trees(self.ctx, perm)?;
+        let new_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
+
+        if self.ctx.app_settings().feature_flags.v3 {
+            update_uncommited_changes(self.ctx, old_workspace, new_workspace, perm)?;
+        } else {
+            // Now that we've added a branch to the workspace, lets merge together all the trees
+            #[allow(deprecated)]
+            checkout_branch_trees(self.ctx, perm)?;
+        }
 
         update_workspace_commit(&vb_state, self.ctx)?;
 

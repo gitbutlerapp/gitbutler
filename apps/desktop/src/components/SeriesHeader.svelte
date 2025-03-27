@@ -22,7 +22,7 @@
 	import { closedStateSync } from '$lib/forge/closedStateSync.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { getContextStore, inject } from '@gitbutler/shared/context';
+	import { getContext, getContextStore, inject } from '@gitbutler/shared/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
@@ -59,14 +59,14 @@
 	);
 
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
-	const baseBranch = getContextStore(BaseBranch);
+	const baseBranch = getContext(BaseBranch);
 
 	const upstreamName = $derived(branch.upstreamReference ? branch.name : undefined);
 	const forgeBranch = $derived(upstreamName ? forge.current.branch(upstreamName) : undefined);
 
 	let stackingAddSeriesModal = $state<ReturnType<typeof AddSeriesModal>>();
 	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let stackingContextMenu = $state<ReturnType<typeof SeriesHeaderContextMenu>>();
+	let branchContextMenu = $state<ReturnType<typeof SeriesHeaderContextMenu>>();
 	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
 	let seriesHeaderEl = $state<HTMLDivElement>();
 	let seriesDescriptionEl = $state<HTMLTextAreaElement>();
@@ -94,7 +94,7 @@
 	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
 	const pr = $derived(prResult?.current.data);
 	const mergedIncorrectly = $derived(
-		(pr?.merged && pr.baseBranch !== $baseBranch.shortName) || false
+		(pr?.merged && pr.baseBranch !== baseBranch.shortName) || false
 	);
 
 	/**
@@ -114,9 +114,9 @@
 		}
 	});
 
-	function editTitle(title: string) {
+	function updateBranchName(title: string) {
 		if (branch?.name && title !== branch.name) {
-			branchController.updateSeriesName(stack.id, branch.name, title);
+			branchController.updateBranchName(stack.id, branch.name, title);
 		}
 	}
 
@@ -151,13 +151,13 @@
 		let hunks = (await Promise.all(hunk_promises)).flat();
 
 		const prompt = promptService.selectedBranchPrompt(projectId);
-		const message = await aiService.summarizeBranch({
+		const newBranchName = await aiService.summarizeBranch({
 			hunks,
 			branchTemplate: prompt
 		});
 
-		if (message && message !== branch.name) {
-			branchController.updateSeriesName(stack.id, branch.name, message);
+		if (newBranchName && newBranchName !== branch.name) {
+			branchController.updateBranchName(stack.id, branch.name, newBranchName);
 		}
 	}
 
@@ -170,11 +170,11 @@
 
 <SeriesHeaderContextMenu
 	stackId={stack.id}
-	bind:this={stackingContextMenu}
+	bind:this={branchContextMenu}
 	bind:contextMenuEl={kebabContextMenu}
 	leftClickTrigger={kebabContextMenuTrigger}
 	rightClickTrigger={seriesHeaderEl}
-	headName={branch.name}
+	branchName={branch.name}
 	seriesCount={stack.validSeries?.length ?? 0}
 	{isTopBranch}
 	{toggleDescription}
@@ -250,16 +250,16 @@
 				<div class="text-14 text-bold branch-info__name">
 					{#if forgeBranch}
 						<span class="remote-name">
-							{$baseBranch.pushRemoteName ? `${$baseBranch.pushRemoteName} /` : 'origin /'}
+							{baseBranch.pushRemoteName ? `${baseBranch.pushRemoteName} /` : 'origin /'}
 						</span>
 					{/if}
 					<BranchLabel
 						name={branch.name}
-						onChange={(name) => editTitle(name)}
+						onChange={(name) => updateBranchName(name)}
 						readonly={!!forgeBranch}
 						onDblClick={() => {
 							if (branchType !== 'Integrated') {
-								stackingContextMenu?.showSeriesRenameModal?.();
+								branchContextMenu?.showSeriesRenameModal?.();
 							}
 						}}
 					/>

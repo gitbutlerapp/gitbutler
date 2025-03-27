@@ -15,6 +15,7 @@
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { CommandService, invoke } from '$lib/backend/ipc';
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import {
 		IpcNameNormalizationService,
 		setNameNormalizationServiceContext
@@ -109,6 +110,7 @@
 	});
 
 	const stackService = new StackService(clientState['backendApi'], forgeFactory, data.posthog);
+	const baseBranchService = new BaseBranchService(clientState.backendApi);
 	const worktreeService = new WorktreeService(clientState);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
 	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
@@ -186,6 +188,7 @@
 	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
 	setContext(AppSettings, data.appSettings);
 	setContext(StackService, stackService);
+	setContext(BaseBranchService, baseBranchService);
 	setContext(UpstreamIntegrationService, upstreamIntegrationService);
 	setContext(WorktreeService, worktreeService);
 	setContext(ShortcutService, shortcutService);
