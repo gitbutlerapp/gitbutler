@@ -9,7 +9,7 @@ use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt as _},
-    rebase::{cherry_rebase_group, gitbutler_merge_commits},
+    rebase::gitbutler_merge_commits,
     RepositoryExt as _,
 };
 use gitbutler_stack::StackId;
@@ -104,7 +104,6 @@ pub fn integrate_upstream_commits_for_series(
 pub enum IntegrationStrategy {
     Merge,
     Rebase,
-    HardReset,
 }
 
 struct IntegrateUpstreamContext<'a, 'b> {
@@ -208,23 +207,6 @@ impl IntegrateUpstreamContext<'_, '_> {
                     .to_git2();
 
                 (stack_head, new_series_head)
-            }
-            IntegrationStrategy::HardReset => {
-                let remote_head_commit = self.repository.find_commit(self.remote_head)?;
-                // Get the commits that come after the series head, until the stack head
-                let remaining_ids_to_rebase =
-                    self.repository
-                        .l(self.branch_head, LogUntil::Commit(series_head), false)?;
-                (
-                    cherry_rebase_group(
-                        self.repository,
-                        remote_head_commit.id(),
-                        &remaining_ids_to_rebase,
-                        false,
-                        false,
-                    )?,
-                    remote_head_commit.id(),
-                )
             }
         };
         // Find what the new head and branch tree should be
