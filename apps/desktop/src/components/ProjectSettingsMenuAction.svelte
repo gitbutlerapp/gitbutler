@@ -30,6 +30,11 @@
 		openExternalUrl(path);
 	});
 
+	shortcutService.on('open-in-finder', () => {
+        const path = `file://${project.path}`;
+		openExternalUrl(path);
+	});
+
 	shortcutService.on('history', () => {
 		$showHistoryView = !$showHistoryView;
 	});
