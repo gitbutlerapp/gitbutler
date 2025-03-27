@@ -25,7 +25,7 @@
 
 use anyhow::{Context, Result};
 use author::Author;
-use bstr::{BStr, BString};
+use bstr::{BStr, BString, ByteSlice};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_id::id::Id;
@@ -527,9 +527,12 @@ fn upstream_only_commits(
         // Ignore commits that strictly speaking are remote only but they match a known local commit (rebase etc)
         if !matches_known_commit {
             let created_at = u128::try_from(commit.time().seconds())? * 1000;
+            let message = but_core::message_format::parse_for_ui(
+                commit.message_bstr().to_str().unwrap_or_default(),
+            );
             let upstream_commit = UpstreamCommit {
                 id: commit.id().to_gix(),
-                message: commit.message_bstr().into(),
+                message: message.into(),
                 created_at,
                 author: commit.author().into(),
             };
@@ -601,11 +604,14 @@ fn local_and_remote_commits(
         };
 
         let created_at = u128::try_from(commit.time().seconds())? * 1000;
+        let message = but_core::message_format::parse_for_ui(
+            commit.message_bstr().to_str().unwrap_or_default(),
+        );
 
         let api_commit = Commit {
             id: commit.id().to_gix(),
             parent_ids: commit.parents().map(|p| p.id().to_gix()).collect(),
-            message: commit.message_bstr().into(),
+            message: message.into(),
             has_conflicts: commit.is_conflicted(),
             state,
             created_at,

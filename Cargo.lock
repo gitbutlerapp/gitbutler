@@ -698,6 +698,7 @@ dependencies = [
  "gitbutler-serde",
  "gix",
  "insta",
+ "regex",
  "serde",
  "serde_json",
  "tracing",
