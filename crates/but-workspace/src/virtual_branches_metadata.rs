@@ -531,15 +531,11 @@ fn branch_to_stack_branch(
     }: &Branch,
     archived: bool,
 ) -> gitbutler_stack::StackBranch {
-    #[allow(deprecated)]
-    gitbutler_stack::StackBranch {
-        name: ref_name.shorten().to_string(),
-        description: description.clone(),
-        pr_number: review.pull_request,
+    gitbutler_stack::StackBranch::new_with_zero_head(
+        ref_name.shorten().to_string(),
+        description.clone(),
+        review.pull_request,
+        review.review_id.clone(),
         archived,
-        review_id: review.review_id.clone(),
-
-        // Redundant, unused.
-        head: gitbutler_stack::CommitOrChangeId::CommitId(git2::Oid::zero().to_string()),
-    }
+    )
 }

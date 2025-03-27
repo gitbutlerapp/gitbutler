@@ -3,7 +3,7 @@ use anyhow::bail;
 use anyhow::Result;
 use itertools::Itertools;
 
-use crate::CommitOrChangeId;
+use crate::stack_branch::CommitOrChangeId;
 use crate::StackBranch;
 
 pub(crate) fn get_head(heads: &[StackBranch], name: &str) -> Result<(usize, StackBranch)> {

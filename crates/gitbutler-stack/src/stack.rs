@@ -10,7 +10,6 @@ use but_core::Reference;
 use but_rebase::ReferenceSpec;
 use git2::Commit;
 use gitbutler_command_context::CommandContext;
-use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_id::id::Id;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
@@ -26,10 +25,10 @@ use crate::heads::add_head;
 use crate::heads::get_head;
 use crate::heads::remove_head;
 use crate::stack_branch::remote_reference;
+use crate::stack_branch::CommitOrChangeId;
 use crate::stack_branch::RepositoryExt as _;
 use crate::stack_context::CommandContextExt;
 use crate::stack_context::StackContext;
-use crate::CommitOrChangeId;
 use crate::StackBranch;
 use crate::{ownership::BranchOwnershipClaims, VirtualBranchesHandle};
 
@@ -695,11 +694,7 @@ impl Stack {
     #[allow(deprecated)]
     pub fn migrate_change_ids(&mut self, ctx: &CommandContext) -> Result<()> {
         // If all of the heads are already commit IDs, there is nothing to do
-        if self
-            .heads
-            .iter()
-            .all(|h| matches!(h.head, CommitOrChangeId::CommitId(_)))
-        {
+        if self.heads.iter().all(|h| h.uses_change_id()) {
             return Ok(());
         }
 
@@ -708,17 +703,7 @@ impl Stack {
         let merge_base = self.merge_base(&stack_ctx)?;
 
         for head in self.heads.iter_mut() {
-            #[allow(deprecated)]
-            if let CommitOrChangeId::ChangeId(_) = &head.head {
-                if let Ok(commit) = commit_by_oid_or_change_id(
-                    &head.head.clone(),
-                    ctx.repo(),
-                    stack_head,
-                    merge_base,
-                ) {
-                    head.head = CommitOrChangeId::CommitId(commit.id().to_string());
-                };
-            }
+            head.migrate_change_id(ctx.repo(), stack_head, merge_base);
         }
 
         let state = branch_state(ctx);
@@ -875,57 +860,8 @@ fn validate_name(name: &str, state: &VirtualBranchesHandle) -> Result<()> {
     Ok(())
 }
 
-/// Given a branch id and a change id, returns the commit associated with the change id.
-// TODO: We need a more efficient way of getting a commit by change id.
-// NB: There can be multiple commits with the same change id on the same branch id.
-// This is an error condition but we must handle it.
-// If there are multiple commits, they are ordered newest to oldest.
-fn commit_by_branch_id_and_change_id<'a>(
-    repo: &'a git2::Repository,
-    stack_head: git2::Oid, // branch.head
-    merge_base: git2::Oid,
-    change_id: &str,
-) -> Result<Commit<'a>> {
-    let commits = if stack_head == merge_base {
-        vec![repo.find_commit(stack_head)?]
-    } else {
-        // Include the merge base, in case the change ID being searched for is the merge base itself.
-        // TODO: Use the Stack `commits_with_merge_base` method instead.
-        let mut commits = repo.log(stack_head, LogUntil::Commit(merge_base), false)?;
-        commits.push(repo.find_commit(merge_base)?);
-        commits
-    };
-    let commits = commits
-        .into_iter()
-        .filter(|c| c.change_id().as_deref() == Some(change_id))
-        .collect_vec();
-    if let Some(head) = commits.first() {
-        Ok(head.clone())
-    } else {
-        Err(anyhow!("No commit with change id {} found", change_id))
-    }
-}
-
 fn branch_state(ctx: &CommandContext) -> VirtualBranchesHandle {
     VirtualBranchesHandle::new(ctx.project().gb_dir())
-}
-
-// NB: There can be multiple commits with the same change id on the same branch id.
-// This is an error condition but we must handle it.
-// If there are multiple commits, they are ordered newest to oldest.
-pub fn commit_by_oid_or_change_id<'a>(
-    reference_target: &'a CommitOrChangeId,
-    repo: &'a git2::Repository,
-    stack_head: git2::Oid,
-    merge_base: git2::Oid,
-) -> Result<Commit<'a>> {
-    Ok(match reference_target {
-        CommitOrChangeId::CommitId(commit_id) => repo.find_commit(commit_id.parse()?)?,
-        #[allow(deprecated)]
-        CommitOrChangeId::ChangeId(change_id) => {
-            commit_by_branch_id_and_change_id(repo, stack_head, merge_base, change_id)?
-        }
-    })
 }
 
 fn patch_reference_exists(state: &VirtualBranchesHandle, name: &str) -> Result<bool> {
