@@ -12,7 +12,7 @@
 
 <Tooltip text={single ? 'Single branch' : 'Multiple branches'}>
 	<div class="stack-icon" class:outlined>
-		<Icon name={single ? 'chain-link' : 'branch-small'} />
+		<Icon name={single ? 'branch-small' : 'chain-link'} />
 	</div>
 </Tooltip>
 
