@@ -15,6 +15,7 @@
 	import { updateReactions } from '$lib/chat/reactions';
 	import ChatInReplyTo from '$lib/components/chat/ChatInReplyTo.svelte';
 	import MessageActions from '$lib/components/chat/MessageActions.svelte';
+	import MessageContextMenu from '$lib/components/chat/MessageContextMenu.svelte';
 	import MessageDiffSection from '$lib/components/chat/MessageDiffSection.svelte';
 	import MessageMarkdown from '$lib/components/chat/MessageMarkdown.svelte';
 	import { parseDiffPatchToEncodedSelection } from '$lib/diff/lineSelection.svelte';
@@ -233,6 +234,7 @@
 						tooltip={emoji.label}
 						thin
 						disabled={!$user || reactionSet.has(emoji.unicode)}
+						overrideYScroll={0}
 						onclick={() => handleReaction(emoji)}
 					>
 						<p class="text-13" style="padding: 2px;">
@@ -243,7 +245,13 @@
 			{/if}
 
 			<!-- Reply -->
-			<PopoverActionsItem icon="reply" tooltip="Reply" thin onclick={() => onReply()} />
+			<PopoverActionsItem
+				icon="reply"
+				tooltip="Reply"
+				thin
+				onclick={() => onReply()}
+				overrideYScroll={0}
+			/>
 
 			<!-- Kebab menu -->
 			<PopoverActionsItem
@@ -252,14 +260,21 @@
 				icon="kebab"
 				tooltip="More options"
 				thin
-				disabled
 				onclick={() => {
 					contextMenu?.toggle();
 				}}
+				overrideYScroll={0}
 			/>
 		</PopoverActionsContainer>
 	{/if}
 </div>
+
+<MessageContextMenu
+	bind:menu={contextMenu}
+	leftClickTrigger={kebabMenuTrigger}
+	messageId={message.uuid}
+	onToggle={(isOpen) => (isOpenedByKebabButton = isOpen)}
+/>
 
 <style lang="postcss">
 	@keyframes temporary-highlight {
