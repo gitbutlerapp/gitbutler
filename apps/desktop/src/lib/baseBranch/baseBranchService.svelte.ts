@@ -119,7 +119,7 @@ function injectEndpoints(api: BackendApi) {
 					command: 'fetch_from_remotes',
 					params: { projectId, action: action ?? 'auto' }
 				}),
-				invalidatesTags: [ReduxTag.BaseBranchData, ReduxTag.Stacks]
+				invalidatesTags: [ReduxTag.BaseBranchData, ReduxTag.Stacks, ReduxTag.Commits]
 			}),
 			setTarget: build.mutation<
 				BaseBranch,
@@ -129,7 +129,7 @@ function injectEndpoints(api: BackendApi) {
 					command: 'set_base_branch',
 					params: { projectId, branch, pushRemote }
 				}),
-				invalidatesTags: [ReduxTag.BaseBranchData, ReduxTag.Stacks]
+				invalidatesTags: [ReduxTag.BaseBranchData, ReduxTag.Stacks, ReduxTag.Commits]
 			}),
 			push: build.mutation<void, { projectId: string; withForce?: boolean }>({
 				query: ({ projectId, withForce }) => ({
