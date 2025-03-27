@@ -3,6 +3,7 @@
 	import Drawer from '$components/v3/Drawer.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContext, inject } from '@gitbutler/shared/context';
@@ -14,7 +15,7 @@
 	const { projectId, stackId }: Props = $props();
 
 	const stackService = getContext(StackService);
-	const [uiState] = inject(UiState);
+	const [uiState, idSelection] = inject(UiState, IdSelection);
 	const [createCommitInStack, commitCreation] = stackService.createCommit();
 
 	const stackState = $derived(uiState.stack(stackId));
@@ -55,9 +56,11 @@
 
 		uiState.project(projectId).drawerPage.set(undefined);
 		uiState.stack(stackId).selection.set({ branchName, commitId: newId });
+		changeSelection.clear();
+		idSelection.clear({ type: 'worktree' });
 	}
 
-	async function hanldleCommitCreation() {
+	async function handleCommitCreation() {
 		const titleText = await input?.getTitle();
 		const message = await input?.getPlaintext();
 		if (!titleText) return;
@@ -82,7 +85,7 @@
 		{projectId}
 		{stackId}
 		actionLabel="Create commit"
-		action={hanldleCommitCreation}
+		action={handleCommitCreation}
 		onCancel={cancel}
 		disabledAction={!canCommit}
 		loading={commitCreation.current.isLoading}
