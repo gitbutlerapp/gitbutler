@@ -222,6 +222,7 @@ fn get_stack_status(
     target: Target,
     new_target_commit_id: gix::ObjectId,
     stack: &Stack,
+    v3: bool,
 ) -> Result<StackStatus> {
     let cache = gix_repository.commit_graph_if_enabled()?;
     let mut graph = gix_repository.revision_graph(cache.as_ref());
@@ -331,12 +332,17 @@ fn get_stack_status(
 
     let stack_head = repository.find_commit(stack.head())?;
 
-    let tree_status = if stack.tree
+    let tree_status;
+    if v3 {
+        // If we are in v3 then we don't care about the trees and we should
+        // assume they are empty
+        tree_status = TreeStatus::Empty;
+    } else if stack.tree
         == repository
             .find_real_tree(&stack_head, Default::default())?
             .id()
     {
-        TreeStatus::Empty
+        tree_status = TreeStatus::Empty;
     } else {
         let (merge_options_fail_fast, conflict_kind) =
             gix_repository.merge_options_no_rewrites_fail_fast()?;
@@ -357,11 +363,11 @@ fn get_stack_status(
             .has_unresolved_conflicts(conflict_kind);
 
         if tree_conflicted {
-            TreeStatus::Conflicted
+            tree_status = TreeStatus::Conflicted;
         } else {
-            TreeStatus::SaflyUpdatable
+            tree_status = TreeStatus::SaflyUpdatable;
         }
-    };
+    }
 
     StackStatus::create(tree_status, branch_statuses)
 }
@@ -427,6 +433,8 @@ pub fn upstream_integration_statuses(
         .map(|c| c.ours.location().into())
         .collect::<Vec<BStringForFrontend>>();
 
+    let v3 = context.ctx.app_settings().feature_flags.v3;
+
     let statuses = stacks_in_workspace
         .iter()
         .map(|stack| {
@@ -438,6 +446,7 @@ pub fn upstream_integration_statuses(
                     target.clone(),
                     git2_to_gix_object_id(new_target.id()),
                     stack,
+                    v3,
                 )?,
             ))
         })
