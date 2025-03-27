@@ -150,6 +150,17 @@ export class ChangeSelectionService {
 		}
 	}
 
+	every(paths: string[], predicate: (selection: SelectedFile) => boolean): boolean {
+		const selection = $derived(selectAll(this.state));
+		for (const path of paths) {
+			const change = selection.find((change) => change.path === path);
+			if (change === undefined || !predicate(change)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	clear() {
 		this.dispatch(removeAll());
 	}
