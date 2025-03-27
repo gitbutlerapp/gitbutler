@@ -1,6 +1,7 @@
 <script lang="ts" module>
 	export interface HunkContextItem {
 		hunk: DiffHunk;
+		selectedLines: LineId[] | undefined;
 		beforeLineNumber: number | undefined;
 		afterLineNumber: number | undefined;
 	}
@@ -12,40 +13,76 @@
 
 <script lang="ts">
 	import { isDiffHunk, type DiffHunk } from '$lib/hunks/hunk';
-	import { showInfo } from '$lib/notifications/toasts';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import type { TreeChange } from '$lib/hunks/change';
+	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 	import type { Writable } from 'svelte/store';
 
 	interface Props {
 		trigger: HTMLElement | undefined;
-		filePath: string;
+		projectId: string;
+		change: TreeChange;
 		projectPath: string | undefined;
 		readonly: boolean;
 	}
 
-	const { trigger, filePath, projectPath, readonly }: Props = $props();
+	const { trigger, projectId, change, projectPath, readonly }: Props = $props();
 
+	const [stackService] = inject(StackService);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+	const [discardChanges] = stackService.discardChanges();
 
+	const filePath = $derived(change.path);
 	let contextMenu: ReturnType<typeof ContextMenu> | undefined;
 
-	function getDiscardLineLabel(
-		beforeLineNumber: number | undefined,
-		afterLineNumber: number | undefined
-	) {
-		if (beforeLineNumber !== undefined && afterLineNumber !== undefined)
-			return `Discard line ${beforeLineNumber} -> ${afterLineNumber}`;
-		if (beforeLineNumber !== undefined) return `Discard old line ${beforeLineNumber}`;
+	function getDiscardLineLabel(item: HunkContextItem) {
+		const { selectedLines } = item;
 
-		if (afterLineNumber !== undefined) return `Discard new line ${afterLineNumber}`;
+		if (selectedLines !== undefined && selectedLines.length > 0)
+			return `Discard ${selectedLines.length} selected lines`;
 
-		return 'Discard line';
+		return '';
 	}
+
+	function discardHunk(item: HunkContextItem) {
+		const previousPathBytes =
+			change.status.type === 'Rename' ? change.status.subject.previousPath : null;
+
+		discardChanges({
+			projectId,
+			worktreeChanges: [
+				{
+					previousPathBytes,
+					pathBytes: change.path,
+					hunkHeaders: [item.hunk]
+				}
+			]
+		});
+	}
+
+	// function discardHunkLines(item: HunkContextItem) {
+	// 	if (item.selectedLines === undefined || item.selectedLines.length === 0) return;
+	// 	const previousPathBytes =
+	// 		change.status.type === 'Rename' ? change.status.subject.previousPath : null;
+
+	// 	discardChanges({
+	// 		projectId,
+	// 		worktreeChanges: [
+	// 			{
+	// 				previousPathBytes,
+	// 				pathBytes: change.path,
+	// 				hunkHeaders: lineIdsToHunkHeaders(item.selectedLines, item.hunk.diff)
+	// 			}
+	// 		]
+	// 	});
+
+	// }
 
 	export function open(e: MouseEvent, item: HunkContextItem) {
 		contextMenu?.open(e, item);
@@ -60,26 +97,21 @@
 	{#snippet children(item)}
 		{#if isHunkContextItem(item)}
 			<ContextMenuSection>
-				{#if item.hunk !== undefined && !readonly}
+				{#if !readonly}
 					<ContextMenuItem
 						label="Discard hunk"
-						disabled
 						onclick={() => {
-							// branchController.unapplyHunk(item.hunk);
-							showInfo('Woops', 'Discard hunk not implemented');
+							discardHunk(item);
 							contextMenu?.close();
 						}}
 					/>
 				{/if}
-				{#if item.hunk !== undefined && (item.beforeLineNumber !== undefined || item.afterLineNumber !== undefined) && !readonly}
+				{#if item.selectedLines !== undefined && item.selectedLines.length > 0 && !readonly}
 					<ContextMenuItem
-						label={getDiscardLineLabel(item.beforeLineNumber, item.afterLineNumber)}
+						label={getDiscardLineLabel(item)}
 						disabled
 						onclick={() => {
-							// branchController.unapplyLines(item.hunk, [
-							// 	{ old: item.beforeLineNumber, new: item.afterLineNumber }
-							// ]);
-							showInfo('Woops', 'Discard line not implemented');
+							// discardHunkLines(item);
 							contextMenu?.close();
 						}}
 					/>

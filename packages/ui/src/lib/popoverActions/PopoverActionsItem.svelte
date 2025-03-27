@@ -11,6 +11,7 @@
 		thin?: boolean;
 		activated?: boolean;
 		disabled?: boolean;
+		overrideYScroll?: number;
 		onclick: (e: MouseEvent) => void;
 		children?: Snippet;
 	}
@@ -23,11 +24,18 @@
 		activated,
 		onclick,
 		disabled,
+		overrideYScroll,
 		children
 	}: Props = $props();
 </script>
 
-<Tooltip disabled={activated || disabled} text={tooltip} position="top" delay={200}>
+<Tooltip
+	disabled={activated || disabled}
+	text={tooltip}
+	position="top"
+	delay={200}
+	{overrideYScroll}
+>
 	<button
 		type="button"
 		bind:this={el}

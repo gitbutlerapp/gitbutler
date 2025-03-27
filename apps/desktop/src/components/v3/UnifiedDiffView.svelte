@@ -156,7 +156,8 @@
 	bind:this={contextMenu}
 	trigger={viewport}
 	projectPath={project.vscodePath}
-	filePath={change.path}
+	{projectId}
+	{change}
 	readonly={false}
 />
 
@@ -180,6 +181,7 @@
 						handleLineContextMenu={(params) => {
 							contextMenu?.open(params.event, {
 								hunk,
+								selectedLines: stagedLines,
 								beforeLineNumber: params.beforeLineNumber,
 								afterLineNumber: params.afterLineNumber
 							});

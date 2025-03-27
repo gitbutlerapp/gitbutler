@@ -15,6 +15,7 @@
 		disabled?: boolean;
 		align?: TooltipAlign;
 		position?: TooltipPosition;
+		overrideYScroll?: number;
 		children: Snippet;
 	}
 
@@ -24,6 +25,7 @@
 		disabled,
 		align,
 		position: requestedPosition = 'bottom',
+		overrideYScroll,
 		children
 	}: Props = $props();
 
@@ -92,7 +94,7 @@
 
 		{#if show}
 			<div
-				use:setPosition={{ targetEl, position, align }}
+				use:setPosition={{ targetEl, position, align, overrideYScroll }}
 				use:portal={'body'}
 				class="tooltip-container text-11 text-body"
 				transition:flyScale={{

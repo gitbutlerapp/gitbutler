@@ -10,7 +10,6 @@
 	import HunkDiffBody from '$lib/hunkDiff/HunkDiffBody.svelte';
 	import {
 		type ContentSection,
-		getHunkLineInfo,
 		type LineId,
 		type LineSelector,
 		parseHunk
@@ -73,15 +72,12 @@
 	let numberHeaderWidth = $state<number>(0);
 
 	const hunk = $derived(parseHunk(hunkStr));
-	const hunkLineInfo = $derived(getHunkLineInfo(hunk.contentSections));
 
 	function handleCopySelection() {
 		onCopySelection?.(hunk.contentSections);
 	}
 
-	const hunkSummary = $derived(
-		`@@ -${hunkLineInfo.beforLineStart},${hunkLineInfo.beforeLineCount} +${hunkLineInfo.afterLineStart},${hunkLineInfo.afterLineCount} @@`
-	);
+	const hunkSummary = $derived(hunkStr.split('\n')[0]);
 	const showingCheckboxes = $derived(!hideCheckboxes && staged !== undefined);
 	const colspan = $derived(showingCheckboxes ? 3 : 2);
 </script>
