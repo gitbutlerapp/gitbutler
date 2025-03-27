@@ -20,7 +20,7 @@ import diff_match_patch from 'diff-match-patch';
 import type { BrandedId } from '$lib/utils/branding';
 
 export function parseHunk(hunkStr: string): Hunk {
-	const lines = hunkStr.trim().split('\n');
+	const lines = hunkStr.split('\n');
 	const headerLine = lines[0];
 	const bodyLines = lines.slice(1);
 
@@ -31,6 +31,9 @@ export function parseHunk(hunkStr: string): Hunk {
 
 	let lastBefore = hunk.oldStart;
 	let lastAfter = hunk.newStart;
+
+	const lastLineNumberBefore = hunk.oldStart + hunk.oldLines - 1;
+	const lastLineNumberAfter = hunk.newStart + hunk.newLines - 1;
 
 	for (const line of bodyLines) {
 		const type = lineType(line);
@@ -53,6 +56,7 @@ export function parseHunk(hunkStr: string): Hunk {
 			lastSection.lines.push({ beforeLineNumber: lastBefore, content: line.slice(1) });
 			lastBefore += 1;
 		} else {
+			if (lastBefore > lastLineNumberBefore || lastAfter > lastLineNumberAfter) continue;
 			lastSection.lines.push({
 				afterLineNumber: lastAfter,
 				beforeLineNumber: lastBefore,
@@ -112,7 +116,9 @@ export type ContentSection = {
 
 type Hunk = {
 	readonly oldStart: number;
+	readonly oldLines: number;
 	readonly newStart: number;
+	readonly newLines: number;
 	readonly contentSections: ContentSection[];
 };
 
@@ -120,14 +126,21 @@ type DiffRows = { prevRows: Row[]; nextRows: Row[] };
 
 const headerRegex =
 	/@@ -(?<beforeStart>\d+),?(?<beforeCount>\d+)? \+(?<afterStart>\d+),?(?<afterCount>\d+)? @@(?<comment>.+)?/;
-function parseHeader(header: string): { oldStart: number; newStart: number } {
+function parseHeader(header: string): {
+	oldStart: number;
+	newStart: number;
+	oldLines: number;
+	newLines: number;
+} {
 	const result = headerRegex.exec(header);
 	if (!result?.groups) {
 		throw new Error('Failed to parse diff header');
 	}
 	return {
 		oldStart: parseInt(result.groups['beforeStart']),
-		newStart: parseInt(result.groups['afterStart'])
+		oldLines: parseInt(result.groups['beforeCount'] ?? '1'),
+		newStart: parseInt(result.groups['afterStart']),
+		newLines: parseInt(result.groups['afterCount'] ?? '1')
 	};
 }
 
