@@ -209,6 +209,12 @@
 			butRequestDetailsService.setDetails(reviewId, prTitle.value, prBody.value);
 		}
 		if ((canPublishPR && $createPullRequest) || !canPublishBR) {
+			console.log('Creating PR');
+			console.log('can publish pr', canPublishPR);
+			console.log('create pull request', $createPullRequest);
+			console.log('can publish br', canPublishBR);
+			console.log('create butler request', $createButlerRequest);
+			console.log('pr body', prBody.value);
 			const pr = await createPr({
 				title: prTitle.value,
 				body: shouldAddPrBody() ? prBody.value : '',
