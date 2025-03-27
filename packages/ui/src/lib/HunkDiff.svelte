@@ -27,6 +27,7 @@
 		diffContrast?: 'light' | 'medium' | 'strong';
 		staged?: boolean;
 		stagedLines?: LineId[];
+		hideCheckboxes?: boolean;
 		selectedLines?: LineSelector[];
 		isHidden?: boolean;
 		whyHidden?: string;
@@ -51,6 +52,7 @@
 		inlineUnifiedDiffs = false,
 		staged,
 		stagedLines,
+		hideCheckboxes,
 		selectedLines,
 		isHidden,
 		whyHidden,
@@ -80,8 +82,8 @@
 	const hunkSummary = $derived(
 		`@@ -${hunkLineInfo.beforLineStart},${hunkLineInfo.beforeLineCount} +${hunkLineInfo.afterLineStart},${hunkLineInfo.afterLineCount} @@`
 	);
-
-	const colspan = $derived(staged !== undefined ? 3 : 2);
+	const showingCheckboxes = $derived(!hideCheckboxes && staged !== undefined);
+	const colspan = $derived(showingCheckboxes ? 3 : 2);
 </script>
 
 <div
@@ -98,19 +100,19 @@
 					bind:clientWidth={numberHeaderWidth}
 					class="table__checkbox-container"
 					style="--border-width: {BORDER_WIDTH}px;"
-					class:stageable={staged !== undefined}
-					class:staged
+					class:stageable={showingCheckboxes}
+					class:staged={showingCheckboxes && staged}
 					{colspan}
 					onclick={() => {
-						if (staged !== undefined) {
+						if (showingCheckboxes) {
 							onChangeStage?.(!staged);
 						}
 					}}
 				>
 					<div class="table__checkbox">
-						{#if staged}
+						{#if staged && !hideCheckboxes}
 							<Checkbox checked={staged} small style="ghost" />
-						{:else if staged === false}
+						{:else if showingCheckboxes}
 							<div class="table__checkbox-unstaged">
 								<Icon name="minus-small" />
 							</div>
@@ -163,7 +165,7 @@
 				{onQuoteSelection}
 				{staged}
 				{stagedLines}
-				onToggleStage={() => onChangeStage?.(!staged)}
+				{hideCheckboxes}
 				{handleLineContextMenu}
 				{clickOutsideExcludeElement}
 			/>

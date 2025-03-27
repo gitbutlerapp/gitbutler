@@ -1,3 +1,4 @@
+import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 import { on } from 'svelte/events';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 
@@ -39,18 +40,17 @@ export class FocusManager implements Reactive<string | undefined> {
 	/** The id of the most recently focused item. */
 	private _current: string | undefined = $state();
 
+	private handleMouse = this.handleClick.bind(this);
+	private handleKeys = this.handleKeydown.bind(this);
+
 	constructor() {
 		$effect(() => {
-			const handleMouse = this.handleClick.bind(this);
-			const handleKeys = this.handleKeydown.bind(this);
-			// Capture phase on document means this pretty much happens
-			// first on any click.
-			const unlistenKeys = on(document, 'keydown', handleKeys);
-			const unlistenMouse = on(document, 'mousedown', handleMouse, { capture: true });
-			return () => {
-				unlistenKeys();
-				unlistenMouse();
-			};
+			// We listen for events on the document in the bubble phase, giving
+			// other event handlers an opportunity to stop propagation.
+			return mergeUnlisten(
+				on(document, 'mousedown', this.handleMouse),
+				on(document, 'keydown', this.handleKeys)
+			);
 		});
 	}
 

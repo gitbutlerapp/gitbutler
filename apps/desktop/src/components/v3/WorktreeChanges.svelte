@@ -5,13 +5,14 @@
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
-	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+	import { ChangeSelectionService, type SelectedFile } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 
 	type Props = {
 		projectId: string;
@@ -37,15 +38,22 @@
 	);
 	const defaultBranch = $derived(defaultBranchResult?.current.data);
 	const defaultBranchName = $derived(defaultBranch?.name);
+	const selectedChanges = changeSelection.list();
+	const noChangesSelected = $derived(selectedChanges.current.length === 0);
+	const changesResult = $derived(worktreeService.getChanges(projectId));
+	const affectedPaths = $derived(changesResult.current.data?.map((c) => c.path));
+
+	const filesFullySelected = $derived(
+		changeSelection.every(affectedPaths ?? [], (f) => f.type === 'full')
+	);
+
+	const filesPartiallySelected = $derived(!noChangesSelected && !filesFullySelected);
 
 	// TODO: Make this go away.
 	createCommitStore(undefined);
 
-	const changesResult = $derived(worktreeService.getChanges(projectId));
-
 	/** Clear any selected changes that no longer exist. */
 	$effect(() => {
-		const affectedPaths = changesResult.current.data?.map((c) => c.path);
 		changeSelection.retain(affectedPaths);
 	});
 
@@ -61,10 +69,36 @@
 		}
 	});
 
+	function selectEverything() {
+		const affectedPaths =
+			changesResult.current.data?.map((c) => [c.path, c.pathBytes] as const) ?? [];
+		const files: SelectedFile[] = affectedPaths.map(([path, pathBytes]) => ({
+			path,
+			pathBytes,
+			type: 'full'
+		}));
+		changeSelection.addMany(files);
+	}
+
+	function updateCommitSelection() {
+		if (!noChangesSelected) return;
+		// If no changes are selected, select everything.
+		selectEverything();
+	}
+
 	function startCommit() {
 		if (!defaultBranchName) return;
 		stackState?.selection.set({ branchName: defaultBranchName });
+		updateCommitSelection();
 		projectState.drawerPage.set('new-commit');
+	}
+
+	function toggleGlobalCheckbox() {
+		if (noChangesSelected) {
+			selectEverything();
+			return;
+		}
+		changeSelection.clear();
 	}
 </script>
 
@@ -72,6 +106,14 @@
 	{#snippet children(changes)}
 		<div class="worktree-header text-14 text-semibold">
 			<div class="header-left">
+				{#if isCommitting}
+					<Checkbox
+						checked={filesPartiallySelected || filesFullySelected}
+						indeterminate={filesPartiallySelected}
+						small
+						onchange={toggleGlobalCheckbox}
+					/>
+				{/if}
 				<h3>Uncommitted changes</h3>
 				{#if changes.length > 0}
 					<Badge>{changes.length}</Badge>

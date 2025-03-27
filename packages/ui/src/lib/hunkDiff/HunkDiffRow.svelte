@@ -39,7 +39,7 @@
 		onCopySelection?: () => void;
 		hoveringOverTable: boolean;
 		staged?: boolean;
-		onToggleStage?: () => void;
+		hideCheckboxes?: boolean;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
 	}
 
@@ -57,7 +57,7 @@
 		onCopySelection,
 		hoveringOverTable,
 		staged,
-		onToggleStage,
+		hideCheckboxes,
 		handleLineContextMenu
 	}: Props = $props();
 
@@ -120,6 +120,15 @@
 		onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
 		onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
 		onmouseup={() => lineSelection.onEnd()}
+		oncontextmenu={(ev) => {
+			ev.preventDefault();
+			ev.stopPropagation();
+			handleLineContextMenu?.({
+				event: ev,
+				beforeLineNumber: row.beforeLineNumber,
+				afterLineNumber: row.afterLineNumber
+			});
+		}}
 	>
 		{side === CountColumnSide.Before ? row.beforeLineNumber : row.afterLineNumber}
 	</td>
@@ -133,7 +142,7 @@
 	data-no-drag
 	style="--diff-font: {diffFont};"
 >
-	{#if staged !== undefined}
+	{#if staged !== undefined && !hideCheckboxes}
 		{@const deltaLine = isDeltaLine(row.type)}
 		<td
 			bind:clientWidth={stagingColumnWidth}
@@ -145,7 +154,18 @@
 			align="center"
 			class:is-last={row.isLast}
 			class:staged={staged && deltaLine}
-			onclick={onToggleStage}
+			onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
+			onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
+			onmouseup={() => lineSelection.onEnd()}
+			oncontextmenu={(ev) => {
+				ev.preventDefault();
+				ev.stopPropagation();
+				handleLineContextMenu?.({
+					event: ev,
+					beforeLineNumber: row.beforeLineNumber,
+					afterLineNumber: row.afterLineNumber
+				});
+			}}
 		>
 			{#if deltaLine}
 				<div class="table__row-checkbox">

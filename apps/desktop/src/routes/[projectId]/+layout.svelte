@@ -8,7 +8,7 @@
 	import NotOnGitButlerBranch from '$components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
-	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchController } from '$lib/branches/branchController';
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
@@ -261,7 +261,7 @@
 
 	{#if !project}
 		<p>Project not found!</p>
-	{:else if baseError instanceof NoDefaultTarget}
+	{:else if !baseBranch}
 		<NoBaseBranch />
 	{:else if baseError}
 		<ProblemLoadingRepo error={baseError} />

@@ -247,5 +247,8 @@ type Result<A> = {
 type MutationHooks<Definition extends MutationDefinition<unknown, any, string, unknown>> = {
 	/** Execute query and return results. */
 	useMutation: (params?: UseMutationHookParams<Definition>) => Prettify<CustomMutation<Definition>>;
-	mutate: (args: QueryArgFrom<Definition>) => Promise<Result<Prettify<ResultTypeFrom<Definition>>>>;
+	mutate: (
+		args: QueryArgFrom<Definition>,
+		options?: UseMutationHookParams<Definition>
+	) => Promise<Result<Prettify<ResultTypeFrom<Definition>>>>;
 };

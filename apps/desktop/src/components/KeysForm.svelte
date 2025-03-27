@@ -7,7 +7,7 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { type Key, type KeyType, Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
@@ -15,7 +15,7 @@
 
 	const project = $state(getContext(Project));
 
-	const baseBranch = getContext(BaseBranch);
+	const baseBranch = maybeGetContext(BaseBranch);
 	const projectsService = getContext(ProjectsService);
 
 	interface Props {

@@ -66,6 +66,7 @@ export const changeSelectionSlice = createSlice({
 	initialState: changeSelectionAdapter.getInitialState(),
 	reducers: {
 		addOne: changeSelectionAdapter.addOne,
+		addMany: changeSelectionAdapter.addMany,
 		removeOne: changeSelectionAdapter.removeOne,
 		removeMany: changeSelectionAdapter.removeMany,
 		removeAll: changeSelectionAdapter.removeAll,
@@ -74,7 +75,17 @@ export const changeSelectionSlice = createSlice({
 	selectors: { selectById, selectAll }
 });
 
-const { addOne, removeOne, removeMany, removeAll, upsertOne } = changeSelectionSlice.actions;
+const { addOne, addMany, removeOne, removeMany, removeAll, upsertOne } =
+	changeSelectionSlice.actions;
+
+function sortHunksInFile(file: SelectedFile) {
+	if (file.type === 'full') {
+		return file;
+	}
+
+	const hunks = file.hunks.slice().sort((a, b) => a.newStart - b.newStart);
+	return { ...file, hunks };
+}
 
 export class ChangeSelectionService {
 	/** The change selection slice of the full redux state. */
@@ -108,8 +119,13 @@ export class ChangeSelectionService {
 		this.dispatch(addOne(file));
 	}
 
+	addMany(files: SelectedFile[]) {
+		this.dispatch(addMany(files));
+	}
+
 	update(file: SelectedFile) {
-		this.dispatch(upsertOne(file));
+		const sortedFile = sortHunksInFile(file);
+		this.dispatch(upsertOne(sortedFile));
 	}
 
 	remove(path: string) {
@@ -132,5 +148,20 @@ export class ChangeSelectionService {
 		if (expired.length > 0) {
 			this.dispatch(removeMany(expired));
 		}
+	}
+
+	every(paths: string[], predicate: (selection: SelectedFile) => boolean): boolean {
+		const selection = $derived(selectAll(this.state));
+		for (const path of paths) {
+			const change = selection.find((change) => change.path === path);
+			if (change === undefined || !predicate(change)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	clear() {
+		this.dispatch(removeAll());
 	}
 }
