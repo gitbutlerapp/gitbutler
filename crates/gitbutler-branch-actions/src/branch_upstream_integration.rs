@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{anyhow, Result};
-use but_rebase::RebaseStep;
+use but_rebase::{RebaseOutput, RebaseStep};
 use but_workspace::stack_ext::StackExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -153,10 +153,37 @@ impl IntegrateUpstreamContext<'_, '_> {
                     self.branch_name,        // for error messages only
                     self.remote_branch_name, // for error messages only
                 )?;
-                // the are the same
-                let new_stack_head = merge_commit.id();
-                let new_series_head = merge_commit.id();
-                (new_stack_head, new_series_head)
+                let mut steps = self.stack_steps.clone();
+                // Go over the steps, and immediatelly after the series head, insert the merge commit
+                for (i, step) in steps.iter().enumerate() {
+                    if let RebaseStep::Pick { commit_id, .. } = step {
+                        if commit_id == &series_head.to_gix() {
+                            steps.insert(
+                                i + 1,
+                                RebaseStep::Pick {
+                                    commit_id: merge_commit.id().to_gix(),
+                                    new_message: None,
+                                },
+                            );
+                            break;
+                        }
+                    }
+                }
+
+                let merge_base = self.repository.merge_base_octopussy(&[
+                    self.target_branch_head,
+                    series_head,
+                    self.remote_head,
+                ])?;
+                let mut rebase = but_rebase::Rebase::new(self.gix_repo, merge_base.to_gix(), None)?;
+                rebase.steps(steps)?;
+                rebase.rebase_noops(false);
+                let output = rebase.rebase()?;
+                let stack_head = output.top_commit.to_git2();
+                (
+                    stack_head,
+                    new_series_head(&output, self.branch_name, &self.branch_full_name),
+                )
             }
             IntegrationStrategy::Rebase => {
                 // Get the commits to rebase for the series
@@ -195,18 +222,10 @@ impl IntegrateUpstreamContext<'_, '_> {
                 rebase.rebase_noops(false);
                 let output = rebase.rebase()?;
                 let stack_head = output.top_commit.to_git2();
-                let new_series_head = output
-                    .references
-                    .iter()
-                    .find(|r| match r.reference.clone() {
-                        but_core::Reference::Virtual(name) => name == self.branch_name,
-                        but_core::Reference::Git(name) => name == self.branch_full_name,
-                    })
-                    .map(|r| r.commit_id)
-                    .ok_or_else(|| anyhow!("failed to find the new series head"))?
-                    .to_git2();
-
-                (stack_head, new_series_head)
+                (
+                    stack_head,
+                    new_series_head(&output, self.branch_name, &self.branch_full_name),
+                )
             }
         };
         // Find what the new head and branch tree should be
@@ -224,6 +243,23 @@ impl IntegrateUpstreamContext<'_, '_> {
         };
         Ok((head_and_tree, new_series_head))
     }
+}
+
+fn new_series_head(
+    output: &RebaseOutput,
+    branch_name: &str,
+    full_branch_name: &FullName,
+) -> git2::Oid {
+    output
+        .references
+        .iter()
+        .find(|r| match r.reference.clone() {
+            but_core::Reference::Virtual(name) => name == branch_name,
+            but_core::Reference::Git(name) => &name == full_branch_name,
+        })
+        .map(|r| r.commit_id)
+        .expect("failed to find the new series head")
+        .to_git2()
 }
 
 struct OrderCommitsResult {
