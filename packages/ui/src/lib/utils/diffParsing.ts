@@ -681,6 +681,10 @@ export interface LineId {
 	newLine: number | undefined;
 }
 
+export function lineIdKey(lineId: LineId): string {
+	return `${lineId.oldLine}-${lineId.newLine}`;
+}
+
 export interface LineSelector extends LineId {
 	/**
 	 * Whether this is the first line in any selection group.
