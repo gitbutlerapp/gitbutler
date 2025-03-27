@@ -1,3 +1,4 @@
+import { lineIdKey, parseHunk, type LineId } from '@gitbutler/ui/utils/diffParsing';
 import { hashCode } from '@gitbutler/ui/utils/string';
 import { Transform, Type } from 'class-transformer';
 import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
@@ -75,6 +76,90 @@ export type HunkHeader = {
 	/** The non-zero amount of lines included in the new version of the file.*/
 	readonly newLines: number;
 };
+
+function lineIdsToHunkHeader(lineIds: LineId[]): HunkHeader {
+	if (lineIds.length === 0) {
+		throw new Error('Trying to create a hunk header from an empty list of line ids.');
+	}
+
+	const firstLine = lineIds[0]!;
+
+	const onlyAddingLines = lineIds.every(
+		(line) => line.oldLine === undefined && line.newLine !== undefined
+	);
+	if (onlyAddingLines) {
+		// All lines only have a new line number.
+		// The hunk without context lines has an old start of the line before the first new line,
+		// and an old line cout of 0.
+		const newStart = firstLine.newLine!;
+		const oldStart = newStart - 1;
+		const oldLines = 0;
+		const newLines = lineIds.length;
+		return {
+			oldStart,
+			oldLines,
+			newStart,
+			newLines
+		};
+	}
+
+	const onlyRemovingLines = lineIds.every(
+		(line) => line.oldLine !== undefined && line.newLine === undefined
+	);
+	if (onlyRemovingLines) {
+		// All lines only have an old line number.
+		// The hunk without context lines has a new start of the line after the last old line,
+		// and a new line count of 0.
+		const oldStart = firstLine.oldLine!;
+		const newStart = oldStart - 1;
+		const oldLines = lineIds.length;
+		const newLines = 0;
+		return {
+			oldStart,
+			oldLines,
+			newStart,
+			newLines
+		};
+	}
+
+	if (firstLine.oldLine === undefined && firstLine.newLine === undefined) {
+		// Should not happen.
+		throw new Error('First line has no line numbers');
+	}
+
+	// TODO: Have a couple of questions about this:
+	// 1. Is it possible to send multiple non-consecutive hunks? -> Will the backend account for the shift
+	// 2. If so, what kind of line-starts should be used for the hunk header?
+	throw new Error('Not implemented');
+}
+
+export function lineIdsToHunkHeaders(lineIds: LineId[], diff: string): HunkHeader[] {
+	const lineIdGroups: LineId[][] = [];
+	let currentGroup: LineId[] = [];
+	const lineKeys = new Set(lineIds.map((lineId) => lineIdKey(lineId)));
+	const parsedHunk = parseHunk(diff);
+
+	for (const section of parsedHunk.contentSections) {
+		for (const line of section.lines) {
+			const lineId = {
+				oldLine: line.beforeLineNumber,
+				newLine: line.afterLineNumber
+			};
+			const key = lineIdKey(lineId);
+
+			if (lineKeys.has(key)) {
+				currentGroup.push(lineId);
+			} else {
+				if (currentGroup.length > 0) {
+					lineIdGroups.push(currentGroup);
+					currentGroup = [];
+				}
+			}
+		}
+	}
+
+	return lineIdGroups.map(lineIdsToHunkHeader);
+}
 
 /** A hunk as used in UnifiedDiff. */
 export type DiffHunk = Prettify<
