@@ -38,7 +38,7 @@ export default class LineSelection {
 	}
 
 	onStart(ev: MouseEvent, row: Row, index: number) {
-		if (this.touchDevice) return;
+		if (ev.buttons !== 1) return;
 		ev.preventDefault();
 		ev.stopPropagation();
 
