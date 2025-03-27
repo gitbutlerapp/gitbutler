@@ -77,7 +77,7 @@ impl RepositoryExt for gix::Repository {
             .context("No author is configured in Git")
             .context(Code::AuthorMissing)?;
 
-        let commit_as_gitbutler = !self
+        let commit_as_gitbutler = self
             .config_snapshot()
             .boolean("gitbutler.gitbutlerCommitter")
             .unwrap_or_default();

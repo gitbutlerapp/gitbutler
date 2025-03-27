@@ -28,7 +28,7 @@ fn from_unborn_head() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(209c17a41b38f51f76d9912e2c62f008969774f3),
+            Sha1(4b817cae4681bbb09fe059db1d469ad9f2c95724),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(861d6e23ee6a2d7276618bb78700354a3506bd71),
@@ -72,7 +72,7 @@ fn from_unborn_head() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(40051c4ef1ec3214b32312b5a7db410c13fc35a1),
+            Sha1(62d1565d1b9644eb9204fd2addd53db078ca20ef),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(a0044697412bfa8432298d6bd6a2ad0dbd655c9f),
@@ -391,7 +391,7 @@ fn commit_to_one_below_tip_with_three_context_lines() -> anyhow::Result<()> {
 
         assert_eq!(
             outcome.new_commit.map(|id| id.to_string()),
-            Some("d5e787a63a63186f5a65403c5814148b8bbb54f7".to_string())
+            Some("f7fcd2012b2eaa23bd5bb93d45b394d2db47d4e6".to_string())
         );
         let tree = visualize_tree(&repo, &outcome)?;
         assert_eq!(
@@ -603,7 +603,7 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(e0f2b2cd094c6b390abf9859cdc250e10510fd1a),
+            Sha1(5417579095aeb4867c15ba4cee2d7968d499e15a),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(d5949f12727c8e89e1351b89e8e510dfa1e2adc9),
@@ -642,7 +642,7 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(ccc603e141a363a98221cb365fb9695cc3348088),
+            Sha1(c8c768a877e4a2832edbf54bbe3cf3aa1a98e3ea),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(cef74127e0e9f4c46b5ff360d6208ee0cc839eba),
