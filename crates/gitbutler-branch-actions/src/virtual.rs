@@ -1343,31 +1343,43 @@ pub(crate) fn insert_blank_commit(
         .unwrap();
     let blank_commit_oid = ctx.commit("", &commit_tree, &[&commit], Some(Default::default()))?;
 
-    if commit.id() == stack.head() && offset < 0 {
-        // inserting before the first commit
-        stack.set_stack_head(ctx, blank_commit_oid, None)?;
-        crate::integration::update_workspace_commit(&vb_state, ctx)
-            .context("failed to update gitbutler workspace")?;
-    } else {
-        // rebase all commits above it onto the new commit
-        match cherry_rebase(ctx, blank_commit_oid, commit.id(), stack.head()) {
-            Ok(Some(new_head)) => {
-                stack.set_stack_head(ctx, new_head, None)?;
-                crate::integration::update_workspace_commit(&vb_state, ctx)
-                    .context("failed to update gitbutler workspace")?;
-            }
-            Ok(None) => bail!("no rebase happened"),
-            Err(err) => {
-                return Err(err).context("rebase failed");
+    let stack_context = ctx.to_stack_context()?;
+    let merge_base = stack.merge_base(&stack_context)?;
+    let repo = ctx.gix_repository()?;
+    let steps = stack.as_rebase_steps(ctx, &repo)?;
+    let mut updated_steps = vec![];
+    for step in steps.iter() {
+        updated_steps.push(step.clone());
+        if let RebaseStep::Pick { commit_id, .. } = step {
+            if commit_id == &commit.id().to_gix() {
+                updated_steps.push(RebaseStep::Pick {
+                    commit_id: blank_commit_oid.to_gix(),
+                    new_message: None,
+                });
             }
         }
     }
-    // when inserting a commit above (offeset = -1), it is possible that the new commit is above the branch head
-    // so in this case we need to update the heads
-    if offset < 0 {
-        let new_commit = repository.find_commit(blank_commit_oid)?;
-        stack.replace_head(ctx, &commit, &new_commit)?
+    // if the  commit is the merge_base, then put the blank commit at the beginning
+    if commit.id() == merge_base {
+        updated_steps.insert(
+            0,
+            RebaseStep::Pick {
+                commit_id: blank_commit_oid.to_gix(),
+                new_message: None,
+            },
+        );
     }
+
+    let mut rebase = but_rebase::Rebase::new(&repo, merge_base.to_gix(), None)?;
+    rebase.steps(updated_steps)?;
+    rebase.rebase_noops(false);
+    let output = rebase.rebase()?;
+    stack.set_heads_from_rebase_output(ctx, output.references)?;
+
+    stack.set_stack_head(ctx, output.top_commit.to_git2(), None)?;
+
+    crate::integration::update_workspace_commit(&vb_state, ctx)
+        .context("failed to update gitbutler workspace")?;
 
     Ok(())
 }

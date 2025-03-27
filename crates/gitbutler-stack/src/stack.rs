@@ -726,7 +726,7 @@ impl Stack {
 
     /// Sets the stack heads to the provided commits.
     /// This is useful multiple heads are updated and the intermediate states are not valid while the final state is.
-    pub fn set_all_heads(
+    fn set_all_heads(
         &mut self,
         ctx: &CommandContext,
         new_heads: HashMap<String, Commit<'_>>,
