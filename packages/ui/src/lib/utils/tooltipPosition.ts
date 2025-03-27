@@ -70,9 +70,10 @@ function calculateVerticalPosition(
 	targetRect: DOMRect,
 	tooltipRect: DOMRect,
 	position: string | undefined,
-	gap: number
+	gap: number,
+	overrideYScroll: number | undefined
 ) {
-	const scrollY = window.scrollY;
+	const scrollY = overrideYScroll ?? window.scrollY;
 
 	if (position === 'top') {
 		return {
@@ -91,10 +92,11 @@ export function setPosition(
 		position?: 'top' | 'bottom';
 		align?: 'start' | 'center' | 'end';
 		gap?: number;
+		overrideYScroll?: number;
 	}
 ) {
 	onMount(() => {
-		const { targetEl, position, align, gap = 4 } = props;
+		const { targetEl, position, align, gap = 4, overrideYScroll } = props;
 
 		if (!targetEl || !tooltipNode) return;
 
@@ -107,7 +109,8 @@ export function setPosition(
 			targetRect,
 			tooltipRect,
 			position,
-			gap
+			gap,
+			overrideYScroll
 		);
 
 		// Determine horizontal alignment (either specified or auto-detected)
