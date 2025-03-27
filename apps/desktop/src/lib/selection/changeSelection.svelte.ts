@@ -149,4 +149,8 @@ export class ChangeSelectionService {
 			this.dispatch(removeMany(expired));
 		}
 	}
+
+	clear() {
+		this.dispatch(removeAll());
+	}
 }
