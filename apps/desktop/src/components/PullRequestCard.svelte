@@ -231,7 +231,7 @@
 			>
 				{prStatusInfo.text}
 			</Badge>
-			{#if !pr.closedAt}
+			{#if !pr.closedAt && forge.current.checks}
 				<ChecksPolling
 					{stackId}
 					branchName={pr.sourceBranch}
