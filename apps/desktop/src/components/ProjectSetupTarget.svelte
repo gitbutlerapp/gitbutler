@@ -44,7 +44,7 @@
 	);
 
 	let selectedBranch = $state<RemoteBranchInfo | undefined>(undefined);
-	const defaultBranch = $derived(getBestBranch(remoteBranches));
+	const defaultBranch = $derived(getBestBranch(remoteBranches.slice()));
 	const branch = $derived(selectedBranch ?? defaultBranch);
 
 	let selectedRemote = $state<string | undefined>(undefined);
