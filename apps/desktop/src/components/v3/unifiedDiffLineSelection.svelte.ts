@@ -1,5 +1,6 @@
 import { type TreeChange } from '$lib/hunks/change';
-import { outerJoinBy } from '$lib/utils/array';
+import { leftJoinBy, outerJoinBy } from '$lib/utils/array';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { DiffHunk } from '$lib/hunks/hunk';
 import type {
 	ChangeSelectionService,
@@ -50,6 +51,10 @@ export default class LineSelection {
 
 		const [linesSelected, restLines] = this.extractLineIds(params, this.startIndex, this.endIndex);
 
+		if (linesSelected.length === 0) {
+			return;
+		}
+
 		if (selection === undefined) {
 			this.changeSelection.add({
 				type: 'partial',
@@ -89,7 +94,14 @@ export default class LineSelection {
 		if (stagedHunk) {
 			// Handle existing partial hunk selection
 			if (stagedHunk.type === 'partial') {
-				this.handleHunkPartiallyStaged(stagedHunk, linesSelected, generateKey, selection, hunk);
+				this.handleHunkPartiallyStaged(
+					stagedHunk,
+					linesSelected,
+					restLines,
+					generateKey,
+					selection,
+					hunk
+				);
 				return;
 			}
 
@@ -151,6 +163,7 @@ export default class LineSelection {
 	private handleHunkPartiallyStaged(
 		stagedHunk: PartiallySelectedHunk,
 		linesSelected: LineId[],
+		restLines: LineId[],
 		generateKey: (l: LineId) => string,
 		selection: PartiallySelectedFile,
 		hunk: DiffHunk
@@ -159,21 +172,43 @@ export default class LineSelection {
 		const existingLines = stagedHunk.lines;
 
 		const newLines = outerJoinBy(existingLines, linesSelected, generateKey);
-		const newHunks = selection.hunks.map((h) => {
-			if (h.newStart === hunk.newStart && h.oldStart === hunk.oldStart) {
-				return {
-					...h,
-					type: 'partial',
-					lines: newLines
-				} as const;
-			}
-			return h;
-		});
+		const unselectedRestLines = leftJoinBy(restLines, newLines, generateKey);
+		const newHunks = selection.hunks
+			.map((h) => {
+				if (h.newStart === hunk.newStart && h.oldStart === hunk.oldStart) {
+					if (newLines.length === 0) {
+						return undefined;
+					}
 
+					if (unselectedRestLines.length === 0) {
+						return {
+							...h,
+							type: 'full'
+						} as const;
+					}
+
+					return {
+						...h,
+						type: 'partial',
+						lines: newLines
+					} as const;
+				}
+				return h;
+			})
+			.filter(isDefined);
+
+		if (newHunks.length === 0) {
+			this.changeSelection.remove(this.pathData.path);
+			return;
+		}
+
+		const fullySelectedHunks = newHunks.every((h) => h.type === 'full');
+		const type = fullySelectedHunks ? 'full' : 'partial';
+		const hunks = fullySelectedHunks ? [] : newHunks;
 		this.changeSelection.update({
-			type: 'partial',
+			type,
 			...this.pathData,
-			hunks: newHunks
+			hunks
 		});
 	}
 
@@ -216,6 +251,7 @@ export default class LineSelection {
 		const rows = params.rows ?? [];
 		for (let i = 0; i < rows.length; i++) {
 			const row = rows[i]!;
+			if (!row.isDeltaLine) continue;
 
 			if (i === params.startIndex) {
 				firstLineSelected = {
