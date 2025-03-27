@@ -213,12 +213,7 @@ pub struct StackDetails {
 }
 
 /// Determines if a force push is required to push a branch to its remote.
-fn requires_force(
-    ctx: &CommandContext,
-    stack: &Stack,
-    branch: &StackBranch,
-    remote: &str,
-) -> Result<bool> {
+fn requires_force(ctx: &CommandContext, branch: &StackBranch, remote: &str) -> Result<bool> {
     let upstream = branch.remote_reference(remote);
 
     let reference = match ctx.repo().refname_to_id(&upstream) {
@@ -232,7 +227,7 @@ fn requires_force(
         .find_commit(reference)
         .context("failed to find upstream commit")?;
 
-    let branch_head = branch.head_oid(&ctx.to_stack_context()?, stack)?;
+    let branch_head = branch.head_oid(&ctx.gix_repository()?)?;
     let merge_base = ctx.repo().merge_base(upstream_commit.id(), branch_head)?;
 
     Ok(merge_base != upstream_commit.id())
@@ -260,7 +255,7 @@ pub fn stack_info(gb_dir: &Path, stack_id: StackId, ctx: &CommandContext) -> Res
 
     for branch in branches {
         let mut branch_state = BranchState {
-            requires_force: requires_force(ctx, &stack, &branch, &remote)?,
+            requires_force: requires_force(ctx, &branch, &remote)?,
             ..Default::default()
         };
 
@@ -426,6 +421,7 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
     let mut stack = state.get_stack(Id::from_str(&stack_id)?)?;
     let stack_ctx = ctx.to_stack_context()?;
     let mut current_base = stack.merge_base(&stack_ctx)?.to_gix();
+    let repo = ctx.gix_repository()?;
     for internal in stack.branches() {
         let upstream_reference = ctx
             .repo()
@@ -441,7 +437,7 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
             archived: internal.archived,
             base_commit: current_base,
         };
-        current_base = internal.head_oid(&stack_ctx, &stack)?.to_gix();
+        current_base = internal.head_oid(&repo)?.to_gix();
         stack_branches.push(result);
     }
     stack.migrate_change_ids(ctx).ok(); // If it fails thats ok - best effort migration

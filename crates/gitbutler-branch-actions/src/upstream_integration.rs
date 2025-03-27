@@ -259,7 +259,7 @@ fn get_stack_status(
         // If an integrated branch has been found, there is no need to bother
         // with subsequent branches.
         if !unintegrated_branch_found
-            && branch_integrated(&mut check_commit, branch, &stack_context, stack)?
+            && branch_integrated(&mut check_commit, branch, repository, gix_repository)?
         {
             branch_statuses.push(NameAndStatus {
                 name: branch.name().to_owned(),

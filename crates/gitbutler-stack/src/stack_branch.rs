@@ -1,7 +1,8 @@
 use anyhow::{Ok, Result};
 use bstr::BString;
-use git2::{Commit, Oid};
+use git2::Commit;
 use gitbutler_commit::commit_ext::CommitVecExt;
+use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gix::refs::{
     transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
@@ -216,19 +217,24 @@ impl StackBranch {
         Ok(Some(reference.name().as_bstr().to_owned()))
     }
 
-    pub fn head_oid(&self, stack_context: &StackContext, stack: &Stack) -> Result<Oid> {
-        match self.head.clone() {
-            CommitOrChangeId::CommitId(id) => id.parse().map_err(Into::into),
-            #[allow(deprecated)]
-            CommitOrChangeId::ChangeId(_) => {
-                let repository = stack_context.repository();
-                let merge_base = stack.merge_base(stack_context)?;
-                let head_commit =
-                    commit_by_oid_or_change_id(&self.head, repository, stack.head(), merge_base)?
-                        .id();
-                Ok(head_commit)
-            }
-        }
+    // pub fn head_oid(&self, stack_context: &StackContext, stack: &Stack) -> Result<Oid> {
+    //     match self.head.clone() {
+    //         CommitOrChangeId::CommitId(id) => id.parse().map_err(Into::into),
+    //         #[allow(deprecated)]
+    //         CommitOrChangeId::ChangeId(_) => {
+    //             let repository = stack_context.repository();
+    //             let merge_base = stack.merge_base(stack_context)?;
+    //             let head_commit =
+    //                 commit_by_oid_or_change_id(&self.head, repository, stack.head(), merge_base)?
+    //                     .id();
+    //             Ok(head_commit)
+    //         }
+    //     }
+    // }
+    pub fn head_oid(&self, repo: &gix::Repository) -> Result<git2::Oid> {
+        let mut reference = repo.find_reference(&self.name)?;
+        let commit = reference.peel_to_commit()?;
+        Ok(commit.id.to_git2())
     }
 
     /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`

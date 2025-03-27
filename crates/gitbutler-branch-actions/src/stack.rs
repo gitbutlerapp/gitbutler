@@ -7,7 +7,7 @@ use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::stack_context::{CommandContextExt, StackContext};
+use gitbutler_stack::stack_context::StackContext;
 use gitbutler_stack::{CommitOrChangeId, PatchReferenceUpdate, StackBranch};
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
@@ -197,7 +197,7 @@ pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> 
             // Nothing to push for this one
             continue;
         }
-        if branch_integrated(&mut check_commit, &branch, &ctx.to_stack_context()?, &stack)? {
+        if branch_integrated(&mut check_commit, &branch, repo, &gix_repo)? {
             // Already integrated, nothing to push
             continue;
         }
@@ -216,15 +216,14 @@ pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> 
 pub(crate) fn branch_integrated(
     check_commit: &mut IsCommitIntegrated,
     branch: &StackBranch,
-    stack_context: &StackContext,
-    stack: &Stack,
+    repo: &git2::Repository,
+    gix_repo: &gix::Repository,
 ) -> Result<bool> {
     if branch.archived {
         return Ok(true);
     }
-    let branch_head = stack_context
-        .repository()
-        .find_commit(branch.head_oid(stack_context, stack)?)?;
+    let oid = branch.head_oid(gix_repo)?;
+    let branch_head = repo.find_commit(oid)?;
     check_commit.is_integrated(&branch_head)
 }
 

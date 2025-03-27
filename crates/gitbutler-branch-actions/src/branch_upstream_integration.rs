@@ -9,7 +9,6 @@ use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
     RepositoryExt as _,
 };
-use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::StackId;
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 #[allow(deprecated)]
@@ -45,7 +44,7 @@ pub fn integrate_upstream_commits_for_series(
     let upstream_reference = subject_branch.remote_reference(remote.as_str());
     let remote_head = repo.find_reference(&upstream_reference)?.peel_to_commit()?;
 
-    let series_head = subject_branch.head_oid(&ctx.to_stack_context()?, &stack)?;
+    let series_head = subject_branch.head_oid(&ctx.gix_repository()?)?;
     let series_head = repo.find_commit(series_head)?;
 
     let strategy = integration_strategy.unwrap_or_else(|| {
