@@ -698,7 +698,7 @@ impl Stack {
         if self
             .heads
             .iter()
-            .all(|h| matches!(h.head(), CommitOrChangeId::CommitId(_)))
+            .all(|h| matches!(h.head, CommitOrChangeId::CommitId(_)))
         {
             return Ok(());
         }
