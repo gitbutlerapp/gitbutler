@@ -8,7 +8,8 @@
 		ChangeSelectionService,
 		type PartiallySelectedFile
 	} from '$lib/selection/changeSelection.svelte';
-	import { getContext, inject } from '@gitbutler/shared/context';
+	import { UiState } from '$lib/state/uiState.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { DiffHunk } from '$lib/hunks/hunk';
@@ -21,9 +22,12 @@
 	};
 
 	const { projectId, selectable = false, change }: Props = $props();
-	const project = getContext(Project);
+	const [project, uiState] = inject(Project, UiState);
 	let contextMenu = $state<ReturnType<typeof HunkContextMenu>>();
 	let viewport = $state<HTMLDivElement>();
+	const projectState = $derived(uiState.project(projectId));
+	const drawerPage = $derived(projectState.drawerPage.current);
+	const isCommiting = $derived(drawerPage === 'new-commit');
 
 	const [diffService, changeSelection] = inject(DiffService, ChangeSelectionService);
 	const diffResult = $derived(diffService.getDiff(projectId, change));
@@ -163,6 +167,7 @@
 				{#each diff.subject.hunks as hunk}
 					{@const [staged, stagedLines] = getStageState(hunk)}
 					<HunkDiff
+						hideCheckboxes={!isCommiting}
 						filePath={change.path}
 						hunkStr={hunk.diff}
 						{staged}

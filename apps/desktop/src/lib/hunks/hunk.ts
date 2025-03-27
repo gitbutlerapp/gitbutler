@@ -1,5 +1,6 @@
 import { hashCode } from '@gitbutler/ui/utils/string';
 import { Transform, Type } from 'class-transformer';
+import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
 import 'reflect-metadata';
 
 export class RemoteHunk {
@@ -76,24 +77,26 @@ export type HunkHeader = {
 };
 
 /** A hunk as used in UnifiedDiff. */
-export type DiffHunk = HunkHeader & {
-	/**
-	 * A unified-diff formatted patch like:
-	 *
-	 * ```diff
-	 * @@ -1,6 +1,8 @@
-	 * This is the first line of the original text.
-	 * -Line to be removed.
-	 * +Line that has been replaced.
-	 * This is another line in the file.
-	 * +This is a new line added at the end.
-	 * ```
-	 *
-	 * The line separator is the one used in the original file and may be `LF` or `CRLF`.
-	 * Note that the file-portion of the header isn't used here.
-	 */
-	readonly diff: string;
-};
+export type DiffHunk = Prettify<
+	HunkHeader & {
+		/**
+		 * A unified-diff formatted patch like:
+		 *
+		 * ```diff
+		 * @@ -1,6 +1,8 @@
+		 * This is the first line of the original text.
+		 * -Line to be removed.
+		 * +Line that has been replaced.
+		 * This is another line in the file.
+		 * +This is a new line added at the end.
+		 * ```
+		 *
+		 * The line separator is the one used in the original file and may be `LF` or `CRLF`.
+		 * Note that the file-portion of the header isn't used here.
+		 */
+		readonly diff: string;
+	}
+>;
 
 export function isDiffHunk(something: unknown): something is DiffHunk {
 	return (

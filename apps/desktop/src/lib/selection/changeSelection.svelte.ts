@@ -76,6 +76,15 @@ export const changeSelectionSlice = createSlice({
 
 const { addOne, removeOne, removeMany, removeAll, upsertOne } = changeSelectionSlice.actions;
 
+function sortHunksInFile(file: SelectedFile) {
+	if (file.type === 'full') {
+		return file;
+	}
+
+	const hunks = file.hunks.slice().sort((a, b) => a.newStart - b.newStart);
+	return { ...file, hunks };
+}
+
 export class ChangeSelectionService {
 	/** The change selection slice of the full redux state. */
 	private state = $state<EntityState<SelectedFile, string>>(changeSelectionSlice.getInitialState());
@@ -109,7 +118,8 @@ export class ChangeSelectionService {
 	}
 
 	update(file: SelectedFile) {
-		this.dispatch(upsertOne(file));
+		const sortedFile = sortHunksInFile(file);
+		this.dispatch(upsertOne(sortedFile));
 	}
 
 	remove(path: string) {
