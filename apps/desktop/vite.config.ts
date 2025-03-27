@@ -142,5 +142,5 @@ function isNotInDesktopApp(file: string) {
 }
 
 function getReloadDelay(longDelay: boolean): number | undefined {
-	return longDelay ? 500 : 250;
+	return longDelay ? 5000 : 250;
 }
