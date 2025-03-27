@@ -265,11 +265,6 @@
 	{projectId}
 	leftClickTrigger={kebabMenuTrigger}
 	rightClickTrigger={commitRowElement}
-	onToggle={(isOpen, isLeftClick) => {
-		if (isLeftClick) {
-			isOpenedByKebabButton = isOpen;
-		}
-	}}
 	{baseBranch}
 	branchId={stackId}
 	{commit}
@@ -287,9 +282,23 @@
 		overflow: hidden;
 		transition: background-color var(--transition-fast);
 
+		&::before {
+			content: '';
+			position: absolute;
+			top: 50%;
+			left: 0;
+			width: 4px;
+			height: 45%;
+			transform: translateX(-100%) translateY(-50%);
+			border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
+			background-color: var(--clr-selected-in-focus-element);
+			transition: transform var(--transition-medium);
+		}
+
 		&:hover,
 		&.menu-shown {
 			background-color: var(--clr-bg-1-muted);
+
 			& .commit-menu-btn {
 				display: flex;
 			}
@@ -309,21 +318,10 @@
 			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 		}
 
-		&::before {
-			content: '';
-			position: absolute;
-			right: 0;
-			width: 3px;
-			height: 100%;
-			transform: translateX(100%);
-			transition: transform var(--transition-fast);
-			background-color: var(--clr-selected-in-focus-element);
-		}
-
 		&.selected,
 		&:focus-within {
 			&::before {
-				transform: translateX(0);
+				transform: translateX(0%) translateY(-50%);
 			}
 		}
 

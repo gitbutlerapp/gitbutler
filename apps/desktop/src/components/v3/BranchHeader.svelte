@@ -11,6 +11,7 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
+		el?: HTMLElement;
 		projectId: string;
 		stackId: string;
 		branch: StackBranch;
@@ -23,10 +24,12 @@
 		details?: Snippet;
 		onclick: () => void;
 		onLabelDblClick?: () => void;
-		onMenuClick: () => void;
+		onMenuBtnClick: () => void;
+		onContextMenu: (e: MouseEvent) => void;
 	}
 
 	let {
+		el = $bindable(),
 		projectId,
 		stackId,
 		branch,
@@ -38,7 +41,8 @@
 		details,
 		onclick,
 		onLabelDblClick,
-		onMenuClick
+		onMenuBtnClick,
+		onContextMenu
 	}: Props = $props();
 
 	const [stackService] = inject(StackService);
@@ -50,7 +54,20 @@
 	}
 </script>
 
-<div class="branch-header" class:selected {onclick} role="button" onkeypress={onclick} tabindex="0">
+<div
+	bind:this={el}
+	role="button"
+	class="branch-header"
+	class:selected
+	{onclick}
+	oncontextmenu={(e) => {
+		e.stopPropagation();
+		e.preventDefault();
+		onContextMenu(e);
+	}}
+	onkeypress={onclick}
+	tabindex="0"
+>
 	<ReduxResult result={topCommitResult.current}>
 		{#snippet children(commit)}
 			{@const branchType: CommitStateType = commit?.state.type ?? 'LocalOnly'}
@@ -75,7 +92,11 @@
 						type="button"
 						class="branch-menu-btn"
 						class:activated={isMenuOpen}
-						onmousedown={onMenuClick}
+						onmousedown={(e) => {
+							e.stopPropagation();
+							e.preventDefault();
+							onMenuBtnClick();
+						}}
 						onclick={(e) => {
 							e.stopPropagation();
 							e.preventDefault();
@@ -102,6 +123,19 @@
 		border-top-left-radius: var(--radius-ml);
 		border-bottom: 1px solid var(--clr-border-2);
 
+		&:before {
+			content: '';
+			position: absolute;
+			top: 14px;
+			left: 0;
+			width: 4px;
+			height: 20px;
+			transform: translateX(-100%);
+			border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
+			background-color: var(--clr-selected-in-focus-element);
+			transition: transform var(--transition-medium);
+		}
+
 		&:hover {
 			background-color: var(--clr-bg-1-muted);
 
@@ -112,6 +146,10 @@
 
 		&.selected {
 			background-color: var(--clr-selected-not-in-focus-bg);
+
+			&:before {
+				transform: translateX(0%);
+			}
 		}
 
 		&:focus-within.selected {

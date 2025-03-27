@@ -78,8 +78,6 @@
 	export function showSeriesRenameModal() {
 		renameSeriesModal.show();
 	}
-
-	let isOpenedByMouse = $state(false);
 </script>
 
 <ContextMenu
@@ -87,16 +85,10 @@
 	{leftClickTrigger}
 	{rightClickTrigger}
 	ontoggle={(isOpen, isLeftClick) => {
-		if (!isLeftClick) {
-			isOpenedByMouse = true;
-		} else {
-			isOpenedByMouse = false;
-		}
-
 		onMenuToggle?.(isOpen, isLeftClick);
 	}}
 >
-	{#if isOpenedByMouse && isTopBranch}
+	{#if isTopBranch}
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Add dependent branch"
@@ -108,7 +100,7 @@
 		</ContextMenuSection>
 	{/if}
 	<ContextMenuSection>
-		{#if isOpenedByMouse && hasForgeBranch}
+		{#if hasForgeBranch}
 			<ContextMenuItem
 				label="Open in browser"
 				onclick={() => {

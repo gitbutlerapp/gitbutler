@@ -63,12 +63,11 @@
 
 	const forgeBranch = $derived(forge.current?.branch(branchName));
 
-	let headerContextMenu = $state<ReturnType<typeof SeriesHeaderContextMenu>>();
-	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let headerEl = $state<HTMLDivElement>();
+	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
 
 	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
-	let branchElement = $state<HTMLDivElement>();
 	let contextMenuOpened = $state(false);
 </script>
 
@@ -82,15 +81,15 @@
 >
 	{#snippet children([branch, branches, branchDetails, commit])}
 		{@const selected = selection.current?.branchName === branch.name}
-		{console.log(branchDetails)}
 		{#if !first}
 			<BranchDividerLine topPatchStatus={commit?.state.type ?? 'LocalOnly'} />
 		{/if}
-		<div class="branch-card" class:selected data-series-name={branchName} bind:this={branchElement}>
+		<div class="branch-card" class:selected data-series-name={branchName}>
 			<BranchHeader
 				{projectId}
 				{stackId}
 				{branch}
+				bind:el={headerEl}
 				bind:menuBtnEl={kebabContextMenuTrigger}
 				isMenuOpen={contextMenuOpened}
 				selected={selected && selection.current?.commitId === undefined}
@@ -100,10 +99,14 @@
 					uiState.stack(stackId).selection.set({ branchName });
 					uiState.project(projectId).drawerPage.set('branch');
 				}}
-				onMenuClick={() => {
-					kebabContextMenu?.toggle();
+				onMenuBtnClick={() => {
+					contextMenu?.toggle();
 				}}
-				onLabelDblClick={() => headerContextMenu?.showSeriesRenameModal?.()}
+				onContextMenu={(e) => {
+					e.preventDefault();
+					e.stopPropagation();
+					contextMenu?.toggle(e);
+				}}
 			>
 				{#snippet details()}
 					<div class="text-11 branch-header__details">
@@ -223,11 +226,10 @@
 		/>
 
 		<SeriesHeaderContextMenu
-			bind:this={headerContextMenu}
-			bind:contextMenuEl={kebabContextMenu}
+			bind:contextMenuEl={contextMenu}
 			{stackId}
 			leftClickTrigger={kebabContextMenuTrigger}
-			rightClickTrigger={branchElement}
+			rightClickTrigger={headerEl}
 			branchName={branch.name}
 			seriesCount={branches.length}
 			isTopBranch={true}
