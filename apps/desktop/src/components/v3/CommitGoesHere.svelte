@@ -101,7 +101,7 @@
 		width: 10px;
 		height: 10px;
 		background-color: var(--clr-theme-pop-element);
-		outline: 2px solid var(--clr-bg-2);
+		outline: 2px solid var(--clr-bg-1);
 	}
 	.commit-here__line {
 		background-color: var(--clr-theme-pop-element);
