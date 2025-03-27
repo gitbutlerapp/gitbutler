@@ -141,7 +141,12 @@ function injectEndpoints(api: BackendApi) {
 					command: 'fetch_from_remotes',
 					params: { projectId, action: action ?? 'auto' }
 				}),
-				invalidatesTags: [ReduxTag.BaseBranchData, ReduxTag.Stacks, ReduxTag.Commits],
+				invalidatesTags: [
+					ReduxTag.BaseBranchData,
+					ReduxTag.Stacks,
+					ReduxTag.Commits,
+					ReduxTag.UpstreamIntegrationStatus
+				],
 				transformErrorResponse: (error) => {
 					// This is good enough while we check the best way to handle this
 					return error.toString();
