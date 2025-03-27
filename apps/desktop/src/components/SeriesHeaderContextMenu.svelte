@@ -25,9 +25,10 @@
 		hasForgeBranch: boolean;
 		pr?: DetailedPullRequest;
 		branchType: CommitStatus;
-		description: string;
+		descriptionOption?: boolean;
+		descriptionString?: string;
 		stackId: string;
-		toggleDescription: () => Promise<void>;
+		toggleDescription?: () => Promise<void>;
 		onGenerateBranchName: () => void;
 		onAddDependentSeries?: () => void;
 		onOpenInBrowser?: () => void;
@@ -44,7 +45,8 @@
 		branchName,
 		pr,
 		branchType,
-		description,
+		descriptionOption = true,
+		descriptionString,
 		stackId,
 		toggleDescription,
 		onGenerateBranchName,
@@ -124,13 +126,15 @@
 		/>
 	</ContextMenuSection>
 	<ContextMenuSection>
-		<ContextMenuItem
-			label={`${!description ? 'Add' : 'Remove'} description`}
-			onclick={async () => {
-				await toggleDescription();
-				contextMenuEl?.close();
-			}}
-		/>
+		{#if descriptionOption}
+			<ContextMenuItem
+				label={`${!descriptionString ? 'Add' : 'Remove'} description`}
+				onclick={async () => {
+					await toggleDescription?.();
+					contextMenuEl?.close();
+				}}
+			/>
+		{/if}
 		{#if $aiGenEnabled && aiConfigurationValid && !hasForgeBranch}
 			<ContextMenuItem
 				label="Generate branch name"

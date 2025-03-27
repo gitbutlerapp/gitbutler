@@ -4,9 +4,10 @@
 	type Props = {
 		row?: boolean;
 		commit: UpstreamCommit | Commit;
+		fontSize?: '13' | '14' | '15' | '16';
 	};
 
-	const { commit, row }: Props = $props();
+	const { commit, row, fontSize = '13' }: Props = $props();
 
 	const message = $derived(commit.message);
 	const indexOfNewLine = $derived(message.indexOf('\n'));
@@ -14,9 +15,9 @@
 	const title = $derived(message.slice(0, endIndex).trim());
 </script>
 
-<p class="text-14 text-semibold commit-title" class:row>
+<h3 class="text-{fontSize} text-semibold commit-title" class:row>
 	{title}
-</p>
+</h3>
 
 <style>
 	.commit-title {

@@ -51,7 +51,7 @@
 							onclick={async () => await branchController.createBranch({})}
 						>
 							<div class="empty-board__suggestions__link__icon">
-								<Icon name="new-branch" />
+								<Icon name="add-new" />
 							</div>
 							<span class="text-12">Create a new branch</span>
 						</div>

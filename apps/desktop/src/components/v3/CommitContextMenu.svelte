@@ -66,6 +66,7 @@
 	{rightClickTrigger}
 	onclose={onClose}
 	ontoggle={onToggle}
+	horizontalAlign="right"
 >
 	{#if !isRemote}
 		<ContextMenuSection>

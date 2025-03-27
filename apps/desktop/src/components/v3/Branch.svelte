@@ -3,6 +3,7 @@
 	import Dropzone from '$components/Dropzone.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
+	import BranchBadge from '$components/v3/BranchBadge.svelte';
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
 	import BranchDividerLine from '$components/v3/BranchDividerLine.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
@@ -27,6 +28,7 @@
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
+	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 
 	interface Props {
 		projectId: string;
@@ -48,6 +50,7 @@
 
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
+	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const commitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
 	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
 	const base = $derived(baseBranchResponse.current.data);
@@ -70,18 +73,26 @@
 </script>
 
 <ReduxResult
-	result={combineResults(branchResult.current, branchesResult.current, commitResult.current)}
+	result={combineResults(
+		branchResult.current,
+		branchesResult.current,
+		branchDetailsResult.current,
+		commitResult.current
+	)}
 >
-	{#snippet children([branch, branches, commit])}
+	{#snippet children([branch, branches, branchDetails, commit])}
 		{@const selected = selection.current?.branchName === branch.name}
+		{console.log(branchDetails)}
 		{#if !first}
 			<BranchDividerLine topPatchStatus={commit?.state.type ?? 'LocalOnly'} />
 		{/if}
-		<div class="branch" class:selected data-series-name={branchName} bind:this={branchElement}>
+		<div class="branch-card" class:selected data-series-name={branchName} bind:this={branchElement}>
 			<BranchHeader
 				{projectId}
 				{stackId}
 				{branch}
+				bind:menuBtnEl={kebabContextMenuTrigger}
+				isMenuOpen={contextMenuOpened}
 				selected={selected && selection.current?.commitId === undefined}
 				isTopBranch={first}
 				readonly={!!forgeBranch}
@@ -89,75 +100,31 @@
 					uiState.stack(stackId).selection.set({ branchName });
 					uiState.project(projectId).drawerPage.set('branch');
 				}}
+				onMenuClick={() => {
+					kebabContextMenu?.toggle();
+				}}
 				onLabelDblClick={() => headerContextMenu?.showSeriesRenameModal?.()}
 			>
-				{#snippet children()}
-					<PopoverActionsContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
-						{#if first}
-							<PopoverActionsItem
-								icon="plus-small"
-								tooltip="Add dependent branch"
-								onclick={() => {
-									newBranchModal?.show();
-								}}
-							/>
-						{/if}
-						{#if forgeBranch}
-							<PopoverActionsItem
-								icon="open-link"
-								tooltip="Open in browser"
-								onclick={() => {
-									const url = forgeBranch?.url;
-									if (url) openExternalUrl(url);
-								}}
-							/>
-						{/if}
-						<PopoverActionsItem
-							bind:el={kebabContextMenuTrigger}
-							activated={contextMenuOpened}
-							icon="kebab"
-							tooltip="More options"
-							onclick={() => {
-								kebabContextMenu?.toggle();
-							}}
-						/>
-					</PopoverActionsContainer>
-					<NewBranchModal
-						{projectId}
-						{stackId}
-						bind:this={newBranchModal}
-						parentSeriesName={branch.name}
-					/>
+				{#snippet details()}
+					<div class="text-11 branch-header__details">
+						<span class="branch-header__item">
+							<BranchBadge pushStatus={branchDetails.pushStatus} unstyled />
+						</span>
+						<span class="branch-header__divider">•</span>
 
-					<SeriesHeaderContextMenu
-						bind:this={headerContextMenu}
-						bind:contextMenuEl={kebabContextMenu}
-						{stackId}
-						leftClickTrigger={kebabContextMenuTrigger}
-						rightClickTrigger={branchElement}
-						branchName={branch.name}
-						seriesCount={branches.length}
-						isTopBranch={true}
-						toggleDescription={async () => {}}
-						description={branch.description ?? ''}
-						onGenerateBranchName={() => {
-							throw new Error('Not implemented!');
-						}}
-						onAddDependentSeries={() => newBranchModal?.show()}
-						onOpenInBrowser={() => {
-							const url = forgeBranch?.url;
-							if (url) openExternalUrl(url);
-						}}
-						hasForgeBranch={!!forgeBranch}
-						branchType={commit?.state.type || 'LocalOnly'}
-						onMenuToggle={(isOpen, isLeftClick) => {
-							if (isLeftClick) {
-								contextMenuOpened = isOpen;
-							}
-						}}
-					/>
+						{#if branchDetails.isConflicted}
+							<span class="branch-header__item branch-header__item--conflict"> Has conflicts </span>
+							<span class="branch-header__divider">•</span>
+						{/if}
+
+						<!-- last updated -->
+						<span class="branch-header__item">
+							{getTimeAgo(new Date(branchDetails.lastUpdatedAt))}
+						</span>
+					</div>
 				{/snippet}
 			</BranchHeader>
+
 			<BranchCommitList {projectId} {stackId} {branchName} {selectedCommitId}>
 				{#snippet emptyPlaceholder()}
 					<EmptyBranch {lastBranch} />
@@ -247,11 +214,45 @@
 				{/snippet}
 			</BranchCommitList>
 		</div>
+
+		<NewBranchModal
+			{projectId}
+			{stackId}
+			bind:this={newBranchModal}
+			parentSeriesName={branch.name}
+		/>
+
+		<SeriesHeaderContextMenu
+			bind:this={headerContextMenu}
+			bind:contextMenuEl={kebabContextMenu}
+			{stackId}
+			leftClickTrigger={kebabContextMenuTrigger}
+			rightClickTrigger={branchElement}
+			branchName={branch.name}
+			seriesCount={branches.length}
+			isTopBranch={true}
+			descriptionOption={false}
+			onGenerateBranchName={() => {
+				throw new Error('Not implemented!');
+			}}
+			onAddDependentSeries={() => newBranchModal?.show()}
+			onOpenInBrowser={() => {
+				const url = forgeBranch?.url;
+				if (url) openExternalUrl(url);
+			}}
+			hasForgeBranch={!!forgeBranch}
+			branchType={commit?.state.type || 'LocalOnly'}
+			onMenuToggle={(isOpen, isLeftClick) => {
+				if (isLeftClick) {
+					contextMenuOpened = isOpen;
+				}
+			}}
+		/>
 	{/snippet}
 </ReduxResult>
 
 <style>
-	.branch {
+	.branch-card {
 		display: flex;
 		flex-direction: column;
 		width: 100%;
@@ -259,5 +260,25 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background: var(--clr-bg-1);
+		overflow: hidden;
+	}
+
+	.branch-header__details {
+		display: flex;
+		gap: 6px;
+		color: var(--clr-text-2);
+		margin-left: 4px;
+	}
+
+	.branch-header__item {
+		color: var(--clr-text-2);
+	}
+
+	.branch-header__item--conflict {
+		color: var(--clr-theme-err-element);
+	}
+
+	.branch-header__divider {
+		color: var(--clr-text-3);
 	}
 </style>

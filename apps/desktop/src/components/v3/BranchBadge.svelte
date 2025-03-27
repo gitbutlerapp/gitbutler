@@ -1,27 +1,36 @@
 <script lang="ts">
-	import Badge from '@gitbutler/ui/Badge.svelte';
+	import { getBranchStatusLabelAndColor } from '$components/v3/lib';
 	import type { PushStatus } from '$lib/stacks/stack';
 	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
 
 	type Props = {
 		pushStatus: PushStatus;
+		unstyled?: boolean;
 	};
 
-	const { pushStatus }: Props = $props();
+	const { pushStatus, unstyled }: Props = $props();
 
-	const [label, style] = $derived.by((): [string, ComponentColorType] => {
-		switch (pushStatus) {
-			case 'completelyUnpushed':
-				return ['Unpushed', 'neutral'];
-			case 'integrated':
-				return ['Integrated', 'purple'];
-			case 'unpushedCommits':
-			case 'unpushedCommitsRequiringForce':
-				return ['Diverged', 'warning'];
-			case 'nothingToPush':
-				return ['Pushed', 'pop'];
-		}
+	const [label, bgColor] = $derived.by((): [string, ComponentColorType] => {
+		const { label, color } = getBranchStatusLabelAndColor(pushStatus);
+		return [label, color];
 	});
 </script>
 
-<Badge {style}>{label}</Badge>
+<span class={[!unstyled && 'text-10 text-bold branch-badge']} style:--b-bg-color={bgColor}>
+	{label}
+</span>
+
+<style class="postcss">
+	.branch-badge {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+		border-radius: 20px;
+		color: #fff;
+		background-color: var(--b-bg-color);
+		padding: 3px 5px;
+		height: var(--size-icon);
+		line-height: 1;
+	}
+</style>

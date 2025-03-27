@@ -2,10 +2,11 @@
 	import BranchLabel from '$components/BranchLabel.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SeriesDescription from '$components/SeriesDescription.svelte';
-	import SeriesHeaderStatusIcon from '$components/SeriesHeaderStatusIcon.svelte';
+	import BranchHeaderIcon from '$components/v3/BranchHeaderIcon.svelte';
 	import { getColorFromBranchType } from '$components/v3/lib';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { CommitStateType, StackBranch } from '$lib/branches/v3';
 	import type { Snippet } from 'svelte';
 
@@ -17,86 +18,74 @@
 		isTopBranch: boolean;
 		readonly: boolean;
 		lineColor?: string;
-		children?: Snippet;
-		actions?: Snippet;
+		menuBtnEl?: HTMLButtonElement;
+		isMenuOpen?: boolean;
+		details?: Snippet;
 		onclick: () => void;
 		onLabelDblClick?: () => void;
+		onMenuClick: () => void;
 	}
 
-	const {
+	let {
 		projectId,
 		stackId,
 		branch,
 		isTopBranch,
 		readonly,
-		lineColor,
 		selected,
-		children,
-		actions,
+		menuBtnEl = $bindable(),
+		isMenuOpen,
+		details,
 		onclick,
-		onLabelDblClick
+		onLabelDblClick,
+		onMenuClick
 	}: Props = $props();
 
 	const [stackService] = inject(StackService);
 
 	const topCommitResult = $derived(stackService.commitAt(projectId, stackId, branch.name, 0));
 
-	let seriesDescriptionEl = $state<HTMLTextAreaElement>();
-
 	function editTitle(title: string) {
 		console.error('FIXME', title);
 	}
-
-	function editDescription(description: string | null | undefined) {
-		console.error('FIXME', description);
-	}
-
-	function toggleDescription() {
-		console.error('FIXME');
-	}
 </script>
 
-<div class="branch-header" class:selected>
-	{@render children?.()}
+<div class="branch-header" class:selected {onclick} role="button" onkeypress={onclick} tabindex="0">
 	<ReduxResult result={topCommitResult.current}>
 		{#snippet children(commit)}
 			{@const branchType: CommitStateType = commit?.state.type ?? 'LocalOnly'}
-			{@const color = lineColor || getColorFromBranchType(branchType)}
-			<div class="first-row" {onclick} role="button" onkeypress={onclick} tabindex="0">
-				<SeriesHeaderStatusIcon
-					lineTop={isTopBranch ? false : true}
-					icon={branchType === 'Integrated' ? 'tick-small' : 'branch-small'}
-					iconColor="var(--clr-core-ntrl-100)"
-					{color}
-				/>
-				<div class="right">
-					<div class="combined-name text-14 text-bold">
-						<BranchLabel
-							name={branch.name}
-							onChange={(name) => editTitle(name)}
-							readonly={readonly || !!branch.remoteTrackingBranch}
-							onDblClick={() => {
-								if (branchType !== 'Integrated') {
-									onLabelDblClick?.();
-								}
-							}}
-						/>
-					</div>
-					{#if branch.description}
-						<div class="description">
-							<div class="line" style:--bg-color={color}></div>
-							<SeriesDescription
-								bind:textAreaEl={seriesDescriptionEl}
-								value={branch.description || ''}
-								onBlur={(value) => editDescription(value)}
-								onEmpty={() => toggleDescription()}
-							/>
-						</div>
-					{/if}
-					{#if actions}
-						{@render actions()}
-					{/if}
+
+			<BranchHeaderIcon {branchType} lineTop={isTopBranch ? false : true} />
+			<div class="branch-header__content">
+				<div class="name-line text-14 text-bold">
+					<BranchLabel
+						name={branch.name}
+						fontSize="15"
+						readonly={readonly || !!branch.remoteTrackingBranch}
+						onChange={(name) => editTitle(name)}
+						onDblClick={() => {
+							if (branchType !== 'Integrated') {
+								onLabelDblClick?.();
+							}
+						}}
+					/>
+
+					<button
+						bind:this={menuBtnEl}
+						type="button"
+						class="branch-menu-btn"
+						class:activated={isMenuOpen}
+						onmousedown={onMenuClick}
+						onclick={(e) => {
+							e.stopPropagation();
+							e.preventDefault();
+						}}
+					>
+						<Icon name="kebab" />
+					</button>
 				</div>
+
+				{@render details?.()}
 			</div>
 		{/snippet}
 	</ReduxResult>
@@ -106,22 +95,19 @@
 	.branch-header {
 		position: relative;
 		display: flex;
+		justify-content: flex-start;
 		align-items: center;
-		flex-direction: column;
-		color: var(--clr-text-3);
+		padding-right: 10px;
 		border-top-right-radius: var(--radius-ml);
 		border-top-left-radius: var(--radius-ml);
 		border-bottom: 1px solid var(--clr-border-2);
 
-		&:hover,
-		&:focus-visible {
-			& :global(.branch-actions-menu) {
-				--show: true;
-			}
-		}
-
 		&:hover {
 			background-color: var(--clr-bg-1-muted);
+
+			& .branch-menu-btn {
+				display: flex;
+			}
 		}
 
 		&.selected {
@@ -133,23 +119,15 @@
 		}
 	}
 
-	.first-row {
-		width: 100%;
-		padding-right: 14px;
-		display: flex;
-		justify-content: flex-start;
-		align-items: center;
-	}
-
-	.combined-name {
+	.name-line {
 		display: flex;
 		align-items: center;
-		justify-content: flex-start;
+		justify-content: space-between;
 		min-width: 0;
 		flex-grow: 1;
 	}
 
-	.right {
+	.branch-header__content {
 		overflow: hidden;
 		flex: 1;
 		width: 100%;
@@ -161,9 +139,19 @@
 		text-overflow: ellipsis;
 	}
 
-	.line {
-		min-width: 2px;
-		margin: 0 22px;
-		background-color: var(--bg-color, var(--clr-border-3));
+	.branch-menu-btn {
+		display: none;
+		padding: 0 4px;
+		color: var(--clr-text-1);
+		opacity: 0.5;
+
+		&:hover {
+			opacity: 1;
+		}
+
+		&.activated {
+			display: flex;
+			opacity: 1;
+		}
 	}
 </style>

@@ -12,6 +12,7 @@
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
@@ -106,6 +107,7 @@
 	const commitShortSha = commit.id.substring(0, 7);
 </script>
 
+<!-- 
 <div
 	bind:this={commitRowElement}
 	role="listitem"
@@ -138,24 +140,97 @@
 				viewportId: 'board-viewport'
 			}
 		: NON_DRAGGABLE}
+> -->
+<div
+	role="button"
+	tabindex="0"
+	aria-label="Commit row"
+	class="commit-row__main"
+	class:menu-shown={isOpenedByKebabButton}
+	class:first
+	class:selected
+	style:opacity
+	class:border-top={borderTop || first}
+	bind:this={commitRowElement}
+	class:last={lastCommit}
+	onclick={(e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		if (disableCommitActions) return;
+		onclick?.();
+	}}
+	onkeydown={(e) => {
+		if (disableCommitActions) return;
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			onclick?.();
+		}
+	}}
+	oncontextmenu={(e) => {
+		if (disableCommitActions) return;
+		e.preventDefault();
+		isOpenedByKebabButton = false;
+		contextMenu?.open(e);
+	}}
+	use:draggableCommit={draggable
+		? {
+				disabled: false,
+				label: commit.message.split('\n')[0],
+				sha: commitShortSha,
+				date: getTimeAgo(commit.createdAt),
+				authorImgUrl: undefined,
+				commitType: 'LocalAndRemote',
+				data: new CommitDropData(
+					stackId,
+					{
+						id: commit.id,
+						isRemote: isUpstreamCommit(commit),
+						isConflicted: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
+						isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated'
+					},
+					false,
+					branchName
+				),
+				viewportId: 'board-viewport'
+			}
+		: NON_DRAGGABLE}
 >
-	<div
-		class="commit-row__main"
-		class:first
-		class:selected
-		style:opacity
-		class:border-top={borderTop || first}
-	>
-		<CommitLine {commit} {lastCommit} {lastBranch} {lineColor} />
+	<CommitLine {commit} {lastCommit} {lastBranch} {lineColor} />
 
-		<div class="commit-content">
-			<button type="button" {onclick} tabindex="0">
-				<CommitHeader {commit} row />
-			</button>
+	<div class="commit-content">
+		<!-- <button type="button" {onclick} tabindex="0"> -->
+		<div class="commit-name truncate">
+			<CommitHeader {commit} row />
 		</div>
-	</div>
 
-	{#if !disableCommitActions}
+		<button
+			type="button"
+			bind:this={kebabMenuTrigger}
+			class="commit-menu-btn"
+			onmousedown={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				contextMenu?.toggle();
+			}}
+			onclick={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+			}}
+		>
+			<Icon name="kebab" /></button
+		>
+
+		<!-- <button
+			type="button"
+			bind:this={kebabMenuTrigger}
+			onclick={() => {
+				contextMenu?.toggle();
+			}}>menu</button
+		> -->
+	</div>
+</div>
+
+<!-- {#if !disableCommitActions}
 		<PopoverActionsContainer class="commit-row-actions-menu" thin stayOpen={isOpenedByKebabButton}>
 			<PopoverActionsItem
 				bind:el={kebabMenuTrigger}
@@ -168,8 +243,8 @@
 				}}
 			/>
 		</PopoverActionsContainer>
-	{/if}
-</div>
+	{/if} -->
+<!-- </div> -->
 
 <Modal bind:this={conflictResolutionConfirmationModal} width="small" onSubmit={editPatch}>
 	{#snippet children()}
@@ -186,6 +261,7 @@
 </Modal>
 
 <CommitContextMenu
+	bind:menu={contextMenu}
 	{projectId}
 	leftClickTrigger={kebabMenuTrigger}
 	rightClickTrigger={commitRowElement}
@@ -194,7 +270,6 @@
 			isOpenedByKebabButton = isOpen;
 		}
 	}}
-	bind:menu={contextMenu}
 	{baseBranch}
 	branchId={stackId}
 	{commit}
@@ -205,20 +280,6 @@
 />
 
 <style lang="postcss">
-	.commit {
-		position: relative;
-		display: flex;
-		align-items: center;
-		width: 100%;
-		overflow: hiddend;
-
-		&:hover :global(.commit-row-actions-menu) {
-			--show: true;
-		}
-		&:not(.last) {
-			border-bottom: 1px solid var(--clr-border-2);
-		}
-	}
 	.commit-row__main {
 		position: relative;
 		display: flex;
@@ -226,8 +287,26 @@
 		overflow: hidden;
 		transition: background-color var(--transition-fast);
 
-		&:hover {
+		&:hover,
+		&.menu-shown {
 			background-color: var(--clr-bg-1-muted);
+			& .commit-menu-btn {
+				display: flex;
+			}
+		}
+
+		&.menu-shown {
+			& .commit-menu-btn {
+				opacity: 1;
+			}
+		}
+
+		&:not(.last) {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
+
+		&.last {
+			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 		}
 
 		&::before {
@@ -237,35 +316,53 @@
 			width: 3px;
 			height: 100%;
 			transform: translateX(100%);
-			background-color: var(--clr-theme-pop-element);
 			transition: transform var(--transition-fast);
+			background-color: var(--clr-selected-in-focus-element);
+		}
+
+		&.selected,
+		&:focus-within {
+			&::before {
+				transform: translateX(0);
+			}
 		}
 
 		&.selected {
 			background-color: var(--clr-selected-not-in-focus-bg);
 		}
 
-		&:focus-within.selected {
-			background-color: var(--clr-selected-in-focus-bg);
-		}
-
-		&.selected::before {
-			transform: none;
+		&:focus-within {
+			&.selected {
+				background-color: var(--clr-selected-in-focus-bg);
+			}
 		}
 	}
 
 	.commit-content {
 		display: flex;
-		flex-direction: column;
+		align-items: center;
 		position: relative;
-		gap: 6px;
+		gap: 3px;
 		width: 100%;
 		overflow: hidden;
+		padding-right: 10px;
+	}
 
-		& button {
-			padding: 14px 14px 14px 0;
-			display: flex;
-			justify-items: start;
+	.commit-name {
+		flex: 1;
+		padding: 14px 0 14px 4px;
+		display: flex;
+	}
+
+	.commit-menu-btn {
+		display: none;
+		padding: 3px;
+		color: var(--clr-text-1);
+		opacity: 0.5;
+		transition: opacity var(--transition-fast);
+
+		&:hover {
+			opacity: 1;
 		}
 	}
 </style>

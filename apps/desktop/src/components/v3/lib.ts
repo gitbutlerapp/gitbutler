@@ -1,4 +1,5 @@
 import type { CommitStateType, UpstreamCommit, Commit } from '$lib/branches/v3';
+import type { PushStatus } from '$lib/stacks/stack';
 
 const colorMap = {
 	LocalOnly: 'var(--clr-commit-local)',
@@ -17,4 +18,23 @@ export function isUpstreamCommit(commit: Commit | UpstreamCommit): commit is Ups
 
 export function isLocalAndRemoteCommit(commit: Commit | UpstreamCommit): commit is Commit {
 	return 'state' in commit;
+}
+
+export function getBranchStatusLabelAndColor(pushStatus: PushStatus): {
+	label: string;
+	color: string;
+} {
+	switch (pushStatus) {
+		case 'completelyUnpushed':
+			return { label: 'Unpushed', color: colorMap.LocalOnly };
+		case 'nothingToPush':
+			return { label: 'Nothing to push', color: colorMap.LocalAndRemote };
+		case 'unpushedCommits':
+		case 'unpushedCommitsRequiringForce':
+			return { label: 'Unpushed', color: colorMap.LocalAndRemote };
+		case 'integrated':
+			return { label: 'Integrated', color: colorMap.Integrated };
+		default:
+			return { label: 'Unknown', color: colorMap.Error };
+	}
 }
