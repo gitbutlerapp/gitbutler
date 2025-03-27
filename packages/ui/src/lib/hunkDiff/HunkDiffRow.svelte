@@ -120,6 +120,15 @@
 		onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
 		onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
 		onmouseup={() => lineSelection.onEnd()}
+		oncontextmenu={(ev) => {
+			ev.preventDefault();
+			ev.stopPropagation();
+			handleLineContextMenu?.({
+				event: ev,
+				beforeLineNumber: row.beforeLineNumber,
+				afterLineNumber: row.afterLineNumber
+			});
+		}}
 	>
 		{side === CountColumnSide.Before ? row.beforeLineNumber : row.afterLineNumber}
 	</td>
@@ -145,7 +154,18 @@
 			align="center"
 			class:is-last={row.isLast}
 			class:staged={staged && deltaLine}
-			onclick={onToggleStage}
+			onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
+			onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
+			onmouseup={() => lineSelection.onEnd()}
+			oncontextmenu={(ev) => {
+				ev.preventDefault();
+				ev.stopPropagation();
+				handleLineContextMenu?.({
+					event: ev,
+					beforeLineNumber: row.beforeLineNumber,
+					afterLineNumber: row.afterLineNumber
+				});
+			}}
 		>
 			{#if deltaLine}
 				<div class="table__row-checkbox">
