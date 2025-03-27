@@ -1103,15 +1103,12 @@ mod utils {
         for stack in vbranches.branches.values() {
             repo.reference(
                 format!("refs/heads/{}", stack.name),
-                stack.head.to_gix(),
+                stack.head().to_gix(),
                 PreviousValue::Any,
                 "create stack head for visualization",
             )?;
             for branch in &stack.heads {
-                let CommitOrChangeId::CommitId(commit_id) = branch.head() else {
-                    continue;
-                };
-                let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes())?;
+                let commit_id = branch.head_oid(repo)?.to_gix();
                 repo.reference(
                     format!("refs/heads/{}", branch.name()),
                     commit_id,

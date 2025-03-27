@@ -68,6 +68,12 @@ impl From<git2::Commit<'_>> for CommitOrChangeId {
     }
 }
 
+impl From<git2::Oid> for CommitOrChangeId {
+    fn from(oid: git2::Oid) -> Self {
+        CommitOrChangeId::CommitId(oid.to_string())
+    }
+}
+
 pub trait RepositoryExt {
     fn lookup_change_id_or_oid(&self, oid: git2::Oid) -> Result<CommitOrChangeId>;
 }
@@ -99,7 +105,8 @@ impl StackBranch {
         Ok(branch)
     }
 
-    pub fn head(&self) -> &CommitOrChangeId {
+    #[deprecated(note = "Use the git reference instead")]
+    pub(crate) fn head(&self) -> &CommitOrChangeId {
         &self.head
     }
 

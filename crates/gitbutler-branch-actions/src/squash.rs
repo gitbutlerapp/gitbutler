@@ -168,7 +168,9 @@ fn do_squash_commits(
 
     let mut steps: Vec<RebaseStep> = Vec::new();
 
-    for head in stack.heads_by_commit(ctx.repo().find_commit(merge_base)?) {
+    let gix_repo = ctx.gix_repository()?;
+
+    for head in stack.heads_by_commit(ctx.repo().find_commit(merge_base)?, &gix_repo) {
         steps.push(RebaseStep::Reference(but_core::Reference::Virtual(head)));
     }
     for oid in branch_commit_oids.iter().rev() {
@@ -186,12 +188,11 @@ fn do_squash_commits(
                 new_message: None,
             });
         }
-        for head in stack.heads_by_commit(commit) {
+        for head in stack.heads_by_commit(commit, &gix_repo) {
             steps.push(RebaseStep::Reference(but_core::Reference::Virtual(head)));
         }
     }
 
-    let gix_repo = ctx.gix_repository()?;
     let mut builder = but_rebase::Rebase::new(&gix_repo, merge_base.to_gix(), None)?;
     let builder = builder.steps(steps)?;
     builder.rebase_noops(false);

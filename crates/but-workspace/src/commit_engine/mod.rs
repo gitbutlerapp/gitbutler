@@ -381,7 +381,6 @@ pub fn create_commit_and_update_refs(
             refs::rewrite(
                 repo,
                 vb,
-                None,
                 all_refs_by_id,
                 [(commit_in_graph, new_commit)],
                 &mut out.references,
@@ -442,7 +441,6 @@ pub fn create_commit_and_update_refs(
             refs::rewrite(
                 repo,
                 vb,
-                workspace_tip,
                 all_refs_by_id,
                 rebase
                     .commit_mapping

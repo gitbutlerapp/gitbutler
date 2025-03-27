@@ -176,7 +176,7 @@ pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> 
     let repo = ctx.repo();
     let default_target = state.get_default_target()?;
     let merge_base = repo.find_commit(repo.merge_base(stack.head(), default_target.sha)?)?;
-    let merge_base: CommitOrChangeId = merge_base.into();
+    // let merge_base: CommitOrChangeId = merge_base.into();
 
     // First fetch, because we dont want to push integrated series
     ctx.fetch(
@@ -193,7 +193,7 @@ pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> 
             // Nothing to push for this one
             continue;
         }
-        if *branch.head() == merge_base {
+        if branch.head_oid(&gix_repo)? == merge_base.id() {
             // Nothing to push for this one
             continue;
         }
