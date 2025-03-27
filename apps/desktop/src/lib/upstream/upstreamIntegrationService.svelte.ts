@@ -111,7 +111,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: ({ projectId, targetCommitOid }) => ({
 					command: `upstream_integration_statuses`,
 					params: { projectId, targetCommitOid }
-				})
+				}),
+				providesTags: [ReduxTag.UpstreamIntegrationStatus]
 			}),
 			integrateUpstream: build.mutation<
 				IntegrationOutcome,
@@ -125,7 +126,12 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: `integrate_upstream`,
 					params: { projectId, resolutions, baseBranchResolution }
 				}),
-				invalidatesTags: [ReduxTag.Stacks, ReduxTag.StackBranches, ReduxTag.StackInfo]
+				invalidatesTags: [
+					ReduxTag.UpstreamIntegrationStatus,
+					ReduxTag.Stacks,
+					ReduxTag.StackBranches,
+					ReduxTag.StackInfo
+				]
 			}),
 			resolveUpstreamIntegration: build.mutation<
 				string,
@@ -134,7 +140,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: ({ projectId, resolutionApproach }) => ({
 					command: `resolve_upstream_integration`,
 					params: { projectId, resolutionApproach }
-				})
+				}),
+				invalidatesTags: [ReduxTag.UpstreamIntegrationStatus]
 			})
 		})
 	});

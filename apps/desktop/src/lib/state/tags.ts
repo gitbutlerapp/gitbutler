@@ -12,5 +12,6 @@ export enum ReduxTag {
 	GitLabPullRequests = 'GitLabPullRequests',
 	Checks = 'Checks',
 	RepoInfo = 'RepoInfo',
-	BaseBranchData = 'BaseBranchData'
+	BaseBranchData = 'BaseBranchData',
+	UpstreamIntegrationStatus = 'UpstreamIntegrationStatus'
 }
