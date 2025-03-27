@@ -114,7 +114,7 @@
 		border-bottom: 1px solid var(--clr-border-2);
 
 		&:hover,
-		&:focus-within {
+		&:focus-visible {
 			& :global(.branch-actions-menu) {
 				--show: true;
 			}
