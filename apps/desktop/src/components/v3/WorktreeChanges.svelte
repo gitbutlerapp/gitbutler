@@ -5,7 +5,7 @@
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
-	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+	import { ChangeSelectionService, type SelectedFile } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
@@ -37,6 +37,8 @@
 	);
 	const defaultBranch = $derived(defaultBranchResult?.current.data);
 	const defaultBranchName = $derived(defaultBranch?.name);
+	const selectedChanges = changeSelection.list();
+	const noChangesSelected = $derived(selectedChanges.current.length === 0);
 
 	// TODO: Make this go away.
 	createCommitStore(undefined);
@@ -61,9 +63,23 @@
 		}
 	});
 
+	function updateCommitSelection() {
+		if (!noChangesSelected) return;
+		// If no changes are selected, select everything.
+		const affectedPaths =
+			changesResult.current.data?.map((c) => [c.path, c.pathBytes] as const) ?? [];
+		const files: SelectedFile[] = affectedPaths.map(([path, pathBytes]) => ({
+			path,
+			pathBytes,
+			type: 'full'
+		}));
+		changeSelection.addMany(files);
+	}
+
 	function startCommit() {
 		if (!defaultBranchName) return;
 		stackState?.selection.set({ branchName: defaultBranchName });
+		updateCommitSelection();
 		projectState.drawerPage.set('new-commit');
 	}
 </script>

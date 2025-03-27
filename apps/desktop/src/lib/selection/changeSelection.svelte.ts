@@ -66,6 +66,7 @@ export const changeSelectionSlice = createSlice({
 	initialState: changeSelectionAdapter.getInitialState(),
 	reducers: {
 		addOne: changeSelectionAdapter.addOne,
+		addMany: changeSelectionAdapter.addMany,
 		removeOne: changeSelectionAdapter.removeOne,
 		removeMany: changeSelectionAdapter.removeMany,
 		removeAll: changeSelectionAdapter.removeAll,
@@ -74,7 +75,8 @@ export const changeSelectionSlice = createSlice({
 	selectors: { selectById, selectAll }
 });
 
-const { addOne, removeOne, removeMany, removeAll, upsertOne } = changeSelectionSlice.actions;
+const { addOne, addMany, removeOne, removeMany, removeAll, upsertOne } =
+	changeSelectionSlice.actions;
 
 function sortHunksInFile(file: SelectedFile) {
 	if (file.type === 'full') {
@@ -115,6 +117,10 @@ export class ChangeSelectionService {
 
 	add(file: SelectedFile) {
 		this.dispatch(addOne(file));
+	}
+
+	addMany(files: SelectedFile[]) {
+		this.dispatch(addMany(files));
 	}
 
 	update(file: SelectedFile) {
