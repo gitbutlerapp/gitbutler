@@ -28,7 +28,7 @@
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { GitHubClient } from '$lib/forge/github/githubClient';
-	import { GitHubUserService } from '$lib/forge/github/githubUserService';
+	import { GitHubUserService } from '$lib/forge/github/githubUserService.svelte';
 	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { DiffService } from '$lib/hunks/diffService.svelte';

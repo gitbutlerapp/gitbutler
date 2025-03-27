@@ -473,7 +473,7 @@ pub fn stack_branch_local_and_remote_commits(
     let branch = branches
         .iter()
         .find(|b| b.name() == &branch_name)
-        .ok_or(anyhow::anyhow!("Could not find branch {:?}", branch_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Could not find branch {:?}", branch_name))?;
     if branch.archived {
         return Ok(vec![]);
     }

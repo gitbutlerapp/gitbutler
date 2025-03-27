@@ -128,13 +128,13 @@ export class BranchController {
 	 * Updates the name of the series and resets the forge id to undefined.
 	 * @note - Ported to redux
 	 */
-	async updateBranchName(stackId: string, branchName: string, newBranchName: string) {
+	async updateBranchName(stackId: string, branchName: string, newName: string) {
 		try {
 			await invoke<void>('update_branch_name', {
 				projectId: this.projectId,
 				stackId,
 				branchName,
-				newBranchName
+				newName
 			});
 		} catch (err) {
 			showError('Failed to update remote name', err);
