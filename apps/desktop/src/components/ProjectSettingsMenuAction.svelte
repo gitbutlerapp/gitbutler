@@ -31,7 +31,7 @@
 	});
 
 	shortcutService.on('open-in-finder', () => {
-        const path = `file://${project.path}`;
+		const path = `file://${project.path}`;
 		openExternalUrl(path);
 	});
 
