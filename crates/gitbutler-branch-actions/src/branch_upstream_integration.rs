@@ -82,7 +82,7 @@ pub fn integrate_upstream_commits_for_series(
         gix_repo: &gix_repo,
     };
 
-    let ((head, tree), new_series_head) =
+    let ((head, tree), _new_series_head, rebase_output) =
         integrate_upstream_context.inner_integrate_upstream_commits_for_series(series_head.id())?;
 
     let mut branch = stack.clone();
@@ -94,7 +94,8 @@ pub fn integrate_upstream_commits_for_series(
         #[allow(deprecated)]
         checkout_branch_trees(ctx, perm)?;
     }
-    branch.replace_head(ctx, &series_head, &repo.find_commit(new_series_head)?)?;
+    branch.set_heads_from_rebase_output(ctx, rebase_output.references)?;
+    // branch.replace_head(ctx, &series_head, &repo.find_commit(new_series_head)?)?;
     crate::integration::update_workspace_commit(&vb_state, ctx)?;
     Ok(())
 }
@@ -140,8 +141,8 @@ impl IntegrateUpstreamContext<'_, '_> {
     fn inner_integrate_upstream_commits_for_series(
         &self,
         series_head: git2::Oid,
-    ) -> Result<((git2::Oid, Option<git2::Oid>), git2::Oid)> {
-        let (new_stack_head, new_series_head) = match self.strategy {
+    ) -> Result<((git2::Oid, Option<git2::Oid>), git2::Oid, RebaseOutput)> {
+        let (new_stack_head, new_series_head, rebase_output) = match self.strategy {
             IntegrationStrategy::Merge => {
                 // If rebase is not allowed AND this is the latest series - create a merge commit on top
                 let series_head_commit = self.repository.find_commit(series_head)?;
@@ -183,6 +184,7 @@ impl IntegrateUpstreamContext<'_, '_> {
                 (
                     stack_head,
                     new_series_head(&output, self.branch_name, &self.branch_full_name),
+                    output,
                 )
             }
             IntegrationStrategy::Rebase => {
@@ -225,6 +227,7 @@ impl IntegrateUpstreamContext<'_, '_> {
                 (
                     stack_head,
                     new_series_head(&output, self.branch_name, &self.branch_full_name),
+                    output,
                 )
             }
         };
@@ -241,7 +244,7 @@ impl IntegrateUpstreamContext<'_, '_> {
             )?;
             (res.head, Some(res.tree))
         };
-        Ok((head_and_tree, new_series_head))
+        Ok((head_and_tree, new_series_head, rebase_output))
     }
 }
 
@@ -558,7 +561,7 @@ mod test {
                 gix_repo: &test_repository.gix_repository(),
             };
 
-            let ((head, _tree), new_series_head) = ctx
+            let ((head, _tree), new_series_head, _rebase_output) = ctx
                 .inner_integrate_upstream_commits_for_series(local_b.id()) // series head is earlier than stack head
                 .unwrap();
             assert_eq!(new_series_head, remote_y.id());
