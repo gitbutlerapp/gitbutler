@@ -221,7 +221,7 @@ impl Stack {
             .ok_or_else(|| anyhow!("Stack is uninitialized"))?
     }
 
-    pub fn set_head(&mut self, head: git2::Oid) {
+    fn set_head(&mut self, head: git2::Oid) {
         self.head = head;
     }
 
@@ -590,6 +590,25 @@ impl Stack {
         commit_id: git2::Oid,
         tree: Option<git2::Oid>,
     ) -> Result<()> {
+        self.set_stack_head_inner(Some(state), gix_repo, commit_id, tree)
+    }
+
+    pub fn set_stack_head_without_persisting(
+        &mut self,
+        gix_repo: &gix::Repository,
+        commit_id: git2::Oid,
+        tree: Option<git2::Oid>,
+    ) -> Result<()> {
+        self.set_stack_head_inner(None, gix_repo, commit_id, tree)
+    }
+
+    fn set_stack_head_inner(
+        &mut self,
+        state: Option<&VirtualBranchesHandle>,
+        gix_repo: &gix::Repository,
+        commit_id: git2::Oid,
+        tree: Option<git2::Oid>,
+    ) -> Result<()> {
         self.ensure_initialized()?;
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         #[allow(deprecated)] // this is the only place where this is allowed
@@ -598,8 +617,6 @@ impl Stack {
             self.tree = tree;
         }
 
-        // let state = branch_state(ctx);
-        // let gix_repo = ctx.gix_repository()?;
         let commit = gix_repo.find_commit(commit_id.to_gix())?;
 
         let head = self
@@ -608,7 +625,10 @@ impl Stack {
             .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
 
         head.set_head(commit.id.to_git2().into(), gix_repo)?;
-        state.set_stack(self.clone())
+        if let Some(state) = state {
+            state.set_stack(self.clone())?;
+        }
+        Ok(())
     }
 
     /// Removes any heads that are refering to commits that are no longer between the stack head and the merge base
