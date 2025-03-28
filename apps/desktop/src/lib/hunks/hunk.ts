@@ -77,65 +77,77 @@ export type HunkHeader = {
 	readonly newLines: number;
 };
 
-function lineIdsToHunkHeader(lineIds: LineId[]): HunkHeader {
-	if (lineIds.length === 0) {
-		throw new Error('Trying to create a hunk header from an empty list of line ids.');
+type DeltaLineGroup = {
+	type: DeltaLineType;
+	lines: LineId[];
+};
+
+/**
+ * Turn a grouping of lines into a hunk header.
+ *
+ * This expects the lines to be in order, consecutive and to all be of the same type.
+ */
+function lineGroupsToHunkHeader(
+	lineGroup: DeltaLineGroup,
+	parentHunkHeader: HunkHeader
+): HunkHeader {
+	const lineCount = lineGroup.lines.length;
+	if (lineCount === 0) {
+		throw new Error('Line group has no lines');
 	}
 
-	const firstLine = lineIds[0]!;
+	const firstLine = lineGroup.lines[0]!;
 
-	const onlyAddingLines = lineIds.every(
-		(line) => line.oldLine === undefined && line.newLine !== undefined
-	);
-	if (onlyAddingLines) {
-		// All lines only have a new line number.
-		// The hunk without context lines has an old start of the line before the first new line,
-		// and an old line cout of 0.
-		const newStart = firstLine.newLine!;
-		const oldStart = newStart - 1;
-		const oldLines = 0;
-		const newLines = lineIds.length;
-		return {
-			oldStart,
-			oldLines,
-			newStart,
-			newLines
-		};
+	switch (lineGroup.type) {
+		case 'added': {
+			const oldStart = parentHunkHeader.oldStart;
+			const oldLines = parentHunkHeader.oldLines;
+			if (firstLine.newLine === undefined) {
+				throw new Error('Line has no new line number');
+			}
+			const newStart = firstLine.newLine;
+			const newLines = lineCount;
+			return { oldStart, oldLines, newStart, newLines };
+		}
+		case 'removed': {
+			const newStart = parentHunkHeader.newStart;
+			const newLines = parentHunkHeader.newLines;
+			if (firstLine.oldLine === undefined) {
+				throw new Error('Line has no old line number');
+			}
+			const oldStart = firstLine.oldLine;
+			const oldLines = lineCount;
+			return { oldStart, oldLines, newStart, newLines };
+		}
 	}
-
-	const onlyRemovingLines = lineIds.every(
-		(line) => line.oldLine !== undefined && line.newLine === undefined
-	);
-	if (onlyRemovingLines) {
-		// All lines only have an old line number.
-		// The hunk without context lines has a new start of the line after the last old line,
-		// and a new line count of 0.
-		const oldStart = firstLine.oldLine!;
-		const newStart = oldStart - 1;
-		const oldLines = lineIds.length;
-		const newLines = 0;
-		return {
-			oldStart,
-			oldLines,
-			newStart,
-			newLines
-		};
-	}
-
-	if (firstLine.oldLine === undefined && firstLine.newLine === undefined) {
-		// Should not happen.
-		throw new Error('First line has no line numbers');
-	}
-
-	// TODO: Have a couple of questions about this:
-	// 1. Is it possible to send multiple non-consecutive hunks? -> Will the backend account for the shift
-	// 2. If so, what kind of line-starts should be used for the hunk header?
-	throw new Error('Not implemented');
 }
 
-export function lineIdsToHunkHeaders(lineIds: LineId[], diff: string): HunkHeader[] {
-	const lineIdGroups: LineId[][] = [];
-	let currentGroup: LineId[] = [];
+type DeltaLineType = 'added' | 'removed';
+
+function lineType(line: LineId): DeltaLineType | undefined {
+	if (line.oldLine === undefined && line.newLine === undefined) {
+		throw new Error('Line has no line numbers');
+	}
+	if (line.oldLine === undefined) {
+		return 'added';
+	}
+	if (line.newLine === undefined) {
+		return 'removed';
+	}
+	return undefined;
+}
+
+/**
+ * Group the selected lines of a diff for the backend.
+ *
+ * This groups them:
+ * - In order based on the provided diff
+ * - By type (added, removed, context)
+ * - By consecutive line numbers
+ */
+export function extractLineGroups(lineIds: LineId[], diff: string): [DeltaLineGroup[], HunkHeader] {
+	const lineGroups: DeltaLineGroup[] = [];
+	let currentGroup: DeltaLineGroup | undefined = undefined;
 	const lineKeys = new Set(lineIds.map((lineId) => lineIdKey(lineId)));
 	const parsedHunk = parseHunk(diff);
 
@@ -145,20 +157,47 @@ export function lineIdsToHunkHeaders(lineIds: LineId[], diff: string): HunkHeade
 				oldLine: line.beforeLineNumber,
 				newLine: line.afterLineNumber
 			};
+			const deltaType = lineType(lineId);
 			const key = lineIdKey(lineId);
 
-			if (lineKeys.has(key)) {
-				currentGroup.push(lineId);
-			} else {
-				if (currentGroup.length > 0) {
-					lineIdGroups.push(currentGroup);
-					currentGroup = [];
+			if (!lineKeys.has(key) || deltaType === undefined) {
+				// start a new group
+				if (currentGroup !== undefined) {
+					currentGroup = undefined;
 				}
+				continue;
 			}
+
+			if (currentGroup === undefined || currentGroup.type !== deltaType) {
+				currentGroup = { type: deltaType, lines: [] };
+				lineGroups.push(currentGroup);
+			}
+			currentGroup.lines.push(lineId);
 		}
 	}
+	const parentHunkHeader: HunkHeader = {
+		oldStart: parsedHunk.oldStart,
+		oldLines: parsedHunk.oldLines,
+		newStart: parsedHunk.newStart,
+		newLines: parsedHunk.newLines
+	};
+	return [lineGroups, parentHunkHeader];
+}
 
-	return lineIdGroups.map(lineIdsToHunkHeader);
+/**
+ * Build a list of hunk headers from a list of line IDs.
+ *
+ * Iterate over the lines of the parsed diff, match them against the given line IDs
+ * in order to ensure the correct order of the lines.
+ */
+export function lineIdsToHunkHeaders(lineIds: LineId[], diff: string): HunkHeader[] {
+	if (lineIds.length === 0) {
+		return [];
+	}
+
+	const [lineGroups, parentHunkHeader] = extractLineGroups(lineIds, diff);
+
+	return lineGroups.map((lineGroup) => lineGroupsToHunkHeader(lineGroup, parentHunkHeader));
 }
 
 /** A hunk as used in UnifiedDiff. */
