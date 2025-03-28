@@ -554,9 +554,9 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				]
 			}),
 			uncommit: build.mutation<void, { projectId: string; stackId: string; commitId: string }>({
-				query: ({ projectId, stackId: branchId, commitId: commitOid }) => ({
+				query: ({ projectId, stackId, commitId: commitOid }) => ({
 					command: 'undo_commit',
-					params: { projectId, branchId, commitOid }
+					params: { projectId, stackId, commitOid }
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					ReduxTag.StackBranches,
