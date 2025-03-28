@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ChangeStatus from '$lib/components/changes/ChangeStatus.svelte';
 	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
@@ -11,6 +10,7 @@
 		getPatchContributorsWithAvatars,
 		getPatchRejectorsWithAvatars
 	} from '@gitbutler/shared/contributors';
+	import ChangeStatus from '@gitbutler/shared/patches/ChangeStatus.svelte';
 	import { type PatchCommit } from '@gitbutler/shared/patches/types';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';

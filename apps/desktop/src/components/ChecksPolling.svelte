@@ -12,6 +12,7 @@
 		hasChecks?: boolean;
 		isFork?: boolean;
 		isMerged?: boolean;
+		size?: 'icon' | 'tag';
 	};
 
 	type StatusInfo = {
@@ -22,7 +23,14 @@
 		tooltip?: string;
 	};
 
-	let { stackId, branchName, isFork, isMerged, hasChecks = $bindable() }: Props = $props();
+	let {
+		stackId,
+		branchName,
+		isFork,
+		isMerged,
+		hasChecks = $bindable(),
+		size = 'tag'
+	}: Props = $props();
 
 	const [forge] = inject(DefaultForgeFactory);
 
@@ -137,7 +145,7 @@
 </script>
 
 <Badge
-	size="tag"
+	{size}
 	icon={checksTagInfo.icon}
 	style={checksTagInfo.style}
 	kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}

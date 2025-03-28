@@ -5,6 +5,7 @@
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
+	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -12,10 +13,12 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Badge from '@gitbutler/ui/Badge.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
+	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
+	import Link from '@gitbutler/ui/link/Link.svelte';
 	import type { MessageStyle } from '$components/InfoMessage.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
@@ -38,7 +41,7 @@
 	const { projectId, stackId, poll, branchName }: Props = $props();
 
 	let contextMenuEl = $state<ReturnType<typeof ContextMenu>>();
-	let contextMenuTarget = $state<HTMLElement>();
+	let container = $state<HTMLElement>();
 
 	const vbranchService = getContext(VirtualBranchService);
 	const baseBranchService = getContext(BaseBranchService);
@@ -75,6 +78,9 @@
 	const [fetchFromRemotes] = baseBranchService.fetchFromRemotes;
 	const repoResult = $derived(repoService?.getInfo());
 	const repoInfo = $derived(repoResult?.current.data);
+
+	const settingsService = getContext(SettingsService);
+	const settings = settingsService.appSettings;
 
 	let shouldUpdateTargetBaseBranch = $state(false);
 	$effect(() => {
@@ -155,6 +161,26 @@
 		if (!pr) return;
 		await prService?.reopen(pr.number);
 	}
+
+	let thin = $state(false);
+
+	$effect(() => {
+		if (!container) return;
+
+		thin = container.clientWidth < 350;
+
+		const observer = new ResizeObserver(() => {
+			if (!container) return;
+
+			thin = container.clientWidth < 350;
+		});
+
+		observer.observe(container);
+
+		return () => {
+			observer.disconnect();
+		};
+	});
 </script>
 
 {#if pr}
@@ -162,7 +188,7 @@
 		<PullRequestPolling number={pr.number} />
 	{/if}
 
-	<ContextMenu bind:this={contextMenuEl} rightClickTrigger={contextMenuTarget}>
+	<ContextMenu bind:this={contextMenuEl} rightClickTrigger={container}>
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Open in browser"
@@ -207,7 +233,7 @@
 	</ContextMenu>
 
 	<div
-		bind:this={contextMenuTarget}
+		bind:this={container}
 		role="article"
 		class="pr-header"
 		oncontextmenu={(e: MouseEvent) => {
@@ -216,14 +242,18 @@
 			contextMenuEl?.open(e);
 		}}
 	>
-		<div class="text-13 text-semibold pr-header-title">
-			<span style="color: var(--clr-scale-ntrl-50)">PR #{pr?.number}:</span>
-			<span>{pr?.title}</span>
-		</div>
-		<div class="pr-header-tags">
+		<div class="text-13 text-semibold pr-row">
+			<Icon name="github" />
+			<Link
+				target="_blank"
+				rel="noreferrer"
+				href={pr.htmlUrl}
+				externalIcon={false}
+				class="pr-link text-13">PR #{pr.number}</Link
+			>
 			<Badge
 				reversedDirection
-				size="tag"
+				size="icon"
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.style}
 				kind="soft"
@@ -231,28 +261,39 @@
 			>
 				{prStatusInfo.text}
 			</Badge>
+		</div>
+		<div class="pr-row">
 			{#if !pr.closedAt && forge.current.checks}
-				<ChecksPolling
-					{stackId}
-					branchName={pr.sourceBranch}
-					isFork={pr.fork}
-					isMerged={pr.merged}
-					bind:hasChecks
-				/>
+				<div class="factoid text-12">
+					<span class="label">Checks:</span>
+					<ChecksPolling
+						{stackId}
+						branchName={pr.sourceBranch}
+						isFork={pr.fork}
+						isMerged={pr.merged}
+						bind:hasChecks
+						size={thin ? 'icon' : 'tag'}
+					/>
+				</div>
+				<span class="seperator">•</span>
 			{/if}
-			{#if pr.htmlUrl}
-				<Button
-					icon="open-link"
-					size="tag"
-					kind="outline"
-					tooltip="Open in browser"
-					onclick={() => {
-						openExternalUrl(pr.htmlUrl);
-					}}
-				>
-					View PR
-				</Button>
-			{/if}
+			<div class="factoid text-12">
+				{#if pr.reviewers.length > 0}
+					<span class="label">Reviewers:</span>
+					<div class="avatar-group-container">
+						<AvatarGroup avatars={pr.reviewers} />
+					</div>
+				{:else}
+					<span class="label italic">No reviewers</span>
+				{/if}
+			</div>
+			<span class="seperator">•</span>
+			<div class="factoid text-12">
+				<span class="label">
+					<Icon name="chat-small" />
+				</span>
+				<span>{pr.commentsCount}</span>
+			</div>
 		</div>
 
 		<!--
@@ -263,10 +304,10 @@
         determining "no checks will run for this PR" such that we can show the merge button
         immediately.
         -->
-		<div class="pr-header-actions">
+		<div class="pr-row">
 			{#if pr.state === 'open'}
 				<MergeButton
-					wide
+					wide={!$settings?.featureFlags.v3}
 					{projectId}
 					disabled={mergeStatus.disabled}
 					tooltip={mergeStatus.tooltip}
@@ -312,6 +353,11 @@
 {/if}
 
 <style lang="postcss">
+	:global(.pr-link) {
+		text-decoration-style: dotted;
+		text-decoration-thickness: 2px;
+	}
+
 	.pr-header {
 		position: relative;
 		display: flex;
@@ -319,25 +365,33 @@
 		gap: 12px;
 	}
 
-	.pr-header-title {
-		color: var(--clr-scale-ntrl-0);
-		user-select: text;
-		cursor: text;
-	}
-
-	.pr-header-tags {
+	.pr-row {
 		display: flex;
-		gap: 4px;
-	}
+		align-items: center;
 
-	.pr-header-actions {
-		display: flex;
-		flex-direction: column;
 		gap: 8px;
+	}
 
-		/* don't display if empty */
-		&:empty {
-			display: none;
+	.factoid {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+
+		> .label {
+			color: var(--clr-text-2);
+
+			&.italic {
+				font-style: italic;
+			}
 		}
+	}
+
+	.seperator {
+		transform: translateY(-1.5px);
+		color: var(--clr-text-3);
+	}
+
+	.avatar-group-container {
+		padding-right: 2px;
 	}
 </style>

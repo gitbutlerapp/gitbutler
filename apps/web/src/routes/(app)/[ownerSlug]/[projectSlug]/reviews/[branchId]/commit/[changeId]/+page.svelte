@@ -5,12 +5,12 @@
 	import PrivateProjectError from '$lib/components/errors/PrivateProjectError.svelte';
 	import ChangeActionButton from '$lib/components/review/ChangeActionButton.svelte';
 	import ChangeNavigator from '$lib/components/review/ChangeNavigator.svelte';
-	import Minimap from '$lib/components/review/Minimap.svelte';
 	import ReviewInfo from '$lib/components/review/ReviewInfo.svelte';
 	import ReviewSections from '$lib/components/review/ReviewSections.svelte';
 	import DiffLineSelection from '$lib/diff/lineSelection.svelte';
 	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import { UserService } from '$lib/user/userService';
+	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
@@ -208,7 +208,14 @@
 		<Loading loadable={combinedLoadable}>
 			{#snippet children([patchCommit, repositoryId, branchUuid, branch])}
 				<div class="review-page__minimap">
-					<Minimap {branchUuid} ownerSlug={data.ownerSlug} projectSlug={data.projectSlug} />
+					{#if $user}
+						<Minimap
+							{branchUuid}
+							ownerSlug={data.ownerSlug}
+							projectSlug={data.projectSlug}
+							user={$user}
+						/>
+					{/if}
 				</div>
 
 				<div class="review-main" class:expand={chatMinimizer.value}>

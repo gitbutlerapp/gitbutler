@@ -31,6 +31,12 @@ export function parseGitHubDetailedPullRequest(
 	}
 	const data = response.data;
 
+	const reviewers =
+		data.requested_reviewers?.map((reviewer) => ({
+			srcUrl: reviewer.avatar_url,
+			name: reviewer.name || reviewer.login
+		})) || [];
+
 	return {
 		data: {
 			id: data.id,
@@ -52,7 +58,9 @@ export function parseGitHubDetailedPullRequest(
 			rebaseable: !!data.rebaseable,
 			squashable: !!data.mergeable, // Enabled whenever merge is enabled
 			state: data.state,
-			fork: data.head?.repo?.fork ?? false
+			fork: data.head?.repo?.fork ?? false,
+			reviewers,
+			commentsCount: data.comments
 		}
 	};
 }
@@ -63,6 +71,12 @@ export function ghResponseToInstance(pr: PullRequestListItem): PullRequest {
 		description: label.description || undefined,
 		color: label.color
 	}));
+
+	const reviewers =
+		pr.requested_reviewers?.map((reviewer) => ({
+			srcUrl: reviewer.avatar_url,
+			name: reviewer.name || reviewer.login
+		})) || [];
 
 	return {
 		htmlUrl: pr.html_url,
@@ -88,7 +102,8 @@ export function ghResponseToInstance(pr: PullRequestListItem): PullRequest {
 		closedAt: pr.closed_at || undefined,
 		repoOwner: pr.head?.repo?.owner.login,
 		repositorySshUrl: pr.head?.repo?.ssh_url,
-		repositoryHttpsUrl: pr.head?.repo?.clone_url
+		repositoryHttpsUrl: pr.head?.repo?.clone_url,
+		reviewers
 	};
 }
 

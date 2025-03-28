@@ -3,10 +3,10 @@
 	import PrivateProjectError from '$lib/components/errors/PrivateProjectError.svelte';
 	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
-	import Minimap from '$lib/components/review/Minimap.svelte';
 	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import { UserService } from '$lib/user/userService';
 	import BranchStatusBadge from '@gitbutler/shared/branches/BranchStatusBadge.svelte';
+	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
@@ -247,12 +247,15 @@
 					<InfoFlexRow>
 						<Factoid label="Status"><BranchStatusBadge {branch} /></Factoid>
 						<Factoid label="Commits">
-							<Minimap
-								branchUuid={branch.uuid}
-								ownerSlug={data.ownerSlug}
-								projectSlug={data.projectSlug}
-								horizontal
-							/>
+							{#if $user}
+								<Minimap
+									branchUuid={branch.uuid}
+									ownerSlug={data.ownerSlug}
+									projectSlug={data.projectSlug}
+									horizontal
+									user={$user}
+								/>
+							{/if}
 						</Factoid>
 						{#if branch.forgeUrl}
 							<Factoid label="PR"
