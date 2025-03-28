@@ -138,6 +138,6 @@
 	}
 	.branch-name-input[readonly] {
 		pointer: normal;
-		user-select: none;
+		pointer-events: none;
 	}
 </style>
