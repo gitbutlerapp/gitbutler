@@ -2,6 +2,12 @@ import type { DetailedPullRequest, Label, PullRequest } from '$lib/forge/interfa
 import type { ExpandedMergeRequestSchema, MergeRequestSchema } from '@gitbeaker/rest';
 
 export function detailedMrToInstance(data: ExpandedMergeRequestSchema): DetailedPullRequest {
+	const reviewers =
+		data.reviewers?.map((reviewer) => ({
+			srcUrl: reviewer.avatar_url,
+			name: reviewer.name
+		})) || [];
+
 	return {
 		id: data.id,
 		number: data.iid,
@@ -21,7 +27,9 @@ export function detailedMrToInstance(data: ExpandedMergeRequestSchema): Detailed
 		rebaseable: data.merge_status === 'can_be_merged',
 		squashable: data.merge_status === 'can_be_merged',
 		state: data.state === 'opened' ? 'open' : 'closed',
-		fork: false // seems hard to get
+		fork: false, // seems hard to get
+		reviewers,
+		commentsCount: data.user_notes_count
 	};
 }
 
@@ -41,6 +49,12 @@ export function mrToInstance(pr: MergeRequestSchema): PullRequest {
 			};
 		}
 	});
+
+	const reviewers =
+		pr.reviewers?.map((reviewer) => ({
+			srcUrl: reviewer.avatar_url,
+			name: reviewer.name
+		})) || [];
 
 	return {
 		htmlUrl: pr.web_url,
@@ -66,6 +80,7 @@ export function mrToInstance(pr: MergeRequestSchema): PullRequest {
 		closedAt: pr.closed_at || undefined,
 		repoOwner: '', // This is fine
 		repositorySshUrl: '', // This is hopfully not used
-		repositoryHttpsUrl: '' // This is hopfully not used
+		repositoryHttpsUrl: '', // This is hopfully not used
+		reviewers
 	};
 }

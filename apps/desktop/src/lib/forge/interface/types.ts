@@ -25,6 +25,7 @@ export interface PullRequest {
 	repositorySshUrl?: string;
 	repositoryHttpsUrl?: string;
 	repoOwner?: string;
+	reviewers: { srcUrl: string; name: string }[];
 }
 
 export interface DetailedPullRequest {
@@ -48,6 +49,8 @@ export interface DetailedPullRequest {
 	state: 'open' | 'closed';
 	baseRepo?: RepoInfo | undefined;
 	baseBranch: string;
+	reviewers: { srcUrl: string; name: string }[];
+	commentsCount: number;
 }
 
 export type ChecksStatus = {

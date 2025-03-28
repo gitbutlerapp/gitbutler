@@ -1,12 +1,14 @@
 <script lang="ts">
 	import Factoid from '$lib/components/infoFlexRow//Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
-	import Minimap from '$lib/components/review/Minimap.svelte';
 	import {
 		type ColumnTypes,
 		type AvatarsType,
 		type ChangesType
 	} from '$lib/components/table/types';
+	import { UserService } from '$lib/user/userService';
+	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
+	import { getContext } from '@gitbutler/shared/context';
 	import CommitStatusBadge, { type CommitStatusType } from '@gitbutler/ui/CommitStatusBadge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
@@ -24,6 +26,9 @@
 		separatedTop?: boolean;
 		separatedBottom?: boolean;
 	};
+
+	const userService = getContext(UserService);
+	const user = userService.user;
 
 	let { columns, href, isTopEntry = false, separatedTop, separatedBottom }: Props = $props();
 	let tableMobileBreakpoint = 800;
@@ -72,12 +77,15 @@
 						{@const params = columns.find((col) => col.key === 'commitGraph')
 							?.value as ColumnTypes['commitGraph']}
 
-						<Minimap
-							branchUuid={params.branch.uuid}
-							projectSlug={params.projectSlug}
-							ownerSlug={params.ownerSlug}
-							horizontal
-						/>
+						{#if $user}
+							<Minimap
+								branchUuid={params.branch.uuid}
+								projectSlug={params.projectSlug}
+								ownerSlug={params.ownerSlug}
+								horizontal
+								user={$user}
+							/>
+						{/if}
 					{:else if key === 'avatars'}
 						<AvatarGroup avatars={value as Array<AvatarsType>}></AvatarGroup>
 					{:else if key === 'reviewers'}
@@ -202,15 +210,18 @@
 
 					{#if columns.find((col) => col.key === 'commitGraph')}
 						<Factoid label="Commits">
-							{@const props = columns.find((col) => col.key === 'commitGraph')
+							{@const params = columns.find((col) => col.key === 'commitGraph')
 								?.value as ColumnTypes['commitGraph']}
 
-							<Minimap
-								branchUuid={props.branch.uuid}
-								projectSlug={props.projectSlug}
-								ownerSlug={props.ownerSlug}
-								horizontal
-							/>
+							{#if $user}
+								<Minimap
+									branchUuid={params.branch.uuid}
+									projectSlug={params.projectSlug}
+									ownerSlug={params.ownerSlug}
+									horizontal
+									user={$user}
+								/>
+							{/if}
 						</Factoid>
 					{/if}
 

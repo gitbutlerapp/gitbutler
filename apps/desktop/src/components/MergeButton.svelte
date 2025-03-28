@@ -46,7 +46,11 @@
 
 <DropDownButton
 	bind:this={dropDown}
-	onclick={() => onclick?.($action)}
+	onclick={(e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		onclick?.($action);
+	}}
 	{style}
 	{kind}
 	{loading}

@@ -1,6 +1,5 @@
 <script lang="ts">
-	import ChangeStatus from '$lib/components/changes/ChangeStatus.svelte';
-	import { UserService } from '$lib/user/userService';
+	import ChangeStatus from '$lib/patches/ChangeStatus.svelte';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { isFound, map } from '@gitbutler/shared/network/loadable';
@@ -8,6 +7,7 @@
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import CommitStatusBadge from '@gitbutler/ui/CommitStatusBadge.svelte';
+	import { getExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { PatchCommit } from '@gitbutler/shared/patches/types';
 	import { goto } from '$app/navigation';
@@ -17,13 +17,21 @@
 		projectSlug: string;
 		branchUuid: string;
 		horizontal?: boolean;
+		user: { email: string; id: number };
+		openExternally?: boolean;
 	};
 
-	const { ownerSlug, projectSlug, branchUuid, horizontal = false }: Props = $props();
+	const {
+		ownerSlug,
+		projectSlug,
+		branchUuid,
+		horizontal = false,
+		user,
+		openExternally = false
+	}: Props = $props();
 
 	const routes = getContext(WebRoutesService);
-	const userService = getContext(UserService);
-	const user = userService.user;
+	const externalLinkService = getExternalLinkService();
 
 	const branch = $derived.by(() => getBranchReview(branchUuid));
 	const loadablePatchCommits = $derived(
@@ -65,22 +73,35 @@
 	function visitPatch(patchCommit: PatchCommit) {
 		if (!isFound(branch.current)) return;
 
-		goto(
-			routes.projectReviewBranchCommitPath({
-				ownerSlug,
-				projectSlug,
-				branchId: branch.current.value.branchId,
-				changeId: patchCommit.changeId
-			})
-		);
+		if (openExternally) {
+			externalLinkService.open(
+				routes.projectReviewBranchCommitUrl({
+					ownerSlug,
+					projectSlug,
+					branchId: branch.current.value.branchId,
+					changeId: patchCommit.changeId
+				})
+			);
+		} else {
+			goto(
+				routes.projectReviewBranchCommitPath({
+					ownerSlug,
+					projectSlug,
+					branchId: branch.current.value.branchId,
+					changeId: patchCommit.changeId
+				})
+			);
+		}
 	}
+
+	$inspect(patchCommits);
 </script>
 
 {#snippet infoCard(patchCommit: PatchCommit)}
-	{@const iRejected = patchCommit.reviewAll.rejected.find((entry) => entry.id === $user?.id)}
-	{@const iAccepted = patchCommit.reviewAll.signedOff.find((entry) => entry.id === $user?.id)}
+	{@const iRejected = patchCommit.reviewAll.rejected.find((entry) => entry.id === user.id)}
+	{@const iAccepted = patchCommit.reviewAll.signedOff.find((entry) => entry.id === user.id)}
 	{@const myReview = patchCommit.contributors.some(
-		(contributor) => contributor.email === $user?.email || contributor.user?.id === $user?.id
+		(contributor) => contributor.email === user.email || contributor.user?.id === user.id
 	)}
 	<div class="info-card">
 		<div class="info-section">
