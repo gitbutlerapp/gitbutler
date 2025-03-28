@@ -62,8 +62,8 @@
 	}
 </script>
 
-<div class="commit-header" role="button" {onclick} onkeypress={onclick} tabindex="0">
-	<div class="metadata text-11 text-semibold">
+<div class="commit-header">
+	<div class="metadata text-12">
 		<span>Author:</span>
 		<Avatar
 			size={'medium'}
@@ -71,17 +71,18 @@
 			srcUrl={getGravatarUrl(commit.author.email, commit.author.gravatarUrl)}
 		/>
 		<span class="divider">•</span>
-		<button
-			type="button"
-			class="commit-sha-btn"
-			onclick={(e) => {
-				e.stopPropagation();
-				writeClipboard(commit.id);
-			}}
-		>
-			<span>{commitShortSha}</span>
-			<Icon name="copy-small" />
-		</button>
+		<Tooltip text="Copy commit SHA">
+			<button
+				type="button"
+				class="commit-sha-btn"
+				onclick={(e) => {
+					e.stopPropagation();
+					writeClipboard(commit.id);
+				}}
+			>
+				<span>{commitShortSha}</span>
+			</button>
+		</Tooltip>
 		<span class="divider">•</span>
 		<button
 			type="button"
