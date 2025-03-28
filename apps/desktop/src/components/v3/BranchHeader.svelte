@@ -1,9 +1,7 @@
 <script lang="ts">
 	import BranchLabel from '$components/BranchLabel.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import SeriesDescription from '$components/SeriesDescription.svelte';
 	import BranchHeaderIcon from '$components/v3/BranchHeaderIcon.svelte';
-	import { getColorFromBranchType } from '$components/v3/lib';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';

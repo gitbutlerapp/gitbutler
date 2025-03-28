@@ -14,8 +14,6 @@
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
-	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
 
@@ -108,40 +106,6 @@
 	const commitShortSha = commit.id.substring(0, 7);
 </script>
 
-<!-- 
-<div
-	bind:this={commitRowElement}
-	role="listitem"
-	class="commit"
-	class:last={lastCommit}
-	oncontextmenu={(e) => {
-		e.preventDefault();
-		isOpenedByKebabButton = false;
-		contextMenu?.open(e);
-	}}
-	use:draggableCommit={draggable
-		? {
-				disabled: false,
-				label: commit.message.split('\n')[0],
-				sha: commitShortSha,
-				date: getTimeAgo(commit.createdAt),
-				authorImgUrl: undefined,
-				commitType: 'LocalAndRemote',
-				data: new CommitDropData(
-					stackId,
-					{
-						id: commit.id,
-						isRemote: isUpstreamCommit(commit),
-						isConflicted: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
-						isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated'
-					},
-					false,
-					branchName
-				),
-				viewportId: 'board-viewport'
-			}
-		: NON_DRAGGABLE}
-> -->
 <div
 	role="button"
 	tabindex="0"
@@ -222,32 +186,8 @@
 		>
 			<Icon name="kebab" /></button
 		>
-
-		<!-- <button
-			type="button"
-			bind:this={kebabMenuTrigger}
-			onclick={() => {
-				contextMenu?.toggle();
-			}}>menu</button
-		> -->
 	</div>
 </div>
-
-<!-- {#if !disableCommitActions}
-		<PopoverActionsContainer class="commit-row-actions-menu" thin stayOpen={isOpenedByKebabButton}>
-			<PopoverActionsItem
-				bind:el={kebabMenuTrigger}
-				activated={isOpenedByKebabButton}
-				icon="kebab"
-				tooltip="More options"
-				thin
-				onclick={() => {
-					contextMenu?.toggle();
-				}}
-			/>
-		</PopoverActionsContainer>
-	{/if} -->
-<!-- </div> -->
 
 <Modal bind:this={conflictResolutionConfirmationModal} width="small" onSubmit={editPatch}>
 	{#snippet children()}

@@ -27,8 +27,6 @@
 	import { inject } from '@gitbutler/shared/context';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
-	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
-	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 
 	interface Props {
@@ -112,7 +110,6 @@
 				}}
 			>
 				{#snippet details()}
-					{console.log('details', branch)}
 					<div class="text-11 branch-header__details">
 						<span class="branch-header__item">
 							<BranchBadge pushStatus={branchDetails.pushStatus} unstyled />

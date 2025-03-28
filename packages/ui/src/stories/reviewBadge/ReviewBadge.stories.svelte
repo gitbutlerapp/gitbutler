@@ -33,7 +33,7 @@
 				],
 				control: { type: 'select' }
 			},
-			brNumber: {
+			brId: {
 				control: { type: 'number' }
 			}
 		}
