@@ -70,6 +70,7 @@
 		flex-direction: column;
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
+		max-height: 100%;
 		overflow: hidden;
 	}
 

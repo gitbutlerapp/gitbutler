@@ -182,7 +182,6 @@
 
 	.editor-header {
 		position: relative;
-		z-index: 1;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -232,6 +231,8 @@
 	}
 
 	.message-editor {
+		display: flex;
+		flex-direction: column;
 		flex: 1;
 		border-radius: 0 var(--radius-m) var(--radius-m) var(--radius-m);
 		border: 1px solid var(--clr-border-2);

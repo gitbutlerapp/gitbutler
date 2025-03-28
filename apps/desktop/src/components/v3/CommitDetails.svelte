@@ -7,6 +7,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import { marked } from '@gitbutler/ui/utils/marked';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
@@ -16,11 +17,10 @@
 		stackId: string;
 		commit: UpstreamCommit | Commit;
 		href?: string;
-		onclick?: () => void;
 		onEditCommitMessage: () => void;
 	};
 
-	const { projectId, commit, onclick, stackId, onEditCommitMessage }: Props = $props();
+	const { projectId, commit, stackId, onEditCommitMessage }: Props = $props();
 
 	const [userService, modeService, stackService] = inject(UserService, ModeService, StackService);
 
@@ -62,8 +62,8 @@
 	}
 </script>
 
-<div class="commit-header" role="button" {onclick} onkeypress={onclick} tabindex="0">
-	<div class="metadata text-11 text-semibold">
+<div class="commit-header">
+	<div class="metadata text-12">
 		<span>Author:</span>
 		<Avatar
 			size={'medium'}
@@ -71,17 +71,18 @@
 			srcUrl={getGravatarUrl(commit.author.email, commit.author.gravatarUrl)}
 		/>
 		<span class="divider">•</span>
-		<button
-			type="button"
-			class="commit-sha-btn"
-			onclick={(e) => {
-				e.stopPropagation();
-				writeClipboard(commit.id);
-			}}
-		>
-			<span>{commitShortSha}</span>
-			<Icon name="copy-small" />
-		</button>
+		<Tooltip text="Copy commit SHA">
+			<button
+				type="button"
+				class="commit-sha-btn"
+				onclick={(e) => {
+					e.stopPropagation();
+					writeClipboard(commit.id);
+				}}
+			>
+				<span>{commitShortSha}</span>
+			</button>
+		</Tooltip>
 		<span class="divider">•</span>
 		<button
 			type="button"
@@ -136,9 +137,9 @@
 	</div>
 
 	{#if description}
-		<div class="text-13 commit-description">
+		<p class="text-13 text-body commit-description">
 			{@html marked(description)}
-		</div>
+		</p>
 	{/if}
 </div>
 
@@ -179,7 +180,7 @@
 		/* TODO: `underline dashed` broken on Linux */
 		text-decoration-line: underline;
 		text-underline-offset: 2px;
-		text-decoration-style: dashed;
+		text-decoration-style: dotted;
 	}
 
 	.open-external-btn {
