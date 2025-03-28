@@ -40,7 +40,7 @@
 		width: 100%;
 		max-width: 400px;
 		height: 300px;
-		border-radius: var(--border-m);
+		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
 		overflow: auto;
 	}
