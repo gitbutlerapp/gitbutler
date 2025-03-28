@@ -39,7 +39,8 @@ pub fn rewrite(
                 }
             }
             if stack.head(repo)? == old_git2 {
-                stack.set_stack_head_without_persisting(repo, new.to_git2(), None)?;
+                // Perhaps skip this - the head will be updated later in this call
+                // stack.set_stack_head_without_persisting(repo, new.to_git2(), None)?;
                 stack.tree = new
                     .attach(repo)
                     .object()?

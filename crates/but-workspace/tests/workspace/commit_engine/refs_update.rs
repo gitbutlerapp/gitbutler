@@ -196,21 +196,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         references: [
             UpdatedReference {
                 reference: Virtual(
-                    "s1",
-                ),
-                old_commit_id: Sha1(2abfa5cc3c7c48b8b9eabbd10c21b88347801f15),
-                new_commit_id: Sha1(189ac82eb44ddb97677d7d7b1859cf6f2e33a473),
-            },
-            UpdatedReference {
-                reference: Virtual(
                     "s1-b/second",
-                ),
-                old_commit_id: Sha1(2abfa5cc3c7c48b8b9eabbd10c21b88347801f15),
-                new_commit_id: Sha1(189ac82eb44ddb97677d7d7b1859cf6f2e33a473),
-            },
-            UpdatedReference {
-                reference: Virtual(
-                    "s2",
                 ),
                 old_commit_id: Sha1(2abfa5cc3c7c48b8b9eabbd10c21b88347801f15),
                 new_commit_id: Sha1(189ac82eb44ddb97677d7d7b1859cf6f2e33a473),
@@ -248,7 +234,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     write_vrbranches_to_refs(&vb, &repo)?;
     // It updates stack heads and stack branch heads.
     insta::assert_snapshot!(graph_commit_outcome(&repo, &outcome)?, @r"
-    * 189ac82 (HEAD -> main, s2-b/second, s2, s1-b/second, s1, another-tip) fourth commit
+    * 189ac82 (HEAD -> main, s2-b/second, s1-b/second, another-tip) fourth commit
     * 2abfa5c third commit
     * f1b87da (tag: tag-that-should-not-move, s2-b/first, s1-b/first) second commit
     * 0939187 (s2-b/init, s1-b/init) initial commit
@@ -310,7 +296,7 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
     write_vrbranches_to_refs(&vb, &repo)?;
     let rewritten_head_id = repo.head_id()?.detach();
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
-    * 3d1262e (HEAD -> main, s1) insert 10 lines to the top
+    * 3d1262e (HEAD -> main) insert 10 lines to the top
     * 3aec753 (s1-b/init, first-commit) between initial and former first
     * ecd6722 (tag: first-commit) init
     ");
@@ -333,13 +319,6 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
         ),
         references: [
             UpdatedReference {
-                reference: Virtual(
-                    "s1",
-                ),
-                old_commit_id: Sha1(8b9db8455554fe317ea3ab86b9a042805326b493),
-                new_commit_id: Sha1(3d1262e63b945d97e1eaeb736b48cf4dcdb3e9cf),
-            },
-            UpdatedReference {
                 reference: Git(
                     FullName(
                         "refs/heads/main",
@@ -347,6 +326,13 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
                 ),
                 old_commit_id: Sha1(8b9db8455554fe317ea3ab86b9a042805326b493),
                 new_commit_id: Sha1(3d1262e63b945d97e1eaeb736b48cf4dcdb3e9cf),
+            },
+            UpdatedReference {
+                reference: Virtual(
+                    "",
+                ),
+                old_commit_id: Sha1(ecd67221705b069c4f46365a46c8f2cd8a97ec19),
+                new_commit_id: Sha1(3aec75308383b83d85a78a90308a618755a7b0f8),
             },
             UpdatedReference {
                 reference: Virtual(
@@ -409,7 +395,7 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
     )?;
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
-    * 4b649eb (HEAD -> main, s1) insert 10 lines to the top
+    * 4b649eb (HEAD -> main) insert 10 lines to the top
     * d26d789 (s1-b/init, first-commit) between initial and former first
     * ecd6722 (tag: first-commit) init
     ");
@@ -470,7 +456,7 @@ fn branch_tip_below_non_merge_workspace_commit() -> anyhow::Result<()> {
 
     write_vrbranches_to_refs(&vb, &repo)?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, repo.head_id()?)?, @r"
-    * ec84c94 (HEAD -> main, s1) insert 20 lines to the top
+    * ec84c94 (HEAD -> main) insert 20 lines to the top
     * 82bb267 (s1-b/init) extend lines to 110
     * 4342edf (tag: first-commit) init
     ");
@@ -576,7 +562,7 @@ fn insert_commits_into_workspace() -> anyhow::Result<()> {
 
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
-    *   a97960f (HEAD -> merge, s1) Merge branch 'A' into merge
+    *   a97960f (HEAD -> merge) Merge branch 'A' into merge
     |\  
     | * 3538622 (A) add 10 to the beginning
     * | 46991ae (s1-b/init, B) add 10 more lines at end
@@ -706,7 +692,7 @@ fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
     *   595a255 (HEAD -> merge) Merge branch 'A' into merge
     |\  
-    | * 057f154 (s1-b/top, s1, A) remove 5 lines from beginning
+    | * 057f154 (s1-b/top, A) remove 5 lines from beginning
     | * eede47d add 10 to the beginning
     * | 16fe86e (B) add 10 to the end
     |/  
@@ -918,7 +904,7 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
     *   09ac476 (HEAD -> merge) Merge branch 'A' into merge
     |\  
-    | * 99f3a1c (s1-b/top, s1, A) remove 5 lines from beginning
+    | * 99f3a1c (s1-b/top, A) remove 5 lines from beginning
     | * 7f389ed (s1-b/below-top) add 10 to the beginning
     * | 91ef6f6 (B) add 10 to the end
     |/  
@@ -996,7 +982,7 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
     *   20d9863 (HEAD -> merge) Merge branch 'A' into merge
     |\  
-    | * 3edfe68 (s1-b/top, s1, A) add 10 to the beginning
+    | * 3edfe68 (s1-b/top, A) add 10 to the beginning
     * | 91ef6f6 (B) add 10 to the end
     |/  
     * ff045ef (main) init
@@ -1083,12 +1069,13 @@ mod utils {
         repo: &gix::Repository,
     ) -> anyhow::Result<()> {
         for stack in vbranches.branches.values() {
-            repo.reference(
-                format!("refs/heads/{}", stack.name),
-                stack.head(repo)?.to_gix(),
-                PreviousValue::Any,
-                "create stack head for visualization",
-            )?;
+            // makes no sense to crate this?
+            // repo.reference(
+            //     format!("refs/heads/{}", stack.name),
+            //     stack.head(repo)?.to_gix(),
+            //     PreviousValue::Any,
+            //     "create stack head for visualization",
+            // )?;
             for branch in &stack.heads {
                 let commit_id = branch.head_oid(repo)?.to_gix();
                 repo.reference(
