@@ -138,43 +138,59 @@ pub mod stacks {
     }
 }
 
+pub(crate) mod discard_change {
+    pub enum IndicesOrHeaders<'a> {
+        Indices(&'a [usize]),
+        Headers(&'a [u32]),
+    }
+}
 pub(crate) fn discard_change(
     cwd: &Path,
     current_rela_path: &Path,
     previous_rela_path: Option<&Path>,
-    hunk_indices: &[usize],
+    indices_or_headers: Option<discard_change::IndicesOrHeaders>,
 ) -> anyhow::Result<()> {
     let repo = gix::discover(cwd)?;
 
     let previous_path = previous_rela_path.map(path_to_rela_path).transpose()?;
     let path = path_to_rela_path(current_rela_path)?;
-    let hunk_headers = if hunk_indices.is_empty() {
-        vec![]
-    } else {
-        let worktree_changes = but_core::diff::worktree_changes(&repo)?
-            .changes
-            .into_iter()
-            .find(|change| {
-                change.path == path
-                    && change.previous_path() == previous_path.as_ref().map(|p| p.as_bstr())
-            }).with_context(|| format!("Couldn't find worktree change for file at '{path}' (previous-path: {previous_path:?}"))?;
-        let UnifiedDiff::Patch { hunks } =
-            worktree_changes.unified_diff(&repo, UI_CONTEXT_LINES)?
-        else {
-            bail!("No hunks available for given '{path}'")
-        };
-
-        hunk_indices
-            .iter()
-            .map(|idx| {
-                hunks.get(*idx).cloned().map(Into::into).ok_or_else(|| {
-                    anyhow!(
-                        "There was no hunk at index {idx} in '{path}' with {} hunks",
-                        hunks.len()
-                    )
-                })
+    let hunk_headers = match indices_or_headers {
+        None => vec![],
+        Some(discard_change::IndicesOrHeaders::Headers(headers)) => headers
+            .windows(4)
+            .map(|n| HunkHeader {
+                old_start: n[0],
+                old_lines: n[1],
+                new_start: n[2],
+                new_lines: n[3],
             })
-            .collect::<Result<Vec<HunkHeader>, _>>()?
+            .collect(),
+        Some(discard_change::IndicesOrHeaders::Indices(hunk_indices)) => {
+            let worktree_changes = but_core::diff::worktree_changes(&repo)?
+                .changes
+                .into_iter()
+                .find(|change| {
+                    change.path == path
+                        && change.previous_path() == previous_path.as_ref().map(|p| p.as_bstr())
+                }).with_context(|| format!("Couldn't find worktree change for file at '{path}' (previous-path: {previous_path:?}"))?;
+            let UnifiedDiff::Patch { hunks } =
+                worktree_changes.unified_diff(&repo, UI_CONTEXT_LINES)?
+            else {
+                bail!("No hunks available for given '{path}'")
+            };
+
+            hunk_indices
+                .iter()
+                .map(|idx| {
+                    hunks.get(*idx).cloned().map(Into::into).ok_or_else(|| {
+                        anyhow!(
+                            "There was no hunk at index {idx} in '{path}' with {} hunks",
+                            hunks.len()
+                        )
+                    })
+                })
+                .collect::<Result<Vec<HunkHeader>, _>>()?
+        }
     };
     let spec = but_workspace::commit_engine::DiffSpec {
         previous_path,

@@ -1,4 +1,4 @@
-use crate::commit_engine::HunkHeader;
+use crate::commit_engine::{HunkHeader, HunkRange};
 use anyhow::Context;
 use bstr::{BStr, BString, ByteSlice};
 
@@ -30,8 +30,8 @@ pub fn apply_hunks(
             .checked_sub(old_cursor)
             .context("hunks must be in order from top to bottom of the file")?;
         let catchup_base_lines = old_iter.by_ref().take(old_skips);
-        for line in catchup_base_lines {
-            result_image.extend_from_slice(line);
+        for old_line in catchup_base_lines {
+            result_image.extend_from_slice(old_line);
         }
         let _consume_old_hunk_to_replace_with_new = old_iter
             .by_ref()
@@ -42,12 +42,16 @@ pub fn apply_hunks(
         let new_skips = (selected_hunk.new_start as usize)
             .checked_sub(new_cursor)
             .context("hunks for new lines must be in order")?;
-        let new_hunk_lines = new_iter
-            .by_ref()
-            .skip(new_skips)
-            .take(selected_hunk.new_lines as usize);
-        for line in new_hunk_lines {
-            result_image.extend_from_slice(line.as_bstr());
+        if selected_hunk.new_lines == 0 {
+            let _explicit_skips = new_iter.by_ref().take(new_skips).count();
+        } else {
+            let new_hunk_lines = new_iter
+                .by_ref()
+                .skip(new_skips)
+                .take(selected_hunk.new_lines as usize);
+            for new_line in new_hunk_lines {
+                result_image.extend_from_slice(new_line);
+            }
         }
         new_cursor += new_skips + selected_hunk.new_lines as usize;
     }
@@ -56,4 +60,51 @@ pub fn apply_hunks(
         result_image.extend_from_slice(line);
     }
     Ok(result_image)
+}
+
+// TODO: one day make `HunkHeader` use this type instead of loose fields.
+impl HunkHeader {
+    /// Return our old-range as self-contained structure.
+    pub fn old_range(&self) -> HunkRange {
+        HunkRange {
+            start: self.old_start,
+            lines: self.old_lines,
+        }
+    }
+
+    /// Return our new-range as self-contained structure.
+    pub fn new_range(&self) -> HunkRange {
+        HunkRange {
+            start: self.new_start,
+            lines: self.new_lines,
+        }
+    }
+}
+
+impl std::fmt::Debug for HunkHeader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            r#"HunkHeader("-{},{}", "+{},{}")"#,
+            self.old_start, self.old_lines, self.new_start, self.new_lines
+        )
+    }
+}
+
+impl HunkRange {
+    /// Calculate the line number that is one past of what we include, i.e. the first excluded line number.
+    pub fn end(&self) -> u32 {
+        self.start + self.lines
+    }
+    /// Calculate line number of the last line.
+    pub fn last_line(&self) -> u32 {
+        if self.lines == 0 {
+            return self.start;
+        }
+        self.start + self.lines - 1
+    }
+    /// Return `true` if a hunk with `start` and `lines` is fully contained in this hunk.
+    pub fn contains(self, other: HunkRange) -> bool {
+        other.start >= self.start && other.end() <= self.end()
+    }
 }
