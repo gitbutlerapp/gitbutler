@@ -8,8 +8,9 @@
 		ChangeSelectionService,
 		type PartiallySelectedFile
 	} from '$lib/selection/changeSelection.svelte';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UiState } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { DiffHunk } from '$lib/hunks/hunk';
@@ -40,6 +41,8 @@
 	});
 
 	const lineSelection = new LineSelection(changeSelection);
+
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	$effect(() => {
 		lineSelection.setChange(change);
@@ -164,6 +167,12 @@
 						hunkStr={hunk.diff}
 						{staged}
 						{stagedLines}
+						diffLigatures={$userSettings.diffLigatures}
+						tabSize={$userSettings.tabSize}
+						wrapText={$userSettings.wrapText}
+						diffFont={$userSettings.diffFont}
+						diffContrast={$userSettings.diffContrast}
+						inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 						onLineClick={(p) =>
 							lineSelection.toggleStageLines(selection, hunk, p, diff.subject.hunks)}
 						onChangeStage={(selected) => {
