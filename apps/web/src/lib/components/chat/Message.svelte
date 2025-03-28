@@ -28,6 +28,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import EmojiPicker from '@gitbutler/ui/emoji/EmojiPicker.svelte';
 	import {
 		findEmojiByUnicode,
 		getInitialEmojis,
@@ -39,7 +40,6 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { ChatEvent } from '@gitbutler/shared/patchEvents/types';
 	import type { UserSimple } from '@gitbutler/shared/users/types';
-
 	const UNKNOWN_AUTHOR = 'Unknown author';
 
 	const {
@@ -57,8 +57,11 @@
 	const user = $derived(userService.user);
 
 	let kebabMenuTrigger = $state<HTMLButtonElement>();
+	let emojiPickerTrigger = $state<HTMLButtonElement>();
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let emojiPicker = $state<ReturnType<typeof ContextMenu>>();
 	let isOpenedByKebabButton = $state(false);
+	let isOpenedByEmojiPicker = $state(false);
 	let recentlyUsedEmojis = $state<EmojiInfo[]>([]);
 	const reactionSet = new SvelteSet<string>();
 
@@ -118,6 +121,10 @@
 		reactionSet.delete(emoji.unicode);
 	}
 
+	function onEmojiSelect(emoji: EmojiInfo) {
+		handleReaction(emoji);
+		emojiPicker?.close();
+	}
 	async function handleClickOnExistingReaction(unicode: string) {
 		const emojiInfo = findEmojiByUnicode(unicode);
 		if (!emojiInfo) return;
@@ -226,7 +233,11 @@
 
 	<!-- Message actions -->
 	{#if !disableActions}
-		<PopoverActionsContainer class="message-actions-menu" thin stayOpen={isOpenedByKebabButton}>
+		<PopoverActionsContainer
+			class="message-actions-menu"
+			thin
+			stayOpen={isOpenedByKebabButton || isOpenedByEmojiPicker}
+		>
 			<!-- Emoji Reactions -->
 			{#if recentlyUsedEmojis.length > 0}
 				{#each recentlyUsedEmojis as emoji}
@@ -243,6 +254,19 @@
 					</PopoverActionsItem>
 				{/each}
 			{/if}
+
+			<!-- Emoji Picker -->
+			<PopoverActionsItem
+				bind:el={emojiPickerTrigger}
+				activated={isOpenedByEmojiPicker}
+				icon="smile"
+				tooltip="Give me more emojis"
+				thin
+				overrideYScroll={0}
+				onclick={() => {
+					emojiPicker?.toggle();
+				}}
+			/>
 
 			<!-- Reply -->
 			<PopoverActionsItem
@@ -275,6 +299,14 @@
 	messageId={message.uuid}
 	onToggle={(isOpen) => (isOpenedByKebabButton = isOpen)}
 />
+
+<ContextMenu
+	bind:this={emojiPicker}
+	leftClickTrigger={emojiPickerTrigger}
+	ontoggle={(isOpen) => (isOpenedByEmojiPicker = isOpen)}
+>
+	<EmojiPicker {onEmojiSelect} />
+</ContextMenu>
 
 <style lang="postcss">
 	@keyframes temporary-highlight {
