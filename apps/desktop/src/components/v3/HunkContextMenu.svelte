@@ -12,7 +12,7 @@
 </script>
 
 <script lang="ts">
-	import { isDiffHunk, type DiffHunk } from '$lib/hunks/hunk';
+	import { isDiffHunk, lineIdsToHunkHeaders, type DiffHunk } from '$lib/hunks/hunk';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
@@ -30,9 +30,10 @@
 		change: TreeChange;
 		projectPath: string | undefined;
 		readonly: boolean;
+		unSelectHunk: (hunk: DiffHunk) => void;
 	}
 
-	const { trigger, projectId, change, projectPath, readonly }: Props = $props();
+	const { trigger, projectId, change, projectPath, readonly, unSelectHunk }: Props = $props();
 
 	const [stackService] = inject(StackService);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
@@ -50,11 +51,11 @@
 		return '';
 	}
 
-	function discardHunk(item: HunkContextItem) {
+	async function discardHunk(item: HunkContextItem) {
 		const previousPathBytes =
 			change.status.type === 'Rename' ? change.status.subject.previousPath : null;
 
-		discardChanges({
+		await discardChanges({
 			projectId,
 			worktreeChanges: [
 				{
@@ -64,25 +65,28 @@
 				}
 			]
 		});
+
+		unSelectHunk(item.hunk);
 	}
 
-	// function discardHunkLines(item: HunkContextItem) {
-	// 	if (item.selectedLines === undefined || item.selectedLines.length === 0) return;
-	// 	const previousPathBytes =
-	// 		change.status.type === 'Rename' ? change.status.subject.previousPath : null;
+	async function discardHunkLines(item: HunkContextItem) {
+		if (item.selectedLines === undefined || item.selectedLines.length === 0) return;
+		const previousPathBytes =
+			change.status.type === 'Rename' ? change.status.subject.previousPath : null;
 
-	// 	discardChanges({
-	// 		projectId,
-	// 		worktreeChanges: [
-	// 			{
-	// 				previousPathBytes,
-	// 				pathBytes: change.path,
-	// 				hunkHeaders: lineIdsToHunkHeaders(item.selectedLines, item.hunk.diff)
-	// 			}
-	// 		]
-	// 	});
+		await discardChanges({
+			projectId,
+			worktreeChanges: [
+				{
+					previousPathBytes,
+					pathBytes: change.path,
+					hunkHeaders: lineIdsToHunkHeaders(item.selectedLines, item.hunk.diff)
+				}
+			]
+		});
 
-	// }
+		unSelectHunk(item.hunk);
+	}
 
 	export function open(e: MouseEvent, item: HunkContextItem) {
 		contextMenu?.open(e, item);
@@ -109,9 +113,8 @@
 				{#if item.selectedLines !== undefined && item.selectedLines.length > 0 && !readonly}
 					<ContextMenuItem
 						label={getDiscardLineLabel(item)}
-						disabled
 						onclick={() => {
-							// discardHunkLines(item);
+							discardHunkLines(item);
 							contextMenu?.close();
 						}}
 					/>
