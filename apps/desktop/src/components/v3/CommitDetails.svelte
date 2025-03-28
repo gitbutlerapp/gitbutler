@@ -7,6 +7,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import { marked } from '@gitbutler/ui/utils/marked';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
@@ -16,11 +17,10 @@
 		stackId: string;
 		commit: UpstreamCommit | Commit;
 		href?: string;
-		onclick?: () => void;
 		onEditCommitMessage: () => void;
 	};
 
-	const { projectId, commit, onclick, stackId, onEditCommitMessage }: Props = $props();
+	const { projectId, commit, stackId, onEditCommitMessage }: Props = $props();
 
 	const [userService, modeService, stackService] = inject(UserService, ModeService, StackService);
 
@@ -179,7 +179,7 @@
 		/* TODO: `underline dashed` broken on Linux */
 		text-decoration-line: underline;
 		text-underline-offset: 2px;
-		text-decoration-style: dashed;
+		text-decoration-style: dotted;
 	}
 
 	.open-external-btn {

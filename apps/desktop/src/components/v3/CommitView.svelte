@@ -16,10 +16,9 @@
 		projectId: string;
 		stackId: string;
 		commitKey: CommitKey;
-		onclick?: () => void;
 	};
 
-	const { projectId, stackId, commitKey, onclick }: Props = $props();
+	const { projectId, stackId, commitKey }: Props = $props();
 
 	const [stackService, uiState, focus] = inject(StackService, UiState, FocusManager);
 
@@ -117,7 +116,6 @@
 							{projectId}
 							{commit}
 							{stackId}
-							{onclick}
 							onEditCommitMessage={() => setMode('edit')}
 						/>
 						<ChangedFiles
@@ -140,5 +138,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
+		/* background-color: rgba(255, 0, 0, 0.1); */
 	}
 </style>
