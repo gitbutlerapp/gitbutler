@@ -564,13 +564,13 @@ impl Stack {
 
         let state = branch_state(ctx);
         let gix_repo = ctx.gix_repository()?;
-        let stack_head = self.head(&gix_repo)?;
+        // let stack_head = self.head(&gix_repo)?;
         let head = self
             .heads
             .last_mut()
             .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
         head.set_head(commit.into(), &gix_repo)?;
-        validate_target(head.head_oid(&gix_repo)?, ctx.repo(), stack_head, &state)?;
+        // validate_target(head.head_oid(&gix_repo)?, ctx.repo(), stack_head, &state)?;
         state.set_stack(self.clone())
     }
 
