@@ -13,6 +13,8 @@
 		"dev": "vite dev",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "pnpm check --watch",
+		"dev:package:svelte": "svelte-kit sync && svelte-package --watch",
+		"dev:package:styles": "postcss ./src/styles/main.css -o ./dist/styles/main.css --watch",
 		"package": "pnpm run --sequential \"/^package:.*/\"",
 		"package:svelte": "svelte-kit sync && svelte-package",
 		"package:styles": "postcss ./src/styles/main.css -o ./dist/styles/main.css",
