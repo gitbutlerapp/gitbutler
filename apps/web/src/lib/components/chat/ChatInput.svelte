@@ -19,6 +19,7 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
+	import EmojiPickerButton from '@gitbutler/ui/EmojiPickerButton.svelte';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import FileUploadPlugin, {
 		type DropFileResult
@@ -239,6 +240,10 @@
 		await fileUploadPlugin?.handleFileUpload(files);
 	}
 
+	function onEmojiSelect(unicode: string) {
+		richText.richTextEditor?.insertText(unicode);
+	}
+
 	export function focusInput() {
 		richText.richTextEditor?.focus();
 	}
@@ -285,7 +290,7 @@
 			</RichTextEditor>
 			<div class="chat-input__actions">
 				<div class="chat-input__inner-toolbar">
-					<Button kind="ghost" icon="smile" disabled />
+					<EmojiPickerButton onEmojiSelect={(emoji) => onEmojiSelect(emoji.unicode)} />
 					<div class="chat-input__inner-toolbar__divider"></div>
 					<div class="chat-input__inner-toolbar__shrinkable">
 						<Button
