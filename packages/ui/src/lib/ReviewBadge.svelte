@@ -129,7 +129,7 @@
 		}
 
 		&.br-type {
-			padding-left: 3px;
+			padding-left: 4px;
 			padding-right: 4px;
 		}
 	}
