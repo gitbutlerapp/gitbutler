@@ -60,7 +60,13 @@ function findConfigs(absolutePath: string): [string, TsConfig][] {
 		configs.unshift([configDirectory, config]);
 
 		if (config.extends) {
-			currentPath = path.join(configDirectory, config.extends);
+			// The `.json` at the end of the `extends` relative path is
+			// optional, so we should add back.
+			let extendsPath = config.extends;
+			if (!extendsPath.endsWith('.json')) {
+				extendsPath = `${extendsPath}.json`;
+			}
+			currentPath = path.join(configDirectory, extendsPath);
 		} else {
 			break;
 		}
