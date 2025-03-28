@@ -127,7 +127,7 @@ impl StackEntry {
 /// If the GitButler state file in the provided path is missing or invalid, an error is returned.
 ///
 /// - `gb_dir`: The path to the GitButler state for the project. Normally this is `.git/gitbutler` in the project's repository.
-pub fn stacks(gb_dir: &Path) -> Result<Vec<StackEntry>> {
+pub fn stacks(gb_dir: &Path, repo: &gix::Repository) -> Result<Vec<StackEntry>> {
     let state = state_handle(gb_dir);
 
     state
@@ -138,7 +138,7 @@ pub fn stacks(gb_dir: &Path) -> Result<Vec<StackEntry>> {
             Ok(StackEntry {
                 id: stack.id,
                 branch_names: stack.heads().into_iter().map(Into::into).collect(),
-                tip: stack.head().map(|h| h.to_gix())?,
+                tip: stack.head(repo).map(|h| h.to_gix())?,
             })
         })
         .collect()

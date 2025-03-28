@@ -3,7 +3,7 @@ use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _, Repository
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_oxidize::{
-    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt,
+    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt, RepoExt,
 };
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
@@ -45,7 +45,7 @@ pub fn checkout_branch_trees<'a>(
         let gix_repo = ctx.gix_repository_for_merging()?;
         let heads = stacks
             .iter()
-            .map(|b| b.head().map(|h| h.to_gix()))
+            .map(|b| b.head(&gix_repo).map(|h| h.to_gix()))
             .collect::<Result<Vec<_>>>()?;
         let merge_base_tree_id = gix_repo
             .merge_base_octopus(heads)?
@@ -97,8 +97,10 @@ impl WorkspaceState {
             .list_stacks_in_workspace()?
             .iter()
             .map(|stack| -> Result<gix::ObjectId> {
-                let tree_id = repository
-                    .find_real_tree(&stack.head()?.to_gix(), ConflictedTreeKey::AutoResolution)?;
+                let tree_id = repository.find_real_tree(
+                    &stack.head(&repository)?.to_gix(),
+                    ConflictedTreeKey::AutoResolution,
+                )?;
                 Ok(tree_id.detach())
             })
             .collect::<Result<Vec<_>>>()?;
@@ -239,7 +241,12 @@ pub fn compute_updated_branch_head(
     new_head: git2::Oid,
 ) -> Result<BranchHeadAndTree> {
     #[allow(deprecated)]
-    compute_updated_branch_head_for_commits(repository, stack.head()?, stack.tree, new_head)
+    compute_updated_branch_head_for_commits(
+        repository,
+        stack.head(&repository.to_gix()?)?,
+        stack.tree,
+        new_head,
+    )
 }
 
 /// Given a new head for a branch, this comptues how the tree should be

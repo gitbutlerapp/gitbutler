@@ -2,7 +2,7 @@ use anyhow::{Ok, Result};
 use bstr::BString;
 use git2::Commit;
 use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
-use gitbutler_oxidize::ObjectIdExt;
+use gitbutler_oxidize::{ObjectIdExt, RepoExt};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gix::refs::{
     transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
@@ -284,8 +284,9 @@ impl StackBranch {
         let repository = stack_context.repository();
         let merge_base = stack.merge_base(stack_context)?;
 
+        let gix_repo = repository.to_gix()?;
         let head_commit =
-            commit_by_oid_or_change_id(&self.head, repository, stack.head()?, merge_base);
+            commit_by_oid_or_change_id(&self.head, repository, stack.head(&gix_repo)?, merge_base);
         if head_commit.is_err() {
             return Ok(BranchCommits {
                 local_commits: vec![],
@@ -297,7 +298,7 @@ impl StackBranch {
 
         // Find the previous head in the stack - if it is not archived, use it as base
         // Otherwise use the merge base
-        let stack_head = stack.head()?;
+        let stack_head = stack.head(&gix_repo)?;
         let previous_head = stack
             .branch_predacessor(self)
             .filter(|predacessor| !predacessor.archived)

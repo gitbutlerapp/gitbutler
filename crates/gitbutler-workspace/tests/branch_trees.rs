@@ -28,6 +28,7 @@ mod compute_updated_branch_head {
     use super::*;
     use gitbutler_cherry_pick::RepositoryExt as _;
     use gitbutler_commit::commit_ext::CommitExt;
+    use gitbutler_oxidize::RepoExt;
     use gitbutler_testsupport::testing_repository::{
         assert_commit_tree_matches, assert_tree_matches, TestingRepository,
     };
@@ -47,7 +48,8 @@ mod compute_updated_branch_head {
         let BranchHeadAndTree { head, tree } =
             compute_updated_branch_head(&test_repository.repository, &stack, head.id()).unwrap();
 
-        assert_eq!(head, stack.head().unwrap());
+        let r = &test_repository.repository;
+        assert_eq!(head, stack.head(&r.to_gix().unwrap()).unwrap());
         assert_eq!(tree, stack.tree);
     }
 

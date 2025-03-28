@@ -51,8 +51,9 @@ pub fn integrate_upstream_commits_for_series(
         .ok_or(anyhow!("Series not found"))?;
     let upstream_reference = subject_branch.remote_reference(remote.as_str());
     let remote_head = repo.find_reference(&upstream_reference)?.peel_to_commit()?;
+    let gix_repo = ctx.gix_repository()?;
 
-    let series_head = subject_branch.head_oid(&ctx.gix_repository()?)?;
+    let series_head = subject_branch.head_oid(&gix_repo)?;
     let series_head = repo.find_commit(series_head)?;
 
     let strategy = integration_strategy.unwrap_or_else(|| {
@@ -65,12 +66,10 @@ pub fn integrate_upstream_commits_for_series(
         }
     });
 
-    let gix_repo = ctx.gix_repository()?;
-
     let integrate_upstream_context = IntegrateUpstreamContext {
         repository: repo,
         target_branch_head: default_target.sha,
-        branch_head: stack.head()?,
+        branch_head: stack.head(&gix_repo)?,
         branch_tree: stack.tree,
         branch_name: subject_branch.name(),
         branch_full_name: subject_branch.full_name()?,

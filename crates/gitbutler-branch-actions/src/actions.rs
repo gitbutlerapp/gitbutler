@@ -108,10 +108,11 @@ pub fn create_virtual_branch(
     let mut guard = ctx.project().exclusive_worktree_access();
     let branch_manager = ctx.branch_manager();
     let stack = branch_manager.create_virtual_branch(create, guard.write_permission())?;
+    let repo = ctx.gix_repository()?;
     Ok(StackEntry {
         id: stack.id,
         branch_names: stack.heads().into_iter().map(Into::into).collect(),
-        tip: stack.head()?.to_gix(),
+        tip: stack.head(&repo)?.to_gix(),
     })
 }
 

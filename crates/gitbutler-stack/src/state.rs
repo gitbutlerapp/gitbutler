@@ -7,7 +7,7 @@ use anyhow::{anyhow, Result};
 use git2::Repository;
 use gitbutler_error::error::Code;
 use gitbutler_fs::read_toml_file_or_default;
-use gitbutler_oxidize::OidExt as _;
+use gitbutler_oxidize::{OidExt as _, RepoExt};
 use gitbutler_reference::Refname;
 use gitbutler_repo::commit_message::CommitMessage;
 use gitbutler_serde::object_id_opt;
@@ -264,7 +264,7 @@ impl VirtualBranchesHandle {
             .collect_vec();
         let mut to_remove: Vec<StackId> = vec![];
         for branch in stacks_not_in_workspace {
-            let branch_head = branch.head()?;
+            let branch_head = branch.head(&repo.to_gix()?)?;
             if branch.not_in_workspace_wip_change_id.is_some() {
                 continue; // Skip branches that have a WIP commit
             }

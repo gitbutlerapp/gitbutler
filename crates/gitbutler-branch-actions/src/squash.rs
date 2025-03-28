@@ -56,8 +56,12 @@ fn do_squash_commits(
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let vb_state = ctx.project().virtual_branches();
     let stack = vb_state.get_stack_in_workspace(stack_id)?;
+    let gix_repo = ctx.gix_repository()?;
+
     let default_target = vb_state.get_default_target()?;
-    let merge_base = ctx.repo().merge_base(stack.head()?, default_target.sha)?;
+    let merge_base = ctx
+        .repo()
+        .merge_base(stack.head(&gix_repo)?, default_target.sha)?;
 
     // =========== Step 1: Reorder
 
@@ -101,9 +105,9 @@ fn do_squash_commits(
 
     // stack was updated by reorder_stack, therefore it is reloaded
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
-    let branch_commit_oids = ctx
-        .repo()
-        .l(stack.head()?, LogUntil::Commit(merge_base), false)?;
+    let branch_commit_oids =
+        ctx.repo()
+            .l(stack.head(&gix_repo)?, LogUntil::Commit(merge_base), false)?;
 
     let branch_commits = branch_commit_oids
         .iter()
@@ -167,8 +171,6 @@ fn do_squash_commits(
         .context("Failed to create a squash commit")?;
 
     let mut steps: Vec<RebaseStep> = Vec::new();
-
-    let gix_repo = ctx.gix_repository()?;
 
     for head in stack.heads_by_commit(ctx.repo().find_commit(merge_base)?, &gix_repo) {
         steps.push(RebaseStep::Reference(but_core::Reference::Virtual(head)));

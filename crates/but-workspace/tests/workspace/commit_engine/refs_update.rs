@@ -1103,7 +1103,7 @@ mod utils {
         for stack in vbranches.branches.values() {
             repo.reference(
                 format!("refs/heads/{}", stack.name),
-                stack.head()?.to_gix(),
+                stack.head(repo)?.to_gix(),
                 PreviousValue::Any,
                 "create stack head for visualization",
             )?;

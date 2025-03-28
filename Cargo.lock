@@ -2851,6 +2851,7 @@ dependencies = [
  "gitbutler-error",
  "gitbutler-git",
  "gitbutler-id",
+ "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",

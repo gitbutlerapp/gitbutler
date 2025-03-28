@@ -212,8 +212,9 @@ pub fn get_applied_status_cached(
 
     // write updated state if not resolving
     if !ctx.is_resolving() {
+        let repo = ctx.gix_repository()?;
         for (vbranch, files) in &mut hunks_by_branch {
-            vbranch.tree = gitbutler_diff::write::hunks_onto_oid(ctx, vbranch.head()?, files)?;
+            vbranch.tree = gitbutler_diff::write::hunks_onto_oid(ctx, vbranch.head(&repo)?, files)?;
             vb_state
                 .set_stack(vbranch.clone())
                 .context(format!("failed to write virtual branch {}", vbranch.name))?;

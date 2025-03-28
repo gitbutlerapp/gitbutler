@@ -6,7 +6,7 @@ use but_rebase::RebaseStep;
 use but_workspace::stack_ext::StackExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
-use gitbutler_oxidize::{ObjectIdExt, OidExt};
+use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::StackId;
@@ -92,7 +92,7 @@ fn get_source_branch_diffs(
     source_stack: &gitbutler_stack::Stack,
 ) -> Result<BranchStatus> {
     let repo = ctx.repo();
-    let source_stack_head = repo.find_commit(source_stack.head()?)?;
+    let source_stack_head = repo.find_commit(source_stack.head(&repo.to_gix()?)?)?;
     let source_stack_head_tree = source_stack_head.tree()?;
     let uncommitted_changes_tree = repo.find_tree(source_stack.tree)?;
 

@@ -43,12 +43,13 @@ pub fn reorder_stack(
     let current_order = commits_order(&ctx.to_stack_context()?, &stack)?;
     new_order.validate(current_order.clone())?;
 
+    let gix_repo = ctx.gix_repository()?;
     let default_target = state.get_default_target()?;
     let default_target_commit = repo
         .find_reference(&default_target.branch.to_string())?
         .peel_to_commit()?;
-    let old_head = repo.find_commit(stack.head()?)?;
-    let merge_base = repo.merge_base(default_target_commit.id(), stack.head()?)?;
+    let old_head = repo.find_commit(stack.head(&gix_repo)?)?;
+    let merge_base = repo.merge_base(default_target_commit.id(), stack.head(&gix_repo)?)?;
 
     let mut steps: Vec<RebaseStep> = Vec::new();
     for series in new_order.series.iter().rev() {
@@ -62,7 +63,6 @@ pub fn reorder_stack(
             series.name.clone(),
         )));
     }
-    let gix_repo = ctx.gix_repository()?;
     let mut builder = but_rebase::Rebase::new(&gix_repo, merge_base.to_gix(), None)?;
     let builder = builder.steps(steps)?;
     builder.rebase_noops(false);

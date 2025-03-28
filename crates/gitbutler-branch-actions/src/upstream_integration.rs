@@ -330,7 +330,7 @@ fn get_stack_status(
         });
     }
 
-    let stack_head = repository.find_commit(stack.head()?)?;
+    let stack_head = repository.find_commit(stack.head(gix_repository)?)?;
 
     let tree_status;
     if v3 {
@@ -393,7 +393,7 @@ pub fn upstream_integration_statuses(
 
     let heads = stacks_in_workspace
         .iter()
-        .map(|stack| stack.head().map(|h| h.to_gix()))
+        .map(|stack| stack.head(&gix_repository).map(|h| h.to_gix()))
         .chain(Some(Ok(new_target.id().to_gix())))
         .collect::<Result<Vec<_>>>()?;
 
@@ -710,7 +710,8 @@ fn compute_resolutions(
                     // Make a merge commit on top of the branch commits,
                     // then rebase the tree ontop of that. If the tree ends
                     // up conflicted, commit the tree.
-                    let target_commit = repository.find_commit(branch_stack.head()?)?;
+                    let target_commit =
+                        repository.find_commit(branch_stack.head(context.gix_repo)?)?;
                     let top_branch = branch_stack.heads.last().context("top branch not found")?;
 
                     // These two go into the merge commit message.

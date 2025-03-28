@@ -18,6 +18,7 @@ use git2::FileMode;
 use gitbutler_command_context::RepositoryExtLite;
 use gitbutler_diff::{hunks_by_filepath, FileDiff};
 use gitbutler_oxidize::ObjectIdExt as _;
+use gitbutler_oxidize::RepoExt;
 use gitbutler_oxidize::{
     git2_to_gix_object_id, gix_time_to_git2, gix_to_git2_oid, GixRepositoryExt, OidExt,
 };
@@ -442,7 +443,8 @@ fn prepare_snapshot(ctx: &Project, _shared_access: &WorktreeReadPermission) -> R
 
         // let's get all the commits between the branch head and the target
         let mut revwalk = repo.revwalk()?;
-        revwalk.push(stack.head()?)?;
+        let r = &repo;
+        revwalk.push(stack.head(&r.to_gix()?)?)?;
         revwalk.hide(default_target_commit.id())?;
 
         let mut commits_tree_builder = repo.treebuilder(None)?;

@@ -12,6 +12,7 @@ use git2::Commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_id::id::Id;
 use gitbutler_oxidize::ObjectIdExt;
+use gitbutler_oxidize::RepoExt;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
 use gitbutler_repo::logging::LogUntil;
 use gitbutler_repo::logging::RepositoryExt as _;
@@ -176,8 +177,11 @@ impl Stack {
     }
 
     // TODO: derive this from the last head
-    pub fn head(&self) -> Result<git2::Oid> {
-        Ok(self.head)
+    pub fn head(&self, repo: &gix::Repository) -> Result<git2::Oid> {
+        self.heads
+            .last()
+            .map(|head| head.head_oid(repo))
+            .ok_or_else(|| anyhow!("Stack is uninitialized"))?
     }
 
     pub fn set_head(&mut self, head: git2::Oid) {
@@ -240,7 +244,7 @@ impl Stack {
     pub fn commits(&self, stack_context: &StackContext) -> Result<Vec<git2::Oid>> {
         let repository = stack_context.repository();
         let stack_commits = repository.l(
-            self.head()?,
+            self.head(&repository.to_gix()?)?,
             LogUntil::Commit(self.merge_base(stack_context)?),
             false,
         )?;
@@ -271,7 +275,7 @@ impl Stack {
     pub fn merge_base(&self, stack_context: &StackContext) -> Result<git2::Oid> {
         let target = stack_context.target();
         let repository = stack_context.repository();
-        let merge_base = repository.merge_base(self.head()?, target.sha)?;
+        let merge_base = repository.merge_base(self.head(&repository.to_gix()?)?, target.sha)?;
         Ok(merge_base)
     }
 
@@ -315,9 +319,9 @@ impl Stack {
         ctx: &CommandContext,
         allow_duplicate_refs: bool,
     ) -> Result<StackBranch> {
-        let commit = ctx.repo().find_commit(self.head()?)?;
         let state = branch_state(ctx);
         let repo = ctx.gix_repository()?;
+        let commit = ctx.repo().find_commit(self.head(&repo)?)?;
 
         let name = Stack::next_available_name(
             &repo,
@@ -400,7 +404,7 @@ impl Stack {
         validate_target(
             new_head.head_oid(&gix_repo)?,
             ctx.repo(),
-            self.head()?,
+            self.head(&gix_repo)?,
             &state,
         )?;
         let updated_heads = add_head(
@@ -480,7 +484,7 @@ impl Stack {
             validate_target(
                 new_head.head_oid(&gix_repo)?,
                 ctx.repo(),
-                self.head()?,
+                self.head(&gix_repo)?,
                 &state,
             )?;
             let preceding_head = if let Some(preceding_head_name) = update
@@ -559,12 +563,12 @@ impl Stack {
         // let patch: CommitOrChangeId = commit.into();
 
         let state = branch_state(ctx);
-        let stack_head = self.head()?;
+        let gix_repo = ctx.gix_repository()?;
+        let stack_head = self.head(&gix_repo)?;
         let head = self
             .heads
             .last_mut()
             .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
-        let gix_repo = ctx.gix_repository()?;
         head.set_head(commit.into(), &gix_repo)?;
         validate_target(head.head_oid(&gix_repo)?, ctx.repo(), stack_head, &state)?;
         state.set_stack(self.clone())
@@ -698,7 +702,7 @@ impl Stack {
             return Ok(());
         }
 
-        let stack_head = self.head()?;
+        let stack_head = self.head(&ctx.gix_repository()?)?;
         let stack_ctx = ctx.to_stack_context()?;
         let merge_base = self.merge_base(&stack_ctx)?;
 

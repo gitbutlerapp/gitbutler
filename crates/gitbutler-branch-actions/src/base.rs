@@ -83,7 +83,7 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
     for branch in &virtual_branches {
         // merge this branches tree with our tree
         let branch_tree_id = git2_to_gix_object_id(
-            repo.find_commit(branch.head()?)
+            repo.find_commit(branch.head(&gix_repo)?)
                 .context("failed to find branch head")?
                 .tree_id(),
         );

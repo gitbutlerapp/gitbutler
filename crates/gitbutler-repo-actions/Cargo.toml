@@ -20,6 +20,7 @@ gitbutler-command-context.workspace = true
 tracing.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-id.workspace = true
+gitbutler-oxidize.workspace = true
 gitbutler-git.workspace = true
 gitbutler-project.workspace = true
 gitbutler-error.workspace = true

@@ -18,7 +18,9 @@ use gitbutler_operating_modes::{
     operating_mode, read_edit_mode_metadata, write_edit_mode_metadata, EditModeMetadata,
     OperatingMode, EDIT_BRANCH_REF, WORKSPACE_BRANCH_REF,
 };
-use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_index, GixRepositoryExt, OidExt};
+use gitbutler_oxidize::{
+    git2_to_gix_object_id, gix_to_git2_index, GixRepositoryExt, OidExt, RepoExt,
+};
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_reference::{ReferenceName, Refname};
 use gitbutler_repo::{rebase::cherry_rebase, RepositoryExt};
@@ -299,9 +301,14 @@ pub(crate) fn save_and_return_to_workspace(
         .context("Failed to commit new commit")?;
 
     // Rebase all all commits on top of the new commit and update reference
-    let new_branch_head = cherry_rebase(ctx, new_commit_oid, commit.id(), virtual_branch.head()?)
-        .context("Failed to rebase commits onto new commit")?
-        .unwrap_or(new_commit_oid);
+    let new_branch_head = cherry_rebase(
+        ctx,
+        new_commit_oid,
+        commit.id(),
+        virtual_branch.head(&repository.to_gix()?)?,
+    )
+    .context("Failed to rebase commits onto new commit")?
+    .unwrap_or(new_commit_oid);
 
     // Update virtual_branch
     let (new_branch_head, new_branch_tree) = if ctx.app_settings().feature_flags.v3 {

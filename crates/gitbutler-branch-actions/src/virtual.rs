@@ -361,14 +361,18 @@ pub fn list_virtual_branches_cached(
         };
 
         // find all commits on head that are not on target.sha
-        let commits = repo.log(branch.head()?, LogUntil::Commit(default_target.sha), false)?;
+        let commits = repo.log(
+            branch.head(&gix_repo)?,
+            LogUntil::Commit(default_target.sha),
+            false,
+        )?;
         let mut check_commit =
             IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
 
         let merge_base = gix_repo
             .merge_base_with_graph(
                 git2_to_gix_object_id(default_target.sha),
-                git2_to_gix_object_id(branch.head()?),
+                git2_to_gix_object_id(branch.head(&gix_repo)?),
                 check_commit.graph,
             )
             .context("failed to find merge base")?;
@@ -395,7 +399,7 @@ pub fn list_virtual_branches_cached(
                 .unwrap_or(&usize::MAX)
                 .cmp(path_claim_positions.get(&b.path).unwrap_or(&usize::MAX))
         });
-        let mut requires_force = is_requires_force(ctx, &branch)?;
+        let mut requires_force = is_requires_force(ctx, &branch, &gix_repo)?;
 
         let fork_point = commits
             .last()
@@ -425,7 +429,7 @@ pub fn list_virtual_branches_cached(
             requires_force = force // derive force requirement from the series
         }
 
-        let head = branch.head()?;
+        let head = branch.head(&gix_repo)?;
         branch.migrate_change_ids(ctx).ok(); // If it fails thats ok - best effort migration
         let branch = VirtualBranch {
             id: branch.id,
@@ -501,7 +505,7 @@ fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<V
     branches
 }
 
-fn is_requires_force(ctx: &CommandContext, stack: &Stack) -> Result<bool> {
+fn is_requires_force(ctx: &CommandContext, stack: &Stack, repo: &gix::Repository) -> Result<bool> {
     let upstream = if let Some(upstream) = &stack.upstream {
         upstream
     } else {
@@ -519,7 +523,9 @@ fn is_requires_force(ctx: &CommandContext, stack: &Stack) -> Result<bool> {
         .find_commit(reference)
         .context("failed to find upstream commit")?;
 
-    let merge_base = ctx.repo().merge_base(upstream_commit.id(), stack.head()?)?;
+    let merge_base = ctx
+        .repo()
+        .merge_base(upstream_commit.id(), stack.head(repo)?)?;
 
     Ok(merge_base != upstream_commit.id())
 }
@@ -666,8 +672,9 @@ pub(crate) fn reset_branch(
 
     let default_target = vb_state.get_default_target()?;
 
+    let gix_repo = ctx.gix_repository()?;
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
-    if stack.head()? == target_commit_id {
+    if stack.head(&gix_repo)? == target_commit_id {
         // nothing to do
         return Ok(());
     }
@@ -675,7 +682,11 @@ pub(crate) fn reset_branch(
     if default_target.sha != target_commit_id
         && !ctx
             .repo()
-            .l(stack.head()?, LogUntil::Commit(default_target.sha), false)?
+            .l(
+                stack.head(&gix_repo)?,
+                LogUntil::Commit(default_target.sha),
+                false,
+            )?
             .contains(&target_commit_id)
     {
         bail!("commit {target_commit_id} not in the branch");
@@ -751,6 +762,8 @@ pub fn commit(
     ctx.assure_unconflicted()
         .context(Code::CommitMergeConflictFailure)?;
 
+    let gix_repo = ctx.gix_repository()?;
+
     let tree_oid = if let Some(ownership) = ownership {
         let files = files.into_iter().filter_map(|file| {
             let hunks = file
@@ -776,19 +789,22 @@ pub fn commit(
                 Some((file.path, hunks))
             }
         });
-        gitbutler_diff::write::hunks_onto_commit(ctx, branch.head()?, files)?
+        gitbutler_diff::write::hunks_onto_commit(ctx, branch.head(&gix_repo)?, files)?
     } else {
         let files = files
             .into_iter()
             .map(|file| (file.path, file.hunks))
             .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
-        gitbutler_diff::write::hunks_onto_commit(ctx, branch.head()?, files)?
+        gitbutler_diff::write::hunks_onto_commit(ctx, branch.head(&gix_repo)?, files)?
     };
 
     let git_repository = ctx.repo();
     let parent_commit = git_repository
-        .find_commit(branch.head()?)
-        .context(format!("failed to find commit {:?}", branch.head()))?;
+        .find_commit(branch.head(&gix_repo)?)
+        .context(format!(
+            "failed to find commit {:?}",
+            branch.head(&gix_repo)
+        ))?;
     let tree = git_repository
         .find_tree(tree_oid)
         .context(format!("failed to find tree {:?}", tree_oid))?;
@@ -835,6 +851,7 @@ pub(crate) fn push(
         None => default_target.branch.remote().to_owned(),
     };
 
+    let gix_repo = ctx.gix_repository()?;
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     let remote_branch = if let Some(upstream_branch) = &stack.upstream {
         upstream_branch.clone()
@@ -864,10 +881,16 @@ pub(crate) fn push(
         ))
     };
 
-    ctx.push(stack.head()?, &remote_branch, with_force, None, askpass)?;
+    ctx.push(
+        stack.head(&gix_repo)?,
+        &remote_branch,
+        with_force,
+        None,
+        askpass,
+    )?;
 
     stack.upstream = Some(remote_branch.clone());
-    stack.upstream_head = Some(stack.head()?);
+    stack.upstream_head = Some(stack.head(&gix_repo)?);
     vb_state
         .set_stack(stack.clone())
         .context("failed to write target branch after push")?;
@@ -1098,9 +1121,11 @@ pub(crate) fn move_commit_file(
         .find_commit(to_amend_oid)
         .context("failed to find commit")?;
 
+    let gix_repo = ctx.gix_repository()?;
+
     // find all the commits upstream from the target "to" commit
     let mut upstream_commits = ctx.repo().l(
-        target_stack.head()?,
+        target_stack.head(&gix_repo)?,
         LogUntil::Commit(amend_commit.id()),
         false,
     )?;
@@ -1221,7 +1246,7 @@ pub(crate) fn move_commit_file(
             ctx,
             new_from_commit_oid,
             from_commit_id,
-            target_stack.head()?,
+            target_stack.head(&gix_repo)?,
         ) {
             Ok(Some(new_head)) => new_head,
             Ok(None) => bail!("no rebase was performed"),
@@ -1232,7 +1257,7 @@ pub(crate) fn move_commit_file(
         // so we'll take a list of the upstream oids and find it simply based on location
         // (since the order should not have changed in our simple rebase)
         let old_upstream_commit_oids = ctx.repo().l(
-            target_stack.head()?,
+            target_stack.head(&gix_repo)?,
             LogUntil::Commit(default_target.sha),
             false,
         )?;
@@ -1398,11 +1423,14 @@ pub(crate) fn update_commit_message(
 
     let vb_state = ctx.project().virtual_branches();
     let default_target = vb_state.get_default_target()?;
+    let gix_repo = ctx.gix_repository()?;
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
-    let branch_commit_oids =
-        ctx.repo()
-            .l(stack.head()?, LogUntil::Commit(default_target.sha), false)?;
+    let branch_commit_oids = ctx.repo().l(
+        stack.head(&gix_repo)?,
+        LogUntil::Commit(default_target.sha),
+        false,
+    )?;
 
     if !branch_commit_oids.contains(&commit_id) {
         bail!("commit {commit_id} not in the branch");
@@ -1421,7 +1449,6 @@ pub(crate) fn update_commit_message(
         bail!("force push not allowed");
     }
 
-    let gix_repo = ctx.gix_repository()?;
     let mut steps = stack.as_rebase_steps(ctx, &gix_repo)?;
     // Update the commit message
     for step in steps.iter_mut() {

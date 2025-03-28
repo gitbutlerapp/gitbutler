@@ -5,7 +5,7 @@ use git2::Commit;
 use gitbutler_branch::BranchExt;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oplog::SnapshotExt;
-use gitbutler_oxidize::{git2_to_gix_object_id, GixRepositoryExt, OidExt};
+use gitbutler_oxidize::{git2_to_gix_object_id, GixRepositoryExt, OidExt, RepoExt};
 use gitbutler_oxidize::{gix_to_git2_oid, ObjectIdExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, ReferenceName, Refname};
@@ -121,7 +121,9 @@ impl BranchManager<'_> {
             let workspace_base = gix_repo
                 .find_commit(workspace_base(self.ctx, perm.read_permission())?)?
                 .tree_id()?;
-            let stack_head = gix_repo.find_commit(stack.head()?.to_gix())?.tree_id()?;
+            let stack_head = gix_repo
+                .find_commit(stack.head(&gix_repo)?.to_gix())?
+                .tree_id()?;
 
             let mut merge = gix_repo.merge_trees(
                 stack_head,
@@ -165,7 +167,7 @@ impl BranchManager<'_> {
                                 .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
                             let tree_oid = gitbutler_diff::write::hunks_onto_oid(
                                 self.ctx,
-                                stack.head()?,
+                                stack.head(&gix_repo)?,
                                 files,
                             )?;
                             let mut merge = gix_repo.merge_trees(
@@ -213,7 +215,7 @@ impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, stack), err(Debug))]
     fn build_real_branch(&self, stack: &mut Stack) -> Result<git2::Branch<'_>> {
         let repo = self.ctx.repo();
-        let target_commit = repo.find_commit(stack.head()?)?;
+        let target_commit = repo.find_commit(stack.head(&repo.to_gix()?)?)?;
         let branch_name = normalize_branch_name(&stack.id.to_string())?;
 
         let vb_state = self.ctx.project().virtual_branches();
@@ -239,7 +241,7 @@ impl BranchManager<'_> {
 
         // Build wip tree as either any uncommitted changes or an empty tree
         let vbranch_wip_tree = repo.find_tree(stack.tree)?;
-        let vbranch_head_tree = repo.find_commit(stack.head()?)?.tree()?;
+        let vbranch_head_tree = repo.find_commit(stack.head(&repo.to_gix()?)?)?.tree()?;
 
         let tree = if vbranch_head_tree.id() != vbranch_wip_tree.id() {
             vbranch_wip_tree
