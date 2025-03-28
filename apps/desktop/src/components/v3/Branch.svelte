@@ -26,6 +26,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
@@ -111,6 +112,7 @@
 				}}
 			>
 				{#snippet details()}
+					{console.log('details', branch)}
 					<div class="text-11 branch-header__details">
 						<span class="branch-header__item">
 							<BranchBadge pushStatus={branchDetails.pushStatus} unstyled />
@@ -122,10 +124,19 @@
 							<span class="branch-header__divider">•</span>
 						{/if}
 
-						<!-- last updated -->
 						<span class="branch-header__item">
 							{getTimeAgo(new Date(branchDetails.lastUpdatedAt))}
 						</span>
+
+						{#if branch.reviewId || branch.prNumber}
+							<span class="branch-header__divider">•</span>
+							{#if branch.reviewId}
+								<ReviewBadge brId={branch.reviewId} brStatus="unknown" />
+							{/if}
+							{#if branch.prNumber}
+								<ReviewBadge prNumber={branch.prNumber} prStatus="unknown" />
+							{/if}
+						{/if}
 					</div>
 				{/snippet}
 			</BranchHeader>
@@ -271,12 +282,15 @@
 
 	.branch-header__details {
 		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
 		gap: 6px;
 		color: var(--clr-text-2);
 		margin-left: 4px;
 	}
 
 	.branch-header__item {
+		white-space: nowrap;
 		color: var(--clr-text-2);
 	}
 
