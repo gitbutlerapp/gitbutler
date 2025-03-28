@@ -23,7 +23,11 @@ pub fn rewrite(
 ) -> anyhow::Result<()> {
     let mut ref_edits = Vec::new();
     let changed_commits: Vec<_> = changed_commits.into_iter().collect();
-    let mut stacks_ordered: Vec<_> = state.branches.values_mut().collect();
+    let mut stacks_ordered: Vec<_> = state
+        .branches
+        .values_mut()
+        .filter(|stack| stack.in_workspace)
+        .collect();
     stacks_ordered.sort_by(|a, b| a.name.cmp(&b.name));
     for (old, new) in changed_commits {
         let old_git2 = old.to_git2();
