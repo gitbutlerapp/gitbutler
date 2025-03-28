@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import CommitDetails from '$components/v3/CommitDetails.svelte';
@@ -110,21 +109,19 @@
 				{#snippet header()}
 					<CommitHeader {commit} fontSize="14" />
 				{/snippet}
-				<ConfigurableScrollableContainer>
-					<div class="commit-view">
-						<CommitDetails
-							{projectId}
-							{commit}
-							{stackId}
-							onEditCommitMessage={() => setMode('edit')}
-						/>
-						<ChangedFiles
-							{projectId}
-							{stackId}
-							selectionId={{ type: 'commit', commitId: commitKey.commitId }}
-						/>
-					</div>
-				</ConfigurableScrollableContainer>
+				<div class="commit-view">
+					<CommitDetails
+						{projectId}
+						{commit}
+						{stackId}
+						onEditCommitMessage={() => setMode('edit')}
+					/>
+					<ChangedFiles
+						{projectId}
+						{stackId}
+						selectionId={{ type: 'commit', commitId: commitKey.commitId }}
+					/>
+				</div>
 			</Drawer>
 		{/if}
 	{/snippet}
@@ -133,11 +130,10 @@
 <style>
 	.commit-view {
 		position: relative;
-		min-height: 100%;
+		height: 100%;
 		flex: 1;
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
-		/* background-color: rgba(255, 0, 0, 0.1); */
 	}
 </style>

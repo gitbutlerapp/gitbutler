@@ -137,9 +137,9 @@
 	</div>
 
 	{#if description}
-		<div class="text-13 commit-description">
+		<p class="text-13 text-body commit-description">
 			{@html marked(description)}
-		</div>
+		</p>
 	{/if}
 </div>
 
