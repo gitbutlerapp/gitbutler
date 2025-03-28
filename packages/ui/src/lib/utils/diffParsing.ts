@@ -119,6 +119,7 @@ type Hunk = {
 	readonly oldLines: number;
 	readonly newStart: number;
 	readonly newLines: number;
+	readonly comment?: string;
 	readonly contentSections: ContentSection[];
 };
 
@@ -131,6 +132,7 @@ function parseHeader(header: string): {
 	newStart: number;
 	oldLines: number;
 	newLines: number;
+	comment?: string;
 } {
 	const result = headerRegex.exec(header);
 	if (!result?.groups) {
@@ -140,7 +142,8 @@ function parseHeader(header: string): {
 		oldStart: parseInt(result.groups['beforeStart']),
 		oldLines: parseInt(result.groups['beforeCount'] ?? '1'),
 		newStart: parseInt(result.groups['afterStart']),
-		newLines: parseInt(result.groups['afterCount'] ?? '1')
+		newLines: parseInt(result.groups['afterCount'] ?? '1'),
+		comment: result.groups['comment']
 	};
 }
 

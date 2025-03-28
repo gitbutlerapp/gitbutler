@@ -77,7 +77,9 @@
 		onCopySelection?.(hunk.contentSections);
 	}
 
-	const hunkSummary = $derived(hunkStr.split('\n')[0]);
+	const hunkSummary = $derived(
+		`@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`
+	);
 	const showingCheckboxes = $derived(!hideCheckboxes && staged !== undefined);
 	const colspan = $derived(showingCheckboxes ? 3 : 2);
 </script>
@@ -148,6 +150,7 @@
 			</tbody>
 		{:else}
 			<HunkDiffBody
+				comment={hunk.comment}
 				{filePath}
 				content={hunk.contentSections}
 				{onLineClick}
