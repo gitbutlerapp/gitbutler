@@ -358,7 +358,13 @@ impl Stack {
     ) -> Result<StackBranch> {
         let state = branch_state(ctx);
         let repo = ctx.gix_repository()?;
-        let commit = ctx.repo().find_commit(self.head(&repo)?)?;
+        // If the stack is created for the first time, this will be the default target sha
+        let head = if self.heads.is_empty() {
+            self.head
+        } else {
+            self.head(&repo)?
+        };
+        let commit = ctx.repo().find_commit(head)?;
 
         let name = Stack::next_available_name(
             &repo,
