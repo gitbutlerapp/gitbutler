@@ -188,7 +188,7 @@
 	hasForgeBranch={!!forgeBranch}
 	{pr}
 	{branchType}
-	onMenuToggle={(isOpen, isLeftClick) => {
+	onToggle={(isOpen, isLeftClick) => {
 		if (isLeftClick) {
 			contextMenuOpened = isOpen;
 		}

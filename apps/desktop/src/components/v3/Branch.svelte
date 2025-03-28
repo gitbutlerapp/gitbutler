@@ -68,7 +68,8 @@
 	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
 
 	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
-	let contextMenuOpened = $state(false);
+	let isContextMenuOpenedByBtn = $state(false);
+	let isContextMenuOpenedByMouse = $state(false);
 </script>
 
 <ReduxResult
@@ -91,7 +92,8 @@
 				{branch}
 				bind:el={headerEl}
 				bind:menuBtnEl={kebabContextMenuTrigger}
-				isMenuOpen={contextMenuOpened}
+				isMenuOpenByBtn={isContextMenuOpenedByBtn}
+				isMenuOpenByMouse={isContextMenuOpenedByMouse}
 				selected={selected && selection.current?.commitId === undefined}
 				isTopBranch={first}
 				readonly={!!forgeBranch}
@@ -246,7 +248,9 @@
 			branchType={commit?.state.type || 'LocalOnly'}
 			onToggle={(isOpen, isLeftClick) => {
 				if (isLeftClick) {
-					contextMenuOpened = isOpen;
+					isContextMenuOpenedByBtn = isOpen;
+				} else {
+					isContextMenuOpenedByMouse = isOpen;
 				}
 			}}
 		/>

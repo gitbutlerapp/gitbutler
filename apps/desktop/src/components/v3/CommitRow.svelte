@@ -71,6 +71,7 @@
 	let conflictResolutionConfirmationModal = $state<ReturnType<typeof Modal>>();
 
 	let isOpenedByKebabButton = $state(false);
+	let isOpenedByMouse = $state(false);
 
 	async function handleUncommit() {
 		if (!baseBranch) {
@@ -146,7 +147,7 @@
 	tabindex="0"
 	aria-label="Commit row"
 	class="commit-row__main"
-	class:menu-shown={isOpenedByKebabButton}
+	class:menu-shown={isOpenedByKebabButton || isOpenedByMouse}
 	class:first
 	class:selected
 	style:opacity
@@ -277,6 +278,8 @@
 	onToggle={(isOpen, isLeftClick) => {
 		if (isLeftClick) {
 			isOpenedByKebabButton = isOpen;
+		} else {
+			isOpenedByMouse = isOpen;
 		}
 	}}
 />
@@ -311,11 +314,11 @@
 			}
 		}
 
-		&.menu-shown {
+		/* &.menu-shown {
 			& .commit-menu-btn {
 				opacity: 1;
 			}
-		}
+		} */
 
 		&:not(.last) {
 			border-bottom: 1px solid var(--clr-border-2);
@@ -366,7 +369,8 @@
 		opacity: 0.5;
 		transition: opacity var(--transition-fast);
 
-		&:hover {
+		&:hover,
+		&.activated {
 			opacity: 1;
 		}
 	}

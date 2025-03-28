@@ -20,7 +20,8 @@
 		readonly: boolean;
 		lineColor?: string;
 		menuBtnEl?: HTMLButtonElement;
-		isMenuOpen?: boolean;
+		isMenuOpenByBtn?: boolean;
+		isMenuOpenByMouse?: boolean;
 		details?: Snippet;
 		onclick: () => void;
 		onLabelDblClick?: () => void;
@@ -37,7 +38,8 @@
 		readonly,
 		selected,
 		menuBtnEl = $bindable(),
-		isMenuOpen,
+		isMenuOpenByBtn,
+		isMenuOpenByMouse,
 		details,
 		onclick,
 		onLabelDblClick,
@@ -67,6 +69,7 @@
 	}}
 	onkeypress={onclick}
 	tabindex="0"
+	class:activated={isMenuOpenByMouse || isMenuOpenByBtn}
 >
 	<ReduxResult result={topCommitResult.current}>
 		{#snippet children(commit)}
@@ -91,7 +94,7 @@
 						bind:this={menuBtnEl}
 						type="button"
 						class="branch-menu-btn"
-						class:activated={isMenuOpen}
+						class:activated={isMenuOpenByBtn}
 						onmousedown={(e) => {
 							e.stopPropagation();
 							e.preventDefault();
@@ -136,7 +139,8 @@
 			transition: transform var(--transition-medium);
 		}
 
-		&:hover {
+		&:hover,
+		&.activated {
 			background-color: var(--clr-bg-1-muted);
 
 			& .branch-menu-btn {
