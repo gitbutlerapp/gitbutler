@@ -314,12 +314,6 @@
 			}
 		}
 
-		/* &.menu-shown {
-			& .commit-menu-btn {
-				opacity: 1;
-			}
-		} */
-
 		&:not(.last) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
@@ -328,7 +322,7 @@
 			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 		}
 
-		&&:focus-within,
+		&:focus-within,
 		&.selected {
 			background-color: var(--clr-selected-not-in-focus-bg);
 

@@ -160,6 +160,10 @@
 				transform: translateX(0%);
 			}
 		}
+
+		&:focus-within.selected {
+			background-color: var(--clr-selected-in-focus-bg);
+		}
 	}
 
 	.name-line {
