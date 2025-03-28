@@ -1026,7 +1026,7 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
 
 mod utils {
     use but_testsupport::visualize_commit_graph;
-    use gitbutler_oxidize::{ObjectIdExt as _, OidExt};
+    use gitbutler_oxidize::OidExt;
     use gitbutler_stack::{CommitOrChangeId, VirtualBranchesState};
     use gix::refs::transaction::PreviousValue;
 
@@ -1051,35 +1051,17 @@ mod utils {
 
     /// We are only interested in the head-related information, the rest is garbage.
     pub fn stack_with_branches(
-        name: &str,
-        tip: gix::ObjectId,
+        _name: &str,
+        _tip: gix::ObjectId,
         branches: impl IntoIterator<Item = (&'static str, gix::ObjectId)>,
         repo: &gix::Repository,
     ) -> gitbutler_stack::Stack {
-        gitbutler_stack::Stack {
-            id: Default::default(),
-            name: name.into(),
-            tree: tip.kind().null().to_git2(),
-            head: tip.to_git2(),
-            heads: branches
-                .into_iter()
-                .map(|(name, target_id)| new_stack_branch(name, target_id, repo))
-                .filter_map(Result::ok)
-                .collect(),
-            notes: String::new(),
-            source_refname: None,
-            upstream: None,
-            upstream_head: None,
-            created_timestamp_ms: 0,
-            updated_timestamp_ms: 0,
-            ownership: Default::default(),
-            order: 0,
-            selected_for_changes: None,
-            allow_rebasing: false,
-            in_workspace: false,
-            not_in_workspace_wip_change_id: None,
-            post_commits: false,
-        }
+        let heads = branches
+            .into_iter()
+            .map(|(name, target_id)| new_stack_branch(name, target_id, repo))
+            .filter_map(Result::ok)
+            .collect();
+        gitbutler_stack::Stack::new_with_just_heads(heads, 0, 0, true)
     }
 
     fn new_stack_branch(

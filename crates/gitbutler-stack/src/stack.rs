@@ -70,7 +70,7 @@ pub struct Stack {
     pub tree: git2::Oid,
     /// head is id of the last "virtual" commit in this branch
     #[serde(with = "gitbutler_serde::oid")]
-    pub head: git2::Oid,
+    head: git2::Oid,
     pub ownership: BranchOwnershipClaims,
     // order is the number by which UI should sort branches
     pub order: usize,
@@ -169,6 +169,42 @@ impl Stack {
             not_in_workspace_wip_change_id: None,
             heads: Default::default(),
             post_commits: false,
+        }
+    }
+
+    pub fn new_with_just_heads(
+        heads: Vec<StackBranch>,
+        created_ms: u128,
+        order: usize,
+        in_workspace: bool,
+    ) -> Self {
+        Stack {
+            id: StackId::default(),
+            created_timestamp_ms: created_ms,
+            updated_timestamp_ms: created_ms,
+            order,
+            allow_rebasing: true, //  default in V2
+            in_workspace,
+            heads,
+
+            // Don't keep redundant information
+            tree: git2::Oid::zero(),
+            head: git2::Oid::zero(),
+            source_refname: None,
+            upstream: None,
+            upstream_head: None,
+
+            // Unused - everything is defined by the top-most branch name.
+            name: "".to_string(),
+            notes: "".to_string(),
+
+            // Related to ownership, obsolete.
+            selected_for_changes: None,
+            // unclear, obsolete
+            not_in_workspace_wip_change_id: None,
+            // unclear
+            post_commits: false,
+            ownership: Default::default(),
         }
     }
 
