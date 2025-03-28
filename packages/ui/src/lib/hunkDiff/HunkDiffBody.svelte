@@ -1,6 +1,3 @@
-<script lang="ts" module>
-</script>
-
 <script lang="ts">
 	import HunkDiffRow, { type ContextMenuParams } from '$lib/hunkDiff/HunkDiffRow.svelte';
 	import LineSelection from '$lib/hunkDiff/lineSelection.svelte';
@@ -11,7 +8,8 @@
 		type LineId,
 		type LineSelector,
 		parserFromFilename,
-		type Row
+		type Row,
+		SectionType
 	} from '$lib/utils/diffParsing';
 	import type { LineSelectionParams } from '$lib/hunkDiff/lineSelection.svelte';
 
@@ -33,9 +31,11 @@
 		hideCheckboxes?: boolean;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
 		clickOutsideExcludeElement?: HTMLElement;
+		comment?: string;
 	}
 
 	const {
+		comment,
 		filePath,
 		content,
 		onLineClick,
@@ -80,6 +80,25 @@
 			(line) => line.newLine === row.afterLineNumber && line.oldLine === row.beforeLineNumber
 		);
 	}
+
+	const showingExtraColumn = $derived(staged !== undefined && !hideCheckboxes);
+	const commentNumericColSpan = $derived(showingExtraColumn ? 3 : 2);
+	const commentRows = $derived.by(() => {
+		if (!comment) return undefined;
+		return generateRows(
+			filePath,
+			[
+				{
+					sectionType: SectionType.Context,
+					lines: [{ beforeLineNumber: 0, afterLineNumber: 0, content: comment }]
+				}
+			],
+			false,
+			parser,
+			[]
+		);
+	});
+	const commentRow = $derived(commentRows?.[0]);
 </script>
 
 <tbody
@@ -93,6 +112,15 @@
 		excludeElement: clickOutsideExcludeElement
 	}}
 >
+	{#if commentRow}
+		<tr>
+			<td class="diff-comment__number-column" colspan={commentNumericColSpan}>comment</td>
+			<td style="--tab-size: {tabSize};" class="diff-comment">
+				{@html commentRow.tokens.join('')}
+			</td>
+		</tr>
+	{/if}
+
 	{#each renderRows as row, idx}
 		<HunkDiffRow
 			{idx}
@@ -117,5 +145,32 @@
 <style lang="postcss">
 	tbody {
 		z-index: var(--z-lifted);
+	}
+	.diff-comment {
+		width: 100%;
+		font-size: 12px;
+		padding-left: 4px;
+		line-height: 1.25;
+		tab-size: var(--tab-size);
+		white-space: pre;
+		user-select: text;
+		cursor: text;
+		text-wrap: wrap;
+		border-left: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-diff-count-bg);
+	}
+
+	.diff-comment__number-column {
+		color: var(--clr-diff-count-text);
+		border-bottom: 1px solid var(--clr-diff-count-border);
+		background-color: var(--clr-diff-count-bg);
+		font-size: 11px;
+		text-align: center;
+		padding: 0 4px;
+		text-align: right;
+		vertical-align: top;
+		user-select: none;
+		touch-action: none;
 	}
 </style>
