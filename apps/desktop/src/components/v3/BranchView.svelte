@@ -103,6 +103,7 @@
 		gap: 16px;
 		align-self: stretch;
 		height: 100%;
+		overflow: hidden;
 	}
 
 	.branch-view__header-container {

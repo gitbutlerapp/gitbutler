@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import CommitDetails from '$components/v3/CommitDetails.svelte';
@@ -16,10 +15,9 @@
 		projectId: string;
 		stackId: string;
 		commitKey: CommitKey;
-		onclick?: () => void;
 	};
 
-	const { projectId, stackId, commitKey, onclick }: Props = $props();
+	const { projectId, stackId, commitKey }: Props = $props();
 
 	const [stackService, uiState, focus] = inject(StackService, UiState, FocusManager);
 
@@ -109,24 +107,21 @@
 		{:else}
 			<Drawer {projectId} {stackId}>
 				{#snippet header()}
-					<CommitHeader {commit} />
+					<CommitHeader {commit} fontSize="14" />
 				{/snippet}
-				<ConfigurableScrollableContainer>
-					<div class="commit-view">
-						<CommitDetails
-							{projectId}
-							{commit}
-							{stackId}
-							{onclick}
-							onEditCommitMessage={() => setMode('edit')}
-						/>
-						<ChangedFiles
-							{projectId}
-							{stackId}
-							selectionId={{ type: 'commit', commitId: commitKey.commitId }}
-						/>
-					</div>
-				</ConfigurableScrollableContainer>
+				<div class="commit-view">
+					<CommitDetails
+						{projectId}
+						{commit}
+						{stackId}
+						onEditCommitMessage={() => setMode('edit')}
+					/>
+					<ChangedFiles
+						{projectId}
+						{stackId}
+						selectionId={{ type: 'commit', commitId: commitKey.commitId }}
+					/>
+				</div>
 			</Drawer>
 		{/if}
 	{/snippet}
@@ -135,7 +130,7 @@
 <style>
 	.commit-view {
 		position: relative;
-		min-height: 100%;
+		height: 100%;
 		flex: 1;
 		display: flex;
 		flex-direction: column;
