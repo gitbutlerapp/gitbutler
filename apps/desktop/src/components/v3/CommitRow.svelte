@@ -302,7 +302,7 @@
 			transform: translateX(-100%) translateY(-50%);
 			border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
 			background-color: var(--clr-selected-in-focus-element);
-			transition: transform var(--transition-medium);
+			transition: transform var(--transition-fast);
 		}
 
 		&:hover,
