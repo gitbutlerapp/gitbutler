@@ -152,15 +152,6 @@
 	}
 </script>
 
-<HunkContextMenu
-	bind:this={contextMenu}
-	trigger={viewport}
-	projectPath={project.vscodePath}
-	{projectId}
-	{change}
-	readonly={false}
-/>
-
 <div class="diff-section" bind:this={viewport}>
 	<ReduxResult result={diffResult.current}>
 		{#snippet children(diff)}
@@ -186,6 +177,15 @@
 								afterLineNumber: params.afterLineNumber
 							});
 						}}
+					/>
+					<HunkContextMenu
+						bind:this={contextMenu}
+						trigger={viewport}
+						projectPath={project.vscodePath}
+						{projectId}
+						{change}
+						readonly={false}
+						unSelectHunk={(hunk) => updateStage(hunk, false, diff.subject.hunks)}
 					/>
 				{:else}
 					<span class="text-14 hunk-content-warning">No content</span>
