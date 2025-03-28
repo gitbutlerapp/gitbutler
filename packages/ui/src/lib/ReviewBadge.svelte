@@ -96,7 +96,7 @@
 			{/if}
 		{/if}
 
-		{#if brStatus}
+		{#if brId}
 			{@const brBadgeDetails = getBrBadgeDetails()}
 			{@html gbLogo}
 
