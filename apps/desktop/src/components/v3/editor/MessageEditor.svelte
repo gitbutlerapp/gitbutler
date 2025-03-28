@@ -231,6 +231,8 @@
 	}
 
 	.message-editor {
+		display: flex;
+		flex-direction: column;
 		flex: 1;
 		border-radius: 0 var(--radius-m) var(--radius-m) var(--radius-m);
 		border: 1px solid var(--clr-border-2);

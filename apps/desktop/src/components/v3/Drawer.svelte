@@ -121,10 +121,7 @@
 		flex-shrink: 0;
 		flex-grow: 1;
 		width: 100%;
-		/* padding: 14px; */
 		box-sizing: border-box;
-		min-height: 0;
-
 		border-radius: var(--radius-ml);
 		border: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
@@ -133,6 +130,9 @@
 	.drawer-wrap {
 		display: flex;
 		flex-direction: column;
+		flex-shrink: 0;
+		flex-grow: 1;
+		min-height: 100%;
 	}
 
 	.drawer-header {
@@ -162,10 +162,12 @@
 		gap: 2px;
 		margin-top: -2px;
 		margin-right: -4px;
-		/* background-color: blue; */
 	}
 
 	.drawer__content {
+		flex-grow: 1;
+		display: flex;
+		flex-direction: column;
 		padding: 0 14px 12px 14px;
 	}
 </style>
