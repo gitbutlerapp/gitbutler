@@ -1,5 +1,7 @@
 import emojiData from 'emojibase-data/en/compact.json';
+import groupData from 'emojibase-data/en/messages.json';
 import emojiByHexcode from 'emojibase-data/en/shortcodes/github.json';
+import type { GroupKey } from 'emojibase';
 
 export const EMOJI_SHORTCODE_REGEX = /(^|\s):([0-9a-z+_-]+):($|\s)/;
 export const EMOJI_SHORTCODE_SEARCH_REGEX = /(^|\s):([0-9a-z+_-]*)$/;
@@ -195,4 +197,56 @@ export function findEmojiByUnicode(unicode: string): EmojiInfo | undefined {
 		return found;
 	}
 	return emojiData.find((emoji) => emoji.unicode === unicode);
+}
+
+export type EmojiGroupKey = 'recently-used' | GroupKey;
+
+type BaseEmojiGroup = {
+	unicode: string;
+	message: string;
+	key: EmojiGroupKey;
+	emojis: EmojiInfo[];
+};
+
+type RecentEmojiGroup = BaseEmojiGroup & {
+	key: 'recently-used';
+};
+
+type DataEmojiGroup = BaseEmojiGroup & {
+	key: GroupKey;
+	order: number;
+};
+
+export type EmojiGroup = RecentEmojiGroup | DataEmojiGroup;
+
+type EmojiGroupDeclaration = {
+	key: EmojiGroupKey;
+	unincode: string;
+};
+
+const EMOJI_GROUPS = [
+	{ key: 'recently-used', unincode: '🕓' },
+	{ key: 'smileys-emotion', unincode: '😃' },
+	{ key: 'people-body', unincode: '🤷🏻‍♂️' },
+	{ key: 'animals-nature', unincode: '🐈' },
+	{ key: 'food-drink', unincode: '🍔' },
+	{ key: 'travel-places', unincode: '✈️' },
+	{ key: 'activities', unincode: '🚴‍♂️' },
+	{ key: 'objects', unincode: '🪑' },
+	{ key: 'flags', unincode: '🇲🇽' },
+	{ key: 'symbols', unincode: '🚾' }
+] satisfies EmojiGroupDeclaration[];
+
+export function getEmojiGroups(): EmojiGroup[] {
+	const recentEmojis = getRecentEmojis() ?? [];
+	const result: EmojiGroup[] = [
+		{ key: 'recently-used', message: 'recently used', unicode: '🕓', emojis: recentEmojis }
+	];
+	for (const group of EMOJI_GROUPS) {
+		const emojiGroup = groupData.groups.find((g) => g.key === group.key);
+		if (!emojiGroup) continue;
+		const emojis = emojiData.filter((emoji) => emoji.group === emojiGroup.order);
+		result.push({ ...emojiGroup, unicode: group.unincode, emojis });
+	}
+	return result;
 }
