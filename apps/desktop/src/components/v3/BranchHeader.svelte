@@ -20,6 +20,7 @@
 		menuBtnEl?: HTMLButtonElement;
 		isMenuOpenByBtn?: boolean;
 		isMenuOpenByMouse?: boolean;
+		isNewBranch?: boolean;
 		details?: Snippet;
 		onclick: () => void;
 		onLabelDblClick?: () => void;
@@ -38,6 +39,7 @@
 		menuBtnEl = $bindable(),
 		isMenuOpenByBtn,
 		isMenuOpenByMouse,
+		isNewBranch,
 		details,
 		onclick,
 		onLabelDblClick,
@@ -58,6 +60,7 @@
 	bind:this={el}
 	role="button"
 	class="branch-header"
+	class:new-branch={isNewBranch}
 	class:selected
 	{onclick}
 	oncontextmenu={(e) => {
@@ -107,7 +110,15 @@
 					</button>
 				</div>
 
-				{@render details?.()}
+				{#if isNewBranch}
+					<span class="text-12 text-body branch-header__empty-state">
+						This is an empty branch. Click to see details.
+						<br />
+						Create or drag & drop commits here
+					</span>
+				{:else}
+					{@render details?.()}
+				{/if}
 			</div>
 		{/snippet}
 	</ReduxResult>
@@ -162,6 +173,10 @@
 		&:focus-within.selected {
 			background-color: var(--clr-selected-in-focus-bg);
 		}
+
+		&.new-branch {
+			border-bottom: none;
+		}
 	}
 
 	.name-line {
@@ -198,5 +213,12 @@
 			display: flex;
 			opacity: 1;
 		}
+	}
+
+	.branch-header__empty-state {
+		padding: 4px;
+		opacity: 0.8;
+		color: var(--clr-text-2);
+		margin-top: -8px;
 	}
 </style>

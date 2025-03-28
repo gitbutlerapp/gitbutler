@@ -9,7 +9,6 @@
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import CommitGoesHere from '$components/v3/CommitGoesHere.svelte';
 	import CommitRow from '$components/v3/CommitRow.svelte';
-	import EmptyBranch from '$components/v3/EmptyBranch.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/v3/lib';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
@@ -51,6 +50,10 @@
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
 	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const commitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
+	const localAndRemoteCommits = $derived(stackService.commits(projectId, stackId, branchName));
+	const upstreamOnlyCommits = $derived(
+		stackService.upstreamCommits(projectId, stackId, branchName)
+	);
 	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
 	const base = $derived(baseBranchResponse.current.data);
 	const baseSha = $derived(base?.baseSha);
@@ -76,11 +79,21 @@
 		branchResult.current,
 		branchesResult.current,
 		branchDetailsResult.current,
-		commitResult.current
+		commitResult.current,
+		upstreamOnlyCommits.current,
+		localAndRemoteCommits.current
 	)}
 >
-	{#snippet children([branch, branches, branchDetails, commit])}
+	{#snippet children([
+		branch,
+		branches,
+		branchDetails,
+		commit,
+		upstreamOnlyCommits,
+		localAndRemoteCommits
+	])}
 		{@const selected = selection.current?.branchName === branch.name}
+		{@const isNewBranch = !upstreamOnlyCommits.length && !localAndRemoteCommits.length}
 		{#if !first}
 			<BranchDividerLine topPatchStatus={commit?.state.type ?? 'LocalOnly'} />
 		{/if}
@@ -95,6 +108,7 @@
 				isMenuOpenByMouse={isContextMenuOpenedByMouse}
 				selected={selected && selection.current?.commitId === undefined}
 				isTopBranch={first}
+				{isNewBranch}
 				readonly={!!forgeBranch}
 				onclick={() => {
 					uiState.stack(stackId).selection.set({ branchName });
@@ -138,94 +152,93 @@
 				{/snippet}
 			</BranchHeader>
 
-			<BranchCommitList {projectId} {stackId} {branchName} {selectedCommitId}>
-				{#snippet emptyPlaceholder()}
-					<EmptyBranch {lastBranch} />
-				{/snippet}
-				{#snippet upstreamTemplate({ commit, first, lastCommit, selected })}
-					{@const commitId = commit.id}
-					{#if !isCommitting}
-						<CommitRow
-							{stackId}
-							{branchName}
-							{projectId}
-							{first}
-							lastCommit={lastCommit && !commit}
-							{commit}
-							{selected}
-							onclick={() => {
-								uiState.stack(stackId).selection.set({ branchName, commitId, upstream: true });
-								uiState.project(projectId).drawerPage.set(undefined);
-							}}
-						/>
-					{/if}
-				{/snippet}
-				{#snippet localAndRemoteTemplate({ commit, first, last, lastCommit, selected })}
-					{@const commitId = commit.id}
-					{#if isCommitting}
-						<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
-						<CommitGoesHere
-							{commitId}
-							{selected}
-							{first}
-							last={false}
-							onclick={() => uiState.stack(stackId).selection.set({ branchName, commitId })}
-						/>
-					{/if}
-					{@const dzCommit: DzCommitData = {
+			{#if !isNewBranch}
+				<BranchCommitList {projectId} {stackId} {branchName} {selectedCommitId}>
+					{#snippet upstreamTemplate({ commit, first, lastCommit, selected })}
+						{@const commitId = commit.id}
+						{#if !isCommitting}
+							<CommitRow
+								{stackId}
+								{branchName}
+								{projectId}
+								{first}
+								lastCommit={lastCommit && !commit}
+								{commit}
+								{selected}
+								onclick={() => {
+									uiState.stack(stackId).selection.set({ branchName, commitId, upstream: true });
+									uiState.project(projectId).drawerPage.set(undefined);
+								}}
+							/>
+						{/if}
+					{/snippet}
+					{#snippet localAndRemoteTemplate({ commit, first, last, lastCommit, selected })}
+						{@const commitId = commit.id}
+						{#if isCommitting}
+							<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
+							<CommitGoesHere
+								{commitId}
+								{selected}
+								{first}
+								last={false}
+								onclick={() => uiState.stack(stackId).selection.set({ branchName, commitId })}
+							/>
+						{/if}
+						{@const dzCommit: DzCommitData = {
 						id: commit.id,
 						isRemote: isUpstreamCommit(commit),
 						isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
 						isConflicted: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
 					}}
-					{@const amendHandler = new AmendCommitWithChangeDzHandler(
-						projectId,
-						stackService,
-						stackId,
-						dzCommit,
-						(newId) => uiState.stack(stackId).selection.set({ branchName, commitId: newId })
-					)}
-					{@const squashHandler = new SquashCommitDzHandler({
-						branchController,
-						stackId,
-						commit: dzCommit
-					})}
-					<Dropzone handlers={[amendHandler, squashHandler]}>
-						{#snippet overlay({ hovered, activated, handler })}
-							{@const label =
-								handler instanceof AmendCommitWithChangeDzHandler ? 'Amend' : 'Squash'}
-							<CardOverlay {hovered} {activated} {label} />
-						{/snippet}
-						<CommitRow
-							{stackId}
-							{branchName}
-							{projectId}
-							{first}
-							{lastCommit}
-							{lastBranch}
-							{commit}
-							{selected}
-							draggable
-							onclick={() => {
-								const stackState = uiState.stack(stackId);
-								stackState.selection.set({ branchName, commitId });
-								stackState.activeSelectionId.set({ type: 'commit', commitId });
-								uiState.project(projectId).drawerPage.set(undefined);
-							}}
-						/>
-					</Dropzone>
-					{#if isCommitting && last && lastBranch}
-						<CommitGoesHere
-							{commitId}
-							{first}
-							{last}
-							selected={selectedCommitId === baseSha}
-							onclick={() =>
-								uiState.stack(stackId).selection.set({ branchName, commitId: baseSha })}
-						/>
-					{/if}
-				{/snippet}
-			</BranchCommitList>
+						{@const amendHandler = new AmendCommitWithChangeDzHandler(
+							projectId,
+							stackService,
+							stackId,
+							dzCommit,
+							(newId) => uiState.stack(stackId).selection.set({ branchName, commitId: newId })
+						)}
+						{@const squashHandler = new SquashCommitDzHandler({
+							branchController,
+							stackId,
+							commit: dzCommit
+						})}
+						<Dropzone handlers={[amendHandler, squashHandler]}>
+							{#snippet overlay({ hovered, activated, handler })}
+								{@const label =
+									handler instanceof AmendCommitWithChangeDzHandler ? 'Amend' : 'Squash'}
+								<CardOverlay {hovered} {activated} {label} />
+							{/snippet}
+							<CommitRow
+								{stackId}
+								{branchName}
+								{projectId}
+								{first}
+								{lastCommit}
+								{lastBranch}
+								{commit}
+								{selected}
+								draggable
+								onclick={() => {
+									const stackState = uiState.stack(stackId);
+									stackState.selection.set({ branchName, commitId });
+									stackState.activeSelectionId.set({ type: 'commit', commitId });
+									uiState.project(projectId).drawerPage.set(undefined);
+								}}
+							/>
+						</Dropzone>
+						{#if isCommitting && last && lastBranch}
+							<CommitGoesHere
+								{commitId}
+								{first}
+								{last}
+								selected={selectedCommitId === baseSha}
+								onclick={() =>
+									uiState.stack(stackId).selection.set({ branchName, commitId: baseSha })}
+							/>
+						{/if}
+					{/snippet}
+				</BranchCommitList>
+			{/if}
 		</div>
 
 		<NewBranchModal
