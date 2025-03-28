@@ -6,7 +6,7 @@
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
-	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
+	import { getEditorUri, openExternalFile, openExternalUrl } from '$lib/utils/url';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
@@ -31,8 +31,7 @@
 	});
 
 	shortcutService.on('open-in-finder', () => {
-		const path = `file://${project.path}`;
-		openExternalUrl(path);
+		openExternalFile(project.path);
 	});
 
 	shortcutService.on('history', () => {
