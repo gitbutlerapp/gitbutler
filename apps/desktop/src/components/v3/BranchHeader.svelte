@@ -144,16 +144,17 @@
 			}
 		}
 
+		&:focus-within,
 		&.selected {
 			background-color: var(--clr-selected-not-in-focus-bg);
+
+			& .branch-menu-btn {
+				display: flex;
+			}
 
 			&:before {
 				transform: translateX(0%);
 			}
-		}
-
-		&:focus-within.selected {
-			background-color: var(--clr-selected-in-focus-bg);
 		}
 	}
 

@@ -207,9 +207,11 @@
 			type="button"
 			bind:this={kebabMenuTrigger}
 			class="commit-menu-btn"
+			class:activated={isOpenedByKebabButton}
 			onmousedown={(e) => {
 				e.preventDefault();
 				e.stopPropagation();
+				isOpenedByKebabButton = true;
 				contextMenu?.toggle();
 			}}
 			onclick={(e) => {
@@ -272,6 +274,11 @@
 	onUncommitClick={handleUncommit}
 	onEditMessageClick={openCommitMessageModal}
 	onPatchEditClick={handleEditPatch}
+	onToggle={(isOpen, isLeftClick) => {
+		if (isLeftClick) {
+			isOpenedByKebabButton = isOpen;
+		}
+	}}
 />
 
 <style lang="postcss">
@@ -318,21 +325,21 @@
 			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 		}
 
-		&.selected,
-		&:focus-within {
-			&::before {
+		&&:focus-within,
+		&.selected {
+			background-color: var(--clr-selected-not-in-focus-bg);
+
+			& .commit-menu-btn {
+				display: flex;
+			}
+
+			&:before {
 				transform: translateX(0%) translateY(-50%);
 			}
 		}
 
-		&.selected {
-			background-color: var(--clr-selected-not-in-focus-bg);
-		}
-
-		&:focus-within {
-			&.selected {
-				background-color: var(--clr-selected-in-focus-bg);
-			}
+		&:focus-within.selected {
+			background-color: var(--clr-selected-in-focus-bg);
 		}
 	}
 
@@ -340,7 +347,7 @@
 		display: flex;
 		align-items: center;
 		position: relative;
-		gap: 3px;
+		gap: 4px;
 		width: 100%;
 		overflow: hidden;
 		padding-right: 10px;

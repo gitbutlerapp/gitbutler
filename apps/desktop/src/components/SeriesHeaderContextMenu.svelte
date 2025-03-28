@@ -32,7 +32,7 @@
 		onGenerateBranchName: () => void;
 		onAddDependentSeries?: () => void;
 		onOpenInBrowser?: () => void;
-		onMenuToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
+		onToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
 
 	let {
@@ -52,7 +52,7 @@
 		onGenerateBranchName,
 		onAddDependentSeries,
 		onOpenInBrowser,
-		onMenuToggle
+		onToggle
 	}: Props = $props();
 
 	const [project, aiService, stackService] = inject(Project, AIService, StackService);
@@ -85,7 +85,7 @@
 	{leftClickTrigger}
 	{rightClickTrigger}
 	ontoggle={(isOpen, isLeftClick) => {
-		onMenuToggle?.(isOpen, isLeftClick);
+		onToggle?.(isOpen, isLeftClick);
 	}}
 >
 	{#if isTopBranch}

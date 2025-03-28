@@ -244,7 +244,7 @@
 			}}
 			hasForgeBranch={!!forgeBranch}
 			branchType={commit?.state.type || 'LocalOnly'}
-			onMenuToggle={(isOpen, isLeftClick) => {
+			onToggle={(isOpen, isLeftClick) => {
 				if (isLeftClick) {
 					contextMenuOpened = isOpen;
 				}
