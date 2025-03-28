@@ -75,6 +75,10 @@
 			display: flex;
 			margin-right: -4px;
 		}
+
+		& :global(> span:last-child) {
+			margin-right: 0;
+		}
 	}
 
 	.avatar-icon {
