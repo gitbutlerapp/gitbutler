@@ -18,13 +18,24 @@ fn main() -> Result<()> {
     match &args.cmd {
         args::Subcommands::DiscardChange {
             hunk_indices,
+            hunk_headers,
             current_path,
             previous_path,
         } => command::discard_change(
             &args.current_dir,
             current_path,
             previous_path.as_deref(),
-            hunk_indices,
+            if !hunk_indices.is_empty() {
+                Some(command::discard_change::IndicesOrHeaders::Indices(
+                    hunk_indices,
+                ))
+            } else if !hunk_headers.is_empty() {
+                Some(command::discard_change::IndicesOrHeaders::Headers(
+                    hunk_headers,
+                ))
+            } else {
+                None
+            },
         ),
         args::Subcommands::Commit {
             message,

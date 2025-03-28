@@ -57,11 +57,13 @@ pub enum Subcommands {
         unified_diff: bool,
     },
     /// Discard the specified worktree change.
-    #[clap(disable_help_flag(true))]
     DiscardChange {
         /// The zero-based indices of all hunks to discard.
-        #[clap(long, short = 'h')]
+        #[clap(long)]
         hunk_indices: Vec<usize>,
+        /// The 1-based pairs of 4 numbers equivalent to '(old_start,old_lines,new_start,new_lines)'
+        #[clap(long, num_args = 4, conflicts_with = "hunk_indices", value_names = ["old-start", "old-lines", "new-start", "new-lines"])]
+        hunk_headers: Vec<u32>,
         /// The repo-relative path to the changed file to discard.
         current_path: PathBuf,
         /// If the change is a rename, identify the repo-relative path of the source.
