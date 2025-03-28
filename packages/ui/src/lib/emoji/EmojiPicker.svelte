@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Button from '$lib/Button.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import EmojiGroup from '$lib/emoji/EmojiGroup.svelte';
 	import {
 		getEmojiGroups,
 		markRecentlyUsedEmoji,
@@ -19,6 +20,12 @@
 	const groups = getEmojiGroups();
 	let selectedGroup = $state<EmojiGroupKey>('recently-used');
 	let search = $state<string>();
+	let scrollTop = $state<number>(0);
+
+	function onScroll(e: Event) {
+		const target = e.target as HTMLDivElement;
+		scrollTop = target.scrollTop;
+	}
 
 	const searchResults = $derived.by(() => {
 		if (!search) return undefined;
@@ -74,7 +81,7 @@
 	</div>
 
 	<div class="emoji-picker__body-wrapper">
-		<ScrollableContainer whenToShow="scroll">
+		<ScrollableContainer whenToShow="scroll" onscroll={onScroll}>
 			<div class="emoji-picker__body">
 				{#if searchResults}
 					<div class="emoji-picker__group">
@@ -87,16 +94,8 @@
 						{/each}
 					</div>
 				{:else}
-					{#each groups as group}
-						<div class="emoji-picker__group" id="emoji-group-{group.key}">
-							{#each group.emojis as emoji}
-								<div class="emoji">
-									<Button kind="ghost" onclick={() => handleEmojiClick(emoji)}>
-										<p class="text-16">{emoji.unicode}</p>
-									</Button>
-								</div>
-							{/each}
-						</div>
+					{#each groups as group, index}
+						<EmojiGroup {group} {scrollTop} {handleEmojiClick} {index} />
 					{/each}
 				{/if}
 			</div>
@@ -182,16 +181,6 @@
 	.emoji-picker__body {
 		flex-direction: column;
 		display: flex;
-	}
-
-	.emoji-picker__group {
-		display: flex;
-		flex-wrap: wrap;
-		padding: 8px 14px;
-		gap: 3px;
-		&:not(:last-child) {
-			border-bottom: 1px solid var(--clr-border-3);
-		}
 	}
 
 	.emoji {
