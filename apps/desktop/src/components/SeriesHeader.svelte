@@ -178,7 +178,7 @@
 	seriesCount={stack.validSeries?.length ?? 0}
 	{isTopBranch}
 	{toggleDescription}
-	description={branch.description ?? ''}
+	descriptionString={branch.description ?? ''}
 	onGenerateBranchName={generateBranchName}
 	onAddDependentSeries={() => stackingAddSeriesModal?.show()}
 	onOpenInBrowser={() => {
@@ -188,7 +188,7 @@
 	hasForgeBranch={!!forgeBranch}
 	{pr}
 	{branchType}
-	onMenuToggle={(isOpen, isLeftClick) => {
+	onToggle={(isOpen, isLeftClick) => {
 		if (isLeftClick) {
 			contextMenuOpened = isOpen;
 		}

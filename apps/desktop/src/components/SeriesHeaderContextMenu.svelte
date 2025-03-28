@@ -25,13 +25,14 @@
 		hasForgeBranch: boolean;
 		pr?: DetailedPullRequest;
 		branchType: CommitStatus;
-		description: string;
+		descriptionOption?: boolean;
+		descriptionString?: string;
 		stackId: string;
-		toggleDescription: () => Promise<void>;
+		toggleDescription?: () => Promise<void>;
 		onGenerateBranchName: () => void;
 		onAddDependentSeries?: () => void;
 		onOpenInBrowser?: () => void;
-		onMenuToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
+		onToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
 
 	let {
@@ -44,13 +45,14 @@
 		branchName,
 		pr,
 		branchType,
-		description,
+		descriptionOption = true,
+		descriptionString,
 		stackId,
 		toggleDescription,
 		onGenerateBranchName,
 		onAddDependentSeries,
 		onOpenInBrowser,
-		onMenuToggle
+		onToggle
 	}: Props = $props();
 
 	const [project, aiService, stackService] = inject(Project, AIService, StackService);
@@ -76,8 +78,6 @@
 	export function showSeriesRenameModal() {
 		renameSeriesModal.show();
 	}
-
-	let isOpenedByMouse = $state(false);
 </script>
 
 <ContextMenu
@@ -85,16 +85,10 @@
 	{leftClickTrigger}
 	{rightClickTrigger}
 	ontoggle={(isOpen, isLeftClick) => {
-		if (!isLeftClick) {
-			isOpenedByMouse = true;
-		} else {
-			isOpenedByMouse = false;
-		}
-
-		onMenuToggle?.(isOpen, isLeftClick);
+		onToggle?.(isOpen, isLeftClick);
 	}}
 >
-	{#if isOpenedByMouse && isTopBranch}
+	{#if isTopBranch}
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Add dependent branch"
@@ -106,7 +100,7 @@
 		</ContextMenuSection>
 	{/if}
 	<ContextMenuSection>
-		{#if isOpenedByMouse && hasForgeBranch}
+		{#if hasForgeBranch}
 			<ContextMenuItem
 				label="Open in browser"
 				onclick={() => {
@@ -124,13 +118,15 @@
 		/>
 	</ContextMenuSection>
 	<ContextMenuSection>
-		<ContextMenuItem
-			label={`${!description ? 'Add' : 'Remove'} description`}
-			onclick={async () => {
-				await toggleDescription();
-				contextMenuEl?.close();
-			}}
-		/>
+		{#if descriptionOption}
+			<ContextMenuItem
+				label={`${!descriptionString ? 'Add' : 'Remove'} description`}
+				onclick={async () => {
+					await toggleDescription?.();
+					contextMenuEl?.close();
+				}}
+			/>
+		{/if}
 		{#if $aiGenEnabled && aiConfigurationValid && !hasForgeBranch}
 			<ContextMenuItem
 				label="Generate branch name"

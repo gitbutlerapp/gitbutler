@@ -6,11 +6,19 @@
 		name: string;
 		disabled?: boolean;
 		readonly?: boolean;
+		fontSize?: '14' | '15';
 		onChange?: (value: string) => void;
 		onDblClick?: () => void;
 	}
 
-	const { name, disabled = false, readonly = false, onChange, onDblClick }: Props = $props();
+	const {
+		name,
+		disabled = false,
+		fontSize = '14',
+		readonly = false,
+		onChange,
+		onDblClick
+	}: Props = $props();
 
 	let inputEl: HTMLInputElement | undefined = $state();
 	let editableName = $state(name);
@@ -26,7 +34,7 @@
 	use:resizeObserver={(e) => {
 		nameWidth = Math.round(e.frame.width);
 	}}
-	class="branch-name-measure-el text-14 text-bold"
+	class="branch-name-measure-el text-{fontSize} text-bold"
 >
 	{name}
 </span>
@@ -35,7 +43,7 @@
 	use:resizeObserver={(e) => {
 		editableNameWidth = Math.round(e.frame.width);
 	}}
-	class="branch-name-measure-el text-14 text-bold"
+	class="branch-name-measure-el text-{fontSize} text-bold"
 >
 	{editableName}
 </span>
@@ -55,7 +63,7 @@
 		onChange?.(value);
 	}}
 	title={editableName}
-	class="branch-name-input text-14 text-bold"
+	class="branch-name-input text-{fontSize} text-bold"
 	ondblclick={(e) => {
 		e.stopPropagation();
 		if (!readonly) {
@@ -130,6 +138,6 @@
 	}
 	.branch-name-input[readonly] {
 		pointer: normal;
-		user-select: none;
+		pointer-events: none;
 	}
 </style>

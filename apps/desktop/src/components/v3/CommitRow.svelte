@@ -12,9 +12,8 @@
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
-	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
 
@@ -70,6 +69,7 @@
 	let conflictResolutionConfirmationModal = $state<ReturnType<typeof Modal>>();
 
 	let isOpenedByKebabButton = $state(false);
+	let isOpenedByMouse = $state(false);
 
 	async function handleUncommit() {
 		if (!baseBranch) {
@@ -107,11 +107,32 @@
 </script>
 
 <div
+	role="button"
+	tabindex="0"
+	aria-label="Commit row"
+	class="commit-row__main"
+	class:menu-shown={isOpenedByKebabButton || isOpenedByMouse}
+	class:first
+	class:selected
+	style:opacity
+	class:border-top={borderTop || first}
 	bind:this={commitRowElement}
-	role="listitem"
-	class="commit"
 	class:last={lastCommit}
+	onclick={(e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		if (disableCommitActions) return;
+		onclick?.();
+	}}
+	onkeydown={(e) => {
+		if (disableCommitActions) return;
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			onclick?.();
+		}
+	}}
 	oncontextmenu={(e) => {
+		if (disableCommitActions) return;
 		e.preventDefault();
 		isOpenedByKebabButton = false;
 		contextMenu?.open(e);
@@ -139,36 +160,33 @@
 			}
 		: NON_DRAGGABLE}
 >
-	<div
-		class="commit-row__main"
-		class:first
-		class:selected
-		style:opacity
-		class:border-top={borderTop || first}
-	>
-		<CommitLine {commit} {lastCommit} {lastBranch} {lineColor} />
+	<CommitLine {commit} {lastCommit} {lastBranch} {lineColor} />
 
-		<div class="commit-content">
-			<button type="button" {onclick} tabindex="0">
-				<CommitHeader {commit} row />
-			</button>
+	<div class="commit-content">
+		<!-- <button type="button" {onclick} tabindex="0"> -->
+		<div class="commit-name truncate">
+			<CommitHeader {commit} row />
 		</div>
-	</div>
 
-	{#if !disableCommitActions}
-		<PopoverActionsContainer class="commit-row-actions-menu" thin stayOpen={isOpenedByKebabButton}>
-			<PopoverActionsItem
-				bind:el={kebabMenuTrigger}
-				activated={isOpenedByKebabButton}
-				icon="kebab"
-				tooltip="More options"
-				thin
-				onclick={() => {
-					contextMenu?.toggle();
-				}}
-			/>
-		</PopoverActionsContainer>
-	{/if}
+		<button
+			type="button"
+			bind:this={kebabMenuTrigger}
+			class="commit-menu-btn"
+			class:activated={isOpenedByKebabButton}
+			onmousedown={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				isOpenedByKebabButton = true;
+				contextMenu?.toggle();
+			}}
+			onclick={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+			}}
+		>
+			<Icon name="kebab" /></button
+		>
+	</div>
 </div>
 
 <Modal bind:this={conflictResolutionConfirmationModal} width="small" onSubmit={editPatch}>
@@ -186,15 +204,10 @@
 </Modal>
 
 <CommitContextMenu
+	bind:menu={contextMenu}
 	{projectId}
 	leftClickTrigger={kebabMenuTrigger}
 	rightClickTrigger={commitRowElement}
-	onToggle={(isOpen, isLeftClick) => {
-		if (isLeftClick) {
-			isOpenedByKebabButton = isOpen;
-		}
-	}}
-	bind:menu={contextMenu}
 	{baseBranch}
 	branchId={stackId}
 	{commit}
@@ -202,23 +215,16 @@
 	onUncommitClick={handleUncommit}
 	onEditMessageClick={openCommitMessageModal}
 	onPatchEditClick={handleEditPatch}
+	onToggle={(isOpen, isLeftClick) => {
+		if (isLeftClick) {
+			isOpenedByKebabButton = isOpen;
+		} else {
+			isOpenedByMouse = isOpen;
+		}
+	}}
 />
 
 <style lang="postcss">
-	.commit {
-		position: relative;
-		display: flex;
-		align-items: center;
-		width: 100%;
-		overflow: hiddend;
-
-		&:hover :global(.commit-row-actions-menu) {
-			--show: true;
-		}
-		&:not(.last) {
-			border-bottom: 1px solid var(--clr-border-2);
-		}
-	}
 	.commit-row__main {
 		position: relative;
 		display: flex;
@@ -226,46 +232,80 @@
 		overflow: hidden;
 		transition: background-color var(--transition-fast);
 
-		&:hover {
-			background-color: var(--clr-bg-1-muted);
-		}
-
 		&::before {
 			content: '';
 			position: absolute;
-			right: 0;
-			width: 3px;
-			height: 100%;
-			transform: translateX(100%);
-			background-color: var(--clr-theme-pop-element);
+			top: 50%;
+			left: 0;
+			width: 4px;
+			height: 45%;
+			transform: translateX(-100%) translateY(-50%);
+			border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
+			background-color: var(--clr-selected-in-focus-element);
 			transition: transform var(--transition-fast);
 		}
 
+		&:hover,
+		&.menu-shown {
+			background-color: var(--clr-bg-1-muted);
+
+			& .commit-menu-btn {
+				display: flex;
+			}
+		}
+
+		&:not(.last) {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
+
+		&.last {
+			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+		}
+
+		&:focus-within,
 		&.selected {
 			background-color: var(--clr-selected-not-in-focus-bg);
+
+			& .commit-menu-btn {
+				display: flex;
+			}
+
+			&:before {
+				transform: translateX(0%) translateY(-50%);
+			}
 		}
 
 		&:focus-within.selected {
 			background-color: var(--clr-selected-in-focus-bg);
 		}
-
-		&.selected::before {
-			transform: none;
-		}
 	}
 
 	.commit-content {
 		display: flex;
-		flex-direction: column;
+		align-items: center;
 		position: relative;
-		gap: 6px;
+		gap: 4px;
 		width: 100%;
 		overflow: hidden;
+		padding-right: 10px;
+	}
 
-		& button {
-			padding: 14px 14px 14px 0;
-			display: flex;
-			justify-items: start;
+	.commit-name {
+		flex: 1;
+		padding: 14px 0 14px 4px;
+		display: flex;
+	}
+
+	.commit-menu-btn {
+		display: none;
+		padding: 3px;
+		color: var(--clr-text-1);
+		opacity: 0.5;
+		transition: opacity var(--transition-fast);
+
+		&:hover,
+		&.activated {
+			opacity: 1;
 		}
 	}
 </style>

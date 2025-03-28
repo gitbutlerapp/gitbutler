@@ -86,10 +86,14 @@
 		align-items: center;
 		opacity: 0;
 		z-index: var(--z-lifted);
+
 		&:hover {
 			opacity: 1;
-		}
-		&.last {
+
+			& .commit-here__label {
+				opacity: 1;
+				transform: translateY(-50%) translateX(0) scale(1);
+			}
 		}
 	}
 	.commit-here__circle {
@@ -101,7 +105,7 @@
 		width: 10px;
 		height: 10px;
 		background-color: var(--clr-theme-pop-element);
-		outline: 2px solid var(--clr-bg-2);
+		outline: 2px solid var(--clr-bg-1);
 	}
 	.commit-here__line {
 		background-color: var(--clr-theme-pop-element);
@@ -113,10 +117,13 @@
 		position: absolute;
 		top: 50%;
 		left: 38px;
-		transform: translateY(-50%);
-		padding: 2px 6px;
+		padding: 3px 6px;
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-theme-pop-element);
 		color: var(--clr-core-ntrl-100);
+		transform: translateY(-50%) translateX(-10%) scale(0.95);
+		transition:
+			opacity var(--transition-fast),
+			transform var(--transition-medium);
 	}
 </style>

@@ -21,7 +21,6 @@
 		onUncommitClick: (event: MouseEvent) => void;
 		onEditMessageClick: (event: MouseEvent) => void;
 		onPatchEditClick: (event: MouseEvent) => void;
-		onClose?: () => void;
 		onToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
 
@@ -37,7 +36,6 @@
 		onUncommitClick,
 		onEditMessageClick,
 		onPatchEditClick,
-		onClose,
 		onToggle
 	}: Props = $props();
 
@@ -60,13 +58,7 @@
 	const isRemote = $derived(!isCommit(commit));
 </script>
 
-<ContextMenu
-	bind:this={menu}
-	{leftClickTrigger}
-	{rightClickTrigger}
-	onclose={onClose}
-	ontoggle={onToggle}
->
+<ContextMenu bind:this={menu} {leftClickTrigger} {rightClickTrigger} ontoggle={onToggle}>
 	{#if !isRemote}
 		<ContextMenuSection>
 			<ContextMenuItem

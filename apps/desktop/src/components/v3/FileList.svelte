@@ -87,7 +87,6 @@
 		{projectId}
 		{listActive}
 		{listMode}
-		showCheckbox={showCheckboxes}
 		selected={idSelection.has(change.path, selectionId)}
 		onclick={(e) => {
 			selectFilesInList(e, change, visibleFiles, idSelection, true, idx, selectionId);

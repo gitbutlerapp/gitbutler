@@ -59,7 +59,9 @@
 			onscroll?.(e);
 		}}
 	>
-		{@render children()}
+		<div class="viewport-content">
+			{@render children()}
+		</div>
 		<Scrollbar
 			{whenToShow}
 			{viewport}
@@ -84,5 +86,10 @@
 	.viewport {
 		height: 100%;
 		width: 100%;
+	}
+	/* need this wrapper to not mess with
+	 * pseudo selectors like ::last-child */
+	.viewport-content {
+		display: contents;
 	}
 </style>

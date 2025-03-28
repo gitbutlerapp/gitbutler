@@ -12,7 +12,6 @@
 		stackId: string;
 		branchName: string;
 		selectedCommitId?: string;
-		emptyPlaceholder?: Snippet;
 		upstreamTemplate?: Snippet<
 			[
 				{
@@ -43,7 +42,6 @@
 		stackId,
 		branchName,
 		selectedCommitId,
-		emptyPlaceholder,
 		localAndRemoteTemplate,
 		upstreamTemplate
 	}: Props = $props();
@@ -58,38 +56,34 @@
 
 <ReduxResult result={combineResults(upstreamOnlyCommits.current, localAndRemoteCommits.current)}>
 	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits])}
-		{#if emptyPlaceholder && !upstreamOnlyCommits.length && !localAndRemoteCommits.length}
-			{@render emptyPlaceholder()}
-		{:else}
-			<div class="commit-list">
-				{#if upstreamTemplate}
-					{#each upstreamOnlyCommits as commit, i (commit.id)}
-						{@const first = i === 0}
-						{@const lastCommit = i === upstreamOnlyCommits.length - 1}
-						{@const commitKey = { stackId, branchName, commitId: commit.id, upstream: true }}
-						{@const selected = selectedCommitId === commit.id}
-						{@render upstreamTemplate({ commit, commitKey, first, lastCommit, selected })}
-					{/each}
-				{/if}
+		<div class="commit-list">
+			{#if upstreamTemplate}
+				{#each upstreamOnlyCommits as commit, i (commit.id)}
+					{@const first = i === 0}
+					{@const lastCommit = i === upstreamOnlyCommits.length - 1}
+					{@const commitKey = { stackId, branchName, commitId: commit.id, upstream: true }}
+					{@const selected = selectedCommitId === commit.id}
+					{@render upstreamTemplate({ commit, commitKey, first, lastCommit, selected })}
+				{/each}
+			{/if}
 
-				{#if localAndRemoteTemplate}
-					{#each localAndRemoteCommits as commit, i (commit.id)}
-						{@const first = i === 0}
-						{@const last = i === localAndRemoteCommits.length - 1}
-						{@const commitKey = { stackId, branchName, commitId: commit.id, upstream: false }}
-						{@const selected = selectedCommitId === commit.id}
-						{@render localAndRemoteTemplate({
-							commit,
-							commitKey,
-							first,
-							last,
-							lastCommit: last,
-							selected
-						})}
-					{/each}
-				{/if}
-			</div>
-		{/if}
+			{#if localAndRemoteTemplate}
+				{#each localAndRemoteCommits as commit, i (commit.id)}
+					{@const first = i === 0}
+					{@const last = i === localAndRemoteCommits.length - 1}
+					{@const commitKey = { stackId, branchName, commitId: commit.id, upstream: false }}
+					{@const selected = selectedCommitId === commit.id}
+					{@render localAndRemoteTemplate({
+						commit,
+						commitKey,
+						first,
+						last,
+						lastCommit: last,
+						selected
+					})}
+				{/each}
+			{/if}
+		</div>
 	{/snippet}
 </ReduxResult>
 
@@ -99,6 +93,5 @@
 		display: flex;
 		flex-direction: column;
 		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
-		/* overflow: hidden; */
 	}
 </style>
