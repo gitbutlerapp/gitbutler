@@ -1,0 +1,9 @@
+[package]
+name = "gitbutler-error"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+anyhow = "1.0.95"
