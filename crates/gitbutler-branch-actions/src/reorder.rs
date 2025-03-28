@@ -81,7 +81,7 @@ pub fn reorder_stack(
     };
 
     // Ensure the stack head is set to the new oid after rebasing
-    stack.set_stack_head(ctx, new_head_oid, new_tree_oid)?;
+    stack.set_stack_head(&state, &gix_repo, new_head_oid, new_tree_oid)?;
 
     stack.set_heads_from_rebase_output(ctx, output.references.clone())?;
 

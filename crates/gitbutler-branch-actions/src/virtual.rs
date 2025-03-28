@@ -696,7 +696,7 @@ pub(crate) fn reset_branch(
     // what hunks were released by this reset, and assign them to this branch.
     let old_head = get_workspace_head(ctx)?;
 
-    stack.set_stack_head(ctx, target_commit_id, None)?;
+    stack.set_stack_head(&vb_state, &gix_repo, target_commit_id, None)?;
 
     let updated_head = get_workspace_head(ctx)?;
     let repo = ctx.repo();
@@ -829,7 +829,7 @@ pub fn commit(
     };
 
     let vb_state = ctx.project().virtual_branches();
-    branch.set_stack_head(ctx, commit_oid, Some(tree_oid))?;
+    branch.set_stack_head(&vb_state, &gix_repo, commit_oid, Some(tree_oid))?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
@@ -1320,7 +1320,7 @@ pub(crate) fn move_commit_file(
 
     // if there are no upstream commits (the "to" commit was the branch head), then we're done
     if upstream_commits.is_empty() {
-        target_stack.set_stack_head(ctx, commit_oid, None)?;
+        target_stack.set_stack_head(&vb_state, &gix_repo, commit_oid, None)?;
         crate::integration::update_workspace_commit(&vb_state, ctx)?;
         return Ok(commit_oid);
     }
@@ -1331,7 +1331,7 @@ pub(crate) fn move_commit_file(
 
     // if that rebase worked, update the branch head and the gitbutler workspace
     if let Some(new_head) = new_head {
-        target_stack.set_stack_head(ctx, new_head, None)?;
+        target_stack.set_stack_head(&vb_state, &gix_repo, new_head, None)?;
         crate::integration::update_workspace_commit(&vb_state, ctx)?;
         Ok(commit_oid)
     } else {
@@ -1401,7 +1401,7 @@ pub(crate) fn insert_blank_commit(
     let output = rebase.rebase()?;
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
-    stack.set_stack_head(ctx, output.top_commit.to_git2(), None)?;
+    stack.set_stack_head(&vb_state, &repo, output.top_commit.to_git2(), None)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
@@ -1470,7 +1470,7 @@ pub(crate) fn update_commit_message(
     let output = rebase.rebase()?;
 
     let new_head = output.top_commit.to_git2();
-    stack.set_stack_head(ctx, new_head, None)?;
+    stack.set_stack_head(&vb_state, &gix_repo, new_head, None)?;
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx)

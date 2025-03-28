@@ -583,7 +583,7 @@ pub(crate) fn integrate_upstream(
             if let Some(output) = rebase_output {
                 stack.set_heads_from_rebase_output(command_context, output.references.clone())?;
             }
-            stack.set_stack_head(command_context, *head, *tree)?;
+            stack.set_stack_head(&virtual_branches_state, &gix_repo, *head, *tree)?;
 
             let delete_local_refs = resolutions
                 .iter()

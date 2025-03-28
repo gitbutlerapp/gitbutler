@@ -383,7 +383,8 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
         .context("failed to create virtual branch")?;
 
     // rebasing the extra commits onto the new branch
-    let mut head = new_branch.head(&ctx.repo().to_gix()?)?;
+    let gix_repo = ctx.repo().to_gix()?;
+    let mut head = new_branch.head(&gix_repo)?;
     for commit in extra_commits {
         let new_branch_head = ctx
             .repo()
@@ -411,7 +412,12 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
             rebased_commit_oid
         ))?;
 
-        new_branch.set_stack_head(ctx, rebased_commit.id(), Some(rebased_commit.tree_id()))?;
+        new_branch.set_stack_head(
+            &vb_handle,
+            &gix_repo,
+            rebased_commit.id(),
+            Some(rebased_commit.tree_id()),
+        )?;
 
         head = rebased_commit.id();
     }

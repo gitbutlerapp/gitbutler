@@ -85,7 +85,7 @@ pub fn integrate_upstream_commits_for_series(
         integrate_upstream_context.inner_integrate_upstream_commits_for_series(series_head.id())?;
 
     let mut branch = stack.clone();
-    branch.set_stack_head(ctx, head, tree)?;
+    branch.set_stack_head(&vb_state, &gix_repo, head, tree)?;
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     if ctx.app_settings().feature_flags.v3 {
         update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;

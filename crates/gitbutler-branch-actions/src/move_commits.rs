@@ -9,7 +9,7 @@ use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::stack_context::CommandContextExt;
-use gitbutler_stack::StackId;
+use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 #[allow(deprecated)]
 use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head};
@@ -72,7 +72,7 @@ pub(crate) fn move_commit(
         &workspace_dependencies,
     )?;
 
-    move_commit_to_destination_stack(ctx, repo, destination_stack, subject_commit_oid)?;
+    move_commit_to_destination_stack(&vb_state, ctx, repo, destination_stack, subject_commit_oid)?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     if ctx.app_settings().feature_flags.v3 {
@@ -164,12 +164,14 @@ fn take_commit_from_source_stack(
     };
 
     source_stack.set_heads_from_rebase_output(ctx, output.references)?;
-    source_stack.set_stack_head(ctx, new_head_oid, new_tree_oid)?;
+    let vb_state = ctx.project().virtual_branches();
+    source_stack.set_stack_head(&vb_state, &gix_repo, new_head_oid, new_tree_oid)?;
     Ok(())
 }
 
 /// Move the commit to the destination stack.
 fn move_commit_to_destination_stack(
+    vb_state: &VirtualBranchesHandle,
     ctx: &CommandContext,
     repo: &git2::Repository,
     mut destination_stack: gitbutler_stack::Stack,
@@ -204,6 +206,11 @@ fn move_commit_to_destination_stack(
         };
 
     destination_stack.set_heads_from_rebase_output(ctx, output.references)?;
-    destination_stack.set_stack_head(ctx, new_destination_head_oid, new_destination_tree_oid)?;
+    destination_stack.set_stack_head(
+        vb_state,
+        &gix_repo,
+        new_destination_head_oid,
+        new_destination_tree_oid,
+    )?;
     Ok(())
 }

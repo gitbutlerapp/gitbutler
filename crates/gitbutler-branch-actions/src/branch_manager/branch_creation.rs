@@ -249,7 +249,12 @@ impl BranchManager<'_> {
         if let (Some(pr_number), Some(head)) = (pr_number, branch.heads().last()) {
             branch.set_pr_number(self.ctx, head, Some(pr_number))?;
         }
-        branch.set_stack_head(self.ctx, head_commit.id(), Some(head_commit_tree.id()))?;
+        branch.set_stack_head(
+            &vb_state,
+            &repo.to_gix()?,
+            head_commit.id(),
+            Some(head_commit_tree.id()),
+        )?;
         self.ctx.add_branch_reference(&branch)?;
 
         match self.apply_branch(branch.id, perm) {
@@ -361,7 +366,8 @@ impl BranchManager<'_> {
             };
 
             stack.set_stack_head(
-                self.ctx,
+                &vb_state,
+                &gix_repo,
                 new_head.id(),
                 Some(repo.find_real_tree(&new_head, Default::default())?.id()),
             )?;

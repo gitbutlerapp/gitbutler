@@ -851,7 +851,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
         "update target",
     )?;
 
-    branch.set_stack_head(ctx, last_push, None)?;
+    branch.set_stack_head(&vb_state, &ctx.gix_repository()?, last_push, None)?;
 
     // create the branch
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
@@ -974,7 +974,7 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     )?;
 
     branch.upstream = Some(remote_branch.clone());
-    branch.set_stack_head(ctx, last_push, None)?;
+    branch.set_stack_head(&vb_state, &ctx.gix_repository()?, last_push, None)?;
 
     //update repo ref refs/remotes/origin/master to up_target oid
     ctx.repo().reference(

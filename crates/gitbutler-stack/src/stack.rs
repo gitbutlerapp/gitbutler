@@ -12,6 +12,7 @@ use git2::Commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_id::id::Id;
 use gitbutler_oxidize::ObjectIdExt;
+use gitbutler_oxidize::OidExt;
 use gitbutler_oxidize::RepoExt;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
 use gitbutler_repo::logging::LogUntil;
@@ -584,7 +585,8 @@ impl Stack {
     /// - the tree of the stack to the new tree (if provided)
     pub fn set_stack_head(
         &mut self,
-        ctx: &CommandContext,
+        state: &VirtualBranchesHandle,
+        gix_repo: &gix::Repository,
         commit_id: git2::Oid,
         tree: Option<git2::Oid>,
     ) -> Result<()> {
@@ -595,18 +597,17 @@ impl Stack {
         if let Some(tree) = tree {
             self.tree = tree;
         }
-        let commit = ctx.repo().find_commit(commit_id)?;
-        // let patch: CommitOrChangeId = commit.into();
 
-        let state = branch_state(ctx);
-        let gix_repo = ctx.gix_repository()?;
-        // let stack_head = self.head(&gix_repo)?;
+        // let state = branch_state(ctx);
+        // let gix_repo = ctx.gix_repository()?;
+        let commit = gix_repo.find_commit(commit_id.to_gix())?;
+
         let head = self
             .heads
             .last_mut()
             .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
-        head.set_head(commit.into(), &gix_repo)?;
-        // validate_target(head.head_oid(&gix_repo)?, ctx.repo(), stack_head, &state)?;
+
+        head.set_head(commit.id.to_git2().into(), gix_repo)?;
         state.set_stack(self.clone())
     }
 

@@ -300,12 +300,13 @@ pub(crate) fn save_and_return_to_workspace(
         )
         .context("Failed to commit new commit")?;
 
+    let gix_repo = repository.to_gix()?;
     // Rebase all all commits on top of the new commit and update reference
     let new_branch_head = cherry_rebase(
         ctx,
         new_commit_oid,
         commit.id(),
-        virtual_branch.head(&repository.to_gix()?)?,
+        virtual_branch.head(&gix_repo)?,
     )
     .context("Failed to rebase commits onto new commit")?
     .unwrap_or(new_commit_oid);
@@ -319,7 +320,7 @@ pub(crate) fn save_and_return_to_workspace(
         (res.head, Some(res.tree))
     };
 
-    virtual_branch.set_stack_head(ctx, new_branch_head, new_branch_tree)?;
+    virtual_branch.set_stack_head(&vb_state, &gix_repo, new_branch_head, new_branch_tree)?;
 
     // Switch branch to gitbutler/workspace
     repository

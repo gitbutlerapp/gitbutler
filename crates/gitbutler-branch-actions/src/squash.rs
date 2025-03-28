@@ -210,7 +210,7 @@ fn do_squash_commits(
         (res.head, Some(res.tree))
     };
 
-    stack.set_stack_head(ctx, new_head_oid, new_tree_oid)?;
+    stack.set_stack_head(&vb_state, &gix_repo, new_head_oid, new_tree_oid)?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     if ctx.app_settings().feature_flags.v3 {
