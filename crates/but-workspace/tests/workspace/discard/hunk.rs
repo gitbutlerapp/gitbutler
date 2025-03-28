@@ -1,4 +1,6 @@
-use crate::discard::hunk::util::{hunk_header, previous_change_text};
+use crate::discard::hunk::util::{
+    changed_file_in_worktree_with_hunks, hunk_header, previous_change_text,
+};
 use crate::utils::{
     CONTEXT_LINES, read_only_in_memory_scenario, to_change_specs_all_hunks, visualize_index,
     writable_scenario,
@@ -8,6 +10,39 @@ use but_core::UnifiedDiff;
 use but_testsupport::{git_status, visualize_disk_tree_skip_dot_git};
 use but_workspace::commit_engine::{DiffSpec, HunkHeader};
 use but_workspace::discard_workspace_changes;
+
+#[test]
+fn dropped_hunks() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("mixed-hunk-modifications");
+    let (change, hunks) = changed_file_in_worktree_with_hunks(&repo, "file", CONTEXT_LINES)?;
+
+    let mut hunks_to_discard: Vec<HunkHeader> = hunks.into_iter().map(Into::into).collect();
+    hunks_to_discard.push(hunk_header("-10,1", "+13,3"));
+    hunks_to_discard.insert(0, hunk_header("-1,1", "+1,0"));
+
+    let discard_spec = DiffSpec {
+        previous_path: None,
+        path: change.path,
+        hunk_headers: hunks_to_discard,
+    };
+    let dropped = discard_workspace_changes(&repo, Some(discard_spec.into()), CONTEXT_LINES)?;
+    // It drops just the two missing ones hunks
+    insta::assert_debug_snapshot!(dropped, @r#"
+    [
+        DiscardSpec(
+            DiffSpec {
+                previous_path: None,
+                path: "file",
+                hunk_headers: [
+                    HunkHeader("-1,1", "+1,0"),
+                    HunkHeader("-10,1", "+13,3"),
+                ],
+            },
+        ),
+    ]
+    "#);
+    Ok(())
+}
 
 #[test]
 fn non_modifications_trigger_error() -> anyhow::Result<()> {
@@ -50,7 +85,7 @@ fn non_modifications_trigger_error() -> anyhow::Result<()> {
 }
 
 #[test]
-fn hunk_removal_from_end() -> anyhow::Result<()> {
+fn from_end() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("mixed-hunk-modifications");
     let mut hunk_info = Vec::new();
     let filename = "file-in-index";
@@ -76,7 +111,7 @@ fn hunk_removal_from_end() -> anyhow::Result<()> {
     while let Some(change) = but_core::diff::worktree_changes(&repo)?
         .changes
         .into_iter()
-        .find(|change| change.path == "file-in-index")
+        .find(|change| change.path == filename)
     {
         let previous_text = previous_change_text(&repo, &change)?;
         insta::allow_duplicates!(insta::assert_snapshot!(previous_text, @r"
@@ -157,58 +192,7 @@ fn hunk_removal_from_end() -> anyhow::Result<()> {
 }
 
 #[test]
-fn dropped_hunks() -> anyhow::Result<()> {
-    let (repo, _tmp) = writable_scenario("mixed-hunk-modifications");
-    let change = but_core::diff::worktree_changes(&repo)?
-        .changes
-        .into_iter()
-        .find(|change| change.path == "file")
-        .expect("known to have modifications");
-
-    let UnifiedDiff::Patch { hunks } = change.unified_diff(&repo, CONTEXT_LINES)? else {
-        unreachable!("We know there are hunks")
-    };
-
-    let mut hunks_to_discard: Vec<HunkHeader> = hunks.into_iter().map(Into::into).collect();
-    hunks_to_discard.push(hunk_header("-10,1", "+13,3"));
-    hunks_to_discard.insert(0, hunk_header("-1,1", "+1,0"));
-
-    let discard_spec = DiffSpec {
-        previous_path: None,
-        path: change.path,
-        hunk_headers: hunks_to_discard,
-    };
-    let dropped = discard_workspace_changes(&repo, Some(discard_spec.into()), CONTEXT_LINES)?;
-    // It drops just the two missing ones hunks
-    insta::assert_debug_snapshot!(dropped, @r#"
-    [
-        DiscardSpec(
-            DiffSpec {
-                previous_path: None,
-                path: "file",
-                hunk_headers: [
-                    HunkHeader {
-                        old_start: 1,
-                        old_lines: 1,
-                        new_start: 1,
-                        new_lines: 0,
-                    },
-                    HunkHeader {
-                        old_start: 10,
-                        old_lines: 1,
-                        new_start: 13,
-                        new_lines: 3,
-                    },
-                ],
-            },
-        ),
-    ]
-    "#);
-    Ok(())
-}
-
-#[test]
-fn hunk_removal_from_beginning() -> anyhow::Result<()> {
+fn from_beginning() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("mixed-hunk-modifications");
     let mut hunk_info = Vec::new();
     let filename = "file-in-index";
@@ -216,7 +200,7 @@ fn hunk_removal_from_beginning() -> anyhow::Result<()> {
     while let Some(change) = but_core::diff::worktree_changes(&repo)?
         .changes
         .into_iter()
-        .find(|change| change.path == "file-in-index")
+        .find(|change| change.path == filename)
     {
         let UnifiedDiff::Patch { mut hunks } = change.unified_diff(&repo, CONTEXT_LINES)? else {
             unreachable!("We know there are hunks")
@@ -274,6 +258,349 @@ fn hunk_removal_from_beginning() -> anyhow::Result<()> {
         ),
     ]
     "#);
+    Ok(())
+}
+
+#[test]
+fn from_selections() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("mixed-hunk-modifications");
+    let filename = "file-in-index";
+    let (change, hunks) = changed_file_in_worktree_with_hunks(&repo, filename, CONTEXT_LINES)?;
+    insta::assert_debug_snapshot!(hunks.iter().map(|h| &h.diff).collect::<Vec<_>>(), @r#"
+    [
+        "@@ -1,0 +1,4 @@\n+1\n+2\n+3\n+4\n",
+        "@@ -2,2 +6,1 @@\n-6\n-7\n+6-7\n",
+        "@@ -6,2 +9,2 @@\n-10\n-11\n+ten\n+eleven\n",
+        "@@ -9,2 +12,3 @@\n-13\n-14\n+20\n+21\n+22\n",
+        "@@ -13,2 +17,0 @@\n-17\n-18\n",
+    ]
+    "#);
+
+    let discard_spec = DiffSpec {
+        previous_path: None,
+        path: change.path.clone(),
+        hunk_headers: vec![
+            // Split first hunk into two yielding
+            // '+1\n+3\n+4\n'
+            hunk_header("-1,0", "+2,1"),
+            // A complete header can be mixed in as well to undo the whole change.
+            hunk_header("-2,2", "+6,1"),
+            // Discard '-10\n-11\n+ten\n+eleven\n' by discarding both lines individually.
+            hunk_header("-6,2", "+9,1"),
+            hunk_header("-6,2", "+10,1"),
+            // Discard the beginning and the end to yield
+            // '+21\n'
+            hunk_header("-9,2", "+12,1"),
+            hunk_header("-9,2", "+14,1"),
+            // Discard only the last line to yield.
+            // '-18\n'
+            hunk_header("-14,1", "+17,0"),
+        ],
+    };
+    let dropped = discard_workspace_changes(&repo, Some(discard_spec.into()), CONTEXT_LINES)?;
+    assert_eq!(dropped, [], "all sub-hunks could be associated");
+
+    let file_content: BString = std::fs::read(repo.workdir().unwrap().join(filename))?.into();
+    insta::assert_snapshot!(file_content, @r"
+    1
+    3
+    4
+    5
+    6
+    7
+    8
+    9
+    12
+    21
+    15
+    16
+    18
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn from_selections_with_context() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("mixed-hunk-modifications");
+    let filename = "file-in-index";
+    let ui_context_lines = 3;
+    let (change, hunks) = changed_file_in_worktree_with_hunks(&repo, filename, ui_context_lines)?;
+    assert_eq!(
+        hunks.len(),
+        1,
+        "one big hunk with context and everything, similar to what the UI sees"
+    );
+    insta::assert_snapshot!(hunks[0].diff, @r"
+    @@ -1,14 +1,16 @@
+    +1
+    +2
+    +3
+    +4
+     5
+    -6
+    -7
+    +6-7
+     8
+     9
+    -10
+    -11
+    +ten
+    +eleven
+     12
+    -13
+    -14
+    +20
+    +21
+    +22
+     15
+     16
+    -17
+    -18
+    ");
+
+    let filepath = repo.workdir().unwrap().join(filename);
+    let read_file_content = || std::fs::read(&filepath).map(BString::from);
+    let original_file_content = read_file_content()?;
+    let mut discard_spec = DiffSpec {
+        previous_path: None,
+        path: change.path.clone(),
+        hunk_headers: vec![
+            // Discard 2,3, keeping 1,4
+            hunk_header("-1,14", "+2,2"),
+            // Get 6,7 back
+            hunk_header("-2,2", "+1,16"),
+            // Remove 6-7
+            hunk_header("-1,14", "+6,1"),
+            // Get 11 back
+            hunk_header("-7,1", "+1,16"),
+            // Remove 'ten'
+            hunk_header("-1,14", "+9,1"),
+            // Remove 20,21,22
+            hunk_header("-1,14", "+12,3"),
+            // Get 17,18 back
+            hunk_header("-13,2", "+1,16"),
+        ],
+    };
+    let dropped =
+        discard_workspace_changes(&repo, Some(discard_spec.clone().into()), ui_context_lines)?;
+    assert_eq!(dropped.len(), 0, "all sub-hunks could be associated");
+
+    let file_content = read_file_content()?;
+    insta::assert_snapshot!(file_content, @r"
+    1
+    6
+    7
+    4
+    5
+    8
+    11
+    9
+    eleven
+    12
+    15
+    16
+    17
+    18
+    ");
+
+    std::fs::write(&filepath, original_file_content)?;
+    discard_spec.hunk_headers.reverse();
+    let dropped =
+        discard_workspace_changes(&repo, Some(discard_spec.clone().into()), ui_context_lines)?;
+    assert_eq!(
+        dropped.len(),
+        0,
+        "hunk-selection order doesn't matter, they can still be associated"
+    );
+    let actual = read_file_content()?;
+    // However, the order of old/new additions or removals do matter, as it affects the application order.
+    // Thus 8 & 11 are reversed compared to the above.
+    insta::assert_snapshot!(actual, @r"
+    1
+    6
+    7
+    4
+    5
+    11
+    8
+    9
+    eleven
+    12
+    15
+    16
+    17
+    18
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn hunk_removal_of_additions_single_line() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("plain-modifications");
+    let filename = "all-added";
+    let (change, hunks) = changed_file_in_worktree_with_hunks(&repo, filename, CONTEXT_LINES)?;
+    assert_eq!(
+        hunks.len(),
+        1,
+        "one big hunk with context and everything, similar to what the UI sees"
+    );
+    insta::assert_snapshot!(hunks[0].diff, @r"
+    @@ -1,0 +1,10 @@
+    +1
+    +2
+    +3
+    +4
+    +5
+    +6
+    +7
+    +8
+    +9
+    +10
+    ");
+
+    let discard_spec = DiffSpec {
+        previous_path: None,
+        path: change.path.clone(),
+        hunk_headers: vec![
+            // Anchor at the old hunk, and redefine change to discard in the new hunk,
+            // effectively discarding only line 5.
+            // Internally we turn this into [("-1,0", "+1,4"), ("-1,0", "+6,4")].
+            hunk_header("-1,0", "+5,1"),
+            // TODO: figure out a header specification
+        ],
+    };
+    let dropped = discard_workspace_changes(&repo, Some(discard_spec.into()), CONTEXT_LINES)?;
+    assert_eq!(dropped.len(), 0, "all sub-hunks could be associated");
+
+    let file_content: BString = std::fs::read(repo.workdir().unwrap().join(filename))?.into();
+    insta::assert_snapshot!(file_content, @r"
+    1
+    2
+    3
+    4
+    6
+    7
+    8
+    9
+    10
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn hunk_removal_of_removal_single_line() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("plain-modifications");
+    let filename = "all-removed";
+    let (change, hunks) = changed_file_in_worktree_with_hunks(&repo, filename, CONTEXT_LINES)?;
+    assert_eq!(
+        hunks.len(),
+        1,
+        "one big hunk with context and everything, similar to what the UI sees"
+    );
+    insta::assert_snapshot!(hunks[0].diff, @r"
+    @@ -1,10 +1,0 @@
+    -1
+    -2
+    -3
+    -4
+    -5
+    -6
+    -7
+    -8
+    -9
+    -10
+    ");
+
+    let discard_spec = DiffSpec {
+        previous_path: None,
+        path: change.path.clone(),
+        hunk_headers: vec![
+            // Anchor at the new hunk, and redefine change to discard in the old hunk,
+            // effectively keeping only line 5.
+            // Internally we turn this into [("-1,5", "+1,0"), ("-6,4", "+1,0")].
+            hunk_header("-5,1", "+1,0"),
+        ],
+    };
+    let dropped = discard_workspace_changes(&repo, Some(discard_spec.into()), CONTEXT_LINES)?;
+    assert_eq!(dropped.len(), 0, "all sub-hunks could be associated");
+
+    let file_content: BString = std::fs::read(repo.workdir().unwrap().join(filename))?.into();
+    insta::assert_snapshot!(file_content, @r"
+    5
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn hunk_removal_of_modifications() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("plain-modifications");
+    let filename = "all-modified";
+    let (change, hunks) = changed_file_in_worktree_with_hunks(&repo, filename, CONTEXT_LINES)?;
+    assert_eq!(
+        hunks.len(),
+        1,
+        "one big hunk with context and everything, similar to what the UI sees"
+    );
+    insta::assert_snapshot!(hunks[0].diff, @r"
+    @@ -1,10 +1,10 @@
+    -1
+    -2
+    -3
+    -4
+    -5
+    -6
+    -7
+    -8
+    -9
+    -10
+    +11
+    +12
+    +13
+    +14
+    +15
+    +16
+    +17
+    +18
+    +19
+    +20
+    ");
+
+    let discard_spec = DiffSpec {
+        previous_path: None,
+        path: change.path.clone(),
+        hunk_headers: vec![
+            // Anchor at the new hunk, and redefine change to discard in the old hunk,
+            // effectively keeping only line 5.
+            // Internally we turn this into '[("-1,4", "+1,4"), ("-6,5", "+5,6")]', which deletes the surrounding
+            // of line 5 in the old patch, essentially surrounding it with the new image which looses no line.
+            hunk_header("-5,1", "+1,10"),
+            // Anchor undoing the addition to the old patch (with old offsets) and specify the selection to discard.
+            // This will yield '[("-1,4", "+1,4"), ("-6,5", "+6,5")]' internally.
+            hunk_header("-1,10", "+5,1"),
+        ],
+    };
+
+    let dropped = discard_workspace_changes(&repo, Some(discard_spec.into()), CONTEXT_LINES)?;
+    assert_eq!(dropped.len(), 0, "all sub-hunks could be associated");
+
+    let file_content: BString = std::fs::read(repo.workdir().unwrap().join(filename))?.into();
+    insta::assert_snapshot!(file_content, @r"
+    11
+    12
+    13
+    14
+    5
+    16
+    17
+    18
+    19
+    20
+    ");
+
     Ok(())
 }
 
@@ -498,7 +825,8 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
 
 mod util {
     use bstr::BString;
-    use but_core::TreeChange;
+    use but_core::unified_diff::DiffHunk;
+    use but_core::{TreeChange, UnifiedDiff};
     use but_workspace::commit_engine::HunkHeader;
     use gix::prelude::ObjectIdExt;
 
@@ -521,25 +849,30 @@ mod util {
 
     /// Choose a slightly more obvious, yet easy to type syntax than a function with 4 parameters.
     pub fn hunk_header(old: &str, new: &str) -> HunkHeader {
-        fn parse_header(hunk_info: &str) -> (u32, u32) {
-            let hunk_info = hunk_info.trim_start_matches(['-', '+'].as_slice());
-            let parts: Vec<_> = hunk_info.split(',').collect();
-            let start = parts[0].parse().unwrap();
-            let lines = if parts.len() > 1 {
-                parts[1].parse().unwrap()
-            } else {
-                1
-            };
-            (start, lines)
-        }
-
-        let (old_start, old_lines) = parse_header(old);
-        let (new_start, new_lines) = parse_header(new);
+        let ((old_start, old_lines), (new_start, new_lines)) =
+            but_testsupport::hunk_header(old, new);
         HunkHeader {
             old_start,
             old_lines,
             new_start,
             new_lines,
         }
+    }
+
+    pub fn changed_file_in_worktree_with_hunks(
+        repo: &gix::Repository,
+        filename: &str,
+        context_lines: u32,
+    ) -> anyhow::Result<(TreeChange, Vec<DiffHunk>)> {
+        let change = but_core::diff::worktree_changes(repo)?
+            .changes
+            .into_iter()
+            .find(|change| change.path == filename)
+            .expect("well-known fixture");
+
+        let UnifiedDiff::Patch { hunks } = change.unified_diff(repo, context_lines)? else {
+            unreachable!("We know there are hunks")
+        };
+        Ok((change, hunks))
     }
 }

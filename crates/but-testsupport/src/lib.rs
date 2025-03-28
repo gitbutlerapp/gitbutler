@@ -6,6 +6,24 @@ use gix::config::tree::Key;
 pub use gix_testtools;
 use std::path::Path;
 
+/// Choose a slightly more obvious, yet easy to type syntax than a function with 4 parameters.
+/// i.e. `hunk_header("-1,10", "+1,10")`.
+/// Returns `( (old_start, old_lines), (new_start, new_lines) )`.
+pub fn hunk_header(old: &str, new: &str) -> ((u32, u32), (u32, u32)) {
+    fn parse_header(hunk_info: &str) -> (u32, u32) {
+        let hunk_info = hunk_info.trim_start_matches(['-', '+'].as_slice());
+        let parts: Vec<_> = hunk_info.split(',').collect();
+        let start = parts[0].parse().unwrap();
+        let lines = if parts.len() > 1 {
+            parts[1].parse().unwrap()
+        } else {
+            1
+        };
+        (start, lines)
+    }
+    (parse_header(old), parse_header(new))
+}
+
 /// While `gix` can't (or can't conveniently) do everything, let's make using `git` easier.
 pub fn git(repo: &gix::Repository) -> std::process::Command {
     let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());

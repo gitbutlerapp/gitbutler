@@ -110,7 +110,7 @@ where
     let res = executor.stat(&askpath_path).await.map_err(Error::<E>::Exec);
     debug_assert!(
         res.is_ok(),
-        "Run `cargo build -p gitbutler-git` to get the binaries needed for this assertion to pass"
+        "Run `cargo build -p gitbutler-git` to get the binaries needed for this assertion to pass ({askpath_path:?} not found)"
     );
     let askpath_stat = res?;
 

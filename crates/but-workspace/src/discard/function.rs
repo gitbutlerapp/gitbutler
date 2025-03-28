@@ -20,6 +20,22 @@ use but_core::{ChangeState, TreeStatus};
 /// In practice, this is like a selective 'inverse-checkout', as such it must have a lot of the capabilities of checkout, but focussed
 /// on just a couple of paths, and with special handling for renamed files, something that `checkout` can't naturally handle
 /// as it's only dealing with single file-paths.
+///
+/// ### Hunk-based discarding
+///
+/// When an instance in `changes` contains hunks, these are the hunks to be discarded. If they match a whole hunk in the worktree changes,
+/// it will be discarded entirely, simply by not applying it.
+///
+/// ### Sub-Hunk discarding
+///
+/// It's possible to specify ranges of hunks to discard. To do that, they need an *anchor*. The *anchor* is the pair of
+/// `(line_number, line_count)` that should not be changed, paired with the *other* pair with the new `(line_number, line_count)`
+/// to discard.
+///
+/// For instance, when there is a single patch `-1,10 +1,10` and we want to bring back the removed 5th line *and* the added 5th line,
+/// we'd specify *just* two selections, one in the old via `-5,1 +1,10` and one in the new via `-1,10 +5,1`.
+/// This works because internally, it will always match the hunks (and sub-hunks) with their respective pairs obtained through a
+/// worktree status.
 pub fn discard_workspace_changes(
     repo: &gix::Repository,
     changes: impl IntoIterator<Item = DiscardSpec>,

@@ -94,7 +94,7 @@ pub struct DiffSpec {
 }
 
 /// The header of a hunk that represents a change to a file.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HunkHeader {
     /// The 1-based line number at which the previous version of the file started.
@@ -105,6 +105,17 @@ pub struct HunkHeader {
     pub new_start: u32,
     /// The non-zero amount of lines included in the new version of the file.
     pub new_lines: u32,
+}
+
+/// The range of a hunk as denoted by a 1-based starting line, and the amount of lines from there.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct HunkRange {
+    /// The number of the first line in the hunk, 1 based.
+    pub start: u32,
+    /// The amount of lines in the range.
+    ///
+    /// If `0`, this is an empty hunk.
+    pub lines: u32,
 }
 
 impl From<but_core::unified_diff::DiffHunk> for HunkHeader {
