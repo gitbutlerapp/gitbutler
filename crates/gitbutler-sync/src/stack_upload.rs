@@ -61,7 +61,7 @@ pub fn push_stack_to_review(
     push_to_gitbutler_server(ctx, Some(user), &[&refspec], remote)?;
 
     let Some(head_review) = branch_heads.first() else {
-        bail!("No head review id. Congratuations, this is not possible")
+        bail!("No head review id. Congratulations, this is not possible")
     };
 
     Ok(head_review.review_id.clone())
