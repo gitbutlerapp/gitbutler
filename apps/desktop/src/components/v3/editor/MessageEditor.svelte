@@ -11,6 +11,7 @@
 	import { debouncePromise } from '@gitbutler/shared/utils/misc';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import EmojiPickerButton from '@gitbutler/ui/EmojiPickerButton.svelte';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
 	import GhostTextPlugin from '@gitbutler/ui/richText/plugins/GhostText.svelte';
@@ -97,6 +98,10 @@
 		aiButton = e.currentTarget as HTMLElement;
 		aiContextMenu?.toggle();
 	}
+
+	function onEmojiSelect(emoji: string) {
+		composer?.insertText(emoji);
+	}
 </script>
 
 <AiContextMenu
@@ -162,7 +167,7 @@
 		</RichTextEditor>
 
 		<div class="message-editor__inner-toolbar">
-			<Button kind="ghost" icon="smile" />
+			<EmojiPickerButton onEmojiSelect={(emoji) => onEmojiSelect(emoji.unicode)} />
 			<div class="message-editor__inner-toolbar__divider"></div>
 			<Button kind="ghost" icon="attachment-small" reversedDirection>
 				<span style="opacity: 0.4">Drop or click to add files</span>
