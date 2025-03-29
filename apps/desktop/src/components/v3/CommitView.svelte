@@ -107,7 +107,7 @@
 		{:else}
 			<Drawer {projectId} {stackId}>
 				{#snippet header()}
-					<CommitHeader {commit} fontSize="14" />
+					<CommitHeader {commit} class="text-14 text-semibold text-body" />
 				{/snippet}
 				<div class="commit-view">
 					<CommitDetails
