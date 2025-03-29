@@ -81,8 +81,8 @@
 				direction="right"
 				minWidth={20}
 				maxWidth={100}
-				defaultLineColor="var(--clr-border-2)"
 				onWidth={(value) => ($width = value)}
+				imitateBorder
 			/>
 		</div>
 	{/if}

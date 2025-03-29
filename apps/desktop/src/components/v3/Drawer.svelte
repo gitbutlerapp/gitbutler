@@ -105,6 +105,7 @@
 					direction="up"
 					viewport={drawerDiv}
 					minHeight={11}
+					borderRadius="ml"
 					onHeight={(value) => uiState.global.drawerHeight.set(value)}
 				/>
 			{/if}

@@ -45,6 +45,7 @@
 			viewport={leftDiv}
 			direction="right"
 			minWidth={14}
+			borderRadius="ml"
 			onWidth={(value) => (leftWidth.current = value)}
 		/>
 	</div>
@@ -86,6 +87,7 @@
 			viewport={rightDiv}
 			direction="left"
 			minWidth={16}
+			borderRadius="ml"
 			onWidth={(value) => (rightWidth.current = value)}
 		/>
 	</div>
@@ -111,8 +113,6 @@
 		background-color: var(--clr-bg-1);
 		border-radius: var(--radius-ml);
 		border: 1px solid var(--clr-border-2);
-		/* Resizer looks better with hidden overflow. */
-		overflow: hidden;
 		flex-shrink: 0;
 	}
 
@@ -122,8 +122,6 @@
 		flex-direction: column;
 		justify-content: flex-start;
 		position: relative;
-		/* Resizer looks better with hidden overflow. */
-		overflow: hidden;
 		flex-shrink: 0;
 	}
 

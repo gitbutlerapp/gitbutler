@@ -14,7 +14,7 @@
 
 <style>
 	.group-header {
-		z-index: var(--z-lifted);
+		z-index: var(--z-ground);
 		position: sticky;
 		top: 0;
 		padding: 12px 12px 8px;
