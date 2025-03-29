@@ -27,10 +27,10 @@
 	const branchName = $derived(selected.current?.branchName);
 
 	const leftWidth = $derived(uiState.global.leftWidth);
-	const rightWidth = $derived(uiState.global.rightWidth);
+	const stacksViewWidth = $derived(uiState.global.stacksViewWidth);
 
 	let leftDiv = $state<HTMLElement>();
-	let rightDiv = $state<HTMLElement>();
+	let stacksViewEl = $state<HTMLElement>();
 </script>
 
 <div class="workspace" use:focusable={{ id: 'workspace' }}>
@@ -77,18 +77,20 @@
 	</div>
 
 	<div
-		class="right"
-		bind:this={rightDiv}
-		style:width={rightWidth.current + 'rem'}
+		class="stacks-view-wrap"
+		bind:this={stacksViewEl}
+		style:width={stacksViewWidth.current + 'rem'}
 		use:focusable={{ id: 'right', parentId: 'workspace' }}
 	>
-		{@render right({ viewportWidth: rightWidth.current })}
+		{@render right({ viewportWidth: stacksViewWidth.current })}
 		<Resizer
-			viewport={rightDiv}
+			viewport={stacksViewEl}
 			direction="left"
 			minWidth={16}
 			borderRadius="ml"
-			onWidth={(value) => (rightWidth.current = value)}
+			onWidth={(value) => {
+				stacksViewWidth.current = value;
+			}}
 		/>
 	</div>
 </div>
@@ -116,7 +118,7 @@
 		flex-shrink: 0;
 	}
 
-	.right {
+	.stacks-view-wrap {
 		height: 100%;
 		display: flex;
 		flex-direction: column;
