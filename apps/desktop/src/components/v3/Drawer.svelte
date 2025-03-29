@@ -105,6 +105,7 @@
 					direction="up"
 					viewport={drawerDiv}
 					minHeight={11}
+					borderRadius="ml"
 					onHeight={(value) => uiState.global.drawerHeight.set(value)}
 				/>
 			{/if}
@@ -142,7 +143,7 @@
 		display: flex;
 		gap: 6px;
 		justify-content: space-between;
-		padding: 14px;
+		padding: 14px 14px 12px 14px;
 		background-color: var(--clr-bg-1);
 
 		&.is-sticky {
@@ -160,7 +161,7 @@
 		flex-shrink: 0;
 		display: flex;
 		gap: 2px;
-		margin-top: -2px;
+		margin-top: -4px;
 		margin-right: -4px;
 	}
 

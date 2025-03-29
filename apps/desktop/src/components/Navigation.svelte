@@ -54,10 +54,10 @@
 				{viewport}
 				direction="right"
 				minWidth={minResizerWidth}
-				defaultLineColor="var(--clr-border-2)"
 				zIndex="var(--z-floating)"
 				onDblClick={toggleNavCollapse}
 				onWidth={(value) => ($width = value)}
+				imitateBorder
 				onHover={(isHovering) => {
 					isResizerHovered = isHovering;
 				}}
@@ -132,6 +132,7 @@
 
 		&:hover:not(.hide-fold-button) {
 			& .folding-button {
+				z-index: var(--z-floating);
 				pointer-events: auto;
 				opacity: 1;
 				right: -6px;
@@ -171,7 +172,7 @@
 	/* FOLDING BUTTON */
 
 	.folding-button {
-		z-index: var(--z-floating);
+		z-index: var(--z-ground);
 		display: flex;
 		align-items: center;
 		justify-content: center;

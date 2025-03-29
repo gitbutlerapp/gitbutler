@@ -165,7 +165,7 @@
 	<div class="commit-content">
 		<!-- <button type="button" {onclick} tabindex="0"> -->
 		<div class="commit-name truncate">
-			<CommitHeader {commit} row />
+			<CommitHeader {commit} row class="text-13 text-semibold" />
 		</div>
 
 		<button

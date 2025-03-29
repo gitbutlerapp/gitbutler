@@ -205,18 +205,16 @@
 					</div>
 				</div>
 			</ScrollableContainer>
-			<div class="divider-line">
-				{#if rsViewport}
-					<Resizer
-						viewport={rsViewport}
-						direction="right"
-						minWidth={25}
-						sticky
-						defaultLineColor={$fileIdSelection.length === 1 ? 'transparent' : 'var(--clr-border-2)'}
-						onWidth={(value) => ($width = value)}
-					/>
-				{/if}
-			</div>
+			{#if rsViewport}
+				<Resizer
+					viewport={rsViewport}
+					direction="right"
+					minWidth={25}
+					onWidth={(value) => ($width = value)}
+					imitateBorder
+					imitateBorderColor={$fileIdSelection.length === 1 ? 'trnsparent' : 'var(--clr-border-2)'}
+				/>
+			{/if}
 		</div>
 	</div>
 {/if}
@@ -281,6 +279,8 @@
 		top: 0;
 		right: 0;
 		height: 100%;
+		width: 4px;
+		border-right: 1px solid var(--clr-border-2);
 	}
 
 	.branch-card__contents {

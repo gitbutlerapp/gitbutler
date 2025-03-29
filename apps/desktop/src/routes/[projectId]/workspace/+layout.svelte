@@ -21,7 +21,7 @@
 	const stacks = $derived(projectId ? stackService.stacks(projectId) : undefined);
 
 	/** Offset width for tabs component. */
-	let width = $state<number>();
+	let tabsWidth = $state<number>();
 
 	// Redirect to board if we have switched away from V3 feature.
 	$effect(() => {
@@ -48,8 +48,8 @@
 {#if projectId}
 	<WorkspaceView {projectId} {stackId}>
 		{#snippet right({ viewportWidth })}
-			<StackTabs {projectId} selectedId={stackId} bind:width />
-			<div class="contents" class:rounded={width === viewportWidth}>
+			<StackTabs {projectId} selectedId={stackId} bind:width={tabsWidth} />
+			<div class="contents" class:rounded={tabsWidth === Math.round(viewportWidth)}>
 				{@render children()}
 			</div>
 		{/snippet}

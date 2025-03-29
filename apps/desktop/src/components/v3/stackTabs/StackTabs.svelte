@@ -19,7 +19,7 @@
 	const result = $derived(stackService.stacks(projectId));
 
 	let plusBtnEl = $state<HTMLButtonElement>();
-	let tabs = $state<HTMLDivElement>();
+	let tabsEl = $state<HTMLDivElement>();
 	let scrollerEl = $state<HTMLDivElement>();
 
 	let scrollable = $state(false);
@@ -36,16 +36,16 @@
 	onMount(() => {
 		const observer = new ResizeObserver(() => {
 			scrollable = scrollerEl ? scrollerEl.scrollWidth > scrollerEl.offsetWidth : false;
-			width = tabs?.offsetWidth;
+			width = tabsEl?.offsetWidth;
 		});
-		observer.observe(tabs!);
+		observer.observe(tabsEl!);
 		return () => {
 			observer.disconnect();
 		};
 	});
 </script>
 
-<div class="tabs" bind:this={tabs}>
+<div class="tabs" bind:this={tabsEl}>
 	<div class="inner">
 		<div class="scroller" bind:this={scrollerEl} class:scrolled {onscroll}>
 			<ReduxResult result={result.current}>

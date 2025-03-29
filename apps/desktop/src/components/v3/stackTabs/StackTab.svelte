@@ -96,7 +96,7 @@
 		background: var(--tab-background-color);
 		border-right: 1px solid var(--clr-border-2);
 		overflow: hidden;
-		min-width: 40px;
+		min-width: 60px;
 		scroll-snap-align: start;
 		transition: transform var(--transition-medium);
 
