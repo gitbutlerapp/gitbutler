@@ -7,7 +7,7 @@ use anyhow::{anyhow, Result};
 use git2::Repository;
 use gitbutler_error::error::Code;
 use gitbutler_fs::read_toml_file_or_default;
-use gitbutler_oxidize::OidExt as _;
+use gitbutler_oxidize::{OidExt as _, RepoExt};
 use gitbutler_reference::Refname;
 use gitbutler_repo::commit_message::CommitMessage;
 use gitbutler_serde::object_id_opt;
@@ -263,18 +263,21 @@ impl VirtualBranchesHandle {
             .filter(|b| !b.in_workspace)
             .collect_vec();
         let mut to_remove: Vec<StackId> = vec![];
+        let gix_repo = repo.to_gix()?;
         for branch in stacks_not_in_workspace {
             if branch.not_in_workspace_wip_change_id.is_some() {
                 continue; // Skip branches that have a WIP commit
             }
-            if repo.find_commit(branch.head()).is_err() {
-                // if the head commit cant be found, we can GC the branch
-                to_remove.push(branch.id);
-            } else {
-                // if there are no commits between the head and the merge base,
-                // i.e. the head is the merge base, we can GC the branch
-                if branch.head() == repo.merge_base(branch.head(), target.sha)? {
+            if let Ok(branch_head) = branch.head(&gix_repo) {
+                if repo.find_commit(branch_head).is_err() {
+                    // if the head commit cant be found, we can GC the branch
                     to_remove.push(branch.id);
+                } else {
+                    // if there are no commits between the head and the merge base,
+                    // i.e. the head is the merge base, we can GC the branch
+                    if branch_head == repo.merge_base(branch_head, target.sha)? {
+                        to_remove.push(branch.id);
+                    }
                 }
             }
         }

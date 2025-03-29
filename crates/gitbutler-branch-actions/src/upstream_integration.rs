@@ -259,7 +259,7 @@ fn get_stack_status(
         // If an integrated branch has been found, there is no need to bother
         // with subsequent branches.
         if !unintegrated_branch_found
-            && branch_integrated(&mut check_commit, branch, &stack_context, stack)?
+            && branch_integrated(&mut check_commit, branch, repository, gix_repository)?
         {
             branch_statuses.push(NameAndStatus {
                 name: branch.name().to_owned(),
@@ -330,7 +330,7 @@ fn get_stack_status(
         });
     }
 
-    let stack_head = repository.find_commit(stack.head())?;
+    let stack_head = repository.find_commit(stack.head(gix_repository)?)?;
 
     let tree_status;
     if v3 {
@@ -391,14 +391,15 @@ pub fn upstream_integration_statuses(
         return Ok(StackStatuses::UpToDate);
     };
 
+    let heads = stacks_in_workspace
+        .iter()
+        .map(|stack| stack.head(&gix_repository).map(|h| h.to_gix()))
+        .chain(Some(Ok(new_target.id().to_gix())))
+        .collect::<Result<Vec<_>>>()?;
+
     // The merge base tree of all of the applied stacks plus the new target
     let merge_base_tree = gix_repository
-        .merge_base_octopus(
-            stacks_in_workspace
-                .iter()
-                .map(|b| b.head().to_gix())
-                .chain(Some(new_target.id().to_gix())),
-        )?
+        .merge_base_octopus(heads)?
         .object()?
         .into_commit()
         .tree_id()?;
@@ -582,7 +583,7 @@ pub(crate) fn integrate_upstream(
             if let Some(output) = rebase_output {
                 stack.set_heads_from_rebase_output(command_context, output.references.clone())?;
             }
-            stack.set_stack_head(command_context, *head, *tree)?;
+            stack.set_stack_head(&virtual_branches_state, &gix_repo, *head, *tree)?;
 
             let delete_local_refs = resolutions
                 .iter()
@@ -709,7 +710,8 @@ fn compute_resolutions(
                     // Make a merge commit on top of the branch commits,
                     // then rebase the tree ontop of that. If the tree ends
                     // up conflicted, commit the tree.
-                    let target_commit = repository.find_commit(branch_stack.head())?;
+                    let target_commit =
+                        repository.find_commit(branch_stack.head(context.gix_repo)?)?;
                     let top_branch = branch_stack.heads.last().context("top branch not found")?;
 
                     // These two go into the merge commit message.
@@ -844,7 +846,7 @@ fn compute_resolutions(
     Ok(results)
 }
 
-fn as_buckets(steps: Vec<RebaseStep>) -> Vec<(but_core::Reference, Vec<RebaseStep>)> {
+pub(crate) fn as_buckets(steps: Vec<RebaseStep>) -> Vec<(but_core::Reference, Vec<RebaseStep>)> {
     let mut buckets = vec![];
     let mut current_steps = vec![];
     for step in steps {
@@ -858,4 +860,19 @@ fn as_buckets(steps: Vec<RebaseStep>) -> Vec<(but_core::Reference, Vec<RebaseSte
         }
     }
     buckets
+}
+
+pub(crate) fn flatten_buckets(
+    buckets: Vec<(but_core::Reference, Vec<RebaseStep>)>,
+) -> Vec<RebaseStep> {
+    // flatten the buckets, including the reference step after the pick steps
+    buckets
+        .into_iter()
+        .flat_map(|(reference, steps)| {
+            let mut steps = steps;
+            steps.push(RebaseStep::Reference(reference));
+            steps
+        })
+        .collect()
+    // buckets.into_iter().flat_map(|(_, steps)| steps).collect()
 }

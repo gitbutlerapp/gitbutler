@@ -328,34 +328,12 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             }
             None => {
                 let now_ms = (gix::date::Time::now_utc().seconds * 1000) as u128;
-                let stack = gitbutler_stack::Stack {
-                    id: StackId::default(),
-                    created_timestamp_ms: now_ms,
-                    updated_timestamp_ms: now_ms,
-                    order: self.snapshot.content.branches.len(),
-                    allow_rebasing: true, //  default in V2
-                    in_workspace: ws.contains_ref(ref_name),
-                    heads: vec![branch_to_stack_branch(ref_name, value, false)],
-
-                    // Don't keep redundant information
-                    tree: git2::Oid::zero(),
-                    head: git2::Oid::zero(),
-                    source_refname: None,
-                    upstream: None,
-                    upstream_head: None,
-
-                    // Unused - everything is defined by the top-most branch name.
-                    name: "".to_string(),
-                    notes: "".to_string(),
-
-                    // Related to ownership, obsolete.
-                    selected_for_changes: None,
-                    // unclear, obsolete
-                    not_in_workspace_wip_change_id: None,
-                    // unclear
-                    post_commits: false,
-                    ownership: Default::default(),
-                };
+                let stack = gitbutler_stack::Stack::new_with_just_heads(
+                    vec![branch_to_stack_branch(ref_name, value, false)],
+                    now_ms,
+                    self.snapshot.content.branches.len(),
+                    ws.contains_ref(ref_name),
+                );
                 *value.stack_id.borrow_mut() = Some(stack.id);
                 self.snapshot.content.branches.insert(stack.id, stack);
                 self.snapshot.changed_at = Some(Instant::now());
@@ -531,14 +509,11 @@ fn branch_to_stack_branch(
     }: &Branch,
     archived: bool,
 ) -> gitbutler_stack::StackBranch {
-    gitbutler_stack::StackBranch {
-        name: ref_name.shorten().to_string(),
-        description: description.clone(),
-        pr_number: review.pull_request,
+    gitbutler_stack::StackBranch::new_with_zero_head(
+        ref_name.shorten().to_string(),
+        description.clone(),
+        review.pull_request,
+        review.review_id.clone(),
         archived,
-        review_id: review.review_id.clone(),
-
-        // Redundant, unused.
-        head: gitbutler_stack::CommitOrChangeId::CommitId(git2::Oid::zero().to_string()),
-    }
+    )
 }

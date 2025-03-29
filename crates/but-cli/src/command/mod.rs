@@ -116,7 +116,9 @@ pub mod stacks {
 
     pub fn list(current_dir: &Path) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
-        debug_print(but_workspace::stacks(&project.gb_dir()))
+        let ctx = CommandContext::open(&project, AppSettings::default())?;
+        let repo = ctx.gix_repository()?;
+        debug_print(but_workspace::stacks(&project.gb_dir(), &repo))
     }
 
     pub fn branches(id: &str, current_dir: &Path) -> anyhow::Result<()> {

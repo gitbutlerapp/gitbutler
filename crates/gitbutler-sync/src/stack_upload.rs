@@ -8,10 +8,7 @@ use gitbutler_commit::commit_headers::HasCommitHeaders as _;
 use gitbutler_oplog::reflog::{set_reference_to_oplog, ReflogCommits};
 use gitbutler_oxidize::{git2_signature_to_gix_signature, ObjectIdExt, OidExt as _};
 use gitbutler_repo::{commit_message::CommitMessage, signature};
-use gitbutler_stack::{
-    stack_context::{CommandContextExt, StackContext},
-    Stack, StackId, VirtualBranchesHandle,
-};
+use gitbutler_stack::{Stack, StackId, VirtualBranchesHandle};
 use gitbutler_user::User;
 use gix::bstr::ByteSlice;
 use rand::Rng;
@@ -32,9 +29,8 @@ pub fn push_stack_to_review(
     // dosn't yet have review_ids assigned. When reading they will have been
     // assigned new review_ids, so we just need to persist them here.
     vb_state.set_stack(stack.clone())?;
-    let stack_context = ctx.to_stack_context()?;
 
-    let branch_heads = branch_heads(&vb_state, &mut stack, &stack_context, top_branch)?;
+    let branch_heads = branch_heads(&vb_state, &mut stack, &repository, top_branch)?;
     let Some(top_branch) = branch_heads.first() else {
         bail!("No branches to be pushed.");
     };
@@ -91,12 +87,11 @@ fn generate_review_id() -> String {
 fn branch_heads(
     vb_state: &VirtualBranchesHandle,
     stack: &mut Stack,
-    stack_context: &StackContext<'_>,
+    repo: &gix::Repository,
     top_branch: String,
 ) -> Result<Vec<BranchHead>> {
     let mut heads = vec![];
 
-    let stack_clone = stack.clone();
     let mut top_head_found = false;
 
     // Heads is listed from parent-most to child-most, but we are wanting to
@@ -111,7 +106,7 @@ fn branch_heads(
             }
         }
 
-        let head_oid = head.head_oid(stack_context, &stack_clone)?.to_gix();
+        let head_oid = head.head_oid(repo)?.to_gix();
         let review_id = head.review_id.clone().unwrap_or_else(generate_review_id);
         head.review_id = Some(review_id.clone());
 

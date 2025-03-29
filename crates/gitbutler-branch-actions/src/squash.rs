@@ -56,8 +56,12 @@ fn do_squash_commits(
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let vb_state = ctx.project().virtual_branches();
     let stack = vb_state.get_stack_in_workspace(stack_id)?;
+    let gix_repo = ctx.gix_repository()?;
+
     let default_target = vb_state.get_default_target()?;
-    let merge_base = ctx.repo().merge_base(stack.head(), default_target.sha)?;
+    let merge_base = ctx
+        .repo()
+        .merge_base(stack.head(&gix_repo)?, default_target.sha)?;
 
     // =========== Step 1: Reorder
 
@@ -101,9 +105,9 @@ fn do_squash_commits(
 
     // stack was updated by reorder_stack, therefore it is reloaded
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
-    let branch_commit_oids = ctx
-        .repo()
-        .l(stack.head(), LogUntil::Commit(merge_base), false)?;
+    let branch_commit_oids =
+        ctx.repo()
+            .l(stack.head(&gix_repo)?, LogUntil::Commit(merge_base), false)?;
 
     let branch_commits = branch_commit_oids
         .iter()
@@ -168,7 +172,7 @@ fn do_squash_commits(
 
     let mut steps: Vec<RebaseStep> = Vec::new();
 
-    for head in stack.heads_by_commit(ctx.repo().find_commit(merge_base)?) {
+    for head in stack.heads_by_commit(ctx.repo().find_commit(merge_base)?, &gix_repo) {
         steps.push(RebaseStep::Reference(but_core::Reference::Virtual(head)));
     }
     for oid in branch_commit_oids.iter().rev() {
@@ -186,12 +190,11 @@ fn do_squash_commits(
                 new_message: None,
             });
         }
-        for head in stack.heads_by_commit(commit) {
+        for head in stack.heads_by_commit(commit, &gix_repo) {
             steps.push(RebaseStep::Reference(but_core::Reference::Virtual(head)));
         }
     }
 
-    let gix_repo = ctx.gix_repository()?;
     let mut builder = but_rebase::Rebase::new(&gix_repo, merge_base.to_gix(), None)?;
     let builder = builder.steps(steps)?;
     builder.rebase_noops(false);
@@ -207,7 +210,7 @@ fn do_squash_commits(
         (res.head, Some(res.tree))
     };
 
-    stack.set_stack_head(ctx, new_head_oid, new_tree_oid)?;
+    stack.set_stack_head(&vb_state, &gix_repo, new_head_oid, new_tree_oid)?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     if ctx.app_settings().feature_flags.v3 {

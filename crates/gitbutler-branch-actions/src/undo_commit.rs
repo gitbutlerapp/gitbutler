@@ -58,7 +58,7 @@ pub(crate) fn undo_commit(
     }
 
     let new_head = output.top_commit.to_git2();
-    stack.set_stack_head(ctx, new_head, None)?;
+    stack.set_stack_head(&vb_state, &repo, new_head, None)?;
 
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
