@@ -18,10 +18,9 @@
 		projectId: string;
 		// Currently selected stack id.
 		stackId?: string;
-		overflow?: boolean;
 	};
 
-	let { el = $bindable(), scrollerEl, projectId, stackId, overflow = false }: Props = $props();
+	let { el = $bindable(), scrollerEl, projectId, stackId }: Props = $props();
 	const stackService = getContext(StackService);
 	const [createNewStack, stackCreation] = stackService.newStack();
 	const [createNewBranch, branchCreation] = stackService.newBranch();
@@ -85,6 +84,8 @@
 		}
 	}
 
+	let overflowed = $state(false);
+
 	// TODO: it would be nice to remember the last selected option for the next time the modal is opened
 </script>
 
@@ -92,7 +93,7 @@
 	aria-label="new stack"
 	type="button"
 	class="new-stack-btn"
-	class:overflow
+	class:overflow={overflowed}
 	onclick={() => createRefModal?.show()}
 	bind:this={el}
 	onkeydown={handleArrowNavigation}
@@ -212,8 +213,13 @@
 			color: var(--clr-text-2);
 			background: var(--clr-stack-tab-active);
 		}
+
+		&.overflow {
+			background-color: red;
+		}
 	}
 
+	/* MODAL WINDOW */
 	.content-wrap {
 		display: flex;
 		flex-direction: column;
@@ -225,7 +231,6 @@
 		gap: 8px;
 	}
 
-	/* RADIO */
 	.radio-label {
 		--btn-bg: var(--clr-btn-ntrl-outline-bg);
 		--opacity-btn-bg: 0;
