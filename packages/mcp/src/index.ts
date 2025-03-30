@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { VERSION } from './shared/version.js';
+import * as chatMessages from './tools/chatMessages.js';
+import * as patchStacks from './tools/patchStacks.js';
 import * as projects from './tools/projects.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -57,6 +59,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 				description:
 					'Lookup a GitButler project by owner and repo, returning the full project object',
 				inputSchema: zodToJsonSchema(projects.LookupProjectParamsSchema)
+			},
+			{
+				name: 'get_chat_messages_for_patch',
+				description: 'Get all review chat messages for a given patch',
+				inputSchema: zodToJsonSchema(chatMessages.GetChatMessagesForPatchParamsSchema)
+			},
+			{
+				name: 'list_patch_stacks',
+				description: 'List all the patch stacks for a given project',
+				inputSchema: zodToJsonSchema(patchStacks.GetProjectPatchStacksParamsSchema)
 			}
 		]
 	};
@@ -101,6 +113,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 					request.params.arguments
 				);
 				const result = await projects.lookupProject(lookupProjectParams);
+				return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+			}
+			case 'get_chat_messages_for_patch': {
+				const getChatMessagesParams = chatMessages.GetChatMessagesForPatchParamsSchema.parse(
+					request.params.arguments
+				);
+				const result = await chatMessages.getChatMessagesForPatch(getChatMessagesParams);
+				return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+			}
+			case 'list_patch_stacks': {
+				const listPatchStacksParams = patchStacks.GetProjectPatchStacksParamsSchema.parse(
+					request.params.arguments
+				);
+				const result = await patchStacks.listAllPatchStacks(listPatchStacksParams);
 				return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
 			}
 			default:
