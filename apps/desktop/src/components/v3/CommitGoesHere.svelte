@@ -46,9 +46,6 @@
 		align-items: center;
 		background-color: var(--clr-bg-1);
 		border-bottom: 1px solid var(--clr-border-2);
-		&.first {
-			border-top: 1px solid var(--clr-border-2);
-		}
 		&.last {
 			border-top: 1px solid var(--clr-border-2);
 			border-bottom: none;
