@@ -1,10 +1,11 @@
+use gitbutler_command_context::CommandContext;
 use gitbutler_stack::Stack;
 
 /// Makes a Branch struct with a bunch of default values.
 ///
 /// This assumes that the only relevant properties for your test are the head
 /// and tree Oids.
-fn make_branch(head: git2::Oid, tree: git2::Oid) -> Stack {
+fn make_branch(ctx: &CommandContext, head: git2::Oid, tree: git2::Oid) -> Stack {
     #[allow(deprecated)] // this is a test
     let mut branch = Stack::new(
         "branchy branch".into(),
@@ -20,6 +21,7 @@ fn make_branch(head: git2::Oid, tree: git2::Oid) -> Stack {
     branch.created_timestamp_ms = 69420;
     branch.updated_timestamp_ms = 69420;
     branch.notes = "bla bla bla".into();
+    branch.initialize(ctx, false).unwrap();
     branch
 }
 
@@ -29,8 +31,9 @@ mod compute_updated_branch_head {
     use gitbutler_cherry_pick::RepositoryExt as _;
     use gitbutler_commit::commit_ext::CommitExt;
     use gitbutler_oxidize::RepoExt;
-    use gitbutler_testsupport::testing_repository::{
-        assert_commit_tree_matches, assert_tree_matches, TestingRepository,
+    use gitbutler_testsupport::{
+        testing_repository::{assert_commit_tree_matches, assert_tree_matches, TestingRepository},
+        virtual_branches::set_test_target,
     };
     use gitbutler_workspace::{compute_updated_branch_head, BranchHeadAndTree};
 
@@ -38,12 +41,19 @@ mod compute_updated_branch_head {
     #[test]
     fn head_id_is_the_same() {
         let test_repository = TestingRepository::open();
+        let data_dir = gitbutler_testsupport::paths::data_dir();
+        let projects = gitbutler_project::Controller::from_path(data_dir.path());
+        let project = projects
+            .add(test_repository.repository.path())
+            .expect("failed to add project");
+        let ctx = CommandContext::open(&project, but_settings::AppSettings::default()).unwrap();
+        set_test_target(&ctx).unwrap();
 
         let base_commit = test_repository.commit_tree(None, &[("foo.txt", "foo")]);
         let head = test_repository.commit_tree(Some(&base_commit), &[("foo.txt", "bar")]);
         let tree = test_repository.commit_tree(Some(&head), &[("foo.txt", "baz")]);
 
-        let stack = make_branch(head.id(), tree.tree_id());
+        let stack = make_branch(&ctx, head.id(), tree.tree_id());
 
         let BranchHeadAndTree { head, tree } =
             compute_updated_branch_head(&test_repository.repository, &stack, head.id()).unwrap();
@@ -63,13 +73,20 @@ mod compute_updated_branch_head {
     #[test]
     fn head_id_is_different() {
         let test_repository = TestingRepository::open();
+        let data_dir = gitbutler_testsupport::paths::data_dir();
+        let projects = gitbutler_project::Controller::from_path(data_dir.path());
+        let project = projects
+            .add(test_repository.repository.path())
+            .expect("failed to add project");
+        let ctx = CommandContext::open(&project, but_settings::AppSettings::default()).unwrap();
+        set_test_target(&ctx).unwrap();
 
         let base_commit = test_repository.commit_tree(None, &[("foo.txt", "foo")]);
         let head = test_repository.commit_tree(Some(&base_commit), &[("foo.txt", "bar")]);
         let tree =
             test_repository.commit_tree(Some(&head), &[("foo.txt", "bar"), ("bar.txt", "baz")]);
 
-        let stack = make_branch(head.id(), tree.tree_id());
+        let stack = make_branch(&ctx, head.id(), tree.tree_id());
 
         let new_head = test_repository.commit_tree(Some(&base_commit), &[("foo.txt", "new")]);
 
@@ -94,12 +111,19 @@ mod compute_updated_branch_head {
     #[test]
     fn tree_conflicts() {
         let test_repository = TestingRepository::open();
+        let data_dir = gitbutler_testsupport::paths::data_dir();
+        let projects = gitbutler_project::Controller::from_path(data_dir.path());
+        let project = projects
+            .add(test_repository.repository.path())
+            .expect("failed to add project");
+        let ctx = CommandContext::open(&project, but_settings::AppSettings::default()).unwrap();
+        set_test_target(&ctx).unwrap();
 
         let base_commit = test_repository.commit_tree(None, &[("foo.txt", "foo")]);
         let head = test_repository.commit_tree(Some(&base_commit), &[("foo.txt", "bar")]);
         let tree = test_repository.commit_tree(Some(&head), &[("foo.txt", "baz")]);
 
-        let stack = make_branch(head.id(), tree.tree_id());
+        let stack = make_branch(&ctx, head.id(), tree.tree_id());
 
         let new_head = test_repository.commit_tree(Some(&base_commit), &[("foo.txt", "new")]);
 
