@@ -273,6 +273,37 @@ impl StackBranch {
         }
     }
 
+    /// Updates the git reference to reflect what the current head property is (the head value from the persisted struct)
+    ///
+    /// This is basically the opposite of `sync_with_reference` and is something to do only after restoring from a snapshot.
+    /// Only works if the head is a commit id (as opposed to legacy change id value)
+    pub fn set_reference_to_head_value(&self, repo: &gix::Repository) -> Result<()> {
+        self.set_real_reference(repo, &self.head)?;
+        Ok(())
+    }
+
+    /// Updates the value on the struct to reflect the current value of the reference.
+    /// Returns a boolean indicating whether the reference was updated.
+    /// This should not really be needed since the head is always updated, but this function exists as a stopgap measure to be peformed before creating an oplog snapshot.
+    /// Snapshot restoring is the only place where we read the value from the persisted struct to update the reference so we want to be sure that the refernce is in sync on snapshot creation.
+    pub fn sync_with_reference(&mut self, repo: &gix::Repository) -> Result<bool> {
+        let oid_from_ref = self.head_oid(repo)?;
+        match self.head {
+            CommitOrChangeId::ChangeId(_) => {
+                self.head = CommitOrChangeId::CommitId(oid_from_ref.to_string());
+                Ok(true)
+            }
+            CommitOrChangeId::CommitId(_) => {
+                if oid_from_ref.to_string() != self.head.to_string() {
+                    self.head = CommitOrChangeId::CommitId(oid_from_ref.to_string());
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            }
+        }
+    }
+
     /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
     pub fn remote_reference(&self, remote: &str) -> String {
         remote_reference(self.name(), remote)

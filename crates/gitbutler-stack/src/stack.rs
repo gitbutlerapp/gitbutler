@@ -583,6 +583,27 @@ impl Stack {
         state.set_stack(self.clone())
     }
 
+    /// This will go over the stack heads and will ensure that the heads are consistent with the respective git reference.
+    /// If a head is not the same as the reference, it will be updated to match the git reference.
+    /// This operation should not really be needed since references are always updated.
+    /// However, this function exists to be called before an oplog snapshot of the virtual_branches.toml is taken because
+    /// upon snapshot restore, git references will be updated to match the stack heads from the toml file
+    /// TODO: is there a performace implication of this?
+    pub fn sync_heads_with_references(
+        &mut self,
+        state: &VirtualBranchesHandle,
+        gix_repo: &gix::Repository,
+    ) -> Result<()> {
+        if self
+            .heads
+            .iter_mut()
+            .any(|head| head.sync_with_reference(gix_repo).unwrap_or(false))
+        {
+            state.set_stack(self.clone())?;
+        }
+        Ok(())
+    }
+
     /// Updates the most recent series of the stack to point to a new patch (commit or change ID).
     /// This will set the
     /// - `head` of the stack to the new commit
