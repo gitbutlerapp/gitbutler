@@ -177,7 +177,6 @@
 						{#if isCommitting}
 							<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
 							<CommitGoesHere
-								{commitId}
 								{selected}
 								{first}
 								last={false}
@@ -228,7 +227,6 @@
 						</Dropzone>
 						{#if isCommitting && last && lastBranch}
 							<CommitGoesHere
-								{commitId}
 								{first}
 								{last}
 								selected={selectedCommitId === baseSha}
@@ -287,7 +285,6 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background: var(--clr-bg-1);
-		overflow: hidden;
 	}
 
 	.branch-header__details {
