@@ -137,9 +137,13 @@ pub enum UnifiedDiff {
         size_in_bytes: u64,
     },
     /// A patch that if applied to the previous state of the resource would yield the current state.
+    #[serde(rename_all = "camelCase")]
     Patch {
         /// All non-overlapping hunks, including their context lines.
         hunks: Vec<unified_diff::DiffHunk>,
+        /// If `true`, a binary to text filter (`textconv` in Git config) was used to obtain the `hunks` in the diff.
+        /// This means hunk-based operations must be disabled.
+        is_result_of_binary_to_text_conversion: bool,
     },
 }
 

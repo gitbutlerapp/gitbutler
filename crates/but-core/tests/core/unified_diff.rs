@@ -253,6 +253,6 @@ fn submodule_added() -> anyhow::Result<()> {
 fn extract_patch(diff: UnifiedDiff) -> Vec<unified_diff::DiffHunk> {
     match diff {
         UnifiedDiff::Binary | UnifiedDiff::TooLarge { .. } => unreachable!("should have patches"),
-        UnifiedDiff::Patch { hunks } => hunks,
+        UnifiedDiff::Patch { hunks, .. } => hunks,
     }
 }

@@ -115,7 +115,7 @@ pub fn to_change_specs_all_hunks_with_context_lines(
             },
             _ => {
                 match change.unified_diff(repo, context_lines) {
-                    Ok(but_core::UnifiedDiff::Patch { hunks }) => DiffSpec {
+                    Ok(but_core::UnifiedDiff::Patch { hunks, .. }) => DiffSpec {
                         previous_path: change.previous_path().map(ToOwned::to_owned),
                         path: change.path,
                         hunk_headers: hunks.into_iter().map(Into::into).collect(),

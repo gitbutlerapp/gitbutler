@@ -67,7 +67,7 @@ impl HunkDependencies {
         let mut diffs = Vec::<(HunkHash, Vec<HunkLock>)>::new();
         for change in worktree_changes {
             let unidiff = change.unified_diff(repo, 0 /* zero context lines */)?;
-            let UnifiedDiff::Patch { hunks } = unidiff else {
+            let UnifiedDiff::Patch { hunks, .. } = unidiff else {
                 continue;
             };
             for hunk in hunks {
