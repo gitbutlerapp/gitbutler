@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 import { VERSION } from './shared/version.js';
+import * as projects from './tools/projects.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import fetch from 'node-fetch';
 import { z } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 
 if (globalThis.fetch) {
 	globalThis.fetch = fetch as unknown as typeof global.fetch;
@@ -23,7 +26,39 @@ const server = new Server(
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
 	return {
-		tools: []
+		tools: [
+			{
+				name: 'list_projects',
+				description: 'List all the GitButler projects that are available',
+				inputSchema: zodToJsonSchema(projects.ListProjectsParamsSchema)
+			},
+			{
+				name: 'get_project',
+				description: 'Get a specific GitButler project',
+				inputSchema: zodToJsonSchema(projects.GetProjectParamsSchema)
+			},
+			{
+				name: 'list_recently_interacted_projects',
+				description: 'List all the GitButler projects that have been recently interacted with',
+				inputSchema: zodToJsonSchema(z.object({}))
+			},
+			{
+				name: 'list_recently_pushed_projects',
+				description: 'List all the GitButler projects that have been recently pushed to',
+				inputSchema: zodToJsonSchema(z.object({}))
+			},
+			{
+				name: 'lookup_project',
+				description: 'Lookup a GitButler project by owner and repo, returning the project ID',
+				inputSchema: zodToJsonSchema(projects.LookupProjectParamsSchema)
+			},
+			{
+				name: 'full_lookup_project',
+				description:
+					'Lookup a GitButler project by owner and repo, returning the full project object',
+				inputSchema: zodToJsonSchema(projects.LookupProjectParamsSchema)
+			}
+		]
 	};
 });
 
@@ -32,13 +67,60 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		if (!request.params.arguments) {
 			throw new Error('No arguments provided');
 		}
-		return {
-			content: []
-		};
+
+		switch (request.params.name) {
+			case 'list_projects': {
+				const listProjectsParams = projects.ListProjectsParamsSchema.parse(
+					request.params.arguments
+				);
+				const result = await projects.listAllProjects(listProjectsParams);
+				return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+			}
+			case 'get_project': {
+				const getProjectParams = projects.GetProjectParamsSchema.parse(request.params.arguments);
+				const result = await projects.getProject(getProjectParams);
+				return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+			}
+			case 'list_recently_interacted_projects': {
+				const result = await projects.listRecentlyInteractedProjects();
+				return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+			}
+			case 'list_recently_pushed_projects': {
+				const result = await projects.listRecentlyPushedProjects();
+				return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+			}
+			case 'lookup_project': {
+				const lookupProjectParams = projects.LookupProjectParamsSchema.parse(
+					request.params.arguments
+				);
+				const result = await projects.lookupProject(lookupProjectParams);
+				return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+			}
+			case 'full_lookup_project': {
+				const lookupProjectParams = projects.LookupProjectParamsSchema.parse(
+					request.params.arguments
+				);
+				const result = await projects.lookupProject(lookupProjectParams);
+				return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+			}
+			default:
+				throw new Error(`Unknown tool: ${request.params.name}`);
+		}
 	} catch (error) {
 		if (error instanceof z.ZodError) {
 			throw new Error(`Validation error: ${JSON.stringify(error.errors)}`);
 		}
 		throw error;
 	}
+});
+
+async function run() {
+	const transport = new StdioServerTransport();
+	await server.connect(transport);
+	console.warn('GitButler MCP Server is running on stdio');
+}
+
+run().catch((error) => {
+	console.error('Error starting server:', error);
+	process.exit(1);
 });
