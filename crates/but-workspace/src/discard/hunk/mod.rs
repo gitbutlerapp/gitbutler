@@ -46,7 +46,7 @@ pub fn restore_state_to_worktree(
         bail!("Couldn't obtain diff for worktree changes.")
     };
 
-    let mut hunks_to_keep: Vec<HunkHeader> = (hunks_in_worktree)
+    let mut hunks_to_keep: Vec<HunkHeader> = hunks_in_worktree
         .into_iter()
         .map(Into::into)
         .filter(|hunk| {
@@ -84,7 +84,8 @@ pub fn restore_state_to_worktree(
             if subtractions.is_empty() {
                 hunks_to_keep_with_splits.push(hunk_to_split);
             } else {
-                hunks_to_keep_with_splits.extend(subtract_hunks(hunk_to_split, subtractions)?);
+                let hunk_with_subtractions = subtract_hunks(hunk_to_split, subtractions)?;
+                hunks_to_keep_with_splits.extend(hunk_with_subtractions);
             }
         }
         hunks_to_keep = hunks_to_keep_with_splits;
@@ -186,27 +187,13 @@ fn subtract_hunks(
         }
     }
 
-    let mut out = vec![hunk];
-    for sub in subtractions {
-        let (idx, mut hdr, subtrahend) = match sub {
-            Old(subtrahend) => out.iter().enumerate().find_map(|(idx, hunk)| {
-                hunk.old_range()
-                    .contains(subtrahend)
-                    .then(|| (idx, Header::new(hunk, Source::Old), subtrahend))
-            }),
-            New(subtrahend) => out.iter().enumerate().find_map(|(idx, hunk)| {
-                hunk.new_range()
-                    .contains(subtrahend)
-                    .then(|| (idx, Header::new(hunk, Source::New), subtrahend))
-            }),
-        }
-        .with_context(|| {
-            format!(
-                "BUG: provided hunk slices must always be \
-            within their old and new hunk respectively: {sub:?} not in {hunk:?}"
-            )
-        })?;
-
+    /// This works if `hdr` at `idx` in `out` fully contains `subtrahend`.
+    fn adjust_boundary_or_split_equally(
+        out: &mut Vec<HunkHeader>,
+        idx: usize,
+        mut hdr: Header,
+        subtrahend: HunkRange,
+    ) {
         if hdr.edit.start == subtrahend.start {
             hdr.edit.start += subtrahend.lines;
             hdr.edit.lines -= subtrahend.lines;
@@ -242,6 +229,38 @@ fn subtract_hunks(
                 hdr.replaced(before_split_edit, before_split_keep).into(),
             );
         }
+    }
+
+    let mut out = vec![hunk];
+    let subtractions = {
+        let mut v: Vec<_> = subtractions.into_iter().collect();
+        v.sort_by_key(|s| match *s {
+            Old(hr) => hr,
+            New(hr) => hr,
+        });
+        v
+    };
+    for sub in subtractions {
+        let (idx, hdr, subtrahend) = match sub {
+            Old(subtrahend) => out.iter().enumerate().find_map(|(idx, hunk)| {
+                hunk.old_range()
+                    .contains(subtrahend)
+                    .then(|| (idx, Header::new(hunk, Source::Old), subtrahend))
+            }),
+            New(subtrahend) => out.iter().enumerate().find_map(|(idx, hunk)| {
+                hunk.new_range()
+                    .contains(subtrahend)
+                    .then(|| (idx, Header::new(hunk, Source::New), subtrahend))
+            }),
+        }
+        .with_context(|| {
+            format!(
+                "BUG: provided hunk slices must always be \
+            within their old and new hunk respectively: {sub:?} not in {hunk:?}"
+            )
+        })?;
+
+        adjust_boundary_or_split_equally(&mut out, idx, hdr, subtrahend);
     }
 
     Ok(out)

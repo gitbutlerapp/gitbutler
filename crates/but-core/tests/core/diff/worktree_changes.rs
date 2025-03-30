@@ -356,13 +356,9 @@ fn case_folding_worktree_changes() -> Result<()> {
     [
         Patch {
             hunks: [
-                DiffHunk {
-                    old_start: 1,
-                    old_lines: 1,
-                    new_start: 1,
-                    new_lines: 0,
-                    diff: "@@ -1,1 +1,0 @@\n-content\n",
-                },
+                DiffHunk("@@ -1,1 +1,0 @@
+                -content
+                "),
             ],
             is_result_of_binary_to_text_conversion: false,
         },
@@ -406,13 +402,9 @@ fn case_folding_worktree_and_index_changes() -> Result<()> {
     [
         Patch {
             hunks: [
-                DiffHunk {
-                    old_start: 1,
-                    old_lines: 1,
-                    new_start: 1,
-                    new_lines: 0,
-                    diff: "@@ -1,1 +1,0 @@\n-content\n",
-                },
+                DiffHunk("@@ -1,1 +1,0 @@
+                -content
+                "),
             ],
             is_result_of_binary_to_text_conversion: false,
         },
@@ -459,13 +451,9 @@ fn file_to_dir_in_worktree() -> Result<()> {
         },
         Patch {
             hunks: [
-                DiffHunk {
-                    old_start: 1,
-                    old_lines: 0,
-                    new_start: 1,
-                    new_lines: 1,
-                    diff: "@@ -1,0 +1,1 @@\n+content\n",
-                },
+                DiffHunk("@@ -1,0 +1,1 @@
+                +content
+                "),
             ],
             is_result_of_binary_to_text_conversion: false,
         },
@@ -512,13 +500,9 @@ fn file_to_dir_in_index() -> Result<()> {
         },
         Patch {
             hunks: [
-                DiffHunk {
-                    old_start: 1,
-                    old_lines: 0,
-                    new_start: 1,
-                    new_lines: 1,
-                    diff: "@@ -1,0 +1,1 @@\n+content\n",
-                },
+                DiffHunk("@@ -1,0 +1,1 @@
+                +content
+                "),
             ],
             is_result_of_binary_to_text_conversion: false,
         },
@@ -561,13 +545,9 @@ fn dir_to_file_in_worktree() -> Result<()> {
     [
         Patch {
             hunks: [
-                DiffHunk {
-                    old_start: 1,
-                    old_lines: 0,
-                    new_start: 1,
-                    new_lines: 1,
-                    diff: "@@ -1,0 +1,1 @@\n+content\n",
-                },
+                DiffHunk("@@ -1,0 +1,1 @@
+                +content
+                "),
             ],
             is_result_of_binary_to_text_conversion: false,
         },
@@ -614,13 +594,9 @@ fn dir_to_file_in_index() -> Result<()> {
     [
         Patch {
             hunks: [
-                DiffHunk {
-                    old_start: 1,
-                    old_lines: 0,
-                    new_start: 1,
-                    new_lines: 1,
-                    diff: "@@ -1,0 +1,1 @@\n+content\n",
-                },
+                DiffHunk("@@ -1,0 +1,1 @@
+                +content
+                "),
             ],
             is_result_of_binary_to_text_conversion: false,
         },
@@ -665,13 +641,10 @@ fn file_to_symlink_in_worktree() -> Result<()> {
     [
         Patch {
             hunks: [
-                DiffHunk {
-                    old_start: 1,
-                    old_lines: 1,
-                    new_start: 1,
-                    new_lines: 1,
-                    diff: "@@ -1,1 +1,1 @@\n-content\n+does-not-exist\n",
-                },
+                DiffHunk("@@ -1,1 +1,1 @@
+                -content
+                +does-not-exist
+                "),
             ],
             is_result_of_binary_to_text_conversion: false,
         },
@@ -730,13 +703,10 @@ fn file_to_symlink_in_index() -> Result<()> {
     [
         Patch {
             hunks: [
-                DiffHunk {
-                    old_start: 1,
-                    old_lines: 1,
-                    new_start: 1,
-                    new_lines: 1,
-                    diff: "@@ -1,1 +1,1 @@\n-content\n+does-not-exist\n",
-                },
+                DiffHunk("@@ -1,1 +1,1 @@
+                -content
+                +does-not-exist
+                "),
             ],
             is_result_of_binary_to_text_conversion: false,
         },
@@ -777,13 +747,10 @@ fn symlink_to_file_in_worktree() -> Result<()> {
     [
         Patch {
             hunks: [
-                DiffHunk {
-                    old_start: 1,
-                    old_lines: 1,
-                    new_start: 1,
-                    new_lines: 1,
-                    diff: "@@ -1,1 +1,1 @@\n-target\n+content\n",
-                },
+                DiffHunk("@@ -1,1 +1,1 @@
+                -target
+                +content
+                "),
             ],
             is_result_of_binary_to_text_conversion: false,
         },
@@ -824,13 +791,10 @@ fn symlink_to_file_in_index() -> Result<()> {
     [
         Patch {
             hunks: [
-                DiffHunk {
-                    old_start: 1,
-                    old_lines: 1,
-                    new_start: 1,
-                    new_lines: 1,
-                    diff: "@@ -1,1 +1,1 @@\n-target\n+content\n",
-                },
+                DiffHunk("@@ -1,1 +1,1 @@
+                -target
+                +content
+                "),
             ],
             is_result_of_binary_to_text_conversion: false,
         },
@@ -896,25 +860,18 @@ fn added_modified_in_worktree() -> Result<()> {
         },
         Patch {
             hunks: [
-                DiffHunk {
-                    old_start: 1,
-                    old_lines: 0,
-                    new_start: 1,
-                    new_lines: 1,
-                    diff: "@@ -1,0 +1,1 @@\n+content\n",
-                },
+                DiffHunk("@@ -1,0 +1,1 @@
+                +content
+                "),
             ],
             is_result_of_binary_to_text_conversion: false,
         },
         Patch {
             hunks: [
-                DiffHunk {
-                    old_start: 1,
-                    old_lines: 1,
-                    new_start: 1,
-                    new_lines: 1,
-                    diff: "@@ -1,1 +1,1 @@\n-something\n+change\n",
-                },
+                DiffHunk("@@ -1,1 +1,1 @@
+                -something
+                +change
+                "),
             ],
             is_result_of_binary_to_text_conversion: false,
         },
@@ -952,13 +909,10 @@ fn modified_in_index() -> Result<()> {
     [
         Patch {
             hunks: [
-                DiffHunk {
-                    old_start: 1,
-                    old_lines: 1,
-                    new_start: 1,
-                    new_lines: 1,
-                    diff: "@@ -1,1 +1,1 @@\n-something\n+change\n",
-                },
+                DiffHunk("@@ -1,1 +1,1 @@
+                -something
+                +change
+                "),
             ],
             is_result_of_binary_to_text_conversion: false,
         },
@@ -991,13 +945,9 @@ fn deleted_in_worktree() -> Result<()> {
     [
         Patch {
             hunks: [
-                DiffHunk {
-                    old_start: 1,
-                    old_lines: 1,
-                    new_start: 1,
-                    new_lines: 0,
-                    diff: "@@ -1,1 +1,0 @@\n-something\n",
-                },
+                DiffHunk("@@ -1,1 +1,0 @@
+                -something
+                "),
             ],
             is_result_of_binary_to_text_conversion: false,
         },
@@ -1030,13 +980,9 @@ fn deleted_in_index() -> Result<()> {
     [
         Patch {
             hunks: [
-                DiffHunk {
-                    old_start: 1,
-                    old_lines: 1,
-                    new_start: 1,
-                    new_lines: 0,
-                    diff: "@@ -1,1 +1,0 @@\n-something\n",
-                },
+                DiffHunk("@@ -1,1 +1,0 @@
+                -something
+                "),
             ],
             is_result_of_binary_to_text_conversion: false,
         },

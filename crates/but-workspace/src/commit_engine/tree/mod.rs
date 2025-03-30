@@ -8,6 +8,7 @@ use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 use gix::merge::tree::TreatAsUnresolved;
 use gix::object::tree::EntryKind;
 use gix::prelude::ObjectIdExt;
+use std::borrow::Cow;
 use std::io::Read;
 use std::path::Path;
 
@@ -62,16 +63,20 @@ pub fn create_tree(
                 "get base tree and apply changes by cherry-picking, probably can all be done by one function, but optimizations are different"
             )
         } else {
-            let changes_base_tree = repo.head()?.id().and_then(|id| {
-                id.object()
-                    .ok()?
-                    .peel_to_commit()
-                    .ok()?
-                    .tree_id()
-                    .ok()?
-                    .detach()
-                    .into()
-            });
+            let changes_base_tree = repo
+                .head()?
+                .id()
+                .and_then(|id| {
+                    id.object()
+                        .ok()?
+                        .peel_to_commit()
+                        .ok()?
+                        .tree_id()
+                        .ok()?
+                        .detach()
+                        .into()
+                })
+                .unwrap_or(target_tree);
             apply_worktree_changes(changes_base_tree, repo, &mut changes, context_lines)?
         };
 
@@ -149,16 +154,11 @@ type PossibleChange = Result<DiffSpec, (RejectionReason, DiffSpec)>;
 /// It is treated as if it lived on disk and may contain initial values, as a way to
 /// avoid destroying indexed information like stats which would slow down the next status.
 fn apply_worktree_changes<'repo>(
-    changes_base_tree: Option<gix::ObjectId>,
+    actual_base_tree: gix::ObjectId,
     repo: &'repo gix::Repository,
     changes: &mut [PossibleChange],
     context_lines: u32,
 ) -> anyhow::Result<(Option<gix::Id<'repo>>, gix::ObjectId)> {
-    fn has_zero_based_line_numbers(hunk_header: &HunkHeader) -> bool {
-        hunk_header.new_start == 0 || hunk_header.old_start == 0
-    }
-    let actual_base_tree =
-        changes_base_tree.unwrap_or_else(|| gix::ObjectId::empty_tree(repo.object_hash()));
     let base_tree = actual_base_tree.attach(repo).object()?.peel_to_tree()?;
     let mut base_tree_editor = base_tree.edit()?;
     let (mut pipeline, index) = repo.filter_pipeline(None)?;
@@ -186,15 +186,12 @@ fn apply_worktree_changes<'repo>(
             }
             Err(err) => return Err(err.into()),
         };
+        // NOTE: See copy below!
+        if let Some(previous_path) = change_request.previous_path.as_ref().map(|p| p.as_bstr()) {
+            base_tree_editor.remove(previous_path)?;
+        }
         if change_request.hunk_headers.is_empty() {
-            // NOTE: See copy below!
-            if let Some(previous_path) = change_request.previous_path.as_ref().map(|p| p.as_bstr())
-            {
-                base_tree_editor.remove(previous_path)?;
-            }
             let rela_path = change_request.path.as_bstr();
-            // TODO: this is wrong, we know that the diffs were created from the version stored in Git,
-            //       useful for git-lfs I suppose. Fix this conversion so hunks line up.
             match pipeline.worktree_file_to_object(rela_path, &index)? {
                 Some((id, kind, _fs_metadata)) => {
                     base_tree_editor.upsert(rela_path, kind, id)?;
@@ -230,37 +227,41 @@ fn apply_worktree_changes<'repo>(
                 into_err_spec(possible_change, RejectionReason::FileToLargeOrBinary);
                 continue;
             };
-            let previous_path = worktree_change.previous_path();
-            if let Some(previous_path) = previous_path {
-                base_tree_editor.remove(previous_path)?;
-            }
-            let base_rela_path = previous_path.unwrap_or(change_request.path.as_bstr());
-            let Some(entry) = base_tree.lookup_entry(base_rela_path.split(|b| *b == b'/'))? else {
-                // Assume the file is untracked, so no entry exists yet. Handle it as if there were no hunks,
-                // assuming there is only one.
-                if change_request.hunk_headers.len() == 1 {
-                    // NOTE: See copy above!
-                    if let Some(previous_path) =
-                        change_request.previous_path.as_ref().map(|p| p.as_bstr())
-                    {
-                        base_tree_editor.remove(previous_path)?;
-                    }
-                    let rela_path = change_request.path.as_bstr();
-                    match pipeline.worktree_file_to_object(rela_path, &index)? {
-                        Some((id, kind, _fs_metadata)) => {
-                            base_tree_editor.upsert(rela_path, kind, id)?;
-                        }
-                        None => into_err_spec(
-                            possible_change,
-                            RejectionReason::WorktreeFileMissingForObjectConversion,
-                        ),
-                    }
-                } else {
-                    into_err_spec(possible_change, RejectionReason::PathNotFoundInBaseTree);
-                }
-                continue;
+
+            let has_hunk_selections = change_request
+                .hunk_headers
+                .iter()
+                .any(|h| h.old_range().is_null() || h.new_range().is_null());
+            let worktree_hunks: Vec<HunkHeader> = hunks.into_iter().map(Into::into).collect();
+            let worktree_hunks_no_context = if has_hunk_selections {
+                let UnifiedDiff::Patch {
+                    hunks: hunks_no_context,
+                    ..
+                } = worktree_change.unified_diff_with_filter(repo, 0, &mut diff_filter)?
+                else {
+                    into_err_spec(possible_change, RejectionReason::FileToLargeOrBinary);
+                    continue;
+                };
+                Cow::Owned(hunks_no_context.into_iter().map(Into::into).collect())
+            } else {
+                Cow::Borrowed(worktree_hunks.as_slice())
             };
 
+            let selected_hunks = change_request.hunk_headers.drain(..);
+            let (hunks_to_commit, rejected) =
+                to_additive_hunks(selected_hunks, &worktree_hunks, &worktree_hunks_no_context);
+
+            change_request.hunk_headers = rejected;
+            if hunks_to_commit.is_empty() && !change_request.hunk_headers.is_empty() {
+                into_err_spec(possible_change, RejectionReason::MissingDiffSpecAssociation);
+                continue 'each_change;
+            }
+            let (previous_state, previous_path) = worktree_change
+                .status
+                .previous_state_and_path()
+                .map(|(state, maybe_path)| (Some(state), maybe_path))
+                .unwrap_or_default();
+            let base_rela_path = previous_path.unwrap_or(change_request.path.as_bstr());
             let current_entry_kind = if md.is_symlink() {
                 EntryKind::Link
             } else if md.is_file() {
@@ -275,12 +276,20 @@ fn apply_worktree_changes<'repo>(
                 continue;
             };
 
-            let worktree_base = if entry.mode().is_link() || entry.mode().is_blob() {
-                entry.object()?.detach().data
-            } else {
-                // defensive: assure file wasn't swapped with something we can't handle
-                into_err_spec(possible_change, RejectionReason::UnsupportedTreeEntry);
-                continue;
+            let worktree_base = match previous_state {
+                None => Vec::new(),
+                Some(previous_state) => {
+                    match previous_state.kind {
+                        EntryKind::Tree | EntryKind::Commit => {
+                            // defensive: assure file wasn't swapped with something we can't handle
+                            into_err_spec(possible_change, RejectionReason::UnsupportedTreeEntry);
+                            continue;
+                        }
+                        EntryKind::Blob | EntryKind::BlobExecutable | EntryKind::Link => {
+                            repo.find_blob(previous_state.id)?.detach().data
+                        }
+                    }
+                }
             };
 
             worktree_file_to_git_in_buf(
@@ -290,20 +299,10 @@ fn apply_worktree_changes<'repo>(
                 &mut pipeline,
                 &index,
             )?;
-            let worktree_hunks: Vec<HunkHeader> = hunks.into_iter().map(Into::into).collect();
-            for selected_hunk in &change_request.hunk_headers {
-                if !worktree_hunks.contains(selected_hunk)
-                    || has_zero_based_line_numbers(selected_hunk)
-                {
-                    into_err_spec(possible_change, RejectionReason::MissingDiffSpecAssociation);
-                    // TODO: only skip this one hunk, but collect skipped hunks into a new err-spec.
-                    continue 'each_change;
-                }
-            }
             let base_with_patches = apply_hunks(
                 worktree_base.as_bstr(),
                 current_worktree.as_bstr(),
-                &change_request.hunk_headers,
+                &hunks_to_commit,
             )?;
             let blob_with_selected_patches = repo.write_blob(base_with_patches.as_slice())?;
             base_tree_editor.upsert(
@@ -345,3 +344,84 @@ pub(crate) fn worktree_file_to_git_in_buf(
     };
     Ok(())
 }
+
+/// Given `hunks_to_keep` (ascending hunks by starting line) and the set of `worktree_hunks_no_context`
+/// (worktree hunks without context), return `(hunks_to_commit, rejected_hunks)` where `hunks_to_commit` is the
+/// headers to drive the additive operation to create the buffer to commit, and `rejected_hunks` is the list of
+/// hunks from `hunks_to_keep` that couldn't be associated with `worktree_hunks_no_context` because they weren't actually included.
+///
+/// `worktree_hunks` is the hunks with a given amount of context, usually 3, and it's used to quickly select original hunks
+/// without selection.
+/// `hunks_to_keep` indicate that they are a selection by marking the other side with `0,0`, i.e. `-1,2 +0,0` selects old `1,2`,
+/// and `-0,0 +2,3` selects new `2,3`.
+///
+/// The idea here is that `worktree_hunks_no_context` is the smallest-possible hunks that still contain the designated
+/// selections in the old or new image respectively. This is necessary to maintain the right order in the face of context lines.
+/// Note that the order of changes is still affected by what which selection comes first, i.e. old and new, or vice versa, if these
+/// selections are in the same hunk.
+fn to_additive_hunks(
+    hunks_to_keep: impl IntoIterator<Item = HunkHeader>,
+    worktree_hunks: &[HunkHeader],
+    worktree_hunks_no_context: &[HunkHeader],
+) -> (Vec<HunkHeader>, Vec<HunkHeader>) {
+    let mut hunks_to_commit = Vec::new();
+    let mut rejected = Vec::new();
+    let mut previous = HunkHeader {
+        old_start: 1,
+        old_lines: 0,
+        new_start: 1,
+        new_lines: 0,
+    };
+    let mut last_wh = None;
+    for selected_hunk in hunks_to_keep {
+        let sh = selected_hunk;
+        if sh.new_range().is_null() {
+            if let Some(wh) = worktree_hunks_no_context
+                .iter()
+                .find(|wh| wh.old_range().contains(sh.old_range()))
+            {
+                if last_wh != Some(*wh) {
+                    last_wh = Some(*wh);
+                    previous.new_start = wh.new_start;
+                }
+                hunks_to_commit.push(HunkHeader {
+                    old_start: sh.old_start,
+                    old_lines: sh.old_lines,
+                    new_start: previous.new_start,
+                    new_lines: 0,
+                });
+                previous.old_start = sh.old_range().end();
+                continue;
+            }
+        } else if sh.old_range().is_null() {
+            if let Some(wh) = worktree_hunks_no_context
+                .iter()
+                .find(|wh| wh.new_range().contains(sh.new_range()))
+            {
+                if last_wh != Some(*wh) {
+                    last_wh = Some(*wh);
+                    previous.old_start = wh.old_start;
+                }
+                hunks_to_commit.push(HunkHeader {
+                    old_start: previous.old_start,
+                    old_lines: 0,
+                    new_start: sh.new_start,
+                    new_lines: sh.new_lines,
+                });
+                previous.new_start = sh.new_range().end();
+                continue;
+            }
+        } else if worktree_hunks.contains(&sh) {
+            previous.old_start = sh.old_range().end();
+            previous.new_start = sh.new_range().end();
+            last_wh = Some(sh);
+            hunks_to_commit.push(sh);
+            continue;
+        }
+        rejected.push(sh);
+    }
+    (hunks_to_commit, rejected)
+}
+
+#[cfg(test)]
+mod tests;

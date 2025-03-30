@@ -1105,7 +1105,7 @@ mod utils {
         rela_path: &str,
         content: &str,
     ) -> std::io::Result<()> {
-        let work_dir = repo.workdir().expect("non-bare");
-        std::fs::write(work_dir.join(rela_path), content)
+        let work_path = repo.workdir_path(rela_path).expect("non-bare");
+        std::fs::write(work_path, content)
     }
 }
