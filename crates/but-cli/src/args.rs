@@ -28,6 +28,19 @@ pub struct Args {
 pub enum Subcommands {
     /// Commit or amend all worktree changes to a new commit.
     Commit {
+        /// The repo-relative path to the changed file to commit.
+        #[clap(requires_if(clap::builder::ArgPredicate::IsPresent, "hunk_headers"))]
+        current_path: Option<PathBuf>,
+        /// If the change is a rename, identify the repo-relative path of the source.
+        previous_path: Option<PathBuf>,
+        /// The 1-based pairs of 4 numbers equivalent to '(old_start,old_lines,new_start,new_lines)'
+        #[clap(
+            long,
+            requires_if(clap::builder::ArgPredicate::IsPresent, "current_path"),
+            num_args = 4,
+            value_names = ["old-start", "old-lines", "new-start", "new-lines"])
+        ]
+        hunk_headers: Vec<u32>,
         /// The message of the new commit.
         #[clap(long, short = 'm')]
         message: Option<String>,

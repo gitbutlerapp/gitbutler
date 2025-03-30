@@ -1,4 +1,5 @@
-use crate::command::debug_print;
+use crate::command::discard_change::IndicesOrHeaders;
+use crate::command::{debug_print, indices_or_headers_to_hunk_headers, path_to_rela_path};
 use anyhow::bail;
 use but_core::TreeChange;
 use but_workspace::commit_engine::{
@@ -6,7 +7,9 @@ use but_workspace::commit_engine::{
 };
 use gitbutler_project::Project;
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
+use std::path::Path;
 
+#[allow(clippy::too_many_arguments)]
 pub fn commit(
     repo: gix::Repository,
     project: Option<Project>,
@@ -15,6 +18,9 @@ pub fn commit(
     parent_revspec: Option<&str>,
     stack_segment_ref: Option<&str>,
     workspace_tip: Option<&str>,
+    current_rela_path: Option<&Path>,
+    previous_rela_path: Option<&Path>,
+    headers: Option<&[u32]>,
 ) -> anyhow::Result<()> {
     if message.is_none() && !amend {
         bail!("Need a message when creating a new commit");
@@ -24,7 +30,28 @@ pub fn commit(
         .unwrap_or_else(|| Ok(repo.head_id()?))?
         .detach();
 
-    let changes = to_whole_file_diffspec(but_core::diff::worktree_changes(&repo)?.changes);
+    let changes = match (current_rela_path, previous_rela_path, headers) {
+        (None, None, None) => {
+            to_whole_file_diffspec(but_core::diff::worktree_changes(&repo)?.changes)
+        }
+        (Some(current_path), previous_path, Some(headers)) => {
+            let path = path_to_rela_path(current_path)?;
+            let previous_path = previous_path.map(path_to_rela_path).transpose()?;
+            let hunk_headers = indices_or_headers_to_hunk_headers(
+                &repo,
+                Some(IndicesOrHeaders::Headers(headers)),
+                &path,
+                previous_path.as_ref(),
+            )?;
+
+            vec![DiffSpec {
+                previous_path,
+                path,
+                hunk_headers,
+            }]
+        }
+        _ => unreachable!("BUG: specifying this shouldn't be possible"),
+    };
     if let Some(project) = project.as_ref() {
         let destination = if amend {
             if message.is_some() {
