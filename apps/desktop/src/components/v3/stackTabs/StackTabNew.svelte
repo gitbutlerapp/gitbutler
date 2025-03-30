@@ -84,8 +84,6 @@
 		}
 	}
 
-	let overflowed = $state(false);
-
 	// TODO: it would be nice to remember the last selected option for the next time the modal is opened
 </script>
 
@@ -93,7 +91,6 @@
 	aria-label="new stack"
 	type="button"
 	class="new-stack-btn"
-	class:overflow={overflowed}
 	onclick={() => createRefModal?.show()}
 	bind:this={el}
 	onkeydown={handleArrowNavigation}
@@ -212,10 +209,6 @@
 			outline: none;
 			color: var(--clr-text-2);
 			background: var(--clr-stack-tab-active);
-		}
-
-		&.overflow {
-			background-color: red;
 		}
 	}
 
