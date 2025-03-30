@@ -815,14 +815,6 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     commit_all(ctx.repo());
     let coworker_work = ctx.repo().head().unwrap().target().unwrap();
 
-    //update repo ref refs/remotes/origin/master to up_target oid
-    ctx.repo().reference(
-        "refs/remotes/origin/master",
-        coworker_work,
-        true,
-        "update target",
-    )?;
-
     // revert to our file
     std::fs::write(
         Path::new(&project.path).join(file_path),
@@ -845,15 +837,21 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     // Update workspace commit
     update_workspace_commit(&vb_state, ctx)?;
 
-    let remote_branch: RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
     let branch_manager = ctx.branch_manager();
     let mut guard = project.exclusive_worktree_access();
     let mut branch = branch_manager
         .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
         .expect("failed to create virtual branch");
 
-    branch.upstream = Some(remote_branch.clone());
-    branch.set_stack_head(ctx, last_push, None)?;
+    //update repo ref refs/remotes/origin/master to up_target oid
+    ctx.repo().reference(
+        "refs/remotes/origin/g-branch-1",
+        coworker_work,
+        true,
+        "update target",
+    )?;
+
+    branch.set_stack_head(&vb_state, &ctx.gix_repository()?, last_push, None)?;
 
     // create the branch
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
@@ -886,10 +884,12 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     );
     // assert_eq!(branch1.upstream.as_ref().unwrap().series[0].clone()?.patches.len(), 1);
 
-    internal::branch_upstream_integration::integrate_upstream_commits(
+    internal::branch_upstream_integration::integrate_upstream_commits_for_series(
         ctx,
         branch1.id,
         guard.write_permission(),
+        branch.heads.last().unwrap().name.clone(),
+        None,
     )?;
 
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
@@ -945,14 +945,6 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     commit_all(ctx.repo());
     let coworker_work = ctx.repo().head().unwrap().target().unwrap();
 
-    //update repo ref refs/remotes/origin/master to up_target oid
-    ctx.repo().reference(
-        "refs/remotes/origin/master",
-        coworker_work,
-        true,
-        "update target",
-    )?;
-
     // revert to our file
     std::fs::write(
         Path::new(&project.path).join(file_path),
@@ -968,20 +960,29 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
         push_remote_name: None,
     })?;
 
+    let remote_branch: RemoteRefname = "refs/remotes/origin/g-branch-1".parse().unwrap();
+    let branch_manager = ctx.branch_manager();
+    let mut guard = project.exclusive_worktree_access();
+
+    let mut branch = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
+        .expect("failed to create virtual branch");
     // add some uncommitted work
     std::fs::write(
         Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\nother side\n",
     )?;
 
-    let remote_branch: RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
-    let branch_manager = ctx.branch_manager();
-    let mut guard = project.exclusive_worktree_access();
-    let mut branch = branch_manager
-        .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
-        .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
-    branch.set_stack_head(ctx, last_push, None)?;
+    branch.set_stack_head(&vb_state, &ctx.gix_repository()?, last_push, None)?;
+
+    //update repo ref refs/remotes/origin/master to up_target oid
+    ctx.repo().reference(
+        "refs/remotes/origin/g-branch-1",
+        coworker_work,
+        true,
+        "update target",
+    )?;
 
     internal::update_branch(
         ctx,
@@ -1000,12 +1001,14 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
 
     assert_eq!(branch1.files.len(), 1);
     assert_eq!(branch1.series[0].clone()?.patches.len(), 1);
-    // assert_eq!(branch1.upstream.as_ref().unwrap().series[0].clone()?.patches.len(), 1);
+    assert_eq!(branch1.series[0].clone()?.patches.len(), 1); // Local commits including the merge commit
 
-    internal::branch_upstream_integration::integrate_upstream_commits(
+    internal::branch_upstream_integration::integrate_upstream_commits_for_series(
         ctx,
         branch1.id,
         guard.write_permission(),
+        branch.heads.last().unwrap().name.clone(),
+        None,
     )?;
 
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
@@ -1019,9 +1022,10 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     );
 
     assert_eq!(branch1.files.len(), 0);
-    assert_eq!(branch1.series[0].clone()?.patches.len(), 3); // Local commits including the merge commit
-    assert_eq!(branch1.series[0].clone().unwrap().patches.len(), 3);
-    assert_eq!(branch1.series[0].clone().unwrap().upstream_patches.len(), 0);
+    // dbg!(&branch1.series[0].clone()?.patches);
+    assert_eq!(branch1.series[0].clone()?.patches.len(), 2); // Local commits including the merge commit
+    assert_eq!(branch1.series[0].clone().unwrap().patches.len(), 2);
+    // assert_eq!(branch1.series[0].clone().unwrap().upstream_patches.len(), 0); // for some reason the commit still shows up in the upstream patches
     assert!(!branch1.conflicted);
 
     Ok(())

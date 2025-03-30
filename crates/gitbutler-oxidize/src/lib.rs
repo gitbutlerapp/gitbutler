@@ -45,6 +45,17 @@ impl ObjectIdExt for gix::Id<'_> {
     }
 }
 
+pub trait RepoExt {
+    fn to_gix(&self) -> anyhow::Result<gix::Repository>;
+}
+
+impl RepoExt for &git2::Repository {
+    fn to_gix(&self) -> anyhow::Result<gix::Repository> {
+        let repo = gix::open(self.path())?;
+        Ok(repo)
+    }
+}
+
 pub fn git2_signature_to_gix_signature<'a>(
     input: impl Borrow<git2::Signature<'a>>,
 ) -> gix::actor::Signature {

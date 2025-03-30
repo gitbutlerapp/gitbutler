@@ -15,13 +15,16 @@ use tauri::State;
 use tracing::instrument;
 
 #[tauri::command(async)]
-#[instrument(skip(projects), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn stacks(
     projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
 ) -> Result<Vec<StackEntry>, Error> {
     let project = projects.get(project_id)?;
-    but_workspace::stacks(&project.gb_dir()).map_err(Into::into)
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let repo = ctx.gix_repository()?;
+    but_workspace::stacks(&project.gb_dir(), &repo).map_err(Into::into)
 }
 
 #[tauri::command(async)]
