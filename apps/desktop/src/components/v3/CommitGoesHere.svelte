@@ -18,9 +18,7 @@
 			<div class="pin__line"></div>
 			<div class="pin__circle"></div>
 		</div>
-		<div>
-			<Badge size="tag" style="pop">Your commit goes here {last}</Badge>
-		</div>
+		<Badge size="tag" style="pop">Your commit goes here</Badge>
 	</div>
 {/snippet}
 {#snippet commitHere(args: { commitId: string; last?: boolean })}
