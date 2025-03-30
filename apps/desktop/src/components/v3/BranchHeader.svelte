@@ -134,6 +134,7 @@
 		border-top-right-radius: var(--radius-ml);
 		border-top-left-radius: var(--radius-ml);
 		border-bottom: 1px solid var(--clr-border-2);
+		overflow: hidden;
 
 		&:before {
 			content: '';

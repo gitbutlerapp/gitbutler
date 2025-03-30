@@ -2,14 +2,13 @@
 	import Badge from '@gitbutler/ui/Badge.svelte';
 
 	type Props = {
-		commitId: string;
 		first: boolean;
 		last: boolean;
 		selected: boolean;
 		onclick: () => void;
 	};
 
-	const { commitId, first, last, selected, onclick }: Props = $props();
+	const { first, last, selected, onclick }: Props = $props();
 </script>
 
 {#snippet indicator(args?: { last: boolean; first: boolean })}
@@ -21,10 +20,12 @@
 		<Badge size="tag" style="pop">Your commit goes here</Badge>
 	</div>
 {/snippet}
-{#snippet commitHere(args: { commitId: string; last?: boolean })}
-	<button class="commit-here" type="button" class:last={args.last} {onclick}>
+{#snippet commitHere(args: { last?: boolean })}
+	{@const last = args?.last}
+	<button class="commit-here" class:commit-here_last={last} type="button" {onclick}>
 		<div class="commit-here__circle"></div>
 		<div class="commit-here__line"></div>
+
 		<div class="commit-here__label text-11 text-semibold">Commit here</div>
 	</button>
 {/snippet}
@@ -33,7 +34,7 @@
 	{@render indicator({ first, last })}
 {/if}
 {#if !selected}
-	{@render commitHere({ commitId })}
+	{@render commitHere({ last })}
 {/if}
 
 <style lang="postcss">
@@ -81,6 +82,7 @@
 		align-items: center;
 		opacity: 0;
 		z-index: var(--z-lifted);
+		transition: height var(--transition-fast);
 
 		&:hover {
 			opacity: 1;
@@ -88,6 +90,11 @@
 			& .commit-here__label {
 				opacity: 1;
 				transform: translateY(-50%) translateX(0) scale(1);
+			}
+
+			&.commit-here_last {
+				height: 30px;
+				margin-bottom: 0;
 			}
 		}
 	}
@@ -121,4 +128,8 @@
 			opacity var(--transition-fast),
 			transform var(--transition-medium);
 	}
+
+	/* .commit-here_last {
+		margin-bottom: 0;
+	} */
 </style>
