@@ -901,7 +901,7 @@ mod util {
 
     fn test_ctx_at(script_name: &str, name: &str) -> anyhow::Result<TestContext> {
         let ctx = gitbutler_testsupport::read_only::fixture(script_name, name)?;
-        let stacks = but_workspace::stacks(&ctx.project().gb_dir())?;
+        let stacks = but_workspace::stacks(&ctx.project().gb_dir(), &ctx.gix_repository()?)?;
         let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
 
         Ok(TestContext {

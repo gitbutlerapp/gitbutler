@@ -18,6 +18,7 @@ use git2::FileMode;
 use gitbutler_command_context::RepositoryExtLite;
 use gitbutler_diff::{hunks_by_filepath, FileDiff};
 use gitbutler_oxidize::ObjectIdExt as _;
+use gitbutler_oxidize::RepoExt;
 use gitbutler_oxidize::{
     git2_to_gix_object_id, gix_time_to_git2, gix_to_git2_oid, GixRepositoryExt, OidExt,
 };
@@ -432,7 +433,10 @@ fn prepare_snapshot(ctx: &Project, _shared_access: &WorktreeReadPermission) -> R
     let mut branches_tree_builder = repo.treebuilder(None)?;
     let mut head_tree_ids = Vec::new();
 
-    for stack in vb_state.list_stacks_in_workspace()? {
+    let r = &repo;
+    let gix_repo = r.to_gix()?;
+
+    for mut stack in vb_state.list_stacks_in_workspace()? {
         head_tree_ids.push(stack.tree);
 
         // commits in virtual branches (tree and commit data)
@@ -442,8 +446,11 @@ fn prepare_snapshot(ctx: &Project, _shared_access: &WorktreeReadPermission) -> R
 
         // let's get all the commits between the branch head and the target
         let mut revwalk = repo.revwalk()?;
-        revwalk.push(stack.head())?;
+        revwalk.push(stack.head(&gix_repo)?)?;
         revwalk.hide(default_target_commit.id())?;
+
+        // If the references are out of sync, now is a good time to update them
+        stack.sync_heads_with_references(&vb_state, &gix_repo).ok();
 
         let mut commits_tree_builder = repo.treebuilder(None)?;
         for commit_id in revwalk {
@@ -664,6 +671,15 @@ fn restore_snapshot(
         repo.path().join("gitbutler").join("virtual_branches.toml"),
         vb_toml_blob.content(),
     )?;
+
+    // Now that the toml file has been restored, update references to reflect the the values from virtual_branches.toml
+    let vb_state = VirtualBranchesHandle::new(ctx.gb_dir());
+    let stacks = vb_state.list_stacks_in_workspace()?;
+    for stack in stacks {
+        for branch in stack.heads {
+            branch.set_reference_to_head_value(&gix_repo).ok();
+        }
+    }
 
     // reset the repo index to our index tree
     let index_tree_entry = snapshot_tree
