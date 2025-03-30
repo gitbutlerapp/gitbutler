@@ -84,8 +84,6 @@
 		}
 	}
 
-	let overflowed = $state(false);
-
 	// TODO: it would be nice to remember the last selected option for the next time the modal is opened
 </script>
 
@@ -93,13 +91,17 @@
 	aria-label="new stack"
 	type="button"
 	class="new-stack-btn"
-	class:overflow={overflowed}
 	onclick={() => createRefModal?.show()}
 	bind:this={el}
 	onkeydown={handleArrowNavigation}
 >
 	<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-		<path d="M0 10H20M10 0L10 20" stroke="currentColor" stroke-width="1.5" />
+		<path
+			d="M0 10H20M10 0L10 20"
+			stroke="currentColor"
+			opacity="var(--plus-icon-opacity)"
+			stroke-width="1.5"
+		/>
 	</svg>
 </button>
 
@@ -198,24 +200,24 @@
 		height: 100%;
 		padding: 0 15px;
 		background: var(--clr-stack-tab-inactive);
-		color: var(--clr-text-3);
+		color: var(--clr-text-2);
+		--plus-icon-opacity: 0.8;
 		transition:
 			color var(--transition-fast),
 			background var(--transition-fast);
 
+		&:hover,
+		&:focus {
+			--plus-icon-opacity: 1;
+		}
+
 		&:hover {
-			color: var(--clr-text-2);
 			background: var(--clr-stack-tab-inactive-hover);
 		}
 
 		&:focus {
 			outline: none;
-			color: var(--clr-text-2);
 			background: var(--clr-stack-tab-active);
-		}
-
-		&.overflow {
-			background-color: red;
 		}
 	}
 

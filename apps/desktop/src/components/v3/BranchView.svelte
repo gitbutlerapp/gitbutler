@@ -130,10 +130,10 @@
 
 	/* EMPTY STATE */
 	.branch-view__empty-state {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
-		height: 100%;
 		padding: 30px;
 		max-width: 540px;
 		margin: 0 auto;
