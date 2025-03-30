@@ -512,53 +512,7 @@ impl Stack {
         }
 
         let state = branch_state(ctx);
-        let patches = self.stack_patches(&ctx.to_stack_context()?, true)?;
         let mut updated_heads = self.heads.clone();
-
-        // Handle target updates
-        if let Some(target_update) = &update.target_update {
-            let mut new_head = updated_heads
-                .clone()
-                .into_iter()
-                .find(|h| *h.name() == branch_name)
-                .ok_or_else(|| anyhow!("Series with name {} not found", branch_name))?;
-            let gix_repo = ctx.gix_repository()?;
-            new_head.set_head(target_update.target.clone(), &gix_repo)?;
-            validate_target(
-                new_head.head_oid(&gix_repo)?,
-                ctx.repo(),
-                self.head(&gix_repo)?,
-                &state,
-            )?;
-            let preceding_head = if let Some(preceding_head_name) = update
-                .target_update
-                .clone()
-                .and_then(|update| update.preceding_head_name)
-            {
-                let (_, preceding_head) = get_head(&self.heads, &preceding_head_name)
-                    .context("The specified preceding_head could not be found")?;
-                Some(preceding_head)
-            } else {
-                None
-            };
-
-            // drop the old head and add the new one
-            let (idx, _) = get_head(&updated_heads, &branch_name)?;
-            updated_heads.remove(idx);
-            let last_updated_head: Option<CommitOrChangeId> = updated_heads
-                .last()
-                .and_then(|h| h.head_oid(&gix_repo).ok().map(|h| h.into()));
-            if patches.last() != last_updated_head.as_ref() {
-                bail!("This update would cause orphaned patches, which is disallowed");
-            }
-            updated_heads = add_head(
-                updated_heads,
-                new_head.clone(),
-                preceding_head,
-                patches.clone(),
-                &gix_repo,
-            )?;
-        }
 
         // Handle name updates
         if let Some(name) = update.name.clone() {
@@ -863,7 +817,6 @@ impl Stack {
 /// Request to update a PatchReference.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub struct PatchReferenceUpdate {
-    pub target_update: Option<TargetUpdate>,
     pub name: Option<String>,
     /// If present, this sets the value of the description field.
     /// It is possible to set this to Some(None) which will remove an existing description.

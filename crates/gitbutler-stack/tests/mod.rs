@@ -7,8 +7,8 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::stack_context::CommandContextExt;
+use gitbutler_stack::PatchReferenceUpdate;
 use gitbutler_stack::{CommitOrChangeId, StackBranch, VirtualBranchesHandle};
-use gitbutler_stack::{PatchReferenceUpdate, TargetUpdate};
 use itertools::Itertools;
 use tempfile::TempDir;
 
@@ -381,7 +381,6 @@ fn update_branch_name_fails_validation() -> Result<()> {
     let mut test_ctx = test_ctx(&ctx)?;
     let update = PatchReferenceUpdate {
         name: Some("invalid name".into()),
-        target_update: None,
         description: None,
     };
     let result = test_ctx
@@ -397,7 +396,6 @@ fn update_branch_name_success() -> Result<()> {
     let mut test_ctx = test_ctx(&ctx)?;
     let update = PatchReferenceUpdate {
         name: Some("new-name".into()),
-        target_update: None,
         description: None,
     };
     let result = test_ctx
@@ -424,7 +422,6 @@ fn update_branch_name_resets_pr_number() -> Result<()> {
     assert_eq!(test_ctx.stack.heads[0].pr_number, Some(pr_number));
     let update = PatchReferenceUpdate {
         name: Some("new-name".into()),
-        target_update: None,
         description: None,
     };
     test_ctx
@@ -444,7 +441,6 @@ fn update_series_set_description() -> Result<()> {
     let mut test_ctx = test_ctx(&ctx)?;
     let update = PatchReferenceUpdate {
         name: None,
-        target_update: None,
         description: Some(Some("my description".into())),
     };
     let result = test_ctx
@@ -454,96 +450,6 @@ fn update_series_set_description() -> Result<()> {
     assert_eq!(
         test_ctx.stack.heads[0].description,
         Some("my description".into())
-    );
-    // Assert persisted
-    assert_eq!(
-        test_ctx.stack,
-        test_ctx.handle.get_stack(test_ctx.stack.id)?
-    );
-    Ok(())
-}
-
-#[test]
-fn update_series_target_fails_commit_not_in_stack() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let mut test_ctx = test_ctx(&ctx)?;
-    let other_commit_id = test_ctx.other_commits.last().unwrap().id().to_string();
-    let update = PatchReferenceUpdate {
-        name: None,
-        target_update: Some(TargetUpdate {
-            target: CommitOrChangeId::CommitId(other_commit_id.clone()),
-            preceding_head_name: None,
-        }),
-        description: None,
-    };
-    let result = test_ctx
-        .stack
-        .update_branch(&ctx, "a-branch-2".into(), &update);
-    assert_eq!(
-        result.err().unwrap().to_string(),
-        format!(
-            "The commit {} is not between the stack head and the stack base",
-            other_commit_id
-        )
-    );
-    Ok(())
-}
-
-#[test]
-fn update_series_target_orphan_commit_fails() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let mut test_ctx = test_ctx(&ctx)?;
-    let initial_state = test_ctx.stack.heads.clone();
-    let first_commit_id = test_ctx.commits.first().unwrap().id().to_string();
-    let update = PatchReferenceUpdate {
-        name: Some("new-lol".into()),
-        target_update: Some(TargetUpdate {
-            target: CommitOrChangeId::CommitId(first_commit_id.clone()),
-            preceding_head_name: None,
-        }),
-        description: None,
-    };
-    let result = test_ctx
-        .stack
-        .update_branch(&ctx, "a-branch-2".into(), &update);
-
-    assert_eq!(
-        result.err().unwrap().to_string(),
-        "This update would cause orphaned patches, which is disallowed"
-    );
-    assert_eq!(initial_state, test_ctx.stack.heads); // no change due to failure
-    Ok(())
-}
-
-#[test]
-fn update_series_target_success() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let mut test_ctx = test_ctx(&ctx)?;
-    let commit_0_change_id = CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string());
-    let repo = &ctx.gix_repository()?;
-    let series_1 = StackBranch::new(commit_0_change_id.clone(), "series_1".into(), None, repo)?;
-    let result = test_ctx.stack.add_series(&ctx, series_1, None);
-    assert!(result.is_ok());
-    assert_eq!(
-        commit_0_change_id,
-        test_ctx.stack.heads[0].head_oid(repo)?.into()
-    );
-    let commit_1_change_id = CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string());
-    let update = PatchReferenceUpdate {
-        name: None,
-        target_update: Some(TargetUpdate {
-            target: commit_1_change_id.clone(),
-            preceding_head_name: None,
-        }),
-        description: None,
-    };
-    let result = test_ctx
-        .stack
-        .update_branch(&ctx, "series_1".into(), &update);
-    assert!(result.is_ok());
-    assert_eq!(
-        commit_1_change_id,
-        test_ctx.stack.heads[0].head_oid(repo)?.into()
     );
     // Assert persisted
     assert_eq!(
