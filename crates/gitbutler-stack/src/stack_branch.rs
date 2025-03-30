@@ -258,9 +258,19 @@ impl StackBranch {
     }
 
     pub fn head_oid(&self, repo: &gix::Repository) -> Result<git2::Oid> {
-        let mut reference = repo.find_reference(&self.name)?;
-        let commit = reference.peel_to_commit()?;
-        Ok(commit.id.to_git2())
+        if let Some(mut reference) = repo.try_find_reference(&self.name)? {
+            let commit = reference.peel_to_commit()?;
+            Ok(commit.id.to_git2())
+        } else if let CommitOrChangeId::CommitId(id) = &self.head {
+            self.set_real_reference(repo, &self.head)?;
+            Ok(git2::Oid::from_str(id)?)
+        } else {
+            Err(anyhow::anyhow!(
+                "No reference found for branch {}. CommitOrChangeId is {}",
+                &self.name,
+                &self.head
+            ))
+        }
     }
 
     /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
