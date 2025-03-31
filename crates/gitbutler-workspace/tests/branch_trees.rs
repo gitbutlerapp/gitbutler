@@ -55,8 +55,9 @@ mod compute_updated_branch_head {
 
         let stack = make_branch(&ctx, head.id(), tree.tree_id());
 
+        let r = &test_repository.repository;
         let BranchHeadAndTree { head, tree } =
-            compute_updated_branch_head(&test_repository.repository, &stack, head.id()).unwrap();
+            compute_updated_branch_head(r, &r.to_gix().unwrap(), &stack, head.id()).unwrap();
 
         let r = &test_repository.repository;
         assert_eq!(head, stack.head(&r.to_gix().unwrap()).unwrap());
@@ -90,9 +91,9 @@ mod compute_updated_branch_head {
 
         let new_head = test_repository.commit_tree(Some(&base_commit), &[("foo.txt", "new")]);
 
+        let r = &test_repository.repository;
         let BranchHeadAndTree { head, tree } =
-            compute_updated_branch_head(&test_repository.repository, &stack, new_head.id())
-                .unwrap();
+            compute_updated_branch_head(r, &r.to_gix().unwrap(), &stack, new_head.id()).unwrap();
 
         assert_eq!(head, new_head.id());
         assert_tree_matches(
@@ -127,9 +128,9 @@ mod compute_updated_branch_head {
 
         let new_head = test_repository.commit_tree(Some(&base_commit), &[("foo.txt", "new")]);
 
+        let r = &test_repository.repository;
         let BranchHeadAndTree { head, tree } =
-            compute_updated_branch_head(&test_repository.repository, &stack, new_head.id())
-                .unwrap();
+            compute_updated_branch_head(r, &r.to_gix().unwrap(), &stack, new_head.id()).unwrap();
 
         let new_new_head = test_repository.repository.find_commit(head).unwrap();
         assert!(new_new_head.is_conflicted());

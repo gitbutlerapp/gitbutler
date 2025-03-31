@@ -326,7 +326,7 @@ pub(crate) fn save_and_return_to_workspace(
         (new_branch_head, None)
     } else {
         #[allow(deprecated)]
-        let res = compute_updated_branch_head(ctx.repo(), &stack, new_branch_head)?;
+        let res = compute_updated_branch_head(ctx.repo(), &gix_repo, &stack, new_branch_head)?;
         (res.head, Some(res.tree))
     };
 

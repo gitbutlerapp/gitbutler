@@ -531,7 +531,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			>({
 				query: ({ projectId, stackId, commitId, message }) => ({
 					command: 'update_commit_message',
-					params: { projectId, branchId: stackId, commitOid: commitId, message }
+					params: { projectId, stackId, commitOid: commitId, message }
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					ReduxTag.StackBranches,
@@ -579,16 +579,16 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			insertBlankCommit: build.mutation<
 				void,
-				{ projectId: string; branchId: string; commitOid: string; offset: number }
+				{ projectId: string; stackId: string; commitOid: string; offset: number }
 			>({
-				query: ({ projectId, branchId, commitOid, offset }) => ({
+				query: ({ projectId, stackId, commitOid, offset }) => ({
 					command: 'insert_blank_commit',
-					params: { projectId, branchId, commitOid, offset }
+					params: { projectId, stackId, commitOid, offset }
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					ReduxTag.StackBranches,
-					{ type: ReduxTag.Commits, id: args.branchId },
-					{ type: ReduxTag.StackInfo, id: args.branchId }
+					{ type: ReduxTag.Commits, id: args.stackId },
+					{ type: ReduxTag.StackInfo, id: args.stackId }
 				]
 			}),
 			discardChanges: build.mutation<
@@ -603,7 +603,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			unapply: build.mutation<void, { projectId: string; stackId: string }>({
 				query: ({ projectId, stackId }) => ({
 					command: 'save_and_unapply_virtual_branch',
-					params: { projectId, branch: stackId }
+					params: { projectId, stackId }
 				}),
 				invalidatesTags: [ReduxTag.Stacks]
 			}),

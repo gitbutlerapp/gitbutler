@@ -237,6 +237,7 @@ impl IntegrateUpstreamContext<'_, '_> {
             #[allow(deprecated)]
             let res = compute_updated_branch_head_for_commits(
                 self.repository,
+                self.gix_repo,
                 self.branch_head,
                 self.branch_tree,
                 new_stack_head,

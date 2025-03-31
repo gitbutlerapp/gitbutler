@@ -12,8 +12,8 @@
 </script>
 
 {#if projectId}
-	{@const result = stackService.stackAt(projectId, 0).current}
-	<ReduxResult {result}>
+	{@const result = stackService.stackAt(projectId, 0)}
+	<ReduxResult result={result.current}>
 		{#snippet children(stack)}
 			{#if stack}
 				{goto(stackPath(projectId, stack.id))}

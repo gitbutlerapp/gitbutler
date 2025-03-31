@@ -8,15 +8,12 @@ use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_oxidize::{
-    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt,
+    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt, RepoExt,
 };
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::logging::RepositoryExt as _;
 use gitbutler_repo::RepositoryExt as _;
-use gitbutler_repo::{
-    logging::LogUntil,
-    rebase::{cherry_rebase_group, gitbutler_merge_commits},
-};
+use gitbutler_repo::{logging::LogUntil, rebase::gitbutler_merge_commits};
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::stack_context::StackContext;
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
@@ -669,7 +666,19 @@ pub(crate) fn resolve_upstream_integration(
         }
         BaseBranchResolutionApproach::Rebase => {
             let commits = repo.l(old_target_id, LogUntil::Commit(fork_point), false)?;
-            let new_head = cherry_rebase_group(repo, new_target_id, &commits, false, false)?;
+            let steps = commits
+                .iter()
+                .map(|commit| RebaseStep::Pick {
+                    commit_id: commit.to_gix(),
+                    new_message: None,
+                })
+                .collect::<Vec<_>>();
+            let mut rebase =
+                but_rebase::Rebase::new(&gix_repo, Some(new_target_id.to_gix()), None)?;
+            rebase.steps(steps)?;
+            rebase.rebase_noops(false);
+            let outcome = rebase.rebase()?;
+            let new_head = outcome.top_commit.to_git2();
 
             Ok(new_head)
         }
@@ -730,8 +739,12 @@ fn compute_resolutions(
                         (new_head.id(), None)
                     } else {
                         #[allow(deprecated)]
-                        let res =
-                            compute_updated_branch_head(repository, branch_stack, new_head.id())?;
+                        let res = compute_updated_branch_head(
+                            repository,
+                            &repository.to_gix()?,
+                            branch_stack,
+                            new_head.id(),
+                        )?;
                         (res.head, Some(res.tree))
                     };
 
@@ -825,7 +838,12 @@ fn compute_resolutions(
                         (new_head, None)
                     } else {
                         #[allow(deprecated)]
-                        let res = compute_updated_branch_head(repository, branch_stack, new_head)?;
+                        let res = compute_updated_branch_head(
+                            repository,
+                            &gix_repository,
+                            branch_stack,
+                            new_head,
+                        )?;
                         (res.head, Some(res.tree))
                     };
 

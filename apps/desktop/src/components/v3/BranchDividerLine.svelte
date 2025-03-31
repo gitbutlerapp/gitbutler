@@ -1,15 +1,16 @@
 <script lang="ts">
-	import { getColorFromBranchType } from '$components/v3/lib';
-	import type { CommitStateType } from '$lib/branches/v3';
+	import { getColorFromCommitState } from '$components/v3/lib';
+	import type { Commit } from '$lib/branches/v3';
 
 	interface Props {
-		topPatchStatus: CommitStateType | 'Error';
+		commit: Commit | null;
 	}
 
-	const { topPatchStatus }: Props = $props();
+	const { commit }: Props = $props();
 
-	const branchType = $derived<CommitStateType | 'Error'>(topPatchStatus);
-	const lineColor = $derived(getColorFromBranchType(branchType));
+	const lineColor = $derived(
+		commit ? getColorFromCommitState(commit.id, commit.state) : 'var(--clr-commit-local)'
+	);
 </script>
 
 <div class="commit-line" style:--commit-color={lineColor}></div>

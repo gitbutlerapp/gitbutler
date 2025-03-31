@@ -76,7 +76,7 @@
 		{#snippet children(commit)}
 			{@const branchType: CommitStateType = commit?.state.type ?? 'LocalOnly'}
 
-			<BranchHeaderIcon {branchType} lineTop={isTopBranch ? false : true} />
+			<BranchHeaderIcon {commit} lineTop={isTopBranch ? false : true} />
 			<div class="branch-header__content">
 				<div class="name-line text-14 text-bold">
 					<BranchLabel
