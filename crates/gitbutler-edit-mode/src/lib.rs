@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use anyhow::{bail, Context, Result};
 use bstr::ByteSlice;
+use but_workspace::stack_ext::StackExt;
 use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::internal::list_virtual_branches;
 use gitbutler_branch_actions::{update_workspace_commit, RemoteBranchFile};
@@ -19,12 +20,13 @@ use gitbutler_operating_modes::{
     OperatingMode, EDIT_BRANCH_REF, WORKSPACE_BRANCH_REF,
 };
 use gitbutler_oxidize::{
-    git2_to_gix_object_id, gix_to_git2_index, GixRepositoryExt, OidExt, RepoExt,
+    git2_to_gix_object_id, gix_to_git2_index, GixRepositoryExt, ObjectIdExt, OidExt, RepoExt,
 };
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_reference::{ReferenceName, Refname};
-use gitbutler_repo::{rebase::cherry_rebase, RepositoryExt};
+use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::{signature, SignaturePurpose};
+use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes_with_tree, WorkspaceState};
 #[allow(deprecated)]
@@ -301,10 +303,23 @@ pub(crate) fn save_and_return_to_workspace(
         .context("Failed to commit new commit")?;
 
     let gix_repo = repository.to_gix()?;
-    // Rebase all all commits on top of the new commit and update reference
-    let new_branch_head = cherry_rebase(ctx, new_commit_oid, commit.id(), stack.head(&gix_repo)?)
-        .context("Failed to rebase commits onto new commit")?
-        .unwrap_or(new_commit_oid);
+
+    let mut steps = stack.as_rebase_steps(ctx, &gix_repo)?;
+    // swap out the old commit with the new, updated one
+    steps.iter_mut().for_each(|step| {
+        if let but_rebase::RebaseStep::Pick { commit_id, .. } = step {
+            if commit.id() == commit_id.to_git2() {
+                *commit_id = new_commit_oid.to_gix();
+            }
+        }
+    });
+    let stack_ctx = ctx.to_stack_context()?;
+    let merge_base = stack.merge_base(&stack_ctx)?;
+    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base.to_gix()), None)?;
+    rebase.rebase_noops(false);
+    rebase.steps(steps)?;
+    let output = rebase.rebase()?;
+    let new_branch_head = output.top_commit.to_git2();
 
     // Update virtual_branch
     let (new_branch_head, new_branch_tree) = if ctx.app_settings().feature_flags.v3 {
@@ -316,6 +331,7 @@ pub(crate) fn save_and_return_to_workspace(
     };
 
     stack.set_stack_head(&vb_state, &gix_repo, new_branch_head, new_branch_tree)?;
+    stack.set_heads_from_rebase_output(ctx, output.references)?;
 
     // Switch branch to gitbutler/workspace
     repository

@@ -2594,6 +2594,8 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-rebase",
+ "but-workspace",
  "git2",
  "gitbutler-branch",
  "gitbutler-branch-actions",
