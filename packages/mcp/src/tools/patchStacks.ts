@@ -1,10 +1,12 @@
+import { PatchWithFilesSchema } from '../shared/entities/patch.js';
 import { PatchStackSchema } from '../shared/entities/patchStack.js';
 import { getGitbutlerAPIUrl, gitbutlerAPIRequest, interpolatePath } from '../shared/request.js';
 import { z } from 'zod';
 
 enum PatchStackAPIEndpoint {
 	PatchStacks = '/patch_stack/{owner}/{project}/',
-	PatchStack = '/patch_stack/{uuid}'
+	PatchStack = '/patch_stack/{uuid}',
+	PatchCommit = '/patch_stack/{branchUuid}/patch/{changeId}'
 }
 
 export const GetProjectPatchStacksParamsSchema = z.object({
@@ -61,5 +63,28 @@ export async function getPatchStack(params: GetPatchStackParams) {
 	const url = getGitbutlerAPIUrl(apiPath);
 	const response = await gitbutlerAPIRequest(url);
 	const parsed = PatchStackSchema.parse(response);
+	return parsed;
+}
+
+export const GetPatchCommitParamsSchema = z.object({
+	branchUuid: z.string({ description: 'The UUID of the branch' }),
+	changeId: z.string({ description: 'The ID of the change' })
+});
+
+export type GetPatchCommitParams = z.infer<typeof GetPatchCommitParamsSchema>;
+
+/**
+ * Return a patch commit
+ */
+export async function getPatchCommit(params: GetPatchCommitParams) {
+	const interpolationParams = {
+		branchUuid: params.branchUuid,
+		changeId: params.changeId
+	};
+
+	const apiPath = interpolatePath(PatchStackAPIEndpoint.PatchCommit, interpolationParams);
+	const url = getGitbutlerAPIUrl(apiPath);
+	const response = await gitbutlerAPIRequest(url);
+	const parsed = PatchWithFilesSchema.parse(response);
 	return parsed;
 }
