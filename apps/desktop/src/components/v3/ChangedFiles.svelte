@@ -45,9 +45,9 @@
 	<div class="changed-files">
 		<ReduxResult result={changesResult.current}>
 			{#snippet children(changes)}
-				<div class="header text-13 text-bold">
+				<div class="header">
 					<div class="header-left">
-						<span>{headerTitle}</span>
+						<h4 class="text-14 text-semibold">{headerTitle}</h4>
 						<Badge>{changes.length}</Badge>
 					</div>
 					<FileListMode bind:mode={listMode} persist="committed" />
@@ -75,7 +75,7 @@
 	}
 
 	.header {
-		padding: 14px 14px 16px 14px;
+		padding: 10px 10px 10px 14px;
 		display: flex;
 		align-items: center;
 		gap: 4px;

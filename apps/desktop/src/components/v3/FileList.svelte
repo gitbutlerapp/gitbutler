@@ -1,9 +1,8 @@
 <!-- This is a V3 replacement for `BranchFileList.svelte` -->
 <script lang="ts">
-	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
 	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
-	import FileTree from '$components/v3/FileTree.svelte';
+	import FileTreeNode from '$components/v3/FileTreeNode.svelte';
 	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
@@ -80,13 +79,15 @@
 	);
 </script>
 
-{#snippet fileWrapper(change: TreeChange, idx: number)}
+{#snippet fileWrapper(change: TreeChange, idx: number, depth: number = 0)}
 	<FileListItemWrapper
 		selectedFile={selectionId}
 		{change}
 		{projectId}
 		{listActive}
 		{listMode}
+		{depth}
+		isLast={idx === visibleFiles.length - 1}
 		selected={idSelection.has(change.path, selectionId)}
 		onclick={(e) => {
 			stackState?.activeSelectionId.set(selectionId);
@@ -96,34 +97,31 @@
 {/snippet}
 
 {#if visibleFiles.length > 0}
-	<div class="file-list hide-native-scrollbar">
-		<ScrollableContainer wide>
-			<!-- Maximum amount for initial render is 100 files
-	`minTriggerCount` set to 80 in order to start the loading a bit earlier. -->
-			<LazyloadContainer
-				minTriggerCount={80}
-				ontrigger={() => {
-					loadMore();
+	<LazyloadContainer
+		minTriggerCount={80}
+		ontrigger={() => {
+			loadMore();
+		}}
+		role="listbox"
+		onkeydown={handleKeyDown}
+	>
+		{#if listMode === 'tree'}
+			{@const node = abbreviateFolders(changesToFileTree(changes))}
+			<FileTreeNode
+				isRoot
+				{stackId}
+				{node}
+				{showCheckboxes}
+				{changes}
+				{fileWrapper}
+				onFolderClick={() => {
+					console.warn('implement folder click to select all children');
 				}}
-				role="listbox"
-				onkeydown={handleKeyDown}
-			>
-				{#if listMode === 'tree'}
-					{@const node = abbreviateFolders(changesToFileTree(changes))}
-					<FileTree {stackId} {changes} {node} expanded {showCheckboxes} {fileWrapper} />
-				{:else}
-					{#each visibleFiles as change, idx (change.path)}
-						{@render fileWrapper(change, idx)}
-					{/each}
-				{/if}
-			</LazyloadContainer>
-		</ScrollableContainer>
-	</div>
+			/>
+		{:else}
+			{#each visibleFiles as change, idx (change.path)}
+				{@render fileWrapper(change, idx)}
+			{/each}
+		{/if}
+	</LazyloadContainer>
 {/if}
-
-<style lang="postcss">
-	.file-list {
-		flex-grow: 1;
-		overflow: hidden;
-	}
-</style>

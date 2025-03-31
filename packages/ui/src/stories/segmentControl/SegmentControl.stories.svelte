@@ -13,16 +13,28 @@
 		args: {
 			defaultIndex: 0,
 			fullWidth: false,
+			size: 'default',
 			segments: [
-				{ id: '1', label: 'Segment 1' },
-				{ id: '2', label: 'Segment 2' },
-				{ id: '3', label: 'Segment 3' }
+				{ id: '1', icon: 'tree-view' },
+				{ id: '2', icon: 'tree-view' },
+				{ id: '3', icon: 'tree-view' }
 			]
 		},
 		argTypes: {
 			defaultIndex: {
 				control: {
 					type: 'number'
+				}
+			},
+			fullWidth: {
+				control: {
+					type: 'boolean'
+				}
+			},
+			size: {
+				options: ['default', 'small'],
+				control: {
+					type: 'select'
 				}
 			}
 		}
@@ -41,9 +53,10 @@
 			// eslint-disable-next-line no-console
 			console.log('Selected index:', id);
 		}}
+		size={args.size}
 	>
 		{#each args.segments as segment}
-			<Segment id={segment.id}>{segment.label}</Segment>
+			<Segment id={segment.id} icon={segment.icon}>{segment.label}</Segment>
 		{/each}
 	</SegmentControl>
 {/snippet}
