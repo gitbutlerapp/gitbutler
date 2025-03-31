@@ -13,10 +13,7 @@ use gitbutler_oxidize::{
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::logging::RepositoryExt as _;
 use gitbutler_repo::RepositoryExt as _;
-use gitbutler_repo::{
-    logging::LogUntil,
-    rebase::{cherry_rebase_group, gitbutler_merge_commits},
-};
+use gitbutler_repo::{logging::LogUntil, rebase::gitbutler_merge_commits};
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::stack_context::StackContext;
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
@@ -669,7 +666,19 @@ pub(crate) fn resolve_upstream_integration(
         }
         BaseBranchResolutionApproach::Rebase => {
             let commits = repo.l(old_target_id, LogUntil::Commit(fork_point), false)?;
-            let new_head = cherry_rebase_group(repo, new_target_id, &commits, false, false)?;
+            let steps = commits
+                .iter()
+                .map(|commit| RebaseStep::Pick {
+                    commit_id: commit.to_gix(),
+                    new_message: None,
+                })
+                .collect::<Vec<_>>();
+            let mut rebase =
+                but_rebase::Rebase::new(&gix_repo, Some(new_target_id.to_gix()), None)?;
+            rebase.steps(steps)?;
+            rebase.rebase_noops(false);
+            let outcome = rebase.rebase()?;
+            let new_head = outcome.top_commit.to_git2();
 
             Ok(new_head)
         }
