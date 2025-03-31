@@ -6,6 +6,7 @@
 	import CommitMessageInput from '$components/v3/CommitMessageInput.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
+	import { showToast } from '$lib/notifications/toasts';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -54,11 +55,11 @@
 			throw new Error('No branch selected!');
 		}
 		if (!commitMessageInput) return;
-		const title = commitMessageInput.getTitle();
-		const message = await commitMessageInput.getPlaintext();
-		if (!message && !title) return;
-
-		const commitMessage = [title, message].filter((a) => a).join('\n\n');
+		const commitMessage = commitMessageInput.getMessage();
+		if (!commitMessage) {
+			showToast({ message: 'Commit message is required', style: 'error' });
+			return;
+		}
 
 		const newCommitId = await updateCommitMessage({
 			projectId,
