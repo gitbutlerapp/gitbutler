@@ -11,59 +11,67 @@
 		isRoot?: boolean;
 		showCheckboxes: boolean;
 		changes: TreeChange[];
-		fileWrapper: Snippet<[TreeChange, number]>;
+		depth?: number;
+		fileWrapper: Snippet<[TreeChange, number, number]>;
+		onFolderClick: (e: MouseEvent) => void;
 	};
 
-	let { stackId, node, isRoot = false, showCheckboxes, changes, fileWrapper }: Props = $props();
+	let {
+		stackId,
+		node,
+		isRoot = false,
+		showCheckboxes,
+		changes,
+		depth = 0,
+		fileWrapper,
+		onFolderClick
+	}: Props = $props();
+
+	// Local state to track whether the folder is expanded
+	let isExpanded = $state(true);
+
+	// Handler for toggling the folder
+	function handleToggle() {
+		isExpanded = !isExpanded;
+	}
 </script>
 
 {#if isRoot}
 	<!-- Node is a root and should only render children! -->
-	<div class="text-13">
-		{#each node.children as childNode}
-			<Self {stackId} node={childNode} {showCheckboxes} {changes} {fileWrapper} />
-		{/each}
-	</div>
+	{#each node.children as childNode}
+		<Self
+			{depth}
+			{stackId}
+			node={childNode}
+			{showCheckboxes}
+			{changes}
+			{fileWrapper}
+			{onFolderClick}
+		/>
+	{/each}
 {:else if node.kind === 'file'}
-	{@render fileWrapper(node.change, node.index)}
+	{@render fileWrapper(node.change, node.index, depth)}
 {:else}
-	<TreeListFolder showCheckbox={showCheckboxes} {node} />
+	<TreeListFolder
+		{depth}
+		{isExpanded}
+		showCheckbox={showCheckboxes}
+		{node}
+		onclick={onFolderClick}
+		ontoggle={handleToggle}
+	/>
 
-	<div class="nested">
-		<div class="line-wrapper">
-			<div class="line"></div>
-		</div>
-		<div class="files-list">
-			{#each node.children as childNode}
-				<Self {stackId} node={childNode} {showCheckboxes} {changes} {fileWrapper} />
-			{/each}
-		</div>
-	</div>
+	{#if isExpanded}
+		{#each node.children as childNode}
+			<Self
+				depth={depth + 1}
+				{stackId}
+				node={childNode}
+				{showCheckboxes}
+				{changes}
+				{fileWrapper}
+				{onFolderClick}
+			/>
+		{/each}
+	{/if}
 {/if}
-
-<style lang="postcss">
-	.nested {
-		display: flex;
-		width: 100%;
-		overflow: hidden;
-	}
-	.line-wrapper {
-		position: relative;
-		padding-left: 7px;
-		padding-right: 7px;
-		&:hover .line {
-			background-color: var(--clr-scale-ntrl-60);
-		}
-	}
-	.line {
-		width: 1px;
-		height: 100%;
-		background-color: var(--clr-scale-ntrl-80);
-	}
-	.files-list {
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-		width: 100%;
-	}
-</style>

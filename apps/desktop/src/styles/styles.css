@@ -27,15 +27,6 @@ body {
 	pointer-events: none;
 }
 
-/* FOCUS STATE */
-.focus-state {
-	outline: none;
-
-	&:focus-within {
-		outline: 2px solid var(--focus-color);
-	}
-}
-
 /* CODE */
 .code-string {
 	color: var(--clr-text-1);

@@ -24,12 +24,10 @@
 	defaultIndex={$saved === 'list' ? 0 : 1}
 	onselect={(id) => {
 		// TODO: Refactor SegmentControl.
-		$saved = id as any;
+		$saved = id as Mode;
 	}}
+	size="small"
 >
-	<Segment id="list">List</Segment>
-	<Segment id="tree">Tree</Segment>
+	<Segment id="list" icon="list-view" />
+	<Segment id="tree" icon="tree-view" />
 </SegmentControl>
-
-<style lang="postcss">
-</style>

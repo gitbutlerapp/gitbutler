@@ -1,16 +1,19 @@
 <script lang="ts">
+	import Icon from '$lib/Icon.svelte';
 	import { getContext, onMount } from 'svelte';
 	import type { SegmentContext } from '$lib/segmentControl/segmentTypes';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
 	interface SegmentProps {
 		id: string;
 		onselect?: (id: string) => void;
 		disabled?: boolean;
-		children: Snippet;
+		children?: Snippet;
+		icon?: keyof typeof iconsJson;
 	}
 
-	const { id, onselect, children, disabled }: SegmentProps = $props();
+	const { id, onselect, children, disabled, icon }: SegmentProps = $props();
 
 	const context = getContext<SegmentContext>('SegmentControl');
 	const index = context.setIndex();
@@ -69,7 +72,14 @@
 		}
 	}}
 >
-	<span class="text-12 text-semibold segment-control-item__label">
-		{@render children()}
-	</span>
+	{#if children}
+		<span class="text-12 text-semibold segment-control-item__label">
+			{@render children()}
+		</span>
+	{/if}
+	{#if icon}
+		<span class="segment-control-item__icon" aria-hidden="true">
+			<Icon name={icon} />
+		</span>
+	{/if}
 </button>

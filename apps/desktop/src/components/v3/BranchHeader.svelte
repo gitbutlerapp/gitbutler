@@ -114,7 +114,7 @@
 					<span class="text-12 text-body branch-header__empty-state">
 						This is an empty branch. Click to see details.
 						<br />
-						Create or drag & drop commits here
+						Create or drag & drop commits here.
 					</span>
 				{:else}
 					{@render details?.()}
@@ -177,6 +177,7 @@
 
 		&.new-branch {
 			border-bottom: none;
+			border-radius: var(--radius-ml);
 		}
 	}
 
