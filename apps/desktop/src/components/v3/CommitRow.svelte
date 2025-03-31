@@ -207,7 +207,7 @@
 	leftClickTrigger={kebabMenuTrigger}
 	rightClickTrigger={commitRowElement}
 	{baseBranch}
-	branchId={stackId}
+	{stackId}
 	{commit}
 	{commitUrl}
 	onUncommitClick={handleUncommit}
