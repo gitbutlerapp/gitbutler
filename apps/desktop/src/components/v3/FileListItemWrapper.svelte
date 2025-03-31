@@ -83,6 +83,13 @@
 
 		contextMenu?.open(e, { changes: [change] });
 	}
+
+	function unSelectChanges(changes: TreeChange[]) {
+		for (const change of changes) {
+			idSelection.remove(change.path, selectedFile);
+			changeSelection.remove(change.path);
+		}
+	}
 </script>
 
 <div
@@ -104,6 +111,7 @@
 		isUnapplied={false}
 		branchId={$stack?.id}
 		isBinary={false}
+		{unSelectChanges}
 	/>
 	{#if isHeader}
 		<FileViewHeader

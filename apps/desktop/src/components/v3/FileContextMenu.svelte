@@ -24,6 +24,7 @@
 		branchId?: string;
 		trigger?: HTMLElement;
 		isBinary?: boolean;
+		unSelectChanges: (changes: TreeChange[]) => void;
 	};
 
 	type FileItem = {
@@ -40,7 +41,7 @@
 		);
 	}
 
-	const { trigger, isUnapplied, isBinary = false }: Props = $props();
+	const { trigger, isUnapplied, isBinary = false, unSelectChanges }: Props = $props();
 	const [stackService, project] = inject(StackService, Project);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
@@ -66,6 +67,8 @@
 			projectId,
 			worktreeChanges
 		});
+
+		unSelectChanges(item.changes);
 
 		close();
 	}
