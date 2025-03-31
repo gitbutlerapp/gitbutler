@@ -24,9 +24,10 @@
 		stackId: string;
 		markdown: boolean;
 		initialValue?: string;
+		onChange?: (text: string) => void;
 	}
 
-	let { markdown = $bindable(), projectId, initialValue }: Props = $props();
+	let { markdown = $bindable(), projectId, initialValue, onChange }: Props = $props();
 
 	const [aiService, idSelection, worktreeService, diffService] = inject(
 		AIService,
@@ -78,10 +79,11 @@
 	}
 
 	async function handleChange(
-		_text: string,
+		text: string,
 		textUpToAnchor: string | undefined,
 		textAfterAnchor: string | undefined
 	) {
+		onChange?.(text);
 		await suggestionsHandler.onChange(textUpToAnchor, textAfterAnchor);
 	}
 
