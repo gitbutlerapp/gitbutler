@@ -10,7 +10,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id    Int     @id @default(autoincrement())
-  discord_id String
+model Butlers {
+  id              Int     @id @default(autoincrement())
+  discord_id      String
+  name            String  @default("")
+  in_support_rota Boolean @default(false)
 }

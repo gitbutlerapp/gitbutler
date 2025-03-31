@@ -1,6 +1,12 @@
+import { addButler } from '@/commands/add-butler';
+import { listButlers } from '@/commands/list-butlers';
+import { ping } from '@/commands/ping';
+import { removeButler } from '@/commands/remove-butler';
+import { toggleRota } from '@/commands/toggle-rota';
 import { PrismaClient } from '@prisma/client';
-import { Client, Events, GatewayIntentBits } from 'discord.js';
+import { Client, Events, GatewayIntentBits, GuildMember } from 'discord.js';
 import "dotenv/config";
+import type { Command } from '@/types';
 
 const prisma = new PrismaClient();
 const client = new Client({
@@ -11,11 +17,24 @@ const client = new Client({
 	]
 });
 
+
+function isButler(member: GuildMember) {
+	return member.roles.cache.has(process.env.BUTLER_ROLE as string);
+}
+
 // Event handler for when the bot is ready
 client.once(Events.ClientReady, (readyClient) => {
 	// eslint-disable-next-line no-console
 	console.info(`Ready! Logged in as ${readyClient.user.tag}`);
 });
+
+const commands: Command[] = [
+	ping,
+	listButlers,
+	addButler,
+	removeButler,
+	toggleRota,
+];
 
 // Event handler for incoming messages
 client.on(Events.MessageCreate, async (message) => {
@@ -24,19 +43,19 @@ client.on(Events.MessageCreate, async (message) => {
 
 	// Basic command handling
 	if (message.content.startsWith('!')) {
-		const command = message.content.slice(1).toLowerCase();
-		
-		switch (command) {
-			case 'ping':
-				await message.reply('Pong!');
-				break;
-			case 'hello':
-				await message.reply(`Hello ${message.author.username}!`);
-				break;
-			default:
-				// Handle unknown commands
-				await message.reply('I don\'t understand that command yet!');
+		const commandName = message.content.slice(1).toLowerCase();
+
+		for (const command of commands) {
+			if (commandName.startsWith(command.name)) {
+				if (command.butlerOnly && message.member && !isButler(message.member)) {
+					await message.reply('This command is only available to butlers.');
+					return;
+				}
+				await command.execute(message, prisma);
+				return;
+			}
 		}
+		await message.reply('I don\'t understand that command yet!');
 	}
 });
 
