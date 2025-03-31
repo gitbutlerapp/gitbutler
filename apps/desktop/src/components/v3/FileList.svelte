@@ -89,6 +89,7 @@
 		{listMode}
 		selected={idSelection.has(change.path, selectionId)}
 		onclick={(e) => {
+			stackState?.activeSelectionId.set(selectionId);
 			selectFilesInList(e, change, visibleFiles, idSelection, true, idx, selectionId);
 		}}
 	/>
