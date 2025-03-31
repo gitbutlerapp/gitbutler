@@ -26,8 +26,8 @@
 	const [createNewBranch, branchCreation] = stackService.newBranch();
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
-	let createRefName: string | undefined = $state();
-	let createRefType: 'stack' | 'dependent' = $state('stack');
+	let createRefName = $state<string>();
+	let createRefType = $state<'stack' | 'dependent'>('stack');
 
 	const slugifiedRefName = $derived(createRefName && slugify(createRefName));
 	const generatedNameDiverges = $derived(!!createRefName && slugifiedRefName !== createRefName);
@@ -63,6 +63,9 @@
 			goto(stackPath(projectId, stackId));
 			createRefModal?.close();
 		}
+
+		// Reset the branch name if we're successful
+		createRefName = undefined;
 	}
 
 	const isAddingNew = $derived(stackCreation.current.isLoading || branchCreation.current.isLoading);
