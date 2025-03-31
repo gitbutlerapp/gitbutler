@@ -115,6 +115,9 @@ importers:
       discord.js:
         specifier: ^14.18.0
         version: 14.18.0
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.4.7
     devDependencies:
       '@types/node':
         specifier: ^22.3.0
@@ -4156,10 +4159,6 @@ packages:
 
   domutils@2.8.0:
     resolution: {integrity: sha512-w96Cjofp72M5IIhpjgobBimYEfoPjx1Vx0BSX9P30WBdZW2WIKU0T1Bd0kz2eNZ9ikjKgHbEyKx8BB6H1L3h3A==}
-
-  dotenv@16.4.5:
-    resolution: {integrity: sha512-ZmdL2rui+eB2YwhsWzjInR8LldtZHGDoQ1ugH85ppHKwpUHL7j7rN0Ti9NCnGiQbhaZ11FpR+7ao1dNsmduNUg==}
-    engines: {node: '>=12'}
 
   dotenv@16.4.7:
     resolution: {integrity: sha512-47qPchRCykZC03FhkYAhrvwU4xDBFIj1QPqaarj6mdM/hgUzfPHcpkHJOn3mJAufFeeAxAzeGsr5X0M4k6fLZQ==}
@@ -10791,7 +10790,7 @@ snapshots:
       chalk: 5.3.0
       chokidar: 3.6.0
       cli-spinners: 2.9.2
-      dotenv: 16.4.5
+      dotenv: 16.4.7
       ejs: 3.1.10
       execa: 8.0.1
       import-meta-resolve: 4.1.0
@@ -11797,8 +11796,6 @@ snapshots:
       dom-serializer: 1.4.1
       domelementtype: 2.3.0
       domhandler: 4.3.1
-
-  dotenv@16.4.5: {}
 
   dotenv@16.4.7: {}
 
