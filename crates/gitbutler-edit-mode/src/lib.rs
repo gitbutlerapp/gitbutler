@@ -269,7 +269,7 @@ pub(crate) fn save_and_return_to_workspace(
         .find_commit(edit_mode_metadata.commit_oid)
         .context("Failed to find commit")?;
 
-    let Some(mut virtual_branch) =
+    let Some(mut stack) =
         find_virtual_branch_by_reference(ctx, &edit_mode_metadata.branch_reference)?
     else {
         bail!("Failed to find virtual branch for this reference. Entering and leaving edit mode for non-virtual branches is unsupported")
@@ -302,25 +302,20 @@ pub(crate) fn save_and_return_to_workspace(
 
     let gix_repo = repository.to_gix()?;
     // Rebase all all commits on top of the new commit and update reference
-    let new_branch_head = cherry_rebase(
-        ctx,
-        new_commit_oid,
-        commit.id(),
-        virtual_branch.head(&gix_repo)?,
-    )
-    .context("Failed to rebase commits onto new commit")?
-    .unwrap_or(new_commit_oid);
+    let new_branch_head = cherry_rebase(ctx, new_commit_oid, commit.id(), stack.head(&gix_repo)?)
+        .context("Failed to rebase commits onto new commit")?
+        .unwrap_or(new_commit_oid);
 
     // Update virtual_branch
     let (new_branch_head, new_branch_tree) = if ctx.app_settings().feature_flags.v3 {
         (new_branch_head, None)
     } else {
         #[allow(deprecated)]
-        let res = compute_updated_branch_head(ctx.repo(), &virtual_branch, new_branch_head)?;
+        let res = compute_updated_branch_head(ctx.repo(), &stack, new_branch_head)?;
         (res.head, Some(res.tree))
     };
 
-    virtual_branch.set_stack_head(&vb_state, &gix_repo, new_branch_head, new_branch_tree)?;
+    stack.set_stack_head(&vb_state, &gix_repo, new_branch_head, new_branch_tree)?;
 
     // Switch branch to gitbutler/workspace
     repository
