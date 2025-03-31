@@ -7,11 +7,20 @@
 	interface SegmentProps {
 		defaultIndex: number;
 		fullWidth?: boolean;
+		shrinkable?: boolean;
+		size?: 'default' | 'small';
 		onselect?: (id: string) => void;
 		children: Snippet;
 	}
 
-	const { defaultIndex, fullWidth, onselect, children }: SegmentProps = $props();
+	const {
+		defaultIndex,
+		fullWidth,
+		shrinkable = false,
+		size,
+		onselect,
+		children
+	}: SegmentProps = $props();
 
 	let indexesIterator = -1;
 	let segments: SegmentItem[] = [];
@@ -40,6 +49,11 @@
 	setContext<SegmentContext>('SegmentControl', context);
 </script>
 
-<div class="segment-control-container" class:full-width={fullWidth}>
+<div
+	class="segment-control-container"
+	class:shrinkable
+	class:small={size === 'small'}
+	class:full-width={fullWidth}
+>
 	{@render children()}
 </div>

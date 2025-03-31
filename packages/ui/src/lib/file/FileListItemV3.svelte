@@ -4,6 +4,7 @@
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
+	import FileIndent from '$lib/file/FileIndent.svelte';
 	import FileName from '$lib/file/FileName.svelte';
 	import FileStatusBadge from '$lib/file/FileStatusBadge.svelte';
 	import type { FileStatus } from '$lib/file/types';
@@ -20,6 +21,7 @@
 		clickable?: boolean;
 		showCheckbox?: boolean;
 		listMode: 'list' | 'tree';
+		depth?: number;
 		checked?: boolean;
 		indeterminate?: boolean;
 		conflicted?: boolean;
@@ -27,6 +29,7 @@
 		locked?: boolean;
 		lockText?: string;
 		listActive?: boolean;
+		isLast?: boolean;
 		oncheck?: (
 			e: Event & {
 				currentTarget: EventTarget & HTMLInputElement;
@@ -44,6 +47,7 @@
 		id,
 		filePath,
 		fileStatus,
+		isLast,
 		fileStatusStyle = 'dot',
 		draggable = false,
 		selected = false,
@@ -58,6 +62,7 @@
 		lockText,
 		listActive,
 		listMode,
+		depth,
 		oncheck,
 		onclick,
 		ondblclick,
@@ -75,8 +80,9 @@
 	class:selected
 	class:list-active={listActive}
 	class:clickable
-	class:draggable
 	class:focused
+	class:draggable
+	class:last={isLast}
 	class:list-mode={listMode === 'list'}
 	aria-selected={selected}
 	role="option"
@@ -97,13 +103,18 @@
 			<Icon name="draggable-narrow" />
 		</div>
 	{/if}
-	{#if showCheckbox}
-		<Checkbox small {checked} {indeterminate} onchange={oncheck} />
-	{/if}
+
+	<div class="file-list-item__indicators">
+		<FileIndent {depth} />
+
+		{#if showCheckbox}
+			<Checkbox small {checked} {indeterminate} onchange={oncheck} />
+		{/if}
+	</div>
 
 	<FileName {filePath} hideFilePath={listMode === 'tree'} />
 
-	<div class="details">
+	<div class="file-list-item__details">
 		{#if locked}
 			<Tooltip text={lockText}>
 				<div class="locked">
@@ -150,70 +161,87 @@
 
 <style lang="postcss">
 	.file-list-item {
+		position: relative;
 		display: flex;
 		align-items: center;
-		padding: 6px 12px 6px 14px;
-		gap: 10px;
+		padding: 8px 8px 8px 14px;
+		gap: 8px;
 		height: 32px;
 		overflow: hidden;
 		text-align: left;
 		user-select: none;
 		outline: none;
 		background: transparent;
+		/* background-color: rgba(0, 0, 0, 0.1); */
 
 		& :global(.mark-resolved-btn) {
 			margin: 0 4px;
 		}
-	}
 
-	.file-list-item.clickable {
-		cursor: pointer;
+		&.clickable {
+			cursor: pointer;
 
-		&:not(.selected):hover {
-			background-color: var(--clr-bg-1-muted);
+			&:not(.selected):hover {
+				background-color: var(--clr-bg-1-muted);
+			}
 		}
-	}
 
-	.draggable {
-		&:hover {
-			& .draggable-handle {
-				opacity: 1;
+		&.selected {
+			background-color: var(--clr-selected-not-in-focus-bg);
+		}
+
+		&.list-active.selected {
+			background-color: var(--clr-selected-in-focus-bg);
+		}
+
+		&.list-mode:not(.last) {
+			border-bottom: 1px solid var(--clr-border-3);
+		}
+
+		&.draggable {
+			&:hover {
+				& .draggable-handle {
+					opacity: 1;
+				}
 			}
 		}
 	}
 
+	.file-list-item__indicators {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		height: 100%;
+
+		&:not(:has(*)) {
+			display: none;
+		}
+	}
+
 	.draggable-handle {
+		position: absolute;
+		left: 0;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		color: var(--clr-text-3);
 		opacity: 0;
 		height: 24px;
-		margin-left: -14px;
-		margin-right: -12px;
 		transition: opacity var(--transition-fast);
 	}
 
-	.details {
+	.file-list-item__details {
 		flex-grow: 1;
 		display: flex;
 		align-items: center;
 		gap: 6px;
-	}
 
-	.details .locked {
-		display: flex;
-	}
+		& .locked {
+			display: flex;
+		}
 
-	.details .conflicted {
-		display: flex;
-	}
-
-	.selected {
-		background-color: var(--clr-selected-not-in-focus-bg);
-	}
-
-	.list-active.selected {
-		background-color: var(--clr-selected-in-focus-bg);
+		& .conflicted {
+			display: flex;
+		}
 	}
 </style>

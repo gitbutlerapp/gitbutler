@@ -22,9 +22,11 @@
 		selected?: boolean;
 		isHeader?: boolean;
 		listActive?: boolean;
+		isLast?: boolean;
 		listMode: 'list' | 'tree';
 		linesAdded?: number;
 		linesRemoved?: number;
+		depth?: number;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 	}
@@ -36,9 +38,11 @@
 		selected,
 		isHeader,
 		listActive,
+		isLast,
 		listMode,
 		linesAdded,
 		linesRemoved,
+		depth,
 		onclick,
 		onkeydown
 	}: Props = $props();
@@ -137,6 +141,8 @@
 			checked={!!selection.current}
 			{listActive}
 			{indeterminate}
+			{isLast}
+			{depth}
 			draggable={!isCommitting}
 			{onkeydown}
 			locked={false}
@@ -153,11 +159,5 @@
 <style lang="postcss">
 	.filelistitem-wrapper {
 		display: block;
-
-		&.sticky {
-			position: sticky;
-			top: -1px;
-			z-index: 1;
-		}
 	}
 </style>
