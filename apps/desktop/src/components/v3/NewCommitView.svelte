@@ -1,7 +1,8 @@
 <script lang="ts">
 	import CommitMessageInput from '$components/v3/CommitMessageInput.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
-	import { showError } from '$lib/notifications/toasts';
+	import { persistedCommitMessage } from '$lib/config/config';
+	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -25,6 +26,8 @@
 	const changeSelection = getContext(ChangeSelectionService);
 	const selection = $derived(changeSelection.list());
 	const canCommit = $derived(branchName && selection.current.length > 0);
+	const commitMessage = persistedCommitMessage(projectId, stackId);
+	const [initialTitle, initialMessage] = $derived($commitMessage.split('\n\n'));
 
 	let input = $state<ReturnType<typeof CommitMessageInput>>();
 	let drawer = $state<ReturnType<typeof Drawer>>();
@@ -61,16 +64,18 @@
 	}
 
 	async function handleCommitCreation() {
-		const titleText = await input?.getTitle();
-		const message = await input?.getPlaintext();
-		if (!titleText) return;
-
-		const commitMessage = [titleText, message].filter((a) => a).join('\n\n');
+		const message = input?.getMessage();
+		if (!message) {
+			showToast({ message: 'Commit message is required', style: 'error' });
+			return;
+		}
 
 		try {
-			await createCommit(commitMessage);
+			await createCommit(message);
 		} catch (err: unknown) {
 			showError('Failed to commit', err);
+		} finally {
+			$commitMessage = '';
 		}
 	}
 
@@ -89,5 +94,8 @@
 		onCancel={cancel}
 		disabledAction={!canCommit}
 		loading={commitCreation.current.isLoading}
+		{initialTitle}
+		{initialMessage}
+		isNewCommit
 	/>
 </Drawer>

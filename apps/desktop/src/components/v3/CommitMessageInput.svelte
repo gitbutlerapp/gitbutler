@@ -1,11 +1,13 @@
 <script lang="ts">
 	import EditorFooter from '$components/v3/editor/EditorFooter.svelte';
 	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
+	import { persistedCommitMessage } from '$lib/config/config';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 
 	type Props = {
+		isNewCommit?: boolean;
 		projectId: string;
 		stackId: string;
 		actionLabel: string;
@@ -18,6 +20,7 @@
 	};
 
 	const {
+		isNewCommit,
 		projectId,
 		stackId,
 		actionLabel,
@@ -35,14 +38,19 @@
 	let markdown = persisted(true, 'useMarkdown__' + projectId);
 
 	let titleText = $state<string | undefined>(initialTitle);
+	let descriptionText = $state<string | undefined>(initialValue);
+	const commitMessage = persistedCommitMessage(projectId, stackId);
+
+	$effect(() => {
+		if (isNewCommit) {
+			$commitMessage = [titleText, descriptionText].filter((a) => a).join('\n\n');
+		}
+	});
+
 	let composer = $state<ReturnType<typeof MessageEditor>>();
 
-	export function getTitle(): string | undefined {
-		return titleText;
-	}
-
-	export async function getPlaintext(): Promise<string | undefined> {
-		return await composer?.getPlaintext();
+	export function getMessage() {
+		return $commitMessage;
 	}
 </script>
 
@@ -54,6 +62,9 @@
 		{initialValue}
 		{projectId}
 		{stackId}
+		onChange={(text: string) => {
+			descriptionText = text;
+		}}
 	/>
 </div>
 <EditorFooter {onCancel}>
