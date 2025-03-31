@@ -55,7 +55,7 @@ pub fn create_branch(
             req.preceding_head,
         )
     } else {
-        stack.add_series_top_of_stack(ctx, req.name, req.description)
+        stack.add_series_top_of_stack(ctx, normalized_head_name, req.description)
     }
 }
 
