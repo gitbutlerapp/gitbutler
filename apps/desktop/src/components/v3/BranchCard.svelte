@@ -111,7 +111,9 @@
 				{isNewBranch}
 				readonly={!!forgeBranch}
 				onclick={() => {
-					uiState.stack(stackId).selection.set({ branchName });
+					const stackState = uiState.stack(stackId);
+					stackState.selection.set({ branchName });
+					stackState.activeSelectionId.set({ type: 'branch', branchName, stackId });
 					uiState.project(projectId).drawerPage.set('branch');
 				}}
 				onMenuBtnClick={() => {
