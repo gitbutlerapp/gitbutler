@@ -1,4 +1,5 @@
 import { addButler } from '@/commands/add-butler';
+import { help } from '@/commands/help';
 import { listButlers } from '@/commands/list-butlers';
 import { ping } from '@/commands/ping';
 import { removeButler } from '@/commands/remove-butler';
@@ -34,6 +35,7 @@ const commands: Command[] = [
 	addButler,
 	removeButler,
 	toggleRota,
+	help,
 ];
 
 // Event handler for incoming messages
@@ -51,7 +53,9 @@ client.on(Events.MessageCreate, async (message) => {
 					await message.reply('This command is only available to butlers.');
 					return;
 				}
-				await command.execute(message, prisma);
+				
+				await command.execute(message, prisma, { commands });
+
 				return;
 			}
 		}

@@ -2,6 +2,7 @@ import type { Command } from '@/types';
 
 export const removeButler: Command = {
 	name: 'removebutler',
+	help: 'Removes a butler from the system. Usage: `!removebutler [@user]` - If no user is mentioned, removes yourself.',
 	butlerOnly: true,
 	execute: async (message, prisma) => {
 		try {

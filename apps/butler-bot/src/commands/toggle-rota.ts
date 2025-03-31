@@ -2,6 +2,7 @@ import type { Command } from '@/types';
 
 export const toggleRota: Command = {
 	name: 'togglerota',
+	help: 'Toggles a butler\'s support rota status. Usage: `!togglerota [@user]` - If no user is mentioned, toggles your own status.',
 	butlerOnly: true,
 	execute: async (message, prisma) => {
 		try {

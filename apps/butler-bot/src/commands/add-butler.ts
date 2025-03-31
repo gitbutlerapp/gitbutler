@@ -2,6 +2,7 @@ import type { Command } from '@/types';
 
 export const addButler: Command = {
 	name: 'addbutler',
+	help: 'Adds a user as a butler. Usage: `!addbutler [@user]` - If no user is mentioned, adds yourself.',
 	butlerOnly: true,
 	execute: async (message, prisma) => {
 		try {
