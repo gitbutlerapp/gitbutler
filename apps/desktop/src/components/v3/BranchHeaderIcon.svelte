@@ -1,30 +1,32 @@
 <script lang="ts">
-	import { getColorFromBranchType } from '$components/v3/lib';
+	import { getColorFromCommitState } from '$components/v3/lib';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { CommitStateType } from '$lib/branches/v3';
+	import type { Commit } from '$lib/branches/v3';
 
 	interface Props {
-		branchType: CommitStateType;
+		commit: Commit | null;
 		lineTop?: boolean;
 		lineBottom?: boolean;
 	}
 
-	const { branchType, lineTop = true, lineBottom = true }: Props = $props();
+	const { commit, lineTop = true, lineBottom = true }: Props = $props();
 
-	const color = $derived(getColorFromBranchType(branchType));
+	const color = $derived(
+		commit ? getColorFromCommitState(commit.id, commit.state) : 'var(--clr-commit-local)'
+	);
 
-	function getIcon(branchType: CommitStateType) {
-		switch (branchType) {
+	const iconName = $derived.by(() => {
+		switch (commit?.state.type) {
 			case 'LocalOnly':
 				return 'branch-local';
 			case 'LocalAndRemote':
-				return 'branch-remote';
+				return commit.state.subject !== commit.id ? 'branch-local' : 'branch-remote';
 			case 'Integrated':
 				return 'tick-small';
 			default:
 				return 'branch-local';
 		}
-	}
+	});
 </script>
 
 <div class="stack__status gap">
@@ -33,7 +35,7 @@
 		style:--bg-color={lineTop ? color : 'var(--clr-transparent)'}
 	></div>
 	<div class="stack__status--icon" style:--bg-color={color}>
-		<Icon name={getIcon(branchType)} />
+		<Icon name={iconName} />
 	</div>
 	<div
 		class="stack__status--bar last"

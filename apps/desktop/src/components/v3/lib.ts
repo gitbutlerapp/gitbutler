@@ -1,4 +1,4 @@
-import type { CommitStateType, UpstreamCommit, Commit } from '$lib/branches/v3';
+import type { UpstreamCommit, Commit, CommitState } from '$lib/branches/v3';
 import type { PushStatus } from '$lib/stacks/stack';
 
 const colorMap = {
@@ -8,8 +8,13 @@ const colorMap = {
 	Error: 'var(--clr-theme-err-element)'
 };
 
-export function getColorFromBranchType(type: CommitStateType | 'Error'): string {
-	return colorMap[type];
+export function getColorFromCommitState(commitId: string, commitState: CommitState): string {
+	if (commitState.type === 'LocalAndRemote' && commitState.subject !== commitId) {
+		// Diverged
+		return colorMap.LocalOnly;
+	}
+
+	return colorMap[commitState.type];
 }
 
 export function isUpstreamCommit(commit: Commit | UpstreamCommit): commit is UpstreamCommit {
