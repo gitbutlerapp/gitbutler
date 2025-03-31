@@ -26,7 +26,6 @@
 		lastCommit?: boolean;
 		lastBranch?: boolean;
 		selected?: boolean;
-		lineColor?: string;
 		opacity?: number;
 		borderTop?: boolean;
 		draggable?: boolean;
@@ -43,7 +42,6 @@
 		lastCommit,
 		lastBranch,
 		selected,
-		lineColor,
 		opacity,
 		borderTop,
 		draggable,
@@ -160,7 +158,7 @@
 			}
 		: NON_DRAGGABLE}
 >
-	<CommitLine {commit} {lastCommit} {lastBranch} {lineColor} />
+	<CommitLine {commit} {lastCommit} {lastBranch} />
 
 	<div class="commit-content">
 		<!-- <button type="button" {onclick} tabindex="0"> -->

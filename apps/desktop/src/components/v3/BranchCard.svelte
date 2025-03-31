@@ -95,7 +95,7 @@
 		{@const selected = selection.current?.branchName === branch.name}
 		{@const isNewBranch = !upstreamOnlyCommits.length && !localAndRemoteCommits.length}
 		{#if !first}
-			<BranchDividerLine topPatchStatus={commit?.state.type ?? 'LocalOnly'} />
+			<BranchDividerLine {commit} />
 		{/if}
 		<div class="branch-card" class:selected data-series-name={branchName}>
 			<BranchHeader
