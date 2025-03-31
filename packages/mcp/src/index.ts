@@ -74,6 +74,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 				name: 'get_patch_stack',
 				description: 'Get a specific patch stack by UUID',
 				inputSchema: zodToJsonSchema(patchStacks.GetPatchStackParamsSchema)
+			},
+			{
+				name: 'get_patch_commit',
+				description:
+					'Get a specific patch commit by branch UUID and change ID. This includes information about the file changes',
+				inputSchema: zodToJsonSchema(patchStacks.GetPatchCommitParamsSchema)
 			}
 		]
 	};
@@ -139,6 +145,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 					request.params.arguments
 				);
 				const result = await patchStacks.getPatchStack(getPatchStackParams);
+				return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+			}
+			case 'get_patch_commit': {
+				const getPatchCommitParams = patchStacks.GetPatchCommitParamsSchema.parse(
+					request.params.arguments
+				);
+				const result = await patchStacks.getPatchCommit(getPatchCommitParams);
 				return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
 			}
 			default:
