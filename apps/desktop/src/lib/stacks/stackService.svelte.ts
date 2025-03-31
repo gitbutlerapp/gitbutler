@@ -603,7 +603,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			unapply: build.mutation<void, { projectId: string; stackId: string }>({
 				query: ({ projectId, stackId }) => ({
 					command: 'save_and_unapply_virtual_branch',
-					params: { projectId, branch: stackId }
+					params: { projectId, stackId }
 				}),
 				invalidatesTags: [ReduxTag.Stacks]
 			}),
