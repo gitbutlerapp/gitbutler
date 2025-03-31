@@ -69,6 +69,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 				name: 'list_patch_stacks',
 				description: 'List all the patch stacks for a given project',
 				inputSchema: zodToJsonSchema(patchStacks.GetProjectPatchStacksParamsSchema)
+			},
+			{
+				name: 'get_patch_stack',
+				description: 'Get a specific patch stack by UUID',
+				inputSchema: zodToJsonSchema(patchStacks.GetPatchStackParamsSchema)
 			}
 		]
 	};
@@ -127,6 +132,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 					request.params.arguments
 				);
 				const result = await patchStacks.listAllPatchStacks(listPatchStacksParams);
+				return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+			}
+			case 'get_patch_stack': {
+				const getPatchStackParams = patchStacks.GetPatchStackParamsSchema.parse(
+					request.params.arguments
+				);
+				const result = await patchStacks.getPatchStack(getPatchStackParams);
 				return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
 			}
 			default:
