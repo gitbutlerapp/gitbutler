@@ -75,8 +75,13 @@ pub fn reorder_stack(
         (new_head, None)
     } else {
         #[allow(deprecated)]
-        let res =
-            compute_updated_branch_head_for_commits(repo, old_head.id(), stack.tree, new_head)?;
+        let res = compute_updated_branch_head_for_commits(
+            repo,
+            &gix_repo,
+            old_head.id(),
+            stack.tree,
+            new_head,
+        )?;
         (res.head, Some(res.tree))
     };
 

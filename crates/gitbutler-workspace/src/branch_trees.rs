@@ -7,7 +7,6 @@ use gitbutler_oxidize::{
 };
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
-use gitbutler_repo::rebase::cherry_rebase_group;
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use tracing::instrument;
@@ -237,12 +236,14 @@ pub struct BranchHeadAndTree {
 #[deprecated = "not needed after v3 is out"]
 pub fn compute_updated_branch_head(
     repository: &git2::Repository,
+    gix_repo: &gix::Repository,
     stack: &Stack,
     new_head: git2::Oid,
 ) -> Result<BranchHeadAndTree> {
     #[allow(deprecated)]
     compute_updated_branch_head_for_commits(
         repository,
+        gix_repo,
         stack.head(&repository.to_gix()?)?,
         stack.tree,
         new_head,
@@ -263,6 +264,7 @@ pub fn compute_updated_branch_head(
 #[deprecated = "not needed after v3 is out"]
 pub fn compute_updated_branch_head_for_commits(
     repository: &git2::Repository,
+    gix_repo: &gix::Repository,
     old_head: git2::Oid,
     old_tree: git2::Oid,
     new_head: git2::Oid,
@@ -279,8 +281,14 @@ pub fn compute_updated_branch_head_for_commits(
         Default::default(),
     )?;
 
-    let rebased_tree = cherry_rebase_group(repository, new_head, &[commited_tree], false, false)?;
-    let rebased_tree = repository.find_commit(rebased_tree)?;
+    let mut rebase = but_rebase::Rebase::new(gix_repo, Some(new_head.to_gix()), None)?;
+    rebase.steps(Some(but_rebase::RebaseStep::Pick {
+        commit_id: commited_tree.to_gix(),
+        new_message: None,
+    }))?;
+    rebase.rebase_noops(false);
+    let output = rebase.rebase()?;
+    let rebased_tree = repository.find_commit(output.top_commit.to_git2())?;
 
     if rebased_tree.is_conflicted() {
         let auto_tree_id = repository

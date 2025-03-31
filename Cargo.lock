@@ -3113,6 +3113,7 @@ name = "gitbutler-workspace"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-rebase",
  "but-settings",
  "git2",
  "gitbutler-branch",

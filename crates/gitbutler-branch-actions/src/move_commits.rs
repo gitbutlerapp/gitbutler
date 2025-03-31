@@ -159,7 +159,7 @@ fn take_commit_from_source_stack(
         (new_source_head, None)
     } else {
         #[allow(deprecated)]
-        let res = compute_updated_branch_head(repo, source_stack, new_source_head)?;
+        let res = compute_updated_branch_head(repo, &gix_repo, source_stack, new_source_head)?;
         (res.head, Some(res.tree))
     };
 
@@ -200,8 +200,12 @@ fn move_commit_to_destination_stack(
             (new_destination_head_oid, None)
         } else {
             #[allow(deprecated)]
-            let res =
-                compute_updated_branch_head(repo, &destination_stack, new_destination_head_oid)?;
+            let res = compute_updated_branch_head(
+                repo,
+                &gix_repo,
+                &destination_stack,
+                new_destination_head_oid,
+            )?;
             (res.head, Some(res.tree))
         };
 
