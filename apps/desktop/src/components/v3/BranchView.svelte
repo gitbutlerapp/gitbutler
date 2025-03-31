@@ -5,8 +5,10 @@
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
+	import { FocusManager } from '$lib/focus/focusManager.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
@@ -20,12 +22,25 @@
 
 	const { stackId, projectId, branchName }: Props = $props();
 
-	const [stackService, userService] = inject(StackService, UserService);
+	const [stackService, userService, uiState, focus] = inject(
+		StackService,
+		UserService,
+		UiState,
+		FocusManager
+	);
+	const stackState = $derived(uiState.stack(stackId));
+	const focusedArea = $derived(focus.current);
 	const user = $derived(userService.user);
 
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const branchCommitsResult = $derived(stackService.commits(projectId, stackId, branchName));
+
+	$effect(() => {
+		if (focusedArea === 'commit') {
+			stackState.activeSelectionId.set({ type: 'branch', stackId, branchName });
+		}
+	});
 
 	function getGravatarUrl(email: string, existingGravatarUrl: string): string {
 		if ($user?.email === undefined) {
