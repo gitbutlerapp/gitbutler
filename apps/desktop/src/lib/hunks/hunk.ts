@@ -247,3 +247,28 @@ export type Patch = {
 	/** All non-overlapping hunks, including their context lines. */
 	readonly hunks: DiffHunk[];
 };
+
+export function isFileDeletionHunk(hunk: DiffHunk): boolean {
+	return hunk.newStart === 1 && hunk.newLines === 0;
+}
+
+export function isFileAdditionHunk(hunk: DiffHunk): boolean {
+	return hunk.oldStart === 1 && hunk.oldLines === 0;
+}
+
+export function canBePartiallySelected(patch: Patch): boolean {
+	if (patch.hunks.length === 0) {
+		// Should never happen, but just in case
+		return false;
+	}
+
+	if (patch.hunks.length === 1 && isFileDeletionHunk(patch.hunks[0]!)) {
+		// Only one hunk and it's a file deletion
+		return false;
+	}
+
+	// TODO: Check if the hunks come from the diff filter
+	// See: https://github.com/gitbutlerapp/gitbutler/pull/7893
+
+	return true;
+}
