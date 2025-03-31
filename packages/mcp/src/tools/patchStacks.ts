@@ -3,7 +3,8 @@ import { getGitbutlerAPIUrl, gitbutlerAPIRequest, interpolatePath } from '../sha
 import { z } from 'zod';
 
 enum PatchStackAPIEndpoint {
-	PatchStacks = '/patch_stack/{owner}/{project}/'
+	PatchStacks = '/patch_stack/{owner}/{project}/',
+	PatchStack = '/patch_stack/{uuid}'
 }
 
 export const GetProjectPatchStacksParamsSchema = z.object({
@@ -39,5 +40,26 @@ export async function listAllPatchStacks(params: ListProjectsParams) {
 	const url = getGitbutlerAPIUrl(apiPath, queryParams);
 	const response = await gitbutlerAPIRequest(url);
 	const parsed = PatchStackSchema.array().parse(response);
+	return parsed;
+}
+
+export const GetPatchStackParamsSchema = z.object({
+	uuid: z.string({ description: 'The UUID of the patch stack' })
+});
+
+export type GetPatchStackParams = z.infer<typeof GetPatchStackParamsSchema>;
+
+/**
+ * Return a patch stack
+ */
+export async function getPatchStack(params: GetPatchStackParams) {
+	const interpolationParams = {
+		uuid: params.uuid
+	};
+
+	const apiPath = interpolatePath(PatchStackAPIEndpoint.PatchStack, interpolationParams);
+	const url = getGitbutlerAPIUrl(apiPath);
+	const response = await gitbutlerAPIRequest(url);
+	const parsed = PatchStackSchema.parse(response);
 	return parsed;
 }
