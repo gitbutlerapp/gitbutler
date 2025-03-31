@@ -33,9 +33,9 @@
 	const generatedNameDiverges = $derived(!!createRefName && slugifiedRefName !== createRefName);
 
 	const firstBranchResult = $derived(
-		stackId ? stackService.branchAt(projectId, stackId, 0).current : undefined
+		stackId ? stackService.branchAt(projectId, stackId, 0) : undefined
 	);
-	const firstBranchName = $derived(firstBranchResult ? firstBranchResult.data?.name : undefined);
+	const firstBranchName = $derived(firstBranchResult?.current?.data?.name);
 
 	function handleOptionSelect(event: Event) {
 		const target = event.target as HTMLInputElement;
