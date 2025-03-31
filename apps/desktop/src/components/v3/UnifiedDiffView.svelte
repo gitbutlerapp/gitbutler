@@ -3,6 +3,7 @@
 	import HunkContextMenu from '$components/v3/HunkContextMenu.svelte';
 	import LineSelection from '$components/v3/unifiedDiffLineSelection.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { canBePartiallySelected, type DiffHunk } from '$lib/hunks/hunk';
 	import { Project } from '$lib/project/project';
 	import {
 		ChangeSelectionService,
@@ -13,7 +14,6 @@
 	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
-	import type { DiffHunk } from '$lib/hunks/hunk';
 	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 
 	type Props = {
@@ -173,8 +173,14 @@
 						diffFont={$userSettings.diffFont}
 						diffContrast={$userSettings.diffContrast}
 						inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
-						onLineClick={(p) =>
-							lineSelection.toggleStageLines(selection, hunk, p, diff.subject.hunks)}
+						onLineClick={(p) => {
+							if (!canBePartiallySelected(diff.subject)) {
+								const select = selection === undefined;
+								updateStage(hunk, select, diff.subject.hunks);
+								return;
+							}
+							lineSelection.toggleStageLines(selection, hunk, p, diff.subject.hunks);
+						}}
 						onChangeStage={(selected) => {
 							updateStage(hunk, selected, diff.subject.hunks);
 						}}
