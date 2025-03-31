@@ -169,7 +169,11 @@ pub fn create_commit_from_worktree_changes(
         )
     });
 
-    Ok(outcome?.into())
+    let outcome = outcome?;
+    if !outcome.rejected_specs.is_empty() {
+        tracing::warn!(?outcome.rejected_specs, "Failed to commit at least one hunk");
+    }
+    Ok(outcome.into())
 }
 
 /// Amend all `changes` to `commit_id`, keeping its commit message exactly as is.
@@ -190,7 +194,7 @@ pub fn amend_commit_from_worktree_changes(
     let project = projects.get(project_id)?;
     let mut guard = project.exclusive_worktree_access();
     let repo = but_core::open_repo_for_merging(&project.worktree_path())?;
-    Ok(commit_engine::create_commit_and_update_refs_with_project(
+    let outcome = commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         &project,
         Some(stack_id),
@@ -199,8 +203,11 @@ pub fn amend_commit_from_worktree_changes(
         worktree_changes.into_iter().map(Into::into).collect(),
         settings.get()?.context_lines,
         guard.write_permission(),
-    )?
-    .into())
+    )?;
+    if !outcome.rejected_specs.is_empty() {
+        tracing::warn!(?outcome.rejected_specs, "Failed to commit at least one hunk");
+    }
+    Ok(outcome.into())
 }
 
 /// Discard all worktree changes that match the specs in `worktree_changes`.
@@ -229,6 +236,9 @@ pub fn discard_worktree_changes(
         }),
         settings.get()?.context_lines,
     )?;
+    if !refused.is_empty() {
+        tracing::warn!(?refused, "Failed to discard at least one hunk");
+    }
     Ok(refused
         .into_iter()
         .map(|change| commit_engine::DiffSpec::from(change).into())
