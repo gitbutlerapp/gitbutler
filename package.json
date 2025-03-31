@@ -52,5 +52,10 @@
 		"typescript": "5.4.5",
 		"typescript-eslint": "^8.10.0",
 		"@gitbutler/no-relative-imports": "workspace:*"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"@prisma/client"
+		]
 	}
 }

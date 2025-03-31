@@ -1,0 +1,24 @@
+{
+	"name": "butler-bot",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"watch": "tsx watch src/main.ts",
+		"run": "tsx src/main.ts"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "FSL",
+	"devDependencies": {
+		"@types/node": "^22.3.0",
+		"prisma": "^6.5.0",
+		"tsx": "^4.19.3",
+		"typescript": "5.4.5"
+	},
+	"dependencies": {
+		"@prisma/client": "^6.5.0",
+		"discord.js": "^14.18.0"
+	}
+}
