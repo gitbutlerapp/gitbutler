@@ -8,7 +8,7 @@ use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_oxidize::{
-    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt,
+    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt, RepoExt,
 };
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::logging::RepositoryExt as _;
@@ -739,8 +739,12 @@ fn compute_resolutions(
                         (new_head.id(), None)
                     } else {
                         #[allow(deprecated)]
-                        let res =
-                            compute_updated_branch_head(repository, branch_stack, new_head.id())?;
+                        let res = compute_updated_branch_head(
+                            repository,
+                            &repository.to_gix()?,
+                            branch_stack,
+                            new_head.id(),
+                        )?;
                         (res.head, Some(res.tree))
                     };
 
@@ -834,7 +838,12 @@ fn compute_resolutions(
                         (new_head, None)
                     } else {
                         #[allow(deprecated)]
-                        let res = compute_updated_branch_head(repository, branch_stack, new_head)?;
+                        let res = compute_updated_branch_head(
+                            repository,
+                            &gix_repository,
+                            branch_stack,
+                            new_head,
+                        )?;
                         (res.head, Some(res.tree))
                     };
 
