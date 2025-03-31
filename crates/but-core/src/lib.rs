@@ -64,6 +64,9 @@ pub mod unified_diff;
 /// utilities for command-invocation.
 pub mod cmd;
 
+/// Commit message formatting and parsing functions.
+pub mod message_format;
+
 mod settings;
 pub use settings::git::GitConfigSettings;
 

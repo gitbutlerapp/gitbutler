@@ -1,6 +1,7 @@
 use crate::{author::Author, dependencies::CommitDependencies};
 use anyhow::{anyhow, Result};
 use bstr::ByteSlice as _;
+use but_core::message_format;
 use gitbutler_cherry_pick::ConflictedTreeKey;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_repo::rebase::ConflictEntries;
@@ -78,7 +79,7 @@ pub(crate) fn commit_to_vbranch_commit(
     commit_dependencies: CommitDependencies,
 ) -> Result<VirtualBranchCommit> {
     let timestamp = u128::try_from(commit.time().seconds())?;
-    let message = commit.message_bstr().to_owned();
+    let message = message_format::parse_for_ui(commit.message_bstr().to_str().unwrap_or_default());
 
     let parent_ids: Vec<git2::Oid> = commit
         .parents()
