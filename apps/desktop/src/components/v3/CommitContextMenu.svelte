@@ -15,7 +15,7 @@
 		leftClickTrigger: HTMLElement | undefined;
 		rightClickTrigger: HTMLElement | undefined;
 		baseBranch: BaseBranch;
-		branchId: string | undefined;
+		stackId: string | undefined;
 		commit: Commit | UpstreamCommit;
 		commitUrl: string | undefined;
 		onUncommitClick: (event: MouseEvent) => void;
@@ -30,7 +30,7 @@
 		leftClickTrigger,
 		rightClickTrigger,
 		baseBranch,
-		branchId,
+		stackId,
 		commit,
 		commitUrl,
 		onUncommitClick,
@@ -43,13 +43,13 @@
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit();
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
-		if (!branchId || !baseBranch) {
-			console.error('Unable to insert commit', { branchId, baseBranch });
+		if (!stackId || !baseBranch) {
+			console.error('Unable to insert commit', { branchId: stackId, baseBranch });
 			return;
 		}
 		insertBlankCommitInBranch({
 			projectId,
-			branchId,
+			stackId,
 			commitOid: commitId,
 			offset: location === 'above' ? -1 : 1
 		});
