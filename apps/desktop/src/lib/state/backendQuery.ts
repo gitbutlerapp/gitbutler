@@ -15,7 +15,7 @@ export async function tauriBaseQuery(
 		return { data: await api.extra.tauri.invoke(args.command, args.params) };
 	} catch (error: unknown) {
 		if (isBackendError(error)) {
-			return { error: error as TauriCommandError };
+			return { error: { message: error.message, code: error.code } };
 		}
 		return { error: { message: String(error) } as TauriCommandError };
 	}
