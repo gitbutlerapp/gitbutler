@@ -177,6 +177,7 @@
 		display: flex;
 		align-items: center;
 		gap: 10px;
+		overflow: hidden;
 	}
 
 	.worktree-header__title {

@@ -11,6 +11,10 @@
 			height: var(--size-tag);
 		}
 	}
+
+	&:not(.shrinkable) {
+		flex: 0 0 auto;
+	}
 }
 
 .segment-control-container.full-width {
