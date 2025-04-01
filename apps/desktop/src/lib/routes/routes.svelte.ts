@@ -69,6 +69,13 @@ export function settingsPath() {
 	return `/settings`;
 }
 
+export function newSettingsPath(page?: string) {
+	if (page) {
+		return `/new-settings/${page}`;
+	}
+	return `/new-settings`;
+}
+
 export function stackPath(projectId: string, stackId: string) {
 	return `/${projectId}/workspace/${stackId}`;
 }
