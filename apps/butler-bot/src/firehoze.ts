@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaClient } from '@prisma/client/extension';
 import { Message } from 'discord.js';
+import { ChannelType } from '@/types/channel-types';
 
 const anthropic = new Anthropic({
 	apiKey: process.env.ANTHROPIC_API_KEY
@@ -71,11 +72,11 @@ The title should be clear and concise, focusing on the main issue or question.`;
 export async function firehoze(prisma: PrismaClient, message: Message) {
 	try {
 		// Check if the current channel is a support channel
-		const supportChannel = await prisma.supportChannel.findUnique({
+		const channel = await prisma.channel.findUnique({
 			where: { channel_id: message.channel.id }
 		});
 
-		if (!supportChannel) {
+		if (!channel || channel.type !== ChannelType.SUPPORT) {
 			return;
 		}
 

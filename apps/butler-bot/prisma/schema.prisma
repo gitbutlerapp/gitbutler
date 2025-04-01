@@ -28,9 +28,10 @@ model SupportTicket {
   updated_at DateTime @default(now()) @updatedAt
 }
 
-model SupportChannel {
+model Channel {
   id         Int      @id @default(autoincrement())
   channel_id String   @unique
+  type       String // "support" or "butler-alerts"
   created_at DateTime @default(now())
   updated_at DateTime @default(now()) @updatedAt
 }

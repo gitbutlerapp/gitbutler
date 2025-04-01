@@ -9,7 +9,7 @@ export const resolveTicket: Command = {
 		try {
 			const args = message.content.split(' ');
 			if (args.length !== 2) {
-				await message.reply('Please provide a ticket ID. Usage: !resolveticket <ticket_id>');
+				await message.reply('Please provide a ticket ID. Usage: `!resolveticket <ticket_id>`');
 				return;
 			}
 

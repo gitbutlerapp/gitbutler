@@ -2,13 +2,13 @@ import { PrismaClient } from '@prisma/client';
 import { Client, Events, GatewayIntentBits, GuildMember } from 'discord.js';
 import cron from 'node-cron';
 import type { Command, Task } from '@/types';
-import { addSupportChannel } from '@/commands/add-support-channel';
+import { addChannel } from '@/commands/add-channel';
 import { help } from '@/commands/help';
 import { listButlers } from '@/commands/list-butlers';
-import { listSupportChannels } from '@/commands/list-support-channels';
+import { listChannels } from '@/commands/list-channels';
 import { listTickets } from '@/commands/list-tickets';
 import { ping } from '@/commands/ping';
-import { removeSupportChannel } from '@/commands/remove-support-channel';
+import { removeChannel } from '@/commands/remove-channel';
 import { resolveTicket } from '@/commands/resolve-ticket';
 import { toggleRota } from '@/commands/toggle-rota';
 import { firehoze } from '@/firehoze';
@@ -58,9 +58,9 @@ const commands: Command[] = [
 	help,
 	listTickets,
 	resolveTicket,
-	addSupportChannel,
-	removeSupportChannel,
-	listSupportChannels
+	addChannel,
+	removeChannel,
+	listChannels
 ];
 
 const tasks: Task[] = [syncButlers];
