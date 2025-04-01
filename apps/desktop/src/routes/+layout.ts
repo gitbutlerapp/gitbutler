@@ -65,7 +65,7 @@ export const load: LayoutLoad = async () => {
 	const fileService = new FileService(tauri);
 	const hooksService = new HooksService(tauri);
 	const projectMetrics = new ProjectMetrics();
-	const settingsService = new SettingsService(tauri);
+	const settingsService = new SettingsService(tauri, projectsService);
 
 	// Await settings to prevent immediate reloads on initial render.
 	await settingsService.refresh();
