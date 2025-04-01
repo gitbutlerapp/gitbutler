@@ -19,6 +19,7 @@ import { wast } from '@codemirror/lang-wast';
 import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
 import { HighlightStyle, StreamLanguage } from '@codemirror/language';
+import { lua } from '@codemirror/legacy-modes/mode/lua';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
 import { toml } from '@codemirror/legacy-modes/mode/toml';
 import { NodeType, Tree, Parser } from '@lezer/common';
@@ -130,6 +131,9 @@ export function parserFromFilename(filename: string): Parser | null {
 
 		case 'json':
 			return json().language.parser;
+
+		case 'lua':
+			return StreamLanguage.define(lua).parser;
 
 		case 'php':
 			return php().language.parser;
