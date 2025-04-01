@@ -18,6 +18,13 @@ export function projectSettingsPath(projectId: string) {
 	return `/${projectId}/settings`;
 }
 
+export function newProjectSettingsPath(projectId: string, page?: string) {
+	if (page) {
+		return `/${projectId}/new-settings/${page}`;
+	}
+	return `/${projectId}/new-settings`;
+}
+
 export function isProjectSettingsPath() {
 	return isUrl<{ projectId: string }>('/[projectId]/settings');
 }

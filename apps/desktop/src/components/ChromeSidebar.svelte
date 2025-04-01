@@ -10,6 +10,7 @@
 		isProjectSettingsPath,
 		isTargetPath,
 		isWorkspacePath,
+		newProjectSettingsPath,
 		projectSettingsPath,
 		targetPath,
 		workspacePath
@@ -187,7 +188,7 @@
 				<Button
 					icon="settings"
 					kind="outline"
-					onclick={() => goto(projectSettingsPath(project.id))}
+					onclick={() => goto(newProjectSettingsPath(project.id))}
 					width={34}
 					class={['btn-square', isProjectSettingsPath() && 'btn-active']}
 					tooltipPosition="top"
