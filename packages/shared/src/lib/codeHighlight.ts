@@ -20,6 +20,7 @@ import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
 import { HighlightStyle, StreamLanguage } from '@codemirror/language';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
+import { toml } from '@codemirror/legacy-modes/mode/toml';
 import { NodeType, Tree, Parser } from '@lezer/common';
 import { tags, highlightTree } from '@lezer/highlight';
 
@@ -182,6 +183,9 @@ export function parserFromFilename(filename: string): Parser | null {
 
 		case 'rb':
 			return StreamLanguage.define(ruby).parser;
+
+		case 'toml':
+			return StreamLanguage.define(toml).parser;
 
 		case 'yml':
 		case 'yaml':
