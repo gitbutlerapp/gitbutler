@@ -4,6 +4,7 @@
 
 import { cpp } from '@codemirror/lang-cpp';
 import { css } from '@codemirror/lang-css';
+import { go } from '@codemirror/lang-go';
 import { html } from '@codemirror/lang-html';
 import { java } from '@codemirror/lang-java';
 import { javascript } from '@codemirror/lang-javascript';
@@ -16,8 +17,13 @@ import { rust } from '@codemirror/lang-rust';
 import { vue } from '@codemirror/lang-vue';
 import { wast } from '@codemirror/lang-wast';
 import { xml } from '@codemirror/lang-xml';
+import { yaml } from '@codemirror/lang-yaml';
 import { HighlightStyle, StreamLanguage } from '@codemirror/language';
+import { commonLisp } from '@codemirror/legacy-modes/mode/commonlisp';
+import { lua } from '@codemirror/legacy-modes/mode/lua';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
+import { swift } from '@codemirror/legacy-modes/mode/swift';
+import { toml } from '@codemirror/legacy-modes/mode/toml';
 import { NodeType, Tree, Parser } from '@lezer/common';
 import { tags, highlightTree } from '@lezer/highlight';
 
@@ -119,6 +125,10 @@ export function parserFromFilename(filename: string): Parser | null {
 		// case 'text/x-go':
 		//     return new LanguageSupport(await CodeMirror.go());
 
+		case 'go':
+		case 'golang':
+			return go().language.parser;
+
 		case 'java':
 			return java().language.parser;
 
@@ -127,6 +137,14 @@ export function parserFromFilename(filename: string): Parser | null {
 
 		case 'json':
 			return json().language.parser;
+
+		case 'lisp':
+		case 'cl':
+		case 'el': // Also catches Emacs Lisp files
+			return StreamLanguage.define(commonLisp).parser;
+
+		case 'lua':
+			return StreamLanguage.define(lua).parser;
 
 		case 'php':
 			return php().language.parser;
@@ -172,6 +190,9 @@ export function parserFromFilename(filename: string): Parser | null {
 			// highlighting svelte with js + jsx works much better than the above
 			return javascript({ typescript: true, jsx: true }).language.parser;
 
+		case 'swift':
+			return StreamLanguage.define(swift).parser;
+
 		case 'vue':
 			return vue().language.parser;
 
@@ -180,6 +201,13 @@ export function parserFromFilename(filename: string): Parser | null {
 
 		case 'rb':
 			return StreamLanguage.define(ruby).parser;
+
+		case 'toml':
+			return StreamLanguage.define(toml).parser;
+
+		case 'yml':
+		case 'yaml':
+			return yaml().language.parser;
 
 		default:
 			return null;
