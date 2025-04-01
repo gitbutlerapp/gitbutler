@@ -513,6 +513,9 @@ importers:
       '@codemirror/lang-xml':
         specifier: ^6.1.0
         version: 6.1.0
+      '@codemirror/lang-yaml':
+        specifier: ^6.1.2
+        version: 6.1.2(@codemirror/view@6.26.3)
       '@codemirror/language':
         specifier: ^6.10.2
         version: 6.10.2
@@ -1001,6 +1004,9 @@ packages:
 
   '@codemirror/lang-xml@6.1.0':
     resolution: {integrity: sha512-3z0blhicHLfwi2UgkZYRPioSgVTo9PV5GP5ducFH6FaHy0IAJRg+ixj5gTR1gnT/glAIC8xv4w2VL1LoZfs+Jg==}
+
+  '@codemirror/lang-yaml@6.1.2':
+    resolution: {integrity: sha512-dxrfG8w5Ce/QbT7YID7mWZFKhdhsaTNOYjOkSIMt1qmC4VQnXSDSYVHHHn8k6kJUfIhtLo8t1JJgltlxWdsITw==}
 
   '@codemirror/language@6.10.2':
     resolution: {integrity: sha512-kgbTYTo0Au6dCSc/TFy7fK3fpJmgHDv1sG1KNQKJXVi+xBTEeBPY/M30YXiU6mMXeH+YIDLsbrT4ZwNRdtF+SA==}
@@ -1763,6 +1769,9 @@ packages:
 
   '@lezer/xml@1.0.2':
     resolution: {integrity: sha512-dlngsWceOtQBMuBPw5wtHpaxdPJ71aVntqjbpGkFtWsp4WtQmCnuTjQGocviymydN6M18fhj6UQX3oiEtSuY7w==}
+
+  '@lezer/yaml@1.0.3':
+    resolution: {integrity: sha512-GuBLekbw9jDBDhGur82nuwkxKQ+a3W5H0GfaAthDXcAu+XdpS43VlnxA9E9hllkpSP5ellRDKjLLj7Lu9Wr6xA==}
 
   '@ljharb/through@2.3.13':
     resolution: {integrity: sha512-/gKJun8NNiWGZJkGzI/Ragc53cOdcLNdzjLaIa+GEjguQs0ulsurx8WN0jijdK9yPqDvziX995sMRLyLt1uZMQ==}
@@ -8202,6 +8211,18 @@ snapshots:
       '@lezer/common': 1.2.1
       '@lezer/xml': 1.0.2
 
+  '@codemirror/lang-yaml@6.1.2(@codemirror/view@6.26.3)':
+    dependencies:
+      '@codemirror/autocomplete': 6.16.2(@codemirror/language@6.10.2)(@codemirror/state@6.4.1)(@codemirror/view@6.26.3)(@lezer/common@1.2.1)
+      '@codemirror/language': 6.10.2
+      '@codemirror/state': 6.4.1
+      '@lezer/common': 1.2.1
+      '@lezer/highlight': 1.2.0
+      '@lezer/lr': 1.4.1
+      '@lezer/yaml': 1.0.3
+    transitivePeerDependencies:
+      - '@codemirror/view'
+
   '@codemirror/language@6.10.2':
     dependencies:
       '@codemirror/state': 6.4.1
@@ -8945,6 +8966,12 @@ snapshots:
 
   '@lezer/xml@1.0.2':
     dependencies:
+      '@lezer/highlight': 1.2.0
+      '@lezer/lr': 1.4.1
+
+  '@lezer/yaml@1.0.3':
+    dependencies:
+      '@lezer/common': 1.2.1
       '@lezer/highlight': 1.2.0
       '@lezer/lr': 1.4.1
 

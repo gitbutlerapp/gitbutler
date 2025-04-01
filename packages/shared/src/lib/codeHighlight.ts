@@ -17,6 +17,7 @@ import { rust } from '@codemirror/lang-rust';
 import { vue } from '@codemirror/lang-vue';
 import { wast } from '@codemirror/lang-wast';
 import { xml } from '@codemirror/lang-xml';
+import { yaml } from '@codemirror/lang-yaml';
 import { HighlightStyle, StreamLanguage } from '@codemirror/language';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
 import { NodeType, Tree, Parser } from '@lezer/common';
@@ -181,6 +182,10 @@ export function parserFromFilename(filename: string): Parser | null {
 
 		case 'rb':
 			return StreamLanguage.define(ruby).parser;
+
+		case 'yml':
+		case 'yaml':
+			return yaml().language.parser;
 
 		default:
 			return null;
