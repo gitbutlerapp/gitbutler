@@ -117,7 +117,7 @@ export class StackService {
 	stackInfo(projectId: string, stackId: string) {
 		return this.api.endpoints.stackInfo.useQuery(
 			{ projectId, stackId },
-			{ transform: ([stackInfo]) => stackInfo }
+			{ transform: ({ stackInfo }) => stackInfo }
 		);
 	}
 
@@ -125,7 +125,7 @@ export class StackService {
 		return this.api.endpoints.stackInfo.useQuery(
 			{ projectId, stackId },
 			{
-				transform: ([, branchDetails]) =>
+				transform: ({ branchDetails }) =>
 					branchDetailsSelectors.selectById(branchDetails, branchName)
 			}
 		);
@@ -418,7 +418,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			}),
 			stackInfo: build.query<
-				[StackInfo, EntityState<BranchDetails, string>],
+				{ stackInfo: StackInfo; branchDetails: EntityState<BranchDetails, string> },
 				{ projectId: string; stackId: string }
 			>({
 				query: ({ projectId, stackId }) => ({
@@ -431,7 +431,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						branchDetailsAdapter.getInitialState(),
 						response.branchDetails
 					);
-					return [response, branchDetilsEntity] as const;
+					return {
+						stackInfo: response,
+						branchDetails: branchDetilsEntity
+					};
 				}
 			}),
 			localAndRemoteCommits: build.query<
@@ -656,7 +659,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						newName
 					}
 				}),
-				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Stacks]
+				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Stacks, ReduxTag.StackInfo]
 			}),
 			removeBranch: build.mutation<
 				void,
