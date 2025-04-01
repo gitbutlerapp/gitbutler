@@ -12,7 +12,11 @@ export class GitHubIssueService implements ForgeIssueService {
 	}
 
 	async create(title: string, body: string, labels: string[]) {
-		return await this.api.endpoints.create.useMutation()[0]({ title, body, labels });
+		const result = await this.api.endpoints.create.mutate({ title, body, labels });
+		if (!result.data) {
+			return await Promise.reject(result.error);
+		}
+		return result.data;
 	}
 }
 

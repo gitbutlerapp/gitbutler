@@ -217,13 +217,26 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 export type CustomMutationResult<Definition extends MutationDefinition<any, any, string, any>> =
 	Prettify<MutationResultSelectorResult<Definition>>;
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type NotNull = {};
+
+type MutationResult<Definition extends MutationDefinition<unknown, any, string, unknown>> =
+	| {
+			data: ResultTypeFrom<Definition>;
+			error: undefined;
+	  }
+	| {
+			error: NotNull;
+			data: undefined;
+	  };
+
 type CustomMutation<Definition extends MutationDefinition<any, any, string, any>> = readonly [
 	/**
 	 * Trigger the mutation with the given arguments.
 	 *
 	 * If awaited, the result will contain the mutation result.
 	 */
-	(args: QueryArgFrom<Definition>) => Promise<Prettify<ResultTypeFrom<Definition>>>,
+	(args: QueryArgFrom<Definition>) => Promise<MutationResult<Definition>>,
 	/**
 	 * The reactive state of the mutation.
 	 *
@@ -236,11 +249,6 @@ type CustomMutation<Definition extends MutationDefinition<any, any, string, any>
 	() => void
 ];
 
-type Result<A> = {
-	data?: A;
-	error?: unknown;
-};
-
 /**
  * Declaration of custom methods for mutations.
  */
@@ -250,5 +258,5 @@ type MutationHooks<Definition extends MutationDefinition<unknown, any, string, u
 	mutate: (
 		args: QueryArgFrom<Definition>,
 		options?: UseMutationHookParams<Definition>
-	) => Promise<Result<Prettify<ResultTypeFrom<Definition>>>>;
+	) => Promise<MutationResult<Definition>>;
 };

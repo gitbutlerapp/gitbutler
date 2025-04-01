@@ -97,7 +97,9 @@
 				projectId,
 				resolutionApproach: { type: baseResolutionApproach }
 			}).then((result) => {
-				targetCommitOid = result;
+				if (result.data) {
+					targetCommitOid = result.data;
+				}
 			});
 		}
 	});

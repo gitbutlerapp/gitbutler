@@ -73,7 +73,8 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 			commitId: this.commit.id,
 			worktreeChanges: changesToDiffSpec(data)
 		});
-		this.onresult(result);
+
+		this.onresult(result.data);
 	}
 }
 

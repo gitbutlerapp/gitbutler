@@ -55,7 +55,12 @@
 			)
 		});
 
-		const newId = response.newCommit;
+		if (!response.data) {
+			showToast({ message: 'Failed to create commit', style: 'error' });
+			return;
+		}
+
+		const newId = response.data.newCommit;
 
 		uiState.project(projectId).drawerPage.set(undefined);
 		uiState.stack(stackId).selection.set({ branchName, commitId: newId });
