@@ -15,6 +15,7 @@ model Butlers {
   discord_id      String
   name            String   @default("")
   in_support_rota Boolean  @default(false)
+  on_duty         Boolean  @default(false)
   created_at      DateTime @default(now())
   updated_at      DateTime @default(now()) @updatedAt
 }
