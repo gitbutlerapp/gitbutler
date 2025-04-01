@@ -273,16 +273,6 @@
 		}
 	}
 
-	.divider-line {
-		z-index: var(--z-lifted);
-		position: absolute;
-		top: 0;
-		right: 0;
-		height: 100%;
-		width: 4px;
-		border-right: 1px solid var(--clr-border-2);
-	}
-
 	.branch-card__contents {
 		position: relative;
 		display: flex;

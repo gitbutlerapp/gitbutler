@@ -2,6 +2,7 @@
 	import RadioButton from '$components/RadioButton.svelte';
 	import dependentBranchSvg from '$components/v3/stackTabs/assets/dependent-branch.svg?raw';
 	import newStackSvg from '$components/v3/stackTabs/assets/new-stack.svg?raw';
+	import { showToast } from '$lib/notifications/toasts';
 	import { stackPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -44,11 +45,21 @@
 
 	async function addNew() {
 		if (createRefType === 'stack') {
-			const data = await createNewStack({
+			const result = await createNewStack({
 				projectId,
 				branch: { name: createRefName }
 			});
-			goto(stackPath(projectId, data.id));
+
+			if (!result.data) {
+				showToast({
+					message: 'Failed to create new stack',
+					style: 'error'
+				});
+				return;
+			}
+
+			const id = result.data.id;
+			goto(stackPath(projectId, id));
 			createRefModal?.close();
 		} else {
 			if (!stackId || !createRefName) {
