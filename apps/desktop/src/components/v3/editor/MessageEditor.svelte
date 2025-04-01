@@ -6,6 +6,7 @@
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { debouncePromise } from '@gitbutler/shared/utils/misc';
@@ -22,19 +23,21 @@
 	interface Props {
 		projectId: string;
 		stackId: string;
-		markdown: boolean;
 		initialValue?: string;
 		onChange?: (text: string) => void;
 	}
 
-	let { markdown = $bindable(), projectId, initialValue, onChange }: Props = $props();
+	let { projectId, initialValue, onChange }: Props = $props();
 
-	const [aiService, idSelection, worktreeService, diffService] = inject(
+	const [aiService, idSelection, worktreeService, diffService, uiState] = inject(
 		AIService,
 		IdSelection,
 		WorktreeService,
-		DiffService
+		DiffService,
+		UiState
 	);
+
+	const useRichText = uiState.global.useRichText;
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 	let aiConfigurationValid = $state(false);
@@ -119,19 +122,19 @@
 			<button
 				type="button"
 				class="text-13 text-semibold editor-tab"
-				class:active={!markdown}
-				class:focused={!markdown && (isEditorFocused || isEditorHovered)}
+				class:active={!useRichText.current}
+				class:focused={!useRichText.current && (isEditorFocused || isEditorHovered)}
 				onclick={() => {
-					markdown = false;
+					useRichText.current = false;
 				}}>Plain</button
 			>
 			<button
 				type="button"
 				class="text-13 text-semibold editor-tab"
-				class:active={markdown}
-				class:focused={markdown && (isEditorFocused || isEditorHovered)}
+				class:active={useRichText.current}
+				class:focused={useRichText.current && (isEditorFocused || isEditorHovered)}
 				onclick={() => {
-					markdown = true;
+					useRichText.current = true;
 				}}>Rich-text Editor</button
 			>
 		</div>
@@ -149,7 +152,7 @@
 			namespace="CommitMessageEditor"
 			placeholder="Your commit message"
 			bind:this={composer}
-			{markdown}
+			markdown={useRichText.current}
 			onError={(e) => showError('Editor error', e)}
 			initialText={initialValue}
 			onChange={debouncedHandleChange}

@@ -2,7 +2,6 @@
 	import EditorFooter from '$components/v3/editor/EditorFooter.svelte';
 	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
-	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 
@@ -32,11 +31,6 @@
 		initialMessage: initialValue
 	}: Props = $props();
 
-	/**
-	 * Toggles use of markdown on/off in the message editor.
-	 */
-	let markdown = persisted(true, 'useMarkdown__' + projectId);
-
 	let titleText = $state<string | undefined>(initialTitle);
 	let descriptionText = $state<string | undefined>(initialValue);
 	const commitMessage = persistedCommitMessage(projectId, stackId);
@@ -58,7 +52,6 @@
 	<Textbox bind:value={titleText} placeholder="Commit title" />
 	<MessageEditor
 		bind:this={composer}
-		bind:markdown={$markdown}
 		{initialValue}
 		{projectId}
 		{stackId}
