@@ -1,7 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { PrismaClient } from '@prisma/client/extension';
+import { PrismaClient } from '@prisma/client';
 import { Message } from 'discord.js';
 import { ChannelType } from '@/types/channel-types';
+import { formatTicket } from '@/utils/tickets';
+import { isBusinessHours } from '@/utils/time';
 
 const anthropic = new Anthropic({
 	apiKey: process.env.ANTHROPIC_API_KEY
@@ -91,12 +93,41 @@ export async function firehoze(prisma: PrismaClient, message: Message) {
 		if (conversationType === 'NEW_HELP_REQUEST') {
 			// Create a new ticket with a summarized title
 			const ticketName = await summarizeHelpRequest(message);
-			await prisma.supportTicket.create({
+			const ticket = await prisma.supportTicket.create({
 				data: {
 					name: ticketName,
 					link: message.url
 				}
 			});
+
+			// Check if we're in business hours - notify butler on duty
+			if (isBusinessHours()) {
+				try {
+					// Find the butler on duty
+					const onDutyButler = await prisma.butlers.findFirst({
+						where: { on_duty: true }
+					});
+
+					// Find the butler alerts channel
+					const alertChannel = await prisma.channel.findFirst({
+						where: { type: ChannelType.BUTLER_ALERTS }
+					});
+
+					// Notify in butler alerts channel if both exist
+					if (onDutyButler && alertChannel) {
+						const channel = await message.client.channels.fetch(alertChannel.channel_id);
+						if (channel && 'send' in channel) {
+							const alertMessage =
+								`🎫 New ticket: ${formatTicket(ticket)}\n` +
+								`<@${onDutyButler.discord_id}>, there's a new support ticket during business hours.`;
+
+							await channel.send(alertMessage);
+						}
+					}
+				} catch (notifyError) {
+					console.error('Error notifying butler on duty:', notifyError);
+				}
+			}
 		}
 	} catch (error) {
 		console.error('Error in firehoze:', error);

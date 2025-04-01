@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import type { Task } from '@/types';
 import { ChannelType } from '@/types/channel-types';
+import { formatTicketList } from '@/utils/tickets';
 
 export const rotateDuty: Task = {
 	name: 'rotate-duty',
@@ -33,6 +34,12 @@ export const rotateDuty: Task = {
 				data: { on_duty: true }
 			});
 
+			// Fetch open tickets
+			const openTickets = await prisma.supportTicket.findMany({
+				where: { resolved: false },
+				orderBy: { created_at: 'desc' }
+			});
+
 			// Notify in the butler-alerts channel
 			try {
 				const alertChannel = await prisma.channel.findFirst({
@@ -42,8 +49,17 @@ export const rotateDuty: Task = {
 				if (alertChannel) {
 					const channel = await client.channels.fetch(alertChannel.channel_id);
 					if (channel && 'send' in channel) {
-						const message = `🔄 Butler rotation: <@${selectedButler.discord_id}> is now on support duty.`;
-						await channel.send(message);
+						// Send butler rotation notification
+						const rotationMessage = `🔄 Butler rotation: <@${selectedButler.discord_id}> is now on support duty.`;
+						await channel.send(rotationMessage);
+
+						// Send open tickets summary if there are any
+						if (openTickets.length > 0) {
+							const ticketsMessage =
+								`📋 There are ${openTickets.length} open ticket(s) from previous days:\n` +
+								formatTicketList(openTickets);
+							await channel.send(ticketsMessage);
+						}
 					}
 				}
 			} catch (channelError) {

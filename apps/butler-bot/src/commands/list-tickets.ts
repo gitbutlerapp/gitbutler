@@ -1,4 +1,5 @@
 import type { Command } from '@/types';
+import { formatTicketList } from '@/utils/tickets';
 
 export const listTickets: Command = {
 	name: 'listtickets',
@@ -12,16 +13,13 @@ export const listTickets: Command = {
 				orderBy: { created_at: 'desc' }
 			});
 
-			if (tickets.length === 0) {
-				await message.reply('No open support tickets found.');
-				return;
+			const formattedList = formatTicketList(tickets, 'No open support tickets found.');
+
+			if (tickets.length > 0) {
+				await message.reply(`Here are all open support tickets:\n${formattedList}`);
+			} else {
+				await message.reply(formattedList);
 			}
-
-			const ticketList = tickets
-				.map((ticket) => `**#${ticket.id}** - ${ticket.name} - ${ticket.link}`)
-				.join('\n\n');
-
-			await message.reply(`Here are all open support tickets:\n${ticketList}`);
 		} catch (error) {
 			console.error('Error listing tickets:', error);
 			await message.reply('Failed to list tickets. Please try again later.');
