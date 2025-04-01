@@ -93,8 +93,6 @@
 			);
 		}
 	}
-
-	$inspect(patchCommits);
 </script>
 
 {#snippet infoCard(patchCommit: PatchCommit)}

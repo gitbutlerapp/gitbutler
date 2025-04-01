@@ -31,6 +31,13 @@ type ProjectUiState = {
 	drawerFullScreen: boolean;
 };
 
+type GlobalUiState = {
+	drawerHeight: number;
+	leftWidth: number;
+	stacksViewWidth: number;
+	useRichText: boolean;
+};
+
 /**
  * Stateful properties for the UI, with redux backed fine-grained reactivity.
  */
@@ -50,10 +57,11 @@ export class UiState {
 	});
 
 	/** Properties that are globally scoped. */
-	readonly global = this.buildGlobalProps({
+	readonly global = this.buildGlobalProps<GlobalUiState>({
 		drawerHeight: 20,
 		leftWidth: 17.5,
-		stacksViewWidth: 21.25
+		stacksViewWidth: 21.25,
+		useRichText: true
 	});
 
 	constructor(

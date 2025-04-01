@@ -35,7 +35,7 @@ export class LatestBranchLookupService {
 					);
 				} catch (error: unknown) {
 					this.appDispatch.dispatch(
-						latestBranchLookupTable.upsertOne(errorToLoadable(error, branchId))
+						latestBranchLookupTable.addOne(errorToLoadable(error, branchId))
 					);
 				}
 			})

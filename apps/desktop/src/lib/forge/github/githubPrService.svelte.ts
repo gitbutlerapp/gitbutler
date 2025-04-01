@@ -155,7 +155,12 @@ function injectEndpoints(api: GitHubApi) {
 					await ghQuery({
 						domain: 'pulls',
 						action: 'update',
-						parameters: { pull_number: number, ...update },
+						parameters: {
+							pull_number: number,
+							target_base: update.targetBase,
+							body: update.description,
+							state: update.state
+						},
 						extra: api.extra
 					});
 					return { data: undefined };
