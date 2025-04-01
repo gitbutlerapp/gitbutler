@@ -4,6 +4,7 @@
 
 import { cpp } from '@codemirror/lang-cpp';
 import { css } from '@codemirror/lang-css';
+import { go } from '@codemirror/lang-go';
 import { html } from '@codemirror/lang-html';
 import { java } from '@codemirror/lang-java';
 import { javascript } from '@codemirror/lang-javascript';
@@ -118,6 +119,10 @@ export function parserFromFilename(filename: string): Parser | null {
 
 		// case 'text/x-go':
 		//     return new LanguageSupport(await CodeMirror.go());
+
+		case 'go':
+		case 'golang':
+			return go().language.parser;
 
 		case 'java':
 			return java().language.parser;
