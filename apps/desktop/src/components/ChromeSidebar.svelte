@@ -10,7 +10,8 @@
 		isProjectSettingsPath,
 		isTargetPath,
 		isWorkspacePath,
-		projectSettingsPath,
+		newProjectSettingsPath,
+		newSettingsPath,
 		targetPath,
 		workspacePath
 	} from '$lib/routes/routes.svelte';
@@ -187,7 +188,7 @@
 				<Button
 					icon="settings"
 					kind="outline"
-					onclick={() => goto(projectSettingsPath(project.id))}
+					onclick={() => goto(newProjectSettingsPath(project.id))}
 					width={34}
 					class={['btn-square', isProjectSettingsPath() && 'btn-active']}
 					tooltipPosition="top"
@@ -264,7 +265,7 @@
 		<ContextMenuItem
 			label="Preferences"
 			onclick={() => {
-				goto('/settings/profile');
+				goto(newSettingsPath());
 			}}
 		/>
 	</ContextMenuSection>

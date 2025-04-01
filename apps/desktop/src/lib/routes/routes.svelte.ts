@@ -18,6 +18,13 @@ export function projectSettingsPath(projectId: string) {
 	return `/${projectId}/settings`;
 }
 
+export function newProjectSettingsPath(projectId: string, page?: string) {
+	if (page) {
+		return `/${projectId}/new-settings/${page}`;
+	}
+	return `/${projectId}/new-settings`;
+}
+
 export function isProjectSettingsPath() {
 	return isUrl<{ projectId: string }>('/[projectId]/settings');
 }
@@ -60,6 +67,13 @@ export function isCommitPath() {
 
 export function settingsPath() {
 	return `/settings`;
+}
+
+export function newSettingsPath(page?: string) {
+	if (page) {
+		return `/new-settings/${page}`;
+	}
+	return `/new-settings`;
 }
 
 export function stackPath(projectId: string, stackId: string) {
