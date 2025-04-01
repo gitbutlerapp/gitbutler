@@ -11,8 +11,10 @@ datasource db {
 }
 
 model Butlers {
-  id              Int     @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   discord_id      String
-  name            String  @default("")
-  in_support_rota Boolean @default(false)
+  name            String   @default("")
+  in_support_rota Boolean  @default(false)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @default(now()) @updatedAt
 }
