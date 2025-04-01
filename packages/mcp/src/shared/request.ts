@@ -13,6 +13,14 @@ export type RequestOptions = {
 
 type ParameterValue = string | number | boolean | undefined;
 
+export function getGitbutlerAPIKey(): string | undefined {
+	return process.env.GITBUTLER_API_KEY;
+}
+
+export function hasGitButlerAPIKey(): boolean {
+	return !!getGitbutlerAPIKey();
+}
+
 async function parseResponseBody(response: Response): Promise<unknown> {
 	const contentType = response.headers.get('Content-Type');
 	if (contentType?.includes('application/json')) {
@@ -20,6 +28,7 @@ async function parseResponseBody(response: Response): Promise<unknown> {
 	}
 	return await response.text();
 }
+
 export function interpolatePath(path: string, params: Record<string, string>): string {
 	return Object.entries(params).reduce(
 		(interpolatedPath, [key, value]) =>
