@@ -70,7 +70,7 @@
 
 		unSelectChanges(item.changes);
 
-		close();
+		contextMenu.close();
 	}
 
 	export function open(e: MouseEvent, item: FileItem) {
