@@ -30,12 +30,12 @@
 	import { sleep } from '$lib/utils/sleep';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import { reactive, type Reactive } from '@gitbutler/shared/storeUtils';
+	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { error } from '@gitbutler/ui/toasts';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
@@ -263,6 +263,20 @@
 			else showError('Error while creating pull request', err);
 		}
 	}
+
+	const isCreateButtonEnabled = $derived.by(() => {
+		if ((canPublishBR && $createButlerRequest) || !canPublishPR) {
+			return true;
+		}
+		if ((canPublishPR && $createPullRequest) || !canPublishBR) {
+			return true;
+		}
+		return false;
+	});
+
+	export function createButtonEnabled(): Reactive<boolean> {
+		return reactive(() => isCreateButtonEnabled);
+	}
 </script>
 
 <!-- HEADER -->
@@ -297,63 +311,74 @@
 				prBody.set(text);
 			}}
 		/>
-	</div>
-</div>
-<div class="combined-controls">
-	<div class="options">
-		{#if canPublishBR}
-			<div class="stacked-options">
-				{#if canPublishPR}
-					<div class="option">
-						<p class="text-13">Create Butler Review</p>
-						<Toggle bind:checked={$createButlerRequest} />
+
+		{#if canPublishBR && canPublishPR}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<div class="options text-13">
+				<div
+					class="option-card"
+					onclick={() => {
+						$createButlerRequest = !$createButlerRequest;
+					}}
+				>
+					<div class="option-card-header" class:selected={$createButlerRequest}>
+						<div class="option-card-header-main">
+							<div class="option-card-header-title text-semibold">
+								<Icon name="bowtie" />
+								Create a Butler Request
+							</div>
+							<span class="grey">
+								<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
+							</span>
+						</div>
+
+						<div class="option-card-header-action">
+							<Checkbox bind:checked={$createButlerRequest} />
+						</div>
 					</div>
-					<div class="option text-13">
-						<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
+				</div>
+				<div class="option-card">
+					<div
+						class="option-card-header has-settings"
+						class:selected={$createPullRequest}
+						onclick={() => {
+							$createPullRequest = !$createPullRequest;
+						}}
+					>
+						<div class="option-card-header-main">
+							<div class="option-card-header-title text-semibold">
+								<Icon name="github" />
+								Create a Pull Request
+							</div>
+						</div>
+
+						<div class="option-card-header-action">
+							<Checkbox bind:checked={$createPullRequest} />
+						</div>
 					</div>
-				{:else}
-					<div class="option text-13">
-						Creates a Butler Review <Link href="https://docs.gitbutler.com/review/overview"
-							>Learn more</Link
-						>
+					<div
+						class="option-card-body"
+						onclick={() => {
+							$createDraft = !$createDraft;
+						}}
+					>
+						<span class="text-semibold">PR Draft</span>
+						<Toggle checked={$createDraft} />
 					</div>
-				{/if}
+				</div>
 			</div>
 		{/if}
-		{#if canPublishPR}
-			<div class="stacked-options">
-				{#if canPublishBR}
-					<div class="option">
-						<p class="text-13">Create Pull Request</p>
-						<Toggle bind:checked={$createPullRequest} />
-					</div>
-				{/if}
 
-				{#if $createPullRequest}
-					<div class="option">
-						<p class="text-13">Pull Request Kind:</p>
-						<Select
-							options={[
-								{ label: 'Draft PR', value: 'draft' },
-								{ label: 'PR', value: 'regular' }
-							]}
-							value={$createDraft ? 'draft' : 'regular'}
-							autoWidth
-							onselect={(value) => {
-								$createDraft = value === 'draft';
-							}}
-						>
-							{#snippet customSelectButton()}
-								<Button kind="outline" icon="select-chevron" size="tag">
-									{$createDraft ? 'Draft PR' : 'PR'}
-								</Button>
-							{/snippet}
-							{#snippet itemSnippet({ item, highlighted })}
-								<SelectItem {highlighted}>{item.label}</SelectItem>
-							{/snippet}
-						</Select>
-					</div>
-				{/if}
+		{#if canPublishPR && !canPublishBR}
+			<div class="option-drafty">
+				<span>PR Draft</span>
+				<Toggle
+					checked={$createDraft}
+					onclick={() => {
+						createDraft.set(!$createDraft);
+					}}
+				/>
 			</div>
 		{/if}
 	</div>
@@ -375,33 +400,93 @@
 		min-height: 0;
 	}
 
-	/* PREVIEW */
-	.combined-controls {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-		width: 100%;
-		padding-top: 16px;
-	}
-
 	.options {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 8px;
+
+		align-items: stretch;
+
 		width: 100%;
-		display: flex;
-		gap: 12px;
-		align-items: flex-start;
-		justify-content: space-around;
 	}
 
-	.stacked-options {
+	.option-card {
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
+
+		border-radius: var(--radius-m);
+		overflow: hidden;
 	}
 
-	.option {
+	.option-card-header {
+		flex-grow: 1;
+
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+
 		display: flex;
-		gap: 12px;
+
+		padding: 12px;
+
+		&.has-settings {
+			border-radius: var(--radius-m) var(--radius-m) 0 0;
+		}
+
+		&.selected {
+			background-color: var(--clr-core-pop-90);
+			border-color: var(--clr-core-pop-50);
+		}
+	}
+
+	.option-card-header-main {
+		display: flex;
+		flex-direction: column;
+
+		justify-content: center;
+
+		gap: 11px;
+
+		flex-grow: 1;
+	}
+
+	.option-card-header-title {
+		display: flex;
+		gap: 8px;
 		align-items: center;
+	}
+
+	.option-card-header-action {
+		flex-grow: 0;
+
+		display: block;
+	}
+
+	.option-card-body {
+		padding: 12px;
+
+		display: flex;
 		justify-content: space-between;
+		align-items: center;
+
+		border-radius: 0 0 var(--radius-m) var(--radius-m);
+		border: 1px solid var(--clr-border-2);
+		border-top: none;
+	}
+
+	.option-drafty {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+
+		width: 100%;
+
+		border-radius: var(--radius-m);
+		border: 1px solid var(--clr-border-2);
+
+		padding: 8px;
+	}
+
+	.grey {
+		color: var(--clr-text-2);
 	}
 </style>
