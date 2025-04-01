@@ -26,7 +26,6 @@
 
 		width: 100%;
 		border-collapse: separate;
-		/* border-collapse: collapse; */
 		border-spacing: 0;
 	}
 </style>

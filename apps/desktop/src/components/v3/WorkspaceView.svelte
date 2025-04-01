@@ -116,6 +116,7 @@
 		border-radius: var(--radius-ml);
 		border: 1px solid var(--clr-border-2);
 		flex-shrink: 0;
+		overflow: hidden;
 	}
 
 	.stacks-view-wrap {

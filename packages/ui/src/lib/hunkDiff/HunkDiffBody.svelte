@@ -156,20 +156,19 @@
 		user-select: text;
 		cursor: text;
 		text-wrap: wrap;
-		border-left: 1px solid var(--clr-border-2);
 		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-diff-count-bg);
 	}
 
 	.diff-comment__number-column {
 		color: var(--clr-diff-count-text);
+		border-right: 1px solid var(--clr-border-2);
 		border-bottom: 1px solid var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
 		font-size: 11px;
-		text-align: center;
-		padding: 0 4px;
+		padding: 4px 4px;
 		text-align: right;
-		vertical-align: top;
+		vertical-align: middle;
 		user-select: none;
 		touch-action: none;
 	}

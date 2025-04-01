@@ -16,6 +16,7 @@
 		horz?: boolean;
 		onthumbdrag?: (dragging: boolean) => void;
 		children: Snippet;
+		onscrollTop?: (visible: boolean) => void;
 		onscrollEnd?: (visible: boolean) => void;
 		onscroll?: (e: Event) => void;
 	}
@@ -32,6 +33,7 @@
 		children,
 		onthumbdrag,
 		onscroll,
+		onscrollTop,
 		onscrollEnd
 	}: Props = $props();
 
@@ -48,6 +50,7 @@
 	{thickness}
 	{horz}
 	{onthumbdrag}
+	{onscrollTop}
 	{onscrollEnd}
 	{onscroll}
 	whenToShow={$userSettings.scrollbarVisibilityState}
