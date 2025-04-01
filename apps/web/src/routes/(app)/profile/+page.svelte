@@ -41,6 +41,9 @@
 	let sshKeys = $state<SshKey[]>([]);
 	let loadingSshKeys = $state(true);
 	let addKeyModal = $state<AddSshKeyModal>();
+	let sshKeyToken = $state('');
+	let showSshKeyTokenModal = $state(false);
+	let generatingSshToken = $state(false);
 
 	// New state variables for additional profile fields
 	let websiteValue = $state('');
@@ -190,6 +193,38 @@
 
 	async function onAddKeyModalClose() {
 		await loadSshKeys();
+	}
+
+	async function generateSshKeyToken() {
+		generatingSshToken = true;
+		try {
+			const formData = new FormData();
+			formData.append('generate_ssh_token', 'true');
+
+			const updatedUser = await userService.updateUser({
+				generate_ssh_token: true
+			});
+
+			if (updatedUser && updatedUser.ssh_key_token) {
+				sshKeyToken = updatedUser.ssh_key_token;
+				showSshKeyTokenModal = true;
+			} else {
+				console.error('Failed to generate SSH key token: No token returned');
+			}
+		} catch (error) {
+			console.error('Failed to generate SSH key token:', error);
+		} finally {
+			generatingSshToken = false;
+		}
+	}
+
+	function closeSshKeyTokenModal() {
+		showSshKeyTokenModal = false;
+		sshKeyToken = '';
+	}
+
+	function handleModalClick(e: Event) {
+		e.stopPropagation();
 	}
 </script>
 
@@ -498,12 +533,55 @@
 
 					<button type="button" class="add-key-button" onclick={() => addKeyModal?.show()}>
 						<span class="add-key-icon">+</span>
-						<span>Add SSH Key</span>
+						<span>Upload SSH Public Key</span>
+					</button>
+
+					<button
+						type="button"
+						class="add-key-button"
+						onclick={generateSshKeyToken}
+						disabled={generatingSshToken}
+					>
+						<span class="add-key-icon">+</span>
+						<span>{generatingSshToken ? 'Generating...' : 'Add Key via SSH'}</span>
 					</button>
 				</div>
 			</SectionCard>
 
 			<AddSshKeyModal bind:this={addKeyModal} onClose={onAddKeyModalClose} />
+
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			{#if showSshKeyTokenModal}
+				<div class="ssh-token-modal-backdrop" onclick={closeSshKeyTokenModal}>
+					<div class="ssh-token-modal" onclick={handleModalClick}>
+						<h3 class="ssh-token-modal__title">Add Your SSH Key</h3>
+						<p class="ssh-token-modal__description">
+							Run the following command in your terminal to add your SSH key to GitButler:
+						</p>
+						<div class="ssh-token-modal__code">
+							<code>ssh git@ssh.gitbutler.com add/{sshKeyToken}</code>
+							<button
+								type="button"
+								class="ssh-token-modal__copy-button"
+								onclick={() => {
+									navigator.clipboard.writeText(`ssh git@ssh.gitbutler.com add/${sshKeyToken}`);
+								}}
+							>
+								Copy
+							</button>
+						</div>
+						<p class="ssh-token-modal__note">This token will expire after use or in 5 minutes.</p>
+						<div class="ssh-token-modal__controls">
+							<button
+								type="button"
+								class="ssh-token-modal__close-button"
+								onclick={closeSshKeyTokenModal}>Close</button
+							>
+						</div>
+					</div>
+				</div>
+			{/if}
 
 			<h2 class="section-title">Experimental settings</h2>
 
@@ -595,21 +673,6 @@
 		color: var(--clr-scale-ntrl-0);
 		font-size: 14px;
 		line-height: 1.5;
-	}
-
-	.supporter-card__link {
-		align-self: flex-start;
-		padding: 8px 16px;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-scale-pop-70);
-		color: var(--clr-core-ntrl-100);
-		font-size: 14px;
-		font-weight: 500;
-		text-decoration: none;
-	}
-
-	.supporter-card__link:hover {
-		background-color: var(--clr-scale-pop-60);
 	}
 
 	.profile-pic-wrapper {
@@ -845,10 +908,16 @@
 		font-size: 14px;
 		cursor: pointer;
 		transition: all var(--transition-medium);
+		margin-bottom: 8px;
 
-		&:hover {
+		&:hover:not(:disabled) {
 			border-color: var(--clr-scale-pop-70);
 			color: var(--clr-scale-pop-70);
+		}
+
+		&:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
 		}
 	}
 
@@ -898,6 +967,99 @@
 		&:disabled {
 			opacity: 0.7;
 			cursor: not-allowed;
+		}
+	}
+
+	.ssh-token-modal-backdrop {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background-color: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+	}
+
+	.ssh-token-modal {
+		background-color: var(--clr-bg-1);
+		border-radius: var(--radius-m);
+		padding: 24px;
+		width: 600px;
+		max-width: 90vw;
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.ssh-token-modal__title {
+		color: var(--clr-scale-ntrl-0);
+		font-size: 18px;
+		font-weight: 600;
+	}
+
+	.ssh-token-modal__description {
+		color: var(--clr-scale-ntrl-30);
+		font-size: 14px;
+		line-height: 1.5;
+	}
+
+	.ssh-token-modal__code {
+		background-color: var(--clr-bg-2);
+		border-radius: var(--radius-m);
+		padding: 16px;
+		position: relative;
+		font-family: monospace;
+		font-size: 13px;
+		color: var(--clr-scale-ntrl-0);
+		word-break: break-all;
+		line-height: 1.4;
+	}
+
+	.ssh-token-modal__copy-button {
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		padding: 4px 8px;
+		border-radius: var(--radius-s);
+		background-color: var(--clr-scale-ntrl-70);
+		color: var(--clr-core-ntrl-100);
+		font-size: 12px;
+		border: none;
+		cursor: pointer;
+		transition: background-color var(--transition-medium);
+
+		&:hover {
+			background-color: var(--clr-scale-ntrl-50);
+		}
+	}
+
+	.ssh-token-modal__note {
+		color: var(--clr-scale-ntrl-30);
+		font-size: 13px;
+		line-height: 1.5;
+	}
+
+	.ssh-token-modal__controls {
+		display: flex;
+		justify-content: flex-end;
+		margin-top: 8px;
+	}
+
+	.ssh-token-modal__close-button {
+		padding: 8px 16px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-scale-pop-70);
+		color: var(--clr-core-ntrl-100);
+		font-size: 14px;
+		border: none;
+		cursor: pointer;
+		transition: background-color var(--transition-medium);
+
+		&:hover {
+			background-color: var(--clr-scale-pop-60);
 		}
 	}
 </style>
