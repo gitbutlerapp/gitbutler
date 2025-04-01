@@ -19,6 +19,7 @@ import { wast } from '@codemirror/lang-wast';
 import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
 import { HighlightStyle, StreamLanguage } from '@codemirror/language';
+import { commonLisp } from '@codemirror/legacy-modes/mode/commonlisp';
 import { lua } from '@codemirror/legacy-modes/mode/lua';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
 import { toml } from '@codemirror/legacy-modes/mode/toml';
@@ -131,6 +132,11 @@ export function parserFromFilename(filename: string): Parser | null {
 
 		case 'json':
 			return json().language.parser;
+
+		case 'lisp':
+		case 'cl':
+		case 'el': // Also catches Emacs Lisp files
+			return StreamLanguage.define(commonLisp).parser;
 
 		case 'lua':
 			return StreamLanguage.define(lua).parser;
