@@ -656,7 +656,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						newName
 					}
 				}),
-				invalidatesTags: [ReduxTag.StackBranches]
+				invalidatesTags: [ReduxTag.StackBranches, ReduxTag.Stacks]
 			}),
 			removeBranch: build.mutation<
 				void,
