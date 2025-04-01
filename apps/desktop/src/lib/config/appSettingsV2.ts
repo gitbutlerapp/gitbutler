@@ -1,4 +1,7 @@
 import { listen, invoke } from '$lib/backend/ipc';
+const projectsService = getContext(ProjectsService);
+import { ProjectsService } from '$lib/project/projectsService';
+import { getContext } from '@gitbutler/shared/context';
 import { writable } from 'svelte/store';
 import type { Tauri } from '$lib/backend/tauri';
 
@@ -36,6 +39,10 @@ export class SettingsService {
 	}
 
 	async updateFeatureFlags(update: Partial<FeatureFlags>) {
+		// Doing a call to list_virtual_branches first to ensure the stack.tree properties are updated
+		await invoke<any>('list_virtual_branches', {
+			projectId: projectsService.getLastOpenedProject()
+		});
 		await invoke('update_feature_flags', { update });
 	}
 
