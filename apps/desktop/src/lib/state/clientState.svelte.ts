@@ -3,8 +3,9 @@ import { tauriBaseQuery } from '$lib/state/backendQuery';
 import { butlerModule } from '$lib/state/butlerModule';
 import { ReduxTag } from '$lib/state/tags';
 import { uiStatePersistConfig, uiStateSlice } from '$lib/state/uiState.svelte';
+import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
-import { buildCreateApi, coreModule, type RootState } from '@reduxjs/toolkit/query';
+import { buildCreateApi, coreModule, setupListeners, type RootState } from '@reduxjs/toolkit/query';
 import { FLUSH, PAUSE, PERSIST, persistReducer, PURGE, REGISTER, REHYDRATE } from 'redux-persist';
 import persistStore from 'redux-persist/lib/persistStore';
 import type { Tauri } from '$lib/backend/tauri';
@@ -71,13 +72,17 @@ export class ClientState {
 			githubApi: this.githubApi,
 			gitlabApi: this.gitlabApi
 		});
+		setupListeners(this.store.dispatch);
 		this.dispatch = this.store.dispatch;
 		this.rootState = this.store.getState();
 
 		$effect(() =>
-			this.store.subscribe(() => {
-				this.rootState = this.store.getState();
-			})
+			mergeUnlisten(
+				this.store.subscribe(() => {
+					this.rootState = this.store.getState();
+				}),
+				setupListeners(this.store.dispatch)
+			)
 		);
 	}
 }
@@ -162,6 +167,8 @@ export function createGitHubApi(butlerMod: ReturnType<typeof butlerModule>) {
 			reducerPath: 'github',
 			tagTypes: Object.values(ReduxTag),
 			baseQuery: tauriBaseQuery,
+			refetchOnFocus: true,
+			refetchOnReconnect: true,
 			endpoints: (_) => {
 				return {};
 			}
@@ -178,6 +185,8 @@ export function createGitLabApi(butlerMod: ReturnType<typeof butlerModule>) {
 			reducerPath: 'gitlab',
 			tagTypes: Object.values(ReduxTag),
 			baseQuery: tauriBaseQuery,
+			refetchOnFocus: true,
+			refetchOnReconnect: true,
 			endpoints: (_) => {
 				return {};
 			}
