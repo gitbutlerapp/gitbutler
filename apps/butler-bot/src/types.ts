@@ -8,6 +8,7 @@ export type CommandExtra = {
 
 export type Command = {
 	name: string;
+	aliases?: string[];
 	help: string;
 	butlerOnly?: boolean;
 	execute: (message: Message, prisma: PrismaClient, extra?: CommandExtra) => Promise<void>;

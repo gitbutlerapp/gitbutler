@@ -75,7 +75,10 @@ client.on(Events.MessageCreate, async (message) => {
 		const commandName = message.content.slice(1).toLowerCase();
 
 		for (const command of commands) {
-			if (commandName.startsWith(command.name)) {
+			if (
+				commandName.startsWith(command.name) ||
+				(command.aliases && command.aliases.some((alias) => commandName.startsWith(alias)))
+			) {
 				if (command.butlerOnly && message.member && !isButler(message.member)) {
 					await message.reply('This command is only available to butlers.');
 					return;

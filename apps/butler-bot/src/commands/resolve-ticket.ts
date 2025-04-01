@@ -2,7 +2,8 @@ import type { Command } from '@/types';
 
 export const resolveTicket: Command = {
 	name: 'resolveticket',
-	help: 'Marks a support ticket as resolved. Usage: !resolveticket <ticket_id>',
+	help: 'Marks a support ticket as resolved. Usage: `!resolveticket <ticket_id>`',
+	aliases: ['resolve'],
 	butlerOnly: true,
 	execute: async (message, prisma) => {
 		try {

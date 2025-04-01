@@ -2,30 +2,29 @@ import type { Command } from '@/types';
 
 export const listTickets: Command = {
 	name: 'listtickets',
-	help: 'Lists all support tickets and their resolution status.',
+	aliases: ['tickets'],
+	help: 'List all unresolved support tickets',
 	butlerOnly: true,
 	execute: async (message, prisma) => {
 		try {
 			const tickets = await prisma.supportTicket.findMany({
+				where: { resolved: false },
 				orderBy: { created_at: 'desc' }
 			});
 
 			if (tickets.length === 0) {
-				await message.reply('No support tickets found.');
+				await message.reply('No open support tickets found.');
 				return;
 			}
 
-			const formattedList = tickets
-				.map((ticket) => {
-					const status = ticket.resolved ? '✅ Resolved' : '❌ Open';
-					return `**${ticket.name}** - ${status}\n${ticket.link}`;
-				})
+			const ticketList = tickets
+				.map((ticket) => `**#${ticket.id}** - ${ticket.name} - ${ticket.link}`)
 				.join('\n\n');
 
-			await message.reply(`**Support Tickets**\n${formattedList}`);
+			await message.reply(`Here are all open support tickets:\n${ticketList}`);
 		} catch (error) {
 			console.error('Error listing tickets:', error);
-			await message.reply('There was an error fetching the ticket list.');
+			await message.reply('Failed to list tickets. Please try again later.');
 		}
 	}
 } as Command;

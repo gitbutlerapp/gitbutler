@@ -20,7 +20,10 @@ export const help: Command = {
 			if (publicCommands.length > 0) {
 				helpText += '**Public Commands:**\n';
 				publicCommands.forEach((cmd) => {
-					helpText += `**!${cmd.name}** - ${cmd.help}.\n`;
+					const aliases = cmd.aliases
+						? ` (aliases: ${cmd.aliases.map((a) => `!${a}`).join(', ')})`
+						: '';
+					helpText += `**!${cmd.name}**${aliases} - ${cmd.help}.\n`;
 				});
 				helpText += '\n';
 			}
@@ -28,7 +31,10 @@ export const help: Command = {
 			if (butlerCommands.length > 0) {
 				helpText += '**Butler-Only Commands:**\n';
 				butlerCommands.forEach((cmd) => {
-					helpText += `**!${cmd.name}** - ${cmd.help}.\n`;
+					const aliases = cmd.aliases
+						? ` (aliases: ${cmd.aliases.map((a) => `!${a}`).join(', ')})`
+						: '';
+					helpText += `**!${cmd.name}**${aliases} - ${cmd.help}.\n`;
 				});
 			}
 
