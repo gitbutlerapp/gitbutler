@@ -101,11 +101,14 @@
 		}
 		changeSelection.clear();
 	}
+
+	let isScrollTopVisible = $state(false);
+	let isScrollEndVisible = $state(false);
 </script>
 
 <ReduxResult result={changesResult.current}>
 	{#snippet children(changes)}
-		<div class="worktree-header">
+		<div class="worktree-header" class:scrolled={!isScrollTopVisible}>
 			<div class="worktree-header__general">
 				{#if isCommitting}
 					<Checkbox
@@ -126,7 +129,15 @@
 		</div>
 		{#if changes.length > 0}
 			<div class="uncommitted-changes">
-				<ScrollableContainer wide>
+				<ScrollableContainer
+					wide
+					onscrollTop={(visible) => {
+						isScrollTopVisible = visible;
+					}}
+					onscrollEnd={(visible) => {
+						isScrollEndVisible = visible;
+					}}
+				>
 					<FileList
 						selectionId={{ type: 'worktree', showCheckboxes: isCommitting }}
 						{projectId}
@@ -135,7 +146,7 @@
 						{listMode}
 					/>
 				</ScrollableContainer>
-				<div class="start-commit">
+				<div class="start-commit" class:scrolled={!isScrollEndVisible}>
 					<Button
 						kind={isCommitting ? 'outline' : 'solid'}
 						type="button"
@@ -171,6 +182,10 @@
 		justify-content: space-between;
 		white-space: nowrap;
 		gap: 8px;
+
+		&.scrolled {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
 	}
 
 	.worktree-header__general {
@@ -201,6 +216,10 @@
 
 	.start-commit {
 		padding: 16px;
+
+		&.scrolled {
+			border-top: 1px solid var(--clr-border-2);
+		}
 	}
 
 	.empty-state {
