@@ -120,5 +120,8 @@ pub fn rewrite(
         }
     }
     repo.edit_references(ref_edits)?;
+    // Due to the way these are processed, they aren't stable.
+    // Make tests reproducible, hoping that soon we don't need hashmaps in the backend anymore.
+    updated_refs.sort_by(|a, b| a.reference.to_string().cmp(&b.reference.to_string()));
     Ok(())
 }
