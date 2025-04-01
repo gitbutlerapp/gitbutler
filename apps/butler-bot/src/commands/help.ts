@@ -12,30 +12,30 @@ export const help: Command = {
 				return;
 			}
 
-			const butlerCommands = commands.filter(cmd => cmd.butlerOnly);
-			const publicCommands = commands.filter(cmd => !cmd.butlerOnly);
-			
+			const butlerCommands = commands.filter((cmd) => cmd.butlerOnly);
+			const publicCommands = commands.filter((cmd) => !cmd.butlerOnly);
+
 			let helpText = '**Available Commands**\n\n';
-			
+
 			if (publicCommands.length > 0) {
 				helpText += '**Public Commands:**\n';
-				publicCommands.forEach(cmd => {
+				publicCommands.forEach((cmd) => {
 					helpText += `**!${cmd.name}** - ${cmd.help}.\n`;
 				});
 				helpText += '\n';
 			}
-			
+
 			if (butlerCommands.length > 0) {
 				helpText += '**Butler-Only Commands:**\n';
-				butlerCommands.forEach(cmd => {
+				butlerCommands.forEach((cmd) => {
 					helpText += `**!${cmd.name}** - ${cmd.help}.\n`;
 				});
 			}
-			
+
 			await message.reply(helpText);
 		} catch (error) {
 			console.error('Error showing help:', error);
 			await message.reply('There was an error processing your help request.');
 		}
-	},
-} as Command; 
+	}
+} as Command;

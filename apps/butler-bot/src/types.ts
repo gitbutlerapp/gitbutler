@@ -1,5 +1,5 @@
-import type { PrismaClient } from "@prisma/client"
-import type { Message } from "discord.js"
+import type { PrismaClient } from '@prisma/client';
+import type { Message, Client } from 'discord.js';
 
 export type CommandExtra = {
 	commands?: Command[];
@@ -11,4 +11,14 @@ export type Command = {
 	help: string;
 	butlerOnly?: boolean;
 	execute: (message: Message, prisma: PrismaClient, extra?: CommandExtra) => Promise<void>;
-}
+};
+
+export type TaskExtra = {
+	[key: string]: any;
+};
+
+export type Task = {
+	name: string;
+	schedule: string; // cron expression
+	execute: (prisma: PrismaClient, client: Client, extra?: TaskExtra) => Promise<void>;
+};

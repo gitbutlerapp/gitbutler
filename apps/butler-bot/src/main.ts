@@ -1,23 +1,24 @@
+import { PrismaClient } from '@prisma/client';
+import { Client, Events, GatewayIntentBits, GuildMember } from 'discord.js';
+import cron from 'node-cron';
+import type { Command, Task } from '@/types';
 import { addButler } from '@/commands/add-butler';
 import { help } from '@/commands/help';
 import { listButlers } from '@/commands/list-butlers';
 import { ping } from '@/commands/ping';
 import { removeButler } from '@/commands/remove-butler';
 import { toggleRota } from '@/commands/toggle-rota';
-import { PrismaClient } from '@prisma/client';
-import { Client, Events, GatewayIntentBits, GuildMember } from 'discord.js';
-import "dotenv/config";
-import type { Command } from '@/types';
+import { dailyReminder } from '@/tasks/daily-reminder';
+import 'dotenv/config';
 
 const prisma = new PrismaClient();
 const client = new Client({
 	intents: [
 		GatewayIntentBits.Guilds,
 		GatewayIntentBits.GuildMessages,
-		GatewayIntentBits.MessageContent,
+		GatewayIntentBits.MessageContent
 	]
 });
-
 
 function isButler(member: GuildMember) {
 	return member.roles.cache.has(process.env.BUTLER_ROLE as string);
@@ -27,16 +28,27 @@ function isButler(member: GuildMember) {
 client.once(Events.ClientReady, (readyClient) => {
 	// eslint-disable-next-line no-console
 	console.info(`Ready! Logged in as ${readyClient.user.tag}`);
+
+	// Schedule all tasks
+	tasks.forEach((task) => {
+		if (!cron.validate(task.schedule)) {
+			console.error(`Invalid cron schedule for task ${task.name}: ${task.schedule}`);
+			return;
+		}
+
+		cron.schedule(task.schedule, async () => {
+			try {
+				await task.execute(prisma, readyClient);
+			} catch (error) {
+				console.error(`Error executing task ${task.name}:`, error);
+			}
+		});
+	});
 });
 
-const commands: Command[] = [
-	ping,
-	listButlers,
-	addButler,
-	removeButler,
-	toggleRota,
-	help,
-];
+const commands: Command[] = [ping, listButlers, addButler, removeButler, toggleRota, help];
+
+const tasks: Task[] = [dailyReminder];
 
 // Event handler for incoming messages
 client.on(Events.MessageCreate, async (message) => {
@@ -53,13 +65,13 @@ client.on(Events.MessageCreate, async (message) => {
 					await message.reply('This command is only available to butlers.');
 					return;
 				}
-				
+
 				await command.execute(message, prisma, { commands });
 
 				return;
 			}
 		}
-		await message.reply('I don\'t understand that command yet!');
+		await message.reply("I don't understand that command yet!");
 	}
 });
 

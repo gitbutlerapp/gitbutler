@@ -9,21 +9,23 @@ export const listButlers: Command = {
 			const butlers = await prisma.butlers.findMany({
 				orderBy: { name: 'asc' }
 			});
-			
+
 			if (butlers.length === 0) {
 				await message.reply('No butlers are currently registered.');
 				return;
 			}
-			
-			const formattedList = butlers.map(butler => {
-				const status = butler.in_support_rota ? '✅ In rota' : '❌ Not in rota';
-				return `**${butler.name}** - ${status}`;
-			}).join('\n');
-			
+
+			const formattedList = butlers
+				.map((butler) => {
+					const status = butler.in_support_rota ? '✅ In rota' : '❌ Not in rota';
+					return `**${butler.name}** - ${status}`;
+				})
+				.join('\n');
+
 			await message.reply(`**Butler List**\n${formattedList}`);
 		} catch (error) {
 			console.error('Error listing butlers:', error);
 			await message.reply('There was an error fetching the butler list.');
 		}
-	},
-} as Command; 
+	}
+} as Command;

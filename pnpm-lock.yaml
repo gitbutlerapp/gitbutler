@@ -122,6 +122,12 @@ importers:
       '@types/node':
         specifier: ^22.3.0
         version: 22.3.0
+      '@types/node-cron':
+        specifier: ^3.0.11
+        version: 3.0.11
+      node-cron:
+        specifier: ^3.0.3
+        version: 3.0.3
       prisma:
         specifier: ^6.5.0
         version: 6.5.0(typescript@5.4.5)
@@ -13792,6 +13798,10 @@ snapshots:
     dependencies:
       lower-case: 2.0.2
       tslib: 2.8.1
+
+  node-cron@3.0.3:
+    dependencies:
+      uuid: 8.3.2
 
   node-domexception@1.0.0: {}
 

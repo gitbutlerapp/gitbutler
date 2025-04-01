@@ -5,5 +5,5 @@ export const ping: Command = {
 	help: 'A simple command to check if the bot is responding.',
 	execute: async (message) => {
 		await message.reply('Pong!');
-	},
+	}
 } as Command;
