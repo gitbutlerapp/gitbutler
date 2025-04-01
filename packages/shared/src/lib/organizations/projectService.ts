@@ -75,7 +75,7 @@ export class ProjectService {
 						})
 					);
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(projectTable.upsertOne(errorToLoadable(error, repositoryId)));
+					this.appDispatch.dispatch(projectTable.addOne(errorToLoadable(error, repositoryId)));
 				}
 			})
 			.createInterest();

@@ -56,7 +56,7 @@ export class ChatChannelsService {
 					this.appDispatch.dispatch(chatChannelTable.upsertOne(chatChannel));
 				} catch (error: unknown) {
 					this.appDispatch.dispatch(
-						chatChannelTable.upsertOne(errorToLoadable(error, chatChannelKey))
+						chatChannelTable.addOne(errorToLoadable(error, chatChannelKey))
 					);
 				}
 			})

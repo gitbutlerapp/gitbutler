@@ -52,7 +52,7 @@ export class UserService {
 						);
 					}
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(userTable.upsertOne(errorToLoadable(error, id)));
+					this.appDispatch.dispatch(userTable.addOne(errorToLoadable(error, id)));
 				}
 			})
 			.createInterest();
@@ -87,7 +87,7 @@ export class UserService {
 						userTable.upsertOne({ status: 'found', id: user.id, value: user })
 					);
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(userByLoginTable.upsertOne(errorToLoadable(error, login)));
+					this.appDispatch.dispatch(userByLoginTable.addOne(errorToLoadable(error, login)));
 				}
 			})
 			.createInterest();

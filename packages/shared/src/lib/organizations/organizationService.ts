@@ -73,7 +73,7 @@ export class OrganizationService {
 						})
 					);
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(organizationTable.upsertOne(errorToLoadable(error, slug)));
+					this.appDispatch.dispatch(organizationTable.addOne(errorToLoadable(error, slug)));
 				}
 			})
 			.createInterest();

@@ -85,7 +85,7 @@ export class BranchService {
 					);
 				} catch (error: unknown) {
 					this.appDispatch.dispatch(
-						branchReviewListingTable.upsertOne(
+						branchReviewListingTable.addOne(
 							errorToLoadable(error, branchReviewListingKey(ownerSlug, projectSlug, branchStatus))
 						)
 					);
@@ -145,7 +145,7 @@ export class BranchService {
 						this.appDispatch.dispatch(patchCommitTable.upsertMany(patches));
 					}
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(branchTable.upsertOne(errorToLoadable(error, uuid)));
+					this.appDispatch.dispatch(branchTable.addOne(errorToLoadable(error, uuid)));
 				}
 			})
 			.createInterest();
