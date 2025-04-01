@@ -2,12 +2,16 @@ import { PrismaClient } from '@prisma/client';
 import { Client, Events, GatewayIntentBits, GuildMember } from 'discord.js';
 import cron from 'node-cron';
 import type { Command, Task } from '@/types';
+import { addSupportChannel } from '@/commands/add-support-channel';
 import { help } from '@/commands/help';
 import { listButlers } from '@/commands/list-butlers';
+import { listSupportChannels } from '@/commands/list-support-channels';
 import { listTickets } from '@/commands/list-tickets';
 import { ping } from '@/commands/ping';
+import { removeSupportChannel } from '@/commands/remove-support-channel';
 import { resolveTicket } from '@/commands/resolve-ticket';
 import { toggleRota } from '@/commands/toggle-rota';
+import { firehoze } from '@/firehoze';
 import { syncButlers } from '@/tasks/sync-butlers';
 import 'dotenv/config';
 
@@ -47,7 +51,17 @@ client.once(Events.ClientReady, (readyClient) => {
 	});
 });
 
-const commands: Command[] = [ping, listButlers, toggleRota, help, listTickets, resolveTicket];
+const commands: Command[] = [
+	ping,
+	listButlers,
+	toggleRota,
+	help,
+	listTickets,
+	resolveTicket,
+	addSupportChannel,
+	removeSupportChannel,
+	listSupportChannels
+];
 
 const tasks: Task[] = [syncButlers];
 
@@ -74,6 +88,8 @@ client.on(Events.MessageCreate, async (message) => {
 		}
 		await message.reply("I don't understand that command yet!");
 	}
+
+	firehoze(prisma, message);
 });
 
 async function main() {

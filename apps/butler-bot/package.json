@@ -20,6 +20,7 @@
 		"typescript": "5.4.5"
 	},
 	"dependencies": {
+		"@anthropic-ai/sdk": "^0.27.3",
 		"@prisma/client": "^6.5.0",
 		"discord.js": "^14.18.0",
 		"dotenv": "^16.4.7"

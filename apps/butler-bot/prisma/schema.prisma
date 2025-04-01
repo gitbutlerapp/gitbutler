@@ -27,3 +27,10 @@ model SupportTicket {
   created_at DateTime @default(now())
   updated_at DateTime @default(now()) @updatedAt
 }
+
+model SupportChannel {
+  id         Int      @id @default(autoincrement())
+  channel_id String   @unique
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+}
