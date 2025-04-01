@@ -195,20 +195,6 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         ),
         references: [
             UpdatedReference {
-                reference: Virtual(
-                    "s1-b/second",
-                ),
-                old_commit_id: Sha1(2abfa5cc3c7c48b8b9eabbd10c21b88347801f15),
-                new_commit_id: Sha1(189ac82eb44ddb97677d7d7b1859cf6f2e33a473),
-            },
-            UpdatedReference {
-                reference: Virtual(
-                    "s2-b/second",
-                ),
-                old_commit_id: Sha1(2abfa5cc3c7c48b8b9eabbd10c21b88347801f15),
-                new_commit_id: Sha1(189ac82eb44ddb97677d7d7b1859cf6f2e33a473),
-            },
-            UpdatedReference {
                 reference: Git(
                     FullName(
                         "refs/heads/another-tip",
@@ -222,6 +208,20 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
                     FullName(
                         "refs/heads/main",
                     ),
+                ),
+                old_commit_id: Sha1(2abfa5cc3c7c48b8b9eabbd10c21b88347801f15),
+                new_commit_id: Sha1(189ac82eb44ddb97677d7d7b1859cf6f2e33a473),
+            },
+            UpdatedReference {
+                reference: Virtual(
+                    "s1-b/second",
+                ),
+                old_commit_id: Sha1(2abfa5cc3c7c48b8b9eabbd10c21b88347801f15),
+                new_commit_id: Sha1(189ac82eb44ddb97677d7d7b1859cf6f2e33a473),
+            },
+            UpdatedReference {
+                reference: Virtual(
+                    "s2-b/second",
                 ),
                 old_commit_id: Sha1(2abfa5cc3c7c48b8b9eabbd10c21b88347801f15),
                 new_commit_id: Sha1(189ac82eb44ddb97677d7d7b1859cf6f2e33a473),
@@ -319,6 +319,22 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
         ),
         references: [
             UpdatedReference {
+                reference: Virtual(
+                    "",
+                ),
+                old_commit_id: Sha1(ecd67221705b069c4f46365a46c8f2cd8a97ec19),
+                new_commit_id: Sha1(3aec75308383b83d85a78a90308a618755a7b0f8),
+            },
+            UpdatedReference {
+                reference: Git(
+                    FullName(
+                        "refs/heads/first-commit",
+                    ),
+                ),
+                old_commit_id: Sha1(ecd67221705b069c4f46365a46c8f2cd8a97ec19),
+                new_commit_id: Sha1(3aec75308383b83d85a78a90308a618755a7b0f8),
+            },
+            UpdatedReference {
                 reference: Git(
                     FullName(
                         "refs/heads/main",
@@ -329,23 +345,7 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
             },
             UpdatedReference {
                 reference: Virtual(
-                    "",
-                ),
-                old_commit_id: Sha1(ecd67221705b069c4f46365a46c8f2cd8a97ec19),
-                new_commit_id: Sha1(3aec75308383b83d85a78a90308a618755a7b0f8),
-            },
-            UpdatedReference {
-                reference: Virtual(
                     "s1-b/init",
-                ),
-                old_commit_id: Sha1(ecd67221705b069c4f46365a46c8f2cd8a97ec19),
-                new_commit_id: Sha1(3aec75308383b83d85a78a90308a618755a7b0f8),
-            },
-            UpdatedReference {
-                reference: Git(
-                    FullName(
-                        "refs/heads/first-commit",
-                    ),
                 ),
                 old_commit_id: Sha1(ecd67221705b069c4f46365a46c8f2cd8a97ec19),
                 new_commit_id: Sha1(3aec75308383b83d85a78a90308a618755a7b0f8),
