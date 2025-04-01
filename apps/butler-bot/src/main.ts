@@ -2,18 +2,17 @@ import { PrismaClient } from '@prisma/client';
 import { Client, Events, GatewayIntentBits, GuildMember } from 'discord.js';
 import cron from 'node-cron';
 import type { Command, Task } from '@/types';
-import { addButler } from '@/commands/add-butler';
 import { help } from '@/commands/help';
 import { listButlers } from '@/commands/list-butlers';
 import { ping } from '@/commands/ping';
-import { removeButler } from '@/commands/remove-butler';
 import { toggleRota } from '@/commands/toggle-rota';
-import { dailyReminder } from '@/tasks/daily-reminder';
+import { syncButlers } from '@/tasks/sync-butlers';
 import 'dotenv/config';
 
 const prisma = new PrismaClient();
 const client = new Client({
 	intents: [
+		GatewayIntentBits.GuildMembers,
 		GatewayIntentBits.Guilds,
 		GatewayIntentBits.GuildMessages,
 		GatewayIntentBits.MessageContent
@@ -38,6 +37,7 @@ client.once(Events.ClientReady, (readyClient) => {
 
 		cron.schedule(task.schedule, async () => {
 			try {
+				console.log('hi');
 				await task.execute(prisma, readyClient);
 			} catch (error) {
 				console.error(`Error executing task ${task.name}:`, error);
@@ -46,9 +46,9 @@ client.once(Events.ClientReady, (readyClient) => {
 	});
 });
 
-const commands: Command[] = [ping, listButlers, addButler, removeButler, toggleRota, help];
+const commands: Command[] = [ping, listButlers, toggleRota, help];
 
-const tasks: Task[] = [dailyReminder];
+const tasks: Task[] = [syncButlers];
 
 // Event handler for incoming messages
 client.on(Events.MessageCreate, async (message) => {
