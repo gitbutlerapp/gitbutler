@@ -62,12 +62,6 @@ export default ts.config(
 					'newlines-between': 'never'
 				}
 			],
-			'import-x/no-unresolved': [
-				'error',
-				{
-					ignore: ['^\\$app', '^\\$env']
-				}
-			],
 			'import-x/no-relative-packages': 'error', // Don't allow packages to have relative imports between each other
 			'func-style': [2, 'declaration'],
 			'no-return-await': 'off',
@@ -90,9 +84,8 @@ export default ts.config(
 			'import-x/resolver': {
 				typescript: {
 					project: [
-						'./apps/desktop/tsconfig.json',
+						'./apps/**/tsconfig.json',
 						'./apps/desktop/.svelte-kit/tsconfig.json',
-						'./apps/web/tsconfig.json',
 						'./apps/web/.svelte-kit/tsconfig.json',
 						'./packages/**/tsconfig.json',
 						'./packages/ui/.svelte-kit/tsconfig.json',
