@@ -42,7 +42,7 @@ export class NotificationSettingsService {
 					this.appDispatch.dispatch(notificationSettingsTable.upsertOne(notificationSettings));
 				} catch (error: unknown) {
 					this.appDispatch.dispatch(
-						notificationSettingsTable.upsertOne(errorToLoadable(error, NOTIFICATION_SETTINGS_KEY))
+						notificationSettingsTable.addOne(errorToLoadable(error, NOTIFICATION_SETTINGS_KEY))
 					);
 				}
 			})

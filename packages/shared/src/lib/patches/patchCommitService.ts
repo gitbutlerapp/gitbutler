@@ -43,7 +43,7 @@ export class PatchCommitService {
 						patchCommitTable.upsertOne({ status: 'found', id: changeId, value: patch })
 					);
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(patchCommitTable.upsertOne(errorToLoadable(error, changeId)));
+					this.appDispatch.dispatch(patchCommitTable.addOne(errorToLoadable(error, changeId)));
 				}
 			})
 			.createInterest();

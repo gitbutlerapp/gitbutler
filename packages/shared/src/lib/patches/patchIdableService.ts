@@ -56,7 +56,7 @@ export class PatchIdableService {
 						patchIdableTable.upsertOne({ status: 'found', id: key, value: patch })
 					);
 				} catch (error: unknown) {
-					this.appDispatch.dispatch(patchIdableTable.upsertOne(errorToLoadable(error, key)));
+					this.appDispatch.dispatch(patchIdableTable.addOne(errorToLoadable(error, key)));
 				}
 			})
 			.createInterest();

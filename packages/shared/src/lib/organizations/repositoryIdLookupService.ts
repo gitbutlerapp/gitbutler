@@ -38,7 +38,7 @@ export class RepositoryIdLookupService {
 					);
 				} catch (error: unknown) {
 					this.appDispatch.dispatch(
-						repositoryIdLookupTable.upsertOne(errorToLoadable(error, identity))
+						repositoryIdLookupTable.addOne(errorToLoadable(error, identity))
 					);
 				}
 			})
