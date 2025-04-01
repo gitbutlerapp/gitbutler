@@ -53,7 +53,8 @@ export class UiState {
 	readonly global = this.buildGlobalProps({
 		drawerHeight: 20,
 		leftWidth: 17.5,
-		stacksViewWidth: 21.25
+		stacksViewWidth: 21.25,
+		useRichText: true as boolean
 	});
 
 	constructor(
