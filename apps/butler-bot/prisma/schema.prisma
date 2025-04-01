@@ -18,3 +18,12 @@ model Butlers {
   created_at      DateTime @default(now())
   updated_at      DateTime @default(now()) @updatedAt
 }
+
+model SupportTicket {
+  id         Int      @id @default(autoincrement())
+  name       String
+  link       String
+  resolved   Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+}

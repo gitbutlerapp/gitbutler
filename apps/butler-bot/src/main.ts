@@ -4,7 +4,9 @@ import cron from 'node-cron';
 import type { Command, Task } from '@/types';
 import { help } from '@/commands/help';
 import { listButlers } from '@/commands/list-butlers';
+import { listTickets } from '@/commands/list-tickets';
 import { ping } from '@/commands/ping';
+import { resolveTicket } from '@/commands/resolve-ticket';
 import { toggleRota } from '@/commands/toggle-rota';
 import { syncButlers } from '@/tasks/sync-butlers';
 import 'dotenv/config';
@@ -37,7 +39,6 @@ client.once(Events.ClientReady, (readyClient) => {
 
 		cron.schedule(task.schedule, async () => {
 			try {
-				console.log('hi');
 				await task.execute(prisma, readyClient);
 			} catch (error) {
 				console.error(`Error executing task ${task.name}:`, error);
@@ -46,7 +47,7 @@ client.once(Events.ClientReady, (readyClient) => {
 	});
 });
 
-const commands: Command[] = [ping, listButlers, toggleRota, help];
+const commands: Command[] = [ping, listButlers, toggleRota, help, listTickets, resolveTicket];
 
 const tasks: Task[] = [syncButlers];
 
