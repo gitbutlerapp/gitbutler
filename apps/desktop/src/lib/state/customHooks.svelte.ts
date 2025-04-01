@@ -225,15 +225,11 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 				sideEffect?.(result.data, queryArg);
 			}
 
-			if (result.error && !onError) {
-				throw result.error;
-			}
-
 			if (result.error && onError) {
 				onError(result.error, queryArg);
 			}
 
-			return result.data;
+			return result;
 		}
 
 		function reset() {
