@@ -202,6 +202,8 @@
 
 <style>
 	.uncommitted-changes-wrap {
+		display: flex;
+		flex-direction: column;
 		height: 100%;
 	}
 
@@ -214,7 +216,6 @@
 		width: 100%;
 		align-items: center;
 		text-wrap: nowrap;
-		overflow: hidden;
 		justify-content: space-between;
 		white-space: nowrap;
 		gap: 8px;
@@ -241,15 +242,9 @@
 
 	.uncommitted-changes {
 		display: flex;
+		flex-direction: column;
 		flex: 1;
 		width: 100%;
-		height: 100%;
-		display: flex;
-		justify-items: top;
-		flex-direction: column;
-		align-items: top;
-		justify-content: top;
-		overflow: hidden;
 	}
 
 	.start-commit {
