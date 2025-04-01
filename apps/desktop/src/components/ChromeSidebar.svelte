@@ -11,7 +11,7 @@
 		isTargetPath,
 		isWorkspacePath,
 		newProjectSettingsPath,
-		projectSettingsPath,
+		newSettingsPath,
 		targetPath,
 		workspacePath
 	} from '$lib/routes/routes.svelte';
@@ -265,7 +265,7 @@
 		<ContextMenuItem
 			label="Preferences"
 			onclick={() => {
-				goto('/settings/profile');
+				goto(newSettingsPath());
 			}}
 		/>
 	</ContextMenuSection>

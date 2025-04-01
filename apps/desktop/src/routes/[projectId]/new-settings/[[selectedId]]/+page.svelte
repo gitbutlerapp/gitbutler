@@ -5,6 +5,7 @@
 	import PreferencesForm from '$components/PreferencesForm.svelte';
 	import SettingsPages, { type Page } from '$components/v3/SettingsPages.svelte';
 	import GeneralSettings from '$components/v3/projectSettings/GeneralSettings.svelte';
+	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
 	import { page } from '$app/state';
 
 	const pages: Page[] = [
@@ -44,4 +45,9 @@
 	const selectedId = $derived(page.params.selectedId);
 </script>
 
-<SettingsPages title="Project settings" {projectId} {selectedId} {pages} />
+<SettingsPages
+	title="Project settings"
+	{selectedId}
+	{pages}
+	pageUrl={(pageId) => newProjectSettingsPath(projectId, pageId)}
+/>
