@@ -139,7 +139,7 @@
 							/>
 						{/if}
 						<div class="worktree-header__title truncate">
-							<h3 class="text-14 text-semibold truncate">Uncommitted changes</h3>
+							<h3 class="text-14 text-semibold truncate">Uncommitted</h3>
 							{#if changes.length > 0}
 								<Badge>{changes.length}</Badge>
 							{/if}
