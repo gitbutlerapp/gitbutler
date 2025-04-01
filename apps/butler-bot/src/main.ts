@@ -10,8 +10,10 @@ import { listTickets } from '@/commands/list-tickets';
 import { ping } from '@/commands/ping';
 import { removeChannel } from '@/commands/remove-channel';
 import { resolveTicket } from '@/commands/resolve-ticket';
+import { runTask } from '@/commands/run-task';
 import { toggleRota } from '@/commands/toggle-rota';
 import { firehoze } from '@/firehoze';
+import { rotateDuty } from '@/tasks/rotate-duty';
 import { syncButlers } from '@/tasks/sync-butlers';
 import 'dotenv/config';
 
@@ -60,10 +62,11 @@ const commands: Command[] = [
 	resolveTicket,
 	addChannel,
 	removeChannel,
-	listChannels
+	listChannels,
+	runTask
 ];
 
-const tasks: Task[] = [syncButlers];
+const tasks: Task[] = [syncButlers, rotateDuty];
 
 // Event handler for incoming messages
 client.on(Events.MessageCreate, async (message) => {
@@ -84,7 +87,7 @@ client.on(Events.MessageCreate, async (message) => {
 					return;
 				}
 
-				await command.execute(message, prisma, { commands });
+				await command.execute(message, prisma, { commands, tasks });
 
 				return;
 			}
