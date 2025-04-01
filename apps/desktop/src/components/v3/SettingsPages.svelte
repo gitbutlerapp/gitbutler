@@ -1,6 +1,6 @@
 <script module>
 	import iconsJson from '@gitbutler/ui/data/icons.json';
-	import type { Component } from 'svelte';
+	import type { Component, Snippet } from 'svelte';
 
 	export type Page = {
 		id: string;
@@ -12,17 +12,18 @@
 
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
+	import { platformName } from '$lib/platform/platform';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	type Props = {
-		projectId: string;
 		title: string;
 		selectedId?: string;
 		pages: Page[];
+		pageUrl: (pageId: string) => string;
+		close?: Snippet;
 	};
 
-	const { projectId, title, selectedId: selectedId, pages }: Props = $props();
+	const { title, selectedId: selectedId, pages, pageUrl, close }: Props = $props();
 
 	const shownId = $derived(selectedId || pages[0]!.id);
 	const shownPage = $derived(selectedId ? pages.find((p) => p.id === shownId) : pages[0]);
@@ -30,13 +31,19 @@
 
 <div class="settings">
 	<div class="pages">
+		{#if platformName === 'macos'}
+			<div class="traffic-light-placeholder"></div>
+		{/if}
 		<div class="title">
+			{#if close}
+				{@render close()}
+			{/if}
 			{title}
 		</div>
 		<div class="links">
 			{#each pages as page}
 				{@const selected = page.id === shownId}
-				<a class="page-link" class:selected href={newProjectSettingsPath(projectId, page.id)}>
+				<a class="page-link" class:selected href={pageUrl(page.id)} data-sveltekit-replacestate>
 					{#if page.icon}
 						<Icon name={page.icon} />
 					{/if}
@@ -79,5 +86,9 @@
 		background-color: var(--clr-bg-1-muted);
 	}
 	.title {
+	}
+	.traffic-light-placeholder {
+		width: 100%;
+		height: 18px;
 	}
 </style>
