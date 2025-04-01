@@ -164,6 +164,7 @@ impl UnifiedDiff {
                 }
                 let input = prep.interned_input();
                 UnifiedDiff::Patch {
+                    is_result_of_binary_to_text_conversion: prep.old_or_new_is_derived,
                     hunks: gix::diff::blob::diff(
                         algorithm,
                         &input,
@@ -185,7 +186,7 @@ impl UnifiedDiff {
                 use gix::diff::blob::platform::resource::Data;
                 fn size_for_data(data: Data<'_>) -> Option<u64> {
                     match data {
-                        Data::Missing | Data::Buffer(_) => None,
+                        Data::Missing | Data::Buffer { .. } => None,
                         Data::Binary { size } => Some(size),
                     }
                 }

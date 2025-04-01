@@ -175,7 +175,7 @@ pub(crate) fn discard_change(
                     change.path == path
                         && change.previous_path() == previous_path.as_ref().map(|p| p.as_bstr())
                 }).with_context(|| format!("Couldn't find worktree change for file at '{path}' (previous-path: {previous_path:?}"))?;
-            let UnifiedDiff::Patch { hunks } =
+            let UnifiedDiff::Patch { hunks, .. } =
                 worktree_changes.unified_diff(&repo, UI_CONTEXT_LINES)?
             else {
                 bail!("No hunks available for given '{path}'")

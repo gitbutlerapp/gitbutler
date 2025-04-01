@@ -63,10 +63,7 @@ pub fn discard_workspace_changes(
         if spec.hunk_headers.is_empty() {
             match wt_change.status {
                 TreeStatus::Addition { is_untracked, .. } => {
-                    std::fs::remove_file(
-                        path_check
-                            .verified_path(&gix::path::from_bstr(wt_change.path.as_bstr()))?,
-                    )?;
+                    std::fs::remove_file(path_check.verified_path(&wt_change.path)?)?;
                     if !is_untracked {
                         file::index::mark_entry_for_deletion(
                             &mut index,

@@ -22,14 +22,6 @@ impl ReferenceFrame {
     ) -> anyhow::Result<Self> {
         let head_id = repo.head_id()?;
         let workspace_commit = head_id.object()?.into_commit().decode()?.to_owned();
-        if workspace_commit.parents.len() < 2 {
-            return Ok(crate::commit_engine::ReferenceFrame {
-                workspace_tip: Some(head_id.detach()),
-                // The workspace commit is never the tip
-                #[allow(clippy::indexing_slicing)]
-                branch_tip: Some(workspace_commit.parents[0]),
-            });
-        }
 
         let cache = repo.commit_graph_if_enabled()?;
         let mut graph = repo.revision_graph(cache.as_ref());

@@ -186,7 +186,7 @@ pub fn tree_changes_to_input_files(
     let mut files = Vec::new();
     for change in changes {
         let diff = change.unified_diff(repo, 0)?;
-        let UnifiedDiff::Patch { hunks } = diff else {
+        let UnifiedDiff::Patch { hunks, .. } = diff else {
             unreachable!("Test repos don't have file-size issue")
         };
         let change_type = change.status.kind();

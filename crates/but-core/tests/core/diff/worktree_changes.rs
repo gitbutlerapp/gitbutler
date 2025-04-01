@@ -53,6 +53,7 @@ fn executable_bit_added_in_worktree() -> Result<()> {
     [
         Patch {
             hunks: [],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     ");
@@ -91,6 +92,7 @@ fn executable_bit_removed_in_worktree() -> Result<()> {
     [
         Patch {
             hunks: [],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     ");
@@ -129,6 +131,7 @@ fn executable_bit_removed_in_index() -> Result<()> {
     [
         Patch {
             hunks: [],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     ");
@@ -167,6 +170,7 @@ fn executable_bit_added_in_index() -> Result<()> {
     [
         Patch {
             hunks: [],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     ");
@@ -198,6 +202,7 @@ fn untracked_in_unborn() -> Result<()> {
     [
         Patch {
             hunks: [],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     ");
@@ -229,6 +234,7 @@ fn added_in_unborn() -> Result<()> {
     [
         Patch {
             hunks: [],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     ");
@@ -358,6 +364,7 @@ fn case_folding_worktree_changes() -> Result<()> {
                     diff: "@@ -1,1 +1,0 @@\n-content\n",
                 },
             ],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     "#);
@@ -407,6 +414,7 @@ fn case_folding_worktree_and_index_changes() -> Result<()> {
                     diff: "@@ -1,1 +1,0 @@\n-content\n",
                 },
             ],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     "#);
@@ -447,6 +455,7 @@ fn file_to_dir_in_worktree() -> Result<()> {
     [
         Patch {
             hunks: [],
+            is_result_of_binary_to_text_conversion: false,
         },
         Patch {
             hunks: [
@@ -458,6 +467,7 @@ fn file_to_dir_in_worktree() -> Result<()> {
                     diff: "@@ -1,0 +1,1 @@\n+content\n",
                 },
             ],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     "#);
@@ -498,6 +508,7 @@ fn file_to_dir_in_index() -> Result<()> {
     [
         Patch {
             hunks: [],
+            is_result_of_binary_to_text_conversion: false,
         },
         Patch {
             hunks: [
@@ -509,6 +520,7 @@ fn file_to_dir_in_index() -> Result<()> {
                     diff: "@@ -1,0 +1,1 @@\n+content\n",
                 },
             ],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     "#);
@@ -557,9 +569,11 @@ fn dir_to_file_in_worktree() -> Result<()> {
                     diff: "@@ -1,0 +1,1 @@\n+content\n",
                 },
             ],
+            is_result_of_binary_to_text_conversion: false,
         },
         Patch {
             hunks: [],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     "#);
@@ -608,9 +622,11 @@ fn dir_to_file_in_index() -> Result<()> {
                     diff: "@@ -1,0 +1,1 @@\n+content\n",
                 },
             ],
+            is_result_of_binary_to_text_conversion: false,
         },
         Patch {
             hunks: [],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     "#);
@@ -657,6 +673,7 @@ fn file_to_symlink_in_worktree() -> Result<()> {
                     diff: "@@ -1,1 +1,1 @@\n-content\n+does-not-exist\n",
                 },
             ],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     "#);
@@ -721,6 +738,7 @@ fn file_to_symlink_in_index() -> Result<()> {
                     diff: "@@ -1,1 +1,1 @@\n-content\n+does-not-exist\n",
                 },
             ],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     "#);
@@ -767,6 +785,7 @@ fn symlink_to_file_in_worktree() -> Result<()> {
                     diff: "@@ -1,1 +1,1 @@\n-target\n+content\n",
                 },
             ],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     "#);
@@ -813,6 +832,7 @@ fn symlink_to_file_in_index() -> Result<()> {
                     diff: "@@ -1,1 +1,1 @@\n-target\n+content\n",
                 },
             ],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     "#);
@@ -872,6 +892,7 @@ fn added_modified_in_worktree() -> Result<()> {
     [
         Patch {
             hunks: [],
+            is_result_of_binary_to_text_conversion: false,
         },
         Patch {
             hunks: [
@@ -883,6 +904,7 @@ fn added_modified_in_worktree() -> Result<()> {
                     diff: "@@ -1,0 +1,1 @@\n+content\n",
                 },
             ],
+            is_result_of_binary_to_text_conversion: false,
         },
         Patch {
             hunks: [
@@ -894,6 +916,7 @@ fn added_modified_in_worktree() -> Result<()> {
                     diff: "@@ -1,1 +1,1 @@\n-something\n+change\n",
                 },
             ],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     "#);
@@ -937,6 +960,7 @@ fn modified_in_index() -> Result<()> {
                     diff: "@@ -1,1 +1,1 @@\n-something\n+change\n",
                 },
             ],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     "#);
@@ -975,6 +999,7 @@ fn deleted_in_worktree() -> Result<()> {
                     diff: "@@ -1,1 +1,0 @@\n-something\n",
                 },
             ],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     "#);
@@ -1013,6 +1038,7 @@ fn deleted_in_index() -> Result<()> {
                     diff: "@@ -1,1 +1,0 @@\n-something\n",
                 },
             ],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     "#);
@@ -1049,6 +1075,7 @@ fn renamed_in_index() -> Result<()> {
     [
         Patch {
             hunks: [],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     ");
@@ -1085,6 +1112,7 @@ fn renamed_in_index_with_executable_bit() -> Result<()> {
     [
         Patch {
             hunks: [],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     ");
@@ -1121,6 +1149,7 @@ fn renamed_in_worktree() -> Result<()> {
     [
         Patch {
             hunks: [],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     ");
@@ -1157,6 +1186,7 @@ fn renamed_in_worktree_with_executable_bit() -> Result<()> {
     [
         Patch {
             hunks: [],
+            is_result_of_binary_to_text_conversion: false,
         },
     ]
     ");
@@ -1194,7 +1224,7 @@ fn modified_in_index_and_worktree_mod_mod() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1251,7 +1281,7 @@ fn modified_in_index_and_worktree_mod_mod_symlink() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1304,7 +1334,7 @@ fn modified_in_index_and_worktree_add_mod() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1341,7 +1371,7 @@ fn modified_in_index_and_worktree_add_del() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1382,7 +1412,7 @@ fn modified_in_index_and_worktree_del_add() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1432,7 +1462,7 @@ fn modified_in_index_and_worktree_mod_del() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     // newlines at the end should work.
@@ -1476,7 +1506,7 @@ fn modified_in_index_and_worktree_rename_mod() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1519,7 +1549,7 @@ fn modified_in_index_and_worktree_rename_rename() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     assert_eq!(
@@ -1556,7 +1586,7 @@ fn modified_in_index_and_worktree_rename_del() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1598,7 +1628,7 @@ fn modified_in_index_and_worktree_mod_rename() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1652,8 +1682,12 @@ fn modified_in_index_and_worktree_rename_add() -> Result<()> {
     "#);
 
     let [
-        UnifiedDiff::Patch { hunks: ref hunks1 },
-        UnifiedDiff::Patch { hunks: ref hunks2 },
+        UnifiedDiff::Patch {
+            hunks: ref hunks1, ..
+        },
+        UnifiedDiff::Patch {
+            hunks: ref hunks2, ..
+        },
     ] = unified_diffs(actual, &repo)?[..]
     else {
         unreachable!("need hunks")
@@ -1702,7 +1736,7 @@ fn modified_in_index_and_worktree_add_rename() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     assert_eq!(

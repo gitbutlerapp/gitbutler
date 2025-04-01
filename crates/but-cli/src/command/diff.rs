@@ -78,7 +78,7 @@ fn intersect_workspace_ranges(
     let mut missed_hunks = Vec::new();
     for change in worktree_changes {
         let unidiff = change.unified_diff(repo, 0)?;
-        let but_core::UnifiedDiff::Patch { hunks } = unidiff else {
+        let but_core::UnifiedDiff::Patch { hunks, .. } = unidiff else {
             continue;
         };
         let mut intersections = Vec::new();

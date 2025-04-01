@@ -289,7 +289,7 @@ pub fn purge_and_restore_from_head_tree(
     }
 
     // TODO(motivational test): restore what was there in the the index, and then on disk by checkout.
-    let path = path_check.verified_path(&gix::path::from_bstr(rela_path))?;
+    let path = path_check.verified_path(rela_path)?;
     if !path.is_dir() {
         // Should always exist, this is why it's a rename in the first place.
         std::fs::remove_file(path).or_else(|err| {

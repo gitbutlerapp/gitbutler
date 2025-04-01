@@ -590,13 +590,15 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
               "newLines": 1,
               "diff": "@@ -1,0 +1,1 @@\n+content\n"
             }
-          ]
+          ],
+          "isResultOfBinaryToTextConversion": false
         }
       },
       {
         "type": "Patch",
         "subject": {
-          "hunks": []
+          "hunks": [],
+          "isResultOfBinaryToTextConversion": false
         }
       },
       {
@@ -610,7 +612,8 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
               "newLines": 1,
               "diff": "@@ -1,0 +1,1 @@\n+link-target\n"
             }
-          ]
+          ],
+          "isResultOfBinaryToTextConversion": false
         }
       },
       {
@@ -624,7 +627,8 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
               "newLines": 1,
               "diff": "@@ -1,0 +1,1 @@\n+content not to add to the index\n"
             }
-          ]
+          ],
+          "isResultOfBinaryToTextConversion": false
         }
       },
       {
@@ -638,7 +642,8 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
               "newLines": 1,
               "diff": "@@ -1,0 +1,1 @@\n+change-in-index\n"
             }
-          ]
+          ],
+          "isResultOfBinaryToTextConversion": false
         }
       },
       {
@@ -652,13 +657,15 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
               "newLines": 1,
               "diff": "@@ -1,0 +1,1 @@\n+change-in-worktree\n"
             }
-          ]
+          ],
+          "isResultOfBinaryToTextConversion": false
         }
       },
       {
         "type": "Patch",
         "subject": {
-          "hunks": []
+          "hunks": [],
+          "isResultOfBinaryToTextConversion": false
         }
       },
       {
@@ -672,19 +679,22 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
               "newLines": 1,
               "diff": "@@ -1,0 +1,1 @@\n+worktree-change\n"
             }
-          ]
+          ],
+          "isResultOfBinaryToTextConversion": false
         }
       },
       {
         "type": "Patch",
         "subject": {
-          "hunks": []
+          "hunks": [],
+          "isResultOfBinaryToTextConversion": false
         }
       },
       {
         "type": "Patch",
         "subject": {
-          "hunks": []
+          "hunks": [],
+          "isResultOfBinaryToTextConversion": false
         }
       }
     ]
