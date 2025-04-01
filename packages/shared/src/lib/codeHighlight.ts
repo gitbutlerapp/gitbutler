@@ -22,6 +22,7 @@ import { HighlightStyle, StreamLanguage } from '@codemirror/language';
 import { commonLisp } from '@codemirror/legacy-modes/mode/commonlisp';
 import { lua } from '@codemirror/legacy-modes/mode/lua';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
+import { swift } from '@codemirror/legacy-modes/mode/swift';
 import { toml } from '@codemirror/legacy-modes/mode/toml';
 import { NodeType, Tree, Parser } from '@lezer/common';
 import { tags, highlightTree } from '@lezer/highlight';
@@ -184,6 +185,9 @@ export function parserFromFilename(filename: string): Parser | null {
 
 			// highlighting svelte with js + jsx works much better than the above
 			return javascript({ typescript: true, jsx: true }).language.parser;
+
+		case 'swift':
+			return StreamLanguage.define(swift).parser;
 
 		case 'vue':
 			return vue().language.parser;
