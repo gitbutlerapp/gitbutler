@@ -25,17 +25,33 @@
 </script>
 
 <Drawer bind:this={drawer} {projectId} {stackId} title="Submit for code review">
-	<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} />
+	<div class="container">
+		<div class="main">
+			<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} />
+		</div>
 
-	<div class="actions">
-		<Button kind="outline" onclick={close}>Cancel</Button>
-		<AsyncButton style="pop" action={async () => await reviewCreation?.createReview(close)}
-			>Create Review</AsyncButton
-		>
+		<div class="actions">
+			<Button kind="outline" onclick={close}>Cancel</Button>
+			<AsyncButton
+				action={async () => await reviewCreation?.createReview(close)}
+				disabled={!reviewCreation?.createButtonEnabled().current}>Create Review</AsyncButton
+			>
+		</div>
 	</div>
 </Drawer>
 
 <style lang="postcss">
+	.container {
+		flex-grow: 1;
+
+		display: flex;
+		flex-direction: column;
+	}
+
+	.main {
+		flex-grow: 1;
+	}
+
 	.actions {
 		display: flex;
 		justify-content: flex-end;

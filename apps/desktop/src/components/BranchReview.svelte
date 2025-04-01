@@ -162,9 +162,13 @@
 
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Close</Button>
-		<AsyncButton style="pop" action={async () => await reviewCreation?.createReview(close)}
-			>Create Review</AsyncButton
+		<AsyncButton
+			style="pop"
+			action={async () => await reviewCreation?.createReview(close)}
+			disabled={!reviewCreation?.createButtonEnabled().current}
 		>
+			Create Review
+		</AsyncButton>
 	{/snippet}
 </Modal>
 

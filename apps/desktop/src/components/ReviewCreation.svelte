@@ -8,12 +8,10 @@
 </script>
 
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import PrTemplateSection from '$components/PrTemplateSection.svelte';
-	import { AIService } from '$lib/ai/service';
+	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { projectAiGenEnabled } from '$lib/config/config';
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
@@ -23,29 +21,23 @@
 		BrToPrService,
 		updatePrDescriptionTables as updatePrStackInfo
 	} from '$lib/forge/shared/prFooter';
-	import { TemplateService } from '$lib/forge/templateService';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
-	import { splitMessage } from '$lib/utils/commitMessage';
 	import { sleep } from '$lib/utils/sleep';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Textarea from '@gitbutler/ui/Textarea.svelte';
+	import { reactive, type Reactive } from '@gitbutler/shared/storeUtils';
+	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import ToggleButton from '@gitbutler/ui/ToggleButton.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { error } from '@gitbutler/ui/toasts';
-	import { onMetaEnter } from '@gitbutler/ui/utils/hotkeys';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import { tick } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -56,11 +48,8 @@
 	const { projectId, stackId, branchName }: Props = $props();
 
 	const baseBranch = getContext(BaseBranch);
-	const aiService = getContext(AIService);
-	const aiGenEnabled = projectAiGenEnabled(projectId);
 	const forge = getContext(DefaultForgeFactory);
 	const prService = $derived(forge.current.prService);
-	const templateService = getContext(TemplateService);
 	const stackPublishingService = getContext(StackPublishingService);
 	const butRequestDetailsService = getContext(ButRequestDetailsService);
 	const brToPrService = getContext(BrToPrService);
@@ -110,10 +99,6 @@
 	const createButlerRequest = persisted<boolean>(false, 'createButlerRequest');
 	const createPullRequest = persisted<boolean>(true, 'createPullRequest');
 
-	let aiIsLoading = $state<boolean>(false);
-	let aiConfigurationValid = $state<boolean>(false);
-	let aiDescriptionDirective = $state<string | undefined>(undefined);
-	let showAiBox = $state<boolean>(false);
 	let templateBody = $state<string | undefined>(undefined);
 	const pushBeforeCreate = $derived(
 		!forgeBranch || commits.some((c) => c.state.type === 'LocalOnly')
@@ -123,8 +108,6 @@
 	let useTemplate = persisted(false, `use-template-${projectId}`);
 	// Available pull request templates.
 	let templates = $state<string[]>([]);
-
-	const canUseAI = $derived(aiConfigurationValid && $aiGenEnabled);
 
 	const canPublishBR = $derived(!!($canPublish && branch?.name && !branch.reviewId));
 	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
@@ -141,22 +124,6 @@
 			branch?.name ?? ''
 		)
 	);
-
-	async function handleToggleUseTemplate() {
-		useTemplate.set(!$useTemplate);
-		if (!$useTemplate) {
-			templateBody = undefined;
-		}
-	}
-
-	$effect(() => {
-		aiService.validateConfiguration().then((valid) => {
-			aiConfigurationValid = valid;
-		});
-		templateService.getAvailable(forge.current.name).then((availableTemplates) => {
-			templates = availableTemplates;
-		});
-	});
 
 	async function pushIfNeeded(): Promise<string | undefined> {
 		let upstreamBranchName: string | undefined = branch?.name;
@@ -297,38 +264,18 @@
 		}
 	}
 
-	async function handleAIButtonPressed() {
-		if (!aiGenEnabled) return;
-
-		aiIsLoading = true;
-		await tick();
-
-		let firstToken = true;
-
-		try {
-			const description = await aiService?.describePR({
-				title: prTitle.value,
-				body: prBody.value,
-				directive: aiDescriptionDirective,
-				commitMessages: commits.map((c) => splitMessage(c.message).title),
-				prBodyTemplate: templateBody,
-				onToken: (token) => {
-					if (firstToken) {
-						prBody.reset();
-						firstToken = false;
-					}
-					prBody.append(token);
-				}
-			});
-
-			if (description) {
-				prBody.set(description);
-			}
-		} finally {
-			aiIsLoading = false;
-			aiDescriptionDirective = undefined;
-			await tick();
+	const isCreateButtonEnabled = $derived.by(() => {
+		if ((canPublishBR && $createButlerRequest) || !canPublishPR) {
+			return true;
 		}
+		if ((canPublishPR && $createPullRequest) || !canPublishBR) {
+			return true;
+		}
+		return false;
+	});
+
+	export function createButtonEnabled(): Reactive<boolean> {
+		return reactive(() => isCreateButtonEnabled);
 	}
 </script>
 
@@ -345,27 +292,6 @@
 			}}
 		/>
 
-		<!-- FEATURES -->
-		<div class="features-section">
-			<ToggleButton
-				icon="doc"
-				label="Use PR template"
-				checked={$useTemplate}
-				onclick={handleToggleUseTemplate}
-				disabled={templates.length === 0}
-			/>
-			<ToggleButton
-				icon="ai-small"
-				label="AI generation"
-				checked={showAiBox}
-				tooltip={!aiConfigurationValid ? 'AI service is not configured' : undefined}
-				disabled={!canUseAI || aiIsLoading}
-				onclick={() => {
-					showAiBox = !showAiBox;
-				}}
-			/>
-		</div>
-
 		<!-- PR TEMPLATE SELECT -->
 		{#if $useTemplate}
 			<PrTemplateSection
@@ -377,109 +303,82 @@
 		{/if}
 
 		<!-- DESCRIPTION FIELD -->
-		<div class="text-input pr-description-field">
-			<ConfigurableScrollableContainer>
-				<Textarea
-					unstyled
-					value={prBody.value}
-					minRows={4}
-					autofocus
-					padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
-					placeholder="Add description…"
-					oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
-						const target = e.currentTarget as HTMLTextAreaElement;
-						prBody.set(target.value);
-					}}
-				/>
-			</ConfigurableScrollableContainer>
+		<MessageEditor
+			{projectId}
+			{stackId}
+			initialValue={prBody.value}
+			onChange={(text: string) => {
+				prBody.set(text);
+			}}
+		/>
 
-			<!-- AI GENRATION -->
-			<div class="pr-ai" class:show-ai-box={showAiBox}>
-				{#if showAiBox}
-					<Textarea
-						unstyled
-						autofocus
-						bind:value={aiDescriptionDirective}
-						padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
-						placeholder={aiService.prSummaryMainDirective}
-						onkeydown={onMetaEnter(handleAIButtonPressed)}
-					/>
-					<div class="pr-ai__actions">
-						<Button
-							style="neutral"
-							icon="ai-small"
-							tooltip={!aiConfigurationValid
-								? 'Log in or provide your own API key'
-								: !$aiGenEnabled
-									? 'Enable summary generation'
-									: undefined}
-							disabled={!canUseAI || aiIsLoading}
-							loading={aiIsLoading}
-							onclick={handleAIButtonPressed}
-						>
-							Generate description
-						</Button>
+		{#if canPublishBR && canPublishPR}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<div class="options text-13">
+				<div
+					class="option-card"
+					onclick={() => {
+						$createButlerRequest = !$createButlerRequest;
+					}}
+				>
+					<div class="option-card-header" class:selected={$createButlerRequest}>
+						<div class="option-card-header-main">
+							<div class="option-card-header-title text-semibold">
+								<Icon name="bowtie" />
+								Create a Butler Request
+							</div>
+							<span class="grey">
+								<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
+							</span>
+						</div>
+
+						<div class="option-card-header-action">
+							<Checkbox bind:checked={$createButlerRequest} />
+						</div>
 					</div>
-				{/if}
-			</div>
-		</div>
-	</div>
-</div>
-<div class="combined-controls">
-	<div class="options">
-		{#if canPublishBR}
-			<div class="stacked-options">
-				{#if canPublishPR}
-					<div class="option">
-						<p class="text-13">Create Butler Review</p>
-						<Toggle bind:checked={$createButlerRequest} />
+				</div>
+				<div class="option-card">
+					<div
+						class="option-card-header has-settings"
+						class:selected={$createPullRequest}
+						onclick={() => {
+							$createPullRequest = !$createPullRequest;
+						}}
+					>
+						<div class="option-card-header-main">
+							<div class="option-card-header-title text-semibold">
+								<Icon name="github" />
+								Create a Pull Request
+							</div>
+						</div>
+
+						<div class="option-card-header-action">
+							<Checkbox bind:checked={$createPullRequest} />
+						</div>
 					</div>
-					<div class="option text-13">
-						<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
+					<div
+						class="option-card-body"
+						onclick={() => {
+							$createDraft = !$createDraft;
+						}}
+					>
+						<span class="text-semibold">PR Draft</span>
+						<Toggle checked={$createDraft} />
 					</div>
-				{:else}
-					<div class="option text-13">
-						Creates a Butler Review <Link href="https://docs.gitbutler.com/review/overview"
-							>Learn more</Link
-						>
-					</div>
-				{/if}
+				</div>
 			</div>
 		{/if}
-		{#if canPublishPR}
-			<div class="stacked-options">
-				{#if canPublishBR}
-					<div class="option">
-						<p class="text-13">Create Pull Request</p>
-						<Toggle bind:checked={$createPullRequest} />
-					</div>
-				{/if}
 
-				{#if $createPullRequest}
-					<div class="option">
-						<p class="text-13">Pull Request Kind:</p>
-						<Select
-							options={[
-								{ label: 'Draft PR', value: 'draft' },
-								{ label: 'PR', value: 'regular' }
-							]}
-							value={$createDraft ? 'draft' : 'regular'}
-							autoWidth
-							onselect={(value) => {
-								$createDraft = value === 'draft';
-							}}
-						>
-							{#snippet customSelectButton()}
-								<Button kind="outline" icon="select-chevron" size="tag">
-									{$createDraft ? 'Draft PR' : 'PR'}
-								</Button>
-							{/snippet}
-							{#snippet itemSnippet({ item, highlighted })}
-								<SelectItem {highlighted}>{item.label}</SelectItem>
-							{/snippet}
-						</Select>
-					</div>
-				{/if}
+		{#if canPublishPR && !canPublishBR}
+			<div class="option-drafty">
+				<span>PR Draft</span>
+				<Toggle
+					checked={$createDraft}
+					onclick={() => {
+						createDraft.set(!$createDraft);
+					}}
+				/>
 			</div>
 		{/if}
 	</div>
@@ -501,67 +400,93 @@
 		min-height: 0;
 	}
 
-	.pr-description-field {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		/* reset .text-input padding */
-		padding: 0;
-		min-height: 0;
-	}
-
-	/* AI BOX */
-
-	.pr-ai {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.show-ai-box {
-		border-top: 1px solid var(--clr-border-3);
-	}
-
-	.pr-ai__actions {
-		width: 100%;
-		display: flex;
-		justify-content: flex-end;
-		gap: 6px;
-	}
-
-	/* FOOTER */
-
-	.features-section {
-		display: flex;
-		gap: 6px;
-	}
-
-	/* PREVIEW */
-	.combined-controls {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-		width: 100%;
-		padding-top: 16px;
-	}
-
 	.options {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 8px;
+
+		align-items: stretch;
+
 		width: 100%;
-		display: flex;
-		gap: 12px;
-		align-items: flex-start;
-		justify-content: space-around;
 	}
 
-	.stacked-options {
+	.option-card {
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
+
+		border-radius: var(--radius-m);
+		overflow: hidden;
 	}
 
-	.option {
+	.option-card-header {
+		flex-grow: 1;
+
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+
 		display: flex;
-		gap: 12px;
+
+		padding: 12px;
+
+		&.has-settings {
+			border-radius: var(--radius-m) var(--radius-m) 0 0;
+		}
+
+		&.selected {
+			background-color: var(--clr-core-pop-90);
+			border-color: var(--clr-core-pop-50);
+		}
+	}
+
+	.option-card-header-main {
+		display: flex;
+		flex-direction: column;
+
+		justify-content: center;
+
+		gap: 11px;
+
+		flex-grow: 1;
+	}
+
+	.option-card-header-title {
+		display: flex;
+		gap: 8px;
 		align-items: center;
+	}
+
+	.option-card-header-action {
+		flex-grow: 0;
+
+		display: block;
+	}
+
+	.option-card-body {
+		padding: 12px;
+
+		display: flex;
 		justify-content: space-between;
+		align-items: center;
+
+		border-radius: 0 0 var(--radius-m) var(--radius-m);
+		border: 1px solid var(--clr-border-2);
+		border-top: none;
+	}
+
+	.option-drafty {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+
+		width: 100%;
+
+		border-radius: var(--radius-m);
+		border: 1px solid var(--clr-border-2);
+
+		padding: 8px;
+	}
+
+	.grey {
+		color: var(--clr-text-2);
 	}
 </style>
