@@ -185,7 +185,7 @@
 	.table__section {
 		width: 100%;
 		font-family: var(--diff-font);
-		border-collapse: collapse;
+		border-collapse: separate;
 		border-spacing: 0;
 		user-select: none;
 	}

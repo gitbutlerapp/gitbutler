@@ -14,6 +14,7 @@
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
+	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 
 	type Props = {
 		projectId: string;
@@ -101,76 +102,129 @@
 		}
 		changeSelection.clear();
 	}
+
+	let isHeaderSticky = $state(false);
+	let isFooterSticky = $state(false);
 </script>
 
 <ReduxResult result={changesResult.current}>
 	{#snippet children(changes)}
-		<div class="worktree-header">
-			<div class="worktree-header__general">
-				{#if isCommitting}
-					<Checkbox
-						checked={filesPartiallySelected || filesFullySelected}
-						indeterminate={filesPartiallySelected}
-						small
-						onchange={toggleGlobalCheckbox}
-					/>
-				{/if}
-				<div class="worktree-header__title truncate">
-					<h3 class="text-14 text-semibold truncate">Uncommitted changes</h3>
-					{#if changes.length > 0}
-						<Badge>{changes.length}</Badge>
-					{/if}
+		<ScrollableContainer wide>
+			<div class="uncommitted-changes-wrap">
+				<div
+					class="worktree-header"
+					class:sticked={isHeaderSticky}
+					use:intersectionObserver={{
+						callback: (entry) => {
+							if (entry?.isIntersecting) {
+								isHeaderSticky = false;
+							} else {
+								isHeaderSticky = true;
+							}
+						},
+						options: {
+							root: null,
+							rootMargin: `-1px 0px 0px 0px`,
+							threshold: 1
+						}
+					}}
+				>
+					<div class="worktree-header__general">
+						{#if isCommitting}
+							<Checkbox
+								checked={filesPartiallySelected || filesFullySelected}
+								indeterminate={filesPartiallySelected}
+								small
+								onchange={toggleGlobalCheckbox}
+							/>
+						{/if}
+						<div class="worktree-header__title truncate">
+							<h3 class="text-14 text-semibold truncate">Uncommitted</h3>
+							{#if changes.length > 0}
+								<Badge>{changes.length}</Badge>
+							{/if}
+						</div>
+					</div>
+					<FileListMode bind:mode={listMode} persist="uncommitted" />
 				</div>
-			</div>
-			<FileListMode bind:mode={listMode} persist="uncommitted" />
-		</div>
-		{#if changes.length > 0}
-			<div class="uncommitted-changes">
-				<ScrollableContainer wide>
-					<FileList
-						selectionId={{ type: 'worktree', showCheckboxes: isCommitting }}
-						{projectId}
-						{stackId}
-						{changes}
-						{listMode}
-					/>
-				</ScrollableContainer>
-				<div class="start-commit">
-					<Button
-						kind={isCommitting ? 'outline' : 'solid'}
-						type="button"
-						size="cta"
-						wide
-						disabled={isCommitting}
-						onclick={startCommit}
+				{#if changes.length > 0}
+					<div class="uncommitted-changes">
+						<FileList
+							selectionId={{ type: 'worktree', showCheckboxes: isCommitting }}
+							{projectId}
+							{stackId}
+							{changes}
+							{listMode}
+						/>
+					</div>
+					<div
+						class="start-commit"
+						class:sticked={isFooterSticky}
+						use:intersectionObserver={{
+							callback: (entry) => {
+								if (entry?.isIntersecting) {
+									isFooterSticky = false;
+								} else {
+									isFooterSticky = true;
+								}
+							},
+							options: {
+								root: null,
+								rootMargin: `-1px 0px 0px 0px`,
+								threshold: 1
+							}
+						}}
 					>
-						Start a commit…
-					</Button>
-				</div>
+						<Button
+							kind={isCommitting ? 'outline' : 'solid'}
+							type="button"
+							size="cta"
+							wide
+							disabled={isCommitting}
+							onclick={startCommit}
+						>
+							Start a commit…
+						</Button>
+					</div>
+				{:else}
+					<div class="empty-state">
+						{@html noChanges}
+						<p class="text-13 text-body empty-state-text">
+							You're all caught up!<br />
+							No files need committing
+						</p>
+					</div>
+				{/if}
 			</div>
-		{:else}
-			<div class="empty-state">
-				{@html noChanges}
-				<p class="text-13 text-body empty-state-text">
-					You're all caught up!<br />
-					No files need committing
-				</p>
-			</div>
-		{/if}
+		</ScrollableContainer>
 	{/snippet}
 </ReduxResult>
 
 <style>
+	.uncommitted-changes-wrap {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+
 	.worktree-header {
+		position: sticky;
+		top: -1px;
+		z-index: var(--z-ground);
 		display: flex;
 		padding: 10px 10px 10px 14px;
 		width: 100%;
 		align-items: center;
 		text-wrap: nowrap;
-		overflow: hidden;
 		justify-content: space-between;
 		white-space: nowrap;
 		gap: 8px;
+		background-color: var(--clr-bg-1);
+
+		&.sticked {
+			border-top: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--clr-border-2);
+		}
 	}
 
 	.worktree-header__general {
@@ -188,19 +242,20 @@
 
 	.uncommitted-changes {
 		display: flex;
+		flex-direction: column;
 		flex: 1;
 		width: 100%;
-		height: 100%;
-		display: flex;
-		justify-items: top;
-		flex-direction: column;
-		align-items: top;
-		justify-content: top;
-		overflow: hidden;
 	}
 
 	.start-commit {
+		position: sticky;
+		bottom: -1px;
 		padding: 16px;
+		background-color: var(--clr-bg-1);
+
+		&.sticked {
+			border-top: 1px solid var(--clr-border-2);
+		}
 	}
 
 	.empty-state {

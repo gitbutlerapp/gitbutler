@@ -14,6 +14,7 @@
 		whenToShow: 'hover' | 'always' | 'scroll';
 		onthumbdrag?: (dragging: boolean) => void;
 		children: Snippet;
+		onscrollTop?: (visible: boolean) => void;
 		onscrollEnd?: (visible: boolean) => void;
 		onscroll?: (e: Event) => void;
 	}
@@ -31,11 +32,42 @@
 		children,
 		onthumbdrag,
 		onscroll,
+		onscrollTop,
 		onscrollEnd
 	}: Props = $props();
 
 	let viewport = $state<HTMLDivElement>();
-	let scrollEndVisible = $state<boolean>(false);
+	let scrollTopVisible = $state<boolean>(true);
+	let scrollEndVisible = $state<boolean>(true);
+
+	function isScrollEndVisible(target: HTMLDivElement) {
+		if (target) {
+			return target.scrollTop + target.clientHeight >= target.scrollHeight;
+		}
+		return false;
+	}
+
+	function isScrollTopVisible(target: HTMLDivElement) {
+		if (target) {
+			return target.scrollTop < 1;
+		}
+		return false;
+	}
+
+	$effect(() => {
+		if (viewport) {
+			scrollTopVisible = isScrollTopVisible(viewport);
+			scrollEndVisible = isScrollEndVisible(viewport);
+		}
+	});
+
+	$effect(() => {
+		if (scrollTopVisible) {
+			onscrollTop?.(true);
+		} else {
+			onscrollTop?.(false);
+		}
+	});
 
 	$effect(() => {
 		if (scrollEndVisible) {
@@ -54,7 +86,8 @@
 		style:overflow-y="auto"
 		onscroll={(e) => {
 			const target = e.target as HTMLDivElement;
-			scrollEndVisible = target.scrollTop + target.clientHeight >= target.scrollHeight;
+			scrollTopVisible = isScrollTopVisible(target);
+			scrollEndVisible = isScrollEndVisible(target);
 
 			onscroll?.(e);
 		}}

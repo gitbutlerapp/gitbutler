@@ -256,6 +256,7 @@
 	tr {
 		padding: 0;
 		margin: 0;
+		height: 22px;
 		user-select: none;
 		font-family: var(--diff-font);
 	}
@@ -270,7 +271,6 @@
 		user-select: text;
 		cursor: text;
 		text-wrap: var(--wrap);
-		border-left: 1px solid var(--clr-border-2);
 	}
 
 	.table__row-header {
@@ -342,7 +342,6 @@
 		text-align: center;
 		padding: 0 4px;
 		text-align: right;
-		vertical-align: top;
 		user-select: none;
 		touch-action: none;
 
@@ -357,12 +356,14 @@
 			background-color: var(--clr-diff-addition-count-bg);
 			color: var(--clr-diff-addition-count-text);
 			border-color: var(--clr-diff-addition-count-border);
+			--checkmark-color: var(--clr-diff-addition-count-checkmark);
 		}
 
 		&.diff-line-deletion {
 			background-color: var(--clr-diff-deletion-count-bg);
 			color: var(--clr-diff-deletion-count-text);
 			border-color: var(--clr-diff-deletion-count-border);
+			--checkmark-color: var(--clr-diff-deletion-count-checkmark);
 		}
 
 		&.is-before.is-last {
@@ -407,7 +408,7 @@
 		flex-shrink: 0;
 		pointer-events: none;
 
-		color: var(--clr-diff-count-checkmark);
+		color: var(--checkmark-color);
 		margin: 0;
 		padding: 0;
 		width: 18px;
