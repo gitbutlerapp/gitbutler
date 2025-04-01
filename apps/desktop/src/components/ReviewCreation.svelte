@@ -8,12 +8,10 @@
 </script>
 
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import PrTemplateSection from '$components/PrTemplateSection.svelte';
-	import { AIService } from '$lib/ai/service';
+	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { projectAiGenEnabled } from '$lib/config/config';
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
@@ -23,29 +21,23 @@
 		BrToPrService,
 		updatePrDescriptionTables as updatePrStackInfo
 	} from '$lib/forge/shared/prFooter';
-	import { TemplateService } from '$lib/forge/templateService';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
-	import { splitMessage } from '$lib/utils/commitMessage';
 	import { sleep } from '$lib/utils/sleep';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import ToggleButton from '@gitbutler/ui/ToggleButton.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { error } from '@gitbutler/ui/toasts';
-	import { onMetaEnter } from '@gitbutler/ui/utils/hotkeys';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import { tick } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -56,11 +48,8 @@
 	const { projectId, stackId, branchName }: Props = $props();
 
 	const baseBranch = getContext(BaseBranch);
-	const aiService = getContext(AIService);
-	const aiGenEnabled = projectAiGenEnabled(projectId);
 	const forge = getContext(DefaultForgeFactory);
 	const prService = $derived(forge.current.prService);
-	const templateService = getContext(TemplateService);
 	const stackPublishingService = getContext(StackPublishingService);
 	const butRequestDetailsService = getContext(ButRequestDetailsService);
 	const brToPrService = getContext(BrToPrService);
@@ -110,10 +99,6 @@
 	const createButlerRequest = persisted<boolean>(false, 'createButlerRequest');
 	const createPullRequest = persisted<boolean>(true, 'createPullRequest');
 
-	let aiIsLoading = $state<boolean>(false);
-	let aiConfigurationValid = $state<boolean>(false);
-	let aiDescriptionDirective = $state<string | undefined>(undefined);
-	let showAiBox = $state<boolean>(false);
 	let templateBody = $state<string | undefined>(undefined);
 	const pushBeforeCreate = $derived(
 		!forgeBranch || commits.some((c) => c.state.type === 'LocalOnly')
@@ -123,8 +108,6 @@
 	let useTemplate = persisted(false, `use-template-${projectId}`);
 	// Available pull request templates.
 	let templates = $state<string[]>([]);
-
-	const canUseAI = $derived(aiConfigurationValid && $aiGenEnabled);
 
 	const canPublishBR = $derived(!!($canPublish && branch?.name && !branch.reviewId));
 	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
@@ -141,22 +124,6 @@
 			branch?.name ?? ''
 		)
 	);
-
-	async function handleToggleUseTemplate() {
-		useTemplate.set(!$useTemplate);
-		if (!$useTemplate) {
-			templateBody = undefined;
-		}
-	}
-
-	$effect(() => {
-		aiService.validateConfiguration().then((valid) => {
-			aiConfigurationValid = valid;
-		});
-		templateService.getAvailable(forge.current.name).then((availableTemplates) => {
-			templates = availableTemplates;
-		});
-	});
 
 	async function pushIfNeeded(): Promise<string | undefined> {
 		let upstreamBranchName: string | undefined = branch?.name;
@@ -296,40 +263,6 @@
 			else showError('Error while creating pull request', err);
 		}
 	}
-
-	async function handleAIButtonPressed() {
-		if (!aiGenEnabled) return;
-
-		aiIsLoading = true;
-		await tick();
-
-		let firstToken = true;
-
-		try {
-			const description = await aiService?.describePR({
-				title: prTitle.value,
-				body: prBody.value,
-				directive: aiDescriptionDirective,
-				commitMessages: commits.map((c) => splitMessage(c.message).title),
-				prBodyTemplate: templateBody,
-				onToken: (token) => {
-					if (firstToken) {
-						prBody.reset();
-						firstToken = false;
-					}
-					prBody.append(token);
-				}
-			});
-
-			if (description) {
-				prBody.set(description);
-			}
-		} finally {
-			aiIsLoading = false;
-			aiDescriptionDirective = undefined;
-			await tick();
-		}
-	}
 </script>
 
 <!-- HEADER -->
@@ -345,27 +278,6 @@
 			}}
 		/>
 
-		<!-- FEATURES -->
-		<div class="features-section">
-			<ToggleButton
-				icon="doc"
-				label="Use PR template"
-				checked={$useTemplate}
-				onclick={handleToggleUseTemplate}
-				disabled={templates.length === 0}
-			/>
-			<ToggleButton
-				icon="ai-small"
-				label="AI generation"
-				checked={showAiBox}
-				tooltip={!aiConfigurationValid ? 'AI service is not configured' : undefined}
-				disabled={!canUseAI || aiIsLoading}
-				onclick={() => {
-					showAiBox = !showAiBox;
-				}}
-			/>
-		</div>
-
 		<!-- PR TEMPLATE SELECT -->
 		{#if $useTemplate}
 			<PrTemplateSection
@@ -377,52 +289,14 @@
 		{/if}
 
 		<!-- DESCRIPTION FIELD -->
-		<div class="text-input pr-description-field">
-			<ConfigurableScrollableContainer>
-				<Textarea
-					unstyled
-					value={prBody.value}
-					minRows={4}
-					autofocus
-					padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
-					placeholder="Add description…"
-					oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
-						const target = e.currentTarget as HTMLTextAreaElement;
-						prBody.set(target.value);
-					}}
-				/>
-			</ConfigurableScrollableContainer>
-
-			<!-- AI GENRATION -->
-			<div class="pr-ai" class:show-ai-box={showAiBox}>
-				{#if showAiBox}
-					<Textarea
-						unstyled
-						autofocus
-						bind:value={aiDescriptionDirective}
-						padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
-						placeholder={aiService.prSummaryMainDirective}
-						onkeydown={onMetaEnter(handleAIButtonPressed)}
-					/>
-					<div class="pr-ai__actions">
-						<Button
-							style="neutral"
-							icon="ai-small"
-							tooltip={!aiConfigurationValid
-								? 'Log in or provide your own API key'
-								: !$aiGenEnabled
-									? 'Enable summary generation'
-									: undefined}
-							disabled={!canUseAI || aiIsLoading}
-							loading={aiIsLoading}
-							onclick={handleAIButtonPressed}
-						>
-							Generate description
-						</Button>
-					</div>
-				{/if}
-			</div>
-		</div>
+		<MessageEditor
+			{projectId}
+			{stackId}
+			initialValue={prBody.value}
+			onChange={(text: string) => {
+				prBody.set(text);
+			}}
+		/>
 	</div>
 </div>
 <div class="combined-controls">
@@ -499,40 +373,6 @@
 		flex-direction: column;
 		gap: 14px;
 		min-height: 0;
-	}
-
-	.pr-description-field {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		/* reset .text-input padding */
-		padding: 0;
-		min-height: 0;
-	}
-
-	/* AI BOX */
-
-	.pr-ai {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.show-ai-box {
-		border-top: 1px solid var(--clr-border-3);
-	}
-
-	.pr-ai__actions {
-		width: 100%;
-		display: flex;
-		justify-content: flex-end;
-		gap: 6px;
-	}
-
-	/* FOOTER */
-
-	.features-section {
-		display: flex;
-		gap: 6px;
 	}
 
 	/* PREVIEW */
