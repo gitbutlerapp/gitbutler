@@ -401,7 +401,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (result, _error) => [
 					ReduxTag.Stacks,
-					{ type: ReduxTag.StackInfo, id: result?.id }
+					{ type: ReduxTag.StackInfo, id: result?.id },
+					ReduxTag.UpstreamIntegrationStatus
 				]
 			}),
 			stackBranches: build.query<
@@ -497,6 +498,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					params: { projectId, ...commitData }
 				}),
 				invalidatesTags: (_result, _error, args) => [
+					ReduxTag.UpstreamIntegrationStatus,
 					ReduxTag.StackBranches,
 					{ type: ReduxTag.Commits, id: args.stackId },
 					{ type: ReduxTag.StackInfo, id: args.stackId }

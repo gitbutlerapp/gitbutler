@@ -598,18 +598,7 @@ pub(crate) fn integrate_upstream(
             to_be_closed_review_ids.append(&mut review_ids_to_close);
         }
 
-        // checkout_branch_trees won't checkout anything if there are no
-        // applied branches, and returns the current_wd_tree as its result.
-        // This is very sensible, but in this case, we want to checkout the
-        // new target sha.
-        if stacks.is_empty() {
-            context
-                .repository
-                .checkout_tree_builder(&context.new_target.tree()?)
-                .force()
-                .remove_untracked()
-                .checkout()?;
-        } else {
+        {
             let new_workspace =
                 WorkspaceState::create(command_context, permission.read_permission())?;
 
@@ -621,10 +610,23 @@ pub(crate) fn integrate_upstream(
                     permission,
                 )?;
             } else {
-                // Now that we've potentially updated the branch trees, lets checkout
-                // the result of merging them all together.
-                #[allow(deprecated)]
-                checkout_branch_trees(command_context, permission)?;
+                // checkout_branch_trees won't checkout anything if there are no
+                // applied branches, and returns the current_wd_tree as its result.
+                // This is very sensible, but in this case, we want to checkout the
+                // new target sha.
+                if stacks.is_empty() {
+                    context
+                        .repository
+                        .checkout_tree_builder(&context.new_target.tree()?)
+                        .force()
+                        .remove_untracked()
+                        .checkout()?;
+                } else {
+                    // Now that we've potentially updated the branch trees, lets checkout
+                    // the result of merging them all together.
+                    #[allow(deprecated)]
+                    checkout_branch_trees(command_context, permission)?;
+                }
             }
         }
 
