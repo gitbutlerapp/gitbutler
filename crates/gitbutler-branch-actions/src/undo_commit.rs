@@ -35,7 +35,7 @@ pub(crate) fn undo_commit(
 
     let stack_ctx = ctx.to_stack_context()?;
     let merge_base = stack.merge_base(&stack_ctx)?;
-    let repo = ctx.gix_repository()?;
+    let repo = ctx.gix_repo()?;
     let steps = stack
         .as_rebase_steps(ctx, &repo)?
         .into_iter()
@@ -69,10 +69,10 @@ pub(crate) fn undo_commit(
 }
 
 fn ownership_update(
-    repository: &git2::Repository,
+    repo: &git2::Repository,
     commit_to_remove: git2::Oid,
 ) -> Result<Vec<OwnershipClaim>> {
-    let commit_to_remove = repository.find_commit(commit_to_remove)?;
+    let commit_to_remove = repo.find_commit(commit_to_remove)?;
 
     if commit_to_remove.is_conflicted() {
         bail!("Can not undo a conflicted commit");
@@ -85,7 +85,7 @@ fn ownership_update(
         .tree()
         .context("failed to get parent tree")?;
 
-    let diff = gitbutler_diff::trees(repository, &commit_parent_tree, &commit_tree, true)?;
+    let diff = gitbutler_diff::trees(repo, &commit_parent_tree, &commit_tree, true)?;
     let ownership_update = diff
         .iter()
         .filter_map(|(file_path, file_diff)| {

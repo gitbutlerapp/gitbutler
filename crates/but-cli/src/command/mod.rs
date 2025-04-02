@@ -117,7 +117,7 @@ pub mod stacks {
     pub fn list(current_dir: &Path) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
-        let repo = ctx.gix_repository()?;
+        let repo = ctx.gix_repo()?;
         debug_print(but_workspace::stacks(&project.gb_dir(), &repo))
     }
 
@@ -130,7 +130,7 @@ pub mod stacks {
     pub fn branch_commits(id: &str, name: &str, current_dir: &Path) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
-        let repo = ctx.gix_repository()?;
+        let repo = ctx.gix_repo()?;
         let local_and_remote =
             stack_branch_local_and_remote_commits(id.to_string(), name.to_string(), &ctx, &repo);
         debug_print(local_and_remote)?;

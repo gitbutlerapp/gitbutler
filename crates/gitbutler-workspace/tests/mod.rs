@@ -45,13 +45,13 @@ mod checkout_branch_trees {
         branch_actions::create_commit(&ctx, stack_entry_2.id, "commit two", None).unwrap();
 
         let tree = test_project
-            .local_repository
+            .local_repo
             .create_wd_tree(AUTO_TRACK_LIMIT_BYTES)
             .unwrap();
 
         // Assert original state
         assert_tree_matches(
-            &test_project.local_repository,
+            &test_project.local_repo,
             &tree,
             &[("foo.txt", b"content"), ("bar.txt", b"content")],
         );
@@ -60,14 +60,14 @@ mod checkout_branch_trees {
         // Checkout an empty tree
         {
             let tree_oid = test_project
-                .local_repository
+                .local_repo
                 .treebuilder(None)
                 .unwrap()
                 .write()
                 .unwrap();
-            let tree = test_project.local_repository.find_tree(tree_oid).unwrap();
+            let tree = test_project.local_repo.find_tree(tree_oid).unwrap();
             test_project
-                .local_repository
+                .local_repo
                 .checkout_tree_builder(&tree)
                 .force()
                 .remove_untracked()
@@ -78,7 +78,7 @@ mod checkout_branch_trees {
         // Assert tree is indeed empty
         {
             let tree: git2::Tree = test_project
-                .local_repository
+                .local_repo
                 .create_wd_tree(AUTO_TRACK_LIMIT_BYTES)
                 .unwrap();
 
@@ -96,13 +96,13 @@ mod checkout_branch_trees {
         checkout_branch_trees(&ctx, guard.write_permission()).unwrap();
 
         let tree = test_project
-            .local_repository
+            .local_repo
             .create_wd_tree(AUTO_TRACK_LIMIT_BYTES)
             .unwrap();
 
         // Should be back to original state
         assert_tree_matches(
-            &test_project.local_repository,
+            &test_project.local_repo,
             &tree,
             &[("foo.txt", b"content"), ("bar.txt", b"content")],
         );

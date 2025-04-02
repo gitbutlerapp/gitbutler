@@ -12,17 +12,13 @@ use super::*;
 fn workdir_vbranch_restore() -> anyhow::Result<()> {
     let test = Test::default();
     let Test {
-        repository,
-
-        project,
-        ctx,
-        ..
+        repo, project, ctx, ..
     } = &test;
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
 
-    let worktree_dir = repository.path();
+    let worktree_dir = repo.path();
     for round in 0..3 {
         let line_count = round * 20;
         fs::write(
@@ -97,11 +93,7 @@ fn make_lines(count: usize) -> Vec<u8> {
 #[test]
 fn basic_oplog() -> anyhow::Result<()> {
     let Test {
-        repository,
-
-        project,
-        ctx,
-        ..
+        repo, project, ctx, ..
     } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse()?)?;
@@ -110,12 +102,12 @@ fn basic_oplog() -> anyhow::Result<()> {
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())?;
 
     // create commit
-    fs::write(repository.path().join("file.txt"), "content")?;
+    fs::write(repo.path().join("file.txt"), "content")?;
     let _commit1_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None)?;
 
     // dont store large files
-    let file_path = repository.path().join("large.txt");
+    let file_path = repo.path().join("large.txt");
     // write 33MB of random data in the file
     let mut file = std::fs::File::create(file_path)?;
     for _ in 0..33 * 1024 {
@@ -124,15 +116,15 @@ fn basic_oplog() -> anyhow::Result<()> {
     }
 
     // create commit with large file
-    fs::write(repository.path().join("file2.txt"), "content2")?;
-    fs::write(repository.path().join("file3.txt"), "content3")?;
+    fs::write(repo.path().join("file2.txt"), "content2")?;
+    fs::write(repo.path().join("file3.txt"), "content3")?;
     let commit2_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two", None)?;
 
     // Create conflict state
-    let conflicts_path = repository.path().join(".git").join("conflicts");
+    let conflicts_path = repo.path().join(".git").join("conflicts");
     std::fs::write(&conflicts_path, "conflict A")?;
-    let base_merge_parent_path = repository.path().join(".git").join("base_merge_parent");
+    let base_merge_parent_path = repo.path().join(".git").join("base_merge_parent");
     std::fs::write(&base_merge_parent_path, "parent A")?;
 
     // create state with conflict state
@@ -142,7 +134,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     std::fs::remove_file(&base_merge_parent_path)?;
     std::fs::remove_file(&conflicts_path)?;
 
-    fs::write(repository.path().join("file4.txt"), "content4")?;
+    fs::write(repo.path().join("file4.txt"), "content4")?;
     let _commit3_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None)?;
 
@@ -209,7 +201,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     // remove commit2_oid from odb
     let commit_str = &commit2_id.to_string();
     // find file in odb
-    let file_path = repository
+    let file_path = repo
         .path()
         .join(".git")
         .join("objects")
@@ -220,7 +212,6 @@ fn basic_oplog() -> anyhow::Result<()> {
     std::fs::remove_file(file_path)?;
 
     // try to look up that object
-    let repo = git2::Repository::open(&project.path)?;
     let commit = repo.find_commit(commit2_id);
     assert!(commit.is_err());
 
@@ -233,10 +224,10 @@ fn basic_oplog() -> anyhow::Result<()> {
     let commit = repo.find_commit(commit2_id);
     assert!(commit.is_ok());
 
-    let file_path = repository.path().join("large.txt");
+    let file_path = repo.path().join("large.txt");
     assert!(file_path.exists());
 
-    let file_path = repository.path().join("file.txt");
+    let file_path = repo.path().join("file.txt");
     let file_lines = std::fs::read_to_string(file_path)?;
     assert_eq!(file_lines, "content");
 
@@ -250,11 +241,7 @@ fn basic_oplog() -> anyhow::Result<()> {
 #[test]
 fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     let Test {
-        repository,
-
-        project,
-        ctx,
-        ..
+        repo, project, ctx, ..
     } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse()?)?;
@@ -275,7 +262,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     );
 
     // create commit
-    fs::write(repository.path().join("file.txt"), "content")?;
+    fs::write(repo.path().join("file.txt"), "content")?;
     let _commit1_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None)?;
 
@@ -289,7 +276,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     assert_eq!(message, GITBUTLER_WORKSPACE_COMMIT_TITLE);
 
     // create second commit
-    fs::write(repository.path().join("file.txt"), "changed content")?;
+    fs::write(repo.path().join("file.txt"), "changed content")?;
     let _commit2_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two", None)?;
 
@@ -370,11 +357,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 #[test]
 fn head_corrupt_is_recreated_automatically() {
     let Test {
-        repository,
-
-        project,
-        ctx,
-        ..
+        repo, project, ctx, ..
     } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
@@ -390,7 +373,7 @@ fn head_corrupt_is_recreated_automatically() {
     );
 
     // overwrite oplog head with a non-commit sha
-    let oplog_path = repository.path().join(".git/gitbutler/operations-log.toml");
+    let oplog_path = repo.path().join(".git/gitbutler/operations-log.toml");
     fs::write(
         oplog_path,
         "head_sha = \"758d54f587227fba3da3b61fbb54a99c17903d59\"",

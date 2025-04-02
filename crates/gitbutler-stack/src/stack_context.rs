@@ -4,17 +4,17 @@ use gitbutler_command_context::CommandContext;
 use crate::{Target, VirtualBranchesHandle};
 
 pub struct StackContext<'repositroy> {
-    repository: &'repositroy git2::Repository,
+    repo: &'repositroy git2::Repository,
     target: Target,
 }
 
-impl<'repository> StackContext<'repository> {
-    pub fn new(repository: &'repository git2::Repository, target: Target) -> Self {
-        Self { repository, target }
+impl<'repo> StackContext<'repo> {
+    pub fn new(repo: &'repo git2::Repository, target: Target) -> Self {
+        Self { repo, target }
     }
 
-    pub fn repository(&self) -> &'repository git2::Repository {
-        self.repository
+    pub fn repo(&self) -> &'repo git2::Repository {
+        self.repo
     }
 
     pub fn target(&self) -> &Target {

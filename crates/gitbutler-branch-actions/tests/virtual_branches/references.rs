@@ -7,9 +7,7 @@ mod create_virtual_branch {
 
     #[test]
     fn simple() {
-        let Test {
-            repository, ctx, ..
-        } = &Test::default();
+        let Test { repo, ctx, .. } = &Test::default();
 
         gitbutler_branch_actions::set_base_branch(
             ctx,
@@ -27,7 +25,7 @@ mod create_virtual_branch {
         assert_eq!(branches[0].id, stack_entry.id);
         assert_eq!(branches[0].name, "Lane");
 
-        let refnames = repository
+        let refnames = repo
             .references()
             .into_iter()
             .filter_map(|reference| reference.name().map(|name| name.to_string()))
@@ -37,9 +35,7 @@ mod create_virtual_branch {
 
     #[test]
     fn duplicate_name() {
-        let Test {
-            repository, ctx, ..
-        } = &Test::default();
+        let Test { repo, ctx, .. } = &Test::default();
 
         gitbutler_branch_actions::set_base_branch(
             ctx,
@@ -73,7 +69,7 @@ mod create_virtual_branch {
         assert_eq!(branches[1].id, stack_entry_2.id);
         assert_eq!(branches[1].name, "name 1");
 
-        let refnames = repository
+        let refnames = repo
             .references()
             .into_iter()
             .filter_map(|reference| reference.name().map(|name| name.to_string()))
@@ -90,9 +86,7 @@ mod update_virtual_branch {
 
     #[test]
     fn simple() {
-        let Test {
-            repository, ctx, ..
-        } = &Test::default();
+        let Test { repo, ctx, .. } = &Test::default();
 
         gitbutler_branch_actions::set_base_branch(
             ctx,
@@ -125,7 +119,7 @@ mod update_virtual_branch {
         assert_eq!(branches[0].id, stack_entry.id);
         assert_eq!(branches[0].name, "new name");
 
-        let refnames = repository
+        let refnames = repo
             .references()
             .into_iter()
             .filter_map(|reference| reference.name().map(|name| name.to_string()))
@@ -136,9 +130,7 @@ mod update_virtual_branch {
 
     #[test]
     fn duplicate_name() {
-        let Test {
-            repository, ctx, ..
-        } = &Test::default();
+        let Test { repo, ctx, .. } = &Test::default();
 
         gitbutler_branch_actions::set_base_branch(
             ctx,
@@ -181,7 +173,7 @@ mod update_virtual_branch {
         assert_eq!(branches[1].id, stack_entry_2.id);
         assert_eq!(branches[1].name, "name 1");
 
-        let refnames = repository
+        let refnames = repo
             .references()
             .into_iter()
             .filter_map(|reference| reference.name().map(|name| name.to_string()))
@@ -198,9 +190,7 @@ mod push_virtual_branch {
 
     #[test]
     fn simple() {
-        let Test {
-            repository, ctx, ..
-        } = &Test::default();
+        let Test { repo, ctx, .. } = &Test::default();
 
         gitbutler_branch_actions::set_base_branch(
             ctx,
@@ -217,7 +207,7 @@ mod push_virtual_branch {
         )
         .unwrap();
 
-        fs::write(repository.path().join("file.txt"), "content").unwrap();
+        fs::write(repo.path().join("file.txt"), "content").unwrap();
 
         gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "test", None).unwrap();
         #[allow(deprecated)]
@@ -233,7 +223,7 @@ mod push_virtual_branch {
             "refs/remotes/origin/name"
         );
 
-        let refnames = repository
+        let refnames = repo
             .references()
             .into_iter()
             .filter_map(|reference| reference.name().map(|name| name.to_string()))
@@ -243,9 +233,7 @@ mod push_virtual_branch {
 
     #[test]
     fn duplicate_names() {
-        let Test {
-            repository, ctx, ..
-        } = &Test::default();
+        let Test { repo, ctx, .. } = &Test::default();
 
         gitbutler_branch_actions::set_base_branch(
             ctx,
@@ -263,7 +251,7 @@ mod push_virtual_branch {
                 },
             )
             .unwrap();
-            fs::write(repository.path().join("file.txt"), "content").unwrap();
+            fs::write(repo.path().join("file.txt"), "content").unwrap();
             gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "test", None).unwrap();
             #[allow(deprecated)]
             gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry_1.id, false, None)
@@ -292,7 +280,7 @@ mod push_virtual_branch {
                 },
             )
             .unwrap();
-            fs::write(repository.path().join("file.txt"), "updated content").unwrap();
+            fs::write(repo.path().join("file.txt"), "updated content").unwrap();
             gitbutler_branch_actions::create_commit(ctx, stack_entry_2.id, "test", None).unwrap();
             #[allow(deprecated)]
             gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry_2.id, false, None)
@@ -318,7 +306,7 @@ mod push_virtual_branch {
             "refs/remotes/origin/name-1".parse().unwrap()
         );
 
-        let refnames = repository
+        let refnames = repo
             .references()
             .into_iter()
             .filter_map(|reference| reference.name().map(|name| name.to_string()))

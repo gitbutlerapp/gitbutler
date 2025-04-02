@@ -278,9 +278,9 @@ impl Stack {
     /// - If a merge base cannot be found
     /// - If logging between the head and merge base fails
     pub fn commits(&self, stack_context: &StackContext) -> Result<Vec<git2::Oid>> {
-        let repository = stack_context.repository();
-        let stack_commits = repository.l(
-            self.head(&repository.to_gix()?)?,
+        let repo = stack_context.repo();
+        let stack_commits = repo.l(
+            self.head(&repo.to_gix()?)?,
             LogUntil::Commit(self.merge_base(stack_context)?),
             false,
         )?;
@@ -310,8 +310,8 @@ impl Stack {
     /// - If the head commit of the stack is not found
     pub fn merge_base(&self, stack_context: &StackContext) -> Result<git2::Oid> {
         let target = stack_context.target();
-        let repository = stack_context.repository();
-        let merge_base = repository.merge_base(self.head(&repository.to_gix()?)?, target.sha)?;
+        let repo = stack_context.repo();
+        let merge_base = repo.merge_base(self.head(&repo.to_gix()?)?, target.sha)?;
         Ok(merge_base)
     }
 
@@ -356,7 +356,7 @@ impl Stack {
         allow_duplicate_refs: bool,
     ) -> Result<StackBranch> {
         let state = branch_state(ctx);
-        let repo = ctx.gix_repository()?;
+        let repo = ctx.gix_repo()?;
         // If the stack is created for the first time, this will be the default target sha
         let head = if self.heads.is_empty() {
             self.head
@@ -442,7 +442,7 @@ impl Stack {
         let state = branch_state(ctx);
         let patches = self.stack_patches(&ctx.to_stack_context()?, true)?;
         validate_name(new_head.name(), &state)?;
-        let gix_repo = ctx.gix_repository()?;
+        let gix_repo = ctx.gix_repo()?;
         validate_target(
             new_head.head_oid(&gix_repo)?,
             ctx.repo(),
@@ -471,7 +471,7 @@ impl Stack {
         let current_top_head = self.heads.last().ok_or(anyhow!(
             "Stack is in an invalid state - heads list is empty"
         ))?;
-        let repo = ctx.gix_repository()?;
+        let repo = ctx.gix_repo()?;
         let new_head = StackBranch::new(
             current_top_head.head_oid(&repo)?.into(),
             name,
@@ -489,7 +489,7 @@ impl Stack {
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
     pub fn remove_branch(&mut self, ctx: &CommandContext, branch_name: String) -> Result<()> {
         self.ensure_initialized()?;
-        (self.heads, _) = remove_head(self.heads.clone(), branch_name, &ctx.gix_repository()?)?;
+        (self.heads, _) = remove_head(self.heads.clone(), branch_name, &ctx.gix_repo()?)?;
         let state = branch_state(ctx);
         state.set_stack(self.clone())
     }
@@ -520,7 +520,7 @@ impl Stack {
                 .find(|h: &&mut StackBranch| *h.name() == branch_name);
             if let Some(head) = head {
                 validate_name(&name, &state)?;
-                head.set_name(name, &ctx.gix_repository()?)?;
+                head.set_name(name, &ctx.gix_repo()?)?;
                 head.pr_number = None; // reset pr_number
             }
         }
@@ -664,7 +664,7 @@ impl Stack {
     pub fn push_details(&self, ctx: &CommandContext, branch_name: String) -> Result<PushDetails> {
         self.ensure_initialized()?;
         let (_, reference) = get_head(&self.heads, &branch_name)?;
-        let oid = reference.head_oid(&ctx.gix_repository()?)?;
+        let oid = reference.head_oid(&ctx.gix_repo()?)?;
         let commit = ctx.repo().find_commit(oid)?;
         let remote_name = branch_state(ctx).get_default_target()?.push_remote_name();
         let upstream_refname =
@@ -706,7 +706,7 @@ impl Stack {
         {
             return Err(anyhow!("The new head names do not match the current heads"));
         }
-        let gix_repo = ctx.gix_repository()?;
+        let gix_repo = ctx.gix_repo()?;
         for head in &mut self.heads {
             if let Some(commit) = new_heads.get(head.name()) {
                 head.set_head(commit.clone().into(), &gix_repo)?;
@@ -739,7 +739,7 @@ impl Stack {
             return Ok(());
         }
 
-        let stack_head = self.head(&ctx.gix_repository()?)?;
+        let stack_head = self.head(&ctx.gix_repo()?)?;
         let stack_ctx = ctx.to_stack_context()?;
         let merge_base = self.merge_base(&stack_ctx)?;
 
@@ -797,7 +797,7 @@ impl Stack {
         stack_context: &StackContext,
         include_merge_base: bool,
     ) -> Result<Vec<CommitOrChangeId>> {
-        let repository = stack_context.repository();
+        let repo = stack_context.repo();
 
         let commits = if include_merge_base {
             self.commits_with_merge_base(stack_context)?
@@ -809,8 +809,7 @@ impl Stack {
             .rev()
             .filter_map(
                 |oid| {
-                    repository
-                        .find_commit(oid)
+                    repo.find_commit(oid)
                         .ok()
                         .map(|c| CommitOrChangeId::CommitId(c.id().to_string()))
                 }, // repository.lookup_change_id_or_oid(commit).ok()
@@ -935,14 +934,12 @@ fn generate_branch_name(author: git2::Signature) -> Result<String> {
     normalize_branch_name(&branch_name)
 }
 
-fn local_reference_exists(repository: &gix::Repository, name: &str) -> Result<bool> {
-    Ok(repository
-        .find_reference(name_partial(name.into())?)
-        .is_ok())
+fn local_reference_exists(repo: &gix::Repository, name: &str) -> Result<bool> {
+    Ok(repo.find_reference(name_partial(name.into())?).is_ok())
 }
 
 fn remote_reference_exists(
-    repository: &gix::Repository,
+    repo: &gix::Repository,
     state: &VirtualBranchesHandle,
     name: &String,
 ) -> Result<bool> {
@@ -950,7 +947,7 @@ fn remote_reference_exists(
         name,
         state.get_default_target()?.push_remote_name().as_str(),
     );
-    local_reference_exists(repository, &remote_ref)
+    local_reference_exists(repo, &remote_ref)
 }
 
 #[cfg(test)]

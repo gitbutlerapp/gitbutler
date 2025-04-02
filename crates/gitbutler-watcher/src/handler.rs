@@ -149,7 +149,7 @@ impl Handler {
 
         if ctx.app_settings().feature_flags.v3 {
             // This is part of the v3 APIs set and in the future this fully replaces the list virtual branches flow
-            let _ = self.emit_worktree_changes(ctx.gix_repository()?, ctx.project().id);
+            let _ = self.emit_worktree_changes(ctx.gix_repo()?, ctx.project().id);
         } else if in_open_workspace_mode(ctx) {
             self.maybe_create_snapshot(ctx.project()).ok();
             self.calculate_virtual_branches(ctx, worktree_changes)?;

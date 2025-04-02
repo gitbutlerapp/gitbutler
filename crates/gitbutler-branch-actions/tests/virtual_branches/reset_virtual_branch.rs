@@ -6,9 +6,7 @@ use super::Test;
 
 #[test]
 fn to_head() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -18,7 +16,7 @@ fn to_head() {
             .unwrap();
 
     let oid = {
-        fs::write(repository.path().join("file.txt"), "content").unwrap();
+        fs::write(repo.path().join("file.txt"), "content").unwrap();
 
         // commit changes
         let oid =
@@ -32,7 +30,7 @@ fn to_head() {
         assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid);
         assert_eq!(branches[0].files.len(), 0);
         assert_eq!(
-            fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+            fs::read_to_string(repo.path().join("file.txt")).unwrap(),
             "content"
         );
 
@@ -51,7 +49,7 @@ fn to_head() {
         assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid);
         assert_eq!(branches[0].files.len(), 0);
         assert_eq!(
-            fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+            fs::read_to_string(repo.path().join("file.txt")).unwrap(),
             "content"
         );
     }
@@ -59,9 +57,7 @@ fn to_head() {
 
 #[test]
 fn to_target() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     let base_branch = gitbutler_branch_actions::set_base_branch(
         ctx,
@@ -74,7 +70,7 @@ fn to_target() {
             .unwrap();
 
     {
-        fs::write(repository.path().join("file.txt"), "content").unwrap();
+        fs::write(repo.path().join("file.txt"), "content").unwrap();
 
         // commit changes
         let oid =
@@ -88,7 +84,7 @@ fn to_target() {
         assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid);
         assert_eq!(branches[0].files.len(), 0);
         assert_eq!(
-            fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+            fs::read_to_string(repo.path().join("file.txt")).unwrap(),
             "content"
         );
     }
@@ -105,7 +101,7 @@ fn to_target() {
         assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 0);
         assert_eq!(branches[0].files.len(), 1);
         assert_eq!(
-            fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+            fs::read_to_string(repo.path().join("file.txt")).unwrap(),
             "content"
         );
     }
@@ -113,9 +109,7 @@ fn to_target() {
 
 #[test]
 fn to_commit() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -127,7 +121,7 @@ fn to_commit() {
     let first_commit_oid = {
         // commit some changes
 
-        fs::write(repository.path().join("file.txt"), "content").unwrap();
+        fs::write(repo.path().join("file.txt"), "content").unwrap();
 
         let oid =
             gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "commit", None).unwrap();
@@ -140,7 +134,7 @@ fn to_commit() {
         assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid);
         assert_eq!(branches[0].files.len(), 0);
         assert_eq!(
-            fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+            fs::read_to_string(repo.path().join("file.txt")).unwrap(),
             "content"
         );
 
@@ -149,7 +143,7 @@ fn to_commit() {
 
     {
         // commit some more
-        fs::write(repository.path().join("file.txt"), "more content").unwrap();
+        fs::write(repo.path().join("file.txt"), "more content").unwrap();
 
         let second_commit_oid =
             gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "commit", None).unwrap();
@@ -169,7 +163,7 @@ fn to_commit() {
         );
         assert_eq!(branches[0].files.len(), 0);
         assert_eq!(
-            fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+            fs::read_to_string(repo.path().join("file.txt")).unwrap(),
             "more content"
         );
     }
@@ -190,7 +184,7 @@ fn to_commit() {
         );
         assert_eq!(branches[0].files.len(), 1);
         assert_eq!(
-            fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+            fs::read_to_string(repo.path().join("file.txt")).unwrap(),
             "more content"
         );
     }
@@ -198,9 +192,7 @@ fn to_commit() {
 
 #[test]
 fn to_non_existing() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -210,7 +202,7 @@ fn to_non_existing() {
             .unwrap();
 
     {
-        fs::write(repository.path().join("file.txt"), "content").unwrap();
+        fs::write(repo.path().join("file.txt"), "content").unwrap();
 
         // commit changes
         let oid =
@@ -224,7 +216,7 @@ fn to_non_existing() {
         assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid);
         assert_eq!(branches[0].files.len(), 0);
         assert_eq!(
-            fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+            fs::read_to_string(repo.path().join("file.txt")).unwrap(),
             "content"
         );
 

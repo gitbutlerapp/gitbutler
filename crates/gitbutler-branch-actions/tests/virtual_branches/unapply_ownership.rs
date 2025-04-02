@@ -7,9 +7,7 @@ use super::Test;
 
 #[test]
 fn should_unapply_with_commits() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -19,7 +17,7 @@ fn should_unapply_with_commits() {
             .unwrap();
 
     fs::write(
-        repository.path().join("file.txt"),
+        repo.path().join("file.txt"),
         "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n",
     )
     .unwrap();
@@ -27,7 +25,7 @@ fn should_unapply_with_commits() {
 
     // change in the committed hunks leads to hunk locking
     fs::write(
-        repository.path().join("file.txt"),
+        repo.path().join("file.txt"),
         "_\n2\n3\n4\n5\n6\n7\n8\n9\n_\n",
     )
     .unwrap();

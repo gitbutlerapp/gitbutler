@@ -7,7 +7,7 @@ use super::*;
 #[test]
 fn forcepush_allowed() -> anyhow::Result<()> {
     let Test {
-        repository,
+        repo,
         project_id,
 
         projects,
@@ -37,7 +37,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
             .unwrap();
 
     // create commit
-    fs::write(repository.path().join("file.txt"), "content").unwrap();
+    fs::write(repo.path().join("file.txt"), "content").unwrap();
     let commit_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap();
 
@@ -46,7 +46,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
 
     {
         // amend another hunk
-        fs::write(repository.path().join("file2.txt"), "content2").unwrap();
+        fs::write(repo.path().join("file2.txt"), "content2").unwrap();
         // let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         let to_amend = vec![DiffSpec {
             previous_path: None,
@@ -79,9 +79,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
 
 #[test]
 fn forcepush_forbidden() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -101,7 +99,7 @@ fn forcepush_forbidden() {
     .unwrap();
 
     // create commit
-    fs::write(repository.path().join("file.txt"), "content").unwrap();
+    fs::write(repo.path().join("file.txt"), "content").unwrap();
     let commit_oid =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap();
 
@@ -109,7 +107,7 @@ fn forcepush_forbidden() {
     gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry.id, false, None).unwrap();
 
     {
-        fs::write(repository.path().join("file2.txt"), "content2").unwrap();
+        fs::write(repo.path().join("file2.txt"), "content2").unwrap();
         // let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         let to_amend = vec![DiffSpec {
             previous_path: None,
@@ -132,9 +130,7 @@ fn forcepush_forbidden() {
 
 #[test]
 fn non_locked_hunk() -> anyhow::Result<()> {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -144,7 +140,7 @@ fn non_locked_hunk() -> anyhow::Result<()> {
             .unwrap();
 
     // create commit
-    fs::write(repository.path().join("file.txt"), "content").unwrap();
+    fs::write(repo.path().join("file.txt"), "content").unwrap();
     let commit_oid =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap();
 
@@ -159,7 +155,7 @@ fn non_locked_hunk() -> anyhow::Result<()> {
 
     {
         // amend another hunk
-        fs::write(repository.path().join("file2.txt"), "content2").unwrap();
+        fs::write(repo.path().join("file2.txt"), "content2").unwrap();
         // let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         let to_amend = vec![DiffSpec {
             previous_path: None,
@@ -191,9 +187,7 @@ fn non_locked_hunk() -> anyhow::Result<()> {
 
 #[test]
 fn locked_hunk() -> anyhow::Result<()> {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -203,7 +197,7 @@ fn locked_hunk() -> anyhow::Result<()> {
             .unwrap();
 
     // create commit
-    fs::write(repository.path().join("file.txt"), "content").unwrap();
+    fs::write(repo.path().join("file.txt"), "content").unwrap();
     let commit_oid =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap();
 
@@ -222,7 +216,7 @@ fn locked_hunk() -> anyhow::Result<()> {
 
     {
         // amend another hunk
-        fs::write(repository.path().join("file.txt"), "more content").unwrap();
+        fs::write(repo.path().join("file.txt"), "more content").unwrap();
         // let to_amend: BranchOwnershipClaims = "file.txt:1-2".parse().unwrap();
         let to_amend = vec![DiffSpec {
             previous_path: None,
@@ -255,9 +249,7 @@ fn locked_hunk() -> anyhow::Result<()> {
 
 #[test]
 fn non_existing_ownership() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -267,7 +259,7 @@ fn non_existing_ownership() {
             .unwrap();
 
     // create commit
-    fs::write(repository.path().join("file.txt"), "content").unwrap();
+    fs::write(repo.path().join("file.txt"), "content").unwrap();
     let commit_oid =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap();
 

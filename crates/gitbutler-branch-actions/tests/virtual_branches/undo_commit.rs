@@ -5,9 +5,7 @@ use super::*;
 
 #[test]
 fn undo_commit_simple() -> anyhow::Result<()> {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -17,18 +15,18 @@ fn undo_commit_simple() -> anyhow::Result<()> {
             .unwrap();
 
     // create commit
-    fs::write(repository.path().join("file.txt"), "content").unwrap();
+    fs::write(repo.path().join("file.txt"), "content").unwrap();
     let _commit1_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap();
 
     // create commit
-    fs::write(repository.path().join("file2.txt"), "content2").unwrap();
-    fs::write(repository.path().join("file3.txt"), "content3").unwrap();
+    fs::write(repo.path().join("file2.txt"), "content2").unwrap();
+    fs::write(repo.path().join("file3.txt"), "content3").unwrap();
     let commit2_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two", None).unwrap();
 
     // create commit
-    fs::write(repository.path().join("file4.txt"), "content4").unwrap();
+    fs::write(repo.path().join("file4.txt"), "content4").unwrap();
     let _commit3_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None).unwrap();
 
@@ -67,9 +65,7 @@ fn undo_commit_simple() -> anyhow::Result<()> {
 
 #[test]
 fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -79,18 +75,18 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
             .unwrap();
 
     // create commit
-    fs::write(repository.path().join("file.txt"), "content").unwrap();
+    fs::write(repo.path().join("file.txt"), "content").unwrap();
     let _commit1_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap();
 
     // create commit
-    fs::write(repository.path().join("file2.txt"), "content2").unwrap();
-    fs::write(repository.path().join("file3.txt"), "content3").unwrap();
+    fs::write(repo.path().join("file2.txt"), "content2").unwrap();
+    fs::write(repo.path().join("file3.txt"), "content3").unwrap();
     let commit2_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two", None).unwrap();
 
     // create commit
-    fs::write(repository.path().join("file4.txt"), "content4").unwrap();
+    fs::write(repo.path().join("file4.txt"), "content4").unwrap();
     let _commit3_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None).unwrap();
 

@@ -3,14 +3,12 @@ use bstr::ByteVec;
 use std::borrow::Cow;
 
 pub struct Config<'a> {
-    git_repository: &'a git2::Repository,
+    git_repo: &'a git2::Repository,
 }
 
 impl<'a> From<&'a git2::Repository> for Config<'a> {
     fn from(value: &'a git2::Repository) -> Self {
-        Self {
-            git_repository: value,
-        }
+        Self { git_repo: value }
     }
 }
 
@@ -33,7 +31,7 @@ impl Config<'_> {
     }
 
     pub fn set_local(&self, key: &str, val: &str) -> Result<()> {
-        let config = self.git_repository.config()?;
+        let config = self.git_repo.config()?;
         match config.open_level(git2::ConfigLevel::Local) {
             Ok(mut local) => local.set_str(key, val).map_err(Into::into),
             Err(err) => Err(err.into()),
@@ -41,7 +39,7 @@ impl Config<'_> {
     }
 
     pub fn get_local(&self, key: &str) -> Result<Option<String>> {
-        let repo = gix::open(self.git_repository.path())?;
+        let repo = gix::open(self.git_repo.path())?;
         Ok(repo
             .config_snapshot()
             .string_filter(key, |meta| meta.source == gix::config::Source::Local)
@@ -49,7 +47,7 @@ impl Config<'_> {
     }
 
     fn get_string(&self, key: &str) -> Result<Option<String>> {
-        let config = self.git_repository.config()?;
+        let config = self.git_repo.config()?;
         match config.get_string(key) {
             Ok(value) => Ok(Some(value)),
             Err(err) => match err.code() {

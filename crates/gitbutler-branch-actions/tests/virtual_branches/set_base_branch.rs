@@ -37,15 +37,13 @@ mod go_back_to_workspace {
 
     #[test]
     fn should_preserve_applied_vbranches() {
-        let Test {
-            repository, ctx, ..
-        } = &Test::default();
+        let Test { repo, ctx, .. } = &Test::default();
 
-        std::fs::write(repository.path().join("file.txt"), "one").unwrap();
-        let oid_one = repository.commit_all("one");
-        std::fs::write(repository.path().join("file.txt"), "two").unwrap();
-        repository.commit_all("two");
-        repository.push();
+        std::fs::write(repo.path().join("file.txt"), "one").unwrap();
+        let oid_one = repo.commit_all("one");
+        std::fs::write(repo.path().join("file.txt"), "two").unwrap();
+        repo.commit_all("two");
+        repo.push();
 
         gitbutler_branch_actions::set_base_branch(
             ctx,
@@ -57,7 +55,7 @@ mod go_back_to_workspace {
             gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
                 .unwrap();
 
-        std::fs::write(repository.path().join("another file.txt"), "content").unwrap();
+        std::fs::write(repo.path().join("another file.txt"), "content").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "one", None).unwrap();
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
@@ -65,7 +63,7 @@ mod go_back_to_workspace {
 
         assert_eq!(branches.len(), 1);
 
-        repository.checkout_commit(oid_one);
+        repo.checkout_commit(oid_one);
 
         gitbutler_branch_actions::set_base_branch(
             ctx,
@@ -82,15 +80,13 @@ mod go_back_to_workspace {
 
     #[test]
     fn from_target_branch_index_conflicts() {
-        let Test {
-            repository, ctx, ..
-        } = &Test::default();
+        let Test { repo, ctx, .. } = &Test::default();
 
-        std::fs::write(repository.path().join("file.txt"), "one").unwrap();
-        let oid_one = repository.commit_all("one");
-        std::fs::write(repository.path().join("file.txt"), "two").unwrap();
-        repository.commit_all("two");
-        repository.push();
+        std::fs::write(repo.path().join("file.txt"), "one").unwrap();
+        let oid_one = repo.commit_all("one");
+        std::fs::write(repo.path().join("file.txt"), "two").unwrap();
+        repo.commit_all("two");
+        repo.push();
 
         gitbutler_branch_actions::set_base_branch(
             ctx,
@@ -103,8 +99,8 @@ mod go_back_to_workspace {
 
         assert!(branches.is_empty());
 
-        repository.checkout_commit(oid_one);
-        std::fs::write(repository.path().join("file.txt"), "tree").unwrap();
+        repo.checkout_commit(oid_one);
+        std::fs::write(repo.path().join("file.txt"), "tree").unwrap();
 
         assert!(matches!(
             gitbutler_branch_actions::set_base_branch(
@@ -119,15 +115,13 @@ mod go_back_to_workspace {
 
     #[test]
     fn from_target_branch_with_uncommited() {
-        let Test {
-            repository, ctx, ..
-        } = &Test::default();
+        let Test { repo, ctx, .. } = &Test::default();
 
-        std::fs::write(repository.path().join("file.txt"), "one").unwrap();
-        let oid_one = repository.commit_all("one");
-        std::fs::write(repository.path().join("file.txt"), "two").unwrap();
-        repository.commit_all("two");
-        repository.push();
+        std::fs::write(repo.path().join("file.txt"), "one").unwrap();
+        let oid_one = repo.commit_all("one");
+        std::fs::write(repo.path().join("file.txt"), "two").unwrap();
+        repo.commit_all("two");
+        repo.push();
 
         gitbutler_branch_actions::set_base_branch(
             ctx,
@@ -139,8 +133,8 @@ mod go_back_to_workspace {
         let branches = list_result.branches;
         assert!(branches.is_empty());
 
-        repository.checkout_commit(oid_one);
-        std::fs::write(repository.path().join("another file.txt"), "tree").unwrap();
+        repo.checkout_commit(oid_one);
+        std::fs::write(repo.path().join("another file.txt"), "tree").unwrap();
 
         assert!(matches!(
             gitbutler_branch_actions::set_base_branch(
@@ -155,15 +149,13 @@ mod go_back_to_workspace {
 
     #[test]
     fn from_target_branch_with_commit() {
-        let Test {
-            repository, ctx, ..
-        } = &Test::default();
+        let Test { repo, ctx, .. } = &Test::default();
 
-        std::fs::write(repository.path().join("file.txt"), "one").unwrap();
-        let oid_one = repository.commit_all("one");
-        std::fs::write(repository.path().join("file.txt"), "two").unwrap();
-        repository.commit_all("two");
-        repository.push();
+        std::fs::write(repo.path().join("file.txt"), "one").unwrap();
+        let oid_one = repo.commit_all("one");
+        std::fs::write(repo.path().join("file.txt"), "two").unwrap();
+        repo.commit_all("two");
+        repo.push();
 
         let base = gitbutler_branch_actions::set_base_branch(
             ctx,
@@ -175,9 +167,9 @@ mod go_back_to_workspace {
         let branches = list_result.branches;
         assert!(branches.is_empty());
 
-        repository.checkout_commit(oid_one);
-        std::fs::write(repository.path().join("another file.txt"), "tree").unwrap();
-        repository.commit_all("three");
+        repo.checkout_commit(oid_one);
+        std::fs::write(repo.path().join("another file.txt"), "tree").unwrap();
+        repo.commit_all("three");
 
         let base_two = gitbutler_branch_actions::set_base_branch(
             ctx,
@@ -193,15 +185,13 @@ mod go_back_to_workspace {
 
     #[test]
     fn from_target_branch_without_any_changes() {
-        let Test {
-            repository, ctx, ..
-        } = &Test::default();
+        let Test { repo, ctx, .. } = &Test::default();
 
-        std::fs::write(repository.path().join("file.txt"), "one").unwrap();
-        let oid_one = repository.commit_all("one");
-        std::fs::write(repository.path().join("file.txt"), "two").unwrap();
-        repository.commit_all("two");
-        repository.push();
+        std::fs::write(repo.path().join("file.txt"), "one").unwrap();
+        let oid_one = repo.commit_all("one");
+        std::fs::write(repo.path().join("file.txt"), "two").unwrap();
+        repo.commit_all("two");
+        repo.push();
 
         let base = gitbutler_branch_actions::set_base_branch(
             ctx,
@@ -213,7 +203,7 @@ mod go_back_to_workspace {
         let branches = list_result.branches;
         assert!(branches.is_empty());
 
-        repository.checkout_commit(oid_one);
+        repo.checkout_commit(oid_one);
 
         let base_two = gitbutler_branch_actions::set_base_branch(
             ctx,

@@ -43,7 +43,7 @@ pub fn reorder_stack(
     let current_order = commits_order(&ctx.to_stack_context()?, &stack)?;
     new_order.validate(current_order.clone())?;
 
-    let gix_repo = ctx.gix_repository()?;
+    let gix_repo = ctx.gix_repo()?;
     let default_target = state.get_default_target()?;
     let default_target_commit = repo
         .find_reference(&default_target.branch.to_string())?

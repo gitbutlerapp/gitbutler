@@ -108,7 +108,7 @@ pub fn create_virtual_branch(
     let mut guard = ctx.project().exclusive_worktree_access();
     let branch_manager = ctx.branch_manager();
     let stack = branch_manager.create_virtual_branch(create, guard.write_permission())?;
-    let repo = ctx.gix_repository()?;
+    let repo = ctx.gix_repo()?;
     Ok(StackEntry {
         id: stack.id,
         branch_names: stack.heads().into_iter().map(Into::into).collect(),
@@ -338,7 +338,7 @@ fn amend_with_commit_engine(
     }
 
     let outcome = commit_engine::create_commit_and_update_refs_with_project(
-        &ctx.gix_repository()?,
+        &ctx.gix_repo()?,
         ctx.project(),
         Some(stack_id),
         commit_engine::Destination::AmendCommit(commit_oid.to_gix()),
@@ -603,7 +603,7 @@ pub fn upstream_integration_statuses(
 ) -> Result<StackStatuses> {
     let mut guard = ctx.project().exclusive_worktree_access();
 
-    let gix_repo = ctx.gix_repository()?;
+    let gix_repo = ctx.gix_repo()?;
     let context = UpstreamIntegrationContext::open(
         ctx,
         target_commit_oid,
