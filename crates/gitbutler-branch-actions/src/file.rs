@@ -49,10 +49,10 @@ impl From<FileDiff> for RemoteBranchFile {
 }
 
 pub fn list_commit_files(
-    repository: &git2::Repository,
+    repo: &git2::Repository,
     commit_id: git2::Oid,
 ) -> Result<Vec<RemoteBranchFile>> {
-    let commit = repository
+    let commit = repo
         .find_commit(commit_id)
         .map_err(|err| match err.code() {
             git2::ErrorCode::NotFound => anyhow!("commit {commit_id} not found"),
@@ -65,13 +65,13 @@ pub fn list_commit_files(
     }
 
     let parent = commit.parent(0).context("failed to get parent commit")?;
-    let commit_tree = repository
+    let commit_tree = repo
         .find_real_tree(&commit, Default::default())
         .context("failed to get commit tree")?;
-    let parent_tree = repository
+    let parent_tree = repo
         .find_real_tree(&parent, Default::default())
         .context("failed to get parent tree")?;
-    let diff_files = gitbutler_diff::trees(repository, &parent_tree, &commit_tree, true)?;
+    let diff_files = gitbutler_diff::trees(repo, &parent_tree, &commit_tree, true)?;
     Ok(diff_files.into_values().map(|file| file.into()).collect())
 }
 
@@ -114,11 +114,11 @@ pub(crate) fn list_virtual_commit_files(
         return Ok(vec![]);
     }
     let parent = commit.parent(0).context("failed to get parent commit")?;
-    let repository = ctx.repo();
-    let commit_tree = repository
+    let repo = ctx.repo();
+    let commit_tree = repo
         .find_real_tree(commit, Default::default())
         .context("failed to get commit tree")?;
-    let parent_tree = repository
+    let parent_tree = repo
         .find_real_tree(&parent, Default::default())
         .context("failed to get parent tree")?;
     let diff = gitbutler_diff::trees(ctx.repo(), &parent_tree, &commit_tree, context_lines)?;

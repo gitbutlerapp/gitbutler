@@ -111,7 +111,7 @@ impl BranchManager<'_> {
             // resolve conflicts in the favor of `ours` (the cwdt) which will
             // keep any locked changes in the cwdt.
 
-            let gix_repo = self.ctx.gix_repository()?;
+            let gix_repo = self.ctx.gix_repo()?;
             let merge_options = gix_repo
                 .tree_merge_options()?
                 .with_file_favor(Some(gix::merge::tree::FileFavor::Ours))
@@ -151,7 +151,7 @@ impl BranchManager<'_> {
                     num_branches = applied_statuses.len() - 1
                 )
                 .entered();
-                let gix_repo = self.ctx.gix_repository()?;
+                let gix_repo = self.ctx.gix_repo()?;
                 let merge_options = gix_repo.tree_merge_options()?;
                 let final_tree_id = applied_statuses
                     .into_iter()

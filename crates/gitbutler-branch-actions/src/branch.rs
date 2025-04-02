@@ -55,7 +55,7 @@ pub fn list_branches(
     filter: Option<BranchListingFilter>,
     filter_branch_names: Option<Vec<BranchIdentity>>,
 ) -> Result<Vec<BranchListing>> {
-    let mut repo = ctx.gix_repository()?;
+    let mut repo = ctx.gix_repo()?;
     repo.object_cache_size_if_unset(1024 * 1024);
     let has_filter = filter.is_some();
     let filter = filter.unwrap_or_default();
@@ -523,7 +523,7 @@ pub fn get_branch_listing_details(
         .map(TryInto::try_into)
         .filter_map(Result::ok)
         .collect();
-    let repo = ctx.gix_repository_minimal()?.for_tree_diffing()?;
+    let repo = ctx.gix_repo_minimal()?.for_tree_diffing()?;
     let branches = list_branches(ctx, None, Some(branch_names))?;
 
     let (default_target_current_upstream_commit_id, default_target_seen_at_last_update) = {

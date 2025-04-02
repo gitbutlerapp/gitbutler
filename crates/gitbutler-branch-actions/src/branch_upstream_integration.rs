@@ -51,7 +51,7 @@ pub fn integrate_upstream_commits_for_series(
         .ok_or(anyhow!("Series not found"))?;
     let upstream_reference = subject_branch.remote_reference(remote.as_str());
     let remote_head = repo.find_reference(&upstream_reference)?.peel_to_commit()?;
-    let gix_repo = ctx.gix_repository()?;
+    let gix_repo = ctx.gix_repo()?;
 
     let series_head = subject_branch.head_oid(&gix_repo)?;
     let series_head = repo.find_commit(series_head)?;
@@ -67,7 +67,7 @@ pub fn integrate_upstream_commits_for_series(
     });
 
     let integrate_upstream_context = IntegrateUpstreamContext {
-        repository: repo,
+        repo,
         target_branch_head: default_target.sha,
         branch_head: stack.head(&gix_repo)?,
         branch_tree: stack.tree,
@@ -107,7 +107,7 @@ pub enum IntegrationStrategy {
 }
 
 struct IntegrateUpstreamContext<'a, 'b> {
-    repository: &'a git2::Repository,
+    repo: &'a git2::Repository,
     /// GitButler's target branch
     target_branch_head: git2::Oid,
 
@@ -144,10 +144,10 @@ impl IntegrateUpstreamContext<'_, '_> {
         let (new_stack_head, new_series_head, rebase_output) = match self.strategy {
             IntegrationStrategy::Merge => {
                 // If rebase is not allowed AND this is the latest series - create a merge commit on top
-                let series_head_commit = self.repository.find_commit(series_head)?;
-                let remote_head_commit = self.repository.find_commit(self.remote_head)?;
+                let series_head_commit = self.repo.find_commit(series_head)?;
+                let remote_head_commit = self.repo.find_commit(self.remote_head)?;
                 let merge_commit = gitbutler_merge_commits(
-                    self.repository,
+                    self.repo,
                     series_head_commit,
                     remote_head_commit,
                     self.branch_name,        // for error messages only
@@ -170,7 +170,7 @@ impl IntegrateUpstreamContext<'_, '_> {
                     }
                 }
 
-                let merge_base = self.repository.merge_base_octopussy(&[
+                let merge_base = self.repo.merge_base_octopussy(&[
                     self.target_branch_head,
                     series_head,
                     self.remote_head,
@@ -192,7 +192,7 @@ impl IntegrateUpstreamContext<'_, '_> {
                     merge_base,
                     ordered_commits,
                 } = order_commits_for_rebasing(
-                    self.repository,
+                    self.repo,
                     self.target_branch_head,
                     series_head,
                     self.remote_head,
@@ -236,7 +236,7 @@ impl IntegrateUpstreamContext<'_, '_> {
         } else {
             #[allow(deprecated)]
             let res = compute_updated_branch_head_for_commits(
-                self.repository,
+                self.repo,
                 self.gix_repo,
                 self.branch_head,
                 self.branch_tree,
@@ -278,20 +278,18 @@ struct OrderCommitsResult {
 /// 3. If a remote commit does not match the any local commits, insert it in the order it came.
 /// 4. Insert the unmatched local commits above its parents.
 fn order_commits_for_rebasing(
-    repository: &git2::Repository,
+    repo: &git2::Repository,
     target_branch_head: git2::Oid,
     local_head: git2::Oid,
     remote_head: git2::Oid,
 ) -> Result<OrderCommitsResult> {
-    let merge_base =
-        repository.merge_base_octopussy(&[target_branch_head, local_head, remote_head])?;
+    let merge_base = repo.merge_base_octopussy(&[target_branch_head, local_head, remote_head])?;
 
     // 1. Build the change id map for the local branch.
-    let local_branch_commits =
-        repository.l(local_head, LogUntil::Commit(target_branch_head), false)?;
-    let remote_branch_commits = repository.l(remote_head, LogUntil::Commit(merge_base), false)?;
+    let local_branch_commits = repo.l(local_head, LogUntil::Commit(target_branch_head), false)?;
+    let remote_branch_commits = repo.l(remote_head, LogUntil::Commit(merge_base), false)?;
 
-    let change_id_map = build_change_id_map(&local_branch_commits, repository)?;
+    let change_id_map = build_change_id_map(&local_branch_commits, repo)?;
 
     let mut ordered_for_zipping: Vec<(Option<String>, git2::Oid)> = vec![];
     let mut added_local_commits: HashSet<git2::Oid> = HashSet::new();
@@ -299,7 +297,7 @@ fn order_commits_for_rebasing(
     // 2. Start populating the ordered list with the remote commits
     // and their respective local commits (matched by change id).
     process_remote_commits_for_zipping(
-        repository,
+        repo,
         &change_id_map,
         remote_branch_commits,
         &mut ordered_for_zipping,
@@ -308,7 +306,7 @@ fn order_commits_for_rebasing(
 
     // 3. Add the remaining local commits.
     insert_remaining_local_commits(
-        repository,
+        repo,
         target_branch_head,
         local_branch_commits,
         &added_local_commits,
@@ -332,7 +330,7 @@ fn order_commits_for_rebasing(
 /// All the local commits that were not matched by an incoming change id need to be inserted
 /// at the right position in the ordered list.
 fn insert_remaining_local_commits(
-    repository: &git2::Repository,
+    repo: &git2::Repository,
     merge_base: git2::Oid,
     local_branch_commits: Vec<git2::Oid>,
     added_local_commits: &HashSet<git2::Oid>,
@@ -346,13 +344,13 @@ fn insert_remaining_local_commits(
 
     for remaining_commit_id in branch_commits_remaining {
         let insertion_index = find_insertion_index_for_remaining_commit(
-            repository,
+            repo,
             remaining_commit_id,
             merge_base,
             ordered_for_zipping,
         )?;
 
-        let remaining_commit = repository.find_commit(*remaining_commit_id)?;
+        let remaining_commit = repo.find_commit(*remaining_commit_id)?;
         ordered_for_zipping.insert(
             insertion_index,
             (remaining_commit.change_id(), *remaining_commit_id),
@@ -370,16 +368,16 @@ fn insert_remaining_local_commits(
 ///
 /// The insertion index is the index of the first parent of the remaining commit.
 fn find_insertion_index_for_remaining_commit(
-    repository: &git2::Repository,
+    repo: &git2::Repository,
     remaining_commit_id: &git2::Oid,
     merge_base: git2::Oid,
     ordered_for_zipping: &[(Option<String>, git2::Oid)],
 ) -> Result<usize, anyhow::Error> {
     let remaining_commit_id_parent_ids =
-        repository.l(*remaining_commit_id, LogUntil::Commit(merge_base), false)?;
+        repo.l(*remaining_commit_id, LogUntil::Commit(merge_base), false)?;
     let remaining_commit_id_parents = remaining_commit_id_parent_ids
         .iter()
-        .filter_map(|id| repository.find_commit(*id).ok())
+        .filter_map(|id| repo.find_commit(*id).ok())
         .collect_vec();
 
     let mut insertion_index = None;
@@ -432,7 +430,7 @@ fn find_insertion_index_for_remaining_commit(
 /// right after the first remote commit that matches the change id.
 /// And we are force to assume that because there is no way to know better, yet.
 fn process_remote_commits_for_zipping<'a>(
-    repository: &'a git2::Repository,
+    repo: &'a git2::Repository,
     change_id_map: &'a HashMap<String, Vec<git2::Oid>>,
     remote_branch_commits: Vec<git2::Oid>,
     ordered_for_zipping: &'a mut Vec<(Option<String>, git2::Oid)>,
@@ -440,7 +438,7 @@ fn process_remote_commits_for_zipping<'a>(
 ) -> Result<(), anyhow::Error> {
     let mut visited_change_ids = HashSet::new();
     for remote_commit_id in remote_branch_commits {
-        let remote_commit = repository.find_commit(remote_commit_id)?;
+        let remote_commit = repo.find_commit(remote_commit_id)?;
 
         let change_id = match remote_commit.change_id() {
             Some(change_id) => change_id,
@@ -473,11 +471,11 @@ fn process_remote_commits_for_zipping<'a>(
 /// Usually, a change id is unique to a commit, but it's not a certainty.
 fn build_change_id_map(
     local_branch_commits: &[git2::Oid],
-    repository: &git2::Repository,
+    repo: &git2::Repository,
 ) -> Result<HashMap<String, Vec<git2::Oid>>> {
     let mut change_id_map = HashMap::new();
     for commit_id in local_branch_commits {
-        let commit = repository.find_commit(*commit_id)?;
+        let commit = repo.find_commit(*commit_id)?;
         let change_id = match commit.change_id() {
             Some(change_id) => change_id,
             None => continue,
@@ -514,13 +512,13 @@ mod test {
         /// Result Series One Head: Y
         #[test]
         fn other_added_remote_changes_multiple_series() {
-            let test_repository = TestingRepository::open();
+            let repo = TestingRepository::open();
 
-            let base_commit = test_repository.commit_tree(None, &[("foo.txt", "foo")]);
-            let local_a = test_repository.commit_tree(Some(&base_commit), &[("foo.txt", "foo1")]);
-            let local_b = test_repository.commit_tree(Some(&local_a), &[("foo.txt", "foo2")]);
-            let local_c = test_repository.commit_tree(Some(&local_b), &[("foo.txt", "fooC")]);
-            let local_d = test_repository.commit_tree(Some(&local_c), &[("foo.txt", "fooD")]);
+            let base_commit = repo.commit_tree(None, &[("foo.txt", "foo")]);
+            let local_a = repo.commit_tree(Some(&base_commit), &[("foo.txt", "foo1")]);
+            let local_b = repo.commit_tree(Some(&local_a), &[("foo.txt", "foo2")]);
+            let local_c = repo.commit_tree(Some(&local_b), &[("foo.txt", "fooC")]);
+            let local_d = repo.commit_tree(Some(&local_c), &[("foo.txt", "fooD")]);
 
             let steps = vec![
                 RebaseStep::Pick {
@@ -543,11 +541,11 @@ mod test {
                 RebaseStep::Reference(but_core::Reference::Virtual("Two".to_string())),
             ];
 
-            let remote_x = test_repository.commit_tree(Some(&local_b), &[("foo.txt", "foo3")]);
-            let remote_y = test_repository.commit_tree(Some(&remote_x), &[("foo.txt", "foo4")]);
+            let remote_x = repo.commit_tree(Some(&local_b), &[("foo.txt", "foo3")]);
+            let remote_y = repo.commit_tree(Some(&remote_x), &[("foo.txt", "foo4")]);
 
             let ctx = IntegrateUpstreamContext {
-                repository: &test_repository.repository,
+                repo: &repo.repository,
                 target_branch_head: base_commit.id(),
                 branch_head: local_d.id(),
                 branch_tree: local_d.tree_id(),
@@ -558,7 +556,7 @@ mod test {
                 strategy: IntegrationStrategy::Rebase,
                 v3: false,
                 stack_steps: steps,
-                gix_repo: &test_repository.gix_repository(),
+                gix_repo: &repo.gix_repository(),
             };
 
             let ((head, _tree), new_series_head, _rebase_output) = ctx
@@ -566,13 +564,12 @@ mod test {
                 .unwrap();
             assert_eq!(new_series_head, remote_y.id());
             assert_eq!(
-                test_repository
-                    .repository
+                repo.repository
                     .l(head, LogUntil::Commit(base_commit.id()), false)
                     .unwrap()
                     .iter()
                     .map(|c| {
-                        let commit = test_repository.repository.find_commit(*c).unwrap();
+                        let commit = repo.repository.find_commit(*c).unwrap();
                         commit.message().unwrap().to_string()
                     })
                     .collect::<Vec<_>>(),
@@ -599,17 +596,17 @@ mod test {
         /// Result: Base -> A -> B -> X -> Y
         #[test]
         fn other_added_remote_changes() {
-            let test_repository = TestingRepository::open();
+            let test_repo = TestingRepository::open();
 
-            let base_commit = test_repository.commit_tree(None, &[]);
-            let local_a = test_repository.commit_tree_with_change_id(Some(&base_commit), "a", &[]);
-            let local_b = test_repository.commit_tree_with_change_id(Some(&local_a), "b", &[]);
+            let base_commit = test_repo.commit_tree(None, &[]);
+            let local_a = test_repo.commit_tree_with_change_id(Some(&base_commit), "a", &[]);
+            let local_b = test_repo.commit_tree_with_change_id(Some(&local_a), "b", &[]);
 
-            let remote_x = test_repository.commit_tree_with_change_id(Some(&local_b), "x", &[]);
-            let remote_y = test_repository.commit_tree_with_change_id(Some(&remote_x), "y", &[]);
+            let remote_x = test_repo.commit_tree_with_change_id(Some(&local_b), "x", &[]);
+            let remote_y = test_repo.commit_tree_with_change_id(Some(&remote_x), "y", &[]);
 
             let commits = order_commits_for_rebasing(
-                &test_repository.repository,
+                &test_repo.repository,
                 base_commit.id(),
                 local_b.id(),
                 remote_y.id(),
@@ -628,18 +625,18 @@ mod test {
         /// Result: Base -> A -> B -> B' -> Y
         #[test]
         fn modified_local_commit() {
-            let test_repository = TestingRepository::open();
+            let test_repo = TestingRepository::open();
 
-            let base_commit = test_repository.commit_tree(None, &[]);
-            let local_a = test_repository.commit_tree_with_change_id(Some(&base_commit), "a", &[]);
-            let local_b = test_repository.commit_tree_with_change_id(Some(&local_a), "b", &[]);
+            let base_commit = test_repo.commit_tree(None, &[]);
+            let local_a = test_repo.commit_tree_with_change_id(Some(&base_commit), "a", &[]);
+            let local_b = test_repo.commit_tree_with_change_id(Some(&local_a), "b", &[]);
 
             // imagine someone on the remote rebased local_b
-            let remote_b = test_repository.commit_tree_with_change_id(Some(&local_a), "b", &[]);
-            let remote_y = test_repository.commit_tree_with_change_id(Some(&remote_b), "y", &[]);
+            let remote_b = test_repo.commit_tree_with_change_id(Some(&local_a), "b", &[]);
+            let remote_y = test_repo.commit_tree_with_change_id(Some(&remote_b), "y", &[]);
 
             let commits = order_commits_for_rebasing(
-                &test_repository.repository,
+                &test_repo.repository,
                 base_commit.id(),
                 local_b.id(),
                 remote_y.id(),
@@ -658,7 +655,7 @@ mod test {
         /// Result: Base -> M -> N -> A -> A' -> B -> B' -> Y
         #[test]
         fn remote_includes_integrated_commits() {
-            let test_repository = TestingRepository::open();
+            let test_repo = TestingRepository::open();
 
             // Setup:
             // (z)
@@ -672,20 +669,20 @@ mod test {
             //  m   a
             //  \   /
             //   base_commit
-            let base_commit = test_repository.commit_tree(None, &[]);
-            let trunk_m = test_repository.commit_tree_with_change_id(Some(&base_commit), "m", &[]);
-            let trunk_n = test_repository.commit_tree_with_change_id(Some(&trunk_m), "n", &[]);
+            let base_commit = test_repo.commit_tree(None, &[]);
+            let trunk_m = test_repo.commit_tree_with_change_id(Some(&base_commit), "m", &[]);
+            let trunk_n = test_repo.commit_tree_with_change_id(Some(&trunk_m), "n", &[]);
 
-            let local_a = test_repository.commit_tree_with_change_id(Some(&base_commit), "a", &[]);
-            let local_b = test_repository.commit_tree_with_change_id(Some(&local_a), "b", &[]);
+            let local_a = test_repo.commit_tree_with_change_id(Some(&base_commit), "a", &[]);
+            let local_b = test_repo.commit_tree_with_change_id(Some(&local_a), "b", &[]);
 
             // imagine someone on the remote rebased local_a
-            let remote_x = test_repository.commit_tree_with_change_id(Some(&trunk_n), "a", &[]);
-            let remote_y = test_repository.commit_tree_with_change_id(Some(&remote_x), "b", &[]);
-            let remote_z = test_repository.commit_tree_with_change_id(Some(&remote_y), "y", &[]);
+            let remote_x = test_repo.commit_tree_with_change_id(Some(&trunk_n), "a", &[]);
+            let remote_y = test_repo.commit_tree_with_change_id(Some(&remote_x), "b", &[]);
+            let remote_z = test_repo.commit_tree_with_change_id(Some(&remote_y), "y", &[]);
 
             let commits = order_commits_for_rebasing(
-                &test_repository.repository,
+                &test_repo.repository,
                 trunk_n.id(),
                 local_b.id(),
                 remote_z.id(),

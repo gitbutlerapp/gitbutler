@@ -178,7 +178,7 @@ impl OplogExt for Project {
         oplog_commit_id: Option<git2::Oid>,
     ) -> Result<Vec<Snapshot>> {
         let worktree_dir = self.path.as_path();
-        let repo = gitbutler_command_context::gix_repository_for_merging(worktree_dir)?;
+        let repo = gitbutler_command_context::gix_repo_for_merging(worktree_dir)?;
 
         let traversal_root_id = git2_to_gix_object_id(match oplog_commit_id {
             Some(id) => id,
@@ -321,7 +321,7 @@ impl OplogExt for Project {
 
     fn snapshot_diff(&self, sha: git2::Oid) -> Result<HashMap<PathBuf, FileDiff>> {
         let worktree_dir = self.path.as_path();
-        let gix_repo = gitbutler_command_context::gix_repository_for_merging(worktree_dir)?;
+        let gix_repo = gitbutler_command_context::gix_repo_for_merging(worktree_dir)?;
         let repo = git2::Repository::init(worktree_dir)?;
 
         let commit = repo.find_commit(sha)?;
@@ -652,7 +652,7 @@ fn restore_snapshot(
         "We will not change a worktree which for some reason isn't on the workspace branch",
     )?;
 
-    let gix_repo = gitbutler_command_context::gix_repository_for_merging(worktree_dir)?;
+    let gix_repo = gitbutler_command_context::gix_repo_for_merging(worktree_dir)?;
 
     let workdir_tree =
         repo.find_tree(get_workdir_tree(None, snapshot_commit_id.to_gix(), &gix_repo)?.to_git2())?;

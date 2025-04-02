@@ -209,7 +209,7 @@ pub fn unapply_ownership(
         .context("failed to find target commit")?;
 
     let base_tree_id = git2_to_gix_object_id(target_commit.tree_id());
-    let gix_repo = ctx.gix_repository_for_merging()?;
+    let gix_repo = ctx.gix_repo_for_merging()?;
     let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     let final_tree_id = applied_statuses.into_iter().try_fold(
         git2_to_gix_object_id(target_commit.tree_id()),
@@ -347,7 +347,7 @@ pub fn list_virtual_branches_cached(
     let branches_span =
         tracing::debug_span!("handle branches", num_branches = status.branches.len()).entered();
     let repo = ctx.repo();
-    let gix_repo = ctx.gix_repository_for_merging_non_persisting()?;
+    let gix_repo = ctx.gix_repo_for_merging_non_persisting()?;
     // We will perform virtual merges, no need to write them to the ODB.
     let cache = gix_repo.commit_graph_if_enabled()?;
     let mut graph = gix_repo.revision_graph(cache.as_ref());
@@ -671,7 +671,7 @@ pub(crate) fn reset_branch(
 
     let default_target = vb_state.get_default_target()?;
 
-    let gix_repo = ctx.gix_repository()?;
+    let gix_repo = ctx.gix_repo()?;
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     if stack.head(&gix_repo)? == target_commit_id {
         // nothing to do
@@ -761,7 +761,7 @@ pub fn commit(
     ctx.assure_unconflicted()
         .context(Code::CommitMergeConflictFailure)?;
 
-    let gix_repo = ctx.gix_repository()?;
+    let gix_repo = ctx.gix_repo()?;
 
     let tree_oid = if let Some(ownership) = ownership {
         let files = files.into_iter().filter_map(|file| {
@@ -797,14 +797,14 @@ pub fn commit(
         gitbutler_diff::write::hunks_onto_commit(ctx, branch.head(&gix_repo)?, files)?
     };
 
-    let git_repository = ctx.repo();
-    let parent_commit = git_repository
+    let git_repo = ctx.repo();
+    let parent_commit = git_repo
         .find_commit(branch.head(&gix_repo)?)
         .context(format!(
             "failed to find commit {:?}",
             branch.head(&gix_repo)
         ))?;
-    let tree = git_repository
+    let tree = git_repo
         .find_tree(tree_oid)
         .context(format!("failed to find tree {:?}", tree_oid))?;
 
@@ -815,7 +815,7 @@ pub fn commit(
 
     let commit_oid = match extra_merge_parent {
         Some(merge_parent) => {
-            let merge_parent = git_repository
+            let merge_parent = git_repo
                 .find_commit(merge_parent)
                 .context(format!("failed to find merge parent {:?}", merge_parent))?;
             let commit_oid = ctx.commit(message, &tree, &[&parent_commit, &merge_parent], None)?;
@@ -850,7 +850,7 @@ pub(crate) fn push(
         None => default_target.branch.remote().to_owned(),
     };
 
-    let gix_repo = ctx.gix_repository()?;
+    let gix_repo = ctx.gix_repo()?;
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     let remote_branch = if let Some(upstream_branch) = &stack.upstream {
         upstream_branch.clone()
@@ -956,8 +956,8 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
     /// Used to construct [`IsCommitIntegrated`] without a [`CommandContext`]. If
     /// you have a `CommandContext` available, use [`Self::new`] instead.
     pub(crate) fn new_basic(
-        gix_repository: &'repo gix::Repository,
-        repository: &'repo git2::Repository,
+        gix_repo: &'repo gix::Repository,
+        repo: &'repo git2::Repository,
         graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
         target_commit_id: gix::ObjectId,
         upstream_tree_id: gix::ObjectId,
@@ -968,13 +968,13 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
         let upstream_change_ids = upstream_commits
             .iter()
             .filter_map(|oid| {
-                let commit = repository.find_commit(*oid).ok()?;
+                let commit = repo.find_commit(*oid).ok()?;
                 commit.change_id()
             })
             .sorted()
             .collect();
         Self {
-            gix_repo: gix_repository,
+            gix_repo,
             graph,
             target_commit_id,
             upstream_tree_id,
@@ -1075,7 +1075,7 @@ pub fn is_remote_branch_mergeable(
     let wd_tree = ctx.repo().create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?;
 
     let branch_tree = branch_commit.tree().context("failed to find branch tree")?;
-    let gix_repo_in_memory = ctx.gix_repository_for_merging()?.with_object_memory();
+    let gix_repo_in_memory = ctx.gix_repo_for_merging()?.with_object_memory();
     let (merge_options_fail_fast, conflict_kind) =
         gix_repo_in_memory.merge_options_no_rewrites_fail_fast()?;
     let mergeable = !gix_repo_in_memory
@@ -1116,7 +1116,7 @@ pub(crate) fn move_commit_file(
     let default_target = vb_state.get_default_target()?;
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
-    let gix_repo = ctx.gix_repository()?;
+    let gix_repo = ctx.gix_repo()?;
     let stack_context = ctx.to_stack_context()?;
     let merge_base = stack.merge_base(&stack_context)?;
 
@@ -1315,16 +1315,14 @@ pub(crate) fn insert_blank_commit(
         commit = commit.parent(0).context("failed to find parent")?;
     }
 
-    let repository = ctx.repo();
+    let repo = ctx.repo();
 
-    let commit_tree = repository
-        .find_real_tree(&commit, Default::default())
-        .unwrap();
+    let commit_tree = repo.find_real_tree(&commit, Default::default()).unwrap();
     let blank_commit_oid = ctx.commit("", &commit_tree, &[&commit], Some(Default::default()))?;
 
     let stack_context = ctx.to_stack_context()?;
     let merge_base = stack.merge_base(&stack_context)?;
-    let repo = ctx.gix_repository()?;
+    let repo = ctx.gix_repo()?;
     let steps = stack.as_rebase_steps(ctx, &repo)?;
     let mut updated_steps = vec![];
     for step in steps.iter() {
@@ -1377,7 +1375,7 @@ pub(crate) fn update_commit_message(
 
     let vb_state = ctx.project().virtual_branches();
     let default_target = vb_state.get_default_target()?;
-    let gix_repo = ctx.gix_repository()?;
+    let gix_repo = ctx.gix_repo()?;
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     let branch_commit_oids = ctx.repo().l(

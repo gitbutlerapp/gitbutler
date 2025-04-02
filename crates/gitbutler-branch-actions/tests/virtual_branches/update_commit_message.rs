@@ -5,9 +5,7 @@ use super::*;
 
 #[test]
 fn head() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -17,20 +15,20 @@ fn head() {
             .unwrap();
 
     {
-        fs::write(repository.path().join("file one.txt"), "").unwrap();
+        fs::write(repo.path().join("file one.txt"), "").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap()
     };
 
     {
-        fs::write(repository.path().join("file two.txt"), "").unwrap();
+        fs::write(repo.path().join("file two.txt"), "").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two", None).unwrap()
     };
 
     let commit_three_oid = {
-        fs::write(repository.path().join("file three.txt"), "").unwrap();
+        fs::write(repo.path().join("file three.txt"), "").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None).unwrap()
     };
-    let commit_three = repository.find_commit(commit_three_oid).unwrap();
+    let commit_three = repo.find_commit(commit_three_oid).unwrap();
     let before_change_id = &commit_three.change_id();
 
     gitbutler_branch_actions::update_commit_message(
@@ -57,7 +55,7 @@ fn head() {
         .collect::<Vec<_>>();
 
     // get the last commit
-    let commit = repository.find_commit(branch.head).unwrap();
+    let commit = repo.find_commit(branch.head).unwrap();
 
     // make sure the SHA changed, but the change ID did not
     assert_ne!(&commit_three.id(), &commit.id());
@@ -71,9 +69,7 @@ fn head() {
 
 #[test]
 fn middle() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -83,17 +79,17 @@ fn middle() {
             .unwrap();
 
     {
-        fs::write(repository.path().join("file one.txt"), "").unwrap();
+        fs::write(repo.path().join("file one.txt"), "").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap()
     };
 
     let commit_two_oid = {
-        fs::write(repository.path().join("file two.txt"), "").unwrap();
+        fs::write(repo.path().join("file two.txt"), "").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two", None).unwrap()
     };
 
     {
-        fs::write(repository.path().join("file three.txt"), "").unwrap();
+        fs::write(repo.path().join("file three.txt"), "").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None).unwrap()
     };
 
@@ -128,7 +124,7 @@ fn middle() {
 #[test]
 fn forcepush_allowed() {
     let Test {
-        repository,
+        repo,
         project_id,
 
         projects,
@@ -151,7 +147,7 @@ fn forcepush_allowed() {
             .unwrap();
 
     let commit_one_oid = {
-        fs::write(repository.path().join("file one.txt"), "").unwrap();
+        fs::write(repo.path().join("file one.txt"), "").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap()
     };
 
@@ -186,9 +182,7 @@ fn forcepush_allowed() {
 
 #[test]
 fn forcepush_forbidden() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -208,7 +202,7 @@ fn forcepush_forbidden() {
     .unwrap();
 
     let commit_one_oid = {
-        fs::write(repository.path().join("file one.txt"), "").unwrap();
+        fs::write(repo.path().join("file one.txt"), "").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap()
     };
 
@@ -230,9 +224,7 @@ fn forcepush_forbidden() {
 
 #[test]
 fn root() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -242,17 +234,17 @@ fn root() {
             .unwrap();
 
     let commit_one_oid = {
-        fs::write(repository.path().join("file one.txt"), "").unwrap();
+        fs::write(repo.path().join("file one.txt"), "").unwrap();
         gitbutler_branch_actions::create_commit(ctx, branch_id.id, "commit one", None).unwrap()
     };
 
     {
-        fs::write(repository.path().join("file two.txt"), "").unwrap();
+        fs::write(repo.path().join("file two.txt"), "").unwrap();
         gitbutler_branch_actions::create_commit(ctx, branch_id.id, "commit two", None).unwrap()
     };
 
     {
-        fs::write(repository.path().join("file three.txt"), "").unwrap();
+        fs::write(repo.path().join("file three.txt"), "").unwrap();
         gitbutler_branch_actions::create_commit(ctx, branch_id.id, "commit three", None).unwrap()
     };
 
@@ -286,9 +278,7 @@ fn root() {
 
 #[test]
 fn empty() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -298,7 +288,7 @@ fn empty() {
             .unwrap();
 
     let commit_one_oid = {
-        fs::write(repository.path().join("file one.txt"), "").unwrap();
+        fs::write(repo.path().join("file one.txt"), "").unwrap();
         gitbutler_branch_actions::create_commit(ctx, branch_id.id, "commit one", None).unwrap()
     };
 

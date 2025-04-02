@@ -137,7 +137,7 @@ fn take_commit_from_source_stack(
 
     let stack_ctx = ctx.to_stack_context()?;
     let merge_base = source_stack.merge_base(&stack_ctx)?;
-    let gix_repo = ctx.gix_repository()?;
+    let gix_repo = ctx.gix_repo()?;
     let steps = source_stack
         .as_rebase_steps(ctx, &gix_repo)?
         .into_iter()
@@ -177,7 +177,7 @@ fn move_commit_to_destination_stack(
     mut destination_stack: gitbutler_stack::Stack,
     commit_id: git2::Oid,
 ) -> Result<(), anyhow::Error> {
-    let gix_repo = ctx.gix_repository()?;
+    let gix_repo = ctx.gix_repo()?;
     let stack_ctx = ctx.to_stack_context()?;
     let merge_base = destination_stack.merge_base(&stack_ctx)?;
     let mut steps = destination_stack.as_rebase_steps(ctx, &gix_repo)?;

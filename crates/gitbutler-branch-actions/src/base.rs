@@ -78,7 +78,7 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
 
     let base_tree = git2_to_gix_object_id(target_commit.tree_id());
     let mut final_tree_id = git2_to_gix_object_id(target_commit.tree_id());
-    let gix_repo = ctx.gix_repository_for_merging()?;
+    let gix_repo = ctx.gix_repo_for_merging()?;
     let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     for branch in &virtual_branches {
         // merge this branches tree with our tree

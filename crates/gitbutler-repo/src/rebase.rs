@@ -3,7 +3,7 @@ use std::{collections::HashSet, path::PathBuf};
 use crate::RepositoryExt as _;
 use anyhow::{Context, Result};
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt};
-use gitbutler_command_context::gix_repository_for_merging;
+use gitbutler_command_context::gix_repo_for_merging;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oxidize::{GixRepositoryExt as _, ObjectIdExt as _, OidExt as _};
 use serde::{Deserialize, Serialize};
@@ -85,21 +85,21 @@ pub fn merge_commits(
     incoming_commit: gix::ObjectId,
     resulting_name: &str,
 ) -> Result<gix::ObjectId> {
-    let repository = git2::Repository::open(gix_repository.path())?;
-    let target_commit = repository.find_commit(target_commit.to_git2())?;
-    let incoming_commit = repository.find_commit(incoming_commit.to_git2())?;
-    let merge_base = repository.merge_base(target_commit.id(), incoming_commit.id())?;
-    let merge_base = repository.find_commit(merge_base)?;
+    let repo = git2::Repository::open(gix_repository.path())?;
+    let target_commit = repo.find_commit(target_commit.to_git2())?;
+    let incoming_commit = repo.find_commit(incoming_commit.to_git2())?;
+    let merge_base = repo.merge_base(target_commit.id(), incoming_commit.id())?;
+    let merge_base = repo.find_commit(merge_base)?;
 
-    let base_tree = repository.find_real_tree(&merge_base, Default::default())?;
+    let base_tree = repo.find_real_tree(&merge_base, Default::default())?;
     // We want to use the auto-resolution when computing the merge, but for
     // reconstructing it later, we want the "theirsiest" and "oursiest" trees
-    let target_tree = repository.find_real_tree(&target_commit, ConflictedTreeKey::Theirs)?;
-    let incoming_tree = repository.find_real_tree(&incoming_commit, ConflictedTreeKey::Ours)?;
+    let target_tree = repo.find_real_tree(&target_commit, ConflictedTreeKey::Theirs)?;
+    let incoming_tree = repo.find_real_tree(&incoming_commit, ConflictedTreeKey::Ours)?;
 
-    let target_merge_tree = repository.find_real_tree(&target_commit, Default::default())?;
-    let incoming_merge_tree = repository.find_real_tree(&incoming_commit, Default::default())?;
-    let gix_repo = gix_repository_for_merging(repository.path())?;
+    let target_merge_tree = repo.find_real_tree(&target_commit, Default::default())?;
+    let incoming_merge_tree = repo.find_real_tree(&incoming_commit, Default::default())?;
+    let gix_repo = gix_repo_for_merging(repo.path())?;
     let mut merge_result = gix_repo.merge_trees(
         base_tree.id().to_gix(),
         incoming_merge_tree.id().to_gix(),
@@ -117,10 +117,10 @@ pub fn merge_commits(
 
         // convert files into a string and save as a blob
         let conflicted_files_string = toml::to_string(&conflicted_files)?;
-        let conflicted_files_blob = repository.blob(conflicted_files_string.as_bytes())?;
+        let conflicted_files_blob = repo.blob(conflicted_files_string.as_bytes())?;
 
         // create a treewriter
-        let mut tree_writer = repository.treebuilder(None)?;
+        let mut tree_writer = repo.treebuilder(None)?;
 
         // save the state of the conflict, so we can recreate it later
         tree_writer.insert(&*ConflictedTreeKey::Ours, incoming_tree.id(), 0o040000)?;
@@ -140,7 +140,7 @@ pub fn merge_commits(
         // in case someone checks this out with vanilla Git, we should warn why it looks like this
         let readme_content =
             b"You have checked out a GitButler Conflicted commit. You probably didn't mean to do this.";
-        let readme_blob = repository.blob(readme_content)?;
+        let readme_blob = repo.blob(readme_content)?;
         tree_writer.insert("README.txt", readme_blob, 0o100644)?;
 
         tree_oid = tree_writer.write().context("failed to write tree")?;
@@ -150,16 +150,14 @@ pub fn merge_commits(
         CommitHeadersV2::default()
     };
 
-    let (author, committer) = repository.signatures()?;
+    let (author, committer) = repo.signatures()?;
     let commit_oid = crate::RepositoryExt::commit_with_signature(
-        &repository,
+        &repo,
         None,
         &author,
         &committer,
         resulting_name,
-        &repository
-            .find_tree(tree_oid)
-            .context("failed to find tree")?,
+        &repo.find_tree(tree_oid).context("failed to find tree")?,
         &[&target_commit, &incoming_commit],
         Some(commit_headers),
     )
@@ -167,16 +165,16 @@ pub fn merge_commits(
 
     Ok(commit_oid.to_gix())
 }
-pub fn gitbutler_merge_commits<'repository>(
-    repository: &'repository git2::Repository,
-    target_commit: git2::Commit<'repository>,
-    incoming_commit: git2::Commit<'repository>,
+pub fn gitbutler_merge_commits<'repo>(
+    repo: &'repo git2::Repository,
+    target_commit: git2::Commit<'repo>,
+    incoming_commit: git2::Commit<'repo>,
     target_branch_name: &str,
     incoming_branch_name: &str,
-) -> Result<git2::Commit<'repository>> {
-    let gix_repository = gix::open(repository.path())?;
+) -> Result<git2::Commit<'repo>> {
+    let gix_repo = gix::open(repo.path())?;
     let result_oid = merge_commits(
-        &gix_repository,
+        &gix_repo,
         target_commit.id().to_gix(),
         incoming_commit.id().to_gix(),
         &format!(
@@ -185,7 +183,7 @@ pub fn gitbutler_merge_commits<'repository>(
         ),
     )?;
 
-    Ok(repository.find_commit(result_oid.to_git2())?)
+    Ok(repo.find_commit(result_oid.to_git2())?)
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]

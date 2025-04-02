@@ -75,7 +75,7 @@ fn changes_in_branch_inner(
                 (start, end)
             }
         });
-    let repo = ctx.gix_repository()?;
+    let repo = ctx.gix_repo()?;
 
     // Find the head that matches the branch name - the commit contained is our commit_id
     let start_commit_id = repo

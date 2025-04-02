@@ -230,7 +230,7 @@ fn requires_force(ctx: &CommandContext, branch: &StackBranch, remote: &str) -> R
         .find_commit(reference)
         .context("failed to find upstream commit")?;
 
-    let branch_head = branch.head_oid(&ctx.gix_repository()?)?;
+    let branch_head = branch.head_oid(&ctx.gix_repo()?)?;
     let merge_base = ctx.repo().merge_base(upstream_commit.id(), branch_head)?;
 
     Ok(merge_base != upstream_commit.id())
@@ -246,7 +246,7 @@ pub fn stack_info(gb_dir: &Path, stack_id: StackId, ctx: &CommandContext) -> Res
     let state = state_handle(gb_dir);
     let stack = state.get_stack(stack_id)?;
     let branches = stack.branches();
-    let repo = ctx.gix_repository()?;
+    let repo = ctx.gix_repo()?;
     let remote = state
         .get_default_target()
         .context("failed to get default target")?
@@ -424,7 +424,7 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
     let mut stack = state.get_stack(Id::from_str(&stack_id)?)?;
     let stack_ctx = ctx.to_stack_context()?;
     let mut current_base = stack.merge_base(&stack_ctx)?.to_gix();
-    let repo = ctx.gix_repository()?;
+    let repo = ctx.gix_repo()?;
     for internal in stack.branches() {
         let upstream_reference = ctx
             .repo()

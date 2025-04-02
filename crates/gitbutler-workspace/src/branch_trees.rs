@@ -26,26 +26,25 @@ pub fn checkout_branch_trees<'a>(
         bail!("Checkout branch trees was run in v3");
     }
 
-    let repository = ctx.repo();
+    let repo = ctx.repo();
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let stacks = vb_state.list_stacks_in_workspace()?;
 
     if stacks.is_empty() {
         // If there are no applied branches, then return the current uncommtied state
-        return repository.create_wd_tree(AUTO_TRACK_LIMIT_BYTES);
+        return repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES);
     };
 
     if stacks.len() == 1 {
-        let tree = repository.find_tree(stacks[0].tree)?;
-        repository
-            .checkout_tree_builder(&tree)
+        let tree = repo.find_tree(stacks[0].tree)?;
+        repo.checkout_tree_builder(&tree)
             .force()
             .remove_untracked()
             .checkout()?;
 
         Ok(tree)
     } else {
-        let gix_repo = ctx.gix_repository_for_merging()?;
+        let gix_repo = ctx.gix_repo_for_merging()?;
         let heads = stacks
             .iter()
             .map(|b| b.head(&gix_repo).map(|h| h.to_gix()))
@@ -75,9 +74,8 @@ pub fn checkout_branch_trees<'a>(
             final_tree_id = merge.tree.write()?;
         }
 
-        let final_tree = repository.find_tree(gix_to_git2_oid(final_tree_id))?;
-        repository
-            .checkout_tree_builder(&final_tree)
+        let final_tree = repo.find_tree(gix_to_git2_oid(final_tree_id))?;
+        repo.checkout_tree_builder(&final_tree)
             .force()
             .remove_untracked()
             .checkout()?;
@@ -93,15 +91,15 @@ pub struct WorkspaceState {
 
 impl WorkspaceState {
     pub fn create(ctx: &CommandContext, perm: &WorktreeReadPermission) -> Result<Self> {
-        let repository = ctx.gix_repository()?;
+        let repo = ctx.gix_repo()?;
         let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
 
         let heads = vb_state
             .list_stacks_in_workspace()?
             .iter()
             .map(|stack| -> Result<gix::ObjectId> {
-                let tree_id = repository.find_real_tree(
-                    &stack.head(&repository)?.to_gix(),
+                let tree_id = repo.find_real_tree(
+                    &stack.head(&repo)?.to_gix(),
                     ConflictedTreeKey::AutoResolution,
                 )?;
                 Ok(tree_id.detach())
@@ -121,8 +119,8 @@ pub fn update_uncommited_changes(
     new: WorkspaceState,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
-    let git2_repository = ctx.repo();
-    let uncommited_changes = git2_repository.create_wd_tree(0)?.id().to_gix();
+    let git2_repo = ctx.repo();
+    let uncommited_changes = git2_repo.create_wd_tree(0)?.id().to_gix();
 
     update_uncommited_changes_with_tree(ctx, old, new, uncommited_changes, perm)
 }
@@ -134,13 +132,13 @@ pub fn update_uncommited_changes_with_tree(
     tree: gix::ObjectId,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
-    let repository = ctx.gix_repository()?;
-    let git2_repository = ctx.repo();
+    let repo = ctx.gix_repo()?;
+    let git2_repo = ctx.repo();
 
-    let new_uncommited_changes = move_tree_between_workspaces(&repository, tree, old, new)?;
-    let new_uncommited_changes = git2_repository.find_tree(new_uncommited_changes.to_git2())?;
+    let new_uncommited_changes = move_tree_between_workspaces(&repo, tree, old, new)?;
+    let new_uncommited_changes = git2_repo.find_tree(new_uncommited_changes.to_git2())?;
 
-    git2_repository
+    git2_repo
         .checkout_tree_builder(&new_uncommited_changes)
         .force()
         .checkout()
@@ -152,35 +150,35 @@ pub fn update_uncommited_changes_with_tree(
 /// Take the changes on top of one workspace and return what they would look
 /// like if they were on top of the new workspace.
 fn move_tree_between_workspaces(
-    repository: &gix::Repository,
+    repo: &gix::Repository,
     tree: gix::ObjectId,
     old: WorkspaceState,
     new: WorkspaceState,
 ) -> Result<gix::ObjectId> {
-    let old_workspace = merge_workspace(repository, old)?;
-    let new_workspace = merge_workspace(repository, new)?;
-    move_tree(repository, tree, old_workspace, new_workspace)
+    let old_workspace = merge_workspace(repo, old)?;
+    let new_workspace = merge_workspace(repo, new)?;
+    move_tree(repo, tree, old_workspace, new_workspace)
 }
 
 /// Cherry pick a tree from one base tree on to another, favoring the contents of the tree when conflicts occur
 fn move_tree(
-    repository: &gix::Repository,
+    repo: &gix::Repository,
     tree: gix::ObjectId,
     old_workspace: gix::ObjectId,
     new_workspace: gix::ObjectId,
 ) -> Result<gix::ObjectId> {
-    let merge_options = repository
+    let merge_options = repo
         .tree_merge_options()?
         .with_file_favor(Some(gix::merge::tree::FileFavor::Ours))
         .with_tree_favor(Some(gix::merge::tree::TreeFavor::Ours));
 
     // Read: Take the diff between old_workspace and tree, and apply it on top
     //   of new_workspace
-    let mut merge = repository.merge_trees(
+    let mut merge = repo.merge_trees(
         old_workspace,
         tree,
         new_workspace,
-        repository.default_merge_labels(),
+        repo.default_merge_labels(),
         merge_options,
     )?;
 
@@ -192,19 +190,16 @@ fn move_tree(
 /// to the given base.
 ///
 /// If there are no heads provided, the base will be returned.
-fn merge_workspace(
-    repository: &gix::Repository,
-    workspace: WorkspaceState,
-) -> Result<gix::ObjectId> {
+fn merge_workspace(repo: &gix::Repository, workspace: WorkspaceState) -> Result<gix::ObjectId> {
     let mut output = workspace.base;
 
     for head in workspace.heads {
-        let (merge_options_fail_fast, conflict_kind) = repository.merge_options_fail_fast()?;
-        let mut merge = repository.merge_trees(
+        let (merge_options_fail_fast, conflict_kind) = repo.merge_options_fail_fast()?;
+        let mut merge = repo.merge_trees(
             workspace.base,
             output,
             head,
-            repository.default_merge_labels(),
+            repo.default_merge_labels(),
             merge_options_fail_fast.clone(),
         )?;
 
@@ -239,16 +234,16 @@ pub struct BranchHeadAndTree {
 /// mutated the virtual_branches.toml.
 #[deprecated = "not needed after v3 is out"]
 pub fn compute_updated_branch_head(
-    repository: &git2::Repository,
+    repo: &git2::Repository,
     gix_repo: &gix::Repository,
     stack: &Stack,
     new_head: git2::Oid,
 ) -> Result<BranchHeadAndTree> {
     #[allow(deprecated)]
     compute_updated_branch_head_for_commits(
-        repository,
+        repo,
         gix_repo,
-        stack.head(&repository.to_gix()?)?,
+        stack.head(&repo.to_gix()?)?,
         stack.tree,
         new_head,
     )
@@ -267,21 +262,21 @@ pub fn compute_updated_branch_head(
 /// mutated the virtual_branches.toml.
 #[deprecated = "not needed after v3 is out"]
 pub fn compute_updated_branch_head_for_commits(
-    repository: &git2::Repository,
+    repo: &git2::Repository,
     gix_repo: &gix::Repository,
     old_head: git2::Oid,
     old_tree: git2::Oid,
     new_head: git2::Oid,
 ) -> Result<BranchHeadAndTree> {
-    let (author, committer) = repository.signatures()?;
+    let (author, committer) = repo.signatures()?;
 
-    let commited_tree = repository.commit_with_signature(
+    let commited_tree = repo.commit_with_signature(
         None,
         &author,
         &committer,
         "Uncommited changes",
-        &repository.find_tree(old_tree)?,
-        &[&repository.find_commit(old_head)?],
+        &repo.find_tree(old_tree)?,
+        &[&repo.find_commit(old_head)?],
         Default::default(),
     )?;
 
@@ -292,12 +287,10 @@ pub fn compute_updated_branch_head_for_commits(
     }))?;
     rebase.rebase_noops(false);
     let output = rebase.rebase()?;
-    let rebased_tree = repository.find_commit(output.top_commit.to_git2())?;
+    let rebased_tree = repo.find_commit(output.top_commit.to_git2())?;
 
     if rebased_tree.is_conflicted() {
-        let auto_tree_id = repository
-            .find_real_tree(&rebased_tree, Default::default())?
-            .id();
+        let auto_tree_id = repo.find_real_tree(&rebased_tree, Default::default())?.id();
 
         Ok(BranchHeadAndTree {
             head: rebased_tree.id(),

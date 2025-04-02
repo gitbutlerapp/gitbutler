@@ -52,7 +52,7 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
         let merge_base = repo.merge_base(first_stack.head(&repo.to_gix()?)?, merge_parent)?;
         workspace_tree = repo.find_commit(merge_base)?.tree()?;
     } else {
-        let gix_repo = ctx.gix_repository_for_merging()?;
+        let gix_repo = ctx.gix_repo_for_merging()?;
         let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
         let merge_tree_id = git2_to_gix_object_id(repo.find_commit(target.sha)?.tree_id());
         for stack in stacks.iter_mut() {
