@@ -3,7 +3,8 @@
 	import AiSettings from '$components/v3/profileSettings/AiSettings.svelte';
 	import ExperimentalSettings from '$components/v3/profileSettings/ExperimentalSettings.svelte';
 	import GitSettings from '$components/v3/profileSettings/GitSettings.svelte';
-	import IntegrationSettings from '$components/v3/profileSettings/IntegrationsSettings.svelte';
+	import IntegrationsSettings from '$components/v3/profileSettings/IntegrationsSettings.svelte';
+	import OrganisationSettings from '$components/v3/profileSettings/OrganisationSettings.svelte';
 	import ProfileSettings from '$components/v3/profileSettings/ProfileSettings.svelte';
 	import TelemetrySettings from '$components/v3/profileSettings/TelemetrySettings.svelte';
 	import AppearanceSettings from '$components/v3/projectSettings/AppearanceSettings.svelte';
@@ -35,7 +36,7 @@
 			id: 'integrations',
 			label: 'Integrations',
 			icon: 'integrations',
-			component: IntegrationSettings
+			component: IntegrationsSettings
 		},
 		{
 			id: 'ai',
@@ -54,6 +55,13 @@
 			label: 'Experimental',
 			icon: 'idea',
 			component: ExperimentalSettings
+		},
+		{
+			id: 'organizations',
+			label: 'Organizations',
+			icon: 'idea',
+			component: OrganisationSettings,
+			adminOnly: true
 		}
 	];
 

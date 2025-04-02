@@ -3,6 +3,3 @@
 </script>
 
 <ProfileSettings />
-
-<style lang="postcss">
-</style>

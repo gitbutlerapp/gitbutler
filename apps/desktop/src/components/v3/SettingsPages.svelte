@@ -7,12 +7,16 @@
 		icon?: keyof typeof iconsJson;
 		label: string;
 		component: Component;
+		// Only show for admins.
+		adminOnly?: boolean;
 	};
 </script>
 
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { platformName } from '$lib/platform/platform';
+	import { UserService } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	type Props = {
@@ -25,6 +29,9 @@
 
 	const { title, selectedId: selectedId, pages, pageUrl, close }: Props = $props();
 
+	const [userService] = inject(UserService);
+
+	const user = userService.user;
 	const shownId = $derived(selectedId || pages[0]!.id);
 	const shownPage = $derived(selectedId ? pages.find((p) => p.id === shownId) : pages[0]);
 </script>
@@ -41,7 +48,7 @@
 			{title}
 		</div>
 		<div class="links">
-			{#each pages as page}
+			{#each pages.filter((p) => !p.adminOnly || $user?.role === 'admin') as page}
 				{@const selected = page.id === shownId}
 				<a class="page-link" class:selected href={pageUrl(page.id)} data-sveltekit-replacestate>
 					{#if page.icon}
