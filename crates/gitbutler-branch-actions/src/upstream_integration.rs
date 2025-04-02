@@ -179,14 +179,14 @@ pub struct UpstreamIntegrationContext<'a> {
 
 impl<'a> UpstreamIntegrationContext<'a> {
     pub(crate) fn open(
-        command_context: &'a CommandContext,
+        ctx: &'a CommandContext,
         target_commit_oid: Option<git2::Oid>,
         permission: &'a mut WorktreeWritePermission,
         gix_repo: &'a gix::Repository,
     ) -> Result<Self> {
-        let virtual_branches_handle = command_context.project().virtual_branches();
+        let virtual_branches_handle = ctx.project().virtual_branches();
         let target = virtual_branches_handle.get_default_target()?;
-        let repository = command_context.repo();
+        let repository = ctx.repo();
         let target_branch = repository
             .maybe_find_branch_by_refname(&target.branch.clone().into())?
             .ok_or(anyhow!("Branch not found"))?;
@@ -204,7 +204,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
             new_target,
             target: target.clone(),
             stacks_in_workspace,
-            ctx: command_context,
+            ctx,
             gix_repo,
         })
     }
@@ -457,25 +457,25 @@ pub fn upstream_integration_statuses(
 }
 
 pub(crate) fn integrate_upstream(
-    command_context: &CommandContext,
+    ctx: &CommandContext,
     resolutions: &[Resolution],
     base_branch_resolution: Option<BaseBranchResolution>,
     permission: &mut WorktreeWritePermission,
 ) -> Result<IntegrationOutcome> {
-    let old_workspace = WorkspaceState::create(command_context, permission.read_permission())?;
+    let old_workspace = WorkspaceState::create(ctx, permission.read_permission())?;
 
     let (target_commit_oid, base_branch_resolution_approach) = base_branch_resolution
         .map(|r| (Some(r.target_commit_oid), Some(r.approach)))
         .unwrap_or((None, None));
 
-    let gix_repo = command_context.gix_repository()?;
+    let gix_repo = ctx.gix_repository()?;
     let context = UpstreamIntegrationContext::open(
-        command_context,
+        ctx,
         target_commit_oid,
         permission,
         &gix_repo,
     )?;
-    let virtual_branches_state = VirtualBranchesHandle::new(command_context.project().gb_dir());
+    let virtual_branches_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let default_target = virtual_branches_state.get_default_target()?;
 
     let mut newly_archived_branches = vec![];
@@ -548,7 +548,7 @@ pub(crate) fn integrate_upstream(
                 continue;
             };
 
-            command_context
+            ctx
                 .branch_manager()
                 .save_and_unapply(*stack_id, permission)?;
         }
@@ -578,7 +578,7 @@ pub(crate) fn integrate_upstream(
 
             // Update the branch heads
             if let Some(output) = rebase_output {
-                stack.set_heads_from_rebase_output(command_context, output.references.clone())?;
+                stack.set_heads_from_rebase_output(ctx, output.references.clone())?;
             }
             stack.set_stack_head(&virtual_branches_state, &gix_repo, *head, *tree)?;
 
@@ -589,7 +589,7 @@ pub(crate) fn integrate_upstream(
                 .unwrap_or(false);
 
             let (mut archived_branches, mut review_ids_to_close) = stack.archive_integrated_heads(
-                command_context,
+                ctx,
                 &gix_repo,
                 for_archival,
                 delete_local_refs,
@@ -600,11 +600,11 @@ pub(crate) fn integrate_upstream(
 
         {
             let new_workspace =
-                WorkspaceState::create(command_context, permission.read_permission())?;
+                WorkspaceState::create(ctx, permission.read_permission())?;
 
-            if command_context.app_settings().feature_flags.v3 {
+            if ctx.app_settings().feature_flags.v3 {
                 update_uncommited_changes(
-                    command_context,
+                    ctx,
                     old_workspace,
                     new_workspace,
                     permission,
@@ -625,12 +625,12 @@ pub(crate) fn integrate_upstream(
                     // Now that we've potentially updated the branch trees, lets checkout
                     // the result of merging them all together.
                     #[allow(deprecated)]
-                    checkout_branch_trees(command_context, permission)?;
+                    checkout_branch_trees(ctx, permission)?;
                 }
             }
         }
 
-        crate::integration::update_workspace_commit(&virtual_branches_state, command_context)?;
+        crate::integration::update_workspace_commit(&virtual_branches_state, ctx)?;
     }
 
     Ok(IntegrationOutcome {
@@ -640,13 +640,13 @@ pub(crate) fn integrate_upstream(
 }
 
 pub(crate) fn resolve_upstream_integration(
-    command_context: &CommandContext,
+    ctx: &CommandContext,
     resolution_approach: BaseBranchResolutionApproach,
     permission: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
-    let gix_repo = command_context.gix_repository()?;
-    let context = UpstreamIntegrationContext::open(command_context, None, permission, &gix_repo)?;
-    let repo = command_context.repo();
+    let gix_repo = ctx.gix_repository()?;
+    let context = UpstreamIntegrationContext::open(ctx, None, permission, &gix_repo)?;
+    let repo = ctx.repo();
     let new_target_id = context.new_target.id();
     let old_target_id = context.target.sha;
     let fork_point = repo.merge_base(old_target_id, new_target_id)?;
