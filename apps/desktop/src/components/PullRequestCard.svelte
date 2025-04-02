@@ -161,26 +161,6 @@
 		if (!pr) return;
 		await prService?.reopen(pr.number);
 	}
-
-	let thin = $state(false);
-
-	$effect(() => {
-		if (!container) return;
-
-		thin = container.clientWidth < 350;
-
-		const observer = new ResizeObserver(() => {
-			if (!container) return;
-
-			thin = container.clientWidth < 350;
-		});
-
-		observer.observe(container);
-
-		return () => {
-			observer.disconnect();
-		};
-	});
 </script>
 
 {#if pr}
@@ -272,7 +252,6 @@
 						isFork={pr.fork}
 						isMerged={pr.merged}
 						bind:hasChecks
-						size={thin ? 'icon' : 'tag'}
 					/>
 				</div>
 				<span class="seperator">•</span>
