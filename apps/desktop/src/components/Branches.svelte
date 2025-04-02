@@ -68,7 +68,7 @@
 	const searchedBranches = combinedBranchListingService.search(searchTerm);
 	const groupedBranches = combinedBranchListingService.groupedSidebarEntries;
 	const selectedOption = combinedBranchListingService.selectedOption;
-	const pullRequestsListed = !!forge.current.listService;
+	const pullRequestsListed = $derived(!!forge.current.listService);
 
 	const filterOptions = $derived.by(() => {
 		if (pullRequestsListed) {
