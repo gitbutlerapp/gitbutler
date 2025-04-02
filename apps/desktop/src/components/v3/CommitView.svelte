@@ -122,7 +122,7 @@
 		{:else}
 			<Drawer {projectId} {stackId} splitView>
 				{#snippet header()}
-					<h3 class="text-13 text-bold commit-view__header">
+					<h3 class="text-13 text-semibold commit-view__header">
 						Commit
 						<Tooltip text="Copy commit SHA">
 							<button
