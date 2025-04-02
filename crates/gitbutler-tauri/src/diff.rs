@@ -62,7 +62,7 @@ fn changes_in_branch_inner(
     let stack = state.get_stack(stack_id)?;
 
     // Find the branch head and the one before it
-    let heads = stack.heads();
+    let heads = stack.heads(false);
     let (start, end) = heads
         .iter()
         .rev()

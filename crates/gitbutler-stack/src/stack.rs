@@ -777,8 +777,16 @@ impl Stack {
         }
     }
 
-    pub fn heads(&self) -> Vec<String> {
-        self.heads.iter().map(|h| h.name().clone()).collect()
+    pub fn heads(&self, exclude_archived: bool) -> Vec<String> {
+        if exclude_archived {
+            self.heads.iter().map(|h| h.name().clone()).collect()
+        } else {
+            self.heads
+                .iter()
+                .filter(|h| !h.archived)
+                .map(|h| h.name().clone())
+                .collect()
+        }
     }
 
     pub fn heads_by_commit(&self, commit: Commit<'_>, repo: &gix::Repository) -> Vec<String> {

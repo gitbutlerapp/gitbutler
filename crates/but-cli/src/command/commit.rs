@@ -37,7 +37,7 @@ pub fn commit(
                 VirtualBranchesHandle::new(project.gb_dir())
                     .list_stacks_in_workspace()?
                     .iter()
-                    .find(|s| s.heads().contains(&stack_segment_ref.to_string()))
+                    .find(|s| s.heads(false).contains(&stack_segment_ref.to_string()))
                     .map(|s| s.id)
                     .map(|id| StackSegmentId {
                         segment_ref: full_name,
