@@ -112,13 +112,12 @@
 	const canPublishBR = $derived(!!($canPublish && branch?.name && !branch.reviewId));
 	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
 
-	const prTitle = $derived(new ReactivePRTitle(projectId, undefined, commits, branch?.name ?? ''));
+	const prTitle = $derived(new ReactivePRTitle(projectId, commits, branch?.name ?? ''));
 
 	const prBody = $derived(
 		new ReactivePRBody(
 			projectId,
 			branch?.description ?? '',
-			undefined,
 			commits,
 			templateBody,
 			branch?.name ?? ''
@@ -198,6 +197,9 @@
 		if (reviewId && prNumber && $project?.api?.repository_id) {
 			brToPrService.refreshButRequestPrDescription(prNumber, reviewId, $project.api.repository_id);
 		}
+
+		prBody.reset();
+		prTitle.reset();
 
 		close();
 	}
