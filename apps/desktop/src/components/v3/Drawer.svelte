@@ -95,24 +95,29 @@
 
 			<div class="drawer-header__actions">
 				{#if extraActions}
-					{@render extraActions()}
+					<div class="drawer-header__actions-group">
+						{@render extraActions()}
+					</div>
 				{/if}
-				<Button
-					kind="ghost"
-					icon={drawerIsFullScreen.current ? 'chevron-down' : 'chevron-up'}
-					onclick={onToggleExpand}
-				/>
-				<Button kind="ghost" icon="cross" onclick={onClose} />
+				<div class="drawer-header__actions-group">
+					<Button
+						kind="ghost"
+						icon={drawerIsFullScreen.current ? 'chevron-down' : 'chevron-up'}
+						size="tag"
+						onclick={onToggleExpand}
+					/>
+					<Button kind="ghost" icon="cross" size="tag" onclick={onClose} />
+				</div>
 			</div>
 		</div>
 
 		{#if children}
-			<div class="drawer__content-wrap" class:files-split-view={splitView}>
-				<div
-					class="drawer__content-scroll"
-					style:width={splitView ? `${contentWidth.current}rem` : 'auto'}
-					bind:this={viewportEl}
-				>
+			<div
+				class="drawer__content-wrap"
+				class:files-split-view={splitView}
+				style:--custom-width={splitView ? `${contentWidth.current}rem` : 'auto'}
+			>
+				<div class="drawer__content-scroll" bind:this={viewportEl}>
 					<ConfigurableScrollableContainer>
 						<div class="drawer__content">
 							{@render children()}
@@ -120,13 +125,15 @@
 					</ConfigurableScrollableContainer>
 
 					{#if splitView}
-						<Resizer
-							viewport={viewportEl}
-							direction="right"
-							minWidth={16}
-							imitateBorder
-							onWidth={(value) => uiState.global.drawerSplitViewWidth.set(value)}
-						/>
+						<div class="drawer__content-resizer">
+							<Resizer
+								viewport={viewportEl}
+								direction="right"
+								minWidth={16}
+								imitateBorder
+								onWidth={(value) => uiState.global.drawerSplitViewWidth.set(value)}
+							/>
+						</div>
 					{/if}
 				</div>
 
@@ -167,6 +174,8 @@
 		border-radius: var(--radius-ml);
 		border: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
+		container-type: inline-size;
+		container-name: drawer;
 	}
 
 	.drawer-wrap {
@@ -185,7 +194,7 @@
 		gap: 6px;
 		justify-content: space-between;
 		height: 42px;
-		padding: 0 6px 0 14px;
+		padding: 0 8px 0 14px;
 		background-color: var(--clr-bg-2);
 		border-bottom: 1px solid var(--clr-border-2);
 
@@ -204,7 +213,18 @@
 	.drawer-header__actions {
 		flex-shrink: 0;
 		display: flex;
-		gap: 2px;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.drawer-header__actions-group {
+		display: flex;
+		align-items: center;
+		gap: 3px;
+	}
+
+	.drawer__content-resizer {
+		display: contents;
 	}
 
 	.drawer__content-wrap {
@@ -216,16 +236,38 @@
 
 		&.files-split-view {
 			flex-direction: row;
-
-			& .drawer__content {
-				min-width: 300px;
-				max-width: 500px;
-			}
 		}
 
 		&:not(.files-split-view) {
 			& .drawer__content {
 				flex: 1;
+				height: 100%;
+			}
+		}
+
+		@container drawer (min-width: 500px) {
+			&.files-split-view .drawer__content-scroll {
+				min-width: 300px;
+				max-width: 500px;
+			}
+		}
+
+		@container drawer (max-width: 500px) {
+			&.files-split-view {
+				flex-direction: column;
+			}
+
+			& .drawer__content-scroll {
+				width: 100%;
+				height: auto;
+			}
+
+			& .drawer__content-resizer {
+				display: none;
+			}
+
+			& .drawer__files-split-view {
+				border-top: 1px solid var(--clr-border-2);
 			}
 		}
 	}
@@ -233,6 +275,7 @@
 	.drawer__content-scroll {
 		position: relative;
 		height: 100%;
+		width: var(--custom-width);
 	}
 
 	.drawer__files-split-view {
@@ -240,6 +283,7 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+		min-width: 230px;
 	}
 
 	.drawer__content {
