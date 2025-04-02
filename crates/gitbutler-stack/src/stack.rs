@@ -296,7 +296,7 @@ impl Stack {
     /// # Errors
     /// - If a merge base cannot be found
     /// - If logging between the head and merge base fails
-    pub fn commits_with_merge_base(&self, stack_context: &StackContext) -> Result<Vec<git2::Oid>> {
+    fn commits_with_merge_base(&self, stack_context: &StackContext) -> Result<Vec<git2::Oid>> {
         let mut commits = self.commits(stack_context)?;
         let base_commit = self.merge_base(stack_context)?;
         commits.push(base_commit);
