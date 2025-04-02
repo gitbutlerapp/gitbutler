@@ -49,7 +49,6 @@ export class ReactivePRTitle {
 
 	constructor(
 		private projectId: string,
-		private existingTitle: string | undefined,
 		private commits: Commit[],
 		private branchName: string
 	) {
@@ -82,7 +81,6 @@ export class ReactivePRBody {
 	constructor(
 		private projectId: string,
 		private branchDescription: string | undefined,
-		private existingBody: string | undefined,
 		private commits: Commit[],
 		private templateBody: string | undefined,
 		private branchName: string
