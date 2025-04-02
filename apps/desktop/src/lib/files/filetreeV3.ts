@@ -74,18 +74,34 @@ export function changesToFileTree(files: TreeChange[]): TreeNode {
 	return acc;
 }
 
+/**
+ * Abbreviate nested folders that contain only a folder.
+ *
+ * Instead of this:
+ * - folder
+ *   - subFolder
+ *     - file.txt
+ *
+ * We want this:
+ * - folder/subFolder
+ *   - file.txt
+ */
 export function abbreviateFolders(node: TreeNode): TreeNode {
 	const newNode = { ...node };
 	if (newNode.kind === 'file') {
 		return newNode;
 	}
-	while (newNode.children.length === 1) {
-		const grandChild = newNode.children[0]!;
-		if (grandChild.kind === 'file') {
-			break;
-		} else {
-			newNode.name = newNode.name + '/' + grandChild.name;
-			newNode.children = [...grandChild.children];
+	// A node without a parent is the root node. Since this node is not
+	// rendered we should not try to abbreviate it.
+	if (newNode.parent) {
+		while (newNode.children.length === 1) {
+			const grandChild = newNode.children[0]!;
+			if (grandChild.kind === 'file') {
+				break;
+			} else {
+				newNode.name = newNode.name + '/' + grandChild.name;
+				newNode.children = [...grandChild.children];
+			}
 		}
 	}
 	const children = newNode.children.map((child) => abbreviateFolders(child));
