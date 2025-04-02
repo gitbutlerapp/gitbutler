@@ -1778,6 +1778,8 @@ fn commit_partial_by_hunk() -> Result<()> {
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
+    
+    but_debugging::git_log(ctx.repo().path(), but_debugging::LogOptions::default().all(true));
 
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.files[0].hunks.len(), 2);
@@ -1857,6 +1859,8 @@ fn commit_partial_by_file() -> Result<()> {
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branches = list_result.branches;
     let branch1 = &branches.iter().find(|b| b.id == stack1_id).unwrap();
+    
+    but_debugging::git_log(ctx.repo().path(), but_debugging::LogOptions::default().all(true));
 
     // branch one test.txt has just the 1st and 3rd hunks applied
     let commit2 = &branch1.series[0].clone()?.patches[0].id;
@@ -1864,7 +1868,7 @@ fn commit_partial_by_file() -> Result<()> {
         .repo()
         .find_commit(commit2.to_owned())
         .expect("failed to get commit object");
-
+    
     let tree = commit1.tree().expect("failed to get tree");
     let file_list = tree_to_file_list(ctx.repo(), &tree);
     assert_eq!(file_list, vec!["test.txt", "test2.txt"]);

@@ -317,13 +317,16 @@ impl Stack {
             .peel_to_commit()?
             .id;
         let mut revwalk = git2_repository.revwalk()?;
-        revwalk.hide(self.head(&gix_repo)?)?;
+        let head_oid = self.head(&gix_repo)?;
+        revwalk.hide(head_oid)?;
         revwalk.push(target_sha.to_git2())?;
         revwalk.simplify_first_parent()?;
-        let last_commit = revwalk.last().ok_or_else(|| anyhow!("fucked"))??;
-        let last_commit = git2_repository.find_commit(last_commit)?;
-        let merge_base = last_commit.parent_id(0)?;
-        Ok(merge_base)
+        if let Some(last) = revwalk.last() {
+            let commit = git2_repository.find_commit(last?)?;
+            Ok(commit.parent_id(0)?)
+        } else {
+            Ok(head_oid)
+        }
     }
 
     /// An initialized stack has at least one head (branch).

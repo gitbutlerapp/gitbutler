@@ -2459,6 +2459,7 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-core",
+ "but-debugging",
  "but-rebase",
  "but-settings",
  "but-workspace",
@@ -3029,6 +3030,7 @@ name = "gitbutler-testsupport"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-debugging",
  "but-settings",
  "git2",
  "gitbutler-branch",
