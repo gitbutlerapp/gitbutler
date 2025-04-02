@@ -66,15 +66,20 @@
 		{#snippet children([branch, branchDetails])}
 			{@const hasCommits =
 				branchCommitsResult.current.data && branchCommitsResult.current.data.length > 0}
+			{@const remoteTrackingBranch = branchResult.current.data?.remoteTrackingBranch}
 			<Drawer {projectId} {stackId} splitView={hasCommits}>
 				{#snippet header()}
 					<div class="branch__header">
 						{#if hasCommits}
 							<Tooltip
-								text={`Remote tracking branch:\n${branchResult.current.data?.remoteTrackingBranch}`}
+								text={remoteTrackingBranch
+									? `Remote tracking branch:\n${remoteTrackingBranch}`
+									: 'no remote tracking branch'}
 							>
-								<div class="remote-tracking-branch-icon">
-									<Icon name="remote-target-branch" />
+								<div class="remote-tracking-branch-icon" class:disabled={!remoteTrackingBranch}>
+									<Icon
+										name={remoteTrackingBranch ? 'remote-target-branch' : 'no-remote-target-branch'}
+									/>
 								</div>
 							</Tooltip>
 						{/if}
@@ -190,6 +195,10 @@
 
 		&:hover {
 			opacity: 0.7;
+		}
+
+		&.disabled {
+			opacity: 0.3;
 		}
 	}
 

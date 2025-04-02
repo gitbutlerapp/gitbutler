@@ -245,14 +245,14 @@
 			}
 		}
 
-		@container drawer (min-width: 500px) {
+		@container drawer (min-width: 530px) {
 			&.files-split-view .drawer__content-scroll {
 				min-width: 300px;
 				max-width: 500px;
 			}
 		}
 
-		@container drawer (max-width: 500px) {
+		@container drawer (max-width: 530px) {
 			&.files-split-view {
 				flex-direction: column;
 			}
