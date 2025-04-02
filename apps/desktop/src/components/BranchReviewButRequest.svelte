@@ -203,9 +203,9 @@
 					>
 					<BranchStatusBadge branch={cloudBranch}></BranchStatusBadge>
 				</div>
-				<div class="br-row">
+				<div class="text-12 br-row">
 					{#if $user}
-						<div class="factoid text-12">
+						<div class="factoid">
 							<span class="label">Commits:</span>
 							<div class="minimap-container" class:thin>
 								<Minimap
@@ -223,7 +223,7 @@
 						</div>
 						<span class="seperator">•</span>
 					{/if}
-					<div class="factoid text-12">
+					<div class="factoid">
 						{#await contributors then contributors}
 							{#if contributors.length > 0}
 								<span class="label">Reviewers:</span>
@@ -236,7 +236,7 @@
 						{/await}
 					</div>
 					<span class="seperator">•</span>
-					<div class="factoid text-12">
+					<div class="factoid">
 						<span class="label">Version:</span>
 						{cloudBranch.version}
 					</div>
