@@ -74,18 +74,6 @@ impl From<git2::Oid> for CommitOrChangeId {
     }
 }
 
-pub trait RepositoryExt {
-    fn lookup_change_id_or_oid(&self, oid: git2::Oid) -> Result<CommitOrChangeId>;
-}
-
-impl RepositoryExt for git2::Repository {
-    fn lookup_change_id_or_oid(&self, oid: git2::Oid) -> Result<CommitOrChangeId> {
-        let commit = self.find_commit(oid)?;
-
-        Ok(commit.into())
-    }
-}
-
 impl StackBranch {
     pub fn new(
         head: CommitOrChangeId,

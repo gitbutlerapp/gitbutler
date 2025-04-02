@@ -28,7 +28,6 @@ use crate::heads::get_head;
 use crate::heads::remove_head;
 use crate::stack_branch::remote_reference;
 use crate::stack_branch::CommitOrChangeId;
-use crate::stack_branch::RepositoryExt as _;
 use crate::stack_context::CommandContextExt;
 use crate::stack_context::StackContext;
 use crate::StackBranch;
@@ -808,7 +807,14 @@ impl Stack {
         let patches: Vec<CommitOrChangeId> = commits
             .into_iter()
             .rev()
-            .filter_map(|commit| repository.lookup_change_id_or_oid(commit).ok())
+            .filter_map(
+                |oid| {
+                    repository
+                        .find_commit(oid)
+                        .ok()
+                        .map(|c| CommitOrChangeId::CommitId(c.id().to_string()))
+                }, // repository.lookup_change_id_or_oid(commit).ok()
+            )
             .collect();
         Ok(patches)
     }
