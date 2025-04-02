@@ -3,6 +3,8 @@ import GhostTextPlugin from '@gitbutler/ui/richText/plugins/GhostText.svelte';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { FileChange } from '$lib/ai/types';
 import type { ChangeDiff } from '$lib/hunks/diffService.svelte';
+import type { UiState } from '$lib/state/uiState.svelte';
+import type { WritableReactive } from '@gitbutler/shared/storeUtils';
 
 export default class CommitSuggestions {
 	private _ghostTextComponent = $state<ReturnType<typeof GhostTextPlugin> | undefined>();
@@ -11,10 +13,15 @@ export default class CommitSuggestions {
 	private lastSentMessage = $state<string | undefined>();
 	private lasSelectedGhostText = $state<string | undefined>();
 	private stagedChanges = $state<FileChange[] | undefined>();
-	private _suggestOnType = $state<boolean>(true);
 	private canUseAI = $state<boolean>(false);
+	private _suggestOnType: WritableReactive<boolean>;
 
-	constructor(private readonly aiService: AIService) {}
+	constructor(
+		private readonly aiService: AIService,
+		uiState: UiState
+	) {
+		this._suggestOnType = uiState.global.aiSuggestionsOnType;
+	}
 
 	setCanUseAI(value: boolean) {
 		this.canUseAI = value;
@@ -57,7 +64,7 @@ export default class CommitSuggestions {
 
 	private canSuggestOnType(text: string): boolean {
 		// Only suggest on type enabled and not on new line.
-		return this._suggestOnType && ['\n', '\r', '.'].every((char) => !text.endsWith(char));
+		return this._suggestOnType.current && ['\n', '\r', '.'].every((char) => !text.endsWith(char));
 	}
 
 	async onChange(textUpToAnchor: string | undefined, textAfterAnchor: string | undefined) {
@@ -71,7 +78,7 @@ export default class CommitSuggestions {
 	}
 
 	onKeyDown(event: KeyboardEvent | null): boolean {
-		if (this._suggestOnType) return false;
+		if (this._suggestOnType.current) return false;
 		if (!event) return false;
 		if (event.key === 'g' && (event.ctrlKey || event.metaKey)) {
 			this.suggest(true);
@@ -85,11 +92,11 @@ export default class CommitSuggestions {
 	}
 
 	get suggestOnType() {
-		return this._suggestOnType;
+		return this._suggestOnType.current;
 	}
 
 	toggleSuggestOnType() {
-		this._suggestOnType = !this._suggestOnType;
+		this._suggestOnType.current = !this._suggestOnType.current;
 	}
 
 	get ghostTextComponent(): ReturnType<typeof GhostTextPlugin> | undefined {

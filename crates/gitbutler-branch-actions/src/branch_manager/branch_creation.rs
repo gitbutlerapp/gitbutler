@@ -246,7 +246,7 @@ impl BranchManager<'_> {
             )
         };
 
-        if let (Some(pr_number), Some(head)) = (pr_number, branch.heads().last()) {
+        if let (Some(pr_number), Some(head)) = (pr_number, branch.heads(false).last()) {
             branch.set_pr_number(self.ctx, head, Some(pr_number))?;
         }
         branch.set_stack_head(

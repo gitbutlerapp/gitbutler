@@ -365,17 +365,16 @@ impl Stack {
         };
         let commit = ctx.repo().find_commit(head)?;
 
-        let name = Stack::next_available_name(
-            &repo,
-            &state,
-            if let Some(refname) = self.upstream.as_ref() {
-                refname.branch().to_string()
-            } else {
-                let (author, _committer) = ctx.repo().signatures()?;
-                generate_branch_name(author)?
-            },
-            allow_duplicate_refs,
-        )?;
+        let name = if ctx.app_settings().feature_flags.v3 {
+            self.name.clone()
+        } else if let Some(refname) = self.upstream.as_ref() {
+            refname.branch().to_string()
+        } else {
+            let (author, _committer) = ctx.repo().signatures()?;
+            generate_branch_name(author)?
+        };
+
+        let name = Stack::next_available_name(&repo, &state, name, allow_duplicate_refs)?;
 
         validate_name(&name, &state)?;
         let reference = StackBranch::new(commit.into(), name, None, &repo)?;
@@ -777,8 +776,16 @@ impl Stack {
         }
     }
 
-    pub fn heads(&self) -> Vec<String> {
-        self.heads.iter().map(|h| h.name().clone()).collect()
+    pub fn heads(&self, exclude_archived: bool) -> Vec<String> {
+        if exclude_archived {
+            self.heads.iter().map(|h| h.name().clone()).collect()
+        } else {
+            self.heads
+                .iter()
+                .filter(|h| !h.archived)
+                .map(|h| h.name().clone())
+                .collect()
+        }
     }
 
     pub fn heads_by_commit(&self, commit: Commit<'_>, repo: &gix::Repository) -> Vec<String> {

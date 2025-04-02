@@ -29,6 +29,8 @@ type StackUiState = {
 type ProjectUiState = {
 	drawerPage: DrawerPage;
 	drawerFullScreen: boolean;
+	commitTitle: string;
+	commitMessage: string;
 };
 
 type GlobalUiState = {
@@ -37,6 +39,7 @@ type GlobalUiState = {
 	stacksViewWidth: number;
 	drawerSplitViewWidth: number;
 	useRichText: boolean;
+	aiSuggestionsOnType: boolean;
 };
 
 /**
@@ -54,7 +57,9 @@ export class UiState {
 	/** Properties scoped to a specific project. */
 	readonly project = this.buildScopedProps<ProjectUiState>({
 		drawerPage: undefined,
-		drawerFullScreen: false
+		drawerFullScreen: false,
+		commitTitle: '',
+		commitMessage: ''
 	});
 
 	/** Properties that are globally scoped. */
@@ -63,7 +68,8 @@ export class UiState {
 		leftWidth: 17.5,
 		stacksViewWidth: 21.25,
 		drawerSplitViewWidth: 20,
-		useRichText: true
+		useRichText: true,
+		aiSuggestionsOnType: true
 	});
 
 	constructor(

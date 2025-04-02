@@ -12,7 +12,11 @@ function getPersistedTitleKey(projectId: string, branchName: string) {
 	return 'seriesCurrentPRTitle_' + projectId + '_' + branchName;
 }
 
-export function setPersistedPRBody(projectId: string, branchName: string, body: string): void {
+export function setPersistedPRBody(
+	projectId: string,
+	branchName: string,
+	body: string | undefined
+): void {
 	const key = getPersistedBodyKey(projectId, branchName);
 	setEphemeralStorageItem(key, body, PERSITANCE_TIME_MIN);
 }
@@ -28,7 +32,11 @@ export function getPersistedPRBody(projectId: string, branchName: string): strin
 	return undefined;
 }
 
-export function setPersistedPRTitle(projectId: string, branchName: string, title: string): void {
+export function setPersistedPRTitle(
+	projectId: string,
+	branchName: string,
+	title: string | undefined
+): void {
 	const key = getPersistedTitleKey(projectId, branchName);
 	setEphemeralStorageItem(key, title, PERSITANCE_TIME_MIN);
 }
@@ -49,7 +57,6 @@ export class ReactivePRTitle {
 
 	constructor(
 		private projectId: string,
-		private existingTitle: string | undefined,
 		private commits: Commit[],
 		private branchName: string
 	) {
@@ -70,9 +77,17 @@ export class ReactivePRTitle {
 		return this._value;
 	}
 
-	set(value: string) {
-		this._value = value;
-		setPersistedPRTitle(this.projectId, this.branchName, value);
+	set(value: string | undefined) {
+		this._value = value ?? '';
+
+		// Don't persist the default value
+		if (value !== this.getDefaultTitle()) {
+			setPersistedPRTitle(this.projectId, this.branchName, value);
+		}
+	}
+
+	reset() {
+		this.set(undefined);
 	}
 }
 
@@ -82,7 +97,6 @@ export class ReactivePRBody {
 	constructor(
 		private projectId: string,
 		private branchDescription: string | undefined,
-		private existingBody: string | undefined,
 		private commits: Commit[],
 		private templateBody: string | undefined,
 		private branchName: string
@@ -106,9 +120,13 @@ export class ReactivePRBody {
 		return this._value;
 	}
 
-	set(value: string) {
-		this._value = value;
-		setPersistedPRBody(this.projectId, this.branchName, value);
+	set(value: string | undefined) {
+		this._value = value ?? '';
+
+		// Don't persist the default value
+		if (value !== this.getDefaultBody()) {
+			setPersistedPRBody(this.projectId, this.branchName, value);
+		}
 	}
 
 	append(value: string) {
@@ -116,6 +134,6 @@ export class ReactivePRBody {
 	}
 
 	reset() {
-		this.set('');
+		this.set(undefined);
 	}
 }
