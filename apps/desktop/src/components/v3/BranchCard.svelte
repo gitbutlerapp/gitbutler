@@ -62,8 +62,11 @@
 	const isCommitting = $derived(drawer.current === 'new-commit');
 	const selection = $derived(uiState.stack(stackId).selection.get());
 	const selectedCommitId = $derived(selection.current?.commitId);
+	const remoteBranchName = $derived(branchResult.current.data?.remoteTrackingBranch);
 
-	const forgeBranch = $derived(forge.current?.branch(branchName));
+	const forgeBranch = $derived(
+		remoteBranchName ? forge.current?.branch(remoteBranchName) : undefined
+	);
 
 	let headerEl = $state<HTMLDivElement>();
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
