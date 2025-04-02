@@ -1,12 +1,11 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	// import Resizer from '$components/Resizer.svelte';
 	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	// import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
+	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 
 	type Props = {
 		projectId: string;
@@ -22,10 +21,6 @@
 					branchName: string;
 			  };
 	};
-
-	// let viewportEl = $state<HTMLElement>();
-	// const [uiState] = inject(UiState);
-	// const vieportWidth = $derived(uiState.global.fileSplitViewWidth);
 
 	const { projectId, stackId, selectionId }: Props = $props();
 	const [stackService] = inject(StackService);
@@ -45,14 +40,33 @@
 	});
 
 	let listMode: 'list' | 'tree' = $state('tree');
+
+	let isHeaderSticky = $state(false);
 </script>
 
 {#if changesResult}
 	<div class="changed-files">
 		<ReduxResult result={changesResult.current}>
 			{#snippet children(changes)}
-				<div class="header">
-					<div class="header-left">
+				<div
+					class="changed-files__header"
+					class:sticky={isHeaderSticky}
+					use:intersectionObserver={{
+						callback: (entry) => {
+							if (entry?.isIntersecting) {
+								isHeaderSticky = false;
+							} else {
+								isHeaderSticky = true;
+							}
+						},
+						options: {
+							root: null,
+							rootMargin: `-1px 0px 0px 0px`,
+							threshold: 1
+						}
+					}}
+				>
+					<div class="changed-files__header-left">
 						<h4 class="text-14 text-semibold">{headerTitle}</h4>
 						<Badge>{changes.length}</Badge>
 					</div>
@@ -65,13 +79,6 @@
 				{/if}
 			{/snippet}
 		</ReduxResult>
-
-		<!-- <Resizer
-			viewport={viewportEl}
-			direction="left"
-			minWidth={16}
-			onWidth={(value) => (vieportWidth.current = value)}
-		/> -->
 	</div>
 {:else}
 	<p class="text-13 text-bold">Malformed props</p>
@@ -82,21 +89,25 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		/* border-radius: var(--radius-m); */
-		/* border: 1px solid var(--clr-border-2); */
-		max-height: 100%;
-		overflow: hidden;
 	}
 
-	.header {
+	.changed-files__header {
+		z-index: var(--z-ground);
+		position: sticky;
+		top: -1px;
 		padding: 10px 10px 10px 14px;
 		display: flex;
 		align-items: center;
 		gap: 4px;
 		justify-content: space-between;
+		background-color: var(--clr-bg-1);
+
+		&.sticky {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
 	}
 
-	.header-left {
+	.changed-files__header-left {
 		display: flex;
 		align-items: center;
 		gap: 4px;

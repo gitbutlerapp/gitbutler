@@ -140,9 +140,7 @@
 				{#if splitView && filesSplitView}
 					<div class="drawer__files-split-view">
 						<ConfigurableScrollableContainer>
-							<div>
-								{@render filesSplitView()}
-							</div>
+							{@render filesSplitView()}
 						</ConfigurableScrollableContainer>
 					</div>
 				{/if}
