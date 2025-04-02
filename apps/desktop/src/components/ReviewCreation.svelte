@@ -198,6 +198,9 @@
 			brToPrService.refreshButRequestPrDescription(prNumber, reviewId, $project.api.repository_id);
 		}
 
+		prBody.reset();
+		prTitle.reset();
+
 		close();
 	}
 

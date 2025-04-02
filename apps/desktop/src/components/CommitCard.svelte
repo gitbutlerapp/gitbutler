@@ -18,6 +18,7 @@
 	import { FileService } from '$lib/files/fileService';
 	import { ModeService } from '$lib/mode/modeService';
 	import { Project } from '$lib/project/project';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
@@ -70,6 +71,8 @@
 	const project = getContext(Project);
 	const modeService = maybeGetContext(ModeService);
 	const fileService = getContext(FileService);
+	const stackService = getContext(StackService);
+	const [updateCommitMessage] = stackService.updateCommitMessage();
 
 	const commitStore = createCommitStore(commit);
 
@@ -132,14 +135,23 @@
 		commitMessageModal?.show();
 	}
 
-	function submitCommitMessageModal() {
+	let isUpdating = $state(false);
+
+	async function submitCommitMessageModal() {
+		isUpdating = true;
 		commit.description = description;
 
 		if (stack) {
-			branchController.updateCommitMessage(stack.id, commit.id, description);
+			await updateCommitMessage({
+				projectId: project.id,
+				stackId: stack.id,
+				commitId: commit.id,
+				message: description
+			});
 		}
 
 		commitMessageModal?.close();
+		isUpdating = false;
 	}
 
 	const commitShortSha = commit.id.substring(0, 7);
@@ -193,7 +205,9 @@
 	{/snippet}
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="neutral" type="submit" grow disabled={!commitMessageValid}>Submit</Button>
+		<Button style="neutral" type="submit" grow disabled={!commitMessageValid} loading={isUpdating}
+			>Submit</Button
+		>
 	{/snippet}
 </Modal>
 
