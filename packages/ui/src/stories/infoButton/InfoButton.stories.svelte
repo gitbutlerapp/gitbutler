@@ -13,7 +13,8 @@
 		args: {
 			title: 'The title of the InfoButton',
 			children: 'This is the content of the InfoButton' as any,
-			size: 'medium'
+			size: 'medium',
+			icon: 'info'
 		},
 		argTypes: {
 			size: {
@@ -43,7 +44,7 @@
 {#snippet template({ ...args }: Args<typeof Story>, _context: StoryContext<typeof Story>)}
 	<div class="text-wrap text-14">
 		This is an example of only text with an InfoButton.
-		<InfoButton size={args.size} title={args.title}>
+		<InfoButton size={args.size} title={args.title} icon={args.icon}>
 			{args.children}
 		</InfoButton>
 	</div>

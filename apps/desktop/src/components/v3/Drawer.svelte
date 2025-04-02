@@ -198,6 +198,7 @@
 		flex-grow: 1;
 		display: flex;
 		gap: 8px;
+		overflow: hidden;
 	}
 
 	.drawer-header__actions {

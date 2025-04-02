@@ -11,6 +11,9 @@
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
+	import Icon from '@gitbutler/ui/Icon.svelte';
+	import InfoButton from '@gitbutler/ui/InfoButton.svelte';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 
@@ -58,7 +61,22 @@
 		{#snippet children([branch, branchDetails])}
 			{@const hasCommits =
 				branchCommitsResult.current.data && branchCommitsResult.current.data.length > 0}
-			<Drawer {projectId} {stackId} title={branch.name} splitView={hasCommits}>
+			<Drawer {projectId} {stackId} splitView={hasCommits}>
+				{#snippet header()}
+					<div class="branch__header">
+						{#if hasCommits}
+							<Tooltip
+								text={`Remote tracking branch:\n${branchResult.current.data?.remoteTrackingBranch}`}
+							>
+								<div class="remote-tracking-branch-icon">
+									<Icon name="remote-target-branch" />
+								</div>
+							</Tooltip>
+						{/if}
+						<h3 class="text-15 text-bold truncate">{branch.name}</h3>
+					</div>
+				{/snippet}
+
 				{#if hasCommits}
 					<div class="branch-view">
 						<div class="branch-view__header-container">
@@ -122,8 +140,28 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
-		align-self: stretch;
 		height: 100%;
+	}
+
+	.branch__header {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		width: 100%;
+		overflow: hidden;
+	}
+
+	/*  */
+	.remote-tracking-branch-icon {
+		display: flex;
+		gap: 6px;
+		color: var(--clr-text-1);
+		opacity: 0.5;
+		transition: var(--transition-fast);
+
+		&:hover {
+			opacity: 0.7;
+		}
 	}
 
 	.branch-view__header-container {
