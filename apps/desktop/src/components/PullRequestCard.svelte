@@ -5,7 +5,6 @@
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
-	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -13,12 +12,12 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Badge from '@gitbutler/ui/Badge.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
 	import type { MessageStyle } from '$components/InfoMessage.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
@@ -78,9 +77,6 @@
 	const [fetchFromRemotes] = baseBranchService.fetchFromRemotes;
 	const repoResult = $derived(repoService?.getInfo());
 	const repoInfo = $derived(repoResult?.current.data);
-
-	const settingsService = getContext(SettingsService);
-	const settings = settingsService.appSettings;
 
 	let shouldUpdateTargetBaseBranch = $state(false);
 	$effect(() => {
@@ -215,22 +211,39 @@
 	<div
 		bind:this={container}
 		role="article"
-		class="pr-header"
+		class="review-card pr-card"
 		oncontextmenu={(e: MouseEvent) => {
 			e.preventDefault();
 			e.stopPropagation();
 			contextMenuEl?.open(e);
 		}}
 	>
+		<div class="pr-actions">
+			<Button
+				kind="outline"
+				size="tag"
+				icon="copy-small"
+				tooltip="Copy PR link"
+				onclick={() => {
+					writeClipboard(pr.htmlUrl);
+				}}
+			/>
+			<Button
+				kind="outline"
+				size="tag"
+				icon="open-link"
+				tooltip="Open PR in browser"
+				onclick={() => {
+					openExternalUrl(pr.htmlUrl);
+				}}
+			/>
+		</div>
+
 		<div class="text-13 text-semibold pr-row">
 			<Icon name="github" />
-			<Link
-				target="_blank"
-				rel="noreferrer"
-				href={pr.htmlUrl}
-				externalIcon={false}
-				class="pr-link text-13">PR #{pr.number}</Link
-			>
+			<h4 class="text-14 text-semibold">
+				PR #{pr.number}
+			</h4>
 			<Badge
 				reversedDirection
 				size="icon"
@@ -242,10 +255,9 @@
 				{prStatusInfo.text}
 			</Badge>
 		</div>
-		<div class="pr-row">
+		<div class="text-12 pr-row">
 			{#if !pr.closedAt && forge.current.checks}
-				<div class="factoid text-12">
-					<span class="label">Checks:</span>
+				<div class="factoid">
 					<ChecksPolling
 						{stackId}
 						branchName={pr.sourceBranch}
@@ -256,7 +268,7 @@
 				</div>
 				<span class="seperator">•</span>
 			{/if}
-			<div class="factoid text-12">
+			<div class="factoid">
 				{#if pr.reviewers.length > 0}
 					<span class="label">Reviewers:</span>
 					<div class="avatar-group-container">
@@ -267,7 +279,7 @@
 				{/if}
 			</div>
 			<span class="seperator">•</span>
-			<div class="factoid text-12">
+			<div class="factoid">
 				<span class="label">
 					<Icon name="chat-small" />
 				</span>
@@ -286,7 +298,7 @@
 		<div class="pr-row">
 			{#if pr.state === 'open'}
 				<MergeButton
-					wide={!$settings?.featureFlags.v3}
+					wide
 					{projectId}
 					disabled={mergeStatus.disabled}
 					tooltip={mergeStatus.tooltip}
@@ -332,18 +344,6 @@
 {/if}
 
 <style lang="postcss">
-	:global(.pr-link) {
-		text-decoration-style: dotted;
-		text-decoration-thickness: 2px;
-	}
-
-	.pr-header {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-
 	.pr-row {
 		display: flex;
 		align-items: center;
@@ -370,7 +370,11 @@
 		color: var(--clr-text-3);
 	}
 
-	.avatar-group-container {
-		padding-right: 2px;
+	.pr-actions {
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		display: flex;
+		gap: 4px;
 	}
 </style>

@@ -29,7 +29,7 @@
 		border-radius: 20px;
 		color: #fff;
 		background-color: var(--b-bg-color);
-		padding: 3px 5px;
+		padding: 0 5px;
 		height: var(--size-icon);
 		line-height: 1;
 	}

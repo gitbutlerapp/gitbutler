@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { writeClipboard } from '$lib/backend/clipboard';
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
 	import { ProjectService } from '$lib/project/projectService';
 	import { UserService } from '$lib/user/userService';
 	import { sleep } from '$lib/utils/sleep';
+	import { openExternalUrl } from '$lib/utils/url';
 	import BranchStatusBadge from '@gitbutler/shared/branches/BranchStatusBadge.svelte';
 	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
 	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
@@ -16,6 +18,7 @@
 	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
@@ -41,6 +44,16 @@
 	const cloudProject = $derived(
 		$project?.api?.repository_id ? getProjectByRepositoryId($project.api.repository_id) : undefined
 	);
+
+	const brUrl = $derived.by(() => {
+		if (isFound(cloudBranch?.current) && isFound(cloudProject?.current)) {
+			return webRoutes.projectReviewBranchUrl({
+				ownerSlug: cloudProject.current.value.owner,
+				projectSlug: cloudProject.current.value.slug,
+				branchId: cloudBranch.current.value.branchId
+			});
+		}
+	});
 
 	const cloudBranchUuid = $derived(
 		map(cloudProject?.current, (cloudProject) => {
@@ -149,7 +162,32 @@
 		])}
 	>
 		{#snippet children([cloudBranch, cloudProject])}
-			<div bind:this={container} class="br-overview">
+			<div bind:this={container} class="review-card br-overview">
+				{#if brUrl}
+					<div class="br-actions">
+						<Button
+							kind="outline"
+							size="tag"
+							icon="copy-small"
+							tooltip="Copy BR link"
+							onclick={() => {
+								writeClipboard(brUrl, {
+									message: 'BR link copied'
+								});
+							}}
+						/>
+						<Button
+							kind="outline"
+							size="tag"
+							icon="open-link"
+							tooltip="Open BR in browser"
+							onclick={() => {
+								openExternalUrl(brUrl);
+							}}
+						/>
+					</div>
+				{/if}
+
 				<div class="br-row">
 					<Icon name="bowtie" />
 					<Link
@@ -209,15 +247,12 @@
 {/if}
 
 <style lang="postcss">
-	:global(.br-link) {
-		text-decoration-style: dotted;
-		text-decoration-thickness: 2px;
-	}
-
-	.br-overview {
+	.br-actions {
+		position: absolute;
+		top: 8px;
+		right: 8px;
 		display: flex;
-		flex-direction: column;
-		gap: 12px;
+		gap: 4px;
 	}
 
 	.br-row {
