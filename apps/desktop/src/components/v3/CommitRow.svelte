@@ -4,6 +4,7 @@
 	import CommitLine from '$components/v3/CommitLine.svelte';
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/v3/lib';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { isCommit, type Commit, type UpstreamCommit } from '$lib/branches/v3';
 	import { CommitDropData } from '$lib/commits/dropHandler';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { NON_DRAGGABLE } from '$lib/dragging/draggables';
@@ -15,7 +16,6 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
-	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
 
 	type Props = {
 		projectId: string;
@@ -56,7 +56,7 @@
 	const [uncommit] = stackService.uncommit();
 
 	const commitUrl = undefined;
-	const conflicted = false; // TODO
+	const conflicted = $derived(isCommit(commit) ? commit.hasConflicts : false);
 	const isAncestorMostConflicted = false; // TODO
 	const isUnapplied = false; // TODO
 	const branchRefName = undefined;
@@ -165,6 +165,12 @@
 		<div class="commit-name truncate">
 			<CommitHeader {commit} row class="text-13 text-semibold" />
 		</div>
+
+		{#if conflicted}
+			<div class="commit-conflict-indicator">
+				<Icon name="warning" size={12} />
+			</div>
+		{/if}
 
 		<button
 			type="button"
@@ -305,5 +311,12 @@
 		&.activated {
 			opacity: 1;
 		}
+	}
+
+	.commit-conflict-indicator {
+		position: absolute;
+		/* Account for the kebab menu that appears on hover */
+		right: 42px;
+		color: var(--clr-theme-err-element);
 	}
 </style>
