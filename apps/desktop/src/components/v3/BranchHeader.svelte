@@ -118,11 +118,11 @@
 				</div>
 
 				{#if isNewBranch}
-					<span class="text-12 text-body branch-header__empty-state">
-						This is an empty branch. Click to see details.
+					<p class="text-12 text-body branch-header__empty-state">
+						<span>This is an empty branch.</span> <span>Click for details.</span>
 						<br />
 						Create or drag & drop commits here.
-					</span>
+					</p>
 				{:else}
 					{@render details?.()}
 				{/if}
@@ -229,5 +229,9 @@
 		opacity: 0.8;
 		color: var(--clr-text-2);
 		margin-top: -8px;
+
+		& span {
+			text-wrap: nowrap;
+		}
 	}
 </style>
