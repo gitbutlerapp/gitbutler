@@ -137,7 +137,12 @@ pub fn stacks(gb_dir: &Path, repo: &gix::Repository) -> Result<Vec<StackEntry>> 
         .map(|stack| {
             Ok(StackEntry {
                 id: stack.id,
-                branch_names: stack.heads().into_iter().map(Into::into).collect(),
+                branch_names: stack
+                    .heads(true)
+                    .into_iter()
+                    .rev()
+                    .map(Into::into)
+                    .collect(),
                 tip: stack.head(repo).map(|h| h.to_gix())?,
             })
         })
