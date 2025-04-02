@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::from_json::HexHash;
+use anyhow::Context;
 use but_hunk_dependency::ui::{
     hunk_dependencies_for_workspace_changes_by_worktree_dir, HunkDependencies,
 };
@@ -10,7 +11,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
-use gitbutler_stack::StackId;
+use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use tauri::State;
 use tracing::instrument;
 
@@ -159,6 +160,12 @@ pub fn create_commit_from_worktree_changes(
         settings.get()?.context_lines,
         guard.write_permission(),
     );
+
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let vb_state = VirtualBranchesHandle::new(project.gb_dir());
+    gitbutler_branch_actions::update_workspace_commit(&vb_state, &ctx)
+        .context("failed to update gitbutler workspace")?;
+
     let _ = snapshot_tree.and_then(|snapshot_tree| {
         project.snapshot_commit_creation(
             snapshot_tree,
