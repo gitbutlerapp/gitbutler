@@ -32,5 +32,6 @@ gitbutler-stack.workspace = true
 but-settings.workspace = true
 gitbutler-oxidize.workspace = true
 gitbutler-commit.workspace = true
+but-debugging.workspace = true
 termtree = "0.5.1"
 uuid.workspace = true

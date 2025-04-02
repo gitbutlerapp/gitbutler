@@ -49,6 +49,7 @@ toml.workspace = true
 pretty_assertions = "1.4"
 gitbutler-testsupport.workspace = true
 gitbutler-workspace.workspace = true
+but-debugging.workspace = true
 gix = { workspace = true, features = [] }
 glob = "0.3.2"
 tempfile.workspace = true

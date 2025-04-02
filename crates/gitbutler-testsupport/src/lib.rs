@@ -27,7 +27,9 @@ pub mod paths {
 
 pub mod virtual_branches {
     use gitbutler_command_context::CommandContext;
+    use gitbutler_oxidize::OidExt;
     use gitbutler_stack::{Target, VirtualBranchesHandle};
+    use gix::refs::transaction::PreviousValue;
 
     use crate::empty_bare_repository;
 
@@ -48,6 +50,13 @@ pub mod virtual_branches {
                 push_remote_name: None,
             })
             .expect("failed to write target");
+
+        ctx.gix_repository()?.reference(
+            "refs/remotes/origin/master".to_string(),
+            remote_repo.head().unwrap().target().unwrap().to_gix(),
+            PreviousValue::Any,
+            "",
+        )?;
 
         gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx)
             .expect("failed to update workspace");

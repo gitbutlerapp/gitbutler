@@ -310,10 +310,23 @@ impl Stack {
     /// - If a target is not set for the project
     /// - If the head commit of the stack is not found
     pub fn merge_base(&self, stack_context: &StackContext) -> Result<git2::Oid> {
-        let target = stack_context.target();
-        let repository = stack_context.repository();
-        let merge_base = repository.merge_base(self.head(&repository.to_gix()?)?, target.sha)?;
-        Ok(merge_base)
+        let gix_repo = stack_context.repository().to_gix()?;
+        let git2_repository = stack_context.repository();
+        let target_sha = gix_repo
+            .find_reference(&stack_context.target().branch.to_string())?
+            .peel_to_commit()?
+            .id;
+        let mut revwalk = git2_repository.revwalk()?;
+        let head_oid = self.head(&gix_repo)?;
+        revwalk.hide(head_oid)?;
+        revwalk.push(target_sha.to_git2())?;
+        revwalk.simplify_first_parent()?;
+        if let Some(last) = revwalk.last() {
+            let commit = git2_repository.find_commit(last?)?;
+            Ok(commit.parent_id(0)?)
+        } else {
+            Ok(head_oid)
+        }
     }
 
     /// An initialized stack has at least one head (branch).
