@@ -71,35 +71,6 @@
 			srcUrl={getGravatarUrl(commit.author.email, commit.author.gravatarUrl)}
 		/>
 		<span class="divider">•</span>
-		<Tooltip text="Copy commit SHA">
-			<button
-				type="button"
-				class="commit-sha-btn"
-				onclick={(e) => {
-					e.stopPropagation();
-					writeClipboard(commit.id);
-				}}
-			>
-				<span>{commitShortSha}</span>
-			</button>
-		</Tooltip>
-		<span class="divider">•</span>
-		<button
-			type="button"
-			class="open-external-btn"
-			onclick={(e) => {
-				e.stopPropagation();
-				// TODO: Generate commitUrl.
-				// if (commitUrl) openExternalUrl(commitUrl);
-			}}
-		>
-			<span>Open</span>
-
-			<div>
-				<Icon name="open-link" />
-			</div>
-		</button>
-		<span class="divider">•</span>
 		<span>{getTimeAgo(new Date(commit.createdAt))}</span>
 	</div>
 

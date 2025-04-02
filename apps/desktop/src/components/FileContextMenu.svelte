@@ -80,7 +80,9 @@
 						onclick={async () => {
 							if (!project) return;
 							const absPath = await join(project.path, item.files[0].path);
-							await writeClipboard(absPath, 'Failed to copy path');
+							await writeClipboard(absPath, {
+								errorMessage: 'Failed to copy path'
+							});
 							contextMenu.close();
 						}}
 					/>
@@ -88,7 +90,9 @@
 						label="Copy Relative Path"
 						onclick={async () => {
 							if (!project) return;
-							await writeClipboard(item.files[0].path, 'Failed to copy relative path');
+							await writeClipboard(item.files[0].path, {
+								errorMessage: 'Failed to copy relative path'
+							});
 							contextMenu.close();
 						}}
 					/>
