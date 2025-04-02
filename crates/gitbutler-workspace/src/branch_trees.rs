@@ -22,6 +22,10 @@ pub fn checkout_branch_trees<'a>(
     ctx: &'a CommandContext,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<git2::Tree<'a>> {
+    if ctx.app_settings().feature_flags.v3 {
+        bail!("Checkout branch trees was run in v3");
+    }
+
     let repository = ctx.repo();
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let stacks = vb_state.list_stacks_in_workspace()?;
