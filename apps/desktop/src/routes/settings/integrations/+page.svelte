@@ -3,6 +3,3 @@
 </script>
 
 <IntegrationsSettings />
-
-<style lang="postcss">
-</style>
