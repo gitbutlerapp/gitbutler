@@ -3,6 +3,3 @@
 </script>
 
 <GitSettings />
-
-<style lang="postcss">
-</style>

@@ -3,6 +3,3 @@
 </script>
 
 <AppearanceSettings />
-
-<style lang="postcss">
-</style>
