@@ -19,10 +19,12 @@ use gitbutler_branch_actions::{
     BranchManagerExt, Get,
 };
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::CommitHeadersV2};
+use gitbutler_oxidize::OidExt;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_stack::{BranchOwnershipClaims, Target, VirtualBranchesHandle};
 use gitbutler_testsupport::{commit_all, virtual_branches::set_test_target, Case, Suite};
+use gix::refs::transaction::PreviousValue;
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -829,6 +831,12 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
         sha: target_oid,
         push_remote_name: None,
     })?;
+    ctx.gix_repository()?.reference(
+        "refs/remotes/origin/master".to_string(),
+        target_oid.to_gix(),
+        PreviousValue::Any,
+        "",
+    )?;
 
     // add some uncommitted work
     let file_path2 = Path::new("test2.txt");
@@ -959,6 +967,12 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
         sha: target_oid,
         push_remote_name: None,
     })?;
+    ctx.gix_repository()?.reference(
+        "refs/remotes/origin/master".to_string(),
+        target_oid.to_gix(),
+        PreviousValue::Any,
+        "",
+    )?;
 
     let remote_branch: RemoteRefname = "refs/remotes/origin/g-branch-1".parse().unwrap();
     let branch_manager = ctx.branch_manager();
