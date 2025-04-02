@@ -315,7 +315,7 @@ impl BranchManager<'_> {
         // We don't support having two branches applied that conflict with each other
         {
             let uncommited_changes_tree_id = repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?.id();
-            let gix_repo = self.ctx.gix_repository_for_merging_non_persisting()?;
+            let gix_repo = self.ctx.gix_repo_for_merging_non_persisting()?;
             let merges_cleanly = gix_repo
                 .merges_cleanly_compat(
                     merge_base_tree_id,
@@ -346,7 +346,7 @@ impl BranchManager<'_> {
         if merge_base != default_target.sha || !has_change_id {
             let mut rebase_output = None;
             let new_head = if stack.allow_rebasing {
-                let gix_repo = self.ctx.gix_repository()?;
+                let gix_repo = self.ctx.gix_repo()?;
                 let steps = stack.as_rebase_steps(self.ctx, &gix_repo)?;
                 let mut rebase =
                     but_rebase::Rebase::new(&gix_repo, default_target.sha.to_gix(), None)?;

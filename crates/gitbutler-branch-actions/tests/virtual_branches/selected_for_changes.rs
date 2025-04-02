@@ -4,14 +4,12 @@ use super::*;
 
 #[test]
 fn unapplying_selected_branch_selects_anther() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
 
-    std::fs::write(repository.path().join("file one.txt"), "").unwrap();
+    std::fs::write(repo.path().join("file one.txt"), "").unwrap();
 
     // first branch should be created as default
     let stack_entry_1 =
@@ -205,9 +203,7 @@ fn update_virtual_branch_should_reset_selected_for_changes() {
 
 #[test]
 fn unapply_virtual_branch_should_reset_selected_for_changes() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -215,7 +211,7 @@ fn unapply_virtual_branch_should_reset_selected_for_changes() {
     let stack_entry_1 =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
             .unwrap();
-    std::fs::write(repository.path().join("file.txt"), "content").unwrap();
+    std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     let b1 = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
@@ -248,14 +244,12 @@ fn unapply_virtual_branch_should_reset_selected_for_changes() {
 
 #[test]
 fn hunks_distribution() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
 
-    std::fs::write(repository.path().join("file.txt"), "content").unwrap();
+    std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
@@ -269,7 +263,7 @@ fn hunks_distribution() {
         },
     )
     .unwrap();
-    std::fs::write(repository.path().join("another_file.txt"), "content").unwrap();
+    std::fs::write(repo.path().join("another_file.txt"), "content").unwrap();
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches[0].files.len(), 1);
@@ -278,14 +272,12 @@ fn hunks_distribution() {
 
 #[test]
 fn applying_first_branch() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
 
-    std::fs::write(repository.path().join("file.txt"), "content").unwrap();
+    std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
@@ -308,19 +300,17 @@ fn applying_first_branch() {
 // of a locked hunk doesn't drag along unrelated hunks to its branch.
 #[test]
 fn new_locked_hunk_without_modifying_existing() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
-    let mut lines = repository.gen_file("file.txt", 9);
-    repository.commit_all("first commit");
-    repository.push();
+    let mut lines = repo.gen_file("file.txt", 9);
+    repo.commit_all("first commit");
+    repo.push();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
 
     lines[0] = "modification 1".to_string();
-    repository.write_file("file.txt", &lines);
+    repo.write_file("file.txt", &lines);
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
@@ -344,7 +334,7 @@ fn new_locked_hunk_without_modifying_existing() {
     .unwrap();
 
     lines[8] = "modification 2".to_string();
-    repository.write_file("file.txt", &lines);
+    repo.write_file("file.txt", &lines);
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
@@ -352,7 +342,7 @@ fn new_locked_hunk_without_modifying_existing() {
     assert_eq!(branches[1].files.len(), 1);
 
     lines[0] = "modification 3".to_string();
-    repository.write_file("file.txt", &lines);
+    repo.write_file("file.txt", &lines);
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
     assert_eq!(branches[0].files.len(), 1);

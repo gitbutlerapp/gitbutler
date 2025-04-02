@@ -2,14 +2,12 @@ use super::*;
 
 #[test]
 fn unapply_with_data() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
 
-    std::fs::write(repository.path().join("file.txt"), "content").unwrap();
+    std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
@@ -18,7 +16,7 @@ fn unapply_with_data() {
 
     gitbutler_branch_actions::save_and_unapply_virutal_branch(ctx, branches[0].id).unwrap();
 
-    assert!(!repository.path().join("file.txt").exists());
+    assert!(!repo.path().join("file.txt").exists());
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;

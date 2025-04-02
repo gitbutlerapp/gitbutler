@@ -17,7 +17,7 @@ pub fn workspace_base(
     ctx: &CommandContext,
     _perm: &WorktreeReadPermission,
 ) -> Result<gix::ObjectId> {
-    let gix_repo = ctx.gix_repository_for_merging()?;
+    let gix_repo = ctx.gix_repo_for_merging()?;
     let repo = ctx.repo();
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let default_target = vb_state.get_default_target()?;

@@ -67,7 +67,7 @@ pub struct VirtualBranchCommit {
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn commit_to_vbranch_commit(
-    repository: &git2::Repository,
+    repo: &git2::Repository,
     stack: &Stack,
     commit: &git2::Commit,
     is_integrated: bool,
@@ -93,7 +93,7 @@ pub(crate) fn commit_to_vbranch_commit(
         let conflict_files_string = conflict_files_string
             .get_name(&ConflictedTreeKey::ConflictFiles)
             .ok_or_else(|| anyhow!("conflict files not found"))?;
-        let conflict_files_string = repository
+        let conflict_files_string = repo
             .find_blob(conflict_files_string.id())?
             .content()
             .to_str_lossy()

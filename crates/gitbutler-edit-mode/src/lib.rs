@@ -9,7 +9,7 @@ use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::internal::list_virtual_branches;
 use gitbutler_branch_actions::{update_workspace_commit, RemoteBranchFile};
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
-use gitbutler_command_context::{gix_repository_for_merging, CommandContext};
+use gitbutler_command_context::{gix_repo_for_merging, CommandContext};
 use gitbutler_commit::{
     commit_ext::CommitExt,
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
@@ -57,7 +57,7 @@ fn get_commit_index(repository: &git2::Repository, commit: &git2::Commit) -> Res
             .context("Failed to get base")?
             .id();
 
-        let gix_repo = gix_repository_for_merging(repository.path())?;
+        let gix_repo = gix_repo_for_merging(repository.path())?;
         // Merge without favoring a side this time to get a tree containing the actual conflicts.
         let mut merge_result = gix_repo.merge_trees(
             git2_to_gix_object_id(base),

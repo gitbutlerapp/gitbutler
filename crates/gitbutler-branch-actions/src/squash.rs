@@ -56,7 +56,7 @@ fn do_squash_commits(
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let vb_state = ctx.project().virtual_branches();
     let stack = vb_state.get_stack_in_workspace(stack_id)?;
-    let gix_repo = ctx.gix_repository()?;
+    let gix_repo = ctx.gix_repo()?;
 
     let default_target = vb_state.get_default_target()?;
     let merge_base = ctx
@@ -295,7 +295,7 @@ fn squash_tree<'a>(
     destination_commit: &git2::Commit<'_>,
 ) -> Result<git2::Tree<'a>> {
     let mut final_tree_id = destination_commit.tree_id().to_gix();
-    let gix_repo = ctx.gix_repository_for_merging()?;
+    let gix_repo = ctx.gix_repo_for_merging()?;
     let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     for source_commit in source_commits {
         let mut merge = gix_repo.merge_trees(

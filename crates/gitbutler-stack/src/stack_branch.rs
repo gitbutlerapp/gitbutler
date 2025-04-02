@@ -74,18 +74,6 @@ impl From<git2::Oid> for CommitOrChangeId {
     }
 }
 
-pub trait RepositoryExt {
-    fn lookup_change_id_or_oid(&self, oid: git2::Oid) -> Result<CommitOrChangeId>;
-}
-
-impl RepositoryExt for git2::Repository {
-    fn lookup_change_id_or_oid(&self, oid: git2::Oid) -> Result<CommitOrChangeId> {
-        let commit = self.find_commit(oid)?;
-
-        Ok(commit.into())
-    }
-}
-
 impl StackBranch {
     pub fn new(
         head: CommitOrChangeId,
@@ -310,10 +298,8 @@ impl StackBranch {
     }
 
     /// Returns `true` if the reference is pushed to the provided remote
-    pub fn pushed(&self, remote: &str, repository: &git2::Repository) -> bool {
-        repository
-            .find_reference(&self.remote_reference(remote))
-            .is_ok()
+    pub fn pushed(&self, remote: &str, repo: &git2::Repository) -> bool {
+        repo.find_reference(&self.remote_reference(remote)).is_ok()
     }
 
     /// Returns the commits that are part of the branch.
@@ -322,12 +308,12 @@ impl StackBranch {
         stack_context: &'a StackContext,
         stack: &Stack,
     ) -> Result<BranchCommits<'a>> {
-        let repository = stack_context.repository();
+        let repo = stack_context.repo();
         let merge_base = stack.merge_base(stack_context)?;
 
-        let gix_repo = repository.to_gix()?;
+        let gix_repo = repo.to_gix()?;
         let head_commit =
-            commit_by_oid_or_change_id(&self.head, repository, stack.head(&gix_repo)?, merge_base);
+            commit_by_oid_or_change_id(&self.head, repo, stack.head(&gix_repo)?, merge_base);
         if head_commit.is_err() {
             return Ok(BranchCommits {
                 local_commits: vec![],
@@ -344,12 +330,12 @@ impl StackBranch {
             .branch_predacessor(self)
             .filter(|predacessor| !predacessor.archived)
             .map_or(merge_base, |predacessor| {
-                commit_by_oid_or_change_id(&predacessor.head, repository, stack_head, merge_base)
+                commit_by_oid_or_change_id(&predacessor.head, repo, stack_head, merge_base)
                     .map(|commit| commit.id())
                     .unwrap_or(merge_base)
             });
 
-        let local_patches = repository
+        let local_patches = repo
             .log(head_commit, LogUntil::Commit(previous_head), false)?
             .into_iter()
             .rev()
@@ -364,12 +350,11 @@ impl StackBranch {
             .clone()
             .map(|ref_name| ref_name.remote().to_owned())
             .unwrap_or(default_target.push_remote_name());
-        if self.pushed(&remote, repository) {
-            let upstream_head = repository
+        if self.pushed(&remote, repo) {
+            let upstream_head = repo
                 .find_reference(self.remote_reference(&remote).as_str())?
                 .peel_to_commit()?;
-            repository
-                .log(upstream_head.id(), LogUntil::Commit(previous_head), false)?
+            repo.log(upstream_head.id(), LogUntil::Commit(previous_head), false)?
                 .into_iter()
                 .rev()
                 .for_each(|c| {
@@ -378,14 +363,14 @@ impl StackBranch {
         }
 
         let upstream_only = if let core::result::Result::Ok(reference) =
-            repository.find_reference(self.remote_reference(&remote).as_str())
+            repo.find_reference(self.remote_reference(&remote).as_str())
         {
             let upstream_head = reference.peel_to_commit()?;
-            let mut revwalk = repository.revwalk()?;
+            let mut revwalk = repo.revwalk()?;
             revwalk.push(upstream_head.id())?;
             if let Some(pred) = stack.branch_predacessor(self) {
                 if let core::result::Result::Ok(head_ref) =
-                    repository.find_reference(pred.remote_reference(&remote).as_str())
+                    repo.find_reference(pred.remote_reference(&remote).as_str())
                 {
                     revwalk.hide(head_ref.peel_to_commit()?.id())?;
                 }
@@ -393,7 +378,7 @@ impl StackBranch {
             revwalk.hide(previous_head)?;
             let mut upstream_only = revwalk
                 .filter_map(|c| {
-                    let commit = repository.find_commit(c.ok()?).ok()?;
+                    let commit = repo.find_commit(c.ok()?).ok()?;
                     Some(commit)
                 })
                 .collect::<Vec<_>>();

@@ -46,7 +46,7 @@ pub fn create_branch(
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&req.name)?;
-    let repo = ctx.gix_repository()?;
+    let repo = ctx.gix_repo()?;
     // If target_patch is None, create a new head that points to the top of the stack (most recent patch)
     if let Some(target_patch) = req.target_patch {
         stack.add_series(
@@ -185,7 +185,7 @@ pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> 
         &default_target.push_remote_name(),
         Some("push_stack".into()),
     )?;
-    let gix_repo = ctx.gix_repository_for_merging_non_persisting()?;
+    let gix_repo = ctx.gix_repo_for_merging_non_persisting()?;
     let cache = gix_repo.commit_graph_if_enabled()?;
     let mut graph = gix_repo.revision_graph(cache.as_ref());
     let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
@@ -282,10 +282,10 @@ fn stack_branch_to_api_branch(
     parent_series: &[&PatchSeries],
 ) -> Result<(PatchSeries, bool)> {
     let mut requires_force = false;
-    let repository = ctx.repository();
+    let repo = ctx.repo();
     let branch_commits = stack_branch.commits(ctx, stack)?;
     let remote = default_target.push_remote_name();
-    let upstream_reference = if stack_branch.pushed(remote.as_str(), repository) {
+    let upstream_reference = if stack_branch.pushed(remote.as_str(), repo) {
         Some(stack_branch.remote_reference(remote.as_str()))
     } else {
         None
@@ -341,7 +341,7 @@ fn stack_branch_to_api_branch(
         let commit_dependencies = commit_dependencies_from_stack(stack_dependencies, commit.id());
 
         let vcommit = commit_to_vbranch_commit(
-            repository,
+            repo,
             stack,
             commit,
             is_integrated,
@@ -397,7 +397,7 @@ fn stack_branch_to_api_branch(
         let commit_dependencies = commit_dependencies_from_stack(stack_dependencies, commit.id());
 
         let vcommit = commit_to_vbranch_commit(
-            repository,
+            repo,
             stack,
             commit,
             is_integrated,

@@ -11,7 +11,7 @@ use gitbutler_testsupport::{paths, TestProject, VAR_NO_CLEANUP};
 use tempfile::TempDir;
 
 struct Test {
-    repository: TestProject,
+    repo: TestProject,
     project_id: ProjectId,
     project: Project,
     projects: projects::Controller,
@@ -39,7 +39,7 @@ impl Default for Test {
         let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
 
         Self {
-            repository: test_project,
+            repo: test_project,
             project_id: project.id,
             projects,
             project,
@@ -54,7 +54,7 @@ impl Test {
     /// Best used inside a `dbg!(test.debug_local_repo())`
     #[allow(dead_code)]
     pub fn debug_local_repo(&mut self) -> Option<PathBuf> {
-        self.repository.debug_local_repo()
+        self.repo.debug_local_repo()
     }
 }
 

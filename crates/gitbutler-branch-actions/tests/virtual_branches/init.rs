@@ -47,13 +47,11 @@ fn twice() {
 fn dirty_non_target() {
     // a situation when you initialize project while being on the local verison of the master
     // that has uncommited changes.
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
-    repository.checkout(&"refs/heads/some-feature".parse().unwrap());
+    repo.checkout(&"refs/heads/some-feature".parse().unwrap());
 
-    fs::write(repository.path().join("file.txt"), "content").unwrap();
+    fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -71,11 +69,9 @@ fn dirty_non_target() {
 fn dirty_target() {
     // a situation when you initialize project while being on the local verison of the master
     // that has uncommited changes.
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
-    fs::write(repository.path().join("file.txt"), "content").unwrap();
+    fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -91,13 +87,11 @@ fn dirty_target() {
 
 #[test]
 fn commit_on_non_target_local() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
-    repository.checkout(&"refs/heads/some-feature".parse().unwrap());
-    fs::write(repository.path().join("file.txt"), "content").unwrap();
-    repository.commit_all("commit on target");
+    repo.checkout(&"refs/heads/some-feature".parse().unwrap());
+    fs::write(repo.path().join("file.txt"), "content").unwrap();
+    repo.commit_all("commit on target");
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -113,14 +107,12 @@ fn commit_on_non_target_local() {
 
 #[test]
 fn commit_on_non_target_remote() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
-    repository.checkout(&"refs/heads/some-feature".parse().unwrap());
-    fs::write(repository.path().join("file.txt"), "content").unwrap();
-    repository.commit_all("commit on target");
-    repository.push_branch(&"refs/heads/some-feature".parse().unwrap());
+    repo.checkout(&"refs/heads/some-feature".parse().unwrap());
+    fs::write(repo.path().join("file.txt"), "content").unwrap();
+    repo.commit_all("commit on target");
+    repo.push_branch(&"refs/heads/some-feature".parse().unwrap());
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -136,12 +128,10 @@ fn commit_on_non_target_remote() {
 
 #[test]
 fn commit_on_target() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
-    fs::write(repository.path().join("file.txt"), "content").unwrap();
-    repository.commit_all("commit on target");
+    fs::write(repo.path().join("file.txt"), "content").unwrap();
+    repo.commit_all("commit on target");
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -157,14 +147,12 @@ fn commit_on_target() {
 
 #[test]
 fn submodule() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     let test_project = TestProject::default();
     let submodule_url: gitbutler_url::Url =
         test_project.path().display().to_string().parse().unwrap();
-    repository.add_submodule(&submodule_url, path::Path::new("submodule"));
+    repo.add_submodule(&submodule_url, path::Path::new("submodule"));
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();

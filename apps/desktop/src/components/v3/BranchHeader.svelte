@@ -50,9 +50,15 @@
 	const [stackService] = inject(StackService);
 
 	const topCommitResult = $derived(stackService.commitAt(projectId, stackId, branch.name, 0));
+	const [updateName, nameUpdate] = stackService.updateBranchName;
 
-	function editTitle(title: string) {
-		console.error('FIXME', title);
+	function updateBranchName(title: string) {
+		updateName({
+			projectId,
+			stackId,
+			branchName: branch.name,
+			newName: title
+		});
 	}
 </script>
 
@@ -82,8 +88,9 @@
 					<BranchLabel
 						name={branch.name}
 						fontSize="15"
+						disabled={nameUpdate.current.isLoading}
 						readonly={readonly || !!branch.remoteTrackingBranch}
-						onChange={(name) => editTitle(name)}
+						onChange={(name) => updateBranchName(name)}
 						onDblClick={() => {
 							if (branchType !== 'Integrated') {
 								onLabelDblClick?.();
