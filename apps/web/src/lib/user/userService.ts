@@ -20,6 +20,7 @@ export interface User {
 	timezone: string;
 	location: string;
 	emailShare: boolean;
+	ssh_key_token?: string;
 }
 
 // Define the LoadablePatchStacks type using the shared Loadable type
@@ -83,6 +84,7 @@ export class UserService {
 		location?: string;
 		emailShare?: boolean;
 		readme?: string;
+		generate_ssh_token?: boolean;
 	}): Promise<any> {
 		const formData = new FormData();
 		if (params.name) formData.append('name', params.name);
@@ -95,6 +97,8 @@ export class UserService {
 		if (params.emailShare !== undefined)
 			formData.append('email_share', params.emailShare.toString());
 		if (params.readme !== undefined) formData.append('readme', params.readme);
+		if (params.generate_ssh_token !== undefined)
+			formData.append('generate_ssh_token', params.generate_ssh_token.toString());
 
 		// Content Type must be unset for the right form-data border to be set automatically
 		return await this.httpClient.put('user.json', {
