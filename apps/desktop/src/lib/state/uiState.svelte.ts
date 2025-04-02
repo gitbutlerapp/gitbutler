@@ -35,6 +35,7 @@ type GlobalUiState = {
 	drawerHeight: number;
 	leftWidth: number;
 	stacksViewWidth: number;
+	drawerSplitViewWidth: number;
 	useRichText: boolean;
 };
 
@@ -61,6 +62,7 @@ export class UiState {
 		drawerHeight: 20,
 		leftWidth: 17.5,
 		stacksViewWidth: 21.25,
+		drawerSplitViewWidth: 20,
 		useRichText: true
 	});
 

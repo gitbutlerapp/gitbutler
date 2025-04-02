@@ -56,8 +56,10 @@
 {#if branchName}
 	<ReduxResult result={combineResults(branchResult.current, branchDetailsResult.current)}>
 		{#snippet children([branch, branchDetails])}
-			<Drawer {projectId} {stackId} title={branch.name}>
-				{#if branchCommitsResult.current.data && branchCommitsResult.current.data.length > 0}
+			{@const hasCommits =
+				branchCommitsResult.current.data && branchCommitsResult.current.data.length > 0}
+			<Drawer {projectId} {stackId} title={branch.name} splitView={hasCommits}>
+				{#if hasCommits}
 					<div class="branch-view">
 						<div class="branch-view__header-container">
 							<div class="text-12 branch-view__header-details-row">
@@ -85,12 +87,6 @@
 						</div>
 
 						<BranchReview {stackId} {projectId} {branchName} />
-
-						<ChangedFiles
-							{projectId}
-							{stackId}
-							selectionId={{ type: 'branch', branchName, stackId }}
-						/>
 					</div>
 				{:else}
 					<div class="branch-view__empty-state">
@@ -106,6 +102,16 @@
 						</p>
 					</div>
 				{/if}
+
+				{#snippet filesSplitView()}
+					{#if hasCommits}
+						<ChangedFiles
+							{projectId}
+							{stackId}
+							selectionId={{ type: 'branch', branchName, stackId }}
+						/>
+					{/if}
+				{/snippet}
 			</Drawer>
 		{/snippet}
 	</ReduxResult>
@@ -118,7 +124,6 @@
 		gap: 16px;
 		align-self: stretch;
 		height: 100%;
-		overflow: hidden;
 	}
 
 	.branch-view__header-container {

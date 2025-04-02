@@ -1,8 +1,10 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
+	// import Resizer from '$components/Resizer.svelte';
 	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	// import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 
@@ -20,6 +22,10 @@
 					branchName: string;
 			  };
 	};
+
+	// let viewportEl = $state<HTMLElement>();
+	// const [uiState] = inject(UiState);
+	// const vieportWidth = $derived(uiState.global.fileSplitViewWidth);
 
 	const { projectId, stackId, selectionId }: Props = $props();
 	const [stackService] = inject(StackService);
@@ -59,6 +65,13 @@
 				{/if}
 			{/snippet}
 		</ReduxResult>
+
+		<!-- <Resizer
+			viewport={viewportEl}
+			direction="left"
+			minWidth={16}
+			onWidth={(value) => (vieportWidth.current = value)}
+		/> -->
 	</div>
 {:else}
 	<p class="text-13 text-bold">Malformed props</p>
@@ -66,10 +79,11 @@
 
 <style>
 	.changed-files {
+		position: relative;
 		display: flex;
 		flex-direction: column;
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
+		/* border-radius: var(--radius-m); */
+		/* border: 1px solid var(--clr-border-2); */
 		max-height: 100%;
 		overflow: hidden;
 	}

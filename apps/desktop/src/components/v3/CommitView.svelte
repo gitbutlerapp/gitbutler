@@ -116,7 +116,7 @@
 				/>
 			</Drawer>
 		{:else}
-			<Drawer {projectId} {stackId}>
+			<Drawer {projectId} {stackId} splitView>
 				{#snippet header()}
 					<CommitHeader {commit} class="text-14 text-semibold text-body" />
 				{/snippet}
@@ -127,12 +127,15 @@
 						{stackId}
 						onEditCommitMessage={() => setMode('edit')}
 					/>
+				</div>
+
+				{#snippet filesSplitView()}
 					<ChangedFiles
 						{projectId}
 						{stackId}
 						selectionId={{ type: 'commit', commitId: commitKey.commitId }}
 					/>
-				</div>
+				{/snippet}
 			</Drawer>
 		{/if}
 	{/snippet}

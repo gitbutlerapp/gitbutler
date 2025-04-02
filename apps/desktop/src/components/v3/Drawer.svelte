@@ -12,12 +12,23 @@
 		projectId: string;
 		title?: string;
 		stackId: string;
+		splitView?: boolean;
 		header?: Snippet;
 		extraActions?: Snippet;
 		children: Snippet;
+		filesSplitView?: Snippet;
 	};
 
-	const { header, title, extraActions, children, projectId, stackId }: Props = $props();
+	const {
+		title,
+		projectId,
+		stackId,
+		splitView,
+		header,
+		extraActions,
+		children,
+		filesSplitView
+	}: Props = $props();
 
 	const [uiState] = inject(UiState);
 
@@ -29,7 +40,10 @@
 	const heightRm = $derived(`min(${heightRmResult.current}rem, 80%)`);
 	const height = $derived(drawerIsFullScreen.current ? '100%' : heightRm);
 
+	const contentWidth = $derived(uiState.global.drawerSplitViewWidth.get());
+
 	let drawerDiv = $state<HTMLDivElement>();
+	let viewportEl = $state<HTMLElement>();
 
 	function onToggleExpand() {
 		projectUiState.drawerFullScreen.set(!drawerIsFullScreen.current);
@@ -49,74 +63,101 @@
 	style:height
 	use:focusable={{ id: 'commit', parentId: 'main' }}
 >
-	<ConfigurableScrollableContainer>
-		<div class="drawer-wrap">
-			<div
-				use:intersectionObserver={{
-					callback: (entry) => {
-						if (entry?.isIntersecting) {
-							isHeaderSticky = false;
-						} else {
-							isHeaderSticky = true;
-						}
-					},
-					options: {
-						root: null,
-						rootMargin: `-1px 0px 0px 0px`,
-						threshold: 1
+	<div class="drawer-wrap">
+		<div
+			use:intersectionObserver={{
+				callback: (entry) => {
+					if (entry?.isIntersecting) {
+						isHeaderSticky = false;
+					} else {
+						isHeaderSticky = true;
 					}
-				}}
-				class="drawer-header"
-				class:is-sticky={isHeaderSticky}
-			>
-				<div class="drawer-header__main">
-					{#if title}
-						<h3 class="text-15 text-bold">
-							{title}
-						</h3>
-					{/if}
-					{#if header}
-						{@render header()}
-					{/if}
-				</div>
-
-				<div class="drawer-header__actions">
-					{#if extraActions}
-						{@render extraActions()}
-					{/if}
-					<Button
-						kind="ghost"
-						icon={drawerIsFullScreen.current ? 'chevron-down' : 'chevron-up'}
-						size="tag"
-						onclick={onToggleExpand}
-					/>
-					<Button kind="ghost" icon="cross" size="tag" onclick={onClose} />
-				</div>
-			</div>
-
-			<div class="drawer__content">
-				{#if children}
-					{@render children()}
+				},
+				options: {
+					root: null,
+					rootMargin: `-1px 0px 0px 0px`,
+					threshold: 1
+				}
+			}}
+			class="drawer-header"
+			class:is-sticky={isHeaderSticky}
+		>
+			<div class="drawer-header__main">
+				{#if title}
+					<h3 class="text-15 text-bold">
+						{title}
+					</h3>
+				{/if}
+				{#if header}
+					{@render header()}
 				{/if}
 			</div>
 
-			{#if !drawerIsFullScreen.current}
-				<Resizer
-					direction="up"
-					viewport={drawerDiv}
-					minHeight={11}
-					borderRadius="ml"
-					onHeight={(value) => uiState.global.drawerHeight.set(value)}
+			<div class="drawer-header__actions">
+				{#if extraActions}
+					{@render extraActions()}
+				{/if}
+				<Button
+					kind="ghost"
+					icon={drawerIsFullScreen.current ? 'chevron-down' : 'chevron-up'}
+					onclick={onToggleExpand}
 				/>
-			{/if}
+				<Button kind="ghost" icon="cross" onclick={onClose} />
+			</div>
 		</div>
-	</ConfigurableScrollableContainer>
+
+		{#if children}
+			<div class="drawer__content-wrap" class:files-split-view={splitView}>
+				<div
+					class="drawer__content-scroll"
+					style:width={splitView ? `${contentWidth.current}rem` : 'auto'}
+					bind:this={viewportEl}
+				>
+					<ConfigurableScrollableContainer>
+						<div class="drawer__content">
+							{@render children()}
+						</div>
+					</ConfigurableScrollableContainer>
+
+					{#if splitView}
+						<Resizer
+							viewport={viewportEl}
+							direction="right"
+							minWidth={16}
+							imitateBorder
+							onWidth={(value) => uiState.global.drawerSplitViewWidth.set(value)}
+						/>
+					{/if}
+				</div>
+
+				{#if splitView && filesSplitView}
+					<div class="drawer__files-split-view">
+						<ConfigurableScrollableContainer>
+							<div>
+								{@render filesSplitView()}
+							</div>
+						</ConfigurableScrollableContainer>
+					</div>
+				{/if}
+			</div>
+		{/if}
+
+		{#if !drawerIsFullScreen.current}
+			<Resizer
+				direction="up"
+				viewport={drawerDiv}
+				minHeight={11}
+				borderRadius="ml"
+				onHeight={(value) => uiState.global.drawerHeight.set(value)}
+			/>
+		{/if}
+	</div>
 </div>
 
 <style>
 	.drawer {
-		overflow: hidden;
 		position: relative;
+		overflow: hidden;
 		display: flex;
 		flex-direction: column;
 		flex-shrink: 0;
@@ -129,11 +170,10 @@
 	}
 
 	.drawer-wrap {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
-		flex-shrink: 0;
-		flex-grow: 1;
-		min-height: 100%;
+		overflow: hidden;
 	}
 
 	.drawer-header {
@@ -141,10 +181,13 @@
 		top: -1px;
 		z-index: var(--z-ground);
 		display: flex;
+		align-items: center;
 		gap: 6px;
 		justify-content: space-between;
-		padding: 14px 14px 12px 14px;
-		background-color: var(--clr-bg-1);
+		height: 42px;
+		padding: 0 6px 0 14px;
+		background-color: var(--clr-bg-2);
+		border-bottom: 1px solid var(--clr-border-2);
 
 		&.is-sticky {
 			border-bottom: 1px solid var(--clr-border-2);
@@ -161,14 +204,47 @@
 		flex-shrink: 0;
 		display: flex;
 		gap: 2px;
-		margin-top: -4px;
-		margin-right: -4px;
+	}
+
+	.drawer__content-wrap {
+		flex: 1;
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+
+		&.files-split-view {
+			flex-direction: row;
+
+			& .drawer__content {
+				min-width: 300px;
+				max-width: 500px;
+			}
+		}
+
+		&:not(.files-split-view) {
+			& .drawer__content {
+				flex: 1;
+			}
+		}
+	}
+
+	.drawer__content-scroll {
+		position: relative;
+		height: 100%;
+	}
+
+	.drawer__files-split-view {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
 	}
 
 	.drawer__content {
-		flex-grow: 1;
+		position: relative;
 		display: flex;
 		flex-direction: column;
-		padding: 0 14px 12px 14px;
+		padding: 14px;
 	}
 </style>
