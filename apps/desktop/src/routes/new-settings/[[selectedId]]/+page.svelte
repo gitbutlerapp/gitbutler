@@ -9,7 +9,6 @@
 	import TelemetrySettings from '$components/v3/profileSettings/TelemetrySettings.svelte';
 	import AppearanceSettings from '$components/v3/projectSettings/AppearanceSettings.svelte';
 	import { newSettingsPath } from '$lib/routes/routes.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
@@ -73,18 +72,12 @@
 	{selectedId}
 	{pages}
 	pageUrl={(pageId) => newSettingsPath(pageId)}
->
-	{#snippet close()}
-		<Button
-			icon="chevron-left"
-			kind="ghost"
-			onmousedown={() => {
-				if (history.length > 0) {
-					history.back();
-				} else {
-					goto('/');
-				}
-			}}
-		/>
-	{/snippet}
-</SettingsPages>
+	isFullPage
+	onclose={() => {
+		if (history.length > 0) {
+			history.back();
+		} else {
+			goto('/');
+		}
+	}}
+/>
