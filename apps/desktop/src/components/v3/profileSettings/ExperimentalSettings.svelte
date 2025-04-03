@@ -1,5 +1,4 @@
 <script lang="ts">
-	import SettingsPage from '$components/SettingsPage.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
@@ -12,33 +11,34 @@
 	const user = getContextStore(User);
 </script>
 
-<SettingsPage title="Experimental features">
-	<p class="experimental-settings__text">
-		This section contains a list of feature flags for features that are still in development or in
-	</p>
+<p class="text-12 text-body experimental-settings__text">
+	This section contains a list of feature flags for features that are still in development or in
+	beta.
+	<br />
+	Some of these features may not be fully functional or may have bugs. Use them at your own risk.
+</p>
 
-	<div class="experimental-settings__toggles">
-		{#if $user?.role === 'admin'}
-			<SectionCard orientation="row" centerAlign>
-				{#snippet title()}
-					v3 Design
-				{/snippet}
-				{#snippet caption()}
-					Enable the new v3 User Interface.
-				{/snippet}
+<div class="experimental-settings__toggles">
+	{#if $user?.role === 'admin'}
+		<SectionCard orientation="row">
+			{#snippet title()}
+				v3 Design
+			{/snippet}
+			{#snippet caption()}
+				Enable the new v3 User Interface.
+			{/snippet}
 
-				{#snippet actions()}
-					<Toggle
-						id="v3Design"
-						checked={$settingsStore?.featureFlags.v3}
-						onclick={() =>
-							settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 })}
-					/>
-				{/snippet}
-			</SectionCard>
-		{/if}
-	</div>
-</SettingsPage>
+			{#snippet actions()}
+				<Toggle
+					id="v3Design"
+					checked={$settingsStore?.featureFlags.v3}
+					onclick={() =>
+						settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 })}
+				/>
+			{/snippet}
+		</SectionCard>
+	{/if}
+</div>
 
 <style>
 	.experimental-settings__text {

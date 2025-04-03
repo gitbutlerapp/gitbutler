@@ -4,7 +4,6 @@
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import RadioButton from '$components/RadioButton.svelte';
 	import Section from '$components/Section.svelte';
-	import SettingsPage from '$components/SettingsPage.svelte';
 	import { AISecretHandle, AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/config/gitConfigService';
@@ -151,219 +150,212 @@
 	});
 </script>
 
-<SettingsPage title="AI options">
-	<!-- <div class="ai-settings-wrap"> -->
-	<p class="text-13 text-body ai-settings__text">
-		GitButler supports multiple providers for its AI powered features. We currently support models
-		from OpenAI and Anthropic either proxied through the GitButler API, or in a bring your own key
-		configuration.
-	</p>
+<p class="text-13 text-body ai-settings__text">
+	GitButler supports multiple providers for its AI powered features. We currently support models
+	from OpenAI and Anthropic either proxied through the GitButler API, or in a bring your own key
+	configuration.
+</p>
 
-	<form class="git-radio" bind:this={form} onchange={(e) => onFormChange(e.currentTarget)}>
-		<SectionCard
-			roundedBottom={false}
-			orientation="row"
-			labelFor="open-ai"
-			bottomBorder={modelKind !== ModelKind.OpenAI}
-		>
-			{#snippet title()}
-				Open AI
-			{/snippet}
-			{#snippet actions()}
-				<RadioButton name="modelKind" id="open-ai" value={ModelKind.OpenAI} />
-			{/snippet}
-		</SectionCard>
-		{#if modelKind === ModelKind.OpenAI}
-			<SectionCard roundedTop={false} roundedBottom={false} topDivider>
-				<Select
-					value={openAIKeyOption}
-					options={keyOptions}
-					wide
-					label="Do you want to provide your own key?"
-					onselect={(value) => {
-						openAIKeyOption = value as KeyOption;
-					}}
-				>
-					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem selected={item.value === openAIKeyOption} {highlighted}>
-							{item.label}
-						</SelectItem>
-					{/snippet}
-				</Select>
-
-				{#if openAIKeyOption === KeyOption.ButlerAPI}
-					{#if !$user}
-						<AuthorizationBanner message="Please sign in to use the GitButler API." />
-					{:else}
-						<InfoMessage filled outlined={false} style="pop" icon="ai">
-							{#snippet title()}
-								GitButler uses OpenAI API for commit messages and branch names
-							{/snippet}
-						</InfoMessage>
-					{/if}
-				{/if}
-
-				{#if openAIKeyOption === KeyOption.BringYourOwn}
-					<Textbox label="API key" bind:value={openAIKey} required placeholder="sk-..." />
-
-					<Select
-						value={openAIModelName}
-						options={openAIModelOptions}
-						label="Model version"
-						wide
-						onselect={(value) => {
-							openAIModelName = value as OpenAIModelName;
-						}}
-					>
-						{#snippet itemSnippet({ item, highlighted })}
-							<SelectItem selected={item.value === openAIModelName} {highlighted}>
-								{item.label}
-							</SelectItem>
-						{/snippet}
-					</Select>
-				{/if}
-			</SectionCard>
-		{/if}
-
-		<SectionCard
-			roundedTop={false}
-			roundedBottom={false}
-			orientation="row"
-			labelFor="anthropic"
-			bottomBorder={modelKind !== ModelKind.Anthropic}
-		>
-			{#snippet title()}
-				Anthropic
-			{/snippet}
-			{#snippet actions()}
-				<RadioButton name="modelKind" id="anthropic" value={ModelKind.Anthropic} />
-			{/snippet}
-		</SectionCard>
-		{#if modelKind === ModelKind.Anthropic}
-			<SectionCard roundedTop={false} roundedBottom={false} topDivider>
-				<Select
-					value={anthropicKeyOption}
-					options={keyOptions}
-					wide
-					label="Do you want to provide your own key?"
-					onselect={(value) => {
-						anthropicKeyOption = value as KeyOption;
-					}}
-				>
-					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem selected={item.value === anthropicKeyOption} {highlighted}>
-							{item.label}
-						</SelectItem>
-					{/snippet}
-				</Select>
-
-				{#if anthropicKeyOption === KeyOption.ButlerAPI}
-					{#if !$user}
-						<AuthorizationBanner message="Please sign in to use the GitButler API." />
-					{:else}
-						<InfoMessage filled outlined={false} style="pop" icon="ai">
-							{#snippet title()}
-								GitButler uses Anthropic API for commit messages and branch names
-							{/snippet}
-						</InfoMessage>
-					{/if}
-				{/if}
-
-				{#if anthropicKeyOption === KeyOption.BringYourOwn}
-					<Textbox
-						label="API key"
-						bind:value={anthropicKey}
-						required
-						placeholder="sk-ant-api03-..."
-					/>
-
-					<Select
-						value={anthropicModelName}
-						options={anthropicModelOptions}
-						label="Model version"
-						onselect={(value) => {
-							anthropicModelName = value as AnthropicModelName;
-						}}
-					>
-						{#snippet itemSnippet({ item, highlighted })}
-							<SelectItem selected={item.value === anthropicModelName} {highlighted}>
-								{item.label}
-							</SelectItem>
-						{/snippet}
-					</Select>
-				{/if}
-			</SectionCard>
-		{/if}
-
-		<SectionCard
-			roundedTop={false}
-			roundedBottom={modelKind !== ModelKind.Ollama}
-			orientation="row"
-			labelFor="ollama"
-			bottomBorder={modelKind !== ModelKind.Ollama}
-		>
-			{#snippet title()}
-				Ollama 🦙
-			{/snippet}
-			{#snippet actions()}
-				<RadioButton name="modelKind" id="ollama" value={ModelKind.Ollama} />
-			{/snippet}
-		</SectionCard>
-		{#if modelKind === ModelKind.Ollama}
-			<SectionCard roundedTop={false} topDivider>
-				<Textbox
-					label="Endpoint"
-					bind:value={ollamaEndpoint}
-					placeholder="http://127.0.0.1:11434"
-				/>
-
-				<Textbox label="Model" bind:value={ollamaModel} placeholder="llama3" />
-			</SectionCard>
-		{/if}
-	</form>
-
-	<Spacer />
-
-	<SectionCard orientation="row">
+<form class="git-radio" bind:this={form} onchange={(e) => onFormChange(e.currentTarget)}>
+	<SectionCard
+		roundedBottom={false}
+		orientation="row"
+		labelFor="open-ai"
+		bottomBorder={modelKind !== ModelKind.OpenAI}
+	>
 		{#snippet title()}
-			Amount of provided context
-		{/snippet}
-		{#snippet caption()}
-			How many characters of your git diff should be provided to AI
+			Open AI
 		{/snippet}
 		{#snippet actions()}
-			<Textbox
-				type="number"
-				width={80}
-				textAlign="center"
-				value={diffLengthLimit?.toString()}
-				minVal={100}
-				oninput={(value: string) => {
-					diffLengthLimit = parseInt(value);
-				}}
-				placeholder="5000"
-			/>
+			<RadioButton name="modelKind" id="open-ai" value={ModelKind.OpenAI} />
 		{/snippet}
 	</SectionCard>
+	{#if modelKind === ModelKind.OpenAI}
+		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
+			<Select
+				value={openAIKeyOption}
+				options={keyOptions}
+				wide
+				label="Do you want to provide your own key?"
+				onselect={(value) => {
+					openAIKeyOption = value as KeyOption;
+				}}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === openAIKeyOption} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
 
-	<Spacer />
+			{#if openAIKeyOption === KeyOption.ButlerAPI}
+				{#if !$user}
+					<AuthorizationBanner message="Please sign in to use the GitButler API." />
+				{:else}
+					<InfoMessage filled outlined={false} style="pop" icon="ai">
+						{#snippet title()}
+							GitButler uses OpenAI API for commit messages and branch names
+						{/snippet}
+					</InfoMessage>
+				{/if}
+			{/if}
 
-	<Section>
+			{#if openAIKeyOption === KeyOption.BringYourOwn}
+				<Textbox label="API key" bind:value={openAIKey} required placeholder="sk-..." />
+
+				<Select
+					value={openAIModelName}
+					options={openAIModelOptions}
+					label="Model version"
+					wide
+					onselect={(value) => {
+						openAIModelName = value as OpenAIModelName;
+					}}
+				>
+					{#snippet itemSnippet({ item, highlighted })}
+						<SelectItem selected={item.value === openAIModelName} {highlighted}>
+							{item.label}
+						</SelectItem>
+					{/snippet}
+				</Select>
+			{/if}
+		</SectionCard>
+	{/if}
+
+	<SectionCard
+		roundedTop={false}
+		roundedBottom={false}
+		orientation="row"
+		labelFor="anthropic"
+		bottomBorder={modelKind !== ModelKind.Anthropic}
+	>
 		{#snippet title()}
-			Custom AI prompts
+			Anthropic
 		{/snippet}
-		{#snippet description()}
-			GitButler's AI assistant generates commit messages and branch names. Use default prompts or
-			create your own. Assign prompts in the project settings.
+		{#snippet actions()}
+			<RadioButton name="modelKind" id="anthropic" value={ModelKind.Anthropic} />
 		{/snippet}
+	</SectionCard>
+	{#if modelKind === ModelKind.Anthropic}
+		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
+			<Select
+				value={anthropicKeyOption}
+				options={keyOptions}
+				wide
+				label="Do you want to provide your own key?"
+				onselect={(value) => {
+					anthropicKeyOption = value as KeyOption;
+				}}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === anthropicKeyOption} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
 
-		<div class="prompt-groups">
-			<AIPromptEdit promptUse="commits" />
-			<Spacer margin={12} />
-			<AIPromptEdit promptUse="branches" />
-		</div>
-	</Section>
-</SettingsPage>
+			{#if anthropicKeyOption === KeyOption.ButlerAPI}
+				{#if !$user}
+					<AuthorizationBanner message="Please sign in to use the GitButler API." />
+				{:else}
+					<InfoMessage filled outlined={false} style="pop" icon="ai">
+						{#snippet title()}
+							GitButler uses Anthropic API for commit messages and branch names
+						{/snippet}
+					</InfoMessage>
+				{/if}
+			{/if}
+
+			{#if anthropicKeyOption === KeyOption.BringYourOwn}
+				<Textbox
+					label="API key"
+					bind:value={anthropicKey}
+					required
+					placeholder="sk-ant-api03-..."
+				/>
+
+				<Select
+					value={anthropicModelName}
+					options={anthropicModelOptions}
+					label="Model version"
+					onselect={(value) => {
+						anthropicModelName = value as AnthropicModelName;
+					}}
+				>
+					{#snippet itemSnippet({ item, highlighted })}
+						<SelectItem selected={item.value === anthropicModelName} {highlighted}>
+							{item.label}
+						</SelectItem>
+					{/snippet}
+				</Select>
+			{/if}
+		</SectionCard>
+	{/if}
+
+	<SectionCard
+		roundedTop={false}
+		roundedBottom={modelKind !== ModelKind.Ollama}
+		orientation="row"
+		labelFor="ollama"
+		bottomBorder={modelKind !== ModelKind.Ollama}
+	>
+		{#snippet title()}
+			Ollama 🦙
+		{/snippet}
+		{#snippet actions()}
+			<RadioButton name="modelKind" id="ollama" value={ModelKind.Ollama} />
+		{/snippet}
+	</SectionCard>
+	{#if modelKind === ModelKind.Ollama}
+		<SectionCard roundedTop={false} topDivider>
+			<Textbox label="Endpoint" bind:value={ollamaEndpoint} placeholder="http://127.0.0.1:11434" />
+
+			<Textbox label="Model" bind:value={ollamaModel} placeholder="llama3" />
+		</SectionCard>
+	{/if}
+</form>
+
+<Spacer />
+
+<SectionCard orientation="row">
+	{#snippet title()}
+		Amount of provided context
+	{/snippet}
+	{#snippet caption()}
+		How many characters of your git diff should be provided to AI
+	{/snippet}
+	{#snippet actions()}
+		<Textbox
+			type="number"
+			width={80}
+			textAlign="center"
+			value={diffLengthLimit?.toString()}
+			minVal={100}
+			oninput={(value: string) => {
+				diffLengthLimit = parseInt(value);
+			}}
+			placeholder="5000"
+		/>
+	{/snippet}
+</SectionCard>
+
+<Spacer />
+
+<Section>
+	{#snippet title()}
+		Custom AI prompts
+	{/snippet}
+	{#snippet description()}
+		GitButler's AI assistant generates commit messages and branch names. Use default prompts or
+		create your own. Assign prompts in the project settings.
+	{/snippet}
+
+	<div class="prompt-groups">
+		<AIPromptEdit promptUse="commits" />
+		<Spacer margin={12} />
+		<AIPromptEdit promptUse="branches" />
+	</div>
+</Section>
 
 <style>
 	.ai-settings__text {

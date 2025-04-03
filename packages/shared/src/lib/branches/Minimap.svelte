@@ -157,9 +157,8 @@
 
 			& .erectangle {
 				width: 100%;
-
 				height: 12px;
-				border-radius: var(--radius-m);
+				border-radius: var(--radius-s);
 			}
 
 			& .erectangle-hover-area:hover .info-card {

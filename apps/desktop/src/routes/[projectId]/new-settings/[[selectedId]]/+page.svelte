@@ -17,19 +17,19 @@
 		},
 		{
 			id: 'cloud',
-			label: 'Server',
-			icon: 'cloud',
+			label: 'Cloud',
+			icon: 'bowtie',
 			component: CloudProjectSettings
 		},
 		{
 			id: 'git',
-			label: 'Git',
+			label: 'Git stuff',
 			icon: 'git',
 			component: GitForm
 		},
 		{
 			id: 'ai',
-			label: 'AI',
+			label: 'AI options',
 			icon: 'ai',
 			component: CloudForm
 		},
@@ -50,4 +50,5 @@
 	{selectedId}
 	{pages}
 	pageUrl={(pageId) => newProjectSettingsPath(projectId, pageId)}
+	hidePageHeader
 />

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SettingsPage from '$components/SettingsPage.svelte';
+	import Section from '$components/Section.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
@@ -30,37 +30,35 @@
 
 <CreateOrganizationModal bind:this={createOrganizationModal} />
 
-<SettingsPage title="Your Organizations">
-	<JoinOrganizationModal />
-	<Button onclick={() => createOrganizationModal?.show()}>Create an Organizaton</Button>
+<JoinOrganizationModal />
+<Button onclick={() => createOrganizationModal?.show()}>Create an Organizaton</Button>
 
-	<div>
-		{#each organizations as loadableOrganization, index (loadableOrganization.id)}
-			<SectionCard
-				roundedTop={index === 0}
-				roundedBottom={index === organizations.length - 1}
-				orientation="row"
-			>
-				{#snippet children()}
-					<Loading loadable={loadableOrganization}>
-						{#snippet children(organization)}
-							<div class="inline">
-								<p class="text-15 text-bold">{organization.name || organization.slug}</p>
-								{#if organization.name}
-									<p class="text-13">{organization.slug}</p>
-								{/if}
-							</div>
-						{/snippet}
-					</Loading>
-				{/snippet}
+<Section gap={0}>
+	{#each organizations as loadableOrganization, index (loadableOrganization.id)}
+		<SectionCard
+			roundedTop={index === 0}
+			roundedBottom={index === organizations.length - 1}
+			orientation="row"
+		>
+			{#snippet children()}
+				<Loading loadable={loadableOrganization}>
+					{#snippet children(organization)}
+						<div class="inline">
+							<p class="text-15 text-bold">{organization.name || organization.slug}</p>
+							{#if organization.name}
+								<p class="text-13">{organization.slug}</p>
+							{/if}
+						</div>
+					{/snippet}
+				</Loading>
+			{/snippet}
 
-				{#snippet actions()}
-					<OrganizationModal slug={loadableOrganization.id} />
-				{/snippet}
-			</SectionCard>
-		{/each}
-	</div>
-</SettingsPage>
+			{#snippet actions()}
+				<OrganizationModal slug={loadableOrganization.id} />
+			{/snippet}
+		</SectionCard>
+	{/each}
+</Section>
 
 <style lang="postcss">
 	.inline {
