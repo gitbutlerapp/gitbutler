@@ -1,7 +1,7 @@
 import { Code } from '$lib/backend/ipc';
 import { BaseBranch, type RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 import { showError } from '$lib/notifications/toasts';
-import { ReduxTag } from '$lib/state/tags';
+import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { parseRemoteUrl } from '$lib/url/gitUrl';
 import { plainToInstance } from 'class-transformer';
 import type { BackendApi } from '$lib/state/clientState.svelte';
@@ -134,7 +134,7 @@ function injectEndpoints(api: BackendApi) {
 					command: 'get_base_branch_data',
 					params: { projectId }
 				}),
-				providesTags: [ReduxTag.BaseBranchData]
+				providesTags: [providesList(ReduxTag.BaseBranchData)]
 			}),
 			fetchFromRemotes: build.mutation<void, { projectId: string; action?: string }>({
 				query: ({ projectId, action }) => ({
@@ -142,10 +142,10 @@ function injectEndpoints(api: BackendApi) {
 					params: { projectId, action: action ?? 'auto' }
 				}),
 				invalidatesTags: [
-					ReduxTag.BaseBranchData,
-					ReduxTag.Stacks,
-					ReduxTag.Commits,
-					ReduxTag.UpstreamIntegrationStatus
+					invalidatesList(ReduxTag.BaseBranchData),
+					invalidatesList(ReduxTag.Stacks),
+					invalidatesList(ReduxTag.Commits),
+					invalidatesList(ReduxTag.UpstreamIntegrationStatus)
 				],
 				transformErrorResponse: (error) => {
 					// This is good enough while we check the best way to handle this
@@ -160,14 +160,18 @@ function injectEndpoints(api: BackendApi) {
 					command: 'set_base_branch',
 					params: { projectId, branch, pushRemote }
 				}),
-				invalidatesTags: [ReduxTag.BaseBranchData, ReduxTag.Stacks, ReduxTag.Commits]
+				invalidatesTags: [
+					invalidatesList(ReduxTag.BaseBranchData),
+					invalidatesList(ReduxTag.Stacks),
+					invalidatesList(ReduxTag.Commits)
+				]
 			}),
 			push: build.mutation<void, { projectId: string; withForce?: boolean }>({
 				query: ({ projectId, withForce }) => ({
 					command: 'push_base_branch',
 					params: { projectId, withForce }
 				}),
-				invalidatesTags: [ReduxTag.BaseBranchData]
+				invalidatesTags: [invalidatesList(ReduxTag.BaseBranchData)]
 			}),
 			remoteBranches: build.query<RemoteBranchInfo[], { projectId: string }>({
 				query: ({ projectId }) => ({

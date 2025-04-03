@@ -1,6 +1,6 @@
 import { ghQuery } from '$lib/forge/github/ghQuery';
 import { type ChecksResult } from '$lib/forge/github/types';
-import { ReduxTag } from '$lib/state/tags';
+import { providesItem, ReduxTag } from '$lib/state/tags';
 import type { ChecksService } from '$lib/forge/interface/forgeChecksMonitor';
 import type { ChecksStatus } from '$lib/forge/interface/types';
 import type { QueryOptions } from '$lib/state/butlerModule';
@@ -72,10 +72,7 @@ function injectEndpoints(api: GitHubApi) {
 							ref
 						}
 					}),
-				providesTags: (_result, _error, args) => [
-					ReduxTag.Checks,
-					{ type: ReduxTag.Checks, id: args.stackId }
-				]
+				providesTags: (_result, _error, args) => [...providesItem(ReduxTag.Checks, args.stackId)]
 			})
 		})
 	});
