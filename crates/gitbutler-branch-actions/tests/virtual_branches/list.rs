@@ -175,7 +175,7 @@ mod util {
         BranchListing {
             name,
             remotes,
-            virtual_branch,
+            stack: virtual_branch,
             updated_at: _,
             head: _, // NOTE: can't have stable commits while `gitbutler-change-id` is not stable/is a UUID.
             last_commiter: _,

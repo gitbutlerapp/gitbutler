@@ -57,7 +57,7 @@
 	}
 
 	function onMouseDown() {
-		if (branchListing.virtualBranch?.inWorkspace) {
+		if (branchListing.stack?.inWorkspace) {
 			goto(`/${project.id}/board`);
 		} else {
 			goto(formatBranchURL(project, branchListing.name));
@@ -124,7 +124,7 @@
 		}
 	}
 
-	const stackBranches = $derived(branchListing.virtualBranch?.stackBranches);
+	const stackBranches = $derived(branchListing.stack?.branches);
 	const filteredStackBranches = $derived(
 		stackBranches && stackBranches.length > 0 ? stackBranches : [branchListing.name]
 	);
@@ -134,7 +134,7 @@
 	series={filteredStackBranches}
 	remotes={branchListing.remotes}
 	local={branchListing.hasLocal}
-	applied={branchListing.virtualBranch?.inWorkspace}
+	applied={branchListing.stack?.inWorkspace}
 	{lastCommitDetails}
 	pullRequestDetails={pr && {
 		title: pr.title,
