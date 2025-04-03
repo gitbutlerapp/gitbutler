@@ -10,7 +10,6 @@
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { BranchController } from '$lib/branches/branchController';
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
 	import { GitBranchService } from '$lib/branches/gitBranch';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
@@ -122,7 +121,6 @@
 	$effect.pre(() => {
 		setContext(HistoryService, data.historyService);
 		setContext(VirtualBranchService, data.vbranchService);
-		setContext(BranchController, data.branchController);
 		setContext(TemplateService, data.templateService);
 		setContext(BaseBranch, baseBranch);
 		setContext(Project, project);

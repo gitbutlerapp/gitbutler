@@ -7,7 +7,6 @@
 	import LineOverlay from '$components/LineOverlay.svelte';
 	import { BranchStack } from '$lib/branches/branch';
 	import { PatchSeries } from '$lib/branches/branch';
-	import { BranchController, type SeriesIntegrationStrategy } from '$lib/branches/branchController';
 	import { Commit, DetailedCommit } from '$lib/commits/commit';
 	import {
 		AmendCommitDzHandler,
@@ -21,7 +20,7 @@
 		type ReorderCommitDzHandler
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { StackService, type SeriesIntegrationStrategy } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -66,7 +65,6 @@
 	}: Props = $props();
 
 	const stack = getContextStore(BranchStack);
-	const branchController = getContext(BranchController);
 	const lineManagerFactory = getContext(LineManagerFactory);
 	const stackService = getContext(StackService);
 	const [integrateUpstreamCommits] = stackService.integrateUpstreamCommits;
@@ -170,6 +168,7 @@
 				{/snippet}
 				{#each remoteOnlyPatches as commit, idx (commit.id)}
 					<CommitCard
+						{projectId}
 						type="Remote"
 						stack={$stack}
 						{commit}
@@ -215,18 +214,21 @@
 						isConflicted: commit instanceof DetailedCommit && commit.conflicted
 					}}
 					{@const amendHandler = new AmendCommitDzHandler({
-						branchController,
+						stackService,
+						projectId,
 						stackId,
 						commit: dzCommit,
 						okWithForce: true
 					})}
 					{@const squashHandler = new SquashCommitDzHandler({
-						branchController,
+						stackService,
+						projectId,
 						stackId,
 						commit: dzCommit
 					})}
 					{@const hunkHandler = new AmendCommitWithHunkDzHandler({
-						branchController,
+						stackService,
+						projectId,
 						stackId,
 						commit: dzCommit,
 						// TODO: Use correct value!
@@ -238,6 +240,7 @@
 							<CardOverlay {hovered} {activated} {label} />
 						{/snippet}
 						<CommitCard
+							{projectId}
 							type={commit.status}
 							stack={$stack}
 							{commit}
@@ -291,6 +294,7 @@
 				{/snippet}
 				{#each remoteIntegratedPatches as commit, idx (commit.id)}
 					<CommitCard
+						{projectId}
 						type={commit.status}
 						stack={$stack}
 						{commit}

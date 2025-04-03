@@ -2,7 +2,6 @@ import { type BranchStack } from '$lib/branches/branch';
 import { filesToSimpleOwnership } from '$lib/branches/ownership';
 import { ChangeDropData, FileDropData, HunkDropData } from '$lib/dragging/draggables';
 import { LocalFile, RemoteFile } from '$lib/files/file';
-import type { BranchController } from '$lib/branches/branchController';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { DiffSpec } from '$lib/hunks/hunk';
 import type { StackService } from '$lib/stacks/stackService.svelte';
@@ -52,8 +51,8 @@ export class MoveCommitDzHandler implements DropzoneHandler {
  * Handler that will be able to amend a commit using `TreeChange`.
  */
 export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
-	trigger: ReturnType<StackService['amendCommit']>[0];
-	result: ReturnType<StackService['amendCommit']>[1];
+	trigger: StackService['amendCommit'][0];
+	result: StackService['amendCommit'][1];
 
 	constructor(
 		private projectId: string,
@@ -62,7 +61,7 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 		private commit: DzCommitData,
 		private onresult: (result: typeof this.result.current.data) => void
 	) {
-		const [trigger, result] = stackService.amendCommit();
+		const [trigger, result] = stackService.amendCommit;
 		this.trigger = trigger;
 		this.result = result;
 	}
@@ -92,8 +91,9 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 	constructor(
 		private args: {
-			branchController: BranchController;
+			stackService: StackService;
 			okWithForce: boolean;
+			projectId: string;
 			stackId: string;
 			commit: DzCommitData;
 		}
@@ -112,24 +112,29 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 	}
 
 	ondrop(data: HunkDropData): void {
-		const { branchController, stackId, commit, okWithForce } = this.args;
+		const { stackService, projectId, stackId, commit, okWithForce } = this.args;
 		if (!okWithForce && commit.isRemote) return;
-		branchController.amendBranch(stackId, commit.id, [
-			{
-				// TODO: We need the previous path bytes added here.
-				previousPathBytes: null,
-				// TODO: We need to change this to path bytes.
-				pathBytes: data.hunk.filePath,
-				hunkHeaders: [
-					{
-						oldStart: data.hunk.oldStart,
-						oldLines: data.hunk.oldLines,
-						newStart: data.hunk.newStart,
-						newLines: data.hunk.newLines
-					}
-				]
-			}
-		]);
+		stackService.amendCommitMutation({
+			projectId,
+			stackId,
+			commitId: commit.id,
+			worktreeChanges: [
+				{
+					// TODO: We need the previous path bytes added here.
+					previousPathBytes: null,
+					// TODO: We need to change this to path bytes.
+					pathBytes: data.hunk.filePath,
+					hunkHeaders: [
+						{
+							oldStart: data.hunk.oldStart,
+							oldLines: data.hunk.oldLines,
+							newStart: data.hunk.newStart,
+							newLines: data.hunk.newLines
+						}
+					]
+				}
+			]
+		});
 	}
 }
 
@@ -141,8 +146,9 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 export class AmendCommitDzHandler implements DropzoneHandler {
 	constructor(
 		private args: {
-			branchController: BranchController;
+			stackService: StackService;
 			okWithForce: boolean;
+			projectId: string;
 			stackId: string;
 			commit: DzCommitData;
 		}
@@ -161,14 +167,25 @@ export class AmendCommitDzHandler implements DropzoneHandler {
 	}
 
 	ondrop(data: FileDropData): void {
-		const { branchController, stackId, commit } = this.args;
+		const { stackService, projectId, stackId, commit } = this.args;
 		if (data.file instanceof LocalFile) {
-			branchController.amendBranch(stackId, commit.id, filesToDiffSpec(data));
+			stackService.amendCommitMutation({
+				projectId,
+				stackId,
+				commitId: commit.id,
+				worktreeChanges: filesToDiffSpec(data)
+			});
 		} else if (data.file instanceof RemoteFile) {
 			// this is a file from a commit, rather than an uncommitted file
 			const newOwnership = filesToSimpleOwnership(data.files);
 			if (data.commit) {
-				branchController.moveCommitFile(stackId, data.commit.id, commit.id, newOwnership);
+				stackService.moveCommitFileMutation({
+					projectId,
+					stackId,
+					fromCommitOid: data.commit.id,
+					toCommitOid: commit.id,
+					ownership: newOwnership
+				});
 			}
 		}
 	}
@@ -180,7 +197,8 @@ export class AmendCommitDzHandler implements DropzoneHandler {
 export class SquashCommitDzHandler implements DropzoneHandler {
 	constructor(
 		private args: {
-			branchController: BranchController;
+			stackService: StackService;
+			projectId: string;
 			stackId: string;
 			commit: DzCommitData;
 		}
@@ -198,9 +216,14 @@ export class SquashCommitDzHandler implements DropzoneHandler {
 	}
 
 	ondrop(data: unknown): void {
-		const { branchController, commit } = this.args;
+		const { stackService, projectId, stackId, commit } = this.args;
 		if (data instanceof CommitDropData) {
-			branchController.squashBranchCommit(data.stackId, data.commit.id, commit.id);
+			stackService.squashCommitsMutation({
+				projectId,
+				stackId,
+				sourceCommitOids: [data.commit.id],
+				targetCommitOid: commit.id
+			});
 		}
 	}
 }

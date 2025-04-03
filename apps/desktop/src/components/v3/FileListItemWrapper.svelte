@@ -112,7 +112,6 @@
 		bind:this={contextMenu}
 		trigger={draggableEl}
 		isUnapplied={false}
-		branchId={$stack?.id}
 		isBinary={false}
 		{unSelectChanges}
 	/>

@@ -8,8 +8,8 @@
 </script>
 
 <script lang="ts">
-	import { BranchController } from '$lib/branches/branchController';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
@@ -25,12 +25,16 @@
 		filePath: string;
 		projectPath: string | undefined;
 		readonly: boolean;
+		projectId: string;
 	}
 
-	const { trigger, filePath, projectPath, readonly }: Props = $props();
+	const { trigger, filePath, projectPath, readonly, projectId }: Props = $props();
 
-	const branchController = getContext(BranchController);
+	const stackService = getContext(StackService);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+
+	const [unapplyHunk] = stackService.legacyUnapplyHunk;
+	const [unapplyLines] = stackService.legacyUnapplyLines;
 
 	let contextMenu: ReturnType<typeof ContextMenu> | undefined;
 
@@ -63,7 +67,7 @@
 				<ContextMenuItem
 					label="Discard hunk"
 					onclick={() => {
-						branchController.unapplyHunk(item.hunk);
+						unapplyHunk({ projectId, hunk: item.hunk });
 						contextMenu?.close();
 					}}
 				/>
@@ -72,9 +76,11 @@
 				<ContextMenuItem
 					label={getDiscardLineLabel(item.beforeLineNumber, item.afterLineNumber)}
 					onclick={() => {
-						branchController.unapplyLines(item.hunk, [
-							{ old: item.beforeLineNumber, new: item.afterLineNumber }
-						]);
+						unapplyLines({
+							projectId,
+							hunk: item.hunk,
+							linesToUnapply: [{ old: item.beforeLineNumber, new: item.afterLineNumber }]
+						});
 						contextMenu?.close();
 					}}
 				/>

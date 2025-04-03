@@ -36,6 +36,7 @@
 	const user = userService.user;
 
 	interface Props {
+		projectId?: string;
 		stack?: BranchStack | undefined;
 		currentSeries?: PatchSeries | undefined;
 		commit: DetailedCommit | Commit;
@@ -51,6 +52,7 @@
 	}
 
 	const {
+		projectId,
 		stack = undefined,
 		currentSeries,
 		commit,
@@ -71,8 +73,8 @@
 	const fileService = getContext(FileService);
 	const stackService = getContext(StackService);
 
-	const [uncommit] = stackService.uncommit();
-	const [updateCommitMessage] = stackService.updateCommitMessage();
+	const [uncommit] = stackService.uncommit;
+	const [updateCommitMessage] = stackService.updateCommitMessage;
 
 	const commitStore = createCommitStore(commit);
 
@@ -449,6 +451,7 @@
 
 			<div class="files-container">
 				<BranchFilesList
+					{projectId}
 					allowMultiple={!isUnapplied && type !== 'Remote'}
 					{files}
 					{isUnapplied}

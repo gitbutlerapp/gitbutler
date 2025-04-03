@@ -63,7 +63,7 @@
 
 	const [publishBranch] = stackService.publishBranch;
 	const [updateBranchPrNumber] = stackService.updateBranchPrNumber;
-	const [pushStack] = stackService.pushStack();
+	const [pushStack] = stackService.pushStack;
 
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branch = $derived(branchResult.current.data);

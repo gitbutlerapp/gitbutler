@@ -18,7 +18,7 @@
 	const { projectId }: Props = $props();
 
 	const stackService = getContext(StackService);
-	const [newStack] = stackService.newStack();
+	const [newStack] = stackService.newStack;
 
 	const handler = new NewStackDzHandler(stackService, projectId);
 </script>

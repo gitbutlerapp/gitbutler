@@ -21,7 +21,6 @@
 
 	type Props = {
 		isUnapplied: boolean;
-		branchId?: string;
 		trigger?: HTMLElement;
 		isBinary?: boolean;
 		unSelectChanges: (changes: TreeChange[]) => void;
@@ -45,7 +44,7 @@
 	const [stackService, project] = inject(StackService, Project);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
-	const [discardChanges] = stackService.discardChanges();
+	const [discardChanges] = stackService.discardChanges;
 	let confirmationModal: ReturnType<typeof Modal> | undefined;
 	let contextMenu: ReturnType<typeof ContextMenu>;
 	const projectId = $derived(project.id);

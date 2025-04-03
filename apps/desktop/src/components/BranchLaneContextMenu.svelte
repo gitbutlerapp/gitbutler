@@ -32,6 +32,7 @@
 
 	const [unapply] = stackService.unapply;
 	const [updateStack] = stackService.updateStack;
+	const [newStack] = stackService.newStack;
 
 	let deleteBranchModal: Modal;
 	let allowRebasing = $state<boolean>();
@@ -124,7 +125,6 @@
 		<ContextMenuItem
 			label={`Create stack to the left`}
 			onclick={() => {
-				const [newStack] = stackService.newStack();
 				newStack({
 					projectId,
 					branch: { order: stack.order }
@@ -136,7 +136,6 @@
 		<ContextMenuItem
 			label={`Create stack to the right`}
 			onclick={() => {
-				const [newStack] = stackService.newStack();
 				newStack({
 					projectId,
 					branch: { order: stack.order + 1 }

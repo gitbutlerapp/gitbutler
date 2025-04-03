@@ -66,6 +66,7 @@
 			style:width={$width + 'rem'}
 		>
 			<FileCard
+				projectId={project.id}
 				isUnapplied={false}
 				conflicted={selected.conflicted}
 				file={selected}

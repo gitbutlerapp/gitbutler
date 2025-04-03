@@ -21,7 +21,7 @@
 
 	const [userService, modeService, stackService] = inject(UserService, ModeService, StackService);
 
-	const [uncommit, uncommitResult] = stackService.uncommit();
+	const [uncommit, uncommitResult] = stackService.uncommit;
 	const user = $derived(userService.user);
 
 	const message = $derived(commit.message);

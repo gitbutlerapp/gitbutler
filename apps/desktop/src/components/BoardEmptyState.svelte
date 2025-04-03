@@ -14,7 +14,7 @@
 	const baseBranch = maybeGetContext(BaseBranch);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const stackService = getContext(StackService);
-	const [newStack] = stackService.newStack();
+	const [newStack] = stackService.newStack;
 
 	const project = getContext(Project);
 

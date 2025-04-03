@@ -25,7 +25,7 @@
 	const stackInfo = $derived(stackInfoResult.current.data);
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
 	const branches = $derived(branchesResult.current.data || []);
-	const [pushStack, pushResult] = stackService.pushStack();
+	const [pushStack, pushResult] = stackService.pushStack;
 	const [publishBranch, publishResult] = stackService.publishBranch;
 	let isSticked = $state(true);
 

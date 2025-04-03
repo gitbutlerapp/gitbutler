@@ -36,7 +36,7 @@
 			: stackService.commitById(projectId, commitKey)
 	);
 
-	const [updateCommitMessage, messageUpdateResult] = stackService.updateCommitMessage();
+	const [updateCommitMessage, messageUpdateResult] = stackService.updateCommitMessage;
 
 	const focusedArea = $derived(focus.current);
 	$effect(() => {

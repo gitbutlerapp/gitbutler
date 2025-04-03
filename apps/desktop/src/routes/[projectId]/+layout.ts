@@ -1,5 +1,4 @@
 import { getUserErrorCode } from '$lib/backend/ipc';
-import { BranchController } from '$lib/branches/branchController';
 import { BranchListingService } from '$lib/branches/branchListing';
 import { GitBranchService } from '$lib/branches/gitBranch';
 import { VirtualBranchService } from '$lib/branches/virtualBranchService';
@@ -19,7 +18,7 @@ export const prerender = false;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async ({ params, parent }) => {
-	const { projectsService, commandService, userService, posthog, projectMetrics } = await parent();
+	const { projectsService, commandService, userService, projectMetrics } = await parent();
 
 	const projectId = params.projectId;
 	projectsService.setLastOpenedProject(projectId);
@@ -58,13 +57,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		modeService
 	);
 
-	const branchController = new BranchController(
-		projectId,
-		vbranchService,
-		branchListingService,
-		posthog
-	);
-
 	const uncommitedFileWatcher = new UncommitedFilesWatcher(project);
 	const syncedSnapshotService = new SyncedSnapshotService(
 		commandService,
@@ -79,7 +71,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 	return {
 		templateService,
-		branchController,
 		historyService,
 		projectId,
 		project,

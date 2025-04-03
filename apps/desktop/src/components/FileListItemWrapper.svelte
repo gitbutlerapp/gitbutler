@@ -24,10 +24,19 @@
 		readonly: boolean;
 		onclick: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
+		projectId?: string;
 	}
 
-	const { file, isUnapplied, selected, showCheckbox, readonly, onclick, onkeydown }: Props =
-		$props();
+	const {
+		file,
+		isUnapplied,
+		selected,
+		showCheckbox,
+		readonly,
+		onclick,
+		onkeydown,
+		projectId
+	}: Props = $props();
 
 	const stack = maybeGetContextStore(BranchStack);
 	const branchId = $derived($stack?.id);
@@ -98,13 +107,16 @@
 	});
 </script>
 
-<FileContextMenu
-	bind:this={contextMenu}
-	trigger={draggableEl}
-	{isUnapplied}
-	branchId={$stack?.id}
-	isBinary={file.binary}
-/>
+{#if projectId}
+	<FileContextMenu
+		bind:this={contextMenu}
+		trigger={draggableEl}
+		{isUnapplied}
+		stackId={$stack?.id}
+		{projectId}
+		isBinary={file.binary}
+	/>
+{/if}
 
 <FileListItem
 	id={file.id}

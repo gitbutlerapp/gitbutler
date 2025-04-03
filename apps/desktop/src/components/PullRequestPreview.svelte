@@ -1,11 +1,11 @@
 <script lang="ts">
 	// This is always displayed in the context of not having a cooresponding vbranch or remote
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { BranchController } from '$lib/branches/branchController';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { RemotesService } from '$lib/remotes/remotesService';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -18,13 +18,14 @@
 
 	const { pr }: { pr: PullRequest } = $props();
 
-	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 	const remotesService = getContext(RemotesService);
 	const virtualBranchService = getContext(VirtualBranchService);
 	const baseBranchService = getContext(BaseBranchService);
 	const baseRepoResponse = $derived(baseBranchService.repo(project.id));
 	const baseRepo = $derived(baseRepoResponse.current.data);
+	const stackService = getContext(StackService);
+	const [createVirtualBranchFromBranch] = stackService.createVirtualBranchFromBranch;
 	const [fetchFromRemotes] = baseBranchService.fetchFromRemotes;
 
 	let inputRemoteName = $state<string>(pr.repoOwner || '');
@@ -60,7 +61,12 @@
 			const remoteRef = 'refs/remotes/' + inputRemoteName + '/' + pr.sourceBranch;
 			await remotesService.addRemote(project.id, inputRemoteName, remoteUrl);
 			await fetchFromRemotes({ projectId: project.id });
-			await branchController.createvBranchFromBranch(remoteRef, remoteRef, pr.number);
+			await createVirtualBranchFromBranch({
+				projectId: project.id,
+				branch: remoteRef,
+				remote: remoteRef,
+				prNumber: pr.number
+			});
 			await virtualBranchService.refresh();
 
 			// This is a little absurd, but it makes it soundly typed

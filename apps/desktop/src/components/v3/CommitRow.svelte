@@ -53,7 +53,7 @@
 	const stackService = getContext(StackService);
 	const modeService = maybeGetContext(ModeService);
 
-	const [uncommit] = stackService.uncommit();
+	const [uncommit] = stackService.uncommit;
 
 	const commitUrl = undefined;
 	const conflicted = $derived(isCommit(commit) ? commit.hasConflicts : false);
