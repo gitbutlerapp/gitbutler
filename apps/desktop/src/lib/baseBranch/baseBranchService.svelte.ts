@@ -74,12 +74,12 @@ export default class BaseBranchService {
 				}
 
 				if (code === Code.ProjectsGitAuth) {
-					showError('Failed to authenticate', error);
+					showError('Failed to authenticate', error.message);
 					return;
 				}
 
 				if (action !== undefined) {
-					showError('Failed to fetch', error);
+					showError('Failed to fetch', error.message);
 				}
 
 				console.error(error);
@@ -99,12 +99,12 @@ export default class BaseBranchService {
 					}
 
 					if (code === Code.ProjectsGitAuth) {
-						showError('Failed to authenticate', error);
+						showError('Failed to authenticate', error.message);
 						return;
 					}
 
 					if (action !== undefined) {
-						showError('Failed to fetch', error);
+						showError('Failed to fetch', error.message);
 					}
 
 					console.error(error);
