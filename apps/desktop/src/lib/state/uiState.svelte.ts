@@ -15,14 +15,14 @@ export const uiStatePersistConfig = {
 	storage: storage
 };
 
+export type StackUiSelection = {
+	branchName: string;
+	commitId?: string;
+	upstream?: boolean;
+};
+
 type StackUiState = {
-	selection:
-		| {
-				branchName: string;
-				commitId?: string;
-				upstream?: boolean;
-		  }
-		| undefined;
+	selection: StackUiSelection | undefined;
 	activeSelectionId: SelectionId;
 };
 
@@ -175,7 +175,7 @@ type UiStateVariable = {
 type DefaultConfig = Record<string, UiStateValue>;
 
 /** Node type for global properties. */
-type GlobalProperty<T> = {
+export type GlobalProperty<T> = {
 	get(): Reactive<T>;
 	set(value: T): void;
 } & WritableReactive<T>;
