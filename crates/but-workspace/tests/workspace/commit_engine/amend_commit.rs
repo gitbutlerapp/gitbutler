@@ -26,10 +26,10 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(7d6c00efe8bf6abb4db3952325e0cf71add9a873),
+            Sha1(613bf3a2f7883b5b6317ced4fb6f5661d1315cec),
         ),
         changed_tree_pre_cherry_pick: Some(
-            Sha1(0236fb167942f3665aa348c514e8d272a6581ad5),
+            Sha1(e56fc9bacdd11ebe576b5d96d21127c423698126),
         ),
         references: [],
         rebase_output: None,
@@ -38,13 +38,13 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     ");
     let tree = visualize_tree(&repo, &outcome)?;
     insta::assert_snapshot!(tree, @r#"
-    0236fb1
-    ├── executable-renamed:100755:94ebaf9 "1\n2\n3\n4\n"
-    ├── file-renamed:100644:66f816c "5\n6\n7\n8\n9\n"
+    e56fc9b
+    ├── executable-renamed:100755:8a1218a "1\n2\n3\n4\n5\n"
+    ├── file-renamed:100644:c5c4315 "5\n6\n7\n8\n9\n10\n"
     └── link-renamed:120000:94e4e07 "other-nonexisting-target"
     "#);
     insta::assert_snapshot!(visualize_commit(&repo, &outcome)?, @r"
-    tree 0236fb167942f3665aa348c514e8d272a6581ad5
+    tree e56fc9bacdd11ebe576b5d96d21127c423698126
     author author <author@example.com> 946684800 +0000
     committer committer (From Env) <committer@example.com> 946771200 +0000
 
@@ -89,7 +89,7 @@ fn new_file_and_deletion_onto_merge_commit() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
     write_sequence(&repo, "new-file", [(10, None)])?;
-    std::fs::remove_file(repo.workdir().expect("non-bare").join("file"))?;
+    std::fs::remove_file(repo.workdir_path("file").expect("non-bare"))?;
 
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
@@ -109,7 +109,7 @@ fn make_a_file_empty() -> anyhow::Result<()> {
 
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Empty the file
-    std::fs::write(repo.workdir().expect("non-bare").join("file"), "")?;
+    std::fs::write(repo.workdir_path("file").expect("non-bare"), "")?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::AmendCommit(repo.rev_parse_single("merge")?.detach()),
@@ -129,7 +129,7 @@ fn new_file_and_deletion_onto_merge_commit_with_hunks() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
     write_sequence(&repo, "new-file", [(10, None)])?;
-    std::fs::remove_file(repo.workdir().expect("non-bare").join("file"))?;
+    std::fs::remove_file(repo.workdir_path("file").expect("non-bare"))?;
 
     let outcome = but_workspace::commit_engine::create_commit(
         &repo,

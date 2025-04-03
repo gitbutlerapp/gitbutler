@@ -1,4 +1,5 @@
 //! A debug-CLI for making `but`-crates functionality available in real-world repositories.
+#![deny(rust_2018_idioms)]
 use anyhow::Result;
 
 mod args;
@@ -38,6 +39,9 @@ fn main() -> Result<()> {
             },
         ),
         args::Subcommands::Commit {
+            current_path,
+            previous_path,
+            hunk_headers,
             message,
             amend,
             parent,
@@ -53,6 +57,13 @@ fn main() -> Result<()> {
                 parent.as_deref(),
                 stack_segment_ref.as_deref(),
                 workspace_tip.as_deref(),
+                current_path.as_deref(),
+                previous_path.as_deref(),
+                if !hunk_headers.is_empty() {
+                    Some(hunk_headers)
+                } else {
+                    None
+                },
             )
         }
         args::Subcommands::HunkDependency => command::diff::locks(&args.current_dir),

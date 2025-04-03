@@ -4,7 +4,6 @@ use crate::commit_engine::reference_frame::InferenceMode;
 use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::RepositoryExt;
-use but_core::unified_diff::DiffHunk;
 use but_rebase::RebaseOutput;
 use but_rebase::commit::CommitterMode;
 use gitbutler_project::access::WorktreeWritePermission;
@@ -108,7 +107,7 @@ pub struct HunkHeader {
 }
 
 /// The range of a hunk as denoted by a 1-based starting line, and the amount of lines from there.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct HunkRange {
     /// The number of the first line in the hunk, 1 based.
     pub start: u32,
@@ -116,26 +115,6 @@ pub struct HunkRange {
     ///
     /// If `0`, this is an empty hunk.
     pub lines: u32,
-}
-
-impl From<but_core::unified_diff::DiffHunk> for HunkHeader {
-    fn from(
-        DiffHunk {
-            old_start,
-            old_lines,
-            new_start,
-            new_lines,
-            // TODO(performance): if difflines are discarded, we could also just not compute them.
-            diff: _,
-        }: DiffHunk,
-    ) -> Self {
-        HunkHeader {
-            old_start,
-            old_lines,
-            new_start,
-            new_lines,
-        }
-    }
 }
 
 /// A type used in [`CreateCommitOutcome`] to indicate how a reference was changed so it keeps pointing
@@ -205,7 +184,7 @@ pub enum RejectionReason {
     /// This can happen if the target tree has an entry that isn't of the same type as the source worktree changes.
     UnsupportedTreeEntry,
     /// The DiffSpec points to an actual change, or a subset of that change using a file path and optionally hunks into that file.
-    /// However, the actual change wasn't found or didn't match up in turn of hunks.
+    /// However, at least one hunk was not fully contained..
     MissingDiffSpecAssociation,
 }
 
@@ -222,6 +201,23 @@ pub enum RejectionReason {
 /// Note that no [`index`](CreateCommitOutcome::index) is produced here as the `HEAD` isn't queried and doesn't play a role.
 ///
 /// No reference is touched in the process.
+///
+/// ### Hunk-based discarding
+///
+/// When an instance in `changes` contains hunks, these are the hunks to be committed. If they match a whole hunk in the worktree changes,
+/// it will be committed in its entirety.
+///
+/// ### Sub-Hunk discarding
+///
+/// It's possible to specify ranges of hunks to discard. To do that, they need an *anchor*. The *anchor* is the pair of
+/// `(line_number, line_count)` that should not be changed, paired with the *other* pair with the new `(line_number, line_count)`
+/// to discard.
+///
+/// For instance, when there is a single patch `-1,10 +1,10` and we want to commit the removed 5th line *and* the added 5th line,
+/// we'd specify *just* two selections, one in the old via `-5,1 +1,10` and one in the new via `-1,10 +5,1`.
+/// This works because internally, it will always match the hunks (and sub-hunks) with their respective pairs obtained through a
+/// worktree status, using the anchor, and apply an additional processing step to get the actual old/new hunk pairs to use when
+/// building the buffer to commit.
 pub fn create_commit(
     repo: &gix::Repository,
     destination: Destination,

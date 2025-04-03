@@ -531,13 +531,15 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                 "file",
                 [
                     HunkIntersection {
-                        hunk: DiffHunk {
-                            old_start: 2,
-                            old_lines: 4,
-                            new_start: 2,
-                            new_lines: 3,
-                            diff: "@@ -2,4 +2,3 @@\n-e\n-1\n-2\n-3\n+updated line 3\n+updated line 4\n+updated line 5\n",
-                        },
+                        hunk: DiffHunk("@@ -2,4 +2,3 @@
+                        -e
+                        -1
+                        -2
+                        -3
+                        +updated line 3
+                        +updated line 4
+                        +updated line 5
+                        "),
                         commit_intersections: [
                             StableHunkRange {
                                 change_type: Modification,
@@ -561,13 +563,10 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                 "file_2",
                 [
                     HunkIntersection {
-                        hunk: DiffHunk {
-                            old_start: 4,
-                            old_lines: 1,
-                            new_start: 4,
-                            new_lines: 1,
-                            diff: "@@ -4,1 +4,1 @@\n-d\n+updated d\n",
-                        },
+                        hunk: DiffHunk("@@ -4,1 +4,1 @@
+                        -d
+                        +updated d
+                        "),
                         commit_intersections: [
                             StableHunkRange {
                                 change_type: Addition,
@@ -697,13 +696,11 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 "file",
                 [
                     HunkIntersection {
-                        hunk: DiffHunk {
-                            old_start: 3,
-                            old_lines: 1,
-                            new_start: 3,
-                            new_lines: 2,
-                            diff: "@@ -3,1 +3,2 @@\n-2\n+aaaaa\n+aaaaa\n",
-                        },
+                        hunk: DiffHunk("@@ -3,1 +3,2 @@
+                        -2
+                        +aaaaa
+                        +aaaaa
+                        "),
                         commit_intersections: [
                             StableHunkRange {
                                 change_type: Modification,
@@ -715,13 +712,11 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                         ],
                     },
                     HunkIntersection {
-                        hunk: DiffHunk {
-                            old_start: 7,
-                            old_lines: 2,
-                            new_start: 8,
-                            new_lines: 1,
-                            diff: "@@ -7,2 +8,1 @@\n-update 7\n-update 8\n+aaaaa\n",
-                        },
+                        hunk: DiffHunk("@@ -7,2 +8,1 @@
+                        -update 7
+                        -update 8
+                        +aaaaa
+                        "),
                         commit_intersections: [
                             StableHunkRange {
                                 change_type: Modification,
@@ -747,13 +742,11 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                         ],
                     },
                     HunkIntersection {
-                        hunk: DiffHunk {
-                            old_start: 10,
-                            old_lines: 1,
-                            new_start: 10,
-                            new_lines: 2,
-                            diff: "@@ -10,1 +10,2 @@\n-added at the bottom\n+update bottom\n+add another line\n",
-                        },
+                        hunk: DiffHunk("@@ -10,1 +10,2 @@
+                        -added at the bottom
+                        +update bottom
+                        +add another line
+                        "),
                         commit_intersections: [
                             StableHunkRange {
                                 change_type: Modification,
@@ -784,13 +777,10 @@ fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
                 "file",
                 [
                     HunkIntersection {
-                        hunk: DiffHunk {
-                            old_start: 8,
-                            old_lines: 1,
-                            new_start: 8,
-                            new_lines: 1,
-                            diff: "@@ -8,1 +8,1 @@\n-update line 8\n+update line 8 again\n",
-                        },
+                        hunk: DiffHunk("@@ -8,1 +8,1 @@
+                        -update line 8
+                        +update line 8 again
+                        "),
                         commit_intersections: [
                             StableHunkRange {
                                 change_type: Modification,
@@ -807,13 +797,10 @@ fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
         missed_hunks: [
             (
                 "file",
-                DiffHunk {
-                    old_start: 5,
-                    old_lines: 1,
-                    new_start: 5,
-                    new_lines: 1,
-                    diff: "@@ -5,1 +5,1 @@\n-update line 5\n+update line 5 again\n",
-                },
+                DiffHunk("@@ -5,1 +5,1 @@
+                -update line 5
+                +update line 5 again
+                "),
             ),
         ],
     }

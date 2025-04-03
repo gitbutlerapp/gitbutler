@@ -1,8 +1,8 @@
 use crate::utils::{
-    CONTEXT_LINES, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace,
-    read_only_in_memory_scenario, to_change_specs_all_hunks,
-    to_change_specs_all_hunks_with_context_lines, to_change_specs_whole_file, visualize_tree,
-    writable_scenario, writable_scenario_with_ssh_key, write_sequence,
+    CONTEXT_LINES, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace, diff_spec,
+    hunk_header, read_only_in_memory_scenario, to_change_specs_all_hunks_with_context_lines,
+    to_change_specs_whole_file, visualize_tree, writable_scenario, writable_scenario_with_ssh_key,
+    write_sequence,
 };
 use but_testsupport::assure_stable_env;
 use but_workspace::commit_engine;
@@ -56,7 +56,7 @@ fn from_unborn_head() -> anyhow::Result<()> {
     "#);
 
     std::fs::write(
-        repo.workdir().expect("non-bare").join("new-untracked"),
+        repo.workdir_path("new-untracked").expect("non-bare"),
         "new-content",
     )?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
@@ -86,6 +86,96 @@ fn from_unborn_head() -> anyhow::Result<()> {
     insta::assert_snapshot!(tree, @r#"
     a004469
     ├── new-untracked:100644:72278a7 "new-content"
+    └── not-yet-tracked:100644:d95f3ad "content\n"
+    "#);
+    Ok(())
+}
+
+#[test]
+fn from_unborn_head_with_selection() -> anyhow::Result<()> {
+    assure_stable_env();
+
+    let (repo, _tmp) = writable_scenario("unborn-untracked");
+    let destination = Destination::NewCommit {
+        parent_commit_id: None,
+        message: "the commit with selection".into(),
+        stack_segment: None,
+    };
+    let outcome = but_workspace::commit_engine::create_commit(
+        &repo,
+        destination,
+        None,
+        vec![DiffSpec {
+            previous_path: None,
+            path: "not-yet-tracked".into(),
+            hunk_headers: vec![hunk_header("-1,0", "+1,1")],
+        }],
+        CONTEXT_LINES,
+    )?;
+
+    let tree = visualize_tree(&repo, &outcome)?;
+    insta::assert_snapshot!(tree, @r#"
+    861d6e2
+    └── not-yet-tracked:100644:d95f3ad "content\n"
+    "#);
+
+    write_sequence(&repo, "also-untracked", [(1, 10)])?;
+    let destination = Destination::NewCommit {
+        parent_commit_id: outcome.new_commit,
+        message: "the commit with sub-selection".into(),
+        stack_segment: None,
+    };
+    let outcome = but_workspace::commit_engine::create_commit(
+        &repo,
+        destination.clone(),
+        None,
+        vec![DiffSpec {
+            previous_path: None,
+            path: "also-untracked".into(),
+            // Take 3 lines in the middle, instead of 10
+            hunk_headers: vec![hunk_header("-0,0", "+4,3")],
+        }],
+        CONTEXT_LINES,
+    )?;
+    assert_eq!(
+        outcome.rejected_specs,
+        [],
+        "hunk-ranges can also be applied"
+    );
+
+    let tree = visualize_tree(&repo, &outcome)?;
+    insta::assert_snapshot!(tree, @r#"
+    fe03a86
+    ├── also-untracked:100644:4578bc1 "4\n5\n6\n"
+    └── not-yet-tracked:100644:d95f3ad "content\n"
+    "#);
+
+    let outcome = but_workspace::commit_engine::create_commit(
+        &repo,
+        destination,
+        None,
+        vec![DiffSpec {
+            previous_path: None,
+            path: "also-untracked".into(),
+            // Take 3 lines in the middle, instead of 10, but line by line like the UI would select it.
+            hunk_headers: vec![
+                hunk_header("-0,0", "+4,1"),
+                hunk_header("-0,0", "+5,1"),
+                hunk_header("-0,0", "+6,1"),
+            ],
+        }],
+        CONTEXT_LINES,
+    )?;
+    assert_eq!(
+        outcome.rejected_specs,
+        [],
+        "hunk-ranges can also be applied"
+    );
+
+    let tree = visualize_tree(&repo, &outcome)?;
+    insta::assert_snapshot!(tree, @r#"
+    fe03a86
+    ├── also-untracked:100644:4578bc1 "4\n5\n6\n"
     └── not-yet-tracked:100644:d95f3ad "content\n"
     "#);
     Ok(())
@@ -247,10 +337,256 @@ fn renames() -> anyhow::Result<()> {
     )?;
 
     insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
-    0236fb1
-    ├── executable-renamed:100755:94ebaf9 "1\n2\n3\n4\n"
-    ├── file-renamed:100644:66f816c "5\n6\n7\n8\n9\n"
+    e56fc9b
+    ├── executable-renamed:100755:8a1218a "1\n2\n3\n4\n5\n"
+    ├── file-renamed:100644:c5c4315 "5\n6\n7\n8\n9\n10\n"
     └── link-renamed:120000:94e4e07 "other-nonexisting-target"
+    "#);
+    Ok(())
+}
+
+#[test]
+fn renames_with_selections() -> anyhow::Result<()> {
+    assure_stable_env();
+
+    let repo = read_only_in_memory_scenario("all-file-types-renamed-and-modified")?;
+    let head_commit_id = repo.rev_parse_single("HEAD")?;
+    insta::assert_snapshot!(but_testsupport::visualize_tree(head_commit_id.object()?.peel_to_tree()?.id()), @r#"
+    3fd29f0
+    ├── executable:100755:01e79c3 "1\n2\n3\n"
+    ├── file:100644:3aac70f "5\n6\n7\n8\n"
+    └── link:120000:c4c364c "nonexisting-target"
+    "#);
+    insta::assert_debug_snapshot!(
+        utils::worktree_change_diffs(&repo, 0)?,
+        @r#"
+    [
+        (
+            Some(
+                "executable",
+            ),
+            "executable-renamed",
+            Patch {
+                hunks: [
+                    DiffHunk("@@ -4,0 +4,2 @@
+                    +4
+                    +5
+                    "),
+                ],
+                is_result_of_binary_to_text_conversion: false,
+            },
+        ),
+        (
+            Some(
+                "file",
+            ),
+            "file-renamed",
+            Patch {
+                hunks: [
+                    DiffHunk("@@ -5,0 +5,2 @@
+                    +9
+                    +10
+                    "),
+                ],
+                is_result_of_binary_to_text_conversion: false,
+            },
+        ),
+        (
+            None,
+            "link",
+            Patch {
+                hunks: [
+                    DiffHunk("@@ -1,1 +1,0 @@
+                    -nonexisting-target
+                    "),
+                ],
+                is_result_of_binary_to_text_conversion: false,
+            },
+        ),
+        (
+            None,
+            "link-renamed",
+            Patch {
+                hunks: [
+                    DiffHunk("@@ -1,0 +1,1 @@
+                    +other-nonexisting-target
+                    "),
+                ],
+                is_result_of_binary_to_text_conversion: false,
+            },
+        ),
+    ]
+    "#
+    );
+
+    let outcome = but_workspace::commit_engine::create_commit(
+        &repo,
+        Destination::NewCommit {
+            parent_commit_id: Some(head_commit_id.into()),
+            message: "renames need special care to delete the source, even with selection".into(),
+            stack_segment: None,
+        },
+        None,
+        vec![
+            diff_spec(
+                Some("executable"),
+                "executable-renamed",
+                Some(
+                    // Context lines can't be selected, so select first of new here.
+                    // Old is also the anchor here.
+                    hunk_header("-0,0", "+4,1"),
+                ),
+            ),
+            diff_spec(
+                Some("file"),
+                "file-renamed",
+                Some(
+                    // Keep only the last line.
+                    hunk_header("-0,0", "+6,1"),
+                ),
+            ),
+            // delete the source of the link, selections don't apply and we don't want to see it.
+            diff_spec(None, "link", None),
+        ],
+        UI_CONTEXT_LINES,
+    )?;
+    assert_eq!(outcome.rejected_specs, [], "everything was assigned");
+
+    insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
+    e47440e
+    ├── executable-renamed:100755:94ebaf9 "1\n2\n3\n4\n"
+    └── file-renamed:100644:76cf35b "5\n6\n7\n8\n10\n"
+    "#);
+    Ok(())
+}
+
+#[test]
+fn modification_with_complex_selection() -> anyhow::Result<()> {
+    assure_stable_env();
+
+    let repo = read_only_in_memory_scenario("plain-modifications")?;
+    insta::assert_snapshot!(but_testsupport::visualize_tree(repo.head_tree_id()?), @r#"
+    db299ef
+    ├── all-added:100644:e69de29 ""
+    ├── all-modified:100644:f00c965 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
+    └── all-removed:100644:f00c965 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
+    "#);
+
+    insta::assert_debug_snapshot!(
+        utils::worktree_change_diffs(&repo, 0)?[1], @r#"
+    (
+        None,
+        "all-modified",
+        Patch {
+            hunks: [
+                DiffHunk("@@ -1,10 +1,10 @@
+                -1
+                -2
+                -3
+                -4
+                -5
+                -6
+                -7
+                -8
+                -9
+                -10
+                +11
+                +12
+                +13
+                +14
+                +15
+                +16
+                +17
+                +18
+                +19
+                +20
+                "),
+            ],
+            is_result_of_binary_to_text_conversion: false,
+        },
+    )
+    "#);
+
+    let outcome = but_workspace::commit_engine::create_commit(
+        &repo,
+        Destination::NewCommit {
+            parent_commit_id: Some(repo.head_id()?.into()),
+            message: "commit only the modified file with a complex selection".into(),
+            stack_segment: None,
+        },
+        None,
+        vec![diff_spec(
+            None,
+            "all-modified",
+            [
+                // commit NOT '2,3' of the old
+                hunk_header("-2,2", "+0,0"),
+                // commit NOT '6,7' of the old
+                hunk_header("-6,2", "+0,0"),
+                // commit NOT '9' of the old
+                hunk_header("-9,1", "+0,0"),
+                // commit NOT '10' of the old
+                hunk_header("-10,1", "+0,0"),
+                // commit '11' of the new
+                hunk_header("-0,0", "+1,1"),
+                // commit '15,16' of the new
+                hunk_header("-0,0", "+5,2"),
+                // commit '19,20' of the new
+                hunk_header("-0,0", "+9,2"),
+            ],
+        )],
+        UI_CONTEXT_LINES,
+    )?;
+    assert_eq!(outcome.rejected_specs, [], "everything was assigned");
+
+    insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
+    4bbd0d5
+    ├── all-added:100644:e69de29 ""
+    ├── all-modified:100644:fcf7eb0 "1\n4\n5\n8\n11\n15\n16\n19\n20\n"
+    └── all-removed:100644:f00c965 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
+    "#);
+
+    let outcome = commit_engine::create_commit(
+        &repo,
+        Destination::NewCommit {
+            parent_commit_id: Some(repo.head_id()?.into()),
+            message: "like before, but select individual lines like the UI would".into(),
+            stack_segment: None,
+        },
+        None,
+        vec![diff_spec(
+            None,
+            "all-modified",
+            [
+                // commit NOT '2,3' of the old
+                hunk_header("-2,1", "+0,0"),
+                hunk_header("-3,1", "+0,0"),
+                // commit NOT '6,7' of the old
+                hunk_header("-6,1", "+0,0"),
+                hunk_header("-7,1", "+0,0"),
+                // commit NOT '9' of the old
+                hunk_header("-9,1", "+0,0"),
+                // commit NOT '10' of the old
+                hunk_header("-10,1", "+0,0"),
+                // commit '11' of the new
+                hunk_header("-0,0", "+1,1"),
+                // commit '15,16' of the new
+                hunk_header("-0,0", "+5,1"),
+                hunk_header("-0,0", "+6,1"),
+                // commit '19,20' of the new
+                hunk_header("-0,0", "+9,1"),
+                hunk_header("-0,0", "+10,1"),
+            ],
+        )],
+        UI_CONTEXT_LINES,
+    )?;
+    assert_eq!(outcome.rejected_specs, [], "everything was assigned");
+
+    insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
+    4bbd0d5
+    ├── all-added:100644:e69de29 ""
+    ├── all-modified:100644:fcf7eb0 "1\n4\n5\n8\n11\n15\n16\n19\n20\n"
+    └── all-removed:100644:f00c965 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
     "#);
     Ok(())
 }
@@ -347,14 +683,16 @@ fn commit_to_one_below_tip() -> anyhow::Result<()> {
     assure_stable_env();
 
     let (repo, _tmp) = writable_scenario("two-commits-with-line-offset");
+    // Repeat the file, but replace the last 20 lines with 30-50
     write_sequence(&repo, "file", [(20, Some(40)), (80, None), (30, Some(50))])?;
     let first_commit = Destination::NewCommit {
         parent_commit_id: Some(repo.rev_parse_single("first-commit")?.into()),
-        message: "we apply a change with line offsets on top of the first commit, so the patch wouldn't apply cleanly.".into(),
+        message: "we apply a change with line offsets on top of the first commit, so a cherry-pick is necessary.".into(),
         stack_segment: None,
     };
 
     let outcome = commit_whole_files_and_all_hunks_from_workspace(&repo, first_commit)?;
+    assert_eq!(outcome.rejected_specs, vec![], "nothing was rejected");
     let tree = visualize_tree(&repo, &outcome)?;
     insta::assert_snapshot!(tree, @r#"
     754a70c
@@ -482,15 +820,20 @@ fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
                 stack_segment: None,
             },
         )?;
-        assert_eq!(
-            outcome
-                .rejected_specs
-                .into_iter()
-                .map(|t| t.1)
-                .collect::<Vec<_>>(),
-            to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
-            "It shouldn't produce a commit and clearly mark the conflicting specs"
-        );
+        // The hunks are never present, as they always match, further clarifying that the hunks aren't the problem.
+        insta::allow_duplicates! {
+        insta::assert_debug_snapshot!(outcome.rejected_specs, @r#"
+        [
+            (
+                CherryPickMergeConflict,
+                DiffSpec {
+                    previous_path: None,
+                    path: "file",
+                    hunk_headers: [],
+                },
+            ),
+        ]
+        "#)};
     }
 
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
@@ -532,19 +875,20 @@ fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() ->
                 stack_segment: None,
             },
         )?;
-        assert_eq!(
-            outcome
-                .rejected_specs
-                .iter()
-                .map(|t| t.1.clone())
-                .collect::<Vec<_>>(),
-            Vec::from_iter(
-                to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?
-                    .first()
-                    .cloned()
+        // The hunks are never present, as they always match, further clarifying that the hunks aren't the problem.
+        insta::allow_duplicates! {
+        insta::assert_debug_snapshot!(outcome.rejected_specs, @r#"
+        [
+            (
+                CherryPickMergeConflict,
+                DiffSpec {
+                    previous_path: None,
+                    path: "file",
+                    hunk_headers: [],
+                },
             ),
-            "It still produces a commit as one file was non-conflicting, keeping the base version of the non-conflicting file"
-        );
+        ]
+        "#)};
         // Different bases mean different base versions for the conflicting file.
         if conflicting_parent_commit == "A" {
             insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
@@ -626,7 +970,7 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
     "#);
 
     std::fs::write(
-        repo.workdir().expect("non-bare").join("new-untracked"),
+        repo.workdir_path("new-untracked").expect("non-bare"),
         "one\r\ntwo\r\n",
     )?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
@@ -760,4 +1104,28 @@ fn validate_no_change_on_noop() -> anyhow::Result<()> {
     }
     "#);
     Ok(())
+}
+
+const UI_CONTEXT_LINES: u32 = 3;
+
+mod utils {
+    use bstr::BString;
+    use but_core::UnifiedDiff;
+
+    pub fn worktree_change_diffs(
+        repo: &gix::Repository,
+        context_lines: u32,
+    ) -> anyhow::Result<Vec<(Option<BString>, BString, UnifiedDiff)>> {
+        Ok(but_core::diff::worktree_changes(repo)?
+            .changes
+            .iter()
+            .map(|c| {
+                (
+                    c.previous_path().map(ToOwned::to_owned),
+                    c.path.clone(),
+                    c.unified_diff(repo, context_lines).unwrap(),
+                )
+            })
+            .collect())
+    }
 }

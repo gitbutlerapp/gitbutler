@@ -6,7 +6,7 @@ use gix::diff::blob::unified_diff::ContextSize;
 use serde::Serialize;
 
 /// A hunk as used in a [UnifiedDiff], which also contains all added and removed lines.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiffHunk {
     /// The 1-based line number at which the previous version of the file started.
@@ -32,6 +32,12 @@ pub struct DiffHunk {
     /// Note that the file-portion of the header isn't used here.
     #[serde(serialize_with = "gitbutler_serde::bstring_lossy::serialize")]
     pub diff: BString,
+}
+
+impl std::fmt::Debug for DiffHunk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, r#"DiffHunk("{}")"#, self.diff)
+    }
 }
 
 impl UnifiedDiff {

@@ -1,6 +1,6 @@
 mod subtract_hunks {
     use super::super::{HunkSubstraction::*, subtract_hunks};
-    use utils::{hunk_header, range};
+    use crate::utils::{hunk_header, range};
 
     #[test]
     fn removing_all_in_old_leaves_all_new_multi() {
@@ -68,15 +68,6 @@ mod subtract_hunks {
             subtract_hunks(hunk_header("-1,5", "+1,5"), Some(New(range(5, 1)))).unwrap(),
             [hunk_header("-1,5", "+1,4")],
             "consuming one less new line removes it"
-        );
-    }
-
-    #[test]
-    fn single_split_special_remove_me() {
-        // TODO: shouldn't be special, but is taken from higher-level tests
-        assert_eq!(
-            subtract_hunks(hunk_header("-1,14", "+1,16"), [New(range(2, 2))]).unwrap(),
-            [hunk_header("-1,1", "+1,1"), hunk_header("-2,13", "+4,13")]
         );
     }
 
@@ -182,21 +173,24 @@ mod subtract_hunks {
         );
     }
 
-    mod utils {
-        use crate::commit_engine::{HunkHeader, HunkRange};
-
-        pub fn range(start: u32, lines: u32) -> HunkRange {
-            HunkRange { start, lines }
-        }
-        pub fn hunk_header(old: &str, new: &str) -> HunkHeader {
-            let ((old_start, old_lines), (new_start, new_lines)) =
-                but_testsupport::hunk_header(old, new);
-            HunkHeader {
-                old_start,
-                old_lines,
-                new_start,
-                new_lines,
-            }
-        }
+    #[test]
+    fn multi_split_mixed_sort_dependent() {
+        assert_eq!(
+            subtract_hunks(
+                hunk_header("-1,5", "+1,5"),
+                [Old(range(2, 1)), New(range(1, 5)),]
+            )
+            .unwrap(),
+            [hunk_header("-1,1", "+6,0"), hunk_header("-3,3", "+6,0")],
+            "Splits are handled in order, and it's possible for these to not match up anymore"
+        );
+        assert_eq!(
+            subtract_hunks(
+                hunk_header("-1,5", "+1,5"),
+                [New(range(2, 1)), Old(range(1, 5)),]
+            )
+            .unwrap(),
+            [hunk_header("-6,0", "+1,1"), hunk_header("-6,0", "+3,3")]
+        );
     }
 }

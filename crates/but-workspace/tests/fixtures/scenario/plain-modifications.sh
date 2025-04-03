@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ### Description
-# An empty file that has 10 added lines, and a file with 10 lines that got emptied.
+# An empty file that has 10 added lines, and a file with 10 lines that got removed, and a modified file with all content changed.
 set -eu -o pipefail
 
 git init

@@ -18,13 +18,9 @@ fn file_added_in_worktree() -> anyhow::Result<()> {
 
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        DiffHunk {
-            old_start: 1,
-            old_lines: 0,
-            new_start: 1,
-            new_lines: 1,
-            diff: "@@ -1,0 +1,1 @@\n+change\n",
-        },
+        DiffHunk("@@ -1,0 +1,1 @@
+        +change
+        "),
     ]
     "#);
     Ok(())
@@ -47,13 +43,9 @@ fn binary_text_in_unborn() -> anyhow::Result<()> {
 
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        DiffHunk {
-            old_start: 1,
-            old_lines: 0,
-            new_start: 1,
-            new_lines: 1,
-            diff: "@@ -1,0 +1,1 @@\n+hi\n",
-        },
+        DiffHunk("@@ -1,0 +1,1 @@
+        +hi
+        "),
     ]
     "#);
     Ok(())
@@ -80,13 +72,10 @@ fn binary_text_renamed_unborn() -> anyhow::Result<()> {
 
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        DiffHunk {
-            old_start: 1,
-            old_lines: 1,
-            new_start: 1,
-            new_lines: 1,
-            diff: "@@ -1,1 +1,1 @@\n-hi\n+ho\n",
-        },
+        DiffHunk("@@ -1,1 +1,1 @@
+        -hi
+        +ho
+        "),
     ]
     "#);
     Ok(())
@@ -112,13 +101,9 @@ fn file_deleted_in_worktree() -> anyhow::Result<()> {
 
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        DiffHunk {
-            old_start: 1,
-            old_lines: 1,
-            new_start: 1,
-            new_lines: 0,
-            diff: "@@ -1,1 +1,0 @@\n-something\n",
-        },
+        DiffHunk("@@ -1,1 +1,0 @@
+        -something
+        "),
     ]
     "#);
     Ok(())
@@ -200,13 +185,10 @@ fn symlink_modified_in_worktree() -> anyhow::Result<()> {
 
     insta::assert_debug_snapshot!(actual, @r#"
     [
-        DiffHunk {
-            old_start: 1,
-            old_lines: 1,
-            new_start: 1,
-            new_lines: 1,
-            diff: "@@ -1,1 +1,1 @@\n-target-to-be-changed\n+changed-target\n",
-        },
+        DiffHunk("@@ -1,1 +1,1 @@
+        -target-to-be-changed
+        +changed-target
+        "),
     ]
     "#);
     Ok(())

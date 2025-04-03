@@ -99,6 +99,7 @@ fn project_controller(
 }
 
 mod commit;
+use crate::command::discard_change::IndicesOrHeaders;
 pub use commit::commit;
 
 pub mod diff;
@@ -150,13 +151,37 @@ pub(crate) fn discard_change(
     cwd: &Path,
     current_rela_path: &Path,
     previous_rela_path: Option<&Path>,
-    indices_or_headers: Option<discard_change::IndicesOrHeaders>,
+    indices_or_headers: Option<discard_change::IndicesOrHeaders<'_>>,
 ) -> anyhow::Result<()> {
-    let repo = gix::discover(cwd)?;
+    let repo = configured_repo(gix::discover(cwd)?, RepositoryOpenMode::Merge)?;
 
     let previous_path = previous_rela_path.map(path_to_rela_path).transpose()?;
     let path = path_to_rela_path(current_rela_path)?;
-    let hunk_headers = match indices_or_headers {
+    let hunk_headers = indices_or_headers_to_hunk_headers(
+        &repo,
+        indices_or_headers,
+        &path,
+        previous_path.as_ref(),
+    )?;
+    let spec = but_workspace::commit_engine::DiffSpec {
+        previous_path,
+        path,
+        hunk_headers,
+    };
+    debug_print(but_workspace::discard_workspace_changes(
+        &repo,
+        Some(spec.into()),
+        UI_CONTEXT_LINES,
+    )?)
+}
+
+fn indices_or_headers_to_hunk_headers(
+    repo: &gix::Repository,
+    indices_or_headers: Option<IndicesOrHeaders<'_>>,
+    path: &BString,
+    previous_path: Option<&BString>,
+) -> anyhow::Result<Vec<HunkHeader>> {
+    let headers = match indices_or_headers {
         None => vec![],
         Some(discard_change::IndicesOrHeaders::Headers(headers)) => headers
             .windows(4)
@@ -168,15 +193,15 @@ pub(crate) fn discard_change(
             })
             .collect(),
         Some(discard_change::IndicesOrHeaders::Indices(hunk_indices)) => {
-            let worktree_changes = but_core::diff::worktree_changes(&repo)?
+            let worktree_changes = but_core::diff::worktree_changes(repo)?
                 .changes
                 .into_iter()
                 .find(|change| {
-                    change.path == path
+                    change.path == *path
                         && change.previous_path() == previous_path.as_ref().map(|p| p.as_bstr())
                 }).with_context(|| format!("Couldn't find worktree change for file at '{path}' (previous-path: {previous_path:?}"))?;
             let UnifiedDiff::Patch { hunks, .. } =
-                worktree_changes.unified_diff(&repo, UI_CONTEXT_LINES)?
+                worktree_changes.unified_diff(repo, UI_CONTEXT_LINES)?
             else {
                 bail!("No hunks available for given '{path}'")
             };
@@ -194,16 +219,7 @@ pub(crate) fn discard_change(
                 .collect::<Result<Vec<HunkHeader>, _>>()?
         }
     };
-    let spec = but_workspace::commit_engine::DiffSpec {
-        previous_path,
-        path,
-        hunk_headers,
-    };
-    debug_print(but_workspace::discard_workspace_changes(
-        &repo,
-        Some(spec.into()),
-        UI_CONTEXT_LINES,
-    )?)
+    Ok(headers)
 }
 
 fn path_to_rela_path(path: &Path) -> anyhow::Result<BString> {

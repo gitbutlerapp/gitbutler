@@ -21,7 +21,7 @@
 //!   - Git doesn't have a notion of such a branch.
 //! * **DiffSpec**
 //!   - A type that identifies changes, either as whole file, or as hunks in the file.
-//!   - It doesn't specify if the change is in a commit, or in the worktree, so that information must provided separately.
+//!   - It doesn't specify if the change is in a commit, or in the worktree, so that information must be provided separately.
 
 use anyhow::{Context, Result};
 use author::Author;
@@ -642,5 +642,24 @@ impl TryFrom<&git2::Commit<'_>> for CommitData {
             message: commit.message_raw_bytes().into(),
             author: git2_signature_to_gix_signature(commit.author()),
         })
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod utils {
+    use crate::commit_engine::{HunkHeader, HunkRange};
+
+    pub fn range(start: u32, lines: u32) -> HunkRange {
+        HunkRange { start, lines }
+    }
+    pub fn hunk_header(old: &str, new: &str) -> HunkHeader {
+        let ((old_start, old_lines), (new_start, new_lines)) =
+            but_testsupport::hunk_header(old, new);
+        HunkHeader {
+            old_start,
+            old_lines,
+            new_start,
+            new_lines,
+        }
     }
 }
