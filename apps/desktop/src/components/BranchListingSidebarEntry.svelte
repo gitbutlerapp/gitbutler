@@ -1,60 +1,50 @@
 <script lang="ts">
-	import {
-		BranchListingDetails,
-		BranchListingService,
-		type BranchListing
-	} from '$lib/branches/branchListing';
+	import { BranchListingDetails, type BranchListing } from '$lib/branches/branchListing';
+	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { GitConfigService } from '$lib/config/gitConfigService';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { Project } from '$lib/project/project';
 	import { UserService } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
-	import type { Readable } from 'svelte/store';
+	import type { PullRequest } from '$lib/forge/interface/types';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	interface Props {
 		projectId: string;
 		branchListing: BranchListing;
+		prs: PullRequest[];
 	}
 
-	const { branchListing, projectId }: Props = $props();
+	const { projectId, branchListing, prs }: Props = $props();
 
 	const unknownName = 'unknown';
 	const unknownEmail = 'example@example.com';
 
-	const [forge, userService, gitConfigService, branchListingService, project] = inject(
-		DefaultForgeFactory,
+	const [userService, gitConfigService, project, branchService] = inject(
 		UserService,
 		GitConfigService,
-		BranchListingService,
-		Project
+		Project,
+		BranchService
 	);
 
 	const user = userService.user;
 
-	const listService = $derived(forge.current.listService);
-	const prResult = $derived(listService?.filterByBranch(projectId, branchListing.branchNames));
-	const pr = $derived(prResult?.current?.at(0));
+	// TODO: Use information from all PRs in a stack?
+	const pr = $derived(prs.at(0));
 
-	let lastCommitDetails = $state<{ authorName: string; lastCommitAt?: Date }>();
-	let branchListingDetails = $state<Readable<BranchListingDetails | undefined>>();
 	let hasBeenSeen = $state(false);
 
+	const branchDetailsResult = $derived(
+		hasBeenSeen ? branchService.get(projectId, branchListing.name) : undefined
+	);
+
+	let lastCommitDetails = $state<{ authorName: string; lastCommitAt?: Date }>();
+	let branchListingDetails = $derived(branchDetailsResult?.current.data);
+
 	// If there are zero commits we should not show the author
-	const ownedByUser = $derived($branchListingDetails?.numberOfCommits === 0);
-
-	$effect(() => {
-		if (hasBeenSeen) {
-			updateBranchListingDetails(branchListing.name);
-		}
-	});
-
-	function updateBranchListingDetails(branchName: string) {
-		branchListingDetails = branchListingService.getBranchListingDetails(branchName);
-	}
+	const ownedByUser = $derived(branchListingDetails?.numberOfCommits === 0);
 
 	function onMouseDown() {
 		if (branchListing.stack?.inWorkspace) {
@@ -64,7 +54,7 @@
 		}
 	}
 
-	const selected = $derived($page.url.pathname === formatBranchURL(project, branchListing.name));
+	const selected = $derived(page.url.pathname === formatBranchURL(project, branchListing.name));
 
 	function formatBranchURL(project: Project, name: string) {
 		return `/${project.id}/branch/${encodeURIComponent(name)}`;
@@ -94,7 +84,7 @@
 	let avatars = $state<{ name: string; srcUrl: string }[]>([]);
 
 	$effect(() => {
-		setAvatars(ownedByUser, $branchListingDetails);
+		setAvatars(ownedByUser, branchListingDetails);
 	});
 
 	async function setAvatars(ownedByUser: boolean, branchListingDetails?: BranchListingDetails) {
@@ -108,17 +98,20 @@
 
 			avatars = [{ name, srcUrl: srcUrl }];
 		} else if (branchListingDetails) {
-			avatars = await Promise.all(
-				branchListingDetails.authors.map(async (author) => {
-					return {
-						name: author.name || unknownName,
-						srcUrl:
-							(author.email?.toLowerCase() === $user?.email?.toLowerCase()
-								? $user?.picture
-								: author.gravatarUrl) ?? (await gravatarUrlFromEmail(author.email || unknownEmail))
-					};
-				})
-			);
+			avatars = branchListingDetails.authors
+				? await Promise.all(
+						branchListingDetails.authors.map(async (author) => {
+							return {
+								name: author.name || unknownName,
+								srcUrl:
+									(author.email?.toLowerCase() === $user?.email?.toLowerCase()
+										? $user?.picture
+										: author.gravatarUrl) ??
+									(await gravatarUrlFromEmail(author.email || unknownEmail))
+							};
+						})
+					)
+				: [];
 		} else {
 			avatars = [];
 		}
@@ -140,10 +133,10 @@
 		title: pr.title,
 		draft: pr.draft
 	}}
-	branchDetails={$branchListingDetails && {
-		commitCount: $branchListingDetails.numberOfCommits,
-		linesAdded: $branchListingDetails.linesAdded,
-		linesRemoved: $branchListingDetails.linesRemoved
+	branchDetails={branchListingDetails && {
+		commitCount: branchListingDetails.numberOfCommits,
+		linesAdded: branchListingDetails.linesAdded,
+		linesRemoved: branchListingDetails.linesRemoved
 	}}
 	onFirstSeen={() => (hasBeenSeen = true)}
 	{onMouseDown}

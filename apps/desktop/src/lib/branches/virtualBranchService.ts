@@ -5,7 +5,7 @@ import { DependencyError } from '$lib/branches/branch';
 import { showError } from '$lib/notifications/toasts';
 import { plainToInstance } from 'class-transformer';
 import { writable } from 'svelte/store';
-import type { BranchListingService } from '$lib/branches/branchListing';
+import type { BranchService } from '$lib/branches/branchService.svelte';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { ModeService } from '$lib/mode/modeService';
 
@@ -59,8 +59,8 @@ export class VirtualBranchService {
 	constructor(
 		private readonly projectId: string,
 		private readonly projectMetrics: ProjectMetrics,
-		private readonly branchListingService: BranchListingService,
-		private readonly modeService: ModeService
+		private readonly modeService: ModeService,
+		private readonly branchService: BranchService
 	) {}
 
 	async refresh() {
@@ -68,7 +68,7 @@ export class VirtualBranchService {
 		try {
 			await this.modeService.awaitNotEditing();
 			this.handlePayload(await this.listVirtualBranches());
-			this.branchListingService.refresh();
+			await this.branchService.refresh(this.projectId);
 		} catch (err: unknown) {
 			console.error(err);
 			this.error.set(err);
