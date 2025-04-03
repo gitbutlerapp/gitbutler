@@ -147,6 +147,8 @@
 	</section>
 
 	<section class="profile-sidebar__bottom">
+		<SupportersBanner />
+
 		<div class="social-banners">
 			<button
 				type="button"
@@ -166,8 +168,6 @@
 				<Icon name="discord" />
 			</button>
 		</div>
-
-		<SupportersBanner />
 	</section>
 </aside>
 
