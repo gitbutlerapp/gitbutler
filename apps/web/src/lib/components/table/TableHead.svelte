@@ -60,8 +60,7 @@
 	}
 
 	/* MODIFIERS */
-	.dynthead_changes,
-	.dynthead_number {
+	.dynthead_changes {
 		text-align: right;
 	}
 </style>

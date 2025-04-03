@@ -21,7 +21,6 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { untrack } from 'svelte';
 
 	type Props = {
@@ -132,26 +131,6 @@
 	);
 
 	let container = $state<HTMLElement>();
-
-	let thin = $state(false);
-
-	$effect(() => {
-		if (!container) return;
-
-		thin = container.clientWidth < 350;
-
-		const observer = new ResizeObserver(() => {
-			if (!container) return;
-
-			thin = container.clientWidth < 350;
-		});
-
-		observer.observe(container);
-
-		return () => {
-			observer.disconnect();
-		};
-	});
 </script>
 
 {#if $project?.api?.repository_id}
@@ -190,24 +169,17 @@
 
 				<div class="br-row">
 					<Icon name="bowtie" />
-					<Link
-						target="_blank"
-						rel="noreferrer"
-						href={webRoutes.projectReviewBranchUrl({
-							ownerSlug: cloudProject.owner,
-							projectSlug: cloudProject.slug,
-							branchId: cloudBranch.branchId
-						})}
-						externalIcon={false}
-						class="br-link text-13">BR #{cloudBranch.branchId.slice(0, 4)}</Link
-					>
+					<h4 class="text-14 text-semibold">
+						BR #{cloudBranch.branchId.slice(0, 4)}
+					</h4>
+
 					<BranchStatusBadge branch={cloudBranch}></BranchStatusBadge>
 				</div>
 				<div class="text-12 br-row">
 					{#if $user}
 						<div class="factoid">
 							<span class="label">Commits:</span>
-							<div class="minimap-container" class:thin>
+							<div class="minimap-container">
 								<Minimap
 									ownerSlug={cloudProject.owner}
 									projectSlug={cloudProject.slug}
@@ -258,7 +230,7 @@
 	.br-row {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 8px;
+		gap: 6px;
 		align-items: center;
 	}
 
@@ -286,11 +258,7 @@
 	}
 
 	.minimap-container {
-		width: 58px;
+		max-width: 58px;
 		height: 12px;
-
-		&.thin {
-			width: 40px;
-		}
 	}
 </style>
