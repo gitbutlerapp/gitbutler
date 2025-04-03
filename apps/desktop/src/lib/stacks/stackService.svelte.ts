@@ -12,7 +12,7 @@ import {
 } from '$lib/state/tags';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
-import type { BranchPushResult } from '$lib/branches/branchController';
+import type { BranchPushResult, SeriesIntegrationStrategy } from '$lib/branches/branchController';
 import type { Commit, StackBranch, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
 import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -22,7 +22,14 @@ import type { BranchDetails, Stack, StackInfo } from '$lib/stacks/stack';
 import type { TauriCommandError } from '$lib/state/backendQuery';
 import type { User } from '$lib/user/user';
 
-type CreateBranchRequest = { name?: string; ownership?: string; order?: number };
+type BranchParams = {
+	name?: string;
+	ownership?: string;
+	order?: number;
+	allow_rebasing?: boolean;
+	notes?: string;
+	selected_for_changes?: boolean;
+};
 
 type CreateCommitRequest = {
 	stackId: string;
@@ -140,6 +147,18 @@ export class StackService {
 
 	newStack() {
 		return this.api.endpoints.createStack.useMutation();
+	}
+
+	get newStackMutation() {
+		return this.api.endpoints.createStack.mutate;
+	}
+
+	get updateStack() {
+		return this.api.endpoints.updateStack.useMutation();
+	}
+
+	get updateBranchOrder() {
+		return this.api.endpoints.updateBranchOrder.useMutation();
 	}
 
 	branches(projectId: string, stackId: string) {
@@ -300,6 +319,10 @@ export class StackService {
 		return this.api.endpoints.createCommit.useMutation();
 	}
 
+	get createCommitLegacy() {
+		return this.api.endpoints.createCommitLegacy.useMutation();
+	}
+
 	commitChanges(projectId: string, commitId: string) {
 		const result = $derived(
 			this.api.endpoints.commitChanges.useQuery(
@@ -386,8 +409,20 @@ export class StackService {
 		return this.api.endpoints.reorderStack.useMutation();
 	}
 
+	get reorderStackMutation() {
+		return this.api.endpoints.reorderStack.mutate;
+	}
+
 	get moveCommit() {
 		return this.api.endpoints.moveCommit.useMutation();
+	}
+
+	get moveCommitMutation() {
+		return this.api.endpoints.moveCommit.mutate;
+	}
+
+	get integrateUpstreamCommits() {
+		return this.api.endpoints.integrateUpstreamCommits.useMutation();
 	}
 }
 
@@ -401,7 +436,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					return stackAdapter.addMany(stackAdapter.getInitialState(), response);
 				}
 			}),
-			createStack: build.mutation<Stack, { projectId: string; branch: CreateBranchRequest }>({
+			createStack: build.mutation<Stack, { projectId: string; branch: BranchParams }>({
 				query: ({ projectId, branch }) => ({
 					command: 'create_virtual_branch',
 					params: { projectId, branch }
@@ -411,6 +446,30 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus)
 				]
+			}),
+			updateStack: build.mutation<
+				Stack,
+				{ projectId: string; branch: BranchParams & { id: string } }
+			>({
+				query: ({ projectId, branch }) => ({
+					command: 'update_virtual_branch',
+					params: { projectId, branch }
+				}),
+				invalidatesTags: (result, _error) => [
+					invalidatesItem(ReduxTag.StackInfo, result?.id),
+					invalidatesList(ReduxTag.Stacks),
+					invalidatesList(ReduxTag.UpstreamIntegrationStatus)
+				]
+			}),
+			updateBranchOrder: build.mutation<
+				void,
+				{ projectId: string; branches: { id: string; order: number }[] }
+			>({
+				query: ({ projectId, branches }) => ({
+					command: 'update_branch_order',
+					params: { projectId, branches }
+				}),
+				invalidatesTags: [invalidatesList(ReduxTag.Stacks)]
 			}),
 			stackBranches: build.query<
 				EntityState<StackBranch, string>,
@@ -510,6 +569,26 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: ({ projectId, ...commitData }) => ({
 					command: 'create_commit_from_worktree_changes',
 					params: { projectId, ...commitData }
+				}),
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+					invalidatesItem(ReduxTag.StackBranches, args.stackId),
+					invalidatesItem(ReduxTag.Commits, args.stackId),
+					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+				]
+			}),
+			createCommitLegacy: build.mutation<
+				undefined,
+				{
+					projectId: string;
+					stackId: string;
+					message: string;
+					ownership: string | undefined;
+				}
+			>({
+				query: ({ projectId, stackId, message, ownership }) => ({
+					command: 'commit_virtual_branch',
+					params: { projectId, stackId, message, ownership }
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
@@ -726,31 +805,50 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesItem(ReduxTag.StackBranches, args.stackId)
 				]
 			}),
-			reorderStack: build.mutation<void, { projectId: string; stackId: string; order: StackOrder }>(
-				{
-					query: ({ projectId, stackId, order }) => ({
-						command: 'reorder_stack',
-						params: { projectId, stackId, stackOder: order }
-					}),
-					invalidatesTags: (_result, _error, args) => [
-						invalidatesItem(ReduxTag.Commits, args.stackId),
-						invalidatesItem(ReduxTag.StackBranches, args.stackId)
-					]
-				}
-			),
+			reorderStack: build.mutation<
+				void,
+				{ projectId: string; stackId: string; stackOrder: StackOrder }
+			>({
+				query: ({ projectId, stackId, stackOrder }) => ({
+					command: 'reorder_stack',
+					params: { projectId, stackId, stackOrder }
+				}),
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesItem(ReduxTag.Commits, args.stackId),
+					invalidatesItem(ReduxTag.StackBranches, args.stackId)
+				]
+			}),
 			moveCommit: build.mutation<
 				void,
-				{ projectId: string; sourceStackId: string; commitId: string; targetStackId: string }
+				{ projectId: string; sourceStackId: string; commitOid: string; targetStackId: string }
 			>({
-				query: ({ projectId, sourceStackId, commitId, targetStackId }) => ({
+				query: ({ projectId, sourceStackId, commitOid, targetStackId }) => ({
 					command: 'move_commit',
-					params: { projectId, sourceStackId, commitOid: commitId, targetStackId }
+					params: { projectId, sourceStackId, commitOid, targetStackId }
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.Commits, args.sourceStackId),
 					invalidatesItem(ReduxTag.StackInfo, args.sourceStackId),
 					invalidatesItem(ReduxTag.Commits, args.targetStackId),
 					invalidatesItem(ReduxTag.StackInfo, args.targetStackId)
+				]
+			}),
+			integrateUpstreamCommits: build.mutation<
+				void,
+				{
+					projectId: string;
+					stackId: string;
+					seriesName: string;
+					strategy: SeriesIntegrationStrategy | undefined;
+				}
+			>({
+				query: ({ projectId, stackId, seriesName, strategy }) => ({
+					command: 'integrate_upstream_commits',
+					params: { projectId, stackId, seriesName, strategy }
+				}),
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesItem(ReduxTag.Commits, args.stackId),
+					invalidatesItem(ReduxTag.StackInfo, args.stackId)
 				]
 			})
 		})

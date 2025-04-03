@@ -6,14 +6,21 @@
 	import middleSheetSvg from '$lib/assets/new-branch/middle-sheet.svg?raw';
 	import topSheetSvg from '$lib/assets/new-branch/top-sheet.svg?raw';
 	// import components
-	import { BranchController } from '$lib/branches/branchController';
 	import { NewStackDzHandler } from '$lib/stacks/dropHandler';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
-	const branchController = getContext(BranchController);
+	type Props = {
+		projectId: string;
+	};
 
-	const handler = new NewStackDzHandler(branchController);
+	const { projectId }: Props = $props();
+
+	const stackService = getContext(StackService);
+	const [newStack] = stackService.newStack();
+
+	const handler = new NewStackDzHandler(stackService, projectId);
 </script>
 
 <div class="canvas-dropzone">
@@ -48,7 +55,7 @@
 					<Button
 						kind="outline"
 						icon="plus-small"
-						onmousedown={async () => await branchController.createBranch({})}>New branch</Button
+						onmousedown={async () => await newStack({ projectId, branch: {} })}>New branch</Button
 					>
 				</div>
 			</div>

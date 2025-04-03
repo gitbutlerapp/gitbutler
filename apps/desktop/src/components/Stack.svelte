@@ -124,6 +124,7 @@
 			>
 				<div bind:this={rsViewport} style:width={`${$width}rem`} class="branch-card__contents">
 					<StackHeader
+						{projectId}
 						{stack}
 						onCollapseButtonClick={() => {
 							$isLaneCollapsed = true;

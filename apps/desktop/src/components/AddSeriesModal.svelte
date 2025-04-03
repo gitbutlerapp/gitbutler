@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { BranchStack } from '$lib/branches/branch';
-	import { BranchController } from '$lib/branches/branchController';
+	import { Project } from '$lib/project/project';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -21,8 +22,10 @@
 
 	const { parentSeriesName }: Props = $props();
 
-	const branchController = getContext(BranchController);
+	const stackService = getContext(StackService);
 	const stack = getContextStore(BranchStack);
+	const project = getContext(Project);
+	const [newBranch] = stackService.newBranch();
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName: string | undefined = $state();
@@ -36,7 +39,13 @@
 			return;
 		}
 
-		branchController.createPatchSeries($stack.id, slugifiedRefName);
+		newBranch({
+			projectId: project.id,
+			stackId: $stack.id,
+			request: {
+				name: slugifiedRefName
+			}
+		});
 		createRefModal?.close();
 	}
 

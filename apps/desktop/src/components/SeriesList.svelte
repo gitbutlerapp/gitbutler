@@ -8,11 +8,11 @@
 	import SeriesDividerLine from '$components/SeriesDividerLine.svelte';
 	import SeriesHeader from '$components/SeriesHeader.svelte';
 	import { isPatchSeries, type BranchStack } from '$lib/branches/branch';
-	import { BranchController } from '$lib/branches/branchController';
 	import {
 		ReorderCommitDzHandler,
 		StackingReorderDropzoneManagerFactory
 	} from '$lib/dragging/stackingReorderDropzoneManager';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { isError } from '@gitbutler/ui/utils/typeguards';
 
@@ -23,7 +23,7 @@
 
 	const { projectId, stack }: Props = $props();
 
-	const branchController = getContext(BranchController);
+	const stackService = getContext(StackService);
 
 	// Must contain the errored series in order to render them in the list in the correct spot
 	const nonArchivedSeries = $derived(
@@ -57,8 +57,9 @@
 
 			{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
 				{@const dzHandler = new ReorderCommitDzHandler(
+					projectId,
 					stack.id,
-					branchController,
+					stackService,
 					currentSeries,
 					nonArchivedValidSeries,
 					'top'
@@ -75,6 +76,7 @@
 
 			{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
 				<CommitList
+					{projectId}
 					stackId={stack.id}
 					{currentSeries}
 					isUnapplied={false}

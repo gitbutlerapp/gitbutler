@@ -2,8 +2,9 @@
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BranchStack } from '$lib/branches/branch';
-	import { BranchController } from '$lib/branches/branchController';
 	import { type Commit, type DetailedCommit } from '$lib/commits/commit';
+	import { Project } from '$lib/project/project';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext } from '@gitbutler/shared/context';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
@@ -42,14 +43,21 @@
 		onToggle
 	}: Props = $props();
 
-	const branchController = getContext(BranchController);
+	const project = getContext(Project);
+	const stackService = getContext(StackService);
+	const [insertBlankCommitMutation] = stackService.insertBlankCommit();
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
 		if (!branch || !baseBranch) {
 			console.error('Unable to insert commit');
 			return;
 		}
-		branchController.insertBlankCommit(branch.id, commitId, location === 'above' ? -1 : 1);
+		insertBlankCommitMutation({
+			projectId: project.id,
+			stackId: branch.id,
+			commitOid: commitId,
+			offset: location === 'above' ? -1 : 1
+		});
 	}
 </script>
 

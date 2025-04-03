@@ -6,12 +6,13 @@
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 
 	interface Props {
+		projectId: string;
 		series: (PatchSeries | Error)[];
 		onCollapseButtonClick: () => void;
 		stackId?: string;
 	}
 
-	const { series, onCollapseButtonClick }: Props = $props();
+	const { projectId, series, onCollapseButtonClick }: Props = $props();
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let kebabButtonEl: HTMLButtonElement | undefined = $state();
@@ -33,6 +34,7 @@
 			}}
 		/>
 		<BranchLaneContextMenu
+			{projectId}
 			bind:contextMenuEl={contextMenu}
 			trigger={kebabButtonEl}
 			onCollapse={onCollapseButtonClick}

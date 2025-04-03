@@ -5,10 +5,10 @@
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import PageLoadFailed from '$components/PageLoadFailed.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
-	import { BranchController } from '$lib/branches/branchController';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { showHistoryView } from '$lib/config/config';
 	import { cloneElement } from '$lib/dragging/draggable';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { throttle } from '$lib/utils/misc';
 	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
@@ -18,8 +18,10 @@
 	const { projectId }: { projectId: string } = $props();
 
 	const vbranchService = getContext(VirtualBranchService);
-	const branchController = getContext(BranchController);
 	const posthog = getContext(PostHogWrapper);
+	const stackService = getContext(StackService);
+	const [updateBranchOrder] = stackService.updateBranchOrder;
+
 	const error = vbranchService.error;
 	const branches = vbranchService.branches;
 
@@ -93,7 +95,10 @@
 			if (!dragged) {
 				return; // Something other than a lane was dropped.
 			}
-			branchController.updateBranchOrder(sortedBranches.map((b, i) => ({ id: b.id, order: i })));
+			updateBranchOrder({
+				projectId,
+				branches: sortedBranches.map((b, i) => ({ id: b.id, order: i }))
+			});
 		}}
 	>
 		<div role="group" class="branches" bind:this={dropZone} ondragover={(e) => handleDragOver(e)}>
@@ -138,7 +143,7 @@
 		{#if $branches.length === 0}
 			<BoardEmptyState />
 		{:else}
-			<BranchDropzone />
+			<BranchDropzone {projectId} />
 		{/if}
 	</div>
 {/if}

@@ -21,6 +21,7 @@
 		type ReorderCommitDzHandler
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -48,6 +49,7 @@
 	type IntegrationStrategy = keyof typeof integrationStrategies;
 
 	interface Props {
+		projectId: string;
 		stackId: string;
 		currentSeries: PatchSeries;
 		isUnapplied: boolean;
@@ -55,6 +57,7 @@
 		isBottom?: boolean;
 	}
 	const {
+		projectId,
 		stackId,
 		currentSeries,
 		isUnapplied,
@@ -65,6 +68,8 @@
 	const stack = getContextStore(BranchStack);
 	const branchController = getContext(BranchController);
 	const lineManagerFactory = getContext(LineManagerFactory);
+	const stackService = getContext(StackService);
+	const [integrateUpstreamCommits] = stackService.integrateUpstreamCommits;
 
 	const forge = getContext(DefaultForgeFactory);
 
@@ -109,7 +114,12 @@
 	async function integrate(strategy?: SeriesIntegrationStrategy): Promise<void> {
 		isIntegratingCommits = true;
 		try {
-			await branchController.integrateUpstreamForSeries($stack.id, currentSeries.name, strategy);
+			await integrateUpstreamCommits({
+				projectId,
+				stackId: $stack.id,
+				seriesName: currentSeries.name,
+				strategy
+			});
 		} catch (e) {
 			console.error(e);
 		} finally {

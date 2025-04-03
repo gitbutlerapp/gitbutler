@@ -34,6 +34,7 @@
 	import { ProjectService } from '$lib/project/projectService';
 	import { getSecretsService } from '$lib/secrets/secretsService';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
 	import { debounce } from '$lib/utils/debounce';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
@@ -107,6 +108,17 @@
 		setContext(UpstreamIntegrationService, upstreamIntegrationService);
 	});
 
+	const stackService = getContext(StackService);
+
+	$effect.pre(() => {
+		const stackingReorderDropzoneManagerFactory = new StackingReorderDropzoneManagerFactory(
+			projectId,
+			stackService
+		);
+
+		setContext(StackingReorderDropzoneManagerFactory, stackingReorderDropzoneManagerFactory);
+	});
+
 	$effect.pre(() => {
 		setContext(HistoryService, data.historyService);
 		setContext(VirtualBranchService, data.vbranchService);
@@ -114,7 +126,6 @@
 		setContext(TemplateService, data.templateService);
 		setContext(BaseBranch, baseBranch);
 		setContext(Project, project);
-		setContext(StackingReorderDropzoneManagerFactory, data.stackingReorderDropzoneManagerFactory);
 		setContext(GitBranchService, data.gitBranchService);
 		setContext(BranchListingService, data.branchListingService);
 		setContext(ModeService, data.modeService);

@@ -28,8 +28,9 @@ export class CommitDropData {
 /** Handler that can move commits between stacks. */
 export class MoveCommitDzHandler implements DropzoneHandler {
 	constructor(
-		private branchController: BranchController,
-		private stack: BranchStack
+		private stackService: StackService,
+		private stack: BranchStack,
+		private projectId: string
 	) {}
 
 	accepts(data: unknown): boolean {
@@ -38,7 +39,12 @@ export class MoveCommitDzHandler implements DropzoneHandler {
 		);
 	}
 	ondrop(data: CommitDropData): void {
-		this.branchController.moveCommit(this.stack.id, data.commit.id, data.stackId);
+		this.stackService.moveCommitMutation({
+			projectId: this.projectId,
+			targetStackId: this.stack.id,
+			commitOid: data.commit.id,
+			sourceStackId: data.stackId
+		});
 	}
 }
 

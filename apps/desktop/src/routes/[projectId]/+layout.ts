@@ -3,7 +3,6 @@ import { BranchController } from '$lib/branches/branchController';
 import { BranchListingService } from '$lib/branches/branchListing';
 import { GitBranchService } from '$lib/branches/gitBranch';
 import { VirtualBranchService } from '$lib/branches/virtualBranchService';
-import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
 import { UncommitedFilesWatcher } from '$lib/files/watcher';
 import { TemplateService } from '$lib/forge/templateService';
@@ -66,10 +65,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		posthog
 	);
 
-	const stackingReorderDropzoneManagerFactory = new StackingReorderDropzoneManagerFactory(
-		branchController
-	);
-
 	const uncommitedFileWatcher = new UncommitedFilesWatcher(project);
 	const syncedSnapshotService = new SyncedSnapshotService(
 		commandService,
@@ -96,7 +91,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		fetchSignal,
 
 		// These observables are provided for convenience
-		stackingReorderDropzoneManagerFactory,
 		branchListingService,
 		uncommitedFileWatcher,
 
