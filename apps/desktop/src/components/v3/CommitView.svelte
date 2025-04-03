@@ -40,7 +40,7 @@
 
 	const focusedArea = $derived(focus.current);
 	$effect(() => {
-		if (focusedArea === 'commit') {
+		if (focusedArea === 'drawer') {
 			stackState.activeSelectionId.set({ type: 'commit', commitId: commitKey.commitId });
 		}
 	});
