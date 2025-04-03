@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Section from '$components/Section.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
@@ -32,7 +33,7 @@
 <JoinOrganizationModal />
 <Button onclick={() => createOrganizationModal?.show()}>Create an Organizaton</Button>
 
-<div>
+<Section gap={0}>
 	{#each organizations as loadableOrganization, index (loadableOrganization.id)}
 		<SectionCard
 			roundedTop={index === 0}
@@ -57,7 +58,7 @@
 			{/snippet}
 		</SectionCard>
 	{/each}
-</div>
+</Section>
 
 <style lang="postcss">
 	.inline {
