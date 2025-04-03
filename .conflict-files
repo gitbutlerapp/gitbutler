@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/components/BranchPreviewHeader.svelte", "apps/desktop/src/lib/stacks/stackService.svelte.ts", "apps/desktop/src/routes/[projectId]/+layout.svelte", "apps/desktop/src/routes/[projectId]/+layout.ts"]
+ourEntries = ["apps/desktop/src/components/BranchPreviewHeader.svelte", "apps/desktop/src/lib/stacks/stackService.svelte.ts", "apps/desktop/src/routes/[projectId]/+layout.svelte", "apps/desktop/src/routes/[projectId]/+layout.ts"]
+theirEntries = ["apps/desktop/src/components/BranchPreviewHeader.svelte", "apps/desktop/src/lib/stacks/stackService.svelte.ts", "apps/desktop/src/routes/[projectId]/+layout.svelte", "apps/desktop/src/routes/[projectId]/+layout.ts"]
