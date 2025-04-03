@@ -10,6 +10,7 @@ import { listTickets } from '@/commands/list-tickets';
 import { ping } from '@/commands/ping';
 import { removeChannel } from '@/commands/remove-channel';
 import { resolveTicket } from '@/commands/resolve-ticket';
+import { restart } from '@/commands/restart';
 import { runTask } from '@/commands/run-task';
 import { toggleRota } from '@/commands/toggle-rota';
 import { firehoze } from '@/firehoze';
@@ -63,7 +64,8 @@ const commands: Command[] = [
 	addChannel,
 	removeChannel,
 	listChannels,
-	runTask
+	runTask,
+	restart
 ];
 
 const tasks: Task[] = [syncButlers, rotateDuty];
