@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Login from '$components/Login.svelte';
-	import SettingsPage from '$components/SettingsPage.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
@@ -108,84 +107,82 @@
 	}
 </script>
 
-<SettingsPage title="Profile">
-	{#if $user}
-		<SectionCard>
-			<form onsubmit={onSubmit} class="profile-form">
-				<label id="profile-picture" class="profile-pic-wrapper focus-state" for="picture">
-					<input
-						onchange={onPictureChange}
-						type="file"
-						id="picture"
-						name="picture"
-						accept={fileTypes.join(',')}
-						class="hidden-input"
-					/>
+{#if $user}
+	<SectionCard>
+		<form onsubmit={onSubmit} class="profile-form">
+			<label id="profile-picture" class="profile-pic-wrapper focus-state" for="picture">
+				<input
+					onchange={onPictureChange}
+					type="file"
+					id="picture"
+					name="picture"
+					accept={fileTypes.join(',')}
+					class="hidden-input"
+				/>
 
-					{#if $user.picture}
-						<img class="profile-pic" src={userPicture} alt="" referrerpolicy="no-referrer" />
-					{/if}
+				{#if $user.picture}
+					<img class="profile-pic" src={userPicture} alt="" referrerpolicy="no-referrer" />
+				{/if}
 
-					<span class="profile-pic__edit-label text-11 text-semibold">Edit</span>
-				</label>
+				<span class="profile-pic__edit-label text-11 text-semibold">Edit</span>
+			</label>
 
-				<div id="contact-info" class="contact-info">
-					<div class="contact-info__fields">
-						<Textbox label="Full name" bind:value={newName} required />
-						<Textbox label="Email" bind:value={$user.email} readonly />
-					</div>
-
-					<Button type="submit" style="pop" loading={saving}>Update profile</Button>
+			<div id="contact-info" class="contact-info">
+				<div class="contact-info__fields">
+					<Textbox label="Full name" bind:value={newName} required />
+					<Textbox label="Email" bind:value={$user.email} readonly />
 				</div>
-			</form>
-		</SectionCard>
-	{:else}
-		<WelcomeSigninAction />
-	{/if}
-	<Spacer />
 
-	{#if $user}
-		<SectionCard orientation="row">
-			{#snippet title()}
-				Signing out
-			{/snippet}
-			{#snippet caption()}
-				Ready to take a break? Click here to log out and unwind.
-			{/snippet}
+				<Button type="submit" style="pop" loading={saving}>Update profile</Button>
+			</div>
+		</form>
+	</SectionCard>
+{:else}
+	<WelcomeSigninAction />
+{/if}
+<Spacer />
 
-			<Login />
-		</SectionCard>
-	{/if}
-
+{#if $user}
 	<SectionCard orientation="row">
 		{#snippet title()}
-			Remove all projects
+			Signing out
 		{/snippet}
 		{#snippet caption()}
-			You can delete all projects from the GitButler app.
-			<br />
-			Your code remains safe. it only clears the configuration.
+			Ready to take a break? Click here to log out and unwind.
 		{/snippet}
 
-		<Button style="error" kind="outline" onclick={() => deleteConfirmationModal?.show()}>
-			Remove projects…
-		</Button>
-
-		<Modal
-			bind:this={deleteConfirmationModal}
-			width="small"
-			title="Remove all projects"
-			onSubmit={onDeleteClicked}
-		>
-			<p>Are you sure you want to remove all GitButler projects?</p>
-
-			{#snippet controls(close)}
-				<Button style="error" kind="outline" loading={isDeleting} type="submit">Remove</Button>
-				<Button style="pop" onclick={close}>Cancel</Button>
-			{/snippet}
-		</Modal>
+		<Login />
 	</SectionCard>
-</SettingsPage>
+{/if}
+
+<SectionCard orientation="row">
+	{#snippet title()}
+		Remove all projects
+	{/snippet}
+	{#snippet caption()}
+		You can delete all projects from the GitButler app.
+		<br />
+		Your code remains safe. it only clears the configuration.
+	{/snippet}
+
+	<Button style="error" kind="outline" onclick={() => deleteConfirmationModal?.show()}>
+		Remove projects…
+	</Button>
+
+	<Modal
+		bind:this={deleteConfirmationModal}
+		width="small"
+		title="Remove all projects"
+		onSubmit={onDeleteClicked}
+	>
+		<p>Are you sure you want to remove all GitButler projects?</p>
+
+		{#snippet controls(close)}
+			<Button style="error" kind="outline" loading={isDeleting} type="submit">Remove</Button>
+			<Button style="pop" onclick={close}>Cancel</Button>
+		{/snippet}
+	</Modal>
+</SectionCard>
 
 <style lang="postcss">
 	.profile-form {
