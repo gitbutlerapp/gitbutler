@@ -49,10 +49,10 @@
 	<FullviewLoading />
 {:else}
 	{#if localBranch && remoteBranches.length === 0}
-		<BranchPreview {localBranch} {pr} />
+		<BranchPreview {projectId} {localBranch} {pr} />
 	{:else}
 		{#each remoteBranches as remoteBranch}
-			<BranchPreview {remoteBranch} {pr} />
+			<BranchPreview {projectId} {remoteBranch} {pr} />
 		{/each}
 	{/if}
 	{#if !localBranch && remoteBranches.length === 0}

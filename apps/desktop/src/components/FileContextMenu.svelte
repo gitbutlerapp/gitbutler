@@ -1,11 +1,11 @@
 <!-- TODO: Delete this file after V3 has shipped. -->
 <script lang="ts">
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import { BranchController } from '$lib/branches/branchController';
 	import { LocalFile } from '$lib/files/file';
 	import { isAnyFile } from '$lib/files/file';
 	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
@@ -22,16 +22,18 @@
 
 	interface Props {
 		isUnapplied: boolean;
-		branchId?: string;
+		projectId: string;
+		stackId?: string;
 		trigger?: HTMLElement;
 		isBinary?: boolean;
 	}
 
-	const { branchId, trigger, isUnapplied, isBinary = false }: Props = $props();
+	const { projectId, stackId, trigger, isUnapplied, isBinary = false }: Props = $props();
 
-	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+	const stackService = getContext(StackService);
+	const [unapplyFiles] = stackService.legacyUnapplyFiles;
 
 	let confirmationModal: ReturnType<typeof Modal> | undefined;
 	let contextMenu: ReturnType<typeof ContextMenu>;
@@ -46,12 +48,12 @@
 	}
 
 	function confirmDiscard(item: any) {
-		if (!branchId) {
-			console.error('Branch ID is not set');
+		if (!stackId) {
+			console.error('Stack ID is not set');
 			toasts.error('Failed to discard changes');
 			return;
 		}
-		branchController.unapplyFiles(branchId, item.files);
+		unapplyFiles({ projectId, stackId, files: item.files });
 		close();
 	}
 

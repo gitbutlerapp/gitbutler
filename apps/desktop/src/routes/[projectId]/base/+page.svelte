@@ -53,6 +53,7 @@
 		<div class="base__right">
 			{#if selected}
 				<FileCard
+					projectId={project.id}
 					conflicted={selected.conflicted}
 					file={selected}
 					isUnapplied={false}

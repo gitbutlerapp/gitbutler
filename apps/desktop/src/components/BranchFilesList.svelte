@@ -23,6 +23,7 @@
 	const MERGE_DIFF_COMMAND = 'git diff-tree --cc ';
 
 	interface Props {
+		projectId?: string;
 		files: AnyFile[];
 		isUnapplied?: boolean;
 		showCheckboxes?: boolean;
@@ -34,6 +35,7 @@
 	}
 
 	const {
+		projectId,
 		files,
 		isUnapplied = false,
 		showCheckboxes = false,
@@ -145,6 +147,7 @@
 	>
 		{#each displayedFiles as file (file.id)}
 			<FileListItemWrapper
+				{projectId}
 				{file}
 				{readonly}
 				{isUnapplied}

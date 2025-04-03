@@ -12,7 +12,6 @@
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/v3/lib';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { BranchController } from '$lib/branches/branchController';
 	import {
 		AmendCommitWithChangeDzHandler,
 		type DzCommitData,
@@ -38,10 +37,9 @@
 
 	let { projectId, stackId, branchName, first, last: lastBranch }: Props = $props();
 
-	const [stackService, baseBranchService, branchController, uiState, forge] = inject(
+	const [stackService, baseBranchService, uiState, forge] = inject(
 		StackService,
 		BaseBranchService,
-		BranchController,
 		UiState,
 		DefaultForgeFactory
 	);
@@ -201,7 +199,8 @@
 							(newId) => uiState.stack(stackId).selection.set({ branchName, commitId: newId })
 						)}
 						{@const squashHandler = new SquashCommitDzHandler({
-							branchController,
+							stackService,
+							projectId,
 							stackId,
 							commit: dzCommit
 						})}

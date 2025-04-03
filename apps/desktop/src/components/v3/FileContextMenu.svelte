@@ -21,7 +21,6 @@
 
 	type Props = {
 		isUnapplied: boolean;
-		branchId?: string;
 		trigger?: HTMLElement;
 		isBinary?: boolean;
 		unSelectChanges: (changes: TreeChange[]) => void;

@@ -212,6 +212,7 @@
 	{#if base.upstreamCommits?.length > 0}
 		{#each base.upstreamCommits as commit}
 			<CommitCard
+				{projectId}
 				{commit}
 				isUnapplied={true}
 				commitUrl={forge.current.commitUrl(commit.id)}
@@ -249,6 +250,7 @@
 	{#if commitsAhead.length > 0}
 		{#each commitsAhead as commit}
 			<CommitCard
+				{projectId}
 				{commit}
 				isUnapplied={true}
 				commitUrl={forge.current.commitUrl(commit.id)}
@@ -300,6 +302,7 @@
 	<!-- LOCAL AND REMOTE COMMITS -->
 	{#each localAndRemoteCommits as commit}
 		<CommitCard
+			{projectId}
 			{commit}
 			isUnapplied={true}
 			commitUrl={forge.current.commitUrl(commit.id)}

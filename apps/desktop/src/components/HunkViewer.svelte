@@ -65,6 +65,7 @@
 <HunkContextMenu
 	bind:this={contextMenu}
 	trigger={viewport}
+	projectId={project.id}
 	projectPath={project.vscodePath}
 	{filePath}
 	{readonly}

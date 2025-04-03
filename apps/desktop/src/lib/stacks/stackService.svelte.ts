@@ -12,12 +12,12 @@ import {
 } from '$lib/state/tags';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
-import type { BranchPushResult, SeriesIntegrationStrategy } from '$lib/branches/branchController';
 import type { Commit, StackBranch, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
+import type { LocalFile } from '$lib/files/file';
 import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import type { TreeChange } from '$lib/hunks/change';
-import type { DiffSpec, HunkHeader } from '$lib/hunks/hunk';
+import type { DiffSpec, Hunk, HunkHeader } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackInfo } from '$lib/stacks/stack';
 import type { TauriCommandError } from '$lib/state/backendQuery';
 import type { User } from '$lib/user/user';
@@ -83,6 +83,15 @@ on fetching and pushing for ways to resolve the problem.
 		}
 	}
 }
+
+export type CommitIdOrChangeId = { CommitId: string } | { ChangeId: string };
+export type SeriesIntegrationStrategy = 'merge' | 'rebase' | 'hardreset';
+
+export interface BranchPushResult {
+	refname: string;
+	remote: string;
+}
+
 export class StackService {
 	private api: ReturnType<typeof injectEndpoints>;
 
@@ -429,6 +438,54 @@ export class StackService {
 
 	get integrateUpstreamCommits() {
 		return this.api.endpoints.integrateUpstreamCommits.useMutation();
+	}
+
+	get legacyUnapplyLines() {
+		return this.api.endpoints.legacyUnapplyLines.useMutation();
+	}
+
+	get legacyUnapplyHunk() {
+		return this.api.endpoints.legacyUnapplyHunk.useMutation();
+	}
+
+	get legacyUnapplyFiles() {
+		return this.api.endpoints.legacyUnapplyFiles.useMutation();
+	}
+
+	get legacyUpdateBranchOwnership() {
+		return this.api.endpoints.legacyUpdateBranchOwnership.useMutation();
+	}
+
+	get legacyUpdateBranchOwnershipMutation() {
+		return this.api.endpoints.legacyUpdateBranchOwnership.mutate;
+	}
+
+	get createVirtualBranchFromBranch() {
+		return this.api.endpoints.createVirtualBranchFromBranch.useMutation();
+	}
+
+	get deleteLocalBranch() {
+		return this.api.endpoints.deleteLocalBranch.useMutation();
+	}
+
+	get markResolved() {
+		return this.api.endpoints.markResolved.useMutation();
+	}
+
+	get squashCommits() {
+		return this.api.endpoints.squashCommits.useMutation();
+	}
+
+	get squashCommitsMutation() {
+		return this.api.endpoints.squashCommits.mutate;
+	}
+
+	get amendCommitMutation() {
+		return this.api.endpoints.amendCommit.mutate;
+	}
+
+	get moveCommitFileMutation() {
+		return this.api.endpoints.moveCommitFile.mutate;
 	}
 }
 
@@ -851,6 +908,114 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: ({ projectId, stackId, seriesName, strategy }) => ({
 					command: 'integrate_upstream_commits',
 					params: { projectId, stackId, seriesName, strategy }
+				}),
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesItem(ReduxTag.Commits, args.stackId),
+					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+				]
+			}),
+			legacyUnapplyLines: build.mutation<
+				void,
+				{ projectId: string; hunk: Hunk; linesToUnapply: { old?: number; new?: number }[] }
+			>({
+				query: ({ projectId, hunk, linesToUnapply }) => ({
+					command: 'unapply_lines',
+					params: {
+						projectId,
+						ownership: `${hunk.filePath}:${hunk.id}-${hunk.hash}`,
+						lines: { [hunk.id]: linesToUnapply }
+					}
+				})
+			}),
+			legacyUnapplyHunk: build.mutation<void, { projectId: string; hunk: Hunk }>({
+				query: ({ projectId, hunk }) => ({
+					command: 'unapply_ownership',
+					params: { projectId, ownership: `${hunk.filePath}:${hunk.id}-${hunk.hash}` }
+				})
+			}),
+			legacyUnapplyFiles: build.mutation<
+				void,
+				{ projectId: string; stackId: string; files: LocalFile[] }
+			>({
+				query: ({ projectId, stackId, files }) => ({
+					command: 'reset_files',
+					params: { projectId, stackId, files: files?.flatMap((f) => f.path) ?? [] }
+				})
+			}),
+			legacyUpdateBranchOwnership: build.mutation<
+				void,
+				{ projectId: string; stackId: string; ownership: string }
+			>({
+				query: ({ projectId, stackId, ownership }) => ({
+					command: 'update_virtual_branch',
+					params: { projectId, branch: { id: stackId, ownership } }
+				})
+			}),
+			createVirtualBranchFromBranch: build.mutation<
+				void,
+				{ projectId: string; branch: string; remote?: string; prNumber?: number }
+			>({
+				query: ({ projectId, branch, remote, prNumber }) => ({
+					command: 'create_virtual_branch_from_branch',
+					params: { projectId, branch, remote, prNumber }
+				}),
+				invalidatesTags: [invalidatesList(ReduxTag.Stacks)]
+			}),
+			deleteLocalBranch: build.mutation<
+				void,
+				{ projectId: string; refname: string; givenName: string }
+			>({
+				query: ({ projectId, refname, givenName }) => ({
+					command: 'delete_local_branch',
+					params: { projectId, refname, givenName }
+				})
+			}),
+			markResolved: build.mutation<void, { projectId: string; path: string }>({
+				query: ({ projectId, path }) => ({
+					command: 'mark_resolved',
+					params: { projectId, path }
+				})
+			}),
+			squashCommits: build.mutation<
+				void,
+				{ projectId: string; stackId: string; sourceCommitOids: string[]; targetCommitOid: string }
+			>({
+				query: ({ projectId, stackId, sourceCommitOids, targetCommitOid }) => ({
+					command: 'squash_commits',
+					params: { projectId, stackId, sourceCommitOids, targetCommitOid }
+				}),
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesItem(ReduxTag.Commits, args.stackId),
+					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+				]
+			}),
+			ammendCommit: build.mutation<
+				void,
+				{ projectId: string; stackId: string; commitId: string; worktreeChanges: DiffSpec[] }
+			>({
+				query: ({ projectId, stackId, commitId, worktreeChanges }) => ({
+					command: 'amend_virtual_branch',
+					params: { projectId, stackId, commitId, worktreeChanges }
+				}),
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesList(ReduxTag.WorktreeChanges),
+					invalidatesItem(ReduxTag.Commits, args.stackId),
+					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+				]
+			}),
+			moveCommitFile: build.mutation<
+				void,
+				{
+					projectId: string;
+					stackId: string;
+					fromCommitOid: string;
+					toCommitOid: string;
+					ownership: string;
+				}
+			>({
+				query: ({ projectId, stackId, fromCommitOid, toCommitOid, ownership }) => ({
+					command: 'move_commit_file',
+					params: { projectId, stackId, fromCommitOid, toCommitOid, ownership }
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.Commits, args.stackId),

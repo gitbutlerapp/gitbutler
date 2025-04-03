@@ -10,7 +10,6 @@
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { BranchStack } from '$lib/branches/branch';
-	import { BranchController } from '$lib/branches/branchController';
 	import { BranchFileDzHandler, BranchHunkDzHandler } from '$lib/branches/dropHandler';
 	import { DetailedCommit } from '$lib/commits/commit';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
@@ -31,8 +30,7 @@
 	}: { projectId: string; isLaneCollapsed: Writable<boolean>; commitBoxOpen: Writable<boolean> } =
 		$props();
 
-	const [branchController, fileIdSelection, stackPublishingService, stackService] = inject(
-		BranchController,
+	const [fileIdSelection, stackPublishingService, stackService] = inject(
 		FileIdSelection,
 		StackPublishingService,
 		StackService
@@ -45,9 +43,9 @@
 	const branchHasFiles = $derived(stack.files !== undefined && stack.files.length > 0);
 	const branchHasNoCommits = $derived(stack.validSeries.flatMap((s) => s.patches).length === 0);
 	const dzFileHandler = $derived(
-		new BranchFileDzHandler(branchController, stack.id, stack.ownership)
+		new BranchFileDzHandler(stackService, projectId, stack.id, stack.ownership)
 	);
-	const dzHunkHandler = $derived(new BranchHunkDzHandler(branchController, stack));
+	const dzHunkHandler = $derived(new BranchHunkDzHandler(stackService, projectId, stack));
 
 	let rsViewport = $state<HTMLElement>();
 	let scrollEndVisible = $state(true);

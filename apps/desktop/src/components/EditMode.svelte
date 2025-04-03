@@ -306,7 +306,8 @@
 		bind:this={contextMenu}
 		trigger={filesList}
 		isUnapplied={false}
-		branchId={undefined}
+		stackId={undefined}
+		projectId={project.id}
 	/>
 
 	<p class="text-12 text-body editmode__helptext">

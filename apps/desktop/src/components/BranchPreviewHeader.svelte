@@ -1,12 +1,12 @@
 <script lang="ts">
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { BranchController } from '$lib/branches/branchController';
 	import { BranchListingService } from '$lib/branches/branchListing';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
 	import { Project } from '$lib/project/project';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { inject } from '@gitbutler/shared/context';
+	import { getContext, inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -28,15 +28,17 @@
 	const branch = $derived(remoteBranch || localBranch!);
 	const upstream = $derived(remoteBranch?.givenName);
 
-	const [branchController, branchListingService, project, forge, modeSerivce, baseBranchService] =
-		inject(
-			BranchController,
-			BranchListingService,
-			Project,
-			DefaultForgeFactory,
-			ModeService,
-			BaseBranchService
-		);
+	const [branchListingService, project, forge, modeSerivce, baseBranchService] = inject(
+		BranchListingService,
+		Project,
+		DefaultForgeFactory,
+		ModeService,
+		BaseBranchService
+	);
+
+	const stackService = getContext(StackService);
+	const [createVirtualBranchFromBranch] = stackService.createVirtualBranchFromBranch;
+	const [deleteLocalBranchMutation] = stackService.deleteLocalBranch;
 
 	const mode = modeSerivce.mode;
 	const forgeBranch = $derived(upstream ? forge.current.branch(upstream) : undefined);
@@ -54,12 +56,21 @@
 	let deleteBranchModal = $state<Modal>();
 
 	async function createvBranchFromBranch(branch: string, remote?: string, prNumber?: number) {
-		await branchController.createvBranchFromBranch(branch, remote, prNumber);
+		await createVirtualBranchFromBranch({
+			projectId: project.id,
+			branch,
+			remote,
+			prNumber
+		});
 		await baseBranchService.refreshBaseBranch(project.id);
 	}
 
 	async function deleteLocalBranch(refname: string, givenName: string) {
-		await branchController.deleteLocalBranch(refname, givenName);
+		await deleteLocalBranchMutation({
+			projectId: project.id,
+			refname,
+			givenName
+		});
 		await baseBranchService.refreshBaseBranch(project.id);
 	}
 </script>

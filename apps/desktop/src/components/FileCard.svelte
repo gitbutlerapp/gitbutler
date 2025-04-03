@@ -2,12 +2,13 @@
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FileCardHeader from '$components/FileCardHeader.svelte';
 	import FileDiff from '$components/FileDiff.svelte';
-	import { BranchController } from '$lib/branches/branchController';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { AnyFile } from '$lib/files/file';
 
 	interface Props {
+		projectId: string;
 		file: AnyFile;
 		conflicted: boolean;
 		isUnapplied: boolean;
@@ -19,6 +20,7 @@
 	}
 
 	const {
+		projectId,
 		file,
 		conflicted,
 		isUnapplied,
@@ -29,7 +31,8 @@
 		onClose
 	}: Props = $props();
 
-	const branchController = getContext(BranchController);
+	const stackService = getContext(StackService);
+	const [markResolved] = stackService.markResolved;
 
 	let sections: (HunkSection | ContentSection)[] = $state([]);
 
@@ -55,7 +58,7 @@
 			<button
 				type="button"
 				class="font-bold text-white"
-				onclick={async () => await branchController.markResolved(file.path)}
+				onclick={async () => await markResolved({ projectId, path: file.path })}
 			>
 				Mark resolved
 			</button>
