@@ -13,7 +13,7 @@
 
 {#if projectId}
 	{@const result = stackService.stackAt(projectId, 0)}
-	<ReduxResult type="project" {projectId} result={result.current}>
+	<ReduxResult {projectId} result={result.current}>
 		{#snippet children(stack, env)}
 			{#if stack}
 				{goto(stackPath(env.projectId, stack.id))}

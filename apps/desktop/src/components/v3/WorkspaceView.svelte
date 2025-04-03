@@ -29,16 +29,14 @@
 		stackId: string | undefined;
 	};
 
-	let syncedData = $state<SelectionInfo>();
-
-	$effect(() => {
-		if (unsyncedStackId) {
-			syncedData = {
-				selected: uiState.stack(unsyncedStackId).selection,
-				stackId: unsyncedStackId
-			};
-		}
-	});
+	const syncedData = $derived<SelectionInfo | undefined>(
+		unsyncedStackId
+			? {
+					selected: uiState.stack(unsyncedStackId).selection,
+					stackId: unsyncedStackId
+				}
+			: undefined
+	);
 
 	const stackId = $derived(syncedData?.stackId);
 	const branchName = $derived(syncedData?.selected?.current?.branchName);

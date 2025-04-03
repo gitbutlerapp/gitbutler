@@ -15,7 +15,7 @@
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
 </script>
 
-<ReduxResult type="stack" {stackId} {projectId} result={branchesResult.current}>
+<ReduxResult {stackId} {projectId} result={branchesResult.current}>
 	{#snippet children(branches, { stackId, projectId })}
 		{#each branches as branch, i}
 			{@const first = i === 0}

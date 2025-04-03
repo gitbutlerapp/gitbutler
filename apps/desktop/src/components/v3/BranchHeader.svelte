@@ -78,7 +78,7 @@
 	tabindex="0"
 	class:activated={isMenuOpenByMouse || isMenuOpenByBtn}
 >
-	<ReduxResult type="stack" {stackId} {projectId} result={topCommitResult.current}>
+	<ReduxResult {stackId} {projectId} result={topCommitResult.current}>
 		{#snippet children(commit)}
 			{@const branchType: CommitStateType = commit?.state.type ?? 'LocalOnly'}
 

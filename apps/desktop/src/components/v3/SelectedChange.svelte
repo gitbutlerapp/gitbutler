@@ -33,7 +33,7 @@
 	});
 </script>
 
-<ReduxResult type="project" {projectId} result={changeResult.current}>
+<ReduxResult {projectId} result={changeResult.current}>
 	{#snippet children(change, env)}
 		<div class="selected-change-item">
 			<FileListItemWrapper

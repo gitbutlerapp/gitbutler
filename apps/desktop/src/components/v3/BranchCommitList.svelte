@@ -55,7 +55,6 @@
 </script>
 
 <ReduxResult
-	type="stack"
 	{stackId}
 	{projectId}
 	result={combineResults(upstreamOnlyCommits.current, localAndRemoteCommits.current)}

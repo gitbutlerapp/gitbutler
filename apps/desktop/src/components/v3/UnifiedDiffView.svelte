@@ -156,7 +156,7 @@
 </script>
 
 <div class="diff-section" bind:this={viewport}>
-	<ReduxResult type="project" {projectId} result={diffResult.current}>
+	<ReduxResult {projectId} result={diffResult.current}>
 		{#snippet children(diff, env)}
 			{#if diff.type === 'Patch'}
 				{#each diff.subject.hunks as hunk}

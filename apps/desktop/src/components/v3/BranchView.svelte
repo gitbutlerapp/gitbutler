@@ -63,7 +63,6 @@
 
 {#if branchName}
 	<ReduxResult
-		type="stack"
 		{stackId}
 		{projectId}
 		result={combineResults(

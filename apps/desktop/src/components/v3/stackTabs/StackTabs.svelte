@@ -48,7 +48,7 @@
 <div class="tabs" bind:this={tabsEl}>
 	<div class="inner">
 		<div class="scroller" bind:this={scrollerEl} class:scrolled {onscroll}>
-			<ReduxResult type="project" {projectId} result={result.current}>
+			<ReduxResult {projectId} result={result.current}>
 				{#snippet children(result, env)}
 					{#if result.length > 0}
 						{#each result as tab, i (tab.branchNames[0])}

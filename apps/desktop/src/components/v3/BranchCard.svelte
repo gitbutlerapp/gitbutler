@@ -78,7 +78,6 @@
 </script>
 
 <ReduxResult
-	type="stack"
 	{stackId}
 	{projectId}
 	result={combineResults(

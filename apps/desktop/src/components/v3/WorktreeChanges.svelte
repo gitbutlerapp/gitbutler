@@ -106,7 +106,7 @@
 	let isFooterSticky = $state(false);
 </script>
 
-<ReduxResult type="optional-stack" {stackId} {projectId} result={changesResult.current}>
+<ReduxResult {stackId} {projectId} result={changesResult.current}>
 	{#snippet children(changes, { stackId, projectId })}
 		<ScrollableContainer wide>
 			<div class="uncommitted-changes-wrap">
