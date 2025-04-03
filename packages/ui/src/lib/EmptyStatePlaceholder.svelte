@@ -1,24 +1,25 @@
-<script lang="ts" module>
-	export interface Props {
+<script lang="ts">
+	import { pxToRem } from '$lib/utils/pxToRem';
+	import type { Snippet } from 'svelte';
+
+	interface Props {
 		title?: Snippet;
 		caption?: Snippet;
 		image?: string;
 		width?: number;
 		bottomMargin?: number;
+		gap?: number;
 		topBottomPadding?: number;
 		leftRightPadding?: number;
 	}
-</script>
 
-<script lang="ts">
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import type { Snippet } from 'svelte';
 	const {
 		image,
 		width = 256,
 		bottomMargin = 0,
 		topBottomPadding = 48,
 		leftRightPadding = 0,
+		gap = 16,
 		title,
 		caption
 	}: Props = $props();
@@ -27,6 +28,7 @@
 <div class="empty-state-container">
 	<div
 		class="empty-state"
+		style:gap={pxToRem(gap)}
 		style:max-width={pxToRem(width)}
 		style:margin-bottom={pxToRem(bottomMargin)}
 		style:padding={`${pxToRem(topBottomPadding)} ${pxToRem(leftRightPadding)}`}
@@ -72,7 +74,6 @@
 		background: var(--clr-bg-1);
 		justify-content: center;
 		width: 100%;
-		gap: 16px;
 		border-radius: var(--radius-m);
 		cursor: default; /* was defaulting to text cursor */
 	}

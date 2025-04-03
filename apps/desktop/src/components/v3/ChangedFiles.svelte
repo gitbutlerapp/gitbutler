@@ -2,9 +2,11 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
+	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
+	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 
 	type Props = {
@@ -56,7 +58,11 @@
 				{#if changes.length > 0}
 					<FileList {projectId} {stackId} {changes} {listMode} {selectionId} />
 				{:else}
-					<div class="text-12 text-body helper-text">(no changed files)</div>
+					<EmptyStatePlaceholder image={emptyFolderSvg} width={180} gap={4}>
+						{#snippet caption()}
+							No files changed
+						{/snippet}
+					</EmptyStatePlaceholder>
 				{/if}
 			{/snippet}
 		</ReduxResult>
