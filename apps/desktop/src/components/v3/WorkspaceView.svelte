@@ -7,7 +7,7 @@
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
-	import { UiState, type GlobalProperty, type StackUiSelection } from '$lib/state/uiState.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { type Snippet } from 'svelte';
 
@@ -17,31 +17,17 @@
 		right: Snippet<[{ viewportWidth: number }]>;
 	}
 
-	const { stackId: unsyncedStackId, projectId, right }: Props = $props();
+	const { stackId, projectId, right }: Props = $props();
 
 	const [uiState] = inject(UiState);
 	const projectUiState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectUiState.drawerPage);
 	const drawerIsFullScreen = $derived(projectUiState.drawerFullScreen);
 
-	type SelectionInfo = {
-		selected: GlobalProperty<StackUiSelection | undefined> | undefined;
-		stackId: string | undefined;
-	};
-
-	const syncedData = $derived<SelectionInfo | undefined>(
-		unsyncedStackId
-			? {
-					selected: uiState.stack(unsyncedStackId).selection,
-					stackId: unsyncedStackId
-				}
-			: undefined
-	);
-
-	const stackId = $derived(syncedData?.stackId);
-	const branchName = $derived(syncedData?.selected?.current?.branchName);
-	const commitId = $derived(syncedData?.selected?.current?.commitId);
-	const upstream = $derived(!!syncedData?.selected?.current?.upstream);
+	const selected = $derived(stackId ? uiState.stack(stackId).selection : undefined);
+	const branchName = $derived(selected?.current?.branchName);
+	const commitId = $derived(selected?.current?.commitId);
+	const upstream = $derived(!!selected?.current?.upstream);
 
 	const leftWidth = $derived(uiState.global.leftWidth);
 	const stacksViewWidth = $derived(uiState.global.stacksViewWidth);
