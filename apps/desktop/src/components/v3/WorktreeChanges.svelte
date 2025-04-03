@@ -14,7 +14,7 @@
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
-	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
+	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 
 	type Props = {
 		projectId: string;
@@ -103,7 +103,6 @@
 		changeSelection.clear();
 	}
 
-	let isHeaderSticky = $state(false);
 	let isFooterSticky = $state(false);
 </script>
 
@@ -111,24 +110,7 @@
 	{#snippet children(changes)}
 		<ScrollableContainer wide>
 			<div class="uncommitted-changes-wrap">
-				<div
-					class="worktree-header"
-					class:sticked={isHeaderSticky}
-					use:intersectionObserver={{
-						callback: (entry) => {
-							if (entry?.isIntersecting) {
-								isHeaderSticky = false;
-							} else {
-								isHeaderSticky = true;
-							}
-						},
-						options: {
-							root: null,
-							rootMargin: `-1px 0px 0px 0px`,
-							threshold: 1
-						}
-					}}
-				>
+				<div use:stickyHeader class="worktree-header">
 					<div class="worktree-header__general">
 						{#if isCommitting}
 							<Checkbox
@@ -158,22 +140,9 @@
 						/>
 					</div>
 					<div
+						use:stickyHeader={{ align: 'bottom' }}
 						class="start-commit"
 						class:sticked={isFooterSticky}
-						use:intersectionObserver={{
-							callback: (entry) => {
-								if (entry?.isIntersecting) {
-									isFooterSticky = false;
-								} else {
-									isFooterSticky = true;
-								}
-							},
-							options: {
-								root: null,
-								rootMargin: `-1px 0px 0px 0px`,
-								threshold: 1
-							}
-						}}
 					>
 						<Button
 							kind={isCommitting ? 'outline' : 'solid'}
@@ -220,11 +189,6 @@
 		white-space: nowrap;
 		gap: 8px;
 		background-color: var(--clr-bg-1);
-
-		&.sticked {
-			border-top: 1px solid var(--clr-border-2);
-			border-bottom: 1px solid var(--clr-border-2);
-		}
 	}
 
 	.worktree-header__general {

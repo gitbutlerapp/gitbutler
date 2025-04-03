@@ -8,7 +8,7 @@
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
+	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 
 	type Props = {
 		projectId: string;
@@ -54,12 +54,12 @@
 <div
 	class="push-button"
 	class:is-sticked={isSticked}
-	use:intersectionObserver={{
-		callback: (entry) => (isSticked = !entry?.isIntersecting),
-		options: {
-			root: null,
-			threshold: 1
-		}
+	use:stickyHeader={{
+		align: 'bottom',
+		onStick: (sticky) => {
+			isSticked = sticky;
+		},
+		unstyled: true
 	}}
 >
 	<div class="push-button__inner">

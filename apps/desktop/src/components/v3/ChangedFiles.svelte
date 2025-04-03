@@ -5,7 +5,7 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
-	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
+	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 
 	type Props = {
 		projectId: string;
@@ -40,32 +40,13 @@
 	});
 
 	let listMode: 'list' | 'tree' = $state('tree');
-
-	let isHeaderSticky = $state(false);
 </script>
 
 {#if changesResult}
 	<div class="changed-files">
 		<ReduxResult result={changesResult.current}>
 			{#snippet children(changes)}
-				<div
-					class="changed-files__header"
-					class:sticky={isHeaderSticky}
-					use:intersectionObserver={{
-						callback: (entry) => {
-							if (entry?.isIntersecting) {
-								isHeaderSticky = false;
-							} else {
-								isHeaderSticky = true;
-							}
-						},
-						options: {
-							root: null,
-							rootMargin: `-1px 0px 0px 0px`,
-							threshold: 1
-						}
-					}}
-				>
+				<div class="changed-files__header" use:stickyHeader>
 					<div class="changed-files__header-left">
 						<h4 class="text-14 text-semibold">{headerTitle}</h4>
 						<Badge>{changes.length}</Badge>
@@ -92,19 +73,12 @@
 	}
 
 	.changed-files__header {
-		z-index: var(--z-ground);
-		position: sticky;
-		top: -1px;
 		padding: 10px 10px 10px 14px;
 		display: flex;
 		align-items: center;
 		gap: 4px;
 		justify-content: space-between;
 		background-color: var(--clr-bg-1);
-
-		&.sticky {
-			border-bottom: 1px solid var(--clr-border-2);
-		}
 	}
 
 	.changed-files__header-left {

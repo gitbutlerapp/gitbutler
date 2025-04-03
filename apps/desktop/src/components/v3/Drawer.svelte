@@ -5,7 +5,6 @@
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -53,8 +52,6 @@
 		projectUiState.drawerPage.set(undefined);
 		stackUiState.selection.set(undefined);
 	}
-
-	let isHeaderSticky = $state(false);
 </script>
 
 <div
@@ -64,24 +61,7 @@
 	use:focusable={{ id: 'commit', parentId: 'main' }}
 >
 	<div class="drawer-wrap">
-		<div
-			use:intersectionObserver={{
-				callback: (entry) => {
-					if (entry?.isIntersecting) {
-						isHeaderSticky = false;
-					} else {
-						isHeaderSticky = true;
-					}
-				},
-				options: {
-					root: null,
-					rootMargin: `-1px 0px 0px 0px`,
-					threshold: 1
-				}
-			}}
-			class="drawer-header"
-			class:is-sticky={isHeaderSticky}
-		>
+		<div class="drawer-header">
 			<div class="drawer-header__main">
 				{#if title}
 					<h3 class="text-15 text-bold">
@@ -184,9 +164,6 @@
 	}
 
 	.drawer-header {
-		position: sticky;
-		top: -1px;
-		z-index: var(--z-ground);
 		display: flex;
 		align-items: center;
 		gap: 6px;
@@ -195,10 +172,6 @@
 		padding: 0 8px 0 14px;
 		background-color: var(--clr-bg-2);
 		border-bottom: 1px solid var(--clr-border-2);
-
-		&.is-sticky {
-			border-bottom: 1px solid var(--clr-border-2);
-		}
 	}
 
 	.drawer-header__main {
