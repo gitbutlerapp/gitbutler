@@ -36,7 +36,7 @@ export function getBranchStatusLabelAndColor(pushStatus: PushStatus): {
 			return { label: 'Nothing to push', color: colorMap.LocalAndRemote };
 		case 'unpushedCommits':
 		case 'unpushedCommitsRequiringForce':
-			return { label: 'Unpushed', color: colorMap.LocalAndRemote };
+			return { label: 'Unpushed commits', color: colorMap.LocalAndRemote };
 		case 'integrated':
 			return { label: 'Integrated', color: colorMap.Integrated };
 		default:

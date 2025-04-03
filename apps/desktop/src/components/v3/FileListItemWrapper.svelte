@@ -99,7 +99,6 @@
 <div
 	class="filelistitem-wrapper"
 	bind:this={draggableEl}
-	class:sticky={isHeader}
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
@@ -158,6 +157,6 @@
 
 <style lang="postcss">
 	.filelistitem-wrapper {
-		display: block;
+		display: contents;
 	}
 </style>

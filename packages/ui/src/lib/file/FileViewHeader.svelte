@@ -3,7 +3,8 @@
 	import Icon from '$lib/Icon.svelte';
 	import FileName from '$lib/file/FileName.svelte';
 	import FileStats from '$lib/file/FileStats.svelte';
-	import { intersectionObserver } from '$lib/utils/intersectionObserver';
+	// import { intersectionObserver } from '$lib/utils/intersectionObserver';
+	import { stickyHeader } from '$lib/utils/stickyHeader';
 	import type { FileStatus } from '$lib/file/types';
 
 	interface Props {
@@ -15,7 +16,6 @@
 		linesRemoved?: number;
 		conflicted?: boolean;
 		hasBorder?: boolean;
-		isSticky?: boolean;
 		oncontextmenu?: (e: MouseEvent) => void;
 	}
 
@@ -27,7 +27,6 @@
 		linesAdded = 0,
 		linesRemoved = 0,
 		conflicted = false,
-		isSticky = true,
 		oncontextmenu
 	}: Props = $props();
 
@@ -35,10 +34,10 @@
 </script>
 
 <div
+	use:stickyHeader
 	role="presentation"
 	{id}
 	class="file-header"
-	class:sticky={isSticky}
 	class:intersected={isIntersecting}
 	class:draggable
 	{draggable}
@@ -47,20 +46,6 @@
 			e.preventDefault();
 			e.stopPropagation();
 			oncontextmenu(e);
-		}
-	}}
-	use:intersectionObserver={{
-		callback: (entry) => {
-			if (entry?.isIntersecting) {
-				isIntersecting = false;
-			} else {
-				isIntersecting = true;
-			}
-		},
-		options: {
-			root: null,
-			rootMargin: '-1px',
-			threshold: 1
 		}
 	}}
 >
@@ -91,12 +76,6 @@
 
 		&.intersected {
 			border-bottom: 1px solid var(--clr-border-2);
-		}
-
-		&.sticky {
-			top: -1px;
-			position: sticky;
-			z-index: var(--z-ground);
 		}
 
 		&.draggable {

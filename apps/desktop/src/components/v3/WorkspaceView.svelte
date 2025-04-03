@@ -135,7 +135,7 @@
 		border-radius: var(--radius-ml);
 		overflow-x: hidden;
 		position: relative;
-		gap: 10px;
+		gap: 8px;
 		min-width: 320px;
 	}
 </style>

@@ -90,3 +90,26 @@ pre {
 		outline: 2px solid var(--focus-color);
 	}
 }
+
+/* STICKY HEADER */
+
+.h-sticky-header {
+	position: sticky;
+	z-index: var(--z-ground);
+}
+
+.h-sticky-header_top {
+	top: -1px;
+}
+
+.h-sticky-header_bottom {
+	bottom: -1px;
+}
+
+.h-sticky-header_sticked-top {
+	border-bottom: 1px solid var(--clr-border-2);
+}
+
+.h-sticky-header_sticked-bottom {
+	border-top: 1px solid var(--clr-border-2);
+}

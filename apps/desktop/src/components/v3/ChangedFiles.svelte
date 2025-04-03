@@ -5,6 +5,7 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
+	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 
 	type Props = {
 		projectId: string;
@@ -45,8 +46,8 @@
 	<div class="changed-files">
 		<ReduxResult result={changesResult.current}>
 			{#snippet children(changes)}
-				<div class="header">
-					<div class="header-left">
+				<div class="changed-files__header" use:stickyHeader>
+					<div class="changed-files__header-left">
 						<h4 class="text-14 text-semibold">{headerTitle}</h4>
 						<Badge>{changes.length}</Badge>
 					</div>
@@ -66,23 +67,21 @@
 
 <style>
 	.changed-files {
+		position: relative;
 		display: flex;
 		flex-direction: column;
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
-		max-height: 100%;
-		overflow: hidden;
 	}
 
-	.header {
+	.changed-files__header {
 		padding: 10px 10px 10px 14px;
 		display: flex;
 		align-items: center;
 		gap: 4px;
 		justify-content: space-between;
+		background-color: var(--clr-bg-1);
 	}
 
-	.header-left {
+	.changed-files__header-left {
 		display: flex;
 		align-items: center;
 		gap: 4px;

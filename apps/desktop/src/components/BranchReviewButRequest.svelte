@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { writeClipboard } from '$lib/backend/clipboard';
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
 	import { ProjectService } from '$lib/project/projectService';
 	import { UserService } from '$lib/user/userService';
 	import { sleep } from '$lib/utils/sleep';
+	import { openExternalUrl } from '$lib/utils/url';
 	import BranchStatusBadge from '@gitbutler/shared/branches/BranchStatusBadge.svelte';
 	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
 	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
@@ -16,9 +18,9 @@
 	import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { untrack } from 'svelte';
 
 	type Props = {
@@ -41,6 +43,16 @@
 	const cloudProject = $derived(
 		$project?.api?.repository_id ? getProjectByRepositoryId($project.api.repository_id) : undefined
 	);
+
+	const brUrl = $derived.by(() => {
+		if (isFound(cloudBranch?.current) && isFound(cloudProject?.current)) {
+			return webRoutes.projectReviewBranchUrl({
+				ownerSlug: cloudProject.current.value.owner,
+				projectSlug: cloudProject.current.value.slug,
+				branchId: cloudBranch.current.value.branchId
+			});
+		}
+	});
 
 	const cloudBranchUuid = $derived(
 		map(cloudProject?.current, (cloudProject) => {
@@ -119,26 +131,6 @@
 	);
 
 	let container = $state<HTMLElement>();
-
-	let thin = $state(false);
-
-	$effect(() => {
-		if (!container) return;
-
-		thin = container.clientWidth < 350;
-
-		const observer = new ResizeObserver(() => {
-			if (!container) return;
-
-			thin = container.clientWidth < 350;
-		});
-
-		observer.observe(container);
-
-		return () => {
-			observer.disconnect();
-		};
-	});
 </script>
 
 {#if $project?.api?.repository_id}
@@ -149,27 +141,45 @@
 		])}
 	>
 		{#snippet children([cloudBranch, cloudProject])}
-			<div bind:this={container} class="br-overview">
+			<div bind:this={container} class="review-card br-overview">
+				{#if brUrl}
+					<div class="br-actions">
+						<Button
+							kind="outline"
+							size="tag"
+							icon="copy-small"
+							tooltip="Copy BR link"
+							onclick={() => {
+								writeClipboard(brUrl, {
+									message: 'BR link copied'
+								});
+							}}
+						/>
+						<Button
+							kind="outline"
+							size="tag"
+							icon="open-link"
+							tooltip="Open BR in browser"
+							onclick={() => {
+								openExternalUrl(brUrl);
+							}}
+						/>
+					</div>
+				{/if}
+
 				<div class="br-row">
 					<Icon name="bowtie" />
-					<Link
-						target="_blank"
-						rel="noreferrer"
-						href={webRoutes.projectReviewBranchUrl({
-							ownerSlug: cloudProject.owner,
-							projectSlug: cloudProject.slug,
-							branchId: cloudBranch.branchId
-						})}
-						externalIcon={false}
-						class="br-link text-13">BR #{cloudBranch.branchId.slice(0, 4)}</Link
-					>
+					<h4 class="text-14 text-semibold">
+						BR #{cloudBranch.branchId.slice(0, 4)}
+					</h4>
+
 					<BranchStatusBadge branch={cloudBranch}></BranchStatusBadge>
 				</div>
-				<div class="br-row">
+				<div class="text-12 br-row">
 					{#if $user}
-						<div class="factoid text-12">
+						<div class="factoid">
 							<span class="label">Commits:</span>
-							<div class="minimap-container" class:thin>
+							<div class="minimap-container">
 								<Minimap
 									ownerSlug={cloudProject.owner}
 									projectSlug={cloudProject.slug}
@@ -185,7 +195,7 @@
 						</div>
 						<span class="seperator">•</span>
 					{/if}
-					<div class="factoid text-12">
+					<div class="factoid">
 						{#await contributors then contributors}
 							{#if contributors.length > 0}
 								<span class="label">Reviewers:</span>
@@ -198,7 +208,7 @@
 						{/await}
 					</div>
 					<span class="seperator">•</span>
-					<div class="factoid text-12">
+					<div class="factoid">
 						<span class="label">Version:</span>
 						{cloudBranch.version}
 					</div>
@@ -209,20 +219,18 @@
 {/if}
 
 <style lang="postcss">
-	:global(.br-link) {
-		text-decoration-style: dotted;
-		text-decoration-thickness: 2px;
-	}
-
-	.br-overview {
+	.br-actions {
+		position: absolute;
+		top: 8px;
+		right: 8px;
 		display: flex;
-		flex-direction: column;
-		gap: 12px;
+		gap: 4px;
 	}
 
 	.br-row {
 		display: flex;
-		gap: 8px;
+		flex-wrap: wrap;
+		gap: 6px;
 		align-items: center;
 	}
 
@@ -250,11 +258,7 @@
 	}
 
 	.minimap-container {
-		width: 58px;
+		max-width: 58px;
 		height: 12px;
-
-		&.thin {
-			width: 40px;
-		}
 	}
 </style>

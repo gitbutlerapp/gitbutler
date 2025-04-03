@@ -5,12 +5,18 @@
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
+	import { writeClipboard } from '$lib/backend/clipboard';
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { UserService } from '$lib/user/userService';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 
@@ -22,11 +28,12 @@
 
 	const { stackId, projectId, branchName }: Props = $props();
 
-	const [stackService, userService, uiState, focus] = inject(
+	const [stackService, userService, uiState, focus, forge] = inject(
 		StackService,
 		UserService,
 		UiState,
-		FocusManager
+		FocusManager,
+		DefaultForgeFactory
 	);
 	const stackState = $derived(uiState.stack(stackId));
 	const focusedArea = $derived(focus.current);
@@ -35,6 +42,7 @@
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const branchCommitsResult = $derived(stackService.commits(projectId, stackId, branchName));
+	const forgeBranch = $derived(forge.current?.branch(branchName));
 
 	$effect(() => {
 		if (focusedArea === 'commit') {
@@ -56,8 +64,54 @@
 {#if branchName}
 	<ReduxResult result={combineResults(branchResult.current, branchDetailsResult.current)}>
 		{#snippet children([branch, branchDetails])}
-			<Drawer {projectId} {stackId} title={branch.name}>
-				{#if branchCommitsResult.current.data && branchCommitsResult.current.data.length > 0}
+			{@const hasCommits =
+				branchCommitsResult.current.data && branchCommitsResult.current.data.length > 0}
+			{@const remoteTrackingBranch = branchResult.current.data?.remoteTrackingBranch}
+			<Drawer {projectId} {stackId} splitView={hasCommits}>
+				{#snippet header()}
+					<div class="branch__header">
+						{#if hasCommits}
+							<Tooltip
+								text={remoteTrackingBranch
+									? `Remote tracking branch:\n${remoteTrackingBranch}`
+									: 'no remote tracking branch'}
+							>
+								<div class="remote-tracking-branch-icon" class:disabled={!remoteTrackingBranch}>
+									<Icon
+										name={remoteTrackingBranch ? 'remote-target-branch' : 'no-remote-target-branch'}
+									/>
+								</div>
+							</Tooltip>
+						{/if}
+						<h3 class="text-15 text-bold truncate">{branch.name}</h3>
+					</div>
+				{/snippet}
+
+				{#snippet extraActions()}
+					{#if hasCommits}
+						<Button
+							size="tag"
+							icon="copy-small"
+							kind="outline"
+							tooltip="Copy branch name"
+							onclick={() => {
+								writeClipboard(branchName);
+							}}
+						/>
+
+						<Button
+							size="tag"
+							icon="open-link"
+							kind="outline"
+							onclick={() => {
+								const url = forgeBranch?.url;
+								if (url) openExternalUrl(url);
+							}}>Open in browser</Button
+						>
+					{/if}
+				{/snippet}
+
+				{#if hasCommits}
 					<div class="branch-view">
 						<div class="branch-view__header-container">
 							<div class="text-12 branch-view__header-details-row">
@@ -85,12 +139,6 @@
 						</div>
 
 						<BranchReview {stackId} {projectId} {branchName} />
-
-						<ChangedFiles
-							{projectId}
-							{stackId}
-							selectionId={{ type: 'branch', branchName, stackId }}
-						/>
 					</div>
 				{:else}
 					<div class="branch-view__empty-state">
@@ -106,6 +154,16 @@
 						</p>
 					</div>
 				{/if}
+
+				{#snippet filesSplitView()}
+					{#if hasCommits}
+						<ChangedFiles
+							{projectId}
+							{stackId}
+							selectionId={{ type: 'branch', branchName, stackId }}
+						/>
+					{/if}
+				{/snippet}
 			</Drawer>
 		{/snippet}
 	</ReduxResult>
@@ -116,9 +174,32 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
-		align-self: stretch;
 		height: 100%;
+	}
+
+	.branch__header {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		width: 100%;
 		overflow: hidden;
+	}
+
+	/*  */
+	.remote-tracking-branch-icon {
+		display: flex;
+		gap: 6px;
+		color: var(--clr-text-1);
+		opacity: 0.5;
+		transition: var(--transition-fast);
+
+		&:hover {
+			opacity: 0.7;
+		}
+
+		&.disabled {
+			opacity: 0.3;
+		}
 	}
 
 	.branch-view__header-container {

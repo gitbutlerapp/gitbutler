@@ -5,11 +5,15 @@
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitMessageInput from '$components/v3/CommitMessageInput.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
+	import { writeClipboard } from '$lib/backend/clipboard';
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
 	import { showToast } from '$lib/notifications/toasts';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type { CommitKey } from '$lib/commits/commit';
 
 	type Props = {
@@ -116,23 +120,54 @@
 				/>
 			</Drawer>
 		{:else}
-			<Drawer {projectId} {stackId}>
+			<Drawer {projectId} {stackId} splitView>
 				{#snippet header()}
-					<CommitHeader {commit} class="text-14 text-semibold text-body" />
+					<h3 class="text-13 text-semibold commit-view__header">
+						Commit
+						<Tooltip text="Copy commit SHA">
+							<button
+								type="button"
+								class="commit-view__header-sha"
+								onclick={() => {
+									writeClipboard(commit.id, {
+										message: 'Commit SHA copied'
+									});
+								}}>{commit.id.substring(0, 7)}</button
+							>
+						</Tooltip>
+						<Icon name="copy-small" />
+					</h3>
 				{/snippet}
+
+				{#snippet extraActions()}
+					<Button
+						size="tag"
+						icon="open-link"
+						kind="outline"
+						onclick={() => {
+							// TODO: generate url
+							console.warn('Open commit in browser');
+						}}>Open in browser</Button
+					>
+				{/snippet}
+
 				<div class="commit-view">
+					<CommitHeader {commit} class="text-14 text-semibold text-body" />
 					<CommitDetails
 						{projectId}
 						{commit}
 						{stackId}
 						onEditCommitMessage={() => setMode('edit')}
 					/>
+				</div>
+
+				{#snippet filesSplitView()}
 					<ChangedFiles
 						{projectId}
 						{stackId}
 						selectionId={{ type: 'commit', commitId: commitKey.commitId }}
 					/>
-				</div>
+				{/snippet}
 			</Drawer>
 		{/if}
 	{/snippet}
@@ -146,5 +181,22 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
+	}
+
+	.commit-view__header {
+		color: var(--clr-text-2);
+	}
+
+	.commit-view__header-sha {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		text-decoration: dotted underline;
+		transition: color var(--transition-fast);
+		cursor: pointer;
+
+		&:hover {
+			color: var(--clr-text-1);
+		}
 	}
 </style>

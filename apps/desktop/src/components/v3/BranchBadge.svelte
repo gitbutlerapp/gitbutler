@@ -16,8 +16,8 @@
 	});
 </script>
 
-<span class={[!unstyled && 'text-10 text-bold branch-badge']} style:--b-bg-color={bgColor}>
-	{label}
+<span class={[!unstyled && 'text-10 text-bold branch-badge truncate']} style:--b-bg-color={bgColor}>
+	<span class:truncate={!unstyled}>{label}</span>
 </span>
 
 <style class="postcss">
@@ -29,7 +29,7 @@
 		border-radius: 20px;
 		color: #fff;
 		background-color: var(--b-bg-color);
-		padding: 3px 5px;
+		padding: 0 5px;
 		height: var(--size-icon);
 		line-height: 1;
 	}

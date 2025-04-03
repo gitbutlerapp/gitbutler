@@ -1,13 +1,10 @@
 <script lang="ts">
-	import { writeClipboard } from '$lib/backend/clipboard';
 	import { isCommit, type Commit, type UpstreamCommit } from '$lib/branches/v3';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import { marked } from '@gitbutler/ui/utils/marked';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
@@ -26,8 +23,6 @@
 
 	const [uncommit, uncommitResult] = stackService.uncommit();
 	const user = $derived(userService.user);
-
-	const commitShortSha = $derived(commit.id.substring(0, 7));
 
 	const message = $derived(commit.message);
 	const description = $derived(message.slice(message.indexOf('\n') + 1).trim());
@@ -70,35 +65,6 @@
 			tooltip={commit.author.name}
 			srcUrl={getGravatarUrl(commit.author.email, commit.author.gravatarUrl)}
 		/>
-		<span class="divider">•</span>
-		<Tooltip text="Copy commit SHA">
-			<button
-				type="button"
-				class="commit-sha-btn"
-				onclick={(e) => {
-					e.stopPropagation();
-					writeClipboard(commit.id);
-				}}
-			>
-				<span>{commitShortSha}</span>
-			</button>
-		</Tooltip>
-		<span class="divider">•</span>
-		<button
-			type="button"
-			class="open-external-btn"
-			onclick={(e) => {
-				e.stopPropagation();
-				// TODO: Generate commitUrl.
-				// if (commitUrl) openExternalUrl(commitUrl);
-			}}
-		>
-			<span>Open</span>
-
-			<div>
-				<Icon name="open-link" />
-			</div>
-		</button>
 		<span class="divider">•</span>
 		<span>{getTimeAgo(new Date(commit.createdAt))}</span>
 	</div>
@@ -170,22 +136,5 @@
 		width: 100%;
 		display: flex;
 		gap: 5px;
-	}
-
-	.commit-sha-btn {
-		display: flex;
-		align-items: center;
-		gap: 2px;
-
-		/* TODO: `underline dashed` broken on Linux */
-		text-decoration-line: underline;
-		text-underline-offset: 2px;
-		text-decoration-style: dotted;
-	}
-
-	.open-external-btn {
-		display: flex;
-		align-items: center;
-		gap: 2px;
 	}
 </style>

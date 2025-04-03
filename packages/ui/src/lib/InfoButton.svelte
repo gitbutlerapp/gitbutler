@@ -1,16 +1,19 @@
 <script lang="ts">
+	import Icon from '$lib/Icon.svelte';
 	import { portal } from '$lib/utils/portal';
 	import { setPosition } from '$lib/utils/tooltipPosition';
 	import { flyScale } from '$lib/utils/transitions';
+	import type iconsJson from '$lib/data/icons.json';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
 		title?: string;
 		size?: 'small' | 'medium';
+		icon?: keyof typeof iconsJson;
 		children: Snippet;
 	}
 
-	const { title, size = 'medium', children }: Props = $props();
+	const { title, size = 'medium', icon, children }: Props = $props();
 
 	let targetEl: HTMLElement | undefined = $state();
 	let show = $state(false);
@@ -56,7 +59,13 @@
 	onmouseenter={handleMouseEnter}
 	onmouseleave={handleMouseLeave}
 >
-	<div class="info-button" class:button-hovered={show}></div>
+	{#if icon}
+		<div class="info-custom-icon">
+			<Icon name={icon} />
+		</div>
+	{:else}
+		<div class="info-button" class:button-hovered={show}></div>
+	{/if}
 
 	{#if show}
 		<div
@@ -90,6 +99,17 @@
 
 		--default-size: 14px;
 		--small-size: 12px;
+	}
+
+	.info-custom-icon {
+		display: flex;
+		color: var(--clr-text-1);
+		opacity: 0.5;
+		transition: all var(--transition-fast);
+
+		&:hover {
+			opacity: 0.7;
+		}
 	}
 
 	.info-button {
