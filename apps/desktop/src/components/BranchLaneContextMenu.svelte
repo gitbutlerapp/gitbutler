@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { BranchStack } from '$lib/branches/branch';
-	import { BranchController } from '$lib/branches/branchController';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { updatePrDescriptionTables } from '$lib/forge/shared/prFooter';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -15,23 +15,23 @@
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
-		prUrl?: string;
+		projectId: string;
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
 		trigger?: HTMLElement;
 		onCollapse: () => void;
-		onGenerateBranchName?: () => void;
-		openPrDetailsModal?: () => void;
-		reloadPR?: () => void;
 		ontoggle?: (isOpen: boolean) => void;
 	}
 
-	let { contextMenuEl = $bindable(), trigger, onCollapse, ontoggle }: Props = $props();
+	let { projectId, contextMenuEl = $bindable(), trigger, onCollapse, ontoggle }: Props = $props();
 
 	const branchStore = getContextStore(BranchStack);
-	const branchController = getContext(BranchController);
+	const stackService = getContext(StackService);
 	const forge = getContext(DefaultForgeFactory);
 	const prService = $derived(forge.current.prService);
 	const user = getContextStore(User);
+
+	const [unapply] = stackService.unapply;
+	const [updateStack] = stackService.updateStack;
 
 	let deleteBranchModal: Modal;
 	let allowRebasing = $state<boolean>();
@@ -47,11 +47,20 @@
 	const allPrIds = $derived(stack.validSeries.map((series) => series.prNumber).filter(isDefined));
 
 	async function toggleAllowRebasing() {
-		branchController.updateBranchAllowRebasing(stack.id, !allowRebasing);
+		updateStack({
+			projectId,
+			branch: {
+				id: stack.id,
+				allow_rebasing: !allowRebasing
+			}
+		});
 	}
 
 	function saveAndUnapply() {
-		branchController.saveAndUnapply(stack.id);
+		unapply({
+			projectId: projectId,
+			stackId: stack.id
+		});
 	}
 </script>
 
@@ -70,7 +79,10 @@
 			label="Unapply"
 			onclick={async () => {
 				if (commits.length === 0 && stack.files?.length === 0) {
-					await branchController.unapplyWithoutSaving(stack.id);
+					await unapply({
+						projectId: projectId,
+						stackId: stack.id
+					});
 				} else {
 					saveAndUnapply();
 				}
@@ -86,7 +98,10 @@
 					commits.length === 0 &&
 					stack.files?.length === 0
 				) {
-					await branchController.unapplyWithoutSaving(stack.id);
+					await unapply({
+						projectId: projectId,
+						stackId: stack.id
+					});
 				} else {
 					deleteBranchModal.show(stack);
 				}
@@ -109,7 +124,11 @@
 		<ContextMenuItem
 			label={`Create stack to the left`}
 			onclick={() => {
-				branchController.createBranch({ order: stack.order });
+				const [newStack] = stackService.newStack();
+				newStack({
+					projectId,
+					branch: { order: stack.order }
+				});
 				contextMenuEl?.close();
 			}}
 		/>
@@ -117,7 +136,11 @@
 		<ContextMenuItem
 			label={`Create stack to the right`}
 			onclick={() => {
-				branchController.createBranch({ order: stack.order + 1 });
+				const [newStack] = stackService.newStack();
+				newStack({
+					projectId,
+					branch: { order: stack.order + 1 }
+				});
 				contextMenuEl?.close();
 			}}
 		/>
@@ -146,7 +169,11 @@
 	onSubmit={async (close) => {
 		try {
 			isDeleting = true;
-			await branchController.unapplyWithoutSaving(stack.id);
+			const [unapply] = stackService.unapply;
+			await unapply({
+				projectId,
+				stackId: stack.id
+			});
 			close();
 		} finally {
 			isDeleting = false;

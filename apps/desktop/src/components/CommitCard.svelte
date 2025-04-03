@@ -6,7 +6,6 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BranchStack } from '$lib/branches/branch';
 	import { PatchSeries } from '$lib/branches/branch';
-	import { BranchController } from '$lib/branches/branchController';
 	import { Commit, DetailedCommit } from '$lib/commits/commit';
 	import { type CommitStatus } from '$lib/commits/commit';
 	import { createCommitStore } from '$lib/commits/contexts';
@@ -66,12 +65,13 @@
 		disableCommitActions = false
 	}: Props = $props();
 
-	const branchController = getContext(BranchController);
 	const baseBranch = getContext(BaseBranch);
 	const project = getContext(Project);
 	const modeService = maybeGetContext(ModeService);
 	const fileService = getContext(FileService);
 	const stackService = getContext(StackService);
+
+	const [uncommit] = stackService.uncommit();
 	const [updateCommitMessage] = stackService.updateCommitMessage();
 
 	const commitStore = createCommitStore(commit);
@@ -120,7 +120,11 @@
 			console.error('Unable to undo commit');
 			return;
 		}
-		branchController.undoCommit(stack.id, stack.name, commit.id);
+		uncommit({
+			projectId: project.id,
+			stackId: stack.id,
+			commitId: commit.id
+		});
 	}
 
 	let isUndoable = commit instanceof DetailedCommit && type !== 'Remote' && type !== 'Integrated';

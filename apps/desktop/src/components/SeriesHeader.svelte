@@ -13,7 +13,6 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BranchStack } from '$lib/branches/branch';
 	import { PatchSeries } from '$lib/branches/branch';
-	import { BranchController } from '$lib/branches/branchController';
 	import { parentBranch } from '$lib/branches/virtualBranchService';
 	import { type CommitStatus } from '$lib/commits/commit';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
@@ -21,6 +20,7 @@
 	import { FileService } from '$lib/files/fileService';
 	import { closedStateSync } from '$lib/forge/closedStateSync.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, getContextStore, inject } from '@gitbutler/shared/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
@@ -40,11 +40,10 @@
 
 	let descriptionVisible = $state(!!branch.description);
 
-	const [aiService, promptService, fileService, branchController, forge] = inject(
+	const [aiService, promptService, fileService, forge] = inject(
 		AIService,
 		PromptService,
 		FileService,
-		BranchController,
 		DefaultForgeFactory
 	);
 
@@ -97,6 +96,11 @@
 		(pr?.merged && pr.baseBranch !== baseBranch.shortName) || false
 	);
 
+	const stackService = getContext(StackService);
+	const [updateBranchPrNumber] = stackService.updateBranchPrNumber;
+	const [updateBranchNameMutation] = stackService.updateBranchName;
+	const [updateBranchDescription] = stackService.updateBranchDescription;
+
 	/**
 	 * We are starting to store pull request id's locally so if we find one that does not have
 	 * one locally stored then we set it once.
@@ -110,19 +114,34 @@
 			listedPr?.number &&
 			listedPr.number !== branch.prNumber
 		) {
-			branchController.updateBranchPrNumber(stack.id, branch.name, listedPr.number);
+			updateBranchPrNumber({
+				projectId: projectId,
+				stackId: stack.id,
+				branchName: branch.name,
+				prNumber: listedPr.number
+			});
 		}
 	});
 
 	function updateBranchName(title: string) {
 		if (branch?.name && title !== branch.name) {
-			branchController.updateBranchName(stack.id, branch.name, title);
+			updateBranchNameMutation({
+				projectId: projectId,
+				stackId: stack.id,
+				branchName: branch.name,
+				newName: title
+			});
 		}
 	}
 
 	async function editDescription(description: string | undefined | null) {
 		if (description) {
-			await branchController.updateSeriesDescription(stack.id, branch.name, description);
+			await updateBranchDescription({
+				projectId: projectId,
+				stackId: stack.id,
+				branchName: branch.name,
+				description: description
+			});
 		}
 	}
 
@@ -130,7 +149,12 @@
 		descriptionVisible = !descriptionVisible;
 
 		if (!descriptionVisible) {
-			await branchController.updateSeriesDescription(stack.id, branch.name, '');
+			await updateBranchDescription({
+				projectId: projectId,
+				stackId: stack.id,
+				branchName: branch.name,
+				description: ''
+			});
 		} else {
 			await tick();
 			seriesDescriptionEl?.focus();
@@ -157,13 +181,18 @@
 		});
 
 		if (newBranchName && newBranchName !== branch.name) {
-			branchController.updateBranchName(stack.id, branch.name, newBranchName);
+			updateBranchNameMutation({
+				projectId: projectId,
+				stackId: stack.id,
+				branchName: branch.name,
+				newName: newBranchName
+			});
 		}
 	}
 
 	closedStateSync(reactive(() => branch));
 
-	const dzHandler = $derived(new MoveCommitDzHandler(branchController, stack));
+	const dzHandler = $derived(new MoveCommitDzHandler(stackService, stack, projectId));
 </script>
 
 <AddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={branch.name} />

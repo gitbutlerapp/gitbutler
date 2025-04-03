@@ -1,11 +1,14 @@
 import { filesToOwnership } from '$lib/branches/ownership';
 import { FileDropData, HunkDropData } from '$lib/dragging/draggables';
-import type { BranchController } from '$lib/branches/branchController';
 import type { DropzoneHandler } from '$lib/dragging/handler';
+import type { StackService } from '$lib/stacks/stackService.svelte';
 
 /** Handler that creates a new stack from files or hunks. */
 export class NewStackDzHandler implements DropzoneHandler {
-	constructor(private branchController: BranchController) {}
+	constructor(
+		private stackService: StackService,
+		private projectId: string
+	) {}
 
 	accepts(data: unknown) {
 		if (data instanceof FileDropData) {
@@ -20,10 +23,10 @@ export class NewStackDzHandler implements DropzoneHandler {
 	ondrop(data: FileDropData | HunkDropData) {
 		if (data instanceof HunkDropData) {
 			const ownership = `${data.hunk.filePath}:${data.hunk.id}`;
-			this.branchController.createBranch({ ownership });
+			this.stackService.newStackMutation({ projectId: this.projectId, branch: { ownership } });
 		} else if (data instanceof FileDropData) {
 			const ownership = filesToOwnership(data.files);
-			this.branchController.createBranch({ ownership });
+			this.stackService.newStackMutation({ projectId: this.projectId, branch: { ownership } });
 		}
 	}
 }
