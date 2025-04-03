@@ -17,4 +17,4 @@ while true; do
     corepack install
 
     pnpm run run
-end
+done
