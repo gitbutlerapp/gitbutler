@@ -86,7 +86,7 @@
 		} else {
 			lastCommitDetails = {
 				authorName: branchListing.lastCommiter.name || unknownName,
-				lastCommitAt: branchListing.updatedAt
+				lastCommitAt: new Date(branchListing.updatedAt)
 			};
 		}
 	});
