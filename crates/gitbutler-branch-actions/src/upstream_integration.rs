@@ -15,7 +15,7 @@ use gitbutler_repo::logging::RepositoryExt as _;
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo::{logging::LogUntil, rebase::gitbutler_merge_commits};
 use gitbutler_serde::BStringForFrontend;
-use gitbutler_stack::stack_context::StackContext;
+
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 #[allow(deprecated)]
@@ -219,7 +219,7 @@ fn get_stack_status(
     target: Target,
     new_target_commit_id: gix::ObjectId,
     stack: &Stack,
-    v3: bool,
+    ctx: &CommandContext,
 ) -> Result<StackStatus> {
     let cache = gix_repo.commit_graph_if_enabled()?;
     let mut graph = gix_repo.revision_graph(cache.as_ref());
@@ -244,7 +244,6 @@ fn get_stack_status(
 
     let mut branch_statuses: Vec<NameAndStatus> = vec![];
 
-    let stack_context = StackContext::new(repo, target);
     let branches = stack.branches();
     for branch in &branches {
         if branch.archived {
@@ -271,7 +270,7 @@ fn get_stack_status(
         // mergable is rebasable.
         // Doing both would be preferable, but we don't communicate that
         // to the frontend at the minute.
-        let commits = branch.commits(&stack_context, stack)?;
+        let commits = branch.commits(ctx, stack)?;
 
         if commits.local_commits.is_empty() {
             branch_statuses.push(NameAndStatus {
@@ -328,7 +327,7 @@ fn get_stack_status(
     let stack_head = repo.find_commit(stack.head(gix_repo)?)?;
 
     let tree_status;
-    if v3 {
+    if ctx.app_settings().feature_flags.v3 {
         // If we are in v3 then we don't care about the trees and we should
         // assume they are empty
         tree_status = TreeStatus::Empty;
@@ -421,8 +420,6 @@ pub fn upstream_integration_statuses(
         .map(|c| c.ours.location().into())
         .collect::<Vec<BStringForFrontend>>();
 
-    let v3 = context.ctx.app_settings().feature_flags.v3;
-
     let statuses = stacks_in_workspace
         .iter()
         .map(|stack| {
@@ -434,7 +431,7 @@ pub fn upstream_integration_statuses(
                     target.clone(),
                     git2_to_gix_object_id(new_target.id()),
                     stack,
-                    v3,
+                    context.ctx,
                 )?,
             ))
         })

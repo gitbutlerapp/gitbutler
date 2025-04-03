@@ -8,7 +8,6 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 #[allow(deprecated)]
@@ -135,8 +134,7 @@ fn take_commit_from_source_stack(
         bail!("Commit has dependent uncommitted changes");
     }
 
-    let stack_ctx = ctx.to_stack_context()?;
-    let merge_base = source_stack.merge_base(&stack_ctx)?;
+    let merge_base = source_stack.merge_base(ctx)?;
     let gix_repo = ctx.gix_repo()?;
     let steps = source_stack
         .as_rebase_steps(ctx, &gix_repo)?
@@ -178,8 +176,7 @@ fn move_commit_to_destination_stack(
     commit_id: git2::Oid,
 ) -> Result<(), anyhow::Error> {
     let gix_repo = ctx.gix_repo()?;
-    let stack_ctx = ctx.to_stack_context()?;
-    let merge_base = destination_stack.merge_base(&stack_ctx)?;
+    let merge_base = destination_stack.merge_base(ctx)?;
     let mut steps = destination_stack.as_rebase_steps(ctx, &gix_repo)?;
     // TODO: In the future we can make the API provide additional info for exacly where to place the commit on the destination stack
     steps.insert(

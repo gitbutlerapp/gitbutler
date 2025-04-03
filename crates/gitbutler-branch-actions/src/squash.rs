@@ -12,7 +12,7 @@ use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt},
     RepositoryExt as _,
 };
-use gitbutler_stack::{stack_context::CommandContextExt, StackId};
+use gitbutler_stack::StackId;
 #[allow(deprecated)]
 use gitbutler_workspace::{
     branch_trees::{update_uncommited_changes, WorkspaceState},
@@ -65,8 +65,8 @@ fn do_squash_commits(
 
     // =========== Step 1: Reorder
 
-    let order = commits_order(&ctx.to_stack_context()?, &stack)?;
-    let mut updated_order = commits_order(&ctx.to_stack_context()?, &stack)?;
+    let order = commits_order(ctx, &stack)?;
+    let mut updated_order = commits_order(ctx, &stack)?;
     // Remove source ids
     for branch in updated_order.series.iter_mut() {
         branch.commit_ids.retain(|id| !source_ids.contains(id));
@@ -259,11 +259,10 @@ fn validate(
         bail!("cannot squash into conflicted destination commit",);
     }
 
-    let stack_ctx = ctx.to_stack_context()?;
     let remote_commits = stack
         .branches()
         .iter()
-        .flat_map(|b| b.commits(&stack_ctx, stack))
+        .flat_map(|b| b.commits(ctx, stack))
         .flat_map(|c| c.remote_commits)
         .map(|c| c.id())
         .collect_vec();

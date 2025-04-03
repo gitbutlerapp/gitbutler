@@ -1,6 +1,7 @@
 use anyhow::{Ok, Result};
 use bstr::BString;
 use git2::Commit;
+use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
 use gitbutler_oxidize::{ObjectIdExt, RepoExt};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
@@ -12,7 +13,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, str::FromStr};
 
-use crate::{stack_context::StackContext, Stack};
+use crate::{Stack, VirtualBranchesHandle};
 
 /// A GitButler-specific reference type that points to a commit or a patch (change).
 /// The principal difference between a `PatchReference` and a regular git reference is that a `PatchReference` can point to a change (patch) that is mutable.
@@ -303,13 +304,9 @@ impl StackBranch {
     }
 
     /// Returns the commits that are part of the branch.
-    pub fn commits<'a>(
-        &self,
-        stack_context: &'a StackContext,
-        stack: &Stack,
-    ) -> Result<BranchCommits<'a>> {
-        let repo = stack_context.repo();
-        let merge_base = stack.merge_base(stack_context)?;
+    pub fn commits<'a>(&self, ctx: &'a CommandContext, stack: &Stack) -> Result<BranchCommits<'a>> {
+        let repo = ctx.repo();
+        let merge_base = stack.merge_base(ctx)?;
 
         let gix_repo = repo.to_gix()?;
         let head_commit =
@@ -341,7 +338,8 @@ impl StackBranch {
             .rev()
             .collect_vec();
 
-        let default_target = stack_context.target();
+        let virtual_branch_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+        let default_target = virtual_branch_state.get_default_target()?;
         let mut remote_patches: Vec<Commit<'_>> = vec![];
 
         // Use remote from upstream if available, otherwise default to push remote.

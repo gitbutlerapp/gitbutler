@@ -6,7 +6,7 @@ use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_diff::Hunk;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_stack::{stack_context::CommandContextExt, OwnershipClaim, Stack, StackId};
+use gitbutler_stack::{OwnershipClaim, Stack, StackId};
 use tracing::instrument;
 
 use crate::VirtualBranchesExt as _;
@@ -33,8 +33,7 @@ pub(crate) fn undo_commit(
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
 
-    let stack_ctx = ctx.to_stack_context()?;
-    let merge_base = stack.merge_base(&stack_ctx)?;
+    let merge_base = stack.merge_base(ctx)?;
     let repo = ctx.gix_repo()?;
     let steps = stack
         .as_rebase_steps(ctx, &repo)?

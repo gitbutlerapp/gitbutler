@@ -2,7 +2,6 @@
 mod file_ownership;
 mod ownership;
 mod stack;
-pub mod stack_context;
 mod state;
 mod target;
 
