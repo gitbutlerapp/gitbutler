@@ -1,6 +1,6 @@
 import { hasTauriExtra } from '$lib/state/backendQuery';
 import { createSelectByIds } from '$lib/state/customSelectors';
-import { ReduxTag } from '$lib/state/tags';
+import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { TreeChange, WorktreeChanges } from '$lib/hunks/change';
 import type { ClientState } from '$lib/state/clientState.svelte';
@@ -56,7 +56,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			getChanges: build.query<EntityState<TreeChange, string>, { projectId: string }>({
 				query: ({ projectId }) => ({ command: 'changes_in_worktree', params: { projectId } }),
 				/** Invalidating tags causes data to be refreshed. */
-				providesTags: [ReduxTag.WorktreeChanges],
+				providesTags: [providesList(ReduxTag.WorktreeChanges)],
 				/**
 				 * Sets up a subscription for changes to uncommitted changes until all consumers
 				 * of the query results have unsubscribed.
@@ -70,7 +70,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					const unsubscribe = lifecycleApi.extra.tauri.listen<WorktreeChanges>(
 						`project://${arg.projectId}/worktree_changes`,
 						(event) => {
-							lifecycleApi.dispatch(api.util.invalidateTags([ReduxTag.Diff]));
+							lifecycleApi.dispatch(api.util.invalidateTags([invalidatesList(ReduxTag.Diff)]));
 							lifecycleApi.updateCachedData(() =>
 								worktreeAdapter.addMany(worktreeAdapter.getInitialState(), event.payload.changes)
 							);

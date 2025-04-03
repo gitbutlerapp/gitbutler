@@ -10,7 +10,7 @@ import {
 	type DetailedPullRequest,
 	type PullRequest
 } from '$lib/forge/interface/types';
-import { ReduxTag } from '$lib/state/tags';
+import { providesItem, invalidatesItem, ReduxTag, invalidatesList } from '$lib/state/tags';
 import { sleep } from '$lib/utils/sleep';
 import { writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
@@ -113,7 +113,7 @@ function injectEndpoints(api: GitHubApi) {
 							extra: api.extra
 						})
 					),
-				providesTags: [ReduxTag.PullRequests]
+				providesTags: (_result, _error, args) => providesItem(ReduxTag.PullRequests, args.number)
 			}),
 			createPr: build.mutation<
 				CreatePrResult,
@@ -126,7 +126,7 @@ function injectEndpoints(api: GitHubApi) {
 						parameters: { head, base, title, body, draft },
 						extra: api.extra
 					}),
-				invalidatesTags: [ReduxTag.PullRequests]
+				invalidatesTags: (result) => [invalidatesItem(ReduxTag.PullRequests, result?.number)]
 			}),
 			mergePr: build.mutation<void, { number: number; method: MergeMethod }>({
 				queryFn: async ({ number, method: method }, api) => {
@@ -138,7 +138,7 @@ function injectEndpoints(api: GitHubApi) {
 					});
 					return { data: undefined };
 				},
-				invalidatesTags: [ReduxTag.PullRequests]
+				invalidatesTags: [invalidatesList(ReduxTag.PullRequests)]
 			}),
 			updatePr: build.mutation<
 				void,
@@ -165,7 +165,7 @@ function injectEndpoints(api: GitHubApi) {
 					});
 					return { data: undefined };
 				},
-				invalidatesTags: [ReduxTag.PullRequests]
+				invalidatesTags: [invalidatesList(ReduxTag.PullRequests)]
 			})
 		})
 	});

@@ -1,7 +1,7 @@
 import { ghQuery } from '$lib/forge/github/ghQuery';
 import { ghResponseToInstance } from '$lib/forge/github/types';
 import { createSelectByIds } from '$lib/state/customSelectors';
-import { ReduxTag } from '$lib/state/tags';
+import { providesList, ReduxTag } from '$lib/state/tags';
 import { reactive } from '@gitbutler/shared/storeUtils';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
@@ -79,7 +79,7 @@ function injectEndpoints(api: GitHubApi) {
 					}
 					return result;
 				},
-				providesTags: [ReduxTag.PullRequests]
+				providesTags: [providesList(ReduxTag.PullRequests)]
 			})
 		})
 	});

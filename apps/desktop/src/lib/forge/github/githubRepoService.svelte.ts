@@ -1,5 +1,5 @@
 import { ghQuery } from '$lib/forge/github/ghQuery';
-import { ReduxTag } from '$lib/state/tags';
+import { providesList, ReduxTag } from '$lib/state/tags';
 import type { RepoResult } from '$lib/forge/github/types';
 import type { ForgeRepoService, RepoDetailedInfo } from '$lib/forge/interface/forgeRepoService';
 import type { ReactiveResult } from '$lib/state/butlerModule';
@@ -34,7 +34,7 @@ function injectEndpoints(api: GitHubApi) {
 						action: 'get',
 						extra: api.extra
 					}),
-				providesTags: [ReduxTag.PullRequests]
+				providesTags: [providesList(ReduxTag.PullRequests)]
 			})
 		})
 	});

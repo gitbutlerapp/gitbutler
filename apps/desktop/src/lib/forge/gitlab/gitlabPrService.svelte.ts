@@ -1,6 +1,6 @@
 import { gitlab } from '$lib/forge/gitlab/gitlabClient';
 import { detailedMrToInstance, mrToInstance } from '$lib/forge/gitlab/types';
-import { ReduxTag } from '$lib/state/tags';
+import { providesItem, invalidatesItem, ReduxTag, invalidatesList } from '$lib/state/tags';
 import { sleep } from '$lib/utils/sleep';
 import { writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
@@ -106,7 +106,8 @@ function injectEndpoints(api: GitLabApi) {
 					const mr = await api.MergeRequests.show(upstreamProjectId, args.number);
 					return { data: detailedMrToInstance(mr) };
 				},
-				providesTags: [ReduxTag.GitLabPullRequests]
+				providesTags: (_result, _error, args) =>
+					providesItem(ReduxTag.GitLabPullRequests, args.number)
 			}),
 			createPr: build.mutation<
 				PullRequest,
@@ -121,7 +122,7 @@ function injectEndpoints(api: GitLabApi) {
 					});
 					return { data: mrToInstance(mr) };
 				},
-				invalidatesTags: [ReduxTag.GitLabPullRequests]
+				invalidatesTags: (result) => [invalidatesItem(ReduxTag.GitLabPullRequests, result?.number)]
 			}),
 			mergePr: build.mutation<undefined, { number: number; method: MergeMethod }>({
 				queryFn: async ({ number }, query) => {
@@ -129,7 +130,7 @@ function injectEndpoints(api: GitLabApi) {
 					await api.MergeRequests.merge(upstreamProjectId, number);
 					return { data: undefined };
 				},
-				invalidatesTags: [ReduxTag.GitLabPullRequests]
+				invalidatesTags: [invalidatesList(ReduxTag.GitLabPullRequests)]
 			}),
 			updatePr: build.mutation<
 				void,
@@ -150,7 +151,7 @@ function injectEndpoints(api: GitLabApi) {
 					});
 					return { data: undefined };
 				},
-				invalidatesTags: [ReduxTag.GitLabPullRequests]
+				invalidatesTags: [invalidatesList(ReduxTag.GitLabPullRequests)]
 			})
 		})
 	});

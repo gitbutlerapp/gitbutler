@@ -1,4 +1,4 @@
-import { ReduxTag } from '$lib/state/tags';
+import { providesList, ReduxTag } from '$lib/state/tags';
 import type { TreeChange } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { ClientState } from '$lib/state/clientState.svelte';
@@ -37,7 +37,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'tree_change_diffs',
 					params: { projectId, change }
 				}),
-				providesTags: [ReduxTag.Diff]
+				providesTags: [providesList(ReduxTag.Diff)]
 			})
 		})
 	});

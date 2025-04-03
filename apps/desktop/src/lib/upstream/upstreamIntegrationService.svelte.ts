@@ -1,5 +1,5 @@
 import { ProjectsService } from '$lib/project/projectsService';
-import { ReduxTag } from '$lib/state/tags';
+import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
 import { BranchStatus as CloudBranchStatus } from '@gitbutler/shared/branches/types';
 import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
@@ -112,7 +112,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: `upstream_integration_statuses`,
 					params: { projectId, targetCommitOid }
 				}),
-				providesTags: [ReduxTag.UpstreamIntegrationStatus]
+				providesTags: [providesList(ReduxTag.UpstreamIntegrationStatus)]
 			}),
 			integrateUpstream: build.mutation<
 				IntegrationOutcome,
@@ -127,10 +127,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					params: { projectId, resolutions, baseBranchResolution }
 				}),
 				invalidatesTags: [
-					ReduxTag.UpstreamIntegrationStatus,
-					ReduxTag.Stacks,
-					ReduxTag.StackBranches,
-					ReduxTag.StackInfo
+					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+					invalidatesList(ReduxTag.Stacks),
+					invalidatesList(ReduxTag.StackBranches),
+					invalidatesList(ReduxTag.StackInfo)
 				]
 			}),
 			resolveUpstreamIntegration: build.mutation<
@@ -141,7 +141,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: `resolve_upstream_integration`,
 					params: { projectId, resolutionApproach }
 				}),
-				invalidatesTags: [ReduxTag.UpstreamIntegrationStatus]
+				invalidatesTags: [invalidatesList(ReduxTag.UpstreamIntegrationStatus)]
 			})
 		})
 	});
