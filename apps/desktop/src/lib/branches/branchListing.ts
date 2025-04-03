@@ -290,7 +290,7 @@ export class CombinedBranchListingService {
 				return sidebarEntries.filter(
 					(sidebarEntry) =>
 						sidebarEntry.type === 'branchListing' &&
-						(sidebarEntry.subject.hasLocal || sidebarEntry.subject.virtualBranch)
+						(sidebarEntry.subject.hasLocal || sidebarEntry.subject.stack)
 				);
 			}
 			default: {
@@ -330,8 +330,8 @@ export class BranchListing {
 	 */
 	remotes!: string[];
 	/** The branch may or may not have a virtual branch associated with it */
-	@Type(() => VirtualBranchReference)
-	virtualBranch?: VirtualBranchReference | undefined;
+	@Type(() => StackReference)
+	stack?: StackReference | undefined;
 	/**
 	 * Timestamp in milliseconds since the branch was last updated.
 	 * This includes any commits, uncommited changes or even updates to the branch metadata (e.g. renaming).
@@ -345,19 +345,19 @@ export class BranchListing {
 	hasLocal!: boolean;
 
 	get branchNames() {
-		return [this.name].concat(this.virtualBranch ? this.virtualBranch?.stackBranches : []);
+		return [this.name].concat(this.stack ? this.stack?.branches : []);
 	}
 
 	containsPullRequestBranch(sourceBranch: string): boolean {
 		if (sourceBranch === this.name) return true;
-		if (this.virtualBranch?.stackBranches.includes(sourceBranch)) return true;
+		if (this.stack?.branches.includes(sourceBranch)) return true;
 
 		return false;
 	}
 }
 
 /** Represents a reference to an associated virtual branch */
-export class VirtualBranchReference {
+export class StackReference {
 	/** A non-normalized name of the branch, set by the user */
 	givenName!: string;
 	/** Virtual Branch UUID identifier */
@@ -368,7 +368,7 @@ export class VirtualBranchReference {
    List of branch names that are part of the stack
    Ordered from newest to oldest (the most recent branch is first in the list)
     */
-	stackBranches!: string[];
+	branches!: string[];
 	/** Pull Request numbes by branch name associated with the stack */
 	pullRequests!: Map<string, number>;
 }
@@ -424,8 +424,8 @@ export class BranchListingDetails {
 	@Type(() => Author)
 	authors!: Author[];
 	/** The branch may or may not have a virtual branch associated with it */
-	@Type(() => VirtualBranchReference)
-	virtualBranch?: VirtualBranchReference | undefined;
+	@Type(() => StackReference)
+	virtualBranch?: StackReference | undefined;
 }
 
 export type SidebarEntrySubject =
@@ -449,5 +449,5 @@ export function getEntryName(entry: SidebarEntrySubject) {
 }
 
 export function getEntryWorkspaceStatus(entry: SidebarEntrySubject) {
-	return entry.type === 'branchListing' ? entry.subject.virtualBranch?.inWorkspace : undefined;
+	return entry.type === 'branchListing' ? entry.subject.stack?.inWorkspace : undefined;
 }
