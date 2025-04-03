@@ -5,7 +5,7 @@ import { Code, invoke } from '$lib/backend/ipc';
 import { debouncedDerive } from '$lib/utils/debounce';
 import { msSinceDaysAgo } from '$lib/utils/time';
 import { persisted, type Persisted } from '@gitbutler/shared/persisted';
-import { Transform, Type, plainToInstance } from 'class-transformer';
+import { plainToInstance } from 'class-transformer';
 import Fuse from 'fuse.js';
 import { derived, readable, writable, type Readable, type Writable } from 'svelte/store';
 import type { PullRequest } from '$lib/forge/interface/types';
@@ -330,16 +330,13 @@ export class BranchListing {
 	 */
 	remotes!: string[];
 	/** The branch may or may not have a virtual branch associated with it */
-	@Type(() => StackReference)
 	stack?: StackReference | undefined;
 	/**
 	 * Timestamp in milliseconds since the branch was last updated.
 	 * This includes any commits, uncommited changes or even updates to the branch metadata (e.g. renaming).
 	 */
-	@Transform((obj) => new Date(obj.value))
-	updatedAt!: Date;
+	updatedAt!: string;
 	/** The person who commited the head commit */
-	@Type(() => Author)
 	lastCommiter!: Author;
 	/** Whether or not there is a local branch as part of the grouping */
 	hasLocal!: boolean;
@@ -357,31 +354,31 @@ export class BranchListing {
 }
 
 /** Represents a reference to an associated virtual branch */
-export class StackReference {
+export type StackReference = {
 	/** A non-normalized name of the branch, set by the user */
-	givenName!: string;
+	givenName: string;
 	/** Virtual Branch UUID identifier */
-	id!: string;
+	id: string;
 	/** Determines if the virtual branch is applied in the workspace */
-	inWorkspace!: boolean;
+	inWorkspace: boolean;
 	/**
    List of branch names that are part of the stack
    Ordered from newest to oldest (the most recent branch is first in the list)
     */
-	branches!: string[];
+	branches: string[];
 	/** Pull Request numbes by branch name associated with the stack */
-	pullRequests!: Map<string, number>;
-}
+	pullRequests: Record<string, number>;
+};
 
 /** Represents a "commit author" or "signature", based on the data from ther git history */
-export class Author {
+export type Author = {
 	/** The name of the author as configured in the git config */
 	name?: string | undefined;
 	/** The email of the author as configured in the git config */
 	email?: string | undefined;
 	/** The gravatar id of the author */
 	gravatarUrl?: string | undefined;
-}
+};
 
 /** Represents a fat struct with all the data associated with a branch */
 export class BranchListingDetails {
@@ -421,11 +418,9 @@ export class BranchListingDetails {
 	 * A list of authors that have contributes commits to this branch.
 	 * In the case of multiple remote tracking branches, it takes the full list of unique authors.
 	 */
-	@Type(() => Author)
 	authors!: Author[];
 	/** The branch may or may not have a virtual branch associated with it */
-	@Type(() => StackReference)
-	virtualBranch?: StackReference | undefined;
+	stack?: StackReference | undefined;
 }
 
 export type SidebarEntrySubject =
