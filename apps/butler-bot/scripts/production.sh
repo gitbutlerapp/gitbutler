@@ -16,5 +16,8 @@ while true; do
     corepack enable
     corepack install
 
+    pnpm prisma generate
+    pnpm prisma migrate deploy
+
     pnpm run run
 done
