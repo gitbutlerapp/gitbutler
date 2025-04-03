@@ -23,7 +23,7 @@
 	const { projectId, stackId, parentSeriesName }: Props = $props();
 
 	const stackService = getContext(StackService);
-	const [createNewBranch, branchCreation] = stackService.newBranch();
+	const [createNewBranch, branchCreation] = stackService.newBranch;
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName: string | undefined = $state();

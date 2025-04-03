@@ -23,8 +23,8 @@
 
 	let { el = $bindable(), scrollerEl, projectId, stackId }: Props = $props();
 	const stackService = getContext(StackService);
-	const [createNewStack, stackCreation] = stackService.newStack();
-	const [createNewBranch, branchCreation] = stackService.newBranch();
+	const [createNewStack, stackCreation] = stackService.newStack;
+	const [createNewBranch, branchCreation] = stackService.newBranch;
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName = $state<string>();

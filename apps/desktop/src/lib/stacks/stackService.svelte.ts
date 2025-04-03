@@ -151,7 +151,7 @@ export class StackService {
 		);
 	}
 
-	newStack() {
+	get newStack() {
 		return this.api.endpoints.createStack.useMutation();
 	}
 
@@ -300,7 +300,7 @@ export class StackService {
 		return result;
 	}
 
-	pushStack() {
+	get pushStack() {
 		return this.api.endpoints.pushStack.useMutation({
 			sideEffect: (_, args) => {
 				this.posthog.capture('Push Successful');
@@ -321,7 +321,7 @@ export class StackService {
 		});
 	}
 
-	createCommit() {
+	get createCommit() {
 		return this.api.endpoints.createCommit.useMutation();
 	}
 
@@ -363,19 +363,19 @@ export class StackService {
 		);
 	}
 
-	updateCommitMessage() {
+	get updateCommitMessage() {
 		return this.api.endpoints.updateCommitMessage.useMutation();
 	}
 
-	newBranch() {
+	get newBranch() {
 		return this.api.endpoints.newBranch.useMutation();
 	}
 
-	uncommit() {
+	get uncommit() {
 		return this.api.endpoints.uncommit.useMutation();
 	}
 
-	insertBlankCommit() {
+	get insertBlankCommit() {
 		return this.api.endpoints.insertBlankCommit.useMutation();
 	}
 
@@ -387,11 +387,11 @@ export class StackService {
 		return this.api.endpoints.publishBranch.useMutation();
 	}
 
-	amendCommit() {
+	get amendCommit() {
 		return this.api.endpoints.amendCommit.useMutation();
 	}
 
-	discardChanges() {
+	get discardChanges() {
 		return this.api.endpoints.discardChanges.useMutation();
 	}
 

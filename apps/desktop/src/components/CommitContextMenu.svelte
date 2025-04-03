@@ -45,7 +45,7 @@
 
 	const project = getContext(Project);
 	const stackService = getContext(StackService);
-	const [insertBlankCommitMutation] = stackService.insertBlankCommit();
+	const [insertBlankCommitMutation] = stackService.insertBlankCommit;
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
 		if (!branch || !baseBranch) {

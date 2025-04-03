@@ -40,7 +40,7 @@
 	}: Props = $props();
 
 	const stackService = getContext(StackService);
-	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit();
+	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
 		if (!stackId || !baseBranch) {

@@ -25,7 +25,7 @@
 	const stackService = getContext(StackService);
 	const stack = getContextStore(BranchStack);
 	const project = getContext(Project);
-	const [newBranch] = stackService.newBranch();
+	const [newBranch] = stackService.newBranch;
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName: string | undefined = $state();

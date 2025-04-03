@@ -71,8 +71,8 @@
 	const fileService = getContext(FileService);
 	const stackService = getContext(StackService);
 
-	const [uncommit] = stackService.uncommit();
-	const [updateCommitMessage] = stackService.updateCommitMessage();
+	const [uncommit] = stackService.uncommit;
+	const [updateCommitMessage] = stackService.updateCommitMessage;
 
 	const commitStore = createCommitStore(commit);
 

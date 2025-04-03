@@ -87,7 +87,7 @@
 		return false;
 	});
 
-	const [pushStack] = stackService.pushStack();
+	const [pushStack] = stackService.pushStack;
 
 	async function push() {
 		isPushingCommits = true;

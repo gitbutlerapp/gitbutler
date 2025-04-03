@@ -17,7 +17,7 @@
 
 	const stackService = getContext(StackService);
 	const [uiState, idSelection] = inject(UiState, IdSelection);
-	const [createCommitInStack, commitCreation] = stackService.createCommit();
+	const [createCommitInStack, commitCreation] = stackService.createCommit;
 
 	const stackState = $derived(uiState.stack(stackId));
 	const selected = $derived(stackState.selection.get());

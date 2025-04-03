@@ -37,7 +37,7 @@
 
 	const [stackService] = inject(StackService);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
-	const [discardChanges] = stackService.discardChanges();
+	const [discardChanges] = stackService.discardChanges;
 
 	const filePath = $derived(change.path);
 	let contextMenu: ReturnType<typeof ContextMenu> | undefined;
