@@ -36,8 +36,7 @@ use gitbutler_repo::{
 };
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{
-    reconcile_claims, stack_context::CommandContextExt, BranchOwnershipClaims, Stack, StackId,
-    Target, VirtualBranchesHandle,
+    reconcile_claims, BranchOwnershipClaims, Stack, StackId, Target, VirtualBranchesHandle,
 };
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use itertools::Itertools;
@@ -412,7 +411,7 @@ pub fn list_virtual_branches_cached(
 
         // TODO: Error out here once this API is stable
         let (series, force) = stack_series(
-            &ctx.to_stack_context()?,
+            ctx,
             &mut branch,
             &default_target,
             &mut check_commit,
@@ -1117,8 +1116,7 @@ pub(crate) fn move_commit_file(
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     let gix_repo = ctx.gix_repo()?;
-    let stack_context = ctx.to_stack_context()?;
-    let merge_base = stack.merge_base(&stack_context)?;
+    let merge_base = stack.merge_base(ctx)?;
 
     // first, let's get the from commit data and it's parent data
     let from_commit = ctx
@@ -1320,8 +1318,7 @@ pub(crate) fn insert_blank_commit(
     let commit_tree = repo.find_real_tree(&commit, Default::default()).unwrap();
     let blank_commit_oid = ctx.commit("", &commit_tree, &[&commit], Some(Default::default()))?;
 
-    let stack_context = ctx.to_stack_context()?;
-    let merge_base = stack.merge_base(&stack_context)?;
+    let merge_base = stack.merge_base(ctx)?;
     let repo = ctx.gix_repo()?;
     let steps = stack.as_rebase_steps(ctx, &repo)?;
     let mut updated_steps = vec![];
@@ -1414,8 +1411,7 @@ pub(crate) fn update_commit_message(
             }
         }
     }
-    let stack_ctx = ctx.to_stack_context()?;
-    let merge_base = stack.merge_base(&stack_ctx)?;
+    let merge_base = stack.merge_base(ctx)?;
     let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base.to_gix()), None)?;
     rebase.rebase_noops(false);
     rebase.steps(steps)?;

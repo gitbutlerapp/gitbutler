@@ -6,7 +6,7 @@ use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::OidExt;
 use gitbutler_project::ProjectId;
-use gitbutler_stack::{stack_context::CommandContextExt, VirtualBranchesHandle};
+use gitbutler_stack::VirtualBranchesHandle;
 use tracing::instrument;
 
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
@@ -86,7 +86,7 @@ fn changes_in_branch_inner(
     // Now, find the preceding head in the stack. If it is not present, use the stack merge base
     let base_commit_id = match end {
         Some(end) => repo.find_reference(end)?.peel_to_commit()?.id,
-        None => stack.merge_base(&ctx.to_stack_context()?)?.to_gix(),
+        None => stack.merge_base(&ctx)?.to_gix(),
     };
 
     but_core::diff::ui::changes_in_commit_range(

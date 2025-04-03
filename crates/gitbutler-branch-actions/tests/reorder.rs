@@ -5,7 +5,7 @@ use git2::Oid;
 use gitbutler_branch_actions::{list_virtual_branches, reorder_stack, SeriesOrder, StackOrder};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::RepoExt;
-use gitbutler_stack::{stack_context::CommandContextExt as _, VirtualBranchesHandle};
+use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_testsupport::testing_repository::assert_commit_tree_matches;
 use itertools::Itertools;
 use tempfile::TempDir;
@@ -475,15 +475,14 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
     let stack = stacks.iter().find(|b| b.name == "my_stack").unwrap();
 
     let branches = stack.branches();
-    let stack_context = ctx.to_stack_context()?;
     let top_commits: HashMap<String, git2::Oid> = branches[1]
-        .commits(&stack_context, stack)?
+        .commits(ctx, stack)?
         .local_commits
         .iter()
         .map(|c| (c.message().unwrap().to_string(), c.id()))
         .collect();
     let bottom_commits: HashMap<String, git2::Oid> = branches[0]
-        .commits(&stack_context, stack)?
+        .commits(ctx, stack)?
         .local_commits
         .iter()
         .map(|c| (c.message().unwrap().to_string(), c.id()))

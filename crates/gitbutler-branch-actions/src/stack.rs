@@ -8,7 +8,6 @@ use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_oxidize::RepoExt;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::stack_context::StackContext;
 use gitbutler_stack::{CommitOrChangeId, PatchReferenceUpdate, StackBranch};
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
@@ -233,7 +232,7 @@ pub(crate) fn branch_integrated(
 /// Newest first, oldest last in the list
 /// `commits` is used to accelerate the is-integrated check.
 pub(crate) fn stack_series(
-    ctx: &StackContext,
+    ctx: &CommandContext,
     stack: &mut Stack,
     default_target: &Target,
     check_commit: &mut IsCommitIntegrated,
@@ -273,7 +272,7 @@ pub(crate) fn stack_series(
 
 #[allow(clippy::too_many_arguments)]
 fn stack_branch_to_api_branch(
-    ctx: &StackContext,
+    ctx: &CommandContext,
     stack_branch: StackBranch,
     stack: &Stack,
     default_target: &Target,

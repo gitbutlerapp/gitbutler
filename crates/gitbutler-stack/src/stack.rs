@@ -28,8 +28,6 @@ use crate::heads::get_head;
 use crate::heads::remove_head;
 use crate::stack_branch::remote_reference;
 use crate::stack_branch::CommitOrChangeId;
-use crate::stack_context::CommandContextExt;
-use crate::stack_context::StackContext;
 use crate::StackBranch;
 use crate::{ownership::BranchOwnershipClaims, VirtualBranchesHandle};
 
@@ -277,11 +275,11 @@ impl Stack {
     /// # Errors
     /// - If a merge base cannot be found
     /// - If logging between the head and merge base fails
-    pub fn commits(&self, stack_context: &StackContext) -> Result<Vec<git2::Oid>> {
-        let repo = stack_context.repo();
+    pub fn commits(&self, ctx: &CommandContext) -> Result<Vec<git2::Oid>> {
+        let repo = ctx.repo();
         let stack_commits = repo.l(
             self.head(&repo.to_gix()?)?,
-            LogUntil::Commit(self.merge_base(stack_context)?),
+            LogUntil::Commit(self.merge_base(ctx)?),
             false,
         )?;
         Ok(stack_commits)
@@ -295,9 +293,9 @@ impl Stack {
     /// # Errors
     /// - If a merge base cannot be found
     /// - If logging between the head and merge base fails
-    fn commits_with_merge_base(&self, stack_context: &StackContext) -> Result<Vec<git2::Oid>> {
-        let mut commits = self.commits(stack_context)?;
-        let base_commit = self.merge_base(stack_context)?;
+    fn commits_with_merge_base(&self, ctx: &CommandContext) -> Result<Vec<git2::Oid>> {
+        let mut commits = self.commits(ctx)?;
+        let base_commit = self.merge_base(ctx)?;
         commits.push(base_commit);
         Ok(commits)
     }
@@ -308,9 +306,10 @@ impl Stack {
     /// # Errors
     /// - If a target is not set for the project
     /// - If the head commit of the stack is not found
-    pub fn merge_base(&self, stack_context: &StackContext) -> Result<git2::Oid> {
-        let target = stack_context.target();
-        let repo = stack_context.repo();
+    pub fn merge_base(&self, ctx: &CommandContext) -> Result<git2::Oid> {
+        let virtual_branch_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+        let target = virtual_branch_state.get_default_target()?;
+        let repo = ctx.repo();
         let merge_base = repo.merge_base(self.head(&repo.to_gix()?)?, target.sha)?;
         Ok(merge_base)
     }
@@ -439,7 +438,7 @@ impl Stack {
             None
         };
         let state = branch_state(ctx);
-        let patches = self.stack_patches(&ctx.to_stack_context()?, true)?;
+        let patches = self.stack_patches(ctx, true)?;
         validate_name(new_head.name(), &state)?;
         let gix_repo = ctx.gix_repo()?;
         validate_target(
@@ -739,8 +738,7 @@ impl Stack {
         }
 
         let stack_head = self.head(&ctx.gix_repo()?)?;
-        let stack_ctx = ctx.to_stack_context()?;
-        let merge_base = self.merge_base(&stack_ctx)?;
+        let merge_base = self.merge_base(ctx)?;
 
         for head in self.heads.iter_mut() {
             head.migrate_change_id(ctx.repo(), stack_head, merge_base);
@@ -801,15 +799,15 @@ impl Stack {
     /// The most recent patch is at the top of the 'stack' (i.e. the last element in the vector)
     fn stack_patches(
         &self,
-        stack_context: &StackContext,
+        ctx: &CommandContext,
         include_merge_base: bool,
     ) -> Result<Vec<CommitOrChangeId>> {
-        let repo = stack_context.repo();
+        let repo = ctx.repo();
 
         let commits = if include_merge_base {
-            self.commits_with_merge_base(stack_context)?
+            self.commits_with_merge_base(ctx)?
         } else {
-            self.commits(stack_context)?
+            self.commits(ctx)?
         };
         let patches: Vec<CommitOrChangeId> = commits
             .into_iter()

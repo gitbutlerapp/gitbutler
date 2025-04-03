@@ -4,10 +4,7 @@ use git2::Oid;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_stack::{
-    stack_context::{CommandContextExt, StackContext},
-    Stack, StackId,
-};
+use gitbutler_stack::{Stack, StackId};
 
 #[allow(deprecated)]
 use gitbutler_workspace::{
@@ -40,7 +37,7 @@ pub fn reorder_stack(
     let state = ctx.project().virtual_branches();
     let repo = ctx.repo();
     let mut stack = state.get_stack(stack_id)?;
-    let current_order = commits_order(&ctx.to_stack_context()?, &stack)?;
+    let current_order = commits_order(ctx, &stack)?;
     new_order.validate(current_order.clone())?;
 
     let gix_repo = ctx.gix_repo()?;
@@ -202,7 +199,7 @@ impl StackOrder {
     }
 }
 
-pub fn commits_order(stack_context: &StackContext, stack: &Stack) -> Result<StackOrder> {
+pub fn commits_order(ctx: &CommandContext, stack: &Stack) -> Result<StackOrder> {
     let order: Result<Vec<SeriesOrder>> = stack
         .branches()
         .iter()
@@ -212,7 +209,7 @@ pub fn commits_order(stack_context: &StackContext, stack: &Stack) -> Result<Stac
             Ok(SeriesOrder {
                 name: b.name().to_owned(),
                 commit_ids: b
-                    .commits(stack_context, stack)?
+                    .commits(ctx, stack)?
                     .local_commits
                     .iter()
                     .rev()

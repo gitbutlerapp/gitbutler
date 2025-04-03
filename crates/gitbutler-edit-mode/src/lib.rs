@@ -26,7 +26,6 @@ use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission}
 use gitbutler_reference::{ReferenceName, Refname};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::{signature, SignaturePurpose};
-use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes_with_tree, WorkspaceState};
 #[allow(deprecated)]
@@ -313,8 +312,7 @@ pub(crate) fn save_and_return_to_workspace(
             }
         }
     });
-    let stack_ctx = ctx.to_stack_context()?;
-    let merge_base = stack.merge_base(&stack_ctx)?;
+    let merge_base = stack.merge_base(ctx)?;
     let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base.to_gix()), None)?;
     rebase.rebase_noops(false);
     rebase.steps(steps)?;

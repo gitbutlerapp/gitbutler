@@ -30,7 +30,6 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_id::id::Id;
 use gitbutler_oxidize::{OidExt, git2_signature_to_gix_signature};
-use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::{Stack, StackBranch, VirtualBranchesHandle};
 use integrated::IsCommitIntegrated;
 use itertools::Itertools;
@@ -427,8 +426,7 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
 
     let mut stack_branches = vec![];
     let mut stack = state.get_stack(Id::from_str(&stack_id)?)?;
-    let stack_ctx = ctx.to_stack_context()?;
-    let mut current_base = stack.merge_base(&stack_ctx)?.to_gix();
+    let mut current_base = stack.merge_base(ctx)?.to_gix();
     let repo = ctx.gix_repo()?;
     for internal in stack.branches() {
         let upstream_reference = ctx
@@ -514,8 +512,7 @@ fn upstream_only_commits(
     stack_branch: gitbutler_stack::StackBranch,
     stack: &Stack,
 ) -> Result<Vec<UpstreamCommit>> {
-    let stack_ctx = ctx.to_stack_context()?;
-    let branch_commits = stack_branch.commits(&stack_ctx, stack)?;
+    let branch_commits = stack_branch.commits(ctx, stack)?;
     let local_and_remote = local_and_remote_commits(ctx, repo, stack_branch, stack)?;
 
     // Upstream only
@@ -559,8 +556,7 @@ fn local_and_remote_commits(
     let mut graph = repo.revision_graph(cache.as_ref());
     let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, repo, &mut graph)?;
 
-    let stack_ctx = ctx.to_stack_context()?;
-    let branch_commits = stack_branch.commits(&stack_ctx, stack)?;
+    let branch_commits = stack_branch.commits(ctx, stack)?;
     let mut local_and_remote: Vec<Commit> = vec![];
     let mut is_integrated = false;
 
