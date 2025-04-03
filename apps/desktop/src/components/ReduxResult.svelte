@@ -15,99 +15,40 @@
 		error?: unknown;
 	};
 
-	type BaseProps<A> = {
-		type: 'stack' | 'project' | 'optional-stack';
+	type Env<B> = {
+		projectId: string;
+		stackId: B;
+	};
+
+	type Props<A, B> = {
 		result: Result<A> | undefined;
 		empty?: Snippet;
 		projectId: string;
+		stackId?: B;
+		children: Snippet<[A, Env<B>]>;
 	};
 
-	/**
-	 * Children depend on a the result of a RTK query, project ID and stack ID.
-	 */
-	type StackProps<A> = BaseProps<A> & {
-		type: 'stack';
-		stackId: string;
-		children: Snippet<[A, { stackId: string; projectId: string }]>;
+	let props: Props<A, B> = $props();
+
+	type CachedData<A, B> = {
+		data: A;
+		projectId: string;
+		stackId: Props<A, B>['stackId'];
 	};
-
-	/**
-	 * Children depend on a the result of a RTK query, project ID and an optional stack ID.
-	 *
-	 * @note Only use this if the stack ID is optional. If the stack ID is required, use the props of type `stack`.
-	 */
-	type OptionalStackProps<A> = BaseProps<A> & {
-		type: 'optional-stack';
-		stackId: string | undefined;
-		children: Snippet<[A, { stackId: string | undefined; projectId: string }]>;
-	};
-
-	/**
-	 * Children depend on a the result of a RTK query and project ID.
-	 */
-	type ProjectProps<A> = BaseProps<A> & {
-		type: 'project';
-		children: Snippet<[A, { projectId: string }]>;
-	};
-
-	type Props<A> = StackProps<A> | ProjectProps<A> | OptionalStackProps<A>;
-
-	let props: Props<A> = $props();
-
-	type CachedData =
-		| {
-				type: 'stack';
-				data: A;
-				stackId: string;
-				projectId: string;
-		  }
-		| {
-				type: 'project';
-				data: A;
-				projectId: string;
-		  }
-		| {
-				type: 'optional-stack';
-				data: A;
-				stackId: string | undefined;
-				projectId: string;
-		  };
 
 	/**
 	 * To prevent flickering when the input data changes for an already
 	 * rendered component we render the previous result until the next
 	 * result is ready.
 	 */
-	let cachedData = $state<CachedData | undefined>(undefined);
+	let cachedData = $state<CachedData<A, B> | undefined>(undefined);
 
-	function setCachedData(data: A): CachedData {
-		switch (props.type) {
-			case 'stack': {
-				return {
-					type: 'stack',
-					data: data,
-					stackId: props.stackId,
-					projectId: props.projectId
-				};
-			}
-
-			case 'project': {
-				return {
-					type: 'project',
-					data: data,
-					projectId: props.projectId
-				};
-			}
-
-			case 'optional-stack': {
-				return {
-					type: 'optional-stack',
-					data: data,
-					stackId: props.stackId,
-					projectId: props.projectId
-				};
-			}
-		}
+	function setCachedData(data: A): CachedData<A, B> {
+		return {
+			data,
+			projectId: props.projectId,
+			stackId: props.stackId
+		};
 	}
 
 	$effect(() => {
@@ -118,20 +59,19 @@
 </script>
 
 {#if cachedData !== undefined}
-	{#if cachedData.type === 'stack' && props.type === 'stack'}
-		{@render props.children(cachedData.data, {
-			stackId: cachedData.stackId,
-			projectId: cachedData.projectId
-		})}
-	{:else if cachedData.type === 'project' && props.type === 'project'}
-		{@render props.children(cachedData.data, {
-			projectId: cachedData.projectId
-		})}
-	{:else if cachedData.type === 'optional-stack' && props.type === 'optional-stack'}
-		{@render props.children(cachedData.data, {
-			stackId: cachedData.stackId,
-			projectId: cachedData.projectId
-		})}
+	{@render props.children(cachedData.data, {
+		projectId: cachedData.projectId,
+		stackId: cachedData.stackId as B
+	})}
+
+	{#if props.result?.status === 'fulfilled'}
+		{#if props.result.data === undefined}
+			{props.empty}
+		{/if}
+	{:else if props.result?.status === 'pending'}
+		<div class="loading-spinner">
+			<Icon name="spinner" />
+		</div>
 	{/if}
 {:else if props.result?.status === 'pending'}
 	<div class="loading-spinner">
