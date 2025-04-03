@@ -30,7 +30,7 @@
 		<div class="profile-sidebar__menu-wrapper">
 			<div class="profile-sidebar__header-wrapper">
 				{#if platformName === 'macos'}
-					<div class="traffic-light-placeholder"></div>
+					<div class="traffic-lights-placeholder"></div>
 				{/if}
 				<div class="profile-sidebar__header">
 					<div class="back-btn__icon">
@@ -147,6 +147,8 @@
 	</section>
 
 	<section class="profile-sidebar__bottom">
+		<SupportersBanner />
+
 		<div class="social-banners">
 			<button
 				type="button"
@@ -166,8 +168,6 @@
 				<Icon name="discord" />
 			</button>
 		</div>
-
-		<SupportersBanner />
 	</section>
 </aside>
 
@@ -195,7 +195,7 @@
 		gap: 8px;
 	}
 
-	.traffic-light-placeholder {
+	.traffic-lights-placeholder {
 		width: 100%;
 		height: 24px;
 	}

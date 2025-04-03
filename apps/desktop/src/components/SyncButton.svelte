@@ -20,6 +20,8 @@
 	const forge = getContext(DefaultForgeFactory);
 	const listingService = $derived(forge.current.listService);
 
+	const lastFetched = $derived(baseBranch.current.data?.lastFetched);
+
 	let loading = $state(false);
 </script>
 
@@ -29,6 +31,7 @@
 	kind="outline"
 	icon="update"
 	tooltip="Last fetch from upstream"
+	disabled={!lastFetched}
 	{loading}
 	onmousedown={async (e: MouseEvent) => {
 		e.preventDefault();
@@ -51,8 +54,10 @@
 >
 	{#if loading}
 		<div class="sync-btn__busy-label">busy…</div>
-	{:else if baseBranch.current.data?.lastFetched}
-		<TimeAgo date={baseBranch.current.data.lastFetched} addSuffix={true} />
+	{:else if lastFetched}
+		<TimeAgo date={lastFetched} addSuffix={true} />
+	{:else}
+		<span class="text-12 text-weak">Could not fetch</span>
 	{/if}
 </Button>
 
