@@ -48,8 +48,8 @@
 <div class="tabs" bind:this={tabsEl}>
 	<div class="inner">
 		<div class="scroller" bind:this={scrollerEl} class:scrolled {onscroll}>
-			<ReduxResult result={result.current}>
-				{#snippet children(result)}
+			<ReduxResult type="project" {projectId} result={result.current}>
+				{#snippet children(result, env)}
 					{#if result.length > 0}
 						{#each result as tab, i (tab.branchNames[0])}
 							{@const first = i === 0}
@@ -58,9 +58,9 @@
 
 							<StackTab
 								name={tab.branchNames[0]!}
-								{projectId}
+								projectId={env.projectId}
 								stackId={tab.id}
-								href={stackPath(projectId, tab.id)}
+								href={stackPath(env.projectId, tab.id)}
 								anchors={tab.branchNames.slice(1)}
 								{selected}
 								onNextTab={() => {

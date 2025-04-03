@@ -54,8 +54,13 @@
 	);
 </script>
 
-<ReduxResult result={combineResults(upstreamOnlyCommits.current, localAndRemoteCommits.current)}>
-	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits])}
+<ReduxResult
+	type="stack"
+	{stackId}
+	{projectId}
+	result={combineResults(upstreamOnlyCommits.current, localAndRemoteCommits.current)}
+>
+	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits], { stackId })}
 		<div class="commit-list">
 			{#if upstreamTemplate}
 				{#each upstreamOnlyCommits as commit, i (commit.id)}

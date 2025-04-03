@@ -62,8 +62,13 @@
 </script>
 
 {#if branchName}
-	<ReduxResult result={combineResults(branchResult.current, branchDetailsResult.current)}>
-		{#snippet children([branch, branchDetails])}
+	<ReduxResult
+		type="stack"
+		{stackId}
+		{projectId}
+		result={combineResults(branchResult.current, branchDetailsResult.current)}
+	>
+		{#snippet children([branch, branchDetails], { stackId, projectId })}
 			{@const hasCommits =
 				branchCommitsResult.current.data && branchCommitsResult.current.data.length > 0}
 			{@const remoteTrackingBranch = branchResult.current.data?.remoteTrackingBranch}
