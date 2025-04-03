@@ -1,6 +1,7 @@
 <script module>
 	import iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Component } from 'svelte';
+	import type { Snippet } from 'svelte';
 
 	export type Page = {
 		id: string;
@@ -29,6 +30,7 @@
 		// If true, the page will be shown in full screen mode.
 		hidePageHeader?: boolean;
 		isFullPage?: boolean;
+		footer?: Snippet;
 	};
 
 	const {
@@ -38,7 +40,8 @@
 		pageUrl,
 		onclose,
 		hidePageHeader,
-		isFullPage
+		isFullPage,
+		footer
 	}: Props = $props();
 
 	const [userService] = inject(UserService);
@@ -75,6 +78,12 @@
 				</a>
 			{/each}
 		</div>
+
+		{#if footer}
+			<div class="settings-sidebar__footer">
+				{@render footer()}
+			</div>
+		{/if}
 	</div>
 
 	<section class="page-view">
@@ -136,6 +145,7 @@
 
 	/* LINKS */
 	.settings-sidebar__links {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
