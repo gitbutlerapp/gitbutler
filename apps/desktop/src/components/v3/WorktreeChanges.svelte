@@ -106,8 +106,8 @@
 	let isFooterSticky = $state(false);
 </script>
 
-<ReduxResult result={changesResult.current}>
-	{#snippet children(changes)}
+<ReduxResult {stackId} {projectId} result={changesResult.current}>
+	{#snippet children(changes, { stackId, projectId })}
 		<ScrollableContainer wide>
 			<div class="uncommitted-changes-wrap">
 				<div use:stickyHeader class="worktree-header">

@@ -44,8 +44,8 @@
 
 {#if changesResult}
 	<div class="changed-files">
-		<ReduxResult result={changesResult.current}>
-			{#snippet children(changes)}
+		<ReduxResult {stackId} {projectId} result={changesResult.current}>
+			{#snippet children(changes, { stackId, projectId })}
 				<div class="changed-files__header" use:stickyHeader>
 					<div class="changed-files__header-left">
 						<h4 class="text-14 text-semibold">{headerTitle}</h4>

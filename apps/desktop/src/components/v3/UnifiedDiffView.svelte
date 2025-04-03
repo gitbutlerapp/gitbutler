@@ -156,8 +156,8 @@
 </script>
 
 <div class="diff-section" bind:this={viewport}>
-	<ReduxResult result={diffResult.current}>
-		{#snippet children(diff)}
+	<ReduxResult {projectId} result={diffResult.current}>
+		{#snippet children(diff, env)}
 			{#if diff.type === 'Patch'}
 				{#each diff.subject.hunks as hunk}
 					{@const [staged, stagedLines] = getStageState(hunk)}
@@ -197,7 +197,7 @@
 						bind:this={contextMenu}
 						trigger={viewport}
 						projectPath={project.vscodePath}
-						{projectId}
+						projectId={env.projectId}
 						{change}
 						readonly={false}
 						unSelectHunk={(hunk) => updateStage(hunk, false, diff.subject.hunks)}

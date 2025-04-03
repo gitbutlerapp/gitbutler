@@ -78,6 +78,8 @@
 </script>
 
 <ReduxResult
+	{stackId}
+	{projectId}
 	result={combineResults(
 		branchResult.current,
 		branchesResult.current,
@@ -87,14 +89,11 @@
 		localAndRemoteCommits.current
 	)}
 >
-	{#snippet children([
-		branch,
-		branches,
-		branchDetails,
-		commit,
-		upstreamOnlyCommits,
-		localAndRemoteCommits
-	])}
+	{#snippet children(
+		[branch, branches, branchDetails, commit, upstreamOnlyCommits, localAndRemoteCommits],
+		{ projectId, stackId }
+	)}
+		{@const branchName = branch.name}
 		{@const selected = selection.current?.branchName === branch.name}
 		{@const isNewBranch = !upstreamOnlyCommits.length && !localAndRemoteCommits.length}
 		{#if !first}

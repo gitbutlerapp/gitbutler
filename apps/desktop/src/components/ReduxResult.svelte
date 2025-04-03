@@ -1,8 +1,9 @@
 <script lang="ts" module>
 	type A = unknown;
+	type B = string | undefined;
 </script>
 
-<script lang="ts" generics="A">
+<script lang="ts" generics="A, B extends string | undefined">
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
@@ -14,39 +15,75 @@
 		error?: unknown;
 	};
 
-	type Props<A> = {
-		result: Result<A> | undefined;
-		children: Snippet<[A]>;
-		empty?: Snippet;
+	type Env<B> = {
+		projectId: string;
+		stackId: B;
 	};
 
-	const { result, children }: Props<A> = $props();
+	type Props<A, B> = {
+		result: Result<A> | undefined;
+		empty?: Snippet;
+		projectId: string;
+		stackId?: B;
+		children: Snippet<[A, Env<B>]>;
+	};
 
-	let dataCopy: undefined | Result<A>['data'] = $state(result?.data);
+	let props: Props<A, B> = $props();
+
+	type CachedData<A, B> = {
+		data: A;
+		projectId: string;
+		stackId: Props<A, B>['stackId'];
+	};
 
 	/**
 	 * To prevent flickering when the input data changes for an already
 	 * rendered component we render the previous result until the next
 	 * result is ready.
 	 */
+	let cachedData = $state<CachedData<A, B> | undefined>(undefined);
+
+	function setCachedData(data: A): CachedData<A, B> {
+		return {
+			data,
+			projectId: props.projectId,
+			stackId: props.stackId
+		};
+	}
+
 	$effect(() => {
-		if (result?.data) dataCopy = result.data;
+		if (props.result?.data !== undefined) {
+			cachedData = setCachedData(props.result.data);
+		}
 	});
 </script>
 
-{#if dataCopy !== undefined}
-	{@render children(dataCopy)}
-{:else if result?.status === 'pending'}
+{#if cachedData !== undefined}
+	{@render props.children(cachedData.data, {
+		projectId: cachedData.projectId,
+		stackId: cachedData.stackId as B
+	})}
+
+	{#if props.result?.status === 'fulfilled'}
+		{#if props.result.data === undefined}
+			{props.empty}
+		{/if}
+	{:else if props.result?.status === 'pending'}
+		<div class="loading-spinner">
+			<Icon name="spinner" />
+		</div>
+	{/if}
+{:else if props.result?.status === 'pending'}
 	<div class="loading-spinner">
 		<Icon name="spinner" />
 	</div>
-{:else if result?.status === 'rejected'}
-	{#if isErrorlike(result.error)}
-		{result.error.message}
+{:else if props.result?.status === 'rejected'}
+	{#if isErrorlike(props.result.error)}
+		{props.result.error.message}
 	{:else}
-		{String(result.error)}
+		{JSON.stringify(props.result.error)}
 	{/if}
-{:else if status === 'uninitialized'}
+{:else if props.result?.status === 'uninitialized'}
 	Uninitialized...
 {/if}
 

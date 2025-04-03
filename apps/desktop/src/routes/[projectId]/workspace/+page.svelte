@@ -13,10 +13,10 @@
 
 {#if projectId}
 	{@const result = stackService.stackAt(projectId, 0)}
-	<ReduxResult result={result.current}>
-		{#snippet children(stack)}
+	<ReduxResult {projectId} result={result.current}>
+		{#snippet children(stack, env)}
 			{#if stack}
-				{goto(stackPath(projectId, stack.id))}
+				{goto(stackPath(env.projectId, stack.id))}
 			{:else}
 				{@const error = new Error(`No stacks found in project`)}
 				<SomethingWentWrong {error} />

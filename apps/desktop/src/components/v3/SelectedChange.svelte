@@ -33,11 +33,17 @@
 	});
 </script>
 
-<ReduxResult result={changeResult.current}>
-	{#snippet children(change)}
+<ReduxResult {projectId} result={changeResult.current}>
+	{#snippet children(change, env)}
 		<div class="selected-change-item">
-			<FileListItemWrapper {selectedFile} {projectId} {change} isHeader listMode="list" />
-			<UnifiedDiffView {projectId} {change} selectable />
+			<FileListItemWrapper
+				{selectedFile}
+				projectId={env.projectId}
+				{change}
+				isHeader
+				listMode="list"
+			/>
+			<UnifiedDiffView projectId={env.projectId} {change} selectable />
 		</div>
 	{/snippet}
 </ReduxResult>

@@ -103,14 +103,14 @@
 	}
 </script>
 
-<ReduxResult result={commitResult.current}>
-	{#snippet children(commit)}
+<ReduxResult {stackId} {projectId} result={commitResult.current}>
+	{#snippet children(commit, env)}
 		{#if mode === 'edit'}
-			<Drawer {projectId} {stackId} title="Edit commit message">
+			<Drawer projectId={env.projectId} stackId={env.stackId} title="Edit commit message">
 				<CommitMessageInput
 					bind:this={commitMessageInput}
-					{projectId}
-					{stackId}
+					projectId={env.projectId}
+					stackId={env.stackId}
 					action={editCommitMessage}
 					actionLabel="Save"
 					onCancel={() => setMode('view')}
@@ -120,7 +120,7 @@
 				/>
 			</Drawer>
 		{:else}
-			<Drawer {projectId} {stackId} splitView>
+			<Drawer projectId={env.projectId} stackId={env.stackId} splitView>
 				{#snippet header()}
 					<h3 class="text-13 text-semibold commit-view__header">
 						Commit
@@ -154,17 +154,17 @@
 				<div class="commit-view">
 					<CommitHeader {commit} class="text-14 text-semibold text-body" />
 					<CommitDetails
-						{projectId}
+						projectId={env.projectId}
 						{commit}
-						{stackId}
+						stackId={env.stackId}
 						onEditCommitMessage={() => setMode('edit')}
 					/>
 				</div>
 
 				{#snippet filesSplitView()}
 					<ChangedFiles
-						{projectId}
-						{stackId}
+						projectId={env.projectId}
+						stackId={env.stackId}
 						selectionId={{ type: 'commit', commitId: commitKey.commitId }}
 					/>
 				{/snippet}

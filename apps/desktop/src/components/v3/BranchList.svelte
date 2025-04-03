@@ -10,16 +10,13 @@
 		stackId: string;
 	};
 
-	const { projectId, stackId: unsyncedStackId }: Props = $props();
+	const { projectId, stackId }: Props = $props();
 	const [stackService] = inject(StackService);
-	const [stackId, branchesResult] = $derived([
-		unsyncedStackId,
-		stackService.branches(projectId, unsyncedStackId)
-	]);
+	const branchesResult = $derived(stackService.branches(projectId, stackId));
 </script>
 
-<ReduxResult result={branchesResult.current}>
-	{#snippet children(branches)}
+<ReduxResult {stackId} {projectId} result={branchesResult.current}>
+	{#snippet children(branches, { stackId, projectId })}
 		{#each branches as branch, i}
 			{@const first = i === 0}
 			{@const last = i === branches.length - 1}
