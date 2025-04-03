@@ -66,12 +66,15 @@
 		type="stack"
 		{stackId}
 		{projectId}
-		result={combineResults(branchResult.current, branchDetailsResult.current)}
+		result={combineResults(
+			branchResult.current,
+			branchDetailsResult.current,
+			branchCommitsResult.current
+		)}
 	>
-		{#snippet children([branch, branchDetails], { stackId, projectId })}
-			{@const hasCommits =
-				branchCommitsResult.current.data && branchCommitsResult.current.data.length > 0}
-			{@const remoteTrackingBranch = branchResult.current.data?.remoteTrackingBranch}
+		{#snippet children([branch, branchDetails, branchCommits], { stackId, projectId })}
+			{@const hasCommits = branchCommits.length > 0}
+			{@const remoteTrackingBranch = branch.remoteTrackingBranch}
 			<Drawer {projectId} {stackId} splitView={hasCommits}>
 				{#snippet header()}
 					<div class="branch__header">
@@ -100,7 +103,7 @@
 							kind="outline"
 							tooltip="Copy branch name"
 							onclick={() => {
-								writeClipboard(branchName);
+								writeClipboard(branch.name);
 							}}
 						/>
 
@@ -143,7 +146,7 @@
 							</div>
 						</div>
 
-						<BranchReview {stackId} {projectId} {branchName} />
+						<BranchReview {stackId} {projectId} branchName={branch.name} />
 					</div>
 				{:else}
 					<div class="branch-view__empty-state">
@@ -165,7 +168,7 @@
 						<ChangedFiles
 							{projectId}
 							{stackId}
-							selectionId={{ type: 'branch', branchName, stackId }}
+							selectionId={{ type: 'branch', branchName: branch.name, stackId }}
 						/>
 					{/if}
 				{/snippet}

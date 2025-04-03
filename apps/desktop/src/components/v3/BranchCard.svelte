@@ -94,6 +94,7 @@
 		[branch, branches, branchDetails, commit, upstreamOnlyCommits, localAndRemoteCommits],
 		{ projectId, stackId }
 	)}
+		{@const branchName = branch.name}
 		{@const selected = selection.current?.branchName === branch.name}
 		{@const isNewBranch = !upstreamOnlyCommits.length && !localAndRemoteCommits.length}
 		{#if !first}
