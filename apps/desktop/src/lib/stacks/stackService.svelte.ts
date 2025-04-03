@@ -507,7 +507,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: (result, _error) => [
 					invalidatesItem(ReduxTag.StackInfo, result?.id),
 					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.UpstreamIntegrationStatus)
+					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
 			updateStack: build.mutation<
@@ -521,7 +522,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: (result, _error) => [
 					invalidatesItem(ReduxTag.StackInfo, result?.id),
 					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.UpstreamIntegrationStatus)
+					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
 			updateBranchOrder: build.mutation<
@@ -622,7 +624,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
 					invalidatesItem(ReduxTag.Commits, args.stackId),
 					invalidatesItem(ReduxTag.PullRequests, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+					invalidatesItem(ReduxTag.StackInfo, args.stackId),
+					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
 			createCommit: build.mutation<
@@ -715,7 +718,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+					invalidatesItem(ReduxTag.StackInfo, args.stackId),
+					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
 			uncommit: build.mutation<void, { projectId: string; stackId: string; commitId: string }>({
@@ -771,7 +775,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'save_and_unapply_virtual_branch',
 					params: { projectId, stackId }
 				}),
-				invalidatesTags: [invalidatesList(ReduxTag.Stacks)]
+				invalidatesTags: () => [
+					invalidatesList(ReduxTag.Stacks),
+					invalidatesList(ReduxTag.BranchListing)
+				]
 			}),
 			publishBranch: build.mutation<
 				string,
@@ -807,7 +814,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+					invalidatesItem(ReduxTag.StackInfo, args.stackId),
+					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
 			updateBranchName: build.mutation<
@@ -832,7 +840,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
 					invalidatesItem(ReduxTag.StackInfo, args.stackId),
-					invalidatesItem(ReduxTag.Commits, args.stackId)
+					invalidatesItem(ReduxTag.Commits, args.stackId),
+					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
 			removeBranch: build.mutation<
@@ -853,7 +862,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+					invalidatesItem(ReduxTag.StackInfo, args.stackId),
+					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
 			updateBranchDescription: build.mutation<
@@ -865,7 +875,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					params: { projectId, stackId, branchName, description }
 				}),
 				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.StackBranches, args.stackId)
+					invalidatesItem(ReduxTag.StackBranches, args.stackId),
+					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
 			reorderStack: build.mutation<
@@ -1019,7 +1030,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.Commits, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+					invalidatesItem(ReduxTag.StackInfo, args.stackId),
+					invalidatesList(ReduxTag.BranchListing)
 				]
 			})
 		})
