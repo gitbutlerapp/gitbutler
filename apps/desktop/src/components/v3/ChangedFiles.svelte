@@ -76,6 +76,7 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
+		min-height: 100%;
 	}
 
 	.changed-files__header {
