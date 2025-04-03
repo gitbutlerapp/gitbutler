@@ -45,7 +45,7 @@
 
 	const listingDetails = $derived(branchListingService.getBranchListingDetails(branch.givenName));
 	const stackBranchNames = $derived.by(() => {
-		if ($listingDetails?.virtualBranch) return $listingDetails.virtualBranch.stackBranches;
+		if ($listingDetails?.stack) return $listingDetails.stack.branches;
 		if (pr) return [pr.title];
 		if (branch) return [branch.givenName];
 		return [];
