@@ -145,7 +145,10 @@ export function combineBranchesAndPrs(
 	const listingSubjects: BranchListingEntrySubject[] = branchList.map((subject) => ({
 		type: 'branchListing',
 		subject: subject,
-		prs: subject.stack?.branches.map((name) => prMap[name]).filter(isDefined) || []
+		prs:
+			getBranchNames(subject)
+				.map((name) => prMap[name])
+				.filter(isDefined) || []
 	}));
 
 	const attachedPrs = new Set(listingSubjects.flatMap((item) => item.prs.map((pr) => pr.number)));
@@ -239,6 +242,11 @@ export function groupBranches(branches: SidebarEntrySubject[]) {
 	return grouped;
 }
 
-export function getBranchNames(branchListing: BranchListing) {
-	return branchListing.stack?.branches || [];
+/** All branch names associated with listing. */
+function getBranchNames(branchListing: BranchListing) {
+	if (branchListing.stack) {
+		return branchListing.stack.branches;
+	} else {
+		return [branchListing.name];
+	}
 }
