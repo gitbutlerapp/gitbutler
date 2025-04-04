@@ -1,7 +1,5 @@
 import { getUserErrorCode } from '$lib/backend/ipc';
-import { BranchListingService } from '$lib/branches/branchListing';
 import { GitBranchService } from '$lib/branches/gitBranch';
-import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
 import { UncommitedFilesWatcher } from '$lib/files/watcher';
 import { TemplateService } from '$lib/forge/templateService';
@@ -47,15 +45,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const historyService = new HistoryService(projectId);
 	const templateService = new TemplateService(projectId);
 
-	const branchListingService = new BranchListingService(projectId);
 	const gitBranchService = new GitBranchService(projectId);
-
-	const vbranchService = new VirtualBranchService(
-		projectId,
-		projectMetrics,
-		branchListingService,
-		modeService
-	);
 
 	const uncommitedFileWatcher = new UncommitedFilesWatcher(project);
 	const syncedSnapshotService = new SyncedSnapshotService(
@@ -76,15 +66,10 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		project,
 		projectService,
 		gitBranchService,
-		vbranchService,
 		projectMetrics,
 		modeService,
 		fetchSignal,
-
-		// These observables are provided for convenience
-		branchListingService,
 		uncommitedFileWatcher,
-
 		// Cloud-related services
 		syncedSnapshotService,
 		stackPublishingService

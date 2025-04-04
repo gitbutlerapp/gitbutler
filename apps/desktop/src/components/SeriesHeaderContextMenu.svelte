@@ -3,7 +3,6 @@
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { type CommitStatus } from '$lib/commits/commit';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { Project } from '$lib/project/project';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
@@ -16,6 +15,7 @@
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 
 	interface Props {
+		projectId: string;
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
 		leftClickTrigger?: HTMLElement;
 		rightClickTrigger?: HTMLElement;
@@ -36,6 +36,7 @@
 	}
 
 	let {
+		projectId,
 		contextMenuEl = $bindable(),
 		leftClickTrigger,
 		rightClickTrigger,
@@ -55,8 +56,7 @@
 		onToggle
 	}: Props = $props();
 
-	const [project, aiService, stackService] = inject(Project, AIService, StackService);
-	const projectId = $derived(project.id);
+	const [aiService, stackService] = inject(AIService, StackService);
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
 
 	const [renameBranch, branchRenameOp] = stackService.updateBranchName;

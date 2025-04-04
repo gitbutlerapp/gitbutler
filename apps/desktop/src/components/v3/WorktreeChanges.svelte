@@ -132,7 +132,8 @@
 				{#if changes.length > 0}
 					<div class="uncommitted-changes">
 						<FileList
-							selectionId={{ type: 'worktree', showCheckboxes: isCommitting }}
+							selectionId={{ type: 'worktree' }}
+							showCheckboxes={isCommitting}
 							{projectId}
 							{stackId}
 							{changes}

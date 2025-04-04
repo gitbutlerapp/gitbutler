@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { BranchListingService } from '$lib/branches/branchListing';
+	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { getContext, inject } from '@gitbutler/shared/context';
 	import Button, { type Props as ButtonProps } from '@gitbutler/ui/Button.svelte';
@@ -13,7 +13,7 @@
 
 	const { projectId, size = 'tag' }: Props = $props();
 
-	const [baseBranchService, branchListingService] = inject(BaseBranchService, BranchListingService);
+	const [baseBranchService, branchService] = inject(BaseBranchService, BranchService);
 	const baseBranch = baseBranchService.baseBranch(projectId);
 	const [fetchFromRemotes] = baseBranchService.fetchFromRemotes;
 
@@ -45,7 +45,7 @@
 			await Promise.all([
 				listingService?.refresh(projectId),
 				baseBranch.current.refetch(),
-				branchListingService.refresh()
+				branchService.refresh(projectId)
 			]);
 		} finally {
 			loading = false;
