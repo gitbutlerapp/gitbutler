@@ -70,6 +70,8 @@
 		onkeydown,
 		oncontextmenu
 	}: Props = $props();
+
+	const showIndent = $derived(depth && depth > 0);
 </script>
 
 <div
@@ -104,13 +106,17 @@
 		</div>
 	{/if}
 
-	<div class="file-list-item__indicators">
-		<FileIndent {depth} />
+	{#if showIndent || showCheckbox}
+		<div class="file-list-item__indicators">
+			{#if showIndent}
+				<FileIndent {depth} />
+			{/if}
 
-		{#if showCheckbox}
-			<Checkbox small {checked} {indeterminate} onchange={oncheck} />
-		{/if}
-	</div>
+			{#if showCheckbox}
+				<Checkbox small {checked} {indeterminate} onchange={oncheck} />
+			{/if}
+		</div>
+	{/if}
 
 	<FileName {filePath} hideFilePath={listMode === 'tree'} />
 
@@ -212,10 +218,6 @@
 		align-items: center;
 		gap: 6px;
 		height: 100%;
-
-		&:not(:has(*)) {
-			display: none;
-		}
 	}
 
 	.draggable-handle {

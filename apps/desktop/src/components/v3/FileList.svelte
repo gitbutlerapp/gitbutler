@@ -56,7 +56,7 @@
 	}
 </script>
 
-{#snippet fileWrapper(change: TreeChange, idx: number, depth: number = 0)}
+{#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0)}
 	<FileListItemWrapper
 		{selectionId}
 		{change}
@@ -64,6 +64,7 @@
 		{listActive}
 		{listMode}
 		{depth}
+		showCheckbox={showCheckboxes}
 		isLast={idx === visibleFiles.length - 1}
 		selected={idSelection.has(change.path, selectionId)}
 		onclick={(e) => {
@@ -84,20 +85,10 @@
 	>
 		{#if listMode === 'tree'}
 			{@const node = abbreviateFolders(changesToFileTree(changes))}
-			<FileTreeNode
-				isRoot
-				{stackId}
-				{node}
-				{showCheckboxes}
-				{changes}
-				{fileWrapper}
-				onFolderClick={() => {
-					console.warn('implement folder click to select all children');
-				}}
-			/>
+			<FileTreeNode isRoot {stackId} {node} {showCheckboxes} {changes} {fileTemplate} />
 		{:else}
 			{#each visibleFiles as change, idx}
-				{@render fileWrapper(change, idx)}
+				{@render fileTemplate(change, idx)}
 			{/each}
 		{/if}
 	</LazyloadContainer>

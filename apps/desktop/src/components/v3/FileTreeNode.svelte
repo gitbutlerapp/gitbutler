@@ -12,8 +12,7 @@
 		showCheckboxes?: boolean;
 		changes: TreeChange[];
 		depth?: number;
-		fileWrapper: Snippet<[TreeChange, number, number]>;
-		onFolderClick: (e: MouseEvent) => void;
+		fileTemplate: Snippet<[TreeChange, number, number]>;
 	};
 
 	let {
@@ -23,8 +22,7 @@
 		showCheckboxes,
 		changes,
 		depth = 0,
-		fileWrapper,
-		onFolderClick
+		fileTemplate
 	}: Props = $props();
 
 	// Local state to track whether the folder is expanded
@@ -39,25 +37,16 @@
 {#if isRoot}
 	<!-- Node is a root and should only render children! -->
 	{#each node.children as childNode}
-		<Self
-			{depth}
-			{stackId}
-			node={childNode}
-			{showCheckboxes}
-			{changes}
-			{fileWrapper}
-			{onFolderClick}
-		/>
+		<Self {depth} {stackId} node={childNode} {showCheckboxes} {changes} {fileTemplate} />
 	{/each}
 {:else if node.kind === 'file'}
-	{@render fileWrapper(node.change, node.index, depth)}
+	{@render fileTemplate(node.change, node.index, depth)}
 {:else}
 	<TreeListFolder
 		{depth}
 		{isExpanded}
 		showCheckbox={showCheckboxes}
 		{node}
-		onclick={onFolderClick}
 		ontoggle={handleToggle}
 	/>
 
@@ -69,8 +58,7 @@
 				node={childNode}
 				{showCheckboxes}
 				{changes}
-				{fileWrapper}
-				{onFolderClick}
+				{fileTemplate}
 			/>
 		{/each}
 	{/if}
