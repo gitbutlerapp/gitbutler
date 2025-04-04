@@ -198,6 +198,7 @@
 <AddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={branch.name} />
 
 <SeriesHeaderContextMenu
+	{projectId}
 	stackId={stack.id}
 	bind:this={branchContextMenu}
 	bind:contextMenuEl={kebabContextMenu}

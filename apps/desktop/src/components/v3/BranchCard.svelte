@@ -250,6 +250,7 @@
 		/>
 
 		<SeriesHeaderContextMenu
+			{projectId}
 			bind:contextMenuEl={contextMenu}
 			{stackId}
 			leftClickTrigger={kebabContextMenuTrigger}
