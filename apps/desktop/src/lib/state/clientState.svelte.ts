@@ -8,6 +8,7 @@ import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { buildCreateApi, coreModule, setupListeners, type RootState } from '@reduxjs/toolkit/query';
 import { FLUSH, PAUSE, PERSIST, persistReducer, PURGE, REGISTER, REHYDRATE } from 'redux-persist';
 import persistStore from 'redux-persist/lib/persistStore';
+import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { Tauri } from '$lib/backend/tauri';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
@@ -53,7 +54,12 @@ export class ClientState {
 	/** rtk-query api for communicating with GitLab. */
 	readonly gitlabApi: GitLabApi;
 
-	constructor(tauri: Tauri, gitHubClient: GitHubClient, gitLabClient: GitLabClient) {
+	constructor(
+		tauri: Tauri,
+		gitHubClient: GitHubClient,
+		gitLabClient: GitLabClient,
+		posthog: PostHogWrapper
+	) {
 		const butlerMod = butlerModule({
 			// Reactive loop without nested function.
 			// TODO: Can it be done without nesting?
@@ -70,7 +76,8 @@ export class ClientState {
 			gitLabClient,
 			backendApi: this.backendApi,
 			githubApi: this.githubApi,
-			gitlabApi: this.gitlabApi
+			gitlabApi: this.gitlabApi,
+			posthog
 		});
 		setupListeners(this.store.dispatch);
 		this.dispatch = this.store.dispatch;
@@ -98,6 +105,7 @@ function createStore(params: {
 	backendApi: BackendApi;
 	githubApi: GitHubApi;
 	gitlabApi: GitLabApi;
+	posthog: PostHogWrapper;
 }) {
 	const {
 		tauri,
@@ -105,7 +113,8 @@ function createStore(params: {
 		gitLabClient: gitlab,
 		backendApi,
 		githubApi,
-		gitlabApi
+		gitlabApi,
+		posthog
 	} = params;
 	const reducer = combineReducers({
 		// RTK Query API for the back end.
@@ -121,7 +130,7 @@ function createStore(params: {
 		reducer: reducer,
 		middleware: (getDefaultMiddleware) => {
 			return getDefaultMiddleware({
-				thunk: { extraArgument: { tauri, gitHubClient: github, gitLabClient: gitlab } },
+				thunk: { extraArgument: { tauri, gitHubClient: github, gitLabClient: gitlab, posthog } },
 				serializableCheck: {
 					ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER]
 				}
