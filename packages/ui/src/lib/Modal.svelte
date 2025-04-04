@@ -28,6 +28,7 @@
 		onKeyDown?: (e: KeyboardEvent) => void;
 		children: Snippet<[item: any, close: () => void]>;
 		controls?: Snippet<[close: () => void, item: any]>;
+		testId?: string;
 	}
 
 	const {
@@ -41,7 +42,8 @@
 		controls,
 		onSubmit,
 		onKeyDown,
-		noPadding = false
+		noPadding = false,
+		testId
 	}: Props = $props();
 
 	let open = $state(false);
@@ -95,6 +97,7 @@
 
 {#if open}
 	<div
+		data-testid={testId}
 		role="presentation"
 		use:portal={'body'}
 		class="modal-container {isClosing ? 'closing' : 'open'}"
