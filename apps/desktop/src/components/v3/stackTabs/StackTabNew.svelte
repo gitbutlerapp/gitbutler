@@ -165,23 +165,25 @@
 			</label>
 		</div>
 
-		<span class="text-12 text-body radio-aditional-info"
-			>{createRefType === 'stack'
+		<span class="text-12 text-body radio-aditional-info">
+			{createRefType === 'stack'
 				? '└ Stacks that are currently applied will remain in the workspace.'
-				: `└ The new branch will be added on top of \`${firstBranchName}\``}</span
-		>
+				: `└ The new branch will be added on top of \`${firstBranchName}\``}
+		</span>
 	</div>
 
 	{#snippet controls(close)}
 		<div class="footer">
-			<span class="text-12 text-body footer-text"
-				>See more: <Link
+			<span class="text-12 text-body footer-text">
+				See more:
+				<Link
 					target="_blank"
 					rel="noreferrer"
 					href="https://docs.gitbutler.com/features/stacked-branches#comparison-to-virtual-branches"
-					>Stacked vs. Dependent</Link
-				></span
-			>
+				>
+					Stacked vs. Dependent
+				</Link>
+			</span>
 
 			<div class="footer__controls">
 				<Button kind="outline" type="reset" onclick={close}>Cancel</Button>

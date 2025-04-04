@@ -45,7 +45,7 @@
 	const forgeBranch = $derived(forge.current?.branch(branchName));
 
 	$effect(() => {
-		if (focusedArea === 'commit') {
+		if (focusedArea === 'drawer') {
 			stackState.activeSelectionId.set({ type: 'branch', stackId, branchName });
 		}
 	});
