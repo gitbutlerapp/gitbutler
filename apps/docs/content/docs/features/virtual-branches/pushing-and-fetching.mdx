@@ -1,0 +1,18 @@
+---
+title: Pushing and Fetching
+---
+
+import ImageSection from "@/components/ImageSection"
+
+GitButler can authenticate with an upstream Git server in several different ways.
+
+ You can just tell us to use the system Git executable, which you can setup however you want. You can use our built in SSH protocol with your own SSH key (this does not require you to have Git installed), or you can use the default [Git credentials helper](https://git-scm.com/doc/credential-helpers).
+
+You can set your preference (and test if it works) in your project's "Git authentication" section:
+
+<ImageSection
+  alt="Git Authentication Settings"
+  src="/pushing.png"
+/>
+
+Once that's done, GitButler will be able to automatically fetch upstream work and push new branches to your upstream server.

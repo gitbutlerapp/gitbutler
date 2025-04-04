@@ -1,0 +1,24 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "https://gitbutler.com"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/getting-started/why-gitbutler",
+      "destination": "/why-gitbutler"
+    },
+    {
+      "source": "/features/virtual-branches",
+      "destination": "/features/virtual-branches/overview"
+    },
+    {
+      "source": "/features/virtual-branches/verifying-commits",
+      "destination": "/features/virtual-branches/signing-commits"
+    }
+  ]
+}
