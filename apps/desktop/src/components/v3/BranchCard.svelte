@@ -257,7 +257,7 @@
 			rightClickTrigger={headerEl}
 			branchName={branch.name}
 			seriesCount={branches.length}
-			isTopBranch={true}
+			isTopBranch={first}
 			descriptionOption={false}
 			onGenerateBranchName={() => {
 				throw new Error('Not implemented!');
