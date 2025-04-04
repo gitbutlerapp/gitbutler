@@ -6,20 +6,12 @@
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
+	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
 		projectId: string;
 		stackId: string;
-		selectionId:
-			| {
-					type: 'commit';
-					commitId: string;
-			  }
-			| {
-					type: 'branch';
-					stackId: string;
-					branchName: string;
-			  };
+		selectionId: SelectionId;
 	};
 
 	const { projectId, stackId, selectionId }: Props = $props();
@@ -27,7 +19,9 @@
 	const changesResult = $derived(
 		selectionId.type === 'commit'
 			? stackService.commitChanges(projectId, selectionId.commitId)
-			: stackService.branchChanges(projectId, selectionId.stackId, selectionId.branchName)
+			: selectionId.type === 'branch'
+				? stackService.branchChanges(projectId, selectionId.stackId, selectionId.branchName)
+				: undefined
 	);
 
 	const headerTitle = $derived.by(() => {
