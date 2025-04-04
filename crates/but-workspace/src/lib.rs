@@ -133,19 +133,23 @@ pub fn stacks(gb_dir: &Path, repo: &gix::Repository) -> Result<Vec<StackEntry>> 
         .list_stacks_in_workspace()?
         .into_iter()
         .sorted_by_key(|s| s.order)
-        .map(|stack| {
-            Ok(StackEntry {
-                id: stack.id,
-                branch_names: stack
-                    .heads(true)
-                    .into_iter()
-                    .rev()
-                    .map(Into::into)
-                    .collect(),
-                tip: stack.head(repo).map(|h| h.to_gix())?,
-            })
-        })
+        .map(|stack| StackEntry::try_new(repo, &stack))
         .collect()
+}
+
+impl StackEntry {
+    pub(crate) fn try_new(repo: &gix::Repository, stack: &Stack) -> anyhow::Result<Self> {
+        Ok(StackEntry {
+            id: stack.id,
+            branch_names: stack
+                .heads(true)
+                .into_iter()
+                .rev()
+                .map(Into::into)
+                .collect(),
+            tip: stack.head(repo).map(|h| h.to_gix())?,
+        })
+    }
 }
 
 /// Represents the pushable status for the current stack.
