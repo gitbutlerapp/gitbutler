@@ -21,19 +21,19 @@ export type StackUiSelection = {
 	upstream?: boolean;
 };
 
-type StackUiState = {
+export type StackUiState = {
 	selection: StackUiSelection | undefined;
 	activeSelectionId: SelectionId;
 };
 
-type ProjectUiState = {
+export type ProjectUiState = {
 	drawerPage: DrawerPage;
 	drawerFullScreen: boolean;
 	commitTitle: string;
 	commitMessage: string;
 };
 
-type GlobalUiState = {
+export type GlobalUiState = {
 	drawerHeight: number;
 	leftWidth: number;
 	stacksViewWidth: number;

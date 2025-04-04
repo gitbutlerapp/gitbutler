@@ -5,6 +5,7 @@
 	import { type Snippet } from 'svelte';
 
 	interface BaseProps {
+		testId?: string;
 		children: Snippet<[item: any]>;
 		leftClickTrigger?: HTMLElement;
 		rightClickTrigger?: HTMLElement;
@@ -30,6 +31,7 @@
 	type Props = HorizontalProps | VerticalProps;
 
 	let {
+		testId,
 		leftClickTrigger,
 		rightClickTrigger,
 		side = 'bottom',
@@ -221,6 +223,7 @@
 {#snippet contextMenu()}
 	<!-- svelte-ignore a11y_autofocus -->
 	<div
+		data-testid={testId}
 		bind:this={menuContainer}
 		tabindex="-1"
 		use:focusTrap

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
+	import { TestId } from '$lib/testing/testIds';
 	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 
 	interface Props {
@@ -31,6 +32,7 @@
 </script>
 
 <span
+	data-testid={TestId.BranchNameLabel}
 	use:resizeObserver={(e) => {
 		nameWidth = Math.round(e.frame.width);
 	}}
