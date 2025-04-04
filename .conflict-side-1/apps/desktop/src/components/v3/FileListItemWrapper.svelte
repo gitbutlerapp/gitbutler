@@ -18,7 +18,7 @@
 	interface Props {
 		projectId: string;
 		change: TreeChange;
-		selectedFile: SelectionId;
+		selectionId: SelectionId;
 		selected?: boolean;
 		isHeader?: boolean;
 		listActive?: boolean;
@@ -33,7 +33,7 @@
 
 	const {
 		change,
-		selectedFile,
+		selectionId,
 		projectId,
 		selected,
 		isHeader,
@@ -57,7 +57,7 @@
 
 	const selection = $derived(changeSelection.getById(change.path));
 	const indeterminate = $derived(selection.current && selection.current.type === 'partial');
-	const selectedChanges = $derived(idSelection.treeChanges(projectId, selectedFile));
+	const selectedChanges = $derived(idSelection.treeChanges(projectId, selectionId));
 
 	const uiState = getContext(UiState);
 
@@ -79,7 +79,7 @@
 	}
 
 	function onContextMenu(e: MouseEvent) {
-		if (selectedChanges.current.isSuccess && idSelection.has(change.path, selectedFile)) {
+		if (selectedChanges.current.isSuccess && idSelection.has(change.path, selectionId)) {
 			const changes: TreeChange[] = selectedChanges.current.data;
 			contextMenu?.open(e, { changes });
 			return;
@@ -90,7 +90,7 @@
 
 	function unSelectChanges(changes: TreeChange[]) {
 		for (const change of changes) {
-			idSelection.remove(change.path, selectedFile);
+			idSelection.remove(change.path, selectionId);
 			changeSelection.remove(change.path);
 		}
 	}
@@ -102,7 +102,7 @@
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
-		data: new ChangeDropData(stackId || '', change, idSelection, selectedFile),
+		data: new ChangeDropData(stackId || '', change, idSelection, selectionId),
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable',
 		disabled: isCommitting
@@ -130,7 +130,7 @@
 		/>
 	{:else}
 		<FileListItemV3
-			id={key({ ...selectedFile, path: change.path })}
+			id={key({ ...selectionId, path: change.path })}
 			filePath={change.path}
 			fileStatus={computeChangeStatus(change)}
 			{selected}

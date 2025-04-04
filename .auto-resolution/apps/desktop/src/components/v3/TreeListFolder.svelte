@@ -7,7 +7,7 @@
 	type Props = {
 		node: TreeNode & { kind: 'dir' };
 		depth: number;
-		showCheckbox: boolean;
+		showCheckbox?: boolean;
 		isExpanded?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		ontoggle?: (expanded: boolean) => void;

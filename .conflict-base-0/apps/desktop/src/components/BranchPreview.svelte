@@ -75,7 +75,7 @@
 		<div class="base__left" bind:this={rsViewport} style:width={$width + 'rem'}>
 			<ScrollableContainer wide>
 				<div class="branch-preview">
-					<BranchPreviewHeader {localBranch} {remoteBranch} {pr} />
+					<BranchPreviewHeader {projectId} {localBranch} {remoteBranch} {pr} />
 					{#if pr}
 						<div class="card">
 							<div class="card__header text-14 text-body text-semibold">{pr.title}</div>

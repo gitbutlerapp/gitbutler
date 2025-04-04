@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { BranchListingService } from '$lib/branches/branchListing';
+	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
 	import { Project } from '$lib/project/project';
@@ -18,22 +18,23 @@
 	import { goto } from '$app/navigation';
 
 	interface Props {
+		projectId: string;
 		localBranch: BranchData | undefined;
 		remoteBranch: BranchData | undefined;
 		pr: PullRequest | undefined;
 	}
 
-	const { localBranch, remoteBranch, pr }: Props = $props();
+	const { projectId, localBranch, remoteBranch, pr }: Props = $props();
 
 	const branch = $derived(remoteBranch || localBranch!);
 	const upstream = $derived(remoteBranch?.givenName);
 
-	const [branchListingService, project, forge, modeSerivce, baseBranchService] = inject(
-		BranchListingService,
+	const [project, forge, modeSerivce, baseBranchService, branchService] = inject(
 		Project,
 		DefaultForgeFactory,
 		ModeService,
-		BaseBranchService
+		BaseBranchService,
+		BranchService
 	);
 
 	const stackService = getContext(StackService);
@@ -43,9 +44,10 @@
 	const mode = modeSerivce.mode;
 	const forgeBranch = $derived(upstream ? forge.current.branch(upstream) : undefined);
 
-	const listingDetails = $derived(branchListingService.getBranchListingDetails(branch.givenName));
+	const detailsResult = $derived(branchService.get(projectId, branch.givenName));
+	const details = $derived(detailsResult.current.data);
 	const stackBranchNames = $derived.by(() => {
-		if ($listingDetails?.stack) return $listingDetails.stack.branches;
+		if (details?.stack) return details.stack.branches;
 		if (pr) return [pr.title];
 		if (branch) return [branch.givenName];
 		return [];

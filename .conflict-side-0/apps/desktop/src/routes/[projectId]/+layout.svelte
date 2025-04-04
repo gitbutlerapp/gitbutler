@@ -51,11 +51,9 @@
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	const {
-		vbranchService,
 		project,
 		projectId,
 		projectsService,
-		branchListingService,
 		modeService,
 		userService,
 		fetchSignal,
@@ -72,6 +70,11 @@
 	const forkInfo = $derived(pushRepoResponse.current.data);
 	const baseError = $derived(baseBranchResponse.current.error);
 	const baseBranchName = $derived(baseBranch?.shortName);
+	const branchService = getContext(BranchService);
+
+	const vbranchService = $derived(
+		new VirtualBranchService(projectId, projectMetrics, modeService, branchService)
+	);
 
 	const secretService = getSecretsService();
 	const gitLabState = $derived(new GitLabState(secretService, repoInfo, projectId));
@@ -96,6 +99,7 @@
 	const cloudBranchService = getContext(CloudBranchService);
 	const cloudProjectService = getContext(CloudProjectService);
 	const latestBranchLookupService = getContext(LatestBranchLookupService);
+
 	$effect(() => {
 		const upstreamIntegrationService = new UpstreamIntegrationService(
 			project,
@@ -109,17 +113,16 @@
 
 	$effect.pre(() => {
 		setContext(HistoryService, data.historyService);
-		setContext(VirtualBranchService, data.vbranchService);
 		setContext(BranchController, data.branchController);
 		setContext(TemplateService, data.templateService);
 		setContext(BaseBranch, baseBranch);
 		setContext(Project, project);
 		setContext(StackingReorderDropzoneManagerFactory, data.stackingReorderDropzoneManagerFactory);
 		setContext(GitBranchService, data.gitBranchService);
-		setContext(BranchListingService, data.branchListingService);
 		setContext(ModeService, data.modeService);
 		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
 		setContext(ProjectService, data.projectService);
+		setContext(VirtualBranchService, vbranchService);
 
 		// Cloud related services
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
@@ -136,14 +139,6 @@
 	let intervalId: any;
 
 	const forgeFactory = getContext(DefaultForgeFactory);
-	$effect.pre(() => {
-		const combinedBranchListingService = new CombinedBranchListingService(
-			data.branchListingService,
-			projectId
-		);
-
-		setContext(CombinedBranchListingService, combinedBranchListingService);
-	});
 
 	// Refresh base branch if git fetch event is detected.
 	const mode = $derived(modeService.mode);
@@ -160,7 +155,7 @@
 
 	// TODO: can we eliminate the need to debounce?
 	const debouncedRemoteBranchRefresh = debounce(
-		async () => await branchListingService?.refresh(),
+		async () => await branchService.refresh(projectId),
 		500
 	);
 

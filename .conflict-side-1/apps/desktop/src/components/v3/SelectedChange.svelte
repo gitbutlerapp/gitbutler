@@ -37,7 +37,7 @@
 	{#snippet children(change, env)}
 		<div class="selected-change-item">
 			<FileListItemWrapper
-				{selectedFile}
+				selectionId={selectedFile}
 				projectId={env.projectId}
 				{change}
 				isHeader

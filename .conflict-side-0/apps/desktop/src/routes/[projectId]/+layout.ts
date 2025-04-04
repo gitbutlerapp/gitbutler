@@ -2,7 +2,6 @@ import { getUserErrorCode } from '$lib/backend/ipc';
 import { BranchController } from '$lib/branches/branchController';
 import { BranchListingService } from '$lib/branches/branchListing';
 import { GitBranchService } from '$lib/branches/gitBranch';
-import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
 import { UncommitedFilesWatcher } from '$lib/files/watcher';
@@ -49,15 +48,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const historyService = new HistoryService(projectId);
 	const templateService = new TemplateService(projectId);
 
-	const branchListingService = new BranchListingService(projectId);
 	const gitBranchService = new GitBranchService(projectId);
-
-	const vbranchService = new VirtualBranchService(
-		projectId,
-		projectMetrics,
-		branchListingService,
-		modeService
-	);
 
 	const branchController = new BranchController(
 		projectId,
@@ -90,7 +81,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		project,
 		projectService,
 		gitBranchService,
-		vbranchService,
 		projectMetrics,
 		modeService,
 		fetchSignal,
@@ -99,7 +89,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		stackingReorderDropzoneManagerFactory,
 		branchListingService,
 		uncommitedFileWatcher,
-
 		// Cloud-related services
 		syncedSnapshotService,
 		stackPublishingService

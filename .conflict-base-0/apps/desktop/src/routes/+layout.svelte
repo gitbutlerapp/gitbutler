@@ -16,6 +16,7 @@
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { CommandService, invoke } from '$lib/backend/ipc';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
+	import { BranchService } from '$lib/branches/branchService.svelte';
 	import {
 		IpcNameNormalizationService,
 		setNameNormalizationServiceContext
@@ -144,6 +145,9 @@
 		clientState.dispatch
 	);
 	setContext(UiState, uiState);
+
+	const branchService = new BranchService(clientState['backendApi']);
+	setContext(BranchService, branchService);
 
 	setContext(DefaultForgeFactory, forgeFactory);
 
