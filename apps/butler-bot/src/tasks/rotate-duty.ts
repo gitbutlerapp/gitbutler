@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import crypto from 'node:crypto';
 import type { Task } from '@/types';
 import { ChannelType } from '@/types/channel-types';
 import { formatTicketList } from '@/utils/tickets';
@@ -8,9 +9,9 @@ export const rotateDuty: Task = {
 	schedule: '0 9 * * 1-5', // Run at 9am on weekdays (Monday-Friday)
 	execute: async (prisma: PrismaClient, client) => {
 		try {
-			// Get all butlers in the support rota
+			// Get all butlers in the support rota that are not currently on duty
 			const eligibleButlers = await prisma.butlers.findMany({
-				where: { in_support_rota: true }
+				where: { in_support_rota: true, on_duty: false }
 			});
 
 			if (eligibleButlers.length === 0) {
@@ -25,7 +26,7 @@ export const rotateDuty: Task = {
 			});
 
 			// Randomly select the next butler
-			const randomIndex = Math.floor(Math.random() * eligibleButlers.length);
+			const randomIndex = crypto.randomInt(0, eligibleButlers.length);
 			const selectedButler = eligibleButlers[randomIndex]!;
 
 			// Set the selected butler as on duty

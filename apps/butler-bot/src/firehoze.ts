@@ -9,11 +9,12 @@ const anthropic = new Anthropic({
 	apiKey: process.env.ANTHROPIC_API_KEY
 });
 
-type ConversationType = 'NEW_HELP_REQUEST' | 'CONTINUED_CONVERSATION';
+type ConversationType = 'REQUEST_SUPPORT' | 'CONTINUED_CONVERSATION' | 'NEW_CONVERSATION' | 'OTHER';
 
 async function askClaude(prompt: string, maxTokens: number = 100): Promise<string> {
+	// This does use the largest model, but I've done the calculations and it should be less than 0.0003 USD per message
 	const response = await anthropic.messages.create({
-		model: 'claude-3-haiku-20240307',
+		model: 'claude-3-7-sonnet-20250219',
 		max_tokens: maxTokens,
 		messages: [
 			{
@@ -29,34 +30,39 @@ async function askClaude(prompt: string, maxTokens: number = 100): Promise<strin
 async function analyzeConversation(messages: Message[]): Promise<ConversationType> {
 	const prompt = `You are a helpful assistant that analyzes Discord support conversations.
 
-Your task is to determine if the last message represents a new request for help.
+Your task is to determine the nature of the next message in the chat channel.
 
-Look for indicators like:
-- A new question or problem being presented
-- A different topic being introduced
-- A new user asking for help
+Try to determine if the message was looking for support, responding to a previous message, starting a new conversation, or something else.
 
-Respond with a breif explanation followed by either "NEW_HELP_REQUEST" or "CONTINUED_CONVERSATION".
+Respond with a breif explanation followed by one of the following "REQUEST_SUPPORT", "CONTINUED_CONVERSATION", "NEW_CONVERSATION", or "OTHER".
 
-Here are two messages for context:
+Here are four messages for context:
 
 ${messages
-	.slice(0, 2)
+	.slice(0, 5)
 	.map((msg) => `${msg.author.username}: ${msg.content}`)
 	.join('\n')}
 
 
 Here is the last message:
 
-${messages[2]!.author.username}: ${messages[2]!.content}`;
+${messages[5]!.author.username}: ${messages[5]!.content}`;
 
 	const analysis = await askClaude(prompt);
 
-	if (analysis.includes('NEW_HELP_REQUEST')) {
-		return 'NEW_HELP_REQUEST';
+	if (analysis.includes('REQUEST_SUPPORT')) {
+		return 'REQUEST_SUPPORT';
 	}
 
-	return 'CONTINUED_CONVERSATION';
+	if (analysis.includes('CONTINUED_CONVERSATION')) {
+		return 'CONTINUED_CONVERSATION';
+	}
+
+	if (analysis.includes('NEW_CONVERSATION')) {
+		return 'NEW_CONVERSATION';
+	}
+
+	return 'OTHER';
 }
 
 async function summarizeHelpRequest(message: Message): Promise<string> {
@@ -83,14 +89,14 @@ export async function firehoze(prisma: PrismaClient, message: Message) {
 		}
 
 		// Get the last three messages from the channel
-		const messages = await message.channel.messages.fetch({ limit: 3 });
+		const messages = await message.channel.messages.fetch({ limit: 5 });
 		const lastMessages = Array.from(messages.values());
 		lastMessages.reverse();
 
 		const conversationType = await analyzeConversation(lastMessages);
 		console.warn('Conversation type:', conversationType);
 
-		if (conversationType === 'NEW_HELP_REQUEST') {
+		if (conversationType === 'REQUEST_SUPPORT') {
 			// Create a new ticket with a summarized title
 			const ticketName = await summarizeHelpRequest(message);
 			const ticket = await prisma.supportTicket.create({
