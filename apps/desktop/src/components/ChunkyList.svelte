@@ -20,7 +20,7 @@
 		chunkSize?: number;
 	}
 
-	const { items, item, chunkSize = 100 }: Props = $props();
+	const { items, item, chunkSize = 20 }: Props = $props();
 
 	let chunkedItems: T[][] = [];
 	let displayedItems = $state<T[]>([]);
