@@ -148,9 +148,3 @@
 		/>
 	{/if}
 </div>
-
-<style lang="postcss">
-	.filelistitem-wrapper {
-		display: contents;
-	}
-</style>
