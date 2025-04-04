@@ -28,6 +28,8 @@ async function askClaude(prompt: string, maxTokens: number = 100): Promise<strin
 }
 
 async function analyzeConversation(messages: Message[]): Promise<ConversationType> {
+	const lastIndex = messages.length - 1;
+
 	const prompt = `You are a helpful assistant that analyzes Discord support conversations.
 
 Your task is to determine the nature of the next message in the chat channel.
@@ -39,14 +41,14 @@ Respond with a breif explanation followed by one of the following "REQUEST_SUPPO
 Here are four messages for context:
 
 ${messages
-	.slice(0, 5)
+	.slice(0, lastIndex)
 	.map((msg) => `${msg.author.username}: ${msg.content}`)
 	.join('\n')}
 
 
 Here is the last message:
 
-${messages[5]!.author.username}: ${messages[5]!.content}`;
+${messages[lastIndex]!.author.username}: ${messages[lastIndex]!.content}`;
 
 	const analysis = await askClaude(prompt);
 
