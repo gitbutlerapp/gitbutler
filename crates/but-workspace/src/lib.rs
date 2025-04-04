@@ -250,6 +250,7 @@ pub fn stack_info(gb_dir: &Path, stack_id: StackId, ctx: &CommandContext) -> Res
     let state = state_handle(gb_dir);
     let stack = state.get_stack(stack_id)?;
     let branches = stack.branches();
+    let branches = branches.iter().filter(|b| !b.archived);
     let repo = ctx.gix_repo()?;
     let remote = state
         .get_default_target()
@@ -262,7 +263,7 @@ pub fn stack_info(gb_dir: &Path, stack_id: StackId, ctx: &CommandContext) -> Res
 
     for branch in branches {
         let mut branch_state = BranchState {
-            requires_force: requires_force(ctx, &branch, &remote)?,
+            requires_force: requires_force(ctx, branch, &remote)?,
             ..Default::default()
         };
 
@@ -479,7 +480,7 @@ pub fn stack_branch_local_and_remote_commits(
     if branch.archived {
         return Ok(vec![]);
     }
-    local_and_remote_commits(ctx, repo, branch.clone(), &stack)
+    local_and_remote_commits(ctx, repo, branch, &stack)
 }
 
 /// Returns a fift of commits beloning to this branch. Ordered from newest to oldest (child-most to parent-most).
@@ -503,13 +504,13 @@ pub fn stack_branch_upstream_only_commits(
     if branch.archived {
         return Ok(vec![]);
     }
-    upstream_only_commits(ctx, repo, branch.clone(), &stack)
+    upstream_only_commits(ctx, repo, branch, &stack)
 }
 
 fn upstream_only_commits(
     ctx: &CommandContext,
     repo: &gix::Repository,
-    stack_branch: gitbutler_stack::StackBranch,
+    stack_branch: &gitbutler_stack::StackBranch,
     stack: &Stack,
 ) -> Result<Vec<UpstreamCommit>> {
     let branch_commits = stack_branch.commits(ctx, stack)?;
@@ -545,7 +546,7 @@ fn upstream_only_commits(
 fn local_and_remote_commits(
     ctx: &CommandContext,
     repo: &gix::Repository,
-    stack_branch: gitbutler_stack::StackBranch,
+    stack_branch: &gitbutler_stack::StackBranch,
     stack: &Stack,
 ) -> Result<Vec<Commit>> {
     let state = state_handle(&ctx.project().gb_dir());
