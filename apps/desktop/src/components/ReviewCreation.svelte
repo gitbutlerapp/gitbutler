@@ -445,8 +445,8 @@
 		}
 
 		&.selected {
-			background-color: var(--clr-core-pop-90);
-			border-color: var(--clr-core-pop-50);
+			background-color: var(--clr-theme-pop-bg-muted);
+			border-color: var(--clr-theme-pop-element);
 		}
 	}
 
