@@ -301,6 +301,7 @@
 			value={prTitle.value}
 			oninput={(value: string) => {
 				prTitle.set(value);
+		autofocus
 			}}
 		/>
 
