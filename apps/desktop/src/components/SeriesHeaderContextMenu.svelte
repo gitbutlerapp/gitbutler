@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BranchRenameModal from '$components/BranchRenameModal.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { type CommitStatus } from '$lib/commits/commit';
@@ -11,7 +12,6 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 
 	interface Props {
@@ -22,7 +22,7 @@
 		branchName: string;
 		seriesCount: number;
 		isTopBranch: boolean;
-		hasForgeBranch: boolean;
+		isPushed: boolean;
 		pr?: DetailedPullRequest;
 		branchType: CommitStatus;
 		descriptionOption?: boolean;
@@ -42,7 +42,7 @@
 		rightClickTrigger,
 		isTopBranch,
 		seriesCount,
-		hasForgeBranch,
+		isPushed,
 		branchName,
 		pr,
 		branchType,
@@ -59,12 +59,10 @@
 	const [aiService, stackService] = inject(AIService, StackService);
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
 
-	const [renameBranch, branchRenameOp] = stackService.updateBranchName;
 	const [removeBranch, branchRemovalOp] = stackService.removeBranch;
 
 	let deleteSeriesModal: Modal;
-	let renameSeriesModal: Modal;
-	let newName: string = $state(branchName);
+	let renameBranchModal: BranchRenameModal;
 	let aiConfigurationValid = $state(false);
 
 	$effect(() => {
@@ -76,7 +74,7 @@
 	}
 
 	export function showSeriesRenameModal() {
-		renameSeriesModal.show();
+		renameBranchModal.show();
 	}
 </script>
 
@@ -100,7 +98,7 @@
 		</ContextMenuSection>
 	{/if}
 	<ContextMenuSection>
-		{#if hasForgeBranch}
+		{#if isPushed}
 			<ContextMenuItem
 				label="Open in browser"
 				onclick={() => {
@@ -127,7 +125,7 @@
 				}}
 			/>
 		{/if}
-		{#if $aiGenEnabled && aiConfigurationValid && !hasForgeBranch}
+		{#if $aiGenEnabled && aiConfigurationValid && !isPushed}
 			<ContextMenuItem
 				label="Generate branch name"
 				onclick={() => {
@@ -140,7 +138,7 @@
 			<ContextMenuItem
 				label="Rename"
 				onclick={async () => {
-					renameSeriesModal.show(stackId);
+					renameBranchModal.show();
 					contextMenuEl?.close();
 				}}
 			/>
@@ -175,37 +173,7 @@
 	{/if}
 </ContextMenu>
 
-<Modal
-	width="small"
-	title={hasForgeBranch ? 'Branch has already been pushed' : 'Rename branch'}
-	type={hasForgeBranch ? 'warning' : 'info'}
-	bind:this={renameSeriesModal}
-	onSubmit={async (close) => {
-		if (newName && newName !== branchName) {
-			await renameBranch({
-				projectId,
-				stackId,
-				branchName,
-				newName
-			});
-		}
-		close();
-	}}
->
-	<Textbox placeholder="New name" id="newSeriesName" bind:value={newName} autofocus />
-
-	{#if hasForgeBranch}
-		<div class="text-12 helper-text">
-			Renaming a branch that has already been pushed will create a new branch at the remote. The old
-			one will remain untouched but will be disassociated from this branch.
-		</div>
-	{/if}
-
-	{#snippet controls(close)}
-		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" type="submit" loading={branchRenameOp.current.isLoading}>Rename</Button>
-	{/snippet}
-</Modal>
+<BranchRenameModal {projectId} {stackId} {branchName} bind:this={renameBranchModal} {isPushed} />
 
 <Modal
 	width="small"
@@ -228,11 +196,3 @@
 		<Button style="error" type="submit" loading={branchRemovalOp.current.isLoading}>Delete</Button>
 	{/snippet}
 </Modal>
-
-<style>
-	.helper-text {
-		margin-top: 1rem;
-		color: var(--clr-scale-ntrl-50);
-		line-height: 1.5;
-	}
-</style>

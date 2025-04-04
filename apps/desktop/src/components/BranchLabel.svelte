@@ -66,9 +66,7 @@
 	class="branch-name-input text-{fontSize} text-bold"
 	ondblclick={(e) => {
 		e.stopPropagation();
-		if (!readonly) {
-			onDblClick?.();
-		}
+		onDblClick?.();
 	}}
 	oncontextmenu={(e) => {
 		e.stopPropagation();
@@ -138,6 +136,5 @@
 	}
 	.branch-name-input[readonly] {
 		pointer: normal;
-		pointer-events: none;
 	}
 </style>

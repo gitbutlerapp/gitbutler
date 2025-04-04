@@ -1,11 +1,12 @@
 <script lang="ts">
 	import BranchLabel from '$components/BranchLabel.svelte';
+	import BranchRenameModal from '$components/BranchRenameModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import BranchHeaderIcon from '$components/v3/BranchHeaderIcon.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { CommitStateType, StackBranch } from '$lib/branches/v3';
+	import type { StackBranch } from '$lib/branches/v3';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -23,7 +24,6 @@
 		isNewBranch?: boolean;
 		details?: Snippet;
 		onclick: () => void;
-		onLabelDblClick?: () => void;
 		onMenuBtnClick: () => void;
 		onContextMenu: (e: MouseEvent) => void;
 	}
@@ -42,7 +42,6 @@
 		isNewBranch,
 		details,
 		onclick,
-		onLabelDblClick,
 		onMenuBtnClick,
 		onContextMenu
 	}: Props = $props();
@@ -51,6 +50,9 @@
 
 	const topCommitResult = $derived(stackService.commitAt(projectId, stackId, branch.name, 0));
 	const [updateName, nameUpdate] = stackService.updateBranchName;
+
+	const isPushed = $derived(!!branch.remoteTrackingBranch);
+	let renameBranchModal: BranchRenameModal;
 
 	function updateBranchName(title: string) {
 		updateName({
@@ -80,8 +82,6 @@
 >
 	<ReduxResult {stackId} {projectId} result={topCommitResult.current}>
 		{#snippet children(commit)}
-			{@const branchType: CommitStateType = commit?.state.type ?? 'LocalOnly'}
-
 			<BranchHeaderIcon {commit} lineTop={isTopBranch ? false : true} />
 			<div class="branch-header__content">
 				<div class="name-line text-14 text-bold">
@@ -89,11 +89,11 @@
 						name={branch.name}
 						fontSize="15"
 						disabled={nameUpdate.current.isLoading}
-						readonly={readonly || !!branch.remoteTrackingBranch}
+						readonly={readonly || isPushed}
 						onChange={(name) => updateBranchName(name)}
 						onDblClick={() => {
-							if (branchType !== 'Integrated') {
-								onLabelDblClick?.();
+							if (isPushed) {
+								renameBranchModal.show();
 							}
 						}}
 					/>
@@ -130,6 +130,14 @@
 		{/snippet}
 	</ReduxResult>
 </div>
+
+<BranchRenameModal
+	{projectId}
+	{stackId}
+	branchName={branch.name}
+	bind:this={renameBranchModal}
+	isPushed={!!branch.remoteTrackingBranch}
+/>
 
 <style lang="postcss">
 	.branch-header {
