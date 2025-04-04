@@ -22,7 +22,6 @@
 
 	type Props<A, B> = {
 		result: Result<A> | undefined;
-		empty?: Snippet;
 		projectId: string;
 		stackId?: B;
 		children: Snippet<[A, Env<B>]>;
@@ -63,16 +62,6 @@
 		projectId: cachedData.projectId,
 		stackId: cachedData.stackId as B
 	})}
-
-	{#if props.result?.status === 'fulfilled'}
-		{#if props.result.data === undefined}
-			{props.empty}
-		{/if}
-	{:else if props.result?.status === 'pending'}
-		<div class="loading-spinner">
-			<Icon name="spinner" />
-		</div>
-	{/if}
 {:else if props.result?.status === 'pending'}
 	<div class="loading-spinner">
 		<Icon name="spinner" />
