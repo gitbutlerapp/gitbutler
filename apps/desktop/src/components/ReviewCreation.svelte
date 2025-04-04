@@ -244,6 +244,7 @@
 
 			if (
 				branchParent &&
+				branchParent.prNumber &&
 				branchParentDetails &&
 				branchParentDetails.pushStatus !== 'integrated' &&
 				!branchParent?.archived
