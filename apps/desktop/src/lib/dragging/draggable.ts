@@ -322,8 +322,7 @@ export function createChipsElement(
 	return containerEl;
 }
 
-export function draggableChips(node: HTMLElement, initialOpts?: DraggableConfig) {
-	if (!initialOpts) return;
+export function draggableChips(node: HTMLElement, initialOpts: DraggableConfig) {
 	function createClone(opts: DraggableConfig, selectedElements: Element[]) {
 		if (opts.disabled) return;
 		return createChipsElement(selectedElements.length, opts.label, opts.filePath);
