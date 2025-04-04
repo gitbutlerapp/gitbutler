@@ -145,7 +145,7 @@
 			{disabled}
 			{tooltip}
 		>
-			Submit for Review
+			Submit for review
 		</Button>
 	{/if}
 </div>

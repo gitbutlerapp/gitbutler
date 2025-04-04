@@ -66,9 +66,10 @@
 
 <div class="commit-message-input">
 	<Textbox
-		value={titleText.current}
 		autofocus
+		size="large"
 		placeholder="Commit title"
+		value={titleText.current}
 		oninput={(value: string) => {
 			titleText.set(value);
 		}}

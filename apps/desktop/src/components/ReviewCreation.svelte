@@ -295,131 +295,106 @@
 
 <!-- MAIN FIELDS -->
 <div class="pr-content">
-	<div class="pr-fields">
-		<Textbox
-			placeholder="PR title"
-			value={prTitle.value}
-			oninput={(value: string) => {
-				prTitle.set(value);
+	<Textbox
 		autofocus
+		size="large"
+		placeholder="PR title"
+		value={prTitle.value}
+		oninput={(value: string) => {
+			prTitle.set(value);
+		}}
+	/>
+
+	<!-- PR TEMPLATE SELECT -->
+	{#if $useTemplate}
+		<PrTemplateSection
+			onselected={(body) => {
+				templateBody = body;
 			}}
+			{templates}
 		/>
+	{/if}
 
-		<!-- PR TEMPLATE SELECT -->
-		{#if $useTemplate}
-			<PrTemplateSection
-				onselected={(body) => {
-					templateBody = body;
-				}}
-				{templates}
-			/>
-		{/if}
+	<!-- DESCRIPTION FIELD -->
+	<MessageEditor
+		{projectId}
+		{stackId}
+		initialValue={prBody.value}
+		onChange={(text: string) => {
+			prBody.set(text);
+		}}
+	/>
 
-		<!-- DESCRIPTION FIELD -->
-		<MessageEditor
-			{projectId}
-			{stackId}
-			initialValue={prBody.value}
-			onChange={(text: string) => {
-				prBody.set(text);
-			}}
-		/>
+	{#if canPublishBR && canPublishPR}
+		<div class="options text-13">
+			<label for="create-br" class="option-card">
+				<div class="option-card-header" class:selected={$createButlerRequest}>
+					<div class="option-card-header-main">
+						<div class="option-card-header-title text-semibold">
+							<Icon name="bowtie" />
+							Create a Butler Request
+						</div>
+						<span class="options__learn-more">
+							<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
+						</span>
+					</div>
 
-		{#if canPublishBR && canPublishPR}
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			<div class="options text-13">
-				<div
-					class="option-card"
-					onclick={() => {
-						$createButlerRequest = !$createButlerRequest;
-					}}
+					<div class="option-card-header-action">
+						<Checkbox name="create-br" bind:checked={$createButlerRequest} />
+					</div>
+				</div>
+			</label>
+
+			<div class="option-card">
+				<label
+					for="create-pr"
+					class="option-card-header has-settings"
+					class:selected={$createPullRequest}
 				>
-					<div class="option-card-header" class:selected={$createButlerRequest}>
-						<div class="option-card-header-main">
-							<div class="option-card-header-title text-semibold">
-								<Icon name="bowtie" />
-								Create a Butler Request
-							</div>
-							<span class="grey">
-								<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
-							</span>
+					<div class="option-card-header-main">
+						<div class="option-card-header-title text-semibold">
+							<Icon name="github" />
+							Create a Pull Request
 						</div>
+					</div>
 
-						<div class="option-card-header-action">
-							<Checkbox bind:checked={$createButlerRequest} />
-						</div>
+					<div class="option-card-header-action">
+						<Checkbox name="create-pr" bind:checked={$createPullRequest} />
 					</div>
-				</div>
-				<div class="option-card">
-					<div
-						class="option-card-header has-settings"
-						class:selected={$createPullRequest}
-						onclick={() => {
-							$createPullRequest = !$createPullRequest;
-						}}
-					>
-						<div class="option-card-header-main">
-							<div class="option-card-header-title text-semibold">
-								<Icon name="github" />
-								Create a Pull Request
-							</div>
-						</div>
-
-						<div class="option-card-header-action">
-							<Checkbox bind:checked={$createPullRequest} />
-						</div>
-					</div>
-					<div
-						class="option-card-body"
-						onclick={() => {
-							$createDraft = !$createDraft;
-						}}
-					>
-						<span class="text-semibold">PR Draft</span>
-						<Toggle checked={$createDraft} />
-					</div>
-				</div>
+				</label>
+				<label
+					for="create-pr-draft"
+					class="option-card-drafty"
+					class:disabled={!$createPullRequest}
+				>
+					<span class="text-semibold">PR Draft</span>
+					<Toggle id="create-pr-draft" bind:checked={$createDraft} />
+				</label>
 			</div>
-		{/if}
+		</div>
+	{/if}
 
-		{#if canPublishPR && !canPublishBR}
-			<div class="option-drafty">
-				<span>PR Draft</span>
-				<Toggle
-					checked={$createDraft}
-					onclick={() => {
-						createDraft.set(!$createDraft);
-					}}
-				/>
-			</div>
-		{/if}
-	</div>
+	{#if canPublishPR && !canPublishBR}
+		<label for="create-pr-draft" class="option-drafty">
+			<span>PR Draft</span>
+			<Toggle id="create-pr-draft" bind:checked={$createDraft} />
+		</label>
+	{/if}
 </div>
 
 <style lang="postcss">
 	.pr-content {
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-	}
-
-	/* FIELDS */
-
-	.pr-fields {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
-		min-height: 0;
 	}
 
 	.options {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: 8px;
-
 		align-items: stretch;
-
 		width: 100%;
 	}
 
@@ -431,23 +406,26 @@
 		overflow: hidden;
 	}
 
+	/* OPTION BOX */
 	.option-card-header {
+		display: flex;
 		flex-grow: 1;
-
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
-
-		display: flex;
-
 		padding: 12px;
+		transition: background-color var(--transition-fast);
+
+		&:hover {
+			background-color: var(--clr-bg-1-muted);
+		}
 
 		&.has-settings {
 			border-radius: var(--radius-m) var(--radius-m) 0 0;
 		}
 
 		&.selected {
-			background-color: var(--clr-core-pop-90);
-			border-color: var(--clr-core-pop-50);
+			background-color: var(--clr-theme-pop-bg);
+			border-color: var(--clr-theme-pop-element);
 		}
 	}
 
@@ -474,9 +452,8 @@
 		display: block;
 	}
 
-	.option-card-body {
+	.option-card-drafty {
 		padding: 12px;
-
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
@@ -484,22 +461,36 @@
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 		border: 1px solid var(--clr-border-2);
 		border-top: none;
+		transition: background-color var(--transition-fast);
+
+		&:hover {
+			background-color: var(--clr-bg-1-muted);
+		}
+
+		&.disabled {
+			pointer-events: none;
+			cursor: not-allowed;
+			opacity: 0.5;
+			background-color: var(--clr-bg-2);
+		}
 	}
 
 	.option-drafty {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-
 		width: 100%;
-
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
-
 		padding: 8px;
+		transition: background-color var(--transition-fast);
+
+		&:hover {
+			background-color: var(--clr-bg-1-muted);
+		}
 	}
 
-	.grey {
+	.options__learn-more {
 		color: var(--clr-text-2);
 	}
 </style>

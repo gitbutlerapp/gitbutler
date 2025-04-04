@@ -26,15 +26,14 @@
 
 <Drawer bind:this={drawer} {projectId} {stackId} title="Submit for code review">
 	<div class="submit-review__container">
-		<div class="submit-review__content">
-			<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} />
-		</div>
+		<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} />
 
 		<div class="submit-review__actions">
 			<Button kind="outline" onclick={close}>Cancel</Button>
 			<AsyncButton
+				width={130}
 				action={async () => await reviewCreation?.createReview(close)}
-				disabled={!reviewCreation?.createButtonEnabled().current}>Create Review</AsyncButton
+				disabled={!reviewCreation?.createButtonEnabled().current}>Create review</AsyncButton
 			>
 		</div>
 	</div>
@@ -47,18 +46,11 @@
 		flex-direction: column;
 	}
 
-	.submit-review__content {
-		flex-grow: 1;
-	}
-
 	.submit-review__actions {
 		display: flex;
 		justify-content: flex-end;
-
-		gap: 12px;
-
+		gap: 6px;
 		width: 100%;
-
 		margin-top: 14px;
 	}
 </style>

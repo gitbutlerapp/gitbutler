@@ -12,6 +12,7 @@
 		title?: string;
 		stackId: string;
 		splitView?: boolean;
+		minHeight?: number;
 		header?: Snippet;
 		extraActions?: Snippet;
 		children: Snippet;
@@ -23,6 +24,7 @@
 		projectId,
 		stackId,
 		splitView,
+		minHeight = 11,
 		header,
 		extraActions,
 		children,
@@ -131,7 +133,7 @@
 			<Resizer
 				direction="up"
 				viewport={drawerDiv}
-				minHeight={11}
+				{minHeight}
 				borderRadius="ml"
 				onHeight={(value) => uiState.global.drawerHeight.set(value)}
 			/>
@@ -212,6 +214,10 @@
 		&:not(.files-split-view) {
 			& .drawer__content {
 				flex: 1;
+				min-height: 100%;
+			}
+
+			& .drawer__content-scroll {
 				height: 100%;
 			}
 		}
