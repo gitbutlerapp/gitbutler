@@ -9,7 +9,7 @@
 		stackId?: string;
 		node: TreeNode;
 		isRoot?: boolean;
-		showCheckboxes: boolean;
+		showCheckboxes?: boolean;
 		changes: TreeChange[];
 		depth?: number;
 		fileWrapper: Snippet<[TreeChange, number, number]>;

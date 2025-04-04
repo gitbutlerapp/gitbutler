@@ -11,37 +11,18 @@
 	import { sortLikeFileTree } from '$lib/worktree/changeTree';
 	import { getContext, inject } from '@gitbutler/shared/context';
 	import type { TreeChange } from '$lib/hunks/change';
-
-	interface BaseProps {
-		type: 'commit' | 'branch' | 'worktree';
-	}
-
-	interface CommitProps extends BaseProps {
-		type: 'commit';
-		commitId: string;
-	}
-
-	interface BranchProps extends BaseProps {
-		type: 'branch';
-		stackId: string;
-		branchName: string;
-	}
-
-	interface WorktreeProps extends BaseProps {
-		type: 'worktree';
-		showCheckboxes: boolean;
-		stackId?: string;
-	}
+	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
 		projectId: string;
 		stackId?: string;
 		changes: TreeChange[];
 		listMode: 'list' | 'tree';
-		selectionId: CommitProps | BranchProps | WorktreeProps;
+		showCheckboxes?: boolean;
+		selectionId: SelectionId;
 	};
 
-	const { projectId, stackId, changes, listMode, selectionId }: Props = $props();
+	const { projectId, stackId, changes, listMode, selectionId, showCheckboxes }: Props = $props();
 
 	const [uiState] = inject(UiState);
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
@@ -73,15 +54,11 @@
 		if (currentDisplayIndex + 1 >= fileChunks.length) return;
 		currentDisplayIndex += 1;
 	}
-
-	const showCheckboxes = $derived(
-		selectionId.type === 'worktree' ? selectionId.showCheckboxes : false
-	);
 </script>
 
 {#snippet fileWrapper(change: TreeChange, idx: number, depth: number = 0)}
 	<FileListItemWrapper
-		selectedFile={selectionId}
+		{selectionId}
 		{change}
 		{projectId}
 		{listActive}
@@ -119,7 +96,7 @@
 				}}
 			/>
 		{:else}
-			{#each visibleFiles as change, idx (change.path)}
+			{#each visibleFiles as change, idx}
 				{@render fileWrapper(change, idx)}
 			{/each}
 		{/if}
