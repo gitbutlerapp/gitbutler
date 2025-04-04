@@ -215,7 +215,7 @@
 		const url = forgeBranch?.url;
 		if (url) openExternalUrl(url);
 	}}
-	hasForgeBranch={!!forgeBranch}
+	{isPushed}
 	{pr}
 	{branchType}
 	onToggle={(isOpen, isLeftClick) => {
@@ -278,7 +278,7 @@
 			/>
 			<div class="branch-info__content">
 				<div class="text-14 text-bold branch-info__name">
-					{#if forgeBranch}
+					{#if isPushed}
 						<span class="remote-name">
 							{baseBranch.pushRemoteName ? `${baseBranch.pushRemoteName} /` : 'origin /'}
 						</span>
@@ -286,9 +286,9 @@
 					<BranchLabel
 						name={branch.name}
 						onChange={(name) => updateBranchName(name)}
-						readonly={!!forgeBranch}
+						readonly={isPushed}
 						onDblClick={() => {
-							if (branchType !== 'Integrated') {
+							if (isPushed) {
 								branchContextMenu?.showSeriesRenameModal?.();
 							}
 						}}
