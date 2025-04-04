@@ -73,6 +73,10 @@
 	let isInputValid = $state(true);
 	let htmlInput: HTMLInputElement;
 
+	export function focus() {
+		htmlInput.focus();
+	}
+
 	export function onClickOutside() {
 		htmlInput.blur();
 	}

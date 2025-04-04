@@ -45,9 +45,11 @@
 		onChange?: OnChangeCallback;
 		onKeyDown?: (event: KeyboardEvent | null) => boolean;
 		initialText?: string;
+		disabled?: boolean;
 	};
 
 	const {
+		disabled,
 		namespace,
 		markdown,
 		onError,
@@ -62,13 +64,19 @@
 	}: Props = $props();
 
 	/** Standard configuration for our commit message editor. */
-	const initialConfig = standardConfig({
+	const config = standardConfig({
 		initialText,
 		namespace,
 		theme: standardTheme,
 		onError
 	});
 
+	const isDisabled = $derived(disabled ?? false);
+
+	const initialConfig = $derived({
+		...config,
+		editable: !isDisabled
+	});
 	/**
 	 * Instance of the lexical composer, used for manipulating the contents of the editor
 	 * programatically.

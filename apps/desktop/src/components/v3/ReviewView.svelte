@@ -27,13 +27,20 @@
 <Drawer bind:this={drawer} {projectId} {stackId} title="Submit for code review">
 	<div class="container">
 		<div class="main">
-			<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} />
+			<ReviewCreation
+				bind:this={reviewCreation}
+				{projectId}
+				{stackId}
+				{branchName}
+				onClose={close}
+			/>
 		</div>
 
 		<div class="actions">
 			<Button kind="outline" onclick={close}>Cancel</Button>
 			<AsyncButton
-				action={async () => await reviewCreation?.createReview(close)}
+				action={async () => await reviewCreation?.createReview()}
+				loading={reviewCreation?.imports.isLoading}
 				disabled={!reviewCreation?.createButtonEnabled().current}>Create Review</AsyncButton
 			>
 		</div>

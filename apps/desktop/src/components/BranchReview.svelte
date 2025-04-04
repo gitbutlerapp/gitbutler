@@ -102,13 +102,20 @@
 </Modal>
 
 <Modal bind:this={modal} title="Submit changes for review">
-	<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} />
+	<ReviewCreation
+		bind:this={reviewCreation}
+		{projectId}
+		{stackId}
+		{branchName}
+		onClose={() => modal?.close()}
+	/>
 
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Close</Button>
 		<AsyncButton
 			style="pop"
-			action={async () => await reviewCreation?.createReview(close)}
+			loading={reviewCreation?.imports.isLoading}
+			action={async () => await reviewCreation?.createReview()}
 			disabled={!reviewCreation?.createButtonEnabled().current}
 		>
 			Create Review

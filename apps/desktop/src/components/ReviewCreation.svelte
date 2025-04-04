@@ -43,9 +43,10 @@
 		projectId: string;
 		stackId: string;
 		branchName: string;
+		onClose: () => void;
 	};
 
-	const { projectId, stackId, branchName }: Props = $props();
+	const { projectId, stackId, branchName, onClose }: Props = $props();
 
 	const baseBranch = getContext(BaseBranch);
 	const forge = getContext(DefaultForgeFactory);
@@ -61,9 +62,15 @@
 	const user = userService.user;
 	const project = projectsService.getProjectStore(projectId);
 
-	const [publishBranch] = stackService.publishBranch;
-	const [updateBranchPrNumber] = stackService.updateBranchPrNumber;
-	const [pushStack] = stackService.pushStack;
+	const [publishBranch, branchPublishing] = stackService.publishBranch;
+	const [updateBranchPrNumber, PRNumberUpdate] = stackService.updateBranchPrNumber;
+	const [pushStack, stackPush] = stackService.pushStack;
+
+	const isExecuting = $derived(
+		branchPublishing.current.isLoading ||
+			PRNumberUpdate.current.isLoading ||
+			stackPush.current.isLoading
+	);
 
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branch = $derived(branchResult.current.data);
@@ -103,6 +110,9 @@
 	const pushBeforeCreate = $derived(
 		!forgeBranch || commits.some((c) => c.state.type === 'LocalOnly')
 	);
+
+	let titleInput = $state<ReturnType<typeof Textbox>>();
+	let descriptionInput = $state<ReturnType<typeof MessageEditor>>();
 
 	// Displays template select component when true.
 	let useTemplate = persisted(false, `use-template-${projectId}`);
@@ -158,7 +168,8 @@
 		return !$createButlerRequest;
 	}
 
-	export async function createReview(close: () => void) {
+	export async function createReview() {
+		if (isExecuting) return;
 		if (!branch) return;
 		if (!$user) return;
 
@@ -201,7 +212,7 @@
 		prBody.reset();
 		prTitle.reset();
 
-		close();
+		onClose();
 	}
 
 	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
@@ -289,6 +300,12 @@
 	export function createButtonEnabled(): Reactive<boolean> {
 		return reactive(() => isCreateButtonEnabled);
 	}
+
+	export const imports = {
+		get isLoading() {
+			return isExecuting;
+		}
+	};
 </script>
 
 <!-- HEADER -->
@@ -297,10 +314,18 @@
 <div class="pr-content">
 	<div class="pr-fields">
 		<Textbox
+			bind:this={titleInput}
 			placeholder="PR title"
 			value={prTitle.value}
+			disabled={isExecuting}
 			oninput={(value: string) => {
 				prTitle.set(value);
+			}}
+			onkeydown={(e: KeyboardEvent) => {
+				if (e.key === 'Enter' || e.key === 'Tab') {
+					e.preventDefault();
+					descriptionInput?.focus();
+				}
 			}}
 		/>
 
@@ -316,11 +341,28 @@
 
 		<!-- DESCRIPTION FIELD -->
 		<MessageEditor
+			bind:this={descriptionInput}
 			{projectId}
 			{stackId}
+			disabled={isExecuting}
 			initialValue={prBody.value}
 			onChange={(text: string) => {
 				prBody.set(text);
+			}}
+			onKeyDown={(e: KeyboardEvent) => {
+				if (e.key === 'Tab' && e.shiftKey) {
+					e.preventDefault();
+					titleInput?.focus();
+					return true;
+				}
+
+				if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+					e.preventDefault();
+					createReview();
+					return true;
+				}
+
+				return false;
 			}}
 		/>
 
