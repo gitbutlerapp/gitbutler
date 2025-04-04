@@ -40,6 +40,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'get_branch_listing_details',
 					params: { projectId, branchNames: [branchName] }
 				}),
+				transformResponse: (response: BranchListingDetails[]) => response.at(0)!,
 				providesTags: [ReduxTag.BranchListing]
 			})
 		})
