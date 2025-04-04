@@ -92,7 +92,7 @@
 	const accessToken = $derived($user?.github_access_token);
 	$effect(() => gitHubClient.setToken(accessToken));
 
-	const clientState = new ClientState(data.tauri, gitHubClient, gitLabClient);
+	const clientState = new ClientState(data.tauri, gitHubClient, gitLabClient, data.posthog);
 
 	const changeSelection = $derived(clientState.changeSelection);
 	const changeSelectionService = new ChangeSelectionService(
