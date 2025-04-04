@@ -158,20 +158,6 @@
 		gap: 14px;
 	}
 
-	/*
-		The :empty selector does not work in svelte because undeterminate reasons.
-		As such we have this beauty.
-
-		All we want to do is to have this thing to not add extra whitespace if
-		there is nothing interesting going on inside of the component.
-
-		We don't want to use display: none as that breaks things in other strange ways
-	*/
-
-	/* .branch-action:not(:has(> *)) {
-		padding: 0;
-	} */
-
 	.status-cards {
 		display: flex;
 		flex-direction: column;
