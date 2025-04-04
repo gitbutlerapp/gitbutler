@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { ElementId, TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -26,6 +27,7 @@
 </script>
 
 <Modal
+	testId={TestId.BranchHeaderRenameModal}
 	width="small"
 	title={isPushed ? 'Branch has already been pushed' : 'Rename branch'}
 	type={isPushed ? 'warning' : 'info'}
@@ -37,7 +39,12 @@
 		close();
 	}}
 >
-	<Textbox placeholder="New name" id="newSeriesName" bind:value={newName} autofocus />
+	<Textbox
+		placeholder="New name"
+		id={ElementId.NewBranchNameInput}
+		bind:value={newName}
+		autofocus
+	/>
 
 	{#if isPushed}
 		<div class="text-12 helper-text">

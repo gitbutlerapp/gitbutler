@@ -5,6 +5,7 @@
 	import { type CommitStatus } from '$lib/commits/commit';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -79,6 +80,7 @@
 </script>
 
 <ContextMenu
+	testId={TestId.BranchHeaderContextMenu}
 	bind:this={contextMenuEl}
 	{leftClickTrigger}
 	{rightClickTrigger}
@@ -90,6 +92,7 @@
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Add dependent branch"
+				testId={TestId.BranchHeaderContextMenu_AddDependentBranch}
 				onclick={() => {
 					onAddDependentSeries?.();
 					contextMenuEl?.close();
@@ -101,6 +104,7 @@
 		{#if isPushed}
 			<ContextMenuItem
 				label="Open in browser"
+				testId={TestId.BranchHeaderContextMenu_OpenInBrowser}
 				onclick={() => {
 					onOpenInBrowser?.();
 					contextMenuEl?.close();
@@ -109,6 +113,7 @@
 		{/if}
 		<ContextMenuItem
 			label="Copy branch name"
+			testId={TestId.BranchHeaderContextMenu_CopyBranchName}
 			onclick={() => {
 				writeClipboard(branchName);
 				contextMenuEl?.close();
@@ -119,6 +124,7 @@
 		{#if descriptionOption}
 			<ContextMenuItem
 				label={`${!descriptionString ? 'Add' : 'Remove'} description`}
+				testId={TestId.BranchHeaderContextMenu_AddRemoveDescription}
 				onclick={async () => {
 					await toggleDescription?.();
 					contextMenuEl?.close();
@@ -128,6 +134,7 @@
 		{#if $aiGenEnabled && aiConfigurationValid && !isPushed}
 			<ContextMenuItem
 				label="Generate branch name"
+				testId={TestId.BranchHeaderContextMenu_GenerateBranchName}
 				onclick={() => {
 					onGenerateBranchName();
 					contextMenuEl?.close();
@@ -137,6 +144,7 @@
 		{#if branchType !== 'Integrated'}
 			<ContextMenuItem
 				label="Rename"
+				testId={TestId.BranchHeaderContextMenu_Rename}
 				onclick={async () => {
 					renameBranchModal.show();
 					contextMenuEl?.close();
@@ -146,6 +154,7 @@
 		{#if seriesCount > 1}
 			<ContextMenuItem
 				label="Delete"
+				testId={TestId.BranchHeaderContextMenu_Delete}
 				onclick={() => {
 					deleteSeriesModal.show(stackId);
 					contextMenuEl?.close();
@@ -157,6 +166,7 @@
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Open PR in browser"
+				testId={TestId.BranchHeaderContextMenu_OpenPRInBrowser}
 				onclick={() => {
 					openExternalUrl(pr.htmlUrl);
 					contextMenuEl?.close();
@@ -164,6 +174,7 @@
 			/>
 			<ContextMenuItem
 				label="Copy PR link"
+				testId={TestId.BranchHeaderContextMenu_CopyPRLink}
 				onclick={() => {
 					writeClipboard(pr.htmlUrl);
 					contextMenuEl?.close();
