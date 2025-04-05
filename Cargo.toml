@@ -16,7 +16,7 @@ git2 = { version = "0.20.0", features = [
 uuid = { version = "1.11.0", features = ["v4", "serde"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0.9"
-tokio = { version = "1.42.0", default-features = false }
+tokio = { version = "1.44.2", default-features = false }
 keyring = { version = "3.6.1", features = [
     "apple-native",
     "windows-native",
