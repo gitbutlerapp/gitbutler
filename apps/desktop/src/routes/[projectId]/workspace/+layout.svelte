@@ -50,7 +50,7 @@
 	<WorkspaceView {projectId} {stackId}>
 		{#snippet right({ viewportWidth })}
 			<StackTabs {projectId} selectedId={stackId} bind:width={tabsWidth} />
-			<div class="contents" class:rounded={tabsWidth! <= remToPx(viewportWidth - 0.5)}>
+			<div class="contents" class:rounded={tabsWidth! <= (remToPx(viewportWidth - 0.5) as number)}>
 				{@render children()}
 			</div>
 		{/snippet}

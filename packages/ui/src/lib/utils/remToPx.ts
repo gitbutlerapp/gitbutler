@@ -1,7 +1,4 @@
-export function remToPx(
-	rem: number,
-	opt: { base?: number; asNumber?: boolean } = { asNumber: true }
-) {
-	const { base = 16, asNumber = false } = opt;
-	return asNumber ? rem * base : `${rem * base}px`;
+export function remToPx(rem: number, opt: { base?: number } = {}) {
+	const { base = 16 } = opt;
+	return rem * base;
 }

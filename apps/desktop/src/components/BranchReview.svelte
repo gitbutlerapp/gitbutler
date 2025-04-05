@@ -14,20 +14,19 @@
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 	import type { Snippet } from 'svelte';
 
 	// TODO: This and the SeriesHeader should have a wholistic refactor to
 	// reduce the complexity of the forge related functionality.
 
 	type Props = {
-		pullRequestCard?: Snippet<[DetailedPullRequest]>;
+		branchStatus?: Snippet;
 		projectId: string;
 		stackId: string;
 		branchName: string;
 	};
 
-	const { projectId, stackId, branchName }: Props = $props();
+	const { branchStatus, projectId, stackId, branchName }: Props = $props();
 
 	const forge = getContext(DefaultForgeFactory);
 	const stackPublishingService = getContext(StackPublishingService);
@@ -143,6 +142,10 @@
 				<BranchReviewButRequest {reviewId} />
 			{/if}
 		</div>
+	{/if}
+
+	{#if branchStatus}
+		{@render branchStatus()}
 	{/if}
 
 	{#if showCreateButton}

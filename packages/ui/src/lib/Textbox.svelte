@@ -11,6 +11,7 @@
 		type?: inputType;
 		icon?: keyof typeof iconsJson;
 		size?: 'default' | 'large';
+		textAlign?: 'left' | 'center' | 'right';
 		value?: string;
 		width?: number;
 		placeholder?: string;
@@ -44,6 +45,7 @@
 		value = $bindable(),
 		width,
 		size = 'default',
+		textAlign = 'left',
 		placeholder,
 		helperText,
 		label,
@@ -143,6 +145,7 @@
 				? 'text-14 text-semibold'
 				: 'text-13'}"
 			class:readonly={type !== 'select' && readonly}
+			style:text-align={textAlign}
 			bind:value
 			bind:this={htmlInput}
 			{onclick}
