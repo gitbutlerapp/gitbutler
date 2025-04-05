@@ -329,10 +329,10 @@
 		<div class="options text-13">
 			<label for="create-br" class="option-card">
 				<div class="option-card-header" class:selected={$createButlerRequest}>
-					<div class="option-card-header-main">
+					<div class="option-card-header-content">
 						<div class="option-card-header-title text-semibold">
 							<Icon name="bowtie" />
-							Create a Butler Request
+							Create Butler Request
 						</div>
 						<span class="options__learn-more">
 							<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
@@ -351,10 +351,10 @@
 					class="option-card-header has-settings"
 					class:selected={$createPullRequest}
 				>
-					<div class="option-card-header-main">
+					<div class="option-card-header-content">
 						<div class="option-card-header-title text-semibold">
 							<Icon name="github" />
-							Create a Pull Request
+							Create Pull Request
 						</div>
 					</div>
 
@@ -364,7 +364,7 @@
 				</label>
 				<label
 					for="create-pr-draft"
-					class="option-card-drafty"
+					class="option-subcard-drafty"
 					class:disabled={!$createPullRequest}
 				>
 					<span class="text-semibold">PR Draft</span>
@@ -372,13 +372,6 @@
 				</label>
 			</div>
 		</div>
-	{/if}
-
-	{#if canPublishPR && !canPublishBR}
-		<label for="create-pr-draft" class="option-drafty">
-			<span>PR Draft</span>
-			<Toggle id="create-pr-draft" bind:checked={$createDraft} />
-		</label>
 	{/if}
 </div>
 
@@ -401,7 +394,6 @@
 	.option-card {
 		display: flex;
 		flex-direction: column;
-
 		border-radius: var(--radius-m);
 		overflow: hidden;
 	}
@@ -429,14 +421,11 @@
 		}
 	}
 
-	.option-card-header-main {
+	.option-card-header-content {
 		display: flex;
 		flex-direction: column;
-
-		justify-content: center;
-
-		gap: 11px;
-
+		justify-content: flex-end;
+		gap: 10px;
 		flex-grow: 1;
 	}
 
@@ -452,7 +441,7 @@
 		display: block;
 	}
 
-	.option-card-drafty {
+	.option-subcard-drafty {
 		padding: 12px;
 		display: flex;
 		justify-content: space-between;

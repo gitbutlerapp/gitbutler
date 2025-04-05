@@ -2,6 +2,7 @@
 	import BranchReviewButRequest from '$components/BranchReviewButRequest.svelte';
 	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import ReviewCreation from '$components/ReviewCreation.svelte';
+	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { syncBrToPr } from '$lib/forge/brToPrSync.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -11,7 +12,6 @@
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
@@ -22,13 +22,12 @@
 
 	type Props = {
 		pullRequestCard?: Snippet<[DetailedPullRequest]>;
-		branchStatus?: Snippet;
 		projectId: string;
 		stackId: string;
 		branchName: string;
 	};
 
-	const { branchStatus, projectId, stackId, branchName }: Props = $props();
+	const { projectId, stackId, branchName }: Props = $props();
 
 	const forge = getContext(DefaultForgeFactory);
 	const stackPublishingService = getContext(StackPublishingService);
@@ -76,6 +75,17 @@
 		reactive(() => prNumber),
 		reactive(() => reviewId)
 	);
+
+	function getCtaLabel() {
+		if (canPublishBR && canPublishPR) {
+			return 'Submit for review';
+		} else if (canPublishBR) {
+			return 'Create Butler Request';
+		} else if (canPublishPR) {
+			return 'Create Pull Request';
+		}
+		return 'Submit for review';
+	}
 </script>
 
 <Modal
@@ -105,14 +115,15 @@
 	<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} />
 
 	{#snippet controls(close)}
-		<Button kind="outline" onclick={close}>Close</Button>
-		<AsyncButton
-			style="pop"
-			action={async () => await reviewCreation?.createReview(close)}
-			disabled={!reviewCreation?.createButtonEnabled().current}
-		>
-			Create Review
-		</AsyncButton>
+		<ReviewCreationControls
+			{canPublishBR}
+			{canPublishPR}
+			ctaDisabled={!reviewCreation?.createButtonEnabled().current}
+			onCancel={close}
+			onSubmit={async () => {
+				await reviewCreation?.createReview(close);
+			}}
+		/>
 	{/snippet}
 </Modal>
 
@@ -128,10 +139,6 @@
 		</div>
 	{/if}
 
-	{#if branchStatus}
-		{@render branchStatus()}
-	{/if}
-
 	{#if showCreateButton}
 		<Button
 			onclick={() => {
@@ -145,7 +152,7 @@
 			{disabled}
 			{tooltip}
 		>
-			Submit for review
+			{getCtaLabel()}
 		</Button>
 	{/if}
 </div>
