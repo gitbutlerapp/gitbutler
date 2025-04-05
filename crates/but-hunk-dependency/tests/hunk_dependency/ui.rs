@@ -6,47 +6,47 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
     let stack_ids = stack_ids_by_diffs(&actual);
     let actual_str = simplify_stack_ids_in_string(stack_ids.iter(), actual_str);
     insta::assert_snapshot!(actual_str, @r#"
-        {
-          "diffs": [
-            [
-              3708607749576748282,
-              [
-                {
-                  "stackId": "stack_1",
-                  "commitId": "4bc98513b032b5992b85be8dd551e841bf959a3f"
-                }
-              ]
-            ],
-            [
-              2434601357784245452,
-              [
-                {
-                  "stackId": "stack_1",
-                  "commitId": "dea907e862f2101c2ac493554e86abb1225b278e"
-                },
-                {
-                  "stackId": "stack_1",
-                  "commitId": "7558793046d64ea2070bf0856d5b2500371f0da6"
-                },
-                {
-                  "stackId": "stack_1",
-                  "commitId": "3bdeccbfca50778abfe67960f0732b0e4e065ab9"
-                }
-              ]
-            ],
-            [
-              16712260417274738957,
-              [
-                {
-                  "stackId": "stack_1",
-                  "commitId": "7558793046d64ea2070bf0856d5b2500371f0da6"
-                }
-              ]
-            ]
-          ],
-          "errors": []
-        }
-        "#);
+    {
+      "diffs": [
+        [
+          15989967088397270668,
+          [
+            {
+              "stackId": "stack_1",
+              "commitId": "4bc98513b032b5992b85be8dd551e841bf959a3f"
+            }
+          ]
+        ],
+        [
+          8240534308515296008,
+          [
+            {
+              "stackId": "stack_1",
+              "commitId": "dea907e862f2101c2ac493554e86abb1225b278e"
+            },
+            {
+              "stackId": "stack_1",
+              "commitId": "7558793046d64ea2070bf0856d5b2500371f0da6"
+            },
+            {
+              "stackId": "stack_1",
+              "commitId": "3bdeccbfca50778abfe67960f0732b0e4e065ab9"
+            }
+          ]
+        ],
+        [
+          18120254504138851193,
+          [
+            {
+              "stackId": "stack_1",
+              "commitId": "7558793046d64ea2070bf0856d5b2500371f0da6"
+            }
+          ]
+        ]
+      ],
+      "errors": []
+    }
+    "#);
     Ok(())
 }
 
@@ -55,34 +55,34 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
     let (actual, _ctx) =
         hunk_dependencies_for_workspace("complex-file-manipulation-with-worktree-changes")?;
     insta::assert_snapshot!(to_stable_string(actual), @r"
-        StableHunkDependencies {
-            diffs: [
-                (
-                    15941114795339476802,
-                    [
-                        HunkLock {
-                            stack_id: stack_1,
-                            commit_id: Sha1(be6a4b2f1372586f4f1f434abea8087634b54148),
-                        },
-                    ],
-                ),
-                (
-                    17676568081731369438,
-                    [
-                        HunkLock {
-                            stack_id: stack_1,
-                            commit_id: Sha1(60a2022fc47aec1959cdf3e9b4a2c3cf441c918c),
-                        },
-                        HunkLock {
-                            stack_id: stack_1,
-                            commit_id: Sha1(0bfc8418d23102d123a376394f3364db66e0ef16),
-                        },
-                    ],
-                ),
-            ],
-            errors: [],
-        }
-        ");
+    StableHunkDependencies {
+        diffs: [
+            (
+                5660422847701176503,
+                [
+                    HunkLock {
+                        stack_id: stack_1,
+                        commit_id: Sha1(be6a4b2f1372586f4f1f434abea8087634b54148),
+                    },
+                ],
+            ),
+            (
+                6048968734524995517,
+                [
+                    HunkLock {
+                        stack_id: stack_1,
+                        commit_id: Sha1(60a2022fc47aec1959cdf3e9b4a2c3cf441c918c),
+                    },
+                    HunkLock {
+                        stack_id: stack_1,
+                        commit_id: Sha1(0bfc8418d23102d123a376394f3364db66e0ef16),
+                    },
+                ],
+            ),
+        ],
+        errors: [],
+    }
+    ");
     Ok(())
 }
 
@@ -91,47 +91,47 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
     let (actual, _ctx) =
         hunk_dependencies_for_workspace("complex-file-manipulation-multiple-hunks-with-changes")?;
     insta::assert_snapshot!(to_stable_string(actual), @r"
-        StableHunkDependencies {
-            diffs: [
-                (
-                    2434601357784245452,
-                    [
-                        HunkLock {
-                            stack_id: stack_1,
-                            commit_id: Sha1(dea907e862f2101c2ac493554e86abb1225b278e),
-                        },
-                        HunkLock {
-                            stack_id: stack_1,
-                            commit_id: Sha1(7558793046d64ea2070bf0856d5b2500371f0da6),
-                        },
-                        HunkLock {
-                            stack_id: stack_1,
-                            commit_id: Sha1(3bdeccbfca50778abfe67960f0732b0e4e065ab9),
-                        },
-                    ],
-                ),
-                (
-                    3708607749576748282,
-                    [
-                        HunkLock {
-                            stack_id: stack_1,
-                            commit_id: Sha1(4bc98513b032b5992b85be8dd551e841bf959a3f),
-                        },
-                    ],
-                ),
-                (
-                    16712260417274738957,
-                    [
-                        HunkLock {
-                            stack_id: stack_1,
-                            commit_id: Sha1(7558793046d64ea2070bf0856d5b2500371f0da6),
-                        },
-                    ],
-                ),
-            ],
-            errors: [],
-        }
-        ");
+    StableHunkDependencies {
+        diffs: [
+            (
+                8240534308515296008,
+                [
+                    HunkLock {
+                        stack_id: stack_1,
+                        commit_id: Sha1(dea907e862f2101c2ac493554e86abb1225b278e),
+                    },
+                    HunkLock {
+                        stack_id: stack_1,
+                        commit_id: Sha1(7558793046d64ea2070bf0856d5b2500371f0da6),
+                    },
+                    HunkLock {
+                        stack_id: stack_1,
+                        commit_id: Sha1(3bdeccbfca50778abfe67960f0732b0e4e065ab9),
+                    },
+                ],
+            ),
+            (
+                15989967088397270668,
+                [
+                    HunkLock {
+                        stack_id: stack_1,
+                        commit_id: Sha1(4bc98513b032b5992b85be8dd551e841bf959a3f),
+                    },
+                ],
+            ),
+            (
+                18120254504138851193,
+                [
+                    HunkLock {
+                        stack_id: stack_1,
+                        commit_id: Sha1(7558793046d64ea2070bf0856d5b2500371f0da6),
+                    },
+                ],
+            ),
+        ],
+        errors: [],
+    }
+    ");
     Ok(())
 }
 
@@ -139,21 +139,21 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
 fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
     let (actual, _ctx) = hunk_dependencies_for_workspace("merge-commit")?;
     insta::assert_snapshot!(to_stable_string(actual), @r"
-        StableHunkDependencies {
-            diffs: [
-                (
-                    12435379862484897562,
-                    [
-                        HunkLock {
-                            stack_id: stack_1,
-                            commit_id: Sha1(306c01518260b03afa8b92443850bf27b45d6d84),
-                        },
-                    ],
-                ),
-            ],
-            errors: [],
-        }
-        ");
+    StableHunkDependencies {
+        diffs: [
+            (
+                2654316029522724523,
+                [
+                    HunkLock {
+                        stack_id: stack_1,
+                        commit_id: Sha1(306c01518260b03afa8b92443850bf27b45d6d84),
+                    },
+                ],
+            ),
+        ],
+        errors: [],
+    }
+    ");
     Ok(())
 }
 

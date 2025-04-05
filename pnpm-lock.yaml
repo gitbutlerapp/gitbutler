@@ -4,44 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-catalogs:
-  default:
-    '@vitest/ui':
-      specifier: 3.0.5
-      version: 3.0.5
-    marked:
-      specifier: 15.0.7
-      version: 15.0.7
-    vite:
-      specifier: 6.2.2
-      version: 6.2.2
-    vitest:
-      specifier: 3.0.5
-      version: 3.0.5
-  redux:
-    '@reduxjs/toolkit':
-      specifier: ^2.5.0
-      version: 2.5.0
-  svelte:
-    '@sentry/sveltekit':
-      specifier: 8.54.0
-      version: 8.54.0
-    '@sveltejs/adapter-static':
-      specifier: 3.0.8
-      version: 3.0.8
-    '@sveltejs/kit':
-      specifier: 2.20.1
-      version: 2.20.1
-    '@sveltejs/vite-plugin-svelte':
-      specifier: 5.0.3
-      version: 5.0.3
-    svelte:
-      specifier: 5.23.2
-      version: 5.23.2
-    svelte-check:
-      specifier: 4.1.4
-      version: 4.1.4
-
 importers:
 
   .:
@@ -53,8 +15,8 @@ importers:
         specifier: workspace:*
         version: link:packages/no-relative-imports
       '@tauri-apps/cli':
-        specifier: ^2.0.1
-        version: 2.0.1
+        specifier: ^2.4.1
+        version: 2.4.1
       '@types/eslint':
         specifier: 9.6.0
         version: 9.6.0
@@ -224,7 +186,7 @@ importers:
         version: 6.6.3
       '@testing-library/svelte':
         specifier: 5.2.5
-        version: 5.2.5(svelte@5.23.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5)
+        version: 5.2.5(svelte@5.23.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))
       '@types/diff-match-patch':
         specifier: ^1.0.36
         version: 1.0.36
@@ -393,7 +355,7 @@ importers:
         version: 6.6.3
       '@testing-library/svelte':
         specifier: 5.2.5
-        version: 5.2.5(svelte@5.23.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5)
+        version: 5.2.5(svelte@5.23.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))
       '@types/diff-match-patch':
         specifier: ^1.0.36
         version: 1.0.36
@@ -714,7 +676,7 @@ importers:
         version: 8.5.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.5.3(prettier@3.3.2))
       '@storybook/experimental-addon-test':
         specifier: ^8.5.3
-        version: 8.5.3(@vitest/browser@3.0.3)(@vitest/runner@3.0.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.5.3(prettier@3.3.2))(vitest@3.0.5)
+        version: 8.5.3(@vitest/browser@3.0.3(@types/node@22.3.0)(playwright@1.47.0)(typescript@5.4.5)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5)(webdriverio@8.40.2))(@vitest/runner@3.0.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.5.3(prettier@3.3.2))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))
       '@storybook/svelte':
         specifier: ^8.5.3
         version: 8.5.3(storybook@8.5.3(prettier@3.3.2))(svelte@5.23.2)
@@ -2751,68 +2713,74 @@ packages:
   '@tauri-apps/api@2.0.3':
     resolution: {integrity: sha512-840qk6n8rbXBXMA5/aAgTYsg5JAubKO0nXw5wf7IzGnUuYKGbB4oFBIZtXOIWy+E0kNTDI3qhq5iqsoMJfwp8g==}
 
-  '@tauri-apps/cli-darwin-arm64@2.0.1':
-    resolution: {integrity: sha512-oWjCZoFbm57V0eLEkIbc6aUmB4iW65QF7J8JVh5sNzH4xHGP9rzlQarbkg7LOn89z7mFSZpaLJAWlaaZwoV2Ug==}
+  '@tauri-apps/cli-darwin-arm64@2.4.1':
+    resolution: {integrity: sha512-QME7s8XQwy3LWClTVlIlwXVSLKkeJ/z88pr917Mtn9spYOjnBfsgHAgGdmpWD3NfJxjg7CtLbhH49DxoFL+hLg==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [darwin]
 
-  '@tauri-apps/cli-darwin-x64@2.0.1':
-    resolution: {integrity: sha512-bARd5yAnDGpG/FPhSh87+tzQ6D0TPyP2mZ5bg6cioeoXDmry68nT/FBzp87ySR1/KHvuhEQYWM/4RPrDjvI1Yg==}
+  '@tauri-apps/cli-darwin-x64@2.4.1':
+    resolution: {integrity: sha512-/r89IcW6Ya1sEsFUEH7wLNruDTj7WmDWKGpPy7gATFtQr5JEY4heernqE82isjTUimnHZD8SCr0jA3NceI4ybw==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [darwin]
 
-  '@tauri-apps/cli-linux-arm-gnueabihf@2.0.1':
-    resolution: {integrity: sha512-OK3/RpxujoZAUbV7GHe4IPAUsIO6IuWEHT++jHXP+YW5Y7QezGGjQRc43IlWaQYej/yE8wfcrwrbqisc5wtiCw==}
+  '@tauri-apps/cli-linux-arm-gnueabihf@2.4.1':
+    resolution: {integrity: sha512-9tDijkRB+CchAGjXxYdY9l/XzFpLp1yihUtGXJz9eh+3qIoRI043n3e+6xmU8ZURr7XPnu+R4sCmXs6HD+NCEQ==}
     engines: {node: '>= 10'}
     cpu: [arm]
     os: [linux]
 
-  '@tauri-apps/cli-linux-arm64-gnu@2.0.1':
-    resolution: {integrity: sha512-MGSQJduiMEApspMK97mFt4kr6ig0OtxO5SUFpPDfYPw/XmY9utaRa9CEG6LcH8e0GN9xxYMhCv+FeU48spYPhA==}
+  '@tauri-apps/cli-linux-arm64-gnu@2.4.1':
+    resolution: {integrity: sha512-pnFGDEXBAzS4iDYAVxTRhAzNu3K2XPGflYyBc0czfHDBXopqRgMyj5Q9Wj7HAwv6cM8BqzXINxnb2ZJFGmbSgA==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
 
-  '@tauri-apps/cli-linux-arm64-musl@2.0.1':
-    resolution: {integrity: sha512-R6+vgxaPpxgGi4suMkQgGuhjMbZzMJfVyWfv2DOE/xxOzSK1BAOc54/HOjfOLxlnkA6uD6V69MwCwXgxW00A2g==}
+  '@tauri-apps/cli-linux-arm64-musl@2.4.1':
+    resolution: {integrity: sha512-Hp0zXgeZNKmT+eoJSCxSBUm2QndNuRxR55tmIeNm3vbyUMJN/49uW7nurZ5fBPsacN4Pzwlx1dIMK+Gnr9A69w==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
 
-  '@tauri-apps/cli-linux-x64-gnu@2.0.1':
-    resolution: {integrity: sha512-xrasYQnUZVhKJhBxHAeu4KxZbofaQlsG9KfZ9p1Bx+hmjs5BuujzwMnXsVD2a4l6GPW6gwblf2a6d600rySmWQ==}
+  '@tauri-apps/cli-linux-riscv64-gnu@2.4.1':
+    resolution: {integrity: sha512-3T3bo2E4fdYRvzcXheWUeQOVB+LunEEi92iPRgOyuSVexVE4cmHYl+MPJF+EUV28Et0hIVTsHibmDO0/04lAFg==}
+    engines: {node: '>= 10'}
+    cpu: [riscv64]
+    os: [linux]
+
+  '@tauri-apps/cli-linux-x64-gnu@2.4.1':
+    resolution: {integrity: sha512-kLN0FdNONO+2i+OpU9+mm6oTGufRC00e197TtwjpC0N6K2K8130w7Q3FeODIM2CMyg0ov3tH+QWqKW7GNhHFzg==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
 
-  '@tauri-apps/cli-linux-x64-musl@2.0.1':
-    resolution: {integrity: sha512-SPk+EzRTlbvk46p5aURc7O4GihzxbqG80m74vstm0rolnmQ0FX3qqIh3as3cQpDiZWLod4j6EEmX0mTU3QpvXA==}
+  '@tauri-apps/cli-linux-x64-musl@2.4.1':
+    resolution: {integrity: sha512-a8exvA5Ub9eg66a6hsMQKJIkf63QAf9OdiuFKOsEnKZkNN2x0NLgfvEcqdw88VY0UMs9dBoZ1AGbWMeYnLrLwQ==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
 
-  '@tauri-apps/cli-win32-arm64-msvc@2.0.1':
-    resolution: {integrity: sha512-LAELK01eOMyEt+JZLmx4EUOdRuPYr1a+mHjlxAxCnCaS3dpeg/c5/NMZfbRAJbAH4id+STRHIfPXTdCT2zUNAw==}
+  '@tauri-apps/cli-win32-arm64-msvc@2.4.1':
+    resolution: {integrity: sha512-4JFrslsMCJQG1c573T9uqQSAbF3j/tMKkMWzsIssv8jvPiP++OG61A2/F+y9te9/Q/O95cKhDK63kaiO5xQaeg==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [win32]
 
-  '@tauri-apps/cli-win32-ia32-msvc@2.0.1':
-    resolution: {integrity: sha512-eMUgOS4mAusk5njU2TBxBjCUO1P4cV4uzY5CHihysoXSL2TVQdWrXT42VGeoahJh+yeQWkYFka2s4Bu0iWDMXg==}
+  '@tauri-apps/cli-win32-ia32-msvc@2.4.1':
+    resolution: {integrity: sha512-9eXfFORehYSCRwxg2KodfmX/mhr50CI7wyBYGbPLePCjr5z0jK/9IyW6r0tC+ZVjwpX48dkk7hKiUgI25jHjzA==}
     engines: {node: '>= 10'}
     cpu: [ia32]
     os: [win32]
 
-  '@tauri-apps/cli-win32-x64-msvc@2.0.1':
-    resolution: {integrity: sha512-U9esAOcFIv80/slzlpwjkG31Wx1OqbfDgC5KjGT1Dd9iUOSuJZCwbiY7m3rYG2I6RWLfd9zhNu86CVohsKjBfA==}
+  '@tauri-apps/cli-win32-x64-msvc@2.4.1':
+    resolution: {integrity: sha512-60a4Ov7Jrwqz2hzDltlS7301dhSAmM9dxo+IRBD3xz7yobKrgaHXYpWvnRomYItHcDd51VaKc9292H8/eE/gsw==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
 
-  '@tauri-apps/cli@2.0.1':
-    resolution: {integrity: sha512-fCheW0iWYWUtFV3ui3HlMhk3ZJpAQ5KJr7B7UmfhDzBSy1h5JBdrCtvDwy+3AcPN+Fg5Ey3JciF8zEP8eBx+vQ==}
+  '@tauri-apps/cli@2.4.1':
+    resolution: {integrity: sha512-9Ta81jx9+57FhtU/mPIckDcOBtPTUdKM75t4+aA0X84b8Sclb0jy1xA8NplmcRzp2fsfIHNngU2NiRxsW5+yOQ==}
     engines: {node: '>= 10'}
     hasBin: true
 
@@ -7864,6 +7832,44 @@ packages:
     resolution: {integrity: sha512-zK7YHHz4ZXpW89AHXUPbQVGKI7uvkd3hzusTdotCg1UxyaVtg0zFJSTfW/Dq5f7OBBVnq6cZIaC8Ti4hb6dtCA==}
     engines: {node: '>= 14'}
 
+catalogs:
+  default:
+    '@vitest/ui':
+      specifier: 3.0.5
+      version: 3.0.5
+    marked:
+      specifier: 15.0.7
+      version: 15.0.7
+    vite:
+      specifier: 6.2.2
+      version: 6.2.2
+    vitest:
+      specifier: 3.0.5
+      version: 3.0.5
+  redux:
+    '@reduxjs/toolkit':
+      specifier: ^2.5.0
+      version: 2.5.0
+  svelte:
+    '@sentry/sveltekit':
+      specifier: 8.54.0
+      version: 8.54.0
+    '@sveltejs/adapter-static':
+      specifier: 3.0.8
+      version: 3.0.8
+    '@sveltejs/kit':
+      specifier: 2.20.1
+      version: 2.20.1
+    '@sveltejs/vite-plugin-svelte':
+      specifier: 5.0.3
+      version: 5.0.3
+    svelte:
+      specifier: 5.23.2
+      version: 5.23.2
+    svelte-check:
+      specifier: 4.1.4
+      version: 4.1.4
+
 snapshots:
 
   '@aashutoshrathi/word-wrap@1.2.6': {}
@@ -9884,7 +9890,7 @@ snapshots:
     dependencies:
       storybook: 8.5.3(prettier@3.3.2)
 
-  '@storybook/experimental-addon-test@8.5.3(@vitest/browser@3.0.3)(@vitest/runner@3.0.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.5.3(prettier@3.3.2))(vitest@3.0.5)':
+  '@storybook/experimental-addon-test@8.5.3(@vitest/browser@3.0.3(@types/node@22.3.0)(playwright@1.47.0)(typescript@5.4.5)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5)(webdriverio@8.40.2))(@vitest/runner@3.0.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.5.3(prettier@3.3.2))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/browser@3.0.3)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))':
     dependencies:
       '@storybook/csf': 0.1.12
       '@storybook/global': 5.0.0
@@ -10111,48 +10117,52 @@ snapshots:
 
   '@tauri-apps/api@2.0.3': {}
 
-  '@tauri-apps/cli-darwin-arm64@2.0.1':
+  '@tauri-apps/cli-darwin-arm64@2.4.1':
     optional: true
 
-  '@tauri-apps/cli-darwin-x64@2.0.1':
+  '@tauri-apps/cli-darwin-x64@2.4.1':
     optional: true
 
-  '@tauri-apps/cli-linux-arm-gnueabihf@2.0.1':
+  '@tauri-apps/cli-linux-arm-gnueabihf@2.4.1':
     optional: true
 
-  '@tauri-apps/cli-linux-arm64-gnu@2.0.1':
+  '@tauri-apps/cli-linux-arm64-gnu@2.4.1':
     optional: true
 
-  '@tauri-apps/cli-linux-arm64-musl@2.0.1':
+  '@tauri-apps/cli-linux-arm64-musl@2.4.1':
     optional: true
 
-  '@tauri-apps/cli-linux-x64-gnu@2.0.1':
+  '@tauri-apps/cli-linux-riscv64-gnu@2.4.1':
     optional: true
 
-  '@tauri-apps/cli-linux-x64-musl@2.0.1':
+  '@tauri-apps/cli-linux-x64-gnu@2.4.1':
     optional: true
 
-  '@tauri-apps/cli-win32-arm64-msvc@2.0.1':
+  '@tauri-apps/cli-linux-x64-musl@2.4.1':
     optional: true
 
-  '@tauri-apps/cli-win32-ia32-msvc@2.0.1':
+  '@tauri-apps/cli-win32-arm64-msvc@2.4.1':
     optional: true
 
-  '@tauri-apps/cli-win32-x64-msvc@2.0.1':
+  '@tauri-apps/cli-win32-ia32-msvc@2.4.1':
     optional: true
 
-  '@tauri-apps/cli@2.0.1':
+  '@tauri-apps/cli-win32-x64-msvc@2.4.1':
+    optional: true
+
+  '@tauri-apps/cli@2.4.1':
     optionalDependencies:
-      '@tauri-apps/cli-darwin-arm64': 2.0.1
-      '@tauri-apps/cli-darwin-x64': 2.0.1
-      '@tauri-apps/cli-linux-arm-gnueabihf': 2.0.1
-      '@tauri-apps/cli-linux-arm64-gnu': 2.0.1
-      '@tauri-apps/cli-linux-arm64-musl': 2.0.1
-      '@tauri-apps/cli-linux-x64-gnu': 2.0.1
-      '@tauri-apps/cli-linux-x64-musl': 2.0.1
-      '@tauri-apps/cli-win32-arm64-msvc': 2.0.1
-      '@tauri-apps/cli-win32-ia32-msvc': 2.0.1
-      '@tauri-apps/cli-win32-x64-msvc': 2.0.1
+      '@tauri-apps/cli-darwin-arm64': 2.4.1
+      '@tauri-apps/cli-darwin-x64': 2.4.1
+      '@tauri-apps/cli-linux-arm-gnueabihf': 2.4.1
+      '@tauri-apps/cli-linux-arm64-gnu': 2.4.1
+      '@tauri-apps/cli-linux-arm64-musl': 2.4.1
+      '@tauri-apps/cli-linux-riscv64-gnu': 2.4.1
+      '@tauri-apps/cli-linux-x64-gnu': 2.4.1
+      '@tauri-apps/cli-linux-x64-musl': 2.4.1
+      '@tauri-apps/cli-win32-arm64-msvc': 2.4.1
+      '@tauri-apps/cli-win32-ia32-msvc': 2.4.1
+      '@tauri-apps/cli-win32-x64-msvc': 2.4.1
 
   '@tauri-apps/plugin-clipboard-manager@2.2.1':
     dependencies:
@@ -10266,13 +10276,21 @@ snapshots:
       lodash: 4.17.21
       redent: 3.0.0
 
-  '@testing-library/svelte@5.2.5(svelte@5.23.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5)':
+  '@testing-library/svelte@5.2.5(svelte@5.23.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))':
     dependencies:
       '@testing-library/dom': 10.4.0
       svelte: 5.23.2
     optionalDependencies:
       vite: 6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
       vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
+
+  '@testing-library/svelte@5.2.5(svelte@5.23.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))':
+    dependencies:
+      '@testing-library/dom': 10.4.0
+      svelte: 5.23.2
+    optionalDependencies:
+      vite: 6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
+      vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
 
   '@testing-library/user-event@14.5.2(@testing-library/dom@10.4.0)':
     dependencies:
@@ -10756,7 +10774,7 @@ snapshots:
       sirv: 3.0.0
       tinyglobby: 0.2.10
       tinyrainbow: 2.0.0
-      vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
+      vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
 
   '@vitest/utils@2.0.5':
     dependencies:
@@ -12121,7 +12139,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0)(eslint@9.18.0):
+  eslint-module-utils@2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0(eslint-plugin-import-x@4.6.1(eslint@9.18.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.18.0))(eslint@9.18.0):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
@@ -12163,7 +12181,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.18.0
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0)(eslint@9.18.0)
+      eslint-module-utils: 2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.18.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0(eslint-plugin-import-x@4.6.1(eslint@9.18.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.18.0))(eslint@9.18.0)
       hasown: 2.0.2
       is-core-module: 2.16.1
       is-glob: 4.0.3
@@ -15755,48 +15773,6 @@ snapshots:
       '@vitest/ui': 3.0.5(vitest@3.0.5)
       happy-dom: 14.12.3
       jsdom: 24.1.1
-    transitivePeerDependencies:
-      - jiti
-      - less
-      - lightningcss
-      - msw
-      - sass
-      - sass-embedded
-      - stylus
-      - sugarss
-      - supports-color
-      - terser
-      - tsx
-      - yaml
-
-  vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0):
-    dependencies:
-      '@vitest/expect': 3.0.5
-      '@vitest/mocker': 3.0.5(msw@2.7.0(@types/node@22.3.0)(typescript@5.4.5))(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))
-      '@vitest/pretty-format': 3.0.5
-      '@vitest/runner': 3.0.5
-      '@vitest/snapshot': 3.0.5
-      '@vitest/spy': 3.0.5
-      '@vitest/utils': 3.0.5
-      chai: 5.1.2
-      debug: 4.4.0
-      expect-type: 1.1.0
-      magic-string: 0.30.17
-      pathe: 2.0.2
-      std-env: 3.8.0
-      tinybench: 2.9.0
-      tinyexec: 0.3.2
-      tinypool: 1.0.2
-      tinyrainbow: 2.0.0
-      vite: 6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
-      vite-node: 3.0.5(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
-      why-is-node-running: 2.3.0
-    optionalDependencies:
-      '@types/debug': 4.1.12
-      '@types/node': 22.3.0
-      '@vitest/ui': 3.0.5(vitest@3.0.5)
-      happy-dom: 14.12.3
-      jsdom: 26.0.0
     transitivePeerDependencies:
       - jiti
       - less
