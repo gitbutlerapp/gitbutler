@@ -342,16 +342,6 @@
 
 	<!-- DESCRIPTION FIELD -->
 	<MessageEditor
-		{projectId}
-		{stackId}
-		initialValue={prBody.value}
-		onChange={(text: string) => {
-			prBody.set(text);
-		}}
-	/>
-
-	<!-- DESCRIPTION FIELD -->
-	<MessageEditor
 		bind:this={descriptionInput}
 		{projectId}
 		{stackId}
