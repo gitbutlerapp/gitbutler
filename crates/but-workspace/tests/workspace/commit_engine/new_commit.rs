@@ -374,6 +374,8 @@ fn renames_with_selections() -> anyhow::Result<()> {
                     "),
                 ],
                 is_result_of_binary_to_text_conversion: false,
+                lines_added: 2,
+                lines_removed: 0,
             },
         ),
         (
@@ -389,6 +391,8 @@ fn renames_with_selections() -> anyhow::Result<()> {
                     "),
                 ],
                 is_result_of_binary_to_text_conversion: false,
+                lines_added: 2,
+                lines_removed: 0,
             },
         ),
         (
@@ -401,6 +405,8 @@ fn renames_with_selections() -> anyhow::Result<()> {
                     "),
                 ],
                 is_result_of_binary_to_text_conversion: false,
+                lines_added: 0,
+                lines_removed: 1,
             },
         ),
         (
@@ -413,6 +419,8 @@ fn renames_with_selections() -> anyhow::Result<()> {
                     "),
                 ],
                 is_result_of_binary_to_text_conversion: false,
+                lines_added: 1,
+                lines_removed: 0,
             },
         ),
     ]
@@ -503,6 +511,8 @@ fn modification_with_complex_selection() -> anyhow::Result<()> {
                 "),
             ],
             is_result_of_binary_to_text_conversion: false,
+            lines_added: 10,
+            lines_removed: 10,
         },
     )
     "#);

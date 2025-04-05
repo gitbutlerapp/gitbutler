@@ -246,6 +246,15 @@ export function isDiffHunk(something: unknown): something is DiffHunk {
 export type Patch = {
 	/** All non-overlapping hunks, including their context lines. */
 	readonly hunks: DiffHunk[];
+	/**
+	 * If `true`, a binary to text filter (`textconv` in Git config) was used to obtain the `hunks` in the diff.
+	 * This means hunk-based operations must be disabled.
+	 */
+	readonly isResultOfBinaryToTextConversion: boolean;
+	/** The number of lines added in the patch. */
+	readonly linesAdded: number;
+	/** The number of lines removed in the patch. */
+	readonly linesRemoved: number;
 };
 
 export function isFileDeletionHunk(hunk: DiffHunk): boolean {

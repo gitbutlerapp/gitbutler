@@ -169,18 +169,24 @@ impl UnifiedDiff {
                     }
                 }
                 let input = prep.interned_input();
+                let hunks = gix::diff::blob::diff(
+                    algorithm,
+                    &input,
+                    gix::diff::blob::UnifiedDiff::new(
+                        &input,
+                        ProduceDiffHunk::default(),
+                        gix::diff::blob::unified_diff::NewlineSeparator::AfterHeaderAndWhenNeeded(
+                            "\n",
+                        ),
+                        ContextSize::symmetrical(context_lines),
+                    ),
+                )?;
+                let (lines_added, lines_removed) = compute_line_changes(&hunks);
                 UnifiedDiff::Patch {
                     is_result_of_binary_to_text_conversion: prep.old_or_new_is_derived,
-                    hunks: gix::diff::blob::diff(
-                        algorithm,
-                        &input,
-                        gix::diff::blob::UnifiedDiff::new(
-                            &input,
-                            ProduceDiffHunk::default(),
-                            gix::diff::blob::unified_diff::NewlineSeparator::AfterHeaderAndWhenNeeded("\n"),
-                            ContextSize::symmetrical(context_lines),
-                        ),
-                    )?,
+                    hunks,
+                    lines_added,
+                    lines_removed,
                 }
             }
             Operation::ExternalCommand { .. } => {
@@ -213,6 +219,21 @@ impl UnifiedDiff {
             }
         })
     }
+}
+
+fn compute_line_changes(hunks: &Vec<DiffHunk>) -> (u32, u32) {
+    let mut lines_added = 0;
+    let mut lines_removed = 0;
+    for hunk in hunks {
+        hunk.diff.lines().for_each(|line| {
+            if line.starts_with(b"+") {
+                lines_added += 1;
+            } else if line.starts_with(b"-") {
+                lines_removed += 1;
+            }
+        });
+    }
+    (lines_added, lines_removed)
 }
 
 /// Produce a filter from `repo` and `state` using `mode` that is able to perform diffs of `state`.
