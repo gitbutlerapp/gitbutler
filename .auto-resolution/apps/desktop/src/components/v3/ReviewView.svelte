@@ -1,0 +1,83 @@
+<script lang="ts">
+	import ReviewCreation from '$components/ReviewCreation.svelte';
+	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
+	import Drawer from '$components/v3/Drawer.svelte';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { StackPublishingService } from '$lib/history/stackPublishingService';
+	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
+	import { getContext } from '@gitbutler/shared/context';
+
+	type Props = {
+		projectId: string;
+		stackId: string;
+		branchName: string;
+	};
+
+	const { projectId, stackId, branchName }: Props = $props();
+
+	const uiState = getContext(UiState);
+
+	let drawer = $state<ReturnType<typeof Drawer>>();
+	let reviewCreation = $state<ReviewCreation>();
+
+	function close() {
+		uiState.project(projectId).drawerPage.current = 'branch';
+	}
+
+	const stackService = getContext(StackService);
+
+	const forge = getContext(DefaultForgeFactory);
+
+	const branch = $derived(stackService.branchByName(projectId, stackId, branchName));
+
+	const prNumber = $derived(branch.current.data?.prNumber ?? undefined);
+	const prService = $derived(forge.current.prService);
+	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
+	const pr = $derived(prResult?.current.data);
+
+	const stackPublishingService = getContext(StackPublishingService);
+
+	const canPublish = stackPublishingService.canPublish;
+
+	const canPublishBR = $derived(
+		!!($canPublish && branch.current.data?.name && !branch.current.data?.reviewId)
+	);
+	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
+
+	function getTitleLabel() {
+		if (canPublishBR && canPublishPR) {
+			return 'Submit for code review';
+		} else if (canPublishBR) {
+			return 'Create Butler Request';
+		} else if (canPublishPR) {
+			return 'Create Pull Request';
+		}
+		return 'Submit for code review';
+	}
+</script>
+
+<Drawer bind:this={drawer} {projectId} {stackId} title="Submit for code review">
+	<div class="container">
+		<div class="main">
+			<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} />
+		</div>
+
+		<div class="actions">
+			<Button kind="outline" onclick={close}>Cancel</Button>
+			<AsyncButton
+				action={async () => await reviewCreation?.createReview(close)}
+				disabled={!reviewCreation?.createButtonEnabled().current}>Create Review</AsyncButton
+			>
+		</div>
+	</div>
+</Drawer>
+
+<style lang="postcss">
+	.submit-review__container {
+		flex-grow: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+	}
+</style>
