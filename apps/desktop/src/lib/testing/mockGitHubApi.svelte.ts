@@ -29,6 +29,7 @@ export function setupMockGitHubApi() {
 	const tauri = new Tauri();
 	const octokit = new Octokit();
 	const gitHubClient = new GitHubClient({ client: octokit });
+	gitHubClient.setRepo({ owner: 'test-owner', repo: 'test-repo' });
 	const gitHubApi = createGitHubApi(
 		butlerModule({ getDispatch: () => dispatch!, getState: () => () => state })
 	);

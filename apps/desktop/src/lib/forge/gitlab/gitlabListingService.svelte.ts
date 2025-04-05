@@ -1,5 +1,5 @@
-import { ghQuery } from '$lib/forge/github/ghQuery';
-import { ghResponseToInstance } from '$lib/forge/github/types';
+import { gitlab } from '$lib/forge/gitlab/gitlabClient';
+import { mrToInstance } from '$lib/forge/gitlab/types';
 import { createSelectByIds } from '$lib/state/customSelectors';
 import { providesList, ReduxTag } from '$lib/state/tags';
 import { reactive } from '@gitbutler/shared/storeUtils';
@@ -7,16 +7,16 @@ import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
 import type { PullRequest } from '$lib/forge/interface/types';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
-import type { GitHubApi } from '$lib/state/clientState.svelte';
+import type { GitLabApi } from '$lib/state/clientState.svelte';
 
-export class GitHubListingService implements ForgeListingService {
+export class GitLabListingService implements ForgeListingService {
 	private api: ReturnType<typeof injectEndpoints>;
 
 	constructor(
-		gitHubApi: GitHubApi,
+		gitLabApi: GitLabApi,
 		private projectMetrics?: ProjectMetrics
 	) {
-		this.api = injectEndpoints(gitHubApi);
+		this.api = injectEndpoints(gitLabApi);
 	}
 
 	list(projectId: string, pollingInterval?: number) {
@@ -59,28 +59,21 @@ export class GitHubListingService implements ForgeListingService {
 	}
 }
 
-function injectEndpoints(api: GitHubApi) {
+function injectEndpoints(api: GitLabApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			listPrs: build.query<EntityState<PullRequest, string>, string>({
-				queryFn: async (_, api) => {
-					const result = await ghQuery<'pulls', 'list', 'required'>(
-						async (octokit, repository) => ({
-							data: await octokit.paginate(octokit.rest.pulls.list, repository)
-						}),
-						api.extra,
-						'required'
-					);
+				queryFn: async (_, query) => {
+					const { api, upstreamProjectId, forkProjectId } = gitlab(query.extra);
+					const upstreamMrs = await api.MergeRequests.all({ projectId: upstreamProjectId });
+					const forkMrs = await api.MergeRequests.all({ projectId: forkProjectId });
 
-					if (result.data) {
-						return {
-							data: prAdapter.addMany(
-								prAdapter.getInitialState(),
-								result.data.map((item) => ghResponseToInstance(item))
-							)
-						};
-					}
-					return result;
+					return {
+						data: prAdapter.addMany(
+							prAdapter.getInitialState(),
+							[...upstreamMrs, ...forkMrs].map((mr) => mrToInstance(mr))
+						)
+					};
 				},
 				providesTags: [providesList(ReduxTag.PullRequests)]
 			})
