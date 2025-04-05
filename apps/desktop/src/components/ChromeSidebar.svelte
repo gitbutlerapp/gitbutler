@@ -263,13 +263,14 @@
 >
 	<ContextMenuSection>
 		<ContextMenuItem
-			label="Preferences"
+			label="Global settings"
 			onclick={() => {
 				goto(newSettingsPath());
 			}}
+			keyboardShortcut="⌘,"
 		/>
 	</ContextMenuSection>
-	<ContextMenuSection title="Theme (⌘K)">
+	<ContextMenuSection title="Theme (⌘T)">
 		<ContextMenuItem
 			label="Dark"
 			onclick={async () => {
