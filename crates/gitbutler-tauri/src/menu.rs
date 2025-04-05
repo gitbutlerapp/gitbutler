@@ -172,6 +172,7 @@ pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Me
                 .build(handle)?,
         )
         .text("project/open-in-vscode", "Open in Editor")
+        .text("project/open-in-finder", "Open in Finder")
         .separator()
         .text("project/settings", "Project Settings")
         .build()?;
@@ -296,6 +297,11 @@ pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
 
     if event.id() == "project/open-in-vscode" {
         emit(webview, SHORTCUT_EVENT, "open-in-vscode");
+        return;
+    }
+
+    if event.id() == "project/open-in-finder" {
+        emit(webview, SHORTCUT_EVENT, "open-in-finder");
         return;
     }
 
