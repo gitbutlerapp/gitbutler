@@ -11,9 +11,10 @@
 		stackId?: string;
 	};
 
-	const { projectId, stackId }: Props = $props();
+	let { projectId, stackId }: Props = $props();
 
 	const [idSelection, uiState] = inject(IdSelection, UiState);
+
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
 	const selectionId = $derived(stackState?.activeSelectionId.get());
 	const selection = $derived(selectionId?.current ? idSelection.values(selectionId.current) : []);
