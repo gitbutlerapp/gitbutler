@@ -1,6 +1,7 @@
 use crate::{ChangeState, TreeStatus};
 use crate::{Commit, ModeFlags, TreeChange};
 use gix::diff::tree_with_rewrites::Change;
+use gix::object::tree::diff::Stats;
 use gix::prelude::ObjectIdExt;
 
 /// Produce all changes that are needed to turn the tree of `lhs_commit` into the tree of `rhs_commit`.
@@ -14,7 +15,7 @@ pub fn commit_changes(
     repo: &gix::Repository,
     lhs_commit: Option<gix::ObjectId>,
     rhs_commit: gix::ObjectId,
-) -> anyhow::Result<Vec<TreeChange>> {
+) -> anyhow::Result<(Vec<TreeChange>, Stats)> {
     let lhs_tree = lhs_commit
         .map(|commit_id| {
             Commit::from_id(commit_id.attach(repo)).and_then(|commit| {
@@ -28,6 +29,10 @@ pub fn commit_changes(
         .object()
         .map(|obj| obj.into_tree())?;
 
+    let stats = rhs_tree
+        .changes()?
+        .stats(&lhs_tree.clone().unwrap_or_else(|| repo.empty_tree()))?;
+
     let changes = repo.diff_tree_to_tree(lhs_tree.as_ref(), &rhs_tree, None)?;
     let mut out: Vec<TreeChange> = changes
         .into_iter()
@@ -35,7 +40,7 @@ pub fn commit_changes(
         .map(Into::into)
         .collect();
     out.sort_by(|a, b| a.path.cmp(&b.path));
-    Ok(out)
+    Ok((out, stats))
 }
 
 impl From<gix::object::tree::diff::ChangeDetached> for TreeChange {

@@ -192,7 +192,7 @@ mod util {
                 commit.parent_ids().count() < 2,
                 "For now we probably can't handle the non-linear case correctly"
             );
-            let commit_changes = but_core::diff::commit_changes(
+            let (commit_changes, _) = but_core::diff::commit_changes(
                 repo,
                 commit.parent_ids.iter().next().copied(),
                 commit.id,

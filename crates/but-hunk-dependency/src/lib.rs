@@ -162,7 +162,7 @@ pub fn workspace_stacks_to_input_stacks(
         )?;
         for commit_id in commit_ids {
             let commit = repo.find_commit(commit_id)?;
-            let tree_changes = but_core::diff::commit_changes(
+            let (tree_changes, _) = but_core::diff::commit_changes(
                 repo,
                 commit.parent_ids().next().map(|id| id.detach()),
                 commit_id,

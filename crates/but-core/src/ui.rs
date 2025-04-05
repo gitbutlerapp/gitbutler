@@ -28,6 +28,16 @@ impl From<crate::WorktreeChanges> for WorktreeChanges {
     }
 }
 
+/// All the changes that were made to the tree, including stats
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TreeChanges {
+    /// The changes that were made to the tree.
+    pub changes: Vec<TreeChange>,
+    /// The stats of the changes.
+    pub stats: TreeStats,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TreeChange {
@@ -35,6 +45,27 @@ pub struct TreeChange {
     /// Something silently carried back and forth between the frontend and the backend.
     pub path_bytes: BString,
     pub status: TreeStatus,
+}
+
+impl From<gix::object::tree::diff::Stats> for TreeStats {
+    fn from(stats: gix::object::tree::diff::Stats) -> Self {
+        TreeStats {
+            lines_added: stats.lines_added,
+            lines_removed: stats.lines_removed,
+            files_changed: stats.files_changed,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TreeStats {
+    /// The total amount of lines added.
+    pub lines_added: u64,
+    /// The total amount of lines removed.
+    pub lines_removed: u64,
+    /// The number of files added, removed or modified.
+    pub files_changed: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
