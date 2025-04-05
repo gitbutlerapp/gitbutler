@@ -2,6 +2,7 @@
 	import BranchReviewButRequest from '$components/BranchReviewButRequest.svelte';
 	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import ReviewCreation from '$components/ReviewCreation.svelte';
+	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { syncBrToPr } from '$lib/forge/brToPrSync.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -11,17 +12,14 @@
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 	import type { Snippet } from 'svelte';
 
 	// TODO: This and the SeriesHeader should have a wholistic refactor to
 	// reduce the complexity of the forge related functionality.
 
 	type Props = {
-		pullRequestCard?: Snippet<[DetailedPullRequest]>;
 		branchStatus?: Snippet;
 		projectId: string;
 		stackId: string;
@@ -76,6 +74,17 @@
 		reactive(() => prNumber),
 		reactive(() => reviewId)
 	);
+
+	function getCtaLabel() {
+		if (canPublishBR && canPublishPR) {
+			return 'Submit for review';
+		} else if (canPublishBR) {
+			return 'Create Butler Request';
+		} else if (canPublishPR) {
+			return 'Create Pull Request';
+		}
+		return 'Submit for review';
+	}
 </script>
 
 <Modal
@@ -111,15 +120,15 @@
 	/>
 
 	{#snippet controls(close)}
-		<Button kind="outline" onclick={close}>Close</Button>
-		<AsyncButton
-			style="pop"
-			loading={reviewCreation?.imports.isLoading}
-			action={async () => await reviewCreation?.createReview()}
-			disabled={!reviewCreation?.createButtonEnabled().current}
-		>
-			Create Review
-		</AsyncButton>
+		<ReviewCreationControls
+			{canPublishBR}
+			{canPublishPR}
+			ctaDisabled={!reviewCreation?.createButtonEnabled().current}
+			onCancel={close}
+			onSubmit={async () => {
+				await reviewCreation?.createReview();
+			}}
+		/>
 	{/snippet}
 </Modal>
 
@@ -152,7 +161,7 @@
 			{disabled}
 			{tooltip}
 		>
-			Submit for Review
+			{getCtaLabel()}
 		</Button>
 	{/if}
 </div>
@@ -164,20 +173,6 @@
 		flex-direction: column;
 		gap: 14px;
 	}
-
-	/*
-		The :empty selector does not work in svelte because undeterminate reasons.
-		As such we have this beauty.
-
-		All we want to do is to have this thing to not add extra whitespace if
-		there is nothing interesting going on inside of the component.
-
-		We don't want to use display: none as that breaks things in other strange ways
-	*/
-
-	/* .branch-action:not(:has(> *)) {
-		padding: 0;
-	} */
 
 	.status-cards {
 		display: flex;

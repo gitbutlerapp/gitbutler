@@ -81,7 +81,7 @@
 							<Tooltip
 								text={remoteTrackingBranch
 									? `Remote tracking branch:\n${remoteTrackingBranch}`
-									: 'no remote tracking branch'}
+									: 'No remote tracking branch'}
 							>
 								<div class="remote-tracking-branch-icon" class:disabled={!remoteTrackingBranch}>
 									<Icon
@@ -106,15 +106,17 @@
 							}}
 						/>
 
-						<Button
-							size="tag"
-							icon="open-link"
-							kind="outline"
-							onclick={() => {
-								const url = forgeBranch?.url;
-								if (url) openExternalUrl(url);
-							}}>Open in browser</Button
-						>
+						{#if remoteTrackingBranch}
+							<Button
+								size="tag"
+								icon="open-link"
+								kind="outline"
+								onclick={() => {
+									const url = forgeBranch?.url;
+									if (url) openExternalUrl(url);
+								}}>Open in browser</Button
+							>
+						{/if}
 					{/if}
 				{/snippet}
 

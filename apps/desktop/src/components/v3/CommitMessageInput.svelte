@@ -65,7 +65,15 @@
 </script>
 
 <div class="commit-message-input">
-	<Textbox bind:value={titleText.current} placeholder="Commit title" />
+	<Textbox
+		autofocus
+		size="large"
+		placeholder="Commit title"
+		value={titleText.current}
+		oninput={(value: string) => {
+			titleText.set(value);
+		}}
+	/>
 	<MessageEditor
 		bind:this={composer}
 		initialValue={descriptionText.current}

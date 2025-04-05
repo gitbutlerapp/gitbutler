@@ -4,6 +4,7 @@
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import { remToPx } from '@gitbutler/ui/utils/remToPx';
 	import type { PageData } from './$types';
 	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -49,7 +50,7 @@
 	<WorkspaceView {projectId} {stackId}>
 		{#snippet right({ viewportWidth })}
 			<StackTabs {projectId} selectedId={stackId} bind:width={tabsWidth} />
-			<div class="contents" class:rounded={tabsWidth === Math.round(viewportWidth)}>
+			<div class="contents" class:rounded={tabsWidth! <= (remToPx(viewportWidth - 0.5) as number)}>
 				{@render children()}
 			</div>
 		{/snippet}

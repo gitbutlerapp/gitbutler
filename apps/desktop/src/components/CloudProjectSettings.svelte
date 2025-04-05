@@ -177,7 +177,7 @@
 						<SectionCard
 							labelFor="reviews"
 							orientation="row"
-							roundedTop={true}
+							roundedTop
 							roundedBottom={!cloudFeatureFlag}
 						>
 							{#snippet title()}
