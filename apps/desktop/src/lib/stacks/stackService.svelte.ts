@@ -16,7 +16,7 @@ import type { Commit, StackBranch, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
 import type { LocalFile } from '$lib/files/file';
 import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-import type { TreeChange } from '$lib/hunks/change';
+import type { TreeChange, TreeChanges } from '$lib/hunks/change';
 import type { DiffSpec, Hunk, HunkHeader } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackInfo } from '$lib/stacks/stack';
 import type { TauriCommandError } from '$lib/state/backendQuery';
@@ -678,8 +678,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				providesTags: (_result, _error, { commitId }) => [
 					...providesItem(ReduxTag.CommitChanges, commitId)
 				],
-				transformResponse(changes: TreeChange[]) {
-					return commitChangesAdapter.addMany(commitChangesAdapter.getInitialState(), changes);
+				transformResponse(rsp: TreeChanges) {
+					return commitChangesAdapter.addMany(commitChangesAdapter.getInitialState(), rsp.changes);
 				}
 			}),
 			branchChanges: build.query<
@@ -693,8 +693,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				providesTags: (_result, _error, { stackId, branchName }) => [
 					...providesItem(ReduxTag.BranchChanges, stackId + branchName)
 				],
-				transformResponse(changes: TreeChange[]) {
-					return branchChangesAdapter.addMany(branchChangesAdapter.getInitialState(), changes);
+				transformResponse(rsp: TreeChanges) {
+					return branchChangesAdapter.addMany(branchChangesAdapter.getInitialState(), rsp.changes);
 				}
 			}),
 			updateCommitMessage: build.mutation<
