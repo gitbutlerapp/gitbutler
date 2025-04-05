@@ -74,6 +74,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.27.3
         version: 0.27.3
+      '@octokit/rest':
+        specifier: ^20.1.1
+        version: 20.1.1
       '@prisma/client':
         specifier: ^6.5.0
         version: 6.5.0(prisma@6.5.0(typescript@5.4.5))(typescript@5.4.5)
@@ -83,6 +86,9 @@ importers:
       dotenv:
         specifier: ^16.4.7
         version: 16.4.7
+      openai:
+        specifier: ^4.87.3
+        version: 4.87.3(ws@8.18.0)
     devDependencies:
       '@types/node':
         specifier: ^22.3.0

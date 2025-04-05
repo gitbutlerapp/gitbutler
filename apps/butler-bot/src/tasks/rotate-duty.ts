@@ -1,13 +1,13 @@
-import { PrismaClient } from '@prisma/client';
 import crypto from 'node:crypto';
 import type { Task } from '@/types';
 import { ChannelType } from '@/types/channel-types';
-import { formatTicketList } from '@/utils/tickets';
+import { splitIntoMessages } from '@/utils/message-splitter';
+import { formatTicket } from '@/utils/tickets';
 
 export const rotateDuty: Task = {
 	name: 'rotate-duty',
 	schedule: '0 9 * * 1-5', // Run at 9am on weekdays (Monday-Friday)
-	execute: async (prisma: PrismaClient, client) => {
+	execute: async ({ prisma, client }) => {
 		try {
 			// Get all butlers in the support rota that are not currently on duty
 			const eligibleButlers = await prisma.butlers.findMany({
@@ -38,6 +38,7 @@ export const rotateDuty: Task = {
 			// Fetch open tickets
 			const openTickets = await prisma.supportTicket.findMany({
 				where: { resolved: false },
+				include: { github_issues: true },
 				orderBy: { created_at: 'desc' }
 			});
 
@@ -58,8 +59,12 @@ export const rotateDuty: Task = {
 						if (openTickets.length > 0) {
 							const ticketsMessage =
 								`📋 There are ${openTickets.length} open ticket(s) from previous days:\n` +
-								formatTicketList(openTickets);
-							await channel.send(ticketsMessage);
+								openTickets.map((ticket) => formatTicket(ticket, ticket.github_issues)).join('\n');
+
+							const messages = splitIntoMessages(ticketsMessage);
+							for (const msg of messages) {
+								await channel.send(msg);
+							}
 						}
 					}
 				}

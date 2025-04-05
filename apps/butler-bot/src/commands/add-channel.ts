@@ -6,7 +6,7 @@ export const addChannel: Command = {
 	help: `Adds the current channel to the specified type. Usage: !addchannel <type>`,
 	aliases: ['registerchannel'],
 	butlerOnly: true,
-	execute: async (message, prisma) => {
+	execute: async ({ message, prisma }) => {
 		try {
 			const args = message.content.split(' ');
 			if (args.length < 2) {

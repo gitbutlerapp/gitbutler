@@ -1,14 +1,19 @@
+import { Octokit } from '@octokit/rest';
 import { PrismaClient } from '@prisma/client';
 import { Client, Events, GatewayIntentBits, GuildMember } from 'discord.js';
 import cron from 'node-cron';
+import { OpenAI } from 'openai';
 import type { Command, Task } from '@/types';
 import { addChannel } from '@/commands/add-channel';
+import { addRepo } from '@/commands/add-repo';
 import { help } from '@/commands/help';
 import { listButlers } from '@/commands/list-butlers';
 import { listChannels } from '@/commands/list-channels';
+import { listRepos } from '@/commands/list-repos';
 import { listTickets } from '@/commands/list-tickets';
 import { ping } from '@/commands/ping';
 import { removeChannel } from '@/commands/remove-channel';
+import { removeRepo } from '@/commands/remove-repo';
 import { resolveTicket } from '@/commands/resolve-ticket';
 import { restart } from '@/commands/restart';
 import { runTask } from '@/commands/run-task';
@@ -16,8 +21,17 @@ import { toggleRota } from '@/commands/toggle-rota';
 import { firehoze } from '@/firehoze';
 import { rotateDuty } from '@/tasks/rotate-duty';
 import { syncButlers } from '@/tasks/sync-butlers';
+import { syncGithubIssues } from '@/tasks/sync-github-issues';
 import 'dotenv/config';
 
+const openai = new OpenAI({
+	apiKey: process.env.OPENAI_API_KEY,
+	organization: process.env.OPENAI_ORGANIZATION
+});
+
+const octokit = new Octokit({
+	auth: process.env.GITHUB_TOKEN
+});
 const prisma = new PrismaClient();
 const client = new Client({
 	intents: [
@@ -46,7 +60,7 @@ client.once(Events.ClientReady, (readyClient) => {
 
 		cron.schedule(task.schedule, async () => {
 			try {
-				await task.execute(prisma, readyClient);
+				await task.execute({ prisma, octokit, client, openai });
 			} catch (error) {
 				console.error(`Error executing task ${task.name}:`, error);
 			}
@@ -65,13 +79,19 @@ const commands: Command[] = [
 	removeChannel,
 	listChannels,
 	runTask,
-	restart
+	restart,
+	addRepo,
+	removeRepo,
+	listRepos
 ];
 
-const tasks: Task[] = [syncButlers, rotateDuty];
+const tasks: Task[] = [syncButlers, rotateDuty, syncGithubIssues];
 
 // Event handler for incoming messages
 client.on(Events.MessageCreate, async (message) => {
+	// Only respond to messages in the allowed guild
+	if (message.guildId !== process.env.ALLOWED_GUILD) return;
+
 	// Ignore messages from bots to prevent potential infinite loops
 	if (message.author.bot) return;
 
@@ -89,7 +109,7 @@ client.on(Events.MessageCreate, async (message) => {
 					return;
 				}
 
-				await command.execute(message, prisma, { commands, tasks });
+				await command.execute({ message, prisma, octokit, client, commands, tasks, openai });
 
 				return;
 			}
@@ -97,7 +117,7 @@ client.on(Events.MessageCreate, async (message) => {
 		await message.reply("I don't understand that command yet!");
 	}
 
-	firehoze(prisma, message);
+	firehoze(prisma, message, openai);
 });
 
 async function main() {

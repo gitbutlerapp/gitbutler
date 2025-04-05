@@ -5,6 +5,9 @@ export NVM_DIR="/home/ec2-user/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 
 while true; do
+    cd /home/ec2-user
+    source .env
+
     cd /home/ec2-user/gitbutler
 
     git pull

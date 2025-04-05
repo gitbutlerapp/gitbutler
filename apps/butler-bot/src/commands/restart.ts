@@ -5,7 +5,7 @@ export const restart: Command = {
 	help: 'Restarts the butler-bot by exiting with code 0.',
 	aliases: ['reboot'],
 	butlerOnly: true,
-	execute: async (message) => {
+	execute: async ({ message }) => {
 		try {
 			await message.reply('🔄 Restarting butler-bot...');
 
