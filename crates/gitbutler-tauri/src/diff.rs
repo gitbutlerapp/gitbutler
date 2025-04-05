@@ -1,7 +1,7 @@
 use crate::error::Error;
 use crate::from_json::HexHash;
 use anyhow::Context;
-use but_core::ui::{TreeChange, WorktreeChanges};
+use but_core::ui::{TreeChange, TreeChanges, WorktreeChanges};
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::OidExt;
@@ -33,7 +33,7 @@ pub fn changes_in_commit(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     project_id: ProjectId,
     commit_id: HexHash,
-) -> anyhow::Result<Vec<TreeChange>, Error> {
+) -> anyhow::Result<TreeChanges, Error> {
     let project = projects.get(project_id)?;
     but_core::diff::ui::commit_changes_by_worktree_dir(project.path, commit_id.into())
         .map_err(Into::into)
@@ -47,7 +47,7 @@ pub fn changes_in_branch(
     project_id: ProjectId,
     stack_id: StackId,
     branch_name: String,
-) -> anyhow::Result<Vec<TreeChange>, Error> {
+) -> anyhow::Result<TreeChanges, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     changes_in_branch_inner(ctx, branch_name, stack_id).map_err(Into::into)
@@ -57,7 +57,7 @@ fn changes_in_branch_inner(
     ctx: CommandContext,
     branch_name: String,
     stack_id: StackId,
-) -> anyhow::Result<Vec<TreeChange>> {
+) -> anyhow::Result<TreeChanges> {
     let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let stack = state.get_stack(stack_id)?;
 
