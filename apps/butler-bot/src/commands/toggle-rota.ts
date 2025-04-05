@@ -4,7 +4,7 @@ export const toggleRota: Command = {
 	name: 'togglerota',
 	help: "Toggles a butler's support rota status. Usage: `!togglerota [@user]` - If no user is mentioned, toggles your own status.",
 	butlerOnly: true,
-	execute: async (message, prisma) => {
+	execute: async ({ message, prisma }) => {
 		try {
 			// Use mentioned user or the message author
 			const targetUser = message.mentions.users.first() || message.author;

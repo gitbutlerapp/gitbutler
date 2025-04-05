@@ -20,8 +20,10 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.27.3",
+		"@octokit/rest": "^20.1.1",
 		"@prisma/client": "^6.5.0",
 		"discord.js": "^14.18.0",
-		"dotenv": "^16.4.7"
+		"dotenv": "^16.4.7",
+		"openai": "^4.87.3"
 	}
 }

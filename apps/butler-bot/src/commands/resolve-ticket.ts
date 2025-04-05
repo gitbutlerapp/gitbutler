@@ -5,7 +5,7 @@ export const resolveTicket: Command = {
 	help: 'Marks a support ticket as resolved. Usage: `!resolveticket <ticket_id>`',
 	aliases: ['resolve'],
 	butlerOnly: true,
-	execute: async (message, prisma) => {
+	execute: async ({ message, prisma }) => {
 		try {
 			const args = message.content.split(' ');
 			if (args.length !== 2) {
