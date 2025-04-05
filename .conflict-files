@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/src/components/BranchReview.svelte", "apps/desktop/src/components/ReviewCreation.svelte", "apps/desktop/src/components/v3/ReviewView.svelte"]
-ourEntries = ["apps/desktop/src/components/BranchReview.svelte", "apps/desktop/src/components/ReviewCreation.svelte", "apps/desktop/src/components/v3/ReviewView.svelte"]
-theirEntries = ["apps/desktop/src/components/BranchReview.svelte", "apps/desktop/src/components/ReviewCreation.svelte", "apps/desktop/src/components/v3/ReviewView.svelte"]
