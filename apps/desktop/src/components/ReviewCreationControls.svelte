@@ -22,7 +22,7 @@
 		} else if (canPublishBR) {
 			return 'Create Butler Request';
 		} else if (canPublishPR) {
-			return 'Create Butler Request';
+			return 'Create Pull Request';
 		}
 
 		return 'Create review';
