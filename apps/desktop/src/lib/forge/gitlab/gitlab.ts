@@ -1,4 +1,5 @@
 import { GitLabBranch } from '$lib/forge/gitlab/gitlabBranch';
+import { GitLabListingService } from '$lib/forge/gitlab/gitlabListingService.svelte';
 import { GitLabPrService } from '$lib/forge/gitlab/gitlabPrService.svelte';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
@@ -56,7 +57,8 @@ export class GitLab implements Forge {
 	}
 
 	get listService() {
-		return undefined;
+		const { api: gitLabApi, projectMetrics } = this.params;
+		return new GitLabListingService(gitLabApi, projectMetrics);
 	}
 
 	get issueService() {
