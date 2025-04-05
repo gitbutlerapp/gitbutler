@@ -46,8 +46,8 @@ gix-path = "0.10.11"
 [target."cfg(unix)".dependencies]
 nix = { version = "0.29.0", features = ["process", "socket", "user"] }
 
-[target."cfg(windows)".dependencies]
-windows = { version = "0.58.0", features = [
+# [target."cfg(windows)".dependencies]
+windows = { version = "0.61.1", features = [
     "Win32",
     "Win32_System",
     "Win32_System_Pipes",
