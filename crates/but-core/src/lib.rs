@@ -144,6 +144,10 @@ pub enum UnifiedDiff {
         /// If `true`, a binary to text filter (`textconv` in Git config) was used to obtain the `hunks` in the diff.
         /// This means hunk-based operations must be disabled.
         is_result_of_binary_to_text_conversion: bool,
+        /// The total amount of lines added.
+        lines_added: u32,
+        /// The total amount of lines removed.
+        lines_removed: u32,
     },
 }
 
