@@ -31,7 +31,6 @@
 	kind="outline"
 	icon="update"
 	tooltip="Last fetch from upstream"
-	disabled={!lastFetched}
 	{loading}
 	onmousedown={async (e: MouseEvent) => {
 		e.preventDefault();
@@ -57,7 +56,7 @@
 	{:else if lastFetched}
 		<TimeAgo date={lastFetched} addSuffix={true} />
 	{:else}
-		<span class="text-12 text-weak">Could not fetch</span>
+		<span class="text-12 text-weak">Refetch</span>
 	{/if}
 </Button>
 

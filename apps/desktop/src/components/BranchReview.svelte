@@ -112,7 +112,13 @@
 </Modal>
 
 <Modal bind:this={modal} title="Submit changes for review">
-	<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} />
+	<ReviewCreation
+		bind:this={reviewCreation}
+		{projectId}
+		{stackId}
+		{branchName}
+		onClose={() => modal?.close()}
+	/>
 
 	{#snippet controls(close)}
 		<ReviewCreationControls
@@ -121,7 +127,7 @@
 			ctaDisabled={!reviewCreation?.createButtonEnabled().current}
 			onCancel={close}
 			onSubmit={async () => {
-				await reviewCreation?.createReview(close);
+				await reviewCreation?.createReview();
 			}}
 		/>
 	{/snippet}

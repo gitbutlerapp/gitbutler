@@ -59,7 +59,7 @@
 
 <Drawer bind:this={drawer} {projectId} {stackId} title={getTitleLabel()}>
 	<div class="submit-review__container">
-		<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} />
+		<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} onClose={close} />
 
 		<ReviewCreationControls
 			{canPublishBR}
@@ -67,7 +67,7 @@
 			ctaDisabled={!reviewCreation?.createButtonEnabled().current}
 			onCancel={close}
 			onSubmit={async () => {
-				await reviewCreation?.createReview(close);
+				await reviewCreation?.createReview();
 			}}
 		/>
 	</div>

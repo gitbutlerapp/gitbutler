@@ -23,11 +23,13 @@
 	interface Props {
 		projectId: string;
 		stackId: string;
+		disabled?: boolean;
 		initialValue?: string;
 		onChange?: (text: string) => void;
+		onKeyDown?: (e: KeyboardEvent) => boolean;
 	}
 
-	let { projectId, initialValue, onChange }: Props = $props();
+	let { projectId, initialValue, disabled, onChange, onKeyDown }: Props = $props();
 
 	const [aiService, idSelection, worktreeService, diffService, uiState] = inject(
 		AIService,
@@ -93,6 +95,9 @@
 	const debouncedHandleChange = debouncePromise(handleChange, 700);
 
 	function handleKeyDown(event: KeyboardEvent | null) {
+		if (event && onKeyDown?.(event)) {
+			return true;
+		}
 		return suggestionsHandler.onKeyDown(event);
 	}
 
@@ -106,6 +111,10 @@
 
 	function onEmojiSelect(emoji: string) {
 		composer?.insertText(emoji);
+	}
+
+	export function focus() {
+		composer?.focus();
 	}
 </script>
 
@@ -159,6 +168,7 @@
 			onKeyDown={handleKeyDown}
 			onFocus={() => (isEditorFocused = true)}
 			onBlur={() => (isEditorFocused = false)}
+			{disabled}
 		>
 			{#snippet plugins()}
 				<Formatter bind:this={formatter} />

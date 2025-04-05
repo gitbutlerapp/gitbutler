@@ -43,9 +43,10 @@
 		projectId: string;
 		stackId: string;
 		branchName: string;
+		onClose: () => void;
 	};
 
-	const { projectId, stackId, branchName }: Props = $props();
+	const { projectId, stackId, branchName, onClose }: Props = $props();
 
 	const baseBranch = getContext(BaseBranch);
 	const forge = getContext(DefaultForgeFactory);
@@ -61,9 +62,15 @@
 	const user = userService.user;
 	const project = projectsService.getProjectStore(projectId);
 
-	const [publishBranch] = stackService.publishBranch;
-	const [updateBranchPrNumber] = stackService.updateBranchPrNumber;
-	const [pushStack] = stackService.pushStack;
+	const [publishBranch, branchPublishing] = stackService.publishBranch;
+	const [updateBranchPrNumber, PRNumberUpdate] = stackService.updateBranchPrNumber;
+	const [pushStack, stackPush] = stackService.pushStack;
+
+	const isExecuting = $derived(
+		branchPublishing.current.isLoading ||
+			PRNumberUpdate.current.isLoading ||
+			stackPush.current.isLoading
+	);
 
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branch = $derived(branchResult.current.data);
@@ -103,6 +110,9 @@
 	const pushBeforeCreate = $derived(
 		!forgeBranch || commits.some((c) => c.state.type === 'LocalOnly')
 	);
+
+	let titleInput = $state<ReturnType<typeof Textbox>>();
+	let descriptionInput = $state<ReturnType<typeof MessageEditor>>();
 
 	// Displays template select component when true.
 	let useTemplate = persisted(false, `use-template-${projectId}`);
@@ -158,7 +168,8 @@
 		return !$createButlerRequest;
 	}
 
-	export async function createReview(close: () => void) {
+	export async function createReview() {
+		if (isExecuting) return;
 		if (!branch) return;
 		if (!$user) return;
 
@@ -201,7 +212,7 @@
 		prBody.reset();
 		prTitle.reset();
 
-		close();
+		onClose();
 	}
 
 	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
@@ -244,6 +255,7 @@
 
 			if (
 				branchParent &&
+				branchParent.prNumber &&
 				branchParentDetails &&
 				branchParentDetails.pushStatus !== 'integrated' &&
 				!branchParent?.archived
@@ -289,6 +301,12 @@
 	export function createButtonEnabled(): Reactive<boolean> {
 		return reactive(() => isCreateButtonEnabled);
 	}
+
+	export const imports = {
+		get isLoading() {
+			return isExecuting;
+		}
+	};
 </script>
 
 <!-- HEADER -->
@@ -299,9 +317,16 @@
 		autofocus
 		size="large"
 		placeholder="PR title"
+		bind:this={titleInput}
 		value={prTitle.value}
 		oninput={(value: string) => {
 			prTitle.set(value);
+		}}
+		onkeydown={(e: KeyboardEvent) => {
+			if (e.key === 'Enter' || e.key === 'Tab') {
+				e.preventDefault();
+				descriptionInput?.focus();
+			}
 		}}
 	/>
 
@@ -325,6 +350,33 @@
 		}}
 	/>
 
+	<!-- DESCRIPTION FIELD -->
+	<MessageEditor
+		bind:this={descriptionInput}
+		{projectId}
+		{stackId}
+		disabled={isExecuting}
+		initialValue={prBody.value}
+		onChange={(text: string) => {
+			prBody.set(text);
+		}}
+		onKeyDown={(e: KeyboardEvent) => {
+			if (e.key === 'Tab' && e.shiftKey) {
+				e.preventDefault();
+				titleInput?.focus();
+				return true;
+			}
+
+			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+				e.preventDefault();
+				createReview();
+				return true;
+			}
+
+			return false;
+		}}
+	/>
+
 	{#if canPublishBR && canPublishPR}
 		<div class="options text-13">
 			<label for="create-br" class="option-card">
@@ -338,7 +390,6 @@
 							<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
 						</span>
 					</div>
-
 					<div class="option-card-header-action">
 						<Checkbox name="create-br" bind:checked={$createButlerRequest} />
 					</div>
@@ -461,21 +512,6 @@
 			cursor: not-allowed;
 			opacity: 0.5;
 			background-color: var(--clr-bg-2);
-		}
-	}
-
-	.option-drafty {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		width: 100%;
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
-		padding: 8px;
-		transition: background-color var(--transition-fast);
-
-		&:hover {
-			background-color: var(--clr-bg-1-muted);
 		}
 	}
 

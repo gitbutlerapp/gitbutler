@@ -34,12 +34,13 @@
 		tooltipAlign?: TooltipAlign;
 		tooltipDelay?: number;
 		testId?: string;
+		loading?: boolean;
 		// Snippets
 		children?: Snippet;
 	};
 
 	type Props = ButtonPropsSubset & { action: () => Promise<void> };
-	const { action, ...rest }: Props = $props();
+	const { action, loading, ...rest }: Props = $props();
 
 	let state = $state<'inert' | 'loading' | 'complete'>('inert');
 
@@ -52,6 +53,8 @@
 			state = 'complete';
 		}
 	}
+
+	const isLoading = $derived(loading ?? state === 'loading');
 </script>
 
-<Button onclick={performAction} loading={state === 'loading'} {...rest}></Button>
+<Button onclick={performAction} loading={isLoading} {...rest}></Button>

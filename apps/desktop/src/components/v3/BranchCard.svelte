@@ -109,7 +109,7 @@
 				selected={selected && selection.current?.commitId === undefined}
 				isTopBranch={first}
 				{isNewBranch}
-				readonly={!!forgeBranch}
+				readonly={!!branch.remoteTrackingBranch}
 				onclick={() => {
 					const stackState = uiState.stack(stackId);
 					stackState.selection.set({ branchName });
@@ -257,7 +257,7 @@
 			rightClickTrigger={headerEl}
 			branchName={branch.name}
 			seriesCount={branches.length}
-			isTopBranch={true}
+			isTopBranch={first}
 			descriptionOption={false}
 			onGenerateBranchName={() => {
 				throw new Error('Not implemented!');
@@ -267,7 +267,7 @@
 				const url = forgeBranch?.url;
 				if (url) openExternalUrl(url);
 			}}
-			hasForgeBranch={!!forgeBranch}
+			isPushed={!!branch.remoteTrackingBranch}
 			branchType={commit?.state.type || 'LocalOnly'}
 			onToggle={(isOpen, isLeftClick) => {
 				if (isLeftClick) {
