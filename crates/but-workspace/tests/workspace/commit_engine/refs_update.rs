@@ -474,6 +474,83 @@ fn branch_tip_below_non_merge_workspace_commit() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// A special case for now where a branch stack-branch was added to the workspace, but isn't yet
+/// in the workspace commit. See https://github.com/gitbutlerapp/gitbutler/pull/7976 for details.
+/// https://github.com/gitbutlerapp/gitbutler/pull/7596 may affect the solution here, but
+/// it's not yet ready.
+#[test]
+fn new_stack_receives_commit_and_adds_it_to_workspace_commit() -> anyhow::Result<()> {
+    assure_stable_env();
+
+    let (repo, _tmp) = writable_scenario("three-commits-with-line-offset-and-workspace-commit");
+
+    let mut vb = VirtualBranchesState::default();
+    let uninitialized_stack_id = repo.rev_parse_single("@~2")?.detach();
+    let initial_stack_id = repo.rev_parse_single("@~1")?.detach();
+    let workspace_commit_id = repo.rev_parse_single("@")?.detach();
+    insta::assert_snapshot!(visualize_commit_graph(&repo, workspace_commit_id)?, @r"
+    * 47c9e16 (HEAD -> main) GitButler Workspace Commit
+    * b451685 insert 5 lines to the top
+    * d15b5ae (tag: first-commit) init
+    ");
+
+    let stack = stack_with_branches(
+        "s1",
+        workspace_commit_id,
+        [("s1/top", initial_stack_id)],
+        &repo,
+    );
+    vb.branches.insert(stack.id, stack);
+    let stack = stack_with_branches(
+        "s2",
+        uninitialized_stack_id,
+        [("s2/top", uninitialized_stack_id)],
+        &repo,
+    );
+    vb.branches.insert(stack.id, stack);
+
+    write_sequence(&repo, "new-file", [(15, None)])?;
+    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+        &repo,
+        ReferenceFrame {
+            workspace_tip: Some(workspace_commit_id),
+            branch_tip: Some(uninitialized_stack_id),
+        },
+        &mut vb,
+        Destination::NewCommit {
+            parent_commit_id: Some(uninitialized_stack_id),
+            message: "new file with 15 lines".into(),
+            stack_segment: None,
+        },
+        None,
+        to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
+        CONTEXT_LINES,
+    )?;
+
+    write_vrbranches_to_refs(&vb, &repo)?;
+    // head was updated to point to the new workspace commit.
+    insta::assert_snapshot!(visualize_commit_graph(&repo, repo.head_id()?)?, @r"
+    *   7051951 (HEAD -> main) GitButler Workspace Commit
+    |\  
+    | * 00fbfba (s2/top) new file with 15 lines
+    * | b451685 (s1/top) insert 5 lines to the top
+    |/  
+    * d15b5ae (tag: first-commit) init
+    ");
+
+    insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
+    6e57057
+    ├── file:100644:f00c965 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
+    └── new-file:100644:97b3d1a "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n"
+    "#);
+    assert_eq!(
+        but_core::diff::worktree_changes(&repo)?.changes.len(),
+        0,
+        "There seems to be no change as the new commit contains the new file, which is part of the workspace now"
+    );
+    Ok(())
+}
+
 #[test]
 fn deletions() -> anyhow::Result<()> {
     assure_stable_env();
