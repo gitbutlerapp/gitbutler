@@ -20,6 +20,7 @@ import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
 import { HighlightStyle, StreamLanguage } from '@codemirror/language';
 import { commonLisp } from '@codemirror/legacy-modes/mode/commonlisp';
+import { dockerFile } from '@codemirror/legacy-modes/mode/dockerfile';
 import { jinja2 } from '@codemirror/legacy-modes/mode/jinja2';
 import { lua } from '@codemirror/legacy-modes/mode/lua';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
@@ -92,7 +93,14 @@ export function highlightNode(node: Element, mimeType: string): void {
 }
 
 export function parserFromFilename(filename: string): Parser | null {
-	const ext = filename.split('.').pop();
+	const basename = filename.split('/').pop() || '';
+	const ext = basename.split('.').pop()?.toLowerCase();
+
+	// Handle Dockerfiles (with common variations).
+	if (basename === 'Dockerfile' || basename.startsWith('Dockerfile.') || ext === 'dockerfile') {
+		return StreamLanguage.define(dockerFile).parser;
+	}
+
 	switch (ext) {
 		case 'jsx':
 		case 'js':
