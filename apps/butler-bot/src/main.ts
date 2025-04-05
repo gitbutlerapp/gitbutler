@@ -72,6 +72,9 @@ const tasks: Task[] = [syncButlers, rotateDuty];
 
 // Event handler for incoming messages
 client.on(Events.MessageCreate, async (message) => {
+	// Only respond to messages in the allowed guild
+	if (message.guildId !== process.env.ALLOWED_GUILD) return;
+
 	// Ignore messages from bots to prevent potential infinite loops
 	if (message.author.bot) return;
 
