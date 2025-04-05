@@ -71,7 +71,7 @@
 </script>
 
 <SettingsPages
-	title="Profile settings"
+	title="Global settings"
 	{selectedId}
 	{pages}
 	pageUrl={(pageId) => newSettingsPath(pageId)}
