@@ -70,7 +70,7 @@ fn main() -> Result<()> {
         args::Subcommands::Status {
             unified_diff,
             context_lines,
-        } => command::diff::status(&args.current_dir, *unified_diff, *context_lines),
+        } => command::diff::status(&args.current_dir, *unified_diff, *context_lines, args.json),
         args::Subcommands::CommitChanges {
             unified_diff,
             current_commit,
