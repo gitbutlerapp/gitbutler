@@ -256,7 +256,7 @@
 	tr {
 		padding: 0;
 		margin: 0;
-		height: 22px;
+		height: 20px;
 		user-select: none;
 		font-family: var(--diff-font);
 	}
