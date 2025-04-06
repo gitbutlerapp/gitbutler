@@ -15,6 +15,9 @@
 		fileStatus: 'M',
 		draggable: true,
 		linesAdded: 10,
-		linesRemoved: 5
+		linesRemoved: 5,
+		oncloseclick: () => {
+			alert('close clicked');
+		}
 	}}
 />

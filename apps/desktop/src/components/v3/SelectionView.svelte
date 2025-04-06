@@ -26,7 +26,15 @@
 	{:else}
 		<ScrollableContainer wide>
 			{#each selection as selectedFile}
-				<SelectedChange {projectId} {selectedFile} />
+				<SelectedChange
+					{projectId}
+					{selectedFile}
+					onCloseClick={() => {
+						if (selectionId) {
+							idSelection.remove(selectedFile.path, selectionId.current);
+						}
+					}}
+				/>
 			{/each}
 		</ScrollableContainer>
 	{/if}
