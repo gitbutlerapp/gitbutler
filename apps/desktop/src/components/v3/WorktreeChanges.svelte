@@ -3,6 +3,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
+	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
@@ -21,7 +22,7 @@
 		stackId?: string;
 	};
 
-	const { projectId, stackId }: Props = $props();
+	let { projectId, stackId }: Props = $props();
 
 	const [changeSelection, worktreeService, uiState, stackService, focus] = inject(
 		ChangeSelectionService,
@@ -157,12 +158,16 @@
 						</Button>
 					</div>
 				{:else}
-					<div class="empty-state">
-						{@html noChanges}
-						<p class="text-13 text-body empty-state-text">
-							You're all caught up!<br />
-							No files need committing
-						</p>
+					<div class="uncommitted-changes__empty">
+						<div class="uncommitted-changes__empty__placeholder">
+							{@html noChanges}
+							<p class="text-13 text-body uncommitted-changes__empty__placeholder-text">
+								You're all caught up!<br />
+								No files need committing
+							</p>
+						</div>
+
+						<WorktreeTipsFooter />
 					</div>
 				{/if}
 			</div>
@@ -223,17 +228,23 @@
 		}
 	}
 
-	.empty-state {
+	.uncommitted-changes__empty {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+
+	.uncommitted-changes__empty__placeholder {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		gap: 20px;
 		padding: 0 20px 40px;
-		height: 100%;
 	}
 
-	.empty-state-text {
+	.uncommitted-changes__empty__placeholder-text {
 		text-align: center;
 		color: var(--clr-text-3);
 	}
