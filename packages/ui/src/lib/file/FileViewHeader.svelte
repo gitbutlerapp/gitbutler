@@ -1,9 +1,9 @@
 <script lang="ts">
 	import Badge from '$lib/Badge.svelte';
+	import Button from '$lib/Button.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import FileName from '$lib/file/FileName.svelte';
 	import FileStats from '$lib/file/FileStats.svelte';
-	// import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { stickyHeader } from '$lib/utils/stickyHeader';
 	import type { FileStatus } from '$lib/file/types';
 
@@ -17,6 +17,7 @@
 		conflicted?: boolean;
 		hasBorder?: boolean;
 		oncontextmenu?: (e: MouseEvent) => void;
+		oncloseclick?: () => void;
 	}
 
 	const {
@@ -27,7 +28,8 @@
 		linesAdded = 0,
 		linesRemoved = 0,
 		conflicted = false,
-		oncontextmenu
+		oncontextmenu,
+		oncloseclick
 	}: Props = $props();
 
 	let isIntersecting = $state(false);
@@ -62,6 +64,16 @@
 		{#if conflicted}
 			<Badge size="icon" style="error">Has conflicts</Badge>
 		{/if}
+
+		{#if oncloseclick}
+			<Button
+				class="file-header__close-btn"
+				kind="ghost"
+				size="tag"
+				icon="cross"
+				onclick={oncloseclick}
+			/>
+		{/if}
 	</div>
 </div>
 
@@ -83,10 +95,13 @@
 
 			&:hover {
 				& .file-header__drag-handle {
-					/* width: 24px; */
 					opacity: 1;
 				}
 			}
+		}
+
+		& :global(.file-header__close-btn) {
+			margin-left: 8px;
 		}
 	}
 

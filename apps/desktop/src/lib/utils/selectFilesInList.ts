@@ -59,3 +59,11 @@ export function selectFilesInList(
 		}
 	}
 }
+
+export function removeFilesFromSelection(fileIdSelection: FileIdSelection) {
+	const selectedFileIds = get(fileIdSelection);
+
+	if (selectedFileIds.length > 0) {
+		fileIdSelection.clear();
+	}
+}

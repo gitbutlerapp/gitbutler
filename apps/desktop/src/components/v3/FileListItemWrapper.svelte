@@ -29,6 +29,7 @@
 		showCheckbox?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
+		onCloseClick?: () => void;
 	}
 
 	const {
@@ -45,7 +46,8 @@
 		depth,
 		showCheckbox,
 		onclick,
-		onkeydown
+		onkeydown,
+		onCloseClick
 	}: Props = $props();
 
 	const stack = maybeGetContextStore(BranchStack);
@@ -122,6 +124,7 @@
 				e.preventDefault();
 				onContextMenu(e);
 			}}
+			oncloseclick={onCloseClick}
 		/>
 	{:else}
 		<FileListItemV3

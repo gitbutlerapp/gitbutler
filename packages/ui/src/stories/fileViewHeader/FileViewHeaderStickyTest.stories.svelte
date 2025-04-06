@@ -23,7 +23,6 @@
 					linesAdded={10}
 					linesRemoved={5}
 				/>
-
 				<p class="content-example">some content</p>
 			</div>
 		{/each}

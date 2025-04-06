@@ -10,9 +10,10 @@
 	type Props = {
 		selectedFile: SelectedFile;
 		projectId: string;
+		onCloseClick: () => void;
 	};
 
-	const { selectedFile, projectId }: Props = $props();
+	const { selectedFile, projectId, onCloseClick }: Props = $props();
 
 	const [stackService, worktreeService] = inject(StackService, WorktreeService);
 
@@ -42,6 +43,7 @@
 				{change}
 				isHeader
 				listMode="list"
+				{onCloseClick}
 			/>
 			<UnifiedDiffView projectId={env.projectId} {change} selectable />
 		</div>

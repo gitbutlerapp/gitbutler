@@ -40,6 +40,7 @@ type GlobalUiState = {
 	drawerSplitViewWidth: number;
 	useRichText: boolean;
 	aiSuggestionsOnType: boolean;
+	selectedTip: number | undefined;
 };
 
 /**
@@ -69,7 +70,8 @@ export class UiState {
 		stacksViewWidth: 21.25,
 		drawerSplitViewWidth: 20,
 		useRichText: true,
-		aiSuggestionsOnType: true
+		aiSuggestionsOnType: true,
+		selectedTip: undefined
 	});
 
 	constructor(

@@ -6,114 +6,84 @@
 	import DnDCommitSquashSVG from '$lib/assets/illustrations/dnd-commit-squash.svg?raw';
 	import IndependentBranchTipSVG from '$lib/assets/illustrations/independent-branch-tip.svg?raw';
 	import SelectToPreviewSVG from '$lib/assets/illustrations/select-to-preview.svg?raw';
+	import { UiState } from '$lib/state/uiState.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { slide } from 'svelte/transition';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	type tipType = {
 		title: string;
 		body?: string;
 		svg?: string;
-		linkLabel?: string;
-		subsections?: Record<string, { title: string; body: string; svg: string }>;
+		subsections?: Array<{
+			title: string;
+			body: string;
+			svg: string;
+		}>;
 	};
 
-	const dragndropTipSubsection = {
-		amend: {
+	// VARIABLES
+	const [uiState] = inject(UiState);
+	const selectedTip = $derived(uiState.global.selectedTip.get().current);
+	let selectedSubsectionTip = $state<number>(0);
+
+	// TIPS DATA
+	const dragndropTipSubsection = [
+		{
 			title: 'Amend',
 			body: 'Amend commits by dragging and dropping files or specific changes, keeping your history clean and organized.',
 			svg: DnDCOmmitAmendSVG
 		},
-		reorder: {
+		{
 			title: 'Reorder',
 			body: 'Reorder commits by dragging and dropping them. This works even across stacked branches, giving you full control over the commit sequence.',
 			svg: DnDCOmmitReorderSVG
 		},
-		squash: {
+		{
 			title: 'Squash',
 			body: 'Squash commits into others simply by dragging and dropping them. This helps keep your history clean by combining multiple changes into a single commit.',
 			svg: DnDCommitSquashSVG
 		},
-		move: {
+		{
 			title: 'Move',
 			body: 'Reassign a commit to a different branch by dragging it over to its corresponding tab. This streamlines your workflow by moving commits across independent branches.',
 			svg: DnDCommitMoveSVG
 		}
-	};
+	];
 
-	const tipsContent = {
-		tip1: {
+	const tipsContent: tipType[] = [
+		{
 			svg: DependentBranchTipSVG,
-			linkLabel: 'Dependent branches',
 			title: 'Dependent (stacked) branches',
 			body: 'GitButler lets you create a stack of branches where each branch depends on the previous one. This is useful when you have interdependent changesets that should be reviewed and merged separately (and sequentially).'
-		} as tipType,
-		tip2: {
+		},
+		{
 			svg: IndependentBranchTipSVG,
-			linkLabel: 'Independent branches',
 			title: 'Independent (concurrent) branches',
 			body: 'GitButler lets you apply multiple independent branches (or stacks) to the workspace at the same time. This is useful when you have separate changesets that need to be reviewed and merged independently.'
-		} as tipType,
-		tip3: {
-			linkLabel: 'Drag & Drop Commits',
+		},
+		{
 			title: 'Drag & Drop Commit Management',
 			subsections: dragndropTipSubsection
-		} as tipType
-	};
-
-	let selectedTipKey = $state<keyof typeof tipsContent | undefined>(undefined);
-	let selectedDragndropTip = $state<keyof typeof dragndropTipSubsection>('amend');
-
-	function closeTips(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			selectedTipKey = undefined;
 		}
-	}
+	];
 </script>
 
-{#snippet subSectionMenu({
-	key,
-	label
-}: {
-	key: keyof typeof dragndropTipSubsection;
-	label: string;
-})}
-	{@const selected = selectedDragndropTip === key}
-	<button
-		type="button"
-		class="text-13 text-semibold text-body subsection-button"
-		class:selected
-		onclick={() => (selectedDragndropTip = key)}
+{#snippet tipSection(data: tipType)}
+	<div
+		class="tip-section"
+		role="presentation"
+		tabindex="-1"
+		onkeydown={(e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				uiState.global.selectedTip.set(undefined);
+			}
+		}}
 	>
-		{label}
-	</button>
-{/snippet}
-
-{#snippet tipButton(props: { key: keyof typeof tipsContent; label: string })}
-	{@const { key, label } = props}
-	{@const selected = selectedTipKey === key}
-	<button
-		type="button"
-		class="focus-state text-13 text-semibold text-body tip-button"
-		class:selected
-		onclick={() => (selectedTipKey = key)}
-	>
-		{#if selected}
-			<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-		{/if}
-		{label}
-	</button>
-{/snippet}
-
-{#snippet tipSection(props: { data: tipType; placeholder?: boolean })}
-	{@const { data, placeholder } = props}
-	<div class="tip-section" class:is-placeholder={placeholder}>
 		<div class="tip-section__content-wrap">
 			{#if data.subsections}
 				<div class="tip-section__subsection">
 					<div class="tip-section__illustration">
-						{@html data.subsections?.[selectedDragndropTip]?.svg}
+						{@html data.subsections[selectedSubsectionTip]?.svg}
 					</div>
 
 					<h3 class="text-18 text-semibold tip-section__title">
@@ -121,17 +91,21 @@
 					</h3>
 
 					<div class="tip-section__subsection-menu">
-						{#each Object.entries(data.subsections) as [key, subsection]}
-							{@render subSectionMenu({
-								key: key as keyof typeof dragndropTipSubsection,
-								label: subsection.title
-							})}
+						{#each data.subsections as subsection, index}
+							<button
+								class="text-14 text-semibold tip-section__subsection-btn"
+								class:selected={selectedSubsectionTip === index}
+								type="button"
+								onclick={() => (selectedSubsectionTip = index)}
+							>
+								{subsection.title}
+							</button>
 						{/each}
 					</div>
 
-					{#if data.subsections[selectedDragndropTip]}
+					{#if data.subsections[selectedSubsectionTip]}
 						<p class="text-13 text-body tip-section__body">
-							{data.subsections?.[selectedDragndropTip]?.body}
+							{data.subsections?.[selectedSubsectionTip]?.body}
 						</p>
 					{/if}
 				</div>
@@ -154,109 +128,36 @@
 	</div>
 {/snippet}
 
-{#snippet GbLink(props: { label: string; href: string; icon: keyof typeof iconsJson })}
-	<a
-		type="button"
-		href={props.href}
-		target="_blank"
-		class="focus-state text-13 text-semibold text-body external-link"
-		><Icon name={props.icon} /> <span class="external-link__label">{props.label}</span>
-		<div class="external-link__link-icon"><Icon name="open-link" /></div></a
-	>
-{/snippet}
-
-<div role="presentation" tabindex="-1" class="file-view-placeholder" onkeydown={closeTips}>
-	<div class="file-view-placeholder__top">
-		{#if !selectedTipKey}
-			<div class="select-commit-state">
-				<div class="select-commit-state__image">
-					{@html SelectToPreviewSVG}
-				</div>
-				<span class="text-13 select-commit-state__caption">Select a file to preview</span>
-			</div>
-		{:else}
-			<Button
-				class="tip-close-btn"
-				type="button"
-				kind="ghost"
-				icon="cross"
-				onclick={() => (selectedTipKey = undefined)}
-			></Button>
-			{@render tipSection({
-				data: tipsContent[selectedTipKey]!,
-				placeholder: false
-			})}
-		{/if}
-	</div>
-	<div class="file-view-placeholder__footer">
-		<div class="file-view-placeholder__footer__group">
-			<h3 class="text-16 text-semibold file-view-placeholder__footer__group-title">Tips</h3>
-			<div class="file-view-placeholder__footer__group-list">
-				{@render tipButton({
-					key: 'tip1',
-					label: 'Dependent branches'
-				})}
-				{@render tipButton({
-					key: 'tip2',
-					label: 'Independent branches'
-				})}
-				{@render tipButton({
-					key: 'tip3',
-					label: 'Drag & Drop Commits'
-				})}
-			</div>
+{#if selectedTip === undefined}
+	<div class="select-some">
+		<div class="select-some__image">
+			{@html SelectToPreviewSVG}
 		</div>
-		<div class="file-view-placeholder__footer__group">
-			<div class="file-view-placeholder__footer__group-list">
-				{@render GbLink({
-					label: 'GitButler Docs',
-					href: 'https://docs.gitbutler.com',
-					icon: 'doc'
-				})}
-				{@render GbLink({
-					label: 'Source Code',
-					href: 'https://github.com/gitbutlerapp/gitbutler',
-					icon: 'github'
-				})}
-				{@render GbLink({
-					label: 'Join Community',
-					href: 'https://discord.com/invite/MmFkmaJ42D',
-					icon: 'discord'
-				})}
-			</div>
-		</div>
+		<span class="text-13 select-some__caption">Select a file to preview</span>
 	</div>
-</div>
+{:else}
+	<Button
+		class="tips-view__close-btn"
+		kind="ghost"
+		icon="cross"
+		onclick={() => {
+			uiState.global.selectedTip.set(undefined);
+			selectedSubsectionTip = 0;
+		}}
+	/>
+	{@render tipSection(tipsContent[selectedTip]!)}
+{/if}
 
-<style>
-	.file-view-placeholder {
-		flex: 1;
-		position: relative;
-		height: 100%;
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		justify-content: flex-start;
-		overflow: hidden;
-	}
-
-	.file-view-placeholder__top {
-		flex: 1;
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		gap: 24px;
-
-		& :global(.tip-close-btn) {
-			position: absolute;
-			top: 10px;
-			right: 10px;
-		}
-	}
-
+<style lang="postcss">
 	/* SELECT COMMIT SECTION */
-	.select-commit-state {
+	:global(.tips-view__close-btn) {
+		position: absolute;
+		top: 10px;
+		right: 10px;
+		z-index: 1;
+	}
+
+	.select-some {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -265,12 +166,12 @@
 		min-height: 440px;
 	}
 
-	.select-commit-state__image {
+	.select-some__image {
 		width: 100%;
 		max-width: 222px;
 	}
 
-	.select-commit-state__caption {
+	.select-some__caption {
 		margin-top: 28px;
 		color: var(--clr-text-2);
 		opacity: 0.6;
@@ -286,6 +187,10 @@
 
 		&:not(.is-placeholder) {
 			background-color: var(--clr-bg-1);
+		}
+
+		&:focus {
+			outline: none;
 		}
 	}
 
@@ -319,10 +224,11 @@
 	.tip-section__subsection-menu {
 		display: flex;
 		gap: 16px;
+		margin-top: 8px;
 		margin-bottom: 16px;
 	}
 
-	.subsection-button {
+	.tip-section__subsection-btn {
 		color: var(--clr-text-3);
 		text-decoration: dotted underline;
 		text-underline-offset: 2px;
@@ -338,7 +244,7 @@
 	}
 
 	/* FOOTER */
-	.file-view-placeholder__footer {
+	/* .file-view-placeholder__footer {
 		display: flex;
 		align-items: flex-end;
 		width: 100%;
@@ -421,5 +327,5 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-core-ntrl-50);
 		transform: translateX(-50%);
-	}
+	} */
 </style>
