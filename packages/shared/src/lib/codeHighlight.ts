@@ -20,6 +20,7 @@ import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
 import { HighlightStyle, StreamLanguage } from '@codemirror/language';
 import { commonLisp } from '@codemirror/legacy-modes/mode/commonlisp';
+import { jinja2 } from '@codemirror/legacy-modes/mode/jinja2';
 import { lua } from '@codemirror/legacy-modes/mode/lua';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
 import { shell } from '@codemirror/legacy-modes/mode/shell';
@@ -125,6 +126,10 @@ export function parserFromFilename(filename: string): Parser | null {
 
 		case 'go':
 			return go().language.parser;
+
+		case 'j2':
+		case 'jinja2':
+			return StreamLanguage.define(jinja2).parser;
 
 		case 'java':
 			return java().language.parser;
