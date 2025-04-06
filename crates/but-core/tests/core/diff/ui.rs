@@ -565,8 +565,8 @@ fn commit_to_commit() -> anyhow::Result<()> {
         }
       ],
       "stats": {
-        "linesAdded": 0,
-        "linesRemoved": 2,
+        "linesAdded": 2,
+        "linesRemoved": 0,
         "filesChanged": 5
       }
     }

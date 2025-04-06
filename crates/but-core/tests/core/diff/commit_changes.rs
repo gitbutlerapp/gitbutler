@@ -86,8 +86,8 @@ fn many_changes() -> anyhow::Result<()> {
             },
         ],
         Stats {
-            lines_added: 0,
-            lines_removed: 2,
+            lines_added: 2,
+            lines_removed: 0,
             files_changed: 5,
         },
     )
@@ -165,8 +165,8 @@ fn without_previous_tree() -> anyhow::Result<()> {
             },
         ],
         Stats {
-            lines_added: 0,
-            lines_removed: 1,
+            lines_added: 1,
+            lines_removed: 0,
             files_changed: 6,
         },
     )
@@ -201,8 +201,8 @@ fn changes_between_conflicted_and_normal_commit() -> anyhow::Result<()> {
             },
         ],
         Stats {
-            lines_added: 1,
-            lines_removed: 0,
+            lines_added: 0,
+            lines_removed: 1,
             files_changed: 1,
         },
     )

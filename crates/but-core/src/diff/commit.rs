@@ -1,8 +1,7 @@
 use crate::{ChangeState, TreeStatus};
 use crate::{Commit, ModeFlags, TreeChange};
 use gix::diff::tree_with_rewrites::Change;
-use gix::object::tree::diff::Stats;
-use gix::prelude::ObjectIdExt;
+use gix::prelude::{ObjectIdExt, TreeDiffChangeExt};
 
 /// Produce all changes that are needed to turn the tree of `lhs_commit` into the tree of `rhs_commit`.
 /// If `lhs_commit` is `None`, it will be treated like an empty tree, which is useful if
@@ -11,11 +10,14 @@ use gix::prelude::ObjectIdExt;
 /// Note that we deal with conflicted commits correctly by resolving to the actual tree, not the one with meta-data.
 ///
 /// They are sorted by their current path.
+///
+/// Additionally, line-stats aggregated for all changes will be computed, which incurs a considerable fraction of the cost
+/// of asking for [UnifiedDiffs](TreeChange::unified_diff()).
 pub fn commit_changes(
     repo: &gix::Repository,
     lhs_commit: Option<gix::ObjectId>,
     rhs_commit: gix::ObjectId,
-) -> anyhow::Result<(Vec<TreeChange>, Stats)> {
+) -> anyhow::Result<(Vec<TreeChange>, gix::object::tree::diff::Stats)> {
     let lhs_tree = lhs_commit
         .map(|commit_id| {
             Commit::from_id(commit_id.attach(repo)).and_then(|commit| {
@@ -29,14 +31,27 @@ pub fn commit_changes(
         .object()
         .map(|obj| obj.into_tree())?;
 
-    let stats = rhs_tree
-        .changes()?
-        .stats(&lhs_tree.clone().unwrap_or_else(|| repo.empty_tree()))?;
-
+    let mut resource_cache = repo.diff_resource_cache_for_tree_diff()?;
     let changes = repo.diff_tree_to_tree(lhs_tree.as_ref(), &rhs_tree, None)?;
+    let mut stats = gix::object::tree::diff::Stats::default();
     let mut out: Vec<TreeChange> = changes
         .into_iter()
         .filter(|c| !c.entry_mode().is_tree())
+        .map(|change| {
+            let change = change.attach(repo, repo);
+            resource_cache.clear_resource_cache_keep_allocation();
+            if let Some(counts) = change
+                .diff(&mut resource_cache)
+                .ok()
+                .and_then(|mut platform| platform.line_counts().ok())
+                .flatten()
+            {
+                stats.files_changed += 1;
+                stats.lines_added += u64::from(counts.insertions);
+                stats.lines_removed += u64::from(counts.removals);
+            }
+            change.detach()
+        })
         .map(Into::into)
         .collect();
     out.sort_by(|a, b| a.path.cmp(&b.path));
