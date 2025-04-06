@@ -94,20 +94,18 @@
 		}
 	}
 
-	function showAlertDialog(action: Action) {
+	function confirmStatusChange(action: Action): boolean {
 		const message =
 			action === 'requestChanges'
 				? 'You have already approved this commit. Do you want to request changes instead?'
 				: 'You have already requested changes for this commit. Do you want to approve it instead?';
 
-		if (!confirm(message)) return;
+		return confirm(message);
 	}
 
 	function handleChangeStatus(action: Action) {
-		if (action === 'approve') {
-			showAlertDialog(action);
-		} else {
-			showAlertDialog(action);
+		if (!confirmStatusChange(action)) {
+			return;
 		}
 		handleClick(action);
 	}
