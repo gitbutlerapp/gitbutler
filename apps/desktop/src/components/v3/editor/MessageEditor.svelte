@@ -164,6 +164,9 @@
 		class="message-editor"
 		onmouseenter={() => (isEditorHovered = true)}
 		onmouseleave={() => (isEditorHovered = false)}
+		onclick={() => {
+			composer?.focus();
+		}}
 	>
 		<RichTextEditor
 			styleContext="client-editor"

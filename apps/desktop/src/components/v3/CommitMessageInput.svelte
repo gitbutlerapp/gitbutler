@@ -83,6 +83,7 @@
 		onChange={(text: string) => {
 			descriptionText.current = text;
 		}}
+		enableFileUpload
 	/>
 </div>
 <EditorFooter {onCancel}>
