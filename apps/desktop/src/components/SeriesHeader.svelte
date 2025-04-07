@@ -97,7 +97,7 @@
 	);
 
 	const stackService = getContext(StackService);
-	const [updateBranchPrNumber] = stackService.updateBranchPrNumber;
+	const [updateBranchPrNumber, prNumberUpdate] = stackService.updateBranchPrNumber;
 	const [updateBranchNameMutation] = stackService.updateBranchName;
 	const [updateBranchDescription] = stackService.updateBranchDescription;
 
@@ -112,7 +112,8 @@
 			forge.current.name === 'github' &&
 			!branch.prNumber &&
 			listedPr?.number &&
-			listedPr.number !== branch.prNumber
+			listedPr.number !== branch.prNumber &&
+			!prNumberUpdate.current.isLoading
 		) {
 			updateBranchPrNumber({
 				projectId: projectId,
