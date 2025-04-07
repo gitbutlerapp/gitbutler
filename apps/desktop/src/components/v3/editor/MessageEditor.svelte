@@ -27,9 +27,18 @@
 		placeholder: string;
 		onChange?: (text: string) => void;
 		onKeyDown?: (e: KeyboardEvent) => boolean;
+		enableFileUpload?: boolean;
 	}
 
-	let { projectId, initialValue, placeholder, disabled, onChange, onKeyDown }: Props = $props();
+	let {
+		projectId,
+		initialValue,
+		placeholder,
+		disabled,
+		enableFileUpload,
+		onChange,
+		onKeyDown
+	}: Props = $props();
 
 	const [aiService, idSelection, worktreeService, diffService, uiState] = inject(
 		AIService,
@@ -181,10 +190,12 @@
 
 		<div class="message-editor__inner-toolbar">
 			<EmojiPickerButton onEmojiSelect={(emoji) => onEmojiSelect(emoji.unicode)} />
-			<div class="message-editor__inner-toolbar__divider"></div>
-			<Button kind="ghost" icon="attachment-small" reversedDirection>
-				<span style="opacity: 0.4">Drop or click to add files</span>
-			</Button>
+			{#if enableFileUpload}
+				<div class="message-editor__inner-toolbar__divider"></div>
+				<Button kind="ghost" icon="attachment-small" reversedDirection>
+					<span style="opacity: 0.4">Drop or click to add files</span>
+				</Button>
+			{/if}
 		</div>
 	</div>
 </div>
