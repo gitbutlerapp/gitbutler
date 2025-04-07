@@ -106,7 +106,13 @@
 <ReduxResult {stackId} {projectId} result={commitResult.current}>
 	{#snippet children(commit, env)}
 		{#if mode === 'edit'}
-			<Drawer projectId={env.projectId} stackId={env.stackId} title="Edit commit message">
+			<Drawer
+				projectId={env.projectId}
+				stackId={env.stackId}
+				title="Edit commit message"
+				disableScroll
+				minHeight={20}
+			>
 				<CommitMessageInput
 					bind:this={commitMessageInput}
 					projectId={env.projectId}

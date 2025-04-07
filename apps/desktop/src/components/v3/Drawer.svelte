@@ -17,6 +17,7 @@
 		extraActions?: Snippet;
 		children: Snippet;
 		filesSplitView?: Snippet;
+		disableScroll?: boolean;
 	};
 
 	const {
@@ -28,7 +29,8 @@
 		header,
 		extraActions,
 		children,
-		filesSplitView
+		filesSplitView,
+		disableScroll
 	}: Props = $props();
 
 	const [uiState] = inject(UiState);
@@ -42,6 +44,7 @@
 	const height = $derived(drawerIsFullScreen.current ? '100%' : heightRm);
 
 	const contentWidth = $derived(uiState.global.drawerSplitViewWidth.get());
+	const scrollable = $derived(!disableScroll);
 
 	let drawerDiv = $state<HTMLDivElement>();
 	let viewportEl = $state<HTMLElement>();
@@ -100,11 +103,17 @@
 				style:--custom-width={splitView ? `${contentWidth.current}rem` : 'auto'}
 			>
 				<div class="drawer__content-scroll" bind:this={viewportEl}>
-					<ConfigurableScrollableContainer>
+					{#if scrollable}
+						<ConfigurableScrollableContainer>
+							<div class="drawer__content">
+								{@render children()}
+							</div>
+						</ConfigurableScrollableContainer>
+					{:else}
 						<div class="drawer__content">
 							{@render children()}
 						</div>
-					</ConfigurableScrollableContainer>
+					{/if}
 
 					{#if splitView}
 						<div class="drawer__content-resizer">
@@ -250,9 +259,12 @@
 	}
 
 	.drawer__content-scroll {
+		display: flex;
+		flex-direction: column;
 		position: relative;
 		height: 100%;
 		width: var(--custom-width);
+		min-height: 0;
 	}
 
 	.drawer__files-split-view {

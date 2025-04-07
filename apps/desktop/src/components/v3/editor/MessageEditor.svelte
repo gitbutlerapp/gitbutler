@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import AiContextMenu from '$components/v3/editor/AIContextMenu.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
 	import { AIService } from '$lib/ai/service';
@@ -168,28 +169,34 @@
 			composer?.focus();
 		}}
 	>
-		<RichTextEditor
-			styleContext="client-editor"
-			namespace="CommitMessageEditor"
-			{placeholder}
-			bind:this={composer}
-			markdown={useRichText.current}
-			onError={(e) => showError('Editor error', e)}
-			initialText={initialValue}
-			onChange={debouncedHandleChange}
-			onKeyDown={handleKeyDown}
-			onFocus={() => (isEditorFocused = true)}
-			onBlur={() => (isEditorFocused = false)}
-			{disabled}
-		>
-			{#snippet plugins()}
-				<Formatter bind:this={formatter} />
-				<GhostTextPlugin
-					bind:this={suggestionsHandler.ghostTextComponent}
-					onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
-				/>
-			{/snippet}
-		</RichTextEditor>
+		<div class="message-editor__inner">
+			<ConfigurableScrollableContainer height="100%">
+				<div class="message-editor__wrapper">
+					<RichTextEditor
+						styleContext="client-editor"
+						namespace="CommitMessageEditor"
+						{placeholder}
+						bind:this={composer}
+						markdown={useRichText.current}
+						onError={(e) => showError('Editor error', e)}
+						initialText={initialValue}
+						onChange={debouncedHandleChange}
+						onKeyDown={handleKeyDown}
+						onFocus={() => (isEditorFocused = true)}
+						onBlur={() => (isEditorFocused = false)}
+						{disabled}
+					>
+						{#snippet plugins()}
+							<Formatter bind:this={formatter} />
+							<GhostTextPlugin
+								bind:this={suggestionsHandler.ghostTextComponent}
+								onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
+							/>
+						{/snippet}
+					</RichTextEditor>
+				</div>
+			</ConfigurableScrollableContainer>
+		</div>
 
 		<div class="message-editor__inner-toolbar">
 			<EmojiPickerButton onEmojiSelect={(emoji) => onEmojiSelect(emoji.unicode)} />
@@ -210,6 +217,7 @@
 		flex: 1;
 		background-color: var(--clr-bg-1);
 		overflow: auto;
+		min-height: 0;
 	}
 
 	.editor-header {
@@ -301,5 +309,21 @@
 		width: 1px;
 		height: 18px;
 		background-color: var(--clr-border-3);
+	}
+
+	.message-editor__inner {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+
+		overflow: hidden;
+		min-height: 0;
+	}
+
+	.message-editor__wrapper {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
 	}
 </style>
