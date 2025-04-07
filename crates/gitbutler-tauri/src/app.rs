@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use but_settings::AppSettings;
-use gitbutler_branch_actions::conflicts;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
@@ -28,19 +27,6 @@ impl App {
 }
 
 impl App {
-    pub fn mark_resolved(
-        &self,
-        project_id: ProjectId,
-        path: &str,
-        settings: AppSettings,
-    ) -> Result<()> {
-        let project = self.projects().get(project_id)?;
-        let ctx = CommandContext::open(&project, settings)?;
-        // mark file as resolved
-        conflicts::resolve(&ctx, path)?;
-        Ok(())
-    }
-
     pub fn git_remote_branches(
         &self,
         project_id: ProjectId,
