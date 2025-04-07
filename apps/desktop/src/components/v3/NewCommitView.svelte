@@ -27,7 +27,15 @@
 	const selection = $derived(changeSelection.list());
 	const canCommit = $derived(branchName && selection.current.length > 0);
 	const commitMessage = persistedCommitMessage(projectId, stackId);
-	const [initialTitle, initialMessage] = $derived($commitMessage.split('\n\n'));
+
+	function extractCommitMessageInfo(message: string) {
+		const lines = message.split('\n\n');
+		const title = lines[0];
+		const body = lines.slice(1).join('\n\n').trim();
+		return [title, body];
+	}
+
+	const [initialTitle, initialMessage] = $derived(extractCommitMessageInfo($commitMessage));
 
 	let input = $state<ReturnType<typeof CommitMessageInput>>();
 	let drawer = $state<ReturnType<typeof Drawer>>();
