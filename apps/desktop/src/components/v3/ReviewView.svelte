@@ -69,6 +69,7 @@
 		<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} onClose={close} />
 
 		<ReviewCreationControls
+			isSubmitting={!!reviewCreation?.imports.isLoading}
 			{canPublishBR}
 			{canPublishPR}
 			ctaDisabled={!reviewCreation?.createButtonEnabled().current}

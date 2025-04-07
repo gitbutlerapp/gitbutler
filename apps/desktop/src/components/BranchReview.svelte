@@ -121,6 +121,7 @@
 
 	{#snippet controls(close)}
 		<ReviewCreationControls
+			isSubmitting={!!reviewCreation?.imports.isLoading}
 			{canPublishBR}
 			{canPublishPR}
 			ctaDisabled={!reviewCreation?.createButtonEnabled().current}

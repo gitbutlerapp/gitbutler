@@ -319,6 +319,7 @@
 		placeholder="PR title"
 		bind:this={titleInput}
 		value={prTitle.value}
+		disabled={isExecuting}
 		oninput={(value: string) => {
 			prTitle.set(value);
 		}}

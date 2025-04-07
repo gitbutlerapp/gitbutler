@@ -5,6 +5,7 @@
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
 	interface Props {
+		isSubmitting: boolean;
 		canPublishBR: boolean;
 		canPublishPR: boolean;
 		ctaDisabled: boolean;
@@ -12,7 +13,8 @@
 		onSubmit: () => void;
 	}
 
-	let { canPublishBR, canPublishPR, ctaDisabled, onCancel, onSubmit }: Props = $props();
+	let { canPublishBR, canPublishPR, ctaDisabled, isSubmitting, onCancel, onSubmit }: Props =
+		$props();
 
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
 
@@ -33,16 +35,19 @@
 	<div class="submit-review-actions__extra">
 		{#if canPublishPR && !canPublishBR}
 			<label for="create-pr-draft" class="submit-review-actions__drafty">
-				<Toggle id="create-pr-draft" bind:checked={$createDraft} />
+				<Toggle id="create-pr-draft" bind:checked={$createDraft} disabled={isSubmitting} />
 				<span class="text-13">PR draft</span>
 			</label>
 		{/if}
 	</div>
 
 	<div class="submit-review-actions__general">
-		<Button kind="outline" onclick={onCancel}>Cancel</Button>
-		<AsyncButton width={166} action={async () => onSubmit()} disabled={ctaDisabled}
-			>{getCtaLabel()}</AsyncButton
+		<Button kind="outline" loading={isSubmitting} onclick={onCancel}>Cancel</Button>
+		<AsyncButton
+			width={166}
+			action={async () => onSubmit()}
+			disabled={ctaDisabled}
+			loading={isSubmitting}>{getCtaLabel()}</AsyncButton
 		>
 	</div>
 </div>
