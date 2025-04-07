@@ -21,6 +21,7 @@
 		BrToPrService,
 		updatePrDescriptionTables as updatePrStackInfo
 	} from '$lib/forge/shared/prFooter';
+	import { TemplateService } from '$lib/forge/templateService';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ProjectsService } from '$lib/project/projectsService';
@@ -58,6 +59,7 @@
 	const stackService = getContext(StackService);
 	const projectsService = getContext(ProjectsService);
 	const userService = getContext(UserService);
+	const templateService = getContext(TemplateService);
 
 	const user = userService.user;
 	const project = projectsService.getProjectStore(projectId);
@@ -118,6 +120,18 @@
 	let useTemplate = persisted(false, `use-template-${projectId}`);
 	// Available pull request templates.
 	let templates = $state<string[]>([]);
+
+	// Load the available templates when the component is mounted.
+	$effect(() => {
+		templateService.getAvailable(forge.current.name).then((templatesResponse) => {
+			if (templatesResponse.length > 0) {
+				useTemplate.set(true);
+				templates = templatesResponse;
+			} else {
+				useTemplate.set(false);
+			}
+		});
+	});
 
 	const canPublishBR = $derived(!!($canPublish && branch?.name && !branch.reviewId));
 	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
