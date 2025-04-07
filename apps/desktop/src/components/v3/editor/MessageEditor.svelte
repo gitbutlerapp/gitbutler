@@ -16,7 +16,6 @@
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
 	import GhostTextPlugin from '@gitbutler/ui/richText/plugins/GhostText.svelte';
-	import GiphyPlugin from '@gitbutler/ui/richText/plugins/GiphyPlugin.svelte';
 	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
@@ -28,9 +27,18 @@
 		placeholder: string;
 		onChange?: (text: string) => void;
 		onKeyDown?: (e: KeyboardEvent) => boolean;
+		enableFileUpload?: boolean;
 	}
 
-	let { projectId, initialValue, placeholder, disabled, onChange, onKeyDown }: Props = $props();
+	let {
+		projectId,
+		initialValue,
+		placeholder,
+		disabled,
+		enableFileUpload,
+		onChange,
+		onKeyDown
+	}: Props = $props();
 
 	const [aiService, idSelection, worktreeService, diffService, uiState] = inject(
 		AIService,
@@ -173,21 +181,21 @@
 		>
 			{#snippet plugins()}
 				<Formatter bind:this={formatter} />
-				<GiphyPlugin />
 				<GhostTextPlugin
 					bind:this={suggestionsHandler.ghostTextComponent}
 					onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
 				/>
-				<GiphyPlugin />
 			{/snippet}
 		</RichTextEditor>
 
 		<div class="message-editor__inner-toolbar">
 			<EmojiPickerButton onEmojiSelect={(emoji) => onEmojiSelect(emoji.unicode)} />
-			<div class="message-editor__inner-toolbar__divider"></div>
-			<Button kind="ghost" icon="attachment-small" reversedDirection>
-				<span style="opacity: 0.4">Drop or click to add files</span>
-			</Button>
+			{#if enableFileUpload}
+				<div class="message-editor__inner-toolbar__divider"></div>
+				<Button kind="ghost" icon="attachment-small" reversedDirection>
+					<span style="opacity: 0.4">Drop or click to add files</span>
+				</Button>
+			{/if}
 		</div>
 	</div>
 </div>
