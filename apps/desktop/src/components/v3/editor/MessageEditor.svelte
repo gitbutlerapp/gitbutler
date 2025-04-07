@@ -16,7 +16,6 @@
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
 	import GhostTextPlugin from '@gitbutler/ui/richText/plugins/GhostText.svelte';
-	import GiphyPlugin from '@gitbutler/ui/richText/plugins/GiphyPlugin.svelte';
 	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
@@ -173,12 +172,10 @@
 		>
 			{#snippet plugins()}
 				<Formatter bind:this={formatter} />
-				<GiphyPlugin />
 				<GhostTextPlugin
 					bind:this={suggestionsHandler.ghostTextComponent}
 					onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
 				/>
-				<GiphyPlugin />
 			{/snippet}
 		</RichTextEditor>
 
