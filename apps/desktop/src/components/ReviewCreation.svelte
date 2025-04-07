@@ -347,6 +347,7 @@
 		{stackId}
 		disabled={isExecuting}
 		initialValue={prBody.value}
+		placeholder={'PR Description'}
 		onChange={(text: string) => {
 			prBody.set(text);
 		}}

@@ -25,11 +25,12 @@
 		stackId: string;
 		disabled?: boolean;
 		initialValue?: string;
+		placeholder: string;
 		onChange?: (text: string) => void;
 		onKeyDown?: (e: KeyboardEvent) => boolean;
 	}
 
-	let { projectId, initialValue, disabled, onChange, onKeyDown }: Props = $props();
+	let { projectId, initialValue, placeholder, disabled, onChange, onKeyDown }: Props = $props();
 
 	const [aiService, idSelection, worktreeService, diffService, uiState] = inject(
 		AIService,
@@ -159,7 +160,7 @@
 		<RichTextEditor
 			styleContext="client-editor"
 			namespace="CommitMessageEditor"
-			placeholder="Your commit message"
+			{placeholder}
 			bind:this={composer}
 			markdown={useRichText.current}
 			onError={(e) => showError('Editor error', e)}
