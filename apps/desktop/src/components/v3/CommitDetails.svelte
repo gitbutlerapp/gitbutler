@@ -2,6 +2,7 @@
 	import { isCommit, type Commit, type UpstreamCommit } from '$lib/branches/v3';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -19,10 +20,18 @@
 
 	const { projectId, commit, stackId, onEditCommitMessage }: Props = $props();
 
-	const [userService, modeService, stackService] = inject(UserService, ModeService, StackService);
+	const [userService, modeService, stackService, uiState] = inject(
+		UserService,
+		ModeService,
+		StackService,
+		UiState
+	);
 
 	const [uncommit, uncommitResult] = stackService.uncommit;
 	const user = $derived(userService.user);
+	const stackState = $derived(uiState.stack(stackId));
+	const selected = $derived(stackState.selection.get());
+	const branchName = $derived(selected.current?.branchName);
 
 	const message = $derived(commit.message);
 	const description = $derived(message.slice(message.indexOf('\n') + 1).trim());
@@ -50,6 +59,8 @@
 	async function handleUncommit(e: MouseEvent) {
 		e.stopPropagation();
 		await uncommit({ projectId, stackId, commitId: commit.id });
+		uiState.project(projectId).drawerPage.set(undefined);
+		if (branchName) stackState.selection.set({ branchName, commitId: undefined });
 	}
 
 	function openCommitMessageModal() {
