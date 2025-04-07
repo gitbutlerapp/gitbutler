@@ -106,4 +106,12 @@ export default class CommitSuggestions {
 	set ghostTextComponent(value: ReturnType<typeof GhostTextPlugin>) {
 		this._ghostTextComponent = value;
 	}
+
+	clear() {
+		this.textUpToAnchor = undefined;
+		this.textAfterAnchor = undefined;
+		this.lastSentMessage = undefined;
+		this.lasSelectedGhostText = undefined;
+		this._ghostTextComponent?.reset();
+	}
 }
