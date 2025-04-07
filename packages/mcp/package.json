@@ -32,8 +32,8 @@
 		"zod-to-json-schema": "^3.24.5"
 	},
 	"devDependencies": {
-		"@types/node": "^22.3.0",
+		"@types/node": "^22.14.0",
 		"@types/node-fetch": "^2.6.12",
-		"typescript": "5.4.5"
+		"typescript": "5.8.3"
 	}
 }
