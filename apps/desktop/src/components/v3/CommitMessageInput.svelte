@@ -77,6 +77,7 @@
 	<MessageEditor
 		bind:this={composer}
 		initialValue={descriptionText.current}
+		placeholder={'Your commit message'}
 		{projectId}
 		{stackId}
 		onChange={(text: string) => {
