@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { VERSION } from './shared/version.js';
 import * as chatMessages from './tools/chatMessages.js';
+import * as status from './tools/client/status.js';
 import * as patchStacks from './tools/patchStacks.js';
 import * as projects from './tools/projects.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -30,7 +31,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 		tools: [
 			...projects.getProjectToolListings(),
 			...chatMessages.getChatMessageToolListings(),
-			...patchStacks.getPatchStackToolListing()
+			...patchStacks.getPatchStackToolListing(),
+			...status.getStatusToolListing()
 		]
 	};
 });
@@ -44,7 +46,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		const handlers = [
 			projects.getProjectToolRequestHandler,
 			chatMessages.getChatMesssageToolRequestHandler,
-			patchStacks.getPatchStackToolRequestHandler
+			patchStacks.getPatchStackToolRequestHandler,
+			status.getStatusToolRequestHandler
 		];
 
 		for (const handler of handlers) {
