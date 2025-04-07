@@ -24,14 +24,45 @@ pub fn commit_changes(
     }
 }
 
-pub fn status(current_dir: &Path, unified_diff: bool, context_lines: u32) -> anyhow::Result<()> {
+pub fn status(
+    current_dir: &Path,
+    unified_diff: bool,
+    context_lines: u32,
+    use_json: bool,
+) -> anyhow::Result<()> {
     let repo = project_repo(current_dir)?;
     let worktree = but_core::diff::worktree_changes(&repo)?;
     if unified_diff {
-        debug_print((
-            unified_diff_for_changes(&repo, worktree.changes, context_lines)?,
-            worktree.ignored_changes,
-        ))
+        handle_unified_diff(&repo, worktree, context_lines, use_json)?;
+    } else {
+        handle_normal_diff(worktree, use_json)?;
+    }
+    Ok(())
+}
+
+fn handle_unified_diff(
+    repo: &gix::Repository,
+    worktree: but_core::WorktreeChanges,
+    context_lines: u32,
+    use_json: bool,
+) -> anyhow::Result<()> {
+    let diff = unified_diff_for_changes(repo, worktree.changes.clone(), context_lines)?;
+    if use_json {
+        let serializable: but_core::ui::UnifiedWorktreeChanges = (worktree, &diff).into();
+        let json = serde_json::to_string_pretty(&serializable)?;
+        println!("{}", json);
+        Ok(())
+    } else {
+        debug_print((diff, worktree.ignored_changes))
+    }
+}
+
+fn handle_normal_diff(worktree: but_core::WorktreeChanges, use_json: bool) -> anyhow::Result<()> {
+    if use_json {
+        let worktree: but_core::ui::WorktreeChanges = worktree.into();
+        let json = serde_json::to_string_pretty(&worktree)?;
+        println!("{}", json);
+        Ok(())
     } else {
         debug_print(worktree)
     }

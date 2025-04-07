@@ -70,7 +70,7 @@ fn main() -> Result<()> {
         args::Subcommands::Status {
             unified_diff,
             context_lines,
-        } => command::diff::status(&args.current_dir, *unified_diff, *context_lines),
+        } => command::diff::status(&args.current_dir, *unified_diff, *context_lines, args.json),
         args::Subcommands::CommitChanges {
             unified_diff,
             current_commit,
@@ -81,10 +81,12 @@ fn main() -> Result<()> {
             previous_commit.as_deref(),
             *unified_diff,
         ),
-        args::Subcommands::Stacks => command::stacks::list(&args.current_dir),
-        args::Subcommands::StackBranches { id } => command::stacks::branches(id, &args.current_dir),
+        args::Subcommands::Stacks => command::stacks::list(&args.current_dir, args.json),
+        args::Subcommands::StackBranches { id } => {
+            command::stacks::branches(id, &args.current_dir, args.json)
+        }
         args::Subcommands::StackBranchCommits { id, name } => {
-            command::stacks::branch_commits(id, name, &args.current_dir)
+            command::stacks::branch_commits(id, name, &args.current_dir, args.json)
         }
     }
 }

@@ -109,35 +109,67 @@ pub mod stacks {
 
     use but_settings::AppSettings;
     use but_workspace::{
-        stack_branch_local_and_remote_commits, stack_branch_upstream_only_commits, stack_branches,
+        BranchCommits, stack_branch_local_and_remote_commits, stack_branch_upstream_only_commits,
+        stack_branches,
     };
     use gitbutler_command_context::CommandContext;
 
     use crate::command::{debug_print, project_from_path};
 
-    pub fn list(current_dir: &Path) -> anyhow::Result<()> {
+    pub fn list(current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
         let repo = ctx.gix_repo()?;
-        debug_print(but_workspace::stacks(&project.gb_dir(), &repo))
+        let stacks = but_workspace::stacks(&project.gb_dir(), &repo)?;
+        if use_json {
+            let json = serde_json::to_string_pretty(&stacks)?;
+            println!("{json}");
+            Ok(())
+        } else {
+            debug_print(stacks)
+        }
     }
 
-    pub fn branches(id: &str, current_dir: &Path) -> anyhow::Result<()> {
+    pub fn branches(id: &str, current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
-        debug_print(stack_branches(id.to_string(), &ctx))
+        let branches = stack_branches(id.to_string(), &ctx)?;
+        if use_json {
+            let json = serde_json::to_string_pretty(&branches)?;
+            println!("{json}");
+            Ok(())
+        } else {
+            debug_print(branches)
+        }
     }
 
-    pub fn branch_commits(id: &str, name: &str, current_dir: &Path) -> anyhow::Result<()> {
+    pub fn branch_commits(
+        id: &str,
+        name: &str,
+        current_dir: &Path,
+        use_json: bool,
+    ) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
         let repo = ctx.gix_repo()?;
         let local_and_remote =
             stack_branch_local_and_remote_commits(id.to_string(), name.to_string(), &ctx, &repo);
-        debug_print(local_and_remote)?;
         let upstream_only =
             stack_branch_upstream_only_commits(id.to_string(), name.to_string(), &ctx, &repo);
-        debug_print(upstream_only)
+
+        if use_json {
+            let branch_commits = BranchCommits {
+                local_and_remote: local_and_remote?,
+                upstream_commits: upstream_only?,
+            };
+
+            let json = serde_json::to_string_pretty(&branch_commits)?;
+            println!("{json}");
+            Ok(())
+        } else {
+            debug_print(local_and_remote)?;
+            debug_print(upstream_only)
+        }
     }
 }
 

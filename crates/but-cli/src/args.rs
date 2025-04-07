@@ -19,6 +19,9 @@ pub struct Args {
     /// The production version is used if unset.
     #[clap(short = 's', long)]
     pub app_suffix: Option<String>,
+    /// Whether to use json output format.
+    #[clap(long, short = 'j')]
+    pub json: bool,
 
     #[clap(subcommand)]
     pub cmd: Subcommands,

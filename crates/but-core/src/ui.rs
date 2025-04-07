@@ -252,3 +252,47 @@ impl From<crate::ModeFlags> for ModeFlags {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeUnifiedDiff {
+    tree_change: TreeChange,
+    diff: crate::UnifiedDiff,
+}
+
+impl From<&(crate::TreeChange, crate::UnifiedDiff)> for ChangeUnifiedDiff {
+    fn from(unified_diff: &(crate::TreeChange, crate::UnifiedDiff)) -> Self {
+        ChangeUnifiedDiff {
+            tree_change: unified_diff.0.clone().into(),
+            diff: unified_diff.1.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnifiedWorktreeChanges {
+    /// Changes that were in the index that we can't handle. The user can see them and interact with them to clear them out before a commit can be made.
+    ignored_changes: Vec<IgnoredWorktreeChange>,
+    /// Unified diff changes that could be committed.
+    changes: Vec<ChangeUnifiedDiff>,
+}
+
+impl
+    From<(
+        crate::WorktreeChanges,
+        &Vec<(crate::TreeChange, crate::UnifiedDiff)>,
+    )> for UnifiedWorktreeChanges
+{
+    fn from(
+        (worktree_changes, changes): (
+            crate::WorktreeChanges,
+            &Vec<(crate::TreeChange, crate::UnifiedDiff)>,
+        ),
+    ) -> Self {
+        UnifiedWorktreeChanges {
+            ignored_changes: worktree_changes.ignored_changes,
+            changes: changes.iter().map(ChangeUnifiedDiff::from).collect(),
+        }
+    }
+}
