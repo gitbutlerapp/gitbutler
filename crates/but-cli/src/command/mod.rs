@@ -115,11 +115,18 @@ pub mod stacks {
 
     use crate::command::{debug_print, project_from_path};
 
-    pub fn list(current_dir: &Path) -> anyhow::Result<()> {
+    pub fn list(current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
         let repo = ctx.gix_repo()?;
-        debug_print(but_workspace::stacks(&project.gb_dir(), &repo))
+        let stacks = but_workspace::stacks(&project.gb_dir(), &repo)?;
+        if use_json {
+            let json = serde_json::to_string_pretty(&stacks)?;
+            println!("{json}");
+            Ok(())
+        } else {
+            debug_print(stacks)
+        }
     }
 
     pub fn branches(id: &str, current_dir: &Path) -> anyhow::Result<()> {

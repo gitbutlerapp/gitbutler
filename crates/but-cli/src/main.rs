@@ -81,7 +81,7 @@ fn main() -> Result<()> {
             previous_commit.as_deref(),
             *unified_diff,
         ),
-        args::Subcommands::Stacks => command::stacks::list(&args.current_dir),
+        args::Subcommands::Stacks => command::stacks::list(&args.current_dir, args.json),
         args::Subcommands::StackBranches { id } => command::stacks::branches(id, &args.current_dir),
         args::Subcommands::StackBranchCommits { id, name } => {
             command::stacks::branch_commits(id, name, &args.current_dir)
