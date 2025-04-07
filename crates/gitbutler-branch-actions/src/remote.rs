@@ -1,7 +1,7 @@
-use std::path::Path;
-
 use crate::author::Author;
 use anyhow::Result;
+use bstr::ByteSlice;
+use but_core::message_format;
 use git2::BranchType;
 use gitbutler_branch::ReferenceExt;
 use gitbutler_command_context::CommandContext;
@@ -12,6 +12,7 @@ use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 use serde::Serialize;
+use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -148,9 +149,10 @@ pub(crate) fn branch_to_remote_branch(
 
 pub(crate) fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
     let parent_ids = commit.parents().map(|c| c.id()).collect();
+    let message = message_format::parse_for_ui(commit.message_bstr().to_str().unwrap_or_default());
     RemoteCommit {
         id: commit.id().to_string(),
-        description: commit.message_bstr().into(),
+        description: message.into(),
         created_at: commit.time().seconds().try_into().unwrap(),
         author: commit.author().into(),
         change_id: commit.change_id(),
