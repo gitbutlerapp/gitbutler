@@ -70,7 +70,7 @@ export class UiState {
 		stacksViewWidth: 21.25,
 		drawerSplitViewWidth: 20,
 		useRichText: true,
-		aiSuggestionsOnType: true,
+		aiSuggestionsOnType: false,
 		selectedTip: undefined
 	});
 

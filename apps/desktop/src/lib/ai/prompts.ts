@@ -171,6 +171,8 @@ export const AUTOCOMPLETE_SUGGESTION_PROMPT_CONTENT = `You are a developer worki
 Use the Fill-in-the-middle approach to complete the text.
 You'll be given the current text with a marker to indicate where you should continue the text.
 You should only replace the marker with a helpful suggestion.
+ONlY respond with the text to fill in the marker.
+SUGGEST MAX 10 WORDS.
 This is the marker: ${FILL_MARKER}
 Return only the content to fill in the middle.
 DON'T change any part of the existing message.

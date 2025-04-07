@@ -4,7 +4,7 @@
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
 	import MarkdownTransitionPlugin from '$lib/richText/plugins/markdownTransition.svelte';
 	import OnChangePlugin, { type OnChangeCallback } from '$lib/richText/plugins/onChange.svelte';
-	import { insertTextAtCaret } from '$lib/richText/selection';
+	import { insertTextAtCaret, setEditorText } from '$lib/richText/selection';
 	import {
 		COMMAND_PRIORITY_CRITICAL,
 		$getRoot as getRoot,
@@ -162,6 +162,12 @@
 		focus();
 		if (editor) {
 			insertTextAtCaret(editor, text);
+		}
+	}
+
+	export function setText(text: string) {
+		if (editor) {
+			setEditorText(editor, text);
 		}
 	}
 </script>

@@ -10,8 +10,10 @@
 <script lang="ts">
 	import PrTemplateSection from '$components/PrTemplateSection.svelte';
 	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
+	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { projectAiGenEnabled } from '$lib/config/config';
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
@@ -39,6 +41,7 @@
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { error } from '@gitbutler/ui/toasts';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
+	import { tick } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -60,6 +63,7 @@
 	const projectsService = getContext(ProjectsService);
 	const userService = getContext(UserService);
 	const templateService = getContext(TemplateService);
+	const aiService = getContext(AIService);
 
 	const user = userService.user;
 	const project = projectsService.getProjectStore(projectId);
@@ -67,12 +71,6 @@
 	const [publishBranch, branchPublishing] = stackService.publishBranch;
 	const [updateBranchPrNumber, PRNumberUpdate] = stackService.updateBranchPrNumber;
 	const [pushStack, stackPush] = stackService.pushStack;
-
-	const isExecuting = $derived(
-		branchPublishing.current.isLoading ||
-			PRNumberUpdate.current.isLoading ||
-			stackPush.current.isLoading
-	);
 
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branch = $derived(branchResult.current.data);
@@ -132,6 +130,25 @@
 			}
 		});
 	});
+
+	// AI things
+	const aiGenEnabled = projectAiGenEnabled(projectId);
+	let aiConfigurationValid = $state(false);
+	const canUseAI = $derived($aiGenEnabled && aiConfigurationValid);
+	let aiIsLoading = $state(false);
+
+	$effect(() => {
+		aiService.validateConfiguration().then((valid) => {
+			aiConfigurationValid = valid;
+		});
+	});
+
+	const isExecuting = $derived(
+		branchPublishing.current.isLoading ||
+			PRNumberUpdate.current.isLoading ||
+			stackPush.current.isLoading ||
+			aiIsLoading
+	);
 
 	const canPublishBR = $derived(!!($canPublish && branch?.name && !branch.reviewId));
 	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
@@ -312,6 +329,39 @@
 		return false;
 	});
 
+	async function onAiButtonClick() {
+		if (!aiGenEnabled || aiIsLoading) return;
+
+		aiIsLoading = true;
+		await tick();
+
+		let firstToken = true;
+
+		try {
+			const description = await aiService?.describePR({
+				title: prTitle.value,
+				body: prBody.value,
+				commitMessages: commits.map((c) => c.message),
+				prBodyTemplate: templateBody,
+				onToken: (token) => {
+					if (firstToken) {
+						prBody.reset();
+						firstToken = false;
+					}
+					prBody.append(token);
+					descriptionInput?.setText(prBody.value);
+				}
+			});
+
+			if (description) {
+				prBody.set(description);
+			}
+		} finally {
+			aiIsLoading = false;
+			await tick();
+		}
+	}
+
 	export function createButtonEnabled(): Reactive<boolean> {
 		return reactive(() => isCreateButtonEnabled);
 	}
@@ -363,6 +413,9 @@
 		disabled={isExecuting}
 		initialValue={prBody.value}
 		placeholder={'PR Description'}
+		{onAiButtonClick}
+		{canUseAI}
+		{aiIsLoading}
 		onChange={(text: string) => {
 			prBody.set(text);
 		}}

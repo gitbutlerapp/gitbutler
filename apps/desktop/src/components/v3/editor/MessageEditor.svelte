@@ -1,24 +1,16 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import AiContextMenu from '$components/v3/editor/AIContextMenu.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
-	import { AIService } from '$lib/ai/service';
-	import { projectAiGenEnabled } from '$lib/config/config';
-	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { showError } from '$lib/notifications/toasts';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
-	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import { debouncePromise } from '@gitbutler/shared/utils/misc';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import EmojiPickerButton from '@gitbutler/ui/EmojiPickerButton.svelte';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
 	import GhostTextPlugin from '@gitbutler/ui/richText/plugins/GhostText.svelte';
 	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
 		projectId: string;
@@ -29,60 +21,27 @@
 		onChange?: (text: string) => void;
 		onKeyDown?: (e: KeyboardEvent) => boolean;
 		enableFileUpload?: boolean;
+		onAiButtonClick: (e: MouseEvent) => void;
+		canUseAI: boolean;
+		aiIsLoading: boolean;
+		suggestionsHandler?: CommitSuggestions;
 	}
 
 	let {
-		projectId,
 		initialValue,
 		placeholder,
 		disabled,
 		enableFileUpload,
 		onChange,
-		onKeyDown
+		onKeyDown,
+		onAiButtonClick,
+		canUseAI,
+		aiIsLoading,
+		suggestionsHandler
 	}: Props = $props();
 
-	const [aiService, idSelection, worktreeService, diffService, uiState] = inject(
-		AIService,
-		IdSelection,
-		WorktreeService,
-		DiffService,
-		UiState
-	);
-
+	const uiState = getContext(UiState);
 	const useRichText = uiState.global.useRichText;
-
-	const aiGenEnabled = projectAiGenEnabled(projectId);
-	let aiConfigurationValid = $state(false);
-	const suggestionsHandler = new CommitSuggestions(aiService, uiState);
-	const selection = $derived(idSelection.values({ type: 'worktree' }));
-	const selectionPaths = $derived(
-		selection.map((item) => (item.type === 'worktree' ? item.path : undefined)).filter(isDefined)
-	);
-
-	const changes = $derived(worktreeService.getChangesById(projectId, selectionPaths));
-	const treeChanges = $derived(changes?.current.data);
-	const changeDiffsResponse = $derived(
-		treeChanges ? diffService.getChanges(projectId, treeChanges) : undefined
-	);
-	const changeDiffs = $derived(
-		changeDiffsResponse?.current.map((item) => item.data).filter(isDefined) ?? []
-	);
-
-	$effect(() => {
-		aiService.validateConfiguration().then((valid) => {
-			aiConfigurationValid = valid;
-		});
-	});
-
-	$effect(() => {
-		suggestionsHandler.setStagedChanges(changeDiffs);
-	});
-
-	const canUseAI = $derived($aiGenEnabled && aiConfigurationValid);
-
-	$effect(() => {
-		suggestionsHandler.setCanUseAI(canUseAI);
-	});
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
 	let formatter = $state<ReturnType<typeof Formatter>>();
@@ -99,7 +58,7 @@
 		textAfterAnchor: string | undefined
 	) {
 		onChange?.(text);
-		await suggestionsHandler.onChange(textUpToAnchor, textAfterAnchor);
+		await suggestionsHandler?.onChange(textUpToAnchor, textAfterAnchor);
 	}
 
 	const debouncedHandleChange = debouncePromise(handleChange, 700);
@@ -108,15 +67,7 @@
 		if (event && onKeyDown?.(event)) {
 			return true;
 		}
-		return suggestionsHandler.onKeyDown(event);
-	}
-
-	let aiButton = $state<HTMLElement>();
-	let aiContextMenu = $state<ReturnType<typeof ContextMenu>>();
-
-	function onAiButtonClick(e: MouseEvent) {
-		aiButton = e.currentTarget as HTMLElement;
-		aiContextMenu?.toggle();
+		return suggestionsHandler?.onKeyDown(event) ?? false;
 	}
 
 	function onEmojiSelect(emoji: string) {
@@ -126,14 +77,11 @@
 	export function focus() {
 		composer?.focus();
 	}
-</script>
 
-<AiContextMenu
-	bind:menu={aiContextMenu}
-	leftClickTrigger={aiButton}
-	onTypeSuggestions={suggestionsHandler.suggestOnType}
-	toggleOnTypeSuggestions={() => suggestionsHandler.toggleSuggestOnType()}
-/>
+	export function setText(text: string) {
+		composer?.setText(text);
+	}
+</script>
 
 <div class="editor-wrapper">
 	<div class="editor-header">
@@ -157,7 +105,7 @@
 				}}>Rich-text Editor</button
 			>
 		</div>
-		<FormattingBar bind:formatter {onAiButtonClick} {canUseAI} />
+		<FormattingBar bind:formatter {onAiButtonClick} {canUseAI} aiLoading={aiIsLoading} />
 	</div>
 
 	<div
@@ -188,10 +136,12 @@
 					>
 						{#snippet plugins()}
 							<Formatter bind:this={formatter} />
-							<GhostTextPlugin
-								bind:this={suggestionsHandler.ghostTextComponent}
-								onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
-							/>
+							{#if suggestionsHandler}
+								<GhostTextPlugin
+									bind:this={suggestionsHandler.ghostTextComponent}
+									onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
+								/>
+							{/if}
 						{/snippet}
 					</RichTextEditor>
 				</div>

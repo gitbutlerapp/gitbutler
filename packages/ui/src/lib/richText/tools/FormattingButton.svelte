@@ -8,9 +8,10 @@
 		tooltip: string;
 		onclick: (e: MouseEvent) => void;
 		disabled?: boolean;
+		loading?: boolean;
 	}
 
-	const { icon, activated, tooltip, onclick, disabled }: Props = $props();
+	const { icon, activated, tooltip, onclick, disabled, loading }: Props = $props();
 </script>
 
 <Button
@@ -24,4 +25,5 @@
 	{tooltip}
 	tooltipDelay={500}
 	tooltipPosition="bottom"
+	{loading}
 />
