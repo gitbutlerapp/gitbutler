@@ -733,12 +733,14 @@ impl Stack {
     #[allow(deprecated)]
     pub fn migrate_change_ids(&mut self, ctx: &CommandContext) -> Result<()> {
         // If all of the heads are already commit IDs, there is nothing to do
-        if self.heads.iter().all(|h| h.uses_change_id()) {
+        if self.heads.iter().all(|h| !h.uses_change_id()) {
             return Ok(());
         }
 
-        let stack_head = self.head(&ctx.gix_repo()?)?;
-        let merge_base = self.merge_base(ctx)?;
+        let stack_head = self.head; // Use the field directly because here the stack heads have not been migrated yet
+        let virtual_branch_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+        let target = virtual_branch_state.get_default_target()?;
+        let merge_base = ctx.repo().merge_base(stack_head, target.sha)?;
 
         for head in self.heads.iter_mut() {
             head.migrate_change_id(ctx.repo(), stack_head, merge_base);

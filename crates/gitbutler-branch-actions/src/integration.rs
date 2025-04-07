@@ -56,6 +56,7 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
         let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
         let merge_tree_id = git2_to_gix_object_id(repo.find_commit(target.sha)?.tree_id());
         for stack in stacks.iter_mut() {
+            stack.migrate_change_ids(ctx).ok(); // If it fails thats ok - best effort migration
             let branch_head = repo.find_commit(stack.head(&gix_repo)?)?;
             let branch_tree_id =
                 git2_to_gix_object_id(repo.find_real_tree(&branch_head, Default::default())?.id());
