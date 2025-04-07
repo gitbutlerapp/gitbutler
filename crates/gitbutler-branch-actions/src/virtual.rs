@@ -428,7 +428,6 @@ pub fn list_virtual_branches_cached(
         }
 
         let head = branch.head(&gix_repo)?;
-        branch.migrate_change_ids(ctx).ok(); // If it fails thats ok - best effort migration
         let branch = VirtualBranch {
             id: branch.id,
             name: branch.name,
