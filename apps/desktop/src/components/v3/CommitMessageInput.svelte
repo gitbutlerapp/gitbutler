@@ -58,6 +58,7 @@
 	});
 
 	let composer = $state<ReturnType<typeof MessageEditor>>();
+	let titleInput = $state<ReturnType<typeof Textbox>>();
 
 	export function getMessage() {
 		return $commitMessage;
@@ -66,12 +67,26 @@
 
 <div class="commit-message-input">
 	<Textbox
+		bind:this={titleInput}
 		autofocus
 		size="large"
 		placeholder="Commit title"
 		value={titleText.current}
 		oninput={(value: string) => {
 			titleText.set(value);
+		}}
+		onkeydown={(e: KeyboardEvent) => {
+			if (e.key === 'Enter' || e.key === 'Tab') {
+				e.preventDefault();
+				composer?.focus();
+				return;
+			}
+
+			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+				e.preventDefault();
+				action();
+				return;
+			}
 		}}
 	/>
 	<MessageEditor
@@ -84,6 +99,21 @@
 			descriptionText.current = text;
 		}}
 		enableFileUpload
+		onKeyDown={(e: KeyboardEvent) => {
+			if (e.key === 'Tab' && e.shiftKey) {
+				e.preventDefault();
+				titleInput?.focus();
+				return true;
+			}
+
+			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+				e.preventDefault();
+				action();
+				return true;
+			}
+
+			return false;
+		}}
 	/>
 </div>
 <EditorFooter {onCancel}>
