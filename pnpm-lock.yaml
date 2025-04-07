@@ -231,6 +231,9 @@ importers:
       '@testing-library/svelte':
         specifier: 5.2.5
         version: 5.2.5(svelte@5.23.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5)
+      '@testing-library/user-event':
+        specifier: ^14.6.1
+        version: 14.6.1(@testing-library/dom@10.4.0)
       '@types/diff-match-patch':
         specifier: ^1.0.36
         version: 1.0.36

@@ -11,12 +11,20 @@
 		control?: Snippet;
 		keyboardShortcut?: string;
 		onclick: (e: MouseEvent) => void;
+		testId?: string;
 	}
 
-	const { onclick, icon, label, disabled, control, keyboardShortcut }: Props = $props();
+	const { onclick, icon, label, disabled, control, keyboardShortcut, testId }: Props = $props();
 </script>
 
-<button type="button" class="menu-item focus-state no-select" class:disabled {disabled} {onclick}>
+<button
+	data-testid={testId}
+	type="button"
+	class="menu-item focus-state no-select"
+	class:disabled
+	{disabled}
+	{onclick}
+>
 	{#if icon}
 		<Icon name={icon} />
 	{/if}

@@ -4,6 +4,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import BranchHeaderIcon from '$components/v3/BranchHeaderIcon.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { StackBranch } from '$lib/branches/v3';
@@ -65,6 +66,7 @@
 </script>
 
 <div
+	data-testid={TestId.BranchHeader}
 	bind:this={el}
 	role="button"
 	class="branch-header"
