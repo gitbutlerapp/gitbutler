@@ -7,9 +7,10 @@
 		formatter: ReturnType<typeof Formatter> | undefined;
 		onAiButtonClick: (e: MouseEvent) => void;
 		canUseAI: boolean;
+		aiLoading: boolean;
 	};
 
-	let { formatter = $bindable(), onAiButtonClick, canUseAI }: Props = $props();
+	let { formatter = $bindable(), onAiButtonClick, canUseAI, aiLoading }: Props = $props();
 
 	let slideWidth = $state(0);
 	let isSecondSlide = $state(false);
@@ -62,6 +63,7 @@
 								: 'You need to enable AI in the project settings to use this feature'}
 							disabled={!canUseAI}
 							onclick={onAiButtonClick}
+							loading={aiLoading}
 						/>
 						<FormattingButton
 							icon="slash-commands"
