@@ -97,7 +97,7 @@
 	}
 </script>
 
-<Drawer bind:this={drawer} {projectId} {stackId} title="Create commit">
+<Drawer bind:this={drawer} {projectId} {stackId} title="Create commit" disableScroll minHeight={20}>
 	<CommitMessageInput
 		bind:this={input}
 		{projectId}
