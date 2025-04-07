@@ -390,6 +390,10 @@ export class StackService {
 		return this.api.endpoints.unapply.useMutation();
 	}
 
+	get unapplyWithoutSaving() {
+		return this.api.endpoints.unapplyWithoutSaving.useMutation();
+	}
+
 	get publishBranch() {
 		return this.api.endpoints.publishBranch.useMutation();
 	}
@@ -783,6 +787,17 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			unapply: build.mutation<void, { projectId: string; stackId: string }>({
 				query: ({ projectId, stackId }) => ({
 					command: 'save_and_unapply_virtual_branch',
+					params: { projectId, stackId },
+					actionName: 'Unapply Stack'
+				}),
+				invalidatesTags: () => [
+					invalidatesList(ReduxTag.Stacks),
+					invalidatesList(ReduxTag.BranchListing)
+				]
+			}),
+			unapplyWithoutSaving: build.mutation<void, { projectId: string; stackId: string }>({
+				query: ({ projectId, stackId }) => ({
+					command: 'unapply_without_saving_virtual_branch',
 					params: { projectId, stackId },
 					actionName: 'Unapply Stack'
 				}),

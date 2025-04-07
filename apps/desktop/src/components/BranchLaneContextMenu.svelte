@@ -30,9 +30,10 @@
 	const prService = $derived(forge.current.prService);
 	const user = getContextStore(User);
 
-	const [unapply] = stackService.unapply;
 	const [updateStack] = stackService.updateStack;
 	const [newStack] = stackService.newStack;
+	const [unapplyWithoutSaving] = stackService.unapplyWithoutSaving;
+	const [unapply] = stackService.unapply;
 
 	let deleteBranchModal: Modal;
 	let allowRebasing = $state<boolean>();
@@ -56,13 +57,6 @@
 			}
 		});
 	}
-
-	function saveAndUnapply() {
-		unapply({
-			projectId: projectId,
-			stackId: stack.id
-		});
-	}
 </script>
 
 <ContextMenu bind:this={contextMenuEl} leftClickTrigger={trigger} {ontoggle}>
@@ -79,14 +73,10 @@
 		<ContextMenuItem
 			label="Unapply"
 			onclick={async () => {
-				if (commits.length === 0 && stack.files?.length === 0) {
-					await unapply({
-						projectId: projectId,
-						stackId: stack.id
-					});
-				} else {
-					saveAndUnapply();
-				}
+				await unapply({
+					projectId: projectId,
+					stackId: stack.id
+				});
 				contextMenuEl?.close();
 			}}
 		/>
@@ -94,12 +84,8 @@
 		<ContextMenuItem
 			label="Unapply and drop changes"
 			onclick={async () => {
-				if (
-					stack.name.toLowerCase().includes('lane') &&
-					commits.length === 0 &&
-					stack.files?.length === 0
-				) {
-					await unapply({
+				if (commits.length === 0 && stack.files?.length === 0) {
+					await unapplyWithoutSaving({
 						projectId: projectId,
 						stackId: stack.id
 					});
@@ -168,8 +154,7 @@
 	onSubmit={async (close) => {
 		try {
 			isDeleting = true;
-			const [unapply] = stackService.unapply;
-			await unapply({
+			await unapplyWithoutSaving({
 				projectId,
 				stackId: stack.id
 			});
