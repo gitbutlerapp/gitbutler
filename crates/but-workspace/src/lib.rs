@@ -391,6 +391,16 @@ pub struct UpstreamCommit {
     pub author: Author,
 }
 
+/// A collection of all the commits that are part of a branch.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BranchCommits {
+    /// The commits that are local and optionally remote.
+    pub local_and_remote: Vec<Commit>,
+    /// The commits that are only at the remote.
+    pub upstream_commits: Vec<UpstreamCommit>,
+}
+
 /// Represents a branch in a [`Stack`]. It contains commits derived from the local pseudo branch and it's respective remote
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
