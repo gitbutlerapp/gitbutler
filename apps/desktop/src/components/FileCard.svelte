@@ -26,7 +26,7 @@
 	}: Props = $props();
 
 	const sections = $derived.by(() => {
-		if (!file.binary && !file.large) {
+		if (file.binary || file.large) {
 			return [];
 		}
 
