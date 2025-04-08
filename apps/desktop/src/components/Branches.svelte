@@ -86,6 +86,7 @@
 	}
 
 	function closeSearch() {
+		searching = false;
 		searchTerm = '';
 	}
 
