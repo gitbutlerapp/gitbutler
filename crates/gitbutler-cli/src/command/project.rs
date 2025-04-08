@@ -30,7 +30,7 @@ pub fn add(
         .context("Only non-bare repositories can be added")?
         .to_owned()
         .canonicalize()?;
-    let project = ctrl.add(path)?;
+    let project = ctrl.add(path, None, None)?;
     let ctx = CommandContext::open(&project, AppSettings::default())?;
     if let Some(refname) = refname {
         gitbutler_branch_actions::set_base_branch(&ctx, &refname)?;

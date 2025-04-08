@@ -16,7 +16,7 @@ mod add {
         let (controller, _tmp) = new();
         let repository = gitbutler_testsupport::TestProject::default();
         let path = repository.path();
-        let project = controller.add(path).unwrap();
+        let project = controller.add(path, None, None).unwrap();
         assert_eq!(project.path, path);
         assert_eq!(
             project.title,
@@ -32,7 +32,7 @@ mod add {
         fn non_bare_without_worktree() {
             let (controller, _tmp) = new();
             let root = repo_path_at("non-bare-without-worktree");
-            let err = controller.add(root).unwrap_err();
+            let err = controller.add(root, None, None).unwrap_err();
             assert_eq!(
                 err.to_string(),
                 "Cannot add non-bare repositories without a workdir"
@@ -43,7 +43,7 @@ mod add {
         fn submodule() {
             let (controller, _tmp) = new();
             let root = repo_path_at("with-submodule").join("submodule");
-            let err = controller.add(root).unwrap_err();
+            let err = controller.add(root, None, None).unwrap_err();
             assert_eq!(
                 err.to_string(),
                 "A git-repository without a `.git` directory cannot currently be added"
@@ -56,7 +56,7 @@ mod add {
             let tmp = tempfile::tempdir().unwrap();
             assert_eq!(
                 controller
-                    .add(tmp.path().join("missing"))
+                    .add(tmp.path().join("missing"), None, None)
                     .unwrap_err()
                     .to_string(),
                 "path not found"
@@ -70,7 +70,7 @@ mod add {
             let path = tmp.path();
             std::fs::write(path.join("file.txt"), "hello world").unwrap();
             assert_eq!(
-                controller.add(path).unwrap_err().to_string(),
+                controller.add(path, None, None).unwrap_err().to_string(),
                 "must be a Git repository"
             );
         }
@@ -79,7 +79,7 @@ mod add {
         fn empty() {
             let (controller, _tmp) = new();
             let tmp = tempfile::tempdir().unwrap();
-            let err = controller.add(tmp.path()).unwrap_err();
+            let err = controller.add(tmp.path(), None, None).unwrap_err();
             assert_eq!(err.to_string(), "must be a Git repository");
         }
 
@@ -88,9 +88,9 @@ mod add {
             let (controller, _tmp) = new();
             let repository = gitbutler_testsupport::TestProject::default();
             let path = repository.path();
-            controller.add(path).unwrap();
+            controller.add(path, None, None).unwrap();
             assert_eq!(
-                controller.add(path).unwrap_err().to_string(),
+                controller.add(path, None, None).unwrap_err().to_string(),
                 "project already exists"
             );
         }
@@ -104,7 +104,7 @@ mod add {
             let repo = git2::Repository::init_bare(&repo_dir).unwrap();
             create_initial_commit(&repo);
 
-            let err = controller.add(repo_dir).unwrap_err();
+            let err = controller.add(repo_dir, None, None).unwrap_err();
             assert_eq!(err.to_string(), "bare repositories are unsupported");
         }
 
@@ -119,7 +119,7 @@ mod add {
             create_initial_commit(&repo);
 
             let worktree = repo.worktree("feature", &worktree_dir, None).unwrap();
-            let err = controller.add(worktree.path()).unwrap_err();
+            let err = controller.add(worktree.path(), None, None).unwrap_err();
             assert_eq!(err.to_string(), "can only work in main worktrees");
         }
 
@@ -157,7 +157,7 @@ mod delete {
         let (controller, _tmp) = new();
         let repository = gitbutler_testsupport::TestProject::default();
         let path = repository.path();
-        let project = controller.add(path).unwrap();
+        let project = controller.add(path, None, None).unwrap();
         assert!(controller.delete(project.id).is_ok());
         assert!(controller.delete(project.id).is_ok()); // idempotent
         assert!(controller.get(project.id).is_err());
