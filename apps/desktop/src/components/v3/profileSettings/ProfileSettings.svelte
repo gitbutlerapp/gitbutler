@@ -36,9 +36,8 @@
 				const userData: User = {
 					...cloudUser,
 					name: cloudUser.name || 'unkown',
-					given_name: cloudUser.given_name || 'unkown',
-					family_name: cloudUser.family_name || 'unkown',
 					email: cloudUser.email || 'unkown@example.com',
+					login: cloudUser.login || undefined,
 					picture: cloudUser.picture || '#',
 					locale: cloudUser.locale || 'en',
 					access_token: cloudUser.access_token || 'impossible-situation',
