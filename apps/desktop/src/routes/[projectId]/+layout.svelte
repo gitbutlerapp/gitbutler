@@ -78,11 +78,11 @@
 
 	const secretService = getSecretsService();
 	const gitLabState = $derived(new GitLabState(secretService, repoInfo, projectId));
-	$effect(() => {
+	$effect.pre(() => {
 		setContext(GitLabState, gitLabState);
 	});
 	const gitLabClient = getContext(GitLabClient);
-	$effect(() => {
+	$effect.pre(() => {
 		gitLabClient.set(gitLabState);
 	});
 
@@ -91,8 +91,8 @@
 	const accessToken = $derived($user?.github_access_token);
 
 	const gitHubClient = getContext(GitHubClient);
-	$effect(() => gitHubClient.setToken(accessToken));
-	$effect(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
+	$effect.pre(() => gitHubClient.setToken(accessToken));
+	$effect.pre(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
 
 	const projectError = $derived(projectsService.error);
 
@@ -100,7 +100,7 @@
 	const cloudProjectService = getContext(CloudProjectService);
 	const latestBranchLookupService = getContext(LatestBranchLookupService);
 
-	$effect(() => {
+	$effect.pre(() => {
 		const upstreamIntegrationService = new UpstreamIntegrationService(
 			project,
 			vbranchService,
@@ -172,13 +172,15 @@
 		if (baseBranch || $head || $fetch) debouncedRemoteBranchRefresh();
 	});
 
+	const gitlabConfigured = $derived(gitLabState.configured);
+
 	$effect(() => {
 		forgeFactory.setConfig({
 			repo: repoInfo,
 			pushRepo: forkInfo,
 			baseBranch: baseBranchName,
 			githubAuthenticated: !!$user?.github_access_token,
-			gitlabAuthenticated: !!gitLabState.configured.current
+			gitlabAuthenticated: !!$gitlabConfigured
 		});
 	});
 
