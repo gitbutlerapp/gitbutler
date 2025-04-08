@@ -22,14 +22,14 @@ export const ircSlice = createSlice({
 		setConnectionState(state, action: PayloadAction<boolean>) {
 			state.connection.connected = action.payload;
 		},
-		addChannel(state, action: PayloadAction<string>) {
-			const channelName = action.payload.toLowerCase();
-			if (!state.channels[channelName]) {
-				state.channels[channelName] = {
-					name: action.payload,
-					users: {},
-					logs: []
-				};
+		markChannelOpen(state, action: PayloadAction<{ name: string; open: boolean }>) {
+			const channelName = action.payload.name;
+			const channel = state.channels[channelName];
+			if (channel) {
+				channel.open = action.payload.open;
+				if (channel.open) {
+					channel.unread = 0;
+				}
 			}
 		}
 	},
@@ -50,7 +50,7 @@ export const ircSlice = createSlice({
 			const { channel: name, message } = action.meta.arg;
 			let channel = state.channels[name];
 			if (!channel) {
-				channel = { name, logs: [], users: {} };
+				channel = { name, logs: [], users: {}, unread: 0 };
 				state.channels[name] = channel;
 			}
 			if (!channel.logs) {
@@ -89,6 +89,7 @@ export const ircSlice = createSlice({
 						state.channels[event.channel] = {
 							name: event.channel,
 							users: {},
+							unread: 0,
 							logs: [
 								{
 									type: 'server',
@@ -127,6 +128,9 @@ export const ircSlice = createSlice({
 					const name = event.target;
 					const channel = state.channels[name];
 					if (channel) {
+						if (!channel.open) {
+							channel.unread += 1;
+						}
 						channel.logs.push({
 							type: 'incoming',
 							timestamp: Date.now(),
@@ -303,6 +307,6 @@ export const selectChannelMessages = createSelector(
 export const selectChannels = createSelector([selectSelf], (rootState) => rootState.channels);
 export const getConnectionState = createSelector([selectSelf], (rootState) => rootState.connection);
 
-export const { setConnectionState, addChannel } = ircSlice.actions;
+export const { setConnectionState, markChannelOpen } = ircSlice.actions;
 
 export const ircReducer = ircSlice.reducer;

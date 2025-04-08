@@ -1,5 +1,6 @@
 import {
 	ircSlice,
+	markChannelOpen,
 	messageChannel,
 	processIncoming,
 	selectChannelMessages,
@@ -113,5 +114,9 @@ export class IrcService {
 	getChannels() {
 		const result = $derived(selectChannels(this.state));
 		return result;
+	}
+
+	markOpen(channel: string, open: boolean) {
+		return this.dispatch(markChannelOpen({ name: channel, open }));
 	}
 }

@@ -24,15 +24,17 @@
 	>
 		{ircClient.server}
 	</button>
-	{#each Object.keys(channels) as channel}
+	{#each Object.keys(channels) as name}
+		{@const channel = channels[name]}
 		<button
 			type="button"
 			class="channel"
+			class:text-bold={channel?.unread && channel.unread > 0}
 			onclick={() => {
-				onselect(channel);
+				onselect(name);
 			}}
 		>
-			{channel}
+			{name}
 		</button>
 	{/each}
 </div>
