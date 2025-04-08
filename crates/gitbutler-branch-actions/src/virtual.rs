@@ -1268,6 +1268,8 @@ pub(crate) fn move_commit_file(
         )
         .context("failed to create commit")?;
 
+    dbg!(&new_to_commit_oid);
+
     // another rebase
     let mut steps = stack.as_rebase_steps(ctx, &gix_repo)?;
     // replace the "to" commit in the rebase steps with the new "to" commit which has the moved changes added

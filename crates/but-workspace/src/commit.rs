@@ -63,7 +63,7 @@ impl<'repo> WorkspaceCommit<'repo> {
         let author = gix::actor::Signature {
             name: "GitButler".into(),
             email: "gitbutler@gitbutler.com".into(),
-            time: commit_time("GIT_COMMITTER_DATE"),
+            time: gix::date::Time::now_local_or_utc(),
         };
         gix::objs::Commit {
             tree: gix::ObjectId::empty_tree(object_hash),
@@ -75,15 +75,6 @@ impl<'repo> WorkspaceCommit<'repo> {
             extra_headers: vec![],
         }
     }
-}
-
-/// Return the time of a commit as `now` unless the `overriding_variable_name` contains a parseable date,
-/// which is used instead.
-fn commit_time(overriding_variable_name: &str) -> gix::date::Time {
-    std::env::var(overriding_variable_name)
-        .ok()
-        .and_then(|time| gix::date::parse(&time, Some(std::time::SystemTime::now())).ok())
-        .unwrap_or_else(gix::date::Time::now_local_or_utc)
 }
 
 /// Query
