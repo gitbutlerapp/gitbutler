@@ -11,6 +11,7 @@
 	import SwitchThemeMenuAction from '$components/SwitchThemeMenuAction.svelte';
 	import ToastController from '$components/ToastController.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
+	import LineSelection from '$components/v3/unifiedDiffLineSelection.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
@@ -130,6 +131,7 @@
 		reactive(() => changeSelection),
 		clientState.dispatch
 	);
+	const unifiedDiffLineSelection = new LineSelection(changeSelectionService);
 
 	const forgeFactory = new DefaultForgeFactory({
 		gitHubClient,
@@ -191,6 +193,7 @@
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
 	setContext(ChangeSelectionService, changeSelectionService);
+	setContext(LineSelection, unifiedDiffLineSelection);
 	setContext(ClientState, clientState);
 	setContext(FeedService, feedService);
 	setContext(OrganizationService, organizationService);
