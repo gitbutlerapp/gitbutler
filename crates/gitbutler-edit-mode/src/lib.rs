@@ -344,7 +344,7 @@ pub(crate) fn save_and_return_to_workspace(
             ctx,
             old_workspace,
             new_workspace,
-            uncommtied_changes,
+            uncommtied_changes.to_gix(),
             perm,
         )?;
     } else {

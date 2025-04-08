@@ -1,6 +1,7 @@
 use std::{path::Path, time};
 
 use crate::{
+    conflicts::RepoConflictsExt,
     hunk::VirtualBranchHunk,
     integration::update_workspace_commit,
     remote::{commit_to_remote_commit, RemoteCommit},
@@ -396,6 +397,7 @@ fn default_target(base_path: &Path) -> Result<Target> {
 }
 
 pub(crate) fn push(ctx: &CommandContext, with_force: bool) -> Result<()> {
+    ctx.assure_resolved()?;
     let target = default_target(&ctx.project().gb_dir())?;
     let _ = ctx.push(target.sha, &target.branch, with_force, None, None);
     Ok(())

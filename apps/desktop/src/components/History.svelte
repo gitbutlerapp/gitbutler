@@ -186,7 +186,9 @@
 	{#if currentFilePreview}
 		<div class="file-preview" class:show-file-view={currentFilePreview}>
 			<FileCard
+				projectId={project.id}
 				isCard={false}
+				conflicted={false}
 				file={currentFilePreview}
 				isUnapplied={false}
 				readonly={true}

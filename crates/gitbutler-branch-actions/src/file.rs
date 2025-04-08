@@ -9,7 +9,10 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_diff::FileDiff;
 use serde::Serialize;
 
-use crate::hunk::{file_hunks_from_diffs, VirtualBranchHunk};
+use crate::{
+    conflicts,
+    hunk::{file_hunks_from_diffs, VirtualBranchHunk},
+};
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -120,7 +123,7 @@ pub(crate) fn list_virtual_commit_files(
         .context("failed to get parent tree")?;
     let diff = gitbutler_diff::trees(ctx.repo(), &parent_tree, &commit_tree, context_lines)?;
     let hunks_by_filepath = virtual_hunks_by_file_diffs(&ctx.project().path, diff);
-    Ok(virtual_hunks_into_virtual_files(hunks_by_filepath))
+    Ok(virtual_hunks_into_virtual_files(ctx, hunks_by_filepath))
 }
 
 fn virtual_hunks_by_file_diffs<'a>(
@@ -137,12 +140,14 @@ fn virtual_hunks_by_file_diffs<'a>(
 
 /// NOTE: There is no use returning an iterator here as this acts like the final product.
 pub(crate) fn virtual_hunks_into_virtual_files(
+    ctx: &CommandContext,
     hunks: impl IntoIterator<Item = (PathBuf, Vec<VirtualBranchHunk>)>,
 ) -> Vec<VirtualBranchFile> {
     hunks
         .into_iter()
         .map(|(path, hunks)| {
             let id = path.display().to_string();
+            let conflicted = conflicts::is_conflicting(ctx, Some(&path)).unwrap_or(false);
             let binary = hunks.iter().any(|h| h.binary);
             let modified_at = hunks.iter().map(|h| h.modified_at).max().unwrap_or(0);
             debug_assert!(hunks.iter().all(|hunk| hunk.file_path == path));
@@ -153,7 +158,7 @@ pub(crate) fn virtual_hunks_into_virtual_files(
                 binary,
                 large: false,
                 modified_at,
-                conflicted: false, // TODO: Get this from the index
+                conflicted,
             }
         })
         .collect::<Vec<_>>()

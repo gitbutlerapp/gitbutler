@@ -1,6 +1,7 @@
 use super::r#virtual as vbranch;
 use crate::branch_upstream_integration;
 use crate::branch_upstream_integration::IntegrationStrategy;
+use crate::conflicts::RepoConflictsExt;
 use crate::move_commits;
 use crate::r#virtual::StackListResult;
 use crate::reorder::{self, StackOrder};
@@ -314,6 +315,7 @@ pub fn amend(
             SnapshotDetails::new(OperationKind::AmendCommit),
             guard.write_permission(),
         );
+        ctx.assure_resolved()?;
     }
     amend_with_commit_engine(ctx, stack_id, commit_oid, worktree_changes)
 }
