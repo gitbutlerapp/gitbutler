@@ -251,3 +251,17 @@ pub fn discard_worktree_changes(
         .map(|change| commit_engine::DiffSpec::from(change).into())
         .collect())
 }
+
+/// Returns a new available branch name based on a simple template - user_initials-branch-count
+/// The main point of this is to be able to provide branch names that are not already taken.
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn canned_branch_name(
+    projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+) -> Result<String, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    gitbutler_stack::canned_branch_name(ctx.repo()).map_err(Into::into)
+}
