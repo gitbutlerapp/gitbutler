@@ -84,7 +84,7 @@
 >
 	<ReduxResult {stackId} {projectId} result={topCommitResult.current}>
 		{#snippet children(commit)}
-			<BranchHeaderIcon {commit} lineTop={isTopBranch ? false : true} />
+			<BranchHeaderIcon {commit} lineTop={isTopBranch ? false : true} isDashed={isNewBranch} />
 			<div class="branch-header__content">
 				<div class="name-line text-14 text-bold">
 					<BranchLabel

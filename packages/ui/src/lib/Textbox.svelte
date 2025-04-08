@@ -235,7 +235,7 @@
 
 			& .textbox__input {
 				color: var(--clr-text-2);
-				background-color: var(--clr-bg-2);
+				background-color: var(--clr-bg-1-muted);
 				border: 1px solid var(--clr-border-3);
 			}
 		}
@@ -247,7 +247,7 @@
 		width: 100%;
 
 		&.readonly {
-			background-color: var(--clr-bg-2);
+			background-color: var(--clr-bg-1-muted);
 			border-color: var(--clr-border-2);
 		}
 
