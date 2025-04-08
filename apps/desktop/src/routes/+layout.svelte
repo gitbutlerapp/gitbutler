@@ -141,7 +141,19 @@
 		projectMetrics: data.projectMetrics
 	});
 
-	const stackService = new StackService(clientState['backendApi'], forgeFactory, data.posthog);
+	const uiStateSlice = $derived(clientState.uiState);
+	const uiState = new UiState(
+		reactive(() => uiStateSlice),
+		clientState.dispatch
+	);
+	setContext(UiState, uiState);
+
+	const stackService = new StackService(
+		clientState['backendApi'],
+		forgeFactory,
+		uiState,
+		data.posthog
+	);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
 	const worktreeService = new WorktreeService(clientState);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
@@ -169,13 +181,6 @@
 		cloudBranchService,
 		latestBranchLookupService
 	);
-
-	const uiStateSlice = $derived(clientState.uiState);
-	const uiState = new UiState(
-		reactive(() => uiStateSlice),
-		clientState.dispatch
-	);
-	setContext(UiState, uiState);
 
 	const branchService = new BranchService(clientState['backendApi']);
 	setContext(BranchService, branchService);

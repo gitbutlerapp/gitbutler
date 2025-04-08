@@ -5,6 +5,7 @@
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import { marked } from '@gitbutler/ui/utils/marked';
@@ -14,6 +15,7 @@
 		projectId: string;
 		stackId: string;
 		commit: UpstreamCommit | Commit;
+		branchName?: string;
 		href?: string;
 		onEditCommitMessage: () => void;
 	};
@@ -27,9 +29,9 @@
 		UiState
 	);
 
-	const [uncommit, uncommitResult] = stackService.uncommit;
 	const user = $derived(userService.user);
 	const stackState = $derived(uiState.stack(stackId));
+	const projectState = $derived(uiState.project(projectId));
 	const selected = $derived(stackState.selection.get());
 	const branchName = $derived(selected.current?.branchName);
 
@@ -56,10 +58,10 @@
 		await editPatch();
 	}
 
-	async function handleUncommit(e: MouseEvent) {
-		e.stopPropagation();
-		await uncommit({ projectId, stackId, commitId: commit.id });
-		uiState.project(projectId).drawerPage.set(undefined);
+	async function handleUncommit() {
+		if (!branchName) return;
+		await stackService.uncommit({ projectId, stackId, branchName, commitId: commit.id });
+		projectState.drawerPage.set(undefined);
 		if (branchName) stackState.selection.set({ branchName, commitId: undefined });
 	}
 
@@ -88,19 +90,20 @@
 				icon="edit-small"
 				onclick={() => {
 					openCommitMessageModal();
-				}}>Edit message</Button
+				}}
 			>
+				Edit message
+			</Button>
 
 			{#if !isConflicted}
-				<Button
+				<AsyncButton
 					size="tag"
 					kind="outline"
 					icon="undo-small"
-					loading={uncommitResult.current.isLoading}
-					onclick={(e: MouseEvent) => {
-						handleUncommit(e);
-					}}>Uncommit</Button
+					action={async () => await handleUncommit()}
 				>
+					Uncommit
+				</AsyncButton>
 			{/if}
 
 			<Button size="tag" kind="outline" onclick={handleEditPatch}>
