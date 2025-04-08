@@ -14,7 +14,6 @@
 
 	interface Props {
 		projectId: string;
-		stackId: string;
 		disabled?: boolean;
 		initialValue?: string;
 		placeholder: string;

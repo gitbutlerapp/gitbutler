@@ -21,7 +21,7 @@ const MOCK_PROJECT_UI_STATE: ProjectUiState = {
 	drawerPage: 'branch',
 	drawerFullScreen: false,
 	commitTitle: '',
-	commitMessage: ''
+	commitDescription: ''
 };
 
 const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
@@ -89,7 +89,7 @@ export function getUiStateMock() {
 			},
 			commitMessage: {
 				get() {
-					return MOCK_PROJECT_UI_STATE.commitMessage;
+					return MOCK_PROJECT_UI_STATE.commitDescription;
 				}
 			}
 		};

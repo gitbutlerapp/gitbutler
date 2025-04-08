@@ -405,7 +405,6 @@
 	<MessageEditor
 		bind:this={descriptionInput}
 		{projectId}
-		{stackId}
 		disabled={isExecuting}
 		initialValue={prBody.value}
 		placeholder={'PR Description'}

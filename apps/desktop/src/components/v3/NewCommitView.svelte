@@ -1,7 +1,6 @@
 <script lang="ts">
 	import CommitMessageInput from '$components/v3/CommitMessageInput.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
-	import { persistedCommitMessage } from '$lib/config/config';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { lineIdsToHunkHeaders, type DiffHunk, type HunkHeader } from '$lib/hunks/hunk';
 	import { showError, showToast } from '$lib/notifications/toasts';
@@ -18,7 +17,7 @@
 
 	type Props = {
 		projectId: string;
-		stackId: string;
+		stackId?: string;
 	};
 	const { projectId, stackId }: Props = $props();
 
@@ -33,10 +32,10 @@
 
 	const [createCommitInStack, commitCreation] = stackService.createCommit;
 
-	const stackState = $derived(uiState.stack(stackId));
-	const selected = $derived(stackState.selection.get());
-	const branchName = $derived(selected.current?.branchName);
-	const commitId = $derived(selected.current?.commitId);
+	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
+	const selected = $derived(stackState?.selection.get());
+	const branchName = $derived(selected?.current?.branchName);
+	const commitId = $derived(selected?.current?.commitId);
 	const selection = $derived(changeSelection.list());
 
 	const selectedPaths = $derived(selection.current.map((item) => item.path));
@@ -52,16 +51,7 @@
 	);
 
 	const canCommit = $derived(branchName && selection.current.length > 0);
-	const commitMessage = persistedCommitMessage(projectId, stackId);
-
-	function extractCommitMessageInfo(message: string) {
-		const lines = message.split('\n\n');
-		const title = lines[0];
-		const body = lines.slice(1).join('\n\n').trim();
-		return [title, body];
-	}
-
-	const [initialTitle, initialMessage] = $derived(extractCommitMessageInfo($commitMessage));
+	const projectState = $derived(uiState.project(projectId));
 
 	let input = $state<ReturnType<typeof CommitMessageInput>>();
 	let drawer = $state<ReturnType<typeof Drawer>>();
@@ -82,6 +72,10 @@
 	}
 
 	async function createCommit(message: string) {
+		if (!stackId) {
+			throw new Error('No stack selected!');
+		}
+
 		if (!branchName) {
 			throw new Error('No branch selected!');
 		}
@@ -161,7 +155,8 @@
 		} catch (err: unknown) {
 			showError('Failed to commit', err);
 		} finally {
-			$commitMessage = '';
+			projectState.commitTitle.set('');
+			projectState.commitDescription.set('');
 		}
 	}
 
@@ -180,7 +175,5 @@
 		onCancel={cancel}
 		disabledAction={!canCommit}
 		loading={commitCreation.current.isLoading}
-		{initialTitle}
-		{initialMessage}
 	/>
 </Drawer>

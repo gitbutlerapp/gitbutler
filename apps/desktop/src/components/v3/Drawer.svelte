@@ -10,7 +10,7 @@
 	type Props = {
 		projectId: string;
 		title?: string;
-		stackId: string;
+		stackId?: string;
 		splitView?: boolean;
 		minHeight?: number;
 		header?: Snippet;
@@ -36,7 +36,7 @@
 	const [uiState] = inject(UiState);
 
 	const projectUiState = $derived(uiState.project(projectId));
-	const stackUiState = $derived(uiState.stack(stackId));
+	const stackUiState = $derived(stackId ? uiState.stack(stackId) : undefined);
 
 	const drawerIsFullScreen = $derived(projectUiState.drawerFullScreen.get());
 	const heightRmResult = $derived(uiState.global.drawerHeight.get());
@@ -55,7 +55,7 @@
 
 	export function onClose() {
 		projectUiState.drawerPage.set(undefined);
-		stackUiState.selection.set(undefined);
+		stackUiState?.selection.set(undefined);
 	}
 </script>
 

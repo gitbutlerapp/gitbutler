@@ -162,6 +162,7 @@
 					<CommitHeader {commit} class="text-14 text-semibold text-body" />
 					<CommitDetails
 						projectId={env.projectId}
+						{branchName}
 						{commit}
 						stackId={env.stackId}
 						onEditCommitMessage={() => setMode('edit')}
