@@ -644,6 +644,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Commit'
 				}),
 				invalidatesTags: (_result, _error, args) => [
+					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
 					invalidatesItem(ReduxTag.Commits, args.stackId),
@@ -754,6 +755,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Amend Commit'
 				}),
 				invalidatesTags: (_result, _error, args) => [
+					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesItem(ReduxTag.Commits, args.stackId),
 					invalidatesItem(ReduxTag.StackInfo, args.stackId)
 				]
@@ -1037,21 +1039,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Squash Commits'
 				}),
 				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.Commits, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
-				]
-			}),
-			ammendCommit: build.mutation<
-				void,
-				{ projectId: string; stackId: string; commitId: string; worktreeChanges: DiffSpec[] }
-			>({
-				query: ({ projectId, stackId, commitId, worktreeChanges }) => ({
-					command: 'amend_virtual_branch',
-					params: { projectId, stackId, commitId, worktreeChanges },
-					actionName: 'Amend Commit'
-				}),
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesItem(ReduxTag.Commits, args.stackId),
 					invalidatesItem(ReduxTag.StackInfo, args.stackId)
 				]
