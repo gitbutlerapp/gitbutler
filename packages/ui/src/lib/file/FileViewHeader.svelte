@@ -4,7 +4,6 @@
 	import Icon from '$lib/Icon.svelte';
 	import FileName from '$lib/file/FileName.svelte';
 	import FileStats from '$lib/file/FileStats.svelte';
-	import { stickyHeader } from '$lib/utils/stickyHeader';
 	import type { FileStatus } from '$lib/file/types';
 
 	interface Props {
@@ -31,16 +30,12 @@
 		oncontextmenu,
 		oncloseclick
 	}: Props = $props();
-
-	let isIntersecting = $state(false);
 </script>
 
 <div
-	use:stickyHeader
 	role="presentation"
 	{id}
 	class="file-header"
-	class:intersected={isIntersecting}
 	class:draggable
 	{draggable}
 	oncontextmenu={(e) => {
@@ -85,10 +80,6 @@
 		padding: 14px;
 		width: 100%;
 		background-color: var(--clr-bg-1);
-
-		&.intersected {
-			border-bottom: 1px solid var(--clr-border-2);
-		}
 
 		&.draggable {
 			cursor: grab;
