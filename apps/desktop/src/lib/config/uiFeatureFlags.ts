@@ -4,6 +4,9 @@
  *
  * @module appSettings
  */
-import { persisted } from '@gitbutler/shared/persisted';
+import { persisted, persistWithExpiration } from '@gitbutler/shared/persisted';
 
 export const autoSelectBranchNameFeature = persisted(false, 'autoSelectBranchLaneContentsFeature');
+
+export const ircEnabled = persistWithExpiration(false, 'feature-irc', 1440 * 30);
+export const ircServer = persistWithExpiration('', 'feature-irc-server', 1440 * 30);

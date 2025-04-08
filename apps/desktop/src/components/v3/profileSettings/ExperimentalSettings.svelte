@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { SettingsService } from '$lib/config/appSettingsV2';
+	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
 	const settingsService = getContext(SettingsService);
@@ -20,7 +22,7 @@
 
 <div class="experimental-settings__toggles">
 	{#if $user?.role === 'admin'}
-		<SectionCard orientation="row">
+		<SectionCard roundedBottom={false} orientation="row">
 			{#snippet title()}
 				v3 Design
 			{/snippet}
@@ -37,6 +39,31 @@
 				/>
 			{/snippet}
 		</SectionCard>
+		<SectionCard roundedTop={false} roundedBottom={!$ircEnabled} orientation="row">
+			{#snippet title()}
+				IRC
+			{/snippet}
+			{#snippet caption()}
+				Enable experimental in-app chat.
+			{/snippet}
+			{#snippet actions()}
+				<Toggle id="irc" checked={$ircEnabled} onclick={() => ($ircEnabled = !$ircEnabled)} />
+				{#if $ircEnabled}{/if}
+			{/snippet}
+		</SectionCard>
+		{#if $ircEnabled}
+			<SectionCard roundedTop={false} topDivider orientation="column">
+				{#snippet actions()}
+					<Textbox
+						value={$ircServer}
+						size="large"
+						label="Server"
+						placeholder="wss://irc.gitbutler.com:443"
+						onchange={(value) => ($ircServer = value)}
+					/>
+				{/snippet}
+			</SectionCard>
+		{/if}
 	{/if}
 </div>
 
@@ -49,6 +76,5 @@
 	.experimental-settings__toggles {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
 	}
 </style>
