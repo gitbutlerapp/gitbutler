@@ -121,13 +121,16 @@
 		max-width: 100%;
 		width: 100%;
 		border-radius: var(--radius-s);
-		color: var(--clr-scale-ntrl-0);
+		color: var(--clr-text-1);
 		background-color: transparent;
 		outline: none;
+		transition:
+			border var(--transition-fast),
+			background-color var(--transition-fast);
 
 		/* not readonly */
 		&:not([readonly]):not([disabled]):not(:focus):hover {
-			background-color: var(--clr-bg-1-muted);
+			border: 1px solid var(--clr-border-2);
 		}
 
 		&:not([readonly]):not([disabled]):focus {
@@ -137,6 +140,6 @@
 		}
 	}
 	.branch-name-input[readonly] {
-		pointer: normal;
+		cursor: default;
 	}
 </style>
