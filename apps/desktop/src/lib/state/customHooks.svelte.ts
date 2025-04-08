@@ -47,6 +47,14 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 				forceRefetch: options?.forceRefetch
 			})
 		);
+		let data = result.data;
+		if (options?.transform && data) {
+			data = options.transform(data, queryArg);
+			return {
+				...result,
+				data
+			};
+		}
 		return result;
 	}
 
