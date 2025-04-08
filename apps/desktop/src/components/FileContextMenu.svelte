@@ -10,6 +10,7 @@
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -47,13 +48,13 @@
 		});
 	}
 
-	function confirmDiscard(item: any) {
+	async function confirmDiscard(item: any) {
 		if (!stackId) {
 			console.error('Stack ID is not set');
 			toasts.error('Failed to discard changes');
 			return;
 		}
-		unapplyFiles({ projectId, stackId, files: item.files });
+		await unapplyFiles({ projectId, stackId, files: item.files });
 		close();
 	}
 
@@ -149,7 +150,9 @@
 	{/snippet}
 	{#snippet controls(close, item)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit" onclick={() => confirmDiscard(item)}>Confirm</Button>
+		<AsyncButton style="error" type="submit" action={async () => await confirmDiscard(item)}>
+			Confirm
+		</AsyncButton>
 	{/snippet}
 </Modal>
 
