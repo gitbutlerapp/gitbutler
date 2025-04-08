@@ -1,7 +1,6 @@
 use std::{collections::HashMap, path::PathBuf, vec};
 
 use crate::branch_manager::BranchManagerExt;
-use crate::conflicts::RepoConflictsExt;
 use crate::dependencies::compute_workspace_dependencies;
 use crate::integration::get_workspace_head;
 use crate::VirtualBranchesExt;
@@ -211,15 +210,14 @@ pub fn get_applied_status_cached(
         .collect::<Vec<_>>();
 
     // write updated state if not resolving
-    if !ctx.is_resolving() {
-        let repo = ctx.gix_repo()?;
-        for (vbranch, files) in &mut hunks_by_branch {
-            vbranch.tree = gitbutler_diff::write::hunks_onto_oid(ctx, vbranch.head(&repo)?, files)?;
-            vb_state
-                .set_stack(vbranch.clone())
-                .context(format!("failed to write virtual branch {}", vbranch.name))?;
-        }
+    let repo = ctx.gix_repo()?;
+    for (vbranch, files) in &mut hunks_by_branch {
+        vbranch.tree = gitbutler_diff::write::hunks_onto_oid(ctx, vbranch.head(&repo)?, files)?;
+        vb_state
+            .set_stack(vbranch.clone())
+            .context(format!("failed to write virtual branch {}", vbranch.name))?;
     }
+
     let hunks_by_branch: Vec<(Stack, HashMap<PathBuf, Vec<VirtualBranchHunk>>)> = hunks_by_branch
         .iter()
         .map(|(branch, hunks)| {
@@ -232,7 +230,7 @@ pub fn get_applied_status_cached(
     let files_by_branch: Vec<(Stack, Vec<VirtualBranchFile>)> = hunks_by_branch
         .iter()
         .map(|(branch, hunks)| {
-            let files = virtual_hunks_into_virtual_files(ctx, hunks.clone());
+            let files = virtual_hunks_into_virtual_files(hunks.clone());
             (branch.clone(), files)
         })
         .collect();

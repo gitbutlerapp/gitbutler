@@ -21,7 +21,6 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    conflicts,
     upstream_integration::{as_buckets, flatten_buckets},
     VirtualBranchesExt as _,
 };
@@ -33,8 +32,6 @@ pub fn integrate_upstream_commits_for_series(
     series_name: String,
     integration_strategy: Option<IntegrationStrategy>,
 ) -> Result<()> {
-    conflicts::is_conflicting(ctx, None)?;
-
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let repo = ctx.repo();
     let vb_state = ctx.project().virtual_branches();

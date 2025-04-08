@@ -14,8 +14,8 @@ use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceStat
 use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head};
 
 use crate::dependencies::commit_dependencies_from_workspace;
+use crate::VirtualBranchesExt;
 use crate::{compute_workspace_dependencies, BranchStatus};
-use crate::{conflicts::RepoConflictsExt, VirtualBranchesExt};
 
 /// move a commit from one stack to another
 ///
@@ -27,7 +27,6 @@ pub(crate) fn move_commit(
     perm: &mut WorktreeWritePermission,
     source_stack_id: StackId,
 ) -> Result<()> {
-    ctx.assure_resolved()?;
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let vb_state = ctx.project().virtual_branches();
     let repo = ctx.repo();

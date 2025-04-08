@@ -13,6 +13,8 @@ use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_repo::RepositoryExt;
 use gitbutler_stack::VirtualBranchesHandle;
 
+/// Returns the oid of the base of the workspace
+/// TODO: Ensure that this is the bottom most common ancestor of all the stacks
 pub fn workspace_base(
     ctx: &CommandContext,
     _perm: &WorktreeReadPermission,
@@ -29,11 +31,11 @@ pub fn workspace_base(
         .iter()
         .map(|b| b.head(&gix_repo).map(|h| h.to_gix()))
         .collect::<Result<Vec<_>>>()?;
-    let merge_base_tree_id = gix_repo
+    let merge_base_id = gix_repo
         .merge_base_octopus([stack_heads, vec![target_branch_commit]].concat())?
         .object()?
         .id()
         .detach();
 
-    Ok(merge_base_tree_id)
+    Ok(merge_base_id)
 }
