@@ -22,6 +22,15 @@
 		}
 	});
 
+	$effect(() => {
+		if (props.type === 'group') {
+			ircService.markOpen(props.channel, true);
+			return () => {
+				ircService.markOpen(props.channel, false);
+			};
+		}
+	});
+
 	const logs = $derived(
 		props.type === 'group'
 			? ircService.getChannelMessages(props.channel)

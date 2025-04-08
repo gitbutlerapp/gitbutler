@@ -10,6 +10,11 @@ export interface IrcChannel {
 	users: Record<string, IRCUser>; // Keyed by nick
 	logs: IrcLog[];
 	topic?: string;
+	// Number of new messages since last seen message.
+	unread: number;
+	// True if user is currently viewing this channel. It lets us skip
+	// incrementing the unread counter.
+	open?: boolean;
 }
 
 export type IrcLog = {
