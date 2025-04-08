@@ -11,7 +11,7 @@ use windows::{
     core::PWSTR,
     Win32::{
         Foundation::{
-            CloseHandle, DuplicateHandle, BOOL, DUPLICATE_SAME_ACCESS, ERROR_PIPE_NOT_CONNECTED,
+            CloseHandle, DuplicateHandle, DUPLICATE_SAME_ACCESS, ERROR_PIPE_NOT_CONNECTED,
             GENERIC_READ, GENERIC_WRITE, HANDLE, WIN32_ERROR,
         },
         Storage::FileSystem::{
@@ -44,7 +44,7 @@ impl Handle {
                 current_ps_handle,
                 &mut new_handle as *mut HANDLE,
                 0,
-                BOOL(1),
+                true,
                 DUPLICATE_SAME_ACCESS,
             )
         };
