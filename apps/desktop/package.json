@@ -81,6 +81,7 @@
 		"@types/redux-persist": "^4.3.1",
 		"dayjs": "^1.11.13",
 		"openai": "^4.87.3",
+		"reconnecting-websocket": "^4.4.0",
 		"redux-persist": "^6.0.0"
 	}
 }

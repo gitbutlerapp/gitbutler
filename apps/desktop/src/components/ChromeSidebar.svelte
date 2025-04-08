@@ -1,12 +1,15 @@
 <script lang="ts">
 	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
+	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { Project } from '$lib/project/project';
 	import {
 		branchesPath,
 		historyPath,
+		ircPath,
 		isBranchesPath,
 		isHistoryPath,
+		isIrcPath,
 		isProjectSettingsPath,
 		isTargetPath,
 		isWorkspacePath,
@@ -178,6 +181,22 @@
 				</svg>
 			</Button>
 		</div>
+		{#if $ircEnabled}
+			<div>
+				{#if isIrcPath()}
+					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+				{/if}
+				<Button
+					kind="outline"
+					onclick={() => goto(ircPath(project.id))}
+					width={34}
+					class={['btn-square', isIrcPath() && 'btn-active']}
+					tooltip="History"
+				>
+					irc
+				</Button>
+			</div>
+		{/if}
 	</div>
 	<div class="bottom">
 		<div class="bottom__primary-actions">

@@ -33,6 +33,14 @@ export function workspacePath(projectId: string) {
 	return `/${projectId}/workspace`;
 }
 
+export function ircPath(projectId: string) {
+	return `/${projectId}/irc`;
+}
+
+export function isIrcPath() {
+	return isUrl<{ projectId: string }>('/[projectId]/irc');
+}
+
 export function isWorkspacePath() {
 	return isUrl<{ projectId: string; branchId?: string }>('/[projectId]/workspace/');
 }
