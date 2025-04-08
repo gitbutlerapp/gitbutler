@@ -6,7 +6,7 @@ import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { type GitHubApi } from '$lib/state/clientState.svelte';
 import { expect, test, describe } from 'vitest';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
-import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
+import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
 
 describe.concurrent('DefaultforgeFactory', () => {

@@ -1,42 +1,51 @@
 import { persisted } from '@gitbutler/shared/persisted';
-import {
-	reactive,
-	writableReactive,
-	writableToReactive
-} from '@gitbutler/shared/reactiveUtils.svelte';
-import { get } from 'svelte/store';
+import { derived, get, writable, type Readable, type Writable } from 'svelte/store';
 import type { SecretsService } from '$lib/secrets/secretsService';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { Reactive, WritableReactive } from '@gitbutler/shared/storeUtils';
 
 export class GitLabState {
-	readonly token: WritableReactive<string | undefined>;
-	readonly forkProjectId: WritableReactive<string | undefined>;
-	readonly upstreamProjectId: WritableReactive<string | undefined>;
-	readonly instanceUrl: WritableReactive<string | undefined>;
-	readonly configured: Reactive<boolean>;
+	readonly token: Writable<string | undefined>;
+	readonly forkProjectId: Writable<string | undefined>;
+	readonly upstreamProjectId: Writable<string | undefined>;
+	readonly instanceUrl: Writable<string | undefined>;
+	readonly configured: Readable<boolean>;
 
 	constructor(
 		private readonly secretService: SecretsService,
 		repoInfo: RepoInfo | undefined,
 		projectId: string
 	) {
-		let token = $state<string>('');
-		let tokenLoading = true;
+		// For whatever reason, the token _sometimes_ is incorrectly fetched as null.
+		// I have no idea why, but this seems to work. There were also some
+		// weird reactivity issues. Don't touch it as you might make it angry.
+		const tokenLoading = writable(true);
+		let tokenLoadedAsNull = false;
+		this.token = writable<string | undefined>();
 		this.secretService.get(`git-lab-token:${projectId}`).then((fetchedToken) => {
-			token = fetchedToken ?? '';
-			tokenLoading = false;
+			if (fetchedToken) {
+				this.token.set(fetchedToken ?? '');
+			} else {
+				tokenLoadedAsNull = true;
+			}
+			tokenLoading.set(false);
 		});
+		const unsubscribe = tokenLoading.subscribe((loading) => {
+			if (loading) {
+				return;
+			}
+			const unsubscribe = this.token.subscribe((token) => {
+				if (!token && tokenLoadedAsNull) {
+					return;
+				}
+				this.secretService.set(`git-lab-token:${projectId}`, token ?? '');
+				tokenLoadedAsNull = false;
+			});
+			return unsubscribe;
+		});
+
 		$effect(() => {
-			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-			token; // Make sure we always try to react to token
-			if (tokenLoading) return;
-			this.secretService.set(`git-lab-token:${projectId}`, token ?? '');
+			return unsubscribe;
 		});
-		this.token = writableReactive(
-			() => token,
-			(value) => (token = value)
-		);
 
 		const forkProjectId = persisted<string | undefined>(
 			undefined,
@@ -45,7 +54,7 @@ export class GitLabState {
 		if (!get(forkProjectId) && repoInfo) {
 			forkProjectId.set(`${repoInfo.owner}/${repoInfo.name}`);
 		}
-		this.forkProjectId = writableToReactive(forkProjectId);
+		this.forkProjectId = forkProjectId;
 
 		const upstreamProjectId = persisted<string | undefined>(
 			undefined,
@@ -54,12 +63,16 @@ export class GitLabState {
 		if (!get(upstreamProjectId)) {
 			upstreamProjectId.set(get(forkProjectId));
 		}
-		this.upstreamProjectId = writableToReactive(upstreamProjectId);
+		this.upstreamProjectId = upstreamProjectId;
 
 		const instanceUrl = persisted<string>('https://gitlab.com', `gitlab-instance-url:${projectId}`);
-		this.instanceUrl = writableToReactive(instanceUrl);
+		this.instanceUrl = instanceUrl;
 
-		const configured = $derived(!!this.token.current && !!this.forkProjectId && !!this.instanceUrl);
-		this.configured = reactive(() => configured);
+		this.configured = derived(
+			[this.token, this.forkProjectId, this.instanceUrl],
+			([token, forkProjectId, instanceUrl]) => {
+				return !!token && !!forkProjectId && !!instanceUrl;
+			}
+		);
 	}
 }
