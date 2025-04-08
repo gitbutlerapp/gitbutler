@@ -55,14 +55,16 @@
 
 		<div class="emoji-picker__categories">
 			{#each groups as group}
-				<button
-					type="button"
-					class="emoji-picker__category"
-					class:selected={selectedGroup === group.key}
-					onclick={() => handleSelectGroup(group.key)}
-				>
-					{group.unicode}
-				</button>
+				{#if group.emojis.length !== 0}
+					<button
+						type="button"
+						class="emoji-picker__category"
+						class:selected={selectedGroup === group.key}
+						onclick={() => handleSelectGroup(group.key)}
+					>
+						{group.unicode}
+					</button>
+				{/if}
 			{/each}
 		</div>
 	</div>
@@ -84,7 +86,9 @@
 					{/if}
 				{:else}
 					{#each groups as group}
-						<EmojiGroup {group} {handleEmojiClick} />
+						{#if group.emojis.length !== 0}
+							<EmojiGroup {group} {handleEmojiClick} />
+						{/if}
 					{/each}
 				{/if}
 			</div>
@@ -96,11 +100,9 @@
 	.emoji-picker {
 		display: flex;
 		flex-direction: column;
-		width: 280px;
-		height: 300px;
-		margin: 1px;
+		width: 300px;
+		height: 306px;
 		min-height: 0;
-
 		background: var(--clr-bg-1);
 	}
 
@@ -130,7 +132,8 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		font-size: 16px;
+		font-size: 14px;
+		line-height: 1;
 		width: 24px;
 		height: 24px;
 		border-radius: var(--radius-m);
