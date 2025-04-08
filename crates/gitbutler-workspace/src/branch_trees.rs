@@ -1,5 +1,5 @@
-use anyhow::{bail, Context, Result};
-use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _, RepositoryExt};
+use anyhow::{bail, Result};
+use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_oxidize::{
@@ -84,65 +84,83 @@ pub fn checkout_branch_trees<'a>(
     }
 }
 
+/// A snapshot of the workspace at a point in time.
 pub struct WorkspaceState {
-    heads: Vec<gix::ObjectId>,
-    base: gix::ObjectId,
+    /// The heads of the stacks in the workspace.
+    heads: Vec<git2::Oid>,
+    /// The base of the workspace.
+    base: git2::Oid,
 }
 
 impl WorkspaceState {
     pub fn create(ctx: &CommandContext, perm: &WorktreeReadPermission) -> Result<Self> {
-        let repo = ctx.gix_repo()?;
+        let repo = ctx.repo();
         let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
 
         let heads = vb_state
             .list_stacks_in_workspace()?
             .iter()
-            .map(|stack| -> Result<gix::ObjectId> {
-                let tree_id = repo.find_real_tree(
-                    &stack.head(&repo)?.to_gix(),
-                    ConflictedTreeKey::AutoResolution,
-                )?;
-                Ok(tree_id.detach())
+            .map(|stack| -> Result<git2::Oid> {
+                let head = stack.head(&repo.to_gix()?)?;
+                let commit = repo.find_commit(head)?;
+                let tree = repo.find_real_tree(&commit, Default::default())?;
+                Ok(tree.id())
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let base = workspace_base(ctx, perm)?;
+        let base = workspace_base(ctx, perm)?.to_git2();
+        let base_tree_id = repo.find_commit(base)?.tree_id();
 
-        Ok(WorkspaceState { heads, base })
+        Ok(WorkspaceState {
+            heads,
+            base: base_tree_id,
+        })
     }
 }
 
-/// Take the
+/// Update the uncommited changes from one snapshot of the workspace and rebase
+/// them on top of the new snapshot.
 pub fn update_uncommited_changes(
     ctx: &CommandContext,
     old: WorkspaceState,
     new: WorkspaceState,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
-    let git2_repo = ctx.repo();
-    let uncommited_changes = git2_repo.create_wd_tree(0)?.id().to_gix();
+    let repo = ctx.repo();
+    let uncommited_changes = repo.create_wd_tree(0)?;
 
-    update_uncommited_changes_with_tree(ctx, old, new, uncommited_changes, perm)
+    update_uncommited_changes_with_tree(ctx, old, new, uncommited_changes.id(), perm)
 }
 
 pub fn update_uncommited_changes_with_tree(
     ctx: &CommandContext,
     old: WorkspaceState,
     new: WorkspaceState,
-    tree: gix::ObjectId,
+    old_uncommited_changes: git2::Oid,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
-    let repo = ctx.gix_repo()?;
-    let git2_repo = ctx.repo();
+    let repo = ctx.repo();
 
-    let new_uncommited_changes = move_tree_between_workspaces(&repo, tree, old, new)?;
-    let new_uncommited_changes = git2_repo.find_tree(new_uncommited_changes.to_git2())?;
+    let mut new_uncommited_changes =
+        move_tree_between_workspaces(repo, old_uncommited_changes, old, new)?;
 
-    git2_repo
-        .checkout_tree_builder(&new_uncommited_changes)
-        .force()
-        .checkout()
-        .context("failed to checkout tree")?;
+    // If the new tree and old tree are the same, then we don't need to do anything
+    if !new_uncommited_changes.has_conflicts() {
+        let tree = new_uncommited_changes.write_tree_to(repo)?;
+        if tree == old_uncommited_changes {
+            return Ok(());
+        }
+    }
+
+    repo.checkout_index(
+        Some(&mut new_uncommited_changes),
+        Some(
+            git2::build::CheckoutBuilder::new()
+                .force()
+                .remove_untracked(true)
+                .conflict_style_diff3(true),
+        ),
+    )?;
 
     Ok(())
 }
@@ -150,11 +168,11 @@ pub fn update_uncommited_changes_with_tree(
 /// Take the changes on top of one workspace and return what they would look
 /// like if they were on top of the new workspace.
 fn move_tree_between_workspaces(
-    repo: &gix::Repository,
-    tree: gix::ObjectId,
+    repo: &git2::Repository,
+    tree: git2::Oid,
     old: WorkspaceState,
     new: WorkspaceState,
-) -> Result<gix::ObjectId> {
+) -> Result<git2::Index> {
     let old_workspace = merge_workspace(repo, old)?;
     let new_workspace = merge_workspace(repo, new)?;
     move_tree(repo, tree, old_workspace, new_workspace)
@@ -162,27 +180,21 @@ fn move_tree_between_workspaces(
 
 /// Cherry pick a tree from one base tree on to another, favoring the contents of the tree when conflicts occur
 fn move_tree(
-    repo: &gix::Repository,
-    tree: gix::ObjectId,
-    old_workspace: gix::ObjectId,
-    new_workspace: gix::ObjectId,
-) -> Result<gix::ObjectId> {
-    let merge_options = repo
-        .tree_merge_options()?
-        .with_file_favor(Some(gix::merge::tree::FileFavor::Ours))
-        .with_tree_favor(Some(gix::merge::tree::TreeFavor::Ours));
-
+    repo: &git2::Repository,
+    tree: git2::Oid,
+    old_workspace: git2::Oid,
+    new_workspace: git2::Oid,
+) -> Result<git2::Index> {
     // Read: Take the diff between old_workspace and tree, and apply it on top
     //   of new_workspace
-    let mut merge = repo.merge_trees(
-        old_workspace,
-        tree,
-        new_workspace,
-        repo.default_merge_labels(),
-        merge_options,
+    let merge = repo.merge_trees(
+        &repo.find_tree(old_workspace)?,
+        &repo.find_tree(tree)?,
+        &repo.find_tree(new_workspace)?,
+        None,
     )?;
 
-    Ok(merge.tree.write()?.detach())
+    Ok(merge)
 }
 
 /// Octopus merge
@@ -190,24 +202,21 @@ fn move_tree(
 /// to the given base.
 ///
 /// If there are no heads provided, the base will be returned.
-fn merge_workspace(repo: &gix::Repository, workspace: WorkspaceState) -> Result<gix::ObjectId> {
+fn merge_workspace(repo: &git2::Repository, workspace: WorkspaceState) -> Result<git2::Oid> {
     let mut output = workspace.base;
 
     for head in workspace.heads {
-        let (merge_options_fail_fast, conflict_kind) = repo.merge_options_fail_fast()?;
+        let mut merge_options = git2::MergeOptions::new();
+        merge_options.fail_on_conflict(true);
+
         let mut merge = repo.merge_trees(
-            workspace.base,
-            output,
-            head,
-            repo.default_merge_labels(),
-            merge_options_fail_fast.clone(),
+            &repo.find_tree(workspace.base)?,
+            &repo.find_tree(output)?,
+            &repo.find_tree(head)?,
+            Some(&merge_options),
         )?;
 
-        if merge.has_unresolved_conflicts(conflict_kind) {
-            bail!("There appears to be conflicts between the virtual branches");
-        };
-
-        output = merge.tree.write()?.detach();
+        output = merge.write_tree_to(repo)?;
     }
 
     Ok(output)

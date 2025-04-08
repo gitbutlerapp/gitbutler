@@ -472,10 +472,6 @@ export class StackService {
 		return this.api.endpoints.deleteLocalBranch.useMutation();
 	}
 
-	get markResolved() {
-		return this.api.endpoints.markResolved.useMutation();
-	}
-
 	get squashCommits() {
 		return this.api.endpoints.squashCommits.useMutation();
 	}
@@ -1023,13 +1019,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'delete_local_branch',
 					params: { projectId, refname, givenName },
 					actionName: 'Delete Local Branch'
-				})
-			}),
-			markResolved: build.mutation<void, { projectId: string; path: string }>({
-				query: ({ projectId, path }) => ({
-					command: 'mark_resolved',
-					params: { projectId, path },
-					actionName: 'Mark File Resolved'
 				})
 			}),
 			squashCommits: build.mutation<

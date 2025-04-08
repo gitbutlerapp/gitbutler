@@ -1,9 +1,6 @@
 use super::BranchManager;
 use crate::r#virtual as vbranch;
-use crate::{
-    conflicts::RepoConflictsExt, hunk::VirtualBranchHunk, integration::update_workspace_commit,
-    VirtualBranchesExt,
-};
+use crate::{hunk::VirtualBranchHunk, integration::update_workspace_commit, VirtualBranchesExt};
 use anyhow::{anyhow, bail, Context, Result};
 use but_workspace::stack_ext::StackExt;
 use gitbutler_branch::BranchCreateRequest;
@@ -280,8 +277,6 @@ impl BranchManager<'_> {
         stack_id: StackId,
         perm: &mut WorktreeWritePermission,
     ) -> Result<String> {
-        self.ctx.assure_resolved()?;
-        self.ctx.assure_unconflicted()?;
         let repo = self.ctx.repo();
 
         let old_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
