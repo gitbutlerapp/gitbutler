@@ -55,6 +55,8 @@
 		const previousPathBytes =
 			change.status.type === 'Rename' ? change.status.subject.previousPath : null;
 
+		unSelectHunk(item.hunk);
+
 		await discardChanges({
 			projectId,
 			worktreeChanges: [
@@ -65,14 +67,14 @@
 				}
 			]
 		});
-
-		unSelectHunk(item.hunk);
 	}
 
 	async function discardHunkLines(item: HunkContextItem) {
 		if (item.selectedLines === undefined || item.selectedLines.length === 0) return;
 		const previousPathBytes =
 			change.status.type === 'Rename' ? change.status.subject.previousPath : null;
+
+		unSelectHunk(item.hunk);
 
 		await discardChanges({
 			projectId,
@@ -84,8 +86,6 @@
 				}
 			]
 		});
-
-		unSelectHunk(item.hunk);
 	}
 
 	export function open(e: MouseEvent, item: HunkContextItem) {
