@@ -31,7 +31,7 @@ type BranchParams = {
 	selected_for_changes?: boolean;
 };
 
-type CreateCommitRequest = {
+export type CreateCommitRequest = {
 	stackId: string;
 	message: string;
 	/** Undefined means that the backend will infer the parent to be the current head of stackBranchName */
@@ -43,6 +43,8 @@ type CreateCommitRequest = {
 		hunkHeaders: HunkHeader[];
 	}[];
 };
+
+export type CreateCommitRequestWorktreeChanges = CreateCommitRequest['worktreeChanges'][number];
 
 type StackAction = 'push';
 
@@ -470,10 +472,6 @@ export class StackService {
 		return this.api.endpoints.deleteLocalBranch.useMutation();
 	}
 
-	get markResolved() {
-		return this.api.endpoints.markResolved.useMutation();
-	}
-
 	get squashCommits() {
 		return this.api.endpoints.squashCommits.useMutation();
 	}
@@ -644,6 +642,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Commit'
 				}),
 				invalidatesTags: (_result, _error, args) => [
+					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
 					invalidatesItem(ReduxTag.Commits, args.stackId),
@@ -739,6 +738,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Uncommit'
 				}),
 				invalidatesTags: (_result, _error, args) => [
+					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
 					invalidatesItem(ReduxTag.Commits, args.stackId),
 					invalidatesItem(ReduxTag.StackInfo, args.stackId)
@@ -754,6 +754,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Amend Commit'
 				}),
 				invalidatesTags: (_result, _error, args) => [
+					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesItem(ReduxTag.Commits, args.stackId),
 					invalidatesItem(ReduxTag.StackInfo, args.stackId)
 				]
@@ -1020,13 +1021,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Delete Local Branch'
 				})
 			}),
-			markResolved: build.mutation<void, { projectId: string; path: string }>({
-				query: ({ projectId, path }) => ({
-					command: 'mark_resolved',
-					params: { projectId, path },
-					actionName: 'Mark File Resolved'
-				})
-			}),
 			squashCommits: build.mutation<
 				void,
 				{ projectId: string; stackId: string; sourceCommitOids: string[]; targetCommitOid: string }
@@ -1037,21 +1031,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Squash Commits'
 				}),
 				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.Commits, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
-				]
-			}),
-			ammendCommit: build.mutation<
-				void,
-				{ projectId: string; stackId: string; commitId: string; worktreeChanges: DiffSpec[] }
-			>({
-				query: ({ projectId, stackId, commitId, worktreeChanges }) => ({
-					command: 'amend_virtual_branch',
-					params: { projectId, stackId, commitId, worktreeChanges },
-					actionName: 'Amend Commit'
-				}),
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesItem(ReduxTag.Commits, args.stackId),
 					invalidatesItem(ReduxTag.StackInfo, args.stackId)
 				]

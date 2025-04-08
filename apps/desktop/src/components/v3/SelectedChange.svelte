@@ -45,7 +45,7 @@
 				listMode="list"
 				{onCloseClick}
 			/>
-			<UnifiedDiffView projectId={env.projectId} {change} selectable />
+			<UnifiedDiffView projectId={env.projectId} {change} selectable selectionId={selectedFile} />
 		</div>
 	{/snippet}
 </ReduxResult>

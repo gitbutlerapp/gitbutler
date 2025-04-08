@@ -34,7 +34,7 @@ impl Default for Test {
 
         let test_project = TestProject::default();
         let project = projects
-            .add(test_project.path())
+            .add(test_project.path(), None, None)
             .expect("failed to add project");
         let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
 

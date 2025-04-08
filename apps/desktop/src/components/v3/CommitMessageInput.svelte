@@ -1,14 +1,12 @@
 <script lang="ts">
+	import CommitSuggestionsPlugin from '$components/v3/editor/CommitSuggestionsPlugin.svelte';
 	import EditorFooter from '$components/v3/editor/EditorFooter.svelte';
 	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
 	import { PromptService } from '$lib/ai/promptService';
-	import { AIService, type DiffInput } from '$lib/ai/service';
+	import { AIService } from '$lib/ai/service';
 	import { persistedCommitMessage, projectAiGenEnabled } from '$lib/config/config';
-	import { DiffService } from '$lib/hunks/diffService.svelte';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
-	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
@@ -16,7 +14,7 @@
 	import { tick } from 'svelte';
 
 	type Props = {
-		isNewCommit?: boolean;
+		existingCommitId?: string;
 		projectId: string;
 		stackId: string;
 		actionLabel: string;
@@ -29,7 +27,7 @@
 	};
 
 	const {
-		isNewCommit,
+		existingCommitId,
 		projectId,
 		stackId,
 		actionLabel,
@@ -43,9 +41,6 @@
 
 	const uiState = getContext(UiState);
 	const aiService = getContext(AIService);
-	const worktreeService = getContext(WorktreeService);
-	const idSelection = getContext(IdSelection);
-	const diffService = getContext(DiffService);
 	const promptService = getContext(PromptService);
 
 	const titleText = $derived(uiState.project(projectId).commitTitle);
@@ -54,27 +49,7 @@
 	const stackSelection = $derived(stackState.selection.current);
 
 	const suggestionsHandler = new CommitSuggestions(aiService, uiState);
-	const selection = $derived(idSelection.values({ type: 'worktree' }));
-	const selectionPaths = $derived(
-		selection.map((item) => (item.type === 'worktree' ? item.path : undefined)).filter(isDefined)
-	);
-
-	const changes = $derived(worktreeService.getChangesById(projectId, selectionPaths));
-	const treeChanges = $derived(changes?.current.data);
-	const changeDiffsResponse = $derived(
-		treeChanges ? diffService.getChanges(projectId, treeChanges) : undefined
-	);
-	const changeDiffs = $derived(
-		changeDiffsResponse?.current.map((item) => item.data).filter(isDefined) ?? []
-	);
-
-	$effect(() => {
-		suggestionsHandler.setStagedChanges(changeDiffs);
-	});
-
-	$effect(() => {
-		suggestionsHandler.setCanUseAI(canUseAI);
-	});
+	let commitSuggestionsPlugin = $state<ReturnType<typeof CommitSuggestionsPlugin>>();
 
 	// AI things
 	const aiGenEnabled = projectAiGenEnabled(projectId);
@@ -101,7 +76,7 @@
 	const commitMessage = persistedCommitMessage(projectId, stackId);
 
 	$effect(() => {
-		if (isNewCommit) {
+		if (!existingCommitId) {
 			$commitMessage = [titleText.current, descriptionText.current].filter((a) => a).join('\n\n');
 		}
 	});
@@ -131,29 +106,14 @@
 	}
 
 	async function onAiButtonClick() {
-		if (aiIsLoading) return;
+		if (aiIsLoading || !commitSuggestionsPlugin) return;
 
 		suggestionsHandler.clear();
 		aiIsLoading = true;
 		await tick();
 		try {
 			const prompt = promptService.selectedCommitPrompt(projectId);
-			const diffInput: DiffInput[] = [];
-
-			for (const diff of changeDiffs) {
-				const filePath = diff.path;
-				const diffStringBuffer: string[] = [];
-				if (diff.diff.type !== 'Patch') continue;
-				for (const hunk of diff.diff.subject.hunks) {
-					diffStringBuffer.push(hunk.diff);
-				}
-
-				const diffString = diffStringBuffer.join('\n');
-				diffInput.push({
-					filePath,
-					diff: diffString
-				});
-			}
+			const diffInput = commitSuggestionsPlugin.getDiffInput();
 
 			let firstToken = true;
 
@@ -188,6 +148,14 @@
 		return $commitMessage;
 	}
 </script>
+
+<CommitSuggestionsPlugin
+	bind:this={commitSuggestionsPlugin}
+	{projectId}
+	{canUseAI}
+	{suggestionsHandler}
+	{existingCommitId}
+/>
 
 <div class="commit-message-input">
 	<Textbox

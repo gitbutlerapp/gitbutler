@@ -2,15 +2,11 @@
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FileCardHeader from '$components/FileCardHeader.svelte';
 	import FileDiff from '$components/FileDiff.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
-	import { getContext } from '@gitbutler/shared/context';
+	import { parseFileSections } from '$lib/utils/fileSections';
 	import type { AnyFile } from '$lib/files/file';
 
 	interface Props {
-		projectId: string;
 		file: AnyFile;
-		conflicted: boolean;
 		isUnapplied: boolean;
 		selectable?: boolean;
 		readonly?: boolean;
@@ -20,9 +16,7 @@
 	}
 
 	const {
-		projectId,
 		file,
-		conflicted,
 		isUnapplied,
 		commitId,
 		selectable = false,
@@ -31,39 +25,17 @@
 		onClose
 	}: Props = $props();
 
-	const stackService = getContext(StackService);
-	const [markResolved] = stackService.markResolved;
+	const sections = $derived.by(() => {
+		if (!file.binary && !file.large) {
+			return [];
+		}
 
-	let sections: (HunkSection | ContentSection)[] = $state([]);
-
-	function parseFile(file: AnyFile) {
-		// When we toggle expansion status on sections we need to assign
-		// `sections = sections` to redraw, and why we do not use a reactive
-		// variable.
-		if (!file.binary && !file.large) sections = parseFileSections(file);
-	}
-	$effect(() => parseFile(file));
-
-	const isFileLocked = $derived(
-		sections
-			.filter((section): section is HunkSection => section instanceof HunkSection)
-			.some((section) => section.hunk.locked)
-	);
+		return parseFileSections(file);
+	});
 </script>
 
 <div id={`file-${file.id}`} class="file-card" class:card={isCard}>
-	<FileCardHeader {file} {isFileLocked} {onClose} />
-	{#if conflicted}
-		<div class="file-card__resolved-btn">
-			<button
-				type="button"
-				class="font-bold text-white"
-				onclick={async () => await markResolved({ projectId, path: file.path })}
-			>
-				Mark resolved
-			</button>
-		</div>
-	{/if}
+	<FileCardHeader {file} isFileLocked={file.locked} {onClose} />
 
 	<ScrollableContainer wide>
 		<FileDiff
@@ -72,7 +44,7 @@
 			isBinary={file.binary}
 			{readonly}
 			{sections}
-			{isFileLocked}
+			isFileLocked={file.locked}
 			{isUnapplied}
 			{selectable}
 			{commitId}

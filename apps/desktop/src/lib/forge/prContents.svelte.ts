@@ -91,26 +91,46 @@ export class ReactivePRTitle {
 	}
 }
 
+function isEmptyLine(line: string) {
+	return line === '\n' || line === '';
+}
+
 export class ReactivePRBody {
 	private _value = $state<string>('');
+	private projectId: string | undefined;
+	private branchDescription: string | undefined;
+	private commits: Commit[] | undefined;
+	private templateBody: string | undefined;
+	private branchName: string | undefined;
 
-	constructor(
-		private projectId: string,
-		private branchDescription: string | undefined,
-		private commits: Commit[],
-		private templateBody: string | undefined,
-		private branchName: string
+	init(
+		projectId: string,
+		branchDescription: string | undefined,
+		commits: Commit[],
+		templateBody: string | undefined,
+		branchName: string
 	) {
+		this.projectId = projectId;
+		this.branchDescription = branchDescription;
+		this.commits = commits;
+		this.templateBody = templateBody;
+		this.branchName = branchName;
+
 		const persistedBody = getPersistedPRBody(projectId, branchName);
-		this._value = persistedBody ?? this.getDefaultBody();
+		const value =
+			persistedBody === undefined || isEmptyLine(persistedBody)
+				? this.getDefaultBody()
+				: persistedBody;
+		this._value = value;
 	}
 
 	getDefaultBody(): string {
 		if (this.branchDescription) return this.branchDescription;
 		if (this.templateBody) return this.templateBody;
 		// In case of a single commit, use the commit description for the body
-		if (this.commits.length === 1) {
-			const commit = this.commits[0]!;
+		const commits = this.commits ?? [];
+		if (commits.length === 1) {
+			const commit = commits[0]!;
 			return splitMessage(commit.message).description;
 		}
 		return '';
@@ -121,6 +141,10 @@ export class ReactivePRBody {
 	}
 
 	set(value: string | undefined) {
+		if (!this.projectId || !this.branchName) {
+			throw new Error('ReactivePRBody not initialized');
+		}
+
 		this._value = value ?? '';
 
 		// Don't persist the default value

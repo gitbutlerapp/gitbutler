@@ -155,15 +155,17 @@
 
 	const prTitle = $derived(new ReactivePRTitle(projectId, commits, branch?.name ?? ''));
 
-	const prBody = $derived(
-		new ReactivePRBody(
-			projectId,
-			branch?.description ?? '',
-			commits,
-			templateBody,
-			branch?.name ?? ''
-		)
-	);
+	const prBody = new ReactivePRBody();
+
+	$effect(() => {
+		prBody.init(projectId, branch?.description ?? '', commits, templateBody, branch?.name ?? '');
+	});
+
+	$effect(() => {
+		if (prBody.value !== undefined) {
+			descriptionInput?.setText(prBody.value);
+		}
+	});
 
 	async function pushIfNeeded(): Promise<string | undefined> {
 		let upstreamBranchName: string | undefined = branch?.name;
@@ -349,7 +351,6 @@
 						firstToken = false;
 					}
 					prBody.append(token);
-					descriptionInput?.setText(prBody.value);
 				}
 			});
 
@@ -397,12 +398,7 @@
 
 	<!-- PR TEMPLATE SELECT -->
 	{#if $useTemplate}
-		<PrTemplateSection
-			onselected={(body) => {
-				templateBody = body;
-			}}
-			{templates}
-		/>
+		<PrTemplateSection bind:selectedTemplate={templateBody} {templates} />
 	{/if}
 
 	<!-- DESCRIPTION FIELD -->

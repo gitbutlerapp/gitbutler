@@ -8,6 +8,7 @@
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -55,14 +56,14 @@
 		});
 	}
 
-	function confirmDiscard(item: FileItem) {
+	async function confirmDiscard(item: FileItem) {
 		const worktreeChanges: DiffSpec[] = item.changes.map((change) => ({
 			previousPathBytes: null,
 			pathBytes: change.path,
 			hunkHeaders: []
 		}));
 
-		discardChanges({
+		await discardChanges({
 			projectId,
 			worktreeChanges
 		});
@@ -186,7 +187,9 @@
 	{/snippet}
 	{#snippet controls(close, item)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit" onclick={() => confirmDiscard(item)}>Confirm</Button>
+		<AsyncButton style="error" type="submit" action={async () => await confirmDiscard(item)}>
+			Confirm
+		</AsyncButton>
 	{/snippet}
 </Modal>
 
