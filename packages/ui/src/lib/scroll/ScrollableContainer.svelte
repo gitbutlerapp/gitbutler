@@ -76,6 +76,20 @@
 			onscrollEnd?.(false);
 		}
 	});
+
+	$effect(() => {
+		if (viewport) {
+			const observerMutations = new MutationObserver(() => {
+				if (viewport && scrollEndVisible) {
+					const stillVisible = isScrollEndVisible(viewport);
+					if (!stillVisible) {
+						viewport.scrollTop = viewport.scrollHeight;
+					}
+				}
+			});
+			observerMutations.observe(viewport, { childList: true, subtree: true });
+		}
+	});
 </script>
 
 <div class="scrollable" style:flex-grow={wide ? 1 : 0} style:max-height={maxHeight}>
