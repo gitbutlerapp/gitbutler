@@ -40,6 +40,7 @@
 	.irc-input {
 		display: flex;
 		gap: 8px;
-		padding: 6px;
+		padding: 12px 14px;
+		border-top: 1px solid var(--clr-border-2);
 	}
 </style>

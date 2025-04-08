@@ -1,6 +1,8 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import IrcInput from '$components/v3/IrcInput.svelte';
+	import IrcMessages from '$components/v3/IrcMessages.svelte';
+	import IrcNames from '$components/v3/IrcNames.svelte';
 	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 
@@ -13,7 +15,6 @@
 	);
 
 	const props: Props = $props();
-
 	const ircService = getContext(IrcService);
 
 	$effect(() => {
@@ -48,25 +49,17 @@
 			private
 		{/if}
 	</div>
-	<div class="messages">
-		<ConfigurableScrollableContainer>
-			{#each logs || [] as log}
-				<div class="message" class:error={log.type === 'outgoing' && log.error}>
-					{#if log.type === 'incoming'}
-						[{new Date(log.timestamp).toLocaleTimeString()}] {log.from}: {log.message}
-					{:else if log.type === 'outgoing'}
-						[{new Date(log.timestamp).toLocaleTimeString()}] {log.from}: {log.message}
-					{:else if log.type === 'server'}
-						[{new Date(log.timestamp).toLocaleTimeString()}] {log.message}
-					{:else if log.type === 'command'}
-						[{new Date(log.timestamp).toLocaleTimeString()}] {log.raw}
-					{/if}
-				</div>
-				{#if log.type === 'outgoing' && log.error}
-					{log.error}
+	<div class="middle">
+		<div class="messages">
+			<ConfigurableScrollableContainer>
+				{#if logs}
+					<IrcMessages {logs} />
 				{/if}
-			{/each}
-		</ConfigurableScrollableContainer>
+			</ConfigurableScrollableContainer>
+		</div>
+		{#if props.type === 'group'}
+			<IrcNames channel={props.channel} />
+		{/if}
 	</div>
 	<IrcInput channel={props.type === 'group' ? props.channel : undefined} />
 </div>
@@ -77,6 +70,7 @@
 		flex-grow: 1;
 		flex-direction: column;
 		height: 100%;
+		width: 100%;
 		background-color: var(--clr-bg-1);
 		border-radius: var(--radius-l);
 	}
@@ -84,19 +78,17 @@
 		padding: 6px;
 		width: 100%;
 		text-align: center;
-		background-color: var(--clr-bg-2);
+		background-color: var(--clr-bg-1);
 		border-bottom: 1px solid var(--clr-border-2);
+	}
+	.middle {
+		display: flex;
+		overflow: hidden;
+		flex-grow: 1;
 	}
 	.messages {
 		flex-grow: 1;
 		overflow: hidden;
-		padding: 6px;
-	}
-	.message {
-		font-family: monospace;
-		white-space: pre-wrap;
-	}
-	.error {
-		background-color: var(--clr-scale-err-90);
+		padding: 12px 14px;
 	}
 </style>

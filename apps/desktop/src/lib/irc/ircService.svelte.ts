@@ -8,7 +8,9 @@ import {
 	getChannels,
 	selectSystemMessages,
 	setNick,
-	setUser
+	setUser,
+	getChannelUsers,
+	clearNames
 } from '$lib/irc/ircSlice';
 import { showError } from '$lib/notifications/toasts';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
@@ -26,8 +28,8 @@ import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
  * redux entity adapter on the results.
  */
 export class IrcService {
-	state = $state(ircSlice.getInitialState());
-	whoInfo: WhoInfo | undefined;
+	private state = $state(ircSlice.getInitialState());
+	_whoInfo: WhoInfo | undefined;
 	status: ReadyState | undefined = $state();
 
 	constructor(
@@ -53,6 +55,7 @@ export class IrcService {
 		$effect(() => {
 			return this.ircClient.onopen(() => {
 				const channels = this.getChannels();
+				this.dispatch(clearNames());
 				setTimeout(() => {
 					for (const key in channels) {
 						const channel = channels[key];
@@ -63,7 +66,12 @@ export class IrcService {
 		});
 	}
 
+	get whoInfo() {
+		return reactive(() => this._whoInfo);
+	}
+
 	async setWhoInfo(args: WhoInfo) {
+		this._whoInfo = args;
 		await this.dispatch(setNick(args.nick));
 		await this.dispatch(
 			setUser({
@@ -116,6 +124,11 @@ export class IrcService {
 	getChannels() {
 		const result = $derived(getChannels(this.state));
 		return result;
+	}
+
+	getChannelUsers(name: string) {
+		const result = $derived(getChannelUsers(this.state, name));
+		return reactive(() => result);
 	}
 
 	markOpen(channel: string, open: boolean) {

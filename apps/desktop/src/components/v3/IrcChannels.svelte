@@ -1,38 +1,28 @@
 <script lang="ts">
 	import { IrcClient } from '$lib/irc/ircClient.svelte';
 	import { IrcService } from '$lib/irc/ircService.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 
-	type Props = {
-		onselect: (channel?: string) => void;
-	};
+	const [ircService, ircClient, uiState] = inject(IrcService, IrcClient, UiState);
 
-	const { onselect }: Props = $props();
-
-	const [ircService, ircClient] = inject(IrcService, IrcClient);
-
+	const selectedChannel = $derived(uiState.global.channel);
 	const channels = $derived(ircService.getChannels());
 </script>
 
 <div class="channels text-13">
-	<button
-		type="button"
-		class="channel server"
-		onclick={() => {
-			onselect(undefined);
-		}}
-	>
+	<button type="button" class="channel server" onclick={() => selectedChannel.set(undefined)}>
 		{ircClient.server}
 	</button>
 	{#each Object.keys(channels).sort() as name}
 		{@const channel = channels[name]}
+		{@const unread = channel?.unread && channel.unread > 0}
 		<button
 			type="button"
 			class="channel"
-			class:text-bold={channel?.unread && channel.unread > 0}
-			onclick={() => {
-				onselect(name);
-			}}
+			class:unread
+			class:selected={name === selectedChannel.current}
+			onclick={() => selectedChannel.set(name)}
 		>
 			{name}
 		</button>
@@ -59,5 +49,14 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		overflow: hidden;
+		color: var(--clr-text-2);
+	}
+
+	.selected {
+		color: var(--clr-text-1);
+	}
+	.unread {
+		color: var(--clr-text-1);
+		font-weight: 700;
 	}
 </style>

@@ -1,19 +1,18 @@
 <script lang="ts">
 	import IrcChannel from '$components/v3/IrcChannel.svelte';
 	import IrcChannels from '$components/v3/IrcChannels.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
+	import { getContext } from '@gitbutler/shared/context';
 
-	let channel: string | undefined = $state();
+	const uiState = getContext(UiState);
+	const channel = $derived(uiState.global.channel);
 </script>
 
 <div class="irc">
-	<IrcChannels
-		onselect={(name) => {
-			channel = name;
-		}}
-	/>
+	<IrcChannels />
 	<div class="right">
-		{#if channel}
-			<IrcChannel type="group" {channel} autojoin />
+		{#if channel.current}
+			<IrcChannel type="group" channel={channel.current} autojoin />
 		{:else}
 			<IrcChannel type="system" />
 		{/if}

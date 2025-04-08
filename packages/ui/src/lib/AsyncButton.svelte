@@ -40,17 +40,17 @@
 	};
 
 	type Props = ButtonPropsSubset & { action: () => Promise<void> };
-	const { action, loading, ...rest }: Props = $props();
+	let { action, loading = $bindable(), ...rest }: Props = $props();
 
 	let state = $state<'inert' | 'loading' | 'complete'>('inert');
 
 	async function performAction() {
-		state = 'loading';
+		loading = true;
 
 		try {
 			await action();
 		} finally {
-			state = 'complete';
+			loading = false;
 		}
 	}
 
