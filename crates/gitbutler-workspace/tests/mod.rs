@@ -22,7 +22,7 @@ mod checkout_branch_trees {
         let projects = gitbutler_project::Controller::from_path(data_dir.path());
 
         let project = projects
-            .add(test_project.path())
+            .add(test_project.path(), None, None)
             .expect("failed to add project");
 
         let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();

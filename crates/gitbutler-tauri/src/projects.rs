@@ -21,12 +21,16 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects), err(Debug))]
+    #[instrument(skip(projects, users), err(Debug))]
     pub fn add_project(
         projects: State<'_, Controller>,
+        users: State<'_, gitbutler_user::Controller>,
         path: &path::Path,
     ) -> Result<projects::Project, Error> {
-        Ok(projects.add(path)?)
+        let user = users.get_user()?;
+        let name = user.as_ref().and_then(|u| u.name.clone());
+        let email = user.as_ref().and_then(|u| u.email.clone());
+        Ok(projects.add(path, name, email)?)
     }
 
     #[tauri::command(async)]

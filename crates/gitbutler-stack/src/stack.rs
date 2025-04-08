@@ -368,8 +368,10 @@ impl Stack {
             self.name.clone()
         } else if let Some(refname) = self.upstream.as_ref() {
             refname.branch().to_string()
+        } else if let Ok((author, _committer)) = ctx.repo().signatures() {
+            generate_branch_name(author)?
         } else {
-            let (author, _committer) = ctx.repo().signatures()?;
+            let author = git2::Signature::now("Firstname Lastname", "name@example.com")?;
             generate_branch_name(author)?
         };
 

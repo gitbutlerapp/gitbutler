@@ -44,7 +44,7 @@ mod compute_updated_branch_head {
         let data_dir = gitbutler_testsupport::paths::data_dir();
         let projects = gitbutler_project::Controller::from_path(data_dir.path());
         let project = projects
-            .add(test_repository.repository.path())
+            .add(test_repository.repository.path(), None, None)
             .expect("failed to add project");
         let ctx = CommandContext::open(&project, but_settings::AppSettings::default()).unwrap();
         set_test_target(&ctx).unwrap();
@@ -77,7 +77,7 @@ mod compute_updated_branch_head {
         let data_dir = gitbutler_testsupport::paths::data_dir();
         let projects = gitbutler_project::Controller::from_path(data_dir.path());
         let project = projects
-            .add(test_repository.repository.path())
+            .add(test_repository.repository.path(), None, None)
             .expect("failed to add project");
         let ctx = CommandContext::open(&project, but_settings::AppSettings::default()).unwrap();
         set_test_target(&ctx).unwrap();
@@ -115,7 +115,7 @@ mod compute_updated_branch_head {
         let data_dir = gitbutler_testsupport::paths::data_dir();
         let projects = gitbutler_project::Controller::from_path(data_dir.path());
         let project = projects
-            .add(test_repository.repository.path())
+            .add(test_repository.repository.path(), None, None)
             .expect("failed to add project");
         let ctx = CommandContext::open(&project, but_settings::AppSettings::default()).unwrap();
         set_test_target(&ctx).unwrap();
