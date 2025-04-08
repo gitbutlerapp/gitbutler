@@ -9,6 +9,8 @@
 		ChangeSelectionService,
 		type PartiallySelectedFile
 	} from '$lib/selection/changeSelection.svelte';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { type SelectionId } from '$lib/selection/key';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
@@ -20,9 +22,10 @@
 		projectId: string;
 		selectable: boolean;
 		change: TreeChange;
+		selectionId: SelectionId;
 	};
 
-	const { projectId, selectable = false, change }: Props = $props();
+	const { projectId, selectable = false, change, selectionId }: Props = $props();
 	const [project, uiState] = inject(Project, UiState);
 	let contextMenu = $state<ReturnType<typeof HunkContextMenu>>();
 	let viewport = $state<HTMLDivElement>();
@@ -30,7 +33,11 @@
 	const drawerPage = $derived(projectState.drawerPage.current);
 	const isCommiting = $derived(drawerPage === 'new-commit');
 
-	const [diffService, changeSelection] = inject(DiffService, ChangeSelectionService);
+	const [diffService, changeSelection, idSelection] = inject(
+		DiffService,
+		ChangeSelectionService,
+		IdSelection
+	);
 	const diffResult = $derived(diffService.getDiff(projectId, change));
 
 	const changeSelectionResult = $derived(changeSelection.getById(change.path));
@@ -71,8 +78,14 @@
 			});
 			return;
 		}
+	}
 
-		throw new Error('Cannot deselect from an empty selection');
+	function unselectHunk(hunk: DiffHunk, allHunks: DiffHunk[]) {
+		updateStage(hunk, false, allHunks);
+		if (allHunks.length === 1) {
+			// This is the only hunk, so we can unselect the file
+			idSelection.remove(change.path, selectionId);
+		}
 	}
 
 	/**
@@ -200,7 +213,7 @@
 						projectId={env.projectId}
 						{change}
 						readonly={false}
-						unSelectHunk={(hunk) => updateStage(hunk, false, diff.subject.hunks)}
+						unSelectHunk={(hunk) => unselectHunk(hunk, diff.subject.hunks)}
 					/>
 				{:else}
 					<span class="text-14 hunk-content-warning">No content</span>
