@@ -286,6 +286,7 @@
 		border-radius: var(--radius-m);
 		box-shadow: var(--fx-shadow-s);
 		outline: none;
+		overflow: hidden;
 		animation: fadeIn 0.08s ease-out forwards;
 	}
 	@keyframes fadeIn {
