@@ -63,7 +63,7 @@
 	{stackId}
 	title={getTitleLabel()}
 	disableScroll
-	minHeight={20}
+	minHeight={28}
 >
 	<div class="submit-review__container">
 		<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} onClose={close} />
@@ -87,5 +87,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
+		overflow: hidden;
 	}
 </style>
