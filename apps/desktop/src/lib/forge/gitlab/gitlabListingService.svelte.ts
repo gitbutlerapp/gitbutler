@@ -1,4 +1,4 @@
-import { gitlab } from '$lib/forge/gitlab/gitlabClient';
+import { gitlab } from '$lib/forge/gitlab/gitlabClient.svelte';
 import { mrToInstance } from '$lib/forge/gitlab/types';
 import { createSelectByIds } from '$lib/state/customSelectors';
 import { providesList, ReduxTag } from '$lib/state/tags';

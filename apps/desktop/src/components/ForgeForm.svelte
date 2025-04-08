@@ -9,6 +9,10 @@
 
 	const forge = getContext(DefaultForgeFactory);
 	const gitLabState = getContext(GitLabState);
+	const token = gitLabState.token;
+	const forkProjectId = gitLabState.forkProjectId;
+	const upstreamProjectId = gitLabState.upstreamProjectId;
+	const instanceUrl = gitLabState.instanceUrl;
 </script>
 
 {#if forge.current.name === 'gitlab'}
@@ -25,9 +29,21 @@
 			Project ID should be project where you want the Merge Requests to be created.
 		</p>
 
-		<Textbox label="Personal Token" bind:value={gitLabState.token.current} />
-		<Textbox label="Your Fork's Project ID" bind:value={gitLabState.forkProjectId.current} />
-		<Textbox label="Upstream Project ID" bind:value={gitLabState.upstreamProjectId.current} />
-		<Textbox label="Instance URL" bind:value={gitLabState.instanceUrl.current} />
+		<Textbox label="Personal Token" value={$token} oninput={(value) => ($token = value)} />
+		<Textbox
+			label="Your Fork's Project ID"
+			value={$forkProjectId}
+			oninput={(value) => ($forkProjectId = value)}
+		/>
+		<Textbox
+			label="Upstream Project ID"
+			value={$upstreamProjectId}
+			oninput={(value) => ($upstreamProjectId = value)}
+		/>
+		<Textbox
+			label="Instance URL"
+			value={$instanceUrl}
+			oninput={(value) => ($instanceUrl = value)}
+		/>
 	</SectionCard>
 {/if}

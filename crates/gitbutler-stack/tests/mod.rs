@@ -183,7 +183,7 @@ fn add_series_matching_git_ref_is_ok() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     let reference = StackBranch::new(
-        test_ctx.commits[0].parent(0)?.clone().into(),
+        test_ctx.commits[0].parent(0)?.clone(),
         "existing-branch".into(),
         None,
         &ctx.gix_repo()?,
@@ -670,7 +670,7 @@ fn archive_heads_success() -> Result<()> {
     test_ctx.stack.heads.insert(
         0,
         StackBranch::new(
-            test_ctx.other_commits.first().cloned().unwrap().into(),
+            test_ctx.other_commits.first().cloned().unwrap(),
             "foo".to_string(),
             None,
             &ctx.gix_repo()?,
@@ -761,21 +761,21 @@ fn add_head_with_archived_bottom_head() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
     let mut head_1_archived = StackBranch::new(
-        test_ctx.commits[0].clone().into(),
+        test_ctx.commits[0].clone(),
         "kv-branch-3".to_string(),
         None,
         &ctx.gix_repo()?,
     )?;
     head_1_archived.archived = true;
     let head_2 = StackBranch::new(
-        test_ctx.commits[1].clone().into(),
+        test_ctx.commits[1].clone(),
         "more-on-top".to_string(),
         None,
         &ctx.gix_repo()?,
     )?;
     let existing_heads = vec![head_1_archived.clone(), head_2.clone()];
     let new_head = StackBranch::new(
-        test_ctx.commits[1].clone().into(), // same as head_2
+        test_ctx.commits[1].clone(), // same as head_2
         "abcd".to_string(),
         None,
         &ctx.gix_repo()?,

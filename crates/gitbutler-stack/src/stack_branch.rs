@@ -75,15 +75,21 @@ impl From<git2::Oid> for CommitOrChangeId {
     }
 }
 
+impl From<gix::ObjectId> for CommitOrChangeId {
+    fn from(oid: gix::ObjectId) -> Self {
+        CommitOrChangeId::CommitId(oid.to_string())
+    }
+}
+
 impl StackBranch {
-    pub fn new(
-        head: CommitOrChangeId,
+    pub fn new<T: Into<CommitOrChangeId>>(
+        head: T,
         name: String,
         description: Option<String>,
         repo: &gix::Repository,
     ) -> Result<Self> {
         let branch = StackBranch {
-            head,
+            head: head.into(),
             name,
             description,
             pr_number: None,
@@ -139,13 +145,12 @@ impl StackBranch {
 
     /// This will update the commit that this points to (the virtual reference in virtual_branches.toml) as well as update of create a real git reference.
     /// If this points to a change id, it's a noop operation. In practice, moving forward, new CommitOrChangeId entries will always be CommitId and ChangeId may only appear in deserialized data.
-    pub fn set_head(
-        &mut self,
-        head: CommitOrChangeId,
-        repo: &gix::Repository,
-    ) -> Result<Option<BString>> {
+    pub fn set_head<T>(&mut self, head: T, repo: &gix::Repository) -> Result<Option<BString>>
+    where
+        T: Into<CommitOrChangeId> + Clone,
+    {
         let refname = self.set_real_reference(repo, &head)?;
-        self.head = head;
+        self.head = head.into();
         Ok(refname)
     }
 
@@ -228,13 +233,13 @@ impl StackBranch {
     /// NB: If the operation is an update of an existing reference, the operation will only succeed if the old reference matches the expected value.
     ///     Therefore this should be invoked before `self.head` has been updated.
     /// If the head is expressed as a change id, this is a noop
-    fn set_real_reference(
-        &self,
-        repo: &gix::Repository,
-        new_head: &CommitOrChangeId,
-    ) -> Result<Option<BString>> {
-        let new_oid = match new_head {
-            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(id)?,
+    fn set_real_reference<T>(&self, repo: &gix::Repository, new_head: &T) -> Result<Option<BString>>
+    where
+        T: Into<CommitOrChangeId> + Clone,
+    {
+        // let new_head = *new_head.to_owned();
+        let new_oid = match new_head.clone().into() {
+            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(&id)?,
             CommitOrChangeId::ChangeId(_) => return Ok(None), // noop
         };
         let reference = repo.reference(
@@ -432,7 +437,7 @@ impl BranchCommits<'_> {
 // NB: There can be multiple commits with the same change id on the same branch id.
 // This is an error condition but we must handle it.
 // If there are multiple commits, they are ordered newest to oldest.
-pub fn commit_by_oid_or_change_id<'a>(
+fn commit_by_oid_or_change_id<'a>(
     reference_target: &'a CommitOrChangeId,
     repo: &'a git2::Repository,
     stack_head: git2::Oid,

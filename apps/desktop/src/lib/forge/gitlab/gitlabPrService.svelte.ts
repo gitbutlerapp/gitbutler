@@ -1,4 +1,4 @@
-import { gitlab } from '$lib/forge/gitlab/gitlabClient';
+import { gitlab } from '$lib/forge/gitlab/gitlabClient.svelte';
 import { detailedMrToInstance, mrToInstance } from '$lib/forge/gitlab/types';
 import { providesItem, invalidatesItem, ReduxTag, invalidatesList } from '$lib/state/tags';
 import { sleep } from '$lib/utils/sleep';

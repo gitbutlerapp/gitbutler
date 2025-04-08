@@ -31,7 +31,7 @@
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { GitHubClient } from '$lib/forge/github/githubClient';
 	import { GitHubUserService } from '$lib/forge/github/githubUserService.svelte';
-	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
+	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { IrcClient } from '$lib/irc/ircClient.svelte';

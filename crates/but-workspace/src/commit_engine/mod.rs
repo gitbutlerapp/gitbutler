@@ -6,7 +6,6 @@ use bstr::BString;
 use but_core::RepositoryExt;
 use but_rebase::RebaseOutput;
 use but_rebase::commit::CommitterMode;
-use gitbutler_oxidize::OidExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{StackId, VirtualBranchesHandle, VirtualBranchesState};
 use gix::prelude::ObjectIdExt as _;
@@ -22,7 +21,6 @@ pub mod reference_frame;
 mod refs;
 
 mod hunks;
-use crate::{StackEntry, WorkspaceCommit};
 pub use hunks::apply_hunks;
 
 /// Types for use in the frontend with serialization support.
@@ -417,7 +415,7 @@ pub fn create_commit_and_update_refs(
 
             let workspace_tip = frame
                 .workspace_tip
-                .filter(|ws_tip| !commits_to_rebase.contains(ws_tip));
+                .filter(|tip| !commits_to_rebase.contains(tip));
             let rebase = {
                 // Set commits leading up to the tip on top of the new commit, serving as base.
                 let mut builder = but_rebase::Rebase::new(repo, new_commit, Some(commit_in_graph))?;
@@ -428,54 +426,13 @@ pub fn create_commit_and_update_refs(
                     }
                 }))?;
                 if let Some(workspace_tip) = workspace_tip {
-                    // Special Hack (https://github.com/gitbutlerapp/gitbutler/pull/7976)
-                    // See if `branch_tip` isn't yet in the workspace-tip if it's a managed one, and if so, add it
-                    // so it's going to be re-merged.
-                    let wsc = WorkspaceCommit::from_id(workspace_tip.attach(repo))?;
-                    let commit_id = if wsc.is_managed() /* we can change the commit */
-                        && !wsc.inner.parents.contains(&branch_tip) /* the branch tip we know isn't yet merged */
-                        // but the tip is known to the workspace
-                        && vb.branches.values().any(|s| {
-                            s.head(repo)
-                                .is_ok_and(|head_id| head_id.to_gix() == branch_tip)
-                        }) {
-                        let mut stacks: Vec<_> = vb
-                            .branches
-                            .values()
-                            .filter(|stack| stack.in_workspace)
-                            .map(|stack| StackEntry::try_new(repo, stack))
-                            .collect::<Result<_, _>>()?;
-                        stacks.sort_by(|a, b| a.name().cmp(&b.name()));
-                        let new_wc = WorkspaceCommit::create_commit_from_vb_state(
-                            &stacks,
-                            repo.object_hash(),
-                        );
-                        repo.write_object(&new_wc)?.detach()
-                    } else {
-                        workspace_tip
-                    };
                     // We can assume the workspace tip is connected to a pick (or else the rebase will fail)
                     builder.steps([but_rebase::RebaseStep::Pick {
-                        commit_id,
+                        commit_id: workspace_tip,
                         new_message: None,
                     }])?;
-                    let mut outcome = builder.rebase()?;
-                    if commit_id != workspace_tip {
-                        let Some(rewritten_old) = outcome
-                            .commit_mapping
-                            .iter_mut()
-                            .find_map(|(_base, old, _new)| (old == &commit_id).then_some(old))
-                        else {
-                            bail!(
-                                "BUG: Needed to find modified {commit_id} to set it back its previous value, but couldn't find it"
-                            );
-                        };
-                        *rewritten_old = workspace_tip;
-                    }
-                    outcome
-                } else {
-                    builder.rebase()?
                 }
+                builder.rebase()?
             };
             refs::rewrite(
                 repo,

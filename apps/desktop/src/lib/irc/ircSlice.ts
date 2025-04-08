@@ -74,6 +74,7 @@ export const ircSlice = createSlice({
 		// Parse incoming message and update state accordingly.
 		build.addCase(processIncoming.fulfilled, (state, action) => {
 			const event = action.payload;
+			console.log(action.payload);
 
 			switch (event.type) {
 				case 'welcome': {
@@ -124,20 +125,18 @@ export const ircSlice = createSlice({
 				}
 
 				case 'messageReceived': {
-					if (event.text.startsWith('#')) {
-						const name = event.target;
-						const channel = state.channels[name];
-						if (channel) {
-							channel.logs.push({
-								type: 'incoming',
-								timestamp: Date.now(),
-								from: event.from,
-								message: event.text
-							});
-							// Trim server output to last 100 messages.
-							while (channel.logs.length > 100) {
-								channel.logs.shift();
-							}
+					const name = event.target;
+					const channel = state.channels[name];
+					if (channel) {
+						channel.logs.push({
+							type: 'incoming',
+							timestamp: Date.now(),
+							from: event.from,
+							message: event.text
+						});
+						// Trim server output to last 100 messages.
+						while (channel.logs.length > 100) {
+							channel.logs.shift();
 						}
 					}
 					break;

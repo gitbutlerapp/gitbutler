@@ -1,7 +1,7 @@
 use crate::commit_engine::UpdatedReference;
 use bstr::BString;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
-use gitbutler_stack::{CommitOrChangeId, VirtualBranchesState};
+use gitbutler_stack::VirtualBranchesState;
 use gix::prelude::ObjectIdExt as _;
 use gix::refs::transaction::PreviousValue;
 
@@ -73,9 +73,7 @@ pub fn rewrite(
                         already_updated_refs.push(format!("refs/heads/{}", branch.name()).into());
                         continue;
                     }
-                    if let Some(full_refname) =
-                        branch.set_head(CommitOrChangeId::CommitId(new.to_string()), repo)?
-                    {
+                    if let Some(full_refname) = branch.set_head(new, repo)? {
                         already_updated_refs.push(full_refname)
                     }
                     updated_refs.push(UpdatedReference {
