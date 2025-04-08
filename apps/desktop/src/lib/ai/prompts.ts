@@ -119,7 +119,7 @@ index 1cbfaa2..7aeebcf 100644
 ];
 
 export const DEFAULT_PR_SUMMARY_MAIN_DIRECTIVE =
-	'Please create a pull request description for my changes.';
+	'List the most important changes. Use bullet points. Skip any other information.';
 
 export function getPrTemplateDirective(prBodyTemplate: string | undefined): string {
 	if (!prBodyTemplate) {
@@ -140,7 +140,8 @@ export const SHORT_DEFAULT_PR_TEMPLATE: Prompt = [
 Create a description for a pull request.
 Use the provided context, like the COMMIT_MESSAGES, PR_TEMPLATE, current TITLE and BODY.
 The list of commit messages is separated by this token: <###>.
-Only respond with the PR description`
+BE CONCISE.
+ONLY return the description.`
 	},
 	{
 		role: MessageRole.User,

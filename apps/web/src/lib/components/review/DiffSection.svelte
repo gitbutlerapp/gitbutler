@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { isLockfile } from '$lib/diff/lockfiles';
 	import { splitDiffIntoHunks } from '$lib/diffParsing';
+	import { isLockfile } from '@gitbutler/shared/lockfiles';
 	import { getFilePathInfo } from '@gitbutler/shared/utils/file';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import HunkDiff, { type LineClickParams } from '@gitbutler/ui/HunkDiff.svelte';
