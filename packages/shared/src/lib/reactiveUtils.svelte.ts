@@ -9,7 +9,7 @@ export function reactive<T>(fn: () => T): Reactive<T> {
 	};
 }
 
-export function writableReactive<T>(get: () => T, set: (_: T) => void): Reactive<T> {
+export function writableReactive<T>(get: () => T, set: (_: T) => void): WritableReactive<T> {
 	return {
 		get current() {
 			return get();
