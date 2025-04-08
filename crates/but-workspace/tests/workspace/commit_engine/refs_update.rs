@@ -1090,7 +1090,7 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
 mod utils {
     use but_testsupport::visualize_commit_graph;
     use gitbutler_oxidize::OidExt;
-    use gitbutler_stack::{CommitOrChangeId, VirtualBranchesState};
+    use gitbutler_stack::VirtualBranchesState;
     use gix::refs::transaction::PreviousValue;
 
     pub fn assure_no_worktree_changes(repo: &gix::Repository) -> anyhow::Result<()> {
@@ -1132,12 +1132,7 @@ mod utils {
         head: gix::ObjectId,
         repo: &gix::Repository,
     ) -> anyhow::Result<gitbutler_stack::StackBranch> {
-        gitbutler_stack::StackBranch::new(
-            CommitOrChangeId::CommitId(head.to_string()),
-            name.into(),
-            None,
-            repo,
-        )
+        gitbutler_stack::StackBranch::new(head, name.into(), None, repo)
     }
 
     /// Turn all heads from `vbranches` into an aptly named standard reference.

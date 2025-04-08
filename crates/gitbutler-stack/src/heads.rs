@@ -35,7 +35,7 @@ pub(crate) fn remove_head(
         let prior_head = heads
             .get_mut(idx - 1)
             .ok_or_else(|| anyhow!("Cannot get the head before the head being removed"))?;
-        prior_head.set_head(head.head_oid(repo)?.into(), repo)?;
+        prior_head.set_head(head.head_oid(repo)?, repo)?;
         moved_another_reference = true;
     }
     heads.remove(idx);

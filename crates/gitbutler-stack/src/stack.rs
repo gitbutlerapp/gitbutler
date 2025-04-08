@@ -376,7 +376,7 @@ impl Stack {
         let name = Stack::next_available_name(&repo, &state, name, allow_duplicate_refs)?;
 
         validate_name(&name, &state)?;
-        let reference = StackBranch::new(commit.into(), name, None, &repo)?;
+        let reference = StackBranch::new(commit, name, None, &repo)?;
 
         Ok(reference)
     }
@@ -470,12 +470,8 @@ impl Stack {
             "Stack is in an invalid state - heads list is empty"
         ))?;
         let repo = ctx.gix_repo()?;
-        let new_head = StackBranch::new(
-            current_top_head.head_oid(&repo)?.into(),
-            name,
-            description,
-            &repo,
-        )?;
+        let new_head =
+            StackBranch::new(current_top_head.head_oid(&repo)?, name, description, &repo)?;
         self.add_series(ctx, new_head, Some(current_top_head.name().clone()))
     }
 
@@ -602,7 +598,7 @@ impl Stack {
             .last_mut()
             .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
 
-        head.set_head(commit.id.to_git2().into(), gix_repo)?;
+        head.set_head(commit.id, gix_repo)?;
         if let Some(state) = state {
             state.set_stack(self.clone())?;
         }
@@ -707,7 +703,7 @@ impl Stack {
         let gix_repo = ctx.gix_repo()?;
         for head in &mut self.heads {
             if let Some(commit) = new_heads.get(head.name()) {
-                head.set_head(commit.clone().into(), &gix_repo)?;
+                head.set_head(commit.clone(), &gix_repo)?;
             }
         }
         state.set_stack(self.clone())?;
