@@ -80,7 +80,7 @@
 	$effect(() => {
 		if (viewport) {
 			const observerMutations = new MutationObserver(() => {
-				if (viewport && scrollEndVisible) {
+				if (viewport && scrollEndVisible && !scrollTopVisible) {
 					const stillVisible = isScrollEndVisible(viewport);
 					if (!stillVisible) {
 						viewport.scrollTop = viewport.scrollHeight;
