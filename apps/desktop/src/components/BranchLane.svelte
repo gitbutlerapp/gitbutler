@@ -66,7 +66,9 @@
 			style:width={$width + 'rem'}
 		>
 			<FileCard
+				projectId={project.id}
 				isUnapplied={false}
+				conflicted={selected.conflicted}
 				file={selected}
 				readonly={selected instanceof RemoteFile}
 				selectable={$commitBoxOpen && commitId === undefined}

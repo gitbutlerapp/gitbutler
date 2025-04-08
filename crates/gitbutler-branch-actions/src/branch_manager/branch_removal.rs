@@ -18,7 +18,12 @@ use tracing::instrument;
 
 use super::BranchManager;
 use crate::r#virtual as vbranch;
-use crate::{get_applied_status, hunk::VirtualBranchHunk, VirtualBranchesExt};
+use crate::{
+    conflicts::{self},
+    get_applied_status,
+    hunk::VirtualBranchHunk,
+    VirtualBranchesExt,
+};
 
 impl BranchManager<'_> {
     // to unapply a branch, we need to write the current tree out, then remove those file changes from the wd
@@ -195,6 +200,10 @@ impl BranchManager<'_> {
         vbranch::ensure_selected_for_changes(&vb_state)
             .context("failed to ensure selected for changes")?;
 
+        // If we were conflicting, it means that it was the only branch applied. Since we've now unapplied it we can clear all conflicts
+        if conflicts::is_conflicting(self.ctx, None)? {
+            conflicts::clear(self.ctx)?;
+        }
         crate::integration::update_workspace_commit(&vb_state, self.ctx)
             .context("failed to update gitbutler workspace")?;
 

@@ -168,6 +168,7 @@ fn main() {
                     commands::git_remote_branches,
                     commands::git_head,
                     commands::delete_all_data,
+                    commands::mark_resolved,
                     commands::git_set_global_config,
                     commands::git_remove_global_config,
                     commands::git_get_global_config,
