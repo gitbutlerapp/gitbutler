@@ -31,6 +31,14 @@ export const ircSlice = createSlice({
 					channel.unread = 0;
 				}
 			}
+		},
+		clearNames(state) {
+			Object.keys(state.channels).map((name) => {
+				const channel = state.channels[name];
+				if (channel) {
+					channel.users = {};
+				}
+			});
 		}
 	},
 	extraReducers: (build) => {
@@ -84,20 +92,21 @@ export const ircSlice = createSlice({
 					break;
 				}
 				case 'userJoined': {
+					const newLog: IrcLog = {
+						type: 'server',
+						timestamp: Date.now(),
+						message: `${event.user.nick} joined`
+					};
 					const channel = state.channels[event.channel];
 					if (!channel) {
 						state.channels[event.channel] = {
 							name: event.channel,
 							users: {},
 							unread: 0,
-							logs: [
-								{
-									type: 'server',
-									timestamp: Date.now(),
-									message: `${event.user.nick} joined`
-								}
-							]
+							logs: [newLog]
 						};
+					} else {
+						channel.logs.push(newLog);
 					}
 					break;
 				}
@@ -311,6 +320,11 @@ export const getUnreadCount = createSelector([getChannels], (channels) =>
 	Object.values(channels).reduce((prev, curr) => prev + curr.unread || 0, 0)
 );
 
-export const { setConnectionState, markChannelOpen } = ircSlice.actions;
+export const getChannelUsers = createSelector(
+	[getChannels, (_, name: string) => name],
+	(channels, name) => channels[name]?.users
+);
+
+export const { setConnectionState, markChannelOpen, clearNames } = ircSlice.actions;
 
 export const ircReducer = ircSlice.reducer;

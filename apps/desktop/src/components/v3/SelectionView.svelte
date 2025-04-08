@@ -11,13 +11,13 @@
 	type Props = {
 		projectId: string;
 		stackId?: string;
-		branchName?: string;
 	};
 
-	let { projectId, stackId, branchName }: Props = $props();
+	let { projectId, stackId }: Props = $props();
 
 	const [idSelection, uiState] = inject(IdSelection, UiState);
 
+	const channel = $derived(uiState.global.channel);
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
 	const selectionId = $derived(stackState?.activeSelectionId.get());
 	const selection = $derived(selectionId?.current ? idSelection.values(selectionId.current) : []);
@@ -25,8 +25,8 @@
 
 <div class="selection-view">
 	{#if selection.length === 0}
-		{#if $ircEnabled && branchName}
-			<IrcChannel type="group" channel={'#' + branchName} autojoin />
+		{#if $ircEnabled && channel.current}
+			<IrcChannel type="group" channel={channel.current} autojoin />
 		{:else}
 			<FileViewPlaceholder />
 		{/if}
