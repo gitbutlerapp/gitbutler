@@ -8,7 +8,6 @@
 	});
 </script>
 
-/** eslint-disable no-console */
 <Story
 	name="Playground"
 	args={{

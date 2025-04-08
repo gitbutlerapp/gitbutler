@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Button from '$lib/Button.svelte';
+	import EmojiButton from '$lib/emoji/EmojiButton.svelte';
 	import DelayedMount from '$lib/lazyness/DelayedMount.svelte';
 	import type { EmojiGroup, EmojiInfo } from '$lib/emoji/utils';
 
@@ -22,11 +22,7 @@
 			{@const sectionIndex = Math.floor(index / 30)}
 			{@const sectionDelay = sectionIndex * 300}
 			<DelayedMount delay={sectionDelay}>
-				<div class="emoji">
-					<Button kind="ghost" onclick={() => handleEmojiClick(emoji)}>
-						<p class="text-16">{emoji.unicode}</p>
-					</Button>
-				</div>
+				<EmojiButton emoji={emoji.unicode} onclick={() => handleEmojiClick(emoji)} />
 			</DelayedMount>
 		{/each}
 	</DelayedMount>
@@ -34,10 +30,14 @@
 
 <style lang="postcss">
 	.emoji-picker__group {
-		display: flex;
-		flex-wrap: wrap;
-		padding: 8px 14px;
-		gap: 3px;
+		display: grid;
+		align-items: center;
+		justify-items: center;
+		grid-template-columns: repeat(7, 1fr);
+		grid-auto-rows: 1fr;
+		padding: 8px 6px;
+		row-gap: 4px;
+
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-3);
 		}
