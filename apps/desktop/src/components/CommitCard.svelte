@@ -73,7 +73,6 @@
 	const fileService = getContext(FileService);
 	const stackService = getContext(StackService);
 
-	const [uncommit] = stackService.uncommit;
 	const [updateCommitMessage] = stackService.updateCommitMessage;
 
 	const commitStore = createCommitStore(commit);
@@ -82,7 +81,7 @@
 		commitStore.set(commit);
 	});
 
-	const currentCommitMessage = persistedCommitMessage(project.id, stack?.id || '');
+	const persistedMessage = persistedCommitMessage(project.id, stack?.id || '');
 
 	let branchCardElement = $state<HTMLElement>();
 	let kebabMenuTrigger = $state<HTMLButtonElement>();
@@ -117,14 +116,17 @@
 		}
 	}
 
-	function undoCommit(commit: DetailedCommit | Commit) {
-		if (!stack || !baseBranch) {
+	async function undoCommit() {
+		if (!stack || !baseBranch || !currentSeries) {
 			console.error('Unable to undo commit');
 			return;
 		}
-		uncommit({
+		$persistedMessage = commit.description;
+		description = commit.description;
+		await stackService.uncommit({
 			projectId: project.id,
 			stackId: stack.id,
+			branchName: currentSeries.name,
 			commitId: commit.id
 		});
 	}
@@ -166,12 +168,6 @@
 			? $user?.picture
 			: commit.author.gravatarUrl;
 	});
-
-	function handleUncommit(e: MouseEvent) {
-		e.stopPropagation();
-		currentCommitMessage.set(commit.description);
-		undoCommit(commit);
-	}
 
 	function canEdit() {
 		if (isUnapplied) return false;
@@ -247,7 +243,7 @@
 	{commit}
 	isRemote={type === 'Remote'}
 	commitUrl={showOpenInBrowser ? commitUrl : undefined}
-	onUncommitClick={handleUncommit}
+	onUncommitClick={undoCommit}
 	onEditMessageClick={openCommitMessageModal}
 	onPatchEditClick={handleEditPatch}
 />
@@ -417,14 +413,9 @@
 						<div class="commit__actions hide-native-scrollbar">
 							{#if isUndoable}
 								{#if !conflicted}
-									<Button
-										size="tag"
-										kind="outline"
-										icon="undo-small"
-										onclick={(e: MouseEvent) => {
-											handleUncommit(e);
-										}}>Uncommit</Button
-									>
+									<Button size="tag" kind="outline" icon="undo-small" onclick={() => undoCommit()}>
+										Uncommit
+									</Button>
 								{/if}
 								<Button
 									size="tag"
