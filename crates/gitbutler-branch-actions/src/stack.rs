@@ -8,7 +8,7 @@ use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_oxidize::RepoExt;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{CommitOrChangeId, PatchReferenceUpdate, StackBranch};
+use gitbutler_stack::{PatchReferenceUpdate, StackBranch};
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
 
@@ -66,7 +66,7 @@ pub struct CreateSeriesRequest {
     /// Description of the new series - can be markdown or anything really
     description: Option<String>,
     /// The target patch (head) to create these series for. If let None, the new series will be at the top of the stack
-    target_patch: Option<CommitOrChangeId>,
+    target_patch: Option<gitbutler_stack::CommitOrChangeId>,
     /// The name of the series that preceded the newly created series.
     /// This is used to disambiguate the order when they point to the same patch
     preceding_head: Option<String>,
