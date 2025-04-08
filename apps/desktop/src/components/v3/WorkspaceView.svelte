@@ -2,12 +2,10 @@
 	import Resizer from '$components/Resizer.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
-	import IrcChannel from '$components/v3/IrcChannel.svelte';
 	import NewCommitView from '$components/v3/NewCommitView.svelte';
 	import ReviewView from '$components/v3/ReviewView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
-	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -56,11 +54,7 @@
 	</div>
 	<div class="main-view" use:focusable={{ id: 'main', parentId: 'workspace' }}>
 		{#if !drawerIsFullScreen.current}
-			{#if $ircEnabled && branchName}
-				<IrcChannel type="group" channel={'#' + branchName} autojoin />
-			{:else}
-				<SelectionView {projectId} {stackId} />
-			{/if}
+			<SelectionView {projectId} {stackId} {branchName} />
 		{/if}
 
 		{#if stackId}
