@@ -740,6 +740,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Uncommit'
 				}),
 				invalidatesTags: (_result, _error, args) => [
+					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
 					invalidatesItem(ReduxTag.Commits, args.stackId),
 					invalidatesItem(ReduxTag.StackInfo, args.stackId)
