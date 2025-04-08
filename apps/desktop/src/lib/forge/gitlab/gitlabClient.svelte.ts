@@ -1,4 +1,5 @@
 import { Gitlab } from '@gitbeaker/rest';
+import { derived } from 'svelte/store';
 import type { GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
 
 type GitlabInstance = InstanceType<typeof Gitlab<false>>;
@@ -12,17 +13,32 @@ export class GitLabClient {
 	private callbacks: (() => void)[] = [];
 
 	set(gitlabState: GitLabState) {
-		this.forkProjectId = gitlabState.forkProjectId.current;
-		this.upstreamProjectId = gitlabState.upstreamProjectId.current;
-		if (gitlabState.token.current && gitlabState.instanceUrl.current) {
-			this.api = new Gitlab({
-				token: gitlabState.token.current,
-				host: gitlabState.instanceUrl.current
-			});
-		} else {
-			this.api = undefined;
-		}
-		this.callbacks.every((cb) => cb());
+		const subscribable = derived(
+			[
+				gitlabState.forkProjectId,
+				gitlabState.upstreamProjectId,
+				gitlabState.instanceUrl,
+				gitlabState.token
+			],
+			([forkProjectId, upstreamProjectId, instanceUrl, token]) => {
+				this.forkProjectId = forkProjectId;
+				this.upstreamProjectId = upstreamProjectId;
+				if (token && instanceUrl) {
+					this.api = new Gitlab({
+						token,
+						host: instanceUrl
+					});
+				} else {
+					this.api = undefined;
+				}
+				this.callbacks.every((cb) => cb());
+			}
+		);
+
+		$effect(() => {
+			const unsubscribe = subscribable.subscribe(() => {});
+			return unsubscribe;
+		});
 	}
 
 	onReset(fn: () => void) {
@@ -37,9 +53,9 @@ export function gitlab(extra: unknown): {
 	upstreamProjectId: string;
 } {
 	if (!hasGitLab(extra)) throw new Error('No GitHub client!');
-	if (!extra.gitLabClient.api) throw new Error('Things are sad');
-	if (!extra.gitLabClient.forkProjectId) throw new Error('Things are sad');
-	if (!extra.gitLabClient.upstreamProjectId) throw new Error('Things are sad');
+	if (!extra.gitLabClient.api) throw new Error('Failed to find GitLab client');
+	if (!extra.gitLabClient.forkProjectId) throw new Error('Failed to find fork project ID');
+	if (!extra.gitLabClient.upstreamProjectId) throw new Error('Failed to find upstream project ID');
 
 	// Equivalent to using the readable's `get` function
 	return {

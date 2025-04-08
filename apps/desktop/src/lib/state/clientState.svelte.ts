@@ -11,7 +11,7 @@ import persistStore from 'redux-persist/lib/persistStore';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { Tauri } from '$lib/backend/tauri';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
-import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
+import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { IrcClient } from '$lib/irc/ircClient.svelte';
 
 /**

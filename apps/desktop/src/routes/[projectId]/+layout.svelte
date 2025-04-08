@@ -20,7 +20,7 @@
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { GitHubClient } from '$lib/forge/github/githubClient';
-	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
+	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 	import { GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { BrToPrService } from '$lib/forge/shared/prFooter';
 	import { TemplateService } from '$lib/forge/templateService';
