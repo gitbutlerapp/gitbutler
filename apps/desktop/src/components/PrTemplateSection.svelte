@@ -4,6 +4,7 @@
 	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 
@@ -22,6 +23,8 @@
 	// The last template that was used. It is used as default if it is in the
 	// list of available commits.
 	const lastTemplate = persisted<string | undefined>(undefined, `last-template-${project.id}`);
+
+	let useTemplate = $state(false);
 
 	async function setTemplate(path: string) {
 		lastTemplate.set(path);
@@ -53,13 +56,17 @@
 </script>
 
 <div class="pr-template__wrap">
+	<label class="pr-template__toggle" for="pr-template-toggle">
+		<span class="text-13 text-semibold">Use template</span>
+		<Toggle id="pr-template-toggle" bind:checked={useTemplate} disabled={templates.length === 0} />
+	</label>
 	<Select
 		value={$lastTemplate}
 		options={templates.map((value) => ({ label: value, value }))}
 		placeholder={templates.length > 0 ? 'Choose template' : 'No PR templates found ¯\\_(ツ)_/¯'}
-		wide
+		flex="1"
 		searchable
-		disabled={templates.length === 0}
+		disabled={templates.length === 0 || !useTemplate}
 		onselect={setTemplate}
 	>
 		{#snippet itemSnippet({ item, highlighted })}
@@ -73,6 +80,20 @@
 <style lang="postcss">
 	.pr-template__wrap {
 		display: flex;
+		gap: 4px;
+	}
+
+	.pr-template__toggle {
+		display: flex;
+		align-items: center;
 		gap: 6px;
+		border-radius: var(--radius-m);
+		border: 1px solid var(--clr-border-2);
+		padding: 8px 10px;
+		transition: background-color var(--transition-fast);
+
+		&:hover {
+			background-color: var(--clr-bg-1-muted);
+		}
 	}
 </style>
