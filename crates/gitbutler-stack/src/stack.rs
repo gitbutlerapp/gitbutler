@@ -368,11 +368,8 @@ impl Stack {
             self.name.clone()
         } else if let Some(refname) = self.upstream.as_ref() {
             refname.branch().to_string()
-        } else if let Ok((author, _committer)) = ctx.repo().signatures() {
-            generate_branch_name(author)?
         } else {
-            let author = git2::Signature::now("Firstname Lastname", "name@example.com")?;
-            generate_branch_name(author)?
+            canned_branch_name(ctx.repo())?
         };
 
         let name = Stack::next_available_name(&repo, &state, name, allow_duplicate_refs)?;
@@ -921,6 +918,15 @@ fn patch_reference_exists(state: &VirtualBranchesHandle, name: &str) -> Result<b
         .iter()
         .flat_map(|b| b.heads.iter())
         .any(|r| r.name() == name))
+}
+
+pub fn canned_branch_name(repo: &git2::Repository) -> Result<String> {
+    if let Ok((author, _committer)) = repo.signatures() {
+        generate_branch_name(author)
+    } else {
+        let author = git2::Signature::now("Firstname Lastname", "name@example.com")?;
+        generate_branch_name(author)
+    }
 }
 
 fn generate_branch_name(author: git2::Signature) -> Result<String> {
