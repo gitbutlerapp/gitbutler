@@ -2,6 +2,7 @@
 	import WorkspaceView from '$components/v3/WorkspaceView.svelte';
 	import StackTabs from '$components/v3/stackTabs/StackTabs.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
+	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { remToPx } from '@gitbutler/ui/utils/remToPx';
@@ -12,7 +13,9 @@
 
 	const stackService = getContext(StackService);
 	const settingsService = getContext(SettingsService);
+	const modeService = getContext(ModeService);
 	const settingsStore = settingsService.appSettings;
+	const mode = modeService.mode;
 
 	const { data, children }: { data: PageData; children: Snippet } = $props();
 
@@ -42,6 +45,17 @@
 			goto(`/${data.projectId}/workspace`);
 		} else {
 			goto(`/${data.projectId}/workspace/${stacks.current.data[0]!.id}`);
+		}
+	});
+
+	function gotoEdit() {
+		goto(`/${projectId}/edit`);
+	}
+
+	$effect(() => {
+		if ($mode?.type === 'Edit') {
+			// That was causing an incorrect linting error when project.id was accessed inside the reactive block
+			gotoEdit();
 		}
 	});
 </script>
