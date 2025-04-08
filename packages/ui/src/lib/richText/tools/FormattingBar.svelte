@@ -59,7 +59,7 @@
 						<FormattingButton
 							icon="ai"
 							tooltip={canUseAI
-								? 'AI options'
+								? 'Generate message'
 								: 'You need to enable AI in the project settings to use this feature'}
 							disabled={!canUseAI}
 							onclick={onAiButtonClick}
