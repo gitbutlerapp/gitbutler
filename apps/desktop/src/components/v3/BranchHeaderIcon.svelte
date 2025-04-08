@@ -7,9 +7,10 @@
 		commit: Commit | null;
 		lineTop?: boolean;
 		lineBottom?: boolean;
+		isDashed?: boolean;
 	}
 
-	const { commit, lineTop = true, lineBottom = true }: Props = $props();
+	const { commit, lineTop = true, lineBottom = true, isDashed }: Props = $props();
 
 	const color = $derived(
 		commit ? getColorFromCommitState(commit.id, commit.state) : 'var(--clr-commit-local)'
@@ -39,6 +40,7 @@
 	</div>
 	<div
 		class="stack__status--bar last"
+		class:dashed={isDashed}
 		style:--bg-color={lineBottom ? color : 'var(--clr-transparent)'}
 	></div>
 </div>
@@ -69,6 +71,16 @@
 			height: 8px;
 			margin: 0 22px 0 20px;
 			background: var(--bg-color);
+
+			&.dashed {
+				background: repeating-linear-gradient(
+					0deg,
+					var(--bg-color),
+					var(--bg-color) 2px,
+					var(--clr-transparent) 2px,
+					var(--clr-transparent) 4px
+				);
+			}
 
 			&.last {
 				flex: 1;

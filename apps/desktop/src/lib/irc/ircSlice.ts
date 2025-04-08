@@ -74,7 +74,6 @@ export const ircSlice = createSlice({
 		// Parse incoming message and update state accordingly.
 		build.addCase(processIncoming.fulfilled, (state, action) => {
 			const event = action.payload;
-			console.log(action.payload);
 
 			switch (event.type) {
 				case 'welcome': {

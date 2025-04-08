@@ -163,7 +163,8 @@
 		align-items: center;
 		justify-content: center;
 		padding: 40px 0;
-		min-height: 440px;
+		width: 100%;
+		height: 100%;
 	}
 
 	.select-some__image {
