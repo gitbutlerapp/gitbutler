@@ -1,8 +1,6 @@
 export class User {
 	id!: number;
 	name: string | undefined;
-	given_name: string | undefined;
-	family_name: string | undefined;
 	email!: string | undefined;
 	picture?: string;
 	locale!: string | undefined;

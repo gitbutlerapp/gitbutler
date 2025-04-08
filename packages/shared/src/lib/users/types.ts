@@ -56,8 +56,6 @@ export function apiToUserMaybe(api: ApiUserMaybe): UserMaybe {
 }
 
 export type ApiUser = ApiUserSimple & {
-	given_name?: string;
-	family_name?: string;
 	picture?: string;
 	locale?: string;
 	access_token?: string;
