@@ -58,7 +58,12 @@
 	}: Props = $props();
 
 	const [aiService, stackService] = inject(AIService, StackService);
+	const allCommits = $derived(stackService.commits(projectId, stackId, branchName));
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
+
+	const isConflicted = $derived(
+		allCommits.current.data?.some((commit) => commit.hasConflicts) ?? false
+	);
 
 	const [removeBranch, branchRemovalOp] = stackService.removeBranch;
 
@@ -121,6 +126,20 @@
 		/>
 	</ContextMenuSection>
 	<ContextMenuSection>
+		<ContextMenuItem
+			label="Squash all commits"
+			testId={TestId.BranchHeaderContextMenu_SquashAllCommits}
+			onclick={async () => {
+				await stackService.squashAllCommits({
+					projectId,
+					stackId,
+					branchName
+				});
+				contextMenuEl?.close();
+			}}
+			disabled={isConflicted}
+			tooltip={isConflicted ? 'This branch has conflicts' : undefined}
+		/>
 		{#if descriptionOption}
 			<ContextMenuItem
 				label={`${!descriptionString ? 'Add' : 'Remove'} description`}
