@@ -510,6 +510,42 @@ export class StackService {
 	get moveCommitFileMutation() {
 		return this.api.endpoints.moveCommitFile.mutate;
 	}
+
+	/** Squash all the commits in a branch together */
+	async squashAllCommits({
+		projectId,
+		stackId,
+		branchName
+	}: {
+		projectId: string;
+		stackId: string;
+		branchName: string;
+	}) {
+		const allCommits = await this.api.endpoints.localAndRemoteCommits.fetch({
+			projectId,
+			stackId,
+			branchName
+		});
+
+		if (!allCommits?.data) return;
+
+		const localCommits = commitSelectors
+			.selectAll(allCommits.data)
+			.filter((commit) => commit.state.type !== 'Integrated');
+
+		if (localCommits.length <= 1) return;
+
+		const targetCommit = localCommits.at(-1)!;
+
+		const squashCommits = localCommits.slice(0, -1);
+
+		await this.squashCommitsMutation({
+			projectId,
+			stackId,
+			sourceCommitOids: squashCommits.map((commit) => commit.id),
+			targetCommitOid: targetCommit.id
+		});
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {

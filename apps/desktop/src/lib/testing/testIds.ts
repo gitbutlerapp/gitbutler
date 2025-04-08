@@ -12,7 +12,8 @@ export enum TestId {
 	BranchHeaderContextMenu_OpenPRInBrowser = 'branch-header-context-menu-open-pr-in-browser',
 	BranchHeaderContextMenu_CopyPRLink = 'branch-header-context-menu-copy-pr-link',
 	BranchHeaderRenameModal = 'branch-header-rename-modal',
-	BranchHeaderRenameModal_Warning = 'branch-header-rename-modal-warning'
+	BranchHeaderRenameModal_Warning = 'branch-header-rename-modal-warning',
+	BranchHeaderContextMenu_SquashAllCommits = 'branch-header-context-menu-squash-all-commits'
 }
 
 export enum ElementId {
