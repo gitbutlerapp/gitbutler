@@ -90,10 +90,11 @@
 	}
 
 	function startCommit() {
-		if (!defaultBranchName) return;
-		stackState?.selection.set({ branchName: defaultBranchName });
 		updateCommitSelection();
 		projectState.drawerPage.set('new-commit');
+		if (defaultBranchName) {
+			stackState?.selection.set({ branchName: defaultBranchName });
+		}
 	}
 
 	function toggleGlobalCheckbox() {

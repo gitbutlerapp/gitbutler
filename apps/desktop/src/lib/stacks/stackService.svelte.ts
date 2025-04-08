@@ -20,6 +20,7 @@ import type { TreeChange, TreeChanges } from '$lib/hunks/change';
 import type { DiffSpec, Hunk, HunkHeader } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackInfo } from '$lib/stacks/stack';
 import type { TauriCommandError } from '$lib/state/backendQuery';
+import type { UiState } from '$lib/state/uiState.svelte';
 import type { User } from '$lib/user/user';
 
 type BranchParams = {
@@ -100,6 +101,7 @@ export class StackService {
 	constructor(
 		private readonly backendApi: BackendApi,
 		private forgeFactory: DefaultForgeFactory,
+		private uiState: UiState,
 		private readonly posthog: PostHogWrapper
 	) {
 		this.api = injectEndpoints(backendApi);
@@ -380,8 +382,25 @@ export class StackService {
 		return this.api.endpoints.newBranch.useMutation();
 	}
 
-	get uncommit() {
-		return this.api.endpoints.uncommit.useMutation();
+	async uncommit(args: {
+		projectId: string;
+		stackId: string;
+		branchName: string;
+		commitId: string;
+	}) {
+		const commit = await this.api.endpoints.localAndRemoteCommits.fetch(args, {
+			transform: (result) => {
+				return commitSelectors.selectById(result, args.commitId);
+			}
+		});
+		const message = commit.data?.message;
+		if (message) {
+			const state = this.uiState.project(args.projectId);
+			const [title, description] = message.split('\n', 1);
+			state.commitDescription.set(title ? title.trim() : '');
+			state.commitDescription.set(description ? description.trim() : '');
+		}
+		return await this.api.endpoints.uncommit.mutate(args);
 	}
 
 	get insertBlankCommit() {

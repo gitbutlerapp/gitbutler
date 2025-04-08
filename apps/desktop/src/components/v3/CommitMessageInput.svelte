@@ -5,7 +5,7 @@
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
-	import { persistedCommitMessage, projectAiGenEnabled } from '$lib/config/config';
+	import { projectAiGenEnabled } from '$lib/config/config';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -16,7 +16,7 @@
 	type Props = {
 		existingCommitId?: string;
 		projectId: string;
-		stackId: string;
+		stackId?: string;
 		actionLabel: string;
 		action: () => void;
 		onCancel: () => void;
@@ -43,10 +43,11 @@
 	const aiService = getContext(AIService);
 	const promptService = getContext(PromptService);
 
-	const titleText = $derived(uiState.project(projectId).commitTitle);
-	const descriptionText = $derived(uiState.project(projectId).commitMessage);
-	const stackState = $derived(uiState.stack(stackId));
-	const stackSelection = $derived(stackState.selection.current);
+	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
+	const projectState = $derived(uiState.project(projectId));
+	const titleText = $derived(projectState.commitTitle);
+	const descriptionText = $derived(projectState.commitDescription);
+	const stackSelection = $derived(stackState?.selection);
 
 	const suggestionsHandler = new CommitSuggestions(aiService, uiState);
 	let commitSuggestionsPlugin = $state<ReturnType<typeof CommitSuggestionsPlugin>>();
@@ -70,14 +71,6 @@
 
 		if (isDefined(initialMessage)) {
 			descriptionText.current = initialMessage;
-		}
-	});
-
-	const commitMessage = persistedCommitMessage(projectId, stackId);
-
-	$effect(() => {
-		if (!existingCommitId) {
-			$commitMessage = [titleText.current, descriptionText.current].filter((a) => a).join('\n\n');
 		}
 	});
 
@@ -122,7 +115,7 @@
 				useEmojiStyle: false,
 				useBriefStyle: false,
 				commitTemplate: prompt,
-				branchName: stackSelection?.branchName,
+				branchName: stackSelection?.current?.branchName,
 				onToken: (t) => {
 					if (firstToken) {
 						beginGeneration();
@@ -145,7 +138,10 @@
 	let titleInput = $state<ReturnType<typeof Textbox>>();
 
 	export function getMessage() {
-		return $commitMessage;
+		if (descriptionText.current) {
+			return titleText.current + '\n\n' + descriptionText.current;
+		}
+		return titleText.current;
 	}
 </script>
 
@@ -165,7 +161,7 @@
 		placeholder="Commit title"
 		value={titleText.current}
 		oninput={(value: string) => {
-			titleText.set(value);
+			projectState.commitTitle.current = value;
 		}}
 		onkeydown={(e: KeyboardEvent) => {
 			if (e.key === 'Enter' || e.key === 'Tab') {
@@ -186,7 +182,6 @@
 		initialValue={descriptionText.current}
 		placeholder={'Your commit message'}
 		{projectId}
-		{stackId}
 		{onAiButtonClick}
 		{canUseAI}
 		{aiIsLoading}

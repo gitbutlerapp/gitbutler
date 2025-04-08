@@ -30,7 +30,7 @@ export type ProjectUiState = {
 	drawerPage: DrawerPage;
 	drawerFullScreen: boolean;
 	commitTitle: string;
-	commitMessage: string;
+	commitDescription: string;
 };
 
 export type GlobalUiState = {
@@ -60,7 +60,7 @@ export class UiState {
 		drawerPage: undefined,
 		drawerFullScreen: false,
 		commitTitle: '',
-		commitMessage: ''
+		commitDescription: ''
 	});
 
 	/** Properties that are globally scoped. */
