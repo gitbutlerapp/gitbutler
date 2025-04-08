@@ -39,8 +39,6 @@
 		changeDiffsResponse?.current.map((item) => item.data).filter(isDefined) ?? []
 	);
 
-	$inspect(changeDiffs);
-
 	$effect(() => {
 		suggestionsHandler.setStagedChanges(changeDiffs);
 	});
