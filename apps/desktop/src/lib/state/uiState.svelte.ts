@@ -41,6 +41,7 @@ export type GlobalUiState = {
 	useRichText: boolean;
 	aiSuggestionsOnType: boolean;
 	selectedTip: number | undefined;
+	channel: string | undefined;
 };
 
 /**
@@ -71,7 +72,8 @@ export class UiState {
 		drawerSplitViewWidth: 20,
 		useRichText: true,
 		aiSuggestionsOnType: false,
-		selectedTip: undefined
+		selectedTip: undefined,
+		channel: undefined
 	});
 
 	constructor(

@@ -31,7 +31,8 @@ const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	drawerSplitViewWidth: 20,
 	useRichText: true,
 	aiSuggestionsOnType: true,
-	selectedTip: undefined
+	selectedTip: undefined,
+	channel: undefined
 };
 
 export function getUiStateMock() {
