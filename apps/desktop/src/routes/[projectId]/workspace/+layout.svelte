@@ -1,6 +1,7 @@
 <script lang="ts">
 	import WorkspaceView from '$components/v3/WorkspaceView.svelte';
 	import StackTabs from '$components/v3/stackTabs/StackTabs.svelte';
+	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -64,9 +65,27 @@
 	<WorkspaceView {projectId} {stackId}>
 		{#snippet right({ viewportWidth })}
 			<StackTabs {projectId} selectedId={stackId} bind:width={tabsWidth} />
-			<div class="contents" class:rounded={tabsWidth! <= (remToPx(viewportWidth - 0.5) as number)}>
-				{@render children()}
-			</div>
+			{#if (stacks?.current.data?.length ?? 1) > 0}
+				<div
+					class="contents"
+					class:rounded={tabsWidth! <= (remToPx(viewportWidth - 0.5) as number)}
+				>
+					{@render children()}
+				</div>
+			{:else}
+				<div
+					class="no-stacks"
+					class:rounded={tabsWidth! <= (remToPx(viewportWidth - 0.5) as number)}
+				>
+					{@html noBranchesSvg}
+					<div class="no-stacks-text">
+						<p class="text-15 text-bold no-stacks-title">You have no branches</p>
+						<p class="text-13 no-stacks-caption">
+							Create a new branch for a feature, fix, or idea!
+						</p>
+					</div>
+				</div>
+			{/if}
 		{/snippet}
 	</WorkspaceView>
 {/if}
@@ -86,9 +105,43 @@
 			#ffffff00 0.6px
 		);
 		background-size: 6px 6px;
+	}
 
-		&.rounded {
-			border-radius: 0 var(--radius-ml) var(--radius-ml) var(--radius-ml);
-		}
+	.no-stacks {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		overflow: hidden;
+
+		align-items: center;
+		justify-content: center;
+
+		gap: 20px;
+
+		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+		border: 1px solid var(--clr-border-2);
+	}
+
+	.no-stacks-text {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+
+		align-items: center;
+		text-align: center;
+
+		width: 195px;
+	}
+
+	.no-stacks-title {
+		color: var(--clr-scale-ntrl-40);
+	}
+
+	.no-stacks-caption {
+		color: var(--clr-text-2);
+	}
+
+	.rounded {
+		border-radius: 0 var(--radius-ml) var(--radius-ml) var(--radius-ml);
 	}
 </style>

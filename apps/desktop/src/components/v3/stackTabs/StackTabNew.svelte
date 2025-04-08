@@ -25,6 +25,9 @@
 	const stackService = getContext(StackService);
 	const [createNewStack, stackCreation] = stackService.newStack;
 	const [createNewBranch, branchCreation] = stackService.newBranch;
+	const stacks = stackService.stacks(projectId);
+
+	const noStacks = $derived(stacks.current.data?.length === 0);
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName = $state<string>();
@@ -105,10 +108,15 @@
 	aria-label="new stack"
 	type="button"
 	class="new-stack-btn"
+	class:no-stacks={noStacks}
 	onclick={() => createRefModal?.show()}
 	bind:this={el}
 	onkeydown={handleArrowNavigation}
 >
+	{#if noStacks}
+		<p class="text-13">Create new branch</p>
+	{/if}
+
 	<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
 		<path
 			d="M0 10H20M10 0L10 20"
@@ -212,13 +220,14 @@
 		border-bottom: none;
 		border-radius: 0 var(--radius-ml) 0 0;
 		height: 100%;
-		padding: 0 15px;
+		padding: 12px 15px;
 		background: var(--clr-stack-tab-inactive);
 		color: var(--clr-text-2);
 		--plus-icon-opacity: 0.8;
 		transition:
 			color var(--transition-fast),
 			background var(--transition-fast);
+		gap: 10px;
 
 		&:hover,
 		&:focus {
@@ -232,6 +241,10 @@
 		&:focus {
 			outline: none;
 			background: var(--clr-stack-tab-active);
+		}
+
+		&.no-stacks {
+			border-top-left-radius: var(--radius-ml);
 		}
 	}
 
