@@ -1,0 +1,9 @@
+{
+	"name": "@gitbutler/crates",
+	"description": "Required for Vercel / pnpm-workspace CI",
+	"scripts": {
+		"build:desktop": "pnpm --workspace-root build:desktop",
+		"dev:internal-tauri": "pnpm --workspace-root dev:internal-tauri"
+	},
+	"packageManager": "pnpm@9.5.0"
+}

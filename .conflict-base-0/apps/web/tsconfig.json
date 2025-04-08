@@ -1,0 +1,37 @@
+{
+	"extends": "./.svelte-kit/tsconfig.json",
+	"compilerOptions": {
+		"target": "ES2022",
+		"lib": ["dom", "dom.iterable", "ES2021"],
+		"allowJs": true,
+		"checkJs": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"strict": true,
+		"experimentalDecorators": true,
+		"declaration": true,
+		"composite": true,
+		"declarationMap": true
+	},
+	// Path aliases are handled by https://kit.svelte.dev/docs/configuration#alias
+	// except $lib which is handled by https://kit.svelte.dev/docs/configuration#files
+	"include": [
+		".svelte-kit/ambient.d.ts",
+		".svelte-kit/non-ambient.d.ts",
+		".svelte-kit/types/**/$types.d.ts",
+		"vite.config.js",
+		"vite.config.ts",
+		"postcss.config.js",
+		"playwright.config.ts",
+		"src/**/*.js",
+		"src/**/*.ts",
+		"src/**/*.svelte",
+		"tests/**/*.js",
+		"tests/**/*.ts",
+		"tests/**/*.svelte",
+		"vitest-setup.js"
+	]
+}
