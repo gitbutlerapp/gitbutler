@@ -304,8 +304,12 @@ export const selectChannelMessages = createSelector(
 	(rootState, channel: string) => rootState.channels[channel]?.logs
 );
 
-export const selectChannels = createSelector([selectSelf], (rootState) => rootState.channels);
+export const getChannels = createSelector([selectSelf], (rootState) => rootState.channels);
 export const getConnectionState = createSelector([selectSelf], (rootState) => rootState.connection);
+
+export const getUnreadCount = createSelector([getChannels], (channels) =>
+	Object.values(channels).reduce((prev, curr) => prev + curr.unread || 0, 0)
+);
 
 export const { setConnectionState, markChannelOpen } = ircSlice.actions;
 

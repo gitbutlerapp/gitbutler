@@ -2,10 +2,11 @@
 	import SyncButton from '$components/SyncButton.svelte';
 	import IntegrateUpstreamModal from '$components/v3/IntegrateUpstreamModal.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
+	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
-	import { projectPath } from '$lib/routes/routes.svelte';
+	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -23,6 +24,7 @@
 
 	const projectsService = getContext(ProjectsService);
 	const baseBranchService = getContext(BaseBranchService);
+	const ircService = getContext(IrcService);
 	const project = maybeGetContext(Project);
 	const selectedProjectId: string | undefined = $derived(project ? project.id : undefined);
 	const baseReponse = $derived(
@@ -45,7 +47,8 @@
 	let newProjectLoading = $state(false);
 	let cloneProjectLoading = $state(false);
 
-	let isNotificationsUnread = $state(false);
+	const unreadCount = $derived(ircService.unreadCount());
+	const isNotificationsUnread = $derived(unreadCount.current > 0);
 
 	function openModal() {
 		modal?.show();
@@ -129,8 +132,7 @@
 		<NotificationButton
 			hasUnread={isNotificationsUnread}
 			onclick={() => {
-				// TODO: implement notifications
-				isNotificationsUnread = !isNotificationsUnread;
+				goto(ircPath(projectId));
 			}}
 		/>
 	</div>

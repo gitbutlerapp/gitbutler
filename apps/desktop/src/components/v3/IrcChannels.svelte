@@ -17,14 +17,14 @@
 <div class="channels text-13">
 	<button
 		type="button"
-		class="channel"
+		class="channel server"
 		onclick={() => {
 			onselect(undefined);
 		}}
 	>
 		{ircClient.server}
 	</button>
-	{#each Object.keys(channels) as name}
+	{#each Object.keys(channels).sort() as name}
 		{@const channel = channels[name]}
 		<button
 			type="button"
@@ -48,6 +48,9 @@
 		padding: 12px 14px;
 		border-right: 1px solid var(--clr-border-3);
 		overflow: hidden;
+	}
+	.server {
+		margin-bottom: 6px;
 	}
 	.channel {
 		display: flex;

@@ -1,15 +1,17 @@
 import {
+	getUnreadCount,
 	ircSlice,
 	markChannelOpen,
 	messageChannel,
 	processIncoming,
 	selectChannelMessages,
-	selectChannels,
+	getChannels,
 	selectSystemMessages,
 	setNick,
 	setUser
 } from '$lib/irc/ircSlice';
 import { showError } from '$lib/notifications/toasts';
+import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import persistReducer from 'redux-persist/es/persistReducer';
 import storage from 'redux-persist/lib/storage';
 import type { IrcClient, ReadyState } from '$lib/irc/ircClient.svelte';
@@ -112,11 +114,16 @@ export class IrcService {
 	}
 
 	getChannels() {
-		const result = $derived(selectChannels(this.state));
+		const result = $derived(getChannels(this.state));
 		return result;
 	}
 
 	markOpen(channel: string, open: boolean) {
 		return this.dispatch(markChannelOpen({ name: channel, open }));
+	}
+
+	unreadCount() {
+		const result = $derived(getUnreadCount(this.state));
+		return reactive(() => result);
 	}
 }
