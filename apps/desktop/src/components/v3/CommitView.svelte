@@ -123,6 +123,7 @@
 					initialTitle={getCommitTitile(commit.message)}
 					initialMessage={getCommitDescription(commit.message)}
 					loading={messageUpdateResult.current.isLoading}
+					existingCommitId={commit.id}
 				/>
 			</Drawer>
 		{:else}

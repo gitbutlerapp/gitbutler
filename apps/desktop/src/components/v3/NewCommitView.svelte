@@ -109,6 +109,5 @@
 		loading={commitCreation.current.isLoading}
 		{initialTitle}
 		{initialMessage}
-		isNewCommit
 	/>
 </Drawer>
