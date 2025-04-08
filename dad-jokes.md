@@ -31,4 +31,9 @@
   <b>SATA-N</b>
 </details>
 
+<details>
+  <summary>How do billboards talk?</summary>
+  <b>Sign language</b>
+</details>
+
 <br>
