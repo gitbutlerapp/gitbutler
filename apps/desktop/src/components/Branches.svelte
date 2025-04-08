@@ -90,6 +90,7 @@
 	}
 
 	function openSearch() {
+		searching = true;
 		setTimeout(() => {
 			searchEl?.focus();
 		}, 0);
