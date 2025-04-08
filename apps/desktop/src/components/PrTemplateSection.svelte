@@ -10,10 +10,10 @@
 
 	interface Props {
 		templates: string[];
-		onselected: (body: string) => void;
+		selectedTemplate: string | undefined;
 	}
 
-	const { templates, onselected }: Props = $props();
+	let { templates, selectedTemplate = $bindable() }: Props = $props();
 
 	const forge = getContext(DefaultForgeFactory);
 	// TODO: Rename or refactor this service.
@@ -24,41 +24,51 @@
 	// list of available template.
 	const lastTemplate = persisted<string | undefined>(undefined, `last-template-${project.id}`);
 
-	let useTemplate = $state(false);
+	function handleToggle() {
+		if (selectedTemplate) {
+			setTemplate(undefined);
+			return;
+		}
 
-	async function setTemplate(path: string) {
+		if (templates.length === 0) {
+			return;
+		}
+
+		const path = templates.at(0);
+		if (!path) {
+			// Should not happen.
+			return;
+		}
+		setTemplate(path);
+	}
+
+	async function setTemplate(path: string | undefined) {
 		lastTemplate.set(path);
 		loadAndEmit(path);
 	}
 
-	async function loadAndEmit(path: string) {
+	async function loadAndEmit(path: string | undefined) {
 		if (path) {
 			const template = await templateService.getContent(forge.current.name, path);
 			if (template) {
-				onselected(template);
+				selectedTemplate = template;
 			}
+			return;
 		}
-	}
 
-	$effect(() => {
-		if (templates) {
-			if ($lastTemplate && templates.includes($lastTemplate)) {
-				loadAndEmit($lastTemplate);
-			} else if (templates.length === 1) {
-				const path = templates.at(0);
-				if (path) {
-					loadAndEmit(path);
-					lastTemplate.set(path);
-				}
-			}
-		}
-	});
+		selectedTemplate = undefined;
+	}
 </script>
 
 <div class="pr-template__wrap">
 	<label class="pr-template__toggle" for="pr-template-toggle">
 		<span class="text-13 text-semibold">Use template</span>
-		<Toggle id="pr-template-toggle" bind:checked={useTemplate} disabled={templates.length === 0} />
+		<Toggle
+			id="pr-template-toggle"
+			checked={!!selectedTemplate}
+			disabled={templates.length === 0}
+			onclick={handleToggle}
+		/>
 	</label>
 	<Select
 		value={$lastTemplate}
@@ -66,7 +76,7 @@
 		placeholder={templates.length > 0 ? 'Choose template' : 'No PR templates found ¯\\_(ツ)_/¯'}
 		flex="1"
 		searchable
-		disabled={templates.length === 0 || !useTemplate}
+		disabled={templates.length === 0 || !selectedTemplate}
 		onselect={setTemplate}
 	>
 		{#snippet itemSnippet({ item, highlighted })}
