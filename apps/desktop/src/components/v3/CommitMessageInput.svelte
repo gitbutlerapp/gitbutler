@@ -130,6 +130,26 @@
 		generatedText = '';
 	}
 
+	function geDiffInput(): DiffInput[] {
+		const diffInput: DiffInput[] = [];
+
+		for (const diff of changeDiffs) {
+			const filePath = diff.path;
+			const diffStringBuffer: string[] = [];
+			if (diff.diff.type !== 'Patch') continue;
+			for (const hunk of diff.diff.subject.hunks) {
+				diffStringBuffer.push(hunk.diff);
+			}
+
+			const diffString = diffStringBuffer.join('\n');
+			diffInput.push({
+				filePath,
+				diff: diffString
+			});
+		}
+		return diffInput;
+	}
+
 	async function onAiButtonClick() {
 		if (aiIsLoading) return;
 
@@ -138,22 +158,7 @@
 		await tick();
 		try {
 			const prompt = promptService.selectedCommitPrompt(projectId);
-			const diffInput: DiffInput[] = [];
-
-			for (const diff of changeDiffs) {
-				const filePath = diff.path;
-				const diffStringBuffer: string[] = [];
-				if (diff.diff.type !== 'Patch') continue;
-				for (const hunk of diff.diff.subject.hunks) {
-					diffStringBuffer.push(hunk.diff);
-				}
-
-				const diffString = diffStringBuffer.join('\n');
-				diffInput.push({
-					filePath,
-					diff: diffString
-				});
-			}
+			const diffInput = geDiffInput();
 
 			let firstToken = true;
 
