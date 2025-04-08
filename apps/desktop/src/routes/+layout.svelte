@@ -25,6 +25,7 @@
 	import { AppSettings } from '$lib/config/appSettings';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { GitConfigService } from '$lib/config/gitConfigService';
+	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
 	import { FileService } from '$lib/files/fileService';
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -33,6 +34,8 @@
 	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { IrcClient } from '$lib/irc/ircClient.svelte';
+	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { PromptService } from '$lib/prompt/promptService';
@@ -92,7 +95,35 @@
 	const accessToken = $derived($user?.github_access_token);
 	$effect(() => gitHubClient.setToken(accessToken));
 
-	const clientState = new ClientState(data.tauri, gitHubClient, gitLabClient, data.posthog);
+	const ircClient = new IrcClient();
+	setContext(IrcClient, ircClient);
+
+	const clientState = new ClientState(
+		data.tauri,
+		gitHubClient,
+		gitLabClient,
+		ircClient,
+		data.posthog
+	);
+
+	const ircService = new IrcService(clientState, clientState.dispatch, ircClient);
+	setContext(IrcService, ircService);
+
+	$effect(() => {
+		if ($user?.login && ircClient.connected) {
+			ircService.setWhoInfo({ nick: $user.login });
+		}
+	});
+
+	$effect(() => {
+		if (!$ircEnabled || !$ircServer) {
+			return;
+		}
+		ircClient.connect($ircServer);
+		return () => {
+			ircService.disconnect();
+		};
+	});
 
 	const changeSelection = $derived(clientState.changeSelection);
 	const changeSelectionService = new ChangeSelectionService(
@@ -148,6 +179,8 @@
 
 	const branchService = new BranchService(clientState['backendApi']);
 	setContext(BranchService, branchService);
+
+	clientState.initPersist();
 
 	setContext(DefaultForgeFactory, forgeFactory);
 

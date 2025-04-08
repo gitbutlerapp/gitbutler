@@ -11,4 +11,5 @@ export class User {
 	supporter!: boolean;
 	github_access_token: string | undefined;
 	github_username: string | undefined;
+	login?: string;
 }
