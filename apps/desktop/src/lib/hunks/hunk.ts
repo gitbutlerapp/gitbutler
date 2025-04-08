@@ -82,6 +82,14 @@ type DeltaLineGroup = {
 	lines: LineId[];
 };
 
+function getAnchorLineNumber(lineNumber: number, action: 'discard' | 'commit'): number {
+	switch (action) {
+		case 'discard':
+			return lineNumber;
+		case 'commit':
+			return 0;
+	}
+}
 /**
  * Turn a grouping of lines into a hunk header.
  *
@@ -89,7 +97,8 @@ type DeltaLineGroup = {
  */
 function lineGroupsToHunkHeader(
 	lineGroup: DeltaLineGroup,
-	parentHunkHeader: HunkHeader
+	parentHunkHeader: HunkHeader,
+	action: 'discard' | 'commit'
 ): HunkHeader {
 	const lineCount = lineGroup.lines.length;
 	if (lineCount === 0) {
@@ -100,8 +109,8 @@ function lineGroupsToHunkHeader(
 
 	switch (lineGroup.type) {
 		case 'added': {
-			const oldStart = parentHunkHeader.oldStart;
-			const oldLines = parentHunkHeader.oldLines;
+			const oldStart = getAnchorLineNumber(parentHunkHeader.oldStart, action);
+			const oldLines = getAnchorLineNumber(parentHunkHeader.oldLines, action);
 			if (firstLine.newLine === undefined) {
 				throw new Error('Line has no new line number');
 			}
@@ -110,8 +119,8 @@ function lineGroupsToHunkHeader(
 			return { oldStart, oldLines, newStart, newLines };
 		}
 		case 'removed': {
-			const newStart = parentHunkHeader.newStart;
-			const newLines = parentHunkHeader.newLines;
+			const newStart = getAnchorLineNumber(parentHunkHeader.newStart, action);
+			const newLines = getAnchorLineNumber(parentHunkHeader.newLines, action);
 			if (firstLine.oldLine === undefined) {
 				throw new Error('Line has no old line number');
 			}
@@ -190,14 +199,18 @@ export function extractLineGroups(lineIds: LineId[], diff: string): [DeltaLineGr
  * Iterate over the lines of the parsed diff, match them against the given line IDs
  * in order to ensure the correct order of the lines.
  */
-export function lineIdsToHunkHeaders(lineIds: LineId[], diff: string): HunkHeader[] {
+export function lineIdsToHunkHeaders(
+	lineIds: LineId[],
+	diff: string,
+	action: 'discard' | 'commit'
+): HunkHeader[] {
 	if (lineIds.length === 0) {
 		return [];
 	}
 
 	const [lineGroups, parentHunkHeader] = extractLineGroups(lineIds, diff);
 
-	return lineGroups.map((lineGroup) => lineGroupsToHunkHeader(lineGroup, parentHunkHeader));
+	return lineGroups.map((lineGroup) => lineGroupsToHunkHeader(lineGroup, parentHunkHeader, action));
 }
 
 /** A hunk as used in UnifiedDiff. */

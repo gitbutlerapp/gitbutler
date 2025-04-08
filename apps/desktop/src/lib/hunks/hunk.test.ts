@@ -4,7 +4,8 @@ import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 
 describe.concurrent('lineIdsToHunkHeaders', () => {
 	test('should return empty array when given no line IDs', () => {
-		expect(lineIdsToHunkHeaders([], '')).toEqual([]);
+		expect(lineIdsToHunkHeaders([], '', 'discard')).toEqual([]);
+		expect(lineIdsToHunkHeaders([], '', 'commit')).toEqual([]);
 	});
 
 	test('should return a single hunk header when given a single line ID', () => {
@@ -14,8 +15,11 @@ describe.concurrent('lineIdsToHunkHeaders', () => {
 - line 2
   line 3
 `;
-		expect(lineIdsToHunkHeaders(lineIds, hunkDiff)).toEqual([
+		expect(lineIdsToHunkHeaders(lineIds, hunkDiff, 'discard')).toEqual([
 			{ oldStart: 2, oldLines: 1, newStart: 1, newLines: 2 }
+		]);
+		expect(lineIdsToHunkHeaders(lineIds, hunkDiff, 'commit')).toEqual([
+			{ oldStart: 2, oldLines: 1, newStart: 0, newLines: 0 }
 		]);
 	});
 
@@ -42,9 +46,13 @@ describe.concurrent('lineIdsToHunkHeaders', () => {
 			{ oldLine: undefined, newLine: 6 }, // new 6
 			{ oldLine: undefined, newLine: 7 } // new 7
 		];
-		expect(lineIdsToHunkHeaders(lineIds, hunkDiff)).toEqual([
+		expect(lineIdsToHunkHeaders(lineIds, hunkDiff, 'discard')).toEqual([
 			{ oldStart: 4, oldLines: 1, newStart: 1, newLines: 12 },
 			{ oldStart: 1, oldLines: 10, newStart: 6, newLines: 2 }
+		]);
+		expect(lineIdsToHunkHeaders(lineIds, hunkDiff, 'commit')).toEqual([
+			{ oldStart: 4, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 6, newLines: 2 }
 		]);
 	});
 
@@ -73,11 +81,17 @@ describe.concurrent('lineIdsToHunkHeaders', () => {
 			{ oldLine: undefined, newLine: 6 }, // new 6
 			{ oldLine: undefined, newLine: 7 } // new 7
 		];
-		expect(lineIdsToHunkHeaders(lineIds, hunkDiff)).toEqual([
+		expect(lineIdsToHunkHeaders(lineIds, hunkDiff, 'discard')).toEqual([
 			{ oldStart: 4, oldLines: 1, newStart: 1, newLines: 12 },
 			{ oldStart: 1, oldLines: 10, newStart: 4, newLines: 1 },
 			{ oldStart: 6, oldLines: 1, newStart: 1, newLines: 12 },
 			{ oldStart: 1, oldLines: 10, newStart: 6, newLines: 2 }
+		]);
+		expect(lineIdsToHunkHeaders(lineIds, hunkDiff, 'commit')).toEqual([
+			{ oldStart: 4, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 4, newLines: 1 },
+			{ oldStart: 6, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 6, newLines: 2 }
 		]);
 	});
 
@@ -106,11 +120,17 @@ describe.concurrent('lineIdsToHunkHeaders', () => {
 			{ oldLine: undefined, newLine: 6 }, // new 6
 			{ oldLine: 4, newLine: undefined } // 4
 		];
-		expect(lineIdsToHunkHeaders(lineIds, hunkDiff)).toEqual([
+		expect(lineIdsToHunkHeaders(lineIds, hunkDiff, 'discard')).toEqual([
 			{ oldStart: 4, oldLines: 1, newStart: 1, newLines: 12 },
 			{ oldStart: 1, oldLines: 10, newStart: 4, newLines: 1 },
 			{ oldStart: 6, oldLines: 1, newStart: 1, newLines: 12 },
 			{ oldStart: 1, oldLines: 10, newStart: 6, newLines: 2 }
+		]);
+		expect(lineIdsToHunkHeaders(lineIds, hunkDiff, 'commit')).toEqual([
+			{ oldStart: 4, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 4, newLines: 1 },
+			{ oldStart: 6, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 6, newLines: 2 }
 		]);
 	});
 });

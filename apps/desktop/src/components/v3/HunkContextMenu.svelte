@@ -82,7 +82,7 @@
 				{
 					previousPathBytes,
 					pathBytes: change.path,
-					hunkHeaders: lineIdsToHunkHeaders(item.selectedLines, item.hunk.diff)
+					hunkHeaders: lineIdsToHunkHeaders(item.selectedLines, item.hunk.diff, 'discard')
 				}
 			]
 		});

@@ -33,10 +33,11 @@
 	const drawerPage = $derived(projectState.drawerPage.current);
 	const isCommiting = $derived(drawerPage === 'new-commit');
 
-	const [diffService, changeSelection, idSelection] = inject(
+	const [diffService, changeSelection, idSelection, lineSelection] = inject(
 		DiffService,
 		ChangeSelectionService,
-		IdSelection
+		IdSelection,
+		LineSelection
 	);
 	const diffResult = $derived(diffService.getDiff(projectId, change));
 
@@ -46,8 +47,6 @@
 		path: change.path,
 		pathBytes: change.pathBytes
 	});
-
-	const lineSelection = new LineSelection(changeSelection);
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
