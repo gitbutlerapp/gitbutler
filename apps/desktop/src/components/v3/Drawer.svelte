@@ -63,6 +63,7 @@
 	class="drawer"
 	bind:this={drawerDiv}
 	style:height
+	style:min-height="{minHeight}rem"
 	use:focusable={{ id: 'commit', parentId: 'main' }}
 >
 	<div class="drawer-wrap">

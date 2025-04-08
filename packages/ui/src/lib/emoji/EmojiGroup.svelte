@@ -1,45 +1,57 @@
 <script lang="ts">
-	import Button from '$lib/Button.svelte';
-	import DelayedMount from '$lib/lazyness/DelayedMount.svelte';
+	import EmojiButton from '$lib/emoji/EmojiButton.svelte';
+	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import type { EmojiGroup, EmojiInfo } from '$lib/emoji/utils';
 
 	type Props = {
-		index: number;
-		scrollTop: number;
 		group: EmojiGroup;
 		handleEmojiClick: (emoji: EmojiInfo) => void;
 	};
 
-	let { index, group, handleEmojiClick }: Props = $props();
-	let groupContainer = $state<HTMLDivElement>();
+	let { group, handleEmojiClick }: Props = $props();
 
-	const delay = $derived(index > 1 ? 500 : 0);
+	let isInViewport = $state(false);
 </script>
 
-<div bind:this={groupContainer} class="emoji-picker__group" id="emoji-group-{group.key}">
-	<DelayedMount {delay}>
-		{#each group.emojis as emoji, index (emoji.unicode)}
-			{@const sectionIndex = Math.floor(index / 30)}
-			{@const sectionDelay = sectionIndex * 300}
-			<DelayedMount delay={sectionDelay}>
-				<div class="emoji">
-					<Button kind="ghost" onclick={() => handleEmojiClick(emoji)}>
-						<p class="text-16">{emoji.unicode}</p>
-					</Button>
-				</div>
-			</DelayedMount>
+<div
+	use:intersectionObserver={{
+		callback: (entry) => {
+			if (entry?.isIntersecting) {
+				isInViewport = true;
+			}
+		},
+		options: {
+			threshold: 0.5,
+			root: null
+		}
+	}}
+	class="emoji-picker__group"
+	class:min-height={group.key !== 'recently-used'}
+	id="emoji-group-{group.key}"
+>
+	{#if isInViewport}
+		{#each group.emojis as emoji}
+			<EmojiButton emoji={emoji.unicode} onclick={() => handleEmojiClick(emoji)} />
 		{/each}
-	</DelayedMount>
+	{/if}
 </div>
 
 <style lang="postcss">
 	.emoji-picker__group {
-		display: flex;
-		flex-wrap: wrap;
-		padding: 8px 14px;
-		gap: 3px;
+		display: grid;
+		align-items: center;
+		justify-items: center;
+		grid-template-columns: repeat(7, 1fr);
+		grid-auto-rows: 1fr;
+		padding: 8px 6px;
+		row-gap: 4px;
+
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-3);
+		}
+
+		&.min-height {
+			min-height: 200px;
 		}
 	}
 </style>

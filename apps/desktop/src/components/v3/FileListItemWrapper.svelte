@@ -12,6 +12,7 @@
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
+	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 	import type { TreeChange } from '$lib/hunks/change';
 
 	interface Props {
@@ -94,7 +95,9 @@
 </script>
 
 <div
+	use:stickyHeader
 	class="filelistitem-wrapper"
+	class:filelistitem-header={isHeader}
 	bind:this={draggableEl}
 	use:draggableChips={{
 		label: getFilename(change.path),
@@ -151,3 +154,10 @@
 		/>
 	{/if}
 </div>
+
+<style lang="postcss">
+	.filelistitem-wrapper {
+		display: flex;
+		flex-direction: column;
+	}
+</style>

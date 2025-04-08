@@ -112,60 +112,57 @@
 		}}
 		onkeydown={onKeyDown}
 	>
-		<div
+		<form
 			use:focusTrap
-			class="modal-content"
+			class="modal-form"
 			class:medium={width === 'medium'}
 			class:large={width === 'large'}
 			class:small={width === 'small'}
 			class:xsmall={width === 'xsmall'}
 			style:width={typeof width === 'number' ? pxToRem(width) : undefined}
+			onsubmit={(e) => {
+				e.preventDefault();
+				onSubmit?.(close, item);
+			}}
 		>
-			<form
-				onsubmit={(e) => {
-					e.preventDefault();
-					onSubmit?.(close, item);
-				}}
-			>
-				{#if closeButton}
-					<div class="close-btn">
-						<Button type="button" kind="ghost" icon="cross" onclick={close}></Button>
-					</div>
-				{/if}
+			{#if title}
+				<div class="modal__header">
+					{#if type === 'warning'}
+						<Icon name="warning" color="warning" />
+					{/if}
 
-				{#if title}
-					<div class="modal__header">
-						{#if type === 'warning'}
-							<Icon name="warning" color="warning" />
-						{/if}
+					{#if type === 'error'}
+						<Icon name="error" color="error" />
+					{/if}
 
-						{#if type === 'error'}
-							<Icon name="error" color="error" />
-						{/if}
+					{#if type === 'success'}
+						<Icon name="success" color="success" />
+					{/if}
 
-						{#if type === 'success'}
-							<Icon name="success" color="success" />
-						{/if}
+					<h2 class="text-14 text-bold">
+						{title}
+					</h2>
 
-						<h2 class="text-14 text-bold">
-							{title}
-						</h2>
-					</div>
-				{/if}
-
-				<div class="modal__body custom-scrollbar text-13 text-body" class:no-padding={noPadding}>
-					{#if children}
-						{@render children(item, close)}
+					{#if closeButton}
+						<div class="close-btn">
+							<Button type="button" kind="ghost" icon="cross" onclick={close}></Button>
+						</div>
 					{/if}
 				</div>
+			{/if}
 
-				{#if controls}
-					<div class="modal__footer">
-						{@render controls(close, item)}
-					</div>
+			<div class="modal__body text-13 text-body" class:no-padding={noPadding}>
+				{#if children}
+					{@render children(item, close)}
 				{/if}
-			</form>
-		</div>
+			</div>
+
+			{#if controls}
+				<div class="modal__footer">
+					{@render controls(close, item)}
+				</div>
+			{/if}
+		</form>
 	</div>
 {/if}
 
@@ -189,7 +186,7 @@
 	.modal-container.open {
 		animation: dialog-fade-in 0.15s ease-out forwards;
 
-		& .modal-content {
+		& .modal-form {
 			animation: dialog-zoom-in 0.25s cubic-bezier(0.34, 1.35, 0.7, 1) forwards;
 		}
 	}
@@ -197,18 +194,12 @@
 	.modal-container.closing {
 		animation: dialog-fade-out 0.05s ease-out forwards;
 
-		& .modal-content {
+		& .modal-form {
 			animation: dialog-zoom-out 0.1s cubic-bezier(0.34, 1.35, 0.7, 1) forwards;
 		}
 	}
 
-	.close-btn {
-		position: absolute;
-		top: 10px;
-		right: 10px;
-	}
-
-	.modal-content {
+	.modal-form {
 		display: flex;
 		flex-direction: column;
 
@@ -221,15 +212,26 @@
 	}
 
 	.modal__header {
+		position: relative;
 		display: flex;
-		padding: 16px 16px 0;
+		align-items: center;
+		padding: 16px;
+		padding-bottom: 0;
 		gap: 8px;
 	}
 
+	.close-btn {
+		position: absolute;
+		top: 10px;
+		right: 10px;
+	}
+
 	.modal__body {
-		overflow: hidden;
+		display: flex;
+		flex-direction: column;
 		padding: 16px;
 		line-height: 160%;
+		overflow: hidden;
 
 		&.no-padding {
 			padding: 0;
@@ -242,6 +244,8 @@
 	}
 
 	.modal__footer {
+		position: sticky;
+		bottom: 0;
 		display: flex;
 		width: 100%;
 		justify-content: flex-end;
@@ -291,19 +295,19 @@
 
 	/* MODIFIERS */
 
-	.modal-content.medium {
+	.modal-form.medium {
 		width: 580px;
 	}
 
-	.modal-content.large {
+	.modal-form.large {
 		width: 840px;
 	}
 
-	.modal-content.small {
+	.modal-form.small {
 		width: 380px;
 	}
 
-	.modal-content.xsmall {
+	.modal-form.xsmall {
 		width: 310px;
 	}
 </style>
