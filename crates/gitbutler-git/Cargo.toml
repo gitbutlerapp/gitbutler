@@ -40,7 +40,7 @@ tokio = { workspace = true, optional = true, features = [
 uuid = { workspace = true, features = ["fast-rng"] }
 rand.workspace = true
 futures.workspace = true
-sysinfo = "0.33.1"
+sysinfo = "0.34.2"
 gix-path = "0.10.11"
 
 [target."cfg(unix)".dependencies]
