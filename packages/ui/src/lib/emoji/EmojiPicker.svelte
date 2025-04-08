@@ -1,6 +1,4 @@
 <script lang="ts">
-	import Button from '$lib/Button.svelte';
-	import Icon from '$lib/Icon.svelte';
 	import Textbox from '$lib/Textbox.svelte';
 	import EmojiButton from '$lib/emoji/EmojiButton.svelte';
 	import EmojiGroup from '$lib/emoji/EmojiGroup.svelte';
@@ -22,7 +20,6 @@
 	const groups = getEmojiGroups();
 	let selectedGroup = $state<EmojiGroupKey>('recently-used');
 	let searchVal = $state<string>();
-	let scrollTop = $state<number>(0);
 
 	const searchResults = $derived.by(() => {
 		if (!searchVal) return undefined;
@@ -70,26 +67,28 @@
 		</div>
 	</div>
 
-	<div class="emoji-picker__body-wrapper hide-native-scrollbar">
-		<div class="emoji-picker__body">
-			{#if searchVal && searchResults}
-				{#if searchResults.length === 0}
-					<div class="emoji-picker__placeholder">
-						<span class="text-13">No emojis found ¯\_(ツ)_/¯ </span>
-					</div>
+	<div class="emoji-picker__body-wrapper">
+		<ScrollableContainer whenToShow="scroll">
+			<div class="emoji-picker__body">
+				{#if searchVal && searchResults}
+					{#if searchResults.length === 0}
+						<div class="emoji-picker__placeholder">
+							<span class="text-13">No emojis found ¯\_(ツ)_/¯ </span>
+						</div>
+					{:else}
+						<div class="emoji-picker__group">
+							{#each searchResults as emoji}
+								<EmojiButton emoji={emoji.unicode} onclick={() => handleEmojiClick(emoji)} />
+							{/each}
+						</div>
+					{/if}
 				{:else}
-					<div class="emoji-picker__group">
-						{#each searchResults as emoji}
-							<EmojiButton emoji={emoji.unicode} onclick={() => handleEmojiClick(emoji)} />
-						{/each}
-					</div>
+					{#each groups as group}
+						<EmojiGroup {group} {handleEmojiClick} />
+					{/each}
 				{/if}
-			{:else}
-				{#each groups as group, index}
-					<EmojiGroup {group} {scrollTop} {handleEmojiClick} {index} />
-				{/each}
-			{/if}
-		</div>
+			</div>
+		</ScrollableContainer>
 	</div>
 </div>
 
@@ -98,7 +97,7 @@
 		display: flex;
 		flex-direction: column;
 		width: 280px;
-		height: 288px;
+		height: 300px;
 		margin: 1px;
 		min-height: 0;
 
@@ -166,7 +165,7 @@
 	.emoji-picker__body-wrapper {
 		flex-grow: 1;
 		min-height: 0;
-		overflow: scroll;
+		overflow: hidden;
 	}
 
 	.emoji-picker__body {

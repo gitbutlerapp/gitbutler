@@ -1,31 +1,39 @@
 <script lang="ts">
 	import EmojiButton from '$lib/emoji/EmojiButton.svelte';
-	import DelayedMount from '$lib/lazyness/DelayedMount.svelte';
+	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import type { EmojiGroup, EmojiInfo } from '$lib/emoji/utils';
 
 	type Props = {
-		index: number;
-		scrollTop: number;
 		group: EmojiGroup;
 		handleEmojiClick: (emoji: EmojiInfo) => void;
 	};
 
-	let { index, group, handleEmojiClick }: Props = $props();
-	let groupContainer = $state<HTMLDivElement>();
+	let { group, handleEmojiClick }: Props = $props();
 
-	const delay = $derived(index > 1 ? 500 : 0);
+	let isInViewport = $state(false);
 </script>
 
-<div bind:this={groupContainer} class="emoji-picker__group" id="emoji-group-{group.key}">
-	<DelayedMount {delay}>
-		{#each group.emojis as emoji, index (emoji.unicode)}
-			{@const sectionIndex = Math.floor(index / 30)}
-			{@const sectionDelay = sectionIndex * 300}
-			<DelayedMount delay={sectionDelay}>
-				<EmojiButton emoji={emoji.unicode} onclick={() => handleEmojiClick(emoji)} />
-			</DelayedMount>
+<div
+	use:intersectionObserver={{
+		callback: (entry) => {
+			if (entry?.isIntersecting) {
+				isInViewport = true;
+			}
+		},
+		options: {
+			threshold: 0.5,
+			root: null
+		}
+	}}
+	class="emoji-picker__group"
+	class:min-height={group.key !== 'recently-used'}
+	id="emoji-group-{group.key}"
+>
+	{#if isInViewport}
+		{#each group.emojis as emoji}
+			<EmojiButton emoji={emoji.unicode} onclick={() => handleEmojiClick(emoji)} />
 		{/each}
-	</DelayedMount>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -40,6 +48,10 @@
 
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-3);
+		}
+
+		&.min-height {
+			min-height: 200px;
 		}
 	}
 </style>
