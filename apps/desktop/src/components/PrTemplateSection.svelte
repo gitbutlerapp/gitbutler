@@ -21,7 +21,7 @@
 	const project = getContext(Project);
 
 	// The last template that was used. It is used as default if it is in the
-	// list of available commits.
+	// list of available template.
 	const lastTemplate = persisted<string | undefined>(undefined, `last-template-${project.id}`);
 
 	let useTemplate = $state(false);
