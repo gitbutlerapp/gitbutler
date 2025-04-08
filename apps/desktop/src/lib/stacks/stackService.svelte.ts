@@ -31,7 +31,7 @@ type BranchParams = {
 	selected_for_changes?: boolean;
 };
 
-type CreateCommitRequest = {
+export type CreateCommitRequest = {
 	stackId: string;
 	message: string;
 	/** Undefined means that the backend will infer the parent to be the current head of stackBranchName */
@@ -43,6 +43,8 @@ type CreateCommitRequest = {
 		hunkHeaders: HunkHeader[];
 	}[];
 };
+
+export type CreateCommitRequestWorktreeChanges = CreateCommitRequest['worktreeChanges'][number];
 
 type StackAction = 'push';
 
