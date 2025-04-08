@@ -1,0 +1,3 @@
+ancestorEntries = ["crates/gitbutler-tauri/tauri.conf.json"]
+ourEntries = ["crates/gitbutler-tauri/tauri.conf.json"]
+theirEntries = ["crates/gitbutler-tauri/tauri.conf.json"]
