@@ -117,12 +117,13 @@
 		<p class="text-13">Create new branch</p>
 	{/if}
 
-	<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+	<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
 		<path
 			d="M0 10H20M10 0L10 20"
 			stroke="currentColor"
 			opacity="var(--plus-icon-opacity)"
 			stroke-width="1.5"
+			vector-effect="non-scaling-stroke"
 		/>
 	</svg>
 </button>

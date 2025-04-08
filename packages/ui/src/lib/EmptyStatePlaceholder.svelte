@@ -11,6 +11,7 @@
 		gap?: number;
 		topBottomPadding?: number;
 		leftRightPadding?: number;
+		background?: string;
 	}
 
 	const {
@@ -21,7 +22,8 @@
 		leftRightPadding = 0,
 		gap = 16,
 		title,
-		caption
+		caption,
+		background = 'var(--clr-bg-1)'
 	}: Props = $props();
 </script>
 
@@ -32,6 +34,7 @@
 		style:max-width={pxToRem(width)}
 		style:margin-bottom={pxToRem(bottomMargin)}
 		style:padding={`${pxToRem(topBottomPadding)} ${pxToRem(leftRightPadding)}`}
+		style:background
 	>
 		{#if image}
 			<div class="empty-state__image">
@@ -71,7 +74,6 @@
 		flex-direction: column;
 		align-items: center;
 		color: var(--clr-scale-ntrl-60);
-		background: var(--clr-bg-1);
 		justify-content: center;
 		width: 100%;
 		border-radius: var(--radius-m);

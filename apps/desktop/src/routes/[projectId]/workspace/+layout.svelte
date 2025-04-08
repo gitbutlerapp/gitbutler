@@ -6,6 +6,7 @@
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import { remToPx } from '@gitbutler/ui/utils/remToPx';
 	import type { PageData } from './$types';
 	import type { Snippet } from 'svelte';
@@ -77,13 +78,19 @@
 					class="no-stacks"
 					class:rounded={tabsWidth! <= (remToPx(viewportWidth - 0.5) as number)}
 				>
-					{@html noBranchesSvg}
-					<div class="no-stacks-text">
-						<p class="text-15 text-bold no-stacks-title">You have no branches</p>
-						<p class="text-13 no-stacks-caption">
-							Create a new branch for a feature, fix, or idea!
-						</p>
-					</div>
+					<EmptyStatePlaceholder
+						image={noBranchesSvg}
+						background="none"
+						bottomMargin={40}
+						topBottomPadding={0}
+					>
+						{#snippet title()}
+							You have no branches
+						{/snippet}
+						{#snippet caption()}
+							Create a new branch for<br />a feature, fix, or idea!
+						{/snippet}
+					</EmptyStatePlaceholder>
 				</div>
 			{/if}
 		{/snippet}
@@ -117,28 +124,7 @@
 		justify-content: center;
 
 		gap: 20px;
-
-		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 		border: 1px solid var(--clr-border-2);
-	}
-
-	.no-stacks-text {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-
-		align-items: center;
-		text-align: center;
-
-		width: 195px;
-	}
-
-	.no-stacks-title {
-		color: var(--clr-scale-ntrl-40);
-	}
-
-	.no-stacks-caption {
-		color: var(--clr-text-2);
 	}
 
 	.rounded {
