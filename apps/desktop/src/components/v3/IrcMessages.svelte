@@ -3,14 +3,21 @@
 	import type { IrcLog } from '$lib/irc/types';
 
 	type Props = {
+		channel?: string;
 		logs: IrcLog[];
 	};
 
-	const { logs }: Props = $props();
+	const { channel, logs }: Props = $props();
+
+	let scroller: ConfigurableScrollableContainer;
+
+	$effect(() => {
+		if (channel) scroller.scrollToBottom();
+	});
 </script>
 
 <div class="messages">
-	<ConfigurableScrollableContainer>
+	<ConfigurableScrollableContainer bind:this={scroller}>
 		{#each logs || [] as log}
 			<div class="message" class:error={log.type === 'outgoing' && log.error}>
 				{#if log.type === 'incoming'}
@@ -31,6 +38,10 @@
 </div>
 
 <style lang="postcss">
+	.messages {
+		flex-grow: 1;
+		overflow: hidden;
+	}
 	.message {
 		font-family: monospace;
 		white-space: pre-wrap;

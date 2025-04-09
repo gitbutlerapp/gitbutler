@@ -54,6 +54,12 @@
 		return false;
 	}
 
+	export function scrollToBottom() {
+		if (viewport) {
+			viewport.scrollTop = viewport.scrollHeight;
+		}
+	}
+
 	$effect(() => {
 		if (viewport) {
 			scrollTopVisible = isScrollTopVisible(viewport);
