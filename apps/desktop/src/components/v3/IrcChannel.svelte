@@ -51,11 +51,9 @@
 	</div>
 	<div class="middle">
 		<div class="messages">
-			<ConfigurableScrollableContainer>
-				{#if logs}
-					<IrcMessages {logs} />
-				{/if}
-			</ConfigurableScrollableContainer>
+			{#if logs}
+				<IrcMessages {logs} />
+			{/if}
 		</div>
 		{#if props.type === 'group'}
 			<IrcNames channel={props.channel} />
