@@ -22,6 +22,7 @@
 	let modal: Modal | undefined = $state();
 
 	export function show() {
+		newName = branchName;
 		modal?.show();
 	}
 </script>

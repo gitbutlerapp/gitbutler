@@ -1,11 +1,12 @@
 <script lang="ts">
 	import BranchReview from '$components/BranchReview.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
 	import BranchBadge from '$components/v3/BranchBadge.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
+	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
-	import { writeClipboard } from '$lib/backend/clipboard';
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -15,6 +16,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
@@ -39,10 +41,14 @@
 	const focusedArea = $derived(focus.current);
 	const user = $derived(userService.user);
 
+	const branchesResult = $derived(stackService.branches(projectId, stackId));
+
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const branchCommitsResult = $derived(stackService.commits(projectId, stackId, branchName));
 	const forgeBranch = $derived(forge.current?.branch(branchName));
+
+	const commitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
 
 	$effect(() => {
 		if (focusedArea === 'commit') {
@@ -59,124 +65,166 @@
 		}
 		return existingGravatarUrl;
 	}
+
+	// context menu
+	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
+	let isContextMenuOpen = $state(false);
+
+	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
 </script>
 
-{#if branchName}
-	<ReduxResult
-		{stackId}
-		{projectId}
-		result={combineResults(
-			branchResult.current,
-			branchDetailsResult.current,
-			branchCommitsResult.current
-		)}
-	>
-		{#snippet children([branch, branchDetails, branchCommits], { stackId, projectId })}
-			{@const hasCommits = branchCommits.length > 0}
-			{@const remoteTrackingBranch = branch.remoteTrackingBranch}
-			<Drawer {projectId} {stackId} splitView={hasCommits}>
-				{#snippet header()}
-					<div class="branch__header">
-						{#if hasCommits}
-							<Tooltip
-								text={remoteTrackingBranch
-									? `Remote tracking branch:\n${remoteTrackingBranch}`
-									: 'No remote tracking branch'}
-							>
-								<div class="remote-tracking-branch-icon" class:disabled={!remoteTrackingBranch}>
-									<Icon
-										name={remoteTrackingBranch ? 'remote-target-branch' : 'no-remote-target-branch'}
-									/>
-								</div>
-							</Tooltip>
-						{/if}
-						<h3 class="text-15 text-bold truncate">{branch.name}</h3>
-					</div>
-				{/snippet}
-
-				{#snippet extraActions()}
+<ReduxResult
+	{stackId}
+	{projectId}
+	result={combineResults(
+		branchesResult.current,
+		branchResult.current,
+		branchDetailsResult.current,
+		branchCommitsResult.current,
+		commitResult.current
+	)}
+>
+	{#snippet children(
+		[branches, branch, branchDetails, branchCommits, commit],
+		{ stackId, projectId }
+	)}
+		{@const hasCommits = branchCommits.length > 0}
+		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
+		<Drawer {projectId} {stackId} splitView={hasCommits}>
+			{#snippet header()}
+				<div class="branch__header">
 					{#if hasCommits}
-						<Button
-							size="tag"
-							icon="copy-small"
-							kind="outline"
-							tooltip="Copy branch name"
-							onclick={() => {
-								writeClipboard(branch.name);
-							}}
-						/>
-
-						{#if remoteTrackingBranch}
-							<Button
-								size="tag"
-								icon="open-link"
-								kind="outline"
-								onclick={() => {
-									const url = forgeBranch?.url;
-									if (url) openExternalUrl(url);
-								}}>Open in browser</Button
-							>
-						{/if}
-					{/if}
-				{/snippet}
-
-				{#if hasCommits}
-					<div class="branch-view">
-						<div class="branch-view__header-container">
-							<div class="text-12 branch-view__header-details-row">
-								<BranchBadge pushStatus={branchDetails.pushStatus} />
-								<span class="branch-view__details-divider">•</span>
-
-								{#if branchDetails.isConflicted}
-									<span class="branch-view__header-details-row-conflict">Has conflicts</span>
-									<span class="branch-view__details-divider">•</span>
-								{/if}
-
-								<span>Contributors:</span>
-								<AvatarGroup
-									maxAvatars={2}
-									avatars={branchDetails.authors.map((a) => ({
-										name: a.name,
-										srcUrl: getGravatarUrl(a.email, a.gravatarUrl)
-									}))}
+						<Tooltip
+							text={remoteTrackingBranch
+								? `Remote tracking branch:\n${remoteTrackingBranch}`
+								: 'No remote tracking branch'}
+						>
+							<div class="remote-tracking-branch-icon" class:disabled={!remoteTrackingBranch}>
+								<Icon
+									name={remoteTrackingBranch ? 'remote-target-branch' : 'no-remote-target-branch'}
 								/>
-
-								<span class="branch-view__details-divider">•</span>
-
-								<span>{getTimeAgo(new Date(branchDetails.lastUpdatedAt))}</span>
 							</div>
-						</div>
-
-						<BranchReview {stackId} {projectId} branchName={branch.name} />
-					</div>
-				{:else}
-					<div class="branch-view__empty-state">
-						<div class="branch-view__empty-state__image">
-							{@html newBranchSmolSVG}
-						</div>
-						<h3 class="text-18 text-semibold branch-view__empty-state__title">
-							This is a new branch
-						</h3>
-						<p class="text-13 text-body branch-view__empty-state__description">
-							Commit your changes here. You can stack additional branches or apply them
-							independently. You can also drag and drop files to start a new commit.
-						</p>
-					</div>
-				{/if}
-
-				{#snippet filesSplitView()}
-					{#if hasCommits}
-						<ChangedFiles
-							{projectId}
-							{stackId}
-							selectionId={{ type: 'branch', branchName: branch.name, stackId }}
-						/>
+						</Tooltip>
 					{/if}
-				{/snippet}
-			</Drawer>
-		{/snippet}
-	</ReduxResult>
-{/if}
+					<h3 class="text-15 text-bold truncate">{branch.name}</h3>
+				</div>
+			{/snippet}
+
+			{#snippet extraActions()}
+				{#if hasCommits && remoteTrackingBranch}
+					<Button
+						size="tag"
+						icon="open-link"
+						kind="outline"
+						onclick={() => {
+							const url = forgeBranch?.url;
+							if (url) openExternalUrl(url);
+						}}>Open in browser</Button
+					>
+				{/if}
+			{/snippet}
+
+			{#snippet kebabMenu()}
+				<Button
+					size="tag"
+					icon="kebab"
+					kind="ghost"
+					activated={isContextMenuOpen}
+					bind:el={kebabContextMenuTrigger}
+					onclick={() => {
+						contextMenu?.toggle();
+					}}
+				/>
+			{/snippet}
+
+			{#if hasCommits}
+				<div class="branch-view">
+					<div class="branch-view__header-container">
+						<div class="text-12 branch-view__header-details-row">
+							<BranchBadge pushStatus={branchDetails.pushStatus} />
+							<span class="branch-view__details-divider">•</span>
+
+							{#if branchDetails.isConflicted}
+								<span class="branch-view__header-details-row-conflict">Has conflicts</span>
+								<span class="branch-view__details-divider">•</span>
+							{/if}
+
+							<span>Contributors:</span>
+							<AvatarGroup
+								maxAvatars={2}
+								avatars={branchDetails.authors.map((a) => ({
+									name: a.name,
+									srcUrl: getGravatarUrl(a.email, a.gravatarUrl)
+								}))}
+							/>
+
+							<span class="branch-view__details-divider">•</span>
+
+							<span>{getTimeAgo(new Date(branchDetails.lastUpdatedAt))}</span>
+						</div>
+					</div>
+
+					<BranchReview {stackId} {projectId} branchName={branch.name} />
+				</div>
+			{:else}
+				<div class="branch-view__empty-state">
+					<div class="branch-view__empty-state__image">
+						{@html newBranchSmolSVG}
+					</div>
+					<h3 class="text-18 text-semibold branch-view__empty-state__title">
+						This is a new branch
+					</h3>
+					<p class="text-13 text-body branch-view__empty-state__description">
+						Commit your changes here. You can stack additional branches or apply them independently.
+						You can also drag and drop files to start a new commit.
+					</p>
+				</div>
+			{/if}
+
+			{#snippet filesSplitView()}
+				{#if hasCommits}
+					<ChangedFiles
+						{projectId}
+						{stackId}
+						selectionId={{ type: 'branch', branchName: branch.name, stackId }}
+					/>
+				{/if}
+			{/snippet}
+		</Drawer>
+
+		<NewBranchModal
+			{projectId}
+			{stackId}
+			bind:this={newBranchModal}
+			parentSeriesName={branch.name}
+		/>
+
+		<SeriesHeaderContextMenu
+			{projectId}
+			bind:contextMenuEl={contextMenu}
+			{stackId}
+			leftClickTrigger={kebabContextMenuTrigger}
+			branchName={branch.name}
+			seriesCount={branches.length}
+			isTopBranch={branches[0]?.name === branch.name}
+			descriptionOption={false}
+			onGenerateBranchName={() => {
+				throw new Error('Not implemented!');
+			}}
+			onAddDependentSeries={() => newBranchModal?.show()}
+			onOpenInBrowser={() => {
+				const url = forgeBranch?.url;
+				if (url) openExternalUrl(url);
+			}}
+			isPushed={!!branch.remoteTrackingBranch}
+			branchType={commit?.state.type || 'LocalOnly'}
+			onToggle={(isOpen) => {
+				isContextMenuOpen = isOpen;
+			}}
+		/>
+	{/snippet}
+</ReduxResult>
 
 <style>
 	.branch-view {
@@ -189,7 +237,7 @@
 	.branch__header {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: 8px;
 		width: 100%;
 		overflow: hidden;
 	}

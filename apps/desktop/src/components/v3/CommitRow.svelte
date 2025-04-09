@@ -2,19 +2,19 @@
 	import CommitContextMenu from '$components/v3/CommitContextMenu.svelte';
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
+	import ConflictResolutionConfirmModal from '$components/v3/ConflictResolutionConfirmModal.svelte';
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/v3/lib';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { isCommit, type Commit, type UpstreamCommit } from '$lib/branches/v3';
 	import { CommitDropData } from '$lib/commits/dropHandler';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { NON_DRAGGABLE } from '$lib/dragging/draggables';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 
 	type Props = {
@@ -49,20 +49,21 @@
 		onclick
 	}: Props = $props();
 
+	const forge = getContext(DefaultForgeFactory);
 	const baseBranch = getContext(BaseBranch);
 	const stackService = getContext(StackService);
 	const modeService = maybeGetContext(ModeService);
 
-	const commitUrl = undefined;
 	const conflicted = $derived(isCommit(commit) ? commit.hasConflicts : false);
 	const isAncestorMostConflicted = false; // TODO
 	const isUnapplied = false; // TODO
-	const branchRefName = undefined;
+	const branchRefName = undefined; // TODO
 
 	let commitRowElement = $state<HTMLDivElement>();
 	let kebabMenuTrigger = $state<HTMLButtonElement>();
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let conflictResolutionConfirmationModal = $state<ReturnType<typeof Modal>>();
+	let conflictResolutionConfirmationModal =
+		$state<ReturnType<typeof ConflictResolutionConfirmModal>>();
 
 	let isOpenedByKebabButton = $state(false);
 	let isOpenedByMouse = $state(false);
@@ -191,19 +192,10 @@
 	</div>
 </div>
 
-<Modal bind:this={conflictResolutionConfirmationModal} width="small" onSubmit={editPatch}>
-	{#snippet children()}
-		<div>
-			<p>It's generally better to start resolving conflicts from the bottom up.</p>
-			<br />
-			<p>Are you sure you want to resolve conflicts for this commit?</p>
-		</div>
-	{/snippet}
-	{#snippet controls(close)}
-		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" type="submit">Yes</Button>
-	{/snippet}
-</Modal>
+<ConflictResolutionConfirmModal
+	bind:this={conflictResolutionConfirmationModal}
+	onSubmit={editPatch}
+/>
 
 <CommitContextMenu
 	bind:menu={contextMenu}
@@ -213,7 +205,7 @@
 	{baseBranch}
 	{stackId}
 	{commit}
-	{commitUrl}
+	commitUrl={forge.current.commitUrl(commit.id)}
 	onUncommitClick={handleUncommit}
 	onEditMessageClick={openCommitMessageModal}
 	onPatchEditClick={handleEditPatch}

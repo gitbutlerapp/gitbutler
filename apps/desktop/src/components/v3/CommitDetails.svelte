@@ -82,8 +82,8 @@
 		<span>{getTimeAgo(new Date(commit.createdAt))}</span>
 	</div>
 
-	<div class="commit-details_actions">
-		{#if !isUpstream}
+	{#if !isUpstream}
+		<div class="commit-details_actions">
 			<Button
 				size="tag"
 				kind="outline"
@@ -113,8 +113,8 @@
 					Edit commit
 				{/if}
 			</Button>
-		{/if}
-	</div>
+		</div>
+	{/if}
 
 	{#if description}
 		<p class="text-13 text-body commit-description">

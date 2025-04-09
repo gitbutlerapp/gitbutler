@@ -15,6 +15,7 @@
 		minHeight?: number;
 		header?: Snippet;
 		extraActions?: Snippet;
+		kebabMenu?: Snippet;
 		children: Snippet;
 		filesSplitView?: Snippet;
 		disableScroll?: boolean;
@@ -28,6 +29,7 @@
 		minHeight = 11,
 		header,
 		extraActions,
+		kebabMenu,
 		children,
 		filesSplitView,
 		disableScroll
@@ -68,7 +70,7 @@
 >
 	<div class="drawer-wrap">
 		<div class="drawer-header">
-			<div class="drawer-header__main">
+			<div class="drawer-header__title">
 				{#if title}
 					<h3 class="text-15 text-bold">
 						{title}
@@ -86,6 +88,9 @@
 					</div>
 				{/if}
 				<div class="drawer-header__actions-group">
+					{#if kebabMenu}
+						{@render kebabMenu()}
+					{/if}
 					<Button
 						kind="ghost"
 						icon={drawerIsFullScreen.current ? 'chevron-down' : 'chevron-up'}
@@ -186,10 +191,12 @@
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 
-	.drawer-header__main {
+	.drawer-header__title {
+		height: 100%;
 		flex-grow: 1;
 		display: flex;
 		gap: 8px;
+		align-items: center;
 		overflow: hidden;
 	}
 
@@ -197,13 +204,13 @@
 		flex-shrink: 0;
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: 12px;
 	}
 
 	.drawer-header__actions-group {
 		display: flex;
 		align-items: center;
-		gap: 3px;
+		gap: 2px;
 	}
 
 	.drawer__content-resizer {
