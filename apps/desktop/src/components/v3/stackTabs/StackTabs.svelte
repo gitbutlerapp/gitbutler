@@ -46,11 +46,11 @@
 </script>
 
 <div class="tabs" bind:this={tabsEl}>
-	<div class="inner">
-		<div class="scroller" bind:this={scrollerEl} class:scrolled {onscroll}>
-			<ReduxResult {projectId} result={result.current}>
-				{#snippet children(result, env)}
-					{#if result.length > 0}
+	{#if (result.current.data?.length ?? 1) > 0}
+		<div class="inner">
+			<div class="scroller" bind:this={scrollerEl} class:scrolled {onscroll}>
+				<ReduxResult {projectId} result={result.current}>
+					{#snippet children(result, env)}
 						{#each result as tab, i (tab.branchNames[0])}
 							{@const first = i === 0}
 							{@const last = i === result.length - 1}
@@ -75,15 +75,13 @@
 								}}
 							/>
 						{/each}
-					{:else}
-						no stacks
-					{/if}
-				{/snippet}
-			</ReduxResult>
+					{/snippet}
+				</ReduxResult>
+			</div>
+			<div class="shadow shadow-left" class:scrolled></div>
+			<div class="shadow shadow-right" class:scrollable class:scrolled-end={scrolledEnd}></div>
 		</div>
-		<div class="shadow shadow-left" class:scrolled></div>
-		<div class="shadow shadow-right" class:scrollable class:scrolled-end={scrolledEnd}></div>
-	</div>
+	{/if}
 	<StackTabNew bind:el={plusBtnEl} {scrollerEl} {projectId} stackId={selectedId} />
 </div>
 
