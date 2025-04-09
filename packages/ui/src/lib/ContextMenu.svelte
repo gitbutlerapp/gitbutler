@@ -1,7 +1,3 @@
-<script module lang="ts">
-	export type ContextTrigger = (e?: MouseEvent, item?: any) => void;
-</script>
-
 <script lang="ts">
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import { focusTrap } from '$lib/utils/focusTrap';

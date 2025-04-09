@@ -9,7 +9,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import ContextMenu, { type ContextTrigger } from '@gitbutler/ui/ContextMenu.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -18,8 +18,6 @@
 	interface Props {
 		projectId: string;
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
-		leftClickTrigger?: HTMLElement;
-		rightClickTrigger?: HTMLElement;
 		branchName: string;
 		seriesCount: number;
 		isTopBranch: boolean;
@@ -33,15 +31,11 @@
 		onGenerateBranchName: () => void;
 		onAddDependentSeries?: () => void;
 		onOpenInBrowser?: () => void;
-		onToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
-		addListener?: (callback: ContextTrigger) => void;
 	}
 
 	let {
 		projectId,
 		contextMenuEl = $bindable(),
-		leftClickTrigger,
-		rightClickTrigger,
 		isTopBranch,
 		seriesCount,
 		isPushed,
@@ -54,9 +48,7 @@
 		toggleDescription,
 		onGenerateBranchName,
 		onAddDependentSeries,
-		onOpenInBrowser,
-		onToggle,
-		addListener
+		onOpenInBrowser
 	}: Props = $props();
 
 	const [aiService, stackService] = inject(AIService, StackService);
@@ -84,134 +76,116 @@
 	export function showSeriesRenameModal() {
 		renameBranchModal.show();
 	}
-
-	$effect(() => {
-		if (addListener) {
-			return addListener((e?: MouseEvent, item?: any) => {
-				contextMenuEl?.open(e, item);
-			});
-		}
-	});
 </script>
 
-<ContextMenu
-	testId={TestId.BranchHeaderContextMenu}
-	bind:this={contextMenuEl}
-	{leftClickTrigger}
-	{rightClickTrigger}
-	ontoggle={(isOpen, isLeftClick) => {
-		onToggle?.(isOpen, isLeftClick);
-	}}
->
-	{#if isTopBranch}
-		<ContextMenuSection>
-			<ContextMenuItem
-				label="Add dependent branch"
-				testId={TestId.BranchHeaderContextMenu_AddDependentBranch}
-				onclick={() => {
-					onAddDependentSeries?.();
-					contextMenuEl?.close();
-				}}
-			/>
-		</ContextMenuSection>
-	{/if}
+{#if isTopBranch}
 	<ContextMenuSection>
-		{#if isPushed}
-			<ContextMenuItem
-				label="Open in browser"
-				testId={TestId.BranchHeaderContextMenu_OpenInBrowser}
-				onclick={() => {
-					onOpenInBrowser?.();
-					contextMenuEl?.close();
-				}}
-			/>
-		{/if}
 		<ContextMenuItem
-			label="Copy branch name"
-			testId={TestId.BranchHeaderContextMenu_CopyBranchName}
+			label="Add dependent branch"
+			testId={TestId.BranchHeaderContextMenu_AddDependentBranch}
 			onclick={() => {
-				writeClipboard(branchName);
+				onAddDependentSeries?.();
 				contextMenuEl?.close();
 			}}
 		/>
 	</ContextMenuSection>
+{/if}
+<ContextMenuSection>
+	{#if isPushed}
+		<ContextMenuItem
+			label="Open in browser"
+			testId={TestId.BranchHeaderContextMenu_OpenInBrowser}
+			onclick={() => {
+				onOpenInBrowser?.();
+				contextMenuEl?.close();
+			}}
+		/>
+	{/if}
+	<ContextMenuItem
+		label="Copy branch name"
+		testId={TestId.BranchHeaderContextMenu_CopyBranchName}
+		onclick={() => {
+			writeClipboard(branchName);
+			contextMenuEl?.close();
+		}}
+	/>
+</ContextMenuSection>
+<ContextMenuSection>
+	<ContextMenuItem
+		label="Squash all commits"
+		testId={TestId.BranchHeaderContextMenu_SquashAllCommits}
+		onclick={async () => {
+			await stackService.squashAllCommits({
+				projectId,
+				stackId,
+				branchName
+			});
+			contextMenuEl?.close();
+		}}
+		disabled={isConflicted}
+		tooltip={isConflicted ? 'This branch has conflicts' : undefined}
+	/>
+	{#if descriptionOption}
+		<ContextMenuItem
+			label={`${!descriptionString ? 'Add' : 'Remove'} description`}
+			testId={TestId.BranchHeaderContextMenu_AddRemoveDescription}
+			onclick={async () => {
+				await toggleDescription?.();
+				contextMenuEl?.close();
+			}}
+		/>
+	{/if}
+	{#if $aiGenEnabled && aiConfigurationValid && !isPushed}
+		<ContextMenuItem
+			label="Generate branch name"
+			testId={TestId.BranchHeaderContextMenu_GenerateBranchName}
+			onclick={() => {
+				onGenerateBranchName();
+				contextMenuEl?.close();
+			}}
+		/>
+	{/if}
+	{#if branchType !== 'Integrated'}
+		<ContextMenuItem
+			label="Rename"
+			testId={TestId.BranchHeaderContextMenu_Rename}
+			onclick={async () => {
+				renameBranchModal.show();
+				contextMenuEl?.close();
+			}}
+		/>
+	{/if}
+	{#if seriesCount > 1}
+		<ContextMenuItem
+			label="Delete"
+			testId={TestId.BranchHeaderContextMenu_Delete}
+			onclick={() => {
+				deleteSeriesModal.show(stackId);
+				contextMenuEl?.close();
+			}}
+		/>
+	{/if}
+</ContextMenuSection>
+{#if pr?.htmlUrl}
 	<ContextMenuSection>
 		<ContextMenuItem
-			label="Squash all commits"
-			testId={TestId.BranchHeaderContextMenu_SquashAllCommits}
-			onclick={async () => {
-				await stackService.squashAllCommits({
-					projectId,
-					stackId,
-					branchName
-				});
+			label="Open PR in browser"
+			testId={TestId.BranchHeaderContextMenu_OpenPRInBrowser}
+			onclick={() => {
+				openExternalUrl(pr.htmlUrl);
 				contextMenuEl?.close();
 			}}
-			disabled={isConflicted}
-			tooltip={isConflicted ? 'This branch has conflicts' : undefined}
 		/>
-		{#if descriptionOption}
-			<ContextMenuItem
-				label={`${!descriptionString ? 'Add' : 'Remove'} description`}
-				testId={TestId.BranchHeaderContextMenu_AddRemoveDescription}
-				onclick={async () => {
-					await toggleDescription?.();
-					contextMenuEl?.close();
-				}}
-			/>
-		{/if}
-		{#if $aiGenEnabled && aiConfigurationValid && !isPushed}
-			<ContextMenuItem
-				label="Generate branch name"
-				testId={TestId.BranchHeaderContextMenu_GenerateBranchName}
-				onclick={() => {
-					onGenerateBranchName();
-					contextMenuEl?.close();
-				}}
-			/>
-		{/if}
-		{#if branchType !== 'Integrated'}
-			<ContextMenuItem
-				label="Rename"
-				testId={TestId.BranchHeaderContextMenu_Rename}
-				onclick={async () => {
-					renameBranchModal.show();
-					contextMenuEl?.close();
-				}}
-			/>
-		{/if}
-		{#if seriesCount > 1}
-			<ContextMenuItem
-				label="Delete"
-				testId={TestId.BranchHeaderContextMenu_Delete}
-				onclick={() => {
-					deleteSeriesModal.show(stackId);
-					contextMenuEl?.close();
-				}}
-			/>
-		{/if}
+		<ContextMenuItem
+			label="Copy PR link"
+			testId={TestId.BranchHeaderContextMenu_CopyPRLink}
+			onclick={() => {
+				writeClipboard(pr.htmlUrl);
+				contextMenuEl?.close();
+			}}
+		/>
 	</ContextMenuSection>
-	{#if pr?.htmlUrl}
-		<ContextMenuSection>
-			<ContextMenuItem
-				label="Open PR in browser"
-				testId={TestId.BranchHeaderContextMenu_OpenPRInBrowser}
-				onclick={() => {
-					openExternalUrl(pr.htmlUrl);
-					contextMenuEl?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Copy PR link"
-				testId={TestId.BranchHeaderContextMenu_CopyPRLink}
-				onclick={() => {
-					writeClipboard(pr.htmlUrl);
-					contextMenuEl?.close();
-				}}
-			/>
-		</ContextMenuSection>
-	{/if}
-</ContextMenu>
+{/if}
 
 <BranchRenameModal {projectId} {stackId} {branchName} bind:this={renameBranchModal} {isPushed} />
 

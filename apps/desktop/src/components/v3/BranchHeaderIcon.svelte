@@ -1,47 +1,30 @@
 <script lang="ts">
-	import { getColorFromCommitState } from '$components/v3/lib';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { Commit } from '$lib/branches/v3';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	interface Props {
-		commit: Commit | null;
+		iconName: keyof typeof iconsJson;
+		lineColor: string;
 		lineTop?: boolean;
 		lineBottom?: boolean;
 		isDashed?: boolean;
 	}
 
-	const { commit, lineTop = true, lineBottom = true, isDashed }: Props = $props();
-
-	const color = $derived(
-		commit ? getColorFromCommitState(commit.id, commit.state) : 'var(--clr-commit-local)'
-	);
-
-	const iconName = $derived.by(() => {
-		switch (commit?.state.type) {
-			case 'LocalOnly':
-				return 'branch-local';
-			case 'LocalAndRemote':
-				return commit.state.subject !== commit.id ? 'branch-local' : 'branch-remote';
-			case 'Integrated':
-				return 'tick-small';
-			default:
-				return 'branch-local';
-		}
-	});
+	const { iconName, lineColor, lineTop = true, lineBottom = true, isDashed }: Props = $props();
 </script>
 
 <div class="stack__status gap">
 	<div
 		class="stack__status--bar"
-		style:--bg-color={lineTop ? color : 'var(--clr-transparent)'}
+		style:--bg-color={lineTop ? lineColor : 'var(--clr-transparent)'}
 	></div>
-	<div class="stack__status--icon" style:--bg-color={color}>
+	<div class="stack__status--icon" style:--bg-color={lineColor}>
 		<Icon name={iconName} />
 	</div>
 	<div
 		class="stack__status--bar last"
 		class:dashed={isDashed}
-		style:--bg-color={lineBottom ? color : 'var(--clr-transparent)'}
+		style:--bg-color={lineBottom ? lineColor : 'var(--clr-transparent)'}
 	></div>
 </div>
 

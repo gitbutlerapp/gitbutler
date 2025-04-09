@@ -1,49 +1,61 @@
 <script lang="ts">
-	import ReduxResult from '$components/ReduxResult.svelte';
 	import BranchBadge from '$components/v3/BranchBadge.svelte';
 	import BranchDividerLine from '$components/v3/BranchDividerLine.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
-	import type { CommitStatus } from '$lib/commits/commit';
-	import type { ContextTrigger } from '@gitbutler/ui/ContextMenu.svelte';
+	import type { PushStatus } from '$lib/stacks/stack';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
 		projectId: string;
 		stackId: string;
 		branchName: string;
+		trackingBranch?: string;
+		reviewId?: string;
+		prNumber?: number;
+		pushStatus: PushStatus;
+		isConflicted: boolean;
+		lastUpdatedAt: number;
 		first: boolean;
 		last: boolean;
 		isNewBranch: boolean;
-		commitList: Snippet;
-		contextMenu: Snippet<
+		lineColor: string;
+		iconName: keyof typeof iconsJson;
+		commitList?: Snippet;
+		menu?: Snippet<
 			[
 				{
-					branchName: string;
-					trackingBranch?: string;
-					leftClickTrigger?: HTMLElement;
-					rightClickTrigger?: HTMLElement;
-					branchType: CommitStatus;
 					onToggle: (open: boolean, isLeftClick: boolean) => void;
-					addListener?: (callback: ContextTrigger) => void;
 				}
 			]
 		>;
 	}
 
-	let { projectId, stackId, branchName, first, isNewBranch, commitList, contextMenu }: Props =
-		$props();
+	let {
+		projectId,
+		stackId,
+		branchName,
+		trackingBranch,
+		reviewId,
+		prNumber,
+		pushStatus,
+		isConflicted,
+		lastUpdatedAt,
+		lineColor,
+		iconName,
+		first,
+		isNewBranch,
+		commitList,
+		menu
+	}: Props = $props();
 
-	const [stackService, uiState] = inject(StackService, UiState);
-
-	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
-	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
-	const commitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
+	const [uiState] = inject(UiState);
 
 	const selection = $derived(uiState.stack(stackId).selection.get());
 
@@ -60,107 +72,86 @@
 			isMenuOpenByMouse = isLeftClick;
 		}
 	}
+	const selected = $derived(selection.current?.branchName === branchName);
+
+	let contextMenu: ContextMenu;
 </script>
 
-<ReduxResult
-	{stackId}
-	{projectId}
-	result={combineResults(branchResult.current, branchDetailsResult.current, commitResult.current)}
->
-	{#snippet children([branch, branchDetails, commit], { projectId, stackId })}
-		{@const branchName = branch.name}
-		{@const selected = selection.current?.branchName === branch.name}
-		{@const callbacks: ((e: MouseEvent | undefined, item: any)=>void)[] = []}
-		{@const trigger = {
-			// Super hacky thing, but gets the job done. This code makes
-			// it possible for the context menu component to be injected
-			// into this component as a snippet. A click on the header
-			// must weave its way through to back to the header, but as
-			// a result of the status of the context menu.
-			addListener: (callback: ContextTrigger) => {
-				callbacks.push(callback);
-				return () => {
-					callbacks.splice(callbacks.indexOf(callback), 1);
-				};
-			},
-			fire: (e?: MouseEvent, item?: any) => {
-				for (const callback of callbacks) {
-					callback(e, item);
-				}
-			}
+{#if !first}
+	<BranchDividerLine {lineColor} />
+{/if}
+<div class="branch-card" class:selected data-series-name={branchName}>
+	<BranchHeader
+		{branchName}
+		{projectId}
+		{stackId}
+		{lineColor}
+		{iconName}
+		bind:el={rightClickTrigger}
+		bind:menuBtnEl={leftClickTrigger}
+		{trackingBranch}
+		{isMenuOpenByBtn}
+		{isMenuOpenByMouse}
+		selected={selected && selection.current?.commitId === undefined}
+		isTopBranch={first}
+		{isNewBranch}
+		readonly={!!trackingBranch}
+		onclick={() => {
+			const stackState = uiState.stack(stackId);
+			stackState.selection.set({ branchName });
+			stackState.activeSelectionId.set({ type: 'branch', branchName, stackId });
+			uiState.project(projectId).drawerPage.set('branch');
 		}}
-		{#if !first}
-			<BranchDividerLine {commit} />
-		{/if}
-		<div class="branch-card" class:selected data-series-name={branchName}>
-			<BranchHeader
-				{projectId}
-				{stackId}
-				{branch}
-				bind:el={rightClickTrigger}
-				bind:menuBtnEl={leftClickTrigger}
-				{isMenuOpenByBtn}
-				{isMenuOpenByMouse}
-				selected={selected && selection.current?.commitId === undefined}
-				isTopBranch={first}
-				{isNewBranch}
-				readonly={!!branch.remoteTrackingBranch}
-				onclick={() => {
-					const stackState = uiState.stack(stackId);
-					stackState.selection.set({ branchName });
-					stackState.activeSelectionId.set({ type: 'branch', branchName, stackId });
-					uiState.project(projectId).drawerPage.set('branch');
-				}}
-				onMenuBtnClick={() => trigger.fire()}
-				onContextMenu={(e) => trigger.fire(e)}
-			>
-				{#snippet details()}
-					<div class="text-11 branch-header__details">
-						<span class="branch-header__item">
-							<BranchBadge pushStatus={branchDetails.pushStatus} unstyled />
-						</span>
-						<span class="branch-header__divider">•</span>
+		onMenuBtnClick={() => contextMenu.toggle()}
+		onContextMenu={(e) => contextMenu.toggle(e)}
+	>
+		{#snippet details()}
+			<div class="text-11 branch-header__details">
+				<span class="branch-header__item">
+					<BranchBadge {pushStatus} unstyled />
+				</span>
+				<span class="branch-header__divider">•</span>
 
-						{#if branchDetails.isConflicted}
-							<span class="branch-header__item branch-header__item--conflict"> Has conflicts </span>
-							<span class="branch-header__divider">•</span>
-						{/if}
+				{#if isConflicted}
+					<span class="branch-header__item branch-header__item--conflict"> Has conflicts </span>
+					<span class="branch-header__divider">•</span>
+				{/if}
 
-						<span class="branch-header__item">
-							{getTimeAgo(new Date(branchDetails.lastUpdatedAt))}
-						</span>
+				<span class="branch-header__item">
+					{getTimeAgo(new Date(lastUpdatedAt))}
+				</span>
 
-						{#if branch.reviewId || branch.prNumber}
-							<span class="branch-header__divider">•</span>
-							{#if branch.reviewId}
-								<ReviewBadge brId={branch.reviewId} brStatus="unknown" />
-							{/if}
-							{#if branch.prNumber}
-								<ReviewBadge prNumber={branch.prNumber} prStatus="unknown" />
-							{/if}
-						{/if}
-					</div>
-				{/snippet}
-			</BranchHeader>
+				{#if reviewId || prNumber}
+					<span class="branch-header__divider">•</span>
+					{#if reviewId}
+						<ReviewBadge brId={reviewId} brStatus="unknown" />
+					{/if}
+					{#if prNumber}
+						<ReviewBadge {prNumber} prStatus="unknown" />
+					{/if}
+				{/if}
+			</div>
+		{/snippet}
+	</BranchHeader>
 
-			{#if !isNewBranch}
-				{@render commitList()}
-			{/if}
-		</div>
+	{#if !isNewBranch}
+		{@render commitList?.()}
+	{/if}
+</div>
 
-		{@render contextMenu?.({
-			branchType: commit?.state.type || 'LocalOnly',
-			branchName: branch.name,
-			trackingBranch: branch.remoteTrackingBranch || undefined,
-			leftClickTrigger,
-			rightClickTrigger,
-			onToggle,
-			// Note that the context menu must on render call this listener
-			// to be notified of toggle clicks.
-			addListener: trigger.addListener
-		})}
-	{/snippet}
-</ReduxResult>
+<ContextMenu
+	testId={TestId.BranchHeaderContextMenu}
+	bind:this={contextMenu}
+	{leftClickTrigger}
+	{rightClickTrigger}
+	ontoggle={(isOpen, isLeftClick) => {
+		onToggle?.(isOpen, isLeftClick);
+	}}
+>
+	{@render menu?.({
+		onToggle
+	})}
+</ContextMenu>
 
 <style>
 	.branch-card {

@@ -1,24 +1,25 @@
 <script lang="ts">
 	import BranchLabel from '$components/BranchLabel.svelte';
 	import BranchRenameModal from '$components/BranchRenameModal.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
 	import BranchHeaderIcon from '$components/v3/BranchHeaderIcon.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { StackBranch } from '$lib/branches/v3';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
 		el?: HTMLElement;
 		projectId: string;
 		stackId: string;
-		branch: StackBranch;
+		branchName: string;
+		trackingBranch?: string;
 		selected: boolean;
 		isTopBranch: boolean;
 		readonly: boolean;
-		lineColor?: string;
+		lineColor: string;
+		iconName: keyof typeof iconsJson;
 		menuBtnEl?: HTMLButtonElement;
 		isMenuOpenByBtn?: boolean;
 		isMenuOpenByMouse?: boolean;
@@ -33,9 +34,12 @@
 		el = $bindable(),
 		projectId,
 		stackId,
-		branch,
+		branchName,
+		trackingBranch,
 		isTopBranch,
 		readonly,
+		lineColor,
+		iconName,
 		selected,
 		menuBtnEl = $bindable(),
 		isMenuOpenByBtn,
@@ -49,17 +53,16 @@
 
 	const [stackService] = inject(StackService);
 
-	const topCommitResult = $derived(stackService.commitAt(projectId, stackId, branch.name, 0));
 	const [updateName, nameUpdate] = stackService.updateBranchName;
 
-	const isPushed = $derived(!!branch.remoteTrackingBranch);
+	const isPushed = $derived(!!trackingBranch);
 	let renameBranchModal: BranchRenameModal;
 
 	function updateBranchName(title: string) {
 		updateName({
 			projectId,
 			stackId,
-			branchName: branch.name,
+			branchName: branchName,
 			newName: title
 		});
 	}
@@ -82,63 +85,64 @@
 	tabindex="0"
 	class:activated={isMenuOpenByMouse || isMenuOpenByBtn}
 >
-	<ReduxResult {stackId} {projectId} result={topCommitResult.current}>
-		{#snippet children(commit)}
-			<BranchHeaderIcon {commit} lineTop={isTopBranch ? false : true} isDashed={isNewBranch} />
-			<div class="branch-header__content">
-				<div class="name-line text-14 text-bold">
-					<BranchLabel
-						name={branch.name}
-						fontSize="15"
-						disabled={nameUpdate.current.isLoading}
-						readonly={readonly || isPushed}
-						onChange={(name) => updateBranchName(name)}
-						onDblClick={() => {
-							if (isPushed) {
-								renameBranchModal.show();
-							}
-						}}
-					/>
+	<BranchHeaderIcon
+		{lineColor}
+		{iconName}
+		lineTop={isTopBranch ? false : true}
+		isDashed={isNewBranch}
+	/>
+	<div class="branch-header__content">
+		<div class="name-line text-14 text-bold">
+			<BranchLabel
+				name={branchName}
+				fontSize="15"
+				disabled={nameUpdate.current.isLoading}
+				readonly={readonly || isPushed}
+				onChange={(name) => updateBranchName(name)}
+				onDblClick={() => {
+					if (isPushed) {
+						renameBranchModal.show();
+					}
+				}}
+			/>
 
-					<button
-						bind:this={menuBtnEl}
-						type="button"
-						class="branch-menu-btn"
-						class:activated={isMenuOpenByBtn}
-						onmousedown={(e) => {
-							e.stopPropagation();
-							e.preventDefault();
-							onMenuBtnClick();
-						}}
-						onclick={(e) => {
-							e.stopPropagation();
-							e.preventDefault();
-						}}
-					>
-						<Icon name="kebab" />
-					</button>
-				</div>
+			<button
+				bind:this={menuBtnEl}
+				type="button"
+				class="branch-menu-btn"
+				class:activated={isMenuOpenByBtn}
+				onmousedown={(e) => {
+					e.stopPropagation();
+					e.preventDefault();
+					onMenuBtnClick();
+				}}
+				onclick={(e) => {
+					e.stopPropagation();
+					e.preventDefault();
+				}}
+			>
+				<Icon name="kebab" />
+			</button>
+		</div>
 
-				{#if isNewBranch}
-					<p class="text-12 text-body branch-header__empty-state">
-						<span>This is an empty branch.</span> <span>Click for details.</span>
-						<br />
-						Create or drag & drop commits here.
-					</p>
-				{:else}
-					{@render details?.()}
-				{/if}
-			</div>
-		{/snippet}
-	</ReduxResult>
+		{#if isNewBranch}
+			<p class="text-12 text-body branch-header__empty-state">
+				<span>This is an empty branch.</span> <span>Click for details.</span>
+				<br />
+				Create or drag & drop commits here.
+			</p>
+		{:else}
+			{@render details?.()}
+		{/if}
+	</div>
 </div>
 
 <BranchRenameModal
 	{projectId}
 	{stackId}
-	branchName={branch.name}
+	{branchName}
 	bind:this={renameBranchModal}
-	isPushed={!!branch.remoteTrackingBranch}
+	isPushed={!!trackingBranch}
 />
 
 <style lang="postcss">

@@ -1,5 +1,6 @@
 import type { UpstreamCommit, Commit, CommitState } from '$lib/branches/v3';
 import type { PushStatus } from '$lib/stacks/stack';
+import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 const colorMap = {
 	LocalOnly: 'var(--clr-commit-local)',
@@ -7,6 +8,25 @@ const colorMap = {
 	Integrated: 'var(--clr-commit-integrated)',
 	Error: 'var(--clr-theme-err-element)'
 };
+
+export function getIconFromCommitState(
+	commitId?: string,
+	commitState?: CommitState
+): keyof typeof iconsJson {
+	if (!commitId || !commitState) {
+		return 'branch-local';
+	}
+	switch (commitState.type) {
+		case 'LocalOnly':
+			return 'branch-local';
+		case 'LocalAndRemote':
+			return commitState.subject !== commitId ? 'branch-local' : 'branch-remote';
+		case 'Integrated':
+			return 'tick-small';
+		default:
+			return 'branch-local';
+	}
+}
 
 export function getColorFromCommitState(commitId: string, commitState: CommitState): string {
 	if (commitState.type === 'LocalAndRemote' && commitState.subject !== commitId) {

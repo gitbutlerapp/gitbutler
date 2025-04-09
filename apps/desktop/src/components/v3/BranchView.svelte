@@ -12,6 +12,7 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { UserService } from '$lib/user/userService';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
@@ -68,7 +69,7 @@
 
 	// context menu
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
+	let kebabTrigger = $state<HTMLButtonElement>();
 	let isContextMenuOpen = $state(false);
 
 	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
@@ -131,7 +132,7 @@
 					icon="kebab"
 					kind="ghost"
 					activated={isContextMenuOpen}
-					bind:el={kebabContextMenuTrigger}
+					bind:el={kebabTrigger}
 					onclick={() => {
 						contextMenu?.toggle();
 					}}
@@ -193,36 +194,33 @@
 			{/snippet}
 		</Drawer>
 
-		<NewBranchModal
-			{projectId}
-			{stackId}
-			bind:this={newBranchModal}
-			parentSeriesName={branch.name}
-		/>
+		<NewBranchModal {projectId} {stackId} bind:this={newBranchModal} />
 
-		<SeriesHeaderContextMenu
-			{projectId}
-			bind:contextMenuEl={contextMenu}
-			{stackId}
-			leftClickTrigger={kebabContextMenuTrigger}
-			branchName={branch.name}
-			seriesCount={branches.length}
-			isTopBranch={branches[0]?.name === branch.name}
-			descriptionOption={false}
-			onGenerateBranchName={() => {
-				throw new Error('Not implemented!');
-			}}
-			onAddDependentSeries={() => newBranchModal?.show()}
-			onOpenInBrowser={() => {
-				const url = forgeBranch?.url;
-				if (url) openExternalUrl(url);
-			}}
-			isPushed={!!branch.remoteTrackingBranch}
-			branchType={commit?.state.type || 'LocalOnly'}
-			onToggle={(isOpen) => {
-				isContextMenuOpen = isOpen;
-			}}
-		/>
+		<ContextMenu
+			bind:this={contextMenu}
+			testId={TestId.BranchHeaderContextMenu}
+			leftClickTrigger={kebabTrigger}
+		>
+			<SeriesHeaderContextMenu
+				{projectId}
+				contextMenuEl={contextMenu}
+				{stackId}
+				branchName={branch.name}
+				seriesCount={branches.length}
+				isTopBranch={branches[0]?.name === branch.name}
+				descriptionOption={false}
+				onGenerateBranchName={() => {
+					throw new Error('Not implemented!');
+				}}
+				onAddDependentSeries={() => newBranchModal?.show()}
+				onOpenInBrowser={() => {
+					const url = forgeBranch?.url;
+					if (url) openExternalUrl(url);
+				}}
+				isPushed={!!branch.remoteTrackingBranch}
+				branchType={commit?.state.type || 'LocalOnly'}
+			/>
+		</ContextMenu>
 	{/snippet}
 </ReduxResult>
 
