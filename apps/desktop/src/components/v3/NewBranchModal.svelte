@@ -12,7 +12,6 @@
 	interface Props {
 		projectId: string;
 		stackId: string;
-		parentSeriesName: string;
 	}
 
 	const BRANCH_STACKING_DOCS = 'https://docs.gitbutler.com/features/stacked-branches';
@@ -20,13 +19,15 @@
 		openExternalUrl(BRANCH_STACKING_DOCS);
 	}
 
-	const { projectId, stackId, parentSeriesName }: Props = $props();
+	const { projectId, stackId }: Props = $props();
 
 	const stackService = getContext(StackService);
 	const [createNewBranch, branchCreation] = stackService.newBranch;
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName: string | undefined = $state();
+	let parentBranch: string | undefined = $state();
+
 	const slugifiedRefName = $derived(createRefName && slugify(createRefName));
 	const generatedNameDiverges = $derived(!!createRefName && slugifiedRefName !== createRefName);
 
@@ -50,7 +51,8 @@
 		createRefName = undefined;
 	}
 
-	export function show() {
+	export function show(branchName: string) {
+		parentBranch = branchName;
 		createRefModal?.show();
 	}
 </script>
@@ -72,8 +74,8 @@
 		/>
 
 		<p class="text-12 text-body helper-text">
-			Creates a new branch that depends on <strong>{parentSeriesName}</strong>. The branches will
-			have to be reviewed and merged in order. Learn more about stacked branches in the
+			Creates a new branch that depends on <strong>{parentBranch}</strong>. The branches will have
+			to be reviewed and merged in order. Learn more about stacked branches in the
 			<LinkButton onclick={clickOnDocsLink}>
 				{#snippet children()}
 					docs
