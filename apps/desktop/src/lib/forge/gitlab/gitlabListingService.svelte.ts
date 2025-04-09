@@ -65,8 +65,14 @@ function injectEndpoints(api: GitLabApi) {
 			listPrs: build.query<EntityState<PullRequest, string>, string>({
 				queryFn: async (_, query) => {
 					const { api, upstreamProjectId, forkProjectId } = gitlab(query.extra);
-					const upstreamMrs = await api.MergeRequests.all({ projectId: upstreamProjectId });
-					const forkMrs = await api.MergeRequests.all({ projectId: forkProjectId });
+					const upstreamMrs = await api.MergeRequests.all({
+						projectId: upstreamProjectId,
+						state: 'opened'
+					});
+					const forkMrs = await api.MergeRequests.all({
+						projectId: forkProjectId,
+						state: 'opened'
+					});
 
 					return {
 						data: prAdapter.addMany(
