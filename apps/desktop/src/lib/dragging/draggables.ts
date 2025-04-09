@@ -1,4 +1,4 @@
-import { key, type SelectionId } from '$lib/selection/key';
+import { key, readKey, type SelectionId } from '$lib/selection/key';
 import { get, type Readable } from 'svelte/store';
 import type { AnyCommit } from '$lib/commits/commit';
 import type { CommitDropData } from '$lib/commits/dropHandler';
@@ -44,6 +44,15 @@ export class ChangeDropData {
 			return this.selection.keys(params);
 		} else {
 			return [key({ ...this.selectionId, path: this.file.path })];
+		}
+	}
+
+	get filePaths(): string[] {
+		if (this.selection.has(this.file.path, this.selectionId)) {
+			const selectionKeys = this.selection.keys(this.selectionId);
+			return selectionKeys.map((key) => readKey(key).path);
+		} else {
+			return [this.file.path];
 		}
 	}
 
