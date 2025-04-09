@@ -3,6 +3,7 @@
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
 	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext } from '@gitbutler/shared/context';
 	import {
 		getUsersWithAvatars,
@@ -13,6 +14,7 @@
 	import ChangeStatus from '@gitbutler/shared/patches/ChangeStatus.svelte';
 	import { type PatchCommit } from '@gitbutler/shared/patches/types';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 
 	const NO_REVIEWERS = 'Not reviewed yet';
@@ -40,6 +42,8 @@
 	const contributors = $derived(getPatchContributorsWithAvatars(patchCommit));
 	const approvers = $derived(getPatchApproversWithAvatars(patchCommit));
 	const rejectors = $derived(getPatchRejectorsWithAvatars(patchCommit));
+
+	const commitShortSha = patchCommit.commitSha.substring(0, 7);
 </script>
 
 <InfoFlexRow>
@@ -71,4 +75,39 @@
 	<Factoid label="Version">
 		v{patchCommit.version}
 	</Factoid>
+	<Factoid label="Commit SHA">
+		<button type="button" class="commit-sha" onclick={() => copyToClipboard(patchCommit.commitSha)}>
+			<span>
+				{commitShortSha}
+			</span>
+			<div class="factoid-icon">
+				<Icon name="copy-small" />
+			</div>
+		</button>
+	</Factoid>
 </InfoFlexRow>
+
+<style lang="postcss">
+	.commit-sha {
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 2px;
+		text-decoration-line: underline;
+		text-underline-offset: 2px;
+		text-decoration-style: dashed;
+
+		&:hover {
+			.factoid-icon {
+				opacity: 1;
+			}
+		}
+	}
+
+	.factoid-icon {
+		color: var(--clr-text-2);
+		opacity: 0;
+		transition: opacity var(--transition-fast);
+	}
+</style>
