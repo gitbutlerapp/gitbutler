@@ -1,22 +1,10 @@
 <script lang="ts">
-	import CardOverlay from '$components/CardOverlay.svelte';
-	import Dropzone from '$components/Dropzone.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
 	import BranchBadge from '$components/v3/BranchBadge.svelte';
-	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
 	import BranchDividerLine from '$components/v3/BranchDividerLine.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
-	import CommitGoesHere from '$components/v3/CommitGoesHere.svelte';
-	import CommitRow from '$components/v3/CommitRow.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
-	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/v3/lib';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import {
-		AmendCommitWithChangeDzHandler,
-		type DzCommitData,
-		SquashCommitDzHandler
-	} from '$lib/commits/dropHandler';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
@@ -26,6 +14,7 @@
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		projectId: string;
@@ -33,16 +22,12 @@
 		branchName: string;
 		first: boolean;
 		last: boolean;
+		commitList: Snippet;
 	}
 
-	let { projectId, stackId, branchName, first, last: lastBranch }: Props = $props();
+	let { projectId, stackId, branchName, first, commitList }: Props = $props();
 
-	const [stackService, baseBranchService, uiState, forge] = inject(
-		StackService,
-		BaseBranchService,
-		UiState,
-		DefaultForgeFactory
-	);
+	const [stackService, uiState, forge] = inject(StackService, UiState, DefaultForgeFactory);
 
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
@@ -52,14 +37,8 @@
 	const upstreamOnlyCommits = $derived(
 		stackService.upstreamCommits(projectId, stackId, branchName)
 	);
-	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
-	const base = $derived(baseBranchResponse.current.data);
-	const baseSha = $derived(base?.baseSha);
 
-	const drawer = $derived(uiState.project(projectId).drawerPage.get());
-	const isCommitting = $derived(drawer.current === 'new-commit');
 	const selection = $derived(uiState.stack(stackId).selection.get());
-	const selectedCommitId = $derived(selection.current?.commitId);
 	const remoteBranchName = $derived(branchResult.current.data?.remoteTrackingBranch);
 
 	const forgeBranch = $derived(
@@ -155,90 +134,7 @@
 			</BranchHeader>
 
 			{#if !isNewBranch}
-				<BranchCommitList {projectId} {stackId} {branchName} {selectedCommitId}>
-					{#snippet upstreamTemplate({ commit, first, lastCommit, selected })}
-						{@const commitId = commit.id}
-						{#if !isCommitting}
-							<CommitRow
-								{stackId}
-								{branchName}
-								{projectId}
-								{first}
-								lastCommit={lastCommit && !commit}
-								{commit}
-								{selected}
-								onclick={() => {
-									uiState.stack(stackId).selection.set({ branchName, commitId, upstream: true });
-									uiState.project(projectId).drawerPage.set(undefined);
-								}}
-							/>
-						{/if}
-					{/snippet}
-					{#snippet localAndRemoteTemplate({ commit, first, last, lastCommit, selected })}
-						{@const commitId = commit.id}
-						{#if isCommitting}
-							<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
-							<CommitGoesHere
-								{selected}
-								{first}
-								last={false}
-								onclick={() => uiState.stack(stackId).selection.set({ branchName, commitId })}
-							/>
-						{/if}
-						{@const dzCommit: DzCommitData = {
-						id: commit.id,
-						isRemote: isUpstreamCommit(commit),
-						isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
-						isConflicted: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
-					}}
-						{@const amendHandler = new AmendCommitWithChangeDzHandler(
-							projectId,
-							stackService,
-							stackId,
-							dzCommit,
-							(newId) => uiState.stack(stackId).selection.set({ branchName, commitId: newId })
-						)}
-						{@const squashHandler = new SquashCommitDzHandler({
-							stackService,
-							projectId,
-							stackId,
-							commit: dzCommit
-						})}
-						<Dropzone handlers={[amendHandler, squashHandler]}>
-							{#snippet overlay({ hovered, activated, handler })}
-								{@const label =
-									handler instanceof AmendCommitWithChangeDzHandler ? 'Amend' : 'Squash'}
-								<CardOverlay {hovered} {activated} {label} />
-							{/snippet}
-							<CommitRow
-								{stackId}
-								{branchName}
-								{projectId}
-								{first}
-								{lastCommit}
-								{lastBranch}
-								{commit}
-								{selected}
-								draggable
-								onclick={() => {
-									const stackState = uiState.stack(stackId);
-									stackState.selection.set({ branchName, commitId });
-									stackState.activeSelectionId.set({ type: 'commit', commitId });
-									uiState.project(projectId).drawerPage.set(undefined);
-								}}
-							/>
-						</Dropzone>
-						{#if isCommitting && last && lastBranch}
-							<CommitGoesHere
-								{first}
-								{last}
-								selected={selectedCommitId === baseSha}
-								onclick={() =>
-									uiState.stack(stackId).selection.set({ branchName, commitId: baseSha })}
-							/>
-						{/if}
-					{/snippet}
-				</BranchCommitList>
+				{@render commitList()}
 			{/if}
 		</div>
 
