@@ -57,6 +57,7 @@
 	}
 
 	.tab {
+		cursor: pointer;
 		text-align: center;
 		flex-grow: 1;
 		background-color: var(--clr-bg-2);
