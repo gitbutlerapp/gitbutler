@@ -189,7 +189,7 @@
 	.branch__header {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: 8px;
 		width: 100%;
 		overflow: hidden;
 	}

@@ -68,7 +68,7 @@
 >
 	<div class="drawer-wrap">
 		<div class="drawer-header">
-			<div class="drawer-header__main">
+			<div class="drawer-header__title">
 				{#if title}
 					<h3 class="text-15 text-bold">
 						{title}
@@ -186,11 +186,12 @@
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 
-	.drawer-header__main {
+	.drawer-header__title {
+		height: 100%;
 		flex-grow: 1;
 		display: flex;
 		gap: 8px;
-		overflow: hidden;
+		align-items: center;
 	}
 
 	.drawer-header__actions {

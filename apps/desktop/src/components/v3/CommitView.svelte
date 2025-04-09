@@ -3,9 +3,12 @@
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import CommitDetails from '$components/v3/CommitDetails.svelte';
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
+	import CommitLine from '$components/v3/CommitLine.svelte';
 	import CommitMessageInput from '$components/v3/CommitMessageInput.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
+	import { getCommitType } from '$components/v3/lib';
 	import { writeClipboard } from '$lib/backend/clipboard';
+	import { type Commit } from '$lib/branches/v3';
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
 	import { showToast } from '$lib/notifications/toasts';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -101,6 +104,21 @@
 		}
 		return undefined;
 	}
+
+	function getCommitLabel(commit: Partial<Commit>) {
+		const commitType = commit ? getCommitType(commit as Commit) : 'unknown';
+
+		switch (commitType) {
+			case 'local':
+				return 'Unpushed';
+			case 'upstream':
+				return 'Upstream';
+			case 'local-and-remote':
+				return 'Pushed';
+			case 'diverged':
+				return 'Diverged';
+		}
+	}
 </script>
 
 <ReduxResult {stackId} {projectId} result={commitResult.current}>
@@ -129,21 +147,30 @@
 		{:else}
 			<Drawer projectId={env.projectId} stackId={env.stackId} splitView>
 				{#snippet header()}
-					<h3 class="text-13 commit-view__header">
-						Commit
-						<Tooltip text="Copy commit SHA">
-							<button
-								type="button"
-								class="commit-view__header-sha"
-								onclick={() => {
-									writeClipboard(commit.id, {
-										message: 'Commit SHA copied'
-									});
-								}}>{commit.id.substring(0, 7)}</button
-							>
-						</Tooltip>
-						<Icon name="copy-small" />
-					</h3>
+					<div class="commit-view__header text-13">
+						<CommitLine width={24} {commit} />
+
+						<div class="commit-view__header-title text-13">
+							<span class="text-semibold">{getCommitLabel(commit)} commit:</span>
+
+							<Tooltip text="Copy commit SHA">
+								<button
+									type="button"
+									class="commit-view__header-sha"
+									onclick={() => {
+										writeClipboard(commit.id, {
+											message: 'Commit SHA copied'
+										});
+									}}
+								>
+									<span>
+										{commit.id.substring(0, 7)}
+									</span>
+									<Icon name="copy-small" /></button
+								>
+							</Tooltip>
+						</div>
+					</div>
 				{/snippet}
 
 				{#snippet extraActions()}
@@ -192,7 +219,14 @@
 	}
 
 	.commit-view__header {
-		color: var(--clr-text-2);
+		display: flex;
+		gap: 8px;
+		height: 100%;
+		margin-left: -4px;
+	}
+
+	.commit-view__header-title {
+		align-self: center;
 	}
 
 	.commit-view__header-sha {
@@ -202,6 +236,7 @@
 		text-decoration: dotted underline;
 		transition: color var(--transition-fast);
 		cursor: pointer;
+		color: var(--clr-text-2);
 
 		&:hover {
 			color: var(--clr-text-1);
