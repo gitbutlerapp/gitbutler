@@ -98,15 +98,33 @@ export const ircSlice = createSlice({
 						message: `${event.user.nick} joined`
 					};
 					const channel = state.channels[event.channel];
+					const nick = event.user.nick;
 					if (!channel) {
 						state.channels[event.channel] = {
 							name: event.channel,
-							users: {},
+							users: { [nick]: { nick } },
 							unread: 0,
 							logs: [newLog]
 						};
 					} else {
+						channel.users[nick] = { nick };
 						channel.logs.push(newLog);
+					}
+					break;
+				}
+				case 'userParted': {
+					const channel = state.channels[event.channel];
+					if (channel) {
+						delete channel.users[event.nick];
+						if (Object.keys(channel.users).length === 0) {
+							delete state.channels[event.channel];
+						} else {
+							channel.logs.push({
+								type: 'server',
+								timestamp: Date.now(),
+								message: `${event.nick} left`
+							});
+						}
 					}
 					break;
 				}
@@ -164,18 +182,6 @@ export const ircSlice = createSlice({
 					const whoInfo = state.whois[event.oldNick];
 					state.whois[event.oldNick] = undefined;
 					state.whois[event.newNick] = whoInfo;
-					break;
-				}
-
-				case 'userParted': {
-					const channel = state.channels[event.channel];
-					if (channel) {
-						channel.logs.push({
-							timestamp: Date.now(),
-							type: 'command',
-							raw: `User ${event.nick} left: ${event.reason}`
-						});
-					}
 					break;
 				}
 

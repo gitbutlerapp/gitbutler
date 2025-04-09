@@ -262,8 +262,8 @@ export function toIrcEvent(msg: IrcMessage): IrcEvent {
 			return {
 				type: 'userParted',
 				nick: nick ?? 'unknown',
-				channel: msg.params[0]!,
-				reason: msg.trailing
+				channel: msg.trailing!,
+				reason: msg.params[0]
 			};
 
 		case Cmd.PRIVMSG:
