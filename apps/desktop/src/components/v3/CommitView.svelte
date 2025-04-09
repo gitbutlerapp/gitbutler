@@ -1,20 +1,27 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
+	import CommitContextMenu from '$components/v3/CommitContextMenu.svelte';
 	import CommitDetails from '$components/v3/CommitDetails.svelte';
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
 	import CommitMessageInput from '$components/v3/CommitMessageInput.svelte';
+	import ConflictResolutionConfirmModal from '$components/v3/ConflictResolutionConfirmModal.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import { getCommitType } from '$components/v3/lib';
 	import { writeClipboard } from '$lib/backend/clipboard';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { type Commit } from '$lib/branches/v3';
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { ModeService } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type { CommitKey } from '$lib/commits/commit';
@@ -29,6 +36,12 @@
 
 	const [stackService, uiState, focus] = inject(StackService, UiState, FocusManager);
 
+	let conflictResolutionConfirmationModal =
+		$state<ReturnType<typeof ConflictResolutionConfirmModal>>();
+
+	const forge = getContext(DefaultForgeFactory);
+	const modeService = maybeGetContext(ModeService);
+	const baseBranch = getContext(BaseBranch);
 	const stackState = $derived(uiState.stack(stackId));
 	const selected = $derived(stackState.selection.get());
 	const branchName = $derived(selected.current?.branchName);
@@ -38,6 +51,10 @@
 			? stackService.upstreamCommitById(projectId, commitKey)
 			: stackService.commitById(projectId, commitKey)
 	);
+	const conflicted = $derived((commitResult.current.data as Commit).hasConflicts);
+	const isAncestorMostConflicted = false; // TODO
+	const isUnapplied = false; // TODO
+	const branchRefName = undefined; // TODO
 
 	const [updateCommitMessage, messageUpdateResult] = stackService.updateCommitMessage;
 
@@ -119,6 +136,43 @@
 				return 'Diverged';
 		}
 	}
+
+	// context menu
+	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
+	let isContextMenuOpen = $state(false);
+
+	async function handleUncommit() {
+		if (!baseBranch || !branchName) {
+			console.error('Unable to undo commit');
+			return;
+		}
+		await stackService.uncommit({ projectId, stackId, branchName, commitId: commitKey.commitId });
+	}
+
+	function openCommitMessageModal() {
+		// TODO: Implement openCommitMessageModal
+	}
+
+	function canEdit() {
+		if (isUnapplied) return false;
+		if (!modeService) return false;
+
+		return true;
+	}
+
+	async function editPatch() {
+		if (!canEdit() || !branchRefName) return;
+		modeService!.enterEditMode(commitKey.commitId, stackId);
+	}
+
+	async function handleEditPatch() {
+		if (conflicted && !isAncestorMostConflicted) {
+			conflictResolutionConfirmationModal?.show();
+			return;
+		}
+		await editPatch();
+	}
 </script>
 
 <ReduxResult {stackId} {projectId} result={commitResult.current}>
@@ -173,16 +227,17 @@
 					</div>
 				{/snippet}
 
-				{#snippet extraActions()}
+				{#snippet kebabMenu()}
 					<Button
 						size="tag"
-						icon="open-link"
-						kind="outline"
+						icon="kebab"
+						kind="ghost"
+						activated={isContextMenuOpen}
+						bind:el={kebabContextMenuTrigger}
 						onclick={() => {
-							// TODO: generate url
-							console.warn('Open commit in browser');
-						}}>Open in browser</Button
-					>
+							contextMenu?.toggle();
+						}}
+					/>
 				{/snippet}
 
 				<div class="commit-view">
@@ -205,6 +260,27 @@
 				{/snippet}
 			</Drawer>
 		{/if}
+
+		<ConflictResolutionConfirmModal
+			bind:this={conflictResolutionConfirmationModal}
+			onSubmit={editPatch}
+		/>
+
+		<CommitContextMenu
+			bind:menu={contextMenu}
+			{projectId}
+			leftClickTrigger={kebabContextMenuTrigger}
+			{baseBranch}
+			{stackId}
+			{commit}
+			commitUrl={forge.current.commitUrl(commit.id)}
+			onUncommitClick={handleUncommit}
+			onEditMessageClick={openCommitMessageModal}
+			onPatchEditClick={handleEditPatch}
+			onToggle={(isOpen) => {
+				isContextMenuOpen = isOpen;
+			}}
+		/>
 	{/snippet}
 </ReduxResult>
 
