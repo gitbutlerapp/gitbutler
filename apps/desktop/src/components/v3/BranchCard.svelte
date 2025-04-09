@@ -1,19 +1,16 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
 	import BranchBadge from '$components/v3/BranchBadge.svelte';
 	import BranchDividerLine from '$components/v3/BranchDividerLine.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
-	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
-	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import type { CommitStatus } from '$lib/commits/commit';
+	import type { ContextTrigger } from '@gitbutler/ui/ContextMenu.svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -22,57 +19,76 @@
 		branchName: string;
 		first: boolean;
 		last: boolean;
+		isNewBranch: boolean;
 		commitList: Snippet;
+		contextMenu: Snippet<
+			[
+				{
+					branchName: string;
+					trackingBranch?: string;
+					leftClickTrigger?: HTMLElement;
+					rightClickTrigger?: HTMLElement;
+					branchType: CommitStatus;
+					onToggle: (open: boolean, isLeftClick: boolean) => void;
+					addListener?: (callback: ContextTrigger) => void;
+				}
+			]
+		>;
 	}
 
-	let { projectId, stackId, branchName, first, commitList }: Props = $props();
+	let { projectId, stackId, branchName, first, isNewBranch, commitList, contextMenu }: Props =
+		$props();
 
-	const [stackService, uiState, forge] = inject(StackService, UiState, DefaultForgeFactory);
+	const [stackService, uiState] = inject(StackService, UiState);
 
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
-	const branchesResult = $derived(stackService.branches(projectId, stackId));
 	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const commitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
-	const localAndRemoteCommits = $derived(stackService.commits(projectId, stackId, branchName));
-	const upstreamOnlyCommits = $derived(
-		stackService.upstreamCommits(projectId, stackId, branchName)
-	);
 
 	const selection = $derived(uiState.stack(stackId).selection.get());
-	const remoteBranchName = $derived(branchResult.current.data?.remoteTrackingBranch);
 
-	const forgeBranch = $derived(
-		remoteBranchName ? forge.current?.branch(remoteBranchName) : undefined
-	);
+	let rightClickTrigger = $state<HTMLDivElement>();
+	let leftClickTrigger = $state<HTMLButtonElement>();
 
-	let headerEl = $state<HTMLDivElement>();
-	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
+	let isMenuOpenByBtn = $state(false);
+	let isMenuOpenByMouse = $state(false);
 
-	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
-	let isContextMenuOpenedByBtn = $state(false);
-	let isContextMenuOpenedByMouse = $state(false);
+	function onToggle(isOpen: boolean, isLeftClick: boolean) {
+		if (isLeftClick) {
+			isMenuOpenByBtn = isOpen;
+		} else {
+			isMenuOpenByMouse = isLeftClick;
+		}
+	}
 </script>
 
 <ReduxResult
 	{stackId}
 	{projectId}
-	result={combineResults(
-		branchResult.current,
-		branchesResult.current,
-		branchDetailsResult.current,
-		commitResult.current,
-		upstreamOnlyCommits.current,
-		localAndRemoteCommits.current
-	)}
+	result={combineResults(branchResult.current, branchDetailsResult.current, commitResult.current)}
 >
-	{#snippet children(
-		[branch, branches, branchDetails, commit, upstreamOnlyCommits, localAndRemoteCommits],
-		{ projectId, stackId }
-	)}
+	{#snippet children([branch, branchDetails, commit], { projectId, stackId })}
 		{@const branchName = branch.name}
 		{@const selected = selection.current?.branchName === branch.name}
-		{@const isNewBranch = !upstreamOnlyCommits.length && !localAndRemoteCommits.length}
+		{@const callbacks: ((e: MouseEvent | undefined, item: any)=>void)[] = []}
+		{@const trigger = {
+			// Super hacky thing, but gets the job done. This code makes
+			// it possible for the context menu component to be injected
+			// into this component as a snippet. A click on the header
+			// must weave its way through to back to the header, but as
+			// a result of the status of the context menu.
+			addListener: (callback: ContextTrigger) => {
+				callbacks.push(callback);
+				return () => {
+					callbacks.splice(callbacks.indexOf(callback), 1);
+				};
+			},
+			fire: (e?: MouseEvent, item?: any) => {
+				for (const callback of callbacks) {
+					callback(e, item);
+				}
+			}
+		}}
 		{#if !first}
 			<BranchDividerLine {commit} />
 		{/if}
@@ -81,10 +97,10 @@
 				{projectId}
 				{stackId}
 				{branch}
-				bind:el={headerEl}
-				bind:menuBtnEl={kebabContextMenuTrigger}
-				isMenuOpenByBtn={isContextMenuOpenedByBtn}
-				isMenuOpenByMouse={isContextMenuOpenedByMouse}
+				bind:el={rightClickTrigger}
+				bind:menuBtnEl={leftClickTrigger}
+				{isMenuOpenByBtn}
+				{isMenuOpenByMouse}
 				selected={selected && selection.current?.commitId === undefined}
 				isTopBranch={first}
 				{isNewBranch}
@@ -95,14 +111,8 @@
 					stackState.activeSelectionId.set({ type: 'branch', branchName, stackId });
 					uiState.project(projectId).drawerPage.set('branch');
 				}}
-				onMenuBtnClick={() => {
-					contextMenu?.toggle();
-				}}
-				onContextMenu={(e) => {
-					e.preventDefault();
-					e.stopPropagation();
-					contextMenu?.toggle(e);
-				}}
+				onMenuBtnClick={() => trigger.fire()}
+				onContextMenu={(e) => trigger.fire(e)}
 			>
 				{#snippet details()}
 					<div class="text-11 branch-header__details">
@@ -138,41 +148,17 @@
 			{/if}
 		</div>
 
-		<NewBranchModal
-			{projectId}
-			{stackId}
-			bind:this={newBranchModal}
-			parentSeriesName={branch.name}
-		/>
-
-		<SeriesHeaderContextMenu
-			{projectId}
-			bind:contextMenuEl={contextMenu}
-			{stackId}
-			leftClickTrigger={kebabContextMenuTrigger}
-			rightClickTrigger={headerEl}
-			branchName={branch.name}
-			seriesCount={branches.length}
-			isTopBranch={first}
-			descriptionOption={false}
-			onGenerateBranchName={() => {
-				throw new Error('Not implemented!');
-			}}
-			onAddDependentSeries={() => newBranchModal?.show()}
-			onOpenInBrowser={() => {
-				const url = forgeBranch?.url;
-				if (url) openExternalUrl(url);
-			}}
-			isPushed={!!branch.remoteTrackingBranch}
-			branchType={commit?.state.type || 'LocalOnly'}
-			onToggle={(isOpen, isLeftClick) => {
-				if (isLeftClick) {
-					isContextMenuOpenedByBtn = isOpen;
-				} else {
-					isContextMenuOpenedByMouse = isOpen;
-				}
-			}}
-		/>
+		{@render contextMenu?.({
+			branchType: commit?.state.type || 'LocalOnly',
+			branchName: branch.name,
+			trackingBranch: branch.remoteTrackingBranch || undefined,
+			leftClickTrigger,
+			rightClickTrigger,
+			onToggle,
+			// Note that the context menu must on render call this listener
+			// to be notified of toggle clicks.
+			addListener: trigger.addListener
+		})}
 	{/snippet}
 </ReduxResult>
 

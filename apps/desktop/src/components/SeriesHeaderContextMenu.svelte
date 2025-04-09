@@ -9,7 +9,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import ContextMenu, { type ContextTrigger } from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -34,6 +34,7 @@
 		onAddDependentSeries?: () => void;
 		onOpenInBrowser?: () => void;
 		onToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
+		addListener?: (callback: ContextTrigger) => void;
 	}
 
 	let {
@@ -54,7 +55,8 @@
 		onGenerateBranchName,
 		onAddDependentSeries,
 		onOpenInBrowser,
-		onToggle
+		onToggle,
+		addListener
 	}: Props = $props();
 
 	const [aiService, stackService] = inject(AIService, StackService);
@@ -82,6 +84,14 @@
 	export function showSeriesRenameModal() {
 		renameBranchModal.show();
 	}
+
+	$effect(() => {
+		if (addListener) {
+			return addListener((e?: MouseEvent, item?: any) => {
+				contextMenuEl?.open(e, item);
+			});
+		}
+	});
 </script>
 
 <ContextMenu
