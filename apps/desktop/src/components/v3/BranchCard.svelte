@@ -143,12 +143,14 @@
 
 						{#if branch.reviewId || branch.prNumber}
 							<span class="branch-header__divider">•</span>
-							{#if branch.reviewId}
-								<ReviewBadge brId={branch.reviewId} brStatus="unknown" />
-							{/if}
-							{#if branch.prNumber}
-								<ReviewBadge prNumber={branch.prNumber} prStatus="unknown" />
-							{/if}
+							<div class="branch-header__review-badges">
+								{#if branch.reviewId}
+									<ReviewBadge brId={branch.reviewId} brStatus="unknown" />
+								{/if}
+								{#if branch.prNumber}
+									<ReviewBadge prNumber={branch.prNumber} prStatus="unknown" />
+								{/if}
+							</div>
 						{/if}
 					</div>
 				{/snippet}
@@ -298,6 +300,11 @@
 		gap: 6px;
 		color: var(--clr-text-2);
 		margin-left: 4px;
+	}
+
+	.branch-header__review-badges {
+		display: flex;
+		gap: 3px;
 	}
 
 	.branch-header__item {
