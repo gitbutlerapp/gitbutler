@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getColorFromCommitState, isLocalAndRemoteCommit } from '$components/v3/lib';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { camelCaseToTitleCase } from '@gitbutler/ui/utils/string';
 	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
 
@@ -8,9 +9,10 @@
 		commit: Commit | UpstreamCommit;
 		lastCommit?: boolean;
 		lastBranch?: boolean;
+		width?: number;
 	}
 
-	const { commit, lastCommit, lastBranch }: Props = $props();
+	const { commit, lastCommit, lastBranch, width = 48 }: Props = $props();
 
 	const color = $derived(
 		isLocalAndRemoteCommit(commit)
@@ -31,7 +33,7 @@
 	);
 </script>
 
-<div class="commit-lines" style:--commit-color={color}>
+<div class="commit-lines" style:--commit-color={color} style:--container-width={pxToRem(width)}>
 	<div class="top"></div>
 	{#if diverged}
 		<div class="local-shadow-commit-dot">
@@ -65,22 +67,15 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		margin: 0 16px;
 		gap: 3px;
+		width: var(--container-width);
 	}
 
 	.top,
 	.bottom {
+		flex: 1;
 		width: 2px;
 		background-color: var(--commit-color);
-	}
-
-	.top {
-		height: 14px;
-	}
-
-	.bottom {
-		flex-grow: 1;
 	}
 
 	.middle {
@@ -100,12 +95,13 @@
 	.local-shadow-commit-dot {
 		display: flex;
 		box-sizing: border-box;
-		margin-left: -11px;
+		margin-left: -8px;
 
 		.shadow-dot {
 			width: 10px;
 			height: 10px;
 			fill: var(--clr-commit-shadow);
+			margin-right: -1px;
 		}
 
 		.local-dot {

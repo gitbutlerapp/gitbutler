@@ -13,7 +13,7 @@
 		projectId: string;
 		menu: ReturnType<typeof ContextMenu> | undefined;
 		leftClickTrigger: HTMLElement | undefined;
-		rightClickTrigger: HTMLElement | undefined;
+		rightClickTrigger?: HTMLElement | undefined;
 		baseBranch: BaseBranch;
 		stackId: string | undefined;
 		commit: Commit | UpstreamCommit;
