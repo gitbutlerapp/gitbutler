@@ -131,8 +131,11 @@ export class IrcService {
 		return reactive(() => result);
 	}
 
-	markOpen(channel: string, open: boolean) {
-		return this.dispatch(markChannelOpen({ name: channel, open }));
+	markOpen(channel: string) {
+		this.dispatch(markChannelOpen({ name: channel, open: true }));
+		return () => {
+			this.dispatch(markChannelOpen({ name: channel, open: false }));
+		};
 	}
 
 	unreadCount() {
