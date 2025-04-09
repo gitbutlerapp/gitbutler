@@ -113,18 +113,12 @@ export const ircSlice = createSlice({
 					break;
 				}
 				case 'userParted': {
-					const channel = state.channels[event.channel];
-					if (channel) {
-						delete channel.users[event.nick];
-						if (Object.keys(channel.users).length === 0) {
-							delete state.channels[event.channel];
-						} else {
-							channel.logs.push({
-								type: 'server',
-								timestamp: Date.now(),
-								message: `${event.nick} left`
-							});
-						}
+					leaveChannel({ state, nick: event.nick, channelName: event.channel });
+					break;
+				}
+				case 'userQuit': {
+					for (const name of Object.keys(state.channels)) {
+						leaveChannel({ state, nick: event.nick, channelName: name });
 					}
 					break;
 				}
@@ -230,6 +224,24 @@ export const ircSlice = createSlice({
 		});
 	}
 });
+
+/** Leave channel used both for PART and QUIT. */
+function leaveChannel(args: { state: IRCState; nick: string; channelName: string }) {
+	const { state, nick, channelName } = args;
+	const channel = state.channels[channelName];
+	if (channel) {
+		delete channel.users[nick];
+		if (Object.keys(channel.users).length === 0) {
+			delete state.channels[channelName];
+		} else {
+			channel.logs.push({
+				type: 'server',
+				timestamp: Date.now(),
+				message: `${nick} quit`
+			});
+		}
+	}
+}
 
 type ThunkApiConfig = {
 	state: {

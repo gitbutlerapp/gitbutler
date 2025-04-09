@@ -228,6 +228,7 @@ function prefixToUser(prefix: string | undefined): IrcUser | undefined {
 export type IrcEvent =
 	| { type: 'userJoined'; nick: string; channel: string; user: IrcUser }
 	| { type: 'userParted'; nick: string; channel: string; reason?: string }
+	| { type: 'userQuit'; nick: string; reason?: string }
 	| { type: 'messageReceived'; from: string; target: string; text: string }
 	| { type: 'namesList'; channel: string; names: string[] }
 	| { type: 'nickChanged'; oldNick: string; newNick: string }
@@ -264,6 +265,13 @@ export function toIrcEvent(msg: IrcMessage): IrcEvent {
 				nick: nick ?? 'unknown',
 				channel: msg.trailing!,
 				reason: msg.params[0]
+			};
+
+		case Cmd.QUIT:
+			return {
+				type: 'userQuit',
+				nick: nick ?? 'unknown',
+				reason: msg.trailing
 			};
 
 		case Cmd.PRIVMSG:
