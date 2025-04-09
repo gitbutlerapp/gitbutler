@@ -1,6 +1,5 @@
 use crate::{
     commit::VirtualBranchCommit,
-    conflicts::{self, RepoConflictsExt},
     dependencies::stack_dependencies_from_workspace,
     file::VirtualBranchFile,
     hunk::VirtualBranchHunk,
@@ -20,7 +19,6 @@ use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_diff::{trees, GitHunk, Hunk};
-use gitbutler_error::error::Code;
 use gitbutler_hunk_dependency::RangeCalculationError;
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_oxidize::{
@@ -137,8 +135,6 @@ pub fn unapply_ownership(
     lines: Option<VirtualBranchHunkRangeMap>,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
-    ctx.assure_resolved()?;
-
     let vb_state = ctx.project().virtual_branches();
 
     let workspace_commit_id = get_workspace_head(ctx)?;
@@ -258,8 +254,6 @@ pub(crate) fn reset_files(
     files: &[PathBuf],
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
-    ctx.assure_resolved()?;
-
     let stack = ctx
         .project()
         .virtual_branches()
@@ -351,8 +345,6 @@ pub fn list_virtual_branches_cached(
     let cache = gix_repo.commit_graph_if_enabled()?;
     let mut graph = gix_repo.revision_graph(cache.as_ref());
     for (mut branch, mut files) in status.branches {
-        update_conflict_markers(ctx, worktree_changes)?;
-
         let upstream_branch = match &branch.upstream {
             Some(upstream) => repo.maybe_find_branch_by_refname(&Refname::from(upstream))?,
             None => None,
@@ -440,7 +432,7 @@ pub fn list_virtual_branches_cached(
             upstream_name: branch
                 .upstream
                 .and_then(|r| Refname::from(r).branch().map(Into::into)),
-            conflicted: conflicts::is_resolving(ctx),
+            conflicted: false, // TODO: Get this from the index
             base_current,
             ownership: branch.ownership,
             updated_at: branch.updated_timestamp_ms,
@@ -754,11 +746,6 @@ pub fn commit(
         .find(|(stack, _)| stack.id == stack_id)
         .with_context(|| format!("stack {stack_id} not found"))?;
 
-    update_conflict_markers(ctx, &diffs).context(Code::CommitMergeConflictFailure)?;
-
-    ctx.assure_unconflicted()
-        .context(Code::CommitMergeConflictFailure)?;
-
     let gix_repo = ctx.gix_repo()?;
 
     let tree_oid = if let Some(ownership) = ownership {
@@ -806,24 +793,7 @@ pub fn commit(
         .find_tree(tree_oid)
         .context(format!("failed to find tree {:?}", tree_oid))?;
 
-    // now write a commit, using a merge parent if it exists
-    let extra_merge_parent = conflicts::merge_parent(ctx)
-        .context("failed to get merge parent")
-        .context(Code::CommitMergeConflictFailure)?;
-
-    let commit_oid = match extra_merge_parent {
-        Some(merge_parent) => {
-            let merge_parent = git_repo
-                .find_commit(merge_parent)
-                .context(format!("failed to find merge parent {:?}", merge_parent))?;
-            let commit_oid = ctx.commit(message, &tree, &[&parent_commit, &merge_parent], None)?;
-            conflicts::clear(ctx)
-                .context("failed to clear conflicts")
-                .context(Code::CommitMergeConflictFailure)?;
-            commit_oid
-        }
-        None => ctx.commit(message, &tree, &[&parent_commit], None)?,
-    };
+    let commit_oid = ctx.commit(message, &tree, &[&parent_commit], None)?;
 
     let vb_state = ctx.project().virtual_branches();
     branch.set_stack_head(&vb_state, &gix_repo, commit_oid, Some(tree_oid))?;
@@ -1367,8 +1337,6 @@ pub(crate) fn update_commit_message(
     if message.is_empty() {
         bail!("commit message can not be empty");
     }
-    ctx.assure_unconflicted()?;
-
     let vb_state = ctx.project().virtual_branches();
     let default_target = vb_state.get_default_target()?;
     let gix_repo = ctx.gix_repo()?;
@@ -1430,32 +1398,4 @@ pub(crate) fn update_commit_message(
         .ok_or(anyhow!(
             "Failed to find the updated commit id after rebasing"
         ))
-}
-
-// Goes through a set of changes and checks if conflicts are present. If no conflicts
-// are present in a file it will be resolved, meaning it will be removed from the
-// conflicts file.
-fn update_conflict_markers(
-    ctx: &CommandContext,
-    files: &gitbutler_diff::DiffByPathMap,
-) -> Result<()> {
-    let conflicting_files = conflicts::conflicting_files(ctx)?;
-    for (path, file_diff) in files {
-        let mut conflicted = false;
-        if conflicting_files.contains(path) {
-            // check file for conflict markers, resolve the file if there are none in any hunk
-            for hunk in &file_diff.hunks {
-                if hunk.diff_lines.contains_str(b"<<<<<<< ours") {
-                    conflicted = true;
-                }
-                if hunk.diff_lines.contains_str(b">>>>>>> theirs") {
-                    conflicted = true;
-                }
-            }
-            if !conflicted {
-                conflicts::resolve(ctx, path).unwrap();
-            }
-        }
-    }
-    Ok(())
 }
