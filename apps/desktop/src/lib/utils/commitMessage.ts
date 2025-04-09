@@ -1,10 +1,10 @@
-const commitMessageSplitRegExp = /(.*?)(?:\n+|$)(.*)/s;
-
 export function splitMessage(message: string) {
-	const matches = message.match(commitMessageSplitRegExp);
+	const splitIndex = message.indexOf('\n');
+	const title = splitIndex !== -1 ? message.substring(0, splitIndex) : message;
+	const description = splitIndex !== -1 ? message.substring(splitIndex + 1) : '';
 
 	return {
-		title: matches?.[1] || '',
-		description: matches?.[2] || ''
+		title: title.trim(),
+		description: description.trim()
 	};
 }

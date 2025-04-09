@@ -10,6 +10,7 @@ import {
 	providesList,
 	ReduxTag
 } from '$lib/state/tags';
+import { splitMessage } from '$lib/utils/commitMessage';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { Commit, StackBranch, UpstreamCommit } from '$lib/branches/v3';
@@ -396,9 +397,10 @@ export class StackService {
 		const message = commit.data?.message;
 		if (message) {
 			const state = this.uiState.project(args.projectId);
-			const [title, description] = message.split('\n', 1);
-			state.commitDescription.set(title ? title.trim() : '');
-			state.commitDescription.set(description ? description.trim() : '');
+
+			const { title, description } = splitMessage(message);
+			state.commitTitle.set(title);
+			state.commitDescription.set(description);
 		}
 		return await this.api.endpoints.uncommit.mutate(args);
 	}
