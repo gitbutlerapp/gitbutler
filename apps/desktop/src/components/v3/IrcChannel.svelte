@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import IrcInput from '$components/v3/IrcInput.svelte';
 	import IrcMessages from '$components/v3/IrcMessages.svelte';
 	import IrcNames from '$components/v3/IrcNames.svelte';
