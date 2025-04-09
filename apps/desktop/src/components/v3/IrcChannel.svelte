@@ -33,6 +33,8 @@
 			? ircService.getChannelMessages(props.channel)
 			: ircService.getSystemMessages()
 	);
+
+	const channelName = $derived(props.type === 'group' ? props.channel : undefined);
 </script>
 
 <div class="irc-channel">
@@ -46,11 +48,9 @@
 		{/if}
 	</div>
 	<div class="middle">
-		<div class="messages">
-			{#if logs}
-				<IrcMessages {logs} />
-			{/if}
-		</div>
+		{#if logs}
+			<IrcMessages channel={channelName} {logs} />
+		{/if}
 		{#if props.type === 'group'}
 			<IrcNames channel={props.channel} />
 		{/if}
@@ -79,10 +79,5 @@
 		display: flex;
 		overflow: hidden;
 		flex-grow: 1;
-	}
-	.messages {
-		flex-grow: 1;
-		overflow: hidden;
-		padding: 12px 14px;
 	}
 </style>

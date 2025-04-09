@@ -38,9 +38,16 @@
 	}: Props = $props();
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+
+	let scroller: ScrollableContainer;
+
+	export function scrollToBottom() {
+		scroller.scrollToBottom();
+	}
 </script>
 
 <ScrollableContainer
+	bind:this={scroller}
 	{height}
 	{maxHeight}
 	{initiallyVisible}
