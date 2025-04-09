@@ -12,7 +12,7 @@
 </script>
 
 <div class="series-labels-row">
-	<SeriesIcon single={series.length > 1} outlined={selected} />
+	<SeriesIcon single={series.length === 1} outlined={selected} />
 
 	<div class="series-name text-12 text-semibold contrast">
 		<span class="truncate">{series[0]}</span>
