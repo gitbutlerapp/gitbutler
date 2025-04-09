@@ -1,16 +1,9 @@
 <script lang="ts">
-	import { getColorFromCommitState } from '$components/v3/lib';
-	import type { Commit } from '$lib/branches/v3';
-
 	interface Props {
-		commit: Commit | null;
+		lineColor: string;
 	}
 
-	const { commit }: Props = $props();
-
-	const lineColor = $derived(
-		commit ? getColorFromCommitState(commit.id, commit.state) : 'var(--clr-commit-local)'
-	);
+	const { lineColor }: Props = $props();
 </script>
 
 <div class="commit-line" style:--commit-color={lineColor}></div>

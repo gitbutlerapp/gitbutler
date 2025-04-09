@@ -51,7 +51,7 @@
 		createRefName = undefined;
 	}
 
-	export function show(branchName: string) {
+	export function show(branchName?: string) {
 		parentBranch = branchName;
 		createRefModal?.show();
 	}

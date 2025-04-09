@@ -21,6 +21,7 @@
 	import { closedStateSync } from '$lib/forge/closedStateSync.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, getContextStore, inject } from '@gitbutler/shared/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
@@ -200,33 +201,37 @@
 
 <AddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={branch.name} />
 
-<SeriesHeaderContextMenu
-	{projectId}
-	stackId={stack.id}
-	bind:this={branchContextMenu}
-	bind:contextMenuEl={kebabContextMenu}
+<ContextMenu
+	testId={TestId.BranchHeaderContextMenu}
+	bind:this={kebabContextMenu}
 	leftClickTrigger={kebabContextMenuTrigger}
 	rightClickTrigger={seriesHeaderEl}
-	branchName={branch.name}
-	seriesCount={stack.validSeries?.length ?? 0}
-	{isTopBranch}
-	{toggleDescription}
-	descriptionString={branch.description ?? ''}
-	onGenerateBranchName={generateBranchName}
-	onAddDependentSeries={() => stackingAddSeriesModal?.show()}
-	onOpenInBrowser={() => {
-		const url = forgeBranch?.url;
-		if (url) openExternalUrl(url);
-	}}
-	{isPushed}
-	{pr}
-	{branchType}
-	onToggle={(isOpen, isLeftClick) => {
+	ontoggle={(isOpen, isLeftClick) => {
 		if (isLeftClick) {
 			contextMenuOpened = isOpen;
 		}
 	}}
-/>
+>
+	<SeriesHeaderContextMenu
+		{projectId}
+		stackId={stack.id}
+		bind:this={branchContextMenu}
+		branchName={branch.name}
+		seriesCount={stack.validSeries?.length ?? 0}
+		{isTopBranch}
+		{toggleDescription}
+		descriptionString={branch.description ?? ''}
+		onGenerateBranchName={generateBranchName}
+		onAddDependentSeries={() => stackingAddSeriesModal?.show()}
+		onOpenInBrowser={() => {
+			const url = forgeBranch?.url;
+			if (url) openExternalUrl(url);
+		}}
+		{isPushed}
+		{pr}
+		{branchType}
+	/>
+</ContextMenu>
 
 <div
 	role="article"
