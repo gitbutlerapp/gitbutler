@@ -241,12 +241,12 @@ function filesToDiffSpec(data: FileDropData): DiffSpec[] {
 
 /** Helper function that converts `ChangeDropData` to `DiffSpec`. */
 function changesToDiffSpec(data: ChangeDropData): DiffSpec[] {
-	const file = data.file;
-	return [
-		{
-			previousPathBytes: null,
-			pathBytes: file.path, // Can we get the path in bytes here?
+	const filePaths = data.filePaths;
+	return filePaths.map((filePath) => {
+		return {
+			previousPathBytes: null, // TODO: We need the previous path bytes added here.
+			pathBytes: filePath,
 			hunkHeaders: []
-		}
-	];
+		};
+	});
 }
