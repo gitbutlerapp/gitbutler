@@ -1,16 +1,7 @@
 import BranchCard from '$components/v3/BranchCard.svelte';
-import { AIService } from '$lib/ai/service';
-import { Tauri } from '$lib/backend/tauri';
-import { BaseBranch } from '$lib/baseBranch/baseBranch';
-import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import { StackService } from '$lib/stacks/stackService.svelte';
-import { UiState } from '$lib/state/uiState.svelte';
-import { getAIServiceMock } from '$lib/testing/mockAIService';
-import { getMockBaseBranch } from '$lib/testing/mockBaseBranch';
 import { getStackServiceMock } from '$lib/testing/mockStackService';
-import { getUiStateMock } from '$lib/testing/mockUiState';
-import { setup } from '$lib/testing/setup';
+import { setup, type TestSetup } from '$lib/testing/setup';
 import { TestId } from '$lib/testing/testIds';
 import { clearMocks } from '@tauri-apps/api/mocks';
 import { render, waitFor } from '@testing-library/svelte/svelte5';
@@ -18,50 +9,17 @@ import userEvent from '@testing-library/user-event';
 import { expect, test, describe, beforeEach, afterEach, vi } from 'vitest';
 
 describe('BranchCard Component', () => {
-	let cleanup: () => void;
-
-	let tauri: Tauri;
-	let stackService: ReturnType<typeof vi.fn>;
-	let baseBranchService: ReturnType<typeof vi.fn>;
-	let uiState: ReturnType<typeof vi.fn>;
-	let forge: ReturnType<typeof vi.fn>;
-	let aiService: ReturnType<typeof vi.fn>;
-	let baseBranch: ReturnType<typeof vi.fn>;
-
-	let context: Map<any, any>;
+	let testSetup: TestSetup;
 
 	beforeEach(() => {
-		cleanup = setup();
-
-		tauri = new Tauri();
-		const MockStackService = getStackServiceMock();
-		const UiStateMock = getUiStateMock();
-		const BaseBranchMock = getMockBaseBranch();
-		const AIServiceMock = getAIServiceMock();
-
-		stackService = new MockStackService();
-		baseBranchService = vi.fn();
-		uiState = new UiStateMock();
-		forge = vi.fn();
-		aiService = new AIServiceMock();
-		baseBranch = new BaseBranchMock();
-
-		context = new Map<any, any>([
-			[StackService, stackService],
-			[BaseBranchService, baseBranchService],
-			[UiState, uiState],
-			[DefaultForgeFactory, forge],
-			[AIService, aiService],
-			[BaseBranch, baseBranch]
-		]);
-		vi.spyOn(tauri, 'listen').mockReturnValue(async () => {});
+		testSetup = setup();
 	});
 
 	afterEach(() => {
 		vi.restoreAllMocks();
 		clearMocks();
 
-		cleanup();
+		testSetup.cleanup();
 	});
 
 	test('should render the BranchCard component and update it correctly', async () => {
@@ -76,11 +34,11 @@ describe('BranchCard Component', () => {
 		const upstreamCommitsMock = vi.spyOn(StackServiceMock.prototype, 'upstreamCommits');
 
 		const stackServiceMock = new StackServiceMock();
-		context.set(StackService, stackServiceMock);
+		testSetup.context.set(StackService, stackServiceMock);
 
 		const branchName = 'branch-a';
 		const { getByTestId, rerender } = render(BranchCard, {
-			context,
+			context: testSetup.context,
 			props: {
 				projectId: 'test-project',
 				stackId: 'test-stack',
@@ -148,7 +106,7 @@ describe('BranchCard Component', () => {
 		const user = userEvent.setup();
 
 		const { getByTestId, queryByTestId } = render(BranchCard, {
-			context,
+			context: testSetup.context,
 			props: {
 				projectId: 'test-project',
 				stackId: 'test-stack',

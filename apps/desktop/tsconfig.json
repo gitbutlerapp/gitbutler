@@ -15,13 +15,7 @@
 		"strict": true,
 		"experimentalDecorators": true,
 		"noFallthroughCasesInSwitch": true,
-		"types": [
-			"@wdio/globals/types",
-			"@wdio/mocha-framework",
-			"vitest/importMeta",
-			"@vitest/browser/matchers",
-			"vitest/jsdom"
-		]
+		"types": ["@wdio/globals/types", "@wdio/mocha-framework", "vitest/importMeta", "vitest/jsdom"]
 	},
 	"include": [
 		"vitest-setup.js",
