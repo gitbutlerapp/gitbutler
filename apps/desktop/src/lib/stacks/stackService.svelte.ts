@@ -849,6 +849,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Unapply Stack'
 				}),
 				invalidatesTags: () => [
+					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesList(ReduxTag.BranchListing)
 				]
@@ -860,6 +861,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Unapply Stack'
 				}),
 				invalidatesTags: () => [
+					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesList(ReduxTag.BranchListing)
 				]
@@ -991,6 +993,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Move Commit'
 				}),
 				invalidatesTags: (_result, _error, args) => [
+					invalidatesList(ReduxTag.WorktreeChanges), // Moving commits can cause conflicts
 					invalidatesItem(ReduxTag.Commits, args.sourceStackId),
 					invalidatesItem(ReduxTag.StackInfo, args.sourceStackId),
 					invalidatesItem(ReduxTag.Commits, args.targetStackId),
@@ -1012,6 +1015,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Integrate Upstream Commits'
 				}),
 				invalidatesTags: (_result, _error, args) => [
+					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesItem(ReduxTag.Commits, args.stackId),
 					invalidatesItem(ReduxTag.StackInfo, args.stackId)
 				]
@@ -1088,6 +1092,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Squash Commits'
 				}),
 				invalidatesTags: (_result, _error, args) => [
+					invalidatesList(ReduxTag.WorktreeChanges), // Could cause conflicts
 					invalidatesItem(ReduxTag.Commits, args.stackId),
 					invalidatesItem(ReduxTag.StackInfo, args.stackId)
 				]
@@ -1108,6 +1113,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Move Commit File'
 				}),
 				invalidatesTags: (_result, _error, args) => [
+					invalidatesList(ReduxTag.WorktreeChanges), // Could cause conflicts
 					invalidatesItem(ReduxTag.Commits, args.stackId),
 					invalidatesItem(ReduxTag.StackInfo, args.stackId),
 					invalidatesList(ReduxTag.BranchListing)
