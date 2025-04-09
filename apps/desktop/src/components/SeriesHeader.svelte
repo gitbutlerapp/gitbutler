@@ -107,14 +107,16 @@
 	 *
 	 * TODO: Remove this after transition is complete.
 	 */
+	let count = 0;
 	$effect(() => {
 		if (
 			forge.current.name === 'github' &&
 			!branch.prNumber &&
 			listedPr?.number &&
 			listedPr.number !== branch.prNumber &&
-			!prNumberUpdate.current.isLoading
+			prNumberUpdate.current.isUninitialized
 		) {
+			if (count++) return;
 			updateBranchPrNumber({
 				projectId: projectId,
 				stackId: stack.id,
