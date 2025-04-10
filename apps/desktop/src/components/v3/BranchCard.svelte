@@ -106,7 +106,7 @@
 		onContextMenu={(e) => contextMenu.toggle(e)}
 	>
 		{#snippet details()}
-			<div class="text-11 branch-header__details">
+			<div class="text-12 branch-header__details">
 				<span class="branch-header__item">
 					<BranchBadge {pushStatus} unstyled />
 				</span>
