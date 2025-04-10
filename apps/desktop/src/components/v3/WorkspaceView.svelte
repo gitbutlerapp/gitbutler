@@ -8,12 +8,10 @@
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import StackTabs from '$components/v3/stackTabs/StackTabs.svelte';
-	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import { remToPx } from '@gitbutler/ui/utils/remToPx';
 	import { type Snippet } from 'svelte';
 
@@ -31,6 +29,7 @@
 	const projectState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectState.drawerPage);
 	const drawerIsFullScreen = $derived(projectState.drawerFullScreen);
+	const isCommitting = $derived(drawerPage.current === 'new-commit');
 
 	const selected = $derived(stackId ? uiState.stack(stackId).selection : undefined);
 	const branchName = $derived(selected?.current?.branchName);
@@ -95,29 +94,19 @@
 	>
 		<ReduxResult {projectId} result={stacksResult?.current}>
 			{#snippet children(stacks)}
-				<StackTabs {projectId} {stacks} selectedId={stackId} bind:width={tabsWidth} />
+				<StackTabs
+					{projectId}
+					{stacks}
+					selectedId={stackId}
+					{isCommitting}
+					bind:width={tabsWidth}
+				/>
 				<div
 					class="contents"
 					class:rounded={tabsWidth! <= (remToPx(stacksViewWidth.current - 0.5) as number)}
 					class:dotted={stacks.length > 0}
 				>
-					{#if stacks.length > 0}
-						{@render stack()}
-					{:else}
-						<EmptyStatePlaceholder
-							image={noBranchesSvg}
-							background="none"
-							bottomMargin={40}
-							topBottomPadding={0}
-						>
-							{#snippet title()}
-								You have no branches
-							{/snippet}
-							{#snippet caption()}
-								Create a new branch for<br />a feature, fix, or idea!
-							{/snippet}
-						</EmptyStatePlaceholder>
-					{/if}
+					{@render stack()}
 				</div>
 			{/snippet}
 		</ReduxResult>
@@ -185,7 +174,6 @@
 
 		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 		border: 1px solid var(--clr-border-2);
-		gap: 20px;
 	}
 
 	.dotted {

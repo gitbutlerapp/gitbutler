@@ -1,5 +1,6 @@
 <script lang="ts">
 	import StackTab from '$components/v3/stackTabs/StackTab.svelte';
+	import StackTabDraft from '$components/v3/stackTabs/StackTabDraft.svelte';
 	import StackTabNew from '$components/v3/stackTabs/StackTabNew.svelte';
 	import { stackPath } from '$lib/routes/routes.svelte';
 	import { onMount } from 'svelte';
@@ -9,9 +10,10 @@
 		projectId: string;
 		stacks: Stack[];
 		selectedId?: string;
+		isCommitting: boolean;
 		width: number | undefined;
 	};
-	let { projectId, stacks, selectedId, width = $bindable() }: Props = $props();
+	let { projectId, stacks, selectedId, isCommitting, width = $bindable() }: Props = $props();
 
 	let plusBtnEl = $state<HTMLButtonElement>();
 	let tabsEl = $state<HTMLDivElement>();
@@ -73,13 +75,17 @@
 			<div class="shadow shadow-right" class:scrollable class:scrolled-end={scrolledEnd}></div>
 		</div>
 	{/if}
-	<StackTabNew
-		bind:el={plusBtnEl}
-		{scrollerEl}
-		{projectId}
-		stackId={selectedId}
-		noStacks={stacks.length === 0}
-	/>
+	{#if isCommitting && stacks.length === 0}
+		<StackTabDraft />
+	{:else}
+		<StackTabNew
+			bind:el={plusBtnEl}
+			{scrollerEl}
+			{projectId}
+			stackId={selectedId}
+			noStacks={stacks.length === 0}
+		/>
+	{/if}
 </div>
 
 <style lang="postcss">

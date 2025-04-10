@@ -3,147 +3,175 @@
 	import BranchRenameModal from '$components/BranchRenameModal.svelte';
 	import BranchHeaderIcon from '$components/v3/BranchHeaderIcon.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
-	interface Props {
+	export type Props = {
 		el?: HTMLElement;
 		projectId: string;
-		stackId: string;
 		branchName: string;
-		trackingBranch?: string;
-		selected: boolean;
-		isTopBranch: boolean;
 		readonly: boolean;
-		lineColor: string;
 		iconName: keyof typeof iconsJson;
+		lineColor: string;
 		menuBtnEl?: HTMLButtonElement;
-		isMenuOpenByBtn?: boolean;
-		isMenuOpenByMouse?: boolean;
-		isNewBranch?: boolean;
-		details?: Snippet;
-		onclick: () => void;
-		onMenuBtnClick: () => void;
-		onContextMenu: (e: MouseEvent) => void;
-	}
+		draft?: boolean;
+	} & (
+		| { draft: true }
+		| {
+				draft: false | undefined;
+				selected: boolean;
+				stackId: string;
+				trackingBranch?: string;
+				isTopBranch: boolean;
+				isMenuOpenByBtn?: boolean;
+				isMenuOpenByMouse?: boolean;
+				isNewBranch?: boolean;
+				details: Snippet;
+				onclick: () => void;
+				onMenuBtnClick: () => void;
+				onContextMenu: (e: MouseEvent) => void;
+		  }
+	);
 
 	let {
 		el = $bindable(),
 		projectId,
-		stackId,
 		branchName,
-		trackingBranch,
-		isTopBranch,
 		readonly,
-		lineColor,
 		iconName,
-		selected,
+		lineColor,
 		menuBtnEl = $bindable(),
-		isMenuOpenByBtn,
-		isMenuOpenByMouse,
-		isNewBranch,
-		details,
-		onclick,
-		onMenuBtnClick,
-		onContextMenu
+		...args
 	}: Props = $props();
 
-	const [stackService] = inject(StackService);
+	const [stackService, uiState] = inject(StackService, UiState);
 
 	const [updateName, nameUpdate] = stackService.updateBranchName;
 
-	const isPushed = $derived(!!trackingBranch);
-	let renameBranchModal: BranchRenameModal;
+	const isPushed = $derived(!!(args.draft ? undefined : args.trackingBranch));
+	let renameBranchModal: BranchRenameModal | undefined = $state();
 
-	function updateBranchName(title: string) {
-		updateName({
-			projectId,
-			stackId,
-			branchName: branchName,
-			newName: title
-		});
+	async function updateBranchName(title: string) {
+		if (args.draft) {
+			uiState.global.draftBranchName.set(title);
+			const normalized = await stackService.normalizeBranchName(title);
+			if (normalized.data) {
+				uiState.global.draftBranchName.set(normalized.data);
+			}
+		} else {
+			updateName({
+				projectId,
+				stackId: args.stackId,
+				branchName,
+				newName: title
+			});
+		}
 	}
 </script>
 
-<div
-	data-testid={TestId.BranchHeader}
-	bind:this={el}
-	role="button"
-	class="branch-header"
-	class:new-branch={isNewBranch}
-	class:selected
-	{onclick}
-	oncontextmenu={(e) => {
-		e.stopPropagation();
-		e.preventDefault();
-		onContextMenu(e);
-	}}
-	onkeypress={onclick}
-	tabindex="0"
-	class:activated={isMenuOpenByMouse || isMenuOpenByBtn}
->
-	<BranchHeaderIcon
-		{lineColor}
-		{iconName}
-		lineTop={isTopBranch ? false : true}
-		isDashed={isNewBranch}
-	/>
-	<div class="branch-header__content">
-		<div class="name-line text-14 text-bold">
-			<BranchLabel
-				name={branchName}
-				fontSize="15"
-				disabled={nameUpdate.current.isLoading}
-				readonly={readonly || isPushed}
-				onChange={(name) => updateBranchName(name)}
-				onDblClick={() => {
-					if (isPushed) {
-						renameBranchModal.show();
-					}
-				}}
-			/>
+{#if !args.draft}
+	<div
+		data-testid={TestId.BranchHeader}
+		bind:this={el}
+		role="button"
+		class="branch-header"
+		class:new-branch={args.isNewBranch}
+		class:selected={args.selected}
+		onclick={args.onclick}
+		oncontextmenu={(e) => {
+			e.stopPropagation();
+			e.preventDefault();
+			args.onContextMenu(e);
+		}}
+		onkeypress={args.onclick}
+		tabindex="0"
+		class:activated={args.isMenuOpenByMouse || args.isMenuOpenByBtn}
+	>
+		<BranchHeaderIcon
+			{lineColor}
+			{iconName}
+			lineTop={args.isTopBranch ? false : true}
+			isDashed={args.isNewBranch}
+		/>
+		<div class="branch-header__content">
+			<div class="name-line text-14 text-bold">
+				<BranchLabel
+					name={branchName}
+					fontSize="15"
+					disabled={nameUpdate.current.isLoading}
+					readonly={readonly || isPushed}
+					onChange={(name) => updateBranchName(name)}
+					onDblClick={() => {
+						if (isPushed) {
+							renameBranchModal?.show();
+						}
+					}}
+				/>
 
-			<button
-				bind:this={menuBtnEl}
-				type="button"
-				class="branch-menu-btn"
-				class:activated={isMenuOpenByBtn}
-				onmousedown={(e) => {
-					e.stopPropagation();
-					e.preventDefault();
-					onMenuBtnClick();
-				}}
-				onclick={(e) => {
-					e.stopPropagation();
-					e.preventDefault();
-				}}
-			>
-				<Icon name="kebab" />
-			</button>
+				<button
+					bind:this={menuBtnEl}
+					type="button"
+					class="branch-menu-btn"
+					class:activated={args.isMenuOpenByBtn}
+					onmousedown={(e) => {
+						e.stopPropagation();
+						e.preventDefault();
+						args.onMenuBtnClick();
+					}}
+					onclick={(e) => {
+						e.stopPropagation();
+						e.preventDefault();
+					}}
+				>
+					<Icon name="kebab" />
+				</button>
+			</div>
+
+			{#if args.isNewBranch}
+				<p class="text-12 text-body branch-header__empty-state">
+					<span>This is an empty branch.</span> <span>Click for details.</span>
+					<br />
+					Create or drag & drop commits here.
+				</p>
+			{/if}
 		</div>
-
-		{#if isNewBranch}
-			<p class="text-12 text-body branch-header__empty-state">
-				<span>This is an empty branch.</span> <span>Click for details.</span>
-				<br />
-				Create or drag & drop commits here.
-			</p>
-		{:else}
-			{@render details?.()}
-		{/if}
 	</div>
-</div>
-
-<BranchRenameModal
-	{projectId}
-	{stackId}
-	{branchName}
-	bind:this={renameBranchModal}
-	isPushed={!!trackingBranch}
-/>
+	<BranchRenameModal
+		{projectId}
+		stackId={args.stackId}
+		{branchName}
+		bind:this={renameBranchModal}
+		isPushed={!!args.trackingBranch}
+	/>
+{:else}
+	<div
+		data-testid={TestId.BranchHeader}
+		bind:this={el}
+		role="button"
+		class="branch-header new-branch draft selected"
+		tabindex="0"
+	>
+		<BranchHeaderIcon {lineColor} {iconName} isDashed lineTop={false} />
+		<div class="branch-header__content">
+			<div class="name-line text-14 text-bold">
+				<BranchLabel
+					allowClear
+					name={branchName}
+					fontSize="15"
+					onChange={(name) => updateBranchName(name)}
+				/>
+			</div>
+			<p class="text-12 text-body branch-header__empty-state">
+				A new branch will be created for your commit. You can click the branch name to change it now
+				or later.
+			</p>
+		</div>
+	</div>
+{/if}
 
 <style lang="postcss">
 	.branch-header {
@@ -199,6 +227,10 @@
 		&.new-branch {
 			border-bottom: none;
 			border-radius: var(--radius-ml);
+		}
+		&.draft {
+			border-bottom: none;
+			border-radius: var(--radius-ml) var(--radius-ml) 0 0;
 		}
 	}
 

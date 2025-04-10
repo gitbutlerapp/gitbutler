@@ -32,7 +32,8 @@ const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	useRichText: true,
 	aiSuggestionsOnType: true,
 	selectedTip: undefined,
-	channel: undefined
+	channel: undefined,
+	draftBranchName: undefined
 };
 
 export function getUiStateMock() {

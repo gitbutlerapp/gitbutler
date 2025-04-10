@@ -42,6 +42,7 @@ export type GlobalUiState = {
 	aiSuggestionsOnType: boolean;
 	selectedTip: number | undefined;
 	channel: string | undefined;
+	draftBranchName: string | undefined;
 };
 
 /**
@@ -73,7 +74,8 @@ export class UiState {
 		useRichText: true,
 		aiSuggestionsOnType: false,
 		selectedTip: undefined,
-		channel: undefined
+		channel: undefined,
+		draftBranchName: undefined
 	});
 
 	constructor(
