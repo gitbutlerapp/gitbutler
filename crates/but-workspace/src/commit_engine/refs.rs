@@ -2,7 +2,6 @@ use crate::commit_engine::UpdatedReference;
 use bstr::BString;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_stack::VirtualBranchesState;
-use gix::prelude::ObjectIdExt as _;
 use gix::refs::transaction::PreviousValue;
 
 use super::StackSegmentId;
@@ -41,12 +40,13 @@ pub fn rewrite(
             if stack.head(repo)? == old_git2 {
                 // Perhaps skip this - the head will be updated later in this call
                 // stack.set_stack_head_without_persisting(repo, new.to_git2(), None)?;
-                stack.tree = new
-                    .attach(repo)
-                    .object()?
-                    .into_commit()
-                    .tree_id()?
-                    .to_git2();
+                // Does it make sense to set stack tree in v3? I think not
+                // stack.tree = new
+                //     .attach(repo)
+                //     .object()?
+                //     .into_commit()
+                //     .tree_id()?
+                //     .to_git2();
                 updated_refs.push(UpdatedReference {
                     old_commit_id: old,
                     new_commit_id: new,

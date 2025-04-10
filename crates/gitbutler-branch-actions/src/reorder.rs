@@ -76,7 +76,7 @@ pub fn reorder_stack(
             repo,
             &gix_repo,
             old_head.id(),
-            stack.tree,
+            stack.tree(ctx)?,
             new_head,
         )?;
         (res.head, Some(res.tree))

@@ -247,7 +247,7 @@ pub fn update_workspace_commit(
 
     // finally, update the refs/gitbutler/ heads to the states of the current virtual branches
     for branch in &virtual_branches {
-        let wip_tree = repo.find_tree(branch.tree)?;
+        let wip_tree = repo.find_tree(branch.tree(ctx)?)?;
         let mut branch_head = repo.find_commit(branch.head(&gix_repo)?)?;
         let head_tree = branch_head.tree()?;
 

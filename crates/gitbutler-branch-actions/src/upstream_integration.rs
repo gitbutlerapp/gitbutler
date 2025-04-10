@@ -331,14 +331,14 @@ fn get_stack_status(
         // If we are in v3 then we don't care about the trees and we should
         // assume they are empty
         tree_status = TreeStatus::Empty;
-    } else if stack.tree == repo.find_real_tree(&stack_head, Default::default())?.id() {
+    } else if stack.tree(ctx)? == repo.find_real_tree(&stack_head, Default::default())?.id() {
         tree_status = TreeStatus::Empty;
     } else {
         let (merge_options_fail_fast, conflict_kind) =
             gix_repo.merge_options_no_rewrites_fail_fast()?;
 
         let tree_merge_base = gix_repo.find_commit(new_target_commit_id)?.tree_id()?;
-        let tree_id = git2_to_gix_object_id(stack.tree);
+        let tree_id = git2_to_gix_object_id(stack.tree(ctx)?);
         let new_head_commit = gix_repo.find_commit(last_head.to_gix())?;
         let tree_conflicted = gix_repo
             .merge_trees(
@@ -668,6 +668,7 @@ fn compute_resolutions(
         new_target,
         target,
         stacks_in_workspace,
+        ctx,
         ..
     } = context;
 
@@ -716,6 +717,7 @@ fn compute_resolutions(
                             &repo.to_gix()?,
                             branch_stack,
                             new_head.id(),
+                            ctx,
                         )?;
                         (res.head, Some(res.tree))
                     };
@@ -809,8 +811,13 @@ fn compute_resolutions(
                         (new_head, None)
                     } else {
                         #[allow(deprecated)]
-                        let res =
-                            compute_updated_branch_head(repo, &gix_repo, branch_stack, new_head)?;
+                        let res = compute_updated_branch_head(
+                            repo,
+                            &gix_repo,
+                            branch_stack,
+                            new_head,
+                            ctx,
+                        )?;
                         (res.head, Some(res.tree))
                     };
 
