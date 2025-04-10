@@ -194,7 +194,23 @@ impl From<BranchState> for PushStatus {
 #[serde(rename_all = "camelCase")]
 pub struct BranchDetails {
     /// The name of the branch.
-    pub name: String,
+    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    pub name: BString,
+    /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
+    #[serde(with = "gitbutler_serde::bstring_opt_lossy")]
+    pub remote_tracking_branch: Option<BString>,
+    /// Description of the branch.
+    /// Can include arbitrary utf8 data, eg. markdown etc.
+    pub description: Option<String>,
+    /// The pull(merge) request associated with the branch, or None if no such entity has not been created.
+    pub pr_number: Option<usize>,
+    /// A unique identifier for the GitButler review associated with the branch, if any.
+    pub review_id: Option<String>,
+    /// This is the base commit from the perspective of this branch.
+    /// If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
+    /// If this branch is at the bottom of the stack, this is the merge base of the stack.
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub base_commit: gix::ObjectId,
     /// The pushable status for the branch
     pub push_status: PushStatus,
     /// Last time the branch was updated in Epoch milliseconds.
@@ -203,6 +219,8 @@ pub struct BranchDetails {
     pub authors: Vec<Author>,
     /// Whether the branch is conflicted.
     pub is_conflicted: bool,
+    /// The commits contained in the branch, excluding the upstream commits.
+    pub commits: Vec<Commit>,
 }
 
 /// Information about the current state of a stack
@@ -246,9 +264,13 @@ fn requires_force(ctx: &CommandContext, branch: &StackBranch, remote: &str) -> R
 /// - `gb_dir`: The path to the GitButler state for the project. Normally this is `.git/gitbutler` in the project's repository.
 /// - `stack_id`: The ID of the stack to get information about.
 /// - `ctx`: The command context for the project.
-pub fn stack_info(gb_dir: &Path, stack_id: StackId, ctx: &CommandContext) -> Result<StackDetails> {
+pub fn stack_details(
+    gb_dir: &Path,
+    stack_id: StackId,
+    ctx: &CommandContext,
+) -> Result<StackDetails> {
     let state = state_handle(gb_dir);
-    let stack = state.get_stack(stack_id)?;
+    let mut stack = state.get_stack(stack_id)?;
     let branches = stack.branches();
     let branches = branches.iter().filter(|b| !b.archived);
     let repo = ctx.gix_repo()?;
@@ -260,15 +282,21 @@ pub fn stack_info(gb_dir: &Path, stack_id: StackId, ctx: &CommandContext) -> Res
     let mut stack_state = BranchState::default();
     let mut stack_is_conflicted = false;
     let mut branch_details = vec![];
+    let mut current_base = stack.merge_base(ctx)?.to_gix();
 
     for branch in branches {
+        let upstream_reference = ctx
+            .repo()
+            .find_reference(&branch.remote_reference(remote.as_str()))
+            .ok()
+            .map(|_| branch.remote_reference(remote.as_str()));
+
         let mut branch_state = BranchState {
             requires_force: requires_force(ctx, branch, &remote)?,
             ..Default::default()
         };
 
         let mut is_conflicted = false;
-        let branch_name = branch.name().to_owned();
         let mut authors = HashSet::new();
         let commits = local_and_remote_commits(ctx, &repo, branch, &stack)?;
 
@@ -295,13 +323,24 @@ pub fn stack_info(gb_dir: &Path, stack_id: StackId, ctx: &CommandContext) -> Res
         stack_state.is_integrated &= branch_state.is_integrated;
 
         branch_details.push(BranchDetails {
-            name: branch_name,
+            name: branch.name().to_owned().into(),
+            remote_tracking_branch: upstream_reference.map(Into::into),
+            description: branch.description.clone(),
+            pr_number: branch.pr_number,
+            review_id: branch.review_id.clone(),
+            base_commit: current_base,
             push_status: branch_state.into(),
             last_updated_at: commits.first().map(|c| c.created_at),
             authors: authors.into_iter().collect(),
             is_conflicted,
+            commits,
         });
+
+        current_base = branch.head_oid(&repo)?.to_gix();
     }
+
+    stack.migrate_change_ids(ctx).ok(); // If it fails thats ok - best effort migration
+    branch_details.reverse();
 
     let push_status = stack_state.into();
 

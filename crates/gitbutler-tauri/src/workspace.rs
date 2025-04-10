@@ -30,7 +30,7 @@ pub fn stacks(
 
 #[tauri::command(async)]
 #[instrument(skip(projects, settings), err(Debug))]
-pub fn stack_info(
+pub fn stack_details(
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
@@ -38,36 +38,7 @@ pub fn stack_info(
 ) -> Result<but_workspace::StackDetails, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    but_workspace::stack_info(&project.gb_dir(), stack_id, &ctx).map_err(Into::into)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
-pub fn stack_branches(
-    projects: State<'_, projects::Controller>,
-    settings: State<'_, AppSettingsWithDiskSync>,
-    project_id: ProjectId,
-    stack_id: String,
-) -> Result<Vec<but_workspace::Branch>, Error> {
-    let project = projects.get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    but_workspace::stack_branches(stack_id, &ctx).map_err(Into::into)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
-pub fn stack_branch_local_and_remote_commits(
-    projects: State<'_, projects::Controller>,
-    settings: State<'_, AppSettingsWithDiskSync>,
-    project_id: ProjectId,
-    stack_id: String,
-    branch_name: String,
-) -> Result<Vec<but_workspace::Commit>, Error> {
-    let project = projects.get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    let repo = ctx.gix_repo()?;
-    but_workspace::stack_branch_local_and_remote_commits(stack_id, branch_name, &ctx, &repo)
-        .map_err(Into::into)
+    but_workspace::stack_details(&project.gb_dir(), stack_id, &ctx).map_err(Into::into)
 }
 
 #[tauri::command(async)]

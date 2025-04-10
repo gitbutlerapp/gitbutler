@@ -75,9 +75,7 @@
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branch = $derived(branchResult.current.data);
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
-	const branches = $derived(
-		branchesResult.current.data?.filter((branch) => !branch.archived) || []
-	);
+	const branches = $derived(branchesResult.current.data || []);
 	const branchParentResult = $derived(
 		stackService.branchParentByName(projectId, stackId, branchName)
 	);
@@ -290,8 +288,7 @@
 				branchParent &&
 				branchParent.prNumber &&
 				branchParentDetails &&
-				branchParentDetails.pushStatus !== 'integrated' &&
-				!branchParent?.archived
+				branchParentDetails.pushStatus !== 'integrated'
 			) {
 				base = branchParent.name;
 			}

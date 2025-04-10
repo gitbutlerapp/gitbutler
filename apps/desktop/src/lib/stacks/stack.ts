@@ -1,4 +1,4 @@
-import type { Author } from '$lib/branches/v3';
+import type { Author, Commit } from '$lib/branches/v3';
 
 /**
  * Return type of Tauri `stacks` command.
@@ -37,10 +37,25 @@ export type PushStatus =
 	| 'integrated';
 
 export type BranchDetails = {
+	/** The name of the branch */
+	readonly name: string;
+	/** Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements` */
+	readonly remoteTrackingBranch: string | null;
 	/**
-	 * The name of the branch
+	 * Description of the branch.
+	 * Can include arbitrary utf8 data, eg. markdown etc.
 	 */
-	name: string;
+	readonly description: string | null;
+	/** The pull(merge) request associated with the branch, or None if no such entity has not been created. */
+	readonly prNumber: number | null;
+	/** A unique identifier for the GitButler review associated with the branch, if any. */
+	readonly reviewId: string | null;
+	/**
+	 * This is the base commit from the perspective of this branch.
+	 * If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
+	 * If this branch is at the bottom of the stack, this is the merge base of the stack.
+	 */
+	readonly baseCommit: string;
 	/**
 	 * The pushable status for the branch
 	 */
@@ -57,9 +72,13 @@ export type BranchDetails = {
 	 * Whether any of the commits contained has conflicts
 	 */
 	isConflicted: boolean;
+	/**
+	 *  The commits contained in the branch, excluding the upstream commits.
+	 */
+	commits: Commit[];
 };
 
-export type StackInfo = {
+export type StackDetails = {
 	/**
 	 * This is the name of the top-most branch, provided by the API for convinience
 	 */
@@ -78,15 +97,15 @@ export type StackInfo = {
 	isConflicted: boolean;
 };
 
-export function stackRequiresForcePush(stack: StackInfo): boolean {
+export function stackRequiresForcePush(stack: StackDetails): boolean {
 	return stack.pushStatus === 'unpushedCommitsRequiringForce';
 }
 
-export function stackHasConflicts(stack: StackInfo): boolean {
+export function stackHasConflicts(stack: StackDetails): boolean {
 	return stack.isConflicted;
 }
 
-export function stackHasUnpushedCommits(stack: StackInfo): boolean {
+export function stackHasUnpushedCommits(stack: StackDetails): boolean {
 	return (
 		stack.pushStatus === 'unpushedCommits' ||
 		stack.pushStatus === 'unpushedCommitsRequiringForce' ||
@@ -94,6 +113,6 @@ export function stackHasUnpushedCommits(stack: StackInfo): boolean {
 	);
 }
 
-export function stackIsIntegrated(stack: StackInfo): boolean {
+export function stackIsIntegrated(stack: StackDetails): boolean {
 	return stack.pushStatus === 'integrated';
 }

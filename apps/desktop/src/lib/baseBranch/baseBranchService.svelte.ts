@@ -144,7 +144,7 @@ function injectEndpoints(api: BackendApi) {
 				invalidatesTags: [
 					invalidatesList(ReduxTag.BaseBranchData),
 					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.Commits),
+					invalidatesList(ReduxTag.UpstreamCommits),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus)
 				],
 				transformErrorResponse: (error) => {
@@ -163,7 +163,7 @@ function injectEndpoints(api: BackendApi) {
 				invalidatesTags: [
 					invalidatesList(ReduxTag.BaseBranchData),
 					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.Commits)
+					invalidatesList(ReduxTag.UpstreamCommits)
 				]
 			}),
 			push: build.mutation<void, { projectId: string; withForce?: boolean }>({
