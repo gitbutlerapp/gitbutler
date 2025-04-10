@@ -11,7 +11,7 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt,
 };
-use gitbutler_project::{self as projects, Project, ProjectId};
+use gitbutler_project::{self as projects, ProjectId};
 use gitbutler_sync::cloud::{push_oplog, push_repo};
 use gitbutler_user as users;
 use tracing::instrument;
@@ -151,7 +151,7 @@ impl Handler {
             // This is part of the v3 APIs set and in the future this fully replaces the list virtual branches flow
             let _ = self.emit_worktree_changes(ctx.gix_repo()?, ctx.project().id);
         } else if in_open_workspace_mode(ctx) {
-            self.maybe_create_snapshot(ctx.project()).ok();
+            self.maybe_create_snapshot(ctx).ok();
             self.calculate_virtual_branches(ctx, worktree_changes)?;
         }
 
@@ -182,13 +182,13 @@ impl Handler {
         Ok(files)
     }
 
-    fn maybe_create_snapshot(&self, project: &Project) -> anyhow::Result<()> {
-        if project
+    fn maybe_create_snapshot(&self, ctx: &CommandContext) -> anyhow::Result<()> {
+        if ctx
             .should_auto_snapshot(std::time::Duration::from_secs(300))
             .unwrap_or_default()
         {
-            let mut guard = project.exclusive_worktree_access();
-            project.create_snapshot(
+            let mut guard = ctx.project().exclusive_worktree_access();
+            ctx.create_snapshot(
                 SnapshotDetails::new(OperationKind::FileChanges),
                 guard.write_permission(),
             )?;

@@ -48,11 +48,11 @@ pub fn create_commit(
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Creating a commit requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
+    let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
     let result = vbranch::commit(ctx, stack_id, message, ownership);
 
     let _ = snapshot_tree.and_then(|snapshot_tree| {
-        ctx.project().snapshot_commit_creation(
+        ctx.snapshot_commit_creation(
             snapshot_tree,
             result.as_ref().err(),
             message.to_owned(),
@@ -160,7 +160,7 @@ pub fn list_commit_files(
 
 pub fn set_base_branch(ctx: &CommandContext, target_branch: &RemoteRefname) -> Result<BaseBranch> {
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::SetBaseBranch),
         guard.write_permission(),
     );
@@ -185,7 +185,7 @@ pub fn integrate_upstream_commits(
     assure_open_workspace_mode(ctx)
         .context("Integrating upstream commits requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::MergeUpstream),
         guard.write_permission(),
     );
@@ -205,14 +205,14 @@ pub fn update_virtual_branch(
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Updating a branch requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
+    let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
     let old_branch = ctx
         .project()
         .virtual_branches()
         .get_stack_in_workspace(branch_update.id)?;
     let result = vbranch::update_branch(ctx, &branch_update);
     let _ = snapshot_tree.and_then(|snapshot_tree| {
-        ctx.project().snapshot_branch_update(
+        ctx.snapshot_branch_update(
             snapshot_tree,
             &old_branch,
             &branch_update,
@@ -269,7 +269,7 @@ pub fn unapply_lines(
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Unapply a patch requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::DiscardLines),
         guard.write_permission(),
     );
@@ -281,7 +281,7 @@ pub fn unapply_ownership(ctx: &CommandContext, ownership: &BranchOwnershipClaims
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Unapply a patch requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::DiscardHunk),
         guard.write_permission(),
     );
@@ -292,7 +292,7 @@ pub fn reset_files(ctx: &CommandContext, stack_id: StackId, files: &[PathBuf]) -
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Resetting a file requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::DiscardFile),
         guard.write_permission(),
     );
@@ -310,7 +310,7 @@ pub fn amend(
     {
         // commit_engine::create_commit_and_update_refs_with_project is also doing a write lock, so we want to allow this gurd to be dropped first
         let mut guard = ctx.project().exclusive_worktree_access();
-        let _ = ctx.project().create_snapshot(
+        let _ = ctx.create_snapshot(
             SnapshotDetails::new(OperationKind::AmendCommit),
             guard.write_permission(),
         );
@@ -362,7 +362,7 @@ pub fn move_commit_file(
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Amending a commit requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::MoveCommitFile),
         guard.write_permission(),
     );
@@ -373,12 +373,12 @@ pub fn undo_commit(ctx: &CommandContext, stack_id: StackId, commit_oid: git2::Oi
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Undoing a commit requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
+    let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
     let result: Result<()> =
         crate::undo_commit::undo_commit(ctx, stack_id, commit_oid, guard.write_permission())
             .map(|_| ());
     let _ = snapshot_tree.and_then(|snapshot_tree| {
-        ctx.project().snapshot_commit_undo(
+        ctx.snapshot_commit_undo(
             snapshot_tree,
             result.as_ref(),
             commit_oid,
@@ -398,7 +398,7 @@ pub fn insert_blank_commit(
     assure_open_workspace_mode(ctx)
         .context("Inserting a blank commit requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::InsertBlankCommit),
         guard.write_permission(),
     );
@@ -413,7 +413,7 @@ pub fn reorder_stack(
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Reordering a commit requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::ReorderCommit),
         guard.write_permission(),
     );
@@ -429,7 +429,7 @@ pub fn reset_virtual_branch(
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Resetting a branch requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::UndoCommit),
         guard.write_permission(),
     );
@@ -444,16 +444,12 @@ pub fn save_and_unapply_virutal_branch(
     assure_open_workspace_mode(ctx)
         .context("Converting branch to a real branch requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
+    let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
     let branch_manager = ctx.branch_manager();
     let result = branch_manager.save_and_unapply(stack_id, guard.write_permission());
 
     let _ = snapshot_tree.and_then(|snapshot_tree| {
-        ctx.project().snapshot_branch_unapplied(
-            snapshot_tree,
-            result.as_ref(),
-            guard.write_permission(),
-        )
+        ctx.snapshot_branch_unapplied(snapshot_tree, result.as_ref(), guard.write_permission())
     });
 
     result
@@ -503,7 +499,7 @@ pub fn update_commit_message(
     assure_open_workspace_mode(ctx)
         .context("Updating a commit message requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::UpdateCommitMessage),
         guard.write_permission(),
     );
@@ -550,7 +546,7 @@ pub fn move_commit(
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Moving a commit requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::MoveCommit),
         guard.write_permission(),
     );
@@ -619,7 +615,7 @@ pub fn integrate_upstream(
 ) -> Result<IntegrationOutcome> {
     let mut guard = ctx.project().exclusive_worktree_access();
 
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::UpdateWorkspaceBase),
         guard.write_permission(),
     );

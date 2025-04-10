@@ -139,8 +139,9 @@ pub fn create_commit_from_worktree_changes(
             }
         }
     };
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
-    let snapshot_tree = project.prepare_snapshot(guard.read_permission());
+    let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
     let outcome = commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         &project,
@@ -161,13 +162,12 @@ pub fn create_commit_from_worktree_changes(
         guard.write_permission(),
     );
 
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let vb_state = VirtualBranchesHandle::new(project.gb_dir());
     gitbutler_branch_actions::update_workspace_commit(&vb_state, &ctx)
         .context("failed to update gitbutler workspace")?;
 
     let _ = snapshot_tree.and_then(|snapshot_tree| {
-        project.snapshot_commit_creation(
+        ctx.snapshot_commit_creation(
             snapshot_tree,
             outcome.as_ref().err(),
             message.to_owned(),

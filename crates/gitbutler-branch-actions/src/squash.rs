@@ -35,13 +35,11 @@ pub(crate) fn squash_commits(
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     // create a snapshot
-    let snap = ctx
-        .project()
-        .create_snapshot(SnapshotDetails::new(OperationKind::SquashCommit), perm)?;
+    let snap = ctx.create_snapshot(SnapshotDetails::new(OperationKind::SquashCommit), perm)?;
     let result = do_squash_commits(ctx, stack_id, source_ids, desitnation_id, perm);
     // if result is error, restore from snapshot
     if result.is_err() {
-        ctx.project().restore_snapshot(snap, perm)?;
+        ctx.restore_snapshot(snap, perm)?;
     }
     result
 }

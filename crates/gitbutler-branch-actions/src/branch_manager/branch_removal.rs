@@ -70,10 +70,7 @@ impl BranchManager<'_> {
             return Ok(());
         }
 
-        _ = self
-            .ctx
-            .project()
-            .snapshot_branch_deletion(stack.name.clone(), perm);
+        _ = self.ctx.snapshot_branch_deletion(stack.name.clone(), perm);
 
         let repo = self.ctx.repo();
 

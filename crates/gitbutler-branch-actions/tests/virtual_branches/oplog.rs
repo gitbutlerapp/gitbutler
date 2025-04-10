@@ -43,14 +43,11 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
             round + 1,
             "each round creates a new file, and it persists"
         );
-        assert_eq!(
-            project.should_auto_snapshot(Duration::ZERO)?,
-            line_count > 20
-        );
+        assert_eq!(ctx.should_auto_snapshot(Duration::ZERO)?, line_count > 20);
     }
     let _empty = gitbutler_branch_actions::create_virtual_branch(ctx, &Default::default())?;
 
-    let snapshots = project.list_snapshots(10, None)?;
+    let snapshots = ctx.list_snapshots(10, None)?;
     assert_eq!(
         snapshots.len(),
         7,
@@ -60,12 +57,11 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
     let previous_files_count = wd_file_count(&worktree_dir)?;
     assert_eq!(previous_files_count, 3, "one file per round");
     let mut guard = project.exclusive_worktree_access();
-    project
-        .restore_snapshot(snapshots[0].commit_id, guard.write_permission())
+    ctx.restore_snapshot(snapshots[0].commit_id, guard.write_permission())
         .expect("restoration succeeds");
 
     assert_eq!(
-        project.list_snapshots(10, None)?.len(),
+        ctx.list_snapshots(10, None)?.len(),
         8,
         "all the previous + 1 restore commit"
     );
@@ -76,7 +72,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
         "we only removed an empty vbranch, no worktree change"
     );
     assert!(
-        !project.should_auto_snapshot(Duration::ZERO)?,
+        !ctx.should_auto_snapshot(Duration::ZERO)?,
         "not enough lines changed"
     );
     Ok(())
@@ -157,7 +153,7 @@ fn basic_oplog() -> anyhow::Result<()> {
         3
     );
 
-    let snapshots = project.list_snapshots(10, None)?;
+    let snapshots = ctx.list_snapshots(10, None)?;
 
     let ops = snapshots
         .iter()
@@ -177,7 +173,7 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     {
         let mut guard = project.exclusive_worktree_access();
-        project.restore_snapshot(snapshots[1].clone().commit_id, guard.write_permission())?;
+        ctx.restore_snapshot(snapshots[1].clone().commit_id, guard.write_permission())?;
     }
 
     // restores the conflict files
@@ -188,7 +184,7 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     {
         let mut guard = project.exclusive_worktree_access();
-        project.restore_snapshot(snapshots[2].clone().commit_id, guard.write_permission())?;
+        ctx.restore_snapshot(snapshots[2].clone().commit_id, guard.write_permission())?;
     }
 
     // the restore removed our new branch
@@ -217,7 +213,7 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     {
         let mut guard = project.exclusive_worktree_access();
-        project.restore_snapshot(snapshots[1].clone().commit_id, guard.write_permission())?;
+        ctx.restore_snapshot(snapshots[1].clone().commit_id, guard.write_permission())?;
     }
 
     // test missing commits are recreated
@@ -232,7 +228,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     assert_eq!(file_lines, "content");
 
     assert!(
-        !project.should_auto_snapshot(Duration::ZERO)?,
+        !ctx.should_auto_snapshot(Duration::ZERO)?,
         "not enough lines changed"
     );
     Ok(())
@@ -289,7 +285,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     assert_ne!(commit1_id, commit2_id);
 
     // restore the first
-    let snapshots = project.list_snapshots(10, None)?;
+    let snapshots = ctx.list_snapshots(10, None)?;
     assert_eq!(
         snapshots.len(),
         3,
@@ -297,8 +293,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     );
 
     let mut guard = project.exclusive_worktree_access();
-    project
-        .restore_snapshot(snapshots[0].commit_id, guard.write_permission())
+    ctx.restore_snapshot(snapshots[0].commit_id, guard.write_permission())
         .expect("can restore the most recent snapshot, to undo commit 2, resetting to commit 1");
 
     let head = repo.head().expect("never unborn");
@@ -315,7 +310,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         1,
         "vbranches aren't affected by this (only the head commit)"
     );
-    let all_snapshots = project.list_snapshots(10, None)?;
+    let all_snapshots = ctx.list_snapshots(10, None)?;
     assert_eq!(
         all_snapshots.len(),
         4,
@@ -323,20 +318,20 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     );
 
     assert_eq!(
-        project.list_snapshots(0, None)?.len(),
+        ctx.list_snapshots(0, None)?.len(),
         0,
         "it respects even non-sensical limits"
     );
 
-    let snapshots = project.list_snapshots(1, None)?;
+    let snapshots = ctx.list_snapshots(1, None)?;
     assert_eq!(snapshots.len(), 1);
     assert_eq!(
-        project.list_snapshots(1, Some(snapshots[0].commit_id))?,
+        ctx.list_snapshots(1, Some(snapshots[0].commit_id))?,
         snapshots,
         "traversal from oplog head is the same as if it wasn't specified, and the given head is returned first"
     );
     assert_eq!(
-        project.list_snapshots(10, Some(all_snapshots[2].commit_id))?,
+        ctx.list_snapshots(10, Some(all_snapshots[2].commit_id))?,
         &all_snapshots[2..],
     );
 
@@ -356,16 +351,14 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 // test operations-log.toml head is not a commit
 #[test]
 fn head_corrupt_is_recreated_automatically() {
-    let Test {
-        repo, project, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
 
-    let snapshots = project.list_snapshots(10, None).unwrap();
+    let snapshots = ctx.list_snapshots(10, None).unwrap();
     assert_eq!(
         snapshots.len(),
         1,
@@ -383,7 +376,7 @@ fn head_corrupt_is_recreated_automatically() {
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .expect("the snapshot doesn't fail despite the corrupt head");
 
-    let snapshots = project.list_snapshots(10, None).unwrap();
+    let snapshots = ctx.list_snapshots(10, None).unwrap();
     assert_eq!(
         snapshots.len(),
         1,

@@ -31,14 +31,13 @@ pub fn enter_edit_mode(
         .context("Failed to find branch reference")?;
 
     let snapshot = ctx
-        .project()
         .prepare_snapshot(guard.read_permission())
         .context("Failed to prepare snapshot")?;
 
     let edit_mode_metadata =
         crate::enter_edit_mode(ctx, commit, &branch, guard.write_permission())?;
 
-    let _ = ctx.project().commit_snapshot(
+    let _ = ctx.commit_snapshot(
         snapshot,
         SnapshotDetails::new(OperationKind::EnterEditMode),
         guard.write_permission(),
