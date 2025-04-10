@@ -20,14 +20,6 @@ const MOCK_AUTHOR_A: Author = {
 	gravatarUrl: 'https://example.com/avatar-a.png'
 };
 
-const BRANCH_DETAILS_A: BranchDetails = {
-	name: 'branch-a',
-	pushStatus: 'nothingToPush',
-	lastUpdatedAt: 1672531200000, // Example timestamp
-	authors: [MOCK_AUTHOR_A],
-	isConflicted: false
-};
-
 const MOCK_COMMIT_A: Commit = {
 	id: 'commit-a-id',
 	parentIds: ['parent-commit-id'],
@@ -43,6 +35,15 @@ const MOCK_UPSTREAM_COMMIT_A: UpstreamCommit = {
 	message: 'Upstream commit message',
 	createdAt: 1672531200000, // Example timestamp
 	author: MOCK_AUTHOR_A
+};
+
+const BRANCH_DETAILS_A: BranchDetails = {
+	name: 'branch-a',
+	pushStatus: 'nothingToPush',
+	lastUpdatedAt: 1672531200000, // Example timestamp
+	authors: [MOCK_AUTHOR_A],
+	isConflicted: false,
+	commits: [MOCK_COMMIT_A]
 };
 
 export function getStackServiceMock() {
