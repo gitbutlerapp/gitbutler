@@ -1,3 +1,0 @@
-ancestorEntries = []
-ourEntries = ["apps/desktop/src/components/v3/BranchCard.svelte.test.ts"]
-theirEntries = ["apps/desktop/src/components/v3/BranchCard.svelte.test.ts"]
