@@ -37,10 +37,25 @@ export type PushStatus =
 	| 'integrated';
 
 export type BranchDetails = {
+	/** The name of the branch */
+	readonly name: string;
+	/** Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements` */
+	readonly remoteTrackingBranch: string | null;
 	/**
-	 * The name of the branch
+	 * Description of the branch.
+	 * Can include arbitrary utf8 data, eg. markdown etc.
 	 */
-	name: string;
+	readonly description: string | null;
+	/** The pull(merge) request associated with the branch, or None if no such entity has not been created. */
+	readonly prNumber: number | null;
+	/** A unique identifier for the GitButler review associated with the branch, if any. */
+	readonly reviewId: string | null;
+	/**
+	 * This is the base commit from the perspective of this branch.
+	 * If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
+	 * If this branch is at the bottom of the stack, this is the merge base of the stack.
+	 */
+	readonly baseCommit: string;
 	/**
 	 * The pushable status for the branch
 	 */
