@@ -434,7 +434,24 @@ export class StackService {
 	}
 
 	get updateBranchName() {
-		return this.api.endpoints.updateBranchName.useMutation();
+		return this.api.endpoints.updateBranchName.useMutation({
+			preEffect: (args) => {
+				const state = this.uiState.stack(args.stackId);
+				state.selection.set(undefined);
+			},
+			sideEffect: (_, args) => {
+				const state = this.uiState.stack(args.stackId);
+				state.selection.set({
+					branchName: args.newName
+				});
+			},
+			onError: (_, args) => {
+				const state = this.uiState.stack(args.stackId);
+				state.selection.set({
+					branchName: args.branchName
+				});
+			}
+		});
 	}
 
 	get removeBranch() {
