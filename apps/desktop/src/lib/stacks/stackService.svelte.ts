@@ -6,7 +6,6 @@ import {
 	invalidatesItem,
 	invalidatesList,
 	providesItem,
-	providesItems,
 	providesList,
 	ReduxTag
 } from '$lib/state/tags';
@@ -19,7 +18,7 @@ import type { LocalFile } from '$lib/files/file';
 import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import type { TreeChange, TreeChanges } from '$lib/hunks/change';
 import type { DiffSpec, Hunk, HunkHeader } from '$lib/hunks/hunk';
-import type { BranchDetails, Stack, StackInfo } from '$lib/stacks/stack';
+import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
 import type { TauriCommandError } from '$lib/state/backendQuery';
 import type { UiState } from '$lib/state/uiState.svelte';
 import type { User } from '$lib/user/user';
@@ -149,14 +148,14 @@ export class StackService {
 	}
 
 	stackInfo(projectId: string, stackId: string) {
-		return this.api.endpoints.stackInfo.useQuery(
+		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{ transform: ({ stackInfo }) => stackInfo }
 		);
 	}
 
 	branchDetails(projectId: string, stackId: string, branchName: string) {
-		return this.api.endpoints.stackInfo.useQuery(
+		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
 				transform: ({ branchDetails }) =>
@@ -242,10 +241,11 @@ export class StackService {
 
 	commits(projectId: string, stackId: string, branchName: string) {
 		const result = $derived(
-			this.api.endpoints.localAndRemoteCommits.useQuery(
-				{ projectId, stackId, branchName },
+			this.api.endpoints.stackDetails.useQuery(
+				{ projectId, stackId },
 				{
-					transform: (result) => commitSelectors.selectAll(result)
+					transform: ({ branchDetails }) =>
+						branchDetailsSelectors.selectById(branchDetails, branchName)?.commits
 				}
 			)
 		);
@@ -254,10 +254,11 @@ export class StackService {
 
 	commitAt(projectId: string, stackId: string, branchName: string, index: number) {
 		const result = $derived(
-			this.api.endpoints.localAndRemoteCommits.useQuery(
-				{ projectId, stackId, branchName },
+			this.api.endpoints.stackDetails.useQuery(
+				{ projectId, stackId },
 				{
-					transform: (result) => commitSelectors.selectNth(result, index) || null
+					transform: ({ branchDetails }) =>
+						branchDetailsSelectors.selectById(branchDetails, branchName)?.commits[index] ?? null
 				}
 			)
 		);
@@ -265,14 +266,12 @@ export class StackService {
 	}
 
 	commitById(projectId: string, commitKey: CommitKey) {
-		const { stackId, branchName, commitId } = commitKey;
+		const { stackId, commitId } = commitKey;
 		const result = $derived(
-			this.api.endpoints.localAndRemoteCommits.useQuery(
-				{ projectId, stackId, branchName },
+			this.api.endpoints.stackDetails.useQuery(
+				{ projectId, stackId },
 				{
-					transform: (result) => {
-						return commitSelectors.selectById(result, commitId);
-					}
+					transform: ({ commits }) => commitSelectors.selectById(commits, commitId)
 				}
 			)
 		);
@@ -389,11 +388,12 @@ export class StackService {
 		branchName: string;
 		commitId: string;
 	}) {
-		const commit = await this.api.endpoints.localAndRemoteCommits.fetch(args, {
-			transform: (result) => {
-				return commitSelectors.selectById(result, args.commitId);
+		const commit = await this.api.endpoints.stackDetails.fetch(args, {
+			transform: ({ commits }) => {
+				return commitSelectors.selectById(commits, args.commitId);
 			}
 		});
+
 		const message = commit.data?.message;
 		if (message) {
 			const state = this.uiState.project(args.projectId);
@@ -519,17 +519,16 @@ export class StackService {
 		stackId: string;
 		branchName: string;
 	}) {
-		const allCommits = await this.api.endpoints.localAndRemoteCommits.fetch({
-			projectId,
-			stackId,
-			branchName
-		});
+		const allCommits = await this.api.endpoints.stackDetails.fetch(
+			{ projectId, stackId },
+			{
+				transform: ({ branchDetails }) =>
+					branchDetailsSelectors.selectById(branchDetails, branchName)?.commits
+			}
+		);
 
 		if (!allCommits?.data) return;
-
-		const localCommits = commitSelectors
-			.selectAll(allCommits.data)
-			.filter((commit) => commit.state.type !== 'Integrated');
+		const localCommits = allCommits.data.filter((commit) => commit.state.type !== 'Integrated');
 
 		if (localCommits.length <= 1) return;
 
@@ -563,7 +562,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Create Stack'
 				}),
 				invalidatesTags: (result, _error) => [
-					invalidatesItem(ReduxTag.StackInfo, result?.id),
+					invalidatesItem(ReduxTag.StackDetails, result?.id),
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 					invalidatesList(ReduxTag.BranchListing)
@@ -579,7 +578,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Update Stack'
 				}),
 				invalidatesTags: (result, _error) => [
-					invalidatesItem(ReduxTag.StackInfo, result?.id),
+					invalidatesItem(ReduxTag.StackDetails, result?.id),
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 					invalidatesList(ReduxTag.BranchListing)
@@ -611,51 +610,37 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					return branchAdapter.addMany(branchAdapter.getInitialState(), response);
 				}
 			}),
-			stackInfo: build.query<
-				{ stackInfo: StackInfo; branchDetails: EntityState<BranchDetails, string> },
+			stackDetails: build.query<
+				{
+					stackInfo: StackDetails;
+					branchDetails: EntityState<BranchDetails, string>;
+					commits: EntityState<Commit, string>;
+				},
 				{ projectId: string; stackId: string }
 			>({
 				query: ({ projectId, stackId }) => ({
-					command: 'stack_info',
+					command: 'stack_details',
 					params: { projectId, stackId }
 				}),
 				providesTags: (_result, _error, { stackId }) => [
-					...providesItem(ReduxTag.StackInfo, stackId)
+					...providesItem(ReduxTag.StackDetails, stackId)
 				],
-				transformResponse(response: StackInfo) {
+				transformResponse(response: StackDetails) {
 					const branchDetilsEntity = branchDetailsAdapter.addMany(
 						branchDetailsAdapter.getInitialState(),
 						response.branchDetails
 					);
-					return {
-						stackInfo: response,
-						branchDetails: branchDetilsEntity
-					};
-				}
-			}),
-			localAndRemoteCommits: build.query<
-				EntityState<Commit, string>,
-				{ projectId: string; stackId: string; branchName: string }
-			>({
-				query: ({ projectId, stackId, branchName }) => ({
-					command: 'stack_branch_local_and_remote_commits',
-					params: { projectId, stackId, branchName }
-				}),
-				providesTags: (result, _, args) => {
-					const stackCommitsTags = providesItem(ReduxTag.Commits, args.stackId);
 
-					if (!result) return stackCommitsTags;
-
-					const allCommits = commitSelectors.selectAll(result);
-					const commitTags = providesItems(
-						ReduxTag.Commit,
-						allCommits.map((commit) => commit.id)
+					const commitsEntity = commitAdapter.addMany(
+						commitAdapter.getInitialState(),
+						response.branchDetails.flatMap((branch) => branch.commits)
 					);
 
-					return [...stackCommitsTags, ...commitTags];
-				},
-				transformResponse(response: Commit[]) {
-					return commitAdapter.addMany(commitAdapter.getInitialState(), response);
+					return {
+						stackInfo: response,
+						branchDetails: branchDetilsEntity,
+						commits: commitsEntity
+					};
 				}
 			}),
 			upstreamCommits: build.query<
@@ -666,7 +651,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'stack_branch_upstream_only_commits',
 					params: { projectId, stackId, branchName }
 				}),
-				providesTags: [providesList(ReduxTag.Commits)],
+				providesTags: [providesList(ReduxTag.UpstreamCommits)],
 				transformResponse(response: UpstreamCommit[]) {
 					return upstreamCommitAdapter.addMany(upstreamCommitAdapter.getInitialState(), response);
 				}
@@ -683,9 +668,9 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.Checks),
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
-					invalidatesItem(ReduxTag.Commits, args.stackId),
+					invalidatesItem(ReduxTag.UpstreamCommits, args.stackId),
 					invalidatesItem(ReduxTag.PullRequests, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId),
+					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
@@ -702,8 +687,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
-					invalidatesItem(ReduxTag.Commits, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
 			createCommitLegacy: build.mutation<
@@ -723,8 +707,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
-					invalidatesItem(ReduxTag.Commits, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
 			commitChanges: build.query<
@@ -768,9 +751,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
-					invalidatesItem(ReduxTag.Commit, args.commitId),
-					invalidatesItem(ReduxTag.Commits, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
 			newBranch: build.mutation<
@@ -784,7 +765,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId),
+					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
@@ -797,8 +778,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
-					invalidatesItem(ReduxTag.Commits, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
 			amendCommit: build.mutation<
@@ -812,8 +792,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges),
-					invalidatesItem(ReduxTag.Commits, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
 			insertBlankCommit: build.mutation<
@@ -827,8 +806,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
-					invalidatesItem(ReduxTag.Commits, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
 			discardChanges: build.mutation<
@@ -876,7 +854,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
 			// TODO: Why is this not part of the regular update call?
@@ -901,7 +879,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId),
+					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
@@ -927,8 +905,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: (_r, _e, args) => [
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId),
-					invalidatesItem(ReduxTag.Commits, args.stackId),
+					invalidatesItem(ReduxTag.StackDetails, args.stackId),
+					invalidatesItem(ReduxTag.UpstreamCommits, args.stackId),
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
@@ -951,7 +929,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackBranches, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId),
+					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
@@ -979,8 +957,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Reorder Stack'
 				}),
 				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.Commits, args.stackId),
-					invalidatesItem(ReduxTag.StackBranches, args.stackId)
+					invalidatesItem(ReduxTag.StackBranches, args.stackId),
+					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
 			moveCommit: build.mutation<
@@ -994,10 +972,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges), // Moving commits can cause conflicts
-					invalidatesItem(ReduxTag.Commits, args.sourceStackId),
-					invalidatesItem(ReduxTag.StackInfo, args.sourceStackId),
-					invalidatesItem(ReduxTag.Commits, args.targetStackId),
-					invalidatesItem(ReduxTag.StackInfo, args.targetStackId)
+					invalidatesItem(ReduxTag.StackDetails, args.sourceStackId),
+					invalidatesItem(ReduxTag.StackDetails, args.targetStackId)
 				]
 			}),
 			integrateUpstreamCommits: build.mutation<
@@ -1016,8 +992,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges),
-					invalidatesItem(ReduxTag.Commits, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
 			legacyUnapplyLines: build.mutation<
@@ -1093,8 +1068,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges), // Could cause conflicts
-					invalidatesItem(ReduxTag.Commits, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId)
+					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
 			moveCommitFile: build.mutation<
@@ -1114,8 +1088,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges), // Could cause conflicts
-					invalidatesItem(ReduxTag.Commits, args.stackId),
-					invalidatesItem(ReduxTag.StackInfo, args.stackId),
+					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			})
