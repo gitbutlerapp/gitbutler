@@ -43,19 +43,6 @@ pub fn stack_details(
 
 #[tauri::command(async)]
 #[instrument(skip(projects, settings), err(Debug))]
-pub fn stack_branches(
-    projects: State<'_, projects::Controller>,
-    settings: State<'_, AppSettingsWithDiskSync>,
-    project_id: ProjectId,
-    stack_id: String,
-) -> Result<Vec<but_workspace::Branch>, Error> {
-    let project = projects.get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    but_workspace::stack_branches(stack_id, &ctx).map_err(Into::into)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
 pub fn stack_branch_upstream_only_commits(
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,

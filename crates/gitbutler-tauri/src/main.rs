@@ -268,7 +268,6 @@ fn main() {
                     settings::update_feature_flags,
                     workspace::stacks,
                     workspace::stack_details,
-                    workspace::stack_branches,
                     workspace::stack_branch_upstream_only_commits,
                     workspace::hunk_dependencies_for_workspace_changes,
                     workspace::create_commit_from_worktree_changes,
