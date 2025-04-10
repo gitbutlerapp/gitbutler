@@ -1,4 +1,4 @@
-import type { Author } from '$lib/branches/v3';
+import type { Author, Commit } from '$lib/branches/v3';
 
 /**
  * Return type of Tauri `stacks` command.
@@ -57,9 +57,13 @@ export type BranchDetails = {
 	 * Whether any of the commits contained has conflicts
 	 */
 	isConflicted: boolean;
+	/**
+	 *  The commits contained in the branch, excluding the upstream commits.
+	 */
+	commits: Commit[];
 };
 
-export type StackInfo = {
+export type StackDetails = {
 	/**
 	 * This is the name of the top-most branch, provided by the API for convinience
 	 */
@@ -78,15 +82,15 @@ export type StackInfo = {
 	isConflicted: boolean;
 };
 
-export function stackRequiresForcePush(stack: StackInfo): boolean {
+export function stackRequiresForcePush(stack: StackDetails): boolean {
 	return stack.pushStatus === 'unpushedCommitsRequiringForce';
 }
 
-export function stackHasConflicts(stack: StackInfo): boolean {
+export function stackHasConflicts(stack: StackDetails): boolean {
 	return stack.isConflicted;
 }
 
-export function stackHasUnpushedCommits(stack: StackInfo): boolean {
+export function stackHasUnpushedCommits(stack: StackDetails): boolean {
 	return (
 		stack.pushStatus === 'unpushedCommits' ||
 		stack.pushStatus === 'unpushedCommitsRequiringForce' ||
@@ -94,6 +98,6 @@ export function stackHasUnpushedCommits(stack: StackInfo): boolean {
 	);
 }
 
-export function stackIsIntegrated(stack: StackInfo): boolean {
+export function stackIsIntegrated(stack: StackDetails): boolean {
 	return stack.pushStatus === 'integrated';
 }
