@@ -46,10 +46,9 @@
 
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
-	const branchCommitsResult = $derived(stackService.commits(projectId, stackId, branchName));
-	const forgeBranch = $derived(forge.current?.branch(branchName));
+	const topCommitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
 
-	const commitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
+	const forgeBranch = $derived(forge.current?.branch(branchName));
 
 	$effect(() => {
 		if (focusedArea === 'commit') {
@@ -79,18 +78,14 @@
 	{stackId}
 	{projectId}
 	result={combineResults(
-		branchesResult.current,
 		branchResult.current,
+		branchesResult.current,
 		branchDetailsResult.current,
-		branchCommitsResult.current,
-		commitResult.current
+		topCommitResult.current
 	)}
 >
-	{#snippet children(
-		[branches, branch, branchDetails, branchCommits, commit],
-		{ stackId, projectId }
-	)}
-		{@const hasCommits = branchCommits.length > 0}
+	{#snippet children([branch, branches, branchDetails, topCommit], { stackId, projectId })}
+		{@const hasCommits = !!topCommit}
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
 		<Drawer {projectId} {stackId} splitView={hasCommits}>
 			{#snippet header()}
@@ -218,7 +213,7 @@
 					if (url) openExternalUrl(url);
 				}}
 				isPushed={!!branch.remoteTrackingBranch}
-				branchType={commit?.state.type || 'LocalOnly'}
+				branchType={topCommit?.state.type || 'LocalOnly'}
 			/>
 		</ContextMenu>
 	{/snippet}
