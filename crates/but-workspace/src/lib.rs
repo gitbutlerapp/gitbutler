@@ -203,6 +203,8 @@ pub struct BranchDetails {
     pub authors: Vec<Author>,
     /// Whether the branch is conflicted.
     pub is_conflicted: bool,
+    /// The commits contained in the branch, excluding the upstream commits.
+    pub commits: Vec<Commit>,
 }
 
 /// Information about the current state of a stack
@@ -246,7 +248,11 @@ fn requires_force(ctx: &CommandContext, branch: &StackBranch, remote: &str) -> R
 /// - `gb_dir`: The path to the GitButler state for the project. Normally this is `.git/gitbutler` in the project's repository.
 /// - `stack_id`: The ID of the stack to get information about.
 /// - `ctx`: The command context for the project.
-pub fn stack_info(gb_dir: &Path, stack_id: StackId, ctx: &CommandContext) -> Result<StackDetails> {
+pub fn stack_details(
+    gb_dir: &Path,
+    stack_id: StackId,
+    ctx: &CommandContext,
+) -> Result<StackDetails> {
     let state = state_handle(gb_dir);
     let stack = state.get_stack(stack_id)?;
     let branches = stack.branches();
@@ -300,6 +306,7 @@ pub fn stack_info(gb_dir: &Path, stack_id: StackId, ctx: &CommandContext) -> Res
             last_updated_at: commits.first().map(|c| c.created_at),
             authors: authors.into_iter().collect(),
             is_conflicted,
+            commits,
         });
     }
 
