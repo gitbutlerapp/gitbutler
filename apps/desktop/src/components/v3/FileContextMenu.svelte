@@ -21,7 +21,7 @@
 	import type { Writable } from 'svelte/store';
 
 	type Props = {
-		isUnapplied: boolean;
+		isUncommitted: boolean;
 		trigger?: HTMLElement;
 		isBinary?: boolean;
 		unSelectChanges: (changes: TreeChange[]) => void;
@@ -41,7 +41,7 @@
 		);
 	}
 
-	const { trigger, isUnapplied, isBinary = false, unSelectChanges }: Props = $props();
+	const { trigger, isBinary = false, unSelectChanges, isUncommitted }: Props = $props();
 	const [stackService, project] = inject(StackService, Project);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
@@ -85,7 +85,7 @@
 			<ContextMenuSection>
 				{#if item.changes.length > 0}
 					{@const changes = item.changes}
-					{#if !isUnapplied && !isBinary}
+					{#if !isBinary && isUncommitted}
 						<ContextMenuItem
 							label="Discard changes"
 							onclick={() => {
