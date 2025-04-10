@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
@@ -6,23 +7,30 @@
 	import ReviewView from '$components/v3/ReviewView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
+	import StackTabs from '$components/v3/stackTabs/StackTabs.svelte';
+	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { focusable } from '$lib/focus/focusable.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
+	import { remToPx } from '@gitbutler/ui/utils/remToPx';
 	import { type Snippet } from 'svelte';
 
 	interface Props {
 		projectId: string;
 		stackId?: string;
-		right: Snippet<[{ viewportWidth: number }]>;
+		stack: Snippet;
 	}
 
-	const { stackId, projectId, right }: Props = $props();
+	const { stackId, projectId, stack }: Props = $props();
 
-	const [uiState] = inject(UiState);
-	const projectUiState = $derived(uiState.project(projectId));
-	const drawerPage = $derived(projectUiState.drawerPage);
-	const drawerIsFullScreen = $derived(projectUiState.drawerFullScreen);
+	const [stackService, uiState] = inject(StackService, UiState);
+	const stacksResult = $derived(stackService.stacks(projectId));
+
+	const projectState = $derived(uiState.project(projectId));
+	const drawerPage = $derived(projectState.drawerPage);
+	const drawerIsFullScreen = $derived(projectState.drawerFullScreen);
 
 	const selected = $derived(stackId ? uiState.stack(stackId).selection : undefined);
 	const branchName = $derived(selected?.current?.branchName);
@@ -34,6 +42,8 @@
 
 	let leftDiv = $state<HTMLElement>();
 	let stacksViewEl = $state<HTMLElement>();
+
+	let tabsWidth = $state<number>();
 </script>
 
 <div class="workspace" use:focusable={{ id: 'workspace' }}>
@@ -57,25 +67,23 @@
 			<SelectionView {projectId} {stackId} />
 		{/if}
 
-		{#if stackId}
-			{#if drawerPage.current === 'new-commit'}
-				<NewCommitView {projectId} {stackId} />
-			{:else if drawerPage.current === 'branch' && branchName}
-				<BranchView {stackId} {projectId} {branchName} />
-			{:else if drawerPage.current === 'review' && branchName}
-				<ReviewView {stackId} {projectId} {branchName} />
-			{:else if branchName && commitId && stackId}
-				<CommitView
-					{projectId}
-					{stackId}
-					commitKey={{
-						stackId,
-						branchName,
-						commitId,
-						upstream
-					}}
-				/>
-			{/if}
+		{#if drawerPage.current === 'new-commit'}
+			<NewCommitView {projectId} {stackId} />
+		{:else if drawerPage.current === 'branch' && stackId && branchName}
+			<BranchView {stackId} {projectId} {branchName} />
+		{:else if drawerPage.current === 'review' && stackId && branchName}
+			<ReviewView {stackId} {projectId} {branchName} />
+		{:else if branchName && commitId && stackId}
+			<CommitView
+				{projectId}
+				{stackId}
+				commitKey={{
+					stackId,
+					branchName,
+					commitId,
+					upstream
+				}}
+			/>
 		{/if}
 	</div>
 
@@ -85,7 +93,34 @@
 		style:width={stacksViewWidth.current + 'rem'}
 		use:focusable={{ id: 'right', parentId: 'workspace' }}
 	>
-		{@render right({ viewportWidth: stacksViewWidth.current })}
+		<ReduxResult {projectId} result={stacksResult?.current}>
+			{#snippet children(stacks)}
+				<StackTabs {projectId} {stacks} selectedId={stackId} bind:width={tabsWidth} />
+				<div
+					class="contents"
+					class:rounded={tabsWidth! <= (remToPx(stacksViewWidth.current - 0.5) as number)}
+					class:dotted={stacks.length > 0}
+				>
+					{#if stacks.length > 0}
+						{@render stack()}
+					{:else}
+						<EmptyStatePlaceholder
+							image={noBranchesSvg}
+							background="none"
+							bottomMargin={40}
+							topBottomPadding={0}
+						>
+							{#snippet title()}
+								You have no branches
+							{/snippet}
+							{#snippet caption()}
+								Create a new branch for<br />a feature, fix, or idea!
+							{/snippet}
+						</EmptyStatePlaceholder>
+					{/if}
+				</div>
+			{/snippet}
+		</ReduxResult>
 		<Resizer
 			viewport={stacksViewEl}
 			direction="left"
@@ -140,5 +175,28 @@
 		position: relative;
 		gap: 8px;
 		min-width: 320px;
+	}
+
+	.contents {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		overflow: hidden;
+
+		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+		border: 1px solid var(--clr-border-2);
+		gap: 20px;
+	}
+
+	.dotted {
+		background-image: radial-gradient(
+			oklch(from var(--clr-scale-ntrl-50) l c h / 0.5) 0.6px,
+			#ffffff00 0.6px
+		);
+		background-size: 6px 6px;
+	}
+
+	.rounded {
+		border-radius: 0 var(--radius-ml) var(--radius-ml) var(--radius-ml);
 	}
 </style>

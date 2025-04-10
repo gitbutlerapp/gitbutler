@@ -1,13 +1,9 @@
 <script lang="ts">
 	import WorkspaceView from '$components/v3/WorkspaceView.svelte';
-	import StackTabs from '$components/v3/stackTabs/StackTabs.svelte';
-	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
-	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
-	import { remToPx } from '@gitbutler/ui/utils/remToPx';
 	import type { PageData } from './$types';
 	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -21,13 +17,10 @@
 
 	const { data, children }: { data: PageData; children: Snippet } = $props();
 
-	const projectId = $derived(page.params.projectId);
+	const projectId = $derived(page.params.projectId!);
 	const stackId = $derived(page.params.stackId);
 
-	const stacks = $derived(projectId ? stackService.stacks(projectId) : undefined);
-
-	/** Offset width for tabs component. */
-	let tabsWidth = $state<number>();
+	const stacks = $derived(stackService.stacks(projectId));
 
 	// Redirect to board if we have switched away from V3 feature.
 	$effect(() => {
@@ -62,72 +55,8 @@
 	});
 </script>
 
-{#if projectId}
-	<WorkspaceView {projectId} {stackId}>
-		{#snippet right({ viewportWidth })}
-			<StackTabs {projectId} selectedId={stackId} bind:width={tabsWidth} />
-			{#if (stacks?.current.data?.length ?? 1) > 0}
-				<div
-					class="contents"
-					class:rounded={tabsWidth! <= (remToPx(viewportWidth - 0.5) as number)}
-				>
-					{@render children()}
-				</div>
-			{:else}
-				<div
-					class="no-stacks"
-					class:rounded={tabsWidth! <= (remToPx(viewportWidth - 0.5) as number)}
-				>
-					<EmptyStatePlaceholder
-						image={noBranchesSvg}
-						background="none"
-						bottomMargin={40}
-						topBottomPadding={0}
-					>
-						{#snippet title()}
-							You have no branches
-						{/snippet}
-						{#snippet caption()}
-							Create a new branch for<br />a feature, fix, or idea!
-						{/snippet}
-					</EmptyStatePlaceholder>
-				</div>
-			{/if}
-		{/snippet}
-	</WorkspaceView>
-{/if}
-
-<style>
-	.contents {
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		overflow: hidden;
-
-		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
-
-		background-image: radial-gradient(
-			oklch(from var(--clr-scale-ntrl-50) l c h / 0.5) 0.6px,
-			#ffffff00 0.6px
-		);
-		background-size: 6px 6px;
-	}
-
-	.no-stacks {
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		overflow: hidden;
-
-		align-items: center;
-		justify-content: center;
-
-		gap: 20px;
-		border: 1px solid var(--clr-border-2);
-	}
-
-	.rounded {
-		border-radius: 0 var(--radius-ml) var(--radius-ml) var(--radius-ml);
-	}
-</style>
+<WorkspaceView {projectId} {stackId}>
+	{#snippet stack()}
+		{@render children()}
+	{/snippet}
+</WorkspaceView>

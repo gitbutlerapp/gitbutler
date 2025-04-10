@@ -17,17 +17,14 @@
 		el?: HTMLButtonElement;
 		scrollerEl?: HTMLDivElement;
 		projectId: string;
-		// Currently selected stack id.
 		stackId?: string;
+		noStacks: boolean;
 	};
 
-	let { el = $bindable(), scrollerEl, projectId, stackId }: Props = $props();
+	let { el = $bindable(), scrollerEl, projectId, stackId, noStacks }: Props = $props();
 	const stackService = getContext(StackService);
 	const [createNewStack, stackCreation] = stackService.newStack;
 	const [createNewBranch, branchCreation] = stackService.newBranch;
-	const stacks = stackService.stacks(projectId);
-
-	const noStacks = $derived(stacks.current.data?.length === 0);
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName = $state<string>();
@@ -145,7 +142,7 @@
 					<RadioButton checked name="create-new" id="new-stack" onchange={handleOptionSelect} />
 				</div>
 
-				<h3 class="text-13 text-bold text-body radio-title">New stack</h3>
+				<h3 class="text-13 text-bold text-body radio-title">Independent branch</h3>
 				<p class="text-12 text-body radio-caption">
 					Create an independent branch<br />in a new stack.
 				</p>
