@@ -50,7 +50,8 @@
 		selectedChangesResponse?.current.map((item) => item.data).filter(isDefined) ?? []
 	);
 
-	const canCommit = $derived(branchName && selection.current.length > 0);
+	const defaultBranchName = uiState.global.draftBranchName.current;
+	const canCommit = $derived((branchName || defaultBranchName) && selection.current.length > 0);
 	const projectState = $derived(uiState.project(projectId));
 
 	let input = $state<ReturnType<typeof CommitMessageInput>>();
@@ -72,11 +73,20 @@
 	}
 
 	async function createCommit(message: string) {
+		let finalStackId = stackId;
+		let finalBranchName = branchName;
+
 		if (!stackId) {
+			const result = await newStack();
+			finalStackId = result.id;
+			finalBranchName = result.branchNames[0];
+		}
+
+		if (!finalStackId) {
 			throw new Error('No stack selected!');
 		}
 
-		if (!branchName) {
+		if (!finalBranchName) {
 			throw new Error('No branch selected!');
 		}
 
@@ -123,10 +133,10 @@
 
 		const response = await createCommitInStack({
 			projectId,
-			stackId,
+			stackId: finalStackId,
 			parentId: commitId,
 			message: message,
-			stackBranchName: branchName,
+			stackBranchName: finalBranchName,
 			worktreeChanges
 		});
 
@@ -138,9 +148,25 @@
 		const newId = response.data.newCommit;
 
 		uiState.project(projectId).drawerPage.set(undefined);
-		uiState.stack(stackId).selection.set({ branchName, commitId: newId });
+		uiState.stack(finalStackId).selection.set({ branchName: finalBranchName, commitId: newId });
 		changeSelection.clear();
 		idSelection.clear({ type: 'worktree' });
+	}
+
+	const [createNewStack, newStackResult] = stackService.newStack;
+
+	async function newStack() {
+		if (!defaultBranchName) {
+			throw new Error('No branch provided!');
+		}
+		const result = await createNewStack({
+			projectId,
+			branch: { name: defaultBranchName }
+		});
+		if (result.error) {
+			throw new Error(String(result.error));
+		}
+		return result.data!;
 	}
 
 	async function handleCommitCreation() {
@@ -174,6 +200,6 @@
 		action={handleCommitCreation}
 		onCancel={cancel}
 		disabledAction={!canCommit}
-		loading={commitCreation.current.isLoading}
+		loading={commitCreation.current.isLoading || newStackResult.current.isLoading}
 	/>
 </Drawer>

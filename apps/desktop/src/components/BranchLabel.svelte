@@ -8,6 +8,7 @@
 		disabled?: boolean;
 		readonly?: boolean;
 		fontSize?: '14' | '15';
+		allowClear?: boolean;
 		onChange?: (value: string) => void;
 		onDblClick?: () => void;
 	}
@@ -17,6 +18,7 @@
 		disabled = false,
 		fontSize = '14',
 		readonly = false,
+		allowClear,
 		onChange,
 		onDblClick
 	}: Props = $props();
@@ -58,7 +60,7 @@
 	onchange={(e) => {
 		const value = e.currentTarget.value.trim();
 		if (value === name) return;
-		if (value === '') {
+		if (value === '' && !allowClear) {
 			editableName = name;
 			return;
 		}
