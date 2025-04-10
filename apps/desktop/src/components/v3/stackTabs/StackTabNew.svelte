@@ -145,7 +145,7 @@
 					<RadioButton checked name="create-new" id="new-stack" onchange={handleOptionSelect} />
 				</div>
 
-				<h3 class="text-13 text-bold text-body radio-title">New stack</h3>
+				<h3 class="text-13 text-bold text-body radio-title">Independent branch</h3>
 				<p class="text-12 text-body radio-caption">
 					Create an independent branch<br />in a new stack.
 				</p>
@@ -176,7 +176,7 @@
 
 		<span class="text-12 text-body radio-aditional-info"
 			>{createRefType === 'stack'
-				? '└ Stacks that are currently applied will remain in the workspace.'
+				? '└ The new branch will be applied in parallel with other stacks in the workspace.'
 				: `└ The new branch will be added on top of \`${firstBranchName}\``}</span
 		>
 	</div>
