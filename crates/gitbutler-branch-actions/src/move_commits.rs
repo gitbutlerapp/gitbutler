@@ -92,7 +92,7 @@ fn get_source_branch_diffs(
     let repo = ctx.repo();
     let source_stack_head = repo.find_commit(source_stack.head(&repo.to_gix()?)?)?;
     let source_stack_head_tree = source_stack_head.tree()?;
-    let uncommitted_changes_tree = repo.find_tree(source_stack.tree)?;
+    let uncommitted_changes_tree = repo.find_tree(source_stack.tree(ctx)?)?;
 
     let uncommitted_changes_diff = gitbutler_diff::trees(
         repo,
@@ -156,7 +156,7 @@ fn take_commit_from_source_stack(
         (new_source_head, None)
     } else {
         #[allow(deprecated)]
-        let res = compute_updated_branch_head(repo, &gix_repo, source_stack, new_source_head)?;
+        let res = compute_updated_branch_head(repo, &gix_repo, source_stack, new_source_head, ctx)?;
         (res.head, Some(res.tree))
     };
 
@@ -201,6 +201,7 @@ fn move_commit_to_destination_stack(
                 &gix_repo,
                 &destination_stack,
                 new_destination_head_oid,
+                ctx,
             )?;
             (res.head, Some(res.tree))
         };

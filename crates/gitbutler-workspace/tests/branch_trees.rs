@@ -57,11 +57,11 @@ mod compute_updated_branch_head {
 
         let r = &test_repository.repository;
         let BranchHeadAndTree { head, tree } =
-            compute_updated_branch_head(r, &r.to_gix().unwrap(), &stack, head.id()).unwrap();
+            compute_updated_branch_head(r, &r.to_gix().unwrap(), &stack, head.id(), &ctx).unwrap();
 
         let r = &test_repository.repository;
         assert_eq!(head, stack.head(&r.to_gix().unwrap()).unwrap());
-        assert_eq!(tree, stack.tree);
+        assert_eq!(tree, stack.tree(&ctx).unwrap());
     }
 
     /// When the head ID is different from the branch ID, we should rebase the
@@ -93,7 +93,8 @@ mod compute_updated_branch_head {
 
         let r = &test_repository.repository;
         let BranchHeadAndTree { head, tree } =
-            compute_updated_branch_head(r, &r.to_gix().unwrap(), &stack, new_head.id()).unwrap();
+            compute_updated_branch_head(r, &r.to_gix().unwrap(), &stack, new_head.id(), &ctx)
+                .unwrap();
 
         assert_eq!(head, new_head.id());
         assert_tree_matches(
@@ -130,7 +131,8 @@ mod compute_updated_branch_head {
 
         let r = &test_repository.repository;
         let BranchHeadAndTree { head, tree } =
-            compute_updated_branch_head(r, &r.to_gix().unwrap(), &stack, new_head.id()).unwrap();
+            compute_updated_branch_head(r, &r.to_gix().unwrap(), &stack, new_head.id(), &ctx)
+                .unwrap();
 
         let new_new_head = test_repository.repository.find_commit(head).unwrap();
         assert!(new_new_head.is_conflicted());

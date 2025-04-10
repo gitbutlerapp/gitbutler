@@ -228,7 +228,7 @@ impl BranchManager<'_> {
         let repo = self.ctx.repo();
 
         // Build wip tree as either any uncommitted changes or an empty tree
-        let vbranch_wip_tree = repo.find_tree(stack.tree)?;
+        let vbranch_wip_tree = repo.find_tree(stack.tree(self.ctx)?)?;
         let vbranch_head_tree = repo.find_commit(stack.head(&repo.to_gix()?)?)?.tree()?;
 
         let tree = if vbranch_head_tree.id() != vbranch_wip_tree.id() {

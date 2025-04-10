@@ -67,7 +67,7 @@ pub fn integrate_upstream_commits_for_series(
         repo,
         target_branch_head: default_target.sha,
         branch_head: stack.head(&gix_repo)?,
-        branch_tree: stack.tree,
+        branch_tree: stack.tree(ctx)?,
         branch_name: subject_branch.name(),
         branch_full_name: subject_branch.full_name()?,
         remote_head: remote_head.id(),

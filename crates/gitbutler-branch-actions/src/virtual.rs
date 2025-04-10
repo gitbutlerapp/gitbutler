@@ -420,6 +420,7 @@ pub fn list_virtual_branches_cached(
         }
 
         let head = branch.head(&gix_repo)?;
+        let tree = branch.tree(ctx)?;
         let branch = VirtualBranch {
             id: branch.id,
             name: branch.name,
@@ -442,7 +443,7 @@ pub fn list_virtual_branches_cached(
             merge_base,
             fork_point,
             refname,
-            tree: branch.tree,
+            tree,
             series,
         };
         branches.push(branch);

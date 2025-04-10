@@ -65,7 +65,7 @@ pub struct Stack {
     pub updated_timestamp_ms: u128,
     /// tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
     #[serde(with = "gitbutler_serde::oid")]
-    pub tree: git2::Oid,
+    tree: git2::Oid,
     /// head is id of the last "virtual" commit in this branch
     #[serde(with = "gitbutler_serde::oid")]
     head: git2::Oid,
@@ -216,6 +216,23 @@ impl Stack {
             .last()
             .map(|head| head.head_oid(repo))
             .ok_or_else(|| anyhow!("Stack is uninitialized"))?
+    }
+
+    // This should not be needed in v3
+    pub fn set_tree(&mut self, tree: git2::Oid) {
+        self.tree = tree;
+    }
+
+    pub fn tree(&self, ctx: &CommandContext) -> Result<git2::Oid> {
+        if ctx.app_settings().feature_flags.v3 {
+            ctx.gix_repo()?
+                .find_commit(self.head(&ctx.gix_repo()?)?.to_gix())?
+                .tree()
+                .map(|tree| tree.id.to_git2())
+                .map_err(Into::into)
+        } else {
+            Ok(self.tree)
+        }
     }
 
     fn set_head(&mut self, head: git2::Oid) {

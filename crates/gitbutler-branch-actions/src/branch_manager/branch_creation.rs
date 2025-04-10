@@ -299,7 +299,7 @@ impl BranchManager<'_> {
             .tree()
             .context("failed to find merge base tree")?
             .id();
-        let branch_tree_id = stack.tree;
+        let branch_tree_id = stack.tree(self.ctx)?;
 
         // We don't support having two branches applied that conflict with each other
         {

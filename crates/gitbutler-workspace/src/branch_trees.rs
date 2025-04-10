@@ -36,7 +36,7 @@ pub fn checkout_branch_trees<'a>(
     };
 
     if stacks.len() == 1 {
-        let tree = repo.find_tree(stacks[0].tree)?;
+        let tree = repo.find_tree(stacks[0].tree(ctx)?)?;
         repo.checkout_tree_builder(&tree)
             .force()
             .remove_untracked()
@@ -58,7 +58,7 @@ pub fn checkout_branch_trees<'a>(
         let mut final_tree_id = merge_base_tree_id;
         let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
         for branch in stacks {
-            let their_tree_id = git2_to_gix_object_id(branch.tree);
+            let their_tree_id = git2_to_gix_object_id(branch.tree(ctx)?);
             let mut merge = gix_repo.merge_trees(
                 merge_base_tree_id,
                 final_tree_id,
@@ -247,13 +247,14 @@ pub fn compute_updated_branch_head(
     gix_repo: &gix::Repository,
     stack: &Stack,
     new_head: git2::Oid,
+    ctx: &CommandContext,
 ) -> Result<BranchHeadAndTree> {
     #[allow(deprecated)]
     compute_updated_branch_head_for_commits(
         repo,
         gix_repo,
         stack.head(&repo.to_gix()?)?,
-        stack.tree,
+        stack.tree(ctx)?,
         new_head,
     )
 }
