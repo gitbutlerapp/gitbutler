@@ -4,7 +4,8 @@
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import FileName from '@gitbutler/ui/file/FileName.svelte';
-	import FileStats from '@gitbutler/ui/file/FileStats.svelte';
+	import FileStatusBadge from '@gitbutler/ui/file/FileStatusBadge.svelte';
+	import LineChangeStats from '@gitbutler/ui/file/LineChangeStats.svelte';
 	import type { AnyFile } from '$lib/files/file';
 
 	interface Props {
@@ -24,7 +25,11 @@
 		<div class="header__info truncate">
 			<FileName filePath={file.path} textSize="13" />
 			<div class="header__tags">
-				<FileStats added={fileStats.added} removed={fileStats.removed} status={fileStatus} />
+				<LineChangeStats added={fileStats.added} removed={fileStats.removed} />
+
+				{#if fileStatus}
+					<FileStatusBadge status={fileStatus} style="full" />
+				{/if}
 
 				{#if file.conflicted || isFileLocked}
 					<div class="header__tag-group">
@@ -70,7 +75,7 @@
 	}
 	.header__tags {
 		display: flex;
-		gap: 6px;
+		gap: 8px;
 	}
 	.header__tag-group {
 		display: flex;

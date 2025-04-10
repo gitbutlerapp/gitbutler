@@ -15,10 +15,12 @@
 	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 	import type { TreeChange } from '$lib/hunks/change';
+	import type { UnifiedDiff } from '$lib/hunks/diff';
 
 	interface Props {
 		projectId: string;
 		change: TreeChange;
+		diff?: UnifiedDiff;
 		selectionId: SelectionId;
 		selected?: boolean;
 		isHeader?: boolean;
@@ -36,6 +38,7 @@
 
 	const {
 		change,
+		diff,
 		selectionId,
 		projectId,
 		selected,
@@ -43,8 +46,6 @@
 		listActive,
 		isLast,
 		listMode,
-		linesAdded,
-		linesRemoved,
 		depth,
 		showCheckbox,
 		onclick,
@@ -68,6 +69,16 @@
 
 	const isBinary = $derived(diffResult.current.data?.type === 'Binary');
 	const isUncommitted = $derived(selectionId.type === 'worktree');
+
+	const lineChangesStat = $derived.by(() => {
+		if (diff && diff.type === 'Patch') {
+			return {
+				added: diff.subject.linesAdded,
+				removed: diff.subject.linesRemoved
+			};
+		}
+		return undefined;
+	});
 
 	function onCheck() {
 		if (selection.current) {
@@ -101,7 +112,9 @@
 </script>
 
 <div
-	use:stickyHeader
+	use:stickyHeader={{
+		disabled: !isHeader
+	}}
 	class="filelistitem-wrapper"
 	class:filelistitem-header={isHeader}
 	bind:this={draggableEl}
@@ -126,8 +139,8 @@
 			filePath={change.path}
 			fileStatus={computeChangeStatus(change)}
 			draggable={!showCheckbox}
-			{linesAdded}
-			{linesRemoved}
+			linesAdded={lineChangesStat?.added}
+			linesRemoved={lineChangesStat?.removed}
 			oncontextmenu={(e) => {
 				e.stopPropagation();
 				e.preventDefault();

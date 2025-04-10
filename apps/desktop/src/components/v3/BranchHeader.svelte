@@ -216,7 +216,7 @@
 		width: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		gap: 8px;
 		padding: 14px 0;
 		margin-left: -2px;
 		text-overflow: ellipsis;

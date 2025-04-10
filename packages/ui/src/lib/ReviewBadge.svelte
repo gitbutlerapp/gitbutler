@@ -115,7 +115,7 @@
 		align-items: center;
 		justify-content: center;
 		gap: 4px;
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-ml);
 		width: fit-content;
 		height: var(--size-icon);
 		border: 1px solid var(--clr-border-2);

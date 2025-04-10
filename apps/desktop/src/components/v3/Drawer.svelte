@@ -210,7 +210,7 @@
 	.drawer-header__actions-group {
 		display: flex;
 		align-items: center;
-		gap: 2px;
+		gap: 4px;
 	}
 
 	.drawer__content-resizer {

@@ -208,7 +208,7 @@
 	.worktree-header__title {
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		gap: 6px;
 	}
 
 	.uncommitted-changes {

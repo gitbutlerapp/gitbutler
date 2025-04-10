@@ -85,6 +85,6 @@
 	.changed-files__header-left {
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		gap: 6px;
 	}
 </style>

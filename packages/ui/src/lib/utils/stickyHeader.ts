@@ -2,9 +2,17 @@ import { intersectionObserver } from '$lib/utils/intersectionObserver';
 
 export function stickyHeader(
 	node: HTMLElement,
-	options?: { align?: 'top' | 'bottom'; onStick?: (flag: boolean) => void; unstyled?: boolean }
+	options?: {
+		align?: 'top' | 'bottom';
+		onStick?: (flag: boolean) => void;
+		unstyled?: boolean;
+		disabled?: boolean;
+	} | null
 ) {
-	const { align = 'top', unstyled = false, onStick } = options || {};
+	const { align = 'top', unstyled = false, onStick, disabled = false } = options || {};
+
+	if (disabled) return;
+
 	node.classList.add('h-sticky-header');
 	node.classList.add(`h-sticky-header_${align}`);
 

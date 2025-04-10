@@ -118,12 +118,14 @@
 			height: var(--size-icon);
 			padding: 0 3px;
 			gap: 1px;
+			min-width: var(--size-icon);
 		}
 
 		&.tag-size {
 			height: var(--size-tag);
 			padding: 0 5px;
 			gap: 2px;
+			min-width: var(--size-tag);
 		}
 
 		/* REVERSED DIRECTION */
