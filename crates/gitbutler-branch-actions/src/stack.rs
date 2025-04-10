@@ -39,9 +39,7 @@ pub fn create_branch(
 ) -> Result<()> {
     ctx.verify()?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx
-        .project()
-        .snapshot_create_dependent_branch(&req.name, guard.write_permission());
+    let _ = ctx.snapshot_create_dependent_branch(&req.name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&req.name)?;
@@ -79,9 +77,7 @@ pub struct CreateSeriesRequest {
 pub fn remove_branch(ctx: &CommandContext, stack_id: StackId, branch_name: String) -> Result<()> {
     ctx.verify()?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx
-        .project()
-        .snapshot_remove_dependent_branch(&branch_name, guard.write_permission());
+    let _ = ctx.snapshot_remove_dependent_branch(&branch_name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     stack.remove_branch(ctx, branch_name)
@@ -97,9 +93,7 @@ pub fn update_branch_name(
 ) -> Result<()> {
     ctx.verify()?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx
-        .project()
-        .snapshot_update_dependent_branch_name(&branch_name, guard.write_permission());
+    let _ = ctx.snapshot_update_dependent_branch_name(&branch_name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&new_name)?;
@@ -123,7 +117,7 @@ pub fn update_branch_description(
 ) -> Result<()> {
     ctx.verify()?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::UpdateDependentBranchDescription),
         guard.write_permission(),
     );
@@ -156,7 +150,7 @@ pub fn update_branch_pr_number(
 ) -> Result<()> {
     ctx.verify()?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::UpdateDependentBranchPrNumber),
         guard.write_permission(),
     );

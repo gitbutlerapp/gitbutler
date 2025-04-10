@@ -15,15 +15,17 @@ use tracing::instrument;
 use crate::error::Error;
 
 #[tauri::command(async)]
-#[instrument(skip(projects), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn list_snapshots(
     projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     limit: usize,
     sha: Option<String>,
 ) -> Result<Vec<Snapshot>, Error> {
     let project = projects.get(project_id).context("failed to get project")?;
-    let snapshots = project.list_snapshots(
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let snapshots = ctx.list_snapshots(
         limit,
         sha.map(|hex| hex.parse().map_err(anyhow::Error::from))
             .transpose()?,
@@ -32,15 +34,17 @@ pub fn list_snapshots(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(projects), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn restore_snapshot(
     projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     sha: String,
 ) -> Result<(), Error> {
     let project = projects.get(project_id).context("failed to get project")?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
-    project.restore_snapshot(
+    ctx.restore_snapshot(
         sha.parse().map_err(anyhow::Error::from)?,
         guard.write_permission(),
     )?;
@@ -48,14 +52,16 @@ pub fn restore_snapshot(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(projects), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn snapshot_diff(
     projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     sha: String,
 ) -> Result<HashMap<PathBuf, FileDiff>, Error> {
     let project = projects.get(project_id).context("failed to get project")?;
-    let diff = project.snapshot_diff(sha.parse().map_err(anyhow::Error::from)?)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let diff = ctx.snapshot_diff(sha.parse().map_err(anyhow::Error::from)?)?;
     Ok(diff)
 }
 

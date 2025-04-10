@@ -55,10 +55,7 @@ impl BranchManager<'_> {
             create.name.as_ref().unwrap_or(&"Lane".to_string()),
         );
 
-        _ = self
-            .ctx
-            .project()
-            .snapshot_branch_creation(name.clone(), perm);
+        _ = self.ctx.snapshot_branch_creation(name.clone(), perm);
 
         all_stacks.sort_by_key(|branch| branch.order);
 
@@ -144,10 +141,7 @@ impl BranchManager<'_> {
             .expect("always a branch reference")
             .to_string();
 
-        let _ = self
-            .ctx
-            .project()
-            .snapshot_branch_creation(branch_name.clone(), perm);
+        let _ = self.ctx.snapshot_branch_creation(branch_name.clone(), perm);
 
         let vb_state = self.ctx.project().virtual_branches();
 

@@ -15,7 +15,7 @@ use super::{
 };
 use anyhow::{anyhow, bail, Context, Result};
 use git2::FileMode;
-use gitbutler_command_context::RepositoryExtLite;
+use gitbutler_command_context::{CommandContext, RepositoryExtLite};
 use gitbutler_diff::{hunks_by_filepath, FileDiff};
 use gitbutler_oxidize::ObjectIdExt as _;
 use gitbutler_oxidize::RepoExt;
@@ -147,9 +147,9 @@ pub trait OplogExt {
     fn oplog_head(&self) -> Result<Option<git2::Oid>>;
 }
 
-impl OplogExt for Project {
+impl OplogExt for CommandContext {
     fn prepare_snapshot(&self, perm: &WorktreeReadPermission) -> Result<git2::Oid> {
-        prepare_snapshot(self, perm)
+        prepare_snapshot(self.project(), perm)
     }
 
     fn commit_snapshot(
@@ -158,7 +158,7 @@ impl OplogExt for Project {
         details: SnapshotDetails,
         perm: &mut WorktreeWritePermission,
     ) -> Result<git2::Oid> {
-        commit_snapshot(self, snapshot_tree_id, details, perm)
+        commit_snapshot(self.project(), snapshot_tree_id, details, perm)
     }
 
     #[instrument(skip(self, details, perm), err(Debug))]
@@ -167,8 +167,8 @@ impl OplogExt for Project {
         details: SnapshotDetails,
         perm: &mut WorktreeWritePermission,
     ) -> Result<git2::Oid> {
-        let tree_id = prepare_snapshot(self, perm.read_permission())?;
-        commit_snapshot(self, tree_id, details, perm)
+        let tree_id = prepare_snapshot(self.project(), perm.read_permission())?;
+        commit_snapshot(self.project(), tree_id, details, perm)
     }
 
     #[instrument(skip(self), err(Debug))]
@@ -177,13 +177,13 @@ impl OplogExt for Project {
         limit: usize,
         oplog_commit_id: Option<git2::Oid>,
     ) -> Result<Vec<Snapshot>> {
-        let worktree_dir = self.path.as_path();
+        let worktree_dir = self.project().path.as_path();
         let repo = gitbutler_command_context::gix_repo_for_merging(worktree_dir)?;
 
         let traversal_root_id = git2_to_gix_object_id(match oplog_commit_id {
             Some(id) => id,
             None => {
-                let oplog_state = OplogHandle::new(&self.gb_dir());
+                let oplog_state = OplogHandle::new(&self.project().gb_dir());
                 if let Some(id) = oplog_state.oplog_head()? {
                     id
                 } else {
@@ -302,25 +302,28 @@ impl OplogExt for Project {
         guard: &mut WorktreeWritePermission,
     ) -> Result<git2::Oid> {
         // let mut guard = self.exclusive_worktree_access();
-        restore_snapshot(self, snapshot_commit_id, guard)
+        restore_snapshot(self.project(), snapshot_commit_id, guard)
     }
 
     #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]
     fn should_auto_snapshot(&self, check_if_last_snapshot_older_than: Duration) -> Result<bool> {
-        let last_snapshot_time = OplogHandle::new(&self.gb_dir()).modified_at()?;
+        let last_snapshot_time = OplogHandle::new(&self.project().gb_dir()).modified_at()?;
         if last_snapshot_time.elapsed()? <= check_if_last_snapshot_older_than {
             return Ok(false);
         }
 
-        let repo = git2::Repository::open(&self.path)?;
+        let repo = git2::Repository::open(&self.project().path)?;
         if repo.workspace_ref_from_head().is_err() {
             return Ok(false);
         }
-        Ok(lines_since_snapshot(self, &repo)? > self.snapshot_lines_threshold())
+        Ok(
+            lines_since_snapshot(self.project(), &repo)?
+                > self.project().snapshot_lines_threshold(),
+        )
     }
 
     fn snapshot_diff(&self, sha: git2::Oid) -> Result<HashMap<PathBuf, FileDiff>> {
-        let worktree_dir = self.path.as_path();
+        let worktree_dir = self.project().path.as_path();
         let gix_repo = gitbutler_command_context::gix_repo_for_merging(worktree_dir)?;
         let repo = git2::Repository::init(worktree_dir)?;
 
@@ -350,7 +353,7 @@ impl OplogExt for Project {
 
     /// Gets the sha of the last snapshot commit if present.
     fn oplog_head(&self) -> Result<Option<git2::Oid>> {
-        let oplog_state = OplogHandle::new(&self.gb_dir());
+        let oplog_state = OplogHandle::new(&self.project().gb_dir());
         oplog_state.oplog_head()
     }
 }
