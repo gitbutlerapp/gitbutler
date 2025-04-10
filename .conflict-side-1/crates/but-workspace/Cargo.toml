@@ -1,0 +1,44 @@
+[package]
+name = "but-workspace"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow.workspace = true
+bstr.workspace = true
+git2.workspace = true
+but-core.workspace = true
+but-rebase.workspace = true
+gitbutler-id.workspace = true
+gix = { workspace = true, features = ["worktree-mutation"] }
+gitbutler-stack.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-oxidize.workspace = true
+gitbutler-project.workspace = true
+gitbutler-commit.workspace = true
+gitbutler-repo.workspace = true
+serde = { workspace = true, features = ["std"] }
+gitbutler-serde.workspace = true
+itertools = "0.14"
+url = { version = "2.5.4", features = ["serde"] }
+md5 = "0.7.0"
+
+# For virtual branches metadata
+gitbutler-fs.workspace = true
+toml.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+rustix = { version = "1.0.2", features = ["process", "fs"] }
+but-testsupport.workspace = true
+insta = "1.42.1"
+but-core = { workspace = true, features = ["testing"] }
+# for stable hashes in `gitbuter-` crates while we use them.
+# TODO: remove once `gitbutler-repo` isn't needed anymore.
+gitbutler-commit = { workspace = true, features = ["testing"] }
+regex = "1.11.1"

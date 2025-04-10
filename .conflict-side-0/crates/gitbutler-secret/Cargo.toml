@@ -1,0 +1,20 @@
+[package]
+name = "gitbutler-secret"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+autotests = false
+
+[dependencies]
+anyhow = "1.0.95"
+tracing.workspace = true
+serde = { workspace = true, features = ["std"]}
+gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
+keyring.workspace = true
+
+[[test]]
+name="secret"
+path = "tests/mod.rs"
+
+[dev-dependencies]
