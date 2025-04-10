@@ -1,18 +1,8 @@
 import { mockReduxFulfilled } from '$lib/testing/mockRedux';
 import { reactive } from '@gitbutler/shared/storeUtils';
 import { vi } from 'vitest';
-import type { Author, Commit, StackBranch, UpstreamCommit } from '$lib/branches/v3';
+import type { Author, Commit, UpstreamCommit } from '$lib/branches/v3';
 import type { BranchDetails } from '$lib/stacks/stack';
-
-const MOCK_BRANCH_A: StackBranch = {
-	name: 'branch-a',
-	remoteTrackingBranch: null,
-	description: null,
-	prNumber: null,
-	reviewId: null,
-	archived: false,
-	baseCommit: 'base-commit-a'
-};
 
 const MOCK_AUTHOR_A: Author = {
 	name: 'Author A',
@@ -43,7 +33,12 @@ const BRANCH_DETAILS_A: BranchDetails = {
 	lastUpdatedAt: 1672531200000, // Example timestamp
 	authors: [MOCK_AUTHOR_A],
 	isConflicted: false,
-	commits: [MOCK_COMMIT_A]
+	commits: [MOCK_COMMIT_A],
+	remoteTrackingBranch: null,
+	description: null,
+	prNumber: null,
+	reviewId: null,
+	baseCommit: 'base-commit-a'
 };
 
 export function getStackServiceMock() {
@@ -58,13 +53,13 @@ export function getStackServiceMock() {
 		return reactive(() => mockReduxFulfilled(BRANCH_DETAILS_A));
 	});
 	StackServiceMock.prototype.branches = vi.fn(() => {
-		return reactive(() => mockReduxFulfilled([MOCK_BRANCH_A]));
+		return reactive(() => mockReduxFulfilled([BRANCH_DETAILS_A]));
 	});
 	StackServiceMock.prototype.branchAt = vi.fn();
 	StackServiceMock.prototype.branchParentByName = vi.fn();
 	StackServiceMock.prototype.branchChildByName = vi.fn();
 	StackServiceMock.prototype.branchByName = vi.fn((_projectId, _stackId, branchName) => {
-		return reactive(() => mockReduxFulfilled({ ...MOCK_BRANCH_A, name: branchName }));
+		return reactive(() => mockReduxFulfilled({ ...BRANCH_DETAILS_A, name: branchName }));
 	});
 	StackServiceMock.prototype.commits = vi.fn(() => {
 		return reactive(() => mockReduxFulfilled([MOCK_COMMIT_A]));
