@@ -17,17 +17,14 @@
 		el?: HTMLButtonElement;
 		scrollerEl?: HTMLDivElement;
 		projectId: string;
-		// Currently selected stack id.
 		stackId?: string;
+		noStacks: boolean;
 	};
 
-	let { el = $bindable(), scrollerEl, projectId, stackId }: Props = $props();
+	let { el = $bindable(), scrollerEl, projectId, stackId, noStacks }: Props = $props();
 	const stackService = getContext(StackService);
 	const [createNewStack, stackCreation] = stackService.newStack;
 	const [createNewBranch, branchCreation] = stackService.newBranch;
-	const stacks = stackService.stacks(projectId);
-
-	const noStacks = $derived(stacks.current.data?.length === 0);
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName = $state<string>();
