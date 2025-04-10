@@ -559,6 +559,14 @@ export class StackService {
 			targetCommitOid: targetCommit.id
 		});
 	}
+
+	async newBranchName(projectId: string) {
+		return await this.api.endpoints.newBranchName.fetch({ projectId }, { forceRefetch: true });
+	}
+
+	async normalizeBranchName(name: string) {
+		return await this.api.endpoints.normalizeBranchName.fetch({ name }, { forceRefetch: true });
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -1080,6 +1088,30 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesList(ReduxTag.BranchListing)
 				]
+			}),
+			newBranchName: build.query<
+				string,
+				{
+					projectId: string;
+				}
+			>({
+				query: ({ projectId }) => ({
+					command: 'canned_branch_name',
+					params: { projectId },
+					actionName: 'New branch name'
+				})
+			}),
+			normalizeBranchName: build.query<
+				string,
+				{
+					name: string;
+				}
+			>({
+				query: ({ name }) => ({
+					command: 'normalize_branch_name',
+					params: { name },
+					actionName: 'Normalize branch name'
+				})
 			})
 		})
 	});
