@@ -10,7 +10,6 @@ use anyhow::Result;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::OidExt;
 use gitbutler_project::access::WorktreeReadPermission;
-use gitbutler_repo::RepositoryExt;
 use gitbutler_stack::VirtualBranchesHandle;
 
 /// Returns the oid of the base of the workspace
@@ -23,9 +22,7 @@ pub fn workspace_base(
     let repo = ctx.repo();
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let default_target = vb_state.get_default_target()?;
-    let target_branch = repo.find_branch_by_refname(&default_target.branch.into())?;
-    let target_branch_commit = target_branch.get().peel_to_commit()?.id().to_gix();
-
+    let target_branch_commit = repo.find_commit(default_target.sha)?.id().to_gix();
     let stacks = vb_state.list_stacks_in_workspace()?;
     let stack_heads = stacks
         .iter()
