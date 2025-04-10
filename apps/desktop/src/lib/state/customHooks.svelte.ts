@@ -164,6 +164,7 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 
 export type UseMutationHookParams<Definition extends MutationDefinition<any, any, string, any>> = {
 	fixedCacheKey?: string;
+	preEffect?: (queryArgs: QueryArgFrom<Definition>) => void;
 	sideEffect?: (data: ResultTypeFrom<Definition>, queryArgs: QueryArgFrom<Definition>) => void;
 	onError?: (error: TauriCommandError, queryArgs: QueryArgFrom<Definition>) => void;
 };
@@ -193,7 +194,8 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 		options?: UseMutationHookParams<MutationDefinition<any, any, any, any, any>>
 	) {
 		const dispatch = getDispatch();
-		const { fixedCacheKey, sideEffect, onError } = options ?? {};
+		const { fixedCacheKey, sideEffect, preEffect, onError } = options ?? {};
+		preEffect?.(queryArg);
 		const result = await dispatch(initiate(queryArg, { fixedCacheKey }));
 		if (!result.error) {
 			sideEffect?.(result.data, queryArg);
@@ -218,13 +220,14 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 	function useMutation(
 		params?: UseMutationHookParams<MutationDefinition<any, any, any, any, any>>
 	) {
-		const { fixedCacheKey, sideEffect, onError } = params || {};
+		const { fixedCacheKey, preEffect, sideEffect, onError } = params || {};
 		const dispatch = getDispatch();
 
 		let promise =
 			$state<MutationActionCreatorResult<MutationDefinition<any, any, any, any, any>>>();
 
 		async function triggerMutation(queryArg: unknown) {
+			preEffect?.(queryArg);
 			const dispatchResult = dispatch(initiate(queryArg, { fixedCacheKey }));
 			promise = dispatchResult;
 			const result = await promise;
