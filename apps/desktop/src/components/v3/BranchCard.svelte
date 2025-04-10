@@ -106,7 +106,7 @@
 		onContextMenu={(e) => contextMenu.toggle(e)}
 	>
 		{#snippet details()}
-			<div class="text-11 branch-header__details">
+			<div class="text-12 branch-header__details">
 				<span class="branch-header__item">
 					<BranchBadge {pushStatus} unstyled />
 				</span>
@@ -123,12 +123,14 @@
 
 				{#if reviewId || prNumber}
 					<span class="branch-header__divider">•</span>
-					{#if reviewId}
-						<ReviewBadge brId={reviewId} brStatus="unknown" />
-					{/if}
-					{#if prNumber}
-						<ReviewBadge {prNumber} prStatus="unknown" />
-					{/if}
+					<div class="branch-header__review-badges">
+						{#if reviewId}
+							<ReviewBadge brId={reviewId} brStatus="unknown" />
+						{/if}
+						{#if prNumber}
+							<ReviewBadge {prNumber} prStatus="unknown" />
+						{/if}
+					</div>
 				{/if}
 			</div>
 		{/snippet}
@@ -171,6 +173,11 @@
 		gap: 6px;
 		color: var(--clr-text-2);
 		margin-left: 4px;
+	}
+
+	.branch-header__review-badges {
+		display: flex;
+		gap: 3px;
 	}
 
 	.branch-header__item {
