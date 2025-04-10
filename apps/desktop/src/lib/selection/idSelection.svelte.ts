@@ -93,9 +93,6 @@ export class IdSelection {
 	 */
 	treeChanges(projectId: string, params: SelectionId) {
 		const filePaths = this.values(params).map((fileSelection) => {
-			if (fileSelection.type !== 'worktree') {
-				throw new Error('???');
-			}
 			return fileSelection.path;
 		});
 
