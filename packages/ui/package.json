@@ -50,7 +50,7 @@
 		"@storybook/addon-docs": "^8.5.3",
 		"@storybook/addon-essentials": "^8.5.3",
 		"@storybook/addon-links": "^8.5.3",
-		"@storybook/addon-svelte-csf": "5.0.0-next.23",
+		"@storybook/addon-svelte-csf": "5.0.0--canary.228.968918b.0",
 		"@storybook/blocks": "^8.5.3",
 		"@storybook/experimental-addon-test": "^8.5.3",
 		"@storybook/svelte": "^8.5.3",
