@@ -137,7 +137,7 @@
 								<span class="branch-view__details-divider">•</span>
 							{/if}
 
-							<span>Contributors:</span>
+							<span>Contribs:</span>
 							<AvatarGroup
 								maxAvatars={2}
 								avatars={branchDetails.authors.map((a) => ({
@@ -148,7 +148,7 @@
 
 							<span class="branch-view__details-divider">•</span>
 
-							<span>{getTimeAgo(new Date(branchDetails.lastUpdatedAt))}</span>
+							<span class="truncate">{getTimeAgo(new Date(branchDetails.lastUpdatedAt))}</span>
 						</div>
 					</div>
 
@@ -248,9 +248,11 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 16px;
+		overflow: hidden;
 	}
 
 	.branch-view__header-details-row {
+		width: 100%;
 		color: var(--clr-text-2);
 		display: flex;
 		align-items: center;
