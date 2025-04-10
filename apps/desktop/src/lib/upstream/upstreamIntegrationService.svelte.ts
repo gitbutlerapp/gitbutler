@@ -129,7 +129,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: [
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.StackBranches),
 					invalidatesList(ReduxTag.StackDetails)
 				]
 			}),
