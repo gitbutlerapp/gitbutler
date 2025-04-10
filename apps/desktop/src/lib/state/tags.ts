@@ -1,9 +1,8 @@
 export enum ReduxTag {
 	Diff = 'Diff',
-	Commits = 'Commits',
-	Commit = 'Commit',
+	UpstreamCommits = 'UpstreamCommits',
 	Stacks = 'Stacks',
-	StackInfo = 'StackInfo',
+	StackDetails = 'StackDetails',
 	WorktreeChanges = 'WorktreeChanges',
 	StackBranches = 'StackBranches',
 	CommitChanges = 'CommitChanges',
