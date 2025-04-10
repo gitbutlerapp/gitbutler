@@ -106,7 +106,9 @@
 </script>
 
 <div
-	use:stickyHeader
+	use:stickyHeader={{
+		disabled: !isHeader
+	}}
 	class="filelistitem-wrapper"
 	class:filelistitem-header={isHeader}
 	bind:this={draggableEl}
