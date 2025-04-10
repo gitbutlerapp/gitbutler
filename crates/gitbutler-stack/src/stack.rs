@@ -364,10 +364,10 @@ impl Stack {
         };
         let commit = ctx.repo().find_commit(head)?;
 
-        let name = if ctx.app_settings().feature_flags.v3 {
-            self.name.clone()
-        } else if let Some(refname) = self.upstream.as_ref() {
+        let name = if let Some(refname) = self.upstream.as_ref() {
             refname.branch().to_string()
+        } else if ctx.app_settings().feature_flags.v3 {
+            self.name.clone()
         } else {
             canned_branch_name(ctx.repo())?
         };
