@@ -112,20 +112,6 @@
 				</div>
 			{/snippet}
 
-			{#snippet extraActions()}
-				{#if hasCommits && remoteTrackingBranch}
-					<Button
-						size="tag"
-						icon="open-link"
-						kind="outline"
-						onclick={() => {
-							const url = forgeBranch?.url;
-							if (url) openExternalUrl(url);
-						}}>Open in browser</Button
-					>
-				{/if}
-			{/snippet}
-
 			{#snippet kebabMenu()}
 				<Button
 					size="tag"
