@@ -18,8 +18,6 @@
 	const { projectId }: Props = $props();
 
 	const stackService = getContext(StackService);
-	const [newStack] = stackService.newStack;
-
 	const handler = new NewStackDzHandler(stackService, projectId);
 </script>
 
@@ -55,7 +53,8 @@
 					<Button
 						kind="outline"
 						icon="plus-small"
-						onmousedown={async () => await newStack({ projectId, branch: {} })}>New branch</Button
+						onmousedown={async () => await stackService.newStackMutation({ projectId, branch: {} })}
+						>New branch</Button
 					>
 				</div>
 			</div>

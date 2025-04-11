@@ -34,7 +34,6 @@
 	const project = getContext(Project);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const stackService = getContext(StackService);
-	const [unapplyFiles] = stackService.legacyUnapplyFiles;
 
 	let confirmationModal: ReturnType<typeof Modal> | undefined;
 	let contextMenu: ReturnType<typeof ContextMenu>;
@@ -54,7 +53,7 @@
 			toasts.error('Failed to discard changes');
 			return;
 		}
-		await unapplyFiles({ projectId, stackId, files: item.files });
+		await stackService.legacyUnapplyFiles({ projectId, stackId, files: item.files });
 		close();
 	}
 

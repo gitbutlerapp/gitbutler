@@ -64,27 +64,30 @@ export default class BaseBranchService {
 		await this.api.endpoints.baseBranch.fetch({ projectId }, { forceRefetch: true });
 	}
 
-	get fetchFromRemotes() {
-		return this.api.endpoints.fetchFromRemotes.useMutation({
-			onError: (error, { action }) => {
-				const { code } = error;
-				if (code === Code.DefaultTargetNotFound) {
-					// Swallow this error since user should be taken to project setup page
-					return;
-				}
+	async fetchFromRemotes(projectId: string, action?: string) {
+		return await this.api.endpoints.fetchFromRemotes.mutate(
+			{ projectId, action },
+			{
+				onError: (error, { action }) => {
+					const { code } = error;
+					if (code === Code.DefaultTargetNotFound) {
+						// Swallow this error since user should be taken to project setup page
+						return;
+					}
 
-				if (code === Code.ProjectsGitAuth) {
-					showError('Failed to authenticate', error.message);
-					return;
-				}
+					if (code === Code.ProjectsGitAuth) {
+						showError('Failed to authenticate', error.message);
+						return;
+					}
 
-				if (action !== undefined) {
-					showError('Failed to fetch', error.message);
-				}
+					if (action !== undefined) {
+						showError('Failed to fetch', error.message);
+					}
 
-				console.error(error);
+					console.error(error);
+				}
 			}
-		});
+		);
 	}
 
 	async refreshRemotes(projectId: string) {

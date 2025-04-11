@@ -74,7 +74,6 @@
 	const baseBranch = $derived(baseBranchResponse.current.data);
 	const baseBranchRepoResponse = $derived(baseBranchService.repo(projectId));
 	const baseBranchRepo = $derived(baseBranchRepoResponse.current.data);
-	const [fetchFromRemotes] = baseBranchService.fetchFromRemotes;
 	const repoResult = $derived(repoService?.getInfo());
 	const repoInfo = $derived(repoResult?.current.data);
 
@@ -317,7 +316,7 @@
 							}
 
 							await Promise.all([
-								fetchFromRemotes({ projectId }),
+								baseBranchService.fetchFromRemotes(projectId),
 								vbranchService.refresh(),
 								baseBranchService.refreshBaseBranch(projectId)
 							]);

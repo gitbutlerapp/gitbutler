@@ -25,8 +25,6 @@
 	const baseRepoResponse = $derived(baseBranchService.repo(project.id));
 	const baseRepo = $derived(baseRepoResponse.current.data);
 	const stackService = getContext(StackService);
-	const [createVirtualBranchFromBranch] = stackService.createVirtualBranchFromBranch;
-	const [fetchFromRemotes] = baseBranchService.fetchFromRemotes;
 
 	let inputRemoteName = $state<string>(pr.repoOwner || '');
 
@@ -60,8 +58,8 @@
 		try {
 			const remoteRef = 'refs/remotes/' + inputRemoteName + '/' + pr.sourceBranch;
 			await remotesService.addRemote(project.id, inputRemoteName, remoteUrl);
-			await fetchFromRemotes({ projectId: project.id });
-			await createVirtualBranchFromBranch({
+			await baseBranchService.fetchFromRemotes(project.id);
+			await stackService.createVirtualBranchFromBranch({
 				projectId: project.id,
 				branch: remoteRef,
 				remote: remoteRef,

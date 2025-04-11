@@ -45,7 +45,6 @@
 	const [stackService, project] = inject(StackService, Project);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
-	const [discardChanges] = stackService.discardChanges;
 	let confirmationModal: ReturnType<typeof Modal> | undefined;
 	let contextMenu: ReturnType<typeof ContextMenu>;
 	const projectId = $derived(project.id);
@@ -63,7 +62,7 @@
 			hunkHeaders: []
 		}));
 
-		await discardChanges({
+		await stackService.discardChanges({
 			projectId,
 			worktreeChanges
 		});

@@ -285,6 +285,7 @@
 			label="Global settings"
 			onclick={() => {
 				goto(newSettingsPath());
+				contextMenuEl?.close();
 			}}
 			keyboardShortcut="⌘,"
 		/>

@@ -146,17 +146,17 @@
 	let isUpdating = $state(false);
 
 	async function submitCommitMessageModal() {
+		if (!stack) {
+			return;
+		}
 		isUpdating = true;
 		commit.description = description;
-
-		if (stack) {
-			await updateCommitMessage({
-				projectId: project.id,
-				stackId: stack.id,
-				commitId: commit.id,
-				message: description
-			});
-		}
+		await updateCommitMessage({
+			projectId: project.id,
+			stackId: stack.id,
+			commitId: commit.id,
+			message: description
+		});
 
 		commitMessageModal?.close();
 		isUpdating = false;

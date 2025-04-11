@@ -23,7 +23,7 @@ export class BranchHunkDzHandler implements DropzoneHandler {
 
 	ondrop(data: HunkDropData) {
 		const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
-		this.stackService.legacyUpdateBranchOwnershipMutation({
+		this.stackService.legacyUpdateBranchOwnership({
 			projectId: this.projectId,
 			stackId: this.stack.id,
 			ownership: (newOwnership + '\n' + this.stack.ownership).trim()
@@ -51,7 +51,7 @@ export class BranchFileDzHandler implements DropzoneHandler {
 
 	ondrop(data: FileDropData) {
 		const newOwnership = filesToOwnership(data.files);
-		this.stackService.legacyUpdateBranchOwnershipMutation({
+		this.stackService.legacyUpdateBranchOwnership({
 			projectId: this.projectId,
 			stackId: this.stackId,
 			ownership: (newOwnership + '\n' + this.ownership).trim()

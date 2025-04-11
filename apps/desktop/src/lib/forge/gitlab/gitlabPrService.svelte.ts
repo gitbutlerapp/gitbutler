@@ -52,9 +52,8 @@ export class GitLabPrService implements ForgePrService {
 		while (attempts < 4) {
 			try {
 				const response = await request();
-				if (!response.data) throw response.error;
 				this.posthog?.capture('Gitlab MR Successful');
-				return response.data;
+				return response;
 			} catch (err: any) {
 				lastError = err;
 				attempts++;

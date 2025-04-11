@@ -30,11 +30,6 @@
 	const prService = $derived(forge.current.prService);
 	const user = getContextStore(User);
 
-	const [updateStack] = stackService.updateStack;
-	const [newStack] = stackService.newStack;
-	const [unapplyWithoutSaving] = stackService.unapplyWithoutSaving;
-	const [unapply] = stackService.unapply;
-
 	let deleteBranchModal: Modal;
 	let allowRebasing = $state<boolean>();
 	let isDeleting = $state(false);
@@ -49,7 +44,7 @@
 	const allPrIds = $derived(stack.validSeries.map((series) => series.prNumber).filter(isDefined));
 
 	async function toggleAllowRebasing() {
-		updateStack({
+		await stackService.updateStack({
 			projectId,
 			branch: {
 				id: stack.id,
@@ -73,7 +68,7 @@
 		<ContextMenuItem
 			label="Unapply"
 			onclick={async () => {
-				await unapply({
+				await stackService.unapply({
 					projectId: projectId,
 					stackId: stack.id
 				});
@@ -85,7 +80,7 @@
 			label="Unapply and drop changes"
 			onclick={async () => {
 				if (commits.length === 0 && stack.files?.length === 0) {
-					await unapplyWithoutSaving({
+					await stackService.unapplyWithoutSaving({
 						projectId: projectId,
 						stackId: stack.id
 					});
@@ -111,7 +106,7 @@
 		<ContextMenuItem
 			label={`Create stack to the left`}
 			onclick={() => {
-				newStack({
+				stackService.newStackMutation({
 					projectId,
 					branch: { order: stack.order }
 				});
@@ -122,7 +117,7 @@
 		<ContextMenuItem
 			label={`Create stack to the right`}
 			onclick={() => {
-				newStack({
+				stackService.newStackMutation({
 					projectId,
 					branch: { order: stack.order + 1 }
 				});
@@ -154,7 +149,7 @@
 	onSubmit={async (close) => {
 		try {
 			isDeleting = true;
-			await unapplyWithoutSaving({
+			await stackService.unapplyWithoutSaving({
 				projectId,
 				stackId: stack.id
 			});

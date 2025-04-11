@@ -15,7 +15,6 @@
 
 	const [baseBranchService, branchService] = inject(BaseBranchService, BranchService);
 	const baseBranch = baseBranchService.baseBranch(projectId);
-	const [fetchFromRemotes] = baseBranchService.fetchFromRemotes;
 
 	const forge = getContext(DefaultForgeFactory);
 	const listingService = $derived(forge.current.listService);
@@ -37,10 +36,7 @@
 		e.stopPropagation();
 		loading = true;
 		try {
-			await fetchFromRemotes({
-				projectId,
-				action: 'modal'
-			});
+			await baseBranchService.fetchFromRemotes(projectId, 'modal');
 			await Promise.all([
 				listingService?.refresh(projectId),
 				baseBranch.current.refetch(),

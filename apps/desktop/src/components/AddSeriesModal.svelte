@@ -32,14 +32,14 @@
 	const slugifiedRefName = $derived(createRefName && slugify(createRefName));
 	const generatedNameDiverges = $derived(!!createRefName && slugifiedRefName !== createRefName);
 
-	function addSeries() {
+	async function addSeries() {
 		if (!slugifiedRefName) {
 			error('No branch name provided');
 			createRefModal?.close();
 			return;
 		}
 
-		newBranch({
+		await newBranch({
 			projectId: project.id,
 			stackId: $stack.id,
 			request: {

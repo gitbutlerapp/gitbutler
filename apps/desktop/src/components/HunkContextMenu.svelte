@@ -33,9 +33,6 @@
 	const stackService = getContext(StackService);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
-	const [unapplyHunk] = stackService.legacyUnapplyHunk;
-	const [unapplyLines] = stackService.legacyUnapplyLines;
-
 	let contextMenu: ReturnType<typeof ContextMenu> | undefined;
 
 	function getDiscardLineLabel(
@@ -66,8 +63,8 @@
 			{#if item.hunk !== undefined && !readonly}
 				<ContextMenuItem
 					label="Discard hunk"
-					onclick={() => {
-						unapplyHunk({ projectId, hunk: item.hunk });
+					onclick={async () => {
+						stackService.legacyUnapplyHunk({ projectId, hunk: item.hunk });
 						contextMenu?.close();
 					}}
 				/>
@@ -75,8 +72,8 @@
 			{#if item.hunk !== undefined && (item.beforeLineNumber !== undefined || item.afterLineNumber !== undefined) && !readonly}
 				<ContextMenuItem
 					label={getDiscardLineLabel(item.beforeLineNumber, item.afterLineNumber)}
-					onclick={() => {
-						unapplyLines({
+					onclick={async () => {
+						stackService.legacyUnapplyLines({
 							projectId,
 							hunk: item.hunk,
 							linesToUnapply: [{ old: item.beforeLineNumber, new: item.afterLineNumber }]

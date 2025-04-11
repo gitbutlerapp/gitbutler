@@ -38,7 +38,7 @@ export class MoveCommitDzHandler implements DropzoneHandler {
 		);
 	}
 	ondrop(data: CommitDropData): void {
-		this.stackService.moveCommitMutation({
+		this.stackService.moveCommit({
 			projectId: this.projectId,
 			targetStackId: this.stack.id,
 			commitOid: data.commit.id,
@@ -72,14 +72,14 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 	}
 
 	async ondrop(data: ChangeDropData) {
-		const result = await this.trigger({
-			projectId: this.projectId,
-			stackId: this.stackId,
-			commitId: this.commit.id,
-			worktreeChanges: changesToDiffSpec(data)
-		});
-
-		this.onresult(result.data);
+		this.onresult(
+			await this.trigger({
+				projectId: this.projectId,
+				stackId: this.stackId,
+				commitId: this.commit.id,
+				worktreeChanges: changesToDiffSpec(data)
+			})
+		);
 	}
 }
 
@@ -215,10 +215,10 @@ export class SquashCommitDzHandler implements DropzoneHandler {
 		return true;
 	}
 
-	ondrop(data: unknown): void {
+	async ondrop(data: unknown) {
 		const { stackService, projectId, stackId, commit } = this.args;
 		if (data instanceof CommitDropData) {
-			stackService.squashCommitsMutation({
+			await stackService.squashCommits({
 				projectId,
 				stackId,
 				sourceCommitOids: [data.commit.id],
