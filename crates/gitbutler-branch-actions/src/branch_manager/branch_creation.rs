@@ -101,7 +101,7 @@ impl BranchManager<'_> {
             selected_for_changes,
             self.ctx.project().ok_with_force_push.into(),
             false, // disallow duplicate branch names on creation
-        );
+        )?;
 
         if let Some(ownership) = &create.ownership {
             vbranch::set_ownership(&vb_state, &mut branch, ownership)
@@ -234,7 +234,7 @@ impl BranchManager<'_> {
                 selected_for_changes,
                 self.ctx.project().ok_with_force_push.into(),
                 true, // allow duplicate branch name if created from an existing branch
-            )
+            )?
         };
 
         if let (Some(pr_number), Some(head)) = (pr_number, branch.heads(false).last()) {

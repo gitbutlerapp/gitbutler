@@ -263,7 +263,7 @@ impl Stack {
         selected_for_changes: Option<i64>,
         allow_rebasing: bool,
         allow_duplicate_refs: bool,
-    ) -> Self {
+    ) -> Result<Self> {
         #[allow(deprecated)]
         // this should be the only place (other than tests) where this is allowed
         let mut branch = Stack::new(
@@ -277,11 +277,8 @@ impl Stack {
             selected_for_changes,
             allow_rebasing,
         );
-        if let Err(e) = branch.initialize(ctx, allow_duplicate_refs) {
-            // TODO: When this is stable, make it error out
-            tracing::warn!("failed to initialize stack: {:?}", e);
-        }
-        branch
+        branch.initialize(ctx, allow_duplicate_refs)?;
+        Ok(branch)
     }
 
     /// Returns the commits between the stack head (including) and the merge base (not including) for the stack.

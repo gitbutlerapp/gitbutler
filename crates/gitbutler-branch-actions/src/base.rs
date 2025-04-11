@@ -242,7 +242,7 @@ pub(crate) fn set_base_branch(
                 None,
                 ctx.project().ok_with_force_push.into(),
                 true, // allow duplicate name since here we are creating a lane from an existing branch
-            );
+            )?;
             branch.ownership = ownership;
 
             vb_state.set_stack(branch)?;
