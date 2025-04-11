@@ -241,7 +241,11 @@ mod util {
 
     fn test_ctx_at(script_name: &str, name: &str) -> anyhow::Result<TestContext> {
         let ctx = gitbutler_testsupport::read_only::fixture(script_name, name)?;
-        let stacks = but_workspace::stacks(&ctx.project().gb_dir(), &ctx.gix_repo()?)?;
+        let stacks = but_workspace::stacks(
+            &ctx.project().gb_dir(),
+            &ctx.gix_repo()?,
+            Default::default(),
+        )?;
 
         Ok(TestContext {
             repo: gix::open_opts(&ctx.project().path, gix::open::Options::isolated())?,

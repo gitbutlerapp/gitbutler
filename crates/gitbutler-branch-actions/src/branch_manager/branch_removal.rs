@@ -1,14 +1,12 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
-use git2::Commit;
-use gitbutler_branch::BranchExt;
+use anyhow::{bail, Context, Result};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_oxidize::{git2_to_gix_object_id, GixRepositoryExt, OidExt, RepoExt};
 use gitbutler_oxidize::{gix_to_git2_oid, ObjectIdExt};
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_reference::{normalize_branch_name, ReferenceName, Refname};
+use gitbutler_reference::{normalize_branch_name, Refname};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::SignaturePurpose;
 use gitbutler_repo_actions::RepoActionsExt;
@@ -21,59 +19,27 @@ use crate::r#virtual as vbranch;
 use crate::{get_applied_status, hunk::VirtualBranchHunk, VirtualBranchesExt};
 
 impl BranchManager<'_> {
-    // to unapply a branch, we need to write the current tree out, then remove those file changes from the wd
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
-    pub fn save_and_unapply(
+    pub fn unapply(
         &self,
         stack_id: StackId,
         perm: &mut WorktreeWritePermission,
-    ) -> Result<ReferenceName> {
-        let vb_state = self.ctx.project().virtual_branches();
-        let target_commit = self
-            .ctx
-            .repo()
-            .find_commit(vb_state.get_default_target()?.sha)?;
-
-        let mut target_stack = vb_state.get_stack(stack_id)?;
-
-        // Convert the vbranch to a real branch
-        let real_branch = self.build_real_branch(&mut target_stack)?;
-
-        self.unapply(stack_id, perm, &target_commit, false)?;
-
-        vb_state.update_ordering()?;
-
-        // Ensure we still have a default target
-        vbranch::ensure_selected_for_changes(&vb_state)
-            .context("failed to ensure selected for changes")?;
-
-        crate::integration::update_workspace_commit(&vb_state, self.ctx)?;
-
-        real_branch.reference_name()
-    }
-
-    #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
-    pub(crate) fn unapply(
-        &self,
-        stack_id: StackId,
-        perm: &mut WorktreeWritePermission,
-        target_commit: &Commit,
         delete_vb_state: bool,
-    ) -> Result<()> {
+    ) -> Result<String> {
         let vb_state = self.ctx.project().virtual_branches();
-        let Some(stack) = vb_state.try_stack(stack_id)? else {
-            return Ok(());
-        };
+        let stack = vb_state.get_stack(stack_id)?;
 
         // We don't want to try unapplying branches which are marked as not in workspace by the new metric
         if !stack.in_workspace {
-            return Ok(());
+            bail!("Can not unapply branches that are already not in the workspace")
         }
 
         _ = self.ctx.snapshot_branch_deletion(stack.name.clone(), perm);
 
         let repo = self.ctx.repo();
 
+        let target_commit = workspace_base(self.ctx, perm.read_permission())?.to_git2();
+        let target_commit = repo.find_commit(target_commit)?;
         let base_tree_id = target_commit
             .tree()
             .context("failed to get target tree")?
@@ -187,7 +153,10 @@ impl BranchManager<'_> {
 
         if delete_vb_state {
             self.ctx.delete_branch_reference(&stack)?;
+            vb_state.delete_branch_entry(&stack_id)?;
         }
+
+        vb_state.update_ordering()?;
 
         vbranch::ensure_selected_for_changes(&vb_state)
             .context("failed to ensure selected for changes")?;
@@ -195,7 +164,12 @@ impl BranchManager<'_> {
         crate::integration::update_workspace_commit(&vb_state, self.ctx)
             .context("failed to update gitbutler workspace")?;
 
-        Ok(())
+        Ok(stack
+            .heads
+            .first()
+            .expect("Stacks always have one branch")
+            .full_name()?
+            .to_string())
     }
 }
 

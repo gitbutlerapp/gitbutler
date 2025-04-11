@@ -31,8 +31,7 @@ fn integration() {
 
         let name = branch.upstream.unwrap().name;
 
-        gitbutler_branch_actions::unapply_without_saving_virtual_branch(ctx, stack_entry.id)
-            .unwrap();
+        gitbutler_branch_actions::unapply_stack(ctx, stack_entry.id).unwrap();
 
         name
     };
@@ -367,8 +366,7 @@ mod conflict_cases {
         let branches = list_result.branches;
         let branch = branches[0].clone();
 
-        let branch_refname =
-            gitbutler_branch_actions::save_and_unapply_virutal_branch(ctx, branch.id).unwrap();
+        let branch_refname = gitbutler_branch_actions::unapply_stack(ctx, branch.id).unwrap();
 
         // Make X and set base branch to X
         let mut tree_builder = git_repo

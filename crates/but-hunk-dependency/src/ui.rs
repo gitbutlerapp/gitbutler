@@ -14,7 +14,7 @@ pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
 ) -> anyhow::Result<HunkDependencies> {
     let repo = gix::open(worktree_dir).map_err(anyhow::Error::from)?;
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
-    let stacks = but_workspace::stacks(gitbutler_dir, &repo)?;
+    let stacks = but_workspace::stacks(gitbutler_dir, &repo, Default::default())?;
     let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(gitbutler_dir)
         .get_default_target()?
         .sha;

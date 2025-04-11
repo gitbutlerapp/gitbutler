@@ -242,7 +242,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, settings, windows), err(Debug))]
-    pub fn unapply_without_saving_virtual_branch(
+    pub fn unapply_stack(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
@@ -251,23 +251,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        gitbutler_branch_actions::unapply_without_saving_virtual_branch(&ctx, stack_id)?;
-        emit_vbranches(&windows, project_id, ctx.app_settings());
-        Ok(())
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(projects, settings, windows), err(Debug))]
-    pub fn save_and_unapply_virtual_branch(
-        windows: State<'_, WindowState>,
-        projects: State<'_, projects::Controller>,
-        settings: State<'_, AppSettingsWithDiskSync>,
-        project_id: ProjectId,
-        stack_id: StackId,
-    ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
-        let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        gitbutler_branch_actions::save_and_unapply_virutal_branch(&ctx, stack_id)?;
+        gitbutler_branch_actions::unapply_stack(&ctx, stack_id)?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }

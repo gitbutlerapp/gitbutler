@@ -21,11 +21,13 @@ pub fn stacks(
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
+    filter: Option<but_workspace::StacksFilter>,
 ) -> Result<Vec<StackEntry>, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let repo = ctx.gix_repo()?;
-    but_workspace::stacks(&project.gb_dir(), &repo).map_err(Into::into)
+    dbg!(&filter);
+    but_workspace::stacks(&project.gb_dir(), &repo, filter.unwrap_or_default()).map_err(Into::into)
 }
 
 #[tauri::command(async)]

@@ -33,7 +33,7 @@ use gitbutler_oxidize::{OidExt, git2_signature_to_gix_signature};
 use gitbutler_stack::{Stack, StackBranch, VirtualBranchesHandle};
 use integrated::IsCommitIntegrated;
 use itertools::Itertools;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::str::FromStr;
@@ -121,16 +121,45 @@ impl StackEntry {
     }
 }
 
+/// A filter for the list of stacks.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+pub enum StacksFilter {
+    /// Show all stacks
+    All,
+    /// Show only applied stacks
+    #[default]
+    InWorkspace,
+    /// Show only unapplied stacks
+    Unapplied,
+}
+
 /// Returns the list of stacks that are currently part of the workspace.
 /// If there are no applied stacks, the returned Vec is empty.
 /// If the GitButler state file in the provided path is missing or invalid, an error is returned.
 ///
 /// - `gb_dir`: The path to the GitButler state for the project. Normally this is `.git/gitbutler` in the project's repository.
-pub fn stacks(gb_dir: &Path, repo: &gix::Repository) -> Result<Vec<StackEntry>> {
+pub fn stacks(
+    gb_dir: &Path,
+    repo: &gix::Repository,
+    filter: StacksFilter,
+) -> Result<Vec<StackEntry>> {
     let state = state_handle(gb_dir);
 
-    state
-        .list_stacks_in_workspace()?
+    let stacks = match filter {
+        StacksFilter::All => state.list_all_stacks()?,
+        StacksFilter::InWorkspace => state
+            .list_all_stacks()?
+            .into_iter()
+            .filter(|s| s.in_workspace)
+            .collect::<Vec<_>>(),
+        StacksFilter::Unapplied => state
+            .list_all_stacks()?
+            .into_iter()
+            .filter(|s| !s.in_workspace)
+            .collect::<Vec<_>>(),
+    };
+
+    stacks
         .into_iter()
         .sorted_by_key(|s| s.order)
         .map(|stack| {

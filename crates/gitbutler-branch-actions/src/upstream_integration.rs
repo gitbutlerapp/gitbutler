@@ -530,8 +530,7 @@ pub(crate) fn integrate_upstream(
                 continue;
             };
 
-            ctx.branch_manager()
-                .save_and_unapply(*stack_id, permission)?;
+            ctx.branch_manager().unapply(*stack_id, permission, false)?;
         }
 
         let mut stacks = virtual_branches_state.list_stacks_in_workspace()?;

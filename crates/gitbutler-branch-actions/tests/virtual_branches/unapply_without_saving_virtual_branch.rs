@@ -18,7 +18,7 @@ fn should_unapply_diff() {
         gitbutler_branch_actions::create_commit(ctx, branches.first().unwrap().id, "asdf", None);
     assert!(c.is_ok());
 
-    gitbutler_branch_actions::unapply_without_saving_virtual_branch(ctx, branches[0].id).unwrap();
+    gitbutler_branch_actions::unapply_stack(ctx, branches[0].id).unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
@@ -54,7 +54,7 @@ fn should_remove_reference() {
     )
     .unwrap();
 
-    gitbutler_branch_actions::unapply_without_saving_virtual_branch(ctx, stack_entry.id).unwrap();
+    gitbutler_branch_actions::unapply_stack(ctx, stack_entry.id).unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
