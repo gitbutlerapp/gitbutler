@@ -59,9 +59,9 @@ export class HunkLock {
 
 export type DiffSpec = {
 	/** lossless version of `previous_path` if this was a rename. */
-	readonly previousPathBytes: string | null;
+	readonly previousPathBytes: number[] | null;
 	/** lossless version of `path`. */
-	readonly pathBytes: string;
+	readonly pathBytes: number[];
 	/** The headers of the hunks to use, or empty if all changes are to be used. */
 	readonly hunkHeaders: HunkHeader[];
 };

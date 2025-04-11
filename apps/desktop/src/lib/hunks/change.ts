@@ -105,6 +105,7 @@ export type Modification = {
  */
 export type Rename = {
 	readonly previousPath: string;
+	readonly previousPathBytes: number[];
 	/** @private */
 	readonly previousState: ChangeState;
 	/** @private */
