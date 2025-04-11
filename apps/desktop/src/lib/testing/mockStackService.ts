@@ -34,6 +34,7 @@ const BRANCH_DETAILS_A: BranchDetails = {
 	authors: [MOCK_AUTHOR_A],
 	isConflicted: false,
 	commits: [MOCK_COMMIT_A],
+	upstreamCommits: [MOCK_UPSTREAM_COMMIT_A],
 	remoteTrackingBranch: null,
 	description: null,
 	prNumber: null,

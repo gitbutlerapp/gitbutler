@@ -41,22 +41,6 @@ pub fn stack_details(
     but_workspace::stack_details(&project.gb_dir(), stack_id, &ctx).map_err(Into::into)
 }
 
-#[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
-pub fn stack_branch_upstream_only_commits(
-    projects: State<'_, projects::Controller>,
-    settings: State<'_, AppSettingsWithDiskSync>,
-    project_id: ProjectId,
-    stack_id: String,
-    branch_name: String,
-) -> Result<Vec<but_workspace::UpstreamCommit>, Error> {
-    let project = projects.get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    let repo = ctx.gix_repo()?;
-    but_workspace::stack_branch_upstream_only_commits(stack_id, branch_name, &ctx, &repo)
-        .map_err(Into::into)
-}
-
 /// Retrieve all changes in the workspace and associate them with commits in the Workspace of `project_id`.
 /// NOTE: right now there is no way to keep track of unassociated hunks.
 // TODO: This probably has to change a lot once it's clear how the UI is going to use it.
