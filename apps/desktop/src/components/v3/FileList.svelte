@@ -26,8 +26,8 @@
 
 	const [uiState] = inject(UiState);
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
-	const activeSelection = $derived(stackState?.activeSelectionId.get());
-	const listActive = $derived(activeSelection?.current.type === selectionId.type);
+	const activeSelection = $derived(stackState?.activeSelectionId.current || { type: 'worktree' });
+	const listActive = $derived(activeSelection?.type === selectionId.type);
 
 	let currentDisplayIndex = $state(0);
 
