@@ -217,7 +217,7 @@
 	});
 
 	async function fetchRemoteForProject() {
-		await baseBranchService.refreshRemotes(projectId);
+		await baseBranchService.fetchFromRemotes(projectId);
 	}
 
 	function setupFetchInterval() {

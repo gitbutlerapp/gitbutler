@@ -1,7 +1,7 @@
 import {
 	buildMutationHooks,
 	buildQueryHooks,
-	type UseMutationHookParams
+	type MutationHooks
 } from '$lib/state/customHooks.svelte';
 import { isMutationDefinition, isQueryDefinition } from '$lib/state/helpers';
 import { type Reactive } from '@gitbutler/shared/storeUtils';
@@ -17,13 +17,11 @@ import {
 	type MutationDefinition,
 	type QueryResultSelectorResult,
 	type ApiModules,
-	type MutationResultSelectorResult,
 	type QueryActionCreatorResult,
 	type StartQueryActionCreatorOptions
 } from '@reduxjs/toolkit/query';
 import type { tauriBaseQuery, TauriBaseQueryFn } from '$lib/state/backendQuery';
 import type { HookContext } from '$lib/state/context';
-import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
 
 /** Gives our module a namespace in the extended `ApiModules` interface. */
 const butlerModuleName = Symbol();
@@ -212,38 +210,4 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 	) => Reactive<
 		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>[]
 	>;
-};
-
-export type CustomMutationResult<Definition extends MutationDefinition<any, any, string, any>> =
-	Prettify<MutationResultSelectorResult<Definition>>;
-
-type CustomMutation<Definition extends MutationDefinition<any, any, string, any>> = readonly [
-	/**
-	 * Trigger the mutation with the given arguments.
-	 *
-	 * If awaited, the result will contain the mutation result.
-	 */
-	(args: QueryArgFrom<Definition>) => Promise<NonNullable<ResultTypeFrom<Definition>>>,
-	/**
-	 * The reactive state of the mutation.
-	 *
-	 * This contains the result (if any yet) of the mutation plus additional information about its state.
-	 */
-	Reactive<CustomMutationResult<Definition>>,
-	/**
-	 * A method to reset the hook back to its original state and remove the current result from the cache.
-	 */
-	() => void
-];
-
-/**
- * Declaration of custom methods for mutations.
- */
-type MutationHooks<Definition extends MutationDefinition<unknown, any, string, unknown>> = {
-	/** Execute query and return results. */
-	useMutation: (params?: UseMutationHookParams<Definition>) => Prettify<CustomMutation<Definition>>;
-	mutate: (
-		args: QueryArgFrom<Definition>,
-		options?: UseMutationHookParams<Definition>
-	) => Promise<NonNullable<ResultTypeFrom<Definition>>>;
 };
