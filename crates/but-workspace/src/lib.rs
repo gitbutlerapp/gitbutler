@@ -221,6 +221,8 @@ pub struct BranchDetails {
     pub is_conflicted: bool,
     /// The commits contained in the branch, excluding the upstream commits.
     pub commits: Vec<Commit>,
+    /// The commits that are only at the remote.
+    pub upstream_commits: Vec<UpstreamCommit>,
 }
 
 /// Information about the current state of a stack
@@ -299,6 +301,7 @@ pub fn stack_details(
         let mut is_conflicted = false;
         let mut authors = HashSet::new();
         let commits = local_and_remote_commits(ctx, &repo, branch, &stack)?;
+        let upstream_commits = upstream_only_commits(ctx, &repo, branch, &stack, Some(&commits))?;
 
         for commit in &commits {
             is_conflicted |= commit.has_conflicts;
@@ -334,6 +337,7 @@ pub fn stack_details(
             authors: authors.into_iter().collect(),
             is_conflicted,
             commits,
+            upstream_commits,
         });
 
         current_base = branch.head_oid(&repo)?.to_gix();
@@ -553,7 +557,7 @@ pub fn stack_branch_upstream_only_commits(
     if branch.archived {
         return Ok(vec![]);
     }
-    upstream_only_commits(ctx, repo, branch, &stack)
+    upstream_only_commits(ctx, repo, branch, &stack, None)
 }
 
 fn upstream_only_commits(
@@ -561,9 +565,16 @@ fn upstream_only_commits(
     repo: &gix::Repository,
     stack_branch: &gitbutler_stack::StackBranch,
     stack: &Stack,
+    current_local_and_remote_commits: Option<&Vec<Commit>>,
 ) -> Result<Vec<UpstreamCommit>> {
     let branch_commits = stack_branch.commits(ctx, stack)?;
-    let local_and_remote = local_and_remote_commits(ctx, repo, stack_branch, stack)?;
+
+    let local_and_remote = if let Some(current_local_and_remote) = current_local_and_remote_commits
+    {
+        current_local_and_remote
+    } else {
+        &local_and_remote_commits(ctx, repo, stack_branch, stack)?
+    };
 
     // Upstream only
     let mut upstream_only = vec![];

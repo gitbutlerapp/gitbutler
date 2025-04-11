@@ -1,4 +1,4 @@
-import type { Author, Commit } from '$lib/branches/v3';
+import type { Author, Commit, UpstreamCommit } from '$lib/branches/v3';
 
 /**
  * Return type of Tauri `stacks` command.
@@ -76,6 +76,10 @@ export type BranchDetails = {
 	 *  The commits contained in the branch, excluding the upstream commits.
 	 */
 	commits: Commit[];
+	/**
+	 * The commits that are only upstream.
+	 */
+	upstreamCommits: UpstreamCommit[];
 };
 
 export type StackDetails = {

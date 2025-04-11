@@ -279,10 +279,11 @@ export class StackService {
 
 	upstreamCommits(projectId: string, stackId: string, branchName: string) {
 		const result = $derived(
-			this.api.endpoints.upstreamCommits.useQuery(
-				{ projectId, stackId, branchName },
+			this.api.endpoints.stackDetails.useQuery(
+				{ projectId, stackId },
 				{
-					transform: (result) => upstreamCommitSelectors.selectAll(result)
+					transform: ({ branchDetails }) =>
+						branchDetailsSelectors.selectById(branchDetails, branchName)?.upstreamCommits
 				}
 			)
 		);
@@ -291,10 +292,12 @@ export class StackService {
 
 	upstreamCommitAt(projectId: string, stackId: string, branchName: string, index: number) {
 		const result = $derived(
-			this.api.endpoints.upstreamCommits.useQuery(
-				{ projectId, stackId, branchName },
+			this.api.endpoints.stackDetails.useQuery(
+				{ projectId, stackId },
 				{
-					transform: (result) => upstreamCommitSelectors.selectNth(result, index)
+					transform: ({ branchDetails }) =>
+						branchDetailsSelectors.selectById(branchDetails, branchName)?.upstreamCommits[index] ??
+						null
 				}
 			)
 		);
@@ -302,11 +305,14 @@ export class StackService {
 	}
 
 	upstreamCommitById(projectId: string, commitKey: CommitKey) {
-		const { stackId, branchName, commitId } = commitKey;
+		const { stackId, commitId } = commitKey;
 		const result = $derived(
-			this.api.endpoints.upstreamCommits.useQuery(
-				{ projectId, stackId, branchName },
-				{ transform: (result) => upstreamCommitSelectors.selectById(result, commitId) }
+			this.api.endpoints.stackDetails.useQuery(
+				{ projectId, stackId },
+				{
+					transform: ({ upstreamCommits }) =>
+						upstreamCommitSelectors.selectById(upstreamCommits, commitId)
+				}
 			)
 		);
 		return result;
@@ -608,6 +614,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					stackInfo: StackDetails;
 					branchDetails: EntityState<BranchDetails, string>;
 					commits: EntityState<Commit, string>;
+					upstreamCommits: EntityState<UpstreamCommit, string>;
 				},
 				{ projectId: string; stackId: string }
 			>({
@@ -619,34 +626,33 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					...providesItem(ReduxTag.StackDetails, stackId)
 				],
 				transformResponse(response: StackDetails) {
-					const branchDetilsEntity = branchDetailsAdapter.addMany(
+					const branchDetailsEntity = branchDetailsAdapter.addMany(
 						branchDetailsAdapter.getInitialState(),
 						response.branchDetails
 					);
 
+					// This is a list of all the commits accross all branches in the stack.
+					// If you want to acces the commits of a specific branch, use the
+					// `commits` property of the `BranchDetails` struct.
 					const commitsEntity = commitAdapter.addMany(
 						commitAdapter.getInitialState(),
 						response.branchDetails.flatMap((branch) => branch.commits)
 					);
 
+					// This is a list of all the upstream commits across all the branches in the stack.
+					// If you want to access the upstream commits of a specific branch, use the
+					// `upstreamCommits` property of the `BranchDetails` struct.
+					const upstreamCommitsEntity = upstreamCommitAdapter.addMany(
+						upstreamCommitAdapter.getInitialState(),
+						response.branchDetails.flatMap((branch) => branch.upstreamCommits)
+					);
+
 					return {
 						stackInfo: response,
-						branchDetails: branchDetilsEntity,
-						commits: commitsEntity
+						branchDetails: branchDetailsEntity,
+						commits: commitsEntity,
+						upstreamCommits: upstreamCommitsEntity
 					};
-				}
-			}),
-			upstreamCommits: build.query<
-				EntityState<UpstreamCommit, string>,
-				{ projectId: string; stackId: string; branchName: string }
-			>({
-				query: ({ projectId, stackId, branchName }) => ({
-					command: 'stack_branch_upstream_only_commits',
-					params: { projectId, stackId, branchName }
-				}),
-				providesTags: [providesList(ReduxTag.UpstreamCommits)],
-				transformResponse(response: UpstreamCommit[]) {
-					return upstreamCommitAdapter.addMany(upstreamCommitAdapter.getInitialState(), response);
 				}
 			}),
 			pushStack: build.mutation<
