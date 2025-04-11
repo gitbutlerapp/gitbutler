@@ -19,7 +19,7 @@
 	const uiState = getContext(UiState);
 
 	let drawer = $state<ReturnType<typeof Drawer>>();
-	let reviewCreation = $state<ReviewCreation>();
+	let reviewCreation = $state<ReturnType<typeof ReviewCreation>>();
 
 	function close() {
 		uiState.project(projectId).drawerPage.current = 'branch';
@@ -55,6 +55,8 @@
 		}
 		return 'Submit for code review';
 	}
+
+	const ctaDisabled = $derived(reviewCreation ? !reviewCreation.imports.creationEnabled : false);
 </script>
 
 <Drawer
@@ -70,9 +72,9 @@
 
 		<ReviewCreationControls
 			isSubmitting={!!reviewCreation?.imports.isLoading}
+			{ctaDisabled}
 			{canPublishBR}
 			{canPublishPR}
-			ctaDisabled={!reviewCreation?.createButtonEnabled().current}
 			onCancel={close}
 			onSubmit={async () => {
 				await reviewCreation?.createReview();

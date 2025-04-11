@@ -64,7 +64,7 @@
 
 	let modal = $state<Modal>();
 	let confirmCreatePrModal = $state<ReturnType<typeof Modal>>();
-	let reviewCreation = $state<ReviewCreation>();
+	let reviewCreation = $state<ReturnType<typeof ReviewCreation>>();
 
 	syncPrToBr(
 		reactive(() => prNumber),
@@ -85,6 +85,8 @@
 		}
 		return 'Submit for review';
 	}
+
+	const ctaDisabled = $derived(reviewCreation ? !reviewCreation.imports.creationEnabled : false);
 </script>
 
 <Modal
@@ -122,9 +124,9 @@
 	{#snippet controls(close)}
 		<ReviewCreationControls
 			isSubmitting={!!reviewCreation?.imports.isLoading}
+			{ctaDisabled}
 			{canPublishBR}
 			{canPublishPR}
-			ctaDisabled={!reviewCreation?.createButtonEnabled().current}
 			onCancel={close}
 			onSubmit={async () => {
 				await reviewCreation?.createReview();
