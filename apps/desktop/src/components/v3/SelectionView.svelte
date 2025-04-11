@@ -19,8 +19,11 @@
 
 	const channel = $derived(uiState.global.channel);
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
-	const selectionId = $derived(stackState?.activeSelectionId.get());
-	const selection = $derived(selectionId?.current ? idSelection.values(selectionId.current) : []);
+	const selectionId = $derived(stackState?.activeSelectionId.current);
+
+	const selection = $derived(
+		selectionId ? idSelection.values(selectionId) : idSelection.values({ type: 'worktree' })
+	);
 </script>
 
 <div class="selection-view">
@@ -38,7 +41,7 @@
 					{selectedFile}
 					onCloseClick={() => {
 						if (selectionId) {
-							idSelection.remove(selectedFile.path, selectionId.current);
+							idSelection.remove(selectedFile.path, selectionId);
 						}
 					}}
 				/>
