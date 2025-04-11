@@ -1,6 +1,7 @@
 import { Code } from '$lib/backend/ipc';
 import { BaseBranch, type RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 import { showError } from '$lib/notifications/toasts';
+import { isTauriCommandError } from '$lib/state/backendQuery';
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { parseRemoteUrl } from '$lib/url/gitUrl';
 import { plainToInstance } from 'class-transformer';
@@ -65,55 +66,30 @@ export default class BaseBranchService {
 	}
 
 	async fetchFromRemotes(projectId: string, action?: string) {
-		return await this.api.endpoints.fetchFromRemotes.mutate(
-			{ projectId, action },
-			{
-				onError: (error, { action }) => {
-					const { code } = error;
-					if (code === Code.DefaultTargetNotFound) {
-						// Swallow this error since user should be taken to project setup page
-						return;
-					}
-
-					if (code === Code.ProjectsGitAuth) {
-						showError('Failed to authenticate', error.message);
-						return;
-					}
-
-					if (action !== undefined) {
-						showError('Failed to fetch', error.message);
-					}
-
-					console.error(error);
+		return await this.api.endpoints.fetchFromRemotes
+			.mutate({ projectId, action })
+			.catch((error: unknown) => {
+				if (!isTauriCommandError(error)) {
+					showError('Failed to fetch', String(error));
+					return;
 				}
-			}
-		);
-	}
-
-	async refreshRemotes(projectId: string) {
-		await this.api.endpoints.fetchFromRemotes.mutate(
-			{ projectId },
-			{
-				onError: (error, { action }) => {
-					const { code } = error;
-					if (code === Code.DefaultTargetNotFound) {
-						// Swallow this error since user should be taken to project setup page
-						return;
-					}
-
-					if (code === Code.ProjectsGitAuth) {
-						showError('Failed to authenticate', error.message);
-						return;
-					}
-
-					if (action !== undefined) {
-						showError('Failed to fetch', error.message);
-					}
-
-					console.error(error);
+				const { code } = error;
+				if (code === Code.DefaultTargetNotFound) {
+					// Swallow this error since user should be taken to project setup page
+					return;
 				}
-			}
-		);
+
+				if (code === Code.ProjectsGitAuth) {
+					showError('Failed to authenticate', error.message);
+					return;
+				}
+
+				if (action !== undefined) {
+					showError('Failed to fetch', error.message);
+				}
+
+				console.error(error);
+			});
 	}
 
 	get setTarget() {

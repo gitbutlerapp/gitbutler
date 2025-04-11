@@ -46,6 +46,17 @@ type ApiArgs = {
 
 export type TauriCommandError = { message: string; code?: string };
 
+export function isTauriCommandError(something: unknown): something is TauriCommandError {
+	return (
+		!!something &&
+		typeof something === 'object' &&
+		something !== null &&
+		'message' in something &&
+		typeof (something as TauriCommandError).message === 'string' &&
+		('code' in something ? typeof (something as TauriCommandError).code === 'string' : true)
+	);
+}
+
 /**
  * Typeguard for accessing injected Tauri dependency safely.
  */

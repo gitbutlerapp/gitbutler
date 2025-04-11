@@ -1,4 +1,5 @@
-import { reactive } from '@gitbutler/shared/storeUtils';
+import { isTauriCommandError, type TauriCommandError } from '$lib/state/backendQuery';
+import { reactive, type Reactive } from '@gitbutler/shared/storeUtils';
 import {
 	type Api,
 	type ApiEndpointMutation,
@@ -7,15 +8,16 @@ import {
 	type EndpointDefinitions,
 	type MutationActionCreatorResult,
 	type MutationDefinition,
+	type MutationResultSelectorResult,
 	type QueryActionCreatorResult,
 	type QueryArgFrom,
 	type ResultTypeFrom,
 	type RootState,
 	type StartQueryActionCreatorOptions
 } from '@reduxjs/toolkit/query';
-import type { TauriCommandError } from '$lib/state/backendQuery';
 import type { CustomQuery } from '$lib/state/butlerModule';
 import type { HookContext } from '$lib/state/context';
+import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
 
 type TranformerFn = (data: any, args: any) => any;
 
@@ -164,15 +166,72 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 
 export type UseMutationHookParams<Definition extends MutationDefinition<any, any, string, any>> = {
 	fixedCacheKey?: string;
+	/**
+	 * A callback to be called when the trigger has been pulled, but before the mutation has been dispatched.
+	 */
 	preEffect?: (queryArgs: QueryArgFrom<Definition>) => void;
+	/**
+	 * A callback to be called when the mutation is successful.
+	 */
 	sideEffect?: (data: ResultTypeFrom<Definition>, queryArgs: QueryArgFrom<Definition>) => void;
+	/**
+	 * A callback to be called when the mutation fails.
+	 *
+	 * This does not stop the error from being thrown, but allows you to add a side effect depending on the error.
+	 */
 	onError?: (error: TauriCommandError, queryArgs: QueryArgFrom<Definition>) => void;
 };
+
+export type CustomMutationResult<Definition extends MutationDefinition<any, any, string, any>> =
+	Prettify<MutationResultSelectorResult<Definition>>;
+
+type CustomMutation<Definition extends MutationDefinition<any, any, string, any>> = readonly [
+	/**
+	 * Trigger the mutation with the given arguments.
+	 *
+	 * If awaited, the result will contain the mutation result.
+	 */
+	(args: QueryArgFrom<Definition>) => Promise<ResultTypeFrom<Definition>>,
+	/**
+	 * The reactive state of the mutation.
+	 *
+	 * This contains the result (if any yet) of the mutation plus additional information about its state.
+	 */
+	Reactive<CustomMutationResult<Definition>>,
+	/**
+	 * A method to reset the hook back to its original state and remove the current result from the cache.
+	 */
+	() => void
+];
+
+/**
+ * Declaration of custom methods for mutations.
+ */
+export interface MutationHooks<
+	Definition extends MutationDefinition<unknown, any, string, unknown>
+> {
+	/**
+	 * Mutation hook.
+	 *
+	 * Returns a function to trigger the mutation, a reactive state of the mutation and a function to reset it.
+	 * */
+	useMutation: (params?: UseMutationHookParams<Definition>) => Prettify<CustomMutation<Definition>>;
+	/**
+	 * Execute query and return results.
+	 */
+	mutate(
+		args: QueryArgFrom<Definition>,
+		options?: UseMutationHookParams<Definition>
+	): Promise<ResultTypeFrom<Definition>>;
+}
 
 /**
  * Returns implementations for custom endpoint methods defined in `ButlerModule`.
  */
-export function buildMutationHooks<Definitions extends EndpointDefinitions>({
+export function buildMutationHooks<
+	Definitions extends EndpointDefinitions,
+	D extends MutationDefinition<unknown, any, string, unknown>
+>({
 	api,
 	endpointName,
 	ctx: { getState, getDispatch }
@@ -180,32 +239,26 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 	api: Api<any, Definitions, any, any, CoreModule>;
 	endpointName: string;
 	ctx: HookContext;
-}) {
+}): MutationHooks<D> {
 	const endpoint = api.endpoints[endpointName]!;
 	const state = getState() as any as () => RootState<any, any, any>;
 
-	const { initiate, select } = endpoint as ApiEndpointMutation<
-		MutationDefinition<any, any, any, any, any>,
-		Definitions
-	>;
-
-	async function mutate(
-		queryArg: unknown,
-		options?: UseMutationHookParams<MutationDefinition<any, any, any, any, any>>
-	) {
+	const { initiate, select } = endpoint as unknown as ApiEndpointMutation<D, Definitions>;
+	async function mutate(queryArg: QueryArgFrom<D>, options?: UseMutationHookParams<D>) {
 		const dispatch = getDispatch();
 		const { fixedCacheKey, sideEffect, preEffect, onError } = options ?? {};
 		preEffect?.(queryArg);
-		const result = await dispatch(initiate(queryArg, { fixedCacheKey }));
-		if (!result.error) {
-			sideEffect?.(result.data, queryArg);
+		const dispatchResult = dispatch(initiate(queryArg, { fixedCacheKey }));
+		try {
+			const result = await dispatchResult.unwrap();
+			sideEffect?.(result, queryArg);
+			return result;
+		} catch (error: unknown) {
+			if (onError && isTauriCommandError(error)) {
+				onError(error, queryArg);
+			}
+			throw error;
 		}
-
-		if (result.error && onError) {
-			onError(result.error, queryArg);
-		}
-
-		return result;
 	}
 
 	/**
@@ -217,24 +270,25 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 	 * Replicate the behavior of `useMutation` from RTK Query.
 	 * @see: https://github.com/reduxjs/redux-toolkit/blob/637b0cad2b227079ccd0c5a3073c09ace6d8759e/packages/toolkit/src/query/react/buildHooks.ts#L867-L935
 	 */
-	function useMutation(
-		params?: UseMutationHookParams<MutationDefinition<any, any, any, any, any>>
-	) {
+	function useMutation(params?: UseMutationHookParams<D>) {
 		const { fixedCacheKey, preEffect, sideEffect, onError } = params || {};
 		const dispatch = getDispatch();
 
-		let promise =
-			$state<MutationActionCreatorResult<MutationDefinition<unknown, any, any, unknown>>>();
+		let promise = $state<MutationActionCreatorResult<D>>();
 
-		async function triggerMutation(queryArg: unknown) {
+		async function triggerMutation(queryArg: QueryArgFrom<D>) {
 			preEffect?.(queryArg);
-			const dispatchResult = dispatch(initiate(queryArg, { fixedCacheKey }));
-			promise = dispatchResult;
-			const result = await promise.unwrap().catch((error) => {
-				onError?.(error, queryArg);
-			});
-			sideEffect?.(result, queryArg);
-			return result;
+			promise = dispatch(initiate(queryArg, { fixedCacheKey }));
+			try {
+				const result = await promise.unwrap();
+				sideEffect?.(result, queryArg);
+				return result;
+			} catch (error: unknown) {
+				if (onError && isTauriCommandError(error)) {
+					onError(error, queryArg);
+				}
+				throw error;
+			}
 		}
 
 		function reset() {
