@@ -218,5 +218,8 @@ pub fn canned_branch_name(
 ) -> Result<String, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_stack::canned_branch_name(ctx.repo()).map_err(Into::into)
+    let template = gitbutler_stack::canned_branch_name(ctx.repo())?;
+    let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    gitbutler_stack::Stack::next_available_name(&ctx.gix_repo()?, &state, template, false)
+        .map_err(Into::into)
 }

@@ -397,7 +397,7 @@ impl Stack {
         Ok(reference)
     }
 
-    fn next_available_name(
+    pub fn next_available_name(
         repo: &gix::Repository,
         state: &VirtualBranchesHandle,
         mut name: String,
