@@ -1,3 +1,4 @@
+import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { getEphemeralStorageItem, setEphemeralStorageItem } from '@gitbutler/shared/persisted';
 import type { Commit } from '$lib/branches/v3';
@@ -102,6 +103,7 @@ export class ReactivePRBody {
 	private commits: Commit[] | undefined;
 	private templateBody: string | undefined;
 	private branchName: string | undefined;
+	private _descriptionInput = $state<ReturnType<typeof MessageEditor>>();
 
 	init(
 		projectId: string,
@@ -140,12 +142,23 @@ export class ReactivePRBody {
 		return this._value;
 	}
 
-	set(value: string | undefined) {
+	/**
+	 * Set the value of the PR body.
+	 *
+	 * @param flush - If true, the value will be set in the description input as well.
+	 */
+	set(value: string | undefined, flush?: boolean) {
 		if (!this.projectId || !this.branchName) {
 			throw new Error('ReactivePRBody not initialized');
 		}
 
-		this._value = value ?? '';
+		const newValue = value ?? '';
+
+		this._value = newValue;
+
+		if (flush) {
+			this._descriptionInput?.setText(newValue);
+		}
 
 		// Don't persist the default value
 		if (value !== this.getDefaultBody()) {
@@ -153,11 +166,19 @@ export class ReactivePRBody {
 		}
 	}
 
-	append(value: string) {
-		this.set(this._value + value);
+	append(value: string, flush?: boolean) {
+		this.set(this._value + value, flush);
 	}
 
 	reset() {
 		this.set(undefined);
+	}
+
+	get descriptionInput() {
+		return this._descriptionInput;
+	}
+
+	set descriptionInput(value: ReturnType<typeof MessageEditor> | undefined) {
+		this._descriptionInput = value;
 	}
 }

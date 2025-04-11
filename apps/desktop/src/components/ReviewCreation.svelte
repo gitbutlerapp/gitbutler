@@ -110,7 +110,6 @@
 	);
 
 	let titleInput = $state<ReturnType<typeof Textbox>>();
-	let descriptionInput = $state<ReturnType<typeof MessageEditor>>();
 
 	// Displays template select component when true.
 	let useTemplate = persisted(false, `use-template-${projectId}`);
@@ -157,12 +156,6 @@
 
 	$effect(() => {
 		prBody.init(projectId, branch?.description ?? '', commits, templateBody, branch?.name ?? '');
-	});
-
-	$effect(() => {
-		if (prBody.value !== undefined) {
-			descriptionInput?.setText(prBody.value);
-		}
 	});
 
 	async function pushIfNeeded(): Promise<string | undefined> {
@@ -347,12 +340,12 @@
 						prBody.reset();
 						firstToken = false;
 					}
-					prBody.append(token);
+					prBody.append(token, true);
 				}
 			});
 
 			if (description) {
-				prBody.set(description);
+				prBody.set(description, true);
 			}
 		} finally {
 			aiIsLoading = false;
@@ -388,7 +381,7 @@
 		onkeydown={(e: KeyboardEvent) => {
 			if (e.key === 'Enter' || e.key === 'Tab') {
 				e.preventDefault();
-				descriptionInput?.focus();
+				prBody.descriptionInput?.focus();
 			}
 		}}
 	/>
@@ -400,7 +393,7 @@
 
 	<!-- DESCRIPTION FIELD -->
 	<MessageEditor
-		bind:this={descriptionInput}
+		bind:this={prBody.descriptionInput}
 		{projectId}
 		disabled={isExecuting}
 		initialValue={prBody.value}
