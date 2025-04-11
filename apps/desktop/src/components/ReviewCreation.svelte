@@ -166,8 +166,8 @@
 				withForce: branchDetails?.pushStatus === 'unpushedCommitsRequiringForce'
 			});
 
-			if (pushResult.data) {
-				upstreamBranchName = getBranchNameFromRef(pushResult.data.refname, pushResult.data.remote);
+			if (pushResult) {
+				upstreamBranchName = getBranchNameFromRef(pushResult.refname, pushResult.remote);
 			}
 
 			if (firstPush) {
@@ -203,13 +203,12 @@
 		// Even if createButlerRequest is false, if we _cant_ create a PR, then
 		// We want to always create the BR, and vice versa.
 		if ((canPublishBR && $createButlerRequest) || !canPublishPR) {
-			const result = await publishBranch({
+			const reviewId = await publishBranch({
 				projectId,
 				stackId,
 				topBranch: branch.name,
 				user: $user
 			});
-			reviewId = result.data;
 			if (!reviewId) {
 				posthog.capture('Butler Review Creation Failed');
 				return;

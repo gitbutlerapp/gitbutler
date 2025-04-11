@@ -38,8 +38,6 @@
 	);
 
 	const stackService = getContext(StackService);
-	const [createVirtualBranchFromBranch] = stackService.createVirtualBranchFromBranch;
-	const [deleteLocalBranchMutation] = stackService.deleteLocalBranch;
 
 	const mode = modeSerivce.mode;
 	const forgeBranch = $derived(upstream ? forge.current.branch(upstream) : undefined);
@@ -58,7 +56,7 @@
 	let deleteBranchModal = $state<Modal>();
 
 	async function createvBranchFromBranch(branch: string, remote?: string, prNumber?: number) {
-		await createVirtualBranchFromBranch({
+		await stackService.createVirtualBranchFromBranch({
 			projectId: project.id,
 			branch,
 			remote,
@@ -68,7 +66,7 @@
 	}
 
 	async function deleteLocalBranch(refname: string, givenName: string) {
-		await deleteLocalBranchMutation({
+		await stackService.deleteLocalBranch({
 			projectId: project.id,
 			refname,
 			givenName

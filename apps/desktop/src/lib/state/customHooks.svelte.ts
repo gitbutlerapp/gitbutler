@@ -224,22 +224,16 @@ export function buildMutationHooks<Definitions extends EndpointDefinitions>({
 		const dispatch = getDispatch();
 
 		let promise =
-			$state<MutationActionCreatorResult<MutationDefinition<any, any, any, any, any>>>();
+			$state<MutationActionCreatorResult<MutationDefinition<unknown, any, any, unknown>>>();
 
 		async function triggerMutation(queryArg: unknown) {
 			preEffect?.(queryArg);
 			const dispatchResult = dispatch(initiate(queryArg, { fixedCacheKey }));
 			promise = dispatchResult;
-			const result = await promise;
-
-			if (!result.error) {
-				sideEffect?.(result.data, queryArg);
-			}
-
-			if (result.error && onError) {
-				onError(result.error, queryArg);
-			}
-
+			const result = await promise.unwrap().catch((error) => {
+				onError?.(error, queryArg);
+			});
+			sideEffect?.(result, queryArg);
 			return result;
 		}
 

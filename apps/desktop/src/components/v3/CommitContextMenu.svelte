@@ -42,12 +42,12 @@
 	const stackService = getContext(StackService);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 
-	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
+	async function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
 		if (!stackId || !baseBranch) {
 			console.error('Unable to insert commit', { branchId: stackId, baseBranch });
 			return;
 		}
-		insertBlankCommitInBranch({
+		await insertBlankCommitInBranch({
 			projectId,
 			stackId,
 			commitOid: commitId,

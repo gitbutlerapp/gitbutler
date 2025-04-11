@@ -169,11 +169,11 @@ export class StackService {
 	}
 
 	get updateStack() {
-		return this.api.endpoints.updateStack.useMutation();
+		return this.api.endpoints.updateStack.mutate;
 	}
 
 	get updateBranchOrder() {
-		return this.api.endpoints.updateBranchOrder.useMutation();
+		return this.api.endpoints.updateBranchOrder.mutate;
 	}
 
 	branches(projectId: string, stackId: string) {
@@ -336,7 +336,7 @@ export class StackService {
 	}
 
 	get createCommitLegacy() {
-		return this.api.endpoints.createCommitLegacy.useMutation();
+		return this.api.endpoints.createCommitLegacy.mutate;
 	}
 
 	commitChanges(projectId: string, commitId: string) {
@@ -409,23 +409,19 @@ export class StackService {
 	}
 
 	get unapply() {
-		return this.api.endpoints.unapply.useMutation();
+		return this.api.endpoints.unapply.mutate;
 	}
 
 	get unapplyWithoutSaving() {
-		return this.api.endpoints.unapplyWithoutSaving.useMutation();
+		return this.api.endpoints.unapplyWithoutSaving.mutate;
 	}
 
 	get publishBranch() {
 		return this.api.endpoints.publishBranch.useMutation();
 	}
 
-	get amendCommit() {
-		return this.api.endpoints.amendCommit.useMutation();
-	}
-
 	get discardChanges() {
-		return this.api.endpoints.discardChanges.useMutation();
+		return this.api.endpoints.discardChanges.mutate;
 	}
 
 	get updateBranchPrNumber() {
@@ -462,59 +458,47 @@ export class StackService {
 	}
 
 	get reorderStack() {
-		return this.api.endpoints.reorderStack.useMutation();
-	}
-
-	get reorderStackMutation() {
 		return this.api.endpoints.reorderStack.mutate;
 	}
 
 	get moveCommit() {
-		return this.api.endpoints.moveCommit.useMutation();
-	}
-
-	get moveCommitMutation() {
 		return this.api.endpoints.moveCommit.mutate;
 	}
 
 	get integrateUpstreamCommits() {
-		return this.api.endpoints.integrateUpstreamCommits.useMutation();
+		return this.api.endpoints.integrateUpstreamCommits.mutate;
 	}
 
 	get legacyUnapplyLines() {
-		return this.api.endpoints.legacyUnapplyLines.useMutation();
+		return this.api.endpoints.legacyUnapplyLines.mutate;
 	}
 
 	get legacyUnapplyHunk() {
-		return this.api.endpoints.legacyUnapplyHunk.useMutation();
+		return this.api.endpoints.legacyUnapplyHunk.mutate;
 	}
 
 	get legacyUnapplyFiles() {
-		return this.api.endpoints.legacyUnapplyFiles.useMutation();
+		return this.api.endpoints.legacyUnapplyFiles.mutate;
 	}
 
 	get legacyUpdateBranchOwnership() {
-		return this.api.endpoints.legacyUpdateBranchOwnership.useMutation();
-	}
-
-	get legacyUpdateBranchOwnershipMutation() {
 		return this.api.endpoints.legacyUpdateBranchOwnership.mutate;
 	}
 
 	get createVirtualBranchFromBranch() {
-		return this.api.endpoints.createVirtualBranchFromBranch.useMutation();
+		return this.api.endpoints.createVirtualBranchFromBranch.mutate;
 	}
 
 	get deleteLocalBranch() {
-		return this.api.endpoints.deleteLocalBranch.useMutation();
+		return this.api.endpoints.deleteLocalBranch.mutate;
 	}
 
 	get squashCommits() {
-		return this.api.endpoints.squashCommits.useMutation();
+		return this.api.endpoints.squashCommits.mutate;
 	}
 
-	get squashCommitsMutation() {
-		return this.api.endpoints.squashCommits.mutate;
+	get amendCommit() {
+		return this.api.endpoints.amendCommit.useMutation();
 	}
 
 	get amendCommitMutation() {
@@ -552,7 +536,7 @@ export class StackService {
 
 		const squashCommits = localCommits.slice(0, -1);
 
-		await this.squashCommitsMutation({
+		await this.squashCommits({
 			projectId,
 			stackId,
 			sourceCommitOids: squashCommits.map((commit) => commit.id),

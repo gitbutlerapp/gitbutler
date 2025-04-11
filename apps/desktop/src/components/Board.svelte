@@ -20,7 +20,6 @@
 	const vbranchService = getContext(VirtualBranchService);
 	const posthog = getContext(PostHogWrapper);
 	const stackService = getContext(StackService);
-	const [updateBranchOrder] = stackService.updateBranchOrder;
 
 	const error = vbranchService.error;
 	const branches = vbranchService.branches;
@@ -95,7 +94,7 @@
 			if (!dragged) {
 				return; // Something other than a lane was dropped.
 			}
-			updateBranchOrder({
+			stackService.updateBranchOrder({
 				projectId,
 				branches: sortedBranches.map((b, i) => ({ id: b.id, order: i }))
 			});

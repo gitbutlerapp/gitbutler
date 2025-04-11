@@ -34,10 +34,10 @@
 
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
 	const selected = $derived(stackState?.selection.get());
-	const branchName = $derived(selected?.current?.branchName);
-	const commitId = $derived(selected?.current?.commitId);
-	const selection = $derived(changeSelection.list());
+	const selectedBranchName = $derived(selected?.current?.branchName);
+	const selectedCommitId = $derived(selected?.current?.commitId);
 
+	const selection = $derived(changeSelection.list());
 	const selectedPaths = $derived(selection.current.map((item) => item.path));
 	const selectedTreeChangesResponse = $derived(
 		worktreeService.getChangesById(projectId, selectedPaths)
@@ -50,9 +50,13 @@
 		selectedChangesResponse?.current.map((item) => item.data).filter(isDefined) ?? []
 	);
 
-	const defaultBranchName = uiState.global.draftBranchName.current;
-	const canCommit = $derived((branchName || defaultBranchName) && selection.current.length > 0);
+	const draftBranchName = $derived(uiState.global.draftBranchName.current);
+	const canCommit = $derived(
+		(selectedBranchName || draftBranchName) && selection.current.length > 0
+	);
 	const projectState = $derived(uiState.project(projectId));
+
+	$inspect(draftBranchName);
 
 	let input = $state<ReturnType<typeof CommitMessageInput>>();
 	let drawer = $state<ReturnType<typeof Drawer>>();
@@ -74,12 +78,15 @@
 
 	async function createCommit(message: string) {
 		let finalStackId = stackId;
-		let finalBranchName = branchName;
+		let finalBranchName = selectedBranchName;
 
 		if (!stackId) {
-			const result = await newStack();
-			finalStackId = result.id;
-			finalBranchName = result.branchNames[0];
+			const stack = await createNewStack({
+				projectId,
+				branch: { name: draftBranchName }
+			});
+			finalStackId = stack.id;
+			finalBranchName = stack.branchNames[0];
 		}
 
 		if (!finalStackId) {
@@ -134,18 +141,13 @@
 		const response = await createCommitInStack({
 			projectId,
 			stackId: finalStackId,
-			parentId: commitId,
+			parentId: selectedCommitId,
 			message: message,
 			stackBranchName: finalBranchName,
 			worktreeChanges
 		});
 
-		if (!response.data) {
-			showToast({ message: 'Failed to create commit', style: 'error' });
-			return;
-		}
-
-		const newId = response.data.newCommit;
+		const newId = response.newCommit;
 
 		uiState.project(projectId).drawerPage.set(undefined);
 		uiState.stack(finalStackId).selection.set({ branchName: finalBranchName, commitId: newId });
@@ -154,20 +156,6 @@
 	}
 
 	const [createNewStack, newStackResult] = stackService.newStack;
-
-	async function newStack() {
-		if (!defaultBranchName) {
-			throw new Error('No branch provided!');
-		}
-		const result = await createNewStack({
-			projectId,
-			branch: { name: defaultBranchName }
-		});
-		if (result.error) {
-			throw new Error(String(result.error));
-		}
-		return result.data!;
-	}
 
 	async function handleCommitCreation() {
 		const message = input?.getMessage();

@@ -85,22 +85,12 @@
 			return;
 		}
 
-		const result = await updateCommitMessage({
+		const newCommitId = await updateCommitMessage({
 			projectId,
 			stackId,
 			commitId: commitKey.commitId,
 			message: commitMessage
 		});
-
-		if (!result.data) {
-			showToast({
-				message: `Update commit error`,
-				style: 'error'
-			});
-			return;
-		}
-
-		const newCommitId = result.data;
 
 		uiState.stack(stackId).selection.set({ branchName, commitId: newCommitId });
 		setMode('view');
