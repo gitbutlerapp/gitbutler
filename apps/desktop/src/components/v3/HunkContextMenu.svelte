@@ -52,7 +52,7 @@
 
 	async function discardHunk(item: HunkContextItem) {
 		const previousPathBytes =
-			change.status.type === 'Rename' ? change.status.subject.previousPath : null;
+			change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null;
 
 		unSelectHunk(item.hunk);
 
@@ -61,7 +61,7 @@
 			worktreeChanges: [
 				{
 					previousPathBytes,
-					pathBytes: change.path,
+					pathBytes: change.pathBytes,
 					hunkHeaders: [item.hunk]
 				}
 			]
@@ -71,7 +71,7 @@
 	async function discardHunkLines(item: HunkContextItem) {
 		if (item.selectedLines === undefined || item.selectedLines.length === 0) return;
 		const previousPathBytes =
-			change.status.type === 'Rename' ? change.status.subject.previousPath : null;
+			change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null;
 
 		unSelectHunk(item.hunk);
 
@@ -80,7 +80,7 @@
 			worktreeChanges: [
 				{
 					previousPathBytes,
-					pathBytes: change.path,
+					pathBytes: change.pathBytes,
 					hunkHeaders: lineIdsToHunkHeaders(item.selectedLines, item.hunk.diff, 'discard')
 				}
 			]

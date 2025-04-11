@@ -57,8 +57,9 @@
 
 	async function confirmDiscard(item: FileItem) {
 		const worktreeChanges: DiffSpec[] = item.changes.map((change) => ({
-			previousPathBytes: null,
-			pathBytes: change.path,
+			previousPathBytes:
+				change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null,
+			pathBytes: change.pathBytes,
 			hunkHeaders: []
 		}));
 
@@ -69,7 +70,7 @@
 
 		unSelectChanges(item.changes);
 
-		contextMenu.close();
+		confirmationModal?.close();
 	}
 
 	export function open(e: MouseEvent, item: FileItem) {
