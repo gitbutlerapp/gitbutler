@@ -37,7 +37,6 @@
 
 	const [stackService] = inject(StackService);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
-	const [discardChanges] = stackService.discardChanges;
 
 	const filePath = $derived(change.path);
 	let contextMenu: ReturnType<typeof ContextMenu> | undefined;
@@ -57,7 +56,7 @@
 
 		unSelectHunk(item.hunk);
 
-		await discardChanges({
+		await stackService.discardChanges({
 			projectId,
 			worktreeChanges: [
 				{
@@ -76,7 +75,7 @@
 
 		unSelectHunk(item.hunk);
 
-		await discardChanges({
+		await stackService.discardChanges({
 			projectId,
 			worktreeChanges: [
 				{

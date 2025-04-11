@@ -39,15 +39,15 @@ export class GitHubPrService implements ForgePrService {
 	}: CreatePullRequestArgs): Promise<PullRequest> {
 		this.loading.set(true);
 		const request = async () => {
-			const result = await this.api.endpoints.createPr.mutate({
-				head: upstreamName,
-				base: baseBranchName,
-				title,
-				body,
-				draft
-			});
-			if (!result.data) throw result.error;
-			return ghResponseToInstance(result.data);
+			return ghResponseToInstance(
+				await this.api.endpoints.createPr.mutate({
+					head: upstreamName,
+					base: baseBranchName,
+					title,
+					body,
+					draft
+				})
+			);
 		};
 
 		let attempts = 0;

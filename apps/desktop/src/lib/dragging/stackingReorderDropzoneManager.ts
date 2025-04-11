@@ -30,7 +30,7 @@ export class ReorderCommitDzHandler implements DropzoneHandler {
 		return true;
 	}
 
-	ondrop(data: CommitDropData) {
+	async ondrop(data: CommitDropData) {
 		const stackOrder = buildNewStackOrder(
 			this.series,
 			this.currentSeries,
@@ -39,7 +39,7 @@ export class ReorderCommitDzHandler implements DropzoneHandler {
 		);
 
 		if (stackOrder) {
-			this.stackService.reorderStackMutation({
+			await this.stackService.reorderStack({
 				projectId: this.projectId,
 				stackId: data.stackId,
 				stackOrder

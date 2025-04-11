@@ -14,7 +14,6 @@
 	const baseBranch = maybeGetContext(BaseBranch);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const stackService = getContext(StackService);
-	const [newStack] = stackService.newStack;
 
 	const project = getContext(Project);
 
@@ -48,8 +47,10 @@
 							class="empty-board__suggestions__link"
 							role="button"
 							tabindex="0"
-							onkeypress={async () => await newStack({ projectId: project.id, branch: {} })}
-							onclick={async () => await newStack({ projectId: project.id, branch: {} })}
+							onkeypress={async () =>
+								await stackService.newStackMutation({ projectId: project.id, branch: {} })}
+							onclick={async () =>
+								await stackService.newStackMutation({ projectId: project.id, branch: {} })}
 						>
 							<div class="empty-board__suggestions__link__icon">
 								<Icon name="add-new" />

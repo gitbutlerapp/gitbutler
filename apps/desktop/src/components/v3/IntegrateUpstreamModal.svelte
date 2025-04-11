@@ -97,8 +97,8 @@
 				projectId,
 				resolutionApproach: { type: baseResolutionApproach }
 			}).then((result) => {
-				if (result.data) {
-					targetCommitOid = result.data;
+				if (result) {
+					targetCommitOid = result;
 				}
 			});
 		}
@@ -116,16 +116,17 @@
 			baseResolutionApproach || 'hardReset'
 		);
 
-		await integrateUpstream({
-			projectId,
-			resolutions: Array.from(results.values()),
-			baseBranchResolution: baseResolution
-		});
-
-		await baseBranchService.refreshBaseBranch(projectId);
-		integratingUpstream = 'completed';
-
-		modal?.close();
+		try {
+			await integrateUpstream({
+				projectId,
+				resolutions: Array.from(results.values()),
+				baseBranchResolution: baseResolution
+			});
+		} finally {
+			await baseBranchService.refreshBaseBranch(projectId);
+			integratingUpstream = 'completed';
+			modal?.close();
+		}
 	}
 
 	export async function show() {

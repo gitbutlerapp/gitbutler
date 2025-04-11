@@ -13,7 +13,6 @@
 	}
 
 	const stackService = getContext(StackService);
-	const [updateStack] = stackService.updateStack;
 
 	const { onCollapseButtonClick, stack, projectId }: Props = $props();
 
@@ -30,7 +29,7 @@
 		isDefault={stack.selectedForChanges}
 		{onCollapseButtonClick}
 		onDefaultSet={async () => {
-			await updateStack({
+			await stackService.updateStack({
 				projectId,
 				branch: { id: stack.id, selected_for_changes: true }
 			});

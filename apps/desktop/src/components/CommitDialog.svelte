@@ -36,7 +36,6 @@
 	const commitMessage = persistedCommitMessage(projectId, $stack.id);
 	const runHooks = projectRunCommitHooks(projectId);
 	const stackService = getContext(StackService);
-	const [commitLegacy] = stackService.createCommitLegacy;
 
 	let commitMessageInput = $state<CommitMessageInput>();
 	let isCommitting = $state(false);
@@ -62,7 +61,12 @@
 					return; // Abort commit if hook failed.
 				}
 			}
-			await commitLegacy({ projectId, stackId: $stack.id, message: message.trim(), ownership });
+			await stackService.createCommitLegacy({
+				projectId,
+				stackId: $stack.id,
+				message: message.trim(),
+				ownership
+			});
 		} catch (err: unknown) {
 			showError('Failed to commit changes', err);
 			posthog.capture('Commit Failed', { error: err });
