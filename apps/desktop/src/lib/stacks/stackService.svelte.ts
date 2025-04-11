@@ -666,7 +666,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.Checks),
-					invalidatesItem(ReduxTag.UpstreamCommits, args.stackId),
 					invalidatesItem(ReduxTag.PullRequests, args.stackId),
 					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesList(ReduxTag.BranchListing)
@@ -895,7 +894,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: (_r, _e, args) => [
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesItem(ReduxTag.StackDetails, args.stackId),
-					invalidatesItem(ReduxTag.UpstreamCommits, args.stackId),
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
