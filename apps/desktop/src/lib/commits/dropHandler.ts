@@ -120,10 +120,10 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 			commitId: commit.id,
 			worktreeChanges: [
 				{
-					// TODO: We need the previous path bytes added here.
+					// TODO: We don't get prev path bytes in v2, but we're using
+					// the new api.
 					previousPathBytes: null,
-					// TODO: We need to change this to path bytes.
-					pathBytes: data.hunk.filePath,
+					pathBytes: data.hunk.filePath as any,
 					hunkHeaders: [
 						{
 							oldStart: data.hunk.oldStart,
@@ -233,7 +233,7 @@ function filesToDiffSpec(data: FileDropData): DiffSpec[] {
 	return data.files.map((file) => {
 		return {
 			previousPathBytes: null,
-			pathBytes: file.path, // Can we get the path in bytes here?
+			pathBytes: file.path as any, // Rust type is BString.
 			hunkHeaders: []
 		};
 	});
@@ -244,8 +244,8 @@ function changesToDiffSpec(data: ChangeDropData): DiffSpec[] {
 	const filePaths = data.filePaths;
 	return filePaths.map((filePath) => {
 		return {
-			previousPathBytes: null, // TODO: We need the previous path bytes added here.
-			pathBytes: filePath,
+			previousPathBytes: null,
+			pathBytes: filePath as any, // Rust type is Bstring.
 			hunkHeaders: []
 		};
 	});
