@@ -165,7 +165,10 @@
 	}}
 >
 	{#snippet children(branch)}
-		All changes will be lost for <strong>{branch.name}</strong>. Are you sure you want to continue?
+		<span>
+			All changes will be lost for <strong>{branch.name}</strong>. <br /><br /> Are you sure you want
+			to continue?
+		</span>
 	{/snippet}
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
