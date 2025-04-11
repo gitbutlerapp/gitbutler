@@ -294,7 +294,7 @@ pub fn stack_details(
             .map(|_| branch.remote_reference(remote.as_str()));
 
         let mut branch_state = BranchState {
-            requires_force: requires_force(ctx, branch, &remote)?,
+            requires_force: dbg!(requires_force(ctx, branch, &remote))?,
             ..Default::default()
         };
 

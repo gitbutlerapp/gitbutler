@@ -214,7 +214,7 @@
 				{/snippet}
 			</ReduxResult>
 		{/each}
-		<PushButton {projectId} {stackId} multipleBranches={branches.length > 0} />
+		<PushButton {projectId} {stackId} multipleBranches={branches.length > 1} />
 	{/snippet}
 </ReduxResult>
 
