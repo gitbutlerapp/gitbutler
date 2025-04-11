@@ -286,7 +286,7 @@ fn validate(
 }
 
 // Create a new tree that that has the source trees merged into the target tree
-fn squash_tree<'a>(
+pub fn squash_tree<'a>(
     ctx: &'a CommandContext,
     source_commits: &[git2::Commit<'_>],
     destination_commit: &git2::Commit<'_>,
