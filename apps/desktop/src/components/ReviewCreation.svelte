@@ -33,7 +33,6 @@
 	import { sleep } from '$lib/utils/sleep';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { reactive, type Reactive } from '@gitbutler/shared/storeUtils';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
@@ -104,7 +103,6 @@
 	const createButlerRequest = persisted<boolean>(false, 'createButlerRequest');
 	const createPullRequest = persisted<boolean>(true, 'createPullRequest');
 
-	let templateBody = $state<string | undefined>(undefined);
 	const pushBeforeCreate = $derived(
 		!forgeBranch || commits.some((c) => c.state.type === 'LocalOnly')
 	);
@@ -155,7 +153,7 @@
 	const prBody = new ReactivePRBody();
 
 	$effect(() => {
-		prBody.init(projectId, branch?.description ?? '', commits, templateBody, branch?.name ?? '');
+		prBody.init(projectId, branch?.description ?? '', commits, branch?.name ?? '');
 	});
 
 	async function pushIfNeeded(): Promise<string | undefined> {
@@ -334,7 +332,7 @@
 				title: prTitle.value,
 				body: prBody.value,
 				commitMessages: commits.map((c) => c.message),
-				prBodyTemplate: templateBody,
+				prBodyTemplate: prBody.templateBody,
 				onToken: (token) => {
 					if (firstToken) {
 						prBody.reset();
@@ -353,11 +351,10 @@
 		}
 	}
 
-	export function createButtonEnabled(): Reactive<boolean> {
-		return reactive(() => isCreateButtonEnabled);
-	}
-
 	export const imports = {
+		get creationEnabled() {
+			return isCreateButtonEnabled;
+		},
 		get isLoading() {
 			return isExecuting;
 		}
@@ -388,7 +385,11 @@
 
 	<!-- PR TEMPLATE SELECT -->
 	{#if $useTemplate}
-		<PrTemplateSection bind:selectedTemplate={templateBody} {templates} />
+		<PrTemplateSection
+			bind:selectedTemplate={prBody.templateBody}
+			{templates}
+			disabled={isExecuting}
+		/>
 	{/if}
 
 	<!-- DESCRIPTION FIELD -->
@@ -435,7 +436,7 @@
 						</span>
 					</div>
 					<div class="option-card-header-action">
-						<Checkbox name="create-br" bind:checked={$createButlerRequest} />
+						<Checkbox disabled={isExecuting} name="create-br" bind:checked={$createButlerRequest} />
 					</div>
 				</div>
 			</label>
@@ -463,7 +464,7 @@
 					class:disabled={!$createPullRequest}
 				>
 					<span class="text-semibold">PR Draft</span>
-					<Toggle id="create-pr-draft" bind:checked={$createDraft} />
+					<Toggle disabled={isExecuting} id="create-pr-draft" bind:checked={$createDraft} />
 				</label>
 			</div>
 		</div>

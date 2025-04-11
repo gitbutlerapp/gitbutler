@@ -101,7 +101,7 @@ export class ReactivePRBody {
 	private projectId: string | undefined;
 	private branchDescription: string | undefined;
 	private commits: Commit[] | undefined;
-	private templateBody: string | undefined;
+	private _templateBody = $state<string | undefined>(undefined);
 	private branchName: string | undefined;
 	private _descriptionInput = $state<ReturnType<typeof MessageEditor>>();
 
@@ -109,13 +109,11 @@ export class ReactivePRBody {
 		projectId: string,
 		branchDescription: string | undefined,
 		commits: Commit[],
-		templateBody: string | undefined,
 		branchName: string
 	) {
 		this.projectId = projectId;
 		this.branchDescription = branchDescription;
 		this.commits = commits;
-		this.templateBody = templateBody;
 		this.branchName = branchName;
 
 		const persistedBody = getPersistedPRBody(projectId, branchName);
@@ -128,7 +126,7 @@ export class ReactivePRBody {
 
 	getDefaultBody(): string {
 		if (this.branchDescription) return this.branchDescription;
-		if (this.templateBody) return this.templateBody;
+		if (this._templateBody) return this._templateBody;
 		// In case of a single commit, use the commit description for the body
 		const commits = this.commits ?? [];
 		if (commits.length === 1) {
@@ -180,5 +178,27 @@ export class ReactivePRBody {
 
 	set descriptionInput(value: ReturnType<typeof MessageEditor> | undefined) {
 		this._descriptionInput = value;
+	}
+
+	get templateBody() {
+		return this._templateBody;
+	}
+
+	set templateBody(value: string | undefined) {
+		const currentBody = this._value;
+		const currentDefaultBody = this.getDefaultBody();
+
+		this._templateBody = value;
+
+		// If the current body is either empty or the default body,
+		// set the body to the new template body.
+		if (
+			currentBody === undefined ||
+			isEmptyLine(currentBody) ||
+			currentBody === currentDefaultBody
+		) {
+			const defaultBody = this.getDefaultBody();
+			this.set(defaultBody, true);
+		}
 	}
 }
