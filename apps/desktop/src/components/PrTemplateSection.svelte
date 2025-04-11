@@ -11,9 +11,10 @@
 	interface Props {
 		templates: string[];
 		selectedTemplate: string | undefined;
+		disabled: boolean;
 	}
 
-	let { templates, selectedTemplate = $bindable() }: Props = $props();
+	let { templates, disabled, selectedTemplate = $bindable() }: Props = $props();
 
 	const forge = getContext(DefaultForgeFactory);
 	// TODO: Rename or refactor this service.
@@ -66,7 +67,7 @@
 		<Toggle
 			id="pr-template-toggle"
 			checked={!!selectedTemplate}
-			disabled={templates.length === 0}
+			disabled={templates.length === 0 || disabled}
 			onclick={handleToggle}
 		/>
 	</label>
@@ -76,7 +77,7 @@
 		placeholder={templates.length > 0 ? 'Choose template' : 'No PR templates found ¯\\_(ツ)_/¯'}
 		flex="1"
 		searchable
-		disabled={templates.length === 0 || !selectedTemplate}
+		disabled={templates.length === 0 || !selectedTemplate || disabled}
 		onselect={setTemplate}
 	>
 		{#snippet itemSnippet({ item, highlighted })}
