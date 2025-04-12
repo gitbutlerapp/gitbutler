@@ -12,6 +12,7 @@
 		stackId: string;
 		branchName: string;
 		selectedCommitId?: string;
+		empty?: Snippet;
 		upstreamTemplate?: Snippet<
 			[
 				{
@@ -42,6 +43,7 @@
 		stackId,
 		branchName,
 		selectedCommitId,
+		empty,
 		localAndRemoteTemplate,
 		upstreamTemplate
 	}: Props = $props();
@@ -60,6 +62,9 @@
 	result={combineResults(upstreamOnlyCommits.current, localAndRemoteCommits.current)}
 >
 	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits], { stackId })}
+		{#if localAndRemoteCommits.length === 0}
+			{@render empty?.()}
+		{/if}
 		<div class="commit-list">
 			{#if upstreamTemplate}
 				{#each upstreamOnlyCommits as commit, i (commit.id)}

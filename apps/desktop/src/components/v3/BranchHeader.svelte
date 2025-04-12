@@ -19,6 +19,7 @@
 		lineColor: string;
 		menuBtnEl?: HTMLButtonElement;
 		draft?: boolean;
+		isCommitting?: boolean;
 	} & (
 		| { draft: true }
 		| {
@@ -44,6 +45,7 @@
 		readonly,
 		iconName,
 		lineColor,
+		isCommitting,
 		menuBtnEl = $bindable(),
 		...args
 	}: Props = $props();
@@ -80,6 +82,7 @@
 		role="button"
 		class="branch-header"
 		class:new-branch={args.isNewBranch}
+		class:is-committing={isCommitting}
 		class:selected={args.selected}
 		onclick={args.onclick}
 		oncontextmenu={(e) => {
@@ -228,8 +231,7 @@
 			border-bottom: none;
 			border-radius: var(--radius-ml);
 		}
-		&.draft {
-			border-bottom: none;
+		&.is-committing {
 			border-radius: var(--radius-ml) var(--radius-ml) 0 0;
 		}
 	}
