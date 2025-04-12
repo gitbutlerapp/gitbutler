@@ -42,6 +42,7 @@
 
 <style lang="postcss">
 	.series-labels-row {
+		flex: 1;
 		display: flex;
 		align-items: center;
 		gap: 4px;
