@@ -1,6 +1,6 @@
 import { PostHogWrapper } from '$lib/analytics/posthog';
+import { isTauriCommandError, type TauriCommandError } from '$lib/backend/ipc';
 import { Tauri } from '$lib/backend/tauri';
-import { isBackendError } from '$lib/error/typeguards';
 import { type BaseQueryApi, type QueryReturnValue } from '@reduxjs/toolkit/query';
 
 export type TauriBaseQueryFn = typeof tauriBaseQuery;
@@ -22,19 +22,17 @@ export async function tauriBaseQuery(
 		}
 		return result;
 	} catch (error: unknown) {
-		if (isBackendError(error)) {
-			const result = { error: { message: error.message, code: error.code } };
+		if (isTauriCommandError(error)) {
 			if (posthog && args.actionName) {
-				posthog.capture(`${args.actionName} Failed`, result);
+				posthog.capture(`${args.actionName} Failed`, { error });
 			}
-			return result;
+			throw error;
 		}
-
-		const result = { error: { message: String(error) } };
+		const newError = { message: String(error) };
 		if (posthog && args.actionName) {
-			posthog.capture(`${args.actionName} Failed`, result);
+			posthog.capture(`${args.actionName} Failed`, { error: newError });
 		}
-		return result;
+		throw newError;
 	}
 }
 
@@ -43,19 +41,6 @@ type ApiArgs = {
 	params: Record<string, unknown>;
 	actionName?: string;
 };
-
-export type TauriCommandError = { message: string; code?: string };
-
-export function isTauriCommandError(something: unknown): something is TauriCommandError {
-	return (
-		!!something &&
-		typeof something === 'object' &&
-		something !== null &&
-		'message' in something &&
-		typeof (something as TauriCommandError).message === 'string' &&
-		('code' in something ? typeof (something as TauriCommandError).code === 'string' : true)
-	);
-}
 
 /**
  * Typeguard for accessing injected Tauri dependency safely.

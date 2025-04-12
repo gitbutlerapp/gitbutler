@@ -11,6 +11,19 @@ export enum Code {
 	ProjectMissing = 'errors.projects.missing'
 }
 
+export type TauriCommandError = { message: string; code?: string };
+
+export function isTauriCommandError(something: unknown): something is TauriCommandError {
+	return (
+		!!something &&
+		typeof something === 'object' &&
+		something !== null &&
+		'message' in something &&
+		typeof (something as TauriCommandError).message === 'string' &&
+		('code' in something ? typeof (something as TauriCommandError).code === 'string' : true)
+	);
+}
+
 export function isUserErrorCode(something: unknown): something is Code {
 	return Object.values(Code).includes(something as Code);
 }
@@ -29,15 +42,8 @@ export class UserError extends Error {
 		const cause = error instanceof Error ? error : undefined;
 		const code = error.code ?? Code.Unknown;
 		const message = error.message ?? error;
-		return new UserError(capitalize(message), code, cause);
+		return new UserError(message, code, cause);
 	}
-}
-
-function capitalize(str: string): string {
-	if (str.length === 0) {
-		return str;
-	}
-	return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 export function getUserErrorCode(error: unknown): Code | undefined {
@@ -65,10 +71,11 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 
 	try {
 		return await invokeTauri<T>(command, params);
-	} catch (reason) {
-		const userError = UserError.fromError(reason);
-		console.error(`ipc->${command}: ${JSON.stringify(params)}`, userError, reason);
-		throw userError;
+	} catch (error: unknown) {
+		if (isTauriCommandError(error)) {
+			console.error(`ipc->${command}: ${JSON.stringify(params)}`, error);
+		}
+		throw error;
 	}
 }
 

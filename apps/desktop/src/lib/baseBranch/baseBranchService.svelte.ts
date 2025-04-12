@@ -1,7 +1,6 @@
-import { Code } from '$lib/backend/ipc';
+import { Code, isTauriCommandError } from '$lib/backend/ipc';
 import { BaseBranch, type RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 import { showError } from '$lib/notifications/toasts';
-import { isTauriCommandError } from '$lib/state/backendQuery';
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { parseRemoteUrl } from '$lib/url/gitUrl';
 import { plainToInstance } from 'class-transformer';

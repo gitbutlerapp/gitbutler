@@ -12,6 +12,7 @@ import {
 import { splitMessage } from '$lib/utils/commitMessage';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
+import type { TauriCommandError } from '$lib/backend/ipc';
 import type { Commit, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
 import type { LocalFile } from '$lib/files/file';
@@ -19,7 +20,6 @@ import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import type { TreeChange, TreeChanges } from '$lib/hunks/change';
 import type { DiffSpec, Hunk, HunkHeader } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
-import type { TauriCommandError } from '$lib/state/backendQuery';
 import type { UiState } from '$lib/state/uiState.svelte';
 import type { User } from '$lib/user/user';
 
