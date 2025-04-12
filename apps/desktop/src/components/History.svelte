@@ -13,7 +13,6 @@
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
-	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 	import { plainToInstance } from 'class-transformer';
 	import type { Snapshot, SnapshotDiff } from '$lib/history/types';
 

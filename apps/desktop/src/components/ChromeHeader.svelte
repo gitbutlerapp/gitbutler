@@ -7,6 +7,7 @@
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
+	import * as events from '$lib/utils/events';
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -59,9 +60,9 @@
 	<IntegrateUpstreamModal bind:this={modal} projectId={selectedProjectId} />
 {/if}
 
-<div class="header" class:mac={platformName === 'macos'} data-tauri-drag-region>
-	<div class="left" data-tauri-drag-region>
-		<div class="left-buttons" class:macos={platformName === 'macos'}>
+<div class="chrome-header" class:mac={platformName === 'macos'} data-tauri-drag-region>
+	<div class="chrome-left" data-tauri-drag-region>
+		<div class="chrome-left-buttons" class:macos={platformName === 'macos'}>
 			<SyncButton {projectId} size="button" />
 			{#if upstreamCommits > 0}
 				<Button style="pop" onclick={openModal} disabled={!selectedProjectId}
@@ -70,7 +71,7 @@
 			{/if}
 		</div>
 	</div>
-	<div class="center" data-tauri-drag-region>
+	<div class="chrome-center" data-tauri-drag-region>
 		<Select
 			searchable
 			value={selectedProjectId}
@@ -128,7 +129,8 @@
 			</OptionsGroup>
 		</Select>
 	</div>
-	<div class="right" data-tauri-drag-region>
+	<div class="chrome-right" data-tauri-drag-region>
+		<Button kind="ghost" icon="timeline" onclick={() => events.emit('openHistory')} />
 		<NotificationButton
 			hasUnread={isNotificationsUnread}
 			onclick={() => {
@@ -139,7 +141,7 @@
 </div>
 
 <style>
-	.header {
+	.chrome-header {
 		display: flex;
 		padding: 14px;
 		align-items: center;
@@ -147,34 +149,35 @@
 		overflow: hidden;
 	}
 
-	.left {
+	.chrome-left {
 		display: flex;
 		gap: 14px;
 	}
 
-	.center {
+	.chrome-center {
 		flex-shrink: 1;
 	}
 
-	.right {
+	.chrome-right {
 		display: flex;
+		gap: 4px;
 		justify-content: right;
 	}
 
 	/** Flex basis 0 means they grow by the same amount. */
-	.right,
-	.left {
+	.chrome-right,
+	.chrome-left {
 		flex-basis: 0;
 		flex-grow: 1;
 	}
 
-	.left-buttons {
+	.chrome-left-buttons {
 		display: flex;
 		gap: 8px;
 	}
 
 	/** Mac padding added here to not affect header flex-box sizing. */
-	.mac .left-buttons {
+	.mac .chrome-left-buttons {
 		padding-left: 70px;
 	}
 
