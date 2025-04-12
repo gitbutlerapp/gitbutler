@@ -21,7 +21,7 @@
 
 <div class="stack-meta">
 	<div class="stack-meta-top">
-		<SeriesLabelsRow series={series.map((s) => s.name)} showRestAmount />
+		<SeriesLabelsRow series={series.map((s) => s.name)} />
 
 		<Button
 			bind:el={kebabButtonEl}
