@@ -1,4 +1,4 @@
-import { isTauriCommandError, type TauriCommandError } from '$lib/state/backendQuery';
+import { isTauriCommandError, type TauriCommandError } from '$lib/backend/ipc';
 import { reactive, type Reactive } from '@gitbutler/shared/storeUtils';
 import {
 	type Api,
