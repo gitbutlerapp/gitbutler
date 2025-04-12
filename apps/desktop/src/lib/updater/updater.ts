@@ -168,7 +168,7 @@ export class UpdaterService {
 function isOffline(err: any): boolean {
 	return (
 		typeof err === 'string' &&
-		(err.includes('Could not fetch a valid release') || err.includes('Network Error'))
+		(err.includes('error sending request for') || err.includes('Network Error'))
 	);
 }
 
