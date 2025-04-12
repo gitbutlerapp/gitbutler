@@ -5,17 +5,13 @@
 	import { Project } from '$lib/project/project';
 	import {
 		branchesPath,
-		historyPath,
 		ircPath,
 		isBranchesPath,
-		isHistoryPath,
 		isIrcPath,
 		isProjectSettingsPath,
-		isTargetPath,
 		isWorkspacePath,
 		newProjectSettingsPath,
 		newSettingsPath,
-		targetPath,
 		workspacePath
 	} from '$lib/routes/routes.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
