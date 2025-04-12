@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="160" viewBox="0 0 260 160" fill="none">
+  <g id="6454:14974">
+    <path id="6454:14944"
+      d="M21 0.6H239C249.714 0.6 258.4 9.28568 258.4 20V139C258.4 149.714 249.714 158.4 239 158.4H21C10.2857 158.4 1.6 149.714 1.6 139V20C1.6 9.28568 10.2857 0.6 21 0.6Z"
+      fill="var(--bg/1)" stroke="var(--clr-border-2)" stroke-width="1.2" />
+    <g id="6454:14945">
+      <path id="6454:14946" d="M12 32H66M12 48.6667H66M12 65.3333H66M12 82H66M12 98.6667H66"
+        stroke="var(--clr-border-3)" stroke-width="1.2" />
+      <rect id="6454:14947" x="11.6" y="10.6" width="53.8" height="137.8" rx="9.4"
+        stroke="var(--clr-border-2)" stroke-width="1.2" />
+      <rect id="6456:15224" opacity="0.12" x="72" y="10" width="64" height="139" rx="10"
+        fill="var(--clr-core-ntrl-60)" />
+    </g>
+    <g id="6454:14948">
+      <path id="6454:14949"
+        d="M142.6 41.6H248.4V139C248.4 144.191 244.191 148.4 239 148.4H152C146.809 148.4 142.6 144.191 142.6 139V41.6Z"
+        fill="var(--bg/1)" stroke="var(--clr-border-2)" stroke-width="1.2" />
+      <g id="6454:14951">
+        <g id="6456:15209">
+          <path id="6454:14952"
+            d="M153.152 10.6H174.848C180.676 10.6 185.4 15.3241 185.4 21.1515V41.4H142.6V21.1515C142.6 15.3241 147.324 10.6 153.152 10.6Z"
+            fill="var(--clr-theme-pop-soft)" stroke="var(--clr-scale-pop-50)" stroke-width="1.2" />
+          <rect id="6454:14969" x="155.304" y="24" width="17.2174" height="7"
+            fill="var(--clr-scale-pop-50)" />
+        </g>
+        <path id="6454:14953"
+          d="M238 10.6H239C244.191 10.6 248.4 14.8085 248.4 20V41.4H228.6V20C228.6 14.8085 232.809 10.6 238 10.6Z"
+          fill="var(--bg/1)" stroke="var(--clr-border-2)" stroke-width="1.2" />
+        <g id="6456:15216">
+          <path id="6454:14954"
+            d="M196.152 10.6H217.848C223.676 10.6 228.4 15.3241 228.4 21.1515V41.4H185.6V21.1515C185.6 15.3241 190.324 10.6 196.152 10.6Z"
+            fill="var(--clr-theme-pop-soft)" stroke="var(--clr-scale-pop-50)" stroke-width="1.2" />
+          <rect id="6454:14972" x="198" y="24" width="18" height="7" fill="var(--clr-scale-pop-50)" />
+        </g>
+      </g>
+    </g>
+    <g id="6454:14955">
+      <text opacity="0.7" fill="var(--clr-text-2)" xml:space="preserve" style="white-space: pre"
+        font-family="Inter" font-size="13" font-weight="500" letter-spacing="0em"><tspan x="156" y="65.7273">Branch #1</tspan></text>
+      <g id="6454:14957">
+        <path id="6454:14958" d="M150 74H241" stroke="var(--clr-border-2)" stroke-width="1.2" />
+        <path id="6454:14959" d="M150 96H241" stroke="var(--clr-border-2)" stroke-width="1.2" />
+        <path id="6454:14960" d="M150 118H241" stroke="var(--clr-border-2)" stroke-width="1.2" />
+      </g>
+      <rect id="6454:14961" x="150.6" y="49.6" width="89.8" height="90.8" rx="5.4"
+        stroke="var(--clr-border-1)" stroke-width="1.2" />
+    </g>
+  </g>
+</svg>

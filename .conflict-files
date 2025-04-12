@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/lib/stacks/stackService.svelte.ts", "apps/desktop/src/lib/state/backendQuery.ts", "apps/desktop/src/lib/state/customHooks.svelte.ts"]
+ourEntries = ["apps/desktop/src/lib/stacks/stackService.svelte.ts", "apps/desktop/src/lib/state/backendQuery.ts", "apps/desktop/src/lib/state/customHooks.svelte.ts"]
+theirEntries = ["apps/desktop/src/lib/stacks/stackService.svelte.ts", "apps/desktop/src/lib/state/backendQuery.ts", "apps/desktop/src/lib/state/customHooks.svelte.ts"]

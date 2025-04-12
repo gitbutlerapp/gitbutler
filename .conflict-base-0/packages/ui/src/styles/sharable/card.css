@@ -1,0 +1,35 @@
+@layer sharable {
+	.card {
+		display: flex;
+		flex-direction: column;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background: var(--clr-bg-1);
+	}
+
+	.card__header {
+		display: flex;
+		justify-content: space-between;
+		padding: 16px;
+		gap: 8px;
+		border-bottom: 1px solid var(--clr-border-2);
+	}
+
+	.card__title {
+		padding: 4px 6px;
+	}
+
+	.card__content {
+		display: flex;
+		flex-direction: column;
+		padding: 16px;
+	}
+
+	.card__footer {
+		display: flex;
+		gap: 6px;
+		padding: 16px;
+		justify-content: space-between;
+		border-top: 1px solid var(--clr-border-2);
+	}
+}
