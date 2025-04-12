@@ -17,6 +17,7 @@
 		branchName: string;
 		iconName: keyof typeof iconsJson;
 		draft?: boolean;
+		isCommitting?: boolean;
 	} & (
 		| { draft: true; description?: Snippet }
 		| {
@@ -43,7 +44,7 @@
 		  }
 	);
 
-	let { projectId, branchName, iconName, ...args }: Props = $props();
+	let { projectId, branchName, iconName, isCommitting, ...args }: Props = $props();
 
 	const [uiState] = inject(UiState);
 
@@ -84,6 +85,7 @@
 			trackingBranch={args.trackingBranch}
 			{isMenuOpenByBtn}
 			{isMenuOpenByMouse}
+			{isCommitting}
 			selected={selected && selection?.current?.commitId === undefined}
 			isTopBranch={args.first}
 			isNewBranch={args.isNewBranch}
@@ -153,7 +155,7 @@
 		/>
 	{/if}
 
-	{#if !args.draft && !args.isNewBranch}
+	{#if !args.draft}
 		{@render args.commitList?.()}
 	{/if}
 </div>

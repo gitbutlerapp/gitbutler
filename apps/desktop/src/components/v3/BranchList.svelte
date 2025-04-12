@@ -92,6 +92,7 @@
 						{first}
 						{last}
 						{isNewBranch}
+						{isCommitting}
 						pushStatus={branchDetails.pushStatus}
 						isConflicted={branchDetails.isConflicted}
 						lastUpdatedAt={branchDetails.lastUpdatedAt}
@@ -101,6 +102,11 @@
 					>
 						{#snippet commitList()}
 							<BranchCommitList {projectId} {stackId} {branchName} {selectedCommitId}>
+								{#snippet empty()}
+									{#if isCommitting}
+										<CommitGoesHere selected first last />
+									{/if}
+								{/snippet}
 								{#snippet upstreamTemplate({ commit, first, lastCommit, selected })}
 									{@const commitId = commit.id}
 									{#if !isCommitting}
@@ -133,11 +139,11 @@
 										/>
 									{/if}
 									{@const dzCommit: DzCommitData = {
-								id: commit.id,
-								isRemote: isUpstreamCommit(commit),
-								isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
-								isConflicted: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
-							}}
+										id: commit.id,
+										isRemote: isUpstreamCommit(commit),
+										isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
+										isConflicted: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
+									}}
 									{@const amendHandler = new AmendCommitWithChangeDzHandler(
 										projectId,
 										stackService,
