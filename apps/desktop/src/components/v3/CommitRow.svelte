@@ -16,6 +16,7 @@
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import { slide } from 'svelte/transition';
 
 	type Props = {
 		projectId: string;
@@ -107,7 +108,7 @@
 	role="button"
 	tabindex="0"
 	aria-label="Commit row"
-	class="commit-row__main"
+	class="commit-row"
 	class:menu-shown={isOpenedByKebabButton || isOpenedByMouse}
 	class:first
 	class:selected
@@ -157,6 +158,10 @@
 			}
 		: NON_DRAGGABLE}
 >
+	{#if selected}
+		<div class="commit-row__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+	{/if}
+
 	<CommitLine {commit} {lastCommit} {lastBranch} />
 
 	<div class="commit-content">
@@ -219,25 +224,12 @@
 />
 
 <style lang="postcss">
-	.commit-row__main {
+	.commit-row {
 		position: relative;
 		display: flex;
 		width: 100%;
 		overflow: hidden;
 		transition: background-color var(--transition-fast);
-
-		&::before {
-			content: '';
-			position: absolute;
-			top: 50%;
-			left: 0;
-			width: 4px;
-			height: 45%;
-			transform: translateX(-100%) translateY(-50%);
-			border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
-			background-color: var(--clr-selected-in-focus-element);
-			transition: transform var(--transition-fast);
-		}
 
 		&:hover,
 		&.menu-shown {
@@ -263,15 +255,23 @@
 			& .commit-menu-btn {
 				display: flex;
 			}
-
-			&:before {
-				transform: translateX(0%) translateY(-50%);
-			}
 		}
 
 		&:focus-within.selected {
 			background-color: var(--clr-selected-in-focus-bg);
 		}
+	}
+
+	.commit-row__select-indicator {
+		position: absolute;
+		top: 50%;
+		left: 0;
+		width: 4px;
+		height: 45%;
+		transform: translateY(-50%);
+		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
+		background-color: var(--clr-selected-in-focus-element);
+		transition: transform var(--transition-fast);
 	}
 
 	.commit-content {

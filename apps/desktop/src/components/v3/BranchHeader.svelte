@@ -7,6 +7,7 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { slide } from 'svelte/transition';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
@@ -94,6 +95,10 @@
 		tabindex="0"
 		class:activated={args.isMenuOpenByMouse || args.isMenuOpenByBtn}
 	>
+		{#if args.selected}
+			<div class="commit-row__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+		{/if}
+
 		<BranchHeaderIcon
 			{lineColor}
 			{iconName}
@@ -234,6 +239,18 @@
 		&.is-committing {
 			border-radius: var(--radius-ml) var(--radius-ml) 0 0;
 		}
+	}
+
+	.branch-header__select-indicator {
+		position: absolute;
+		top: 14px;
+		left: 0;
+		width: 4px;
+		height: 20px;
+		transform: translateX(-100%);
+		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
+		background-color: var(--clr-selected-in-focus-element);
+		transition: transform var(--transition-fast);
 	}
 
 	.name-line {
