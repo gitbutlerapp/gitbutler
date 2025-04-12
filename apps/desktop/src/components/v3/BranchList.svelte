@@ -109,13 +109,14 @@
 								{/snippet}
 								{#snippet upstreamTemplate({ commit, first, lastCommit, selected })}
 									{@const commitId = commit.id}
+									{console.log('lastCommit', lastCommit)}
 									{#if !isCommitting}
 										<CommitRow
 											{stackId}
 											{branchName}
 											{projectId}
 											{first}
-											lastCommit={lastCommit && !commit}
+											lastCommit={lastCommit && localAndRemoteCommits.length === 0}
 											{commit}
 											{selected}
 											onclick={() => {
