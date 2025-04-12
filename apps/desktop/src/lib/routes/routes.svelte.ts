@@ -25,6 +25,10 @@ export function newProjectSettingsPath(projectId: string, page?: string) {
 	return `/${projectId}/new-settings`;
 }
 
+export function isNewProjectSettingsPath() {
+	return isUrl<{ projectId: string }>('/[projectId]/new-settings/[[selectedId]]');
+}
+
 export function isProjectSettingsPath() {
 	return isUrl<{ projectId: string }>('/[projectId]/settings');
 }
@@ -51,22 +55,6 @@ export function branchesPath(projectId: string) {
 
 export function isBranchesPath() {
 	return isUrl<{ projectId: string }>('/[projectId]/branches');
-}
-
-export function targetPath(projectId: string) {
-	return `/${projectId}/target`;
-}
-
-export function isTargetPath() {
-	return isUrl<{ projectId: string }>('/[projectId]/target');
-}
-
-export function historyPath(projectId: string) {
-	return `/${projectId}/history`;
-}
-
-export function isHistoryPath() {
-	return isUrl<{ projectId: string }>('/[projectId]/history');
 }
 
 export function isCommitPath() {

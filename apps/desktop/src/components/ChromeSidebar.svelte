@@ -5,17 +5,13 @@
 	import { Project } from '$lib/project/project';
 	import {
 		branchesPath,
-		historyPath,
 		ircPath,
 		isBranchesPath,
-		isHistoryPath,
 		isIrcPath,
-		isProjectSettingsPath,
-		isTargetPath,
+		isNewProjectSettingsPath,
 		isWorkspacePath,
 		newProjectSettingsPath,
 		newSettingsPath,
-		targetPath,
 		workspacePath
 	} from '$lib/routes/routes.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -124,63 +120,6 @@
 				</svg>
 			</Button>
 		</div>
-		<div>
-			{#if isTargetPath()}
-				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-			{/if}
-			<Button
-				kind="outline"
-				onclick={() => goto(targetPath(project.id))}
-				width={34}
-				class={['btn-square', isTargetPath() && 'btn-active']}
-				tooltip="Target"
-			>
-				<svg viewBox="0 0 18 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<path
-						d="M10.6906 1C12.1197 1 13.4402 1.7624 14.1547 3L15.8453 5.9282C16.5598 7.16581 16.5598 8.6906 15.8453 9.9282L14.1547 12.8564C13.4402 14.094 12.1197 14.8564 10.6906 14.8564H7.3094C5.88034 14.8564 4.55983 14.094 3.8453 12.8564L2.1547 9.9282C1.44017 8.6906 1.44017 7.16581 2.1547 5.9282L3.8453 3C4.55983 1.7624 5.88034 1 7.3094 1H10.6906Z"
-						stroke-width="1.5"
-						stroke="var(--clr-target-bg)"
-						fill="var(--clr-target-bg)"
-					/>
-					<path d="M9 14.5V10.5M9 5V1" stroke-width="1.5" stroke="var(--clr-target-lines)" />
-					<path
-						d="M2.25 7.75L6.25 7.75M11.75 7.75L15.75 7.75"
-						stroke-width="1.5"
-						stroke="var(--clr-target-lines)"
-					/>
-					<circle cx="9" cy="8" r="1" stroke="var(--clr-target-lines)" />
-				</svg>
-			</Button>
-		</div>
-		<div>
-			{#if isHistoryPath()}
-				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-			{/if}
-			<Button
-				kind="outline"
-				onclick={() => goto(historyPath(project.id))}
-				width={34}
-				class={['btn-square', isHistoryPath() && 'btn-active']}
-				tooltip="History"
-			>
-				<svg
-					viewBox="0 0 18 18"
-					fill="none"
-					xmlns="http://www.w3.org/2000/svg"
-					stroke-width="1.5"
-					style="padding: 1px;"
-				>
-					<rect
-						width="18"
-						height="18"
-						rx="6"
-						stroke="var(--clr-history-bg)"
-						fill="var(--clr-history-bg)"
-					/>
-					<path d="M8 3V10H13" stroke-width="1.5" stroke="var(--clr-history-arrows)" />
-				</svg>
-			</Button>
-		</div>
 		{#if $ircEnabled}
 			<div>
 				{#if isIrcPath()}
@@ -189,19 +128,18 @@
 				<Button
 					kind="outline"
 					onclick={() => goto(ircPath(project.id))}
+					icon="chat"
 					width={34}
 					class={['btn-square', isIrcPath() && 'btn-active']}
 					tooltip="History"
-				>
-					irc
-				</Button>
+				/>
 			</div>
 		{/if}
 	</div>
 	<div class="bottom">
 		<div class="bottom__primary-actions">
 			<div>
-				{#if isProjectSettingsPath()}
+				{#if isNewProjectSettingsPath()}
 					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 				{/if}
 				<Button
@@ -209,7 +147,7 @@
 					kind="outline"
 					onclick={() => goto(newProjectSettingsPath(project.id))}
 					width={34}
-					class={['btn-square', isProjectSettingsPath() && 'btn-active']}
+					class={['btn-square', isNewProjectSettingsPath() && 'btn-active']}
 					tooltipPosition="top"
 					tooltipAlign="start"
 					tooltip="Project settings"
