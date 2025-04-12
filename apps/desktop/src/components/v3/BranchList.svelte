@@ -127,12 +127,19 @@
 										/>
 									{/if}
 								{/snippet}
-								{#snippet localAndRemoteTemplate({ commit, first, last, lastCommit, selected })}
+								{#snippet localAndRemoteTemplate({
+									commit,
+									first,
+									last,
+									lastCommit,
+									selectedCommitId
+								})}
 									{@const commitId = commit.id}
+									{@const selected = commit.id === selectedCommitId}
 									{#if isCommitting}
 										<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
 										<CommitGoesHere
-											{selected}
+											selected={selected || (first && !selectedCommitId)}
 											{first}
 											last={false}
 											onclick={() => uiState.stack(stackId).selection.set({ branchName, commitId })}
