@@ -32,7 +32,7 @@
 					first: boolean;
 					last: boolean;
 					lastCommit: boolean;
-					selected: boolean;
+					selectedCommitId: string | undefined;
 				}
 			]
 		>;
@@ -81,14 +81,13 @@
 					{@const first = i === 0}
 					{@const last = i === localAndRemoteCommits.length - 1}
 					{@const commitKey = { stackId, branchName, commitId: commit.id, upstream: false }}
-					{@const selected = selectedCommitId === commit.id}
 					{@render localAndRemoteTemplate({
 						commit,
 						commitKey,
 						first,
 						last,
 						lastCommit: last,
-						selected
+						selectedCommitId
 					})}
 				{/each}
 			{/if}
