@@ -115,7 +115,7 @@
 											{branchName}
 											{projectId}
 											{first}
-											lastCommit={lastCommit && !commit}
+											lastCommit={lastCommit && localAndRemoteCommits.length === 0}
 											{commit}
 											{selected}
 											onclick={() => {
