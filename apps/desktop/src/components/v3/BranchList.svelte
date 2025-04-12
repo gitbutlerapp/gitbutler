@@ -109,7 +109,6 @@
 								{/snippet}
 								{#snippet upstreamTemplate({ commit, first, lastCommit, selected })}
 									{@const commitId = commit.id}
-									{console.log('lastCommit', lastCommit)}
 									{#if !isCommitting}
 										<CommitRow
 											{stackId}
