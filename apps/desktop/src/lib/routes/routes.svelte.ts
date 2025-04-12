@@ -25,6 +25,10 @@ export function newProjectSettingsPath(projectId: string, page?: string) {
 	return `/${projectId}/new-settings`;
 }
 
+export function isNewProjectSettingsPath() {
+	return isUrl<{ projectId: string }>('/[projectId]/new-settings/[[selectedId]]');
+}
+
 export function isProjectSettingsPath() {
 	return isUrl<{ projectId: string }>('/[projectId]/settings');
 }

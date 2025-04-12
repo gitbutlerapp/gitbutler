@@ -8,7 +8,7 @@
 		ircPath,
 		isBranchesPath,
 		isIrcPath,
-		isProjectSettingsPath,
+		isNewProjectSettingsPath,
 		isWorkspacePath,
 		newProjectSettingsPath,
 		newSettingsPath,
@@ -139,7 +139,7 @@
 	<div class="bottom">
 		<div class="bottom__primary-actions">
 			<div>
-				{#if isProjectSettingsPath()}
+				{#if isNewProjectSettingsPath()}
 					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 				{/if}
 				<Button
@@ -147,7 +147,7 @@
 					kind="outline"
 					onclick={() => goto(newProjectSettingsPath(project.id))}
 					width={34}
-					class={['btn-square', isProjectSettingsPath() && 'btn-active']}
+					class={['btn-square', isNewProjectSettingsPath() && 'btn-active']}
 					tooltipPosition="top"
 					tooltipAlign="start"
 					tooltip="Project settings"
