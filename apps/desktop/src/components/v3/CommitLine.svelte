@@ -12,7 +12,7 @@
 		width?: number;
 	}
 
-	const { commit, lastCommit, lastBranch, width = 48 }: Props = $props();
+	const { commit, lastCommit, lastBranch, width = 42 }: Props = $props();
 
 	const color = $derived(
 		isLocalAndRemoteCommit(commit)
@@ -64,6 +64,7 @@
 
 <style lang="postcss">
 	.commit-lines {
+		flex: 0 0 auto;
 		display: flex;
 		flex-direction: column;
 		align-items: center;

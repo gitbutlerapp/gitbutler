@@ -30,11 +30,13 @@
 
 <style>
 	.stack__status {
+		flex: 0 0 auto;
 		align-self: stretch;
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
 		gap: 3px;
+		width: 42px;
 		--clr-transparent: transparent;
 
 		& .stack__status--icon {
@@ -46,13 +48,13 @@
 			border-radius: var(--radius-m);
 			background-color: var(--bg-color);
 			color: #fff;
-			margin-left: 10px;
+			margin: 0 auto;
 		}
 
 		& .stack__status--bar {
 			width: 2px;
 			height: 8px;
-			margin: 0 22px 0 20px;
+			margin: 0 auto;
 			background: var(--bg-color);
 
 			&.dashed {
