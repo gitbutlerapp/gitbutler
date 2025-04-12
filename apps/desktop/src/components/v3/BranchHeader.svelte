@@ -96,7 +96,7 @@
 		class:activated={args.isMenuOpenByMouse || args.isMenuOpenByBtn}
 	>
 		{#if args.selected}
-			<div class="commit-row__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+			<div class="branch-header__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 		{/if}
 
 		<BranchHeaderIcon
@@ -193,19 +193,6 @@
 		border-bottom: 1px solid var(--clr-border-2);
 		overflow: hidden;
 
-		&:before {
-			content: '';
-			position: absolute;
-			top: 14px;
-			left: 0;
-			width: 4px;
-			height: 20px;
-			transform: translateX(-100%);
-			border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
-			background-color: var(--clr-selected-in-focus-element);
-			transition: transform var(--transition-fast);
-		}
-
 		&:hover,
 		&.activated {
 			background-color: var(--clr-bg-1-muted);
@@ -221,10 +208,6 @@
 
 			& .branch-menu-btn {
 				display: flex;
-			}
-
-			&:before {
-				transform: translateX(0%);
 			}
 		}
 
@@ -247,7 +230,6 @@
 		left: 0;
 		width: 4px;
 		height: 20px;
-		transform: translateX(-100%);
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
 		background-color: var(--clr-selected-in-focus-element);
 		transition: transform var(--transition-fast);
