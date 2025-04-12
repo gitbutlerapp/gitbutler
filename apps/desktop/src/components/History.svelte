@@ -18,10 +18,9 @@
 
 	interface Props {
 		onHide: () => void;
-		showInline?: boolean;
 	}
 
-	const { onHide, showInline = false }: Props = $props();
+	const { onHide }: Props = $props();
 
 	const project = getContext(Project);
 	const historyService = getContext(HistoryService);
@@ -106,7 +105,7 @@
 	<!-- SNAPSHOTS -->
 	{#if $snapshots.length > 0}
 		<ScrollableContainer>
-			<div class="container">
+			<div class="snapshots-wrapper">
 				<!-- SNAPSHOTS FEED -->
 				<LazyloadContainer
 					minTriggerCount={30}
@@ -117,7 +116,7 @@
 					{#each $snapshots as entry, idx (entry.id)}
 						{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1]?.createdAt ?? new Date())}
 							<div class="sideview__date-header">
-								<h4 class="text-13 text-semibold">
+								<h4 class="text-12 text-semibold">
 									{createdOnDay(entry.createdAt)}
 								</h4>
 							</div>
@@ -207,71 +206,38 @@
 	}}
 />
 
-{#if showInline}
-	<div class="history-page">
-		<div class="sideview__header">
-			<i class="clock-icon">
-				<div class="clock-pointers">
-					<div class="clock-pointer clock-pointer-minute"></div>
-					<div class="clock-pointer clock-pointer-hour"></div>
-				</div>
-			</i>
-			<h3 class="sideview__header-title text-15 text-bold">Project history</h3>
-		</div>
-
-		<div class="page-contents">
+<aside class="sideview-wrap show-view">
+	<div
+		class="sideview-container show-sideview"
+		use:clickOutside={{
+			handler: () => onHide?.()
+		}}
+	>
+		{#if currentFilePreview}
 			{@render filePreview()}
-			<div class="entries">
-				{@render historyEntries()}
+		{/if}
+
+		<div class="sideview">
+			<div class="sideview__header">
+				<i class="clock-icon">
+					<div class="clock-pointers">
+						<div class="clock-pointer clock-pointer-minute"></div>
+						<div class="clock-pointer clock-pointer-hour"></div>
+					</div>
+				</i>
+				<h3 class="sideview__header-title text-15 text-bold">Project history</h3>
+				<Button kind="ghost" icon="cross" onclick={onHide} />
 			</div>
+
+			{@render historyEntries()}
 		</div>
 	</div>
-{:else}
-	<aside class="sideview-container show-view">
-		<div
-			class="sideview-content-wrap show-sideview"
-			use:clickOutside={{
-				handler: () => onHide?.()
-			}}
-		>
-			{#if currentFilePreview}
-				{@render filePreview()}
-			{/if}
-
-			<div class="sideview">
-				<div class="sideview__header">
-					<i class="clock-icon">
-						<div class="clock-pointers">
-							<div class="clock-pointer clock-pointer-minute"></div>
-							<div class="clock-pointer clock-pointer-hour"></div>
-						</div>
-					</i>
-					<h3 class="sideview__header-title text-15 text-bold">Project history</h3>
-					<Button kind="ghost" icon="cross" onclick={onHide} />
-				</div>
-
-				{@render historyEntries()}
-			</div>
-		</div>
-	</aside>
-{/if}
+</aside>
 
 <!-- TODO: HANDLE LOADING STATE -->
 
 <style lang="postcss">
-	.history-page {
-		width: 100%;
-
-		.page-contents {
-			display: flex;
-
-			.entries {
-				flex-grow: 1;
-			}
-		}
-	}
-
-	.sideview-container {
+	.sideview-wrap {
 		z-index: var(--z-modal);
 		position: fixed;
 		top: 0;
@@ -283,7 +249,7 @@
 		background-color: var(--clr-overlay-bg);
 	}
 
-	.sideview-content-wrap {
+	.sideview-container {
 		transform: translateX(100%);
 		display: flex;
 	}
@@ -295,9 +261,9 @@
 		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
-		background-color: var(--clr-bg-1);
+		background-color: var(--clr-bg-2);
 		border-left: 1px solid var(--clr-border-2);
-		width: 448px;
+		width: 480px;
 	}
 
 	/* SIDEVIEW HEADER */
@@ -305,7 +271,7 @@
 		display: flex;
 		align-items: center;
 		gap: 12px;
-		padding: 10px 10px 10px 12px;
+		padding: 10px 10px 10px 14px;
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 
@@ -314,6 +280,7 @@
 		flex: 1;
 	}
 
+	/* HEADER ICON */
 	.clock-icon {
 		pointer-events: none;
 		position: relative;
@@ -372,15 +339,24 @@
 		}
 	}
 
+	/* WRAPPERS */
+	.snapshots-wrapper {
+		display: flex;
+		flex-direction: column;
+	}
+
 	/* DATE HEADER */
 	.sideview__date-header {
-		padding: 20px 14px 14px 114px;
+		z-index: var(--z-ground);
+		position: sticky;
+		top: -1px;
+		padding: 14px 14px 12px 86px;
 		border-top: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
-		margin-top: 12px;
+		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-2);
 
 		& h4 {
-			color: var(--clr-text-3);
+			color: var(--clr-text-2);
 		}
 
 		&:first-child {
@@ -417,6 +393,7 @@
 		color: var(--clr-text-3);
 	}
 
+	/* LOAD MORE */
 	.load-more {
 		display: flex;
 		justify-content: center;
@@ -434,7 +411,7 @@
 
 	.show-sideview {
 		animation: view-slide-in 0.35s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-		animation-delay: 0.05s;
+		animation-delay: 0.1s;
 	}
 
 	@keyframes view-fade-in {

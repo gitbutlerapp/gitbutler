@@ -296,7 +296,7 @@
 				display: none;
 			}
 
-			background-color: var(--clr-bg-2);
+			background-color: var(--clr-bg-1-muted);
 		}
 	}
 
@@ -454,7 +454,7 @@
 	.error-text {
 		display: flex;
 		padding: 6px 10px;
-		background-color: var(--clr-theme-err-bg);
+		background-color: var(--clr-theme-err-bg-muted);
 		border-radius: var(--radius-m);
 		width: 100%;
 		color: var(--clr-scale-err-40);
