@@ -1,7 +1,6 @@
 <!-- This is a V3 replacement for `FileListItemWrapper.svelte` -->
 <script lang="ts">
 	import FileContextMenu from '$components/v3/FileContextMenu.svelte';
-	import { BranchStack } from '$lib/branches/branch';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { getFilename } from '$lib/files/utils';
@@ -10,7 +9,7 @@
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
@@ -53,8 +52,6 @@
 		onCloseClick
 	}: Props = $props();
 
-	const stack = maybeGetContextStore(BranchStack);
-	const stackId = $derived($stack?.id);
 	const idSelection = getContext(IdSelection);
 	const changeSelection = getContext(ChangeSelectionService);
 	const diffService = getContext(DiffService);
@@ -121,7 +118,7 @@
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
-		data: new ChangeDropData(stackId || '', change, idSelection, selectionId),
+		data: new ChangeDropData(change, idSelection, selectionId),
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable',
 		disabled: showCheckbox
