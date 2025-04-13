@@ -66,9 +66,7 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 		this.result = result;
 	}
 	accepts(data: unknown): boolean {
-		return (
-			data instanceof ChangeDropData && data.stackId !== this.stackId && !this.commit.isConflicted
-		);
+		return data instanceof ChangeDropData && !this.commit.isConflicted;
 	}
 
 	async ondrop(data: ChangeDropData) {
@@ -140,8 +138,6 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 
 /**
  * Handler that is able to amend a commit using `AnyFile`.
- *
- * TODO: Refactor this to be V2 & V3 compatible.
  */
 export class AmendCommitDzHandler implements DropzoneHandler {
 	constructor(

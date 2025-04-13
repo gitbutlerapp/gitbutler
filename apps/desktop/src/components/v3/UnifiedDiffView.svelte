@@ -1,6 +1,8 @@
 <script lang="ts">
 	import HunkContextMenu from '$components/v3/HunkContextMenu.svelte';
 	import LineSelection from '$components/v3/unifiedDiffLineSelection.svelte';
+	import { draggableElement } from '$lib/dragging/draggable';
+	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { canBePartiallySelected, type DiffHunk } from '$lib/hunks/hunk';
 	import { Project } from '$lib/project/project';
 	import {
@@ -169,38 +171,44 @@
 	{#if diff.type === 'Patch'}
 		{#each diff.subject.hunks as hunk}
 			{@const [staged, stagedLines] = getStageState(hunk)}
-			<HunkDiff
-				hideCheckboxes={!isCommiting}
-				filePath={change.path}
-				hunkStr={hunk.diff}
-				{staged}
-				{stagedLines}
-				diffLigatures={$userSettings.diffLigatures}
-				tabSize={$userSettings.tabSize}
-				wrapText={$userSettings.wrapText}
-				diffFont={$userSettings.diffFont}
-				diffContrast={$userSettings.diffContrast}
-				inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
-				onLineClick={(p) => {
-					if (!canBePartiallySelected(diff.subject)) {
-						const select = selection === undefined;
-						updateStage(hunk, select, diff.subject.hunks);
-						return;
-					}
-					lineSelection.toggleStageLines(selection, hunk, p, diff.subject.hunks);
+			<div
+				use:draggableElement={{
+					data: new ChangeDropData(change, idSelection, selectionId)
 				}}
-				onChangeStage={(selected) => {
-					updateStage(hunk, selected, diff.subject.hunks);
-				}}
-				handleLineContextMenu={(params) => {
-					contextMenu?.open(params.event, {
-						hunk,
-						selectedLines: stagedLines,
-						beforeLineNumber: params.beforeLineNumber,
-						afterLineNumber: params.afterLineNumber
-					});
-				}}
-			/>
+			>
+				<HunkDiff
+					hideCheckboxes={!isCommiting}
+					filePath={change.path}
+					hunkStr={hunk.diff}
+					{staged}
+					{stagedLines}
+					diffLigatures={$userSettings.diffLigatures}
+					tabSize={$userSettings.tabSize}
+					wrapText={$userSettings.wrapText}
+					diffFont={$userSettings.diffFont}
+					diffContrast={$userSettings.diffContrast}
+					inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
+					onLineClick={(p) => {
+						if (!canBePartiallySelected(diff.subject)) {
+							const select = selection === undefined;
+							updateStage(hunk, select, diff.subject.hunks);
+							return;
+						}
+						lineSelection.toggleStageLines(selection, hunk, p, diff.subject.hunks);
+					}}
+					onChangeStage={(selected) => {
+						updateStage(hunk, selected, diff.subject.hunks);
+					}}
+					handleLineContextMenu={(params) => {
+						contextMenu?.open(params.event, {
+							hunk,
+							selectedLines: stagedLines,
+							beforeLineNumber: params.beforeLineNumber,
+							afterLineNumber: params.afterLineNumber
+						});
+					}}
+				/>
+			</div>
 			<HunkContextMenu
 				bind:this={contextMenu}
 				trigger={viewport}
