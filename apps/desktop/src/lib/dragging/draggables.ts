@@ -26,8 +26,7 @@ export class HunkDropData {
 
 export class ChangeDropData {
 	constructor(
-		readonly stackId: string,
-		readonly file: TreeChange,
+		readonly change: TreeChange,
 		/**
 		 * When a a file is dragged we compare it to what is already selected,
 		 * if dragged item is part of the selection we consider that to be to
@@ -40,19 +39,19 @@ export class ChangeDropData {
 	) {}
 
 	changedPaths(params: SelectionId): string[] {
-		if (this.selection.has(this.file.path, this.selectionId)) {
+		if (this.selection.has(this.change.path, this.selectionId)) {
 			return this.selection.keys(params);
 		} else {
-			return [key({ ...this.selectionId, path: this.file.path })];
+			return [key({ ...this.selectionId, path: this.change.path })];
 		}
 	}
 
 	get filePaths(): string[] {
-		if (this.selection.has(this.file.path, this.selectionId)) {
+		if (this.selection.has(this.change.path, this.selectionId)) {
 			const selectionKeys = this.selection.keys(this.selectionId);
 			return selectionKeys.map((key) => readKey(key).path);
 		} else {
-			return [this.file.path];
+			return [this.change.path];
 		}
 	}
 
