@@ -47,4 +47,10 @@ impl AppSettingsWithDiskSync {
         }
         settings.save()
     }
+
+    pub fn update_extra_csp(&self, update: Vec<String>) -> Result<()> {
+        let mut settings = self.get_mut_enforce_save()?;
+        settings.extra_csp.hosts = update;
+        settings.save()
+    }
 }
