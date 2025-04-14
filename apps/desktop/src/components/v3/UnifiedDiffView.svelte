@@ -233,7 +233,6 @@
 		display: flex;
 		padding: 0 14px 14px 14px;
 		flex-direction: column;
-		align-items: flex-start;
 		gap: 14px;
 		align-self: stretch;
 		overflow-x: hidden;
