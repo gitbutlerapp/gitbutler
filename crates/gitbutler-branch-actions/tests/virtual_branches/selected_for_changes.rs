@@ -285,6 +285,11 @@ fn applying_first_branch() {
 
     let unapplied_branch = gitbutler_branch_actions::unapply_stack(ctx, branches[0].id).unwrap();
     let unapplied_branch = Refname::from_str(&unapplied_branch).unwrap();
+
+    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
+    let branches = list_result.branches;
+    assert_eq!(branches.len(), 0);
+
     gitbutler_branch_actions::create_virtual_branch_from_branch(ctx, &unapplied_branch, None, None)
         .unwrap();
 

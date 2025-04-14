@@ -1,5 +1,3 @@
-use gitbutler_branch::BranchCreateRequest;
-
 use super::*;
 
 #[test]
