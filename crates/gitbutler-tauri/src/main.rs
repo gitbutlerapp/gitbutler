@@ -12,6 +12,7 @@
 )]
 
 use but_settings::AppSettingsWithDiskSync;
+use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
     askpass, commands, config, diff, env, forge, github, logs, menu, modes, open, projects,
@@ -26,7 +27,7 @@ use tauri_plugin_store::StoreExt;
 fn main() {
     let performance_logging = std::env::var_os("GITBUTLER_PERFORMANCE_LOG").is_some();
     gitbutler_project::configure_git2();
-    let tauri_context = generate_context!();
+    let mut tauri_context = generate_context!();
     gitbutler_secret::secret::set_application_namespace(&tauri_context.config().identifier);
 
     let config_dir = dirs::config_dir()
@@ -35,6 +36,13 @@ fn main() {
     std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
     let mut app_settings =
         AppSettingsWithDiskSync::new(config_dir.clone()).expect("failed to create app settings");
+
+    if let Ok(updated_csp) = csp_with_extras(
+        tauri_context.config().app.security.csp.as_ref().cloned(),
+        &app_settings,
+    ) {
+        tauri_context.config_mut().app.security.csp = updated_csp;
+    };
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
