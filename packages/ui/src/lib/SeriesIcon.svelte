@@ -4,15 +4,28 @@
 
 	interface Props {
 		single: boolean;
+		origin?: boolean;
 		outlined?: boolean;
 	}
 
-	const { single, outlined }: Props = $props();
+	const { single, origin, outlined }: Props = $props();
+
+	function getIcon() {
+		if (origin) {
+			return 'home-small';
+		}
+
+		if (single) {
+			return 'branch-small';
+		}
+
+		return 'chain-link';
+	}
 </script>
 
 <Tooltip text={single ? 'Single branch' : 'Multiple branches'}>
 	<div class="stack-icon" class:outlined>
-		<Icon name={single ? 'branch-small' : 'chain-link'} />
+		<Icon name={getIcon()} />
 	</div>
 </Tooltip>
 

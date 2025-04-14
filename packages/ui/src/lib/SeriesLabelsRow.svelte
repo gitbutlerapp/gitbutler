@@ -4,15 +4,15 @@
 
 	interface Props {
 		series: string[];
-		showRestAmount?: boolean;
 		selected?: boolean;
+		origin?: boolean;
 	}
 
-	const { series, selected, showRestAmount }: Props = $props();
+	const { series, selected, origin }: Props = $props();
 </script>
 
 <div class="series-labels-row">
-	<SeriesIcon single={series.length === 1} outlined={selected} />
+	<SeriesIcon {origin} single={series.length === 1} outlined={selected} />
 
 	<div class="series-name text-12 text-semibold contrast">
 		<span class="truncate">{series[0]}</span>
@@ -31,7 +31,7 @@
 		</svg>
 	{/if}
 
-	{#if showRestAmount && series.length > 1}
+	{#if series.length > 1}
 		<Tooltip text={'→ ' + series.slice(1).join(' → ')}>
 			<div class="series-name more-series text-12 text-semibold">
 				<span>{series.length - 1} more</span>
@@ -42,6 +42,7 @@
 
 <style lang="postcss">
 	.series-labels-row {
+		flex: 1;
 		display: flex;
 		align-items: center;
 		gap: 4px;

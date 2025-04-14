@@ -48,7 +48,7 @@
 						{uncommittedChanges === 1 ? 'change' : 'changes'}
 					</Badge>
 				{/if}
-				<SeriesLabelsRow series={nonArchivedSeries.map((s) => s.name)} showRestAmount />
+				<SeriesLabelsRow series={nonArchivedSeries.map((s) => s.name)} />
 			</div>
 
 			<div class="collapsed-lane__info__details">

@@ -78,7 +78,7 @@
 <div class="header__wrapper">
 	<div class="header card">
 		<div class="header__info">
-			<SeriesLabelsRow series={stackBranchNames} showRestAmount />
+			<SeriesLabelsRow series={stackBranchNames} />
 			<div class="header__remote-branch">
 				{#if remoteBranch}
 					<Tooltip text="At least some of your changes have been pushed">

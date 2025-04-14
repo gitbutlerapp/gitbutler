@@ -8,10 +8,9 @@
 
 	interface Props {
 		series: (PatchSeries | Error)[];
-		disableSelector?: boolean;
 	}
 
-	const { series, disableSelector }: Props = $props();
+	const { series }: Props = $props();
 
 	const shiftedSeries = $derived(series.slice(1));
 	const seriesTypes = $derived(
@@ -30,7 +29,7 @@
 </script>
 
 <div class="stack-series-row">
-	<SeriesLabelsRow series={series.map((s) => s.name)} showRestAmount={disableSelector} />
+	<SeriesLabelsRow series={series.map((s) => s.name)} />
 
 	<!-- SERIES SELECTOR -->
 	{#if series.length > 1}

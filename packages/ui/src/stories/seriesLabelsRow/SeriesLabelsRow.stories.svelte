@@ -18,7 +18,6 @@
 				'feature/add-password-reset',
 				'hotfix/correct-typo-in-readme'
 			],
-			showRestAmount: true,
 			selected: false
 		}
 	});

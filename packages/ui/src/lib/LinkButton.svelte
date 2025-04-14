@@ -5,23 +5,27 @@
 
 	interface Props {
 		icon?: keyof typeof iconsJson;
+		truncate?: boolean;
 		onclick: (event?: any) => void;
 		children: Snippet;
 	}
 
-	const { icon = 'open-link', onclick, children }: Props = $props();
+	const { icon = 'open-link', truncate, onclick, children }: Props = $props();
 </script>
 
 <button
 	type="button"
 	class="link-button"
+	class:link-button_truncate={truncate}
 	onclick={(e) => {
 		e.stopPropagation();
 		onclick(e);
 	}}
 >
-	{@render children()}
-	<div class="icon">
+	<span class:truncate>
+		{@render children()}
+	</span>
+	<div class="link-button__icon">
 		{#if icon}
 			<Icon name={icon} />
 		{/if}
@@ -40,11 +44,15 @@
 		&:hover {
 			text-decoration: none;
 		}
+	}
 
-		& .icon {
-			display: inline-flex;
-			align-items: center;
-			opacity: 0.8;
-		}
+	.link-button_truncate {
+		overflow: hidden;
+	}
+
+	.link-button__icon {
+		display: inline-flex;
+		align-items: center;
+		opacity: 0.8;
 	}
 </style>
