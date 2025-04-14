@@ -141,7 +141,8 @@ Create a description for a pull request.
 Use the provided context, like the COMMIT_MESSAGES, PR_TEMPLATE, current TITLE and BODY.
 The list of commit messages is separated by this token: <###>.
 BE CONCISE.
-ONLY return the description.`
+ONLY return the description.
+Use the PR_TEMPLATE to format the description, if given.`
 	},
 	{
 		role: MessageRole.User,
