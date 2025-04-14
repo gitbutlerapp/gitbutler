@@ -37,34 +37,3 @@ fn should_unapply_diff() {
         .collect::<Vec<_>>();
     assert!(!refnames.contains(&"refs/gitbutler/name".to_string()));
 }
-
-#[test]
-fn should_remove_reference() {
-    let Test { repo, ctx, .. } = &Test::default();
-
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
-
-    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest {
-            name: Some("name".to_string()),
-            ..Default::default()
-        },
-    )
-    .unwrap();
-
-    gitbutler_branch_actions::unapply_stack(ctx, stack_entry.id).unwrap();
-
-    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-    let branches = list_result.branches;
-
-    assert_eq!(branches.len(), 0);
-
-    let refnames = repo
-        .references()
-        .into_iter()
-        .filter_map(|reference| reference.name().map(|name| name.to_string()))
-        .collect::<Vec<_>>();
-    assert!(!refnames.contains(&"refs/gitbutler/name".to_string()));
-}
