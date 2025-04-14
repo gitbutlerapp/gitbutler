@@ -2985,6 +2985,7 @@ dependencies = [
  "but-settings",
  "but-workspace",
  "console-subscriber",
+ "dirs 6.0.0",
  "git2",
  "gitbutler-branch",
  "gitbutler-branch-actions",
