@@ -2,7 +2,6 @@
 	import HunkViewer from '$components/HunkViewer.svelte';
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
-	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/commits/contexts';
 	import { FileService } from '$lib/files/fileService';
 	import { getLockText } from '$lib/files/lock';
 	import { Project } from '$lib/project/project';
@@ -38,10 +37,6 @@
 	let alwaysShow = $state(false);
 	const project = getContext(Project);
 	const fileService = getContext(FileService);
-	const localCommits = isFileLocked ? getLocalCommits() : undefined;
-	const remoteCommits = isFileLocked ? getLocalAndRemoteCommits() : undefined;
-
-	const commits = isFileLocked ? ($localCommits || []).concat($remoteCommits || []) : undefined;
 
 	function getGutterMinWidth(max: number | undefined) {
 		if (!max) {
@@ -124,14 +119,14 @@
 		{#each sections as section}
 			{@const { added, removed } = computeAddedRemovedByHunk(section)}
 			{#if 'hunk' in section}
-				{@const isHunkLocked = section.hunk.lockedTo && section.hunk.lockedTo.length > 0 && commits}
+				{@const isHunkLocked = section.hunk.lockedTo && section.hunk.lockedTo.length > 0}
 				<div class="hunk-wrapper">
 					{#if isHunkLocked || section.hunk.poisoned}
 						<div class="indicators text-11 text-semibold">
 							{#if isHunkLocked}
 								<InfoMessage filled outlined={false} style="warning" icon="locked">
 									{#snippet content()}
-										{getLockText(section.hunk.lockedTo, commits)}
+										{getLockText(section.hunk.lockedTo, [])}
 									{/snippet}
 								</InfoMessage>
 							{/if}
