@@ -45,5 +45,11 @@
 			value={$instanceUrl}
 			oninput={(value) => ($instanceUrl = value)}
 		/>
+		<p class="text-13">
+			If you use a custom GitLab instance (not gitlab.com), you will need to add it as a custom CSP
+			entry so that GitButler trusts connecting to that host. Read more in the <Link
+				href="https://docs.gitbutler.com/troubleshooting/custom-csp">docs</Link
+			>
+		</p>
 	</SectionCard>
 {/if}
