@@ -18,5 +18,10 @@
 	"featureFlags": {
 		// Enables the v3 design, as well as the purgatory mode (no uncommitted diff ownership assignments).
 		"v3": false
+	},
+	// Allows for additional "connect-src" hosts to be included. Requires app restart.
+	"extraCsp": {
+		// Additional hosts that the application can connect to.
+		"hosts": []
 	}
 }
