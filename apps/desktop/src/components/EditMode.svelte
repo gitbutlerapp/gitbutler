@@ -192,7 +192,6 @@
 
 		try {
 			await modeService.abortEditAndReturnToWorkspace();
-			await modeService.awaitNotEditing();
 			modeServiceAborting = 'completed';
 		} finally {
 			modeServiceAborting = 'inert';
@@ -204,7 +203,6 @@
 
 		try {
 			await modeService.saveEditAndReturnToWorkspace();
-			await modeService.awaitNotEditing();
 			modeServiceSaving = 'completed';
 		} finally {
 			modeServiceAborting = 'inert';

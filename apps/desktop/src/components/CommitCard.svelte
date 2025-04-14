@@ -21,6 +21,7 @@
 	import { UserService } from '$lib/user/userService';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -179,7 +180,7 @@
 
 	async function editPatch() {
 		if (!canEdit()) return;
-		modeService!.enterEditMode(commit.id, stack!.id);
+		await modeService!.enterEditMode(commit.id, stack!.id);
 	}
 
 	async function handleEditPatch() {
@@ -213,7 +214,7 @@
 	{/snippet}
 </Modal>
 
-<Modal bind:this={conflictResolutionConfirmationModal} width="small" onSubmit={editPatch}>
+<Modal bind:this={conflictResolutionConfirmationModal} width="small">
 	{#snippet children()}
 		<div>
 			<p>It's generally better to start resolving conflicts from the bottom up.</p>
@@ -223,7 +224,13 @@
 	{/snippet}
 	{#snippet controls(close)}
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" type="submit">Yes</Button>
+		<AsyncButton
+			style="pop"
+			action={async () => {
+				await editPatch();
+				close();
+			}}>Yes</AsyncButton
+		>
 	{/snippet}
 </Modal>
 
@@ -245,7 +252,6 @@
 	commitUrl={showOpenInBrowser ? commitUrl : undefined}
 	onUncommitClick={undoCommit}
 	onEditMessageClick={openCommitMessageModal}
-	onPatchEditClick={handleEditPatch}
 />
 
 <div
@@ -427,13 +433,13 @@
 								>
 							{/if}
 							{#if canEdit()}
-								<Button size="tag" kind="outline" onclick={handleEditPatch}>
+								<AsyncButton size="tag" kind="outline" action={handleEditPatch} stopPropagation>
 									{#if conflicted}
 										Resolve conflicts
 									{:else}
 										Edit commit
 									{/if}
-								</Button>
+								</AsyncButton>
 							{/if}
 						</div>
 					{/if}

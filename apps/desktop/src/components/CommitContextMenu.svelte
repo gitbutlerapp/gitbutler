@@ -22,7 +22,6 @@
 		isRemote: boolean;
 		onUncommitClick: (event: MouseEvent) => void;
 		onEditMessageClick: (event: MouseEvent) => void;
-		onPatchEditClick: (event: MouseEvent) => void;
 		onClose?: () => void;
 		onToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
@@ -38,7 +37,6 @@
 		isRemote,
 		onUncommitClick,
 		onEditMessageClick,
-		onPatchEditClick,
 		onClose,
 		onToggle
 	}: Props = $props();
@@ -81,13 +79,6 @@
 				label="Edit commit message"
 				onclick={(e: MouseEvent) => {
 					onEditMessageClick(e);
-					menu?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Edit commit"
-				onclick={(e: MouseEvent) => {
-					onPatchEditClick(e);
 					menu?.close();
 				}}
 			/>
