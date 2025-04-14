@@ -29,6 +29,13 @@ fn main() {
     let tauri_context = generate_context!();
     gitbutler_secret::secret::set_application_namespace(&tauri_context.config().identifier);
 
+    let config_dir = dirs::config_dir()
+        .expect("missing config dir")
+        .join("gitbutler");
+    std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
+    let mut app_settings =
+        AppSettingsWithDiskSync::new(config_dir.clone()).expect("failed to create app settings");
+
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -87,13 +94,12 @@ fn main() {
                         });
                     }
 
-                    let (app_data_dir, app_cache_dir, app_log_dir, config_dir) = {
+                    let (app_data_dir, app_cache_dir, app_log_dir) = {
                         let paths = app_handle.path();
                         (
                             paths.app_data_dir().expect("missing app data dir"),
                             paths.app_cache_dir().expect("missing app cache dir"),
                             paths.app_log_dir().expect("missing app log dir"),
-                            paths.config_dir().expect("missing config dir"),
                         )
                     };
                     std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
@@ -106,7 +112,6 @@ fn main() {
 
                     app_handle.manage(WindowState::new(app_handle.clone()));
 
-                    let mut app_settings = AppSettingsWithDiskSync::new(config_dir.clone())?;
                     app_settings.watch_in_background({
                         let app_handle = app_handle.clone();
                         move |app_settings| {
