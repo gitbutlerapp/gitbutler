@@ -707,6 +707,58 @@ fn local_and_remote_commits(
     Ok(local_and_remote)
 }
 
+/// Return a list of commits on the target branch
+/// Starts either from the target branch or from the provided commit id, up to the limit provided.
+///
+/// Returns the commits in reverse order, i.e. from the most recent to the oldest.
+/// The `Commit` type is the same as that of the other workspace endpoints - for that reason
+/// the fields `has_conflicts` and `state` are somewhat meaningless.
+pub fn log_target_first_parent(
+    ctx: &CommandContext,
+    last_commit_id: Option<gix::ObjectId>,
+    limit: usize,
+) -> Result<Vec<Commit>> {
+    let repo = ctx.gix_repo()?;
+    let traversal_root_id = match last_commit_id {
+        Some(id) => {
+            let commit = repo.find_commit(id)?;
+            commit.parent_ids().next()
+        }
+        None => {
+            let state = state_handle(&ctx.project().gb_dir());
+            let default_target = state.get_default_target()?;
+            Some(
+                repo.find_reference(&default_target.branch.to_string())?
+                    .peel_to_commit()?
+                    .id(),
+            )
+        }
+    };
+    let traversal_root_id = match traversal_root_id {
+        Some(id) => id,
+        None => return Ok(vec![]),
+    };
+
+    let mut commits: Vec<Commit> = vec![];
+    for commit_info in traversal_root_id.ancestors().first_parent_only().all()? {
+        if commits.len() == limit {
+            break;
+        }
+        let commit = commit_info?.id().object()?.into_commit();
+
+        commits.push(Commit {
+            id: commit.id,
+            parent_ids: commit.parent_ids().map(|id| id.detach()).collect(),
+            message: commit.message_raw_sloppy().into(),
+            has_conflicts: false,
+            state: CommitState::LocalAndRemote(commit.id),
+            created_at: u128::try_from(commit.time()?.seconds)? * 1000,
+            author: commit.author()?.into(),
+        });
+    }
+    Ok(commits)
+}
+
 fn state_handle(gb_state_path: &Path) -> VirtualBranchesHandle {
     VirtualBranchesHandle::new(gb_state_path)
 }
