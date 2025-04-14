@@ -10,7 +10,7 @@
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
@@ -78,17 +78,19 @@
 		</p>
 
 		<div class="switchrepo__actions">
-			<Button
+			<AsyncButton
 				style="pop"
 				icon="undo-small"
 				reversedDirection
 				loading={targetBranchSwitch.current.isLoading}
-				onclick={() => {
-					if (baseBranch) switchTarget(baseBranch.branchName);
+				action={async () => {
+					if (baseBranch) {
+						await switchTarget(baseBranch.branchName);
+					}
 				}}
 			>
 				Go back to gitbutler/workspace
-			</Button>
+			</AsyncButton>
 
 			{#if project}
 				<RemoveProjectButton
