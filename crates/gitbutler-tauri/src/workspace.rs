@@ -225,3 +225,22 @@ pub fn canned_branch_name(
     gitbutler_stack::Stack::next_available_name(&ctx.gix_repo()?, &state, template, false)
         .map_err(Into::into)
 }
+
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn target_commits(
+    projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+    last_commit_id: Option<HexHash>,
+    page_size: Option<usize>,
+) -> Result<Vec<but_workspace::Commit>, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    but_workspace::log_target_first_parent(
+        &ctx,
+        last_commit_id.map(|id| id.into()),
+        page_size.unwrap_or(30),
+    )
+    .map_err(Into::into)
+}
