@@ -5,13 +5,14 @@
 	interface Props {
 		series: string[];
 		selected?: boolean;
+		origin?: boolean;
 	}
 
-	const { series, selected }: Props = $props();
+	const { series, selected, origin }: Props = $props();
 </script>
 
 <div class="series-labels-row">
-	<SeriesIcon single={series.length === 1} outlined={selected} />
+	<SeriesIcon {origin} single={series.length === 1} outlined={selected} />
 
 	<div class="series-name text-12 text-semibold contrast">
 		<span class="truncate">{series[0]}</span>
