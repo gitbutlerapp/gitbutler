@@ -15,13 +15,22 @@ git2.workspace = true
 but-core.workspace = true
 but-rebase.workspace = true
 gitbutler-id.workspace = true
-gix = { workspace = true, features = ["worktree-mutation"] }
+gix = { workspace = true, features = [
+    "dirwalk",
+    "credentials",
+    "parallel",
+    "serde",
+    "status",
+    "revision",
+] }
 gitbutler-stack.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-oxidize.workspace = true
 gitbutler-project.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-repo.workspace = true
+gitbutler-operating-modes.workspace = true
+gitbutler-diff.workspace = true
 serde = { workspace = true, features = ["std"] }
 gitbutler-serde.workspace = true
 itertools = "0.14"

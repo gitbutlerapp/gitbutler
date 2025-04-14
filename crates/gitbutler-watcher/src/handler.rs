@@ -2,7 +2,12 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result};
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
-use gitbutler_branch_actions::{internal::StackListResult, VirtualBranches};
+use gitbutler_branch_actions::{
+    internal::StackListResult,
+    verify_branch,
+    workspace_commit::{workspace_commit_status, WorkspaceCommitStatus},
+    VirtualBranches,
+};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
 use gitbutler_error::error::Marker;
@@ -196,6 +201,32 @@ impl Handler {
         Ok(())
     }
 
+    fn handle_commited_workspace(&self, ctx: &CommandContext) -> Result<()> {
+        // Don't worry about non-workspace settings (yet)
+        if !in_open_workspace_mode(ctx) {
+            return Ok(());
+        }
+
+        let workspace_state = {
+            let guard = ctx.project().exclusive_worktree_access();
+            let permission = guard.read_permission();
+            workspace_commit_status(ctx, permission)?
+        };
+        if matches!(
+            workspace_state,
+            WorkspaceCommitStatus::WorkspaceCommitBehind { .. }
+        ) {
+            {
+                let mut guard = ctx.project().exclusive_worktree_access();
+                let permission = guard.write_permission();
+                verify_branch(ctx, permission)?;
+            }
+            self.calculate_virtual_branches(ctx, None)?;
+        }
+
+        Ok(())
+    }
+
     pub fn git_files_change(&self, paths: Vec<PathBuf>, ctx: &CommandContext) -> Result<()> {
         for path in paths {
             let Some(file_name) = path.to_str() else {
@@ -206,6 +237,7 @@ impl Handler {
                     self.emit_app_event(Change::GitFetch(ctx.project().id))?;
                 }
                 "logs/HEAD" => {
+                    self.handle_commited_workspace(ctx)?;
                     self.emit_app_event(Change::GitActivity(ctx.project().id))?;
                 }
                 "index" => {
