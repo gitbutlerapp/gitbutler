@@ -79,3 +79,13 @@ pub fn update_feature_flags(
 ) -> Result<(), Error> {
     handle.update_feature_flags(update).map_err(|e| e.into())
 }
+
+/// Sets additional `connect-src` hosts to the CSP. This requires a restart of the app to take effect.
+#[tauri::command(async)]
+#[instrument(skip(handle), err(Debug))]
+pub fn update_extra_csp(
+    handle: State<'_, AppSettingsWithDiskSync>,
+    update: Vec<String>,
+) -> Result<(), Error> {
+    handle.update_extra_csp(update).map_err(|e| e.into())
+}
