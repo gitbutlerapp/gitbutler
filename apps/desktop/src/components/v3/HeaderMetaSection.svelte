@@ -1,9 +1,9 @@
 <script lang="ts">
 	import BranchLaneContextMenu from '$components/BranchLaneContextMenu.svelte';
-	import SeriesRowLabels from '$components/SeriesLabels.svelte';
 	import { PatchSeries } from '$lib/branches/branch';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
 
 	interface Props {
 		projectId: string;
@@ -21,7 +21,7 @@
 
 <div class="stack-meta">
 	<div class="stack-meta-top">
-		<SeriesRowLabels {series} />
+		<SeriesLabelsRow series={series.map((s) => s.name)} />
 
 		<Button
 			bind:el={kebabButtonEl}
