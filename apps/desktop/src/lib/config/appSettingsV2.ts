@@ -64,13 +64,6 @@ export type AppSettings = {
 	telemetry: TelemetrySettings;
 	/** Feature flags that both the UI and the backend can see */
 	featureFlags: FeatureFlags;
-	/** Allows for additional "connect-src" hosts to be included. Requires app restart. */
-	extraCsp: ExtraCsp;
-};
-
-export type ExtraCsp = {
-	/** Additional hosts that the application can connect to. */
-	hosts: string[];
 };
 
 export type TelemetrySettings = {
