@@ -122,6 +122,8 @@ export class ReactivePRBody {
 				? this.getDefaultBody()
 				: persistedBody;
 		this._value = value;
+
+		this._descriptionInput?.setText(value);
 	}
 
 	getDefaultBody(): string {
