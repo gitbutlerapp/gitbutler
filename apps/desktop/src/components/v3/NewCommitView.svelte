@@ -56,8 +56,6 @@
 	);
 	const projectState = $derived(uiState.project(projectId));
 
-	$inspect(draftBranchName);
-
 	let input = $state<ReturnType<typeof CommitMessageInput>>();
 	let drawer = $state<ReturnType<typeof Drawer>>();
 

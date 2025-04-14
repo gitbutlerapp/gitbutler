@@ -120,7 +120,7 @@ pub mod stacks {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
         let repo = ctx.gix_repo()?;
-        let stacks = but_workspace::stacks(&project.gb_dir(), &repo)?;
+        let stacks = but_workspace::stacks(&project.gb_dir(), &repo, Default::default())?;
         if use_json {
             let json = serde_json::to_string_pretty(&stacks)?;
             println!("{json}");

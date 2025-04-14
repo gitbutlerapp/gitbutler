@@ -206,8 +206,9 @@ impl BranchManager<'_> {
             },
         );
 
-        let mut branch = if let Ok(Some(mut branch)) =
-            vb_state.find_by_source_refname_where_not_in_workspace(target)
+        let mut branch = if let Some(mut branch) = vb_state
+            .find_by_source_refname_where_not_in_workspace(target)?
+            .or(vb_state.find_by_top_reference_name_where_not_in_workspace(&target.to_string())?)
         {
             branch.upstream_head = upstream_branch.is_some().then_some(head_commit.id());
             branch.upstream = upstream_branch; // Used as remote when listing commits.
@@ -217,8 +218,9 @@ impl BranchManager<'_> {
             branch.allow_rebasing = self.ctx.project().ok_with_force_push.into();
             branch.in_workspace = true;
 
-            // allow duplicate branch name if created from an existing branch
+            // This seems to ensure that there is at least one head.
             branch.initialize(self.ctx, true)?;
+            vb_state.set_stack(branch.clone())?;
             branch
         } else {
             let upstream_head = upstream_branch.is_some().then_some(head_commit.id());
@@ -319,7 +321,7 @@ impl BranchManager<'_> {
                     .iter()
                     .filter(|branch| branch.id != stack_id)
                 {
-                    self.save_and_unapply(stack.id, perm)?;
+                    self.unapply(stack.id, perm, false)?;
                 }
             }
         }

@@ -290,7 +290,8 @@ fn branch_group_to_branch(
         }
     }
 
-    let has_local = !local_branches.is_empty();
+    // Virtual branches always have local branches
+    let has_local = !local_branches.is_empty() || virtual_branch.is_some();
 
     // The head commit for which we calculate statistics.
     // If there is a virtual branch let's get it's head. Alternatively, pick the first local branch and use it's head.

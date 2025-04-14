@@ -49,6 +49,8 @@
 	function onMouseDown() {
 		if (branchListing.stack?.inWorkspace) {
 			goto(`/${project.id}/board`);
+		} else if (branchListing.stack) {
+			goto(`/${project.id}/preview-stack/${branchListing.stack.id}`);
 		} else {
 			goto(formatBranchURL(project, branchListing.name));
 		}

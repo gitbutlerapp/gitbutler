@@ -5,11 +5,9 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
@@ -30,12 +28,9 @@
 	const prService = $derived(forge.current.prService);
 	const user = getContextStore(User);
 
-	let deleteBranchModal: Modal;
 	let allowRebasing = $state<boolean>();
-	let isDeleting = $state(false);
 
 	const stack = $derived($branchStore);
-	const commits = $derived(stack.validSeries.flatMap((s) => s.patches));
 
 	$effect(() => {
 		allowRebasing = stack.allowRebasing;
@@ -72,21 +67,6 @@
 					projectId: projectId,
 					stackId: stack.id
 				});
-				contextMenuEl?.close();
-			}}
-		/>
-
-		<ContextMenuItem
-			label="Unapply and drop changes"
-			onclick={async () => {
-				if (commits.length === 0 && stack.files?.length === 0) {
-					await stackService.unapplyWithoutSaving({
-						projectId: projectId,
-						stackId: stack.id
-					});
-				} else {
-					deleteBranchModal.show(stack);
-				}
 				contextMenuEl?.close();
 			}}
 		/>
@@ -142,31 +122,3 @@
 		</ContextMenuSection>
 	{/if}
 </ContextMenu>
-
-<Modal
-	width="small"
-	bind:this={deleteBranchModal}
-	onSubmit={async (close) => {
-		try {
-			isDeleting = true;
-			await stackService.unapplyWithoutSaving({
-				projectId,
-				stackId: stack.id
-			});
-			close();
-		} finally {
-			isDeleting = false;
-		}
-	}}
->
-	{#snippet children(branch)}
-		<span>
-			All changes will be lost for <strong>{branch.name}</strong>. <br /><br /> Are you sure you want
-			to continue?
-		</span>
-	{/snippet}
-	{#snippet controls(close)}
-		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit" loading={isDeleting}>Unapply and drop changes</Button>
-	{/snippet}
-</Modal>

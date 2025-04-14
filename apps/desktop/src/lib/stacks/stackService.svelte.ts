@@ -134,6 +134,33 @@ export class StackService {
 		);
 	}
 
+	allStacks(projectId: string) {
+		return this.api.endpoints.allStacks.useQuery(
+			{ projectId },
+			{
+				transform: (stacks) => stackSelectors.selectAll(stacks)
+			}
+		);
+	}
+
+	allStackAt(projectId: string, index: number) {
+		return this.api.endpoints.allStacks.useQuery(
+			{ projectId },
+			{
+				transform: (stacks) => stackSelectors.selectNth(stacks, index)
+			}
+		);
+	}
+
+	allStackById(projectId: string, id: string) {
+		return this.api.endpoints.allStacks.useQuery(
+			{ projectId },
+			{
+				transform: (stacks) => stackSelectors.selectById(stacks, id)
+			}
+		);
+	}
+
 	defaultBranch(projectId: string, stackId: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
@@ -418,10 +445,6 @@ export class StackService {
 		return this.api.endpoints.unapply.mutate;
 	}
 
-	get unapplyWithoutSaving() {
-		return this.api.endpoints.unapplyWithoutSaving.mutate;
-	}
-
 	get publishBranch() {
 		return this.api.endpoints.publishBranch.useMutation();
 	}
@@ -564,6 +587,13 @@ function injectEndpoints(api: ClientState['backendApi']) {
 		endpoints: (build) => ({
 			stacks: build.query<EntityState<Stack, string>, { projectId: string }>({
 				query: ({ projectId }) => ({ command: 'stacks', params: { projectId } }),
+				providesTags: [providesList(ReduxTag.Stacks)],
+				transformResponse(response: Stack[]) {
+					return stackAdapter.addMany(stackAdapter.getInitialState(), response);
+				}
+			}),
+			allStacks: build.query<EntityState<Stack, string>, { projectId: string }>({
+				query: ({ projectId }) => ({ command: 'stacks', params: { projectId, filter: 'All' } }),
 				providesTags: [providesList(ReduxTag.Stacks)],
 				transformResponse(response: Stack[]) {
 					return stackAdapter.addMany(stackAdapter.getInitialState(), response);
@@ -813,19 +843,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			unapply: build.mutation<void, { projectId: string; stackId: string }>({
 				query: ({ projectId, stackId }) => ({
-					command: 'save_and_unapply_virtual_branch',
-					params: { projectId, stackId },
-					actionName: 'Unapply Stack'
-				}),
-				invalidatesTags: () => [
-					invalidatesList(ReduxTag.WorktreeChanges),
-					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.BranchListing)
-				]
-			}),
-			unapplyWithoutSaving: build.mutation<void, { projectId: string; stackId: string }>({
-				query: ({ projectId, stackId }) => ({
-					command: 'unapply_without_saving_virtual_branch',
+					command: 'unapply_stack',
 					params: { projectId, stackId },
 					actionName: 'Unapply Stack'
 				}),

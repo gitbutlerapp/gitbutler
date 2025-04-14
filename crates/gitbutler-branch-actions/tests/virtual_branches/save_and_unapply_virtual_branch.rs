@@ -14,7 +14,7 @@ fn unapply_with_data() {
 
     assert_eq!(branches.len(), 1);
 
-    gitbutler_branch_actions::save_and_unapply_virutal_branch(ctx, branches[0].id).unwrap();
+    gitbutler_branch_actions::unapply_stack(ctx, branches[0].id).unwrap();
 
     assert!(!repo.path().join("file.txt").exists());
 
@@ -36,7 +36,7 @@ fn delete_if_empty() {
     let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
-    gitbutler_branch_actions::save_and_unapply_virutal_branch(ctx, branches[0].id).unwrap();
+    gitbutler_branch_actions::unapply_stack(ctx, branches[0].id).unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;

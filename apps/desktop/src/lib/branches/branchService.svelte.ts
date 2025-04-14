@@ -1,4 +1,4 @@
-import { ReduxTag } from '$lib/state/tags';
+import { providesList, ReduxTag } from '$lib/state/tags';
 import type { BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
 
@@ -33,7 +33,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'list_branches',
 					params: { projectId }
 				}),
-				providesTags: [ReduxTag.BranchListing]
+				providesTags: [providesList(ReduxTag.BranchListing)]
 			}),
 			branchDetails: build.query<BranchListingDetails, { projectId: string; branchName: string }>({
 				query: ({ projectId, branchName }) => ({
@@ -41,7 +41,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					params: { projectId, branchNames: [branchName] }
 				}),
 				transformResponse: (response: BranchListingDetails[]) => response.at(0)!,
-				providesTags: [ReduxTag.BranchListing]
+				providesTags: [providesList(ReduxTag.BranchListing)]
 			})
 		})
 	});

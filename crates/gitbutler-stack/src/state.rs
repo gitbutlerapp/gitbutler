@@ -149,6 +149,28 @@ impl VirtualBranchesHandle {
         }))
     }
 
+    pub fn find_by_top_reference_name_where_not_in_workspace(
+        &self,
+        refname: &str,
+    ) -> Result<Option<Stack>> {
+        let stacks = self.list_all_stacks()?;
+        Ok(dbg!(stacks.into_iter().find(|stack| {
+            if stack.in_workspace {
+                return false;
+            }
+
+            if let Some(head_branch) = stack.heads.last() {
+                if let Ok(full_name) = head_branch.full_name() {
+                    return full_name.to_string() == refname;
+                } else {
+                    return false;
+                }
+            }
+
+            false
+        })))
+    }
+
     /// Gets the state of the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
