@@ -84,3 +84,9 @@ debug = true      # Enable debug symbols, for profiling
 codegen-units = 256
 lto = false
 opt-level = 3
+
+[profile.dev]
+incremental = true
+
+[profile.test]
+incremental = true
