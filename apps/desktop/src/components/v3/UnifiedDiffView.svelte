@@ -34,6 +34,7 @@
 	const projectState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectState.drawerPage.current);
 	const isCommiting = $derived(drawerPage === 'new-commit');
+	const draggingDisabled = $derived(selectionId.type !== 'worktree');
 
 	const [changeSelection, idSelection, lineSelection] = inject(
 		ChangeSelectionService,
@@ -172,11 +173,14 @@
 		{#each diff.subject.hunks as hunk}
 			{@const [staged, stagedLines] = getStageState(hunk)}
 			<div
+				class="hunk-content"
 				use:draggableElement={{
-					data: new ChangeDropData(change, idSelection, selectionId)
+					data: new ChangeDropData(change, idSelection, selectionId),
+					disabled: draggingDisabled
 				}}
 			>
 				<HunkDiff
+					{draggingDisabled}
 					hideCheckboxes={!isCommiting}
 					filePath={change.path}
 					hunkStr={hunk.diff}
@@ -237,6 +241,10 @@
 		align-self: stretch;
 		overflow-x: hidden;
 		max-width: 100%;
+	}
+
+	.hunk-content {
+		user-select: text;
 	}
 	.hunk-content-warning {
 		margin-left: 8px;

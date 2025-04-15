@@ -274,6 +274,10 @@
 	}
 
 	.table__row-header {
+		white-space: pre;
+		user-select: text;
+		-webkit-user-select: text;
+		cursor: text;
 		position: relative;
 	}
 
