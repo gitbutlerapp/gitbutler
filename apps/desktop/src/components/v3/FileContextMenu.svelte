@@ -14,6 +14,7 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import { join } from '@tauri-apps/api/path';
@@ -46,6 +47,7 @@
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
 	let confirmationModal: ReturnType<typeof Modal> | undefined;
+	let stashConfirmationModal: ReturnType<typeof Modal> | undefined;
 	let contextMenu: ReturnType<typeof ContextMenu>;
 	const projectId = $derived(project.id);
 
@@ -73,6 +75,29 @@
 		confirmationModal?.close();
 	}
 
+	let stashBranchName = $state<string>();
+	async function confirmStashIntoBranch(item: FileItem, branchName: string | undefined) {
+		if (!branchName) {
+			return;
+		}
+		const worktreeChanges: DiffSpec[] = item.changes.map((change) => ({
+			previousPathBytes:
+				change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null,
+			pathBytes: change.pathBytes,
+			hunkHeaders: []
+		}));
+
+		await stackService.stashIntoBranch({
+			projectId,
+			branchName,
+			worktreeChanges
+		});
+
+		unSelectChanges(item.changes);
+
+		stashConfirmationModal?.close();
+	}
+
 	export function open(e: MouseEvent, item: FileItem) {
 		contextMenu.open(e, item);
 	}
@@ -90,6 +115,18 @@
 							label="Discard changes"
 							onclick={() => {
 								confirmationModal?.show(item);
+								contextMenu.close();
+							}}
+						/>
+					{/if}
+					{#if isUncommitted}
+						<ContextMenuItem
+							label="Stash into branch"
+							onclick={() => {
+								stackService.newBranchName(project.id).then((name) => {
+									stashBranchName = name.data || '';
+								});
+								stashConfirmationModal?.show(item);
 								contextMenu.close();
 							}}
 						/>
@@ -193,6 +230,48 @@
 	{/snippet}
 </Modal>
 
+<Modal
+	width={500}
+	type="info"
+	bind:this={stashConfirmationModal}
+	onSubmit={(_, item) => isFileItem(item) && confirmStashIntoBranch(item, stashBranchName)}
+>
+	<div class="content-wrap">
+		<Textbox
+			label="New branch to stash into"
+			id="stashBranchName"
+			bind:value={stashBranchName}
+			autofocus
+		/>
+
+		<span>
+			The selected changes will be stashed into branch <span class="text-bold"
+				>{stashBranchName}</span
+			> and removed from the workspace.
+		</span>
+		<span>
+			You can re-apply them by re-applying the branch and "uncommitting" the stash commit.
+		</span>
+
+		<span class="text-12 text-body radio-aditional-info"
+			>└ This operation is a "macro" for creating a branch, committing changes and then unapplying
+			it. In the future, discovery and unstashing will be streamlined.</span
+		>
+	</div>
+
+	{#snippet controls(close, item)}
+		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
+		<AsyncButton
+			style="pop"
+			disabled={!stashBranchName}
+			type="submit"
+			action={async () => await confirmStashIntoBranch(item, stashBranchName)}
+		>
+			Confirm
+		</AsyncButton>
+	{/snippet}
+</Modal>
+
 <style lang="postcss">
 	.discard-caption {
 		color: var(--clr-text-2);
@@ -203,5 +282,14 @@
 		overflow: hidden;
 		background-color: var(--clr-bg-2);
 		margin-top: 12px;
+	}
+	.radio-aditional-info {
+		color: var(--clr-text-2);
+	}
+	/* MODAL WINDOW */
+	.content-wrap {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
 	}
 </style>

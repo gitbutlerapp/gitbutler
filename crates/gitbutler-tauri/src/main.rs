@@ -285,6 +285,7 @@ fn main() {
                     workspace::create_commit_from_worktree_changes,
                     workspace::amend_commit_from_worktree_changes,
                     workspace::discard_worktree_changes,
+                    workspace::stash_into_branch,
                     workspace::canned_branch_name,
                     workspace::target_commits,
                     diff::changes_in_worktree,

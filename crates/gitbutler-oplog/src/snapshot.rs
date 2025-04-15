@@ -38,6 +38,12 @@ pub trait SnapshotExt {
         perm: &mut WorktreeWritePermission,
     ) -> anyhow::Result<()>;
 
+    fn snapshot_stash_into_branch(
+        &self,
+        branch_name: String,
+        perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<()>;
+
     fn snapshot_branch_creation(
         &self,
         branch_name: String,
@@ -127,6 +133,21 @@ impl SnapshotExt for CommandContext {
         self.commit_snapshot(snapshot_tree, details, perm)?;
         Ok(())
     }
+
+    fn snapshot_stash_into_branch(
+        &self,
+        branch_name: String,
+        perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<()> {
+        let details =
+            SnapshotDetails::new(OperationKind::StashIntoBranch).with_trailers(vec![Trailer {
+                key: "name".to_string(),
+                value: branch_name,
+            }]);
+        self.create_snapshot(details, perm)?;
+        Ok(())
+    }
+
     fn snapshot_branch_creation(
         &self,
         branch_name: String,

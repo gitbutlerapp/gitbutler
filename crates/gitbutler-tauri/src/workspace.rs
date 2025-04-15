@@ -7,8 +7,10 @@ use but_hunk_dependency::ui::{
 use but_settings::AppSettingsWithDiskSync;
 use but_workspace::commit_engine::StackSegmentId;
 use but_workspace::{commit_engine, StackEntry};
+use gitbutler_branch_actions::BranchManagerExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::{OplogExt, SnapshotExt};
+use gitbutler_oxidize::OidExt;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
@@ -207,6 +209,70 @@ pub fn discard_worktree_changes(
         .into_iter()
         .map(|change| commit_engine::DiffSpec::from(change).into())
         .collect())
+}
+
+/// This API allows the user to quickly "stash" a bunch of uncommitted changes - getting them out of the worktree.
+/// Unlike the regular stash, the user specifies a new branch where those changes will be 'saved'/committed.
+/// Immediatelly after the changes are committed, the branch is unapplied from the workspace, and the "stash" branch can be re-applied at a later time
+/// In theory it should be possible to specify an existing "dumping" branch for this, but currently this endpoint expects a new branch.
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn stash_into_branch(
+    projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+    branch_name: String,
+    worktree_changes: Vec<commit_engine::ui::DiffSpec>,
+) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let repo = ctx.gix_repo_for_merging()?;
+
+    let mut guard = project.exclusive_worktree_access();
+    let perm = guard.write_permission();
+
+    let _ = ctx.snapshot_stash_into_branch(branch_name.clone(), perm);
+
+    let branch_manager = ctx.branch_manager();
+    let stack = branch_manager.create_virtual_branch(
+        &gitbutler_branch::BranchCreateRequest {
+            name: Some(branch_name),
+            ..Default::default()
+        },
+        perm,
+    )?;
+
+    let parent_commit_id = stack.head(&repo)?.to_gix();
+    let branch_name = stack.derived_name()?;
+
+    let outcome = commit_engine::create_commit_and_update_refs_with_project(
+        &repo,
+        &project,
+        Some(stack.id),
+        commit_engine::Destination::NewCommit {
+            parent_commit_id: Some(parent_commit_id),
+            message: "Mo-Stashed changes".into(),
+            stack_segment: Some(StackSegmentId {
+                stack_id: stack.id,
+                segment_ref: format!("refs/heads/{branch_name}")
+                    .try_into()
+                    .map_err(anyhow::Error::from)?,
+            }),
+        },
+        None,
+        worktree_changes.into_iter().map(Into::into).collect(),
+        settings.get()?.context_lines,
+        perm,
+    );
+
+    let vb_state = VirtualBranchesHandle::new(project.gb_dir());
+    gitbutler_branch_actions::update_workspace_commit(&vb_state, &ctx)
+        .context("failed to update gitbutler workspace")?;
+
+    branch_manager.unapply(stack.id, perm, false)?;
+
+    let outcome = outcome?;
+    Ok(outcome.into())
 }
 
 /// Returns a new available branch name based on a simple template - user_initials-branch-count
