@@ -17,9 +17,13 @@ export function updateEditorToMarkdown(editor: LexicalEditor | undefined) {
 	});
 }
 
+export function getMarkdownString() {
+	return convertToMarkdownString(ALL_TRANSFORMERS);
+}
+
 export function updateEditorToPlaintext(editor: LexicalEditor | undefined) {
 	editor?.update(() => {
-		const text = convertToMarkdownString(ALL_TRANSFORMERS);
+		const text = getMarkdownString();
 		const root = getRoot();
 		root.clear();
 		const paragraph = createParagraphNode();
