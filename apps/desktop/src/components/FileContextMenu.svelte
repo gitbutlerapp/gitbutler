@@ -35,7 +35,7 @@
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const stackService = getContext(StackService);
 
-	let confirmationModal: ReturnType<typeof Modal> | undefined;
+	let confirmationModal: ReturnType<typeof Modal<{ files: LocalFile[] }>> | undefined;
 	let contextMenu: ReturnType<typeof ContextMenu>;
 
 	function isDeleted(item: any): boolean {

@@ -10,7 +10,6 @@
 
 	const { Story } = defineMeta({
 		title: 'Overlays / Modal',
-		component: Modal,
 		args: {},
 		argTypes: {}
 	});

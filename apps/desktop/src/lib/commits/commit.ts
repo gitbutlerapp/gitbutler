@@ -64,7 +64,7 @@ export class DetailedCommit {
 	 */
 	dependentDiffs!: string[];
 
-	get status(): CommitStatus {
+	get status(): CommitStatusType {
 		if (this.isIntegrated) return 'Integrated';
 		if (this.isLocalAndRemote) return 'LocalAndRemote';
 		if (this.isRemote) return 'Remote';
@@ -111,7 +111,7 @@ export class Commit {
 		return splitMessage(this.description).description || undefined;
 	}
 
-	get status(): CommitStatus {
+	get status(): CommitStatusType {
 		return 'Remote';
 	}
 
@@ -132,4 +132,13 @@ export interface Author {
 	gravatarUrl?: string;
 	isBot?: boolean;
 }
-export type CommitStatus = 'LocalOnly' | 'LocalAndRemote' | 'Integrated' | 'Remote';
+
+export enum CommitStatus {
+	LocalOnly = 'LocalOnly',
+	LocalAndRemote = 'LocalAndRemote',
+	Integrated = 'Integrated',
+	Remote = 'Remote',
+	Base = 'Base'
+}
+
+export type CommitStatusType = keyof typeof CommitStatus;

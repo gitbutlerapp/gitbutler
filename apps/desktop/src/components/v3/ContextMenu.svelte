@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/utils/clickOutside';
-	import { focusTrap } from '$lib/utils/focusTrap';
-	import { portal } from '$lib/utils/portal';
+	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
+	import { focusTrap } from '@gitbutler/ui/utils/focusTrap';
+	import { portal } from '@gitbutler/ui/utils/portal';
 	import { type Snippet } from 'svelte';
 
 	interface BaseProps {
@@ -156,7 +156,7 @@
 		// Keep contextMenu in viewport
 		const observer = new IntersectionObserver(
 			(entries) => {
-				const entry = entries[0];
+				const entry = entries[0]!;
 				if (!entry.isIntersecting) {
 					const rect = entry.boundingClientRect;
 					const viewport = entry.rootBounds;

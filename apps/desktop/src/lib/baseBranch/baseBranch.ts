@@ -35,6 +35,6 @@ export class BaseBranch {
 	}
 
 	get shortName() {
-		return this.branchName.split('/').slice(-1)[0];
+		return this.branchName.split('/').slice(-1)[0]!;
 	}
 }

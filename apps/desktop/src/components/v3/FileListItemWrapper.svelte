@@ -65,7 +65,7 @@
 	const diffResult = $derived(diffService.getDiff(projectId, change));
 
 	const isBinary = $derived(diffResult.current.data?.type === 'Binary');
-	const isUncommitted = $derived(selectionId.type === 'worktree');
+	const isUncommitted = $derived(selectionId?.type === 'worktree');
 
 	const lineChangesStat = $derived.by(() => {
 		if (diff && diff.type === 'Patch') {

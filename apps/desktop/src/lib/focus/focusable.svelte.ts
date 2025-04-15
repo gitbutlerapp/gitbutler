@@ -1,11 +1,12 @@
-import { FocusManager } from '$lib/focus/focusManager.svelte';
+import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
 import { getContext } from '@gitbutler/shared/context';
 import type { Action } from 'svelte/action';
 
 interface FocusableOptions {
-	id: string;
-	parentId?: string | null;
+	id: Focusable;
+	parentId?: Focusable | null;
 }
+
 /**
  * Svelte action that registers an element as a focusable area.
  */

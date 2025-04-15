@@ -1,28 +1,20 @@
 <script lang="ts">
-	import CommitContextMenu from '$components/v3/CommitContextMenu.svelte';
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
-	import ConflictResolutionConfirmModal from '$components/v3/ConflictResolutionConfirmModal.svelte';
-	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/v3/lib';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { isCommit, type Commit, type UpstreamCommit } from '$lib/branches/v3';
-	import { CommitDropData } from '$lib/commits/dropHandler';
-	import { draggableCommit } from '$lib/dragging/draggable';
-	import { NON_DRAGGABLE } from '$lib/dragging/draggables';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { ModeService } from '$lib/mode/modeService';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import ContextMenu from '$components/v3/ContextMenu.svelte';
+	import { type CommitStatusType } from '$lib/commits/commit';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { slide } from 'svelte/transition';
+	import type { Snippet } from 'svelte';
 
 	type Props = {
+		type: CommitStatusType;
 		projectId: string;
 		branchName: string;
-		stackId: string;
-		commit: Commit | UpstreamCommit;
+		commitId: string;
+		commitMessage: string;
+		createdAt: number;
+		tooltip?: string;
 		first?: boolean;
 		lastCommit?: boolean;
 		lastBranch?: boolean;
@@ -31,68 +23,41 @@
 		borderTop?: boolean;
 		draggable?: boolean;
 		disableCommitActions?: boolean;
+		menu?: Snippet<[{ close: () => void }]>;
 		onclick?: () => void;
-	};
+	} & (
+		| { type: 'LocalOnly'; stackId: string }
+		| {
+				type: 'LocalAndRemote';
+				diverged: boolean;
+				hasConflicts: boolean;
+				stackId: string;
+		  }
+		| { type: 'Integrated'; stackId: string }
+		| { type: 'Remote'; stackId: string }
+		| { type: 'Base' }
+	);
 
 	const {
-		projectId,
-		branchName,
-		stackId,
-		commit,
+		commitMessage,
+		tooltip,
 		first,
 		lastCommit,
 		lastBranch,
 		selected,
 		opacity,
 		borderTop,
-		draggable,
+		onclick,
+		menu: menu2,
 		disableCommitActions = false,
-		onclick
+		...args
 	}: Props = $props();
 
-	const forge = getContext(DefaultForgeFactory);
-	const baseBranch = getContext(BaseBranch);
-	const stackService = getContext(StackService);
-	const modeService = maybeGetContext(ModeService);
-
-	const conflicted = $derived(isCommit(commit) ? commit.hasConflicts : false);
-	const isUnapplied = false; // TODO
-	const branchRefName = undefined; // TODO
-
-	let commitRowElement = $state<HTMLDivElement>();
 	let kebabMenuTrigger = $state<HTMLButtonElement>();
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let conflictResolutionConfirmationModal =
-		$state<ReturnType<typeof ConflictResolutionConfirmModal>>();
 
 	let isOpenedByKebabButton = $state(false);
 	let isOpenedByMouse = $state(false);
-
-	async function handleUncommit() {
-		if (!baseBranch) {
-			console.error('Unable to undo commit');
-			return;
-		}
-		await stackService.uncommit({ projectId, stackId, branchName, commitId: commit.id });
-	}
-
-	function openCommitMessageModal() {
-		// TODO: Implement openCommitMessageModal
-	}
-
-	function canEdit() {
-		if (isUnapplied) return false;
-		if (!modeService) return false;
-
-		return true;
-	}
-
-	async function editPatch() {
-		if (!canEdit() || !branchRefName) return;
-		await modeService!.enterEditMode(commit.id, stackId);
-	}
-
-	const commitShortSha = commit.id.substring(0, 7);
 </script>
 
 <div
@@ -105,7 +70,6 @@
 	class:selected
 	style:opacity
 	class:border-top={borderTop || first}
-	bind:this={commitRowElement}
 	class:last={lastCommit}
 	onclick={(e) => {
 		e.preventDefault();
@@ -126,42 +90,26 @@
 		isOpenedByKebabButton = false;
 		contextMenu?.open(e);
 	}}
-	use:draggableCommit={draggable
-		? {
-				disabled: false,
-				label: commit.message.split('\n')[0],
-				sha: commitShortSha,
-				date: getTimeAgo(commit.createdAt),
-				authorImgUrl: undefined,
-				commitType: 'LocalAndRemote',
-				data: new CommitDropData(
-					stackId,
-					{
-						id: commit.id,
-						isRemote: isUpstreamCommit(commit),
-						isConflicted: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
-						isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated'
-					},
-					false,
-					branchName
-				),
-				viewportId: 'board-viewport'
-			}
-		: NON_DRAGGABLE}
 >
 	{#if selected}
 		<div class="commit-row__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 	{/if}
 
-	<CommitLine {commit} {lastCommit} {lastBranch} />
+	<CommitLine
+		commitStatus={args.type}
+		diverged={args.type === 'LocalAndRemote' ? args.diverged : false}
+		{tooltip}
+		{lastCommit}
+		{lastBranch}
+	/>
 
 	<div class="commit-content">
 		<!-- <button type="button" {onclick} tabindex="0"> -->
 		<div class="commit-name truncate">
-			<CommitHeader {commit} row class="text-13 text-semibold" />
+			<CommitHeader {commitMessage} row className="text-13 text-semibold" />
 		</div>
 
-		{#if conflicted}
+		{#if args.type === 'LocalAndRemote' && args.hasConflicts}
 			<div class="commit-conflict-indicator">
 				<Icon name="warning" size={12} />
 			</div>
@@ -188,30 +136,11 @@
 	</div>
 </div>
 
-<ConflictResolutionConfirmModal
-	bind:this={conflictResolutionConfirmationModal}
-	onSubmit={editPatch}
-/>
-
-<CommitContextMenu
-	bind:menu={contextMenu}
-	{projectId}
-	leftClickTrigger={kebabMenuTrigger}
-	rightClickTrigger={commitRowElement}
-	{baseBranch}
-	{stackId}
-	{commit}
-	commitUrl={forge.current.commitUrl(commit.id)}
-	onUncommitClick={handleUncommit}
-	onEditMessageClick={openCommitMessageModal}
-	onToggle={(isOpen, isLeftClick) => {
-		if (isLeftClick) {
-			isOpenedByKebabButton = isOpen;
-		} else {
-			isOpenedByMouse = isOpen;
-		}
-	}}
-/>
+<ContextMenu bind:this={contextMenu} leftClickTrigger={kebabMenuTrigger}>
+	{#snippet menu(args)}
+		{@render menu2?.(args)}
+	{/snippet}
+</ContextMenu>
 
 <style lang="postcss">
 	.commit-row {

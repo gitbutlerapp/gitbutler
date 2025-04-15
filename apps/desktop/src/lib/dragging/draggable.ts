@@ -1,4 +1,4 @@
-import { type CommitStatus } from '$lib/commits/commit';
+import { type CommitStatusType } from '$lib/commits/commit';
 import { FileDropData, ChangeDropData, type DropData } from '$lib/dragging/draggables';
 import { dropzoneRegistry } from '$lib/dragging/dropzone';
 import { getFileIcon } from '@gitbutler/ui/file/getFileIcon';
@@ -19,7 +19,7 @@ export type DraggableConfig = {
 	readonly sha?: string;
 	readonly date?: string;
 	readonly authorImgUrl?: string;
-	readonly commitType?: CommitStatus;
+	readonly commitType?: CommitStatusType;
 	readonly data?: DropData;
 	readonly viewportId?: string;
 };
@@ -239,7 +239,7 @@ function setupDragHandlers(
 //////////////////////////
 
 export function createCommitElement(
-	commitType: CommitStatus | undefined,
+	commitType: CommitStatusType | undefined,
 	label: string | undefined,
 	sha: string | undefined,
 	date: string | undefined,

@@ -1,4 +1,8 @@
-<script lang="ts">
+<script lang="ts" module>
+	type T = any | unknown | undefined;
+</script>
+
+<script lang="ts" generics="T extends undefined | any = any">
 	import Button from '$lib/Button.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import { focusTrap } from '$lib/utils/focusTrap';
@@ -7,12 +11,13 @@
 	import { onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
 
-	interface Props {
+	type Props = {
 		width?: 'medium' | 'large' | 'small' | 'xsmall' | number;
 		type?: 'info' | 'warning' | 'error' | 'success';
 		title?: string;
 		closeButton?: boolean;
 		noPadding?: boolean;
+		defaultItem?: T;
 		/**
 		 * Callback to be called when the modal is closed.
 		 *
@@ -24,12 +29,12 @@
 		 * Callback to be called when the modal is closed by clicking outside the modal.
 		 */
 		onClickOutside?: () => void;
-		onSubmit?: (close: () => void, item: any) => void;
+		onSubmit?: (close: () => void, item: T) => void;
 		onKeyDown?: (e: KeyboardEvent) => void;
-		children: Snippet<[item: any, close: () => void]>;
-		controls?: Snippet<[close: () => void, item: any]>;
+		children: Snippet<[item: T, close: () => void]>;
+		controls?: Snippet<[close: () => void, item: T]>;
 		testId?: string;
-	}
+	};
 
 	const {
 		width = 'medium',
@@ -43,11 +48,12 @@
 		onSubmit,
 		onKeyDown,
 		noPadding = false,
-		testId
+		testId,
+		defaultItem
 	}: Props = $props();
 
 	let open = $state(false);
-	let item = $state<any>();
+	let item = $state<T>(defaultItem as any);
 	let isClosing = $state(false);
 	let closingPromise: Promise<void> | undefined = undefined;
 
@@ -62,8 +68,8 @@
 		window.removeEventListener('keydown', handleKeyDown);
 	});
 
-	export function show(newItem?: any) {
-		item = newItem;
+	export function show(newItem?: T) {
+		item = newItem as any;
 		open = true;
 
 		window.addEventListener('keydown', handleKeyDown);
@@ -76,7 +82,7 @@
 		isClosing = true;
 		closingPromise = new Promise((resolve) => {
 			setTimeout(() => {
-				item = undefined;
+				item = undefined as any;
 				open = false;
 				isClosing = false;
 				onClose?.();

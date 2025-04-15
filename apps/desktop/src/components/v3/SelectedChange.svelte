@@ -28,12 +28,12 @@
 			case 'commit':
 				return stackService.commitChange(projectId, selectedFile.commitId, selectedFile.path);
 			case 'branch':
-				return stackService.branchChange(
+				return stackService.branchChange({
 					projectId,
-					selectedFile.stackId,
-					selectedFile.branchName,
-					selectedFile.path
-				);
+					stackId: selectedFile.stackId,
+					branchName: selectedFile.branchName,
+					path: selectedFile.path
+				});
 			case 'worktree':
 				return worktreeService.getChange(projectId, selectedFile.path);
 		}

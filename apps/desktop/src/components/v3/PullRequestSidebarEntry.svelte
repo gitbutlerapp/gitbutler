@@ -1,23 +1,21 @@
 <script lang="ts">
-	import SidebarEntry from '$components/v3/SidebarEntry.svelte';
-	import { Project } from '$lib/project/project';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { parseDate } from '$lib/utils/time';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
+	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import type { PullRequest } from '$lib/forge/interface/types';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
 
 	interface Props {
+		projectId: string;
 		pullRequest: PullRequest;
 	}
 
-	const { pullRequest }: Props = $props();
+	const { projectId, pullRequest }: Props = $props();
 
-	const project = getContext(Project);
-
-	const userService = getContext(UserService);
+	const [userService, uiState] = inject(UserService, UiState);
 	const user = userService.user;
+	const explorerState = $derived(uiState.project(projectId).branchesSelection);
 
 	const authorImgUrl = $derived.by(() => {
 		return pullRequest.author?.email?.toLowerCase() === $user?.email?.toLowerCase()
@@ -26,16 +24,10 @@
 	});
 
 	function onMouseDown() {
-		goto(formatPullRequestURL(project, pullRequest.number));
+		explorerState.set({ prNumber: String(pullRequest.number) });
 	}
 
-	function formatPullRequestURL(project: Project, pullRequestNumber: number) {
-		return `/${project.id}/pull/${pullRequestNumber}`;
-	}
-
-	const selected = $derived(
-		$page.url.pathname === formatPullRequestURL(project, pullRequest.number)
-	);
+	const selected = $derived(explorerState.current.prNumber === String(pullRequest.number));
 </script>
 
 <SidebarEntry

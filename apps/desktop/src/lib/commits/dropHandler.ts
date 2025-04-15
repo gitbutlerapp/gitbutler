@@ -11,7 +11,7 @@ export type DzCommitData = {
 	id: string;
 	isRemote: boolean;
 	isIntegrated: boolean;
-	isConflicted: boolean;
+	hasConflicts: boolean;
 };
 
 /** Details about a commit that can be dropped into a drop zone. */
@@ -34,7 +34,7 @@ export class MoveCommitDzHandler implements DropzoneHandler {
 
 	accepts(data: unknown): boolean {
 		return (
-			data instanceof CommitDropData && data.stackId !== this.stack.id && !data.commit.isConflicted
+			data instanceof CommitDropData && data.stackId !== this.stack.id && !data.commit.hasConflicts
 		);
 	}
 	ondrop(data: CommitDropData): void {
@@ -66,7 +66,7 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 		this.result = result;
 	}
 	accepts(data: unknown): boolean {
-		return data instanceof ChangeDropData && !this.commit.isConflicted;
+		return data instanceof ChangeDropData && !this.commit.hasConflicts;
 	}
 
 	async ondrop(data: ChangeDropData) {
@@ -105,7 +105,7 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 			data instanceof HunkDropData &&
 			data.branchId === stackId &&
 			data.commitId !== commit.id &&
-			!commit.isConflicted
+			!commit.hasConflicts
 		);
 	}
 
@@ -158,7 +158,7 @@ export class AmendCommitDzHandler implements DropzoneHandler {
 			dropData instanceof FileDropData &&
 			dropData.stackId === stackId &&
 			dropData.commit?.id !== commit.id &&
-			!commit.isConflicted
+			!commit.hasConflicts
 		);
 	}
 
@@ -205,7 +205,7 @@ export class SquashCommitDzHandler implements DropzoneHandler {
 		if (!(data instanceof CommitDropData)) return false;
 		if (data.stackId !== stackId) return false;
 
-		if (commit.isConflicted || data.commit.isConflicted) return false;
+		if (commit.hasConflicts || data.commit.hasConflicts) return false;
 		if (commit.id === data.commit.id) return false;
 
 		return true;
