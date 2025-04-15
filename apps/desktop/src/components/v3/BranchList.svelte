@@ -54,6 +54,7 @@
 
 	const selection = $derived(uiState.stack(stackId).selection.get());
 	const selectedCommitId = $derived(selection.current?.commitId);
+	const selectedBranchName = $derived(selection.current?.branchName);
 
 	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
 </script>
@@ -108,7 +109,16 @@
 							<BranchCommitList {projectId} {stackId} {branchName} {selectedCommitId}>
 								{#snippet empty()}
 									{#if isCommitting}
-										<CommitGoesHere selected first last />
+										<CommitGoesHere
+											selected={branchName === selectedBranchName}
+											first
+											last
+											onclick={() =>
+												uiState.stack(stackId).selection.set({
+													branchName,
+													commitId: branchDetails.baseCommit
+												})}
+										/>
 									{/if}
 								{/snippet}
 								{#snippet upstreamTemplate({ commit, first, lastCommit, selected })}
@@ -139,11 +149,12 @@
 									selectedCommitId
 								})}
 									{@const commitId = commit.id}
-									{@const selected = commit.id === selectedCommitId}
+									{@const selected =
+										commit.id === selectedCommitId && branchName === selectedBranchName}
 									{#if isCommitting}
 										<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
 										<CommitGoesHere
-											selected={selected || (first && !selectedCommitId)}
+											{selected}
 											{first}
 											last={false}
 											onclick={() => uiState.stack(stackId).selection.set({ branchName, commitId })}
@@ -196,7 +207,7 @@
 										<CommitGoesHere
 											{first}
 											{last}
-											selected={selectedCommitId === baseSha}
+											selected={selectedCommitId === baseSha && branchName === selectedBranchName}
 											onclick={() =>
 												uiState.stack(stackId).selection.set({ branchName, commitId: baseSha })}
 										/>
