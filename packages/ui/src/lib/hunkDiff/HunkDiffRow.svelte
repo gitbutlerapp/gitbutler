@@ -203,7 +203,7 @@
 			});
 		}}
 	>
-		<div class="table__row-header">
+		<div data-no-drag class="table__row-header">
 			{#if row.isSelected}
 				<div
 					class="table__selected-row-overlay"
