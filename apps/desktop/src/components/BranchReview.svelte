@@ -3,11 +3,10 @@
 	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import ReviewCreation from '$components/ReviewCreation.svelte';
 	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
+	import CanPublishReviewPlugin from '$components/v3/CanPublishReviewPlugin.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { syncBrToPr } from '$lib/forge/brToPrSync.svelte';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { syncPrToBr } from '$lib/forge/prToBrSync.svelte';
-	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -28,33 +27,27 @@
 
 	const { branchStatus, projectId, stackId, branchName }: Props = $props();
 
-	const forge = getContext(DefaultForgeFactory);
-	const stackPublishingService = getContext(StackPublishingService);
+	let canPublishReviewPlugin = $state<ReturnType<typeof CanPublishReviewPlugin>>();
+
 	const stackService = getContext(StackService);
 	const uiState = getContext(UiState);
 	const settingsService = getContext(SettingsService);
 	const settingsStore = settingsService.appSettings;
-
-	const branch = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const commits = $derived(stackService.commits(projectId, stackId, branchName));
 
-	const prNumber = $derived(branch.current.data?.prNumber ?? undefined);
-	const reviewId = $derived(branch.current.data?.reviewId ?? undefined);
 	const branchEmpty = $derived((commits.current.data?.length ?? 0) === 0);
 	const branchConflicted = $derived(
 		commits.current.data?.some((commit) => commit.hasConflicts) || false
 	);
 
-	const prService = $derived(forge.current.prService);
-	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
-	const pr = $derived(prResult?.current.data);
+	const pr = $derived(canPublishReviewPlugin?.imports.pr);
+	const prNumber = $derived(canPublishReviewPlugin?.imports.prNumber ?? undefined);
+	const reviewId = $derived(canPublishReviewPlugin?.imports.reviewId ?? undefined);
+	const canPublish = $derived(!!canPublishReviewPlugin?.imports.canPublish);
+	const canPublishBR = $derived(!!canPublishReviewPlugin?.imports.canPublishBR);
+	const canPublishPR = $derived(!!canPublishReviewPlugin?.imports.canPublishPR);
+	const ctaLabel = $derived(canPublishReviewPlugin?.imports.ctaLabel);
 
-	const canPublish = stackPublishingService.canPublish;
-
-	const canPublishBR = $derived(
-		!!($canPublish && branch.current.data?.name && !branch.current.data?.reviewId)
-	);
-	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
 	const showCreateButton = $derived(canPublishBR || canPublishPR);
 
 	const disabled = $derived(branchEmpty || branchConflicted);
@@ -75,19 +68,10 @@
 		reactive(() => reviewId)
 	);
 
-	function getCtaLabel() {
-		if (canPublishBR && canPublishPR) {
-			return 'Submit for review';
-		} else if (canPublishBR) {
-			return 'Create Butler Request';
-		} else if (canPublishPR) {
-			return 'Create Pull Request';
-		}
-		return 'Submit for review';
-	}
-
 	const ctaDisabled = $derived(reviewCreation ? !reviewCreation.imports.creationEnabled : false);
 </script>
+
+<CanPublishReviewPlugin bind:this={canPublishReviewPlugin} {projectId} {stackId} {branchName} />
 
 <Modal
 	width="small"
@@ -136,12 +120,12 @@
 </Modal>
 
 <div class="branch-action">
-	{#if pr || (reviewId && $canPublish)}
+	{#if pr || (reviewId && canPublish)}
 		<div class="status-cards">
 			{#if prNumber}
 				<PullRequestCard {projectId} {stackId} {branchName} poll />
 			{/if}
-			{#if reviewId && $canPublish}
+			{#if reviewId && canPublish}
 				<BranchReviewButRequest {reviewId} />
 			{/if}
 		</div>
@@ -164,7 +148,7 @@
 			{disabled}
 			{tooltip}
 		>
-			{getCtaLabel()}
+			{ctaLabel}
 		</Button>
 	{/if}
 </div>
