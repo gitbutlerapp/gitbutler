@@ -1,6 +1,5 @@
 /* GENERAL */
 .lexical-container {
-	/* variables */
 	--lexical-default-font-size: var(--lexical-input-font-size);
 }
 
@@ -29,6 +28,7 @@
 	& .ContentEditable__root {
 		height: 100%;
 		min-height: unset;
+		overflow: hidden;
 	}
 }
 

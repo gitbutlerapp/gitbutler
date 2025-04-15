@@ -88,7 +88,7 @@
 	let rulerCountValue = $state(42);
 </script>
 
-<div class="editor-wrapper">
+<div class="editor-wrapper" style:--lexical-input-client-text-wrap={useRuler ? 'nowrap' : 'normal'}>
 	<div class="editor-header">
 		<div class="editor-tabs">
 			<button
@@ -367,7 +367,6 @@
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-
 		overflow: hidden;
 		min-height: 0;
 	}
