@@ -109,20 +109,13 @@
 
 	let titleInput = $state<ReturnType<typeof Textbox>>();
 
-	// Displays template select component when true.
-	let useTemplate = persisted(false, `use-template-${projectId}`);
 	// Available pull request templates.
 	let templates = $state<string[]>([]);
 
 	// Load the available templates when the component is mounted.
 	$effect(() => {
 		templateService.getAvailable(forge.current.name).then((templatesResponse) => {
-			if (templatesResponse.length > 0) {
-				useTemplate.set(true);
-				templates = templatesResponse;
-			} else {
-				useTemplate.set(false);
-			}
+			templates = templatesResponse;
 		});
 	});
 
@@ -383,7 +376,7 @@
 	/>
 
 	<!-- PR TEMPLATE SELECT -->
-	{#if $useTemplate}
+	{#if templates.length > 0}
 		<PrTemplateSection
 			bind:selectedTemplate={prBody.templateBody}
 			{templates}
