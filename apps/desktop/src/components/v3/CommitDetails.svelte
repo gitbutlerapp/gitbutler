@@ -4,6 +4,7 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { UserService } from '$lib/user/userService';
+	import { splitMessage } from '$lib/utils/commitMessage';
 	import { inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -36,7 +37,7 @@
 	const branchName = $derived(selected.current?.branchName);
 
 	const message = $derived(commit.message);
-	const description = $derived(message.slice(message.indexOf('\n') + 1).trim());
+	const description = $derived(splitMessage(message).description);
 	const isConflicted = $derived(isCommit(commit) && commit.hasConflicts);
 	const isUpstream = $derived(!isCommit(commit));
 

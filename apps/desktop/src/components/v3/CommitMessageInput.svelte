@@ -7,6 +7,7 @@
 	import { AIService } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { splitMessage } from '$lib/utils/commitMessage';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
@@ -74,18 +75,11 @@
 		}
 	});
 
-	function splitTextMessage(generatedMessage: string) {
-		const splitText = generatedMessage.split('\n\n');
-		const title = splitText[0] ?? '';
-		const description = splitText.slice(1).join('\n\n');
-		return [title, description] as const;
-	}
-
 	let generatedText = $state<string>('');
 
 	$effect(() => {
 		if (generatedText) {
-			const [title, description] = splitTextMessage(generatedText);
+			const { title, description } = splitMessage(generatedText);
 			titleText.set(title);
 			descriptionText.set(description);
 			composer?.setText(description);

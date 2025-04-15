@@ -18,6 +18,7 @@
 	import { showToast } from '$lib/notifications/toasts';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { splitMessage } from '$lib/utils/commitMessage';
 	import { inject } from '@gitbutler/shared/context';
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -94,22 +95,6 @@
 		setMode('view');
 	}
 
-	function getCommitTitile(message: string): string | undefined {
-		// Return undefined if there is no title
-		return message.split('\n').slice(0, 1).join('\n') || undefined;
-	}
-
-	function getCommitDescription(message: string): string | undefined {
-		// Return undefined if there is no description
-		const lines = message.split('\n');
-		for (let i = 1; i < lines.length; i++) {
-			if (lines[i]!.trim()) {
-				return lines.slice(i).join('\n');
-			}
-		}
-		return undefined;
-	}
-
 	function getCommitLabel(commit: Partial<Commit>) {
 		const commitType = commit ? getCommitType(commit as Commit) : 'unknown';
 
@@ -172,8 +157,8 @@
 					action={editCommitMessage}
 					actionLabel="Save"
 					onCancel={() => setMode('view')}
-					initialTitle={getCommitTitile(commit.message)}
-					initialMessage={getCommitDescription(commit.message)}
+					initialTitle={splitMessage(commit.message).title}
+					initialMessage={splitMessage(commit.message).description}
 					loading={messageUpdateResult.current.isLoading}
 					existingCommitId={commit.id}
 				/>
