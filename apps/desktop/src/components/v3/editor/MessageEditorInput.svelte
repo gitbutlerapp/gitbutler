@@ -15,7 +15,7 @@
 		onkeydown
 	}: Props = $props();
 
-	let charsCount = $state(0);
+	let charsCount = $state(value.length);
 </script>
 
 <!-- svelte-ignore a11y_autofocus -->
@@ -35,8 +35,8 @@
 		{onkeydown}
 	/>
 	{#if charsCount > 0 && showCount}
-		<div class="text-13 text-semibold message-editor-input__chars-count">
-			{charsCount}
+		<div class="text-12 text-semibold message-editor-input__chars-count">
+			<span>{charsCount}</span>
 		</div>
 	{/if}
 </div>
@@ -56,9 +56,13 @@
 		right: 6px;
 		bottom: 50%;
 		transform: translateY(50%);
-		color: var(--clr-text-3);
+		color: var(--clr-text-2);
 		padding: 6px;
 		background-color: var(--clr-bg-1);
+
+		& span {
+			opacity: 0.6;
+		}
 
 		&:after {
 			content: '';

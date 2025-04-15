@@ -83,9 +83,9 @@
 		composer?.setText(text);
 	}
 
-	let useRuler = $state(false);
-	let wrapTextToRuler = $state(false);
-	let rulerCountValue = $state(24);
+	let useRuler = $state(true);
+	let wrapTextByRuler = $state(true);
+	let rulerCountValue = $state(42);
 </script>
 
 <div class="editor-wrapper">
@@ -204,22 +204,26 @@
 				/>
 				<FormattingButton
 					icon="auto-wrap"
-					activated={wrapTextToRuler}
+					disabled={!useRuler}
+					activated={wrapTextByRuler && useRuler}
 					tooltip="Wrap text automatically"
 					onclick={() => {
-						wrapTextToRuler = !wrapTextToRuler;
+						wrapTextByRuler = !wrapTextByRuler;
 					}}
 				/>
-				<span class="text-13">Ruler:</span>
-				<input
-					bind:value={rulerCountValue}
-					min="10"
-					max="500"
-					class="text-13 text-input message-textarea__ruler-input"
-					type="number"
-					onfocus={() => (isEditorFocused = true)}
-					onblur={() => (isEditorFocused = false)}
-				/>
+				<div class="message-textarea__ruler-input-wrapper" class:disabled={!useRuler}>
+					<span class="text-13">Ruler:</span>
+					<input
+						disabled={!useRuler}
+						bind:value={rulerCountValue}
+						min="10"
+						max="500"
+						class="text-13 text-input message-textarea__ruler-input"
+						type="number"
+						onfocus={() => (isEditorFocused = true)}
+						onblur={() => (isEditorFocused = false)}
+					/>
+				</div>
 			{/if}
 		</div>
 	</div>
@@ -331,6 +335,19 @@
 		background-color: var(--clr-border-3);
 	}
 
+	/* RULER INPUT */
+	.message-textarea__ruler-input-wrapper {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		padding: 0 4px;
+
+		&.disabled {
+			pointer-events: none;
+			opacity: 0.5;
+		}
+	}
+
 	.message-textarea__ruler-input {
 		padding: 2px 0;
 		width: 30px;
@@ -343,6 +360,8 @@
 			margin: 0;
 		}
 	}
+
+	/*  */
 
 	.message-textarea__inner {
 		flex: 1;
