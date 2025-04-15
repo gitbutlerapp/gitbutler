@@ -50,18 +50,21 @@ export class ModeService {
 			commitOid,
 			stackId
 		});
+		await this.awaitMode('Edit');
 	}
 
 	async abortEditAndReturnToWorkspace() {
 		await invoke('abort_edit_and_return_to_workspace', {
 			projectId: this.projectId
 		});
+		await this.awaitMode('OpenWorkspace');
 	}
 
 	async saveEditAndReturnToWorkspace() {
 		await invoke('save_edit_and_return_to_workspace', {
 			projectId: this.projectId
 		});
+		await this.awaitMode('OpenWorkspace');
 	}
 
 	async getInitialIndexState() {
@@ -74,10 +77,10 @@ export class ModeService {
 		}) as [RemoteFile, ConflictEntryPresence | undefined][];
 	}
 
-	async awaitNotEditing(): Promise<void> {
+	private async awaitMode(mode: Mode['type']): Promise<void> {
 		return await new Promise((resolve) => {
 			const unsubscribe = this.mode.subscribe((operatingMode) => {
-				if (operatingMode && operatingMode?.type !== 'Edit') {
+				if (operatingMode && operatingMode?.type === mode) {
 					resolve();
 
 					setTimeout(() => {

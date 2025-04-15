@@ -20,7 +20,6 @@
 		commitUrl: string | undefined;
 		onUncommitClick: (event: MouseEvent) => void;
 		onEditMessageClick: (event: MouseEvent) => void;
-		onPatchEditClick: (event: MouseEvent) => void;
 		onToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
 
@@ -35,7 +34,6 @@
 		commitUrl,
 		onUncommitClick,
 		onEditMessageClick,
-		onPatchEditClick,
 		onToggle
 	}: Props = $props();
 
@@ -74,15 +72,6 @@
 				disabled
 				onclick={(e: MouseEvent) => {
 					onEditMessageClick(e);
-					menu?.close();
-				}}
-			/>
-			<!-- TODO: Re-enable the option once it works -->
-			<ContextMenuItem
-				label="Edit commit"
-				disabled
-				onclick={(e: MouseEvent) => {
-					onPatchEditClick(e);
 					menu?.close();
 				}}
 			/>

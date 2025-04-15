@@ -51,8 +51,6 @@
 			? stackService.upstreamCommitById(projectId, commitKey)
 			: stackService.commitById(projectId, commitKey)
 	);
-	const conflicted = $derived((commitResult.current.data as Commit).hasConflicts);
-	const isAncestorMostConflicted = false; // TODO
 	const isUnapplied = false; // TODO
 	const branchRefName = undefined; // TODO
 
@@ -153,15 +151,7 @@
 
 	async function editPatch() {
 		if (!canEdit() || !branchRefName) return;
-		modeService!.enterEditMode(commitKey.commitId, stackId);
-	}
-
-	async function handleEditPatch() {
-		if (conflicted && !isAncestorMostConflicted) {
-			conflictResolutionConfirmationModal?.show();
-			return;
-		}
-		await editPatch();
+		await modeService!.enterEditMode(commitKey.commitId, stackId);
 	}
 </script>
 
@@ -266,7 +256,6 @@
 			commitUrl={forge.current.commitUrl(commit.id)}
 			onUncommitClick={handleUncommit}
 			onEditMessageClick={openCommitMessageModal}
-			onPatchEditClick={handleEditPatch}
 			onToggle={(isOpen) => {
 				isContextMenuOpen = isOpen;
 			}}

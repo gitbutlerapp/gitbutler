@@ -66,7 +66,6 @@ export class VirtualBranchService {
 	async refresh() {
 		this.loading.set(true);
 		try {
-			await this.modeService.awaitNotEditing();
 			this.handlePayload(await this.listVirtualBranches());
 			await this.branchService.refresh(this.projectId);
 		} catch (err: unknown) {

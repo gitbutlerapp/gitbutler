@@ -106,13 +106,13 @@
 				</AsyncButton>
 			{/if}
 
-			<Button size="tag" kind="outline" onclick={handleEditPatch}>
+			<AsyncButton size="tag" kind="outline" action={handleEditPatch}>
 				{#if isConflicted}
 					Resolve conflicts
 				{:else}
 					Edit commit
 				{/if}
-			</Button>
+			</AsyncButton>
 		</div>
 	{/if}
 

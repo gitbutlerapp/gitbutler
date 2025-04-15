@@ -56,7 +56,6 @@
 	const modeService = maybeGetContext(ModeService);
 
 	const conflicted = $derived(isCommit(commit) ? commit.hasConflicts : false);
-	const isAncestorMostConflicted = false; // TODO
 	const isUnapplied = false; // TODO
 	const branchRefName = undefined; // TODO
 
@@ -90,15 +89,7 @@
 
 	async function editPatch() {
 		if (!canEdit() || !branchRefName) return;
-		modeService!.enterEditMode(commit.id, stackId);
-	}
-
-	async function handleEditPatch() {
-		if (conflicted && !isAncestorMostConflicted) {
-			conflictResolutionConfirmationModal?.show();
-			return;
-		}
-		await editPatch();
+		await modeService!.enterEditMode(commit.id, stackId);
 	}
 
 	const commitShortSha = commit.id.substring(0, 7);
@@ -213,7 +204,6 @@
 	commitUrl={forge.current.commitUrl(commit.id)}
 	onUncommitClick={handleUncommit}
 	onEditMessageClick={openCommitMessageModal}
-	onPatchEditClick={handleEditPatch}
 	onToggle={(isOpen, isLeftClick) => {
 		if (isLeftClick) {
 			isOpenedByKebabButton = isOpen;
