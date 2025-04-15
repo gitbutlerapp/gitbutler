@@ -41,6 +41,7 @@
 						}
 					]
 				>;
+				headCommit: string;
 		  }
 	);
 
@@ -91,10 +92,17 @@
 			isNewBranch={args.isNewBranch}
 			readonly={!!args.trackingBranch}
 			onclick={() => {
-				const stackState = uiState.stack(args.stackId);
-				stackState.selection.set({ branchName });
-				stackState.activeSelectionId.set({ type: 'branch', branchName, stackId: args.stackId });
-				uiState.project(projectId).drawerPage.set('branch');
+				if (isCommitting) {
+					uiState.stack(args.stackId).selection.set({
+						branchName,
+						commitId: args.headCommit
+					});
+				} else {
+					const stackState = uiState.stack(args.stackId);
+					stackState.selection.set({ branchName });
+					stackState.activeSelectionId.set({ type: 'branch', branchName, stackId: args.stackId });
+					uiState.project(projectId).drawerPage.set('branch');
+				}
 			}}
 			onMenuBtnClick={() => contextMenu?.toggle()}
 			onContextMenu={(e) => contextMenu?.toggle(e)}

@@ -104,6 +104,7 @@
 						reviewId={branch.reviewId || undefined}
 						prNumber={branch.prNumber || undefined}
 						trackingBranch={branch.remoteTrackingBranch || undefined}
+						headCommit={branchDetails.commits[0]?.id || branchDetails.baseCommit}
 					>
 						{#snippet commitList()}
 							<BranchCommitList {projectId} {stackId} {branchName} {selectedCommitId}>
