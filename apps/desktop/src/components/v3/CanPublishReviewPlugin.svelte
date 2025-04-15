@@ -7,7 +7,7 @@
 	type Props = {
 		projectId: string;
 		stackId: string;
-		branchName: string;
+		branchName: string | undefined;
 	};
 
 	const { projectId, stackId, branchName }: Props = $props();
@@ -16,9 +16,16 @@
 	const stackService = getContext(StackService);
 	const stackPublishingService = getContext(StackPublishingService);
 
-	const branch = $derived(stackService.branchByName(projectId, stackId, branchName));
+	const branch = $derived(
+		branchName ? stackService.branchByName(projectId, stackId, branchName) : undefined
+	);
+
+	const commits = $derived(
+		branchName ? stackService.commits(projectId, stackId, branchName) : undefined
+	);
+	const branchEmpty = $derived(commits?.current.data ? commits.current.data.length === 0 : false);
 	const [prNumber, reviewId, name] = $derived(
-		branch.current.data
+		branch?.current.data
 			? [branch.current.data.prNumber, branch.current.data.reviewId, branch.current.data.name]
 			: [null, null, undefined]
 	);
@@ -42,14 +49,23 @@
 	});
 
 	export const imports = {
+		get allowedToPublishPR() {
+			return forge.current.authenticated;
+		},
+		get allowedToPublishBR() {
+			return $canPublish;
+		},
+		get branchIsEmpty() {
+			return branchEmpty;
+		},
+		get branchIsConflicted() {
+			return commits?.current.data?.some((commit) => commit.hasConflicts) || false;
+		},
 		get prNumber() {
 			return prNumber;
 		},
 		get reviewId() {
 			return reviewId;
-		},
-		get canPublish() {
-			return canPublish;
 		},
 		get canPublishBR() {
 			return canPublishBR;

@@ -35,7 +35,6 @@
 	const settingsStore = settingsService.appSettings;
 	const commits = $derived(stackService.commits(projectId, stackId, branchName));
 
-	const branchEmpty = $derived((commits.current.data?.length ?? 0) === 0);
 	const branchConflicted = $derived(
 		commits.current.data?.some((commit) => commit.hasConflicts) || false
 	);
@@ -43,10 +42,11 @@
 	const pr = $derived(canPublishReviewPlugin?.imports.pr);
 	const prNumber = $derived(canPublishReviewPlugin?.imports.prNumber ?? undefined);
 	const reviewId = $derived(canPublishReviewPlugin?.imports.reviewId ?? undefined);
-	const canPublish = $derived(!!canPublishReviewPlugin?.imports.canPublish);
+	const allowedToPublishBR = $derived(!!canPublishReviewPlugin?.imports.allowedToPublishBR);
 	const canPublishBR = $derived(!!canPublishReviewPlugin?.imports.canPublishBR);
 	const canPublishPR = $derived(!!canPublishReviewPlugin?.imports.canPublishPR);
 	const ctaLabel = $derived(canPublishReviewPlugin?.imports.ctaLabel);
+	const branchEmpty = $derived(canPublishReviewPlugin?.imports.branchIsEmpty);
 
 	const showCreateButton = $derived(canPublishBR || canPublishPR);
 
@@ -120,12 +120,12 @@
 </Modal>
 
 <div class="branch-action">
-	{#if pr || (reviewId && canPublish)}
+	{#if pr || (reviewId && allowedToPublishBR)}
 		<div class="status-cards">
 			{#if prNumber}
 				<PullRequestCard {projectId} {stackId} {branchName} poll />
 			{/if}
-			{#if reviewId && canPublish}
+			{#if reviewId && allowedToPublishBR}
 				<BranchReviewButRequest {reviewId} />
 			{/if}
 		</div>

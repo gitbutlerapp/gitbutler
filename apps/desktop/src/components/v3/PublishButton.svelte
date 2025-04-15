@@ -16,40 +16,81 @@
 
 	let canPublishReviewPlugin = $state<ReturnType<typeof CanPublishReviewPlugin>>();
 
-	const lastBranch = $derived(branches.at(-1));
-	const branchName = $derived(lastBranch?.name);
+	/**
+	 * Determine which is the branch that should be reviwed.
+	 *
+	 * Iterate the branches in reverse order, and depending on whether the user is allowed to
+	 * publish a pull request or a butler request, return the first branch that matches the criteria.
+	 */
+	function getBranchToReview(
+		branches: BranchDetails[],
+		allowedToPublishPR: boolean | undefined,
+		allowedToPublishBR: boolean | undefined
+	) {
+		if (!allowedToPublishBR && !allowedToPublishPR) {
+			// If the user is not allowed to publish any branch, return undefined.
+			return undefined;
+		}
+
+		for (let i = branches.length - 1; i >= 0; i--) {
+			const branch = branches[i]!;
+			if (allowedToPublishBR && branch.reviewId === null) {
+				// Can publish butler request and this branch doesn't
+				// have a review id.
+				return branch;
+			}
+
+			if (allowedToPublishPR && branch.prNumber === null) {
+				// Can publish pull request and this branch has a review id.
+				return branch;
+			}
+		}
+		return undefined;
+	}
+
+	const branchToReview = $derived(
+		getBranchToReview(
+			branches,
+			canPublishReviewPlugin?.imports.allowedToPublishPR,
+			canPublishReviewPlugin?.imports.allowedToPublishBR
+		)
+	);
+
+	const branchName = $derived(branchToReview?.name);
 
 	const canPublishBR = $derived(!!canPublishReviewPlugin?.imports.canPublishBR);
 	const canPublishPR = $derived(!!canPublishReviewPlugin?.imports.canPublishPR);
 	const ctaLabel = $derived(canPublishReviewPlugin?.imports.ctaLabel);
+	const branchEmpty = $derived(canPublishReviewPlugin?.imports.branchIsEmpty);
 
-	const hasConflicts = $derived(lastBranch ? lastBranch.isConflicted : false);
+	const hasConflicts = $derived(branchToReview ? branchToReview.isConflicted : false);
 
 	const canPublish = $derived(canPublishBR || canPublishPR);
 
 	function publish() {
-		uiState.project(projectId).drawerPage.current = 'review';
+		if (!branchName) return;
+
+		uiState.stack(stackId).selection.set({ branchName });
+		uiState.project(projectId).drawerPage.set('review');
 	}
 </script>
 
-{#if branchName}
-	<CanPublishReviewPlugin {projectId} {stackId} {branchName} bind:this={canPublishReviewPlugin} />
+<CanPublishReviewPlugin {projectId} {stackId} {branchName} bind:this={canPublishReviewPlugin} />
 
-	{#if canPublish}
-		<div class="publish-button">
-			<Button
-				style="neutral"
-				wide
-				disabled={hasConflicts}
-				tooltip={hasConflicts
-					? 'In order to push, please resolve any conflicted commits.'
-					: undefined}
-				onclick={publish}
-			>
-				{ctaLabel}
-			</Button>
-		</div>
-	{/if}
+{#if canPublish}
+	<div class="publish-button">
+		<Button
+			style="neutral"
+			wide
+			disabled={!branchName || hasConflicts || branchEmpty}
+			tooltip={hasConflicts
+				? 'In order to push, please resolve any conflicted commits.'
+				: `${ctaLabel} for ${branchName}`}
+			onclick={publish}
+		>
+			{ctaLabel}
+		</Button>
+	</div>
 {/if}
 
 <style>
