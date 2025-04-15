@@ -533,8 +533,8 @@ function toTokens(inputLine: string, parser: Parser | undefined): string[] {
 	const tokens: string[] = [];
 	highlighter.highlight((text, classNames) => {
 		const token = classNames
-			? `<span class=${classNames}>${sanitize(text)}</span>`
-			: `<span>${sanitize(text)}</span>`;
+			? `<span data-no-drag class=${classNames}>${sanitize(text)}</span>`
+			: `<span data-no-drag>${sanitize(text)}</span>`;
 
 		tokens.push(token);
 	});

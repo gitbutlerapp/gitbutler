@@ -29,6 +29,7 @@
 		hideCheckboxes?: boolean;
 		selectedLines?: LineSelector[];
 		isHidden?: boolean;
+		draggingDisabled?: boolean;
 		whyHidden?: string;
 		onShowDiffClick?: () => void;
 		onChangeStage?: (staged: boolean) => void;
@@ -62,7 +63,8 @@
 		onCopySelection,
 		onQuoteSelection,
 		handleLineContextMenu,
-		clickOutsideExcludeElement
+		clickOutsideExcludeElement,
+		draggingDisabled
 	}: Props = $props();
 
 	const BORDER_WIDTH = 1;
@@ -92,7 +94,7 @@
 	style:font-variant-ligatures={diffLigatures ? 'common-ligatures' : 'none'}
 >
 	<table class="table__section">
-		<thead class="table__title">
+		<thead class="table__title" class:draggable={!draggingDisabled}>
 			<tr>
 				<th
 					bind:clientWidth={numberHeaderWidth}
