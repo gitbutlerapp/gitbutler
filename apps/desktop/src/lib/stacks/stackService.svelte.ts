@@ -451,6 +451,10 @@ export class StackService {
 		return this.api.endpoints.discardChanges.mutate;
 	}
 
+	get stashIntoBranch() {
+		return this.api.endpoints.stashIntoBranch.mutate;
+	}
+
 	get updateBranchPrNumber() {
 		return this.api.endpoints.updateBranchPrNumber.useMutation();
 	}
@@ -838,6 +842,20 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Discard Changes'
 				}),
 				invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)]
+			}),
+			stashIntoBranch: build.mutation<
+				DiffSpec[],
+				{ projectId: string; branchName: string; worktreeChanges: DiffSpec[] }
+			>({
+				query: ({ projectId, branchName, worktreeChanges }) => ({
+					command: 'stash_into_branch',
+					params: { projectId, branchName, worktreeChanges },
+					actionName: 'Stash Changes'
+				}),
+				invalidatesTags: [
+					invalidatesList(ReduxTag.WorktreeChanges),
+					invalidatesList(ReduxTag.BranchListing)
+				]
 			}),
 			unapply: build.mutation<void, { projectId: string; stackId: string }>({
 				query: ({ projectId, stackId }) => ({
