@@ -19,9 +19,10 @@
 
 	type Props = {
 		projectId: string;
+		actionsDisabled?: boolean;
 	};
 
-	const { projectId }: Props = $props();
+	const { projectId, actionsDisabled = false }: Props = $props();
 
 	const projectsService = getContext(ProjectsService);
 	const baseBranchService = getContext(BaseBranchService);
@@ -63,9 +64,9 @@
 <div class="chrome-header" class:mac={platformName === 'macos'} data-tauri-drag-region>
 	<div class="chrome-left" data-tauri-drag-region>
 		<div class="chrome-left-buttons" class:macos={platformName === 'macos'}>
-			<SyncButton {projectId} size="button" />
+			<SyncButton {projectId} size="button" disabled={actionsDisabled} />
 			{#if upstreamCommits > 0}
-				<Button style="pop" onclick={openModal} disabled={!selectedProjectId}
+				<Button style="pop" onclick={openModal} disabled={!selectedProjectId || actionsDisabled}
 					>{upstreamCommits} upstream commits</Button
 				>
 			{/if}

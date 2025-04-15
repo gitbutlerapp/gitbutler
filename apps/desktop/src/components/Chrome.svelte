@@ -3,13 +3,17 @@
 	import ChromeSidebar from '$components/ChromeSidebar.svelte';
 	import type { Snippet } from 'svelte';
 
-	const { projectId, children }: { projectId: string; children: Snippet } = $props();
+	const {
+		projectId,
+		children,
+		sidebarDisabled = false
+	}: { projectId: string; children: Snippet; sidebarDisabled?: boolean } = $props();
 </script>
 
 <div class="chrome">
-	<ChromeHeader {projectId} />
+	<ChromeHeader {projectId} actionsDisabled={sidebarDisabled} />
 	<div class="chrome-body">
-		<ChromeSidebar />
+		<ChromeSidebar disabled={sidebarDisabled} />
 		<div class="chrome-content">
 			{@render children()}
 		</div>

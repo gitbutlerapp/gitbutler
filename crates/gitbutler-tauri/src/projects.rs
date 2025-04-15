@@ -85,6 +85,23 @@ pub mod commands {
         )?)
     }
 
+    #[tauri::command(async)]
+    #[instrument(skip(projects, window_state, window), err(Debug))]
+    pub fn get_active_project(
+        projects: State<'_, Controller>,
+        window_state: State<'_, WindowState>,
+        window: Window,
+    ) -> Result<Option<projects::Project>, Error> {
+        let project_id = window_state.get_active_project_by_window(window.label());
+        let Some(project_id) = project_id else {
+            return Ok(None);
+        };
+        let project = projects
+            .get_validated(project_id)
+            .context("project not found")?;
+        Ok(Some(project))
+    }
+
     /// Open the project with the given ID in a new Window, or focus an existing one.
     ///
     /// Note that this command is blocking the main thread just to prevent the chance for races

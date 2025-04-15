@@ -1,10 +1,12 @@
 <script lang="ts">
+	import Chrome from '$components/Chrome.svelte';
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
 	import ProjectSwitcher from '$components/ProjectSwitcher.svelte';
 	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
+	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
@@ -12,6 +14,7 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
@@ -24,6 +27,8 @@
 	const projectsService = getContext(ProjectsService);
 	const posthog = getContext(PostHogWrapper);
 	const project = getContext(Project);
+	const settingsService = getContext(SettingsService);
+	const appSettings = settingsService.appSettings;
 
 	let loading = $state(false);
 	let deleteConfirmationModal: ReturnType<typeof RemoveProjectButton> | undefined = $state();
@@ -49,36 +54,52 @@
 	});
 </script>
 
-<DecorativeSplitView img={loadErrorSvg}>
-	<div class="problem">
-		<div class="project-name">
-			<ProjectNameLabel projectName={project?.title} />
-		</div>
-		<h2 class="problem__title text-18 text-body text-bold">
-			There was a problem loading this repo
-		</h2>
+{#snippet page()}
+	<DecorativeSplitView img={loadErrorSvg}>
+		<div class="problem">
+			<div class="project-name">
+				<ProjectNameLabel projectName={project?.title} />
+			</div>
+			<h2 class="problem__title text-18 text-body text-bold">
+				There was a problem loading this repo
+			</h2>
 
-		<div class="problem__error text-12 text-body">
-			<Icon name="error" color="error" />
-			{error ? error : 'An unknown error occurred'}
-		</div>
+			<div class="problem__error text-12 text-body">
+				<Icon name="error" color="error" />
+				{#if !isDefined(error)}
+					'An unknown error occured'
+				{:else if error instanceof Object && 'message' in error}
+					{error.message}
+				{:else}
+					{error}
+				{/if}
+			</div>
 
-		<div class="remove-project-btn">
-			<RemoveProjectButton
-				bind:this={deleteConfirmationModal}
-				projectTitle={project.title}
-				isDeleting={loading}
-				{onDeleteClicked}
-			/>
-		</div>
+			<div class="remove-project-btn">
+				<RemoveProjectButton
+					bind:this={deleteConfirmationModal}
+					projectTitle={project.title}
+					isDeleting={loading}
+					{onDeleteClicked}
+				/>
+			</div>
 
-		<Spacer dotted margin={0} />
+			<Spacer dotted margin={0} />
 
-		<div class="problem__switcher">
-			<ProjectSwitcher />
+			<div class="problem__switcher">
+				<ProjectSwitcher />
+			</div>
 		</div>
-	</div>
-</DecorativeSplitView>
+	</DecorativeSplitView>
+{/snippet}
+
+{#if $appSettings?.featureFlags.v3}
+	<Chrome projectId={project.id} sidebarDisabled>
+		{@render page()}
+	</Chrome>
+{:else}
+	{@render page()}
+{/if}
 
 <style lang="postcss">
 	.project-name {

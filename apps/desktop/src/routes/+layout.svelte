@@ -150,12 +150,7 @@
 	);
 	setContext(UiState, uiState);
 
-	const stackService = new StackService(
-		clientState['backendApi'],
-		forgeFactory,
-		uiState,
-		data.posthog
-	);
+	const stackService = new StackService(clientState['backendApi'], forgeFactory, uiState);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
 	const worktreeService = new WorktreeService(clientState);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
