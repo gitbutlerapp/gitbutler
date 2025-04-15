@@ -2,7 +2,7 @@
 	import BranchRenameModal from '$components/BranchRenameModal.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import { type CommitStatus } from '$lib/commits/commit';
+	import { type CommitStatusType } from '$lib/commits/commit';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -23,7 +23,7 @@
 		isTopBranch: boolean;
 		isPushed: boolean;
 		pr?: DetailedPullRequest;
-		branchType: CommitStatus;
+		branchType: CommitStatusType;
 		descriptionOption?: boolean;
 		descriptionString?: string;
 		stackId: string;

@@ -7,19 +7,18 @@
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
 		projectId: string;
-		stackId?: string;
+		selectionId?: SelectionId;
 	};
 
-	let { projectId, stackId }: Props = $props();
+	let { projectId, selectionId }: Props = $props();
 
 	const [idSelection, uiState] = inject(IdSelection, UiState);
 
 	const channel = $derived(uiState.global.channel);
-	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
-	const selectionId = $derived(stackState?.activeSelectionId.current);
 
 	const selection = $derived(
 		selectionId ? idSelection.values(selectionId) : idSelection.values({ type: 'worktree' })

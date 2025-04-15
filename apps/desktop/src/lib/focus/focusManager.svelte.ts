@@ -1,14 +1,26 @@
+import { reactive, type Reactive } from '@gitbutler/shared/storeUtils';
 import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 import { on } from 'svelte/events';
-import type { Reactive } from '@gitbutler/shared/storeUtils';
 
 export type FocusArea = string | null;
 
+export enum Focusable {
+	Workspace = 'workspace',
+	WorkspaceLeft = 'workspace-left',
+	WorkspaceRight = 'workspace-right',
+	WorkspaceMiddle = 'workspace-middle',
+	UncommittedChanges = 'uncommitted-changes',
+	CommitEditor = 'commit-editor',
+	Branches = 'branches',
+	// Only one of these can be in the dom at any given time.
+	ChangedFiles = 'changed-files'
+}
+
 export type FocusableElement = {
-	key: string;
-	parentId: string | null;
+	key: Focusable;
+	parentId: Focusable | null;
 	element: HTMLElement;
-	children: string[];
+	children: Focusable[];
 };
 
 /**
@@ -30,7 +42,7 @@ export type FocusableElement = {
  *     <div use:focusable={{ id: 'child', parentId: 'parent' }}>...</div>
  * </div>
  */
-export class FocusManager implements Reactive<string | undefined> {
+export class FocusManager implements Reactive<Focusable | undefined> {
 	/** Elements registered using `focusable.ts` svelte action. */
 	private elements: FocusableElement[] = [];
 
@@ -38,7 +50,7 @@ export class FocusManager implements Reactive<string | undefined> {
 	private lookup = new Map<HTMLElement, FocusableElement>();
 
 	/** The id of the most recently focused item. */
-	private _current: string | undefined = $state();
+	private _current: Focusable | undefined = $state();
 
 	private handleMouse = this.handleClick.bind(this);
 	private handleKeys = this.handleKeydown.bind(this);
@@ -73,7 +85,7 @@ export class FocusManager implements Reactive<string | undefined> {
 		}
 	}
 
-	register(id: string, parentId: string | null, element: HTMLElement) {
+	register(id: Focusable, parentId: Focusable | null, element: HTMLElement) {
 		let item = this.elements.find((area) => area.key === id);
 		if (item) {
 			this.lookup.delete(element);
@@ -92,7 +104,7 @@ export class FocusManager implements Reactive<string | undefined> {
 		item.children.push(...this.elements.filter((a) => id === a.parentId).map((a) => a.key));
 	}
 
-	unregister(id: string) {
+	unregister(id: Focusable) {
 		const index = this.elements.findIndex((area) => area.key === id);
 		if (index !== -1) {
 			const area = this.elements[index]!;
@@ -112,7 +124,7 @@ export class FocusManager implements Reactive<string | undefined> {
 		}
 	}
 
-	setActive(id: string) {
+	setActive(id: Focusable) {
 		this._current = id;
 	}
 
@@ -168,5 +180,31 @@ export class FocusManager implements Reactive<string | undefined> {
 			event.preventDefault();
 			this.focusFirstChild();
 		}
+	}
+
+	/**
+	 * Works like an html radio input group.
+	 *
+	 * This function takes N focusable enums and remembers which was last
+	 * active. The idea is that when you e.g. click the uncommitted focus
+	 * area then your file preview switches to that selection, and any
+	 * selected items are highlighted in blue. This focus only changes
+	 * when another one of the triggers gets activated.
+	 *
+	 */
+	radioGroup(args: { triggers: Focusable[] }): Reactive<Focusable> {
+		if (args.triggers.length < 2) {
+			throw new Error('Activity zone requires two or more triggers.');
+		}
+		// First trigger is the default value.
+		let current = $state(args.triggers[0]!);
+		$effect(() => {
+			// Reacts to changes in `this._current`.
+			const match = args.triggers.find((t) => t === this._current);
+			if (match) {
+				current = match;
+			}
+		});
+		return reactive(() => current);
 	}
 }

@@ -7,7 +7,7 @@
 	import { BranchStack } from '$lib/branches/branch';
 	import { PatchSeries } from '$lib/branches/branch';
 	import { Commit, DetailedCommit } from '$lib/commits/commit';
-	import { type CommitStatus } from '$lib/commits/commit';
+	import { type CommitStatusType } from '$lib/commits/commit';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { CommitDropData } from '$lib/commits/dropHandler';
 	import { persistedCommitMessage } from '$lib/config/config';
@@ -46,7 +46,7 @@
 		isUnapplied?: boolean;
 		last?: boolean;
 		noBorder?: boolean;
-		type: CommitStatus;
+		type: CommitStatusType;
 		lines?: Snippet | undefined;
 		filesToggleable?: boolean;
 		disableCommitActions?: boolean;
@@ -286,7 +286,7 @@
 					stack.id,
 					{
 						id: commit.id,
-						isConflicted: commit.conflicted,
+						hasConflicts: commit.conflicted,
 						isRemote: commit instanceof Commit,
 						isIntegrated: commit instanceof DetailedCommit && commit.isIntegrated
 					},

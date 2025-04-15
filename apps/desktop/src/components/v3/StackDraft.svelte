@@ -31,8 +31,8 @@
 
 <div class="stack-draft">
 	<BranchCard
+		type="draft-branch"
 		{projectId}
-		draft
 		iconName="branch-local"
 		branchName={draftBranchName.current || newName}
 	/>

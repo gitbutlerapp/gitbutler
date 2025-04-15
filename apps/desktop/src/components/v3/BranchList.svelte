@@ -6,29 +6,38 @@
 	import StackStickyButtons from '$components/StackStickyButtons.svelte';
 	import BranchCard from '$components/v3/BranchCard.svelte';
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
+	import CommitContextMenu from '$components/v3/CommitContextMenu.svelte';
 	import CommitGoesHere from '$components/v3/CommitGoesHere.svelte';
 	import CommitRow from '$components/v3/CommitRow.svelte';
+	import ConflictResolutionConfirmModal from '$components/v3/ConflictResolutionConfirmModal.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import PublishButton from '$components/v3/PublishButton.svelte';
 	import PushButton from '$components/v3/PushButton.svelte';
 	import {
 		getColorFromCommitState,
 		getIconFromCommitState,
+		hasConflicts,
 		isLocalAndRemoteCommit,
 		isUpstreamCommit
 	} from '$components/v3/lib';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import {
 		AmendCommitWithChangeDzHandler,
+		CommitDropData,
 		SquashCommitDzHandler,
 		type DzCommitData
 	} from '$lib/commits/dropHandler';
+	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import type { CommitStatusType } from '$lib/commits/commit';
 
 	type Props = {
 		projectId: string;
@@ -57,6 +66,30 @@
 	const selectedBranchName = $derived(selection.current?.branchName);
 
 	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
+
+	let conflictResolutionConfirmationModal =
+		$state<ReturnType<typeof ConflictResolutionConfirmModal>>();
+
+	async function handleUncommit(commitId: string, branchName: string) {
+		await stackService.uncommit({ projectId, stackId, branchName, commitId: commitId });
+	}
+
+	function openCommitMessageModal() {
+		// TODO: Implement openCommitMessageModal
+	}
+
+	async function handleEditPatch(args: {
+		commitId: string;
+		type: CommitStatusType;
+		hasConflicts: boolean;
+		isAncestorMostConflicted: boolean;
+	}) {
+		if (args.type === 'LocalAndRemote' && args.hasConflicts && !args.isAncestorMostConflicted) {
+			conflictResolutionConfirmationModal?.show();
+			return;
+		}
+		// modeService!.enterEditMode(args.commitId, stackId);
+	}
 </script>
 
 <ReduxResult {stackId} {projectId} result={branchesResult.current}>
@@ -84,11 +117,15 @@
 					{@const branchType = commit?.state.type || 'LocalOnly'}
 					{@const iconName = getIconFromCommitState(commit?.id, commit?.state)}
 					{@const lineColor = commit
-						? getColorFromCommitState(commit.id, commit.state)
+						? getColorFromCommitState(
+								commit.state.type,
+								commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject
+							)
 						: 'var(--clr-commit-local)'}
 					{@const isNewBranch =
 						upstreamOnlyCommits.length === 0 && localAndRemoteCommits.length === 0}
 					<BranchCard
+						type="stack-branch"
 						{projectId}
 						{stackId}
 						{branchName}
@@ -126,12 +163,16 @@
 									{@const commitId = commit.id}
 									{#if !isCommitting}
 										<CommitRow
+											type={'Remote'}
 											{stackId}
+											{commitId}
+											commitMessage={commit.message}
+											createdAt={commit.createdAt}
+											tooltip={'Upstream'}
 											{branchName}
 											{projectId}
 											{first}
 											lastCommit={lastCommit && localAndRemoteCommits.length === 0}
-											{commit}
 											{selected}
 											onclick={() => {
 												uiState
@@ -165,7 +206,7 @@
 										id: commit.id,
 										isRemote: isUpstreamCommit(commit),
 										isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
-										isConflicted: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
+										hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
 									}}
 									{@const amendHandler = new AmendCommitWithChangeDzHandler(
 										projectId,
@@ -180,29 +221,81 @@
 										stackId,
 										commit: dzCommit
 									})}
+									{@const tooltip = commit.state.type}
 									<Dropzone handlers={[amendHandler, squashHandler]}>
 										{#snippet overlay({ hovered, activated, handler })}
 											{@const label =
 												handler instanceof AmendCommitWithChangeDzHandler ? 'Amend' : 'Squash'}
 											<CardOverlay {hovered} {activated} {label} />
 										{/snippet}
-										<CommitRow
-											{stackId}
-											{branchName}
-											{projectId}
-											{first}
-											{lastCommit}
-											lastBranch={last}
-											{commit}
-											{selected}
-											draggable
-											onclick={() => {
-												const stackState = uiState.stack(stackId);
-												stackState.selection.set({ branchName, commitId });
-												stackState.activeSelectionId.set({ type: 'commit', commitId });
-												uiState.project(projectId).drawerPage.set(undefined);
+										<div
+											use:draggableCommit={{
+												disabled: false,
+												label: commit.message.split('\n')[0],
+												sha: commit.id.slice(0, 7),
+												date: getTimeAgo(commit.createdAt),
+												authorImgUrl: undefined,
+												commitType: 'LocalAndRemote',
+												data: new CommitDropData(
+													stackId,
+													{
+														id: commitId,
+														isRemote: !!branchDetails.remoteTrackingBranch,
+														hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
+														isIntegrated:
+															isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated'
+													},
+													false,
+													branchName
+												),
+												viewportId: 'board-viewport'
 											}}
-										/>
+										>
+											<CommitRow
+												commitId={commit.id}
+												commitMessage={commit.message}
+												type={commit.state.type}
+												hasConflicts={commit.state.type === 'LocalAndRemote' && commit.hasConflicts}
+												diverged={commit.state.type === 'LocalAndRemote' &&
+													commit.id !== commit.state.subject}
+												createdAt={commit.createdAt}
+												{stackId}
+												{branchName}
+												{projectId}
+												{first}
+												{lastCommit}
+												lastBranch={last}
+												{selected}
+												draggable
+												{tooltip}
+												onclick={() => {
+													const stackState = uiState.stack(stackId);
+													stackState.selection.set({ branchName, commitId });
+													uiState.project(projectId).drawerPage.set(undefined);
+												}}
+											>
+												{#snippet menu({ close })}
+													<CommitContextMenu
+														{close}
+														{projectId}
+														{stackId}
+														{commitId}
+														commitMessage={commit.message}
+														commitStatus={commit.state.type}
+														commitUrl={forge.current.commitUrl(commitId)}
+														onUncommitClick={() => handleUncommit(commit.id, branch.name)}
+														onEditMessageClick={openCommitMessageModal}
+														onPatchEditClick={() =>
+															handleEditPatch({
+																commitId: commit.id,
+																type: commit.state.type,
+																hasConflicts: hasConflicts(commit),
+																isAncestorMostConflicted: false // TODO: Fix this.
+															})}
+													/>
+												{/snippet}
+											</CommitRow>
+										</div>
 									</Dropzone>
 									{#if isCommitting && last}
 										<CommitGoesHere
@@ -251,3 +344,32 @@
 </ReduxResult>
 
 <NewBranchModal {projectId} {stackId} bind:this={newBranchModal} />
+
+<Modal
+	bind:this={conflictResolutionConfirmationModal}
+	width="small"
+	defaultItem={{} as {
+		type: CommitStatusType;
+		commitId: string;
+		stackId: string;
+		hasConflicts: boolean;
+		isAncestorMostConflicted: boolean;
+		close: () => void;
+	}}
+	onSubmit={async (close, item) => {
+		await handleEditPatch(item);
+		close();
+	}}
+>
+	{#snippet children()}
+		<div>
+			<p>It's generally better to start resolving conflicts from the bottom up.</p>
+			<br />
+			<p>Are you sure you want to resolve conflicts for this commit?</p>
+		</div>
+	{/snippet}
+	{#snippet controls(close)}
+		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
+		<Button style="pop" type="submit">Yes</Button>
+	{/snippet}
+</Modal>

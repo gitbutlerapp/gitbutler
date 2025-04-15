@@ -1,11 +1,14 @@
 import type { UpstreamCommit, Commit, CommitState } from '$lib/branches/v3';
+import type { CommitStatusType } from '$lib/commits/commit';
 import type { PushStatus } from '$lib/stacks/stack';
 import type iconsJson from '@gitbutler/ui/data/icons.json';
 
-const colorMap = {
+const colorMap: Record<CommitStatusType, string> & { Error: string } = {
 	LocalOnly: 'var(--clr-commit-local)',
 	LocalAndRemote: 'var(--clr-commit-remote)',
 	Integrated: 'var(--clr-commit-integrated)',
+	Remote: 'var(--clr-commit-upstream)', // TODO: rename Remote -> Upstream.
+	Base: 'var(--clr-commit-upstream)', // TODO: Introduce separate color for base.
 	Error: 'var(--clr-theme-err-element)'
 };
 
@@ -28,13 +31,12 @@ export function getIconFromCommitState(
 	}
 }
 
-export function getColorFromCommitState(commitId: string, commitState: CommitState): string {
-	if (commitState.type === 'LocalAndRemote' && commitState.subject !== commitId) {
-		// Diverged
+export function getColorFromCommitState(commitType: CommitStatusType, diverged: boolean): string {
+	if (diverged) {
 		return colorMap.LocalOnly;
 	}
 
-	return colorMap[commitState.type];
+	return colorMap[commitType];
 }
 
 export function isUpstreamCommit(commit: Commit | UpstreamCommit): commit is UpstreamCommit {
@@ -43,6 +45,16 @@ export function isUpstreamCommit(commit: Commit | UpstreamCommit): commit is Ups
 
 export function isLocalAndRemoteCommit(commit: Commit | UpstreamCommit): commit is Commit {
 	return 'state' in commit;
+}
+
+export function hasConflicts(commit: Commit): boolean {
+	return commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject;
+}
+
+export function isEditableCommit(
+	status: CommitStatusType
+): status is 'LocalOnly' | 'LocalAndRemote' {
+	return status === 'LocalOnly' || status === 'LocalAndRemote';
 }
 
 export function getCommitType(commit: Commit | UpstreamCommit) {

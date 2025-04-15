@@ -12,6 +12,7 @@
 	import type { Snippet } from 'svelte';
 
 	export type Props = {
+		type: 'draft-branch' | 'normal-branch' | 'stack-branch';
 		el?: HTMLElement;
 		projectId: string;
 		branchName: string;
@@ -19,12 +20,18 @@
 		iconName: keyof typeof iconsJson;
 		lineColor: string;
 		menuBtnEl?: HTMLButtonElement;
-		draft?: boolean;
 		isCommitting?: boolean;
 	} & (
-		| { draft: true }
+		| { type: 'draft-branch' }
 		| {
-				draft: false | undefined;
+				type: 'normal-branch';
+				selected: boolean;
+				trackingBranch?: string;
+				details: Snippet;
+				onclick: () => void;
+		  }
+		| {
+				type: 'stack-branch';
 				selected: boolean;
 				stackId: string;
 				trackingBranch?: string;
@@ -55,17 +62,17 @@
 
 	const [updateName, nameUpdate] = stackService.updateBranchName;
 
-	const isPushed = $derived(!!(args.draft ? undefined : args.trackingBranch));
+	const isPushed = $derived(!!(args.type === 'draft-branch' ? undefined : args.trackingBranch));
 	let renameBranchModal: BranchRenameModal | undefined = $state();
 
 	async function updateBranchName(title: string) {
-		if (args.draft) {
+		if (args.type === 'draft-branch') {
 			uiState.global.draftBranchName.set(title);
 			const normalized = await stackService.normalizeBranchName(title);
 			if (normalized.data) {
 				uiState.global.draftBranchName.set(normalized.data);
 			}
-		} else {
+		} else if (args.type === 'stack-branch') {
 			updateName({
 				projectId,
 				stackId: args.stackId,
@@ -76,7 +83,7 @@
 	}
 </script>
 
-{#if !args.draft}
+{#if args.type === 'stack-branch'}
 	<div
 		data-testid={TestId.BranchHeader}
 		bind:this={el}
@@ -155,6 +162,28 @@
 		bind:this={renameBranchModal}
 		isPushed={!!args.trackingBranch}
 	/>
+{:else if args.type === 'normal-branch'}
+	<div
+		data-testid={TestId.BranchHeader}
+		bind:this={el}
+		role="button"
+		class="branch-header"
+		class:selected={args.selected}
+		onclick={args.onclick}
+		onkeypress={args.onclick}
+		tabindex="0"
+	>
+		{#if args.selected}
+			<div class="branch-header__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+		{/if}
+
+		<BranchHeaderIcon {lineColor} {iconName} lineTop={false} />
+		<div class="branch-header__content">
+			<div class="name-line text-14 text-bold">
+				<BranchLabel name={branchName} fontSize="15" readonly={true} />
+			</div>
+		</div>
+	</div>
 {:else}
 	<div
 		data-testid={TestId.BranchHeader}

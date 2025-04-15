@@ -8,12 +8,14 @@
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import StackTabs from '$components/v3/stackTabs/StackTabs.svelte';
+	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { remToPx } from '@gitbutler/ui/utils/remToPx';
 	import { type Snippet } from 'svelte';
+	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {
 		projectId: string;
@@ -23,7 +25,7 @@
 
 	const { stackId, projectId, stack }: Props = $props();
 
-	const [stackService, uiState] = inject(StackService, UiState);
+	const [stackService, uiState, focusManager] = inject(StackService, UiState, FocusManager);
 	const stacksResult = $derived(stackService.stacks(projectId));
 
 	const projectState = $derived(uiState.project(projectId));
@@ -31,10 +33,34 @@
 	const drawerIsFullScreen = $derived(projectState.drawerFullScreen);
 	const isCommitting = $derived(drawerPage.current === 'new-commit');
 
-	const selected = $derived(stackId ? uiState.stack(stackId).selection : undefined);
-	const branchName = $derived(selected?.current?.branchName);
-	const commitId = $derived(selected?.current?.commitId);
-	const upstream = $derived(!!selected?.current?.upstream);
+	let focusGroup = $derived(
+		focusManager.radioGroup({
+			triggers: [Focusable.UncommittedChanges, Focusable.ChangedFiles]
+		})
+	);
+
+	const stackSelection = $derived(stackId ? uiState.stack(stackId).selection : undefined);
+	const currentSelection = $derived(stackSelection?.current);
+	const branchName = $derived(currentSelection?.branchName);
+	const commitId = $derived(currentSelection?.commitId);
+	const upstream = $derived(!!currentSelection?.upstream);
+
+	const selectionId: SelectionId = $derived.by(() => {
+		if (focusGroup.current === Focusable.ChangedFiles && currentSelection && stackId) {
+			if (currentSelection.commitId) {
+				return {
+					type: 'commit',
+					commitId: currentSelection.commitId
+				};
+			}
+			return {
+				type: 'branch',
+				branchName: currentSelection.branchName,
+				stackId
+			};
+		}
+		return { type: 'worktree' };
+	});
 
 	const leftWidth = $derived(uiState.global.leftWidth);
 	const stacksViewWidth = $derived(uiState.global.stacksViewWidth);
@@ -45,12 +71,12 @@
 	let tabsWidth = $state<number>();
 </script>
 
-<div class="workspace" use:focusable={{ id: 'workspace' }}>
+<div class="workspace" use:focusable={{ id: Focusable.Workspace }}>
 	<div
 		class="changed-files-view"
 		bind:this={leftDiv}
 		style:width={leftWidth.current + 'rem'}
-		use:focusable={{ id: 'left', parentId: 'workspace' }}
+		use:focusable={{ id: Focusable.WorkspaceLeft, parentId: Focusable.Workspace }}
 	>
 		<WorktreeChanges {projectId} {stackId} />
 		<Resizer
@@ -61,9 +87,12 @@
 			onWidth={(value) => (leftWidth.current = value)}
 		/>
 	</div>
-	<div class="main-view" use:focusable={{ id: 'main', parentId: 'workspace' }}>
+	<div
+		class="main-view"
+		use:focusable={{ id: Focusable.WorkspaceMiddle, parentId: Focusable.Workspace }}
+	>
 		{#if !drawerIsFullScreen.current}
-			<SelectionView {projectId} {stackId} />
+			<SelectionView {projectId} {selectionId} />
 		{/if}
 
 		{#if drawerPage.current === 'new-commit'}
@@ -90,7 +119,7 @@
 		class="stacks-view-wrap"
 		bind:this={stacksViewEl}
 		style:width={stacksViewWidth.current + 'rem'}
-		use:focusable={{ id: 'right', parentId: 'workspace' }}
+		use:focusable={{ id: Focusable.WorkspaceRight, parentId: Focusable.Workspace }}
 	>
 		<ReduxResult {projectId} result={stacksResult?.current}>
 			{#snippet children(stacks)}

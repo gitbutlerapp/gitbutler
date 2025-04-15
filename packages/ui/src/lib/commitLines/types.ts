@@ -23,4 +23,4 @@ export interface CommitData {
 	remoteCommitId?: string;
 }
 
-export type CellType = 'LocalOnly' | 'LocalAndRemote' | 'Integrated' | 'Remote';
+export type CellType = 'LocalOnly' | 'LocalAndRemote' | 'Integrated' | 'Remote' | 'Base';

@@ -14,7 +14,7 @@
 	import { BranchStack } from '$lib/branches/branch';
 	import { PatchSeries } from '$lib/branches/branch';
 	import { parentBranch } from '$lib/branches/virtualBranchService';
-	import { type CommitStatus } from '$lib/commits/commit';
+	import { type CommitStatusType } from '$lib/commits/commit';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { FileService } from '$lib/files/fileService';
@@ -73,7 +73,7 @@
 	let contextMenuOpened = $state(false);
 
 	const topPatch = $derived(branch?.patches[0]);
-	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'LocalOnly');
+	const branchType = $derived<CommitStatusType>(topPatch?.status ?? 'LocalOnly');
 	const lineColor = $derived(getColorFromBranchType(branchType));
 	const hasNoCommits = $derived(branch.upstreamPatches.length === 0 && branch.patches.length === 0);
 	const parentIsPushed = $derived(!!parent?.upstreamReference);

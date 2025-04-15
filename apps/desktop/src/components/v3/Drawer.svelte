@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
+	import { Focusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -11,7 +12,6 @@
 		projectId: string;
 		title?: string;
 		stackId?: string;
-		splitView?: boolean;
 		minHeight?: number;
 		header?: Snippet;
 		extraActions?: Snippet;
@@ -25,7 +25,6 @@
 		title,
 		projectId,
 		stackId,
-		splitView,
 		minHeight = 11,
 		header,
 		extraActions,
@@ -44,6 +43,7 @@
 	const heightRmResult = $derived(uiState.global.drawerHeight.get());
 	const heightRm = $derived(`min(${heightRmResult.current}rem, 80%)`);
 	const height = $derived(drawerIsFullScreen.current ? '100%' : heightRm);
+	const splitView = $derived(!!filesSplitView);
 
 	const contentWidth = $derived(uiState.global.drawerSplitViewWidth.get());
 	const scrollable = $derived(!disableScroll);
@@ -66,7 +66,7 @@
 	bind:this={drawerDiv}
 	style:height
 	style:min-height="{minHeight}rem"
-	use:focusable={{ id: 'commit', parentId: 'main' }}
+	use:focusable={{ id: Focusable.CommitEditor, parentId: Focusable.WorkspaceMiddle }}
 >
 	<div class="drawer-wrap">
 		<div class="drawer-header">
