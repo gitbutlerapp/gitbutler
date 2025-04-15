@@ -390,7 +390,12 @@ export class StackService {
 		return result;
 	}
 
-	branchChanges(projectId: string, stackId: string, branchName: string) {
+	/**
+	 * Gets the changes for a given branch.
+	 * If the branch is part of a stack and if the stackId is provided, this will include only the changes up to the next branch in the stack.
+	 * Otherwise, if stackId is not provided, this will include all changes as compared to the target branch
+	 */
+	branchChanges(projectId: string, stackId: string | undefined, branchName: string) {
 		return this.api.endpoints.branchChanges.useQuery(
 			{ projectId, stackId, branchName },
 			{ transform: (result) => branchChangesSelectors.selectAll(result) }
@@ -754,7 +759,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			branchChanges: build.query<
 				EntityState<TreeChange, string>,
-				{ projectId: string; stackId: string; branchName: string }
+				{ projectId: string; stackId: string | undefined; branchName: string }
 			>({
 				query: ({ projectId, stackId, branchName }) => ({
 					command: 'changes_in_branch',
