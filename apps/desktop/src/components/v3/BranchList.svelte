@@ -3,11 +3,13 @@
 	import Dropzone from '$components/Dropzone.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
+	import StackStickyButtons from '$components/StackStickyButtons.svelte';
 	import BranchCard from '$components/v3/BranchCard.svelte';
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
 	import CommitGoesHere from '$components/v3/CommitGoesHere.svelte';
 	import CommitRow from '$components/v3/CommitRow.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
+	import PublishButton from '$components/v3/PublishButton.svelte';
 	import PushButton from '$components/v3/PushButton.svelte';
 	import {
 		getColorFromCommitState,
@@ -40,6 +42,7 @@
 		BaseBranchService,
 		DefaultForgeFactory
 	);
+
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
 
 	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
@@ -65,6 +68,7 @@
 			{@const commitResult = stackService.commitAt(projectId, stackId, branchName, 0)}
 			{@const first = i === 0}
 			{@const last = i === branches.length - 1}
+
 			<ReduxResult
 				{projectId}
 				{stackId}
@@ -227,7 +231,10 @@
 				{/snippet}
 			</ReduxResult>
 		{/each}
-		<PushButton {projectId} {stackId} multipleBranches={branches.length > 1} />
+		<StackStickyButtons>
+			<PushButton {projectId} {stackId} multipleBranches={branches.length > 1} />
+			<PublishButton {projectId} {stackId} {branches} />
+		</StackStickyButtons>
 	{/snippet}
 </ReduxResult>
 
