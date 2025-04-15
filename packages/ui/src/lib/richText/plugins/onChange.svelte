@@ -8,22 +8,31 @@
 
 <script lang="ts">
 	import { getEditor } from '$lib/richText/context';
+	import { getMarkdownString } from '$lib/richText/markdown';
 	import { getEditorTextAfterAnchor, getEditorTextUpToAnchor } from '$lib/richText/selection';
 	import {
 		$getRoot as getRoot,
 		$getSelection as getSelection,
 		$isRangeSelection as isRangeSelection
 	} from 'lexical';
+	import { untrack } from 'svelte';
 
 	type Props = {
+		markdown: boolean;
 		onChange?: OnChangeCallback;
 	};
 
-	const { onChange }: Props = $props();
+	const { onChange, markdown }: Props = $props();
 
 	const editor = getEditor();
 
 	let text = $state<string>();
+
+	function getCurrentText() {
+		// If WYSIWYG is enabled, we need to transform the content to markdown strings
+		if (untrack(() => markdown)) return getMarkdownString();
+		return getRoot().getTextContent();
+	}
 
 	$effect(() => {
 		return editor.registerUpdateListener(
@@ -37,7 +46,11 @@
 				}
 
 				editorState.read(() => {
-					text = getRoot().getTextContent();
+					const currentText = getCurrentText();
+					if (currentText === text) {
+						return;
+					}
+					text = currentText;
 					const selection = getSelection();
 					if (!isRangeSelection(selection)) {
 						return;

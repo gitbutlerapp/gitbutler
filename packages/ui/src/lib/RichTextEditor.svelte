@@ -184,7 +184,7 @@
 		</div>
 
 		<EmojiPlugin bind:this={emojiPlugin} />
-		<OnChangePlugin {onChange} />
+		<OnChangePlugin {markdown} {onChange} />
 
 		{#if markdown}
 			<AutoFocusPlugin />
