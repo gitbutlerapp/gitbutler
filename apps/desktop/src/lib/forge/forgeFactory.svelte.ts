@@ -94,11 +94,12 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			});
 		}
 		if (domain === GITLAB_DOMAIN || domain.startsWith(GITLAB_SUB_DOMAIN + '.')) {
-			const { gitLabClient, gitLabApi } = this.params;
+			const { gitLabClient, gitLabApi, posthog } = this.params;
 			return new GitLab({
 				...baseParams,
 				api: gitLabApi,
 				client: gitLabClient,
+				posthog: posthog,
 				authenticated: !!gitlabAuthenticated
 			});
 		}
