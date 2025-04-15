@@ -173,7 +173,11 @@
 </script>
 
 <Composer {initialConfig} bind:this={composer}>
-	<div class="lexical-container lexical-{styleContext}" bind:this={editorDiv}>
+	<div
+		class="lexical-container lexical-{styleContext}"
+		bind:this={editorDiv}
+		class:plain-text={!markdown}
+	>
 		<div class="editor-scroller scrollbar">
 			<div class="editor">
 				<ContentEditable />

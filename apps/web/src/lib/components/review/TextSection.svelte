@@ -61,7 +61,7 @@
 	.editing {
 		width: 100%;
 		height: 100px;
-		font-family: monospace;
+		font-family: var(--fontfamily-mono);
 		font-size: large;
 	}
 

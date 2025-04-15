@@ -321,7 +321,7 @@
 		margin-bottom: 1rem;
 		border: 1px solid var(--border-color, #eaeaea);
 		border-radius: 4px;
-		font-family: monospace;
+		font-family: var(--fontfamily-mono);
 		resize: vertical;
 	}
 
@@ -364,7 +364,7 @@
 		background-color: #f1f5f9;
 		padding: 0.1rem 0.3rem;
 		border-radius: 3px;
-		font-family: monospace;
+		font-family: var(--fontfamily-mono);
 		font-size: 0.9em;
 	}
 

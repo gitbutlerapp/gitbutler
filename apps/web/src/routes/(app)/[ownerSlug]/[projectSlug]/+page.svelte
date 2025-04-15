@@ -639,7 +639,7 @@
 		margin-bottom: 1rem;
 		border: 1px solid var(--border-color, #eaeaea);
 		border-radius: 4px;
-		font-family: monospace;
+		font-family: var(--fontfamily-mono);
 		resize: vertical;
 	}
 
@@ -699,7 +699,7 @@
 			background: var(--background-alt, #f5f5f5);
 			padding: 0.25rem 0.5rem;
 			border-radius: 4px;
-			font-family: monospace;
+			font-family: var(--fontfamily-mono);
 			overflow: hidden;
 			text-overflow: ellipsis;
 			flex: 1;

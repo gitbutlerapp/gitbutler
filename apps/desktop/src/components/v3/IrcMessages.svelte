@@ -43,7 +43,7 @@
 		overflow: hidden;
 	}
 	.message {
-		font-family: monospace;
+		font-family: var(--fontfamily-mono);
 		white-space: pre-wrap;
 		user-select: text;
 	}

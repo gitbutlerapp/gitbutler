@@ -118,3 +118,7 @@
 .text-bold {
 	font-weight: var(--text-weight-bold);
 }
+
+.text-monospace {
+	font-family: var(--fontfamily-mono);
+}
