@@ -70,7 +70,7 @@
 		}
 
 		.error-series__message {
-			font-family: monospace;
+			font-family: var(--fontfamily-mono);
 			white-space: pre-wrap;
 			margin: 8px 0;
 		}

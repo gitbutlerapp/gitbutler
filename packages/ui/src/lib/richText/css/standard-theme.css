@@ -2,6 +2,10 @@
 	--markdown-generic-bottom-margin: 16px;
 }
 
+.lexical-container.plain-text {
+	--fontfamily-default: var(--fontfamily-mono);
+}
+
 /* text alignment */
 .StandardTheme__ltr {
 	text-align: left;
