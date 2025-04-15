@@ -291,7 +291,13 @@
 				{/if}
 			</div>
 		{:else if $mode?.type === 'OutsideWorkspace'}
-			<NotOnGitButlerBranch {baseBranch} />
+			{#if $settingsStore?.featureFlags.v3}
+				<Chrome {projectId}>
+					<NotOnGitButlerBranch {baseBranch} />
+				</Chrome>
+			{:else}
+				<NotOnGitButlerBranch {baseBranch} />
+			{/if}
 		{/if}
 	{/if}
 {/key}

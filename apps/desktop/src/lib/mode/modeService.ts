@@ -77,7 +77,7 @@ export class ModeService {
 		}) as [RemoteFile, ConflictEntryPresence | undefined][];
 	}
 
-	private async awaitMode(mode: Mode['type']): Promise<void> {
+	async awaitMode(mode: Mode['type']): Promise<void> {
 		return await new Promise((resolve) => {
 			const unsubscribe = this.mode.subscribe((operatingMode) => {
 				if (operatingMode && operatingMode?.type === mode) {

@@ -2,6 +2,7 @@
 	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
+	import { ModeService } from '$lib/mode/modeService';
 	import { Project } from '$lib/project/project';
 	import {
 		branchesPath,
@@ -37,6 +38,10 @@
 	let shareIssueModal = $state<ShareIssueModal>();
 	let keyboardShortcutsModal = $state<KeyboardShortcutsModal>();
 
+	const modeService = getContext(ModeService);
+	const mode = modeService.mode;
+	const disabled = $derived($mode?.type === 'OutsideWorkspace');
+
 	const userService = getContext(UserService);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 </script>
@@ -53,6 +58,7 @@
 				width={34}
 				class={['btn-square', isWorkspacePath() && 'btn-active']}
 				tooltip="Workspace"
+				{disabled}
 			>
 				<svg viewBox="0 0 16 13" fill="none" xmlns="http://www.w3.org/2000/svg">
 					<path
@@ -79,6 +85,7 @@
 				width={34}
 				class={['btn-square', isBranchesPath() && 'btn-active']}
 				tooltip="Branches"
+				{disabled}
 			>
 				<svg viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
 					<path d="M5 3L11 3" stroke-width="1.5" stroke="var(--clr-branches)" />
@@ -132,6 +139,7 @@
 					width={34}
 					class={['btn-square', isIrcPath() && 'btn-active']}
 					tooltip="History"
+					{disabled}
 				/>
 			</div>
 		{/if}
@@ -151,6 +159,7 @@
 					tooltipPosition="top"
 					tooltipAlign="start"
 					tooltip="Project settings"
+					{disabled}
 				/>
 			</div>
 
@@ -162,6 +171,7 @@
 					contextMenuEl?.toggle();
 				}}
 				bind:el={contextTriggerButton}
+				{disabled}
 			>
 				<div class="user-button">
 					<div class="user-icon">
@@ -195,6 +205,7 @@
 				onclick={() => {
 					keyboardShortcutsModal?.show();
 				}}
+				{disabled}
 			/>
 			<Button
 				icon="mail"
@@ -207,6 +218,7 @@
 				onclick={() => {
 					shareIssueModal?.show();
 				}}
+				{disabled}
 			/>
 		</div>
 	</div>
