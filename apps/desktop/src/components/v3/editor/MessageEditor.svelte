@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import MessageEditorRuler from '$components/v3/editor/MessageEditorRuler.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -11,6 +12,7 @@
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
 	import GhostTextPlugin from '@gitbutler/ui/richText/plugins/GhostText.svelte';
 	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
+	import FormattingButton from '@gitbutler/ui/richText/tools/FormattingButton.svelte';
 
 	interface Props {
 		projectId: string;
@@ -80,6 +82,10 @@
 	export function setText(text: string) {
 		composer?.setText(text);
 	}
+
+	let useRuler = $state(false);
+	let wrapTextToRuler = $state(false);
+	let rulerCountValue = $state(24);
 </script>
 
 <div class="editor-wrapper">
@@ -101,24 +107,32 @@
 				class:focused={useRichText.current && (isEditorFocused || isEditorHovered)}
 				onclick={() => {
 					useRichText.current = true;
-				}}>Rich-text Editor</button
+				}}>Rich-text</button
 			>
 		</div>
-		<FormattingBar bind:formatter {onAiButtonClick} {canUseAI} aiLoading={aiIsLoading} />
+
+		<FormattingBar bind:formatter />
 	</div>
 
 	<div
 		role="presentation"
-		class="message-editor"
+		class="message-textarea"
 		onmouseenter={() => (isEditorHovered = true)}
 		onmouseleave={() => (isEditorHovered = false)}
-		onclick={() => {
-			composer?.focus();
-		}}
 	>
-		<div class="message-editor__inner">
+		<div
+			role="presentation"
+			class="message-textarea__inner"
+			onclick={() => {
+				composer?.focus();
+			}}
+		>
+			{#if useRuler}
+				<MessageEditorRuler bind:charsCount={rulerCountValue} />
+			{/if}
+
 			<ConfigurableScrollableContainer height="100%">
-				<div class="message-editor__wrapper">
+				<div class="message-textarea__wrapper">
 					<RichTextEditor
 						styleContext="client-editor"
 						namespace="CommitMessageEditor"
@@ -147,13 +161,65 @@
 			</ConfigurableScrollableContainer>
 		</div>
 
-		<div class="message-editor__inner-toolbar">
+		<div class="message-textarea__toolbar">
 			<EmojiPickerButton onEmojiSelect={(emoji) => onEmojiSelect(emoji.unicode)} />
 			{#if enableFileUpload}
-				<div class="message-editor__inner-toolbar__divider"></div>
-				<Button kind="ghost" icon="attachment-small" reversedDirection>
-					<span style="opacity: 0.4">Drop or click to add files</span>
-				</Button>
+				<Button
+					kind="ghost"
+					icon="attachment-small"
+					tooltip="Drop, paste or click to upload files"
+					onclick={() => {
+						// TODO: Implement file upload
+					}}
+				/>
+			{/if}
+			<div class="message-textarea__toolbar__divider"></div>
+			<Button
+				kind="ghost"
+				icon="slash-commands"
+				tooltip="Slash commands"
+				onclick={() => {
+					// TODO: Implement slash commands
+				}}
+			/>
+			<Button
+				kind="ghost"
+				icon="ai"
+				tooltip={canUseAI
+					? 'Generate message'
+					: 'You need to enable AI in the project settings to use this feature'}
+				disabled={!canUseAI}
+				onclick={onAiButtonClick}
+				loading={aiIsLoading}
+			/>
+			{#if !useRichText.current}
+				<div class="message-textarea__toolbar__divider"></div>
+				<FormattingButton
+					icon="ruler"
+					activated={useRuler}
+					tooltip="Text ruler"
+					onclick={() => {
+						useRuler = !useRuler;
+					}}
+				/>
+				<FormattingButton
+					icon="auto-wrap"
+					activated={wrapTextToRuler}
+					tooltip="Wrap text automatically"
+					onclick={() => {
+						wrapTextToRuler = !wrapTextToRuler;
+					}}
+				/>
+				<span class="text-13">Ruler:</span>
+				<input
+					bind:value={rulerCountValue}
+					min="10"
+					max="500"
+					class="text-13 text-input message-textarea__ruler-input"
+					type="number"
+					onfocus={() => (isEditorFocused = true)}
+					onblur={() => (isEditorFocused = false)}
+				/>
 			{/if}
 		</div>
 	</div>
@@ -177,6 +243,8 @@
 	}
 
 	.editor-tabs {
+		z-index: var(--z-ground);
+		position: relative;
 		display: flex;
 	}
 
@@ -219,7 +287,9 @@
 		}
 	}
 
-	.message-editor {
+	/* MESSAGE INPUT */
+	.message-textarea {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		flex: 1;
@@ -235,13 +305,14 @@
 		}
 	}
 
-	.message-editor__inner-toolbar {
+	.message-textarea__toolbar {
 		position: relative;
 		display: flex;
 		align-items: center;
 		justify-content: flex-start;
 		gap: 6px;
-		padding: 10px 12px;
+		padding: 0 12px;
+		height: var(--lexical-input-client-toolbar-height);
 
 		&:after {
 			content: '';
@@ -254,13 +325,26 @@
 		}
 	}
 
-	.message-editor__inner-toolbar__divider {
+	.message-textarea__toolbar__divider {
 		width: 1px;
 		height: 18px;
 		background-color: var(--clr-border-3);
 	}
 
-	.message-editor__inner {
+	.message-textarea__ruler-input {
+		padding: 2px 0;
+		width: 30px;
+		text-align: center;
+
+		/* remove numver arrows */
+		&::-webkit-inner-spin-button,
+		&::-webkit-outer-spin-button {
+			-webkit-appearance: none;
+			margin: 0;
+		}
+	}
+
+	.message-textarea__inner {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
@@ -269,7 +353,7 @@
 		min-height: 0;
 	}
 
-	.message-editor__wrapper {
+	.message-textarea__wrapper {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
