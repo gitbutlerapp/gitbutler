@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { splitMessage } from '$lib/utils/commitMessage';
 	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
 
 	type Props = {
@@ -9,10 +10,7 @@
 
 	const { commit, row, class: className }: Props = $props();
 
-	const message = $derived(commit.message);
-	const indexOfNewLine = $derived(message.indexOf('\n'));
-	const endIndex = $derived(indexOfNewLine === -1 ? message.length : indexOfNewLine + 1);
-	const title = $derived(message.slice(0, endIndex).trim());
+	const title = $derived(splitMessage(commit.message).title);
 </script>
 
 <h3 class="{className} commit-title" class:row>
