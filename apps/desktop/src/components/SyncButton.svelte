@@ -9,9 +9,10 @@
 	interface Props {
 		projectId: string;
 		size?: ButtonProps['size'];
+		disabled?: boolean;
 	}
 
-	const { projectId, size = 'tag' }: Props = $props();
+	const { projectId, size = 'tag', disabled = false }: Props = $props();
 
 	const [baseBranchService, branchService] = inject(BaseBranchService, BranchService);
 	const baseBranch = baseBranchService.baseBranch(projectId);
@@ -31,6 +32,7 @@
 	icon="update"
 	tooltip="Last fetch from upstream"
 	{loading}
+	{disabled}
 	onmousedown={async (e: MouseEvent) => {
 		e.preventDefault();
 		e.stopPropagation();

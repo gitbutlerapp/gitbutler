@@ -199,6 +199,7 @@ fn main() {
                     projects::commands::list_projects,
                     projects::commands::set_project_active,
                     projects::commands::open_project_in_window,
+                    projects::commands::get_active_project,
                     repo::commands::git_get_local_config,
                     repo::commands::git_set_local_config,
                     repo::commands::check_signing_settings,

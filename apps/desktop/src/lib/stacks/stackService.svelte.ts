@@ -11,7 +11,6 @@ import {
 } from '$lib/state/tags';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
-import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { TauriCommandError } from '$lib/backend/ipc';
 import type { Commit, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
@@ -99,10 +98,9 @@ export class StackService {
 	private api: ReturnType<typeof injectEndpoints>;
 
 	constructor(
-		private readonly backendApi: BackendApi,
+		backendApi: BackendApi,
 		private forgeFactory: DefaultForgeFactory,
-		private uiState: UiState,
-		private readonly posthog: PostHogWrapper
+		private uiState: UiState
 	) {
 		this.api = injectEndpoints(backendApi);
 	}

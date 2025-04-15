@@ -2,7 +2,6 @@
 	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
-	import { ModeService } from '$lib/mode/modeService';
 	import { Project } from '$lib/project/project';
 	import {
 		branchesPath,
@@ -30,6 +29,8 @@
 	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
+	const { disabled = false }: { disabled?: boolean } = $props();
+
 	const project = getContext(Project);
 	const user = getContextStore(User);
 
@@ -37,10 +38,6 @@
 	let contextMenuEl = $state<ContextMenu>();
 	let shareIssueModal = $state<ShareIssueModal>();
 	let keyboardShortcutsModal = $state<KeyboardShortcutsModal>();
-
-	const modeService = getContext(ModeService);
-	const mode = modeService.mode;
-	const disabled = $derived($mode?.type === 'OutsideWorkspace');
 
 	const userService = getContext(UserService);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
@@ -58,7 +55,6 @@
 				width={34}
 				class={['btn-square', isWorkspacePath() && 'btn-active']}
 				tooltip="Workspace"
-				{disabled}
 			>
 				<svg viewBox="0 0 16 13" fill="none" xmlns="http://www.w3.org/2000/svg">
 					<path

@@ -185,4 +185,8 @@ export class ProjectsService {
 	async getCloudProject(repositoryId: string): Promise<CloudProject> {
 		return await this.httpClient.get(`projects/${repositoryId}.json`);
 	}
+
+	async getActiveProject(): Promise<Project | undefined> {
+		return await invoke('get_active_project');
+	}
 }

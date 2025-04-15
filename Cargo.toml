@@ -86,7 +86,7 @@ lto = false
 opt-level = 3
 
 [profile.dev]
-incremental = true
+incremental = false
 
 [profile.test]
-incremental = true
+incremental = false

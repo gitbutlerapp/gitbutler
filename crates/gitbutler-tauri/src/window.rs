@@ -182,6 +182,11 @@ pub(crate) mod state {
             Ok(())
         }
 
+        pub fn get_active_project_by_window(&self, window: &WindowLabelRef) -> Option<ProjectId> {
+            let state_by_label = self.state.lock();
+            state_by_label.get(window).map(|state| state.project_id)
+        }
+
         pub fn post(&self, action: gitbutler_watcher::Action) -> Result<()> {
             let mut state_by_label = self.state.lock();
             let state = state_by_label
