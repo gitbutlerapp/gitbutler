@@ -39,12 +39,16 @@
 		children?: Snippet;
 	};
 
-	type Props = ButtonPropsSubset & { action: () => Promise<void> };
-	let { action, loading = $bindable(), ...rest }: Props = $props();
+	type Props = ButtonPropsSubset & { action: () => Promise<void>; stopPropagation?: boolean };
+	let { action, loading = $bindable(), stopPropagation = false, ...rest }: Props = $props();
 
 	let state = $state<'inert' | 'loading' | 'complete'>('inert');
 
-	async function performAction() {
+	async function performAction(event: Event) {
+		if (stopPropagation) {
+			event.stopPropagation();
+		}
+
 		loading = true;
 
 		try {
