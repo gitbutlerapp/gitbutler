@@ -47,6 +47,12 @@
 	const rulerCountValue = uiState.global.rulerCountValue;
 	const wrapTextByRuler = uiState.global.wrapTextByRuler;
 
+	const wrapCountValue = $derived(
+		useRuler.current && wrapTextByRuler.current && !useRichText.current
+			? rulerCountValue.current
+			: undefined
+	);
+
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
 	let formatter = $state<ReturnType<typeof Formatter>>();
 	let isEditorHovered = $state(false);
@@ -150,6 +156,7 @@
 						onFocus={() => (isEditorFocused = true)}
 						onBlur={() => (isEditorFocused = false)}
 						{disabled}
+						{wrapCountValue}
 					>
 						{#snippet plugins()}
 							<Formatter bind:this={formatter} />
@@ -224,12 +231,12 @@
 						max="500"
 						class="text-13 text-input message-textarea__ruler-input"
 						type="number"
-						oninput={(e) => {
+						onfocus={() => (isEditorFocused = true)}
+						onblur={(e) => {
 							const input = e.currentTarget as HTMLInputElement;
 							rulerCountValue.current = parseInt(input.value);
+							isEditorFocused = false;
 						}}
-						onfocus={() => (isEditorFocused = true)}
-						onblur={() => (isEditorFocused = false)}
 					/>
 				</div>
 			{/if}
