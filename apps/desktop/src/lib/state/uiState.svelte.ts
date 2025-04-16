@@ -47,6 +47,7 @@ export type GlobalUiState = {
 	useRichText: boolean;
 	useRuler: boolean;
 	rulerCountValue: number;
+	wrapTextByRuler: boolean;
 	aiSuggestionsOnType: boolean;
 	selectedTip: number | undefined;
 	channel: string | undefined;
@@ -82,6 +83,7 @@ export class UiState {
 		useRichText: false,
 		useRuler: false,
 		rulerCountValue: 72,
+		wrapTextByRuler: false,
 		aiSuggestionsOnType: false,
 		selectedTip: undefined,
 		channel: undefined,

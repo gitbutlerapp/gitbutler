@@ -45,6 +45,7 @@
 	const useRichText = uiState.global.useRichText;
 	const useRuler = uiState.global.useRuler;
 	const rulerCountValue = uiState.global.rulerCountValue;
+	const wrapTextByRuler = uiState.global.wrapTextByRuler;
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
 	let formatter = $state<ReturnType<typeof Formatter>>();
@@ -84,8 +85,6 @@
 	export function setText(text: string) {
 		composer?.setText(text);
 	}
-
-	let wrapTextByRuler = $state(true);
 </script>
 
 <div
@@ -210,10 +209,10 @@
 				<FormattingButton
 					icon="auto-wrap"
 					disabled={!useRuler.current}
-					activated={wrapTextByRuler && useRuler.current}
+					activated={wrapTextByRuler.current && useRuler.current}
 					tooltip="Wrap text automatically"
 					onclick={() => {
-						wrapTextByRuler = !wrapTextByRuler;
+						wrapTextByRuler.current = !wrapTextByRuler.current;
 					}}
 				/>
 				<div class="message-textarea__ruler-input-wrapper" class:disabled={!useRuler.current}>
