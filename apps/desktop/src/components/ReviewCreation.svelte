@@ -390,6 +390,7 @@
 		{projectId}
 		disabled={isExecuting}
 		initialValue={prBody.value}
+		enableFileUpload
 		placeholder={'PR Description'}
 		{onAiButtonClick}
 		{canUseAI}
