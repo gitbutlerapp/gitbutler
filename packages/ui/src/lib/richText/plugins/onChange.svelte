@@ -22,7 +22,7 @@
 		onChange?: OnChangeCallback;
 	};
 
-	const { onChange, markdown }: Props = $props();
+	const { markdown, onChange }: Props = $props();
 
 	const editor = getEditor();
 

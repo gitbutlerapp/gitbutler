@@ -5,7 +5,7 @@
 	import CommitDetails from '$components/v3/CommitDetails.svelte';
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
-	import CommitMessageInput from '$components/v3/CommitMessageInput.svelte';
+	import CommitMessageEditor from '$components/v3/CommitMessageEditor.svelte';
 	import ConflictResolutionConfirmModal from '$components/v3/ConflictResolutionConfirmModal.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import { getCommitType, isLocalAndRemoteCommit } from '$components/v3/lib';
@@ -59,7 +59,7 @@
 	type Mode = 'view' | 'edit';
 
 	let mode = $state<Mode>('view');
-	let commitMessageInput = $state<ReturnType<typeof CommitMessageInput>>();
+	let commitMessageInput = $state<ReturnType<typeof CommitMessageEditor>>();
 
 	function setMode(newMode: Mode) {
 		mode = newMode;
@@ -142,7 +142,7 @@
 				disableScroll
 				minHeight={20}
 			>
-				<CommitMessageInput
+				<CommitMessageEditor
 					bind:this={commitMessageInput}
 					projectId={env.projectId}
 					stackId={env.stackId}

@@ -2,6 +2,7 @@
 	import CommitSuggestionsPlugin from '$components/v3/editor/CommitSuggestionsPlugin.svelte';
 	import EditorFooter from '$components/v3/editor/EditorFooter.svelte';
 	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
+	import MessageEditorInput from '$components/v3/editor/MessageEditorInput.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
@@ -10,7 +11,6 @@
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { tick } from 'svelte';
 
@@ -49,6 +49,8 @@
 	const titleText = $derived(projectState.commitTitle);
 	const descriptionText = $derived(projectState.commitDescription);
 	const stackSelection = $derived(stackState?.selection);
+
+	// const useRichText = uiState.global.useRichText;
 
 	const suggestionsHandler = new CommitSuggestions(aiService, uiState);
 	let commitSuggestionsPlugin = $state<ReturnType<typeof CommitSuggestionsPlugin>>();
@@ -129,7 +131,7 @@
 	}
 
 	let composer = $state<ReturnType<typeof MessageEditor>>();
-	let titleInput = $state<ReturnType<typeof Textbox>>();
+	let titleInput = $state<HTMLInputElement>();
 
 	export function getMessage() {
 		if (descriptionText.current) {
@@ -147,15 +149,13 @@
 	{existingCommitId}
 />
 
-<div class="commit-message-input">
-	<Textbox
-		bind:this={titleInput}
-		autofocus
-		size="large"
-		placeholder="Commit title"
+<div class="commit-message-wrap">
+	<MessageEditorInput
+		bind:ref={titleInput}
 		value={titleText.current}
-		oninput={(value: string) => {
-			projectState.commitTitle.current = value;
+		oninput={(e: Event) => {
+			const input = e.currentTarget as HTMLInputElement;
+			projectState.commitTitle.current = input.value;
 		}}
 		onkeydown={(e: KeyboardEvent) => {
 			if (e.key === 'Enter' || e.key === 'Tab') {
@@ -171,6 +171,7 @@
 			}
 		}}
 	/>
+
 	<MessageEditor
 		bind:this={composer}
 		initialValue={descriptionText.current}
@@ -208,7 +209,7 @@
 </EditorFooter>
 
 <style lang="postcss">
-	.commit-message-input {
+	.commit-message-wrap {
 		flex: 1;
 		display: flex;
 		flex-direction: column;

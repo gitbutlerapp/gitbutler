@@ -360,7 +360,7 @@
 		}
 	}
 
-	/* Modifiers */
+	/* MODIFIERS */
 	.textbox__left-orient {
 		& .textbox__input {
 			padding-left: 34px;

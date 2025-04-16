@@ -33,7 +33,10 @@ const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	aiSuggestionsOnType: true,
 	selectedTip: undefined,
 	channel: undefined,
-	draftBranchName: undefined
+	draftBranchName: undefined,
+	useRuler: false,
+	rulerCountValue: 0,
+	wrapTextByRuler: false
 };
 
 export function getUiStateMock() {

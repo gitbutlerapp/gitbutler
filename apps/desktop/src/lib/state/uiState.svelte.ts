@@ -45,6 +45,9 @@ export type GlobalUiState = {
 	stacksViewWidth: number;
 	drawerSplitViewWidth: number;
 	useRichText: boolean;
+	useRuler: boolean;
+	rulerCountValue: number;
+	wrapTextByRuler: boolean;
 	aiSuggestionsOnType: boolean;
 	selectedTip: number | undefined;
 	channel: string | undefined;
@@ -77,7 +80,10 @@ export class UiState {
 		leftWidth: 17.5,
 		stacksViewWidth: 21.25,
 		drawerSplitViewWidth: 20,
-		useRichText: true,
+		useRichText: false,
+		useRuler: false,
+		rulerCountValue: 72,
+		wrapTextByRuler: false,
 		aiSuggestionsOnType: false,
 		selectedTip: undefined,
 		channel: undefined,

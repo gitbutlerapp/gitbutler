@@ -1,7 +1,6 @@
 /* GENERAL */
 .lexical-container {
-	/* variables */
-	--lexical-default-font-size: 13px;
+	--lexical-default-font-size: var(--lexical-input-font-size);
 }
 
 .ContentEditable__root {
@@ -13,6 +12,7 @@
 
 .Placeholder__root {
 	color: var(--clr-text-3) !important;
+	font-family: var(--fontfamily-default) !important;
 	font-size: var(--lexical-default-font-size) !important;
 	top: var(--lexical-input-padding) !important;
 	left: var(--lexical-input-padding) !important;
@@ -21,13 +21,14 @@
 
 /* STYLE CONTEXT */
 .lexical-client-editor {
-	--lexical-input-padding: 12px;
+	--lexical-input-padding: var(--lexical-input-client-padding);
 	/* here we take out the height of the inner toolbar */
-	height: calc(100% - 48px);
+	height: calc(100% - var(--lexical-input-client-toolbar-height));
 
 	& .ContentEditable__root {
 		height: 100%;
 		min-height: unset;
+		overflow: hidden;
 	}
 }
 

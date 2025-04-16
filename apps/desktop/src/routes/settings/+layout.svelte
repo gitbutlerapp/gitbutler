@@ -47,9 +47,4 @@
 		min-height: 100vh;
 		margin: auto;
 	}
-
-	.page-view__title {
-		color: var(--clr-scale-ntrl-0);
-		align-self: flex-start;
-	}
 </style>

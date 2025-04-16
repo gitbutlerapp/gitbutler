@@ -82,10 +82,4 @@
 		max-height: 100%;
 		flex-grow: 1;
 	}
-
-	.file-card__resolved-btn {
-		margin-bottom: 0.25rem;
-		background-color: var(--clr-theme-err-soft);
-		padding: 0.5rem;
-	}
 </style>
