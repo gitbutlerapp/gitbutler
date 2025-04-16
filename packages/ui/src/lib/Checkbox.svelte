@@ -8,7 +8,7 @@
 		value?: string;
 		indeterminate?: boolean;
 		style?: CheckboxStyle;
-		onclick?: (e: MouseEvent) => void;
+		onclick?: (e: MouseEvent | Event) => void;
 		onchange?: (
 			e: Event & {
 				currentTarget: EventTarget & HTMLInputElement;
@@ -48,8 +48,16 @@
 		e.stopPropagation();
 		onchange?.(e);
 	}}
+	onkeydown={(e) => {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			e.stopPropagation();
+			input.checked = !input.checked;
+			onchange?.(e);
+		}
+	}}
 	type="checkbox"
-	class={`checkbox ${style}`}
+	class={`focus-state checkbox ${style}`}
 	class:small
 	{value}
 	id={name}
@@ -74,11 +82,8 @@
 			transform var(--transition-fast);
 		position: relative;
 
-		/* not checked */
-		&:hover,
-		&:focus {
-			outline: none;
-
+		/* disabled */
+		&:not(:disabled)&:not(:checked):hover {
 			&::after {
 				opacity: 0.8;
 				transform: scale(0.8);
@@ -86,11 +91,9 @@
 		}
 
 		&:disabled {
-			pointer-events: none;
-			opacity: 0.3;
+			opacity: 0.4;
 			cursor: not-allowed;
-			background-color: var(--clr-scale-ntrl-60);
-			border-color: none;
+			background-color: var(--clr-scale-ntrl-70);
 		}
 
 		/* indeterminate */
@@ -132,12 +135,6 @@
 
 		/* checked */
 		&:checked {
-			&:disabled {
-				pointer-events: none;
-				opacity: 0.4;
-				cursor: not-allowed;
-			}
-
 			&::after {
 				opacity: 1;
 				filter: brightness(2);
