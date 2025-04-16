@@ -326,7 +326,7 @@ pub fn stack_details(
     let mut stack_state = BranchState::default();
     let mut stack_is_conflicted = false;
     let mut branch_details = vec![];
-    let mut current_base = stack.merge_base(ctx)?.to_gix();
+    let mut current_base = stack.merge_base(ctx)?;
 
     for branch in branches {
         let upstream_reference = ctx
@@ -522,7 +522,7 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
 
     let mut stack_branches = vec![];
     let mut stack = state.get_stack(Id::from_str(&stack_id)?)?;
-    let mut current_base = stack.merge_base(ctx)?.to_gix();
+    let mut current_base = stack.merge_base(ctx)?;
     let repo = ctx.gix_repo()?;
     for internal in stack.branches() {
         let upstream_reference = ctx
