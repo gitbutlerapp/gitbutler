@@ -40,6 +40,7 @@
 	font-weight: var(--text-weight-regular);
 	line-height: var(--text-lineheight-body);
 	margin-bottom: var(--markdown-generic-bottom-margin);
+	text-wrap: var(--lexical-input-client-text-wrap, normal);
 }
 
 .StandardTheme__quote {

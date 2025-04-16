@@ -1,5 +1,5 @@
 <script lang="ts">
-	import CommitMessageInput from '$components/v3/CommitMessageInput.svelte';
+	import CommitMessageEditor from '$components/v3/CommitMessageEditor.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { lineIdsToHunkHeaders, type DiffHunk, type HunkHeader } from '$lib/hunks/hunk';
@@ -56,7 +56,7 @@
 	);
 	const projectState = $derived(uiState.project(projectId));
 
-	let input = $state<ReturnType<typeof CommitMessageInput>>();
+	let input = $state<ReturnType<typeof CommitMessageEditor>>();
 	let drawer = $state<ReturnType<typeof Drawer>>();
 
 	function findHunkDiff(filePath: string, hunk: SelectedHunk): DiffHunk | undefined {
@@ -185,7 +185,7 @@
 </script>
 
 <Drawer bind:this={drawer} {projectId} {stackId} title="Create commit" disableScroll minHeight={20}>
-	<CommitMessageInput
+	<CommitMessageEditor
 		bind:this={input}
 		{projectId}
 		{stackId}
