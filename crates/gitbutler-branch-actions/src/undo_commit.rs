@@ -47,7 +47,7 @@ pub(crate) fn undo_commit(
         })
         .collect::<Vec<_>>();
 
-    let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base.to_gix()), None)?;
+    let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base), None)?;
     rebase.rebase_noops(false);
     rebase.steps(steps)?;
     let output = rebase.rebase()?;

@@ -293,7 +293,7 @@ impl Stack {
         let repo = ctx.repo();
         let stack_commits = repo.l(
             self.head(&repo.to_gix()?)?.to_git2(),
-            LogUntil::Commit(self.merge_base(ctx)?),
+            LogUntil::Commit(self.merge_base(ctx)?.to_git2()),
             false,
         )?;
         Ok(stack_commits)
@@ -310,7 +310,7 @@ impl Stack {
     fn commits_with_merge_base(&self, ctx: &CommandContext) -> Result<Vec<git2::Oid>> {
         let mut commits = self.commits(ctx)?;
         let base_commit = self.merge_base(ctx)?;
-        commits.push(base_commit);
+        commits.push(base_commit.to_git2());
         Ok(commits)
     }
 
@@ -320,12 +320,12 @@ impl Stack {
     /// # Errors
     /// - If a target is not set for the project
     /// - If the head commit of the stack is not found
-    pub fn merge_base(&self, ctx: &CommandContext) -> Result<git2::Oid> {
+    pub fn merge_base(&self, ctx: &CommandContext) -> Result<gix::ObjectId> {
         let virtual_branch_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
         let target = virtual_branch_state.get_default_target()?;
-        let repo = ctx.repo();
-        let merge_base = repo.merge_base(self.head(&repo.to_gix()?)?.to_git2(), target.sha)?;
-        Ok(merge_base)
+        let gix_repo = ctx.gix_repo()?;
+        let merge_base = gix_repo.merge_base(self.head(&gix_repo)?, target.sha.to_gix())?;
+        Ok(merge_base.detach())
     }
 
     /// An initialized stack has at least one head (branch).

@@ -115,7 +115,7 @@ fn commit_and_base_from_stack(
     // Now, find the preceding head in the stack. If it is not present, use the stack merge base
     let base_commit_id = match end {
         Some(end) => repo.find_reference(end)?.peel_to_commit()?.id,
-        None => stack.merge_base(ctx)?.to_gix(),
+        None => stack.merge_base(ctx)?,
     };
     Ok((start_commit_id, base_commit_id))
 }

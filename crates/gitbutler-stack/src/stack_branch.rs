@@ -311,7 +311,7 @@ impl StackBranch {
     /// Returns the commits that are part of the branch.
     pub fn commits<'a>(&self, ctx: &'a CommandContext, stack: &Stack) -> Result<BranchCommits<'a>> {
         let repo = ctx.repo();
-        let merge_base = stack.merge_base(ctx)?;
+        let merge_base = stack.merge_base(ctx)?.to_git2();
 
         let gix_repo = repo.to_gix()?;
         let head_commit = commit_by_oid_or_change_id(

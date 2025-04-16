@@ -1161,7 +1161,7 @@ pub(crate) fn move_commit_file(
             }
         }
     }
-    let mut rebase = but_rebase::Rebase::new(&gix_repo, merge_base.to_gix(), None)?;
+    let mut rebase = but_rebase::Rebase::new(&gix_repo, merge_base, None)?;
     rebase.steps(steps)?;
     rebase.rebase_noops(false);
     let outcome = rebase.rebase()?;
@@ -1251,7 +1251,7 @@ pub(crate) fn move_commit_file(
             }
         }
     }
-    let mut rebase = but_rebase::Rebase::new(&gix_repo, merge_base.to_gix(), None)?;
+    let mut rebase = but_rebase::Rebase::new(&gix_repo, merge_base, None)?;
     rebase.steps(steps)?;
     rebase.rebase_noops(false);
     let outcome = rebase.rebase()?;
@@ -1304,7 +1304,7 @@ pub(crate) fn insert_blank_commit(
         }
     }
     // if the  commit is the merge_base, then put the blank commit at the beginning
-    if commit.id() == merge_base {
+    if commit.id().to_gix() == merge_base {
         updated_steps.insert(
             0,
             RebaseStep::Pick {
@@ -1314,7 +1314,7 @@ pub(crate) fn insert_blank_commit(
         );
     }
 
-    let mut rebase = but_rebase::Rebase::new(&repo, merge_base.to_gix(), None)?;
+    let mut rebase = but_rebase::Rebase::new(&repo, merge_base, None)?;
     rebase.steps(updated_steps)?;
     rebase.rebase_noops(false);
     let output = rebase.rebase()?;
@@ -1380,7 +1380,7 @@ pub(crate) fn update_commit_message(
         }
     }
     let merge_base = stack.merge_base(ctx)?;
-    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base.to_gix()), None)?;
+    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base), None)?;
     rebase.rebase_noops(false);
     rebase.steps(steps)?;
     let output = rebase.rebase()?;
