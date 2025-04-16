@@ -41,6 +41,7 @@
 		staged?: boolean;
 		hideCheckboxes?: boolean;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
+		minWidth: number;
 	}
 
 	const {
@@ -58,7 +59,8 @@
 		hoveringOverTable,
 		staged,
 		hideCheckboxes,
-		handleLineContextMenu
+		handleLineContextMenu,
+		minWidth
 	}: Props = $props();
 
 	const touchDevice = isTouchDevice();
@@ -115,8 +117,8 @@
 		class:is-last={row.isLast}
 		class:is-before={side === CountColumnSide.Before}
 		class:staged={staged && deltaLine}
-		style="--staging-column-width: {stagingColumnWidth}px;"
-		class:stagable={staged !== undefined}
+		style="--staging-column-width: {stagingColumnWidth}px; --number-col-width: {minWidth}rem;"
+		class:stagable={staged !== undefined && !hideCheckboxes}
 		onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
 		onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
 		onmouseup={() => lineSelection.onEnd()}
@@ -147,6 +149,7 @@
 		<td
 			bind:clientWidth={stagingColumnWidth}
 			class="table__numberColumn"
+			style="--staging-column-width: {stagingColumnWidth}px; --number-col-width: {minWidth}rem;"
 			data-no-drag
 			class:diff-line-deletion={row.type === SectionType.RemovedLines}
 			class:diff-line-addition={row.type === SectionType.AddedLines}
@@ -256,7 +259,6 @@
 	tr {
 		padding: 0;
 		margin: 0;
-		height: 20px;
 		user-select: none;
 		font-family: var(--diff-font);
 	}
@@ -274,11 +276,13 @@
 	}
 
 	.table__row-header {
+		min-height: 20px;
 		white-space: pre;
 		user-select: text;
 		-webkit-user-select: text;
 		cursor: text;
 		position: relative;
+		text-wrap: var(--wrap);
 	}
 
 	.table__selected-row-overlay {
@@ -339,6 +343,7 @@
 	}
 
 	.table__numberColumn {
+		z-index: var(--z-ground);
 		color: var(--clr-diff-count-text);
 		border-color: var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
@@ -378,8 +383,17 @@
 			cursor: pointer;
 		}
 
+		/* Staging column width + 1 border width-ish. */
+		/* It's kind of a hack to ad the fraction of a pixel here, but table CSS sucks */
+		--column-and-boder: calc(var(--staging-column-width) + 0.5px);
 		&.stagable {
 			min-width: var(--staging-column-width);
+			left: calc(var(--column-and-boder));
+		}
+
+		&.stagable:not(.is-before) {
+			min-width: var(--staging-column-width);
+			left: calc(var(--column-and-boder) * 2);
 		}
 
 		&.staged {

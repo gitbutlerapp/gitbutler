@@ -61,6 +61,38 @@
 		generateRows(filePath, content, inlineUnifiedDiffs, parser, selectedLines)
 	);
 	const clickable = $derived(!!onLineClick);
+	const maxLineNumber = $derived.by(() => {
+		if (renderRows.length === 0) return 0;
+
+		const lastRow = renderRows.at(-1);
+		if (!lastRow) return 0;
+
+		if (lastRow.beforeLineNumber === undefined && lastRow.afterLineNumber === undefined) {
+			return 0;
+		}
+
+		if (lastRow.beforeLineNumber === undefined) {
+			return lastRow.afterLineNumber;
+		}
+
+		if (lastRow.afterLineNumber === undefined) {
+			return lastRow.beforeLineNumber;
+		}
+		return Math.max(lastRow.beforeLineNumber, lastRow.afterLineNumber);
+	});
+
+	function getGutterMinWidth(max: number | undefined) {
+		if (!max) {
+			return 1;
+		}
+		if (max >= 10000) return 2.5;
+		if (max >= 1000) return 2;
+		if (max >= 100) return 1.5;
+		if (max >= 10) return 1.25;
+		return 1;
+	}
+
+	const minWidth = $derived(getGutterMinWidth(maxLineNumber));
 
 	$effect(() => lineSelection.setRows(renderRows));
 	$effect(() => lineSelection.setOnLineClick(onLineClick));
@@ -98,6 +130,7 @@
 			[]
 		);
 	});
+
 	const commentRow = $derived(commentRows?.[0]);
 </script>
 
@@ -123,6 +156,7 @@
 
 	{#each renderRows as row, idx}
 		<HunkDiffRow
+			{minWidth}
 			{idx}
 			{row}
 			{clickable}
