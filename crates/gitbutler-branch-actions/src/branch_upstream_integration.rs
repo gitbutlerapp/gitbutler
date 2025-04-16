@@ -51,7 +51,7 @@ pub fn integrate_upstream_commits_for_series(
     let gix_repo = ctx.gix_repo()?;
 
     let series_head = subject_branch.head_oid(&gix_repo)?;
-    let series_head = repo.find_commit(series_head)?;
+    let series_head = repo.find_commit(series_head.to_git2())?;
 
     let strategy = integration_strategy.unwrap_or_else(|| {
         let do_rebease = stack.allow_rebasing
@@ -66,7 +66,7 @@ pub fn integrate_upstream_commits_for_series(
     let integrate_upstream_context = IntegrateUpstreamContext {
         repo,
         target_branch_head: default_target.sha,
-        branch_head: stack.head(&gix_repo)?,
+        branch_head: stack.head(&gix_repo)?.to_git2(),
         branch_tree: stack.tree(ctx)?,
         branch_name: subject_branch.name(),
         branch_full_name: subject_branch.full_name()?,

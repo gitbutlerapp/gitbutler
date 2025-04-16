@@ -1012,7 +1012,6 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
 
 mod utils {
     use but_testsupport::visualize_commit_graph;
-    use gitbutler_oxidize::OidExt;
     use gitbutler_stack::VirtualBranchesState;
     use gix::refs::transaction::PreviousValue;
 
@@ -1072,7 +1071,7 @@ mod utils {
             //     "create stack head for visualization",
             // )?;
             for branch in &stack.heads {
-                let commit_id = branch.head_oid(repo)?.to_gix();
+                let commit_id = branch.head_oid(repo)?;
                 repo.reference(
                     format!("refs/heads/{}", branch.name()),
                     commit_id,

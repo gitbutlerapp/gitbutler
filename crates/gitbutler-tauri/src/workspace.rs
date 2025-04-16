@@ -11,7 +11,6 @@ use gitbutler_branch_actions::BranchManagerExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
-use gitbutler_oxidize::OidExt;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
@@ -253,7 +252,7 @@ pub fn stash_into_branch(
         perm,
     )?;
 
-    let parent_commit_id = stack.head(&repo)?.to_gix();
+    let parent_commit_id = stack.head(&repo)?;
     let branch_name = stack.derived_name()?;
 
     let outcome = commit_engine::create_commit_and_update_refs_with_project(

@@ -14,6 +14,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, Hunk};
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_operating_modes::assure_open_workspace_mode;
+use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{BranchOwnershipClaims, OwnershipClaim, Stack, StackId};
 use tracing::instrument;
@@ -214,7 +215,7 @@ pub fn get_applied_status_cached(
     for (vbranch, files) in &mut hunks_by_branch {
         vbranch.set_tree(gitbutler_diff::write::hunks_onto_oid(
             ctx,
-            vbranch.head(&repo)?,
+            vbranch.head(&repo)?.to_git2(),
             files,
         )?);
         vb_state

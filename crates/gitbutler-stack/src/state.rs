@@ -7,7 +7,7 @@ use anyhow::{anyhow, Result};
 use git2::Repository;
 use gitbutler_error::error::Code;
 use gitbutler_fs::read_toml_file_or_default;
-use gitbutler_oxidize::{OidExt as _, RepoExt};
+use gitbutler_oxidize::{ObjectIdExt, OidExt as _, RepoExt};
 use gitbutler_reference::Refname;
 use gitbutler_repo::commit_message::CommitMessage;
 use gitbutler_serde::object_id_opt;
@@ -290,7 +290,7 @@ impl VirtualBranchesHandle {
             if branch.not_in_workspace_wip_change_id.is_some() {
                 continue; // Skip branches that have a WIP commit
             }
-            if let Ok(branch_head) = branch.head(&gix_repo) {
+            if let Ok(branch_head) = branch.head(&gix_repo).map(|h| h.to_git2()) {
                 if repo.find_commit(branch_head).is_err() {
                     // if the head commit cant be found, we can GC the branch
                     to_remove.push(branch.id);

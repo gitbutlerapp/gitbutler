@@ -4,7 +4,7 @@ use anyhow::Result;
 use git2::Oid;
 use gitbutler_branch_actions::{list_virtual_branches, reorder_stack, SeriesOrder, StackOrder};
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::RepoExt;
+use gitbutler_oxidize::{ObjectIdExt, RepoExt};
 use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_testsupport::testing_repository::assert_commit_tree_matches;
 use itertools::Itertools;
@@ -456,9 +456,9 @@ fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool, u128)>>
     out
 }
 
-fn file(ctx: &CommandContext, commit_id: git2::Oid) -> String {
+fn file(ctx: &CommandContext, commit_id: gix::ObjectId) -> String {
     let repo = ctx.repo();
-    let commit = repo.find_commit(commit_id).unwrap();
+    let commit = repo.find_commit(commit_id.to_git2()).unwrap();
     let tree = commit.tree().unwrap();
     let entry = tree.get_name("file").unwrap();
     let blob = repo.find_blob(entry.id()).unwrap();
