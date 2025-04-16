@@ -18,6 +18,7 @@ import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { UpdaterService } from '$lib/updater/updater';
 import { UserService } from '$lib/user/userService';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
+import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
 import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 import lscache from 'lscache';
@@ -50,6 +51,7 @@ export const load: LayoutLoad = async () => {
 	const tauri = new Tauri();
 	const updaterService = new UpdaterService(tauri, posthog);
 	const promptService = new PromptService();
+	const uploadsService = new UploadsService(httpClient);
 
 	const userService = new UserService(httpClient, tokenMemoryService, posthog);
 
@@ -91,6 +93,7 @@ export const load: LayoutLoad = async () => {
 		fileService,
 		hooksService,
 		settingsService,
-		projectMetrics
+		projectMetrics,
+		uploadsService
 	};
 };

@@ -184,7 +184,7 @@
 		onChange={(text: string) => {
 			descriptionText.current = text;
 		}}
-		enableFileUpload={false}
+		enableFileUpload
 		onKeyDown={(e: KeyboardEvent) => {
 			if (e.key === 'Tab' && e.shiftKey) {
 				e.preventDefault();
