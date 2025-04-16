@@ -34,7 +34,7 @@
 	const pr = $derived(prResult?.current.data);
 
 	const canPublish = stackPublishingService.canPublish;
-	const canPublishBR = $derived(!!($canPublish && name && reviewId));
+	const canPublishBR = $derived(!!($canPublish && name && !reviewId));
 	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
 
 	const ctaLabel = $derived.by(() => {
