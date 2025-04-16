@@ -127,7 +127,7 @@
 				composer?.focus();
 			}}
 		>
-			{#if useRuler.current}
+			{#if useRuler.current && !useRichText.current}
 				<MessageEditorRuler />
 			{/if}
 
