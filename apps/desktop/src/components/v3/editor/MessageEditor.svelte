@@ -5,14 +5,21 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import { uploadFiles } from '@gitbutler/shared/dom';
+	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
 	import { debouncePromise } from '@gitbutler/shared/utils/misc';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmojiPickerButton from '@gitbutler/ui/EmojiPickerButton.svelte';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
+	import FileUploadPlugin, {
+		type DropFileResult
+	} from '@gitbutler/ui/richText/plugins/FileUpload.svelte';
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
 	import GhostTextPlugin from '@gitbutler/ui/richText/plugins/GhostText.svelte';
 	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
 	import FormattingButton from '@gitbutler/ui/richText/tools/FormattingButton.svelte';
+
+	const ACCEPTED_FILE_TYPES = ['image/*', 'application/*', 'text/*', 'audio/*', 'video/*'];
 
 	interface Props {
 		projectId: string;
@@ -42,6 +49,8 @@
 	}: Props = $props();
 
 	const uiState = getContext(UiState);
+	const uploadsService = getContext(UploadsService);
+
 	const useRichText = uiState.global.useRichText;
 	const useRuler = uiState.global.useRuler;
 	const rulerCountValue = uiState.global.rulerCountValue;
@@ -57,6 +66,7 @@
 	let formatter = $state<ReturnType<typeof Formatter>>();
 	let isEditorHovered = $state(false);
 	let isEditorFocused = $state(false);
+	let fileUploadPlugin = $state<ReturnType<typeof FileUploadPlugin>>();
 
 	export async function getPlaintext(): Promise<string | undefined> {
 		return composer?.getPlaintext();
@@ -82,6 +92,35 @@
 
 	function onEmojiSelect(emoji: string) {
 		composer?.insertText(emoji);
+	}
+
+	function isAcceptedFileType(file: File): boolean {
+		const type = file.type.split('/')[0];
+		if (!type) return false;
+		return ACCEPTED_FILE_TYPES.some((acceptedType) => acceptedType.startsWith(type));
+	}
+
+	async function handleDropFiles(files: FileList | undefined): Promise<DropFileResult[]> {
+		if (files === undefined) return [];
+		const uploads = Array.from(files)
+			.filter(isAcceptedFileType)
+			.map(async (file) => {
+				const upload = await uploadsService.uploadFile(file);
+
+				return { name: file.name, url: upload.url, isImage: upload.isImage };
+			});
+		const settled = await Promise.allSettled(uploads);
+		const successful = settled.filter((result) => result.status === 'fulfilled');
+		return successful.map((result) => result.value);
+	}
+
+	async function attachFiles() {
+		composer?.focus();
+
+		const files = await uploadFiles(ACCEPTED_FILE_TYPES.join(','));
+
+		if (!files) return;
+		await fileUploadPlugin?.handleFileUpload(files);
 	}
 
 	export function focus() {
@@ -160,6 +199,7 @@
 					>
 						{#snippet plugins()}
 							<Formatter bind:this={formatter} />
+							<FileUploadPlugin bind:this={fileUploadPlugin} onDrop={handleDropFiles} />
 							{#if suggestionsHandler}
 								<GhostTextPlugin
 									bind:this={suggestionsHandler.ghostTextComponent}
@@ -179,9 +219,7 @@
 					kind="ghost"
 					icon="attachment-small"
 					tooltip="Drop, paste or click to upload files"
-					onclick={() => {
-						// TODO: Implement file upload
-					}}
+					onclick={attachFiles}
 				/>
 			{/if}
 			<div class="message-textarea__toolbar__divider"></div>
