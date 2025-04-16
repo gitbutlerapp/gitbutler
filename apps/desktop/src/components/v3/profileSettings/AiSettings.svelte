@@ -2,7 +2,6 @@
 	import AIPromptEdit from '$components/AIPromptEdit.svelte';
 	import AuthorizationBanner from '$components/AuthorizationBanner.svelte';
 	import InfoMessage from '$components/InfoMessage.svelte';
-	import RadioButton from '$components/RadioButton.svelte';
 	import Section from '$components/Section.svelte';
 	import { AISecretHandle, AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
@@ -10,6 +9,7 @@
 	import { getSecretsService } from '$lib/secrets/secretsService';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
+	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';

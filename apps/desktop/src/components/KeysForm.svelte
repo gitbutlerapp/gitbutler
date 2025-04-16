@@ -1,13 +1,13 @@
 <script lang="ts">
 	import CredentialCheck from '$components/CredentialCheck.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
-	import RadioButton from '$components/RadioButton.svelte';
 	import Section from '$components/Section.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { showError } from '$lib/notifications/toasts';
 	import { type Key, type KeyType, Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
+	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';

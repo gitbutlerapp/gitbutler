@@ -9,18 +9,36 @@
 		onchange?: (e: Event) => void;
 	}
 
-	const {
+	let {
 		name = '',
 		small = false,
 		disabled = false,
 		value = '',
 		id = '',
-		checked = false,
+		checked = $bindable(),
 		onchange
 	}: Props = $props();
 </script>
 
-<input type="radio" class="radio" class:small {id} {value} {name} {disabled} {checked} {onchange} />
+<input
+	type="radio"
+	class="focus-state radio"
+	class:small
+	{id}
+	{value}
+	{name}
+	{disabled}
+	{checked}
+	{onchange}
+	onkeydown={(e) => {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			e.stopPropagation();
+			checked = true;
+			onchange?.(e);
+		}
+	}}
+/>
 
 <style lang="postcss">
 	.radio {
@@ -38,10 +56,8 @@
 			transform var(--transition-fast);
 		position: relative;
 
-		/* not checked */
-		&:hover,
-		&:focus {
-			outline: none;
+		/* disabled */
+		&:not(:disabled)&:not(:checked):hover {
 			box-shadow: inset 0 0 0 1px var(--clr-border-1);
 
 			&::after {
@@ -51,23 +67,15 @@
 		}
 
 		&:disabled {
-			pointer-events: none;
-			opacity: 0.3;
+			opacity: 0.4;
 			cursor: not-allowed;
-			background-color: var(--clr-scale-ntrl-60);
-			border-color: none;
+			background-color: var(--clr-scale-ntrl-70);
 		}
 
 		/* checked */
 		&:checked {
 			background-color: var(--clr-theme-pop-element);
 			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element);
-
-			&:disabled {
-				pointer-events: none;
-				opacity: 0.4;
-				cursor: not-allowed;
-			}
 
 			&::after {
 				opacity: 1;

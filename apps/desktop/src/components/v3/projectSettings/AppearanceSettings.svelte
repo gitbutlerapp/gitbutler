@@ -1,5 +1,4 @@
 <script lang="ts">
-	import RadioButton from '$components/RadioButton.svelte';
 	import ThemeSelector from '$components/ThemeSelector.svelte';
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
 	import {
@@ -10,6 +9,7 @@
 	} from '$lib/settings/userSettings';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
+	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
