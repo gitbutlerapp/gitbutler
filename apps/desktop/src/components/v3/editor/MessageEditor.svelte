@@ -88,7 +88,12 @@
 	let wrapTextByRuler = $state(true);
 </script>
 
-<div class="editor-wrapper" style:--lexical-input-client-text-wrap={useRuler ? 'nowrap' : 'normal'}>
+<div
+	class="editor-wrapper"
+	style:--lexical-input-client-text-wrap={useRuler.current && !useRichText.current
+		? 'nowrap'
+		: 'normal'}
+>
 	<div class="editor-header">
 		<div class="editor-tabs">
 			<button
