@@ -43,6 +43,8 @@
 
 	const uiState = getContext(UiState);
 	const useRichText = uiState.global.useRichText;
+	const useRuler = uiState.global.useRuler;
+	const rulerCountValue = uiState.global.rulerCountValue;
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
 	let formatter = $state<ReturnType<typeof Formatter>>();
@@ -83,9 +85,7 @@
 		composer?.setText(text);
 	}
 
-	let useRuler = $state(true);
 	let wrapTextByRuler = $state(true);
-	let rulerCountValue = $state(42);
 </script>
 
 <div class="editor-wrapper" style:--lexical-input-client-text-wrap={useRuler ? 'nowrap' : 'normal'}>
@@ -127,8 +127,8 @@
 				composer?.focus();
 			}}
 		>
-			{#if useRuler}
-				<MessageEditorRuler bind:charsCount={rulerCountValue} />
+			{#if useRuler.current}
+				<MessageEditorRuler />
 			{/if}
 
 			<ConfigurableScrollableContainer height="100%">
@@ -196,30 +196,34 @@
 				<div class="message-textarea__toolbar__divider"></div>
 				<FormattingButton
 					icon="ruler"
-					activated={useRuler}
+					activated={useRuler.current}
 					tooltip="Text ruler"
 					onclick={() => {
-						useRuler = !useRuler;
+						useRuler.current = !useRuler.current;
 					}}
 				/>
 				<FormattingButton
 					icon="auto-wrap"
-					disabled={!useRuler}
-					activated={wrapTextByRuler && useRuler}
+					disabled={!useRuler.current}
+					activated={wrapTextByRuler && useRuler.current}
 					tooltip="Wrap text automatically"
 					onclick={() => {
 						wrapTextByRuler = !wrapTextByRuler;
 					}}
 				/>
-				<div class="message-textarea__ruler-input-wrapper" class:disabled={!useRuler}>
+				<div class="message-textarea__ruler-input-wrapper" class:disabled={!useRuler.current}>
 					<span class="text-13">Ruler:</span>
 					<input
-						disabled={!useRuler}
-						bind:value={rulerCountValue}
+						disabled={!useRuler.current}
+						value={rulerCountValue.current}
 						min="10"
 						max="500"
 						class="text-13 text-input message-textarea__ruler-input"
 						type="number"
+						oninput={(e) => {
+							const input = e.currentTarget as HTMLInputElement;
+							rulerCountValue.current = parseInt(input.value);
+						}}
 						onfocus={() => (isEditorFocused = true)}
 						onblur={() => (isEditorFocused = false)}
 					/>

@@ -1,9 +1,9 @@
 <script lang="ts">
-	interface Props {
-		charsCount: number;
-	}
+	import { UiState } from '$lib/state/uiState.svelte';
+	import { getContext } from '@gitbutler/shared/context';
 
-	const { charsCount = $bindable() }: Props = $props();
+	const uiState = getContext(UiState);
+	const rulerCountValue = uiState.global.rulerCountValue;
 
 	let lineWidth = $state(0);
 </script>
@@ -14,8 +14,8 @@
 >
 	<div class="message-ruler-dummy" bind:clientWidth={lineWidth}>
 		<!-- Create a dummy amount of text to measure the width -->
-		{#if charsCount > 0}
-			{#each Array(charsCount) as _}
+		{#if rulerCountValue.current > 0}
+			{#each Array(rulerCountValue.current) as _}
 				i
 			{/each}
 		{/if}
