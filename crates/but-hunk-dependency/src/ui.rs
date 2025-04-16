@@ -1,4 +1,5 @@
 use but_core::UnifiedDiff;
+use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::OidExt;
 use gitbutler_stack::StackId;
 use gix::bstr::ByteSlice;
@@ -9,12 +10,13 @@ use std::path::Path;
 /// Compute hunk-dependencies for the UI knowing the `worktree_dir` for changes
 /// and `gitbutler_dir` for obtaining stack information.
 pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
+    ctx: &CommandContext,
     worktree_dir: &Path,
     gitbutler_dir: &Path,
 ) -> anyhow::Result<HunkDependencies> {
     let repo = gix::open(worktree_dir).map_err(anyhow::Error::from)?;
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
-    let stacks = but_workspace::stacks(gitbutler_dir, &repo, Default::default())?;
+    let stacks = but_workspace::stacks(ctx, gitbutler_dir, &repo, Default::default())?;
     let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(gitbutler_dir)
         .get_default_target()?
         .sha;
