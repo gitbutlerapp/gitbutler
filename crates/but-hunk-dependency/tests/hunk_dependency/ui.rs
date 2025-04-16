@@ -162,6 +162,7 @@ mod util {
         HunkDependencies, HunkHash, HunkLock,
         hunk_dependencies_for_workspace_changes_by_worktree_dir,
     };
+    use gitbutler_command_context::CommandContext;
     use gitbutler_stack::StackId;
     use itertools::Itertools;
     use std::collections::HashSet;
@@ -195,18 +196,19 @@ mod util {
     pub fn hunk_dependencies_for_workspace(
         name: &str,
     ) -> anyhow::Result<(HunkDependencies, TestContext)> {
-        let ctx = test_ctx_at(
-            "../../../but-hunk-dependency/tests/fixtures/dependencies.sh",
-            name,
-        )?;
-        let deps = hunk_dependencies_for_workspace_by_ctx(&ctx)?;
+        let script_name = "../../../but-hunk-dependency/tests/fixtures/dependencies.sh";
+        let ctx = test_ctx_at(script_name, name)?;
+        let command_context = gitbutler_testsupport::read_only::fixture(script_name, name)?;
+        let deps = hunk_dependencies_for_workspace_by_ctx(&ctx, &command_context)?;
         Ok((deps, ctx))
     }
 
     fn hunk_dependencies_for_workspace_by_ctx(
         ctx: &TestContext,
+        command_context: &CommandContext,
     ) -> anyhow::Result<HunkDependencies> {
         hunk_dependencies_for_workspace_changes_by_worktree_dir(
+            command_context,
             ctx.repo.workdir().expect("We don't support bare repos"),
             &ctx.gitbutler_dir,
         )
@@ -242,6 +244,7 @@ mod util {
     fn test_ctx_at(script_name: &str, name: &str) -> anyhow::Result<TestContext> {
         let ctx = gitbutler_testsupport::read_only::fixture(script_name, name)?;
         let stacks = but_workspace::stacks(
+            &ctx,
             &ctx.project().gb_dir(),
             &ctx.gix_repo()?,
             Default::default(),

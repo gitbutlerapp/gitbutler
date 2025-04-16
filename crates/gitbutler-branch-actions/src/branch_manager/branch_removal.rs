@@ -77,9 +77,7 @@ impl BranchManager<'_> {
             let workspace_base = gix_repo
                 .find_commit(workspace_base(self.ctx, perm.read_permission())?)?
                 .tree_id()?;
-            let stack_head = gix_repo
-                .find_commit(stack.head(&gix_repo)?.to_gix())?
-                .tree_id()?;
+            let stack_head = gix_repo.find_commit(stack.head(&gix_repo)?)?.tree_id()?;
 
             let mut merge = gix_repo.merge_trees(
                 stack_head,
@@ -98,7 +96,7 @@ impl BranchManager<'_> {
         } else {
             let gix_repo = self.ctx.gix_repo()?;
             let head = stack.head(&gix_repo)?;
-            let head = repo.find_commit(head)?;
+            let head = repo.find_commit(head.to_git2())?;
 
             // If there are uncommited changes, we should make a wip commit.
             if head.tree_id() != stack.tree(self.ctx)? {
@@ -130,7 +128,7 @@ impl BranchManager<'_> {
                                 .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
                             let tree_oid = gitbutler_diff::write::hunks_onto_oid(
                                 self.ctx,
-                                stack.head(&gix_repo)?,
+                                stack.head(&gix_repo)?.to_git2(),
                                 files,
                             )?;
                             let mut merge = gix_repo.merge_trees(
@@ -185,7 +183,9 @@ impl BranchManager<'_> {
 
         // Build wip tree as either any uncommitted changes or an empty tree
         let vbranch_wip_tree = repo.find_tree(stack.tree(self.ctx)?)?;
-        let vbranch_head_tree = repo.find_commit(stack.head(&repo.to_gix()?)?)?.tree()?;
+        let vbranch_head_tree = repo
+            .find_commit(stack.head(&repo.to_gix()?)?.to_git2())?
+            .tree()?;
 
         let tree = if vbranch_head_tree.id() != vbranch_wip_tree.id() {
             vbranch_wip_tree
@@ -202,7 +202,7 @@ impl BranchManager<'_> {
         let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
         let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
         let parent = stack.head(&gix_repo)?;
-        let parent = repo.find_commit(parent)?;
+        let parent = repo.find_commit(parent.to_git2())?;
 
         let commit_headers = CommitHeadersV2::new();
 

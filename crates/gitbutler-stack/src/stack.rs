@@ -211,7 +211,7 @@ impl Stack {
     }
 
     // TODO: derive this from the last head
-    pub fn head(&self, repo: &gix::Repository) -> Result<git2::Oid> {
+    pub fn head(&self, repo: &gix::Repository) -> Result<gix::ObjectId> {
         self.heads
             .last()
             .map(|head| head.head_oid(repo))
@@ -226,7 +226,7 @@ impl Stack {
     pub fn tree(&self, ctx: &CommandContext) -> Result<git2::Oid> {
         if ctx.app_settings().feature_flags.v3 {
             ctx.gix_repo()?
-                .find_commit(self.head(&ctx.gix_repo()?)?.to_gix())?
+                .find_commit(self.head(&ctx.gix_repo()?)?)?
                 .tree()
                 .map(|tree| tree.id.to_git2())
                 .map_err(Into::into)
@@ -292,8 +292,8 @@ impl Stack {
     pub fn commits(&self, ctx: &CommandContext) -> Result<Vec<git2::Oid>> {
         let repo = ctx.repo();
         let stack_commits = repo.l(
-            self.head(&repo.to_gix()?)?,
-            LogUntil::Commit(self.merge_base(ctx)?),
+            self.head(&repo.to_gix()?)?.to_git2(),
+            LogUntil::Commit(self.merge_base(ctx)?.to_git2()),
             false,
         )?;
         Ok(stack_commits)
@@ -310,7 +310,7 @@ impl Stack {
     fn commits_with_merge_base(&self, ctx: &CommandContext) -> Result<Vec<git2::Oid>> {
         let mut commits = self.commits(ctx)?;
         let base_commit = self.merge_base(ctx)?;
-        commits.push(base_commit);
+        commits.push(base_commit.to_git2());
         Ok(commits)
     }
 
@@ -320,12 +320,12 @@ impl Stack {
     /// # Errors
     /// - If a target is not set for the project
     /// - If the head commit of the stack is not found
-    pub fn merge_base(&self, ctx: &CommandContext) -> Result<git2::Oid> {
+    pub fn merge_base(&self, ctx: &CommandContext) -> Result<gix::ObjectId> {
         let virtual_branch_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
         let target = virtual_branch_state.get_default_target()?;
-        let repo = ctx.repo();
-        let merge_base = repo.merge_base(self.head(&repo.to_gix()?)?, target.sha)?;
-        Ok(merge_base)
+        let gix_repo = ctx.gix_repo()?;
+        let merge_base = gix_repo.merge_base(self.head(&gix_repo)?, target.sha.to_gix())?;
+        Ok(merge_base.detach())
     }
 
     /// An initialized stack has at least one head (branch).
@@ -374,7 +374,7 @@ impl Stack {
         let head = if self.heads.is_empty() {
             self.head
         } else {
-            self.head(&repo)?
+            self.head(&repo)?.to_git2()
         };
         let commit = ctx.repo().find_commit(head)?;
 
@@ -455,9 +455,9 @@ impl Stack {
         validate_name(new_head.name(), &state)?;
         let gix_repo = ctx.gix_repo()?;
         validate_target(
-            new_head.head_oid(&gix_repo)?,
+            new_head.head_oid(&gix_repo)?.to_git2(),
             ctx.repo(),
-            self.head(&gix_repo)?,
+            self.head(&gix_repo)?.to_git2(),
             &state,
         )?;
         let updated_heads = add_head(
@@ -671,7 +671,7 @@ impl Stack {
     pub fn push_details(&self, ctx: &CommandContext, branch_name: String) -> Result<PushDetails> {
         self.ensure_initialized()?;
         let (_, reference) = get_head(&self.heads, &branch_name)?;
-        let oid = reference.head_oid(&ctx.gix_repo()?)?;
+        let oid = reference.head_oid(&ctx.gix_repo()?)?.to_git2();
         let commit = ctx.repo().find_commit(oid)?;
         let remote_name = branch_state(ctx).get_default_target()?.push_remote_name();
         let upstream_refname =
@@ -801,7 +801,7 @@ impl Stack {
         // let id: CommitOrChangeId = commit.into();
         self.heads
             .iter()
-            .filter(|h| h.head_oid(repo).ok() == Some(commit.id()))
+            .filter(|h| h.head_oid(repo).ok() == Some(commit.id().to_gix()))
             .map(|h| h.name().clone())
             .collect_vec()
     }

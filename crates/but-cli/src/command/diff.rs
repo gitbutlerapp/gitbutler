@@ -1,4 +1,6 @@
 use crate::command::{UI_CONTEXT_LINES, debug_print, project_from_path, project_repo};
+use but_settings::AppSettings;
+use gitbutler_command_context::CommandContext;
 use gix::bstr::BString;
 use itertools::Itertools;
 use std::path::Path;
@@ -70,11 +72,12 @@ fn handle_normal_diff(worktree: but_core::WorktreeChanges, use_json: bool) -> an
 
 pub fn locks(current_dir: &Path) -> anyhow::Result<()> {
     let project = project_from_path(current_dir)?;
+    let ctx = CommandContext::open(&project, AppSettings::default())?;
     let repo = gix::open(project.worktree_path())?;
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
     let input_stacks = but_hunk_dependency::workspace_stacks_to_input_stacks(
         &repo,
-        &but_workspace::stacks(&project.gb_dir(), &repo, Default::default())?,
+        &but_workspace::stacks(&ctx, &project.gb_dir(), &repo, Default::default())?,
         but_workspace::common_merge_base_with_target_branch(&project.gb_dir())?,
     )?;
     let ranges = but_hunk_dependency::WorkspaceRanges::try_from_stacks(input_stacks)?;

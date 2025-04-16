@@ -29,7 +29,7 @@ use bstr::{BStr, BString};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_id::id::Id;
-use gitbutler_oxidize::{OidExt, git2_signature_to_gix_signature};
+use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};
 use gitbutler_stack::{Stack, StackBranch, VirtualBranchesHandle};
 use integrated::IsCommitIntegrated;
 use itertools::Itertools;
@@ -139,6 +139,7 @@ pub enum StacksFilter {
 ///
 /// - `gb_dir`: The path to the GitButler state for the project. Normally this is `.git/gitbutler` in the project's repository.
 pub fn stacks(
+    ctx: &CommandContext,
     gb_dir: &Path,
     repo: &gix::Repository,
     filter: StacksFilter,
@@ -159,6 +160,16 @@ pub fn stacks(
             .collect::<Vec<_>>(),
     };
 
+    let stacks = stacks
+        .into_iter()
+        .filter_map(|mut stack| {
+            match stack.migrate_change_ids(ctx) {
+                Ok(_) => Some(stack), // If it fails thats ok - it will be skipped
+                Err(_) => None,
+            }
+        })
+        .collect::<Vec<_>>();
+
     stacks
         .into_iter()
         .sorted_by_key(|s| s.order)
@@ -171,7 +182,7 @@ pub fn stacks(
                     .rev()
                     .map(Into::into)
                     .collect(),
-                tip: stack.head(repo).map(|h| h.to_gix())?,
+                tip: stack.head(repo)?,
             })
         })
         .collect()
@@ -284,7 +295,9 @@ fn requires_force(ctx: &CommandContext, branch: &StackBranch, remote: &str) -> R
         .context("failed to find upstream commit")?;
 
     let branch_head = branch.head_oid(&ctx.gix_repo()?)?;
-    let merge_base = ctx.repo().merge_base(upstream_commit.id(), branch_head)?;
+    let merge_base = ctx
+        .repo()
+        .merge_base(upstream_commit.id(), branch_head.to_git2())?;
 
     Ok(merge_base != upstream_commit.id())
 }
@@ -313,7 +326,7 @@ pub fn stack_details(
     let mut stack_state = BranchState::default();
     let mut stack_is_conflicted = false;
     let mut branch_details = vec![];
-    let mut current_base = stack.merge_base(ctx)?.to_gix();
+    let mut current_base = stack.merge_base(ctx)?;
 
     for branch in branches {
         let upstream_reference = ctx
@@ -369,7 +382,7 @@ pub fn stack_details(
             upstream_commits,
         });
 
-        current_base = branch.head_oid(&repo)?.to_gix();
+        current_base = branch.head_oid(&repo)?;
     }
 
     stack.migrate_change_ids(ctx).ok(); // If it fails thats ok - best effort migration
@@ -509,7 +522,7 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
 
     let mut stack_branches = vec![];
     let mut stack = state.get_stack(Id::from_str(&stack_id)?)?;
-    let mut current_base = stack.merge_base(ctx)?.to_gix();
+    let mut current_base = stack.merge_base(ctx)?;
     let repo = ctx.gix_repo()?;
     for internal in stack.branches() {
         let upstream_reference = ctx
@@ -526,7 +539,7 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
             archived: internal.archived,
             base_commit: current_base,
         };
-        current_base = internal.head_oid(&repo)?.to_gix();
+        current_base = internal.head_oid(&repo)?;
         stack_branches.push(result);
     }
     stack.migrate_change_ids(ctx).ok(); // If it fails thats ok - best effort migration

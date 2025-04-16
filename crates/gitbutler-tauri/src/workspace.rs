@@ -11,7 +11,6 @@ use gitbutler_branch_actions::BranchManagerExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
-use gitbutler_oxidize::OidExt;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
@@ -29,8 +28,8 @@ pub fn stacks(
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let repo = ctx.gix_repo()?;
-    dbg!(&filter);
-    but_workspace::stacks(&project.gb_dir(), &repo, filter.unwrap_or_default()).map_err(Into::into)
+    but_workspace::stacks(&ctx, &project.gb_dir(), &repo, filter.unwrap_or_default())
+        .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -51,14 +50,19 @@ pub fn stack_details(
 // TODO: This probably has to change a lot once it's clear how the UI is going to use it.
 //       Right now this is only a port from the V2 UI, and that data structure was never used directly.
 #[tauri::command(async)]
-#[instrument(skip(projects), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn hunk_dependencies_for_workspace_changes(
     projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
 ) -> Result<HunkDependencies, Error> {
     let project = projects.get(project_id)?;
-    let dependencies =
-        hunk_dependencies_for_workspace_changes_by_worktree_dir(&project.path, &project.gb_dir())?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
+        &ctx,
+        &project.path,
+        &project.gb_dir(),
+    )?;
     Ok(dependencies)
 }
 
@@ -248,7 +252,7 @@ pub fn stash_into_branch(
         perm,
     )?;
 
-    let parent_commit_id = stack.head(&repo)?.to_gix();
+    let parent_commit_id = stack.head(&repo)?;
     let branch_name = stack.derived_name()?;
 
     let outcome = commit_engine::create_commit_and_update_refs_with_project(
