@@ -9,6 +9,7 @@ use but_workspace::commit_engine::StackSegmentId;
 use but_workspace::{commit_engine, StackEntry};
 use gitbutler_branch_actions::BranchManagerExt;
 use gitbutler_command_context::CommandContext;
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_oxidize::OidExt;
 use gitbutler_project as projects;
@@ -191,8 +192,13 @@ pub fn discard_worktree_changes(
 ) -> Result<Vec<but_workspace::discard::ui::DiscardSpec>, Error> {
     let project = projects.get(project_id)?;
     let repo = but_core::open_repo(&project.worktree_path())?;
-    let _guard = project.exclusive_worktree_access();
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let mut guard = project.exclusive_worktree_access();
 
+    let _ = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::DiscardChanges),
+        guard.write_permission(),
+    );
     let refused = but_workspace::discard_workspace_changes(
         &repo,
         worktree_changes.into_iter().map(|change| {

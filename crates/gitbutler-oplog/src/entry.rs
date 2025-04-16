@@ -145,6 +145,7 @@ pub enum OperationKind {
     DiscardLines,
     DiscardHunk,
     DiscardFile,
+    DiscardChanges,
     AmendCommit,
     UndoCommit,
     UnapplyBranch,
