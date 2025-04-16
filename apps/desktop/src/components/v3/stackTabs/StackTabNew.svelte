@@ -1,5 +1,4 @@
 <script lang="ts">
-	import RadioButton from '$components/RadioButton.svelte';
 	import dependentBranchSvg from '$components/v3/stackTabs/assets/dependent-branch.svg?raw';
 	import newStackSvg from '$components/v3/stackTabs/assets/new-stack.svg?raw';
 	import { stackPath } from '$lib/routes/routes.svelte';
@@ -7,6 +6,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { slugify } from '@gitbutler/ui/utils/string';
@@ -131,31 +131,42 @@
 					<RadioButton checked name="create-new" id="new-stack" onchange={handleOptionSelect} />
 				</div>
 
-				<h3 class="text-13 text-bold text-body radio-title">Independent branch</h3>
-				<p class="text-12 text-body radio-caption">
-					Create an independent branch<br />in a new stack.
-				</p>
+				<div class="radio-content">
+					<h3 class="text-13 text-bold text-body radio-title">Independent branch</h3>
+					<p class="text-12 text-body radio-caption">
+						Create an independent branch<br />in a new stack.
+					</p>
 
-				<div class="radio-illustration">
-					{@html newStackSvg}
+					<div class="radio-illustration">
+						{@html newStackSvg}
+					</div>
 				</div>
 			</label>
 			<!-- Option 2 -->
 			<label
 				for="new-dependent"
 				class="radio-label"
+				class:disabled={noStacks}
 				class:radio-selected={createRefType === 'dependent'}
 			>
 				<div class="radio-btn">
-					<RadioButton name="create-new" id="new-dependent" onchange={handleOptionSelect} />
+					<RadioButton
+						disabled={noStacks}
+						name="create-new"
+						id="new-dependent"
+						onchange={handleOptionSelect}
+					/>
 				</div>
-				<h3 class="text-13 text-bold text-body radio-title">Dependent branch</h3>
-				<p class="text-12 text-body radio-caption">
-					Create a branch that depends on<br />the branches in the current stack.
-				</p>
 
-				<div class="radio-illustration">
-					{@html dependentBranchSvg}
+				<div class="radio-content">
+					<h3 class="text-13 text-bold text-body radio-title">Dependent branch</h3>
+					<p class="text-12 text-body radio-caption">
+						Create a branch that depends on<br />the branches in the current stack.
+					</p>
+
+					<div class="radio-illustration">
+						{@html dependentBranchSvg}
+					</div>
 				</div>
 			</label>
 		</div>
@@ -249,9 +260,10 @@
 
 	.radio-label {
 		--btn-bg: var(--clr-btn-ntrl-outline-bg);
-		--opacity-btn-bg: 0;
+		--btn-bg-opacity: 0;
 		--btn-border-clr: var(--clr-btn-ntrl-outline);
 		--btn-border-opacity: var(--opacity-btn-outline);
+		--content-opacity: 1;
 		/* illustration */
 		--illustration-outline: var(--clr-border-2);
 		--illustration-text: var(--clr-text-3);
@@ -272,7 +284,7 @@
 		background: color-mix(
 			in srgb,
 			var(--btn-bg, transparent),
-			transparent calc((1 - var(--opacity-btn-bg, 1)) * 100%)
+			transparent calc((1 - var(--btn-bg-opacity, 1)) * 100%)
 		);
 		border: 1px solid
 			color-mix(
@@ -281,9 +293,30 @@
 				transparent calc((1 - var(--btn-border-opacity, 1)) * 100%)
 			);
 
-		&:not(.radio-selected):hover {
-			--opacity-btn-bg: 0.14;
+		&:not(.radio-selected)&:not(.disabled):hover {
+			--btn-bg-opacity: 0.14;
 		}
+
+		&.disabled {
+			--btn-bg: var(--clr-btn-ntrl-outline-bg);
+			--btn-bg-opacity: 0.1;
+			--btn-border-clr: var(--clr-btn-ntrl-outline);
+			--btn-border-opacity: 0.1;
+			--illustration-outline: var(--clr-text-3);
+			--illustration-text: var(--clr-text-3);
+			--illustration-accent-outline: var(--clr-text-3);
+			--illustration-accent-bg: var(--clr-bg-2);
+			--content-opacity: 0.5;
+			cursor: not-allowed;
+		}
+	}
+
+	.radio-content {
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		height: 100%;
+		opacity: var(--content-opacity);
 	}
 
 	.radio-btn {
@@ -311,7 +344,7 @@
 	/* MODIFIERS */
 	.radio-selected {
 		--btn-bg: var(--clr-theme-pop-bg);
-		--opacity-btn-bg: 1;
+		--btn-bg-opacity: 1;
 		--btn-border-clr: var(--clr-btn-pop-outline);
 		/* illustration */
 		--illustration-outline: var(--clr-text-3);
