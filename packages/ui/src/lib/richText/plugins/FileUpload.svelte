@@ -12,7 +12,7 @@
 	import { COMMAND_PRIORITY_CRITICAL, DROP_COMMAND, PASTE_COMMAND } from 'lexical';
 
 	type Props = {
-		onDrop: (files: FileList | undefined) => Promise<DropFileResult[]>;
+		onDrop: (files: FileList | undefined) => Promise<DropFileResult[] | undefined>;
 	};
 
 	const { onDrop }: Props = $props();
@@ -35,6 +35,7 @@
 		if (!files) return;
 
 		const results = await onDrop(files);
+		if (!results) return;
 		results.forEach((result) => {
 			const embed = embedDroppedFile(result);
 			insertTextAtCaret(editor, `${embed}\n`);

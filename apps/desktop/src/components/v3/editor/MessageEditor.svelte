@@ -6,10 +6,13 @@
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { uploadFiles } from '@gitbutler/shared/dom';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
 	import { debouncePromise } from '@gitbutler/shared/utils/misc';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import EmojiPickerButton from '@gitbutler/ui/EmojiPickerButton.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import FileUploadPlugin, {
 		type DropFileResult
@@ -67,6 +70,8 @@
 	let isEditorHovered = $state(false);
 	let isEditorFocused = $state(false);
 	let fileUploadPlugin = $state<ReturnType<typeof FileUploadPlugin>>();
+	let uploadConfirmationModal = $state<ReturnType<typeof Modal>>();
+	const allowUploadFiles = persisted<boolean>(false, 'allowUploadFiles');
 
 	export async function getPlaintext(): Promise<string | undefined> {
 		return composer?.getPlaintext();
@@ -100,7 +105,7 @@
 		return ACCEPTED_FILE_TYPES.some((acceptedType) => acceptedType.startsWith(type));
 	}
 
-	async function handleDropFiles(files: FileList | undefined): Promise<DropFileResult[]> {
+	async function onDropFiles(files: FileList | undefined): Promise<DropFileResult[]> {
 		if (files === undefined) return [];
 		const uploads = Array.from(files)
 			.filter(isAcceptedFileType)
@@ -114,6 +119,17 @@
 		return successful.map((result) => result.value);
 	}
 
+	async function handleDropFiles(
+		files: FileList | undefined
+	): Promise<DropFileResult[] | undefined> {
+		if ($allowUploadFiles) {
+			return onDropFiles(files);
+		}
+
+		uploadConfirmationModal?.show('needs-re-drop');
+		return undefined;
+	}
+
 	async function attachFiles() {
 		composer?.focus();
 
@@ -121,6 +137,14 @@
 
 		if (!files) return;
 		await fileUploadPlugin?.handleFileUpload(files);
+	}
+
+	function handleAttachFiles() {
+		if ($allowUploadFiles) {
+			attachFiles();
+			return;
+		}
+		uploadConfirmationModal?.show();
 	}
 
 	export function focus() {
@@ -131,6 +155,52 @@
 		composer?.setText(text);
 	}
 </script>
+
+<Modal
+	title="Dear sir and/or madam"
+	width="small"
+	bind:this={uploadConfirmationModal}
+	onSubmit={async (close) => {
+		await attachFiles();
+		close();
+	}}
+>
+	{#snippet children(maybeCode)}
+		<p>
+			Thanks for your interest on attaching a file to this message.
+			<br />
+			<br />
+			Before doing so, we'd like to make it clear that
+			<b>the file would be uploaded to the GitButler servers.</b>
+			<br />
+			This is necessary to generate a link to the file that you can use in your message.
+			<br />
+			<br />
+			Please note that we take your privacy seriously and will not share your file with any third parties.
+			<br />
+			The generated URL is yours to share and use as you see fit.
+			<br />
+			<br />
+			<em>Best regards</em>,
+			<br />
+			<em>{'Your GitButler team <3'}</em>
+		</p>
+		<br />
+		{#if maybeCode === 'needs-re-drop'}
+			<p>
+				<b>PS: Please re-drop the file to upload it.</b>
+			</p>
+			<br />
+		{/if}
+		<div style="display: flex; align-items: center; gap: 4px">
+			<Checkbox small bind:checked={$allowUploadFiles} /> <span> Do not bring this up again </span>
+		</div>
+	{/snippet}
+	{#snippet controls(close)}
+		<Button kind="outline" onclick={close}>How dare you</Button>
+		<Button style="pop" type="submit">Carry on</Button>
+	{/snippet}
+</Modal>
 
 <div
 	class="editor-wrapper"
@@ -219,7 +289,7 @@
 					kind="ghost"
 					icon="attachment-small"
 					tooltip="Drop, paste or click to upload files"
-					onclick={attachFiles}
+					onclick={handleAttachFiles}
 				/>
 			{/if}
 			<div class="message-textarea__toolbar__divider"></div>
