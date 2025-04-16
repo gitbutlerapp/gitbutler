@@ -68,6 +68,7 @@
 	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { reactive } from '@gitbutler/shared/storeUtils';
+	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
 	import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
@@ -233,6 +234,7 @@
 	setContext(WorktreeService, worktreeService);
 	setContext(ShortcutService, shortcutService);
 	setContext(DiffService, diffService);
+	setContext(UploadsService, data.uploadsService);
 
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 
