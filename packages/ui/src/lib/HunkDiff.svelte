@@ -128,6 +128,12 @@
 							<span>
 								{hunkSummary}
 							</span>
+
+							{#if !draggingDisabled}
+								<div class="table__drag-handle">
+									<Icon name="draggable" />
+								</div>
+							{/if}
 						</div>
 					</th>
 				</tr>
@@ -181,11 +187,17 @@
 
 <style lang="postcss">
 	.table__wrapper {
+		position: relative;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-diff-line-bg);
 		border: 1px solid var(--clr-border-2);
 		overflow: hidden;
 		width: 100%;
+
+		&:hover .table__drag-handle {
+			transform: scale(1);
+			opacity: 1;
+		}
 	}
 
 	table,
@@ -261,7 +273,7 @@
 	}
 
 	.table__drag-handle {
-		position: fixed;
+		position: absolute;
 		right: 6px;
 		top: 6px;
 		box-sizing: border-box;
