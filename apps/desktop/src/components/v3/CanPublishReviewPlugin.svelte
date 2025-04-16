@@ -39,13 +39,13 @@
 
 	const ctaLabel = $derived.by(() => {
 		if (canPublishBR && canPublishPR) {
-			return 'Submit for review';
+			return 'Submit for review…';
 		} else if (canPublishBR) {
-			return 'Create Butler Request';
+			return 'Create Butler Request…';
 		} else if (canPublishPR) {
-			return 'Create Pull Request';
+			return 'Create Pull Request…';
 		}
-		return 'Submit for review';
+		return 'Submit for review…';
 	});
 
 	export const imports = {
