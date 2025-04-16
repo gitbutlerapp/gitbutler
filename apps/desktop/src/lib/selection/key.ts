@@ -20,7 +20,7 @@ export type SelectionId = {
 	  }
 	| {
 			type: 'branch';
-			stackId: string;
+			stackId?: string;
 			branchName: string;
 	  }
 );

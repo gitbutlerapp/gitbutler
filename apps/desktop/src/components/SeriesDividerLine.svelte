@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
-	import type { CommitStatus } from '$lib/commits/commit';
+	import type { CommitStatusType } from '$lib/commits/commit';
 
-	type SeriesStatus = CommitStatus | 'Error';
+	type SeriesStatus = CommitStatusType | 'Error';
 
 	interface Props {
 		topPatchStatus?: SeriesStatus;

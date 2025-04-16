@@ -210,7 +210,7 @@
 						id: commit.id,
 						isRemote: commit instanceof Commit,
 						isIntegrated: commit instanceof DetailedCommit && commit.isIntegrated,
-						isConflicted: commit instanceof DetailedCommit && commit.conflicted
+						hasConflicts: commit instanceof DetailedCommit && commit.conflicted
 					}}
 					{@const amendHandler = new AmendCommitDzHandler({
 						stackService,

@@ -402,10 +402,10 @@ export class StackService {
 		);
 	}
 
-	branchChange(projectId: string, stackId: string, branchName: string, path: string) {
+	branchChange(args: { projectId: string; stackId?: string; branchName: string; path: string }) {
 		return this.api.endpoints.branchChanges.useQuery(
-			{ projectId, stackId, branchName },
-			{ transform: (result) => branchChangesSelectors.selectById(result, path) }
+			{ projectId: args.projectId, stackId: args.stackId, branchName: args.branchName },
+			{ transform: (result) => branchChangesSelectors.selectById(result, args.path) }
 		);
 	}
 
@@ -759,7 +759,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			branchChanges: build.query<
 				EntityState<TreeChange, string>,
-				{ projectId: string; stackId: string | undefined; branchName: string }
+				{ projectId: string; stackId?: string; branchName: string }
 			>({
 				query: ({ projectId, stackId, branchName }) => ({
 					command: 'changes_in_branch',

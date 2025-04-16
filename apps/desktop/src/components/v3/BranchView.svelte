@@ -7,11 +7,9 @@
 	import Drawer from '$components/v3/Drawer.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
-	import { FocusManager } from '$lib/focus/focusManager.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
-	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { UserService } from '$lib/user/userService';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -31,15 +29,7 @@
 
 	const { stackId, projectId, branchName }: Props = $props();
 
-	const [stackService, userService, uiState, focus, forge] = inject(
-		StackService,
-		UserService,
-		UiState,
-		FocusManager,
-		DefaultForgeFactory
-	);
-	const stackState = $derived(uiState.stack(stackId));
-	const focusedArea = $derived(focus.current);
+	const [stackService, userService, forge] = inject(StackService, UserService, DefaultForgeFactory);
 	const user = $derived(userService.user);
 
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
@@ -48,13 +38,8 @@
 	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const topCommitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
 
+	const changesResult = stackService.branchChanges(projectId, stackId, branchName);
 	const forgeBranch = $derived(forge.current?.branch(branchName));
-
-	$effect(() => {
-		if (focusedArea === 'commit') {
-			stackState.activeSelectionId.set({ type: 'branch', stackId, branchName });
-		}
-	});
 
 	function getGravatarUrl(email: string, existingGravatarUrl: string): string {
 		if ($user?.email === undefined) {
@@ -87,7 +72,7 @@
 	{#snippet children([branch, branches, branchDetails, topCommit], { stackId, projectId })}
 		{@const hasCommits = !!topCommit}
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
-		<Drawer {projectId} {stackId} splitView={hasCommits}>
+		<Drawer {projectId} {stackId}>
 			{#snippet header()}
 				<div class="branch__header">
 					{#if hasCommits}
@@ -166,11 +151,17 @@
 
 			{#snippet filesSplitView()}
 				{#if hasCommits}
-					<ChangedFiles
-						{projectId}
-						{stackId}
-						selectionId={{ type: 'branch', branchName: branch.name, stackId }}
-					/>
+					<ReduxResult {projectId} {stackId} result={changesResult.current}>
+						{#snippet children(changes, env)}
+							<ChangedFiles
+								title="All changed files"
+								projectId={env.projectId}
+								stackId={env.stackId}
+								selectionId={{ type: 'branch', stackId, branchName }}
+								{changes}
+							/>
+						{/snippet}
+					</ReduxResult>
 				{/if}
 			{/snippet}
 		</Drawer>

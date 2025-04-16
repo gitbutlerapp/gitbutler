@@ -6,27 +6,30 @@
 	interface Props {
 		originName: string;
 		commitsAmount: number;
-		lastCommit: { author: string; ago: string; branch: string; sha: string };
+		lastCommit?: { author?: string; ago: string; branch: string; sha: string };
+		onclick: () => void;
 	}
 
-	const { originName, commitsAmount, lastCommit }: Props = $props();
+	const { originName, commitsAmount, lastCommit, onclick }: Props = $props();
 </script>
 
-<BranchesCardTemplate>
+<BranchesCardTemplate {onclick}>
 	{#snippet content()}
 		<SeriesLabelsRow origin series={[originName]} />
 
-		<div class="workspace-target-card__about">
+		<button type="button" class="workspace-target-card__about">
 			<Avatar
 				size="medium"
 				tooltip="origin"
 				srcUrl="https://avatars.githubusercontent.com/u/1?v=4"
 			/>
-			<p class="text-12 truncate workspace-target-card__text">
-				{lastCommit.author}
-				{lastCommit.ago} ago from {lastCommit.branch}
-			</p>
-		</div>
+			{#if lastCommit}
+				<p class="text-12 truncate workspace-target-card__text">
+					{lastCommit.author}
+					{lastCommit.ago} ago from {lastCommit.branch}
+				</p>
+			{/if}
+		</button>
 	{/snippet}
 
 	{#snippet details()}
@@ -51,7 +54,11 @@
 			<span>•</span>
 
 			<div class="workspace-target-card__details-item">
-				<span>latest commit {lastCommit.sha.slice(0, 7)}</span>
+				{#if lastCommit}
+					<span>
+						head {lastCommit.sha.slice(0, 7)}
+					</span>
+				{/if}
 			</div>
 		</div>
 	{/snippet}

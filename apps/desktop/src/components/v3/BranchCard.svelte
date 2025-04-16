@@ -7,21 +7,32 @@
 	import { inject } from '@gitbutler/shared/context';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
+	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { PushStatus } from '$lib/stacks/stack';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
+		type: 'draft-branch' | 'normal-branch' | 'stack-branch';
 		projectId: string;
 		branchName: string;
 		iconName: keyof typeof iconsJson;
-		draft?: boolean;
 		isCommitting?: boolean;
 	} & (
-		| { draft: true; description?: Snippet }
 		| {
-				draft?: false | undefined;
+				type: 'draft-branch';
+				description?: Snippet;
+		  }
+		| {
+				type: 'normal-branch';
+				description?: Snippet;
+				commitList?: Snippet;
+				trackingBranch?: string;
+				lastUpdatedAt?: number;
+		  }
+		| {
+				type: 'stack-branch';
 				stackId: string;
 				first: boolean;
 				last: boolean;
@@ -49,7 +60,9 @@
 
 	const [uiState] = inject(UiState);
 
-	const selection = $derived(!args.draft ? uiState.stack(args.stackId).selection.get() : undefined);
+	const selection = $derived(
+		args.type === 'stack-branch' ? uiState.stack(args.stackId).selection.get() : undefined
+	);
 
 	let rightClickTrigger = $state<HTMLDivElement>();
 	let leftClickTrigger = $state<HTMLButtonElement>();
@@ -69,13 +82,18 @@
 	let contextMenu: ContextMenu | undefined = $state();
 </script>
 
-{#if !args.draft && !args.first}
+{#if args.type === 'stack-branch' && !args.first}
 	<BranchDividerLine lineColor={args.lineColor} />
 {/if}
-<div class="branch-card" class:selected class:draft={args.draft} data-series-name={branchName}>
-	{#if !args.draft}
+<div
+	class="branch-card"
+	class:selected
+	class:draft={args.type === 'draft-branch'}
+	data-series-name={branchName}
+>
+	{#if args.type === 'stack-branch'}
 		<BranchHeader
-			draft={args.draft}
+			type="stack-branch"
 			{branchName}
 			{projectId}
 			stackId={args.stackId}
@@ -98,9 +116,7 @@
 						commitId: args.headCommit
 					});
 				} else {
-					const stackState = uiState.stack(args.stackId);
-					stackState.selection.set({ branchName });
-					stackState.activeSelectionId.set({ type: 'branch', branchName, stackId: args.stackId });
+					uiState.stack(args.stackId).selection.set({ branchName });
 					uiState.project(projectId).drawerPage.set('branch');
 				}
 			}}
@@ -152,9 +168,38 @@
 				onToggle
 			})}
 		</ContextMenu>
+	{:else if args.type === 'normal-branch'}
+		<BranchHeader
+			type="normal-branch"
+			{branchName}
+			{projectId}
+			lineColor={getColorFromBranchType('LocalOnly')}
+			{iconName}
+			bind:el={rightClickTrigger}
+			bind:menuBtnEl={leftClickTrigger}
+			trackingBranch={args.trackingBranch}
+			{isCommitting}
+			selected={selected && selection?.current?.commitId === undefined}
+			readonly
+			onclick={() => {
+				uiState.project(projectId).branchesSelection.set({
+					branchName
+				});
+			}}
+		>
+			{#snippet details()}
+				<div class="text-11 branch-header__details">
+					{#if args.lastUpdatedAt}
+						<span class="branch-header__item">
+							{getTimeAgo(new Date(args.lastUpdatedAt))}
+						</span>
+					{/if}
+				</div>
+			{/snippet}
+		</BranchHeader>
 	{:else}
 		<BranchHeader
-			draft={true}
+			type="draft-branch"
 			{branchName}
 			{projectId}
 			{iconName}
@@ -163,7 +208,7 @@
 		/>
 	{/if}
 
-	{#if !args.draft}
+	{#if args.type !== 'draft-branch'}
 		{@render args.commitList?.()}
 	{/if}
 </div>

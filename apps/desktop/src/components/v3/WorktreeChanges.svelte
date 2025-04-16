@@ -6,7 +6,8 @@
 	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
-	import { FocusManager } from '$lib/focus/focusManager.svelte';
+	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { ChangeSelectionService, type SelectedFile } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -24,7 +25,7 @@
 
 	let { projectId, stackId }: Props = $props();
 
-	const [changeSelection, worktreeService, uiState, stackService, focus] = inject(
+	const [changeSelection, worktreeService, uiState, stackService, focusManager] = inject(
 		ChangeSelectionService,
 		WorktreeService,
 		UiState,
@@ -46,6 +47,11 @@
 	const changesResult = $derived(worktreeService.getChanges(projectId));
 	const affectedPaths = $derived(changesResult.current.data?.map((c) => c.path));
 
+	let focusGroup = focusManager.radioGroup({
+		triggers: [Focusable.UncommittedChanges, Focusable.ChangedFiles]
+	});
+	const listActive = $derived(focusGroup.current === Focusable.ChangedFiles);
+
 	const filesFullySelected = $derived(
 		changeSelection.every(affectedPaths ?? [], (f) => f.type === 'full')
 	);
@@ -60,17 +66,7 @@
 		changeSelection.retain(affectedPaths);
 	});
 
-	const focusedArea = $derived(focus.current);
-
 	let listMode: 'list' | 'tree' = $state('list');
-
-	$effect(() => {
-		// If the focused area updates and it matches "left" then we update what
-		// selection should be shown in the main view.
-		if (focusedArea === 'left') {
-			stackState?.activeSelectionId.set({ type: 'worktree' });
-		}
-	});
 
 	function selectEverything() {
 		const affectedPaths =
@@ -111,7 +107,10 @@
 <ReduxResult {stackId} {projectId} result={changesResult.current}>
 	{#snippet children(changes, { stackId, projectId })}
 		<ScrollableContainer wide>
-			<div class="uncommitted-changes-wrap">
+			<div
+				class="uncommitted-changes-wrap"
+				use:focusable={{ id: Focusable.UncommittedChanges, parentId: Focusable.WorkspaceLeft }}
+			>
 				<div use:stickyHeader class="worktree-header">
 					<div class="worktree-header__general">
 						{#if isCommitting}
@@ -140,6 +139,7 @@
 							{stackId}
 							{changes}
 							{listMode}
+							{listActive}
 						/>
 					</div>
 					<div

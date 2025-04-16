@@ -1,27 +1,27 @@
 import { vi } from 'vitest';
 import type {
-	StackUiState,
+	StackState,
 	ProjectUiState,
 	GlobalUiState,
-	StackUiSelection
+	StackSelection
 } from '$lib/state/uiState.svelte';
 
-const MOCK_UI_SELECTION: StackUiSelection = {
+const MOCK_UI_SELECTION: StackSelection = {
 	branchName: 'branch-a',
 	commitId: 'commit-a-id',
 	upstream: false
 };
 
-const MOCK_STACK_UI_STATE: StackUiState = {
-	selection: MOCK_UI_SELECTION,
-	activeSelectionId: { type: 'worktree' }
+const MOCK_STACK_UI_STATE: StackState = {
+	selection: MOCK_UI_SELECTION
 };
 
 const MOCK_PROJECT_UI_STATE: ProjectUiState = {
 	drawerPage: 'branch',
 	drawerFullScreen: false,
 	commitTitle: '',
-	commitDescription: ''
+	commitDescription: '',
+	branchesSelection: { branchName: 'test' }
 };
 
 const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
@@ -102,11 +102,6 @@ export function getUiStateMock() {
 			selection: {
 				get() {
 					return MOCK_STACK_UI_STATE.selection;
-				}
-			},
-			activeSelectionId: {
-				get() {
-					return MOCK_STACK_UI_STATE.activeSelectionId;
 				}
 			}
 		};
