@@ -8,6 +8,7 @@
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import HunkDiffBody from '$lib/hunkDiff/HunkDiffBody.svelte';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import {
 		type ContentSection,
 		type LineId,
@@ -93,85 +94,89 @@
 	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
 	style:font-variant-ligatures={diffLigatures ? 'common-ligatures' : 'none'}
 >
-	<table class="table__section">
-		<thead class="table__title" class:draggable={!draggingDisabled}>
-			<tr>
-				<th
-					bind:clientWidth={numberHeaderWidth}
-					class="table__checkbox-container"
-					style="--border-width: {BORDER_WIDTH}px;"
-					class:stageable={showingCheckboxes}
-					class:staged={showingCheckboxes && staged}
-					{colspan}
-					onclick={() => {
-						if (showingCheckboxes) {
-							onChangeStage?.(!staged);
-						}
-					}}
-				>
-					<div class="table__checkbox">
-						{#if staged && !hideCheckboxes}
-							<Checkbox checked={staged} small style="ghost" />
-						{:else if showingCheckboxes}
-							<div class="table__checkbox-unstaged">
-								<Icon name="minus-small" />
-							</div>
-						{/if}
-					</div>
-
-					<div
-						class="table__title-content"
-						style="--number-col-width: {numberHeaderWidth}px; --table-width: {tableWidth}px; --border-width: {BORDER_WIDTH}px; --top: -{BORDER_WIDTH}px"
-					>
-						<span>
-							{hunkSummary}
-						</span>
-					</div>
-				</th>
-			</tr>
-		</thead>
-
-		{#if isHidden}
-			<tbody class="table__hiddenRows">
+	<ScrollableContainer horz whenToShow="always" padding={{ left: numberHeaderWidth }}>
+		<table class="table__section">
+			<thead class="table__title" class:draggable={!draggingDisabled}>
 				<tr>
-					<td class="table__hiddenRows__count"></td>
-					<td class="table__hiddenRows__count"></td>
-					<td>
-						<div class="table__hiddenRows__content">
-							<p class="text-12 table__hiddenRows__caption">
-								{#if whyHidden}
-									{whyHidden}
-								{:else}
-									Diff is too large to display
-								{/if}
-							</p>
-							<Button kind="outline" onclick={onShowDiffClick} icon="eye-shown">Show anyway</Button>
+					<th
+						bind:clientWidth={numberHeaderWidth}
+						class="table__checkbox-container"
+						style="--border-width: {BORDER_WIDTH}px;"
+						class:stageable={showingCheckboxes}
+						class:staged={showingCheckboxes && staged}
+						{colspan}
+						onclick={() => {
+							if (showingCheckboxes) {
+								onChangeStage?.(!staged);
+							}
+						}}
+					>
+						<div class="table__checkbox">
+							{#if staged && !hideCheckboxes}
+								<Checkbox checked={staged} small style="ghost" />
+							{:else if showingCheckboxes}
+								<div class="table__checkbox-unstaged">
+									<Icon name="minus-small" />
+								</div>
+							{/if}
 						</div>
-					</td>
+
+						<div
+							class="table__title-content"
+							style="--number-col-width: {numberHeaderWidth}px; --table-width: {tableWidth}px; --border-width: {BORDER_WIDTH}px; --top: -{BORDER_WIDTH}px"
+						>
+							<span>
+								{hunkSummary}
+							</span>
+						</div>
+					</th>
 				</tr>
-			</tbody>
-		{:else}
-			<HunkDiffBody
-				comment={hunk.comment}
-				{filePath}
-				content={hunk.contentSections}
-				{onLineClick}
-				clearLineSelection={() => clearLineSelection?.(filePath)}
-				{wrapText}
-				{tabSize}
-				{inlineUnifiedDiffs}
-				{selectedLines}
-				{numberHeaderWidth}
-				onCopySelection={onCopySelection && handleCopySelection}
-				{onQuoteSelection}
-				{staged}
-				{stagedLines}
-				{hideCheckboxes}
-				{handleLineContextMenu}
-				{clickOutsideExcludeElement}
-			/>
-		{/if}
-	</table>
+			</thead>
+
+			{#if isHidden}
+				<tbody class="table__hiddenRows">
+					<tr>
+						<td class="table__hiddenRows__count"></td>
+						<td class="table__hiddenRows__count"></td>
+						<td>
+							<div class="table__hiddenRows__content">
+								<p class="text-12 table__hiddenRows__caption">
+									{#if whyHidden}
+										{whyHidden}
+									{:else}
+										Diff is too large to display
+									{/if}
+								</p>
+								<Button kind="outline" onclick={onShowDiffClick} icon="eye-shown"
+									>Show anyway</Button
+								>
+							</div>
+						</td>
+					</tr>
+				</tbody>
+			{:else}
+				<HunkDiffBody
+					comment={hunk.comment}
+					{filePath}
+					content={hunk.contentSections}
+					{onLineClick}
+					clearLineSelection={() => clearLineSelection?.(filePath)}
+					{wrapText}
+					{tabSize}
+					{inlineUnifiedDiffs}
+					{selectedLines}
+					{numberHeaderWidth}
+					onCopySelection={onCopySelection && handleCopySelection}
+					{onQuoteSelection}
+					{staged}
+					{stagedLines}
+					{hideCheckboxes}
+					{handleLineContextMenu}
+					{clickOutsideExcludeElement}
+				/>
+			{/if}
+		</table>
+	</ScrollableContainer>
 </div>
 
 <style lang="postcss">
@@ -190,6 +195,7 @@
 		border-collapse: separate;
 		border-spacing: 0;
 		user-select: none;
+		min-width: 0;
 	}
 
 	thead {
