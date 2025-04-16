@@ -148,7 +148,10 @@
 		const newId = response.newCommit;
 
 		if (response.pathsToRejectedChanges.length > 0) {
-			showError('Some changes were not committed', response.pathsToRejectedChanges.join('\n'));
+			showError(
+				'Some changes were not committed',
+				`The following files were not committed becuase they are locked to another branch\n${response.pathsToRejectedChanges.join('\n')}`
+			);
 		}
 
 		uiState.project(projectId).drawerPage.set(undefined);
