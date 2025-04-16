@@ -17,13 +17,32 @@ const StatusParamsSchema = BaseParamsSchema.extend({});
 
 type StatusParams = z.infer<typeof StatusParamsSchema>;
 
+type WorktreeDiffs = {
+	filePath: string;
+	hunkDiffs: string[];
+};
+
 /**
  * Get the file changes of the current GitButler project.
  */
 function status(params: StatusParams) {
 	const args = ['status', '--unified-diff'];
 
-	return executeGitButlerCommand(params.project_directory, args, UnifiedWorktreeChanges);
+	const unifiedWorktreeChanges = executeGitButlerCommand(
+		params.project_directory,
+		args,
+		UnifiedWorktreeChanges
+	);
+
+	const result: WorktreeDiffs[] = [];
+	for (const change of unifiedWorktreeChanges.changes) {
+		if (change.diff.type === 'Patch') {
+			const filePath = change.treeChange.path;
+			const hunkDiffs = change.diff.subject.hunks.map((hunk) => hunk.diff);
+			result.push({ filePath, hunkDiffs });
+		}
+	}
+	return result;
 }
 
 const ListStacksParamsSchema = BaseParamsSchema.extend({});
