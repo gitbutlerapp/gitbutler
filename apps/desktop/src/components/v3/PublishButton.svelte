@@ -85,7 +85,8 @@
 			disabled={!branchName || hasConflicts || branchEmpty}
 			tooltip={hasConflicts
 				? 'In order to push, please resolve any conflicted commits.'
-				: `${ctaLabel} for ${branchName}`}
+				: `Create for ${branchName}`}
+			tooltipPosition="top"
 			onclick={publish}
 		>
 			{ctaLabel}
