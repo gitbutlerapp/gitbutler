@@ -147,6 +147,10 @@
 
 		const newId = response.newCommit;
 
+		if (response.pathsToRejectedChanges.length > 0) {
+			showError('Some changes were not committed', response.pathsToRejectedChanges.join('\n'));
+		}
+
 		uiState.project(projectId).drawerPage.set(undefined);
 		uiState.stack(finalStackId).selection.set({ branchName: finalBranchName, commitId: newId });
 		changeSelection.clear();

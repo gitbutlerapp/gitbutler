@@ -5,6 +5,7 @@ import {
 	isPromiseRejection,
 	isReduxActionError as isReduxActionError
 } from '$lib/error/typeguards';
+import { isStr } from '@gitbutler/ui/utils/string';
 import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 
 export interface ParsedError {
@@ -13,11 +14,17 @@ export interface ParsedError {
 }
 
 export function parseError(error: unknown): ParsedError {
+	if (isStr(error)) {
+		return { message: error, parsedError: error };
+	}
 	if (error instanceof PromiseRejectionEvent && isTauriCommandError(error.reason)) {
 		return { parsedError: error.reason.message };
 	}
 	if (isPromiseRejection(error)) {
-		return { message: 'A promise had an unhandled exception.', parsedError: String(error.reason) };
+		return {
+			message: 'A promise had an unhandled exception.',
+			parsedError: JSON.stringify(error.reason, null, 2)
+		};
 	} else if (isTauriCommandError(error) && error.code && error.code in KNOWN_ERRORS) {
 		return { message: KNOWN_ERRORS[error.code], parsedError: error.message };
 	} else if (isReduxActionError(error)) {
@@ -33,6 +40,6 @@ export function parseError(error: unknown): ParsedError {
 	} else if (isErrorlike(error)) {
 		return { parsedError: error.message };
 	} else {
-		return { parsedError: String(error) };
+		return { parsedError: JSON.stringify(error, null, 2) };
 	}
 }
