@@ -337,7 +337,7 @@
 			</ReduxResult>
 		{/each}
 		<StackStickyButtons>
-			<PushButton {projectId} {stackId} multipleBranches={branches.length > 1} />
+			<PushButton width={120} {projectId} {stackId} multipleBranches={branches.length > 1} />
 			<PublishButton {projectId} {stackId} {branches} />
 		</StackStickyButtons>
 	{/snippet}

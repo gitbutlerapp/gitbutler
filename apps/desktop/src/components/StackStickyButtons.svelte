@@ -29,10 +29,8 @@
 <style lang="postcss">
 	.sticky-buttons {
 		z-index: var(--z-lifted);
-		position: sticky;
 		padding: 8px 0 8px;
 		margin-bottom: -9px;
-		bottom: -1px;
 		transition: padding var(--transition-medium);
 		display: flex;
 		gap: 6px;

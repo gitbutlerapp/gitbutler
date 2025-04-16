@@ -12,10 +12,11 @@
 	type Props = {
 		projectId: string;
 		stackId: string;
+		width?: number;
 		multipleBranches: boolean;
 	};
 
-	const { projectId, stackId, multipleBranches }: Props = $props();
+	const { projectId, stackId, width, multipleBranches }: Props = $props();
 
 	const stackService = getContext(StackService);
 	const userService = getContext(UserService);
@@ -49,10 +50,11 @@
 	);
 </script>
 
-<div class="push-button">
+<div class="push-button" class:use-flex={!width}>
 	<Button
 		style="neutral"
 		wide
+		{width}
 		{loading}
 		disabled={!hasThingsToPush || hasConflicts}
 		tooltip={hasConflicts ? 'In order to push, please resolve any conflicted commits.' : undefined}
@@ -67,6 +69,9 @@
 		/* This is just here so that the disabled button is still opaque */
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
+	}
+
+	.use-flex {
 		flex: 1;
 	}
 </style>

@@ -45,6 +45,7 @@
 		<Button kind="outline" loading={isSubmitting} onclick={onCancel}>Cancel</Button>
 		<AsyncButton
 			width={166}
+			style="pop"
 			action={async () => onSubmit()}
 			disabled={ctaDisabled}
 			loading={isSubmitting}>{getCtaLabel()}</AsyncButton
