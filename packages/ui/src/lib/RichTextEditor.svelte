@@ -46,6 +46,7 @@
 		onKeyDown?: (event: KeyboardEvent | null) => boolean;
 		initialText?: string;
 		disabled?: boolean;
+		wrapCountValue?: number;
 	};
 
 	const {
@@ -60,7 +61,8 @@
 		onBlur,
 		onChange,
 		onKeyDown,
-		initialText
+		initialText,
+		wrapCountValue
 	}: Props = $props();
 
 	/** Standard configuration for our commit message editor. */
@@ -188,7 +190,7 @@
 		</div>
 
 		<EmojiPlugin bind:this={emojiPlugin} />
-		<OnChangePlugin {markdown} {onChange} />
+		<OnChangePlugin {markdown} {onChange} {wrapCountValue} />
 
 		{#if markdown}
 			<AutoFocusPlugin />
