@@ -184,5 +184,16 @@ export function setEditorText(editor: LexicalEditor, text: string) {
 		const paragraphNode = $createParagraphNode();
 		paragraphNode.append(textNode);
 		root.append(paragraphNode);
+
+		// Set the caret at the end of the text
+		const selection = $getSelection();
+		if ($isRangeSelection(selection)) {
+			selection.setTextNodeRange(
+				textNode,
+				textNode.getTextContentSize(),
+				textNode,
+				textNode.getTextContentSize()
+			);
+		}
 	});
 }
