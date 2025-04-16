@@ -1,3 +1,4 @@
+import { isTitledError } from '$lib/error/parser';
 import { showError } from '$lib/notifications/toasts';
 import { captureException } from '@sentry/sveltekit';
 import { error as logErrorToFile } from '@tauri-apps/plugin-log';
@@ -32,7 +33,13 @@ function logError(error: unknown) {
 				handled: false
 			}
 		});
-		showError('Unhandled exception', error);
+
+		if (isTitledError(error)) {
+			showError(error.title, error.error);
+		} else {
+			showError('Unhandled exception', error);
+		}
+
 		console.error(error);
 		logErrorToFile(String(error));
 	} catch (err: unknown) {
