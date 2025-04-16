@@ -251,13 +251,13 @@ impl StackBranch {
         Ok(Some(reference.name().as_bstr().to_owned()))
     }
 
-    pub fn head_oid(&self, repo: &gix::Repository) -> Result<git2::Oid> {
+    pub fn head_oid(&self, repo: &gix::Repository) -> Result<gix::ObjectId> {
         if let Some(mut reference) = repo.try_find_reference(&self.name)? {
             let commit = reference.peel_to_commit()?;
-            Ok(commit.id.to_git2())
+            Ok(commit.id)
         } else if let CommitOrChangeId::CommitId(id) = &self.head {
             self.set_real_reference(repo, &self.head)?;
-            Ok(git2::Oid::from_str(id)?)
+            Ok(gix::ObjectId::from_str(id)?)
         } else {
             Err(anyhow::anyhow!(
                 "No reference found for branch {}. CommitOrChangeId is {}",
@@ -314,8 +314,12 @@ impl StackBranch {
         let merge_base = stack.merge_base(ctx)?;
 
         let gix_repo = repo.to_gix()?;
-        let head_commit =
-            commit_by_oid_or_change_id(&self.head, repo, stack.head(&gix_repo)?, merge_base);
+        let head_commit = commit_by_oid_or_change_id(
+            &self.head,
+            repo,
+            stack.head(&gix_repo)?.to_git2(),
+            merge_base,
+        );
         if head_commit.is_err() {
             return Ok(BranchCommits {
                 local_commits: vec![],
@@ -327,7 +331,7 @@ impl StackBranch {
 
         // Find the previous head in the stack - if it is not archived, use it as base
         // Otherwise use the merge base
-        let stack_head = stack.head(&gix_repo)?;
+        let stack_head = stack.head(&gix_repo)?.to_git2();
         let previous_head = stack
             .branch_predacessor(self)
             .filter(|predacessor| !predacessor.archived)

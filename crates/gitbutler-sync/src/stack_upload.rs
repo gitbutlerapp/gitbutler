@@ -105,7 +105,7 @@ fn branch_heads(
             }
         }
 
-        let head_oid = head.head_oid(repo)?.to_gix();
+        let head_oid = head.head_oid(repo)?;
         let review_id = head.review_id.clone().unwrap_or_else(generate_review_id);
         head.review_id = Some(review_id.clone());
 

@@ -1,6 +1,5 @@
 use crate::commit_engine::UpdatedReference;
 use bstr::BString;
-use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_stack::VirtualBranchesState;
 use gix::refs::transaction::PreviousValue;
 
@@ -29,7 +28,6 @@ pub fn rewrite(
         .collect();
     stacks_ordered.sort_by(|a, b| a.name.cmp(&b.name));
     for (old, new) in changed_commits {
-        let old_git2 = old.to_git2();
         let mut already_updated_refs = Vec::<BString>::new();
         for stack in &mut stacks_ordered {
             if let Some(stack_segment) = stack_segment {
@@ -37,7 +35,7 @@ pub fn rewrite(
                     continue; // Dont rewrite refs for other stacks
                 }
             }
-            if stack.head(repo)? == old_git2 {
+            if stack.head(repo)? == old {
                 // Perhaps skip this - the head will be updated later in this call
                 // stack.set_stack_head_without_persisting(repo, new.to_git2(), None)?;
                 // Does it make sense to set stack tree in v3? I think not
@@ -66,7 +64,7 @@ pub fn rewrite(
                             .find_map(|(idx, h)| (h.name == short_name).then_some(idx))
                     });
             for (idx, branch) in stack.heads.iter_mut().rev().enumerate() {
-                let id = branch.head_oid(repo)?.to_gix();
+                let id = branch.head_oid(repo)?;
                 if id == old {
                     if update_up_to_idx.is_some() && Some(idx) > update_up_to_idx {
                         // Make sure the actual refs also don't update (later)

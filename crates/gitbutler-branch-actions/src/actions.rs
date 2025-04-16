@@ -111,7 +111,7 @@ pub fn create_virtual_branch(
     Ok(StackEntry {
         id: stack.id,
         branch_names: stack.heads(false).into_iter().map(Into::into).collect(),
-        tip: stack.head(&repo)?.to_gix(),
+        tip: stack.head(&repo)?,
     })
 }
 

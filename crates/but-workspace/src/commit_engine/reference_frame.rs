@@ -1,6 +1,5 @@
 use crate::commit_engine::{ReferenceFrame, reference_frame};
 use anyhow::{Context, bail};
-use gitbutler_oxidize::OidExt;
 use gitbutler_stack::{StackId, VirtualBranchesState};
 use gix::prelude::ObjectIdExt;
 use gix::revision::walk::Sorting;
@@ -48,12 +47,12 @@ impl ReferenceFrame {
                     .context("Didn't find stack - was it deleted just now?")?;
                 Ok(ReferenceFrame {
                     workspace_tip: Some(head_id.detach()),
-                    branch_tip: Some(stack.head(repo)?.to_gix()),
+                    branch_tip: Some(stack.head(repo)?),
                 })
             }
             InferenceMode::CommitIdInStack(commit_id) => {
                 for stack in vb.branches.values() {
-                    let stack_tip = stack.head(repo)?.to_gix();
+                    let stack_tip = stack.head(repo)?;
                     if stack_tip
                         .attach(repo)
                         .ancestors()

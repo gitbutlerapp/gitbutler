@@ -452,7 +452,7 @@ fn prepare_snapshot(
 
         // let's get all the commits between the branch head and the target
         let mut revwalk = repo.revwalk()?;
-        revwalk.push(stack.head(&gix_repo)?)?;
+        revwalk.push(stack.head(&gix_repo)?.to_git2())?;
         revwalk.hide(default_target_commit.id())?;
 
         // If the references are out of sync, now is a good time to update them

@@ -47,7 +47,7 @@ pub fn checkout_branch_trees<'a>(
         let gix_repo = ctx.gix_repo_for_merging()?;
         let heads = stacks
             .iter()
-            .map(|b| b.head(&gix_repo).map(|h| h.to_gix()))
+            .map(|b| b.head(&gix_repo))
             .collect::<Result<Vec<_>>>()?;
         let merge_base_tree_id = gix_repo
             .merge_base_octopus(heads)?
@@ -101,7 +101,7 @@ impl WorkspaceState {
             .list_stacks_in_workspace()?
             .iter()
             .map(|stack| -> Result<git2::Oid> {
-                let head = stack.head(&repo.to_gix()?)?;
+                let head = stack.head(&repo.to_gix()?)?.to_git2();
                 let commit = repo.find_commit(head)?;
                 let tree = repo.find_real_tree(&commit, Default::default())?;
                 Ok(tree.id())
@@ -253,7 +253,7 @@ pub fn compute_updated_branch_head(
     compute_updated_branch_head_for_commits(
         repo,
         gix_repo,
-        stack.head(&repo.to_gix()?)?,
+        stack.head(&repo.to_gix()?)?.to_git2(),
         stack.tree(ctx)?,
         new_head,
     )

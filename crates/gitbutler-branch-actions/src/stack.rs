@@ -5,7 +5,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
-use gitbutler_oxidize::RepoExt;
+use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{PatchReferenceUpdate, StackBranch};
@@ -169,8 +169,9 @@ pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> 
 
     let repo = ctx.repo();
     let default_target = state.get_default_target()?;
-    let merge_base =
-        repo.find_commit(repo.merge_base(stack.head(&repo.to_gix()?)?, default_target.sha)?)?;
+    let merge_base = repo.find_commit(
+        repo.merge_base(stack.head(&repo.to_gix()?)?.to_git2(), default_target.sha)?,
+    )?;
     // let merge_base: CommitOrChangeId = merge_base.into();
 
     // First fetch, because we dont want to push integrated series
@@ -188,7 +189,7 @@ pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> 
             // Nothing to push for this one
             continue;
         }
-        if branch.head_oid(&gix_repo)? == merge_base.id() {
+        if branch.head_oid(&gix_repo)? == merge_base.id().to_gix() {
             // Nothing to push for this one
             continue;
         }
@@ -218,7 +219,7 @@ pub(crate) fn branch_integrated(
         return Ok(true);
     }
     let oid = branch.head_oid(gix_repo)?;
-    let branch_head = repo.find_commit(oid)?;
+    let branch_head = repo.find_commit(oid.to_git2())?;
     check_commit.is_integrated(&branch_head)
 }
 

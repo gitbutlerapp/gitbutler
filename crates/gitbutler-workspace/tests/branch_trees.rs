@@ -30,7 +30,7 @@ mod compute_updated_branch_head {
     use super::*;
     use gitbutler_cherry_pick::RepositoryExt as _;
     use gitbutler_commit::commit_ext::CommitExt;
-    use gitbutler_oxidize::RepoExt;
+    use gitbutler_oxidize::{OidExt, RepoExt};
     use gitbutler_testsupport::{
         testing_repository::{assert_commit_tree_matches, assert_tree_matches, TestingRepository},
         virtual_branches::set_test_target,
@@ -60,7 +60,7 @@ mod compute_updated_branch_head {
             compute_updated_branch_head(r, &r.to_gix().unwrap(), &stack, head.id(), &ctx).unwrap();
 
         let r = &test_repository.repository;
-        assert_eq!(head, stack.head(&r.to_gix().unwrap()).unwrap());
+        assert_eq!(head.to_gix(), stack.head(&r.to_gix().unwrap()).unwrap());
         assert_eq!(tree, stack.tree(&ctx).unwrap());
     }
 

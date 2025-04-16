@@ -29,7 +29,7 @@ use bstr::{BStr, BString};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_id::id::Id;
-use gitbutler_oxidize::{OidExt, git2_signature_to_gix_signature};
+use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};
 use gitbutler_stack::{Stack, StackBranch, VirtualBranchesHandle};
 use integrated::IsCommitIntegrated;
 use itertools::Itertools;
@@ -182,7 +182,7 @@ pub fn stacks(
                     .rev()
                     .map(Into::into)
                     .collect(),
-                tip: stack.head(repo).map(|h| h.to_gix())?,
+                tip: stack.head(repo)?,
             })
         })
         .collect()
@@ -295,7 +295,9 @@ fn requires_force(ctx: &CommandContext, branch: &StackBranch, remote: &str) -> R
         .context("failed to find upstream commit")?;
 
     let branch_head = branch.head_oid(&ctx.gix_repo()?)?;
-    let merge_base = ctx.repo().merge_base(upstream_commit.id(), branch_head)?;
+    let merge_base = ctx
+        .repo()
+        .merge_base(upstream_commit.id(), branch_head.to_git2())?;
 
     Ok(merge_base != upstream_commit.id())
 }
@@ -380,7 +382,7 @@ pub fn stack_details(
             upstream_commits,
         });
 
-        current_base = branch.head_oid(&repo)?.to_gix();
+        current_base = branch.head_oid(&repo)?;
     }
 
     stack.migrate_change_ids(ctx).ok(); // If it fails thats ok - best effort migration
@@ -537,7 +539,7 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
             archived: internal.archived,
             base_commit: current_base,
         };
-        current_base = internal.head_oid(&repo)?.to_gix();
+        current_base = internal.head_oid(&repo)?;
         stack_branches.push(result);
     }
     stack.migrate_change_ids(ctx).ok(); // If it fails thats ok - best effort migration

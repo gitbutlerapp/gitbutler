@@ -10,7 +10,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
-use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt};
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt};
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{
@@ -82,7 +82,7 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
     for branch in &virtual_branches {
         // merge this branches tree with our tree
         let branch_tree_id = git2_to_gix_object_id(
-            repo.find_commit(branch.head(&gix_repo)?)
+            repo.find_commit(branch.head(&gix_repo)?.to_git2())
                 .context("failed to find branch head")?
                 .tree_id(),
         );
