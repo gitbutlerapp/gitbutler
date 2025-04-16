@@ -139,6 +139,7 @@ pub enum StacksFilter {
 ///
 /// - `gb_dir`: The path to the GitButler state for the project. Normally this is `.git/gitbutler` in the project's repository.
 pub fn stacks(
+    ctx: &CommandContext,
     gb_dir: &Path,
     repo: &gix::Repository,
     filter: StacksFilter,
@@ -158,6 +159,16 @@ pub fn stacks(
             .filter(|s| !s.in_workspace)
             .collect::<Vec<_>>(),
     };
+
+    let stacks = stacks
+        .into_iter()
+        .filter_map(|mut stack| {
+            match stack.migrate_change_ids(ctx) {
+                Ok(_) => Some(stack), // If it fails thats ok - it will be skipped
+                Err(_) => None,
+            }
+        })
+        .collect::<Vec<_>>();
 
     stacks
         .into_iter()

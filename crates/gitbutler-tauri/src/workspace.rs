@@ -29,8 +29,8 @@ pub fn stacks(
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let repo = ctx.gix_repo()?;
-    dbg!(&filter);
-    but_workspace::stacks(&project.gb_dir(), &repo, filter.unwrap_or_default()).map_err(Into::into)
+    but_workspace::stacks(&ctx, &project.gb_dir(), &repo, filter.unwrap_or_default())
+        .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -51,14 +51,19 @@ pub fn stack_details(
 // TODO: This probably has to change a lot once it's clear how the UI is going to use it.
 //       Right now this is only a port from the V2 UI, and that data structure was never used directly.
 #[tauri::command(async)]
-#[instrument(skip(projects), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn hunk_dependencies_for_workspace_changes(
     projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
 ) -> Result<HunkDependencies, Error> {
     let project = projects.get(project_id)?;
-    let dependencies =
-        hunk_dependencies_for_workspace_changes_by_worktree_dir(&project.path, &project.gb_dir())?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
+        &ctx,
+        &project.path,
+        &project.gb_dir(),
+    )?;
     Ok(dependencies)
 }
 
