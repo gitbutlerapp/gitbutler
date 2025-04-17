@@ -172,9 +172,7 @@
 			{onkeydown}
 			locked={false}
 			conflicted={false}
-			onclick={(e) => {
-				onclick?.(e);
-			}}
+			{onclick}
 			oncheck={onCheck}
 			oncontextmenu={onContextMenu}
 		/>
