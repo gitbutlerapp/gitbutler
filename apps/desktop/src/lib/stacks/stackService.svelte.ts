@@ -587,6 +587,14 @@ export class StackService {
 	async normalizeBranchName(name: string) {
 		return await this.api.endpoints.normalizeBranchName.fetch({ name }, { forceRefetch: true });
 	}
+
+	/**
+	 * Note: This is specifically for looking up branches outside of
+	 * a stacking context. You almost certainly want `stackDetails`
+	 */
+	unstackedBranchDetails(projectId: string, branchName: string) {
+		return this.api.endpoints.unstackedBranchDetails.useQuery({ projectId, branchName });
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -692,6 +700,18 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					};
 				}
 			}),
+			/**
+			 * Note: This is specifically for looking up branches outside of
+			 * a stacking context. You almost certainly want `stackDetails`
+			 */
+			unstackedBranchDetails: build.query<BranchDetails, { projectId: string; branchName: string }>(
+				{
+					query: ({ projectId, branchName }) => ({
+						command: 'branch_details',
+						params: { projectId, branchName }
+					})
+				}
+			),
 			pushStack: build.mutation<
 				BranchPushResult,
 				{ projectId: string; stackId: string; withForce: boolean }
