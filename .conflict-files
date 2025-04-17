@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/src/components/v3/editor/MessageEditor.svelte", "packages/ui/src/lib/HunkDiff.svelte"]
-ourEntries = ["apps/desktop/src/components/v3/editor/MessageEditor.svelte", "packages/ui/src/lib/HunkDiff.svelte"]
-theirEntries = ["apps/desktop/src/components/v3/editor/MessageEditor.svelte", "packages/ui/src/lib/HunkDiff.svelte"]
