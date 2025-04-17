@@ -325,7 +325,7 @@
 					}}
 				/>
 				<FormattingButton
-					icon="auto-wrap"
+					icon="text-wrap"
 					disabled={!useRuler.current}
 					activated={wrapTextByRuler.current && useRuler.current}
 					tooltip="Wrap text automatically"
