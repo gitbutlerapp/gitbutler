@@ -3,6 +3,7 @@
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
+	import { UpdaterService } from '$lib/updater/updater';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -10,6 +11,7 @@
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import type { User } from '$lib/user/user';
 	import { goto } from '$app/navigation';
@@ -17,6 +19,9 @@
 	const userService = getContext(UserService);
 	const settingsService = getContext(SettingsService);
 	const user = userService.user;
+
+	const updaterService = getContext(UpdaterService);
+	const disableAutoChecks = updaterService.disableAutoChecks;
 
 	const fileTypes = ['image/jpeg', 'image/png'];
 
@@ -139,6 +144,26 @@
 {:else}
 	<WelcomeSigninAction />
 {/if}
+<Spacer />
+
+<SectionCard labelFor="disable-auto-checks" orientation="row">
+	{#snippet title()}
+		Automatically check for updates
+	{/snippet}
+
+	{#snippet caption()}
+		Enable or disable automatic checks for updates. You can also check for updates manually.
+	{/snippet}
+
+	{#snippet actions()}
+		<Toggle
+			id="disable-auto-checks"
+			checked={!$disableAutoChecks}
+			onclick={() => ($disableAutoChecks = !$disableAutoChecks)}
+		/>
+	{/snippet}
+</SectionCard>
+
 <Spacer />
 
 {#if $user}
