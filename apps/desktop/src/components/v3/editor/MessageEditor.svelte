@@ -139,7 +139,7 @@
 			return onDropFiles(files);
 		}
 
-		uploadConfirmationModal?.show('needs-re-drop');
+		uploadConfirmationModal?.show();
 		return undefined;
 	}
 
@@ -179,7 +179,7 @@
 		close();
 	}}
 >
-	{#snippet children(maybeCode)}
+	{#snippet children()}
 		<p>
 			Thanks for your interest on attaching a file to this message.
 			<br />
@@ -200,12 +200,6 @@
 			<em>{'Your GitButler team <3'}</em>
 		</p>
 		<br />
-		{#if maybeCode === 'needs-re-drop'}
-			<p>
-				<b>PS: Please re-drop the file to upload it.</b>
-			</p>
-			<br />
-		{/if}
 		<div style="display: flex; align-items: center; gap: 4px">
 			<Checkbox small bind:checked={$doNotShowUploadWarning} />
 			<span> Do not bring this up again </span>
