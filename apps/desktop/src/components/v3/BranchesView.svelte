@@ -3,6 +3,7 @@
 	import Resizer from '$components/Resizer.svelte';
 	import BranchCard from '$components/v3/BranchCard.svelte';
 	import BranchExplorer from '$components/v3/BranchExplorer.svelte';
+	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import CommitRow from '$components/v3/CommitRow.svelte';
 	import GitCommitView from '$components/v3/GitCommitView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
@@ -13,6 +14,7 @@
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { SelectionId } from '$lib/selection/key';
 
@@ -89,13 +91,24 @@
 				{#if current.branchName === baseBranch.branchName}
 					<ReduxResult {projectId} result={baseBranchResult.current}>
 						{#snippet children(baseBranch)}
-							<BranchCard
-								type="normal-branch"
-								{projectId}
-								iconName="branch-upstream"
-								branchName={baseBranch.branchName}
-								lastUpdatedAt={baseBranch.recentCommits.at(0)?.createdAt.getTime()}
-							>
+							{@const branchName = baseBranch.branchName}
+							<BranchCard type="normal-branch" {projectId} branchName={baseBranch.branchName}>
+								{#snippet header()}
+									<BranchHeader
+										type="normal-branch"
+										{branchName}
+										{projectId}
+										lineColor={getColorFromBranchType('LocalOnly')}
+										iconName="branch-upstream"
+										lastUpdatedAt={baseBranch.recentCommits.at(0)?.createdAt.getTime()}
+										readonly
+										onclick={() => {
+											uiState.project(projectId).branchesSelection.set({
+												branchName
+											});
+										}}
+									></BranchHeader>
+								{/snippet}
 								{#snippet commitList()}
 									{#each baseBranch.recentCommits as commit}
 										<CommitRow
@@ -119,12 +132,7 @@
 						{/snippet}
 					</ReduxResult>
 				{:else if current.branchName}
-					<BranchCard
-						type="normal-branch"
-						{projectId}
-						iconName="branch-local"
-						branchName={current.branchName}
-					>
+					<BranchCard type="normal-branch" {projectId} branchName={current.branchName}>
 						{#snippet commitList()}
 							Not implemented!
 						{/snippet}

@@ -6,6 +6,7 @@
 	import StackStickyButtons from '$components/StackStickyButtons.svelte';
 	import BranchCard from '$components/v3/BranchCard.svelte';
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
+	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import CommitContextMenu from '$components/v3/CommitContextMenu.svelte';
 	import CommitGoesHere from '$components/v3/CommitGoesHere.svelte';
 	import CommitRow from '$components/v3/CommitRow.svelte';
@@ -101,7 +102,7 @@
 			{@const branchDetailsResult = stackService.branchDetails(projectId, stackId, branchName)}
 			{@const commitResult = stackService.commitAt(projectId, stackId, branchName, 0)}
 			{@const first = i === 0}
-			{@const last = i === branches.length - 1}
+			{@const headCommit = branch.commits[0]?.id || branch.baseCommit}
 
 			<ReduxResult
 				{projectId}
@@ -124,25 +125,79 @@
 						: 'var(--clr-commit-local)'}
 					{@const isNewBranch =
 						upstreamOnlyCommits.length === 0 && localAndRemoteCommits.length === 0}
+					{@const selected = selection?.current?.branchName === branchName}
 					<BranchCard
 						type="stack-branch"
 						{projectId}
 						{stackId}
 						{branchName}
 						{lineColor}
-						{iconName}
 						{first}
-						{last}
-						{isNewBranch}
 						{isCommitting}
-						pushStatus={branchDetails.pushStatus}
-						isConflicted={branchDetails.isConflicted}
-						lastUpdatedAt={branchDetails.lastUpdatedAt}
-						reviewId={branch.reviewId || undefined}
-						prNumber={branch.prNumber || undefined}
-						trackingBranch={branch.remoteTrackingBranch || undefined}
-						headCommit={branchDetails.commits[0]?.id || branchDetails.baseCommit}
 					>
+						{#snippet header()}
+							{@const pushStatus = branchDetails.pushStatus}
+							{@const isConflicted = branchDetails.isConflicted}
+							{@const lastUpdatedAt = branchDetails.lastUpdatedAt}
+							{@const reviewId = branch.reviewId || undefined}
+							{@const prNumber = branch.prNumber || undefined}
+							<BranchHeader
+								type="stack-branch"
+								{branchName}
+								{projectId}
+								{stackId}
+								{lineColor}
+								{iconName}
+								{isCommitting}
+								{selected}
+								{isNewBranch}
+								{pushStatus}
+								{isConflicted}
+								{lastUpdatedAt}
+								{reviewId}
+								{prNumber}
+								isTopBranch={first}
+								trackingBranch={branch.remoteTrackingBranch || undefined}
+								readonly={!!branch.remoteTrackingBranch}
+								onclick={() => {
+									if (isCommitting) {
+										uiState.stack(stackId).selection.set({
+											branchName,
+											commitId: headCommit
+										});
+									} else {
+										uiState.stack(stackId).selection.set({ branchName });
+										uiState.project(projectId).drawerPage.set('branch');
+									}
+								}}
+							>
+								{#snippet menu({ showDeleteBranchModal, showBranchRenameModal })}
+									{@const forgeBranch = branch.remoteTrackingBranch
+										? forge.current?.branch(branch.remoteTrackingBranch)
+										: undefined}
+									<SeriesHeaderContextMenuContents
+										{projectId}
+										{stackId}
+										{branchType}
+										branchName={branch.name}
+										seriesCount={branches.length}
+										isTopBranch={first}
+										descriptionOption={false}
+										onGenerateBranchName={() => {
+											throw new Error('Not implemented!');
+										}}
+										onAddDependentSeries={() => newBranchModal?.show(branchName)}
+										onOpenInBrowser={() => {
+											const url = forgeBranch?.url;
+											if (url) openExternalUrl(url);
+										}}
+										isPushed={!!branch.remoteTrackingBranch}
+										{showBranchRenameModal}
+										{showDeleteBranchModal}
+									/>
+								{/snippet}
+							</BranchHeader>
+						{/snippet}
 						{#snippet commitList()}
 							<BranchCommitList {projectId} {stackId} {branchName} {selectedCommitId}>
 								{#snippet empty()}
@@ -309,37 +364,12 @@
 								{/snippet}
 							</BranchCommitList>
 						{/snippet}
-						{#snippet menu({ showDeleteBranchModal, showBranchRenameModal })}
-							{@const forgeBranch = branch.remoteTrackingBranch
-								? forge.current?.branch(branch.remoteTrackingBranch)
-								: undefined}
-							<SeriesHeaderContextMenuContents
-								{projectId}
-								{stackId}
-								{branchType}
-								branchName={branch.name}
-								seriesCount={branches.length}
-								isTopBranch={first}
-								descriptionOption={false}
-								onGenerateBranchName={() => {
-									throw new Error('Not implemented!');
-								}}
-								onAddDependentSeries={() => newBranchModal?.show(branchName)}
-								onOpenInBrowser={() => {
-									const url = forgeBranch?.url;
-									if (url) openExternalUrl(url);
-								}}
-								isPushed={!!branch.remoteTrackingBranch}
-								{showBranchRenameModal}
-								{showDeleteBranchModal}
-							/>
-						{/snippet}
 					</BranchCard>
 				{/snippet}
 			</ReduxResult>
 		{/each}
 		<StackStickyButtons>
-			<PushButton width={120} {projectId} {stackId} multipleBranches={branches.length > 1} />
+			<PushButton {projectId} {stackId} multipleBranches={branches.length > 1} />
 			<PublishButton {projectId} {stackId} {branches} />
 		</StackStickyButtons>
 	{/snippet}
@@ -375,3 +405,6 @@
 		<Button style="pop" type="submit">Yes</Button>
 	{/snippet}
 </Modal>
+
+<style lang="postcss">
+</style>
