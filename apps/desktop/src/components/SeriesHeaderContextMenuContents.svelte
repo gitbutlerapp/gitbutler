@@ -1,5 +1,4 @@
 <script lang="ts">
-	import BranchRenameModal from '$components/BranchRenameModal.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { type CommitStatusType } from '$lib/commits/commit';
@@ -8,11 +7,9 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 
 	interface Props {
@@ -31,6 +28,9 @@
 		onGenerateBranchName: () => void;
 		onAddDependentSeries?: () => void;
 		onOpenInBrowser?: () => void;
+
+		showBranchRenameModal: () => void;
+		showDeleteBranchModal: () => void;
 	}
 
 	let {
@@ -48,7 +48,9 @@
 		toggleDescription,
 		onGenerateBranchName,
 		onAddDependentSeries,
-		onOpenInBrowser
+		onOpenInBrowser,
+		showBranchRenameModal,
+		showDeleteBranchModal
 	}: Props = $props();
 
 	const [aiService, stackService] = inject(AIService, StackService);
@@ -59,10 +61,6 @@
 		allCommits.current.data?.some((commit) => commit.hasConflicts) ?? false
 	);
 
-	const [removeBranch, branchRemovalOp] = stackService.removeBranch;
-
-	let deleteSeriesModal: Modal;
-	let renameBranchModal: BranchRenameModal;
 	let aiConfigurationValid = $state(false);
 
 	$effect(() => {
@@ -71,10 +69,6 @@
 
 	async function setAIConfigurationValid() {
 		aiConfigurationValid = await aiService.validateConfiguration();
-	}
-
-	export function showSeriesRenameModal() {
-		renameBranchModal.show();
 	}
 </script>
 
@@ -150,7 +144,7 @@
 			label="Rename"
 			testId={TestId.BranchHeaderContextMenu_Rename}
 			onclick={async () => {
-				renameBranchModal.show();
+				showBranchRenameModal();
 				contextMenuEl?.close();
 			}}
 		/>
@@ -160,7 +154,7 @@
 			label="Delete"
 			testId={TestId.BranchHeaderContextMenu_Delete}
 			onclick={() => {
-				deleteSeriesModal.show(stackId);
+				showDeleteBranchModal();
 				contextMenuEl?.close();
 			}}
 		/>
@@ -186,27 +180,3 @@
 		/>
 	</ContextMenuSection>
 {/if}
-
-<BranchRenameModal {projectId} {stackId} {branchName} bind:this={renameBranchModal} {isPushed} />
-
-<Modal
-	width="small"
-	title="Delete branch"
-	bind:this={deleteSeriesModal}
-	onSubmit={async (close) => {
-		await removeBranch({
-			projectId,
-			stackId,
-			branchName
-		});
-		close();
-	}}
->
-	{#snippet children()}
-		Are you sure you want to delete <code class="code-string">{branchName}</code>?
-	{/snippet}
-	{#snippet controls(close)}
-		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit" loading={branchRemovalOp.current.isLoading}>Delete</Button>
-	{/snippet}
-</Modal>

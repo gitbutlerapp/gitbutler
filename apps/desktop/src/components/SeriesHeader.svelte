@@ -1,12 +1,14 @@
 <script lang="ts">
 	import AddSeriesModal from '$components/AddSeriesModal.svelte';
 	import BranchLabel from '$components/BranchLabel.svelte';
+	import BranchRenameModal from '$components/BranchRenameModal.svelte';
 	import BranchReview from '$components/BranchReview.svelte';
 	import BranchStatus from '$components/BranchStatus.svelte';
 	import CardOverlay from '$components/CardOverlay.svelte';
+	import DeleteBranchModal from '$components/DeleteBranchModal.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import SeriesDescription from '$components/SeriesDescription.svelte';
-	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
+	import SeriesHeaderContextMenuContents from '$components/SeriesHeaderContextMenuContents.svelte';
 	import SeriesHeaderStatusIcon from '$components/SeriesHeaderStatusIcon.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
@@ -66,7 +68,7 @@
 
 	let stackingAddSeriesModal = $state<ReturnType<typeof AddSeriesModal>>();
 	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let branchContextMenu = $state<ReturnType<typeof SeriesHeaderContextMenu>>();
+	let branchContextMenu = $state<ReturnType<typeof SeriesHeaderContextMenuContents>>();
 	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
 	let seriesHeaderEl = $state<HTMLDivElement>();
 	let seriesDescriptionEl = $state<HTMLTextAreaElement>();
@@ -197,6 +199,9 @@
 	closedStateSync(reactive(() => branch));
 
 	const dzHandler = $derived(new MoveCommitDzHandler(stackService, stack, projectId));
+
+	let renameBranchModal = $state<BranchRenameModal>();
+	let deleteBranchModal = $state<DeleteBranchModal>();
 </script>
 
 <AddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={branch.name} />
@@ -212,7 +217,7 @@
 		}
 	}}
 >
-	<SeriesHeaderContextMenu
+	<SeriesHeaderContextMenuContents
 		{projectId}
 		stackId={stack.id}
 		bind:this={branchContextMenu}
@@ -230,8 +235,24 @@
 		{isPushed}
 		{pr}
 		{branchType}
+		showBranchRenameModal={() => renameBranchModal?.show()}
+		showDeleteBranchModal={() => deleteBranchModal?.show()}
 	/>
 </ContextMenu>
+
+<BranchRenameModal
+	{projectId}
+	stackId={stack.id}
+	branchName={branch.name}
+	bind:this={renameBranchModal}
+	{isPushed}
+/>
+<DeleteBranchModal
+	{projectId}
+	stackId={stack.id}
+	branchName={branch.name}
+	bind:this={deleteBranchModal}
+/>
 
 <div
 	role="article"
@@ -297,7 +318,7 @@
 						readonly={isPushed}
 						onDblClick={() => {
 							if (isPushed) {
-								branchContextMenu?.showSeriesRenameModal?.();
+								renameBranchModal?.show();
 							}
 						}}
 					/>
