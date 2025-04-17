@@ -28,6 +28,7 @@
 		  }
 		| {
 				type: 'normal-branch';
+				stackId?: string;
 				description?: Snippet;
 				commitList?: Snippet;
 				trackingBranch?: string;
@@ -212,7 +213,8 @@
 			readonly
 			onclick={() => {
 				uiState.project(projectId).branchesSelection.set({
-					branchName
+					branchName,
+					stackId: args.stackId
 				});
 			}}
 		>
