@@ -235,6 +235,7 @@
 													.selection.set({ branchName, commitId, upstream: true });
 												uiState.project(projectId).drawerPage.set(undefined);
 											}}
+											disableCommitActions={false}
 										/>
 									{/if}
 								{/snippet}
@@ -328,6 +329,7 @@
 													stackState.selection.set({ branchName, commitId });
 													uiState.project(projectId).drawerPage.set(undefined);
 												}}
+												disableCommitActions={false}
 											>
 												{#snippet menu({ close })}
 													<CommitContextMenu

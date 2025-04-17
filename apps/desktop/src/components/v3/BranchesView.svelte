@@ -4,6 +4,8 @@
 	import BranchCard from '$components/v3/BranchCard.svelte';
 	import BranchExplorer from '$components/v3/BranchExplorer.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
+	import BranchesViewBranch from '$components/v3/BranchesViewBranch.svelte';
+	import BranchesViewStack from '$components/v3/BranchesViewStack.svelte';
 	import CommitRow from '$components/v3/CommitRow.svelte';
 	import GitCommitView from '$components/v3/GitCommitView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
@@ -49,7 +51,7 @@
 <ReduxResult {projectId} result={baseBranchResult.current}>
 	{#snippet children(baseBranch)}
 		{@const lastCommit = baseBranch.recentCommits.at(0)}
-		{@const current = branchesState.current};
+		{@const current = branchesState.current}
 		<div class="branches" use:focusable={{ id: Focusable.Branches }}>
 			<div class="branch-list" bind:this={leftDiv} style:width={leftWidth.current + 'rem'}>
 				<BranchesListGroup title="Current workspace target">
@@ -98,6 +100,7 @@
 										type="normal-branch"
 										{branchName}
 										{projectId}
+										selected
 										lineColor={getColorFromBranchType('LocalOnly')}
 										iconName="branch-upstream"
 										lastUpdatedAt={baseBranch.recentCommits.at(0)?.createdAt.getTime()}
@@ -112,7 +115,8 @@
 								{#snippet commitList()}
 									{#each baseBranch.recentCommits as commit}
 										<CommitRow
-											type="Base"
+											disableCommitActions
+											type="Remote"
 											commitMessage={commit.description}
 											createdAt={commit.createdAt.getTime()}
 											commitId={commit.id}
@@ -131,12 +135,10 @@
 							</BranchCard>
 						{/snippet}
 					</ReduxResult>
+				{:else if current.stackId}
+					<BranchesViewStack {projectId} stackId={current.stackId} />
 				{:else if current.branchName}
-					<BranchCard type="normal-branch" {projectId} branchName={current.branchName}>
-						{#snippet commitList()}
-							Not implemented!
-						{/snippet}
-					</BranchCard>
+					<BranchesViewBranch {projectId} branchName={current.branchName} />
 				{:else if current.prNumber}
 					Not implemented!
 				{/if}
