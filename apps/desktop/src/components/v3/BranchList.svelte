@@ -2,7 +2,7 @@
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
+	import SeriesHeaderContextMenuContents from '$components/SeriesHeaderContextMenuContents.svelte';
 	import StackStickyButtons from '$components/StackStickyButtons.svelte';
 	import BranchCard from '$components/v3/BranchCard.svelte';
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
@@ -309,11 +309,11 @@
 								{/snippet}
 							</BranchCommitList>
 						{/snippet}
-						{#snippet menu()}
+						{#snippet menu({ showDeleteBranchModal, showBranchRenameModal })}
 							{@const forgeBranch = branch.remoteTrackingBranch
 								? forge.current?.branch(branch.remoteTrackingBranch)
 								: undefined}
-							<SeriesHeaderContextMenu
+							<SeriesHeaderContextMenuContents
 								{projectId}
 								{stackId}
 								{branchType}
@@ -330,6 +330,8 @@
 									if (url) openExternalUrl(url);
 								}}
 								isPushed={!!branch.remoteTrackingBranch}
+								{showBranchRenameModal}
+								{showDeleteBranchModal}
 							/>
 						{/snippet}
 					</BranchCard>

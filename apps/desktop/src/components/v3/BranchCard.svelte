@@ -1,4 +1,6 @@
 <script lang="ts">
+	import BranchRenameModal from '$components/BranchRenameModal.svelte';
+	import DeleteBranchModal from '$components/DeleteBranchModal.svelte';
 	import BranchBadge from '$components/v3/BranchBadge.svelte';
 	import BranchDividerLine from '$components/v3/BranchDividerLine.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
@@ -49,6 +51,8 @@
 					[
 						{
 							onToggle: (open: boolean, isLeftClick: boolean) => void;
+							showBranchRenameModal: () => void;
+							showDeleteBranchModal: () => void;
 						}
 					]
 				>;
@@ -80,6 +84,16 @@
 	const selected = $derived(selection?.current?.branchName === branchName);
 
 	let contextMenu: ContextMenu | undefined = $state();
+	let renameBranchModal = $state<BranchRenameModal>();
+	let deleteBranchModal = $state<DeleteBranchModal>();
+
+	function showBranchRenameModal() {
+		renameBranchModal?.show();
+	}
+
+	function showDeleteBranchModal() {
+		deleteBranchModal?.show();
+	}
 </script>
 
 {#if args.type === 'stack-branch' && !args.first}
@@ -165,9 +179,24 @@
 			}}
 		>
 			{@render args.menu?.({
-				onToggle
+				onToggle,
+				showBranchRenameModal,
+				showDeleteBranchModal
 			})}
 		</ContextMenu>
+		<BranchRenameModal
+			{projectId}
+			stackId={args.stackId}
+			{branchName}
+			bind:this={renameBranchModal}
+			isPushed={!!args.trackingBranch}
+		/>
+		<DeleteBranchModal
+			{projectId}
+			stackId={args.stackId}
+			{branchName}
+			bind:this={deleteBranchModal}
+		/>
 	{:else if args.type === 'normal-branch'}
 		<BranchHeader
 			type="normal-branch"

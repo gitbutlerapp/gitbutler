@@ -1,7 +1,9 @@
 <script lang="ts">
+	import BranchRenameModal from '$components/BranchRenameModal.svelte';
 	import BranchReview from '$components/BranchReview.svelte';
+	import DeleteBranchModal from '$components/DeleteBranchModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
+	import SeriesHeaderContextMenuContents from '$components/SeriesHeaderContextMenuContents.svelte';
 	import BranchBadge from '$components/v3/BranchBadge.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
@@ -57,6 +59,8 @@
 	let isContextMenuOpen = $state(false);
 
 	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
+	let renameBranchModal = $state<BranchRenameModal>();
+	let deleteBranchModal = $state<DeleteBranchModal>();
 </script>
 
 <ReduxResult
@@ -173,7 +177,7 @@
 			testId={TestId.BranchHeaderContextMenu}
 			leftClickTrigger={kebabTrigger}
 		>
-			<SeriesHeaderContextMenu
+			<SeriesHeaderContextMenuContents
 				{projectId}
 				contextMenuEl={contextMenu}
 				{stackId}
@@ -191,8 +195,27 @@
 				}}
 				isPushed={!!branch.remoteTrackingBranch}
 				branchType={topCommit?.state.type || 'LocalOnly'}
+				showBranchRenameModal={() => {
+					renameBranchModal?.show();
+				}}
+				showDeleteBranchModal={() => {
+					deleteBranchModal?.show();
+				}}
 			/>
 		</ContextMenu>
+		<BranchRenameModal
+			{projectId}
+			{stackId}
+			branchName={branch.name}
+			bind:this={renameBranchModal}
+			isPushed={!!branch.remoteTrackingBranch}
+		/>
+		<DeleteBranchModal
+			{projectId}
+			{stackId}
+			branchName={branch.name}
+			bind:this={deleteBranchModal}
+		/>
 	{/snippet}
 </ReduxResult>
 
