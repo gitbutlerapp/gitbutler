@@ -55,11 +55,11 @@
 					<button
 						type="button"
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection === 'profile'}
-						onmousedown={() => onMenuClick('profile')}
+						class:item_selected={currentSection === 'general'}
+						onmousedown={() => onMenuClick('general')}
 					>
-						<Icon name="profile" />
-						<span class="text-14 text-semibold">Profile</span>
+						<Icon name="settings" />
+						<span class="text-14 text-semibold">General</span>
 					</button>
 				</li>
 				<li>

@@ -1,5 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 
-	goto('/settings/profile', { replaceState: true });
+	goto('/settings/general', { replaceState: true });
 </script>
