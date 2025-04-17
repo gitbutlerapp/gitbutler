@@ -31,7 +31,7 @@ export function parseError(error: unknown): ParsedError {
 	}
 
 	if (isStr(error)) {
-		return { message: error, parsedError: error };
+		return { message: error };
 	}
 
 	if (error instanceof PromiseRejectionEvent && isTauriCommandError(error.reason)) {
