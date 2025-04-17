@@ -23,7 +23,7 @@
 		gap = 16,
 		title,
 		caption,
-		background = 'var(--clr-bg-1)'
+		background = 'none'
 	}: Props = $props();
 </script>
 

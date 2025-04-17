@@ -4,7 +4,6 @@
 </script>
 
 <script lang="ts">
-	import Button from '$lib/Button.svelte';
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import HunkDiffBody from '$lib/hunkDiff/HunkDiffBody.svelte';
@@ -29,10 +28,7 @@
 		stagedLines?: LineId[];
 		hideCheckboxes?: boolean;
 		selectedLines?: LineSelector[];
-		isHidden?: boolean;
 		draggingDisabled?: boolean;
-		whyHidden?: string;
-		onShowDiffClick?: () => void;
 		onChangeStage?: (staged: boolean) => void;
 		onLineClick?: (params: LineSelectionParams) => void;
 		clearLineSelection?: (fileName: string) => void;
@@ -55,9 +51,6 @@
 		stagedLines,
 		hideCheckboxes,
 		selectedLines,
-		isHidden,
-		whyHidden,
-		onShowDiffClick,
 		onChangeStage,
 		onLineClick,
 		clearLineSelection,
@@ -139,48 +132,25 @@
 				</tr>
 			</thead>
 
-			{#if isHidden}
-				<tbody class="table__hiddenRows">
-					<tr>
-						<td class="table__hiddenRows__count"></td>
-						<td class="table__hiddenRows__count"></td>
-						<td>
-							<div class="table__hiddenRows__content">
-								<p class="text-12 table__hiddenRows__caption">
-									{#if whyHidden}
-										{whyHidden}
-									{:else}
-										Diff is too large to display
-									{/if}
-								</p>
-								<Button kind="outline" onclick={onShowDiffClick} icon="eye-shown"
-									>Show anyway</Button
-								>
-							</div>
-						</td>
-					</tr>
-				</tbody>
-			{:else}
-				<HunkDiffBody
-					comment={hunk.comment}
-					{filePath}
-					content={hunk.contentSections}
-					{onLineClick}
-					clearLineSelection={() => clearLineSelection?.(filePath)}
-					{wrapText}
-					{tabSize}
-					{inlineUnifiedDiffs}
-					{selectedLines}
-					{numberHeaderWidth}
-					onCopySelection={onCopySelection && handleCopySelection}
-					{onQuoteSelection}
-					{staged}
-					{stagedLines}
-					{hideCheckboxes}
-					{handleLineContextMenu}
-					{clickOutsideExcludeElement}
-				/>
-			{/if}
+			<HunkDiffBody
+				comment={hunk.comment}
+				{filePath}
+				content={hunk.contentSections}
+				{onLineClick}
+				clearLineSelection={() => clearLineSelection?.(filePath)}
+				{wrapText}
+				{tabSize}
+				{inlineUnifiedDiffs}
+				{selectedLines}
+				{numberHeaderWidth}
+				onCopySelection={onCopySelection && handleCopySelection}
+				{onQuoteSelection}
+				{staged}
+				{stagedLines}
+				{hideCheckboxes}
+				{handleLineContextMenu}
+				{clickOutsideExcludeElement}
+			/>
 		</table>
 	</ScrollableContainer>
 </div>

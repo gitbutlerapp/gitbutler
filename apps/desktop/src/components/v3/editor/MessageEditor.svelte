@@ -51,6 +51,9 @@
 		suggestionsHandler
 	}: Props = $props();
 
+	const MIN_RULER_VALUE = 30;
+	const MAX_RULER_VALUE = 200;
+
 	const uiState = getContext(UiState);
 	const uploadsService = getContext(UploadsService);
 
@@ -322,7 +325,7 @@
 					}}
 				/>
 				<FormattingButton
-					icon="auto-wrap"
+					icon="text-wrap"
 					disabled={!useRuler.current}
 					activated={wrapTextByRuler.current && useRuler.current}
 					tooltip="Wrap text automatically"
@@ -335,15 +338,30 @@
 					<input
 						disabled={!useRuler.current}
 						value={rulerCountValue.current}
-						min="10"
-						max="500"
+						min={MIN_RULER_VALUE}
+						max={MAX_RULER_VALUE}
 						class="text-13 text-input message-textarea__ruler-input"
 						type="number"
 						onfocus={() => (isEditorFocused = true)}
-						onblur={(e) => {
+						onblur={() => {
+							if (rulerCountValue.current < MIN_RULER_VALUE) {
+								console.warn('Ruler value must be greater than 10');
+								rulerCountValue.current = MIN_RULER_VALUE;
+							} else if (rulerCountValue.current > MAX_RULER_VALUE) {
+								rulerCountValue.current = MAX_RULER_VALUE;
+							}
+
+							isEditorFocused = false;
+						}}
+						oninput={(e) => {
 							const input = e.currentTarget as HTMLInputElement;
 							rulerCountValue.current = parseInt(input.value);
-							isEditorFocused = false;
+						}}
+						onkeydown={(e) => {
+							if (e.key === 'Enter') {
+								e.preventDefault();
+								composer?.focus();
+							}
 						}}
 					/>
 				</div>
@@ -433,6 +451,7 @@
 	}
 
 	.message-textarea__toolbar {
+		flex: 0 0 auto;
 		position: relative;
 		display: flex;
 		align-items: center;

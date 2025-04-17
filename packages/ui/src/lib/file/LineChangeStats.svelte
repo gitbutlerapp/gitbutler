@@ -4,18 +4,13 @@
 	interface Props {
 		added?: number;
 		removed?: number;
-		align?: 'left' | 'right';
 	}
 
-	const { added, removed, align = 'right' }: Props = $props();
+	const { added, removed }: Props = $props();
 </script>
 
 {#if added || removed}
 	<Tooltip text="Lines added/removed" delay={1200}>
-		{#if align === 'left'}
-			<span class="text-11 file-line-stats__divider">/</span>
-		{/if}
-
 		<div class="file-line-stats__lines text-11 text-semibold">
 			{#if added}
 				<span class="file-line-stats__lines--added">+{added}</span>
@@ -24,10 +19,6 @@
 				<span class="file-line-stats__lines--removed">-{removed}</span>
 			{/if}
 		</div>
-
-		{#if align === 'right'}
-			<span class="text-11 file-line-stats__divider">/</span>
-		{/if}
 	</Tooltip>
 {/if}
 
@@ -44,10 +35,5 @@
 
 	.file-line-stats__lines--removed {
 		color: var(--clr-theme-err-element);
-	}
-
-	.file-line-stats__divider {
-		color: var(--clr-text-3);
-		opacity: 0.8;
 	}
 </style>

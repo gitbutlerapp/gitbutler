@@ -214,7 +214,6 @@
 		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
 		box-shadow: var(--fx-shadow-l);
-		overflow: hidden;
 	}
 
 	.modal__header {
@@ -259,6 +258,7 @@
 		padding: 16px;
 		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
+		border-radius: 0 0 var(--radius-l) var(--radius-l);
 	}
 
 	/* ANIMATION */
