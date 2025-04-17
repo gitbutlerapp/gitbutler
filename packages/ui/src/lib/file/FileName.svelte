@@ -25,7 +25,7 @@
 
 	{#if fileNameAndPath.path && !hideFilePath}
 		<div class="file-name__path-container">
-			<Tooltip text={filePath} delay={1200}>
+			<Tooltip text={filePath} delay={1200} maxWidth={320}>
 				<p class="text-12 file-name__path truncate">
 					{#if filePathParts.first}
 						<span class="file-name__path--first truncate">

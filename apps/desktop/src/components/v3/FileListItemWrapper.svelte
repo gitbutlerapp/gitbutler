@@ -14,6 +14,7 @@
 	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 	import type { TreeChange } from '$lib/hunks/change';
+	import type { Rename } from '$lib/hunks/change';
 	import type { UnifiedDiff } from '$lib/hunks/diff';
 
 	interface Props {
@@ -66,6 +67,12 @@
 
 	const isBinary = $derived(diffResult.current.data?.type === 'Binary');
 	const isUncommitted = $derived(selectionId?.type === 'worktree');
+
+	const previousTooltipText = $derived(
+		(change.status.subject as Rename).previousPath
+			? `${(change.status.subject as Rename).previousPath} →\n${change.path}`
+			: undefined
+	);
 
 	const lineChangesStat = $derived.by(() => {
 		if (diff && diff.type === 'Patch') {
@@ -131,6 +138,7 @@
 		{isBinary}
 		{unSelectChanges}
 	/>
+
 	{#if isHeader}
 		<FileViewHeader
 			filePath={change.path}
@@ -138,6 +146,7 @@
 			draggable={!showCheckbox}
 			linesAdded={lineChangesStat?.added}
 			linesRemoved={lineChangesStat?.removed}
+			fileStatusTooltip={previousTooltipText}
 			oncontextmenu={(e) => {
 				e.stopPropagation();
 				e.preventDefault();
@@ -152,6 +161,7 @@
 			fileStatus={computeChangeStatus(change)}
 			{selected}
 			{showCheckbox}
+			fileStatusTooltip={previousTooltipText}
 			{listMode}
 			checked={!!selection.current}
 			{listActive}
@@ -173,8 +183,10 @@
 
 <style lang="postcss">
 	.filelistitem-wrapper {
-		z-index: var(--z-lifted);
 		display: flex;
 		flex-direction: column;
+	}
+	.filelistitem-header {
+		z-index: var(--z-lifted);
 	}
 </style>

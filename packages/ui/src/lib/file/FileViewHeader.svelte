@@ -11,6 +11,7 @@
 		id?: string;
 		filePath: string;
 		fileStatus?: FileStatus;
+		fileStatusTooltip?: string;
 		draggable?: boolean;
 		linesAdded?: number;
 		linesRemoved?: number;
@@ -23,6 +24,7 @@
 		id,
 		filePath,
 		fileStatus,
+		fileStatusTooltip,
 		draggable = true,
 		linesAdded = 0,
 		linesRemoved = 0,
@@ -60,7 +62,7 @@
 		<LineChangeStats added={linesAdded} removed={linesRemoved} />
 
 		{#if fileStatus}
-			<FileStatusBadge status={fileStatus} style="full" />
+			<FileStatusBadge tooltip={fileStatusTooltip} status={fileStatus} style="full" />
 		{/if}
 
 		{#if conflicted}

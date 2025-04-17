@@ -95,7 +95,7 @@ pre {
 
 .h-sticky-header {
 	position: sticky;
-	z-index: var(--z-ground);
+	z-index: var(--z-lifted);
 }
 
 .h-sticky-header_top {

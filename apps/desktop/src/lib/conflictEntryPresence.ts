@@ -1,6 +1,6 @@
 import type { RemoteFile } from '$lib/files/file';
 import type { RemoteHunk } from '$lib/hunks/hunk';
-import type { FileStatus } from '$lib/utils/fileStatus';
+import type { FileStatus } from '@gitbutler/ui/file/types';
 
 export interface ConflictEntryPresence {
 	ours: boolean;
