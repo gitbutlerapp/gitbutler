@@ -12,11 +12,11 @@
 	type Props = {
 		projectId: string;
 		stackId: string;
-		width?: number;
+		flex?: string;
 		multipleBranches: boolean;
 	};
 
-	const { projectId, stackId, width, multipleBranches }: Props = $props();
+	const { projectId, stackId, flex, multipleBranches }: Props = $props();
 
 	const stackService = getContext(StackService);
 	const userService = getContext(UserService);
@@ -50,17 +50,16 @@
 	);
 </script>
 
-<div class="push-button" class:use-flex={!width}>
+<div class="push-button" class:use-flex={!flex} style:flex>
 	<Button
 		style="neutral"
 		wide
-		{width}
 		{loading}
 		disabled={!hasThingsToPush || hasConflicts}
 		tooltip={hasConflicts ? 'In order to push, please resolve any conflicted commits.' : undefined}
 		onclick={push}
 	>
-		{requiresForce ? 'Force push' : multipleBranches ? 'Push All' : 'Push'}
+		{requiresForce ? 'Force push' : multipleBranches ? 'Push all' : 'Push'}
 	</Button>
 </div>
 

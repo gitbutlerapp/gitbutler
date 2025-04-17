@@ -8,10 +8,11 @@
 	type Props = {
 		projectId: string;
 		stackId: string;
+		flex?: string;
 		branches: BranchDetails[];
 	};
 
-	const { projectId, stackId, branches }: Props = $props();
+	const { projectId, stackId, flex, branches }: Props = $props();
 	const uiState = getContext(UiState);
 
 	let canPublishReviewPlugin = $state<ReturnType<typeof CanPublishReviewPlugin>>();
@@ -78,7 +79,7 @@
 <CanPublishReviewPlugin {projectId} {stackId} {branchName} bind:this={canPublishReviewPlugin} />
 
 {#if canPublish}
-	<div class="publish-button">
+	<div class="publish-button" style:flex>
 		<Button
 			style="neutral"
 			wide

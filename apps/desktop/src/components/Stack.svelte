@@ -195,7 +195,7 @@
 										{stack.requiresForce
 											? 'Force push'
 											: stack.validSeries.length > 1
-												? 'Push All'
+												? 'Push all'
 												: 'Push'}
 									</Button>
 								</div>
