@@ -184,9 +184,6 @@
 	}
 
 	.worktree-header {
-		position: sticky;
-		top: -1px;
-		z-index: var(--z-ground);
 		display: flex;
 		padding: 10px 10px 10px 14px;
 		width: 100%;
