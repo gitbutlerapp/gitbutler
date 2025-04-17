@@ -54,7 +54,8 @@
 			class:deleted={status === 'D'}
 			class:renamed={status === 'R'}
 		>
-			<svg width="11" height="11" viewBox="0 0 11 11" fill="none" class="status-dot">
+			<svg viewBox="0 0 11 11" fill="none" class="status-dot">
+				<rect x="0.5" y="0.5" width="10" height="10" rx="3.5" stroke="var(--file-dot-color)" />
 				{#if status === 'A'}
 					<path d="M9 5.5H2M5.5 2V9" />
 				{:else if status === 'M'}
@@ -75,15 +76,16 @@
 
 <style lang="postcss">
 	.status-dot-wrap {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		width: fit-content;
-		padding: 2px;
+		flex-shrink: 0;
 	}
 
 	.status-dot {
-		display: flex;
-		flex-shrink: 0;
-		border-radius: var(--radius-s);
-		box-shadow: inset 0 0 0 1px var(--file-dot-color);
+		width: 11px;
+		height: 11px;
 	}
 
 	.status-dot path {
