@@ -1,6 +1,9 @@
 <script lang="ts">
 	import HunkContextMenu from '$components/v3/HunkContextMenu.svelte';
 	import LineSelection from '$components/v3/unifiedDiffLineSelection.svelte';
+	import binarySvg from '$lib/assets/empty-state/binary.svg?raw';
+	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
+	import tooLargeSvg from '$lib/assets/empty-state/too-large.svg?raw';
 	import { draggableElement } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { canBePartiallySelected, type DiffHunk } from '$lib/hunks/hunk';
@@ -14,6 +17,7 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
+	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { UnifiedDiff } from '$lib/hunks/diff';
@@ -173,7 +177,7 @@
 		{#each diff.subject.hunks as hunk}
 			{@const [staged, stagedLines] = getStageState(hunk)}
 			<div
-				class="hunk-content"
+				class="hunk-content no-select"
 				use:draggableElement={{
 					data: new ChangeDropData(change, idSelection, selectionId),
 					disabled: readonly
@@ -223,12 +227,30 @@
 				unSelectHunk={(hunk) => unselectHunk(hunk, diff.subject.hunks)}
 			/>
 		{:else}
-			<span class="text-14 hunk-content-warning">No content</span>
+			<div class="hunk-placehoder">
+				<EmptyStatePlaceholder image={emptyFileSvg} gap={12} topBottomPadding={34}>
+					{#snippet caption()}
+						It’s empty ¯\_(ツ゚)_/¯
+					{/snippet}
+				</EmptyStatePlaceholder>
+			</div>
 		{/each}
 	{:else if diff.type === 'TooLarge'}
-		Too large!
+		<div class="hunk-placehoder">
+			<EmptyStatePlaceholder image={tooLargeSvg} gap={12} topBottomPadding={34}>
+				{#snippet caption()}
+					Too large to display
+				{/snippet}
+			</EmptyStatePlaceholder>
+		</div>
 	{:else if diff.type === 'Binary'}
-		Binary!
+		<div class="hunk-placehoder">
+			<EmptyStatePlaceholder image={binarySvg} gap={12} topBottomPadding={34}>
+				{#snippet caption()}
+					Binary! Not for human eyes
+				{/snippet}
+			</EmptyStatePlaceholder>
+		</div>
 	{/if}
 </div>
 
@@ -242,11 +264,8 @@
 		overflow-x: hidden;
 		max-width: 100%;
 	}
-
-	.hunk-content {
-		user-select: text;
-	}
-	.hunk-content-warning {
-		margin-left: 8px;
+	.hunk-placehoder {
+		border: 1px solid var(--clr-border-3);
+		border-radius: var(--radius-m);
 	}
 </style>
