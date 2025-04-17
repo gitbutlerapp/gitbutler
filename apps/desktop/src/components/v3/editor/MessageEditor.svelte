@@ -74,7 +74,8 @@
 	let isEditorFocused = $state(false);
 	let fileUploadPlugin = $state<ReturnType<typeof FileUploadPlugin>>();
 	let uploadConfirmationModal = $state<ReturnType<typeof Modal>>();
-	const allowUploadFiles = persisted<boolean>(false, 'allowUploadFiles');
+	const doNotShowUploadWarning = persisted<boolean>(false, 'doNotShowUploadWarning');
+	let allowUploadOnce = $state<boolean>(false);
 
 	export async function getPlaintext(): Promise<string | undefined> {
 		return composer?.getPlaintext();
@@ -119,13 +120,22 @@
 			});
 		const settled = await Promise.allSettled(uploads);
 		const successful = settled.filter((result) => result.status === 'fulfilled');
+		const failed = settled.filter((result) => result.status === 'rejected');
+
+		if (failed.length > 0) {
+			console.error('File upload failed', failed);
+			showError('File upload failed', failed.map((result) => result.reason).join(', '));
+		}
+
+		allowUploadOnce = false;
+
 		return successful.map((result) => result.value);
 	}
 
 	async function handleDropFiles(
 		files: FileList | undefined
 	): Promise<DropFileResult[] | undefined> {
-		if ($allowUploadFiles) {
+		if ($doNotShowUploadWarning || allowUploadOnce) {
 			return onDropFiles(files);
 		}
 
@@ -143,7 +153,7 @@
 	}
 
 	function handleAttachFiles() {
-		if ($allowUploadFiles) {
+		if ($doNotShowUploadWarning) {
 			attachFiles();
 			return;
 		}
@@ -164,6 +174,7 @@
 	width="small"
 	bind:this={uploadConfirmationModal}
 	onSubmit={async (close) => {
+		allowUploadOnce = true;
 		await attachFiles();
 		close();
 	}}
@@ -196,7 +207,8 @@
 			<br />
 		{/if}
 		<div style="display: flex; align-items: center; gap: 4px">
-			<Checkbox small bind:checked={$allowUploadFiles} /> <span> Do not bring this up again </span>
+			<Checkbox small bind:checked={$doNotShowUploadWarning} />
+			<span> Do not bring this up again </span>
 		</div>
 	{/snippet}
 	{#snippet controls(close)}
