@@ -17,6 +17,8 @@
 				return 'warning';
 			case 'D':
 				return 'error';
+			case 'R':
+				return 'purple';
 		}
 	}
 </script>

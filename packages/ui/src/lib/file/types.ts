@@ -1,1 +1,1 @@
-export type FileStatus = 'A' | 'M' | 'D';
+export type FileStatus = 'A' | 'M' | 'D' | 'R';
