@@ -1,13 +1,19 @@
 <script lang="ts">
 	import BranchLabel from '$components/BranchLabel.svelte';
 	import BranchRenameModal from '$components/BranchRenameModal.svelte';
+	import DeleteBranchModal from '$components/DeleteBranchModal.svelte';
+	import BranchBadge from '$components/v3/BranchBadge.svelte';
 	import BranchHeaderIcon from '$components/v3/BranchHeaderIcon.svelte';
+	import ContextMenu from '$components/v3/ContextMenu.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
+	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { slide } from 'svelte/transition';
+	import type { PushStatus } from '$lib/stacks/stack';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
@@ -25,9 +31,8 @@
 		| { type: 'draft-branch' }
 		| {
 				type: 'normal-branch';
-				selected: boolean;
 				trackingBranch?: string;
-				details: Snippet;
+				lastUpdatedAt?: number;
 				onclick: () => void;
 		  }
 		| {
@@ -36,13 +41,23 @@
 				stackId: string;
 				trackingBranch?: string;
 				isTopBranch: boolean;
-				isMenuOpenByBtn?: boolean;
-				isMenuOpenByMouse?: boolean;
 				isNewBranch?: boolean;
-				details: Snippet;
+				prNumber?: number;
+				reviewId?: string;
+				pushStatus: PushStatus;
+				lastUpdatedAt?: number;
+				isCommitting: boolean;
+				isConflicted: boolean;
 				onclick: () => void;
-				onMenuBtnClick: () => void;
-				onContextMenu: (e: MouseEvent) => void;
+				menu?: Snippet<
+					[
+						{
+							onToggle: (open: boolean, isLeftClick: boolean) => void;
+							showBranchRenameModal: () => void;
+							showDeleteBranchModal: () => void;
+						}
+					]
+				>;
 		  }
 	);
 
@@ -63,7 +78,24 @@
 	const [updateName, nameUpdate] = stackService.updateBranchName;
 
 	const isPushed = $derived(!!(args.type === 'draft-branch' ? undefined : args.trackingBranch));
-	let renameBranchModal: BranchRenameModal | undefined = $state();
+
+	let contextMenu = $state<ContextMenu>();
+	let rightClickTrigger = $state<HTMLDivElement>();
+	let leftClickTrigger = $state<HTMLButtonElement>();
+
+	let isMenuOpenByBtn = $state(false);
+	let isMenuOpenByMouse = $state(false);
+
+	let renameBranchModal = $state<BranchRenameModal>();
+	let deleteBranchModal = $state<DeleteBranchModal>();
+
+	function showBranchRenameModal() {
+		renameBranchModal?.show();
+	}
+
+	function showDeleteBranchModal() {
+		deleteBranchModal?.show();
+	}
 
 	async function updateBranchName(title: string) {
 		if (args.type === 'draft-branch') {
@@ -81,6 +113,14 @@
 			});
 		}
 	}
+
+	function onToggle(isOpen: boolean, isLeftClick: boolean) {
+		if (isLeftClick) {
+			isMenuOpenByBtn = isOpen;
+		} else {
+			isMenuOpenByMouse = isLeftClick;
+		}
+	}
 </script>
 
 {#if args.type === 'stack-branch'}
@@ -96,11 +136,11 @@
 		oncontextmenu={(e) => {
 			e.stopPropagation();
 			e.preventDefault();
-			args.onContextMenu(e);
+			contextMenu?.toggle(e);
 		}}
 		onkeypress={args.onclick}
 		tabindex="0"
-		class:activated={args.isMenuOpenByMouse || args.isMenuOpenByBtn}
+		class:activated={isMenuOpenByMouse || isMenuOpenByBtn}
 	>
 		{#if args.selected}
 			<div class="branch-header__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
@@ -131,11 +171,11 @@
 					bind:this={menuBtnEl}
 					type="button"
 					class="branch-menu-btn"
-					class:activated={args.isMenuOpenByBtn}
+					class:activated={isMenuOpenByBtn}
 					onmousedown={(e) => {
 						e.stopPropagation();
 						e.preventDefault();
-						args.onMenuBtnClick();
+						contextMenu?.toggle();
 					}}
 					onclick={(e) => {
 						e.stopPropagation();
@@ -152,9 +192,54 @@
 					<br />
 					Create or drag & drop commits here.
 				</p>
+			{:else}
+				<div class="text-11 branch-header__details">
+					<span class="branch-header__item">
+						<BranchBadge pushStatus={args.pushStatus} unstyled />
+					</span>
+					<span class="branch-header__divider">•</span>
+
+					{#if args.isConflicted}
+						<span class="branch-header__item branch-header__item--conflict"> Has conflicts </span>
+						<span class="branch-header__divider">•</span>
+					{/if}
+
+					{#if args.lastUpdatedAt}
+						<span class="branch-header__item">
+							{getTimeAgo(new Date(args.lastUpdatedAt))}
+						</span>
+					{/if}
+
+					{#if args.reviewId || args.prNumber}
+						<span class="branch-header__divider">•</span>
+						<div class="branch-header__review-badges">
+							{#if args.reviewId}
+								<ReviewBadge brId={args.reviewId} brStatus="unknown" />
+							{/if}
+							{#if args.prNumber}
+								<ReviewBadge prNumber={args.prNumber} prStatus="unknown" />
+							{/if}
+						</div>
+					{/if}
+				</div>
 			{/if}
 		</div>
 	</div>
+	<ContextMenu
+		testId={TestId.BranchHeaderContextMenu}
+		bind:this={contextMenu}
+		{leftClickTrigger}
+		{rightClickTrigger}
+		ontoggle={(isOpen, isLeftClick) => {
+			onToggle?.(isOpen, isLeftClick);
+		}}
+	>
+		{@render args.menu?.({
+			onToggle,
+			showBranchRenameModal,
+			showDeleteBranchModal
+		})}
+	</ContextMenu>
 	<BranchRenameModal
 		{projectId}
 		stackId={args.stackId}
@@ -162,26 +247,36 @@
 		bind:this={renameBranchModal}
 		isPushed={!!args.trackingBranch}
 	/>
+	<DeleteBranchModal
+		{projectId}
+		stackId={args.stackId}
+		{branchName}
+		bind:this={deleteBranchModal}
+	/>
 {:else if args.type === 'normal-branch'}
 	<div
 		data-testid={TestId.BranchHeader}
 		bind:this={el}
 		role="button"
-		class="branch-header"
-		class:selected={args.selected}
+		class="branch-header selected"
 		onclick={args.onclick}
 		onkeypress={args.onclick}
 		tabindex="0"
 	>
-		{#if args.selected}
-			<div class="branch-header__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-		{/if}
+		<div class="branch-header__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 
 		<BranchHeaderIcon {lineColor} {iconName} lineTop={false} />
 		<div class="branch-header__content">
 			<div class="name-line text-14 text-bold">
 				<BranchLabel name={branchName} fontSize="15" readonly={true} />
 			</div>
+		</div>
+		<div class="text-11 branch-header__details">
+			{#if args.lastUpdatedAt}
+				<span class="branch-header__item">
+					{getTimeAgo(new Date(args.lastUpdatedAt))}
+				</span>
+			{/if}
 		</div>
 	</div>
 {:else}
@@ -309,5 +404,22 @@
 		& span {
 			text-wrap: nowrap;
 		}
+	}
+	.branch-header__review-badges {
+		display: flex;
+		gap: 3px;
+	}
+
+	.branch-header__item {
+		white-space: nowrap;
+		color: var(--clr-text-2);
+	}
+
+	.branch-header__item--conflict {
+		color: var(--clr-theme-err-element);
+	}
+
+	.branch-header__divider {
+		color: var(--clr-text-3);
 	}
 </style>

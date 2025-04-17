@@ -183,6 +183,7 @@
 
 <style lang="postcss">
 	.filelistitem-wrapper {
+		z-index: var(--z-lifted);
 		display: flex;
 		flex-direction: column;
 	}

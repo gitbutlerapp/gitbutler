@@ -43,7 +43,7 @@
 	}
 
 	$effect(() => {
-		const unregidterDrop = editor.registerCommand(
+		const unregisterDrop = editor.registerCommand(
 			DROP_COMMAND,
 			(e) => {
 				e.preventDefault();
@@ -56,7 +56,7 @@
 			COMMAND_PRIORITY_CRITICAL
 		);
 
-		const unregidterPaste = editor.registerCommand(
+		const unregisterPaste = editor.registerCommand(
 			PASTE_COMMAND,
 			(e) => {
 				e.preventDefault();
@@ -71,8 +71,8 @@
 		);
 
 		return () => {
-			unregidterDrop();
-			unregidterPaste();
+			unregisterDrop();
+			unregisterPaste();
 		};
 	});
 

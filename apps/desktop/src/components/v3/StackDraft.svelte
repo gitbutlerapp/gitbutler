@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BranchCard from '$components/v3/BranchCard.svelte';
+	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import CommitGoesHere from '$components/v3/CommitGoesHere.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -27,15 +28,23 @@
 			draftBranchName.set(newName);
 		}
 	});
+
+	const branchName = $derived(draftBranchName.current || newName);
 </script>
 
 <div class="stack-draft">
-	<BranchCard
-		type="draft-branch"
-		{projectId}
-		iconName="branch-local"
-		branchName={draftBranchName.current || newName}
-	/>
+	<BranchCard type="draft-branch" {projectId} {branchName}>
+		{#snippet header()}
+			<BranchHeader
+				type="draft-branch"
+				{branchName}
+				{projectId}
+				iconName="branch-local"
+				readonly={false}
+				lineColor="var(--clr-commit-local)"
+			/>
+		{/snippet}
+	</BranchCard>
 	<CommitGoesHere selected draft />
 </div>
 
