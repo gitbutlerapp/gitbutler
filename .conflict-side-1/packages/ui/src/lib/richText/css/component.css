@@ -1,0 +1,278 @@
+/* GENERAL */
+.lexical-container {
+	--lexical-default-font-size: var(--lexical-input-font-size);
+}
+
+.ContentEditable__root {
+	padding: var(--lexical-input-padding);
+	font-size: var(--lexical-default-font-size);
+	/* Override css from svelte-lexical. */
+	min-height: unset;
+}
+
+.Placeholder__root {
+	color: var(--clr-text-3) !important;
+	font-family: var(--fontfamily-default) !important;
+	font-size: var(--lexical-default-font-size) !important;
+	top: var(--lexical-input-padding) !important;
+	left: var(--lexical-input-padding) !important;
+	line-height: var(--text-lineheight-body);
+}
+
+/* STYLE CONTEXT */
+.lexical-client-editor {
+	--lexical-input-padding: var(--lexical-input-client-padding);
+	/* here we take out the height of the inner toolbar */
+	height: calc(100% - var(--lexical-input-client-toolbar-height));
+
+	& .ContentEditable__root {
+		height: 100%;
+		min-height: unset;
+		overflow: hidden;
+	}
+}
+
+.lexical-chat-input {
+	--lexical-input-padding: 12px;
+}
+
+/* REST UNREVIWED STYLES */
+.link-editor .button.active,
+.toolbar .button.active {
+	background-color: rgb(223, 232, 250);
+}
+
+.link-editor .link-input {
+	display: block;
+	width: calc(100% - 75px);
+	padding: 6px;
+	border-radius: var(--radius-m);
+	border: 1px solid var(--clr-border-1);
+	background-color: var(--clr-bg-1);
+	position: relative;
+	font-family: inherit;
+}
+
+.link-editor .link-view {
+	display: block;
+	width: calc(100% - 24px);
+	margin: 8px 12px;
+	padding: 8px 12px;
+	border-radius: 15px;
+	font-size: 15px;
+	color: rgb(5, 5, 5);
+	border: 0;
+	outline: 0;
+	position: relative;
+	font-family: inherit;
+}
+
+.link-editor .link-view a {
+	display: block;
+	word-break: break-word;
+	width: calc(100% - 33px);
+}
+
+.link-editor div.link-edit {
+	background-image: url(/images/icons/pencil-fill.svg);
+	background-size: 16px;
+	background-position: center;
+	background-repeat: no-repeat;
+	width: 35px;
+	vertical-align: -0.25em;
+	position: absolute;
+	right: 30px;
+	top: 0;
+	bottom: 0;
+	cursor: pointer;
+}
+
+.link-editor div.link-trash {
+	background-image: url(/images/icons/trash.svg);
+	background-size: 16px;
+	background-position: center;
+	background-repeat: no-repeat;
+	width: 35px;
+	vertical-align: -0.25em;
+	position: absolute;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	cursor: pointer;
+}
+
+.link-editor div.link-cancel {
+	background-image: url(/images/icons/close.svg);
+	background-size: 16px;
+	background-position: center;
+	background-repeat: no-repeat;
+	width: 35px;
+	vertical-align: -0.25em;
+	margin-right: 28px;
+	position: absolute;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	cursor: pointer;
+}
+
+.link-editor div.link-confirm {
+	background-image: url(/images/icons/success-alt.svg);
+	background-size: 16px;
+	background-position: center;
+	background-repeat: no-repeat;
+	width: 35px;
+	vertical-align: -0.25em;
+	margin-right: 2px;
+	position: absolute;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	cursor: pointer;
+}
+
+.link-editor .link-input a {
+	color: rgb(33, 111, 219);
+	text-decoration: underline;
+	white-space: nowrap;
+	overflow: hidden;
+	margin-right: 30px;
+	text-overflow: ellipsis;
+}
+
+.link-editor .link-input a:hover {
+	text-decoration: underline;
+}
+
+.link-editor .font-size-wrapper,
+.link-editor .font-family-wrapper {
+	display: flex;
+	margin: 0 4px;
+}
+
+.link-editor select {
+	padding: 6px;
+	border: none;
+	background-color: rgba(0, 0, 0, 0.075);
+	border-radius: 4px;
+}
+
+.mention:focus {
+	box-shadow: rgb(180 213 255) 0px 0px 0px 2px;
+	outline: none;
+}
+
+.editor-shell .dropdown {
+	z-index: 100;
+	display: block;
+	position: fixed;
+	box-shadow:
+		0 12px 28px 0 rgba(0, 0, 0, 0.2),
+		0 2px 4px 0 rgba(0, 0, 0, 0.1),
+		inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+	border-radius: var(--radius-s);
+	min-height: 40px;
+	background-color: var(--clr-bg-1);
+}
+
+.dropdown .item {
+	margin: 0 8px 0 8px;
+	padding: 8px;
+	color: #050505;
+	cursor: pointer;
+	line-height: 16px;
+	font-size: 15px;
+	display: flex;
+	align-content: center;
+	flex-direction: row;
+	flex-shrink: 0;
+	justify-content: space-between;
+	background-color: var(--clr-bg-1);
+	border-radius: 8px;
+	border: 0;
+	max-width: 250px;
+	min-width: 100px;
+}
+
+.dropdown .item.fontsize-item,
+.dropdown .item.fontsize-item .text {
+	min-width: unset;
+}
+
+.dropdown .item .active {
+	display: flex;
+	width: 20px;
+	height: 20px;
+	background-size: contain;
+}
+
+.dropdown .item:first-child {
+	margin-top: 8px;
+}
+
+.dropdown .item:last-child {
+	margin-bottom: 8px;
+}
+
+.dropdown .item:hover {
+	background-color: #eee;
+}
+
+.dropdown .item .text {
+	display: flex;
+	line-height: 20px;
+	flex-grow: 1;
+	min-width: 150px;
+}
+
+.dropdown .item .icon {
+	display: flex;
+	width: 20px;
+	height: 20px;
+	user-select: none;
+	margin-right: 12px;
+	line-height: 16px;
+	background-size: contain;
+	background-position: center;
+	background-repeat: no-repeat;
+}
+
+@media screen and (max-width: 1100px) {
+	.dropdown-button-text {
+		display: none !important;
+	}
+	.dialog-dropdown > .dropdown-button-text {
+		display: flex !important;
+	}
+	.font-size .dropdown-button-text {
+		display: flex !important;
+	}
+	.code-language .dropdown-button-text {
+		display: flex !important;
+	}
+}
+
+.mention {
+	padding: 0px 4px;
+	gap: 10px;
+	border-radius: var(--radius-s);
+	background: var(--clr-theme-pop-bg-muted);
+	color: var(--clr-theme-pop-on-soft);
+}
+
+@keyframes ghost-transition-fly {
+	0% {
+		transform: translateY(3px);
+		opacity: 0;
+	}
+	100% {
+		transform: translateY(0);
+		opacity: 0.5;
+	}
+}
+
+.ghost-text {
+	display: inline-block;
+	opacity: 0;
+	animation: ghost-transition-fly 300ms forwards ease-in-out;
+}
