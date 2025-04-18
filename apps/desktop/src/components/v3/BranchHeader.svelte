@@ -307,6 +307,9 @@
 
 <style lang="postcss">
 	.branch-header {
+		--branch-selected-bg: var(--clr-bg-1);
+		--branch-selected-element-bg: var(--clr-selected-not-in-focus-element);
+
 		position: relative;
 		display: flex;
 		justify-content: flex-start;
@@ -316,29 +319,33 @@
 		border-top-left-radius: var(--radius-ml);
 		border-bottom: 1px solid var(--clr-border-2);
 		overflow: hidden;
+		background-color: var(--branch-selected-bg);
 
+		/* show menu button on hover or if selected */
+		&:hover,
+		&.selected {
+			& .branch-menu-btn {
+				display: flex; /* show menu button on hover */
+			}
+		}
+
+		/* Selected but NOT in focus */
 		&:hover,
 		&.activated {
-			background-color: var(--clr-bg-1-muted);
-
-			& .branch-menu-btn {
-				display: flex;
-			}
+			--branch-selected-bg: var(--clr-bg-1-muted);
 		}
-
 		&:focus-within,
 		&.selected {
-			background-color: var(--clr-selected-not-in-focus-bg);
-
-			& .branch-menu-btn {
-				display: flex;
-			}
+			--branch-selected-bg: var(--clr-selected-not-in-focus-bg);
 		}
 
+		/* Selected in focus */
 		&:focus-within.selected {
-			background-color: var(--clr-selected-in-focus-bg);
+			--branch-selected-bg: var(--clr-selected-in-focus-bg);
+			--branch-selected-element-bg: var(--clr-selected-in-focus-element);
 		}
 
+		/* MODIFIERS */
 		&.new-branch {
 			border-bottom: none;
 			border-radius: var(--radius-ml);
@@ -355,7 +362,7 @@
 		width: 4px;
 		height: 20px;
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
-		background-color: var(--clr-selected-in-focus-element);
+		background-color: var(--branch-selected-element-bg);
 		transition: transform var(--transition-fast);
 	}
 
