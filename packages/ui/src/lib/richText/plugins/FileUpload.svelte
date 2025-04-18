@@ -59,13 +59,19 @@
 		const unregisterPaste = editor.registerCommand(
 			PASTE_COMMAND,
 			(e) => {
-				e.preventDefault();
-				e.stopPropagation();
-
 				const clipboardEvent = e as ClipboardEvent;
 				const files = clipboardEvent.clipboardData?.files;
-				handleDrop(files);
-				return true;
+
+				if (files && files.length > 0) {
+					e.preventDefault();
+					e.stopPropagation();
+
+					handleDrop(files);
+
+					return true;
+				}
+
+				return false;
 			},
 			COMMAND_PRIORITY_CRITICAL
 		);

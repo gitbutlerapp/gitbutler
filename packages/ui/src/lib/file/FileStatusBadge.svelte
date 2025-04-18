@@ -59,7 +59,7 @@
 				{#if status === 'A'}
 					<path d="M9 5.5H2M5.5 2V9" />
 				{:else if status === 'M'}
-					<path d="M8 3.5L3 7.5" />
+					<path d="M7.2626 3.73755L3.7374 7.26276" />
 				{:else if status === 'D'}
 					<path d="M8.5 5.5H2.5" />
 				{:else if status === 'R'}

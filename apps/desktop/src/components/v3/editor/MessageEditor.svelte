@@ -76,6 +76,8 @@
 	let uploadConfirmationModal = $state<ReturnType<typeof Modal>>();
 	const doNotShowUploadWarning = persisted<boolean>(false, 'doNotShowUploadWarning');
 	let allowUploadOnce = $state<boolean>(false);
+	let uploadedBy = $state<'drop' | 'attach' | undefined>(undefined);
+	let tempDropFiles: FileList | undefined = $state(undefined);
 
 	export async function getPlaintext(): Promise<string | undefined> {
 		return composer?.getPlaintext();
@@ -139,6 +141,8 @@
 			return onDropFiles(files);
 		}
 
+		uploadedBy = 'drop';
+		tempDropFiles = files;
 		uploadConfirmationModal?.show();
 		return undefined;
 	}
@@ -157,6 +161,7 @@
 			attachFiles();
 			return;
 		}
+		uploadedBy = 'attach';
 		uploadConfirmationModal?.show();
 	}
 
@@ -170,44 +175,41 @@
 </script>
 
 <Modal
-	title="Dear sir and/or madam"
+	type="warning"
+	title="Off to the cloud it goes!"
 	width="small"
 	bind:this={uploadConfirmationModal}
 	onSubmit={async (close) => {
 		allowUploadOnce = true;
-		await attachFiles();
+
+		if (uploadedBy === 'drop') {
+			const files = tempDropFiles;
+			tempDropFiles = undefined;
+			if (files) {
+				composer?.focus();
+				await fileUploadPlugin?.handleFileUpload(files);
+			}
+		} else if (uploadedBy === 'attach') {
+			await attachFiles();
+		}
+
+		uploadedBy = undefined;
 		close();
 	}}
 >
 	{#snippet children()}
-		<p>
-			Thanks for your interest on attaching a file to this message.
-			<br />
-			<br />
-			Before doing so, we'd like to make it clear that
-			<b>the file would be uploaded to the GitButler servers.</b>
-			<br />
-			This is necessary to generate a link to the file that you can use in your message.
-			<br />
-			<br />
-			Please note that we take your privacy seriously and will not share your file with any third parties.
-			<br />
-			The generated URL is yours to share and use as you see fit.
-			<br />
-			<br />
-			<em>Best regards</em>,
-			<br />
-			<em>{'Your GitButler team <3'}</em>
-		</p>
-		<br />
-		<div style="display: flex; align-items: center; gap: 4px">
-			<Checkbox small bind:checked={$doNotShowUploadWarning} />
-			<span> Do not bring this up again </span>
-		</div>
+		Your file will be stored in GitButler’s digital vault, safe and sound. We promise it’s secure,
+		so feel free to share the link however you like 🔐
 	{/snippet}
 	{#snippet controls(close)}
-		<Button kind="outline" onclick={close}>How dare you</Button>
-		<Button style="pop" type="submit">Carry on</Button>
+		<div class="modal-footer">
+			<label for="dont-show-again" class="modal-footer__checkbox">
+				<Checkbox name="dont-show-again" small bind:checked={$doNotShowUploadWarning} />
+				<span class="text-12"> Don’t show this again</span>
+			</label>
+			<Button kind="outline" onclick={close}>Cancel</Button>
+			<Button style="pop" type="submit">Yes, upload!</Button>
+		</div>
 	{/snippet}
 </Modal>
 
@@ -524,5 +526,19 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
+	}
+
+	/* MODAL */
+	.modal-footer {
+		display: flex;
+		width: 100%;
+		gap: 6px;
+	}
+
+	.modal-footer__checkbox {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		gap: 8px;
 	}
 </style>
