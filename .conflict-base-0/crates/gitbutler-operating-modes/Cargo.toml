@@ -1,0 +1,22 @@
+[package]
+name = "gitbutler-operating-modes"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+serde = { workspace = true, features = ["std"] }
+tracing.workspace = true
+git2.workspace = true
+anyhow.workspace = true
+toml.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-serde.workspace = true
+gitbutler-fs.workspace = true
+gitbutler-reference.workspace = true
+but-settings.workspace = true
+gitbutler-project.workspace = true
+
+[dev-dependencies]
+gitbutler-testsupport.workspace = true
