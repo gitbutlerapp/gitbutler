@@ -1,5 +1,5 @@
 import { executeGitButlerCommand, hasGitButlerExecutable } from '../../shared/command.js';
-import { UnifiedWorktreeChanges } from '../../shared/entities/changes.js';
+import { DiffHunk, UnifiedWorktreeChanges } from '../../shared/entities/changes.js';
 import {
 	BranchCommitsSchema,
 	BranchListSchema,
@@ -19,7 +19,7 @@ type StatusParams = z.infer<typeof StatusParamsSchema>;
 
 type WorktreeDiffs = {
 	filePath: string;
-	hunkDiffs: string[];
+	hunks: DiffHunk[];
 };
 
 /**
@@ -38,8 +38,8 @@ function status(params: StatusParams) {
 	for (const change of unifiedWorktreeChanges.changes) {
 		if (change.diff.type === 'Patch') {
 			const filePath = change.treeChange.path;
-			const hunkDiffs = change.diff.subject.hunks.map((hunk) => hunk.diff);
-			result.push({ filePath, hunkDiffs });
+			const hunks = change.diff.subject.hunks;
+			result.push({ filePath, hunks });
 		}
 	}
 	return result;
