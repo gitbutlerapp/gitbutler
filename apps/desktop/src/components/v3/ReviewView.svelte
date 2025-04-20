@@ -18,7 +18,6 @@
 
 	const uiState = getContext(UiState);
 
-	let drawer = $state<ReturnType<typeof Drawer>>();
 	let reviewCreation = $state<ReturnType<typeof ReviewCreation>>();
 
 	function close() {
@@ -59,14 +58,7 @@
 	const ctaDisabled = $derived(reviewCreation ? !reviewCreation.imports.creationEnabled : false);
 </script>
 
-<Drawer
-	bind:this={drawer}
-	{projectId}
-	{stackId}
-	title={getTitleLabel()}
-	disableScroll
-	minHeight={28}
->
+<Drawer {projectId} {stackId} title={getTitleLabel()} disableScroll minHeight={28}>
 	<div class="submit-review__container">
 		<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} onClose={close} />
 
