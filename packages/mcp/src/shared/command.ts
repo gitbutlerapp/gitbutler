@@ -14,11 +14,21 @@ export function hasGitButlerExecutable(): boolean {
  *
  * The command is executed synchronously, and the output is parsed using the provided schema.
  */
+export function executeGitButlerCommand(
+	projectDirectory: string,
+	args: string[],
+	schema: undefined
+): undefined;
 export function executeGitButlerCommand<T>(
 	projectDirectory: string,
 	args: string[],
 	schema: z.Schema<T>
-): T {
+): T;
+export function executeGitButlerCommand<T>(
+	projectDirectory: string,
+	args: string[],
+	schema: z.Schema<T> | undefined
+): T | undefined {
 	const executable = getGitButlerExecutable();
 
 	if (!executable) throw new Error('Command error: No executable configured');
@@ -33,6 +43,8 @@ export function executeGitButlerCommand<T>(
 	if (result.status !== 0) {
 		throw new Error(`Command error: ${result.stderr}`);
 	}
+
+	if (!schema) return undefined;
 
 	const parsed = JSON.parse(result.stdout);
 

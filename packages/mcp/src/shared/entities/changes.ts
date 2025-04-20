@@ -67,6 +67,8 @@ export const DiffHunkSchema = z.object({
 	diff: z.string()
 });
 
+export type DiffHunk = z.infer<typeof DiffHunkSchema>;
+
 export const PatchSchema = z.object({
 	hunks: z.array(DiffHunkSchema),
 	isResultOfBinaryToTextConversion: z.boolean(),

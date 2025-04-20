@@ -111,6 +111,7 @@ pub struct StackEntry {
     #[serde(with = "gitbutler_serde::bstring_vec_lossy")]
     pub branch_names: Vec<BString>,
     /// The tip of the top-most branch, i.e. the most recent commit that would become the parent of new commits of the topmost stack branch.
+    #[serde(with = "gitbutler_serde::object_id")]
     pub tip: gix::ObjectId,
 }
 
@@ -246,6 +247,10 @@ pub struct BranchDetails {
     pub pr_number: Option<usize>,
     /// A unique identifier for the GitButler review associated with the branch, if any.
     pub review_id: Option<String>,
+    /// This is the last commit in the branch, aka the tip of the branch.
+    /// If this is the only branch in the stack or the top-most branch, this is the tip of the stack.
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub tip: gix::ObjectId,
     /// This is the base commit from the perspective of this branch.
     /// If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
     /// If this branch is at the bottom of the stack, this is the merge base of the stack.
@@ -373,6 +378,7 @@ pub fn stack_details(
             description: branch.description.clone(),
             pr_number: branch.pr_number,
             review_id: branch.review_id.clone(),
+            tip: branch.head_oid(&repo)?,
             base_commit: current_base,
             push_status: branch_state.into(),
             last_updated_at: commits.first().map(|c| c.created_at),
@@ -504,6 +510,10 @@ pub struct Branch {
     /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
     /// An archived branch will not have any commits associated with it.
     pub archived: bool,
+    /// This is the last commit in the branch, aka the tip of the branch.
+    /// If this is the only branch in the stack or the top-most branch, this is the tip of the stack.
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub tip: gix::ObjectId,
     /// This is the base commit from the perspective of this branch.
     /// If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
     /// If this branch is at the bottom of the stack, this is the merge base of the stack.
@@ -537,6 +547,7 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
             pr_number: internal.pr_number,
             review_id: internal.review_id.clone(),
             archived: internal.archived,
+            tip: internal.head_oid(&repo)?,
             base_commit: current_base,
         };
         current_base = internal.head_oid(&repo)?;

@@ -51,6 +51,11 @@ export type BranchDetails = {
 	/** A unique identifier for the GitButler review associated with the branch, if any. */
 	readonly reviewId: string | null;
 	/**
+	 * This is the last commit in the branch, aka the tip of the branch.
+	 * If this is the only branch in the stack or the top-most branch, this is the tip of the stack.
+	 */
+	readonly tip: string;
+	/**
 	 * This is the base commit from the perspective of this branch.
 	 * If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
 	 * If this branch is at the bottom of the stack, this is the merge base of the stack.

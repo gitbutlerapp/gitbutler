@@ -1,6 +1,6 @@
 use anyhow::{Context, anyhow, bail};
 use but_core::UnifiedDiff;
-use but_workspace::commit_engine::HunkHeader;
+use but_workspace::commit_engine::{DiffSpec, HunkHeader};
 use gitbutler_project::Project;
 use gix::bstr::{BString, ByteSlice};
 use std::path::Path;
@@ -96,6 +96,16 @@ fn project_controller(
     }
     tracing::debug!("Using projects from '{}'", path.display());
     Ok(gitbutler_project::Controller::from_path(path))
+}
+
+pub fn parse_diff_spec(arg: &Option<String>) -> Result<Option<Vec<DiffSpec>>, anyhow::Error> {
+    arg.as_deref()
+        .map(|value| {
+            serde_json::from_str::<Vec<but_workspace::commit_engine::ui::DiffSpec>>(value)
+                .map(|diff_spec| diff_spec.into_iter().map(Into::into).collect())
+                .map_err(|e| anyhow!("Failed to parse diff_spec: {}", e))
+        })
+        .transpose()
 }
 
 mod commit;

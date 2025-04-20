@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { VERSION } from './shared/version.js';
 import * as chatMessages from './tools/chatMessages.js';
+import * as commit from './tools/client/commit.js';
 import * as status from './tools/client/status.js';
 import * as patchStacks from './tools/patchStacks.js';
 import * as projects from './tools/projects.js';
@@ -32,7 +33,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 			...projects.getProjectToolListings(),
 			...chatMessages.getChatMessageToolListings(),
 			...patchStacks.getPatchStackToolListing(),
-			...status.getStatusToolListing()
+			...status.getStatusToolListing(),
+			...commit.getCommitToolListing()
 		]
 	};
 });
@@ -47,7 +49,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 			projects.getProjectToolRequestHandler,
 			chatMessages.getChatMesssageToolRequestHandler,
 			patchStacks.getPatchStackToolRequestHandler,
-			status.getStatusToolRequestHandler
+			status.getStatusToolRequestHandler,
+			commit.getCommitToolRequestHandler
 		];
 
 		for (const handler of handlers) {

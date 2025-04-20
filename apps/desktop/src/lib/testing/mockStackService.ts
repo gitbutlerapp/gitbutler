@@ -39,6 +39,7 @@ const BRANCH_DETAILS_A: BranchDetails = {
 	description: null,
 	prNumber: null,
 	reviewId: null,
+	tip: 'tip-commit-a',
 	baseCommit: 'base-commit-a'
 };
 

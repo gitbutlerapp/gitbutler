@@ -21,6 +21,7 @@ pub fn commit(
     current_rela_path: Option<&Path>,
     previous_rela_path: Option<&Path>,
     headers: Option<&[u32]>,
+    diff_spec: Option<Vec<DiffSpec>>,
 ) -> anyhow::Result<()> {
     if message.is_none() && !amend {
         bail!("Need a message when creating a new commit");
@@ -30,11 +31,12 @@ pub fn commit(
         .unwrap_or_else(|| Ok(repo.head_id()?))?
         .detach();
 
-    let changes = match (current_rela_path, previous_rela_path, headers) {
-        (None, None, None) => {
+    let changes = match (current_rela_path, previous_rela_path, headers, diff_spec) {
+        (None, None, None, Some(diff_spec)) => diff_spec,
+        (None, None, None, None) => {
             to_whole_file_diffspec(but_core::diff::worktree_changes(&repo)?.changes)
         }
-        (Some(current_path), previous_path, Some(headers)) => {
+        (Some(current_path), previous_path, Some(headers), None) => {
             let path = path_to_rela_path(current_path)?;
             let previous_path = previous_path.map(path_to_rela_path).transpose()?;
             let hunk_headers = indices_or_headers_to_hunk_headers(

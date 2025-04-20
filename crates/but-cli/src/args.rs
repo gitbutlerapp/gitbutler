@@ -62,6 +62,9 @@ pub enum Subcommands {
         /// The revspec to create the commit on top of, or the commit to amend to.
         #[clap(long)]
         parent: Option<String>,
+        /// A JSON specification of the changes to commit.
+        #[clap(long)]
+        diff_spec: Option<String>,
     },
     /// List all uncommitted working tree changes.
     Status {

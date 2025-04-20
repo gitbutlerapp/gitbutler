@@ -1,5 +1,6 @@
+import { BaseParamsSchema } from './shared.js';
 import { executeGitButlerCommand, hasGitButlerExecutable } from '../../shared/command.js';
-import { UnifiedWorktreeChanges } from '../../shared/entities/changes.js';
+import { DiffHunk, UnifiedWorktreeChanges } from '../../shared/entities/changes.js';
 import {
 	BranchCommitsSchema,
 	BranchListSchema,
@@ -9,17 +10,13 @@ import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
-const BaseParamsSchema = z.object({
-	project_directory: z.string({ description: 'The absolute path to the project directory' })
-});
-
 const StatusParamsSchema = BaseParamsSchema.extend({});
 
 type StatusParams = z.infer<typeof StatusParamsSchema>;
 
 type WorktreeDiffs = {
 	filePath: string;
-	hunkDiffs: string[];
+	hunks: DiffHunk[];
 };
 
 /**
@@ -38,8 +35,8 @@ function status(params: StatusParams) {
 	for (const change of unifiedWorktreeChanges.changes) {
 		if (change.diff.type === 'Patch') {
 			const filePath = change.treeChange.path;
-			const hunkDiffs = change.diff.subject.hunks.map((hunk) => hunk.diff);
-			result.push({ filePath, hunkDiffs });
+			const hunks = change.diff.subject.hunks;
+			result.push({ filePath, hunks });
 		}
 	}
 	return result;
@@ -52,7 +49,7 @@ type ListStacksParams = z.infer<typeof ListStacksParamsSchema>;
 /**
  * Get the list of stacks of the current GitButler project.
  */
-function listStacks(params: ListStacksParams) {
+export function listStacks(params: ListStacksParams) {
 	const args = ['stacks'];
 
 	return executeGitButlerCommand(params.project_directory, args, StackListSchema);
@@ -67,7 +64,7 @@ type ListStackBranchesParams = z.infer<typeof ListStackBranchesParamsSchema>;
 /**
  * Get the branches of a stack.
  */
-function listStackBranches(params: ListStackBranchesParams) {
+export function listStackBranches(params: ListStackBranchesParams) {
 	const args = ['stack-branches', params.stack_id];
 
 	return executeGitButlerCommand(params.project_directory, args, BranchListSchema);

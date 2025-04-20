@@ -1,6 +1,7 @@
 //! A debug-CLI for making `but`-crates functionality available in real-world repositories.
 #![deny(rust_2018_idioms)]
 use anyhow::Result;
+use command::parse_diff_spec;
 
 mod args;
 use crate::command::{RepositoryOpenMode, repo_and_maybe_project};
@@ -47,8 +48,10 @@ fn main() -> Result<()> {
             parent,
             workspace_tip,
             stack_segment_ref,
+            diff_spec,
         } => {
             let (repo, project) = repo_and_maybe_project(&args, RepositoryOpenMode::Merge)?;
+            let diff_spec = parse_diff_spec(diff_spec)?;
             command::commit(
                 repo,
                 project,
@@ -64,6 +67,7 @@ fn main() -> Result<()> {
                 } else {
                     None
                 },
+                diff_spec,
             )
         }
         args::Subcommands::HunkDependency => command::diff::locks(&args.current_dir),
