@@ -231,7 +231,6 @@
 		&:not(.files-split-view) {
 			& .drawer__content {
 				flex: 1;
-				min-height: 100%;
 			}
 
 			& .drawer__content-scroll {
@@ -288,5 +287,6 @@
 		display: flex;
 		flex-direction: column;
 		padding: 14px;
+		min-height: 100%;
 	}
 </style>

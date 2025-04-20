@@ -154,19 +154,17 @@
 			{/if}
 
 			{#snippet filesSplitView()}
-				{#if hasCommits}
-					<ReduxResult {projectId} {stackId} result={changesResult.current}>
-						{#snippet children(changes, env)}
-							<ChangedFiles
-								title="All changed files"
-								projectId={env.projectId}
-								stackId={env.stackId}
-								selectionId={{ type: 'branch', stackId, branchName }}
-								{changes}
-							/>
-						{/snippet}
-					</ReduxResult>
-				{/if}
+				<ReduxResult {projectId} {stackId} result={changesResult.current}>
+					{#snippet children(changes, env)}
+						<ChangedFiles
+							title="All changed files"
+							projectId={env.projectId}
+							stackId={env.stackId}
+							selectionId={{ type: 'branch', stackId, branchName }}
+							{changes}
+						/>
+					{/snippet}
+				</ReduxResult>
 			{/snippet}
 		</Drawer>
 
