@@ -2,6 +2,7 @@
 	import SyncButton from '$components/SyncButton.svelte';
 	import IntegrateUpstreamModal from '$components/v3/IntegrateUpstreamModal.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
+	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { Project } from '$lib/project/project';
@@ -132,12 +133,15 @@
 	</div>
 	<div class="chrome-right" data-tauri-drag-region>
 		<Button kind="ghost" icon="timeline" onclick={() => events.emit('openHistory')} />
-		<NotificationButton
-			hasUnread={isNotificationsUnread}
-			onclick={() => {
-				goto(ircPath(projectId));
-			}}
-		/>
+
+		{#if $ircEnabled}
+			<NotificationButton
+				hasUnread={isNotificationsUnread}
+				onclick={() => {
+					goto(ircPath(projectId));
+				}}
+			/>
+		{/if}
 	</div>
 </div>
 
