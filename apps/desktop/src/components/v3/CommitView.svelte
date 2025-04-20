@@ -52,7 +52,7 @@
 	const isUnapplied = false; // TODO
 	const branchRefName = undefined; // TODO
 
-	const changesResult = stackService.commitChanges(projectId, commitKey.commitId);
+	const changesResult = $derived(stackService.commitChanges(projectId, commitKey.commitId));
 
 	const [updateCommitMessage, messageUpdateResult] = stackService.updateCommitMessage;
 
