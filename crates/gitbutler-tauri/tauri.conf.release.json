@@ -13,7 +13,7 @@
 			"icons/icon.icns",
 			"icons/icon.ico"
 		],
-		"externalBin": ["gitbutler-git-setsid", "gitbutler-git-askpass"]
+		"externalBin": ["gitbutler-git-setsid", "gitbutler-git-askpass", "but-cli"]
 	},
 	"plugins": {
 		"updater": {
