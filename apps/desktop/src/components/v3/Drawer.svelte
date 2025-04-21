@@ -279,7 +279,7 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		min-width: 230px;
+		min-width: 260px;
 	}
 
 	.drawer__content {
