@@ -17,10 +17,6 @@
 </h3>
 
 <style>
-	.commit-title {
-		flex-grow: 1;
-	}
-
 	.row {
 		text-align: left;
 		text-overflow: ellipsis;

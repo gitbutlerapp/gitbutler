@@ -231,7 +231,6 @@
 		&:not(.files-split-view) {
 			& .drawer__content {
 				flex: 1;
-				min-height: 100%;
 			}
 
 			& .drawer__content-scroll {
@@ -239,30 +238,9 @@
 			}
 		}
 
-		@container drawer (min-width: 530px) {
-			&.files-split-view .drawer__content-scroll {
-				min-width: 300px;
-				max-width: 500px;
-			}
-		}
-
-		@container drawer (max-width: 530px) {
-			&.files-split-view {
-				flex-direction: column;
-			}
-
-			& .drawer__content-scroll {
-				width: 100%;
-				height: auto;
-			}
-
-			& .drawer__content-resizer {
-				display: none;
-			}
-
-			& .drawer__files-split-view {
-				border-top: 1px solid var(--clr-border-2);
-			}
+		&.files-split-view .drawer__content-scroll {
+			min-width: 300px;
+			max-width: 500px;
 		}
 	}
 
@@ -280,7 +258,7 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		min-width: 230px;
+		min-width: 240px;
 	}
 
 	.drawer__content {
@@ -288,5 +266,6 @@
 		display: flex;
 		flex-direction: column;
 		padding: 14px;
+		min-height: 100%;
 	}
 </style>

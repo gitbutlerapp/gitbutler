@@ -193,7 +193,7 @@
 					Create or drag & drop commits here.
 				</p>
 			{:else}
-				<div class="text-11 branch-header__details">
+				<div class="text-12 branch-header__details">
 					<span class="branch-header__item">
 						<BranchBadge pushStatus={args.pushStatus} unstyled />
 					</span>
@@ -271,7 +271,7 @@
 				<BranchLabel name={branchName} fontSize="15" readonly={true} />
 			</div>
 		</div>
-		<div class="text-11 branch-header__details">
+		<div class="text-12 branch-header__details">
 			{#if args.lastUpdatedAt}
 				<span class="branch-header__item">
 					{getTimeAgo(new Date(args.lastUpdatedAt))}
@@ -353,6 +353,15 @@
 		&.is-committing {
 			border-radius: var(--radius-ml) var(--radius-ml) 0 0;
 		}
+	}
+
+	.branch-header__details {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 6px;
+		color: var(--clr-text-2);
+		margin-left: 4px;
 	}
 
 	.branch-header__select-indicator {

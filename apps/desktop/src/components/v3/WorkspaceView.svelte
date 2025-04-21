@@ -192,7 +192,7 @@
 		overflow-x: hidden;
 		position: relative;
 		gap: 8px;
-		min-width: 400px;
+		min-width: 600px;
 	}
 
 	.contents {
