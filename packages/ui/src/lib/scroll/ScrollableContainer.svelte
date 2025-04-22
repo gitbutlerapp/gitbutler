@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Scrollbar, { type ScrollbarPaddingType } from '$lib/scroll/Scrollbar.svelte';
-	import { type Snippet } from 'svelte';
+	import { useAutoScroll } from '$lib/utils/autoscroll';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		height?: string;
@@ -12,6 +13,7 @@
 		thickness?: string;
 		horz?: boolean;
 		whenToShow: 'hover' | 'always' | 'scroll';
+		autoScroll?: boolean;
 		onthumbdrag?: (dragging: boolean) => void;
 		children: Snippet;
 		onscrollTop?: (visible: boolean) => void;
@@ -29,6 +31,7 @@
 		thickness,
 		horz,
 		whenToShow,
+		autoScroll,
 		children,
 		onthumbdrag,
 		onscroll,
@@ -39,33 +42,6 @@
 	let viewport = $state<HTMLDivElement>();
 	let scrollTopVisible = $state<boolean>(true);
 	let scrollEndVisible = $state<boolean>(true);
-
-	function isScrollEndVisible(target: HTMLDivElement) {
-		if (target) {
-			return target.scrollTop + target.clientHeight >= target.scrollHeight;
-		}
-		return false;
-	}
-
-	function isScrollTopVisible(target: HTMLDivElement) {
-		if (target) {
-			return target.scrollTop < 1;
-		}
-		return false;
-	}
-
-	export function scrollToBottom() {
-		if (viewport) {
-			viewport.scrollTop = viewport.scrollHeight;
-		}
-	}
-
-	$effect(() => {
-		if (viewport) {
-			scrollTopVisible = isScrollTopVisible(viewport);
-			scrollEndVisible = isScrollEndVisible(viewport);
-		}
-	});
 
 	$effect(() => {
 		if (scrollTopVisible) {
@@ -82,35 +58,16 @@
 			onscrollEnd?.(false);
 		}
 	});
-
-	$effect(() => {
-		if (viewport) {
-			const observerMutations = new MutationObserver(() => {
-				if (viewport && scrollEndVisible && !scrollTopVisible) {
-					const stillVisible = isScrollEndVisible(viewport);
-					if (!stillVisible) {
-						viewport.scrollTop = viewport.scrollHeight;
-					}
-				}
-			});
-			observerMutations.observe(viewport, { childList: true, subtree: true });
-		}
-	});
 </script>
 
 <div class="scrollable" style:flex-grow={wide ? 1 : 0} style:max-height={maxHeight}>
 	<div
 		bind:this={viewport}
+		use:useAutoScroll={{ enabled: autoScroll }}
+		{onscroll}
 		class="viewport hide-native-scrollbar"
 		style:height
 		style:overflow-y="auto"
-		onscroll={(e) => {
-			const target = e.target as HTMLDivElement;
-			scrollTopVisible = isScrollTopVisible(target);
-			scrollEndVisible = isScrollEndVisible(target);
-
-			onscroll?.(e);
-		}}
 	>
 		<div class="viewport-content">
 			{@render children()}
