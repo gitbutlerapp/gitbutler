@@ -27,6 +27,7 @@
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
+	import DependencyService from '$lib/dependencies/dependencyService.svelte';
 	import { FileService } from '$lib/files/fileService';
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -152,6 +153,7 @@
 	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
 	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
 	const cloudProjectService = new CloudProjectService(data.cloud, appState.appDispatch);
+	const dependecyService = new DependencyService(clientState.backendApi);
 
 	const cloudBranchService = new CloudBranchService(data.cloud, appState.appDispatch);
 	const cloudPatchService = new CloudPatchCommitService(data.cloud, appState.appDispatch);
@@ -229,6 +231,7 @@
 	setContext(ShortcutService, shortcutService);
 	setContext(DiffService, diffService);
 	setContext(UploadsService, data.uploadsService);
+	setContext(DependencyService, dependecyService);
 
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 
