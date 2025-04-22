@@ -350,6 +350,9 @@ pub fn stack_details(
         let commits = local_and_remote_commits(ctx, &repo, branch, &stack)?;
         let upstream_commits = upstream_only_commits(ctx, &repo, branch, &stack, Some(&commits))?;
 
+        // If there are commits in the remote, we can assume that commits have been pushed. *Like, literally*.
+        branch_state.has_pushed_commits |= !upstream_commits.is_empty();
+
         for commit in &commits {
             is_conflicted |= commit.has_conflicts;
             branch_state.is_dirty |= matches!(commit.state, CommitState::LocalOnly);
