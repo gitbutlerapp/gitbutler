@@ -94,7 +94,7 @@
 			case 'github':
 				return ['Pull request', 'PR', '#'];
 			case 'gitlab':
-				return ['Merge request', 'MR', '#'];
+				return ['Merge request', 'MR', '!'];
 			default:
 				return ['Pull request', 'PR', '#'];
 		}
