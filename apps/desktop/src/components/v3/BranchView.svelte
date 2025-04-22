@@ -36,7 +36,6 @@
 
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
 
-	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const topCommitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
 
@@ -67,15 +66,14 @@
 	{stackId}
 	{projectId}
 	result={combineResults(
-		branchResult.current,
 		branchesResult.current,
 		branchDetailsResult.current,
 		topCommitResult.current
 	)}
 >
-	{#snippet children([branch, branches, branchDetails, topCommit], { stackId, projectId })}
+	{#snippet children([branches, branchDetails, topCommit], { stackId, projectId })}
 		{@const hasCommits = !!topCommit}
-		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
+		{@const remoteTrackingBranch = branchDetails.remoteTrackingBranch}
 		<Drawer {projectId} {stackId}>
 			{#snippet header()}
 				<div class="branch__header">
@@ -92,7 +90,7 @@
 							</div>
 						</Tooltip>
 					{/if}
-					<h3 class="text-15 text-bold truncate">{branch.name}</h3>
+					<h3 class="text-15 text-bold truncate">{branchDetails.name}</h3>
 				</div>
 			{/snippet}
 
@@ -136,7 +134,7 @@
 						</div>
 					</div>
 
-					<BranchReview {stackId} {projectId} branchName={branch.name} />
+					<BranchReview {stackId} {projectId} branchName={branchDetails.name} />
 				</div>
 			{:else}
 				<div class="branch-view__empty-state">
@@ -179,9 +177,9 @@
 				{projectId}
 				contextMenuEl={contextMenu}
 				{stackId}
-				branchName={branch.name}
+				branchName={branchDetails.name}
 				seriesCount={branches.length}
-				isTopBranch={branches[0]?.name === branch.name}
+				isTopBranch={branches[0]?.name === branchDetails.name}
 				descriptionOption={false}
 				onGenerateBranchName={() => {
 					throw new Error('Not implemented!');
@@ -191,7 +189,7 @@
 					const url = forgeBranch?.url;
 					if (url) openExternalUrl(url);
 				}}
-				isPushed={!!branch.remoteTrackingBranch}
+				isPushed={!!branchDetails.remoteTrackingBranch}
 				branchType={topCommit?.state.type || 'LocalOnly'}
 				showBranchRenameModal={() => {
 					renameBranchModal?.show();
@@ -204,14 +202,14 @@
 		<BranchRenameModal
 			{projectId}
 			{stackId}
-			branchName={branch.name}
+			branchName={branchDetails.name}
 			bind:this={renameBranchModal}
-			isPushed={!!branch.remoteTrackingBranch}
+			isPushed={!!branchDetails.remoteTrackingBranch}
 		/>
 		<DeleteBranchModal
 			{projectId}
 			{stackId}
-			branchName={branch.name}
+			branchName={branchDetails.name}
 			bind:this={deleteBranchModal}
 		/>
 	{/snippet}
