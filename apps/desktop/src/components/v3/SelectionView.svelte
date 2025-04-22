@@ -28,7 +28,11 @@
 <div class="selection-view">
 	{#if selection.length === 0}
 		{#if $ircEnabled && channel.current}
-			<IrcChannel type="group" channel={channel.current} autojoin />
+			{#if channel.current.startsWith('#')}
+				<IrcChannel type="group" channel={channel.current} autojoin />
+			{:else}
+				<IrcChannel type="private" nick={channel.current} />
+			{/if}
 		{:else}
 			<FileViewPlaceholder />
 		{/if}
