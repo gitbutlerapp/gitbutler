@@ -1,4 +1,5 @@
 @import './fonts/fonts.css';
+@import './draggable.css';
 
 body {
 	height: 100vh;
