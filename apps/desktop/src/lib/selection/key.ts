@@ -61,7 +61,8 @@ export function readKey(key: SelectedFileKey): SelectedFile {
 			return {
 				type,
 				path: parts[0]!,
-				stackId: parts[1]!,
+				// TODO: Fix this by adding a new type for regular branches.
+				stackId: parts[1] === 'undefined' ? undefined : parts[1]!,
 				branchName: parts[2]!
 			};
 		case 'worktree':
