@@ -52,7 +52,11 @@
 		if (branchListing.stack?.inWorkspace) {
 			stackPath(project.id, branchListing.stack.id);
 		} else {
-			uiState.project(projectId).branchesSelection.set({ branchName: branchListing.name });
+			if (branchListing.stack) {
+				uiState.project(projectId).branchesSelection.set({ stackId: branchListing.stack.id });
+			} else {
+				uiState.project(projectId).branchesSelection.set({ branchName: branchListing.name });
+			}
 		}
 	}
 

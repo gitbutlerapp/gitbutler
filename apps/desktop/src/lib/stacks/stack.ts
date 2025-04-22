@@ -1,4 +1,6 @@
 import type { Author, Commit, UpstreamCommit } from '$lib/branches/v3';
+import type { CellType } from '@gitbutler/ui/commitLines/types';
+import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 /**
  * Return type of Tauri `stacks` command.
@@ -35,6 +37,32 @@ export type PushStatus =
 	 * Every commit is integrated into the base branch.
 	 */
 	| 'integrated';
+
+export function pushStatusToColor(pushStatus: PushStatus): CellType {
+	switch (pushStatus) {
+		case 'nothingToPush':
+		case 'unpushedCommits':
+		case 'unpushedCommitsRequiringForce':
+			return 'LocalAndRemote';
+		case 'completelyUnpushed':
+			return 'LocalOnly';
+		case 'integrated':
+			return 'Integrated';
+	}
+}
+
+export function pushStatusToIcon(pushStatus: PushStatus): keyof typeof iconsJson {
+	switch (pushStatus) {
+		case 'nothingToPush':
+		case 'unpushedCommits':
+		case 'unpushedCommitsRequiringForce':
+			return 'branch-remote';
+		case 'completelyUnpushed':
+			return 'branch-local';
+		case 'integrated':
+			return 'branch-remote';
+	}
+}
 
 export type BranchDetails = {
 	/** The name of the branch */

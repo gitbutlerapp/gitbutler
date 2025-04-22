@@ -23,8 +23,8 @@
 //!   - A type that identifies changes, either as whole file, or as hunks in the file.
 //!   - It doesn't specify if the change is in a commit, or in the worktree, so that information must be provided separately.
 
-use anyhow::{Context, Result};
-use author::Author;
+use anyhow::{Context, Result, bail};
+use author::{Author, gravatar_url_from_email};
 use bstr::{BStr, BString};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -402,6 +402,128 @@ pub fn stack_details(
         branch_details,
         is_conflicted: stack_is_conflicted,
     })
+}
+
+/// Returns information about the current state of a branch.
+pub fn branch_details(
+    gb_dir: &Path,
+    branch_name: &str,
+    ctx: &CommandContext,
+) -> Result<BranchDetails> {
+    let state = state_handle(gb_dir);
+    let repository = ctx.repo();
+
+    let default_target = state.get_default_target()?;
+
+    let branch = repository.find_branch(branch_name, git2::BranchType::Local)?;
+    let Some(branch_oid) = branch.get().target() else {
+        bail!("Branch points to nothing");
+    };
+    let upstream = branch.upstream().ok();
+    let upstream_oid = upstream.as_ref().and_then(|u| u.get().target());
+
+    let push_status = match upstream.as_ref() {
+        Some(upstream) => {
+            if upstream.get().target() == branch.get().target() {
+                PushStatus::NothingToPush
+            } else {
+                PushStatus::UnpushedCommits
+            }
+        }
+        None => PushStatus::CompletelyUnpushed,
+    };
+
+    let merge_bases = repository.merge_bases(branch_oid, default_target.sha)?;
+    let Some(base_commit) = merge_bases.last() else {
+        bail!("Failed to find merge base");
+    };
+
+    let mut revwalk = repository.revwalk()?;
+    revwalk.push(branch_oid)?;
+    revwalk.hide(default_target.sha)?;
+    revwalk.simplify_first_parent()?;
+
+    let commits = revwalk
+        .filter_map(|oid| repository.find_commit(oid.ok()?).ok())
+        .collect::<Vec<_>>();
+
+    let upstream_commits = if let Some(upstream_oid) = upstream_oid {
+        let mut revwalk = repository.revwalk()?;
+        revwalk.push(upstream_oid)?;
+        revwalk.hide(branch_oid)?;
+        revwalk.hide(default_target.sha)?;
+        revwalk.simplify_first_parent()?;
+        revwalk
+            .filter_map(|oid| repository.find_commit(oid.ok()?).ok())
+            .collect::<Vec<_>>()
+    } else {
+        vec![]
+    };
+
+    let mut authors = HashSet::new();
+
+    let commits = commits
+        .into_iter()
+        .map(|commit| {
+            let author = author_from_signature(&commit.author());
+            let commiter = author_from_signature(&commit.committer());
+            authors.insert(author.clone());
+            authors.insert(commiter);
+            Commit {
+                id: commit.id().to_gix(),
+                parent_ids: commit.parent_ids().map(|id| id.to_gix()).collect(),
+                message: commit.message().unwrap_or_default().into(),
+                has_conflicts: false,
+                state: CommitState::LocalAndRemote(commit.id().to_gix()),
+                created_at: u128::try_from(commit.time().seconds()).unwrap_or(0) * 1000,
+                author,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let upstream_commits = upstream_commits
+        .into_iter()
+        .map(|commit| {
+            let author = author_from_signature(&commit.author());
+            let commiter = author_from_signature(&commit.committer());
+            authors.insert(author.clone());
+            authors.insert(commiter);
+            UpstreamCommit {
+                id: commit.id().to_gix(),
+                message: commit.message().unwrap_or_default().into(),
+                created_at: u128::try_from(commit.time().seconds()).unwrap_or(0) * 1000,
+                author,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    Ok(BranchDetails {
+        name: branch_name.into(),
+        remote_tracking_branch: upstream
+            .as_ref()
+            .and_then(|upstream| upstream.get().name())
+            .map(Into::into),
+        description: None,
+        pr_number: None,
+        review_id: None,
+        base_commit: base_commit.to_gix(),
+        push_status,
+        last_updated_at: None,
+        authors: authors.into_iter().collect(),
+        is_conflicted: false,
+        commits,
+        upstream_commits,
+        tip: branch_oid.to_gix(),
+    })
+}
+
+fn author_from_signature(signature: &git2::Signature<'_>) -> Author {
+    let email = signature.email().unwrap_or("example@example.com");
+    Author {
+        name: signature.name().unwrap_or("Unknown").into(),
+        email: email.into(),
+        gravatar_url: gravatar_url_from_email(email).expect("failed to get gravatar url"),
+    }
 }
 
 /// Returns the last-seen fork-point that the workspace has with the target branch with which it wants to integrate.

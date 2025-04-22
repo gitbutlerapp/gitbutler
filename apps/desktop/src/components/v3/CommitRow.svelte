@@ -26,17 +26,27 @@
 		menu?: Snippet<[{ close: () => void }]>;
 		onclick?: () => void;
 	} & (
-		| { type: 'LocalOnly'; stackId: string }
-		| {
+		| { type: 'LocalOnly' | 'Integrated' | 'Remote' }
+		| ({
 				type: 'LocalAndRemote';
-				diverged: boolean;
-				hasConflicts: boolean;
-				stackId: string;
-		  }
-		| { type: 'Integrated'; stackId: string }
-		| { type: 'Remote'; stackId: string }
-		| { type: 'Base' }
-	);
+		  } & (
+				| {
+						disableCommitActions: false;
+						diverged: boolean;
+						hasConflicts: boolean;
+				  }
+				| { disableCommitActions: true }
+		  ))
+	) &
+		(
+			| {
+					disableCommitActions: false;
+					stackId: string;
+			  }
+			| {
+					disableCommitActions: true;
+			  }
+		);
 
 	const {
 		commitMessage,
@@ -49,7 +59,6 @@
 		borderTop,
 		onclick,
 		menu: menu2,
-		disableCommitActions = false,
 		...args
 	}: Props = $props();
 
@@ -74,18 +83,18 @@
 	onclick={(e) => {
 		e.preventDefault();
 		e.stopPropagation();
-		if (disableCommitActions) return;
+		// if (args.disableCommitActions) return;
 		onclick?.();
 	}}
 	onkeydown={(e) => {
-		if (disableCommitActions) return;
+		// if (args.disableCommitActions) return;
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();
 			onclick?.();
 		}
 	}}
 	oncontextmenu={(e) => {
-		if (disableCommitActions) return;
+		if (args.disableCommitActions) return;
 		e.preventDefault();
 		isOpenedByKebabButton = false;
 		contextMenu?.open(e);
@@ -97,7 +106,7 @@
 
 	<CommitLine
 		commitStatus={args.type}
-		diverged={args.type === 'LocalAndRemote' ? args.diverged : false}
+		diverged={args.type === 'LocalAndRemote' && !args.disableCommitActions ? args.diverged : false}
 		{tooltip}
 		{lastCommit}
 		{lastBranch}
@@ -109,30 +118,32 @@
 			<CommitHeader {commitMessage} row className="text-13 text-semibold" />
 		</div>
 
-		{#if args.type === 'LocalAndRemote' && args.hasConflicts}
+		{#if args.type === 'LocalAndRemote' && !args.disableCommitActions && args.hasConflicts}
 			<div class="commit-conflict-indicator">
 				<Icon name="warning" size={12} />
 			</div>
 		{/if}
 
-		<button
-			type="button"
-			bind:this={kebabMenuTrigger}
-			class="commit-menu-btn"
-			class:activated={isOpenedByKebabButton}
-			onmousedown={(e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				isOpenedByKebabButton = true;
-				contextMenu?.toggle();
-			}}
-			onclick={(e) => {
-				e.preventDefault();
-				e.stopPropagation();
-			}}
-		>
-			<Icon name="kebab" /></button
-		>
+		{#if !args.disableCommitActions}
+			<button
+				type="button"
+				bind:this={kebabMenuTrigger}
+				class="commit-menu-btn"
+				class:activated={isOpenedByKebabButton}
+				onmousedown={(e) => {
+					e.preventDefault();
+					e.stopPropagation();
+					isOpenedByKebabButton = true;
+					contextMenu?.toggle();
+				}}
+				onclick={(e) => {
+					e.preventDefault();
+					e.stopPropagation();
+				}}
+			>
+				<Icon name="kebab" /></button
+			>
+		{/if}
 	</div>
 </div>
 

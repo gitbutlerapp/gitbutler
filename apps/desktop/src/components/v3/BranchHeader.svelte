@@ -31,8 +31,10 @@
 		| { type: 'draft-branch' }
 		| {
 				type: 'normal-branch';
+				selected: boolean;
 				trackingBranch?: string;
 				lastUpdatedAt?: number;
+				isTopBranch?: boolean;
 				onclick: () => void;
 		  }
 		| {
@@ -258,14 +260,17 @@
 		data-testid={TestId.BranchHeader}
 		bind:this={el}
 		role="button"
-		class="branch-header selected"
+		class="branch-header"
+		class:selected={args.selected}
 		onclick={args.onclick}
 		onkeypress={args.onclick}
 		tabindex="0"
 	>
-		<div class="branch-header__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+		{#if args.selected}
+			<div class="branch-header__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+		{/if}
 
-		<BranchHeaderIcon {lineColor} {iconName} lineTop={false} />
+		<BranchHeaderIcon {lineColor} {iconName} lineTop={!args.isTopBranch} />
 		<div class="branch-header__content">
 			<div class="name-line text-14 text-bold">
 				<BranchLabel name={branchName} fontSize="15" readonly={true} />
@@ -287,7 +292,7 @@
 		class="branch-header new-branch draft selected"
 		tabindex="0"
 	>
-		<BranchHeaderIcon {lineColor} {iconName} isDashed lineTop={false} />
+		<BranchHeaderIcon {lineColor} {iconName} isDashed lineTop />
 		<div class="branch-header__content">
 			<div class="name-line text-14 text-bold">
 				<BranchLabel
