@@ -103,9 +103,11 @@
 			}
 		}
 	});
+
+	const locked = $derived(row.locks !== undefined && row.locks.length > 0);
 </script>
 
-{#snippet countColumn(row: Row, side: CountColumnSide, idx: number)}
+{#snippet countColumn(side: CountColumnSide)}
 	{@const deltaLine = isDeltaLine(row.type)}
 	<td
 		class="table__numberColumn"
@@ -117,6 +119,7 @@
 		class:is-last={row.isLast}
 		class:is-before={side === CountColumnSide.Before}
 		class:staged={staged && deltaLine}
+		class:locked
 		style="--staging-column-width: {stagingColumnWidth}px; --number-col-width: {minWidth}rem;"
 		class:stagable={staged !== undefined && !hideCheckboxes}
 		onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
@@ -157,6 +160,7 @@
 			align="center"
 			class:is-last={row.isLast}
 			class:staged={staged && deltaLine}
+			class:locked
 			onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
 			onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
 			onmouseup={() => lineSelection.onEnd()}
@@ -171,8 +175,10 @@
 			}}
 		>
 			{#if deltaLine}
-				<div class="table__row-checkbox">
-					{#if staged}
+				<div class="table__row-checkbox" class:locked>
+					{#if locked}
+						<Icon name="locked-small" />
+					{:else if staged}
 						<Checkbox checked={staged} small style="ghost" />
 					{:else}
 						<Icon name="minus-small" />
@@ -182,8 +188,8 @@
 		</td>
 	{/if}
 
-	{@render countColumn(row, CountColumnSide.Before, idx)}
-	{@render countColumn(row, CountColumnSide.After, idx)}
+	{@render countColumn(CountColumnSide.Before)}
+	{@render countColumn(CountColumnSide.After)}
 	<td
 		class="table__textContent"
 		style="--tab-size: {tabSize}; --wrap: {wrapText ? 'wrap' : 'nowrap'}"
@@ -401,6 +407,12 @@
 			border-color: var(--clr-diff-selected-count-border);
 			color: var(--clr-diff-selected-count-text);
 		}
+
+		&.locked {
+			background-color: var(--clr-diff-locked-count-bg);
+			border-color: var(--clr-diff-locked-count-border);
+			color: var(--clr-diff-locked-count-text);
+		}
 	}
 
 	.table__numberColumn:first-of-type {
@@ -431,5 +443,9 @@
 		padding: 0;
 		width: 18px;
 		height: 18px;
+
+		&.locked {
+			color: var(--clr-diff-locked-count-text);
+		}
 	}
 </style>

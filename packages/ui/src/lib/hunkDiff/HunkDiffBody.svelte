@@ -6,6 +6,7 @@
 		type ContentSection,
 		generateRows,
 		type LineId,
+		type LineLock,
 		type LineSelector,
 		parserFromFilename,
 		type Row,
@@ -21,6 +22,7 @@
 		diffFont?: string;
 		inlineUnifiedDiffs?: boolean;
 		selectedLines?: LineSelector[];
+		lineLocks?: LineLock[];
 		onLineClick?: (params: LineSelectionParams) => void;
 		clearLineSelection?: () => void;
 		onQuoteSelection?: () => void;
@@ -45,6 +47,7 @@
 		tabSize = 4,
 		inlineUnifiedDiffs = false,
 		selectedLines,
+		lineLocks,
 		numberHeaderWidth,
 		onCopySelection,
 		onQuoteSelection,
@@ -58,7 +61,7 @@
 	const lineSelection = new LineSelection();
 	const parser = $derived(parserFromFilename(filePath));
 	const renderRows = $derived(
-		generateRows(filePath, content, inlineUnifiedDiffs, parser, selectedLines)
+		generateRows(filePath, content, inlineUnifiedDiffs, parser, selectedLines, lineLocks)
 	);
 	const clickable = $derived(!!onLineClick);
 	const maxLineNumber = $derived.by(() => {
@@ -127,7 +130,8 @@
 			],
 			false,
 			parser,
-			[]
+			undefined,
+			undefined
 		);
 	});
 

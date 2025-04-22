@@ -11,6 +11,7 @@
 	import {
 		type ContentSection,
 		type LineId,
+		type LineLock,
 		type LineSelector,
 		parseHunk
 	} from '$lib/utils/diffParsing';
@@ -28,6 +29,7 @@
 		stagedLines?: LineId[];
 		hideCheckboxes?: boolean;
 		selectedLines?: LineSelector[];
+		lineLocks?: LineLock[];
 		draggingDisabled?: boolean;
 		onChangeStage?: (staged: boolean) => void;
 		onLineClick?: (params: LineSelectionParams) => void;
@@ -51,6 +53,7 @@
 		stagedLines,
 		hideCheckboxes,
 		selectedLines,
+		lineLocks,
 		onChangeStage,
 		onLineClick,
 		clearLineSelection,
@@ -142,6 +145,7 @@
 				{tabSize}
 				{inlineUnifiedDiffs}
 				{selectedLines}
+				{lineLocks}
 				{numberHeaderWidth}
 				onCopySelection={onCopySelection && handleCopySelection}
 				{onQuoteSelection}
