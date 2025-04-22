@@ -1,28 +1,23 @@
-.draggable-chip-container {
+/* DRAG CHIPS.
+ * General styles
+ * Basic container for single and multiple items */
+.dragchip-container {
 	position: absolute;
 	display: flex;
 }
 
-.draggable-chip {
+.dragchip {
 	z-index: 3;
 	position: relative;
 	display: flex;
-	align-items: center;
-	gap: 6px;
 	background-color: var(--clr-bg-1);
 	border-radius: var(--radius-m);
 	border: 1px solid var(--clr-border-2);
-	padding: 8px;
 	min-width: 50px;
 	max-width: 250px;
 }
 
-.draggable-chip-icon {
-	width: 14px;
-	height: 14px;
-}
-
-.draggable-chip-amount {
+.dragchip-amount {
 	position: absolute;
 	top: -6px;
 	right: -8px;
@@ -38,33 +33,27 @@
 }
 
 /* if dragging more then one item */
-.draggable-chip-two {
+.dragchip-two:after,
+.dragchip-multiple:before,
+.dragchip-multiple:after {
+	content: '';
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	border-radius: var(--radius-m);
+	background-color: var(--clr-bg-2);
+	border: 1px solid var(--clr-border-2);
+}
+
+.dragchip-two {
 	&::after {
-		content: '';
-		position: absolute;
 		z-index: 2;
 		top: 6px;
 		left: 6px;
-		width: 100%;
-		height: 100%;
-		border: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
-		border-radius: var(--radius-m);
 	}
 }
 
-.draggable-chip-multiple {
-	&::after,
-	&::before {
-		content: '';
-		position: absolute;
-		width: 100%;
-		height: 100%;
-		border: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
-		border-radius: var(--radius-m);
-	}
-
+.dragchip-multiple {
 	&::before {
 		z-index: 2;
 		top: 6px;
@@ -78,7 +67,46 @@
 	}
 }
 
-/* COMMIT */
+/* File drag */
+.dragchip-file-container {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px;
+}
+
+.dragchip-file-name {
+	color: var(--clr-text-1);
+}
+
+.dragchip-file-icon {
+	width: 16px;
+	height: 16px;
+}
+
+/* Hunk drag */
+.dragchip-hunk-container {
+	display: flex;
+	font-size: 12px;
+	font-family: var(--fontfamily-mono);
+}
+
+.dragchip-hunk-decorator {
+	font-variant-ligatures: none;
+	background-color: var(--clr-bg-2);
+	border-right: 1px solid var(--clr-border-2);
+	padding: 6px 5px;
+	border-radius: var(--radius-m) 0 0 var(--radius-m);
+	color: var(--clr-text-2);
+	letter-spacing: -1px;
+}
+
+.dragchip-hunk-label {
+	padding: 6px 7px;
+}
+
+/* COMMIT DRAG CARD */
 .draggable-commit {
 	position: absolute;
 	display: flex;

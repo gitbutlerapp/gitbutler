@@ -22,6 +22,7 @@ export type DraggableConfig = {
 	readonly commitType?: CommitStatusType;
 	readonly data?: DropData;
 	readonly viewportId?: string;
+	readonly chipType?: 'file' | 'hunk';
 };
 
 function createElement<K extends keyof HTMLElementTagNameMap>(
@@ -283,40 +284,84 @@ export function draggableCommit(
 	});
 }
 
-////////////////////////
-//// FILE DRAGGABLE ////
-////////////////////////
+//////////////////
+/// DRAG CHIPS ///
+//////////////////
 
-export function createChipsElement(
-	childrenAmount: number,
+function createFileChipContainer(
 	label: string | undefined,
 	filePath: string | undefined
 ): HTMLDivElement {
-	const containerEl = createElement('div', ['draggable-chip-container']);
-	const chipEl = createElement('div', ['draggable-chip']);
-	containerEl.appendChild(chipEl);
+	const containerEl = createElement('div', ['dragchip-file-container']);
 
 	if (filePath) {
-		const iconEl = createElement('img', ['draggable-chip-icon'], undefined, getFileIcon(filePath));
-		chipEl.appendChild(iconEl);
+		const fileIcon = getFileIcon(filePath);
+		const iconEl = createElement('img', ['dragchip-file-icon'], undefined, fileIcon);
+		containerEl.appendChild(iconEl);
 	}
 
-	const labelEl = createElement('span', ['text-12'], label);
-	chipEl.appendChild(labelEl);
+	const fileNameEl = createElement(
+		'span',
+		['text-12', 'text-semibold', 'dragchip-file-name'],
+		label || 'Empty file'
+	);
+	containerEl.appendChild(fileNameEl);
 
-	if (childrenAmount > 1) {
+	return containerEl;
+}
+
+function createHunkChipContainer(label: string | undefined): HTMLDivElement {
+	const containerEl = createElement('div', ['dragchip-hunk-container']);
+
+	const hunkDecoIndatorEl = createElement('div', ['dragchip-hunk-decorator']);
+	hunkDecoIndatorEl.textContent = '〈/〉';
+	containerEl.appendChild(hunkDecoIndatorEl);
+
+	const hunkLabelEl = createElement('span', ['dragchip-hunk-label'], label || 'Empty hunk');
+	containerEl.appendChild(hunkLabelEl);
+
+	return containerEl;
+}
+
+export function createChipsElement(
+	opt: {
+		childrenAmount: number;
+		label: string | undefined;
+		filePath: string | undefined;
+		chipType: 'file' | 'hunk';
+	} = {
+		childrenAmount: 1,
+		label: undefined,
+		filePath: undefined,
+		chipType: 'file'
+	}
+): HTMLDivElement {
+	const containerEl = createElement('div', ['dragchip-container']);
+	const chipEl = createElement('div', ['dragchip']);
+	containerEl.appendChild(chipEl);
+
+	if (opt.chipType === 'file') {
+		const fileChipContainer = createFileChipContainer(opt.label, opt.filePath);
+		chipEl.appendChild(fileChipContainer);
+	} else if (opt.chipType === 'hunk') {
+		const hunkChipContainer = createHunkChipContainer(opt.label);
+
+		chipEl.appendChild(hunkChipContainer);
+	}
+
+	if (opt.childrenAmount > 1) {
 		const amountTag = createElement(
 			'div',
-			['text-11', 'text-bold', 'draggable-chip-amount'],
-			childrenAmount.toString()
+			['text-11', 'text-bold', 'dragchip-amount'],
+			opt.childrenAmount.toString()
 		);
 		chipEl.appendChild(amountTag);
 	}
 
-	if (childrenAmount === 2) {
-		containerEl.classList.add('draggable-chip-two');
-	} else if (childrenAmount > 2) {
-		containerEl.classList.add('draggable-chip-multiple');
+	if (opt.childrenAmount === 2) {
+		containerEl.classList.add('dragchip-two');
+	} else if (opt.childrenAmount > 2) {
+		containerEl.classList.add('dragchip-multiple');
 	}
 
 	return containerEl;
@@ -325,14 +370,19 @@ export function createChipsElement(
 export function draggableChips(node: HTMLElement, initialOpts: DraggableConfig) {
 	function createClone(opts: DraggableConfig, selectedElements: Element[]) {
 		if (opts.disabled) return;
-		return createChipsElement(selectedElements.length, opts.label, opts.filePath);
+		return createChipsElement({
+			childrenAmount: selectedElements.length,
+			label: opts.label,
+			filePath: opts.filePath,
+			chipType: opts.chipType || 'file'
+		});
 	}
 	return setupDragHandlers(node, initialOpts, createClone);
 }
 
-////////////////////////
-//// HUNK DRAGGABLE ////
-////////////////////////
+////////////////////////////
+//// GENERAL DRAG CLONE ////
+////////////////////////////
 
 export function cloneElement(node: HTMLElement) {
 	const cloneEl = node.cloneNode(true) as HTMLElement;
@@ -342,13 +392,4 @@ export function cloneElement(node: HTMLElement) {
 	ignoredElements.forEach((el) => el.remove());
 
 	return cloneEl;
-}
-
-export function draggableElement(node: HTMLElement, initialOpts: DraggableConfig) {
-	function createClone() {
-		return cloneElement(node);
-	}
-	return setupDragHandlers(node, initialOpts, createClone, {
-		handlerWidth: true
-	});
 }

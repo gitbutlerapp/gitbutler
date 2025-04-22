@@ -165,7 +165,6 @@
 		width: 100%;
 
 		&:hover .table__drag-handle {
-			transform: scale(1);
 			opacity: 1;
 		}
 	}
@@ -253,13 +252,10 @@
 		align-items: center;
 		border-radius: var(--radius-m);
 		opacity: 0;
-		transform: scale(0.9);
 		transform-origin: top right;
 		pointer-events: none;
 		color: var(--clr-text-2);
-		transition:
-			opacity 0.2s,
-			transform 0.2s;
+		transition: opacity 0.15s;
 	}
 
 	.table__lock {

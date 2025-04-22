@@ -128,7 +128,8 @@
 		data: new ChangeDropData(change, idSelection, selectionId),
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable',
-		disabled: showCheckbox
+		disabled: showCheckbox,
+		chipType: 'file'
 	}}
 >
 	<FileContextMenu
