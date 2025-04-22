@@ -290,8 +290,8 @@
 	style:height={vert ? `100%` : thickness}
 	style:z-index={zIndex}
 	style="
-    --scrollbar-shift-vertical: {vert ? '0' : shift};
-    --scrollbar-shift-horizontal: {horz ? '0' : shift};
+    --scrollbar-shift-vertical: {vert ? '0' : shift || 0};
+    --scrollbar-shift-horizontal: {horz ? '0' : shift || 0};
     "
 >
 	<div
