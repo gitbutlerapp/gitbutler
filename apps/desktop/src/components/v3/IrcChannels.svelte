@@ -8,6 +8,7 @@
 
 	const selectedChannel = $derived(uiState.global.channel);
 	const channels = $derived(ircService.getChannels());
+	const chats = $derived(ircService.getChats());
 </script>
 
 <div class="channels text-13">
@@ -27,6 +28,19 @@
 			{name}
 		</button>
 	{/each}
+	{#each Object.keys(chats).sort() as nick}
+		{@const chat = chats[nick]}
+		{@const unread = chat?.unread && chat.unread > 0}
+		<button
+			type="button"
+			class="nick"
+			class:unread
+			class:selected={nick === selectedChannel.current}
+			onclick={() => selectedChannel.set(nick)}
+		>
+			{nick}
+		</button>
+	{/each}
 </div>
 
 <style lang="postcss">
@@ -42,7 +56,8 @@
 	.server {
 		margin-bottom: 6px;
 	}
-	.channel {
+	.channel,
+	.nick {
 		display: flex;
 		padding: 4px 0;
 		text-align: left;

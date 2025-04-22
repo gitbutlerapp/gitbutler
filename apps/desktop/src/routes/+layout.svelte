@@ -112,16 +112,10 @@
 	setContext(IrcService, ircService);
 
 	$effect(() => {
-		if ($user?.login && ircClient.connected) {
-			ircService.setWhoInfo({ nick: $user.login });
-		}
-	});
-
-	$effect(() => {
-		if (!$ircEnabled || !$ircServer) {
+		if (!$ircEnabled || !$ircServer || !$user || !$user.login) {
 			return;
 		}
-		ircClient.connect($ircServer);
+		ircClient.connect({ server: $ircServer, nick: $user.login });
 		return () => {
 			ircService.disconnect();
 		};
