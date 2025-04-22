@@ -1,0 +1,31 @@
+{
+    state: {
+        cache: {
+            /watch/source: 1
+        }
+        file_system: {
+            /watch/target: 2
+        }
+    }
+    events: [
+        { kind: "rename-from", paths: ["/watch/source"] }
+        { kind: "rename-to", paths: ["/watch/target"] }
+    ]
+    expected: {
+        queues: {
+            /watch/source: {
+                events: [
+                    { kind: "rename-from", paths: ["*"] }
+                ]
+            }
+            /watch/target: {
+                events: [
+                    { kind: "rename-to", paths: ["*"] }
+                ]
+            }
+        }
+        cache: {
+            /watch/target: 2
+        }
+    }
+}

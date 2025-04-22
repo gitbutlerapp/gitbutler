@@ -1,0 +1,27 @@
+{
+	// The amount of context lines to show in unified diffs, above and below the hunk.
+	"contextLines": 3,
+	// Whether the user has passed the onboarding flow.
+	"onboardingComplete": false,
+	"telemetry": {
+		// Whether the anonymous metrics are enabled.
+		"appMetricsEnabled": true,
+		// Whether anonymous error reporting is enabled.
+		"appErrorReportingEnabled": true,
+		// Whether non-anonymous metrics are enabled.
+		"appNonAnonMetricsEnabled": false
+	},
+	"githubOauthApp": {
+		// Client ID for the GitHub OAuth application. Set this to use custom (non-GitButler) OAuth application.
+		"oauthClientId": "cd51880daa675d9e6452"
+	},
+	"featureFlags": {
+		// Enables the v3 design, as well as the purgatory mode (no uncommitted diff ownership assignments).
+		"v3": false
+	},
+	// Allows for additional "connect-src" hosts to be included. Requires app restart.
+	"extraCsp": {
+		// Additional hosts that the application can connect to.
+		"hosts": []
+	}
+}

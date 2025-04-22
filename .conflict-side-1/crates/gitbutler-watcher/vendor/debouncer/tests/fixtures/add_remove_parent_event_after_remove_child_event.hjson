@@ -1,0 +1,25 @@
+{
+    state: {
+        cache: {
+            /watch: 1
+            /watch/parent: 2
+            /watch/parent/child: 3
+        }
+    }
+    events: [
+        { kind: "remove-any", paths: ["/watch/parent/child"] }
+        { kind: "remove-any", paths: ["/watch/parent"] }
+    ]
+    expected: {
+        queues: {
+            /watch/parent: {
+                events: [
+                    { kind: "remove-any", paths: ["*"] }
+                ]
+            }
+        }
+        cache: {
+            /watch: 1
+        }
+    }
+}

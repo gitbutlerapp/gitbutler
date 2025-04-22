@@ -1,0 +1,15 @@
+{
+    state: {}
+    events: [
+        { kind: "rename-to", paths: ["/watch/target"] }
+    ]
+    expected: {
+        queues: {
+            /watch/target: {
+                events: [
+                    { kind: "rename-to", paths: ["*"] }
+                ]
+            }
+        }
+    }
+}

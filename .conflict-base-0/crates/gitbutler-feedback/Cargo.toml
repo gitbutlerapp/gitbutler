@@ -1,0 +1,16 @@
+[package]
+name = "gitbutler-feedback"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+anyhow = "1.0.95"
+zip = "2.2.0"
+walkdir = "2.5.0"
+sha2 = "0.10.8"
+gitbutler-project.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

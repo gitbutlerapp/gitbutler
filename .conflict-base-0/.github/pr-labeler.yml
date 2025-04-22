@@ -1,0 +1,29 @@
+# https://github.com/actions/labeler#basic-examples
+
+rust:
+  - changed-files:
+      - any-glob-to-any-file: crates/**/*
+
+'@gitbutler/butler-bot':
+  - changed-files:
+      - any-glob-to-any-file: apps/butler-bot/**/*
+
+'@gitbutler/desktop':
+  - changed-files:
+      - any-glob-to-any-file: apps/desktop/**/*
+
+'@gitbutler/web':
+  - changed-files:
+      - any-glob-to-any-file: apps/web/**/*
+
+'@gitbutler/ui':
+  - changed-files:
+      - any-glob-to-any-file: packages/ui/**/*
+
+'@gitbutler/no-relative-imports':
+  - changed-files:
+      - any-glob-to-any-file: packages/no-relative-imports/**/*
+
+'@gitbutler/design-tokens':
+  - changed-files:
+      - any-glob-to-any-file: packages/design-tokens/**/*
