@@ -287,36 +287,66 @@ export function draggableCommit(
 //// FILE DRAGGABLE ////
 ////////////////////////
 
-export function createChipsElement(
-	childrenAmount: number,
+function createFileChipContainer(
 	label: string | undefined,
 	filePath: string | undefined
 ): HTMLDivElement {
-	const containerEl = createElement('div', ['draggable-chip-container']);
-	const chipEl = createElement('div', ['draggable-chip']);
-	containerEl.appendChild(chipEl);
+	const containerEl = createElement('div', ['dragchip-file-container']);
 
 	if (filePath) {
-		const iconEl = createElement('img', ['draggable-chip-icon'], undefined, getFileIcon(filePath));
-		chipEl.appendChild(iconEl);
+		const fileIcon = getFileIcon(filePath);
+		const iconEl = createElement('img', ['dragchip-file-icon'], undefined, fileIcon);
+		containerEl.appendChild(iconEl);
 	}
 
-	const labelEl = createElement('span', ['text-12'], label);
-	chipEl.appendChild(labelEl);
+	const fileNameEl = createElement(
+		'span',
+		['text-12', 'text-semibold', 'dragchip-file-name'],
+		label || 'Empty file'
+	);
+	containerEl.appendChild(fileNameEl);
+
+	return containerEl;
+}
+
+export function createChipsElement(
+	childrenAmount: number,
+	label: string | undefined,
+	filePath: string | undefined,
+	chipType: 'file' | 'hunk' = 'file'
+): HTMLDivElement {
+	const containerEl = createElement('div', ['dragchip-container']);
+	const chipEl = createElement('div', ['dragchip']);
+	containerEl.appendChild(chipEl);
+
+	if (chipType === 'file') {
+		const fileChipContainer = createFileChipContainer(label, filePath);
+		chipEl.appendChild(fileChipContainer);
+
+		// append clone to body
+		const chipElClone = chipEl.cloneNode(true) as HTMLDivElement;
+		chipElClone.style.top = '50px';
+		chipElClone.style.left = '50px';
+		chipElClone.style.position = 'absolute';
+
+		document.body.appendChild(chipElClone);
+	} else if (chipType === 'hunk') {
+		console.log(chipType, 'wip');
+	}
 
 	if (childrenAmount > 1) {
 		const amountTag = createElement(
 			'div',
-			['text-11', 'text-bold', 'draggable-chip-amount'],
+			['text-11', 'text-bold', 'dragchip-amount'],
 			childrenAmount.toString()
 		);
 		chipEl.appendChild(amountTag);
 	}
 
 	if (childrenAmount === 2) {
-		containerEl.classList.add('draggable-chip-two');
+		containerEl.classList.add('dragchip-two');
 	} else if (childrenAmount > 2) {
-		containerEl.classList.add('draggable-chip-multiple');
+		containerEl.classList.add('dragchip-multiple');
 	}
 
 	return containerEl;
