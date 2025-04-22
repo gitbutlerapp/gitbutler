@@ -85,15 +85,17 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 				injectEndpoint(endpointName, definition) {
 					const endpoint = anyApi.endpoints[endpointName]!; // Known to exist.
 					if (isQueryDefinition(definition)) {
-						const { fetch, useQuery, useQueryState, useQueries } = buildQueryHooks({
-							endpointName,
-							api,
-							ctx
-						});
+						const { fetch, useQuery, useQueryState, useQueries, useQueryTimeStamp } =
+							buildQueryHooks({
+								endpointName,
+								api,
+								ctx
+							});
 						endpoint.fetch = fetch;
 						endpoint.useQuery = useQuery;
 						endpoint.useQueryState = useQueryState;
 						endpoint.useQueries = useQueries;
+						endpoint.useQueryTimeStamp = useQueryTimeStamp;
 					} else if (isMutationDefinition(definition)) {
 						const { mutate, useMutation } = buildMutationHooks({
 							endpointName,
@@ -210,4 +212,5 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 	) => Reactive<
 		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>[]
 	>;
+	useQueryTimeStamp: (queryArgs: QueryArgFrom<D>) => Reactive<number | undefined>;
 };
