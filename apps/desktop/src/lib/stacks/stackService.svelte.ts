@@ -593,7 +593,17 @@ export class StackService {
 	 * a stacking context. You almost certainly want `stackDetails`
 	 */
 	unstackedBranchDetails(projectId: string, branchName: string) {
-		return this.api.endpoints.unstackedBranchDetails.useQuery({ projectId, branchName });
+		return this.api.endpoints.unstackedBranchDetails.useQuery(
+			{ projectId, branchName },
+			{ transform: (result) => result.branchDetails }
+		);
+	}
+
+	unstackedCommitById(projectId: string, branchName: string, commitId: string) {
+		return this.api.endpoints.unstackedBranchDetails.useQuery(
+			{ projectId, branchName },
+			{ transform: ({ commits }) => commitSelectors.selectById(commits, commitId) }
+		);
 	}
 }
 
@@ -704,14 +714,51 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			 * Note: This is specifically for looking up branches outside of
 			 * a stacking context. You almost certainly want `stackDetails`
 			 */
-			unstackedBranchDetails: build.query<BranchDetails, { projectId: string; branchName: string }>(
+			unstackedBranchDetails: build.query<
 				{
-					query: ({ projectId, branchName }) => ({
-						command: 'branch_details',
-						params: { projectId, branchName }
-					})
+					branchDetails: BranchDetails;
+					commits: EntityState<Commit, string>;
+					upstreamCommits: EntityState<UpstreamCommit, string>;
+				},
+				{ projectId: string; branchName: string }
+			>({
+				query: ({ projectId, branchName }) => ({
+					command: 'branch_details',
+					params: { projectId, branchName }
+				}),
+				transformResponse(branchDetails: BranchDetails) {
+					// This is a list of all the commits accross all branches in the stack.
+					// If you want to acces the commits of a specific branch, use the
+					// `commits` property of the `BranchDetails` struct.
+					const commitsEntity = commitAdapter.addMany(
+						commitAdapter.getInitialState(),
+						branchDetails.commits
+					);
+
+					// This is a list of all the upstream commits across all the branches in the stack.
+					// If you want to access the upstream commits of a specific branch, use the
+					// `upstreamCommits` property of the `BranchDetails` struct.
+					const upstreamCommitsEntity = upstreamCommitAdapter.addMany(
+						upstreamCommitAdapter.getInitialState(),
+						branchDetails.upstreamCommits
+					);
+
+					return {
+						branchDetails,
+						commits: commitsEntity,
+						upstreamCommits: upstreamCommitsEntity
+					};
 				}
-			),
+			}),
+			unstackedCommitById: build.query<
+				BranchDetails,
+				{ projectId: string; branchName: string; commitId: string }
+			>({
+				query: ({ projectId, branchName }) => ({
+					command: 'branch_details',
+					params: { projectId, branchName }
+				})
+			}),
 			pushStack: build.mutation<
 				BranchPushResult,
 				{ projectId: string; stackId: string; withForce: boolean }

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
+	import CommitDetails from '$components/v3/CommitDetails.svelte';
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
@@ -14,13 +15,14 @@
 	type Props = {
 		projectId: string;
 		commitId: string;
-		commitMessage: string;
+		branchName: string;
 	};
 
-	const { projectId, commitId, commitMessage }: Props = $props();
+	const { projectId, commitId, branchName }: Props = $props();
 
 	const [stackService] = inject(StackService);
 	const changesResult = $derived(stackService.commitChanges(projectId, commitId));
+	const commitResult = $derived(stackService.unstackedCommitById(projectId, branchName, commitId));
 </script>
 
 <Drawer {projectId}>
@@ -51,7 +53,12 @@
 	{/snippet}
 
 	<div class="commit-view">
-		<CommitHeader {commitMessage} className="text-14 text-semibold text-body" />
+		<ReduxResult {projectId} result={commitResult.current}>
+			{#snippet children(commit)}
+				<CommitHeader commitMessage={commit.message} className="text-14 text-semibold text-body" />
+				<CommitDetails {commit} />
+			{/snippet}
+		</ReduxResult>
 	</div>
 
 	{#snippet filesSplitView()}
