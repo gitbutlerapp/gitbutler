@@ -4,9 +4,10 @@
 	import binarySvg from '$lib/assets/empty-state/binary.svg?raw';
 	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
 	import tooLargeSvg from '$lib/assets/empty-state/too-large.svg?raw';
+	import DependencyService from '$lib/dependencies/dependencyService.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
-	import { canBePartiallySelected, type DiffHunk } from '$lib/hunks/hunk';
+	import { canBePartiallySelected, getLineLocks, type DiffHunk } from '$lib/hunks/hunk';
 	import { Project } from '$lib/project/project';
 	import {
 		ChangeSelectionService,
@@ -16,6 +17,7 @@
 	import { type SelectionId } from '$lib/selection/key';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
@@ -38,12 +40,16 @@
 	const projectState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectState.drawerPage.current);
 	const isCommiting = $derived(drawerPage === 'new-commit');
-	const readonly = $derived(selectionId.type !== 'worktree');
 
-	const [changeSelection, idSelection, lineSelection] = inject(
+	const uncommittedChange = $derived(selectionId.type === 'worktree');
+	const readonly = $derived(!uncommittedChange);
+
+	const [changeSelection, idSelection, lineSelection, dependencyService, worktreeService] = inject(
 		ChangeSelectionService,
 		IdSelection,
-		LineSelection
+		LineSelection,
+		DependencyService,
+		WorktreeService
 	);
 
 	const changeSelectionResult = $derived(changeSelection.getById(change.path));
@@ -52,6 +58,13 @@
 		path: change.path,
 		pathBytes: change.pathBytes
 	});
+
+	const changesTimestamp = $derived(worktreeService.getChangesTimeStamp(projectId));
+	const fileDependencies = $derived(
+		changesTimestamp.current !== undefined && isCommiting // For now, only show the file dependencies when commiting
+			? dependencyService.fileDependencies(projectId, changesTimestamp.current, change.path)
+			: undefined
+	);
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
@@ -176,7 +189,8 @@
 	{#if diff.type === 'Patch'}
 		{#each diff.subject.hunks as hunk}
 			{@const [staged, stagedLines] = getStageState(hunk)}
-
+			<!-- TODO: Don't show line locks that are not relevant -->
+			{@const lineLocks = getLineLocks(hunk, fileDependencies?.current.data?.dependencies ?? [])}
 			<div
 				class="hunk-content no-select"
 				use:draggableChips={{
@@ -193,6 +207,7 @@
 					hunkStr={hunk.diff}
 					{staged}
 					{stagedLines}
+					{lineLocks}
 					diffLigatures={$userSettings.diffLigatures}
 					tabSize={$userSettings.tabSize}
 					wrapText={$userSettings.wrapText}
