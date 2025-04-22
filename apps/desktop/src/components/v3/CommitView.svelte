@@ -10,7 +10,7 @@
 	import Drawer from '$components/v3/Drawer.svelte';
 	import { getCommitType, isLocalAndRemoteCommit } from '$components/v3/lib';
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import { type Commit } from '$lib/branches/v3';
+	import { isCommit, type Commit } from '$lib/branches/v3';
 	import { CommitStatus, type CommitKey } from '$lib/commits/commit';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
@@ -20,6 +20,7 @@
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { inject } from '@gitbutler/shared/context';
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -41,6 +42,7 @@
 	const forge = getContext(DefaultForgeFactory);
 	const modeService = maybeGetContext(ModeService);
 	const stackState = $derived(uiState.stack(stackId));
+	const projectState = $derived(uiState.project(projectId));
 	const selected = $derived(stackState.selection.get());
 	const branchName = $derived(selected.current?.branchName);
 
@@ -108,11 +110,10 @@
 	let isContextMenuOpen = $state(false);
 
 	async function handleUncommit() {
-		if (!branchName) {
-			console.error('Unable to undo commit');
-			return;
-		}
+		if (!branchName) return;
 		await stackService.uncommit({ projectId, stackId, branchName, commitId: commitKey.commitId });
+		projectState.drawerPage.set(undefined);
+		if (branchName) stackState.selection.set({ branchName, commitId: undefined });
 	}
 
 	function openCommitMessageModal() {
@@ -134,6 +135,7 @@
 
 <ReduxResult {stackId} {projectId} result={commitResult.current}>
 	{#snippet children(commit, env)}
+		{@const isConflicted = isCommit(commit) && commit.hasConflicts}
 		{#if mode === 'edit'}
 			<Drawer
 				projectId={env.projectId}
@@ -217,13 +219,37 @@
 						commitMessage={commit.message}
 						className="text-14 text-semibold text-body"
 					/>
-					<CommitDetails
-						projectId={env.projectId}
-						{branchName}
-						{commit}
-						stackId={env.stackId}
-						onEditCommitMessage={() => setMode('edit')}
-					/>
+					<CommitDetails {commit}>
+						<Button
+							size="tag"
+							kind="outline"
+							icon="edit-small"
+							onclick={() => {
+								openCommitMessageModal();
+							}}
+						>
+							Edit message
+						</Button>
+
+						{#if !isConflicted}
+							<AsyncButton
+								size="tag"
+								kind="outline"
+								icon="undo-small"
+								action={async () => await handleUncommit()}
+							>
+								Uncommit
+							</AsyncButton>
+						{/if}
+
+						<AsyncButton size="tag" kind="outline" action={editPatch}>
+							{#if isConflicted}
+								Resolve conflicts
+							{:else}
+								Edit commit
+							{/if}
+						</AsyncButton>
+					</CommitDetails>
 				</div>
 
 				{#snippet filesSplitView()}
