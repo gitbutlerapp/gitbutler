@@ -28,7 +28,7 @@ type BranchesSelection = {
 	branchName?: string;
 	commitId?: string;
 	stackId?: string;
-	prNumber?: string;
+	prNumber?: number;
 };
 
 export type ProjectUiState = {

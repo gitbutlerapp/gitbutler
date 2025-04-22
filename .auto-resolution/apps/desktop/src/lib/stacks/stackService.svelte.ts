@@ -587,6 +587,13 @@ export class StackService {
 	async normalizeBranchName(name: string) {
 		return await this.api.endpoints.normalizeBranchName.fetch({ name }, { forceRefetch: true });
 	}
+
+	unstackedCommitById(projectId: string, branchName: string, commitId: string) {
+		return this.api.endpoints.unstackedBranchDetails.useQuery(
+			{ projectId, branchName },
+			{ transform: ({ commits }) => commitSelectors.selectById(commits, commitId) }
+		);
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {

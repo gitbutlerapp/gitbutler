@@ -6,7 +6,7 @@
 	import { onMount } from 'svelte';
 
 	interface Props {
-		onMouseDown?: () => void;
+		onclick?: () => void;
 		onFirstSeen?: () => void;
 		prTitle?: string;
 		series?: string[];
@@ -21,7 +21,7 @@
 	}
 
 	const {
-		onMouseDown = () => {},
+		onclick,
 		onFirstSeen = () => {},
 		prTitle,
 		series,
@@ -58,13 +58,7 @@
 	});
 </script>
 
-<button
-	type="button"
-	class="sidebar-entry"
-	class:selected
-	onmousedown={onMouseDown}
-	bind:this={intersectionTarget}
->
+<button type="button" class="sidebar-entry" class:selected {onclick} bind:this={intersectionTarget}>
 	<div class="row">
 		<div class="title">
 			{#if pullRequestDetails}

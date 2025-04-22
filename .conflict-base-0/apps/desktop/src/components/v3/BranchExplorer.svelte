@@ -2,8 +2,6 @@
 	import ChunkyList from '$components/ChunkyList.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import GroupHeader from '$components/GroupHeader.svelte';
-	import BranchListingSidebarEntry from '$components/v3/BranchListingSidebarEntry.svelte';
-	import PullRequestSidebarEntry from '$components/v3/PullRequestSidebarEntry.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import {
 		combineBranchesAndPrs,
@@ -20,8 +18,10 @@
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
 	import Fuse from 'fuse.js';
+	import type { Snippet } from 'svelte';
 
-	const { projectId }: { projectId: string } = $props();
+	type Props = { projectId: string; sidebarEntry: Snippet<[SidebarEntrySubject]> };
+	const { projectId, sidebarEntry }: Props = $props();
 
 	const selectedOption = persisted<'all' | 'pullRequest' | 'local'>(
 		'all',
@@ -134,18 +134,6 @@
 	}
 </script>
 
-{#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
-	{#if sidebarEntrySubject.type === 'branchListing'}
-		<BranchListingSidebarEntry
-			{projectId}
-			branchListing={sidebarEntrySubject.subject}
-			prs={sidebarEntrySubject.prs}
-		/>
-	{:else}
-		<PullRequestSidebarEntry {projectId} pullRequest={sidebarEntrySubject.subject} />
-	{/if}
-{/snippet}
-
 {#snippet branchGroup(props: { title: string; children: SidebarEntrySubject[] })}
 	{#if props.children.length > 0}
 		<div class="group">
@@ -199,16 +187,7 @@
 					{#if searchTerm}
 						<div class="group">
 							{#each searchedBranches as searchResult}
-								{@const sidebarEntrySubject = searchResult.item}
-								{#if sidebarEntrySubject.type === 'branchListing'}
-									<BranchListingSidebarEntry
-										{projectId}
-										branchListing={sidebarEntrySubject.subject}
-										prs={sidebarEntrySubject.prs}
-									/>
-								{:else}
-									<PullRequestSidebarEntry {projectId} pullRequest={sidebarEntrySubject.subject} />
-								{/if}
+								{@render sidebarEntry(searchResult.item)}
 							{/each}
 						</div>
 					{:else}

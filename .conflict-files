@@ -1,3 +1,3 @@
-ancestorEntries = ["apps/desktop/src/components/v3/BranchListingSidebarEntry.svelte", "apps/desktop/src/components/v3/BranchesView.svelte"]
-ourEntries = ["apps/desktop/src/components/v3/BranchListingSidebarEntry.svelte", "apps/desktop/src/components/v3/BranchesView.svelte"]
-theirEntries = ["apps/desktop/src/components/v3/BranchListingSidebarEntry.svelte", "apps/desktop/src/components/v3/BranchesView.svelte"]
+ancestorEntries = ["apps/desktop/src/lib/stacks/stackService.svelte.ts"]
+ourEntries = ["apps/desktop/src/lib/stacks/stackService.svelte.ts"]
+theirEntries = ["apps/desktop/src/lib/stacks/stackService.svelte.ts"]

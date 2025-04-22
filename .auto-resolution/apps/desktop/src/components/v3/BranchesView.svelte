@@ -116,8 +116,8 @@
 				{#if !drawerIsFullScreen.current}
 					<SelectionView {projectId} {selectionId} />
 				{/if}
-				{#if current.commitId}
-					<GitCommitView {projectId} commitId={current.commitId} commitMessage="" />
+				{#if current.branchName && current.commitId}
+					<GitCommitView {projectId} branchName={current.branchName} commitId={current.commitId} />
 				{:else if current.branchName}
 					<UnappliedBranchView
 						{projectId}

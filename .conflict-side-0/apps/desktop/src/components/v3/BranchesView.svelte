@@ -6,7 +6,9 @@
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import CommitRow from '$components/v3/CommitRow.svelte';
 	import GitCommitView from '$components/v3/GitCommitView.svelte';
+	import PullRequestSidebarEntry from '$components/v3/PullRequestSidebarEntry.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
+	import UnappliedBranchView from '$components/v3/UnappliedBranchView.svelte';
 	import BranchesListGroup from '$components/v3/branchesPage/BranchesListGroup.svelte';
 	import CurrentOriginCard from '$components/v3/branchesPage/CurrentOriginCard.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
@@ -16,6 +18,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import type { SidebarEntrySubject } from '$lib/branches/branchListing';
 	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
@@ -30,6 +33,7 @@
 	const branchesState = $derived(projectState.branchesSelection);
 	const drawerIsFullScreen = $derived(projectState.drawerFullScreen);
 	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
+	const branchesSelection = $derived(projectState.branchesSelection);
 
 	let leftDiv = $state<HTMLElement>();
 	let rightDiv = $state<HTMLElement>();
@@ -41,6 +45,9 @@
 		const current = branchesState?.current;
 		if (current.commitId) {
 			return { type: 'commit', commitId: current.commitId };
+		}
+		if (current.branchName) {
+			return { type: 'branch', branchName: current.branchName };
 		}
 		return undefined;
 	});
@@ -66,11 +73,37 @@
 								}
 							: undefined}
 						onclick={() => {
-							projectState.branchesSelection.set({ branchName: baseBranch.branchName });
+							branchesSelection.set({ branchName: baseBranch.branchName });
 						}}
 					/>
 				</BranchesListGroup>
-				<BranchExplorer {projectId} />
+				<BranchExplorer {projectId}>
+					{#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
+						{#if sidebarEntrySubject.type === 'branchListing'}
+							<BranchListingSidebarEntry
+								{projectId}
+								onclick={(listing) => {
+									if (listing.stack) {
+										branchesSelection.set({
+											stackId: listing.stack.id,
+											branchName: listing.stack.branches.at(0)
+										});
+									} else {
+										branchesSelection.set({ branchName: listing.name });
+									}
+								}}
+								branchListing={sidebarEntrySubject.subject}
+								prs={sidebarEntrySubject.prs}
+							/>
+						{:else}
+							<PullRequestSidebarEntry
+								{projectId}
+								pullRequest={sidebarEntrySubject.subject}
+								onclick={(pr) => branchesSelection.set({ prNumber: pr.number })}
+							/>
+						{/if}
+					{/snippet}
+				</BranchExplorer>
 				<Resizer
 					viewport={leftDiv}
 					direction="right"
@@ -85,6 +118,12 @@
 				{/if}
 				{#if current.commitId}
 					<GitCommitView {projectId} commitId={current.commitId} commitMessage="" />
+				{:else if current.branchName}
+					<UnappliedBranchView
+						{projectId}
+						branchName={current.branchName}
+						stackId={current.stackId}
+					/>
 				{/if}
 			</div>
 			<div class="branch-details" bind:this={rightDiv} style:width={rightWidth.current + 'rem'}>
@@ -107,22 +146,23 @@
 												branchName
 											});
 										}}
-									></BranchHeader>
+									/>
 								{/snippet}
 								{#snippet commitList()}
 									{#each baseBranch.recentCommits as commit}
+										{@const selected = commit.id === branchesState?.current.commitId}
 										<CommitRow
 											type="Base"
+											{projectId}
+											{selected}
+											commitId={commit.id}
+											branchName={baseBranch.branchName}
 											commitMessage={commit.description}
 											createdAt={commit.createdAt.getTime()}
-											commitId={commit.id}
-											{projectId}
-											branchName={baseBranch.shortName}
-											selected={commit.id === branchesState?.current.commitId}
 											onclick={() => {
 												branchesState.set({
 													commitId: commit.id,
-													branchName: baseBranch.branchName
+													branchName
 												});
 											}}
 										/>

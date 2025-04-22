@@ -1,11 +1,9 @@
 <script lang="ts">
 	import SidebarEntry from '$components/v3/SidebarEntry.svelte';
-	import { BranchListingDetails, type BranchListing } from '$lib/branches/branchListing';
+	import { BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { Project } from '$lib/project/project';
-	import { stackPath } from '$lib/routes/routes.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
@@ -16,19 +14,19 @@
 		projectId: string;
 		branchListing: BranchListing;
 		prs: PullRequest[];
+		onclick: (listing: BranchListing) => void;
 	}
 
-	const { projectId, branchListing, prs }: Props = $props();
+	const { projectId, branchListing, prs, onclick }: Props = $props();
 
 	const unknownName = 'unknown';
 	const unknownEmail = 'example@example.com';
 
-	const [userService, gitConfigService, project, branchService, uiState] = inject(
+	const [userService, gitConfigService, project, branchService] = inject(
 		UserService,
 		GitConfigService,
 		Project,
-		BranchService,
-		UiState
+		BranchService
 	);
 
 	const user = userService.user;
@@ -141,7 +139,7 @@
 		linesRemoved: branchListingDetails.linesRemoved
 	}}
 	onFirstSeen={() => (hasBeenSeen = true)}
-	{onMouseDown}
+	onclick={() => onclick(branchListing)}
 	{selected}
 	{avatars}
 />
