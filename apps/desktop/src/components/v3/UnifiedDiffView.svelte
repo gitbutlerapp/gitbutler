@@ -217,15 +217,6 @@
 					}}
 				/>
 			</div>
-			<HunkContextMenu
-				bind:this={contextMenu}
-				trigger={viewport}
-				projectPath={project.vscodePath}
-				{projectId}
-				{change}
-				{readonly}
-				unSelectHunk={(hunk) => unselectHunk(hunk, diff.subject.hunks)}
-			/>
 		{:else}
 			<div class="hunk-placehoder">
 				<EmptyStatePlaceholder image={emptyFileSvg} gap={12} topBottomPadding={34}>
@@ -235,6 +226,17 @@
 				</EmptyStatePlaceholder>
 			</div>
 		{/each}
+
+		<!-- The context menu should be outside the each block. -->
+		<HunkContextMenu
+			bind:this={contextMenu}
+			trigger={viewport}
+			projectPath={project.vscodePath}
+			{projectId}
+			{change}
+			{readonly}
+			unSelectHunk={(hunk) => unselectHunk(hunk, diff.subject.hunks)}
+		/>
 	{:else if diff.type === 'TooLarge'}
 		<div class="hunk-placehoder">
 			<EmptyStatePlaceholder image={tooLargeSvg} gap={12} topBottomPadding={34}>
