@@ -4,7 +4,7 @@
 	import DeleteBranchModal from '$components/DeleteBranchModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SeriesHeaderContextMenuContents from '$components/SeriesHeaderContextMenuContents.svelte';
-	import BranchBadge from '$components/v3/BranchBadge.svelte';
+	import BranchDetails from '$components/v3/BranchDetails.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
@@ -13,15 +13,12 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { TestId } from '$lib/testing/testIds';
-	import { UserService } from '$lib/user/userService';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
-	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
-	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 
 	interface Props {
 		stackId: string;
@@ -31,27 +28,15 @@
 
 	const { stackId, projectId, branchName }: Props = $props();
 
-	const [stackService, userService, forge] = inject(StackService, UserService, DefaultForgeFactory);
-	const user = $derived(userService.user);
+	const [stackService, forge] = inject(StackService, DefaultForgeFactory);
 
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
 
-	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
-	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
+	const branchResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const topCommitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
 
 	const changesResult = stackService.branchChanges(projectId, stackId, branchName);
 	const forgeBranch = $derived(forge.current?.branch(branchName));
-
-	function getGravatarUrl(email: string, existingGravatarUrl: string): string {
-		if ($user?.email === undefined) {
-			return existingGravatarUrl;
-		}
-		if (email === $user.email) {
-			return $user.picture ?? existingGravatarUrl;
-		}
-		return existingGravatarUrl;
-	}
 
 	// context menu
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
@@ -66,14 +51,9 @@
 <ReduxResult
 	{stackId}
 	{projectId}
-	result={combineResults(
-		branchResult.current,
-		branchesResult.current,
-		branchDetailsResult.current,
-		topCommitResult.current
-	)}
+	result={combineResults(branchesResult.current, branchResult.current, topCommitResult.current)}
 >
-	{#snippet children([branch, branches, branchDetails, topCommit], { stackId, projectId })}
+	{#snippet children([branches, branch, topCommit], { stackId, projectId })}
 		{@const hasCommits = !!topCommit}
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
 		<Drawer {projectId} {stackId}>
@@ -110,34 +90,9 @@
 			{/snippet}
 
 			{#if hasCommits}
-				<div class="branch-view">
-					<div class="branch-view__header-container">
-						<div class="text-12 branch-view__header-details-row">
-							<BranchBadge pushStatus={branchDetails.pushStatus} />
-							<span class="branch-view__details-divider">•</span>
-
-							{#if branchDetails.isConflicted}
-								<span class="branch-view__header-details-row-conflict">Has conflicts</span>
-								<span class="branch-view__details-divider">•</span>
-							{/if}
-
-							<span>Contribs:</span>
-							<AvatarGroup
-								maxAvatars={2}
-								avatars={branchDetails.authors.map((a) => ({
-									name: a.name,
-									srcUrl: getGravatarUrl(a.email, a.gravatarUrl)
-								}))}
-							/>
-
-							<span class="branch-view__details-divider">•</span>
-
-							<span class="truncate">{getTimeAgo(new Date(branchDetails.lastUpdatedAt))}</span>
-						</div>
-					</div>
-
+				<BranchDetails {branch}>
 					<BranchReview {stackId} {projectId} branchName={branch.name} />
-				</div>
+				</BranchDetails>
 			{:else}
 				<div class="branch-view__empty-state">
 					<div class="branch-view__empty-state__image">
@@ -218,13 +173,6 @@
 </ReduxResult>
 
 <style>
-	.branch-view {
-		display: flex;
-		flex-direction: column;
-		gap: 16px;
-		height: 100%;
-	}
-
 	.branch__header {
 		display: flex;
 		align-items: center;
@@ -248,30 +196,6 @@
 		&.disabled {
 			opacity: 0.3;
 		}
-	}
-
-	.branch-view__header-container {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 16px;
-		overflow: hidden;
-	}
-
-	.branch-view__header-details-row {
-		width: 100%;
-		color: var(--clr-text-2);
-		display: flex;
-		align-items: center;
-		gap: 6px;
-	}
-
-	.branch-view__header-details-row-conflict {
-		color: var(--clr-theme-err-element);
-	}
-
-	.branch-view__details-divider {
-		color: var(--clr-text-3);
 	}
 
 	/* EMPTY STATE */
