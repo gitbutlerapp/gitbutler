@@ -5,10 +5,10 @@
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 
 	type Props = {
-		channel?: string;
-	};
+		type: 'group' | 'private' | 'server';
+	} & ({ type: 'group'; channel: string } | { type: 'private'; nick: string } | { type: 'server' });
 
-	const { channel }: Props = $props();
+	const args: Props = $props();
 
 	const ircService = getContext(IrcService);
 
@@ -16,9 +16,11 @@
 
 	async function onclick() {
 		if (!input) return;
-		if (channel) {
-			await ircService.sendToGroup(input, channel);
-		} else {
+		if (args.type === 'group') {
+			await ircService.sendToGroup(args.channel, input);
+		} else if (args.type === 'private') {
+			await ircService.sendToNick(args.nick, input);
+		} else if (args.type === 'server') {
 			ircService.send(input);
 		}
 		input = '';

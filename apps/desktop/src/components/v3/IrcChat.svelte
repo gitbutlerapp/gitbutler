@@ -11,10 +11,12 @@
 <div class="irc">
 	<IrcChannels />
 	<div class="right">
-		{#if channel.current}
+		{#if channel.current?.startsWith('#')}
 			<IrcChannel type="group" channel={channel.current} autojoin />
+		{:else if channel.current}
+			<IrcChannel type="private" nick={channel.current} />
 		{:else}
-			<IrcChannel type="system" />
+			<IrcChannel type="server" />
 		{/if}
 	</div>
 </div>

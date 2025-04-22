@@ -210,6 +210,7 @@ export type IrcMessage = {
 	params: string[];
 	trailing?: string;
 	numeric?: number; // If it's a numeric reply, this is set
+	tags: Record<string, string>;
 };
 
 type IrcUser = {
@@ -229,13 +230,29 @@ export type IrcEvent =
 	| { type: 'userJoined'; nick: string; channel: string; user: IrcUser }
 	| { type: 'userParted'; nick: string; channel: string; reason?: string }
 	| { type: 'userQuit'; nick: string; reason?: string }
-	| { type: 'messageReceived'; from: string; target: string; text: string }
+	| {
+			type: 'groupMessage';
+			from: string;
+			to: string;
+			text: string;
+			msgid?: string;
+			data?: unknown;
+	  }
+	| {
+			type: 'privateMessage';
+			from: string;
+			to: string;
+			text: string;
+			msgid?: string;
+			data?: unknown;
+	  }
 	| { type: 'namesList'; channel: string; names: string[] }
+	| { type: 'capabilities'; capabilities: string[]; subcommand?: string }
 	| { type: 'nickChanged'; oldNick: string; newNick: string }
 	| { type: 'channelTopic'; channel: string; topic: string }
 	| { type: 'whois'; nick: string; username?: string; realname?: string; host?: string }
 	| { type: 'welcome'; nick: string; message: string }
-	| { type: 'serverNotice'; message: string }
+	| { type: 'serverNotice'; target: string; message: string }
 	| { type: 'motd'; message: string }
 	| { type: 'error'; message: string; code: number; nick?: string; params?: string }
 	| { type: 'ping'; id: string }
@@ -274,12 +291,32 @@ export function toIrcEvent(msg: IrcMessage): IrcEvent {
 				reason: msg.trailing
 			};
 
-		case Cmd.PRIVMSG:
+		case Cmd.PRIVMSG: {
+			const target = msg.params[0]!;
+			if (target.startsWith('#')) {
+				return {
+					type: 'groupMessage',
+					from: nick ?? 'unknown',
+					to: msg.params[0]!,
+					text: msg.trailing || '',
+					msgid: msg.tags['msgid'],
+					data: msg.tags['+data']
+				};
+			}
 			return {
-				type: 'messageReceived',
+				type: 'privateMessage',
 				from: nick ?? 'unknown',
-				target: msg.params[0]!,
-				text: msg.trailing || ''
+				to: msg.params[0]!,
+				text: msg.trailing || '',
+				msgid: msg.tags['msgid'],
+				data: msg.tags['+data']
+			};
+		}
+		case Cmd.CAP:
+			return {
+				type: 'capabilities',
+				subcommand: msg.params.at(1),
+				capabilities: msg.trailing?.split(' ') || []
 			};
 
 		case Cmd.NICK:
@@ -297,9 +334,16 @@ export function toIrcEvent(msg: IrcMessage): IrcEvent {
 			};
 
 		case Cmd.RPL_WELCOME:
+			return {
+				type: 'welcome',
+				message: msg.trailing || '',
+				nick: msg.params[0]!
+			};
+
 		case Cmd.NOTICE:
 			return {
 				type: 'serverNotice',
+				target: msg.params[0]!,
 				message: msg.trailing || ''
 			};
 

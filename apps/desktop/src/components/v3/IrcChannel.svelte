@@ -2,22 +2,23 @@
 	import IrcInput from '$components/v3/IrcInput.svelte';
 	import IrcMessages from '$components/v3/IrcMessages.svelte';
 	import IrcNames from '$components/v3/IrcNames.svelte';
+	import { IrcClient } from '$lib/irc/ircClient.svelte';
 	import { IrcService } from '$lib/irc/ircService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 
 	type Props = {
 		type: string;
 	} & (
-		| { type: 'system' }
+		| { type: 'server' }
 		| { type: 'group'; channel: string; autojoin: boolean }
 		| { type: 'private'; nick: string }
 	);
 
 	const props: Props = $props();
-	const ircService = getContext(IrcService);
+	const [ircService, ircClient] = inject(IrcService, IrcClient);
 
 	$effect(() => {
-		if (props.type === 'group' && props.autojoin) {
+		if (props.type === 'group' && props.autojoin && ircClient.connected) {
 			ircService.send(`JOIN ${props.channel}`);
 		}
 	});
@@ -25,37 +26,48 @@
 	$effect(() => {
 		if (props.type === 'group') {
 			return ircService.markOpen(props.channel);
+		} else if (props.type === 'private') {
+			return ircService.markOpen(props.nick);
 		}
 	});
 
-	const logs = $derived(
-		props.type === 'group'
-			? ircService.getChannelMessages(props.channel)
-			: ircService.getSystemMessages()
-	);
-
-	const channelName = $derived(props.type === 'group' ? props.channel : undefined);
+	const logs = $derived.by(() => {
+		switch (props.type) {
+			case 'group':
+				return ircService.getChannelMessages(props.channel);
+			case 'private':
+				return ircService.getPrivateMessages(props.nick);
+			case 'server':
+				return ircService.getServerMessages();
+		}
+	});
 </script>
 
 <div class="irc-channel">
 	<div class="header text-14 text-semibold">
 		{#if props.type === 'group'}
 			{props.channel}
-		{:else if props.type === 'system'}
-			system
 		{:else if props.type === 'private'}
-			private
+			{props.nick}
+		{:else if props.type === 'server'}
+			system
 		{/if}
 	</div>
 	<div class="middle">
 		{#if logs}
-			<IrcMessages channel={channelName} {logs} />
+			<IrcMessages {logs} />
 		{/if}
 		{#if props.type === 'group'}
 			<IrcNames channel={props.channel} />
 		{/if}
 	</div>
-	<IrcInput channel={props.type === 'group' ? props.channel : undefined} />
+	{#if props.type === 'group'}
+		<IrcInput type="group" channel={props.channel} />
+	{:else if props.type === 'private'}
+		<IrcInput type="private" nick={props.nick} />
+	{:else if props.type === 'server'}
+		<IrcInput type="server" />
+	{/if}
 </div>
 
 <style lang="postcss">

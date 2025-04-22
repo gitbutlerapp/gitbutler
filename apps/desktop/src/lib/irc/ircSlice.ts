@@ -1,4 +1,6 @@
-import { parseIRCMessage as parseIrcMessage, toIrcEvent, type IrcEvent } from '$lib/irc/parser';
+import { createChat, joinChannel } from '$lib/irc/channel';
+import { logsAdapter, logSelectors } from '$lib/irc/logs';
+import { type IrcEvent } from '$lib/irc/parser';
 import {
 	createAsyncThunk,
 	createSelector,
@@ -6,15 +8,19 @@ import {
 	type PayloadAction
 } from '@reduxjs/toolkit';
 import type { IrcClient } from '$lib/irc/ircClient.svelte';
-import type { IRCState, IRCUser, IrcLog, IrcUserInfo } from '$lib/irc/types';
+import type { IRCState, IRCUser, IrcUserInfo } from '$lib/irc/types';
 
 const initialState: IRCState = {
 	connection: { connected: false },
 	channels: {},
+	chats: {},
 	systemMessages: [],
 	whois: {}
 };
 
+/**
+ * This is basically a state machine that controls IRC messages.
+ */
 export const ircSlice = createSlice({
 	name: 'irc',
 	initialState,
@@ -22,13 +28,13 @@ export const ircSlice = createSlice({
 		setConnectionState(state, action: PayloadAction<boolean>) {
 			state.connection.connected = action.payload;
 		},
-		markChannelOpen(state, action: PayloadAction<{ name: string; open: boolean }>) {
-			const channelName = action.payload.name;
-			const channel = state.channels[channelName];
-			if (channel) {
-				channel.open = action.payload.open;
-				if (channel.open) {
-					channel.unread = 0;
+		markOpen(state, action: PayloadAction<{ name: string; open: boolean }>) {
+			const name = action.payload.name;
+			const target = name.startsWith('#') ? state.channels[name] : state.chats[name];
+			if (target) {
+				target.open = action.payload.open;
+				if (target.open) {
+					target.unread = 0;
 				}
 			}
 		},
@@ -39,49 +45,10 @@ export const ircSlice = createSlice({
 					channel.users = {};
 				}
 			});
-		}
-	},
-	extraReducers: (build) => {
-		// Nick change.
-		build.addCase(setNick.fulfilled, (state, action) => {
-			state.connection.nick = action.payload;
-		});
-		// Sent a message to a channel.
-		build.addCase(messageChannel.fulfilled, (state, action) => {
-			const channel = state.channels[action.meta.arg.channel];
-			if (channel) {
-				channel.logs.push(action.payload);
-			}
-		});
-		// Sending a message to a channel failed.
-		build.addCase(messageChannel.rejected, (state, action) => {
-			const { channel: name, message } = action.meta.arg;
-			let channel = state.channels[name];
-			if (!channel) {
-				channel = { name, logs: [], users: {}, unread: 0 };
-				state.channels[name] = channel;
-			}
-			if (!channel.logs) {
-				channel.logs = [];
-			}
-
-			let errorMessage = action.error.message;
-			if (action.payload) {
-				errorMessage += '\n\n' + action.payload;
-			}
-
-			channel.logs.push({
-				timestamp: Date.now(),
-				type: 'outgoing',
-				error: errorMessage,
-				to: name,
-				from: '', // TODO: What do we do here?
-				message
-			});
-		});
-		// Parse incoming message and update state accordingly.
-		build.addCase(processIncoming.fulfilled, (state, action) => {
+		},
+		processIncoming(state, action: PayloadAction<IrcEvent>) {
 			const event = action.payload;
+			const me = state.connection.nick!;
 
 			switch (event.type) {
 				case 'welcome': {
@@ -92,24 +59,10 @@ export const ircSlice = createSlice({
 					break;
 				}
 				case 'userJoined': {
-					const newLog: IrcLog = {
-						type: 'server',
-						timestamp: Date.now(),
-						message: `${event.user.nick} joined`
-					};
-					const channel = state.channels[event.channel];
 					const nick = event.user.nick;
-					if (!channel) {
-						state.channels[event.channel] = {
-							name: event.channel,
-							users: { [nick]: { nick } },
-							unread: 0,
-							logs: [newLog]
-						};
-					} else {
-						channel.users[nick] = { nick };
-						channel.logs.push(newLog);
-					}
+					const channel = state.channels[event.channel];
+					// When this client joins a new channale.
+					if (!channel) joinChannel(state.channels, event.channel, nick);
 					break;
 				}
 				case 'userParted': {
@@ -144,28 +97,72 @@ export const ircSlice = createSlice({
 					}
 					break;
 				}
-
-				case 'messageReceived': {
-					const name = event.target;
-					const channel = state.channels[name];
+				case 'groupMessage': {
+					const channel = state.channels[event.to];
+					if (!channel) {
+						joinChannel(state.channels, event.to, event.to);
+					}
 					if (channel) {
 						if (!channel.open) {
 							channel.unread += 1;
 						}
-						channel.logs.push({
-							type: 'incoming',
+						logsAdapter.upsertOne(channel.logs, {
+							type: event.to === me ? 'incoming' : 'outgoing',
 							timestamp: Date.now(),
+							msgid: event.msgid,
 							from: event.from,
+							to: event.to,
+							data: event.data,
 							message: event.text
 						});
 						// Trim server output to last 100 messages.
-						while (channel.logs.length > 100) {
-							channel.logs.shift();
+						while (channel.logs.ids.length > 100) {
+							logsAdapter.removeMany(channel.logs, channel.logs.ids.slice(-100));
 						}
 					}
 					break;
 				}
-
+				case 'privateMessage': {
+					const { from, to } = event;
+					const user = from === me ? to : from;
+					let chat = state.chats[user];
+					if (!chat) {
+						chat = createChat(state.chats, from);
+					}
+					if (!chat.open) {
+						chat.unread += 1;
+					}
+					chat.logs = logsAdapter.upsertOne(chat.logs, {
+						type: event.to === me ? 'incoming' : 'outgoing',
+						timestamp: Date.now(),
+						msgid: event.msgid,
+						from: event.from,
+						to: event.to,
+						data: event.data,
+						message: event.text
+					});
+					// Trim server output to last 100 messages.
+					if (chat.logs.ids.length > 100) {
+						logsAdapter.removeMany(chat.logs, chat.logs.ids.slice(-100));
+					}
+					break;
+				}
+				case 'serverNotice': {
+					const name = event.target;
+					const channel = state.channels[name];
+					if (channel) {
+						channel.logs = logsAdapter.addOne(channel.logs, {
+							type: 'notice',
+							timestamp: Date.now(),
+							message: event.message
+						});
+						// Trim server output to last 100 messages.
+						while (channel.logs.ids.length > 100) {
+							logsAdapter.removeMany(channel.logs, channel.logs.ids.slice(-100));
+						}
+					}
+					break;
+				}
 				case 'channelTopic': {
 					const channel = state.channels[event.channel];
 					if (channel) channel.topic = event.topic;
@@ -185,7 +182,6 @@ export const ircSlice = createSlice({
 				}
 
 				case 'motd':
-				case 'serverNotice':
 				case 'error': {
 					state.systemMessages.push({
 						timestamp: Date.now(),
@@ -196,7 +192,6 @@ export const ircSlice = createSlice({
 				}
 
 				case 'unsupported': {
-					console.warn('Unsupported command: ' + event.command);
 					state.systemMessages.push({
 						type: 'server',
 						timestamp: Date.now(),
@@ -212,15 +207,48 @@ export const ircSlice = createSlice({
 					});
 					break;
 				}
-				default: {
-					const _: never = event; // Exhaustive list check.
-				}
 			}
 
 			// Trim server output to last 100 messages.
 			while (state.systemMessages.length > 100) {
 				state.systemMessages.shift();
 			}
+		}
+	},
+	extraReducers: (build) => {
+		// Nick change.
+		build.addCase(setNick.fulfilled, (state, action) => {
+			state.connection.nick = action.payload;
+		});
+		// Sending a message to a channel failed.
+		build.addCase(messageChannel.rejected, (state, action) => {
+			const { channel: name, message } = action.meta.arg;
+			let channel = state.channels[name];
+			if (!channel) {
+				channel = { name, logs: logsAdapter.getInitialState(), users: {}, unread: 0 };
+				state.channels[name] = channel;
+			}
+			if (!channel.logs) {
+				channel.logs = logsAdapter.getInitialState();
+			}
+
+			let errorMessage = action.error.message;
+			if (action.payload) {
+				errorMessage += '\n\n' + action.payload;
+			}
+
+			logsAdapter.addOne(channel.logs, {
+				timestamp: Date.now(),
+				type: 'outgoing',
+				error: errorMessage,
+				to: name,
+				from: '', // TODO: What do we do here?
+				message
+			});
+		});
+		// Private message failed.
+		build.addCase(messageNick.rejected, () => {
+			// TODO: Show failed message.
 		});
 	}
 });
@@ -234,7 +262,7 @@ function leaveChannel(args: { state: IRCState; nick: string; channelName: string
 		if (Object.keys(channel.users).length === 0) {
 			delete state.channels[channelName];
 		} else {
-			channel.logs.push({
+			channel.logs = logsAdapter.addOne(channel.logs, {
 				type: 'server',
 				timestamp: Date.now(),
 				message: `${nick} quit`
@@ -276,42 +304,35 @@ export const setNick = createAsyncThunk<string, string, ThunkApiConfig>(
 	}
 );
 
-export const processIncoming = createAsyncThunk<IrcEvent, string, ThunkApiConfig>(
-	'irc/processIncoming',
-	async (raw, api) => {
-		const { ircClient } = api.extra;
-		const message = parseIrcMessage(raw);
-		const event = toIrcEvent(message);
-		if (event.type === 'ping') {
-			try {
-				ircClient.send(`PONG :${event.id}`);
-			} catch (err: unknown) {
-				return api.rejectWithValue(String(err));
-			}
-		}
-		return api.fulfillWithValue(event);
-	}
-);
-
 export const messageChannel = createAsyncThunk<
-	IrcLog,
-	{ channel: string; message: string },
+	void,
+	{ channel: string; message: string; data: unknown },
 	ThunkApiConfig
->('irc/kickUser', async ({ channel, message }, thunkAPI) => {
+>('irc/messageGroup', async ({ channel, message, data }, thunkAPI) => {
+	let command = `PRIVMSG ${channel} :${message}`;
 	try {
-		thunkAPI.extra.ircClient.send(`PRIVMSG ${channel} :${message}`);
-		const state = thunkAPI.getState();
-		const from = state.irc.connection.nick;
-		if (from) {
-			return thunkAPI.fulfillWithValue({
-				timestamp: Date.now(),
-				type: 'outgoing',
-				to: channel,
-				message,
-				from
-			});
+		if (data) {
+			command = `@+data=${data} ${command}`;
 		}
-		return thunkAPI.rejectWithValue('Cannot send message without nick.');
+		thunkAPI.extra.ircClient.send(command);
+		return thunkAPI.fulfillWithValue(undefined);
+	} catch (err: unknown) {
+		return thunkAPI.rejectWithValue(String(err));
+	}
+});
+
+export const messageNick = createAsyncThunk<
+	void,
+	{ nick: string; message: string; data?: unknown },
+	ThunkApiConfig
+>('irc/messageNick', async ({ nick, message, data }, thunkAPI) => {
+	let command = `PRIVMSG ${nick} :${message}`;
+	try {
+		if (data) {
+			command = `@+data=${data} ${command}`;
+		}
+		thunkAPI.extra.ircClient.send(command);
+		return thunkAPI.fulfillWithValue(undefined);
 	} catch (err: unknown) {
 		return thunkAPI.rejectWithValue(String(err));
 	}
@@ -328,9 +349,21 @@ export const selectSystemMessages = createSelector(
 
 export const selectChannelMessages = createSelector(
 	[selectSelf, (_, channel: string) => channel],
-	(rootState, channel: string) => rootState.channels[channel]?.logs
+	(rootState, channel: string) => {
+		const logs = rootState.channels[channel]?.logs;
+		return logs ? logSelectors.selectAll(logs) : [];
+	}
 );
 
+export const selectPrivateMessages = createSelector(
+	[selectSelf, (_, channel: string) => channel],
+	(rootState, nick: string) => {
+		const logs = rootState.chats[nick]?.logs;
+		return logs ? logSelectors.selectAll(logs) : [];
+	}
+);
+
+export const getChats = createSelector([selectSelf], (rootState) => rootState.chats);
 export const getChannels = createSelector([selectSelf], (rootState) => rootState.channels);
 export const getConnectionState = createSelector([selectSelf], (rootState) => rootState.connection);
 
@@ -343,6 +376,6 @@ export const getChannelUsers = createSelector(
 	(channels, name) => channels[name]?.users
 );
 
-export const { setConnectionState, markChannelOpen, clearNames } = ircSlice.actions;
+export const { setConnectionState, markOpen, clearNames, processIncoming } = ircSlice.actions;
 
 export const ircReducer = ircSlice.reducer;
