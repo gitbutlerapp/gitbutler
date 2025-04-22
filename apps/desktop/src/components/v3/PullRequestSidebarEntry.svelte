@@ -1,17 +1,18 @@
 <script lang="ts">
+	import SidebarEntry from '$components/v3/SidebarEntry.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { parseDate } from '$lib/utils/time';
 	import { inject } from '@gitbutler/shared/context';
-	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import type { PullRequest } from '$lib/forge/interface/types';
 
 	interface Props {
 		projectId: string;
 		pullRequest: PullRequest;
+		onclick: (listing: PullRequest) => void;
 	}
 
-	const { projectId, pullRequest }: Props = $props();
+	const { projectId, pullRequest, onclick }: Props = $props();
 
 	const [userService, uiState] = inject(UserService, UiState);
 	const user = userService.user;
@@ -23,11 +24,7 @@
 			: pullRequest.author?.gravatarUrl;
 	});
 
-	function onMouseDown() {
-		explorerState.set({ prNumber: String(pullRequest.number) });
-	}
-
-	const selected = $derived(explorerState.current.prNumber === String(pullRequest.number));
+	const selected = $derived(explorerState.current.prNumber === pullRequest.number);
 </script>
 
 <SidebarEntry
@@ -43,7 +40,7 @@
 		title: pullRequest.title,
 		draft: pullRequest.draft
 	}}
-	{onMouseDown}
+	onclick={() => onclick(pullRequest)}
 	{selected}
 	avatars={[
 		{

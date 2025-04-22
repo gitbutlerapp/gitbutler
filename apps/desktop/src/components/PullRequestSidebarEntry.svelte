@@ -25,7 +25,7 @@
 			: pullRequest.author?.gravatarUrl;
 	});
 
-	function onMouseDown() {
+	function onclick() {
 		goto(formatPullRequestURL(project, pullRequest.number));
 	}
 
@@ -51,7 +51,7 @@
 		title: pullRequest.title,
 		draft: pullRequest.draft
 	}}
-	{onMouseDown}
+	{onclick}
 	{selected}
 	avatars={[
 		{
