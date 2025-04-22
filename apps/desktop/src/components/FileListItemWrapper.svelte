@@ -90,7 +90,8 @@
 				data: dropData,
 				disabled: !draggable,
 				viewportId: 'board-viewport',
-				selector: '.selected-draggable'
+				selector: '.selected-draggable',
+				chipType: 'file'
 			};
 			if (chips) {
 				chips.update(config);

@@ -4,7 +4,7 @@
 	import binarySvg from '$lib/assets/empty-state/binary.svg?raw';
 	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
 	import tooLargeSvg from '$lib/assets/empty-state/too-large.svg?raw';
-	import { draggableElement } from '$lib/dragging/draggable';
+	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { canBePartiallySelected, type DiffHunk } from '$lib/hunks/hunk';
 	import { Project } from '$lib/project/project';
@@ -176,11 +176,14 @@
 	{#if diff.type === 'Patch'}
 		{#each diff.subject.hunks as hunk}
 			{@const [staged, stagedLines] = getStageState(hunk)}
+
 			<div
 				class="hunk-content no-select"
-				use:draggableElement={{
+				use:draggableChips={{
+					label: hunk.diff.split('\n')[0],
 					data: new ChangeDropData(change, idSelection, selectionId),
-					disabled: readonly
+					disabled: readonly,
+					chipType: 'hunk'
 				}}
 			>
 				<HunkDiff

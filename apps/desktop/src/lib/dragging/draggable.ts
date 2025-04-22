@@ -22,6 +22,7 @@ export type DraggableConfig = {
 	readonly commitType?: CommitStatusType;
 	readonly data?: DropData;
 	readonly viewportId?: string;
+	readonly chipType?: 'file' | 'hunk';
 };
 
 function createElement<K extends keyof HTMLElementTagNameMap>(
@@ -283,9 +284,9 @@ export function draggableCommit(
 	});
 }
 
-////////////////////////
-//// FILE DRAGGABLE ////
-////////////////////////
+//////////////////
+/// DRAG CHIPS ///
+//////////////////
 
 function createFileChipContainer(
 	label: string | undefined,
@@ -309,43 +310,57 @@ function createFileChipContainer(
 	return containerEl;
 }
 
+function createHunkChipContainer(label: string | undefined): HTMLDivElement {
+	const containerEl = createElement('div', ['dragchip-hunk-container']);
+
+	const hunkDecoIndatorEl = createElement('div', ['dragchip-hunk-decorator']);
+	hunkDecoIndatorEl.textContent = '〈/〉';
+	containerEl.appendChild(hunkDecoIndatorEl);
+
+	const hunkLabelEl = createElement('span', ['dragchip-hunk-label'], label || 'Empty hunk');
+	containerEl.appendChild(hunkLabelEl);
+
+	return containerEl;
+}
+
 export function createChipsElement(
-	childrenAmount: number,
-	label: string | undefined,
-	filePath: string | undefined,
-	chipType: 'file' | 'hunk' = 'file'
+	opt: {
+		childrenAmount: number;
+		label: string | undefined;
+		filePath: string | undefined;
+		chipType: 'file' | 'hunk';
+	} = {
+		childrenAmount: 1,
+		label: undefined,
+		filePath: undefined,
+		chipType: 'file'
+	}
 ): HTMLDivElement {
 	const containerEl = createElement('div', ['dragchip-container']);
 	const chipEl = createElement('div', ['dragchip']);
 	containerEl.appendChild(chipEl);
 
-	if (chipType === 'file') {
-		const fileChipContainer = createFileChipContainer(label, filePath);
+	if (opt.chipType === 'file') {
+		const fileChipContainer = createFileChipContainer(opt.label, opt.filePath);
 		chipEl.appendChild(fileChipContainer);
+	} else if (opt.chipType === 'hunk') {
+		const hunkChipContainer = createHunkChipContainer(opt.label);
 
-		// append clone to body
-		const chipElClone = chipEl.cloneNode(true) as HTMLDivElement;
-		chipElClone.style.top = '50px';
-		chipElClone.style.left = '50px';
-		chipElClone.style.position = 'absolute';
-
-		document.body.appendChild(chipElClone);
-	} else if (chipType === 'hunk') {
-		console.log(chipType, 'wip');
+		chipEl.appendChild(hunkChipContainer);
 	}
 
-	if (childrenAmount > 1) {
+	if (opt.childrenAmount > 1) {
 		const amountTag = createElement(
 			'div',
 			['text-11', 'text-bold', 'dragchip-amount'],
-			childrenAmount.toString()
+			opt.childrenAmount.toString()
 		);
 		chipEl.appendChild(amountTag);
 	}
 
-	if (childrenAmount === 2) {
+	if (opt.childrenAmount === 2) {
 		containerEl.classList.add('dragchip-two');
-	} else if (childrenAmount > 2) {
+	} else if (opt.childrenAmount > 2) {
 		containerEl.classList.add('dragchip-multiple');
 	}
 
@@ -355,14 +370,19 @@ export function createChipsElement(
 export function draggableChips(node: HTMLElement, initialOpts: DraggableConfig) {
 	function createClone(opts: DraggableConfig, selectedElements: Element[]) {
 		if (opts.disabled) return;
-		return createChipsElement(selectedElements.length, opts.label, opts.filePath);
+		return createChipsElement({
+			childrenAmount: selectedElements.length,
+			label: opts.label,
+			filePath: opts.filePath,
+			chipType: opts.chipType || 'file'
+		});
 	}
 	return setupDragHandlers(node, initialOpts, createClone);
 }
 
-////////////////////////
-//// HUNK DRAGGABLE ////
-////////////////////////
+////////////////////////////
+//// GENERAL DRAG CLONE ////
+////////////////////////////
 
 export function cloneElement(node: HTMLElement) {
 	const cloneEl = node.cloneNode(true) as HTMLElement;
@@ -372,13 +392,4 @@ export function cloneElement(node: HTMLElement) {
 	ignoredElements.forEach((el) => el.remove());
 
 	return cloneEl;
-}
-
-export function draggableElement(node: HTMLElement, initialOpts: DraggableConfig) {
-	function createClone() {
-		return cloneElement(node);
-	}
-	return setupDragHandlers(node, initialOpts, createClone, {
-		handlerWidth: true
-	});
 }

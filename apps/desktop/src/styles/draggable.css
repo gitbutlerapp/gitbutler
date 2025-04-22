@@ -85,6 +85,27 @@
 	height: 16px;
 }
 
+/* Hunk drag */
+.dragchip-hunk-container {
+	display: flex;
+	font-size: 12px;
+	font-family: var(--fontfamily-mono);
+}
+
+.dragchip-hunk-decorator {
+	font-variant-ligatures: none;
+	background-color: var(--clr-bg-2);
+	border-right: 1px solid var(--clr-border-2);
+	padding: 6px 5px;
+	border-radius: var(--radius-m) 0 0 var(--radius-m);
+	color: var(--clr-text-2);
+	letter-spacing: -1px;
+}
+
+.dragchip-hunk-label {
+	padding: 6px 7px;
+}
+
 /* COMMIT DRAG CARD */
 .draggable-commit {
 	position: absolute;
