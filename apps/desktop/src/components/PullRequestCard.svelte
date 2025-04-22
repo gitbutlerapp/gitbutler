@@ -89,6 +89,17 @@
 			: false;
 	});
 
+	const [reviewName, reviewUnit, reviewSymbol] = $derived.by(() => {
+		switch (forge.current.name) {
+			case 'github':
+				return ['Pull request', 'PR', '#'];
+			case 'gitlab':
+				return ['Merge request', 'MR', '#'];
+			default:
+				return ['Pull request', 'PR', '#'];
+		}
+	});
+
 	let isMerging = $state(false);
 	let hasChecks = $state(false);
 
@@ -120,21 +131,21 @@
 		if (isPushed && hasParent && !parentIsPushed) {
 			tooltip = 'Remote parent branch seems to have been deleted';
 		} else if (!baseIsTargetBranch) {
-			tooltip = 'Pull request is not next in stack';
+			tooltip = reviewName + 'is not next in stack';
 		} else if (prLoading) {
 			tooltip = 'Reloading pull request data';
 		} else if (pr?.draft) {
-			tooltip = 'Pull request is a draft';
+			tooltip = reviewName + ' is a draft';
 		} else if (pr?.mergeableState === 'blocked') {
-			tooltip = 'Pull request needs approval';
+			tooltip = reviewName + ' needs approval';
 		} else if (pr?.mergeableState === 'unknown') {
-			tooltip = 'Pull request mergeability is unknown';
+			tooltip = reviewName + ' mergeability is unknown';
 		} else if (pr?.mergeableState === 'behind') {
-			tooltip = 'Pull request base is too far behind';
+			tooltip = reviewName + ' base is too far behind';
 		} else if (pr?.mergeableState === 'dirty') {
-			tooltip = 'Pull request has conflicts';
+			tooltip = reviewName + ' has conflicts';
 		} else if (!pr?.mergeable) {
-			tooltip = 'Pull request is not mergeable';
+			tooltip = reviewName + ' is not mergeable';
 		} else {
 			disabled = false;
 		}
@@ -222,7 +233,7 @@
 				kind="outline"
 				size="tag"
 				icon="copy-small"
-				tooltip="Copy PR link"
+				tooltip="Copy {reviewUnit} link"
 				onclick={() => {
 					writeClipboard(pr.htmlUrl);
 				}}
@@ -231,7 +242,7 @@
 				kind="outline"
 				size="tag"
 				icon="open-link"
-				tooltip="Open PR in browser"
+				tooltip="Open {reviewUnit} in browser"
 				onclick={() => {
 					openExternalUrl(pr.htmlUrl);
 				}}
@@ -241,7 +252,7 @@
 		<div class="text-13 text-semibold pr-row">
 			<Icon name="github" />
 			<h4 class="text-14 text-semibold">
-				PR #{pr.number}
+				{`${reviewUnit} ${reviewSymbol}${pr.number}`}
 			</h4>
 			<Badge
 				reversedDirection
@@ -249,7 +260,7 @@
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.style}
 				kind="soft"
-				tooltip="PR status"
+				tooltip={`${reviewUnit} status`}
 			>
 				{prStatusInfo.text}
 			</Badge>
@@ -322,7 +333,7 @@
 							]);
 						} catch (err) {
 							console.error(err);
-							showError('Failed to merge PR', err);
+							showError('Failed to merge ' + reviewUnit, err);
 						} finally {
 							isMerging = false;
 						}
@@ -335,7 +346,7 @@
 					tooltip={reopenStatus.tooltip}
 					action={handleReopenPr}
 				>
-					Reopen pull request
+					{`Reopen ${reviewUnit}`}
 				</AsyncButton>
 			{/if}
 		</div>
