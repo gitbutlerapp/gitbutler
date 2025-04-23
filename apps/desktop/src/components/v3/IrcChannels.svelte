@@ -9,11 +9,12 @@
 	const selectedChannel = $derived(uiState.global.channel);
 	const channels = $derived(ircService.getChannels());
 	const chats = $derived(ircService.getChats());
+	const server = $derived(ircClient.server);
 </script>
 
 <div class="channels text-13">
 	<button type="button" class="channel server" onclick={() => selectedChannel.set(undefined)}>
-		{ircClient.server}
+		{server.current}
 	</button>
 	{#each Object.keys(channels).sort() as name}
 		{@const channel = channels[name]}
