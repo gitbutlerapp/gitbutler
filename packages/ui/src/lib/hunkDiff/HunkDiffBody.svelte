@@ -6,6 +6,7 @@
 		type ContentSection,
 		generateRows,
 		type LineId,
+		lineIdKey,
 		type LineLock,
 		type LineSelector,
 		parserFromFilename,
@@ -158,7 +159,7 @@
 		</tr>
 	{/if}
 
-	{#each renderRows as row, idx}
+	{#each renderRows as row, idx (lineIdKey( { oldLine: row.beforeLineNumber, newLine: row.afterLineNumber } ))}
 		<HunkDiffRow
 			{minWidth}
 			{idx}
