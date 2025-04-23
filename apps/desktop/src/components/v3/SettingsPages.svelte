@@ -1,4 +1,4 @@
-<script module>
+<script lang="ts" module>
 	import iconsJson from '@gitbutler/ui/data/icons.json';
 	import { type Component } from 'svelte';
 	import type { Snippet } from 'svelte';

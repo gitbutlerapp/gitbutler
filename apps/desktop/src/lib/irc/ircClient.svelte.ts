@@ -1,4 +1,5 @@
 import { Cmd, parseIRCMessage, toIrcEvent, type IrcEvent } from '$lib/irc/parser';
+import { reactive } from '@gitbutler/shared/storeUtils';
 import ReconnectingWebSocket, { type CloseEvent, type ErrorEvent } from 'reconnecting-websocket';
 
 export const connecting = ReconnectingWebSocket['CONNECTING'];
@@ -35,6 +36,8 @@ const capabilities = [
 export class IrcClient {
 	private _connected = $state(false);
 	private _error = $state<string>();
+	private _server = $state<string>();
+
 	private registered = false;
 
 	private nick?: string;
@@ -64,11 +67,13 @@ export class IrcClient {
 		socket.onmessage = this.onmessage.bind(this);
 		socket.onclose = this.onclose.bind(this);
 		socket.onerror = this.onerror.bind(this);
+		this._server = config.server;
 		this.socket = socket;
 		this.nick = config.nick;
 	}
 
 	private async onopen_() {
+		this._server = this.socket?.url;
 		this.send('CAP LS 302');
 	}
 
@@ -149,7 +154,7 @@ export class IrcClient {
 		return (this.socket?.readyState as ReadyState) || ReadyState.Closed;
 	}
 
-	get server(): string | undefined {
-		return this.socket?.url;
+	get server() {
+		return reactive(() => this._server);
 	}
 }

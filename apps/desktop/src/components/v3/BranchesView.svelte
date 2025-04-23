@@ -91,7 +91,9 @@
 										});
 									} else {
 										branchesSelection.set({
-											branchName: listing.name,
+											branchName: listing.hasLocal
+												? listing.name
+												: listing.remotes.at(0) + '/' + listing.name,
 											prNumber: pr?.number
 										});
 									}

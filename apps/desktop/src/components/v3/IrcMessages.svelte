@@ -18,28 +18,32 @@
 	let scroller: ConfigurableScrollableContainer;
 </script>
 
-{#snippet rowTemplate(log: IrcLog)}
+{#snippet logTemplate(log: IrcLog)}
 	{@const timestamp = new Date(log.timestamp).toLocaleTimeString()}
-	<div class="message" class:error={log.type === 'outgoing' && log.error}>
+	<div class="message text-12" class:error={log.type === 'outgoing' && log.error}>
 		[{timestamp}]
 		{#if log.type === 'incoming' || log.type === 'outgoing'}
 			{@const blah = log.data ? JSON.parse(atob(log.data as any)) : undefined}
 			{@const { change, diff }: {change: TreeChange, diff: DiffHunk} = blah || {}}
 			{log.from}: {log.message}
 			{#if change && diff.diff}
-				<FileListItemV3 filePath={change.path} listMode="list" />
-				<HunkDiff
-					draggingDisabled={true}
-					hideCheckboxes={true}
-					filePath={change.path}
-					hunkStr={diff.diff}
-					diffLigatures={$userSettings.diffLigatures}
-					tabSize={$userSettings.tabSize}
-					wrapText={$userSettings.wrapText}
-					diffFont={$userSettings.diffFont}
-					diffContrast={$userSettings.diffContrast}
-					inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
-				/>
+				<div class="extra">
+					<FileListItemV3 filePath={change.path} listMode="list" isLast />
+					<div class="diff">
+						<HunkDiff
+							draggingDisabled={true}
+							hideCheckboxes={true}
+							filePath={change.path}
+							hunkStr={diff.diff}
+							diffLigatures={$userSettings.diffLigatures}
+							tabSize={$userSettings.tabSize}
+							wrapText={$userSettings.wrapText}
+							diffFont={$userSettings.diffFont}
+							diffContrast={$userSettings.diffContrast}
+							inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
+						/>
+					</div>
+				</div>
 			{/if}
 		{:else if log.type === 'notice'}
 			{log.message}
@@ -57,7 +61,7 @@
 <div class="messages">
 	<ConfigurableScrollableContainer bind:this={scroller} autoScroll>
 		{#each logs || [] as log}
-			{@render rowTemplate(log)}
+			{@render logTemplate(log)}
 		{/each}
 	</ConfigurableScrollableContainer>
 </div>
@@ -71,9 +75,16 @@
 		font-family: var(--fontfamily-mono);
 		white-space: pre-wrap;
 		user-select: text;
-		padding: 2px 6px;
+		padding: 6px 12px;
 	}
 	.error {
 		background-color: var(--clr-scale-err-90);
+	}
+	.extra {
+		padding: 6px 0;
+	}
+	.diff {
+		padding: 6px 12px 12px 12px;
+		white-space: initial;
 	}
 </style>
