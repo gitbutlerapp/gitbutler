@@ -340,7 +340,13 @@
 			<div class="branch-review-section">
 				<div class="branch-action__line" style:--bg-color={lineColor}></div>
 				<div class="branch-review-container">
-					<BranchReview {projectId} stackId={stack.id} branchName={branch.name}>
+					<BranchReview
+						{projectId}
+						stackId={stack.id}
+						branchName={branch.name}
+						prNumber={branch.prNumber || undefined}
+						reviewId={branch.reviewId || undefined}
+					>
 						{#snippet branchStatus()}
 							<BranchStatus
 								{mergedIncorrectly}

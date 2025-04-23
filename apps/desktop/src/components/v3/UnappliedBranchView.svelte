@@ -1,5 +1,5 @@
 <script lang="ts">
-	import PullRequestCard from '$components/PullRequestCard.svelte';
+	import BranchReview from '$components/BranchReview.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import BranchDetails from '$components/v3/BranchDetails.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
@@ -74,7 +74,14 @@
 
 			<BranchDetails {branch}>
 				{#if preferredPrNumber}
-					<PullRequestCard {branchName} prNumber={preferredPrNumber} />
+					<!-- TODO(mattias): Use pr number from branch. -->
+					<BranchReview
+						{stackId}
+						{projectId}
+						{prNumber}
+						branchName={branch.name}
+						reviewId={branch.reviewId || undefined}
+					/>
 				{/if}
 			</BranchDetails>
 

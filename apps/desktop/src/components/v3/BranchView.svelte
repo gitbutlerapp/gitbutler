@@ -91,7 +91,13 @@
 
 			{#if hasCommits}
 				<BranchDetails {branch}>
-					<BranchReview {stackId} {projectId} branchName={branch.name} />
+					<BranchReview
+						{stackId}
+						{projectId}
+						branchName={branch.name}
+						prNumber={branch.prNumber || undefined}
+						reviewId={branch.reviewId || undefined}
+					/>
 				</BranchDetails>
 			{:else}
 				<div class="branch-view__empty-state">

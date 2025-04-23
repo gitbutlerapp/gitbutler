@@ -89,7 +89,8 @@
 									if (listing.stack) {
 										branchesSelection.set({
 											stackId: listing.stack.id,
-											branchName: listing.stack.branches.at(0)
+											branchName: listing.stack.branches.at(0),
+											prNumber: pr?.number
 										});
 									} else {
 										branchesSelection.set({

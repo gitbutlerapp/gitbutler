@@ -6,31 +6,29 @@
 
 	type Props = {
 		projectId: string;
-		stackId: string;
+		stackId?: string;
 		branchName: string | undefined;
+		prNumber?: number;
+		reviewId?: string;
 	};
 
-	const { projectId, stackId, branchName }: Props = $props();
+	const { projectId, stackId, branchName, prNumber, reviewId }: Props = $props();
 
 	const forge = getContext(DefaultForgeFactory);
 	const stackService = getContext(StackService);
 	const stackPublishingService = getContext(StackPublishingService);
 
 	const branch = $derived(
-		branchName ? stackService.branchByName(projectId, stackId, branchName) : undefined
+		stackId && branchName ? stackService.branchByName(projectId, stackId, branchName) : undefined
 	);
 
 	const commits = $derived(
-		branchName ? stackService.commits(projectId, stackId, branchName) : undefined
+		stackId && branchName ? stackService.commits(projectId, stackId, branchName) : undefined
 	);
 	const branchEmpty = $derived(commits?.current.data ? commits.current.data.length === 0 : false);
-	const [prNumber, reviewId, name] = $derived(
-		branch?.current.data
-			? [branch.current.data.prNumber, branch.current.data.reviewId, branch.current.data.name]
-			: [null, null, undefined]
-	);
+	const name = $derived(branch?.current.data ? branch.current.data.name : undefined);
 	const prService = $derived(forge.current.prService);
-	const prResult = $derived(prNumber !== null ? prService?.get(prNumber) : undefined);
+	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
 	const pr = $derived(prResult?.current.data);
 
 	const canPublish = stackPublishingService.canPublish;
