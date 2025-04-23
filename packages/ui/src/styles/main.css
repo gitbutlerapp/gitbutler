@@ -10,6 +10,7 @@
 /* SHARABLE */
 @import './sharable/markdown.css';
 @import './sharable/syntax-highlighting.css';
+@import './sharable/layout.css';
 
 /* COMPONENTS */
 @import './sharable/card.css';
