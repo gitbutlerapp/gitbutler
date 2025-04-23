@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ChecksPolling from '$components/ChecksPolling.svelte';
 	import PullRequestPolling from '$components/PullRequestPolling.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -38,27 +39,17 @@
 		hasParent?: boolean;
 		baseIsTargetBranch?: boolean;
 		parentIsPushed?: boolean;
-		hasChecks?: boolean;
-		checks?: Snippet<[DetailedPullRequest]>;
 		button?: Snippet<
 			[{ pr: DetailedPullRequest; mergeStatus: ButtonStatus; reopenStatus: ButtonStatus }]
 		>;
 	}
 
-	const {
-		poll,
-		prNumber,
-		isPushed,
-		hasParent,
-		baseIsTargetBranch,
-		parentIsPushed,
-		hasChecks,
-		checks,
-		button
-	}: Props = $props();
+	const { poll, prNumber, isPushed, hasParent, baseIsTargetBranch, parentIsPushed, button }: Props =
+		$props();
 
 	let contextMenuEl = $state<ReturnType<typeof ContextMenu>>();
 	let container = $state<HTMLElement>();
+	let hasChecks = $state(false);
 
 	const forge = getContext(DefaultForgeFactory);
 	const prService = $derived(forge.current.prService);
@@ -228,7 +219,14 @@
 		<div class="text-12 pr-row">
 			{#if !pr.closedAt && forge.current.checks}
 				<div class="factoid">
-					{@render checks?.(pr)}
+					{#if pr.state === 'open'}
+						<ChecksPolling
+							branchName={pr.sourceBranch}
+							isFork={pr.fork}
+							isMerged={pr.merged}
+							bind:hasChecks
+						/>
+					{/if}
 				</div>
 				<span class="seperator">•</span>
 			{/if}

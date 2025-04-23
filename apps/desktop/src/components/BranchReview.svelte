@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BranchReviewButRequest from '$components/BranchReviewButRequest.svelte';
+	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import ReviewCreation from '$components/ReviewCreation.svelte';
 	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
 	import StackedPullRequestCard from '$components/StackedPullRequestCard.svelte';
@@ -21,11 +22,13 @@
 	type Props = {
 		branchStatus?: Snippet;
 		projectId: string;
-		stackId: string;
+		stackId?: string;
 		branchName: string;
+		prNumber?: number;
+		reviewId?: string;
 	};
 
-	const { branchStatus, projectId, stackId, branchName }: Props = $props();
+	const { branchStatus, projectId, stackId, branchName, prNumber, reviewId }: Props = $props();
 
 	let canPublishReviewPlugin = $state<ReturnType<typeof CanPublishReviewPlugin>>();
 
@@ -33,15 +36,14 @@
 	const uiState = getContext(UiState);
 	const settingsService = getContext(SettingsService);
 	const settingsStore = settingsService.appSettings;
-	const commits = $derived(stackService.commits(projectId, stackId, branchName));
-
-	const branchConflicted = $derived(
-		commits.current.data?.some((commit) => commit.hasConflicts) || false
+	const commits = $derived(
+		stackId ? stackService.commits(projectId, stackId, branchName) : undefined
 	);
 
-	const pr = $derived(canPublishReviewPlugin?.imports.pr);
-	const prNumber = $derived(canPublishReviewPlugin?.imports.prNumber ?? undefined);
-	const reviewId = $derived(canPublishReviewPlugin?.imports.reviewId ?? undefined);
+	const branchConflicted = $derived(
+		commits?.current.data?.some((commit) => commit.hasConflicts) || false
+	);
+
 	const allowedToPublishBR = $derived(!!canPublishReviewPlugin?.imports.allowedToPublishBR);
 	const canPublishBR = $derived(!!canPublishReviewPlugin?.imports.canPublishBR);
 	const canPublishPR = $derived(!!canPublishReviewPlugin?.imports.canPublishPR);
@@ -71,59 +73,70 @@
 	const ctaDisabled = $derived(reviewCreation ? !reviewCreation.imports.creationEnabled : false);
 </script>
 
-<CanPublishReviewPlugin bind:this={canPublishReviewPlugin} {projectId} {stackId} {branchName} />
+<CanPublishReviewPlugin
+	bind:this={canPublishReviewPlugin}
+	{projectId}
+	{stackId}
+	{branchName}
+	{prNumber}
+	{reviewId}
+/>
 
-<Modal
-	width="small"
-	type="warning"
-	title="Create Pull Request"
-	bind:this={confirmCreatePrModal}
-	onSubmit={() => {
-		modal?.show();
-	}}
->
-	{#snippet children()}
-		<p class="text-13 text-body helper-text">
-			It's strongly recommended to create pull requests starting with the branch at the base of the
-			stack.
-			<br />
-			Do you still want to create this pull request?
-		</p>
-	{/snippet}
-	{#snippet controls(close)}
-		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="warning" type="submit">Create Pull Request</Button>
-	{/snippet}
-</Modal>
+{#if stackId}
+	<Modal
+		width="small"
+		type="warning"
+		title="Create Pull Request"
+		bind:this={confirmCreatePrModal}
+		onSubmit={() => {
+			modal?.show();
+		}}
+	>
+		{#snippet children()}
+			<p class="text-13 text-body helper-text">
+				It's strongly recommended to create pull requests starting with the branch at the base of
+				the stack.
+				<br />
+				Do you still want to create this pull request?
+			</p>
+		{/snippet}
+		{#snippet controls(close)}
+			<Button kind="outline" onclick={close}>Cancel</Button>
+			<Button style="warning" type="submit">Create Pull Request</Button>
+		{/snippet}
+	</Modal>
 
-<Modal bind:this={modal} title="Submit changes for review">
-	<ReviewCreation
-		bind:this={reviewCreation}
-		{projectId}
-		{stackId}
-		{branchName}
-		onClose={() => modal?.close()}
-	/>
-
-	{#snippet controls(close)}
-		<ReviewCreationControls
-			isSubmitting={!!reviewCreation?.imports.isLoading}
-			{ctaDisabled}
-			{canPublishBR}
-			{canPublishPR}
-			onCancel={close}
-			onSubmit={async () => {
-				await reviewCreation?.createReview();
-			}}
+	<Modal bind:this={modal} title="Submit changes for review">
+		<ReviewCreation
+			bind:this={reviewCreation}
+			{projectId}
+			{stackId}
+			{branchName}
+			onClose={() => modal?.close()}
 		/>
-	{/snippet}
-</Modal>
+
+		{#snippet controls(close)}
+			<ReviewCreationControls
+				isSubmitting={!!reviewCreation?.imports.isLoading}
+				{ctaDisabled}
+				{canPublishBR}
+				{canPublishPR}
+				onCancel={close}
+				onSubmit={async () => {
+					await reviewCreation?.createReview();
+				}}
+			/>
+		{/snippet}
+	</Modal>
+{/if}
 
 <div class="branch-action">
-	{#if pr || (reviewId && allowedToPublishBR)}
+	{#if prNumber || (reviewId && allowedToPublishBR)}
 		<div class="status-cards">
-			{#if prNumber}
+			{#if prNumber && stackId}
 				<StackedPullRequestCard {projectId} {stackId} {branchName} {prNumber} poll />
+			{:else if prNumber}
+				<PullRequestCard {branchName} {prNumber} poll />
 			{/if}
 			{#if reviewId && allowedToPublishBR}
 				<BranchReviewButRequest {reviewId} />

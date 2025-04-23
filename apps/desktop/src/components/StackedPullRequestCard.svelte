@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ChecksPolling from '$components/ChecksPolling.svelte';
 	import MergeButton from '$components/MergeButton.svelte';
 	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
@@ -69,8 +68,6 @@
 
 	const prUnit = $derived(prService?.unit.abbr);
 
-	let hasChecks = $state(false);
-
 	async function handleReopen() {
 		if (!pr) return;
 		await prService?.reopen(pr.number);
@@ -103,18 +100,8 @@
 		{hasParent}
 		{parentIsPushed}
 		{baseIsTargetBranch}
-		{hasChecks}
 		poll
 	>
-		{#snippet checks(pr)}
-			<ChecksPolling
-				{stackId}
-				branchName={pr.sourceBranch}
-				isFork={pr.fork}
-				isMerged={pr.merged}
-				bind:hasChecks
-			/>
-		{/snippet}
 		{#snippet button({ pr, mergeStatus, reopenStatus })}
 			{#if pr.state === 'open'}
 				<MergeButton
