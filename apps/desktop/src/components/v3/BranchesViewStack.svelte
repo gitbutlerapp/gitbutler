@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import BranchesViewBranch from '$components/v3/BranchesViewBranch.svelte';
+	import { getStackBranchNames } from '$lib/stacks/stack';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 
@@ -17,15 +18,10 @@
 </script>
 
 <ReduxResult result={stackResult.current} {projectId} {stackId}>
-	{#snippet children(stack, env)}
+	{#snippet children(stack, { stackId, projectId })}
 		<div class="flex flex-col gap-8">
-			{#each stack.branchNames || [] as branchName, idx}
-				<BranchesViewBranch
-					projectId={env.projectId}
-					stackId={env.stackId}
-					{branchName}
-					isTopBranch={idx === 0}
-				/>
+			{#each getStackBranchNames(stack) as branchName, idx}
+				<BranchesViewBranch {projectId} {stackId} {branchName} isTopBranch={idx === 0} />
 			{/each}
 		</div>
 	{/snippet}

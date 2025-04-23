@@ -20,7 +20,7 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use but_workspace::commit_engine::DiffSpec;
-use but_workspace::{commit_engine, StackEntry};
+use but_workspace::{commit_engine, stack_heads_info, StackEntry};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
@@ -110,7 +110,7 @@ pub fn create_virtual_branch(
     let repo = ctx.gix_repo()?;
     Ok(StackEntry {
         id: stack.id,
-        branch_names: stack.heads(false).into_iter().map(Into::into).collect(),
+        heads: stack_heads_info(&stack, &repo)?,
         tip: stack.head(&repo)?,
     })
 }

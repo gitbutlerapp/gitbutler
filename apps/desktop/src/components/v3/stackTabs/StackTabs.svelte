@@ -3,8 +3,8 @@
 	import StackTabDraft from '$components/v3/stackTabs/StackTabDraft.svelte';
 	import StackTabNew from '$components/v3/stackTabs/StackTabNew.svelte';
 	import { stackPath } from '$lib/routes/routes.svelte';
+	import { getStackBranchNames, getStackName, type Stack } from '$lib/stacks/stack';
 	import { onMount } from 'svelte';
-	import type { Stack } from '$lib/stacks/stack';
 
 	type Props = {
 		projectId: string;
@@ -46,17 +46,20 @@
 	{#if stacks.length > 0}
 		<div class="inner">
 			<div class="scroller" bind:this={scrollerEl} class:scrolled {onscroll}>
-				{#each stacks as stack, i (stack.branchNames[0])}
+				{#each stacks as stack, i (getStackName(stack))}
+					{@const stackName = getStackName(stack)}
+					{@const branchNames = getStackBranchNames(stack)}
+
 					{@const first = i === 0}
 					{@const last = i === stacks.length - 1}
 					{@const selected = stack.id === selectedId}
 
 					<StackTab
-						name={stack.branchNames[0]!}
+						name={stackName}
 						{projectId}
 						stackId={stack.id}
 						href={stackPath(projectId, stack.id)}
-						anchors={stack.branchNames.slice(1)}
+						anchors={branchNames.slice(1)}
 						{selected}
 						onNextTab={() => {
 							if (last) {

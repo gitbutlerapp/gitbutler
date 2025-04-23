@@ -4,6 +4,7 @@
 	import PageLoadFailed from '$components/PageLoadFailed.svelte';
 	import { GitBranchService } from '$lib/branches/gitBranch';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { getStackName } from '$lib/stacks/stack';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { BranchData } from '$lib/branches/branch';
@@ -24,7 +25,8 @@
 	let remoteBranches = $state<BranchData[]>([]);
 	let error = $state<unknown>();
 
-	const name = $derived(stackResult.current?.data?.branchNames[0]);
+	const stack = $derived(stackResult.current.data);
+	const name = $derived(stack ? getStackName(stack) : undefined);
 
 	const prResult = $derived(name ? forgeListingService?.getByBranch(projectId, name) : undefined);
 	const pr = $derived(prResult?.current.data);

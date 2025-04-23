@@ -84,7 +84,7 @@
 				branch: { name: draftBranchName }
 			});
 			finalStackId = stack.id;
-			finalBranchName = stack.branchNames[0];
+			finalBranchName = stack.heads[0]?.name; // Updated to access the name property
 		}
 
 		if (!finalStackId) {
