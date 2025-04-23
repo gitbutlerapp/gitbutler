@@ -45,7 +45,7 @@ export function isIrcPath() {
 	return isUrl<{ projectId: string }>('/[projectId]/irc');
 }
 
-export function isWorkspacePath() {
+export function isWorkspacePath(): { projectId: string; stackId?: string } | undefined {
 	const isStackUrl = isUrl<{ projectId: string; stackId?: string }>(
 		'/[projectId]/workspace/[stackId]'
 	);
