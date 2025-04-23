@@ -268,14 +268,16 @@
 			}}
 		/>
 	</ContextMenuSection>
-	<ContextMenuSection>
-		<ContextMenuItem
-			label="Log out"
-			onclick={async () => {
-				await userService.logout();
-			}}
-		/>
-	</ContextMenuSection>
+	{#if $user}
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Log out"
+				onclick={async () => {
+					await userService.logout();
+				}}
+			/>
+		</ContextMenuSection>
+	{/if}
 </ContextMenu>
 
 <KeyboardShortcutsModal bind:this={keyboardShortcutsModal} />
