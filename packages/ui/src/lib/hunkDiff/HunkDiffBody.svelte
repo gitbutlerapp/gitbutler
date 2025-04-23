@@ -4,6 +4,7 @@
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import {
 		type ContentSection,
+		type DependencyLock,
 		generateRows,
 		type LineId,
 		lineIdKey,
@@ -14,6 +15,7 @@
 		SectionType
 	} from '$lib/utils/diffParsing';
 	import type { LineSelectionParams } from '$lib/hunkDiff/lineSelection.svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		filePath: string;
@@ -35,6 +37,7 @@
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
 		clickOutsideExcludeElement?: HTMLElement;
 		comment?: string;
+		lockWarning?: Snippet<[DependencyLock[]]>;
 	}
 
 	const {
@@ -56,7 +59,8 @@
 		stagedLines,
 		hideCheckboxes,
 		handleLineContextMenu,
-		clickOutsideExcludeElement
+		clickOutsideExcludeElement,
+		lockWarning
 	}: Props = $props();
 
 	const lineSelection = new LineSelection();
@@ -177,6 +181,7 @@
 			staged={getStageState(row)}
 			{hideCheckboxes}
 			{handleLineContextMenu}
+			{lockWarning}
 		/>
 	{/each}
 </tbody>

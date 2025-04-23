@@ -10,12 +10,14 @@
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import {
 		type ContentSection,
+		type DependencyLock,
 		type LineId,
 		type LineLock,
 		type LineSelector,
 		parseHunk
 	} from '$lib/utils/diffParsing';
 	import type { ContextMenuParams } from '$lib/hunkDiff/HunkDiffRow.svelte';
+	import type { Snippet } from 'svelte';
 	interface Props {
 		filePath: string;
 		hunkStr: string;
@@ -38,6 +40,7 @@
 		onCopySelection?: (contentSections: ContentSection[]) => void;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
 		clickOutsideExcludeElement?: HTMLElement;
+		lockWarning?: Snippet<[DependencyLock[]]>;
 	}
 
 	const {
@@ -61,7 +64,8 @@
 		onQuoteSelection,
 		handleLineContextMenu,
 		clickOutsideExcludeElement,
-		draggingDisabled
+		draggingDisabled,
+		lockWarning
 	}: Props = $props();
 
 	const BORDER_WIDTH = 1;
@@ -154,6 +158,7 @@
 				{hideCheckboxes}
 				{handleLineContextMenu}
 				{clickOutsideExcludeElement}
+				{lockWarning}
 			/>
 		</table>
 	</ScrollableContainer>

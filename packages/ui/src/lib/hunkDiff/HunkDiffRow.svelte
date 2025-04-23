@@ -16,14 +16,17 @@
 	import Button from '$lib/Button.svelte';
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import InfoButton from '$lib/InfoButton.svelte';
 	import {
 		CountColumnSide,
 		isDeltaLine,
 		SectionType,
+		type DependencyLock,
 		type DiffFileLineId,
 		type Row
 	} from '$lib/utils/diffParsing';
 	import type LineSelection from '$lib/hunkDiff/lineSelection.svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		idx: number;
@@ -42,12 +45,13 @@
 		hideCheckboxes?: boolean;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
 		minWidth: number;
+		lockWarning?: Snippet<[DependencyLock[]]>;
 	}
 
 	const {
 		idx,
 		row,
-		clickable = false,
+		clickable: isClickable = false,
 		lineSelection,
 		tabSize,
 		wrapText,
@@ -60,7 +64,8 @@
 		staged,
 		hideCheckboxes,
 		handleLineContextMenu,
-		minWidth
+		minWidth,
+		lockWarning
 	}: Props = $props();
 
 	const touchDevice = isTouchDevice();
@@ -105,6 +110,7 @@
 	});
 
 	const locked = $derived(row.locks !== undefined && row.locks.length > 0);
+	const clickable = $derived(isClickable && !locked);
 </script>
 
 {#snippet countColumn(side: CountColumnSide)}
@@ -122,9 +128,9 @@
 		class:locked
 		style="--staging-column-width: {stagingColumnWidth}px; --number-col-width: {minWidth}rem;"
 		class:stagable={staged !== undefined && !hideCheckboxes}
-		onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
-		onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
-		onmouseup={() => lineSelection.onEnd()}
+		onmousedown={(ev) => !locked && lineSelection.onStart(ev, row, idx)}
+		onmouseenter={(ev) => !locked && lineSelection.onMoveOver(ev, row, idx)}
+		onmouseup={() => !locked && lineSelection.onEnd()}
 		oncontextmenu={(ev) => {
 			ev.preventDefault();
 			ev.stopPropagation();
@@ -161,9 +167,9 @@
 			class:is-last={row.isLast}
 			class:staged={staged && deltaLine}
 			class:locked
-			onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
-			onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
-			onmouseup={() => lineSelection.onEnd()}
+			onmousedown={(ev) => !locked && lineSelection.onStart(ev, row, idx)}
+			onmouseenter={(ev) => !locked && lineSelection.onMoveOver(ev, row, idx)}
+			onmouseup={() => !locked && lineSelection.onEnd()}
 			oncontextmenu={(ev) => {
 				ev.preventDefault();
 				ev.stopPropagation();
@@ -177,7 +183,16 @@
 			{#if deltaLine}
 				<div class="table__row-checkbox" class:locked>
 					{#if locked}
-						<Icon name="locked-small" />
+						{@const locks = row.locks}
+						{#if lockWarning && locks && locks.length > 0}
+							<div class="table__row-locks-info-button">
+								<InfoButton inheritColor size="small" icon="locked-small">
+									{@render lockWarning(locks)}
+								</InfoButton>
+							</div>
+						{:else}
+							<Icon name="locked-small" />
+						{/if}
 					{:else if staged}
 						<Checkbox checked={staged} small style="ghost" />
 					{:else}
@@ -447,5 +462,9 @@
 		&.locked {
 			color: var(--clr-diff-locked-count-text);
 		}
+	}
+
+	.table__row-locks-info-button {
+		pointer-events: all;
 	}
 </style>
