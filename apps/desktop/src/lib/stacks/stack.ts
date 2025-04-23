@@ -64,6 +64,13 @@ export function pushStatusToIcon(pushStatus: PushStatus): keyof typeof iconsJson
 	}
 }
 
+export function branchRefName(branch: BranchDetails): string {
+	if (branch.isRemoteHead) {
+		return `refs/remotes/${branch.name}`;
+	}
+	return `refs/heads/${branch.name}`;
+}
+
 export type BranchDetails = {
 	/** The name of the branch */
 	readonly name: string;
@@ -113,6 +120,8 @@ export type BranchDetails = {
 	 * The commits that are only upstream.
 	 */
 	upstreamCommits: UpstreamCommit[];
+	/** Whether the branch is representing a remote head */
+	isRemoteHead: boolean;
 };
 
 export type StackDetails = {

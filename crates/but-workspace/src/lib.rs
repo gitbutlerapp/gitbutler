@@ -268,6 +268,8 @@ pub struct BranchDetails {
     pub commits: Vec<Commit>,
     /// The commits that are only at the remote.
     pub upstream_commits: Vec<UpstreamCommit>,
+    /// Whether it's representing a remote head
+    pub is_remote_head: bool,
 }
 
 /// Information about the current state of a stack
@@ -389,6 +391,7 @@ pub fn stack_details(
             is_conflicted,
             commits,
             upstream_commits,
+            is_remote_head: false,
         });
 
         current_base = branch.head_oid(&repo)?;
@@ -418,7 +421,15 @@ pub fn branch_details(
 
     let default_target = state.get_default_target()?;
 
-    let branch = repository.find_branch(branch_name, git2::BranchType::Local)?;
+    let (branch, is_remote_head) = repository
+        .find_branch(branch_name, git2::BranchType::Local)
+        .map(|b| (b, false))
+        .or_else(|_| {
+            repository
+                .find_branch(branch_name, git2::BranchType::Remote)
+                .map(|b| (b, true))
+        })?;
+
     let Some(branch_oid) = branch.get().target() else {
         bail!("Branch points to nothing");
     };
@@ -517,6 +528,7 @@ pub fn branch_details(
         commits,
         upstream_commits,
         tip: branch_oid.to_gix(),
+        is_remote_head,
     })
 }
 
