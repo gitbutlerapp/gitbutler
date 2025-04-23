@@ -40,7 +40,8 @@ const BRANCH_DETAILS_A: BranchDetails = {
 	prNumber: null,
 	reviewId: null,
 	tip: 'tip-commit-a',
-	baseCommit: 'base-commit-a'
+	baseCommit: 'base-commit-a',
+	isRemoteHead: false
 };
 
 export function getStackServiceMock() {
