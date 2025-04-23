@@ -1,0 +1,99 @@
+{
+	"downloads": {
+		"appleSilicon": {
+			"id": "appleSilicon",
+			"url": "https://app.gitbutler.com/downloads/release/darwin/aarch64/dmg",
+			"label": "Apple Silicon"
+		},
+		"intelMac": {
+			"id": "intelMac",
+			"url": "https://app.gitbutler.com/downloads/release/darwin/x86_64/dmg",
+			"label": "Intel Mac"
+		},
+		"linuxAppimage": {
+			"id": "linuxAppimage",
+			"url": "https://app.gitbutler.com/downloads/release/linux/x86_64/gz",
+			"label": "Linux AppImage"
+		},
+		"linuxDeb": {
+			"id": "linuxDeb",
+			"url": "https://app.gitbutler.com/downloads/release/linux/x86_64/deb",
+			"label": "Linux DEB"
+		},
+		"windowsMsi": {
+			"id": "windowsMsi",
+			"url": "https://app.gitbutler.com/downloads/release/windows/x86_64/msi",
+			"label": "Windows MSI"
+		}
+	},
+	"resources": {
+		"github": {
+			"id": "github",
+			"url": "https://github.com/gitbutlerapp/gitbutler",
+			"label": "GitHub"
+		},
+		"documentation": {
+			"id": "documentation",
+			"url": "https://docs.gitbutler.com",
+			"label": "Documentation"
+		},
+		"blog": {
+			"id": "blog",
+			"url": "https://blog.gitbutler.com",
+			"label": "Blog"
+		}
+	},
+	"social": {
+		"discord": {
+			"id": "discord",
+			"url": "https://discord.com/invite/MmFkmaJ42D",
+			"label": "Discord"
+		},
+		"youtube": {
+			"id": "youtube",
+			"url": "https://www.youtube.com/@gitbutlerapp",
+			"label": "YouTube"
+		},
+		"x": {
+			"id": "x",
+			"url": "https://x.com/gitbutler",
+			"label": "X"
+		},
+		"instagram": {
+			"id": "instagram",
+			"url": "https://www.instagram.com/gitbutler",
+			"label": "Instagram"
+		},
+		"linkedin": {
+			"id": "linkedin",
+			"url": "https://www.linkedin.com/company/gitbutler",
+			"label": "LinkedIn"
+		}
+	},
+	"legal": {
+		"privacyPolicy": {
+			"id": "privacyPolicy",
+			"url": "https://app.termly.io/document/privacy-policy/a001c8b7-505b-4eab-81e3-fcd1c72bdd79",
+			"label": "Privacy Policy"
+		},
+		"termsOfService": {
+			"id": "termsOfService",
+			"url": "https://app.termly.io/document/terms-and-conditions/7924c71d-80bb-4444-9381-947237b9fc0f",
+			"label": "Terms of Use"
+		}
+	},
+	"events": {
+		"gitmerge": {
+			"id": "gitmerge",
+			"url": "https://git-merge.com",
+			"label": "Git Merge"
+		}
+	},
+	"other": {
+		"youtube-demo": {
+			"id": "youtube-demo",
+			"url": "https://youtu.be/agfyTN3HpRM?si=jVyMeMrWIaMa0Jdp",
+			"label": "YouTube Demo"
+		}
+	}
+}

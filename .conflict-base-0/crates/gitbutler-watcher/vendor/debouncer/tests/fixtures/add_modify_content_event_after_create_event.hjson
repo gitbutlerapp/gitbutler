@@ -1,0 +1,26 @@
+// https://github.com/spacedriveapp/spacedrive/blob/90a350946914be7f91ba692887ca03db659d530a/core/src/location/manager/watcher/macos.rs
+
+// MacOS emits a Create File and then an Update Content event when a file is created.
+{
+    state: {
+        queues: {
+            /watch/file: {
+                events: [
+                    { kind: "create-file", paths: ["*"] }
+                ]
+            }
+        }
+    }
+    events: [
+        { kind: "modify-data-content", paths: ["/watch/file"] }
+    ]
+    expected: {
+        queues: {
+            /watch/file: {
+                events: [
+                    { kind: "create-file", paths: ["*"] }
+                ]
+            }
+        }
+    }
+}

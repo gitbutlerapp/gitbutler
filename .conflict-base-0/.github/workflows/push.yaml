@@ -1,0 +1,180 @@
+name: 'Test'
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+env:
+  RUST_BACKTRACE: full
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      node: ${{ steps.filter.outputs.node }}
+      rust: ${{ steps.filter.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            workflows: &workflows
+              - '.github/workflows/**'
+              - '.github/actions/**'
+            docs:
+              - '**/*.md'
+            node:
+              - *workflows
+              - 'apps/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+            common-rust: &rust
+              - *workflows
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+            rust: &any-rust
+              - *rust
+              - 'crates/**'
+
+  prettier:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'false' &&  needs.changes.outputs.docs == 'true'}}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-node
+      - run: pnpm prettier
+
+  lint-node:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-node
+      - run: pnpm lint
+
+  check-node:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-node
+      - run: pnpm check
+
+  unittest-node:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-node
+      - run: pnpm test
+
+  rust-lint:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo fmt --check --all
+      - run: cargo check --workspace --all-targets
+
+  rust-docs:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      # TODO(qix-): we have to exclude the app here for now because for some
+      # TODO(qix-): reason it doesn't build with the docs feature enabled.
+      - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-git
+        env:
+          RUSTDOCFLAGS: -Dwarnings
+
+  rust-test:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.7.8
+        with:
+          shared-key: unix-rust-testing-v2
+      - run: |
+          sudo apt update
+          sudo apt install libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            cmake
+        name: Install Dependencies
+      - run: |
+          cargo test --workspace
+        env:
+          GITBUTLER_TESTS_NO_CLEANUP: '1'
+        name: cargo test
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+        name: cargo clippy
+      - run: |
+          set -e
+          cargo check -p gitbutler-tauri --no-default-features
+          for feature in devtools custom-protocol error-context; do
+            cargo check -p gitbutler-tauri --no-default-features --features "$feature"
+          done
+        name: Check Tauri App
+
+  check-rust:
+    if: always()
+    needs:
+      - changes
+      - check-rust-windows
+      - rust-test
+      - rust-lint
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        with:
+          allowed-skips: ${{ toJSON(needs) }}
+          jobs: ${{ toJSON(needs) }}
+
+  check-rust-windows:
+    needs: changes
+    runs-on: windows-latest
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v3
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.7.8
+        with:
+          shared-key: windows-rust-testing
+      - name: 'cargo check'
+        run: cargo check --workspace --all-targets --features windows

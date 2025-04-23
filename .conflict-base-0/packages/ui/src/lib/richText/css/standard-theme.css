@@ -1,0 +1,435 @@
+:root {
+	--markdown-generic-bottom-margin: 16px;
+}
+
+.lexical-container.plain-text {
+	--fontfamily-default: var(--fontfamily-mono);
+}
+
+/* text alignment */
+.StandardTheme__ltr {
+	text-align: left;
+}
+.StandardTheme__rtl {
+	text-align: right;
+}
+
+/* headers */
+.StandardTheme__h1,
+.StandardTheme__h2,
+.StandardTheme__h3 {
+	font-family: var(--fontfamily-default);
+	font-weight: var(--text-weight-bold);
+	line-height: var(--text-lineheight-heading);
+	margin-bottom: 12px;
+}
+
+.StandardTheme__h1 {
+	font-size: 24px;
+}
+.StandardTheme__h2 {
+	font-size: 22px;
+}
+.StandardTheme__h3 {
+	font-size: 20px;
+}
+
+.StandardTheme__paragraph {
+	font-family: var(--fontfamily-default);
+	font-size: var(--lexical-default-font-size);
+	font-weight: var(--text-weight-regular);
+	line-height: var(--text-lineheight-body);
+	margin-bottom: var(--markdown-generic-bottom-margin);
+	text-wrap: var(--lexical-input-client-text-wrap, normal);
+}
+
+.StandardTheme__quote {
+	position: relative;
+	font-family: var(--fontfamily-default);
+	font-size: var(--lexical-default-font-size);
+	font-weight: var(--text-weight-regular);
+	line-height: var(--text-lineheight-body);
+	padding: 8px 8px 8px 16px;
+	border-radius: var(--radius-m);
+	background-color: var(--clr-bg-2);
+	overflow: hidden;
+	margin-bottom: var(--markdown-generic-bottom-margin);
+
+	& > span {
+		opacity: 0.6;
+	}
+
+	&:before {
+		content: '';
+		display: block;
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 4px;
+		height: 100%;
+		background-color: var(--clr-border-1);
+	}
+}
+
+.StandardTheme__indent {
+	--lexical-indent-base-value: 40px;
+}
+
+.StandardTheme__textBold {
+	font-weight: bold;
+}
+
+.StandardTheme__textItalic {
+	font-style: italic;
+}
+
+.StandardTheme__textUnderline {
+	text-decoration: underline;
+}
+
+.StandardTheme__textStrikethrough {
+	text-decoration: line-through;
+}
+
+.StandardTheme__textUnderlineStrikethrough {
+	text-decoration: underline line-through;
+}
+
+.StandardTheme__textSubscript {
+	font-size: 0.8em;
+	vertical-align: sub !important;
+}
+
+.StandardTheme__textSuperscript {
+	font-size: 0.8em;
+	vertical-align: super;
+}
+
+.StandardTheme__textCode {
+	background-color: var(--clr-theme-ntrl-soft);
+	padding: 2px 3px;
+	font-family: var(--fontfamily-mono);
+	font-size: 96%;
+	border-radius: var(--radius-s);
+}
+
+.StandardTheme__hashtag {
+	background-color: rgba(88, 144, 255, 0.15);
+	border-bottom: 1px solid rgba(88, 144, 255, 0.3);
+}
+
+.StandardTheme__link {
+	cursor: pointer;
+	color: rgb(33, 111, 219);
+	text-decoration: underline;
+}
+
+.StandardTheme__link:hover {
+	text-decoration: none;
+}
+
+.StandardTheme__blockCursor {
+	display: block;
+	pointer-events: none;
+	position: absolute;
+}
+.StandardTheme__blockCursor:after {
+	content: '';
+	display: block;
+	position: absolute;
+	top: -2px;
+	width: 20px;
+	border-top: 1px solid black;
+	animation: CursorBlink 1.1s steps(2, start) infinite;
+}
+
+@keyframes CursorBlink {
+	to {
+		visibility: hidden;
+	}
+}
+
+/* CODE */
+.StandardTheme__code {
+	background-color: var(--clr-bg-1);
+	font-family: var(--fontfamily-mono);
+	display: block;
+	padding: 8px 8px 8px 46px;
+	line-height: 1.53;
+	font-size: var(--lexical-default-font-size);
+	margin-top: 8px;
+	margin-bottom: var(--markdown-generic-bottom-margin);
+	overflow-x: auto;
+	position: relative;
+	tab-size: 2;
+	border-radius: var(--radius-m);
+	border: 1px solid var(--clr-border-2);
+}
+
+.StandardTheme__code:before {
+	content: attr(data-gutter);
+	position: absolute;
+	background-color: var(--clr-bg-1);
+	left: 0;
+	top: 0;
+	border-right: 1px solid var(--clr-border-2);
+	padding: 8px;
+	color: var(--clr-text-2);
+	letter-spacing: -1px;
+	white-space: pre-wrap;
+	text-align: right;
+	min-width: 25px;
+	opacity: 0.6;
+}
+
+/* TABLES */
+.StandardTheme__table {
+	border-collapse: collapse;
+	border-spacing: 0;
+	overflow-y: scroll;
+	overflow-x: scroll;
+	table-layout: fixed;
+	width: max-content;
+	margin: 0px 25px 30px 0px;
+}
+
+.StandardTheme__tableSelection *::selection {
+	background-color: transparent;
+}
+
+.StandardTheme__tableSelected {
+	outline: 2px solid rgb(60, 132, 244);
+}
+
+.StandardTheme__tableCell {
+	border: 1px solid #bbb;
+	width: 75px;
+	min-width: 75px;
+	vertical-align: top;
+	text-align: start;
+	padding: 6px 8px;
+	position: relative;
+	outline: none;
+}
+
+.StandardTheme__tableCellSortedIndicator {
+	display: block;
+	opacity: 0.5;
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 100%;
+	height: 4px;
+	background-color: #999;
+}
+
+.StandardTheme__tableCellResizer {
+	position: absolute;
+	right: -4px;
+	height: 100%;
+	width: 8px;
+	cursor: ew-resize;
+	z-index: 10;
+	top: 0;
+}
+
+/* LISTS */
+.StandardTheme__ul,
+.StandardTheme__ol1,
+.StandardTheme__ol2,
+.StandardTheme__ol3,
+.StandardTheme__ol4,
+.StandardTheme__ol5 {
+	display: block;
+	font-family: var(--fontfamily-default);
+	font-size: var(--lexical-default-font-size);
+	line-height: var(--text-lineheight-body);
+	margin-top: 4px;
+	margin-bottom: 16px;
+}
+
+.StandardTheme__ul {
+	list-style-position: outside;
+	list-style-type: disc;
+}
+
+.StandardTheme__listItem {
+	margin: 0 20px;
+	padding-left: 4px;
+	margin-bottom: 2px;
+}
+
+/* Numbered nested lists */
+.StandardTheme__ol1 {
+	list-style-type: decimal;
+}
+
+.StandardTheme__ol2 {
+	list-style-type: upper-alpha;
+}
+
+.StandardTheme__ol3 {
+	list-style-type: lower-alpha;
+}
+
+.StandardTheme__ol4 {
+	list-style-type: upper-roman;
+}
+
+.StandardTheme__ol5 {
+	list-style-type: lower-roman;
+}
+
+.StandardTheme__listItemChecked,
+.StandardTheme__listItemUnchecked {
+	position: relative;
+	margin-left: 3px;
+	padding-left: 24px;
+	padding-right: 24px;
+	list-style-type: none;
+	outline: none;
+}
+
+.StandardTheme__listItemChecked {
+	text-decoration: line-through;
+}
+
+.StandardTheme__listItemUnchecked:before,
+.StandardTheme__listItemChecked:before {
+	content: '';
+	width: 14px;
+	height: 14px;
+	border-radius: var(--radius-s);
+	top: 3px;
+	left: 0;
+	cursor: pointer;
+	display: block;
+	position: absolute;
+}
+
+.StandardTheme__listItemUnchecked[dir='rtl']:before,
+.StandardTheme__listItemChecked[dir='rtl']:before {
+	left: auto;
+	right: 0;
+}
+
+.StandardTheme__listItemUnchecked:focus-within:before,
+.StandardTheme__listItemChecked:focus-within:before {
+	outline: 1px solid var(--focus-color);
+	outline-offset: 1px;
+}
+
+.StandardTheme__listItemUnchecked:before {
+	border: 1px solid var(--clr-border-2);
+}
+
+.StandardTheme__listItemChecked:before {
+	background-color: var(--clr-theme-pop-element);
+	border: 1px solid var(--clr-theme-pop-element);
+	background-repeat: no-repeat;
+}
+
+.StandardTheme__listItemChecked:after {
+	content: '';
+	cursor: pointer;
+	border-color: #fff;
+	position: absolute;
+	display: block;
+	top: 5px;
+	left: 5px;
+	right: 7px;
+	width: 5px;
+	height: 8px;
+	transform: rotate(45deg);
+	border-width: 0 2px 2px 0;
+	border-bottom-right-radius: 2px;
+}
+
+.StandardTheme__nestedListItem {
+	list-style-type: none;
+}
+
+.StandardTheme__nestedListItem:before,
+.StandardTheme__nestedListItem:after {
+	display: none;
+}
+
+/* CODE LINES */
+.StandardTheme__tokenComment {
+	color: slategray;
+}
+
+.StandardTheme__tokenPunctuation {
+	color: #999;
+}
+
+.StandardTheme__tokenProperty {
+	color: #905;
+}
+
+.StandardTheme__tokenSelector {
+	color: #690;
+}
+
+.StandardTheme__tokenOperator {
+	color: #9a6e3a;
+}
+
+.StandardTheme__tokenAttr {
+	color: #07a;
+}
+
+.StandardTheme__tokenVariable {
+	color: #e90;
+}
+
+.StandardTheme__tokenFunction {
+	color: #dd4a68;
+}
+
+.StandardTheme__mark {
+	background: rgba(255, 212, 0, 0.14);
+	border-bottom: 2px solid rgba(255, 212, 0, 0.3);
+	padding-bottom: 2px;
+}
+
+.StandardTheme__markOverlap {
+	background: rgba(255, 212, 0, 0.3);
+	border-bottom: 2px solid rgba(255, 212, 0, 0.7);
+}
+
+.StandardTheme__mark.selected {
+	background: rgba(255, 212, 0, 0.5);
+	border-bottom: 2px solid rgba(255, 212, 0, 1);
+}
+
+.StandardTheme__markOverlap.selected {
+	background: rgba(255, 212, 0, 0.7);
+	border-bottom: 2px solid rgba(255, 212, 0, 0.7);
+}
+
+.StandardTheme__autocomplete {
+	color: #ccc;
+}
+
+/* DIVIDER */
+.StandardTheme__hr {
+	padding: 4px 0;
+	border: none;
+	margin: 20px 0;
+}
+
+.StandardTheme__hr:after {
+	content: '';
+	display: block;
+	height: 1px;
+	background-color: var(--clr-border-2);
+}
+
+.StandardTheme__hr.selected {
+	outline: 2px solid rgb(60, 132, 244);
+	user-select: none;
+}
+
+/* TODO: unify with .mardown styles */
+/* currently used to render the markdown preview */

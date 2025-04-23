@@ -1,0 +1,48 @@
+[package]
+name = "gitbutler-repo"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+autotests = false
+
+[dependencies]
+git2.workspace = true
+git2-hooks = "0.4"
+gix = { workspace = true, features = ["merge", "status", "tree-editor"] }
+anyhow = "1.0.95"
+bstr.workspace = true
+tracing.workspace = true
+tempfile.workspace = true
+serde = { workspace = true, features = ["std"] }
+thiserror.workspace = true
+resolve-path = "0.1.0"
+gitbutler-command-context.workspace = true
+gitbutler-config.workspace = true
+gitbutler-project.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-error.workspace = true
+gitbutler-commit.workspace = true
+gitbutler-url.workspace = true
+gitbutler-cherry-pick.workspace = true
+gitbutler-oxidize.workspace = true
+gitbutler-diff.workspace = true
+but-rebase.workspace = true
+but-core.workspace = true
+uuid.workspace = true
+itertools = "0.14"
+toml.workspace = true
+base64 = "0.22.1"
+infer = "0.19.0"
+scopeguard = "1.2.0"
+
+[[test]]
+name = "repo"
+path = "tests/mod.rs"
+
+[dev-dependencies]
+gitbutler-testsupport.workspace = true
+gitbutler-user.workspace = true
+but-settings.workspace = true
+serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
+insta.workspace = true

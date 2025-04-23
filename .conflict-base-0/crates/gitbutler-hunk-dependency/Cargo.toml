@@ -1,0 +1,21 @@
+[package]
+name = "gitbutler-hunk-dependency"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+autotests = false
+
+[dependencies]
+anyhow = "1.0.95"
+git2.workspace = true
+gitbutler-diff.workspace = true
+gitbutler-serde.workspace = true
+gitbutler-stack.workspace = true
+gitbutler-id.workspace = true
+itertools = "0.14"
+serde = { workspace = true, features = ["std"] }
+
+[[test]]
+name = "hunk-dependency"
+path = "tests/mod.rs"

@@ -1,0 +1,23 @@
+[package]
+name = "gitbutler-branch"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+autotests = false
+
+[dependencies]
+anyhow = "1.0.95"
+git2.workspace = true
+gix = { workspace = true, features = [] }
+gitbutler-reference.workspace = true
+gitbutler-diff.workspace = true
+gitbutler-stack.workspace = true
+itertools = "0.14"
+serde = { workspace = true, features = ["std"] }
+bstr.workspace = true
+lazy_static = "1.4.0"
+
+[[test]]
+name = "branch"
+path = "tests/mod.rs"
