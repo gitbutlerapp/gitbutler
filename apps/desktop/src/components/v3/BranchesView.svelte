@@ -76,7 +76,7 @@
 								}
 							: undefined}
 						onclick={() => {
-							branchesSelection.set({ branchName: baseBranch.branchName });
+							branchesSelection.set({ branchName: baseBranch.shortName });
 						}}
 					/>
 				</BranchesListGroup>
@@ -85,14 +85,17 @@
 						{#if sidebarEntrySubject.type === 'branchListing'}
 							<BranchListingSidebarEntry
 								{projectId}
-								onclick={(listing) => {
+								onclick={({ listing, pr }) => {
 									if (listing.stack) {
 										branchesSelection.set({
 											stackId: listing.stack.id,
 											branchName: listing.stack.branches.at(0)
 										});
 									} else {
-										branchesSelection.set({ branchName: listing.name });
+										branchesSelection.set({
+											branchName: listing.name,
+											prNumber: pr?.number
+										});
 									}
 								}}
 								branchListing={sidebarEntrySubject.subject}
@@ -126,11 +129,12 @@
 						{projectId}
 						branchName={current.branchName}
 						stackId={current.stackId}
+						prNumber={current.prNumber}
 					/>
 				{/if}
 			</div>
 			<div class="branch-details" bind:this={rightDiv} style:width={rightWidth.current + 'rem'}>
-				{#if current.branchName === baseBranch.branchName}
+				{#if current.branchName === baseBranch.shortName}
 					<ReduxResult {projectId} result={baseBranchResult.current}>
 						{#snippet children(baseBranch)}
 							{@const branchName = baseBranch.branchName}

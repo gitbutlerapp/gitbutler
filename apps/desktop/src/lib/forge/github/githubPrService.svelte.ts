@@ -20,6 +20,7 @@ import type { GitHubApi } from '$lib/state/clientState.svelte';
 import type { StartQueryActionCreatorOptions } from '@reduxjs/toolkit/query';
 
 export class GitHubPrService implements ForgePrService {
+	readonly unit = { name: 'Pull request', abbr: 'PR', symbol: '#' };
 	loading = writable(false);
 	private api: ReturnType<typeof injectEndpoints>;
 

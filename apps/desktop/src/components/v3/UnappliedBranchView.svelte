@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import BranchDetails from '$components/v3/BranchDetails.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
@@ -14,9 +15,10 @@
 		projectId: string;
 		branchName: string;
 		stackId?: string;
+		prNumber?: number;
 	}
 
-	const { projectId, stackId, branchName }: Props = $props();
+	const { projectId, stackId, branchName, prNumber }: Props = $props();
 
 	const [stackService] = inject(StackService);
 
@@ -36,6 +38,7 @@
 	{#snippet children(branch, { stackId, projectId })}
 		{@const hasCommits = branch.commits.length > 0}
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
+		{@const preferredPrNumber = branch.prNumber || prNumber}
 		<Drawer {projectId} {stackId}>
 			{#snippet header()}
 				<div class="branch__header">
@@ -69,9 +72,11 @@
 				/>
 			{/snippet}
 
-			{#if hasCommits}
-				<BranchDetails {branch} />
-			{/if}
+			<BranchDetails {branch}>
+				{#if preferredPrNumber}
+					<PullRequestCard {branchName} prNumber={preferredPrNumber} />
+				{/if}
+			</BranchDetails>
 
 			{#snippet filesSplitView()}
 				<ReduxResult {projectId} result={changesResult.current}>
