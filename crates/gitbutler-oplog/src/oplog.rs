@@ -900,6 +900,11 @@ fn tree_from_applied_vbranches(
     let snapshot_commit = repo.find_commit(git2_to_gix_object_id(snapshot_commit_id))?;
     let snapshot_tree = snapshot_commit.tree()?;
 
+    // If the `worktree` subtree is available, we should return that instead
+    if let Some(tree) = snapshot_tree.lookup_entry_by_path("worktree")? {
+        return Ok(tree.id().to_git2());
+    }
+
     let target_tree_entry = snapshot_tree
         .lookup_entry_by_path("target_tree")?
         .context("no entry at 'target_entry'")?;
