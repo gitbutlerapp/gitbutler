@@ -5,7 +5,7 @@ import { defineConfig, type Plugin } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [
-		process.env.IS_MATTIAS ? debounceReload() : undefined,
+		process.env.VITE_DEBOUNCE_RELOAD ? debounceReload() : undefined,
 		sentrySvelteKit({
 			adapter: 'other',
 			autoInstrument: {
