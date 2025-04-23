@@ -21,17 +21,13 @@ export class WorktreeService {
 	/** Fetches and subscribes to a list of uncommitted changes. */
 	getChanges(projectId: string) {
 		const { getChanges } = this.api.endpoints;
-		const result = $derived(getChanges.useQuery({ projectId }, { transform: selectAll }));
-		return result;
+		return getChanges.useQuery({ projectId }, { transform: selectAll });
 	}
 
 	/** Gets a specific change from any existing set of results. */
 	getChange(projectId: string, path: string) {
 		const { getChanges } = this.api.endpoints;
-		const result = $derived(
-			getChanges.useQueryState({ projectId }, { transform: (res) => selectById(res, path)! })
-		);
-		return result;
+		return getChanges.useQueryState({ projectId }, { transform: (res) => selectById(res, path)! });
 	}
 
 	/** Gets a set of changes by the given paths */
@@ -41,6 +37,12 @@ export class WorktreeService {
 			getChanges.useQueryState({ projectId }, { transform: (res) => selectByIds(res, paths) })
 		);
 		return result;
+	}
+
+	/** Gets the timestamp of the last time the changes were fetched */
+	getChangesTimeStamp(projectId: string) {
+		const { getChanges } = this.api.endpoints;
+		return getChanges.useQueryTimeStamp({ projectId });
 	}
 }
 

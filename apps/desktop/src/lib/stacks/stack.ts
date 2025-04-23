@@ -2,17 +2,51 @@ import type { Author, Commit, UpstreamCommit } from '$lib/branches/v3';
 import type { CellType } from '@gitbutler/ui/commitLines/types';
 import type iconsJson from '@gitbutler/ui/data/icons.json';
 
+export type StackHeadInfo = {
+	/**
+	 * The name of the branch
+	 */
+	readonly name: string;
+	/**
+	 * The commit hash of the tip of the branch
+	 */
+	readonly tip: string;
+};
+
 /**
  * Return type of Tauri `stacks` command.
  */
 export type Stack = {
+	/**
+	 * The id of the stack.
+	 */
 	id: string;
-	branchNames: string[];
+	/**
+	 * Information about the branches contained in the stack.
+	 */
+	heads: StackHeadInfo[];
+	/**
+	 * The commit hash of the tip of the stack.
+	 */
+	tip: string;
 };
 
-export function getStackName(stack: Stack): string | undefined {
-	const lastBranch = stack.branchNames[stack.branchNames.length - 1];
+/**
+ * Returns the name of the stack.
+ *
+ * This is the name of the top-most branch in the stack.
+ */
+export function getStackName(stack: Stack): string {
+	if (stack.heads.length === 0) {
+		// Should not happen
+		throw new Error('Stack has no heads');
+	}
+	const lastBranch = stack.heads.at(0)!.name;
 	return lastBranch;
+}
+
+export function getStackBranchNames(stack: Stack): string[] {
+	return stack.heads.map((head) => head.name);
 }
 
 /** Represents the pushable status for the current stack */

@@ -60,8 +60,6 @@ pub fn branch_details(
 
 /// Retrieve all changes in the workspace and associate them with commits in the Workspace of `project_id`.
 /// NOTE: right now there is no way to keep track of unassociated hunks.
-// TODO: This probably has to change a lot once it's clear how the UI is going to use it.
-//       Right now this is only a port from the V2 UI, and that data structure was never used directly.
 #[tauri::command(async)]
 #[instrument(skip(projects, settings), err(Debug))]
 pub fn hunk_dependencies_for_workspace_changes(

@@ -99,17 +99,28 @@ pub struct WorkspaceCommit<'repo> {
 /// An ID uniquely identifying stacks.
 pub use gitbutler_stack::StackId;
 
+/// The information about the branch inside a stack
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StackHeadInfo {
+    /// The name of the branch.
+    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    pub name: BString,
+    /// The tip of the branch.
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub tip: gix::ObjectId,
+}
+
 /// Represents a lightweight version of a [`gitbutler_stack::Stack`] for listing.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StackEntry {
     /// The ID of the stack.
     pub id: StackId,
-    /// The list of the branch names that are part of the stack.
+    /// The list of the branch information that are part of the stack.
     /// The list is never empty.
     /// The first entry in the list is always the most recent branch on top the stack.
-    #[serde(with = "gitbutler_serde::bstring_vec_lossy")]
-    pub branch_names: Vec<BString>,
+    pub heads: Vec<StackHeadInfo>,
     /// The tip of the top-most branch, i.e. the most recent commit that would become the parent of new commits of the topmost stack branch.
     #[serde(with = "gitbutler_serde::object_id")]
     pub tip: gix::ObjectId,
@@ -118,7 +129,9 @@ pub struct StackEntry {
 impl StackEntry {
     /// The name of the stack, which is the name of the top-most branch.
     pub fn name(&self) -> Option<&BStr> {
-        self.branch_names.last().map(AsRef::<BStr>::as_ref)
+        self.heads
+            .first()
+            .map(|head| AsRef::<BStr>::as_ref(&head.name))
     }
 }
 
@@ -132,6 +145,24 @@ pub enum StacksFilter {
     InWorkspace,
     /// Show only unapplied stacks
     Unapplied,
+}
+
+/// Returns the list of branch information for the branches in a stack.
+pub fn stack_heads_info(stack: &Stack, repo: &gix::Repository) -> Result<Vec<StackHeadInfo>> {
+    let branches = stack
+        .branches()
+        .into_iter()
+        .rev()
+        .filter_map(|branch| {
+            let tip = branch.head_oid(repo).ok()?;
+            Some(StackHeadInfo {
+                name: branch.name().to_owned().into(),
+                tip,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    Ok(branches)
 }
 
 /// Returns the list of stacks that are currently part of the workspace.
@@ -177,12 +208,7 @@ pub fn stacks(
         .map(|stack| {
             Ok(StackEntry {
                 id: stack.id,
-                branch_names: stack
-                    .heads(true)
-                    .into_iter()
-                    .rev()
-                    .map(Into::into)
-                    .collect(),
+                heads: stack_heads_info(&stack, repo)?,
                 tip: stack.head(repo)?,
             })
         })

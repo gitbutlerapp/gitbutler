@@ -9,7 +9,14 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
     {
       "diffs": [
         [
-          15989967088397270668,
+          "file",
+          {
+            "oldStart": 3,
+            "oldLines": 1,
+            "newStart": 3,
+            "newLines": 2,
+            "diff": "@@ -3,1 +3,2 @@\n-2\n+aaaaa\n+aaaaa\n"
+          },
           [
             {
               "stackId": "stack_1",
@@ -18,7 +25,14 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
           ]
         ],
         [
-          8240534308515296008,
+          "file",
+          {
+            "oldStart": 7,
+            "oldLines": 2,
+            "newStart": 8,
+            "newLines": 1,
+            "diff": "@@ -7,2 +8,1 @@\n-update 7\n-update 8\n+aaaaa\n"
+          },
           [
             {
               "stackId": "stack_1",
@@ -35,7 +49,14 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
           ]
         ],
         [
-          18120254504138851193,
+          "file",
+          {
+            "oldStart": 10,
+            "oldLines": 1,
+            "newStart": 10,
+            "newLines": 2,
+            "diff": "@@ -10,1 +10,2 @@\n-added at the bottom\n+update bottom\n+add another line\n"
+          },
           [
             {
               "stackId": "stack_1",
@@ -54,20 +75,20 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
 fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
     let (actual, _ctx) =
         hunk_dependencies_for_workspace("complex-file-manipulation-with-worktree-changes")?;
-    insta::assert_snapshot!(to_stable_string(actual), @r"
+    insta::assert_snapshot!(to_stable_string(actual), @r#"
     StableHunkDependencies {
         diffs: [
             (
-                5660422847701176503,
-                [
-                    HunkLock {
-                        stack_id: stack_1,
-                        commit_id: Sha1(be6a4b2f1372586f4f1f434abea8087634b54148),
-                    },
-                ],
-            ),
-            (
-                6048968734524995517,
+                "file",
+                DiffHunk("@@ -2,4 +2,3 @@
+                -e
+                -1
+                -2
+                -3
+                +updated line 3
+                +updated line 4
+                +updated line 5
+                "),
                 [
                     HunkLock {
                         stack_id: stack_1,
@@ -79,10 +100,23 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                     },
                 ],
             ),
+            (
+                "file_2",
+                DiffHunk("@@ -4,1 +4,1 @@
+                -d
+                +updated d
+                "),
+                [
+                    HunkLock {
+                        stack_id: stack_1,
+                        commit_id: Sha1(be6a4b2f1372586f4f1f434abea8087634b54148),
+                    },
+                ],
+            ),
         ],
         errors: [],
     }
-    ");
+    "#);
     Ok(())
 }
 
@@ -90,11 +124,30 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
 fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow::Result<()> {
     let (actual, _ctx) =
         hunk_dependencies_for_workspace("complex-file-manipulation-multiple-hunks-with-changes")?;
-    insta::assert_snapshot!(to_stable_string(actual), @r"
+    insta::assert_snapshot!(to_stable_string(actual), @r#"
     StableHunkDependencies {
         diffs: [
             (
-                8240534308515296008,
+                "file",
+                DiffHunk("@@ -3,1 +3,2 @@
+                -2
+                +aaaaa
+                +aaaaa
+                "),
+                [
+                    HunkLock {
+                        stack_id: stack_1,
+                        commit_id: Sha1(4bc98513b032b5992b85be8dd551e841bf959a3f),
+                    },
+                ],
+            ),
+            (
+                "file",
+                DiffHunk("@@ -7,2 +8,1 @@
+                -update 7
+                -update 8
+                +aaaaa
+                "),
                 [
                     HunkLock {
                         stack_id: stack_1,
@@ -111,16 +164,12 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 ],
             ),
             (
-                15989967088397270668,
-                [
-                    HunkLock {
-                        stack_id: stack_1,
-                        commit_id: Sha1(4bc98513b032b5992b85be8dd551e841bf959a3f),
-                    },
-                ],
-            ),
-            (
-                18120254504138851193,
+                "file",
+                DiffHunk("@@ -10,1 +10,2 @@
+                -added at the bottom
+                +update bottom
+                +add another line
+                "),
                 [
                     HunkLock {
                         stack_id: stack_1,
@@ -131,18 +180,22 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
         ],
         errors: [],
     }
-    ");
+    "#);
     Ok(())
 }
 
 #[test]
 fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
     let (actual, _ctx) = hunk_dependencies_for_workspace("merge-commit")?;
-    insta::assert_snapshot!(to_stable_string(actual), @r"
+    insta::assert_snapshot!(to_stable_string(actual), @r#"
     StableHunkDependencies {
         diffs: [
             (
-                2654316029522724523,
+                "file",
+                DiffHunk("@@ -8,1 +8,1 @@
+                -update line 8
+                +update line 8 again
+                "),
                 [
                     HunkLock {
                         stack_id: stack_1,
@@ -153,14 +206,14 @@ fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
         ],
         errors: [],
     }
-    ");
+    "#);
     Ok(())
 }
 
 mod util {
+    use but_core::unified_diff::DiffHunk;
     use but_hunk_dependency::ui::{
-        HunkDependencies, HunkHash, HunkLock,
-        hunk_dependencies_for_workspace_changes_by_worktree_dir,
+        HunkDependencies, HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir,
     };
     use gitbutler_command_context::CommandContext;
     use gitbutler_stack::StackId;
@@ -218,7 +271,7 @@ mod util {
     #[allow(dead_code)]
     #[allow(clippy::type_complexity)]
     pub struct StableHunkDependencies {
-        pub diffs: Vec<(HunkHash, Vec<HunkLock>)>,
+        pub diffs: Vec<(String, DiffHunk, Vec<HunkLock>)>,
         pub errors: Vec<but_hunk_dependency::CalculationError>,
     }
 
@@ -226,7 +279,14 @@ mod util {
         fn from(HunkDependencies { diffs, errors }: HunkDependencies) -> Self {
             #[allow(clippy::type_complexity)]
             StableHunkDependencies {
-                diffs: diffs.into_iter().sorted_by_key(|t| t.0).collect(),
+                diffs: diffs
+                    .into_iter()
+                    .sorted_by(|a, b| {
+                        Ord::cmp(&a.0, &b.0)
+                            .then_with(|| Ord::cmp(&a.1.old_start, &b.1.old_start))
+                            .then_with(|| Ord::cmp(&a.1.new_start, &b.1.new_start))
+                    })
+                    .collect(),
                 errors,
             }
         }
@@ -271,7 +331,7 @@ mod util {
     pub fn stack_ids_by_diffs(deps: &HunkDependencies) -> HashSet<StackId> {
         deps.diffs
             .iter()
-            .flat_map(|(_, locks)| locks.iter().map(|lock| lock.stack_id))
+            .flat_map(|(_, _, locks)| locks.iter().map(|lock| lock.stack_id))
             .collect()
     }
 }
