@@ -10,10 +10,11 @@
 		title?: string;
 		size?: 'small' | 'medium';
 		icon?: keyof typeof iconsJson;
+		inheritColor?: boolean;
 		children: Snippet;
 	}
 
-	const { title, size = 'medium', icon, children }: Props = $props();
+	const { title, size = 'medium', icon, children, inheritColor }: Props = $props();
 
 	let targetEl: HTMLElement | undefined = $state();
 	let show = $state(false);
@@ -60,7 +61,7 @@
 	onmouseleave={handleMouseLeave}
 >
 	{#if icon}
-		<div class="info-custom-icon">
+		<div class="info-custom-icon" class:inherit-color={inheritColor}>
 			<Icon name={icon} />
 		</div>
 	{:else}
@@ -109,6 +110,10 @@
 
 		&:hover {
 			opacity: 0.7;
+		}
+
+		&.inherit-color {
+			color: inherit;
 		}
 	}
 
