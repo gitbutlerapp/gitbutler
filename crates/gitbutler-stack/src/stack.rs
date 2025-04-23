@@ -340,7 +340,7 @@ impl Stack {
         Ok(())
     }
 
-    fn is_initialized(&self) -> bool {
+    pub fn is_initialized(&self) -> bool {
         !self.heads.is_empty()
     }
 

@@ -200,6 +200,7 @@ pub fn stacks(
                 Err(_) => None,
             }
         })
+        .filter(|s| s.is_initialized())
         .collect::<Vec<_>>();
 
     stacks
