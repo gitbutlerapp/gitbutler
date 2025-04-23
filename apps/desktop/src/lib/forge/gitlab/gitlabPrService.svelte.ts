@@ -16,6 +16,7 @@ import type { GitLabApi } from '$lib/state/clientState.svelte';
 import type { StartQueryActionCreatorOptions } from '@reduxjs/toolkit/query';
 
 export class GitLabPrService implements ForgePrService {
+	readonly unit = { name: 'Merge request', abbr: 'MR', symbol: '!' };
 	loading = writable(false);
 	private api: ReturnType<typeof injectEndpoints>;
 

@@ -14,7 +14,7 @@
 		projectId: string;
 		branchListing: BranchListing;
 		prs: PullRequest[];
-		onclick: (listing: BranchListing) => void;
+		onclick: (args: { listing: BranchListing; pr?: PullRequest }) => void;
 	}
 
 	const { projectId, branchListing, prs, onclick }: Props = $props();
@@ -131,7 +131,7 @@
 		linesRemoved: branchListingDetails.linesRemoved
 	}}
 	onFirstSeen={() => (hasBeenSeen = true)}
-	onclick={() => onclick(branchListing)}
+	onclick={() => onclick({ listing: branchListing, pr: prs.at(0) })}
 	{selected}
 	{avatars}
 />

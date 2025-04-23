@@ -1,8 +1,8 @@
 <script lang="ts">
 	import BranchReviewButRequest from '$components/BranchReviewButRequest.svelte';
-	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import ReviewCreation from '$components/ReviewCreation.svelte';
 	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
+	import StackedPullRequestCard from '$components/StackedPullRequestCard.svelte';
 	import CanPublishReviewPlugin from '$components/v3/CanPublishReviewPlugin.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { syncBrToPr } from '$lib/forge/brToPrSync.svelte';
@@ -123,7 +123,7 @@
 	{#if pr || (reviewId && allowedToPublishBR)}
 		<div class="status-cards">
 			{#if prNumber}
-				<PullRequestCard {projectId} {stackId} {branchName} poll />
+				<StackedPullRequestCard {projectId} {stackId} {branchName} {prNumber} poll />
 			{/if}
 			{#if reviewId && allowedToPublishBR}
 				<BranchReviewButRequest {reviewId} />
