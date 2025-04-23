@@ -110,11 +110,11 @@
 
 			{#snippet filesSplitView()}
 				<ReduxResult {projectId} {stackId} result={changesResult.current}>
-					{#snippet children(changes, env)}
+					{#snippet children(changes, { projectId, stackId })}
 						<ChangedFiles
 							title="All changed files"
-							projectId={env.projectId}
-							stackId={env.stackId}
+							{projectId}
+							{stackId}
 							selectionId={{ type: 'branch', stackId, branchName }}
 							{changes}
 						/>
