@@ -308,9 +308,9 @@ describe('getLineLocks', () => {
 		}
 	];
 	test('returns line locks for lines covered by locks', () => {
-		const result = getLineLocks(hunk, locks);
-		expect(result.length).toBe(2);
-		expect(result).toEqual([
+		const [fullyLocked, lineLocks] = getLineLocks('stack2', hunk, locks);
+		expect(fullyLocked).toBe(true);
+		expect(lineLocks).toEqual([
 			{ oldLine: 2, newLine: undefined, locks: [{ stackId: 'stack1', commitId: 'commit1' }] },
 			{ oldLine: undefined, newLine: 2, locks: [{ stackId: 'stack1', commitId: 'commit1' }] }
 		]);
@@ -322,6 +322,27 @@ describe('getLineLocks', () => {
 				locks: [{ stackId: 'stack2', commitId: 'commit2' }]
 			}
 		];
-		expect(getLineLocks(hunk, noLocks)).toEqual([]);
+		const [fullyLocked, lineLocks] = getLineLocks('stack1', hunk, noLocks);
+		expect(fullyLocked).toBe(false);
+		expect(lineLocks).toEqual([]);
+	});
+
+	test('returns partially locked for hunks with only some lines covered', () => {
+		// Diff with three changed lines (lines 2, 3, 4)
+		const partialDiff = `@@ -1,5 +1,5 @@\n line 1\n-line 2\n-line 3\n-line 4\n+line 2 changed\n+line 3 changed\n+line 4 changed\n line 5`;
+		const partialHunk = { oldStart: 1, oldLines: 5, newStart: 1, newLines: 5, diff: partialDiff };
+		const partialLocks = [
+			{
+				hunk: { oldStart: 3, oldLines: 1, newStart: 3, newLines: 1, diff: partialDiff },
+				locks: [{ stackId: 'stack1', commitId: 'commit1' }]
+			}
+		];
+		// Only line 3 is locked, lines 2 and 4 are not
+		const [fullyLocked, lineLocks] = getLineLocks('stack2', partialHunk, partialLocks);
+		expect(fullyLocked).toBe(false);
+		expect(lineLocks).toEqual([
+			{ oldLine: 3, newLine: undefined, locks: [{ stackId: 'stack1', commitId: 'commit1' }] },
+			{ oldLine: undefined, newLine: 3, locks: [{ stackId: 'stack1', commitId: 'commit1' }] }
+		]);
 	});
 });

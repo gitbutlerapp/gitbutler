@@ -1,4 +1,10 @@
-import { lineIdKey, parseHunk, type LineId, type LineLock } from '@gitbutler/ui/utils/diffParsing';
+import {
+	lineIdKey,
+	parseHunk,
+	SectionType,
+	type LineId,
+	type LineLock
+} from '@gitbutler/ui/utils/diffParsing';
 import { hashCode } from '@gitbutler/ui/utils/string';
 import { Transform, Type } from 'class-transformer';
 import type { HunkLocks } from '$lib/dependencies/dependencies';
@@ -333,28 +339,54 @@ export function hunkContainsLine(hunk: DiffHunk, line: LineId): boolean {
 /**
  * Get the line locks for a hunk.
  */
-export function getLineLocks(hunk: DiffHunk, locks: HunkLocks[]): LineLock[] {
+export function getLineLocks(
+	stackId: string | undefined,
+	hunk: DiffHunk,
+	locks: HunkLocks[]
+): [boolean, LineLock[] | undefined] {
+	if (stackId === undefined) {
+		return [false, undefined];
+	}
+
 	const lineLocks: LineLock[] = [];
 	const parsedHunk = parseHunk(hunk.diff);
 
 	const locksContained = locks.filter((lock) => hunkContainsHunk(hunk, lock.hunk));
 
+	let hunkIsFullyLocked: boolean = true;
+
 	for (const contentSection of parsedHunk.contentSections) {
+		if (contentSection.sectionType === SectionType.Context) continue;
+
 		for (const line of contentSection.lines) {
 			const lineId: LineId = {
 				oldLine: line.beforeLineNumber,
 				newLine: line.afterLineNumber
 			};
 
-			const locks = locksContained.filter((lock) => hunkContainsLine(lock.hunk, lineId));
-			if (locks.length > 0) {
-				lineLocks.push({
-					...lineId,
-					locks: locks.map((lock) => lock.locks).flat()
-				});
+			const hunkLocks = locksContained.filter((lock) => hunkContainsLine(lock.hunk, lineId));
+			if (hunkLocks.length === 0) {
+				hunkIsFullyLocked = false;
+				continue;
 			}
+
+			// Filter out locks to the current stack ID
+			const locks = hunkLocks
+				.map((lock) => lock.locks)
+				.flat()
+				.filter((lock) => lock.stackId !== stackId);
+
+			if (locks.length === 0) {
+				hunkIsFullyLocked = false;
+				continue;
+			}
+
+			lineLocks.push({
+				...lineId,
+				locks: hunkLocks.map((lock) => lock.locks).flat()
+			});
 		}
 	}
 
-	return lineLocks;
+	return [hunkIsFullyLocked, lineLocks];
 }
