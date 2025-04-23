@@ -30,6 +30,7 @@
 	} from '$lib/commits/dropHandler';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -46,11 +47,12 @@
 	};
 
 	const { projectId, stackId }: Props = $props();
-	const [stackService, uiState, baseBranchService, forge] = inject(
+	const [stackService, uiState, baseBranchService, forge, modeService] = inject(
 		StackService,
 		UiState,
 		BaseBranchService,
-		DefaultForgeFactory
+		DefaultForgeFactory,
+		ModeService
 	);
 
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
@@ -89,7 +91,7 @@
 			conflictResolutionConfirmationModal?.show();
 			return;
 		}
-		// modeService!.enterEditMode(args.commitId, stackId);
+		modeService!.enterEditMode(args.commitId, stackId);
 	}
 </script>
 
