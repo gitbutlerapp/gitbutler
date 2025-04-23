@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/src/components/PullRequestCard.svelte"]
-ourEntries = ["apps/desktop/src/components/PullRequestCard.svelte"]
-theirEntries = ["apps/desktop/src/components/PullRequestCard.svelte"]
