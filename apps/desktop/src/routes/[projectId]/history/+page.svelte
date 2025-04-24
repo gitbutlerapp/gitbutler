@@ -272,6 +272,7 @@
 		border-radius: var(--radius-ml);
 		overflow: hidden;
 		max-width: 620px;
+		min-width: 360px;
 		background-color: var(--clr-bg-1);
 	}
 
