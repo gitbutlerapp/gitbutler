@@ -81,22 +81,18 @@
 	class:border-top={borderTop || first}
 	class:last={lastCommit}
 	onclick={(e) => {
-		e.preventDefault();
 		e.stopPropagation();
-		// if (args.disableCommitActions) return;
 		onclick?.();
 	}}
 	onkeydown={(e) => {
-		// if (args.disableCommitActions) return;
 		if (e.key === 'Enter' || e.key === ' ') {
-			e.preventDefault();
+			e.stopPropagation();
 			onclick?.();
 		}
 	}}
 	oncontextmenu={(e) => {
 		if (args.disableCommitActions) return;
 		e.preventDefault();
-		isOpenedByKebabButton = false;
 		contextMenu?.open(e);
 	}}
 >
@@ -131,14 +127,8 @@
 				class="commit-menu-btn"
 				class:activated={isOpenedByKebabButton}
 				onmousedown={(e) => {
-					e.preventDefault();
 					e.stopPropagation();
-					isOpenedByKebabButton = true;
 					contextMenu?.toggle();
-				}}
-				onclick={(e) => {
-					e.preventDefault();
-					e.stopPropagation();
 				}}
 			>
 				<Icon name="kebab" /></button
@@ -147,7 +137,12 @@
 	</div>
 </div>
 
-<ContextMenu bind:this={contextMenu} leftClickTrigger={kebabMenuTrigger}>
+<ContextMenu
+	bind:this={contextMenu}
+	leftClickTrigger={kebabMenuTrigger}
+	bind:isOpenedByKebabButton
+	bind:isOpenedByMouse
+>
 	{#snippet menu(args)}
 		{@render menu2?.(args)}
 	{/snippet}
