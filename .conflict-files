@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/src/components/v3/BranchesView.svelte", "apps/desktop/src/lib/stacks/stackService.svelte.ts", "crates/but-workspace/src/lib.rs", "crates/gitbutler-tauri/src/workspace.rs"]
-ourEntries = ["apps/desktop/src/components/v3/BranchesView.svelte", "apps/desktop/src/lib/stacks/stackService.svelte.ts", "crates/but-workspace/src/lib.rs", "crates/gitbutler-tauri/src/workspace.rs"]
-theirEntries = ["apps/desktop/src/components/v3/BranchesView.svelte", "apps/desktop/src/lib/stacks/stackService.svelte.ts", "crates/but-workspace/src/lib.rs", "crates/gitbutler-tauri/src/workspace.rs"]
