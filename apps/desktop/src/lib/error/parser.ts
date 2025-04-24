@@ -17,7 +17,8 @@ export function isParsedError(something: unknown): something is ParsedError {
 	return (
 		typeof something === 'object' &&
 		something !== null &&
-		('message' in something || 'parsedError' in something)
+		(('message' in something && typeof something.message === 'string') ||
+			('parsedError' in something && typeof something.parsedError === 'string'))
 	);
 }
 
@@ -41,12 +42,15 @@ export function parseError(error: unknown): ParsedError {
 	if (isPromiseRejection(error)) {
 		return {
 			message: 'A promise had an unhandled exception.',
-			parsedError: JSON.stringify(error.reason, null, 2)
+			parsedError: String(error.reason)
 		};
 	}
 
-	if (isTauriCommandError(error) && error.code && error.code in KNOWN_ERRORS) {
-		return { message: KNOWN_ERRORS[error.code], parsedError: error.message };
+	if (isTauriCommandError(error)) {
+		if (error.code && error.code in KNOWN_ERRORS)
+			return { message: KNOWN_ERRORS[error.code], parsedError: error.message };
+
+		return { message: error.message };
 	}
 
 	if (isReduxActionError(error)) {
