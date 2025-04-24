@@ -593,16 +593,16 @@ export class StackService {
 	 * Note: This is specifically for looking up branches outside of
 	 * a stacking context. You almost certainly want `stackDetails`
 	 */
-	unstackedBranchDetails(projectId: string, branchName: string) {
+	unstackedBranchDetails(projectId: string, branchName: string, remote?: string) {
 		return this.api.endpoints.unstackedBranchDetails.useQuery(
-			{ projectId, branchName },
+			{ projectId, branchName, remote },
 			{ transform: (result) => result.branchDetails }
 		);
 	}
 
-	unstackedCommitById(projectId: string, branchName: string, commitId: string) {
+	unstackedCommitById(projectId: string, branchName: string, commitId: string, remote?: string) {
 		return this.api.endpoints.unstackedBranchDetails.useQuery(
-			{ projectId, branchName },
+			{ projectId, branchName, remote },
 			{ transform: ({ commits }) => commitSelectors.selectById(commits, commitId) }
 		);
 	}
@@ -721,11 +721,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					commits: EntityState<Commit, string>;
 					upstreamCommits: EntityState<UpstreamCommit, string>;
 				},
-				{ projectId: string; branchName: string }
+				{ projectId: string; branchName: string; remote?: string }
 			>({
-				query: ({ projectId, branchName }) => ({
+				query: ({ projectId, branchName, remote }) => ({
 					command: 'branch_details',
-					params: { projectId, branchName }
+					params: { projectId, branchName, remote }
 				}),
 				transformResponse(branchDetails: BranchDetails) {
 					// This is a list of all the commits accross all branches in the stack.

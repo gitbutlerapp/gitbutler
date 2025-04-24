@@ -28,6 +28,7 @@ type BranchesSelection = {
 	branchName?: string;
 	commitId?: string;
 	stackId?: string;
+	remote?: string;
 	prNumber?: number;
 };
 

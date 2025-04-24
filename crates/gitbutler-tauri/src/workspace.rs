@@ -52,10 +52,11 @@ pub fn branch_details(
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     branch_name: &str,
+    remote: Option<&str>,
 ) -> Result<but_workspace::BranchDetails, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    but_workspace::branch_details(&project.gb_dir(), branch_name, &ctx).map_err(Into::into)
+    but_workspace::branch_details(&project.gb_dir(), branch_name, remote, &ctx).map_err(Into::into)
 }
 
 /// Retrieve all changes in the workspace and associate them with commits in the Workspace of `project_id`.

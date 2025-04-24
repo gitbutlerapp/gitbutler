@@ -441,6 +441,7 @@ pub fn stack_details(
 pub fn branch_details(
     gb_dir: &Path,
     branch_name: &str,
+    remote: Option<&str>,
     ctx: &CommandContext,
 ) -> Result<BranchDetails> {
     let state = state_handle(gb_dir);
@@ -448,14 +449,17 @@ pub fn branch_details(
 
     let default_target = state.get_default_target()?;
 
-    let (branch, is_remote_head) = repository
-        .find_branch(branch_name, git2::BranchType::Local)
-        .map(|b| (b, false))
-        .or_else(|_| {
-            repository
-                .find_branch(branch_name, git2::BranchType::Remote)
-                .map(|b| (b, true))
-        })?;
+    let (branch, is_remote_head) = match remote {
+        None => repository
+            .find_branch(branch_name, git2::BranchType::Local)
+            .map(|b| (b, false)),
+        Some(remote) => repository
+            .find_branch(
+                format!("{remote}/{branch_name}").as_str(),
+                git2::BranchType::Remote,
+            )
+            .map(|b| (b, true)),
+    }?;
 
     let Some(branch_oid) = branch.get().target() else {
         bail!("Branch points to nothing");
