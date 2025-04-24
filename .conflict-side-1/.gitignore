@@ -1,0 +1,56 @@
+# will have compiled rust files and executables
+/target/
+release/
+generated-archives/
+generated-do-not-edit/
+
+# editors
+.idea
+
+.sentryclirc
+.DS_Store
+apps/desktop/e2e/videos/*.mp4
+
+.env
+.env.*
+node_modules
+.direnv/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+dist
+dist-ssr
+*.local
+
+.turbo
+build
+.svelte-kit
+package
+!.env.example
+vite.config.ts.timestamp-*
+tsconfig.tsbuildinfo
+
+# Written to disk when using `act`
+.pnpm-store
+
+# playwright
+test-results*
+playwright-report
+
+# storybook
+*storybook.log
+storybook-static
+
+# Vercel
+.vercel
+
+# Rust analyzer
+.rust-analyzer/
+.aider*

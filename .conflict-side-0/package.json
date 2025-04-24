@@ -1,0 +1,61 @@
+{
+	"name": "root",
+	"private": true,
+	"repository": "https://github.com/gitbutlerapp/gitbutler.git",
+	"engines": {
+		"node": ">=20.11"
+	},
+	"type": "module",
+	"packageManager": "pnpm@10.3.0",
+	"scripts": {
+		"dev:ui": "pnpm --filter @gitbutler/ui storybook",
+		"dev:web": "turbo watch --filter @gitbutler/web dev",
+		"dev:desktop": "pnpm tauri dev",
+		"dev:internal-tauri": "turbo watch --filter @gitbutler/desktop dev",
+		"package": "turbo run package",
+		"test": "turbo run test --no-daemon",
+		"test:watch": "pnpm --filter @gitbutler/desktop run test:watch",
+		"test:e2e:web": "turbo run test:e2e:web",
+		"test:e2e": "pnpm --filter @gitbutler/desktop run test:e2e",
+		"act:test:e2e": "act -j test -W .github/workflows/test-e2e.yml -P catthehacker/ubuntu:act-22.04",
+		"build": "turbo run build --no-daemon",
+		"build:desktop": "turbo run --filter @gitbutler/desktop build --no-daemon",
+		"build:test": "pnpm exec tauri build --config crates/gitbutler-tauri/tauri.conf.test.json -- --profile dev",
+		"check": "turbo run check --no-daemon",
+		"tauri": "tauri",
+		"lint": "turbo run //#globallint --no-daemon",
+		"globallint": "prettier --check . && eslint .",
+		"prettier": "prettier --check",
+		"format": "prettier --write .",
+		"fix": "eslint --fix .",
+		"prepare": "pnpm --filter @gitbutler/desktop run prepare",
+		"rustfmt": "cargo +nightly fmt -- --config-path rustfmt-nightly.toml"
+	},
+	"devDependencies": {
+		"@eslint/js": "9.5.0",
+		"@types/eslint": "9.6.0",
+		"@tauri-apps/cli": "^2.4.1",
+		"@types/eslint__js": "^8.42.3",
+		"@types/node": "^22.3.0",
+		"@typescript-eslint/parser": "^7.13.1",
+		"eslint": "^9.13.0",
+		"eslint-config-prettier": "^9.1.0",
+		"eslint-import-resolver-typescript": "^3.7.0",
+		"eslint-plugin-import-x": "4.6.1",
+		"eslint-plugin-storybook": "0.9.0--canary.156.ed236ca.0",
+		"eslint-plugin-svelte": "2.46.1",
+		"globals": "^15.6.0",
+		"prettier": "^3.3.2",
+		"prettier-plugin-svelte": "^3.3.3",
+		"svelte-eslint-parser": "^0.43.0",
+		"turbo": "2.3.3",
+		"typescript": "5.4.5",
+		"typescript-eslint": "^8.10.0",
+		"@gitbutler/no-relative-imports": "workspace:*"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"@prisma/client"
+		]
+	}
+}

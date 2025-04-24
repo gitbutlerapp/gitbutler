@@ -1,0 +1,25 @@
+<svg width="300" height="240" viewBox="0 0 300 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g opacity="0.8">
+<path d="M167 37H279C290.046 37 299 45.9543 299 57V202C299 213.046 290.046 222 279 222H167V37Z" fill="var(--clr-bg-1)" stroke="var(--clr-border-2)" stroke-width="1.2"/>
+<path d="M91 15C91 9.47715 95.4772 5 101 5H155C160.523 5 165 9.47715 165 15V37H91V15Z" fill="var(--clr-bg-1)" stroke="var(--clr-border-2)" stroke-width="1.2"/>
+<path d="M165 15C165 9.47715 169.477 5 175 5H229C234.523 5 239 9.47715 239 15V37H165V15Z" fill="var(--clr-bg-1)" stroke="var(--clr-border-2)" stroke-width="1.2"/>
+</g>
+<path d="M17 15C17 9.47715 21.4772 5 27 5H81C86.5228 5 91 9.47715 91 15V37H17V15Z" fill="var(--clr-bg-1)" stroke="var(--clr-border-1)" stroke-width="1.2"/>
+<text opacity="0.7" fill="var(--clr-text-2)" xml:space="preserve" style="white-space: pre" font-family="Inter" font-size="13" font-weight="500" letter-spacing="0em"><tspan x="36.3916" y="25.7273">Stack</tspan></text>
+<path d="M17 37H169V222H37C25.9543 222 17 213.046 17 202V37Z" fill="var(--clr-bg-1)" stroke="var(--clr-border-1)" stroke-width="1.2"/>
+<path d="M0 61C0 55.4772 4.47715 51 10 51H145C150.523 51 155 55.4772 155 61V117C155 122.523 150.523 127 145 127H10C4.47715 127 0 122.523 0 117V61Z" fill="var(--clr-bg-1)"/>
+<text opacity="0.7" fill="var(--clr-text-2)" xml:space="preserve" style="white-space: pre" font-family="Inter" font-size="13" font-weight="500" letter-spacing="0em"><tspan x="11" y="73.7273">Branch #2</tspan></text>
+<path d="M1 87H154M1 97H154M1 107H154M1 117H154" stroke="var(--clr-border-1)" stroke-width="1.2"/>
+<path d="M10 51.6H145C150.191 51.6 154.4 55.8085 154.4 61V117C154.4 122.191 150.191 126.4 145 126.4H10C4.80852 126.4 0.6 122.191 0.6 117V61C0.6 55.8085 4.80852 51.6 10 51.6Z" stroke="var(--clr-border-1)" stroke-width="1.2"/>
+<path d="M0 148C0 142.477 4.47715 138 10 138H145C150.523 138 155 142.477 155 148V226C155 231.523 150.523 236 145 236H10C4.47715 236 0 231.523 0 226V148Z" fill="var(--clr-bg-1)"/>
+<text opacity="0.7" fill="var(--clr-text-2)" xml:space="preserve" style="white-space: pre" font-family="Inter" font-size="13" font-weight="500" letter-spacing="0em"><tspan x="28" y="158.727">Branch #1</tspan></text>
+<path d="M0.5 210H154M0.5 220H154M0.5 230H154" stroke="var(--clr-border-1)" stroke-width="1.2"/>
+<path d="M33 171.6H133C135.43 171.6 137.4 173.57 137.4 176V194C137.4 196.43 135.43 198.4 133 198.4H33C30.5699 198.4 28.6 196.43 28.6 194V176C28.6 173.57 30.5699 171.6 33 171.6Z" fill="var(--clr-theme-succ-soft)" stroke="var(--clr-theme-succ-element)" stroke-width="1.2"/>
+<text fill="var(--clr-theme-succ-element)" xml:space="preserve" style="white-space: pre" font-family="Inter" font-size="13" font-weight="500" letter-spacing="0em"><tspan x="36" y="189.727">PR</tspan></text>
+<path d="M14 156V180C14 182.761 16.2386 185 19 185H29" stroke="var(--clr-theme-succ-element)" stroke-width="1.2"/>
+<circle cx="14" cy="155" r="4" fill="var(--clr-theme-succ-element)"/>
+<path d="M10 138.6H145C150.191 138.6 154.4 142.809 154.4 148V226C154.4 231.191 150.191 235.4 145 235.4H10C4.80852 235.4 0.6 231.191 0.6 226V148C0.6 142.809 4.80852 138.6 10 138.6Z" stroke="var(--clr-border-1)" stroke-width="1.2"/>
+<circle cx="17.5" cy="125.5" r="4.5" fill="var(--clr-border-1)"/>
+<circle cx="17.5" cy="139.5" r="4.5" fill="var(--clr-border-1)"/>
+<path d="M142.951 185H163M142.809 190.25L160.172 203.75M142.809 179.75L160.172 166.25" stroke="var(--clr-theme-succ-element)" stroke-width="1.2"/>
+</svg>

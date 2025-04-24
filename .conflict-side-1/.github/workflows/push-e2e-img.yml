@@ -1,0 +1,27 @@
+name: build e2e-runner container
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'apps/desktop/e2e/Dockerfile'
+
+jobs:
+  docker_publish:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push container image
+        uses: docker/build-push-action@v6
+        with:
+          context: 'apps/desktop/e2e'
+          push: true
+          tags: ghcr.io/gitbutler/e2e-runner:latest

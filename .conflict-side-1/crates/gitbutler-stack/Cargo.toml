@@ -1,0 +1,44 @@
+[package]
+name = "gitbutler-stack"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+autotests = false
+
+[dependencies]
+git2.workspace = true
+gix = { workspace = true, features = [] }
+gix-utils = "0.2.0"
+itertools = "0.14"
+anyhow = "1.0.95"
+serde = { workspace = true, features = ["std"] }
+toml.workspace = true
+tracing.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-id.workspace = true
+but-core.workspace = true
+but-rebase.workspace = true
+gitbutler-serde.workspace = true
+gitbutler-time.workspace = true
+gitbutler-diff.workspace = true
+gitbutler-error.workspace = true
+gitbutler-fs.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-commit.workspace = true
+gitbutler-oxidize.workspace = true
+uuid.workspace = true
+bstr.workspace = true
+
+[[test]]
+name = "stack"
+path = "tests/mod.rs"
+
+[dev-dependencies]
+gitbutler-git = { workspace = true, features = [
+    "test-askpass-path",
+] } # Runtime test dependency
+gitbutler-testsupport.workspace = true
+gitbutler-repo-actions.workspace = true
+tempfile.workspace = true

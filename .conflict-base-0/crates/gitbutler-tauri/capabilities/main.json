@@ -1,0 +1,34 @@
+{
+	"$schema": "../gen/schemas/desktop-schema.json",
+	"identifier": "main",
+	"description": "permissions for gitbutler tauri",
+	"windows": ["*"],
+	"local": true,
+	"permissions": [
+		"core:default",
+		"core:window:allow-start-dragging",
+		"core:window:default",
+		"dialog:allow-open",
+		"fs:allow-read-file",
+		"fs:allow-cache-read-recursive",
+		"log:default",
+		"process:default",
+		"shell:allow-open",
+		"store:default",
+		"updater:default",
+		"http:allow-fetch",
+		"clipboard-manager:allow-read-text",
+		"clipboard-manager:allow-write-text",
+		{
+			"identifier": "http:default",
+			"allow": [
+				{
+					"url": "http://127.0.0.1:*/**"
+				},
+				{
+					"url": "http://localhost:*/**"
+				}
+			]
+		}
+	]
+}
