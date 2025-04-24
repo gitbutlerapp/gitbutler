@@ -207,8 +207,8 @@ impl BranchManager<'_> {
         );
 
         let mut branch = if let Some(mut branch) = vb_state
-            .find_by_source_refname_where_not_in_workspace(target)?
-            .or(vb_state.find_by_top_reference_name_where_not_in_workspace(&target.to_string())?)
+            .find_by_top_reference_name_where_not_in_workspace(&target.to_string())?
+            .or(vb_state.find_by_source_refname_where_not_in_workspace(target)?)
         {
             branch.upstream_head = upstream_branch.is_some().then_some(head_commit.id());
             branch.upstream = upstream_branch; // Used as remote when listing commits.
