@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { getContext } from '@gitbutler/shared/context';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { goto } from '$app/navigation';
 
 	const routes = getContext(WebRoutesService);
 </script>
@@ -20,11 +22,13 @@
 <div class="breadcrumbs">
 	<div class="breadcrumbs__path">
 		{#if !routes.isProjectReviewBranchPageSubset}
-			<span class="text-15 text-bold"> Dashboard </span>
+			<span class="text-15 text-bold">/ Dashboard </span>
 		{:else}
-			<span class="text-15 text-bold truncate"> My projects </span>
-			<span class="text-14 text-bold breadcrumbs_slash">/</span>
-			<span class="text-15 text-bold truncate">{routes.isProjectReviewPageSubset?.ownerSlug}</span>
+			<Button kind="ghost" onclick={() => goto(routes.projectsPath())} tooltip="Go to Dashboard">
+				<span class="text-15 text-bold truncate"
+					>My projects / {routes.isProjectReviewPageSubset?.ownerSlug}</span
+				>
+			</Button>
 		{/if}
 	</div>
 
@@ -47,7 +51,6 @@
 		flex-wrap: nowrap;
 		align-items: center;
 		overflow: hidden;
-		gap: 8px;
 		text-wrap: nowrap;
 
 		@container (max-width: 500px) {
@@ -65,10 +68,6 @@
 		align-items: center;
 		gap: 4px;
 		overflow: hidden;
-	}
-
-	.breadcrumbs_slash {
-		color: var(--clr-text-3);
 	}
 
 	.breadcrumbs__back-btn {
