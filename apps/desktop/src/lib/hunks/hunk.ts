@@ -1,3 +1,4 @@
+import { memoize } from '@gitbutler/shared/memoization';
 import {
 	lineIdKey,
 	parseHunk,
@@ -10,7 +11,6 @@ import { Transform, Type } from 'class-transformer';
 import type { HunkLocks } from '$lib/dependencies/dependencies';
 import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
 import 'reflect-metadata';
-
 export class RemoteHunk {
 	diff!: string;
 	hash?: string;
@@ -153,6 +153,8 @@ function lineType(line: LineId): DeltaLineType | undefined {
 	return undefined;
 }
 
+const memoizedParseHunk = memoize(parseHunk);
+
 /**
  * Group the selected lines of a diff for the backend.
  *
@@ -165,7 +167,7 @@ export function extractLineGroups(lineIds: LineId[], diff: string): [DeltaLineGr
 	const lineGroups: DeltaLineGroup[] = [];
 	let currentGroup: DeltaLineGroup | undefined = undefined;
 	const lineKeys = new Set(lineIds.map((lineId) => lineIdKey(lineId)));
-	const parsedHunk = parseHunk(diff);
+	const parsedHunk = memoizedParseHunk(diff);
 
 	for (const section of parsedHunk.contentSections) {
 		for (const line of section.lines) {
@@ -349,7 +351,7 @@ export function getLineLocks(
 	}
 
 	const lineLocks: LineLock[] = [];
-	const parsedHunk = parseHunk(hunk.diff);
+	const parsedHunk = memoizedParseHunk(hunk.diff);
 
 	const locksContained = locks.filter((lock) => hunkContainsHunk(hunk, lock.hunk));
 
