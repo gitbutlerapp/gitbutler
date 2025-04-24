@@ -549,7 +549,10 @@ pub fn branch_details(
         review_id: None,
         base_commit: base_commit.to_gix(),
         push_status,
-        last_updated_at: None,
+        last_updated_at: commits
+            .first()
+            .map(|c| c.created_at)
+            .or(upstream_commits.first().map(|c| c.created_at)),
         authors: authors.into_iter().collect(),
         is_conflicted: false,
         commits,
