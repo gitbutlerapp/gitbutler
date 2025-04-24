@@ -1,26 +1,34 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import FileCard from '$components/FileCard.svelte';
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
+	import Resizer from '$components/Resizer.svelte';
 	import SnapshotCard from '$components/SnapshotCard.svelte';
+	import SelectTopreviewPlaceholder from '$components/v3/SelectTopreviewPlaceholder.svelte';
+	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { RemoteFile } from '$lib/files/file';
 	import { HistoryService, createdOnDay } from '$lib/history/history';
 	import { Project } from '$lib/project/project';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { UiState } from '$lib/state/uiState.svelte';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
+	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
+	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
+	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 	import { plainToInstance } from 'class-transformer';
 	import type { Snapshot, SnapshotDiff } from '$lib/history/types';
 
-	interface Props {
-		onHide: () => void;
-	}
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
-	const { onHide }: Props = $props();
+	const [uiState] = inject(UiState);
+	const sidebarWidth = $derived(uiState.global.historySidebarWidth);
+	let sidebarEl = $state<HTMLElement>();
 
 	const project = getContext(Project);
 	const historyService = getContext(HistoryService);
@@ -29,7 +37,17 @@
 	const loading = historyService.loading;
 	const isAllLoaded = historyService.isAllLoaded;
 
+	const withinRestoreItems = $derived(findRestorationRanges($snapshots));
+
 	let currentFilePreview: RemoteFile | undefined = $state(undefined);
+	let snapshotFilesTempStore:
+		| { entryId: string; diffs: { [key: string]: SnapshotDiff } }
+		| undefined = $state(undefined);
+	let selectedFile: { entryId: string; path: string } | undefined = $state(undefined);
+
+	async function onLastInView() {
+		if (!$loading && !$isAllLoaded) await historyService.loadMore();
+	}
 
 	function findRestorationRanges(snapshots: Snapshot[]) {
 		if (snapshots.length === 0) return [];
@@ -53,10 +71,6 @@
 		return ranges.map((snapshot) => snapshot.id);
 	}
 
-	async function onLastInView() {
-		if (!$loading && !$isAllLoaded) await historyService.loadMore();
-	}
-
 	function updateFilePreview(entry: Snapshot, path: string) {
 		if (!snapshotFilesTempStore) return;
 
@@ -74,13 +88,6 @@
 			binary: file.binary
 		});
 	}
-
-	let snapshotFilesTempStore:
-		| { entryId: string; diffs: { [key: string]: SnapshotDiff } }
-		| undefined = $state(undefined);
-	let selectedFile: { entryId: string; path: string } | undefined = $state(undefined);
-
-	const withinRestoreItems = $derived(findRestorationRanges($snapshots));
 </script>
 
 {#snippet historyEntries()}
@@ -115,7 +122,7 @@
 				>
 					{#each $snapshots as entry, idx (entry.id)}
 						{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1]?.createdAt ?? new Date())}
-							<div class="sideview__date-header">
+							<div class="history-view__snapshots__date-header">
 								<h4 class="text-12 text-semibold">
 									{createdOnDay(entry.createdAt)}
 								</h4>
@@ -181,172 +188,110 @@
 	{/if}
 {/snippet}
 
-{#snippet filePreview()}
-	{#if currentFilePreview}
-		<div class="file-preview" class:show-file-view={currentFilePreview}>
-			<FileCard
-				isCard={false}
-				file={currentFilePreview}
-				isUnapplied={false}
-				readonly={true}
-				onClose={() => {
-					currentFilePreview = undefined;
-					selectedFile = undefined;
-				}}
-			/>
-		</div>
-	{/if}
-{/snippet}
-
-<svelte:window
-	onkeydown={(e) => {
-		if (e.key === 'Escape') {
-			onHide?.();
-		}
-	}}
-/>
-
-<aside class="sideview-wrap show-view">
+<div class="history-view">
 	<div
-		class="sideview-container show-sideview"
-		use:clickOutside={{
-			handler: () => onHide?.()
-		}}
+		bind:this={sidebarEl}
+		class="history-view__snapshots"
+		style:width="{sidebarWidth.current}rem"
 	>
-		{#if currentFilePreview}
-			{@render filePreview()}
-		{/if}
-
-		<div class="sideview">
-			<div class="sideview__header">
-				<i class="clock-icon">
-					<div class="clock-pointers">
-						<div class="clock-pointer clock-pointer-minute"></div>
-						<div class="clock-pointer clock-pointer-hour"></div>
-					</div>
-				</i>
-				<h3 class="sideview__header-title text-15 text-bold">Project history</h3>
-				<Button kind="ghost" icon="cross" onclick={onHide} />
-			</div>
-
-			{@render historyEntries()}
+		<div class="history-view__snapshots-header">
+			<h3 class="history-view__snapshots-header-title text-15 text-bold">Operations history</h3>
 		</div>
-	</div>
-</aside>
+		{@render historyEntries()}
 
-<!-- TODO: HANDLE LOADING STATE -->
+		<Resizer
+			viewport={sidebarEl}
+			direction="right"
+			minWidth={14}
+			borderRadius="ml"
+			onWidth={(value) => (sidebarWidth.current = value)}
+		/>
+	</div>
+
+	<div class="history-view__preview">
+		{#if currentFilePreview}
+			<div class="history-view__preview-file">
+				<ConfigurableScrollableContainer>
+					<div use:stickyHeader class="history-view__file-header">
+						<FileViewHeader
+							filePath={currentFilePreview.path}
+							draggable={false}
+							oncloseclick={() => {
+								console.warn('oncloseclick');
+								currentFilePreview = undefined;
+								selectedFile = undefined;
+							}}
+						/>
+					</div>
+
+					{#if currentFilePreview.hunks.length > 0}
+						<div class="history-view__diffs">
+							{#each currentFilePreview.hunks as hunk}
+								<HunkDiff
+									draggingDisabled={true}
+									filePath={currentFilePreview.path}
+									hunkStr={hunk.diff}
+									diffLigatures={$userSettings.diffLigatures}
+									tabSize={$userSettings.tabSize}
+									wrapText={$userSettings.wrapText}
+									diffFont={$userSettings.diffFont}
+									diffContrast={$userSettings.diffContrast}
+									inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
+								/>
+							{/each}
+						</div>
+					{:else}
+						<EmptyStatePlaceholder image={emptyFileSvg} gap={12} topBottomPadding={34}>
+							{#snippet caption()}
+								It’s empty ¯\_(ツ゚)_/¯
+							{/snippet}
+						</EmptyStatePlaceholder>
+					{/if}
+				</ConfigurableScrollableContainer>
+			</div>
+		{:else}
+			<SelectTopreviewPlaceholder />
+		{/if}
+	</div>
+</div>
 
 <style lang="postcss">
-	.sideview-wrap {
-		z-index: var(--z-modal);
-		position: fixed;
-		top: 0;
-		right: 0;
+	.history-view {
 		display: flex;
-		justify-content: flex-end;
-		height: 100%;
 		width: 100%;
-		background-color: var(--clr-overlay-bg);
-	}
-
-	.sideview-container {
-		transform: translateX(100%);
-		display: flex;
-	}
-
-	.sideview {
-		position: relative;
-		z-index: var(--z-lifted);
-		display: flex;
-		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
-		background-color: var(--clr-bg-2);
-		border-left: 1px solid var(--clr-border-2);
-		width: 480px;
+		gap: 8px;
+	}
+
+	.history-view__snapshots {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		overflow: hidden;
+		max-width: 620px;
+		min-width: 360px;
+		background-color: var(--clr-bg-1);
 	}
 
 	/* SIDEVIEW HEADER */
-	.sideview__header {
+	.history-view__snapshots-header {
 		display: flex;
 		align-items: center;
 		gap: 12px;
-		padding: 10px 10px 10px 14px;
+		padding: 12px 14px;
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 
-	.sideview__header-title {
+	.history-view__snapshots-header-title {
 		pointer-events: none;
 		flex: 1;
 	}
 
-	/* HEADER ICON */
-	.clock-icon {
-		pointer-events: none;
-		position: relative;
-		width: 20px;
-		height: 20px;
-		background-color: #ffcf88;
-		border-radius: var(--radius-s);
-	}
-
-	.clock-pointers {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		border-radius: 100%;
-		width: 2px;
-		height: 2px;
-		background-color: #000;
-	}
-
-	.clock-pointer {
-		position: absolute;
-		bottom: -2px;
-		left: 50%;
-		transform-origin: bottom;
-		width: 2px;
-		height: 6px;
-		background-color: #000;
-	}
-
-	.clock-pointer-minute {
-		transform: translate(-50%, -50%) rotate(120deg);
-		animation: minute-pointer 1s forwards;
-	}
-
-	@keyframes minute-pointer {
-		0% {
-			transform: translate(-50%, -50%) rotate(120deg);
-		}
-		100% {
-			transform: translate(-50%, -50%) rotate(360deg);
-		}
-	}
-
-	.clock-pointer-hour {
-		transform: translate(-50%, -50%) rotate(0deg);
-		animation: hour-pointer 1.5s forwards;
-	}
-
-	@keyframes hour-pointer {
-		0% {
-			transform: translate(-50%, -50%) rotate(0deg);
-		}
-		100% {
-			transform: translate(-50%, -50%) rotate(90deg);
-		}
-	}
-
-	/* WRAPPERS */
-	.snapshots-wrapper {
-		display: flex;
-		flex-direction: column;
-	}
-
 	/* DATE HEADER */
-	.sideview__date-header {
+	.history-view__snapshots__date-header {
 		z-index: var(--z-ground);
 		position: sticky;
 		top: -1px;
@@ -363,16 +308,6 @@
 			border-top: none;
 			margin-top: 0;
 		}
-	}
-
-	/* FILE PREVIEW */
-	.file-preview {
-		position: relative;
-		z-index: var(--z-ground);
-		display: flex;
-		flex-direction: column;
-		width: 512px;
-		border-left: 1px solid var(--clr-border-2);
 	}
 
 	/* WELCOME POINT */
@@ -403,44 +338,32 @@
 		color: var(--clr-text-3);
 	}
 
-	/* MODIFIERS */
-	.show-view {
-		animation: view-fade-in 0.3s forwards;
+	/* PREVIEW */
+	.history-view__preview {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		overflow: hidden;
 	}
 
-	.show-sideview {
-		animation: view-slide-in 0.35s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-		animation-delay: 0.1s;
+	.history-view__preview-file {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
 	}
 
-	@keyframes view-fade-in {
-		0% {
-			opacity: 0;
-		}
-		100% {
-			opacity: 1;
-		}
+	.history-view__file-header {
+		display: flex;
 	}
 
-	@keyframes view-slide-in {
-		0% {
-			transform: translateX(100%);
-		}
-		100% {
-			transform: translateX(0);
-		}
-	}
-
-	.show-file-view {
-		animation: file-view-slide-in 0.25s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-	}
-
-	@keyframes file-view-slide-in {
-		0% {
-			transform: translateX(100%);
-		}
-		100% {
-			transform: translateX(0);
-		}
+	.history-view__diffs {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		padding: 0 14px 14px 14px;
+		background-color: var(--clr-bg-1);
+		border-bottom: 1px solid var(--clr-border-2);
 	}
 </style>

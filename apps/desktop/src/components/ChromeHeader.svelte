@@ -8,7 +8,6 @@
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
-	import * as events from '$lib/utils/events';
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -132,8 +131,6 @@
 		</Select>
 	</div>
 	<div class="chrome-right" data-tauri-drag-region>
-		<Button kind="ghost" icon="timeline" onclick={() => events.emit('openHistory')} />
-
 		{#if $ircEnabled}
 			<NotificationButton
 				hasUnread={isNotificationsUnread}

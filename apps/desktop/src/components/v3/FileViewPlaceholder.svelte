@@ -1,11 +1,11 @@
 <script lang="ts">
+	import SelectTopreviewPlaceholder from '$components/v3/SelectTopreviewPlaceholder.svelte';
 	import DependentBranchTipSVG from '$lib/assets/illustrations/dependent-branch-tip.svg?raw';
 	import DnDCOmmitAmendSVG from '$lib/assets/illustrations/dnd-commit-amend.svg?raw';
 	import DnDCommitMoveSVG from '$lib/assets/illustrations/dnd-commit-move.svg?raw';
 	import DnDCOmmitReorderSVG from '$lib/assets/illustrations/dnd-commit-reorder.svg?raw';
 	import DnDCommitSquashSVG from '$lib/assets/illustrations/dnd-commit-squash.svg?raw';
 	import IndependentBranchTipSVG from '$lib/assets/illustrations/independent-branch-tip.svg?raw';
-	import SelectToPreviewSVG from '$lib/assets/illustrations/select-to-preview.svg?raw';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -129,12 +129,7 @@
 {/snippet}
 
 {#if selectedTip === undefined}
-	<div class="select-some">
-		<div class="select-some__image">
-			{@html SelectToPreviewSVG}
-		</div>
-		<span class="text-13 select-some__caption">Select a file to preview</span>
-	</div>
+	<SelectTopreviewPlaceholder />
 {:else}
 	<Button
 		class="tips-view__close-btn"
@@ -155,27 +150,6 @@
 		top: 10px;
 		right: 10px;
 		z-index: 1;
-	}
-
-	.select-some {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 40px 0;
-		width: 100%;
-		height: 100%;
-	}
-
-	.select-some__image {
-		width: 100%;
-		max-width: 222px;
-	}
-
-	.select-some__caption {
-		margin-top: 28px;
-		color: var(--clr-text-2);
-		opacity: 0.6;
 	}
 
 	/* TIP SECTION */
@@ -243,90 +217,4 @@
 			text-decoration: none;
 		}
 	}
-
-	/* FOOTER */
-	/* .file-view-placeholder__footer {
-		display: flex;
-		align-items: flex-end;
-		width: 100%;
-		padding: 40px;
-		gap: 80px;
-		border-top: 1px solid var(--clr-border-2);
-	}
-
-	.file-view-placeholder__footer__group {
-		display: flex;
-		flex-direction: column;
-		width: fit-content;
-	}
-
-	.file-view-placeholder__footer__group-title {
-		margin-bottom: 20px;
-	}
-
-	.file-view-placeholder__footer__group-list {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-
-	.tip-button {
-		text-align: left;
-		color: var(--clr-text-2);
-		transition:
-			color var(--transition-fast),
-			opacity var(--transition-fast);
-		opacity: 0.7;
-
-		&:hover {
-			color: var(--clr-text-1);
-		}
-
-		&:last-child {
-			margin-bottom: 0;
-		}
-
-		&.selected {
-			color: var(--clr-text-1);
-			opacity: 1;
-		}
-	}
-
-	.external-link {
-		display: flex;
-		align-items: center;
-		color: var(--clr-text-2);
-		gap: 12px;
-
-		&:hover {
-			& .external-link__label {
-				color: var(--clr-text-1);
-			}
-
-			& .external-link__link-icon {
-				opacity: 1;
-				transform: translateX(-40%) scale(1);
-			}
-		}
-	}
-
-	.external-link__link-icon {
-		display: flex;
-		opacity: 0;
-		transform: translateX(-45%) scale(0.8);
-		transition:
-			opacity var(--transition-fast),
-			transform var(--transition-medium);
-	}
-
-	.active-page-indicator {
-		content: '';
-		position: absolute;
-		left: 0;
-		width: 12px;
-		height: 18px;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-core-ntrl-50);
-		transform: translateX(-50%);
-	} */
 </style>

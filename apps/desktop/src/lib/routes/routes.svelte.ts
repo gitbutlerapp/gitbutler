@@ -53,6 +53,14 @@ export function isWorkspacePath(): { projectId: string; stackId?: string } | und
 	return isStackUrl ?? isWorkspaceUrl;
 }
 
+export function historyPath(projectId: string) {
+	return `/${projectId}/history`;
+}
+
+export function isHistoryPath() {
+	return isUrl<{ projectId: string }>('/[projectId]/history');
+}
+
 export function branchesPath(projectId: string) {
 	return `/${projectId}/branches`;
 }
