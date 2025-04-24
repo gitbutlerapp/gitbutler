@@ -50,7 +50,7 @@
 	let focusGroup = focusManager.radioGroup({
 		triggers: [Focusable.UncommittedChanges, Focusable.ChangedFiles]
 	});
-	const listActive = $derived(focusGroup.current === Focusable.ChangedFiles);
+	const listActive = $derived(focusGroup.current === Focusable.UncommittedChanges);
 
 	const filesFullySelected = $derived(
 		changeSelection.every(affectedPaths ?? [], (f) => f.type === 'full')
