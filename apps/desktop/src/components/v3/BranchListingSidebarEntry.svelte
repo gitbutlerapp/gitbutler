@@ -3,29 +3,27 @@
 	import { BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { GitConfigService } from '$lib/config/gitConfigService';
-	import { Project } from '$lib/project/project';
 	import { UserService } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 	import type { PullRequest } from '$lib/forge/interface/types';
-	import { page } from '$app/state';
 
 	interface Props {
 		projectId: string;
 		branchListing: BranchListing;
 		prs: PullRequest[];
+		selected: boolean;
 		onclick: (args: { listing: BranchListing; pr?: PullRequest }) => void;
 	}
 
-	const { projectId, branchListing, prs, onclick }: Props = $props();
+	const { projectId, branchListing, prs, selected, onclick }: Props = $props();
 
 	const unknownName = 'unknown';
 	const unknownEmail = 'example@example.com';
 
-	const [userService, gitConfigService, project, branchService] = inject(
+	const [userService, gitConfigService, branchService] = inject(
 		UserService,
 		GitConfigService,
-		Project,
 		BranchService
 	);
 
@@ -45,12 +43,6 @@
 
 	// If there are zero commits we should not show the author
 	const ownedByUser = $derived(branchListingDetails?.numberOfCommits === 0);
-
-	const selected = $derived(page.url.pathname === formatBranchURL(project, branchListing.name));
-
-	function formatBranchURL(project: Project, name: string) {
-		return `/${project.id}/branch/${encodeURIComponent(name)}`;
-	}
 
 	$effect(() => {
 		let canceled = false;
