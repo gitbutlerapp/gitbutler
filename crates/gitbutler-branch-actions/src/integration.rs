@@ -81,7 +81,6 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
     let mut heads: Vec<git2::Commit<'_>> = stacks
         .iter()
         .filter_map(|stack| stack.head(&gix_repo).ok())
-        .filter(|h| h != &target.sha.to_gix())
         .filter_map(|h| repo.find_commit(h.to_git2()).ok())
         .collect();
 
