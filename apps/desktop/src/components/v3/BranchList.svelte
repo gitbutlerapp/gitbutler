@@ -127,7 +127,9 @@
 						: 'var(--clr-commit-local)'}
 					{@const isNewBranch =
 						upstreamOnlyCommits.length === 0 && localAndRemoteCommits.length === 0}
-					{@const selected = selection?.current?.branchName === branchName}
+					{@const selected =
+						selection?.current?.branchName === branchName &&
+						selection?.current.commitId === undefined}
 					<BranchCard
 						type="stack-branch"
 						{projectId}
