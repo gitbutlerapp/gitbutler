@@ -16,13 +16,16 @@
 		projectId: string;
 		commitId: string;
 		branchName: string;
+		remote?: string;
 	};
 
-	const { projectId, commitId, branchName }: Props = $props();
+	const { projectId, commitId, branchName, remote }: Props = $props();
 
 	const [stackService] = inject(StackService);
 	const changesResult = $derived(stackService.commitChanges(projectId, commitId));
-	const commitResult = $derived(stackService.unstackedCommitById(projectId, branchName, commitId));
+	const commitResult = $derived(
+		stackService.unstackedCommitById(projectId, branchName, commitId, remote)
+	);
 </script>
 
 <Drawer {projectId}>
