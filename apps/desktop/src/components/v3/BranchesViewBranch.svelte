@@ -13,16 +13,17 @@
 		projectId: string;
 		stackId?: string;
 		branchName: string;
+		remote?: string;
 		isTopBranch?: boolean;
 	};
 
-	const { projectId, stackId, branchName, isTopBranch = true }: Props = $props();
+	const { projectId, stackId, branchName, remote, isTopBranch = true }: Props = $props();
 
 	const stackService = getContext(StackService);
 	const branchResult = $derived(
 		stackId
 			? stackService.branchDetails(projectId, stackId, branchName)
-			: stackService.unstackedBranchDetails(projectId, branchName)
+			: stackService.unstackedBranchDetails(projectId, branchName, remote)
 	);
 
 	const uiState = getContext(UiState);

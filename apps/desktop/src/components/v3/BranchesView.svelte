@@ -94,10 +94,9 @@
 										});
 									} else {
 										branchesSelection.set({
-											branchName: listing.hasLocal
-												? listing.name
-												: listing.remotes.at(0) + '/' + listing.name,
-											prNumber: pr?.number
+											branchName: listing.name,
+											prNumber: pr?.number,
+											remote: listing.remotes.at(0)
 										});
 									}
 								}}
@@ -126,12 +125,18 @@
 					<SelectionView {projectId} {selectionId} />
 				{/if}
 				{#if current.branchName && current.commitId}
-					<GitCommitView {projectId} branchName={current.branchName} commitId={current.commitId} />
+					<GitCommitView
+						{projectId}
+						branchName={current.branchName}
+						commitId={current.commitId}
+						remote={current.remote}
+					/>
 				{:else if current.branchName}
 					<UnappliedBranchView
 						{projectId}
 						branchName={current.branchName}
 						stackId={current.stackId}
+						remote={current.remote}
 						prNumber={current.prNumber}
 					/>
 				{/if}
@@ -186,7 +191,7 @@
 				{:else if current.stackId}
 					<BranchesViewStack {projectId} stackId={current.stackId} />
 				{:else if current.branchName}
-					<BranchesViewBranch {projectId} branchName={current.branchName} />
+					<BranchesViewBranch {projectId} branchName={current.branchName} remote={current.remote} />
 				{:else if current.prNumber}
 					Not implemented!
 				{/if}

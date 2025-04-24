@@ -15,17 +15,18 @@
 		projectId: string;
 		branchName: string;
 		stackId?: string;
+		remote?: string;
 		prNumber?: number;
 	}
 
-	const { projectId, stackId, branchName, prNumber }: Props = $props();
+	const { projectId, stackId, branchName, remote, prNumber }: Props = $props();
 
 	const [stackService] = inject(StackService);
 
 	const branchResult = $derived(
 		stackId
 			? stackService.branchDetails(projectId, stackId, branchName)
-			: stackService.unstackedBranchDetails(projectId, branchName)
+			: stackService.unstackedBranchDetails(projectId, branchName, remote)
 	);
 	const changesResult = $derived(stackService.branchChanges(projectId, undefined, branchName));
 
