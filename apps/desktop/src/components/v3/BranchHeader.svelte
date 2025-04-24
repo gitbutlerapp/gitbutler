@@ -19,13 +19,11 @@
 
 	export type Props = {
 		type: 'draft-branch' | 'normal-branch' | 'stack-branch';
-		el?: HTMLElement;
 		projectId: string;
 		branchName: string;
 		readonly: boolean;
 		iconName: keyof typeof iconsJson;
 		lineColor: string;
-		menuBtnEl?: HTMLButtonElement;
 		isCommitting?: boolean;
 	} & (
 		| { type: 'draft-branch' }
@@ -54,7 +52,6 @@
 				menu?: Snippet<
 					[
 						{
-							onToggle: (open: boolean, isLeftClick: boolean) => void;
 							showBranchRenameModal: () => void;
 							showDeleteBranchModal: () => void;
 						}
@@ -63,17 +60,8 @@
 		  }
 	);
 
-	let {
-		el = $bindable(),
-		projectId,
-		branchName,
-		readonly,
-		iconName,
-		lineColor,
-		isCommitting,
-		menuBtnEl = $bindable(),
-		...args
-	}: Props = $props();
+	let { projectId, branchName, readonly, iconName, lineColor, isCommitting, ...args }: Props =
+		$props();
 
 	const [stackService, uiState] = inject(StackService, UiState);
 
@@ -85,8 +73,8 @@
 	let rightClickTrigger = $state<HTMLDivElement>();
 	let leftClickTrigger = $state<HTMLButtonElement>();
 
-	let isMenuOpenByBtn = $state(false);
-	let isMenuOpenByMouse = $state(false);
+	let isOpenedByKebabButton = $state(false);
+	let isOpenedByMouse = $state(false);
 
 	let renameBranchModal = $state<BranchRenameModal>();
 	let deleteBranchModal = $state<DeleteBranchModal>();
@@ -115,20 +103,12 @@
 			});
 		}
 	}
-
-	function onToggle(isOpen: boolean, isLeftClick: boolean) {
-		if (isLeftClick) {
-			isMenuOpenByBtn = isOpen;
-		} else {
-			isMenuOpenByMouse = isLeftClick;
-		}
-	}
 </script>
 
 {#if args.type === 'stack-branch'}
 	<div
 		data-testid={TestId.BranchHeader}
-		bind:this={el}
+		bind:this={rightClickTrigger}
 		role="button"
 		class="branch-header"
 		class:new-branch={args.isNewBranch}
@@ -142,7 +122,7 @@
 		}}
 		onkeypress={args.onclick}
 		tabindex="0"
-		class:activated={isMenuOpenByMouse || isMenuOpenByBtn}
+		class:activated={isOpenedByMouse || isOpenedByKebabButton}
 	>
 		{#if args.selected}
 			<div class="branch-header__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
@@ -170,10 +150,10 @@
 				/>
 
 				<button
-					bind:this={menuBtnEl}
+					bind:this={leftClickTrigger}
 					type="button"
 					class="branch-menu-btn"
-					class:activated={isMenuOpenByBtn}
+					class:activated={isOpenedByKebabButton}
 					onmousedown={(e) => {
 						e.stopPropagation();
 						e.preventDefault();
@@ -230,14 +210,12 @@
 	<ContextMenu
 		testId={TestId.BranchHeaderContextMenu}
 		bind:this={contextMenu}
+		bind:isOpenedByKebabButton
+		bind:isOpenedByMouse
 		{leftClickTrigger}
 		{rightClickTrigger}
-		ontoggle={(isOpen, isLeftClick) => {
-			onToggle?.(isOpen, isLeftClick);
-		}}
 	>
 		{@render args.menu?.({
-			onToggle,
 			showBranchRenameModal,
 			showDeleteBranchModal
 		})}
@@ -258,7 +236,7 @@
 {:else if args.type === 'normal-branch'}
 	<div
 		data-testid={TestId.BranchHeader}
-		bind:this={el}
+		bind:this={rightClickTrigger}
 		role="button"
 		class="branch-header"
 		class:selected={args.selected}
@@ -287,7 +265,7 @@
 {:else}
 	<div
 		data-testid={TestId.BranchHeader}
-		bind:this={el}
+		bind:this={rightClickTrigger}
 		role="button"
 		class="branch-header new-branch draft selected"
 		tabindex="0"

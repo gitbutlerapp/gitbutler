@@ -15,6 +15,8 @@
 		onclick?: () => void;
 		onkeypress?: () => void;
 		menu?: Snippet<[{ close: () => void }]>;
+		isOpenedByKebabButton: boolean;
+		isOpenedByMouse: boolean;
 	}
 
 	type HorizontalProps = BaseProps & {
@@ -38,6 +40,8 @@
 		side = 'bottom',
 		verticalAlign = 'bottom',
 		horizontalAlign = 'right',
+		isOpenedByKebabButton = $bindable(false),
+		isOpenedByMouse = $bindable(false),
 		children,
 		onclose,
 		onopen,
@@ -121,12 +125,17 @@
 		isVisible = true;
 		savedMouseEvent = e;
 
+		isOpenedByKebabButton = e === undefined;
+		isOpenedByMouse = e !== undefined;
+
 		onopen?.();
 		if (ontoggle) executeByTrigger(ontoggle);
 	}
 
 	export function close() {
 		if (!isVisible) return;
+		isOpenedByKebabButton = false;
+		isOpenedByMouse = false;
 		isVisible = false;
 		onclose?.();
 		if (ontoggle) executeByTrigger(ontoggle);
