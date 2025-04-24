@@ -2,15 +2,23 @@
 	import BranchesCardTemplate from '$components/v3/branchesPage/BranchesCardTemplate.svelte';
 	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
+	import type { Author } from '$lib/commits/commit';
 
 	interface Props {
 		originName: string;
 		commitsAmount: number;
-		lastCommit?: { author?: string; ago: string; branch: string; sha: string };
+		lastCommit?: { author: Author; ago: string; branch: string; sha: string };
 		onclick: () => void;
 	}
 
 	const { originName, commitsAmount, lastCommit, onclick }: Props = $props();
+
+	const authorName = $derived(lastCommit?.author.name ?? lastCommit?.author.email ?? 'Unknown');
+	const authorAvatar = $derived(lastCommit?.author.gravatarUrl ?? '');
+
+	const fromOtherBranch = $derived(
+		lastCommit && originName.endsWith(lastCommit.branch) ? '' : `from ${lastCommit?.branch}`
+	);
 </script>
 
 <BranchesCardTemplate {onclick}>
@@ -18,15 +26,12 @@
 		<SeriesLabelsRow origin series={[originName]} />
 
 		<button type="button" class="workspace-target-card__about">
-			<Avatar
-				size="medium"
-				tooltip="origin"
-				srcUrl="https://avatars.githubusercontent.com/u/1?v=4"
-			/>
+			<Avatar size="medium" tooltip={authorName} srcUrl={authorAvatar} />
 			{#if lastCommit}
 				<p class="text-12 truncate workspace-target-card__text">
-					{lastCommit.author}
-					{lastCommit.ago} ago from {lastCommit.branch}
+					{authorName}
+					{lastCommit.ago}
+					{fromOtherBranch}
 				</p>
 			{/if}
 		</button>

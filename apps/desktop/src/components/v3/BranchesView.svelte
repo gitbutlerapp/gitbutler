@@ -65,11 +65,11 @@
 				<BranchesListGroup title="Current workspace target">
 					<!-- TODO: We need an API for `commitsCount`! -->
 					<CurrentOriginCard
-						originName="origin/master"
+						originName={baseBranch.branchName}
 						commitsAmount={13140}
 						lastCommit={lastCommit
 							? {
-									author: lastCommit.author.name || lastCommit.author.email,
+									author: lastCommit.author,
 									ago: getTimeAgo(lastCommit.createdAt, true),
 									branch: baseBranch.shortName,
 									sha: lastCommit.id.slice(0, 7)
