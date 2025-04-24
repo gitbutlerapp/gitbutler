@@ -44,6 +44,7 @@ export type GlobalUiState = {
 	leftWidth: number;
 	stacksViewWidth: number;
 	drawerSplitViewWidth: number;
+	historySidebarWidth: number;
 	useRichText: boolean;
 	useRuler: boolean;
 	rulerCountValue: number;
@@ -80,6 +81,7 @@ export class UiState {
 		leftWidth: 17.5,
 		stacksViewWidth: 21.25,
 		drawerSplitViewWidth: 20,
+		historySidebarWidth: 30,
 		useRichText: false,
 		useRuler: false,
 		rulerCountValue: 72,
