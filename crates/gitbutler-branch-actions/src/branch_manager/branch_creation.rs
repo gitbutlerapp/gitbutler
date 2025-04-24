@@ -111,6 +111,8 @@ impl BranchManager<'_> {
         vb_state.set_stack(branch.clone())?;
         self.ctx.add_branch_reference(&branch)?;
 
+        update_workspace_commit(&vb_state, self.ctx)?;
+
         Ok(branch)
     }
 
