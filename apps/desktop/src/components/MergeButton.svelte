@@ -8,7 +8,7 @@
 
 	interface Props {
 		projectId: string;
-		onclick: (method: MergeMethod) => void;
+		onclick: (method: MergeMethod) => Promise<void>;
 		disabled?: boolean;
 		wide?: boolean;
 		tooltip?: string;
