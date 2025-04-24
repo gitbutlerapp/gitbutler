@@ -10,6 +10,8 @@
 		isIrcPath,
 		isNewProjectSettingsPath,
 		isWorkspacePath,
+		historyPath,
+		isHistoryPath,
 		newProjectSettingsPath,
 		newSettingsPath,
 		workspacePath
@@ -120,6 +122,50 @@
 						fill="var(--clr-branches)"
 						stroke="var(--clr-branches)"
 					/>
+				</svg>
+			</Button>
+		</div>
+		<div>
+			{#if isHistoryPath()}
+				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+			{/if}
+			<Button
+				kind="outline"
+				onclick={() => goto(historyPath(project.id))}
+				width={34}
+				class={['btn-square', isHistoryPath() && 'btn-active']}
+				tooltip="Workspace"
+			>
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 18 18"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					{#if !isHistoryPath()}
+						<path
+							d="M7 1H5C2.79086 1 1 2.79086 1 5V13C1 15.2091 2.79086 17 5 17H13C15.2091 17 17 15.2091 17 13V11"
+							stroke-width="1.5"
+						/>
+						<path
+							d="M17 11V5C17 2.79086 15.2091 1 13 1H7"
+							stroke-width="1.5"
+							stroke-dasharray="1.5 1.5"
+						/>
+					{:else}
+						<rect
+							x="1"
+							y="1"
+							width="16"
+							height="16"
+							rx="4"
+							fill="var(--clr-history-bg)"
+							stroke="var(--clr-history-bg)"
+							stroke-width="1.5"
+						/>
+					{/if}
+					<path d="M8 4V10H14" stroke="var(--clr-history-arrows)" stroke-width="1.5" />
 				</svg>
 			</Button>
 		</div>

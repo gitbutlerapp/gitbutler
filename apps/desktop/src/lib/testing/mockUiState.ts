@@ -29,6 +29,7 @@ const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	leftWidth: 17.5,
 	stacksViewWidth: 21.25,
 	drawerSplitViewWidth: 20,
+	historySidebarWidth: 30,
 	useRichText: true,
 	aiSuggestionsOnType: true,
 	selectedTip: undefined,
