@@ -71,17 +71,19 @@ export type FileDependencies = {
 	 */
 	dependencies: HunkLocks[];
 };
-
 /**
  * Aggregates file dependencies from a collection of hunk dependencies.
  *
  * This function processes an array of `DiffDependency` objects and groups them
  * by file path, creating a list of `FileDependencies` where each file path
- * contains its associated hunk and lock dependencies.
+ * contains its associated hunk and lock dependencies. Additionally, it returns
+ * a list of all unique file paths encountered during the aggregation process.
  *
  * @param hunkDependencies - An object containing the diffs to process.
- * @returns An array of `FileDependencies` where each entry represents a file
- *          and its associated hunk and lock dependencies.
+ * @returns A tuple where:
+ *          - The first element is an array of unique file paths.
+ *          - The second element is an array of `FileDependencies` where each
+ *            entry represents a file and its associated hunk and lock dependencies.
  *
  * @example
  * const hunkDependencies = {
@@ -94,23 +96,29 @@ export type FileDependencies = {
  * const result = aggregateFileDependencies(hunkDependencies);
  * // result:
  * // [
- * //   {
- * //     path: 'file1.ts',
- * //     dependencies: [
- * //       { hunk: 'hunk1', locks: ['lock1'] },
- * //       { hunk: 'hunk3', locks: ['lock3'] }
- * //     ]
- * //   },
- * //   {
- * //     path: 'file2.ts',
- * //     dependencies: [
- * //       { hunk: 'hunk2', locks: ['lock2'] }
- * //     ]
- * //   }
+ * //   ['file1.ts', 'file2.ts'],
+ * //   [
+ * //     {
+ * //       path: 'file1.ts',
+ * //       dependencies: [
+ * //         { hunk: 'hunk1', locks: ['lock1'] },
+ * //         { hunk: 'hunk3', locks: ['lock3'] }
+ * //       ]
+ * //     },
+ * //     {
+ * //       path: 'file2.ts',
+ * //       dependencies: [
+ * //         { hunk: 'hunk2', locks: ['lock2'] }
+ * //       ]
+ * //     }
+ * //   ]
  * // ]
  */
-export function aggregateFileDependencies(hunkDependencies: HunkDependencies) {
-	return hunkDependencies.diffs.reduce<FileDependencies[]>(
+export function aggregateFileDependencies(
+	hunkDependencies: HunkDependencies
+): [string[], FileDependencies[]] {
+	const filePaths: string[] = [];
+	const fileDependencies = hunkDependencies.diffs.reduce<FileDependencies[]>(
 		(acc: FileDependencies[], diff: DiffDependency) => {
 			const [path, hunk, locks] = diff;
 			const exisitingDependency = acc.find((dep) => dep.path === path);
@@ -121,6 +129,8 @@ export function aggregateFileDependencies(hunkDependencies: HunkDependencies) {
 				});
 				return acc;
 			}
+
+			filePaths.push(path);
 
 			return [
 				...acc,
@@ -137,4 +147,6 @@ export function aggregateFileDependencies(hunkDependencies: HunkDependencies) {
 		},
 		[]
 	);
+
+	return [filePaths, fileDependencies];
 }

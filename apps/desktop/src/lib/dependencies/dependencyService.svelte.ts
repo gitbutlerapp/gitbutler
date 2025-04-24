@@ -17,7 +17,10 @@ export default class DependencyService {
 	fileDependencies(projectId: string, worktreeChangesKey: number, filePath: string) {
 		return this.api.endpoints.dependencies.useQuery(
 			{ projectId, worktreeChangesKey },
-			{ transform: (dependencies) => fileDependencySelectors.selectById(dependencies, filePath) }
+			{
+				transform: ({ fileDependencies }) =>
+					fileDependencySelectors.selectById(fileDependencies, filePath)
+			}
 		);
 	}
 
@@ -25,7 +28,8 @@ export default class DependencyService {
 		return this.api.endpoints.dependencies.useQuery(
 			{ projectId, worktreeChangesKey },
 			{
-				transform: (dependencies) => fileDependencySelectors.selectByIds(dependencies, filePaths)
+				transform: ({ fileDependencies }) =>
+					fileDependencySelectors.selectByIds(fileDependencies, filePaths)
 			}
 		);
 	}
@@ -35,7 +39,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			dependencies: build.query<
-				EntityState<FileDependencies, string>,
+				{ fileDependencies: EntityState<FileDependencies, string>; filePaths: string[] },
 				{ projectId: string; worktreeChangesKey: number }
 			>({
 				query: ({ projectId }) => ({
@@ -43,12 +47,15 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'hunk_dependencies_for_workspace_changes'
 				}),
 				transformResponse(hunkDependencies: HunkDependencies) {
-					const fileDependencies = aggregateFileDependencies(hunkDependencies);
+					const [filePaths, fileDependencies] = aggregateFileDependencies(hunkDependencies);
 
-					return fileDependenciesAdapter.addMany(
-						fileDependenciesAdapter.getInitialState(),
-						fileDependencies
-					);
+					return {
+						filePaths,
+						fileDependencies: fileDependenciesAdapter.addMany(
+							fileDependenciesAdapter.getInitialState(),
+							fileDependencies
+						)
+					};
 				}
 			})
 		})
