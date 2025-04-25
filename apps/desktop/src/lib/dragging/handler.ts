@@ -3,7 +3,7 @@
  *
  * @example
  * const handler = {
- *   accepts(data: unkown) {
+ *   accepts(data: unknown) {
  *     return dropData instanceof CommitDropData;
  *   }
  *   ondrop(data: CommitDropData) {
