@@ -17,7 +17,7 @@ export enum ReduxTag {
 
 type Tag<T extends string | number> = {
 	type: ReduxTag;
-	id: T;
+	id?: T;
 };
 
 const LIST = 'LIST';
@@ -37,6 +37,10 @@ export function providesItem<T extends string | number>(
 		{ type: tag, id },
 		{ type: tag, id: LIST }
 	];
+}
+
+export function providesType(tag: ReduxTag): Tag<ReduxTag> {
+	return { type: tag };
 }
 
 export function providesItems<T extends string | number>(
@@ -59,4 +63,8 @@ export function invalidatesItem<
 		return { type: tag, id: LIST } as OutTag;
 	}
 	return { type: tag, id } as OutTag;
+}
+
+export function invalidatesType(tag: ReduxTag): Tag<ReduxTag> {
+	return { type: tag };
 }

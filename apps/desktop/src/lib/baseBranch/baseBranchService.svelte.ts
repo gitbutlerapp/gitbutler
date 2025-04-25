@@ -1,7 +1,7 @@
 import { Code, isTauriCommandError } from '$lib/backend/ipc';
 import { BaseBranch, type RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 import { showError } from '$lib/notifications/toasts';
-import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
+import { invalidatesList, invalidatesType, providesType, ReduxTag } from '$lib/state/tags';
 import { parseRemoteUrl } from '$lib/url/gitUrl';
 import { plainToInstance } from 'class-transformer';
 import type { BackendApi } from '$lib/state/clientState.svelte';
@@ -112,7 +112,7 @@ function injectEndpoints(api: BackendApi) {
 					command: 'get_base_branch_data',
 					params: { projectId }
 				}),
-				providesTags: [providesList(ReduxTag.BaseBranchData)]
+				providesTags: [providesType(ReduxTag.BaseBranchData)]
 			}),
 			fetchFromRemotes: build.mutation<void, { projectId: string; action?: string }>({
 				query: ({ projectId, action }) => ({
@@ -120,7 +120,7 @@ function injectEndpoints(api: BackendApi) {
 					params: { projectId, action: action ?? 'auto' }
 				}),
 				invalidatesTags: [
-					invalidatesList(ReduxTag.BaseBranchData),
+					invalidatesType(ReduxTag.BaseBranchData),
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesList(ReduxTag.StackDetails),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus)
@@ -139,7 +139,7 @@ function injectEndpoints(api: BackendApi) {
 					params: { projectId, branch, pushRemote }
 				}),
 				invalidatesTags: [
-					invalidatesList(ReduxTag.BaseBranchData),
+					invalidatesType(ReduxTag.BaseBranchData),
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesList(ReduxTag.StackDetails)
 				]
@@ -149,7 +149,7 @@ function injectEndpoints(api: BackendApi) {
 					command: 'push_base_branch',
 					params: { projectId, withForce }
 				}),
-				invalidatesTags: [invalidatesList(ReduxTag.BaseBranchData)]
+				invalidatesTags: [invalidatesType(ReduxTag.BaseBranchData)]
 			}),
 			remoteBranches: build.query<RemoteBranchInfo[], { projectId: string }>({
 				query: ({ projectId }) => ({
