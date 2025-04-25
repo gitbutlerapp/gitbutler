@@ -118,7 +118,8 @@ function injectEndpoints(api: GitLabApi) {
 					const upstreamProject = await api.Projects.show(upstreamProjectId);
 					const mr = await api.MergeRequests.create(forkProjectId, base, head, title, {
 						description: body,
-						targetProjectId: upstreamProject.id
+						targetProjectId: upstreamProject.id,
+						removeSourceBranch: true
 					});
 					return { data: mrToInstance(mr) };
 				},

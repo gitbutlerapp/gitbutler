@@ -102,12 +102,14 @@
 								}}
 								branchListing={sidebarEntrySubject.subject}
 								prs={sidebarEntrySubject.prs}
+								selected={branchesSelection.current.branchName === sidebarEntrySubject.subject.name}
 							/>
 						{:else}
 							<PullRequestSidebarEntry
 								{projectId}
 								pullRequest={sidebarEntrySubject.subject}
 								onclick={(pr) => branchesSelection.set({ prNumber: pr.number })}
+								selected={branchesSelection.current.prNumber === sidebarEntrySubject.subject.number}
 							/>
 						{/if}
 					{/snippet}

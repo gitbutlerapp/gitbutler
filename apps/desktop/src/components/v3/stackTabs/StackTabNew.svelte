@@ -3,7 +3,9 @@
 	import newStackSvg from '$components/v3/stackTabs/assets/new-stack.svg?raw';
 	import { stackPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { UiState } from '$lib/state/uiState.svelte';
+	import { sleep } from '$lib/utils/sleep';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
@@ -21,7 +23,7 @@
 	};
 
 	let { el = $bindable(), scrollerEl, projectId, stackId, noStacks }: Props = $props();
-	const stackService = getContext(StackService);
+	const [stackService, uiState] = inject(StackService, UiState);
 	const [createNewStack, stackCreation] = stackService.newStack;
 	const [createNewBranch, branchCreation] = stackService.newBranch;
 
@@ -48,6 +50,9 @@
 				projectId,
 				branch: { name: createRefName }
 			});
+			// Why is there a timing thing going on here? Withou sleep you end
+			// up on stacks[0] after creating a new one.
+			await sleep(50);
 			goto(stackPath(projectId, stack.id));
 			createRefModal?.close();
 		} else {
@@ -60,7 +65,8 @@
 				stackId,
 				request: { targetPatch: undefined, name: createRefName }
 			});
-			goto(stackPath(projectId, stackId));
+
+			uiState.stack(stackId).selection.set({ branchName: createRefName });
 			createRefModal?.close();
 		}
 

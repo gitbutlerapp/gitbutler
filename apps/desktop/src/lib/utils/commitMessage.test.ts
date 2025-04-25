@@ -57,4 +57,33 @@ I fancy coffee`;
 
 		expect(splitMessage(message)).toMatchObject({ title, description });
 	});
+
+	test('Only the new-lines in the beginning and end of the description are removed', () => {
+		const message = `Fixed all the bugs!
+
+
+
+
+
+Broke something else
+
+Made it better
+Got a dog
+
+I fancy coffee   
+
+
+
+`;
+
+		const title = 'Fixed all the bugs!';
+		const description = `Broke something else
+
+Made it better
+Got a dog
+
+I fancy coffee   `;
+
+		expect(splitMessage(message)).toMatchObject({ title, description });
+	});
 });

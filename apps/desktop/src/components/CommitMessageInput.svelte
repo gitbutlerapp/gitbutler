@@ -187,7 +187,11 @@
 			return;
 		}
 
-		if (commit && (e.ctrlKey || e.metaKey) && e.key === KeyName.Enter) commit();
+		if (commit && (e.ctrlKey || e.metaKey) && e.key === KeyName.Enter) {
+			commit();
+			return;
+		}
+
 		if (e.key === KeyName.Enter) {
 			e.preventDefault();
 
