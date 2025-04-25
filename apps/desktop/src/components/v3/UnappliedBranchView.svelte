@@ -4,8 +4,10 @@
 	import BranchDetails from '$components/v3/BranchDetails.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -17,22 +19,43 @@
 		stackId?: string;
 		remote?: string;
 		prNumber?: number;
+		hasLocal?: boolean;
+		isTarget?: boolean;
 	}
 
-	const { projectId, stackId, branchName, remote, prNumber }: Props = $props();
+	const { projectId, stackId, branchName, remote, prNumber, hasLocal, isTarget }: Props = $props();
 
-	const [stackService] = inject(StackService);
+	const [stackService, baseBranchService] = inject(StackService, BaseBranchService);
 
 	const branchResult = $derived(
 		stackId
 			? stackService.branchDetails(projectId, stackId, branchName)
 			: stackService.unstackedBranchDetails(projectId, branchName, remote)
 	);
-	const changesResult = $derived(stackService.branchChanges(projectId, undefined, branchName));
+	const changesResult = $derived(stackService.branchChanges({ projectId, branchName, remote }));
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let kebabTrigger = $state<HTMLButtonElement>();
 	let isContextMenuOpen = $state(false);
+
+	async function createvBranchFromBranch() {
+		await stackService.createVirtualBranchFromBranch({
+			projectId,
+			branch: branchName,
+			remote,
+			prNumber
+		});
+		await baseBranchService.refreshBaseBranch(projectId);
+	}
+
+	async function deleteLocalBranch() {
+		await stackService.deleteLocalBranch({
+			projectId,
+			refname: `refs/heads/${branchName}`,
+			givenName: branchName
+		});
+		await baseBranchService.refreshBaseBranch(projectId);
+	}
 </script>
 
 <ReduxResult {projectId} result={branchResult.current}>
@@ -73,18 +96,49 @@
 				/>
 			{/snippet}
 
-			<BranchDetails {branch}>
-				{#if preferredPrNumber}
-					<!-- TODO(mattias): Use pr number from branch. -->
-					<BranchReview
-						{stackId}
-						{projectId}
-						{prNumber}
-						branchName={branch.name}
-						reviewId={branch.reviewId || undefined}
-					/>
-				{/if}
-			</BranchDetails>
+			<div class="branch-header">
+				<div class="metadata">
+					<BranchDetails {branch}>
+						{#if preferredPrNumber}
+							<!-- TODO(mattias): Use pr number from branch. -->
+							<BranchReview
+								{stackId}
+								{projectId}
+								{prNumber}
+								branchName={branch.name}
+								reviewId={branch.reviewId || undefined}
+							/>
+						{/if}
+					</BranchDetails>
+				</div>
+
+				<div class="actions">
+					{#if !isTarget}
+						<AsyncButton
+							size="tag"
+							kind="outline"
+							icon="edit-small"
+							action={async () => {
+								await createvBranchFromBranch();
+							}}
+						>
+							Apply
+						</AsyncButton>
+					{/if}
+					{#if hasLocal}
+						<AsyncButton
+							size="tag"
+							kind="outline"
+							icon="edit-small"
+							action={async () => {
+								await deleteLocalBranch();
+							}}
+						>
+							Delete local
+						</AsyncButton>
+					{/if}
+				</div>
+			</div>
 
 			{#snippet filesSplitView()}
 				<ReduxResult {projectId} result={changesResult.current}>
@@ -93,7 +147,9 @@
 							title="All changed files"
 							projectId={env.projectId}
 							stackId={env.stackId}
-							selectionId={{ type: 'branch', branchName }}
+							selectionId={remote
+								? { type: 'branch', branchName: remote + '/' + branchName }
+								: { type: 'branch', branchName }}
 							{changes}
 						/>
 					{/snippet}
@@ -104,7 +160,13 @@
 </ReduxResult>
 
 <style>
-	.branch__header {
+	.branch-header {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.metadata {
 		display: flex;
 		align-items: center;
 		gap: 8px;
@@ -127,5 +189,11 @@
 		&.disabled {
 			opacity: 0.3;
 		}
+	}
+
+	.actions {
+		width: 100%;
+		display: flex;
+		gap: 5px;
 	}
 </style>

@@ -5,13 +5,14 @@
 	import BranchExplorer from '$components/v3/BranchExplorer.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import BranchListingSidebarEntry from '$components/v3/BranchListingSidebarEntry.svelte';
+	import BranchView from '$components/v3/BranchView.svelte';
 	import BranchesViewBranch from '$components/v3/BranchesViewBranch.svelte';
 	import BranchesViewStack from '$components/v3/BranchesViewStack.svelte';
 	import CommitRow from '$components/v3/CommitRow.svelte';
-	import GitCommitView from '$components/v3/GitCommitView.svelte';
 	import PullRequestSidebarEntry from '$components/v3/PullRequestSidebarEntry.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import UnappliedBranchView from '$components/v3/UnappliedBranchView.svelte';
+	import UnappliedCommitView from '$components/v3/UnappliedCommitView.svelte';
 	import BranchesListGroup from '$components/v3/branchesPage/BranchesListGroup.svelte';
 	import CurrentOriginCard from '$components/v3/branchesPage/CurrentOriginCard.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
@@ -50,10 +51,16 @@
 			return { type: 'commit', commitId: current.commitId };
 		}
 		if (current.branchName) {
-			return { type: 'branch', branchName: current.branchName };
+			return {
+				type: 'branch',
+				branchName: current.remote ? current.remote + '/' + current.branchName : current.branchName,
+				stackId: current.stackId
+			};
 		}
 		return undefined;
 	});
+
+	$inspect(selectionId);
 </script>
 
 <ReduxResult {projectId} result={baseBranchResult.current}>
@@ -76,7 +83,7 @@
 								}
 							: undefined}
 						onclick={() => {
-							branchesSelection.set({ branchName: baseBranch.shortName });
+							branchesSelection.set({ branchName: baseBranch.shortName, isTarget: true });
 						}}
 					/>
 				</BranchesListGroup>
@@ -90,13 +97,16 @@
 										branchesSelection.set({
 											stackId: listing.stack.id,
 											branchName: listing.stack.branches.at(0),
-											prNumber: pr?.number
+											prNumber: pr?.number,
+											inWorkspace: listing.stack.inWorkspace,
+											hasLocal: listing.hasLocal
 										});
 									} else {
 										branchesSelection.set({
 											branchName: listing.name,
 											prNumber: pr?.number,
-											remote: listing.remotes.at(0)
+											remote: listing.remotes.at(0),
+											hasLocal: listing.hasLocal
 										});
 									}
 								}}
@@ -127,20 +137,32 @@
 					<SelectionView {projectId} {selectionId} />
 				{/if}
 				{#if current.branchName && current.commitId}
-					<GitCommitView
+					<UnappliedCommitView
 						{projectId}
 						branchName={current.branchName}
 						commitId={current.commitId}
 						remote={current.remote}
 					/>
 				{:else if current.branchName}
-					<UnappliedBranchView
-						{projectId}
-						branchName={current.branchName}
-						stackId={current.stackId}
-						remote={current.remote}
-						prNumber={current.prNumber}
-					/>
+					{#if current.inWorkspace && current.stackId}
+						<BranchView {projectId} branchName={current.branchName} stackId={current.stackId} />
+					{:else if current.isTarget}
+						<UnappliedBranchView
+							{projectId}
+							branchName={current.branchName}
+							remote={current.remote}
+							isTarget={current.isTarget}
+						/>
+					{:else}
+						<UnappliedBranchView
+							{projectId}
+							branchName={current.branchName}
+							stackId={current.stackId}
+							remote={current.remote}
+							prNumber={current.prNumber}
+							hasLocal={current.hasLocal}
+						/>
+					{/if}
 				{/if}
 			</div>
 			<div class="branch-details" bind:this={rightDiv} style:width={rightWidth.current + 'rem'}>
@@ -158,6 +180,7 @@
 										lineColor={getColorFromBranchType('LocalOnly')}
 										iconName="branch-upstream"
 										lastUpdatedAt={baseBranch.recentCommits.at(0)?.createdAt.getTime()}
+										isTopBranch
 										readonly
 										onclick={() => {
 											uiState.project(projectId).branchesSelection.set({
@@ -181,7 +204,8 @@
 											onclick={() => {
 												branchesState.set({
 													commitId: commit.id,
-													branchName
+													branchName: baseBranch.shortName,
+													remote: baseBranch.remoteName
 												});
 											}}
 										/>

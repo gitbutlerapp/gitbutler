@@ -51,9 +51,11 @@ pub fn changes_in_branch(
     project_id: ProjectId,
     stack_id: Option<StackId>,
     branch_name: String,
+    remote: Option<String>,
 ) -> anyhow::Result<TreeChanges, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let branch_name = remote.map_or(branch_name.clone(), |r| format!("{r}/{branch_name}"));
     changes_in_branch_inner(ctx, branch_name, stack_id).map_err(Into::into)
 }
 

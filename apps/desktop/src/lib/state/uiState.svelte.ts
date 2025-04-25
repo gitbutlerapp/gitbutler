@@ -29,6 +29,9 @@ type BranchesSelection = {
 	commitId?: string;
 	stackId?: string;
 	remote?: string;
+	hasLocal?: boolean;
+	isTarget?: boolean;
+	inWorkspace?: boolean;
 	prNumber?: number;
 };
 
