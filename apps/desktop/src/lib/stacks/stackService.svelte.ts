@@ -395,16 +395,37 @@ export class StackService {
 	 * If the branch is part of a stack and if the stackId is provided, this will include only the changes up to the next branch in the stack.
 	 * Otherwise, if stackId is not provided, this will include all changes as compared to the target branch
 	 */
-	branchChanges(projectId: string, stackId: string | undefined, branchName: string) {
+	branchChanges(args: {
+		projectId: string;
+		stackId?: string;
+		branchName: string;
+		remote?: string;
+	}) {
 		return this.api.endpoints.branchChanges.useQuery(
-			{ projectId, stackId, branchName },
+			{
+				projectId: args.projectId,
+				stackId: args.stackId,
+				branchName: args.branchName,
+				remote: args.remote
+			},
 			{ transform: (result) => branchChangesSelectors.selectAll(result) }
 		);
 	}
 
-	branchChange(args: { projectId: string; stackId?: string; branchName: string; path: string }) {
+	branchChange(args: {
+		projectId: string;
+		stackId?: string;
+		branchName: string;
+		remote?: string;
+		path: string;
+	}) {
 		return this.api.endpoints.branchChanges.useQuery(
-			{ projectId: args.projectId, stackId: args.stackId, branchName: args.branchName },
+			{
+				projectId: args.projectId,
+				stackId: args.stackId,
+				branchName: args.branchName,
+				remote: args.remote
+			},
 			{ transform: (result) => branchChangesSelectors.selectById(result, args.path) }
 		);
 	}
@@ -725,7 +746,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			>({
 				query: ({ projectId, branchName, remote }) => ({
 					command: 'branch_details',
-					params: { projectId, branchName, remote }
+					params: { projectId, branchName, remote },
+					actionName: 'Unstacked Branch Details'
 				}),
 				transformResponse(branchDetails: BranchDetails) {
 					// This is a list of all the commits accross all branches in the stack.
@@ -821,11 +843,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			branchChanges: build.query<
 				EntityState<TreeChange, string>,
-				{ projectId: string; stackId?: string; branchName: string }
+				{ projectId: string; stackId?: string; branchName: string; remote?: string }
 			>({
-				query: ({ projectId, stackId, branchName }) => ({
+				query: ({ projectId, stackId, branchName, remote }) => ({
 					command: 'changes_in_branch',
-					params: { projectId, stackId, branchName }
+					params: { projectId, stackId, branchName, remote }
 				}),
 				providesTags: (_result, _error, { stackId, branchName }) => [
 					...providesItem(ReduxTag.BranchChanges, stackId + branchName)
