@@ -1137,7 +1137,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					params: { projectId, branch, remote, prNumber },
 					actionName: 'Create Virtual Branch From Branch'
 				}),
-				invalidatesTags: [invalidatesList(ReduxTag.Stacks)]
+				invalidatesTags: [invalidatesList(ReduxTag.Stacks), invalidatesList(ReduxTag.BranchListing)]
 			}),
 			deleteLocalBranch: build.mutation<
 				void,
