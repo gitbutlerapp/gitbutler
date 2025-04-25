@@ -1,13 +1,16 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import FileDependenciesPlugin from '$components/v3/FileDependenciesPlugin.svelte';
 	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
 	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
+	import { getSelectableFiles } from '$lib/dependencies/dependencies';
 	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
+	import { isWorkspacePath } from '$lib/routes/routes.svelte';
 	import { ChangeSelectionService, type SelectedFile } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -33,6 +36,8 @@
 		FocusManager
 	);
 
+	let fileDependenciesPlugin = $state<ReturnType<typeof FileDependenciesPlugin>>();
+
 	const projectState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectState.drawerPage.get());
 	const isCommitting = $derived(drawerPage.current === 'new-commit');
@@ -46,6 +51,22 @@
 	const noChangesSelected = $derived(selectedChanges.current.length === 0);
 	const changesResult = $derived(worktreeService.getChanges(projectId));
 	const affectedPaths = $derived(changesResult.current.data?.map((c) => c.path));
+
+	const workspacesParams = $derived(isWorkspacePath());
+
+	// This is the stack ID that's being viewed. Not **necessarily** the stack ID associated with
+	// the change and diff in question.
+	const viewingStackId = $derived(workspacesParams?.stackId);
+
+	const fileDependencies = $derived(
+		fileDependenciesPlugin?.imports.deps?.type === 'multiple'
+			? fileDependenciesPlugin.imports.deps.data
+			: undefined
+	);
+
+	const selectableFiles = $derived<SelectedFile[]>(
+		getSelectableFiles(changesResult.current.data, fileDependencies, viewingStackId)
+	);
 
 	let focusGroup = focusManager.radioGroup({
 		triggers: [Focusable.UncommittedChanges, Focusable.ChangedFiles]
@@ -69,14 +90,7 @@
 	let listMode: 'list' | 'tree' = $state('list');
 
 	function selectEverything() {
-		const affectedPaths =
-			changesResult.current.data?.map((c) => [c.path, c.pathBytes] as const) ?? [];
-		const files: SelectedFile[] = affectedPaths.map(([path, pathBytes]) => ({
-			path,
-			pathBytes,
-			type: 'full'
-		}));
-		changeSelection.addMany(files);
+		changeSelection.addMany(selectableFiles);
 	}
 
 	function updateCommitSelection() {
@@ -103,6 +117,14 @@
 
 	let isFooterSticky = $state(false);
 </script>
+
+<FileDependenciesPlugin
+	type="multiple"
+	bind:this={fileDependenciesPlugin}
+	{projectId}
+	{isCommitting}
+	filePaths={affectedPaths ?? []}
+/>
 
 <ReduxResult {stackId} {projectId} result={changesResult.current}>
 	{#snippet children(changes, { stackId, projectId })}
@@ -133,6 +155,7 @@
 				{#if changes.length > 0}
 					<div class="uncommitted-changes">
 						<FileList
+							{fileDependencies}
 							selectionId={{ type: 'worktree' }}
 							showCheckboxes={isCommitting}
 							{projectId}

@@ -3,7 +3,7 @@ import {
 	type FileDependencies,
 	type HunkDependencies
 } from '$lib/dependencies/dependencies';
-import { createSelectByIds } from '$lib/state/customSelectors';
+import { createSelectByIds, createSelectByIdsWithKey } from '$lib/state/customSelectors';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
 
@@ -28,8 +28,19 @@ export default class DependencyService {
 		return this.api.endpoints.dependencies.useQuery(
 			{ projectId, worktreeChangesKey },
 			{
-				transform: ({ fileDependencies }) =>
-					fileDependencySelectors.selectByIds(fileDependencies, filePaths)
+				transform: ({ fileDependencies }) => {
+					const keyedDepdendencies = fileDependencySelectors.createSelectByIdsWithKey(
+						fileDependencies,
+						filePaths
+					);
+					const dependecyMap = new Map<string, FileDependencies>();
+					for (const { key, value } of keyedDepdendencies) {
+						if (value) {
+							dependecyMap.set(key, value);
+						}
+					}
+					return dependecyMap;
+				}
 			}
 		);
 	}
@@ -68,5 +79,6 @@ const fileDependenciesAdapter = createEntityAdapter<FileDependencies, string>({
 
 const fileDependencySelectors = {
 	...fileDependenciesAdapter.getSelectors(),
-	selectByIds: createSelectByIds<FileDependencies>()
+	selectByIds: createSelectByIds<FileDependencies>(),
+	createSelectByIdsWithKey: createSelectByIdsWithKey<FileDependencies>()
 };

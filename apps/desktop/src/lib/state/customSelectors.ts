@@ -28,6 +28,18 @@ export function createSelectByIds<T>() {
 	);
 }
 
+export function createSelectByIdsWithKey<T>() {
+	return createSelector(
+		[(state: EntityState<T, number | string>) => state, (state_, ids: string[]) => ids],
+		(state, ids) => {
+			return ids.map((id) => {
+				const entity = state.entities[id];
+				return { key: id, value: entity };
+			});
+		}
+	);
+}
+
 /**
  * The main purpose of this function is to enable selecting e.g. the
  * parent of a branch, or commit.
