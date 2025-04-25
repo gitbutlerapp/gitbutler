@@ -17,26 +17,26 @@ export type GroupedSidebarEntries = Record<
  * It is intended a summary that can be quickly retrieved and displayed in the UI.
  * For more detailed information, each branch can be queried individually for it's `BranchData`.
  */
-export class BranchListing {
+export type BranchListing = {
 	/** The name of the branch (e.g. `main`, `feature/branch`), excluding the remote name */
-	name!: string;
+	name: string;
 	/**
 	 * This is a list of remote that this branch can be found on (e.g. `origin`, `upstream` etc.).
 	 * If this branch is a local branch, this list will be empty.
 	 */
-	remotes!: string[];
+	remotes: string[];
 	/** The branch may or may not have a virtual branch associated with it */
 	stack?: StackReference | undefined;
 	/**
 	 * Timestamp in milliseconds since the branch was last updated.
 	 * This includes any commits, uncommited changes or even updates to the branch metadata (e.g. renaming).
 	 */
-	updatedAt!: string;
+	updatedAt: string;
 	/** The person who commited the head commit */
-	lastCommiter!: Author;
+	lastCommiter: Author;
 	/** Whether or not there is a local branch as part of the grouping */
-	hasLocal!: boolean;
-}
+	hasLocal: boolean;
+};
 
 /** Represents a reference to an associated virtual branch */
 export type StackReference = {
