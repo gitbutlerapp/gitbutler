@@ -4,10 +4,11 @@ import { MOCK_GIT_HEAD, MOCK_OPEN_WORKSPACE_MODE } from './mock/mode';
 import { getProject, isGetProjectArgs, listProjects } from './mock/projects';
 import { getSecret, isGetSecretArgs } from './mock/secrets';
 import { MOCK_APP_SETTINGS } from './mock/settings';
-import { MOCK_STACKS } from './mock/stacks';
+import { MOCK_STACK_DETAILS, MOCK_STACKS } from './mock/stacks';
 import { MOCK_BRANCH_STATUSES_RESPONSE } from './mock/upstreamIntegration';
 import { MOCK_USER } from './mock/user';
 import { MOCK_VIRTUAL_BRANCHES } from './mock/virtualBranches';
+import { MOCK_WORKTREE_CHANGES } from './mock/worktree';
 import { invoke, type InvokeArgs } from '@tauri-apps/api/core';
 
 function mockInternals(window: any) {
@@ -88,6 +89,10 @@ Cypress.on('window:before:load', (win) => {
 	mockWindows(win, 'main');
 	mockIPC(win, async (command, args) => {
 		switch (command) {
+			case 'stack_details':
+				return MOCK_STACK_DETAILS;
+			case 'changes_in_worktree':
+				return MOCK_WORKTREE_CHANGES;
 			case 'list_branches':
 				return MOCK_BRANCH_LISTINGS;
 			case 'list_virtual_branches':
@@ -171,4 +176,8 @@ Cypress.Commands.add('clearMocks', () => {
 	cy.window().then((win) => {
 		clearMocks(win);
 	});
+});
+
+beforeEach(() => {
+	cy.viewport('macbook-11');
 });
