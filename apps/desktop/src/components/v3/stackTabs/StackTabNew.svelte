@@ -48,7 +48,7 @@
 		if (createRefType === 'stack') {
 			const stack = await createNewStack({
 				projectId,
-				branch: { name: createRefName }
+				branch: { name: slugifiedRefName }
 			});
 			// Why is there a timing thing going on here? Withou sleep you end
 			// up on stacks[0] after creating a new one.
@@ -56,17 +56,17 @@
 			goto(stackPath(projectId, stack.id));
 			createRefModal?.close();
 		} else {
-			if (!stackId || !createRefName) {
+			if (!stackId || !slugifiedRefName) {
 				// TODO: Add input validation.
 				return;
 			}
 			await createNewBranch({
 				projectId,
 				stackId,
-				request: { targetPatch: undefined, name: createRefName }
+				request: { targetPatch: undefined, name: slugifiedRefName }
 			});
 
-			uiState.stack(stackId).selection.set({ branchName: createRefName });
+			uiState.stack(stackId).selection.set({ branchName: slugifiedRefName });
 			createRefModal?.close();
 		}
 
