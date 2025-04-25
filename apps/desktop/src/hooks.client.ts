@@ -1,4 +1,4 @@
-import { isNamedError } from '$lib/error/parser';
+import { isParsedError } from '$lib/error/parser';
 import { showError } from '$lib/notifications/toasts';
 import { captureException } from '@sentry/sveltekit';
 import { error as logErrorToFile } from '@tauri-apps/plugin-log';
@@ -22,6 +22,7 @@ export function handleError({
 
 // Handler for unhandled errors inside promises.
 window.onunhandledrejection = (e: PromiseRejectionEvent) => {
+	e.preventDefault(); // Suppresses default console logger.
 	logError(e);
 };
 
@@ -34,8 +35,13 @@ function logError(error: unknown) {
 			}
 		});
 
-		if (isNamedError(error)) {
-			showError(error.name, error.error);
+		// Unwrap error if it's an unhandled promise rejection.
+		if (error instanceof PromiseRejectionEvent) {
+			error = error.reason;
+		}
+
+		if (isParsedError(error) && error.name) {
+			showError(error.name, error.message);
 		} else {
 			showError('Unhandled exception', error);
 		}

@@ -31,9 +31,14 @@ export function showToast(toast: Toast) {
 }
 
 export function showError(title: string, error: unknown) {
-	const { message, parsedError } = parseError(error);
-	if (parsedError) {
-		showToast({ title, message, error: parsedError, style: 'error' });
+	const { message, description, ignored } = parseError(error);
+	if (!ignored) {
+		showToast({
+			title,
+			message: description,
+			error: message,
+			style: 'error'
+		});
 	}
 }
 
