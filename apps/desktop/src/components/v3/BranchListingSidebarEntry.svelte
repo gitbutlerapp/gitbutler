@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SidebarEntry from '$components/v3/SidebarEntry.svelte';
-	import { BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
+	import { type BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { UserService } from '$lib/user/userService';

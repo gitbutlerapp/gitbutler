@@ -35,7 +35,7 @@
 	const branchResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const topCommitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
 
-	const changesResult = stackService.branchChanges(projectId, stackId, branchName);
+	const changesResult = stackService.branchChanges({ projectId, stackId, branchName });
 	const forgeBranch = $derived(forge.current?.branch(branchName));
 
 	// context menu

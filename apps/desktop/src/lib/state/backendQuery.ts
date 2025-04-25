@@ -1,7 +1,7 @@
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { isTauriCommandError, type TauriCommandError } from '$lib/backend/ipc';
 import { Tauri } from '$lib/backend/tauri';
-import { createTitledError, parseError } from '$lib/error/parser';
+import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 import { type BaseQueryApi, type QueryReturnValue } from '@reduxjs/toolkit/query';
 
 export type TauriBaseQueryFn = typeof tauriBaseQuery;
@@ -23,23 +23,20 @@ export async function tauriBaseQuery(
 		}
 		return result;
 	} catch (error: unknown) {
-		const title = `API error: ${args.command}`;
-		if (isTauriCommandError(error)) {
-			if (posthog && args.actionName) {
-				const title = `${args.actionName} Failed`;
-				posthog.capture(title, { error });
-				throw createTitledError(title, error);
-			}
-		}
-
-		const newError = parseError(error);
 		if (posthog && args.actionName) {
-			const title = `${args.actionName} Failed`;
-			posthog.capture(title, { error: newError });
-			throw createTitledError(title, newError);
+			posthog.capture(`${args.actionName} Failed`, { error });
 		}
 
-		throw createTitledError(title, newError);
+		const name = `API error: ${args.actionName} (${args.command})`;
+		if (isTauriCommandError(error)) {
+			const newMessage =
+				`command: ${args.command}\nparams: ${JSON.stringify(args.params)})\n\n` + error.message;
+			throw { name, message: newMessage, code: error.code };
+		} else if (isErrorlike(error)) {
+			throw { name, message: error.message };
+		} else {
+			throw { name, message: String(error) };
+		}
 	}
 }
 

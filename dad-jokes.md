@@ -24,6 +24,11 @@
   <b>But it is worth a shot</b>
 </details>
 
+<details>
+    <summary>Why was the cocktail sad?</summary>
+    <b>Because someone called him old-fashioned</b>
+</details>
+
 ### Community dad jokes
 
 <details>
