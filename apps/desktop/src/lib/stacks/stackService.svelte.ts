@@ -749,16 +749,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						commits: commitsEntity,
 						upstreamCommits: upstreamCommitsEntity
 					};
-				}
-			}),
-			unstackedCommitById: build.query<
-				BranchDetails,
-				{ projectId: string; branchName: string; commitId: string }
-			>({
-				query: ({ projectId, branchName }) => ({
-					command: 'branch_details',
-					params: { projectId, branchName }
-				})
+				},
+				providesTags: (_result, _error, { branchName }) => [
+					...providesItem(ReduxTag.BranchDetails, branchName)
+				]
 			}),
 			pushStack: build.mutation<
 				BranchPushResult,
@@ -1147,7 +1141,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'delete_local_branch',
 					params: { projectId, refname, givenName },
 					actionName: 'Delete Local Branch'
-				})
+				}),
+				invalidatesTags: (_result, _error, { givenName: branchName }) => [
+					invalidatesItem(ReduxTag.BranchDetails, branchName)
+				]
 			}),
 			squashCommits: build.mutation<
 				void,
