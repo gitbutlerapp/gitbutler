@@ -39,7 +39,9 @@
 	let cache: Display | undefined;
 	const display = $derived.by<Display>(() => {
 		const env = { projectId: props.projectId, stackId: props.stackId as B };
-		if (isDefined(props.result?.data)) {
+		if (props.result?.error) {
+			return { result: props.result, env };
+		} else if (isDefined(props.result?.data)) {
 			cache = { result: props.result, env };
 			return cache;
 		} else {
@@ -55,7 +57,7 @@
 {#if display.result?.error}
 	{@const error = display.result.error}
 	{#if isParsedError(error)}
-		<InfoMessage error={error.message}>
+		<InfoMessage error={error.message} style="error">
 			{#snippet title()}
 				{error.name}
 			{/snippet}
