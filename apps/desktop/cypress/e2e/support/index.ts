@@ -1,4 +1,5 @@
 import { getBaseBranchData, getRemoteBranches } from './mock/baseBranch';
+import { MOCK_BRANCH_LISTINGS } from './mock/branches';
 import { MOCK_GIT_HEAD, MOCK_OPEN_WORKSPACE_MODE } from './mock/mode';
 import { getProject, isGetProjectArgs, listProjects } from './mock/projects';
 import { getSecret, isGetSecretArgs } from './mock/secrets';
@@ -6,6 +7,7 @@ import { MOCK_APP_SETTINGS } from './mock/settings';
 import { MOCK_STACKS } from './mock/stacks';
 import { MOCK_BRANCH_STATUSES_RESPONSE } from './mock/upstreamIntegration';
 import { MOCK_USER } from './mock/user';
+import { MOCK_VIRTUAL_BRANCHES } from './mock/virtualBranches';
 import { invoke, type InvokeArgs } from '@tauri-apps/api/core';
 
 function mockInternals(window: any) {
@@ -86,6 +88,10 @@ Cypress.on('window:before:load', (win) => {
 	mockWindows(win, 'main');
 	mockIPC(win, async (command, args) => {
 		switch (command) {
+			case 'list_branches':
+				return MOCK_BRANCH_LISTINGS;
+			case 'list_virtual_branches':
+				return MOCK_VIRTUAL_BRANCHES;
 			case 'upstream_integration_statuses':
 				return MOCK_BRANCH_STATUSES_RESPONSE;
 			case 'stacks':
