@@ -1,8 +1,10 @@
 import type { Author, Commit, CommitState, UpstreamCommit } from '$lib/branches/v3';
 import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
 
+export const MOCK_STACK_A_ID = '1234-123';
+
 export const MOCK_STACK_A: Stack = {
-	id: '1234123',
+	id: MOCK_STACK_A_ID,
 	heads: [
 		{
 			name: 'branch-a',

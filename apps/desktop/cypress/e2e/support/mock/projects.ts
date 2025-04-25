@@ -1,5 +1,7 @@
+export const PROJECT_ID = '1';
+
 export const MOCK_PROJECT_A = {
-	id: '1',
+	id: PROJECT_ID,
 	title: 'Project A',
 	description: 'Description for Project A',
 	path: '/path/to/projectA',

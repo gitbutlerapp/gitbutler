@@ -16,9 +16,10 @@ function mockInternals(window: any) {
 	window.__TAURI_OS_PLUGIN_INTERNALS__ = window.__TAURI_OS_PLUGIN_INTERNALS__ ?? {};
 }
 
-type MockCallback = (command: string, args?: InvokeArgs) => unknown;
+type MockCallback = (args?: InvokeArgs) => unknown;
+type MockCommandCallback = (command: string, args?: InvokeArgs) => unknown;
 
-export function mockIPC(window: any, cb: MockCallback): void {
+export function mockIPC(window: any, cb: MockCommandCallback): void {
 	mockInternals(window);
 
 	window.__TAURI_INTERNALS__.transformCallback = function transformCallback(
@@ -84,10 +85,16 @@ function raiseMissingMockError(command: string): never {
 	throw new Error('Missing mock for command: ' + command);
 }
 
+const ipcMocks = new Map<string, MockCallback>();
+
 Cypress.on('window:before:load', (win) => {
 	mockPlatform(win, 'macos');
 	mockWindows(win, 'main');
 	mockIPC(win, async (command, args) => {
+		if (ipcMocks.has(command)) {
+			return ipcMocks.get(command)!(args);
+		}
+
 		switch (command) {
 			case 'stack_details':
 				return MOCK_STACK_DETAILS;
@@ -153,14 +160,20 @@ Cypress.on('window:before:load', (win) => {
 	});
 });
 
+Cypress.on('window:before:unload', (win) => {
+	clearMocks(win);
+});
+
 declare global {
 	namespace Cypress {
 		interface Chainable {
 			/**
 			 * Mock the Tauri IPC calls.
-			 * @param cb - The callback to handle the IPC calls.
+			 * @param command The command to mock.
+			 * @param cb The callback to call when the command is invoked.
+			 * @returns A function to clear the mock.
 			 */
-			mockIPC(cb: MockCallback): void;
+			mockIPC: (command: string, cb: MockCallback) => () => void;
 
 			/**
 			 * Clear all mocks.
@@ -170,11 +183,13 @@ declare global {
 	}
 }
 
-Cypress.Commands.add('mockIPC', (cb: MockCallback) => {
-	cy.window().then((win) => {
-		mockIPC(win, cb);
-	});
-});
+export function mockCommand(command: string, cb: MockCallback) {
+	ipcMocks.set(command, cb);
+}
+
+export function clearCommandMocks() {
+	ipcMocks.clear();
+}
 
 Cypress.Commands.add('clearMocks', () => {
 	cy.window().then((win) => {
