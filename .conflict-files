@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/hooks.client.ts", "apps/desktop/src/lib/error/parser.ts", "apps/desktop/src/lib/state/backendQuery.ts"]
+ourEntries = ["apps/desktop/src/hooks.client.ts", "apps/desktop/src/lib/error/parser.ts", "apps/desktop/src/lib/state/backendQuery.ts"]
+theirEntries = ["apps/desktop/src/hooks.client.ts", "apps/desktop/src/lib/error/parser.ts", "apps/desktop/src/lib/state/backendQuery.ts"]
