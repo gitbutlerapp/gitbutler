@@ -141,7 +141,11 @@ Cypress.on('window:before:load', (win) => {
 				return await Promise.resolve({});
 			case 'plugin:store|load':
 				return await Promise.resolve({});
+			case 'plugin:store|get':
+				return await Promise.resolve([undefined, false]);
 			case 'plugin:path|resolve_directory':
+				return await Promise.resolve({});
+			case 'plugin:log|log':
 				return await Promise.resolve({});
 			default:
 				return raiseMissingMockError(command);
