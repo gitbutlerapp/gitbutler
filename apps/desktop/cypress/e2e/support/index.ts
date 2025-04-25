@@ -1,3 +1,5 @@
+import { getBaseBranchData, getRemoteBranches } from './mock/baseBranch';
+import { MOCK_GIT_HEAD, MOCK_OPEN_WORKSPACE_MODE } from './mock/mode';
 import { getProject, isGetProjectArgs, listProjects } from './mock/projects';
 import { getSecret, isGetSecretArgs } from './mock/secrets';
 import { MOCK_APP_SETTINGS } from './mock/settings';
@@ -82,6 +84,20 @@ Cypress.on('window:before:load', (win) => {
 	mockWindows(win, 'main');
 	mockIPC(win, async (command, args) => {
 		switch (command) {
+			case 'operating_mode':
+				return MOCK_OPEN_WORKSPACE_MODE;
+			case 'set_project_active':
+				// Do nothing
+				return await Promise.resolve();
+			case 'fetch_from_remotes':
+				// Do nothing
+				return await Promise.resolve();
+			case 'git_head':
+				return MOCK_GIT_HEAD;
+			case 'get_base_branch_data':
+				return getBaseBranchData();
+			case 'git_remote_branches':
+				return getRemoteBranches();
 			case 'secret_get_global':
 				if (!isGetSecretArgs(args)) {
 					return raiseInvalidArgumentsError(command, args);
@@ -105,6 +121,7 @@ Cypress.on('window:before:load', (win) => {
 			case 'plugin:event|listen':
 				return await Promise.resolve({});
 			case 'plugin:store|load':
+				return await Promise.resolve({});
 			case 'plugin:path|resolve_directory':
 				return await Promise.resolve({});
 			default:
