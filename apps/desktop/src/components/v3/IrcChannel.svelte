@@ -50,7 +50,7 @@
 		{:else if props.type === 'private'}
 			{props.nick}
 		{:else if props.type === 'server'}
-			system
+			{ircClient.server.current}
 		{/if}
 	</div>
 	<div class="middle">
