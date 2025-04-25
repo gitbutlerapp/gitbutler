@@ -63,6 +63,10 @@ export default defineConfig({
 		exclude: ['node_modules/**/*', 'e2e/**/*'],
 		environment: 'jsdom',
 		setupFiles: ['./vitest-setup.js']
+	},
+	preview: {
+		// preview port for the e2e tests
+		port: 1420
 	}
 });
 
