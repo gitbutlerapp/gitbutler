@@ -3,6 +3,8 @@ import { MOCK_GIT_HEAD, MOCK_OPEN_WORKSPACE_MODE } from './mock/mode';
 import { getProject, isGetProjectArgs, listProjects } from './mock/projects';
 import { getSecret, isGetSecretArgs } from './mock/secrets';
 import { MOCK_APP_SETTINGS } from './mock/settings';
+import { MOCK_STACKS } from './mock/stacks';
+import { MOCK_BRANCH_STATUSES_RESPONSE } from './mock/upstreamIntegration';
 import { MOCK_USER } from './mock/user';
 import { invoke, type InvokeArgs } from '@tauri-apps/api/core';
 
@@ -84,6 +86,10 @@ Cypress.on('window:before:load', (win) => {
 	mockWindows(win, 'main');
 	mockIPC(win, async (command, args) => {
 		switch (command) {
+			case 'upstream_integration_statuses':
+				return MOCK_BRANCH_STATUSES_RESPONSE;
+			case 'stacks':
+				return MOCK_STACKS;
 			case 'operating_mode':
 				return MOCK_OPEN_WORKSPACE_MODE;
 			case 'set_project_active':
@@ -118,6 +124,8 @@ Cypress.on('window:before:load', (win) => {
 				return 'light';
 			case 'get_app_settings':
 				return MOCK_APP_SETTINGS;
+			case 'plugin:event|unlisten':
+				return await Promise.resolve({});
 			case 'plugin:event|listen':
 				return await Promise.resolve({});
 			case 'plugin:store|load':
