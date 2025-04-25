@@ -49,18 +49,18 @@
 	});
 </script>
 
-{#if display.result?.data !== undefined}
-	{@render props.children(display.result.data, display.env)}
-{:else if display.result?.status === 'pending'}
-	<div class="loading-spinner">
-		<Icon name="spinner" />
-	</div>
-{:else if display.result?.status === 'rejected'}
+{#if display.result?.status === 'rejected'}
 	{#if isErrorlike(display.result.error)}
 		{display.result.error.message}
 	{:else}
 		{JSON.stringify(display.result.error)}
 	{/if}
+{:else if display.result?.data !== undefined}
+	{@render props.children(display.result.data, display.env)}
+{:else if display.result?.status === 'pending'}
+	<div class="loading-spinner">
+		<Icon name="spinner" />
+	</div>
 {:else if display.result?.status === 'uninitialized'}
 	Uninitialized...
 {/if}
