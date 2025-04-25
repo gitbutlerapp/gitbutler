@@ -11,11 +11,15 @@
 		"test:e2e:watch": "wdio wdio.conf.ts --watch",
 		"test:ui": "vitest --ui",
 		"build": "vite build",
+		"preview": "vite preview",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "pnpm check --watch",
 		"tauri": "tauri",
 		"prepare": "svelte-kit sync",
-		"cy:open": "cypress open"
+		"cy:install": "cypress install",
+		"cy:open": "cypress open",
+		"cy:chrome": "cypress run --browser chrome",
+		"cy:ci": "cypress run"
 	},
 	"devDependencies": {
 		"@anthropic-ai/sdk": "^0.27.3",
