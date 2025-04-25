@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/src/lib/state/backendQuery.ts"]
-ourEntries = ["apps/desktop/src/lib/state/backendQuery.ts"]
-theirEntries = ["apps/desktop/src/lib/state/backendQuery.ts"]
