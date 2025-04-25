@@ -219,6 +219,7 @@
 		color: var(--clr-scale-err-10);
 		border-radius: var(--radius-s);
 		font-size: 12px;
+		white-space: pre;
 
 		/* scrollbar */
 		&::-webkit-scrollbar {

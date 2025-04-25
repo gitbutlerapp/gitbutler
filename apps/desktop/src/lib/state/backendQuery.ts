@@ -27,9 +27,11 @@ export async function tauriBaseQuery(
 			posthog.capture(`${args.actionName} Failed`, { error });
 		}
 
-		const name = `API error: ${args.actionName}`;
+		const name = `API error: ${args.actionName} (${args.command})`;
 		if (isTauriCommandError(error)) {
-			throw { name, ...error };
+			const newMessage =
+				`command: ${args.command}\nparams: ${JSON.stringify(args.params)})\n\n` + error.message;
+			throw { name, message: newMessage, code: error.code };
 		} else if (isErrorlike(error)) {
 			throw { name, message: error.message };
 		} else {
