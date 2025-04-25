@@ -1,7 +1,7 @@
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { isTauriCommandError, type TauriCommandError } from '$lib/backend/ipc';
 import { Tauri } from '$lib/backend/tauri';
-import { createTitledError, parseError } from '$lib/error/parser';
+import { createNamedError, parseError } from '$lib/error/parser';
 import { type BaseQueryApi, type QueryReturnValue } from '@reduxjs/toolkit/query';
 
 export type TauriBaseQueryFn = typeof tauriBaseQuery;
@@ -28,7 +28,7 @@ export async function tauriBaseQuery(
 			if (posthog && args.actionName) {
 				const title = `${args.actionName} Failed`;
 				posthog.capture(title, { error });
-				throw createTitledError(title, error);
+				throw createNamedError(title, error);
 			}
 		}
 
@@ -36,10 +36,10 @@ export async function tauriBaseQuery(
 		if (posthog && args.actionName) {
 			const title = `${args.actionName} Failed`;
 			posthog.capture(title, { error: newError });
-			throw createTitledError(title, newError);
+			throw createNamedError(title, newError);
 		}
 
-		throw createTitledError(title, newError);
+		throw createNamedError(title, newError);
 	}
 }
 

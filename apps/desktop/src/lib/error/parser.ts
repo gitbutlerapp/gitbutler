@@ -23,7 +23,7 @@ export function isParsedError(something: unknown): something is ParsedError {
 }
 
 export function parseError(error: unknown): ParsedError {
-	if (isTitledError(error)) {
+	if (isNamedError(error)) {
 		return parseError(error.error);
 	}
 
@@ -74,22 +74,22 @@ export function parseError(error: unknown): ParsedError {
 	return { parsedError: JSON.stringify(error, null, 2) };
 }
 
-export type TitledError = {
-	title: string;
+export type NamedError = {
+	name: string;
 	error: unknown;
 };
 
-export function isTitledError(error: unknown): error is TitledError {
+export function isNamedError(error: unknown): error is NamedError {
 	return (
 		typeof error === 'object' &&
 		error !== null &&
-		'title' in error &&
-		typeof error.title === 'string' &&
-		error.title.length > 0 &&
+		'name' in error &&
+		typeof error.name === 'string' &&
+		error.name.length > 0 &&
 		(error as any).error !== undefined
 	);
 }
 
-export function createTitledError(title: string, error: unknown): TitledError {
-	return { title, error };
+export function createNamedError(name: string, error: unknown): NamedError {
+	return { name, error };
 }
