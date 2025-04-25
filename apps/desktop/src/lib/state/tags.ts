@@ -11,7 +11,8 @@ export enum ReduxTag {
 	RepoInfo = 'RepoInfo',
 	BaseBranchData = 'BaseBranchData',
 	UpstreamIntegrationStatus = 'UpstreamIntegrationStatus',
-	BranchListing = 'BranchListing'
+	BranchListing = 'BranchListing',
+	BranchDetails = 'BranchDetails'
 }
 
 type Tag<T extends string | number> = {
