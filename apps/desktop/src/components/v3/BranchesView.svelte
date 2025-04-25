@@ -59,8 +59,6 @@
 		}
 		return undefined;
 	});
-
-	$inspect(selectionId);
 </script>
 
 <ReduxResult {projectId} result={baseBranchResult.current}>

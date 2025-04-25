@@ -1,20 +1,18 @@
 <script lang="ts">
-	import { IrcClient } from '$lib/irc/ircClient.svelte';
 	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 
-	const [ircService, ircClient, uiState] = inject(IrcService, IrcClient, UiState);
+	const [ircService, uiState] = inject(IrcService, UiState);
 
 	const selectedChannel = $derived(uiState.global.channel);
 	const channels = $derived(ircService.getChannels());
 	const chats = $derived(ircService.getChats());
-	const server = $derived(ircClient.server);
 </script>
 
 <div class="channels text-13">
 	<button type="button" class="channel server" onclick={() => selectedChannel.set(undefined)}>
-		{server.current}
+		server
 	</button>
 	{#each Object.keys(channels).sort() as name}
 		{@const channel = channels[name]}

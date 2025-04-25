@@ -75,7 +75,7 @@
 		font-family: var(--fontfamily-mono);
 		white-space: pre-wrap;
 		user-select: text;
-		padding: 6px 12px;
+		padding: 0 12px;
 	}
 	.error {
 		background-color: var(--clr-scale-err-90);
