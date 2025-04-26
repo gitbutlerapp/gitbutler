@@ -38,8 +38,6 @@ export function splitMessage(message: string) {
 
 	if (firstNonEmptyLine !== -1 && lastNonEmptyLine !== -1) {
 		description = lines.slice(firstNonEmptyLine, lastNonEmptyLine + 1).join('\n');
-	} else {
-		description = lines.slice(1).join('\n');
 	}
 
 	return {
