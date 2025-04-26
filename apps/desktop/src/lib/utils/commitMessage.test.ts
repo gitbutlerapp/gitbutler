@@ -12,6 +12,12 @@ describe.concurrent('#splitMessage', () => {
 		expect(splitMessage(message)).toMatchObject({ title: 'Fixed all the bugs!', description: '' });
 	});
 
+	test('When provided a single line, --with empty lines following it-- it returns a title and empty description', () => {
+		const message = 'Fixed all the bugs!\n\n';
+
+		expect(splitMessage(message)).toMatchObject({ title: 'Fixed all the bugs!', description: '' });
+	});
+
 	test('When provided a commit message with one newline, it returns a title and description', () => {
 		const message = 'Fixed all the bugs!\nActually maybe not...';
 
