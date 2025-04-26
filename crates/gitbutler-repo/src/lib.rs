@@ -1,6 +1,9 @@
+use gix::date::parse::TimeBuf;
+
 pub mod rebase;
 
 mod commands;
+
 pub use commands::{FileInfo, RepoCommands};
 pub use remote::GitRemote;
 
@@ -34,7 +37,7 @@ pub enum SignaturePurpose {
 /// Provide a signature with the GitButler author, and the current time or the time overridden
 /// depending on the value for `purpose`.
 pub fn signature(purpose: SignaturePurpose) -> anyhow::Result<git2::Signature<'static>> {
-    let signature = gix::actor::SignatureRef {
+    let signature = gix::actor::Signature {
         name: GITBUTLER_COMMIT_AUTHOR_NAME.into(),
         email: GITBUTLER_COMMIT_AUTHOR_EMAIL.into(),
         time: commit_time(match purpose {
@@ -42,7 +45,7 @@ pub fn signature(purpose: SignaturePurpose) -> anyhow::Result<git2::Signature<'s
             SignaturePurpose::Committer => "GIT_COMMITTER_DATE",
         }),
     };
-    gix_to_git2_signature(signature)
+    gix_to_git2_signature(signature.to_ref(&mut TimeBuf::default()))
 }
 
 /// Return the time of a commit as `now` unless the `overriding_variable_name` contains a parseable date,

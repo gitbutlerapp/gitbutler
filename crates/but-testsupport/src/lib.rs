@@ -140,7 +140,7 @@ pub fn visualize_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
                             mode = if mode.is_tree() {
                                 "".into()
                             } else {
-                                format!("{:o}:", mode.0)
+                                format!("{:o}:", mode.value())
                             }
                         )
                     }

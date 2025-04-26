@@ -104,7 +104,6 @@ fn single_branch() -> anyhow::Result<()> {
                                 committed_date: Time {
                                     seconds: 946771200,
                                     offset: 0,
-                                    sign: Plus,
                                 },
                             },
                             BranchCommit {
@@ -113,7 +112,6 @@ fn single_branch() -> anyhow::Result<()> {
                                 committed_date: Time {
                                     seconds: 946771200,
                                     offset: 0,
-                                    sign: Plus,
                                 },
                             },
                             BranchCommit {
@@ -122,7 +120,6 @@ fn single_branch() -> anyhow::Result<()> {
                                 committed_date: Time {
                                     seconds: 946771200,
                                     offset: 0,
-                                    sign: Plus,
                                 },
                             },
                             BranchCommit {
@@ -131,7 +128,6 @@ fn single_branch() -> anyhow::Result<()> {
                                 committed_date: Time {
                                     seconds: 946771200,
                                     offset: 0,
-                                    sign: Plus,
                                 },
                             },
                             BranchCommit {
@@ -140,7 +136,6 @@ fn single_branch() -> anyhow::Result<()> {
                                 committed_date: Time {
                                     seconds: 946771200,
                                     offset: 0,
-                                    sign: Plus,
                                 },
                             },
                         ],
@@ -195,7 +190,6 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                                 committed_date: Time {
                                     seconds: 946771200,
                                     offset: 0,
-                                    sign: Plus,
                                 },
                             },
                         ],
@@ -220,7 +214,6 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                                 committed_date: Time {
                                     seconds: 946771200,
                                     offset: 0,
-                                    sign: Plus,
                                 },
                             },
                             BranchCommit {
@@ -229,7 +222,6 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                                 committed_date: Time {
                                     seconds: 946771200,
                                     offset: 0,
-                                    sign: Plus,
                                 },
                             },
                             BranchCommit {
@@ -238,7 +230,6 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                                 committed_date: Time {
                                     seconds: 946771200,
                                     offset: 0,
-                                    sign: Plus,
                                 },
                             },
                         ],
@@ -263,7 +254,6 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                                 committed_date: Time {
                                     seconds: 946771200,
                                     offset: 0,
-                                    sign: Plus,
                                 },
                             },
                             BranchCommit {
@@ -272,7 +262,6 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                                 committed_date: Time {
                                     seconds: 946771200,
                                     offset: 0,
-                                    sign: Plus,
                                 },
                             },
                             BranchCommit {
@@ -281,7 +270,6 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                                 committed_date: Time {
                                     seconds: 946771200,
                                     offset: 0,
-                                    sign: Plus,
                                 },
                             },
                         ],
@@ -306,7 +294,6 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                                 committed_date: Time {
                                     seconds: 946771200,
                                     offset: 0,
-                                    sign: Plus,
                                 },
                             },
                             BranchCommit {
@@ -315,7 +302,6 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                                 committed_date: Time {
                                     seconds: 946771200,
                                     offset: 0,
-                                    sign: Plus,
                                 },
                             },
                         ],
@@ -340,7 +326,6 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                                 committed_date: Time {
                                     seconds: 946771200,
                                     offset: 0,
-                                    sign: Plus,
                                 },
                             },
                         ],
