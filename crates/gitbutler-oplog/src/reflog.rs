@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use crate::state::OplogHandle;
 use anyhow::Result;
 use gitbutler_fs::write;
 use gitbutler_oxidize::OidExt as _;
@@ -7,8 +8,7 @@ use gitbutler_project::Project;
 use gitbutler_repo::{GITBUTLER_COMMIT_AUTHOR_EMAIL, GITBUTLER_COMMIT_AUTHOR_NAME};
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::config::tree::Key;
-
-use crate::state::OplogHandle;
+use gix::date::parse::TimeBuf;
 
 /// A collection of commits that we want to protect from `git GC`.
 ///
@@ -71,8 +71,8 @@ pub fn set_reference_to_oplog(worktree_dir: &Path, reflog_commits: ReflogCommits
         gix::open::Options::isolated().config_overrides({
             let sig = standard_signature();
             [
-                gix::config::tree::User::NAME.validated_assignment(sig.name)?,
-                gix::config::tree::User::EMAIL.validated_assignment(sig.email)?,
+                gix::config::tree::User::NAME.validated_assignment(sig.name.as_ref())?,
+                gix::config::tree::User::EMAIL.validated_assignment(sig.email.as_ref())?,
             ]
         }),
     )?;
@@ -107,8 +107,8 @@ fn branch_creation_message(commit_id_hex: &str) -> String {
     format!("branch: Created from {commit_id_hex}")
 }
 
-fn standard_signature() -> gix::actor::SignatureRef<'static> {
-    gix::actor::SignatureRef {
+fn standard_signature() -> gix::actor::Signature {
+    gix::actor::Signature {
         name: GITBUTLER_COMMIT_AUTHOR_NAME.into(),
         email: GITBUTLER_COMMIT_AUTHOR_EMAIL.into(),
         time: gix::date::Time::now_local_or_utc(),
@@ -130,10 +130,13 @@ fn build_reflog_content(commits: &[gix::ObjectId]) -> String {
         let previous_oid_string = previous_oid.to_string();
         let new_oid_string = commit_id.to_string();
 
+        let signature = standard_signature();
+        let buf = &mut TimeBuf::default();
+        let signature = signature.to_ref(buf);
         let reflog_line = gix::refs::file::log::LineRef {
             previous_oid: previous_oid_string.as_str().into(),
             new_oid: new_oid_string.as_str().into(),
-            signature: standard_signature(),
+            signature,
             message: message.as_str().into(),
         };
 
@@ -372,7 +375,8 @@ mod set_target_ref {
         assert_eq!(sig.name, GITBUTLER_COMMIT_AUTHOR_NAME);
         assert_eq!(sig.email, GITBUTLER_COMMIT_AUTHOR_EMAIL);
         assert_ne!(
-            sig.time.seconds, 0,
+            sig.seconds(),
+            0,
             "we don't accidentally use the default time as it would caues GC as well"
         );
     }
