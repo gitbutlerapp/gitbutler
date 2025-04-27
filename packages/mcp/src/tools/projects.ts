@@ -104,33 +104,38 @@ async function fullLookupProject(params: LookupProjectParams) {
 
 const TOOL_LISTINGS = [
 	{
-		name: 'list_projects',
-		description: 'List all the GitButler projects that are available',
+		name: 'cloud_list_projects',
+		description:
+			'List all the GitButler projects that are available (This refers to data in the GitButler cloud).',
 		inputSchema: zodToJsonSchema(ListProjectsParamsSchema)
 	},
 	{
-		name: 'get_project',
-		description: 'Get a specific GitButler project',
+		name: 'cloud_get_project',
+		description: 'Get a specific GitButler project (This refers to data in the GitButler cloud).',
 		inputSchema: zodToJsonSchema(GetProjectParamsSchema)
 	},
 	{
-		name: 'list_recently_interacted_projects',
-		description: 'List all the GitButler projects that have been recently interacted with',
+		name: 'cloud_list_recently_interacted_projects',
+		description:
+			'List all the GitButler projects that have been recently interacted with (This refers to data in the GitButler cloud).',
 		inputSchema: zodToJsonSchema(z.object({}))
 	},
 	{
-		name: 'list_recently_pushed_projects',
-		description: 'List all the GitButler projects that have been recently pushed to',
+		name: 'cloud_list_recently_pushed_projects',
+		description:
+			'List all the GitButler projects that have been recently pushed to (This refers to data in the GitButler cloud).',
 		inputSchema: zodToJsonSchema(z.object({}))
 	},
 	{
-		name: 'lookup_project',
-		description: 'Lookup a GitButler project by owner and repo, returning the project ID',
+		name: 'cloud_lookup_project',
+		description:
+			'Lookup a GitButler project by owner and repo, returning the project ID (This refers to data in the GitButler cloud).',
 		inputSchema: zodToJsonSchema(LookupProjectParamsSchema)
 	},
 	{
-		name: 'full_lookup_project',
-		description: 'Lookup a GitButler project by owner and repo, returning the full project object',
+		name: 'cloud_full_lookup_project',
+		description:
+			'Lookup a GitButler project by owner and repo, returning the full project object (This refers to data in the GitButler cloud).',
 		inputSchema: zodToJsonSchema(LookupProjectParamsSchema)
 	}
 ] as const;
@@ -157,30 +162,30 @@ export async function getProjectToolRequestHandler(
 	}
 
 	switch (toolName) {
-		case 'list_projects': {
+		case 'cloud_list_projects': {
 			const listProjectsParams = ListProjectsParamsSchema.parse(args);
 			const result = await listAllProjects(listProjectsParams);
 			return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
 		}
-		case 'get_project': {
+		case 'cloud_get_project': {
 			const getProjectParams = GetProjectParamsSchema.parse(args);
 			const result = await getProject(getProjectParams);
 			return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
 		}
-		case 'list_recently_interacted_projects': {
+		case 'cloud_list_recently_interacted_projects': {
 			const result = await listRecentlyInteractedProjects();
 			return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
 		}
-		case 'list_recently_pushed_projects': {
+		case 'cloud_list_recently_pushed_projects': {
 			const result = await listRecentlyPushedProjects();
 			return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
 		}
-		case 'lookup_project': {
+		case 'cloud_lookup_project': {
 			const lookupProjectParams = LookupProjectParamsSchema.parse(args);
 			const result = await lookupProject(lookupProjectParams);
 			return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
 		}
-		case 'full_lookup_project': {
+		case 'cloud_full_lookup_project': {
 			const lookupProjectParams = LookupProjectParamsSchema.parse(args);
 			const result = await fullLookupProject(lookupProjectParams);
 			return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };

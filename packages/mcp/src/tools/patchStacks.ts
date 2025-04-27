@@ -98,19 +98,19 @@ async function getPatchCommit(params: GetPatchCommitParams) {
 
 const TOOL_LISTINGS = [
 	{
-		name: 'list_patch_stacks',
-		description: 'List all the patch stacks for a given project',
+		name: 'cloud_list_patch_stacks',
+		description: 'List all the patch stacks for a given project (from the GitButler cloud)',
 		inputSchema: zodToJsonSchema(GetProjectPatchStacksParamsSchema)
 	},
 	{
-		name: 'get_patch_stack',
-		description: 'Get a specific patch stack by UUID',
+		name: 'cloud_get_patch_stack',
+		description: 'Get a specific patch stack by UUID (from the GitButler cloud)',
 		inputSchema: zodToJsonSchema(GetPatchStackParamsSchema)
 	},
 	{
-		name: 'get_patch_commit',
+		name: 'cloud_get_patch_commit',
 		description:
-			'Get a specific patch commit by branch UUID and change ID. This includes information about the file changes',
+			'Get a specific patch commit by branch UUID and change ID (from the GitButler cloud, includes file changes)',
 		inputSchema: zodToJsonSchema(GetPatchCommitParamsSchema)
 	}
 ] as const;
@@ -135,17 +135,17 @@ export async function getPatchStackToolRequestHandler(
 	}
 
 	switch (toolName) {
-		case 'list_patch_stacks': {
+		case 'cloud_list_patch_stacks': {
 			const listPatchStacksParams = GetProjectPatchStacksParamsSchema.parse(args);
 			const result = await listAllPatchStacks(listPatchStacksParams);
 			return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
 		}
-		case 'get_patch_stack': {
+		case 'cloud_get_patch_stack': {
 			const getPatchStackParams = GetPatchStackParamsSchema.parse(args);
 			const result = await getPatchStack(getPatchStackParams);
 			return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
 		}
-		case 'get_patch_commit': {
+		case 'cloud_get_patch_commit': {
 			const getPatchCommitParams = GetPatchCommitParamsSchema.parse(args);
 			const result = await getPatchCommit(getPatchCommitParams);
 			return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
