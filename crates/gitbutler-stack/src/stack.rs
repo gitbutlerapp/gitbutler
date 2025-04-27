@@ -786,7 +786,7 @@ impl Stack {
     }
 
     pub fn heads(&self, exclude_archived: bool) -> Vec<String> {
-        if exclude_archived {
+        if !exclude_archived {
             self.heads.iter().map(|h| h.name().clone()).collect()
         } else {
             self.heads
