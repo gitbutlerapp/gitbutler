@@ -115,13 +115,13 @@
 			content: '';
 			display: block;
 			width: 8px;
-			height: calc(100% - 3px);
+			height: calc(100% - 4px);
 			border-right: 1px solid var(--clr-border-2);
 		}
 	}
 	.line-visible.line-bottom {
 		&::after {
-			transform: translateY(3px);
+			transform: translateY(4px);
 		}
 	}
 
