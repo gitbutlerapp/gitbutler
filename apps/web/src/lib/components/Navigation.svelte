@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { AuthService } from '$lib/auth/authService.svelte';
-	import Breadcrumbs from '$lib/components/breadcrumbs/Breadcrumbs.svelte';
+	import Breadcrumbs from '$lib/components/chat/Breadcrumbs.svelte';
 	import { featureShowOrganizations } from '$lib/featureFlags';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
@@ -10,7 +10,6 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import NotificationButton from '@gitbutler/ui/NotificationButton.svelte';
 	import { goto } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
 
@@ -24,8 +23,6 @@
 	let ctxMenuUserEl = $state<ReturnType<typeof ContextMenu>>();
 	let ctxUserTriggerButton = $state<HTMLButtonElement | undefined>();
 	let isCtxMenuOpen = $state(false);
-
-	let isNotificationsUnread = $state(false);
 
 	function login() {
 		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`;
@@ -55,26 +52,7 @@
 	</div>
 
 	<div class="other-links">
-		{#if routes.isProjectReviewBranchPageSubset}
-			<Button
-				kind="outline"
-				icon="dashboard"
-				reversedDirection
-				onclick={() => goto(routes.projectsPath())}
-			>
-				Dashboard
-			</Button>
-		{/if}
-
 		{#if $user}
-			<NotificationButton
-				hasUnread={isNotificationsUnread}
-				onclick={() => {
-					// TODO: implement notifications
-					isNotificationsUnread = !isNotificationsUnread;
-				}}
-			/>
-
 			<Button
 				kind="outline"
 				class="user-btn"

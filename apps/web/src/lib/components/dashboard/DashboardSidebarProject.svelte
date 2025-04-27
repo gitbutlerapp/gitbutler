@@ -43,10 +43,9 @@
 
 <Loading loadable={project.current}>
 	{#snippet children(project)}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<div
-			class="project"
+		<button
+			type="button"
+			class="project-btn"
 			class:current={focused}
 			onclick={() => {
 				goto(routes.projectReviewPath({ ownerSlug: project.owner, projectSlug: project.slug }));
@@ -59,14 +58,14 @@
 					<Icon name="chevron-right"></Icon>
 				</div>
 			</div>
-		</div>
+		</button>
 	{/snippet}
 </Loading>
 
 <style lang="postcss">
-	.project {
+	.project-btn {
 		display: flex;
-
+		width: 100%;
 		align-items: center;
 		cursor: pointer;
 

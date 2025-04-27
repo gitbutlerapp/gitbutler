@@ -10,9 +10,7 @@
 </script>
 
 <div class="dashboard-layout">
-	<div>
-		<DashboardSidebar />
-	</div>
+	<DashboardSidebar />
 	<div>
 		{@render children()}
 	</div>
