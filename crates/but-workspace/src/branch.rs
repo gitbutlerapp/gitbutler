@@ -535,7 +535,7 @@ impl TryFrom<gix::Id<'_>> for BranchCommit {
         Ok(BranchCommit {
             id: value.detach(),
             title: commit.message().title.to_owned(),
-            committed_date: commit.committer.time,
+            committed_date: commit.committer.time()?,
         })
     }
 }

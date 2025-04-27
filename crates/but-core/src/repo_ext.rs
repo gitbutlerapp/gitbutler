@@ -86,7 +86,7 @@ impl RepositoryExt for gix::Repository {
         } else {
             repo.committer()
                 .transpose()?
-                .map(|s| s.to_owned())
+                .and_then(|s| s.to_owned().ok())
                 .unwrap_or_else(committer_signature)
         };
 
@@ -111,12 +111,11 @@ const GITBUTLER_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
 /// Provide a signature with the GitButler author, and the current time or the time overridden
 /// depending on the value for `purpose`.
 fn committer_signature() -> gix::actor::Signature {
-    let signature = gix::actor::SignatureRef {
+    gix::actor::Signature {
         name: GITBUTLER_COMMIT_AUTHOR_NAME.into(),
         email: GITBUTLER_COMMIT_AUTHOR_EMAIL.into(),
         time: commit_time("GIT_COMMITTER_DATE"),
-    };
-    signature.into()
+    }
 }
 
 /// Return the time of a commit as `now` unless the `overriding_variable_name` contains a parseable date,

@@ -66,7 +66,6 @@ pub fn git2_signature_to_gix_signature<'a>(
         time: gix::date::Time {
             seconds: input.when().seconds(),
             offset: input.when().offset_minutes() * 60,
-            sign: input.when().offset_minutes().into(),
         },
     }
 }
@@ -76,8 +75,9 @@ pub fn git2_signature_to_gix_signature<'a>(
 pub fn gix_to_git2_signature(
     actor: gix::actor::SignatureRef<'_>,
 ) -> anyhow::Result<git2::Signature<'static>> {
-    let offset_in_minutes = actor.time.offset / 60;
-    let time = git2::Time::new(actor.time.seconds, offset_in_minutes);
+    let time = actor.time()?;
+    let offset_in_minutes = time.offset / 60;
+    let time = git2::Time::new(time.seconds, offset_in_minutes);
     Ok(git2::Signature::new(
         actor
             .name

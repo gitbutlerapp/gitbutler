@@ -173,7 +173,6 @@ mod virtual_branches_toml {
                         Time {
                             seconds: 1740394757,
                             offset: 0,
-                            sign: Plus,
                         },
                     ),
                 },
@@ -192,7 +191,6 @@ mod virtual_branches_toml {
                         Time {
                             seconds: 1740394727,
                             offset: 0,
-                            sign: Plus,
                         },
                     ),
                 },
@@ -209,7 +207,6 @@ mod virtual_branches_toml {
                         Time {
                             seconds: 1740394727,
                             offset: 0,
-                            sign: Plus,
                         },
                     ),
                 },
@@ -226,7 +223,6 @@ mod virtual_branches_toml {
                         Time {
                             seconds: 1740394727,
                             offset: 0,
-                            sign: Plus,
                         },
                     ),
                 },
@@ -243,7 +239,6 @@ mod virtual_branches_toml {
                         Time {
                             seconds: 1740394727,
                             offset: 0,
-                            sign: Plus,
                         },
                     ),
                 },
@@ -260,7 +255,6 @@ mod virtual_branches_toml {
                         Time {
                             seconds: 1740394670,
                             offset: 0,
-                            sign: Plus,
                         },
                     ),
                 },
@@ -277,7 +271,6 @@ mod virtual_branches_toml {
                         Time {
                             seconds: 1740394670,
                             offset: 0,
-                            sign: Plus,
                         },
                     ),
                 },
@@ -294,7 +287,6 @@ mod virtual_branches_toml {
                         Time {
                             seconds: 1740394670,
                             offset: 0,
-                            sign: Plus,
                         },
                     ),
                 },
@@ -311,7 +303,6 @@ mod virtual_branches_toml {
                         Time {
                             seconds: 1740394670,
                             offset: 0,
-                            sign: Plus,
                         },
                     ),
                 },
@@ -328,7 +319,6 @@ mod virtual_branches_toml {
                         Time {
                             seconds: 1740394670,
                             offset: 0,
-                            sign: Plus,
                         },
                     ),
                 },
@@ -345,7 +335,6 @@ mod virtual_branches_toml {
                         Time {
                             seconds: 1740394670,
                             offset: 0,
-                            sign: Plus,
                         },
                     ),
                 },
@@ -362,7 +351,6 @@ mod virtual_branches_toml {
                         Time {
                             seconds: 1740394788,
                             offset: 0,
-                            sign: Plus,
                         },
                     ),
                 },
@@ -379,7 +367,6 @@ mod virtual_branches_toml {
                         Time {
                             seconds: 1740394788,
                             offset: 0,
-                            sign: Plus,
                         },
                     ),
                 },
@@ -396,7 +383,6 @@ mod virtual_branches_toml {
                         Time {
                             seconds: 1740394801,
                             offset: 0,
-                            sign: Plus,
                         },
                     ),
                 },
@@ -766,7 +752,6 @@ mod virtual_branches_toml {
                     Time {
                         seconds: 1675176957,
                         offset: 0,
-                        sign: Plus,
                     },
                 ),
                 updated_at: None,
