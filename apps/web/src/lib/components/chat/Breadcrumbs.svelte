@@ -1,9 +1,23 @@
 <script lang="ts">
+	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { goto } from '$app/navigation';
 
 	const routes = getContext(WebRoutesService);
+	// get user's project page params
+	const userService = getContext(UserService);
+	const user = $derived(userService.user);
+
+	function getRootLabel() {
+		if ($user?.login === routes.isProjectReviewBranchPageSubset?.ownerSlug) {
+			return 'My Projects';
+		} else {
+			return 'My Reviews';
+		}
+	}
 </script>
 
 {#snippet backButton({ href, label = 'Back' }: { href: string; label: string })}
@@ -20,11 +34,14 @@
 <div class="breadcrumbs">
 	<div class="breadcrumbs__path">
 		{#if !routes.isProjectReviewBranchPageSubset}
-			<span class="text-15 text-bold"> Dashboard </span>
+			<span class="text-15 text-bold">Dashboard </span>
 		{:else}
-			<span class="text-15 text-bold truncate"> My projects </span>
-			<span class="text-14 text-bold breadcrumbs_slash">/</span>
-			<span class="text-15 text-bold truncate">{routes.isProjectReviewPageSubset?.ownerSlug}</span>
+			<Button kind="ghost" onclick={() => goto(routes.projectsPath())} tooltip="Go to Dashboard">
+				<span class="text-15 text-bold truncate breadcrumbs__path-label">
+					{getRootLabel()} <span>/</span>
+					{routes.isProjectReviewPageSubset?.ownerSlug}</span
+				>
+			</Button>
 		{/if}
 	</div>
 
@@ -47,7 +64,6 @@
 		flex-wrap: nowrap;
 		align-items: center;
 		overflow: hidden;
-		gap: 8px;
 		text-wrap: nowrap;
 
 		@container (max-width: 500px) {
@@ -67,8 +83,9 @@
 		overflow: hidden;
 	}
 
-	.breadcrumbs_slash {
-		color: var(--clr-text-3);
+	.breadcrumbs__path-label > span {
+		opacity: 0.2;
+		margin: 0 2px;
 	}
 
 	.breadcrumbs__back-btn {

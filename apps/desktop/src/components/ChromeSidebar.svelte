@@ -134,7 +134,7 @@
 				onclick={() => goto(historyPath(project.id))}
 				width={34}
 				class={['btn-square', isHistoryPath() && 'btn-active']}
-				tooltip="Workspace"
+				tooltip="Operations history"
 			>
 				<svg
 					width="18"
