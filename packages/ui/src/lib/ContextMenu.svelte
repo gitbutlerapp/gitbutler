@@ -97,7 +97,10 @@
 
 	function setAlignByMouse(e?: MouseEvent) {
 		if (!e) return;
-		menuPosition = { x: e.clientX, y: e.clientY };
+		const clientX = horizontalAlign === 'left' ? e.clientX - contextMenuWidth : e.clientX;
+		const clientY = side === 'top' ? e.clientY - contextMenuHeight : e.clientY;
+
+		menuPosition = { x: clientX, y: clientY };
 	}
 
 	function setAlignByTarget(target: HTMLElement) {
