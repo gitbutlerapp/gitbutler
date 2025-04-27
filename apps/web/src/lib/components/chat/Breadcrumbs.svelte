@@ -22,11 +22,11 @@
 <div class="breadcrumbs">
 	<div class="breadcrumbs__path">
 		{#if !routes.isProjectReviewBranchPageSubset}
-			<span class="text-15 text-bold">/ Dashboard </span>
+			<span class="text-15 text-bold">Dashboard </span>
 		{:else}
 			<Button kind="ghost" onclick={() => goto(routes.projectsPath())} tooltip="Go to Dashboard">
-				<span class="text-15 text-bold truncate"
-					>My projects / {routes.isProjectReviewPageSubset?.ownerSlug}</span
+				<span class="text-15 text-bold truncate breadcrumbs__path-label">
+					My projects <span>/</span> {routes.isProjectReviewPageSubset?.ownerSlug}</span
 				>
 			</Button>
 		{/if}
@@ -68,6 +68,11 @@
 		align-items: center;
 		gap: 4px;
 		overflow: hidden;
+	}
+
+	.breadcrumbs__path-label > span {
+		opacity: 0.2;
+		margin: 0 2px;
 	}
 
 	.breadcrumbs__back-btn {
