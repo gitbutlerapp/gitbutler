@@ -47,7 +47,7 @@ async function getChatMessagesForPatch(params: GetChatMessagesForPatchParams) {
 
 const TOOL_LISTINGS = [
 	{
-		name: 'get_chat_messages_for_patch',
+		name: 'cloud_get_chat_messages_for_patch',
 		description: 'Get all review chat messages for a given patch',
 		inputSchema: zodToJsonSchema(GetChatMessagesForPatchParamsSchema)
 	}
@@ -73,7 +73,7 @@ export async function getChatMesssageToolRequestHandler(
 	}
 
 	switch (toolName) {
-		case 'get_chat_messages_for_patch': {
+		case 'cloud_get_chat_messages_for_patch': {
 			const getChatMessagesParams = GetChatMessagesForPatchParamsSchema.parse(args);
 			const result = await getChatMessagesForPatch(getChatMessagesParams);
 			return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
