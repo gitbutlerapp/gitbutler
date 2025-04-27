@@ -504,15 +504,21 @@ pub fn create_commit_and_update_refs_with_project(
     let mut vb = vbh.read_file()?;
     let frame = match maybe_stackid {
         None => {
-            let maybe_commit_id = match &destination {
+            let (maybe_commit_id, maybe_stack_id) = match &destination {
                 Destination::NewCommit {
-                    parent_commit_id, ..
-                } => *parent_commit_id,
-                Destination::AmendCommit(commit_id) => Some(*commit_id),
+                    parent_commit_id,
+                    stack_segment,
+                    ..
+                } => (*parent_commit_id, stack_segment.clone().map(|s| s.stack_id)),
+                Destination::AmendCommit(commit_id) => (Some(*commit_id), None),
             };
-            match maybe_commit_id {
-                None => ReferenceFrame::default(),
-                Some(commit_id) => {
+
+            match (maybe_commit_id, maybe_stack_id) {
+                (None, None) => ReferenceFrame::default(),
+                (_, Some(stack_id)) => {
+                    ReferenceFrame::infer(repo, &vb, InferenceMode::StackId(stack_id))?
+                }
+                (Some(commit_id), None) => {
                     ReferenceFrame::infer(repo, &vb, InferenceMode::CommitIdInStack(commit_id))?
                 }
             }
