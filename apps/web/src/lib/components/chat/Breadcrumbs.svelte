@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -6,6 +7,17 @@
 	import { goto } from '$app/navigation';
 
 	const routes = getContext(WebRoutesService);
+	// get user's project page params
+	const userService = getContext(UserService);
+	const user = $derived(userService.user);
+
+	function getRootLabel() {
+		if ($user?.login === routes.isProjectReviewBranchPageSubset?.ownerSlug) {
+			return 'My Projects';
+		} else {
+			return 'My Reviews';
+		}
+	}
 </script>
 
 {#snippet backButton({ href, label = 'Back' }: { href: string; label: string })}
@@ -26,7 +38,8 @@
 		{:else}
 			<Button kind="ghost" onclick={() => goto(routes.projectsPath())} tooltip="Go to Dashboard">
 				<span class="text-15 text-bold truncate breadcrumbs__path-label">
-					My projects <span>/</span> {routes.isProjectReviewPageSubset?.ownerSlug}</span
+					{getRootLabel()} <span>/</span>
+					{routes.isProjectReviewPageSubset?.ownerSlug}</span
 				>
 			</Button>
 		{/if}
