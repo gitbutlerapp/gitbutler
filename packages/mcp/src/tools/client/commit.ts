@@ -46,12 +46,12 @@ function commit(params: CommitParams) {
 	}
 
 	for (const stack of stacks) {
-		if (stack.branchNames.includes(params.branch)) {
-			if (stack.branchNames.length === 1) {
+		const heads = stack.heads.map((h) => h.name);
+		if (heads.includes(params.branch)) {
+			if (heads.length === 1) {
 				// If this stack has only one branch, we can commit directly to it
 				const branchRef = getBranchRef(params.branch);
 				args.push('-s', branchRef);
-				args.push('--parent', stack.tip);
 				return executeGitButlerCommand(params.project_directory, args, undefined);
 			}
 
@@ -74,7 +74,6 @@ function commit(params: CommitParams) {
 
 			const branchRef = getBranchRef(params.branch);
 			args.push('-s', branchRef);
-			args.push('--parent', branch.tip);
 			return executeGitButlerCommand(params.project_directory, args, undefined);
 		}
 	}

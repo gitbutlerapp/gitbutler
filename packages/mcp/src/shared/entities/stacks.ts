@@ -1,8 +1,15 @@
 import { z } from 'zod';
 
+export const StackHeadInfoSchema = z.object({
+	name: z.string({ description: 'The name of the stack head.' }),
+	tip: z.string({ description: 'The commit ID of the tip of the stack head.' })
+});
+
 export const StackSchema = z.object({
 	id: z.string({ description: 'The unique identifier for the stack. This is a UUID.' }),
-	branchNames: z.array(z.string()),
+	heads: z.array(StackHeadInfoSchema, {
+		description: 'Information about the branches contained in the stack.'
+	}),
 	tip: z.string({ description: 'The commit ID of the tip of the stack.' })
 });
 
