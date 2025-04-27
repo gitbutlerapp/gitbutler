@@ -1,7 +1,7 @@
 import { BaseParamsSchema, DiffSpec } from './shared.js';
 import { listStackBranches, listStacks } from './status.js';
 import { executeGitButlerCommand, hasGitButlerExecutable } from '../../shared/command.js';
-import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { CallToolResult, GetPromptResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
@@ -127,6 +127,82 @@ export async function getCommitToolRequestHandler(
 
 				return { content: [{ type: 'text', text: `Error: ${String(error)}` }], isError: true };
 			}
+		}
+	}
+}
+
+const PROMPTS = [
+	{
+		name: 'commit',
+		description: `Commit the file changes into the right stack and branch.
+This will create and propose a commit plan for the changes in the project.
+If there's any ambiguity, will ask the user for clarification.`,
+		arguments: [
+			{
+				name: 'disambiguation',
+				description:
+					'Any kind of additional information that can help to disambiguate what and how the commits should be done.',
+				required: false
+			}
+		]
+	}
+] as const;
+
+function isCommitPromptParams(
+	params: Record<string, unknown>
+): params is { disambiguation?: string } {
+	return typeof params.disambiguation === 'string' || typeof params.disambiguation === 'undefined';
+}
+
+function buildCommitPrompt(params: Record<string, unknown>): GetPromptResult {
+	const disambiguation = isCommitPromptParams(params) ? params.disambiguation : undefined;
+	const suffix = disambiguation ? '\nImportantly: ' + disambiguation : '';
+
+	return {
+		messages: [
+			{
+				role: 'user',
+				content: {
+					type: 'text',
+					text: `I want to commit the changes in my project using GitButler.
+Follow these instructions to do so:
+1. List and take a look at the file changes in the project.
+2. Determine to which branch (or branches) to commit what. For that, you can list the stacks and branches in the project and take a look at their names.
+3. Create a commit plan for the changes. By commit plan, I mean a list of commits that will be created based off the changes listed above.
+4. Propose the commit plan to me, including the target branch (or branches), commit messages and the files that will be included in each commit.
+5. If there's any ambiguity, ask me for clarification.
+6. If I accept, commit as planned.${suffix}`
+				}
+			}
+		]
+	};
+}
+
+type PromptName = (typeof PROMPTS)[number]['name'];
+
+function isPromptName(name: string): name is PromptName {
+	return PROMPTS.some((prompt) => prompt.name === name);
+}
+
+export function getCommitToolPrompts() {
+	if (!hasGitButlerExecutable()) {
+		return [];
+	}
+
+	return PROMPTS;
+}
+
+export async function getCommitToolPromptRequestHandler(
+	promptName: string,
+	params: Record<string, unknown>
+): Promise<GetPromptResult | null> {
+	if (!isPromptName(promptName) || !hasGitButlerExecutable()) {
+		return null;
+	}
+
+	switch (promptName) {
+		case 'commit': {
+			return buildCommitPrompt(params);
 		}
 	}
 }
