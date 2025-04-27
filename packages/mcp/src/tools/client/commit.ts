@@ -1,4 +1,4 @@
-import { BaseParamsSchema, DiffSpec, getBranchRef } from './shared.js';
+import { BaseParamsSchema, DiffSpec } from './shared.js';
 import { listStackBranches, listStacks } from './status.js';
 import { executeGitButlerCommand, hasGitButlerExecutable } from '../../shared/command.js';
 import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
@@ -8,7 +8,12 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 const CommitParamsSchema = BaseParamsSchema.extend({
 	message: z.string({ description: 'The commit message' }),
 	all: z.boolean().optional().default(false),
-	filePaths: z.array(z.string()).optional().default([]),
+	filePaths: z
+		.array(z.string(), {
+			description: 'The paths of files to commit. These have to be relative paths.'
+		})
+		.optional()
+		.default([]),
 	branch: z.string({ description: 'The branch to commit to' })
 });
 
@@ -50,8 +55,7 @@ function commit(params: CommitParams) {
 		if (heads.includes(params.branch)) {
 			if (heads.length === 1) {
 				// If this stack has only one branch, we can commit directly to it
-				const branchRef = getBranchRef(params.branch);
-				args.push('-s', branchRef);
+				args.push('-s', params.branch);
 				return executeGitButlerCommand(params.project_directory, args, undefined);
 			}
 
@@ -72,8 +76,7 @@ function commit(params: CommitParams) {
 				throw new Error(`Branch ${params.branch} is archived`);
 			}
 
-			const branchRef = getBranchRef(params.branch);
-			args.push('-s', branchRef);
+			args.push('-s', params.branch);
 			return executeGitButlerCommand(params.project_directory, args, undefined);
 		}
 	}
