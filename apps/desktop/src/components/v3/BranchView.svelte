@@ -213,6 +213,10 @@
 		padding: 30px;
 		max-width: 540px;
 		margin: 0 auto;
+
+		@container drawer (max-width: 530px) {
+			padding: 10px;
+		}
 	}
 
 	.branch-view__empty-state__image {
