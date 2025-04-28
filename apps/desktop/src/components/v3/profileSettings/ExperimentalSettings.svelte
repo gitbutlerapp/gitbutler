@@ -21,24 +21,23 @@
 </p>
 
 <div class="experimental-settings__toggles">
-	{#if $user?.role === 'admin'}
-		<SectionCard roundedBottom={false} orientation="row">
-			{#snippet title()}
-				v3 Design
-			{/snippet}
-			{#snippet caption()}
-				Enable the new v3 User Interface.
-			{/snippet}
+	<SectionCard roundedBottom={$user?.role !== 'admin'} orientation="row">
+		{#snippet title()}
+			v3 Design
+		{/snippet}
+		{#snippet caption()}
+			Enable the new v3 User Interface.
+		{/snippet}
 
-			{#snippet actions()}
-				<Toggle
-					id="v3Design"
-					checked={$settingsStore?.featureFlags.v3}
-					onclick={() =>
-						settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 })}
-				/>
-			{/snippet}
-		</SectionCard>
+		{#snippet actions()}
+			<Toggle
+				id="v3Design"
+				checked={$settingsStore?.featureFlags.v3}
+				onclick={() => settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 })}
+			/>
+		{/snippet}
+	</SectionCard>
+	{#if $user?.role === 'admin'}
 		<SectionCard roundedTop={false} roundedBottom={!$ircEnabled} orientation="row">
 			{#snippet title()}
 				IRC
