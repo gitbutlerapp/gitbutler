@@ -160,6 +160,7 @@
 		height: 100%;
 		width: 100%;
 		position: relative;
+		overflow: hidden;
 	}
 
 	.changed-files-view {
@@ -176,12 +177,13 @@
 	}
 
 	.stacks-view-wrap {
+		flex: 0 1 auto;
 		height: 100%;
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-start;
 		position: relative;
-		flex-shrink: 0;
+		overflow: hidden;
 	}
 
 	.main-view {

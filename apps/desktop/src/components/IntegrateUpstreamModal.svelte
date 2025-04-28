@@ -185,39 +185,44 @@
 </script>
 
 {#snippet stackStatus(stack: BranchStack, stackStatus: StackStatus)}
-	<IntegrationSeriesRow series={integrationRowSeries(stackStatus)}>
-		{#snippet select()}
-			{#if !stackFullyIntegrated(stackStatus) && results.get(stack.id)}
-				<Select
-					value={results.get(stack.id)!.approach.type}
-					onselect={(value) => {
+	{@const series = integrationRowSeries(stackStatus)}
+	<IntegrationSeriesRow {series}>
+		{#if !stackFullyIntegrated(stackStatus) && results.get(stack.id)}
+			<Select
+				value={results.get(stack.id)!.approach.type}
+				maxWidth={130}
+				onselect={(value) => {
+					const result = results.get(stack.id)!;
+					results.set(stack.id, { ...result, approach: { type: value as OperationType } });
+				}}
+				options={integrationOptions(stackStatus)}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={highlighted} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		{:else if stackFullyIntegrated(stackStatus) && results.get(stack.id)}
+			<label class="delete-branch-checkbox">
+				<span style="white-space: nowrap" class="text-12">
+					{#if series.length > 1}
+						Delete all local branches
+					{:else}
+						Delete local branch
+					{/if}
+				</span>
+				<Checkbox
+					small
+					checked={results.get(stack.id)!.deleteIntegratedBranches}
+					onchange={(e: Event & { currentTarget: EventTarget & HTMLInputElement }) => {
+						const isChecked = e.currentTarget.checked;
 						const result = results.get(stack.id)!;
-
-						results.set(stack.id, { ...result, approach: { type: value as OperationType } });
+						results.set(stack.id, { ...result, deleteIntegratedBranches: isChecked });
 					}}
-					options={integrationOptions(stackStatus)}
-				>
-					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem selected={highlighted} {highlighted}>
-							{item.label}
-						</SelectItem>
-					{/snippet}
-				</Select>
-			{:else if stackFullyIntegrated(stackStatus) && results.get(stack.id)}
-				<div class="delete-branch-wrap">
-					<Checkbox
-						small
-						checked={results.get(stack.id)!.deleteIntegratedBranches}
-						onchange={(e: Event & { currentTarget: EventTarget & HTMLInputElement }) => {
-							const isChecked = e.currentTarget.checked;
-							const result = results.get(stack.id)!;
-							results.set(stack.id, { ...result, deleteIntegratedBranches: isChecked });
-						}}
-					/>
-					<span style="white-space: nowrap" class="text-12">Delete local branch</span>
-				</div>
-			{/if}
-		{/snippet}
+				/>
+			</label>
+		{/if}
 	</IntegrationSeriesRow>
 {/snippet}
 
@@ -346,13 +351,12 @@
 		background-color: var(--clr-theme-warn-bg);
 	}
 
-	.delete-branch-wrap {
+	.delete-branch-checkbox {
 		display: flex;
 		align-items: center;
-		gap: 4px;
-		padding-left: 6px;
+		gap: 8px;
+		color: var(--clr-text-2);
 		margin-right: 2px;
-		color: var(--clr-text-1);
 	}
 
 	.target-icon {

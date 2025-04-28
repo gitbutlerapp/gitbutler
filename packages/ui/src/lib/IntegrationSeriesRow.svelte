@@ -10,16 +10,14 @@
 
 	export interface Props {
 		series: Branch[];
-		select?: Snippet;
+		children?: Snippet;
 	}
 </script>
 
 <script lang="ts">
 	import Icon from '$lib/Icon.svelte';
 	import SeriesIcon from '$lib/SeriesIcon.svelte';
-	const { series, select }: Props = $props();
-
-	const allIntegrated = $derived(series.every((branch) => branch.status === 'integrated'));
+	const { series, children }: Props = $props();
 </script>
 
 {#snippet stackBranch({ name, status }: Branch, isLast: boolean)}
@@ -57,10 +55,8 @@
 				<span class="series-label text-12 text-semibold truncate"> Stack branches </span>
 			</div>
 
-			{#if select && !allIntegrated}
-				<div class="select">
-					{@render select()}
-				</div>
+			{#if children}
+				{@render children()}
 			{/if}
 		</div>
 
@@ -89,10 +85,8 @@
 				{/if}
 			</div>
 
-			{#if select}
-				<div class="select">
-					{@render select()}
-				</div>
+			{#if children}
+				{@render children()}
 			{/if}
 		</div>
 	{/if}
@@ -164,7 +158,7 @@
 	.status-badge {
 		padding: 4px 6px 3px;
 		height: 100%;
-		border-radius: var(--radius-m);
+		border-radius: 100px;
 		color: var(--clr-core-ntrl-100);
 	}
 

@@ -20,6 +20,8 @@
 		onHide: () => void;
 	}
 
+	const MIN_SNAPSHOTS_TO_LOAD = 30;
+
 	const { onHide }: Props = $props();
 
 	const project = getContext(Project);
@@ -108,7 +110,7 @@
 			<div class="snapshots-wrapper">
 				<!-- SNAPSHOTS FEED -->
 				<LazyloadContainer
-					minTriggerCount={30}
+					minTriggerCount={MIN_SNAPSHOTS_TO_LOAD}
 					ontrigger={() => {
 						onLastInView();
 					}}
@@ -162,7 +164,7 @@
 				{/if}
 
 				<!-- ALL SNAPSHOTS LOADED -->
-				{#if !$loading && $isAllLoaded}
+				{#if (!$loading && $isAllLoaded) || $snapshots.length <= MIN_SNAPSHOTS_TO_LOAD}
 					<div class="welcome-point">
 						<div class="welcome-point__icon">
 							<Icon name="finish" />
@@ -261,7 +263,7 @@
 		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
-		background-color: var(--clr-bg-2);
+		background-color: var(--clr-bg-1);
 		border-left: 1px solid var(--clr-border-2);
 		width: 480px;
 	}
