@@ -83,6 +83,10 @@ export default class BaseBranchService {
 					return;
 				}
 
+				if (code === Code.Unknown && error.message?.includes('cargo build -p gitbutler-git')) {
+					showError('Run `cargo build -p gitbutler-git`', error.message);
+				}
+
 				if (action !== undefined) {
 					showError('Failed to fetch', error.message);
 				}
