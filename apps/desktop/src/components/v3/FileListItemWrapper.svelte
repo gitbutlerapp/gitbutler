@@ -34,6 +34,7 @@
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		onCloseClick?: () => void;
+		locked?: boolean;
 	}
 
 	const {

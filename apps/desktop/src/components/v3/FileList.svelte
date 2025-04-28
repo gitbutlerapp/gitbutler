@@ -9,6 +9,7 @@
 	import { chunk } from '$lib/utils/array';
 	import { sortLikeFileTree } from '$lib/worktree/changeTree';
 	import { getContext } from '@gitbutler/shared/context';
+	import type { FileDependencies } from '$lib/dependencies/dependencies';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { SelectionId } from '$lib/selection/key';
 
@@ -20,9 +21,18 @@
 		showCheckboxes?: boolean;
 		selectionId: SelectionId;
 		listActive: boolean;
+		fileDependencies?: Map<string, FileDependencies>;
 	};
 
-	const { projectId, changes, listMode, selectionId, showCheckboxes, listActive }: Props = $props();
+	const {
+		projectId,
+		changes,
+		listMode,
+		selectionId,
+		showCheckboxes,
+		listActive,
+		fileDependencies
+	}: Props = $props();
 
 	let currentDisplayIndex = $state(0);
 
@@ -65,6 +75,7 @@
 		onclick={(e) => {
 			selectFilesInList(e, change, visibleFiles, idSelection, true, idx, selectionId);
 		}}
+		locked={fileDependencies?.has(change.path)}
 	/>
 {/snippet}
 
