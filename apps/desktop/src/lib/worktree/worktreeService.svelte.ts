@@ -30,6 +30,11 @@ export class WorktreeService {
 		return getChanges.useQueryState({ projectId }, { transform: (res) => selectById(res, path)! });
 	}
 
+	async fetchChange(projectId: string, path: string) {
+		const { getChanges } = this.api.endpoints;
+		return await getChanges.fetch({ projectId }, { transform: (res) => selectById(res, path)! });
+	}
+
 	/** Gets a set of changes by the given paths */
 	getChangesById(projectId: string, paths: string[]) {
 		const { getChanges } = this.api.endpoints;
