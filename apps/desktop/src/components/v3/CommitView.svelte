@@ -116,10 +116,6 @@
 		if (branchName) stackState.selection.set({ branchName, commitId: undefined });
 	}
 
-	function openCommitMessageModal() {
-		// TODO: Implement openCommitMessageModal
-	}
-
 	function canEdit() {
 		if (isUnapplied) return false;
 		if (!modeService) return false;
@@ -225,7 +221,7 @@
 							kind="outline"
 							icon="edit-small"
 							onclick={() => {
-								openCommitMessageModal();
+								setMode('edit');
 							}}
 						>
 							Edit message
@@ -284,7 +280,9 @@
 					commitStatus={isLocalAndRemoteCommit(commit) ? commit.state.type : 'Remote'}
 					commitUrl={forge.current.commitUrl(commit.id)}
 					onUncommitClick={handleUncommit}
-					onEditMessageClick={openCommitMessageModal}
+					onEditMessageClick={() => {
+						setMode('edit');
+					}}
 					onToggle={(isOpen) => {
 						isContextMenuOpen = isOpen;
 					}}
