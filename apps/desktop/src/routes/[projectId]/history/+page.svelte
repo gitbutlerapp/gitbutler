@@ -24,6 +24,7 @@
 	import { plainToInstance } from 'class-transformer';
 	import type { Snapshot, SnapshotDiff } from '$lib/history/types';
 
+	const MIN_SNAPSHOTS_TO_LOAD = 30;
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	const [uiState] = inject(UiState);
@@ -115,7 +116,7 @@
 			<div class="snapshots-wrapper">
 				<!-- SNAPSHOTS FEED -->
 				<LazyloadContainer
-					minTriggerCount={30}
+					minTriggerCount={MIN_SNAPSHOTS_TO_LOAD}
 					ontrigger={() => {
 						onLastInView();
 					}}
@@ -169,7 +170,7 @@
 				{/if}
 
 				<!-- ALL SNAPSHOTS LOADED -->
-				{#if !$loading && $isAllLoaded}
+				{#if (!$loading && $isAllLoaded) || $snapshots.length <= MIN_SNAPSHOTS_TO_LOAD}
 					<div class="welcome-point">
 						<div class="welcome-point__icon">
 							<Icon name="finish" />
