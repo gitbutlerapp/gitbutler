@@ -214,6 +214,8 @@
 		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
 		box-shadow: var(--fx-shadow-l);
+
+		overflow: hidden;
 	}
 
 	.modal__header {

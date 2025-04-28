@@ -23,6 +23,7 @@
 	import IntegrationSeriesRow from '@gitbutler/ui/IntegrationSeriesRow.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import SimpleCommitRow from '@gitbutler/ui/SimpleCommitRow.svelte';
+	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
@@ -236,14 +237,24 @@
 		{#if branchStatuses.current?.type === 'updatesRequired' && branchStatuses.current?.worktreeConflicts.length > 0}
 			<div class="section">
 				<h3 class="text-14 text-semibold section-title">
-					<span>Conflicting uncommitted files</span><Badge
-						>{branchStatuses.current?.worktreeConflicts.length}</Badge
-					>
+					<span>Conflicting uncommitted files</span>
+
+					<Badge>{branchStatuses.current?.worktreeConflicts.length}</Badge>
 				</h3>
+				<p class="text-12 text-clr2">
+					Updating the workspace will add conflict markers to the following files.
+				</p>
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight={pxToRem(268)}>
-						{#each branchStatuses.current?.worktreeConflicts as file}
-							<div>{file}</div>
+						{@const conflicts = branchStatuses.current?.worktreeConflicts}
+						{#each conflicts as file}
+							<FileListItemV3
+								listMode="list"
+								filePath={file}
+								clickable={false}
+								conflicted
+								isLast={file === conflicts[conflicts.length - 1]}
+							/>
 						{/each}
 					</ScrollableContainer>
 				</div>
