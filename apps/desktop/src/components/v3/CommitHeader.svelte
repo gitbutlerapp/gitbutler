@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { TestId } from '$lib/testing/testIds';
 	import { splitMessage } from '$lib/utils/commitMessage';
 
 	type Props = {
@@ -12,7 +13,7 @@
 	const title = $derived(splitMessage(commitMessage).title);
 </script>
 
-<h3 class="{className} commit-title" class:row>
+<h3 data-testid={TestId.CommitDrawerTitle} class="{className} commit-title" class:row>
 	{title}
 </h3>
 

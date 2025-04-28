@@ -19,6 +19,7 @@
 		children: Snippet;
 		filesSplitView?: Snippet;
 		disableScroll?: boolean;
+		testId?: string;
 	};
 
 	const {
@@ -31,7 +32,8 @@
 		kebabMenu,
 		children,
 		filesSplitView,
-		disableScroll
+		disableScroll,
+		testId
 	}: Props = $props();
 
 	const [uiState] = inject(UiState);
@@ -62,6 +64,7 @@
 </script>
 
 <div
+	data-testid={testId}
 	class="drawer"
 	bind:this={drawerDiv}
 	style:height

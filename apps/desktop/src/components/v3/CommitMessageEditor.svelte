@@ -8,6 +8,7 @@
 	import { AIService } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -151,6 +152,7 @@
 
 <div class="commit-message-wrap">
 	<MessageEditorInput
+		testId={TestId.CommitDrawerTitleInput}
 		bind:ref={titleInput}
 		value={titleText.current}
 		oninput={(e: Event) => {
@@ -173,6 +175,7 @@
 	/>
 
 	<MessageEditor
+		testId={TestId.CommitDrawerDescriptionInput}
 		bind:this={composer}
 		initialValue={descriptionText.current}
 		placeholder={'Your commit message'}
@@ -203,8 +206,13 @@
 	/>
 </div>
 <EditorFooter {onCancel}>
-	<Button style="pop" onclick={action} disabled={disabledAction} {loading} width={126}
-		>{actionLabel}</Button
+	<Button
+		testId={TestId.CommitDrawerActionButton}
+		style="pop"
+		onclick={action}
+		disabled={disabledAction}
+		{loading}
+		width={126}>{actionLabel}</Button
 	>
 </EditorFooter>
 

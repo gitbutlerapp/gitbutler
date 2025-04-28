@@ -5,6 +5,7 @@
 		showCount?: boolean;
 		oninput: (e: Event) => void;
 		onkeydown: (e: KeyboardEvent) => void;
+		testId?: string;
 	}
 
 	let {
@@ -12,7 +13,8 @@
 		value = $bindable(),
 		showCount = true,
 		oninput,
-		onkeydown
+		onkeydown,
+		testId
 	}: Props = $props();
 
 	let charsCount = $state(value.length);
@@ -21,6 +23,7 @@
 <!-- svelte-ignore a11y_autofocus -->
 <div class="message-editor-input">
 	<input
+		data-testid={testId}
 		bind:this={ref}
 		placeholder="Commit title"
 		class="text-14 text-semibold text-input"

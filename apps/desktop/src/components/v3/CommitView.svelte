@@ -17,6 +17,7 @@
 	import { showToast } from '$lib/notifications/toasts';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { inject } from '@gitbutler/shared/context';
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
@@ -134,6 +135,7 @@
 		{@const isConflicted = isCommit(commit) && commit.hasConflicts}
 		{#if mode === 'edit'}
 			<Drawer
+				testId={TestId.EditCommitMessageDrawer}
 				projectId={env.projectId}
 				stackId={env.stackId}
 				title="Edit commit message"
@@ -217,6 +219,7 @@
 					/>
 					<CommitDetails {commit}>
 						<Button
+							testId={TestId.CommitDrawerActionEditMessage}
 							size="tag"
 							kind="outline"
 							icon="edit-small"

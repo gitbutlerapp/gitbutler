@@ -8,7 +8,6 @@
 	import { uploadFiles } from '@gitbutler/shared/dom';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
-	import { debouncePromise } from '@gitbutler/shared/utils/misc';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import EmojiPickerButton from '@gitbutler/ui/EmojiPickerButton.svelte';
@@ -36,6 +35,7 @@
 		canUseAI: boolean;
 		aiIsLoading: boolean;
 		suggestionsHandler?: CommitSuggestions;
+		testId?: string;
 	}
 
 	let {
@@ -48,7 +48,8 @@
 		onAiButtonClick,
 		canUseAI,
 		aiIsLoading,
-		suggestionsHandler
+		suggestionsHandler,
+		testId
 	}: Props = $props();
 
 	const MIN_RULER_VALUE = 30;
@@ -91,8 +92,6 @@
 		onChange?.(text);
 		await suggestionsHandler?.onChange(textUpToAnchor, textAfterAnchor);
 	}
-
-	const debouncedHandleChange = debouncePromise(handleChange, 700);
 
 	function handleKeyDown(event: KeyboardEvent | null) {
 		if (event && onKeyDown?.(event)) {
@@ -251,6 +250,7 @@
 		onmouseleave={() => (isEditorHovered = false)}
 	>
 		<div
+			data-testid={testId}
 			role="presentation"
 			class="message-textarea__inner"
 			onclick={() => {
@@ -271,7 +271,7 @@
 						markdown={useRichText.current}
 						onError={(e) => showError('Editor error', e)}
 						initialText={initialValue}
-						onChange={debouncedHandleChange}
+						onChange={handleChange}
 						onKeyDown={handleKeyDown}
 						onFocus={() => (isEditorFocused = true)}
 						onBlur={() => (isEditorFocused = false)}
