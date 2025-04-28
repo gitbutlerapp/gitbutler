@@ -3,6 +3,7 @@
 	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { Project } from '$lib/project/project';
+	import { previewStackPath } from '$lib/routes/routes.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
@@ -56,7 +57,13 @@
 		}
 	}
 
-	const selected = $derived(page.url.pathname === formatBranchURL(project, branchListing.name));
+	const selected = $derived.by(() => {
+		if (branchListing.stack) {
+			return page.url.pathname === previewStackPath(project.id, branchListing.stack?.id);
+		} else {
+			return page.url.pathname === formatBranchURL(project, branchListing.name);
+		}
+	});
 
 	function formatBranchURL(project: Project, name: string) {
 		return `/${project.id}/branch/${encodeURIComponent(name)}`;

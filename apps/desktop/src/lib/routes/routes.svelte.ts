@@ -69,6 +69,14 @@ export function isBranchesPath() {
 	return isUrl<{ projectId: string }>('/[projectId]/branches');
 }
 
+export function isPreviewStackPath() {
+	return isUrl<{ projectId: string }>('/[projectId]/preview-stack/[stackId]');
+}
+
+export function previewStackPath(projectId: string, stackId: string) {
+	return `/${projectId}/preview-stack/${stackId}`;
+}
+
 export function isCommitPath() {
 	return page.url.searchParams.has('create');
 }

@@ -126,30 +126,31 @@ pub fn list_branches(
         branches.retain(|branch_listing| branch_names.contains(&branch_listing.name))
     }
 
-    // Get a list of all stack branches that do not have the same name as the
-    // stack itself.
+    // We want to exclude branches that are already part of a stack.
+    // To do this, we build up a list of all the branch identities that are
+    // part of a stack and then filter out any branches that have been grouped
+    // without a stack and match one of these identities.
     let branch_identities_to_exclude = stacks
         .iter()
-        .filter(|stack| {
-            let Ok(normalized_name) = normalize_branch_name(&stack.name) else {
-                return false;
-            };
-            let head_matches_stack_name = stack
-                .branches()
-                .iter()
-                .any(|branch| branch.name() == &normalized_name);
-
-            !head_matches_stack_name
-        })
         .flat_map(|s| {
             s.branches()
                 .into_iter()
                 .map(|b| BString::from(b.name().to_owned()))
-                .collect_vec()
+                .chain([BString::from(s.name.to_owned())])
         })
-        .collect_vec();
+        .collect::<HashSet<_>>();
 
-    branches.retain(|branch| !branch_identities_to_exclude.contains(&(*branch.name).to_owned()));
+    branches.retain(|branch| {
+        if branch.stack.is_some() {
+            return true;
+        }
+
+        if branch_identities_to_exclude.contains(&(*branch.name).to_owned()) {
+            return false;
+        }
+
+        true
+    });
 
     Ok(branches)
 }
