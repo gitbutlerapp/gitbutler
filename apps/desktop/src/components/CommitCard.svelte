@@ -331,9 +331,11 @@
 				<span class="text-13 text-body text-semibold commit__empty-title">empty commit message</span
 				>
 			{:else}
-				<h5 class="text-13 text-body text-semibold commit__title" class:truncate={!showDetails}>
-					{commit.descriptionTitle}
-				</h5>
+				<Tooltip text={commit.descriptionTitle}>
+					<h5 class="text-13 text-body text-semibold commit__title" class:truncate={!showDetails}>
+						{commit.descriptionTitle}
+					</h5>
+				</Tooltip>
 
 				<div class="text-11 text-semibold commit__subtitle">
 					{#if commit.isSigned}
