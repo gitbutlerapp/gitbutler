@@ -85,12 +85,6 @@
 				{/if}
 			</div>
 
-			<!-- {#if select}
-				<div class="select">
-					{@render select()}
-				</div>
-			{/if} -->
-
 			{#if children}
 				{@render children()}
 			{/if}
@@ -164,7 +158,7 @@
 	.status-badge {
 		padding: 4px 6px 3px;
 		height: 100%;
-		border-radius: var(--radius-m);
+		border-radius: 100px;
 		color: var(--clr-core-ntrl-100);
 	}
 
