@@ -1,13 +1,23 @@
 import { clearCommandMocks, mockCommand } from './support';
+import MockBackend from './support/mock/backend';
 import { PROJECT_ID } from './support/mock/projects';
-import { MockStackService } from './support/mock/stacks';
+import { MOCK_STACK_A_ID } from './support/mock/stacks';
 
 describe('Commit Actions', () => {
-	let mockStackService: MockStackService;
+	let mockBackend: MockBackend;
 	beforeEach(() => {
-		mockStackService = new MockStackService();
-		mockCommand('stack_details', (params) => mockStackService.getStackDetails(params));
-		mockCommand('update_commit_message', (params) => mockStackService.updateCommitMessage(params));
+		mockBackend = new MockBackend();
+		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
+		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
+		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
+		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
+		mockCommand('create_commit_from_worktree_changes', (params) =>
+			mockBackend.createCommit(params)
+		);
+
+		cy.visit('/');
+
+		cy.url().should('include', `/${PROJECT_ID}/workspace/${MOCK_STACK_A_ID}`);
 	});
 
 	afterEach(() => {
@@ -20,11 +30,10 @@ describe('Commit Actions', () => {
 		const newCommitMessageTitle = 'New commit message title';
 		const newCommitMessageBody = 'New commit message body';
 
-		cy.spy(mockStackService, 'updateCommitMessage').as('updateCommitMessageSpy');
-		cy.visit('/');
+		cy.spy(mockBackend, 'updateCommitMessage').as('updateCommitMessageSpy');
 
 		// Click on the first commit
-		cy.get('.commit-name').first().should('contain', originalCommitMessage).click();
+		cy.getByTestId('commit-row').first().should('contain', originalCommitMessage).click();
 
 		// Should open the commit drawer
 		cy.get('.commit-view').first().should('contain', originalCommitMessage);
@@ -65,9 +74,68 @@ describe('Commit Actions', () => {
 		// Should call the update commit message function
 		cy.get('@updateCommitMessageSpy').should('be.calledWith', {
 			projectId: PROJECT_ID,
-			stackId: mockStackService.stackId,
-			commitOid: mockStackService.commitOid,
+			stackId: mockBackend.stackId,
+			commitOid: mockBackend.commitOid,
 			message: `${newCommitMessageTitle}\n\n${newCommitMessageBody}`
 		});
+	});
+
+	it('Should be able to commit', () => {
+		const newCommitMessage = 'New commit message';
+		const newCommitMessageBody = 'New commit message body';
+
+		// spies
+		cy.spy(mockBackend, 'getDiff').as('getDiffSpy');
+
+		// There should be uncommitted changes
+		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
+
+		const fileNames = mockBackend.getWorktreeChangesFileNames();
+
+		expect(fileNames).to.have.length(1);
+
+		const fileName = fileNames[0]!;
+
+		cy.getByTestId('uncommitted-changes-file-list-item')
+			.first()
+			.should('be.visible')
+			.should('contain', fileName);
+
+		// Click on the commit button
+		cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
+
+		// Should open the new commit drawer
+		cy.getByTestId('new-commit-drawer').should('be.visible');
+
+		// Should have selected the file
+		cy.getByTestId('uncommitted-changes-file-list-item')
+			.first()
+			.get('input[type="checkbox"]')
+			.should('be.checked');
+
+		// Type in a commit message
+		cy.getByTestId('commit-drawer-title-input')
+			.should('be.visible')
+			.should('be.enabled')
+			.type(newCommitMessage); // Type the new commit message
+
+		// Type in a description
+		cy.getByTestId('commit-drawer-description-input')
+			.should('be.visible')
+			.click()
+			.type(newCommitMessageBody); // Type the new commit message body
+
+		// Click on the commit button
+		cy.getByTestId('commit-drawer-action-button').should('be.visible').should('be.enabled').click();
+
+		// Should display the commit rows
+		cy.getByTestId('commit-row').should('have.length', 2);
+
+		// Should commit and select the new commit
+		cy.getByTestId('commit-drawer-title').should('contain', newCommitMessage);
+		cy.getByTestId('commit-drawer-description').should('contain', newCommitMessageBody);
+
+		// Should never get the diff information, becase there are no partial changes being commmitted.
+		cy.get('@getDiffSpy').should('not.be.called');
 	});
 });

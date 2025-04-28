@@ -8,6 +8,7 @@
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';
+	import { TestId } from '$lib/testing/testIds';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getContext } from '@gitbutler/shared/context';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
@@ -116,6 +117,7 @@
 </script>
 
 <div
+	data-testid={TestId.UncommittedChanges_FileListItem}
 	use:stickyHeader={{
 		disabled: !isHeader
 	}}

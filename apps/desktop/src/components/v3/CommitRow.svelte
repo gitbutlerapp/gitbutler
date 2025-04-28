@@ -3,6 +3,7 @@
 	import CommitLine from '$components/v3/CommitLine.svelte';
 	import ContextMenu from '$components/v3/ContextMenu.svelte';
 	import { type CommitStatusType } from '$lib/commits/commit';
+	import { TestId } from '$lib/testing/testIds';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { slide } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
@@ -108,7 +109,7 @@
 		{lastBranch}
 	/>
 
-	<div class="commit-content">
+	<div data-testid={TestId.CommitRow} class="commit-content">
 		<!-- <button type="button" {onclick} tabindex="0"> -->
 		<div class="commit-name truncate">
 			<CommitHeader {commitMessage} row className="text-13 text-semibold" />
