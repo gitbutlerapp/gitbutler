@@ -183,6 +183,7 @@ export function createBackendApi(butlerMod: ReturnType<typeof butlerModule>) {
 	)({
 		reducerPath: 'backend',
 		tagTypes: Object.values(ReduxTag),
+		invalidationBehavior: 'immediately',
 		baseQuery: tauriBaseQuery,
 		endpoints: (_) => {
 			return {};
@@ -197,6 +198,7 @@ export function createGitHubApi(butlerMod: ReturnType<typeof butlerModule>) {
 	)({
 		reducerPath: 'github',
 		tagTypes: Object.values(ReduxTag),
+		invalidationBehavior: 'immediately',
 		baseQuery: tauriBaseQuery,
 		refetchOnFocus: true,
 		refetchOnReconnect: true,
@@ -213,6 +215,7 @@ export function createGitLabApi(butlerMod: ReturnType<typeof butlerModule>) {
 	)({
 		reducerPath: 'gitlab',
 		tagTypes: Object.values(ReduxTag),
+		invalidationBehavior: 'immediately',
 		baseQuery: tauriBaseQuery,
 		refetchOnFocus: true,
 		refetchOnReconnect: true,
