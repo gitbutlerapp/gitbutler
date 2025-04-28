@@ -213,17 +213,19 @@
 		</div>
 
 		{#if entry.filesChanged.length > 0 && !isRestoreSnapshot}
+			{@const files = entry.filesChanged}
 			<SnapshotAttachment
 				foldable={entry.filesChanged.length > 2}
 				foldedAmount={entry.filesChanged.length}
 			>
 				<div class="files-attacment">
-					{#each entry.filesChanged as filePath}
+					{#each files as filePath}
 						<FileListItemV3
 							listMode="list"
 							{filePath}
 							onclick={() => onDiffClick(filePath)}
 							selected={selectedFile?.path === filePath && selectedFile?.entryId === entry.id}
+							isLast={filePath === files[files.length - 1]}
 						/>
 					{/each}
 				</div>

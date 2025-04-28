@@ -1,3 +1,4 @@
+// Original icons were taken from https://github.com/wilfriedago/vscode-symbols-icon-theme
 export const fileIcons = {
 	'angular-component':
 		'<svg xmlns="http://www.w3.org/2000/svg" fill="none"   viewBox="0 0 24 24"><path fill="#60A5FA" d="m20.03 5.97-.614 9.642-5.87-12.643zm-4.066 12.467-4.436 2.532-4.436-2.532.902-2.186h7.068zm-4.436-10.67 2.324 5.652H9.203zm-7.895 7.845L3.026 5.97 9.51 2.969z"/></svg>\n',

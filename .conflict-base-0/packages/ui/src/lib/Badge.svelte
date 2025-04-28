@@ -49,6 +49,7 @@
 		text-align: center;
 		border-radius: 20px;
 		line-height: 90%;
+		flex-shrink: 0;
 
 		/* SOLID */
 
