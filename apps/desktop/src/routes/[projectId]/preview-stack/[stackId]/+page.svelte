@@ -57,6 +57,6 @@
 	<BranchPreview {projectId} {localBranch} {pr} />
 {:else}
 	{#each remoteBranches as remoteBranch}
-		<BranchPreview {projectId} {remoteBranch} {pr} />
+		<BranchPreview {projectId} {remoteBranch} {localBranch} {pr} />
 	{/each}
 {/if}
