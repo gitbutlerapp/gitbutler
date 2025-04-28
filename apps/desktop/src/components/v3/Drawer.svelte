@@ -18,7 +18,6 @@
 		kebabMenu?: Snippet;
 		children: Snippet;
 		filesSplitView?: Snippet;
-		showFilesSplitView?: boolean;
 		disableScroll?: boolean;
 		testId?: string;
 	};
@@ -33,7 +32,6 @@
 		kebabMenu,
 		children,
 		filesSplitView,
-		showFilesSplitView = true,
 		disableScroll,
 		testId
 	}: Props = $props();
@@ -47,7 +45,7 @@
 	const heightRmResult = $derived(uiState.global.drawerHeight.get());
 	const heightRm = $derived(`min(${heightRmResult.current}rem, 80%)`);
 	const height = $derived(drawerIsFullScreen.current ? '100%' : heightRm);
-	// const splitView = $derived(!!filesSplitView);
+	const splitView = $derived(!!filesSplitView);
 
 	const contentWidth = $derived(uiState.global.drawerSplitViewWidth.get());
 	const scrollable = $derived(!disableScroll);
@@ -110,8 +108,8 @@
 		{#if children}
 			<div
 				class="drawer__content-wrap"
-				class:files-split-view={showFilesSplitView}
-				style:--custom-width={showFilesSplitView ? `${contentWidth.current}rem` : 'auto'}
+				class:files-split-view={splitView}
+				style:--custom-width={splitView ? `${contentWidth.current}rem` : 'auto'}
 			>
 				<div class="drawer__content-scroll" bind:this={viewportEl}>
 					{#if scrollable}
@@ -126,7 +124,7 @@
 						</div>
 					{/if}
 
-					{#if showFilesSplitView}
+					{#if splitView}
 						<div class="drawer__content-resizer">
 							<Resizer
 								viewport={viewportEl}
@@ -139,7 +137,7 @@
 					{/if}
 				</div>
 
-				{#if showFilesSplitView && filesSplitView}
+				{#if splitView && filesSplitView}
 					<div class="drawer__files-split-view">
 						<ConfigurableScrollableContainer>
 							{@render filesSplitView()}
