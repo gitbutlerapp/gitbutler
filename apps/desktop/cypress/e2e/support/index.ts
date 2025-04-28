@@ -10,6 +10,9 @@ import { MOCK_BRANCH_STATUSES_RESPONSE } from './mock/upstreamIntegration';
 import { MOCK_USER } from './mock/user';
 import { MOCK_VIRTUAL_BRANCHES } from './mock/virtualBranches';
 import { MOCK_WORKTREE_CHANGES } from './mock/worktree';
+// Sorry about this. For now it's ok for the tests.
+// eslint-disable-next-line no-relative-import-paths/no-relative-import-paths
+import { TestId } from '../../../src/lib/testing/testIds';
 import { invoke, type InvokeArgs } from '@tauri-apps/api/core';
 
 function mockInternals(window: any) {
@@ -169,10 +172,12 @@ Cypress.on('window:before:unload', (win) => {
 	clearMocks(win);
 });
 
+type TestIdValues = `${TestId}`;
+
 declare global {
 	namespace Cypress {
 		interface Chainable {
-			getByTestId(testId: string): Chainable<JQuery<HTMLElement>>;
+			getByTestId(testId: TestIdValues): Chainable<JQuery<HTMLElement>>;
 			/**
 			 * Clear all mocks.
 			 */
@@ -195,7 +200,7 @@ Cypress.Commands.add('clearMocks', () => {
 	});
 });
 
-Cypress.Commands.add('getByTestId', (testId: string) => {
+Cypress.Commands.add('getByTestId', (testId: TestIdValues) => {
 	return cy.get(`[data-testid="${testId}"]`);
 });
 
