@@ -1,5 +1,6 @@
 import { getBaseBranchData, getRemoteBranches } from './mock/baseBranch';
 import { MOCK_BRANCH_LISTINGS } from './mock/branches';
+import { MOCK_TREE_CHANGES } from './mock/changes';
 import { MOCK_GIT_HEAD, MOCK_OPEN_WORKSPACE_MODE } from './mock/mode';
 import { getProject, isGetProjectArgs, listProjects } from './mock/projects';
 import { getSecret, isGetSecretArgs } from './mock/secrets';
@@ -96,6 +97,10 @@ Cypress.on('window:before:load', (win) => {
 		}
 
 		switch (command) {
+			case 'git_get_global_config':
+				return await Promise.resolve(undefined);
+			case 'changes_in_commit':
+				return MOCK_TREE_CHANGES;
 			case 'stack_details':
 				return MOCK_STACK_DETAILS;
 			case 'changes_in_worktree':
@@ -167,14 +172,7 @@ Cypress.on('window:before:unload', (win) => {
 declare global {
 	namespace Cypress {
 		interface Chainable {
-			/**
-			 * Mock the Tauri IPC calls.
-			 * @param command The command to mock.
-			 * @param cb The callback to call when the command is invoked.
-			 * @returns A function to clear the mock.
-			 */
-			mockIPC: (command: string, cb: MockCallback) => () => void;
-
+			getByTestId(testId: string): Chainable<JQuery<HTMLElement>>;
 			/**
 			 * Clear all mocks.
 			 */
@@ -195,6 +193,10 @@ Cypress.Commands.add('clearMocks', () => {
 	cy.window().then((win) => {
 		clearMocks(win);
 	});
+});
+
+Cypress.Commands.add('getByTestId', (testId: string) => {
+	return cy.get(`[data-testid="${testId}"]`);
 });
 
 beforeEach(() => {

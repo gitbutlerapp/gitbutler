@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { isCommit, type Commit, type UpstreamCommit } from '$lib/branches/v3';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { UserService } from '$lib/user/userService';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { inject } from '@gitbutler/shared/context';
@@ -21,7 +22,7 @@
 	const user = $derived(userService.user);
 
 	const message = $derived(commit.message);
-	const description = $derived(splitMessage(message).description);
+	const { description } = $derived(splitMessage(message));
 	const isUpstream = $derived(!isCommit(commit));
 
 	function getGravatarUrl(email: string, existingGravatarUrl: string): string {
@@ -54,7 +55,7 @@
 	{/if}
 
 	{#if description}
-		<p class="text-13 text-body commit-description">
+		<p data-testid={TestId.CommitDrawerDescription} class="text-13 text-body commit-description">
 			{@html marked(description)}
 		</p>
 	{/if}

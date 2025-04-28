@@ -13,7 +13,14 @@ export enum TestId {
 	BranchHeaderContextMenu_CopyPRLink = 'branch-header-context-menu-copy-pr-link',
 	BranchHeaderRenameModal = 'branch-header-rename-modal',
 	BranchHeaderRenameModal_Warning = 'branch-header-rename-modal-warning',
-	BranchHeaderContextMenu_SquashAllCommits = 'branch-header-context-menu-squash-all-commits'
+	BranchHeaderContextMenu_SquashAllCommits = 'branch-header-context-menu-squash-all-commits',
+	EditCommitMessageDrawer = 'edit-commit-message-drawer',
+	CommitDrawerActionEditMessage = 'commit-drawer-action-edit-message',
+	CommitDrawerTitleInput = 'commit-drawer-title-input',
+	CommitDrawerDescriptionInput = 'commit-drawer-description-input',
+	CommitDrawerActionButton = 'commit-drawer-action-button',
+	CommitDrawerTitle = 'commit-drawer-title',
+	CommitDrawerDescription = 'commit-drawer-description'
 }
 
 export enum ElementId {
