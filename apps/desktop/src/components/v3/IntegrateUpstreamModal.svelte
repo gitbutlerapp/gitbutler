@@ -233,6 +233,22 @@
 				</div>
 			</div>
 		{/if}
+		{#if branchStatuses.current?.type === 'updatesRequired' && branchStatuses.current?.worktreeConflicts.length > 0}
+			<div class="section">
+				<h3 class="text-14 text-semibold section-title">
+					<span>Conflicting uncommitted files</span><Badge
+						>{branchStatuses.current?.worktreeConflicts.length}</Badge
+					>
+				</h3>
+				<div class="scroll-wrap">
+					<ScrollableContainer maxHeight={pxToRem(268)}>
+						{#each branchStatuses.current?.worktreeConflicts as file}
+							<div>{file}</div>
+						{/each}
+					</ScrollableContainer>
+				</div>
+			</div>
+		{/if}
 
 		{#if base?.diverged}
 			<div class="target-divergence">
