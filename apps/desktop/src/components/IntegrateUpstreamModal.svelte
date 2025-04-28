@@ -22,6 +22,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import IntegrationSeriesRow from '@gitbutler/ui/IntegrationSeriesRow.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import SimpleCommitRow from '@gitbutler/ui/SimpleCommitRow.svelte';
@@ -202,6 +203,19 @@
 						</SelectItem>
 					{/snippet}
 				</Select>
+			{:else if stackFullyIntegrated(stackStatus) && results.get(stack.id)}
+				<div class="delete-branch-wrap">
+					<Checkbox
+						small
+						checked={results.get(stack.id)!.deleteIntegratedBranches}
+						onchange={(e: Event & { currentTarget: EventTarget & HTMLInputElement }) => {
+							const isChecked = e.currentTarget.checked;
+							const result = results.get(stack.id)!;
+							results.set(stack.id, { ...result, deleteIntegratedBranches: isChecked });
+						}}
+					/>
+					<span style="white-space: nowrap" class="text-12">Delete local branch</span>
+				</div>
 			{/if}
 		{/snippet}
 	</IntegrationSeriesRow>
@@ -330,6 +344,15 @@
 		gap: 14px;
 		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-theme-warn-bg);
+	}
+
+	.delete-branch-wrap {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		padding-left: 6px;
+		margin-right: 2px;
+		color: var(--clr-text-1);
 	}
 
 	.target-icon {

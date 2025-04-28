@@ -89,15 +89,9 @@
 				{/if}
 			</div>
 
-			{#if select && branch.status !== 'integrated'}
+			{#if select}
 				<div class="select">
 					{@render select()}
-				</div>
-			{/if}
-			{#if branch.status === 'integrated'}
-				<div class="integrated-label-wrap">
-					<Icon name="tick-small" />
-					<span class="integrated-label text-12"> Part of the new base </span>
 				</div>
 			{/if}
 		</div>
