@@ -154,7 +154,7 @@ impl VirtualBranchesHandle {
         refname: &str,
     ) -> Result<Option<Stack>> {
         let stacks = self.list_all_stacks()?;
-        Ok(dbg!(stacks.into_iter().find(|stack| {
+        Ok(stacks.into_iter().find(|stack| {
             if stack.in_workspace {
                 return false;
             }
@@ -168,7 +168,7 @@ impl VirtualBranchesHandle {
             }
 
             false
-        })))
+        }))
     }
 
     /// Gets the state of the given virtual branch.

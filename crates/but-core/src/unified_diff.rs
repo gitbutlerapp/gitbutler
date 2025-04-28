@@ -36,7 +36,11 @@ pub struct DiffHunk {
 
 impl std::fmt::Debug for DiffHunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, r#"DiffHunk("{}")"#, self.diff)
+        if f.alternate() {
+            write!(f, r#"DiffHunk("{}")"#, self.diff)
+        } else {
+            write!(f, r#"DiffHunk("{:?}")"#, self.diff)
+        }
     }
 }
 

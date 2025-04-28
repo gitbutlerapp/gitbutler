@@ -1,5 +1,6 @@
 use bstr::ByteSlice;
-use but_core::TreeStatus;
+use but_core::unified_diff::DiffHunk;
+use but_core::{TreeChange, TreeStatus, UnifiedDiff};
 use but_testsupport::gix_testtools;
 use but_testsupport::gix_testtools::{Creation, tempfile};
 use but_workspace::commit_engine::{Destination, DiffSpec, HunkHeader};
@@ -202,6 +203,54 @@ pub fn visualize_index(index: &gix::index::State) -> String {
         .expect("enough memory")
     }
     buf
+}
+
+pub fn visualize_index_with_content(repo: &gix::Repository, index: &gix::index::State) -> String {
+    use std::fmt::Write;
+    let mut buf = String::new();
+    for entry in index.entries() {
+        let path = entry.path(index);
+        writeln!(
+            &mut buf,
+            "{mode:o}:{id} {path} {content:?}",
+            id = &entry.id.to_hex_with_len(7),
+            mode = entry.mode.bits(),
+            content = repo
+                .find_blob(entry.id)
+                .expect("index only has blobs")
+                .data
+                .as_bstr()
+        )
+        .expect("enough memory")
+    }
+    buf
+}
+
+pub struct LeanDiffHunk(DiffHunk);
+
+impl std::fmt::Debug for LeanDiffHunk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, r#"DiffHunk("{:?}")"#, self.0.diff)
+    }
+}
+
+pub fn worktree_changes_with_diffs(
+    repo: &gix::Repository,
+) -> anyhow::Result<Vec<(TreeChange, Vec<LeanDiffHunk>)>> {
+    let worktree_changes = but_core::diff::worktree_changes(repo)?;
+    Ok(worktree_changes
+        .changes
+        .into_iter()
+        .map(|tree_change| {
+            let diff = tree_change
+                .unified_diff(repo, 0 /* context_lines */)
+                .expect("diffs can always be generated");
+            let UnifiedDiff::Patch { hunks, .. } = diff else {
+                unreachable!("don't use this with binary files or large files")
+            };
+            (tree_change, hunks.into_iter().map(LeanDiffHunk).collect())
+        })
+        .collect())
 }
 
 /// Create a commit with the entire file as change, and another time with a whole hunk.

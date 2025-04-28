@@ -184,7 +184,7 @@ pub enum RejectionReason {
     /// This can happen if the target tree has an entry that isn't of the same type as the source worktree changes.
     UnsupportedTreeEntry,
     /// The DiffSpec points to an actual change, or a subset of that change using a file path and optionally hunks into that file.
-    /// However, at least one hunk was not fully contained..
+    /// However, at least one hunk was not fully contained.
     MissingDiffSpecAssociation,
 }
 

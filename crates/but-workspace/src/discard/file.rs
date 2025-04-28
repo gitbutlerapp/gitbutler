@@ -36,7 +36,7 @@ pub fn restore_state_to_worktree(
         crate::commit_engine::index::upsert_index_entry(
             index,
             rela_path,
-            &md,
+            Some(&md),
             state.id,
             state.kind.into(),
             gix::index::entry::Flags::UPDATE,
