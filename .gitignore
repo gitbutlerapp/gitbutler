@@ -6,6 +6,8 @@ generated-do-not-edit/
 
 # editors
 .idea
+$.idea
+$.zed
 
 .sentryclirc
 .DS_Store

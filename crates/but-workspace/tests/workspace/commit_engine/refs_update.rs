@@ -3,12 +3,12 @@ use crate::commit_engine::refs_update::utils::{
     write_vrbranches_to_refs, write_worktree_file,
 };
 use crate::utils::{
-    CONTEXT_LINES, read_only_in_memory_scenario, to_change_specs_all_hunks,
-    to_change_specs_whole_file, visualize_index, visualize_tree, writable_scenario,
-    writable_scenario_with_ssh_key, write_sequence,
+    CONTEXT_LINES, hunk_header, read_only_in_memory_scenario, to_change_specs_all_hunks,
+    to_change_specs_whole_file, visualize_index, visualize_index_with_content, visualize_tree,
+    worktree_changes_with_diffs, writable_scenario, writable_scenario_with_ssh_key, write_sequence,
 };
 use but_testsupport::{assure_stable_env, visualize_commit_graph};
-use but_workspace::commit_engine::{Destination, ReferenceFrame, StackSegmentId};
+use but_workspace::commit_engine::{Destination, DiffSpec, ReferenceFrame, StackSegmentId};
 use gitbutler_stack::VirtualBranchesState;
 use gix::prelude::ObjectIdExt;
 use gix::refs::transaction::PreviousValue;
@@ -250,6 +250,243 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     100644:d95f3ad not-yet-tracked
     ");
     assure_no_worktree_changes(&repo)?;
+    Ok(())
+}
+
+/// There is an untracked file with multiple lines, and we commit only a couple of them.
+#[test]
+fn first_partial_commit_to_tip_from_unborn_head() -> anyhow::Result<()> {
+    assure_stable_env();
+
+    let (repo, _tmp) = writable_scenario("unborn-untracked");
+    write_sequence(&repo, "not-yet-tracked", [(4, None)])?;
+    let mut vb = VirtualBranchesState::default();
+
+    insta::assert_debug_snapshot!(worktree_changes_with_diffs(&repo)?, @r#"
+    [
+        (
+            TreeChange {
+                path: "not-yet-tracked",
+                status: Addition {
+                    state: ChangeState {
+                        id: Sha1(0000000000000000000000000000000000000000),
+                        kind: Blob,
+                    },
+                    is_untracked: true,
+                },
+            },
+            [
+                DiffHunk(""@@ -1,0 +1,4 @@\n+1\n+2\n+3\n+4\n""),
+            ],
+        ),
+    ]
+    "#);
+
+    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+        &repo,
+        ReferenceFrame {
+            workspace_tip: None,
+            branch_tip: None,
+        },
+        &mut vb,
+        Destination::NewCommit {
+            parent_commit_id: None,
+            message: "initial commit with two lines".to_string(),
+            stack_segment: None,
+        },
+        None,
+        vec![DiffSpec {
+            previous_path: None,
+            path: "not-yet-tracked".into(),
+            // Add the first two lines
+            hunk_headers: vec![hunk_header("-0,0", "+1,2")],
+        }],
+        CONTEXT_LINES,
+    )?;
+
+    insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
+    d5949f1
+    └── not-yet-tracked:100644:1191247 "1\n2\n"
+    "#);
+    insta::assert_snapshot!(visualize_index_with_content(&repo, &outcome.index.unwrap()), @r#"100644:1191247 not-yet-tracked "1\n2\n""#);
+
+    // There are still untracked changes.
+    insta::assert_debug_snapshot!(worktree_changes_with_diffs(&repo)?, @r#"
+    [
+        (
+            TreeChange {
+                path: "not-yet-tracked",
+                status: Modification {
+                    previous_state: ChangeState {
+                        id: Sha1(1191247b6d9a206f6ba3d8ac79e26d041dd86941),
+                        kind: Blob,
+                    },
+                    state: ChangeState {
+                        id: Sha1(0000000000000000000000000000000000000000),
+                        kind: Blob,
+                    },
+                    flags: None,
+                },
+            },
+            [
+                DiffHunk(""@@ -3,0 +3,2 @@\n+3\n+4\n""),
+            ],
+        ),
+    ]
+    "#);
+
+    let head_commit = outcome.new_commit.unwrap();
+    insta::assert_snapshot!(visualize_commit_graph(&repo, head_commit)?, @"* 697a30e (HEAD -> main) initial commit with two lines");
+
+    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+        &repo,
+        ReferenceFrame {
+            workspace_tip: None,
+            branch_tip: None,
+        },
+        &mut vb,
+        Destination::NewCommit {
+            parent_commit_id: Some(head_commit),
+            message: "Add yet another line".to_string(),
+            stack_segment: None,
+        },
+        None,
+        vec![DiffSpec {
+            previous_path: None,
+            path: "not-yet-tracked".into(),
+            // Add the last line
+            hunk_headers: vec![hunk_header("-0,0", "+4,1")],
+        }],
+        CONTEXT_LINES,
+    )?;
+    insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
+    f9cc7d6
+    └── not-yet-tracked:100644:e8a01cd "1\n2\n4\n"
+    "#);
+
+    // One line left as changed
+    insta::assert_debug_snapshot!(worktree_changes_with_diffs(&repo)?, @r#"
+    [
+        (
+            TreeChange {
+                path: "not-yet-tracked",
+                status: Modification {
+                    previous_state: ChangeState {
+                        id: Sha1(e8a01cd985125a824409ef6b2f264c76b54ffe6a),
+                        kind: Blob,
+                    },
+                    state: ChangeState {
+                        id: Sha1(0000000000000000000000000000000000000000),
+                        kind: Blob,
+                    },
+                    flags: None,
+                },
+            },
+            [
+                DiffHunk(""@@ -3,0 +3,1 @@\n+3\n""),
+            ],
+        ),
+    ]
+    "#);
+
+    let head_commit = outcome.new_commit.unwrap();
+    insta::assert_snapshot!(visualize_commit_graph(&repo, head_commit)?, @r"
+    * e6088b7 (HEAD -> main) Add yet another line
+    * 697a30e initial commit with two lines
+    ");
+
+    write_sequence(&repo, "other-untracked-non-racy", [(4, None)])?;
+    std::fs::write(
+        repo.workdir_path("other-untracked-added-as-whole").unwrap(),
+        b"just one line",
+    )?;
+    // With a racy index, we will see changes even though otherwise it might not detect them as it trusts mtimes that it shouldn't.
+    // Git only has second-level precision, so need to wait that long at least.
+    // See #8213.
+    let delay_to_assure_non_racy_git_index = std::time::Duration::from_secs(1);
+    std::thread::sleep(delay_to_assure_non_racy_git_index);
+    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+        &repo,
+        ReferenceFrame {
+            workspace_tip: None,
+            branch_tip: None,
+        },
+        &mut vb,
+        Destination::NewCommit {
+            parent_commit_id: Some(head_commit),
+            message: "add a part of an untracked file, again".to_string(),
+            stack_segment: None,
+        },
+        None,
+        vec![
+            DiffSpec {
+                previous_path: None,
+                path: "not-yet-tracked".into(),
+                // Add the remainder
+                hunk_headers: vec![hunk_header("-3,0", "+3,1")],
+            },
+            DiffSpec {
+                previous_path: None,
+                path: "other-untracked-non-racy".into(),
+                // Add the first line
+                hunk_headers: vec![hunk_header("-0,0", "+1,1")],
+            },
+            DiffSpec {
+                previous_path: None,
+                path: "other-untracked-added-as-whole".into(),
+                // Add the only line
+                hunk_headers: vec![hunk_header("-0,0", "+1,1")],
+            },
+        ],
+        CONTEXT_LINES,
+    )?;
+
+    let head_commit = outcome.new_commit.unwrap();
+    insta::assert_snapshot!(visualize_commit_graph(&repo, head_commit)?, @r"
+    * eba2b4c (HEAD -> main) add a part of an untracked file, again
+    * e6088b7 Add yet another line
+    * 697a30e initial commit with two lines
+    ");
+
+    insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
+    6e86388
+    ├── not-yet-tracked:100644:94ebaf9 "1\n2\n3\n4\n"
+    ├── other-untracked-added-as-whole:100644:19f7fbc "just one line"
+    └── other-untracked-non-racy:100644:d00491f "1\n"
+    "#);
+
+    // The index represents the tree, so far so good.
+    insta::assert_snapshot!(visualize_index_with_content(&repo, &outcome.index.unwrap()), @r#"
+    100644:94ebaf9 not-yet-tracked "1\n2\n3\n4\n"
+    100644:19f7fbc other-untracked-added-as-whole "just one line"
+    100644:d00491f other-untracked-non-racy "1\n"
+    "#);
+
+    // three lines left in the worktree, nothing else should show up.
+    insta::assert_debug_snapshot!(worktree_changes_with_diffs(&repo)?, @r#"
+    [
+        (
+            TreeChange {
+                path: "other-untracked-non-racy",
+                status: Modification {
+                    previous_state: ChangeState {
+                        id: Sha1(d00491fd7e5bb6fa28c517a0bb32b8b506539d4d),
+                        kind: Blob,
+                    },
+                    state: ChangeState {
+                        id: Sha1(0000000000000000000000000000000000000000),
+                        kind: Blob,
+                    },
+                    flags: None,
+                },
+            },
+            [
+                DiffHunk(""@@ -2,0 +2,3 @@\n+2\n+3\n+4\n""),
+            ],
+        ),
+    ]
+    "#);
+
     Ok(())
 }
 
@@ -863,8 +1100,9 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     ");
 
     let branch_a = repo.rev_parse_single("A")?.detach();
+    let branch_b = repo.rev_parse_single("B")?.detach();
     let mut vb = VirtualBranchesState::default();
-    let stack = stack_with_branches(
+    let stack_a = stack_with_branches(
         "s1",
         branch_a,
         // The order indicates which one actually is on top, even though they both point to the
@@ -872,7 +1110,15 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
         [("s1-b/below-top", branch_a), ("s1-b/top", branch_a)],
         &repo,
     );
-    vb.branches.insert(stack.id, stack.clone());
+    vb.branches.insert(stack_a.id, stack_a.clone());
+
+    let stack_b = stack_with_branches(
+        "s2",
+        branch_b,
+        [("s2-b/below-top", branch_b), ("s2-b/top", branch_b)],
+        &repo,
+    );
+    vb.branches.insert(stack_b.id, stack_b.clone());
 
     // initial is 1-30, make a change that transfers correctly to A where it is 5-20.
     // This forces us to handle the index update (more) correctly, but also shows
@@ -890,7 +1136,7 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
             message: "remove 5 lines from beginning".into(),
             stack_segment: Some(StackSegmentId {
                 segment_ref: "refs/heads/s1-b/top".try_into()?,
-                stack_id: stack.id,
+                stack_id: stack_a.id,
             }),
         },
         None,
@@ -906,7 +1152,7 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     |\  
     | * 99f3a1c (s1-b/top, A) remove 5 lines from beginning
     | * 7f389ed (s1-b/below-top) add 10 to the beginning
-    * | 91ef6f6 (B) add 10 to the end
+    * | 91ef6f6 (s2-b/top, s2-b/below-top, B) add 10 to the end
     |/  
     * ff045ef (main) init
     ");
@@ -927,14 +1173,106 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     );
 
     let index = outcome.index.take().unwrap();
-    insta::assert_snapshot!(visualize_index(&index), @"100644:c8ebab8 file");
+    insta::assert_snapshot!(visualize_index_with_content(&repo, &index), @r#"100644:c8ebab8 file "5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n""#);
 
-    assert_eq!(
-        but_core::diff::worktree_changes(&repo)?.changes.len(),
-        1,
-        "As the 10 removed lines were ignored and aren't in the commit, \
-           the worktree still seems to have changes"
-    );
+    // As the 10 removed lines were ignored and aren't in the commit, the worktree still seems to have changes
+    insta::assert_debug_snapshot!(worktree_changes_with_diffs(&repo)?, @r#"
+    [
+        (
+            TreeChange {
+                path: "file",
+                status: Modification {
+                    previous_state: ChangeState {
+                        id: Sha1(c8ebab81e52366c1c670281a408a27fad79ee257),
+                        kind: Blob,
+                    },
+                    state: ChangeState {
+                        id: Sha1(0000000000000000000000000000000000000000),
+                        kind: Blob,
+                    },
+                    flags: None,
+                },
+            },
+            [
+                DiffHunk(""@@ -17,10 +17,0 @@\n-21\n-22\n-23\n-24\n-25\n-26\n-27\n-28\n-29\n-30\n""),
+            ],
+        ),
+    ]
+    "#);
+
+    // Put 5 of these ten lines as removals onto branch B
+    let mut outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+        &repo,
+        ReferenceFrame {
+            workspace_tip: Some(rewritten_head_id.detach()),
+            branch_tip: Some(branch_b),
+        },
+        &mut vb,
+        Destination::NewCommit {
+            parent_commit_id: Some(branch_b),
+            message: "remove 5 lines from the end".into(),
+            stack_segment: Some(StackSegmentId {
+                segment_ref: "refs/heads/s2-b/top".try_into()?,
+                stack_id: stack_b.id,
+            }),
+        },
+        None,
+        vec![DiffSpec {
+            previous_path: None,
+            path: "file".into(),
+            // Remove 5 lines from the end.
+            hunk_headers: vec![hunk_header("-22,5", "+0,0")],
+        }],
+        CONTEXT_LINES,
+    )?;
+    assert_eq!(outcome.rejected_specs, vec![]);
+
+    // The last 5 lines were removed
+    insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
+    e6575c0
+    └── file:100644:8452dbe "10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n"
+    "#);
+
+    let rewritten_head_id = repo.head_id()?;
+    // The B-segment refs moved
+    insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
+    *   098effd (HEAD -> merge) Merge branch 'A' into merge
+    |\  
+    | * 99f3a1c (s1-b/top, A) remove 5 lines from beginning
+    | * 7f389ed (s1-b/below-top) add 10 to the beginning
+    * | 03e9b6f (s2-b/top, B) remove 5 lines from the end
+    * | 91ef6f6 (s2-b/below-top) add 10 to the end
+    |/  
+    * ff045ef (main) init
+    ");
+
+    let index = outcome.index.take().unwrap();
+    insta::assert_snapshot!(visualize_index_with_content(&repo, &index), @r#"100644:1cc1fac file "5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n""#);
+
+    // The worktree only shows 5 lines missing, as the 5 deletions were applied in branch B.
+    insta::assert_debug_snapshot!(worktree_changes_with_diffs(&repo)?, @r#"
+    [
+        (
+            TreeChange {
+                path: "file",
+                status: Modification {
+                    previous_state: ChangeState {
+                        id: Sha1(1cc1fac76944ae8361a73461d54e85a50ccc7bd1),
+                        kind: Blob,
+                    },
+                    state: ChangeState {
+                        id: Sha1(0000000000000000000000000000000000000000),
+                        kind: Blob,
+                    },
+                    flags: None,
+                },
+            },
+            [
+                DiffHunk(""@@ -17,5 +17,0 @@\n-21\n-22\n-23\n-24\n-25\n""),
+            ],
+        ),
+    ]
+    "#);
     Ok(())
 }
 

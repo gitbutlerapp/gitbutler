@@ -162,11 +162,11 @@ fn apply_worktree_changes<'repo>(
     let base_tree = actual_base_tree.attach(repo).object()?.peel_to_tree()?;
     let mut base_tree_editor = base_tree.edit()?;
     let (mut pipeline, index) = repo.filter_pipeline(None)?;
-    let changes_with_hunks = changes
+    let has_changes_with_hunks = changes
         .iter()
         .filter_map(|c| c.as_ref().ok())
         .any(|c| !c.hunk_headers.is_empty());
-    let worktree_changes = changes_with_hunks
+    let worktree_changes = has_changes_with_hunks
         .then(|| but_core::diff::worktree_changes(repo).map(|wtc| wtc.changes))
         .transpose()?;
     let mut current_worktree = Vec::new();
@@ -346,9 +346,9 @@ pub(crate) fn worktree_file_to_git_in_buf(
 }
 
 /// Given `hunks_to_keep` (ascending hunks by starting line) and the set of `worktree_hunks_no_context`
-/// (worktree hunks without context), return `(hunks_to_commit, rejected_hunks)` where `hunks_to_commit` is the
-/// headers to drive the additive operation to create the buffer to commit, and `rejected_hunks` is the list of
-/// hunks from `hunks_to_keep` that couldn't be associated with `worktree_hunks_no_context` because they weren't actually included.
+/// (worktree hunks without context), return `(hunks_to_commit, rejected_hunks)`.
+/// `hunks_to_commit` is the headers to drive the additive operation to create the buffer to commit, and `rejected_hunks` is the list of
+/// hunks from `hunks_to_keep` that couldn't be associated with `worktree_hunks_no_context` because they weren't included.
 ///
 /// `worktree_hunks` is the hunks with a given amount of context, usually 3, and it's used to quickly select original hunks
 /// without selection.

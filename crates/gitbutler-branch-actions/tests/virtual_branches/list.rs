@@ -76,7 +76,7 @@ fn two_vbranches_in_workspace_one_commit() -> Result<()> {
     assert_eq!(list.len(), 1, "only one of these is *not* applied");
 
     assert_equal(
-        dbg!(&list[0]),
+        &list[0],
         ExpectedBranchListing {
             identity: "virtual".into(),
             virtual_branch_given_name: Some("virtual"),
