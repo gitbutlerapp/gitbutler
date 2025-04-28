@@ -187,25 +187,24 @@
 
 {#snippet stackStatus(stack: Stack, stackStatus: StackStatus)}
 	<IntegrationSeriesRow series={integrationRowSeries(stackStatus)}>
-		{#snippet select()}
-			{#if !stackFullyIntegrated(stackStatus) && results.get(stack.id)}
-				<Select
-					value={results.get(stack.id)!.approach.type}
-					onselect={(value) => {
-						const result = results.get(stack.id)!;
+		{#if !stackFullyIntegrated(stackStatus) && results.get(stack.id)}
+			<Select
+				value={results.get(stack.id)!.approach.type}
+				maxWidth={130}
+				onselect={(value) => {
+					const result = results.get(stack.id)!;
 
-						results.set(stack.id, { ...result, approach: { type: value as OperationType } });
-					}}
-					options={integrationOptions(stackStatus)}
-				>
-					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem selected={highlighted} {highlighted}>
-							{item.label}
-						</SelectItem>
-					{/snippet}
-				</Select>
-			{/if}
-		{/snippet}
+					results.set(stack.id, { ...result, approach: { type: value as OperationType } });
+				}}
+				options={integrationOptions(stackStatus)}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={highlighted} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		{/if}
 	</IntegrationSeriesRow>
 {/snippet}
 
@@ -234,6 +233,7 @@
 				</div>
 			</div>
 		{/if}
+		<!-- CONFLICTED FILES -->
 		{#if branchStatuses.current?.type === 'updatesRequired' && branchStatuses.current?.worktreeConflicts.length > 0}
 			<div class="section">
 				<h3 class="text-14 text-semibold section-title">
@@ -260,7 +260,7 @@
 				</div>
 			</div>
 		{/if}
-
+		<!-- DIVERGED -->
 		{#if base?.diverged}
 			<div class="target-divergence">
 				<img class="target-icon" src="/images/domain-icons/trunk.svg" alt="" />
@@ -294,7 +294,7 @@
 				</div>
 			</div>
 		{/if}
-
+		<!-- STACKS AND BRANCHES TO UPDATE -->
 		{#if statuses.length > 0}
 			<div class="section" class:section-disabled={isDivergedResolved}>
 				<h3 class="text-14 text-semibold">To be updated:</h3>
