@@ -1,4 +1,10 @@
-import { bytesToStr, isGetWorktreeChangesParams, MOCK_TREE_CHANGE_A } from './changes';
+import {
+	bytesToStr,
+	isGetDiffParams,
+	isGetWorktreeChangesParams,
+	MOCK_TREE_CHANGE_A,
+	MOCK_UNIFIED_DIFF
+} from './changes';
 import {
 	isCreateCommitParams,
 	isStackDetailsParams,
@@ -8,6 +14,7 @@ import {
 	MOCK_STACK_DETAILS
 } from './stacks';
 import type { WorktreeChanges } from '$lib/hunks/change';
+import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { StackDetails } from '$lib/stacks/stack';
 import type { InvokeArgs } from '@tauri-apps/api/core';
 
@@ -137,5 +144,13 @@ export default class MockBackend {
 		const pathsToRejectedChanges: string[] = [];
 
 		return { newCommit: newCommitId, pathsToRejectedChanges };
+	}
+
+	public getDiff(args: InvokeArgs | undefined): UnifiedDiff {
+		if (!args || !isGetDiffParams(args)) {
+			throw new Error('Invalid arguments for getDiff');
+		}
+
+		return MOCK_UNIFIED_DIFF;
 	}
 }
