@@ -21,6 +21,11 @@ export class DiffService {
 		return result;
 	}
 
+	async fetchDiff(projectId: string, change: TreeChange) {
+		const { getDiff } = this.api.endpoints;
+		return await getDiff.fetch({ projectId, change });
+	}
+
 	getChanges(projectId: string, changes: TreeChange[]) {
 		const args = changes.map((change) => ({ projectId, change }));
 		const { getDiff } = this.api.endpoints;
