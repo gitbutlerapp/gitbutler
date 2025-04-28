@@ -135,6 +135,16 @@ impl StackEntry {
     }
 }
 
+impl StackEntry {
+    pub(crate) fn try_new(repo: &gix::Repository, stack: &Stack) -> anyhow::Result<Self> {
+        Ok(StackEntry {
+            id: stack.id,
+            heads: stack_heads_info(stack, repo)?,
+            tip: stack.head(repo)?,
+        })
+    }
+}
+
 /// A filter for the list of stacks.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub enum StacksFilter {
@@ -206,13 +216,7 @@ pub fn stacks(
     stacks
         .into_iter()
         .sorted_by_key(|s| s.order)
-        .map(|stack| {
-            Ok(StackEntry {
-                id: stack.id,
-                heads: stack_heads_info(&stack, repo)?,
-                tip: stack.head(repo)?,
-            })
-        })
+        .map(|stack| StackEntry::try_new(repo, &stack))
         .collect()
 }
 
