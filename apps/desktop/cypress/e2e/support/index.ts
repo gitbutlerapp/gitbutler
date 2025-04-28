@@ -1,6 +1,6 @@
 import { getBaseBranchData, getRemoteBranches } from './mock/baseBranch';
 import { MOCK_BRANCH_LISTINGS } from './mock/branches';
-import { MOCK_TREE_CHANGES } from './mock/changes';
+import { MOCK_TREE_CHANGES, MOCK_UNIFIED_DIFF } from './mock/changes';
 import { MOCK_GIT_HEAD, MOCK_OPEN_WORKSPACE_MODE } from './mock/mode';
 import { getProject, isGetProjectArgs, listProjects } from './mock/projects';
 import { getSecret, isGetSecretArgs } from './mock/secrets';
@@ -100,6 +100,8 @@ Cypress.on('window:before:load', (win) => {
 		}
 
 		switch (command) {
+			case 'tree_change_diffs':
+				return MOCK_UNIFIED_DIFF;
 			case 'git_get_global_config':
 				return await Promise.resolve(undefined);
 			case 'changes_in_commit':
