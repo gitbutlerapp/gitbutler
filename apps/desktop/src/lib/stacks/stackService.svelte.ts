@@ -160,10 +160,10 @@ export class StackService {
 	}
 
 	defaultBranch(projectId: string, stackId: string) {
-		return this.api.endpoints.stackDetails.useQuery(
-			{ projectId, stackId },
+		return this.api.endpoints.stacks.useQuery(
+			{ projectId },
 			{
-				transform: ({ stackInfo }) => stackInfo.branchDetails[0]
+				transform: (stacks) => stackSelectors.selectById(stacks, stackId)?.heads[0]?.name
 			}
 		);
 	}
