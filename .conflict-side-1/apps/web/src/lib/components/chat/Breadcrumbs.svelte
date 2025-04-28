@@ -1,0 +1,123 @@
+<script lang="ts">
+	import { UserService } from '$lib/user/userService';
+	import { getContext } from '@gitbutler/shared/context';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { goto } from '$app/navigation';
+
+	const routes = getContext(WebRoutesService);
+	// get user's project page params
+	const userService = getContext(UserService);
+	const user = $derived(userService.user);
+
+	function getRootLabel() {
+		if ($user?.login === routes.isProjectReviewBranchPageSubset?.ownerSlug) {
+			return 'My Projects';
+		} else {
+			return 'My Reviews';
+		}
+	}
+</script>
+
+{#snippet backButton({ href, label = 'Back' }: { href: string; label: string })}
+	<a {href} class="breadcrumbs__back-btn">
+		<div class="breadcrumbs__back-btn__icon">
+			<Icon name="chevron-left" />
+		</div>
+		<span class="text-12 text-semibold">
+			{label}
+		</span>
+	</a>
+{/snippet}
+
+<div class="breadcrumbs">
+	<div class="breadcrumbs__path">
+		{#if !routes.isProjectReviewBranchPageSubset}
+			<span class="text-15 text-bold">Dashboard </span>
+		{:else}
+			<Button kind="ghost" onclick={() => goto(routes.projectsPath())} tooltip="Go to Dashboard">
+				<span class="text-15 text-bold truncate breadcrumbs__path-label">
+					{getRootLabel()} <span>/</span>
+					{routes.isProjectReviewPageSubset?.ownerSlug}</span
+				>
+			</Button>
+		{/if}
+	</div>
+
+	{#if routes.isProjectReviewBranchCommitPageSubset}
+		{@render backButton({
+			label: 'Back',
+			href: routes.projectReviewBranchPath(routes.isProjectReviewBranchCommitPageSubset)
+		})}
+	{:else if routes.isProjectReviewBranchPageSubset}
+		{@render backButton({
+			label: 'Back',
+			href: `${routes.projectPath(routes.isProjectReviewBranchPageSubset)}/reviews`
+		})}
+	{/if}
+</div>
+
+<style lang="postcss">
+	.breadcrumbs {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		overflow: hidden;
+		text-wrap: nowrap;
+
+		@container (max-width: 500px) {
+			& .breadcrumbs__path {
+				display: none;
+			}
+			& .breadcrumbs__back-btn {
+				padding-left: 0;
+			}
+		}
+	}
+
+	.breadcrumbs__path {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		overflow: hidden;
+	}
+
+	.breadcrumbs__path-label > span {
+		opacity: 0.2;
+		margin: 0 2px;
+	}
+
+	.breadcrumbs__back-btn {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		padding: 0 8px;
+		height: var(--size-button);
+
+		&:before {
+			content: '';
+			width: 1px;
+			height: 18px;
+			background-color: var(--clr-border-2);
+			transition: opacity 0.2s;
+			margin: 0 8px 0 0;
+		}
+
+		&:hover {
+			.breadcrumbs__back-btn__icon {
+				opacity: 1;
+				transform: translateX(-2px);
+			}
+		}
+	}
+
+	.breadcrumbs__back-btn__icon {
+		display: flex;
+		opacity: 0.5;
+		transition:
+			opacity var(--transition-fast),
+			transform var(--transition-fast);
+	}
+</style>
