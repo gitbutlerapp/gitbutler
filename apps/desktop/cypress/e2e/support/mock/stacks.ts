@@ -1,6 +1,6 @@
 import type { Author, Commit, CommitState, UpstreamCommit } from '$lib/branches/v3';
+import type { HunkHeader } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
-import type { InvokeArgs } from '@tauri-apps/api/core';
 
 export const MOCK_STACK_A_ID = '1234-123';
 
@@ -103,60 +103,68 @@ export function isStackDetailsParams(params: unknown): params is StackDetailsPar
 		typeof params.stackId === 'string'
 	);
 }
+export type CreateCommitParamsWorktreeChanges = {
+	previousPathBytes?: number[];
+	pathBytes: number[];
+	hunkHeaders: HunkHeader[];
+};
 
-/**
- * *Ohhh, look at me, I'm a stack service!*
- */
-export class MockStackService {
-	private stackDetails: Map<string, StackDetails>;
-	stackId: string = MOCK_STACK_A_ID;
-	commitOid: string = MOCK_COMMIT.id;
+export type CreateCommitParams = {
+	stackId: string;
+	message: string;
+	/** Undefined means that the backend will infer the parent to be the current head of stackBranchName */
+	parentId: string | undefined;
+	stackBranchName: string;
+	worktreeChanges: CreateCommitParamsWorktreeChanges[];
+};
 
-	constructor() {
-		this.stackDetails = new Map<string, StackDetails>();
+export function isHunkHeader(something: unknown): something is HunkHeader {
+	return (
+		typeof something === 'object' &&
+		something !== null &&
+		'oldStart' in something &&
+		typeof something['oldStart'] === 'number' &&
+		'oldLines' in something &&
+		typeof something['oldLines'] === 'number' &&
+		'newStart' in something &&
+		typeof something['newStart'] === 'number' &&
+		'newLines' in something &&
+		typeof something['newLines'] === 'number'
+	);
+}
 
-		this.stackDetails.set(MOCK_STACK_A_ID, structuredClone(MOCK_STACK_DETAILS));
-	}
+export function isCreateCommitRequestWorktreeChanges(
+	something: unknown
+): something is CreateCommitParamsWorktreeChanges {
+	return (
+		typeof something === 'object' &&
+		something !== null &&
+		((Array.isArray((something as any).previousPathBytes) &&
+			(something as any).previousPathBytes.every((byte: any) => typeof byte === 'number')) ||
+			(something as any)['previousPathBytes'] === undefined) &&
+		'pathBytes' in something &&
+		Array.isArray(something['pathBytes']) &&
+		something['pathBytes'].every((byte) => typeof byte === 'number') &&
+		'hunkHeaders' in something &&
+		Array.isArray(something['hunkHeaders']) &&
+		something['hunkHeaders'].every((header) => isHunkHeader(header))
+	);
+}
 
-	public getStackDetails(args: InvokeArgs | undefined): StackDetails {
-		if (!args || !isStackDetailsParams(args)) {
-			throw new Error('Invalid arguments for getStackDetails');
-		}
-		const { stackId } = args;
-		const stackDetails = this.stackDetails.get(stackId);
-		if (!stackDetails) {
-			throw new Error(`Stack with ID ${stackId} not found`);
-		}
-		return stackDetails;
-	}
-
-	public updateCommitMessage(args: InvokeArgs | undefined): string {
-		if (!args || !isUpdateCommitMessageParams(args)) {
-			throw new Error('Invalid arguments for renameCommit');
-		}
-		const { stackId, commitOid, message } = args;
-
-		const stackDetails = this.stackDetails.get(stackId);
-		if (!stackDetails) {
-			throw new Error(`Stack with ID ${stackId} not found`);
-		}
-
-		const editableDetails = structuredClone(stackDetails);
-
-		for (const branch of editableDetails.branchDetails) {
-			const commitIndex = branch.commits.findIndex((commit) => commit.id === commitOid);
-			if (commitIndex === -1) continue;
-			const commit = branch.commits[commitIndex]!;
-			const newId = '424242424242';
-			branch.commits[commitIndex] = {
-				...commit,
-				message,
-				id: newId
-			};
-			this.stackDetails.set(stackId, editableDetails);
-			return newId;
-		}
-
-		throw new Error(`Commit with ID ${commitOid} not found`);
-	}
+export function isCreateCommitParams(args: unknown): args is CreateCommitParams {
+	return (
+		typeof args === 'object' &&
+		args !== null &&
+		'stackId' in args &&
+		typeof args['stackId'] === 'string' &&
+		'message' in args &&
+		typeof args['message'] === 'string' &&
+		'parentId' in args &&
+		(typeof args['parentId'] === 'string' || args['parentId'] === undefined) &&
+		'stackBranchName' in args &&
+		typeof args['stackBranchName'] === 'string' &&
+		'worktreeChanges' in args &&
+		Array.isArray(args['worktreeChanges']) &&
+		args['worktreeChanges'].every((change) => isCreateCommitRequestWorktreeChanges(change))
+	);
 }
