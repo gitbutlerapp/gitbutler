@@ -804,11 +804,8 @@ fn upstream_only_commits(
     let mut upstream_only = vec![];
     for commit in branch_commits.upstream_only.iter() {
         let matches_known_commit = local_and_remote.iter().any(|c| {
-            if let CommitState::LocalAndRemote(remote_id) = &c.state {
-                remote_id == &commit.id().to_gix()
-            } else {
-                false
-            }
+            // If the id matches verbatim or if there is a known remote_id (in the case of LocalAndRemote) that matchies
+            c.id == commit.id().to_gix() || matches!(&c.state, CommitState::LocalAndRemote(remote_id) if remote_id == &commit.id().to_gix())
         });
         // Ignore commits that strictly speaking are remote only but they match a known local commit (rebase etc)
         if !matches_known_commit {
