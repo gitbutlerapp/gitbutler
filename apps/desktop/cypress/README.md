@@ -1,6 +1,6 @@
-# Frontend e2e tests
+# Frontend integration tests
 
-These are the front-end-only E2E tests, meaning that they run in the browser, use mocked backend data and only care about things like reactivity and graceful error handling.
+These are the front-end-only integration tests, meaning that they run in the browser, use mocked backend data and only care about things like reactivity and graceful error handling.
 
 ## Stack
 
@@ -59,12 +59,12 @@ pnpm cy:chrome
 
 ## Adding tests
 
-The E2E tests are located under the following pattern `cypress/e2e/**.cy.ts`.
+The E2E tests are located under the following pattern `cypress/integration/**.cy.ts`.
 Take a look at the other existing tests in order to see the general layout.
 
 ### Mocking tauri
 
-If your application needs to mock some Tauri commands, take a look at the support file `cypress/e2e/support/index.ts`.
+If your application needs to mock some Tauri commands, take a look at the support file `cypress/integration/support/index.ts`.
 
 There we're already doing some heavy lifting by adding some _default_ mocks. Feel free to add more mocks there if they apply to all tests globally.
 
