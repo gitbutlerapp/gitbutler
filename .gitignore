@@ -48,6 +48,9 @@ playwright-report
 *storybook.log
 storybook-static
 
+# Cypress
+**/cypress/screenshots
+
 # Vercel
 .vercel
 

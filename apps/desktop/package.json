@@ -11,10 +11,15 @@
 		"test:e2e:watch": "wdio wdio.conf.ts --watch",
 		"test:ui": "vitest --ui",
 		"build": "vite build",
+		"preview": "vite preview",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "pnpm check --watch",
 		"tauri": "tauri",
-		"prepare": "svelte-kit sync"
+		"prepare": "svelte-kit sync",
+		"cy:install": "cypress install",
+		"cy:open": "cypress open",
+		"cy:chrome": "cypress run --browser chrome",
+		"cy:ci": "cypress run"
 	},
 	"devDependencies": {
 		"@anthropic-ai/sdk": "^0.27.3",
@@ -53,6 +58,7 @@
 		"@wdio/types": "^8.39.0",
 		"autoprefixer": "^10.4.19",
 		"class-transformer": "^0.5.1",
+		"cypress": "^14.3.2",
 		"diff-match-patch": "^1.0.5",
 		"fuse.js": "^7.0.0",
 		"git-url-parse": "^14.0.0",
