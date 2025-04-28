@@ -6,6 +6,8 @@ import { parseRemoteUrl } from '$lib/url/gitUrl';
 import { plainToInstance } from 'class-transformer';
 import type { BackendApi } from '$lib/state/clientState.svelte';
 
+// Test comment
+
 function mapBaseBranch(data: unknown): BaseBranch | undefined;
 function mapBaseBranch<T>(data: unknown, cb: (baseBranch: BaseBranch) => T): T | undefined;
 function mapBaseBranch<T>(
