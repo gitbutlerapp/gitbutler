@@ -72,3 +72,33 @@ export function isGetWorktreeChangesParams(args: unknown): args is GetWorktreeCh
 		typeof args['projectId'] === 'string'
 	);
 }
+
+export type GetDiffParams = {
+	projectId: string;
+	change: TreeChange;
+};
+
+export function isTreeChange(args: unknown): args is TreeChange {
+	return (
+		typeof args === 'object' &&
+		args !== null &&
+		'path' in args &&
+		typeof args['path'] === 'string' &&
+		'status' in args &&
+		typeof args['status'] === 'object' &&
+		'pathBytes' in args &&
+		Array.isArray(args['pathBytes']) &&
+		args['pathBytes'].every((byte) => typeof byte === 'number')
+	);
+}
+
+export function isGetDiffParams(args: unknown): args is GetDiffParams {
+	return (
+		typeof args === 'object' &&
+		args !== null &&
+		'projectId' in args &&
+		typeof args['projectId'] === 'string' &&
+		'change' in args &&
+		isTreeChange(args['change'])
+	);
+}
