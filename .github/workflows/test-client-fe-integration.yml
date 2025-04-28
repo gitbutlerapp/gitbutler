@@ -1,4 +1,4 @@
-name: Client Frontend E2E Tests
+name: Client Frontend Integration Tests
 
 on:
   pull_request:
