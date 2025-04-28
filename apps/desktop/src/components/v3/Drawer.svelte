@@ -18,6 +18,7 @@
 		kebabMenu?: Snippet;
 		children: Snippet;
 		filesSplitView?: Snippet;
+		showFilesSplitView?: boolean;
 		disableScroll?: boolean;
 		testId?: string;
 	};
@@ -32,6 +33,7 @@
 		kebabMenu,
 		children,
 		filesSplitView,
+		showFilesSplitView = true,
 		disableScroll,
 		testId
 	}: Props = $props();
@@ -45,7 +47,7 @@
 	const heightRmResult = $derived(uiState.global.drawerHeight.get());
 	const heightRm = $derived(`min(${heightRmResult.current}rem, 80%)`);
 	const height = $derived(drawerIsFullScreen.current ? '100%' : heightRm);
-	const splitView = $derived(!!filesSplitView);
+	// const splitView = $derived(!!filesSplitView);
 
 	const contentWidth = $derived(uiState.global.drawerSplitViewWidth.get());
 	const scrollable = $derived(!disableScroll);
@@ -108,8 +110,8 @@
 		{#if children}
 			<div
 				class="drawer__content-wrap"
-				class:files-split-view={splitView}
-				style:--custom-width={splitView ? `${contentWidth.current}rem` : 'auto'}
+				class:files-split-view={showFilesSplitView}
+				style:--custom-width={showFilesSplitView ? `${contentWidth.current}rem` : 'auto'}
 			>
 				<div class="drawer__content-scroll" bind:this={viewportEl}>
 					{#if scrollable}
@@ -124,7 +126,7 @@
 						</div>
 					{/if}
 
-					{#if splitView}
+					{#if showFilesSplitView}
 						<div class="drawer__content-resizer">
 							<Resizer
 								viewport={viewportEl}
@@ -137,7 +139,7 @@
 					{/if}
 				</div>
 
-				{#if splitView && filesSplitView}
+				{#if showFilesSplitView && filesSplitView}
 					<div class="drawer__files-split-view">
 						<ConfigurableScrollableContainer>
 							{@render filesSplitView()}
@@ -241,9 +243,29 @@
 			}
 		}
 
-		&.files-split-view .drawer__content-scroll {
-			min-width: 300px;
-			max-width: 500px;
+		@container drawer (min-width: 530px) {
+			&.files-split-view .drawer__content-scroll {
+				max-width: 500px;
+			}
+		}
+
+		@container drawer (max-width: 530px) {
+			&.files-split-view {
+				flex-direction: column;
+			}
+
+			& .drawer__content-scroll {
+				width: 100%;
+				height: auto;
+			}
+
+			& .drawer__content-resizer {
+				display: none;
+			}
+
+			& .drawer__files-split-view {
+				border-top: 1px solid var(--clr-border-2);
+			}
 		}
 	}
 
@@ -261,7 +283,7 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		min-width: 240px;
+		min-width: 200px;
 	}
 
 	.drawer__content {
