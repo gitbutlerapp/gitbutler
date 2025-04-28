@@ -11,6 +11,7 @@
 		type CreateCommitRequestWorktreeChanges
 	} from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext, inject } from '@gitbutler/shared/context';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
@@ -184,7 +185,15 @@
 	}
 </script>
 
-<Drawer bind:this={drawer} {projectId} {stackId} title="Create commit" disableScroll minHeight={20}>
+<Drawer
+	testId={TestId.NewCommitDrawer}
+	bind:this={drawer}
+	{projectId}
+	{stackId}
+	title="Create commit"
+	disableScroll
+	minHeight={20}
+>
 	<CommitMessageEditor
 		bind:this={input}
 		{projectId}

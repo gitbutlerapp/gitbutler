@@ -11,6 +11,7 @@
 	import { ChangeSelectionService, type SelectedFile } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
@@ -37,11 +38,12 @@
 	const drawerPage = $derived(projectState.drawerPage.get());
 	const isCommitting = $derived(drawerPage.current === 'new-commit');
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
+
 	const defaultBranchResult = $derived(
 		stackId !== undefined ? stackService.defaultBranch(projectId, stackId) : undefined
 	);
-	const defaultBranch = $derived(defaultBranchResult?.current.data);
-	const defaultBranchName = $derived(defaultBranch?.name);
+	const defaultBranchName = $derived(defaultBranchResult?.current.data);
+
 	const selectedChanges = changeSelection.list();
 	const noChangesSelected = $derived(selectedChanges.current.length === 0);
 	const changesResult = $derived(worktreeService.getChanges(projectId));
@@ -131,7 +133,7 @@
 					<FileListMode bind:mode={listMode} persist="uncommitted" />
 				</div>
 				{#if changes.length > 0}
-					<div class="uncommitted-changes">
+					<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
 						<FileList
 							selectionId={{ type: 'worktree' }}
 							showCheckboxes={isCommitting}
@@ -148,11 +150,12 @@
 						class:sticked={isFooterSticky}
 					>
 						<Button
+							testId={TestId.StartCommitButton}
 							kind={isCommitting ? 'outline' : 'solid'}
 							type="button"
 							size="cta"
 							wide
-							disabled={isCommitting}
+							disabled={isCommitting || !defaultBranchName}
 							onclick={startCommit}
 						>
 							Start a commit…

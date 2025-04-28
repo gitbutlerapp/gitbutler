@@ -20,7 +20,12 @@ export enum TestId {
 	CommitDrawerDescriptionInput = 'commit-drawer-description-input',
 	CommitDrawerActionButton = 'commit-drawer-action-button',
 	CommitDrawerTitle = 'commit-drawer-title',
-	CommitDrawerDescription = 'commit-drawer-description'
+	CommitDrawerDescription = 'commit-drawer-description',
+	UncommittedChanges_FileList = 'uncommitted-changes-file-list',
+	UncommittedChanges_FileListItem = 'uncommitted-changes-file-list-item',
+	StartCommitButton = 'start-commit-button',
+	CommitRow = 'commit-row',
+	NewCommitDrawer = 'new-commit-drawer'
 }
 
 export enum ElementId {
