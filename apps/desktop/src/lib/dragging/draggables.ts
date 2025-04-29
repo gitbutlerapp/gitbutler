@@ -4,7 +4,7 @@ import type { AnyCommit } from '$lib/commits/commit';
 import type { CommitDropData } from '$lib/commits/dropHandler';
 import type { AnyFile } from '$lib/files/file';
 import type { TreeChange } from '$lib/hunks/change';
-import type { Hunk, HunkLock } from '$lib/hunks/hunk';
+import type { Hunk, HunkHeader, HunkLock } from '$lib/hunks/hunk';
 import type { IdSelection } from '$lib/selection/idSelection.svelte';
 
 export const NON_DRAGGABLE = {
@@ -22,6 +22,14 @@ export class HunkDropData {
 	get isCommitted(): boolean {
 		return !!this.commitId;
 	}
+}
+
+export class HunkDropDataV3 {
+	constructor(
+		readonly change: TreeChange,
+		readonly hunk: HunkHeader,
+		readonly uncommitted: boolean
+	) {}
 }
 
 export class ChangeDropData {
@@ -89,4 +97,9 @@ export class FileDropData {
 	}
 }
 
-export type DropData = FileDropData | HunkDropData | CommitDropData | ChangeDropData;
+export type DropData =
+	| FileDropData
+	| HunkDropData
+	| CommitDropData
+	| ChangeDropData
+	| HunkDropDataV3;
