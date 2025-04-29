@@ -25,7 +25,9 @@ export enum TestId {
 	UncommittedChanges_FileListItem = 'uncommitted-changes-file-list-item',
 	StartCommitButton = 'start-commit-button',
 	CommitRow = 'commit-row',
-	NewCommitDrawer = 'new-commit-drawer'
+	NewCommitDrawer = 'new-commit-drawer',
+	StackDraft = 'stack-draft',
+	YourCommitGoesHere = 'your-commit-goes-here'
 }
 
 export enum ElementId {

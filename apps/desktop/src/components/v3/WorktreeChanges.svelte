@@ -159,7 +159,7 @@
 							type="button"
 							size="cta"
 							wide
-							disabled={isCommitting || !defaultBranchName}
+							disabled={isCommitting || defaultBranchResult?.current.isLoading}
 							onclick={startCommit}
 						>
 							Start a commit…

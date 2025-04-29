@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { TestId } from '$lib/testing/testIds';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 
 	type Props = {
@@ -14,6 +15,7 @@
 
 {#snippet indicator(args?: { last?: boolean; first?: boolean; draft?: boolean })}
 	<div
+		data-testid={TestId.YourCommitGoesHere}
 		class="indicator"
 		class:first={args?.first}
 		class:last={args?.last}
