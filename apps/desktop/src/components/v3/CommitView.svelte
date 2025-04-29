@@ -52,8 +52,6 @@
 			? stackService.upstreamCommitById(projectId, commitKey)
 			: stackService.commitById(projectId, commitKey)
 	);
-	const isUnapplied = false; // TODO
-	const branchRefName = undefined; // TODO
 
 	const changesResult = $derived(stackService.commitChanges(projectId, commitKey.commitId));
 
@@ -118,14 +116,11 @@
 	}
 
 	function canEdit() {
-		if (isUnapplied) return false;
-		if (!modeService) return false;
-
-		return true;
+		return modeService !== undefined;
 	}
 
 	async function editPatch() {
-		if (!canEdit() || !branchRefName) return;
+		if (!canEdit()) return;
 		await modeService!.enterEditMode(commitKey.commitId, stackId);
 	}
 </script>
