@@ -16,28 +16,36 @@
 
 <div class="branch-view">
 	<div class="text-12 branch-view__header-container">
-		<BranchBadge pushStatus={branch.pushStatus} />
-		<span class="branch-view__details-divider">•</span>
-
-		<!-- {#if branch.isConflicted} -->
-		<div class="branch-view__header-details-row-conflict">
-			<Icon name="warning-small" /> <span>Conflicts</span>
+		<div class="factoid-wrap">
+			<BranchBadge pushStatus={branch.pushStatus} />
+			<span class="branch-view__details-divider">•</span>
 		</div>
-		<span class="branch-view__details-divider">•</span>
-		<!-- {/if} -->
 
-		<span>Contribs:</span>
-		<AvatarGroup
-			maxAvatars={2}
-			avatars={branch.authors.map((a) => ({
-				name: a.name,
-				srcUrl: a.gravatarUrl
-			}))}
-		/>
+		{#if branch.isConflicted}
+			<div class="factoid-wrap">
+				<div class="branch-view__header-details-row-conflict">
+					<Icon name="warning-small" /> <span>Conflicts</span>
+				</div>
+				<span class="branch-view__details-divider">•</span>
+			</div>
+		{/if}
+
+		<div class="factoid-wrap">
+			<span class="factoid-label">Contribs:</span>
+			<AvatarGroup
+				maxAvatars={2}
+				avatars={branch.authors.map((a) => ({
+					name: a.name,
+					srcUrl: a.gravatarUrl
+				}))}
+			/>
+			<span class="branch-view__details-divider">•</span>
+		</div>
 
 		{#if branch.lastUpdatedAt}
-			<span class="branch-view__details-divider">•</span>
-			<span class="truncate">{getTimeAgo(branch.lastUpdatedAt)}</span>
+			<div class="factoid-wrap">
+				<span class="truncate">{getTimeAgo(branch.lastUpdatedAt)}</span>
+			</div>
 		{/if}
 	</div>
 
@@ -56,9 +64,18 @@
 		display: flex;
 		align-items: center;
 		flex-wrap: wrap;
-		gap: 6px;
+		row-gap: 8px;
 		width: 100%;
 		color: var(--clr-text-2);
+	}
+
+	.factoid-wrap {
+		display: flex;
+		align-items: center;
+	}
+
+	.factoid-label {
+		margin-right: 4px;
 	}
 
 	.branch-view__header-details-row-conflict {
@@ -70,5 +87,6 @@
 
 	.branch-view__details-divider {
 		color: var(--clr-text-3);
+		margin: 0 6px;
 	}
 </style>
