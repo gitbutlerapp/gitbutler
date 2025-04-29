@@ -269,6 +269,7 @@
 		gap: 4px;
 
 		> .label {
+			display: flex;
 			color: var(--clr-text-2);
 
 			&.italic {
