@@ -61,10 +61,12 @@
 	const base = $derived(baseBranchResponse.current.data);
 	const baseSha = $derived(base?.baseSha);
 
-	const drawer = $derived(uiState.project(projectId).drawerPage);
+	const projectState = $derived(uiState.project(projectId));
+	const drawer = $derived(projectState.drawerPage);
 	const isCommitting = $derived(drawer.current === 'new-commit');
 
-	const selection = $derived(uiState.stack(stackId).selection.get());
+	const stackState = $derived(uiState.stack(stackId));
+	const selection = $derived(stackState.selection.get());
 	const selectedCommitId = $derived(selection.current?.commitId);
 	const selectedBranchName = $derived(selection.current?.branchName);
 
@@ -75,6 +77,9 @@
 
 	async function handleUncommit(commitId: string, branchName: string) {
 		await stackService.uncommit({ projectId, stackId, branchName, commitId: commitId });
+
+		projectState.drawerPage.set(undefined);
+		if (branchName) stackState.selection.set({ branchName, commitId: undefined });
 	}
 
 	function openCommitMessageModal() {
