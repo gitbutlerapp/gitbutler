@@ -110,7 +110,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				{ projectId: string; targetCommitOid?: string }
 			>({
 				query: ({ projectId, targetCommitOid }) => ({
-					command: `upstream_integration_statuses`,
+					command: 'upstream_integration_statuses',
 					params: { projectId, targetCommitOid }
 				}),
 				providesTags: [providesList(ReduxTag.UpstreamIntegrationStatus)]
@@ -124,7 +124,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			>({
 				query: ({ projectId, resolutions, baseBranchResolution }) => ({
-					command: `integrate_upstream`,
+					command: 'integrate_upstream',
 					params: { projectId, resolutions, baseBranchResolution }
 				}),
 				invalidatesTags: [
