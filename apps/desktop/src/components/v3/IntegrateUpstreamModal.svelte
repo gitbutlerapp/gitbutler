@@ -4,6 +4,7 @@
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { type Stack } from '$lib/stacks/stack';
+	import { TestId } from '$lib/testing/testIds';
 	import {
 		getBaseBranchResolution,
 		type BaseBranchResolutionApproach,
@@ -20,7 +21,9 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import IntegrationSeriesRow from '@gitbutler/ui/IntegrationSeriesRow.svelte';
+	import IntegrationSeriesRow, {
+		type BranchShouldBeDeletedMap
+	} from '@gitbutler/ui/IntegrationSeriesRow.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import SimpleCommitRow from '@gitbutler/ui/SimpleCommitRow.svelte';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
@@ -81,9 +84,9 @@
 					{
 						branchId: status.stack.id,
 						approach: defaultApproach,
-						deleteIntegratedBranches: false // TODO: Take input from the UI
+						deleteIntegratedBranches: true
 					}
-				];
+				] as const;
 			})
 		);
 
@@ -166,6 +169,22 @@
 
 		return statuses;
 	}
+	function getBranchShouldBeDeletedMap(
+		stackId: string,
+		stackStatus: StackStatus
+	): BranchShouldBeDeletedMap {
+		const branchShouldBeDeletedMap: BranchShouldBeDeletedMap = {};
+		stackStatus.branchStatuses.forEach((branch) => {
+			branchShouldBeDeletedMap[branch.name] = !!results.get(stackId)?.deleteIntegratedBranches;
+		});
+		return branchShouldBeDeletedMap;
+	}
+
+	function updateBranchShouldBeDeletedMap(stackId: string, shouldBeDeleted: boolean): void {
+		const result = results.get(stackId);
+		if (!result) return;
+		results.set(stackId, { ...result, deleteIntegratedBranches: shouldBeDeleted });
+	}
 
 	function integrationOptions(
 		stackStatus: StackStatus
@@ -186,14 +205,20 @@
 </script>
 
 {#snippet stackStatus(stack: Stack, stackStatus: StackStatus)}
-	<IntegrationSeriesRow series={integrationRowSeries(stackStatus)}>
+	{@const branchShouldBeDeletedMap = getBranchShouldBeDeletedMap(stack.id, stackStatus)}
+	<IntegrationSeriesRow
+		testId={TestId.IntegrateUpstreamSeriesRow}
+		series={integrationRowSeries(stackStatus)}
+		{branchShouldBeDeletedMap}
+		updateBranchShouldBeDeletedMap={(_, shouldBeDeleted) =>
+			updateBranchShouldBeDeletedMap(stack.id, shouldBeDeleted)}
+	>
 		{#if !stackFullyIntegrated(stackStatus) && results.get(stack.id)}
 			<Select
 				value={results.get(stack.id)!.approach.type}
 				maxWidth={130}
 				onselect={(value) => {
 					const result = results.get(stack.id)!;
-
 					results.set(stack.id, { ...result, approach: { type: value as OperationType } });
 				}}
 				options={integrationOptions(stackStatus)}
@@ -208,7 +233,14 @@
 	</IntegrationSeriesRow>
 {/snippet}
 
-<Modal bind:this={modal} {onClose} width={520} noPadding onSubmit={integrate}>
+<Modal
+	testId={TestId.IntegrateUpstreamCommitsModal}
+	bind:this={modal}
+	{onClose}
+	width={520}
+	noPadding
+	onSubmit={integrate}
+>
 	<ScrollableContainer maxHeight={'70vh'}>
 		{#if base}
 			<div class="section">
@@ -313,6 +345,7 @@
 		<div class="controls">
 			<Button onclick={() => modal?.close()} kind="outline">Cancel</Button>
 			<Button
+				testId={TestId.IntegrateUpstreamActionButton}
 				wide
 				type="submit"
 				style="pop"

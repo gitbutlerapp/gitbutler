@@ -10,20 +10,20 @@ const MOCK_AUTHOR = {
 	name: 'Author Name'
 };
 
-const MOCK_RECENT_COMMITS = [
-	{
-		id: 'abc123',
-		author: MOCK_AUTHOR,
-		description: 'Initial commit',
-		createdAt: new Date('2023-01-01T00:00:00Z').getTime(),
-		changeId: '1',
-		isSigned: false,
-		parentIds: [],
-		conflicted: false,
-		prev: undefined,
-		next: undefined
-	}
-];
+const MOCK_COMMIT = {
+	id: 'abc123',
+	author: MOCK_AUTHOR,
+	description: 'Initial commit',
+	createdAt: new Date('2023-01-01T00:00:00Z').getTime(),
+	changeId: '1',
+	isSigned: false,
+	parentIds: [],
+	conflicted: false,
+	prev: undefined,
+	next: undefined
+};
+
+const MOCK_RECENT_COMMITS = [MOCK_COMMIT];
 
 const MOCK_BASE_BRANCH_DATA = {
 	branchName: 'origin/main',
@@ -45,4 +45,18 @@ const MOCK_BASE_BRANCH_DATA = {
 
 export function getBaseBranchData() {
 	return MOCK_BASE_BRANCH_DATA;
+}
+
+export function getBaseBranchBehindData() {
+	return {
+		...MOCK_BASE_BRANCH_DATA,
+		behind: 1,
+		upstreamCommits: [
+			{
+				...MOCK_COMMIT,
+				id: 'upstream-commit-id',
+				description: 'Upstream commit'
+			}
+		]
+	};
 }

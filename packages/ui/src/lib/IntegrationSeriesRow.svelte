@@ -8,16 +8,32 @@
 		status: BranchStatus;
 	};
 
+	export type BranchShouldBeDeletedMap = {
+		[branchName: string]: boolean;
+	};
+
 	export interface Props {
+		testId?: string;
 		series: Branch[];
+		branchShouldBeDeletedMap: BranchShouldBeDeletedMap;
+		updateBranchShouldBeDeletedMap: (branchName: string[], shouldBeDeleted: boolean) => void;
 		children?: Snippet;
 	}
 </script>
 
 <script lang="ts">
+	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import SeriesIcon from '$lib/SeriesIcon.svelte';
-	const { series, children }: Props = $props();
+	const {
+		testId,
+		series,
+		children,
+		updateBranchShouldBeDeletedMap,
+		branchShouldBeDeletedMap
+	}: Props = $props();
+
+	const allSeriesAreIntegrated = series.every((branch) => branch.status === 'integrated');
 </script>
 
 {#snippet stackBranch({ name, status }: Branch, isLast: boolean)}
@@ -46,13 +62,34 @@
 	</div>
 {/snippet}
 
-<div class="integration-series-item no-select">
+<div data-testid={testId} class="integration-series-item no-select">
 	{#if series.length > 1}
-		<div class="series-header">
-			<div class="name-label-wrap">
-				<SeriesIcon single={false} outlined />
+		<div class="series-header" class:integrated={allSeriesAreIntegrated}>
+			<div class="series-header-row">
+				<div class="name-label-wrap">
+					<SeriesIcon single={false} outlined />
 
-				<span class="series-label text-12 text-semibold truncate"> Stack branches </span>
+					<span class="series-label text-12 text-semibold truncate"> Stack branches </span>
+				</div>
+
+				{#if allSeriesAreIntegrated}
+					{@const atLeastSomeWillBeDeleted = series.some(
+						(branch) => branchShouldBeDeletedMap[branch.name]
+					)}
+					<div class="integrated-label-wrap">
+						<span class="integrated-label text-12">Delete all local branches</span>
+						<Checkbox
+							checked={atLeastSomeWillBeDeleted}
+							onchange={(e) => {
+								const shouldBeDeleted = e.currentTarget.checked;
+								updateBranchShouldBeDeletedMap(
+									series.map((branch) => branch.name),
+									shouldBeDeleted
+								);
+							}}
+						/>
+					</div>
+				{/if}
 			</div>
 
 			{#if children}
@@ -74,14 +111,30 @@
 				<span class="text-12 text-semibold truncate">
 					{branch.name}
 				</span>
+
 				{#if branch.status}
-					<span class="status-badge text-10 text-semibold">
-						{#if branch.status === 'conflicted'}
-							Conflicted
-						{:else if branch.status === 'integrated'}
-							Integrated
+					<div class="branch-status-info">
+						<span class="status-badge text-10 text-semibold">
+							{#if branch.status === 'conflicted'}
+								Conflicted
+							{:else if branch.status === 'integrated'}
+								Integrated
+							{/if}
+						</span>
+
+						{#if branch.status === 'integrated'}
+							<div class="integrated-label-wrap">
+								<span class="integrated-label text-12">Delete local branch</span>
+								<Checkbox
+									checked={branchShouldBeDeletedMap[branch.name]}
+									onchange={(e) => {
+										const shouldBeDeleted = e.currentTarget.checked;
+										updateBranchShouldBeDeletedMap([branch.name], shouldBeDeleted);
+									}}
+								/>
+							</div>
 						{/if}
-					</span>
+					</div>
 				{/if}
 			</div>
 
@@ -130,6 +183,13 @@
 			color: var(--clr-text-2);
 		}
 
+		.series-header-row {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			flex: 1;
+		}
+
 		/* NAME LABEL */
 		.name-label-wrap {
 			flex: 1;
@@ -137,6 +197,13 @@
 			align-items: center;
 			gap: 10px;
 			overflow: hidden;
+		}
+
+		.branch-status-info {
+			flex: 1;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
 		}
 
 		.select {
@@ -166,7 +233,7 @@
 	.integrated-label-wrap {
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		gap: 8px;
 		padding-left: 6px;
 		margin-right: 2px;
 		color: var(--clr-text-2);

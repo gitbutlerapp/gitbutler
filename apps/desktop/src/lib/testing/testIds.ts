@@ -31,7 +31,11 @@ export enum TestId {
 	StackDraft = 'stack-draft',
 	YourCommitGoesHere = 'your-commit-goes-here',
 	CommitMenuButton = 'commit-menu-btn',
-	UncommitMenuButton = 'uncommit-menu-btn'
+	UncommitMenuButton = 'uncommit-menu-btn',
+	IntegrateUpstreamCommitsButton = 'integrate-upstream-commits-button',
+	IntegrateUpstreamCommitsModal = 'integrate-upstream-commits-modal',
+	IntegrateUpstreamSeriesRow = 'integrate-upstream-series-row',
+	IntegrateUpstreamActionButton = 'integrate-upstream-action-button'
 }
 
 export enum ElementId {

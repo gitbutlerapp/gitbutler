@@ -1,3 +1,4 @@
+import { getBaseBranchData } from './baseBranch';
 import {
 	bytesToStr,
 	isGetCommitChangesParams,
@@ -20,9 +21,11 @@ import {
 	MOCK_STACK_DETAILS_BRAND_NEW,
 	MOCK_STACKS
 } from './stacks';
+import { MOCK_BRANCH_STATUSES_RESPONSE, MOCK_INTEGRATION_OUTCOME } from './upstreamIntegration';
 import type { TreeChange, TreeChanges, WorktreeChanges } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { Stack, StackDetails } from '$lib/stacks/stack';
+import type { BranchStatusesResponse, IntegrationOutcome } from '$lib/upstream/types';
 import type { InvokeArgs } from '@tauri-apps/api/core';
 
 export type MockBackendOptions = {
@@ -36,10 +39,10 @@ type CommitId = string;
  * *Ooooh look at me, I'm a mock backend!*
  */
 export default class MockBackend {
-	private stacks: Stack[];
-	private stackDetails: Map<StackId, StackDetails>;
-	private commitChanges: Map<CommitId, TreeChange[]>;
-	private worktreeChanges: WorktreeChanges;
+	protected stacks: Stack[];
+	protected stackDetails: Map<StackId, StackDetails>;
+	protected commitChanges: Map<CommitId, TreeChange[]>;
+	protected worktreeChanges: WorktreeChanges;
 	stackId: string = MOCK_STACK_A_ID;
 	renamedCommitId: string = '424242424242';
 	commitOid: string = MOCK_COMMIT.id;
@@ -246,5 +249,17 @@ export default class MockBackend {
 		}
 
 		throw new Error(`Commit with ID ${commitOid} not found`);
+	}
+
+	public getBaseBranchData(): unknown {
+		return getBaseBranchData();
+	}
+
+	public getUpstreamIntegrationStatuses(): BranchStatusesResponse {
+		return MOCK_BRANCH_STATUSES_RESPONSE;
+	}
+
+	public integrateUpstream(_args: InvokeArgs | undefined): IntegrationOutcome {
+		return MOCK_INTEGRATION_OUTCOME;
 	}
 }

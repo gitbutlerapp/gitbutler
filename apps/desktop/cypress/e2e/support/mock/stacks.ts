@@ -38,17 +38,29 @@ export const MOCK_AUTHOR: Author = {
 	gravatarUrl: 'https://avatars.githubusercontent.com/u/35891811?v=4'
 };
 
-export const MOCK_COMMIT_STATE: CommitState = { type: 'LocalOnly' };
+export const MOCK_COMMIT_STATE_LOCAL: CommitState = { type: 'LocalOnly' };
+export const MOCK_COMMIT_STATE_INTEGRATED: CommitState = { type: 'Integrated' };
+export const MOCK_COMMIT_STATE_LOCAL_AND_REMOTE_DIVERGED: CommitState = {
+	type: 'LocalAndRemote',
+	subject: 'remote-commit'
+};
 
 export const MOCK_COMMIT: Commit = {
 	id: '1234123',
 	parentIds: ['parent-sha'],
 	message: 'Initial commit',
 	hasConflicts: false,
-	state: MOCK_COMMIT_STATE,
+	state: MOCK_COMMIT_STATE_LOCAL,
 	createdAt: 1714000000000,
 	author: MOCK_AUTHOR
 };
+
+export function createCommit(override: Partial<Commit>): Commit {
+	return {
+		...MOCK_COMMIT,
+		...override
+	};
+}
 
 export const MOCK_UPSTREAM_COMMIT: UpstreamCommit = {
 	id: 'upstream-sha',

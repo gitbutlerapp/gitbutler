@@ -179,7 +179,13 @@ type TestIdValues = `${TestId}`;
 declare global {
 	namespace Cypress {
 		interface Chainable {
-			getByTestId(testId: TestIdValues): Chainable<JQuery<HTMLElement>>;
+			/**
+			 * Get an element by its data-testid attribute.
+			 *
+			 * @param testId - The data-testid value to search for.
+			 * @param containingText - Optional text content to filter the elements by.
+			 */
+			getByTestId(testId: TestIdValues, containingText?: string): Chainable<JQuery<HTMLElement>>;
 			/**
 			 * Clear all mocks.
 			 */
@@ -202,7 +208,10 @@ Cypress.Commands.add('clearMocks', () => {
 	});
 });
 
-Cypress.Commands.add('getByTestId', (testId: TestIdValues) => {
+Cypress.Commands.add('getByTestId', (testId: TestIdValues, containingText?: string) => {
+	if (containingText) {
+		return cy.contains(`[data-testid="${testId}"]`, containingText);
+	}
 	return cy.get(`[data-testid="${testId}"]`);
 });
 
