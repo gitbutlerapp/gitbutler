@@ -94,6 +94,22 @@ export interface BranchPushResult {
 	remote: string;
 }
 
+type RejectionReason =
+	| 'NoEffectiveChanges'
+	| 'CherryPickMergeConflict'
+	| 'WorkspaceMergeConflict'
+	| 'WorktreeFileMissingForObjectConversion'
+	| 'FileToLargeOrBinary'
+	| 'PathNotFoundInBaseTree'
+	| 'UnsupportedDirectoryEntry'
+	| 'UnsupportedTreeEntry'
+	| 'MissingDiffSpecAssociation';
+
+export type CreateCommitOutcome = {
+	newCommit: string;
+	pathsToRejectedChanges: [RejectionReason, string][];
+};
+
 export class StackService {
 	private api: ReturnType<typeof injectEndpoints>;
 
@@ -793,7 +809,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				]
 			}),
 			createCommit: build.mutation<
-				{ newCommit: string; pathsToRejectedChanges: string[] },
+				CreateCommitOutcome,
 				{ projectId: string } & CreateCommitRequest
 			>({
 				query: ({ projectId, ...commitData }) => ({

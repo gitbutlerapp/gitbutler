@@ -882,6 +882,130 @@ fn insert_commits_into_workspace() -> anyhow::Result<()> {
 }
 
 #[test]
+fn insert_commits_into_workspace_with_conflict() -> anyhow::Result<()> {
+    assure_stable_env();
+
+    let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset-two-files");
+
+    let head_commit_id = repo.head_id()?.detach();
+    insta::assert_snapshot!(visualize_commit_graph(&repo, head_commit_id)?, @r"
+    *   77dbf51 (HEAD -> merge) Merge branch 'A' into merge
+    |\  
+    | * 3538622 (A) add 10 to the beginning
+    * | e81b470 (B) add 10 to the end
+    |/  
+    * 9cf2979 (main) init
+    ");
+
+    let mut vb = VirtualBranchesState::default();
+    let stack1_head = repo.rev_parse_single("main")?.detach();
+    let stack = stack_with_branches("s1", head_commit_id, [("s1-b/init", stack1_head)], &repo);
+    vb.branches.insert(stack.id, stack);
+
+    // 10 to the beginning, but conflicts with branch A
+    write_sequence(&repo, "file", [(1, 9), (11, 19), (21, 30)])?;
+    // std::fs::remove_file(repo.workdir_path("file").unwrap())?;
+    // 10 to the end, without a conflict.
+    write_sequence(&repo, "other-file", [(35, 85)])?;
+    let branch_b = repo.rev_parse_single("B")?.detach();
+    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+        &repo,
+        ReferenceFrame {
+            workspace_tip: Some(repo.rev_parse_single("merge")?.detach()),
+            branch_tip: Some(branch_b),
+        },
+        &mut vb,
+        Destination::NewCommit {
+            parent_commit_id: Some(branch_b),
+            message: "with 'file' conflict, but 'other-file' is fine".into(),
+            stack_segment: None,
+        },
+        None,
+        to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
+        CONTEXT_LINES,
+    )
+    .expect("the rebase engine should communicate the merge-conflict failure");
+    // The failing path is clearly communicated.
+    insta::assert_debug_snapshot!(outcome.rejected_specs, @r#"
+    [
+        (
+            WorkspaceMergeConflict,
+            DiffSpec {
+                previous_path: None,
+                path: "file",
+                hunk_headers: [],
+            },
+        ),
+    ]
+    "#);
+    assert_eq!(
+        outcome.new_commit, None,
+        "No commit could be created as the workspace commit merge failed"
+    );
+
+    write_vrbranches_to_refs(&vb, &repo)?;
+    // Both files are still changed
+    insta::assert_debug_snapshot!(worktree_changes_with_diffs(&repo), @r#"
+    Ok(
+        [
+            (
+                TreeChange {
+                    path: "file",
+                    status: Modification {
+                        previous_state: ChangeState {
+                            id: Sha1(e8823e1766638e70fd9e260913a383f8fe68a237),
+                            kind: Blob,
+                        },
+                        state: ChangeState {
+                            id: Sha1(0000000000000000000000000000000000000000),
+                            kind: Blob,
+                        },
+                        flags: None,
+                    },
+                },
+                [
+                    DiffHunk(""@@ -10,1 +10,0 @@\n-10\n""),
+                    DiffHunk(""@@ -20,1 +19,0 @@\n-20\n""),
+                ],
+            ),
+            (
+                TreeChange {
+                    path: "other-file",
+                    status: Modification {
+                        previous_state: ChangeState {
+                            id: Sha1(a11f0f89f5421624d9b9b69db837d91eee93bf43),
+                            kind: Blob,
+                        },
+                        state: ChangeState {
+                            id: Sha1(0000000000000000000000000000000000000000),
+                            kind: Blob,
+                        },
+                        flags: None,
+                    },
+                },
+                [
+                    DiffHunk(""@@ -42,0 +42,10 @@\n+76\n+77\n+78\n+79\n+80\n+81\n+82\n+83\n+84\n+85\n""),
+                ],
+            ),
+        ],
+    )
+    "#);
+
+    let unchanged_head_id = repo.head_id()?;
+    // there was no change to HEAD.
+    insta::assert_snapshot!(visualize_commit_graph(&repo, unchanged_head_id)?, @r"
+    *   77dbf51 (HEAD -> merge) Merge branch 'A' into merge
+    |\  
+    | * 3538622 (A) add 10 to the beginning
+    * | e81b470 (B) add 10 to the end
+    |/  
+    * 9cf2979 (s1-b/init, main) init
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn workspace_commit_with_merge_conflict() -> anyhow::Result<()> {
     assure_stable_env();
 
@@ -907,7 +1031,7 @@ fn workspace_commit_with_merge_conflict() -> anyhow::Result<()> {
         },
         Destination::AmendCommit(branch_b),
     ] {
-        let err = but_workspace::commit_engine::create_commit_and_update_refs(
+        let out = but_workspace::commit_engine::create_commit_and_update_refs(
             &repo,
             ReferenceFrame {
                 workspace_tip: Some(repo.rev_parse_single("merge")?.detach()),
@@ -919,11 +1043,31 @@ fn workspace_commit_with_merge_conflict() -> anyhow::Result<()> {
             to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
             CONTEXT_LINES,
         )
-        .unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "The rebase failed as a merge could not be repeated without conflicts"
-        );
+        .expect("merge fails but we make it observable");
+        insta::allow_duplicates! {
+        insta::assert_debug_snapshot!(out, @r#"
+        CreateCommitOutcome {
+            rejected_specs: [
+                (
+                    WorkspaceMergeConflict,
+                    DiffSpec {
+                        previous_path: None,
+                        path: "file",
+                        hunk_headers: [
+                            HunkHeader("-1,10", "+1,0"),
+                            HunkHeader("-12,0", "+2,10"),
+                        ],
+                    },
+                ),
+            ],
+            new_commit: None,
+            changed_tree_pre_cherry_pick: None,
+            references: [],
+            rebase_output: None,
+            index: None,
+        }
+        "#)
+        }
     }
 
     assert_eq!(

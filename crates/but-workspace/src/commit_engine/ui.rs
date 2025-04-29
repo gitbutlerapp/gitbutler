@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-use crate::commit_engine::HunkHeader;
+use crate::commit_engine::{HunkHeader, RejectionReason};
 use bstr::BString;
 use gitbutler_serde::BStringForFrontend;
 use serde::{Deserialize, Serialize};
@@ -53,11 +53,9 @@ impl From<super::DiffSpec> for DiffSpec {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateCommitOutcome {
-    /// Paths that contained at least one rejected hunk, i.e. a change that didn't apply.
-    pub paths_to_rejected_changes: Vec<BStringForFrontend>,
-    /// The newly created commit.
-    // TODO:(ST) this probably rather wants to be some outcome of the rebase engine that contains enough information
-    //       to update the UI without popping.
+    /// Paths that contained at least one rejected hunk, for instance, a change that didn't apply, along with the reason for the rejection.
+    pub paths_to_rejected_changes: Vec<(RejectionReason, BStringForFrontend)>,
+    /// The newly created commit, if there was one. It maybe that a couple of paths were rejected, but the commit was created anyway.
     #[serde(with = "gitbutler_serde::object_id_opt")]
     pub new_commit: Option<gix::ObjectId>,
 }
@@ -76,7 +74,7 @@ impl From<super::CreateCommitOutcome> for CreateCommitOutcome {
         CreateCommitOutcome {
             paths_to_rejected_changes: rejected_specs
                 .into_iter()
-                .map(|(_reason, spec)| spec.path.into())
+                .map(|(reason, spec)| (reason, spec.path.into()))
                 .collect(),
             new_commit,
         }
