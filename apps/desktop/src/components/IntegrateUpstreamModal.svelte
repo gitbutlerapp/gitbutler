@@ -23,7 +23,9 @@
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
-	import IntegrationSeriesRow from '@gitbutler/ui/IntegrationSeriesRow.svelte';
+	import IntegrationSeriesRow, {
+		type BranchShouldBeDeletedMap
+	} from '@gitbutler/ui/IntegrationSeriesRow.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import SimpleCommitRow from '@gitbutler/ui/SimpleCommitRow.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
@@ -78,7 +80,7 @@
 					{
 						branchId: status.stack.id,
 						approach: defaultApproach,
-						deleteIntegratedBranches: false // TODO: Take input from the UI
+						deleteIntegratedBranches: true
 					}
 				];
 			})
@@ -166,6 +168,23 @@
 		return statuses;
 	}
 
+	function getBranchShouldBeDeletedMap(
+		stackId: string,
+		stackStatus: StackStatus
+	): BranchShouldBeDeletedMap {
+		const branchShouldBeDeletedMap: BranchShouldBeDeletedMap = {};
+		stackStatus.branchStatuses.forEach((branch) => {
+			branchShouldBeDeletedMap[branch.name] = !!results.get(stackId)?.deleteIntegratedBranches;
+		});
+		return branchShouldBeDeletedMap;
+	}
+
+	function updateBranchShouldBeDeletedMap(stackId: string, shouldBeDeleted: boolean): void {
+		const result = results.get(stackId);
+		if (!result) return;
+		results.set(stackId, { ...result, deleteIntegratedBranches: shouldBeDeleted });
+	}
+
 	function integrationOptions(
 		stackStatus: StackStatus
 	): { label: string; value: 'rebase' | 'unapply' | 'merge' }[] {
@@ -186,7 +205,13 @@
 
 {#snippet stackStatus(stack: BranchStack, stackStatus: StackStatus)}
 	{@const series = integrationRowSeries(stackStatus)}
-	<IntegrationSeriesRow {series}>
+	{@const branchShouldBeDeletedMap = getBranchShouldBeDeletedMap(stack.id, stackStatus)}
+	<IntegrationSeriesRow
+		{series}
+		{branchShouldBeDeletedMap}
+		updateBranchShouldBeDeletedMap={(_, shouldBeDeleted) =>
+			updateBranchShouldBeDeletedMap(stack.id, shouldBeDeleted)}
+	>
 		{#if !stackFullyIntegrated(stackStatus) && results.get(stack.id)}
 			<Select
 				value={results.get(stack.id)!.approach.type}

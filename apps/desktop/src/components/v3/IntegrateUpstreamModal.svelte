@@ -21,7 +21,9 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import IntegrationSeriesRow from '@gitbutler/ui/IntegrationSeriesRow.svelte';
+	import IntegrationSeriesRow, {
+		type BranchShouldBeDeletedMap
+	} from '@gitbutler/ui/IntegrationSeriesRow.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import SimpleCommitRow from '@gitbutler/ui/SimpleCommitRow.svelte';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
@@ -167,6 +169,22 @@
 
 		return statuses;
 	}
+	function getBranchShouldBeDeletedMap(
+		stackId: string,
+		stackStatus: StackStatus
+	): BranchShouldBeDeletedMap {
+		const branchShouldBeDeletedMap: BranchShouldBeDeletedMap = {};
+		stackStatus.branchStatuses.forEach((branch) => {
+			branchShouldBeDeletedMap[branch.name] = !!results.get(stackId)?.deleteIntegratedBranches;
+		});
+		return branchShouldBeDeletedMap;
+	}
+
+	function updateBranchShouldBeDeletedMap(stackId: string, shouldBeDeleted: boolean): void {
+		const result = results.get(stackId);
+		if (!result) return;
+		results.set(stackId, { ...result, deleteIntegratedBranches: shouldBeDeleted });
+	}
 
 	function integrationOptions(
 		stackStatus: StackStatus
@@ -187,14 +205,19 @@
 </script>
 
 {#snippet stackStatus(stack: Stack, stackStatus: StackStatus)}
-	<IntegrationSeriesRow series={integrationRowSeries(stackStatus)}>
+	{@const branchShouldBeDeletedMap = getBranchShouldBeDeletedMap(stack.id, stackStatus)}
+	<IntegrationSeriesRow
+		series={integrationRowSeries(stackStatus)}
+		{branchShouldBeDeletedMap}
+		updateBranchShouldBeDeletedMap={(_, shouldBeDeleted) =>
+			updateBranchShouldBeDeletedMap(stack.id, shouldBeDeleted)}
+	>
 		{#if !stackFullyIntegrated(stackStatus) && results.get(stack.id)}
 			<Select
 				value={results.get(stack.id)!.approach.type}
 				maxWidth={130}
 				onselect={(value) => {
 					const result = results.get(stack.id)!;
-
 					results.set(stack.id, { ...result, approach: { type: value as OperationType } });
 				}}
 				options={integrationOptions(stackStatus)}
