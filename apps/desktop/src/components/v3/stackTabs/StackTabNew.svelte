@@ -204,11 +204,7 @@
 					disabled={!createRefName}
 					loading={isAddingNew}
 				>
-					{#if createRefType === 'stack'}
-						Add new stack
-					{:else}
-						Add dependent branch
-					{/if}
+					Create branch
 				</Button>
 			</div>
 		</div>
