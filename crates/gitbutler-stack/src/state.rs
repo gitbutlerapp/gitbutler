@@ -290,7 +290,7 @@ impl VirtualBranchesHandle {
             if branch.not_in_workspace_wip_change_id.is_some() {
                 continue; // Skip branches that have a WIP commit
             }
-            if let Ok(branch_head) = branch.head(&gix_repo).map(|h| h.to_git2()) {
+            if let Ok(branch_head) = branch.head_oid(&gix_repo).map(|h| h.to_git2()) {
                 if repo.find_commit(branch_head).is_err() {
                     // if the head commit cant be found, we can GC the branch
                     to_remove.push(branch.id);

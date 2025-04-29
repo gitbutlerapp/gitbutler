@@ -317,7 +317,7 @@ impl StackBranch {
         let head_commit = commit_by_oid_or_change_id(
             &self.head,
             repo,
-            stack.head(&gix_repo)?.to_git2(),
+            stack.head_oid(&gix_repo)?.to_git2(),
             merge_base,
         );
         if head_commit.is_err() {
@@ -331,7 +331,7 @@ impl StackBranch {
 
         // Find the previous head in the stack - if it is not archived, use it as base
         // Otherwise use the merge base
-        let stack_head = stack.head(&gix_repo)?.to_git2();
+        let stack_head = stack.head_oid(&gix_repo)?.to_git2();
         let previous_head = stack
             .branch_predacessor(self)
             .filter(|predacessor| !predacessor.archived)

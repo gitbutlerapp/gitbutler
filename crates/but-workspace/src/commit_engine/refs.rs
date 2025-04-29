@@ -35,7 +35,7 @@ pub fn rewrite(
                     continue; // Dont rewrite refs for other stacks
                 }
             }
-            if stack.head(repo)? == old {
+            if stack.head_oid(repo)? == old {
                 // Perhaps skip this - the head will be updated later in this call
                 // stack.set_stack_head_without_persisting(repo, new.to_git2(), None)?;
                 // Does it make sense to set stack tree in v3? I think not

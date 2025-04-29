@@ -435,7 +435,7 @@ pub fn create_commit_and_update_refs(
                         && !wsc.inner.parents.contains(&branch_tip) /* the branch tip we know isn't yet merged */
                         // but the tip is known to the workspace
                         && vb.branches.values().any(|s| {
-                        s.head(repo)
+                        s.head_oid(repo)
                             .is_ok_and(|head_id| head_id == branch_tip)
                     }) {
                         let mut stacks: Vec<_> = vb

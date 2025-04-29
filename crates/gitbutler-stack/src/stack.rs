@@ -211,7 +211,7 @@ impl Stack {
     }
 
     // TODO: derive this from the last head
-    pub fn head(&self, repo: &gix::Repository) -> Result<gix::ObjectId> {
+    pub fn head_oid(&self, repo: &gix::Repository) -> Result<gix::ObjectId> {
         self.heads
             .last()
             .map(|head| head.head_oid(repo))
@@ -226,7 +226,7 @@ impl Stack {
     pub fn tree(&self, ctx: &CommandContext) -> Result<git2::Oid> {
         if ctx.app_settings().feature_flags.v3 {
             ctx.gix_repo()?
-                .find_commit(self.head(&ctx.gix_repo()?)?)?
+                .find_commit(self.head_oid(&ctx.gix_repo()?)?)?
                 .tree()
                 .map(|tree| tree.id.to_git2())
                 .map_err(Into::into)
@@ -292,7 +292,7 @@ impl Stack {
     pub fn commits(&self, ctx: &CommandContext) -> Result<Vec<git2::Oid>> {
         let repo = ctx.repo();
         let stack_commits = repo.l(
-            self.head(&repo.to_gix()?)?.to_git2(),
+            self.head_oid(&repo.to_gix()?)?.to_git2(),
             LogUntil::Commit(self.merge_base(ctx)?.to_git2()),
             false,
         )?;
@@ -324,7 +324,7 @@ impl Stack {
         let virtual_branch_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
         let target = virtual_branch_state.get_default_target()?;
         let gix_repo = ctx.gix_repo()?;
-        let merge_base = gix_repo.merge_base(self.head(&gix_repo)?, target.sha.to_gix())?;
+        let merge_base = gix_repo.merge_base(self.head_oid(&gix_repo)?, target.sha.to_gix())?;
         Ok(merge_base.detach())
     }
 
@@ -374,7 +374,7 @@ impl Stack {
         let head = if self.heads.is_empty() {
             self.head
         } else {
-            self.head(&repo)?.to_git2()
+            self.head_oid(&repo)?.to_git2()
         };
         let commit = ctx.repo().find_commit(head)?;
 
@@ -457,7 +457,7 @@ impl Stack {
         validate_target(
             new_head.head_oid(&gix_repo)?.to_git2(),
             ctx.repo(),
-            self.head(&gix_repo)?.to_git2(),
+            self.head_oid(&gix_repo)?.to_git2(),
             &state,
         )?;
         let updated_heads = add_head(

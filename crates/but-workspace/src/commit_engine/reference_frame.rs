@@ -47,12 +47,12 @@ impl ReferenceFrame {
                     .context("Didn't find stack - was it deleted just now?")?;
                 Ok(ReferenceFrame {
                     workspace_tip: Some(head_id.detach()),
-                    branch_tip: Some(stack.head(repo)?),
+                    branch_tip: Some(stack.head_oid(repo)?),
                 })
             }
             InferenceMode::CommitIdInStack(commit_id) => {
                 for stack in vb.branches.values() {
-                    let stack_tip = stack.head(repo)?;
+                    let stack_tip = stack.head_oid(repo)?;
                     if stack_tip
                         .attach(repo)
                         .ancestors()

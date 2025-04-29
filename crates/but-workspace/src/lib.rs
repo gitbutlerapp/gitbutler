@@ -140,7 +140,7 @@ impl StackEntry {
         Ok(StackEntry {
             id: stack.id,
             heads: stack_heads_info(stack, repo)?,
-            tip: stack.head(repo)?,
+            tip: stack.head_oid(repo)?,
         })
     }
 }
