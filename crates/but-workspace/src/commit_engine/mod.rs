@@ -159,7 +159,8 @@ pub struct CreateCommitOutcome {
 }
 
 /// Provide a description of why a [`DiffSpec`] was rejected for application to the tree of a commit.
-#[derive(Default, Debug, Copy, Clone, PartialEq)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum RejectionReason {
     /// All changes were applied, but they didn't end up effectively change the tree to something differing from the target tree.
     /// This means the changes were a no-op.
