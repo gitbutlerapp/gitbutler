@@ -98,6 +98,7 @@
 			if (item.type === 'full') {
 				worktreeChanges.push({
 					pathBytes: item.pathBytes,
+					previousPathBytes: item.previousPathBytes,
 					hunkHeaders: []
 				});
 				continue;
@@ -123,6 +124,7 @@
 				}
 				worktreeChanges.push({
 					pathBytes: item.pathBytes,
+					previousPathBytes: item.previousPathBytes,
 					hunkHeaders
 				});
 				continue;

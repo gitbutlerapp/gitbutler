@@ -38,7 +38,7 @@ export type CreateCommitRequest = {
 	parentId: string | undefined;
 	stackBranchName: string;
 	worktreeChanges: {
-		previousPathBytes?: number[];
+		previousPathBytes: number[] | null;
 		pathBytes: number[];
 		hunkHeaders: HunkHeader[];
 	}[];

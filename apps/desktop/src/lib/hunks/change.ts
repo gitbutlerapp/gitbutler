@@ -25,6 +25,13 @@ export type TreeChange = {
 	readonly status: Status;
 };
 
+export function previousPathBytesFromTreeChange(treeChange: TreeChange): number[] | null {
+	if (treeChange.status.type === 'Rename') {
+		return treeChange.status.subject.previousPathBytes;
+	}
+	return null;
+}
+
 export type TreeStats = {
 	/** The total amount of lines added. */
 	readonly linesAdded: number;

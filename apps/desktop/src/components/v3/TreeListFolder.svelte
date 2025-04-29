@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { countLeafNodes, getAllChanges, nodePath, type TreeNode } from '$lib/files/filetreeV3';
+	import { previousPathBytesFromTreeChange } from '$lib/hunks/change';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import FolderListItem from '@gitbutler/ui/file/FolderListItem.svelte';
@@ -37,7 +38,8 @@
 				selectionService.add({
 					type: 'full',
 					path: change.path,
-					pathBytes: change.pathBytes
+					pathBytes: change.pathBytes,
+					previousPathBytes: previousPathBytesFromTreeChange(change)
 				});
 			} else {
 				selectionService.remove(change.path);

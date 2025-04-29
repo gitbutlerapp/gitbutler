@@ -37,6 +37,7 @@ export type SelectedHunk = FullySelectedHunk | PartiallySelectedHunk;
 type FileHeader = {
 	path: string;
 	pathBytes: number[];
+	previousPathBytes: number[] | null;
 };
 
 export type FullySelectedFile = FileHeader & {
