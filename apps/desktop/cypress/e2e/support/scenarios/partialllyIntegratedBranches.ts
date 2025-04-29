@@ -65,13 +65,13 @@ const MOCK_BRANCH_DETAILS_B: BranchDetails = {
 	name: MOCK_STACK_B_ID,
 	tip: '1234123',
 	remoteTrackingBranch: `origin/${MOCK_STACK_B_ID}`,
-	pushStatus: 'unpushedCommits',
+	pushStatus: 'integrated',
 	commits: [
-		createCommit({ id: '1234123', message: 'Commit 1 (B)' }),
+		createCommit({ id: '1234123', message: 'Commit 1 (B)', state: MOCK_COMMIT_STATE_INTEGRATED }),
 		createCommit({
 			id: '456456456',
 			message: 'Commit 2 (B)',
-			state: { type: 'LocalAndRemote', subject: '456456456' }
+			state: MOCK_COMMIT_STATE_INTEGRATED
 		})
 	]
 };
@@ -93,7 +93,7 @@ const MOCK_BRANCH_DETAILS_B_D: BranchDetails = {
 
 const MOCK_STACK_DETAILS_B: StackDetails = {
 	derivedName: MOCK_STACK_B_ID,
-	pushStatus: 'unpushedCommits',
+	pushStatus: 'integrated',
 	branchDetails: [MOCK_BRANCH_DETAILS_B, MOCK_BRANCH_DETAILS_B_D],
 	isConflicted: false
 };
@@ -136,10 +136,10 @@ const MOCK_BRANCH_STATUSES_RESPONSE: BranchStatusesResponse = {
 			[
 				MOCK_STACK_B_ID,
 				{
-					treeStatus: { type: 'saflyUpdatable' },
+					treeStatus: { type: 'empty' },
 					branchStatuses: [
 						{ name: 'branch-d', status: { type: 'integrated' } },
-						{ name: MOCK_STACK_B_ID, status: { type: 'saflyUpdatable' } }
+						{ name: MOCK_STACK_B_ID, status: { type: 'integrated' } }
 					]
 				}
 			],
