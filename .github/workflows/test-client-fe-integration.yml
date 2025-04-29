@@ -41,6 +41,7 @@ jobs:
       - name: Cypress run
         uses: cypress-io/github-action@v6
         with:
+          cache-key: ${{ runner.os }}-cypress-${{ hashFiles('pnpm-lock.yaml') }}
           install: false
           start: pnpm --dir apps/desktop preview
           wait-on: 'http://localhost:1420'
