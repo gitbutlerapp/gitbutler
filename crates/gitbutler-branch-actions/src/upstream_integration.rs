@@ -406,6 +406,19 @@ pub fn upstream_integration_statuses(
     let (merge_options_fail_fast, _conflict_kind) =
         gix_repo.merge_options_no_rewrites_fail_fast()?;
 
+    let merge_outcome = gix_repo.merge_trees(
+        merge_base_tree,
+        gix_repo.head()?.peel_to_commit_in_place()?.tree_id()?,
+        target_tree,
+        gix_repo.default_merge_labels(),
+        merge_options_fail_fast.clone(),
+    )?;
+    let committed_conflicts = merge_outcome
+        .conflicts
+        .iter()
+        .filter(|c| c.is_unresolved(TreatAsUnresolved::git()))
+        .collect::<Vec<_>>();
+
     let worktree_conflicts = gix_repo
         .merge_trees(
             merge_base_tree,
@@ -417,6 +430,8 @@ pub fn upstream_integration_statuses(
         .conflicts
         .iter()
         .filter(|c| c.is_unresolved(TreatAsUnresolved::git()))
+        // only include conflicts that are not in the list committed_conflicts
+        .filter(|c| !committed_conflicts.iter().any(|cc| cc.ours == c.ours))
         .map(|c| c.ours.location().into())
         .collect::<Vec<BStringForFrontend>>();
 
