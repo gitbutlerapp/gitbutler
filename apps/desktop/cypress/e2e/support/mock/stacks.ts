@@ -180,7 +180,7 @@ export function isCreateCommitRequestWorktreeChanges(
 		something !== null &&
 		((Array.isArray((something as any).previousPathBytes) &&
 			(something as any).previousPathBytes.every((byte: any) => typeof byte === 'number')) ||
-			(something as any)['previousPathBytes'] === undefined) &&
+			(something as any)['previousPathBytes'] === null) &&
 		'pathBytes' in something &&
 		Array.isArray(something['pathBytes']) &&
 		something['pathBytes'].every((byte) => typeof byte === 'number') &&
