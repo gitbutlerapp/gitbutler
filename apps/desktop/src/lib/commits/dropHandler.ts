@@ -75,14 +75,21 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 	}
 
 	async ondrop(data: ChangeDropData) {
-		this.onresult(
-			await this.trigger({
-				projectId: this.projectId,
-				stackId: this.stackId,
-				commitId: this.commit.id,
-				worktreeChanges: changesToDiffSpec(data)
-			})
-		);
+		switch (data.selectionId.type) {
+			case 'commit':
+			case 'branch':
+				console.warn('Moving a change from one commit to another is not supported yet.');
+				break;
+			case 'worktree':
+				this.onresult(
+					await this.trigger({
+						projectId: this.projectId,
+						stackId: this.stackId,
+						commitId: this.commit.id,
+						worktreeChanges: changesToDiffSpec(data)
+					})
+				);
+		}
 	}
 }
 
@@ -118,8 +125,6 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 		const { commit, okWithForce } = this.args;
 		if (!okWithForce && commit.isRemote) return false;
 		if (commit.isIntegrated) return false;
-		// TODO: Is it reckless to assume that we can always drop a hunk
-		// even if it's committed?
 		return data instanceof HunkDropDataV3 && !commit.hasConflicts;
 	}
 
@@ -132,6 +137,12 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 		if (!okWithForce && commit.isRemote) return;
 
 		if (data instanceof HunkDropData) {
+			if (data.isCommitted) {
+				// TODO: Move a hunk from one commit to another in v2
+				console.warn('Moving a hunk from one commit to another is not supported yet.');
+				return;
+			}
+
 			stackService.amendCommitMutation({
 				projectId,
 				stackId,
@@ -159,6 +170,13 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 		if (data instanceof HunkDropDataV3) {
 			const previousPathBytes =
 				data.change.status.type === 'Rename' ? data.change.status.subject.previousPathBytes : null;
+
+			if (!data.uncommitted) {
+				// TODO: Move a hunk from one commit to another.
+				console.warn('Moving a hunk from one commit to another is not supported yet.');
+				return;
+			}
+
 			stackService.amendCommitMutation({
 				projectId,
 				stackId,
