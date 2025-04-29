@@ -254,9 +254,12 @@
 									{@const selected =
 										commit.id === selectedCommitId && branchName === selectedBranchName}
 									{#if isCommitting}
+										{@const selectedForCommit =
+											(selectedCommitId === undefined || commit.id === selectedCommitId) &&
+											branchName === selectedBranchName}
 										<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
 										<CommitGoesHere
-											{selected}
+											selected={selectedForCommit}
 											{first}
 											last={false}
 											onclick={() => uiState.stack(stackId).selection.set({ branchName, commitId })}
