@@ -27,6 +27,20 @@ describe.concurrent('#splitMessage', () => {
 		});
 	});
 
+	test('Titles are trimmed by default', () => {
+		const message = '   Fixed all the bugs!   \nActually maybe not...';
+		const title = 'Fixed all the bugs!';
+		const description = 'Actually maybe not...';
+		expect(splitMessage(message)).toMatchObject({ title, description });
+	});
+
+	test('If specified, titles are not trimmed', () => {
+		const message = '   Fixed all the bugs!   \nActually maybe not...';
+		const title = '   Fixed all the bugs!   ';
+		const description = 'Actually maybe not...';
+		expect(splitMessage(message, true)).toMatchObject({ title, description });
+	});
+
 	test('When provided a commit message with multiple newline, it returns a title and description', () => {
 		const message = 'Fixed all the bugs!\n\nActually maybe not...';
 

@@ -4,19 +4,19 @@
  * The title is the first line of the message, and the description is everything from the
  * next non-emptyline till the last non-empty line.
  *
- * Only the title will be trimmed, the description will keep its original formatting.
+ * Only the title will be trimmed (unless otherwise specified), the description will keep its original formatting.
  */
-export function splitMessage(message: string) {
+export function splitMessage(message: string, skipTrimming: boolean = false) {
 	const lines = message.split('\n');
 	if (lines.length === 0) {
 		return { title: '', description: '' };
 	}
 
 	if (lines.length === 1) {
-		return { title: message.trim(), description: '' };
+		return { title: skipTrimming ? message : message.trim(), description: '' };
 	}
 
-	const title = lines[0]!.trim();
+	const title = skipTrimming ? lines[0]! : lines[0]!.trim();
 	let description: string = '';
 
 	// Search for the first and last non-empty lines
