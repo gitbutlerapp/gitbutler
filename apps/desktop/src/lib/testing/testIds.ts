@@ -27,7 +27,9 @@ export enum TestId {
 	CommitRow = 'commit-row',
 	NewCommitDrawer = 'new-commit-drawer',
 	StackDraft = 'stack-draft',
-	YourCommitGoesHere = 'your-commit-goes-here'
+	YourCommitGoesHere = 'your-commit-goes-here',
+	CommitMenuButton = 'commit-menu-btn',
+	UncommitMenuButton = 'uncommit-menu-btn',
 }
 
 export enum ElementId {

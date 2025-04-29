@@ -6,6 +6,7 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import type { CommitStatusType } from '$lib/commits/commit';
+	import { TestId } from '$lib/testing/testIds';
 
 	type Props = {
 		commitStatus: CommitStatusType;
@@ -54,6 +55,7 @@
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Uncommit"
+			testId={TestId.UncommitMenuButton}
 			onclick={(e: MouseEvent) => {
 				args.onUncommitClick?.(e);
 				close();

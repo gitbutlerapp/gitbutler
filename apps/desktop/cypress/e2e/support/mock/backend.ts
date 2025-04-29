@@ -2,7 +2,7 @@ import {
 	bytesToStr,
 	isGetCommitChangesParams,
 	isGetDiffParams,
-	isGetWorktreeChangesParams,
+	isGetWorktreeChangesParams, isUndoCommitArgs,
 	MOCK_TREE_CHANGE_A,
 	MOCK_UNIFIED_DIFF
 } from './changes';
@@ -23,18 +23,22 @@ import type { TreeChange, TreeChanges, WorktreeChanges } from '$lib/hunks/change
 import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { Stack, StackDetails } from '$lib/stacks/stack';
 import type { InvokeArgs } from '@tauri-apps/api/core';
+import { mockCommand } from '../index';
 
 export type MockBackendOptions = {
 	initalStacks?: Stack[];
 };
+
+type StackId = string;
+type CommitId = string;
 
 /**
  * *Ooooh look at me, I'm a mock backend!*
  */
 export default class MockBackend {
 	private stacks: Stack[];
-	private stackDetails: Map<string, StackDetails>;
-	private commitChanges: Map<string, TreeChange[]>;
+	private stackDetails: Map<StackId, StackDetails>;
+	private commitChanges: Map<CommitId, TreeChange[]>;
 	private worktreeChanges: WorktreeChanges;
 	stackId: string = MOCK_STACK_A_ID;
 	renamedCommitId: string = '424242424242';
@@ -215,5 +219,16 @@ export default class MockBackend {
 				filesChanged: changes.length
 			}
 		};
+	}
+
+	public undoCommit(args: InvokeArgs | undefined) {
+		if (!args || !isUndoCommitArgs(args)) {
+			throw new Error('Invalid arguments for getCommitChanges');
+		}
+		let {stackId, commitOid} = args
+		for (const branch of this.stackDetails.get(stackId)!.branchDetails) {
+				let new_commits = branch.commits.filter((commit) => commit.id === commitOid);
+				branch.commits = new_commits;
+		}
 	}
 }

@@ -71,3 +71,15 @@ If your application needs to mock some Tauri commands, take a look at the suppor
 There we're already doing some heavy lifting by adding some _default_ mocks. Feel free to add more mocks there if they apply to all tests globally.
 
 **If you want to add test-specific mocks, though,** please use the `mockCommand` function inside your tests. This way we keep a 'clean state' as the default mocked state of the application for all tests.
+
+### Initial State
+
+Take a look at existing tests and their `beforeEach()` functions to find bits and pieces which might be suitable for your initial state. If a test suite, as enclosed in `describe()` functions, already has the desired initial state, the `it` function can be put there.
+
+### Developing a test
+
+During development, it helps to run only the test at hand using `it.only()`. 
+
+### Creating failing tests for later fixing
+
+Once a UI bug was discovered, it makes sense to reproduce the issue in its own test case and hand it over for fixing. This can be done with `it.skip()`, such that the failing test won't fail CI until it is fixed.

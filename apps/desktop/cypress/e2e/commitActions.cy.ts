@@ -16,6 +16,9 @@ describe('Commit Actions', () => {
 		mockCommand('create_commit_from_worktree_changes', (params) =>
 			mockBackend.createCommit(params)
 		);
+		mockCommand('undo_commit', (params) =>
+			mockBackend.undoCommit(params)
+		);
 
 		cy.visit('/');
 
@@ -147,6 +150,12 @@ describe('Commit Actions', () => {
 		// Should never get the diff information, because there are no partial changes being committed.
 		expect(mockBackend.getDiff).to.have.callCount(0);
 	});
+
+	it.only("uncommiting a selected commit will hide its drawer", () => {
+		mockBackend.createBranch()
+		cy.getByTestId('commit-row').click().getByTestId('commit-menu-btn').click();
+		cy.getByTestId('uncommit-menu-btn').click();
+	})
 });
 
 describe('Commit Actions with no stacks', () => {

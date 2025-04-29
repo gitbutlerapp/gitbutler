@@ -118,3 +118,22 @@ export function isGetCommitChangesParams(args: unknown): args is GetCommitChange
 		typeof args['commitId'] === 'string'
 	);
 }
+
+export type UndoComitParams = {
+	projectId: string;
+	stackId: string;
+	commitOid: string;
+};
+
+export function isUndoCommitArgs(args: unknown): args is UndoComitParams {
+	return (
+		typeof args === 'object' &&
+		args !== null &&
+		'projectId' in args &&
+		typeof args['projectId'] === 'string' &&
+		'commitOid' in args &&
+		typeof args['commitOid'] === 'string' &&
+		'stackId' in args &&
+		typeof args['stackId'] === 'string'
+	);
+}
