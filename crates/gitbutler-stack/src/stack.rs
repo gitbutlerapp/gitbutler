@@ -210,11 +210,10 @@ impl Stack {
         self.try_into()
     }
 
-    // TODO: derive this from the last head
     pub fn head_oid(&self, repo: &gix::Repository) -> Result<gix::ObjectId> {
         self.heads
             .last()
-            .map(|head| head.head_oid(repo))
+            .map(|branch| branch.head_oid(repo))
             .ok_or_else(|| anyhow!("Stack is uninitialized"))?
     }
 

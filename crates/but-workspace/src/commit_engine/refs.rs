@@ -36,15 +36,7 @@ pub fn rewrite(
                 }
             }
             if stack.head_oid(repo)? == old {
-                // Perhaps skip this - the head will be updated later in this call
-                // stack.set_stack_head_without_persisting(repo, new.to_git2(), None)?;
-                // Does it make sense to set stack tree in v3? I think not
-                // stack.tree = new
-                //     .attach(repo)
-                //     .object()?
-                //     .into_commit()
-                //     .tree_id()?
-                //     .to_git2();
+                // The actual head will be updated later.
                 updated_refs.push(UpdatedReference {
                     old_commit_id: old,
                     new_commit_id: new,
@@ -65,15 +57,16 @@ pub fn rewrite(
                     });
             for (idx, branch) in stack.heads.iter_mut().rev().enumerate() {
                 let id = branch.head_oid(repo)?;
-                if id == old {
-                    if update_up_to_idx.is_some() && Some(idx) > update_up_to_idx {
-                        // Make sure the actual refs also don't update (later)
-                        already_updated_refs.push(format!("refs/heads/{}", branch.name()).into());
-                        continue;
-                    }
-                    if let Some(full_refname) = branch.set_head(new, repo)? {
-                        already_updated_refs.push(full_refname)
-                    }
+                if id != old {
+                    continue;
+                }
+                if update_up_to_idx.is_some() && Some(idx) > update_up_to_idx {
+                    // Make sure the actual refs also don't update (later)
+                    already_updated_refs.push(format!("refs/heads/{}", branch.name()).into());
+                    continue;
+                }
+                if let Some(full_refname) = branch.set_head(new, repo)? {
+                    already_updated_refs.push(full_refname);
                     updated_refs.push(UpdatedReference {
                         old_commit_id: old,
                         new_commit_id: new,
