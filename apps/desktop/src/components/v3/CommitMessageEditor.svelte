@@ -25,6 +25,7 @@
 		loading?: boolean;
 		initialTitle?: string;
 		initialMessage?: string;
+		existingCommitId?: string;
 	};
 
 	const {
@@ -36,7 +37,8 @@
 		disabledAction,
 		loading,
 		initialTitle,
-		initialMessage
+		initialMessage,
+		existingCommitId
 	}: Props = $props();
 
 	const uiState = getContext(UiState);
@@ -139,6 +141,14 @@
 		return titleText.current;
 	}
 </script>
+
+<CommitSuggestionsPlugin
+	bind:this={commitSuggestionsPlugin}
+	{projectId}
+	{canUseAI}
+	{suggestionsHandler}
+	{existingCommitId}
+/>
 
 <div class="commit-message-wrap">
 	<MessageEditorInput
