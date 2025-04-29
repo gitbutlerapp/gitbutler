@@ -138,10 +138,6 @@ pub fn create_commit_from_worktree_changes(
         guard.write_permission(),
     );
 
-    // let vb_state = VirtualBranchesHandle::new(project.gb_dir());
-    // gitbutler_branch_actions::update_workspace_commit(&vb_state, &ctx)
-    //     .context("failed to update gitbutler workspace")?;
-
     let _ = snapshot_tree.and_then(|snapshot_tree| {
         ctx.snapshot_commit_creation(
             snapshot_tree,

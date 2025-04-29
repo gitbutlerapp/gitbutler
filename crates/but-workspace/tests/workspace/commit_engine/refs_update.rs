@@ -258,7 +258,6 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
 /// https://github.com/gitbutlerapp/gitbutler/pull/7596 may affect the solution here, but
 /// it's not yet ready.
 #[test]
-#[ignore = "needs fixes"]
 fn new_stack_receives_commit_and_adds_it_to_workspace_commit() -> anyhow::Result<()> {
     assure_stable_env();
 
@@ -311,10 +310,10 @@ fn new_stack_receives_commit_and_adds_it_to_workspace_commit() -> anyhow::Result
     // head was updated to point to the new workspace commit.
     insta::assert_snapshot!(visualize_commit_graph(&repo, repo.head_id()?)?, @r"
     *   7051951 (HEAD -> main) GitButler Workspace Commit
-    |\
+    |\  
     | * 00fbfba (s2/top) new file with 15 lines
     * | b451685 (s1/top) insert 5 lines to the top
-    |/
+    |/  
     * d15b5ae (tag: first-commit) init
     ");
 
