@@ -152,6 +152,7 @@
 					initialTitle={splitMessage(commit.message).title}
 					initialMessage={splitMessage(commit.message).description}
 					loading={messageUpdateResult.current.isLoading}
+					existingCommitId={commit.id}
 				/>
 			</Drawer>
 		{:else}

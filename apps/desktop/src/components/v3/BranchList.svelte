@@ -254,8 +254,9 @@
 									{@const selected =
 										commit.id === selectedCommitId && branchName === selectedBranchName}
 									{#if isCommitting}
+										{@const nothingSelectedButFirst = selectedCommitId === undefined && first}
 										{@const selectedForCommit =
-											(selectedCommitId === undefined || commit.id === selectedCommitId) &&
+											(nothingSelectedButFirst || commit.id === selectedCommitId) &&
 											branchName === selectedBranchName}
 										<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
 										<CommitGoesHere
