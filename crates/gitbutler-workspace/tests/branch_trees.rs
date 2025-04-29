@@ -60,7 +60,7 @@ mod compute_updated_branch_head {
             compute_updated_branch_head(r, &r.to_gix().unwrap(), &stack, head.id(), &ctx).unwrap();
 
         let r = &test_repository.repository;
-        assert_eq!(head.to_gix(), stack.head(&r.to_gix().unwrap()).unwrap());
+        assert_eq!(head.to_gix(), stack.head_oid(&r.to_gix().unwrap()).unwrap());
         assert_eq!(tree, stack.tree(&ctx).unwrap());
     }
 

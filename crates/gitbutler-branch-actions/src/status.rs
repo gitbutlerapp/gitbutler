@@ -215,7 +215,7 @@ pub fn get_applied_status_cached(
     for (vbranch, files) in &mut hunks_by_branch {
         vbranch.set_tree(gitbutler_diff::write::hunks_onto_oid(
             ctx,
-            vbranch.head(&repo)?.to_git2(),
+            vbranch.head_oid(&repo)?.to_git2(),
             files,
         )?);
         vb_state

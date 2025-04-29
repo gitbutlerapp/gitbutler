@@ -82,7 +82,7 @@ fn get_commits_to_process<'a>(
 ) -> Result<impl Iterator<Item = git2::Oid> + 'a, anyhow::Error> {
     let commit_ids = repo
         .l(
-            stack.head(gix_repo)?.to_git2(),
+            stack.head_oid(gix_repo)?.to_git2(),
             LogUntil::Commit(*target_sha),
             false,
         )

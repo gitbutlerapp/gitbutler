@@ -66,7 +66,7 @@ fn add_series_top_base() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     let merge_base = ctx.repo().find_commit(ctx.repo().merge_base(
-        test_ctx.stack.head(&ctx.gix_repo()?)?.to_git2(),
+        test_ctx.stack.head_oid(&ctx.gix_repo()?)?.to_git2(),
         test_ctx.default_target.sha,
     )?)?;
     let reference = StackBranch::new(
@@ -640,7 +640,7 @@ fn set_stack_head() -> Result<()> {
         branches.first().unwrap().head_oid(&ctx.gix_repo()?)?.into()
     );
     assert_eq!(
-        test_ctx.stack.head(&ctx.gix_repo()?)?,
+        test_ctx.stack.head_oid(&ctx.gix_repo()?)?,
         test_ctx.other_commits.last().unwrap().id().to_gix()
     );
     Ok(())
@@ -818,13 +818,13 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
     let target = handle.get_default_target()?;
     let gix_repo = ctx.gix_repo()?;
     let mut branch_commits = ctx.repo().log(
-        stack.head(&gix_repo)?.to_git2(),
+        stack.head_oid(&gix_repo)?.to_git2(),
         LogUntil::Commit(target.sha),
         false,
     )?;
     branch_commits.reverse();
     let mut other_commits = ctx.repo().log(
-        other_stack.head(&gix_repo)?.to_git2(),
+        other_stack.head_oid(&gix_repo)?.to_git2(),
         LogUntil::Commit(target.sha),
         false,
     )?;

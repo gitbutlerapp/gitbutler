@@ -348,22 +348,57 @@ pub fn create_commit_and_update_refs(
         return Ok(out);
     };
 
-    let commit_to_find = match destination {
+    let (commit_to_find, is_amend) = match destination {
         Destination::NewCommit {
             parent_commit_id, ..
-        } => parent_commit_id,
-        Destination::AmendCommit(commit) => Some(commit),
+        } => (parent_commit_id, false),
+        Destination::AmendCommit(commit) => (Some(commit), true),
     };
 
     if let Some(commit_in_graph) = commit_to_find {
         let mut all_refs_by_id = gix::hashtable::HashMap::<_, Vec<_>>::default();
-        for (commit_id, git_reference) in repo
-            .references()?
-            .prefixed("refs/heads/")?
-            .chain(repo.references()?.prefixed("refs/gitbutler/")?)
-            .filter_map(Result::ok)
-            .filter_map(|r| r.try_id().map(|id| (id.detach(), r.inner.name)))
-        {
+        let mut checked_out_ref_name = None;
+        let checked_out_ref = repo.head_ref()?.and_then(|mut r| {
+            let id = r.peel_to_id_in_place().ok()?.detach();
+            checked_out_ref_name = Some(r.inner.name.clone());
+            Some((id, r.inner.name))
+        });
+        let (platform_storage, platform_storage_2);
+        let checked_out_and_gitbutler_refs =
+            checked_out_ref
+                .into_iter()
+                // TODO: remove this as `refs/gitbutler/` won't contain relevant refs anymore.
+                .chain({
+                    platform_storage_2 = repo.references()?;
+                    platform_storage_2
+                        .prefixed("refs/gitbutler/")?
+                        .filter_map(Result::ok)
+                        .filter_map(|r| r.try_id().map(|id| (id.detach(), r.inner.name)))
+                })
+                .chain(
+                    // When amending, we want to update all branches that pointed to the old commit to now point to the new commit.
+                    if is_amend {
+                        Box::new({
+                            platform_storage = repo.references()?;
+                            platform_storage
+                                .prefixed("refs/heads/")?
+                                .filter_map(Result::ok)
+                                .filter_map(|r| {
+                                    let is_checked_out = checked_out_ref_name.as_ref().is_some_and(
+                                        |checked_out_ref| checked_out_ref == &r.inner.name,
+                                    );
+                                    if is_checked_out {
+                                        None
+                                    } else {
+                                        r.try_id().map(|id| (id.detach(), r.inner.name))
+                                    }
+                                })
+                        }) as Box<dyn Iterator<Item = _>>
+                    } else {
+                        Box::new(std::iter::empty())
+                    },
+                );
+        for (commit_id, git_reference) in checked_out_and_gitbutler_refs {
             all_refs_by_id
                 .entry(commit_id)
                 .or_default()
@@ -435,7 +470,7 @@ pub fn create_commit_and_update_refs(
                         && !wsc.inner.parents.contains(&branch_tip) /* the branch tip we know isn't yet merged */
                         // but the tip is known to the workspace
                         && vb.branches.values().any(|s| {
-                        s.head(repo)
+                        s.head_oid(repo)
                             .is_ok_and(|head_id| head_id == branch_tip)
                     }) {
                         let mut stacks: Vec<_> = vb

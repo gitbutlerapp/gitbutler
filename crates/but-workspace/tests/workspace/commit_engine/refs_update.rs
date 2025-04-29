@@ -110,8 +110,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     // The HEAD reference was updated, along with all other tag-references that pointed to it.
     let new_commit = outcome.new_commit.expect("a new commit was created");
     insta::assert_snapshot!(visualize_commit_graph(&repo, new_commit)?, @r"
-    * 1c4bb33 (HEAD -> main, another-tip) third commit
-    * f1b87da (tag: tag-that-should-not-move) second commit
+    * 1c4bb33 (HEAD -> main) third commit
+    * f1b87da (tag: tag-that-should-not-move, another-tip) second commit
     * 0939187 initial commit
     ");
 
@@ -132,8 +132,8 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     assure_no_worktree_changes(&repo)?;
     // The top commit has a different hash now thanks to amending.
     insta::assert_snapshot!(graph_commit_outcome(&repo, &outcome)?, @r"
-    * 2abfa5c (HEAD -> main, another-tip) third commit
-    * f1b87da (tag: tag-that-should-not-move) second commit
+    * 2abfa5c (HEAD -> main) third commit
+    * f1b87da (tag: tag-that-should-not-move, another-tip) second commit
     * 0939187 initial commit
     ");
 
@@ -197,15 +197,6 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
             UpdatedReference {
                 reference: Git(
                     FullName(
-                        "refs/heads/another-tip",
-                    ),
-                ),
-                old_commit_id: Sha1(2abfa5cc3c7c48b8b9eabbd10c21b88347801f15),
-                new_commit_id: Sha1(189ac82eb44ddb97677d7d7b1859cf6f2e33a473),
-            },
-            UpdatedReference {
-                reference: Git(
-                    FullName(
                         "refs/heads/main",
                     ),
                 ),
@@ -234,9 +225,9 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     write_vrbranches_to_refs(&vb, &repo)?;
     // It updates stack heads and stack branch heads.
     insta::assert_snapshot!(graph_commit_outcome(&repo, &outcome)?, @r"
-    * 189ac82 (HEAD -> main, s2-b/second, s1-b/second, another-tip) fourth commit
+    * 189ac82 (HEAD -> main, s2-b/second, s1-b/second) fourth commit
     * 2abfa5c third commit
-    * f1b87da (tag: tag-that-should-not-move, s2-b/first, s1-b/first) second commit
+    * f1b87da (tag: tag-that-should-not-move, s2-b/first, s1-b/first, another-tip) second commit
     * 0939187 (s2-b/init, s1-b/init) initial commit
     ");
     insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
@@ -258,7 +249,6 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
 /// https://github.com/gitbutlerapp/gitbutler/pull/7596 may affect the solution here, but
 /// it's not yet ready.
 #[test]
-#[ignore = "needs fixes"]
 fn new_stack_receives_commit_and_adds_it_to_workspace_commit() -> anyhow::Result<()> {
     assure_stable_env();
 
@@ -270,7 +260,7 @@ fn new_stack_receives_commit_and_adds_it_to_workspace_commit() -> anyhow::Result
     let workspace_commit_id = repo.rev_parse_single("@")?.detach();
     insta::assert_snapshot!(visualize_commit_graph(&repo, workspace_commit_id)?, @r"
     * 47c9e16 (HEAD -> main) GitButler Workspace Commit
-    * b451685 insert 5 lines to the top
+    * b451685 (feat1) insert 5 lines to the top
     * d15b5ae (tag: first-commit) init
     ");
 
@@ -311,10 +301,10 @@ fn new_stack_receives_commit_and_adds_it_to_workspace_commit() -> anyhow::Result
     // head was updated to point to the new workspace commit.
     insta::assert_snapshot!(visualize_commit_graph(&repo, repo.head_id()?)?, @r"
     *   7051951 (HEAD -> main) GitButler Workspace Commit
-    |\
+    |\  
     | * 00fbfba (s2/top) new file with 15 lines
-    * | b451685 (s1/top) insert 5 lines to the top
-    |/
+    * | b451685 (s1/top, feat1) insert 5 lines to the top
+    |/  
     * d15b5ae (tag: first-commit) init
     ");
 
@@ -612,8 +602,8 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
     let rewritten_head_id = repo.head_id()?.detach();
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
     * 3d1262e (HEAD -> main) insert 10 lines to the top
-    * 3aec753 (s1-b/init, first-commit) between initial and former first
-    * ecd6722 (tag: first-commit) init
+    * 3aec753 (s1-b/init) between initial and former first
+    * ecd6722 (tag: first-commit, first-commit) init
     ");
     insta::assert_snapshot!(but_testsupport::visualize_tree(rewritten_head_id.attach(&repo)), @r#"
     5fdd313
@@ -636,15 +626,6 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
             UpdatedReference {
                 reference: Virtual(
                     "",
-                ),
-                old_commit_id: Sha1(ecd67221705b069c4f46365a46c8f2cd8a97ec19),
-                new_commit_id: Sha1(3aec75308383b83d85a78a90308a618755a7b0f8),
-            },
-            UpdatedReference {
-                reference: Git(
-                    FullName(
-                        "refs/heads/first-commit",
-                    ),
                 ),
                 old_commit_id: Sha1(ecd67221705b069c4f46365a46c8f2cd8a97ec19),
                 new_commit_id: Sha1(3aec75308383b83d85a78a90308a618755a7b0f8),
@@ -711,8 +692,8 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
     * 4b649eb (HEAD -> main) insert 10 lines to the top
-    * d26d789 (s1-b/init, first-commit) between initial and former first
-    * ecd6722 (tag: first-commit) init
+    * d26d789 (s1-b/init) between initial and former first
+    * ecd6722 (tag: first-commit, first-commit) init
     ");
     insta::assert_snapshot!(but_testsupport::visualize_tree(rewritten_head_id), @r#"
     683b451
@@ -880,8 +861,8 @@ fn insert_commits_into_workspace() -> anyhow::Result<()> {
     *   a97960f (HEAD -> merge) Merge branch 'A' into merge
     |\  
     | * 3538622 (A) add 10 to the beginning
-    * | 46991ae (s1-b/init, B) add 10 more lines at end
-    * | e81b470 add 10 to the end
+    * | 46991ae (s1-b/init) add 10 more lines at end
+    * | e81b470 (B) add 10 to the end
     |/  
     * 9cf2979 (main) init
     ");
@@ -1007,8 +988,8 @@ fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
     *   595a255 (HEAD -> merge) Merge branch 'A' into merge
     |\  
-    | * 057f154 (s1-b/top, A) remove 5 lines from beginning
-    | * eede47d add 10 to the beginning
+    | * 057f154 (s1-b/top) remove 5 lines from beginning
+    | * eede47d (A) add 10 to the beginning
     * | 16fe86e (B) add 10 to the end
     |/  
     * 6074509 (main) init
@@ -1228,8 +1209,8 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
     *   09ac476 (HEAD -> merge) Merge branch 'A' into merge
     |\  
-    | * 99f3a1c (s1-b/top, A) remove 5 lines from beginning
-    | * 7f389ed (s1-b/below-top) add 10 to the beginning
+    | * 99f3a1c (s1-b/top) remove 5 lines from beginning
+    | * 7f389ed (s1-b/below-top, A) add 10 to the beginning
     * | 91ef6f6 (s2-b/top, s2-b/below-top, B) add 10 to the end
     |/  
     * ff045ef (main) init
@@ -1316,10 +1297,10 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
     *   098effd (HEAD -> merge) Merge branch 'A' into merge
     |\  
-    | * 99f3a1c (s1-b/top, A) remove 5 lines from beginning
-    | * 7f389ed (s1-b/below-top) add 10 to the beginning
-    * | 03e9b6f (s2-b/top, B) remove 5 lines from the end
-    * | 91ef6f6 (s2-b/below-top) add 10 to the end
+    | * 99f3a1c (s1-b/top) remove 5 lines from beginning
+    | * 7f389ed (s1-b/below-top, A) add 10 to the beginning
+    * | 03e9b6f (s2-b/top) remove 5 lines from the end
+    * | 91ef6f6 (s2-b/below-top, B) add 10 to the end
     |/  
     * ff045ef (main) init
     ");

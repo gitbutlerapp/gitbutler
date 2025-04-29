@@ -66,7 +66,7 @@ pub fn integrate_upstream_commits_for_series(
     let integrate_upstream_context = IntegrateUpstreamContext {
         repo,
         target_branch_head: default_target.sha,
-        branch_head: stack.head(&gix_repo)?.to_git2(),
+        branch_head: stack.head_oid(&gix_repo)?.to_git2(),
         branch_tree: stack.tree(ctx)?,
         branch_name: subject_branch.name(),
         branch_full_name: subject_branch.full_name()?,
