@@ -4,6 +4,7 @@
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { type Stack } from '$lib/stacks/stack';
+	import { TestId } from '$lib/testing/testIds';
 	import {
 		getBaseBranchResolution,
 		type BaseBranchResolutionApproach,
@@ -208,7 +209,14 @@
 	</IntegrationSeriesRow>
 {/snippet}
 
-<Modal bind:this={modal} {onClose} width={520} noPadding onSubmit={integrate}>
+<Modal
+	testId={TestId.IntegrateUpstreamCommitsModal}
+	bind:this={modal}
+	{onClose}
+	width={520}
+	noPadding
+	onSubmit={integrate}
+>
 	<ScrollableContainer maxHeight={'70vh'}>
 		{#if base}
 			<div class="section">

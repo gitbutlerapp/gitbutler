@@ -8,6 +8,7 @@
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -66,7 +67,11 @@
 		<div class="chrome-left-buttons" class:macos={platformName === 'macos'}>
 			<SyncButton {projectId} size="button" disabled={actionsDisabled} />
 			{#if upstreamCommits > 0}
-				<Button style="pop" onclick={openModal} disabled={!selectedProjectId || actionsDisabled}
+				<Button
+					testId={TestId.IntegrateUpstreamCommitsButton}
+					style="pop"
+					onclick={openModal}
+					disabled={!selectedProjectId || actionsDisabled}
 					>{upstreamCommits} upstream commits</Button
 				>
 			{/if}
