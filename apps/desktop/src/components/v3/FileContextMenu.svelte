@@ -24,7 +24,6 @@
 	type Props = {
 		isUncommitted: boolean;
 		trigger?: HTMLElement;
-		isBinary?: boolean;
 		unSelectChanges: (changes: TreeChange[]) => void;
 	};
 
@@ -42,7 +41,7 @@
 		);
 	}
 
-	const { trigger, isBinary = false, unSelectChanges, isUncommitted }: Props = $props();
+	const { trigger, unSelectChanges, isUncommitted }: Props = $props();
 	const [stackService, project] = inject(StackService, Project);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
@@ -110,7 +109,7 @@
 			<ContextMenuSection>
 				{#if item.changes.length > 0}
 					{@const changes = item.changes}
-					{#if !isBinary && isUncommitted}
+					{#if isUncommitted}
 						<ContextMenuItem
 							label="Discard changes"
 							onclick={() => {

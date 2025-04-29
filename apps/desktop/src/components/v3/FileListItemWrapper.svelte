@@ -4,7 +4,6 @@
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { getFilename } from '$lib/files/utils';
-	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';
@@ -56,7 +55,6 @@
 
 	const idSelection = getContext(IdSelection);
 	const changeSelection = getContext(ChangeSelectionService);
-	const diffService = getContext(DiffService);
 
 	let contextMenu = $state<ReturnType<typeof FileContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
@@ -64,9 +62,6 @@
 	const selection = $derived(changeSelection.getById(change.path));
 	const indeterminate = $derived(selection.current && selection.current.type === 'partial');
 	const selectedChanges = $derived(idSelection.treeChanges(projectId, selectionId));
-	const diffResult = $derived(diffService.getDiff(projectId, change));
-
-	const isBinary = $derived(diffResult.current.data?.type === 'Binary');
 	const isUncommitted = $derived(selectionId?.type === 'worktree');
 
 	const previousTooltipText = $derived(
@@ -138,7 +133,6 @@
 		bind:this={contextMenu}
 		trigger={draggableEl}
 		{isUncommitted}
-		{isBinary}
 		{unSelectChanges}
 	/>
 
