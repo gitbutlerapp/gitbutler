@@ -76,6 +76,10 @@
 
 	let isOpenedByKebabButton = $state(false);
 	let isOpenedByMouse = $state(false);
+
+	let isConflicted = $derived(
+		args.type === 'LocalAndRemote' && !args.disableCommitActions && args.hasConflicts
+	);
 </script>
 
 <div
@@ -117,17 +121,16 @@
 		{lastBranch}
 	/>
 
-	<div data-testid={TestId.CommitRow} class="commit-content">
-		<!-- <button type="button" {onclick} tabindex="0"> -->
-		<div class="commit-name truncate">
-			<CommitHeader {commitMessage} row className="text-13 text-semibold" />
-		</div>
-
-		{#if args.type === 'LocalAndRemote' && !args.disableCommitActions && args.hasConflicts}
+	<div data-testid={TestId.CommitRow} class="commit-content" class:shift-to-left={isConflicted}>
+		{#if isConflicted}
 			<div class="commit-conflict-indicator">
 				<Icon name="warning" size={12} />
 			</div>
 		{/if}
+
+		<div class="commit-name truncate">
+			<CommitHeader {commitMessage} row className="text-13 text-semibold" />
+		</div>
 
 		{#if !args.disableCommitActions}
 			<button
@@ -221,7 +224,7 @@
 
 	.commit-name {
 		flex: 1;
-		padding: 14px 0 14px 4px;
+		padding: 14px 0 14px 0;
 		display: flex;
 	}
 
@@ -239,9 +242,13 @@
 	}
 
 	.commit-conflict-indicator {
-		position: absolute;
-		/* Account for the kebab menu that appears on hover */
-		right: 42px;
+		display: flex;
 		color: var(--clr-theme-err-element);
+		margin-right: 4px;
+	}
+
+	/* MODIFIERS */
+	.shift-to-left {
+		margin-left: -3px;
 	}
 </style>
