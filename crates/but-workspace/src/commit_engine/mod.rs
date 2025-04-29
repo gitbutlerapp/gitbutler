@@ -6,6 +6,7 @@ use bstr::BString;
 use but_core::RepositoryExt;
 use but_rebase::RebaseOutput;
 use but_rebase::commit::CommitterMode;
+use but_rebase::merge::ConflictErrorContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{StackId, VirtualBranchesHandle, VirtualBranchesState};
 use gix::prelude::ObjectIdExt as _;
@@ -168,6 +169,8 @@ pub enum RejectionReason {
     NoEffectiveChanges,
     /// The final cherry-pick to bring the new tree down onto the target tree (merge it in) failed with a conflict.
     CherryPickMergeConflict,
+    /// The final merge of the workspace commit failed with a conflict.
+    WorkspaceMergeConflict,
     /// This is just a theoretical possibility that *could* happen if somebody deletes a file that was there before *right after* we checked its
     /// metadata and found that it still exists.
     /// So if you see this, you could also have won the lottery.
@@ -340,7 +343,7 @@ pub fn create_commit_and_update_refs(
         repo,
         destination.clone(),
         move_source,
-        changes,
+        changes.clone(),
         context_lines,
     )?;
 
@@ -453,6 +456,32 @@ pub fn create_commit_and_update_refs(
                 .workspace_tip
                 .filter(|ws_tip| !commits_to_rebase.contains(ws_tip));
             let rebase = {
+                fn conflicts_to_specs(
+                    outcome: &mut CreateCommitOutcome,
+                    conflicts: &[BString],
+                    changes: &[DiffSpec],
+                ) -> anyhow::Result<()> {
+                    outcome.rejected_specs.extend(conflicts.iter().filter_map(
+                        |conflicting_rela_path| {
+                            changes.iter().find_map(|spec| {
+                                (spec.path == *conflicting_rela_path
+                                    || spec.previous_path.as_ref() == Some(conflicting_rela_path))
+                                .then_some((
+                                    RejectionReason::WorkspaceMergeConflict,
+                                    spec.to_owned(),
+                                ))
+                            })
+                        },
+                    ));
+                    if outcome.rejected_specs.is_empty() {
+                        bail!(
+                            "BUG: should have found a tree-change for each conflicting path, but came up with nothing"
+                        )
+                    }
+                    outcome.new_commit = None;
+                    outcome.changed_tree_pre_cherry_pick = None;
+                    Ok(())
+                }
                 // Set commits leading up to the tip on top of the new commit, serving as base.
                 let mut builder = but_rebase::Rebase::new(repo, new_commit, Some(commit_in_graph))?;
                 builder.steps(commits_to_rebase.into_iter().rev().map(|commit_id| {
@@ -493,24 +522,50 @@ pub fn create_commit_and_update_refs(
                         commit_id,
                         new_message: None,
                     }])?;
-                    let mut outcome = builder.rebase()?;
-                    if commit_id != workspace_tip {
-                        let Some(rewritten_old) = outcome
-                            .commit_mapping
-                            .iter_mut()
-                            .find_map(|(_base, old, _new)| (old == &commit_id).then_some(old))
-                        else {
-                            bail!(
-                                "BUG: Needed to find modified {commit_id} to set it back its previous value, but couldn't find it"
-                            );
-                        };
-                        *rewritten_old = workspace_tip;
+                    match builder.rebase() {
+                        Ok(mut outcome) => {
+                            if commit_id != workspace_tip {
+                                let Some(rewritten_old) =
+                                    outcome.commit_mapping.iter_mut().find_map(
+                                        |(_base, old, _new)| (old == &commit_id).then_some(old),
+                                    )
+                                else {
+                                    bail!(
+                                        "BUG: Needed to find modified {commit_id} to set it back its previous value, but couldn't find it"
+                                    );
+                                };
+                                *rewritten_old = workspace_tip;
+                            }
+                            outcome
+                        }
+                        Err(err) => {
+                            return if let Some(conflicts) =
+                                err.downcast_ref::<ConflictErrorContext>()
+                            {
+                                conflicts_to_specs(&mut out, &conflicts.paths, &changes)?;
+                                Ok(out)
+                            } else {
+                                Err(err)
+                            };
+                        }
                     }
-                    outcome
                 } else {
-                    builder.rebase()?
+                    match builder.rebase() {
+                        Ok(rebase) => rebase,
+                        Err(err) => {
+                            return if let Some(conflicts) =
+                                err.downcast_ref::<ConflictErrorContext>()
+                            {
+                                conflicts_to_specs(&mut out, &conflicts.paths, &changes)?;
+                                Ok(out)
+                            } else {
+                                Err(err)
+                            };
+                        }
+                    }
                 }
             };
+
             refs::rewrite(
                 repo,
                 vb,
@@ -563,7 +618,7 @@ pub fn create_commit_and_update_refs(
 }
 
 /// Like [`create_commit_and_update_refs()`], but integrates with an existing GitButler `project`
-/// if present. Alternatively it uses the current `HEAD` as only reference point.
+/// if present. Alternatively, it uses the current `HEAD` as only reference point.
 /// Note that virtual branches will be updated and written back after this call, which will obtain
 /// an exclusive workspace lock as well.
 #[allow(clippy::too_many_arguments)]
