@@ -15,6 +15,8 @@ export enum TestId {
 	BranchHeaderRenameModal_Warning = 'branch-header-rename-modal-warning',
 	BranchHeaderContextMenu_SquashAllCommits = 'branch-header-context-menu-squash-all-commits',
 	EditCommitMessageDrawer = 'edit-commit-message-drawer',
+	CommitDrawer = 'commit-drawer',
+	CommitDrawerActionUncommit = 'commit-drawer-action-uncommit',
 	CommitDrawerActionEditMessage = 'commit-drawer-action-edit-message',
 	CommitDrawerTitleInput = 'commit-drawer-title-input',
 	CommitDrawerDescriptionInput = 'commit-drawer-description-input',
@@ -27,7 +29,9 @@ export enum TestId {
 	CommitRow = 'commit-row',
 	NewCommitDrawer = 'new-commit-drawer',
 	StackDraft = 'stack-draft',
-	YourCommitGoesHere = 'your-commit-goes-here'
+	YourCommitGoesHere = 'your-commit-goes-here',
+	CommitMenuButton = 'commit-menu-btn',
+	UncommitMenuButton = 'uncommit-menu-btn'
 }
 
 export enum ElementId {

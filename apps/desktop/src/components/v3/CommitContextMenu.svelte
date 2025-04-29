@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext } from '@gitbutler/shared/context';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -54,6 +55,7 @@
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Uncommit"
+			testId={TestId.UncommitMenuButton}
 			onclick={(e: MouseEvent) => {
 				args.onUncommitClick?.(e);
 				close();

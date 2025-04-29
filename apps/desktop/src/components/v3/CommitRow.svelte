@@ -126,6 +126,7 @@
 				type="button"
 				bind:this={kebabMenuTrigger}
 				class="commit-menu-btn"
+				data-testid={TestId.CommitMenuButton}
 				class:activated={isOpenedByKebabButton}
 				onmousedown={(e) => {
 					e.stopPropagation();

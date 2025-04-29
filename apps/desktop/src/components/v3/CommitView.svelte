@@ -156,7 +156,7 @@
 				/>
 			</Drawer>
 		{:else}
-			<Drawer projectId={env.projectId} stackId={env.stackId}>
+			<Drawer testId={TestId.CommitDrawer} projectId={env.projectId} stackId={env.stackId}>
 				{#snippet header()}
 					<div class="commit-view__header text-13">
 						{#if isLocalAndRemoteCommit(commit)}
@@ -232,6 +232,7 @@
 
 						{#if !isConflicted}
 							<AsyncButton
+								testId={TestId.CommitDrawerActionUncommit}
 								size="tag"
 								kind="outline"
 								icon="undo-small"

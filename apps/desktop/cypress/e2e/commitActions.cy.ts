@@ -16,6 +16,7 @@ describe('Commit Actions', () => {
 		mockCommand('create_commit_from_worktree_changes', (params) =>
 			mockBackend.createCommit(params)
 		);
+		mockCommand('undo_commit', (params) => mockBackend.undoCommit(params));
 
 		cy.visit('/');
 
@@ -146,6 +147,37 @@ describe('Commit Actions', () => {
 
 		// Should never get the diff information, because there are no partial changes being committed.
 		expect(mockBackend.getDiff).to.have.callCount(0);
+	});
+
+	it('Should hide the drawer on uncommit from context menu', () => {
+		// Click on the first commit and open the commit menu
+		cy.getByTestId('commit-row').click().getByTestId('commit-menu-btn').click();
+
+		// Click on the uncommit option
+		cy.getByTestId('uncommit-menu-btn').click();
+
+		// The drawer should be closed
+		cy.getByTestId('commit-drawer').should('not.exist');
+
+		// The commit should be removed from the list
+		cy.getByTestId('commit-row').should('have.length', 0);
+	});
+
+	it('Should hide the drawer on uncommit from the commit drawer', () => {
+		// Click on the first commit
+		cy.getByTestId('commit-row').first().click();
+
+		// Should open the commit drawer
+		cy.getByTestId('commit-drawer').first().should('be.visible');
+
+		// Click on the uncommit button
+		cy.getByTestId('commit-drawer-action-uncommit').click();
+
+		// The drawer should be closed
+		cy.getByTestId('commit-drawer').should('not.exist');
+
+		// The commit should be removed from the list
+		cy.getByTestId('commit-row').should('have.length', 0);
 	});
 });
 

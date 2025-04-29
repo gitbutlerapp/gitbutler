@@ -3,6 +3,7 @@ import {
 	isGetCommitChangesParams,
 	isGetDiffParams,
 	isGetWorktreeChangesParams,
+	isUndoCommitParams,
 	MOCK_TREE_CHANGE_A,
 	MOCK_UNIFIED_DIFF
 } from './changes';
@@ -28,13 +29,16 @@ export type MockBackendOptions = {
 	initalStacks?: Stack[];
 };
 
+type StackId = string;
+type CommitId = string;
+
 /**
  * *Ooooh look at me, I'm a mock backend!*
  */
 export default class MockBackend {
 	private stacks: Stack[];
-	private stackDetails: Map<string, StackDetails>;
-	private commitChanges: Map<string, TreeChange[]>;
+	private stackDetails: Map<StackId, StackDetails>;
+	private commitChanges: Map<CommitId, TreeChange[]>;
 	private worktreeChanges: WorktreeChanges;
 	stackId: string = MOCK_STACK_A_ID;
 	renamedCommitId: string = '424242424242';
@@ -215,5 +219,32 @@ export default class MockBackend {
 				filesChanged: changes.length
 			}
 		};
+	}
+
+	public undoCommit(args: InvokeArgs | undefined) {
+		if (!args || !isUndoCommitParams(args)) {
+			throw new Error('Invalid arguments for getCommitChanges');
+		}
+
+		const { stackId, commitOid } = args;
+
+		const stackDetails = this.stackDetails.get(stackId);
+		if (!stackDetails) {
+			throw new Error(`Stack with ID ${stackId} not found`);
+		}
+
+		const editableDetails = structuredClone(stackDetails);
+
+		for (const branch of editableDetails.branchDetails) {
+			const commitToUndo = branch.commits.find((commit) => commit.id === commitOid);
+			if (!commitToUndo) continue;
+
+			branch.commits = branch.commits.filter((commit) => commit.id !== commitOid);
+			this.stackDetails.set(stackId, editableDetails);
+			// TODO: update the worktree changes
+			return;
+		}
+
+		throw new Error(`Commit with ID ${commitOid} not found`);
 	}
 }
