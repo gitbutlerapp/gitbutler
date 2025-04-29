@@ -8,7 +8,7 @@
 	import { slide } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
 
-	type Props = {
+	type BaseProps = {
 		type: CommitStatusType;
 		projectId: string;
 		branchName: string;
@@ -26,28 +26,36 @@
 		disableCommitActions?: boolean;
 		menu?: Snippet<[{ close: () => void }]>;
 		onclick?: () => void;
-	} & (
-		| { type: 'LocalOnly' | 'Integrated' | 'Remote' }
-		| ({
-				type: 'LocalAndRemote';
-		  } & (
-				| {
-						disableCommitActions: false;
-						diverged: boolean;
-						hasConflicts: boolean;
-				  }
-				| { disableCommitActions: true }
-		  ))
-	) &
-		(
-			| {
-					disableCommitActions: false;
-					stackId: string;
-			  }
-			| {
-					disableCommitActions: true;
-			  }
-		);
+	};
+
+	type RemoteStatusProps = {
+		type: 'LocalOnly' | 'Integrated' | 'Remote';
+	};
+
+	type LocalAndRemoteWithActions = {
+		type: 'LocalAndRemote';
+		disableCommitActions: false;
+		diverged: boolean;
+		hasConflicts: boolean;
+	};
+
+	type LocalAndRemoteDisabled = {
+		type: 'LocalAndRemote';
+		disableCommitActions: true;
+	};
+
+	type WithStackId = {
+		disableCommitActions: false;
+		stackId: string;
+	};
+
+	type WithoutStackId = {
+		disableCommitActions: true;
+	};
+
+	type Props = BaseProps &
+		(RemoteStatusProps | LocalAndRemoteWithActions | LocalAndRemoteDisabled) &
+		(WithStackId | WithoutStackId);
 
 	const {
 		commitMessage,
