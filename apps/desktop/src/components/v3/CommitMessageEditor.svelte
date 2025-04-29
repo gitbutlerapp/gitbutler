@@ -16,7 +16,6 @@
 	import { tick } from 'svelte';
 
 	type Props = {
-		existingCommitId?: string;
 		projectId: string;
 		stackId?: string;
 		actionLabel: string;
@@ -29,7 +28,6 @@
 	};
 
 	const {
-		existingCommitId,
 		projectId,
 		stackId,
 		actionLabel,
@@ -141,14 +139,6 @@
 		return titleText.current;
 	}
 </script>
-
-<CommitSuggestionsPlugin
-	bind:this={commitSuggestionsPlugin}
-	{projectId}
-	{canUseAI}
-	{suggestionsHandler}
-	{existingCommitId}
-/>
 
 <div class="commit-message-wrap">
 	<MessageEditorInput
