@@ -15,6 +15,21 @@ export const MOCK_STACK_A: Stack = {
 	tip: '1234123'
 };
 
+export const MOCK_BRAND_NEW_BRANCH_NAME = 'super-cool-branch-name';
+
+export const MOCK_STACK_BRAND_NEW_ID = 'empty-stack';
+
+export const MOCK_STACK_BRAND_NEW: Stack = {
+	id: MOCK_STACK_BRAND_NEW_ID,
+	heads: [
+		{
+			name: MOCK_BRAND_NEW_BRANCH_NAME,
+			tip: '1234123'
+		}
+	],
+	tip: '1234123'
+};
+
 export const MOCK_STACKS: Stack[] = [MOCK_STACK_A];
 
 export const MOCK_AUTHOR: Author = {
@@ -59,8 +74,32 @@ export const MOCK_BRANCH_DETAILS: BranchDetails = {
 	isRemoteHead: false
 };
 
+export const MOCK_BRANCH_DETAILS_BRAND_NEW: BranchDetails = {
+	name: MOCK_BRAND_NEW_BRANCH_NAME,
+	remoteTrackingBranch: null,
+	description: 'A mock branch for testing',
+	prNumber: null,
+	reviewId: null,
+	tip: '1234123',
+	baseCommit: 'base-sha',
+	pushStatus: 'completelyUnpushed',
+	lastUpdatedAt: Date.now(),
+	authors: [],
+	isConflicted: false,
+	commits: [],
+	upstreamCommits: [],
+	isRemoteHead: false
+};
+
+export const MOCK_STACK_DETAILS_BRAND_NEW: StackDetails = {
+	derivedName: MOCK_BRAND_NEW_BRANCH_NAME,
+	pushStatus: 'completelyUnpushed',
+	branchDetails: [MOCK_BRANCH_DETAILS_BRAND_NEW],
+	isConflicted: false
+};
+
 export const MOCK_STACK_DETAILS: StackDetails = {
-	derivedName: 'mock-branch',
+	derivedName: 'branch-a',
 	pushStatus: 'completelyUnpushed',
 	branchDetails: [MOCK_BRANCH_DETAILS],
 	isConflicted: false
