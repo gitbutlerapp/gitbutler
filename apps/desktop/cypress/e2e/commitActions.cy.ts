@@ -11,6 +11,7 @@ describe('Commit Actions', () => {
 		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
+		mockCommand('changes_in_commit', (params) => mockBackend.getCommitChanges(params));
 		mockCommand('create_commit_from_worktree_changes', (params) =>
 			mockBackend.createCommit(params)
 		);
@@ -31,6 +32,7 @@ describe('Commit Actions', () => {
 		const newCommitMessageBody = 'New commit message body';
 
 		cy.spy(mockBackend, 'updateCommitMessage').as('updateCommitMessageSpy');
+		cy.spy(mockBackend, 'getDiff').as('getDiffSpy');
 
 		// Click on the first commit
 		cy.getByTestId('commit-row').first().should('contain', originalCommitMessage).click();
@@ -78,6 +80,9 @@ describe('Commit Actions', () => {
 			commitOid: mockBackend.commitOid,
 			message: `${newCommitMessageTitle}\n\n${newCommitMessageBody}`
 		});
+
+		// Should never get the diff information, because there are no partial changes being committed.
+		expect(mockBackend.getDiff).to.have.callCount(0);
 	});
 
 	it('Should be able to commit', () => {
@@ -135,7 +140,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-title').should('contain', newCommitMessage);
 		cy.getByTestId('commit-drawer-description').should('contain', newCommitMessageBody);
 
-		// Should never get the diff information, becase there are no partial changes being commmitted.
-		cy.get('@getDiffSpy').should('not.be.called');
+		// Should never get the diff information, because there are no partial changes being committed.
+		expect(mockBackend.getDiff).to.have.callCount(0);
 	});
 });
