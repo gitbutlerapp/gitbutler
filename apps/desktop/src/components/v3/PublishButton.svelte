@@ -74,6 +74,22 @@
 		uiState.stack(stackId).selection.set({ branchName });
 		uiState.project(projectId).drawerPage.set('review');
 	}
+
+	function getPushTooltip() {
+		if (!branchName) {
+			return 'No available branches';
+		}
+
+		if (branchEmpty) {
+			return 'This branch is empty. Add some commits before pushing.';
+		}
+
+		if (hasConflicts) {
+			return 'In order to push, please resolve any conflicted commits.';
+		} else {
+			return branches.length > 1 ? `Create for ${branchName}` : undefined;
+		}
+	}
 </script>
 
 <CanPublishReviewPlugin {projectId} {stackId} {branchName} bind:this={canPublishReviewPlugin} />
@@ -84,9 +100,7 @@
 			style="neutral"
 			wide
 			disabled={!branchName || hasConflicts || branchEmpty}
-			tooltip={hasConflicts
-				? 'In order to push, please resolve any conflicted commits.'
-				: `Create for ${branchName}`}
+			tooltip={getPushTooltip()}
 			tooltipPosition="top"
 			onclick={publish}
 		>

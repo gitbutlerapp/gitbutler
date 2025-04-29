@@ -297,7 +297,7 @@
 	}
 
 	.table__row-header {
-		min-height: 20px;
+		min-height: 18px;
 		white-space: pre;
 		user-select: text;
 		-webkit-user-select: text;
