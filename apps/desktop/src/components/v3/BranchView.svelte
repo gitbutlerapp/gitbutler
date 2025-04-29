@@ -214,7 +214,7 @@
 		max-width: 540px;
 		margin: 0 auto;
 
-		@container drawer (max-width: 530px) {
+		@container drawer-content (max-width: 400px) {
 			padding: 10px;
 		}
 	}

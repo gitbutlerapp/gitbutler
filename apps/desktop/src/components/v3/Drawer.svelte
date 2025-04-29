@@ -267,6 +267,16 @@
 		}
 	}
 
+	.drawer__content {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		padding: 14px;
+		min-height: 100%;
+		container-type: inline-size;
+		container-name: drawer-content;
+	}
+
 	.drawer__content-scroll {
 		display: flex;
 		flex-direction: column;
@@ -282,13 +292,5 @@
 		flex-direction: column;
 		overflow: hidden;
 		min-width: 200px;
-	}
-
-	.drawer__content {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		padding: 14px;
-		min-height: 100%;
 	}
 </style>
