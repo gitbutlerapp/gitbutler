@@ -13,6 +13,7 @@
 	};
 
 	export interface Props {
+		testId?: string;
 		series: Branch[];
 		branchShouldBeDeletedMap: BranchShouldBeDeletedMap;
 		updateBranchShouldBeDeletedMap: (branchName: string[], shouldBeDeleted: boolean) => void;
@@ -24,8 +25,13 @@
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import SeriesIcon from '$lib/SeriesIcon.svelte';
-	const { series, children, updateBranchShouldBeDeletedMap, branchShouldBeDeletedMap }: Props =
-		$props();
+	const {
+		testId,
+		series,
+		children,
+		updateBranchShouldBeDeletedMap,
+		branchShouldBeDeletedMap
+	}: Props = $props();
 
 	const allSeriesAreIntegrated = series.every((branch) => branch.status === 'integrated');
 </script>
@@ -56,7 +62,7 @@
 	</div>
 {/snippet}
 
-<div class="integration-series-item no-select">
+<div data-testid={testId} class="integration-series-item no-select">
 	{#if series.length > 1}
 		<div class="series-header" class:integrated={allSeriesAreIntegrated}>
 			<div class="series-header-row">

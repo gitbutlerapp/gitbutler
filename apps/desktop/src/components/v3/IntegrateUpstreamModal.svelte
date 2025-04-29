@@ -84,9 +84,9 @@
 					{
 						branchId: status.stack.id,
 						approach: defaultApproach,
-						deleteIntegratedBranches: false // TODO: Take input from the UI
+						deleteIntegratedBranches: true
 					}
-				];
+				] as const;
 			})
 		);
 
@@ -207,6 +207,7 @@
 {#snippet stackStatus(stack: Stack, stackStatus: StackStatus)}
 	{@const branchShouldBeDeletedMap = getBranchShouldBeDeletedMap(stack.id, stackStatus)}
 	<IntegrationSeriesRow
+		testId={TestId.IntegrateUpstreamSeriesRow}
 		series={integrationRowSeries(stackStatus)}
 		{branchShouldBeDeletedMap}
 		updateBranchShouldBeDeletedMap={(_, shouldBeDeleted) =>
@@ -344,6 +345,7 @@
 		<div class="controls">
 			<Button onclick={() => modal?.close()} kind="outline">Cancel</Button>
 			<Button
+				testId={TestId.IntegrateUpstreamActionButton}
 				wide
 				type="submit"
 				style="pop"
