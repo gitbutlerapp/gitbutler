@@ -7,7 +7,7 @@
 	import tooLargeSvg from '$lib/assets/empty-state/too-large.svg?raw';
 	import DependencyService from '$lib/dependencies/dependencyService.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
-	import { ChangeDropData } from '$lib/dragging/draggables';
+	import { HunkDropDataV3 } from '$lib/dragging/draggables';
 	import { previousPathBytesFromTreeChange, type TreeChange } from '$lib/hunks/change';
 	import { canBePartiallySelected, getLineLocks, type DiffHunk } from '$lib/hunks/hunk';
 	import { Project } from '$lib/project/project';
@@ -211,7 +211,7 @@
 				class="hunk-content no-select"
 				use:draggableChips={{
 					label: hunk.diff.split('\n')[0],
-					data: new ChangeDropData(change, idSelection, selectionId),
+					data: new HunkDropDataV3(change, hunk, uncommittedChange),
 					disabled: readonly,
 					chipType: 'hunk'
 				}}

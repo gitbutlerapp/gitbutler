@@ -19,7 +19,7 @@ describe('Commit Actions', () => {
 
 		cy.visit('/');
 
-		cy.url().should('include', `/${PROJECT_ID}/workspace/${MOCK_STACK_A_ID}`);
+		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace/${MOCK_STACK_A_ID}`);
 	});
 
 	afterEach(() => {
@@ -168,7 +168,7 @@ describe('Commit Actions with no stacks', () => {
 
 		cy.visit('/');
 
-		cy.url().should('include', `/${PROJECT_ID}/workspace`);
+		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
 	});
 
 	afterEach(() => {

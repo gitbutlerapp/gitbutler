@@ -1,6 +1,11 @@
 import { type BranchStack } from '$lib/branches/branch';
 import { filesToSimpleOwnership } from '$lib/branches/ownership';
-import { ChangeDropData, FileDropData, HunkDropData } from '$lib/dragging/draggables';
+import {
+	ChangeDropData,
+	FileDropData,
+	HunkDropData,
+	HunkDropDataV3
+} from '$lib/dragging/draggables';
 import { LocalFile, RemoteFile } from '$lib/files/file';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { DiffSpec } from '$lib/hunks/hunk';
@@ -97,7 +102,7 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 		}
 	) {}
 
-	accepts(data: unknown): boolean {
+	private acceptsHunkV2(data: unknown): boolean {
 		const { stackId, commit, okWithForce } = this.args;
 		if (!okWithForce && commit.isRemote) return false;
 		if (commit.isIntegrated) return false;
@@ -109,30 +114,72 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 		);
 	}
 
-	ondrop(data: HunkDropData): void {
+	private acceptsHunkV3(data: unknown): boolean {
+		const { commit, okWithForce } = this.args;
+		if (!okWithForce && commit.isRemote) return false;
+		if (commit.isIntegrated) return false;
+		// TODO: Is it reckless to assume that we can always drop a hunk
+		// even if it's committed?
+		return data instanceof HunkDropDataV3 && !commit.hasConflicts;
+	}
+
+	accepts(data: unknown): boolean {
+		return this.acceptsHunkV2(data) || this.acceptsHunkV3(data);
+	}
+
+	ondrop(data: HunkDropData | HunkDropDataV3): void {
 		const { stackService, projectId, stackId, commit, okWithForce } = this.args;
 		if (!okWithForce && commit.isRemote) return;
-		stackService.amendCommitMutation({
-			projectId,
-			stackId,
-			commitId: commit.id,
-			worktreeChanges: [
-				{
-					// TODO: We don't get prev path bytes in v2, but we're using
-					// the new api.
-					previousPathBytes: null,
-					pathBytes: data.hunk.filePath as any,
-					hunkHeaders: [
-						{
-							oldStart: data.hunk.oldStart,
-							oldLines: data.hunk.oldLines,
-							newStart: data.hunk.newStart,
-							newLines: data.hunk.newLines
-						}
-					]
-				}
-			]
-		});
+
+		if (data instanceof HunkDropData) {
+			stackService.amendCommitMutation({
+				projectId,
+				stackId,
+				commitId: commit.id,
+				worktreeChanges: [
+					{
+						// TODO: We don't get prev path bytes in v2, but we're using
+						// the new api.
+						previousPathBytes: null,
+						pathBytes: data.hunk.filePath as any,
+						hunkHeaders: [
+							{
+								oldStart: data.hunk.oldStart,
+								oldLines: data.hunk.oldLines,
+								newStart: data.hunk.newStart,
+								newLines: data.hunk.newLines
+							}
+						]
+					}
+				]
+			});
+			return;
+		}
+
+		if (data instanceof HunkDropDataV3) {
+			const previousPathBytes =
+				data.change.status.type === 'Rename' ? data.change.status.subject.previousPathBytes : null;
+			stackService.amendCommitMutation({
+				projectId,
+				stackId,
+				commitId: commit.id,
+				worktreeChanges: [
+					{
+						previousPathBytes,
+						pathBytes: data.change.pathBytes,
+						hunkHeaders: [
+							{
+								oldStart: data.hunk.oldStart,
+								oldLines: data.hunk.oldLines,
+								newStart: data.hunk.newStart,
+								newLines: data.hunk.newLines
+							}
+						]
+					}
+				]
+			});
+			return;
+		}
 	}
 }
 
