@@ -4,6 +4,7 @@
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { getFilename } from '$lib/files/utils';
+	import { previousPathBytesFromTreeChange, type TreeChange } from '$lib/hunks/change';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';
@@ -13,7 +14,6 @@
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
-	import type { TreeChange } from '$lib/hunks/change';
 	import type { Rename } from '$lib/hunks/change';
 	import type { UnifiedDiff } from '$lib/hunks/diff';
 
@@ -88,7 +88,8 @@
 			changeSelection.add({
 				type: 'full',
 				path,
-				pathBytes
+				pathBytes,
+				previousPathBytes: previousPathBytesFromTreeChange(change)
 			});
 		}
 	}

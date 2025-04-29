@@ -8,6 +8,7 @@
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
+	import { previousPathBytesFromTreeChange } from '$lib/hunks/change';
 	import { ChangeSelectionService, type SelectedFile } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -72,10 +73,13 @@
 
 	function selectEverything() {
 		const affectedPaths =
-			changesResult.current.data?.map((c) => [c.path, c.pathBytes] as const) ?? [];
-		const files: SelectedFile[] = affectedPaths.map(([path, pathBytes]) => ({
+			changesResult.current.data?.map(
+				(c) => [c.path, c.pathBytes, previousPathBytesFromTreeChange(c)] as const
+			) ?? [];
+		const files: SelectedFile[] = affectedPaths.map(([path, pathBytes, previousPathBytes]) => ({
 			path,
 			pathBytes,
+			previousPathBytes,
 			type: 'full'
 		}));
 		changeSelection.addMany(files);

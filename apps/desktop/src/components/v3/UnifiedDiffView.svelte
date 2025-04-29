@@ -8,6 +8,7 @@
 	import DependencyService from '$lib/dependencies/dependencyService.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
+	import { previousPathBytesFromTreeChange, type TreeChange } from '$lib/hunks/change';
 	import { canBePartiallySelected, getLineLocks, type DiffHunk } from '$lib/hunks/hunk';
 	import { Project } from '$lib/project/project';
 	import { isWorkspacePath } from '$lib/routes/routes.svelte';
@@ -24,7 +25,6 @@
 	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
-	import type { TreeChange } from '$lib/hunks/change';
 	import type { UnifiedDiff } from '$lib/hunks/diff';
 	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 
@@ -67,7 +67,8 @@
 	const selection = $derived(changeSelectionResult.current);
 	const pathData = $derived({
 		path: change.path,
-		pathBytes: change.pathBytes
+		pathBytes: change.pathBytes,
+		previousPathBytes: previousPathBytesFromTreeChange(change)
 	});
 
 	const changesTimestamp = $derived(worktreeService.getChangesTimeStamp(projectId));
