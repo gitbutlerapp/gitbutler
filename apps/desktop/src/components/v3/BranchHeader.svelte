@@ -182,7 +182,7 @@
 					<span class="branch-header__divider">•</span>
 
 					{#if args.isConflicted}
-						<span class="branch-header__item branch-header__item--conflict"> Has conflicts </span>
+						<span class="branch-header__item branch-header__item--conflict"> Conflicts </span>
 						<span class="branch-header__divider">•</span>
 					{/if}
 
