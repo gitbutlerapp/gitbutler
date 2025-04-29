@@ -4,6 +4,7 @@
 	import CommitGoesHere from '$components/v3/CommitGoesHere.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 
 	type Props = {
@@ -32,7 +33,7 @@
 	const branchName = $derived(draftBranchName.current || newName);
 </script>
 
-<div class="stack-draft">
+<div data-testid={TestId.StackDraft} class="stack-draft">
 	<BranchCard type="draft-branch" {projectId} {branchName}>
 		{#snippet header()}
 			<BranchHeader

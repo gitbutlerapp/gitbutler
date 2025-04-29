@@ -1,5 +1,6 @@
 import {
 	bytesToStr,
+	isGetCommitChangesParams,
 	isGetDiffParams,
 	isGetWorktreeChangesParams,
 	MOCK_TREE_CHANGE_A,
@@ -9,29 +10,60 @@ import {
 	isCreateCommitParams,
 	isStackDetailsParams,
 	isUpdateCommitMessageParams,
+	MOCK_BRAND_NEW_BRANCH_NAME,
 	MOCK_COMMIT,
 	MOCK_STACK_A_ID,
-	MOCK_STACK_DETAILS
+	MOCK_STACK_BRAND_NEW,
+	MOCK_STACK_BRAND_NEW_ID,
+	MOCK_STACK_DETAILS,
+	MOCK_STACK_DETAILS_BRAND_NEW,
+	MOCK_STACKS
 } from './stacks';
-import type { WorktreeChanges } from '$lib/hunks/change';
+import type { TreeChange, TreeChanges, WorktreeChanges } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
-import type { StackDetails } from '$lib/stacks/stack';
+import type { Stack, StackDetails } from '$lib/stacks/stack';
 import type { InvokeArgs } from '@tauri-apps/api/core';
+
+export type MockBackendOptions = {
+	initalStacks?: Stack[];
+};
 
 /**
  * *Ooooh look at me, I'm a mock backend!*
  */
 export default class MockBackend {
+	private stacks: Stack[];
 	private stackDetails: Map<string, StackDetails>;
+	private commitChanges: Map<string, TreeChange[]>;
 	private worktreeChanges: WorktreeChanges;
 	stackId: string = MOCK_STACK_A_ID;
+	renamedCommitId: string = '424242424242';
 	commitOid: string = MOCK_COMMIT.id;
+	cannedBranchName = MOCK_BRAND_NEW_BRANCH_NAME;
 
-	constructor() {
+	constructor(private options: MockBackendOptions = {}) {
+		this.stacks = options.initalStacks ?? MOCK_STACKS;
 		this.stackDetails = new Map<string, StackDetails>();
+		this.commitChanges = new Map<string, TreeChange[]>();
 		this.worktreeChanges = { changes: [MOCK_TREE_CHANGE_A], ignoredChanges: [] };
 
 		this.stackDetails.set(MOCK_STACK_A_ID, structuredClone(MOCK_STACK_DETAILS));
+		this.stackDetails.set(MOCK_STACK_BRAND_NEW_ID, structuredClone(MOCK_STACK_DETAILS_BRAND_NEW));
+		this.commitChanges.set(MOCK_COMMIT.id, []);
+		this.commitChanges.set(this.renamedCommitId, []);
+	}
+
+	public getStacks(): Stack[] {
+		return this.stacks;
+	}
+
+	public getCannedBranchName(): string {
+		return this.cannedBranchName ?? 'super-cool-branch-name';
+	}
+
+	public createBranch(): Stack {
+		this.stacks.push(MOCK_STACK_BRAND_NEW);
+		return MOCK_STACK_BRAND_NEW;
 	}
 
 	public getStackDetails(args: InvokeArgs | undefined): StackDetails {
@@ -63,7 +95,7 @@ export default class MockBackend {
 			const commitIndex = branch.commits.findIndex((commit) => commit.id === commitOid);
 			if (commitIndex === -1) continue;
 			const commit = branch.commits[commitIndex]!;
-			const newId = '424242424242';
+			const newId = this.renamedCommitId;
 			branch.commits[commitIndex] = {
 				...commit,
 				message,
@@ -108,9 +140,17 @@ export default class MockBackend {
 		const editableDetails = structuredClone(stackDetails);
 
 		// Assume only full file changes are passed.
-		const remainingChanges = this.worktreeChanges.changes.filter((change) => {
-			return !worktreeChanges.some((c) => bytesToStr(c.pathBytes) === change.path);
-		});
+		const remainingChanges: TreeChange[] = [];
+		const committedChanges: TreeChange[] = [];
+
+		for (const change of this.worktreeChanges.changes) {
+			const isCommitted = worktreeChanges.some((c) => bytesToStr(c.pathBytes) === change.path);
+			if (isCommitted) {
+				committedChanges.push(change);
+			} else {
+				remainingChanges.push(change);
+			}
+		}
 
 		this.worktreeChanges = {
 			...this.worktreeChanges,
@@ -140,6 +180,7 @@ export default class MockBackend {
 		];
 
 		this.stackDetails.set(stackId, editableDetails);
+		this.commitChanges.set(newCommitId, committedChanges);
 
 		const pathsToRejectedChanges: string[] = [];
 
@@ -152,5 +193,27 @@ export default class MockBackend {
 		}
 
 		return MOCK_UNIFIED_DIFF;
+	}
+
+	public getCommitChanges(args: InvokeArgs | undefined): TreeChanges {
+		if (!args || !isGetCommitChangesParams(args)) {
+			throw new Error('Invalid arguments for getCommitChanges');
+		}
+
+		const { commitId } = args;
+		const changes = this.commitChanges.get(commitId);
+
+		if (!changes) {
+			throw new Error(`No changes found for commit with ID ${commitId}`);
+		}
+
+		return {
+			changes,
+			stats: {
+				linesAdded: 0,
+				linesRemoved: 0,
+				filesChanged: changes.length
+			}
+		};
 	}
 }

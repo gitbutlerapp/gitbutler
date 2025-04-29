@@ -102,3 +102,19 @@ export function isGetDiffParams(args: unknown): args is GetDiffParams {
 		isTreeChange(args['change'])
 	);
 }
+
+export type GetCommitChangesParams = {
+	projectId: string;
+	commitId: string;
+};
+
+export function isGetCommitChangesParams(args: unknown): args is GetCommitChangesParams {
+	return (
+		typeof args === 'object' &&
+		args !== null &&
+		'projectId' in args &&
+		typeof args['projectId'] === 'string' &&
+		'commitId' in args &&
+		typeof args['commitId'] === 'string'
+	);
+}
