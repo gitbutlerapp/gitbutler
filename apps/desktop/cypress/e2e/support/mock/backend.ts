@@ -21,11 +21,11 @@ import {
 	MOCK_STACK_DETAILS_BRAND_NEW,
 	MOCK_STACKS
 } from './stacks';
-import { MOCK_BRANCH_STATUSES_RESPONSE } from './upstreamIntegration';
+import { MOCK_BRANCH_STATUSES_RESPONSE, MOCK_INTEGRATION_OUTCOME } from './upstreamIntegration';
 import type { TreeChange, TreeChanges, WorktreeChanges } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { Stack, StackDetails } from '$lib/stacks/stack';
-import type { BranchStatusesResponse } from '$lib/upstream/types';
+import type { BranchStatusesResponse, IntegrationOutcome } from '$lib/upstream/types';
 import type { InvokeArgs } from '@tauri-apps/api/core';
 
 export type MockBackendOptions = {
@@ -257,5 +257,9 @@ export default class MockBackend {
 
 	public getUpstreamIntegrationStatuses(): BranchStatusesResponse {
 		return MOCK_BRANCH_STATUSES_RESPONSE;
+	}
+
+	public integrateUpstream(_args: InvokeArgs | undefined): IntegrationOutcome {
+		return MOCK_INTEGRATION_OUTCOME;
 	}
 }
