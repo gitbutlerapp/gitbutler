@@ -68,7 +68,7 @@
 	let isTitleFocused = $state(true);
 	let isDescriptionFocused = $state(false);
 
-	const { title, description } = $derived(splitMessage(commitMessage));
+	const { title, description } = $derived(splitMessage(commitMessage, true));
 
 	$effect(() => {
 		valid = !!title;
