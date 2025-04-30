@@ -97,7 +97,6 @@
 	oncontextmenu={(e) => {
 		if (oncontextmenu) {
 			e.preventDefault();
-			e.stopPropagation();
 			oncontextmenu(e);
 		}
 	}}
