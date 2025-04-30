@@ -12,9 +12,10 @@
 		isExpanded?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		ontoggle?: (expanded: boolean) => void;
+		testId?: string;
 	};
 
-	const { node, depth, showCheckbox, isExpanded, onclick, ontoggle }: Props = $props();
+	const { node, depth, showCheckbox, isExpanded, onclick, ontoggle, testId }: Props = $props();
 
 	const selectionService = getContext(ChangeSelectionService);
 	const selection = $derived(selectionService.getByPrefix(nodePath(node)));
@@ -49,6 +50,7 @@
 </script>
 
 <FolderListItem
+	{testId}
 	name={node.name}
 	{depth}
 	{isExpanded}
