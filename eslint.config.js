@@ -74,7 +74,8 @@ export default ts.config(
 					reset: true
 				}
 			],
-			'no-relative-import-paths/no-relative-import-paths': 'error'
+			'no-relative-import-paths/no-relative-import-paths': 'error',
+			'no-undef': 'off' // eslint faq advises `no-undef` turned off for typescript projects.
 		},
 		settings: {
 			'import-x/extensions': ['.ts'],
