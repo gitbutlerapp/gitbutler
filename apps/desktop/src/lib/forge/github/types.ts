@@ -4,7 +4,8 @@ import type {
 	CheckSuite,
 	DetailedPullRequest,
 	Label,
-	PullRequest
+	PullRequest,
+	PullRequestPermissions
 } from '$lib/forge/interface/types';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 
@@ -23,8 +24,20 @@ export type SuitesResult =
 	RestEndpointMethodTypes['checks']['listSuitesForRef']['response']['data'];
 export type RepoResult = RestEndpointMethodTypes['repos']['get']['response']['data'];
 
+export interface GitHubRepoPermissions {
+	admin: boolean;
+	maintain?: boolean;
+	push: boolean;
+	triage?: boolean;
+	pull: boolean;
+}
+
+export type DetailedGitHubPullRequestWithPermissions = DetailedGitHubPullRequest & {
+	permissions?: GitHubRepoPermissions;
+};
+
 export function parseGitHubDetailedPullRequest(
-	response: GhResponse<DetailedGitHubPullRequest>
+	response: GhResponse<DetailedGitHubPullRequestWithPermissions>
 ): GhResponse<DetailedPullRequest> {
 	if (response.error) {
 		return response;
@@ -36,6 +49,10 @@ export function parseGitHubDetailedPullRequest(
 			srcUrl: reviewer.avatar_url,
 			name: reviewer.name || reviewer.login
 		})) || [];
+
+	const permissions: PullRequestPermissions | undefined = data.permissions
+		? { canMerge: data.permissions.push }
+		: undefined;
 
 	return {
 		data: {
@@ -60,7 +77,8 @@ export function parseGitHubDetailedPullRequest(
 			state: data.state,
 			fork: data.head?.repo?.fork ?? false,
 			reviewers,
-			commentsCount: data.comments
+			commentsCount: data.comments,
+			permissions
 		}
 	};
 }
