@@ -12,23 +12,29 @@ import {
 	selectPrivateMessages,
 	getChats,
 	markOpen,
-	messageNick
+	messageNick,
+	getChatsWithPopup,
+	getChannel,
+	setPopup,
+	getChat,
+	clearNames
 } from '$lib/irc/ircSlice';
 import { showError } from '$lib/notifications/toasts';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import persistReducer from 'redux-persist/es/persistReducer';
 import storage from 'redux-persist/lib/storage';
-import type { IrcClient, ReadyState } from '$lib/irc/ircClient.svelte';
+import type { IrcClient } from '$lib/irc/ircClient.svelte';
 import type { IrcEvent } from '$lib/irc/parser';
-import type { WhoInfo } from '$lib/irc/types';
+import type { IrcChannel, IrcChat, WhoInfo } from '$lib/irc/types';
 import type { ClientState } from '$lib/state/clientState.svelte';
+import type { Reactive } from '@gitbutler/shared/storeUtils';
 import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
 
 /**
  * Experimental IRC
  */
 export class IrcService {
-	private state = $state(ircSlice.getInitialState());
+	private state = $state.raw(ircSlice.getInitialState());
 	_whoInfo: WhoInfo | undefined;
 	status: ReadyState | undefined = $state();
 
@@ -46,8 +52,10 @@ export class IrcService {
 
 		$effect(() => {
 			if (clientState.reactiveState) {
-				// @ts-expect-error code-splitting means it's not defined in client state.
-				this.state = clientState.reactiveState[ircSlice.reducerPath] as IRCState;
+				if (ircSlice.reducerPath in clientState.reactiveState) {
+					// @ts-expect-error code-splitting means it's not defined in client state.
+					this.state = clientState.reactiveState[ircSlice.reducerPath] as IRCState;
+				}
 			}
 		});
 
@@ -58,16 +66,16 @@ export class IrcService {
 		});
 
 		$effect(() => {
-			// return this.ircClient.onopen(() => {
-			// 	const channels = this.getChannels();
-			// 	this.dispatch(clearNames());
-			// 	setTimeout(() => {
-			// 		for (const key in channels) {
-			// 			const channel = channels[key];
-			// 			this.send(`JOIN ${channel?.name}`);
-			// 		}
-			// 	}, 5000);
-			// });
+			return this.ircClient.onopen(() => {
+				const channels = this.getChannels();
+				this.dispatch(clearNames());
+				setTimeout(() => {
+					for (const key in channels) {
+						const channel = channels[key];
+						this.send(`JOIN ${channel?.name}`);
+					}
+				}, 5000);
+			});
 		});
 	}
 
@@ -147,9 +155,26 @@ export class IrcService {
 		return result;
 	}
 
+	getChatsWithPopup() {
+		const result = $derived(getChatsWithPopup(this.state));
+		return result;
+	}
+
 	getChannels() {
 		const result = $derived(getChannels(this.state));
 		return result;
+	}
+
+	getChannel(name: string): Reactive<IrcChannel | undefined> {
+		const selector = $derived(getChannel(name));
+		const result = $derived(selector(this.state));
+		return reactive(() => result);
+	}
+
+	getChat(name: string): Reactive<IrcChat | undefined> {
+		const selector = $derived(getChat(name));
+		const result = $derived(selector(this.state));
+		return reactive(() => result);
 	}
 
 	getChannelUsers(name: string) {
@@ -162,6 +187,10 @@ export class IrcService {
 		return () => {
 			this.dispatch(markOpen({ name, open: false }));
 		};
+	}
+
+	setPopup(name: string, popup: boolean) {
+		this.dispatch(setPopup({ name, popup }));
 	}
 
 	unreadCount() {
