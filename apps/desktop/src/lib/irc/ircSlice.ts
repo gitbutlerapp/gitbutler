@@ -1,6 +1,7 @@
 import { createChat, joinChannel } from '$lib/irc/channel';
 import { logsAdapter, logSelectors } from '$lib/irc/logs';
 import { type IrcEvent } from '$lib/irc/parser';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import {
 	createAsyncThunk,
 	createSelector,
@@ -36,6 +37,13 @@ export const ircSlice = createSlice({
 				if (target.open) {
 					target.unread = 0;
 				}
+			}
+		},
+		setPopup(state, action: PayloadAction<{ name: string; popup: boolean }>) {
+			const name = action.payload.name;
+			const target = name.startsWith('#') ? state.channels[name] : state.chats[name];
+			if (target) {
+				target.popup = action.payload.popup;
 			}
 		},
 		clearNames(state) {
@@ -364,6 +372,12 @@ export const selectPrivateMessages = createSelector(
 );
 
 export const getChats = createSelector([selectSelf], (rootState) => rootState.chats);
+export const getChatsWithPopup = createSelector([selectSelf], (rootState) => {
+	return Object.keys(rootState.chats)
+		.map((key) => rootState.chats[key])
+		.filter((chat) => chat?.popup)
+		.filter(isDefined);
+});
 export const getChannels = createSelector([selectSelf], (rootState) => rootState.channels);
 export const getConnectionState = createSelector([selectSelf], (rootState) => rootState.connection);
 
@@ -371,11 +385,22 @@ export const getUnreadCount = createSelector([getChannels], (channels) =>
 	Object.values(channels).reduce((prev, curr) => prev + curr.unread || 0, 0)
 );
 
+export function getChannel(name: string) {
+	return createSelector([getChannels], (channels) => channels[name]);
+}
+
+export function getChat(name: string) {
+	return createSelector([getChats], (chats) => {
+		return chats[name];
+	});
+}
+
 export const getChannelUsers = createSelector(
 	[getChannels, (_, name: string) => name],
 	(channels, name) => channels[name]?.users
 );
 
-export const { setConnectionState, markOpen, clearNames, processIncoming } = ircSlice.actions;
+export const { setConnectionState, markOpen, setPopup, clearNames, processIncoming } =
+	ircSlice.actions;
 
 export const ircReducer = ircSlice.reducer;

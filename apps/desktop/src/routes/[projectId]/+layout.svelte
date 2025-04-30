@@ -8,6 +8,7 @@
 	import NotOnGitButlerBranch from '$components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
+	import IrcPopups from '$components/v3/IrcPopups.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchService } from '$lib/branches/branchService.svelte';
@@ -333,6 +334,10 @@
 		{/if}
 	{/if}
 {/key}
+
+{#if $settingsStore?.featureFlags.v3}
+	<IrcPopups />
+{/if}
 
 <!-- Mounting metrics reporter in the board ensures dependent services are subscribed to. -->
 <MetricsReporter {projectId} {projectMetrics} />

@@ -6,9 +6,10 @@
 		value?: string;
 		id?: string;
 		onclick?: (e: MouseEvent) => void;
+		onchange?: (checked: boolean) => void;
 	}
 
-	let { small, disabled, checked = $bindable(), value, id, onclick }: Props = $props();
+	let { small, disabled, checked = $bindable(), value, id, onclick, onchange }: Props = $props();
 </script>
 
 <input
@@ -17,6 +18,7 @@
 		e.stopPropagation();
 		onclick?.(e);
 	}}
+	onchange={(e) => onchange?.(e.currentTarget.checked)}
 	type="checkbox"
 	class="toggle"
 	class:small

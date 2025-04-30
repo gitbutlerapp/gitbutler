@@ -5,9 +5,11 @@
 	import { IrcClient } from '$lib/irc/ircClient.svelte';
 	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import type { Snippet } from 'svelte';
 
 	type Props = {
 		type: string;
+		headerActions?: Snippet;
 	} & (
 		| { type: 'server' }
 		| { type: 'group'; channel: string; autojoin: boolean }
@@ -23,7 +25,12 @@
 		}
 	});
 
+	let i = 0;
+
 	$effect(() => {
+		if (i++ > 2) {
+			return;
+		}
 		if (props.type === 'group') {
 			return ircService.markOpen(props.channel);
 		} else if (props.type === 'private') {
@@ -52,11 +59,10 @@
 		{:else if props.type === 'server'}
 			{ircClient.server.current}
 		{/if}
+		{@render props.headerActions?.()}
 	</div>
 	<div class="middle">
-		{#if logs}
-			<IrcMessages {logs} />
-		{/if}
+		<IrcMessages {logs} />
 		{#if props.type === 'group'}
 			<IrcNames channel={props.channel} />
 		{/if}
@@ -78,14 +84,15 @@
 		height: 100%;
 		width: 100%;
 		background-color: var(--clr-bg-1);
-		border-radius: var(--radius-l);
 	}
 	.header {
+		display: flex;
 		padding: 6px;
 		width: 100%;
-		text-align: center;
+		justify-content: center;
 		background-color: var(--clr-bg-1);
 		border-bottom: 1px solid var(--clr-border-2);
+		align-items: center;
 	}
 	.middle {
 		display: flex;
