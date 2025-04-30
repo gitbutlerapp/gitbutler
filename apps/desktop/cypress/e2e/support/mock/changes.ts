@@ -137,3 +137,98 @@ export function isUndoCommitParams(args: unknown): args is UndoCommitParams {
 		typeof args['stackId'] === 'string'
 	);
 }
+
+export const MOCK_TREE_CHANGE_ADDITION: TreeChange = {
+	path: '/mock/addition.txt',
+	pathBytes: strToBytes('/mock/addition.txt'),
+	status: {
+		type: 'Addition',
+		subject: {
+			state: { id: 'addition-id', kind: 'addition' },
+			isUntracked: false
+		}
+	}
+};
+
+export function createMockAdditionTreeChange(props: Partial<TreeChange>): TreeChange {
+	const path = props.path ?? MOCK_TREE_CHANGE_ADDITION.path;
+	const pathBytes = props.pathBytes ?? strToBytes(path);
+	return {
+		...MOCK_TREE_CHANGE_ADDITION,
+		...props,
+		path,
+		pathBytes
+	};
+}
+
+export const MOCK_TREE_CHANGE_DELETION: TreeChange = {
+	path: '/mock/deletion.txt',
+	pathBytes: strToBytes('/mock/deletion.txt'),
+	status: {
+		type: 'Deletion',
+		subject: {
+			previousState: { id: 'deletion-prev-id', kind: 'deletion' }
+		}
+	}
+};
+
+export function createMockDeletionTreeChange(props: Partial<TreeChange>): TreeChange {
+	const path = props.path ?? MOCK_TREE_CHANGE_DELETION.path;
+	const pathBytes = props.pathBytes ?? strToBytes(path);
+	return {
+		...MOCK_TREE_CHANGE_DELETION,
+		...props,
+		path,
+		pathBytes
+	};
+}
+
+export const MOCK_TREE_CHANGE_MODIFICATION: TreeChange = {
+	path: '/mock/modification.txt',
+	pathBytes: strToBytes('/mock/modification.txt'),
+	status: {
+		type: 'Modification',
+		subject: {
+			previousState: { id: 'mod-prev-id', kind: 'mod-prev' },
+			state: { id: 'mod-id', kind: 'mod' },
+			flags: null
+		}
+	}
+};
+
+export function createMockModificationTreeChange(props: Partial<TreeChange>): TreeChange {
+	const path = props.path ?? MOCK_TREE_CHANGE_MODIFICATION.path;
+	const pathBytes = props.pathBytes ?? strToBytes(path);
+	return {
+		...MOCK_TREE_CHANGE_MODIFICATION,
+		...props,
+		path,
+		pathBytes
+	};
+}
+
+export const MOCK_TREE_CHANGE_RENAME: TreeChange = {
+	path: '/mock/renamed.txt',
+	pathBytes: strToBytes('/mock/renamed.txt'),
+	status: {
+		type: 'Rename',
+		subject: {
+			previousPath: '/mock/oldname.txt',
+			previousPathBytes: strToBytes('/mock/oldname.txt'),
+			previousState: { id: 'rename-prev-id', kind: 'rename-prev' },
+			state: { id: 'rename-id', kind: 'rename' },
+			flags: null
+		}
+	}
+};
+
+export function createMockRenameTreeChange(props: Partial<TreeChange>): TreeChange {
+	const path = props.path ?? MOCK_TREE_CHANGE_RENAME.path;
+	const pathBytes = props.pathBytes ?? strToBytes(path);
+	return {
+		...MOCK_TREE_CHANGE_RENAME,
+		...props,
+		path,
+		pathBytes
+	};
+}
