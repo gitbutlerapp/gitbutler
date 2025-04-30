@@ -72,6 +72,7 @@
 	}: Props = $props();
 
 	let kebabMenuTrigger = $state<HTMLButtonElement>();
+	let container = $state<HTMLDivElement>();
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 
 	let isOpenedByKebabButton = $state(false);
@@ -83,6 +84,7 @@
 </script>
 
 <div
+	bind:this={container}
 	role="button"
 	tabindex="0"
 	aria-label="Commit row"
@@ -153,6 +155,7 @@
 <ContextMenu
 	bind:this={contextMenu}
 	leftClickTrigger={kebabMenuTrigger}
+	rightClickTrigger={container}
 	bind:isOpenedByKebabButton
 	bind:isOpenedByMouse
 >
