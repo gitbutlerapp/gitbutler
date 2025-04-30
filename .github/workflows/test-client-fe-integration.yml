@@ -3,10 +3,6 @@ name: Client Frontend Integration Tests
 on:
   pull_request:
     branches: [master]
-    paths:
-      - 'apps/desktop/**'
-      - 'packages/shared/**'
-      - 'packages/ui/**'
   workflow_dispatch:
     inputs:
       sha:
@@ -42,6 +38,7 @@ jobs:
         uses: cypress-io/github-action@v6
         with:
           install: false
+          cache-key: ${{ runner.os }}-cypress-${{ hashFiles('pnpm-lock.yaml') }}
           start: pnpm --dir apps/desktop preview
           wait-on: 'http://localhost:1420'
           command: pnpm --dir apps/desktop cy:ci
