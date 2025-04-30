@@ -1,9 +1,9 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { getContext } from 'svelte';
-	import { browser } from '$app/environment';
 
 	interface Props {
 		organizationSlug: string;

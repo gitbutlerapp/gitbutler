@@ -5,8 +5,6 @@
 	shared between a couple of different kinds of headers for branches.
 -->
 <script module lang="ts">
-	// TODO: Why does eslint complain about this line?
-	// eslint-disable-next-line svelte/valid-compile
 	export enum Action {
 		CreateButlerReview = 'Create Butler Review',
 		CreatePullRequest = 'Create Pull Request'

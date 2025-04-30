@@ -29,13 +29,11 @@
 </script>
 
 <Modal bind:this={modal} title="Join an organization" width="small">
-	{#snippet children()}
-		<p>To join an organization, you need to have a join code and an organization slug.</p>
-		<br />
-		<Textbox bind:value={organizationSlug} label="Organization slug" />
-		<br />
-		<Textbox bind:value={joinCode} label="Join code" />
-	{/snippet}
+	<p>To join an organization, you need to have a join code and an organization slug.</p>
+	<br />
+	<Textbox bind:value={organizationSlug} label="Organization slug" />
+	<br />
+	<Textbox bind:value={joinCode} label="Join code" />
 
 	{#snippet controls(close)}
 		<Button

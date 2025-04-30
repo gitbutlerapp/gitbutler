@@ -166,7 +166,7 @@
 				{/if}
 			</ContextMenuSection>
 		{:else}
-			{'Malformed item :('}
+			Malformed item :(
 		{/if}
 	{/snippet}
 </ContextMenu>

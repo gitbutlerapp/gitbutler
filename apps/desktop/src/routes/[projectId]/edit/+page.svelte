@@ -1,9 +1,9 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import EditMode from '$components/EditMode.svelte';
 	import { ModeService, type EditModeMetadata } from '$lib/mode/modeService';
 	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
-	import { goto } from '$app/navigation';
 
 	const modeService = getContext(ModeService);
 	const project = getContext(Project);

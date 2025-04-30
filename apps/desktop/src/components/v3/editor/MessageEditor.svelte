@@ -198,10 +198,8 @@
 		close();
 	}}
 >
-	{#snippet children()}
-		Your file will be stored in GitButler’s digital vault, safe and sound. We promise it’s secure,
-		so feel free to share the link however you like 🔐
-	{/snippet}
+	Your file will be stored in GitButler’s digital vault, safe and sound. We promise it’s secure, so
+	feel free to share the link however you like 🔐
 	{#snippet controls(close)}
 		<div class="modal-footer">
 			<label for="dont-show-again" class="modal-footer__checkbox">

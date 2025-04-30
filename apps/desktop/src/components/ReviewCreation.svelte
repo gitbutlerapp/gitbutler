@@ -405,7 +405,7 @@
 		disabled={isExecuting}
 		initialValue={prBody.value}
 		enableFileUpload
-		placeholder={'PR Description'}
+		placeholder="PR Description"
 		{onAiButtonClick}
 		{canUseAI}
 		{aiIsLoading}

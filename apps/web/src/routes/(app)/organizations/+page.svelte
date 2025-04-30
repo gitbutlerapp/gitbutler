@@ -72,37 +72,35 @@
 									roundedBottom={index === organizations.length - 1}
 									orientation="row"
 								>
-									{#snippet children()}
-										<div class="organization-card">
-											<div
-												class="organization-avatar"
-												style:background-color="var(--clr-scale-ntrl-20)"
-												style:color="var(--clr-scale-ntrl-80)"
-											>
-												<span>{(organization.name || organization.slug)[0].toUpperCase()}</span>
+									<div class="organization-card">
+										<div
+											class="organization-avatar"
+											style:background-color="var(--clr-scale-ntrl-20)"
+											style:color="var(--clr-scale-ntrl-80)"
+										>
+											<span>{(organization.name || organization.slug)[0].toUpperCase()}</span>
+										</div>
+										<div class="organization-info">
+											<div class="organization-name-row">
+												<h3 class="organization-name">
+													{organization.name || organization.slug}
+												</h3>
+												{#if organization.name}
+													<p class="organization-slug">@{organization.slug}</p>
+												{/if}
 											</div>
-											<div class="organization-info">
-												<div class="organization-name-row">
-													<h3 class="organization-name">
-														{organization.name || organization.slug}
-													</h3>
-													{#if organization.name}
-														<p class="organization-slug">@{organization.slug}</p>
-													{/if}
+											<div class="organization-stats">
+												<div class="stat">
+													<Icon name="profile" />
+													<span>{getOrganizationMembersCount(organization)} members</span>
 												</div>
-												<div class="organization-stats">
-													<div class="stat">
-														<Icon name="profile" />
-														<span>{getOrganizationMembersCount(organization)} members</span>
-													</div>
-													<div class="stat">
-														<Icon name="search" />
-														<span>{getOrganizationProjectsCount(organization)} projects</span>
-													</div>
+												<div class="stat">
+													<Icon name="search" />
+													<span>{getOrganizationProjectsCount(organization)} projects</span>
 												</div>
 											</div>
 										</div>
-									{/snippet}
+									</div>
 
 									{#snippet actions()}
 										<div class="organization-actions">

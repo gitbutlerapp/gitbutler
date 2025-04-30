@@ -1,7 +1,7 @@
-import { reactive, type Reactive } from '@gitbutler/shared/storeUtils';
-import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
+import { reactive, type Reactive } from '@gitbutler/shared/storeUtils';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 /**
  * Sets the interdiff before version.

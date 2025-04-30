@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import IconLink from '$components/IconLink.svelte';
 	import WelcomeAction from '$components/WelcomeAction.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
@@ -6,7 +7,6 @@
 	import newProjectSvg from '$lib/assets/welcome/new-local-project.svg?raw';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
-	import { goto } from '$app/navigation';
 
 	const projectsService = getContext(ProjectsService);
 

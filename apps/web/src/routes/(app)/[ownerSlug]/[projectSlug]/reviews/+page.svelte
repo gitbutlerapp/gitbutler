@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import BranchIndexCard from '$lib/components/branches/BranchIndexCard.svelte';
 	import DashboardLayout from '$lib/components/dashboard/DashboardLayout.svelte';
@@ -13,7 +14,6 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
-	import { goto } from '$app/navigation';
 
 	// Get authentication service and check if user is logged in
 	const authService = getContext(AuthService);

@@ -178,9 +178,7 @@
 			</ContextMenuSection>
 		{:else}
 			<ContextMenuSection>
-				<p class="text-13">
-					{'Woops! Malformed data :('}
-				</p>
+				<p class="text-13">'Woops! Malformed data :(</p>
 			</ContextMenuSection>
 		{/if}
 	{/snippet}
@@ -216,9 +214,7 @@
 				</span>?
 			{/if}
 		{:else}
-			<p class="text-13">
-				{'Woops! Malformed data :('}
-			</p>
+			<p class="text-13">Woops! Malformed data :(</p>
 		{/if}
 	{/snippet}
 	{#snippet controls(close, item)}

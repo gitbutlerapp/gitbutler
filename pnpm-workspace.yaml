@@ -12,7 +12,7 @@ catalogs:
   svelte:
     'svelte': '5.23.2'
     '@sveltejs/kit': '2.20.1'
-    'svelte-check': '4.1.4'
+    'svelte-check': '4.1.6'
     '@sveltejs/vite-plugin-svelte': '5.0.3'
     '@sveltejs/adapter-static': '3.0.8'
     '@sentry/sveltekit': '8.54.0'

@@ -1,6 +1,6 @@
-import type { Command } from '@/types';
 import { ChannelType } from '@/types/channel-types';
 import { splitIntoMessages } from '@/utils/message-splitter';
+import type { Command } from '@/types';
 
 export const listChannels: Command = {
 	name: 'listchannels',

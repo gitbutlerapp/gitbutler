@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import StackTabMenu from '$components/v3/stackTabs/StackTabMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { goto } from '$app/navigation';
 
 	type Props = {
 		name: string;

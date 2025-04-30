@@ -65,25 +65,19 @@
 	onSubmit={addSeries}
 	onClose={onModalClose}
 >
-	{#snippet children()}
-		<Textbox
-			label="Branch name"
-			id="newRemoteName"
-			bind:value={createRefName}
-			autofocus
-			helperText={generatedNameDiverges ? `Will be created as '${slugifiedRefName}'` : undefined}
-		/>
+	<Textbox
+		label="Branch name"
+		id="newRemoteName"
+		bind:value={createRefName}
+		autofocus
+		helperText={generatedNameDiverges ? `Will be created as '${slugifiedRefName}'` : undefined}
+	/>
 
-		<p class="text-12 text-body helper-text">
-			Creates a new branch that depends on <strong>{parentSeriesName}</strong>. The branches will
-			have to be reviewed and merged in order. Learn more about stacked branches in the
-			<LinkButton onclick={clickOnDocsLink}>
-				{#snippet children()}
-					docs
-				{/snippet}
-			</LinkButton>.
-		</p>
-	{/snippet}
+	<p class="text-12 text-body helper-text">
+		Creates a new branch that depends on <strong>{parentSeriesName}</strong>. The branches will have
+		to be reviewed and merged in order. Learn more about stacked branches in the
+		<LinkButton onclick={clickOnDocsLink}>docs</LinkButton>.
+	</p>
 	{#snippet controls(close)}
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
 		<Button style="pop" type="submit" disabled={!createRefName}>Add new branch</Button>

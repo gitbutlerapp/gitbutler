@@ -1,12 +1,12 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import SidebarEntry from '$components/v3/SidebarEntry.svelte';
 	import { Project } from '$lib/project/project';
 	import { UserService } from '$lib/user/userService';
 	import { parseDate } from '$lib/utils/time';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { PullRequest } from '$lib/forge/interface/types';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
 
 	interface Props {
 		pullRequest: PullRequest;

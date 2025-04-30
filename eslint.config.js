@@ -6,12 +6,16 @@ import ts from 'typescript-eslint';
 import pluginImportX from 'eslint-plugin-import-x';
 import noRelativeImportPaths from '@gitbutler/no-relative-imports';
 
+import path from 'node:path';
+
+const rootDir = path.resolve();
+
 export default ts.config(
 	js.configs.recommended,
 	...ts.configs.recommended,
-	...svelte.configs['flat/recommended'],
+	...svelte.configs.recommended,
 	prettier,
-	...svelte.configs['flat/prettier'],
+	...svelte.configs.prettier,
 	{
 		languageOptions: {
 			globals: {
@@ -59,7 +63,18 @@ export default ts.config(
 						'object',
 						'type'
 					],
-					'newlines-between': 'never'
+					// Add explicit pathGroups to define what imports go in which groups
+					pathGroups: [
+						// Define monorepo paths as internal
+						{ pattern: 'apps/**', group: 'internal' },
+						{ pattern: 'packages/**', group: 'internal' },
+						// Add SvelteKit paths
+						{ pattern: '$lib/**', group: 'internal' },
+						{ pattern: '$components/**', group: 'internal' },
+						{ pattern: '$app/**', group: 'internal' }
+					],
+					// Ensure certain import types are only categorized by their type
+					pathGroupsExcludedImportTypes: ['builtin', 'external', 'object', 'type']
 				}
 			],
 			'import-x/no-relative-packages': 'error', // Don't allow packages to have relative imports between each other
@@ -75,8 +90,13 @@ export default ts.config(
 				}
 			],
 			'no-relative-import-paths/no-relative-import-paths': 'error',
-			'no-undef': 'off' // eslint faq advises `no-undef` turned off for typescript projects.
+			'no-undef': 'off', // eslint faq advises `no-undef` turned off for typescript projects.
+			'svelte/require-each-key': 'off',
+			'svelte/no-inspect': 'error',
+			'svelte/no-at-debug-tags': 'error',
+			'svelte/no-unused-props': 'error'
 		},
+
 		settings: {
 			'import-x/extensions': ['.ts'],
 			'import-x/parsers': {
@@ -101,11 +121,11 @@ export default ts.config(
 		}
 	},
 	{
-		files: ['**/*.svelte'],
+		files: ['**/*.svelte', '**/*.svelte.ts'],
 		...ts.configs.disableTypeChecked
 	},
 	{
-		files: ['**/*.svelte'],
+		files: ['**/*.svelte', '**/*.svelte.ts'],
 		languageOptions: {
 			parserOptions: {
 				parser: ts.parser

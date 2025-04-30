@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
@@ -7,8 +9,6 @@
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
 
 	const projectId = page.params.projectId!;
 

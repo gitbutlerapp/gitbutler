@@ -2,6 +2,10 @@
 	import '@gitbutler/ui/main.css';
 	import '../styles/styles.css';
 
+	import { browser } from '$app/environment';
+	import { dev } from '$app/environment';
+	import { beforeNavigate, afterNavigate } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import AppUpdater from '$components/AppUpdater.svelte';
 	import GlobalSettingsMenuAction from '$components/GlobalSettingsMenuAction.svelte';
 	import PromptModal from '$components/PromptModal.svelte';
@@ -71,16 +75,12 @@
 	import { reactive } from '@gitbutler/shared/storeUtils';
 	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
 	import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
-	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
+	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { setExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
 	import { onMount, setContext, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
-	import { dev } from '$app/environment';
-	import { browser } from '$app/environment';
-	import { goto } from '$app/navigation';
-	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();

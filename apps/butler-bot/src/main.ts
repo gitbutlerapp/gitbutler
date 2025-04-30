@@ -1,9 +1,3 @@
-import { Octokit } from '@octokit/rest';
-import { PrismaClient } from '@prisma/client';
-import { Client, Events, GatewayIntentBits, GuildMember } from 'discord.js';
-import cron from 'node-cron';
-import { OpenAI } from 'openai';
-import type { Command, Task } from '@/types';
 import { addChannel } from '@/commands/add-channel';
 import { addRepo } from '@/commands/add-repo';
 import { help } from '@/commands/help';
@@ -22,6 +16,12 @@ import { firehoze } from '@/firehoze';
 import { rotateDuty } from '@/tasks/rotate-duty';
 import { syncButlers } from '@/tasks/sync-butlers';
 import { syncGithubIssues } from '@/tasks/sync-github-issues';
+import { Octokit } from '@octokit/rest';
+import { PrismaClient } from '@prisma/client';
+import { Client, Events, GatewayIntentBits, GuildMember } from 'discord.js';
+import cron from 'node-cron';
+import { OpenAI } from 'openai';
+import type { Command, Task } from '@/types';
 import 'dotenv/config';
 
 const openai = new OpenAI({

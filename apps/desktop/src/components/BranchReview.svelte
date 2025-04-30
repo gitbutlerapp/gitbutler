@@ -92,14 +92,12 @@
 			modal?.show();
 		}}
 	>
-		{#snippet children()}
-			<p class="text-13 text-body helper-text">
-				It's strongly recommended to create pull requests starting with the branch at the base of
-				the stack.
-				<br />
-				Do you still want to create this pull request?
-			</p>
-		{/snippet}
+		<p class="text-13 text-body helper-text">
+			It's strongly recommended to create pull requests starting with the branch at the base of the
+			stack.
+			<br />
+			Do you still want to create this pull request?
+		</p>
 		{#snippet controls(close)}
 			<Button kind="outline" onclick={close}>Cancel</Button>
 			<Button style="warning" type="submit">Create Pull Request</Button>

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import SupportersBanner from '$components/SupportersBanner.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { User } from '$lib/user/user';
@@ -6,8 +8,6 @@
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
 
 	const currentSection: string | undefined = $derived(getPageName($page.url.pathname));
 

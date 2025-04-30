@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { showHistoryView } from '$lib/config/config';
 	import { Project } from '$lib/project/project';
 	import { projectSettingsPath } from '$lib/routes/routes.svelte';
@@ -11,7 +12,6 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import { goto } from '$app/navigation';
 
 	const project = getContext(Project);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
