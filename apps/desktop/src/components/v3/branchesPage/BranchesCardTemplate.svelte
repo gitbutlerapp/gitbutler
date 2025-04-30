@@ -11,12 +11,7 @@
 	const { content, details, selected = $bindable(), onclick }: Props = $props();
 </script>
 
-<div
-	role="presentation"
-	{onclick}
-	class="branches-list-card"
-	class:branches-list-card_selected={selected}
->
+<div role="presentation" {onclick} class="branches-list-card" class:selected>
 	<div class="branches-list-card__content">
 		{@render content()}
 	</div>
@@ -41,6 +36,17 @@
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
+
+		&::after {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 4px;
+			height: 100%;
+			transform: translateX(-100%);
+			transition: transform var(--transition-medium);
+		}
 	}
 
 	.branches-list-card__hr {
@@ -63,7 +69,12 @@
 		color: var(--clr-text-2);
 	}
 
-	.branches-list-card_selected {
-		background-color: rgb(177, 153, 200);
+	.selected {
+		background-color: var(--clr-bg-1-muted);
+
+		&::after {
+			background-color: var(--clr-theme-pop-element);
+			transform: translateX(0);
+		}
 	}
 </style>

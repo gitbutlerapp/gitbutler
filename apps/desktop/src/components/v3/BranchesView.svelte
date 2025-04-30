@@ -80,6 +80,7 @@
 						onclick={() => {
 							branchesSelection.set({ branchName: baseBranch.shortName, isTarget: true });
 						}}
+						selected={branchesSelection.current.branchName === baseBranch.shortName}
 					/>
 				</BranchesListGroup>
 				<BranchExplorer {projectId}>
