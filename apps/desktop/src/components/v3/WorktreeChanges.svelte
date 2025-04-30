@@ -229,7 +229,7 @@
 	.start-commit {
 		position: sticky;
 		bottom: -1px;
-		padding: 16px;
+		padding: 14px;
 		background-color: var(--clr-bg-1);
 
 		&.sticked {
