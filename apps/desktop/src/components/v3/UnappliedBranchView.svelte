@@ -41,7 +41,7 @@
 	async function createvBranchFromBranch() {
 		await stackService.createVirtualBranchFromBranch({
 			projectId,
-			branch: branchName,
+			branch: `refs/heads/${branchName}`,
 			remote,
 			prNumber
 		});
