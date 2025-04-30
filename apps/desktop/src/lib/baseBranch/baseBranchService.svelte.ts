@@ -26,38 +26,50 @@ export default class BaseBranchService {
 	}
 
 	baseBranch(projectId: string) {
-		return this.api.endpoints.baseBranch.useQuery(
-			{
-				projectId
-			},
-			{
-				transform: (data) => mapBaseBranch(data)
-			}
+		const result = $derived(
+			this.api.endpoints.baseBranch.useQuery(
+				{
+					projectId
+				},
+				{
+					transform: (data) => {
+						// TODO: console.log('transforming');
+						return mapBaseBranch(data);
+					}
+				}
+			)
 		);
+		return result;
 	}
 
 	repo(projectId: string) {
-		return this.api.endpoints.baseBranch.useQuery(
-			{
-				projectId
-			},
-			{
-				transform: (data) =>
-					mapBaseBranch(data, (baseBranch) => parseRemoteUrl(baseBranch.remoteUrl))
-			}
+		const result = $derived(
+			this.api.endpoints.baseBranch.useQuery(
+				{
+					projectId
+				},
+				{
+					transform: (data) =>
+						mapBaseBranch(data, (baseBranch) => parseRemoteUrl(baseBranch.remoteUrl))
+				}
+			)
 		);
+		return result;
 	}
 
 	pushRepo(projectId: string) {
-		return this.api.endpoints.baseBranch.useQuery(
-			{
-				projectId
-			},
-			{
-				transform: (data) =>
-					mapBaseBranch(data, (baseBranch) => parseRemoteUrl(baseBranch.pushRemoteUrl))
-			}
+		const result = $derived(
+			this.api.endpoints.baseBranch.useQuery(
+				{
+					projectId
+				},
+				{
+					transform: (data) =>
+						mapBaseBranch(data, (baseBranch) => parseRemoteUrl(baseBranch.pushRemoteUrl))
+				}
+			)
 		);
+		return result;
 	}
 
 	async refreshBaseBranch(projectId: string) {

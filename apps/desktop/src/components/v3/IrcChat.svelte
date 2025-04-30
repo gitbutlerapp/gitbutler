@@ -1,20 +1,37 @@
 <script lang="ts">
 	import IrcChannel from '$components/v3/IrcChannel.svelte';
 	import IrcChannels from '$components/v3/IrcChannels.svelte';
+	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
-	const uiState = getContext(UiState);
-	const channel = $derived(uiState.global.channel);
+	const [ircService, uiState] = inject(IrcService, UiState);
+	const currentName = $derived(uiState.global.channel.current);
 </script>
 
 <div class="irc">
 	<IrcChannels />
 	<div class="right">
-		{#if channel.current?.startsWith('#')}
-			<IrcChannel type="group" channel={channel.current} autojoin />
-		{:else if channel.current}
-			<IrcChannel type="private" nick={channel.current} />
+		{#if currentName}
+			{#if currentName.startsWith('#')}
+				<IrcChannel type="group" channel={currentName} autojoin />
+			{:else}
+				{@const chat = ircService.getChat(currentName)}
+				{#if chat.current}
+					<IrcChannel type="private" nick={chat.current.username}>
+						{#snippet headerActions()}
+							<Toggle
+								small
+								checked={chat.current?.popup}
+								onchange={(checked) => {
+									ircService.setPopup(currentName, checked);
+								}}
+							/>
+						{/snippet}
+					</IrcChannel>
+				{/if}
+			{/if}
 		{:else}
 			<IrcChannel type="server" />
 		{/if}
