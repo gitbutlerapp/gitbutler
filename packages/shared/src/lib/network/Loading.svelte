@@ -8,7 +8,6 @@
 		children: Snippet<[A]>;
 	};
 
-	// eslint-disable-next-line no-undef
 	const { loadable, children }: Props<A> = $props();
 </script>
 

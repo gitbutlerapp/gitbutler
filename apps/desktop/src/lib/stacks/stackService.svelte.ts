@@ -643,6 +643,16 @@ export class StackService {
 			{ transform: ({ commits }) => commitSelectors.selectById(commits, commitId) }
 		);
 	}
+
+	async targetCommits(projectId: string, lastCommitId: string, pageSize: number) {
+		return await this.api.endpoints.targetCommits.fetch(
+			{ projectId, lastCommitId, pageSize },
+			{
+				forceRefetch: true,
+				transform: (commits) => commitSelectors.selectAll(commits)
+			}
+		);
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -1242,6 +1252,23 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					params: { name },
 					actionName: 'Normalize branch name'
 				})
+			}),
+
+			targetCommits: build.query<
+				EntityState<Commit, string>,
+				{
+					projectId: string;
+					lastCommitId: string;
+					pageSize: number;
+				}
+			>({
+				query: (params) => ({
+					command: 'target_commits',
+					actionName: 'Target commits',
+					params
+				}),
+				transformResponse: (commits: Commit[]) =>
+					commitAdapter.addMany(commitAdapter.getInitialState(), commits)
 			})
 		})
 	});

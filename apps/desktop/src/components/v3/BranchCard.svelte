@@ -9,6 +9,7 @@
 		projectId: string;
 		branchName: string;
 		isCommitting?: boolean;
+		expand?: boolean;
 		header?: Snippet;
 	} & (
 		| {
@@ -27,7 +28,7 @@
 		  }
 	);
 
-	let { header, branchName, ...args }: Props = $props();
+	let { header, branchName, expand, ...args }: Props = $props();
 
 	const [uiState] = inject(UiState);
 
@@ -45,6 +46,7 @@
 	class="branch-card"
 	class:selected
 	class:draft={args.type === 'draft-branch'}
+	class:expand
 	data-series-name={branchName}
 >
 	{@render header?.()}
@@ -65,5 +67,8 @@
 		&.draft {
 			border-radius: var(--radius-ml) var(--radius-ml) 0 0;
 		}
+	}
+	.expand {
+		height: 100%;
 	}
 </style>

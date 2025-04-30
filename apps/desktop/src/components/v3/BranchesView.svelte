@@ -1,16 +1,14 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import BranchCard from '$components/v3/BranchCard.svelte';
 	import BranchExplorer from '$components/v3/BranchExplorer.svelte';
-	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import BranchListingSidebarEntry from '$components/v3/BranchListingSidebarEntry.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import BranchesViewBranch from '$components/v3/BranchesViewBranch.svelte';
 	import BranchesViewStack from '$components/v3/BranchesViewStack.svelte';
-	import CommitRow from '$components/v3/CommitRow.svelte';
 	import PullRequestSidebarEntry from '$components/v3/PullRequestSidebarEntry.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
+	import TargetCommitList from '$components/v3/TargetCommitList.svelte';
 	import UnappliedBranchView from '$components/v3/UnappliedBranchView.svelte';
 	import UnappliedCommitView from '$components/v3/UnappliedCommitView.svelte';
 	import BranchesListGroup from '$components/v3/branchesPage/BranchesListGroup.svelte';
@@ -20,7 +18,6 @@
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { SidebarEntrySubject } from '$lib/branches/branchListing';
 	import type { SelectionId } from '$lib/selection/key';
@@ -165,53 +162,7 @@
 			</div>
 			<div class="branch-details" bind:this={rightDiv} style:width={rightWidth.current + 'rem'}>
 				{#if current.branchName === baseBranch.shortName}
-					<ReduxResult {projectId} result={baseBranchResult.current}>
-						{#snippet children(baseBranch)}
-							{@const branchName = baseBranch.branchName}
-							<BranchCard type="normal-branch" {projectId} branchName={baseBranch.branchName}>
-								{#snippet header()}
-									<BranchHeader
-										type="normal-branch"
-										{branchName}
-										{projectId}
-										selected
-										lineColor={getColorFromBranchType('LocalOnly')}
-										iconName="branch-upstream"
-										lastUpdatedAt={baseBranch.recentCommits.at(0)?.createdAt.getTime()}
-										isTopBranch
-										readonly
-										onclick={() => {
-											uiState.project(projectId).branchesSelection.set({
-												branchName
-											});
-										}}
-									/>
-								{/snippet}
-								{#snippet commitList()}
-									{#each baseBranch.recentCommits as commit}
-										{@const selected = commit.id === branchesState?.current.commitId}
-										<CommitRow
-											disableCommitActions
-											type="Remote"
-											{projectId}
-											{selected}
-											commitId={commit.id}
-											branchName={baseBranch.branchName}
-											commitMessage={commit.description}
-											createdAt={commit.createdAt.getTime()}
-											onclick={() => {
-												branchesState.set({
-													commitId: commit.id,
-													branchName: baseBranch.shortName,
-													remote: baseBranch.remoteName
-												});
-											}}
-										/>
-									{/each}
-								{/snippet}
-							</BranchCard>
-						{/snippet}
-					</ReduxResult>
+					<TargetCommitList {projectId} branchName={baseBranch.branchName} />
 				{:else if current.stackId}
 					<BranchesViewStack {projectId} stackId={current.stackId} />
 				{:else if current.branchName}

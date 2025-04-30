@@ -19,9 +19,16 @@
 		onscrollTop?: (visible: boolean) => void;
 		onscrollEnd?: (visible: boolean) => void;
 		onscroll?: (e: Event) => void;
+		viewport?: HTMLDivElement;
+		content?: HTMLDivElement;
+		viewportHeight?: number;
+		/** Top padding, used only with virtual list. */
+		top?: number;
+		/** Bottom padding, used with virtual list. */
+		bottom?: number;
 	}
 
-	const {
+	let {
 		height,
 		maxHeight,
 		initiallyVisible,
@@ -36,10 +43,14 @@
 		onthumbdrag,
 		onscroll,
 		onscrollTop,
-		onscrollEnd
+		onscrollEnd,
+		viewport = $bindable(),
+		content = $bindable(),
+		top,
+		bottom,
+		viewportHeight = $bindable()
 	}: Props = $props();
 
-	let viewport = $state<HTMLDivElement>();
 	let scrollTopVisible = $state<boolean>(true);
 	let scrollEndVisible = $state<boolean>(true);
 
@@ -64,12 +75,16 @@
 	<div
 		bind:this={viewport}
 		use:useAutoScroll={{ enabled: autoScroll }}
+		bind:offsetHeight={viewportHeight}
 		{onscroll}
 		class="viewport hide-native-scrollbar"
 		style:height
-		style:overflow-y="auto"
 	>
-		<div class="viewport-content">
+		<div
+			class="viewport-content"
+			bind:this={content}
+			style="padding-top: {top}px; padding-bottom: {bottom}px;"
+		>
 			{@render children()}
 		</div>
 		<Scrollbar
@@ -94,12 +109,12 @@
 		height: 100%;
 	}
 	.viewport {
+		overflow-y: auto;
 		height: 100%;
 		width: 100%;
 	}
 	/* need this wrapper to not mess with
 	 * pseudo selectors like ::last-child */
 	.viewport-content {
-		display: contents;
 	}
 </style>
