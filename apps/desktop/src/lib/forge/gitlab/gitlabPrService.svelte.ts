@@ -38,8 +38,8 @@ export class GitLabPrService implements ForgePrService {
 
 		const request = async () => {
 			return await this.api.endpoints.createPr.mutate({
-				head: baseBranchName,
-				base: upstreamName,
+				head: upstreamName,
+				base: baseBranchName,
 				title,
 				body,
 				draft
