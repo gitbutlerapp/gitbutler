@@ -25,6 +25,7 @@ export enum TestId {
 	CommitDrawerDescription = 'commit-drawer-description',
 	UncommittedChanges_FileList = 'uncommitted-changes-file-list',
 	UncommittedChanges_FileListItem = 'uncommitted-changes-file-list-item',
+	UncommittedChanges_Header = 'uncommitted-changes-header',
 	StartCommitButton = 'start-commit-button',
 	CommitRow = 'commit-row',
 	NewCommitDrawer = 'new-commit-drawer',
@@ -35,7 +36,9 @@ export enum TestId {
 	IntegrateUpstreamCommitsButton = 'integrate-upstream-commits-button',
 	IntegrateUpstreamCommitsModal = 'integrate-upstream-commits-modal',
 	IntegrateUpstreamSeriesRow = 'integrate-upstream-series-row',
-	IntegrateUpstreamActionButton = 'integrate-upstream-action-button'
+	IntegrateUpstreamActionButton = 'integrate-upstream-action-button',
+	FileListModeOption = 'file-list-mode-option',
+	FileListTreeFolder = 'file-list-tree-folder'
 }
 
 export enum ElementId {
