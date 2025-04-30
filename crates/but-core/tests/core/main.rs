@@ -1,3 +1,4 @@
+mod cmd;
 mod commit;
 mod diff;
 mod json_samples;

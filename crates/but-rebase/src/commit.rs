@@ -1,6 +1,6 @@
 use anyhow::{Context, anyhow, bail};
 use bstr::{BString, ByteSlice};
-use but_core::cmd::prepare_with_shell;
+use but_core::cmd::prepare_with_shell_on_windows;
 use but_core::{GitConfigSettings, RepositoryExt};
 use gitbutler_error::error::Code;
 use gix::objs::WriteTo;
@@ -121,8 +121,8 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
                 |program| Cow::Owned(program.into_owned().into()),
             );
 
-        let cmd =
-            prepare_with_shell(gpg_program.into_owned()).args(["-Y", "sign", "-n", "git", "-f"]);
+        let cmd = prepare_with_shell_on_windows(gpg_program.into_owned())
+            .args(["-Y", "sign", "-n", "git", "-f"]);
 
         // Write the key to a temp file. This is needs to be created in the
         // same scope where its used; IE: in the command, otherwise the
@@ -179,7 +179,7 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
                 |program| Cow::Owned(program.into_owned().into()),
             );
 
-        let mut cmd = into_command(prepare_with_shell(gpg_program.as_ref()).args([
+        let mut cmd = into_command(prepare_with_shell_on_windows(gpg_program.as_ref()).args([
             "--status-fd=2",
             "-bsau",
             signing_key,

@@ -19,6 +19,7 @@ use gitbutler_tauri::{
     remotes, repo, secret, settings, stack, undo, users, virtual_branches, workspace, zip, App,
     WindowState,
 };
+use gix::trace;
 use tauri::Emitter;
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::{Target, TargetKind};
@@ -43,6 +44,8 @@ fn main() {
     ) {
         tauri_context.config_mut().app.security.csp = updated_csp;
     };
+
+    inherit_interactive_login_shell_environment();
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -333,4 +336,20 @@ fn main() {
                     let _ = (app_handle, event);
                 });
         });
+}
+
+/// Launch a shell as interactive login shell, similar to what a login terminal would do.
+/// That way, each process launched by the backend will act similar to what users would get in their terminal,
+/// something vital to act more similar to Git, which is also launched from an interactive shell most of the time.
+fn inherit_interactive_login_shell_environment() {
+    if let Some(terminal_vars) = but_core::cmd::extract_interactive_login_shell_environment() {
+        trace::info!("Inheriting static interactive shell environment, valid for the entire runtime of the application");
+        for (key, value) in terminal_vars {
+            std::env::set_var(key, value);
+        }
+    } else {
+        trace::info!(
+            "SHELL variable isn't set - launching with default GUI application environment "
+        );
+    }
 }
