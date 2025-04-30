@@ -8,10 +8,11 @@
 		originName: string;
 		commitsAmount: number;
 		lastCommit?: { author: Author; ago: string; branch: string; sha: string };
+		selected?: boolean;
 		onclick: () => void;
 	}
 
-	const { originName, commitsAmount, lastCommit, onclick }: Props = $props();
+	const { originName, commitsAmount, lastCommit, selected, onclick }: Props = $props();
 
 	const authorName = $derived(lastCommit?.author.name ?? lastCommit?.author.email ?? 'Unknown');
 	const authorAvatar = $derived(lastCommit?.author.gravatarUrl ?? '');
@@ -21,7 +22,7 @@
 	);
 </script>
 
-<BranchesCardTemplate {onclick}>
+<BranchesCardTemplate {onclick} {selected}>
 	{#snippet content()}
 		<SeriesLabelsRow origin series={[originName]} />
 
