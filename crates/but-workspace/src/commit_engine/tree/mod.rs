@@ -36,10 +36,6 @@ pub fn create_tree(
     changes: Vec<DiffSpec>,
     context_lines: u32,
 ) -> anyhow::Result<CreateTreeOutcome> {
-    if changes.is_empty() {
-        bail!("Have to provide at least one change in order to mutate a commit");
-    }
-
     let target_tree = match destination {
         Destination::NewCommit {
             parent_commit_id: None,
@@ -55,6 +51,23 @@ pub fn create_tree(
                 .detach()
         }
     };
+
+    if changes.is_empty() {
+        match destination {
+            Destination::NewCommit { .. } => {
+                // Allow empty commits to be created.
+                return Ok(CreateTreeOutcome {
+                    rejected_specs: Vec::new(),
+                    destination_tree: Some(target_tree),
+                    changed_tree_pre_cherry_pick: None,
+                });
+            }
+            Destination::AmendCommit(_) => {
+                // Don't allow empty changes to be amended into a commit.
+                bail!("Have to provide at least one change in order to mutate a commit");
+            }
+        }
+    }
 
     let mut changes: Vec<_> = changes.into_iter().map(Ok).collect();
     let (new_tree, changed_tree_pre_cherry_pick) = 'retry: loop {
