@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { ChatMinimize } from '$lib/chat/minimize.svelte';
 	import ChatComponent from '$lib/components/ChatComponent.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
@@ -8,8 +9,8 @@
 	import ReviewInfo from '$lib/components/review/ReviewInfo.svelte';
 	import ReviewSections from '$lib/components/review/ReviewSections.svelte';
 	import DiffLineSelection from '$lib/diff/lineSelection.svelte';
-	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import { UserService } from '$lib/user/userService';
+	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
@@ -26,7 +27,6 @@
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
-	import { goto } from '$app/navigation';
 
 	const DESCRIPTION_PLACE_HOLDER = 'No commit message description provided';
 

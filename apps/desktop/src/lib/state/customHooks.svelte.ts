@@ -107,7 +107,6 @@ export function buildQueryHooks<Definitions extends EndpointDefinitions>({
 		const dispatch = getDispatch();
 		let subscriptions: QueryActionCreatorResult<any>[];
 		$effect(() => {
-			// eslint-disable-next-line @typescript-eslint/promise-function-async
 			subscriptions = queryArgs.map((queryArg) =>
 				dispatch(
 					initiate(queryArg, {

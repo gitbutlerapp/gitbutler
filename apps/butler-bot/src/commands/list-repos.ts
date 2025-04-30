@@ -1,5 +1,5 @@
-import type { Command } from '@/types';
 import { splitIntoMessages } from '@/utils/message-splitter';
+import type { Command } from '@/types';
 
 export const listRepos: Command = {
 	name: 'listrepos',

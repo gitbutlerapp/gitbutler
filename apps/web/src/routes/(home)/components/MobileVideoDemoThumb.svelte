@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as jsonLinks from '$home/data/links.json';
 	import { onMount } from 'svelte';
+	import * as jsonLinks from '$home/data/links.json';
 
 	let videoElement = $state<HTMLVideoElement>();
 	let io: IntersectionObserver;

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import DomainButton from '$components/DomainButton.svelte';
 	import SyncButton from '$components/SyncButton.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
@@ -7,8 +9,6 @@
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
 
 	interface Props {
 		projectId: string;

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import ProjectConnectModal from '$lib/components/ProjectConnectModal.svelte';
 	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
 	import { featureShowProjectPage } from '$lib/featureFlags';
@@ -15,7 +16,6 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import toasts from '@gitbutler/ui/toasts';
-	import { goto } from '$app/navigation';
 
 	interface Props {
 		data: ProjectParameters;

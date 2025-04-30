@@ -1,6 +1,6 @@
+import { dev } from '$app/environment';
 import * as Sentry from '@sentry/sveltekit';
 import type { User } from '$lib/user/userService';
-import { dev } from '$app/environment';
 
 export function initSentry() {
 	// eslint-disable-next-line

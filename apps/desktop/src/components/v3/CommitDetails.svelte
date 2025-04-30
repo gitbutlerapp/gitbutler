@@ -40,7 +40,7 @@
 	<div class="metadata text-12">
 		<span>Author:</span>
 		<Avatar
-			size={'medium'}
+			size="medium"
 			tooltip={commit.author.name}
 			srcUrl={getGravatarUrl(commit.author.email, commit.author.gravatarUrl)}
 		/>

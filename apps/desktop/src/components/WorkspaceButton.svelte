@@ -1,8 +1,8 @@
 <script lang="ts">
-	import DomainButton from '$components/DomainButton.svelte';
-	import UpdateBaseButton from '$components/UpdateBaseButton.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import DomainButton from '$components/DomainButton.svelte';
+	import UpdateBaseButton from '$components/UpdateBaseButton.svelte';
 
 	interface Props {
 		href: string;
@@ -20,7 +20,7 @@
 	tooltipLabel={label}
 	onmousedown={async () => await goto(href)}
 >
-	<img class="icon" src={'/images/domain-icons/working-branches.svg'} alt="" />
+	<img class="icon" src="/images/domain-icons/working-branches.svg" alt="" />
 
 	{#if !isNavCollapsed}
 		<span class="text-14 text-semibold" class:collapsed-txt={isNavCollapsed}>{label}</span>

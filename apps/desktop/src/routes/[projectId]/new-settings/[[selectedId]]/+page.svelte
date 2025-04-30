@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import CloudForm from '$components/CloudForm.svelte';
 	import CloudProjectSettings from '$components/CloudProjectSettings.svelte';
 	import GitForm from '$components/GitForm.svelte';
@@ -6,7 +7,6 @@
 	import SettingsPages, { type Page } from '$components/v3/SettingsPages.svelte';
 	import GeneralSettings from '$components/v3/projectSettings/GeneralSettings.svelte';
 	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
-	import { page } from '$app/state';
 
 	const pages: Page[] = [
 		{

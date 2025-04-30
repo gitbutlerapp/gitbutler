@@ -327,12 +327,10 @@
 			close();
 		}}
 	>
-		{#snippet children()}
-			<p class="text-13 text-body helper-text">
-				This will reset the branch to the state of the remote branch. All local changes will be
-				overwritten.
-			</p>
-		{/snippet}
+		<p class="text-13 text-body helper-text">
+			This will reset the branch to the state of the remote branch. All local changes will be
+			overwritten.
+		</p>
 		{#snippet controls(close)}
 			<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
 			<Button style="error" type="submit">Reset</Button>

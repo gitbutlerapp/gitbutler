@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import GithubIntegration from '$components/GithubIntegration.svelte';
 	import Login from '$components/Login.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
@@ -16,7 +17,6 @@
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
-	import { goto } from '$app/navigation';
 
 	interface Props {
 		projectName: string;

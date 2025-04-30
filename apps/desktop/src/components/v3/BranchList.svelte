@@ -228,12 +228,12 @@
 									{@const commitId = commit.id}
 									{#if !isCommitting}
 										<CommitRow
-											type={'Remote'}
+											type="Remote"
 											{stackId}
 											{commitId}
 											commitMessage={commit.message}
 											createdAt={commit.createdAt}
-											tooltip={'Upstream'}
+											tooltip="Upstream"
 											{branchName}
 											{projectId}
 											{first}
@@ -420,13 +420,11 @@
 		close();
 	}}
 >
-	{#snippet children()}
-		<div>
-			<p>It's generally better to start resolving conflicts from the bottom up.</p>
-			<br />
-			<p>Are you sure you want to resolve conflicts for this commit?</p>
-		</div>
-	{/snippet}
+	<div>
+		<p>It's generally better to start resolving conflicts from the bottom up.</p>
+		<br />
+		<p>Are you sure you want to resolve conflicts for this commit?</p>
+	</div>
 	{#snippet controls(close)}
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
 		<Button style="pop" type="submit">Yes</Button>

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import WorkspaceView from '$components/v3/WorkspaceView.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { ModeService } from '$lib/mode/modeService';
@@ -6,8 +8,6 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import type { PageData } from './$types';
 	import type { Snippet } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
 
 	const stackService = getContext(StackService);
 	const settingsService = getContext(SettingsService);

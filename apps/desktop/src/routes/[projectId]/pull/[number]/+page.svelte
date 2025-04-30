@@ -4,11 +4,11 @@
 	// - And it does NOT have a cooresponding vbranch
 	// - And it does NOT have a cooresponding remote
 	// It may also display details about a cooresponding pr if they exist
+	import { page } from '$app/state';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import PullRequestPreview from '$components/PullRequestPreview.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { getContext } from '@gitbutler/shared/context';
-	import { page } from '$app/state';
 
 	const projectId = page.params.projectId!;
 	const forge = getContext(DefaultForgeFactory);

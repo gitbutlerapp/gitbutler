@@ -75,7 +75,7 @@
 	<ContextMenuSection>
 		<ContextMenuItem label="Allow rebasing" onclick={toggleAllowRebasing}>
 			{#snippet control()}
-				<Tooltip text={'Allows changing commits after push\n(force push needed)'}>
+				<Tooltip text="Allows changing commits after push\n(force push needed)">
 					<Toggle small bind:checked={allowRebasing} onclick={toggleAllowRebasing} />
 				</Tooltip>
 			{/snippet}
@@ -84,7 +84,7 @@
 
 	<ContextMenuSection>
 		<ContextMenuItem
-			label={`Create stack to the left`}
+			label="Create stack to the left"
 			onclick={() => {
 				stackService.newStackMutation({
 					projectId,
@@ -95,7 +95,7 @@
 		/>
 
 		<ContextMenuItem
-			label={`Create stack to the right`}
+			label="Create stack to the right"
 			onclick={() => {
 				stackService.newStackMutation({
 					projectId,

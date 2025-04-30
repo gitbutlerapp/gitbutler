@@ -36,10 +36,10 @@
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import OptionsGroup from '$lib/select/OptionsGroup.svelte';
 	import SearchItem from '$lib/select/SearchItem.svelte';
+	import { KeyName } from '$lib/utils/hotkeys';
 	import { portal } from '$lib/utils/portal';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
-	import { KeyName } from '$lib/utils/hotkeys';
 	import { type Snippet } from 'svelte';
 
 	const {

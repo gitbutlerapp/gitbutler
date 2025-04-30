@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import InfoMessage, { type MessageStyle } from '$components/InfoMessage.svelte';
 	import Section from '$components/Section.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
@@ -15,7 +16,6 @@
 	import { join } from '@tauri-apps/api/path';
 	import { open } from '@tauri-apps/plugin-dialog';
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 
 	const projectsService = getContext(ProjectsService);
 	const posthog = getContext(PostHogWrapper);
@@ -104,7 +104,7 @@
 	</div>
 	<div class="clone__field repositoryTargetPath">
 		<div class="text-13 text-semibold clone__field--label">Where to clone</div>
-		<Textbox bind:value={targetDirPath} placeholder={'/Users/tipsy/Documents'} />
+		<Textbox bind:value={targetDirPath} placeholder="/Users/tipsy/Documents" />
 		<Button kind="outline" disabled={loading} onclick={handleCloneTargetSelect}>Choose..</Button>
 	</div>
 </Section>

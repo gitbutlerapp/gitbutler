@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import Board from '$components/Board.svelte';
 	import Scrollbar from '$components/Scrollbar.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
@@ -9,7 +10,6 @@
 	import { showToast } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
-	import { goto } from '$app/navigation';
 
 	const project = getContext(Project);
 	const forge = getContext(DefaultForgeFactory);

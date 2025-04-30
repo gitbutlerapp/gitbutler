@@ -1,4 +1,6 @@
 <script lang="ts">
+	import '$lib/styles/global.css';
+	import { page } from '$app/state';
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
@@ -25,8 +27,6 @@
 	import { setExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
 	import { setContext, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
-	import '$lib/styles/global.css';
-	import { page } from '$app/state';
 	import { env } from '$env/dynamic/public';
 
 	const CHAT_NOTFICATION_SOUND = '/sounds/pop.mp3';

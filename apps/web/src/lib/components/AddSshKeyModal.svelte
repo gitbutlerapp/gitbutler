@@ -45,33 +45,26 @@
 </script>
 
 <Modal bind:this={modal} {onClose} title="Add SSH Key">
-	{#snippet children()}
-		<div class="container">
-			<p class="description">
-				Add a new SSH key to your account. You can find your public key in your SSH key file
-				(usually ending in .pub).
-			</p>
+	<div class="container">
+		<p class="description">
+			Add a new SSH key to your account. You can find your public key in your SSH key file (usually
+			ending in .pub).
+		</p>
 
-			<Textbox
-				label="Key name"
-				placeholder="e.g., MacBook Pro"
-				bind:value={name}
-				required={false}
-			/>
+		<Textbox label="Key name" placeholder="e.g., MacBook Pro" bind:value={name} required={false} />
 
-			<Textarea
-				label="Public Key"
-				placeholder="ssh-rsa AAAAB3NzaC1yc2EAAAADA..."
-				bind:value={publicKey}
-				minRows={6}
-				required={false}
-			/>
+		<Textarea
+			label="Public Key"
+			placeholder="ssh-rsa AAAAB3NzaC1yc2EAAAADA..."
+			bind:value={publicKey}
+			minRows={6}
+			required={false}
+		/>
 
-			{#if error}
-				<div class="error-key">{error}</div>
-			{/if}
-		</div>
-	{/snippet}
+		{#if error}
+			<div class="error-key">{error}</div>
+		{/if}
+	</div>
 
 	{#snippet controls()}
 		<Button onclick={() => modal?.close()} kind="outline">Cancel</Button>

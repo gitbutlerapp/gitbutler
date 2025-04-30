@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import Breadcrumbs from '$lib/components/chat/Breadcrumbs.svelte';
 	import { featureShowOrganizations } from '$lib/featureFlags';
@@ -10,7 +11,6 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { goto } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
 
 	const authService = getContext(AuthService);

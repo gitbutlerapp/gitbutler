@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import BranchPreview from '$components/BranchPreview.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import PageLoadFailed from '$components/PageLoadFailed.svelte';
@@ -6,7 +7,6 @@
 	import { GitBranchService } from '$lib/branches/gitBranch';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import { page } from '$app/state';
 
 	const projectId = $derived(page.params.projectId!);
 

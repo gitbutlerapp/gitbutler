@@ -1,8 +1,8 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { User } from '$lib/user/user';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { goto } from '$app/navigation';
 
 	interface Props {
 		pop?: boolean;

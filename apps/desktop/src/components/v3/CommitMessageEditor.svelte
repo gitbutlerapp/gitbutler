@@ -178,7 +178,7 @@
 		testId={TestId.CommitDrawerDescriptionInput}
 		bind:this={composer}
 		initialValue={descriptionText.current}
-		placeholder={'Your commit message'}
+		placeholder="Your commit message"
 		{projectId}
 		{onAiButtonClick}
 		{canUseAI}

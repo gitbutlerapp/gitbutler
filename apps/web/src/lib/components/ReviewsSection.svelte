@@ -1,10 +1,10 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { getRelativeTime } from '$lib/utils/dateUtils';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import CommitStatusBadge, { type CommitStatusType } from '@gitbutler/ui/CommitStatusBadge.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import type { Branch } from '@gitbutler/shared/branches/types';
-	import { goto } from '$app/navigation';
 
 	interface Contributor {
 		user?: {

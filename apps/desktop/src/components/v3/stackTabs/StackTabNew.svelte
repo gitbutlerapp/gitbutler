@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import dependentBranchSvg from '$components/v3/stackTabs/assets/dependent-branch.svg?raw';
 	import newStackSvg from '$components/v3/stackTabs/assets/new-stack.svg?raw';
 	import { stackPath } from '$lib/routes/routes.svelte';
@@ -12,7 +13,6 @@
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { slugify } from '@gitbutler/ui/utils/string';
-	import { goto } from '$app/navigation';
 
 	type Props = {
 		el?: HTMLButtonElement;

@@ -1,10 +1,10 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { derived as derivedStore } from 'svelte/store';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
 
 	const projectsService = getContext(ProjectsService);
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import AnalyticsConfirmation from '$components/AnalyticsConfirmation.svelte';
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import Welcome from '$components/Welcome.svelte';
@@ -8,7 +9,6 @@
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { sleep } from '$lib/utils/sleep';
 	import { getContext } from '@gitbutler/shared/context';
-	import { goto } from '$app/navigation';
 
 	const appSettings = getContext(AppSettings);
 	const analyticsConfirmed = appSettings.appAnalyticsConfirmed;

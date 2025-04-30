@@ -1,7 +1,7 @@
 <script lang="ts">
-	import DomainButton from '$components/DomainButton.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import DomainButton from '$components/DomainButton.svelte';
 
 	interface Props {
 		href: string;

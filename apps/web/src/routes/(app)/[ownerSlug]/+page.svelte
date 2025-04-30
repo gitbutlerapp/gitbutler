@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import OrganizationProfile from '$lib/components/OrganizationProfile.svelte';
 	import UserProfile from '$lib/components/UserProfile.svelte';
 	import { featureShowProjectPage } from '$lib/featureFlags';
@@ -6,7 +7,6 @@
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { getContext } from 'svelte';
 	import type { OwnerParameters } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { goto } from '$app/navigation';
 
 	const routes = getContext(WebRoutesService) as WebRoutesService;
 

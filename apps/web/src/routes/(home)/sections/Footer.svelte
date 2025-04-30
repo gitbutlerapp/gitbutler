@@ -1,6 +1,6 @@
 <script>
-	import CtaBlock from '$home/components/CtaBlock.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
+	import CtaBlock from '$home/components/CtaBlock.svelte';
 </script>
 
 <footer class="footer" id="footer">

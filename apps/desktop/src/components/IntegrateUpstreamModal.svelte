@@ -54,7 +54,7 @@
 
 	let modal = $state<Modal>();
 	let integratingUpstream = $state<OperationState>('inert');
-	let results = $state(new SvelteMap<string, Resolution>());
+	let results = new SvelteMap<string, Resolution>();
 	let statuses = $state<StackStatusInfo[]>([]);
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
 	let targetCommitOid = $state<string | undefined>(undefined);
@@ -252,7 +252,7 @@
 {/snippet}
 
 <Modal bind:this={modal} {onClose} width={520} noPadding onSubmit={integrate}>
-	<ScrollableContainer maxHeight={'70vh'}>
+	<ScrollableContainer maxHeight="70vh">
 		{#if base}
 			<div class="section">
 				<h3 class="text-14 text-semibold section-title">

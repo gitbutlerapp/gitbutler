@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import AiPromptSelect from '$components/AIPromptSelect.svelte';
 	import Section from '$components/Section.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
@@ -10,7 +11,6 @@
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import { goto } from '$app/navigation';
 
 	const userService = getContext(UserService);
 	const project = getContext(Project);
