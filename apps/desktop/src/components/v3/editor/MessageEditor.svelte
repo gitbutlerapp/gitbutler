@@ -3,8 +3,9 @@
 	import MessageEditorRuler from '$components/v3/editor/MessageEditorRuler.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
 	import { showError } from '$lib/notifications/toasts';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UiState } from '$lib/state/uiState.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { uploadFiles } from '@gitbutler/shared/dom';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
@@ -57,6 +58,7 @@
 
 	const uiState = getContext(UiState);
 	const uploadsService = getContext(UploadsService);
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	const useRichText = uiState.global.useRichText;
 	const useRuler = uiState.global.useRuler;
@@ -217,6 +219,9 @@
 	style:--lexical-input-client-text-wrap={useRuler.current && !useRichText.current
 		? 'nowrap'
 		: 'normal'}
+	style:--code-block-font={$userSettings.diffFont}
+	style:--code-block-tab-size={$userSettings.tabSize}
+	style:--code-block-ligatures={$userSettings.diffLigatures ? 'common-ligatures' : 'normal'}
 >
 	<div class="editor-header">
 		<div class="editor-tabs">
