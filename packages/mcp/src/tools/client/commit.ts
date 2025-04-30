@@ -5,6 +5,31 @@ import { CallToolResult, GetPromptResult } from '@modelcontextprotocol/sdk/types
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
+/**
+ * Populate the diff spec for the commit command.
+ */
+function populateDiffSpec(
+	params: {
+		project_directory: string;
+		message: string;
+		all: boolean;
+		filePaths: string[];
+		branch: string;
+	},
+	args: string[]
+) {
+	const diffSpec: DiffSpec[] = [];
+	for (const filePath of params.filePaths) {
+		diffSpec.push({
+			pathBytes: filePath,
+			hunkHeaders: []
+		});
+	}
+
+	const diffSpecJson = JSON.stringify(diffSpec);
+	args.push('--diff-spec', diffSpecJson);
+}
+
 const CommitParamsSchema = BaseParamsSchema.extend({
 	message: z.string({ description: 'The commit message' }),
 	all: z.boolean().optional().default(false),
@@ -19,11 +44,21 @@ const CommitParamsSchema = BaseParamsSchema.extend({
 
 type CommitParams = z.infer<typeof CommitParamsSchema>;
 
+type AmendCommitParams = {
+	commitId: string;
+};
+
 /**
  * Commit changes.
  */
-function commit(params: CommitParams) {
-	const args = ['commit', '--message', params.message];
+function commit(params: CommitParams, amendParams?: AmendCommitParams) {
+	const args = ['commit'];
+
+	if (amendParams !== undefined) {
+		args.push('--amend', '--parent', amendParams.commitId);
+	} else {
+		args.push('--message', params.message);
+	}
 
 	if (params.all) {
 		if (params.filePaths.length > 0) {
@@ -31,22 +66,12 @@ function commit(params: CommitParams) {
 		}
 	}
 
-	if (params.filePaths.length > 0) {
-		const diffSpec: DiffSpec[] = [];
-		for (const filePath of params.filePaths) {
-			diffSpec.push({
-				pathBytes: filePath,
-				hunkHeaders: []
-			});
-		}
-
-		const diffSpecJson = JSON.stringify(diffSpec);
-		args.push('--diff-spec', diffSpecJson);
-	}
+	populateDiffSpec(params, args);
 
 	const stacks = listStacks({ project_directory: params.project_directory });
 
 	if (stacks.length === 0) {
+		// TODO: Would be nice to create a new stack if there are no stacks
 		throw new Error('No stacks found');
 	}
 
@@ -84,11 +109,79 @@ function commit(params: CommitParams) {
 	throw new Error(`Branch ${params.branch} not found in any stack`);
 }
 
+const DraftCommitsParamsSchema = BaseParamsSchema.extend({
+	branch: z.string({ description: 'The branch to commit to' }),
+	commitMessages: z.array(z.string({ description: 'The commit description' }), {
+		description: 'The list of commits in the order they will be committed'
+	})
+});
+
+type DraftCommitsParams = z.infer<typeof DraftCommitsParamsSchema>;
+
+/**
+ * Create a set of empty commits in the specified branch.
+ */
+function draftCommits(params: DraftCommitsParams) {
+	for (const commitMessage of params.commitMessages) {
+		const message = commitMessage;
+		commit({
+			project_directory: params.project_directory,
+			branch: params.branch,
+			message,
+			all: false,
+			filePaths: []
+		});
+	}
+}
+
+const AmmendCommitParamsSchema = BaseParamsSchema.extend({
+	commitId: z.string({ description: 'The commit ID to amend' }),
+	all: z.boolean().optional().default(false),
+	filePaths: z
+		.array(z.string(), {
+			description: 'The paths of files to add to the commit. These have to be relative paths.'
+		})
+		.optional()
+		.default([]),
+	branch: z.string({ description: 'The branch to amend commits in' })
+});
+
+type AmmendCommitParams = z.infer<typeof AmmendCommitParamsSchema>;
+
+/**
+ * Ammend a commit.
+ */
+function amendCommit(params: AmmendCommitParams) {
+	return commit(
+		{
+			project_directory: params.project_directory,
+			branch: params.branch,
+			message: '',
+			all: params.all,
+			filePaths: params.filePaths
+		},
+		{
+			commitId: params.commitId
+		}
+	);
+}
+
 const TOOL_LISTINGS = [
 	{
 		name: 'commit',
 		description: 'Commit a set of changes to a specific branch in the GitButler project.',
 		inputSchema: zodToJsonSchema(CommitParamsSchema)
+	},
+	{
+		name: 'create-draft-commits',
+		description:
+			'Create a set of empty commits in the specified branch as drafts or placeholders for upcoming changes.',
+		inputSchema: zodToJsonSchema(DraftCommitsParamsSchema)
+	},
+	{
+		name: 'amend-commit',
+		description: 'Add files to an existing commit in a specified branch, amending it.',
+		inputSchema: zodToJsonSchema(AmmendCommitParamsSchema)
 	}
 ] as const;
 
@@ -114,20 +207,30 @@ export async function getCommitToolRequestHandler(
 		return null;
 	}
 
-	switch (toolName) {
-		case 'commit': {
-			try {
+	try {
+		switch (toolName) {
+			case 'commit': {
 				const parsedParams = CommitParamsSchema.parse(params);
 				commit(parsedParams);
 				return { content: [{ type: 'text', text: 'Commit successful' }] };
-			} catch (error: unknown) {
-				if (error instanceof Error) {
-					return { content: [{ type: 'text', text: `Error: ${error.message}` }], isError: true };
-				}
-
-				return { content: [{ type: 'text', text: `Error: ${String(error)}` }], isError: true };
+			}
+			case 'create-draft-commits': {
+				const parsedParams = DraftCommitsParamsSchema.parse(params);
+				draftCommits(parsedParams);
+				return { content: [{ type: 'text', text: 'Draft commits created successfully' }] };
+			}
+			case 'amend-commit': {
+				const parsedParams = AmmendCommitParamsSchema.parse(params);
+				amendCommit(parsedParams);
+				return { content: [{ type: 'text', text: 'Commit amended successfully' }] };
 			}
 		}
+	} catch (error: unknown) {
+		if (error instanceof Error) {
+			return { content: [{ type: 'text', text: `Error: ${error.message}` }], isError: true };
+		}
+
+		return { content: [{ type: 'text', text: `Error: ${String(error)}` }], isError: true };
 	}
 }
 
