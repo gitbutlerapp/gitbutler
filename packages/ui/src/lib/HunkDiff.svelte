@@ -147,6 +147,7 @@
 				clearLineSelection={() => clearLineSelection?.(filePath)}
 				{wrapText}
 				{tabSize}
+				{diffFont}
 				{inlineUnifiedDiffs}
 				{selectedLines}
 				{lineLocks}
