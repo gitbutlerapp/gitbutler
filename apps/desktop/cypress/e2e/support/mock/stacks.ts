@@ -103,6 +103,13 @@ export const MOCK_BRANCH_DETAILS_BRAND_NEW: BranchDetails = {
 	isRemoteHead: false
 };
 
+export function createMockBranchDetails(overrides: Partial<BranchDetails> = {}): BranchDetails {
+	return {
+		...MOCK_BRANCH_DETAILS,
+		...overrides
+	};
+}
+
 export const MOCK_STACK_DETAILS_BRAND_NEW: StackDetails = {
 	derivedName: MOCK_BRAND_NEW_BRANCH_NAME,
 	pushStatus: 'completelyUnpushed',
@@ -116,6 +123,13 @@ export const MOCK_STACK_DETAILS: StackDetails = {
 	branchDetails: [MOCK_BRANCH_DETAILS],
 	isConflicted: false
 };
+
+export function createMockStackDetails(overrides: Partial<StackDetails> = {}): StackDetails {
+	return {
+		...MOCK_STACK_DETAILS,
+		...overrides
+	};
+}
 
 export type UpdateCommitMessageParams = {
 	projectId: string;
