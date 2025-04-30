@@ -21,7 +21,7 @@
 </script>
 
 <SegmentControl
-	defaultIndex={$saved === 'list' ? 0 : 1}
+	defaultIndex={mode === 'list' ? 0 : 1}
 	onselect={(id) => {
 		// TODO: Refactor SegmentControl.
 		$saved = id as Mode;
