@@ -6,6 +6,7 @@
 	import type { Snippet } from 'svelte';
 
 	interface SegmentProps {
+		testId?: string;
 		id: string;
 		onselect?: (id: string) => void;
 		disabled?: boolean;
@@ -13,7 +14,7 @@
 		icon?: keyof typeof iconsJson;
 	}
 
-	const { id, onselect, children, disabled, icon }: SegmentProps = $props();
+	const { id, onselect, children, disabled, icon, testId }: SegmentProps = $props();
 
 	const context = getContext<SegmentContext>('SegmentControl');
 	const index = context.setIndex();
@@ -39,6 +40,7 @@
 </script>
 
 <button
+	data-testid={testId}
 	type="button"
 	bind:this={elRef}
 	{id}

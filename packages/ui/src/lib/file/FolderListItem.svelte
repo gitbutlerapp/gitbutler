@@ -18,6 +18,7 @@
 		ontoggle?: (expanded: boolean) => void;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
+		testId?: string;
 	}
 
 	let {
@@ -30,7 +31,8 @@
 		oncheck,
 		ontoggle,
 		onclick,
-		onkeydown
+		onkeydown,
+		testId
 	}: Props = $props();
 
 	let isFolderExpanded = $state(isExpanded);
@@ -41,6 +43,7 @@
 </script>
 
 <div
+	data-testid={testId}
 	class="folder-list-item"
 	role="presentation"
 	tabindex="-1"

@@ -117,7 +117,11 @@
 				class="uncommitted-changes-wrap"
 				use:focusable={{ id: Focusable.UncommittedChanges, parentId: Focusable.WorkspaceLeft }}
 			>
-				<div use:stickyHeader class="worktree-header">
+				<div
+					data-testid={TestId.UncommittedChanges_Header}
+					use:stickyHeader
+					class="worktree-header"
+				>
 					<div class="worktree-header__general">
 						{#if isCommitting}
 							<Checkbox
