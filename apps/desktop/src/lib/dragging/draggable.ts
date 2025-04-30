@@ -40,7 +40,7 @@ function createElement<K extends keyof HTMLElementTagNameMap>(
 
 function setupDragHandlers(
 	node: HTMLElement,
-	opts: DraggableConfig | NonDraggableConfig,
+	opts: DraggableConfig,
 	createClone: (opts: DraggableConfig, selectedElements: Element[]) => HTMLElement | undefined,
 	params: {
 		handlerWidth: boolean;
@@ -48,13 +48,10 @@ function setupDragHandlers(
 	} = {
 		handlerWidth: false
 	}
-):
-	| {
-			update: (opts: DraggableConfig) => void;
-			destroy: () => void;
-	  }
-	| undefined {
-	if (opts.disabled) return;
+): {
+	update: (opts: DraggableConfig) => void;
+	destroy: () => void;
+} {
 	let dragHandle: HTMLElement | null;
 	let clone: HTMLElement | undefined;
 	let selectedElements: Element[] = [];
@@ -369,7 +366,6 @@ export function createChipsElement(
 
 export function draggableChips(node: HTMLElement, initialOpts: DraggableConfig) {
 	function createClone(opts: DraggableConfig, selectedElements: Element[]) {
-		if (opts.disabled) return;
 		return createChipsElement({
 			childrenAmount: selectedElements.length,
 			label: opts.label,
