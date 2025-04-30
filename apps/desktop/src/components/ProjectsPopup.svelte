@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
@@ -6,7 +7,6 @@
 	import { portal } from '@gitbutler/ui/utils/portal';
 	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
-	import { goto } from '$app/navigation';
 
 	interface ItemSnippetProps {
 		label: string;

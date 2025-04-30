@@ -215,13 +215,11 @@
 </Modal>
 
 <Modal bind:this={conflictResolutionConfirmationModal} width="small">
-	{#snippet children()}
-		<div>
-			<p>It's generally better to start resolving conflicts from the bottom up.</p>
-			<br />
-			<p>Are you sure you want to resolve conflicts for this commit?</p>
-		</div>
-	{/snippet}
+	<div>
+		<p>It's generally better to start resolving conflicts from the bottom up.</p>
+		<br />
+		<p>Are you sure you want to resolve conflicts for this commit?</p>
+	</div>
 	{#snippet controls(close)}
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
 		<AsyncButton
@@ -350,7 +348,7 @@
 
 					{#if conflicted}
 						<Tooltip
-							text={"Conflicted commits must be resolved before they can be amended or squashed.\nPlease resolve conflicts using the 'Resolve conflicts' button"}
+							text="Conflicted commits must be resolved before they can be amended or squashed.\nPlease resolve conflicts using the 'Resolve conflicts' button"
 						>
 							<div class="commit__conflicted">
 								<Icon name="warning-small" />

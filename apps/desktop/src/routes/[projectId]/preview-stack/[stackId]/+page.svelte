@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import BranchPreview from '$components/BranchPreview.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import PageLoadFailed from '$components/PageLoadFailed.svelte';
@@ -8,7 +9,6 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { BranchData } from '$lib/branches/branch';
-	import { page } from '$app/state';
 
 	const projectId = $derived(page.params.projectId!);
 

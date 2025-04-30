@@ -1,10 +1,11 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import BranchCommitsTable from '$lib/components/changes/BranchCommitsTable.svelte';
 	import PrivateProjectError from '$lib/components/errors/PrivateProjectError.svelte';
 	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
-	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import { UserService } from '$lib/user/userService';
+	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import BranchStatusBadge from '@gitbutler/shared/branches/BranchStatusBadge.svelte';
 	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
@@ -36,7 +37,6 @@
 	import toasts from '@gitbutler/ui/toasts';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
-	import { goto } from '$app/navigation';
 
 	const ACCEPTED_FILE_TYPES = ['image/*', 'application/*', 'text/*', 'audio/*', 'video/*'];
 

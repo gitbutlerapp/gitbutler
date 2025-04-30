@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { ProjectService } from '$lib/project/projectService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getPostAuthor } from '@gitbutler/shared/feeds/feedsPreview.svelte';
@@ -12,7 +13,6 @@
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
-	import { goto } from '$app/navigation';
 
 	type Props = {
 		postId: string;

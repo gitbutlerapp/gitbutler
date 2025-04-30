@@ -135,7 +135,6 @@
 		}
 	}
 
-	$inspect(contents?.offsetHeight);
 	$effect(() => {
 		if (contents) {
 			rows = contents?.getElementsByClassName('list-row');

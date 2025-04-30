@@ -173,69 +173,67 @@
 		<Loading loadable={cloudProject.current}>
 			{#snippet children(cloudProject)}
 				<Section gap={0}>
-					{#snippet children()}
+					<SectionCard
+						labelFor="reviews"
+						orientation="row"
+						roundedTop
+						roundedBottom={!cloudFeatureFlag}
+					>
+						{#snippet title()}
+							Use Butler Review
+						{/snippet}
+						{#snippet caption()}
+							Use Butler Review with this project. Butler Review is a commit based code review tool
+							that helps your team review series of patches.
+							<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
+						{/snippet}
+						{#snippet actions()}
+							<Toggle
+								id="reviews"
+								checked={$project?.api?.reviews || false}
+								onclick={async () => await onReviewsChange(!$project?.api?.reviews)}
+							/>
+						{/snippet}
+					</SectionCard>
+					{#if cloudFeatureFlag}
 						<SectionCard
-							labelFor="reviews"
+							labelFor="historySync"
+							roundedBottom={false}
+							roundedTop={false}
 							orientation="row"
-							roundedTop
-							roundedBottom={!cloudFeatureFlag}
 						>
 							{#snippet title()}
-								Use Butler Review
+								Timeline Backup
 							{/snippet}
 							{#snippet caption()}
-								Use Butler Review with this project. Butler Review is a commit based code review
-								tool that helps your team review series of patches.
-								<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
+								Sync this project's operations log (timeline) to GitButler servers. The operations
+								log includes snapshots of the repository state, including non-committed code
+								changes.
 							{/snippet}
 							{#snippet actions()}
 								<Toggle
-									id="reviews"
-									checked={$project?.api?.reviews || false}
-									onclick={async () => await onReviewsChange(!$project?.api?.reviews)}
+									id="historySync"
+									checked={$project?.api?.sync || false}
+									onclick={async () => await onSyncChange(!$project?.api?.sync)}
 								/>
 							{/snippet}
 						</SectionCard>
-						{#if cloudFeatureFlag}
-							<SectionCard
-								labelFor="historySync"
-								roundedBottom={false}
-								roundedTop={false}
-								orientation="row"
-							>
-								{#snippet title()}
-									Timeline Backup
-								{/snippet}
-								{#snippet caption()}
-									Sync this project's operations log (timeline) to GitButler servers. The operations
-									log includes snapshots of the repository state, including non-committed code
-									changes.
-								{/snippet}
-								{#snippet actions()}
-									<Toggle
-										id="historySync"
-										checked={$project?.api?.sync || false}
-										onclick={async () => await onSyncChange(!$project?.api?.sync)}
-									/>
-								{/snippet}
-							</SectionCard>
-							<SectionCard labelFor="branchesySync" roundedTop={false} orientation="row">
-								{#snippet title()}
-									Code Hosting
-								{/snippet}
-								{#snippet caption()}
-									Push this project's branches to a hosted GitButler repository.
-								{/snippet}
-								{#snippet actions()}
-									<Toggle
-										id="branchesySync"
-										checked={$project?.api?.sync_code || false}
-										onclick={async () => await onSyncCodeChange(!$project?.api?.sync_code)}
-									/>
-								{/snippet}
-							</SectionCard>
-						{/if}
-					{/snippet}
+						<SectionCard labelFor="branchesySync" roundedTop={false} orientation="row">
+							{#snippet title()}
+								Code Hosting
+							{/snippet}
+							{#snippet caption()}
+								Push this project's branches to a hosted GitButler repository.
+							{/snippet}
+							{#snippet actions()}
+								<Toggle
+									id="branchesySync"
+									checked={$project?.api?.sync_code || false}
+									onclick={async () => await onSyncCodeChange(!$project?.api?.sync_code)}
+								/>
+							{/snippet}
+						</SectionCard>
+					{/if}
 				</Section>
 
 				<Spacer />
@@ -255,15 +253,13 @@
 										orientation="row"
 										centerAlign
 									>
-										{#snippet children()}
-											<Loading loadable={loadableOrganization}>
-												{#snippet children(organization)}
-													<h5 class="text-15 text-bold flex-grow">
-														{organization.name || organization.slug}
-													</h5>
-												{/snippet}
-											</Loading>
-										{/snippet}
+										<Loading loadable={loadableOrganization}>
+											{#snippet children(organization)}
+												<h5 class="text-15 text-bold flex-grow">
+													{organization.name || organization.slug}
+												</h5>
+											{/snippet}
+										</Loading>
 										{#snippet actions()}
 											<ProjectConnectModal
 												organizationSlug={loadableOrganization.id}

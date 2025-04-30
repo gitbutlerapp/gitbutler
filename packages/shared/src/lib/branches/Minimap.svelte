@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import ChangeStatus from '$lib/patches/ChangeStatus.svelte';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -10,7 +11,6 @@
 	import { getExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { PatchCommit } from '@gitbutler/shared/patches/types';
-	import { goto } from '$app/navigation';
 
 	type Props = {
 		ownerSlug: string;

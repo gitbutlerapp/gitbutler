@@ -40,18 +40,16 @@
 			roundedBottom={index === organizations.length - 1}
 			orientation="row"
 		>
-			{#snippet children()}
-				<Loading loadable={loadableOrganization}>
-					{#snippet children(organization)}
-						<div class="inline">
-							<p class="text-15 text-bold">{organization.name || organization.slug}</p>
-							{#if organization.name}
-								<p class="text-13">{organization.slug}</p>
-							{/if}
-						</div>
-					{/snippet}
-				</Loading>
-			{/snippet}
+			<Loading loadable={loadableOrganization}>
+				{#snippet children(organization)}
+					<div class="inline">
+						<p class="text-15 text-bold">{organization.name || organization.slug}</p>
+						{#if organization.name}
+							<p class="text-13">{organization.slug}</p>
+						{/if}
+					</div>
+				{/snippet}
+			</Loading>
 
 			{#snippet actions()}
 				<OrganizationModal slug={loadableOrganization.id} />

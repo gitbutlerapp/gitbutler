@@ -1,8 +1,8 @@
 <script lang="ts">
+	import { page } from '$app/stores';
 	import ProjectNotFound from '$components/ProjectNotFound.svelte';
 	import SomethingWentWrong from '$components/SomethingWentWrong.svelte';
 	import { Code } from '$lib/backend/ipc';
-	import { page } from '$app/stores';
 
 	const code = $derived($page.error?.errorCode);
 	const status = $derived($page.status);

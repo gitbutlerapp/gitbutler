@@ -263,7 +263,7 @@
 			</CommitCard>
 		{/each}
 
-		<CommitAction type={'LocalOnly'}>
+		<CommitAction type="LocalOnly">
 			{#snippet action()}
 				<div class="local-actions-wrapper">
 					<Button

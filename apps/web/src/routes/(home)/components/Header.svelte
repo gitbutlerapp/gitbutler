@@ -1,11 +1,11 @@
 <script>
-	import HeaderLink from '$home/components/HeaderLink.svelte';
-	import HeaderMobileLink from '$home/components/HeaderMobileLink.svelte';
-	import * as jsonLinks from '$home/data/links.json';
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { fly } from 'svelte/transition';
 	import { env } from '$env/dynamic/public';
+	import HeaderLink from '$home/components/HeaderLink.svelte';
+	import HeaderMobileLink from '$home/components/HeaderMobileLink.svelte';
+	import * as jsonLinks from '$home/data/links.json';
 
 	let isMobileMenuOpen = $state(false);
 
@@ -113,7 +113,7 @@
 		</section>
 		<section class="navigation-section">
 			{#if $token}
-				<HeaderLink label="My Dashboard" href={'/'} icon="dashboard" />
+				<HeaderLink label="My Dashboard" href="/" icon="dashboard" />
 			{:else}
 				<HeaderLink
 					label="Sign up / Log in"
@@ -169,7 +169,7 @@
 				<HeaderMobileLink label="Jobs" href={jsonLinks.resources.jobs.url} />
 				<section class="navigation-section">
 					{#if $token}
-						<HeaderMobileLink label="My Dashboard" href={'/'} icon="dashboard" />
+						<HeaderMobileLink label="My Dashboard" href="/" icon="dashboard" />
 					{:else}
 						<HeaderMobileLink
 							label="Sign up / Log in"

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import KeysForm from '$components/KeysForm.svelte';
 	import ProjectSetupTarget from '$components/ProjectSetupTarget.svelte';
@@ -12,7 +13,6 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
-	import { goto } from '$app/navigation';
 
 	interface Props {
 		remoteBranches: RemoteBranchInfo[];

@@ -1,6 +1,6 @@
 <script>
-	import Footer from '$home/sections/Footer.svelte';
 	import { page } from '$app/state';
+	import Footer from '$home/sections/Footer.svelte';
 </script>
 
 <section class="wrapper">

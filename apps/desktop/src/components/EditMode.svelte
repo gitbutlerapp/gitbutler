@@ -18,8 +18,8 @@
 	import { UserService } from '$lib/user/userService';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import InfoButton from '@gitbutler/ui/InfoButton.svelte';
@@ -344,12 +344,10 @@
 		close();
 	}}
 >
-	{#snippet children()}
-		<p class="text-13 text-body helper-text">
-			There are still some files that look to be conflicted. Are you sure that you want to save and
-			exit?
-		</p>
-	{/snippet}
+	<p class="text-13 text-body helper-text">
+		There are still some files that look to be conflicted. Are you sure that you want to save and
+		exit?
+	</p>
 	{#snippet controls(close)}
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
 		<Button style="error" type="submit">Save and exit</Button>

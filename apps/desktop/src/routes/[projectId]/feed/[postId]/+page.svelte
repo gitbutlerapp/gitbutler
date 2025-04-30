@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/stores';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import CreatePost from '$components/CreatePost.svelte';
 	import Post from '$components/Post.svelte';
@@ -14,7 +15,6 @@
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
-	import { page } from '$app/stores';
 
 	const feedService = getContext(FeedService);
 	const appState = getContext(AppState);

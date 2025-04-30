@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
@@ -29,7 +30,6 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { slide } from 'svelte/transition';
 	import type { Writable } from 'svelte/store';
-	import { goto } from '$app/navigation';
 
 	const { disabled = false }: { disabled?: boolean } = $props();
 

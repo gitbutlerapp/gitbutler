@@ -33,6 +33,7 @@
 
 			const textWithLinks = textArray.map((word) => handleLink(word)).join(' ');
 
+			// eslint-disable-next-line svelte/no-dom-manipulating
 			textElement.innerHTML = textWithLinks;
 		}
 	});

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import Chrome from '$components/Chrome.svelte';
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
@@ -17,7 +18,6 @@
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { goto } from '$app/navigation';
 
 	interface Props {
 		baseBranch: BaseBranch;

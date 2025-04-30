@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import BranchesCardTemplate from '$components/v3/branchesPage/BranchesCardTemplate.svelte';
 	import { BranchListingDetails, type BranchListing } from '$lib/branches/branchListing';
 	import { BranchService } from '$lib/branches/branchService.svelte';
@@ -13,8 +15,6 @@
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 	import type { PullRequest } from '$lib/forge/interface/types';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
 
 	interface Props {
 		projectId: string;

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/stores';
 	import { invoke } from '$lib/backend/ipc';
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import * as zip from '$lib/support/dataSharing';
@@ -12,7 +13,6 @@
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import { getVersion } from '@tauri-apps/api/app';
-	import { page } from '$app/stores';
 
 	type Feedback = {
 		id: number;
