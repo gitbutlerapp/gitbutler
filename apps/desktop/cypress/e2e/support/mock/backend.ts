@@ -22,6 +22,7 @@ import {
 	MOCK_STACKS
 } from './stacks';
 import { MOCK_BRANCH_STATUSES_RESPONSE, MOCK_INTEGRATION_OUTCOME } from './upstreamIntegration';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { TreeChange, TreeChanges, WorktreeChanges } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { Stack, StackDetails } from '$lib/stacks/stack';
@@ -127,6 +128,28 @@ export default class MockBackend {
 		return this.worktreeChanges.changes
 			.map((change) => change.path)
 			.map((path) => path.split('/').pop()!);
+	}
+
+	public getWorktreeChangesTopLevelDirs(): string[] {
+		return this.worktreeChanges.changes
+			.map((change) => {
+				const listed = change.path.split('/');
+				if (listed.length < 2) return undefined;
+				return listed[0];
+			})
+			.filter(isDefined)
+			.filter((dir, index, self) => self.indexOf(dir) === index);
+	}
+
+	public getWorktreeChangesTopLevelFiles(): string[] {
+		return this.worktreeChanges.changes
+			.map((change) => {
+				const listed = change.path.split('/');
+				if (listed.length > 1) return undefined;
+				return listed[0];
+			})
+			.filter(isDefined)
+			.filter((file, index, self) => self.indexOf(file) === index);
 	}
 
 	public createCommit(args: InvokeArgs | undefined): {
