@@ -173,9 +173,11 @@
 						horizontalAlign = 'left';
 						setAlignment();
 					}
-					if (rect.bottom > viewport.bottom) {
-						side = 'top';
-						setAlignment();
+					if (rect.bottom > viewport.bottom && rect.top > viewport.top) {
+						setTimeout(() => {
+							side = 'top';
+							setAlignment();
+						}, 0)
 					}
 					if (rect.top < viewport.top) {
 						side = 'bottom';
