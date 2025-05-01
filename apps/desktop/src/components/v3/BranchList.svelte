@@ -24,6 +24,7 @@
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import {
 		AmendCommitWithChangeDzHandler,
+		AmendCommitWithHunkDzHandler,
 		CommitDropData,
 		SquashCommitDzHandler,
 		type DzCommitData
@@ -290,11 +291,22 @@
 										stackId,
 										commit: dzCommit
 									})}
+									{@const hunkHandler = new AmendCommitWithHunkDzHandler({
+										stackService,
+										projectId,
+										stackId,
+										commit: dzCommit,
+										// TODO: Use correct value!
+										okWithForce: true
+									})}
 									{@const tooltip = commit.state.type}
-									<Dropzone handlers={[amendHandler, squashHandler]}>
+									<Dropzone handlers={[amendHandler, squashHandler, hunkHandler]}>
 										{#snippet overlay({ hovered, activated, handler })}
 											{@const label =
-												handler instanceof AmendCommitWithChangeDzHandler ? 'Amend' : 'Squash'}
+												handler instanceof AmendCommitWithChangeDzHandler ||
+												handler instanceof AmendCommitWithHunkDzHandler
+													? 'Amend'
+													: 'Squash'}
 											<CardOverlay {hovered} {activated} {label} />
 										{/snippet}
 										<div
