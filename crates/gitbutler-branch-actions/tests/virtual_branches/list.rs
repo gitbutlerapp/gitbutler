@@ -13,7 +13,7 @@ fn one_vbranch_in_workspace() -> Result<()> {
             identity: "virtual".into(),
             virtual_branch_given_name: Some("virtual"),
             virtual_branch_in_workspace: true,
-            has_local: false,
+            has_local: true,
             ..Default::default()
         },
         "It's a bare virtual branch with no commit",
@@ -34,7 +34,7 @@ fn one_vbranch_in_workspace_one_commit() -> Result<()> {
             identity: "virtual".into(),
             virtual_branch_given_name: Some("virtual"),
             virtual_branch_in_workspace: true,
-            has_local: false,
+            has_local: true,
             ..Default::default()
         },
         "It's a bare virtual branch with a single commit",
@@ -60,7 +60,7 @@ fn two_vbranches_in_workspace_one_commit() -> Result<()> {
             identity: "other".into(),
             virtual_branch_given_name: Some("other"),
             virtual_branch_in_workspace: true,
-            has_local: false,
+            has_local: true,
             ..Default::default()
         },
         "It's a bare virtual branch without any branches with the same identity",
@@ -75,17 +75,10 @@ fn two_vbranches_in_workspace_one_commit() -> Result<()> {
     )?;
     assert_eq!(list.len(), 1, "only one of these is *not* applied");
 
-    let virtual_branch_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let unapplied = virtual_branch_state.list_all_stacks().unwrap();
-    let unapplied = unapplied
-        .iter()
-        .find(|stack| stack.name == "virtual")
-        .unwrap();
-
     assert_equal(
         &list[0],
         ExpectedBranchListing {
-            identity: (unapplied.source_refname.as_ref().unwrap().branch().unwrap()).into(),
+            identity: "virtual".into(),
             virtual_branch_given_name: Some("virtual"),
             virtual_branch_in_workspace: false,
             has_local: true,
@@ -175,7 +168,7 @@ mod util {
         BranchListing {
             name,
             remotes,
-            virtual_branch,
+            stack: virtual_branch,
             updated_at: _,
             head: _, // NOTE: can't have stable commits while `gitbutler-change-id` is not stable/is a UUID.
             last_commiter: _,
@@ -237,5 +230,4 @@ mod util {
         Ok(branches)
     }
 }
-use gitbutler_stack::VirtualBranchesHandle;
 pub use util::{assert_equal, init_env, list_branches, project_ctx, ExpectedBranchListing};

@@ -37,7 +37,8 @@ mod tests;
 #[cfg(not(test))]
 use std::time::Instant;
 use std::{
-    collections::{HashMap, VecDeque},
+    cmp::Reverse,
+    collections::{BinaryHeap, HashMap, VecDeque},
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -215,21 +216,7 @@ impl<T: FileIdCache> DebounceDataInner<T> {
 
         self.queues = queues_remaining;
 
-        // order events for different files chronologically, but keep the order of events for the same file
-        events_expired.sort_by(|event_a, event_b| {
-            // use the last path because rename events are emitted for the target path
-            if event_a.paths.last() == event_b.paths.last() {
-                std::cmp::Ordering::Equal
-            } else {
-                event_a.time.cmp(&event_b.time)
-            }
-        });
-
-        for event in &events_expired {
-            tracing::trace!("Dispatching event: {:?}", event.event);
-        }
-
-        events_expired
+        sort_events(events_expired)
     }
 
     /// Returns all currently stored errors
@@ -660,4 +647,47 @@ pub fn new_debouncer<F: DebounceEventHandler>(
         NoCache,
         notify::Config::default(),
     )
+}
+
+fn sort_events(events: Vec<DebouncedEvent>) -> Vec<DebouncedEvent> {
+    let mut sorted = Vec::with_capacity(events.len());
+
+    // group events by path
+    let mut events_by_path: HashMap<_, VecDeque<_>> =
+        events.into_iter().fold(HashMap::new(), |mut acc, event| {
+            acc.entry(event.paths.last().cloned().unwrap_or_default())
+                .or_default()
+                .push_back(event);
+            acc
+        });
+
+    // push events for different paths in chronological order and keep the order of events with the same path
+
+    let mut min_time_heap = events_by_path
+        .iter()
+        .map(|(path, events)| Reverse((events[0].time, path.clone())))
+        .collect::<BinaryHeap<_>>();
+
+    while let Some(Reverse((min_time, path))) = min_time_heap.pop() {
+        // unwrap is safe because only paths from `events_by_path` are added to `min_time_heap`
+        // and they are never removed from `events_by_path`.
+        let events = events_by_path.get_mut(&path).unwrap();
+
+        let mut push_next = false;
+
+        while events.front().is_some_and(|event| event.time <= min_time) {
+            // unwrap is safe beause `pop_front` mus return some in order to enter the loop
+            let event = events.pop_front().unwrap();
+            sorted.push(event);
+            push_next = true;
+        }
+
+        if push_next {
+            if let Some(event) = events.front() {
+                min_time_heap.push(Reverse((event.time, path)));
+            }
+        }
+    }
+
+    sorted
 }

@@ -1,7 +1,7 @@
-import { Code } from '$lib/backend/ipc';
+import { Code, isTauriCommandError } from '$lib/backend/ipc';
 import { BaseBranch, type RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 import { showError } from '$lib/notifications/toasts';
-import { ReduxTag } from '$lib/state/tags';
+import { invalidatesList, invalidatesType, providesType, ReduxTag } from '$lib/state/tags';
 import { parseRemoteUrl } from '$lib/url/gitUrl';
 import { plainToInstance } from 'class-transformer';
 import type { BackendApi } from '$lib/state/clientState.svelte';
@@ -64,9 +64,14 @@ export default class BaseBranchService {
 		await this.api.endpoints.baseBranch.fetch({ projectId }, { forceRefetch: true });
 	}
 
-	get fetchFromRemotes() {
-		return this.api.endpoints.fetchFromRemotes.useMutation({
-			onError: (error, { action }) => {
+	async fetchFromRemotes(projectId: string, action?: string) {
+		return await this.api.endpoints.fetchFromRemotes
+			.mutate({ projectId, action })
+			.catch((error: unknown) => {
+				if (!isTauriCommandError(error)) {
+					showError('Failed to fetch', String(error));
+					return;
+				}
 				const { code } = error;
 				if (code === Code.DefaultTargetNotFound) {
 					// Swallow this error since user should be taken to project setup page
@@ -74,43 +79,20 @@ export default class BaseBranchService {
 				}
 
 				if (code === Code.ProjectsGitAuth) {
-					showError('Failed to authenticate', error);
+					showError('Failed to authenticate', error.message);
 					return;
 				}
 
+				if (code === Code.Unknown && error.message?.includes('cargo build -p gitbutler-git')) {
+					showError('Run `cargo build -p gitbutler-git`', error.message);
+				}
+
 				if (action !== undefined) {
-					showError('Failed to fetch', error);
+					showError('Failed to fetch', error.message);
 				}
 
 				console.error(error);
-			}
-		});
-	}
-
-	async refreshRemotes(projectId: string) {
-		await this.api.endpoints.fetchFromRemotes.mutate(
-			{ projectId },
-			{
-				onError: (error, { action }) => {
-					const { code } = error;
-					if (code === Code.DefaultTargetNotFound) {
-						// Swallow this error since user should be taken to project setup page
-						return;
-					}
-
-					if (code === Code.ProjectsGitAuth) {
-						showError('Failed to authenticate', error);
-						return;
-					}
-
-					if (action !== undefined) {
-						showError('Failed to fetch', error);
-					}
-
-					console.error(error);
-				}
-			}
-		);
+			});
 	}
 
 	get setTarget() {
@@ -134,7 +116,7 @@ function injectEndpoints(api: BackendApi) {
 					command: 'get_base_branch_data',
 					params: { projectId }
 				}),
-				providesTags: [ReduxTag.BaseBranchData]
+				providesTags: [providesType(ReduxTag.BaseBranchData)]
 			}),
 			fetchFromRemotes: build.mutation<void, { projectId: string; action?: string }>({
 				query: ({ projectId, action }) => ({
@@ -142,10 +124,10 @@ function injectEndpoints(api: BackendApi) {
 					params: { projectId, action: action ?? 'auto' }
 				}),
 				invalidatesTags: [
-					ReduxTag.BaseBranchData,
-					ReduxTag.Stacks,
-					ReduxTag.Commits,
-					ReduxTag.UpstreamIntegrationStatus
+					invalidatesType(ReduxTag.BaseBranchData),
+					invalidatesList(ReduxTag.Stacks),
+					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.UpstreamIntegrationStatus)
 				],
 				transformErrorResponse: (error) => {
 					// This is good enough while we check the best way to handle this
@@ -160,14 +142,18 @@ function injectEndpoints(api: BackendApi) {
 					command: 'set_base_branch',
 					params: { projectId, branch, pushRemote }
 				}),
-				invalidatesTags: [ReduxTag.BaseBranchData, ReduxTag.Stacks, ReduxTag.Commits]
+				invalidatesTags: [
+					invalidatesType(ReduxTag.BaseBranchData),
+					invalidatesList(ReduxTag.Stacks),
+					invalidatesList(ReduxTag.StackDetails)
+				]
 			}),
 			push: build.mutation<void, { projectId: string; withForce?: boolean }>({
 				query: ({ projectId, withForce }) => ({
 					command: 'push_base_branch',
 					params: { projectId, withForce }
 				}),
-				invalidatesTags: [ReduxTag.BaseBranchData]
+				invalidatesTags: [invalidatesType(ReduxTag.BaseBranchData)]
 			}),
 			remoteBranches: build.query<RemoteBranchInfo[], { projectId: string }>({
 				query: ({ projectId }) => ({

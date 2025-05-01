@@ -5,6 +5,7 @@
 
 <script lang="ts">
 	import { portal } from '$lib/utils/portal';
+	import { pxToRem } from '$lib/utils/pxToRem';
 	import { setPosition } from '$lib/utils/tooltipPosition';
 	import { flyScale } from '$lib/utils/transitions';
 	import { type Snippet } from 'svelte';
@@ -16,6 +17,7 @@
 		align?: TooltipAlign;
 		position?: TooltipPosition;
 		overrideYScroll?: number;
+		maxWidth?: number;
 		children: Snippet;
 	}
 
@@ -26,6 +28,7 @@
 		align,
 		position: requestedPosition = 'bottom',
 		overrideYScroll,
+		maxWidth = 240,
 		children
 	}: Props = $props();
 
@@ -97,6 +100,7 @@
 				use:setPosition={{ targetEl, position, align, overrideYScroll }}
 				use:portal={'body'}
 				class="tooltip-container text-11 text-body"
+				style:max-width={pxToRem(maxWidth)}
 				transition:flyScale={{
 					position: position
 				}}
@@ -126,7 +130,6 @@
 		color: var(--clr-core-ntrl-80);
 		display: inline-block;
 		width: fit-content;
-		max-width: 240px;
 		padding: 4px 8px;
 		z-index: var(--z-blocker);
 		word-break: break-word;

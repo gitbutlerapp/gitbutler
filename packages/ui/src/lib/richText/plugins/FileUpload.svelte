@@ -12,7 +12,7 @@
 	import { COMMAND_PRIORITY_CRITICAL, DROP_COMMAND, PASTE_COMMAND } from 'lexical';
 
 	type Props = {
-		onDrop: (files: FileList | undefined) => Promise<DropFileResult[]>;
+		onDrop: (files: FileList | undefined) => Promise<DropFileResult[] | undefined>;
 	};
 
 	const { onDrop }: Props = $props();
@@ -35,6 +35,7 @@
 		if (!files) return;
 
 		const results = await onDrop(files);
+		if (!results) return;
 		results.forEach((result) => {
 			const embed = embedDroppedFile(result);
 			insertTextAtCaret(editor, `${embed}\n`);
@@ -42,7 +43,7 @@
 	}
 
 	$effect(() => {
-		const unregidterDrop = editor.registerCommand(
+		const unregisterDrop = editor.registerCommand(
 			DROP_COMMAND,
 			(e) => {
 				e.preventDefault();
@@ -55,23 +56,29 @@
 			COMMAND_PRIORITY_CRITICAL
 		);
 
-		const unregidterPaste = editor.registerCommand(
+		const unregisterPaste = editor.registerCommand(
 			PASTE_COMMAND,
 			(e) => {
-				e.preventDefault();
-				e.stopPropagation();
-
 				const clipboardEvent = e as ClipboardEvent;
 				const files = clipboardEvent.clipboardData?.files;
-				handleDrop(files);
-				return true;
+
+				if (files && files.length > 0) {
+					e.preventDefault();
+					e.stopPropagation();
+
+					handleDrop(files);
+
+					return true;
+				}
+
+				return false;
 			},
 			COMMAND_PRIORITY_CRITICAL
 		);
 
 		return () => {
-			unregidterDrop();
-			unregidterPaste();
+			unregisterDrop();
+			unregisterPaste();
 		};
 	});
 

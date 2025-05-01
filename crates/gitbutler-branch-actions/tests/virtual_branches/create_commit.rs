@@ -7,9 +7,7 @@ use super::*;
 
 #[test]
 fn should_lock_updated_hunks() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -20,7 +18,7 @@ fn should_lock_updated_hunks() {
 
     {
         // by default, hunks are not locked
-        repository.write_file("file.txt", &["content".to_string()]);
+        repo.write_file("file.txt", &["content".to_string()]);
 
         let branch = get_virtual_branch(ctx, stack_entry.id);
         assert_eq!(branch.files.len(), 1);
@@ -33,7 +31,7 @@ fn should_lock_updated_hunks() {
 
     {
         // change in the committed hunks leads to hunk locking
-        repository.write_file("file.txt", &["updated content".to_string()]);
+        repo.write_file("file.txt", &["updated content".to_string()]);
 
         let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
             .unwrap()
@@ -50,12 +48,10 @@ fn should_lock_updated_hunks() {
 
 #[test]
 fn should_reset_into_same_branch() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
-    let mut lines = repository.gen_file("file.txt", 7);
-    commit_and_push_initial(repository);
+    let mut lines = repo.gen_file("file.txt", 7);
+    commit_and_push_initial(repo);
 
     let base_branch = gitbutler_branch_actions::set_base_branch(
         ctx,
@@ -75,7 +71,7 @@ fn should_reset_into_same_branch() {
     .unwrap();
 
     lines[0] = "change 1".to_string();
-    repository.write_file("file.txt", &lines);
+    repo.write_file("file.txt", &lines);
 
     gitbutler_branch_actions::create_commit(ctx, stack_entry_2.id, "commit to branch 2", None)
         .unwrap();

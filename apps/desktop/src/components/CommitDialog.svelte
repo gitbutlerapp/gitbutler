@@ -2,12 +2,12 @@
 	import CommitMessageInput from '$components/CommitMessageInput.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { BranchStack } from '$lib/branches/branch';
-	import { BranchController } from '$lib/branches/branchController';
 	import { SelectedOwnership } from '$lib/branches/ownership';
 	import { persistedCommitMessage, projectRunCommitHooks } from '$lib/config/config';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { showError } from '$lib/notifications/toasts';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -27,7 +27,6 @@
 
 	const { projectId, expanded, hasSectionsAfter }: Props = $props();
 
-	const branchController = getContext(BranchController);
 	const hooksService = getContext(HooksService);
 	const posthog = getContext(PostHogWrapper);
 	const syncedSnapshotService = getContext(SyncedSnapshotService);
@@ -36,6 +35,7 @@
 	const stack = getContextStore(BranchStack);
 	const commitMessage = persistedCommitMessage(projectId, $stack.id);
 	const runHooks = projectRunCommitHooks(projectId);
+	const stackService = getContext(StackService);
 
 	let commitMessageInput = $state<CommitMessageInput>();
 	let isCommitting = $state(false);
@@ -61,7 +61,12 @@
 					return; // Abort commit if hook failed.
 				}
 			}
-			await branchController.commit($stack.id, message.trim(), ownership);
+			await stackService.createCommitLegacy({
+				projectId,
+				stackId: $stack.id,
+				message: message.trim(),
+				ownership
+			});
 		} catch (err: unknown) {
 			showError('Failed to commit changes', err);
 			posthog.capture('Commit Failed', { error: err });

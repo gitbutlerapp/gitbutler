@@ -4,9 +4,7 @@ use super::*;
 
 #[test]
 fn detect_upstream_commits() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -17,13 +15,13 @@ fn detect_upstream_commits() {
 
     let oid1 = {
         // create first commit
-        fs::write(repository.path().join("file.txt"), "content").unwrap();
+        fs::write(repo.path().join("file.txt"), "content").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "commit", None).unwrap()
     };
 
     let oid2 = {
         // create second commit
-        fs::write(repository.path().join("file.txt"), "content2").unwrap();
+        fs::write(repo.path().join("file.txt"), "content2").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "commit", None).unwrap()
     };
 
@@ -32,7 +30,7 @@ fn detect_upstream_commits() {
 
     let oid3 = {
         // create third commit
-        fs::write(repository.path().join("file.txt"), "content3").unwrap();
+        fs::write(repo.path().join("file.txt"), "content3").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "commit", None).unwrap()
     };
 
@@ -54,9 +52,7 @@ fn detect_upstream_commits() {
 
 #[test]
 fn detect_integrated_commits() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -67,13 +63,13 @@ fn detect_integrated_commits() {
 
     let oid1 = {
         // create first commit
-        fs::write(repository.path().join("file.txt"), "content").unwrap();
+        fs::write(repo.path().join("file.txt"), "content").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "commit", None).unwrap()
     };
 
     let oid2 = {
         // create second commit
-        fs::write(repository.path().join("file.txt"), "content2").unwrap();
+        fs::write(repo.path().join("file.txt"), "content2").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "commit", None).unwrap()
     };
 
@@ -89,15 +85,13 @@ fn detect_integrated_commits() {
             .into_iter()
             .find(|b| b.id == stack_entry_1.id)
             .unwrap();
-        repository
-            .merge(&branch.upstream.as_ref().unwrap().name)
-            .unwrap();
-        repository.fetch();
+        repo.merge(&branch.upstream.as_ref().unwrap().name).unwrap();
+        repo.fetch();
     }
 
     let oid3 = {
         // create third commit
-        fs::write(repository.path().join("file.txt"), "content3").unwrap();
+        fs::write(repo.path().join("file.txt"), "content3").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "commit", None).unwrap()
     };
 

@@ -739,15 +739,15 @@ fn id_or_hash_from_worktree(
             ToGitOutcome::Process(mut stream) => {
                 let mut buf = repo.empty_reusable_buffer();
                 stream.read_to_end(&mut buf)?;
-                gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, &buf)
+                gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, &buf)?
             }
             ToGitOutcome::Buffer(buf) => {
-                gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, buf)
+                gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, buf)?
             }
         }
     } else if md.is_symlink() {
         let bytes = gix::path::os_string_into_bstring(std::fs::read_link(path)?.into())?;
-        gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, &bytes)
+        gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, &bytes)?
     } else {
         bail!("Cannot hash directory entries that aren't files or symlinks");
     };

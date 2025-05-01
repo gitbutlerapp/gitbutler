@@ -1,17 +1,10 @@
 import { GitHubClient } from '$lib/forge/github/githubClient';
 import { DEFAULT_HEADERS } from '$lib/forge/github/headers';
 import { isErrorlike, type ErrorLike } from '@gitbutler/ui/utils/typeguards';
-import type { RestEndpointMethodTypes } from '@octokit/rest';
+import type { Octokit, RestEndpointMethodTypes } from '@octokit/rest';
 
-type Transformer<
-	T extends keyof RestEndpointMethodTypes,
-	S extends keyof RestEndpointMethodTypes[T]
-> = (result: InferGhResponse<T, S>) => any;
+type OwnerAndRepo = { owner: string; repo: string };
 
-type DefaultTransformer<
-	T extends keyof RestEndpointMethodTypes,
-	S extends keyof RestEndpointMethodTypes[T]
-> = (result: InferGhResponse<T, S>) => InferGhResponse<T, S>;
 /**
  * Effectively the `BaseQueryFn` we want, but located in this service file
  * until we figure out a way of making the generic parameters work.
@@ -21,22 +14,47 @@ type DefaultTransformer<
 export async function ghQuery<
 	T extends keyof RestEndpointMethodTypes,
 	S extends keyof RestEndpointMethodTypes[T],
-	U extends Transformer<T, S> | undefined = DefaultTransformer<T, S>
+	RequiresOwnerAndRepo extends 'required' | 'optional'
 >(
-	args: GhArgs<T, S>,
-	transform?: U
-): Promise<U extends Transformer<T, S> ? ReturnType<U> : InferGhResponse<T, S>> {
-	if (!hasGitHub(args.extra)) throw new Error('No GitHub client!');
-	const gh = args.extra.gitHubClient;
+	args:
+		| GhArgs<T, S>
+		| ((
+				octokit: Octokit,
+				about: RequiresOwnerAndRepo extends 'required' ? OwnerAndRepo : Partial<OwnerAndRepo>
+		  ) => Promise<InferGhResponse<T, S>>),
+	passedExtra?: unknown,
+	requiresOwnerAndRepo?: RequiresOwnerAndRepo
+): Promise<InferGhResponse<T, S>> {
+	let extra;
+	if (typeof args === 'function') {
+		extra = passedExtra;
+	} else {
+		extra = args.extra;
+	}
+
+	if (!hasGitHub(extra)) throw new Error('No GitHub client!');
+	const gh = extra.gitHubClient;
 	try {
-		// @ts-expect-error because of dynamic keys.
-		const result = await gh.octokit[args.domain][args.action]({
-			...args.parameters,
-			headers: DEFAULT_HEADERS,
-			owner: gh.owner,
-			repo: gh.repo
-		});
-		return { data: transform ? transform(result.data) : result.data } as any;
+		let result;
+		if (typeof args === 'function') {
+			if ((!gh.owner || !gh.repo) && requiresOwnerAndRepo === 'required') {
+				return { error: { message: 'No GitHub owner or repo!' } };
+			}
+			result = await args(gh.octokit, {
+				owner: gh.owner,
+				repo: gh.repo
+			} as RequiresOwnerAndRepo extends 'required' ? OwnerAndRepo : Partial<OwnerAndRepo>);
+		} else {
+			// @ts-expect-error because of dynamic keys.
+			result = await gh.octokit[args.domain][args.action]({
+				...args.parameters,
+				headers: DEFAULT_HEADERS,
+				owner: gh.owner,
+				repo: gh.repo
+			});
+		}
+
+		return result;
 	} catch (err: unknown) {
 		return { error: isErrorlike(err) ? err.message : { message: String(err) } } as any;
 	}

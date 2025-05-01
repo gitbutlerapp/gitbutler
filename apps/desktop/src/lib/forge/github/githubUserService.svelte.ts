@@ -1,5 +1,5 @@
 import { ghQuery } from '$lib/forge/github/ghQuery';
-import { ReduxTag } from '$lib/state/tags';
+import { providesList, ReduxTag } from '$lib/state/tags';
 import type { Tauri } from '$lib/backend/tauri';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
@@ -45,7 +45,7 @@ function injectEndpoints(api: GitHubApi) {
 						action: 'getAuthenticated',
 						extra: api.extra
 					}),
-				providesTags: [ReduxTag.PullRequests]
+				providesTags: [providesList(ReduxTag.PullRequests)]
 			})
 		})
 	});

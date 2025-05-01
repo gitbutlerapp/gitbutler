@@ -49,6 +49,7 @@
 		text-align: center;
 		border-radius: 20px;
 		line-height: 90%;
+		flex-shrink: 0;
 
 		/* SOLID */
 
@@ -118,12 +119,14 @@
 			height: var(--size-icon);
 			padding: 0 3px;
 			gap: 1px;
+			min-width: var(--size-icon);
 		}
 
 		&.tag-size {
 			height: var(--size-tag);
 			padding: 0 5px;
 			gap: 2px;
+			min-width: var(--size-tag);
 		}
 
 		/* REVERSED DIRECTION */

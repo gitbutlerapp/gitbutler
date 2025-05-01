@@ -1,7 +1,6 @@
 import { type AnyFile } from '$lib/files/file';
+import { type FileStatus } from '@gitbutler/ui/file/types';
 import type { TreeChange } from '$lib/hunks/change';
-
-export type FileStatus = 'A' | 'M' | 'D';
 
 export function computeFileStatus(file: AnyFile): FileStatus {
 	if (file.hunks.length === 1) {
@@ -24,6 +23,6 @@ export function computeChangeStatus(change: TreeChange): FileStatus {
 		case 'Modification':
 			return 'M';
 		case 'Rename':
-			return 'M';
+			return 'R';
 	}
 }

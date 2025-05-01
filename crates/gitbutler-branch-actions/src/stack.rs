@@ -5,11 +5,10 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
-use gitbutler_oxidize::RepoExt;
+use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::stack_context::StackContext;
-use gitbutler_stack::{CommitOrChangeId, PatchReferenceUpdate, StackBranch};
+use gitbutler_stack::{PatchReferenceUpdate, StackBranch};
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
 
@@ -40,13 +39,11 @@ pub fn create_branch(
 ) -> Result<()> {
     ctx.verify()?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx
-        .project()
-        .snapshot_create_dependent_branch(&req.name, guard.write_permission());
+    let _ = ctx.snapshot_create_dependent_branch(&req.name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&req.name)?;
-    let repo = ctx.gix_repository()?;
+    let repo = ctx.gix_repo()?;
     // If target_patch is None, create a new head that points to the top of the stack (most recent patch)
     if let Some(target_patch) = req.target_patch {
         stack.add_series(
@@ -67,7 +64,7 @@ pub struct CreateSeriesRequest {
     /// Description of the new series - can be markdown or anything really
     description: Option<String>,
     /// The target patch (head) to create these series for. If let None, the new series will be at the top of the stack
-    target_patch: Option<CommitOrChangeId>,
+    target_patch: Option<gitbutler_stack::CommitOrChangeId>,
     /// The name of the series that preceded the newly created series.
     /// This is used to disambiguate the order when they point to the same patch
     preceding_head: Option<String>,
@@ -80,9 +77,7 @@ pub struct CreateSeriesRequest {
 pub fn remove_branch(ctx: &CommandContext, stack_id: StackId, branch_name: String) -> Result<()> {
     ctx.verify()?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx
-        .project()
-        .snapshot_remove_dependent_branch(&branch_name, guard.write_permission());
+    let _ = ctx.snapshot_remove_dependent_branch(&branch_name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     stack.remove_branch(ctx, branch_name)
@@ -98,9 +93,7 @@ pub fn update_branch_name(
 ) -> Result<()> {
     ctx.verify()?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx
-        .project()
-        .snapshot_update_dependent_branch_name(&branch_name, guard.write_permission());
+    let _ = ctx.snapshot_update_dependent_branch_name(&branch_name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&new_name)?;
@@ -124,7 +117,7 @@ pub fn update_branch_description(
 ) -> Result<()> {
     ctx.verify()?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::UpdateDependentBranchDescription),
         guard.write_permission(),
     );
@@ -157,7 +150,7 @@ pub fn update_branch_pr_number(
 ) -> Result<()> {
     ctx.verify()?;
     let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
+    let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::UpdateDependentBranchPrNumber),
         guard.write_permission(),
     );
@@ -176,8 +169,10 @@ pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> 
 
     let repo = ctx.repo();
     let default_target = state.get_default_target()?;
-    let merge_base =
-        repo.find_commit(repo.merge_base(stack.head(&repo.to_gix()?)?, default_target.sha)?)?;
+    let merge_base = repo.find_commit(repo.merge_base(
+        stack.head_oid(&repo.to_gix()?)?.to_git2(),
+        default_target.sha,
+    )?)?;
     // let merge_base: CommitOrChangeId = merge_base.into();
 
     // First fetch, because we dont want to push integrated series
@@ -185,7 +180,7 @@ pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> 
         &default_target.push_remote_name(),
         Some("push_stack".into()),
     )?;
-    let gix_repo = ctx.gix_repository_for_merging_non_persisting()?;
+    let gix_repo = ctx.gix_repo_for_merging_non_persisting()?;
     let cache = gix_repo.commit_graph_if_enabled()?;
     let mut graph = gix_repo.revision_graph(cache.as_ref());
     let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
@@ -195,7 +190,7 @@ pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> 
             // Nothing to push for this one
             continue;
         }
-        if branch.head_oid(&gix_repo)? == merge_base.id() {
+        if branch.head_oid(&gix_repo)? == merge_base.id().to_gix() {
             // Nothing to push for this one
             continue;
         }
@@ -225,7 +220,7 @@ pub(crate) fn branch_integrated(
         return Ok(true);
     }
     let oid = branch.head_oid(gix_repo)?;
-    let branch_head = repo.find_commit(oid)?;
+    let branch_head = repo.find_commit(oid.to_git2())?;
     check_commit.is_integrated(&branch_head)
 }
 
@@ -233,7 +228,7 @@ pub(crate) fn branch_integrated(
 /// Newest first, oldest last in the list
 /// `commits` is used to accelerate the is-integrated check.
 pub(crate) fn stack_series(
-    ctx: &StackContext,
+    ctx: &CommandContext,
     stack: &mut Stack,
     default_target: &Target,
     check_commit: &mut IsCommitIntegrated,
@@ -273,7 +268,7 @@ pub(crate) fn stack_series(
 
 #[allow(clippy::too_many_arguments)]
 fn stack_branch_to_api_branch(
-    ctx: &StackContext,
+    ctx: &CommandContext,
     stack_branch: StackBranch,
     stack: &Stack,
     default_target: &Target,
@@ -282,10 +277,10 @@ fn stack_branch_to_api_branch(
     parent_series: &[&PatchSeries],
 ) -> Result<(PatchSeries, bool)> {
     let mut requires_force = false;
-    let repository = ctx.repository();
+    let repo = ctx.repo();
     let branch_commits = stack_branch.commits(ctx, stack)?;
     let remote = default_target.push_remote_name();
-    let upstream_reference = if stack_branch.pushed(remote.as_str(), repository) {
+    let upstream_reference = if stack_branch.pushed(remote.as_str(), repo) {
         Some(stack_branch.remote_reference(remote.as_str()))
     } else {
         None
@@ -341,7 +336,7 @@ fn stack_branch_to_api_branch(
         let commit_dependencies = commit_dependencies_from_stack(stack_dependencies, commit.id());
 
         let vcommit = commit_to_vbranch_commit(
-            repository,
+            repo,
             stack,
             commit,
             is_integrated,
@@ -397,7 +392,7 @@ fn stack_branch_to_api_branch(
         let commit_dependencies = commit_dependencies_from_stack(stack_dependencies, commit.id());
 
         let vcommit = commit_to_vbranch_commit(
-            repository,
+            repo,
             stack,
             commit,
             is_integrated,

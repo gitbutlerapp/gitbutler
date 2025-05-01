@@ -1,20 +1,21 @@
 use but_core::UnifiedDiff;
+use but_core::unified_diff::DiffHunk;
+use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::OidExt;
 use gitbutler_stack::StackId;
-use gix::bstr::ByteSlice;
 use serde::Serialize;
-use std::hash::Hasher;
 use std::path::Path;
 
 /// Compute hunk-dependencies for the UI knowing the `worktree_dir` for changes
 /// and `gitbutler_dir` for obtaining stack information.
 pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
+    ctx: &CommandContext,
     worktree_dir: &Path,
     gitbutler_dir: &Path,
 ) -> anyhow::Result<HunkDependencies> {
     let repo = gix::open(worktree_dir).map_err(anyhow::Error::from)?;
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
-    let stacks = but_workspace::stacks(gitbutler_dir, &repo)?;
+    let stacks = but_workspace::stacks(ctx, gitbutler_dir, &repo, Default::default())?;
     let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(gitbutler_dir)
         .get_default_target()?
         .sha;
@@ -24,34 +25,14 @@ pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
     HunkDependencies::try_from_workspace_ranges(&repo, ranges, worktree_changes.changes)
 }
 
-/// Calculate as hash for a `universal_diff`.
-// TODO: see if this should be avoided entirely here as the current impl would allow for hash collisions.
-pub fn hash_lines(universal_diff: impl AsRef<[u8]>) -> HunkHash {
-    let diff = universal_diff.as_ref();
-    assert!(
-        diff.starts_with(b"@@"),
-        "BUG: input mut be a universal diff"
-    );
-    let mut ctx = rustc_hash::FxHasher::default();
-    diff.lines_with_terminator()
-        .skip(1) // skip the first line which is the diff header.
-        .for_each(|line| ctx.write(line));
-    ctx.finish()
-}
-
 /// A way to represent all hunk dependencies that would make it possible to know what can be applied, and were.
 ///
 /// Note that the [`errors`](Self::errors) field may contain information about specific failures, while other paths
 /// may have succeeded computing.
 #[derive(Debug, Clone, Serialize)]
 pub struct HunkDependencies {
-    /// A map from diffs to branch and commit dependencies.
-    // TODO: could this be a specific type? Is the mapping truly required?
-    //       Is this because `commit_dependent_diffs` use `HunkHash`?
-    // TODO: the frontend actually has no way of associating the hunks it gets with this hash as it's made
-    //       on the patch lines without any context lines, while it has context lines.
-    //       Hash must then skip the context lines if there are any.
-    pub diffs: Vec<(HunkHash, Vec<HunkLock>)>,
+    /// A map from hunk diffs to stack and commit dependencies.
+    pub diffs: Vec<(String, DiffHunk, Vec<HunkLock>)>,
     /// Errors that occurred during the calculation that should be presented in some way.
     // TODO: Does the UI really use whatever partial result that there may be? Should this be a real error?
     pub errors: Vec<crate::CalculationError>,
@@ -64,7 +45,7 @@ impl HunkDependencies {
         ranges: crate::WorkspaceRanges,
         worktree_changes: Vec<but_core::TreeChange>,
     ) -> anyhow::Result<HunkDependencies> {
-        let mut diffs = Vec::<(HunkHash, Vec<HunkLock>)>::new();
+        let mut diffs = Vec::<(String, DiffHunk, Vec<HunkLock>)>::new();
         for change in worktree_changes {
             let unidiff = change.unified_diff(repo, 0 /* zero context lines */)?;
             let UnifiedDiff::Patch { hunks, .. } = unidiff else {
@@ -81,7 +62,7 @@ impl HunkDependencies {
                             stack_id: dependency.stack_id,
                         })
                         .collect();
-                    diffs.push((hash_lines(&hunk.diff), locks));
+                    diffs.push((change.path.to_string(), hunk, locks));
                 }
             }
         }
@@ -92,10 +73,6 @@ impl HunkDependencies {
         })
     }
 }
-
-/// A hash over the universal diff of a hunk.
-// TODO: using the hash directly like we do can collide, would have to use actual Hunk to prevent this issue.
-pub type HunkHash = u64;
 
 /// A commit that owns this lock, along with the stack that owns it.
 /// A hunk is locked when it depends on changes in commits that are in your workspace. A hunk can

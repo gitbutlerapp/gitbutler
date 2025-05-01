@@ -129,6 +129,7 @@ impl Display for SnapshotDetails {
 pub enum OperationKind {
     CreateCommit,
     CreateBranch,
+    StashIntoBranch,
     SetBaseBranch,
     MergeUpstream,
     UpdateWorkspaceBase,
@@ -144,6 +145,7 @@ pub enum OperationKind {
     DiscardLines,
     DiscardHunk,
     DiscardFile,
+    DiscardChanges,
     AmendCommit,
     UndoCommit,
     UnapplyBranch,

@@ -8,11 +8,11 @@ export type WorktreeChanges = {
 	 */
 	readonly ignoredChanges: IgnoredChange[];
 };
+
 /**
  * An entry in the worktree that changed and thus is eligible to being committed.
  * It either lives (or lived) in the in `.git/index`, or in the `worktree`.
  */
-
 export type TreeChange = {
 	/** The *relative* path in the worktree where the entry can be found.*/
 	readonly path: string;
@@ -23,6 +23,32 @@ export type TreeChange = {
 	readonly pathBytes: number[];
 	/** The specific information about this change.*/
 	readonly status: Status;
+};
+
+export function previousPathBytesFromTreeChange(treeChange: TreeChange): number[] | null {
+	if (treeChange.status.type === 'Rename') {
+		return treeChange.status.subject.previousPathBytes;
+	}
+	return null;
+}
+
+export type TreeStats = {
+	/** The total amount of lines added. */
+	readonly linesAdded: number;
+	/** The total amount of lines removed.*/
+	readonly linesRemoved: number;
+	/** The number of files added, removed or modified.*/
+	readonly filesChanged: number;
+};
+
+/**
+ * The list of changes and the stats
+ */
+export type TreeChanges = {
+	/** The changes that were made to the tree. */
+	readonly changes: TreeChange[];
+	/** The stats of the changes. */
+	readonly stats: TreeStats;
 };
 
 export function isTreeChange(something: unknown): something is TreeChange {
@@ -86,6 +112,7 @@ export type Modification = {
  */
 export type Rename = {
 	readonly previousPath: string;
+	readonly previousPathBytes: number[];
 	/** @private */
 	readonly previousState: ChangeState;
 	/** @private */

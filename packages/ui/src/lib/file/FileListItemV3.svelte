@@ -14,6 +14,7 @@
 		id?: string;
 		filePath: string;
 		fileStatus?: FileStatus;
+		fileStatusTooltip?: string;
 		fileStatusStyle?: 'dot' | 'full';
 		draggable?: boolean;
 		selected?: boolean;
@@ -47,6 +48,7 @@
 		id,
 		filePath,
 		fileStatus,
+		fileStatusTooltip,
 		isLast,
 		fileStatusStyle = 'dot',
 		draggable = false,
@@ -70,6 +72,8 @@
 		onkeydown,
 		oncontextmenu
 	}: Props = $props();
+
+	const showIndent = $derived(depth && depth > 0);
 </script>
 
 <div
@@ -104,13 +108,17 @@
 		</div>
 	{/if}
 
-	<div class="file-list-item__indicators">
-		<FileIndent {depth} />
+	{#if showIndent || showCheckbox}
+		<div class="file-list-item__indicators">
+			{#if showIndent}
+				<FileIndent {depth} />
+			{/if}
 
-		{#if showCheckbox}
-			<Checkbox small {checked} {indeterminate} onchange={oncheck} />
-		{/if}
-	</div>
+			{#if showCheckbox}
+				<Checkbox small {checked} {indeterminate} onchange={oncheck} />
+			{/if}
+		</div>
+	{/if}
 
 	<FileName {filePath} hideFilePath={listMode === 'tree'} />
 
@@ -154,7 +162,7 @@
 		{/if}
 
 		{#if fileStatus}
-			<FileStatusBadge status={fileStatus} style={fileStatusStyle} />
+			<FileStatusBadge tooltip={fileStatusTooltip} status={fileStatus} style={fileStatusStyle} />
 		{/if}
 	</div>
 </div>
@@ -164,7 +172,8 @@
 		position: relative;
 		display: flex;
 		align-items: center;
-		padding: 8px 8px 8px 14px;
+		padding: 0 8px 0 14px;
+
 		gap: 8px;
 		height: 32px;
 		overflow: hidden;
@@ -172,7 +181,6 @@
 		user-select: none;
 		outline: none;
 		background: transparent;
-		/* background-color: rgba(0, 0, 0, 0.1); */
 
 		& :global(.mark-resolved-btn) {
 			margin: 0 4px;
@@ -212,10 +220,6 @@
 		align-items: center;
 		gap: 6px;
 		height: 100%;
-
-		&:not(:has(*)) {
-			display: none;
-		}
 	}
 
 	.draggable-handle {

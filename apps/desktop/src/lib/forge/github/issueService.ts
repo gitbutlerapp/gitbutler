@@ -1,5 +1,5 @@
 import { ghQuery } from '$lib/forge/github/ghQuery';
-import { ReduxTag } from '$lib/state/tags';
+import { invalidatesList, ReduxTag } from '$lib/state/tags';
 import type { CreateIssueResult } from '$lib/forge/github/types';
 import type { ForgeIssueService } from '$lib/forge/interface/forgeIssueService';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
@@ -12,11 +12,7 @@ export class GitHubIssueService implements ForgeIssueService {
 	}
 
 	async create(title: string, body: string, labels: string[]) {
-		const result = await this.api.endpoints.create.mutate({ title, body, labels });
-		if (!result.data) {
-			return await Promise.reject(result.error);
-		}
-		return result.data;
+		return await this.api.endpoints.create.mutate({ title, body, labels });
 	}
 }
 
@@ -31,7 +27,7 @@ function injectEndpoints(api: GitHubApi) {
 						parameters: { title, body, labels },
 						extra: api.extra
 					}),
-				invalidatesTags: [ReduxTag.PullRequests]
+				invalidatesTags: [invalidatesList(ReduxTag.PullRequests)]
 			})
 		})
 	});

@@ -34,7 +34,7 @@
 
 	let filterStatus = $state<BranchStatus>(BranchStatus.All);
 	const selectableStatuses = [
-		{ value: BranchStatus.All, label: 'All' },
+		{ value: BranchStatus.All, label: 'All branches' },
 		{ value: BranchStatus.Closed, label: 'Closed' },
 		{ value: BranchStatus.Active, label: 'Active' },
 		{ value: BranchStatus.Inactive, label: 'Inactive' }
@@ -61,7 +61,7 @@
 		}}
 	>
 		{#snippet customSelectButton()}
-			<Button kind="ghost" icon="chevron-down" size="tag">
+			<Button kind="ghost" icon="chevron-down">
 				{selectableStatuses.find((status) => status.value === filterStatus)!.label}
 			</Button>
 		{/snippet}
@@ -150,7 +150,8 @@
 
 		justify-content: space-between;
 
-		margin-bottom: 24px;
+		margin-top: 8px;
+		margin-bottom: 16px;
 	}
 	.title {
 		display: flex;

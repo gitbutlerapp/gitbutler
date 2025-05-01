@@ -1,9 +1,16 @@
-import { lineIdKey, parseHunk, type LineId } from '@gitbutler/ui/utils/diffParsing';
+import { memoize } from '@gitbutler/shared/memoization';
+import {
+	lineIdKey,
+	parseHunk,
+	SectionType,
+	type LineId,
+	type LineLock
+} from '@gitbutler/ui/utils/diffParsing';
 import { hashCode } from '@gitbutler/ui/utils/string';
 import { Transform, Type } from 'class-transformer';
+import type { HunkLocks } from '$lib/dependencies/dependencies';
 import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
 import 'reflect-metadata';
-
 export class RemoteHunk {
 	diff!: string;
 	hash?: string;
@@ -59,9 +66,9 @@ export class HunkLock {
 
 export type DiffSpec = {
 	/** lossless version of `previous_path` if this was a rename. */
-	readonly previousPathBytes: string | null;
+	readonly previousPathBytes: number[] | null;
 	/** lossless version of `path`. */
-	readonly pathBytes: string;
+	readonly pathBytes: number[];
 	/** The headers of the hunks to use, or empty if all changes are to be used. */
 	readonly hunkHeaders: HunkHeader[];
 };
@@ -82,6 +89,14 @@ type DeltaLineGroup = {
 	lines: LineId[];
 };
 
+function getAnchorLineNumber(lineNumber: number, action: 'discard' | 'commit'): number {
+	switch (action) {
+		case 'discard':
+			return lineNumber;
+		case 'commit':
+			return 0;
+	}
+}
 /**
  * Turn a grouping of lines into a hunk header.
  *
@@ -89,7 +104,8 @@ type DeltaLineGroup = {
  */
 function lineGroupsToHunkHeader(
 	lineGroup: DeltaLineGroup,
-	parentHunkHeader: HunkHeader
+	parentHunkHeader: HunkHeader,
+	action: 'discard' | 'commit'
 ): HunkHeader {
 	const lineCount = lineGroup.lines.length;
 	if (lineCount === 0) {
@@ -100,8 +116,8 @@ function lineGroupsToHunkHeader(
 
 	switch (lineGroup.type) {
 		case 'added': {
-			const oldStart = parentHunkHeader.oldStart;
-			const oldLines = parentHunkHeader.oldLines;
+			const oldStart = getAnchorLineNumber(parentHunkHeader.oldStart, action);
+			const oldLines = getAnchorLineNumber(parentHunkHeader.oldLines, action);
 			if (firstLine.newLine === undefined) {
 				throw new Error('Line has no new line number');
 			}
@@ -110,8 +126,8 @@ function lineGroupsToHunkHeader(
 			return { oldStart, oldLines, newStart, newLines };
 		}
 		case 'removed': {
-			const newStart = parentHunkHeader.newStart;
-			const newLines = parentHunkHeader.newLines;
+			const newStart = getAnchorLineNumber(parentHunkHeader.newStart, action);
+			const newLines = getAnchorLineNumber(parentHunkHeader.newLines, action);
 			if (firstLine.oldLine === undefined) {
 				throw new Error('Line has no old line number');
 			}
@@ -137,6 +153,8 @@ function lineType(line: LineId): DeltaLineType | undefined {
 	return undefined;
 }
 
+const memoizedParseHunk = memoize(parseHunk);
+
 /**
  * Group the selected lines of a diff for the backend.
  *
@@ -149,7 +167,7 @@ export function extractLineGroups(lineIds: LineId[], diff: string): [DeltaLineGr
 	const lineGroups: DeltaLineGroup[] = [];
 	let currentGroup: DeltaLineGroup | undefined = undefined;
 	const lineKeys = new Set(lineIds.map((lineId) => lineIdKey(lineId)));
-	const parsedHunk = parseHunk(diff);
+	const parsedHunk = memoizedParseHunk(diff);
 
 	for (const section of parsedHunk.contentSections) {
 		for (const line of section.lines) {
@@ -190,14 +208,18 @@ export function extractLineGroups(lineIds: LineId[], diff: string): [DeltaLineGr
  * Iterate over the lines of the parsed diff, match them against the given line IDs
  * in order to ensure the correct order of the lines.
  */
-export function lineIdsToHunkHeaders(lineIds: LineId[], diff: string): HunkHeader[] {
+export function lineIdsToHunkHeaders(
+	lineIds: LineId[],
+	diff: string,
+	action: 'discard' | 'commit'
+): HunkHeader[] {
 	if (lineIds.length === 0) {
 		return [];
 	}
 
 	const [lineGroups, parentHunkHeader] = extractLineGroups(lineIds, diff);
 
-	return lineGroups.map((lineGroup) => lineGroupsToHunkHeader(lineGroup, parentHunkHeader));
+	return lineGroups.map((lineGroup) => lineGroupsToHunkHeader(lineGroup, parentHunkHeader, action));
 }
 
 /** A hunk as used in UnifiedDiff. */
@@ -246,6 +268,15 @@ export function isDiffHunk(something: unknown): something is DiffHunk {
 export type Patch = {
 	/** All non-overlapping hunks, including their context lines. */
 	readonly hunks: DiffHunk[];
+	/**
+	 * If `true`, a binary to text filter (`textconv` in Git config) was used to obtain the `hunks` in the diff.
+	 * This means hunk-based operations must be disabled.
+	 */
+	readonly isResultOfBinaryToTextConversion: boolean;
+	/** The number of lines added in the patch. */
+	readonly linesAdded: number;
+	/** The number of lines removed in the patch. */
+	readonly linesRemoved: number;
 };
 
 export function isFileDeletionHunk(hunk: DiffHunk): boolean {
@@ -271,4 +302,93 @@ export function canBePartiallySelected(patch: Patch): boolean {
 	// See: https://github.com/gitbutlerapp/gitbutler/pull/7893
 
 	return true;
+}
+
+export function hunkContainsHunk(a: DiffHunk, b: DiffHunk): boolean {
+	return (
+		a.oldStart <= b.oldStart &&
+		a.oldStart + a.oldLines - 1 >= b.oldStart + b.oldLines &&
+		a.newStart <= b.newStart &&
+		a.newStart + a.newLines - 1 >= b.newStart + b.newLines
+	);
+}
+
+export function hunkContainsLine(hunk: DiffHunk, line: LineId): boolean {
+	if (line.oldLine === undefined && line.newLine === undefined) {
+		throw new Error('Line has no line numbers');
+	}
+
+	if (line.oldLine !== undefined && line.newLine !== undefined) {
+		return (
+			hunk.oldStart <= line.oldLine &&
+			hunk.oldStart + hunk.oldLines - 1 >= line.oldLine &&
+			hunk.newStart <= line.newLine &&
+			hunk.newStart + hunk.newLines - 1 >= line.newLine
+		);
+	}
+
+	if (line.oldLine !== undefined) {
+		return hunk.oldStart <= line.oldLine && hunk.oldStart + hunk.oldLines - 1 >= line.oldLine;
+	}
+
+	if (line.newLine !== undefined) {
+		return hunk.newStart <= line.newLine && hunk.newStart + hunk.newLines - 1 >= line.newLine;
+	}
+
+	throw new Error('Malformed line ID');
+}
+
+/**
+ * Get the line locks for a hunk.
+ */
+export function getLineLocks(
+	stackId: string | undefined,
+	hunk: DiffHunk,
+	locks: HunkLocks[]
+): [boolean, LineLock[] | undefined] {
+	if (stackId === undefined) {
+		return [false, undefined];
+	}
+
+	const lineLocks: LineLock[] = [];
+	const parsedHunk = memoizedParseHunk(hunk.diff);
+
+	const locksContained = locks.filter((lock) => hunkContainsHunk(hunk, lock.hunk));
+
+	let hunkIsFullyLocked: boolean = true;
+
+	for (const contentSection of parsedHunk.contentSections) {
+		if (contentSection.sectionType === SectionType.Context) continue;
+
+		for (const line of contentSection.lines) {
+			const lineId: LineId = {
+				oldLine: line.beforeLineNumber,
+				newLine: line.afterLineNumber
+			};
+
+			const hunkLocks = locksContained.filter((lock) => hunkContainsLine(lock.hunk, lineId));
+			if (hunkLocks.length === 0) {
+				hunkIsFullyLocked = false;
+				continue;
+			}
+
+			// Filter out locks to the current stack ID
+			const locks = hunkLocks
+				.map((lock) => lock.locks)
+				.flat()
+				.filter((lock) => lock.stackId !== stackId);
+
+			if (locks.length === 0) {
+				hunkIsFullyLocked = false;
+				continue;
+			}
+
+			lineLocks.push({
+				...lineId,
+				locks: hunkLocks.map((lock) => lock.locks).flat()
+			});
+		}
+	}
+
+	return [hunkIsFullyLocked, lineLocks];
 }

@@ -1,9 +1,10 @@
 <script lang="ts">
 	import AccountLink from '$components/AccountLink.svelte';
 	import gbLogoSvg from '$lib/assets/gb-logo.svg?raw';
+	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { User } from '$lib/user/user';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { getContextStore } from '@gitbutler/shared/context';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { type Snippet } from 'svelte';
 
@@ -18,9 +19,12 @@
 	const { showLinks = true, img, children, title, description }: Props = $props();
 
 	const user = getContextStore(User);
+
+	const settingsService = getContext(SettingsService);
+	const appSettings = settingsService.appSettings;
 </script>
 
-<div class="decorative-split-view">
+<div class="decorative-split-view" class:v3={$appSettings?.featureFlags.v3}>
 	<div class="left-side hide-native-scrollbar">
 		<div class="left-side__content">
 			{#if children}
@@ -104,6 +108,13 @@
 		display: flex;
 		flex-grow: 1;
 		background-color: var(--clr-bg-1);
+
+		&.v3 {
+			height: 100%;
+			border-radius: var(--radius-l);
+			border: 1px solid var(--clr-border-2);
+			overflow: hidden;
+		}
 	}
 
 	.right-side {

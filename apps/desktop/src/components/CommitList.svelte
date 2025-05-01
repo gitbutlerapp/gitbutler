@@ -7,7 +7,6 @@
 	import LineOverlay from '$components/LineOverlay.svelte';
 	import { BranchStack } from '$lib/branches/branch';
 	import { PatchSeries } from '$lib/branches/branch';
-	import { BranchController, type SeriesIntegrationStrategy } from '$lib/branches/branchController';
 	import { Commit, DetailedCommit } from '$lib/commits/commit';
 	import {
 		AmendCommitDzHandler,
@@ -21,6 +20,7 @@
 		type ReorderCommitDzHandler
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { StackService, type SeriesIntegrationStrategy } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -48,6 +48,7 @@
 	type IntegrationStrategy = keyof typeof integrationStrategies;
 
 	interface Props {
+		projectId: string;
 		stackId: string;
 		currentSeries: PatchSeries;
 		isUnapplied: boolean;
@@ -55,6 +56,7 @@
 		isBottom?: boolean;
 	}
 	const {
+		projectId,
 		stackId,
 		currentSeries,
 		isUnapplied,
@@ -63,8 +65,8 @@
 	}: Props = $props();
 
 	const stack = getContextStore(BranchStack);
-	const branchController = getContext(BranchController);
 	const lineManagerFactory = getContext(LineManagerFactory);
+	const stackService = getContext(StackService);
 
 	const forge = getContext(DefaultForgeFactory);
 
@@ -109,7 +111,12 @@
 	async function integrate(strategy?: SeriesIntegrationStrategy): Promise<void> {
 		isIntegratingCommits = true;
 		try {
-			await branchController.integrateUpstreamForSeries($stack.id, currentSeries.name, strategy);
+			await stackService.integrateUpstreamCommits({
+				projectId,
+				stackId: $stack.id,
+				seriesName: currentSeries.name,
+				strategy
+			});
 		} catch (e) {
 			console.error(e);
 		} finally {
@@ -160,6 +167,7 @@
 				{/snippet}
 				{#each remoteOnlyPatches as commit, idx (commit.id)}
 					<CommitCard
+						{projectId}
 						type="Remote"
 						stack={$stack}
 						{commit}
@@ -202,21 +210,24 @@
 						id: commit.id,
 						isRemote: commit instanceof Commit,
 						isIntegrated: commit instanceof DetailedCommit && commit.isIntegrated,
-						isConflicted: commit instanceof DetailedCommit && commit.conflicted
+						hasConflicts: commit instanceof DetailedCommit && commit.conflicted
 					}}
 					{@const amendHandler = new AmendCommitDzHandler({
-						branchController,
+						stackService,
+						projectId,
 						stackId,
 						commit: dzCommit,
 						okWithForce: true
 					})}
 					{@const squashHandler = new SquashCommitDzHandler({
-						branchController,
+						stackService,
+						projectId,
 						stackId,
 						commit: dzCommit
 					})}
 					{@const hunkHandler = new AmendCommitWithHunkDzHandler({
-						branchController,
+						stackService,
+						projectId,
 						stackId,
 						commit: dzCommit,
 						// TODO: Use correct value!
@@ -228,6 +239,7 @@
 							<CardOverlay {hovered} {activated} {label} />
 						{/snippet}
 						<CommitCard
+							{projectId}
 							type={commit.status}
 							stack={$stack}
 							{commit}
@@ -281,6 +293,7 @@
 				{/snippet}
 				{#each remoteIntegratedPatches as commit, idx (commit.id)}
 					<CommitCard
+						{projectId}
 						type={commit.status}
 						stack={$stack}
 						{commit}

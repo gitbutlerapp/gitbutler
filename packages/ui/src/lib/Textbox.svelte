@@ -10,9 +10,10 @@
 		id?: string;
 		type?: inputType;
 		icon?: keyof typeof iconsJson;
+		size?: 'default' | 'large';
+		textAlign?: 'left' | 'center' | 'right';
 		value?: string;
 		width?: number;
-		textAlign?: 'left' | 'center' | 'right';
 		placeholder?: string;
 		helperText?: string;
 		label?: string;
@@ -24,7 +25,6 @@
 		disabled?: boolean;
 		readonly?: boolean;
 		required?: boolean;
-		noselect?: boolean;
 		selectall?: boolean;
 		spellcheck?: boolean;
 		autocorrect?: boolean;
@@ -44,6 +44,7 @@
 		icon,
 		value = $bindable(),
 		width,
+		size = 'default',
 		textAlign = 'left',
 		placeholder,
 		helperText,
@@ -56,7 +57,6 @@
 		disabled,
 		readonly,
 		required,
-		noselect,
 		selectall,
 		spellcheck,
 		autocorrect,
@@ -72,6 +72,10 @@
 	let showPassword = $state(false);
 	let isInputValid = $state(true);
 	let htmlInput: HTMLInputElement;
+
+	export function focus() {
+		htmlInput.focus();
+	}
 
 	export function onClickOutside() {
 		htmlInput.blur();
@@ -137,9 +141,10 @@
 			max={maxVal}
 			{...type === 'password' && showPassword ? { type: 'text' } : { type }}
 			class:show-count-actions={showCountActions}
-			class="text-input textbox__input text-13"
-			class:textbox__readonly={type !== 'select' && readonly}
-			class:select-none={noselect}
+			class="text-input textbox__input size-{size} {size === 'large'
+				? 'text-14 text-semibold'
+				: 'text-13'}"
+			class:readonly={type !== 'select' && readonly}
 			style:text-align={textAlign}
 			bind:value
 			bind:this={htmlInput}
@@ -213,6 +218,11 @@
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
+
+		&.wide {
+			width: 100%;
+			flex: 1;
+		}
 	}
 
 	.textbox__input-wrap {
@@ -225,7 +235,7 @@
 
 			& .textbox__input {
 				color: var(--clr-text-2);
-				background-color: var(--clr-bg-2);
+				background-color: var(--clr-bg-1-muted);
 				border: 1px solid var(--clr-border-3);
 			}
 		}
@@ -234,8 +244,21 @@
 	.textbox__input {
 		position: relative;
 		flex-grow: 1;
-		height: var(--size-cta);
 		width: 100%;
+
+		&.readonly {
+			background-color: var(--clr-bg-1-muted);
+			border-color: var(--clr-border-2);
+		}
+
+		&.size-default {
+			height: var(--size-cta);
+		}
+
+		&.size-large {
+			height: auto;
+			padding: 8px 10px;
+		}
 	}
 
 	.textbox__label {
@@ -337,8 +360,7 @@
 		}
 	}
 
-	/* Modifiers */
-
+	/* MODIFIERS */
 	.textbox__left-orient {
 		& .textbox__input {
 			padding-left: 34px;
@@ -355,15 +377,5 @@
 		& .textbox__icon {
 			right: 10px;
 		}
-	}
-
-	.textbox__readonly {
-		background-color: var(--clr-bg-2);
-		border-color: var(--clr-border-2);
-	}
-
-	.wide {
-		width: 100%;
-		flex: 1;
 	}
 </style>

@@ -15,6 +15,7 @@
 	import type { Writable } from 'svelte/store';
 
 	interface Props {
+		projectId?: string;
 		files: LocalFile[] | RemoteFile[];
 		isUnapplied: boolean;
 		showCheckboxes?: boolean;
@@ -26,6 +27,7 @@
 	}
 
 	const {
+		projectId,
 		files,
 		isUnapplied,
 		showCheckboxes = false,
@@ -63,6 +65,7 @@
 <div class="branch-files" role="presentation" onclick={() => fileIdSelection.clear()}>
 	{#if files.length > 0}
 		<BranchFilesList
+			{projectId}
 			{allowMultiple}
 			{readonly}
 			{files}

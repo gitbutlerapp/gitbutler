@@ -81,7 +81,7 @@
 
 {#if lineTop || lineBottom}
 	<div class="has-lines">
-		<div class="line-container" class:line-visible={lineTop}><div></div></div>
+		<div class="line-container line-top" class:line-visible={lineTop}></div>
 		<div class="status-badges">
 			{#if kind === 'icon' || kind === 'both'}
 				{@render icon()}
@@ -91,7 +91,7 @@
 				{@render text()}
 			{/if}
 		</div>
-		<div class="line-container" class:line-visible={lineBottom}><div></div></div>
+		<div class="line-container line-bottom" class:line-visible={lineBottom}></div>
 	</div>
 {:else}
 	<div class="status-badges">
@@ -111,10 +111,17 @@
 	}
 
 	.line-visible {
-		> div {
+		&::after {
+			content: '';
+			display: block;
 			width: 8px;
-			height: 100%;
+			height: calc(100% - 4px);
 			border-right: 1px solid var(--clr-border-2);
+		}
+	}
+	.line-visible.line-bottom {
+		&::after {
+			transform: translateY(4px);
 		}
 	}
 

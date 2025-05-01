@@ -12,6 +12,7 @@
 )]
 
 use but_settings::AppSettingsWithDiskSync;
+use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
     askpass, commands, config, diff, env, forge, github, logs, menu, modes, open, projects,
@@ -26,8 +27,22 @@ use tauri_plugin_store::StoreExt;
 fn main() {
     let performance_logging = std::env::var_os("GITBUTLER_PERFORMANCE_LOG").is_some();
     gitbutler_project::configure_git2();
-    let tauri_context = generate_context!();
+    let mut tauri_context = generate_context!();
     gitbutler_secret::secret::set_application_namespace(&tauri_context.config().identifier);
+
+    let config_dir = dirs::config_dir()
+        .expect("missing config dir")
+        .join("gitbutler");
+    std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
+    let mut app_settings =
+        AppSettingsWithDiskSync::new(config_dir.clone()).expect("failed to create app settings");
+
+    if let Ok(updated_csp) = csp_with_extras(
+        tauri_context.config().app.security.csp.as_ref().cloned(),
+        &app_settings,
+    ) {
+        tauri_context.config_mut().app.security.csp = updated_csp;
+    };
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -87,13 +102,12 @@ fn main() {
                         });
                     }
 
-                    let (app_data_dir, app_cache_dir, app_log_dir, config_dir) = {
+                    let (app_data_dir, app_cache_dir, app_log_dir) = {
                         let paths = app_handle.path();
                         (
                             paths.app_data_dir().expect("missing app data dir"),
                             paths.app_cache_dir().expect("missing app cache dir"),
                             paths.app_log_dir().expect("missing app log dir"),
-                            paths.config_dir().expect("missing config dir"),
                         )
                     };
                     std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
@@ -106,7 +120,6 @@ fn main() {
 
                     app_handle.manage(WindowState::new(app_handle.clone()));
 
-                    let mut app_settings = AppSettingsWithDiskSync::new(config_dir.clone())?;
                     app_settings.watch_in_background({
                         let app_handle = app_handle.clone();
                         move |app_settings| {
@@ -168,7 +181,6 @@ fn main() {
                     commands::git_remote_branches,
                     commands::git_head,
                     commands::delete_all_data,
-                    commands::mark_resolved,
                     commands::git_set_global_config,
                     commands::git_remove_global_config,
                     commands::git_get_global_config,
@@ -187,6 +199,7 @@ fn main() {
                     projects::commands::list_projects,
                     projects::commands::set_project_active,
                     projects::commands::open_project_in_window,
+                    projects::commands::get_active_project,
                     repo::commands::git_get_local_config,
                     repo::commands::git_set_local_config,
                     repo::commands::check_signing_settings,
@@ -207,8 +220,7 @@ fn main() {
                     virtual_branches::commands::integrate_upstream_commits,
                     virtual_branches::commands::update_virtual_branch,
                     virtual_branches::commands::update_branch_order,
-                    virtual_branches::commands::unapply_without_saving_virtual_branch,
-                    virtual_branches::commands::save_and_unapply_virtual_branch,
+                    virtual_branches::commands::unapply_stack,
                     virtual_branches::commands::unapply_lines,
                     virtual_branches::commands::unapply_ownership,
                     virtual_branches::commands::reset_files,
@@ -268,14 +280,15 @@ fn main() {
                     settings::update_telemetry,
                     settings::update_feature_flags,
                     workspace::stacks,
-                    workspace::stack_info,
-                    workspace::stack_branches,
-                    workspace::stack_branch_local_and_remote_commits,
-                    workspace::stack_branch_upstream_only_commits,
+                    workspace::stack_details,
+                    workspace::branch_details,
                     workspace::hunk_dependencies_for_workspace_changes,
                     workspace::create_commit_from_worktree_changes,
                     workspace::amend_commit_from_worktree_changes,
                     workspace::discard_worktree_changes,
+                    workspace::stash_into_branch,
+                    workspace::canned_branch_name,
+                    workspace::target_commits,
                     diff::changes_in_worktree,
                     diff::changes_in_commit,
                     diff::changes_in_branch,

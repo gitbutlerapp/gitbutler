@@ -24,3 +24,10 @@ pub struct FeatureFlags {
     /// Enables the v3 design, as well as the purgatory mode (no uncommitted diff ownership assignments).
     pub v3: bool,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtraCsp {
+    /// Additional hosts that the application can connect to.
+    pub hosts: Vec<String>,
+}

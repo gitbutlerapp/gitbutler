@@ -1,6 +1,6 @@
 use anyhow::{Context, anyhow, bail};
 use but_core::UnifiedDiff;
-use but_workspace::commit_engine::HunkHeader;
+use but_workspace::commit_engine::{DiffSpec, HunkHeader};
 use gitbutler_project::Project;
 use gix::bstr::{BString, ByteSlice};
 use std::path::Path;
@@ -98,7 +98,18 @@ fn project_controller(
     Ok(gitbutler_project::Controller::from_path(path))
 }
 
+pub fn parse_diff_spec(arg: &Option<String>) -> Result<Option<Vec<DiffSpec>>, anyhow::Error> {
+    arg.as_deref()
+        .map(|value| {
+            serde_json::from_str::<Vec<but_workspace::commit_engine::ui::DiffSpec>>(value)
+                .map(|diff_spec| diff_spec.into_iter().map(Into::into).collect())
+                .map_err(|e| anyhow!("Failed to parse diff_spec: {}", e))
+        })
+        .transpose()
+}
+
 mod commit;
+use crate::command::discard_change::IndicesOrHeaders;
 pub use commit::commit;
 
 pub mod diff;
@@ -108,35 +119,67 @@ pub mod stacks {
 
     use but_settings::AppSettings;
     use but_workspace::{
-        stack_branch_local_and_remote_commits, stack_branch_upstream_only_commits, stack_branches,
+        BranchCommits, stack_branch_local_and_remote_commits, stack_branch_upstream_only_commits,
+        stack_branches,
     };
     use gitbutler_command_context::CommandContext;
 
     use crate::command::{debug_print, project_from_path};
 
-    pub fn list(current_dir: &Path) -> anyhow::Result<()> {
+    pub fn list(current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
-        let repo = ctx.gix_repository()?;
-        debug_print(but_workspace::stacks(&project.gb_dir(), &repo))
+        let repo = ctx.gix_repo()?;
+        let stacks = but_workspace::stacks(&ctx, &project.gb_dir(), &repo, Default::default())?;
+        if use_json {
+            let json = serde_json::to_string_pretty(&stacks)?;
+            println!("{json}");
+            Ok(())
+        } else {
+            debug_print(stacks)
+        }
     }
 
-    pub fn branches(id: &str, current_dir: &Path) -> anyhow::Result<()> {
+    pub fn branches(id: &str, current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
-        debug_print(stack_branches(id.to_string(), &ctx))
+        let branches = stack_branches(id.to_string(), &ctx)?;
+        if use_json {
+            let json = serde_json::to_string_pretty(&branches)?;
+            println!("{json}");
+            Ok(())
+        } else {
+            debug_print(branches)
+        }
     }
 
-    pub fn branch_commits(id: &str, name: &str, current_dir: &Path) -> anyhow::Result<()> {
+    pub fn branch_commits(
+        id: &str,
+        name: &str,
+        current_dir: &Path,
+        use_json: bool,
+    ) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
-        let repo = ctx.gix_repository()?;
+        let repo = ctx.gix_repo()?;
         let local_and_remote =
             stack_branch_local_and_remote_commits(id.to_string(), name.to_string(), &ctx, &repo);
-        debug_print(local_and_remote)?;
         let upstream_only =
             stack_branch_upstream_only_commits(id.to_string(), name.to_string(), &ctx, &repo);
-        debug_print(upstream_only)
+
+        if use_json {
+            let branch_commits = BranchCommits {
+                local_and_remote: local_and_remote?,
+                upstream_commits: upstream_only?,
+            };
+
+            let json = serde_json::to_string_pretty(&branch_commits)?;
+            println!("{json}");
+            Ok(())
+        } else {
+            debug_print(local_and_remote)?;
+            debug_print(upstream_only)
+        }
     }
 }
 
@@ -150,13 +193,37 @@ pub(crate) fn discard_change(
     cwd: &Path,
     current_rela_path: &Path,
     previous_rela_path: Option<&Path>,
-    indices_or_headers: Option<discard_change::IndicesOrHeaders>,
+    indices_or_headers: Option<discard_change::IndicesOrHeaders<'_>>,
 ) -> anyhow::Result<()> {
-    let repo = gix::discover(cwd)?;
+    let repo = configured_repo(gix::discover(cwd)?, RepositoryOpenMode::Merge)?;
 
     let previous_path = previous_rela_path.map(path_to_rela_path).transpose()?;
     let path = path_to_rela_path(current_rela_path)?;
-    let hunk_headers = match indices_or_headers {
+    let hunk_headers = indices_or_headers_to_hunk_headers(
+        &repo,
+        indices_or_headers,
+        &path,
+        previous_path.as_ref(),
+    )?;
+    let spec = but_workspace::commit_engine::DiffSpec {
+        previous_path,
+        path,
+        hunk_headers,
+    };
+    debug_print(but_workspace::discard_workspace_changes(
+        &repo,
+        Some(spec.into()),
+        UI_CONTEXT_LINES,
+    )?)
+}
+
+fn indices_or_headers_to_hunk_headers(
+    repo: &gix::Repository,
+    indices_or_headers: Option<IndicesOrHeaders<'_>>,
+    path: &BString,
+    previous_path: Option<&BString>,
+) -> anyhow::Result<Vec<HunkHeader>> {
+    let headers = match indices_or_headers {
         None => vec![],
         Some(discard_change::IndicesOrHeaders::Headers(headers)) => headers
             .windows(4)
@@ -168,15 +235,15 @@ pub(crate) fn discard_change(
             })
             .collect(),
         Some(discard_change::IndicesOrHeaders::Indices(hunk_indices)) => {
-            let worktree_changes = but_core::diff::worktree_changes(&repo)?
+            let worktree_changes = but_core::diff::worktree_changes(repo)?
                 .changes
                 .into_iter()
                 .find(|change| {
-                    change.path == path
+                    change.path == *path
                         && change.previous_path() == previous_path.as_ref().map(|p| p.as_bstr())
                 }).with_context(|| format!("Couldn't find worktree change for file at '{path}' (previous-path: {previous_path:?}"))?;
             let UnifiedDiff::Patch { hunks, .. } =
-                worktree_changes.unified_diff(&repo, UI_CONTEXT_LINES)?
+                worktree_changes.unified_diff(repo, UI_CONTEXT_LINES)?
             else {
                 bail!("No hunks available for given '{path}'")
             };
@@ -194,16 +261,7 @@ pub(crate) fn discard_change(
                 .collect::<Result<Vec<HunkHeader>, _>>()?
         }
     };
-    let spec = but_workspace::commit_engine::DiffSpec {
-        previous_path,
-        path,
-        hunk_headers,
-    };
-    debug_print(but_workspace::discard_workspace_changes(
-        &repo,
-        Some(spec.into()),
-        UI_CONTEXT_LINES,
-    )?)
+    Ok(headers)
 }
 
 fn path_to_rela_path(path: &Path) -> anyhow::Result<BString> {

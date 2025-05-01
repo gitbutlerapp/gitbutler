@@ -7,7 +7,6 @@ import { flushSync } from 'svelte';
 import { test, describe, vi, beforeEach, expect } from 'vitest';
 
 type Labels = RestEndpointMethodTypes['pulls']['list']['response']['data'][0]['labels'];
-type PrListResponse = RestEndpointMethodTypes['pulls']['list']['response'];
 
 const PROJECT_ID = 'some-project';
 
@@ -60,10 +59,8 @@ describe('GitHubListingService', () => {
 		const service = gh.listService;
 		const title = 'PR Title';
 
-		vi.spyOn(octokit.pulls, 'list').mockReturnValue(
-			Promise.resolve({
-				data: [{ title, labels: [] as Labels, head: { ref: 'test' } }]
-			} as PrListResponse)
+		vi.spyOn(octokit, 'paginate').mockReturnValue(
+			Promise.resolve([{ title, labels: [] as Labels, head: { ref: 'test' } }])
 		);
 
 		const cleanup = $effect.root(() => {

@@ -1,4 +1,6 @@
 use crate::command::{UI_CONTEXT_LINES, debug_print, project_from_path, project_repo};
+use but_settings::AppSettings;
+use gitbutler_command_context::CommandContext;
 use gix::bstr::BString;
 use itertools::Itertools;
 use std::path::Path;
@@ -14,7 +16,7 @@ pub fn commit_changes(
         .map(|revspec| repo.rev_parse_single(revspec))
         .transpose()?;
     let commit = repo.rev_parse_single(current_commit)?;
-    let changes =
+    let (changes, _) =
         but_core::diff::commit_changes(&repo, previous_commit.map(Into::into), commit.into())?;
 
     if unified_diff {
@@ -24,14 +26,45 @@ pub fn commit_changes(
     }
 }
 
-pub fn status(current_dir: &Path, unified_diff: bool, context_lines: u32) -> anyhow::Result<()> {
+pub fn status(
+    current_dir: &Path,
+    unified_diff: bool,
+    context_lines: u32,
+    use_json: bool,
+) -> anyhow::Result<()> {
     let repo = project_repo(current_dir)?;
     let worktree = but_core::diff::worktree_changes(&repo)?;
     if unified_diff {
-        debug_print((
-            unified_diff_for_changes(&repo, worktree.changes, context_lines)?,
-            worktree.ignored_changes,
-        ))
+        handle_unified_diff(&repo, worktree, context_lines, use_json)?;
+    } else {
+        handle_normal_diff(worktree, use_json)?;
+    }
+    Ok(())
+}
+
+fn handle_unified_diff(
+    repo: &gix::Repository,
+    worktree: but_core::WorktreeChanges,
+    context_lines: u32,
+    use_json: bool,
+) -> anyhow::Result<()> {
+    let diff = unified_diff_for_changes(repo, worktree.changes.clone(), context_lines)?;
+    if use_json {
+        let serializable: but_core::ui::UnifiedWorktreeChanges = (worktree, &diff).into();
+        let json = serde_json::to_string_pretty(&serializable)?;
+        println!("{}", json);
+        Ok(())
+    } else {
+        debug_print((diff, worktree.ignored_changes))
+    }
+}
+
+fn handle_normal_diff(worktree: but_core::WorktreeChanges, use_json: bool) -> anyhow::Result<()> {
+    if use_json {
+        let worktree: but_core::ui::WorktreeChanges = worktree.into();
+        let json = serde_json::to_string_pretty(&worktree)?;
+        println!("{}", json);
+        Ok(())
     } else {
         debug_print(worktree)
     }
@@ -39,11 +72,12 @@ pub fn status(current_dir: &Path, unified_diff: bool, context_lines: u32) -> any
 
 pub fn locks(current_dir: &Path) -> anyhow::Result<()> {
     let project = project_from_path(current_dir)?;
+    let ctx = CommandContext::open(&project, AppSettings::default())?;
     let repo = gix::open(project.worktree_path())?;
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
     let input_stacks = but_hunk_dependency::workspace_stacks_to_input_stacks(
         &repo,
-        &but_workspace::stacks(&project.gb_dir(), &repo)?,
+        &but_workspace::stacks(&ctx, &project.gb_dir(), &repo, Default::default())?,
         but_workspace::common_merge_base_with_target_branch(&project.gb_dir())?,
     )?;
     let ranges = but_hunk_dependency::WorkspaceRanges::try_from_stacks(input_stacks)?;

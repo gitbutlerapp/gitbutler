@@ -9,13 +9,20 @@ import { writeText, readText } from '@tauri-apps/plugin-clipboard-manager';
  * @param errorMessage optional custom error message which will be displayed if the operation failes. If this is
  *                     not provided, a default generic message will be used.
  */
-export async function writeClipboard(text: string, errorMessage = 'Failed to copy') {
+export async function writeClipboard(
+	text: string,
+	opt: {
+		errorMessage?: string;
+		message?: string;
+	} = {}
+) {
+	const { errorMessage, message } = opt;
 	await writeText(text)
 		.then(() => {
-			toasts.success('Copied to clipboard');
+			toasts.success(message || 'Copied to clipboard');
 		})
 		.catch((err) => {
-			toasts.error(errorMessage);
+			toasts.error(errorMessage || 'Failed to copy');
 			console.error(errorMessage, err);
 		});
 }

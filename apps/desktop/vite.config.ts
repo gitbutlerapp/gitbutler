@@ -5,7 +5,7 @@ import { defineConfig, type Plugin } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [
-		debounceReload(),
+		process.env.VITE_DEBOUNCE_RELOAD ? debounceReload() : undefined,
 		sentrySvelteKit({
 			adapter: 'other',
 			autoInstrument: {
@@ -63,6 +63,10 @@ export default defineConfig({
 		exclude: ['node_modules/**/*', 'e2e/**/*'],
 		environment: 'jsdom',
 		setupFiles: ['./vitest-setup.js']
+	},
+	preview: {
+		// preview port for the e2e tests
+		port: 1420
 	}
 });
 

@@ -6,6 +6,8 @@ generated-do-not-edit/
 
 # editors
 .idea
+$.idea
+$.zed
 
 .sentryclirc
 .DS_Store
@@ -47,6 +49,9 @@ playwright-report
 # storybook
 *storybook.log
 storybook-static
+
+# Cypress
+**/cypress/screenshots
 
 # Vercel
 .vercel

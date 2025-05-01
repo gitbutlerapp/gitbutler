@@ -2,7 +2,8 @@ use std::vec;
 
 use anyhow::Result;
 use gitbutler_branch::BranchUpdateRequest;
-use gitbutler_project::{access::WorktreeWritePermission, Project};
+use gitbutler_command_context::CommandContext;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::ReferenceName;
 use gitbutler_stack::Stack;
 
@@ -34,6 +35,12 @@ pub trait SnapshotExt {
         error: Option<&anyhow::Error>,
         commit_message: String,
         sha: Option<git2::Oid>,
+        perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<()>;
+
+    fn snapshot_stash_into_branch(
+        &self,
+        branch_name: String,
         perm: &mut WorktreeWritePermission,
     ) -> anyhow::Result<()>;
 
@@ -73,7 +80,7 @@ pub trait SnapshotExt {
 }
 
 /// Snapshot functionality
-impl SnapshotExt for Project {
+impl SnapshotExt for CommandContext {
     fn snapshot_branch_unapplied(
         &self,
         snapshot_tree: git2::Oid,
@@ -126,6 +133,21 @@ impl SnapshotExt for Project {
         self.commit_snapshot(snapshot_tree, details, perm)?;
         Ok(())
     }
+
+    fn snapshot_stash_into_branch(
+        &self,
+        branch_name: String,
+        perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<()> {
+        let details =
+            SnapshotDetails::new(OperationKind::StashIntoBranch).with_trailers(vec![Trailer {
+                key: "name".to_string(),
+                value: branch_name,
+            }]);
+        self.create_snapshot(details, perm)?;
+        Ok(())
+    }
+
     fn snapshot_branch_creation(
         &self,
         branch_name: String,

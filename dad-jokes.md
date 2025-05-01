@@ -24,11 +24,21 @@
   <b>But it is worth a shot</b>
 </details>
 
+<details>
+    <summary>Why was the cocktail sad?</summary>
+    <b>Because someone called him old-fashioned</b>
+</details>
+
 ### Community dad jokes
 
 <details>
   <summary>Which computer serial interface has exactly 666MB/s of bandwidth?</summary>
   <b>SATA-N</b>
+</details>
+
+<details>
+  <summary>How do billboards talk?</summary>
+  <b>Sign language</b>
 </details>
 
 <br>

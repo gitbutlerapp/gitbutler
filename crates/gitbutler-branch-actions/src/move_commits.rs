@@ -8,15 +8,14 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 #[allow(deprecated)]
 use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head};
 
 use crate::dependencies::commit_dependencies_from_workspace;
+use crate::VirtualBranchesExt;
 use crate::{compute_workspace_dependencies, BranchStatus};
-use crate::{conflicts::RepoConflictsExt, VirtualBranchesExt};
 
 /// move a commit from one stack to another
 ///
@@ -28,7 +27,6 @@ pub(crate) fn move_commit(
     perm: &mut WorktreeWritePermission,
     source_stack_id: StackId,
 ) -> Result<()> {
-    ctx.assure_resolved()?;
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let vb_state = ctx.project().virtual_branches();
     let repo = ctx.repo();
@@ -92,9 +90,9 @@ fn get_source_branch_diffs(
     source_stack: &gitbutler_stack::Stack,
 ) -> Result<BranchStatus> {
     let repo = ctx.repo();
-    let source_stack_head = repo.find_commit(source_stack.head(&repo.to_gix()?)?)?;
+    let source_stack_head = repo.find_commit(source_stack.head_oid(&repo.to_gix()?)?.to_git2())?;
     let source_stack_head_tree = source_stack_head.tree()?;
-    let uncommitted_changes_tree = repo.find_tree(source_stack.tree)?;
+    let uncommitted_changes_tree = repo.find_tree(source_stack.tree(ctx)?)?;
 
     let uncommitted_changes_diff = gitbutler_diff::trees(
         repo,
@@ -135,9 +133,8 @@ fn take_commit_from_source_stack(
         bail!("Commit has dependent uncommitted changes");
     }
 
-    let stack_ctx = ctx.to_stack_context()?;
-    let merge_base = source_stack.merge_base(&stack_ctx)?;
-    let gix_repo = ctx.gix_repository()?;
+    let merge_base = source_stack.merge_base(ctx)?;
+    let gix_repo = ctx.gix_repo()?;
     let steps = source_stack
         .as_rebase_steps(ctx, &gix_repo)?
         .into_iter()
@@ -149,7 +146,7 @@ fn take_commit_from_source_stack(
             _ => true,
         })
         .collect::<Vec<_>>();
-    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base.to_gix()), None)?;
+    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base), None)?;
     rebase.rebase_noops(false);
     rebase.steps(steps)?;
     let output = rebase.rebase()?;
@@ -159,7 +156,7 @@ fn take_commit_from_source_stack(
         (new_source_head, None)
     } else {
         #[allow(deprecated)]
-        let res = compute_updated_branch_head(repo, &gix_repo, source_stack, new_source_head)?;
+        let res = compute_updated_branch_head(repo, &gix_repo, source_stack, new_source_head, ctx)?;
         (res.head, Some(res.tree))
     };
 
@@ -177,9 +174,8 @@ fn move_commit_to_destination_stack(
     mut destination_stack: gitbutler_stack::Stack,
     commit_id: git2::Oid,
 ) -> Result<(), anyhow::Error> {
-    let gix_repo = ctx.gix_repository()?;
-    let stack_ctx = ctx.to_stack_context()?;
-    let merge_base = destination_stack.merge_base(&stack_ctx)?;
+    let gix_repo = ctx.gix_repo()?;
+    let merge_base = destination_stack.merge_base(ctx)?;
     let mut steps = destination_stack.as_rebase_steps(ctx, &gix_repo)?;
     // TODO: In the future we can make the API provide additional info for exacly where to place the commit on the destination stack
     steps.insert(
@@ -189,7 +185,7 @@ fn move_commit_to_destination_stack(
             new_message: None,
         },
     );
-    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base.to_gix()), None)?;
+    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base), None)?;
     rebase.rebase_noops(false);
     rebase.steps(steps)?;
     let output = rebase.rebase()?;
@@ -205,6 +201,7 @@ fn move_commit_to_destination_stack(
                 &gix_repo,
                 &destination_stack,
                 new_destination_head_oid,
+                ctx,
             )?;
             (res.head, Some(res.tree))
         };

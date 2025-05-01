@@ -2,10 +2,7 @@ use anyhow::Result;
 use bstr::ByteSlice;
 use gitbutler_branch_actions::{internal::PatchSeries, list_virtual_branches, squash_commits};
 use gitbutler_command_context::CommandContext;
-use gitbutler_stack::{
-    stack_context::{CommandContextExt, StackContext},
-    StackBranch, VirtualBranchesHandle,
-};
+use gitbutler_stack::{StackBranch, VirtualBranchesHandle};
 use itertools::Itertools;
 use tempfile::TempDir;
 
@@ -25,8 +22,7 @@ use tempfile::TempDir;
 #[test]
 fn squash_without_affecting_stack() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
-    let stack_ctx = ctx.to_stack_context()?;
-    let test = test_ctx(&ctx, &stack_ctx)?;
+    let test = test_ctx(&ctx)?;
     squash_commits(
         &ctx,
         test.stack.id,
@@ -71,8 +67,7 @@ fn squash_without_affecting_stack() -> Result<()> {
 #[test]
 fn squash_below() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
-    let stack_ctx = ctx.to_stack_context()?;
-    let test = test_ctx(&ctx, &stack_ctx)?;
+    let test = test_ctx(&ctx)?;
     squash_commits(
         &ctx,
         test.stack.id,
@@ -123,8 +118,7 @@ fn squash_below() -> Result<()> {
 #[test]
 fn squash_above() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
-    let stack_ctx = ctx.to_stack_context()?;
-    let test = test_ctx(&ctx, &stack_ctx)?;
+    let test = test_ctx(&ctx)?;
     squash_commits(
         &ctx,
         test.stack.id,
@@ -170,8 +164,7 @@ fn squash_above() -> Result<()> {
 #[test]
 fn squash_producting_conflict_errors_out() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
-    let stack_ctx = ctx.to_stack_context()?;
-    let test = test_ctx(&ctx, &stack_ctx)?;
+    let test = test_ctx(&ctx)?;
     let result = squash_commits(
         &ctx,
         test.stack.id,
@@ -216,8 +209,7 @@ fn squash_producting_conflict_errors_out() -> Result<()> {
 #[test]
 fn squash_down_with_overlap_ok() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
-    let stack_ctx = ctx.to_stack_context()?;
-    let test = test_ctx(&ctx, &stack_ctx)?;
+    let test = test_ctx(&ctx)?;
     squash_commits(
         &ctx,
         test.stack.id,
@@ -261,8 +253,7 @@ fn squash_down_with_overlap_ok() -> Result<()> {
 #[test]
 fn squash_below_into_stack_head() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
-    let stack_ctx = ctx.to_stack_context()?;
-    let test = test_ctx(&ctx, &stack_ctx)?;
+    let test = test_ctx(&ctx)?;
     squash_commits(
         &ctx,
         test.stack.id,
@@ -310,8 +301,7 @@ fn squash_below_into_stack_head() -> Result<()> {
 #[test]
 fn squash_multiple() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
-    let stack_ctx = ctx.to_stack_context()?;
-    let test = test_ctx(&ctx, &stack_ctx)?;
+    let test = test_ctx(&ctx)?;
     squash_commits(
         &ctx,
         test.stack.id,
@@ -365,8 +355,7 @@ fn squash_multiple() -> Result<()> {
 #[test]
 fn squash_multiple_from_heads() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
-    let stack_ctx = ctx.to_stack_context()?;
-    let test = test_ctx(&ctx, &stack_ctx)?;
+    let test = test_ctx(&ctx)?;
     squash_commits(
         &ctx,
         test.stack.id,
@@ -421,8 +410,7 @@ fn squash_multiple_from_heads() -> Result<()> {
 #[test]
 fn squash_multiple_above_and_below() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
-    let stack_ctx = ctx.to_stack_context()?;
-    let test = test_ctx(&ctx, &stack_ctx)?;
+    let test = test_ctx(&ctx)?;
     squash_commits(
         &ctx,
         test.stack.id,
@@ -464,19 +452,19 @@ fn command_ctx() -> Result<(CommandContext, TempDir)> {
     gitbutler_testsupport::writable::fixture("squash.sh", "multiple-commits")
 }
 
-fn test_ctx<'a>(ctx: &'a CommandContext, stack_ctx: &'a StackContext) -> Result<TestContext<'a>> {
+fn test_ctx(ctx: &CommandContext) -> Result<TestContext<'_>> {
     let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let stacks = handle.list_all_stacks()?;
     let stack = stacks.iter().find(|b| b.name == "my_stack").unwrap();
     let branches = stack.branches();
     let branch_1 = branches.iter().find(|b| b.name() == "a-branch-1").unwrap();
-    let commit_1 = branch_1.commits(stack_ctx, stack)?.local_commits[0].clone();
+    let commit_1 = branch_1.commits(ctx, stack)?.local_commits[0].clone();
     let branch_2 = branches.iter().find(|b| b.name() == "a-branch-2").unwrap();
-    let commit_2 = branch_2.commits(stack_ctx, stack)?.local_commits[0].clone();
-    let commit_3 = branch_2.commits(stack_ctx, stack)?.local_commits[1].clone();
-    let commit_4 = branch_2.commits(stack_ctx, stack)?.local_commits[2].clone();
+    let commit_2 = branch_2.commits(ctx, stack)?.local_commits[0].clone();
+    let commit_3 = branch_2.commits(ctx, stack)?.local_commits[1].clone();
+    let commit_4 = branch_2.commits(ctx, stack)?.local_commits[2].clone();
     let branch_3 = branches.iter().find(|b| b.name() == "a-branch-3").unwrap();
-    let commit_5 = branch_3.commits(stack_ctx, stack)?.local_commits[0].clone();
+    let commit_5 = branch_3.commits(ctx, stack)?.local_commits[0].clone();
     Ok(TestContext {
         stack: stack.clone(),
         branch_1: branch_1.clone(),

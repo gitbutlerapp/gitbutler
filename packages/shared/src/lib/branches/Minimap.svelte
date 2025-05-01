@@ -122,7 +122,7 @@
 	</div>
 {/snippet}
 
-<div class="minimap" class:horizontal>
+<div class="minimap" class:horizontal class:no-stretch={patchCommits.length <= 5}>
 	{#each patchCommits ?? [] as patch}
 		<div class="erectangle-hover-area">
 			<div
@@ -139,13 +139,7 @@
 
 <style lang="postcss">
 	.minimap {
-		position: fixed;
-		z-index: var(--z-lifted);
-		left: 0px;
-		top: 100px;
-
 		display: flex;
-		flex-direction: column;
 		gap: 1px;
 
 		&.horizontal {
@@ -153,15 +147,18 @@
 			width: 100%;
 			top: auto;
 			flex-direction: row-reverse;
+			justify-content: flex-end;
 
 			& .erectangle-hover-area {
 				flex: 1;
 				width: auto;
+				max-width: 12px;
 			}
 
 			& .erectangle {
 				width: 100%;
 				height: 12px;
+				border-radius: var(--radius-s);
 			}
 
 			& .erectangle-hover-area:hover .info-card {
@@ -171,15 +168,36 @@
 				left: 0;
 				top: 18px;
 			}
+
+			&.no-stretch {
+				width: auto;
+
+				& .erectangle-hover-area {
+					flex: none;
+					width: 12px;
+				}
+			}
 		}
 
-		&:not(.horizontal) .erectangle-hover-area:hover {
-			& .erectangle {
-				width: 100%;
-			}
+		&:not(.horizontal) {
+			z-index: var(--z-lifted);
+			position: fixed;
+			left: 0px;
+			top: 100px;
 
-			& .info-card {
-				display: flex;
+			flex-direction: column;
+
+			& .erectangle-hover-area:hover {
+				z-index: var(--z-lifted);
+
+				& .erectangle {
+					width: 100%;
+				}
+
+				& .info-card {
+					position: absolute;
+					display: flex;
+				}
 			}
 		}
 	}
@@ -203,8 +221,8 @@
 	}
 
 	.info-card {
-		position: relative;
 		display: none;
+		z-index: var(--z-lifted);
 		flex-direction: column;
 
 		width: 208px;

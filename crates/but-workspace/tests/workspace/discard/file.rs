@@ -547,10 +547,10 @@ D  link
 A  link-renamed
 ");
     insta::assert_snapshot!(visualize_index(&**repo.index()?), @r"
-100755:94ebaf9 executable-renamed
-100644:66f816c file-renamed
-120000:94e4e07 link-renamed
-");
+    100755:8a1218a executable-renamed
+    100644:c5c4315 file-renamed
+    120000:94e4e07 link-renamed
+    ");
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?, @r"
 .
 ├── .git:40755

@@ -46,9 +46,6 @@ pub enum Subcommands {
     /// List and manipulate projects.
     #[clap(visible_alias = "projects")]
     Project(project::Platform),
-    /// List and restore snapshots.
-    #[clap(visible_alias = "snapshots")]
-    Snapshot(snapshot::Platform),
 }
 
 pub mod vbranch {

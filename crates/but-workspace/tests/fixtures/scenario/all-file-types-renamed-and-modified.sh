@@ -13,8 +13,8 @@ mkfifo fifo-should-be-ignored
 
 git add . && git commit -m "init"
 
-seq 5 9 >file
-seq 1 4 >executable
+seq 5 10 >file
+seq 1 5 >executable
 mv file file-renamed
 mv executable executable-renamed
 chmod +x executable-renamed

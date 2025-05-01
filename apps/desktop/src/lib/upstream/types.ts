@@ -52,6 +52,7 @@ export type StackStatusesWithBranchesV3 =
 	  }
 	| {
 			type: 'updatesRequired';
+			worktreeConflicts: string[];
 			subject: StackStatusInfoV3[];
 	  };
 

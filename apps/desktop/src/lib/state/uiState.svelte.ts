@@ -7,35 +7,56 @@ import {
 	type UnknownAction
 } from '@reduxjs/toolkit';
 import storage from 'redux-persist/lib/storage';
-import type { SelectionId } from '$lib/selection/key';
-export type DrawerPage = 'branch' | 'new-commit' | 'review' | 'branch' | undefined;
+export type DrawerPage = 'branch' | 'new-commit' | 'review' | undefined;
 
 export const uiStatePersistConfig = {
 	key: 'uiState',
 	storage: storage
 };
 
-type StackUiState = {
-	selection:
-		| {
-				branchName: string;
-				commitId?: string;
-				upstream?: boolean;
-		  }
-		| undefined;
-	activeSelectionId: SelectionId;
+export type StackSelection = {
+	branchName: string;
+	commitId?: string;
+	upstream?: boolean;
 };
 
-type ProjectUiState = {
+export type StackState = {
+	selection: StackSelection | undefined;
+};
+
+type BranchesSelection = {
+	branchName?: string;
+	commitId?: string;
+	stackId?: string;
+	remote?: string;
+	hasLocal?: boolean;
+	isTarget?: boolean;
+	inWorkspace?: boolean;
+	prNumber?: number;
+};
+
+export type ProjectUiState = {
 	drawerPage: DrawerPage;
 	drawerFullScreen: boolean;
+	commitTitle: string;
+	commitDescription: string;
+	branchesSelection: BranchesSelection;
 };
 
-type GlobalUiState = {
+export type GlobalUiState = {
 	drawerHeight: number;
 	leftWidth: number;
 	stacksViewWidth: number;
+	drawerSplitViewWidth: number;
+	historySidebarWidth: number;
 	useRichText: boolean;
+	useRuler: boolean;
+	rulerCountValue: number;
+	wrapTextByRuler: boolean;
+	aiSuggestionsOnType: boolean;
+	selectedTip: number | undefined;
+	channel: string | undefined;
+	draftBranchName: string | undefined;
 };
 
 /**
@@ -45,15 +66,17 @@ export class UiState {
 	private state = $state<EntityState<UiStateVariable, string>>(uiStateSlice.getInitialState());
 
 	/** Properties scoped to a specific stack. */
-	readonly stack = this.buildScopedProps<StackUiState>({
-		selection: undefined,
-		activeSelectionId: { type: 'worktree' }
+	readonly stack = this.buildScopedProps<StackState>({
+		selection: undefined
 	});
 
 	/** Properties scoped to a specific project. */
 	readonly project = this.buildScopedProps<ProjectUiState>({
 		drawerPage: undefined,
-		drawerFullScreen: false
+		drawerFullScreen: false,
+		commitTitle: '',
+		commitDescription: '',
+		branchesSelection: {}
 	});
 
 	/** Properties that are globally scoped. */
@@ -61,7 +84,16 @@ export class UiState {
 		drawerHeight: 20,
 		leftWidth: 17.5,
 		stacksViewWidth: 21.25,
-		useRichText: true
+		drawerSplitViewWidth: 20,
+		historySidebarWidth: 30,
+		useRichText: false,
+		useRuler: false,
+		rulerCountValue: 72,
+		wrapTextByRuler: false,
+		aiSuggestionsOnType: false,
+		selectedTip: undefined,
+		channel: undefined,
+		draftBranchName: undefined
 	});
 
 	constructor(
@@ -167,7 +199,7 @@ type UiStateVariable = {
 type DefaultConfig = Record<string, UiStateValue>;
 
 /** Node type for global properties. */
-type GlobalProperty<T> = {
+export type GlobalProperty<T> = {
 	get(): Reactive<T>;
 	set(value: T): void;
 } & WritableReactive<T>;

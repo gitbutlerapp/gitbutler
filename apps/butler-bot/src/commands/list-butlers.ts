@@ -4,7 +4,7 @@ export const listButlers: Command = {
 	name: 'listbutlers',
 	help: 'Lists all registered butlers and their support rota status.',
 	butlerOnly: true,
-	execute: async (message, prisma) => {
+	execute: async ({ message, prisma }) => {
 		try {
 			const butlers = await prisma.butlers.findMany({
 				orderBy: { name: 'asc' }

@@ -1,7 +1,7 @@
 import { showToast } from '$lib/notifications/toasts';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { type DownloadEvent, Update } from '@tauri-apps/plugin-updater';
-import { writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { Tauri } from '$lib/backend/tauri';
 
@@ -37,6 +37,7 @@ export const UPDATE_INTERVAL_MS = 3600000; // Hourly
  * ./scripts/release.sh --channel nightly --version "0.5.678"
  */
 export class UpdaterService {
+	readonly disableAutoChecks = writable(false);
 	readonly loading = writable(false);
 	readonly update = writable<UpdateStatus>({}, () => {
 		this.start();
@@ -45,7 +46,7 @@ export class UpdaterService {
 		};
 	});
 
-	private intervalId: any;
+	private checkForUpdateInterval: ReturnType<typeof setInterval> | undefined;
 	private seenVersion: string | undefined;
 	private tauriDownload: Update['download'] | undefined;
 	private tauriInstall: Update['install'] | undefined;
@@ -62,20 +63,25 @@ export class UpdaterService {
 		this.unlistenMenu = this.tauri.listen<string>('menu://global/update/clicked', () => {
 			this.checkForUpdate(true);
 		});
-		setInterval(async () => await this.checkForUpdate(), UPDATE_INTERVAL_MS);
+		this.checkForUpdateInterval = setInterval(
+			async () => await this.checkForUpdate(),
+			UPDATE_INTERVAL_MS
+		);
 		this.checkForUpdate();
 	}
 
 	private async stop() {
 		this.unlistenStatus?.();
 		this.unlistenMenu?.();
-		if (this.intervalId) {
-			clearInterval(this.intervalId);
-			this.intervalId = undefined;
+		if (this.checkForUpdateInterval !== undefined) {
+			clearInterval(this.checkForUpdateInterval);
+			this.checkForUpdateInterval = undefined;
 		}
 	}
 
 	async checkForUpdate(manual = false) {
+		if (get(this.disableAutoChecks)) return;
+
 		this.loading.set(true);
 		try {
 			this.handleUpdate(await this.tauri.checkUpdate(), manual); // In DEV mode this never returns.
@@ -168,7 +174,9 @@ export class UpdaterService {
 function isOffline(err: any): boolean {
 	return (
 		typeof err === 'string' &&
-		(err.includes('Could not fetch a valid release') || err.includes('Network Error'))
+		(err.includes('Could not fetch a valid release') ||
+			err.includes('error sending request for') ||
+			err.includes('Network Error'))
 	);
 }
 

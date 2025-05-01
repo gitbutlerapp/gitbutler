@@ -8,6 +8,7 @@ use gitbutler_hunk_dependency::{
     calculate_hunk_dependencies, HunkDependencyOptions, InputCommit, InputDiff, InputFile,
     InputStack,
 };
+use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_oxidize::RepoExt;
 use gitbutler_repo::logging::LogUntil;
 use gitbutler_repo::logging::RepositoryExt as _;
@@ -80,7 +81,11 @@ fn get_commits_to_process<'a>(
     target_sha: &'a git2::Oid,
 ) -> Result<impl Iterator<Item = git2::Oid> + 'a, anyhow::Error> {
     let commit_ids = repo
-        .l(stack.head(gix_repo)?, LogUntil::Commit(*target_sha), false)
+        .l(
+            stack.head_oid(gix_repo)?.to_git2(),
+            LogUntil::Commit(*target_sha),
+            false,
+        )
         .context("failed to list commits")?
         .into_iter()
         .rev()

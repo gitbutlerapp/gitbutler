@@ -6,47 +6,23 @@
 	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
-	import { UiState } from '$lib/state/uiState.svelte';
 	import { chunk } from '$lib/utils/array';
 	import { sortLikeFileTree } from '$lib/worktree/changeTree';
-	import { getContext, inject } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import type { TreeChange } from '$lib/hunks/change';
-
-	interface BaseProps {
-		type: 'commit' | 'branch' | 'worktree';
-	}
-
-	interface CommitProps extends BaseProps {
-		type: 'commit';
-		commitId: string;
-	}
-
-	interface BranchProps extends BaseProps {
-		type: 'branch';
-		stackId: string;
-		branchName: string;
-	}
-
-	interface WorktreeProps extends BaseProps {
-		type: 'worktree';
-		showCheckboxes: boolean;
-		stackId?: string;
-	}
+	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
 		projectId: string;
 		stackId?: string;
 		changes: TreeChange[];
 		listMode: 'list' | 'tree';
-		selectionId: CommitProps | BranchProps | WorktreeProps;
+		showCheckboxes?: boolean;
+		selectionId: SelectionId;
+		listActive: boolean;
 	};
 
-	const { projectId, stackId, changes, listMode, selectionId }: Props = $props();
-
-	const [uiState] = inject(UiState);
-	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
-	const activeSelection = $derived(stackState?.activeSelectionId.get());
-	const listActive = $derived(activeSelection?.current.type === selectionId.type);
+	const { projectId, changes, listMode, selectionId, showCheckboxes, listActive }: Props = $props();
 
 	let currentDisplayIndex = $state(0);
 
@@ -73,24 +49,20 @@
 		if (currentDisplayIndex + 1 >= fileChunks.length) return;
 		currentDisplayIndex += 1;
 	}
-
-	const showCheckboxes = $derived(
-		selectionId.type === 'worktree' ? selectionId.showCheckboxes : false
-	);
 </script>
 
-{#snippet fileWrapper(change: TreeChange, idx: number, depth: number = 0)}
+{#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0)}
 	<FileListItemWrapper
-		selectedFile={selectionId}
+		{selectionId}
 		{change}
 		{projectId}
 		{listActive}
 		{listMode}
 		{depth}
+		showCheckbox={showCheckboxes}
 		isLast={idx === visibleFiles.length - 1}
 		selected={idSelection.has(change.path, selectionId)}
 		onclick={(e) => {
-			stackState?.activeSelectionId.set(selectionId);
 			selectFilesInList(e, change, visibleFiles, idSelection, true, idx, selectionId);
 		}}
 	/>
@@ -107,20 +79,10 @@
 	>
 		{#if listMode === 'tree'}
 			{@const node = abbreviateFolders(changesToFileTree(changes))}
-			<FileTreeNode
-				isRoot
-				{stackId}
-				{node}
-				{showCheckboxes}
-				{changes}
-				{fileWrapper}
-				onFolderClick={() => {
-					console.warn('implement folder click to select all children');
-				}}
-			/>
+			<FileTreeNode isRoot {node} {showCheckboxes} {changes} {fileTemplate} />
 		{:else}
-			{#each visibleFiles as change, idx (change.path)}
-				{@render fileWrapper(change, idx)}
+			{#each visibleFiles as change, idx}
+				{@render fileTemplate(change, idx)}
 			{/each}
 		{/if}
 	</LazyloadContainer>

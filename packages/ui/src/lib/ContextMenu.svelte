@@ -5,7 +5,8 @@
 	import { type Snippet } from 'svelte';
 
 	interface BaseProps {
-		children: Snippet<[item: any]>;
+		testId?: string;
+		children?: Snippet<[item: any]>;
 		leftClickTrigger?: HTMLElement;
 		rightClickTrigger?: HTMLElement;
 		onclose?: () => void;
@@ -13,6 +14,7 @@
 		ontoggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 		onclick?: () => void;
 		onkeypress?: () => void;
+		menu?: Snippet<[{ close: () => void }]>;
 	}
 
 	type HorizontalProps = BaseProps & {
@@ -30,6 +32,7 @@
 	type Props = HorizontalProps | VerticalProps;
 
 	let {
+		testId,
 		leftClickTrigger,
 		rightClickTrigger,
 		side = 'bottom',
@@ -40,7 +43,8 @@
 		onopen,
 		ontoggle,
 		onclick,
-		onkeypress
+		onkeypress,
+		menu
 	}: Props = $props();
 
 	let menuContainer: HTMLElement | undefined = $state();
@@ -221,40 +225,43 @@
 	}
 </script>
 
-{#snippet contextMenu()}
-	<!-- svelte-ignore a11y_autofocus -->
-	<div
-		bind:this={menuContainer}
-		tabindex="-1"
-		use:focusTrap
-		autofocus
-		use:clickOutside={{
-			excludeElement: !savedMouseEvent ? leftClickTrigger ?? rightClickTrigger : undefined,
-			handler: () => close()
-		}}
-		bind:clientHeight={contextMenuHeight}
-		bind:clientWidth={contextMenuWidth}
-		{onclick}
-		{onkeypress}
-		onkeydown={handleKeyNavigation}
-		class="context-menu"
-		class:top-oriented={side === 'top'}
-		class:bottom-oriented={side === 'bottom'}
-		class:left-oriented={side === 'left'}
-		class:right-oriented={side === 'right'}
-		style:top="{menuPosition.y}px"
-		style:left="{menuPosition.x}px"
-		style:transform-origin={setTransformOrigin()}
-		style:--animation-transform-y-shift={side === 'top' ? '6px' : side === 'bottom' ? '-6px' : '0'}
-		role="menu"
-	>
-		{@render children(item)}
-	</div>
-{/snippet}
-
 {#if isVisible}
 	<div class="portal-wrap" use:portal={'body'}>
-		{@render contextMenu()}
+		<!-- svelte-ignore a11y_autofocus -->
+		<div
+			data-testid={testId}
+			bind:this={menuContainer}
+			tabindex="-1"
+			use:focusTrap
+			autofocus
+			use:clickOutside={{
+				excludeElement: !savedMouseEvent ? leftClickTrigger ?? rightClickTrigger : undefined,
+				handler: () => close()
+			}}
+			bind:clientHeight={contextMenuHeight}
+			bind:clientWidth={contextMenuWidth}
+			{onclick}
+			{onkeypress}
+			onkeydown={handleKeyNavigation}
+			class="context-menu"
+			class:top-oriented={side === 'top'}
+			class:bottom-oriented={side === 'bottom'}
+			class:left-oriented={side === 'left'}
+			class:right-oriented={side === 'right'}
+			style:top="{menuPosition.y}px"
+			style:left="{menuPosition.x}px"
+			style:transform-origin={setTransformOrigin()}
+			style:--animation-transform-y-shift={side === 'top'
+				? '6px'
+				: side === 'bottom'
+					? '-6px'
+					: '0'}
+			role="menu"
+		>
+			{@render children?.(item)}
+			<!-- TODO: refactor `children` and combine with this snippet. -->
+			{@render menu?.({ close })}
+		</div>
 	</div>
 {/if}
 
@@ -286,6 +293,7 @@
 		border-radius: var(--radius-m);
 		box-shadow: var(--fx-shadow-s);
 		outline: none;
+		overflow: hidden;
 		animation: fadeIn 0.08s ease-out forwards;
 	}
 	@keyframes fadeIn {

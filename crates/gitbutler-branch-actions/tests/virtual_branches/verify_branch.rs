@@ -5,12 +5,10 @@ use super::*;
 // Ensures that `verify_branch` returns an error when not on the workspace branch.
 #[test]
 fn should_fail_on_incorrect_branch() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     let branch_name: LocalRefname = "refs/heads/somebranch".parse().unwrap();
-    repository.checkout(&branch_name);
+    repo.checkout(&branch_name);
     let result = gitbutler_branch_actions::list_virtual_branches(ctx);
 
     let err = result.unwrap_err();

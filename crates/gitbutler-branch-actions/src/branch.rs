@@ -55,7 +55,7 @@ pub fn list_branches(
     filter: Option<BranchListingFilter>,
     filter_branch_names: Option<Vec<BranchIdentity>>,
 ) -> Result<Vec<BranchListing>> {
-    let mut repo = ctx.gix_repository()?;
+    let mut repo = ctx.gix_repo()?;
     repo.object_cache_size_if_unset(1024 * 1024);
     let has_filter = filter.is_some();
     let filter = filter.unwrap_or_default();
@@ -99,7 +99,7 @@ pub fn list_branches(
     // Filter out virtual branches which have no local or remote branches
     branches.retain(|branch| {
         // If there is no virtual branch, keep the grouping
-        let Some(virtual_branch) = &branch.virtual_branch else {
+        let Some(virtual_branch) = &branch.stack else {
             return true;
         };
 
@@ -126,30 +126,31 @@ pub fn list_branches(
         branches.retain(|branch_listing| branch_names.contains(&branch_listing.name))
     }
 
-    // Get a list of all stack branches that do not have the same name as the
-    // stack itself.
+    // We want to exclude branches that are already part of a stack.
+    // To do this, we build up a list of all the branch identities that are
+    // part of a stack and then filter out any branches that have been grouped
+    // without a stack and match one of these identities.
     let branch_identities_to_exclude = stacks
         .iter()
-        .filter(|stack| {
-            let Ok(normalized_name) = normalize_branch_name(&stack.name) else {
-                return false;
-            };
-            let head_matches_stack_name = stack
-                .branches()
-                .iter()
-                .any(|branch| branch.name() == &normalized_name);
-
-            !head_matches_stack_name
-        })
         .flat_map(|s| {
             s.branches()
                 .into_iter()
                 .map(|b| BString::from(b.name().to_owned()))
-                .collect_vec()
+                .chain([BString::from(s.name.to_owned())])
         })
-        .collect_vec();
+        .collect::<HashSet<_>>();
 
-    branches.retain(|branch| !branch_identities_to_exclude.contains(&(*branch.name).to_owned()));
+    branches.retain(|branch| {
+        if branch.stack.is_some() {
+            return true;
+        }
+
+        if branch_identities_to_exclude.contains(&(*branch.name).to_owned()) {
+            return false;
+        }
+
+        true
+    });
 
     Ok(branches)
 }
@@ -157,14 +158,14 @@ pub fn list_branches(
 fn matches_all(branch: &BranchListing, filter: BranchListingFilter) -> bool {
     let mut conditions = vec![];
     if let Some(applied) = filter.applied {
-        if let Some(vb) = branch.virtual_branch.as_ref() {
+        if let Some(vb) = branch.stack.as_ref() {
             conditions.push(applied == vb.in_workspace);
         } else {
             conditions.push(!applied);
         }
     }
     if let Some(local) = filter.local {
-        conditions.push((branch.has_local || branch.virtual_branch.is_some()) && local);
+        conditions.push((branch.has_local || branch.stack.is_some()) && local);
     }
     conditions.iter().all(|&x| x)
 }
@@ -263,11 +264,11 @@ fn branch_group_to_branch(
     }
 
     // Virtual branch associated with this branch
-    let virtual_branch_reference = virtual_branch.map(|stack| VirtualBranchReference {
+    let virtual_branch_reference = virtual_branch.map(|stack| StackReference {
         given_name: stack.name.clone(),
         id: stack.id,
         in_workspace: stack.in_workspace,
-        stack_branches: stack
+        branches: stack
             .branches()
             .iter()
             .filter(|b| !b.archived)
@@ -290,13 +291,14 @@ fn branch_group_to_branch(
         }
     }
 
-    let has_local = !local_branches.is_empty();
+    // Virtual branches always have local branches
+    let has_local = !local_branches.is_empty() || virtual_branch.is_some();
 
     // The head commit for which we calculate statistics.
     // If there is a virtual branch let's get it's head. Alternatively, pick the first local branch and use it's head.
     // If there are no local branches, pick the first remote branch.
     let head_commit = if let Some(vbranch) = virtual_branch {
-        Some(git2_to_gix_object_id(vbranch.head(repo)?).attach(repo))
+        Some(vbranch.head_oid(repo)?.attach(repo))
     } else if let Some(mut branch) = local_branches.into_iter().next() {
         branch.peel_to_id_in_place_packed(packed).ok()
     } else if let Some(mut branch) = remote_branches.into_iter().next() {
@@ -318,7 +320,7 @@ fn branch_group_to_branch(
     Ok(Some(BranchListing {
         name: identity.to_owned(),
         remotes,
-        virtual_branch: virtual_branch_reference,
+        stack: virtual_branch_reference,
         updated_at: last_modified_ms,
         last_commiter,
         has_local,
@@ -430,7 +432,7 @@ pub struct BranchListing {
     #[serde(serialize_with = "gitbutler_serde::as_string_lossy_vec_remote_name")]
     pub remotes: Vec<gix::remote::Name<'static>>,
     /// The branch may or may not have a virtual branch associated with it.
-    pub virtual_branch: Option<VirtualBranchReference>,
+    pub stack: Option<StackReference>,
     /// Timestamp in milliseconds since the branch was last updated.
     /// This includes any commits, uncommited changes or even updates to the branch metadata (e.g. renaming).
     pub updated_at: u128,
@@ -498,7 +500,7 @@ impl From<gix::actor::SignatureRef<'_>> for Author {
 /// Represents a reference to an associated virtual branch
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct VirtualBranchReference {
+pub struct StackReference {
     /// A non-normalized name of the branch, set by the user
     pub given_name: String,
     /// Virtual Branch UUID identifier
@@ -507,7 +509,7 @@ pub struct VirtualBranchReference {
     pub in_workspace: bool,
     /// List of branches that are part of the stack
     /// Ordered from newest to oldest (the most recent branch is first in the list)
-    pub stack_branches: Vec<String>,
+    pub branches: Vec<String>,
     /// Pull Request numbes by branch name associated with the stack
     pub pull_requests: HashMap<String, usize>,
 }
@@ -523,7 +525,7 @@ pub fn get_branch_listing_details(
         .map(TryInto::try_into)
         .filter_map(Result::ok)
         .collect();
-    let repo = ctx.gix_repository_minimal()?.for_tree_diffing()?;
+    let repo = ctx.gix_repo_minimal()?.for_tree_diffing()?;
     let branches = list_branches(ctx, None, Some(branch_names))?;
 
     let (default_target_current_upstream_commit_id, default_target_seen_at_last_update) = {
@@ -588,7 +590,7 @@ pub fn get_branch_listing_details(
             .map(|branch| {
                 (
                     branch
-                        .virtual_branch
+                        .stack
                         .as_ref()
                         .and_then(|vb| {
                             vb.in_workspace
@@ -687,7 +689,7 @@ pub fn get_branch_listing_details(
                 number_of_files,
                 authors: authors.into_iter().collect(),
                 number_of_commits: num_commits,
-                virtual_branch: branch.virtual_branch,
+                stack: branch.stack,
             };
             enriched_branches.push(branch_data);
         }
@@ -731,7 +733,7 @@ pub struct BranchListingDetails {
     /// it takes the full list of unique authors, without applying a mailmap.
     pub authors: Vec<Author>,
     /// The branch may or may not have a virtual branch associated with it.
-    pub virtual_branch: Option<VirtualBranchReference>,
+    pub stack: Option<StackReference>,
 }
 /// Represents a local branch
 #[derive(Debug, Clone, Serialize, PartialEq)]

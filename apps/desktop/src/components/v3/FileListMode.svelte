@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { TestId } from '$lib/testing/testIds';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
@@ -21,13 +22,13 @@
 </script>
 
 <SegmentControl
-	defaultIndex={$saved === 'list' ? 0 : 1}
+	defaultIndex={mode === 'list' ? 0 : 1}
 	onselect={(id) => {
 		// TODO: Refactor SegmentControl.
 		$saved = id as Mode;
 	}}
 	size="small"
 >
-	<Segment id="list" icon="list-view" />
-	<Segment id="tree" icon="tree-view" />
+	<Segment id="list" testId={TestId.FileListModeOption} icon="list-view" />
+	<Segment id="tree" testId={TestId.FileListModeOption} icon="tree-view" />
 </SegmentControl>

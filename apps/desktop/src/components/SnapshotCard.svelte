@@ -6,8 +6,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
-	import { splitFilePath } from '@gitbutler/ui/utils/filePath';
+	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
@@ -214,31 +213,20 @@
 		</div>
 
 		{#if entry.filesChanged.length > 0 && !isRestoreSnapshot}
+			{@const files = entry.filesChanged}
 			<SnapshotAttachment
 				foldable={entry.filesChanged.length > 2}
-				foldedAmount={entry.filesChanged.length - 2}
+				foldedAmount={entry.filesChanged.length}
 			>
 				<div class="files-attacment">
-					{#each entry.filesChanged as filePath}
-						<button
-							type="button"
-							class="files-attacment__file"
-							class:file-selected={selectedFile?.path === filePath &&
-								selectedFile?.entryId === entry.id}
-							onclick={() => {
-								onDiffClick(filePath);
-							}}
-						>
-							<FileIcon fileName={filePath} size={14} />
-							<div class="text-12 files-attacment__file-path-and-name">
-								<span class="files-attacment__file-name">
-									{splitFilePath(filePath).filename}
-								</span>
-								<span class="files-attacment__file-path">
-									{splitFilePath(filePath).path}
-								</span>
-							</div>
-						</button>
+					{#each files as filePath}
+						<FileListItemV3
+							listMode="list"
+							{filePath}
+							onclick={() => onDiffClick(filePath)}
+							selected={selectedFile?.path === filePath && selectedFile?.entryId === entry.id}
+							isLast={filePath === files[files.length - 1]}
+						/>
 					{/each}
 				</div>
 			</SnapshotAttachment>
@@ -296,7 +284,7 @@
 				display: none;
 			}
 
-			background-color: var(--clr-bg-2);
+			background-color: var(--clr-bg-1-muted);
 		}
 	}
 
@@ -336,7 +324,6 @@
 	}
 
 	/* CARD CONTENT */
-
 	.snapshot-content {
 		flex: 1;
 		display: flex;
@@ -345,7 +332,6 @@
 		gap: 6px;
 		min-height: var(--size-tag);
 		overflow: hidden;
-		/* padding-bottom: 4px; */
 	}
 
 	.snapshot-details {
@@ -377,58 +363,12 @@
 	}
 
 	/* ATTACHMENT FILES */
-
 	.files-attacment {
 		display: flex;
 		flex-direction: column;
 	}
 
-	.files-attacment__file {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		padding: 8px;
-		border-bottom: 1px solid var(--clr-border-3);
-
-		&:not(.file-selected):hover {
-			background-color: var(--clr-bg-1-muted);
-		}
-
-		&:last-child {
-			border-bottom: none;
-		}
-	}
-
-	.file-selected {
-		background-color: var(--clr-theme-pop-bg);
-
-		& .files-attacment__file-name {
-			opacity: 0.9;
-		}
-	}
-
-	.files-attacment__file-path-and-name {
-		display: flex;
-		gap: 6px;
-		overflow: hidden;
-	}
-
-	.files-attacment__file-path {
-		color: var(--clr-text-1);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		opacity: 0.2;
-	}
-
-	.files-attacment__file-name {
-		color: var(--clr-text-1);
-		opacity: 0.6;
-		white-space: nowrap;
-	}
-
 	/* ATTACHMENT RESTORE */
-
 	.restored-attacment {
 		display: flex;
 		padding: 12px;
@@ -454,7 +394,7 @@
 	.error-text {
 		display: flex;
 		padding: 6px 10px;
-		background-color: var(--clr-theme-err-bg);
+		background-color: var(--clr-theme-err-bg-muted);
 		border-radius: var(--radius-m);
 		width: 100%;
 		color: var(--clr-scale-err-40);

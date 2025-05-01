@@ -1,6 +1,6 @@
 import { ghQuery } from '$lib/forge/github/ghQuery';
 import { type ChecksResult } from '$lib/forge/github/types';
-import { ReduxTag } from '$lib/state/tags';
+import { providesItem, ReduxTag } from '$lib/state/tags';
 import type { ChecksService } from '$lib/forge/interface/forgeChecksMonitor';
 import type { ChecksStatus } from '$lib/forge/interface/types';
 import type { QueryOptions } from '$lib/state/butlerModule';
@@ -15,10 +15,10 @@ export class GitHubChecksMonitor implements ChecksService {
 		this.api = injectEndpoints(gitHubApi);
 	}
 
-	get(stackId: string, branchName: string, options?: QueryOptions) {
+	get(branchName: string, options?: QueryOptions) {
 		const result = $derived(
 			this.api.endpoints.listChecks.useQuery(
-				{ stackId, ref: branchName },
+				{ ref: branchName },
 				{
 					transform: (result) => parseChecks(result),
 					...options
@@ -62,7 +62,7 @@ function parseChecks(data: ChecksResult): ChecksStatus | null {
 function injectEndpoints(api: GitHubApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			listChecks: build.query<ChecksResult, { stackId: string; ref: string }>({
+			listChecks: build.query<ChecksResult, { ref: string }>({
 				queryFn: async ({ ref }, api) =>
 					await ghQuery({
 						domain: 'checks',
@@ -72,10 +72,7 @@ function injectEndpoints(api: GitHubApi) {
 							ref
 						}
 					}),
-				providesTags: (_result, _error, args) => [
-					ReduxTag.Checks,
-					{ type: ReduxTag.Checks, id: args.stackId }
-				]
+				providesTags: (_result, _error, args) => [...providesItem(ReduxTag.Checks, args.ref)]
 			})
 		})
 	});

@@ -1,22 +1,19 @@
 <script lang="ts">
-	import ReduxResult from '$components/ReduxResult.svelte';
 	import StackTab from '$components/v3/stackTabs/StackTab.svelte';
+	import StackTabDraft from '$components/v3/stackTabs/StackTabDraft.svelte';
 	import StackTabNew from '$components/v3/stackTabs/StackTabNew.svelte';
 	import { stackPath } from '$lib/routes/routes.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { getStackBranchNames, getStackName, type Stack } from '$lib/stacks/stack';
 	import { onMount } from 'svelte';
 
 	type Props = {
 		projectId: string;
+		stacks: Stack[];
 		selectedId?: string;
-		previewing?: boolean;
+		isCommitting: boolean;
 		width: number | undefined;
 	};
-	let { projectId, selectedId, width = $bindable() }: Props = $props();
-
-	const [stackService] = inject(StackService);
-	const result = $derived(stackService.stacks(projectId));
+	let { projectId, stacks, selectedId, isCommitting, width = $bindable() }: Props = $props();
 
 	let plusBtnEl = $state<HTMLButtonElement>();
 	let tabsEl = $state<HTMLDivElement>();
@@ -46,45 +43,52 @@
 </script>
 
 <div class="tabs" bind:this={tabsEl}>
-	<div class="inner">
-		<div class="scroller" bind:this={scrollerEl} class:scrolled {onscroll}>
-			<ReduxResult result={result.current}>
-				{#snippet children(result)}
-					{#if result.length > 0}
-						{#each result as tab, i (tab.branchNames[0])}
-							{@const first = i === 0}
-							{@const last = i === result.length - 1}
-							{@const selected = tab.id === selectedId}
+	{#if stacks.length > 0}
+		<div class="inner">
+			<div class="scroller" bind:this={scrollerEl} class:scrolled {onscroll}>
+				{#each stacks as stack, i (getStackName(stack))}
+					{@const stackName = getStackName(stack)}
+					{@const branchNames = getStackBranchNames(stack)}
 
-							<StackTab
-								name={tab.branchNames[0]!}
-								{projectId}
-								stackId={tab.id}
-								href={stackPath(projectId, tab.id)}
-								anchors={tab.branchNames.slice(1)}
-								{selected}
-								onNextTab={() => {
-									if (last) {
-										plusBtnEl?.focus();
-									}
-								}}
-								onPrevTab={() => {
-									if (first) {
-										plusBtnEl?.focus();
-									}
-								}}
-							/>
-						{/each}
-					{:else}
-						no stacks
-					{/if}
-				{/snippet}
-			</ReduxResult>
+					{@const first = i === 0}
+					{@const last = i === stacks.length - 1}
+					{@const selected = stack.id === selectedId}
+
+					<StackTab
+						name={stackName}
+						{projectId}
+						stackId={stack.id}
+						href={stackPath(projectId, stack.id)}
+						anchors={branchNames.slice(1)}
+						{selected}
+						onNextTab={() => {
+							if (last) {
+								plusBtnEl?.focus();
+							}
+						}}
+						onPrevTab={() => {
+							if (first) {
+								plusBtnEl?.focus();
+							}
+						}}
+					/>
+				{/each}
+			</div>
+			<div class="shadow shadow-left" class:scrolled></div>
+			<div class="shadow shadow-right" class:scrollable class:scrolled-end={scrolledEnd}></div>
 		</div>
-		<div class="shadow shadow-left" class:scrolled></div>
-		<div class="shadow shadow-right" class:scrollable class:scrolled-end={scrolledEnd}></div>
-	</div>
-	<StackTabNew bind:el={plusBtnEl} {scrollerEl} {projectId} stackId={selectedId} />
+	{/if}
+	{#if isCommitting && stacks.length === 0}
+		<StackTabDraft />
+	{:else}
+		<StackTabNew
+			bind:el={plusBtnEl}
+			{scrollerEl}
+			{projectId}
+			stackId={selectedId}
+			noStacks={stacks.length === 0}
+		/>
+	{/if}
 </div>
 
 <style lang="postcss">

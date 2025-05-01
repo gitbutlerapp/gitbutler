@@ -8,8 +8,7 @@
 
 	interface Props {
 		projectId: string;
-		onclick: (method: MergeMethod) => void;
-		loading?: boolean;
+		onclick: (method: MergeMethod) => Promise<void>;
 		disabled?: boolean;
 		wide?: boolean;
 		tooltip?: string;
@@ -20,7 +19,6 @@
 	const {
 		projectId,
 		onclick,
-		loading = false,
 		disabled = false,
 		wide = false,
 		tooltip = '',
@@ -36,6 +34,7 @@
 	const action = persistedAction(projectId);
 
 	let dropDown: ReturnType<typeof DropDownButton> | undefined;
+	let loading = $state(false);
 
 	const labels = {
 		[MergeMethod.Merge]: 'Merge pull request',
@@ -46,10 +45,13 @@
 
 <DropDownButton
 	bind:this={dropDown}
-	onclick={(e) => {
-		e.preventDefault();
-		e.stopPropagation();
-		onclick?.($action);
+	onclick={async () => {
+		loading = true;
+		try {
+			await onclick?.($action);
+		} finally {
+			loading = false;
+		}
 	}}
 	{style}
 	{kind}

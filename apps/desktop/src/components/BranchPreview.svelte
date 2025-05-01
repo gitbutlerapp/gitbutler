@@ -17,12 +17,13 @@
 	import type { PullRequest } from '$lib/forge/interface/types';
 
 	interface Props {
+		projectId: string;
 		localBranch?: BranchData | undefined;
 		remoteBranch?: BranchData | undefined;
 		pr: PullRequest | undefined;
 	}
 
-	const { localBranch = undefined, remoteBranch = undefined, pr }: Props = $props();
+	const { projectId, localBranch = undefined, remoteBranch = undefined, pr }: Props = $props();
 
 	const forge = getContext(DefaultForgeFactory);
 
@@ -74,7 +75,7 @@
 		<div class="base__left" bind:this={rsViewport} style:width={$width + 'rem'}>
 			<ScrollableContainer wide>
 				<div class="branch-preview">
-					<BranchPreviewHeader {localBranch} {remoteBranch} {pr} />
+					<BranchPreviewHeader {projectId} {localBranch} {remoteBranch} {pr} />
 					{#if pr}
 						<div class="card">
 							<div class="card__header text-14 text-body text-semibold">{pr.title}</div>
@@ -89,6 +90,7 @@
 						{#if remoteCommits}
 							{#each remoteCommits as commit, index (commit.id)}
 								<CommitCard
+									{projectId}
 									isUnapplied
 									last={index === remoteCommits.length - 1}
 									{commit}
@@ -105,6 +107,7 @@
 						{#if localCommits}
 							{#each localCommits as commit, index (commit.id)}
 								<CommitCard
+									{projectId}
 									isUnapplied
 									last={index === localCommits.length - 1}
 									{commit}
@@ -121,6 +124,7 @@
 						{#if localAndRemoteCommits}
 							{#each localAndRemoteCommits as commit, index (commit.id)}
 								<CommitCard
+									{projectId}
 									isUnapplied
 									last={index === localAndRemoteCommits.length - 1}
 									{commit}
@@ -147,7 +151,6 @@
 		<div class="base__right">
 			{#if selected}
 				<FileCard
-					conflicted={selected.conflicted}
 					file={selected}
 					isUnapplied={false}
 					readonly={true}

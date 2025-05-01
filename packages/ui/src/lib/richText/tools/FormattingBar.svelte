@@ -5,11 +5,9 @@
 
 	type Props = {
 		formatter: ReturnType<typeof Formatter> | undefined;
-		onAiButtonClick: (e: MouseEvent) => void;
-		canUseAI: boolean;
 	};
 
-	let { formatter = $bindable(), onAiButtonClick, canUseAI }: Props = $props();
+	let { formatter = $bindable() }: Props = $props();
 
 	let slideWidth = $state(0);
 	let isSecondSlide = $state(false);
@@ -33,6 +31,12 @@
 							tooltip="Italic"
 							onclick={() => formatter.format('text-italic')}
 						/>
+						<FormattingButton
+							icon="text-strikethrough"
+							activated={formatter?.imports.isStrikethrough}
+							tooltip="Strikethrough"
+							onclick={() => formatter?.format('text-strikethrough')}
+						/>
 					</div>
 					<div class="formatting-bar__group">
 						<FormattingButton
@@ -54,41 +58,16 @@
 							onclick={() => formatter?.format('text-link')}
 						/>
 					</div>
-					<div class="formatting-bar__group">
-						<FormattingButton
-							icon="ai"
-							tooltip={canUseAI
-								? 'AI options'
-								: 'You need to enable AI in the project settings to use this feature'}
-							disabled={!canUseAI}
-							onclick={onAiButtonClick}
-						/>
-						<FormattingButton
-							icon="slash-commands"
-							tooltip="Slash commands"
-							onclick={() => {
-								// TODO: Implement slash commands
-							}}
-						/>
-					</div>
 				</div>
 
 				<div class="formatting-bar__slide">
 					<div class="formatting-bar__group">
-						<FormattingButton
-							icon="text-strikethrough"
-							activated={formatter?.imports.isStrikethrough}
-							tooltip="Strikethrough"
-							onclick={() => formatter?.format('text-strikethrough')}
-						/>
 						<FormattingButton
 							icon="text"
 							activated={formatter?.imports.isNormal}
 							tooltip="Normal text"
 							onclick={() => formatter?.format('text')}
 						/>
-					</div>
-					<div class="formatting-bar__group">
 						<FormattingButton
 							icon="text-h2"
 							activated={formatter?.imports.isH2}

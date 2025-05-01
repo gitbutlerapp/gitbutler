@@ -1,3 +1,4 @@
+import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { getEphemeralStorageItem, setEphemeralStorageItem } from '@gitbutler/shared/persisted';
 import type { Commit } from '$lib/branches/v3';
@@ -12,7 +13,11 @@ function getPersistedTitleKey(projectId: string, branchName: string) {
 	return 'seriesCurrentPRTitle_' + projectId + '_' + branchName;
 }
 
-export function setPersistedPRBody(projectId: string, branchName: string, body: string): void {
+export function setPersistedPRBody(
+	projectId: string,
+	branchName: string,
+	body: string | undefined
+): void {
 	const key = getPersistedBodyKey(projectId, branchName);
 	setEphemeralStorageItem(key, body, PERSITANCE_TIME_MIN);
 }
@@ -28,7 +33,11 @@ export function getPersistedPRBody(projectId: string, branchName: string): strin
 	return undefined;
 }
 
-export function setPersistedPRTitle(projectId: string, branchName: string, title: string): void {
+export function setPersistedPRTitle(
+	projectId: string,
+	branchName: string,
+	title: string | undefined
+): void {
 	const key = getPersistedTitleKey(projectId, branchName);
 	setEphemeralStorageItem(key, title, PERSITANCE_TIME_MIN);
 }
@@ -49,7 +58,6 @@ export class ReactivePRTitle {
 
 	constructor(
 		private projectId: string,
-		private existingTitle: string | undefined,
 		private commits: Commit[],
 		private branchName: string
 	) {
@@ -70,33 +78,61 @@ export class ReactivePRTitle {
 		return this._value;
 	}
 
-	set(value: string) {
-		this._value = value;
-		setPersistedPRTitle(this.projectId, this.branchName, value);
+	set(value: string | undefined) {
+		this._value = value ?? '';
+
+		// Don't persist the default value
+		if (value !== this.getDefaultTitle()) {
+			setPersistedPRTitle(this.projectId, this.branchName, value);
+		}
 	}
+
+	reset() {
+		this.set(undefined);
+	}
+}
+
+function isEmptyLine(line: string) {
+	return line === '\n' || line === '';
 }
 
 export class ReactivePRBody {
 	private _value = $state<string>('');
+	private projectId: string | undefined;
+	private branchDescription: string | undefined;
+	private commits: Commit[] | undefined;
+	private _templateBody = $state<string | undefined>(undefined);
+	private branchName: string | undefined;
+	private _descriptionInput = $state<ReturnType<typeof MessageEditor>>();
 
-	constructor(
-		private projectId: string,
-		private branchDescription: string | undefined,
-		private existingBody: string | undefined,
-		private commits: Commit[],
-		private templateBody: string | undefined,
-		private branchName: string
+	init(
+		projectId: string,
+		branchDescription: string | undefined,
+		commits: Commit[],
+		branchName: string
 	) {
+		this.projectId = projectId;
+		this.branchDescription = branchDescription;
+		this.commits = commits;
+		this.branchName = branchName;
+
 		const persistedBody = getPersistedPRBody(projectId, branchName);
-		this._value = persistedBody ?? this.getDefaultBody();
+		const value =
+			persistedBody === undefined || isEmptyLine(persistedBody)
+				? this.getDefaultBody()
+				: persistedBody;
+		this._value = value;
+
+		this._descriptionInput?.setText(value);
 	}
 
 	getDefaultBody(): string {
 		if (this.branchDescription) return this.branchDescription;
-		if (this.templateBody) return this.templateBody;
+		if (this._templateBody) return this._templateBody;
 		// In case of a single commit, use the commit description for the body
-		if (this.commits.length === 1) {
-			const commit = this.commits[0]!;
+		const commits = this.commits ?? [];
+		if (commits.length === 1) {
+			const commit = commits[0]!;
 			return splitMessage(commit.message).description;
 		}
 		return '';
@@ -106,16 +142,65 @@ export class ReactivePRBody {
 		return this._value;
 	}
 
-	set(value: string) {
-		this._value = value;
-		setPersistedPRBody(this.projectId, this.branchName, value);
+	/**
+	 * Set the value of the PR body.
+	 *
+	 * @param flush - If true, the value will be set in the description input as well.
+	 */
+	set(value: string | undefined, flush?: boolean) {
+		if (!this.projectId || !this.branchName) {
+			throw new Error('ReactivePRBody not initialized');
+		}
+
+		const newValue = value ?? '';
+
+		this._value = newValue;
+
+		if (flush) {
+			this._descriptionInput?.setText(newValue);
+		}
+
+		// Don't persist the default value
+		if (value !== this.getDefaultBody()) {
+			setPersistedPRBody(this.projectId, this.branchName, value);
+		}
 	}
 
-	append(value: string) {
-		this.set(this._value + value);
+	append(value: string, flush?: boolean) {
+		this.set(this._value + value, flush);
 	}
 
 	reset() {
-		this.set('');
+		this.set(undefined);
+	}
+
+	get descriptionInput() {
+		return this._descriptionInput;
+	}
+
+	set descriptionInput(value: ReturnType<typeof MessageEditor> | undefined) {
+		this._descriptionInput = value;
+	}
+
+	get templateBody() {
+		return this._templateBody;
+	}
+
+	set templateBody(value: string | undefined) {
+		const currentBody = this._value;
+		const currentDefaultBody = this.getDefaultBody();
+
+		this._templateBody = value;
+
+		// If the current body is either empty or the default body,
+		// set the body to the new template body.
+		if (
+			currentBody === undefined ||
+			isEmptyLine(currentBody) ||
+			currentBody === currentDefaultBody
+		) {
+			const defaultBody = this.getDefaultBody();
+			this.set(defaultBody, true);
+		}
 	}
 }

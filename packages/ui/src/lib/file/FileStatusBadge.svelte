@@ -7,9 +7,12 @@
 	interface Props {
 		status: FileStatus;
 		style?: 'dot' | 'full';
+		tooltip?: string;
 	}
 
-	const { status, style = 'full' }: Props = $props();
+	const { status, style = 'full', tooltip }: Props = $props();
+
+	const TOOLTIP_MAX_WIDTH = 320;
 
 	function getFullStatusText(status: FileStatus): string {
 		switch (status) {
@@ -19,6 +22,8 @@
 				return 'Modified';
 			case 'D':
 				return 'Deleted';
+			case 'R':
+				return 'Renamed';
 			default:
 				return status;
 		}
@@ -32,6 +37,8 @@
 				return 'warning';
 			case 'D':
 				return 'error';
+			case 'R':
+				return 'purple';
 			default:
 				return 'neutral';
 		}
@@ -39,42 +46,32 @@
 </script>
 
 {#if style === 'dot'}
-	<Tooltip text={getFullStatusText(status)}>
-		<div class="status-dot-wrap">
-			<div
-				class="status-dot"
-				class:added={status === 'A'}
-				class:modified={status === 'M'}
-				class:deleted={status === 'D'}
-			></div>
-
-			<svg
-				width="10"
-				height="10"
-				viewBox="0 0 10 10"
-				fill="none"
-				xmlns="http://www.w3.org/2000/svg"
-				class="status-dot"
-				class:added={status === 'A'}
-				class:modified={status === 'M'}
-				class:deleted={status === 'D'}
-			>
-				<path
-					d="M3 0.75H7C8.24264 0.75 9.25 1.75736 9.25 3V7C9.25 8.24264 8.24264 9.25 7 9.25H3C1.75736 9.25 0.75 8.24264 0.75 7V3C0.75 1.75736 1.75736 0.75 3 0.75Z"
-					stroke-width="1.5"
-				/>
+	<Tooltip text={!tooltip ? getFullStatusText(status) : tooltip} maxWidth={TOOLTIP_MAX_WIDTH}>
+		<div
+			class="status-dot-wrap"
+			class:added={status === 'A'}
+			class:modified={status === 'M'}
+			class:deleted={status === 'D'}
+			class:renamed={status === 'R'}
+		>
+			<svg viewBox="0 0 11 11" fill="none" class="status-dot">
+				<rect x="0.5" y="0.5" width="10" height="10" rx="3.5" stroke="var(--file-dot-color)" />
 				{#if status === 'A'}
-					<path d="M7.75 5H2.25M5 2.25V7.75" stroke-width="1.5" />
+					<path d="M9 5.5H2M5.5 2V9" />
 				{:else if status === 'M'}
-					<path d="M6 4L4 6" stroke-width="2" />
+					<path d="M7.2626 3.73755L3.7374 7.26276" />
 				{:else if status === 'D'}
-					<path d="M7.5 5H2.5" stroke-width="2" />
+					<path d="M8.5 5.5H2.5" />
+				{:else if status === 'R'}
+					<path d="M7.5 5.5H0.5M7.5 5.5L4.5 2.5M7.5 5.5L4.5 8.5" />
 				{/if}
 			</svg>
 		</div>
 	</Tooltip>
 {:else if style === 'full'}
-	<Badge style={getStatusColor(status)} kind="soft">{getFullStatusText(status)}</Badge>
+	<Tooltip text={status === 'R' && tooltip ? tooltip : undefined} maxWidth={TOOLTIP_MAX_WIDTH}>
+		<Badge style={getStatusColor(status)} kind="soft">{getFullStatusText(status)}</Badge>
+	</Tooltip>
 {/if}
 
 <style lang="postcss">
@@ -82,19 +79,31 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		min-width: 16px;
+		width: fit-content;
+		flex-shrink: 0;
 	}
 
 	.status-dot {
-		flex-shrink: 0;
+		width: 11px;
+		height: 11px;
 	}
-	.status-dot.added path {
-		stroke: var(--clr-scale-succ-60);
+
+	.status-dot path {
+		stroke: var(--file-dot-color);
+		stroke-width: 1.5;
 	}
-	.status-dot.modified path {
-		stroke: var(--clr-scale-warn-60);
+
+	/* MODIFIERS */
+	.status-dot-wrap.added {
+		--file-dot-color: var(--clr-scale-succ-60);
 	}
-	.status-dot.deleted path {
-		stroke: var(--clr-scale-err-60);
+	.status-dot-wrap.modified {
+		--file-dot-color: var(--clr-scale-warn-60);
+	}
+	.status-dot-wrap.deleted {
+		--file-dot-color: var(--clr-scale-err-60);
+	}
+	.status-dot-wrap.renamed {
+		--file-dot-color: var(--clr-scale-purp-60);
 	}
 </style>

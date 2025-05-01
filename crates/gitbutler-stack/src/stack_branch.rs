@@ -1,6 +1,7 @@
 use anyhow::{Ok, Result};
 use bstr::BString;
 use git2::Commit;
+use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
 use gitbutler_oxidize::{ObjectIdExt, RepoExt};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
@@ -12,7 +13,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, str::FromStr};
 
-use crate::{stack_context::StackContext, Stack};
+use crate::{Stack, VirtualBranchesHandle};
 
 /// A GitButler-specific reference type that points to a commit or a patch (change).
 /// The principal difference between a `PatchReference` and a regular git reference is that a `PatchReference` can point to a change (patch) that is mutable.
@@ -74,27 +75,21 @@ impl From<git2::Oid> for CommitOrChangeId {
     }
 }
 
-pub trait RepositoryExt {
-    fn lookup_change_id_or_oid(&self, oid: git2::Oid) -> Result<CommitOrChangeId>;
-}
-
-impl RepositoryExt for git2::Repository {
-    fn lookup_change_id_or_oid(&self, oid: git2::Oid) -> Result<CommitOrChangeId> {
-        let commit = self.find_commit(oid)?;
-
-        Ok(commit.into())
+impl From<gix::ObjectId> for CommitOrChangeId {
+    fn from(oid: gix::ObjectId) -> Self {
+        CommitOrChangeId::CommitId(oid.to_string())
     }
 }
 
 impl StackBranch {
-    pub fn new(
-        head: CommitOrChangeId,
+    pub fn new<T: Into<CommitOrChangeId>>(
+        head: T,
         name: String,
         description: Option<String>,
         repo: &gix::Repository,
     ) -> Result<Self> {
         let branch = StackBranch {
-            head,
+            head: head.into(),
             name,
             description,
             pr_number: None,
@@ -148,15 +143,17 @@ impl StackBranch {
         }
     }
 
-    /// This will update the commit that this points to (the virtual reference in virtual_branches.toml) as well as update of create a real git reference.
-    /// If this points to a change id, it's a noop operation. In practice, moving forward, new CommitOrChangeId entries will always be CommitId and ChangeId may only appear in deserialized data.
-    pub fn set_head(
-        &mut self,
-        head: CommitOrChangeId,
-        repo: &gix::Repository,
-    ) -> Result<Option<BString>> {
-        let refname = self.set_real_reference(repo, &head)?;
-        self.head = head;
+    /// This will update the commit that real git reference points to, so it points to `target`,
+    /// as well as the cached data in this instance.
+    /// Returns the full reference name like `refs/heads/name`.
+    /// If this points to a change id, it's a noop operation. In practice, moving forward, new
+    /// `CommitOrChangeId` entries will always be CommitId and ChangeId may only appear in deserialized data.
+    pub fn set_head<T>(&mut self, target: T, repo: &gix::Repository) -> Result<Option<BString>>
+    where
+        T: Into<CommitOrChangeId> + Clone,
+    {
+        let refname = self.set_real_reference(repo, &target)?;
+        self.head = target.into();
         Ok(refname)
     }
 
@@ -239,13 +236,13 @@ impl StackBranch {
     /// NB: If the operation is an update of an existing reference, the operation will only succeed if the old reference matches the expected value.
     ///     Therefore this should be invoked before `self.head` has been updated.
     /// If the head is expressed as a change id, this is a noop
-    fn set_real_reference(
-        &self,
-        repo: &gix::Repository,
-        new_head: &CommitOrChangeId,
-    ) -> Result<Option<BString>> {
-        let new_oid = match new_head {
-            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(id)?,
+    fn set_real_reference<T>(&self, repo: &gix::Repository, new_head: &T) -> Result<Option<BString>>
+    where
+        T: Into<CommitOrChangeId> + Clone,
+    {
+        // let new_head = *new_head.to_owned();
+        let new_oid = match new_head.clone().into() {
+            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(&id)?,
             CommitOrChangeId::ChangeId(_) => return Ok(None), // noop
         };
         let reference = repo.reference(
@@ -257,13 +254,13 @@ impl StackBranch {
         Ok(Some(reference.name().as_bstr().to_owned()))
     }
 
-    pub fn head_oid(&self, repo: &gix::Repository) -> Result<git2::Oid> {
+    pub fn head_oid(&self, repo: &gix::Repository) -> Result<gix::ObjectId> {
         if let Some(mut reference) = repo.try_find_reference(&self.name)? {
             let commit = reference.peel_to_commit()?;
-            Ok(commit.id.to_git2())
+            Ok(commit.id)
         } else if let CommitOrChangeId::CommitId(id) = &self.head {
             self.set_real_reference(repo, &self.head)?;
-            Ok(git2::Oid::from_str(id)?)
+            Ok(gix::ObjectId::from_str(id)?)
         } else {
             Err(anyhow::anyhow!(
                 "No reference found for branch {}. CommitOrChangeId is {}",
@@ -310,24 +307,22 @@ impl StackBranch {
     }
 
     /// Returns `true` if the reference is pushed to the provided remote
-    pub fn pushed(&self, remote: &str, repository: &git2::Repository) -> bool {
-        repository
-            .find_reference(&self.remote_reference(remote))
-            .is_ok()
+    pub fn pushed(&self, remote: &str, repo: &git2::Repository) -> bool {
+        repo.find_reference(&self.remote_reference(remote)).is_ok()
     }
 
     /// Returns the commits that are part of the branch.
-    pub fn commits<'a>(
-        &self,
-        stack_context: &'a StackContext,
-        stack: &Stack,
-    ) -> Result<BranchCommits<'a>> {
-        let repository = stack_context.repository();
-        let merge_base = stack.merge_base(stack_context)?;
+    pub fn commits<'a>(&self, ctx: &'a CommandContext, stack: &Stack) -> Result<BranchCommits<'a>> {
+        let repo = ctx.repo();
+        let merge_base = stack.merge_base(ctx)?.to_git2();
 
-        let gix_repo = repository.to_gix()?;
-        let head_commit =
-            commit_by_oid_or_change_id(&self.head, repository, stack.head(&gix_repo)?, merge_base);
+        let gix_repo = repo.to_gix()?;
+        let head_commit = commit_by_oid_or_change_id(
+            &self.head,
+            repo,
+            stack.head_oid(&gix_repo)?.to_git2(),
+            merge_base,
+        );
         if head_commit.is_err() {
             return Ok(BranchCommits {
                 local_commits: vec![],
@@ -339,23 +334,24 @@ impl StackBranch {
 
         // Find the previous head in the stack - if it is not archived, use it as base
         // Otherwise use the merge base
-        let stack_head = stack.head(&gix_repo)?;
+        let stack_head = stack.head_oid(&gix_repo)?.to_git2();
         let previous_head = stack
             .branch_predacessor(self)
             .filter(|predacessor| !predacessor.archived)
             .map_or(merge_base, |predacessor| {
-                commit_by_oid_or_change_id(&predacessor.head, repository, stack_head, merge_base)
+                commit_by_oid_or_change_id(&predacessor.head, repo, stack_head, merge_base)
                     .map(|commit| commit.id())
                     .unwrap_or(merge_base)
             });
 
-        let local_patches = repository
+        let local_patches = repo
             .log(head_commit, LogUntil::Commit(previous_head), false)?
             .into_iter()
             .rev()
             .collect_vec();
 
-        let default_target = stack_context.target();
+        let virtual_branch_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+        let default_target = virtual_branch_state.get_default_target()?;
         let mut remote_patches: Vec<Commit<'_>> = vec![];
 
         // Use remote from upstream if available, otherwise default to push remote.
@@ -364,12 +360,11 @@ impl StackBranch {
             .clone()
             .map(|ref_name| ref_name.remote().to_owned())
             .unwrap_or(default_target.push_remote_name());
-        if self.pushed(&remote, repository) {
-            let upstream_head = repository
+        if self.pushed(&remote, repo) {
+            let upstream_head = repo
                 .find_reference(self.remote_reference(&remote).as_str())?
                 .peel_to_commit()?;
-            repository
-                .log(upstream_head.id(), LogUntil::Commit(previous_head), false)?
+            repo.log(upstream_head.id(), LogUntil::Commit(previous_head), false)?
                 .into_iter()
                 .rev()
                 .for_each(|c| {
@@ -378,14 +373,14 @@ impl StackBranch {
         }
 
         let upstream_only = if let core::result::Result::Ok(reference) =
-            repository.find_reference(self.remote_reference(&remote).as_str())
+            repo.find_reference(self.remote_reference(&remote).as_str())
         {
             let upstream_head = reference.peel_to_commit()?;
-            let mut revwalk = repository.revwalk()?;
+            let mut revwalk = repo.revwalk()?;
             revwalk.push(upstream_head.id())?;
             if let Some(pred) = stack.branch_predacessor(self) {
                 if let core::result::Result::Ok(head_ref) =
-                    repository.find_reference(pred.remote_reference(&remote).as_str())
+                    repo.find_reference(pred.remote_reference(&remote).as_str())
                 {
                     revwalk.hide(head_ref.peel_to_commit()?.id())?;
                 }
@@ -393,7 +388,7 @@ impl StackBranch {
             revwalk.hide(previous_head)?;
             let mut upstream_only = revwalk
                 .filter_map(|c| {
-                    let commit = repository.find_commit(c.ok()?).ok()?;
+                    let commit = repo.find_commit(c.ok()?).ok()?;
                     Some(commit)
                 })
                 .collect::<Vec<_>>();
@@ -449,7 +444,7 @@ impl BranchCommits<'_> {
 // NB: There can be multiple commits with the same change id on the same branch id.
 // This is an error condition but we must handle it.
 // If there are multiple commits, they are ordered newest to oldest.
-pub fn commit_by_oid_or_change_id<'a>(
+fn commit_by_oid_or_change_id<'a>(
     reference_target: &'a CommitOrChangeId,
     repo: &'a git2::Repository,
     stack_head: git2::Oid,

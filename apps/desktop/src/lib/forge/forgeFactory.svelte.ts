@@ -6,7 +6,7 @@ import { GitHubClient } from '$lib/forge/github/githubClient';
 import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from '$lib/forge/gitlab/gitlab';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
-import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
+import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { Forge } from '$lib/forge/interface/forge';
 import type { GitHubApi, GitLabApi } from '$lib/state/clientState.svelte';
 import type { ReduxTag } from '$lib/state/tags';
@@ -94,11 +94,12 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			});
 		}
 		if (domain === GITLAB_DOMAIN || domain.startsWith(GITLAB_SUB_DOMAIN + '.')) {
-			const { gitLabClient, gitLabApi } = this.params;
+			const { gitLabClient, gitLabApi, posthog } = this.params;
 			return new GitLab({
 				...baseParams,
 				api: gitLabApi,
 				client: gitLabClient,
+				posthog: posthog,
 				authenticated: !!gitlabAuthenticated
 			});
 		}

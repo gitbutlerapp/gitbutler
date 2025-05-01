@@ -30,7 +30,7 @@
 		<div class="profile-sidebar__menu-wrapper">
 			<div class="profile-sidebar__header-wrapper">
 				{#if platformName === 'macos'}
-					<div class="traffic-light-placeholder"></div>
+					<div class="traffic-lights-placeholder"></div>
 				{/if}
 				<div class="profile-sidebar__header">
 					<div class="back-btn__icon">
@@ -55,11 +55,11 @@
 					<button
 						type="button"
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection === 'profile'}
-						onmousedown={() => onMenuClick('profile')}
+						class:item_selected={currentSection === 'general'}
+						onmousedown={() => onMenuClick('general')}
 					>
-						<Icon name="profile" />
-						<span class="text-14 text-semibold">Profile</span>
+						<Icon name="settings" />
+						<span class="text-14 text-semibold">General</span>
 					</button>
 				</li>
 				<li>
@@ -147,6 +147,8 @@
 	</section>
 
 	<section class="profile-sidebar__bottom">
+		<SupportersBanner />
+
 		<div class="social-banners">
 			<button
 				type="button"
@@ -166,8 +168,6 @@
 				<Icon name="discord" />
 			</button>
 		</div>
-
-		<SupportersBanner />
 	</section>
 </aside>
 
@@ -195,7 +195,7 @@
 		gap: 8px;
 	}
 
-	.traffic-light-placeholder {
+	.traffic-lights-placeholder {
 		width: 100%;
 		height: 24px;
 	}

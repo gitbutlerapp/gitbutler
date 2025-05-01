@@ -1,9 +1,9 @@
 <script lang="ts">
+	import SidebarEntry from '$components/v3/SidebarEntry.svelte';
 	import { Project } from '$lib/project/project';
 	import { UserService } from '$lib/user/userService';
 	import { parseDate } from '$lib/utils/time';
 	import { getContext } from '@gitbutler/shared/context';
-	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import type { PullRequest } from '$lib/forge/interface/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -25,7 +25,7 @@
 			: pullRequest.author?.gravatarUrl;
 	});
 
-	function onMouseDown() {
+	function onclick() {
 		goto(formatPullRequestURL(project, pullRequest.number));
 	}
 
@@ -51,7 +51,7 @@
 		title: pullRequest.title,
 		draft: pullRequest.draft
 	}}
-	{onMouseDown}
+	{onclick}
 	{selected}
 	avatars={[
 		{

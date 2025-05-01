@@ -64,10 +64,10 @@
 
 	const vert = $derived(!horz);
 
-	let paddingTop = $state(pxToRem(padding.top ?? 0));
-	let paddingBottom = $state(pxToRem(padding.bottom ?? 0));
-	let paddingRight = $state(pxToRem(padding.right ?? 0));
-	let paddingLeft = $state(pxToRem(padding.left ?? 0));
+	const paddingTop = $derived(pxToRem(padding.top ?? 0));
+	const paddingBottom = $derived(pxToRem(padding.bottom ?? 0));
+	const paddingRight = $derived(pxToRem(padding.right ?? 0));
+	const paddingLeft = $derived(pxToRem(padding.left ?? 0));
 
 	let wholeHeight = $state(viewport?.scrollHeight ?? 0);
 	let wholeWidth = $state(viewport?.scrollWidth ?? 0);
@@ -290,8 +290,8 @@
 	style:height={vert ? `100%` : thickness}
 	style:z-index={zIndex}
 	style="
-    --scrollbar-shift-vertical: {vert ? '0' : shift};
-    --scrollbar-shift-horizontal: {horz ? '0' : shift};
+    --scrollbar-shift-vertical: {vert ? '0' : shift || 0};
+    --scrollbar-shift-horizontal: {horz ? '0' : shift || 0};
     "
 >
 	<div
@@ -320,11 +320,6 @@
 		right: var(--scrollbar-shift-horizontal);
 		/* other props */
 		position: absolute;
-		/* background-color: aqua; */
-		transition:
-			opacity 0.2s,
-			width 0.1s,
-			height 0.1s;
 	}
 
 	.scrollbar-thumb {
@@ -337,9 +332,6 @@
 		position: absolute;
 		background-color: var(--clr-scale-ntrl-0);
 		opacity: 0;
-		transition:
-			opacity 0.2s,
-			transform 0.15s;
 	}
 
 	/* modify vertical scrollbar */
@@ -359,7 +351,6 @@
 	}
 
 	/* MODIFIERS */
-
 	.show-scrollbar {
 		& .scrollbar-thumb {
 			opacity: 0.15;
@@ -367,20 +358,24 @@
 	}
 
 	/* hover state for thumb */
+	/* general */
 	.show-scrollbar:hover,
 	.thumb-dragging {
 		& .scrollbar-thumb {
 			opacity: 0.25;
+			transition:
+				opacity 0.2s,
+				transform 0.15s;
 		}
 	}
-
+	/* vertical */
 	.show-scrollbar.vert:hover,
 	.thumb-dragging.vert {
 		& .scrollbar-thumb {
 			transform: scaleY(1);
 		}
 	}
-
+	/* horizontal */
 	.show-scrollbar.horz:hover,
 	.thumb-dragging.horz {
 		& .scrollbar-thumb {

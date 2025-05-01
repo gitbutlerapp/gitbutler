@@ -1,27 +1,21 @@
 <script lang="ts">
-	import CommitContextMenu from '$components/v3/CommitContextMenu.svelte';
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
-	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/v3/lib';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { CommitDropData } from '$lib/commits/dropHandler';
-	import { draggableCommit } from '$lib/dragging/draggable';
-	import { NON_DRAGGABLE } from '$lib/dragging/draggables';
-	import { ModeService } from '$lib/mode/modeService';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import ContextMenu from '$components/v3/ContextMenu.svelte';
+	import { type CommitStatusType } from '$lib/commits/commit';
+	import { TestId } from '$lib/testing/testIds';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
-	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
+	import { slide } from 'svelte/transition';
+	import type { Snippet } from 'svelte';
 
-	type Props = {
+	type BaseProps = {
+		type: CommitStatusType;
 		projectId: string;
 		branchName: string;
-		stackId: string;
-		commit: Commit | UpstreamCommit;
+		commitId: string;
+		commitMessage: string;
+		createdAt: number;
+		tooltip?: string;
 		first?: boolean;
 		lastCommit?: boolean;
 		lastBranch?: boolean;
@@ -30,218 +24,153 @@
 		borderTop?: boolean;
 		draggable?: boolean;
 		disableCommitActions?: boolean;
+		menu?: Snippet<[{ close: () => void }]>;
 		onclick?: () => void;
 	};
 
+	type RemoteStatusProps = {
+		type: 'LocalOnly' | 'Integrated' | 'Remote';
+	};
+
+	type LocalAndRemoteWithActions = {
+		type: 'LocalAndRemote';
+		disableCommitActions: false;
+		diverged: boolean;
+		hasConflicts: boolean;
+	};
+
+	type LocalAndRemoteDisabled = {
+		type: 'LocalAndRemote';
+		disableCommitActions: true;
+	};
+
+	type WithStackId = {
+		disableCommitActions: false;
+		stackId: string;
+	};
+
+	type WithoutStackId = {
+		disableCommitActions: true;
+	};
+
+	type Props = BaseProps &
+		(RemoteStatusProps | LocalAndRemoteWithActions | LocalAndRemoteDisabled) &
+		(WithStackId | WithoutStackId);
+
 	const {
-		projectId,
-		branchName,
-		stackId,
-		commit,
+		commitMessage,
+		tooltip,
 		first,
 		lastCommit,
 		lastBranch,
 		selected,
 		opacity,
 		borderTop,
-		draggable,
-		disableCommitActions = false,
-		onclick
+		onclick,
+		menu: menu2,
+		...args
 	}: Props = $props();
 
-	const baseBranch = getContext(BaseBranch);
-	const stackService = getContext(StackService);
-	const modeService = maybeGetContext(ModeService);
-
-	const [uncommit] = stackService.uncommit();
-
-	const commitUrl = undefined;
-	const conflicted = false; // TODO
-	const isAncestorMostConflicted = false; // TODO
-	const isUnapplied = false; // TODO
-	const branchRefName = undefined;
-
-	let commitRowElement = $state<HTMLDivElement>();
 	let kebabMenuTrigger = $state<HTMLButtonElement>();
+	let container = $state<HTMLDivElement>();
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let conflictResolutionConfirmationModal = $state<ReturnType<typeof Modal>>();
 
 	let isOpenedByKebabButton = $state(false);
 	let isOpenedByMouse = $state(false);
 
-	async function handleUncommit() {
-		if (!baseBranch) {
-			console.error('Unable to undo commit');
-			return;
-		}
-		await uncommit({ projectId, stackId, commitId: commit.id });
-	}
-
-	function openCommitMessageModal() {
-		// TODO: Implement openCommitMessageModal
-	}
-
-	function canEdit() {
-		if (isUnapplied) return false;
-		if (!modeService) return false;
-
-		return true;
-	}
-
-	async function editPatch() {
-		if (!canEdit() || !branchRefName) return;
-		modeService!.enterEditMode(commit.id, stackId);
-	}
-
-	async function handleEditPatch() {
-		if (conflicted && !isAncestorMostConflicted) {
-			conflictResolutionConfirmationModal?.show();
-			return;
-		}
-		await editPatch();
-	}
-
-	const commitShortSha = commit.id.substring(0, 7);
+	let isConflicted = $derived(
+		args.type === 'LocalAndRemote' && !args.disableCommitActions && args.hasConflicts
+	);
 </script>
 
 <div
+	bind:this={container}
 	role="button"
 	tabindex="0"
 	aria-label="Commit row"
-	class="commit-row__main"
+	class="commit-row"
 	class:menu-shown={isOpenedByKebabButton || isOpenedByMouse}
 	class:first
 	class:selected
 	style:opacity
 	class:border-top={borderTop || first}
-	bind:this={commitRowElement}
 	class:last={lastCommit}
 	onclick={(e) => {
-		e.preventDefault();
 		e.stopPropagation();
-		if (disableCommitActions) return;
 		onclick?.();
 	}}
 	onkeydown={(e) => {
-		if (disableCommitActions) return;
 		if (e.key === 'Enter' || e.key === ' ') {
-			e.preventDefault();
+			e.stopPropagation();
 			onclick?.();
 		}
 	}}
 	oncontextmenu={(e) => {
-		if (disableCommitActions) return;
+		if (args.disableCommitActions) return;
 		e.preventDefault();
-		isOpenedByKebabButton = false;
 		contextMenu?.open(e);
 	}}
-	use:draggableCommit={draggable
-		? {
-				disabled: false,
-				label: commit.message.split('\n')[0],
-				sha: commitShortSha,
-				date: getTimeAgo(commit.createdAt),
-				authorImgUrl: undefined,
-				commitType: 'LocalAndRemote',
-				data: new CommitDropData(
-					stackId,
-					{
-						id: commit.id,
-						isRemote: isUpstreamCommit(commit),
-						isConflicted: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
-						isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated'
-					},
-					false,
-					branchName
-				),
-				viewportId: 'board-viewport'
-			}
-		: NON_DRAGGABLE}
 >
-	<CommitLine {commit} {lastCommit} {lastBranch} />
+	{#if selected}
+		<div class="commit-row__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+	{/if}
 
-	<div class="commit-content">
-		<!-- <button type="button" {onclick} tabindex="0"> -->
+	<CommitLine
+		commitStatus={args.type}
+		diverged={args.type === 'LocalAndRemote' && !args.disableCommitActions ? args.diverged : false}
+		{tooltip}
+		{lastCommit}
+		{lastBranch}
+	/>
+
+	<div data-testid={TestId.CommitRow} class="commit-content" class:shift-to-left={isConflicted}>
+		{#if isConflicted}
+			<div class="commit-conflict-indicator">
+				<Icon name="warning" size={12} />
+			</div>
+		{/if}
+
 		<div class="commit-name truncate">
-			<CommitHeader {commit} row class="text-13 text-semibold" />
+			<CommitHeader {commitMessage} row className="text-13 text-semibold" />
 		</div>
 
-		<button
-			type="button"
-			bind:this={kebabMenuTrigger}
-			class="commit-menu-btn"
-			class:activated={isOpenedByKebabButton}
-			onmousedown={(e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				isOpenedByKebabButton = true;
-				contextMenu?.toggle();
-			}}
-			onclick={(e) => {
-				e.preventDefault();
-				e.stopPropagation();
-			}}
-		>
-			<Icon name="kebab" /></button
-		>
+		{#if !args.disableCommitActions}
+			<button
+				type="button"
+				bind:this={kebabMenuTrigger}
+				class="commit-menu-btn"
+				data-testid={TestId.CommitMenuButton}
+				class:activated={isOpenedByKebabButton}
+				onmousedown={(e) => {
+					e.stopPropagation();
+					contextMenu?.toggle();
+				}}
+			>
+				<Icon name="kebab" /></button
+			>
+		{/if}
 	</div>
 </div>
 
-<Modal bind:this={conflictResolutionConfirmationModal} width="small" onSubmit={editPatch}>
-	{#snippet children()}
-		<div>
-			<p>It's generally better to start resolving conflicts from the bottom up.</p>
-			<br />
-			<p>Are you sure you want to resolve conflicts for this commit?</p>
-		</div>
-	{/snippet}
-	{#snippet controls(close)}
-		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" type="submit">Yes</Button>
-	{/snippet}
-</Modal>
-
-<CommitContextMenu
-	bind:menu={contextMenu}
-	{projectId}
+<ContextMenu
+	bind:this={contextMenu}
 	leftClickTrigger={kebabMenuTrigger}
-	rightClickTrigger={commitRowElement}
-	{baseBranch}
-	{stackId}
-	{commit}
-	{commitUrl}
-	onUncommitClick={handleUncommit}
-	onEditMessageClick={openCommitMessageModal}
-	onPatchEditClick={handleEditPatch}
-	onToggle={(isOpen, isLeftClick) => {
-		if (isLeftClick) {
-			isOpenedByKebabButton = isOpen;
-		} else {
-			isOpenedByMouse = isOpen;
-		}
-	}}
-/>
+	rightClickTrigger={container}
+	bind:isOpenedByKebabButton
+	bind:isOpenedByMouse
+>
+	{#snippet menu(args)}
+		{@render menu2?.(args)}
+	{/snippet}
+</ContextMenu>
 
 <style lang="postcss">
-	.commit-row__main {
+	.commit-row {
 		position: relative;
 		display: flex;
 		width: 100%;
 		overflow: hidden;
 		transition: background-color var(--transition-fast);
-
-		&::before {
-			content: '';
-			position: absolute;
-			top: 50%;
-			left: 0;
-			width: 4px;
-			height: 45%;
-			transform: translateX(-100%) translateY(-50%);
-			border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
-			background-color: var(--clr-selected-in-focus-element);
-			transition: transform var(--transition-fast);
-		}
 
 		&:hover,
 		&.menu-shown {
@@ -267,15 +196,23 @@
 			& .commit-menu-btn {
 				display: flex;
 			}
-
-			&:before {
-				transform: translateX(0%) translateY(-50%);
-			}
 		}
 
 		&:focus-within.selected {
 			background-color: var(--clr-selected-in-focus-bg);
 		}
+	}
+
+	.commit-row__select-indicator {
+		position: absolute;
+		top: 50%;
+		left: 0;
+		width: 4px;
+		height: 45%;
+		transform: translateY(-50%);
+		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
+		background-color: var(--clr-selected-in-focus-element);
+		transition: transform var(--transition-fast);
 	}
 
 	.commit-content {
@@ -290,7 +227,7 @@
 
 	.commit-name {
 		flex: 1;
-		padding: 14px 0 14px 4px;
+		padding: 14px 0 14px 0;
 		display: flex;
 	}
 
@@ -305,5 +242,16 @@
 		&.activated {
 			opacity: 1;
 		}
+	}
+
+	.commit-conflict-indicator {
+		display: flex;
+		color: var(--clr-theme-err-element);
+		margin-right: 4px;
+	}
+
+	/* MODIFIERS */
+	.shift-to-left {
+		margin-left: -3px;
 	}
 </style>

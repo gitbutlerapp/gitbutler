@@ -17,10 +17,10 @@ fn one_vbranch_in_workspace_empty_details() -> anyhow::Result<()> {
             number_of_files: 0,
             number_of_commits: 0,
             authors: vec![],
-            virtual_branch: list[0].virtual_branch.clone()
+            stack: list[0].stack.clone()
         }
     );
-    assert!(list[0].virtual_branch.is_some());
+    assert!(list[0].stack.is_some());
     Ok(())
 }
 
@@ -40,10 +40,10 @@ fn one_vbranch_in_workspace_single_commit() -> anyhow::Result<()> {
             number_of_files: 2,
             number_of_commits: 1,
             authors: vec![default_author()],
-            virtual_branch: list[0].virtual_branch.clone()
+            stack: list[0].stack.clone()
         }
     );
-    assert!(list[0].virtual_branch.is_some());
+    assert!(list[0].stack.is_some());
     Ok(())
 }
 
@@ -61,7 +61,7 @@ fn many_commits_in_all_branch_types() -> anyhow::Result<()> {
             number_of_files: 1,
             number_of_commits: 100,
             authors: vec![default_author()],
-            virtual_branch: None
+            stack: None
         },
         "local branches use the *current* local tracking branch…"
     );
@@ -74,7 +74,7 @@ fn many_commits_in_all_branch_types() -> anyhow::Result<()> {
             number_of_files: 1,
             number_of_commits: 50,
             authors: vec![default_author()],
-            virtual_branch: None
+            stack: None
         },
         "This is a non-virtual brnach, so it sees the local tracking branch as well"
     );

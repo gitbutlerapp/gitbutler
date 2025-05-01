@@ -14,4 +14,10 @@
 	/* TODO: add focus color */
 	--focus-color: var(--clr-scale-pop-50);
 	--resizer-color: var(--clr-scale-pop-50);
+
+	/* LEXICAL */
+	--lexical-input-background: var(--clr-bg-1);
+	--lexical-input-client-padding: 12px;
+	--lexical-input-client-toolbar-height: 48px;
+	--lexical-input-font-size: 13px;
 }

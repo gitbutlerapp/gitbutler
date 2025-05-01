@@ -8,11 +8,13 @@
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import { join } from '@tauri-apps/api/path';
@@ -20,10 +22,8 @@
 	import type { Writable } from 'svelte/store';
 
 	type Props = {
-		isUnapplied: boolean;
-		branchId?: string;
+		isUncommitted: boolean;
 		trigger?: HTMLElement;
-		isBinary?: boolean;
 		unSelectChanges: (changes: TreeChange[]) => void;
 	};
 
@@ -41,12 +41,12 @@
 		);
 	}
 
-	const { trigger, isUnapplied, isBinary = false, unSelectChanges }: Props = $props();
+	const { trigger, unSelectChanges, isUncommitted }: Props = $props();
 	const [stackService, project] = inject(StackService, Project);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
-	const [discardChanges] = stackService.discardChanges();
 	let confirmationModal: ReturnType<typeof Modal> | undefined;
+	let stashConfirmationModal: ReturnType<typeof Modal> | undefined;
 	let contextMenu: ReturnType<typeof ContextMenu>;
 	const projectId = $derived(project.id);
 
@@ -56,21 +56,45 @@
 		});
 	}
 
-	function confirmDiscard(item: FileItem) {
+	async function confirmDiscard(item: FileItem) {
 		const worktreeChanges: DiffSpec[] = item.changes.map((change) => ({
-			previousPathBytes: null,
-			pathBytes: change.path,
+			previousPathBytes:
+				change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null,
+			pathBytes: change.pathBytes,
 			hunkHeaders: []
 		}));
 
-		discardChanges({
+		await stackService.discardChanges({
 			projectId,
 			worktreeChanges
 		});
 
 		unSelectChanges(item.changes);
 
-		contextMenu.close();
+		confirmationModal?.close();
+	}
+
+	let stashBranchName = $state<string>();
+	async function confirmStashIntoBranch(item: FileItem, branchName: string | undefined) {
+		if (!branchName) {
+			return;
+		}
+		const worktreeChanges: DiffSpec[] = item.changes.map((change) => ({
+			previousPathBytes:
+				change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null,
+			pathBytes: change.pathBytes,
+			hunkHeaders: []
+		}));
+
+		await stackService.stashIntoBranch({
+			projectId,
+			branchName,
+			worktreeChanges
+		});
+
+		unSelectChanges(item.changes);
+
+		stashConfirmationModal?.close();
 	}
 
 	export function open(e: MouseEvent, item: FileItem) {
@@ -85,11 +109,23 @@
 			<ContextMenuSection>
 				{#if item.changes.length > 0}
 					{@const changes = item.changes}
-					{#if !isUnapplied && !isBinary}
+					{#if isUncommitted}
 						<ContextMenuItem
 							label="Discard changes"
 							onclick={() => {
 								confirmationModal?.show(item);
+								contextMenu.close();
+							}}
+						/>
+					{/if}
+					{#if isUncommitted}
+						<ContextMenuItem
+							label="Stash into branch"
+							onclick={() => {
+								stackService.newBranchName(project.id).then((name) => {
+									stashBranchName = name.data || '';
+								});
+								stashConfirmationModal?.show(item);
 								contextMenu.close();
 							}}
 						/>
@@ -100,7 +136,9 @@
 							onclick={async () => {
 								if (!project) return;
 								const absPath = await join(project.path, changes[0]!.path);
-								await writeClipboard(absPath, 'Failed to copy path');
+								await writeClipboard(absPath, {
+									errorMessage: 'Failed to copy absolute path'
+								});
 								contextMenu.close();
 								// dismiss();
 							}}
@@ -109,7 +147,9 @@
 							label="Copy Relative Path"
 							onclick={async () => {
 								if (!project) return;
-								await writeClipboard(changes[0]!.path, 'Failed to copy relative path');
+								await writeClipboard(changes[0]!.path, {
+									errorMessage: 'Failed to copy relative path'
+								});
 								contextMenu.close();
 							}}
 						/>
@@ -183,7 +223,51 @@
 	{/snippet}
 	{#snippet controls(close, item)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit" onclick={() => confirmDiscard(item)}>Confirm</Button>
+		<AsyncButton style="error" type="submit" action={async () => await confirmDiscard(item)}>
+			Confirm
+		</AsyncButton>
+	{/snippet}
+</Modal>
+
+<Modal
+	width={500}
+	type="info"
+	bind:this={stashConfirmationModal}
+	onSubmit={(_, item) => isFileItem(item) && confirmStashIntoBranch(item, stashBranchName)}
+>
+	<div class="content-wrap">
+		<Textbox
+			label="New branch to stash into"
+			id="stashBranchName"
+			bind:value={stashBranchName}
+			autofocus
+		/>
+
+		<span>
+			The selected changes will be stashed into branch <span class="text-bold"
+				>{stashBranchName}</span
+			> and removed from the workspace.
+		</span>
+		<span>
+			You can re-apply them by re-applying the branch and "uncommitting" the stash commit.
+		</span>
+
+		<span class="text-12 text-body radio-aditional-info"
+			>└ This operation is a "macro" for creating a branch, committing changes and then unapplying
+			it. In the future, discovery and unstashing will be streamlined.</span
+		>
+	</div>
+
+	{#snippet controls(close, item)}
+		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
+		<AsyncButton
+			style="pop"
+			disabled={!stashBranchName}
+			type="submit"
+			action={async () => await confirmStashIntoBranch(item, stashBranchName)}
+		>
+			Confirm
+		</AsyncButton>
 	{/snippet}
 </Modal>
 
@@ -197,5 +281,14 @@
 		overflow: hidden;
 		background-color: var(--clr-bg-2);
 		margin-top: 12px;
+	}
+	.radio-aditional-info {
+		color: var(--clr-text-2);
+	}
+	/* MODAL WINDOW */
+	.content-wrap {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
 	}
 </style>

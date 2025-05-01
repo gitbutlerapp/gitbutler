@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
@@ -6,39 +7,76 @@
 	import ReviewView from '$components/v3/ReviewView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
+	import StackTabs from '$components/v3/stackTabs/StackTabs.svelte';
+	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import { remToPx } from '@gitbutler/ui/utils/remToPx';
 	import { type Snippet } from 'svelte';
+	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {
 		projectId: string;
 		stackId?: string;
-		right: Snippet<[{ viewportWidth: number }]>;
+		stack: Snippet;
 	}
 
-	const { stackId, projectId, right }: Props = $props();
+	const { stackId, projectId, stack }: Props = $props();
 
-	const [uiState] = inject(UiState);
-	const projectUiState = $derived(uiState.project(projectId));
-	const drawerPage = $derived(projectUiState.drawerPage);
-	const drawerIsFullScreen = $derived(projectUiState.drawerFullScreen);
-	const selected = $derived(uiState.stack(stackId!).selection);
-	const branchName = $derived(selected.current?.branchName);
+	const [stackService, uiState, focusManager] = inject(StackService, UiState, FocusManager);
+	const stacksResult = $derived(stackService.stacks(projectId));
+
+	const projectState = $derived(uiState.project(projectId));
+	const drawerPage = $derived(projectState.drawerPage);
+	const drawerIsFullScreen = $derived(projectState.drawerFullScreen);
+	const isCommitting = $derived(drawerPage.current === 'new-commit');
+
+	let focusGroup = $derived(
+		focusManager.radioGroup({
+			triggers: [Focusable.UncommittedChanges, Focusable.ChangedFiles]
+		})
+	);
+
+	const stackSelection = $derived(stackId ? uiState.stack(stackId).selection : undefined);
+	const currentSelection = $derived(stackSelection?.current);
+	const branchName = $derived(currentSelection?.branchName);
+	const commitId = $derived(currentSelection?.commitId);
+	const upstream = $derived(!!currentSelection?.upstream);
+
+	const selectionId: SelectionId = $derived.by(() => {
+		if (focusGroup.current === Focusable.ChangedFiles && currentSelection && stackId) {
+			if (currentSelection.commitId) {
+				return {
+					type: 'commit',
+					commitId: currentSelection.commitId
+				};
+			}
+			return {
+				type: 'branch',
+				branchName: currentSelection.branchName,
+				stackId
+			};
+		}
+		return { type: 'worktree' };
+	});
 
 	const leftWidth = $derived(uiState.global.leftWidth);
 	const stacksViewWidth = $derived(uiState.global.stacksViewWidth);
 
 	let leftDiv = $state<HTMLElement>();
 	let stacksViewEl = $state<HTMLElement>();
+
+	let tabsWidth = $state<number>();
 </script>
 
-<div class="workspace" use:focusable={{ id: 'workspace' }}>
+<div class="workspace" use:focusable={{ id: Focusable.Workspace }}>
 	<div
 		class="changed-files-view"
 		bind:this={leftDiv}
 		style:width={leftWidth.current + 'rem'}
-		use:focusable={{ id: 'left', parentId: 'workspace' }}
+		use:focusable={{ id: Focusable.WorkspaceLeft, parentId: Focusable.Workspace }}
 	>
 		<WorktreeChanges {projectId} {stackId} />
 		<Resizer
@@ -49,30 +87,31 @@
 			onWidth={(value) => (leftWidth.current = value)}
 		/>
 	</div>
-	<div class="main-view" use:focusable={{ id: 'main', parentId: 'workspace' }}>
+	<div
+		class="main-view"
+		use:focusable={{ id: Focusable.WorkspaceMiddle, parentId: Focusable.Workspace }}
+	>
 		{#if !drawerIsFullScreen.current}
-			<SelectionView {projectId} {stackId} />
+			<SelectionView {projectId} {selectionId} />
 		{/if}
 
-		{#if stackId}
-			{#if drawerPage.current === 'new-commit'}
-				<NewCommitView {projectId} {stackId} />
-			{:else if drawerPage.current === 'branch' && branchName}
-				<BranchView {stackId} {projectId} {branchName} />
-			{:else if drawerPage.current === 'review' && branchName}
-				<ReviewView {stackId} {projectId} {branchName} />
-			{:else if selected.current?.branchName && selected.current.commitId && stackId}
-				<CommitView
-					{projectId}
-					{stackId}
-					commitKey={{
-						stackId,
-						branchName: selected.current.branchName,
-						commitId: selected.current.commitId,
-						upstream: !!selected.current.upstream
-					}}
-				/>
-			{/if}
+		{#if drawerPage.current === 'new-commit'}
+			<NewCommitView {projectId} {stackId} />
+		{:else if drawerPage.current === 'branch' && stackId && branchName}
+			<BranchView {stackId} {projectId} {branchName} />
+		{:else if drawerPage.current === 'review' && stackId && branchName}
+			<ReviewView {stackId} {projectId} {branchName} />
+		{:else if branchName && commitId && stackId}
+			<CommitView
+				{projectId}
+				{stackId}
+				commitKey={{
+					stackId,
+					branchName,
+					commitId,
+					upstream
+				}}
+			/>
 		{/if}
 	</div>
 
@@ -80,9 +119,26 @@
 		class="stacks-view-wrap"
 		bind:this={stacksViewEl}
 		style:width={stacksViewWidth.current + 'rem'}
-		use:focusable={{ id: 'right', parentId: 'workspace' }}
+		use:focusable={{ id: Focusable.WorkspaceRight, parentId: Focusable.Workspace }}
 	>
-		{@render right({ viewportWidth: stacksViewWidth.current })}
+		<ReduxResult {projectId} result={stacksResult?.current}>
+			{#snippet children(stacks)}
+				<StackTabs
+					{projectId}
+					{stacks}
+					selectedId={stackId}
+					{isCommitting}
+					bind:width={tabsWidth}
+				/>
+				<div
+					class="contents"
+					class:rounded={tabsWidth! <= (remToPx(stacksViewWidth.current - 0.5) as number)}
+					class:dotted={stacks.length > 0}
+				>
+					{@render stack()}
+				</div>
+			{/snippet}
+		</ReduxResult>
 		<Resizer
 			viewport={stacksViewEl}
 			direction="left"
@@ -104,6 +160,7 @@
 		height: 100%;
 		width: 100%;
 		position: relative;
+		overflow: hidden;
 	}
 
 	.changed-files-view {
@@ -120,12 +177,14 @@
 	}
 
 	.stacks-view-wrap {
+		flex: 0 1 auto;
 		height: 100%;
+		min-width: 300px;
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-start;
 		position: relative;
-		flex-shrink: 0;
+		overflow: hidden;
 	}
 
 	.main-view {
@@ -135,7 +194,29 @@
 		border-radius: var(--radius-ml);
 		overflow-x: hidden;
 		position: relative;
-		gap: 10px;
-		min-width: 320px;
+		gap: 8px;
+		min-width: 400px;
+	}
+
+	.contents {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		overflow: hidden;
+
+		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+		border: 1px solid var(--clr-border-2);
+	}
+
+	.dotted {
+		background-image: radial-gradient(
+			oklch(from var(--clr-scale-ntrl-50) l c h / 0.5) 0.6px,
+			#ffffff00 0.6px
+		);
+		background-size: 6px 6px;
+	}
+
+	.rounded {
+		border-radius: 0 var(--radius-ml) var(--radius-ml) var(--radius-ml);
 	}
 </style>

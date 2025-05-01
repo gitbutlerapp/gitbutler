@@ -4,7 +4,10 @@ import {
 	TextNode,
 	type LexicalEditor,
 	type RangeSelection,
-	$nodesOfType
+	$nodesOfType,
+	$createTextNode,
+	$getRoot,
+	$createParagraphNode
 } from 'lexical';
 import { ImageNode } from 'svelte-lexical';
 
@@ -170,5 +173,27 @@ export function insertTextAtCaret(editor: LexicalEditor, text: string) {
 		}
 		const offset = selection.anchor.offset;
 		node.spliceText(offset, 0, text);
+	});
+}
+
+export function setEditorText(editor: LexicalEditor, text: string) {
+	editor.update(() => {
+		const root = $getRoot();
+		root.clear();
+		const textNode = $createTextNode(text);
+		const paragraphNode = $createParagraphNode();
+		paragraphNode.append(textNode);
+		root.append(paragraphNode);
+
+		// Set the caret at the end of the text
+		const selection = $getSelection();
+		if ($isRangeSelection(selection)) {
+			selection.setTextNodeRange(
+				textNode,
+				textNode.getTextContentSize(),
+				textNode,
+				textNode.getTextContentSize()
+			);
+		}
 	});
 }

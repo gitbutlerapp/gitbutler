@@ -6,9 +6,8 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BranchStack } from '$lib/branches/branch';
 	import { PatchSeries } from '$lib/branches/branch';
-	import { BranchController } from '$lib/branches/branchController';
 	import { Commit, DetailedCommit } from '$lib/commits/commit';
-	import { type CommitStatus } from '$lib/commits/commit';
+	import { type CommitStatusType } from '$lib/commits/commit';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { CommitDropData } from '$lib/commits/dropHandler';
 	import { persistedCommitMessage } from '$lib/config/config';
@@ -18,9 +17,11 @@
 	import { FileService } from '$lib/files/fileService';
 	import { ModeService } from '$lib/mode/modeService';
 	import { Project } from '$lib/project/project';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -36,6 +37,7 @@
 	const user = userService.user;
 
 	interface Props {
+		projectId?: string;
 		stack?: BranchStack | undefined;
 		currentSeries?: PatchSeries | undefined;
 		commit: DetailedCommit | Commit;
@@ -44,13 +46,14 @@
 		isUnapplied?: boolean;
 		last?: boolean;
 		noBorder?: boolean;
-		type: CommitStatus;
+		type: CommitStatusType;
 		lines?: Snippet | undefined;
 		filesToggleable?: boolean;
 		disableCommitActions?: boolean;
 	}
 
 	const {
+		projectId,
 		stack = undefined,
 		currentSeries,
 		commit,
@@ -65,11 +68,13 @@
 		disableCommitActions = false
 	}: Props = $props();
 
-	const branchController = getContext(BranchController);
 	const baseBranch = getContext(BaseBranch);
 	const project = getContext(Project);
 	const modeService = maybeGetContext(ModeService);
 	const fileService = getContext(FileService);
+	const stackService = getContext(StackService);
+
+	const [updateCommitMessage] = stackService.updateCommitMessage;
 
 	const commitStore = createCommitStore(commit);
 
@@ -77,7 +82,7 @@
 		commitStore.set(commit);
 	});
 
-	const currentCommitMessage = persistedCommitMessage(project.id, stack?.id || '');
+	const persistedMessage = persistedCommitMessage(project.id, stack?.id || '');
 
 	let branchCardElement = $state<HTMLElement>();
 	let kebabMenuTrigger = $state<HTMLButtonElement>();
@@ -112,12 +117,19 @@
 		}
 	}
 
-	function undoCommit(commit: DetailedCommit | Commit) {
-		if (!stack || !baseBranch) {
+	async function undoCommit() {
+		if (!stack || !baseBranch || !currentSeries) {
 			console.error('Unable to undo commit');
 			return;
 		}
-		branchController.undoCommit(stack.id, stack.name, commit.id);
+		$persistedMessage = commit.description;
+		description = commit.description;
+		await stackService.uncommit({
+			projectId: project.id,
+			stackId: stack.id,
+			branchName: currentSeries.name,
+			commitId: commit.id
+		});
 	}
 
 	let isUndoable = commit instanceof DetailedCommit && type !== 'Remote' && type !== 'Integrated';
@@ -132,14 +144,23 @@
 		commitMessageModal?.show();
 	}
 
-	function submitCommitMessageModal() {
-		commit.description = description;
+	let isUpdating = $state(false);
 
-		if (stack) {
-			branchController.updateCommitMessage(stack.id, commit.id, description);
+	async function submitCommitMessageModal() {
+		if (!stack) {
+			return;
 		}
+		isUpdating = true;
+		commit.description = description;
+		await updateCommitMessage({
+			projectId: project.id,
+			stackId: stack.id,
+			commitId: commit.id,
+			message: description
+		});
 
 		commitMessageModal?.close();
+		isUpdating = false;
 	}
 
 	const commitShortSha = commit.id.substring(0, 7);
@@ -148,12 +169,6 @@
 			? $user?.picture
 			: commit.author.gravatarUrl;
 	});
-
-	function handleUncommit(e: MouseEvent) {
-		e.stopPropagation();
-		currentCommitMessage.set(commit.description);
-		undoCommit(commit);
-	}
 
 	function canEdit() {
 		if (isUnapplied) return false;
@@ -165,7 +180,7 @@
 
 	async function editPatch() {
 		if (!canEdit()) return;
-		modeService!.enterEditMode(commit.id, stack!.id);
+		await modeService!.enterEditMode(commit.id, stack!.id);
 	}
 
 	async function handleEditPatch() {
@@ -193,11 +208,13 @@
 	{/snippet}
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="neutral" type="submit" grow disabled={!commitMessageValid}>Submit</Button>
+		<Button style="neutral" type="submit" grow disabled={!commitMessageValid} loading={isUpdating}
+			>Submit</Button
+		>
 	{/snippet}
 </Modal>
 
-<Modal bind:this={conflictResolutionConfirmationModal} width="small" onSubmit={editPatch}>
+<Modal bind:this={conflictResolutionConfirmationModal} width="small">
 	{#snippet children()}
 		<div>
 			<p>It's generally better to start resolving conflicts from the bottom up.</p>
@@ -207,7 +224,13 @@
 	{/snippet}
 	{#snippet controls(close)}
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" type="submit">Yes</Button>
+		<AsyncButton
+			style="pop"
+			action={async () => {
+				await editPatch();
+				close();
+			}}>Yes</AsyncButton
+		>
 	{/snippet}
 </Modal>
 
@@ -227,9 +250,8 @@
 	{commit}
 	isRemote={type === 'Remote'}
 	commitUrl={showOpenInBrowser ? commitUrl : undefined}
-	onUncommitClick={handleUncommit}
+	onUncommitClick={undoCommit}
 	onEditMessageClick={openCommitMessageModal}
-	onPatchEditClick={handleEditPatch}
 />
 
 <div
@@ -264,7 +286,7 @@
 					stack.id,
 					{
 						id: commit.id,
-						isConflicted: commit.conflicted,
+						hasConflicts: commit.conflicted,
 						isRemote: commit instanceof Commit,
 						isIntegrated: commit instanceof DetailedCommit && commit.isIntegrated
 					},
@@ -309,9 +331,11 @@
 				<span class="text-13 text-body text-semibold commit__empty-title">empty commit message</span
 				>
 			{:else}
-				<h5 class="text-13 text-body text-semibold commit__title" class:truncate={!showDetails}>
-					{commit.descriptionTitle}
-				</h5>
+				<Tooltip text={commit.descriptionTitle}>
+					<h5 class="text-13 text-body text-semibold commit__title" class:truncate={!showDetails}>
+						{commit.descriptionTitle}
+					</h5>
+				</Tooltip>
 
 				<div class="text-11 text-semibold commit__subtitle">
 					{#if commit.isSigned}
@@ -397,14 +421,9 @@
 						<div class="commit__actions hide-native-scrollbar">
 							{#if isUndoable}
 								{#if !conflicted}
-									<Button
-										size="tag"
-										kind="outline"
-										icon="undo-small"
-										onclick={(e: MouseEvent) => {
-											handleUncommit(e);
-										}}>Uncommit</Button
-									>
+									<Button size="tag" kind="outline" icon="undo-small" onclick={() => undoCommit()}>
+										Uncommit
+									</Button>
 								{/if}
 								<Button
 									size="tag"
@@ -416,13 +435,13 @@
 								>
 							{/if}
 							{#if canEdit()}
-								<Button size="tag" kind="outline" onclick={handleEditPatch}>
+								<AsyncButton size="tag" kind="outline" action={handleEditPatch} stopPropagation>
 									{#if conflicted}
 										Resolve conflicts
 									{:else}
 										Edit commit
 									{/if}
-								</Button>
+								</AsyncButton>
 							{/if}
 						</div>
 					{/if}
@@ -431,6 +450,7 @@
 
 			<div class="files-container">
 				<BranchFilesList
+					{projectId}
 					allowMultiple={!isUnapplied && type !== 'Remote'}
 					{files}
 					{isUnapplied}

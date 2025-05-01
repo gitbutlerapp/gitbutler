@@ -2,13 +2,14 @@ import { CommitDropData } from '$lib/commits/dropHandler';
 import type { BranchStack } from '$lib/branches/branch';
 import type { PatchSeries } from '$lib/branches/branch';
 import type { StackOrder } from '$lib/branches/branch';
-import type { BranchController } from '$lib/branches/branchController';
 import type { DropzoneHandler } from '$lib/dragging/handler';
+import type { StackService } from '$lib/stacks/stackService.svelte';
 
 export class ReorderCommitDzHandler implements DropzoneHandler {
 	constructor(
+		private projectId: string,
 		private branchId: string,
-		private branchController: BranchController,
+		private stackService: StackService,
 		private currentSeries: PatchSeries,
 		private series: PatchSeries[],
 		public commitId: string
@@ -29,7 +30,7 @@ export class ReorderCommitDzHandler implements DropzoneHandler {
 		return true;
 	}
 
-	ondrop(data: CommitDropData) {
+	async ondrop(data: CommitDropData) {
 		const stackOrder = buildNewStackOrder(
 			this.series,
 			this.currentSeries,
@@ -38,7 +39,11 @@ export class ReorderCommitDzHandler implements DropzoneHandler {
 		);
 
 		if (stackOrder) {
-			this.branchController.reorderStackCommit(data.stackId, stackOrder);
+			await this.stackService.reorderStack({
+				projectId: this.projectId,
+				stackId: data.stackId,
+				stackOrder
+			});
 		}
 	}
 }
@@ -47,7 +52,8 @@ export class ReorderCommitDzFactory {
 	public series: Map<string, PatchSeries>;
 
 	constructor(
-		private branchController: BranchController,
+		private projectId: string,
+		private stackService: StackService,
 		private stack: BranchStack
 	) {
 		const seriesMap = new Map();
@@ -64,8 +70,9 @@ export class ReorderCommitDzFactory {
 		}
 
 		return new ReorderCommitDzHandler(
+			this.projectId,
 			this.stack.id,
-			this.branchController,
+			this.stackService,
 			currentSeries,
 			this.stack.validSeries,
 			'top'
@@ -79,8 +86,9 @@ export class ReorderCommitDzFactory {
 		}
 
 		return new ReorderCommitDzHandler(
+			this.projectId,
 			this.stack.id,
-			this.branchController,
+			this.stackService,
 			currentSeries,
 			this.stack.validSeries,
 			commitId
@@ -89,10 +97,13 @@ export class ReorderCommitDzFactory {
 }
 
 export class StackingReorderDropzoneManagerFactory {
-	constructor(private branchController: BranchController) {}
+	constructor(
+		private projectId: string,
+		private stackService: StackService
+	) {}
 
 	build(stack: BranchStack) {
-		return new ReorderCommitDzFactory(this.branchController, stack);
+		return new ReorderCommitDzFactory(this.projectId, this.stackService, stack);
 	}
 }
 

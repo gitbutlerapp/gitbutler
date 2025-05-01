@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
+	import { TestId } from '$lib/testing/testIds';
 	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 
 	interface Props {
@@ -7,6 +8,7 @@
 		disabled?: boolean;
 		readonly?: boolean;
 		fontSize?: '14' | '15';
+		allowClear?: boolean;
 		onChange?: (value: string) => void;
 		onDblClick?: () => void;
 	}
@@ -16,6 +18,7 @@
 		disabled = false,
 		fontSize = '14',
 		readonly = false,
+		allowClear,
 		onChange,
 		onDblClick
 	}: Props = $props();
@@ -31,6 +34,7 @@
 </script>
 
 <span
+	data-testid={TestId.BranchNameLabel}
 	use:resizeObserver={(e) => {
 		nameWidth = Math.round(e.frame.width);
 	}}
@@ -56,7 +60,7 @@
 	onchange={(e) => {
 		const value = e.currentTarget.value.trim();
 		if (value === name) return;
-		if (value === '') {
+		if (value === '' && !allowClear) {
 			editableName = name;
 			return;
 		}
@@ -66,9 +70,7 @@
 	class="branch-name-input text-{fontSize} text-bold"
 	ondblclick={(e) => {
 		e.stopPropagation();
-		if (!readonly) {
-			onDblClick?.();
-		}
+		onDblClick?.();
 	}}
 	oncontextmenu={(e) => {
 		e.stopPropagation();
@@ -121,13 +123,16 @@
 		max-width: 100%;
 		width: 100%;
 		border-radius: var(--radius-s);
-		color: var(--clr-scale-ntrl-0);
+		color: var(--clr-text-1);
 		background-color: transparent;
 		outline: none;
+		transition:
+			border var(--transition-fast),
+			background-color var(--transition-fast);
 
 		/* not readonly */
 		&:not([readonly]):not([disabled]):not(:focus):hover {
-			background-color: var(--clr-bg-1-muted);
+			border: 1px solid var(--clr-border-2);
 		}
 
 		&:not([readonly]):not([disabled]):focus {
@@ -137,7 +142,6 @@
 		}
 	}
 	.branch-name-input[readonly] {
-		pointer: normal;
-		pointer-events: none;
+		cursor: default;
 	}
 </style>

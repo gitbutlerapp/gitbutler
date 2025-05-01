@@ -1,5 +1,7 @@
 //! A debug-CLI for making `but`-crates functionality available in real-world repositories.
+#![deny(rust_2018_idioms)]
 use anyhow::Result;
+use command::parse_diff_spec;
 
 mod args;
 use crate::command::{RepositoryOpenMode, repo_and_maybe_project};
@@ -38,13 +40,18 @@ fn main() -> Result<()> {
             },
         ),
         args::Subcommands::Commit {
+            current_path,
+            previous_path,
+            hunk_headers,
             message,
             amend,
             parent,
             workspace_tip,
             stack_segment_ref,
+            diff_spec,
         } => {
             let (repo, project) = repo_and_maybe_project(&args, RepositoryOpenMode::Merge)?;
+            let diff_spec = parse_diff_spec(diff_spec)?;
             command::commit(
                 repo,
                 project,
@@ -53,13 +60,21 @@ fn main() -> Result<()> {
                 parent.as_deref(),
                 stack_segment_ref.as_deref(),
                 workspace_tip.as_deref(),
+                current_path.as_deref(),
+                previous_path.as_deref(),
+                if !hunk_headers.is_empty() {
+                    Some(hunk_headers)
+                } else {
+                    None
+                },
+                diff_spec,
             )
         }
         args::Subcommands::HunkDependency => command::diff::locks(&args.current_dir),
         args::Subcommands::Status {
             unified_diff,
             context_lines,
-        } => command::diff::status(&args.current_dir, *unified_diff, *context_lines),
+        } => command::diff::status(&args.current_dir, *unified_diff, *context_lines, args.json),
         args::Subcommands::CommitChanges {
             unified_diff,
             current_commit,
@@ -70,10 +85,12 @@ fn main() -> Result<()> {
             previous_commit.as_deref(),
             *unified_diff,
         ),
-        args::Subcommands::Stacks => command::stacks::list(&args.current_dir),
-        args::Subcommands::StackBranches { id } => command::stacks::branches(id, &args.current_dir),
+        args::Subcommands::Stacks => command::stacks::list(&args.current_dir, args.json),
+        args::Subcommands::StackBranches { id } => {
+            command::stacks::branches(id, &args.current_dir, args.json)
+        }
         args::Subcommands::StackBranchCommits { id, name } => {
-            command::stacks::branch_commits(id, name, &args.current_dir)
+            command::stacks::branch_commits(id, name, &args.current_dir, args.json)
         }
     }
 }

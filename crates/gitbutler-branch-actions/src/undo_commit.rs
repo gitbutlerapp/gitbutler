@@ -6,7 +6,7 @@ use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_diff::Hunk;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_stack::{stack_context::CommandContextExt, OwnershipClaim, Stack, StackId};
+use gitbutler_stack::{OwnershipClaim, Stack, StackId};
 use tracing::instrument;
 
 use crate::VirtualBranchesExt as _;
@@ -33,9 +33,8 @@ pub(crate) fn undo_commit(
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
 
-    let stack_ctx = ctx.to_stack_context()?;
-    let merge_base = stack.merge_base(&stack_ctx)?;
-    let repo = ctx.gix_repository()?;
+    let merge_base = stack.merge_base(ctx)?;
+    let repo = ctx.gix_repo()?;
     let steps = stack
         .as_rebase_steps(ctx, &repo)?
         .into_iter()
@@ -48,7 +47,7 @@ pub(crate) fn undo_commit(
         })
         .collect::<Vec<_>>();
 
-    let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base.to_gix()), None)?;
+    let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base), None)?;
     rebase.rebase_noops(false);
     rebase.steps(steps)?;
     let output = rebase.rebase()?;
@@ -69,10 +68,10 @@ pub(crate) fn undo_commit(
 }
 
 fn ownership_update(
-    repository: &git2::Repository,
+    repo: &git2::Repository,
     commit_to_remove: git2::Oid,
 ) -> Result<Vec<OwnershipClaim>> {
-    let commit_to_remove = repository.find_commit(commit_to_remove)?;
+    let commit_to_remove = repo.find_commit(commit_to_remove)?;
 
     if commit_to_remove.is_conflicted() {
         bail!("Can not undo a conflicted commit");
@@ -85,7 +84,7 @@ fn ownership_update(
         .tree()
         .context("failed to get parent tree")?;
 
-    let diff = gitbutler_diff::trees(repository, &commit_parent_tree, &commit_tree, true)?;
+    let diff = gitbutler_diff::trees(repo, &commit_parent_tree, &commit_tree, true)?;
     let ownership_update = diff
         .iter()
         .filter_map(|(file_path, file_diff)| {

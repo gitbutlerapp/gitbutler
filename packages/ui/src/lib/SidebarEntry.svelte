@@ -82,7 +82,7 @@
 			{/if}
 
 			{#if series}
-				<SeriesLabelsRow {series} showRestAmount {selected} />
+				<SeriesLabelsRow {series} {selected} />
 			{/if}
 
 			{#if prTitle}

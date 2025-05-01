@@ -1,44 +1,36 @@
 <script lang="ts">
 	import { BranchStack } from '$lib/branches/branch';
-	import { BranchController } from '$lib/branches/branchController';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { updatePrDescriptionTables } from '$lib/forge/shared/prFooter';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
-		prUrl?: string;
+		projectId: string;
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
 		trigger?: HTMLElement;
 		onCollapse: () => void;
-		onGenerateBranchName?: () => void;
-		openPrDetailsModal?: () => void;
-		reloadPR?: () => void;
 		ontoggle?: (isOpen: boolean) => void;
 	}
 
-	let { contextMenuEl = $bindable(), trigger, onCollapse, ontoggle }: Props = $props();
+	let { projectId, contextMenuEl = $bindable(), trigger, onCollapse, ontoggle }: Props = $props();
 
 	const branchStore = getContextStore(BranchStack);
-	const branchController = getContext(BranchController);
+	const stackService = getContext(StackService);
 	const forge = getContext(DefaultForgeFactory);
 	const prService = $derived(forge.current.prService);
 	const user = getContextStore(User);
 
-	let deleteBranchModal: Modal;
 	let allowRebasing = $state<boolean>();
-	let isDeleting = $state(false);
 
 	const stack = $derived($branchStore);
-	const commits = $derived(stack.validSeries.flatMap((s) => s.patches));
 
 	$effect(() => {
 		allowRebasing = stack.allowRebasing;
@@ -47,11 +39,13 @@
 	const allPrIds = $derived(stack.validSeries.map((series) => series.prNumber).filter(isDefined));
 
 	async function toggleAllowRebasing() {
-		branchController.updateBranchAllowRebasing(stack.id, !allowRebasing);
-	}
-
-	function saveAndUnapply() {
-		branchController.saveAndUnapply(stack.id);
+		await stackService.updateStack({
+			projectId,
+			branch: {
+				id: stack.id,
+				allow_rebasing: !allowRebasing
+			}
+		});
 	}
 </script>
 
@@ -69,27 +63,10 @@
 		<ContextMenuItem
 			label="Unapply"
 			onclick={async () => {
-				if (commits.length === 0 && stack.files?.length === 0) {
-					await branchController.unapplyWithoutSaving(stack.id);
-				} else {
-					saveAndUnapply();
-				}
-				contextMenuEl?.close();
-			}}
-		/>
-
-		<ContextMenuItem
-			label="Unapply and drop changes"
-			onclick={async () => {
-				if (
-					stack.name.toLowerCase().includes('lane') &&
-					commits.length === 0 &&
-					stack.files?.length === 0
-				) {
-					await branchController.unapplyWithoutSaving(stack.id);
-				} else {
-					deleteBranchModal.show(stack);
-				}
+				await stackService.unapply({
+					projectId: projectId,
+					stackId: stack.id
+				});
 				contextMenuEl?.close();
 			}}
 		/>
@@ -109,7 +86,10 @@
 		<ContextMenuItem
 			label={`Create stack to the left`}
 			onclick={() => {
-				branchController.createBranch({ order: stack.order });
+				stackService.newStackMutation({
+					projectId,
+					branch: { order: stack.order }
+				});
 				contextMenuEl?.close();
 			}}
 		/>
@@ -117,7 +97,10 @@
 		<ContextMenuItem
 			label={`Create stack to the right`}
 			onclick={() => {
-				branchController.createBranch({ order: stack.order + 1 });
+				stackService.newStackMutation({
+					projectId,
+					branch: { order: stack.order + 1 }
+				});
 				contextMenuEl?.close();
 			}}
 		/>
@@ -139,25 +122,3 @@
 		</ContextMenuSection>
 	{/if}
 </ContextMenu>
-
-<Modal
-	width="small"
-	bind:this={deleteBranchModal}
-	onSubmit={async (close) => {
-		try {
-			isDeleting = true;
-			await branchController.unapplyWithoutSaving(stack.id);
-			close();
-		} finally {
-			isDeleting = false;
-		}
-	}}
->
-	{#snippet children(branch)}
-		All changes will be lost for <strong>{branch.name}</strong>. Are you sure you want to continue?
-	{/snippet}
-	{#snippet controls(close)}
-		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit" loading={isDeleting}>Unapply and drop changes</Button>
-	{/snippet}
-</Modal>

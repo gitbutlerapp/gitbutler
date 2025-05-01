@@ -1,10 +1,10 @@
-import { key, type SelectionId } from '$lib/selection/key';
+import { key, readKey, type SelectionId } from '$lib/selection/key';
 import { get, type Readable } from 'svelte/store';
 import type { AnyCommit } from '$lib/commits/commit';
 import type { CommitDropData } from '$lib/commits/dropHandler';
 import type { AnyFile } from '$lib/files/file';
 import type { TreeChange } from '$lib/hunks/change';
-import type { Hunk, HunkLock } from '$lib/hunks/hunk';
+import type { Hunk, HunkHeader, HunkLock } from '$lib/hunks/hunk';
 import type { IdSelection } from '$lib/selection/idSelection.svelte';
 
 export const NON_DRAGGABLE = {
@@ -24,10 +24,17 @@ export class HunkDropData {
 	}
 }
 
+export class HunkDropDataV3 {
+	constructor(
+		readonly change: TreeChange,
+		readonly hunk: HunkHeader,
+		readonly uncommitted: boolean
+	) {}
+}
+
 export class ChangeDropData {
 	constructor(
-		readonly stackId: string,
-		readonly file: TreeChange,
+		readonly change: TreeChange,
 		/**
 		 * When a a file is dragged we compare it to what is already selected,
 		 * if dragged item is part of the selection we consider that to be to
@@ -40,10 +47,19 @@ export class ChangeDropData {
 	) {}
 
 	changedPaths(params: SelectionId): string[] {
-		if (this.selection.has(this.file.path, this.selectionId)) {
+		if (this.selection.has(this.change.path, this.selectionId)) {
 			return this.selection.keys(params);
 		} else {
-			return [key({ ...this.selectionId, path: this.file.path })];
+			return [key({ ...this.selectionId, path: this.change.path })];
+		}
+	}
+
+	get filePaths(): string[] {
+		if (this.selection.has(this.change.path, this.selectionId)) {
+			const selectionKeys = this.selection.keys(this.selectionId);
+			return selectionKeys.map((key) => readKey(key).path);
+		} else {
+			return [this.change.path];
 		}
 	}
 
@@ -81,4 +97,9 @@ export class FileDropData {
 	}
 }
 
-export type DropData = FileDropData | HunkDropData | CommitDropData | ChangeDropData;
+export type DropData =
+	| FileDropData
+	| HunkDropData
+	| CommitDropData
+	| ChangeDropData
+	| HunkDropDataV3;

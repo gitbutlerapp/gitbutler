@@ -9,6 +9,7 @@ import type { StartQueryActionCreatorOptions } from '@reduxjs/toolkit/query';
 import type { Writable } from 'svelte/store';
 
 export interface ForgePrService {
+	readonly unit: { name: string; abbr: string; symbol: string };
 	loading: Writable<boolean>;
 	get(
 		prNumber: number,

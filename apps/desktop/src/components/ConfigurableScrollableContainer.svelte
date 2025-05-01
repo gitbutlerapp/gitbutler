@@ -14,6 +14,7 @@
 		shift?: string;
 		thickness?: string;
 		horz?: boolean;
+		autoScroll?: boolean;
 		onthumbdrag?: (dragging: boolean) => void;
 		children: Snippet;
 		onscrollTop?: (visible: boolean) => void;
@@ -30,6 +31,7 @@
 		shift,
 		thickness,
 		horz,
+		autoScroll,
 		children,
 		onthumbdrag,
 		onscroll,
@@ -38,9 +40,12 @@
 	}: Props = $props();
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+
+	let scroller: ScrollableContainer;
 </script>
 
 <ScrollableContainer
+	bind:this={scroller}
 	{height}
 	{maxHeight}
 	{initiallyVisible}
@@ -49,6 +54,7 @@
 	{shift}
 	{thickness}
 	{horz}
+	{autoScroll}
 	{onthumbdrag}
 	{onscrollTop}
 	{onscrollEnd}

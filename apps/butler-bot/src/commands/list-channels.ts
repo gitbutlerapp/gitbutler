@@ -1,12 +1,13 @@
 import type { Command } from '@/types';
 import { ChannelType } from '@/types/channel-types';
+import { splitIntoMessages } from '@/utils/message-splitter';
 
 export const listChannels: Command = {
 	name: 'listchannels',
 	help: 'Lists all registered channels or channels of a specific type. Usage: !listchannels [type]',
 	aliases: ['channels'],
 	butlerOnly: true,
-	execute: async (message, prisma) => {
+	execute: async ({ message, prisma }) => {
 		try {
 			const args = message.content.split(' ');
 			const channelType = args[1]?.toLowerCase();
@@ -50,7 +51,16 @@ export const listChannels: Command = {
 				? `**${channelType.charAt(0).toUpperCase() + channelType.slice(1)} Channels**`
 				: '**All Registered Channels**';
 
-			await message.reply(`${title}\n${formattedList.join('\n')}`);
+			// Create the complete message
+			const response = `${title}\n${formattedList.join('\n')}`;
+
+			// Split the response if it's too long
+			const messages = splitIntoMessages(response);
+
+			// Send all message parts
+			for (const msg of messages) {
+				await message.reply(msg);
+			}
 		} catch (error) {
 			console.error('Error listing channels:', error);
 			await message.reply('There was an error fetching the channel list.');

@@ -1,18 +1,19 @@
 <script lang="ts">
 	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
+	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { Project } from '$lib/project/project';
 	import {
 		branchesPath,
-		historyPath,
+		ircPath,
 		isBranchesPath,
-		isHistoryPath,
-		isProjectSettingsPath,
-		isTargetPath,
+		isIrcPath,
+		isNewProjectSettingsPath,
 		isWorkspacePath,
+		historyPath,
+		isHistoryPath,
 		newProjectSettingsPath,
 		newSettingsPath,
-		targetPath,
 		workspacePath
 	} from '$lib/routes/routes.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -29,6 +30,8 @@
 	import { slide } from 'svelte/transition';
 	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
+
+	const { disabled = false }: { disabled?: boolean } = $props();
 
 	const project = getContext(Project);
 	const user = getContextStore(User);
@@ -80,6 +83,7 @@
 				width={34}
 				class={['btn-square', isBranchesPath() && 'btn-active']}
 				tooltip="Branches"
+				{disabled}
 			>
 				<svg viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
 					<path d="M5 3L11 3" stroke-width="1.5" stroke="var(--clr-branches)" />
@@ -122,34 +126,6 @@
 			</Button>
 		</div>
 		<div>
-			{#if isTargetPath()}
-				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-			{/if}
-			<Button
-				kind="outline"
-				onclick={() => goto(targetPath(project.id))}
-				width={34}
-				class={['btn-square', isTargetPath() && 'btn-active']}
-				tooltip="Target"
-			>
-				<svg viewBox="0 0 18 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<path
-						d="M10.6906 1C12.1197 1 13.4402 1.7624 14.1547 3L15.8453 5.9282C16.5598 7.16581 16.5598 8.6906 15.8453 9.9282L14.1547 12.8564C13.4402 14.094 12.1197 14.8564 10.6906 14.8564H7.3094C5.88034 14.8564 4.55983 14.094 3.8453 12.8564L2.1547 9.9282C1.44017 8.6906 1.44017 7.16581 2.1547 5.9282L3.8453 3C4.55983 1.7624 5.88034 1 7.3094 1H10.6906Z"
-						stroke-width="1.5"
-						stroke="var(--clr-target-bg)"
-						fill="var(--clr-target-bg)"
-					/>
-					<path d="M9 14.5V10.5M9 5V1" stroke-width="1.5" stroke="var(--clr-target-lines)" />
-					<path
-						d="M2.25 7.75L6.25 7.75M11.75 7.75L15.75 7.75"
-						stroke-width="1.5"
-						stroke="var(--clr-target-lines)"
-					/>
-					<circle cx="9" cy="8" r="1" stroke="var(--clr-target-lines)" />
-				</svg>
-			</Button>
-		</div>
-		<div>
 			{#if isHistoryPath()}
 				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 			{/if}
@@ -158,31 +134,62 @@
 				onclick={() => goto(historyPath(project.id))}
 				width={34}
 				class={['btn-square', isHistoryPath() && 'btn-active']}
-				tooltip="History"
+				tooltip="Operations history"
 			>
 				<svg
+					width="18"
+					height="18"
 					viewBox="0 0 18 18"
 					fill="none"
 					xmlns="http://www.w3.org/2000/svg"
-					stroke-width="1.5"
-					style="padding: 1px;"
 				>
-					<rect
-						width="18"
-						height="18"
-						rx="6"
-						stroke="var(--clr-history-bg)"
-						fill="var(--clr-history-bg)"
-					/>
-					<path d="M8 3V10H13" stroke-width="1.5" stroke="var(--clr-history-arrows)" />
+					{#if !isHistoryPath()}
+						<path
+							d="M7 1H5C2.79086 1 1 2.79086 1 5V13C1 15.2091 2.79086 17 5 17H13C15.2091 17 17 15.2091 17 13V11"
+							stroke-width="1.5"
+						/>
+						<path
+							d="M17 11V5C17 2.79086 15.2091 1 13 1H7"
+							stroke-width="1.5"
+							stroke-dasharray="1.5 1.5"
+						/>
+					{:else}
+						<rect
+							x="1"
+							y="1"
+							width="16"
+							height="16"
+							rx="4"
+							fill="var(--clr-history-bg)"
+							stroke="var(--clr-history-bg)"
+							stroke-width="1.5"
+						/>
+					{/if}
+					<path d="M8 4V10H14" stroke="var(--clr-history-arrows)" stroke-width="1.5" />
 				</svg>
 			</Button>
 		</div>
+		{#if $ircEnabled}
+			<div>
+				{#if isIrcPath()}
+					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+				{/if}
+				<Button
+					kind="outline"
+					onclick={() => goto(ircPath(project.id))}
+					icon="chat"
+					width={34}
+					class={['btn-square', isIrcPath() && 'btn-active']}
+					tooltip="History"
+					{disabled}
+				/>
+			</div>
+		{/if}
 	</div>
 	<div class="bottom">
 		<div class="bottom__primary-actions">
 			<div>
-				{#if isProjectSettingsPath()}
+				{#if isNewProjectSettingsPath()}
 					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 				{/if}
 				<Button
@@ -190,10 +197,11 @@
 					kind="outline"
 					onclick={() => goto(newProjectSettingsPath(project.id))}
 					width={34}
-					class={['btn-square', isProjectSettingsPath() && 'btn-active']}
+					class={['btn-square', isNewProjectSettingsPath() && 'btn-active']}
 					tooltipPosition="top"
 					tooltipAlign="start"
 					tooltip="Project settings"
+					{disabled}
 				/>
 			</div>
 
@@ -205,6 +213,7 @@
 					contextMenuEl?.toggle();
 				}}
 				bind:el={contextTriggerButton}
+				{disabled}
 			>
 				<div class="user-button">
 					<div class="user-icon">
@@ -238,6 +247,7 @@
 				onclick={() => {
 					keyboardShortcutsModal?.show();
 				}}
+				{disabled}
 			/>
 			<Button
 				icon="mail"
@@ -250,6 +260,7 @@
 				onclick={() => {
 					shareIssueModal?.show();
 				}}
+				{disabled}
 			/>
 		</div>
 	</div>
@@ -263,13 +274,15 @@
 >
 	<ContextMenuSection>
 		<ContextMenuItem
-			label="Preferences"
+			label="Global settings"
 			onclick={() => {
 				goto(newSettingsPath());
+				contextMenuEl?.close();
 			}}
+			keyboardShortcut="⌘,"
 		/>
 	</ContextMenuSection>
-	<ContextMenuSection title="Theme (⌘K)">
+	<ContextMenuSection title="Theme (⌘T)">
 		<ContextMenuItem
 			label="Dark"
 			onclick={async () => {
@@ -301,14 +314,16 @@
 			}}
 		/>
 	</ContextMenuSection>
-	<ContextMenuSection>
-		<ContextMenuItem
-			label="Log out"
-			onclick={async () => {
-				await userService.logout();
-			}}
-		/>
-	</ContextMenuSection>
+	{#if $user}
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Log out"
+				onclick={async () => {
+					await userService.logout();
+				}}
+			/>
+		</ContextMenuSection>
+	{/if}
 </ContextMenu>
 
 <KeyboardShortcutsModal bind:this={keyboardShortcutsModal} />

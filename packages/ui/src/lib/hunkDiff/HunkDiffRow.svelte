@@ -16,14 +16,17 @@
 	import Button from '$lib/Button.svelte';
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import InfoButton from '$lib/InfoButton.svelte';
 	import {
 		CountColumnSide,
 		isDeltaLine,
 		SectionType,
+		type DependencyLock,
 		type DiffFileLineId,
 		type Row
 	} from '$lib/utils/diffParsing';
 	import type LineSelection from '$lib/hunkDiff/lineSelection.svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		idx: number;
@@ -41,12 +44,14 @@
 		staged?: boolean;
 		hideCheckboxes?: boolean;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
+		minWidth: number;
+		lockWarning?: Snippet<[DependencyLock[]]>;
 	}
 
 	const {
 		idx,
 		row,
-		clickable = false,
+		clickable: isClickable = false,
 		lineSelection,
 		tabSize,
 		wrapText,
@@ -58,7 +63,9 @@
 		hoveringOverTable,
 		staged,
 		hideCheckboxes,
-		handleLineContextMenu
+		handleLineContextMenu,
+		minWidth,
+		lockWarning
 	}: Props = $props();
 
 	const touchDevice = isTouchDevice();
@@ -101,9 +108,12 @@
 			}
 		}
 	});
+
+	const locked = $derived(row.locks !== undefined && row.locks.length > 0);
+	const clickable = $derived(isClickable && !locked);
 </script>
 
-{#snippet countColumn(row: Row, side: CountColumnSide, idx: number)}
+{#snippet countColumn(side: CountColumnSide)}
 	{@const deltaLine = isDeltaLine(row.type)}
 	<td
 		class="table__numberColumn"
@@ -115,11 +125,12 @@
 		class:is-last={row.isLast}
 		class:is-before={side === CountColumnSide.Before}
 		class:staged={staged && deltaLine}
-		style="--staging-column-width: {stagingColumnWidth}px;"
-		class:stagable={staged !== undefined}
-		onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
-		onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
-		onmouseup={() => lineSelection.onEnd()}
+		class:locked
+		style="--staging-column-width: {stagingColumnWidth}px; --number-col-width: {minWidth}rem;"
+		class:stagable={staged !== undefined && !hideCheckboxes}
+		onmousedown={(ev) => !locked && lineSelection.onStart(ev, row, idx)}
+		onmouseenter={(ev) => !locked && lineSelection.onMoveOver(ev, row, idx)}
+		onmouseup={() => !locked && lineSelection.onEnd()}
 		oncontextmenu={(ev) => {
 			ev.preventDefault();
 			ev.stopPropagation();
@@ -147,6 +158,7 @@
 		<td
 			bind:clientWidth={stagingColumnWidth}
 			class="table__numberColumn"
+			style="--staging-column-width: {stagingColumnWidth}px; --number-col-width: {minWidth}rem;"
 			data-no-drag
 			class:diff-line-deletion={row.type === SectionType.RemovedLines}
 			class:diff-line-addition={row.type === SectionType.AddedLines}
@@ -154,9 +166,10 @@
 			align="center"
 			class:is-last={row.isLast}
 			class:staged={staged && deltaLine}
-			onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
-			onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
-			onmouseup={() => lineSelection.onEnd()}
+			class:locked
+			onmousedown={(ev) => !locked && lineSelection.onStart(ev, row, idx)}
+			onmouseenter={(ev) => !locked && lineSelection.onMoveOver(ev, row, idx)}
+			onmouseup={() => !locked && lineSelection.onEnd()}
 			oncontextmenu={(ev) => {
 				ev.preventDefault();
 				ev.stopPropagation();
@@ -168,8 +181,19 @@
 			}}
 		>
 			{#if deltaLine}
-				<div class="table__row-checkbox">
-					{#if staged}
+				<div class="table__row-checkbox" class:locked>
+					{#if locked}
+						{@const locks = row.locks}
+						{#if lockWarning && locks && locks.length > 0}
+							<div class="table__row-locks-info-button">
+								<InfoButton inheritColor size="small" icon="locked-small">
+									{@render lockWarning(locks)}
+								</InfoButton>
+							</div>
+						{:else}
+							<Icon name="locked-small" />
+						{/if}
+					{:else if staged}
 						<Checkbox checked={staged} small style="ghost" />
 					{:else}
 						<Icon name="minus-small" />
@@ -179,8 +203,8 @@
 		</td>
 	{/if}
 
-	{@render countColumn(row, CountColumnSide.Before, idx)}
-	{@render countColumn(row, CountColumnSide.After, idx)}
+	{@render countColumn(CountColumnSide.Before)}
+	{@render countColumn(CountColumnSide.After)}
 	<td
 		class="table__textContent"
 		style="--tab-size: {tabSize}; --wrap: {wrapText ? 'wrap' : 'nowrap'}"
@@ -203,7 +227,7 @@
 			});
 		}}
 	>
-		<div class="table__row-header">
+		<div data-no-drag class="table__row-header">
 			{#if row.isSelected}
 				<div
 					class="table__selected-row-overlay"
@@ -256,7 +280,6 @@
 	tr {
 		padding: 0;
 		margin: 0;
-		height: 22px;
 		user-select: none;
 		font-family: var(--diff-font);
 	}
@@ -274,7 +297,13 @@
 	}
 
 	.table__row-header {
+		min-height: 18px;
+		white-space: pre;
+		user-select: text;
+		-webkit-user-select: text;
+		cursor: text;
 		position: relative;
+		text-wrap: var(--wrap);
 	}
 
 	.table__selected-row-overlay {
@@ -335,6 +364,7 @@
 	}
 
 	.table__numberColumn {
+		z-index: var(--z-ground);
 		color: var(--clr-diff-count-text);
 		border-color: var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
@@ -374,14 +404,29 @@
 			cursor: pointer;
 		}
 
+		/* Staging column width + 1 border width-ish. */
+		/* It's kind of a hack to ad the fraction of a pixel here, but table CSS sucks */
+		--column-and-boder: calc(var(--staging-column-width) + 0.5px);
 		&.stagable {
 			min-width: var(--staging-column-width);
+			left: calc(var(--column-and-boder));
+		}
+
+		&.stagable:not(.is-before) {
+			min-width: var(--staging-column-width);
+			left: calc(var(--column-and-boder) * 2);
 		}
 
 		&.staged {
 			background-color: var(--clr-diff-selected-count-bg);
 			border-color: var(--clr-diff-selected-count-border);
 			color: var(--clr-diff-selected-count-text);
+		}
+
+		&.locked {
+			background-color: var(--clr-diff-locked-count-bg);
+			border-color: var(--clr-diff-locked-count-border);
+			color: var(--clr-diff-locked-count-text);
 		}
 	}
 
@@ -413,5 +458,13 @@
 		padding: 0;
 		width: 18px;
 		height: 18px;
+
+		&.locked {
+			color: var(--clr-diff-locked-count-text);
+		}
+	}
+
+	.table__row-locks-info-button {
+		pointer-events: all;
 	}
 </style>

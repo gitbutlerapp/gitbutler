@@ -1,5 +1,5 @@
 import { ProjectsService } from '$lib/project/projectsService';
-import { ReduxTag } from '$lib/state/tags';
+import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
 import { BranchStatus as CloudBranchStatus } from '@gitbutler/shared/branches/types';
 import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
@@ -49,6 +49,7 @@ export class UpstreamIntegrationService {
 
 			const stackStatusesWithBranches: StackStatusesWithBranchesV3 = {
 				type: 'updatesRequired',
+				worktreeConflicts: branchStatusesData.subject.worktreeConflicts,
 				subject: branchStatusesData.subject.statuses
 					.map((status) => {
 						const stack = stackData.find((appliedBranch) => appliedBranch.id === status[0]);
@@ -109,10 +110,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				{ projectId: string; targetCommitOid?: string }
 			>({
 				query: ({ projectId, targetCommitOid }) => ({
-					command: `upstream_integration_statuses`,
+					command: 'upstream_integration_statuses',
 					params: { projectId, targetCommitOid }
 				}),
-				providesTags: [ReduxTag.UpstreamIntegrationStatus]
+				providesTags: [providesList(ReduxTag.UpstreamIntegrationStatus)]
 			}),
 			integrateUpstream: build.mutation<
 				IntegrationOutcome,
@@ -123,14 +124,13 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			>({
 				query: ({ projectId, resolutions, baseBranchResolution }) => ({
-					command: `integrate_upstream`,
+					command: 'integrate_upstream',
 					params: { projectId, resolutions, baseBranchResolution }
 				}),
 				invalidatesTags: [
-					ReduxTag.UpstreamIntegrationStatus,
-					ReduxTag.Stacks,
-					ReduxTag.StackBranches,
-					ReduxTag.StackInfo
+					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+					invalidatesList(ReduxTag.Stacks),
+					invalidatesList(ReduxTag.StackDetails)
 				]
 			}),
 			resolveUpstreamIntegration: build.mutation<
@@ -141,7 +141,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: `resolve_upstream_integration`,
 					params: { projectId, resolutionApproach }
 				}),
-				invalidatesTags: [ReduxTag.UpstreamIntegrationStatus]
+				invalidatesTags: [invalidatesList(ReduxTag.UpstreamIntegrationStatus)]
 			})
 		})
 	});

@@ -12,7 +12,7 @@ use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt},
     RepositoryExt as _,
 };
-use gitbutler_stack::{stack_context::CommandContextExt, StackId};
+use gitbutler_stack::StackId;
 #[allow(deprecated)]
 use gitbutler_workspace::{
     branch_trees::{update_uncommited_changes, WorkspaceState},
@@ -35,13 +35,11 @@ pub(crate) fn squash_commits(
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     // create a snapshot
-    let snap = ctx
-        .project()
-        .create_snapshot(SnapshotDetails::new(OperationKind::SquashCommit), perm)?;
+    let snap = ctx.create_snapshot(SnapshotDetails::new(OperationKind::SquashCommit), perm)?;
     let result = do_squash_commits(ctx, stack_id, source_ids, desitnation_id, perm);
     // if result is error, restore from snapshot
     if result.is_err() {
-        ctx.project().restore_snapshot(snap, perm)?;
+        ctx.restore_snapshot(snap, perm)?;
     }
     result
 }
@@ -56,17 +54,17 @@ fn do_squash_commits(
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let vb_state = ctx.project().virtual_branches();
     let stack = vb_state.get_stack_in_workspace(stack_id)?;
-    let gix_repo = ctx.gix_repository()?;
+    let gix_repo = ctx.gix_repo()?;
 
     let default_target = vb_state.get_default_target()?;
     let merge_base = ctx
         .repo()
-        .merge_base(stack.head(&gix_repo)?, default_target.sha)?;
+        .merge_base(stack.head_oid(&gix_repo)?.to_git2(), default_target.sha)?;
 
     // =========== Step 1: Reorder
 
-    let order = commits_order(&ctx.to_stack_context()?, &stack)?;
-    let mut updated_order = commits_order(&ctx.to_stack_context()?, &stack)?;
+    let order = commits_order(ctx, &stack)?;
+    let mut updated_order = commits_order(ctx, &stack)?;
     // Remove source ids
     for branch in updated_order.series.iter_mut() {
         branch.commit_ids.retain(|id| !source_ids.contains(id));
@@ -105,9 +103,11 @@ fn do_squash_commits(
 
     // stack was updated by reorder_stack, therefore it is reloaded
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
-    let branch_commit_oids =
-        ctx.repo()
-            .l(stack.head(&gix_repo)?, LogUntil::Commit(merge_base), false)?;
+    let branch_commit_oids = ctx.repo().l(
+        stack.head_oid(&gix_repo)?.to_git2(),
+        LogUntil::Commit(merge_base),
+        false,
+    )?;
 
     let branch_commits = branch_commit_oids
         .iter()
@@ -206,7 +206,7 @@ fn do_squash_commits(
         (new_stack_head, None)
     } else {
         #[allow(deprecated)]
-        let res = compute_updated_branch_head(ctx.repo(), &gix_repo, &stack, new_stack_head)?;
+        let res = compute_updated_branch_head(ctx.repo(), &gix_repo, &stack, new_stack_head, ctx)?;
         (res.head, Some(res.tree))
     };
 
@@ -259,11 +259,10 @@ fn validate(
         bail!("cannot squash into conflicted destination commit",);
     }
 
-    let stack_ctx = ctx.to_stack_context()?;
     let remote_commits = stack
         .branches()
         .iter()
-        .flat_map(|b| b.commits(&stack_ctx, stack))
+        .flat_map(|b| b.commits(ctx, stack))
         .flat_map(|c| c.remote_commits)
         .map(|c| c.id())
         .collect_vec();
@@ -295,7 +294,7 @@ fn squash_tree<'a>(
     destination_commit: &git2::Commit<'_>,
 ) -> Result<git2::Tree<'a>> {
     let mut final_tree_id = destination_commit.tree_id().to_gix();
-    let gix_repo = ctx.gix_repository_for_merging()?;
+    let gix_repo = ctx.gix_repo_for_merging()?;
     let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     for source_commit in source_commits {
         let mut merge = gix_repo.merge_trees(

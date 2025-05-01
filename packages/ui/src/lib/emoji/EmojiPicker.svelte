@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Button from '$lib/Button.svelte';
-	import Icon from '$lib/Icon.svelte';
+	import Textbox from '$lib/Textbox.svelte';
+	import EmojiButton from '$lib/emoji/EmojiButton.svelte';
 	import EmojiGroup from '$lib/emoji/EmojiGroup.svelte';
 	import {
 		getEmojiGroups,
@@ -19,17 +19,11 @@
 
 	const groups = getEmojiGroups();
 	let selectedGroup = $state<EmojiGroupKey>('recently-used');
-	let search = $state<string>();
-	let scrollTop = $state<number>(0);
-
-	function onScroll(e: Event) {
-		const target = e.target as HTMLDivElement;
-		scrollTop = target.scrollTop;
-	}
+	let searchVal = $state<string>();
 
 	const searchResults = $derived.by(() => {
-		if (!search) return undefined;
-		return searchThroughEmojis(search);
+		if (!searchVal) return undefined;
+		return searchThroughEmojis(searchVal);
 	});
 
 	function scrollIntoGroupView(selectedGroup: EmojiGroupKey) {
@@ -51,51 +45,50 @@
 </script>
 
 <div class="emoji-picker">
-	<div class="emoji-picker__header-row">
-		<div class="emoji-picker__search">
-			<input
-				type="text"
-				class="text-input text-13 search-input"
-				bind:value={search}
-				placeholder="Search emojis..."
-			/>
-			<div class="emoji-picker__search-icon">
-				<Icon name="search" />
-			</div>
-		</div>
-		<div class="emoji-picker__categories-wrapper">
-			<ScrollableContainer horz wide whenToShow="hover">
-				<div class="emoji-picker__categories">
-					{#each groups as group}
-						<div class="emoji-picker__category" class:selected={selectedGroup === group.key}>
-							<Button kind="ghost" onclick={() => handleSelectGroup(group.key)}>
-								<p class="text-16">
-									{group.unicode}
-								</p>
-							</Button>
-						</div>
-					{/each}
-				</div>
-			</ScrollableContainer>
+	<div class="emoji-picker__header">
+		<Textbox
+			placeholder="Search emojis..."
+			reversedDirection
+			icon="search"
+			bind:value={searchVal}
+		/>
+
+		<div class="emoji-picker__categories">
+			{#each groups as group}
+				{#if group.emojis.length !== 0}
+					<button
+						type="button"
+						class="emoji-picker__category"
+						class:selected={selectedGroup === group.key}
+						onclick={() => handleSelectGroup(group.key)}
+					>
+						{group.unicode}
+					</button>
+				{/if}
+			{/each}
 		</div>
 	</div>
 
 	<div class="emoji-picker__body-wrapper">
-		<ScrollableContainer whenToShow="scroll" onscroll={onScroll}>
+		<ScrollableContainer whenToShow="scroll">
 			<div class="emoji-picker__body">
-				{#if searchResults}
-					<div class="emoji-picker__group">
-						{#each searchResults as emoji}
-							<div class="emoji">
-								<Button kind="ghost" onclick={() => handleEmojiClick(emoji)}>
-									<p class="text-16">{emoji.unicode}</p>
-								</Button>
-							</div>
-						{/each}
-					</div>
+				{#if searchVal && searchResults}
+					{#if searchResults.length === 0}
+						<div class="emoji-picker__placeholder">
+							<span class="text-13">No emojis found ¯\_(ツ)_/¯ </span>
+						</div>
+					{:else}
+						<div class="emoji-picker__group">
+							{#each searchResults as emoji}
+								<EmojiButton emoji={emoji.unicode} onclick={() => handleEmojiClick(emoji)} />
+							{/each}
+						</div>
+					{/if}
 				{:else}
-					{#each groups as group, index}
-						<EmojiGroup {group} {scrollTop} {handleEmojiClick} {index} />
+					{#each groups as group}
+						{#if group.emojis.length !== 0}
+							<EmojiGroup {group} {handleEmojiClick} />
+						{/if}
 					{/each}
 				{/if}
 			</div>
@@ -107,88 +100,96 @@
 	.emoji-picker {
 		display: flex;
 		flex-direction: column;
-		width: 272px;
-		height: 288px;
-		margin: 1px;
+		width: 300px;
+		height: 306px;
 		min-height: 0;
-
 		background: var(--clr-bg-1);
 	}
 
-	.emoji-picker__header-row {
+	.emoji-picker__header {
+		flex: 0 0 auto;
+		position: sticky;
+		top: 0;
 		padding: 12px;
 		padding-bottom: 0;
 		display: flex;
 		flex-direction: column;
 		border-bottom: 1px solid var(--clr-border-2);
-		gap: 9px;
+		overflow: hidden;
 	}
 
-	.emoji-picker__search {
-		display: flex;
-		height: var(--size-cta);
-		padding: 4px 8px 4px 10px;
-		align-items: center;
-		gap: 8px;
-
-		border-radius: var(--radius-s);
-		border: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
-	}
-
-	.search-input {
-		flex-grow: 1;
-		padding-left: 10px;
-		border: none;
-		background: none;
-		color: var(--clr-text-1);
-	}
-
-	.emoji-picker__search-icon {
-		color: var(--clr-scale-ntrl-50);
-	}
-
-	.emoji-picker__categories-wrapper {
-		display: flex;
-	}
-
+	/* CATEGORIES */
 	.emoji-picker__categories {
-		flex-grow: 1;
 		display: flex;
-		gap: 4px;
+		justify-content: space-between;
+		margin-top: 10px;
+		margin-bottom: 8px;
 	}
 
 	.emoji-picker__category {
+		position: relative;
 		flex-shrink: 0;
 		display: flex;
-		flex-direction: column;
-		justify-content: flex-start;
+		justify-content: center;
 		align-items: center;
+		font-size: 14px;
+		line-height: 1;
 		width: 24px;
-		height: 28px;
-		box-sizing: border-box;
+		height: 24px;
+		border-radius: var(--radius-m);
+		transition: background-color var(--transition-fast);
+
+		&:hover {
+			background-color: var(--clr-bg-1-muted);
+		}
+
+		&:after {
+			content: '';
+			position: absolute;
+			bottom: -8px;
+			left: 0;
+			height: 4px;
+			width: 100%;
+			border-radius: 4px 4px 0 0;
+			background-color: var(--clr-theme-pop-element);
+			transform: translateY(100%);
+			transition: transform var(--transition-medium);
+		}
 
 		&.selected {
-			border-bottom: 4px solid var(--clr-theme-pop-element);
+			background-color: var(--clr-bg-1-muted);
+
+			&:after {
+				transform: translateY(0);
+			}
 		}
 	}
 
 	.emoji-picker__body-wrapper {
 		flex-grow: 1;
 		min-height: 0;
+		overflow: hidden;
 	}
 
 	.emoji-picker__body {
 		flex-direction: column;
 		display: flex;
+		min-height: 100%;
 	}
 
-	.emoji {
+	.emoji-picker__group {
 		display: flex;
-		justify-content: center;
+		flex-wrap: wrap;
+		padding: 8px 12px;
+	}
+
+	.emoji-picker__placeholder {
+		flex: 1;
+		display: flex;
 		align-items: center;
-		width: 24px;
-		height: 24px;
-		box-sizing: border-box;
+		justify-content: center;
+		height: 100%;
+		width: 100%;
+		color: var(--clr-text-3);
 	}
 </style>

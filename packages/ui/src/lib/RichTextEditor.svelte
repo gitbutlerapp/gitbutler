@@ -4,7 +4,7 @@
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
 	import MarkdownTransitionPlugin from '$lib/richText/plugins/markdownTransition.svelte';
 	import OnChangePlugin, { type OnChangeCallback } from '$lib/richText/plugins/onChange.svelte';
-	import { insertTextAtCaret } from '$lib/richText/selection';
+	import { insertTextAtCaret, setEditorText } from '$lib/richText/selection';
 	import {
 		COMMAND_PRIORITY_CRITICAL,
 		$getRoot as getRoot,
@@ -45,9 +45,12 @@
 		onChange?: OnChangeCallback;
 		onKeyDown?: (event: KeyboardEvent | null) => boolean;
 		initialText?: string;
+		disabled?: boolean;
+		wrapCountValue?: number;
 	};
 
 	const {
+		disabled,
 		namespace,
 		markdown,
 		onError,
@@ -58,17 +61,24 @@
 		onBlur,
 		onChange,
 		onKeyDown,
-		initialText
+		initialText,
+		wrapCountValue
 	}: Props = $props();
 
 	/** Standard configuration for our commit message editor. */
-	const initialConfig = standardConfig({
+	const config = standardConfig({
 		initialText,
 		namespace,
 		theme: standardTheme,
 		onError
 	});
 
+	const isDisabled = $derived(disabled ?? false);
+
+	const initialConfig = $derived({
+		...config,
+		editable: !isDisabled
+	});
 	/**
 	 * Instance of the lexical composer, used for manipulating the contents of the editor
 	 * programatically.
@@ -156,10 +166,20 @@
 			insertTextAtCaret(editor, text);
 		}
 	}
+
+	export function setText(text: string) {
+		if (editor) {
+			setEditorText(editor, text);
+		}
+	}
 </script>
 
 <Composer {initialConfig} bind:this={composer}>
-	<div class="lexical-container lexical-{styleContext}" bind:this={editorDiv}>
+	<div
+		class="lexical-container lexical-{styleContext}"
+		bind:this={editorDiv}
+		class:plain-text={!markdown}
+	>
 		<div class="editor-scroller scrollbar">
 			<div class="editor">
 				<ContentEditable />
@@ -170,7 +190,7 @@
 		</div>
 
 		<EmojiPlugin bind:this={emojiPlugin} />
-		<OnChangePlugin {onChange} />
+		<OnChangePlugin {markdown} {onChange} {wrapCountValue} />
 
 		{#if markdown}
 			<AutoFocusPlugin />

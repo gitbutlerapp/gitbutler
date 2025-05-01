@@ -6,7 +6,7 @@ use gix::diff::blob::unified_diff::ContextSize;
 use serde::Serialize;
 
 /// A hunk as used in a [UnifiedDiff], which also contains all added and removed lines.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiffHunk {
     /// The 1-based line number at which the previous version of the file started.
@@ -32,6 +32,16 @@ pub struct DiffHunk {
     /// Note that the file-portion of the header isn't used here.
     #[serde(serialize_with = "gitbutler_serde::bstring_lossy::serialize")]
     pub diff: BString,
+}
+
+impl std::fmt::Debug for DiffHunk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            write!(f, r#"DiffHunk("{}")"#, self.diff)
+        } else {
+            write!(f, r#"DiffHunk("{:?}")"#, self.diff)
+        }
+    }
 }
 
 impl UnifiedDiff {
@@ -163,18 +173,24 @@ impl UnifiedDiff {
                     }
                 }
                 let input = prep.interned_input();
+                let hunks = gix::diff::blob::diff(
+                    algorithm,
+                    &input,
+                    gix::diff::blob::UnifiedDiff::new(
+                        &input,
+                        ProduceDiffHunk::default(),
+                        gix::diff::blob::unified_diff::NewlineSeparator::AfterHeaderAndWhenNeeded(
+                            "\n",
+                        ),
+                        ContextSize::symmetrical(context_lines),
+                    ),
+                )?;
+                let (lines_added, lines_removed) = compute_line_changes(&hunks);
                 UnifiedDiff::Patch {
                     is_result_of_binary_to_text_conversion: prep.old_or_new_is_derived,
-                    hunks: gix::diff::blob::diff(
-                        algorithm,
-                        &input,
-                        gix::diff::blob::UnifiedDiff::new(
-                            &input,
-                            ProduceDiffHunk::default(),
-                            gix::diff::blob::unified_diff::NewlineSeparator::AfterHeaderAndWhenNeeded("\n"),
-                            ContextSize::symmetrical(context_lines),
-                        ),
-                    )?,
+                    hunks,
+                    lines_added,
+                    lines_removed,
                 }
             }
             Operation::ExternalCommand { .. } => {
@@ -207,6 +223,21 @@ impl UnifiedDiff {
             }
         })
     }
+}
+
+fn compute_line_changes(hunks: &Vec<DiffHunk>) -> (u32, u32) {
+    let mut lines_added = 0;
+    let mut lines_removed = 0;
+    for hunk in hunks {
+        hunk.diff.lines().for_each(|line| {
+            if line.starts_with(b"+") {
+                lines_added += 1;
+            } else if line.starts_with(b"-") {
+                lines_removed += 1;
+            }
+        });
+    }
+    (lines_added, lines_removed)
 }
 
 /// Produce a filter from `repo` and `state` using `mode` that is able to perform diffs of `state`.

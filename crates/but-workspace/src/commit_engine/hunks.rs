@@ -1,10 +1,12 @@
 use crate::commit_engine::{HunkHeader, HunkRange};
 use anyhow::Context;
 use bstr::{BStr, BString, ByteSlice};
+use but_core::unified_diff::DiffHunk;
 
 /// Given an `old_image` and a `new_image`, along with `hunks` that represent selections in `new_image`, apply these
 /// hunks to `old_image` and return the newly constructed image.
-/// This works like an overlay where selections from `new_image` are inserted into `new_image` with `hunks` as Windows.
+/// This works like an overlay where selections from `new_image` are inserted into `new_image` with `hunks` as Windows,
+/// and selections in `old_image` are discarded.
 ///
 /// Note that we assume that both images are human-readable because we assume lines to be present,
 /// either with Windows or Unix newlines, and we assume that the hunks match up with these lines.
@@ -106,5 +108,30 @@ impl HunkRange {
     /// Return `true` if a hunk with `start` and `lines` is fully contained in this hunk.
     pub fn contains(self, other: HunkRange) -> bool {
         other.start >= self.start && other.end() <= self.end()
+    }
+
+    /// Return `true` if this range is a null-range, a marker value that doesn't happen.
+    pub fn is_null(&self) -> bool {
+        self.start == 0 && self.lines == 0
+    }
+}
+
+impl From<DiffHunk> for HunkHeader {
+    fn from(
+        DiffHunk {
+            old_start,
+            old_lines,
+            new_start,
+            new_lines,
+            // TODO(performance): if difflines are discarded, we could also just not compute them.
+            diff: _,
+        }: DiffHunk,
+    ) -> Self {
+        HunkHeader {
+            old_start,
+            old_lines,
+            new_start,
+            new_lines,
+        }
     }
 }

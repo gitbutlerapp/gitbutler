@@ -1,5 +1,6 @@
 use crate::commit::CommitterMode;
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow, bail};
+use bstr::{BString, ByteSlice};
 use but_core::commit::TreeKind;
 use gitbutler_oxidize::GixRepositoryExt;
 use gix::prelude::ObjectIdExt;
@@ -55,6 +56,7 @@ pub fn octopus(
         .into_iter();
     let mut ours = trees_to_merge.next().expect("two or more trees");
     let (merge_options, unresolved) = repo.merge_options_fail_fast()?;
+    let mut successfully_merged = vec![ours];
     for tree_to_merge in trees_to_merge {
         let mut merge = repo.merge_trees(
             merge_base,
@@ -64,14 +66,30 @@ pub fn octopus(
             merge_options.clone(),
         )?;
         if merge.has_unresolved_conflicts(unresolved) {
-            bail!(
-                "Encountered conflict when merging commits {}",
-                parents_to_merge
-                    .map(|id| id.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
+            return Err(anyhow!(
+                "Encountered conflict when merging tree {tree_to_merge}{details}",
+                details = if successfully_merged.len() > 1 {
+                    format!(
+                        " after the trees {} were merged successfully",
+                        successfully_merged
+                            .iter()
+                            .map(|id| id.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                } else {
+                    format!(" and tree {tree_to_merge}")
+                }
             )
+            .context(ConflictErrorContext {
+                paths: merge
+                    .conflicts
+                    .iter()
+                    .map(|c| c.ours.location().to_owned())
+                    .collect(),
+            }));
         }
+        successfully_merged.push(tree_to_merge);
         ours = merge.tree.write()?.detach();
     }
     target_merge_commit.tree = ours;
@@ -87,5 +105,26 @@ pub fn octopus(
     } else {
         crate::commit::update_committer(repo, &mut target_merge_commit)?;
         Ok(repo.write_object(target_merge_commit)?.detach())
+    }
+}
+
+/// A type that can be retrieved as an `anyhow` context to see if the rebase failed due to merge conflicts.
+#[derive(Debug, Clone)]
+pub struct ConflictErrorContext {
+    /// All the paths that were involved, limited to the current location of `our` side.
+    pub paths: Vec<BString>,
+}
+
+impl std::fmt::Display for ConflictErrorContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} was/were conflicted when merging",
+            self.paths
+                .iter()
+                .filter_map(|p| p.to_str().ok().map(|p| format!("{:?}", p)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }

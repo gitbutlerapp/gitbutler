@@ -192,7 +192,6 @@
 
 		try {
 			await modeService.abortEditAndReturnToWorkspace();
-			await modeService.awaitNotEditing();
 			modeServiceAborting = 'completed';
 		} finally {
 			modeServiceAborting = 'inert';
@@ -204,7 +203,6 @@
 
 		try {
 			await modeService.saveEditAndReturnToWorkspace();
-			await modeService.awaitNotEditing();
 			modeServiceSaving = 'completed';
 		} finally {
 			modeServiceAborting = 'inert';
@@ -306,7 +304,8 @@
 		bind:this={contextMenu}
 		trigger={filesList}
 		isUnapplied={false}
-		branchId={undefined}
+		stackId={undefined}
+		projectId={project.id}
 	/>
 
 	<p class="text-12 text-body editmode__helptext">

@@ -72,7 +72,7 @@ impl Suite {
 
         (
             self.projects
-                .add(repository.path().parent().unwrap())
+                .add(repository.path().parent().unwrap(), None, None)
                 .expect("failed to add project"),
             tmp,
         )

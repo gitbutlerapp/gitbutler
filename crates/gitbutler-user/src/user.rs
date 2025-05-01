@@ -8,8 +8,7 @@ use serde::{Deserialize, Serialize};
 pub struct User {
     pub id: u64,
     pub name: Option<String>,
-    pub given_name: Option<String>,
-    pub family_name: Option<String>,
+    pub login: Option<String>,
     pub email: Option<String>,
     pub picture: String,
     pub locale: Option<String>,

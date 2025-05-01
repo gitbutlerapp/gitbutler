@@ -4,8 +4,8 @@ use anyhow::Result;
 use git2::Oid;
 use gitbutler_branch_actions::{list_virtual_branches, reorder_stack, SeriesOrder, StackOrder};
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::RepoExt;
-use gitbutler_stack::{stack_context::CommandContextExt as _, VirtualBranchesHandle};
+use gitbutler_oxidize::{ObjectIdExt, RepoExt};
+use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_testsupport::testing_repository::assert_commit_tree_matches;
 use itertools::Itertools;
 use tempfile::TempDir;
@@ -332,7 +332,7 @@ fn conflicting_reorder_stack() -> Result<()> {
     // Verify the initial order
     assert_eq!(commits[1].msgs(), vec!["commit 2", "commit 1"]);
     assert_eq!(commits[1].conflicted(), vec![false, false]); // no conflicts
-    assert_eq!(file(&ctx, test.stack.head(&repo.to_gix()?)?), "y\n"); // y is the last version
+    assert_eq!(file(&ctx, test.stack.head_oid(&repo.to_gix()?)?), "y\n"); // y is the last version
     assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
 
     // Reorder the stack in a way that will cause a conflict
@@ -350,7 +350,7 @@ fn conflicting_reorder_stack() -> Result<()> {
     // Verify that the commits are now in the updated order
     assert_eq!(commits[1].msgs(), vec!["commit 1", "commit 2"]); // swapped
     assert_eq!(commits[1].conflicted(), vec![false, true]); // bottom commit is now conflicted
-    assert_eq!(file(&ctx, test.stack.head(&repo.to_gix()?)?), "x\n"); // x is the last version
+    assert_eq!(file(&ctx, test.stack.head_oid(&repo.to_gix()?)?), "x\n"); // x is the last version
     assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
 
     let commit_1_prime = repo.find_commit(commits[1].ids()[0])?;
@@ -384,7 +384,7 @@ fn conflicting_reorder_stack() -> Result<()> {
     // Verify that the commits are now in the updated order
     assert_eq!(commits[1].msgs(), vec!["commit 2", "commit 1"]); // swapped
     assert_eq!(commits[1].conflicted(), vec![false, false]); // conflicts are gone
-    assert_eq!(file(&ctx, test.stack.head(&repo.to_gix()?)?), "y\n"); // y is the last version again
+    assert_eq!(file(&ctx, test.stack.head_oid(&repo.to_gix()?)?), "y\n"); // y is the last version again
     assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
 
     let commit_2_prime_prime = repo.find_commit(commits[1].ids()[0])?;
@@ -456,9 +456,9 @@ fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool, u128)>>
     out
 }
 
-fn file(ctx: &CommandContext, commit_id: git2::Oid) -> String {
+fn file(ctx: &CommandContext, commit_id: gix::ObjectId) -> String {
     let repo = ctx.repo();
-    let commit = repo.find_commit(commit_id).unwrap();
+    let commit = repo.find_commit(commit_id.to_git2()).unwrap();
     let tree = commit.tree().unwrap();
     let entry = tree.get_name("file").unwrap();
     let blob = repo.find_blob(entry.id()).unwrap();
@@ -475,15 +475,14 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
     let stack = stacks.iter().find(|b| b.name == "my_stack").unwrap();
 
     let branches = stack.branches();
-    let stack_context = ctx.to_stack_context()?;
     let top_commits: HashMap<String, git2::Oid> = branches[1]
-        .commits(&stack_context, stack)?
+        .commits(ctx, stack)?
         .local_commits
         .iter()
         .map(|c| (c.message().unwrap().to_string(), c.id()))
         .collect();
     let bottom_commits: HashMap<String, git2::Oid> = branches[0]
-        .commits(&stack_context, stack)?
+        .commits(ctx, stack)?
         .local_commits
         .iter()
         .map(|c| (c.message().unwrap().to_string(), c.id()))

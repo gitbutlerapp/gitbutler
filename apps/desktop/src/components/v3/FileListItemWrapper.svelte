@@ -1,24 +1,27 @@
 <!-- This is a V3 replacement for `FileListItemWrapper.svelte` -->
 <script lang="ts">
 	import FileContextMenu from '$components/v3/FileContextMenu.svelte';
-	import { BranchStack } from '$lib/branches/branch';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { getFilename } from '$lib/files/utils';
+	import { previousPathBytesFromTreeChange, type TreeChange } from '$lib/hunks/change';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
-	import type { TreeChange } from '$lib/hunks/change';
+	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
+	import type { Rename } from '$lib/hunks/change';
+	import type { UnifiedDiff } from '$lib/hunks/diff';
 
 	interface Props {
 		projectId: string;
 		change: TreeChange;
-		selectedFile: SelectionId;
+		diff?: UnifiedDiff;
+		selectionId: SelectionId;
 		selected?: boolean;
 		isHeader?: boolean;
 		listActive?: boolean;
@@ -27,28 +30,29 @@
 		linesAdded?: number;
 		linesRemoved?: number;
 		depth?: number;
+		showCheckbox?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
+		onCloseClick?: () => void;
 	}
 
 	const {
 		change,
-		selectedFile,
+		diff,
+		selectionId,
 		projectId,
 		selected,
 		isHeader,
 		listActive,
 		isLast,
 		listMode,
-		linesAdded,
-		linesRemoved,
 		depth,
+		showCheckbox,
 		onclick,
-		onkeydown
+		onkeydown,
+		onCloseClick
 	}: Props = $props();
 
-	const stack = maybeGetContextStore(BranchStack);
-	const stackId = $derived($stack?.id);
 	const idSelection = getContext(IdSelection);
 	const changeSelection = getContext(ChangeSelectionService);
 
@@ -57,13 +61,24 @@
 
 	const selection = $derived(changeSelection.getById(change.path));
 	const indeterminate = $derived(selection.current && selection.current.type === 'partial');
-	const selectedChanges = $derived(idSelection.treeChanges(projectId, selectedFile));
+	const selectedChanges = $derived(idSelection.treeChanges(projectId, selectionId));
+	const isUncommitted = $derived(selectionId?.type === 'worktree');
 
-	const uiState = getContext(UiState);
+	const previousTooltipText = $derived(
+		(change.status.subject as Rename).previousPath
+			? `${(change.status.subject as Rename).previousPath} →\n${change.path}`
+			: undefined
+	);
 
-	const projectState = $derived(uiState.project(projectId));
-	const drawerPage = $derived(projectState.drawerPage.get());
-	const isCommitting = $derived(drawerPage.current === 'new-commit');
+	const lineChangesStat = $derived.by(() => {
+		if (diff && diff.type === 'Patch') {
+			return {
+				added: diff.subject.linesAdded,
+				removed: diff.subject.linesRemoved
+			};
+		}
+		return undefined;
+	});
 
 	function onCheck() {
 		if (selection.current) {
@@ -73,13 +88,14 @@
 			changeSelection.add({
 				type: 'full',
 				path,
-				pathBytes
+				pathBytes,
+				previousPathBytes: previousPathBytesFromTreeChange(change)
 			});
 		}
 	}
 
 	function onContextMenu(e: MouseEvent) {
-		if (selectedChanges.current.isSuccess && idSelection.has(change.path, selectedFile)) {
+		if (selectedChanges.current.isSuccess && idSelection.has(change.path, selectionId)) {
 			const changes: TreeChange[] = selectedChanges.current.data;
 			contextMenu?.open(e, { changes });
 			return;
@@ -90,66 +106,71 @@
 
 	function unSelectChanges(changes: TreeChange[]) {
 		for (const change of changes) {
-			idSelection.remove(change.path, selectedFile);
+			idSelection.remove(change.path, selectionId);
 			changeSelection.remove(change.path);
 		}
 	}
 </script>
 
 <div
+	data-testid={TestId.UncommittedChanges_FileListItem}
+	use:stickyHeader={{
+		disabled: !isHeader
+	}}
 	class="filelistitem-wrapper"
+	class:filelistitem-header={isHeader}
 	bind:this={draggableEl}
-	class:sticky={isHeader}
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
-		data: new ChangeDropData(stackId || '', change, idSelection, selectedFile),
+		data: new ChangeDropData(change, idSelection, selectionId),
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable',
-		disabled: isCommitting
+		disabled: showCheckbox,
+		chipType: 'file'
 	}}
 >
 	<FileContextMenu
 		bind:this={contextMenu}
 		trigger={draggableEl}
-		isUnapplied={false}
-		branchId={$stack?.id}
-		isBinary={false}
+		{isUncommitted}
 		{unSelectChanges}
 	/>
+
 	{#if isHeader}
 		<FileViewHeader
 			filePath={change.path}
 			fileStatus={computeChangeStatus(change)}
-			draggable={!isCommitting}
-			{linesAdded}
-			{linesRemoved}
+			draggable={!showCheckbox}
+			linesAdded={lineChangesStat?.added}
+			linesRemoved={lineChangesStat?.removed}
+			fileStatusTooltip={previousTooltipText}
 			oncontextmenu={(e) => {
 				e.stopPropagation();
 				e.preventDefault();
 				onContextMenu(e);
 			}}
+			oncloseclick={onCloseClick}
 		/>
 	{:else}
 		<FileListItemV3
-			id={key({ ...selectedFile, path: change.path })}
+			id={key({ ...selectionId, path: change.path })}
 			filePath={change.path}
 			fileStatus={computeChangeStatus(change)}
 			{selected}
-			showCheckbox={isCommitting}
+			{showCheckbox}
+			fileStatusTooltip={previousTooltipText}
 			{listMode}
 			checked={!!selection.current}
 			{listActive}
 			{indeterminate}
 			{isLast}
 			{depth}
-			draggable={!isCommitting}
+			draggable={!showCheckbox}
 			{onkeydown}
 			locked={false}
 			conflicted={false}
-			onclick={(e) => {
-				onclick?.(e);
-			}}
+			{onclick}
 			oncheck={onCheck}
 			oncontextmenu={onContextMenu}
 		/>
@@ -158,6 +179,10 @@
 
 <style lang="postcss">
 	.filelistitem-wrapper {
-		display: block;
+		display: flex;
+		flex-direction: column;
+	}
+	.filelistitem-header {
+		z-index: var(--z-lifted);
 	}
 </style>

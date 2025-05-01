@@ -1,11 +1,9 @@
-import type { Command, CommandExtra } from '@/types';
-import type { PrismaClient } from '@prisma/client';
-import type { Message } from 'discord.js';
+import type { Command } from '@/types';
 
 export const help: Command = {
 	name: 'help',
 	help: 'Lists all available commands with descriptions.',
-	execute: async (message: Message, _prisma: PrismaClient, { commands }: CommandExtra) => {
+	execute: async ({ message, commands }) => {
 		try {
 			if (!commands || commands.length === 0) {
 				await message.reply('No commands are available.');

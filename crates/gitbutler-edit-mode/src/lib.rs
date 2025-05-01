@@ -9,7 +9,7 @@ use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::internal::list_virtual_branches;
 use gitbutler_branch_actions::{update_workspace_commit, RemoteBranchFile};
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
-use gitbutler_command_context::{gix_repository_for_merging, CommandContext};
+use gitbutler_command_context::{gix_repo_for_merging, CommandContext};
 use gitbutler_commit::{
     commit_ext::CommitExt,
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
@@ -26,7 +26,6 @@ use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission}
 use gitbutler_reference::{ReferenceName, Refname};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::{signature, SignaturePurpose};
-use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes_with_tree, WorkspaceState};
 #[allow(deprecated)]
@@ -57,7 +56,7 @@ fn get_commit_index(repository: &git2::Repository, commit: &git2::Commit) -> Res
             .context("Failed to get base")?
             .id();
 
-        let gix_repo = gix_repository_for_merging(repository.path())?;
+        let gix_repo = gix_repo_for_merging(repository.path())?;
         // Merge without favoring a side this time to get a tree containing the actual conflicts.
         let mut merge_result = gix_repo.merge_trees(
             git2_to_gix_object_id(base),
@@ -313,9 +312,8 @@ pub(crate) fn save_and_return_to_workspace(
             }
         }
     });
-    let stack_ctx = ctx.to_stack_context()?;
-    let merge_base = stack.merge_base(&stack_ctx)?;
-    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base.to_gix()), None)?;
+    let merge_base = stack.merge_base(ctx)?;
+    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base), None)?;
     rebase.rebase_noops(false);
     rebase.steps(steps)?;
     let output = rebase.rebase()?;
@@ -326,7 +324,7 @@ pub(crate) fn save_and_return_to_workspace(
         (new_branch_head, None)
     } else {
         #[allow(deprecated)]
-        let res = compute_updated_branch_head(ctx.repo(), &gix_repo, &stack, new_branch_head)?;
+        let res = compute_updated_branch_head(ctx.repo(), &gix_repo, &stack, new_branch_head, ctx)?;
         (res.head, Some(res.tree))
     };
 
@@ -346,7 +344,7 @@ pub(crate) fn save_and_return_to_workspace(
             ctx,
             old_workspace,
             new_workspace,
-            uncommtied_changes.to_gix(),
+            uncommtied_changes,
             perm,
         )?;
     } else {

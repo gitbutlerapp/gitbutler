@@ -1,7 +1,7 @@
 import { ghQuery } from '$lib/forge/github/ghQuery';
 import { ghResponseToInstance } from '$lib/forge/github/types';
 import { createSelectByIds } from '$lib/state/customSelectors';
-import { ReduxTag } from '$lib/state/tags';
+import { providesList, ReduxTag } from '$lib/state/tags';
 import { reactive } from '@gitbutler/shared/storeUtils';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
@@ -64,11 +64,14 @@ function injectEndpoints(api: GitHubApi) {
 		endpoints: (build) => ({
 			listPrs: build.query<EntityState<PullRequest, string>, string>({
 				queryFn: async (_, api) => {
-					const result = await ghQuery({
-						domain: 'pulls',
-						action: 'list',
-						extra: api.extra
-					});
+					const result = await ghQuery<'pulls', 'list', 'required'>(
+						async (octokit, repository) => ({
+							data: await octokit.paginate(octokit.rest.pulls.list, repository)
+						}),
+						api.extra,
+						'required'
+					);
+
 					if (result.data) {
 						return {
 							data: prAdapter.addMany(
@@ -79,7 +82,7 @@ function injectEndpoints(api: GitHubApi) {
 					}
 					return result;
 				},
-				providesTags: [ReduxTag.PullRequests]
+				providesTags: [providesList(ReduxTag.PullRequests)]
 			})
 		})
 	});

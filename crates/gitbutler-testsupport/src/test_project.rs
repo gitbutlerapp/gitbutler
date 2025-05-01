@@ -10,9 +10,9 @@ pub fn temp_dir() -> TempDir {
 }
 
 pub struct TestProject {
-    pub local_repository: git2::Repository,
+    pub local_repo: git2::Repository,
     local_tmp: Option<TempDir>,
-    remote_repository: git2::Repository,
+    remote_repo: git2::Repository,
     remote_tmp: Option<TempDir>,
 }
 
@@ -74,9 +74,9 @@ impl Default for TestProject {
         }
 
         Self {
-            local_repository,
+            local_repo: local_repository,
             local_tmp: Some(local_tmp),
-            remote_repository,
+            remote_repo: remote_repository,
             remote_tmp: Some(remote_tmp),
         }
     }
@@ -90,16 +90,16 @@ impl TestProject {
         self.local_tmp.take().map(|tmp| tmp.into_path())
     }
     pub fn path(&self) -> &std::path::Path {
-        self.local_repository.workdir().unwrap()
+        self.local_repo.workdir().unwrap()
     }
 
     pub fn push_branch(&self, branch: &LocalRefname) {
-        let mut origin = self.local_repository.find_remote("origin").unwrap();
+        let mut origin = self.local_repo.find_remote("origin").unwrap();
         origin.push(&[&format!("{branch}:{branch}")], None).unwrap();
     }
 
     pub fn push(&self) {
-        let mut origin = self.local_repository.find_remote("origin").unwrap();
+        let mut origin = self.local_repo.find_remote("origin").unwrap();
         origin
             .push(&["refs/heads/master:refs/heads/master"], None)
             .unwrap();
@@ -110,28 +110,28 @@ impl TestProject {
     /// git reset --hard <oid>
     /// ```
     pub fn reset_hard(&self, oid: Option<git2::Oid>) {
-        let mut index = self.local_repository.index().expect("failed to get index");
+        let mut index = self.local_repo.index().expect("failed to get index");
         index
             .add_all(["."], git2::IndexAddOption::DEFAULT, None)
             .expect("failed to add all");
         index.write().expect("failed to write index");
 
-        let head = self.local_repository.head().unwrap();
+        let head = self.local_repo.head().unwrap();
         let commit = oid.map_or(head.peel_to_commit().unwrap(), |oid| {
-            self.local_repository.find_commit(oid).unwrap()
+            self.local_repo.find_commit(oid).unwrap()
         });
 
         let head_ref = head.name().unwrap();
-        self.local_repository.find_reference(head_ref).unwrap();
+        self.local_repo.find_reference(head_ref).unwrap();
 
-        self.local_repository
+        self.local_repo
             .reset(commit.as_object(), git2::ResetType::Hard, None)
             .unwrap();
     }
 
     /// fetch remote into local
     pub fn fetch(&self) {
-        let mut remote = self.local_repository.find_remote("origin").unwrap();
+        let mut remote = self.local_repo.find_remote("origin").unwrap();
         remote
             .fetch(&["+refs/heads/*:refs/remotes/origin/*"], None, None)
             .unwrap();
@@ -144,14 +144,14 @@ impl TestProject {
             _ => "INVALID".parse().unwrap(), // todo
         };
         let branch = self
-            .remote_repository
+            .remote_repo
             .maybe_find_branch_by_refname(&branch_name)
             .unwrap();
         let branch_commit = branch.unwrap().get().peel_to_commit().unwrap();
 
         let master_branch = {
             let name: Refname = "refs/heads/master".parse().unwrap();
-            self.remote_repository
+            self.remote_repo
                 .maybe_find_branch_by_refname(&name)
                 .unwrap()
         };
@@ -162,17 +162,17 @@ impl TestProject {
         rebase_options.inmemory(true);
 
         let mut rebase = self
-            .remote_repository
+            .remote_repo
             .rebase(
                 Some(
                     &self
-                        .remote_repository
+                        .remote_repo
                         .find_annotated_commit(branch_commit.id())
                         .unwrap(),
                 ),
                 Some(
                     &self
-                        .remote_repository
+                        .remote_repo
                         .find_annotated_commit(master_branch_commit.id())
                         .unwrap(),
                 ),
@@ -184,7 +184,7 @@ impl TestProject {
         let mut rebase_success = true;
         let mut last_rebase_head = branch_commit.id();
         while let Some(Ok(op)) = rebase.next() {
-            let commit = self.remote_repository.find_commit(op.id()).unwrap();
+            let commit = self.remote_repo.find_commit(op.id()).unwrap();
             let index = rebase.inmemory_index().unwrap();
             if index.has_conflicts() {
                 rebase_success = false;
@@ -200,7 +200,7 @@ impl TestProject {
         }
 
         if rebase_success {
-            self.remote_repository
+            self.remote_repo
                 .reference(
                     "refs/heads/master",
                     last_rebase_head,
@@ -221,14 +221,14 @@ impl TestProject {
             _ => "INVALID".parse()?, // todo
         };
         let branch = self
-            .remote_repository
+            .remote_repo
             .maybe_find_branch_by_refname(&branch_name)?
             .expect("branch exists");
         let branch_commit = branch.get().peel_to_commit()?;
 
         let master_branch = {
             let name: Refname = "refs/heads/master".parse()?;
-            self.remote_repository.maybe_find_branch_by_refname(&name)?
+            self.remote_repo.maybe_find_branch_by_refname(&name)?
         };
         let master_branch_commit = master_branch
             .as_ref()
@@ -236,10 +236,7 @@ impl TestProject {
             .get()
             .peel_to_commit()?;
 
-        let gix_repo = gix::open_opts(
-            self.remote_repository.path(),
-            gix::open::Options::isolated(),
-        )?;
+        let gix_repo = gix::open_opts(self.remote_repo.path(), gix::open::Options::isolated())?;
         let merge_tree = {
             let mut merge_result = gix_repo.merge_commits(
                 git2_to_gix_object_id(master_branch_commit.id()),
@@ -254,10 +251,10 @@ impl TestProject {
                 "test-merges should have non-conflicting trees"
             );
             let tree_id = merge_result.tree_merge.tree.write()?;
-            self.remote_repository.find_tree(gix_to_git2_oid(tree_id))?
+            self.remote_repo.find_tree(gix_to_git2_oid(tree_id))?
         };
 
-        let repo: &git2::Repository = &self.remote_repository;
+        let repo: &git2::Repository = &self.remote_repo;
         repo.commit_with_signature(
             Some(&"refs/heads/master".parse()?),
             &branch_commit.author(),
@@ -271,15 +268,15 @@ impl TestProject {
     }
 
     pub fn find_commit(&self, oid: git2::Oid) -> Result<git2::Commit<'_>, git2::Error> {
-        self.local_repository.find_commit(oid)
+        self.local_repo.find_commit(oid)
     }
 
     pub fn checkout_commit(&self, commit_oid: git2::Oid) {
-        let commit = self.local_repository.find_commit(commit_oid).unwrap();
+        let commit = self.local_repo.find_commit(commit_oid).unwrap();
         let commit_tree = commit.tree().unwrap();
 
-        self.local_repository.set_head_detached(commit_oid).unwrap();
-        self.local_repository
+        self.local_repo.set_head_detached(commit_oid).unwrap();
+        self.local_repo
             .checkout_tree_builder(&commit_tree)
             .force()
             .checkout()
@@ -288,17 +285,12 @@ impl TestProject {
 
     pub fn checkout(&self, branch: &LocalRefname) {
         let refname: Refname = branch.into();
-        let head_commit = self
-            .local_repository
-            .head()
-            .unwrap()
-            .peel_to_commit()
-            .unwrap();
-        let tree = match self.local_repository.maybe_find_branch_by_refname(&refname) {
+        let head_commit = self.local_repo.head().unwrap().peel_to_commit().unwrap();
+        let tree = match self.local_repo.maybe_find_branch_by_refname(&refname) {
             Ok(branch) => match branch {
                 Some(branch) => branch.get().peel_to_tree().unwrap(),
                 None => {
-                    self.local_repository
+                    self.local_repo
                         .reference(&refname.to_string(), head_commit.id(), false, "new branch")
                         .unwrap();
                     head_commit.tree().unwrap()
@@ -313,10 +305,8 @@ impl TestProject {
             // }
             Err(error) => panic!("{:?}", error),
         };
-        self.local_repository
-            .set_head(&refname.to_string())
-            .unwrap();
-        self.local_repository
+        self.local_repo.set_head(&refname.to_string()).unwrap();
+        self.local_repo
             .checkout_tree_builder(&tree)
             .force()
             .checkout()
@@ -325,8 +315,8 @@ impl TestProject {
 
     /// takes all changes in the working directory and commits them into local
     pub fn commit_all(&self, message: &str) -> git2::Oid {
-        let head = self.local_repository.head().unwrap();
-        let mut index = self.local_repository.index().expect("failed to get index");
+        let head = self.local_repo.head().unwrap();
+        let mut index = self.local_repo.index().expect("failed to get index");
         index
             .add_all(["."], git2::IndexAddOption::DEFAULT, None)
             .expect("failed to add all");
@@ -334,20 +324,17 @@ impl TestProject {
         let oid = index.write_tree().expect("failed to write tree");
         let signature = git2::Signature::now("test", "test@email.com").unwrap();
         let refname: Refname = head.name().unwrap().parse().unwrap();
-        let repo: &git2::Repository = &self.local_repository;
+        let repo: &git2::Repository = &self.local_repo;
         repo.commit_with_signature(
             Some(&refname),
             &signature,
             &signature,
             message,
-            &self
-                .local_repository
-                .find_tree(oid)
-                .expect("failed to find tree"),
+            &self.local_repo.find_tree(oid).expect("failed to find tree"),
             &[&self
-                .local_repository
+                .local_repo
                 .find_commit(
-                    self.local_repository
+                    self.local_repo
                         .refname_to_id("HEAD")
                         .expect("failed to get head"),
                 )
@@ -358,7 +345,7 @@ impl TestProject {
     }
 
     pub fn references(&self) -> Vec<git2::Reference<'_>> {
-        self.local_repository
+        self.local_repo
             .references()
             .expect("failed to get references")
             .collect::<Result<Vec<_>, _>>()
@@ -367,7 +354,7 @@ impl TestProject {
 
     pub fn add_submodule(&self, url: &gitbutler_url::Url, path: &path::Path) {
         let mut submodule = self
-            .local_repository
+            .local_repo
             .submodule(&url.to_string(), path.as_ref(), false)
             .unwrap();
         let repo = submodule.open().unwrap();

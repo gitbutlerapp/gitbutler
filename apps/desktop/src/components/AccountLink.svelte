@@ -24,7 +24,7 @@
 	{#if !isNavCollapsed}
 		<span class="name text-13 text-semibold">
 			{#if $user}
-				{$user.name || $user.given_name || $user.email}
+				{$user.name || $user.email}
 			{:else}
 				Account
 			{/if}

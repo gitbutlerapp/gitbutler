@@ -39,8 +39,7 @@ pub mod commands {
     pub struct UserWithSecrets {
         id: u64,
         name: Option<String>,
-        given_name: Option<String>,
-        family_name: Option<String>,
+        login: Option<String>,
         email: Option<String>,
         picture: String,
         locale: Option<String>,
@@ -61,8 +60,7 @@ pub mod commands {
             let User {
                 id,
                 name,
-                given_name,
-                family_name,
+                login,
                 email,
                 picture,
                 locale,
@@ -75,8 +73,7 @@ pub mod commands {
             Ok(UserWithSecrets {
                 id,
                 name,
-                given_name,
-                family_name,
+                login,
                 email,
                 picture,
                 locale,

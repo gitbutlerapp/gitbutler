@@ -10,8 +10,7 @@
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { BranchController } from '$lib/branches/branchController';
-	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
+	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { GitBranchService } from '$lib/branches/gitBranch';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { SettingsService } from '$lib/config/appSettingsV2';
@@ -21,7 +20,7 @@
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { GitHubClient } from '$lib/forge/github/githubClient';
-	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
+	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 	import { GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { BrToPrService } from '$lib/forge/shared/prFooter';
 	import { TemplateService } from '$lib/forge/templateService';
@@ -29,11 +28,13 @@
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 	import { ModeService } from '$lib/mode/modeService';
+	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { projectCloudSync } from '$lib/project/projectCloudSync.svelte';
 	import { ProjectService } from '$lib/project/projectService';
 	import { getSecretsService } from '$lib/secrets/secretsService';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
 	import { debounce } from '$lib/utils/debounce';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
@@ -51,11 +52,9 @@
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	const {
-		vbranchService,
 		project,
 		projectId,
 		projectsService,
-		branchListingService,
 		modeService,
 		userService,
 		fetchSignal,
@@ -72,14 +71,19 @@
 	const forkInfo = $derived(pushRepoResponse.current.data);
 	const baseError = $derived(baseBranchResponse.current.error);
 	const baseBranchName = $derived(baseBranch?.shortName);
+	const branchService = getContext(BranchService);
+
+	const vbranchService = $derived(
+		new VirtualBranchService(projectId, projectMetrics, modeService, branchService)
+	);
 
 	const secretService = getSecretsService();
 	const gitLabState = $derived(new GitLabState(secretService, repoInfo, projectId));
-	$effect(() => {
+	$effect.pre(() => {
 		setContext(GitLabState, gitLabState);
 	});
 	const gitLabClient = getContext(GitLabClient);
-	$effect(() => {
+	$effect.pre(() => {
 		gitLabClient.set(gitLabState);
 	});
 
@@ -88,15 +92,17 @@
 	const accessToken = $derived($user?.github_access_token);
 
 	const gitHubClient = getContext(GitHubClient);
-	$effect(() => gitHubClient.setToken(accessToken));
-	$effect(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
+	$effect.pre(() => gitHubClient.setToken(accessToken));
+	$effect.pre(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
 
 	const projectError = $derived(projectsService.error);
+	const projects = $derived(projectsService.projects);
 
 	const cloudBranchService = getContext(CloudBranchService);
 	const cloudProjectService = getContext(CloudProjectService);
 	const latestBranchLookupService = getContext(LatestBranchLookupService);
-	$effect(() => {
+
+	$effect.pre(() => {
 		const upstreamIntegrationService = new UpstreamIntegrationService(
 			project,
 			vbranchService,
@@ -107,19 +113,27 @@
 		setContext(UpstreamIntegrationService, upstreamIntegrationService);
 	});
 
+	const stackService = getContext(StackService);
+
+	$effect.pre(() => {
+		const stackingReorderDropzoneManagerFactory = new StackingReorderDropzoneManagerFactory(
+			projectId,
+			stackService
+		);
+
+		setContext(StackingReorderDropzoneManagerFactory, stackingReorderDropzoneManagerFactory);
+	});
+
 	$effect.pre(() => {
 		setContext(HistoryService, data.historyService);
-		setContext(VirtualBranchService, data.vbranchService);
-		setContext(BranchController, data.branchController);
 		setContext(TemplateService, data.templateService);
 		setContext(BaseBranch, baseBranch);
 		setContext(Project, project);
-		setContext(StackingReorderDropzoneManagerFactory, data.stackingReorderDropzoneManagerFactory);
 		setContext(GitBranchService, data.gitBranchService);
-		setContext(BranchListingService, data.branchListingService);
 		setContext(ModeService, data.modeService);
 		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
 		setContext(ProjectService, data.projectService);
+		setContext(VirtualBranchService, vbranchService);
 
 		// Cloud related services
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
@@ -136,14 +150,6 @@
 	let intervalId: any;
 
 	const forgeFactory = getContext(DefaultForgeFactory);
-	$effect.pre(() => {
-		const combinedBranchListingService = new CombinedBranchListingService(
-			data.branchListingService,
-			projectId
-		);
-
-		setContext(CombinedBranchListingService, combinedBranchListingService);
-	});
 
 	// Refresh base branch if git fetch event is detected.
 	const mode = $derived(modeService.mode);
@@ -160,7 +166,7 @@
 
 	// TODO: can we eliminate the need to debounce?
 	const debouncedRemoteBranchRefresh = debounce(
-		async () => await branchListingService?.refresh(),
+		async () => await branchService.refresh(projectId),
 		500
 	);
 
@@ -168,13 +174,15 @@
 		if (baseBranch || $head || $fetch) debouncedRemoteBranchRefresh();
 	});
 
+	const gitlabConfigured = $derived(gitLabState.configured);
+
 	$effect(() => {
 		forgeFactory.setConfig({
 			repo: repoInfo,
 			pushRepo: forkInfo,
 			baseBranch: baseBranchName,
 			githubAuthenticated: !!$user?.github_access_token,
-			gitlabAuthenticated: !!gitLabState.configured.current
+			gitlabAuthenticated: !!$gitlabConfigured
 		});
 	});
 
@@ -211,7 +219,7 @@
 	});
 
 	async function fetchRemoteForProject() {
-		await baseBranchService.refreshRemotes(projectId);
+		await baseBranchService.fetchFromRemotes(projectId);
 	}
 
 	function setupFetchInterval() {
@@ -249,8 +257,42 @@
 		clearFetchInterval();
 	});
 
+	let noViewableProjects = $state(false);
+
+	async function setActiveProjectOrRedirect() {
+		// Optimistically assume the project is viewable
+		noViewableProjects = false;
+		try {
+			await projectsService.setActiveProject(projectId);
+		} catch (error: unknown) {
+			showError('This project is already open in another window', error);
+			await redirectToAvailableProject();
+		}
+	}
+
+	async function redirectToAvailableProject() {
+		// Try to go back to the previously active project
+		try {
+			const activeProject = await projectsService.getActiveProject();
+			if (activeProject) {
+				goto(`/${activeProject.id}/board`);
+				return;
+			}
+		} catch (error: unknown) {
+			console.error(error);
+		}
+
+		// Otherwise go to the first project that is not open
+		const availableProject = $projects?.find((project) => !project.is_open);
+		if (availableProject) {
+			goto(`/${availableProject.id}/board`);
+		}
+		// If no available projects, show a special page
+		noViewableProjects = true;
+	}
+
 	$effect(() => {
-		projectsService.setActiveProject(projectId);
+		setActiveProjectOrRedirect();
 	});
 </script>
 
@@ -269,11 +311,13 @@
 		<ProblemLoadingRepo error={$branchesError} />
 	{:else if $projectError}
 		<ProblemLoadingRepo error={$projectError} />
+	{:else if noViewableProjects}
+		<ProblemLoadingRepo error={'All projects are already open in another window'} />
 	{:else if baseBranch}
 		{#if $mode?.type === 'OpenWorkspace' || $mode?.type === 'Edit'}
 			<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
 				{#if $settingsStore?.featureFlags.v3}
-					<Chrome {projectId}>
+					<Chrome {projectId} sidebarDisabled={$mode?.type === 'Edit'}>
 						{@render children()}
 					</Chrome>
 				{:else}

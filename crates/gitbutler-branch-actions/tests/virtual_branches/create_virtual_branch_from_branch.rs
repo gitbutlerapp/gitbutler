@@ -5,9 +5,7 @@ use super::*;
 
 #[test]
 fn integration() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
         .unwrap();
@@ -19,7 +17,7 @@ fn integration() {
             gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
                 .unwrap();
 
-        std::fs::write(repository.path().join("file.txt"), "first\n").unwrap();
+        std::fs::write(repo.path().join("file.txt"), "first\n").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "first", None).unwrap();
         #[allow(deprecated)]
         gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry.id, false, None).unwrap();
@@ -33,8 +31,7 @@ fn integration() {
 
         let name = branch.upstream.unwrap().name;
 
-        gitbutler_branch_actions::unapply_without_saving_virtual_branch(ctx, stack_entry.id)
-            .unwrap();
+        gitbutler_branch_actions::unapply_stack(ctx, stack_entry.id).unwrap();
 
         name
     };
@@ -50,18 +47,18 @@ fn integration() {
 
     {
         // add a commit
-        std::fs::write(repository.path().join("file.txt"), "first\nsecond").unwrap();
+        std::fs::write(repo.path().join("file.txt"), "first\nsecond").unwrap();
 
         gitbutler_branch_actions::create_commit(ctx, branch_id, "second", None).unwrap();
     }
 
     {
         // meanwhile, there is a new commit on master
-        repository.checkout(&"refs/heads/master".parse().unwrap());
-        std::fs::write(repository.path().join("another.txt"), "").unwrap();
-        repository.commit_all("another");
-        repository.push_branch(&"refs/heads/master".parse().unwrap());
-        repository.checkout(&"refs/heads/gitbutler/workspace".parse().unwrap());
+        repo.checkout(&"refs/heads/master".parse().unwrap());
+        std::fs::write(repo.path().join("another.txt"), "").unwrap();
+        repo.commit_all("another");
+        repo.push_branch(&"refs/heads/master".parse().unwrap());
+        repo.checkout(&"refs/heads/gitbutler/workspace".parse().unwrap());
     }
 
     {
@@ -81,7 +78,7 @@ fn integration() {
         assert!(branch.series[0].clone().unwrap().patches[1].is_local_and_remote);
         assert!(!branch.series[0].clone().unwrap().patches[1].is_integrated);
 
-        repository.rebase_and_merge(&branch_name);
+        repo.rebase_and_merge(&branch_name);
     }
 
     {
@@ -109,18 +106,16 @@ fn integration() {
 
 #[test]
 fn no_conflicts() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     {
         // create a remote branch
         let branch_name: LocalRefname = "refs/heads/branch".parse().unwrap();
-        repository.checkout(&branch_name);
-        fs::write(repository.path().join("file.txt"), "first").unwrap();
-        repository.commit_all("first");
-        repository.push_branch(&branch_name);
-        repository.checkout(&"refs/heads/master".parse().unwrap());
+        repo.checkout(&branch_name);
+        fs::write(repo.path().join("file.txt"), "first").unwrap();
+        repo.commit_all("first");
+        repo.push_branch(&branch_name);
+        repo.checkout(&"refs/heads/master".parse().unwrap());
     }
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
@@ -152,18 +147,16 @@ fn no_conflicts() {
 
 #[test]
 fn conflicts_with_uncommited() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     {
         // create a remote branch
         let branch_name: LocalRefname = "refs/heads/branch".parse().unwrap();
-        repository.checkout(&branch_name);
-        fs::write(repository.path().join("file.txt"), "first").unwrap();
-        repository.commit_all("first");
-        repository.push_branch(&branch_name);
-        repository.checkout(&"refs/heads/master".parse().unwrap());
+        repo.checkout(&branch_name);
+        fs::write(repo.path().join("file.txt"), "first").unwrap();
+        repo.commit_all("first");
+        repo.push_branch(&branch_name);
+        repo.checkout(&"refs/heads/master".parse().unwrap());
     }
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
@@ -171,7 +164,7 @@ fn conflicts_with_uncommited() {
 
     // create a local branch that conflicts with remote
     {
-        std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
+        std::fs::write(repo.path().join("file.txt"), "conflict").unwrap();
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
@@ -200,18 +193,16 @@ fn conflicts_with_uncommited() {
 
 #[test]
 fn conflicts_with_commited() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     {
         // create a remote branch
         let branch_name: LocalRefname = "refs/heads/branch".parse().unwrap();
-        repository.checkout(&branch_name);
-        fs::write(repository.path().join("file.txt"), "first").unwrap();
-        repository.commit_all("first");
-        repository.push_branch(&branch_name);
-        repository.checkout(&"refs/heads/master".parse().unwrap());
+        repo.checkout(&branch_name);
+        fs::write(repo.path().join("file.txt"), "first").unwrap();
+        repo.commit_all("first");
+        repo.push_branch(&branch_name);
+        repo.checkout(&"refs/heads/master".parse().unwrap());
     }
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
@@ -219,7 +210,7 @@ fn conflicts_with_commited() {
 
     // create a local branch that conflicts with remote
     {
-        std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
+        std::fs::write(repo.path().join("file.txt"), "conflict").unwrap();
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
@@ -294,23 +285,21 @@ fn from_non_existent_branch() {
 
 #[test]
 fn from_state_remote_branch() {
-    let Test {
-        repository, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     {
         // create a remote branch
         let branch_name: LocalRefname = "refs/heads/branch".parse().unwrap();
-        repository.checkout(&branch_name);
-        fs::write(repository.path().join("file.txt"), "branch commit").unwrap();
-        repository.commit_all("branch commit");
-        repository.push_branch(&branch_name);
-        repository.checkout(&"refs/heads/master".parse().unwrap());
+        repo.checkout(&branch_name);
+        fs::write(repo.path().join("file.txt"), "branch commit").unwrap();
+        repo.commit_all("branch commit");
+        repo.push_branch(&branch_name);
+        repo.checkout(&"refs/heads/master".parse().unwrap());
 
         // make remote branch stale
-        std::fs::write(repository.path().join("antoher_file.txt"), "master commit").unwrap();
-        repository.commit_all("master commit");
-        repository.push();
+        std::fs::write(repo.path().join("antoher_file.txt"), "master commit").unwrap();
+        repo.commit_all("master commit");
+        repo.push();
     }
 
     gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
@@ -349,16 +338,14 @@ mod conflict_cases {
     /// with some conflicted commits.
     #[test]
     fn apply_mergable_but_not_rebasable_branch_with_fearless() {
-        let Test {
-            repository, ctx, ..
-        } = &Test::default();
+        let Test { repo, ctx, .. } = &Test::default();
 
-        let git_repository = &repository.local_repository;
+        let git_repo = &repo.local_repo;
         let signature = git2::Signature::now("caleb", "caleb@gitbutler.com").unwrap();
 
-        let head_commit = git_repository.head().unwrap().peel_to_commit().unwrap();
+        let head_commit = git_repo.head().unwrap().peel_to_commit().unwrap();
 
-        git_repository
+        git_repo
             .reference("refs/remotes/origin/master", head_commit.id(), true, ":D")
             .unwrap();
 
@@ -369,39 +356,34 @@ mod conflict_cases {
         .unwrap();
 
         // Make A and B and unapply them.
-        fs::write(repository.path().join("foo.txt"), "a").unwrap();
-        repository.commit_all("A");
-        fs::remove_file(repository.path().join("foo.txt")).unwrap();
-        fs::write(repository.path().join("bar.txt"), "b").unwrap();
-        repository.commit_all("B");
+        fs::write(repo.path().join("foo.txt"), "a").unwrap();
+        repo.commit_all("A");
+        fs::remove_file(repo.path().join("foo.txt")).unwrap();
+        fs::write(repo.path().join("bar.txt"), "b").unwrap();
+        repo.commit_all("B");
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         let branch = branches[0].clone();
 
-        let branch_refname =
-            gitbutler_branch_actions::save_and_unapply_virutal_branch(ctx, branch.id).unwrap();
+        let branch_refname = gitbutler_branch_actions::unapply_stack(ctx, branch.id).unwrap();
 
         // Make X and set base branch to X
-        let mut tree_builder = git_repository
-            .treebuilder(Some(
-                &git_repository.head().unwrap().peel_to_tree().unwrap(),
-            ))
+        let mut tree_builder = git_repo
+            .treebuilder(Some(&git_repo.head().unwrap().peel_to_tree().unwrap()))
             .unwrap();
-        let blob_oid = git_repository.blob("x".as_bytes()).unwrap();
+        let blob_oid = git_repo.blob("x".as_bytes()).unwrap();
         tree_builder
             .insert("foo.txt", blob_oid, git2::FileMode::Blob.into())
             .unwrap();
 
-        git_repository
+        git_repo
             .commit(
                 Some("refs/remotes/origin/master"),
                 &signature,
                 &signature,
                 "X",
-                &git_repository
-                    .find_tree(tree_builder.write().unwrap())
-                    .unwrap(),
+                &git_repo.find_tree(tree_builder.write().unwrap()).unwrap(),
                 &[&head_commit],
             )
             .unwrap();
@@ -437,14 +419,14 @@ mod conflict_cases {
             "B"
         );
         assert!(branch.series[0].clone().unwrap().patches[0].conflicted);
-        let tree = repository
+        let tree = repo
             .find_commit(branch.series[0].clone().unwrap().patches[0].id)
             .unwrap()
             .tree()
             .unwrap();
         assert_eq!(tree.len(), 6, "Five trees and the readme");
         assert_tree_matches(
-            git_repository,
+            git_repo,
             &tree,
             &[
                 (".auto-resolution/foo.txt", b"x"), // Has "ours" foo content
@@ -464,8 +446,8 @@ mod conflict_cases {
         );
         assert!(branch.series[0].clone().unwrap().patches[1].conflicted);
         assert_commit_tree_matches(
-            git_repository,
-            &repository
+            git_repo,
+            &repo
                 .find_commit(branch.series[0].clone().unwrap().patches[1].id)
                 .unwrap(),
             &[

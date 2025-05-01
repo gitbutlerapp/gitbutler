@@ -1,18 +1,26 @@
 <script lang="ts">
+	import { TestId } from '$lib/testing/testIds';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 
 	type Props = {
-		first: boolean;
-		last: boolean;
+		first?: boolean;
+		last?: boolean;
+		draft?: boolean;
 		selected: boolean;
-		onclick: () => void;
+		onclick?: () => void;
 	};
 
-	const { first, last, selected, onclick }: Props = $props();
+	const { first, last, draft, selected, onclick }: Props = $props();
 </script>
 
-{#snippet indicator(args?: { last: boolean; first: boolean })}
-	<div class="indicator" class:first={args?.first} class:last={args?.last}>
+{#snippet indicator(args?: { last?: boolean; first?: boolean; draft?: boolean })}
+	<div
+		data-testid={TestId.YourCommitGoesHere}
+		class="indicator"
+		class:first={args?.first}
+		class:last={args?.last}
+		class:draft={args?.draft}
+	>
 		<div class="pin">
 			<div class="pin__line"></div>
 			<div class="pin__circle"></div>
@@ -31,7 +39,7 @@
 {/snippet}
 
 {#if selected}
-	{@render indicator({ first, last })}
+	{@render indicator({ first, last, draft })}
 {/if}
 {#if !selected}
 	{@render commitHere({ last })}
@@ -47,6 +55,11 @@
 		border-bottom: 1px solid var(--clr-border-2);
 		&.last {
 			border-top: 1px solid var(--clr-border-2);
+			border-bottom: none;
+			border-radius: 0 0 var(--radius-l) var(--radius-l);
+		}
+		&.draft {
+			border-top: none;
 			border-bottom: none;
 			border-radius: 0 0 var(--radius-l) var(--radius-l);
 		}

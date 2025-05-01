@@ -1,9 +1,7 @@
-use crate::discard::hunk::util::{
-    changed_file_in_worktree_with_hunks, hunk_header, previous_change_text,
-};
+use crate::discard::hunk::util::{changed_file_in_worktree_with_hunks, previous_change_text};
 use crate::utils::{
-    CONTEXT_LINES, read_only_in_memory_scenario, to_change_specs_all_hunks, visualize_index,
-    writable_scenario,
+    CONTEXT_LINES, hunk_header, read_only_in_memory_scenario, to_change_specs_all_hunks,
+    visualize_index, writable_scenario,
 };
 use bstr::{BString, ByteSlice};
 use but_core::UnifiedDiff;
@@ -416,16 +414,15 @@ fn from_selections_with_context() -> anyhow::Result<()> {
         "hunk-selection order doesn't matter, they can still be associated"
     );
     let actual = read_file_content()?;
-    // However, the order of old/new additions or removals do matter, as it affects the application order.
-    // Thus 8 & 11 are reversed compared to the above.
+    // The order of old/new additions or removals do matter also doesn't matter, the result is stable.
     insta::assert_snapshot!(actual, @r"
     1
     6
     7
     4
     5
-    11
     8
+    11
     9
     eleven
     12
@@ -829,7 +826,6 @@ mod util {
     use bstr::BString;
     use but_core::unified_diff::DiffHunk;
     use but_core::{TreeChange, UnifiedDiff};
-    use but_workspace::commit_engine::HunkHeader;
     use gix::prelude::ObjectIdExt;
 
     pub fn previous_change_text(
@@ -847,18 +843,6 @@ mod util {
             .detach()
             .data
             .into())
-    }
-
-    /// Choose a slightly more obvious, yet easy to type syntax than a function with 4 parameters.
-    pub fn hunk_header(old: &str, new: &str) -> HunkHeader {
-        let ((old_start, old_lines), (new_start, new_lines)) =
-            but_testsupport::hunk_header(old, new);
-        HunkHeader {
-            old_start,
-            old_lines,
-            new_start,
-            new_lines,
-        }
     }
 
     pub fn changed_file_in_worktree_with_hunks(

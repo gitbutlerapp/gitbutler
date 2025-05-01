@@ -2,6 +2,11 @@
 	--markdown-generic-bottom-margin: 16px;
 }
 
+.lexical-container.plain-text {
+	--fontfamily-default: var(--code-block-font, var(--fontfamily-mono));
+	font-variant-ligatures: var(--code-block-ligatures, normal);
+}
+
 /* text alignment */
 .StandardTheme__ltr {
 	text-align: left;
@@ -36,6 +41,7 @@
 	font-weight: var(--text-weight-regular);
 	line-height: var(--text-lineheight-body);
 	margin-bottom: var(--markdown-generic-bottom-margin);
+	text-wrap: var(--lexical-input-client-text-wrap, normal);
 }
 
 .StandardTheme__quote {
@@ -103,9 +109,10 @@
 .StandardTheme__textCode {
 	background-color: var(--clr-theme-ntrl-soft);
 	padding: 2px 3px;
-	font-family: var(--fontfamily-mono);
+	font-family: var(--code-block-font, var(--fontfamily-mono));
 	font-size: 96%;
 	border-radius: var(--radius-s);
+	font-variant-ligatures: var(--code-block-ligatures, normal);
 }
 
 .StandardTheme__hashtag {
@@ -147,7 +154,7 @@
 /* CODE */
 .StandardTheme__code {
 	background-color: var(--clr-bg-1);
-	font-family: var(--fontfamily-mono);
+	font-family: var(--code-block-font, var(--fontfamily-mono));
 	display: block;
 	padding: 8px 8px 8px 46px;
 	line-height: 1.53;
@@ -156,9 +163,10 @@
 	margin-bottom: var(--markdown-generic-bottom-margin);
 	overflow-x: auto;
 	position: relative;
-	tab-size: 2;
+	tab-size: var(--code-block-tab-size, 2);
 	border-radius: var(--radius-m);
 	border: 1px solid var(--clr-border-2);
+	font-variant-ligatures: var(--code-block-ligatures, normal);
 }
 
 .StandardTheme__code:before {

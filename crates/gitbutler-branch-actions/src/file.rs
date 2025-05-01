@@ -9,10 +9,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_diff::FileDiff;
 use serde::Serialize;
 
-use crate::{
-    conflicts,
-    hunk::{file_hunks_from_diffs, VirtualBranchHunk},
-};
+use crate::hunk::{file_hunks_from_diffs, VirtualBranchHunk};
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -49,10 +46,10 @@ impl From<FileDiff> for RemoteBranchFile {
 }
 
 pub fn list_commit_files(
-    repository: &git2::Repository,
+    repo: &git2::Repository,
     commit_id: git2::Oid,
 ) -> Result<Vec<RemoteBranchFile>> {
-    let commit = repository
+    let commit = repo
         .find_commit(commit_id)
         .map_err(|err| match err.code() {
             git2::ErrorCode::NotFound => anyhow!("commit {commit_id} not found"),
@@ -65,13 +62,13 @@ pub fn list_commit_files(
     }
 
     let parent = commit.parent(0).context("failed to get parent commit")?;
-    let commit_tree = repository
+    let commit_tree = repo
         .find_real_tree(&commit, Default::default())
         .context("failed to get commit tree")?;
-    let parent_tree = repository
+    let parent_tree = repo
         .find_real_tree(&parent, Default::default())
         .context("failed to get parent tree")?;
-    let diff_files = gitbutler_diff::trees(repository, &parent_tree, &commit_tree, true)?;
+    let diff_files = gitbutler_diff::trees(repo, &parent_tree, &commit_tree, true)?;
     Ok(diff_files.into_values().map(|file| file.into()).collect())
 }
 
@@ -114,16 +111,16 @@ pub(crate) fn list_virtual_commit_files(
         return Ok(vec![]);
     }
     let parent = commit.parent(0).context("failed to get parent commit")?;
-    let repository = ctx.repo();
-    let commit_tree = repository
+    let repo = ctx.repo();
+    let commit_tree = repo
         .find_real_tree(commit, Default::default())
         .context("failed to get commit tree")?;
-    let parent_tree = repository
+    let parent_tree = repo
         .find_real_tree(&parent, Default::default())
         .context("failed to get parent tree")?;
     let diff = gitbutler_diff::trees(ctx.repo(), &parent_tree, &commit_tree, context_lines)?;
     let hunks_by_filepath = virtual_hunks_by_file_diffs(&ctx.project().path, diff);
-    Ok(virtual_hunks_into_virtual_files(ctx, hunks_by_filepath))
+    Ok(virtual_hunks_into_virtual_files(hunks_by_filepath))
 }
 
 fn virtual_hunks_by_file_diffs<'a>(
@@ -140,14 +137,12 @@ fn virtual_hunks_by_file_diffs<'a>(
 
 /// NOTE: There is no use returning an iterator here as this acts like the final product.
 pub(crate) fn virtual_hunks_into_virtual_files(
-    ctx: &CommandContext,
     hunks: impl IntoIterator<Item = (PathBuf, Vec<VirtualBranchHunk>)>,
 ) -> Vec<VirtualBranchFile> {
     hunks
         .into_iter()
         .map(|(path, hunks)| {
             let id = path.display().to_string();
-            let conflicted = conflicts::is_conflicting(ctx, Some(&path)).unwrap_or(false);
             let binary = hunks.iter().any(|h| h.binary);
             let modified_at = hunks.iter().map(|h| h.modified_at).max().unwrap_or(0);
             debug_assert!(hunks.iter().all(|hunk| hunk.file_path == path));
@@ -158,7 +153,7 @@ pub(crate) fn virtual_hunks_into_virtual_files(
                 binary,
                 large: false,
                 modified_at,
-                conflicted,
+                conflicted: false, // TODO: Get this from the index
             }
         })
         .collect::<Vec<_>>()

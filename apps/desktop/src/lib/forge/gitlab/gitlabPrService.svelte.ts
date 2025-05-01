@@ -1,6 +1,6 @@
-import { gitlab } from '$lib/forge/gitlab/gitlabClient';
+import { gitlab } from '$lib/forge/gitlab/gitlabClient.svelte';
 import { detailedMrToInstance, mrToInstance } from '$lib/forge/gitlab/types';
-import { ReduxTag } from '$lib/state/tags';
+import { providesItem, invalidatesItem, ReduxTag, invalidatesList } from '$lib/state/tags';
 import { sleep } from '$lib/utils/sleep';
 import { writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
@@ -16,6 +16,7 @@ import type { GitLabApi } from '$lib/state/clientState.svelte';
 import type { StartQueryActionCreatorOptions } from '@reduxjs/toolkit/query';
 
 export class GitLabPrService implements ForgePrService {
+	readonly unit = { name: 'Merge request', abbr: 'MR', symbol: '!' };
 	loading = writable(false);
 	private api: ReturnType<typeof injectEndpoints>;
 
@@ -37,8 +38,8 @@ export class GitLabPrService implements ForgePrService {
 
 		const request = async () => {
 			return await this.api.endpoints.createPr.mutate({
-				head: baseBranchName,
-				base: upstreamName,
+				head: upstreamName,
+				base: baseBranchName,
 				title,
 				body,
 				draft
@@ -52,9 +53,8 @@ export class GitLabPrService implements ForgePrService {
 		while (attempts < 4) {
 			try {
 				const response = await request();
-				if (!response.data) throw response.error;
 				this.posthog?.capture('Gitlab MR Successful');
-				return response.data;
+				return response;
 			} catch (err: any) {
 				lastError = err;
 				attempts++;
@@ -106,7 +106,8 @@ function injectEndpoints(api: GitLabApi) {
 					const mr = await api.MergeRequests.show(upstreamProjectId, args.number);
 					return { data: detailedMrToInstance(mr) };
 				},
-				providesTags: [ReduxTag.GitLabPullRequests]
+				providesTags: (_result, _error, args) =>
+					providesItem(ReduxTag.GitLabPullRequests, args.number)
 			}),
 			createPr: build.mutation<
 				PullRequest,
@@ -117,11 +118,12 @@ function injectEndpoints(api: GitLabApi) {
 					const upstreamProject = await api.Projects.show(upstreamProjectId);
 					const mr = await api.MergeRequests.create(forkProjectId, base, head, title, {
 						description: body,
-						targetProjectId: upstreamProject.id
+						targetProjectId: upstreamProject.id,
+						removeSourceBranch: true
 					});
 					return { data: mrToInstance(mr) };
 				},
-				invalidatesTags: [ReduxTag.GitLabPullRequests]
+				invalidatesTags: (result) => [invalidatesItem(ReduxTag.GitLabPullRequests, result?.number)]
 			}),
 			mergePr: build.mutation<undefined, { number: number; method: MergeMethod }>({
 				queryFn: async ({ number }, query) => {
@@ -129,7 +131,7 @@ function injectEndpoints(api: GitLabApi) {
 					await api.MergeRequests.merge(upstreamProjectId, number);
 					return { data: undefined };
 				},
-				invalidatesTags: [ReduxTag.GitLabPullRequests]
+				invalidatesTags: [invalidatesList(ReduxTag.GitLabPullRequests)]
 			}),
 			updatePr: build.mutation<
 				void,
@@ -150,7 +152,7 @@ function injectEndpoints(api: GitLabApi) {
 					});
 					return { data: undefined };
 				},
-				invalidatesTags: [ReduxTag.GitLabPullRequests]
+				invalidatesTags: [invalidatesList(ReduxTag.GitLabPullRequests)]
 			})
 		})
 	});

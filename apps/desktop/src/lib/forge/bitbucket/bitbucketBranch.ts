@@ -6,6 +6,6 @@ export class BitBucketBranch implements ForgeBranch {
 		if (fork) {
 			name = `${fork}:${name}`;
 		}
-		this.url = `${baseUrl}/branch/${name}?dest=${baseBranch}`;
+		this.url = `${baseUrl}/branch/${name}?dest=${encodeURIComponent(baseBranch)}`;
 	}
 }

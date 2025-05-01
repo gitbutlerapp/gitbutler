@@ -3,27 +3,31 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
+	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
-	import { FocusManager } from '$lib/focus/focusManager.svelte';
+	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
+	import { previousPathBytesFromTreeChange } from '$lib/hunks/change';
 	import { ChangeSelectionService, type SelectedFile } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
-	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
+	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 
 	type Props = {
 		projectId: string;
 		stackId?: string;
 	};
 
-	const { projectId, stackId }: Props = $props();
+	let { projectId, stackId }: Props = $props();
 
-	const [changeSelection, worktreeService, uiState, stackService, focus] = inject(
+	const [changeSelection, worktreeService, uiState, stackService, focusManager] = inject(
 		ChangeSelectionService,
 		WorktreeService,
 		UiState,
@@ -35,15 +39,21 @@
 	const drawerPage = $derived(projectState.drawerPage.get());
 	const isCommitting = $derived(drawerPage.current === 'new-commit');
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
+
 	const defaultBranchResult = $derived(
 		stackId !== undefined ? stackService.defaultBranch(projectId, stackId) : undefined
 	);
-	const defaultBranch = $derived(defaultBranchResult?.current.data);
-	const defaultBranchName = $derived(defaultBranch?.name);
+	const defaultBranchName = $derived(defaultBranchResult?.current.data);
+
 	const selectedChanges = changeSelection.list();
 	const noChangesSelected = $derived(selectedChanges.current.length === 0);
 	const changesResult = $derived(worktreeService.getChanges(projectId));
 	const affectedPaths = $derived(changesResult.current.data?.map((c) => c.path));
+
+	let focusGroup = focusManager.radioGroup({
+		triggers: [Focusable.UncommittedChanges, Focusable.ChangedFiles]
+	});
+	const listActive = $derived(focusGroup.current === Focusable.UncommittedChanges);
 
 	const filesFullySelected = $derived(
 		changeSelection.every(affectedPaths ?? [], (f) => f.type === 'full')
@@ -59,24 +69,17 @@
 		changeSelection.retain(affectedPaths);
 	});
 
-	const focusedArea = $derived(focus.current);
-
 	let listMode: 'list' | 'tree' = $state('list');
-
-	$effect(() => {
-		// If the focused area updates and it matches "left" then we update what
-		// selection should be shown in the main view.
-		if (focusedArea === 'left') {
-			stackState?.activeSelectionId.set({ type: 'worktree' });
-		}
-	});
 
 	function selectEverything() {
 		const affectedPaths =
-			changesResult.current.data?.map((c) => [c.path, c.pathBytes] as const) ?? [];
-		const files: SelectedFile[] = affectedPaths.map(([path, pathBytes]) => ({
+			changesResult.current.data?.map(
+				(c) => [c.path, c.pathBytes, previousPathBytesFromTreeChange(c)] as const
+			) ?? [];
+		const files: SelectedFile[] = affectedPaths.map(([path, pathBytes, previousPathBytes]) => ({
 			path,
 			pathBytes,
+			previousPathBytes,
 			type: 'full'
 		}));
 		changeSelection.addMany(files);
@@ -89,10 +92,11 @@
 	}
 
 	function startCommit() {
-		if (!defaultBranchName) return;
-		stackState?.selection.set({ branchName: defaultBranchName });
 		updateCommitSelection();
 		projectState.drawerPage.set('new-commit');
+		if (defaultBranchName) {
+			stackState?.selection.set({ branchName: defaultBranchName });
+		}
 	}
 
 	function toggleGlobalCheckbox() {
@@ -103,31 +107,20 @@
 		changeSelection.clear();
 	}
 
-	let isHeaderSticky = $state(false);
 	let isFooterSticky = $state(false);
 </script>
 
-<ReduxResult result={changesResult.current}>
-	{#snippet children(changes)}
+<ReduxResult {stackId} {projectId} result={changesResult.current}>
+	{#snippet children(changes, { stackId, projectId })}
 		<ScrollableContainer wide>
-			<div class="uncommitted-changes-wrap">
+			<div
+				class="uncommitted-changes-wrap"
+				use:focusable={{ id: Focusable.UncommittedChanges, parentId: Focusable.WorkspaceLeft }}
+			>
 				<div
+					data-testid={TestId.UncommittedChanges_Header}
+					use:stickyHeader
 					class="worktree-header"
-					class:sticked={isHeaderSticky}
-					use:intersectionObserver={{
-						callback: (entry) => {
-							if (entry?.isIntersecting) {
-								isHeaderSticky = false;
-							} else {
-								isHeaderSticky = true;
-							}
-						},
-						options: {
-							root: null,
-							rootMargin: `-1px 0px 0px 0px`,
-							threshold: 1
-						}
-					}}
 				>
 					<div class="worktree-header__general">
 						{#if isCommitting}
@@ -148,51 +141,45 @@
 					<FileListMode bind:mode={listMode} persist="uncommitted" />
 				</div>
 				{#if changes.length > 0}
-					<div class="uncommitted-changes">
+					<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
 						<FileList
-							selectionId={{ type: 'worktree', showCheckboxes: isCommitting }}
+							selectionId={{ type: 'worktree' }}
+							showCheckboxes={isCommitting}
 							{projectId}
 							{stackId}
 							{changes}
 							{listMode}
+							{listActive}
 						/>
 					</div>
 					<div
+						use:stickyHeader={{ align: 'bottom' }}
 						class="start-commit"
 						class:sticked={isFooterSticky}
-						use:intersectionObserver={{
-							callback: (entry) => {
-								if (entry?.isIntersecting) {
-									isFooterSticky = false;
-								} else {
-									isFooterSticky = true;
-								}
-							},
-							options: {
-								root: null,
-								rootMargin: `-1px 0px 0px 0px`,
-								threshold: 1
-							}
-						}}
 					>
 						<Button
+							testId={TestId.StartCommitButton}
 							kind={isCommitting ? 'outline' : 'solid'}
 							type="button"
 							size="cta"
 							wide
-							disabled={isCommitting}
+							disabled={isCommitting || defaultBranchResult?.current.isLoading}
 							onclick={startCommit}
 						>
 							Start a commit…
 						</Button>
 					</div>
 				{:else}
-					<div class="empty-state">
-						{@html noChanges}
-						<p class="text-13 text-body empty-state-text">
-							You're all caught up!<br />
-							No files need committing
-						</p>
+					<div class="uncommitted-changes__empty">
+						<div class="uncommitted-changes__empty__placeholder">
+							{@html noChanges}
+							<p class="text-13 text-body uncommitted-changes__empty__placeholder-text">
+								You're all caught up!<br />
+								No files need committing
+							</p>
+						</div>
+
+						<WorktreeTipsFooter />
 					</div>
 				{/if}
 			</div>
@@ -208,9 +195,6 @@
 	}
 
 	.worktree-header {
-		position: sticky;
-		top: -1px;
-		z-index: var(--z-ground);
 		display: flex;
 		padding: 10px 10px 10px 14px;
 		width: 100%;
@@ -220,11 +204,6 @@
 		white-space: nowrap;
 		gap: 8px;
 		background-color: var(--clr-bg-1);
-
-		&.sticked {
-			border-top: 1px solid var(--clr-border-2);
-			border-bottom: 1px solid var(--clr-border-2);
-		}
 	}
 
 	.worktree-header__general {
@@ -237,7 +216,7 @@
 	.worktree-header__title {
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		gap: 6px;
 	}
 
 	.uncommitted-changes {
@@ -258,17 +237,23 @@
 		}
 	}
 
-	.empty-state {
+	.uncommitted-changes__empty {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+
+	.uncommitted-changes__empty__placeholder {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		gap: 20px;
 		padding: 0 20px 40px;
-		height: 100%;
 	}
 
-	.empty-state-text {
+	.uncommitted-changes__empty__placeholder-text {
 		text-align: center;
 		color: var(--clr-text-3);
 	}

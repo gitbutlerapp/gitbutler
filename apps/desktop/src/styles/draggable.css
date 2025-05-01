@@ -1,0 +1,190 @@
+/* DRAG CHIPS.
+ * General styles
+ * Basic container for single and multiple items */
+.dragchip-container {
+	position: absolute;
+	display: flex;
+}
+
+.dragchip {
+	z-index: 3;
+	position: relative;
+	display: flex;
+	background-color: var(--clr-bg-1);
+	border-radius: var(--radius-m);
+	border: 1px solid var(--clr-border-2);
+	min-width: 50px;
+	max-width: 250px;
+}
+
+.dragchip-amount {
+	position: absolute;
+	top: -6px;
+	right: -8px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: var(--clr-scale-ntrl-20);
+	color: var(--clr-scale-ntrl-100);
+	padding: 2px 4px;
+	min-width: 16px;
+	border-radius: 16px;
+	margin-left: 5px;
+}
+
+/* if dragging more then one item */
+.dragchip-two:after,
+.dragchip-multiple:before,
+.dragchip-multiple:after {
+	content: '';
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	border-radius: var(--radius-m);
+	background-color: var(--clr-bg-2);
+	border: 1px solid var(--clr-border-2);
+}
+
+.dragchip-two {
+	&::after {
+		z-index: 2;
+		top: 6px;
+		left: 6px;
+	}
+}
+
+.dragchip-multiple {
+	&::before {
+		z-index: 2;
+		top: 6px;
+		left: 6px;
+	}
+
+	&::after {
+		z-index: 1;
+		top: 12px;
+		left: 12px;
+	}
+}
+
+/* File drag */
+.dragchip-file-container {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px;
+}
+
+.dragchip-file-name {
+	color: var(--clr-text-1);
+}
+
+.dragchip-file-icon {
+	width: 16px;
+	height: 16px;
+}
+
+/* Hunk drag */
+.dragchip-hunk-container {
+	display: flex;
+	font-size: 12px;
+	font-family: var(--fontfamily-mono);
+}
+
+.dragchip-hunk-decorator {
+	font-variant-ligatures: none;
+	background-color: var(--clr-bg-2);
+	border-right: 1px solid var(--clr-border-2);
+	padding: 6px 5px;
+	border-radius: var(--radius-m) 0 0 var(--radius-m);
+	color: var(--clr-text-2);
+	letter-spacing: -1px;
+}
+
+.dragchip-hunk-label {
+	padding: 6px 7px;
+}
+
+/* COMMIT DRAG CARD */
+.draggable-commit {
+	position: absolute;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	background-color: var(--clr-bg-1);
+	border-radius: var(--radius-m);
+	border: 1px solid var(--clr-border-2);
+	padding: 12px 12px 12px 16px;
+	overflow: hidden;
+}
+
+.draggable-commit-indicator {
+	&::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 4px;
+		height: 100%;
+	}
+}
+
+.draggable-commit-localAndRemote {
+	&::before {
+		background-color: var(--clr-commit-remote);
+	}
+}
+
+.draggable-commit-local {
+	color: var(--clr-text-1);
+	&::before {
+		background-color: var(--clr-commit-local);
+	}
+}
+
+.draggable-commit-integrated {
+	color: var(--clr-text-1);
+	&::before {
+		background-color: var(--clr-commit-shadow);
+	}
+}
+
+.draggable-commit-author-img {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+}
+
+.draggable-commit-info {
+	display: flex;
+	align-items: center;
+}
+
+.draggable-commit-info-text {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--clr-text-2);
+
+	&:not(:first-child):before {
+		content: '•';
+		margin: 0 5px;
+		color: var(--clr-text-3);
+	}
+}
+
+.dragging {
+	opacity: 0.5;
+}
+
+@keyframes dropzone-scale {
+	from {
+		opacity: 0;
+		transform: scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}

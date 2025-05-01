@@ -10,8 +10,10 @@
 <script lang="ts">
 	import PrTemplateSection from '$components/PrTemplateSection.svelte';
 	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
+	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { projectAiGenEnabled } from '$lib/config/config';
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
@@ -21,16 +23,18 @@
 		BrToPrService,
 		updatePrDescriptionTables as updatePrStackInfo
 	} from '$lib/forge/shared/prFooter';
+	import { TemplateService } from '$lib/forge/templateService';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ProjectsService } from '$lib/project/projectsService';
+	import { RemotesService } from '$lib/remotes/remotesService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { UserService } from '$lib/user/userService';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { sleep } from '$lib/utils/sleep';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { reactive, type Reactive } from '@gitbutler/shared/storeUtils';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
@@ -38,14 +42,16 @@
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { error } from '@gitbutler/ui/toasts';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
+	import { tick } from 'svelte';
 
 	type Props = {
 		projectId: string;
 		stackId: string;
 		branchName: string;
+		onClose: () => void;
 	};
 
-	const { projectId, stackId, branchName }: Props = $props();
+	const { projectId, stackId, branchName, onClose }: Props = $props();
 
 	const baseBranch = getContext(BaseBranch);
 	const forge = getContext(DefaultForgeFactory);
@@ -57,20 +63,21 @@
 	const stackService = getContext(StackService);
 	const projectsService = getContext(ProjectsService);
 	const userService = getContext(UserService);
+	const templateService = getContext(TemplateService);
+	const aiService = getContext(AIService);
+	const remotesService = getContext(RemotesService);
 
 	const user = userService.user;
 	const project = projectsService.getProjectStore(projectId);
 
-	const [publishBranch] = stackService.publishBranch;
-	const [updateBranchPrNumber] = stackService.updateBranchPrNumber;
-	const [pushStack] = stackService.pushStack();
+	const [publishBranch, branchPublishing] = stackService.publishBranch;
+	const [updateBranchPrNumber, PRNumberUpdate] = stackService.updateBranchPrNumber;
+	const [pushStack, stackPush] = stackService.pushStack;
 
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branch = $derived(branchResult.current.data);
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
-	const branches = $derived(
-		branchesResult.current.data?.filter((branch) => !branch.archived) || []
-	);
+	const branches = $derived(branchesResult.current.data || []);
 	const branchParentResult = $derived(
 		stackService.branchParentByName(projectId, stackId, branchName)
 	);
@@ -99,31 +106,51 @@
 	const createButlerRequest = persisted<boolean>(false, 'createButlerRequest');
 	const createPullRequest = persisted<boolean>(true, 'createPullRequest');
 
-	let templateBody = $state<string | undefined>(undefined);
 	const pushBeforeCreate = $derived(
 		!forgeBranch || commits.some((c) => c.state.type === 'LocalOnly')
 	);
 
-	// Displays template select component when true.
-	let useTemplate = persisted(false, `use-template-${projectId}`);
+	let titleInput = $state<ReturnType<typeof Textbox>>();
+
 	// Available pull request templates.
 	let templates = $state<string[]>([]);
+
+	// Load the available templates when the component is mounted.
+	$effect(() => {
+		templateService.getAvailable(forge.current.name).then((templatesResponse) => {
+			templates = templatesResponse;
+		});
+	});
+
+	// AI things
+	const aiGenEnabled = projectAiGenEnabled(projectId);
+	let aiConfigurationValid = $state(false);
+	const canUseAI = $derived($aiGenEnabled && aiConfigurationValid);
+	let aiIsLoading = $state(false);
+
+	$effect(() => {
+		aiService.validateConfiguration().then((valid) => {
+			aiConfigurationValid = valid;
+		});
+	});
+
+	const isExecuting = $derived(
+		branchPublishing.current.isLoading ||
+			PRNumberUpdate.current.isLoading ||
+			stackPush.current.isLoading ||
+			aiIsLoading
+	);
 
 	const canPublishBR = $derived(!!($canPublish && branch?.name && !branch.reviewId));
 	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
 
-	const prTitle = $derived(new ReactivePRTitle(projectId, undefined, commits, branch?.name ?? ''));
+	const prTitle = $derived(new ReactivePRTitle(projectId, commits, branch?.name ?? ''));
 
-	const prBody = $derived(
-		new ReactivePRBody(
-			projectId,
-			branch?.description ?? '',
-			undefined,
-			commits,
-			templateBody,
-			branch?.name ?? ''
-		)
-	);
+	const prBody = new ReactivePRBody();
+
+	$effect(() => {
+		prBody.init(projectId, branch?.description ?? '', commits, branch?.name ?? '');
+	});
 
 	async function pushIfNeeded(): Promise<string | undefined> {
 		let upstreamBranchName: string | undefined = branch?.name;
@@ -135,8 +162,8 @@
 				withForce: branchDetails?.pushStatus === 'unpushedCommitsRequiringForce'
 			});
 
-			if (pushResult.data) {
-				upstreamBranchName = getBranchNameFromRef(pushResult.data.refname, pushResult.data.remote);
+			if (pushResult) {
+				upstreamBranchName = getBranchNameFromRef(pushResult.refname, pushResult.remote);
 			}
 
 			if (firstPush) {
@@ -159,7 +186,8 @@
 		return !$createButlerRequest;
 	}
 
-	export async function createReview(close: () => void) {
+	export async function createReview() {
+		if (isExecuting) return;
 		if (!branch) return;
 		if (!$user) return;
 
@@ -171,13 +199,12 @@
 		// Even if createButlerRequest is false, if we _cant_ create a PR, then
 		// We want to always create the BR, and vice versa.
 		if ((canPublishBR && $createButlerRequest) || !canPublishPR) {
-			const result = await publishBranch({
+			const reviewId = await publishBranch({
 				projectId,
 				stackId,
 				topBranch: branch.name,
 				user: $user
 			});
-			reviewId = result.data;
 			if (!reviewId) {
 				posthog.capture('Butler Review Creation Failed');
 				return;
@@ -199,7 +226,10 @@
 			brToPrService.refreshButRequestPrDescription(prNumber, reviewId, $project.api.repository_id);
 		}
 
-		close();
+		prBody.reset();
+		prTitle.reset();
+
+		onClose();
 	}
 
 	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
@@ -242,19 +272,30 @@
 
 			if (
 				branchParent &&
+				branchParent.prNumber &&
 				branchParentDetails &&
-				branchParentDetails.pushStatus !== 'integrated' &&
-				!branchParent?.archived
+				branchParentDetails.pushStatus !== 'integrated'
 			) {
 				base = branchParent.name;
 			}
+
+			const pushRemoteName = baseBranch.actualPushRemoteName();
+			const allRemotes = await remotesService.remotes(projectId);
+			const pushRemote = allRemotes.find((r) => r.name === pushRemoteName);
+			const pushRemoteUrl = pushRemote?.url;
+
+			const repoInfo = parseRemoteUrl(pushRemoteUrl);
+
+			const upstreamName = repoInfo?.owner
+				? `${repoInfo.owner}:${params.upstreamBranchName}`
+				: params.upstreamBranchName;
 
 			const pr = await prService.createPr({
 				title: params.title,
 				body: params.body,
 				draft: params.draft,
 				baseBranchName: base,
-				upstreamName: params.upstreamBranchName
+				upstreamName
 			});
 
 			// Store the new pull request number with the branch data.
@@ -284,178 +325,211 @@
 		return false;
 	});
 
-	export function createButtonEnabled(): Reactive<boolean> {
-		return reactive(() => isCreateButtonEnabled);
+	async function onAiButtonClick() {
+		if (!aiGenEnabled || aiIsLoading) return;
+
+		aiIsLoading = true;
+		await tick();
+
+		let firstToken = true;
+
+		try {
+			const description = await aiService?.describePR({
+				title: prTitle.value,
+				body: prBody.value,
+				commitMessages: commits.map((c) => c.message),
+				prBodyTemplate: prBody.templateBody,
+				onToken: (token) => {
+					if (firstToken) {
+						prBody.reset();
+						firstToken = false;
+					}
+					prBody.append(token, true);
+				}
+			});
+
+			if (description) {
+				prBody.set(description, true);
+			}
+		} finally {
+			aiIsLoading = false;
+			await tick();
+		}
 	}
+
+	export const imports = {
+		get creationEnabled() {
+			return isCreateButtonEnabled;
+		},
+		get isLoading() {
+			return isExecuting;
+		}
+	};
 </script>
 
 <!-- HEADER -->
 
 <!-- MAIN FIELDS -->
 <div class="pr-content">
-	<div class="pr-fields">
-		<Textbox
-			placeholder="PR title"
-			value={prTitle.value}
-			oninput={(value: string) => {
-				prTitle.set(value);
-			}}
+	<Textbox
+		autofocus
+		size="large"
+		placeholder="PR title"
+		bind:this={titleInput}
+		value={prTitle.value}
+		disabled={isExecuting}
+		oninput={(value: string) => {
+			prTitle.set(value);
+		}}
+		onkeydown={(e: KeyboardEvent) => {
+			if (e.key === 'Enter' || e.key === 'Tab') {
+				e.preventDefault();
+				prBody.descriptionInput?.focus();
+			}
+		}}
+	/>
+
+	<!-- PR TEMPLATE SELECT -->
+	{#if templates.length > 0}
+		<PrTemplateSection
+			bind:selectedTemplate={prBody.templateBody}
+			{templates}
+			disabled={isExecuting}
 		/>
+	{/if}
 
-		<!-- PR TEMPLATE SELECT -->
-		{#if $useTemplate}
-			<PrTemplateSection
-				onselected={(body) => {
-					templateBody = body;
-				}}
-				{templates}
-			/>
-		{/if}
+	<!-- DESCRIPTION FIELD -->
+	<MessageEditor
+		bind:this={prBody.descriptionInput}
+		{projectId}
+		disabled={isExecuting}
+		initialValue={prBody.value}
+		enableFileUpload
+		placeholder={'PR Description'}
+		{onAiButtonClick}
+		{canUseAI}
+		{aiIsLoading}
+		onChange={(text: string) => {
+			prBody.set(text);
+		}}
+		onKeyDown={(e: KeyboardEvent) => {
+			if (e.key === 'Tab' && e.shiftKey) {
+				e.preventDefault();
+				titleInput?.focus();
+				return true;
+			}
 
-		<!-- DESCRIPTION FIELD -->
-		<MessageEditor
-			{projectId}
-			{stackId}
-			initialValue={prBody.value}
-			onChange={(text: string) => {
-				prBody.set(text);
-			}}
-		/>
+			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+				e.preventDefault();
+				createReview();
+				return true;
+			}
 
-		{#if canPublishBR && canPublishPR}
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			<div class="options text-13">
-				<div
-					class="option-card"
-					onclick={() => {
-						$createButlerRequest = !$createButlerRequest;
-					}}
+			return false;
+		}}
+	/>
+
+	{#if canPublishBR && canPublishPR}
+		<div class="options text-13">
+			<label for="create-br" class="option-card">
+				<div class="option-card-header" class:selected={$createButlerRequest}>
+					<div class="option-card-header-content">
+						<div class="option-card-header-title text-semibold">
+							<Icon name="bowtie" />
+							Create Butler Request
+						</div>
+						<span class="options__learn-more">
+							<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
+						</span>
+					</div>
+					<div class="option-card-header-action">
+						<Checkbox disabled={isExecuting} name="create-br" bind:checked={$createButlerRequest} />
+					</div>
+				</div>
+			</label>
+
+			<div class="option-card">
+				<label
+					for="create-pr"
+					class="option-card-header has-settings"
+					class:selected={$createPullRequest}
 				>
-					<div class="option-card-header" class:selected={$createButlerRequest}>
-						<div class="option-card-header-main">
-							<div class="option-card-header-title text-semibold">
-								<Icon name="bowtie" />
-								Create a Butler Request
-							</div>
-							<span class="grey">
-								<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
-							</span>
+					<div class="option-card-header-content">
+						<div class="option-card-header-title text-semibold">
+							<Icon name="github" />
+							Create Pull Request
 						</div>
+					</div>
 
-						<div class="option-card-header-action">
-							<Checkbox bind:checked={$createButlerRequest} />
-						</div>
+					<div class="option-card-header-action">
+						<Checkbox name="create-pr" bind:checked={$createPullRequest} />
 					</div>
-				</div>
-				<div class="option-card">
-					<div
-						class="option-card-header has-settings"
-						class:selected={$createPullRequest}
-						onclick={() => {
-							$createPullRequest = !$createPullRequest;
-						}}
-					>
-						<div class="option-card-header-main">
-							<div class="option-card-header-title text-semibold">
-								<Icon name="github" />
-								Create a Pull Request
-							</div>
-						</div>
-
-						<div class="option-card-header-action">
-							<Checkbox bind:checked={$createPullRequest} />
-						</div>
-					</div>
-					<div
-						class="option-card-body"
-						onclick={() => {
-							$createDraft = !$createDraft;
-						}}
-					>
-						<span class="text-semibold">PR Draft</span>
-						<Toggle checked={$createDraft} />
-					</div>
-				</div>
+				</label>
+				<label
+					for="create-pr-draft"
+					class="option-subcard-drafty"
+					class:disabled={!$createPullRequest}
+				>
+					<span class="text-semibold">PR Draft</span>
+					<Toggle disabled={isExecuting} id="create-pr-draft" bind:checked={$createDraft} />
+				</label>
 			</div>
-		{/if}
-
-		{#if canPublishPR && !canPublishBR}
-			<div class="option-drafty">
-				<span>PR Draft</span>
-				<Toggle
-					checked={$createDraft}
-					onclick={() => {
-						createDraft.set(!$createDraft);
-					}}
-				/>
-			</div>
-		{/if}
-	</div>
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
 	.pr-content {
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-	}
-
-	/* FIELDS */
-
-	.pr-fields {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
-		min-height: 0;
+		overflow: hidden;
 	}
 
 	.options {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: 8px;
-
 		align-items: stretch;
-
 		width: 100%;
 	}
 
 	.option-card {
 		display: flex;
 		flex-direction: column;
-
 		border-radius: var(--radius-m);
 		overflow: hidden;
 	}
 
+	/* OPTION BOX */
 	.option-card-header {
+		display: flex;
 		flex-grow: 1;
-
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
-
-		display: flex;
-
 		padding: 12px;
+		transition: background-color var(--transition-fast);
+
+		&:hover {
+			background-color: var(--clr-bg-1-muted);
+		}
 
 		&.has-settings {
 			border-radius: var(--radius-m) var(--radius-m) 0 0;
 		}
 
 		&.selected {
-			background-color: var(--clr-core-pop-90);
-			border-color: var(--clr-core-pop-50);
+			background-color: var(--clr-theme-pop-bg);
+			border-color: var(--clr-theme-pop-element);
 		}
 	}
 
-	.option-card-header-main {
+	.option-card-header-content {
 		display: flex;
 		flex-direction: column;
-
-		justify-content: center;
-
-		gap: 11px;
-
+		justify-content: flex-end;
+		gap: 10px;
 		flex-grow: 1;
 	}
 
@@ -471,9 +545,8 @@
 		display: block;
 	}
 
-	.option-card-body {
+	.option-subcard-drafty {
 		padding: 12px;
-
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
@@ -481,22 +554,21 @@
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 		border: 1px solid var(--clr-border-2);
 		border-top: none;
+		transition: background-color var(--transition-fast);
+
+		&:hover {
+			background-color: var(--clr-bg-1-muted);
+		}
+
+		&.disabled {
+			pointer-events: none;
+			cursor: not-allowed;
+			opacity: 0.5;
+			background-color: var(--clr-bg-2);
+		}
 	}
 
-	.option-drafty {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-
-		width: 100%;
-
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
-
-		padding: 8px;
-	}
-
-	.grey {
+	.options__learn-more {
 		color: var(--clr-text-2);
 	}
 </style>

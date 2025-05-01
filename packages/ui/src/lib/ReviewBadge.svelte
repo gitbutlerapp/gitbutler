@@ -10,13 +10,21 @@
 	interface Props {
 		prStatus?: 'open' | 'closed' | 'draft' | 'merged' | 'unknown';
 		prNumber?: number;
+		prTitle?: string;
 		brStatus?: 'approved' | 'unreviewed' | 'changes_requested' | 'in-discussion' | 'unknown';
 		brId?: string;
 	}
 
-	const { prStatus, prNumber, brStatus, brId }: Props = $props();
+	const { prStatus, prNumber, prTitle, brStatus, brId }: Props = $props();
 
 	function getPrBadgeDetails() {
+		if (prTitle) {
+			return {
+				text: prTitle,
+				color: undefined
+			};
+		}
+
 		switch (prStatus) {
 			case 'open':
 				return {
@@ -115,7 +123,7 @@
 		align-items: center;
 		justify-content: center;
 		gap: 4px;
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-ml);
 		width: fit-content;
 		height: var(--size-icon);
 		border: 1px solid var(--clr-border-2);

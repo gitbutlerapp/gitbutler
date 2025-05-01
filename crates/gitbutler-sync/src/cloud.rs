@@ -34,7 +34,7 @@ pub fn take_synced_snapshot(
         virtual_branches_handle.set_stack(stack)?;
     }
 
-    let snapshot = project.create_snapshot(
+    let snapshot = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::SyncWorkspace),
         guard.write_permission(),
     )?;
@@ -84,7 +84,6 @@ pub fn push_repo(
 pub fn push_oplog(ctx: &CommandContext, user: &users::User) -> Result<()> {
     // Push Oplog head
     let oplog_refspec = ctx
-        .project()
         .oplog_head()?
         .map(|sha| format!("+{}:refs/gitbutler/oplog", sha));
 

@@ -34,24 +34,31 @@
 		tooltipAlign?: TooltipAlign;
 		tooltipDelay?: number;
 		testId?: string;
+		loading?: boolean;
 		// Snippets
 		children?: Snippet;
 	};
 
-	type Props = ButtonPropsSubset & { action: () => Promise<void> };
-	const { action, ...rest }: Props = $props();
+	type Props = ButtonPropsSubset & { action: () => Promise<void>; stopPropagation?: boolean };
+	let { action, loading = $bindable(), stopPropagation = false, ...rest }: Props = $props();
 
 	let state = $state<'inert' | 'loading' | 'complete'>('inert');
 
-	async function performAction() {
-		state = 'loading';
+	async function performAction(event: Event) {
+		if (stopPropagation) {
+			event.stopPropagation();
+		}
+
+		loading = true;
 
 		try {
 			await action();
 		} finally {
-			state = 'complete';
+			loading = false;
 		}
 	}
+
+	const isLoading = $derived(loading ?? state === 'loading');
 </script>
 
-<Button onclick={performAction} loading={state === 'loading'} {...rest}></Button>
+<Button onclick={performAction} loading={isLoading} {...rest}></Button>

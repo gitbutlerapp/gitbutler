@@ -5,9 +5,9 @@
 	import Dropzone from '$components/Dropzone.svelte';
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import { BranchStack } from '$lib/branches/branch';
-	import { BranchController } from '$lib/branches/branchController';
 	import { BranchFileDzHandler, BranchHunkDzHandler } from '$lib/branches/dropHandler';
 	import { Project } from '$lib/project/project';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import type { Writable } from 'svelte/store';
 
@@ -19,15 +19,15 @@
 
 	const project = getContext(Project);
 	const branchStore = getContextStore(BranchStack);
-	const branchController = getContext(BranchController);
+	const stackService = getContext(StackService);
 
 	const stack = $derived($branchStore);
 
 	let commitDialog = $state<ReturnType<typeof CommitDialog>>();
 	const dzFileHandler = $derived(
-		new BranchFileDzHandler(branchController, stack.id, stack.ownership)
+		new BranchFileDzHandler(stackService, project.id, stack.id, stack.ownership)
 	);
-	const dzHunkHandler = $derived(new BranchHunkDzHandler(branchController, stack));
+	const dzHunkHandler = $derived(new BranchHunkDzHandler(stackService, project.id, stack));
 </script>
 
 <div class="branch-card__files">
@@ -36,6 +36,7 @@
 			<CardOverlay {hovered} {activated} label="Move here" />
 		{/snippet}
 		<BranchFiles
+			projectId={project.id}
 			isUnapplied={false}
 			files={stack.files}
 			branches={stack.validSeries}

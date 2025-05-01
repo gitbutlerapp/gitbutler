@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
-use gitbutler_oxidize::RepoExt;
+use gitbutler_oxidize::{ObjectIdExt, RepoExt};
 use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_stack::{Stack, StackId};
@@ -84,7 +84,7 @@ impl RepoActionsExt for CommandContext {
         let (should_write, with_force) =
             match self.repo().find_reference(&stack.refname()?.to_string()) {
                 Ok(reference) => match reference.target() {
-                    Some(head_oid) => Ok((head_oid != stack.head(&gix_repo)?, true)),
+                    Some(head_oid) => Ok((head_oid != stack.head_oid(&gix_repo)?.to_git2(), true)),
                     None => Ok((true, true)),
                 },
                 Err(err) => match err.code() {
@@ -98,7 +98,7 @@ impl RepoActionsExt for CommandContext {
             self.repo()
                 .reference(
                     &stack.refname()?.to_string(),
-                    stack.head(&gix_repo)?,
+                    stack.head_oid(&gix_repo)?.to_git2(),
                     with_force,
                     "new vbranch",
                 )

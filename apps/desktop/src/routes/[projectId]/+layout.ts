@@ -1,9 +1,5 @@
 import { getUserErrorCode } from '$lib/backend/ipc';
-import { BranchController } from '$lib/branches/branchController';
-import { BranchListingService } from '$lib/branches/branchListing';
 import { GitBranchService } from '$lib/branches/gitBranch';
-import { VirtualBranchService } from '$lib/branches/virtualBranchService';
-import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
 import { UncommitedFilesWatcher } from '$lib/files/watcher';
 import { TemplateService } from '$lib/forge/templateService';
@@ -20,7 +16,7 @@ export const prerender = false;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async ({ params, parent }) => {
-	const { projectsService, commandService, userService, posthog, projectMetrics } = await parent();
+	const { projectsService, commandService, userService, projectMetrics } = await parent();
 
 	const projectId = params.projectId;
 	projectsService.setLastOpenedProject(projectId);
@@ -49,26 +45,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const historyService = new HistoryService(projectId);
 	const templateService = new TemplateService(projectId);
 
-	const branchListingService = new BranchListingService(projectId);
 	const gitBranchService = new GitBranchService(projectId);
-
-	const vbranchService = new VirtualBranchService(
-		projectId,
-		projectMetrics,
-		branchListingService,
-		modeService
-	);
-
-	const branchController = new BranchController(
-		projectId,
-		vbranchService,
-		branchListingService,
-		posthog
-	);
-
-	const stackingReorderDropzoneManagerFactory = new StackingReorderDropzoneManagerFactory(
-		branchController
-	);
 
 	const uncommitedFileWatcher = new UncommitedFilesWatcher(project);
 	const syncedSnapshotService = new SyncedSnapshotService(
@@ -84,22 +61,15 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 	return {
 		templateService,
-		branchController,
 		historyService,
 		projectId,
 		project,
 		projectService,
 		gitBranchService,
-		vbranchService,
 		projectMetrics,
 		modeService,
 		fetchSignal,
-
-		// These observables are provided for convenience
-		stackingReorderDropzoneManagerFactory,
-		branchListingService,
 		uncommitedFileWatcher,
-
 		// Cloud-related services
 		syncedSnapshotService,
 		stackPublishingService

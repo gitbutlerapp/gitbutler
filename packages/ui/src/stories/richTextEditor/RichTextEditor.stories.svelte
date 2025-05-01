@@ -29,7 +29,7 @@
 
 {#snippet template({ ...args }: Args<typeof Story>, _context: StoryContext<typeof Story>)}
 	<div class="wrap">
-		<FormattingBar bind:formatter canUseAI onAiButtonClick={() => {}} />
+		<FormattingBar bind:formatter />
 		<div class="text-input">
 			<RichTextEditor
 				namespace={args.namespace || 'commit-message'}

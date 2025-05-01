@@ -1,10 +1,9 @@
-import { PrismaClient } from '@prisma/client';
 import type { Task } from '@/types';
 
 export const syncButlers: Task = {
 	name: 'sync-butlers',
 	schedule: '*/10 * * * *', // Run every 10 minutes
-	execute: async (prisma: PrismaClient, client) => {
+	execute: async ({ prisma, client }) => {
 		try {
 			// Get the allowed guild ID from environment variables
 			const allowedGuildId = process.env.ALLOWED_GUILD;

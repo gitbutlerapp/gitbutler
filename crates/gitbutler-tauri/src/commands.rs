@@ -82,18 +82,6 @@ pub fn delete_all_data(app: State<'_, App>) -> Result<(), Error> {
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app, settings), err(Debug))]
-pub fn mark_resolved(
-    app: State<'_, App>,
-    settings: State<'_, AppSettingsWithDiskSync>,
-    project_id: ProjectId,
-    path: &str,
-) -> Result<(), Error> {
-    app.mark_resolved(project_id, path, settings.get()?.clone())?;
-    Ok(())
-}
-
-#[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn git_set_global_config(key: &str, value: &str) -> Result<String, Error> {
     Ok(App::git_set_global_config(key, value)?)

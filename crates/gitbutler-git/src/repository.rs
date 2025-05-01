@@ -49,6 +49,8 @@ pub enum RepositoryError<
     AskpassDeviceMismatch,
     #[error("failed to perform askpass security check; executable mismatch")]
     AskpassExecutableMismatch,
+    #[error("Askpass Not found. Run `cargo build -p gitbutler-git` to get the binaries needed")]
+    AskpassExecutableNotFound,
 }
 
 /// Higher level errors that can occur when interacting with the CLI.
@@ -108,10 +110,9 @@ where
         .into_owned();
 
     let res = executor.stat(&askpath_path).await.map_err(Error::<E>::Exec);
-    debug_assert!(
-        res.is_ok(),
-        "Run `cargo build -p gitbutler-git` to get the binaries needed for this assertion to pass ({askpath_path:?} not found)"
-    );
+    if res.is_err() {
+        return Err(Error::<E>::AskpassExecutableNotFound);
+    }
     let askpath_stat = res?;
 
     #[cfg(unix)]

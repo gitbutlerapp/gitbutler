@@ -21,12 +21,16 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects), err(Debug))]
+    #[instrument(skip(projects, users), err(Debug))]
     pub fn add_project(
         projects: State<'_, Controller>,
+        users: State<'_, gitbutler_user::Controller>,
         path: &path::Path,
     ) -> Result<projects::Project, Error> {
-        Ok(projects.add(path)?)
+        let user = users.get_user()?;
+        let name = user.as_ref().and_then(|u| u.name.clone());
+        let email = user.as_ref().and_then(|u| u.email.clone());
+        Ok(projects.add(path, name, email)?)
     }
 
     #[tauri::command(async)]
@@ -79,6 +83,23 @@ pub mod commands {
             &project,
             app_settings.inner().clone(),
         )?)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects, window_state, window), err(Debug))]
+    pub fn get_active_project(
+        projects: State<'_, Controller>,
+        window_state: State<'_, WindowState>,
+        window: Window,
+    ) -> Result<Option<projects::Project>, Error> {
+        let project_id = window_state.get_active_project_by_window(window.label());
+        let Some(project_id) = project_id else {
+            return Ok(None);
+        };
+        let project = projects
+            .get_validated(project_id)
+            .context("project not found")?;
+        Ok(Some(project))
     }
 
     /// Open the project with the given ID in a new Window, or focus an existing one.

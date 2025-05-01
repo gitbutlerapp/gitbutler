@@ -6,35 +6,77 @@
 	import PullRequestSidebarEntry from '$components/PullRequestSidebarEntry.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import {
-		CombinedBranchListingService,
+		combineBranchesAndPrs,
+		groupBranches,
 		type SidebarEntrySubject
 	} from '$lib/branches/branchListing';
+	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
-	import { writable } from 'svelte/store';
+	import Fuse from 'fuse.js';
 
 	const { projectId }: { projectId: string } = $props();
 
-	const [forge, combinedBranchListingService] = inject(
-		DefaultForgeFactory,
-		CombinedBranchListingService
+	const selectedOption = persisted<'all' | 'pullRequest' | 'local'>(
+		'all',
+		`branches-selectedOption-${projectId}`
 	);
 
-	let searchEl: HTMLInputElement;
+	const searchEngine = new Fuse([] as SidebarEntrySubject[], {
+		keys: [
+			// Subject is branch listing
+			'subject.name',
+			'subject.lastCommiter.email',
+			'subject.lastCommiter.name',
+			'subject.virtualBranch.stackBranches',
+			// Subject is pull request
+			'subject.title',
+			'subject.author.email',
+			'subject.author.name'
+		],
+		threshold: 0.3, // 0 is the strictest.
+		ignoreLocation: true,
+		isCaseSensitive: false,
+		sortFn: (a, b) => {
+			// Sort results by when the item was last modified.
+			const dateA = (a.item.modifiedAt ?? a.item.updatedAt) as Date | undefined;
+			const dateB = (b.item.modifiedAt ?? b.item.updatedAt) as Date | undefined;
+			if (dateA !== undefined && dateB !== undefined && dateA !== dateB) {
+				return dateA < dateB ? -1 : 1;
+			}
+			// If there are no dates or they're the same, sort by score
+			return a.score < b.score ? -1 : 1;
+		}
+	});
+
+	let searchTerm = $state('');
+	let searchEl: HTMLInputElement | undefined = $state();
 	let searching = $state(false);
-	let searchTerm = writable<string | undefined>();
+
+	const [forge, branchService] = inject(DefaultForgeFactory, BranchService);
 
 	const pollingInterval = 15 * 60 * 1000; // 15 minutes.
-	const listResult = $derived(forge.current.listService?.list(projectId, pollingInterval));
+	const prListResult = $derived(forge.current.listService?.list(projectId, pollingInterval));
+
+	const branchesResult = $derived(branchService.list(projectId));
+	const combined = $derived(
+		combineBranchesAndPrs(
+			prListResult?.current.data || [],
+			branchesResult.current.data || [],
+			$selectedOption
+		)
+	);
+	const groupedBranches = $derived(groupBranches(combined));
+	const searchedBranches = $derived(searchTerm ? searchEngine.search(searchTerm) : []);
 
 	$effect(() => {
-		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-		listResult?.current; // Intentional noop to keep subscription active.
+		searchEngine.setCollection(combined);
 	});
 
 	function handleSearchKeyDown(e: KeyboardEvent) {
@@ -45,14 +87,13 @@
 
 	function closeSearch() {
 		searching = false;
-		searchTerm.set(undefined);
+		searchTerm = '';
 	}
 
 	function openSearch() {
 		searching = true;
-
 		setTimeout(() => {
-			searchEl.focus();
+			searchEl?.focus();
 		}, 0);
 	}
 
@@ -64,14 +105,8 @@
 		}
 	}
 
-	const branchListings = combinedBranchListingService.combinedSidebarEntries;
-	const searchedBranches = combinedBranchListingService.search(searchTerm);
-	const groupedBranches = combinedBranchListingService.groupedSidebarEntries;
-	const selectedOption = combinedBranchListingService.selectedOption;
-	const pullRequestsListed = !!forge.current.listService;
-
 	const filterOptions = $derived.by(() => {
-		if (pullRequestsListed) {
+		if (forge.current.listService) {
 			return {
 				all: 'All',
 				pullRequest: 'PRs',
@@ -101,7 +136,11 @@
 
 {#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
 	{#if sidebarEntrySubject.type === 'branchListing'}
-		<BranchListingSidebarEntry {projectId} branchListing={sidebarEntrySubject.subject} />
+		<BranchListingSidebarEntry
+			{projectId}
+			branchListing={sidebarEntrySubject.subject}
+			prs={sidebarEntrySubject.prs}
+		/>
 	{:else}
 		<PullRequestSidebarEntry pullRequest={sidebarEntrySubject.subject} />
 	{/if}
@@ -122,7 +161,7 @@
 			<div class="branches-title" class:hide-branch-title={searching}>
 				<span class="text-14 text-bold">Branches</span>
 
-				<Badge>{$branchListings.length}</Badge>
+				<Badge>{combined.length}</Badge>
 			</div>
 
 			<div class="search-container" class:show-search={searching}>
@@ -137,7 +176,7 @@
 
 				<input
 					bind:this={searchEl}
-					bind:value={$searchTerm}
+					bind:value={searchTerm}
 					class="search-input text-13"
 					type="text"
 					placeholder="Search branches"
@@ -148,22 +187,24 @@
 
 		<SegmentControl fullWidth defaultIndex={selectedFilterIndex} onselect={setFilter}>
 			{#each Object.entries(filterOptions) as [segmentId, segmentCopy]}
-				<Segment id={segmentId}>{segmentCopy}</Segment>
+				<Segment id={segmentId} disabled={!!searchTerm}>{segmentCopy}</Segment>
 			{/each}
 		</SegmentControl>
 	</div>
 
-	{#if $branchListings.length > 0}
-		{#if $searchedBranches.length > 0 || $searchTerm === undefined}
+	{#if combined.length > 0}
+		{#if searchedBranches.length > 0 || !searchTerm}
 			<div class="branch-entries-list">
 				<ScrollableContainer>
-					{#if $searchTerm}
+					{#if searchTerm}
 						<div class="group">
-							{#each $searchedBranches as sidebarEntrySubject}
+							{#each searchedBranches as searchResult}
+								{@const sidebarEntrySubject = searchResult.item}
 								{#if sidebarEntrySubject.type === 'branchListing'}
 									<BranchListingSidebarEntry
 										{projectId}
 										branchListing={sidebarEntrySubject.subject}
+										prs={sidebarEntrySubject.prs}
 									/>
 								{:else}
 									<PullRequestSidebarEntry pullRequest={sidebarEntrySubject.subject} />
@@ -171,11 +212,11 @@
 							{/each}
 						</div>
 					{:else}
-						{@render branchGroup({ title: 'Applied', children: $groupedBranches.applied })}
-						{@render branchGroup({ title: 'Today', children: $groupedBranches.today })}
-						{@render branchGroup({ title: 'Yesterday', children: $groupedBranches.yesterday })}
-						{@render branchGroup({ title: 'Last week', children: $groupedBranches.lastWeek })}
-						{@render branchGroup({ title: 'Older', children: $groupedBranches.older })}
+						{@render branchGroup({ title: 'Applied', children: groupedBranches.applied })}
+						{@render branchGroup({ title: 'Today', children: groupedBranches.today })}
+						{@render branchGroup({ title: 'Yesterday', children: groupedBranches.yesterday })}
+						{@render branchGroup({ title: 'Last week', children: groupedBranches.lastWeek })}
+						{@render branchGroup({ title: 'Older', children: groupedBranches.older })}
 					{/if}
 				</ScrollableContainer>
 			</div>

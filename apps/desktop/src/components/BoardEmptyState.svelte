@@ -1,10 +1,10 @@
 <script lang="ts">
 	import zenSvg from '$lib/assets/dzen-pc.svg?raw';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { BranchController } from '$lib/branches/branchController';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { getContext, getContextStoreBySymbol, maybeGetContext } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -12,8 +12,8 @@
 
 	const forge = getContext(DefaultForgeFactory);
 	const baseBranch = maybeGetContext(BaseBranch);
-	const branchController = getContext(BranchController);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+	const stackService = getContext(StackService);
 
 	const project = getContext(Project);
 
@@ -47,8 +47,10 @@
 							class="empty-board__suggestions__link"
 							role="button"
 							tabindex="0"
-							onkeypress={async () => await branchController.createBranch({})}
-							onclick={async () => await branchController.createBranch({})}
+							onkeypress={async () =>
+								await stackService.newStackMutation({ projectId: project.id, branch: {} })}
+							onclick={async () =>
+								await stackService.newStackMutation({ projectId: project.id, branch: {} })}
 						>
 							<div class="empty-board__suggestions__link__icon">
 								<Icon name="add-new" />

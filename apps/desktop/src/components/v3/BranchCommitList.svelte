@@ -12,6 +12,7 @@
 		stackId: string;
 		branchName: string;
 		selectedCommitId?: string;
+		empty?: Snippet;
 		upstreamTemplate?: Snippet<
 			[
 				{
@@ -31,7 +32,7 @@
 					first: boolean;
 					last: boolean;
 					lastCommit: boolean;
-					selected: boolean;
+					selectedCommitId: string | undefined;
 				}
 			]
 		>;
@@ -42,6 +43,7 @@
 		stackId,
 		branchName,
 		selectedCommitId,
+		empty,
 		localAndRemoteTemplate,
 		upstreamTemplate
 	}: Props = $props();
@@ -54,8 +56,15 @@
 	);
 </script>
 
-<ReduxResult result={combineResults(upstreamOnlyCommits.current, localAndRemoteCommits.current)}>
-	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits])}
+<ReduxResult
+	{stackId}
+	{projectId}
+	result={combineResults(upstreamOnlyCommits.current, localAndRemoteCommits.current)}
+>
+	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits], { stackId })}
+		{#if localAndRemoteCommits.length === 0}
+			{@render empty?.()}
+		{/if}
 		<div class="commit-list">
 			{#if upstreamTemplate}
 				{#each upstreamOnlyCommits as commit, i (commit.id)}
@@ -72,14 +81,13 @@
 					{@const first = i === 0}
 					{@const last = i === localAndRemoteCommits.length - 1}
 					{@const commitKey = { stackId, branchName, commitId: commit.id, upstream: false }}
-					{@const selected = selectedCommitId === commit.id}
 					{@render localAndRemoteTemplate({
 						commit,
 						commitKey,
 						first,
 						last,
 						lastCommit: last,
-						selected
+						selectedCommitId
 					})}
 				{/each}
 			{/if}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/Icon.svelte';
+	import Tooltip from '$lib/Tooltip.svelte';
 	import { keysStringToArr } from '$lib/utils/hotkeys';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
@@ -11,30 +12,50 @@
 		control?: Snippet;
 		keyboardShortcut?: string;
 		onclick: (e: MouseEvent) => void;
+		testId?: string;
+		tooltip?: string;
 	}
 
-	const { onclick, icon, label, disabled, control, keyboardShortcut }: Props = $props();
+	const { onclick, icon, label, disabled, control, keyboardShortcut, testId, tooltip }: Props =
+		$props();
 </script>
 
-<button type="button" class="menu-item focus-state no-select" class:disabled {disabled} {onclick}>
-	{#if icon}
-		<Icon name={icon} />
-	{/if}
+{#snippet button()}
+	<button
+		data-testid={testId}
+		type="button"
+		class="menu-item focus-state no-select"
+		class:disabled
+		{disabled}
+		{onclick}
+	>
+		{#if icon}
+			<Icon name={icon} />
+		{/if}
 
-	<span class="menu-item__label text-12">
-		{label}
-	</span>
-	{#if keyboardShortcut}
-		<span class="menu-item__shortcut text-12">
-			{#each keysStringToArr(keyboardShortcut) as key}
-				<span>{key}</span>
-			{/each}
+		<span class="menu-item__label text-12">
+			{label}
 		</span>
-	{/if}
-	{#if control}
-		{@render control()}
-	{/if}
-</button>
+		{#if keyboardShortcut}
+			<span class="menu-item__shortcut text-12">
+				{#each keysStringToArr(keyboardShortcut) as key}
+					<span>{key}</span>
+				{/each}
+			</span>
+		{/if}
+		{#if control}
+			{@render control()}
+		{/if}
+	</button>
+{/snippet}
+
+{#if tooltip}
+	<Tooltip text={tooltip}>
+		{@render button()}
+	</Tooltip>
+{:else}
+	{@render button()}
+{/if}
 
 <style lang="postcss">
 	.menu-item {

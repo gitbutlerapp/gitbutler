@@ -1,10 +1,10 @@
-import type { Command, Task } from '@/types';
+import type { Command } from '@/types';
 
 export const runTask: Command = {
 	name: 'runtask',
 	help: 'Runs a specified task immediately. Usage: `!runtask <task-name>`',
 	butlerOnly: true,
-	execute: async (message, prisma, extra) => {
+	execute: async ({ message, prisma, octokit, tasks, openai }) => {
 		try {
 			// Get the task name from the message
 			const args = message.content.slice('!runtask'.length).trim().split(/\s+/);
@@ -12,7 +12,6 @@ export const runTask: Command = {
 
 			if (!taskName) {
 				// List available tasks if no task name is provided
-				const tasks = (extra?.tasks as Task[]) || [];
 				if (tasks.length === 0) {
 					await message.reply('No tasks available to run.');
 					return;
@@ -26,7 +25,6 @@ export const runTask: Command = {
 			}
 
 			// Find the task
-			const tasks = (extra?.tasks as Task[]) || [];
 			const task = tasks.find((t) => t.name === taskName);
 
 			if (!task) {
@@ -40,7 +38,7 @@ export const runTask: Command = {
 			await message.reply(`Running task "${task.name}"...`);
 
 			// Execute the task
-			await task.execute(prisma, message.client);
+			await task.execute({ prisma, octokit, client: message.client, openai });
 
 			// Confirm task completion
 			await message.reply(`Task "${task.name}" completed successfully.`);

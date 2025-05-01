@@ -1,7 +1,6 @@
 use std::{path::Path, time};
 
 use crate::{
-    conflicts::RepoConflictsExt,
     hunk::VirtualBranchHunk,
     integration::update_workspace_commit,
     remote::{commit_to_remote_commit, RemoteCommit},
@@ -11,7 +10,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
-use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt};
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt};
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{
@@ -78,12 +77,12 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
 
     let base_tree = git2_to_gix_object_id(target_commit.tree_id());
     let mut final_tree_id = git2_to_gix_object_id(target_commit.tree_id());
-    let gix_repo = ctx.gix_repository_for_merging()?;
+    let gix_repo = ctx.gix_repo_for_merging()?;
     let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     for branch in &virtual_branches {
         // merge this branches tree with our tree
         let branch_tree_id = git2_to_gix_object_id(
-            repo.find_commit(branch.head(&gix_repo)?)
+            repo.find_commit(branch.head_oid(&gix_repo)?.to_git2())
                 .context("failed to find branch head")?
                 .tree_id(),
         );
@@ -243,7 +242,7 @@ pub(crate) fn set_base_branch(
                 None,
                 ctx.project().ok_with_force_push.into(),
                 true, // allow duplicate name since here we are creating a lane from an existing branch
-            );
+            )?;
             branch.ownership = ownership;
 
             vb_state.set_stack(branch)?;
@@ -397,7 +396,6 @@ fn default_target(base_path: &Path) -> Result<Target> {
 }
 
 pub(crate) fn push(ctx: &CommandContext, with_force: bool) -> Result<()> {
-    ctx.assure_resolved()?;
     let target = default_target(&ctx.project().gb_dir())?;
     let _ = ctx.push(target.sha, &target.branch, with_force, None, None);
     Ok(())

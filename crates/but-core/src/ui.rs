@@ -28,6 +28,16 @@ impl From<crate::WorktreeChanges> for WorktreeChanges {
     }
 }
 
+/// All the changes that were made to the tree, including stats
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TreeChanges {
+    /// The changes that were made to the tree.
+    pub changes: Vec<TreeChange>,
+    /// The stats of the changes.
+    pub stats: TreeStats,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TreeChange {
@@ -35,6 +45,27 @@ pub struct TreeChange {
     /// Something silently carried back and forth between the frontend and the backend.
     pub path_bytes: BString,
     pub status: TreeStatus,
+}
+
+impl From<gix::object::tree::diff::Stats> for TreeStats {
+    fn from(stats: gix::object::tree::diff::Stats) -> Self {
+        TreeStats {
+            lines_added: stats.lines_added,
+            lines_removed: stats.lines_removed,
+            files_changed: stats.files_changed,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TreeStats {
+    /// The total amount of lines added.
+    pub lines_added: u64,
+    /// The total amount of lines removed.
+    pub lines_removed: u64,
+    /// The number of files added, removed or modified.
+    pub files_changed: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -218,6 +249,50 @@ impl From<crate::ModeFlags> for ModeFlags {
             crate::ModeFlags::TypeChangeFileToLink => ModeFlags::TypeChangeFileToLink,
             crate::ModeFlags::TypeChangeLinkToFile => ModeFlags::TypeChangeLinkToFile,
             crate::ModeFlags::TypeChange => ModeFlags::TypeChange,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeUnifiedDiff {
+    tree_change: TreeChange,
+    diff: crate::UnifiedDiff,
+}
+
+impl From<&(crate::TreeChange, crate::UnifiedDiff)> for ChangeUnifiedDiff {
+    fn from(unified_diff: &(crate::TreeChange, crate::UnifiedDiff)) -> Self {
+        ChangeUnifiedDiff {
+            tree_change: unified_diff.0.clone().into(),
+            diff: unified_diff.1.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnifiedWorktreeChanges {
+    /// Changes that were in the index that we can't handle. The user can see them and interact with them to clear them out before a commit can be made.
+    ignored_changes: Vec<IgnoredWorktreeChange>,
+    /// Unified diff changes that could be committed.
+    changes: Vec<ChangeUnifiedDiff>,
+}
+
+impl
+    From<(
+        crate::WorktreeChanges,
+        &Vec<(crate::TreeChange, crate::UnifiedDiff)>,
+    )> for UnifiedWorktreeChanges
+{
+    fn from(
+        (worktree_changes, changes): (
+            crate::WorktreeChanges,
+            &Vec<(crate::TreeChange, crate::UnifiedDiff)>,
+        ),
+    ) -> Self {
+        UnifiedWorktreeChanges {
+            ignored_changes: worktree_changes.ignored_changes,
+            changes: changes.iter().map(ChangeUnifiedDiff::from).collect(),
         }
     }
 }

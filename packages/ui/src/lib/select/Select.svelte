@@ -229,7 +229,6 @@
 		<Textbox
 			{id}
 			{placeholder}
-			noselect
 			readonly
 			type="select"
 			reversedDirection

@@ -5,7 +5,7 @@ export const removeChannel: Command = {
 	help: "Removes the current channel from the bot's registry.",
 	aliases: ['unregisterchannel'],
 	butlerOnly: true,
-	execute: async (message, prisma) => {
+	execute: async ({ message, prisma }) => {
 		try {
 			// Check if the channel is registered
 			const existingChannel = await prisma.channel.findUnique({

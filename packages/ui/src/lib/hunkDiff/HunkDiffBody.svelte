@@ -4,14 +4,18 @@
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import {
 		type ContentSection,
+		type DependencyLock,
 		generateRows,
 		type LineId,
+		lineIdKey,
+		type LineLock,
 		type LineSelector,
 		parserFromFilename,
 		type Row,
 		SectionType
 	} from '$lib/utils/diffParsing';
 	import type { LineSelectionParams } from '$lib/hunkDiff/lineSelection.svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		filePath: string;
@@ -21,6 +25,7 @@
 		diffFont?: string;
 		inlineUnifiedDiffs?: boolean;
 		selectedLines?: LineSelector[];
+		lineLocks?: LineLock[];
 		onLineClick?: (params: LineSelectionParams) => void;
 		clearLineSelection?: () => void;
 		onQuoteSelection?: () => void;
@@ -32,6 +37,7 @@
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
 		clickOutsideExcludeElement?: HTMLElement;
 		comment?: string;
+		lockWarning?: Snippet<[DependencyLock[]]>;
 	}
 
 	const {
@@ -45,6 +51,7 @@
 		tabSize = 4,
 		inlineUnifiedDiffs = false,
 		selectedLines,
+		lineLocks,
 		numberHeaderWidth,
 		onCopySelection,
 		onQuoteSelection,
@@ -52,15 +59,48 @@
 		stagedLines,
 		hideCheckboxes,
 		handleLineContextMenu,
-		clickOutsideExcludeElement
+		clickOutsideExcludeElement,
+		lockWarning
 	}: Props = $props();
 
 	const lineSelection = new LineSelection();
 	const parser = $derived(parserFromFilename(filePath));
 	const renderRows = $derived(
-		generateRows(filePath, content, inlineUnifiedDiffs, parser, selectedLines)
+		generateRows(filePath, content, inlineUnifiedDiffs, parser, selectedLines, lineLocks)
 	);
 	const clickable = $derived(!!onLineClick);
+	const maxLineNumber = $derived.by(() => {
+		if (renderRows.length === 0) return 0;
+
+		const lastRow = renderRows.at(-1);
+		if (!lastRow) return 0;
+
+		if (lastRow.beforeLineNumber === undefined && lastRow.afterLineNumber === undefined) {
+			return 0;
+		}
+
+		if (lastRow.beforeLineNumber === undefined) {
+			return lastRow.afterLineNumber;
+		}
+
+		if (lastRow.afterLineNumber === undefined) {
+			return lastRow.beforeLineNumber;
+		}
+		return Math.max(lastRow.beforeLineNumber, lastRow.afterLineNumber);
+	});
+
+	function getGutterMinWidth(max: number | undefined) {
+		if (!max) {
+			return 1;
+		}
+		if (max >= 10000) return 2.5;
+		if (max >= 1000) return 2;
+		if (max >= 100) return 1.5;
+		if (max >= 10) return 1.25;
+		return 1;
+	}
+
+	const minWidth = $derived(getGutterMinWidth(maxLineNumber));
 
 	$effect(() => lineSelection.setRows(renderRows));
 	$effect(() => lineSelection.setOnLineClick(onLineClick));
@@ -95,9 +135,11 @@
 			],
 			false,
 			parser,
-			[]
+			undefined,
+			undefined
 		);
 	});
+
 	const commentRow = $derived(commentRows?.[0]);
 </script>
 
@@ -121,8 +163,9 @@
 		</tr>
 	{/if}
 
-	{#each renderRows as row, idx}
+	{#each renderRows as row, idx (lineIdKey( { oldLine: row.beforeLineNumber, newLine: row.afterLineNumber } ))}
 		<HunkDiffRow
+			{minWidth}
 			{idx}
 			{row}
 			{clickable}
@@ -138,6 +181,7 @@
 			staged={getStageState(row)}
 			{hideCheckboxes}
 			{handleLineContextMenu}
+			{lockWarning}
 		/>
 	{/each}
 </tbody>

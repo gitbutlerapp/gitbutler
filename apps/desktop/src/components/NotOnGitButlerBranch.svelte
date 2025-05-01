@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Chrome from '$components/Chrome.svelte';
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
 	import ProjectSwitcher from '$components/ProjectSwitcher.svelte';
@@ -6,11 +7,12 @@
 	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
+	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
@@ -28,6 +30,9 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
+
+	const settingsService = getContext(SettingsService);
+	const appSettings = settingsService.appSettings;
 
 	async function switchTarget(branch: string, remote?: string) {
 		await setBaseBranchTarget({
@@ -60,53 +65,65 @@
 	}
 </script>
 
-<DecorativeSplitView img={derectionDoubtSvg}>
-	<div class="switchrepo">
-		<div class="project-name">
-			<ProjectNameLabel projectName={project?.title} />
+{#snippet page()}
+	<DecorativeSplitView img={derectionDoubtSvg}>
+		<div class="switchrepo">
+			<div class="project-name">
+				<ProjectNameLabel projectName={project?.title} />
+			</div>
+			<p class="switchrepo__title text-18 text-body text-bold">
+				Looks like you've switched away from <span class="code-string"> gitbutler/workspace </span>
+			</p>
+
+			<p class="switchrepo__message text-13 text-body">
+				Due to GitButler managing multiple virtual branches, you cannot switch back and forth
+				between git branches and virtual branches easily.
+				<Link href="https://docs.gitbutler.com/features/virtual-branches/integration-branch">
+					Learn more
+				</Link>
+			</p>
+
+			<div class="switchrepo__actions">
+				<AsyncButton
+					style="pop"
+					icon="undo-small"
+					reversedDirection
+					loading={targetBranchSwitch.current.isLoading}
+					action={async () => {
+						if (baseBranch) {
+							await switchTarget(baseBranch.branchName);
+						}
+					}}
+				>
+					Go back to gitbutler/workspace
+				</AsyncButton>
+
+				{#if project}
+					<RemoveProjectButton
+						bind:this={deleteConfirmationModal}
+						projectTitle={project.title}
+						{isDeleting}
+						{onDeleteClicked}
+					/>
+				{/if}
+			</div>
+
+			<Spacer dotted margin={0} />
+
+			<div class="switchrepo__project">
+				<ProjectSwitcher />
+			</div>
 		</div>
-		<p class="switchrepo__title text-18 text-body text-bold">
-			Looks like you've switched away from <span class="code-string"> gitbutler/workspace </span>
-		</p>
+	</DecorativeSplitView>
+{/snippet}
 
-		<p class="switchrepo__message text-13 text-body">
-			Due to GitButler managing multiple virtual branches, you cannot switch back and forth between
-			git branches and virtual branches easily.
-			<Link href="https://docs.gitbutler.com/features/virtual-branches/integration-branch">
-				Learn more
-			</Link>
-		</p>
-
-		<div class="switchrepo__actions">
-			<Button
-				style="pop"
-				icon="undo-small"
-				reversedDirection
-				loading={targetBranchSwitch.current.isLoading}
-				onclick={() => {
-					if (baseBranch) switchTarget(baseBranch.branchName);
-				}}
-			>
-				Go back to gitbutler/workspace
-			</Button>
-
-			{#if project}
-				<RemoveProjectButton
-					bind:this={deleteConfirmationModal}
-					projectTitle={project.title}
-					{isDeleting}
-					{onDeleteClicked}
-				/>
-			{/if}
-		</div>
-
-		<Spacer dotted margin={0} />
-
-		<div class="switchrepo__project">
-			<ProjectSwitcher />
-		</div>
-	</div>
-</DecorativeSplitView>
+{#if $appSettings?.featureFlags.v3}
+	<Chrome projectId={project.id} sidebarDisabled>
+		{@render page()}
+	</Chrome>
+{:else}
+	{@render page()}
+{/if}
 
 <style lang="postcss">
 	.project-name {

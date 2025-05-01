@@ -29,12 +29,14 @@
 		"format": "prettier --write .",
 		"fix": "eslint --fix .",
 		"prepare": "pnpm --filter @gitbutler/desktop run prepare",
-		"rustfmt": "cargo +nightly fmt -- --config-path rustfmt-nightly.toml"
+		"rustfmt": "cargo +nightly fmt -- --config-path rustfmt-nightly.toml",
+		"isgood": "pnpm check && pnpm lint",
+		"begood": "pnpm format && pnpm fix"
 	},
 	"devDependencies": {
 		"@eslint/js": "9.5.0",
 		"@types/eslint": "9.6.0",
-		"@tauri-apps/cli": "^2.0.1",
+		"@tauri-apps/cli": "^2.4.1",
 		"@types/eslint__js": "^8.42.3",
 		"@types/node": "^22.3.0",
 		"@typescript-eslint/parser": "^7.13.1",
@@ -48,7 +50,7 @@
 		"prettier": "^3.3.2",
 		"prettier-plugin-svelte": "^3.3.3",
 		"svelte-eslint-parser": "^0.43.0",
-		"turbo": "2.3.3",
+		"turbo": "2.5.2",
 		"typescript": "5.4.5",
 		"typescript-eslint": "^8.10.0",
 		"@gitbutler/no-relative-imports": "workspace:*"

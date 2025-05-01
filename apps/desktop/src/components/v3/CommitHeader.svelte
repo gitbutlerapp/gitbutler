@@ -1,29 +1,26 @@
 <script lang="ts">
-	import type { Commit, UpstreamCommit } from '$lib/branches/v3';
+	import { TestId } from '$lib/testing/testIds';
+	import { splitMessage } from '$lib/utils/commitMessage';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
 	type Props = {
 		row?: boolean;
-		commit: UpstreamCommit | Commit;
-		class?: string;
+		commitMessage: string;
+		className?: string;
 	};
 
-	const { commit, row, class: className }: Props = $props();
+	const { commitMessage, row, className }: Props = $props();
 
-	const message = $derived(commit.message);
-	const indexOfNewLine = $derived(message.indexOf('\n'));
-	const endIndex = $derived(indexOfNewLine === -1 ? message.length : indexOfNewLine + 1);
-	const title = $derived(message.slice(0, endIndex).trim());
+	const title = $derived(splitMessage(commitMessage).title);
 </script>
 
-<h3 class="{className} commit-title" class:row>
-	{title}
-</h3>
+<Tooltip text={title}>
+	<h3 data-testid={TestId.CommitDrawerTitle} class="{className} commit-title" class:row>
+		{title}
+	</h3>
+</Tooltip>
 
 <style>
-	.commit-title {
-		flex-grow: 1;
-	}
-
 	.row {
 		text-align: left;
 		text-overflow: ellipsis;

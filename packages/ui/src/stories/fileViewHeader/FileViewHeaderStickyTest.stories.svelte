@@ -23,7 +23,6 @@
 					linesAdded={10}
 					linesRemoved={5}
 				/>
-
 				<p class="content-example">some content</p>
 			</div>
 		{/each}
@@ -42,7 +41,8 @@
 		height: 300px;
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
-		overflow: auto;
+		overflow-x: hidden;
+		overflow-y: auto;
 	}
 
 	.card-example {

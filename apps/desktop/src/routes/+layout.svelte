@@ -11,11 +11,13 @@
 	import SwitchThemeMenuAction from '$components/SwitchThemeMenuAction.svelte';
 	import ToastController from '$components/ToastController.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
+	import LineSelection from '$components/v3/unifiedDiffLineSelection.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { CommandService, invoke } from '$lib/backend/ipc';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
+	import { BranchService } from '$lib/branches/branchService.svelte';
 	import {
 		IpcNameNormalizationService,
 		setNameNormalizationServiceContext
@@ -24,14 +26,18 @@
 	import { AppSettings } from '$lib/config/appSettings';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { GitConfigService } from '$lib/config/gitConfigService';
+	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
+	import DependencyService from '$lib/dependencies/dependencyService.svelte';
 	import { FileService } from '$lib/files/fileService';
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { GitHubClient } from '$lib/forge/github/githubClient';
 	import { GitHubUserService } from '$lib/forge/github/githubUserService.svelte';
-	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient';
+	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { IrcClient } from '$lib/irc/ircClient.svelte';
+	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { PromptService } from '$lib/prompt/promptService';
@@ -63,6 +69,7 @@
 	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { reactive } from '@gitbutler/shared/storeUtils';
+	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
 	import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
@@ -91,13 +98,36 @@
 	const accessToken = $derived($user?.github_access_token);
 	$effect(() => gitHubClient.setToken(accessToken));
 
-	const clientState = new ClientState(data.tauri, gitHubClient, gitLabClient);
+	const ircClient = new IrcClient();
+	setContext(IrcClient, ircClient);
+
+	const clientState = new ClientState(
+		data.tauri,
+		gitHubClient,
+		gitLabClient,
+		ircClient,
+		data.posthog
+	);
+
+	const ircService = new IrcService(clientState, clientState.dispatch, ircClient);
+	setContext(IrcService, ircService);
+
+	$effect(() => {
+		if (!$ircEnabled || !$ircServer || !$user || !$user.login) {
+			return;
+		}
+		ircClient.connect({ server: $ircServer, nick: $user.login });
+		return () => {
+			ircService.disconnect();
+		};
+	});
 
 	const changeSelection = $derived(clientState.changeSelection);
 	const changeSelectionService = new ChangeSelectionService(
 		reactive(() => changeSelection),
 		clientState.dispatch
 	);
+	const unifiedDiffLineSelection = new LineSelection(changeSelectionService);
 
 	const forgeFactory = new DefaultForgeFactory({
 		gitHubClient,
@@ -109,13 +139,21 @@
 		projectMetrics: data.projectMetrics
 	});
 
-	const stackService = new StackService(clientState['backendApi'], forgeFactory, data.posthog);
+	const uiStateSlice = $derived(clientState.uiState);
+	const uiState = new UiState(
+		reactive(() => uiStateSlice),
+		clientState.dispatch
+	);
+	setContext(UiState, uiState);
+
+	const stackService = new StackService(clientState['backendApi'], forgeFactory, uiState);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
 	const worktreeService = new WorktreeService(clientState);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
 	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
 	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
 	const cloudProjectService = new CloudProjectService(data.cloud, appState.appDispatch);
+	const dependecyService = new DependencyService(clientState.backendApi);
 
 	const cloudBranchService = new CloudBranchService(data.cloud, appState.appDispatch);
 	const cloudPatchService = new CloudPatchCommitService(data.cloud, appState.appDispatch);
@@ -138,12 +176,10 @@
 		latestBranchLookupService
 	);
 
-	const uiStateSlice = $derived(clientState.uiState);
-	const uiState = new UiState(
-		reactive(() => uiStateSlice),
-		clientState.dispatch
-	);
-	setContext(UiState, uiState);
+	const branchService = new BranchService(clientState['backendApi']);
+	setContext(BranchService, branchService);
+
+	clientState.initPersist();
 
 	setContext(DefaultForgeFactory, forgeFactory);
 
@@ -154,6 +190,7 @@
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
 	setContext(ChangeSelectionService, changeSelectionService);
+	setContext(LineSelection, unifiedDiffLineSelection);
 	setContext(ClientState, clientState);
 	setContext(FeedService, feedService);
 	setContext(OrganizationService, organizationService);
@@ -193,6 +230,8 @@
 	setContext(WorktreeService, worktreeService);
 	setContext(ShortcutService, shortcutService);
 	setContext(DiffService, diffService);
+	setContext(UploadsService, data.uploadsService);
+	setContext(DependencyService, dependecyService);
 
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 

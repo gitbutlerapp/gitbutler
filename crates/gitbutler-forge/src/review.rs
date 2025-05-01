@@ -108,12 +108,17 @@ fn get_github_directory_path(root_path: &path::Path) -> path::PathBuf {
 }
 
 fn is_review_template_github(path_str: &str) -> bool {
-    path_str == "PULL_REQUEST_TEMPLATE.md"
-        || path_str == "pull_request_template.md"
-        || path_str.contains(".github/PULL_REQUEST_TEMPLATE") && path_str.ends_with(".md")
-        || path_str.contains(".github/pull_request_template") && path_str.ends_with(".md")
-        || path_str.contains("docs/PULL_REQUEST_TEMPLATE") && path_str.ends_with(".md")
-        || path_str.contains("docs/pull_request_template") && path_str.ends_with(".md")
+    let normalized_path = path_str.replace('\\', "/");
+    normalized_path == "PULL_REQUEST_TEMPLATE.md"
+        || normalized_path == "pull_request_template.md"
+        || normalized_path.contains(".github/PULL_REQUEST_TEMPLATE")
+            && normalized_path.ends_with(".md")
+        || normalized_path.contains(".github/pull_request_template")
+            && normalized_path.ends_with(".md")
+        || normalized_path.contains("docs/PULL_REQUEST_TEMPLATE")
+            && normalized_path.ends_with(".md")
+        || normalized_path.contains("docs/pull_request_template")
+            && normalized_path.ends_with(".md")
 }
 
 fn is_valid_review_template_path_github(path: &path::Path) -> bool {
@@ -177,6 +182,36 @@ mod tests {
         let valid_review_template_path_2 = Path::new(".github/pull_request_template.md");
         let valid_review_template_path_3 = Path::new(".github/PULL_REQUEST_TEMPLATE/something.md");
         let valid_review_template_path_4 = Path::new(".docs/PULL_REQUEST_TEMPLATE.md");
+        let valid_review_template_path_5 = Path::new("PULL_REQUEST_TEMPLATE.md");
+        let invalid_review_template_path = Path::new("README.md");
+
+        assert!(is_valid_review_template_path_github(
+            valid_review_template_path_1,
+        ));
+        assert!(is_valid_review_template_path_github(
+            valid_review_template_path_2,
+        ));
+        assert!(is_valid_review_template_path_github(
+            valid_review_template_path_3,
+        ));
+        assert!(is_valid_review_template_path_github(
+            valid_review_template_path_4,
+        ));
+        assert!(is_valid_review_template_path_github(
+            valid_review_template_path_5,
+        ));
+        assert!(!is_valid_review_template_path_github(
+            invalid_review_template_path,
+        ));
+    }
+
+    #[test]
+    fn test_is_valid_review_template_path_github_windows() {
+        let valid_review_template_path_1 = Path::new(".github\\PULL_REQUEST_TEMPLATE.md");
+        let valid_review_template_path_2 = Path::new(".github\\pull_request_template.md");
+        let valid_review_template_path_3 =
+            Path::new(".github\\PULL_REQUEST_TEMPLATE\\something.md");
+        let valid_review_template_path_4 = Path::new(".docs\\PULL_REQUEST_TEMPLATE.md");
         let valid_review_template_path_5 = Path::new("PULL_REQUEST_TEMPLATE.md");
         let invalid_review_template_path = Path::new("README.md");
 

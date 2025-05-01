@@ -119,7 +119,7 @@ index 1cbfaa2..7aeebcf 100644
 ];
 
 export const DEFAULT_PR_SUMMARY_MAIN_DIRECTIVE =
-	'Please create a pull request description for my changes.';
+	'List the most important changes. Use bullet points. Skip any other information.';
 
 export function getPrTemplateDirective(prBodyTemplate: string | undefined): string {
 	if (!prBodyTemplate) {
@@ -140,7 +140,9 @@ export const SHORT_DEFAULT_PR_TEMPLATE: Prompt = [
 Create a description for a pull request.
 Use the provided context, like the COMMIT_MESSAGES, PR_TEMPLATE, current TITLE and BODY.
 The list of commit messages is separated by this token: <###>.
-Only respond with the PR description`
+BE CONCISE.
+ONLY return the description.
+Use the PR_TEMPLATE to format the description, if given.`
 	},
 	{
 		role: MessageRole.User,
@@ -171,6 +173,8 @@ export const AUTOCOMPLETE_SUGGESTION_PROMPT_CONTENT = `You are a developer worki
 Use the Fill-in-the-middle approach to complete the text.
 You'll be given the current text with a marker to indicate where you should continue the text.
 You should only replace the marker with a helpful suggestion.
+ONlY respond with the text to fill in the marker.
+SUGGEST MAX 10 WORDS.
 This is the marker: ${FILL_MARKER}
 Return only the content to fill in the middle.
 DON'T change any part of the existing message.

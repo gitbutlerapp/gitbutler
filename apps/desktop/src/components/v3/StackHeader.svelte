@@ -2,18 +2,19 @@
 	import HeaderControlSection from '$components/v3/HeaderControlSection.svelte';
 	import HeaderMetaSection from '$components/v3/HeaderMetaSection.svelte';
 	import { BranchStack } from '$lib/branches/branch';
-	import { BranchController } from '$lib/branches/branchController';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { isError } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
 		stack: BranchStack;
 		onCollapseButtonClick: () => void;
+		projectId: string;
 	}
 
-	const branchController = getContext(BranchController);
+	const stackService = getContext(StackService);
 
-	const { onCollapseButtonClick, stack }: Props = $props();
+	const { onCollapseButtonClick, stack, projectId }: Props = $props();
 
 	const nonArchivedSeries = $derived(
 		stack.series.filter((s) => {
@@ -28,10 +29,18 @@
 		isDefault={stack.selectedForChanges}
 		{onCollapseButtonClick}
 		onDefaultSet={async () => {
-			await branchController.setSelectedForChanges(stack.id);
+			await stackService.updateStack({
+				projectId,
+				branch: { id: stack.id, selected_for_changes: true }
+			});
 		}}
 	/>
-	<HeaderMetaSection series={nonArchivedSeries} {onCollapseButtonClick} stackId={stack.id} />
+	<HeaderMetaSection
+		{projectId}
+		series={nonArchivedSeries}
+		{onCollapseButtonClick}
+		stackId={stack.id}
+	/>
 </div>
 
 <style lang="postcss">

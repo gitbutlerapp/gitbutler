@@ -1,8 +1,9 @@
 use bstr::ByteSlice;
-use but_core::TreeStatus;
+use but_core::unified_diff::DiffHunk;
+use but_core::{TreeChange, TreeStatus, UnifiedDiff};
 use but_testsupport::gix_testtools;
 use but_testsupport::gix_testtools::{Creation, tempfile};
-use but_workspace::commit_engine::{Destination, DiffSpec};
+use but_workspace::commit_engine::{Destination, DiffSpec, HunkHeader};
 use gix::prelude::ObjectIdExt;
 
 pub const CONTEXT_LINES: u32 = 0;
@@ -89,6 +90,18 @@ pub fn to_change_specs_whole_file(changes: but_core::WorktreeChanges) -> Vec<Dif
         "fixture should contain actual changes to turn into requests"
     );
     out
+}
+
+pub fn diff_spec(
+    previous_path: Option<&str>,
+    path: &str,
+    hunks: impl IntoIterator<Item = HunkHeader>,
+) -> DiffSpec {
+    DiffSpec {
+        previous_path: previous_path.map(Into::into),
+        path: path.into(),
+        hunk_headers: hunks.into_iter().collect(),
+    }
 }
 
 /// Always use all the hunks.
@@ -192,6 +205,54 @@ pub fn visualize_index(index: &gix::index::State) -> String {
     buf
 }
 
+pub fn visualize_index_with_content(repo: &gix::Repository, index: &gix::index::State) -> String {
+    use std::fmt::Write;
+    let mut buf = String::new();
+    for entry in index.entries() {
+        let path = entry.path(index);
+        writeln!(
+            &mut buf,
+            "{mode:o}:{id} {path} {content:?}",
+            id = &entry.id.to_hex_with_len(7),
+            mode = entry.mode.bits(),
+            content = repo
+                .find_blob(entry.id)
+                .expect("index only has blobs")
+                .data
+                .as_bstr()
+        )
+        .expect("enough memory")
+    }
+    buf
+}
+
+pub struct LeanDiffHunk(DiffHunk);
+
+impl std::fmt::Debug for LeanDiffHunk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, r#"DiffHunk("{:?}")"#, self.0.diff)
+    }
+}
+
+pub fn worktree_changes_with_diffs(
+    repo: &gix::Repository,
+) -> anyhow::Result<Vec<(TreeChange, Vec<LeanDiffHunk>)>> {
+    let worktree_changes = but_core::diff::worktree_changes(repo)?;
+    Ok(worktree_changes
+        .changes
+        .into_iter()
+        .map(|tree_change| {
+            let diff = tree_change
+                .unified_diff(repo, 0 /* context_lines */)
+                .expect("diffs can always be generated");
+            let UnifiedDiff::Patch { hunks, .. } = diff else {
+                unreachable!("don't use this with binary files or large files")
+            };
+            (tree_change, hunks.into_iter().map(LeanDiffHunk).collect())
+        })
+        .collect())
+}
+
 /// Create a commit with the entire file as change, and another time with a whole hunk.
 /// Both should be equal or it will panic.
 pub fn commit_whole_files_and_all_hunks_from_workspace(
@@ -277,4 +338,15 @@ pub fn write_local_config(repo: &gix::Repository) -> anyhow::Result<()> {
         |section| section.meta().source == gix::config::Source::Local,
     )?;
     Ok(())
+}
+
+/// Choose a slightly more obvious, yet easy to type syntax than a function with 4 parameters.
+pub fn hunk_header(old: &str, new: &str) -> HunkHeader {
+    let ((old_start, old_lines), (new_start, new_lines)) = but_testsupport::hunk_header(old, new);
+    HunkHeader {
+        old_start,
+        old_lines,
+        new_start,
+        new_lines,
+    }
 }

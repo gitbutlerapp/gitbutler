@@ -9,6 +9,3 @@
 <BaseBranchSwitch />
 <RemoveProjectForm />
 <ForgeForm />
-
-<style lang="postcss">
-</style>

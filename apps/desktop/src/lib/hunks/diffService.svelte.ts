@@ -1,4 +1,4 @@
-import { ReduxTag } from '$lib/state/tags';
+import { providesList, ReduxTag } from '$lib/state/tags';
 import type { TreeChange } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { ClientState } from '$lib/state/clientState.svelte';
@@ -21,6 +21,11 @@ export class DiffService {
 		return result;
 	}
 
+	async fetchDiff(projectId: string, change: TreeChange) {
+		const { getDiff } = this.api.endpoints;
+		return await getDiff.fetch({ projectId, change });
+	}
+
 	getChanges(projectId: string, changes: TreeChange[]) {
 		const args = changes.map((change) => ({ projectId, change }));
 		const { getDiff } = this.api.endpoints;
@@ -37,7 +42,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'tree_change_diffs',
 					params: { projectId, change }
 				}),
-				providesTags: [ReduxTag.Diff]
+				providesTags: [providesList(ReduxTag.Diff)]
 			})
 		})
 	});

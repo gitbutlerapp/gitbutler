@@ -5,7 +5,7 @@ resolver = "2"
 [workspace.dependencies]
 bstr = "1.11.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
-gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "cd96b6439d119c5189a8e7349d2e7e2533db41b5", default-features = false, features = [
+gix = { version = "0.72.1", default-features = false, features = [
 ] }
 gix-testtools = "0.15.0"
 insta = "1.41.1"
@@ -16,7 +16,7 @@ git2 = { version = "0.20.0", features = [
 uuid = { version = "1.11.0", features = ["v4", "serde"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0.9"
-tokio = { version = "1.42.0", default-features = false }
+tokio = { version = "1.44.2", default-features = false }
 keyring = { version = "3.6.1", features = [
     "apple-native",
     "windows-native",
@@ -84,3 +84,9 @@ debug = true      # Enable debug symbols, for profiling
 codegen-units = 256
 lto = false
 opt-level = 3
+
+[profile.dev]
+incremental = false
+
+[profile.test]
+incremental = false
