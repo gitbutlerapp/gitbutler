@@ -10,13 +10,13 @@ doctest = false
 test = false
 
 [dependencies]
-anyhow = "1.0.95"
+anyhow = "1.0.98"
 once_cell = "1.20"
 git2.workspace = true
 tempfile.workspace = true
 keyring.workspace = true
 serde_json = "1.0"
-gix-testtools = "0.15.0"
+gix-testtools = "0.16.1"
 gix.workspace = true
 parking_lot.workspace = true
 gitbutler-branch-actions = { path = "../gitbutler-branch-actions" }

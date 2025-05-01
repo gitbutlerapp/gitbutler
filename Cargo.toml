@@ -7,8 +7,8 @@ bstr = "1.11.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 gix = { version = "0.72.1", default-features = false, features = [
 ] }
-gix-testtools = "0.15.0"
-insta = "1.41.1"
+gix-testtools = "0.16.1"
+insta = "1.43.1"
 git2 = { version = "0.20.0", features = [
     "vendored-openssl",
     "vendored-libgit2",
@@ -23,14 +23,14 @@ keyring = { version = "3.6.1", features = [
     "linux-native",
     "crypto-rust",
 ] }
-anyhow = "1.0.95"
+anyhow = "1.0.98"
 parking_lot = "0.12.3"
 futures = "0.3.31"
 toml = "0.8.13"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 tempfile = "3.14"
-rand = "0.9.0"
+rand = "0.9.1"
 
 gitbutler-id = { path = "crates/gitbutler-id" }
 gitbutler-git = { path = "crates/gitbutler-git" }
