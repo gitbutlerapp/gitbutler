@@ -9,7 +9,7 @@ publish = false
 doctest = false
 
 [dependencies]
-anyhow = "1.0.95"
+anyhow = "1.0.98"
 itertools = "0.14.0"
 serde.workspace = true
 gix = { workspace = true, features = [] }

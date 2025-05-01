@@ -34,9 +34,9 @@ toml.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-rustix = { version = "1.0.2", features = ["process", "fs"] }
+rustix = { version = "1.0.7", features = ["process", "fs"] }
 but-testsupport.workspace = true
-insta = "1.42.1"
+insta = "1.43.1"
 but-core = { workspace = true, features = ["testing"] }
 # for stable hashes in `gitbuter-` crates while we use them.
 # TODO: remove once `gitbutler-repo` isn't needed anymore.
