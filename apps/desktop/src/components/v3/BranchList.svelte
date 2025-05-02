@@ -29,6 +29,7 @@
 		SquashCommitDzHandler,
 		type DzCommitData
 	} from '$lib/commits/dropHandler';
+	import { multiStackLayout } from '$lib/config/uiFeatureFlags';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
@@ -134,6 +135,7 @@
 					{@const isNewBranch =
 						upstreamOnlyCommits.length === 0 && localAndRemoteCommits.length === 0}
 					{@const selected =
+						projectState.stackId.current === stackId &&
 						selection?.current?.branchName === branchName &&
 						selection?.current.commitId === undefined}
 					<BranchCard
@@ -179,6 +181,7 @@
 										uiState.stack(stackId).selection.set({ branchName });
 										uiState.project(projectId).drawerPage.set('branch');
 									}
+									uiState.project(projectId).stackId.set(stackId);
 								}}
 							>
 								{#snippet menu({ showDeleteBranchModal, showBranchRenameModal })}
@@ -213,14 +216,17 @@
 								{#snippet empty()}
 									{#if isCommitting}
 										<CommitGoesHere
-											selected={branchName === selectedBranchName}
+											selected={stackId === projectState.stackId.current &&
+												branchName === selectedBranchName}
 											first
 											last
-											onclick={() =>
+											onclick={() => {
 												uiState.stack(stackId).selection.set({
 													branchName,
 													commitId: branchDetails.baseCommit
-												})}
+												});
+												projectState.stackId.set(stackId);
+											}}
 										/>
 									{/if}
 								{/snippet}
@@ -244,6 +250,7 @@
 													.stack(stackId)
 													.selection.set({ branchName, commitId, upstream: true });
 												uiState.project(projectId).drawerPage.set(undefined);
+												projectState.stackId.set(stackId);
 											}}
 											disableCommitActions={false}
 										/>
@@ -263,13 +270,17 @@
 										{@const nothingSelectedButFirst = selectedCommitId === undefined && first}
 										{@const selectedForCommit =
 											(nothingSelectedButFirst || commit.id === selectedCommitId) &&
+											stackId === projectState.stackId.current &&
 											branchName === selectedBranchName}
 										<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
 										<CommitGoesHere
 											selected={selectedForCommit}
 											{first}
 											last={false}
-											onclick={() => uiState.stack(stackId).selection.set({ branchName, commitId })}
+											onclick={() => {
+												uiState.stack(stackId).selection.set({ branchName, commitId });
+												projectState.stackId.set(stackId);
+											}}
 										/>
 									{/if}
 									{@const dzCommit: DzCommitData = {
@@ -350,9 +361,9 @@
 												draggable
 												{tooltip}
 												onclick={() => {
-													const stackState = uiState.stack(stackId);
 													stackState.selection.set({ branchName, commitId });
 													uiState.project(projectId).drawerPage.set(undefined);
+													projectState.stackId.set(stackId);
 												}}
 												disableCommitActions={false}
 											>
@@ -383,9 +394,13 @@
 										<CommitGoesHere
 											{first}
 											{last}
-											selected={selectedCommitId === baseSha && branchName === selectedBranchName}
-											onclick={() =>
-												uiState.stack(stackId).selection.set({ branchName, commitId: baseSha })}
+											selected={stackId === projectState.stackId.current &&
+												selectedCommitId === baseSha &&
+												branchName === selectedBranchName}
+											onclick={() => {
+												uiState.stack(stackId).selection.set({ branchName, commitId: baseSha });
+												projectState.stackId.set(stackId);
+											}}
 										/>
 									{/if}
 								{/snippet}
@@ -395,10 +410,17 @@
 				{/snippet}
 			</ReduxResult>
 		{/each}
-		<StackStickyButtons>
-			<PushButton flex="1" {projectId} {stackId} multipleBranches={branches.length > 1} />
-			<PublishButton flex="2" {projectId} {stackId} {branches} />
-		</StackStickyButtons>
+		{#if $multiStackLayout}
+			<div class="buttons">
+				<PushButton flex="1" {projectId} {stackId} multipleBranches={branches.length > 1} />
+				<PublishButton flex="2" {projectId} {stackId} {branches} />
+			</div>
+		{:else}
+			<StackStickyButtons>
+				<PushButton flex="1" {projectId} {stackId} multipleBranches={branches.length > 1} />
+				<PublishButton flex="2" {projectId} {stackId} {branches} />
+			</StackStickyButtons>
+		{/if}
 	{/snippet}
 </ReduxResult>
 
@@ -432,4 +454,9 @@
 </Modal>
 
 <style lang="postcss">
+	.buttons {
+		display: flex;
+		gap: 6px;
+		padding-top: 6px;
+	}
 </style>
