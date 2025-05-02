@@ -43,11 +43,16 @@ pub enum Destination {
         parent_commit_id: Option<gix::ObjectId>,
         /// The stack and reference the commit is supposed to go into. It is necessary to disambiguate the reference update.
         stack_segment: Option<StackSegmentId>,
-        /// Use `message` as commit message for the new commit.
+        /// Use `message` as a commit message for the new commit.
         message: String,
     },
     /// Amend all changes to the given commit, leaving all other aspects of the commit unchanged.
-    AmendCommit(gix::ObjectId),
+    AmendCommit {
+        /// The commit to use as a base to amend to. It will be rewritten, retaining its parents.
+        commit_id: gix::ObjectId,
+        /// If `Some()`, set the commit message as well.
+        new_message: Option<String>,
+    },
 }
 
 /// The stack and the branch the commit is supposed to go into.
@@ -63,7 +68,7 @@ impl Destination {
     pub(self) fn stack_segment(&self) -> Option<&StackSegmentId> {
         match self {
             Destination::NewCommit { stack_segment, .. } => stack_segment.as_ref(),
-            Destination::AmendCommit(..) => None,
+            Destination::AmendCommit { .. } => None,
         }
     }
 }
@@ -239,7 +244,7 @@ pub fn create_commit(
             parent_commit_id: Some(parent),
             ..
         } => vec![*parent],
-        Destination::AmendCommit(commit_id) => commit_id
+        Destination::AmendCommit { commit_id, .. } => commit_id
             .attach(repo)
             .object()?
             .peel_to_commit()?
@@ -248,7 +253,7 @@ pub fn create_commit(
             .collect(),
     };
 
-    if !matches!(destination, Destination::AmendCommit(_)) && parents.len() > 1 {
+    if !matches!(destination, Destination::AmendCommit { .. }) && parents.len() > 1 {
         bail!("cannot currently handle more than 1 parent")
     }
 
@@ -270,7 +275,10 @@ pub fn create_commit(
                 )?;
                 Some(new_commit)
             }
-            Destination::AmendCommit(commit_id) => {
+            Destination::AmendCommit {
+                commit_id,
+                new_message,
+            } => {
                 let mut commit = commit_id
                     .attach(repo)
                     .object()?
@@ -278,6 +286,9 @@ pub fn create_commit(
                     .decode()?
                     .to_owned();
                 commit.tree = new_tree;
+                if let Some(message) = new_message {
+                    commit.message = message.into();
+                }
                 Some(but_rebase::commit::create(
                     repo,
                     commit,
@@ -356,7 +367,7 @@ pub fn create_commit_and_update_refs(
         Destination::NewCommit {
             parent_commit_id, ..
         } => (parent_commit_id, false),
-        Destination::AmendCommit(commit) => (Some(commit), true),
+        Destination::AmendCommit { commit_id, .. } => (Some(commit_id), true),
     };
 
     if let Some(commit_in_graph) = commit_to_find {
@@ -643,7 +654,7 @@ pub fn create_commit_and_update_refs_with_project(
                     stack_segment,
                     ..
                 } => (*parent_commit_id, stack_segment.clone().map(|s| s.stack_id)),
-                Destination::AmendCommit(commit_id) => (Some(*commit_id), None),
+                Destination::AmendCommit { commit_id, .. } => (Some(*commit_id), None),
             };
 
             match (maybe_commit_id, maybe_stack_id) {

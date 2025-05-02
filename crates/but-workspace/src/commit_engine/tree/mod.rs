@@ -49,11 +49,12 @@ pub fn create_tree(
             parent_commit_id: Some(base_commit),
             ..
         }
-        | Destination::AmendCommit(base_commit) => {
-            but_core::Commit::from_id(base_commit.attach(repo))?
-                .tree_id()?
-                .detach()
-        }
+        | Destination::AmendCommit {
+            commit_id: base_commit,
+            ..
+        } => but_core::Commit::from_id(base_commit.attach(repo))?
+            .tree_id()?
+            .detach(),
     };
 
     let mut changes: Vec<_> = changes.into_iter().map(Ok).collect();

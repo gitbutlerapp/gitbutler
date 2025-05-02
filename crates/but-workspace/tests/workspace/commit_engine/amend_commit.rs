@@ -20,13 +20,16 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     "#);
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
-        Destination::AmendCommit(head_commit.into()),
+        Destination::AmendCommit {
+            commit_id: head_commit.into(),
+            new_message: Some("init: amended".into()),
+        },
     )?;
     insta::assert_debug_snapshot!(&outcome, @r"
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(613bf3a2f7883b5b6317ced4fb6f5661d1315cec),
+            Sha1(91942dce04c28d5d3492c606d79bbf651e2684e1),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(e56fc9bacdd11ebe576b5d96d21127c423698126),
@@ -48,7 +51,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     author author <author@example.com> 946684800 +0000
     committer committer (From Env) <committer@example.com> 946771200 +0000
 
-    init
+    init: amended
     ");
 
     Ok(())
@@ -63,7 +66,10 @@ fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
     write_sequence(&repo, "file", [(40, 70)])?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
-        Destination::AmendCommit(repo.rev_parse_single("merge")?.detach()),
+        Destination::AmendCommit {
+            commit_id: repo.rev_parse_single("merge")?.detach(),
+            new_message: None,
+        },
     )?;
     let tree = visualize_tree(&repo, &outcome)?;
     insta::assert_snapshot!(tree, @r#"
@@ -93,7 +99,10 @@ fn new_file_and_deletion_onto_merge_commit() -> anyhow::Result<()> {
 
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
-        Destination::AmendCommit(repo.rev_parse_single("merge")?.detach()),
+        Destination::AmendCommit {
+            commit_id: repo.rev_parse_single("merge")?.detach(),
+            new_message: None,
+        },
     )?;
     let tree = visualize_tree(&repo, &outcome)?;
     insta::assert_snapshot!(tree, @r#"
@@ -112,7 +121,10 @@ fn make_a_file_empty() -> anyhow::Result<()> {
     std::fs::write(repo.workdir_path("file").expect("non-bare"), "")?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
-        Destination::AmendCommit(repo.rev_parse_single("merge")?.detach()),
+        Destination::AmendCommit {
+            commit_id: repo.rev_parse_single("merge")?.detach(),
+            new_message: None,
+        },
     )?;
     let tree = visualize_tree(&repo, &outcome)?;
     insta::assert_snapshot!(tree, @r#"
@@ -133,7 +145,10 @@ fn new_file_and_deletion_onto_merge_commit_with_hunks() -> anyhow::Result<()> {
 
     let outcome = but_workspace::commit_engine::create_commit(
         &repo,
-        Destination::AmendCommit(repo.rev_parse_single("merge")?.detach()),
+        Destination::AmendCommit {
+            commit_id: repo.rev_parse_single("merge")?.detach(),
+            new_message: None,
+        },
         None,
         vec![
             DiffSpec {
@@ -179,8 +194,13 @@ fn signatures_are_redone() -> anyhow::Result<()> {
 
     // Rewrite everything for amending on top.
     write_sequence(&repo, "file", [(40, 60)])?;
-    let outcome =
-        commit_whole_files_and_all_hunks_from_workspace(&repo, Destination::AmendCommit(head_id))?;
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
+        &repo,
+        Destination::AmendCommit {
+            commit_id: head_id,
+            new_message: None,
+        },
+    )?;
 
     let new_commit = commit_from_outcome(&repo, &outcome)?;
     let new_signature = new_commit
@@ -203,8 +223,13 @@ fn signatures_are_redone() -> anyhow::Result<()> {
     repo.config_snapshot_mut()
         .set_raw_value(&"gitbutler.signCommits", "false")?;
     write_local_config(&repo)?;
-    let outcome =
-        commit_whole_files_and_all_hunks_from_workspace(&repo, Destination::AmendCommit(head_id))?;
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(
+        &repo,
+        Destination::AmendCommit {
+            commit_id: head_id,
+            new_message: None,
+        },
+    )?;
     let new_commit = commit_from_outcome(&repo, &outcome)?;
     assert!(
         new_commit.extra_headers().pgp_signature().is_none(),

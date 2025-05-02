@@ -123,7 +123,10 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
             branch_tip: None,
         },
         &mut vb,
-        Destination::AmendCommit(new_commit),
+        Destination::AmendCommit {
+            commit_id: new_commit,
+            new_message: None,
+        },
         None,
         to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
         CONTEXT_LINES,
@@ -684,7 +687,10 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
             branch_tip: Some(rewritten_head_id),
         },
         &mut vb,
-        Destination::AmendCommit(repo.rev_parse_single("@~1")?.detach()),
+        Destination::AmendCommit {
+            commit_id: repo.rev_parse_single("@~1")?.detach(),
+            new_message: None,
+        },
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
         CONTEXT_LINES,
@@ -1029,7 +1035,10 @@ fn workspace_commit_with_merge_conflict() -> anyhow::Result<()> {
             message: "rewrite with 30 - 40".into(),
             stack_segment: None,
         },
-        Destination::AmendCommit(branch_b),
+        Destination::AmendCommit {
+            commit_id: branch_b,
+            new_message: None,
+        },
     ] {
         let out = but_workspace::commit_engine::create_commit_and_update_refs(
             &repo,
@@ -1511,7 +1520,10 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
             branch_tip: Some(branch_a),
         },
         &mut vb,
-        Destination::AmendCommit(branch_a),
+        Destination::AmendCommit {
+            commit_id: branch_a,
+            new_message: None,
+        },
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
         CONTEXT_LINES,
