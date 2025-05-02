@@ -23,7 +23,7 @@ describe('File Tree', () => {
 		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
 
 		// All files should be visible
-		cy.getByTestId('uncommitted-changes-file-list-item').should(
+		cy.getByTestId('file-list-item').should(
 			'have.length',
 			mockBackend.getWorktreeChangesFileNames().length
 		);
@@ -46,7 +46,7 @@ describe('File Tree', () => {
 				mockBackend.getWorktreeChangesTopLevelDirs().length
 			);
 
-			cy.getByTestId('uncommitted-changes-file-list-item').should(
+			cy.getByTestId('file-list-item').should(
 				'have.length',
 				mockBackend.getWorktreeChangesTopLevelFiles().length
 			);

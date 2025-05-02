@@ -103,10 +103,7 @@ describe('Commit Actions', () => {
 
 		const fileName = fileNames[0]!;
 
-		cy.getByTestId('uncommitted-changes-file-list-item')
-			.first()
-			.should('be.visible')
-			.should('contain', fileName);
+		cy.getByTestId('file-list-item').first().should('be.visible').should('contain', fileName);
 
 		// Click on the commit button
 		cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
@@ -118,10 +115,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('your-commit-goes-here').should('be.visible').should('have.class', 'first');
 
 		// Should have selected the file
-		cy.getByTestId('uncommitted-changes-file-list-item')
-			.first()
-			.get('input[type="checkbox"]')
-			.should('be.checked');
+		cy.getByTestId('file-list-item').first().get('input[type="checkbox"]').should('be.checked');
 
 		// Type in a commit message
 		cy.getByTestId('commit-drawer-title-input')
@@ -224,10 +218,7 @@ describe('Commit Actions with no stacks', () => {
 
 		const fileName = fileNames[0]!;
 
-		cy.getByTestId('uncommitted-changes-file-list-item')
-			.first()
-			.should('be.visible')
-			.should('contain', fileName);
+		cy.getByTestId('file-list-item').first().should('be.visible').should('contain', fileName);
 
 		// Click on the commit button
 		cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
@@ -243,10 +234,7 @@ describe('Commit Actions with no stacks', () => {
 		cy.getByTestId('your-commit-goes-here').should('be.visible').should('have.class', 'draft');
 
 		// Should have selected the file
-		cy.getByTestId('uncommitted-changes-file-list-item')
-			.first()
-			.get('input[type="checkbox"]')
-			.should('be.checked');
+		cy.getByTestId('file-list-item').first().get('input[type="checkbox"]').should('be.checked');
 
 		// Type in a commit message
 		cy.getByTestId('commit-drawer-title-input')

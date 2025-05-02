@@ -113,7 +113,7 @@
 </script>
 
 <div
-	data-testid={TestId.UncommittedChanges_FileListItem}
+	data-testid={TestId.FileListItem}
 	use:stickyHeader={{
 		disabled: !isHeader
 	}}
