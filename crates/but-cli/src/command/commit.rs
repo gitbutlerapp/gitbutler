@@ -57,11 +57,11 @@ pub fn commit(
     };
     if let Some(project) = project.as_ref() {
         let destination = if amend {
-            if message.is_some() {
-                bail!("Messages aren't used when amending");
-            }
             let parent_id = parent_id.unwrap_or(repo.head_id()?.detach());
-            but_workspace::commit_engine::Destination::AmendCommit(parent_id)
+            but_workspace::commit_engine::Destination::AmendCommit {
+                commit_id: parent_id,
+                new_message: message.map(ToOwned::to_owned),
+            }
         } else {
             let (stack_segment, parent_commit_id) =
                 get_stack_segment_info(&repo, stack_segment_ref, parent_id, project)?;
@@ -87,11 +87,11 @@ pub fn commit(
         )?;
     } else {
         let destination = if amend {
-            if message.is_some() {
-                bail!("Messages aren't used when amending");
-            }
             let parent_id = parent_id.unwrap_or(repo.head_id()?.detach());
-            but_workspace::commit_engine::Destination::AmendCommit(parent_id)
+            but_workspace::commit_engine::Destination::AmendCommit {
+                commit_id: parent_id,
+                new_message: message.map(ToOwned::to_owned),
+            }
         } else {
             but_workspace::commit_engine::Destination::NewCommit {
                 parent_commit_id: parent_id,

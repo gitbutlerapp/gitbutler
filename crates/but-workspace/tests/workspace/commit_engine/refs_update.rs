@@ -1,7 +1,8 @@
 use crate::commit_engine::refs_update::utils::{
-    assure_no_worktree_changes, graph_commit_outcome, has_signature, stack_with_branches,
-    write_vrbranches_to_refs, write_worktree_file,
+    graph_commit_outcome, has_signature, stack_with_branches, write_vrbranches_to_refs,
+    write_worktree_file,
 };
+use crate::commit_engine::utils::assure_no_worktree_changes;
 use crate::utils::{
     CONTEXT_LINES, hunk_header, read_only_in_memory_scenario, to_change_specs_all_hunks,
     to_change_specs_whole_file, visualize_index, visualize_index_with_content, visualize_tree,
@@ -123,7 +124,10 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
             branch_tip: None,
         },
         &mut vb,
-        Destination::AmendCommit(new_commit),
+        Destination::AmendCommit {
+            commit_id: new_commit,
+            new_message: None,
+        },
         None,
         to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
         CONTEXT_LINES,
@@ -684,7 +688,10 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
             branch_tip: Some(rewritten_head_id),
         },
         &mut vb,
-        Destination::AmendCommit(repo.rev_parse_single("@~1")?.detach()),
+        Destination::AmendCommit {
+            commit_id: repo.rev_parse_single("@~1")?.detach(),
+            new_message: None,
+        },
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
         CONTEXT_LINES,
@@ -1029,7 +1036,10 @@ fn workspace_commit_with_merge_conflict() -> anyhow::Result<()> {
             message: "rewrite with 30 - 40".into(),
             stack_segment: None,
         },
-        Destination::AmendCommit(branch_b),
+        Destination::AmendCommit {
+            commit_id: branch_b,
+            new_message: None,
+        },
     ] {
         let out = but_workspace::commit_engine::create_commit_and_update_refs(
             &repo,
@@ -1476,6 +1486,49 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
         ),
     ]
     "#);
+
+    let rewritten_head_id = repo.head_id()?;
+    let top_of_branch = outcome.new_commit.expect("created above");
+    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+        &repo,
+        ReferenceFrame {
+            workspace_tip: Some(rewritten_head_id.detach()),
+            branch_tip: Some(top_of_branch),
+        },
+        &mut vb,
+        Destination::NewCommit {
+            parent_commit_id: Some(top_of_branch),
+            message: "empty commmit".into(),
+            stack_segment: Some(StackSegmentId {
+                segment_ref: "refs/heads/s2-b/top".try_into()?,
+                stack_id: stack_b.id,
+            }),
+        },
+        None,
+        vec![],
+        CONTEXT_LINES,
+    )?;
+    assert_eq!(outcome.rejected_specs, vec![], "nothing to reject");
+
+    // Nothing changed
+    insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
+    e6575c0
+    └── file:100644:8452dbe "10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n"
+    "#);
+
+    let rewritten_head_id = repo.head_id()?;
+    // The empty commit was inserted.
+    insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
+    *   b2df034 (HEAD -> merge) Merge branch 'A' into merge
+    |\  
+    | * 99f3a1c (s1-b/top) remove 5 lines from beginning
+    | * 7f389ed (s1-b/below-top, A) add 10 to the beginning
+    * | deef8f7 (s2-b/top) empty commmit
+    * | 03e9b6f remove 5 lines from the end
+    * | 91ef6f6 (s2-b/below-top, B) add 10 to the end
+    |/  
+    * ff045ef (main) init
+    ");
     Ok(())
 }
 
@@ -1511,7 +1564,10 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
             branch_tip: Some(branch_a),
         },
         &mut vb,
-        Destination::AmendCommit(branch_a),
+        Destination::AmendCommit {
+            commit_id: branch_a,
+            new_message: None,
+        },
         None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
         CONTEXT_LINES,
@@ -1551,19 +1607,79 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn amend_edit_message_only() -> anyhow::Result<()> {
+    assure_stable_env();
+
+    let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
+
+    let head_commit_id = repo.head_id()?;
+    insta::assert_snapshot!(visualize_commit_graph(&repo, head_commit_id)?, @r"
+    *   2a6d103 (HEAD -> merge) Merge branch 'A' into merge
+    |\  
+    | * 7f389ed (A) add 10 to the beginning
+    * | 91ef6f6 (B) add 10 to the end
+    |/  
+    * ff045ef (main) init
+    ");
+
+    let branch_a = repo.rev_parse_single("A")?.detach();
+    let mut vb = VirtualBranchesState::default();
+    let stack = stack_with_branches("s1", branch_a, [("s1-b/top", branch_a)], &repo);
+    vb.branches.insert(stack.id, stack);
+
+    assure_no_worktree_changes(&repo)?;
+    let mut outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+        &repo,
+        ReferenceFrame {
+            workspace_tip: Some(head_commit_id.detach()),
+            branch_tip: Some(branch_a),
+        },
+        &mut vb,
+        Destination::AmendCommit {
+            commit_id: branch_a,
+            new_message: Some("add 10 to the beginning (amended)".into()),
+        },
+        None,
+        to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
+        CONTEXT_LINES,
+    )?;
+
+    assert!(
+        outcome.new_commit.is_some(),
+        "a new commit was created, despite changes"
+    );
+    write_vrbranches_to_refs(&vb, &repo)?;
+
+    let rewritten_head_id = repo.head_id()?;
+    // TODO: make some change observable.
+    insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
+    *   244ac76 (HEAD -> merge) Merge branch 'A' into merge
+    |\  
+    | * bc22104 (s1-b/top, A) add 10 to the beginning (amended)
+    * | 91ef6f6 (B) add 10 to the end
+    |/  
+    * ff045ef (main) init
+    ");
+
+    insta::assert_snapshot!(but_testsupport::visualize_tree(rewritten_head_id), @r#"
+    9573cc7
+    └── file:100644:e8823e1 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n"
+    "#);
+    assert_eq!(outcome.rejected_specs, vec![]);
+
+    // We still produce an index as the re-merge might change things.
+    // In theory, there should be no difference though.
+    let index = outcome.index.take().unwrap();
+    insta::assert_snapshot!(visualize_index(&index), @"100644:e8823e1 file");
+
+    Ok(())
+}
+
 mod utils {
     use but_testsupport::visualize_commit_graph;
     use gitbutler_stack::VirtualBranchesState;
     use gix::refs::transaction::PreviousValue;
-
-    pub fn assure_no_worktree_changes(repo: &gix::Repository) -> anyhow::Result<()> {
-        assert_eq!(
-            but_core::diff::worktree_changes(repo)?.changes.len(),
-            0,
-            "all changes are seemingly incorporated"
-        );
-        Ok(())
-    }
 
     pub fn has_signature(commit: gix::Id<'_>) -> anyhow::Result<bool> {
         Ok(commit

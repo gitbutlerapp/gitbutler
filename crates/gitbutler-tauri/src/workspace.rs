@@ -177,7 +177,11 @@ pub fn amend_commit_from_worktree_changes(
         &repo,
         &project,
         Some(stack_id),
-        commit_engine::Destination::AmendCommit(commit_id.into()),
+        commit_engine::Destination::AmendCommit {
+            commit_id: commit_id.into(),
+            // TODO: Expose this in the UI for 'edit message' functionality.
+            new_message: None,
+        },
         None,
         worktree_changes.into_iter().map(Into::into).collect(),
         settings.get()?.context_lines,

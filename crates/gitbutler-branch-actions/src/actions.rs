@@ -333,7 +333,10 @@ fn amend_with_commit_engine(
         &ctx.gix_repo()?,
         ctx.project(),
         Some(stack_id),
-        commit_engine::Destination::AmendCommit(commit_oid.to_gix()),
+        commit_engine::Destination::AmendCommit {
+            commit_id: commit_oid.to_gix(),
+            new_message: None,
+        },
         None,
         worktree_changes,
         3, // for the old API this is hardcoded
