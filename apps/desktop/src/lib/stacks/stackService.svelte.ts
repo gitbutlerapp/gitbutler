@@ -936,7 +936,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			insertBlankCommit: build.mutation<
 				void,
-				{ projectId: string; stackId: string; commitOid: string; offset: number }
+				{ projectId: string; stackId: string; commitOid: string | undefined; offset: number }
 			>({
 				query: ({ projectId, stackId, commitOid, offset }) => ({
 					command: 'insert_blank_commit',

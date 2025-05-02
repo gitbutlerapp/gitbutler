@@ -70,6 +70,7 @@
 	async function setAIConfigurationValid() {
 		aiConfigurationValid = await aiService.validateConfiguration();
 	}
+	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 </script>
 
 {#if isTopBranch}
@@ -105,6 +106,19 @@
 	/>
 </ContextMenuSection>
 <ContextMenuSection>
+	<ContextMenuItem
+		label="Add empty commit"
+		onclick={async () => {
+			await insertBlankCommitInBranch({
+				projectId,
+				stackId,
+				commitOid: undefined,
+				offset: -1
+			});
+			contextMenuEl?.close();
+		}}
+		disabled={commitInsertion.current.isLoading}
+	/>
 	<ContextMenuItem
 		label="Squash all commits"
 		testId={TestId.BranchHeaderContextMenu_SquashAllCommits}
