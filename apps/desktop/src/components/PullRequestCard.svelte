@@ -87,9 +87,11 @@
 		if (isPushed && hasParent && !parentIsPushed) {
 			tooltip = 'Remote parent branch seems to have been deleted';
 		} else if (!baseIsTargetBranch) {
-			tooltip = name + 'is not next in stack';
+			tooltip = name + ' is not next in stack';
 		} else if (prLoading) {
 			tooltip = 'Reloading pull request data';
+		} else if (!pr?.permissions?.canMerge) {
+			tooltip = name + ' requires push permissions';
 		} else if (pr?.draft) {
 			tooltip = name + ' is a draft';
 		} else if (pr?.mergeableState === 'blocked') {

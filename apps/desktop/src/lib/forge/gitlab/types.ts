@@ -29,7 +29,10 @@ export function detailedMrToInstance(data: ExpandedMergeRequestSchema): Detailed
 		state: data.state === 'opened' ? 'open' : 'closed',
 		fork: false, // seems hard to get
 		reviewers,
-		commentsCount: data.user_notes_count
+		commentsCount: data.user_notes_count,
+		permissions: {
+			canMerge: data.user.can_merge
+		}
 	};
 }
 

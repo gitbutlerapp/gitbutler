@@ -2,7 +2,9 @@ import { ghQuery } from '$lib/forge/github/ghQuery';
 import {
 	ghResponseToInstance,
 	parseGitHubDetailedPullRequest,
-	type CreatePrResult
+	type CreatePrResult,
+	type DetailedGitHubPullRequestWithPermissions,
+	type GitHubRepoPermissions
 } from '$lib/forge/github/types';
 import {
 	MergeMethod,
@@ -101,19 +103,73 @@ export class GitHubPrService implements ForgePrService {
 	}
 }
 
+async function fetchRepoPermissions(
+	owner: string,
+	repo: string,
+	extra: unknown
+): Promise<GitHubRepoPermissions | undefined> {
+	try {
+		const repoResponse = await ghQuery(
+			{
+				domain: 'repos',
+				action: 'get',
+				parameters: { owner, repo },
+				extra: extra
+			},
+			extra,
+			'required'
+		);
+
+		if (!repoResponse.error) {
+			return repoResponse.data.permissions;
+		} else {
+			console.error(
+				`Failed to fetch repository permissions for ${owner}/${repo}:`,
+				repoResponse.error
+			);
+			return undefined;
+		}
+	} catch (err) {
+		console.error(`Exception fetching repository permissions for ${owner}/${repo}:`, err);
+		return undefined;
+	}
+}
+
 function injectEndpoints(api: GitHubApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			getPr: build.query<DetailedPullRequest, { number: number }>({
-				queryFn: async (args, api) =>
-					parseGitHubDetailedPullRequest(
-						await ghQuery({
-							domain: 'pulls',
-							action: 'get',
-							parameters: { pull_number: args.number },
-							extra: api.extra
-						})
-					),
+				queryFn: async (args, api) => {
+					const prResponse = await ghQuery({
+						domain: 'pulls',
+						action: 'get',
+						parameters: { pull_number: args.number },
+						extra: api.extra
+					});
+
+					if (prResponse.error) {
+						return { error: prResponse.error };
+					}
+
+					const prData = prResponse.data;
+					const owner = prData.base?.repo?.owner?.login;
+					const repo = prData.base?.repo?.name;
+
+					const permissions =
+						owner && repo ? await fetchRepoPermissions(owner, repo, api.extra) : undefined;
+
+					const combinedData: DetailedGitHubPullRequestWithPermissions = {
+						...prData,
+						permissions
+					};
+
+					const finalResult = parseGitHubDetailedPullRequest({ data: combinedData });
+
+					if (finalResult.error) {
+						return { error: finalResult.error };
+					}
+					return { data: finalResult.data };
+				},
 				providesTags: (_result, _error, args) => providesItem(ReduxTag.PullRequests, args.number)
 			}),
 			createPr: build.mutation<
