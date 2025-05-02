@@ -35,7 +35,6 @@
 	const branchResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const topCommitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
 
-	const changesResult = $derived(stackService.branchChanges({ projectId, stackId, branchName }));
 	const forgeBranch = $derived(forge.current?.branch(branchName));
 
 	// context menu
@@ -115,9 +114,11 @@
 			{/if}
 
 			{#snippet filesSplitView()}
+				{@const changesResult = stackService.branchChanges({ projectId, stackId, branchName })}
 				<ReduxResult {projectId} {stackId} result={changesResult.current}>
 					{#snippet children(changes, { projectId, stackId })}
 						<ChangedFiles
+							testId={TestId.BranchChangedFileList}
 							title="All changed files"
 							{projectId}
 							{stackId}
