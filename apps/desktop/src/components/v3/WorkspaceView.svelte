@@ -3,11 +3,13 @@
 	import Resizer from '$components/Resizer.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
+	import MultiLaneView from '$components/v3/MultiLaneView.svelte';
 	import NewCommitView from '$components/v3/NewCommitView.svelte';
 	import ReviewView from '$components/v3/ReviewView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import StackTabs from '$components/v3/stackTabs/StackTabs.svelte';
+	import { multiStackLayout } from '$lib/config/uiFeatureFlags';
 	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -115,40 +117,42 @@
 		{/if}
 	</div>
 
-	<div
-		class="stacks-view-wrap"
-		bind:this={stacksViewEl}
-		style:width={stacksViewWidth.current + 'rem'}
-		use:focusable={{ id: Focusable.WorkspaceRight, parentId: Focusable.Workspace }}
-	>
-		<ReduxResult {projectId} result={stacksResult?.current}>
-			{#snippet children(stacks)}
-				<StackTabs
-					{projectId}
-					{stacks}
-					selectedId={stackId}
-					{isCommitting}
-					bind:width={tabsWidth}
+	<ReduxResult {projectId} result={stacksResult?.current}>
+		{#snippet children(stacks)}
+			<div
+				class="stacks-view-wrap"
+				bind:this={stacksViewEl}
+				style:width={stacksViewWidth.current + 'rem'}
+				use:focusable={{ id: Focusable.WorkspaceRight, parentId: Focusable.Workspace }}
+			>
+				{#if $multiStackLayout}
+					<MultiLaneView {projectId} {stacks} />
+				{:else}
+					<StackTabs
+						{projectId}
+						{stacks}
+						selectedId={stackId}
+						{isCommitting}
+						bind:width={tabsWidth}
+					/>
+					<div
+						class="contents"
+						class:rounded={tabsWidth! <= (remToPx(stacksViewWidth.current - 0.5) as number)}
+						class:dotted={stacks.length > 0}
+					>
+						{@render stack()}
+					</div>
+				{/if}
+				<Resizer
+					viewport={stacksViewEl}
+					direction="left"
+					minWidth={16}
+					borderRadius="ml"
+					onWidth={(value) => uiState.global.stacksViewWidth.set(value)}
 				/>
-				<div
-					class="contents"
-					class:rounded={tabsWidth! <= (remToPx(stacksViewWidth.current - 0.5) as number)}
-					class:dotted={stacks.length > 0}
-				>
-					{@render stack()}
-				</div>
-			{/snippet}
-		</ReduxResult>
-		<Resizer
-			viewport={stacksViewEl}
-			direction="left"
-			minWidth={16}
-			borderRadius="ml"
-			onWidth={(value) => {
-				stacksViewWidth.current = value;
-			}}
-		/>
-	</div>
+			</div>
+		{/snippet}
+	</ReduxResult>
 </div>
 
 <style>
@@ -177,11 +181,10 @@
 	}
 
 	.stacks-view-wrap {
-		flex: 0 1 auto;
 		height: 100%;
-		min-width: 300px;
 		display: flex;
 		flex-direction: column;
+		gap: 6px;
 		justify-content: flex-start;
 		position: relative;
 		overflow: hidden;

@@ -75,8 +75,7 @@
 	oncontextmenu={(e) => {
 		e.stopPropagation();
 	}}
-	onclick={(e) => {
-		e.stopPropagation();
+	onclick={() => {
 		inputEl?.focus();
 		if ($autoSelectBranchNameFeature) {
 			inputEl?.select();
