@@ -1,7 +1,6 @@
 use crate::commit_engine::{
     Destination, DiffSpec, HunkHeader, MoveSourceCommit, RejectionReason, apply_hunks,
 };
-use anyhow::bail;
 use bstr::{BStr, ByteSlice};
 use but_core::{RepositoryExt, UnifiedDiff};
 use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
@@ -36,10 +35,6 @@ pub fn create_tree(
     changes: Vec<DiffSpec>,
     context_lines: u32,
 ) -> anyhow::Result<CreateTreeOutcome> {
-    if changes.is_empty() {
-        bail!("Have to provide at least one change in order to mutate a commit");
-    }
-
     let target_tree = match destination {
         Destination::NewCommit {
             parent_commit_id: None,
@@ -58,76 +53,81 @@ pub fn create_tree(
     };
 
     let mut changes: Vec<_> = changes.into_iter().map(Ok).collect();
-    let (new_tree, changed_tree_pre_cherry_pick) = 'retry: loop {
-        let (maybe_new_tree, actual_base_tree) = if let Some(_source) = move_source {
-            todo!(
-                "get base tree and apply changes by cherry-picking, probably can all be done by one function, but optimizations are different"
-            )
-        } else {
-            let changes_base_tree = repo
-                .head()?
-                .id()
-                .and_then(|id| {
-                    id.object()
-                        .ok()?
-                        .peel_to_commit()
-                        .ok()?
-                        .tree_id()
-                        .ok()?
-                        .detach()
-                        .into()
-                })
-                .unwrap_or(target_tree);
-            apply_worktree_changes(changes_base_tree, repo, &mut changes, context_lines)?
-        };
+    let (new_tree, changed_tree_pre_cherry_pick) = if changes.is_empty() {
+        (Some(target_tree), None)
+    } else {
+        'retry: loop {
+            let (maybe_new_tree, actual_base_tree) = if let Some(_source) = move_source {
+                todo!(
+                    "get base tree and apply changes by cherry-picking, probably can all be done by one function, but optimizations are different"
+                )
+            } else {
+                let changes_base_tree = repo
+                    .head()?
+                    .id()
+                    .and_then(|id| {
+                        id.object()
+                            .ok()?
+                            .peel_to_commit()
+                            .ok()?
+                            .tree_id()
+                            .ok()?
+                            .detach()
+                            .into()
+                    })
+                    .unwrap_or(target_tree);
+                apply_worktree_changes(changes_base_tree, repo, &mut changes, context_lines)?
+            };
 
-        let Some(tree_with_changes) =
-            maybe_new_tree.filter(|tree_with_changes| *tree_with_changes != target_tree)
-        else {
-            changes
-                .iter_mut()
-                .for_each(|c| into_err_spec(c, RejectionReason::NoEffectiveChanges));
-            break 'retry (None, None);
-        };
-        let tree_with_changes_without_cherry_pick = tree_with_changes.detach();
-        let mut tree_with_changes = tree_with_changes.detach();
-        let needs_cherry_pick = actual_base_tree != gix::ObjectId::empty_tree(repo.object_hash())
-            && actual_base_tree != target_tree;
-        if needs_cherry_pick {
-            let base = actual_base_tree;
-            let ours = target_tree;
-            let theirs = tree_with_changes;
-            let mut merge_result = repo.merge_trees(
-                base,
-                ours,
-                theirs,
-                repo.default_merge_labels(),
-                repo.tree_merge_options()?,
-            )?;
-            let unresolved_conflicts: Vec<_> = merge_result
-                .conflicts
-                .iter()
-                .filter_map(|c| {
-                    c.is_unresolved(TreatAsUnresolved::git())
-                        .then_some(c.theirs.location())
-                })
-                .collect();
-            if !unresolved_conflicts.is_empty() {
-                for change in changes.iter_mut().filter(|c| {
-                    c.as_ref()
-                        .ok()
-                        .is_some_and(|change| unresolved_conflicts.contains(&change.path.as_bstr()))
-                }) {
-                    into_err_spec(change, RejectionReason::CherryPickMergeConflict);
+            let Some(tree_with_changes) =
+                maybe_new_tree.filter(|tree_with_changes| *tree_with_changes != target_tree)
+            else {
+                changes
+                    .iter_mut()
+                    .for_each(|c| into_err_spec(c, RejectionReason::NoEffectiveChanges));
+                break 'retry (None, None);
+            };
+            let tree_with_changes_without_cherry_pick = tree_with_changes.detach();
+            let mut tree_with_changes = tree_with_changes.detach();
+            let needs_cherry_pick = actual_base_tree
+                != gix::ObjectId::empty_tree(repo.object_hash())
+                && actual_base_tree != target_tree;
+            if needs_cherry_pick {
+                let base = actual_base_tree;
+                let ours = target_tree;
+                let theirs = tree_with_changes;
+                let mut merge_result = repo.merge_trees(
+                    base,
+                    ours,
+                    theirs,
+                    repo.default_merge_labels(),
+                    repo.tree_merge_options()?,
+                )?;
+                let unresolved_conflicts: Vec<_> = merge_result
+                    .conflicts
+                    .iter()
+                    .filter_map(|c| {
+                        c.is_unresolved(TreatAsUnresolved::git())
+                            .then_some(c.theirs.location())
+                    })
+                    .collect();
+                if !unresolved_conflicts.is_empty() {
+                    for change in changes.iter_mut().filter(|c| {
+                        c.as_ref().ok().is_some_and(|change| {
+                            unresolved_conflicts.contains(&change.path.as_bstr())
+                        })
+                    }) {
+                        into_err_spec(change, RejectionReason::CherryPickMergeConflict);
+                    }
+                    continue 'retry;
                 }
-                continue 'retry;
+                tree_with_changes = merge_result.tree.write()?.detach();
             }
-            tree_with_changes = merge_result.tree.write()?.detach();
+            break 'retry (
+                Some(tree_with_changes),
+                Some(tree_with_changes_without_cherry_pick),
+            );
         }
-        break 'retry (
-            Some(tree_with_changes),
-            Some(tree_with_changes_without_cherry_pick),
-        );
     };
     Ok(CreateTreeOutcome {
         rejected_specs: changes.into_iter().filter_map(Result::err).collect(),
