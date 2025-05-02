@@ -4,8 +4,10 @@
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { Project } from '$lib/project/project';
 	import {
+		agentPath,
 		branchesPath,
 		ircPath,
+		isAgentPath,
 		isBranchesPath,
 		isIrcPath,
 		isNewProjectSettingsPath,
@@ -139,6 +141,20 @@
 				/>
 			</div>
 		{/if}
+		<div>
+			{#if isAgentPath()}
+				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+			{/if}
+			<Button
+				kind="outline"
+				onclick={() => goto(agentPath(project.id))}
+				icon="ai"
+				width={34}
+				class={['btn-square', isAgentPath() && 'btn-active']}
+				tooltip="Agent"
+				{disabled}
+			/>
+		</div>
 	</div>
 	<div class="bottom">
 		<div class="bottom__primary-actions">

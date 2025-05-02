@@ -272,6 +272,20 @@ export class AIService {
 		return undefined;
 	}
 
+	async chat({
+		messages,
+		onToken
+	}: {
+		messages: PromptMessage[];
+		onToken?: (token: string) => void;
+	}): Promise<string | undefined> {
+		const aiClient = await this.buildClient();
+
+		if (!aiClient) return;
+
+		return (await aiClient.evaluate(messages, { onToken })).trim();
+	}
+
 	async summarizeCommit({
 		diffInput,
 		useEmojiStyle = false,

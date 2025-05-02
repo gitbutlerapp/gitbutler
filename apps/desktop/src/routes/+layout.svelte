@@ -12,6 +12,7 @@
 	import ToastController from '$components/ToastController.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
 	import LineSelection from '$components/v3/unifiedDiffLineSelection.svelte';
+	import { AgentFactory } from '$lib/agent/agent';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
@@ -235,6 +236,11 @@
 	setContext(ShortcutService, shortcutService);
 	setContext(DiffService, diffService);
 	setContext(UploadsService, data.uploadsService);
+
+	$effect.pre(() => {
+		const agentFactory = new AgentFactory(data.aiService);
+		setContext(AgentFactory, agentFactory);
+	});
 
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 

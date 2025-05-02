@@ -15,7 +15,7 @@ use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
-    askpass, commands, config, diff, env, forge, github, logs, menu, modes, open, projects,
+    agent, askpass, commands, config, diff, env, forge, github, logs, menu, modes, open, projects,
     remotes, repo, secret, settings, stack, undo, users, virtual_branches, workspace, zip, App,
     WindowState,
 };
@@ -295,6 +295,8 @@ fn main() {
                     // `env_vars` is only supposed to be avaialble in debug mode, not in production.
                     #[cfg(debug_assertions)]
                     env::env_vars,
+                    agent::agent_read_file,
+                    agent::agent_read_directory,
                 ])
                 .menu(menu::build)
                 .on_window_event(|window, event| match event {
