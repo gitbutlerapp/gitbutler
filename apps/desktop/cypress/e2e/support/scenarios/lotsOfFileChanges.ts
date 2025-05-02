@@ -82,6 +82,9 @@ const MOCK_FILE_TREE_CHANGES: TreeChange[] = FILE_PATHS.map((path) => {
 	return randomGenerator({ path });
 });
 
+/**
+ * Mock backend for a scenario with a lot of uncommitted file changes.
+ */
 export default class LotsOfFileChanges extends MockBackend {
 	constructor() {
 		super();

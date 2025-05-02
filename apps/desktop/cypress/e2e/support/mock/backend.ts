@@ -1,6 +1,7 @@
 import { getBaseBranchData } from './baseBranch';
 import {
 	bytesToStr,
+	isGetBranchChangesParams,
 	isGetCommitChangesParams,
 	isGetDiffParams,
 	isGetWorktreeChangesParams,
@@ -8,6 +9,7 @@ import {
 	MOCK_TREE_CHANGE_A,
 	MOCK_UNIFIED_DIFF
 } from './changes';
+import { PROJECT_ID } from './projects';
 import {
 	isCreateCommitParams,
 	isStackDetailsParams,
@@ -33,8 +35,10 @@ export type MockBackendOptions = {
 	initalStacks?: Stack[];
 };
 
-type StackId = string;
-type CommitId = string;
+export type StackId = string;
+export type CommitId = string;
+export type BranchName = string;
+export type BranchChanges = Map<BranchName, TreeChange[]>;
 
 /**
  * *Ooooh look at me, I'm a mock backend!*
@@ -43,6 +47,7 @@ export default class MockBackend {
 	protected stacks: Stack[];
 	protected stackDetails: Map<StackId, StackDetails>;
 	protected commitChanges: Map<CommitId, TreeChange[]>;
+	protected branchChanges: Map<StackId, BranchChanges>;
 	protected worktreeChanges: WorktreeChanges;
 	stackId: string = MOCK_STACK_A_ID;
 	renamedCommitId: string = '424242424242';
@@ -53,6 +58,7 @@ export default class MockBackend {
 		this.stacks = options.initalStacks ?? MOCK_STACKS;
 		this.stackDetails = new Map<string, StackDetails>();
 		this.commitChanges = new Map<string, TreeChange[]>();
+		this.branchChanges = new Map<string, BranchChanges>();
 		this.worktreeChanges = { changes: [MOCK_TREE_CHANGE_A], ignoredChanges: [] };
 
 		this.stackDetails.set(MOCK_STACK_A_ID, structuredClone(MOCK_STACK_DETAILS));
@@ -284,5 +290,46 @@ export default class MockBackend {
 
 	public integrateUpstream(_args: InvokeArgs | undefined): IntegrationOutcome {
 		return MOCK_INTEGRATION_OUTCOME;
+	}
+
+	public getBranchChanges(args: InvokeArgs | undefined): TreeChanges {
+		if (!args || !isGetBranchChangesParams(args)) {
+			throw new Error('Invalid arguments for getBranchChanges');
+		}
+
+		const { stackId, branchName } = args;
+
+		if (!stackId) {
+			// TODO: Add mock data for unstacked branches
+			throw new Error('Not implemented yet: Mock data for unstacked branches');
+		}
+
+		const stackBranchChanges = this.branchChanges.get(stackId);
+		if (!stackBranchChanges) {
+			throw new Error(`No changes found for stack with ID ${stackId}`);
+		}
+
+		const branchChanges = stackBranchChanges.get(branchName);
+		if (!branchChanges) {
+			throw new Error(`No changes found for branch with name ${branchName}`);
+		}
+
+		return {
+			changes: branchChanges,
+			stats: {
+				linesAdded: 0,
+				linesRemoved: 0,
+				filesChanged: branchChanges.length
+			}
+		};
+	}
+
+	public getBranchChangesFileNames(
+		stackId: string,
+		branchName: string,
+		projectId: string = PROJECT_ID
+	): string[] {
+		const changes = this.getBranchChanges({ projectId, stackId, branchName });
+		return changes.changes.map((change) => change.path).map((path) => path.split('/').pop()!);
 	}
 }
