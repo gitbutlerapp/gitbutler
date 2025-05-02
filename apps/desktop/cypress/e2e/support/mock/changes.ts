@@ -119,6 +119,26 @@ export function isGetCommitChangesParams(args: unknown): args is GetCommitChange
 	);
 }
 
+export type GetBranchChangesParams = {
+	projectId: string;
+	stackId?: string;
+	branchName: string;
+	remote?: string;
+};
+
+export function isGetBranchChangesParams(args: unknown): args is GetBranchChangesParams {
+	return (
+		typeof args === 'object' &&
+		args !== null &&
+		'projectId' in args &&
+		typeof args['projectId'] === 'string' &&
+		(typeof (args as any).stackId === 'string' || (args as any).stackId === undefined) &&
+		'branchName' in args &&
+		typeof args['branchName'] === 'string' &&
+		(typeof (args as any).remote === 'string' || (args as any).remote === undefined)
+	);
+}
+
 export type UndoCommitParams = {
 	projectId: string;
 	stackId: string;
