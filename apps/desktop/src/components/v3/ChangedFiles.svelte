@@ -17,9 +17,10 @@
 		selectionId: SelectionId;
 		changes: TreeChange[];
 		title: string;
+		testId?: string;
 	};
 
-	const { projectId, stackId, selectionId, changes, title }: Props = $props();
+	const { projectId, stackId, selectionId, changes, title, testId }: Props = $props();
 
 	const [focusManager] = inject(FocusManager);
 
@@ -32,6 +33,7 @@
 </script>
 
 <div
+	data-testid={testId}
 	class="changed-files"
 	use:focusable={{ id: Focusable.ChangedFiles, parentId: Focusable.Workspace }}
 >
