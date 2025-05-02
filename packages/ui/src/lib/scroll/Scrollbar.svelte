@@ -157,7 +157,7 @@
 		};
 	}
 
-	function updateTrack() {
+	export function updateTrack() {
 		wholeHeight = viewport?.scrollHeight ?? 0;
 		wholeWidth = viewport?.scrollWidth ?? 0;
 		trackHeight = viewport?.clientHeight ?? 0;

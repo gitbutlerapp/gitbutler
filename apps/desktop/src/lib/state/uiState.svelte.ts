@@ -38,6 +38,7 @@ type BranchesSelection = {
 export type ProjectUiState = {
 	drawerPage: DrawerPage;
 	drawerFullScreen: boolean;
+	stackId: string | undefined;
 	commitTitle: string;
 	commitDescription: string;
 	branchesSelection: BranchesSelection;
@@ -76,7 +77,8 @@ export class UiState {
 		drawerFullScreen: false,
 		commitTitle: '',
 		commitDescription: '',
-		branchesSelection: {}
+		branchesSelection: {},
+		stackId: undefined
 	});
 
 	/** Properties that are globally scoped. */

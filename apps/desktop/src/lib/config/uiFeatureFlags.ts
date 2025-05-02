@@ -10,3 +10,5 @@ export const autoSelectBranchNameFeature = persisted(false, 'autoSelectBranchLan
 
 export const ircEnabled = persistWithExpiration(false, 'feature-irc', 1440 * 30);
 export const ircServer = persistWithExpiration('', 'feature-irc-server', 1440 * 30);
+
+export const multiStackLayout = persistWithExpiration(false, 'multi-lane-layout', 1440 * 30);

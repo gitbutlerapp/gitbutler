@@ -34,7 +34,7 @@
 		direction,
 		zIndex = 'var(--z-lifted)',
 		minWidth = 0,
-		maxWidth = 40,
+		maxWidth = 120,
 		minHeight = 0,
 		borderRadius = 'none',
 		imitateBorder,

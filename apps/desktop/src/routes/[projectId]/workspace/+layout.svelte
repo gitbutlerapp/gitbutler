@@ -3,8 +3,10 @@
 	import { page } from '$app/state';
 	import WorkspaceView from '$components/v3/WorkspaceView.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
+	import { multiStackLayout } from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { PageData } from './$types';
 	import type { Snippet } from 'svelte';
@@ -18,7 +20,9 @@
 	const { data, children }: { data: PageData; children: Snippet } = $props();
 
 	const projectId = $derived(page.params.projectId!);
-	const stackId = $derived(page.params.stackId);
+	const uiState = getContext(UiState);
+	const projectState = $derived(uiState.project(projectId));
+	const stackId = $derived($multiStackLayout ? projectState.stackId.current : page.params.stackId);
 
 	const stacks = $derived(stackService.stacks(projectId));
 
