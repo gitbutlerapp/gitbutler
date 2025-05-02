@@ -177,7 +177,7 @@
 						setTimeout(() => {
 							side = 'top';
 							setAlignment();
-						}, 0)
+						}, 0);
 					}
 					if (rect.top < viewport.top) {
 						side = 'bottom';
