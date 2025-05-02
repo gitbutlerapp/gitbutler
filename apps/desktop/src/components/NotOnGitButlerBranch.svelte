@@ -95,7 +95,7 @@
 						}
 					}}
 				>
-					Go back to gitbutler/workspace
+					Switch to to gitbutler/workspace
 				</AsyncButton>
 
 				{#if project}

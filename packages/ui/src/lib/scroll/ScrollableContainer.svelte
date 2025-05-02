@@ -114,7 +114,10 @@
 		width: 100%;
 	}
 	/* need this wrapper to not mess with
-	 * pseudo selectors like ::last-child */
+	 * pseudo selectors like ::last-child 
+	 * and it should be display: contents
+	 * to not mess with the layout */
 	.viewport-content {
+		display: contents;
 	}
 </style>
