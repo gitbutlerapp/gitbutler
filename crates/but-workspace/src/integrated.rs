@@ -116,6 +116,14 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
 
         let merge_tree_id = merge_output.tree.write()?.detach();
 
+        let parent_tree = commit.parents().next().map(|c| c.tree_id());
+        if let Some(parent_tree) = parent_tree {
+            // if the commit tree is the same as its the parent tree, it must be an empty commit, so dont classify it as integrated
+            if commit.tree_id() == parent_tree {
+                return Ok(false);
+            }
+        }
+
         // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
         // then the vbranch is fully merged
         Ok(merge_tree_id == self.upstream_tree_id)
