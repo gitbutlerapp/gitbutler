@@ -1,5 +1,4 @@
 <script lang="ts">
-	import BranchLabel from '$components/BranchLabel.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import type { Snippet } from 'svelte';
@@ -11,7 +10,7 @@
 		contextMenu: Snippet;
 	};
 
-	const { projectId, stackName, children, contextMenu }: Props = $props();
+	const { projectId, children, contextMenu }: Props = $props();
 
 	const [uiState] = inject(UiState);
 
@@ -20,13 +19,12 @@
 </script>
 
 <div class="stack-card text-15 text-bold text-" class:selected>
-	<div class="header">
-		<BranchLabel name={stackName} readonly />
-		<div>
-			{@render contextMenu()}
-		</div>
-	</div>
 	<div class="content">
+		<div class="header">
+			<div>
+				{@render contextMenu()}
+			</div>
+		</div>
 		{@render children()}
 	</div>
 </div>

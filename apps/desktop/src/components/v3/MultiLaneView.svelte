@@ -30,7 +30,7 @@
 
 <div class="lanes-header">
 	<div class="left">
-		<h3 class="text-14 text-semibold truncate">Stacks</h3>
+		<h3 class="text-14 text-semibold truncate">Branches in workspace</h3>
 		{#if stacks.length > 0}
 			<Badge>{stacks.length}</Badge>
 		{/if}
@@ -83,6 +83,8 @@
 			gap: 12px;
 			overflow-x: auto;
 			scroll-snap-type: x mandatory;
+			padding-left: 12px;
+			padding-right: 12px;
 		}
 		&.multi {
 		}
@@ -95,6 +97,9 @@
 
 	.lane {
 		display: flex;
+		&.multi {
+			width: 280px;
+		}
 		flex-direction: column;
 		flex-shrink: 0;
 		scroll-snap-align: start;
@@ -107,10 +112,10 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
+		border-bottom: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
 		padding: 6px 12px;
+		margin-bottom: 12px;
 		& .left {
 			display: flex;
 			align-items: center;
