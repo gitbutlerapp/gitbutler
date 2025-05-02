@@ -9,6 +9,7 @@ import {
 	MOCK_TREE_CHANGE_A,
 	MOCK_UNIFIED_DIFF
 } from './changes';
+import { PROJECT_ID } from './projects';
 import {
 	isCreateCommitParams,
 	isStackDetailsParams,
@@ -29,7 +30,6 @@ import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { Stack, StackDetails } from '$lib/stacks/stack';
 import type { BranchStatusesResponse, IntegrationOutcome } from '$lib/upstream/types';
 import type { InvokeArgs } from '@tauri-apps/api/core';
-import { PROJECT_ID } from './projects';
 
 export type MockBackendOptions = {
 	initalStacks?: Stack[];

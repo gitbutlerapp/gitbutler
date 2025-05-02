@@ -1,13 +1,12 @@
 import MockBackend from '../mock/backend';
-import { createMockBranchDetails, createMockStackDetails } from '../mock/stacks';
-import type { Stack, StackDetails } from '$lib/stacks/stack';
-import type { InvokeArgs } from '@tauri-apps/api/core';
-import type { TreeChange } from '$lib/hunks/change';
 import {
 	createMockAdditionTreeChange,
 	createMockDeletionTreeChange,
 	createMockModificationTreeChange
 } from '../mock/changes';
+import { createMockBranchDetails, createMockStackDetails } from '../mock/stacks';
+import type { TreeChange } from '$lib/hunks/change';
+import type { Stack } from '$lib/stacks/stack';
 
 const MOCK_STACK_A_ID = 'stack-a-id';
 const MOCK_STACK_B_ID = 'stack-b-id';
