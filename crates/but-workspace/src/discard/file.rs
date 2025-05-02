@@ -219,7 +219,7 @@ fn with_trailing_slash(rela_path: &BStr) -> BString {
     buf
 }
 
-fn checkout_repo_worktree(
+pub(crate) fn checkout_repo_worktree(
     parent_worktree_dir: &Path,
     mut repo: gix::Repository,
 ) -> anyhow::Result<()> {

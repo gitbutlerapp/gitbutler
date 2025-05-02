@@ -113,6 +113,20 @@ pub struct HunkHeader {
     pub new_lines: u32,
 }
 
+impl HunkHeader {
+    /// Returns the hunk header with the old and new ranges swapped.
+    ///
+    /// This is useful for applying the hunk in reverse.
+    pub fn reverse(&self) -> Self {
+        Self {
+            old_start: self.new_start,
+            old_lines: self.new_lines,
+            new_start: self.old_start,
+            new_lines: self.old_lines,
+        }
+    }
+}
+
 /// The range of a hunk as denoted by a 1-based starting line, and the amount of lines from there.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct HunkRange {
