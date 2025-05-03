@@ -1,6 +1,8 @@
 use std::{env, fs};
 
+use crate::error::Error;
 use anyhow::Context;
+use but_settings::AppSettingsWithDiskSync;
 use gitbutler_error::error::{self, Code};
 #[cfg(target_os = "macos")]
 use tauri::menu::AboutMetadata;
@@ -10,8 +12,6 @@ use tauri::{
     AppHandle, Manager, Runtime, WebviewWindow,
 };
 use tracing::instrument;
-
-use crate::error::Error;
 
 static SHORTCUT_EVENT: &str = "menu://shortcut";
 
@@ -58,7 +58,10 @@ fn check_if_installed(executable_name: &str) -> bool {
     }
 }
 
-pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Menu<R>> {
+pub fn build<R: Runtime>(
+    handle: &AppHandle<R>,
+    settings: &AppSettingsWithDiskSync,
+) -> tauri::Result<tauri::menu::Menu<R>> {
     let check_for_updates =
         MenuItemBuilder::with_id("global/update", "Check for updates…").build(handle)?;
 
@@ -186,17 +189,21 @@ pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Me
         ])
         .build()?;
 
-    let help_menu = &SubmenuBuilder::new(handle, "Help")
+    let mut help_menu = SubmenuBuilder::new(handle, "Help")
         .text("help/documentation", "Documentation")
         .text("help/github", "Source Code")
         .text("help/release-notes", "Release Notes")
-        .separator()
-        .item(
-            &MenuItemBuilder::with_id("help/keyboard-shortcuts", "Keyboard Shortcuts")
-                .accelerator("CmdOrCtrl+/")
-                .build(handle)?,
-        )
-        .separator()
+        .separator();
+    if settings.get()?.feature_flags.v3 {
+        help_menu = help_menu
+            .item(
+                &MenuItemBuilder::with_id("help/keyboard-shortcuts", "Keyboard Shortcuts")
+                    .accelerator("CmdOrCtrl+/")
+                    .build(handle)?,
+            )
+            .separator();
+    };
+    let help_menu = help_menu
         .text("help/share-debug-info", "Share Debug Info…")
         .text("help/report-issue", "Report an Issue…")
         .separator()
@@ -226,7 +233,7 @@ pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Me
             project_menu,
             #[cfg(target_os = "macos")]
             window_menu,
-            help_menu,
+            &help_menu,
         ],
     )
 }

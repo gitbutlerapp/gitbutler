@@ -44,6 +44,7 @@ fn main() {
     ) {
         tauri_context.config_mut().app.security.csp = updated_csp;
     };
+    let settings_for_menu = app_settings.clone();
 
     inherit_interactive_login_shell_environment();
 
@@ -300,7 +301,7 @@ fn main() {
                     #[cfg(debug_assertions)]
                     env::env_vars,
                 ])
-                .menu(menu::build)
+                .menu(move |handle| menu::build(handle, &settings_for_menu))
                 .on_window_event(|window, event| match event {
                     #[cfg(target_os = "macos")]
                     tauri::WindowEvent::CloseRequested { .. } => {
