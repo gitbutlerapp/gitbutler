@@ -1,6 +1,7 @@
 import { BaseParamsSchema, DiffSpec } from './shared.js';
 import { listStackBranches, listStacks } from './status.js';
 import { executeGitButlerCommand, hasGitButlerExecutable } from '../../shared/command.js';
+import { CreateCommitOutcomeSchema } from '../../shared/entities/stacks.js';
 import { CallToolResult, GetPromptResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
@@ -36,6 +37,55 @@ function populateDiffSpec(
 
 	const diffSpecJson = JSON.stringify(diffSpec);
 	args.push('--diff-spec', diffSpecJson);
+}
+
+/**
+ * Generates a summary string describing the reasons for rejected changes and the associated file paths.
+ *
+ * Groups the rejected changes by their reason and lists the file paths for each reason.
+ * The resulting string has the format: "reason1: file1, file2; reason2: file3".
+ *
+ * @param outcome - The outcome object containing paths to rejected changes, where each entry is a tuple of [reason, filePath].
+ * @returns A summary string listing reasons and their corresponding file paths.
+ */
+function createRejectionSummary(outcome: CreateCommitOutcome): string {
+	const groupedRejections = new Map<string, Set<string>>();
+	for (const path of outcome.pathsToRejectedChanges) {
+		const [reason, filePath] = path;
+		const paths = groupedRejections.get(reason) || new Set<string>();
+		paths.add(filePath);
+		groupedRejections.set(reason, paths);
+	}
+
+	const rejectionMessages = Array.from(groupedRejections.entries())
+		.map(([reason, paths]) => `${reason}: ${Array.from(paths).join(', ')}`)
+		.join('; ');
+	return rejectionMessages;
+}
+
+type CreateCommitOutcome = z.infer<typeof CreateCommitOutcomeSchema>;
+
+function interpretOutcome(outcome: CreateCommitOutcome, action: 'created' | 'amend'): string {
+	// Success
+	if (outcome.newCommitId !== null && outcome.pathsToRejectedChanges.length === 0) {
+		return `Commit successfully ${action} with ID ${outcome.newCommitId}`;
+	}
+
+	// Created commit but some changes were rejected
+	if (outcome.newCommitId !== null && outcome.pathsToRejectedChanges.length > 0) {
+		const rejectionMessages = createRejectionSummary(outcome);
+
+		return `Commit successfully ${amendCommit} with ID ${outcome.newCommitId}, but some changes were rejected: ${rejectionMessages}`;
+	}
+
+	// No commit created
+	let message = `No commit could be ${action}`;
+	if (outcome.pathsToRejectedChanges.length > 0) {
+		const rejectionMessages = createRejectionSummary(outcome);
+		message += `, and the following changes were rejected: ${rejectionMessages}`;
+	}
+
+	return message;
 }
 
 const CommitParamsSchema = BaseParamsSchema.extend({
@@ -83,7 +133,7 @@ function commit(params: CommitParams, amendParams?: AmendCommitParams) {
 			if (heads.length === 1) {
 				// If this stack has only one branch, we can commit directly to it
 				args.push('-s', params.branch);
-				return executeGitButlerCommand(params.project_directory, args, undefined);
+				return executeGitButlerCommand(params.project_directory, args, CreateCommitOutcomeSchema);
 			}
 
 			const stackBranches = listStackBranches({
@@ -104,7 +154,7 @@ function commit(params: CommitParams, amendParams?: AmendCommitParams) {
 			}
 
 			args.push('-s', params.branch);
-			return executeGitButlerCommand(params.project_directory, args, undefined);
+			return executeGitButlerCommand(params.project_directory, args, CreateCommitOutcomeSchema);
 		}
 	}
 
@@ -213,8 +263,9 @@ export async function getCommitToolRequestHandler(
 		switch (toolName) {
 			case 'commit': {
 				const parsedParams = CommitParamsSchema.parse(params);
-				commit(parsedParams);
-				return { content: [{ type: 'text', text: 'Commit successful' }] };
+				const outcome = commit(parsedParams);
+				const interpretation = interpretOutcome(outcome, 'created');
+				return { content: [{ type: 'text', text: interpretation }] };
 			}
 			case 'create-draft-commits': {
 				const parsedParams = DraftCommitsParamsSchema.parse(params);
@@ -223,8 +274,9 @@ export async function getCommitToolRequestHandler(
 			}
 			case 'amend-commit': {
 				const parsedParams = AmmendCommitParamsSchema.parse(params);
-				amendCommit(parsedParams);
-				return { content: [{ type: 'text', text: 'Commit amended successfully' }] };
+				const outcome = amendCommit(parsedParams);
+				const interpretation = interpretOutcome(outcome, 'amend');
+				return { content: [{ type: 'text', text: interpretation }] };
 			}
 		}
 	} catch (error: unknown) {
