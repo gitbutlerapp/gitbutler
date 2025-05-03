@@ -27,99 +27,169 @@ pub fn commit(
         bail!("Need a message when creating a new commit");
     }
 
-    let parent_id = parent_revspec
-        .map(|revspec| repo.rev_parse_single(revspec).map_err(anyhow::Error::from))
-        .map(|id| id.map(|id| id.detach()))
-        .transpose()?;
+    let parent_id = resolve_parent_id(&repo, parent_revspec)?;
 
-    let changes = match (current_rela_path, previous_rela_path, headers, diff_spec) {
-        (None, None, None, Some(diff_spec)) => diff_spec,
-        (None, None, None, None) => {
-            to_whole_file_diffspec(but_core::diff::worktree_changes(&repo)?.changes)
-        }
-        (Some(current_path), previous_path, Some(headers), None) => {
-            let path = path_to_rela_path(current_path)?;
-            let previous_path = previous_path.map(path_to_rela_path).transpose()?;
-            let hunk_headers = indices_or_headers_to_hunk_headers(
-                &repo,
-                Some(IndicesOrHeaders::Headers(headers)),
-                &path,
-                previous_path.as_ref(),
-            )?;
+    let changes = resolve_changes(
+        &repo,
+        current_rela_path,
+        previous_rela_path,
+        headers,
+        diff_spec,
+    )?;
 
-            vec![DiffSpec {
-                previous_path,
-                path,
-                hunk_headers,
-            }]
-        }
-        _ => unreachable!("BUG: specifying this shouldn't be possible"),
-    };
     if let Some(project) = project.as_ref() {
-        let destination = if amend {
-            let parent_id = parent_id.unwrap_or(repo.head_id()?.detach());
-            but_workspace::commit_engine::Destination::AmendCommit {
-                commit_id: parent_id,
-                new_message: message.map(ToOwned::to_owned),
-            }
-        } else {
-            let (stack_segment, parent_commit_id) =
-                get_stack_segment_info(&repo, stack_segment_ref, parent_id, project)?;
-
-            but_workspace::commit_engine::Destination::NewCommit {
-                parent_commit_id,
-                message: message.unwrap_or_default().to_owned(),
-                stack_segment,
-            }
-        };
-        let mut guard = project.exclusive_worktree_access();
-        debug_print(
-            but_workspace::commit_engine::create_commit_and_update_refs_with_project(
-                &repo,
-                project,
-                None,
-                destination,
-                None,
-                changes,
-                0, /* context-lines */
-                guard.write_permission(),
-            )?,
+        commit_with_project(
+            &repo,
+            project,
+            message,
+            amend,
+            parent_id,
+            stack_segment_ref,
+            changes,
         )?;
     } else {
-        let destination = if amend {
-            let parent_id = parent_id.unwrap_or(repo.head_id()?.detach());
-            but_workspace::commit_engine::Destination::AmendCommit {
-                commit_id: parent_id,
-                new_message: message.map(ToOwned::to_owned),
-            }
-        } else {
-            but_workspace::commit_engine::Destination::NewCommit {
-                parent_commit_id: parent_id,
-                message: message.unwrap_or_default().to_owned(),
-                stack_segment: None,
-            }
-        };
-        debug_print(create_commit_and_update_refs(
+        commit_without_project(
             &repo,
-            ReferenceFrame {
-                workspace_tip: workspace_tip
-                    .map(|spec| repo.rev_parse_single(spec))
-                    .transpose()?
-                    .map(|id| id.detach()),
-                branch_tip: Some(
-                    stack_segment_ref
-                        .map(|name| repo.find_reference(name).map(|r| r.id().detach()))
-                        .transpose()?
-                        .unwrap_or(repo.head_id()?.detach()),
-                ),
-            },
-            &mut VirtualBranchesState::default(),
+            message,
+            amend,
+            parent_id,
+            stack_segment_ref,
+            workspace_tip,
+            changes,
+        )?;
+    }
+    Ok(())
+}
+
+/// Determines the parent commit ID based on the provided `parent_revspec`.
+fn resolve_parent_id(
+    repo: &gix::Repository,
+    parent_revspec: Option<&str>,
+) -> anyhow::Result<Option<gix::ObjectId>> {
+    parent_revspec
+        .map(|revspec| repo.rev_parse_single(revspec).map_err(anyhow::Error::from))
+        .map(|id| id.map(|id| id.detach()))
+        .transpose()
+}
+
+/// Determines the changes to be committed based on the provided parameters.
+fn resolve_changes(
+    repo: &gix::Repository,
+    current_rela_path: Option<&Path>,
+    previous_rela_path: Option<&Path>,
+    headers: Option<&[u32]>,
+    diff_spec: Option<Vec<DiffSpec>>,
+) -> anyhow::Result<Vec<DiffSpec>> {
+    Ok(
+        match (current_rela_path, previous_rela_path, headers, diff_spec) {
+            (None, None, None, Some(diff_spec)) => diff_spec,
+            (None, None, None, None) => {
+                to_whole_file_diffspec(but_core::diff::worktree_changes(repo)?.changes)
+            }
+            (Some(current_path), previous_path, Some(headers), None) => {
+                let path = path_to_rela_path(current_path)?;
+                let previous_path = previous_path.map(path_to_rela_path).transpose()?;
+                let hunk_headers = indices_or_headers_to_hunk_headers(
+                    repo,
+                    Some(IndicesOrHeaders::Headers(headers)),
+                    &path,
+                    previous_path.as_ref(),
+                )?;
+
+                vec![DiffSpec {
+                    previous_path,
+                    path,
+                    hunk_headers,
+                }]
+            }
+            _ => unreachable!("BUG: specifying this shouldn't be possible"),
+        },
+    )
+}
+
+fn commit_with_project(
+    repo: &gix::Repository,
+    project: &Project,
+    message: Option<&str>,
+    amend: bool,
+    parent_id: Option<gix::ObjectId>,
+    stack_segment_ref: Option<&str>,
+    changes: Vec<DiffSpec>,
+) -> anyhow::Result<()> {
+    let destination = if amend {
+        let parent_id = parent_id.unwrap_or(repo.head_id()?.detach());
+        but_workspace::commit_engine::Destination::AmendCommit {
+            commit_id: parent_id,
+            new_message: message.map(ToOwned::to_owned),
+        }
+    } else {
+        let (stack_segment, parent_commit_id) =
+            get_stack_segment_info(repo, stack_segment_ref, parent_id, project)?;
+
+        but_workspace::commit_engine::Destination::NewCommit {
+            parent_commit_id,
+            message: message.unwrap_or_default().to_owned(),
+            stack_segment,
+        }
+    };
+    let mut guard = project.exclusive_worktree_access();
+    debug_print(
+        but_workspace::commit_engine::create_commit_and_update_refs_with_project(
+            repo,
+            project,
+            None,
             destination,
             None,
             changes,
-            0,
-        )?)?;
-    }
+            0, /* context-lines */
+            guard.write_permission(),
+        )?,
+    )?;
+    Ok(())
+}
+
+fn commit_without_project(
+    repo: &gix::Repository,
+    message: Option<&str>,
+    amend: bool,
+    parent_id: Option<gix::ObjectId>,
+    stack_segment_ref: Option<&str>,
+    workspace_tip: Option<&str>,
+    changes: Vec<DiffSpec>,
+) -> anyhow::Result<()> {
+    let destination = if amend {
+        let parent_id = parent_id.unwrap_or(repo.head_id()?.detach());
+        but_workspace::commit_engine::Destination::AmendCommit {
+            commit_id: parent_id,
+            new_message: message.map(ToOwned::to_owned),
+        }
+    } else {
+        but_workspace::commit_engine::Destination::NewCommit {
+            parent_commit_id: parent_id,
+            message: message.unwrap_or_default().to_owned(),
+            stack_segment: None,
+        }
+    };
+    debug_print(create_commit_and_update_refs(
+        repo,
+        ReferenceFrame {
+            workspace_tip: workspace_tip
+                .map(|spec| repo.rev_parse_single(spec))
+                .transpose()?
+                .map(|id| id.detach()),
+            branch_tip: Some(
+                stack_segment_ref
+                    .map(|name| repo.find_reference(name).map(|r| r.id().detach()))
+                    .transpose()?
+                    .unwrap_or(repo.head_id()?.detach()),
+            ),
+        },
+        &mut VirtualBranchesState::default(),
+        destination,
+        None,
+        changes,
+        0,
+    )?)?;
     Ok(())
 }
 
