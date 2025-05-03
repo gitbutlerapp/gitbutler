@@ -22,6 +22,7 @@ pub fn commit(
     previous_rela_path: Option<&Path>,
     headers: Option<&[u32]>,
     diff_spec: Option<Vec<DiffSpec>>,
+    use_json: bool,
 ) -> anyhow::Result<()> {
     if message.is_none() && !amend {
         bail!("Need a message when creating a new commit");
@@ -46,6 +47,7 @@ pub fn commit(
             parent_id,
             stack_segment_ref,
             changes,
+            use_json,
         )?;
     } else {
         commit_without_project(
@@ -56,6 +58,7 @@ pub fn commit(
             stack_segment_ref,
             workspace_tip,
             changes,
+            use_json,
         )?;
     }
     Ok(())
@@ -107,6 +110,7 @@ fn resolve_changes(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn commit_with_project(
     repo: &gix::Repository,
     project: &Project,
@@ -115,6 +119,7 @@ fn commit_with_project(
     parent_id: Option<gix::ObjectId>,
     stack_segment_ref: Option<&str>,
     changes: Vec<DiffSpec>,
+    use_json: bool,
 ) -> anyhow::Result<()> {
     let destination = if amend {
         let parent_id = parent_id.unwrap_or(repo.head_id()?.detach());
@@ -133,21 +138,29 @@ fn commit_with_project(
         }
     };
     let mut guard = project.exclusive_worktree_access();
-    debug_print(
-        but_workspace::commit_engine::create_commit_and_update_refs_with_project(
-            repo,
-            project,
-            None,
-            destination,
-            None,
-            changes,
-            0, /* context-lines */
-            guard.write_permission(),
-        )?,
+    let outcome = but_workspace::commit_engine::create_commit_and_update_refs_with_project(
+        repo,
+        project,
+        None,
+        destination,
+        None,
+        changes,
+        0, /* context-lines */
+        guard.write_permission(),
     )?;
+
+    if use_json {
+        let outcome = but_workspace::commit_engine::ui::CreateCommitOutcome::from(outcome);
+        let json = serde_json::to_string_pretty(&outcome)?;
+        println!("{}", json);
+    } else {
+        debug_print(outcome)?;
+    }
+
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn commit_without_project(
     repo: &gix::Repository,
     message: Option<&str>,
@@ -156,6 +169,7 @@ fn commit_without_project(
     stack_segment_ref: Option<&str>,
     workspace_tip: Option<&str>,
     changes: Vec<DiffSpec>,
+    use_json: bool,
 ) -> anyhow::Result<()> {
     let destination = if amend {
         let parent_id = parent_id.unwrap_or(repo.head_id()?.detach());
@@ -170,7 +184,8 @@ fn commit_without_project(
             stack_segment: None,
         }
     };
-    debug_print(create_commit_and_update_refs(
+
+    let outcome = create_commit_and_update_refs(
         repo,
         ReferenceFrame {
             workspace_tip: workspace_tip
@@ -189,7 +204,16 @@ fn commit_without_project(
         None,
         changes,
         0,
-    )?)?;
+    )?;
+
+    if use_json {
+        let outcome = but_workspace::commit_engine::ui::CreateCommitOutcome::from(outcome);
+        let json = serde_json::to_string_pretty(&outcome)?;
+        println!("{}", json);
+    } else {
+        debug_print(outcome)?;
+    }
+
     Ok(())
 }
 
