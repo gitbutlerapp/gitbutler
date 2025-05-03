@@ -68,6 +68,7 @@ fn main() -> Result<()> {
                     None
                 },
                 diff_spec,
+                args.json,
             )
         }
         args::Subcommands::HunkDependency => command::diff::locks(&args.current_dir),
