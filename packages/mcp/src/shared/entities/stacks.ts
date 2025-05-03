@@ -86,3 +86,29 @@ export const BranchCommitsSchema = z.object({
 	localAndRemote: z.array(CommitSchema),
 	upstreamCommits: z.array(UpstreamCommitSchema)
 });
+
+export const RejectedChangesSchema = z.tuple([
+	z.enum([
+		'NoEffectiveChanges',
+		'CherryPickMergeConflict',
+		'WorkspaceMergeConflict',
+		'WorktreeFileMissingForObjectConversion',
+		'FileToLargeOrBinary',
+		'PathNotFoundInBaseTree',
+		'UnsupportedDirectoryEntry',
+		'UnsupportedTreeEntry',
+		'MissingDiffSpecAssociation'
+	]),
+	z.string({ description: 'The path to the file that could not be committed.' })
+]);
+
+export const CreateCommitOutcomeSchema = z.object({
+	newCommitId: z
+		.string({
+			description: 'The commit ID of the new commit. Null if the commit failed to be created.'
+		})
+		.nullable(),
+	pathsToRejectedChanges: z.array(RejectedChangesSchema, {
+		description: 'The paths to the files that could not be committed, and the reason why.'
+	})
+});
