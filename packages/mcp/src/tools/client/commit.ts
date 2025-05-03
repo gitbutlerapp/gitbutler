@@ -18,6 +18,14 @@ function populateDiffSpec(
 	},
 	args: string[]
 ) {
+	if (params.all) {
+		if (params.filePaths.length > 0) {
+			throw new Error('Cannot use --all and file paths together');
+		}
+
+		return;
+	}
+
 	const diffSpec: DiffSpec[] = [];
 	for (const filePath of params.filePaths) {
 		diffSpec.push({
@@ -58,12 +66,6 @@ function commit(params: CommitParams, amendParams?: AmendCommitParams) {
 		args.push('--amend', '--parent', amendParams.commitId);
 	} else {
 		args.push('--message', params.message);
-	}
-
-	if (params.all) {
-		if (params.filePaths.length > 0) {
-			throw new Error('Cannot use --all and file paths together');
-		}
 	}
 
 	populateDiffSpec(params, args);
