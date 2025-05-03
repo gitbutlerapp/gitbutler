@@ -1,7 +1,7 @@
 {
 	"eslint.useFlatConfig": true,
 	"eslint.validate": ["svelte"],
-	"eslint.workingDirectories": [{"mode": "auto"}],
+	"eslint.workingDirectories": [{ "mode": "auto" }],
 	"svelte.enable-ts-plugin": true,
 	"prettier.configPath": ".prettierrc.mjs",
 	"prettier.useEditorConfig": false,
