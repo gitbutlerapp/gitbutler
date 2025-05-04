@@ -121,7 +121,6 @@
 		{#snippet children(stacks)}
 			<div
 				class="stacks-view-wrap"
-				class:dotted={multiStackLayout}
 				bind:this={stacksViewEl}
 				style:width={stacksViewWidth.current + 'rem'}
 				use:focusable={{ id: Focusable.WorkspaceRight, parentId: Focusable.Workspace }}
@@ -184,13 +183,12 @@
 	.stacks-view-wrap {
 		height: 100%;
 		display: flex;
+		flex-grow: 0;
+		flex-shrink: 0;
 		flex-direction: column;
-		gap: 6px;
 		justify-content: flex-start;
 		position: relative;
 		overflow: hidden;
-		border-radius: var(--radius-ml) var(--radius-ml) var(--radius-ml) var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
 	}
 
 	.main-view {
@@ -201,7 +199,7 @@
 		overflow-x: hidden;
 		position: relative;
 		gap: 8px;
-		min-width: 400px;
+		min-width: 320px;
 	}
 
 	.contents {

@@ -35,52 +35,54 @@
 			<Badge>{stacks.length}</Badge>
 		{/if}
 	</div>
-	<div class="right">
-		<BranchLayoutMode bind:mode={$mode} />
+	<div
+		class="lanes-content hide-native-scrollbar dotted"
+		bind:this={scrollableEl}
+		class:multi={$mode === 'multi'}
+		class:single={$mode === 'single'}
+		class:vertical={$mode === 'vertical'}
+	>
+		{#each stacks as stack, i}
+			{@const stackName = `Stack ${i + 1}`}
+			<div
+				class="lane"
+				class:multi={$mode === 'multi'}
+				class:single={$mode === 'single'}
+				class:vertical={$mode === 'vertical'}
+			>
+				<StackCard {projectId} {stackName}>
+					<BranchList {projectId} stackId={stack.id} />
+					{#snippet contextMenu()}
+						<StackTabMenu {projectId} stackId={stack.id} />
+					{/snippet}
+				</StackCard>
+			</div>
+		{/each}
+		{#if $mode !== 'vertical'}
+			<Scrollbar
+				bind:this={scrollbar}
+				whenToShow="hover"
+				viewport={scrollableEl}
+				initiallyVisible
+				horz
+			/>
+		{/if}
 	</div>
-</div>
-<div
-	class="lanes hide-native-scrollbar"
-	bind:this={scrollableEl}
-	class:multi={$mode === 'multi'}
-	class:single={$mode === 'single'}
-	class:vertical={$mode === 'vertical'}
->
-	{#each stacks as stack, i}
-		{@const stackName = `Stack ${i + 1}`}
-		<div
-			class="lane"
-			class:multi={$mode === 'multi'}
-			class:single={$mode === 'single'}
-			class:vertical={$mode === 'vertical'}
-		>
-			<StackCard {projectId} {stackName}>
-				<BranchList {projectId} stackId={stack.id} />
-				{#snippet contextMenu()}
-					<StackTabMenu {projectId} stackId={stack.id} />
-				{/snippet}
-			</StackCard>
-		</div>
-	{/each}
-	{#if $mode !== 'vertical'}
-		<Scrollbar
-			bind:this={scrollbar}
-			whenToShow="hover"
-			viewport={scrollableEl}
-			initiallyVisible
-			horz
-		/>
-	{/if}
 </div>
 
 <style lang="postcss">
 	.lanes {
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		overflow: hidden;
+		height: 100%;
+	}
+	.lanes-content {
 		display: flex;
 		overflow: hidden;
 		height: 100%;
 		&.single,
 		&.multi {
-			gap: 12px;
 			overflow-x: auto;
 			scroll-snap-type: x mandatory;
 		}
@@ -89,7 +91,7 @@
 		&.vertical {
 			flex-direction: column;
 			overflow-y: auto;
-			gap: 24px;
+			gap: 6;
 		}
 	}
 
@@ -101,6 +103,7 @@
 		&.single {
 			flex-basis: 100%;
 		}
+		--menu-btn-size: 20px;
 	}
 
 	.lanes-header {
@@ -116,5 +119,13 @@
 			align-items: center;
 			gap: 6px;
 		}
+	}
+
+	.dotted {
+		background-image: radial-gradient(
+			oklch(from var(--clr-scale-ntrl-50) l c h / 0.5) 0.6px,
+			#ffffff00 0.6px
+		);
+		background-size: 6px 6px;
 	}
 </style>
