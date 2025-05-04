@@ -183,8 +183,9 @@
 	.stacks-view-wrap {
 		height: 100%;
 		display: flex;
+		flex-grow: 0;
+		flex-shrink: 0;
 		flex-direction: column;
-		gap: 6px;
 		justify-content: flex-start;
 		position: relative;
 		overflow: hidden;
@@ -198,7 +199,7 @@
 		overflow-x: hidden;
 		position: relative;
 		gap: 8px;
-		min-width: 400px;
+		min-width: 320px;
 	}
 
 	.contents {
