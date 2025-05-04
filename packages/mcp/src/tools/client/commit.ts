@@ -67,15 +67,15 @@ type CreateCommitOutcome = z.infer<typeof CreateCommitOutcomeSchema>;
 
 function interpretOutcome(outcome: CreateCommitOutcome, action: 'created' | 'amend'): string {
 	// Success
-	if (outcome.newCommitId !== null && outcome.pathsToRejectedChanges.length === 0) {
-		return `Commit successfully ${action} with ID ${outcome.newCommitId}`;
+	if (outcome.newCommit !== null && outcome.pathsToRejectedChanges.length === 0) {
+		return `Commit successfully ${action} with ID ${outcome.newCommit}`;
 	}
 
 	// Created commit but some changes were rejected
-	if (outcome.newCommitId !== null && outcome.pathsToRejectedChanges.length > 0) {
+	if (outcome.newCommit !== null && outcome.pathsToRejectedChanges.length > 0) {
 		const rejectionMessages = createRejectionSummary(outcome);
 
-		return `Commit successfully ${amendCommit} with ID ${outcome.newCommitId}, but some changes were rejected: ${rejectionMessages}`;
+		return `Commit successfully ${amendCommit} with ID ${outcome.newCommit}, but some changes were rejected: ${rejectionMessages}`;
 	}
 
 	// No commit created
