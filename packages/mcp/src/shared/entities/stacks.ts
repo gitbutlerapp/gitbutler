@@ -103,7 +103,7 @@ export const RejectedChangesSchema = z.tuple([
 ]);
 
 export const CreateCommitOutcomeSchema = z.object({
-	newCommitId: z
+	newCommit: z
 		.string({
 			description: 'The commit ID of the new commit. Null if the commit failed to be created.'
 		})
