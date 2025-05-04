@@ -22,6 +22,9 @@ but-settings.workspace = true
 but-core.workspace = true
 but-workspace.workspace = true
 but-hunk-dependency.workspace = true
+gitbutler-branch-actions.workspace = true
+gitbutler-branch.workspace = true
+gitbutler-id.workspace = true
 
 gitbutler-commit = { workspace = true, optional = true, features = ["testing"] }
 
