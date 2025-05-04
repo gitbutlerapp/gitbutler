@@ -133,7 +133,6 @@
 					<SelectionView {projectId} {selectionId} />
 				{/if}
 				{#if current.branchName && current.commitId}
-					howdy
 					<UnappliedCommitView
 						{projectId}
 						branchName={current.branchName}
