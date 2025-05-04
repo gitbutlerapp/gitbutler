@@ -104,7 +104,19 @@ pub enum Subcommands {
     /// Returns the list of stacks that are currently part of the GitButler workspace.
     Stacks,
     /// Return all stack branches related to the given `id`.
-    StackBranches { id: String },
+    StackBranches {
+        /// The ID of the stack to list branches from.
+        ///
+        /// If creating a branch, this is optionally the stack to which the branch will be added.
+        /// If no ID is present while creating a branch, a new stack will be created that will
+        /// contain the brand new branch.
+        id: Option<String>,
+        /// Optional. The name of the branch to create.
+        ///
+        /// If this is set, a branch will be created with the given name.
+        #[clap(long, short = 'b')]
+        branch_name: Option<String>,
+    },
     /// Returns all commits for the branch with the given `name` in the stack with the given `id`.
     StackBranchCommits { id: String, name: String },
 }
