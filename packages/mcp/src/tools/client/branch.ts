@@ -73,12 +73,16 @@ export async function getBranchToolRequestHandler(
 			case 'create-branch': {
 				const parsedParams = CreateBranchParamsSchema.parse(params);
 				const result = createBranch(parsedParams);
+				const branchName = result.heads[0]?.name;
+				if (!branchName) {
+					throw new Error('Branch name not found in the result');
+				}
 
 				return {
 					content: [
 						{
 							type: 'text',
-							text: `Stack containing branch ${parsedParams.branch_name} created with id: ${result.id}`
+							text: `Stack containing branch ${branchName} created with id: ${result.id}`
 						}
 					]
 				};
@@ -86,12 +90,17 @@ export async function getBranchToolRequestHandler(
 			case 'add-branch-to-stack': {
 				const parsedParams = AddBranchToStackParamsSchema.parse(params);
 				const result = addBranchToStack(parsedParams);
+				const branchName = result.heads[0]?.name;
+
+				if (!branchName) {
+					throw new Error('Branch name not found in the result');
+				}
 
 				return {
 					content: [
 						{
 							type: 'text',
-							text: `Branch ${parsedParams.branch_name} added to stack with id: ${result.id}`
+							text: `Branch ${branchName} added to stack with id: ${result.id}`
 						}
 					]
 				};

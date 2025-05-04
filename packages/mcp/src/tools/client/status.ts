@@ -22,7 +22,7 @@ type WorktreeDiffs = {
 /**
  * Get the file changes of the current GitButler project.
  */
-function status(params: StatusParams) {
+export function status(params: StatusParams) {
 	const args = ['status', '--unified-diff'];
 
 	const unifiedWorktreeChanges = executeGitButlerCommand(
@@ -88,7 +88,7 @@ function getBranchCommits(params: GetBranchCommitsParams) {
 
 const TOOL_LISTINGS = [
 	{
-		name: 'get_unified_wortree_changes',
+		name: 'list_file_changes',
 		description:
 			'Get the file changes of the current GitButler project. Always call this tool when you want to get the file changes.',
 		inputSchema: zodToJsonSchema(StatusParamsSchema)
@@ -135,7 +135,7 @@ export async function getStatusToolRequestHandler(
 	}
 
 	switch (toolName) {
-		case 'get_unified_wortree_changes': {
+		case 'list_file_changes': {
 			try {
 				const params = StatusParamsSchema.parse(args);
 				const result = status(params);
