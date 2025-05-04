@@ -1,0 +1,3 @@
+ancestorEntries = [".vscode/settings.json"]
+ourEntries = [".vscode/settings.json"]
+theirEntries = [".vscode/settings.json"]

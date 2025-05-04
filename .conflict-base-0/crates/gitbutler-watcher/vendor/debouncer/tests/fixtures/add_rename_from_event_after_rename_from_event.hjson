@@ -1,0 +1,30 @@
+{
+    state: {
+        queues: {
+            /watch/file-a: {
+                events: [
+                    { kind: "rename-from", paths: ["*"] }
+                ]
+            }
+        }
+        rename_event: { kind: "rename-from", paths: ["/watch/file-a"] }
+    }
+    events: [
+        { kind: "rename-from", paths: ["/watch/file-b"] }
+    ]
+    expected: {
+        queues: {
+            /watch/file-a: {
+                events: [
+                    { kind: "rename-from", paths: ["*"] }
+                ]
+            }
+            /watch/file-b: {
+                events: [
+                    { kind: "rename-from", paths: ["*"] }
+                ]
+            }
+        }
+        rename_event: { kind: "rename-from", paths: ["/watch/file-b"] }
+    }
+}
