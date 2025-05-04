@@ -38,14 +38,18 @@
 	let kebabTrigger = $state<HTMLButtonElement>();
 	let isContextMenuOpen = $state(false);
 
-	async function createvBranchFromBranch() {
-		await stackService.createVirtualBranchFromBranch({
-			projectId,
-			branch: `refs/heads/${branchName}`,
-			remote,
-			prNumber
-		});
-		await baseBranchService.refreshBaseBranch(projectId);
+	async function checkoutBranch() {
+		const remoteRef = remote ? `refs/remotes/${remote}/${branchName}` : undefined;
+		const branchRef = hasLocal ? `refs/heads/${branchName}` : remoteRef;
+		if (branchRef) {
+			await stackService.createVirtualBranchFromBranch({
+				projectId,
+				branch: branchRef,
+				remote: remoteRef,
+				prNumber
+			});
+			await baseBranchService.refreshBaseBranch(projectId);
+		}
 	}
 
 	async function deleteLocalBranch() {
@@ -119,7 +123,7 @@
 							kind="outline"
 							icon="edit-small"
 							action={async () => {
-								await createvBranchFromBranch();
+								await checkoutBranch();
 							}}
 						>
 							Apply
