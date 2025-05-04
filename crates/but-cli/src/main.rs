@@ -1,6 +1,6 @@
 //! A debug-CLI for making `but`-crates functionality available in real-world repositories.
 #![deny(rust_2018_idioms)]
-use anyhow::Result;
+use anyhow::{Result, bail};
 use command::parse_diff_spec;
 
 mod args;
@@ -87,9 +87,17 @@ fn main() -> Result<()> {
             *unified_diff,
         ),
         args::Subcommands::Stacks => command::stacks::list(&args.current_dir, args.json),
-        args::Subcommands::StackBranches { id } => {
-            command::stacks::branches(id, &args.current_dir, args.json)
-        }
+        args::Subcommands::StackBranches { id, branch_name } => match (branch_name, id) {
+            (Some(branch_name), maybe_id) => {
+                command::stacks::create_branch(maybe_id, branch_name, &args.current_dir, args.json)
+            }
+            (None, Some(id)) => command::stacks::branches(id, &args.current_dir, args.json),
+            (None, None) => {
+                bail!(
+                    "You must provide a stack ID to list branches. Use `--branch-name` to create a new branch."
+                )
+            }
+        },
         args::Subcommands::StackBranchCommits { id, name } => {
             command::stacks::branch_commits(id, name, &args.current_dir, args.json)
         }

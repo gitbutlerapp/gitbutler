@@ -115,7 +115,7 @@ pub use commit::commit;
 pub mod diff;
 
 pub mod stacks {
-    use std::path::Path;
+    use std::{path::Path, str::FromStr};
 
     use but_settings::AppSettings;
     use but_workspace::{
@@ -123,6 +123,7 @@ pub mod stacks {
         stack_branches,
     };
     use gitbutler_command_context::CommandContext;
+    use gitbutler_id::id::Id;
 
     use crate::command::{debug_print, project_from_path};
 
@@ -150,6 +151,80 @@ pub mod stacks {
             Ok(())
         } else {
             debug_print(branches)
+        }
+    }
+
+    /// Create a new stack containing only a branch with the given name.
+    fn create_stack_with_branch(
+        ctx: &CommandContext,
+        name: &str,
+    ) -> anyhow::Result<but_workspace::StackEntry> {
+        let creation_request = gitbutler_branch::BranchCreateRequest {
+            name: Some(name.to_string()),
+            ..Default::default()
+        };
+        gitbutler_branch_actions::create_virtual_branch(ctx, &creation_request)
+    }
+
+    /// Add a branch to an existing stack.
+    fn add_branch_to_stack(
+        ctx: &CommandContext,
+        id: &str,
+        name: &str,
+        project: gitbutler_project::Project,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<but_workspace::StackEntry> {
+        let creation_request = gitbutler_branch_actions::stack::CreateSeriesRequest {
+            name: name.to_string(),
+            description: None,
+            target_patch: None,
+            preceding_head: None,
+        };
+
+        let stack_id = Id::from_str(id)?;
+        gitbutler_branch_actions::stack::create_branch(ctx, stack_id, creation_request)?;
+        let stack_entries =
+            but_workspace::stacks(ctx, &project.gb_dir(), repo, Default::default())?;
+
+        let stack_entry = stack_entries
+            .into_iter()
+            .find(|entry| entry.id == stack_id)
+            .ok_or_else(|| anyhow::anyhow!("Failed to find stack with ID: {id}"))?;
+
+        Ok(stack_entry)
+    }
+
+    /// Create a new branch in the current project.
+    ///
+    /// If `id` is provided, it will be used to add the branch to an existing stack.
+    /// If `id` is not provided, a new stack will be created with the branch.
+    pub fn create_branch(
+        id: &Option<String>,
+        name: &str,
+        current_dir: &Path,
+        use_json: bool,
+    ) -> anyhow::Result<()> {
+        let project = project_from_path(current_dir)?;
+        // Enable v3 feature flags for the command context
+        let app_settings = AppSettings {
+            feature_flags: but_settings::app_settings::FeatureFlags { v3: true },
+            ..AppSettings::default()
+        };
+
+        let ctx = CommandContext::open(&project, app_settings)?;
+        let repo = ctx.gix_repo()?;
+
+        let stack_entry = match id {
+            Some(id) => add_branch_to_stack(&ctx, id, name, project.clone(), &repo)?,
+            None => create_stack_with_branch(&ctx, name)?,
+        };
+
+        if use_json {
+            let json = serde_json::to_string_pretty(&stack_entry)?;
+            println!("{json}");
+            Ok(())
+        } else {
+            debug_print(stack_entry)
         }
     }
 

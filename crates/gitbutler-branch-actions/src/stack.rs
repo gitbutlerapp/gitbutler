@@ -60,14 +60,14 @@ pub fn create_branch(
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CreateSeriesRequest {
     /// Name of the new series
-    name: String,
+    pub name: String,
     /// Description of the new series - can be markdown or anything really
-    description: Option<String>,
+    pub description: Option<String>,
     /// The target patch (head) to create these series for. If let None, the new series will be at the top of the stack
-    target_patch: Option<gitbutler_stack::CommitOrChangeId>,
+    pub target_patch: Option<gitbutler_stack::CommitOrChangeId>,
     /// The name of the series that preceded the newly created series.
     /// This is used to disambiguate the order when they point to the same patch
-    preceding_head: Option<String>,
+    pub preceding_head: Option<String>,
 }
 
 /// Removes series grouping from the Stack. This will not touch the patches / commits contained in the series.
