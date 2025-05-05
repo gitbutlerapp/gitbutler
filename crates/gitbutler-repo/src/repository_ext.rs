@@ -2,12 +2,13 @@ use crate::Config;
 use crate::SignaturePurpose;
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BStr, BString};
+use but_core::{GitConfigSettings, RepositoryExt as RepositoryExtGix};
 use git2::Tree;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
-use gitbutler_config::git::{GbConfig, GitConfig};
 use gitbutler_error::error::Code;
 use gitbutler_oxidize::{
     git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, gix_to_git2_signature,
+    RepoExt,
 };
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::objs::WriteTo;
@@ -306,7 +307,7 @@ impl RepositoryExt for git2::Repository {
         parents: &[&git2::Commit<'_>],
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
-        let repo = gix::open(self.path())?;
+        let repo = self.to_gix()?;
         let mut commit = gix::objs::Commit {
             message: message.into(),
             tree: git2_to_gix_object_id(tree.id()),
@@ -320,7 +321,7 @@ impl RepositoryExt for git2::Repository {
             extra_headers: commit_headers.unwrap_or_default().into(),
         };
 
-        if self.gb_config()?.sign_commits.unwrap_or(false) {
+        if repo.git_settings()?.gitbutler_sign_commits.unwrap_or(false) {
             let mut buf = Vec::new();
             commit.write_to(&mut buf)?;
             let signature = self.sign_buffer(&buf);
@@ -337,21 +338,22 @@ impl RepositoryExt for git2::Repository {
                         })
                         .is_none()
                     {
-                        self.set_gb_config(GbConfig {
-                            sign_commits: Some(false),
-                            ..GbConfig::default()
+                        repo.set_git_settings(&GitConfigSettings {
+                            gitbutler_sign_commits: Some(false),
+                            ..Default::default()
                         })?;
                         return Err(anyhow!("Failed to sign commit: {}", err)
                             .context(Code::CommitSigningFailed));
                     } else {
                         tracing::warn!(
-                            "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"
-                        );
+                                "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"
+                            );
                         return Err(err);
                     }
                 }
             }
         }
+
         // TODO: extra-headers should be supported in `gix` directly.
         let oid = gix_to_git2_oid(repo.write_object(&commit)?);
 

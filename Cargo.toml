@@ -44,7 +44,6 @@ gitbutler-repo = { path = "crates/gitbutler-repo" }
 gitbutler-repo-actions = { path = "crates/gitbutler-repo-actions" }
 gitbutler-command-context = { path = "crates/gitbutler-command-context" }
 gitbutler-feedback = { path = "crates/gitbutler-feedback" }
-gitbutler-config = { path = "crates/gitbutler-config" }
 gitbutler-project = { path = "crates/gitbutler-project" }
 gitbutler-user = { path = "crates/gitbutler-user" }
 gitbutler-branch = { path = "crates/gitbutler-branch" }

@@ -15,9 +15,11 @@ pub(crate) mod git {
     /// Settings that are retrieved from Git and written into the repository-local configuration.
     ///
     /// Some are specific to GitButler.
-    #[derive(Debug, PartialEq, Clone, Default)]
+    #[derive(Debug, PartialEq, Clone, Default, serde::Serialize, serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct GitConfigSettings {
         /// If `true` GitButler should sign commits.
+        #[serde(rename = "signCommits")]
         pub gitbutler_sign_commits: Option<bool>,
         /// `user.signingKey`.
         pub signing_key: Option<BString>,

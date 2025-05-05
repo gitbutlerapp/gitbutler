@@ -1,5 +1,6 @@
 use bstr::{BStr, BString, ByteSlice};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::ffi::OsString;
 use std::ops::{Deref, DerefMut};
 
 /// A form of `BString` for use in structures that are going to be serialized for the frontend as string.
@@ -65,6 +66,18 @@ impl From<String> for BStringForFrontend {
 impl From<BString> for BStringForFrontend {
     fn from(value: BString) -> Self {
         BStringForFrontend(value)
+    }
+}
+
+impl From<BStringForFrontend> for BString {
+    fn from(value: BStringForFrontend) -> Self {
+        value.0
+    }
+}
+
+impl From<BStringForFrontend> for OsString {
+    fn from(value: BStringForFrontend) -> Self {
+        gix::path::from_bstring(value.0).into()
     }
 }
 

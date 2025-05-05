@@ -100,7 +100,7 @@ pub fn create_commit_from_worktree_changes(
     stack_branch_name: String,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = projects.get(project_id)?;
-    let repo = but_core::open_repo_for_merging(&project.worktree_path())?;
+    let repo = but_core::open_repo_for_merging(project.worktree_path())?;
     // If parent_id was not set but a stack branch name was provided, pick the current head of that branch as parent.
     let parent_commit_id: Option<gix::ObjectId> = match parent_id {
         Some(id) => Some(id.into()),
@@ -172,7 +172,7 @@ pub fn amend_commit_from_worktree_changes(
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = projects.get(project_id)?;
     let mut guard = project.exclusive_worktree_access();
-    let repo = but_core::open_repo_for_merging(&project.worktree_path())?;
+    let repo = but_core::open_repo_for_merging(project.worktree_path())?;
     let outcome = commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         &project,
@@ -207,7 +207,7 @@ pub fn discard_worktree_changes(
     worktree_changes: Vec<but_workspace::discard::ui::DiscardSpec>,
 ) -> Result<Vec<but_workspace::discard::ui::DiscardSpec>, Error> {
     let project = projects.get(project_id)?;
-    let repo = but_core::open_repo(&project.worktree_path())?;
+    let repo = but_core::open_repo(project.worktree_path())?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
 

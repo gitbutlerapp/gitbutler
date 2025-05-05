@@ -1,18 +1,20 @@
-use gitbutler_config::{api::ProjectCommands, git::GbConfig};
+use crate::error::Error;
+use but_core::{settings::git::ui::GitConfigSettings, RepositoryExt};
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use tauri::State;
 use tracing::instrument;
-
-use crate::error::Error;
 
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
 pub fn get_gb_config(
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
-) -> Result<GbConfig, Error> {
-    projects.get(project_id)?.gb_config().map_err(Into::into)
+) -> Result<GitConfigSettings, Error> {
+    but_core::open_repo(projects.get(project_id)?.path)?
+        .git_settings()
+        .map(Into::into)
+        .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -20,10 +22,9 @@ pub fn get_gb_config(
 pub fn set_gb_config(
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
-    config: GbConfig,
+    config: GitConfigSettings,
 ) -> Result<(), Error> {
-    projects
-        .get(project_id)?
-        .set_gb_config(config)
+    but_core::open_repo(projects.get(project_id)?.path)?
+        .set_git_settings(&config.into())
         .map_err(Into::into)
 }
