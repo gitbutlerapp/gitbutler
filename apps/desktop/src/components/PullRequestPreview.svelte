@@ -129,7 +129,7 @@
 		<div class="card__footer">
 			<Button
 				style="pop"
-				tooltip="Does not create a commit. Can be toggled."
+				tooltip="Fetch from the remote and apply the branch from there"
 				onclick={async () => createRemoteModal?.show()}>Apply from fork</Button
 			>
 		</div>
