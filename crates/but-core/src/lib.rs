@@ -64,8 +64,9 @@ pub mod unified_diff;
 /// utilities for command-invocation.
 pub mod cmd;
 
-mod settings;
-pub use settings::git::GitConfigSettings;
+/// Various settings
+pub mod settings;
+pub use settings::git::types::GitConfigSettings;
 
 mod repo_ext;
 pub use repo_ext::RepositoryExt;
