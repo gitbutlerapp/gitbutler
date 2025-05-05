@@ -2,17 +2,17 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import BranchExplorer from '$components/v3/BranchExplorer.svelte';
-	import BranchListingSidebarEntry from '$components/v3/BranchListingSidebarEntry.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import BranchesViewBranch from '$components/v3/BranchesViewBranch.svelte';
 	import BranchesViewStack from '$components/v3/BranchesViewStack.svelte';
-	import PullRequestSidebarEntry from '$components/v3/PullRequestSidebarEntry.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import TargetCommitList from '$components/v3/TargetCommitList.svelte';
 	import UnappliedBranchView from '$components/v3/UnappliedBranchView.svelte';
 	import UnappliedCommitView from '$components/v3/UnappliedCommitView.svelte';
+	import BranchListCard from '$components/v3/branchesPage/BranchListCard.svelte';
 	import BranchesListGroup from '$components/v3/branchesPage/BranchesListGroup.svelte';
 	import CurrentOriginCard from '$components/v3/branchesPage/CurrentOriginCard.svelte';
+	import PRListCard from '$components/v3/branchesPage/PRListCard.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { Focusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
@@ -56,6 +56,8 @@
 		}
 		return undefined;
 	});
+
+	$effect(() => {});
 </script>
 
 <ReduxResult {projectId} result={baseBranchResult.current}>
@@ -86,8 +88,11 @@
 				<BranchExplorer {projectId}>
 					{#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
 						{#if sidebarEntrySubject.type === 'branchListing'}
-							<BranchListingSidebarEntry
+							<BranchListCard
 								{projectId}
+								branchListing={sidebarEntrySubject.subject}
+								prs={sidebarEntrySubject.prs}
+								selected={branchesSelection.current.branchName === sidebarEntrySubject.subject.name}
 								onclick={({ listing, pr }) => {
 									if (listing.stack) {
 										branchesSelection.set({
@@ -106,16 +111,14 @@
 										});
 									}
 								}}
-								branchListing={sidebarEntrySubject.subject}
-								prs={sidebarEntrySubject.prs}
-								selected={branchesSelection.current.branchName === sidebarEntrySubject.subject.name}
 							/>
 						{:else}
-							<PullRequestSidebarEntry
+							<PRListCard
 								{projectId}
 								pullRequest={sidebarEntrySubject.subject}
-								onclick={(pr) => branchesSelection.set({ prNumber: pr.number })}
 								selected={branchesSelection.current.prNumber === sidebarEntrySubject.subject.number}
+								onclick={(pr) => branchesSelection.set({ prNumber: pr.number })}
+								noSourceBranch
 							/>
 						{/if}
 					{/snippet}
@@ -163,7 +166,7 @@
 			</div>
 			<div class="branch-details" bind:this={rightDiv} style:width={rightWidth.current + 'rem'}>
 				{#if current.branchName === baseBranch.shortName}
-					<TargetCommitList {projectId} branchName={baseBranch.branchName} />
+					<TargetCommitList {projectId} />
 				{:else if current.stackId}
 					<BranchesViewStack {projectId} stackId={current.stackId} />
 				{:else if current.branchName}

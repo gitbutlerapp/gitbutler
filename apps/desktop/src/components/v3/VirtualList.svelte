@@ -173,5 +173,6 @@
 	.list-row {
 		display: block;
 		overflow: hidden;
+		background-color: var(--clr-bg-1);
 	}
 </style>

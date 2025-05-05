@@ -1,16 +1,12 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
 	import BranchesCardTemplate from '$components/v3/branchesPage/BranchesCardTemplate.svelte';
-	import { BranchListingDetails, type BranchListing } from '$lib/branches/branchListing';
+	import { type BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { GitConfigService } from '$lib/config/gitConfigService';
-	import { Project } from '$lib/project/project';
 	import { UserService } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
-	// import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
@@ -20,17 +16,18 @@
 		projectId: string;
 		branchListing: BranchListing;
 		prs: PullRequest[];
+		selected: boolean;
+		onclick: (args: { listing: BranchListing; pr?: PullRequest }) => void;
 	}
 
-	const { projectId, branchListing, prs }: Props = $props();
+	const { projectId, branchListing, prs, selected, onclick }: Props = $props();
 
 	const unknownName = 'unknown';
 	const unknownEmail = 'example@example.com';
 
-	const [userService, gitConfigService, project, branchService] = inject(
+	const [userService, gitConfigService, branchService] = inject(
 		UserService,
 		GitConfigService,
-		Project,
 		BranchService
 	);
 
@@ -39,31 +36,13 @@
 	// TODO: Use information from all PRs in a stack?
 	const pr = $derived(prs.at(0));
 
-	let hasBeenSeen = $state(false);
-
-	const branchDetailsResult = $derived(
-		hasBeenSeen ? branchService.get(projectId, branchListing.name) : undefined
-	);
+	const branchDetailsResult = $derived(branchService.get(projectId, branchListing.name));
 
 	let lastCommitDetails = $state<{ authorName: string; lastCommitAt?: Date }>();
 	let branchListingDetails = $derived(branchDetailsResult?.current.data);
 
 	// If there are zero commits we should not show the author
 	const ownedByUser = $derived(branchListingDetails?.numberOfCommits === 0);
-
-	function handleClick() {
-		if (branchListing.stack?.inWorkspace) {
-			goto(`/${project.id}/board`);
-		} else {
-			goto(formatBranchURL(project, branchListing.name));
-		}
-	}
-
-	const selected = $derived(page.url.pathname === formatBranchURL(project, branchListing.name));
-
-	function formatBranchURL(project: Project, name: string) {
-		return `/${project.id}/branch/${encodeURIComponent(name)}`;
-	}
 
 	$effect(() => {
 		let canceled = false;
@@ -87,6 +66,10 @@
 	});
 
 	let avatars = $state<{ name: string; srcUrl: string }[]>([]);
+
+	$effect(() => {
+		setAvatars(ownedByUser, branchListingDetails);
+	});
 
 	async function setAvatars(ownedByUser: boolean, branchListingDetails?: BranchListingDetails) {
 		if (ownedByUser) {
@@ -122,24 +105,12 @@
 	const filteredStackBranches = $derived(
 		stackBranches && stackBranches.length > 0 ? stackBranches : [branchListing.name]
 	);
-
-	const pullRequestDetails = $derived(
-		pr && {
-			title: pr.title,
-			draft: pr.draft,
-			number: pr.number
-		}
-	);
-
-	$effect(() => {
-		setAvatars(ownedByUser, branchListingDetails);
-	});
 </script>
 
-<BranchesCardTemplate {selected} onclick={handleClick}>
+<BranchesCardTemplate {selected} onclick={() => onclick?.({ listing: branchListing, pr })}>
 	{#snippet content()}
 		<div class="sidebar-entry__header">
-			<SeriesLabelsRow series={filteredStackBranches} />
+			<SeriesLabelsRow fontSize="13" series={filteredStackBranches} />
 			{#if branchListing.stack?.inWorkspace}
 				<div class="sidebar-entry__applied-tag">
 					<span class="text-10 text-semibold">Workspace</span>
@@ -148,25 +119,27 @@
 		</div>
 
 		<div class="text-12 sidebar-entry__about">
-			{#if pullRequestDetails}
+			{#if pr}
 				<ReviewBadge
-					prStatus={pullRequestDetails.draft ? 'draft' : 'unknown'}
-					prTitle={pullRequestDetails.title}
-					prNumber={pullRequestDetails.number}
+					prStatus={pr.draft ? 'draft' : 'unknown'}
+					prTitle={pr.title}
+					prNumber={pr.number}
 				/>
 				<span class="sidebar-entry__divider">•</span>
 			{/if}
 
-			<AvatarGroup {avatars} />
-
-			<!-- NEED API -->
-			{#each branchListing.remotes as remote}
+			{#if avatars}
+				<AvatarGroup {avatars} />
 				<span class="sidebar-entry__divider">•</span>
+			{/if}
+
+			{#each branchListing.remotes as remote}
 				<span>{remote}</span>
+				<span class="sidebar-entry__divider">•</span>
 			{/each}
 			{#if branchListing.hasLocal}
-				<span class="sidebar-entry__divider">•</span>
 				<span>local</span>
+				<span class="sidebar-entry__divider">•</span>
 			{/if}
 			{#if branchListing.remotes.length === 0 && !branchListing.hasLocal}
 				<span class="sidebar-entry__divider">•</span>
@@ -176,7 +149,7 @@
 	{/snippet}
 	{#snippet details()}
 		<div class="text-12 sidebar-entry__details">
-			<span>
+			<span class="truncate">
 				{#if lastCommitDetails}
 					<TimeAgo date={lastCommitDetails.lastCommitAt} addSuffix />
 					by {lastCommitDetails.authorName}
@@ -216,27 +189,6 @@
 	{/snippet}
 </BranchesCardTemplate>
 
-<!-- <SidebarEntry
-	series={filteredStackBranches}
-	remotes={branchListing.remotes}
-	local={branchListing.hasLocal}
-	applied={branchListing.stack?.inWorkspace}
-	{lastCommitDetails}
-	pullRequestDetails={pr && {
-		title: pr.title,
-		draft: pr.draft
-	}}
-	branchDetails={branchListingDetails && {
-		commitCount: branchListingDetails.numberOfCommits,
-		linesAdded: branchListingDetails.linesAdded,
-		linesRemoved: branchListingDetails.linesRemoved
-	}}
-	onFirstSeen={() => (hasBeenSeen = true)}
-	{onMouseDown}
-	{selected}
-	{avatars}
-/> -->
-
 <style lang="postcss">
 	.sidebar-entry__about {
 		display: flex;
@@ -253,6 +205,10 @@
 
 	.sidebar-entry__divider {
 		color: var(--clr-text-3);
+
+		&:last-child {
+			display: none;
+		}
 	}
 
 	.sidebar-entry__applied-tag {

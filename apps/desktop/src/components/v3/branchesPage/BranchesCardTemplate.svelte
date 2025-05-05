@@ -8,7 +8,7 @@
 		onclick?: () => void;
 	};
 
-	const { content, details, selected = $bindable(), onclick }: Props = $props();
+	const { content, details, selected, onclick }: Props = $props();
 </script>
 
 <div role="presentation" {onclick} class="branches-list-card" class:selected>
@@ -26,12 +26,13 @@
 <style class="postcss">
 	/* TARGET CARD */
 	.branches-list-card {
+		position: relative;
 		cursor: pointer;
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
 		background-color: var(--clr-bg-1);
-		padding: 14px 14px 14px 16px;
+		padding: 14px;
 
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-2);
@@ -40,12 +41,18 @@
 		&::after {
 			content: '';
 			position: absolute;
-			top: 0;
+			border-radius: 0 var(--radius-m) var(--radius-m) 0;
+			top: 8px;
 			left: 0;
-			width: 4px;
-			height: 100%;
+			width: 5px;
+			height: calc(100% - 16px);
+			background-color: var(--clr-selected-in-focus-element);
 			transform: translateX(-100%);
 			transition: transform var(--transition-medium);
+		}
+
+		&:not(.selected):hover {
+			background-color: var(--clr-bg-1-muted);
 		}
 	}
 
@@ -73,7 +80,6 @@
 		background-color: var(--clr-bg-1-muted);
 
 		&::after {
-			background-color: var(--clr-theme-pop-element);
 			transform: translateX(0);
 		}
 	}

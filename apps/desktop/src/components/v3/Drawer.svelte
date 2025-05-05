@@ -100,6 +100,7 @@
 						size="tag"
 						onclick={onToggleExpand}
 					/>
+
 					<Button kind="ghost" icon="cross" size="tag" onclick={onClose} />
 				</div>
 			</div>
