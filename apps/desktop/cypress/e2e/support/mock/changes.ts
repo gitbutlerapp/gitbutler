@@ -1,5 +1,6 @@
 import type { TreeChange, TreeChanges } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
+import type { DiffHunk } from '$lib/hunks/hunk';
 
 export const MOCK_TREE_CHANGES: TreeChanges = {
 	changes: [],
@@ -59,6 +60,22 @@ export const MOCK_UNIFIED_DIFF: UnifiedDiff = {
 		hunks: [{ oldStart: 0, oldLines: 0, newStart: 1, newLines: 3, diff: MOCK_FILE_ADDITION_DIFF }]
 	}
 };
+
+export function createMockUnifiedDiffPatch(
+	hunks: DiffHunk[],
+	linesAdded: number,
+	linesRemoved: number
+): UnifiedDiff {
+	return {
+		type: 'Patch',
+		subject: {
+			isResultOfBinaryToTextConversion: false,
+			linesAdded,
+			linesRemoved,
+			hunks
+		}
+	};
+}
 
 export type GetWorktreeChangesParams = {
 	projectId: string;

@@ -2,10 +2,13 @@ import MockBackend from '../mock/backend';
 import {
 	createMockAdditionTreeChange,
 	createMockDeletionTreeChange,
-	createMockModificationTreeChange
+	createMockModificationTreeChange,
+	createMockUnifiedDiffPatch
 } from '../mock/changes';
 import { createMockBranchDetails, createMockStackDetails } from '../mock/stacks';
+import type { DiffDependency } from '$lib/dependencies/dependencies';
 import type { TreeChange } from '$lib/hunks/change';
+import type { DiffHunk } from '$lib/hunks/hunk';
 import type { Stack } from '$lib/stacks/stack';
 
 const MOCK_STACK_A_ID = 'stack-a-id';
@@ -35,8 +38,10 @@ const MOCK_STACK_B: Stack = {
 	tip: '1234123'
 };
 
+const MOCK_FILE_D = 'fileD.txt';
+
 const MOCK_BRANCH_B_CHANGES: TreeChange[] = [
-	createMockAdditionTreeChange({ path: 'fileD.txt' }),
+	createMockAdditionTreeChange({ path: MOCK_FILE_D }),
 	createMockModificationTreeChange({ path: 'fileE.txt' }),
 	createMockDeletionTreeChange({ path: 'fileF.txt' })
 ];
@@ -63,6 +68,68 @@ const MOCK_STACK_DETAILS_C = createMockStackDetails({
 	branchDetails: [createMockBranchDetails({ name: MOCK_STACK_C_ID })]
 });
 
+const MOCK_UNCOMMITTED_CHANGES: TreeChange[] = [
+	createMockModificationTreeChange({ path: MOCK_FILE_D }) // Depends on the changes in the stack B
+];
+
+const MOCK_FILE_D_MODIFICATION_DIFF_HUNKS: DiffHunk[] = [
+	{
+		oldStart: 2,
+		oldLines: 8,
+		newStart: 2,
+		newLines: 7,
+		diff: `@@ -2,8 +2,7 @@\n context line 0\n context line 1\n context line 2\n-context line 3\n-old line to be removed\n+new line added\n context line 4\n context line 5\n context line 6`
+	},
+	{
+		oldStart: 10,
+		oldLines: 7,
+		newStart: 10,
+		newLines: 7,
+		diff: `@@ -10,7 +10,7 @@\n context before 1\n context before 2\n context before 3\n-old value\n+updated value\n context after 1\n context after 2\n context after 3`
+	}
+];
+
+const MOCK_FILE_D_MODIFICATION = createMockUnifiedDiffPatch(
+	MOCK_FILE_D_MODIFICATION_DIFF_HUNKS,
+	2,
+	3
+);
+
+const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
+	[
+		MOCK_FILE_D,
+		{
+			oldStart: 5,
+			oldLines: 2,
+			newStart: 5,
+			newLines: 1,
+			diff: `@@ -5,2 +5,1 @@\n-context line 3\n-old line to be removed\n+new line added`
+		},
+		[
+			{
+				stackId: MOCK_STACK_B_ID,
+				commitId: '1234123'
+			}
+		]
+	],
+	[
+		MOCK_FILE_D,
+		{
+			oldStart: 13,
+			oldLines: 1,
+			newStart: 13,
+			newLines: 1,
+			diff: `@@ -13,1 +13,1 @@\n-old value\n+updated value`
+		},
+		[
+			{
+				stackId: MOCK_STACK_B_ID,
+				commitId: '1234123'
+			}
+		]
+	]
+];
+
 /**
  * Three branches with file changes.
  */
@@ -71,6 +138,11 @@ export default class BranchesWithChanges extends MockBackend {
 		super();
 
 		this.stackId = MOCK_STACK_A_ID;
+
+		this.worktreeChanges = {
+			changes: MOCK_UNCOMMITTED_CHANGES,
+			ignoredChanges: []
+		};
 
 		this.stacks = [MOCK_STACK_A, MOCK_STACK_B, MOCK_STACK_C];
 		this.stackDetails.set(MOCK_STACK_A_ID, MOCK_STACK_DETAILS_A);
@@ -89,5 +161,11 @@ export default class BranchesWithChanges extends MockBackend {
 		this.branchChanges.set(MOCK_STACK_A_ID, stackAChanges);
 		this.branchChanges.set(MOCK_STACK_B_ID, stackBChanges);
 		this.branchChanges.set(MOCK_STACK_C_ID, stackCChanges);
+
+		this.unifiedDiffs.set(MOCK_FILE_D, MOCK_FILE_D_MODIFICATION);
+		this.hunkDependencies = {
+			diffs: MOCK_DIFF_DEPENDENCY,
+			errors: []
+		};
 	}
 }

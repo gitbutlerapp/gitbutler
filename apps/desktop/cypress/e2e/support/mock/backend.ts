@@ -25,6 +25,7 @@ import {
 } from './stacks';
 import { MOCK_BRANCH_STATUSES_RESPONSE, MOCK_INTEGRATION_OUTCOME } from './upstreamIntegration';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
+import type { HunkDependencies } from '$lib/dependencies/dependencies';
 import type { TreeChange, TreeChanges, WorktreeChanges } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { Stack, StackDetails } from '$lib/stacks/stack';
@@ -49,6 +50,9 @@ export default class MockBackend {
 	protected commitChanges: Map<CommitId, TreeChange[]>;
 	protected branchChanges: Map<StackId, BranchChanges>;
 	protected worktreeChanges: WorktreeChanges;
+	protected unifiedDiffs: Map<string, UnifiedDiff>;
+	protected hunkDependencies: HunkDependencies;
+
 	stackId: string = MOCK_STACK_A_ID;
 	renamedCommitId: string = '424242424242';
 	commitOid: string = MOCK_COMMIT.id;
@@ -60,6 +64,11 @@ export default class MockBackend {
 		this.commitChanges = new Map<string, TreeChange[]>();
 		this.branchChanges = new Map<string, BranchChanges>();
 		this.worktreeChanges = { changes: [MOCK_TREE_CHANGE_A], ignoredChanges: [] };
+		this.unifiedDiffs = new Map<string, UnifiedDiff>();
+		this.hunkDependencies = {
+			diffs: [],
+			errors: []
+		};
 
 		this.stackDetails.set(MOCK_STACK_A_ID, structuredClone(MOCK_STACK_DETAILS));
 		this.stackDetails.set(MOCK_STACK_BRAND_NEW_ID, structuredClone(MOCK_STACK_DETAILS_BRAND_NEW));
@@ -228,7 +237,9 @@ export default class MockBackend {
 			throw new Error('Invalid arguments for getDiff');
 		}
 
-		return MOCK_UNIFIED_DIFF;
+		const diff = this.unifiedDiffs.get(args.change.path);
+
+		return diff ?? MOCK_UNIFIED_DIFF;
 	}
 
 	public getCommitChanges(args: InvokeArgs | undefined): TreeChanges {
@@ -331,5 +342,12 @@ export default class MockBackend {
 	): string[] {
 		const changes = this.getBranchChanges({ projectId, stackId, branchName });
 		return changes.changes.map((change) => change.path).map((path) => path.split('/').pop()!);
+	}
+
+	public getHunkDependencies(args: InvokeArgs | undefined): HunkDependencies {
+		if (!args) {
+			throw new Error('Invalid arguments for getHunkDependencies');
+		}
+		return this.hunkDependencies;
 	}
 }
