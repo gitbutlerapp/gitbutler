@@ -2,7 +2,10 @@ use std::os::unix::fs::PermissionsExt;
 
 use crate::{
     commit_engine::{DiffSpec, HunkHeader, apply_hunks, index::apply_lhs_to_rhs},
-    discard::DiscardSpec,
+    discard::{
+        DiscardSpec,
+        hunk::{HunkSubstraction, subtract_hunks},
+    },
 };
 use anyhow::Context;
 use bstr::ByteSlice;
@@ -135,7 +138,6 @@ fn write_entry(
             let mut blob = entry.object()?.into_blob();
             let path = path_check.verified_path(relative_path)?;
             prepare_path(path)?;
-            dbg!(path, entry.mode().kind());
             std::fs::write(path, blob.take_data())?;
             #[cfg(unix)]
             {
@@ -432,26 +434,26 @@ pub fn create_tree_without_diff(
                     // TODO: Validate that the hunks coorespond with actual changes?
                     let before_blob = before_entry.object()?.into_blob();
 
-                    let mut reversed_hunk_headers = good_hunk_headers
-                        .iter()
-                        .map(|hunk| hunk.reverse())
-                        .collect::<Vec<_>>();
-                    reversed_hunk_headers.sort_by_key(|hunk| hunk.new_start);
-                    let new_after_contents = apply_hunks(
-                        after_blob.data.as_bstr(),
-                        before_blob.data.as_bstr(),
-                        &reversed_hunk_headers,
+                    let new_hunks = new_hunks_after_removals(
+                        diff_hunks.into_iter().map(Into::into).collect(),
+                        good_hunk_headers,
                     )?;
+                    let new_after_contents = apply_hunks(
+                        before_blob.data.as_bstr(),
+                        after_blob.data.as_bstr(),
+                        &new_hunks,
+                    )?;
+                    let mode = if new_after_contents == before_blob.data {
+                        before_entry.mode().kind()
+                    } else {
+                        after_entry.mode().kind()
+                    };
                     let new_after_contents = repository.write_blob(&new_after_contents)?;
 
                     // Keep the mode of the after state. We _should_ at some
                     // point introduce the mode specifically as part of the
                     // DiscardSpec, but for now, we can just use the after state.
-                    builder.upsert(
-                        change.path.as_bstr(),
-                        after_entry.mode().kind(),
-                        new_after_contents,
-                    )?;
+                    builder.upsert(change.path.as_bstr(), mode, new_after_contents)?;
                 }
             }
             _ => {
@@ -462,6 +464,53 @@ pub fn create_tree_without_diff(
 
     let final_tree = builder.write()?;
     Ok((final_tree.detach(), dropped))
+}
+
+fn new_hunks_after_removals(
+    change_hunks: Vec<HunkHeader>,
+    mut removal_hunks: Vec<HunkHeader>,
+) -> anyhow::Result<Vec<HunkHeader>> {
+    // If a removal hunk matches completly then we can drop it entirely.
+    let hunks_to_keep: Vec<HunkHeader> = change_hunks
+        .into_iter()
+        .filter(|hunk| {
+            match removal_hunks
+                .iter()
+                .enumerate()
+                .find_map(|(idx, hunk_to_discard)| (hunk_to_discard == hunk).then_some(idx))
+            {
+                None => true,
+                Some(idx_to_remove) => {
+                    removal_hunks.remove(idx_to_remove);
+                    false
+                }
+            }
+        })
+        .collect();
+
+    // TODO(perf): instead of brute-force searching, assure hunks_to_discard are sorted and speed up the search that way.
+    let mut hunks_to_keep_with_splits = Vec::new();
+    for hunk_to_split in hunks_to_keep {
+        let mut subtractions = Vec::new();
+        removal_hunks.retain(|sub_hunk_to_discard| {
+            if sub_hunk_to_discard.old_range() == hunk_to_split.old_range() {
+                subtractions.push(HunkSubstraction::New(sub_hunk_to_discard.new_range()));
+                false
+            } else if sub_hunk_to_discard.new_range() == hunk_to_split.new_range() {
+                subtractions.push(HunkSubstraction::Old(sub_hunk_to_discard.old_range()));
+                false
+            } else {
+                true
+            }
+        });
+        if subtractions.is_empty() {
+            hunks_to_keep_with_splits.push(hunk_to_split);
+        } else {
+            let hunk_with_subtractions = subtract_hunks(hunk_to_split, subtractions)?;
+            hunks_to_keep_with_splits.extend(hunk_with_subtractions);
+        }
+    }
+    Ok(hunks_to_keep_with_splits)
 }
 
 fn revert_file_to_before_state(

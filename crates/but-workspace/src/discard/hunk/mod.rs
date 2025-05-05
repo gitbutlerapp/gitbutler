@@ -117,7 +117,7 @@ pub fn restore_state_to_worktree(
 }
 
 #[derive(Debug, Copy, Clone)]
-enum HunkSubstraction {
+pub(crate) enum HunkSubstraction {
     /// Subtract the range from `old`.
     Old(HunkRange),
     /// Subtract the range from `new`.
@@ -128,7 +128,7 @@ enum HunkSubstraction {
 /// Note that the old and new ranges in `hunk` are split in lock-step, so that cutting out a piece from old will take
 /// the respective amount of lines from new if these are available.
 #[allow(clippy::indexing_slicing)]
-fn subtract_hunks(
+pub(crate) fn subtract_hunks(
     hunk: HunkHeader,
     subtractions: impl IntoIterator<Item = HunkSubstraction>,
 ) -> anyhow::Result<Vec<HunkHeader>> {

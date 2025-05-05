@@ -720,9 +720,9 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?, @r"
     .
     ├── .git:40755
-    ├── file:100644
-    ├── file-in-index:100755
-    ├── file-renamed:100755
+    ├── file:100755
+    ├── file-in-index:100644
+    ├── file-renamed:100644
     └── file-renamed-in-index:100644
     ");
 
