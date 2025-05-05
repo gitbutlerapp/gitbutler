@@ -8,7 +8,7 @@
 		onclick?: () => void;
 	};
 
-	const { content, details, selected = $bindable(), onclick }: Props = $props();
+	const { content, details, selected, onclick }: Props = $props();
 </script>
 
 <div role="presentation" {onclick} class="branches-list-card" class:selected>
@@ -26,6 +26,7 @@
 <style class="postcss">
 	/* TARGET CARD */
 	.branches-list-card {
+		position: relative;
 		cursor: pointer;
 		display: flex;
 		flex-direction: column;
@@ -40,10 +41,11 @@
 		&::after {
 			content: '';
 			position: absolute;
-			top: 0;
+			border-radius: 0 var(--radius-m) var(--radius-m) 0;
+			top: 8px;
 			left: 0;
-			width: 4px;
-			height: 100%;
+			width: 5px;
+			height: calc(100% - 16px);
 			transform: translateX(-100%);
 			transition: transform var(--transition-medium);
 		}

@@ -10,7 +10,6 @@
 	import { inject } from '@gitbutler/shared/context';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
-	// import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
@@ -20,9 +19,11 @@
 		projectId: string;
 		branchListing: BranchListing;
 		prs: PullRequest[];
+		selected?: boolean;
+		onclick?: (args: { listing: BranchListing; pr?: PullRequest }) => void;
 	}
 
-	const { projectId, branchListing, prs }: Props = $props();
+	const { projectId, branchListing, prs, selected, onclick }: Props = $props();
 
 	const unknownName = 'unknown';
 	const unknownEmail = 'example@example.com';
@@ -50,20 +51,6 @@
 
 	// If there are zero commits we should not show the author
 	const ownedByUser = $derived(branchListingDetails?.numberOfCommits === 0);
-
-	function handleClick() {
-		if (branchListing.stack?.inWorkspace) {
-			goto(`/${project.id}/board`);
-		} else {
-			goto(formatBranchURL(project, branchListing.name));
-		}
-	}
-
-	const selected = $derived(page.url.pathname === formatBranchURL(project, branchListing.name));
-
-	function formatBranchURL(project: Project, name: string) {
-		return `/${project.id}/branch/${encodeURIComponent(name)}`;
-	}
 
 	$effect(() => {
 		let canceled = false;
@@ -136,7 +123,7 @@
 	});
 </script>
 
-<BranchesCardTemplate {selected} onclick={handleClick}>
+<BranchesCardTemplate {selected} onclick={() => onclick?.({ listing: branchListing, pr })}>
 	{#snippet content()}
 		<div class="sidebar-entry__header">
 			<SeriesLabelsRow series={filteredStackBranches} />
@@ -159,7 +146,6 @@
 
 			<AvatarGroup {avatars} />
 
-			<!-- NEED API -->
 			{#each branchListing.remotes as remote}
 				<span class="sidebar-entry__divider">•</span>
 				<span>{remote}</span>
@@ -215,27 +201,6 @@
 		</div>
 	{/snippet}
 </BranchesCardTemplate>
-
-<!-- <SidebarEntry
-	series={filteredStackBranches}
-	remotes={branchListing.remotes}
-	local={branchListing.hasLocal}
-	applied={branchListing.stack?.inWorkspace}
-	{lastCommitDetails}
-	pullRequestDetails={pr && {
-		title: pr.title,
-		draft: pr.draft
-	}}
-	branchDetails={branchListingDetails && {
-		commitCount: branchListingDetails.numberOfCommits,
-		linesAdded: branchListingDetails.linesAdded,
-		linesRemoved: branchListingDetails.linesRemoved
-	}}
-	onFirstSeen={() => (hasBeenSeen = true)}
-	{onMouseDown}
-	{selected}
-	{avatars}
-/> -->
 
 <style lang="postcss">
 	.sidebar-entry__about {

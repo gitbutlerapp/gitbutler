@@ -6,6 +6,7 @@
 	import BranchView from '$components/v3/BranchView.svelte';
 	import BranchesViewBranch from '$components/v3/BranchesViewBranch.svelte';
 	import BranchesViewStack from '$components/v3/BranchesViewStack.svelte';
+	import BranchListCard from '$components/v3/branchesPage/BranchListCard.svelte';
 	import PullRequestSidebarEntry from '$components/v3/PullRequestSidebarEntry.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import TargetCommitList from '$components/v3/TargetCommitList.svelte';
@@ -86,7 +87,38 @@
 				<BranchExplorer {projectId}>
 					{#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
 						{#if sidebarEntrySubject.type === 'branchListing'}
-							<BranchListingSidebarEntry
+							<BranchListCard
+								{projectId}
+								branchListing={sidebarEntrySubject.subject}
+								prs={sidebarEntrySubject.prs}
+								selected={branchesSelection.current.branchName === sidebarEntrySubject.subject.name}
+								onclick={({ listing, pr }) => {
+									{
+										console.log(
+											'sidebarEntrySubject',
+											branchesSelection.current.branchName,
+											sidebarEntrySubject.subject.name
+										);
+									}
+									if (listing.stack) {
+										branchesSelection.set({
+											stackId: listing.stack.id,
+											branchName: listing.stack.branches.at(0),
+											prNumber: pr?.number,
+											inWorkspace: listing.stack.inWorkspace,
+											hasLocal: listing.hasLocal
+										});
+									} else {
+										branchesSelection.set({
+											branchName: listing.name,
+											prNumber: pr?.number,
+											remote: listing.remotes.at(0),
+											hasLocal: listing.hasLocal
+										});
+									}
+								}}
+							/>
+							<!-- <BranchListingSidebarEntry
 								{projectId}
 								onclick={({ listing, pr }) => {
 									if (listing.stack) {
@@ -109,7 +141,7 @@
 								branchListing={sidebarEntrySubject.subject}
 								prs={sidebarEntrySubject.prs}
 								selected={branchesSelection.current.branchName === sidebarEntrySubject.subject.name}
-							/>
+							/> -->
 						{:else}
 							<PullRequestSidebarEntry
 								{projectId}

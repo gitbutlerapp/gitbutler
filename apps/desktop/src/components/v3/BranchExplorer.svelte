@@ -1,8 +1,9 @@
 <script lang="ts">
 	import ChunkyList from '$components/ChunkyList.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import GroupHeader from '$components/GroupHeader.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
+	import BranchesListGroup from '$components/v3/branchesPage/BranchesListGroup.svelte';
 	import {
 		combineBranchesAndPrs,
 		groupBranches,
@@ -136,10 +137,13 @@
 
 {#snippet branchGroup(props: { title: string; children: SidebarEntrySubject[] })}
 	{#if props.children.length > 0}
-		<div class="group">
+		<BranchesListGroup title={props.title}>
+			<ChunkyList items={props.children} item={sidebarEntry}></ChunkyList>
+		</BranchesListGroup>
+		<!-- <div class="group">
 			<GroupHeader title={props.title} />
 			<ChunkyList items={props.children} item={sidebarEntry}></ChunkyList>
-		</div>
+		</div> -->
 	{/if}
 {/snippet}
 
@@ -153,14 +157,21 @@
 			</div>
 
 			<div class="search-container" class:show-search={searching}>
-				<button
+				<div class="search-button">
+					<Button
+						icon={searching ? 'cross' : 'search'}
+						onclick={toggleSearch}
+						tabindex={searching ? -1 : 0}
+					/>
+				</div>
+				<!-- <button
 					type="button"
 					tabindex={searching ? -1 : 0}
 					class="search-button"
 					onclick={toggleSearch}
 				>
 					<Icon name={searching ? 'cross' : 'search'} />
-				</button>
+				</button> -->
 
 				<input
 					bind:this={searchEl}
@@ -233,7 +244,6 @@
 		display: flex;
 		flex-direction: column;
 		padding: 14px;
-		border-bottom: 1px solid var(--clr-border-3);
 	}
 
 	.header-info {
@@ -274,13 +284,11 @@
 		position: absolute;
 		top: 0;
 		right: 0;
-		height: 100%;
-		width: var(--size-cta);
 
 		display: flex;
 		align-items: center;
 		justify-content: center;
-
+		/* 
 		color: var(--clr-scale-ntrl-50);
 
 		&:after {
@@ -302,7 +310,7 @@
 			&:after {
 				background-color: var(--clr-bg-1-muted);
 			}
-		}
+		} */
 	}
 
 	.search-input {
@@ -351,6 +359,7 @@
 		margin-top: -1px;
 		overflow: hidden;
 		width: 100%;
+		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.group {
