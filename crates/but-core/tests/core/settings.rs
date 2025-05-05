@@ -10,8 +10,11 @@ mod git {
         let actual = repo.git_settings()?;
         assert_eq!(
             actual,
-            GitConfigSettings::default(),
-            "by default, None of these are set in a new repository"
+            GitConfigSettings {
+                gitbutler_sign_commits: Some(false),
+                ..GitConfigSettings::default()
+            },
+            "by default, None of these are set in a new repository, except for the explicit gpg-sign logic"
         );
         let expected = GitConfigSettings {
             gitbutler_sign_commits: Some(true),

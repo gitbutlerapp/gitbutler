@@ -2570,18 +2570,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-config"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "git2",
- "gitbutler-project",
- "gix",
- "serde",
- "tracing",
-]
-
-[[package]]
 name = "gitbutler-diff"
 version = "0.0.0"
 dependencies = [
@@ -2828,7 +2816,6 @@ dependencies = [
  "gitbutler-cherry-pick",
  "gitbutler-command-context",
  "gitbutler-commit",
- "gitbutler-config",
  "gitbutler-diff",
  "gitbutler-error",
  "gitbutler-oxidize",
@@ -2986,7 +2973,6 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
- "gitbutler-config",
  "gitbutler-diff",
  "gitbutler-edit-mode",
  "gitbutler-error",

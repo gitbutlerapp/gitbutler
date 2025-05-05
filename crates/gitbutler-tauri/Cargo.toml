@@ -59,7 +59,6 @@ gitbutler-repo.workspace = true
 gitbutler-repo-actions.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-feedback.workspace = true
-gitbutler-config.workspace = true
 gitbutler-project.workspace = true
 gitbutler-user.workspace = true
 gitbutler-branch.workspace = true
