@@ -109,7 +109,8 @@
 		{#snippet caption()}
 			Use GPG or SSH to sign your commits so they can be verified as authentic.
 			<br />
-			GitButler will sign commits as per your git configuration.
+			GitButler will sign commits as per your git configuration, but evaluates
+			<code class="code-string">gitbutler.signCommits</code> with priority.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle id="signCommits" checked={signCommits} onclick={handleSignCommitsClick} />
