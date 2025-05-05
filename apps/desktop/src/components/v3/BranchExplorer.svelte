@@ -148,8 +148,8 @@
 {/snippet}
 
 <div class="branches">
-	<div class="header">
-		<div class="header-info">
+	<div class="branches__header">
+		<div class="branches__header-info">
 			<div class="branches-title" class:hide-branch-title={searching}>
 				<span class="text-14 text-bold">Branches</span>
 
@@ -160,18 +160,11 @@
 				<div class="search-button">
 					<Button
 						icon={searching ? 'cross' : 'search'}
+						kind="ghost"
 						onclick={toggleSearch}
 						tabindex={searching ? -1 : 0}
 					/>
 				</div>
-				<!-- <button
-					type="button"
-					tabindex={searching ? -1 : 0}
-					class="search-button"
-					onclick={toggleSearch}
-				>
-					<Icon name={searching ? 'cross' : 'search'} />
-				</button> -->
 
 				<input
 					bind:this={searchEl}
@@ -239,15 +232,16 @@
 		background-color: var(--clr-bg-2);
 	}
 
-	.header {
-		position: relative;
+	.branches__header {
 		display: flex;
 		flex-direction: column;
-		padding: 14px;
+		padding: 8px 14px 14px 14px;
 	}
 
-	.header-info {
+	.branches__header-info {
+		position: relative;
 		display: flex;
+		align-items: center;
 		justify-content: flex-end;
 		width: 100%;
 		height: 32px;
@@ -257,8 +251,9 @@
 
 	.branches-title {
 		position: absolute;
-		top: 22px;
-		left: 14px;
+		top: 50%;
+		transform: translateY(-50%);
+		left: 0;
 
 		display: flex;
 		align-items: center;
@@ -275,6 +270,7 @@
 		height: var(--size-cta);
 		width: 60%;
 		overflow: hidden;
+		/* border: 1px solid var(--clr-border-2); */
 
 		transition: width 0.16s ease;
 	}
@@ -282,35 +278,12 @@
 	.search-button {
 		z-index: var(--z-ground);
 		position: absolute;
-		top: 0;
+		top: 50%;
 		right: 0;
-
+		transform: translateY(-50%);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		/* 
-		color: var(--clr-scale-ntrl-50);
-
-		&:after {
-			content: '';
-			position: absolute;
-			z-index: -1;
-			top: 0;
-			left: 0;
-			height: 100%;
-			width: 100%;
-			border-radius: var(--radius-s);
-			transform-origin: center;
-			transition:
-				transform 0.1s ease,
-				background-color 0.2s;
-		}
-
-		&:hover {
-			&:after {
-				background-color: var(--clr-bg-1-muted);
-			}
-		} */
 	}
 
 	.search-input {
@@ -318,7 +291,7 @@
 		height: 100%;
 		display: none;
 		padding-left: 8px;
-		border-radius: var(--radius-s);
+		border-radius: var(--radius-s) var(--radius-m) var(--radius-m) var(--radius-s);
 		border: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 		transition: opacity 0.1s;
@@ -351,7 +324,7 @@
 
 	.hide-branch-title {
 		opacity: 0;
-		transform: translateX(-5px);
+		transform: translateX(-5px) translateY(-50%);
 	}
 
 	/* BRANCHES LIST */
@@ -365,8 +338,6 @@
 	.group {
 		display: flex;
 		flex-direction: column;
-		/* border-bottom: 1px solid var(--clr-border-3); */
-		/* margin-bottom: 12px; */
 
 		&:last-child {
 			border-bottom: none;

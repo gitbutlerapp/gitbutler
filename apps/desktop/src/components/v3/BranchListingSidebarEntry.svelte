@@ -68,6 +68,7 @@
 	let avatars = $state<{ name: string; srcUrl: string }[]>([]);
 
 	$effect(() => {
+		console.log('branchDetailsResult', branchDetailsResult);
 		setAvatars(ownedByUser, branchListingDetails);
 	});
 

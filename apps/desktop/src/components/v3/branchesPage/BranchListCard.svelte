@@ -2,16 +2,17 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import BranchesCardTemplate from '$components/v3/branchesPage/BranchesCardTemplate.svelte';
-	import { BranchListingDetails, type BranchListing } from '$lib/branches/branchListing';
-	import { BranchService } from '$lib/branches/branchService.svelte';
-	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { Project } from '$lib/project/project';
-	import { UserService } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
+	import SidebarEntry from '$components/v3/SidebarEntry.svelte';
+	import { type BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
+	import { BranchService } from '$lib/branches/branchService.svelte';
+	import { GitConfigService } from '$lib/config/gitConfigService';
+	import { UserService } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 	import type { PullRequest } from '$lib/forge/interface/types';
 
@@ -19,8 +20,8 @@
 		projectId: string;
 		branchListing: BranchListing;
 		prs: PullRequest[];
-		selected?: boolean;
-		onclick?: (args: { listing: BranchListing; pr?: PullRequest }) => void;
+		selected: boolean;
+		onclick: (args: { listing: BranchListing; pr?: PullRequest }) => void;
 	}
 
 	const { projectId, branchListing, prs, selected, onclick }: Props = $props();
@@ -28,10 +29,9 @@
 	const unknownName = 'unknown';
 	const unknownEmail = 'example@example.com';
 
-	const [userService, gitConfigService, project, branchService] = inject(
+	const [userService, gitConfigService, branchService] = inject(
 		UserService,
 		GitConfigService,
-		Project,
 		BranchService
 	);
 
@@ -40,11 +40,7 @@
 	// TODO: Use information from all PRs in a stack?
 	const pr = $derived(prs.at(0));
 
-	let hasBeenSeen = $state(false);
-
-	const branchDetailsResult = $derived(
-		hasBeenSeen ? branchService.get(projectId, branchListing.name) : undefined
-	);
+	const branchDetailsResult = $derived(branchService.get(projectId, branchListing.name));
 
 	let lastCommitDetails = $state<{ authorName: string; lastCommitAt?: Date }>();
 	let branchListingDetails = $derived(branchDetailsResult?.current.data);
@@ -74,6 +70,10 @@
 	});
 
 	let avatars = $state<{ name: string; srcUrl: string }[]>([]);
+
+	$effect(() => {
+		setAvatars(ownedByUser, branchListingDetails);
+	});
 
 	async function setAvatars(ownedByUser: boolean, branchListingDetails?: BranchListingDetails) {
 		if (ownedByUser) {
@@ -109,18 +109,6 @@
 	const filteredStackBranches = $derived(
 		stackBranches && stackBranches.length > 0 ? stackBranches : [branchListing.name]
 	);
-
-	const pullRequestDetails = $derived(
-		pr && {
-			title: pr.title,
-			draft: pr.draft,
-			number: pr.number
-		}
-	);
-
-	$effect(() => {
-		setAvatars(ownedByUser, branchListingDetails);
-	});
 </script>
 
 <BranchesCardTemplate {selected} onclick={() => onclick?.({ listing: branchListing, pr })}>
@@ -135,24 +123,27 @@
 		</div>
 
 		<div class="text-12 sidebar-entry__about">
-			{#if pullRequestDetails}
+			{#if pr}
 				<ReviewBadge
-					prStatus={pullRequestDetails.draft ? 'draft' : 'unknown'}
-					prTitle={pullRequestDetails.title}
-					prNumber={pullRequestDetails.number}
+					prStatus={pr.draft ? 'draft' : 'unknown'}
+					prTitle={pr.title}
+					prNumber={pr.number}
 				/>
 				<span class="sidebar-entry__divider">•</span>
 			{/if}
 
-			<AvatarGroup {avatars} />
+			{#if avatars}
+				<AvatarGroup {avatars} />
+				<span class="sidebar-entry__divider">•</span>
+			{/if}
 
 			{#each branchListing.remotes as remote}
-				<span class="sidebar-entry__divider">•</span>
 				<span>{remote}</span>
+				<span class="sidebar-entry__divider">•</span>
 			{/each}
 			{#if branchListing.hasLocal}
-				<span class="sidebar-entry__divider">•</span>
 				<span>local</span>
+				<span class="sidebar-entry__divider">•</span>
 			{/if}
 			{#if branchListing.remotes.length === 0 && !branchListing.hasLocal}
 				<span class="sidebar-entry__divider">•</span>
@@ -162,7 +153,7 @@
 	{/snippet}
 	{#snippet details()}
 		<div class="text-12 sidebar-entry__details">
-			<span>
+			<span class="truncate">
 				{#if lastCommitDetails}
 					<TimeAgo date={lastCommitDetails.lastCommitAt} addSuffix />
 					by {lastCommitDetails.authorName}
@@ -218,6 +209,10 @@
 
 	.sidebar-entry__divider {
 		color: var(--clr-text-3);
+
+		&:last-child {
+			display: none;
+		}
 	}
 
 	.sidebar-entry__applied-tag {

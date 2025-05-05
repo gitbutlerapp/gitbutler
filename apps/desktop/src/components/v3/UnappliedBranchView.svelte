@@ -164,10 +164,12 @@
 </ReduxResult>
 
 <style>
-	.branch-header {
+	.branch__header {
 		display: flex;
-		flex-direction: column;
-		gap: 16px;
+		align-items: center;
+		gap: 8px;
+		width: 100%;
+		overflow: hidden;
 	}
 
 	.metadata {

@@ -46,8 +46,13 @@
 			left: 0;
 			width: 5px;
 			height: calc(100% - 16px);
+			background-color: var(--clr-selected-in-focus-element);
 			transform: translateX(-100%);
 			transition: transform var(--transition-medium);
+		}
+
+		&:not(.selected):hover {
+			background-color: var(--clr-bg-1-muted);
 		}
 	}
 
@@ -75,7 +80,6 @@
 		background-color: var(--clr-bg-1-muted);
 
 		&::after {
-			background-color: var(--clr-theme-pop-element);
 			transform: translateX(0);
 		}
 	}

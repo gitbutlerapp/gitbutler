@@ -2,7 +2,6 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import BranchExplorer from '$components/v3/BranchExplorer.svelte';
-	import BranchListingSidebarEntry from '$components/v3/BranchListingSidebarEntry.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import BranchesViewBranch from '$components/v3/BranchesViewBranch.svelte';
 	import BranchesViewStack from '$components/v3/BranchesViewStack.svelte';
@@ -57,6 +56,8 @@
 		}
 		return undefined;
 	});
+
+	$effect(() => {});
 </script>
 
 <ReduxResult {projectId} result={baseBranchResult.current}>

@@ -57,7 +57,7 @@
 				<span>{commitsAmount}</span>
 			</div>
 
-			<span>•</span>
+			<span class="workspace-target-card__divider">•</span>
 
 			<div class="workspace-target-card__details-item">
 				{#if lastCommit}
@@ -92,5 +92,9 @@
 		gap: 4px;
 		align-items: center;
 		color: var(--clr-text-2);
+	}
+
+	.workspace-target-card__divider {
+		color: var(--clr-text-3);
 	}
 </style>
