@@ -120,6 +120,11 @@ pub enum Subcommands {
         /// If this is set, a branch will be created with the given name.
         #[clap(long, short = 'b')]
         branch_name: Option<String>,
+        /// Optional. The description of the branch to create.
+        ///
+        /// This is the place where some metadata about the branch can be stored.
+        #[clap(long, short = 'd')]
+        description: Option<String>,
     },
     /// Returns all commits for the branch with the given `name` in the stack with the given `id`.
     StackBranchCommits { id: String, name: String },
