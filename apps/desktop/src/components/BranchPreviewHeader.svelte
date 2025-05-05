@@ -190,7 +190,7 @@
 	}}
 >
 	{#snippet children(branch)}
-		<p class="text-13">
+		<p class="text-13 text-body">
 			Are you sure you want to delete <code class="code-string">{branch.name}</code>?
 		</p>
 	{/snippet}
