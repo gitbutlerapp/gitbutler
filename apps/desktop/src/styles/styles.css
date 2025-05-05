@@ -30,6 +30,8 @@ body {
 
 /* CODE */
 .code-string {
+	display: inline;
+	word-wrap: break-word;
 	color: var(--clr-text-1);
 	font-family: var(--fontfamily-mono);
 	border-radius: var(--radius-s);

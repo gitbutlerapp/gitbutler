@@ -190,7 +190,9 @@
 	}}
 >
 	{#snippet children(branch)}
-		Are you sure you want to delete <code class="code-string">{branch.name}</code>?
+		<p class="text-13 text-body">
+			Are you sure you want to delete <code class="code-string">{branch.name}</code>?
+		</p>
 	{/snippet}
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
