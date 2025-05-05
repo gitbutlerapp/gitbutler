@@ -103,7 +103,14 @@ const CommitParamsSchema = BaseParamsSchema.extend({
 type CommitParams = z.infer<typeof CommitParamsSchema>;
 
 type AmendCommitParams = {
+	/**
+	 * The commit ID to amend.
+	 */
 	commitId: string;
+	/**
+	 * The commit message to use.
+	 */
+	message?: string;
 };
 
 /**
@@ -112,12 +119,15 @@ type AmendCommitParams = {
 function commit(params: CommitParams, amendParams?: AmendCommitParams) {
 	const args = ['commit'];
 
-	args.push('--message', params.message);
-
 	if (amendParams !== undefined) {
 		args.push('--amend', '--parent', amendParams.commitId);
+		if (amendParams.message) {
+			args.push('--message', amendParams.message);
+		}
 		return executeGitButlerCommand(params.project_directory, args, CreateCommitOutcomeSchema);
 	}
+
+	args.push('--message', params.message);
 
 	populateDiffSpec(params, args);
 
@@ -196,7 +206,10 @@ const AmmendCommitParamsSchema = BaseParamsSchema.extend({
 		})
 		.optional()
 		.default([]),
-	branch: z.string({ description: 'The branch to amend commits in' })
+	branch: z.string({ description: 'The branch to amend commits in' }),
+	message: z
+		.string({ description: 'Optional message update. If undefined, the same message will be kept' })
+		.optional()
 });
 
 type AmmendCommitParams = z.infer<typeof AmmendCommitParamsSchema>;
@@ -214,7 +227,8 @@ function amendCommit(params: AmmendCommitParams) {
 			filePaths: params.filePaths
 		},
 		{
-			commitId: params.commitId
+			commitId: params.commitId,
+			message: params.message
 		}
 	);
 }
