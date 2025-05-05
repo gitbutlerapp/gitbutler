@@ -158,12 +158,24 @@ pub mod stacks {
     fn create_stack_with_branch(
         ctx: &CommandContext,
         name: &str,
+        description: &Option<String>,
     ) -> anyhow::Result<but_workspace::StackEntry> {
         let creation_request = gitbutler_branch::BranchCreateRequest {
             name: Some(name.to_string()),
             ..Default::default()
         };
-        gitbutler_branch_actions::create_virtual_branch(ctx, &creation_request)
+        let stack_entry = gitbutler_branch_actions::create_virtual_branch(ctx, &creation_request)?;
+
+        if description.is_some() {
+            gitbutler_branch_actions::stack::update_branch_description(
+                ctx,
+                stack_entry.id,
+                name.to_string(),
+                description.clone(),
+            )?;
+        }
+
+        Ok(stack_entry)
     }
 
     /// Add a branch to an existing stack.
@@ -171,6 +183,7 @@ pub mod stacks {
         ctx: &CommandContext,
         id: &str,
         name: &str,
+        description: &Option<String>,
         project: gitbutler_project::Project,
         repo: &gix::Repository,
     ) -> anyhow::Result<but_workspace::StackEntry> {
@@ -191,6 +204,15 @@ pub mod stacks {
             .find(|entry| entry.id == stack_id)
             .ok_or_else(|| anyhow::anyhow!("Failed to find stack with ID: {id}"))?;
 
+        if description.is_some() {
+            gitbutler_branch_actions::stack::update_branch_description(
+                ctx,
+                stack_entry.id,
+                name.to_string(),
+                description.clone(),
+            )?;
+        }
+
         Ok(stack_entry)
     }
 
@@ -201,6 +223,7 @@ pub mod stacks {
     pub fn create_branch(
         id: &Option<String>,
         name: &str,
+        description: &Option<String>,
         current_dir: &Path,
         use_json: bool,
     ) -> anyhow::Result<()> {
@@ -215,8 +238,8 @@ pub mod stacks {
         let repo = ctx.gix_repo()?;
 
         let stack_entry = match id {
-            Some(id) => add_branch_to_stack(&ctx, id, name, project.clone(), &repo)?,
-            None => create_stack_with_branch(&ctx, name)?,
+            Some(id) => add_branch_to_stack(&ctx, id, name, description, project.clone(), &repo)?,
+            None => create_stack_with_branch(&ctx, name, description)?,
         };
 
         if use_json {
