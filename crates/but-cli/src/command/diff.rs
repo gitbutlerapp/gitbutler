@@ -1,4 +1,5 @@
 use crate::command::{UI_CONTEXT_LINES, debug_print, project_from_path, project_repo};
+use but_hunk_dependency::ui::HunkDependencies;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gix::bstr::BString;
@@ -70,7 +71,7 @@ fn handle_normal_diff(worktree: but_core::WorktreeChanges, use_json: bool) -> an
     }
 }
 
-pub fn locks(current_dir: &Path) -> anyhow::Result<()> {
+pub fn locks(current_dir: &Path, simple: bool, use_json: bool) -> anyhow::Result<()> {
     let project = project_from_path(current_dir)?;
     let ctx = CommandContext::open(&project, AppSettings::default())?;
     let repo = gix::open(project.worktree_path())?;
@@ -81,11 +82,32 @@ pub fn locks(current_dir: &Path) -> anyhow::Result<()> {
         but_workspace::common_merge_base_with_target_branch(&project.gb_dir())?,
     )?;
     let ranges = but_hunk_dependency::WorkspaceRanges::try_from_stacks(input_stacks)?;
-    debug_print(intersect_workspace_ranges(
-        &repo,
-        ranges,
-        worktree_changes.changes,
-    )?)
+
+    match simple {
+        true => process_simple_dependencies(use_json, &repo, worktree_changes, ranges),
+        false => debug_print(intersect_workspace_ranges(
+            &repo,
+            ranges,
+            worktree_changes.changes,
+        )?),
+    }
+}
+
+fn process_simple_dependencies(
+    use_json: bool,
+    repo: &gix::Repository,
+    worktree_changes: but_core::WorktreeChanges,
+    ranges: but_hunk_dependency::WorkspaceRanges,
+) -> Result<(), anyhow::Error> {
+    let dependencies =
+        HunkDependencies::try_from_workspace_ranges(repo, ranges, worktree_changes.changes)?;
+    if use_json {
+        let json = serde_json::to_string_pretty(&dependencies)?;
+        println!("{}", json);
+        Ok(())
+    } else {
+        debug_print(dependencies)
+    }
 }
 
 fn unified_diff_for_changes(

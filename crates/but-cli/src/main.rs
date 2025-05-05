@@ -71,7 +71,9 @@ fn main() -> Result<()> {
                 args.json,
             )
         }
-        args::Subcommands::HunkDependency => command::diff::locks(&args.current_dir),
+        args::Subcommands::HunkDependency { simple } => {
+            command::diff::locks(&args.current_dir, *simple, args.json)
+        }
         args::Subcommands::Status {
             unified_diff,
             context_lines,
