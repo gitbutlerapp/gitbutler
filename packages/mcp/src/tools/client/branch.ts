@@ -6,7 +6,13 @@ import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
 const CreateBranchParamsSchema = BaseParamsSchema.extend({
-	branch_name: z.string({ description: 'The name of the branch to create.' })
+	branch_name: z.string({ description: 'The name of the branch to create.' }),
+	description: z
+		.string({
+			description:
+				'The description of the branch should contain information about its purpose, todos, etc.'
+		})
+		.optional()
 });
 
 type CreateBranchParams = z.infer<typeof CreateBranchParamsSchema>;
@@ -16,6 +22,11 @@ type CreateBranchParams = z.infer<typeof CreateBranchParamsSchema>;
  */
 export function createBranch(params: CreateBranchParams) {
 	const args = ['stack-branches', '-b', params.branch_name];
+
+	if (params.description) {
+		args.push('-d', params.description);
+	}
+
 	return executeGitButlerCommand(params.project_directory, args, StackSchema);
 }
 
