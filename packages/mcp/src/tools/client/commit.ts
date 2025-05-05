@@ -75,7 +75,7 @@ function interpretOutcome(outcome: CreateCommitOutcome, action: 'created' | 'ame
 	if (outcome.newCommit !== null && outcome.pathsToRejectedChanges.length > 0) {
 		const rejectionMessages = createRejectionSummary(outcome);
 
-		return `Commit successfully ${amendCommit} with ID ${outcome.newCommit}, but some changes were rejected: ${rejectionMessages}`;
+		return `Commit successfully ${action} with ID ${outcome.newCommit}, but some changes were rejected: ${rejectionMessages}`;
 	}
 
 	// No commit created
@@ -112,10 +112,11 @@ type AmendCommitParams = {
 function commit(params: CommitParams, amendParams?: AmendCommitParams) {
 	const args = ['commit'];
 
+	args.push('--message', params.message);
+
 	if (amendParams !== undefined) {
 		args.push('--amend', '--parent', amendParams.commitId);
-	} else {
-		args.push('--message', params.message);
+		return executeGitButlerCommand(params.project_directory, args, CreateCommitOutcomeSchema);
 	}
 
 	populateDiffSpec(params, args);
