@@ -218,18 +218,20 @@ fn replace_dir_with_file_discard_just_the_file_in_worktree() -> anyhow::Result<(
 
     // It's a known shortcoming that submodules aren't re-populated during checkout.
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?, @r"
-.
-├── .git:40755
-├── .gitmodules:100644
-├── dir:40755
-│   ├── executable:100755
-│   ├── file-to-remain:100644
-│   ├── link:120755
-│   └── submodule:40755
-└── embedded-repository:40755
+    .
     ├── .git:40755
-    └── file:100644
-");
+    ├── .gitmodules:100644
+    ├── dir:40755
+    │   ├── executable:100755
+    │   ├── file-to-remain:100644
+    │   ├── link:120755
+    │   └── submodule:40755
+    │       ├── .git:100644
+    │       └── file:100644
+    └── embedded-repository:40755
+        ├── .git:40755
+        └── file:100644
+    ");
     Ok(())
 }
 
@@ -294,18 +296,20 @@ D  dir/submodule
 
     // It's a known shortcoming that submodules aren't re-populated during checkout.
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?, @r"
-.
-├── .git:40755
-├── .gitmodules:100644
-├── dir:40755
-│   ├── executable:100755
-│   ├── file-to-remain:100644
-│   ├── link:120755
-│   └── submodule:40755
-└── embedded-repository:40755
+    .
     ├── .git:40755
-    └── file:100644
-");
+    ├── .gitmodules:100644
+    ├── dir:40755
+    │   ├── executable:100755
+    │   ├── file-to-remain:100644
+    │   ├── link:120755
+    │   └── submodule:40755
+    │       ├── .git:100644
+    │       └── file:100644
+    └── embedded-repository:40755
+        ├── .git:40755
+        └── file:100644
+    ");
     Ok(())
 }
 
