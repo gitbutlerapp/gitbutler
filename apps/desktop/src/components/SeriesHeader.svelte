@@ -198,7 +198,7 @@
 
 	closedStateSync(reactive(() => branch));
 
-	const dzHandler = $derived(new MoveCommitDzHandler(stackService, stack, projectId));
+	const dzHandler = $derived(new MoveCommitDzHandler(stackService, stack.id, projectId));
 
 	let renameBranchModal = $state<BranchRenameModal>();
 	let deleteBranchModal = $state<DeleteBranchModal>();
