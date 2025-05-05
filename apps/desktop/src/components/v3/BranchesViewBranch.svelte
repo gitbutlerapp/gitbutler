@@ -101,3 +101,20 @@
 		</BranchCard>
 	{/snippet}
 </ReduxResult>
+
+<style lang="postcss">
+	.branches-wrapper {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		overflow: hidden;
+		padding: 12px;
+		border-radius: var(--radius-ml);
+		border: 1px solid var(--clr-border-2);
+		background-image: radial-gradient(
+			oklch(from var(--clr-scale-ntrl-50) l c h / 0.5) 0.6px,
+			#ffffff00 0.6px
+		);
+		background-size: 6px 6px;
+	}
+</style>

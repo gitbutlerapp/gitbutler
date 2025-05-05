@@ -20,10 +20,13 @@
 	.branches-list-wrap {
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
+		border-bottom: 1px solid var(--clr-border-2);
 	}
 
 	.branches-list-wrap__header {
+		z-index: var(--z-ground);
+		position: sticky;
+		top: 0;
 		display: flex;
 		background-color: var(--clr-bg-2);
 		border-bottom: 1px solid var(--clr-border-2);

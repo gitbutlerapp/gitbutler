@@ -6,6 +6,3 @@
 </script>
 
 <BranchesView {projectId} />
-
-<style lang="postcss">
-</style>

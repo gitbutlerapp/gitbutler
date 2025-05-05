@@ -58,6 +58,7 @@
 		flex-direction: column;
 		gap: 16px;
 		height: 100%;
+		width: 100%;
 	}
 
 	.branch-view__header-container {

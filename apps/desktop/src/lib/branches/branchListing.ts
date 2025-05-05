@@ -111,6 +111,7 @@ export class BranchListingDetails {
 type PullRequestEntrySubject = {
 	type: 'pullRequest';
 	subject: PullRequest;
+	branchListing?: BranchListing;
 };
 
 type BranchListingEntrySubject = {
