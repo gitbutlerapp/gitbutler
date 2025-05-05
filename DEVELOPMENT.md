@@ -255,7 +255,7 @@ rustup override add nightly
 
 We use `pnpm`, which requires a relatively recent version of Node.js.
 Make sure that the latest stable version of Node.js is installed and
-on the PATH, and then `npm i -g pnpm`.
+on the PATH, and then `npm install -g pnpm`.
 
 Sometimes npm's prefix is incorrect on Windows, we can check this via:
 
@@ -285,6 +285,21 @@ Note that it might appear that the build has hung or frozen on the `openssl-sys`
 It's not, it's just that Cargo can't report the status of a C/C++ build happening
 under the hood, and openssl is _large_. It'll take a while to compile.
 
+#### OpenSSL
+
+To build it, one needs to export the path to the perl installation to use.
+The line below will do the trick in a git-bash.
+
+```bash
+export OPENSSL_SRC_PERL="c:/Strawberry/perl/bin/perl.exe"
+```
+
+To make this change permanent, one would one can add this change (and others) to the `~/.bash_profile`.
+
+```bash
+echo 'export OPENSSL_SRC_PERL="c:/Strawberry/perl/bin/perl.exe"' >> ~/.bash_profile
+```
+
 #### Crosscompilation
 
 This paragraph is about crosscompilation to x86_64-MSVC from ARM Windows,
@@ -302,6 +317,7 @@ to prepare the environment.
 ```bash
 export TRIPLE_OVERRIDE=x86_64-pc-windows-msvc
 export CARGO_BUILD_TARGET=x86_64-pc-windows-msvc
+# for good measure
 export OPENSSL_SRC_PERL="c:/Strawberry/perl/bin/perl.exe"
 ```
 
