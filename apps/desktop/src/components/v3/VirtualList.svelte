@@ -28,7 +28,6 @@
 
 	let heightMap: Array<number> = $state([]);
 	let viewport = $state<HTMLDivElement>();
-	let contents = $state<HTMLDivElement>();
 	let viewportHeight = $state(0);
 	let resizeObserver: ResizeObserver | null = null;
 	let top = $state(0);
@@ -91,13 +90,13 @@
 		let i = 0;
 		let y = 0;
 		while (i < chunks.length) {
-			const row_height = heightMap[i] || averageHeight;
-			if (y + row_height > scrollTop) {
+			const rowHeight = heightMap[i] || averageHeight;
+			if (y + rowHeight > scrollTop) {
 				start = i;
 				top = y;
 				break;
 			}
-			y += row_height;
+			y += rowHeight;
 			i += 1;
 		}
 		while (i < chunks.length) {
@@ -136,8 +135,8 @@
 	}
 
 	$effect(() => {
-		if (contents) {
-			rows = contents?.getElementsByClassName('list-row');
+		if (viewport) {
+			rows = viewport?.getElementsByClassName('list-row');
 			resizeObserver = new ResizeObserver(() => {
 				refresh();
 			});
@@ -148,7 +147,7 @@
 	});
 
 	$effect(() => {
-		if (items) {
+		if (items && viewportHeight) {
 			refresh();
 		}
 	});
@@ -156,7 +155,6 @@
 
 <ScrollableContainer
 	bind:viewport
-	bind:content={contents}
 	whenToShow="always"
 	onscroll={handleScroll}
 	{top}

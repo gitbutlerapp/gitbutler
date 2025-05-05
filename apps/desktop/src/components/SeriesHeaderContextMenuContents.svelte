@@ -194,3 +194,15 @@
 		/>
 	</ContextMenuSection>
 {/if}
+
+{#if isTopBranch}
+	<ContextMenuSection>
+		<ContextMenuItem
+			label="Unapply Stack"
+			onclick={async () => {
+				await stackService.unapply({ projectId, stackId });
+				contextMenuEl?.close();
+			}}
+		/>
+	</ContextMenuSection>
+{/if}

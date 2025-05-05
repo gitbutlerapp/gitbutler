@@ -2,7 +2,9 @@
 	import BranchLayoutMode, { type Layout } from '$components/v3/BranchLayoutMode.svelte';
 	import BranchList from '$components/v3/BranchList.svelte';
 	import StackCard from '$components/v3/StackCard.svelte';
-	import StackTabMenu from '$components/v3/stackTabs/StackTabMenu.svelte';
+	import StackDraft from '$components/v3/StackDraft.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Scrollbar from '@gitbutler/ui/scroll/Scrollbar.svelte';
@@ -26,6 +28,10 @@
 		// trigger the mutation observer
 		if ($mode) scrollbar?.updateTrack();
 	});
+
+	const [uiState] = inject(UiState);
+	const drawer = $derived(uiState.project(projectId).drawerPage);
+	const isCommitting = $derived(drawer.current === 'new-commit');
 </script>
 
 <div class="lanes">
@@ -47,30 +53,30 @@
 		class:single={$mode === 'single'}
 		class:vertical={$mode === 'vertical'}
 	>
-		{#each stacks as stack, i}
-			{@const stackName = `Stack ${i + 1}`}
-			<div
-				class="lane"
-				class:multi={$mode === 'multi'}
-				class:single={$mode === 'single'}
-				class:vertical={$mode === 'vertical'}
-			>
-				<StackCard {projectId} {stackName}>
-					<BranchList {projectId} stackId={stack.id} />
-					{#snippet contextMenu()}
-						<StackTabMenu {projectId} stackId={stack.id} />
-					{/snippet}
-				</StackCard>
-			</div>
-		{/each}
-		{#if $mode !== 'vertical'}
-			<Scrollbar
-				bind:this={scrollbar}
-				whenToShow="hover"
-				viewport={scrollableEl}
-				initiallyVisible
-				horz
-			/>
+		{#if stacks.length > 0}
+			{#each stacks as stack}
+				<div
+					class="lane"
+					class:multi={$mode === 'multi'}
+					class:single={$mode === 'single'}
+					class:vertical={$mode === 'vertical'}
+				>
+					<StackCard {projectId}>
+						<BranchList {projectId} stackId={stack.id} />
+					</StackCard>
+				</div>
+			{/each}
+			{#if $mode !== 'vertical'}
+				<Scrollbar
+					bind:this={scrollbar}
+					whenToShow="hover"
+					viewport={scrollableEl}
+					initiallyVisible
+					horz
+				/>
+			{/if}
+		{:else if isCommitting}
+			<StackDraft {projectId} />
 		{/if}
 	</div>
 </div>
@@ -102,7 +108,7 @@
 
 	.lane {
 		display: flex;
-		padding: 6px;
+		padding: 12px;
 		&.multi {
 			width: 280px;
 		}
