@@ -136,34 +136,34 @@ fn write_entry(
         }
         gix::objs::tree::EntryKind::Blob | gix::objs::tree::EntryKind::BlobExecutable => {
             let mut blob = entry.object()?.into_blob();
-            let path = path_check.verified_path(relative_path)?;
-            prepare_path(path)?;
-            std::fs::write(path, blob.take_data())?;
+            let path = path_check.verified_path_allow_nonexisting(relative_path)?;
+            prepare_path(&path)?;
+            std::fs::write(&path, blob.take_data())?;
             #[cfg(unix)]
             {
                 if entry.mode().kind() == gix::objs::tree::EntryKind::BlobExecutable {
-                    let mut permissions = std::fs::metadata(path)?.permissions();
+                    let mut permissions = std::fs::metadata(&path)?.permissions();
                     // Set the executable bit
                     permissions.set_mode(permissions.mode() | 0o111);
-                    std::fs::set_permissions(path, permissions)?;
+                    std::fs::set_permissions(&path, permissions)?;
                 } else {
-                    let mut permissions = std::fs::metadata(path)?.permissions();
+                    let mut permissions = std::fs::metadata(&path)?.permissions();
                     // Unset the executable bit
                     permissions.set_mode(permissions.mode() & !0o111);
-                    std::fs::set_permissions(path, permissions)?;
+                    std::fs::set_permissions(&path, permissions)?;
                 }
             }
         }
         gix::objs::tree::EntryKind::Link => {
             let blob = entry.object()?.into_blob();
             let link_target = gix::path::from_bstr(blob.data.as_bstr());
-            let path = path_check.verified_path(relative_path)?;
-            prepare_path(path)?;
-            gix::fs::symlink::create(&link_target, path)?;
+            let path = path_check.verified_path_allow_nonexisting(relative_path)?;
+            prepare_path(&path)?;
+            gix::fs::symlink::create(&link_target, &path)?;
         }
         gix::objs::tree::EntryKind::Commit => match write_kind {
             WriteKind::Modification => {
-                let path = path_check.verified_path(relative_path)?;
+                let path = path_check.verified_path_allow_nonexisting(relative_path)?;
                 let out = std::process::Command::from(
                     gix::command::prepare(format!(
                         "git reset --hard {id} && git clean -fxd",
@@ -171,7 +171,7 @@ fn write_entry(
                     ))
                     .with_shell(),
                 )
-                .current_dir(path)
+                .current_dir(&path)
                 .output()?;
                 if !out.status.success() {
                     anyhow::bail!(
@@ -223,7 +223,7 @@ fn write_entry(
                         checkout_repo_worktree(&wt_root, repo)?;
                     }
                 }
-                let path = path_check.verified_path(relative_path)?;
+                let path = path_check.verified_path_allow_nonexisting(relative_path)?;
                 std::fs::create_dir(path).or_else(|err| {
                     if err.kind() == std::io::ErrorKind::AlreadyExists {
                         Ok(())
