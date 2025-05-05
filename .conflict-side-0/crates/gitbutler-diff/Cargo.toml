@@ -1,0 +1,24 @@
+[package]
+name = "gitbutler-diff"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+autotests = false
+
+[dependencies]
+git2.workspace = true
+bstr.workspace = true
+md5 = "0.7.0"
+anyhow = "1.0.95"
+hex = "0.4.3"
+tracing.workspace = true
+gitbutler-serde.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-cherry-pick.workspace = true
+diffy = "0.4.0"
+serde = { workspace = true, features = ["std"] }
+
+[[test]]
+name = "diff"
+path = "tests/mod.rs"

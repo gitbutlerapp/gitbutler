@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/components/v3/MultiStackView.svelte", "apps/desktop/src/components/v3/StackCard.svelte"]
+ourEntries = ["apps/desktop/src/components/v3/MultiStackView.svelte", "apps/desktop/src/components/v3/StackCard.svelte"]
+theirEntries = ["apps/desktop/src/components/v3/MultiStackView.svelte", "apps/desktop/src/components/v3/StackCard.svelte"]

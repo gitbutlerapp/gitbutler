@@ -1,0 +1,36 @@
+{
+	"name": "@gitbutler/no-relative-imports",
+	"version": "0.0.3",
+	"license": "MIT",
+	"private": false,
+	"description": "An ESLint rule for non-relative imports in TypeScript",
+	"homepage": "https://github.com/gitbutlerapp/gitbutler/tree/master/packages/no-relative-imports",
+	"keywords": [
+		"typescript",
+		"eslint",
+		"imports",
+		"relative",
+		"absolute"
+	],
+	"type": "module",
+	"peerDependencies": {
+		"eslint": ">=9.0.0"
+	},
+	"devDependencies": {
+		"typescript": "5.4.5",
+		"vitest": "catalog:"
+	},
+	"scripts": {
+		"package": "tsc",
+		"test": "vitest run"
+	},
+	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		}
+	},
+	"dependencies": {
+		"comment-json": "^4.2.5"
+	}
+}
