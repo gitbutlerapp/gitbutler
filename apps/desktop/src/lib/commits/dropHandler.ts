@@ -1,4 +1,3 @@
-import { type BranchStack } from '$lib/branches/branch';
 import { filesToSimpleOwnership } from '$lib/branches/ownership';
 import {
 	ChangeDropData,
@@ -33,19 +32,19 @@ export class CommitDropData {
 export class MoveCommitDzHandler implements DropzoneHandler {
 	constructor(
 		private stackService: StackService,
-		private stack: BranchStack,
+		private stackId: string,
 		private projectId: string
 	) {}
 
 	accepts(data: unknown): boolean {
 		return (
-			data instanceof CommitDropData && data.stackId !== this.stack.id && !data.commit.hasConflicts
+			data instanceof CommitDropData && data.stackId !== this.stackId && !data.commit.hasConflicts
 		);
 	}
 	ondrop(data: CommitDropData): void {
 		this.stackService.moveCommit({
 			projectId: this.projectId,
-			targetStackId: this.stack.id,
+			targetStackId: this.stackId,
 			commitOid: data.commit.id,
 			sourceStackId: data.stackId
 		});
