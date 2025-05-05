@@ -5,14 +5,14 @@
 	import BranchView from '$components/v3/BranchView.svelte';
 	import BranchesViewBranch from '$components/v3/BranchesViewBranch.svelte';
 	import BranchesViewStack from '$components/v3/BranchesViewStack.svelte';
-	import BranchListCard from '$components/v3/branchesPage/BranchListCard.svelte';
-	import PRListCard from '$components/v3/branchesPage/PRListCard.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import TargetCommitList from '$components/v3/TargetCommitList.svelte';
 	import UnappliedBranchView from '$components/v3/UnappliedBranchView.svelte';
 	import UnappliedCommitView from '$components/v3/UnappliedCommitView.svelte';
+	import BranchListCard from '$components/v3/branchesPage/BranchListCard.svelte';
 	import BranchesListGroup from '$components/v3/branchesPage/BranchesListGroup.svelte';
 	import CurrentOriginCard from '$components/v3/branchesPage/CurrentOriginCard.svelte';
+	import PRListCard from '$components/v3/branchesPage/PRListCard.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { Focusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
@@ -166,7 +166,7 @@
 			</div>
 			<div class="branch-details" bind:this={rightDiv} style:width={rightWidth.current + 'rem'}>
 				{#if current.branchName === baseBranch.shortName}
-					<TargetCommitList {projectId} branchName={baseBranch.branchName} />
+					<TargetCommitList {projectId} />
 				{:else if current.stackId}
 					<BranchesViewStack {projectId} stackId={current.stackId} />
 				{:else if current.branchName}

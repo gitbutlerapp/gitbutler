@@ -1,9 +1,8 @@
 <script lang="ts">
 	import ChunkyList from '$components/ChunkyList.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import BranchesListGroup from '$components/v3/branchesPage/BranchesListGroup.svelte';
+	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import {
 		combineBranchesAndPrs,
 		groupBranches,
@@ -14,6 +13,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Badge from '@gitbutler/ui/Badge.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';

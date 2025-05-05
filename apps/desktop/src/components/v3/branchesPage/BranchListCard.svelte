@@ -1,14 +1,14 @@
 <script lang="ts">
 	import BranchesCardTemplate from '$components/v3/branchesPage/BranchesCardTemplate.svelte';
-	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
-	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
-	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
-	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import { type BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { UserService } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
+	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
+	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
+	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
+	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 	import type { PullRequest } from '$lib/forge/interface/types';
 

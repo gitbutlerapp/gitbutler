@@ -1,24 +1,23 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import BranchHeaderIcon from '$components/v3/BranchHeaderIcon.svelte';
 	import CommitRow from '$components/v3/CommitRow.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import VirtualList from '$components/v3/VirtualList.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { UiState } from '$lib/state/uiState.svelte';
-	import BranchHeaderIcon from '$components/v3/BranchHeaderIcon.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
+	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { onMount } from 'svelte';
 	import type { Commit } from '$lib/branches/v3';
 
 	type Props = {
 		projectId: string;
-		branchName: string;
 	};
 
-	const { projectId, branchName }: Props = $props();
+	const { projectId }: Props = $props();
 
 	const [uiState, baseBranchService, stackService] = inject(
 		UiState,

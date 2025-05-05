@@ -1,21 +1,13 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
-	import SeriesIcon from '@gitbutler/ui/SeriesIcon.svelte';
 	import BranchesCardTemplate from '$components/v3/branchesPage/BranchesCardTemplate.svelte';
-	import { Project } from '$lib/project/project';
-	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
-
-	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
-	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
-	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
-	import SidebarEntry from '$components/v3/SidebarEntry.svelte';
-	import { type BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { UserService } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
-	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
+	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
+	import SeriesIcon from '@gitbutler/ui/SeriesIcon.svelte';
+	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
+	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import type { PullRequest } from '$lib/forge/interface/types';
 
 	interface Props {
@@ -26,30 +18,13 @@
 		onclick: (listing: PullRequest) => void;
 	}
 
-	const { projectId, pullRequest, selected, noSourceBranch, onclick }: Props = $props();
+	const { pullRequest, selected, noSourceBranch, onclick }: Props = $props();
 
 	const unknownName = 'unknown';
-	const unknownEmail = 'example@example.com';
 
-	const [userService, gitConfigService, branchService] = inject(
-		UserService,
-		GitConfigService,
-		BranchService
-	);
+	const [userService] = inject(UserService, GitConfigService, BranchService);
 
 	const user = userService.user;
-
-	// TODO: Use information from all PRs in a stack?
-
-	// const branchDetailsResult = $derived(branchService.get(projectId, branchListing.name));
-
-	// let lastCommitDetails = $state<{ authorName: string; lastCommitAt?: Date }>();
-	// let branchListingDetails = $derived(branchDetailsResult?.current.data);
-
-	// const stackBranches = $derived(branchListing.stack?.branches);
-	// const filteredStackBranches = $derived(
-	// 	stackBranches && stackBranches.length > 0 ? stackBranches : [branchListing.name]
-	// );
 
 	const authorImgUrl = $derived.by(() => {
 		return pullRequest.author?.email?.toLowerCase() === $user?.email?.toLowerCase()
@@ -61,7 +36,6 @@
 <BranchesCardTemplate {selected} onclick={() => onclick?.(pullRequest)}>
 	{#snippet content()}
 		<div class="sidebar-entry__header">
-			<!-- <SeriesLabelsRow series={filteredStackBranches} /> -->
 			<h4 class="text-13 text-semibold">
 				<span class="text-clr2">#{pullRequest.number}:</span>
 				{pullRequest.title}
