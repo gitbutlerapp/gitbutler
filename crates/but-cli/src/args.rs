@@ -100,7 +100,11 @@ pub enum Subcommands {
     },
     /// Return the dependencies of worktree changes with the commits that last changed them.
     #[clap(visible_alias = "dep")]
-    HunkDependency,
+    HunkDependency {
+        /// Whether to show the dependencies in the ui format.
+        #[clap(long, default_value_t = false)]
+        simple: bool,
+    },
     /// Returns the list of stacks that are currently part of the GitButler workspace.
     Stacks,
     /// Return all stack branches related to the given `id`.

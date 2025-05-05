@@ -40,7 +40,7 @@ pub struct HunkDependencies {
 
 impl HunkDependencies {
     /// Calculate all hunk dependencies using a preparepd [`crate::WorkspaceRanges`].
-    fn try_from_workspace_ranges(
+    pub fn try_from_workspace_ranges(
         repo: &gix::Repository,
         ranges: crate::WorkspaceRanges,
         worktree_changes: Vec<but_core::TreeChange>,
