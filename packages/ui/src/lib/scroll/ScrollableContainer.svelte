@@ -20,7 +20,6 @@
 		onscrollEnd?: (visible: boolean) => void;
 		onscroll?: (e: Event) => void;
 		viewport?: HTMLDivElement;
-		content?: HTMLDivElement;
 		viewportHeight?: number;
 		/** Top padding, used only with virtual list. */
 		top?: number;
@@ -45,7 +44,6 @@
 		onscrollTop,
 		onscrollEnd,
 		viewport = $bindable(),
-		content = $bindable(),
 		top,
 		bottom,
 		viewportHeight = $bindable()
@@ -78,26 +76,21 @@
 		bind:offsetHeight={viewportHeight}
 		{onscroll}
 		class="viewport hide-native-scrollbar"
+		style="padding-top: {top}px; padding-bottom: {bottom}px;"
 		style:height
 	>
-		<div
-			class="viewport-content"
-			bind:this={content}
-			style="padding-top: {top}px; padding-bottom: {bottom}px;"
-		>
-			{@render children()}
-		</div>
-		<Scrollbar
-			{whenToShow}
-			{viewport}
-			{initiallyVisible}
-			{padding}
-			{shift}
-			{thickness}
-			{horz}
-			{onthumbdrag}
-		/>
+		{@render children()}
 	</div>
+	<Scrollbar
+		{whenToShow}
+		{viewport}
+		{initiallyVisible}
+		{padding}
+		{shift}
+		{thickness}
+		{horz}
+		{onthumbdrag}
+	/>
 </div>
 
 <style lang="postcss">
@@ -112,12 +105,5 @@
 		overflow-y: auto;
 		height: 100%;
 		width: 100%;
-	}
-	/* need this wrapper to not mess with
-	 * pseudo selectors like ::last-child 
-	 * and it should be display: contents
-	 * to not mess with the layout */
-	.viewport-content {
-		display: contents;
 	}
 </style>
