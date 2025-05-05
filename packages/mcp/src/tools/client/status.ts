@@ -47,13 +47,44 @@ const ListStacksParamsSchema = BaseParamsSchema.extend({});
 
 type ListStacksParams = z.infer<typeof ListStacksParamsSchema>;
 
+type ExtendedStackHead = {
+	name: string;
+	tip: string;
+	archived: boolean;
+	description: string | null;
+};
+
+type ExtendedStackListing = {
+	id: string;
+	heads: ExtendedStackHead[];
+};
+
 /**
  * Get the list of stacks of the current GitButler project.
  */
-export function listStacks(params: ListStacksParams) {
+export function listStacks(params: ListStacksParams): ExtendedStackListing[] {
 	const args = ['stacks'];
 
-	return executeGitButlerCommand(params.project_directory, args, StackListSchema);
+	const stacks = executeGitButlerCommand(params.project_directory, args, StackListSchema);
+	const result: ExtendedStackListing[] = [];
+	for (const stack of stacks) {
+		const stackBranches = listStackBranches({
+			project_directory: params.project_directory,
+			stack_id: stack.id
+		});
+
+		result.push({
+			id: stack.id,
+			heads: stackBranches.map((branch) => ({
+				name: branch.name,
+				tip: branch.tip,
+				archived: branch.archived,
+				description: branch.description
+			}))
+		});
+	}
+
+	return result;
 }
 
 const ListStackBranchesParamsSchema = BaseParamsSchema.extend({
