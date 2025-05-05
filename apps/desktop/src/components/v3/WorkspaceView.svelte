@@ -3,7 +3,7 @@
 	import Resizer from '$components/Resizer.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
-	import MultiLaneView from '$components/v3/MultiLaneView.svelte';
+	import MultiStackView from '$components/v3/MultiStackView.svelte';
 	import NewCommitView from '$components/v3/NewCommitView.svelte';
 	import ReviewView from '$components/v3/ReviewView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
@@ -126,7 +126,7 @@
 				use:focusable={{ id: Focusable.WorkspaceRight, parentId: Focusable.Workspace }}
 			>
 				{#if $multiStackLayout}
-					<MultiLaneView {projectId} {stacks} />
+					<MultiStackView {projectId} {stacks} />
 				{:else}
 					<StackTabs
 						{projectId}
