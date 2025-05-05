@@ -1,13 +1,9 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
 	import BranchesCardTemplate from '$components/v3/branchesPage/BranchesCardTemplate.svelte';
-	import { Project } from '$lib/project/project';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
-	import SidebarEntry from '$components/v3/SidebarEntry.svelte';
 	import { type BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { GitConfigService } from '$lib/config/gitConfigService';
@@ -114,7 +110,7 @@
 <BranchesCardTemplate {selected} onclick={() => onclick?.({ listing: branchListing, pr })}>
 	{#snippet content()}
 		<div class="sidebar-entry__header">
-			<SeriesLabelsRow series={filteredStackBranches} />
+			<SeriesLabelsRow fontSize="13" series={filteredStackBranches} />
 			{#if branchListing.stack?.inWorkspace}
 				<div class="sidebar-entry__applied-tag">
 					<span class="text-10 text-semibold">Workspace</span>

@@ -32,7 +32,7 @@
 		flex-direction: column;
 		gap: 10px;
 		background-color: var(--clr-bg-1);
-		padding: 14px 14px 14px 16px;
+		padding: 14px;
 
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-2);

@@ -201,5 +201,6 @@
 		width: 100%;
 		display: flex;
 		gap: 5px;
+		margin-top: 14px;
 	}
 </style>

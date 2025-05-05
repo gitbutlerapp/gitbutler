@@ -15,19 +15,16 @@
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
 	import Fuse from 'fuse.js';
 	import type { Snippet } from 'svelte';
 
+	type selectedOption = 'all' | 'pullRequest' | 'local';
 	type Props = { projectId: string; sidebarEntry: Snippet<[SidebarEntrySubject]> };
 	const { projectId, sidebarEntry }: Props = $props();
 
-	const selectedOption = persisted<'all' | 'pullRequest' | 'local'>(
-		'all',
-		`branches-selectedOption-${projectId}`
-	);
+	const selectedOption = persisted<selectedOption>('all', `branches-selectedOption-${projectId}`);
 
 	const searchEngine = new Fuse([] as SidebarEntrySubject[], {
 		keys: [
@@ -130,7 +127,7 @@
 	function setFilter(id: string) {
 		if (Object.keys(filterOptions).includes(id)) {
 			// Not a fan of this
-			$selectedOption = id as 'all' | 'pullRequest' | 'local';
+			$selectedOption = id as selectedOption;
 		}
 	}
 </script>
@@ -140,10 +137,6 @@
 		<BranchesListGroup title={props.title}>
 			<ChunkyList items={props.children} item={sidebarEntry}></ChunkyList>
 		</BranchesListGroup>
-		<!-- <div class="group">
-			<GroupHeader title={props.title} />
-			<ChunkyList items={props.children} item={sidebarEntry}></ChunkyList>
-		</div> -->
 	{/if}
 {/snippet}
 

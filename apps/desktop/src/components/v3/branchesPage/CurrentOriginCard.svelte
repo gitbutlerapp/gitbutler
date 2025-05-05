@@ -24,7 +24,7 @@
 
 <BranchesCardTemplate {onclick} {selected}>
 	{#snippet content()}
-		<SeriesLabelsRow origin series={[originName]} />
+		<SeriesLabelsRow fontSize="13" origin series={[originName]} />
 
 		<button type="button" class="workspace-target-card__about">
 			<Avatar size="medium" tooltip={authorName} srcUrl={authorAvatar} />
