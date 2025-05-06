@@ -164,7 +164,14 @@
 					{/if}
 				{/if}
 			</div>
-			<div class="branch-details" bind:this={rightDiv} style:width={rightWidth.current + 'rem'}>
+			<div
+				class="branch-details {current.stackId ||
+				(current.branchName && current.branchName !== baseBranch.shortName)
+					? 'dotted-container dotted-pattern'
+					: undefined}"
+				bind:this={rightDiv}
+				style:width={rightWidth.current + 'rem'}
+			>
 				{#if current.branchName === baseBranch.shortName}
 					<TargetCommitList {projectId} />
 				{:else if current.stackId}
@@ -224,8 +231,14 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
-		justify-content: flex-start;
 		position: relative;
+		height: 100%;
 		flex-shrink: 0;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		overflow: hidden;
+	}
+	.dotted-container {
+		padding: 12px;
 	}
 </style>
