@@ -109,3 +109,11 @@ body {
 		background-color: var(--clr-bg-1);
 	}
 }
+
+.dotted-pattern {
+	background-image: radial-gradient(
+		oklch(from var(--clr-scale-ntrl-50) l c h / 0.5) 0.6px,
+		#ffffff00 0.6px
+	);
+	background-size: 6px 6px;
+}

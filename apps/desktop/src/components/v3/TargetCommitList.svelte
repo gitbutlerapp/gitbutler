@@ -74,52 +74,51 @@
 <ReduxResult {projectId} result={baseBranchResult.current}>
 	{#snippet children(baseBranch)}
 		{@const lastUpdate = baseBranch.recentCommits.at(0)?.createdAt.getTime() || 0}
-		<div class="target-branch-list">
-			<div class="target-branch-header">
-				<BranchHeaderIcon
-					lineColor={getColorFromBranchType('LocalAndRemote')}
-					iconName="home"
-					lineTop={false}
-					lineBottom
-				/>
-				<div class="target-branch-header__content">
-					<h3 class="text-15 text-bold truncate">{baseBranch.branchName}</h3>
 
-					<div class="target-branch-header__content-details">
-						<p class="text-12 target-branch-header__caption truncate">Current workspace target</p>
-						<Tooltip text="Last update {new Date(lastUpdate).toLocaleString()}">
-							<p class="text-12 target-branch-header__caption">
-								{getTimeAgo(new Date(lastUpdate))}
-							</p>
-						</Tooltip>
-					</div>
+		<div class="target-branch-header">
+			<BranchHeaderIcon
+				lineColor={getColorFromBranchType('LocalAndRemote')}
+				iconName="home"
+				lineTop={false}
+				lineBottom
+			/>
+			<div class="target-branch-header__content">
+				<h3 class="text-15 text-bold truncate">{baseBranch.branchName}</h3>
+
+				<div class="target-branch-header__content-details">
+					<p class="text-12 target-branch-header__caption truncate">Current workspace target</p>
+					<Tooltip text="Last update {new Date(lastUpdate).toLocaleString()}">
+						<p class="text-12 target-branch-header__caption">
+							{getTimeAgo(new Date(lastUpdate))}
+						</p>
+					</Tooltip>
 				</div>
 			</div>
-			<VirtualList items={commits} batchSize={10} onloadmore={async () => await loadMore()}>
-				{#snippet group(commits)}
-					{#each commits as commit}
-						{@const selected = commit.id === branchesState?.current.commitId}
-						<CommitRow
-							disableCommitActions
-							type="LocalAndRemote"
-							{projectId}
-							{selected}
-							commitId={commit.id}
-							branchName={baseBranch.branchName}
-							commitMessage={commit.message}
-							createdAt={commit.createdAt}
-							onclick={() => {
-								branchesState.set({
-									commitId: commit.id,
-									branchName: baseBranch.shortName,
-									remote: baseBranch.remoteName
-								});
-							}}
-						/>
-					{/each}
-				{/snippet}
-			</VirtualList>
 		</div>
+		<VirtualList items={commits} batchSize={10} onloadmore={async () => await loadMore()}>
+			{#snippet group(commits)}
+				{#each commits as commit}
+					{@const selected = commit.id === branchesState?.current.commitId}
+					<CommitRow
+						disableCommitActions
+						type="LocalAndRemote"
+						{projectId}
+						{selected}
+						commitId={commit.id}
+						branchName={baseBranch.branchName}
+						commitMessage={commit.message}
+						createdAt={commit.createdAt}
+						onclick={() => {
+							branchesState.set({
+								commitId: commit.id,
+								branchName: baseBranch.shortName,
+								remote: baseBranch.remoteName
+							});
+						}}
+					/>
+				{/each}
+			{/snippet}
+		</VirtualList>
 	{/snippet}
 </ReduxResult>
 

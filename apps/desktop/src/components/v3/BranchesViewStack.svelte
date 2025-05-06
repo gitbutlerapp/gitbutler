@@ -19,27 +19,8 @@
 
 <ReduxResult result={stackResult.current} {projectId} {stackId}>
 	{#snippet children(stack, { stackId, projectId })}
-		<div class="branches-wrapper">
-			{#each getStackBranchNames(stack) as branchName, idx}
-				<BranchesViewBranch {projectId} {stackId} {branchName} isTopBranch={idx === 0} />
-			{/each}
-		</div>
+		{#each getStackBranchNames(stack) as branchName, idx}
+			<BranchesViewBranch {projectId} {stackId} {branchName} isTopBranch={idx === 0} />
+		{/each}
 	{/snippet}
 </ReduxResult>
-
-<style lang="postcss">
-	.branches-wrapper {
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		overflow: hidden;
-		padding: 12px;
-		border-radius: var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
-		background-image: radial-gradient(
-			oklch(from var(--clr-scale-ntrl-50) l c h / 0.5) 0.6px,
-			#ffffff00 0.6px
-		);
-		background-size: 6px 6px;
-	}
-</style>

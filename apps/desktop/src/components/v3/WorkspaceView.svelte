@@ -138,7 +138,7 @@
 					<div
 						class="contents"
 						class:rounded={tabsWidth! <= (remToPx(stacksViewWidth.current - 0.5) as number)}
-						class:dotted={stacks.length > 0}
+						class:dotted-pattern={stacks.length > 0}
 					>
 						{@render stack()}
 					</div>
@@ -210,14 +210,6 @@
 
 		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 		border: 1px solid var(--clr-border-2);
-	}
-
-	.dotted {
-		background-image: radial-gradient(
-			oklch(from var(--clr-scale-ntrl-50) l c h / 0.5) 0.6px,
-			#ffffff00 0.6px
-		);
-		background-size: 6px 6px;
 	}
 
 	.rounded {
