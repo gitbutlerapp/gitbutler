@@ -241,17 +241,18 @@ fn rebase(
                         merge_commit.message = new_message;
                     }
                     // Find any parent that we have seen during picking.
-                    let Some(parent_to_replace) = merge_commit.parents.iter_mut().find(|id| {
+                    let parent_to_replace = match merge_commit.parents.iter_mut().find(|id| {
                         (Some(**id) == base_substitute)
                             || commit_mapping.iter().any(|(mapping_base, old, _new)| {
                                 *mapping_base == base && (*id == old)
                             })
-                    }) else {
-                        bail!(
-                            "Merge-commit {commit_id} can't be remerged if none of \
-                                its parents was seen in the rebase (to \
-                                be replaced with this new commit)"
-                        )
+                    }) {
+                        None => merge_commit
+                            .parents
+                            .iter_mut()
+                            .next()
+                            .expect("more than one parents"),
+                        Some(parent) => parent,
                     };
                     *parent_to_replace = cursor.context("Expecting a base for any merge")?;
                     cursor = merge::octopus(repo, merge_commit, &mut graph)
