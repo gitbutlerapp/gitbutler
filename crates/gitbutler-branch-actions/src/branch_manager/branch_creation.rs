@@ -123,6 +123,7 @@ impl BranchManager<'_> {
         pr_number: Option<usize>,
         perm: &mut WorktreeWritePermission,
     ) -> Result<StackId> {
+        let old_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
         // only set upstream if it's not the default target
         let upstream_branch = match upstream_branch {
             Some(upstream_branch) => Some(upstream_branch),
@@ -252,7 +253,7 @@ impl BranchManager<'_> {
         )?;
         self.ctx.add_branch_reference(&branch)?;
 
-        match self.apply_branch(branch.id, perm) {
+        match self.apply_branch(branch.id, perm, old_workspace) {
             Ok(_) => Ok(branch.id),
             Err(err)
                 if err
@@ -274,10 +275,9 @@ impl BranchManager<'_> {
         &self,
         stack_id: StackId,
         perm: &mut WorktreeWritePermission,
+        workspace_state: WorkspaceState,
     ) -> Result<String> {
         let repo = self.ctx.repo();
-
-        let old_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
 
         let vb_state = self.ctx.project().virtual_branches();
         let default_target = vb_state.get_default_target()?;
@@ -404,7 +404,7 @@ impl BranchManager<'_> {
         let new_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
 
         if self.ctx.app_settings().feature_flags.v3 {
-            update_uncommited_changes(self.ctx, old_workspace, new_workspace, perm)?;
+            update_uncommited_changes(self.ctx, workspace_state, new_workspace, perm)?;
         } else {
             // Now that we've added a branch to the workspace, lets merge together all the trees
             #[allow(deprecated)]
