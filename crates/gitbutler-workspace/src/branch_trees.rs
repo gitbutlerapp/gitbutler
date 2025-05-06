@@ -85,6 +85,7 @@ pub fn checkout_branch_trees<'a>(
 }
 
 /// A snapshot of the workspace at a point in time.
+#[derive(Debug)]
 pub struct WorkspaceState {
     /// The heads of the stacks in the workspace.
     heads: Vec<git2::Oid>,
