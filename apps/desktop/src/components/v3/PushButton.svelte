@@ -48,6 +48,20 @@
 			stackInfoResult.current.isLoading ||
 			publishResult.current.isLoading
 	);
+
+	function getButtonTooltip() {
+		if (!hasThingsToPush) {
+			return 'No commits to push';
+		}
+		if (hasConflicts) {
+			return 'In order to push, please resolve any conflicted commits.';
+		}
+		if (multipleBranches) {
+			return 'Push all branches';
+		}
+
+		return undefined;
+	}
 </script>
 
 <div class="push-button" class:use-flex={!flex} style:flex>
@@ -56,7 +70,7 @@
 		wide
 		{loading}
 		disabled={!hasThingsToPush || hasConflicts}
-		tooltip={hasConflicts ? 'In order to push, please resolve any conflicted commits.' : undefined}
+		tooltip={getButtonTooltip()}
 		onclick={push}
 	>
 		{requiresForce ? 'Force push' : multipleBranches ? 'Push all' : 'Push'}
