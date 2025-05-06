@@ -115,33 +115,6 @@
 						{/if}
 					</BranchDetails>
 				</div>
-
-				<div class="actions">
-					{#if !isTarget}
-						<AsyncButton
-							size="tag"
-							kind="outline"
-							icon="edit-small"
-							action={async () => {
-								await checkoutBranch();
-							}}
-						>
-							Apply
-						</AsyncButton>
-					{/if}
-					{#if hasLocal}
-						<AsyncButton
-							size="tag"
-							kind="outline"
-							icon="edit-small"
-							action={async () => {
-								await deleteLocalBranch();
-							}}
-						>
-							Delete local
-						</AsyncButton>
-					{/if}
-				</div>
 			</div>
 
 			{#snippet filesSplitView()}
