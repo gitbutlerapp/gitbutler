@@ -32,7 +32,7 @@ When told to 'absorb' follow these steps:
 1. If there were any instructions given, take them into account.
 2. List the file changes
 3. Get the hunk dependencies
-4. For all files that depend on a **single** commit, amend the file onto that commit.
+4. For all files that depend on a **single** commit, amend the file onto that commit. Every time a file is amended, list the hunk dependencies again.
 5. If there are no dependencies, list the stacks. Based on the stack branch names and descriptions, determine the best branch to commit the changes to.
 6. List the commits in the branch determined in the previous step, and then determine the best commit to amend the changes to based on the description. Update the description if needed.
 
