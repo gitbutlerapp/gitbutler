@@ -40,7 +40,9 @@ export enum TestId {
 	FileListModeOption = 'file-list-mode-option',
 	FileListTreeFolder = 'file-list-tree-folder',
 	StackTab = 'stack-tab',
-	BranchChangedFileList = 'branch-changed-file-list'
+	BranchChangedFileList = 'branch-changed-file-list',
+	UnifiedDiffView = 'unified-diff-view',
+	UnifiedDiffViewLockWarning = 'unified-diff-view-lock-warning'
 }
 
 export enum ElementId {

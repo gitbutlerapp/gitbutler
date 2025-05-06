@@ -21,6 +21,7 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
@@ -198,7 +199,7 @@
 	}
 </script>
 
-<div class="diff-section" bind:this={viewport}>
+<div data-testid={TestId.UnifiedDiffView} class="diff-section" bind:this={viewport}>
 	{#if diff.type === 'Patch'}
 		{#each diff.subject.hunks as hunk}
 			{@const [staged, stagedLines] = getStageState(hunk)}

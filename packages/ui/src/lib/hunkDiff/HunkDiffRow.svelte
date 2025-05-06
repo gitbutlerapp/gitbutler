@@ -185,7 +185,7 @@
 					{#if locked}
 						{@const locks = row.locks}
 						{#if lockWarning && locks && locks.length > 0}
-							<div class="table__row-locks-info-button">
+							<div data-testid="hunk-line-locking-info" class="table__row-locks-info-button">
 								<InfoButton inheritColor size="small" icon="locked-small">
 									{@render lockWarning(locks)}
 								</InfoButton>
