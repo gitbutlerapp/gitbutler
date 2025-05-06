@@ -6,8 +6,7 @@
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { Snippet } from 'svelte';
 
-	const CHILD_THRESHOLD_FOR_AUTO_EXPAND = 10;
-	const DEPTH_THRESHOLD_FOR_AUTO_EXPAND = 3;
+	const CHILD_THRESHOLD_FOR_AUTO_EXPAND = 8;
 
 	type Props = {
 		node: TreeNode;
@@ -15,7 +14,7 @@
 		showCheckboxes?: boolean;
 		changes: TreeChange[];
 		depth?: number;
-		initiallyCollapsed?: boolean;
+		initiallyExpanded?: boolean;
 		fileTemplate: Snippet<[TreeChange, number, number]>;
 	};
 
@@ -26,16 +25,14 @@
 		changes,
 		depth = 0,
 		fileTemplate,
-		initiallyCollapsed
+		initiallyExpanded
 	}: Props = $props();
 
-	const notSoDeep = $derived(depth < DEPTH_THRESHOLD_FOR_AUTO_EXPAND);
 	const hasAFewChildren = $derived(
 		(node.kind === 'dir' || isRoot) && node.children.length <= CHILD_THRESHOLD_FOR_AUTO_EXPAND
 	);
-	const isProbablyFine = $derived(notSoDeep && hasAFewChildren);
 	const defaultIsExpanded = $derived(
-		initiallyCollapsed ?? (isProbablyFine || node.kind === 'file')
+		initiallyExpanded ?? (hasAFewChildren || node.kind === 'file')
 	);
 
 	let actionableIsExpanded = $state<boolean>();
@@ -58,7 +55,7 @@
 			{showCheckboxes}
 			{changes}
 			{fileTemplate}
-			initiallyCollapsed={!hasAFewChildren}
+			initiallyExpanded={hasAFewChildren}
 		/>
 	{/each}
 {:else if node.kind === 'file'}
