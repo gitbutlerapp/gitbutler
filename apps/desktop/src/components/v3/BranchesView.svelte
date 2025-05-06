@@ -92,6 +92,11 @@
 	{#snippet children(baseBranch)}
 		{@const lastCommit = baseBranch.recentCommits.at(0)}
 		{@const current = branchesState.current}
+		{@const inWorkspaceOrTargetBranch =
+			current.inWorkspace || current.branchName === baseBranch.shortName}
+		{@const isStackOrNormalBranchPreview =
+			current.stackId || (current.branchName && current.branchName !== baseBranch.shortName)}
+
 		<div class="branches-view" use:focusable={{ id: Focusable.Branches }}>
 			<div class="branch-list" bind:this={leftDiv} style:width={leftWidth.current + 'rem'}>
 				<BranchesListGroup title="Current workspace target">
@@ -192,7 +197,7 @@
 			</div>
 
 			<div class="branches-sideview">
-				{#if !current.inWorkspace}
+				{#if !inWorkspaceOrTargetBranch}
 					<div class="branches-actions">
 						{#if !current.isTarget}
 							<AsyncButton
@@ -222,10 +227,8 @@
 				<div
 					class={[
 						'branch-details',
-						current.stackId || (current.branchName && current.branchName !== baseBranch.shortName)
-							? 'dotted-container dotted-pattern'
-							: undefined,
-						current.inWorkspace ? 'rounded-container' : undefined
+						isStackOrNormalBranchPreview ? 'dotted-container dotted-pattern' : '',
+						inWorkspaceOrTargetBranch ? 'rounded-container' : ''
 					]}
 					bind:this={rightDiv}
 					style:width={rightWidth.current + 'rem'}
@@ -295,9 +298,7 @@
 		flex-direction: column;
 		position: relative;
 		flex: 1;
-
 		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
 		overflow: hidden;
 	}
 

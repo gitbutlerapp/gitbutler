@@ -11,13 +11,5 @@
 </script>
 
 <ConfigurableScrollableContainer wide>
-	<div class="inner">
-		<BranchList {projectId} {stackId} />
-	</div>
+	<BranchList {projectId} {stackId} />
 </ConfigurableScrollableContainer>
-
-<style>
-	.inner {
-		padding: 14px;
-	}
-</style>

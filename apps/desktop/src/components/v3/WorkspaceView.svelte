@@ -136,9 +136,8 @@
 						bind:width={tabsWidth}
 					/>
 					<div
-						class="contents"
+						class={['contents', stacks.length > 0 ? 'contents_stack dotted-pattern' : '']}
 						class:rounded={tabsWidth! <= (remToPx(stacksViewWidth.current - 0.5) as number)}
-						class:dotted-pattern={stacks.length > 0}
 					>
 						{@render stack()}
 					</div>
@@ -212,7 +211,11 @@
 		border: 1px solid var(--clr-border-2);
 	}
 
+	/* MODIFIERS */
 	.rounded {
 		border-radius: 0 var(--radius-ml) var(--radius-ml) var(--radius-ml);
+	}
+	.contents_stack {
+		padding: 12px;
 	}
 </style>
