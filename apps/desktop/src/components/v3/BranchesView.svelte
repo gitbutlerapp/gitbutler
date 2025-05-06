@@ -16,8 +16,10 @@
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { Focusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { SidebarEntrySubject } from '$lib/branches/branchListing';
 	import type { SelectionId } from '$lib/selection/key';
@@ -28,7 +30,11 @@
 
 	const { projectId }: Props = $props();
 
-	const [uiState, baseBranchService] = inject(UiState, BaseBranchService);
+	const [uiState, stackService, baseBranchService] = inject(
+		UiState,
+		StackService,
+		BaseBranchService
+	);
 
 	const projectState = $derived(uiState.project(projectId));
 	const branchesState = $derived(projectState.branchesSelection);
@@ -57,14 +63,36 @@
 		return undefined;
 	});
 
-	$effect(() => {});
+	async function checkoutBranch() {
+		const { branchName, remote, prNumber, hasLocal } = branchesState.current;
+		const remoteRef = remote ? `refs/remotes/${remote}/${branchName}` : undefined;
+		const branchRef = hasLocal ? `refs/heads/${branchName}` : remoteRef;
+		if (branchRef) {
+			await stackService.createVirtualBranchFromBranch({
+				projectId,
+				branch: branchRef,
+				remote: remoteRef,
+				prNumber
+			});
+			await baseBranchService.refreshBaseBranch(projectId);
+		}
+	}
+
+	async function deleteLocalBranch() {
+		await stackService.deleteLocalBranch({
+			projectId,
+			refname: `refs/heads/${branchesState.current}`,
+			givenName: branchesState.current as string
+		});
+		await baseBranchService.refreshBaseBranch(projectId);
+	}
 </script>
 
 <ReduxResult {projectId} result={baseBranchResult.current}>
 	{#snippet children(baseBranch)}
 		{@const lastCommit = baseBranch.recentCommits.at(0)}
 		{@const current = branchesState.current}
-		<div class="branches" use:focusable={{ id: Focusable.Branches }}>
+		<div class="branches-view" use:focusable={{ id: Focusable.Branches }}>
 			<div class="branch-list" bind:this={leftDiv} style:width={leftWidth.current + 'rem'}>
 				<BranchesListGroup title="Current workspace target">
 					<!-- TODO: We need an API for `commitsCount`! -->
@@ -150,7 +178,6 @@
 							{projectId}
 							branchName={current.branchName}
 							remote={current.remote}
-							isTarget={current.isTarget}
 						/>
 					{:else}
 						<UnappliedBranchView
@@ -159,37 +186,80 @@
 							stackId={current.stackId}
 							remote={current.remote}
 							prNumber={current.prNumber}
-							hasLocal={current.hasLocal}
 						/>
 					{/if}
 				{/if}
 			</div>
-			<div class="branch-details" bind:this={rightDiv} style:width={rightWidth.current + 'rem'}>
-				{#if current.branchName === baseBranch.shortName}
-					<TargetCommitList {projectId} />
-				{:else if current.stackId}
-					<BranchesViewStack {projectId} stackId={current.stackId} />
-				{:else if current.branchName}
-					<BranchesViewBranch {projectId} branchName={current.branchName} remote={current.remote} />
-				{:else if current.prNumber}
-					Not implemented!
+
+			<div class="branches-sideview">
+				{#if !current.inWorkspace}
+					<div class="branches-actions">
+						{#if !current.isTarget}
+							<AsyncButton
+								icon="workbench"
+								action={async () => {
+									await checkoutBranch();
+								}}
+							>
+								Apply to workspace
+							</AsyncButton>
+						{/if}
+
+						<AsyncButton
+							kind="outline"
+							icon="bin-small"
+							action={async () => {
+								await deleteLocalBranch();
+							}}
+							disabled={!current.hasLocal}
+							tooltip={current.hasLocal ? undefined : 'No local branch to delete'}
+						>
+							Delete local
+						</AsyncButton>
+					</div>
 				{/if}
-				<Resizer
-					viewport={rightDiv}
-					direction="left"
-					minWidth={16}
-					borderRadius="ml"
-					onWidth={(value) => {
-						rightWidth.current = value;
-					}}
-				/>
+
+				<div
+					class={[
+						'branch-details',
+						current.stackId || (current.branchName && current.branchName !== baseBranch.shortName)
+							? 'dotted-container dotted-pattern'
+							: undefined,
+						current.inWorkspace ? 'rounded-container' : undefined
+					]}
+					bind:this={rightDiv}
+					style:width={rightWidth.current + 'rem'}
+				>
+					{#if current.branchName === baseBranch.shortName}
+						<TargetCommitList {projectId} />
+					{:else if current.stackId}
+						<BranchesViewStack {projectId} stackId={current.stackId} />
+					{:else if current.branchName}
+						<BranchesViewBranch
+							{projectId}
+							branchName={current.branchName}
+							remote={current.remote}
+						/>
+					{:else if current.prNumber}
+						Not implemented!
+					{/if}
+					<Resizer
+						viewport={rightDiv}
+						direction="left"
+						minWidth={16}
+						borderRadius="ml"
+						onWidth={(value) => {
+							rightWidth.current = value;
+						}}
+					/>
+				</div>
 			</div>
 		</div>
 	{/snippet}
 </ReduxResult>
 
 <style lang="postcss">
-	.branches {
+	.branches-view {
 		display: flex;
 		flex: 1;
 		gap: 8px;
@@ -221,11 +291,36 @@
 		min-width: 320px;
 	}
 	.branch-details {
-		height: 100%;
 		display: flex;
 		flex-direction: column;
-		justify-content: flex-start;
 		position: relative;
-		flex-shrink: 0;
+		flex: 1;
+
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		overflow: hidden;
+	}
+
+	.branches-sideview {
+		display: flex;
+		flex-direction: column;
+	}
+	.branches-actions {
+		display: flex;
+		gap: 6px;
+		padding: 12px;
+		background-color: var(--clr-bg-1);
+		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
+		border: 1px solid var(--clr-border-2);
+		border-bottom: none;
+	}
+
+	/* MODIFIERS */
+	.dotted-container {
+		padding: 12px;
+		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+	}
+	.rounded-container {
+		border-radius: var(--radius-ml);
 	}
 </style>

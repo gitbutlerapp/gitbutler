@@ -47,7 +47,7 @@
 		</div>
 	</div>
 	<div
-		class="lanes-content hide-native-scrollbar dotted"
+		class="lanes-content hide-native-scrollbar dotted-pattern"
 		bind:this={scrollableEl}
 		class:multi={$mode === 'multi'}
 		class:single={$mode === 'single'}
@@ -133,13 +133,5 @@
 			align-items: center;
 			gap: 6px;
 		}
-	}
-
-	.dotted {
-		background-image: radial-gradient(
-			oklch(from var(--clr-scale-ntrl-50) l c h / 0.5) 0.6px,
-			#ffffff00 0.6px
-		);
-		background-size: 6px 6px;
 	}
 </style>

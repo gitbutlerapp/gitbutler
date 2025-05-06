@@ -251,9 +251,11 @@
 			</div>
 		</div>
 
-		<div class="pr-row">
-			{@render button?.({ pr, mergeStatus, reopenStatus })}
-		</div>
+		{#if button}
+			<div class="pr-row">
+				{@render button({ pr, mergeStatus, reopenStatus })}
+			</div>
+		{/if}
 	</div>
 {/if}
 
