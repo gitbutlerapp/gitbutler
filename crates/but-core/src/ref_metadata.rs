@@ -17,12 +17,12 @@ pub struct Workspace {
     pub ref_info: RefInfo,
 
     /// An array entry for each parent of the *workspace commit* the last time we saw it.
-    /// The first parent, and always the first parent, could have a tip that is named `Self::target_ref`,
-    /// and if so it's not meant to be visible when asking for stacks.
+    /// The first parent, and always the first parent, could have a tip named `Self::target_ref`,
+    /// and if so, it's not meant to be visible when asking for stacks.
     pub stacks: Vec<WorkspaceStack>,
 
     /// The name of the reference to integrate with, if present.
-    /// Fetch its metadata for more inforamtion.
+    /// Fetch its metadata for more information.
     ///
     /// If there is no target name, this is a local workspace (and if no global target is set).
     /// Note that even though this is per workspace, the implementation can fill in global information at will.

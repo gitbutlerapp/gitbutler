@@ -88,8 +88,8 @@ pub struct HeadInfo {
 mod virtual_branches_metadata;
 pub use virtual_branches_metadata::VirtualBranchesTomlMetadata;
 
-/// A representation of the commit that is the tip of the workspace, i.e. usually what `HEAD` points to,
-/// possibly in its managed form in which it merges two or more stacks together and we can rewrite it at will.
+/// A representation of the commit that is the tip of the workspace, i.e., usually what `HEAD` points to,
+/// possibly in its managed form in which it merges two or more stacks together, and we can rewrite it at will.
 pub struct WorkspaceCommit<'repo> {
     /// The id of the commit itself.
     pub id: gix::Id<'repo>,
@@ -150,30 +150,76 @@ pub fn stacks(
             .list_all_stacks()?
             .into_iter()
             .filter(|s| s.in_workspace)
-            .collect::<Vec<_>>(),
+            .collect(),
         StacksFilter::Unapplied => state
             .list_all_stacks()?
             .into_iter()
             .filter(|s| !s.in_workspace)
-            .collect::<Vec<_>>(),
+            .collect(),
     };
 
     let stacks = stacks
         .into_iter()
-        .filter_map(|mut stack| {
-            match stack.migrate_change_ids(ctx) {
-                Ok(_) => Some(stack), // If it fails thats ok - it will be skipped
-                Err(_) => None,
-            }
-        })
-        .filter(|s| s.is_initialized())
-        .collect::<Vec<_>>();
+        .filter_map(|mut stack| stack.migrate_change_ids(ctx).ok().map(|()| stack))
+        .filter(|s| s.is_initialized());
 
     stacks
-        .into_iter()
         .sorted_by_key(|s| s.order)
         .map(|stack| ui::StackEntry::try_new(repo, &stack))
         .collect()
+}
+
+fn try_from_stack_v3(
+    repo: &gix::Repository,
+    stack: branch::Stack,
+) -> anyhow::Result<ui::StackEntry> {
+    let heads = stack.segments.into_iter().map(|segment| {
+        let ref_name = segment
+            .ref_name
+            .expect("This type can't represent this state and it shouldn't have to");
+        ui::StackHeadInfo {
+            tip: repo
+                .find_reference(ref_name.as_ref())
+                .ok()
+                .and_then(|r| r.try_id())
+                .map(|id| id.detach())
+                .unwrap_or(repo.object_hash().null()),
+            name: ref_name.into(),
+        }
+    });
+    Ok(ui::StackEntry {
+        id: Default::default(), // TODO: have a global evil mapping from ref-names to IDs
+        heads: heads.collect(),
+        tip: stack.tip.unwrap_or(repo.object_hash().null()),
+    })
+}
+
+/// Returns the list of stacks that pass `filter`.
+///
+/// Use `repo` and `meta` to read branches data
+// TODO: Let the UI get all stacks at once.
+pub fn stacks_v3(
+    repo: &gix::Repository,
+    meta: &impl but_core::RefMetadata,
+    filter: StacksFilter,
+) -> Result<Vec<ui::StackEntry>> {
+    let info = crate::head_info(
+        repo,
+        meta,
+        head_info::Options {
+            // TODO: set this to a good value for the UI to not slow down, and also a value that forces us to re-investigate this.
+            stack_commit_limit: 100,
+        },
+    )?;
+
+    info.stacks
+        .into_iter()
+        .filter_map(|stack| match filter {
+            StacksFilter::All | StacksFilter::InWorkspace => Some(try_from_stack_v3(repo, stack)),
+            // TODO: get all stacks, not just the applied ones. These are only by inspection of metadata.
+            StacksFilter::Unapplied => None,
+        })
+        .collect::<Result<_, _>>()
 }
 
 /// Determines if a force push is required to push a branch to its remote.

@@ -66,7 +66,7 @@ pub struct StackHeadInfo {
     pub tip: gix::ObjectId,
 }
 
-/// Represents a lightweight version of a [`gitbutler_stack::Stack`] for listing.
+/// Represents a lightweight version of a [`Stack`] for listing.
 /// NOTE: this is a UI type mostly because it's still modeled after the legacy stack with StackId, something that doesn't exist anymore.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -77,7 +77,7 @@ pub struct StackEntry {
     /// The list is never empty.
     /// The first entry in the list is always the most recent branch on top the stack.
     pub heads: Vec<StackHeadInfo>,
-    /// The tip of the top-most branch, i.e. the most recent commit that would become the parent of new commits of the topmost stack branch.
+    /// The tip of the top-most branch, i.e., the most recent commit that would become the parent of new commits of the topmost stack branch.
     #[serde(with = "gitbutler_serde::object_id")]
     pub tip: gix::ObjectId,
 }

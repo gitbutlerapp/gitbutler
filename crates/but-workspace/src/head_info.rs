@@ -2,10 +2,15 @@
 #[derive(Debug, Copy, Clone)]
 pub struct Options {
     /// The maximum amount of commits to list *per stack*. Note that a [`StackSegment`](crate::branch::StackSegment) will always have a single commit, if available,
-    ///  even if this would exhaust the commit limit in that stack.
+    ///  even if this exhausts the commit limit in that stack.
     /// `0` means the limit is disabled.
     ///
-    ///  NOTE: Currently, to fetch more commits, make this call again with a higher limit.
+    /// NOTE: Currently, to fetch more commits, make this call again with a higher limit.
+    /// Additionally, this is only effective if there is an open-ended graph, for example, when `HEAD` points to `main` with
+    /// a lot of commits without a discernible base.
+    ///
+    /// Callers can check for the limit by looking as the oldest commit - if it has no parents, then the limit wasn't hit, or if it is
+    /// connected to a merge-base.
     pub stack_commit_limit: usize,
 }
 pub(crate) mod function {
