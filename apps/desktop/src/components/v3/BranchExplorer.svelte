@@ -205,12 +205,11 @@
 		{/if}
 	{:else}
 		<div class="branches__empty-state">
-			<div class="branches__empty-state__image">
-				{@html noBranchesSvg}
-			</div>
-			<span class="branches__empty-state__caption text-14 text-body text-semibold"
-				>You have no branches</span
-			>
+			<EmptyStatePlaceholder image={noBranchesSvg} width={180} bottomMargin={48}>
+				{#snippet caption()}
+					You have no branches
+				{/snippet}
+			</EmptyStatePlaceholder>
 		</div>
 	{/if}
 </div>
@@ -346,15 +345,5 @@
 		justify-content: center;
 		align-items: center;
 		gap: 10px;
-	}
-
-	.branches__empty-state__image {
-		width: 130px;
-	}
-
-	.branches__empty-state__caption {
-		color: var(--clr-scale-ntrl-60);
-		text-align: center;
-		max-width: 160px;
 	}
 </style>
