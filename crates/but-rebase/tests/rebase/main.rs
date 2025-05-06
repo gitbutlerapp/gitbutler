@@ -163,6 +163,85 @@ fn amended_commit() -> Result<()> {
 }
 
 #[test]
+fn reorder_merge_in_reverse() -> Result<()> {
+    assure_stable_env();
+    let (repo, _tmp) = fixture_writable("merge-in-the-middle")?;
+    insta::assert_snapshot!(visualize_commit_graph(&repo, "with-inner-merge")?, @r"
+    * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
+    *   2fc288c Merge branch 'B' into with-inner-merge
+    |\  
+    | * 984fd1c (B) C: new file with 10 lines
+    * | add59d2 (A) A: 10 lines on top
+    |/  
+    * 8f0d338 (tag: base, main) base
+    ");
+
+    let mut builder = Rebase::new(&repo, repo.rev_parse_single("base")?.detach(), None)?;
+    let out = builder
+        //
+        .steps([
+            // Pick merge
+            RebaseStep::Pick {
+                commit_id: repo.rev_parse_single("with-inner-merge~1")?.into(),
+                new_message: Some("was merge 2fc288c one below top".into()),
+            },
+            // Pick top
+            RebaseStep::Pick {
+                commit_id: repo.rev_parse_single("with-inner-merge")?.into(),
+                new_message: Some("was e8ee978 on top".into()),
+            },
+            // Pick one above the base (to be the new top)
+            RebaseStep::Pick {
+                commit_id: repo.rev_parse_single("with-inner-merge~2")?.into(),
+                new_message: Some("was dd59d2 below merge".into()),
+            },
+        ])?
+        .rebase()
+        .expect("the first parent of a merge is replaced unconditionally");
+    // Note that we don't rewrite references here.
+    insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
+    * dd53133 was dd59d2 below merge
+    * 9052688 was e8ee978 on top
+    *   fc4d1b4 was merge 2fc288c one below top
+    |\  
+    | * 984fd1c (B) C: new file with 10 lines
+    |/  
+    * 8f0d338 (tag: base, main) base
+    ");
+    insta::assert_debug_snapshot!(out, @r"
+    RebaseOutput {
+        top_commit: Sha1(dd53133693ef1e4e6c327eb2559054dc03eb688d),
+        references: [],
+        commit_mapping: [
+            (
+                Some(
+                    Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
+                ),
+                Sha1(2fc288c36c8bb710c78203f78ea9883724ce142b),
+                Sha1(fc4d1b46b54457385c79347d45cd3a5dae96c651),
+            ),
+            (
+                Some(
+                    Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
+                ),
+                Sha1(e8ee978dac10e6a85006543ef08be07c5824b4f7),
+                Sha1(9052688af4d3fea6e8ed77a9b4aa471cb02828d5),
+            ),
+            (
+                Some(
+                    Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
+                ),
+                Sha1(add59d26b2ffd7468fcb44c2db48111dd8f481e5),
+                Sha1(dd53133693ef1e4e6c327eb2559054dc03eb688d),
+            ),
+        ],
+    }
+    ");
+    assure_nonconflicting(&repo, &out)?;
+    Ok(())
+}
+
+#[test]
 fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
     assure_stable_env();
     let (repo, _tmp) = fixture_writable("three-branches-merged")?;
