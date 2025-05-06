@@ -2,6 +2,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getStackName } from '$lib/stacks/stack';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import type { DependencyLock } from '@gitbutler/ui/utils/diffParsing';
 
@@ -22,15 +23,16 @@
 	{#snippet children(stacks)}
 		{@const lockedToStacks = stacks.filter((stack) => lockedToStackIds.includes(stack.id))}
 		{@const stackNames = lockedToStacks.map(getStackName)}
-
-		{#if stackNames.length > 1}
-			<p>This line depends on changes inside the following stacks</p>
-			<br />
-			<p>{stackNames.join(', ')}</p>
-		{:else if stackNames.length === 1}
-			<p>This line depends on changes inside <b>'{stackNames[0]}'</b></p>
-		{:else}
-			<p>This is weird and shouldn't happen</p>
-		{/if}
+		<div data-testid={TestId.UnifiedDiffViewLockWarning}>
+			{#if stackNames.length > 1}
+				<p>This line depends on changes inside the following stacks</p>
+				<br />
+				<p>{stackNames.join(', ')}</p>
+			{:else if stackNames.length === 1}
+				<p>This line depends on changes inside <b>'{stackNames[0]}'</b></p>
+			{:else}
+				<p>This is weird and shouldn't happen</p>
+			{/if}
+		</div>
 	{/snippet}
 </ReduxResult>
