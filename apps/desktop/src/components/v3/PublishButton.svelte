@@ -80,10 +80,6 @@
 			return 'No available branches';
 		}
 
-		if (branchEmpty) {
-			return 'This branch is empty. Add some commits before pushing.';
-		}
-
 		if (hasConflicts) {
 			return 'In order to push, please resolve any conflicted commits.';
 		} else {
@@ -94,12 +90,12 @@
 
 <CanPublishReviewPlugin {projectId} {stackId} {branchName} bind:this={canPublishReviewPlugin} />
 
-{#if canPublish}
+{#if canPublish && !branchEmpty}
 	<div class="publish-button" style:flex>
 		<Button
 			style="neutral"
 			wide
-			disabled={!branchName || hasConflicts || branchEmpty}
+			disabled={!branchName || hasConflicts}
 			tooltip={getPushTooltip()}
 			tooltipPosition="top"
 			onclick={publish}
