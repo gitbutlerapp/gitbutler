@@ -7,7 +7,6 @@
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -19,13 +18,11 @@
 		stackId?: string;
 		remote?: string;
 		prNumber?: number;
-		hasLocal?: boolean;
-		isTarget?: boolean;
 	}
 
-	const { projectId, stackId, branchName, remote, prNumber, hasLocal, isTarget }: Props = $props();
+	const { projectId, stackId, branchName, remote, prNumber }: Props = $props();
 
-	const [stackService, baseBranchService] = inject(StackService, BaseBranchService);
+	const [stackService] = inject(StackService, BaseBranchService);
 
 	const branchResult = $derived(
 		stackId
@@ -37,29 +34,6 @@
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let kebabTrigger = $state<HTMLButtonElement>();
 	let isContextMenuOpen = $state(false);
-
-	async function checkoutBranch() {
-		const remoteRef = remote ? `refs/remotes/${remote}/${branchName}` : undefined;
-		const branchRef = hasLocal ? `refs/heads/${branchName}` : remoteRef;
-		if (branchRef) {
-			await stackService.createVirtualBranchFromBranch({
-				projectId,
-				branch: branchRef,
-				remote: remoteRef,
-				prNumber
-			});
-			await baseBranchService.refreshBaseBranch(projectId);
-		}
-	}
-
-	async function deleteLocalBranch() {
-		await stackService.deleteLocalBranch({
-			projectId,
-			refname: `refs/heads/${branchName}`,
-			givenName: branchName
-		});
-		await baseBranchService.refreshBaseBranch(projectId);
-	}
 </script>
 
 <ReduxResult {projectId} result={branchResult.current}>
@@ -168,12 +142,5 @@
 		&.disabled {
 			opacity: 0.3;
 		}
-	}
-
-	.actions {
-		width: 100%;
-		display: flex;
-		gap: 5px;
-		margin-top: 14px;
 	}
 </style>

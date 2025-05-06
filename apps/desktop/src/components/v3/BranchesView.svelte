@@ -178,7 +178,6 @@
 							{projectId}
 							branchName={current.branchName}
 							remote={current.remote}
-							isTarget={current.isTarget}
 						/>
 					{:else}
 						<UnappliedBranchView
@@ -187,42 +186,47 @@
 							stackId={current.stackId}
 							remote={current.remote}
 							prNumber={current.prNumber}
-							hasLocal={current.hasLocal}
 						/>
 					{/if}
 				{/if}
 			</div>
 
 			<div class="branches-sideview">
-				<div class="branches-actions">
-					{#if !current.isTarget}
-						<AsyncButton
-							icon="workbench"
-							action={async () => {
-								await checkoutBranch();
-							}}
-						>
-							Apply to workspace
-						</AsyncButton>
-					{/if}
+				{#if !current.inWorkspace}
+					<div class="branches-actions">
+						{#if !current.isTarget}
+							<AsyncButton
+								icon="workbench"
+								action={async () => {
+									await checkoutBranch();
+								}}
+							>
+								Apply to workspace
+							</AsyncButton>
+						{/if}
 
-					<AsyncButton
-						kind="outline"
-						icon="bin-small"
-						action={async () => {
-							await deleteLocalBranch();
-						}}
-						disabled={!current.hasLocal}
-						tooltip={current.hasLocal ? undefined : 'No local branch to delete'}
-					>
-						Delete local
-					</AsyncButton>
-				</div>
+						<AsyncButton
+							kind="outline"
+							icon="bin-small"
+							action={async () => {
+								await deleteLocalBranch();
+							}}
+							disabled={!current.hasLocal}
+							tooltip={current.hasLocal ? undefined : 'No local branch to delete'}
+						>
+							Delete local
+						</AsyncButton>
+					</div>
+				{/if}
+
 				<div
-					class="branch-details {current.stackId ||
-					(current.branchName && current.branchName !== baseBranch.shortName)
-						? 'dotted-container dotted-pattern'
-						: undefined}"
+					class={[
+						'branch-details',
+						current.stackId || (current.branchName && current.branchName !== baseBranch.shortName)
+							? 'dotted-container dotted-pattern'
+							: undefined,
+						current.inWorkspace ? 'rounded-container' : undefined
+					]}
 					bind:this={rightDiv}
 					style:width={rightWidth.current + 'rem'}
 				>
@@ -296,10 +300,7 @@
 		border-radius: var(--radius-ml);
 		overflow: hidden;
 	}
-	.dotted-container {
-		padding: 12px;
-		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
-	}
+
 	.branches-sideview {
 		display: flex;
 		flex-direction: column;
@@ -312,5 +313,14 @@
 		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
 		border: 1px solid var(--clr-border-2);
 		border-bottom: none;
+	}
+
+	/* MODIFIERS */
+	.dotted-container {
+		padding: 12px;
+		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+	}
+	.rounded-container {
+		border-radius: var(--radius-ml);
 	}
 </style>
