@@ -190,6 +190,10 @@ declare global {
 			 * Clear all mocks.
 			 */
 			clearMocks(): void;
+			/**
+			 * Highlight the text in a given element.
+			 */
+			selectText(element: Cypress.Chainable<JQuery<HTMLElement>>): void;
 		}
 	}
 }
@@ -213,6 +217,24 @@ Cypress.Commands.add('getByTestId', (testId: TestIdValues, containingText?: stri
 		return cy.contains(`[data-testid="${testId}"]`, containingText);
 	}
 	return cy.get(`[data-testid="${testId}"]`);
+});
+
+Cypress.Commands.add('selectText', (element: Cypress.Chainable<JQuery<HTMLElement>>) => {
+	element
+		.trigger('mousedown')
+		.then(($el) => {
+			const el = $el[0];
+			if (!el) {
+				throw new Error(`Element could not be resolved: ${element}`);
+			}
+			const document = el.ownerDocument;
+			const range = document.createRange();
+			range.selectNodeContents(el);
+			document.getSelection()?.removeAllRanges();
+			document.getSelection()?.addRange(range);
+		})
+		.trigger('mouseup');
+	cy.document().trigger('selectionchange');
 });
 
 beforeEach(() => {
