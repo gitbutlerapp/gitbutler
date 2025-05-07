@@ -6,8 +6,12 @@ use super::*;
 fn unapplying_selected_branch_selects_anther() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     std::fs::write(repo.path().join("file one.txt"), "").unwrap();
 
@@ -46,8 +50,12 @@ fn unapplying_selected_branch_selects_anther() {
 fn deleting_selected_branch_selects_anther() {
     let Test { ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     // first branch should be created as default
     let stack_entry =
@@ -83,8 +91,12 @@ fn deleting_selected_branch_selects_anther() {
 fn create_virtual_branch_should_set_selected_for_changes() {
     let Test { ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     // first branch should be created as default
     let stack_entry =
@@ -149,8 +161,12 @@ fn create_virtual_branch_should_set_selected_for_changes() {
 fn update_virtual_branch_should_reset_selected_for_changes() {
     let Test { ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let stack_entry_1 =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
@@ -205,8 +221,12 @@ fn update_virtual_branch_should_reset_selected_for_changes() {
 fn unapply_virtual_branch_should_reset_selected_for_changes() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let stack_entry_1 =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
@@ -246,8 +266,12 @@ fn unapply_virtual_branch_should_reset_selected_for_changes() {
 fn hunks_distribution() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
@@ -274,8 +298,12 @@ fn hunks_distribution() {
 fn applying_first_branch() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
@@ -310,8 +338,12 @@ fn new_locked_hunk_without_modifying_existing() {
     repo.commit_all("first commit");
     repo.push();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     lines[0] = "modification 1".to_string();
     repo.write_file("file.txt", &lines);

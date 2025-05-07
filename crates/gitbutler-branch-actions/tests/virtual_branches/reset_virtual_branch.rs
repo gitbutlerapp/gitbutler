@@ -8,8 +8,12 @@ use super::Test;
 fn to_head() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
@@ -62,6 +66,7 @@ fn to_target() {
     let base_branch = gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
+        false,
     )
     .unwrap();
 
@@ -111,8 +116,12 @@ fn to_target() {
 fn to_commit() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let stack_entry_1 =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
@@ -194,8 +203,12 @@ fn to_commit() {
 fn to_non_existing() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let stack_entry_1 =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())

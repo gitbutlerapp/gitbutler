@@ -130,7 +130,7 @@
 		color: var(--clr-scale-ntrl-0);
 		display: flex;
 		padding: 14px;
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-ml);
 		gap: 12px;
 		background-color: var(--clr-bg-1);
 		transition:

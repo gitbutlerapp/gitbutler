@@ -27,8 +27,12 @@ mod checkout_branch_trees {
 
         let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
 
-        branch_actions::set_base_branch(&ctx, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        branch_actions::set_base_branch(
+            &ctx,
+            &"refs/remotes/origin/master".parse().unwrap(),
+            false,
+        )
+        .unwrap();
 
         let stach_entry_1 =
             branch_actions::create_virtual_branch(&ctx, &BranchCreateRequest::default()).unwrap();

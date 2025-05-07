@@ -7,8 +7,12 @@ use super::*;
 fn head() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
@@ -71,8 +75,12 @@ fn head() {
 fn middle() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
@@ -132,8 +140,12 @@ fn forcepush_allowed() {
         ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     projects
         .update(&projects::UpdateRequest {
@@ -184,8 +196,12 @@ fn forcepush_allowed() {
 fn forcepush_forbidden() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
@@ -226,8 +242,12 @@ fn forcepush_forbidden() {
 fn root() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let branch_id =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
@@ -280,8 +300,12 @@ fn root() {
 fn empty() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let branch_id =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())

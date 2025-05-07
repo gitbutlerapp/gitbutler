@@ -9,9 +9,19 @@ export interface EditModeMetadata {
 	branchReference: string;
 }
 
+export interface OutsideWorkspaceMetadata {
+	/** The name of the currently checked out branch or null if in detached head state. */
+	branchName: string | null;
+	/** The paths of any files that would conflict with the workspace as it currently is */
+	worktreeConflicts: string[];
+}
+
 type Mode =
 	| { type: 'OpenWorkspace' }
-	| { type: 'OutsideWorkspace' }
+	| {
+			type: 'OutsideWorkspace';
+			subject: OutsideWorkspaceMetadata;
+	  }
 	| {
 			type: 'Edit';
 			subject: EditModeMetadata;

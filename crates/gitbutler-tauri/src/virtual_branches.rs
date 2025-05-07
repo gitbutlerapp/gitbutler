@@ -176,13 +176,18 @@ pub mod commands {
         project_id: ProjectId,
         branch: &str,
         push_remote: Option<&str>, // optional different name of a remote to push to (defaults to same as the branch)
+        stash_uncommitted: Option<bool>,
     ) -> Result<BaseBranch, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let branch_name = format!("refs/remotes/{}", branch)
             .parse()
             .context("Invalid branch name")?;
-        let base_branch = gitbutler_branch_actions::set_base_branch(&ctx, &branch_name)?;
+        let base_branch = gitbutler_branch_actions::set_base_branch(
+            &ctx,
+            &branch_name,
+            stash_uncommitted.unwrap_or_default(),
+        )?;
 
         // if they also sent a different push remote, set that too
         if let Some(push_remote) = push_remote {

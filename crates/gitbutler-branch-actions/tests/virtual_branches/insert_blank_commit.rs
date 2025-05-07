@@ -7,8 +7,12 @@ use super::*;
 fn insert_blank_commit_down() -> anyhow::Result<()> {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
@@ -72,8 +76,12 @@ fn insert_blank_commit_down() -> anyhow::Result<()> {
 fn insert_blank_commit_up() -> anyhow::Result<()> {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())

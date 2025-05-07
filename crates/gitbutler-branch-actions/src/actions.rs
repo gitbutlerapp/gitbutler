@@ -158,13 +158,17 @@ pub fn list_commit_files(
     crate::file::list_commit_files(ctx.repo(), commit_oid)
 }
 
-pub fn set_base_branch(ctx: &CommandContext, target_branch: &RemoteRefname) -> Result<BaseBranch> {
+pub fn set_base_branch(
+    ctx: &CommandContext,
+    target_branch: &RemoteRefname,
+    stash_uncommitted: bool,
+) -> Result<BaseBranch> {
     let mut guard = ctx.project().exclusive_worktree_access();
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::SetBaseBranch),
         guard.write_permission(),
     );
-    base::set_base_branch(ctx, target_branch)
+    base::set_base_branch(ctx, target_branch, stash_uncommitted)
 }
 
 pub fn set_target_push_remote(ctx: &CommandContext, push_remote: &str) -> Result<()> {

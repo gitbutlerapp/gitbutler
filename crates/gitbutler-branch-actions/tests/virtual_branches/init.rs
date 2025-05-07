@@ -16,6 +16,7 @@ fn twice() {
         gitbutler_branch_actions::set_base_branch(
             &ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
+            false,
         )
         .unwrap();
         assert!(gitbutler_branch_actions::list_virtual_branches(&ctx)
@@ -32,6 +33,7 @@ fn twice() {
         gitbutler_branch_actions::set_base_branch(
             &ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
+            false,
         )
         .unwrap();
 
@@ -53,8 +55,12 @@ fn dirty_non_target() {
 
     fs::write(repo.path().join("file.txt"), "content").unwrap();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
@@ -73,8 +79,12 @@ fn dirty_target() {
 
     fs::write(repo.path().join("file.txt"), "content").unwrap();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
@@ -93,8 +103,12 @@ fn commit_on_non_target_local() {
     fs::write(repo.path().join("file.txt"), "content").unwrap();
     repo.commit_all("commit on target");
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
@@ -114,8 +128,12 @@ fn commit_on_non_target_remote() {
     repo.commit_all("commit on target");
     repo.push_branch(&"refs/heads/some-feature".parse().unwrap());
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
@@ -133,8 +151,12 @@ fn commit_on_target() {
     fs::write(repo.path().join("file.txt"), "content").unwrap();
     repo.commit_all("commit on target");
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;
@@ -154,8 +176,12 @@ fn submodule() {
         test_project.path().display().to_string().parse().unwrap();
     repo.add_submodule(&submodule_url, path::Path::new("submodule"));
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;

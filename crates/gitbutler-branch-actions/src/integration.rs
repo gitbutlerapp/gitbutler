@@ -1,17 +1,14 @@
-use std::{path::PathBuf, vec};
+use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch::{self, GITBUTLER_WORKSPACE_REFERENCE};
-use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_error::error::Marker;
 use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
-use gitbutler_oxidize::{
-    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt, RepoExt,
-};
+use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_repo::RepositoryExt;
@@ -21,87 +18,8 @@ use tracing::instrument;
 
 use crate::{branch_manager::BranchManagerExt, VirtualBranchesExt};
 
-const WORKSPACE_HEAD: &str = "Workspace Head";
 const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
 pub const GITBUTLER_WORKSPACE_COMMIT_TITLE: &str = "GitButler Workspace Commit";
-
-/// Creates and returns a merge commit of all active branch heads.
-///
-/// This is the base against which we diff the working directory to understand
-/// what files have been modified.
-///
-/// This should be used to update the `gitbutler/workspace` ref with, which is usually
-/// done from [`update_workspace_commit()`], after any of its input changes.
-/// This is namely the conflicting state, or any head of the virtual branches.
-#[instrument(level = tracing::Level::DEBUG, skip(ctx))]
-pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
-    let vb_state = ctx.project().virtual_branches();
-    let target = vb_state
-        .get_default_target()
-        .context("failed to get target")?;
-    let repo: &git2::Repository = ctx.repo();
-
-    let mut stacks: Vec<Stack> = vb_state.list_stacks_in_workspace()?;
-
-    let target_commit = repo.find_commit(target.sha)?;
-    let mut workspace_tree = repo.find_real_tree(&target_commit, Default::default())?;
-    let mut workspace_tree_id = git2_to_gix_object_id(workspace_tree.id());
-
-    let gix_repo = ctx.gix_repo_for_merging()?;
-    let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
-    let merge_tree_id = git2_to_gix_object_id(repo.find_commit(target.sha)?.tree_id());
-    for stack in stacks.iter_mut() {
-        stack.migrate_change_ids(ctx).ok(); // If it fails thats ok - best effort migration
-        let branch_head = repo.find_commit(stack.head_oid(&gix_repo)?.to_git2())?;
-        let branch_tree_id =
-            git2_to_gix_object_id(repo.find_real_tree(&branch_head, Default::default())?.id());
-
-        let mut merge = gix_repo.merge_trees(
-            merge_tree_id,
-            workspace_tree_id,
-            branch_tree_id,
-            gix_repo.default_merge_labels(),
-            merge_options_fail_fast.clone(),
-        )?;
-
-        if !merge.has_unresolved_conflicts(conflict_kind) {
-            workspace_tree_id = merge.tree.write()?.detach();
-        } else {
-            // This branch should have already been unapplied during the "update" command but for some reason that failed
-            tracing::warn!("Merge conflict between base and {:?}", stack.name);
-            stack.in_workspace = false;
-            vb_state.set_stack(stack.clone())?;
-        }
-    }
-    workspace_tree = repo.find_tree(gix_to_git2_oid(workspace_tree_id))?;
-
-    let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
-    let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
-    let gix_repo = repo.to_gix()?;
-    let mut heads: Vec<git2::Commit<'_>> = stacks
-        .iter()
-        .filter_map(|stack| stack.head_oid(&gix_repo).ok())
-        .filter_map(|h| repo.find_commit(h.to_git2()).ok())
-        .collect();
-
-    if heads.is_empty() {
-        heads = vec![target_commit]
-    }
-
-    // TODO: Why does commit only accept a slice of commits? Feels like we
-    //       could make use of AsRef with the right traits.
-    let head_refs: Vec<&git2::Commit<'_>> = heads.iter().collect();
-
-    let workspace_head_id = repo.commit(
-        None,
-        &author,
-        &committer,
-        WORKSPACE_HEAD,
-        &workspace_tree,
-        head_refs.as_slice(),
-    )?;
-    Ok(workspace_head_id)
-}
 
 // Before switching the user to our gitbutler workspace branch we save
 // the current branch into a text file. It is used in generating the commit
@@ -166,7 +84,7 @@ pub fn update_workspace_commit(
         .list_stacks_in_workspace()
         .context("failed to list virtual branches")?;
 
-    let workspace_head = repo.find_commit(get_workspace_head(ctx)?)?;
+    let workspace_head = repo.find_commit(but_workspace::head(ctx)?)?;
 
     // message that says how to get back to where they were
     let mut message = GITBUTLER_WORKSPACE_COMMIT_TITLE.to_string();

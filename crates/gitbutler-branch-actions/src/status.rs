@@ -2,7 +2,6 @@ use std::{collections::HashMap, path::PathBuf, vec};
 
 use crate::branch_manager::BranchManagerExt;
 use crate::dependencies::compute_workspace_dependencies;
-use crate::integration::get_workspace_head;
 use crate::VirtualBranchesExt;
 use crate::{
     file::{virtual_hunks_into_virtual_files, VirtualBranchFile},
@@ -34,7 +33,7 @@ pub fn get_applied_status(
     ctx: &CommandContext,
     perm: Option<&mut WorktreeWritePermission>,
 ) -> Result<VirtualBranchesStatus> {
-    let diffs = gitbutler_diff::workdir(ctx.repo(), get_workspace_head(ctx)?)?;
+    let diffs = gitbutler_diff::workdir(ctx.repo(), but_workspace::head(ctx)?)?;
     get_applied_status_cached(ctx, perm, &diffs)
 }
 
