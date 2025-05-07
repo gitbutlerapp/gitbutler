@@ -125,23 +125,8 @@
 				style:width={stacksViewWidth.current + 'rem'}
 				use:focusable={{ id: Focusable.WorkspaceRight, parentId: Focusable.Workspace }}
 			>
-				{#if $multiStackLayout}
-					<MultiStackView {projectId} {stacks} />
-				{:else}
-					<StackTabs
-						{projectId}
-						{stacks}
-						selectedId={stackId}
-						{isCommitting}
-						bind:width={tabsWidth}
-					/>
-					<div
-						class={['contents', stacks.length > 0 ? 'contents_stack dotted-pattern' : '']}
-						class:rounded={tabsWidth! <= (remToPx(stacksViewWidth.current - 0.5) as number)}
-					>
-						{@render stack()}
-					</div>
-				{/if}
+				<MultiStackView {projectId} {stacks} selectedId={stackId} />
+
 				<Resizer
 					viewport={stacksViewEl}
 					direction="left"
@@ -180,23 +165,23 @@
 	}
 
 	.stacks-view-wrap {
+		position: relative;
 		height: 100%;
 		display: flex;
 		flex-grow: 0;
 		flex-shrink: 0;
 		flex-direction: column;
 		justify-content: flex-start;
-		position: relative;
 		overflow: hidden;
 	}
 
 	.main-view {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		flex-grow: 1;
 		border-radius: var(--radius-ml);
 		overflow-x: hidden;
-		position: relative;
 		gap: 8px;
 		min-width: 320px;
 	}
