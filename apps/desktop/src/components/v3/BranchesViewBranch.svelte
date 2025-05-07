@@ -15,9 +15,10 @@
 		branchName: string;
 		remote?: string;
 		isTopBranch?: boolean;
+		onerror?: (error: unknown) => void;
 	};
 
-	const { projectId, stackId, branchName, remote, isTopBranch = true }: Props = $props();
+	const { projectId, stackId, branchName, remote, isTopBranch = true, onerror }: Props = $props();
 
 	const stackService = getContext(StackService);
 	const branchResult = $derived(
@@ -31,7 +32,7 @@
 	const branchesState = $derived(projectState.branchesSelection);
 </script>
 
-<ReduxResult result={branchResult.current} {projectId} {stackId}>
+<ReduxResult result={branchResult.current} {projectId} {stackId} {onerror}>
 	{#snippet children(branch, env)}
 		<BranchCard type="normal-branch" projectId={env.projectId} branchName={branch.name}>
 			{#snippet header()}

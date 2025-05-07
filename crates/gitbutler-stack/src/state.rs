@@ -176,7 +176,7 @@ impl VirtualBranchesHandle {
     /// Errors if the file cannot be read or written.
     pub fn get_stack_in_workspace(&self, id: StackId) -> Result<Stack> {
         self.try_stack_in_workspace(id)?
-            .ok_or_else(|| anyhow!("branch with ID {id} not found"))
+            .ok_or_else(|| anyhow!("branch with ID {id} not found").context(Code::BranchNotFound))
     }
 
     /// Gets the state of the given virtual branch.
@@ -184,7 +184,7 @@ impl VirtualBranchesHandle {
     /// Errors if the file cannot be read or written.
     pub fn get_stack(&self, id: StackId) -> Result<Stack> {
         self.try_stack(id)?
-            .ok_or_else(|| anyhow!("branch with ID {id} not found"))
+            .ok_or_else(|| anyhow!("branch with ID {id} not found").context(Code::BranchNotFound))
     }
 
     /// Gets the state of the given virtual branch returning `Some(branch)` or `None`

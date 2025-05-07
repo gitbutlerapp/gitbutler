@@ -22,9 +22,10 @@
 		stackId: string;
 		projectId: string;
 		branchName: string;
+		onerror?: (err: unknown) => void;
 	}
 
-	const { stackId, projectId, branchName }: Props = $props();
+	const { stackId, projectId, branchName, onerror }: Props = $props();
 
 	const [stackService] = inject(StackService);
 
@@ -43,6 +44,7 @@
 <ReduxResult
 	{stackId}
 	{projectId}
+	{onerror}
 	result={combineResults(branchesResult.current, branchResult.current, topCommitResult.current)}
 >
 	{#snippet children([branches, branch, topCommit], { stackId, projectId })}
@@ -110,7 +112,7 @@
 
 			{#snippet filesSplitView()}
 				{@const changesResult = stackService.branchChanges({ projectId, stackId, branchName })}
-				<ReduxResult {projectId} {stackId} result={changesResult.current}>
+				<ReduxResult {projectId} {stackId} result={changesResult.current} {onerror}>
 					{#snippet children(changes, { projectId, stackId })}
 						<ChangedFiles
 							testId={TestId.BranchChangedFileList}
