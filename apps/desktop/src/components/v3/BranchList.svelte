@@ -53,11 +53,12 @@
 	import type { CommitStatusType } from '$lib/commits/commit';
 
 	type Props = {
+		isVerticalMode: boolean;
 		projectId: string;
 		stackId: string;
 	};
 
-	const { projectId, stackId }: Props = $props();
+	const { isVerticalMode, projectId, stackId }: Props = $props();
 	const [stackService, uiState, baseBranchService, forge, modeService] = inject(
 		StackService,
 		UiState,
@@ -459,7 +460,7 @@
 					{/each}
 				</div>
 			</ScrollableContainer>
-			<StackStickyButtons>
+			<StackStickyButtons {isVerticalMode}>
 				<PushButton flex="1" {projectId} {stackId} multipleBranches={branches.length > 1} />
 				<PublishButton flex="2" {projectId} {stackId} {branches} />
 			</StackStickyButtons>

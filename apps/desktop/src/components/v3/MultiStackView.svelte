@@ -65,7 +65,7 @@
 					class:single={$mode === 'single'}
 					class:vertical={$mode === 'vertical'}
 				>
-					<BranchList {projectId} stackId={stack.id} />
+					<BranchList isVerticalMode={$mode === 'vertical'} {projectId} stackId={stack.id} />
 				</div>
 			{/each}
 		{:else if isCommitting}
@@ -147,7 +147,12 @@
 			flex-basis: calc(100% - 30px);
 		}
 		&.multi {
-			width: 340px;
+			flex-shrink: unset;
+			flex-basis: 100%;
+			min-width: 340px;
+		}
+		&.vertical {
+			border-bottom: 1px solid var(--clr-border-2);
 		}
 	}
 </style>
