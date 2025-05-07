@@ -52,7 +52,7 @@
 
 	let modal = $state<Modal>();
 	let integratingUpstream = $state<OperationState>('inert');
-	let results = new SvelteMap<string, Resolution>();
+	const results = new SvelteMap<string, Resolution>();
 	let statuses = $state<StackStatusInfoV3[]>([]);
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
 	let targetCommitOid = $state<string | undefined>(undefined);
@@ -75,20 +75,14 @@
 		statusesTmp.sort(sortStatusInfoV3);
 
 		// Side effect, refresh results
-		results = new SvelteMap(
-			statusesTmp.map((status) => {
-				const defaultApproach = getResolutionApproachV3(status);
-
-				return [
-					status.stack.id,
-					{
-						branchId: status.stack.id,
-						approach: defaultApproach,
-						deleteIntegratedBranches: true
-					}
-				] as const;
-			})
-		);
+		results.clear();
+		for (const status of statusesTmp) {
+			results.set(status.stack.id, {
+				branchId: status.stack.id,
+				approach: getResolutionApproachV3(status),
+				deleteIntegratedBranches: true
+			});
+		}
 
 		statuses = statusesTmp;
 	});
