@@ -13,6 +13,46 @@ pub struct Controller {
 }
 
 impl Controller {
+    /// Assure we can list projects, and if not possibly existing projects files will be renamed, and an error is produced early.
+    pub fn assure_app_can_startup_or_fix_it(
+        &self,
+        projects: Result<Vec<Project>>,
+    ) -> Result<Vec<Project>> {
+        match projects {
+            Ok(works) => Ok(works),
+            Err(probably_file_load_err) => {
+                let projects_path = self.local_data_dir.join("projects.json");
+                for round in 1.. {
+                    let backup_path = self
+                        .local_data_dir
+                        .join(format!("projects.json.maybe-broken-{round:02}"));
+                    if backup_path.is_file() {
+                        continue;
+                    }
+
+                    if let Err(err) = std::fs::rename(&projects_path, &backup_path) {
+                        tracing::error!(
+                            "Failed to rename {} to {} - application may fail to startup: {err}",
+                            projects_path.display(),
+                            backup_path.display()
+                        );
+                    }
+
+                    bail!(
+                        "Could not open projects file at '{}'.\nIt was moved to {}.\nReopen or refresh the app to start fresh.\nError was: {probably_file_load_err}",
+                        projects_path.display(),
+                        backup_path.display()
+                    );
+                }
+                unreachable!(
+                    "We either find a backup location, or we don't, but should never exhaust 2^64"
+                )
+            }
+        }
+    }
+}
+
+impl Controller {
     pub fn from_path(path: impl Into<PathBuf>) -> Self {
         let path = path.into();
         Self {
