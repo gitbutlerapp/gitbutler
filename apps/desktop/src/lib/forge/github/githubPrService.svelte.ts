@@ -75,13 +75,12 @@ export class GitHubPrService implements ForgePrService {
 	}
 
 	async fetch(number: number, options?: QueryOptions) {
-		const result = $derived(this.api.endpoints.getPr.fetch({ number }, options));
+		const result = this.api.endpoints.getPr.fetch({ number }, options);
 		return await result;
 	}
 
 	get(number: number, options?: StartQueryActionCreatorOptions) {
-		const result = $derived(this.api.endpoints.getPr.useQuery({ number }, options));
-		return result;
+		return this.api.endpoints.getPr.useQuery({ number }, options);
 	}
 
 	async merge(method: MergeMethod, number: number) {

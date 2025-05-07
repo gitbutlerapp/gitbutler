@@ -16,16 +16,13 @@ export class GitHubChecksMonitor implements ChecksService {
 	}
 
 	get(branchName: string, options?: QueryOptions) {
-		const result = $derived(
-			this.api.endpoints.listChecks.useQuery(
-				{ ref: branchName },
-				{
-					transform: (result) => parseChecks(result),
-					...options
-				}
-			)
+		return this.api.endpoints.listChecks.useQuery(
+			{ ref: branchName },
+			{
+				transform: (result) => parseChecks(result),
+				...options
+			}
 		);
-		return result;
 	}
 }
 

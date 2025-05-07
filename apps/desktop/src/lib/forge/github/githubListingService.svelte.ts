@@ -32,16 +32,13 @@ export class GitHubListingService implements ForgeListingService {
 				this.projectMetrics?.setMetric(projectId, 'pr_count', items.length);
 			}
 		});
-		return result;
+		return reactive(() => result.current);
 	}
 
 	getByBranch(projectId: string, branchName: string) {
-		const result = $derived(
-			this.api.endpoints.listPrs.useQuery(projectId, {
-				transform: (result) => prSelectors.selectById(result, branchName)
-			})
-		);
-		return result;
+		return this.api.endpoints.listPrs.useQuery(projectId, {
+			transform: (result) => prSelectors.selectById(result, branchName)
+		});
 	}
 
 	filterByBranch(projectId: string, branchName: string[]) {
