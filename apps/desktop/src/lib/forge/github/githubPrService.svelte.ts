@@ -120,15 +120,7 @@ async function fetchRepoPermissions(
 			'required'
 		);
 
-		if (!repoResponse.error) {
-			return repoResponse.data.permissions;
-		} else {
-			console.error(
-				`Failed to fetch repository permissions for ${owner}/${repo}:`,
-				repoResponse.error
-			);
-			return undefined;
-		}
+		return repoResponse.data.permissions;
 	} catch (err) {
 		console.error(`Exception fetching repository permissions for ${owner}/${repo}:`, err);
 		return undefined;
@@ -147,10 +139,6 @@ function injectEndpoints(api: GitHubApi) {
 						extra: api.extra
 					});
 
-					if (prResponse.error) {
-						return { error: prResponse.error };
-					}
-
 					const prData = prResponse.data;
 					const owner = prData.base?.repo?.owner?.login;
 					const repo = prData.base?.repo?.name;
@@ -165,9 +153,6 @@ function injectEndpoints(api: GitHubApi) {
 
 					const finalResult = parseGitHubDetailedPullRequest({ data: combinedData });
 
-					if (finalResult.error) {
-						return { error: finalResult.error };
-					}
 					return { data: finalResult.data };
 				},
 				providesTags: (_result, _error, args) => providesItem(ReduxTag.PullRequests, args.number)
