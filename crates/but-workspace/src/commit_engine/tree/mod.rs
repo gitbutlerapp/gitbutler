@@ -48,7 +48,7 @@ pub fn create_tree(
             commit_id: base_commit,
             ..
         } => but_core::Commit::from_id(base_commit.attach(repo))?
-            .tree_id()?
+            .tree_id_or_auto_resolution()?
             .detach(),
     };
 
