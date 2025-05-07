@@ -39,9 +39,6 @@ export type DetailedGitHubPullRequestWithPermissions = DetailedGitHubPullRequest
 export function parseGitHubDetailedPullRequest(
 	response: GhResponse<DetailedGitHubPullRequestWithPermissions>
 ): GhResponse<DetailedPullRequest> {
-	if (response.error) {
-		return response;
-	}
 	const data = response.data;
 
 	const reviewers =

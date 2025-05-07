@@ -72,15 +72,12 @@ function injectEndpoints(api: GitHubApi) {
 						'required'
 					);
 
-					if (result.data) {
-						return {
-							data: prAdapter.addMany(
-								prAdapter.getInitialState(),
-								result.data.map((item) => ghResponseToInstance(item))
-							)
-						};
-					}
-					return result;
+					return {
+						data: prAdapter.addMany(
+							prAdapter.getInitialState(),
+							result.data.map((item) => ghResponseToInstance(item))
+						)
+					};
 				},
 				providesTags: [providesList(ReduxTag.PullRequests)]
 			})

@@ -1,9 +1,20 @@
 import { GitHubClient } from '$lib/forge/github/githubClient';
 import { DEFAULT_HEADERS } from '$lib/forge/github/headers';
-import { isErrorlike, type ErrorLike } from '@gitbutler/ui/utils/typeguards';
+import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 import type { Octokit, RestEndpointMethodTypes } from '@octokit/rest';
 
 type OwnerAndRepo = { owner: string; repo: string };
+
+type GhQueryArgs<
+	T extends keyof RestEndpointMethodTypes,
+	S extends keyof RestEndpointMethodTypes[T],
+	RequiresOwnerAndRepo extends 'required' | 'optional'
+> =
+	| GhArgs<T, S>
+	| ((
+			octokit: Octokit,
+			about: RequiresOwnerAndRepo extends 'required' ? OwnerAndRepo : Partial<OwnerAndRepo>
+	  ) => Promise<InferGhResponse<T, S>>);
 
 /**
  * Effectively the `BaseQueryFn` we want, but located in this service file
@@ -16,21 +27,11 @@ export async function ghQuery<
 	S extends keyof RestEndpointMethodTypes[T],
 	RequiresOwnerAndRepo extends 'required' | 'optional'
 >(
-	args:
-		| GhArgs<T, S>
-		| ((
-				octokit: Octokit,
-				about: RequiresOwnerAndRepo extends 'required' ? OwnerAndRepo : Partial<OwnerAndRepo>
-		  ) => Promise<InferGhResponse<T, S>>),
+	args: GhQueryArgs<T, S, RequiresOwnerAndRepo>,
 	passedExtra?: unknown,
 	requiresOwnerAndRepo?: RequiresOwnerAndRepo
 ): Promise<InferGhResponse<T, S>> {
-	let extra;
-	if (typeof args === 'function') {
-		extra = passedExtra;
-	} else {
-		extra = args.extra;
-	}
+	const extra = extractExtraParameters<T, S, RequiresOwnerAndRepo>(args, passedExtra);
 
 	if (!hasGitHub(extra)) throw new Error('No GitHub client!');
 	const gh = extra.gitHubClient;
@@ -38,7 +39,7 @@ export async function ghQuery<
 		let result;
 		if (typeof args === 'function') {
 			if ((!gh.owner || !gh.repo) && requiresOwnerAndRepo === 'required') {
-				return { error: { message: 'No GitHub owner or repo!' } };
+				throw { name: 'GitHub API error', message: 'No GitHub owner or repo!' };
 			}
 			result = await args(gh.octokit, {
 				owner: gh.owner,
@@ -56,7 +57,19 @@ export async function ghQuery<
 
 		return result;
 	} catch (err: unknown) {
-		return { error: isErrorlike(err) ? err.message : { message: String(err) } } as any;
+		const argInfo = extractDomainAndAction<T, S, RequiresOwnerAndRepo>(args);
+		const title = argInfo
+			? `GitHub API error: ${argInfo.domain}/${argInfo.action}`
+			: 'GitHub API error';
+
+		if (isErrorlike(err)) {
+			throw { name: title, message: err.message };
+		}
+
+		throw {
+			name: title,
+			message: String(err)
+		};
 	}
 }
 
@@ -76,7 +89,7 @@ export type GhArgs<
 	extra: unknown;
 };
 
-export type GhResponse<T> = { data: T; error?: never } | { data?: never; error: ErrorLike };
+export type GhResponse<T> = { data: T };
 /**
  * Response type for `ghQuery` inferred from octokit.js.
  */
@@ -88,6 +101,31 @@ export type InferGhResponse<
 		'data',
 	P extends RestEndpointMethodTypes[T][S][O][Q] = RestEndpointMethodTypes[T][S][O][Q]
 > = GhResponse<P>;
+
+function extractExtraParameters<
+	T extends keyof RestEndpointMethodTypes,
+	S extends keyof RestEndpointMethodTypes[T],
+	RequiresOwnerAndRepo extends 'required' | 'optional'
+>(args: GhQueryArgs<T, S, RequiresOwnerAndRepo>, passedExtra: unknown) {
+	let extra;
+	if (typeof args === 'function') {
+		extra = passedExtra;
+	} else {
+		extra = args.extra;
+	}
+	return extra;
+}
+
+function extractDomainAndAction<
+	T extends keyof RestEndpointMethodTypes,
+	S extends keyof RestEndpointMethodTypes[T],
+	RequiresOwnerAndRepo extends 'required' | 'optional'
+>(args: GhQueryArgs<T, S, RequiresOwnerAndRepo>): { domain: string; action: string } | undefined {
+	if (typeof args !== 'function') {
+		return { domain: args.domain, action: String(args.action) };
+	}
+	return undefined;
+}
 
 /**
  * Typeguard for accessing injected `GitHubClient` dependency safely.
