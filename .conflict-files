@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/components/v3/BranchHeader.svelte"]
+ourEntries = ["apps/desktop/src/components/v3/BranchHeader.svelte"]
+theirEntries = ["apps/desktop/src/components/v3/BranchHeader.svelte"]
