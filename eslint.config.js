@@ -8,8 +8,6 @@ import noRelativeImportPaths from '@gitbutler/no-relative-imports';
 
 import path from 'node:path';
 
-const rootDir = path.resolve();
-
 export default ts.config(
 	js.configs.recommended,
 	...ts.configs.recommended,
