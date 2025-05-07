@@ -1,13 +1,16 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
-	import CommitContextMenu from '$components/v3/CommitContextMenu.svelte';
+	import CommitContextMenu, {
+		type CommitMenuContext
+	} from '$components/v3/CommitContextMenu.svelte';
 	import CommitDetails from '$components/v3/CommitDetails.svelte';
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
 	import CommitMessageEditor from '$components/v3/CommitMessageEditor.svelte';
 	import ConflictResolutionConfirmModal from '$components/v3/ConflictResolutionConfirmModal.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
+	import KebabButton from '$components/v3/KebabButton.svelte';
 	import { getCommitType, isLocalAndRemoteCommit } from '$components/v3/lib';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { isCommit, type Commit } from '$lib/branches/v3';
@@ -23,7 +26,6 @@
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
@@ -104,9 +106,8 @@
 	}
 
 	// context menu
-	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
-	let isContextMenuOpen = $state(false);
+	let commitOpenId = $state<string>();
+	let commitMenuContext = $state<CommitMenuContext>();
 
 	async function handleUncommit() {
 		if (!branchName) return;
@@ -194,17 +195,28 @@
 					</div>
 				{/snippet}
 
-				{#snippet kebabMenu()}
-					<Button
-						size="tag"
-						icon="kebab"
-						kind="ghost"
-						activated={isContextMenuOpen}
-						bind:el={kebabContextMenuTrigger}
-						onclick={() => {
-							contextMenu?.toggle();
-						}}
-					/>
+				{#snippet kebabMenu(header)}
+					{@const data = isLocalAndRemoteCommit(commit)
+						? {
+								stackId,
+								commitId: commit.id,
+								commitMessage: commit.message,
+								commitStatus: commit.state.type,
+								commitUrl: forge.current.commitUrl(commit.id),
+								onUncommitClick: () => handleUncommit(),
+								onEditMessageClick: () => setMode('edit'),
+								onPatchEditClick: () => editPatch()
+							}
+						: undefined}
+					{#if data}
+						<KebabButton
+							flat
+							contextElement={header}
+							onclick={(element) => (commitMenuContext = { data, position: { element } })}
+							oncontext={(coords) => (commitMenuContext = { data, position: { coords } })}
+							open={commit.id === commitOpenId}
+						/>
+					{/if}
 				{/snippet}
 
 				<div class="commit-view">
@@ -267,29 +279,12 @@
 			bind:this={conflictResolutionConfirmationModal}
 			onSubmit={editPatch}
 		/>
-
-		<ContextMenu leftClickTrigger={kebabContextMenuTrigger}>
-			{#snippet menu({ close })}
-				<CommitContextMenu
-					{close}
-					{projectId}
-					{stackId}
-					commitId={commit.id}
-					commitMessage={commit.message}
-					commitStatus={isLocalAndRemoteCommit(commit) ? commit.state.type : 'Remote'}
-					commitUrl={forge.current.commitUrl(commit.id)}
-					onUncommitClick={handleUncommit}
-					onEditMessageClick={() => {
-						setMode('edit');
-					}}
-					onToggle={(isOpen) => {
-						isContextMenuOpen = isOpen;
-					}}
-				/>
-			{/snippet}
-		</ContextMenu>
 	{/snippet}
 </ReduxResult>
+
+{#if commitMenuContext}
+	<CommitContextMenu {projectId} bind:context={commitMenuContext} />
+{/if}
 
 <style>
 	.commit-view {

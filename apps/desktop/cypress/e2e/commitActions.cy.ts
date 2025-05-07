@@ -145,7 +145,11 @@ describe('Commit Actions', () => {
 
 	it('Should hide the drawer on uncommit from context menu', () => {
 		// Click on the first commit and open the commit menu
-		cy.getByTestId('commit-row').click().getByTestId('commit-menu-btn').click();
+		cy.getByTestId('commit-row')
+			.click()
+			.within(() => {
+				cy.getByTestId('kebab-menu-btn').click();
+			});
 
 		// Click on the uncommit option
 		cy.getByTestId('uncommit-menu-btn').click();

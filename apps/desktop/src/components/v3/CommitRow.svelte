@@ -1,7 +1,6 @@
 <script lang="ts">
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
-	import ContextMenu from '$components/v3/ContextMenu.svelte';
 	import { type CommitStatusType } from '$lib/commits/commit';
 	import { TestId } from '$lib/testing/testIds';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -24,7 +23,8 @@
 		borderTop?: boolean;
 		draggable?: boolean;
 		disableCommitActions?: boolean;
-		menu?: Snippet<[{ close: () => void }]>;
+		isOpen?: boolean;
+		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		onclick?: () => void;
 	};
 
@@ -66,17 +66,13 @@
 		selected,
 		opacity,
 		borderTop,
+		isOpen,
 		onclick,
-		menu: menu2,
+		menu,
 		...args
 	}: Props = $props();
 
-	let kebabMenuTrigger = $state<HTMLButtonElement>();
 	let container = $state<HTMLDivElement>();
-	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
-
-	let isOpenedByKebabButton = $state(false);
-	let isOpenedByMouse = $state(false);
 
 	let isConflicted = $derived(
 		args.type === 'LocalAndRemote' && !args.disableCommitActions && args.hasConflicts
@@ -89,7 +85,7 @@
 	tabindex="0"
 	aria-label="Commit row"
 	class="commit-row"
-	class:menu-shown={isOpenedByKebabButton || isOpenedByMouse}
+	class:menu-shown={isOpen}
 	class:first
 	class:selected
 	style:opacity
@@ -104,11 +100,6 @@
 			e.stopPropagation();
 			onclick?.();
 		}
-	}}
-	oncontextmenu={(e) => {
-		if (args.disableCommitActions) return;
-		e.preventDefault();
-		contextMenu?.open(e);
 	}}
 >
 	{#if selected}
@@ -135,34 +126,10 @@
 		</div>
 
 		{#if !args.disableCommitActions}
-			<button
-				type="button"
-				bind:this={kebabMenuTrigger}
-				class="commit-menu-btn"
-				data-testid={TestId.CommitMenuButton}
-				class:activated={isOpenedByKebabButton}
-				onmousedown={(e) => {
-					e.stopPropagation();
-					contextMenu?.toggle();
-				}}
-			>
-				<Icon name="kebab" /></button
-			>
+			{@render menu?.({ rightClickTrigger: container })}
 		{/if}
 	</div>
 </div>
-
-<ContextMenu
-	bind:this={contextMenu}
-	leftClickTrigger={kebabMenuTrigger}
-	rightClickTrigger={container}
-	bind:isOpenedByKebabButton
-	bind:isOpenedByMouse
->
-	{#snippet menu(args)}
-		{@render menu2?.(args)}
-	{/snippet}
-</ContextMenu>
 
 <style lang="postcss">
 	.commit-row {
@@ -175,10 +142,6 @@
 		&:hover,
 		&.menu-shown {
 			background-color: var(--clr-bg-1-muted);
-
-			& .commit-menu-btn {
-				display: flex;
-			}
 		}
 
 		&:not(.last) {
@@ -192,10 +155,6 @@
 		&:focus-within,
 		&.selected {
 			background-color: var(--clr-selected-not-in-focus-bg);
-
-			& .commit-menu-btn {
-				display: flex;
-			}
 		}
 
 		&:focus-within.selected {
@@ -229,19 +188,6 @@
 		flex: 1;
 		padding: 14px 0 14px 0;
 		display: flex;
-	}
-
-	.commit-menu-btn {
-		display: none;
-		padding: 3px;
-		color: var(--clr-text-1);
-		opacity: 0.5;
-		transition: opacity var(--transition-fast);
-
-		&:hover,
-		&.activated {
-			opacity: 1;
-		}
 	}
 
 	.commit-conflict-indicator {

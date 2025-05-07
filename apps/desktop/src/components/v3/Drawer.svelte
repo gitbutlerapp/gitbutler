@@ -15,7 +15,7 @@
 		minHeight?: number;
 		header?: Snippet;
 		extraActions?: Snippet;
-		kebabMenu?: Snippet;
+		kebabMenu?: Snippet<[element: HTMLElement]>;
 		children: Snippet;
 		filesSplitView?: Snippet;
 		disableScroll?: boolean;
@@ -50,6 +50,7 @@
 	const contentWidth = $derived(uiState.global.drawerSplitViewWidth.get());
 	const scrollable = $derived(!disableScroll);
 
+	let headerDiv = $state<HTMLDivElement>();
 	let drawerDiv = $state<HTMLDivElement>();
 	let viewportEl = $state<HTMLElement>();
 
@@ -72,7 +73,7 @@
 	use:focusable={{ id: Focusable.CommitEditor, parentId: Focusable.WorkspaceMiddle }}
 >
 	<div class="drawer-wrap">
-		<div class="drawer-header">
+		<div bind:this={headerDiv} class="drawer-header">
 			<div class="drawer-header__title">
 				{#if title}
 					<h3 class="text-15 text-bold">
@@ -92,7 +93,7 @@
 				{/if}
 				<div class="drawer-header__actions-group">
 					{#if kebabMenu}
-						{@render kebabMenu()}
+						{@render kebabMenu(headerDiv)}
 					{/if}
 					<Button
 						kind="ghost"

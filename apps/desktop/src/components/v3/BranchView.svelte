@@ -3,22 +3,20 @@
 	import BranchReview from '$components/BranchReview.svelte';
 	import DeleteBranchModal from '$components/DeleteBranchModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import SeriesHeaderContextMenuContents from '$components/SeriesHeaderContextMenuContents.svelte';
 	import BranchDetails from '$components/v3/BranchDetails.svelte';
+	import BranchHeaderContextMenu from '$components/v3/BranchHeaderContextMenu.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
+	import KebabButton from '$components/v3/KebabButton.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { TestId } from '$lib/testing/testIds';
-	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import type { BranchHeaderContextItem } from '$components/v3/BranchHeaderContextMenu.svelte';
 
 	interface Props {
 		stackId: string;
@@ -28,19 +26,14 @@
 
 	const { stackId, projectId, branchName }: Props = $props();
 
-	const [stackService, forge] = inject(StackService, DefaultForgeFactory);
+	const [stackService] = inject(StackService);
 
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
 
 	const branchResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const topCommitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
 
-	const forgeBranch = $derived(forge.current?.branch(branchName));
-
-	// context menu
-	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let kebabTrigger = $state<HTMLButtonElement>();
-	let isContextMenuOpen = $state(false);
+	let headerMenuContext = $state<BranchHeaderContextItem>();
 
 	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
 	let renameBranchModal = $state<BranchRenameModal>();
@@ -75,16 +68,18 @@
 				</div>
 			{/snippet}
 
-			{#snippet kebabMenu()}
-				<Button
-					size="tag"
-					icon="kebab"
-					kind="ghost"
-					activated={isContextMenuOpen}
-					bind:el={kebabTrigger}
-					onclick={() => {
-						contextMenu?.toggle();
-					}}
+			{#snippet kebabMenu(header)}
+				{@const data = {
+					branch,
+					prNumber: branch.prNumber || undefined,
+					stackLength: branches.length
+				}}
+				<KebabButton
+					flat
+					contextElement={header}
+					onclick={(element) => (headerMenuContext = { data, position: { element } })}
+					oncontext={(coords) => (headerMenuContext = { data, position: { coords } })}
+					open={branchName === headerMenuContext?.data.branch.name}
 				/>
 			{/snippet}
 
@@ -132,37 +127,6 @@
 
 		<NewBranchModal {projectId} {stackId} bind:this={newBranchModal} />
 
-		<ContextMenu
-			bind:this={contextMenu}
-			testId={TestId.BranchHeaderContextMenu}
-			leftClickTrigger={kebabTrigger}
-		>
-			<SeriesHeaderContextMenuContents
-				{projectId}
-				contextMenuEl={contextMenu}
-				{stackId}
-				branchName={branch.name}
-				seriesCount={branches.length}
-				isTopBranch={branches[0]?.name === branch.name}
-				descriptionOption={false}
-				onGenerateBranchName={() => {
-					throw new Error('Not implemented!');
-				}}
-				onAddDependentSeries={() => newBranchModal?.show()}
-				onOpenInBrowser={() => {
-					const url = forgeBranch?.url;
-					if (url) openExternalUrl(url);
-				}}
-				isPushed={!!branch.remoteTrackingBranch}
-				branchType={topCommit?.state.type || 'LocalOnly'}
-				showBranchRenameModal={() => {
-					renameBranchModal?.show();
-				}}
-				showDeleteBranchModal={() => {
-					deleteBranchModal?.show();
-				}}
-			/>
-		</ContextMenu>
 		<BranchRenameModal
 			{projectId}
 			{stackId}
@@ -178,6 +142,10 @@
 		/>
 	{/snippet}
 </ReduxResult>
+
+{#if headerMenuContext}
+	<BranchHeaderContextMenu {projectId} {stackId} bind:context={headerMenuContext} />
+{/if}
 
 <style>
 	.branch__header {

@@ -33,9 +33,9 @@
 	const [createCommitInStack, commitCreation] = stackService.createCommit;
 
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
-	const selected = $derived(stackState?.selection.get());
-	const selectedBranchName = $derived(selected?.current?.branchName);
-	const selectedCommitId = $derived(selected?.current?.commitId);
+	const selected = $derived(stackState?.selection.current);
+	const selectedBranchName = $derived(selected?.branchName);
+	const selectedCommitId = $derived(selected?.commitId);
 
 	const selection = $derived(changeSelection.list());
 

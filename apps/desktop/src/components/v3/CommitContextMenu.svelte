@@ -1,21 +1,9 @@
-<script lang="ts">
-	import { writeClipboard } from '$lib/backend/clipboard';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { TestId } from '$lib/testing/testIds';
-	import { openExternalUrl } from '$lib/utils/url';
-	import { getContext } from '@gitbutler/shared/context';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import type { CommitStatusType } from '$lib/commits/commit';
-
-	type Props = {
-		commitStatus: CommitStatusType;
-		projectId: string;
+<script lang="ts" module>
+	type CommitContextData = {
 		commitId: string;
 		commitMessage: string;
 		commitUrl: string | undefined;
-		onToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
-		close: () => void;
+		commitStatus: CommitStatusType;
 	} & (
 		| {
 				commitStatus: 'LocalOnly' | 'LocalAndRemote' | 'Integrated' | 'Remote';
@@ -26,103 +14,136 @@
 		(
 			| {
 					commitStatus: 'LocalOnly' | 'LocalAndRemote';
-					onUncommitClick?: (event: MouseEvent) => void;
-					onEditMessageClick?: (event: MouseEvent) => void;
-					onPatchEditClick?: (event: MouseEvent) => void;
+					onUncommitClick: (event: MouseEvent) => void;
+					onEditMessageClick: (event: MouseEvent) => void;
+					onPatchEditClick: (event: MouseEvent) => void;
 			  }
 			| { commitStatus: 'Remote' | 'Base' | 'Integrated' }
 		);
 
-	let { projectId, commitId, commitMessage, commitUrl, close, ...args }: Props = $props();
+	export type CommitMenuContext = {
+		position: { coords?: { x: number; y: number }; element?: HTMLElement };
+		data: CommitContextData;
+	};
+</script>
+
+<script lang="ts">
+	import ContextMenu from '$components/v3/ContextMenu.svelte';
+	import { writeClipboard } from '$lib/backend/clipboard';
+	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { TestId } from '$lib/testing/testIds';
+	import { openExternalUrl } from '$lib/utils/url';
+	import { getContext } from '@gitbutler/shared/context';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import type { CommitStatusType } from '$lib/commits/commit';
+
+	type Props = {
+		projectId: string;
+		openId?: string;
+		context?: CommitMenuContext;
+	};
+
+	let { projectId, context = $bindable(), openId = $bindable() }: Props = $props();
 
 	const stackService = getContext(StackService);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 
 	async function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
-		if (args.commitStatus !== 'LocalOnly' && args.commitStatus !== 'LocalAndRemote') {
+		if (!context) return;
+		if (
+			context?.data.commitStatus !== 'LocalOnly' &&
+			context?.data.commitStatus !== 'LocalAndRemote'
+		) {
 			return;
 		}
 		await insertBlankCommitInBranch({
 			projectId,
-			stackId: args.stackId,
+			stackId: context?.data.stackId,
 			commitOid: commitId,
 			offset: location === 'above' ? -1 : 1
 		});
 	}
 </script>
 
-{#if args.commitStatus === 'LocalAndRemote' || args.commitStatus === 'LocalOnly'}
-	<ContextMenuSection>
-		<ContextMenuItem
-			label="Uncommit"
-			testId={TestId.UncommitMenuButton}
-			onclick={(e: MouseEvent) => {
-				args.onUncommitClick?.(e);
-				close();
-			}}
-		/>
-		<!-- TODO: Re-enable the option once it works -->
-		<ContextMenuItem
-			label="Edit commit message"
-			disabled
-			onclick={(e: MouseEvent) => {
-				args.onEditMessageClick?.(e);
-				close();
-			}}
-		/>
-		<!-- TODO: Re-enable the option once it works -->
-		<ContextMenuItem
-			label="Edit commit"
-			disabled
-			onclick={(e: MouseEvent) => {
-				args.onPatchEditClick?.(e);
-				close();
-			}}
-		/>
-	</ContextMenuSection>
-{/if}
-<ContextMenuSection>
-	{#if commitUrl}
-		<ContextMenuItem
-			label="Open in browser"
-			onclick={async () => {
-				await openExternalUrl(commitUrl);
-				close();
-			}}
-		/>
-		<ContextMenuItem
-			label="Copy commit link"
-			onclick={() => {
-				writeClipboard(commitUrl);
-				close();
-			}}
-		/>
-	{/if}
-	<ContextMenuItem
-		label="Copy commit message"
-		onclick={() => {
-			writeClipboard(commitMessage);
-			close();
-		}}
-	/>
-</ContextMenuSection>
-{#if args.commitStatus === 'LocalAndRemote' || args.commitStatus === 'LocalOnly'}
-	<ContextMenuSection>
-		<ContextMenuItem
-			label="Add empty commit above"
-			disabled={commitInsertion.current.isLoading}
-			onclick={() => {
-				insertBlankCommit(commitId, 'above');
-				close();
-			}}
-		/>
-		<ContextMenuItem
-			label="Add empty commit below"
-			disabled={commitInsertion.current.isLoading}
-			onclick={() => {
-				insertBlankCommit(commitId, 'below');
-				close();
-			}}
-		/>
-	</ContextMenuSection>
+{#if context?.data}
+	{@const { commitId, commitUrl, commitMessage } = context.data}
+	<ContextMenu position={context.position} onclose={() => (context = undefined)}>
+		{#if context.data.commitStatus === 'LocalAndRemote' || context.data.commitStatus === 'LocalOnly'}
+			{@const { onUncommitClick, onEditMessageClick, onPatchEditClick } = context.data}
+			<ContextMenuSection>
+				<ContextMenuItem
+					label="Uncommit"
+					testId={TestId.UncommitMenuButton}
+					onclick={(e: MouseEvent) => {
+						onUncommitClick?.(e);
+						close();
+					}}
+				/>
+				<!-- TODO: Re-enable the option once it works -->
+				<ContextMenuItem
+					label="Edit commit message"
+					disabled
+					onclick={(e: MouseEvent) => {
+						onEditMessageClick?.(e);
+						close();
+					}}
+				/>
+				<!-- TODO: Re-enable the option once it works -->
+				<ContextMenuItem
+					label="Edit commit"
+					disabled
+					onclick={(e: MouseEvent) => {
+						onPatchEditClick?.(e);
+						close();
+					}}
+				/>
+			</ContextMenuSection>
+		{/if}
+		<ContextMenuSection>
+			{#if commitUrl}
+				<ContextMenuItem
+					label="Open in browser"
+					onclick={async () => {
+						await openExternalUrl(commitUrl);
+						close();
+					}}
+				/>
+				<ContextMenuItem
+					label="Copy commit link"
+					onclick={() => {
+						writeClipboard(commitUrl);
+						close();
+					}}
+				/>
+			{/if}
+			<ContextMenuItem
+				label="Copy commit message"
+				onclick={() => {
+					writeClipboard(commitMessage);
+					close();
+				}}
+			/>
+		</ContextMenuSection>
+		{#if context.data.commitStatus === 'LocalAndRemote' || context.data.commitStatus === 'LocalOnly'}
+			<ContextMenuSection>
+				<ContextMenuItem
+					label="Add empty commit above"
+					disabled={commitInsertion.current.isLoading}
+					onclick={() => {
+						insertBlankCommit(commitId, 'above');
+						close();
+					}}
+				/>
+				<ContextMenuItem
+					label="Add empty commit below"
+					disabled={commitInsertion.current.isLoading}
+					onclick={() => {
+						insertBlankCommit(commitId, 'below');
+						close();
+					}}
+				/>
+			</ContextMenuSection>
+		{/if}
+	</ContextMenu>
 {/if}
