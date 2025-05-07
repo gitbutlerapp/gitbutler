@@ -11,7 +11,7 @@ export enum Code {
 	ProjectMissing = 'errors.projects.missing'
 }
 
-export type TauriCommandError = { message: string; code?: string };
+export type TauriCommandError = { name: string; message: string; code?: string };
 
 export function isTauriCommandError(something: unknown): something is TauriCommandError {
 	return (

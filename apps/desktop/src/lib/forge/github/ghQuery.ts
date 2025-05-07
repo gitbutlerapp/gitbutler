@@ -63,13 +63,10 @@ export async function ghQuery<
 			: 'GitHub API error';
 
 		if (isErrorlike(err)) {
-			throw { name: title, message: err.message };
+			return { error: { name: title, message: err.message } };
 		}
 
-		throw {
-			name: title,
-			message: String(err)
-		};
+		return { error: { name: title, message: String(err) } };
 	}
 }
 
@@ -89,7 +86,9 @@ export type GhArgs<
 	extra: unknown;
 };
 
-export type GhResponse<T> = { data: T };
+export type GhResponse<T> =
+	| { data: T; error?: never }
+	| { error: { name: string; message: string }; data?: never };
 /**
  * Response type for `ghQuery` inferred from octokit.js.
  */

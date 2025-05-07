@@ -69,6 +69,10 @@ function injectEndpoints(api: GitHubApi) {
 						'required'
 					);
 
+					if (result.error) {
+						return { error: result.error };
+					}
+
 					return {
 						data: prAdapter.addMany(
 							prAdapter.getInitialState(),

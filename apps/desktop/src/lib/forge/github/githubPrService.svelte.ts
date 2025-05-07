@@ -119,6 +119,10 @@ async function fetchRepoPermissions(
 			'required'
 		);
 
+		if (repoResponse.error) {
+			throw repoResponse.error;
+		}
+
 		return repoResponse.data.permissions;
 	} catch (err) {
 		console.error(`Exception fetching repository permissions for ${owner}/${repo}:`, err);
@@ -138,6 +142,10 @@ function injectEndpoints(api: GitHubApi) {
 						extra: api.extra
 					});
 
+					if (prResponse.error) {
+						return { error: prResponse.error };
+					}
+
 					const prData = prResponse.data;
 					const owner = prData.base?.repo?.owner?.login;
 					const repo = prData.base?.repo?.name;
@@ -151,6 +159,10 @@ function injectEndpoints(api: GitHubApi) {
 					};
 
 					const finalResult = parseGitHubDetailedPullRequest({ data: combinedData });
+
+					if (finalResult.error) {
+						return { error: finalResult.error };
+					}
 
 					return { data: finalResult.data };
 				},
@@ -171,12 +183,17 @@ function injectEndpoints(api: GitHubApi) {
 			}),
 			mergePr: build.mutation<void, { number: number; method: MergeMethod }>({
 				queryFn: async ({ number, method: method }, api) => {
-					await ghQuery({
+					const result = await ghQuery({
 						domain: 'pulls',
 						action: 'merge',
 						parameters: { pull_number: number, merge_method: method },
 						extra: api.extra
 					});
+
+					if (result.error) {
+						return { error: result.error };
+					}
+
 					return { data: undefined };
 				},
 				invalidatesTags: [invalidatesList(ReduxTag.PullRequests)]
@@ -193,7 +210,7 @@ function injectEndpoints(api: GitHubApi) {
 				}
 			>({
 				queryFn: async ({ number, update }, api) => {
-					await ghQuery({
+					const result = await ghQuery({
 						domain: 'pulls',
 						action: 'update',
 						parameters: {
@@ -204,6 +221,9 @@ function injectEndpoints(api: GitHubApi) {
 						},
 						extra: api.extra
 					});
+					if (result.error) {
+						return { error: result.error };
+					}
 					return { data: undefined };
 				},
 				invalidatesTags: [invalidatesList(ReduxTag.PullRequests)]
