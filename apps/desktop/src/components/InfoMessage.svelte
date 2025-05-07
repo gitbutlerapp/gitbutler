@@ -27,6 +27,7 @@
 		error?: string | undefined;
 		title?: Snippet;
 		content?: Snippet;
+		testId?: string;
 	}
 
 	const {
@@ -43,7 +44,8 @@
 		shadow = false,
 		error = undefined,
 		title,
-		content
+		content,
+		testId
 	}: Props = $props();
 
 	const iconMap: { [Key in MessageStyle]: IconName } = {
@@ -74,6 +76,7 @@
 </script>
 
 <div
+	data-testid={testId}
 	class="info-message {style}"
 	class:has-border={outlined}
 	class:has-background={filled}
