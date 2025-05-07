@@ -1,4 +1,4 @@
-use std::{collections::HashMap, os::unix::fs::PermissionsExt};
+use std::collections::HashMap;
 
 use crate::{
     commit_engine::{DiffSpec, HunkHeader, apply_hunks, index::apply_lhs_to_rhs},
@@ -184,6 +184,7 @@ fn write_entry(
             std::fs::write(&path, blob.take_data())?;
             #[cfg(unix)]
             {
+                use std::os::unix::fs::PermissionsExt as _;
                 if entry.mode().kind() == gix::objs::tree::EntryKind::BlobExecutable {
                     let mut permissions = std::fs::metadata(&path)?.permissions();
                     // Set the executable bit
