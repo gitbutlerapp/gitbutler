@@ -110,7 +110,7 @@
 		align-items: center;
 		gap: 6px;
 		color: var(--clr-text-2);
-		height: 100%;
+		/* height: 100%; */
 	}
 
 	.folder-list-item__arrow {

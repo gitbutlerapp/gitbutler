@@ -218,7 +218,7 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		height: 100%;
+		/* height: 100%; */
 	}
 
 	.draggable-handle {
