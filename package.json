@@ -6,7 +6,7 @@
 		"node": ">=20.11"
 	},
 	"type": "module",
-	"packageManager": "pnpm@10.3.0",
+	"packageManager": "pnpm@10.10.0",
 	"scripts": {
 		"dev:ui": "pnpm --filter @gitbutler/ui storybook",
 		"dev:web": "turbo watch --filter @gitbutler/web dev",
@@ -35,8 +35,9 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "9.25.1",
+		"@gitbutler/no-relative-imports": "workspace:*",
+		"@tauri-apps/cli": "^2.5.0",
 		"@types/eslint": "9.6.0",
-		"@tauri-apps/cli": "^2.4.1",
 		"@types/eslint__js": "^8.42.3",
 		"@types/node": "^22.3.0",
 		"@typescript-eslint/parser": "^8.31.1",
@@ -52,8 +53,7 @@
 		"svelte-eslint-parser": "^1.1.3",
 		"turbo": "2.5.2",
 		"typescript": "5.4.5",
-		"typescript-eslint": "^8.10.0",
-		"@gitbutler/no-relative-imports": "workspace:*"
+		"typescript-eslint": "^8.10.0"
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
