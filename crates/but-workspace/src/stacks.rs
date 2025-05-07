@@ -1,5 +1,5 @@
 use crate::integrated::IsCommitIntegrated;
-use crate::ui::{CommitState, PushStatus};
+use crate::ui::{CommitState, PushStatus, StackDetails};
 use crate::{
     StacksFilter, VirtualBranchesTomlMetadata, branch, head_info, id_from_name_v2_to_v3,
     state_handle, ui,
@@ -161,7 +161,7 @@ pub fn stacks_v3(
         Ok(out)
     }
 
-    let info = crate::head_info(
+    let info = head_info(
         repo,
         meta,
         head_info::Options {
@@ -346,7 +346,57 @@ pub fn stack_details(
     })
 }
 
-/// Return the branches that belong to a particular [`gitbutler_stack::Stack`]
+/// Get additional information for the stack identified by `stack_id`.
+// TODO: StackId shouldn't be used, instead the `heads_info` ID should be used.
+pub fn stack_details_v3(
+    stack_id: StackId,
+    repo: &gix::Repository,
+    meta: &VirtualBranchesTomlMetadata,
+) -> anyhow::Result<ui::StackDetails> {
+    let info = head_info(
+        repo,
+        meta,
+        head_info::Options {
+            stack_commit_limit: 0,
+        },
+    )?;
+    let stacks_with_id: Vec<_> = info
+        .stacks
+        .into_iter()
+        .filter_map(|stack| {
+            let name = stack.name()?.to_owned();
+            Some(id_from_name_v2_to_v3(name.as_ref(), meta).map(|stack_id| (stack_id, stack)))
+        })
+        .collect::<Result<_, _>>()?;
+    let stack = stacks_with_id
+        .into_iter()
+        .find_map(|(id, stack)| (id == stack_id).then_some(stack))
+        .with_context(|| format!("Stack with id {stack_id} really should have been found"))?;
+
+    let stack_name = stack
+        .name()
+        .map(ToOwned::to_owned)
+        .context("Can't handle a stack yet whose tip isn't pointed to by a ref")?;
+    let branch_details: Vec<ui::BranchDetails> =
+        stack.segments.into_iter().map(Into::into).collect();
+    let topmost_branch = branch_details
+        .first()
+        .context("Stacks should never be empty")?;
+    Ok(StackDetails {
+        derived_name: stack_name.to_string(),
+        push_status: topmost_branch.push_status,
+        is_conflicted: topmost_branch.is_conflicted,
+        branch_details,
+    })
+}
+
+impl From<branch::StackSegment> for ui::BranchDetails {
+    fn from(_value: branch::StackSegment) -> Self {
+        todo!("stack segment conversion")
+    }
+}
+
+/// Return the branches that belong to a particular [`Stack`]
 /// The entries are ordered from newest to oldest.
 pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> anyhow::Result<Vec<ui::Branch>> {
     let state = state_handle(&ctx.project().gb_dir());

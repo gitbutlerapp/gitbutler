@@ -75,7 +75,7 @@ pub mod stack_ext;
 mod stacks;
 pub use stacks::{
     stack_branch_local_and_remote_commits, stack_branch_upstream_only_commits, stack_branches,
-    stack_details, stack_heads_info, stacks, stacks_v3,
+    stack_details, stack_details_v3, stack_heads_info, stacks, stacks_v3,
 };
 
 mod virtual_branches_metadata;
