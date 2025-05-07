@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
+	import LineOverlay from '$components/LineOverlay.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import StackStickyButtons from '$components/StackStickyButtons.svelte';
 	import BranchCard from '$components/v3/BranchCard.svelte';
@@ -35,12 +36,16 @@
 		type DzCommitData
 	} from '$lib/commits/dropHandler';
 	import { draggableCommit } from '$lib/dragging/draggable';
+	import {
+		ReorderCommitDzHandler,
+		StackingReorderDropzoneManagerFactory
+	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { getContext, inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
@@ -106,10 +111,24 @@
 
 	let headerMenuContext = $state<BranchHeaderContextItem>();
 	let commitMenuContext = $state<CommitMenuContext>();
+
+	const stackingReorderDropzoneManagerFactory = getContext(StackingReorderDropzoneManagerFactory);
 </script>
+
+{#snippet commitReorderDz(dropzone: ReorderCommitDzHandler)}
+	<Dropzone handlers={[dropzone]}>
+		{#snippet overlay({ hovered, activated })}
+			<LineOverlay {hovered} {activated} />
+		{/snippet}
+	</Dropzone>
+{/snippet}
 
 <ReduxResult {stackId} {projectId} result={branchesResult.current}>
 	{#snippet children(branches, { stackId, projectId })}
+		{@const stackingReorderDropzoneManager = stackingReorderDropzoneManagerFactory.build(
+			stackId,
+			branches.map((s) => ({ name: s.name, commitIds: s.commits.map((p) => p.id) }))
+		)}
 		{#each branches as branch, i}
 			{@const branchName = branch.name}
 			{@const localAndRemoteCommits = stackService.commits(projectId, stackId, branchName)}
@@ -244,6 +263,9 @@
 											disableCommitActions={false}
 										/>
 									{/if}
+								{/snippet}
+								{#snippet beforeLocalAndRemote()}
+									{@render commitReorderDz(stackingReorderDropzoneManager.top(branch.name))}
 								{/snippet}
 								{#snippet localAndRemoteTemplate({
 									commit,
@@ -390,6 +412,9 @@
 											</CommitRow>
 										</div>
 									</Dropzone>
+									{@render commitReorderDz(
+										stackingReorderDropzoneManager.belowCommit(branch.name, commit.id)
+									)}
 									{#if isCommitting && last}
 										<CommitGoesHere
 											{first}
