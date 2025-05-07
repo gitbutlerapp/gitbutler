@@ -8,24 +8,20 @@
 	import ReviewView from '$components/v3/ReviewView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
-	import StackTabs from '$components/v3/stackTabs/StackTabs.svelte';
-	import { multiStackLayout } from '$lib/config/uiFeatureFlags';
 	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import { remToPx } from '@gitbutler/ui/utils/remToPx';
-	import { type Snippet } from 'svelte';
+
 	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {
 		projectId: string;
 		stackId?: string;
-		stack: Snippet;
 	}
 
-	const { stackId, projectId, stack }: Props = $props();
+	const { stackId, projectId }: Props = $props();
 
 	const [stackService, uiState, focusManager] = inject(StackService, UiState, FocusManager);
 	const stacksResult = $derived(stackService.stacks(projectId));
@@ -33,7 +29,6 @@
 	const projectState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectState.drawerPage);
 	const drawerIsFullScreen = $derived(projectState.drawerFullScreen);
-	const isCommitting = $derived(drawerPage.current === 'new-commit');
 
 	let focusGroup = $derived(
 		focusManager.radioGroup({
@@ -69,8 +64,6 @@
 
 	let leftDiv = $state<HTMLElement>();
 	let stacksViewEl = $state<HTMLElement>();
-
-	let tabsWidth = $state<number>();
 </script>
 
 <div class="workspace" use:focusable={{ id: Focusable.Workspace }}>
@@ -184,23 +177,5 @@
 		overflow-x: hidden;
 		gap: 8px;
 		min-width: 320px;
-	}
-
-	.contents {
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		overflow: hidden;
-
-		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
-	}
-
-	/* MODIFIERS */
-	.rounded {
-		border-radius: 0 var(--radius-ml) var(--radius-ml) var(--radius-ml);
-	}
-	.contents_stack {
-		padding: 12px;
 	}
 </style>

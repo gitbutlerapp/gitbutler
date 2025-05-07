@@ -3,7 +3,6 @@
 	import { page } from '$app/state';
 	import WorkspaceView from '$components/v3/WorkspaceView.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
-	import { multiStackLayout } from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -17,12 +16,12 @@
 	const settingsStore = settingsService.appSettings;
 	const mode = modeService.mode;
 
-	const { data, children }: { data: PageData; children: Snippet } = $props();
+	const { data }: { data: PageData; children: Snippet } = $props();
 
 	const projectId = $derived(page.params.projectId!);
 	const uiState = getContext(UiState);
 	const projectState = $derived(uiState.project(projectId));
-	const stackId = $derived($multiStackLayout ? projectState.stackId.current : page.params.stackId);
+	const stackId = $derived(projectState.stackId.current);
 
 	const stacks = $derived(stackService.stacks(projectId));
 
@@ -59,8 +58,4 @@
 	});
 </script>
 
-<WorkspaceView {projectId} {stackId}>
-	{#snippet stack()}
-		{@render children()}
-	{/snippet}
-</WorkspaceView>
+<WorkspaceView {projectId} {stackId} />
