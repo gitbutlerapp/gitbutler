@@ -9,13 +9,21 @@
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { SettingsService } from '$lib/config/appSettingsV2';
+	import { ModeService } from '$lib/mode/modeService';
 	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
+	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
+	import Select from '@gitbutler/ui/select/Select.svelte';
+	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 
@@ -31,14 +39,24 @@
 	const project = getContext(Project);
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
 
+	const modeService = getContext(ModeService);
+	// TODO: On filesystem change this should be reloaded
+	const mode = modeService.mode;
+
+	const [worktreeService] = inject(WorktreeService);
+	const changes = worktreeService.getChanges(project.id);
+
+	let modal = $state<Modal>();
+
 	const settingsService = getContext(SettingsService);
 	const appSettings = settingsService.appSettings;
 
-	async function switchTarget(branch: string, remote?: string) {
+	async function switchTarget(branch: string, remote?: string, stashUncommitted?: boolean) {
 		await setBaseBranchTarget({
 			projectId: project.id,
 			branch,
-			pushRemote: remote
+			pushRemote: remote,
+			stashUncommitted
 		});
 		await vbranchService.refresh();
 	}
@@ -61,6 +79,34 @@
 				isDeleting = false;
 				projectsService.reload();
 			}
+		}
+	}
+
+	let conflicts = $derived(
+		$mode?.type === 'OutsideWorkspace' && $mode.subject?.worktreeConflicts.length > 0
+	);
+
+	let selectedHandlingOfUncommitted = $state('Stash');
+	let doStash = $derived(selectedHandlingOfUncommitted === 'Stash');
+
+	const handlingOptions = [
+		{
+			label: 'Stash',
+			value: 'Stash',
+			selectable: true
+		},
+		{
+			label: 'Bring to Workspace',
+			value: 'Bring to Workspace',
+			selectable: !conflicts // TODO: Reactivity??
+		}
+	] as const;
+
+	async function initSwithToWorkspace() {
+		if (changes.current.data?.length === 0) {
+			switchTarget(baseBranch.branchName);
+		} else {
+			modal?.show();
 		}
 	}
 </script>
@@ -89,11 +135,7 @@
 					icon="undo-small"
 					reversedDirection
 					loading={targetBranchSwitch.current.isLoading}
-					action={async () => {
-						if (baseBranch) {
-							await switchTarget(baseBranch.branchName);
-						}
-					}}
+					action={initSwithToWorkspace}
 				>
 					Switch to to gitbutler/workspace
 				</AsyncButton>
@@ -114,6 +156,60 @@
 				<ProjectSwitcher />
 			</div>
 		</div>
+
+		<Modal
+			bind:this={modal}
+			width={520}
+			noPadding
+			onClose={() => {}}
+			onSubmit={() => switchTarget(baseBranch.branchName, undefined, doStash)}
+		>
+			<div class="content-wrap text-13">
+				<h1 class="text-15 text-bold">It looks like there are uncommitted changes</h1>
+				<p>The following are uncommitted files in your worktree:</p>
+				<div class="file-list">
+					{#each changes.current.data || [] as change}
+						<FileListItem filePath={change.path} />
+					{/each}
+				</div>
+				{#if conflicts}
+					<div>
+						The following are uncommitted files that can't be applied to the workspace due to
+						conflicts:
+					</div>
+					<div class="file-list">
+						{#if $mode?.type === 'OutsideWorkspace'}
+							{#each $mode.subject?.worktreeConflicts || [] as path}
+								<FileListItem filePath={path} />
+							{/each}
+						{/if}
+					</div>
+				{/if}
+
+				<p>What would you like to do with the files?</p>
+				<Select
+					value={selectedHandlingOfUncommitted}
+					options={handlingOptions}
+					onselect={(value) => {
+						selectedHandlingOfUncommitted = value;
+					}}
+				>
+					{#snippet itemSnippet({ item, highlighted })}
+						<SelectItem
+							disabled={!item.selectable}
+							selected={item.value === selectedHandlingOfUncommitted}
+							{highlighted}
+						>
+							{item.label}
+						</SelectItem>
+					{/snippet}
+				</Select>
+			</div>
+			{#snippet controls(close)}
+				<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
+				<Button style="pop" type="submit">Confirm</Button>
+			{/snippet}
+		</Modal>
 	</DecorativeSplitView>
 {/snippet}
 
@@ -148,5 +244,18 @@
 
 	.switchrepo__project {
 		padding-top: 24px;
+	}
+
+	.content-wrap {
+		display: flex;
+		flex-direction: column;
+		padding: 16px 12px;
+		gap: 16px;
+	}
+
+	.file-list {
+		border-radius: var(--radius-ml);
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
 	}
 </style>

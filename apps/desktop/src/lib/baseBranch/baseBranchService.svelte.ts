@@ -148,11 +148,11 @@ function injectEndpoints(api: BackendApi) {
 			}),
 			setTarget: build.mutation<
 				BaseBranch,
-				{ projectId: string; branch: string; pushRemote?: string }
+				{ projectId: string; branch: string; pushRemote?: string; stashUncommitted?: boolean }
 			>({
-				query: ({ projectId, branch, pushRemote }) => ({
+				query: ({ projectId, branch, pushRemote, stashUncommitted }) => ({
 					command: 'set_base_branch',
-					params: { projectId, branch, pushRemote }
+					params: { projectId, branch, pushRemote, stashUncommitted }
 				}),
 				invalidatesTags: [
 					invalidatesType(ReduxTag.BaseBranchData),

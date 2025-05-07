@@ -115,14 +115,6 @@
 	const stackingReorderDropzoneManagerFactory = getContext(StackingReorderDropzoneManagerFactory);
 </script>
 
-{#snippet commitReorderDz(dropzone: ReorderCommitDzHandler)}
-	<Dropzone handlers={[dropzone]}>
-		{#snippet overlay({ hovered, activated })}
-			<LineOverlay {hovered} {activated} />
-		{/snippet}
-	</Dropzone>
-{/snippet}
-
 <ReduxResult {stackId} {projectId} result={branchesResult.current}>
 	{#snippet children(branches, { stackId, projectId })}
 		{@const stackingReorderDropzoneManager = stackingReorderDropzoneManagerFactory.build(
@@ -224,6 +216,13 @@
 							</BranchHeader>
 						{/snippet}
 						{#snippet commitList()}
+							{#snippet commitReorderDz(dropzone: ReorderCommitDzHandler)}
+								<Dropzone handlers={[dropzone]}>
+									{#snippet overlay({ hovered, activated })}
+										<LineOverlay {hovered} {activated} />
+									{/snippet}
+								</Dropzone>
+							{/snippet}
 							<BranchCommitList {projectId} {stackId} {branchName} {selectedCommitId}>
 								{#snippet empty()}
 									{#if isCommitting}
