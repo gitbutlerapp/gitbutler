@@ -10,8 +10,8 @@ catalog:
   'marked': '15.0.7'
 catalogs:
   svelte:
-    'svelte': '5.23.2'
-    '@sveltejs/kit': '2.20.1'
+    'svelte': '5.28.2'
+    '@sveltejs/kit': '2.20.8'
     'svelte-check': '4.1.6'
     '@sveltejs/vite-plugin-svelte': '5.0.3'
     '@sveltejs/adapter-static': '3.0.8'
