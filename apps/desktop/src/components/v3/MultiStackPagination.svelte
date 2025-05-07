@@ -1,11 +1,23 @@
 <script lang="ts" module>
-	export function scrollToLane(el: HTMLElement | undefined, index: number) {
-		const laneWidth = el?.offsetWidth ?? 0;
-
-		el?.scrollTo({
-			left: laneWidth * index,
-			behavior: 'smooth'
-		});
+	export function scrollToLane(
+		el: HTMLElement | undefined,
+		index: number,
+		direction: 'horz' | 'vert'
+	) {
+		if (!el) return;
+		if (direction === 'vert') {
+			const laneHeight = el?.offsetHeight ?? 0;
+			el?.scrollTo({
+				top: laneHeight * index,
+				behavior: 'smooth'
+			});
+		} else {
+			const laneWidth = el?.offsetWidth ?? 0;
+			el?.scrollTo({
+				left: laneWidth * index,
+				behavior: 'smooth'
+			});
+		}
 	}
 </script>
 
@@ -14,16 +26,16 @@
 
 	type Props = {
 		length: number;
-		activeIndex?: number;
+		visibleIndexes: number[];
 		selectedBranchIndex: number;
 		onclick: (index: number) => void;
 	};
 
-	let { length, activeIndex = $bindable(), selectedBranchIndex, onclick }: Props = $props();
+	let { length, visibleIndexes = $bindable(), selectedBranchIndex, onclick }: Props = $props();
 
 	function getPaginationTooltip(index: number) {
-		if (index === activeIndex) {
-			return 'Current branch';
+		if (visibleIndexes.includes(index)) {
+			return `Branch ${index + 1}`;
 		} else if (index === selectedBranchIndex) {
 			return 'Selected branch';
 		} else {
@@ -39,7 +51,7 @@
 				role="button"
 				tabindex="0"
 				class="pagination-dot"
-				class:active={i === activeIndex}
+				class:active={visibleIndexes.includes(i)}
 				class:selected-branch={i === selectedBranchIndex}
 				onclick={() => onclick(i)}
 				onkeydown={(event) => {

@@ -21,25 +21,21 @@
 	const { projectId, selectedId, stacks }: Props = $props();
 	let mode = $derived(persisted<Layout>('multi', 'branch-layout'));
 
-	let lanesEl = $state<HTMLElement>();
+	let lanesContentEl = $state<HTMLElement>();
+	let lanesContentWidth = $state<number>(0);
+	let lanesContentHeight = $state<number>(0);
 	let scrollbar = $state<Scrollbar>();
 
-	let lanesElArray = $state<HTMLElement[]>([]);
-	let invisibleLanes = $state<string[]>([]);
-	let visibleIndex = $state<number>(0);
-
-	function onScroll() {
-		if (stacks.length < 1 && $mode !== 'single') return;
-
-		const scrollLeft = lanesEl?.scrollLeft ?? 0;
-		const laneWidth = lanesEl?.offsetWidth ?? 1; // fallback to 1 to avoid divide-by-zero
-
-		const index = Math.round(scrollLeft / laneWidth);
-
-		if (index !== visibleIndex) {
-			visibleIndex = index;
-		}
-	}
+	let laneWidths = $state<number[]>([]);
+	let lineHights = $state<number[]>([]);
+	let isNotEnoughHorzSpace = $derived(
+		(lanesContentWidth ?? 0) < (laneWidths.length - 1) * (laneWidths[0] ?? 0)
+	);
+	let isNotEnoughVertSpace = $derived.by(() => {
+		const shortenArray = lineHights.slice(0, lineHights.length - 1);
+		return lanesContentHeight < shortenArray.reduce((acc, height) => acc + height, 0);
+	});
+	let visibleIndexes = $state<number[]>([0]);
 
 	$effect(() => {
 		// Explicit scrollbar track size update since changing scroll width
@@ -53,10 +49,6 @@
 	const isCommitting = $derived(drawer.current === 'new-commit');
 
 	const SHOW_PAGINATION_THRESHOLD = 1;
-
-	// $effect(() => {
-	// 	console.log('visibleLanes', visibleLanes);
-	// });
 </script>
 
 <div class="lanes">
@@ -75,24 +67,27 @@
 
 	<div
 		class="lanes-content hide-native-scrollbar dotted-pattern"
-		bind:this={lanesEl}
+		bind:this={lanesContentEl}
+		bind:clientWidth={lanesContentWidth}
+		bind:clientHeight={lanesContentHeight}
 		class:multi={$mode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
 		class:single={$mode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
 		class:vertical={$mode === 'vertical'}
 	>
-		{#if invisibleLanes.length >= SHOW_PAGINATION_THRESHOLD}
+		{#if isNotEnoughHorzSpace && isNotEnoughVertSpace}
 			<div
 				class="pagination-container"
 				class:horz={$mode !== 'vertical'}
 				class:vert={$mode === 'vertical'}
 			>
 				<MultiStackPagination
-					length={lanesElArray.length}
-					activeIndex={$mode === 'single' ? visibleIndex : undefined}
+					length={stacks.length}
+					{visibleIndexes}
 					selectedBranchIndex={stacks.findIndex((s) => {
 						return s.id === selectedId;
 					})}
-					onclick={(index) => scrollToLane(lanesEl, index)}
+					onclick={(index) =>
+						scrollToLane(lanesContentEl, index, $mode === 'vertical' ? 'vert' : 'horz')}
 				/>
 			</div>
 		{/if}
@@ -105,22 +100,22 @@
 					class:single={$mode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
 					class:vertical={$mode === 'vertical'}
 					data-id={stack.id}
-					bind:this={lanesElArray[i]}
+					bind:clientWidth={laneWidths[i]}
+					bind:clientHeight={lineHights[i]}
 					use:intersectionObserver={{
 						callback: (entry) => {
 							if (entry?.isIntersecting) {
-								invisibleLanes = invisibleLanes.filter((id) => id !== stack.id);
+								visibleIndexes = [...visibleIndexes, i];
 							} else {
-								invisibleLanes = [...invisibleLanes, stack.id];
+								visibleIndexes = visibleIndexes.filter((index) => index !== i);
 							}
 						},
 						options: {
-							root: lanesEl,
-							threshold: 0.5
+							threshold: 0.5,
+							root: lanesContentEl
 						}
 					}}
 				>
-					<!-- {stack.id} -->
 					<BranchList isVerticalMode={$mode === 'vertical'} {projectId} stackId={stack.id} />
 				</div>
 			{/each}
@@ -129,7 +124,7 @@
 		{/if}
 
 		{#if $mode !== 'vertical'}
-			<Scrollbar whenToShow="hover" viewport={lanesEl} horz onscroll={onScroll} />
+			<Scrollbar whenToShow="hover" viewport={lanesContentEl} horz />
 		{/if}
 	</div>
 </div>
