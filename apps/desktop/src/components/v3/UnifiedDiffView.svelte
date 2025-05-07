@@ -209,7 +209,7 @@
 				fileDependencies?.current.data?.dependencies ?? []
 			)}
 			<div
-				class="hunk-content no-select"
+				class="hunk-content"
 				use:draggableChips={{
 					label: hunk.diff.split('\n')[0],
 					data: new HunkDropDataV3(change, hunk, uncommittedChange),
@@ -310,5 +310,9 @@
 	.hunk-placehoder {
 		border: 1px solid var(--clr-border-3);
 		border-radius: var(--radius-m);
+	}
+
+	.hunk-content {
+		user-select: text;
 	}
 </style>
