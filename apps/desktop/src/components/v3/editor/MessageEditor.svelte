@@ -272,7 +272,7 @@
 						{placeholder}
 						bind:this={composer}
 						markdown={useRichText.current}
-						onError={(e) => showError('Editor error', e)}
+						onError={(e) => console.warn('Editor error', e)}
 						initialText={initialValue}
 						onChange={handleChange}
 						onKeyDown={handleKeyDown}
