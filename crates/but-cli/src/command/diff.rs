@@ -18,7 +18,7 @@ pub fn commit_changes(
         .transpose()?;
     let commit = repo.rev_parse_single(current_commit)?;
     let (changes, _) =
-        but_core::diff::commit_changes(&repo, previous_commit.map(Into::into), commit.into())?;
+        but_core::diff::tree_changes(&repo, previous_commit.map(Into::into), commit.into())?;
 
     if unified_diff {
         debug_print(unified_diff_for_changes(&repo, changes, UI_CONTEXT_LINES)?)

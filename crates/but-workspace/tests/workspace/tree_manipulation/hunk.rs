@@ -1,4 +1,6 @@
-use crate::discard::hunk::util::{changed_file_in_worktree_with_hunks, previous_change_text};
+use crate::tree_manipulation::hunk::util::{
+    changed_file_in_worktree_with_hunks, previous_change_text,
+};
 use crate::utils::{
     CONTEXT_LINES, hunk_header, read_only_in_memory_scenario, to_change_specs_all_hunks,
     visualize_index, writable_scenario,
@@ -720,9 +722,9 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?, @r"
     .
     ├── .git:40755
-    ├── file:100644
-    ├── file-in-index:100755
-    ├── file-renamed:100755
+    ├── file:100755
+    ├── file-in-index:100644
+    ├── file-renamed:100644
     └── file-renamed-in-index:100644
     ");
 
@@ -742,8 +744,6 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
 
     // Notably, discarding all hunks leaves the renamed file in place, but without modifications.
     insta::assert_snapshot!(git_status(&repo)?, @r"
-     M file
-    MM file-in-index
     R  file-to-be-renamed-in-index -> file-renamed-in-index
      D file-to-be-renamed
     ?? file-renamed
@@ -751,7 +751,7 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
     // The index still only holds what was in the index before, but is representing the changed worktree.
     insta::assert_snapshot!(visualize_index(&**repo.index()?), @r"
     100755:3d3b36f file
-    100755:cb89473 file-in-index
+    100644:3d3b36f file-in-index
     100644:3d3b36f file-renamed-in-index
     100644:3d3b36f file-to-be-renamed
     ");
@@ -762,22 +762,6 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
     WorktreeChanges {
         changes: [
             TreeChange {
-                path: "file",
-                status: Modification {
-                    previous_state: ChangeState {
-                        id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
-                        kind: BlobExecutable,
-                    },
-                    state: ChangeState {
-                        id: Sha1(0000000000000000000000000000000000000000),
-                        kind: Blob,
-                    },
-                    flags: Some(
-                        ExecutableBitRemoved,
-                    ),
-                },
-            },
-            TreeChange {
                 path: "file-renamed",
                 status: Rename {
                     previous_path: "file-to-be-renamed",
@@ -787,11 +771,9 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
                     },
                     state: ChangeState {
                         id: Sha1(0000000000000000000000000000000000000000),
-                        kind: BlobExecutable,
+                        kind: Blob,
                     },
-                    flags: Some(
-                        ExecutableBitAdded,
-                    ),
+                    flags: None,
                 },
             },
             TreeChange {
@@ -810,12 +792,7 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
                 },
             },
         ],
-        ignored_changes: [
-            IgnoredWorktreeChange {
-                path: "file-in-index",
-                status: TreeIndexWorktreeChangeIneffective,
-            },
-        ],
+        ignored_changes: [],
     }
     "#);
 

@@ -43,8 +43,8 @@ mod integrated;
 pub mod ui;
 
 pub mod commit_engine;
-pub mod discard;
-pub use discard::function::discard_workspace_changes;
+pub mod tree_manipulation;
+pub use tree_manipulation::function::discard_workspace_changes;
 
 /// 🚧utilities for applying and unapplying branches 🚧.
 pub mod branch;

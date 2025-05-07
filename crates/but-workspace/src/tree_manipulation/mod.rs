@@ -1,9 +1,7 @@
 //! Utility types related to discarding changes in the worktree.
 
 use crate::commit_engine::DiffSpec;
-use gix::object::tree::EntryKind;
 use std::ops::{Deref, DerefMut};
-use std::path::{Path, PathBuf};
 
 /// A specification of what should be discarded, either changes to the whole file, or a portion of it.
 /// Note that these must match an actual worktree change, but also may only partially match them if individual ranges are chosen
@@ -36,6 +34,21 @@ impl From<DiscardSpec> for DiffSpec {
     }
 }
 
+pub(crate) trait RelaPath {
+    fn rela_path(&self) -> &bstr::BStr;
+}
+
+impl RelaPath for gix::diff::index::ChangeRef<'_, '_> {
+    fn rela_path(&self) -> &bstr::BStr {
+        match self {
+            gix::diff::index::ChangeRef::Addition { location, .. }
+            | gix::diff::index::ChangeRef::Modification { location, .. }
+            | gix::diff::index::ChangeRef::Rewrite { location, .. }
+            | gix::diff::index::ChangeRef::Deletion { location, .. } => location,
+        }
+    }
+}
+
 pub(super) mod function;
 #[allow(missing_docs)]
 pub mod ui {
@@ -45,33 +58,3 @@ pub mod ui {
 
 mod file;
 pub(crate) mod hunk;
-
-#[cfg(unix)]
-fn locked_resource_at(
-    root: PathBuf,
-    path: &Path,
-    kind: EntryKind,
-) -> anyhow::Result<gix::lock::File> {
-    use std::os::unix::fs::PermissionsExt;
-    Ok(
-        gix::lock::File::acquire_to_update_resource_with_permissions(
-            path,
-            gix::lock::acquire::Fail::Immediately,
-            Some(root),
-            || std::fs::Permissions::from_mode(kind as u32),
-        )?,
-    )
-}
-
-#[cfg(windows)]
-fn locked_resource_at(
-    root: PathBuf,
-    path: &Path,
-    _kind: EntryKind,
-) -> anyhow::Result<gix::lock::File> {
-    Ok(gix::lock::File::acquire_to_update_resource(
-        path,
-        gix::lock::acquire::Fail::Immediately,
-        Some(root),
-    )?)
-}

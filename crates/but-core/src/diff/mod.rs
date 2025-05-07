@@ -1,7 +1,7 @@
-pub(crate) mod commit;
+pub(crate) mod tree_changes;
 
 use bstr::{BStr, ByteSlice};
-pub use commit::commit_changes;
+pub use tree_changes::tree_changes;
 
 mod worktree;
 use crate::{ChangeState, ModeFlags, TreeChange, TreeStatus, TreeStatusKind};

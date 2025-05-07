@@ -81,6 +81,11 @@ impl HunkHeader {
             lines: self.new_lines,
         }
     }
+
+    /// Return `true` if this hunk is fully contained in the other hunk.
+    pub fn contains(self, other: HunkHeader) -> bool {
+        self.old_range().contains(other.old_range()) && self.new_range().contains(other.new_range())
+    }
 }
 
 impl std::fmt::Debug for HunkHeader {
