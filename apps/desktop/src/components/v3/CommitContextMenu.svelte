@@ -64,6 +64,10 @@
 			offset: location === 'above' ? -1 : 1
 		});
 	}
+
+	function close() {
+		context = undefined;
+	}
 </script>
 
 {#if context?.data}
