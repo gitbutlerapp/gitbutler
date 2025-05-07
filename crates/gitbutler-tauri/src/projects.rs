@@ -54,15 +54,18 @@ pub mod commands {
         projects: State<'_, Controller>,
     ) -> Result<Vec<ProjectForFrontend>, Error> {
         let open_projects = window_state.open_projects();
-        projects.list().map_err(Into::into).map(|projects| {
-            projects
-                .into_iter()
-                .map(|project| ProjectForFrontend {
-                    is_open: open_projects.contains(&project.id),
-                    inner: project,
-                })
-                .collect()
-        })
+        projects
+            .assure_app_can_startup_or_fix_it(projects.list())
+            .map_err(Into::into)
+            .map(|projects| {
+                projects
+                    .into_iter()
+                    .map(|project| ProjectForFrontend {
+                        is_open: open_projects.contains(&project.id),
+                        inner: project,
+                    })
+                    .collect()
+            })
     }
 
     /// This trigger is the GUI telling us that the project with `id` is now displayed.
