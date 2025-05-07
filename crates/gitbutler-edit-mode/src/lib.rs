@@ -131,23 +131,10 @@ fn find_or_create_base_commit<'a>(
     Ok(repository.find_commit(base)?)
 }
 
-fn commit_uncommited_changes(ctx: &CommandContext, parent: git2::Oid) -> Result<()> {
+fn commit_uncommited_changes(ctx: &CommandContext) -> Result<()> {
     let repository = ctx.repo();
-    let author_signature = signature(SignaturePurpose::Author)?;
-    let committer_signature = signature(SignaturePurpose::Committer)?;
-    let parent = repository.find_commit(parent)?;
-
     let uncommited_changes = repository.create_wd_tree(0)?;
-    let uncommited_changes_commit = repository.commit(
-        None,
-        &author_signature,
-        &committer_signature,
-        "Conflict base",
-        &uncommited_changes,
-        &[&parent],
-    )?;
-
-    repository.reference(UNCOMMITED_CHANGES_REF, uncommited_changes_commit, true, "")?;
+    repository.reference(UNCOMMITED_CHANGES_REF, uncommited_changes.id(), true, "")?;
     Ok(())
 }
 
@@ -226,7 +213,7 @@ pub(crate) fn enter_edit_mode(
         bail!("Can not enter edit mode for a reference which does not have a cooresponding virtual branch")
     }
 
-    commit_uncommited_changes(ctx, commit.id())?;
+    commit_uncommited_changes(ctx)?;
     write_edit_mode_metadata(ctx, &edit_mode_metadata).context("Failed to persist metadata")?;
     checkout_edit_branch(ctx, commit).context("Failed to checkout edit branch")?;
 
