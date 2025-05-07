@@ -6,9 +6,10 @@ use crate::{
     remote::{commit_to_remote_commit, RemoteCommit},
     VirtualBranchesExt,
 };
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_command_context::CommandContext;
+use gitbutler_error::error::Marker;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -57,7 +58,8 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
     let mut outcome = but_workspace::merge_worktree_with_workspace(ctx, &gix_repo)?;
 
     if !outcome.conflicts.is_empty() {
-        bail!("Conflicts while going back to gitbutler/workspace");
+        return Err(anyhow!("Conflicts while going back to gitbutler/workspace"))
+            .context(Marker::ProjectConflict);
     }
 
     let final_tree_id = outcome.tree.write()?.detach();
