@@ -799,6 +799,7 @@ dependencies = [
  "gitbutler-cherry-pick",
  "gitbutler-command-context",
  "gitbutler-commit",
+ "gitbutler-error",
  "gitbutler-fs",
  "gitbutler-id",
  "gitbutler-oxidize",

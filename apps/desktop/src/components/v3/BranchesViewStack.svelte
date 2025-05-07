@@ -8,19 +8,20 @@
 	type Props = {
 		projectId: string;
 		stackId: string;
+		onerror: (err: unknown) => void;
 	};
 
-	const { projectId, stackId }: Props = $props();
+	const { projectId, stackId, onerror }: Props = $props();
 
 	const stackService = getContext(StackService);
 
 	const stackResult = $derived(stackService.allStackById(projectId, stackId));
 </script>
 
-<ReduxResult result={stackResult.current} {projectId} {stackId}>
+<ReduxResult result={stackResult.current} {projectId} {stackId} {onerror}>
 	{#snippet children(stack, { stackId, projectId })}
 		{#each getStackBranchNames(stack) as branchName, idx}
-			<BranchesViewBranch {projectId} {stackId} {branchName} isTopBranch={idx === 0} />
+			<BranchesViewBranch {projectId} {stackId} {branchName} isTopBranch={idx === 0} {onerror} />
 		{/each}
 	{/snippet}
 </ReduxResult>

@@ -19,9 +19,10 @@
 		stackId?: string;
 		remote?: string;
 		prNumber?: number;
+		onerror?: (err: unknown) => void;
 	}
 
-	const { projectId, stackId, branchName, remote, prNumber }: Props = $props();
+	const { projectId, stackId, branchName, remote, prNumber, onerror }: Props = $props();
 
 	const [stackService] = inject(StackService, BaseBranchService);
 
@@ -34,7 +35,7 @@
 	let headerMenuContext = $state<BranchHeaderContextItem>();
 </script>
 
-<ReduxResult {projectId} result={branchResult.current}>
+<ReduxResult {projectId} result={branchResult.current} {onerror}>
 	{#snippet children(branch, { stackId, projectId })}
 		{@const hasCommits = branch.commits.length > 0}
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}

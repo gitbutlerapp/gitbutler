@@ -134,6 +134,7 @@ pub enum Code {
     CommitMergeConflictFailure,
     ProjectMissing,
     AuthorMissing,
+    BranchNotFound,
 }
 
 impl std::fmt::Display for Code {
@@ -147,6 +148,7 @@ impl std::fmt::Display for Code {
             Code::CommitMergeConflictFailure => "errors.commit.merge_conflict_failure",
             Code::AuthorMissing => "errors.git.author_missing",
             Code::ProjectMissing => "errors.projects.missing",
+            Code::BranchNotFound => "errors.branch.notfound",
         };
         f.write_str(code)
     }

@@ -27,6 +27,7 @@
 		projectId: string;
 		children: Snippet<[A, Env<B>]>;
 		error?: Snippet<[unknown]>;
+		onerror?: (err: unknown) => void;
 	} & (B extends undefined ? { stackId?: B } : { stackId: B });
 
 	const props: Props<A, B> = $props();
@@ -37,6 +38,7 @@
 	};
 
 	let cache: Display | undefined;
+
 	const display = $derived.by<Display>(() => {
 		const env = { projectId: props.projectId, stackId: props.stackId as B };
 		if (props.result?.error) {
@@ -50,6 +52,12 @@
 			} else {
 				return { result: props.result, env };
 			}
+		}
+	});
+
+	$effect(() => {
+		if (props.onerror && display.result?.error !== undefined) {
+			props.onerror(display.result.error);
 		}
 	});
 </script>

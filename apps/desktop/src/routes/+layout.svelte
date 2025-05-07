@@ -144,7 +144,6 @@
 		reactive(() => uiStateSlice),
 		clientState.dispatch
 	);
-	(window as any)['uiState'] = uiState;
 	setContext(UiState, uiState);
 
 	const stackService = new StackService(clientState['backendApi'], forgeFactory, uiState);

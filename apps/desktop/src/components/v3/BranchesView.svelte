@@ -14,6 +14,7 @@
 	import CurrentOriginCard from '$components/v3/branchesPage/CurrentOriginCard.svelte';
 	import PRListCard from '$components/v3/branchesPage/PRListCard.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
+	import { isParsedError } from '$lib/error/parser';
 	import { Focusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -86,6 +87,14 @@
 		});
 		await baseBranchService.refreshBaseBranch(projectId);
 	}
+
+	function onerror(err: unknown) {
+		// Clear selection if branch not found.
+		if (isParsedError(err) && err.code === 'errors.branch.notfound') {
+			branchesSelection.set({});
+			console.warn('Branches selection cleared');
+		}
+	}
 </script>
 
 <ReduxResult {projectId} result={baseBranchResult.current}>
@@ -115,7 +124,8 @@
 						onclick={() => {
 							branchesSelection.set({ branchName: baseBranch.shortName, isTarget: true });
 						}}
-						selected={branchesSelection.current.branchName === baseBranch.shortName}
+						selected={branchesSelection.current.branchName === undefined ||
+							branchesSelection.current.branchName === baseBranch.shortName}
 					/>
 				</BranchesListGroup>
 				<BranchExplorer {projectId}>
@@ -125,7 +135,10 @@
 								{projectId}
 								branchListing={sidebarEntrySubject.subject}
 								prs={sidebarEntrySubject.prs}
-								selected={branchesSelection.current.branchName === sidebarEntrySubject.subject.name}
+								selected={sidebarEntrySubject.subject.stack
+									? branchesSelection.current.branchName ===
+										sidebarEntrySubject.subject.stack.branches.at(0)
+									: branchesSelection.current.branchName === sidebarEntrySubject.subject.name}
 								onclick={({ listing, pr }) => {
 									if (listing.stack) {
 										branchesSelection.set({
@@ -177,12 +190,18 @@
 					/>
 				{:else if current.branchName}
 					{#if current.inWorkspace && current.stackId}
-						<BranchView {projectId} branchName={current.branchName} stackId={current.stackId} />
+						<BranchView
+							{projectId}
+							branchName={current.branchName}
+							stackId={current.stackId}
+							{onerror}
+						/>
 					{:else if current.isTarget}
 						<UnappliedBranchView
 							{projectId}
 							branchName={current.branchName}
 							remote={current.remote}
+							{onerror}
 						/>
 					{:else}
 						<UnappliedBranchView
@@ -191,8 +210,16 @@
 							stackId={current.stackId}
 							remote={current.remote}
 							prNumber={current.prNumber}
+							{onerror}
 						/>
 					{/if}
+				{:else}
+					<UnappliedBranchView
+						{projectId}
+						branchName={baseBranch.shortName}
+						remote={baseBranch.remoteName}
+						{onerror}
+					/>
 				{/if}
 			</div>
 
@@ -233,15 +260,16 @@
 					bind:this={rightDiv}
 					style:width={rightWidth.current + 'rem'}
 				>
-					{#if current.branchName === baseBranch.shortName}
+					{#if current.branchName === undefined || current.branchName === baseBranch.shortName}
 						<TargetCommitList {projectId} />
 					{:else if current.stackId}
-						<BranchesViewStack {projectId} stackId={current.stackId} />
+						<BranchesViewStack {projectId} stackId={current.stackId} {onerror} />
 					{:else if current.branchName}
 						<BranchesViewBranch
 							{projectId}
 							branchName={current.branchName}
 							remote={current.remote}
+							{onerror}
 						/>
 					{:else if current.prNumber}
 						Not implemented!

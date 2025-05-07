@@ -27,6 +27,7 @@ use anyhow::{Context, Result, bail};
 use bstr::BString;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_error::error::Code;
 use gitbutler_id::id::Id;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};
 use gitbutler_stack::{Stack, StackBranch, VirtualBranchesHandle};
@@ -395,7 +396,9 @@ pub fn branch_details(
                 git2::BranchType::Remote,
             )
             .map(|b| (b, true)),
-    }?;
+    }
+    .context(format!("Could not find branch {branch_name}"))
+    .context(Code::BranchNotFound)?;
 
     let Some(branch_oid) = branch.get().target() else {
         bail!("Branch points to nothing");
