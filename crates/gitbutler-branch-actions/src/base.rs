@@ -9,7 +9,7 @@ use crate::{
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::{gix_to_git2_oid, GixRepositoryExt, OidExt};
+use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{
@@ -53,47 +53,8 @@ pub fn get_base_branch_data(ctx: &CommandContext) -> Result<BaseBranch> {
 }
 
 fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Result<BaseBranch> {
-    let repo = ctx.repo();
-    let gix_repo = ctx.gix_repo()?;
-    // The tree of where the gitbutler workspace is at
-    let workspace_tree = gix_repo
-        .find_commit(but_workspace::head(ctx)?.to_gix())?
-        .tree_id()?
-        .detach();
-
-    // The uncommitted changes
-    let workdir_tree = ctx
-        .repo()
-        .create_wd_tree(gitbutler_project::AUTO_TRACK_LIMIT_BYTES)?
-        .id()
-        .to_gix();
-
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let applied_stacks = vb_state.list_stacks_in_workspace()?;
-
-    let head = gix_repo.head()?;
-    let heads = applied_stacks
-        .iter()
-        .map(|stack| stack.head_oid(&gix_repo))
-        .chain(Some(Ok(head.into_peeled_id()?.detach())))
-        .collect::<Result<Vec<_>>>()?;
-
-    // The merge base tree of all of the applied stacks plus the top commit of the current branch
-    let merge_base_tree = gix_repo
-        .merge_base_octopus(heads)?
-        .object()?
-        .into_commit()
-        .tree_id()?;
-
-    let (merge_options_fail_fast, _conflict_kind) =
-        gix_repo.merge_options_no_rewrites_fail_fast()?;
-    let mut outcome = gix_repo.merge_trees(
-        merge_base_tree,
-        workdir_tree,
-        workspace_tree,
-        gix_repo.default_merge_labels(),
-        merge_options_fail_fast.clone(),
-    )?;
+    let gix_repo = ctx.gix_repo_for_merging()?;
+    let mut outcome = but_workspace::merge_worktree_with_workspace(ctx, &gix_repo)?;
 
     if !outcome.conflicts.is_empty() {
         bail!("Conflicts while going back to gitbutler/workspace");
@@ -101,13 +62,15 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
 
     let final_tree_id = outcome.tree.write()?.detach();
 
-    let final_tree = repo.find_tree(gix_to_git2_oid(final_tree_id))?;
+    let repo = ctx.repo();
+    let final_tree = repo.find_tree(final_tree_id.to_git2())?;
     repo.checkout_tree_builder(&final_tree)
         .force()
         .checkout()
         .context("failed to checkout tree")?;
 
     let base = target_to_base_branch(ctx, default_target)?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     update_workspace_commit(&vb_state, ctx)?;
     Ok(base)
 }

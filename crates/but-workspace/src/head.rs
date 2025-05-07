@@ -3,13 +3,61 @@ use anyhow::{Context, Result};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{
-    GixRepositoryExt, ObjectIdExt, RepoExt, git2_to_gix_object_id, gix_to_git2_oid,
+    GixRepositoryExt, ObjectIdExt, OidExt, RepoExt, git2_to_gix_object_id, gix_to_git2_oid,
 };
-use gitbutler_repo::SignaturePurpose;
+use gitbutler_repo::{RepositoryExt, SignaturePurpose};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use tracing::instrument;
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
+
+/// Merges the tree of the workspace with the tree of the worktree, agnostic to which branch HEAD is pointing to
+pub fn merge_worktree_with_workspace<'a>(
+    ctx: &CommandContext,
+    gix_repo: &'a gix::Repository,
+) -> Result<gix::merge::tree::Outcome<'a>> {
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let applied_stacks = vb_state.list_stacks_in_workspace()?;
+
+    let head = gix_repo.head()?;
+    let heads = applied_stacks
+        .iter()
+        .map(|stack| stack.head_oid(gix_repo))
+        .chain(Some(Ok(head.into_peeled_id()?.detach())))
+        .collect::<Result<Vec<_>>>()?;
+
+    // The merge base tree of all of the applied stacks plus the top commit of the current branch
+    let merge_base_tree = gix_repo
+        .merge_base_octopus(heads)?
+        .object()?
+        .into_commit()
+        .tree_id()?;
+
+    // The uncommitted changes
+    let workdir_tree = ctx
+        .repo()
+        .create_wd_tree(gitbutler_project::AUTO_TRACK_LIMIT_BYTES)?
+        .id()
+        .to_gix();
+
+    // The tree of where the gitbutler workspace is at
+    let workspace_tree = gix_repo
+        .find_commit(super::head(ctx)?.to_gix())?
+        .tree_id()?
+        .detach();
+
+    let (merge_options_fail_fast, _conflict_kind) =
+        gix_repo.merge_options_no_rewrites_fail_fast()?;
+
+    let outcome = gix_repo.merge_trees(
+        merge_base_tree,
+        workdir_tree,
+        workspace_tree,
+        gix_repo.default_merge_labels(),
+        merge_options_fail_fast.clone(),
+    )?;
+    Ok(outcome)
+}
 
 /// Creates and returns a merge commit of all active branch heads.
 ///

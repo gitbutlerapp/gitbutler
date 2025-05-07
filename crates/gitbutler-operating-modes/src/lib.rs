@@ -3,9 +3,7 @@ use std::{fs, path::PathBuf};
 use anyhow::{bail, Context, Result};
 use bstr::BString;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::{GixRepositoryExt, OidExt};
 use gitbutler_reference::ReferenceName;
-use gitbutler_repo::RepositoryExt;
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::merge::tree::TreatAsUnresolved;
@@ -124,6 +122,7 @@ pub fn operating_mode(ctx: &CommandContext) -> OperatingMode {
 
 fn outside_workspace_metadata(ctx: &CommandContext) -> Result<OutsideWorkspaceMetadata> {
     let gix_repo = ctx.gix_repo_for_merging()?;
+
     let head = gix_repo.head()?;
     let branch_name = head
         .referent_name()
@@ -140,43 +139,8 @@ fn outside_workspace_metadata(ctx: &CommandContext) -> Result<OutsideWorkspaceMe
         });
     }
 
-    let heads = applied_stacks
-        .iter()
-        .map(|stack| stack.head_oid(&gix_repo))
-        .chain(Some(Ok(head.into_peeled_id()?.detach())))
-        .collect::<Result<Vec<_>>>()?;
-
-    // The merge base tree of all of the applied stacks plus the top commit of the current branch
-    let merge_base_tree = gix_repo
-        .merge_base_octopus(heads)?
-        .object()?
-        .into_commit()
-        .tree_id()?;
-
-    // The uncommitted changes
-    let workdir_tree = ctx
-        .repo()
-        .create_wd_tree(gitbutler_project::AUTO_TRACK_LIMIT_BYTES)?
-        .id()
-        .to_gix();
-
-    // The tree of where the gitbutler workspace is at
-    let workspace_tree = gix_repo
-        .find_commit(but_workspace::head(ctx)?.to_gix())?
-        .tree_id()?
-        .detach();
-
-    let (merge_options_fail_fast, _conflict_kind) =
-        gix_repo.merge_options_no_rewrites_fail_fast()?;
-
-    let worktree_conflicts = gix_repo
-        .merge_trees(
-            merge_base_tree,
-            workdir_tree,
-            workspace_tree,
-            gix_repo.default_merge_labels(),
-            merge_options_fail_fast.clone(),
-        )?
+    let outcome = but_workspace::merge_worktree_with_workspace(ctx, &gix_repo)?;
+    let worktree_conflicts = outcome
         .conflicts
         .iter()
         .filter(|c| c.is_unresolved(TreatAsUnresolved::git()))
