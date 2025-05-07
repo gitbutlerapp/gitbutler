@@ -1,4 +1,6 @@
-use crate::discard::hunk::util::{changed_file_in_worktree_with_hunks, previous_change_text};
+use crate::tree_manipulation::hunk::util::{
+    changed_file_in_worktree_with_hunks, previous_change_text,
+};
 use crate::utils::{
     CONTEXT_LINES, hunk_header, read_only_in_memory_scenario, to_change_specs_all_hunks,
     visualize_index, writable_scenario,

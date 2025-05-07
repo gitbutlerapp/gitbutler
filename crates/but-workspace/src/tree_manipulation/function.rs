@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::{
     commit_engine::{DiffSpec, HunkHeader, apply_hunks, index::apply_lhs_to_rhs},
-    discard::{
+    tree_manipulation::{
         DiscardSpec,
         hunk::{HunkSubstraction, subtract_hunks},
     },

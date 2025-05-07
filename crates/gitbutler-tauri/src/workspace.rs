@@ -204,8 +204,8 @@ pub fn discard_worktree_changes(
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
-    worktree_changes: Vec<but_workspace::discard::ui::DiscardSpec>,
-) -> Result<Vec<but_workspace::discard::ui::DiscardSpec>, Error> {
+    worktree_changes: Vec<but_workspace::tree_manipulation::ui::DiscardSpec>,
+) -> Result<Vec<but_workspace::tree_manipulation::ui::DiscardSpec>, Error> {
     let project = projects.get(project_id)?;
     let repo = but_core::open_repo(project.worktree_path())?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
@@ -218,9 +218,9 @@ pub fn discard_worktree_changes(
     let refused = but_workspace::discard_workspace_changes(
         &repo,
         worktree_changes.into_iter().map(|change| {
-            but_workspace::discard::DiscardSpec::from(but_workspace::commit_engine::DiffSpec::from(
-                change,
-            ))
+            but_workspace::tree_manipulation::DiscardSpec::from(
+                but_workspace::commit_engine::DiffSpec::from(change),
+            )
         }),
         settings.get()?.context_lines,
     )?;

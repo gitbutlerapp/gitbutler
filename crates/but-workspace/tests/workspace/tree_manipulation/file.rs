@@ -1023,7 +1023,7 @@ D submodule
 mod util {
     use crate::utils::to_change_specs_whole_file;
     use but_workspace::commit_engine::DiffSpec;
-    use but_workspace::discard::DiscardSpec;
+    use but_workspace::tree_manipulation::DiscardSpec;
 
     pub fn file_to_spec(name: &str) -> DiscardSpec {
         DiffSpec {
