@@ -14,7 +14,7 @@
 
 	type Props = {
 		length: number;
-		activeIndex: number;
+		activeIndex?: number;
 		selectedBranchIndex: number;
 		onclick: (index: number) => void;
 	};
@@ -55,10 +55,6 @@
 
 <style lang="postcss">
 	.pagination {
-		z-index: var(--z-floating);
-		position: absolute;
-		bottom: 60px;
-		right: 6px;
 		border-radius: var(--radius-ml);
 		display: flex;
 		justify-content: center;

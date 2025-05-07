@@ -25,16 +25,17 @@
 	let scrollbar = $state<Scrollbar>();
 
 	let lanesElArray = $state<HTMLElement[]>([]);
-	let visibleLanes = $state<string[]>([]);
+	let invisibleLanes = $state<string[]>([]);
 	let visibleIndex = $state<number>(0);
 
 	function onScroll() {
-		if ($mode !== 'single') return;
+		if (stacks.length < 1 && $mode !== 'single') return;
 
 		const scrollLeft = lanesEl?.scrollLeft ?? 0;
 		const laneWidth = lanesEl?.offsetWidth ?? 1; // fallback to 1 to avoid divide-by-zero
 
 		const index = Math.round(scrollLeft / laneWidth);
+
 		if (index !== visibleIndex) {
 			visibleIndex = index;
 		}
@@ -79,15 +80,21 @@
 		class:single={$mode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
 		class:vertical={$mode === 'vertical'}
 	>
-		{#if $mode === 'single' && stacks.length > SHOW_PAGINATION_THRESHOLD}
-			<MultiStackPagination
-				length={lanesElArray.length}
-				activeIndex={visibleIndex}
-				selectedBranchIndex={stacks.findIndex((s) => {
-					return s.id === selectedId;
-				})}
-				onclick={(index) => scrollToLane(lanesEl, index)}
-			/>
+		{#if invisibleLanes.length >= SHOW_PAGINATION_THRESHOLD}
+			<div
+				class="pagination-container"
+				class:horz={$mode !== 'vertical'}
+				class:vert={$mode === 'vertical'}
+			>
+				<MultiStackPagination
+					length={lanesElArray.length}
+					activeIndex={$mode === 'single' ? visibleIndex : undefined}
+					selectedBranchIndex={stacks.findIndex((s) => {
+						return s.id === selectedId;
+					})}
+					onclick={(index) => scrollToLane(lanesEl, index)}
+				/>
+			</div>
 		{/if}
 
 		{#if stacks.length > 0}
@@ -97,16 +104,14 @@
 					class:multi={$mode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
 					class:single={$mode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
 					class:vertical={$mode === 'vertical'}
-					class:is-visible={visibleLanes.includes(stack.id)}
 					data-id={stack.id}
 					bind:this={lanesElArray[i]}
 					use:intersectionObserver={{
 						callback: (entry) => {
-							console.log('intersection', visibleLanes);
 							if (entry?.isIntersecting) {
-								visibleLanes.push(stack.id);
+								invisibleLanes = invisibleLanes.filter((id) => id !== stack.id);
 							} else {
-								visibleLanes = visibleLanes.filter((id) => id !== stack.id);
+								invisibleLanes = [...invisibleLanes, stack.id];
 							}
 						},
 						options: {
@@ -115,6 +120,7 @@
 						}
 					}}
 				>
+					<!-- {stack.id} -->
 					<BranchList isVerticalMode={$mode === 'vertical'} {projectId} stackId={stack.id} />
 				</div>
 			{/each}
@@ -204,8 +210,23 @@
 		&.vertical {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
-		&.is-visible {
-			background-color: rgb(249, 167, 167);
+	}
+
+	.pagination-container {
+		z-index: var(--z-floating);
+		position: absolute;
+		display: flex;
+
+		&.horz {
+			bottom: 60px;
+			right: 6px;
+		}
+
+		&.vert {
+			bottom: 6px;
+			right: 6px;
+			transform: rotate(90deg) translateY(100%);
+			transform-origin: right bottom;
 		}
 	}
 </style>
