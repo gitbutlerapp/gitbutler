@@ -38,7 +38,10 @@
 
 	const stackingReorderDropzoneManagerFactory = getContext(StackingReorderDropzoneManagerFactory);
 	const stackingReorderDropzoneManager = $derived(
-		stackingReorderDropzoneManagerFactory.build(stack)
+		stackingReorderDropzoneManagerFactory.build(
+			stack.id,
+			stack.validSeries.map((s) => ({ name: s.name, commitIds: s.patches.map((p) => p.id) }))
+		)
 	);
 </script>
 
@@ -60,8 +63,11 @@
 					projectId,
 					stack.id,
 					stackService,
-					currentSeries,
-					nonArchivedValidSeries,
+					currentSeries.name,
+					nonArchivedValidSeries.map((s) => ({
+						name: s.name,
+						commitIds: s.patches.map((p) => p.id)
+					})),
 					'top'
 				)}
 				<div>

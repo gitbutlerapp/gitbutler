@@ -13,6 +13,7 @@
 		branchName: string;
 		selectedCommitId?: string;
 		empty?: Snippet;
+		beforeLocalAndRemote?: Snippet;
 		upstreamTemplate?: Snippet<
 			[
 				{
@@ -44,6 +45,7 @@
 		branchName,
 		selectedCommitId,
 		empty,
+		beforeLocalAndRemote,
 		localAndRemoteTemplate,
 		upstreamTemplate
 	}: Props = $props();
@@ -77,6 +79,7 @@
 			{/if}
 
 			{#if localAndRemoteTemplate}
+				{@render beforeLocalAndRemote?.()}
 				{#each localAndRemoteCommits as commit, i (commit.id)}
 					{@const first = i === 0}
 					{@const last = i === localAndRemoteCommits.length - 1}
