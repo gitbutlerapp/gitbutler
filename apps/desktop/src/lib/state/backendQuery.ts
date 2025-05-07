@@ -11,7 +11,9 @@ export async function tauriBaseQuery(
 	api: BaseQueryApi
 ): Promise<QueryReturnValue<unknown, TauriCommandError, undefined>> {
 	if (!hasTauriExtra(api.extra)) {
-		return { error: { message: 'Redux dependency Tauri not found!' } };
+		return {
+			error: { name: 'Failed to execute Tauri query', message: 'Redux dependency Tauri not found!' }
+		};
 	}
 
 	const posthog = hasPosthogExtra(api.extra) ? api.extra.posthog : undefined;
@@ -31,12 +33,14 @@ export async function tauriBaseQuery(
 		if (isTauriCommandError(error)) {
 			const newMessage =
 				`command: ${args.command}\nparams: ${JSON.stringify(args.params)})\n\n` + error.message;
-			throw { name, message: newMessage, code: error.code };
-		} else if (isErrorlike(error)) {
-			throw { name, message: error.message };
-		} else {
-			throw { name, message: String(error) };
+			return { error: { name, message: newMessage, code: error.code } };
 		}
+
+		if (isErrorlike(error)) {
+			return { error: { name, message: error.message } };
+		}
+
+		return { error: { name, message: String(error) } };
 	}
 }
 
