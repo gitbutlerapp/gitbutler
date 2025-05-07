@@ -9,8 +9,7 @@ use crate::{
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_command_context::CommandContext;
-use gitbutler_error::error::Marker;
-use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt};
+use gitbutler_oxidize::{gix_to_git2_oid, GixRepositoryExt, OidExt};
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{
@@ -55,49 +54,52 @@ pub fn get_base_branch_data(ctx: &CommandContext) -> Result<BaseBranch> {
 
 fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Result<BaseBranch> {
     let repo = ctx.repo();
-    let statuses = repo
-        .statuses(Some(
-            git2::StatusOptions::new()
-                .show(git2::StatusShow::IndexAndWorkdir)
-                .include_untracked(true),
-        ))
-        .context("failed to get status")?;
-    if !statuses.is_empty() {
-        return Err(anyhow!("current HEAD is dirty")).context(Marker::ProjectConflict);
+    let gix_repo = ctx.gix_repo()?;
+    // The tree of where the gitbutler workspace is at
+    let workspace_tree = gix_repo
+        .find_commit(but_workspace::head(ctx)?.to_gix())?
+        .tree_id()?
+        .detach();
+
+    // The uncommitted changes
+    let workdir_tree = ctx
+        .repo()
+        .create_wd_tree(gitbutler_project::AUTO_TRACK_LIMIT_BYTES)?
+        .id()
+        .to_gix();
+
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let applied_stacks = vb_state.list_stacks_in_workspace()?;
+
+    let head = gix_repo.head()?;
+    let heads = applied_stacks
+        .iter()
+        .map(|stack| stack.head_oid(&gix_repo))
+        .chain(Some(Ok(head.into_peeled_id()?.detach())))
+        .collect::<Result<Vec<_>>>()?;
+
+    // The merge base tree of all of the applied stacks plus the top commit of the current branch
+    let merge_base_tree = gix_repo
+        .merge_base_octopus(heads)?
+        .object()?
+        .into_commit()
+        .tree_id()?;
+
+    let (merge_options_fail_fast, _conflict_kind) =
+        gix_repo.merge_options_no_rewrites_fail_fast()?;
+    let mut outcome = gix_repo.merge_trees(
+        merge_base_tree,
+        workdir_tree,
+        workspace_tree,
+        gix_repo.default_merge_labels(),
+        merge_options_fail_fast.clone(),
+    )?;
+
+    if !outcome.conflicts.is_empty() {
+        bail!("Conflicts while going back to gitbutler/workspace");
     }
 
-    let vb_state = ctx.project().virtual_branches();
-    let virtual_branches = vb_state
-        .list_stacks_in_workspace()
-        .context("failed to read virtual branches")?;
-
-    let target_commit = repo
-        .find_commit(default_target.sha)
-        .context("failed to find target commit")?;
-
-    let base_tree = git2_to_gix_object_id(target_commit.tree_id());
-    let mut final_tree_id = git2_to_gix_object_id(target_commit.tree_id());
-    let gix_repo = ctx.gix_repo_for_merging()?;
-    let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
-    for branch in &virtual_branches {
-        // merge this branches tree with our tree
-        let branch_tree_id = git2_to_gix_object_id(
-            repo.find_commit(branch.head_oid(&gix_repo)?.to_git2())
-                .context("failed to find branch head")?
-                .tree_id(),
-        );
-        let mut merge = gix_repo.merge_trees(
-            base_tree,
-            final_tree_id,
-            branch_tree_id,
-            gix_repo.default_merge_labels(),
-            merge_options_fail_fast.clone(),
-        )?;
-        if merge.has_unresolved_conflicts(conflict_kind) {
-            bail!("Merge failed with conflicts");
-        }
-        final_tree_id = merge.tree.write()?.detach();
-    }
+    let final_tree_id = outcome.tree.write()?.detach();
 
     let final_tree = repo.find_tree(gix_to_git2_oid(final_tree_id))?;
     repo.checkout_tree_builder(&final_tree)
