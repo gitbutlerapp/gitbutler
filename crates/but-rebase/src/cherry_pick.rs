@@ -147,7 +147,7 @@ pub(crate) mod function {
                 .context("Failed to get conflicted side of commit")?;
             conflicted_side.id()
         } else {
-            commit.tree_id()?
+            commit.tree_id_or_auto_resolution()?
         })
     }
 
@@ -160,7 +160,7 @@ pub(crate) mod function {
         let repo = head.id.repo;
         // Remove empty commits
         if matches!(empty_commit, EmptyCommit::UsePrevious)
-            && resolved_tree_id == head.tree_id_by_kind_or_ours(TreeKind::Ours)?
+            && resolved_tree_id == head.tree_id_or_auto_resolution()?
         {
             return Ok(head.id);
         }

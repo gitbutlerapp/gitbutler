@@ -208,16 +208,21 @@ impl<'repo> Commit<'repo> {
         self.headers().is_some_and(|hdr| hdr.is_conflicted())
     }
 
-    /// Return the hash of *our* tree, even if this commit is conflicted.
-    pub fn tree_id(&self) -> anyhow::Result<gix::Id<'repo>> {
-        Ok(self
-            .tree_id_by_kind(TreeKind::Ours)?
-            .expect("our tree is always available"))
+    /// If the commit is conflicted, then it returns the auto-resolution tree,
+    /// otherwise it returns the commit's tree.
+    ///
+    /// Most of the time this is what you want to use when diffing or
+    /// displaying the commit to the user.
+    pub fn tree_id_or_auto_resolution(&self) -> anyhow::Result<gix::Id<'repo>> {
+        self.tree_id_or_kind(TreeKind::AutoResolution)
     }
 
-    /// Return the tree of the given `kind`, or `None` if no such tree exists as this instance is *not* conflicted.
-    /// If `kind` is [`TreeKind::Ours`] one can always expect `Some()` tree.
-    pub fn tree_id_by_kind(&self, kind: TreeKind) -> anyhow::Result<Option<gix::Id<'repo>>> {
+    /// If the commit is conflicted, then return the particular conflict-tree
+    /// specified by `kind`, otherwise return the commit's tree.
+    ///
+    /// Most of the time, you will probably want to use [`Self::tree_id_or_auto_resolution()`]
+    /// instead.
+    pub fn tree_id_or_kind(&self, kind: TreeKind) -> anyhow::Result<gix::Id<'repo>> {
         Ok(if self.is_conflicted() {
             let our_tree = self
                 .inner
@@ -228,19 +233,10 @@ impl<'repo> Commit<'repo> {
                 .find_entry(kind.as_tree_entry_name())
                 .with_context(|| format!("Unexpected tree in conflicting commit {}", self.id))?
                 .id();
-            Some(our_tree)
-        } else if matches!(kind, TreeKind::Ours) {
-            Some(self.inner.tree.attach(self.id.repo))
+            our_tree
         } else {
-            None
+            self.inner.tree.attach(self.id.repo)
         })
-    }
-
-    /// Just like [`Self::tree_id_by_kind()`], but automatically return our tree if this instance isn't conflicted.
-    pub fn tree_id_by_kind_or_ours(&self, kind: TreeKind) -> anyhow::Result<gix::Id<'repo>> {
-        Ok(self
-            .tree_id_by_kind(kind)?
-            .unwrap_or_else(|| self.inner.tree.attach(self.id.repo)))
     }
 
     /// Return our custom headers, of present.

@@ -40,7 +40,7 @@ pub fn octopus(
     let merge_base = but_core::Commit::from_id(
         repo.merge_base_octopus_with_graph(parents_to_merge.clone(), graph)?,
     )?
-    .tree_id_by_kind_or_ours(TreeKind::Base)?
+    .tree_id_or_kind(TreeKind::Base)?
     .detach();
     let mut trees_to_merge = parents_to_merge
         .clone()
@@ -49,7 +49,7 @@ pub fn octopus(
             //       is the original 'to_rebase'. However, if that changes we must know
             //       what created the special merge commit.
             Ok(but_core::Commit::from_id(commit_id.attach(repo))?
-                .tree_id_by_kind_or_ours(TreeKind::Theirs)?
+                .tree_id_or_kind(TreeKind::Theirs)?
                 .detach())
         })
         .collect::<Result<Vec<_>, _>>()?
