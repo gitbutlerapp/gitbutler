@@ -419,7 +419,7 @@ pub struct BranchListingFilter {
 
 /// Represents a branch that exists for the repository
 /// This also combines the concept of a remote, local and virtual branch in order to provide a unified interface for the UI
-/// Branch entry is not meant to contain all of the data a branch can have (e.g. full commit history, all files and diffs, etc.).
+/// Branch entry is not meant to contain all the data a branch can have (e.g. full commit history, all files and diffs, etc.).
 /// It is intended a summary that can be quickly retrieved and displayed in the UI.
 /// For more detailed information, each branch can be queried individually for it's `BranchData`.
 #[derive(Debug, Clone, Serialize, PartialEq)]
