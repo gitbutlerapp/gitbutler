@@ -127,7 +127,7 @@
 			id="newRemoteName"
 			bind:value={createRefName}
 			autofocus
-			helperText={generatedNameDiverges && `Will be created as '${slugifiedRefName}'`}
+			helperText={generatedNameDiverges ? `Will be created as '${slugifiedRefName}'` : undefined}
 		/>
 
 		<div class="options-wrap">
