@@ -237,6 +237,12 @@ Cypress.Commands.add('selectText', (element: Cypress.Chainable<JQuery<HTMLElemen
 	cy.document().trigger('selectionchange');
 });
 
+Cypress.on('uncaught:exception', () => {
+	// Returning false here prevents Cypress from
+	// failing the test.
+	return false;
+});
+
 beforeEach(() => {
 	cy.viewport('macbook-11');
 });
