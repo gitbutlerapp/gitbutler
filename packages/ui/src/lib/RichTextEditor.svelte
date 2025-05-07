@@ -66,35 +66,39 @@
 	}: Props = $props();
 
 	/** Standard configuration for our commit message editor. */
-	const config = standardConfig({
+	const initialConfig = standardConfig({
 		initialText,
 		namespace,
 		theme: standardTheme,
 		onError
 	});
 
-	const isDisabled = $derived(disabled ?? false);
-
-	const initialConfig = $derived({
-		...config,
-		editable: !isDisabled
-	});
 	/**
 	 * Instance of the lexical composer, used for manipulating the contents of the editor
 	 * programatically.
 	 */
 	let composer = $state<ReturnType<typeof Composer>>();
-
 	let editorDiv: HTMLDivElement | undefined = $state();
-	const editor = $derived(composer?.getEditor());
-
 	let emojiPlugin = $state<ReturnType<typeof EmojiPlugin>>();
 
 	// TODO: Change this plugin in favor of a toggle button.
 	const markdownTransitionPlugin = new MarkdownTransitionPlugin(markdown);
 
+	const isDisabled = $derived(disabled ?? false);
+
 	$effect(() => {
-		if (editor) {
+		if (composer) {
+			const editor = composer.getEditor();
+			if (isDisabled && editor.isEditable()) {
+				editor.setEditable(false);
+			} else if (!isDisabled && !editor.isEditable()) {
+				editor.setEditable(true);
+			}
+		}
+	});
+	$effect(() => {
+		if (composer) {
+			const editor = composer.getEditor();
 			markdownTransitionPlugin.setEditor(editor);
 		}
 	});
@@ -104,7 +108,8 @@
 	});
 
 	$effect(() => {
-		if (editor) {
+		if (composer) {
+			const editor = composer.getEditor();
 			const unregidterKeyDown = editor.registerCommand<KeyboardEvent | null>(
 				KEY_DOWN_COMMAND,
 				(e) => {
@@ -142,14 +147,21 @@
 
 	export function getPlaintext(): Promise<string | undefined> {
 		return new Promise((resolve) => {
-			editor?.read(() => {
-				const text = getRoot().getTextContent();
-				resolve(text);
-			});
+			if (composer) {
+				const editor = composer.getEditor();
+				editor?.read(() => {
+					const text = getRoot().getTextContent();
+					resolve(text);
+				});
+			}
 		});
 	}
 
 	export function clear() {
+		if (!composer) {
+			return;
+		}
+		const editor = composer.getEditor();
 		editor?.update(() => {
 			const root = getRoot();
 			root.clear();
@@ -157,20 +169,26 @@
 	}
 
 	export function focus() {
+		if (!composer) {
+			return;
+		}
+		const editor = composer.getEditor();
 		editor?.focus();
 	}
 
 	export function insertText(text: string) {
-		focus();
-		if (editor) {
-			insertTextAtCaret(editor, text);
+		if (!composer) {
+			return;
 		}
+		focus();
+		const editor = composer.getEditor();
+		insertTextAtCaret(editor, text);
 	}
 
 	export function setText(text: string) {
-		if (editor) {
-			setEditorText(editor, text);
-		}
+		if (!composer) return;
+		const editor = composer.getEditor();
+		setEditorText(editor, text);
 	}
 </script>
 
@@ -179,6 +197,7 @@
 		class="lexical-container lexical-{styleContext}"
 		bind:this={editorDiv}
 		class:plain-text={!markdown}
+		class:disabled={isDisabled}
 	>
 		<div class="editor-scroller scrollbar">
 			<div class="editor">
@@ -241,5 +260,10 @@
 		position: relative;
 		resize: vertical;
 		z-index: -1;
+	}
+
+	.disabled {
+		pointer-events: none;
+		opacity: 0.5;
 	}
 </style>

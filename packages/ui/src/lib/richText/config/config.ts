@@ -56,6 +56,7 @@ export function standardConfig(args: {
 }): InitialConfigType {
 	const { namespace, theme, onError, initialText } = args;
 	return {
+		editable: true,
 		theme,
 		namespace,
 		onError,
