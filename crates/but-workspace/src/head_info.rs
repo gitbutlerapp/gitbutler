@@ -20,6 +20,7 @@ pub(crate) mod function {
     use but_core::ref_metadata::ValueInfo;
     use gix::prelude::ReferenceExt;
     use gix::revision::walk::Sorting;
+    use tracing::instrument;
 
     /// Gather information about the current `HEAD` and the workspace that might be associated with it, based on data in `repo` and `meta`.
     ///
@@ -28,6 +29,7 @@ pub(crate) mod function {
     /// ### Performance
     ///
     /// Make sure the `repo` is initialized with a decently sized Object cache so querying the same commit multiple times will be cheap(er).
+    #[instrument(level = tracing::Level::DEBUG, skip(repo, meta), err(Debug))]
     pub fn head_info(
         repo: &gix::Repository,
         meta: &impl but_core::RefMetadata,

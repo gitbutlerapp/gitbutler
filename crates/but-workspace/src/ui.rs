@@ -237,3 +237,36 @@ pub struct StackDetails {
     /// Whether the stack is conflicted.
     pub is_conflicted: bool,
 }
+
+/// Represents a branch in a [`Stack`]. It contains commits derived from the local pseudo branch and it's respective remote
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Branch {
+    /// The name of the branch.
+    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    pub name: BString,
+    /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
+    #[serde(with = "gitbutler_serde::bstring_opt_lossy")]
+    pub remote_tracking_branch: Option<BString>,
+    /// Description of the branch.
+    /// Can include arbitrary utf8 data, eg. markdown etc.
+    pub description: Option<String>,
+    /// The pull(merge) request associated with the branch, or None if no such entity has not been created.
+    pub pr_number: Option<usize>,
+    /// A unique identifier for the GitButler review associated with the branch, if any.
+    pub review_id: Option<String>,
+    /// Indicates that the branch was previously part of a stack but it has since been integrated.
+    /// In other words, the merge base of the stack is now above this branch.
+    /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
+    /// An archived branch will not have any commits associated with it.
+    pub archived: bool,
+    /// This is the last commit in the branch, aka the tip of the branch.
+    /// If this is the only branch in the stack or the top-most branch, this is the tip of the stack.
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub tip: gix::ObjectId,
+    /// This is the base commit from the perspective of this branch.
+    /// If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
+    /// If this branch is at the bottom of the stack, this is the merge base of the stack.
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub base_commit: gix::ObjectId,
+}

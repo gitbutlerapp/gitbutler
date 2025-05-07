@@ -63,7 +63,7 @@ impl Snapshot {
 ///
 /// The idea is that it's forgiving and easy to use, while helping to eventually migrate to a database.
 pub struct VirtualBranchesTomlMetadata {
-    // What is currently in memory for query or edits.
+    // What is currently in memory for query or editing.
     snapshot: Snapshot,
 }
 
@@ -440,6 +440,13 @@ pub struct VBTomlMetadataHandle<T> {
     // other storage backends like database may have similar handles to avoid searches by name.
     stack_id: RefCell<Option<StackId>>,
     value: T,
+}
+
+impl<T> VBTomlMetadataHandle<T> {
+    /// Return the stack_id of the underlying stack if there is one.
+    pub fn stack_id(&self) -> Option<StackId> {
+        *self.stack_id.borrow()
+    }
 }
 
 impl<T> AsRef<FullNameRef> for VBTomlMetadataHandle<T> {
