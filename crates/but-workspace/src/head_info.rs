@@ -15,7 +15,7 @@ pub struct Options {
 }
 pub(crate) mod function {
     use crate::HeadInfo;
-    use crate::branch::{RefLocation, Stack, StackSegment};
+    use crate::branch::{LocalCommit, RefLocation, Stack, StackSegment};
     use but_core::ref_metadata::ValueInfo;
     use gix::prelude::ReferenceExt;
     use gix::revision::walk::Sorting;
@@ -43,10 +43,10 @@ pub(crate) mod function {
                     stacks: vec![Stack {
                         index: 0,
                         tip: None,
+                        base: None,
                         segments: vec![StackSegment {
                             commits_unique_from_tip: vec![],
-                            commits_unintegratd_local: vec![],
-                            commits_unintegrated_upstream: vec![],
+                            commits_unique_in_remote_tracking_branch: vec![],
                             remote_tracking_ref_name: None,
                             metadata: branch_metadata_opt(meta, ref_name.as_ref())?,
                             ref_location: Some(RefLocation::AtHead),
@@ -99,6 +99,7 @@ pub(crate) mod function {
                     tip: segments
                         .first()
                         .and_then(|stack| Some(stack.commits_unique_from_tip.first()?.id)),
+                    base: None,
                     segments,
                     stash_status: None,
                 }],
@@ -163,16 +164,15 @@ pub(crate) mod function {
                         .as_mut()
                         .expect("always present")
                         .commits_unique_from_tip
-                        .push(info.id().try_into()?);
+                        .push(LocalCommit::new_from_id(info.id())?);
                     continue;
                 }
                 out.extend(segment);
                 segment = Some(StackSegment {
                     ref_name,
                     ref_location,
-                    commits_unique_from_tip: vec![info.id().try_into()?],
-                    commits_unintegratd_local: vec![],
-                    commits_unintegrated_upstream: vec![],
+                    commits_unique_from_tip: vec![LocalCommit::new_from_id(info.id())?],
+                    commits_unique_in_remote_tracking_branch: vec![],
                     remote_tracking_ref_name: None,
                     metadata: None,
                 });
@@ -182,7 +182,7 @@ pub(crate) mod function {
                     .as_mut()
                     .unwrap()
                     .commits_unique_from_tip
-                    .push(info.id().try_into()?);
+                    .push(LocalCommit::new_from_id(info.id())?);
             }
         }
         out.extend(segment);

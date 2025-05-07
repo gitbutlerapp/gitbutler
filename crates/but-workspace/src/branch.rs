@@ -411,11 +411,13 @@
 //!                                      junctions', decide which parent to
 //!                                      walk along.
 //! ```
+
 use crate::StashStatus;
 use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::RefMetadata;
 use gix::prelude::ObjectIdExt;
+use std::ops::{Deref, DerefMut};
 
 /// The result of [`add_branch_to_workspace`].
 #[derive(Debug, Clone)]
@@ -501,8 +503,12 @@ pub struct Stack {
     // TODO: find a way to map this to (or provide) legacy StackIDs
     pub index: usize,
     /// The commit that the tip of the stack is pointing to.
-    /// It is `None` if there is no commit as this repository is newly initialized.
+    /// It is `None` if there is no commit as this repository is newly initialized, or no `base` is available.
     pub tip: Option<gix::ObjectId>,
+    /// If there is an integration branch, we know a base commit shared with the integration branch from
+    /// which we branched off.
+    /// Otherwise, it's the merge-base of all stacks in the current workspace.
+    pub base: Option<gix::ObjectId>,
     /// The branch-name denoted segments of the stack from its tip to the point of reference, typically a merge-base.
     /// This array is never empty.
     pub segments: Vec<StackSegment>,
@@ -528,29 +534,190 @@ impl Stack {
     }
 }
 
-/// A list of all commits
-#[derive(Debug, Clone)]
-pub struct BranchCommit {
+/// A commit with must useful information extracted from the Git commit itself.
+///
+/// Note that additional information can be computed and placed in the [`LocalCommit`] and [`RemoteCommit`]
+#[derive(Clone)]
+pub struct Commit {
     /// The hash of the commit.
     pub id: gix::ObjectId,
-    /// The first line of the commit message.
-    pub title: BString,
-    /// The timestamp at which the commit was created.
-    pub committed_date: gix::date::Time,
+    /// The IDs of the parent commits, but may be empty if this is the first commit.
+    pub parent_ids: Vec<gix::ObjectId>,
+    /// The complete message, verbatim.
+    pub message: BString,
+    /// The signature at which the commit was authored.
+    pub author: gix::actor::Signature,
 }
 
-impl TryFrom<gix::Id<'_>> for BranchCommit {
-    type Error = anyhow::Error;
+impl std::fmt::Debug for Commit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Commit({hash}, {msg:?})",
+            hash = self.id.to_hex_with_len(7),
+            msg = self.message
+        )
+    }
+}
 
-    fn try_from(value: gix::Id<'_>) -> Result<Self, Self::Error> {
+/// A commit that is reachable through the *local tracking branch*, with additional, computed information.
+#[derive(Clone)]
+pub struct LocalCommit {
+    /// The simple commit.
+    pub inner: Commit,
+    /// Provide additional information on how this commit relates to other points of reference, like its remote branch,
+    /// or the target branch to integrate with.
+    pub relation: LocalCommitRelation,
+    /// Whether the commit is in a conflicted state, a GitButler concept.
+    /// GitButler will perform rebasing/reordering etc. without interruptions and flag commits as conflicted if needed.
+    /// Conflicts are resolved via the Edit Mode mechanism.
+    ///
+    /// Note that even though GitButler won't push branches with conflicts, the user can still push such branches at will.
+    pub has_conflicts: bool,
+}
+
+impl std::fmt::Debug for LocalCommit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "LocalCommit({conflict}{hash}, {msg:?}, {relation})",
+            conflict = if self.has_conflicts { "💥" } else { "" },
+            hash = self.id.to_hex_with_len(7),
+            msg = self.message,
+            relation = self.relation.display(self.id)
+        )
+    }
+}
+
+impl LocalCommit {
+    /// Create a new branch-commit, and compute more information on the fly.
+    pub fn new_from_id(value: gix::Id<'_>) -> anyhow::Result<Self> {
         let commit = value.object()?.into_commit();
         // Decode efficiently, no need to own this.
         let commit = commit.decode()?;
-        Ok(BranchCommit {
-            id: value.detach(),
-            title: commit.message().title.to_owned(),
-            committed_date: commit.committer.time()?,
+        Ok(LocalCommit {
+            inner: Commit {
+                id: value.detach(),
+                parent_ids: commit.parents().collect(),
+                message: commit.message.to_owned(),
+                author: commit.author.to_owned()?,
+            },
+            // TODO: compute these
+            relation: LocalCommitRelation::LocalOnly,
+            has_conflicts: false,
         })
+    }
+}
+
+/// The state of the [local commit](LocalCommit) in relation to its remote tracking branch or its integration branch.
+#[derive(Debug, Clone, Copy)]
+pub enum LocalCommitRelation {
+    /// The commit is only local
+    LocalOnly,
+    /// The commit is also present in the remote tracking branch.
+    ///
+    /// This is the case if:
+    ///  - The commit has been pushed to the remote
+    ///  - The commit has been copied from a remote commit (when applying a remote branch)
+    ///
+    /// This variant carries the remote commit id.
+    /// The `remote_commit_id` may be the same as the `id` or it may be different if the local commit has been rebased
+    /// or updated in another way.
+    LocalAndRemote(gix::ObjectId),
+    /// The commit is considered integrated.
+    /// This should happen when the commit or the contents of this commit is already part of the base.
+    Integrated,
+}
+
+impl LocalCommitRelation {
+    fn display(&self, id: gix::ObjectId) -> &'static str {
+        match self {
+            LocalCommitRelation::LocalOnly => "local",
+            LocalCommitRelation::LocalAndRemote(remote_id) => {
+                if *remote_id == id {
+                    "local/remote(identity)"
+                } else {
+                    "local/remote(similarity)"
+                }
+            }
+            LocalCommitRelation::Integrated => "integrated",
+        }
+    }
+}
+
+impl Deref for LocalCommit {
+    type Target = Commit;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl DerefMut for LocalCommit {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
+/// A commit that is reachable only through the *remote tracking branch*, with additional, computed information.
+#[derive(Clone)]
+pub struct RemoteCommit {
+    /// The simple commit.
+    pub inner: Commit,
+    /// Provide additional information on how this commit relates to the target branch to integrate with.
+    pub relation: RemoteCommitRelation,
+    /// Whether the commit is in a conflicted state, a GitButler concept.
+    /// GitButler will perform rebasing/reordering etc. without interruptions and flag commits as conflicted if needed.
+    /// Conflicts are resolved via the Edit Mode mechanism.
+    ///
+    /// Note that even though GitButler won't push branches with conflicts, the user can still push such branches at will.
+    /// For remote commits, this only happens if someone manually pushed them.
+    pub has_conflicts: bool,
+}
+
+impl std::fmt::Debug for RemoteCommit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "RemoteCommit({conflict}{hash}, {msg:?}, {relation})",
+            conflict = if self.has_conflicts { "💥" } else { "" },
+            hash = self.id.to_hex_with_len(7),
+            msg = self.message,
+            relation = self.relation
+        )
+    }
+}
+
+/// The state of a [remote commit](RemoteCommit) in relation to its remote tracking branch or its integration branch.
+#[derive(Debug, Clone, Copy)]
+pub enum RemoteCommitRelation {
+    /// The commit is only local
+    LocalOnly,
+    /// The commit is considered integrated.
+    /// This should happen when the commit or the contents of this commit is already part of the base.
+    Integrated,
+}
+
+impl std::fmt::Display for RemoteCommitRelation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            RemoteCommitRelation::LocalOnly => "local",
+            RemoteCommitRelation::Integrated => "integrated",
+        })
+    }
+}
+
+impl Deref for RemoteCommit {
+    type Target = Commit;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl DerefMut for RemoteCommit {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
     }
 }
 
@@ -581,18 +748,18 @@ pub struct StackSegment {
     /// Specify where the `ref_name` is specifically, or `None` if there is no ref-name.
     pub ref_location: Option<RefLocation>,
     /// The portion of commits that can be reached from the tip of the *branch* downwards, so that they are unique
-    /// for that stack segment and not included in any other stack or the *target branch*.
+    /// for that stack segment and not included in any other stack or stack segment.
     ///
     /// The list could be empty.
-    pub commits_unique_from_tip: Vec<BranchCommit>,
-    /// The commits that are reachable from this branch, but not from the tip of the *Stack*.
-    /// This happens if the branch is advanced/moved by other means, i.e., the branch was checked out directly
-    /// and advanced with manual Git commits.
-    /// Only ever set for the top-most segment.
-    pub commits_unintegratd_local: Vec<BranchCommit>,
+    pub commits_unique_from_tip: Vec<LocalCommit>,
     /// Commits that are reachable from the remote-tracking branch associated with this branch,
-    /// but are not reachable from this branch.
-    pub commits_unintegrated_upstream: Vec<BranchCommit>,
+    /// but are not reachable from this branch or duplicated by a commit in it.
+    ///
+    /// Note that remote commits along with their remote tracking branch should always retain a shared history
+    /// with the local tracking branch. If these diverge, we can represent this in data, but currently there is
+    /// no derived value to make this visible explicitly.
+    // TODO: review this - should branch divergence be a thing? Rare, but not impossible.
+    pub commits_unique_in_remote_tracking_branch: Vec<RemoteCommit>,
     /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
     /// Its presence means that a remote is configured and that the stack content
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,

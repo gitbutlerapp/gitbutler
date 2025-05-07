@@ -17,6 +17,7 @@ fn untracked() -> anyhow::Result<()> {
             Stack {
                 index: 0,
                 tip: None,
+                base: None,
                 segments: [
                     StackSegment {
                         ref_name: Some(
@@ -28,8 +29,7 @@ fn untracked() -> anyhow::Result<()> {
                             AtHead,
                         ),
                         commits_unique_from_tip: [],
-                        commits_unintegratd_local: [],
-                        commits_unintegrated_upstream: [],
+                        commits_unique_in_remote_tracking_branch: [],
                         remote_tracking_ref_name: None,
                         metadata: None,
                     },
@@ -87,6 +87,7 @@ fn single_branch() -> anyhow::Result<()> {
                 tip: Some(
                     Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
                 ),
+                base: None,
                 segments: [
                     StackSegment {
                         ref_name: Some(
@@ -98,49 +99,13 @@ fn single_branch() -> anyhow::Result<()> {
                             AtHead,
                         ),
                         commits_unique_from_tip: [
-                            BranchCommit {
-                                id: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
-                                title: "10\n",
-                                committed_date: Time {
-                                    seconds: 946771200,
-                                    offset: 0,
-                                },
-                            },
-                            BranchCommit {
-                                id: Sha1(344e3209e344c1eb90bedb4b00b4d4999a84406c),
-                                title: "9\n",
-                                committed_date: Time {
-                                    seconds: 946771200,
-                                    offset: 0,
-                                },
-                            },
-                            BranchCommit {
-                                id: Sha1(599c271e8734e58a96b3a22666704c2a72623f7f),
-                                title: "8\n",
-                                committed_date: Time {
-                                    seconds: 946771200,
-                                    offset: 0,
-                                },
-                            },
-                            BranchCommit {
-                                id: Sha1(05f069b1c601c098170571bc9fab6966606f8b51),
-                                title: "7\n",
-                                committed_date: Time {
-                                    seconds: 946771200,
-                                    offset: 0,
-                                },
-                            },
-                            BranchCommit {
-                                id: Sha1(c4f2a356d6ed7250bab3dd7c58e1922b95f288c5),
-                                title: "6\n",
-                                committed_date: Time {
-                                    seconds: 946771200,
-                                    offset: 0,
-                                },
-                            },
+                            LocalCommit(b5743a3, "10\n", local),
+                            LocalCommit(344e320, "9\n", local),
+                            LocalCommit(599c271, "8\n", local),
+                            LocalCommit(05f069b, "7\n", local),
+                            LocalCommit(c4f2a35, "6\n", local),
                         ],
-                        commits_unintegratd_local: [],
-                        commits_unintegrated_upstream: [],
+                        commits_unique_in_remote_tracking_branch: [],
                         remote_tracking_ref_name: None,
                         metadata: None,
                     },
@@ -173,6 +138,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                 tip: Some(
                     Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
                 ),
+                base: None,
                 segments: [
                     StackSegment {
                         ref_name: Some(
@@ -184,17 +150,9 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                             AtHead,
                         ),
                         commits_unique_from_tip: [
-                            BranchCommit {
-                                id: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
-                                title: "10\n",
-                                committed_date: Time {
-                                    seconds: 946771200,
-                                    offset: 0,
-                                },
-                            },
+                            LocalCommit(b5743a3, "10\n", local),
                         ],
-                        commits_unintegratd_local: [],
-                        commits_unintegrated_upstream: [],
+                        commits_unique_in_remote_tracking_branch: [],
                         remote_tracking_ref_name: None,
                         metadata: None,
                     },
@@ -208,33 +166,11 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                             AtHead,
                         ),
                         commits_unique_from_tip: [
-                            BranchCommit {
-                                id: Sha1(344e3209e344c1eb90bedb4b00b4d4999a84406c),
-                                title: "9\n",
-                                committed_date: Time {
-                                    seconds: 946771200,
-                                    offset: 0,
-                                },
-                            },
-                            BranchCommit {
-                                id: Sha1(599c271e8734e58a96b3a22666704c2a72623f7f),
-                                title: "8\n",
-                                committed_date: Time {
-                                    seconds: 946771200,
-                                    offset: 0,
-                                },
-                            },
-                            BranchCommit {
-                                id: Sha1(05f069b1c601c098170571bc9fab6966606f8b51),
-                                title: "7\n",
-                                committed_date: Time {
-                                    seconds: 946771200,
-                                    offset: 0,
-                                },
-                            },
+                            LocalCommit(344e320, "9\n", local),
+                            LocalCommit(599c271, "8\n", local),
+                            LocalCommit(05f069b, "7\n", local),
                         ],
-                        commits_unintegratd_local: [],
-                        commits_unintegrated_upstream: [],
+                        commits_unique_in_remote_tracking_branch: [],
                         remote_tracking_ref_name: None,
                         metadata: None,
                     },
@@ -248,33 +184,11 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                             AtHead,
                         ),
                         commits_unique_from_tip: [
-                            BranchCommit {
-                                id: Sha1(c4f2a356d6ed7250bab3dd7c58e1922b95f288c5),
-                                title: "6\n",
-                                committed_date: Time {
-                                    seconds: 946771200,
-                                    offset: 0,
-                                },
-                            },
-                            BranchCommit {
-                                id: Sha1(44c12cef1e9fa109b2516079cb1f849049af3cbf),
-                                title: "5\n",
-                                committed_date: Time {
-                                    seconds: 946771200,
-                                    offset: 0,
-                                },
-                            },
-                            BranchCommit {
-                                id: Sha1(c584dbe79d5ef9d630d006957b3b657cee1e80df),
-                                title: "4\n",
-                                committed_date: Time {
-                                    seconds: 946771200,
-                                    offset: 0,
-                                },
-                            },
+                            LocalCommit(c4f2a35, "6\n", local),
+                            LocalCommit(44c12ce, "5\n", local),
+                            LocalCommit(c584dbe, "4\n", local),
                         ],
-                        commits_unintegratd_local: [],
-                        commits_unintegrated_upstream: [],
+                        commits_unique_in_remote_tracking_branch: [],
                         remote_tracking_ref_name: None,
                         metadata: None,
                     },
@@ -288,25 +202,10 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                             AtHead,
                         ),
                         commits_unique_from_tip: [
-                            BranchCommit {
-                                id: Sha1(281da9454d5b41844d28e453e80b24925a7c8c7a),
-                                title: "3\n",
-                                committed_date: Time {
-                                    seconds: 946771200,
-                                    offset: 0,
-                                },
-                            },
-                            BranchCommit {
-                                id: Sha1(12995d783f3ac841a1774e9433ee8e4c1edac576),
-                                title: "2\n",
-                                committed_date: Time {
-                                    seconds: 946771200,
-                                    offset: 0,
-                                },
-                            },
+                            LocalCommit(281da94, "3\n", local),
+                            LocalCommit(12995d7, "2\n", local),
                         ],
-                        commits_unintegratd_local: [],
-                        commits_unintegrated_upstream: [],
+                        commits_unique_in_remote_tracking_branch: [],
                         remote_tracking_ref_name: None,
                         metadata: None,
                     },
@@ -320,17 +219,9 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                             AtHead,
                         ),
                         commits_unique_from_tip: [
-                            BranchCommit {
-                                id: Sha1(3d57fc18d679a1ba45bc7f79e394a5e2606719ee),
-                                title: "1\n",
-                                committed_date: Time {
-                                    seconds: 946771200,
-                                    offset: 0,
-                                },
-                            },
+                            LocalCommit(3d57fc1, "1\n", local),
                         ],
-                        commits_unintegratd_local: [],
-                        commits_unintegrated_upstream: [],
+                        commits_unique_in_remote_tracking_branch: [],
                         remote_tracking_ref_name: None,
                         metadata: None,
                     },

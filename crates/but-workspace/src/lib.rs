@@ -78,9 +78,10 @@ pub mod stack_ext;
 
 /// Functions related to retrieving stack information.
 mod stacks;
+// TODO: _v3 versions are specifically for the UI, so import them into `ui` instead.
 pub use stacks::{
     stack_branch_local_and_remote_commits, stack_branch_upstream_only_commits, stack_branches,
-    stack_details, stack_heads_info, stacks, stacks_v3,
+    stack_details, stack_details_v3, stack_heads_info, stacks, stacks_v3,
 };
 
 mod virtual_branches_metadata;
