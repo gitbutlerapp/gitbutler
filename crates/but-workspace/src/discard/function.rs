@@ -10,8 +10,7 @@ use crate::{
 use anyhow::Context;
 use bstr::{BString, ByteSlice};
 use but_core::{ChangeState, TreeStatus};
-use but_testsupport::{git_status, visualize_tree};
-use gix::{prelude::ObjectIdExt as _, status::index_worktree};
+use gix::status::index_worktree;
 
 use super::file::checkout_repo_worktree;
 
@@ -304,9 +303,11 @@ fn prepare_path(path: &std::path::Path) -> anyhow::Result<()> {
 
 pub enum ChangesSource {
     Worktree,
+    #[allow(dead_code)]
     Commit {
         id: gix::ObjectId,
     },
+    #[allow(dead_code)]
     Tree {
         after_id: gix::ObjectId,
         before_id: gix::ObjectId,
@@ -589,10 +590,8 @@ fn create_wd_tree(
 ) -> anyhow::Result<gix::ObjectId> {
     use bstr::ByteSlice;
     use gix::bstr::BStr;
-    use gix::dir::walk::EmissionMode;
     use gix::status;
     use gix::status::plumbing::index_as_worktree::{Change, EntryStatus};
-    use gix::status::tree_index::TrackRenames;
     use std::collections::HashSet;
 
     let (mut pipeline, index) = repo.filter_pipeline(None)?;
