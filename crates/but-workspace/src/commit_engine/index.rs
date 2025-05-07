@@ -1,16 +1,19 @@
-use bstr::{BStr, ByteSlice};
-use std::path::Path;
+use bstr::{BStr, BString, ByteSlice};
+use std::{collections::HashSet, path::Path};
 
-use crate::discard::function::RelaPath as _;
+use crate::discard::RelaPath as _;
 
 /// Turn `rhs` into `lhs` by modifying `rhs`. This will leave `rhs` intact as much as possible, but will remove
 /// Note that conflicting entries will be replaced by an addition or edit automatically.
 /// extensions that might be affected by these changes, for a lack of finesse with our edits.
+///
+/// `filter_paths` is an optional filter that allows to specify which paths should be considered for the update.
+/// If `None`, all paths are considered.
 pub fn apply_lhs_to_rhs(
     workdir: &Path,
     lhs: &gix::index::State,
     rhs: &mut gix::index::State,
-    filter_paths: Option<&[&BStr]>,
+    filter_paths: Option<HashSet<BString>>,
 ) -> anyhow::Result<()> {
     let mut num_sorted_entries = rhs.entries().len();
     let mut needs_sorting = false;
@@ -30,8 +33,8 @@ pub fn apply_lhs_to_rhs(
 
     use gix::diff::index::Change;
     for change in changes {
-        if let Some(filter_paths) = filter_paths {
-            if !filter_paths.contains(&change.rela_path()) {
+        if let Some(filter_paths) = &filter_paths {
+            if !filter_paths.contains(&change.rela_path().to_owned()) {
                 continue;
             }
         }

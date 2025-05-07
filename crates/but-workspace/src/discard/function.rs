@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 use crate::{
     commit_engine::{DiffSpec, HunkHeader, apply_hunks, index::apply_lhs_to_rhs},
@@ -12,7 +12,7 @@ use bstr::{BString, ByteSlice};
 use but_core::{ChangeState, TreeStatus};
 use gix::status::index_worktree;
 
-use super::file::checkout_repo_worktree;
+use super::{RelaPath as _, file::checkout_repo_worktree};
 
 /// Same as create_index_without_changes, but specifically for the worktree.
 ///
@@ -37,57 +37,39 @@ pub fn discard_workspace_changes(
         repository.workdir().context("non-bare repository")?,
         &tree_as_index,
         &mut index,
-        Some(
-            &paths_to_update
-                .iter()
-                .map(|p| p.as_bstr())
-                .collect::<Vec<_>>(),
-        ),
+        Some(paths_to_update),
     )?;
     index.write(Default::default())?;
 
     Ok(dropped)
 }
 
-fn index_entries_to_update(status_changes: Vec<gix::status::Item>) -> anyhow::Result<Vec<BString>> {
-    let mut head_to_index = HashMap::new();
-    let mut index_to_worktree = HashMap::new();
+fn index_entries_to_update(
+    status_changes: Vec<gix::status::Item>,
+) -> anyhow::Result<HashSet<BString>> {
+    let mut head_to_index = vec![];
+    let mut index_to_worktree = HashSet::new();
 
     for change in status_changes {
         match change {
             gix::status::Item::IndexWorktree(change) => {
-                index_to_worktree.insert(change.rela_path().to_owned(), change);
+                index_to_worktree.insert(change.rela_path().to_owned());
             }
             gix::status::Item::TreeIndex(change) => {
-                head_to_index.insert(change.rela_path().to_owned(), change);
+                head_to_index.push(change.rela_path().to_owned());
             }
         }
     }
 
-    let mut paths_to_update = vec![];
+    let mut paths_to_update = HashSet::new();
 
-    for (path, _) in head_to_index {
-        if !index_to_worktree.contains_key(&path) {
-            paths_to_update.push(path);
+    for path in head_to_index {
+        if !index_to_worktree.contains(&path) {
+            paths_to_update.insert(path);
         }
     }
 
     Ok(paths_to_update)
-}
-
-pub trait RelaPath {
-    fn rela_path(&self) -> &bstr::BStr;
-}
-
-impl RelaPath for gix::diff::index::ChangeRef<'_, '_> {
-    fn rela_path(&self) -> &bstr::BStr {
-        match self {
-            gix::diff::index::ChangeRef::Addition { location, .. }
-            | gix::diff::index::ChangeRef::Modification { location, .. }
-            | gix::diff::index::ChangeRef::Rewrite { location, .. }
-            | gix::diff::index::ChangeRef::Deletion { location, .. } => location,
-        }
-    }
 }
 
 fn update_wd_to_tree(
@@ -585,6 +567,10 @@ fn revert_file_to_before_state(
 
 /// Creates a tree containing the uncommited changes in the project.
 /// This includes files in the index that are considered conflicted.
+///
+/// TODO: This is a copy of `create_wd_tree` from the old world. Ideally we
+/// should share between the old and new worlds to prevent duplication beween
+/// these.
 fn create_wd_tree(
     repo: &gix::Repository,
     untracked_limit_in_bytes: u64,
