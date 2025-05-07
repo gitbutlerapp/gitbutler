@@ -83,3 +83,15 @@ During development, it helps to run only the test at hand using `it.only()`.
 ### Creating failing tests for later fixing
 
 Once a UI bug was discovered, it makes sense to reproduce the issue in its own test case and hand it over for fixing. This can be done with `it.skip()`, such that the failing test won't fail CI until it is fixed.
+
+## Extras
+
+Cypress doesn't by default support testing in WebKit, and it still considers it's support as experimental.
+
+If you want to try it out, though, you'll need to install it on your machine first:
+
+```sh
+pnpm cy:install-more-browsers
+```
+
+This will install a bunch of other browser drivers, including WebKit.
