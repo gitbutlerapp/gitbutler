@@ -161,16 +161,16 @@
 	bind:viewport
 	whenToShow={$userSettings.scrollbarVisibilityState}
 	onscroll={handleScroll}
-	{top}
-	{bottom}
 	bind:viewportHeight
 >
-	{#each visible as chunk}
-		<!-- Note: keying this #each would things much slower. -->
-		<div class="list-row">
-			{@render group?.(chunk.data)}
-		</div>
-	{/each}
+	<div class="padded-contents" style:padding-top={top + 'px'} style:padding-bottom={bottom + 'px'}>
+		{#each visible as chunk}
+			<!-- Note: keying this #each would things much slower. -->
+			<div class="list-row">
+				{@render group?.(chunk.data)}
+			</div>
+		{/each}
+	</div>
 </ScrollableContainer>
 
 <style>
@@ -178,5 +178,9 @@
 		display: block;
 		overflow: hidden;
 		background-color: var(--clr-bg-1);
+	}
+	.padded-contents {
+		display: flex;
+		flex-direction: column;
 	}
 </style>
