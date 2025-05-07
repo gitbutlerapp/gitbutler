@@ -21,6 +21,7 @@
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import PublishButton from '$components/v3/PublishButton.svelte';
 	import PushButton from '$components/v3/PushButton.svelte';
+
 	import {
 		getColorFromCommitState,
 		getIconFromCommitState,

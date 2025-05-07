@@ -2,12 +2,14 @@
 	import BranchLayoutMode, { type Layout } from '$components/v3/BranchLayoutMode.svelte';
 	import BranchList from '$components/v3/BranchList.svelte';
 	import MultiStackCreateNew from '$components/v3/MultiStackCreateNew.svelte';
+	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Scrollbar from '@gitbutler/ui/scroll/Scrollbar.svelte';
+	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import type { Stack } from '$lib/stacks/stack';
 
 	type Props = {
@@ -17,11 +19,26 @@
 	};
 
 	const { projectId, selectedId, stacks }: Props = $props();
-
-	let lanesEl = $state<HTMLElement>();
 	let mode = $derived(persisted<Layout>('multi', 'branch-layout'));
 
+	let lanesEl = $state<HTMLElement>();
 	let scrollbar = $state<Scrollbar>();
+
+	let lanesElArray = $state<HTMLElement[]>([]);
+	let visibleLanes = $state<string[]>([]);
+	let visibleIndex = $state<number>(0);
+
+	function onScroll() {
+		if ($mode !== 'single') return;
+
+		const scrollLeft = lanesEl?.scrollLeft ?? 0;
+		const laneWidth = lanesEl?.offsetWidth ?? 1; // fallback to 1 to avoid divide-by-zero
+
+		const index = Math.round(scrollLeft / laneWidth);
+		if (index !== visibleIndex) {
+			visibleIndex = index;
+		}
+	}
 
 	$effect(() => {
 		// Explicit scrollbar track size update since changing scroll width
@@ -33,6 +50,12 @@
 	const [uiState] = inject(UiState);
 	const drawer = $derived(uiState.project(projectId).drawerPage);
 	const isCommitting = $derived(drawer.current === 'new-commit');
+
+	const SHOW_PAGINATION_THRESHOLD = 1;
+
+	// $effect(() => {
+	// 	console.log('visibleLanes', visibleLanes);
+	// });
 </script>
 
 <div class="lanes">
@@ -46,24 +69,51 @@
 		<div class="actions">
 			<BranchLayoutMode bind:mode={$mode} />
 		</div>
-
 		<MultiStackCreateNew {projectId} stackId={selectedId} noStacks={stacks.length === 0} />
 	</div>
 
 	<div
 		class="lanes-content hide-native-scrollbar dotted-pattern"
 		bind:this={lanesEl}
-		class:multi={$mode === 'multi'}
-		class:single={$mode === 'single'}
+		class:multi={$mode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
+		class:single={$mode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
 		class:vertical={$mode === 'vertical'}
 	>
+		{#if $mode === 'single' && stacks.length > SHOW_PAGINATION_THRESHOLD}
+			<MultiStackPagination
+				length={lanesElArray.length}
+				activeIndex={visibleIndex}
+				selectedBranchIndex={stacks.findIndex((s) => {
+					return s.id === selectedId;
+				})}
+				onclick={(index) => scrollToLane(lanesEl, index)}
+			/>
+		{/if}
+
 		{#if stacks.length > 0}
-			{#each stacks as stack}
+			{#each stacks as stack, i}
 				<div
 					class="lane"
-					class:multi={$mode === 'multi'}
-					class:single={$mode === 'single'}
+					class:multi={$mode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
+					class:single={$mode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
 					class:vertical={$mode === 'vertical'}
+					class:is-visible={visibleLanes.includes(stack.id)}
+					data-id={stack.id}
+					bind:this={lanesElArray[i]}
+					use:intersectionObserver={{
+						callback: (entry) => {
+							console.log('intersection', visibleLanes);
+							if (entry?.isIntersecting) {
+								visibleLanes.push(stack.id);
+							} else {
+								visibleLanes = visibleLanes.filter((id) => id !== stack.id);
+							}
+						},
+						options: {
+							root: lanesEl,
+							threshold: 0.5
+						}
+					}}
 				>
 					<BranchList isVerticalMode={$mode === 'vertical'} {projectId} stackId={stack.id} />
 				</div>
@@ -73,7 +123,7 @@
 		{/if}
 
 		{#if $mode !== 'vertical'}
-			<Scrollbar whenToShow="hover" viewport={lanesEl} horz />
+			<Scrollbar whenToShow="hover" viewport={lanesEl} horz onscroll={onScroll} />
 		{/if}
 	</div>
 </div>
@@ -153,6 +203,9 @@
 		}
 		&.vertical {
 			border-bottom: 1px solid var(--clr-border-2);
+		}
+		&.is-visible {
+			background-color: rgb(249, 167, 167);
 		}
 	}
 </style>
