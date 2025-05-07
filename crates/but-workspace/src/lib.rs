@@ -45,6 +45,8 @@ pub mod ui;
 pub mod commit_engine;
 pub mod tree_manipulation;
 pub use tree_manipulation::function::discard_workspace_changes;
+pub mod head;
+pub use head::head;
 
 /// 🚧utilities for applying and unapplying branches 🚧.
 pub mod branch;

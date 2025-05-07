@@ -3,7 +3,6 @@ use crate::{
     dependencies::stack_dependencies_from_workspace,
     file::VirtualBranchFile,
     hunk::VirtualBranchHunk,
-    integration::get_workspace_head,
     remote::branch_to_remote_branch,
     stack::stack_series,
     status::{get_applied_status, get_applied_status_cached},
@@ -137,7 +136,7 @@ pub fn unapply_ownership(
 ) -> Result<()> {
     let vb_state = ctx.project().virtual_branches();
 
-    let workspace_commit_id = get_workspace_head(ctx)?;
+    let workspace_commit_id = but_workspace::head(ctx)?;
 
     let applied_statuses = get_applied_status(ctx, None)
         .context("failed to get status by branch")?
@@ -304,7 +303,7 @@ pub fn list_virtual_branches(
     ctx: &CommandContext,
     perm: &mut WorktreeWritePermission,
 ) -> Result<StackListResult> {
-    let diffs = gitbutler_diff::workdir(ctx.repo(), get_workspace_head(ctx)?)?;
+    let diffs = gitbutler_diff::workdir(ctx.repo(), but_workspace::head(ctx)?)?;
     list_virtual_branches_cached(ctx, perm, &diffs)
 }
 
@@ -684,11 +683,11 @@ pub(crate) fn reset_branch(
 
     // Compute the old workspace before resetting, so we can figure out
     // what hunks were released by this reset, and assign them to this branch.
-    let old_head = get_workspace_head(ctx)?;
+    let old_head = but_workspace::head(ctx)?;
 
     stack.set_stack_head(&vb_state, &gix_repo, target_commit_id, None)?;
 
-    let updated_head = get_workspace_head(ctx)?;
+    let updated_head = but_workspace::head(ctx)?;
     let repo = ctx.repo();
     let diff = trees(
         repo,
@@ -737,7 +736,7 @@ pub fn commit(
     ownership: Option<&BranchOwnershipClaims>,
 ) -> Result<git2::Oid> {
     // get the files to commit
-    let diffs = gitbutler_diff::workdir(ctx.repo(), get_workspace_head(ctx)?)?;
+    let diffs = gitbutler_diff::workdir(ctx.repo(), but_workspace::head(ctx)?)?;
     let statuses = get_applied_status_cached(ctx, None, &diffs)
         .context("failed to get status by branch")?
         .branches;
