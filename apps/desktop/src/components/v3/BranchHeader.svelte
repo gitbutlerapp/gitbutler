@@ -1,18 +1,15 @@
 <script lang="ts">
 	import BranchLabel from '$components/BranchLabel.svelte';
-	import BranchRenameModal from '$components/BranchRenameModal.svelte';
 	import CardOverlay from '$components/CardOverlay.svelte';
-	import DeleteBranchModal from '$components/DeleteBranchModal.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import BranchBadge from '$components/v3/BranchBadge.svelte';
+	import BranchHeaderContextMenu from '$components/v3/BranchHeaderContextMenu.svelte';
 	import BranchHeaderIcon from '$components/v3/BranchHeaderIcon.svelte';
-	import ContextMenu from '$components/v3/ContextMenu.svelte';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { slide } from 'svelte/transition';
@@ -28,6 +25,7 @@
 		iconName: keyof typeof iconsJson;
 		lineColor: string;
 		isCommitting?: boolean;
+		activated?: boolean;
 	} & (
 		| { type: 'draft-branch' }
 		| {
@@ -51,20 +49,28 @@
 				lastUpdatedAt?: number;
 				isCommitting: boolean;
 				isConflicted: boolean;
+				contextMenu?: typeof BranchHeaderContextMenu;
 				onclick: () => void;
 				menu?: Snippet<
 					[
 						{
-							showBranchRenameModal: () => void;
-							showDeleteBranchModal: () => void;
+							rightClickTrigger: HTMLElement;
 						}
 					]
 				>;
 		  }
 	);
 
-	let { projectId, branchName, readonly, iconName, lineColor, isCommitting, ...args }: Props =
-		$props();
+	let {
+		projectId,
+		branchName,
+		readonly,
+		iconName,
+		lineColor,
+		isCommitting,
+		activated,
+		...args
+	}: Props = $props();
 
 	const [stackService, uiState] = inject(StackService, UiState);
 
@@ -72,23 +78,7 @@
 
 	const isPushed = $derived(!!(args.type === 'draft-branch' ? undefined : args.trackingBranch));
 
-	let contextMenu = $state<ContextMenu>();
 	let rightClickTrigger = $state<HTMLDivElement>();
-	let leftClickTrigger = $state<HTMLButtonElement>();
-
-	let isOpenedByKebabButton = $state(false);
-	let isOpenedByMouse = $state(false);
-
-	let renameBranchModal = $state<BranchRenameModal>();
-	let deleteBranchModal = $state<DeleteBranchModal>();
-
-	function showBranchRenameModal() {
-		renameBranchModal?.show();
-	}
-
-	function showDeleteBranchModal() {
-		deleteBranchModal?.show();
-	}
 
 	async function updateBranchName(title: string) {
 		if (args.type === 'draft-branch') {
@@ -123,14 +113,9 @@
 			class:is-committing={isCommitting}
 			class:selected={args.selected}
 			onclick={args.onclick}
-			oncontextmenu={(e) => {
-				e.stopPropagation();
-				e.preventDefault();
-				contextMenu?.toggle(e);
-			}}
 			onkeypress={args.onclick}
 			tabindex="0"
-			class:activated={isOpenedByMouse || isOpenedByKebabButton}
+			class:activated
 		>
 			{#if args.selected}
 				<div class="branch-header__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
@@ -152,28 +137,14 @@
 						onChange={(name) => updateBranchName(name)}
 						onDblClick={() => {
 							if (isPushed) {
-								renameBranchModal?.show();
+								// renameBranchModal?.show();
 							}
 						}}
 					/>
 
-					<button
-						bind:this={leftClickTrigger}
-						type="button"
-						class="branch-menu-btn"
-						class:activated={isOpenedByKebabButton}
-						onmousedown={(e) => {
-							e.stopPropagation();
-							e.preventDefault();
-							contextMenu?.toggle();
-						}}
-						onclick={(e) => {
-							e.stopPropagation();
-							e.preventDefault();
-						}}
-					>
-						<Icon name="kebab" />
-					</button>
+					{#if args.menu}
+						{@render args.menu({ rightClickTrigger })}
+					{/if}
 				</div>
 
 				{#if args.isNewBranch}
@@ -216,32 +187,6 @@
 			</div>
 		</div>
 	</Dropzone>
-	<ContextMenu
-		testId={TestId.BranchHeaderContextMenu}
-		bind:this={contextMenu}
-		bind:isOpenedByKebabButton
-		bind:isOpenedByMouse
-		{leftClickTrigger}
-		{rightClickTrigger}
-	>
-		{@render args.menu?.({
-			showBranchRenameModal,
-			showDeleteBranchModal
-		})}
-	</ContextMenu>
-	<BranchRenameModal
-		{projectId}
-		stackId={args.stackId}
-		{branchName}
-		bind:this={renameBranchModal}
-		isPushed={!!args.trackingBranch}
-	/>
-	<DeleteBranchModal
-		{projectId}
-		stackId={args.stackId}
-		{branchName}
-		bind:this={deleteBranchModal}
-	/>
 {:else if args.type === 'normal-branch'}
 	<div
 		data-testid={TestId.BranchHeader}
@@ -313,14 +258,6 @@
 		overflow: hidden;
 		background-color: var(--branch-selected-bg);
 
-		/* show menu button on hover or if selected */
-		&:hover,
-		&.selected {
-			& .branch-menu-btn {
-				display: flex; /* show menu button on hover */
-			}
-		}
-
 		/* Selected but NOT in focus */
 		&:hover,
 		&.activated {
@@ -385,22 +322,6 @@
 		padding: 14px 0;
 		margin-left: -2px;
 		text-overflow: ellipsis;
-	}
-
-	.branch-menu-btn {
-		display: none;
-		padding: 0 4px;
-		color: var(--clr-text-1);
-		opacity: 0.5;
-
-		&:hover {
-			opacity: 1;
-		}
-
-		&.activated {
-			display: flex;
-			opacity: 1;
-		}
 	}
 
 	.branch-header__empty-state {

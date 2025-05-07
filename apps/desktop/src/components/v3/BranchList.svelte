@@ -2,15 +2,20 @@
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import SeriesHeaderContextMenuContents from '$components/SeriesHeaderContextMenuContents.svelte';
 	import StackStickyButtons from '$components/StackStickyButtons.svelte';
 	import BranchCard from '$components/v3/BranchCard.svelte';
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
-	import CommitContextMenu from '$components/v3/CommitContextMenu.svelte';
+	import BranchHeaderContextMenu, {
+		type BranchHeaderContextItem
+	} from '$components/v3/BranchHeaderContextMenu.svelte';
+	import CommitContextMenu, {
+		type CommitMenuContext
+	} from '$components/v3/CommitContextMenu.svelte';
 	import CommitGoesHere from '$components/v3/CommitGoesHere.svelte';
 	import CommitRow from '$components/v3/CommitRow.svelte';
 	import ConflictResolutionConfirmModal from '$components/v3/ConflictResolutionConfirmModal.svelte';
+	import KebabButton from '$components/v3/KebabButton.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import PublishButton from '$components/v3/PublishButton.svelte';
 	import PushButton from '$components/v3/PushButton.svelte';
@@ -35,7 +40,6 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
-	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -99,6 +103,9 @@
 		}
 		modeService!.enterEditMode(args.commitId, stackId);
 	}
+
+	let headerMenuContext = $state<BranchHeaderContextItem>();
+	let commitMenuContext = $state<CommitMenuContext>();
 </script>
 
 <ReduxResult {stackId} {projectId} result={branchesResult.current}>
@@ -123,7 +130,6 @@
 				)}
 			>
 				{#snippet children([localAndRemoteCommits, upstreamOnlyCommits, branchDetails, commit])}
-					{@const branchType = commit?.state.type || 'LocalOnly'}
 					{@const iconName = getIconFromCommitState(commit?.id, commit?.state)}
 					{@const lineColor = commit
 						? getColorFromCommitState(
@@ -170,6 +176,7 @@
 								trackingBranch={branch.remoteTrackingBranch || undefined}
 								readonly={!!branch.remoteTrackingBranch}
 								onclick={() => {
+									uiState.project(projectId).stackId.set(stackId);
 									if (isCommitting) {
 										uiState.stack(stackId).selection.set({
 											branchName,
@@ -181,29 +188,18 @@
 									}
 								}}
 							>
-								{#snippet menu({ showDeleteBranchModal, showBranchRenameModal })}
-									{@const forgeBranch = branch.remoteTrackingBranch
-										? forge.current?.branch(branch.remoteTrackingBranch)
-										: undefined}
-									<SeriesHeaderContextMenuContents
-										{projectId}
-										{stackId}
-										{branchType}
-										branchName={branch.name}
-										seriesCount={branches.length}
-										isTopBranch={first}
-										descriptionOption={false}
-										onGenerateBranchName={() => {
-											throw new Error('Not implemented!');
-										}}
-										onAddDependentSeries={() => newBranchModal?.show(branchName)}
-										onOpenInBrowser={() => {
-											const url = forgeBranch?.url;
-											if (url) openExternalUrl(url);
-										}}
-										isPushed={!!branch.remoteTrackingBranch}
-										{showBranchRenameModal}
-										{showDeleteBranchModal}
+								{#snippet menu({ rightClickTrigger })}
+									{@const data = {
+										branch,
+										prNumber,
+										first: i === 0
+									}}
+									<KebabButton
+										flat
+										contextElement={rightClickTrigger}
+										onclick={(element) => (headerMenuContext = { data, position: { element } })}
+										oncontext={(coords) => (headerMenuContext = { data, position: { coords } })}
+										open={branchName === headerMenuContext?.data.branch.name}
 									/>
 								{/snippet}
 							</BranchHeader>
@@ -349,6 +345,7 @@
 												{selected}
 												draggable
 												{tooltip}
+												isOpen={commit.id === commitMenuContext?.data.commitId}
 												onclick={() => {
 													const stackState = uiState.stack(stackId);
 													stackState.selection.set({ branchName, commitId });
@@ -356,24 +353,38 @@
 												}}
 												disableCommitActions={false}
 											>
-												{#snippet menu({ close })}
-													<CommitContextMenu
-														{close}
-														{projectId}
-														{stackId}
-														{commitId}
-														commitMessage={commit.message}
-														commitStatus={commit.state.type}
-														commitUrl={forge.current.commitUrl(commitId)}
-														onUncommitClick={() => handleUncommit(commit.id, branch.name)}
-														onEditMessageClick={openCommitMessageModal}
-														onPatchEditClick={() =>
+												{#snippet menu({ rightClickTrigger })}
+													{@const data = {
+														stackId,
+														commitId,
+														commitMessage: commit.message,
+														commitStatus: commit.state.type,
+														commitUrl: forge.current.commitUrl(commitId),
+														onUncommitClick: () => handleUncommit(commit.id, branch.name),
+														onEditMessageClick: openCommitMessageModal,
+														onPatchEditClick: () =>
 															handleEditPatch({
 																commitId: commit.id,
 																type: commit.state.type,
 																hasConflicts: hasConflicts(commit),
 																isAncestorMostConflicted: false // TODO: Fix this.
+															})
+													}}
+													<KebabButton
+														flat
+														contextElement={rightClickTrigger}
+														onclick={(element) => {
+															commitMenuContext = {
+																position: { element },
+																data
+															};
+														}}
+														oncontext={(coords) =>
+															(commitMenuContext = {
+																position: { coords },
+																data
 															})}
+														open={commit.id === commitMenuContext?.data.commitId}
 													/>
 												{/snippet}
 											</CommitRow>
@@ -430,6 +441,14 @@
 		<Button style="pop" type="submit">Yes</Button>
 	{/snippet}
 </Modal>
+
+{#if headerMenuContext}
+	<BranchHeaderContextMenu {projectId} {stackId} bind:context={headerMenuContext} />
+{/if}
+
+{#if commitMenuContext}
+	<CommitContextMenu {projectId} bind:context={commitMenuContext} />
+{/if}
 
 <style lang="postcss">
 </style>

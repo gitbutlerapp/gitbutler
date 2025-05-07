@@ -637,6 +637,15 @@ export class StackService {
 		);
 	}
 
+	unstackedCommits(projectId: string, branchName: string, remote?: string) {
+		return this.api.endpoints.unstackedBranchDetails.useQuery(
+			{ projectId, branchName, remote },
+			{
+				transform: (data) => commitSelectors.selectAll(data.commits)
+			}
+		);
+	}
+
 	unstackedCommitById(projectId: string, branchName: string, commitId: string, remote?: string) {
 		return this.api.endpoints.unstackedBranchDetails.useQuery(
 			{ projectId, branchName, remote },

@@ -4,20 +4,16 @@
 	import { portal } from '@gitbutler/ui/utils/portal';
 	import { type Snippet } from 'svelte';
 
-	interface BaseProps {
+	type BaseProps = {
 		testId?: string;
 		children?: Snippet<[item: any]>;
-		leftClickTrigger?: HTMLElement;
-		rightClickTrigger?: HTMLElement;
 		onclose?: () => void;
 		onopen?: () => void;
-		ontoggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 		onclick?: () => void;
 		onkeypress?: () => void;
 		menu?: Snippet<[{ close: () => void }]>;
-		isOpenedByKebabButton: boolean;
-		isOpenedByMouse: boolean;
-	}
+		position: { coords?: { x: number; y: number }; element?: HTMLElement };
+	};
 
 	type HorizontalProps = BaseProps & {
 		side?: 'top' | 'bottom';
@@ -35,31 +31,27 @@
 
 	let {
 		testId,
-		leftClickTrigger,
-		rightClickTrigger,
 		side = 'bottom',
 		verticalAlign = 'bottom',
 		horizontalAlign = 'right',
-		isOpenedByKebabButton = $bindable(false),
-		isOpenedByMouse = $bindable(false),
 		children,
 		onclose,
 		onopen,
-		ontoggle,
 		onclick,
 		onkeypress,
-		menu
+		menu,
+		position
 	}: Props = $props();
 
-	let menuContainer: HTMLElement | undefined = $state();
+	let menuContainer = $state<HTMLElement>();
 	let item = $state<any>();
 	let contextMenuHeight = $state(0);
 	let contextMenuWidth = $state(0);
-	let isVisible = $state(false);
-	let menuPosition = $state({ x: 0, y: 0 });
+	let menuPosition = $state<{ x: number; y: number }>();
 	let savedMouseEvent: MouseEvent | undefined = $state();
+	let anchorElement = $state<HTMLElement>();
 
-	function setVerticalAlign(targetBoundingRect: DOMRect) {
+	function getVerticalAlign(targetBoundingRect: DOMRect) {
 		if (['top', 'bottom'].includes(side)) {
 			return side === 'top'
 				? targetBoundingRect.top
@@ -78,7 +70,7 @@
 		return 0;
 	}
 
-	function setHorizontalAlign(targetBoundingRect: DOMRect) {
+	function getHorizontalAlign(targetBoundingRect: DOMRect) {
 		const padding = 2;
 
 		if (['top', 'bottom'].includes(side)) {
@@ -95,70 +87,46 @@
 		return padding;
 	}
 
-	function executeByTrigger(callback: (isOpened: boolean, isLeftClick: boolean) => void) {
-		if (leftClickTrigger && !savedMouseEvent) {
-			callback(isVisible, true);
-		} else if (rightClickTrigger && savedMouseEvent) {
-			callback(isVisible, false);
-		}
-	}
-
-	function setAlignByMouse(e?: MouseEvent) {
-		if (!e) return;
-		menuPosition = { x: e.clientX, y: e.clientY };
-	}
-
-	function setAlignByTarget(target: HTMLElement) {
-		const targetBoundingRect = target.getBoundingClientRect();
-		let newMenuPosition = {
-			x: setHorizontalAlign(targetBoundingRect),
-			y: setVerticalAlign(targetBoundingRect)
+	function getPositionFromAnchor(element: HTMLElement) {
+		const targetBoundingRect = element.getBoundingClientRect();
+		return {
+			x: getHorizontalAlign(targetBoundingRect),
+			y: getVerticalAlign(targetBoundingRect)
 		};
-
-		menuPosition = newMenuPosition;
 	}
 
-	export function open(e?: MouseEvent, newItem?: any) {
-		if (!(leftClickTrigger || rightClickTrigger)) return;
-
-		item = newItem ?? item;
-		isVisible = true;
-		savedMouseEvent = e;
-
-		isOpenedByKebabButton = e === undefined;
-		isOpenedByMouse = e !== undefined;
-
+	function alignWithMouse(position: { x: number; y: number }) {
+		anchorElement = undefined;
+		menuPosition = position;
 		onopen?.();
-		if (ontoggle) executeByTrigger(ontoggle);
 	}
+
+	function alignWithElement(element: HTMLElement) {
+		anchorElement = element;
+		menuPosition = getPositionFromAnchor(element);
+		onopen?.();
+	}
+
+	$effect(() => {
+		if (position.coords) {
+			alignWithMouse(position.coords);
+		} else if (position.element) {
+			alignWithElement(position.element);
+		}
+	});
 
 	export function close() {
-		if (!isVisible) return;
-		isOpenedByKebabButton = false;
-		isOpenedByMouse = false;
-		isVisible = false;
 		onclose?.();
-		if (ontoggle) executeByTrigger(ontoggle);
-	}
-
-	export function toggle(e?: MouseEvent, newItem?: any) {
-		if (isVisible) {
-			close();
-		} else {
-			open(e, newItem);
-		}
 	}
 
 	function setAlignment() {
-		if (savedMouseEvent && rightClickTrigger) {
-			setAlignByMouse(savedMouseEvent);
-		} else if (leftClickTrigger) {
-			setAlignByTarget(leftClickTrigger);
+		if (anchorElement) {
+			menuPosition = getPositionFromAnchor(anchorElement);
 		}
 	}
 
 	$effect(() => {
-		if (!isVisible || !menuContainer) return;
+		if (!menuContainer) return;
 
 		setAlignment();
 
@@ -220,10 +188,6 @@
 		return horizontalAlign === 'left' ? 'top left' : 'top right';
 	}
 
-	export function isOpen() {
-		return isVisible;
-	}
-
 	function handleKeyNavigation(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
 			close();
@@ -231,45 +195,39 @@
 	}
 </script>
 
-{#if isVisible}
-	<div class="portal-wrap" use:portal={'body'}>
-		<!-- svelte-ignore a11y_autofocus -->
-		<div
-			data-testid={testId}
-			bind:this={menuContainer}
-			tabindex="-1"
-			use:focusTrap
-			autofocus
-			use:clickOutside={{
-				excludeElement: !savedMouseEvent ? leftClickTrigger ?? rightClickTrigger : undefined,
-				handler: () => close()
-			}}
-			bind:clientHeight={contextMenuHeight}
-			bind:clientWidth={contextMenuWidth}
-			{onclick}
-			{onkeypress}
-			onkeydown={handleKeyNavigation}
-			class="context-menu"
-			class:top-oriented={side === 'top'}
-			class:bottom-oriented={side === 'bottom'}
-			class:left-oriented={side === 'left'}
-			class:right-oriented={side === 'right'}
-			style:top="{menuPosition.y}px"
-			style:left="{menuPosition.x}px"
-			style:transform-origin={setTransformOrigin()}
-			style:--animation-transform-y-shift={side === 'top'
-				? '6px'
-				: side === 'bottom'
-					? '-6px'
-					: '0'}
-			role="menu"
-		>
-			{@render children?.(item)}
-			<!-- TODO: refactor `children` and combine with this snippet. -->
-			{@render menu?.({ close })}
-		</div>
+<div class="portal-wrap" use:portal={'body'}>
+	<!-- svelte-ignore a11y_autofocus -->
+	<div
+		data-testid={testId}
+		bind:this={menuContainer}
+		tabindex="-1"
+		use:focusTrap
+		autofocus
+		use:clickOutside={{
+			excludeElement: anchorElement,
+			handler: () => close()
+		}}
+		bind:clientHeight={contextMenuHeight}
+		bind:clientWidth={contextMenuWidth}
+		{onclick}
+		{onkeypress}
+		onkeydown={handleKeyNavigation}
+		class="context-menu"
+		class:top-oriented={side === 'top'}
+		class:bottom-oriented={side === 'bottom'}
+		class:left-oriented={side === 'left'}
+		class:right-oriented={side === 'right'}
+		style:top={menuPosition?.y + 'px'}
+		style:left={menuPosition?.x + 'px'}
+		style:transform-origin={setTransformOrigin()}
+		style:--animation-transform-y-shift={side === 'top' ? '6px' : side === 'bottom' ? '-6px' : '0'}
+		role="menu"
+	>
+		{@render children?.(item)}
+		<!-- TODO: refactor `children` and combine with this snippet. -->
+		{@render menu?.({ close })}
 	</div>
-{/if}
+</div>
 
 <style lang="postcss">
 	.portal-wrap {

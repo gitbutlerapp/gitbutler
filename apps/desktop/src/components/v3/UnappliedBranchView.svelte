@@ -2,15 +2,16 @@
 	import BranchReview from '$components/BranchReview.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import BranchDetails from '$components/v3/BranchDetails.svelte';
+	import BranchHeaderContextMenu from '$components/v3/BranchHeaderContextMenu.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
+	import KebabButton from '$components/v3/KebabButton.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import type { BranchHeaderContextItem } from '$components/v3/BranchHeaderContextMenu.svelte';
 
 	interface Props {
 		projectId: string;
@@ -30,10 +31,7 @@
 			: stackService.unstackedBranchDetails(projectId, branchName, remote)
 	);
 	const changesResult = $derived(stackService.branchChanges({ projectId, branchName, remote }));
-
-	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let kebabTrigger = $state<HTMLButtonElement>();
-	let isContextMenuOpen = $state(false);
+	let headerMenuContext = $state<BranchHeaderContextItem>();
 </script>
 
 <ReduxResult {projectId} result={branchResult.current}>
@@ -61,16 +59,17 @@
 				</div>
 			{/snippet}
 
-			{#snippet kebabMenu()}
-				<Button
-					size="tag"
-					icon="kebab"
-					kind="ghost"
-					activated={isContextMenuOpen}
-					bind:el={kebabTrigger}
-					onclick={() => {
-						contextMenu?.toggle();
-					}}
+			{#snippet kebabMenu(header)}
+				{@const data = {
+					branch,
+					prNumber: branch.prNumber || undefined
+				}}
+				<KebabButton
+					flat
+					contextElement={header}
+					onclick={(element) => (headerMenuContext = { data, position: { element } })}
+					oncontext={(coords) => (headerMenuContext = { data, position: { coords } })}
+					open={branchName === headerMenuContext?.data.branch.name}
 				/>
 			{/snippet}
 
@@ -109,6 +108,10 @@
 		</Drawer>
 	{/snippet}
 </ReduxResult>
+
+{#if headerMenuContext}
+	<BranchHeaderContextMenu {projectId} bind:context={headerMenuContext} />
+{/if}
 
 <style>
 	.branch__header {
