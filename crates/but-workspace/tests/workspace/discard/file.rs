@@ -237,7 +237,7 @@ fn replace_dir_with_file_discard_just_the_file_in_worktree() -> anyhow::Result<(
 
 #[test]
 #[cfg(unix)]
-fn conflicts_are_invisible() -> anyhow::Result<()> {
+fn conflicted_files_are_undoable_like_normal_changes() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-conflict");
     insta::assert_snapshot!(git_status(&repo)?, @"UU file");
     insta::assert_snapshot!(visualize_index(&**repo.index()?), @r"
@@ -247,13 +247,8 @@ fn conflicts_are_invisible() -> anyhow::Result<()> {
 ");
 
     let dropped = discard_workspace_changes(&repo, Some(file_to_spec("file")), CONTEXT_LINES)?;
-    assert_eq!(
-        dropped,
-        vec![file_to_spec("file")],
-        "The file spec didn't match a worktree change, was dropped"
-    );
+    assert_eq!(dropped, vec![], "The conflicted file should not be dropped");
 
-    // Nothing was changed
     insta::assert_snapshot!(git_status(&repo)?, @"UU file");
     insta::assert_snapshot!(visualize_index(&**repo.index()?), @r"
 100644:e69de29 file
@@ -636,14 +631,14 @@ fn all_file_types_renamed_overwriting_existing_and_modified_in_worktree() -> any
 
     insta::assert_snapshot!(git_status(&repo)?, @"");
     insta::assert_snapshot!(visualize_index(&**repo.index()?), @r"
-100644:e69de29 dir-to-be-file/content
-100755:01e79c3 executable
-100644:3aac70f file
-100644:e69de29 file-to-be-dir
-120000:c4c364c link
-100644:dcefb7d other-file
-100644:e69de29 to-be-overwritten
-");
+    100644:e69de29 dir-to-be-file/content
+    100755:01e79c3 executable
+    100644:3aac70f file
+    100644:e69de29 file-to-be-dir
+    120000:c4c364c link
+    100644:dcefb7d other-file
+    100644:e69de29 to-be-overwritten
+    ");
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?, @r"
 .
 ├── .git:40755

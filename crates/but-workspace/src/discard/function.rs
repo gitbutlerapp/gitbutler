@@ -1,4 +1,4 @@
-use std::os::unix::fs::PermissionsExt;
+use std::{collections::HashMap, os::unix::fs::PermissionsExt};
 
 use crate::{
     commit_engine::{DiffSpec, HunkHeader, apply_hunks, index::apply_lhs_to_rhs},
@@ -8,9 +8,10 @@ use crate::{
     },
 };
 use anyhow::Context;
-use bstr::ByteSlice;
+use bstr::{BString, ByteSlice};
 use but_core::{ChangeState, TreeStatus};
-use gix::status::index_worktree;
+use but_testsupport::{git_status, visualize_tree};
+use gix::{prelude::ObjectIdExt as _, status::index_worktree};
 
 use super::file::checkout_repo_worktree;
 
@@ -24,30 +25,70 @@ pub fn discard_workspace_changes(
 ) -> anyhow::Result<Vec<DiscardSpec>> {
     let (tree, dropped) =
         create_tree_without_diff(repository, ChangesSource::Worktree, changes, context_lines)?;
+    let status_changes = get_status(repository)?;
 
     update_wd_to_tree(repository, tree)?;
-    let tree_index = repository.index_from_tree(&tree)?;
-    let mut real_index =
-        match repository.open_index() {
-            Ok(index) => Ok(index),
-            Err(err) => match err {
-                gix::worktree::open_index::Error::IndexFile(gix::index::file::init::Error::Io(
-                    ..,
-                )) => Ok(repository
-                    .index_from_tree(&gix::ObjectId::empty_tree(gix::hash::Kind::Sha1))?),
-                err => Err(err),
-            },
-        }?;
+
+    let tree_as_index = repository.index_from_tree(&tree)?;
+    let mut index = repository.index_or_empty()?.into_owned_or_cloned();
+
+    let paths_to_update = index_entries_to_update(status_changes)?;
 
     apply_lhs_to_rhs(
         repository.workdir().context("non-bare repository")?,
-        &tree_index,
-        &mut real_index,
+        &tree_as_index,
+        &mut index,
+        Some(
+            &paths_to_update
+                .iter()
+                .map(|p| p.as_bstr())
+                .collect::<Vec<_>>(),
+        ),
     )?;
-
-    real_index.write(Default::default())?;
+    index.write(Default::default())?;
 
     Ok(dropped)
+}
+
+fn index_entries_to_update(status_changes: Vec<gix::status::Item>) -> anyhow::Result<Vec<BString>> {
+    let mut head_to_index = HashMap::new();
+    let mut index_to_worktree = HashMap::new();
+
+    for change in status_changes {
+        match change {
+            gix::status::Item::IndexWorktree(change) => {
+                index_to_worktree.insert(change.rela_path().to_owned(), change);
+            }
+            gix::status::Item::TreeIndex(change) => {
+                head_to_index.insert(change.rela_path().to_owned(), change);
+            }
+        }
+    }
+
+    let mut paths_to_update = vec![];
+
+    for (path, _) in head_to_index {
+        if !index_to_worktree.contains_key(&path) {
+            paths_to_update.push(path);
+        }
+    }
+
+    Ok(paths_to_update)
+}
+
+pub trait RelaPath {
+    fn rela_path(&self) -> &bstr::BStr;
+}
+
+impl RelaPath for gix::diff::index::ChangeRef<'_, '_> {
+    fn rela_path(&self) -> &bstr::BStr {
+        match self {
+            gix::diff::index::ChangeRef::Addition { location, .. }
+            | gix::diff::index::ChangeRef::Modification { location, .. }
+            | gix::diff::index::ChangeRef::Rewrite { location, .. }
+            | gix::diff::index::ChangeRef::Deletion { location, .. } => location,
+        }
+    }
 }
 
 fn update_wd_to_tree(
@@ -66,9 +107,11 @@ fn update_wd_to_tree(
         match &change.status {
             TreeStatus::Deletion { .. } => {
                 // Work tree has the file but the source tree doesn't.
+                dbg!(&change.path);
                 std::fs::remove_file(path_check.verified_path(&change.path)?)?;
             }
             TreeStatus::Addition { .. } => {
+                dbg!(&change.path);
                 let entry = source_tree
                     .lookup_entry(change.path.clone().split_str("/"))?
                     .context("path must exist")?;
@@ -99,7 +142,8 @@ fn update_wd_to_tree(
                 // Work tree has the file under `previous_path`, but the source tree wants it under `path`.
                 let previous_path = path_check.verified_path(previous_path)?;
                 if std::path::Path::new(&previous_path).is_dir() {
-                    std::fs::remove_dir_all(previous_path)?;
+                    // We don't want to remove the directory as it might
+                    // contain other files.
                 } else {
                     std::fs::remove_file(previous_path)?;
                 }
@@ -567,30 +611,12 @@ fn create_wd_tree(
     };
     let head_tree = repo.head_tree_id_or_empty()?;
     let mut head_tree_editor = repo.edit_tree(head_tree)?;
-    let status_changes = repo
-        .status(gix::progress::Discard)?
-        .tree_index_track_renames(TrackRenames::Disabled)
-        .index_worktree_rewrites(None)
-        .index_worktree_submodules(gix::status::Submodule::Given {
-            ignore: gix::submodule::config::Ignore::Dirty,
-            check_dirty: true,
-        })
-        .index_worktree_options_mut(|opts| {
-            if let Some(opts) = opts.dirwalk_options.as_mut() {
-                opts.set_emit_ignored(None)
-                    .set_emit_pruned(false)
-                    .set_emit_tracked(false)
-                    .set_emit_untracked(EmissionMode::Matching)
-                    .set_emit_collapsed(None);
-            }
-        })
-        .into_iter(None)?;
+    let status_changes = get_status(repo)?;
 
     let mut worktreepaths_changed = HashSet::new();
     // We have to apply untracked items last, but don't have ordering here so impose it ourselves.
     let mut untracked_items = Vec::new();
     for change in status_changes {
-        let change = change?;
         match change {
             status::Item::TreeIndex(gix::diff::index::Change::Deletion { location, .. }) => {
                 // These changes play second fiddle - they are overwritten by worktree-changes,
@@ -699,4 +725,32 @@ fn create_wd_tree(
 
     let tree_oid = head_tree_editor.write()?;
     Ok(tree_oid.detach())
+}
+
+fn get_status(repo: &gix::Repository) -> anyhow::Result<Vec<gix::status::Item>> {
+    use gix::dir::walk::EmissionMode;
+    use gix::status::tree_index::TrackRenames;
+
+    let status_changes = repo
+        .status(gix::progress::Discard)?
+        .tree_index_track_renames(TrackRenames::Disabled)
+        .index_worktree_rewrites(None)
+        .index_worktree_submodules(gix::status::Submodule::Given {
+            ignore: gix::submodule::config::Ignore::Dirty,
+            check_dirty: true,
+        })
+        .index_worktree_options_mut(|opts| {
+            if let Some(opts) = opts.dirwalk_options.as_mut() {
+                opts.set_emit_ignored(None)
+                    .set_emit_pruned(false)
+                    .set_emit_tracked(false)
+                    .set_emit_untracked(EmissionMode::Matching)
+                    .set_emit_collapsed(None);
+            }
+        })
+        .into_iter(None)?
+        .filter_map(|change| change.ok())
+        .collect::<Vec<_>>();
+
+    Ok(status_changes)
 }

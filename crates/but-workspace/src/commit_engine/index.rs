@@ -1,6 +1,8 @@
 use bstr::{BStr, ByteSlice};
 use std::path::Path;
 
+use crate::discard::function::RelaPath as _;
+
 /// Turn `rhs` into `lhs` by modifying `rhs`. This will leave `rhs` intact as much as possible, but will remove
 /// Note that conflicting entries will be replaced by an addition or edit automatically.
 /// extensions that might be affected by these changes, for a lack of finesse with our edits.
@@ -8,6 +10,7 @@ pub fn apply_lhs_to_rhs(
     workdir: &Path,
     lhs: &gix::index::State,
     rhs: &mut gix::index::State,
+    filter_paths: Option<&[&BStr]>,
 ) -> anyhow::Result<()> {
     let mut num_sorted_entries = rhs.entries().len();
     let mut needs_sorting = false;
@@ -27,6 +30,12 @@ pub fn apply_lhs_to_rhs(
 
     use gix::diff::index::Change;
     for change in changes {
+        if let Some(filter_paths) = filter_paths {
+            if !filter_paths.contains(&change.rela_path()) {
+                continue;
+            }
+        }
+
         match change {
             Change::Addition { location, .. } => {
                 delete_entry_by_path_bounded(rhs, location.as_bstr(), &mut num_sorted_entries);
