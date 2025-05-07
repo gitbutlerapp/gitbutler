@@ -24,8 +24,7 @@
 //!   - It doesn't specify if the change is in a commit, or in the worktree, so that information must be provided separately.
 
 use anyhow::{Context, Result, bail};
-use author::{Author, gravatar_url_from_email};
-use bstr::{BStr, BString};
+use bstr::BString;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_id::id::Id;
@@ -38,8 +37,10 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::str::FromStr;
 
-mod author;
 mod integrated;
+
+/// Types specifically for the user-interface.
+pub mod ui;
 
 pub mod commit_engine;
 pub mod discard;
@@ -87,8 +88,8 @@ pub struct HeadInfo {
 mod virtual_branches_metadata;
 pub use virtual_branches_metadata::VirtualBranchesTomlMetadata;
 
-/// A representation of the commit that is the tip of the workspace, i.e. usually what `HEAD` points to,
-/// possibly in its managed form in which it merges two or more stacks together and we can rewrite it at will.
+/// A representation of the commit that is the tip of the workspace, i.e., usually what `HEAD` points to,
+/// possibly in its managed form in which it merges two or more stacks together, and we can rewrite it at will.
 pub struct WorkspaceCommit<'repo> {
     /// The id of the commit itself.
     pub id: gix::Id<'repo>,
@@ -96,54 +97,9 @@ pub struct WorkspaceCommit<'repo> {
     pub inner: gix::objs::Commit,
 }
 
+use crate::ui::{CommitState, PushStatus};
 /// An ID uniquely identifying stacks.
 pub use gitbutler_stack::StackId;
-
-/// The information about the branch inside a stack
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StackHeadInfo {
-    /// The name of the branch.
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
-    pub name: BString,
-    /// The tip of the branch.
-    #[serde(with = "gitbutler_serde::object_id")]
-    pub tip: gix::ObjectId,
-}
-
-/// Represents a lightweight version of a [`gitbutler_stack::Stack`] for listing.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StackEntry {
-    /// The ID of the stack.
-    pub id: StackId,
-    /// The list of the branch information that are part of the stack.
-    /// The list is never empty.
-    /// The first entry in the list is always the most recent branch on top the stack.
-    pub heads: Vec<StackHeadInfo>,
-    /// The tip of the top-most branch, i.e. the most recent commit that would become the parent of new commits of the topmost stack branch.
-    #[serde(with = "gitbutler_serde::object_id")]
-    pub tip: gix::ObjectId,
-}
-
-impl StackEntry {
-    /// The name of the stack, which is the name of the top-most branch.
-    pub fn name(&self) -> Option<&BStr> {
-        self.heads
-            .first()
-            .map(|head| AsRef::<BStr>::as_ref(&head.name))
-    }
-}
-
-impl StackEntry {
-    pub(crate) fn try_new(repo: &gix::Repository, stack: &Stack) -> anyhow::Result<Self> {
-        Ok(StackEntry {
-            id: stack.id,
-            heads: stack_heads_info(stack, repo)?,
-            tip: stack.head_oid(repo)?,
-        })
-    }
-}
 
 /// A filter for the list of stacks.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
@@ -158,14 +114,14 @@ pub enum StacksFilter {
 }
 
 /// Returns the list of branch information for the branches in a stack.
-pub fn stack_heads_info(stack: &Stack, repo: &gix::Repository) -> Result<Vec<StackHeadInfo>> {
+pub fn stack_heads_info(stack: &Stack, repo: &gix::Repository) -> Result<Vec<ui::StackHeadInfo>> {
     let branches = stack
         .branches()
         .into_iter()
         .rev()
         .filter_map(|branch| {
             let tip = branch.head_oid(repo).ok()?;
-            Some(StackHeadInfo {
+            Some(ui::StackHeadInfo {
                 name: branch.name().to_owned().into(),
                 tip,
             })
@@ -185,7 +141,7 @@ pub fn stacks(
     gb_dir: &Path,
     repo: &gix::Repository,
     filter: StacksFilter,
-) -> Result<Vec<StackEntry>> {
+) -> Result<Vec<ui::StackEntry>> {
     let state = state_handle(gb_dir);
 
     let stacks = match filter {
@@ -194,127 +150,76 @@ pub fn stacks(
             .list_all_stacks()?
             .into_iter()
             .filter(|s| s.in_workspace)
-            .collect::<Vec<_>>(),
+            .collect(),
         StacksFilter::Unapplied => state
             .list_all_stacks()?
             .into_iter()
             .filter(|s| !s.in_workspace)
-            .collect::<Vec<_>>(),
+            .collect(),
     };
 
     let stacks = stacks
         .into_iter()
-        .filter_map(|mut stack| {
-            match stack.migrate_change_ids(ctx) {
-                Ok(_) => Some(stack), // If it fails thats ok - it will be skipped
-                Err(_) => None,
-            }
-        })
-        .filter(|s| s.is_initialized())
-        .collect::<Vec<_>>();
+        .filter_map(|mut stack| stack.migrate_change_ids(ctx).ok().map(|()| stack))
+        .filter(|s| s.is_initialized());
 
     stacks
-        .into_iter()
         .sorted_by_key(|s| s.order)
-        .map(|stack| StackEntry::try_new(repo, &stack))
+        .map(|stack| ui::StackEntry::try_new(repo, &stack))
         .collect()
 }
 
-/// Represents the pushable status for the current stack.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum PushStatus {
-    /// Can push, but there are no changes to be pushed
-    NothingToPush,
-    /// Can push. This is the case when there are local changes that can be pushed to the remote.
-    UnpushedCommits,
-    /// Can push, but requires a force push to the remote because commits were rewritten.
-    UnpushedCommitsRequiringForce,
-    /// Completely unpushed
-    CompletelyUnpushed,
-    /// Fully integrated, no changes to push.
-    Integrated,
-}
-
-#[derive(Debug, Default)]
-struct BranchState {
-    is_integrated: bool,
-    is_dirty: bool,
-    requires_force: bool,
-    has_pushed_commits: bool,
-}
-
-impl From<BranchState> for PushStatus {
-    fn from(state: BranchState) -> Self {
-        match (
-            state.is_integrated,
-            state.is_dirty,
-            state.requires_force,
-            state.has_pushed_commits,
-        ) {
-            (true, _, _, _) => PushStatus::Integrated,
-            (_, true, _, false) => PushStatus::CompletelyUnpushed,
-            (_, _, true, _) => PushStatus::UnpushedCommitsRequiringForce,
-            (_, true, _, _) => PushStatus::UnpushedCommits,
-            (_, false, _, _) => PushStatus::NothingToPush,
+fn try_from_stack_v3(
+    repo: &gix::Repository,
+    stack: branch::Stack,
+) -> anyhow::Result<ui::StackEntry> {
+    let heads = stack.segments.into_iter().map(|segment| {
+        let ref_name = segment
+            .ref_name
+            .expect("This type can't represent this state and it shouldn't have to");
+        ui::StackHeadInfo {
+            tip: repo
+                .find_reference(ref_name.as_ref())
+                .ok()
+                .and_then(|r| r.try_id())
+                .map(|id| id.detach())
+                .unwrap_or(repo.object_hash().null()),
+            name: ref_name.into(),
         }
-    }
+    });
+    Ok(ui::StackEntry {
+        id: Default::default(), // TODO: have a global evil mapping from ref-names to IDs
+        heads: heads.collect(),
+        tip: stack.tip.unwrap_or(repo.object_hash().null()),
+    })
 }
 
-/// Information about the current state of a branch.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BranchDetails {
-    /// The name of the branch.
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
-    pub name: BString,
-    /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
-    #[serde(with = "gitbutler_serde::bstring_opt_lossy")]
-    pub remote_tracking_branch: Option<BString>,
-    /// Description of the branch.
-    /// Can include arbitrary utf8 data, eg. markdown etc.
-    pub description: Option<String>,
-    /// The pull(merge) request associated with the branch, or None if no such entity has not been created.
-    pub pr_number: Option<usize>,
-    /// A unique identifier for the GitButler review associated with the branch, if any.
-    pub review_id: Option<String>,
-    /// This is the last commit in the branch, aka the tip of the branch.
-    /// If this is the only branch in the stack or the top-most branch, this is the tip of the stack.
-    #[serde(with = "gitbutler_serde::object_id")]
-    pub tip: gix::ObjectId,
-    /// This is the base commit from the perspective of this branch.
-    /// If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
-    /// If this branch is at the bottom of the stack, this is the merge base of the stack.
-    #[serde(with = "gitbutler_serde::object_id")]
-    pub base_commit: gix::ObjectId,
-    /// The pushable status for the branch
-    pub push_status: PushStatus,
-    /// Last time the branch was updated in Epoch milliseconds.
-    pub last_updated_at: Option<u128>,
-    /// All authors of the commits in the branch.
-    pub authors: Vec<Author>,
-    /// Whether the branch is conflicted.
-    pub is_conflicted: bool,
-    /// The commits contained in the branch, excluding the upstream commits.
-    pub commits: Vec<Commit>,
-    /// The commits that are only at the remote.
-    pub upstream_commits: Vec<UpstreamCommit>,
-    /// Whether it's representing a remote head
-    pub is_remote_head: bool,
-}
+/// Returns the list of stacks that pass `filter`.
+///
+/// Use `repo` and `meta` to read branches data
+// TODO: Let the UI get all stacks at once.
+pub fn stacks_v3(
+    repo: &gix::Repository,
+    meta: &impl but_core::RefMetadata,
+    filter: StacksFilter,
+) -> Result<Vec<ui::StackEntry>> {
+    let info = crate::head_info(
+        repo,
+        meta,
+        head_info::Options {
+            // TODO: set this to a good value for the UI to not slow down, and also a value that forces us to re-investigate this.
+            stack_commit_limit: 100,
+        },
+    )?;
 
-/// Information about the current state of a stack
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StackDetails {
-    /// This is the name of the top-most branch, provided by the API for convinience
-    pub derived_name: String,
-    /// The pushable status for the stack
-    pub push_status: PushStatus,
-    /// The details about the contained branches
-    pub branch_details: Vec<BranchDetails>,
-    /// Whether the stack is conflicted.
-    pub is_conflicted: bool,
+    info.stacks
+        .into_iter()
+        .filter_map(|stack| match filter {
+            StacksFilter::All | StacksFilter::InWorkspace => Some(try_from_stack_v3(repo, stack)),
+            // TODO: get all stacks, not just the applied ones. These are only by inspection of metadata.
+            StacksFilter::Unapplied => None,
+        })
+        .collect::<Result<_, _>>()
 }
 
 /// Determines if a force push is required to push a branch to its remote.
@@ -350,7 +255,32 @@ pub fn stack_details(
     gb_dir: &Path,
     stack_id: StackId,
     ctx: &CommandContext,
-) -> Result<StackDetails> {
+) -> Result<ui::StackDetails> {
+    #[derive(Debug, Default)]
+    struct BranchState {
+        is_integrated: bool,
+        is_dirty: bool,
+        requires_force: bool,
+        has_pushed_commits: bool,
+    }
+
+    impl From<BranchState> for PushStatus {
+        fn from(state: BranchState) -> Self {
+            match (
+                state.is_integrated,
+                state.is_dirty,
+                state.requires_force,
+                state.has_pushed_commits,
+            ) {
+                (true, _, _, _) => PushStatus::Integrated,
+                (_, true, _, false) => PushStatus::CompletelyUnpushed,
+                (_, _, true, _) => PushStatus::UnpushedCommitsRequiringForce,
+                (_, true, _, _) => PushStatus::UnpushedCommits,
+                (_, false, _, _) => PushStatus::NothingToPush,
+            }
+        }
+    }
+
     let state = state_handle(gb_dir);
     let mut stack = state.get_stack(stack_id)?;
     let branches = stack.branches();
@@ -388,7 +318,7 @@ pub fn stack_details(
 
         for commit in &commits {
             is_conflicted |= commit.has_conflicts;
-            branch_state.is_dirty |= matches!(commit.state, CommitState::LocalOnly);
+            branch_state.is_dirty |= matches!(commit.state, ui::CommitState::LocalOnly);
             branch_state.has_pushed_commits |=
                 matches!(commit.state, CommitState::LocalAndRemote(_));
             authors.insert(commit.author.clone());
@@ -408,7 +338,7 @@ pub fn stack_details(
         // If all branches are integrated, the stack is integrated
         stack_state.is_integrated &= branch_state.is_integrated;
 
-        branch_details.push(BranchDetails {
+        branch_details.push(ui::BranchDetails {
             name: branch.name().to_owned().into(),
             remote_tracking_branch: upstream_reference.map(Into::into),
             description: branch.description.clone(),
@@ -433,7 +363,7 @@ pub fn stack_details(
 
     let push_status = stack_state.into();
 
-    Ok(StackDetails {
+    Ok(ui::StackDetails {
         derived_name: stack.derived_name()?,
         push_status,
         branch_details,
@@ -447,7 +377,7 @@ pub fn branch_details(
     branch_name: &str,
     remote: Option<&str>,
     ctx: &CommandContext,
-) -> Result<BranchDetails> {
+) -> Result<ui::BranchDetails> {
     let state = state_handle(gb_dir);
     let repository = ctx.repo();
 
@@ -514,11 +444,11 @@ pub fn branch_details(
     let commits = commits
         .into_iter()
         .map(|commit| {
-            let author = author_from_signature(&commit.author());
-            let commiter = author_from_signature(&commit.committer());
+            let author: ui::Author = commit.author().into();
+            let commiter: ui::Author = commit.committer().into();
             authors.insert(author.clone());
             authors.insert(commiter);
-            Commit {
+            ui::Commit {
                 id: commit.id().to_gix(),
                 parent_ids: commit.parent_ids().map(|id| id.to_gix()).collect(),
                 message: commit.message().unwrap_or_default().into(),
@@ -533,11 +463,11 @@ pub fn branch_details(
     let upstream_commits = upstream_commits
         .into_iter()
         .map(|commit| {
-            let author = author_from_signature(&commit.author());
-            let commiter = author_from_signature(&commit.committer());
+            let author: ui::Author = commit.author().into();
+            let commiter: ui::Author = commit.committer().into();
             authors.insert(author.clone());
             authors.insert(commiter);
-            UpstreamCommit {
+            ui::UpstreamCommit {
                 id: commit.id().to_gix(),
                 message: commit.message().unwrap_or_default().into(),
                 created_at: u128::try_from(commit.time().seconds()).unwrap_or(0) * 1000,
@@ -546,7 +476,7 @@ pub fn branch_details(
         })
         .collect::<Vec<_>>();
 
-    Ok(BranchDetails {
+    Ok(ui::BranchDetails {
         name: branch_name.into(),
         remote_tracking_branch: upstream
             .as_ref()
@@ -570,15 +500,6 @@ pub fn branch_details(
     })
 }
 
-fn author_from_signature(signature: &git2::Signature<'_>) -> Author {
-    let email = signature.email().unwrap_or("example@example.com");
-    Author {
-        name: signature.name().unwrap_or("Unknown").into(),
-        email: email.into(),
-        gravatar_url: gravatar_url_from_email(email).expect("failed to get gravatar url"),
-    }
-}
-
 /// Returns the last-seen fork-point that the workspace has with the target branch with which it wants to integrate.
 // TODO: at some point this should be optional, integration branch doesn't have to be defined.
 pub fn common_merge_base_with_target_branch(gb_dir: &Path) -> Result<gix::ObjectId> {
@@ -586,81 +507,6 @@ pub fn common_merge_base_with_target_branch(gb_dir: &Path) -> Result<gix::Object
         .get_default_target()?
         .sha
         .to_gix())
-}
-
-/// Represents the state a commit could be in.
-#[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type", content = "subject")]
-pub enum CommitState {
-    /// The commit is only local
-    LocalOnly,
-    /// The commit is also present at the remote tracking branch.
-    /// This is the commit state if:
-    ///  - The commit has been pushed to the remote
-    ///  - The commit has been copied from a remote commit (when applying a remote branch)
-    ///
-    /// This variant carries the remote commit id.
-    /// The `remote_commit_id` may be the same as the `id` or it may be different if the local commit has been rebased or updated in another way.
-    #[serde(with = "gitbutler_serde::object_id")]
-    LocalAndRemote(gix::ObjectId),
-    /// The commit is considered integrated.
-    /// This should happen when this commit or the contents of this commit is already part of the base.
-    Integrated,
-}
-
-/// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Commit {
-    /// The OID of the commit.
-    #[serde(with = "gitbutler_serde::object_id")]
-    pub id: gix::ObjectId,
-    /// The parent OIDs of the commit.
-    #[serde(with = "gitbutler_serde::object_id_vec")]
-    pub parent_ids: Vec<gix::ObjectId>,
-    /// The message of the commit.
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
-    pub message: BString,
-    /// Whether the commit is in a conflicted state.
-    /// Conflicted state of a commit is a GitButler concept.
-    /// GitButler will perform rebasing/reordering etc without interruptions and flag commits as conflicted if needed.
-    /// Conflicts are resolved via the Edit Mode mechanism.
-    pub has_conflicts: bool,
-    /// Represents wether the the commit is considered integrated, local only,
-    /// or local and remote with respect to the branch it belongs to.
-    /// Note that remote only commits in the context of a branch are expressed with the [`UpstreamCommit`] struct instead of this.
-    pub state: CommitState,
-    /// Commit creation time in Epoch milliseconds.
-    pub created_at: u128,
-    /// The author of the commit.
-    pub author: Author,
-}
-
-/// Commit that is only at the remote.
-/// Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpstreamCommit {
-    /// The OID of the commit.
-    #[serde(with = "gitbutler_serde::object_id")]
-    pub id: gix::ObjectId,
-    /// The message of the commit.
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
-    pub message: BString,
-    /// Commit creation time in Epoch milliseconds.
-    pub created_at: u128,
-    /// The author of the commit.
-    pub author: Author,
-}
-
-/// A collection of all the commits that are part of a branch.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BranchCommits {
-    /// The commits that are local and optionally remote.
-    pub local_and_remote: Vec<Commit>,
-    /// The commits that are only at the remote.
-    pub upstream_commits: Vec<UpstreamCommit>,
 }
 
 /// Represents a branch in a [`Stack`]. It contains commits derived from the local pseudo branch and it's respective remote
@@ -743,13 +589,13 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> Result<Vec<Bran
 ///
 /// When there are multiple branches in the stack, this includes the commits from the branch head to the next branch in the stack.
 ///
-/// In either case this is effectively a list of commits that in the working copy which may or may not have been pushed to the remote.
+/// In either case, this is effectively a list of commits that in the working copy which may or may not have been pushed to the remote.
 pub fn stack_branch_local_and_remote_commits(
     stack_id: String,
     branch_name: String,
     ctx: &CommandContext,
     repo: &gix::Repository,
-) -> Result<Vec<Commit>> {
+) -> Result<Vec<ui::Commit>> {
     let state = state_handle(&ctx.project().gb_dir());
     let stack = state.get_stack(Id::from_str(&stack_id)?)?;
 
@@ -764,7 +610,7 @@ pub fn stack_branch_local_and_remote_commits(
     local_and_remote_commits(ctx, repo, branch, &stack)
 }
 
-/// Returns a fift of commits beloning to this branch. Ordered from newest to oldest (child-most to parent-most).
+/// Returns a fift of commits belonging to this branch. Ordered from newest to oldest (child-most to parent-most).
 ///
 /// These are the commits that exist **only** on the upstream branch. Ordered from newest to oldest.
 /// Created from the tip of the local tracking branch eg. refs/remotes/origin/my-branch -> refs/heads/my-branch
@@ -776,12 +622,15 @@ pub fn stack_branch_upstream_only_commits(
     branch_name: String,
     ctx: &CommandContext,
     repo: &gix::Repository,
-) -> Result<Vec<UpstreamCommit>> {
+) -> Result<Vec<ui::UpstreamCommit>> {
     let state = state_handle(&ctx.project().gb_dir());
     let stack = state.get_stack(Id::from_str(&stack_id)?)?;
 
     let branches = stack.branches();
-    let branch = branches.iter().find(|b| b.name() == &branch_name).unwrap(); //todo
+    let branch = branches
+        .iter()
+        .find(|b| b.name() == &branch_name)
+        .with_context(|| format!("Could not find branch {branch_name:?}"))?;
     if branch.archived {
         return Ok(vec![]);
     }
@@ -793,8 +642,8 @@ fn upstream_only_commits(
     repo: &gix::Repository,
     stack_branch: &gitbutler_stack::StackBranch,
     stack: &Stack,
-    current_local_and_remote_commits: Option<&Vec<Commit>>,
-) -> Result<Vec<UpstreamCommit>> {
+    current_local_and_remote_commits: Option<&Vec<ui::Commit>>,
+) -> Result<Vec<ui::UpstreamCommit>> {
     let branch_commits = stack_branch.commits(ctx, stack)?;
 
     let local_and_remote = if let Some(current_local_and_remote) = current_local_and_remote_commits
@@ -811,10 +660,10 @@ fn upstream_only_commits(
             // If the id matches verbatim or if there is a known remote_id (in the case of LocalAndRemote) that matchies
             c.id == commit.id().to_gix() || matches!(&c.state, CommitState::LocalAndRemote(remote_id) if remote_id == &commit.id().to_gix())
         });
-        // Ignore commits that strictly speaking are remote only but they match a known local commit (rebase etc)
+        // Ignore commits that strictly speaking are remote only, but they match a known local commit (rebase etc)
         if !matches_known_commit {
             let created_at = u128::try_from(commit.time().seconds())? * 1000;
-            let upstream_commit = UpstreamCommit {
+            let upstream_commit = ui::UpstreamCommit {
                 id: commit.id().to_gix(),
                 message: commit.message_bstr().into(),
                 created_at,
@@ -833,7 +682,7 @@ fn local_and_remote_commits(
     repo: &gix::Repository,
     stack_branch: &gitbutler_stack::StackBranch,
     stack: &Stack,
-) -> Result<Vec<Commit>> {
+) -> Result<Vec<ui::Commit>> {
     let state = state_handle(&ctx.project().gb_dir());
     let default_target = state
         .get_default_target()
@@ -843,7 +692,7 @@ fn local_and_remote_commits(
     let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, repo, &mut graph)?;
 
     let branch_commits = stack_branch.commits(ctx, stack)?;
-    let mut local_and_remote: Vec<Commit> = vec![];
+    let mut local_and_remote: Vec<ui::Commit> = vec![];
     let mut is_integrated = false;
 
     let remote_commit_data = branch_commits
@@ -888,7 +737,7 @@ fn local_and_remote_commits(
 
         let created_at = u128::try_from(commit.time().seconds())? * 1000;
 
-        let api_commit = Commit {
+        let api_commit = ui::Commit {
             id: commit.id().to_gix(),
             parent_ids: commit.parents().map(|p| p.id().to_gix()).collect(),
             message: commit.message_bstr().into(),
@@ -913,7 +762,7 @@ pub fn log_target_first_parent(
     ctx: &CommandContext,
     last_commit_id: Option<gix::ObjectId>,
     limit: usize,
-) -> Result<Vec<Commit>> {
+) -> Result<Vec<ui::Commit>> {
     let repo = ctx.gix_repo()?;
     let traversal_root_id = match last_commit_id {
         Some(id) => {
@@ -935,14 +784,14 @@ pub fn log_target_first_parent(
         None => return Ok(vec![]),
     };
 
-    let mut commits: Vec<Commit> = vec![];
+    let mut commits: Vec<ui::Commit> = vec![];
     for commit_info in traversal_root_id.ancestors().first_parent_only().all()? {
         if commits.len() == limit {
             break;
         }
         let commit = commit_info?.id().object()?.into_commit();
 
-        commits.push(Commit {
+        commits.push(ui::Commit {
             id: commit.id,
             parent_ids: commit.parent_ids().map(|id| id.detach()).collect(),
             message: commit.message_raw_sloppy().into(),

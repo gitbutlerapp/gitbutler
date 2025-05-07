@@ -2,7 +2,7 @@ pub mod commands {
     use anyhow::{anyhow, Context};
     use but_settings::AppSettingsWithDiskSync;
     use but_workspace::commit_engine::ui::DiffSpec;
-    use but_workspace::StackEntry;
+    use but_workspace::ui::StackEntry;
     use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
     use gitbutler_branch_actions::branch_upstream_integration::IntegrationStrategy;
     use gitbutler_branch_actions::internal::StackListResult;

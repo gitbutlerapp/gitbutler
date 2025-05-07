@@ -693,6 +693,7 @@ dependencies = [
  "gitbutler-stack",
  "gix",
  "itertools",
+ "serde",
  "serde_json",
  "tracing",
  "tracing-forest",

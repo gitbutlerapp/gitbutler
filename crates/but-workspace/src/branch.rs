@@ -498,6 +498,7 @@ pub struct Stack {
     ///
     /// The actual index is dependent on the order in which they are merged into the workspace commit,
     /// if the stack is merged at all.
+    // TODO: find a way to map this to (or provide) legacy StackIDs
     pub index: usize,
     /// The commit that the tip of the stack is pointing to.
     /// It is `None` if there is no commit as this repository is newly initialized.
@@ -547,11 +548,11 @@ pub enum RefLocation {
     ///
     /// This is the common case.
     ReachableFromWorkspaceCommit,
-    /// The given reference can reach into this workspace segment, but isn't inside of it.
+    /// The given reference can reach into this workspace segment, but isn't inside it.
     ///
-    /// This happens if someone checked out the reference directly and commited into it.
+    /// This happens if someone checked out the reference directly and committed into it.
     OutsideOfWorkspace,
-    /// `HEAD` points directly to the
+    /// `HEAD` points directly to the reference, i.e., it is checked out.
     AtHead,
 }
 
@@ -572,7 +573,9 @@ pub struct StackSegment {
     /// The list could be empty.
     pub commits_unique_from_tip: Vec<BranchCommit>,
     /// The commits that are reachable from this branch, but not from the tip of the *Stack*.
-    /// This happens if the branch is advanced/moved by other means.
+    /// This happens if the branch is advanced/moved by other means, i.e., the branch was checked out directly
+    /// and advanced with manual Git commits.
+    /// Only ever set for the top-most segment.
     pub commits_unintegratd_local: Vec<BranchCommit>,
     /// Commits that are reachable from the remote-tracking branch associated with this branch,
     /// but are not reachable from this branch.

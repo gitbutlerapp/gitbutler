@@ -22,7 +22,7 @@ pub mod reference_frame;
 mod refs;
 
 mod hunks;
-use crate::{StackEntry, WorkspaceCommit};
+use crate::WorkspaceCommit;
 pub use hunks::apply_hunks;
 
 /// Types for use in the frontend with serialization support.
@@ -518,7 +518,7 @@ pub fn create_commit_and_update_refs(
                             .branches
                             .values()
                             .filter(|stack| stack.in_workspace)
-                            .map(|stack| StackEntry::try_new(repo, stack))
+                            .map(|stack| crate::ui::StackEntry::try_new(repo, stack))
                             .collect::<Result<_, _>>()?;
                         stacks.sort_by(|a, b| a.name().cmp(&b.name()));
                         let new_wc = WorkspaceCommit::create_commit_from_vb_state(

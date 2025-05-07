@@ -119,13 +119,23 @@ pub mod stacks {
 
     use but_settings::AppSettings;
     use but_workspace::{
-        BranchCommits, stack_branch_local_and_remote_commits, stack_branch_upstream_only_commits,
-        stack_branches,
+        stack_branch_local_and_remote_commits, stack_branch_upstream_only_commits, stack_branches,
+        ui,
     };
     use gitbutler_command_context::CommandContext;
     use gitbutler_id::id::Id;
 
     use crate::command::{debug_print, project_from_path};
+
+    /// A collection of all the commits that are part of a branch.
+    #[derive(Debug, Clone, serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct BranchCommits {
+        /// The commits that are local and optionally remote.
+        pub local_and_remote: Vec<ui::Commit>,
+        /// The commits that are only at the remote.
+        pub upstream_commits: Vec<ui::UpstreamCommit>,
+    }
 
     pub fn list(current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
@@ -159,7 +169,7 @@ pub mod stacks {
         ctx: &CommandContext,
         name: &str,
         description: &Option<String>,
-    ) -> anyhow::Result<but_workspace::StackEntry> {
+    ) -> anyhow::Result<ui::StackEntry> {
         let creation_request = gitbutler_branch::BranchCreateRequest {
             name: Some(name.to_string()),
             ..Default::default()
@@ -186,7 +196,7 @@ pub mod stacks {
         description: &Option<String>,
         project: gitbutler_project::Project,
         repo: &gix::Repository,
-    ) -> anyhow::Result<but_workspace::StackEntry> {
+    ) -> anyhow::Result<ui::StackEntry> {
         let creation_request = gitbutler_branch_actions::stack::CreateSeriesRequest {
             name: name.to_string(),
             description: None,
