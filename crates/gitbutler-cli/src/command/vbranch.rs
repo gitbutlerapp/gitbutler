@@ -27,6 +27,7 @@ pub fn set_base(project: Project, short_tracking_branch_name: String) -> Result<
     debug_print(gitbutler_branch_actions::set_base_branch(
         &ctx,
         &branch_name,
+        false,
     )?)
 }
 

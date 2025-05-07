@@ -9,8 +9,12 @@ use super::Test;
 fn no_diffs() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
@@ -57,8 +61,12 @@ fn no_diffs() {
 fn multiple_commits() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     std::fs::write(repo.path().join("a.txt"), "This is a").unwrap();
 
@@ -145,8 +153,12 @@ fn multiple_commits() {
 fn multiple_commits_with_diffs() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     std::fs::write(repo.path().join("a.txt"), "This is a").unwrap();
 
@@ -271,8 +283,12 @@ fn multiple_commits_with_diffs() {
 fn diffs_on_source_branch() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
@@ -333,8 +349,12 @@ fn diffs_on_source_branch() {
 fn diffs_on_target_branch() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
@@ -400,8 +420,12 @@ fn diffs_on_target_branch() {
 fn diffs_on_both_branches() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
@@ -520,8 +544,12 @@ fn diffs_on_both_branches() {
 fn target_commit_locked_to_ancestors() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     std::fs::write(repo.path().join("a.txt"), "This is a").unwrap();
 
@@ -561,8 +589,12 @@ fn target_commit_locked_to_ancestors() {
 fn target_commit_locked_to_descendants() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     std::fs::write(repo.path().join("a.txt"), "This is a").unwrap();
 
@@ -605,8 +637,12 @@ fn target_commit_locked_to_descendants() {
 fn locked_hunks_on_source_branch() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
@@ -644,8 +680,12 @@ fn locked_hunks_on_source_branch() {
 fn no_commit() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
@@ -679,8 +719,12 @@ fn no_commit() {
 fn no_branch() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 

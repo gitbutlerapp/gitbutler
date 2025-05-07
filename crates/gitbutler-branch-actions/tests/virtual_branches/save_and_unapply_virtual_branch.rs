@@ -4,8 +4,12 @@ use super::*;
 fn unapply_with_data() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
@@ -27,8 +31,12 @@ fn unapply_with_data() {
 fn delete_if_empty() {
     let Test { ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default()).unwrap();
 

@@ -15,8 +15,12 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
         repo, project, ctx, ..
     } = &test;
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let worktree_dir = repo.path();
     for round in 0..3 {
@@ -92,7 +96,7 @@ fn basic_oplog() -> anyhow::Result<()> {
         repo, project, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse()?)?;
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse()?, false)?;
 
     let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())?;
@@ -240,7 +244,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         repo, project, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse()?)?;
+    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse()?, false)?;
 
     assert_eq!(
         VirtualBranchesHandle::new(project.gb_dir())
@@ -353,10 +357,18 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 fn head_corrupt_is_recreated_automatically() {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let snapshots = ctx.list_snapshots(10, None).unwrap();
     assert_eq!(
@@ -373,8 +385,12 @@ fn head_corrupt_is_recreated_automatically() {
     )
     .unwrap();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .expect("the snapshot doesn't fail despite the corrupt head");
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .expect("the snapshot doesn't fail despite the corrupt head");
 
     let snapshots = ctx.list_snapshots(10, None).unwrap();
     assert_eq!(

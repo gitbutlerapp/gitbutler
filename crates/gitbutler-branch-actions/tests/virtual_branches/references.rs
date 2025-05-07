@@ -12,6 +12,7 @@ mod create_virtual_branch {
         gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
+            false,
         )
         .unwrap();
 
@@ -40,6 +41,7 @@ mod create_virtual_branch {
         gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
+            false,
         )
         .unwrap();
 
@@ -91,6 +93,7 @@ mod update_virtual_branch {
         gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
+            false,
         )
         .unwrap();
 
@@ -135,6 +138,7 @@ mod update_virtual_branch {
         gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
+            false,
         )
         .unwrap();
 
@@ -195,6 +199,7 @@ mod push_virtual_branch {
         gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
+            false,
         )
         .unwrap();
 
@@ -238,6 +243,7 @@ mod push_virtual_branch {
         gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
+            false,
         )
         .unwrap();
 

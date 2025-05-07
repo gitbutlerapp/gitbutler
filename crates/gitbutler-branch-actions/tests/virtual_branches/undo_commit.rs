@@ -7,8 +7,12 @@ use super::*;
 fn undo_commit_simple() -> anyhow::Result<()> {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
@@ -67,8 +71,12 @@ fn undo_commit_simple() -> anyhow::Result<()> {
 fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
     let Test { repo, ctx, .. } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        false,
+    )
+    .unwrap();
 
     let stack_entry =
         gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
