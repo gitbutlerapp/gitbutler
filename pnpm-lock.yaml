@@ -233,13 +233,7 @@ importers:
         version: 6.6.3
       '@testing-library/svelte':
         specifier: 5.2.5
-<<<<<<< ours
-        version: 5.2.5(svelte@5.28.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))
-||||||| ancestor
-        version: 5.2.5(svelte@5.23.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))
-=======
-        version: 5.2.5(svelte@5.23.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5)
->>>>>>> theirs
+        version: 5.2.5(svelte@5.28.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5)
       '@testing-library/user-event':
         specifier: ^14.6.1
         version: 14.6.1(@testing-library/dom@10.4.0)
@@ -420,13 +414,7 @@ importers:
         version: 6.6.3
       '@testing-library/svelte':
         specifier: 5.2.5
-<<<<<<< ours
-        version: 5.2.5(svelte@5.28.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))
-||||||| ancestor
-        version: 5.2.5(svelte@5.23.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))
-=======
-        version: 5.2.5(svelte@5.23.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5)
->>>>>>> theirs
+        version: 5.2.5(svelte@5.28.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5)
       '@types/diff-match-patch':
         specifier: ^1.0.36
         version: 1.0.36
@@ -5065,14 +5053,6 @@ packages:
   fd-slicer@1.1.0:
     resolution: {integrity: sha512-cE1qsB/VwyQozZ+q1dGxR8LBYNZeofhEdUNGSMbQD3Gw2lAzX9Zb3uIU6Ebc/Fmyjo9AWWfnn0AUCHqtevs/8g==}
 
-  fdir@6.4.3:
-    resolution: {integrity: sha512-PMXmW2y1hDDfTSRc9gaXIuCCRpuoz3Kaz8cUelp3smouvfT632ozg2vrT6lJsHKKOF59YLbOGfAWGUcKEfRMQw==}
-    peerDependencies:
-      picomatch: ^3 || ^4
-    peerDependenciesMeta:
-      picomatch:
-        optional: true
-
   fdir@6.4.4:
     resolution: {integrity: sha512-1NZP+GK4GfuAv3PqKvxQRDMjdSRZjnkq7KfhlNrCNNlZ0ygQFpebfrnfnq/W7fpUnAv9aGWmY1zKx7FYL3gwhg==}
     peerDependencies:
@@ -7929,10 +7909,6 @@ packages:
 
   tinyexec@0.3.2:
     resolution: {integrity: sha512-KQQR9yN7R5+OSwaK0XQoj22pwHoTlgYqmUscPYoknOoWCWfj/5/ABTMRi69FrKU5ffPVh5QcFikpWJI/P1ocHA==}
-
-  tinyglobby@0.2.10:
-    resolution: {integrity: sha512-Zc+8eJlFMvgatPZTl6A9L/yht8QqdmUNtURHaKZLmKBE12hNPSrqNkUp2cs3M/UKmNVVAMFQYSjYIVHDjW5zew==}
-    engines: {node: '>=12.0.0'}
 
   tinyglobby@0.2.13:
     resolution: {integrity: sha512-mEwzpUgrLySlveBwEVDMKk5B57bhLPYovRfPAXD5gA/98Opn0rCDj3GtLwFvCvH5RK9uPCExUROW5NjDwvqkxw==}
@@ -11229,13 +11205,7 @@ snapshots:
       lodash: 4.17.21
       redent: 3.0.0
 
-<<<<<<< ours
-  '@testing-library/svelte@5.2.5(svelte@5.28.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))':
-||||||| ancestor
-  '@testing-library/svelte@5.2.5(svelte@5.23.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))':
-=======
-  '@testing-library/svelte@5.2.5(svelte@5.23.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5)':
->>>>>>> theirs
+  '@testing-library/svelte@5.2.5(svelte@5.28.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5)':
     dependencies:
       '@testing-library/dom': 10.4.0
       svelte: 5.28.2
@@ -11243,26 +11213,6 @@ snapshots:
       vite: 6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
       vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
 
-<<<<<<< ours
-  '@testing-library/svelte@5.2.5(svelte@5.28.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))':
-    dependencies:
-      '@testing-library/dom': 10.4.0
-      svelte: 5.28.2
-    optionalDependencies:
-      vite: 6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
-      vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
-
-||||||| ancestor
-  '@testing-library/svelte@5.2.5(svelte@5.23.2)(vite@6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))(vitest@3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0))':
-    dependencies:
-      '@testing-library/dom': 10.4.0
-      svelte: 5.23.2
-    optionalDependencies:
-      vite: 6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
-      vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
-
-=======
->>>>>>> theirs
   '@testing-library/user-event@14.5.2(@testing-library/dom@10.4.0)':
     dependencies:
       '@testing-library/dom': 10.4.0
@@ -11782,7 +11732,7 @@ snapshots:
       flatted: 3.3.2
       pathe: 2.0.2
       sirv: 3.0.0
-      tinyglobby: 0.2.10
+      tinyglobby: 0.2.13
       tinyrainbow: 2.0.0
       vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.7.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
 
@@ -13900,10 +13850,6 @@ snapshots:
   fd-slicer@1.1.0:
     dependencies:
       pend: 1.2.0
-
-  fdir@6.4.3(picomatch@4.0.2):
-    optionalDependencies:
-      picomatch: 4.0.2
 
   fdir@6.4.4(picomatch@4.0.2):
     optionalDependencies:
@@ -17084,11 +17030,6 @@ snapshots:
   tinybench@2.9.0: {}
 
   tinyexec@0.3.2: {}
-
-  tinyglobby@0.2.10:
-    dependencies:
-      fdir: 6.4.3(picomatch@4.0.2)
-      picomatch: 4.0.2
 
   tinyglobby@0.2.13:
     dependencies:
