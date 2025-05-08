@@ -101,6 +101,7 @@
 					class="lane"
 					class:multi={$mode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
 					class:single={$mode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
+					class:single-fullwidth={$mode === 'single' && stacks.length === 1}
 					class:vertical={$mode === 'vertical'}
 					data-id={stack.id}
 					bind:clientWidth={laneWidths[i]}
@@ -203,14 +204,15 @@
 		&:first-child {
 			border-left: 1px solid var(--clr-border-2);
 		}
-
 		&.single {
 			flex-basis: calc(100% - 30px);
 		}
-		&.multi {
-			flex-shrink: unset;
+		&.single-fullwidth {
 			flex-basis: 100%;
-			min-width: 340px;
+		}
+		&.multi {
+			width: 100%;
+			max-width: 340px;
 		}
 		&.vertical {
 			border-bottom: 1px solid var(--clr-border-2);
