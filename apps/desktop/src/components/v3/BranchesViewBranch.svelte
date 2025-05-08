@@ -52,7 +52,8 @@
 					onclick={() => {
 						branchesState.current = {
 							branchName,
-							stackId: env.stackId
+							stackId: env.stackId,
+							remote
 						};
 					}}
 				/>
@@ -72,7 +73,8 @@
 							branchesState.set({
 								stackId: env.stackId,
 								branchName: branch.name,
-								commitId: commit.id
+								commitId: commit.id,
+								remote
 							});
 						}}
 						lastCommit={idx === branch.upstreamCommits.length - 1 && branch.commits.length === 0}
@@ -92,7 +94,8 @@
 							branchesState.set({
 								stackId: env.stackId,
 								branchName: branch.name,
-								commitId: commit.id
+								commitId: commit.id,
+								remote
 							});
 						}}
 						lastCommit={idx === branch.commits.length - 1}
