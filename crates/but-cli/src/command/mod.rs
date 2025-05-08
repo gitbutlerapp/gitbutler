@@ -320,7 +320,7 @@ pub(crate) fn discard_change(
     };
     debug_print(but_workspace::discard_workspace_changes(
         &repo,
-        Some(spec.into()),
+        Some(spec),
         UI_CONTEXT_LINES,
     )?)
 }

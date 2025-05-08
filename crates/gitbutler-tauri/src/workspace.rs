@@ -204,8 +204,8 @@ pub fn discard_worktree_changes(
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
-    worktree_changes: Vec<but_workspace::tree_manipulation::ui::DiscardSpec>,
-) -> Result<Vec<but_workspace::tree_manipulation::ui::DiscardSpec>, Error> {
+    worktree_changes: Vec<but_workspace::DiffSpec>,
+) -> Result<Vec<but_workspace::DiffSpec>, Error> {
     let project = projects.get(project_id)?;
     let repo = but_core::open_repo(project.worktree_path())?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
@@ -217,15 +217,13 @@ pub fn discard_worktree_changes(
     );
     let refused = but_workspace::discard_workspace_changes(
         &repo,
-        worktree_changes
-            .into_iter()
-            .map(but_workspace::tree_manipulation::DiscardSpec::from),
+        worktree_changes,
         settings.get()?.context_lines,
     )?;
     if !refused.is_empty() {
         tracing::warn!(?refused, "Failed to discard at least one hunk");
     }
-    Ok(refused.into_iter().map(|change| change.into()).collect())
+    Ok(refused)
 }
 
 /// This API allows the user to quickly "stash" a bunch of uncommitted changes - getting them out of the worktree.

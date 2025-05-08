@@ -1022,33 +1022,30 @@ D submodule
 
 mod util {
     use crate::utils::to_change_specs_whole_file;
-    use but_workspace::{DiffSpec, tree_manipulation::DiscardSpec};
+    use but_workspace::DiffSpec;
 
-    pub fn file_to_spec(name: &str) -> DiscardSpec {
+    pub fn file_to_spec(name: &str) -> DiffSpec {
         DiffSpec {
             previous_path_bytes: None,
             path_bytes: name.into(),
             hunk_headers: vec![],
         }
-        .into()
     }
 
-    pub fn renamed_file_to_spec(previous: &str, name: &str) -> DiscardSpec {
+    pub fn renamed_file_to_spec(previous: &str, name: &str) -> DiffSpec {
         DiffSpec {
             previous_path_bytes: Some(previous.into()),
             path_bytes: name.into(),
             hunk_headers: vec![],
         }
-        .into()
     }
 
     pub fn worktree_changes_to_discard_specs(
         repo: &gix::Repository,
-    ) -> impl Iterator<Item = DiscardSpec> {
+    ) -> impl Iterator<Item = DiffSpec> {
         to_change_specs_whole_file(
             but_core::diff::worktree_changes(repo).expect("worktree changes never fail"),
         )
         .into_iter()
-        .map(Into::into)
     }
 }

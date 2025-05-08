@@ -3,10 +3,7 @@ use std::collections::HashSet;
 use crate::{
     DiffSpec, HunkHeader,
     commit_engine::{apply_hunks, index::apply_lhs_to_rhs},
-    tree_manipulation::{
-        DiscardSpec,
-        hunk::{HunkSubstraction, subtract_hunks},
-    },
+    tree_manipulation::hunk::{HunkSubstraction, subtract_hunks},
 };
 use anyhow::Context;
 use bstr::{BString, ByteSlice};
@@ -20,9 +17,9 @@ use super::{RelaPath as _, file::checkout_repo_worktree};
 /// The index will be written to the repository if any changes are made to it.
 pub fn discard_workspace_changes(
     repository: &gix::Repository,
-    changes: impl IntoIterator<Item = DiscardSpec>,
+    changes: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,
-) -> anyhow::Result<Vec<DiscardSpec>> {
+) -> anyhow::Result<Vec<DiffSpec>> {
     let (tree, dropped) =
         create_tree_without_diff(repository, ChangesSource::Worktree, changes, context_lines)?;
     let status_changes = get_status(repository)?;
@@ -361,9 +358,9 @@ impl ChangesSource {
 pub fn create_tree_without_diff(
     repository: &gix::Repository,
     changes_source: ChangesSource,
-    changes_to_discard: impl IntoIterator<Item = DiscardSpec>,
+    changes_to_discard: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,
-) -> anyhow::Result<(gix::ObjectId, Vec<DiscardSpec>)> {
+) -> anyhow::Result<(gix::ObjectId, Vec<DiffSpec>)> {
     let mut dropped = Vec::new();
 
     let before = changes_source.before(repository)?;
@@ -452,11 +449,11 @@ pub fn create_tree_without_diff(
                     }
 
                     if !bad_hunk_headers.is_empty() {
-                        dropped.push(DiscardSpec::from(DiffSpec {
+                        dropped.push(DiffSpec {
                             previous_path_bytes: change.previous_path_bytes.clone(),
                             path_bytes: change.path_bytes.clone(),
                             hunk_headers: bad_hunk_headers,
-                        }));
+                        });
                     }
 
                     // TODO: Validate that the hunks coorespond with actual changes?
@@ -544,7 +541,7 @@ fn new_hunks_after_removals(
 fn revert_file_to_before_state(
     before_entry: &Option<gix::object::tree::Entry<'_>>,
     builder: &mut gix::object::tree::Editor<'_>,
-    change: &DiscardSpec,
+    change: &DiffSpec,
 ) -> Result<(), anyhow::Error> {
     // If there are no hunk headers, then we want to revert the
     // whole file to the state it was in before tree.
