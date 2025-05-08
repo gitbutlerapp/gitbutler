@@ -13,7 +13,7 @@ describe('Selection', () => {
 
 		cy.visit('/');
 
-		cy.url({ timeout: 3000 }).should('include', `/workspace/${mockBackend.stackId}`);
+		cy.url({ timeout: 3000 }).should('include', `/workspace?stackId=${mockBackend.stackId}`);
 	});
 
 	afterEach(() => {
@@ -26,7 +26,7 @@ describe('Selection', () => {
 
 		const stacks = mockBackend.getStacks();
 		// There shuold be three stacks
-		cy.getByTestId('stack-tab').should('have.length', stacks.length);
+		cy.getByTestId('stack').should('have.length', stacks.length);
 
 		// Select the second stack
 
@@ -34,24 +34,21 @@ describe('Selection', () => {
 			const stackName = stack.heads[0]?.name;
 			if (!stackName) continue;
 
-			cy.getByTestId('stack-tab', stackName)
+			cy.getByTestIdByValue('branch-header', stackName)
 				.click()
-				.then(() => {
+				.should('contain', stackName)
+				.within(() => {
 					// Shouls have the stack url
-					cy.url().should('include', `/workspace/${stack.id}`);
-
-					// Check if the stack name is displayed in the header
-					cy.getByTestId('branch-header').should('contain', stackName).click();
-
-					// Check if the file list is updated
-					cy.getByTestId('branch-changed-file-list')
-						.should('be.visible')
-						.within(() => {
-							const changedFileNames = mockBackend.getBranchChangesFileNames(stack.id, stackName);
-							for (const fileName of changedFileNames) {
-								cy.getByTestId('file-list-item', fileName).should('be.visible');
-							}
-						});
+					cy.url().should('include', `/workspace?stackId=${stack.id}`);
+				});
+			// Check if the file list is updated
+			cy.getByTestId('branch-changed-file-list')
+				.should('be.visible')
+				.within(() => {
+					const changedFileNames = mockBackend.getBranchChangesFileNames(stack.id, stackName);
+					for (const fileName of changedFileNames) {
+						cy.getByTestId('file-list-item', fileName).should('be.visible');
+					}
 				});
 		}
 	});

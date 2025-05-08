@@ -43,7 +43,9 @@ export enum TestId {
 	BranchChangedFileList = 'branch-changed-file-list',
 	UnifiedDiffView = 'unified-diff-view',
 	UnifiedDiffViewLockWarning = 'unified-diff-view-lock-warning',
-	ToastInfoMessage = 'toast-info-message'
+	ToastInfoMessage = 'toast-info-message',
+	Stack = 'stack',
+	StackHeader = 'stack-header'
 }
 
 export enum ElementId {

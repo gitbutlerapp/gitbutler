@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
@@ -44,6 +45,7 @@
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
+	import { stackPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -216,6 +218,7 @@
 													uiState.stack(stackId).selection.set({ branchName });
 													uiState.project(projectId).drawerPage.set('branch');
 												}
+												goto(stackPath(projectId, stackId));
 											}}
 										>
 											{#snippet menu({ rightClickTrigger })}
@@ -279,6 +282,7 @@
 																.stack(stackId)
 																.selection.set({ branchName, commitId, upstream: true });
 															uiState.project(projectId).drawerPage.set(undefined);
+															projectState.stackId.set(stackId);
 														}}
 														disableCommitActions={false}
 													/>
@@ -301,22 +305,25 @@
 													{@const nothingSelectedButFirst = selectedCommitId === undefined && first}
 													{@const selectedForCommit =
 														(nothingSelectedButFirst || commit.id === selectedCommitId) &&
-														branchName === selectedBranchName}
+														((first && selectedBranchName === undefined) ||
+															branchName === selectedBranchName)}
 													<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
 													<CommitGoesHere
 														selected={selectedForCommit}
 														{first}
 														last={false}
-														onclick={() =>
-															uiState.stack(stackId).selection.set({ branchName, commitId })}
+														onclick={() => {
+															uiState.stack(stackId).selection.set({ branchName, commitId });
+															projectState.stackId.set(stackId);
+														}}
 													/>
 												{/if}
 												{@const dzCommit: DzCommitData = {
-										id: commit.id,
-										isRemote: isUpstreamCommit(commit),
-										isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
-										hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
-									}}
+													id: commit.id,
+													isRemote: isUpstreamCommit(commit),
+													isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
+													hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
+												}}
 												{@const amendHandler = new AmendCommitWithChangeDzHandler(
 													projectId,
 													stackService,
@@ -397,6 +404,7 @@
 																const stackState = uiState.stack(stackId);
 																stackState.selection.set({ branchName, commitId });
 																uiState.project(projectId).drawerPage.set(undefined);
+																projectState.stackId.set(stackId);
 															}}
 															disableCommitActions={false}
 														>
@@ -446,10 +454,12 @@
 														{last}
 														selected={selectedCommitId === baseSha &&
 															branchName === selectedBranchName}
-														onclick={() =>
+														onclick={() => {
 															uiState
 																.stack(stackId)
-																.selection.set({ branchName, commitId: baseSha })}
+																.selection.set({ branchName, commitId: baseSha });
+															projectState.stackId.set(stackId);
+														}}
 													/>
 												{/if}
 											{/snippet}

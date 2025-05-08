@@ -5,6 +5,7 @@
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Badge from '@gitbutler/ui/Badge.svelte';
@@ -102,6 +103,8 @@
 					data-id={stack.id}
 					bind:clientWidth={laneWidths[i]}
 					bind:clientHeight={lineHights[i]}
+					data-testid={TestId.Stack}
+					data-testid-stack={stack.heads.at(0)?.name}
 					use:intersectionObserver={{
 						callback: (entry) => {
 							if (entry?.isIntersecting) {

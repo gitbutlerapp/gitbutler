@@ -16,7 +16,7 @@
 
 	const drawer = $derived(uiState.project(projectId).drawerPage);
 
-	const stacksResult = stackService.stacks(projectId);
+	const stacksResult = $derived(stackService.stacks(projectId));
 	const isCommitting = $derived(drawer.current === 'new-commit');
 </script>
 
