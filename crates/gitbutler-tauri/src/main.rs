@@ -294,7 +294,7 @@ fn main() {
                     workspace::canned_branch_name,
                     workspace::target_commits,
                     diff::changes_in_worktree,
-                    diff::changes_in_commit,
+                    diff::commit_details,
                     diff::changes_in_branch,
                     diff::tree_change_diffs,
                     // `env_vars` is only supposed to be avaialble in debug mode, not in production.

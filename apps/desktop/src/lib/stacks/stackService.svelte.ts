@@ -866,7 +866,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				{ projectId: string; commitId: string }
 			>({
 				query: ({ projectId, commitId }) => ({
-					command: 'changes_in_commit',
+					command: 'commit_details',
 					params: { projectId, commitId }
 				}),
 				providesTags: (_result, _error, { commitId }) => [

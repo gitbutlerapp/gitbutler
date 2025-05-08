@@ -7,6 +7,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::ProjectId;
 use gitbutler_stack::VirtualBranchesHandle;
+use serde::Serialize;
 use tracing::instrument;
 
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
@@ -29,14 +30,29 @@ pub fn tree_change_diffs(
 
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
-pub fn changes_in_commit(
+pub fn commit_details(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     project_id: ProjectId,
     commit_id: HexHash,
-) -> anyhow::Result<TreeChanges, Error> {
+) -> anyhow::Result<CommitDetails, Error> {
     let project = projects.get(project_id)?;
-    but_core::diff::ui::commit_changes_by_worktree_dir(project.path, commit_id.into())
-        .map_err(Into::into)
+    let repo = &gix::open(&project.path).context("Failed to open repo")?;
+    let commit = repo
+        .find_commit(commit_id)
+        .context("Failed for find commit")?;
+    let changes = but_core::diff::ui::commit_changes_by_worktree_dir(repo, commit_id.into())?;
+    Ok(CommitDetails {
+        commit: commit.try_into()?,
+        changes,
+    })
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitDetails {
+    pub commit: but_workspace::ui::Commit,
+    #[serde(flatten)]
+    pub changes: but_core::ui::TreeChanges,
 }
 
 /// Gets the changes for a given branch.

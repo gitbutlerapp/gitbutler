@@ -376,10 +376,10 @@ fn commit_to_commit() -> anyhow::Result<()> {
     let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
         .map_err(anyhow::Error::from_boxed)?;
     let worktree_dir = root.join("many-in-tree");
-    let repo = gix::open_opts(&worktree_dir, gix::open::Options::isolated())?;
+    let repo = &gix::open_opts(&worktree_dir, gix::open::Options::isolated())?;
     let actual =
         serde_json::to_string_pretty(&but_core::diff::ui::commit_changes_by_worktree_dir(
-            worktree_dir,
+            repo,
             repo.rev_parse_single("@")?.into(),
         )?)?;
     insta::assert_snapshot!(actual, @r#"

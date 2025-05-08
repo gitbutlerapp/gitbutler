@@ -55,7 +55,7 @@ mod from_json {
     use std::str::FromStr;
 
     /// A type that deserializes a hexadecimal hash into an object id automatically.
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Copy)]
     pub struct HexHash(gix::ObjectId);
 
     impl From<HexHash> for gix::ObjectId {
