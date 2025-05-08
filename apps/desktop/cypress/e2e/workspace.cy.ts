@@ -14,6 +14,6 @@ describe('Workspace', () => {
 		cy.visit('/');
 
 		// Should be redirected to the workspac
-		cy.url().should('include', `/${PROJECT_ID}/workspace/${MOCK_STACK_A_ID}`);
+		cy.url().should('include', `/${PROJECT_ID}/workspace?stackId=${MOCK_STACK_A_ID}`);
 	});
 });

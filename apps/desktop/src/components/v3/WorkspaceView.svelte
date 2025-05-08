@@ -8,24 +8,20 @@
 	import ReviewView from '$components/v3/ReviewView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
-	import StackTabs from '$components/v3/stackTabs/StackTabs.svelte';
-	import { multiStackLayout } from '$lib/config/uiFeatureFlags';
 	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import { remToPx } from '@gitbutler/ui/utils/remToPx';
-	import { type Snippet } from 'svelte';
+
 	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {
 		projectId: string;
 		stackId?: string;
-		stack: Snippet;
 	}
 
-	const { stackId, projectId, stack }: Props = $props();
+	const { stackId, projectId }: Props = $props();
 
 	const [stackService, uiState, focusManager] = inject(StackService, UiState, FocusManager);
 	const stacksResult = $derived(stackService.stacks(projectId));
@@ -33,7 +29,6 @@
 	const projectState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectState.drawerPage);
 	const drawerIsFullScreen = $derived(projectState.drawerFullScreen);
-	const isCommitting = $derived(drawerPage.current === 'new-commit');
 
 	let focusGroup = $derived(
 		focusManager.radioGroup({
@@ -69,8 +64,6 @@
 
 	let leftDiv = $state<HTMLElement>();
 	let stacksViewEl = $state<HTMLElement>();
-
-	let tabsWidth = $state<number>();
 </script>
 
 <div class="workspace" use:focusable={{ id: Focusable.Workspace }}>
@@ -125,23 +118,8 @@
 				style:width={stacksViewWidth.current + 'rem'}
 				use:focusable={{ id: Focusable.WorkspaceRight, parentId: Focusable.Workspace }}
 			>
-				{#if $multiStackLayout}
-					<MultiStackView {projectId} {stacks} />
-				{:else}
-					<StackTabs
-						{projectId}
-						{stacks}
-						selectedId={stackId}
-						{isCommitting}
-						bind:width={tabsWidth}
-					/>
-					<div
-						class={['contents', stacks.length > 0 ? 'contents_stack dotted-pattern' : '']}
-						class:rounded={tabsWidth! <= (remToPx(stacksViewWidth.current - 0.5) as number)}
-					>
-						{@render stack()}
-					</div>
-				{/if}
+				<MultiStackView {projectId} {stacks} selectedId={stackId} />
+
 				<Resizer
 					viewport={stacksViewEl}
 					direction="left"
@@ -180,42 +158,24 @@
 	}
 
 	.stacks-view-wrap {
+		position: relative;
 		height: 100%;
 		display: flex;
 		flex-grow: 0;
 		flex-shrink: 0;
 		flex-direction: column;
 		justify-content: flex-start;
-		position: relative;
 		overflow: hidden;
 	}
 
 	.main-view {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		flex-grow: 1;
 		border-radius: var(--radius-ml);
 		overflow-x: hidden;
-		position: relative;
 		gap: 8px;
 		min-width: 320px;
-	}
-
-	.contents {
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		overflow: hidden;
-
-		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
-	}
-
-	/* MODIFIERS */
-	.rounded {
-		border-radius: 0 var(--radius-ml) var(--radius-ml) var(--radius-ml);
-	}
-	.contents_stack {
-		padding: 12px;
 	}
 </style>

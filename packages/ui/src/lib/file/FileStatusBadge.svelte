@@ -55,7 +55,15 @@
 			class:renamed={status === 'R'}
 		>
 			<svg viewBox="0 0 11 11" fill="none" class="status-dot">
-				<rect x="0.5" y="0.5" width="10" height="10" rx="3.5" stroke="var(--file-dot-color)" />
+				<rect
+					x="0.5"
+					y="0.5"
+					width="10"
+					height="10"
+					rx="3.5"
+					stroke="var(--file-dot-color)"
+					stroke-width="1.2"
+				/>
 				{#if status === 'A'}
 					<path d="M9 5.5H2M5.5 2V9" />
 				{:else if status === 'M'}

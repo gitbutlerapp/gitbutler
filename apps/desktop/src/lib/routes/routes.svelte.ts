@@ -47,7 +47,7 @@ export function isIrcPath() {
 
 export function isWorkspacePath(): { projectId: string; stackId?: string } | undefined {
 	const isStackUrl = isUrl<{ projectId: string; stackId?: string }>(
-		'/[projectId]/workspace/[stackId]'
+		'/[projectId]/workspace?stackId=[stackId]'
 	);
 	const isWorkspaceUrl = isUrl<{ projectId: string }>('/[projectId]/workspace');
 	return isStackUrl ?? isWorkspaceUrl;
@@ -93,7 +93,7 @@ export function newSettingsPath(page?: string) {
 }
 
 export function stackPath(projectId: string, stackId: string) {
-	return `/${projectId}/workspace/${stackId}`;
+	return `/${projectId}/workspace?stackId=${stackId}`;
 }
 
 export function clonePath() {

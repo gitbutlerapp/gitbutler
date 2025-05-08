@@ -106,6 +106,7 @@
 		{/snippet}
 		<div
 			data-testid={TestId.BranchHeader}
+			data-testid-branch-header={branchName}
 			bind:this={rightClickTrigger}
 			role="button"
 			class="branch-header"

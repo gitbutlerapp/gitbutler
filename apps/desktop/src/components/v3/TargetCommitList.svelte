@@ -123,16 +123,6 @@
 </ReduxResult>
 
 <style lang="postcss">
-	.target-branch-list {
-		display: flex;
-		flex-direction: column;
-		background-color: var(--clr-bg-2);
-		border-radius: var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
-		overflow: hidden;
-		height: 100%;
-	}
-
 	.target-branch-header {
 		display: flex;
 		border-bottom: 1px solid var(--clr-border-2);
