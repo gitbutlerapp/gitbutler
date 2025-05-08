@@ -1,4 +1,5 @@
 import { clearCommandMocks, mockCommand } from './support';
+import { PROJECT_ID } from './support/mock/projects';
 import LotsOfFileChanges from './support/scenarios/lotsOfFileChanges';
 import SomeDeeplyNestedChanges from './support/scenarios/someDeeplyNestedChanges';
 
@@ -12,7 +13,7 @@ describe('File Tree - multiple file changes', () => {
 
 		cy.visit('/');
 
-		cy.url({ timeout: 3000 }).should('include', `/workspace?stackId=${mockBackend.stackId}`);
+		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
 	});
 
 	afterEach(() => {
@@ -65,7 +66,7 @@ describe('File Tree - some file changes', () => {
 
 		cy.visit('/');
 
-		cy.url({ timeout: 3000 }).should('include', `/workspace?stackId=${mockBackend.stackId}`);
+		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
 	});
 
 	afterEach(() => {

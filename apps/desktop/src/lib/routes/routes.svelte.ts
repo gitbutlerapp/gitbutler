@@ -92,10 +92,6 @@ export function newSettingsPath(page?: string) {
 	return `/new-settings`;
 }
 
-export function stackPath(projectId: string, stackId: string) {
-	return `/${projectId}/workspace?stackId=${stackId}`;
-}
-
 export function clonePath() {
 	return '/onboarding/clone';
 }

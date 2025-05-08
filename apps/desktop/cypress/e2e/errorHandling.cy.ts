@@ -1,5 +1,6 @@
 import { clearCommandMocks, mockCommand } from './support';
 import MockBackend from './support/mock/backend';
+import { PROJECT_ID } from './support/mock/projects';
 
 describe('Error handling - commit actions', () => {
 	let mockBackend: MockBackend;
@@ -26,7 +27,7 @@ describe('Error handling - commit actions', () => {
 
 		cy.visit('/');
 
-		cy.url({ timeout: 3000 }).should('include', `/workspace?stackId=${mockBackend.stackId}`);
+		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
 	});
 
 	afterEach(() => {

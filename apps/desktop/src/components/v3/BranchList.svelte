@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
@@ -45,7 +44,6 @@
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
-	import { stackPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -221,7 +219,6 @@
 													uiState.stack(stackId).selection.set({ branchName });
 													uiState.project(projectId).drawerPage.set('branch');
 												}
-												goto(stackPath(projectId, stackId));
 											}}
 										>
 											{#snippet menu({ rightClickTrigger })}
@@ -263,7 +260,6 @@
 																commitId: branchDetails.baseCommit
 															});
 															projectState.stackId.set(stackId);
-															goto(stackPath(projectId, stackId));
 														}}
 													/>
 												{/if}
@@ -324,7 +320,6 @@
 														onclick={() => {
 															projectState.stackId.set(stackId);
 															uiState.stack(stackId).selection.set({ branchName, commitId });
-															goto(stackPath(projectId, stackId));
 														}}
 													/>
 												{/if}
@@ -470,7 +465,6 @@
 																.stack(stackId)
 																.selection.set({ branchName, commitId: baseSha });
 															projectState.stackId.set(stackId);
-															goto(stackPath(projectId, stackId));
 														}}
 													/>
 												{/if}
