@@ -14,8 +14,6 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
-
-	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {
@@ -43,17 +41,6 @@
 	const branchName = $derived(currentSelection?.branchName);
 	const commitId = $derived(currentSelection?.commitId);
 	const upstream = $derived(!!currentSelection?.upstream);
-
-	const stackResult = $derived(stackId ? stackService.stackById(projectId, stackId) : undefined);
-	$effect(() => {
-		if (
-			stackResult?.current.status === QueryStatus.fulfilled &&
-			stackResult.current.data === undefined
-		) {
-			projectState.stackId.set(undefined);
-			stackSelection?.set(undefined);
-		}
-	});
 
 	const selectionId: SelectionId = $derived.by(() => {
 		if (focusGroup.current === Focusable.ChangedFiles && currentSelection && stackId) {

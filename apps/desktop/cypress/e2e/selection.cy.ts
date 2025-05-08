@@ -1,4 +1,5 @@
 import { clearCommandMocks, mockCommand } from './support';
+import { PROJECT_ID } from './support/mock/projects';
 import BranchesWithChanges from './support/scenarios/branchesWithChanges';
 
 describe('Selection', () => {
@@ -13,7 +14,7 @@ describe('Selection', () => {
 
 		cy.visit('/');
 
-		cy.url({ timeout: 3000 }).should('include', `/workspace?stackId=${mockBackend.stackId}`);
+		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
 	});
 
 	afterEach(() => {
@@ -39,7 +40,7 @@ describe('Selection', () => {
 				.should('contain', stackName)
 				.within(() => {
 					// Shouls have the stack url
-					cy.url().should('include', `/workspace?stackId=${stack.id}`);
+					cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
 				});
 			// Check if the file list is updated
 			cy.getByTestId('branch-changed-file-list')
