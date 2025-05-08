@@ -88,11 +88,9 @@ fn update_wd_to_tree(
         match &change.status {
             TreeStatus::Deletion { .. } => {
                 // Work tree has the file but the source tree doesn't.
-                dbg!(&change.path);
                 std::fs::remove_file(path_check.verified_path(&change.path)?)?;
             }
             TreeStatus::Addition { .. } => {
-                dbg!(&change.path);
                 let entry = source_tree
                     .lookup_entry(change.path.clone().split_str("/"))?
                     .context("path must exist")?;
