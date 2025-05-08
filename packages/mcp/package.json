@@ -25,15 +25,15 @@
 	"author": "GitButler (https://gitbutler.com)",
 	"license": "MIT",
 	"dependencies": {
-		"@modelcontextprotocol/sdk": "^1.8.0",
+		"@modelcontextprotocol/sdk": "^1.11.1",
 		"node-fetch": "^3.3.2",
 		"universal-user-agent": "^7.0.2",
-		"zod": "^3.24.2",
+		"zod": "^3.24.4",
 		"zod-to-json-schema": "^3.24.5"
 	},
 	"devDependencies": {
-		"@types/node": "^22.3.0",
+		"@types/node": "^22.15.17",
 		"@types/node-fetch": "^2.6.12",
-		"typescript": "5.4.5"
+		"typescript": "5.8.3"
 	}
 }
