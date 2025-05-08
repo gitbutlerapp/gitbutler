@@ -6,13 +6,13 @@
 
 	interface Props {
 		originName: string;
-		commitsAmount: number;
+		commitsAmount?: number;
 		lastCommit?: { author: Author; ago: string; branch: string; sha: string };
 		selected?: boolean;
 		onclick: () => void;
 	}
 
-	const { originName, commitsAmount, lastCommit, selected, onclick }: Props = $props();
+	const { originName, commitsAmount: commitCount, lastCommit, selected, onclick }: Props = $props();
 
 	const authorName = $derived(lastCommit?.author.name ?? lastCommit?.author.email ?? 'Unknown');
 	const authorAvatar = $derived(lastCommit?.author.gravatarUrl ?? '');
@@ -40,24 +40,26 @@
 
 	{#snippet details()}
 		<div class="workspace-target-card__details">
-			<div class="workspace-target-card__details-item">
-				<svg
-					width="14"
-					height="12"
-					viewBox="0 0 14 12"
-					fill="none"
-					xmlns="http://www.w3.org/2000/svg"
-				>
-					<path
-						d="M10 6C10 7.65685 8.65685 9 7 9C5.34315 9 4 7.65685 4 6M10 6C10 4.34315 8.65685 3 7 3C5.34315 3 4 4.34315 4 6M10 6H14M4 6H0"
-						stroke="currentColor"
-					/>
-				</svg>
+			{#if commitCount}
+				<div class="workspace-target-card__details-item">
+					<svg
+						width="14"
+						height="12"
+						viewBox="0 0 14 12"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							d="M10 6C10 7.65685 8.65685 9 7 9C5.34315 9 4 7.65685 4 6M10 6C10 4.34315 8.65685 3 7 3C5.34315 3 4 4.34315 4 6M10 6H14M4 6H0"
+							stroke="currentColor"
+						/>
+					</svg>
 
-				<span>{commitsAmount}</span>
-			</div>
+					<span>{commitCount}</span>
+				</div>
 
-			<span class="workspace-target-card__divider">•</span>
+				<span class="workspace-target-card__divider">•</span>
+			{/if}
 
 			<div class="workspace-target-card__details-item">
 				{#if lastCommit}

@@ -112,7 +112,6 @@
 					<!-- TODO: We need an API for `commitsCount`! -->
 					<CurrentOriginCard
 						originName={baseBranch.branchName}
-						commitsAmount={13140}
 						lastCommit={lastCommit
 							? {
 									author: lastCommit.author,
@@ -260,7 +259,7 @@
 					bind:this={rightDiv}
 					style:width={rightWidth.current + 'rem'}
 				>
-					{#if current.branchName === undefined || current.branchName === baseBranch.shortName}
+					{#if (current.branchName === undefined && current.prNumber === undefined) || current.branchName === baseBranch.shortName}
 						<TargetCommitList {projectId} />
 					{:else if current.stackId}
 						<BranchesViewStack {projectId} stackId={current.stackId} {onerror} />
