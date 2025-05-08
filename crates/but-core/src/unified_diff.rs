@@ -199,7 +199,6 @@ impl UnifiedDiff {
                 )
             }
             Operation::SourceOrDestinationIsBinary => {
-                dbg!("shit is binrary!");
                 use gix::diff::blob::platform::resource::Data;
                 fn size_for_data(data: Data<'_>) -> Option<u64> {
                     match data {
