@@ -93,7 +93,11 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				authenticated: !!githubAuthenticated
 			});
 		}
-		if (domain === GITLAB_DOMAIN || domain.startsWith(GITLAB_SUB_DOMAIN + '.')) {
+		if (
+			domain === GITLAB_DOMAIN ||
+			domain.startsWith(GITLAB_SUB_DOMAIN + '.') ||
+			domain.startsWith('xy' + GITLAB_SUB_DOMAIN + '.') // Temporary workaround until we have foerge overrides implemented
+		) {
 			const { gitLabClient, gitLabApi, posthog } = this.params;
 			return new GitLab({
 				...baseParams,
